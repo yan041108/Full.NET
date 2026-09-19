@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Full.NET",
+  "classifications": ["Web", "Full.NET"],
+  "identity": "Full.NET.Templates.FullNetApp",
+  "name": "Full.NET Application",
+  "shortName": "fullnet-app",
+  "sourceName": "App",
+  "preferNameDirectory": true,
+  "symbols": {
+    "name": {
+      "type": "parameter",
+      "datatype": "string",
+      "replaces": "App",
+      "fileRename": "App",
+      "description": "Application name used for namespaces and project folders."
+    },
+    "owner-key": {
+      "type": "parameter",
+      "datatype": "string",
+      "defaultValue": "demo",
+      "replaces": "demo",
+      "description": "Official owner key for naming profile tables (lowercase, 2-32 chars)."
+    },
+    "database": {
+      "type": "parameter",
+      "datatype": "choice",
+      "choices": [
+        { "choice": "sqlserver", "description": "Microsoft SQL Server" },
+        { "choice": "mysql", "description": "MySQL" }
+      ],
+      "defaultValue": "sqlserver",
+      "replaces": "sqlserver",
+      "description": "Primary database provider."
+    },
+    "preset": {
+      "type": "parameter",
+      "datatype": "choice",
+      "choices": [
+        { "choice": "minimal", "description": "Identity, Tenancy, Settings, Organization" },
+        { "choice": "platform", "description": "Minimal plus platform modules" },
+        { "choice": "saas", "description": "Platform plus Payments and Webhooks" },
+        { "choice": "enterprise", "description": "Platform plus workflow, data delivery, and Enterprise Request sample" }
+      ],
+      "defaultValue": "minimal",
+      "replaces": "minimal",
+      "description": "Composition preset for FullNet:Modules."
+    },
+    "http-port": {
+      "type": "parameter",
+      "datatype": "integer",
+      "defaultValue": "5180",
+      "replaces": "5180",
+      "description": "HTTP port for local development."
+    }
+  }
+}

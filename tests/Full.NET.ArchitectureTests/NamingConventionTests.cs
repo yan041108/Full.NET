@@ -256,8 +256,16 @@ public sealed class NamingConventionTests
         }
 
         var root = FindRepositoryRoot();
-        var matches = Directory
-            .EnumerateFiles(Path.Combine(root, "src"), $"{type.Name}.cs", SearchOption.AllDirectories)
+        var sourceRoots = new[]
+        {
+            Path.Combine(root, "src"),
+            Path.Combine(root, "samples"),
+        };
+        var matches = sourceRoots
+            .SelectMany(sourceRoot => Directory.EnumerateFiles(
+                sourceRoot,
+                $"{type.Name}.cs",
+                SearchOption.AllDirectories))
             .ToArray();
         if (matches.Length == 1)
         {
@@ -269,8 +277,8 @@ public sealed class NamingConventionTests
             var declarationPattern = new Regex(
                 $@"\b(?:class|struct|interface|enum|record(?:\s+(?:class|struct))?)\s+{Regex.Escape(type.Name)}\b",
                 RegexOptions.CultureInvariant);
-            matches = Directory
-                .EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories)
+            matches = sourceRoots
+                .SelectMany(sourceRoot => Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories))
                 .Where(path => !path.Contains(
                     $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
                     StringComparison.OrdinalIgnoreCase))

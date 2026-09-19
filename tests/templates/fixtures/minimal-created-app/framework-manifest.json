@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "0000000000000000000000000000000000000000",
+  "frameworkVersion": "0.1.0",
+  "managedFiles": {
+    "global.json": "abc"
+  }
+}

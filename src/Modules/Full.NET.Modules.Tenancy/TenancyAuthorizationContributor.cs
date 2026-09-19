@@ -68,6 +68,58 @@ internal sealed class TenancyAuthorizationContributor
             "更新租户品牌信息",
             AuthorizationScope.Host | AuthorizationScope.Tenant),
         new PermissionDefinition(
+            TenancyTenantLifecyclePermissions.Suspend,
+            "暂停租户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantLifecyclePermissions.Reactivate,
+            "恢复租户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantLifecyclePermissions.Close,
+            "关闭租户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantLifecyclePermissions.TransferOwnership,
+            "转移租户所有者",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantEntitlementPermissions.Read,
+            "读取租户权益",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantEntitlementPermissions.ManageCatalog,
+            "维护权益目录",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantEntitlementPermissions.ManageBindings,
+            "维护租户权益绑定",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantEntitlementPermissions.ManageEnforcement,
+            "管理权益强制执行阶段",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantSubscriptionPermissions.Read,
+            "读取租户订阅",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantSubscriptionPermissions.Manage,
+            "管理租户订阅",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantQuotaPermissions.Read,
+            "读取租户配额",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantQuotaPermissions.Manage,
+            "管理租户配额指标",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantQuotaPermissions.Reserve,
+            "预留租户配额",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             TenantsSwitch,
             "切换租户上下文",
             AuthorizationScope.Host | AuthorizationScope.Tenant),
@@ -122,6 +174,17 @@ internal sealed class TenancyAuthorizationContributor
             "picture",
             23,
             TenantBrandingPermissions.Read),
+        new NavigationDefinition(
+            "tenant-onboarding",
+            null,
+            "tenant-onboarding",
+            "/tenant-onboarding",
+            "tenant-onboarding",
+            "租户开通",
+            "Tenant Onboarding",
+            "guide",
+            24,
+            TenancyTenantManagementPermissions.HostTenantsRead),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =

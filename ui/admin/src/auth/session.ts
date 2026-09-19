@@ -18,7 +18,6 @@ import { isSupportedNavigationTree } from '../navigation/catalog';
 import {
   clearAdminOidcSessionCredentials,
   refreshAdminOidcAccessToken,
-  revokeAdminOidcApplicationSession,
   revokeAdminOidcCenterSession
 } from './oidc-center-login';
 import { resolveAdminOidcClientId } from '../config/identity-auth';
@@ -127,8 +126,21 @@ export const useSessionStore = defineStore('identity-session', () => {
   async function logout(): Promise<void> {
     if (adminIdentityAuthMode === 'oidc-center') {
       try {
-        await revokeAdminOidcApplicationSession();
-        await revokeAdminOidcCenterSession();
+        await sessionRefreshCoordinator.runExclusive(async () => {
+          try {
+            // 闲置后的 access 可能过期；刷新与退出共用串行边界，避免 refresh 重放。
+            const refreshed = await refreshAdminOidcAccessToken();
+            const accessToken = refreshed?.accessToken ?? getController().readAccessToken();
+            // 中心退出已覆盖应用会话，不能先撤销应用再使用已失效凭据退出中心。
+            if (accessToken !== undefined) {
+              await revokeAdminOidcCenterSession(accessToken);
+            }
+          } finally {
+            // 在释放刷新锁前清理，防止排队恢复操作读到退出前的 refresh。
+            clearAdminOidcSessionCredentials();
+            getController().invalidateLocalSession();
+          }
+        });
       } catch {
         // 本地清理不依赖网络成功，服务端仍由 grant 撤销与会话过期兜底。
       }

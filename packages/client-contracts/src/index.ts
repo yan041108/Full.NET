@@ -1542,6 +1542,8 @@ export {
   isCodeGenerationPreviewResponse
 } from './code-generation-previews.js';
 
+export { isRecord, isString, isNullableString, isGuid, isInteger, isDate, isNullableDate, isPage, readResponse } from './response-shape.js';
+
 export {
   isCodeGenerationCatalogColumnListResponse,
   isCodeGenerationCatalogColumnSyncResponse,
@@ -1642,3 +1644,8 @@ export type {
   CodeGenerationScalarType,
   CodeGenerationScene
 } from './code-generation-previews.js';
+
+export * from './public-auth.js';
+export * from './tenancy-entitlements.js';
+export * from './tenant-members.js';
+export * from './tenant-subscriptions.js';

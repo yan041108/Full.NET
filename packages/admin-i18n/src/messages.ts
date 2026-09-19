@@ -1,6 +1,20 @@
 import type { SupportedLocale } from './locale.js';
 
 export const zhCN = {
+  'common.loadFailed': '加载失败，请重试',
+  'common.saved': '已保存',
+  'common.saveFailed': '保存失败，请重试',
+  'common.refresh': '刷新',
+  'tenancy.entitlements.enforcementPhase': '执行阶段',
+  'tenancy.tenantSubscriptions.title': '租户订阅',
+  'tenancy.tenantSubscriptions.status': '状态',
+  'tenancy.tenantSubscriptions.periodEnd': '周期结束',
+  'tenants.subscriptionNoPackage': '请先创建可用套餐',
+  'tenants.subscriptionTrialStarted': '试用已开通',
+  'tenants.subscriptionCancelled': '订阅已取消',
+  'tenants.subscriptions': '订阅管理',
+  'tenants.subscriptionCancel': '取消订阅',
+  'tenants.subscriptionStartTrial': '开通试用',
   'common.cancel': '取消',
   'common.loading': '加载中…',
   'common.requestFailed': '请求失败，请重试',
@@ -3979,6 +3993,20 @@ export type MessageKey = keyof typeof zhCN;
 export type MessageParameters = Readonly<Record<string, string | number>>;
 
 const enUS = {
+  'common.loadFailed': 'Could not load. Please try again.',
+  'common.saved': 'Saved',
+  'common.saveFailed': 'Could not save. Please try again.',
+  'common.refresh': 'Refresh',
+  'tenancy.entitlements.enforcementPhase': 'Enforcement phase',
+  'tenancy.tenantSubscriptions.title': 'Tenant subscriptions',
+  'tenancy.tenantSubscriptions.status': 'Status',
+  'tenancy.tenantSubscriptions.periodEnd': 'Period end',
+  'tenants.subscriptionNoPackage': 'Create an available package first.',
+  'tenants.subscriptionTrialStarted': 'Trial started',
+  'tenants.subscriptionCancelled': 'Subscription cancelled',
+  'tenants.subscriptions': 'Subscriptions',
+  'tenants.subscriptionCancel': 'Cancel subscription',
+  'tenants.subscriptionStartTrial': 'Start trial',
   'common.cancel': 'Cancel',
   'common.loading': 'Loading…',
   'common.requestFailed': 'Request failed. Please try again.',

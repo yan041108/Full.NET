@@ -1151,7 +1151,7 @@ public static class CrudArtifactGenerator
     }
 
     private static string HttpSegmentToPascalCase(string value) =>
-        string.Concat(value.Split('-', StringSplitOptions.None).Select(UpperFirst));
+        string.Concat(value.Split(['-', '_'], StringSplitOptions.RemoveEmptyEntries).Select(UpperFirst));
 
     private static string UpperFirst(string value) =>
         string.Concat(char.ToUpperInvariant(value[0]), value[1..]);

@@ -1,4 +1,25 @@
 {
   "schemaVersion": 1,
-  "entries": []
+  "entries": [
+    {
+      "consumerModule": "identity",
+      "ownerModule": "tenancy",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/RegisterAccount/Handler.cs",
+      "entryPoint": "Handler.HandleCoreAsync",
+      "contractType": "IIdentityActiveTenantDirectory",
+      "reason": "公开注册在 Identity 事务内校验目标租户仍有效，读取 Tenancy 提供的活动租户目录 Port。",
+      "risk": "medium",
+      "removeByMilestone": "foundation-productization-f04"
+    },
+    {
+      "consumerModule": "identity",
+      "ownerModule": "tenancy",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/AcceptTenantInvitation/AcceptTenantInvitationService.cs",
+      "entryPoint": "AcceptTenantInvitationService.AcceptCoreAsync",
+      "contractType": "ITenantMemberSeatQuotaPort",
+      "reason": "接受租户邀请时在 Identity 事务外预留/确认 identity.seats 配额，通过 Tenancy Port 完成席位校验。",
+      "risk": "medium",
+      "removeByMilestone": "foundation-productization-f08b"
+    }
+  ]
 }

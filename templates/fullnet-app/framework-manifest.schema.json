@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://full.net/schemas/framework-manifest.schema.json",
+  "title": "Full.NET Framework Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sourceCommit",
+    "frameworkVersion",
+    "presetModules",
+    "validPresets",
+    "managedFiles"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "sourceCommit": { "type": "string", "minLength": 40, "maxLength": 40 },
+    "frameworkVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "presetModules": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 },
+        "minItems": 1
+      }
+    },
+    "validPresets": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "managedFiles": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    }
+  }
+}

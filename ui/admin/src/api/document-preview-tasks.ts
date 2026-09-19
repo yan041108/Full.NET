@@ -43,7 +43,9 @@ export async function createDocumentPreviewTask(
   if (!isCreateHostDocumentPreviewTaskRequest(req)) {
     throw new Error('client.invalid_create_document_preview_task_request');
   }
-  const value = await documentHostCreateDocumentPreviewTask(http, { body: req }, signal);
+  const value = await documentHostCreateDocumentPreviewTask(http, {
+    body: { ...req, versionId: req.versionId ?? null }
+  }, signal);
   if (!isHostDocumentPreviewTaskResponse(value)) {
     throw new Error('client.invalid_document_preview_task');
   }

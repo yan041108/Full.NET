@@ -72,6 +72,7 @@
     <Project Path="src/Modules/Full.NET.Modules.Reporting/Full.NET.Modules.Reporting.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Reporting.Contracts/Full.NET.Modules.Reporting.Contracts.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Notifications/Full.NET.Modules.Notifications.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Notifications.Contracts/Full.NET.Modules.Notifications.Contracts.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Calendar/Full.NET.Modules.Calendar.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Platform/Full.NET.Modules.Platform.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Regions/Full.NET.Modules.Regions.csproj" />
@@ -86,6 +87,7 @@
     <Project Path="src/Modules/Full.NET.Modules.Workflow/Full.NET.Modules.Workflow.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Workflow.Contracts/Full.NET.Modules.Workflow.Contracts.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Mqtt/Full.NET.Modules.Mqtt.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Webhooks/Full.NET.Modules.Webhooks.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Cryptography/Full.NET.Modules.Cryptography.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Payments/Full.NET.Modules.Payments.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Payments.Contracts/Full.NET.Modules.Payments.Contracts.csproj" />

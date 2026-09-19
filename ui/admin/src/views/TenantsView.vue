@@ -41,6 +41,12 @@ import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listHostTenantPackages } from '../api/tenant-packages';
 import {
+  cancelTenantSubscription,
+  createTenantSubscription,
+  listTenantSubscriptions,
+  type TenantSubscription
+} from '../api/tenant-subscriptions';
+import {
   assignHostTenantPackage,
   createHostTenant,
   disableHostTenant,
@@ -97,6 +103,10 @@ const editorForm = reactive({
   domain: '',
   packageId: ''
 });
+const subscriptionDialogOpen = ref(false);
+const subscriptionTenant = ref<HostTenant | null>(null);
+const subscriptionRows = ref<TenantSubscription[]>([]);
+const subscriptionLoading = ref(false);
 const fieldErrors = reactive({
   identifier: '',
   name: '',
@@ -450,6 +460,64 @@ async function saveEdit(): Promise<void> {
     problem.value = toProblem(error, 'tenants.operationFailed');
   } finally {
     changing.value = false;
+  }
+}
+
+async function openSubscriptions(tenant: HostTenant): Promise<void> {
+  subscriptionTenant.value = tenant;
+  subscriptionDialogOpen.value = true;
+  subscriptionLoading.value = true;
+  try {
+    subscriptionRows.value = await listTenantSubscriptions(tenant.id);
+  } catch {
+    ElMessage.error(t('common.loadFailed'));
+  } finally {
+    subscriptionLoading.value = false;
+  }
+}
+
+async function startTrialSubscription(): Promise<void> {
+  const tenant = subscriptionTenant.value;
+  const pkg = packages.value.find((item) => item.isActive);
+  if (!tenant || !pkg) {
+    ElMessage.warning(t('tenants.subscriptionNoPackage'));
+    return;
+  }
+  subscriptionLoading.value = true;
+  try {
+    const start = new Date();
+    const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
+    await createTenantSubscription(tenant.id, {
+      packageId: pkg.id,
+      status: 'Trial',
+      trialEndsAtUtc: end.toISOString(),
+      currentPeriodStartUtc: start.toISOString(),
+      currentPeriodEndUtc: end.toISOString()
+    });
+    subscriptionRows.value = await listTenantSubscriptions(tenant.id);
+    await load();
+    ElMessage.success(t('tenants.subscriptionTrialStarted'));
+  } catch {
+    ElMessage.error(t('common.saveFailed'));
+  } finally {
+    subscriptionLoading.value = false;
+  }
+}
+
+async function cancelActiveSubscription(row: TenantSubscription): Promise<void> {
+  const tenant = subscriptionTenant.value;
+  if (!tenant) {
+    return;
+  }
+  subscriptionLoading.value = true;
+  try {
+    await cancelTenantSubscription(tenant.id, row.id, row.version);
+    subscriptionRows.value = await listTenantSubscriptions(tenant.id);
+    ElMessage.success(t('tenants.subscriptionCancelled'));
+  } catch {
+    ElMessage.error(t('common.saveFailed'));
+  } finally {
+    subscriptionLoading.value = false;
   }
 }
 
@@ -875,6 +943,17 @@ function toProblem(
                       {{ t('tenants.manageUsers') }}
                     </el-button>
                   </PermissionGate>
+                  <PermissionGate code="tenancy.tenant_subscriptions.manage">
+                    <el-button
+                      v-if="row.isActive"
+                      link
+                      type="primary"
+                      data-testid="tenants-action-subscriptions"
+                      @click="openSubscriptions(row as HostTenant)"
+                    >
+                      {{ t('tenants.subscriptions') }}
+                    </el-button>
+                  </PermissionGate>
                   <PermissionGate code="tenancy.tenants.update">
                     <el-button
                       v-if="row.isActive"
@@ -1112,6 +1191,35 @@ function toProblem(
         <el-button @click="brandingVisible = false">{{ t('users.cancel') }}</el-button>
         <el-button type="primary" :loading="brandingSaving" @click="saveBranding">
           {{ t('users.confirm') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="subscriptionDialogOpen"
+      :title="t('tenants.subscriptions')"
+      width="640px"
+    >
+      <el-table v-loading="subscriptionLoading" :data="subscriptionRows" row-key="id">
+        <el-table-column prop="status" :label="t('tenancy.tenantSubscriptions.status')" />
+        <el-table-column prop="currentPeriodEndUtc" :label="t('tenancy.tenantSubscriptions.periodEnd')" />
+        <el-table-column :label="t('users.columnActions')" width="120">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.status !== 'Cancelled'"
+              link
+              type="danger"
+              @click="cancelActiveSubscription(row as TenantSubscription)"
+            >
+              {{ t('tenants.subscriptionCancel') }}
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="subscriptionDialogOpen = false">{{ t('users.cancel') }}</el-button>
+        <el-button type="primary" :loading="subscriptionLoading" @click="startTrialSubscription">
+          {{ t('tenants.subscriptionStartTrial') }}
         </el-button>
       </template>
     </el-dialog>

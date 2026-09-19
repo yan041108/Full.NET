@@ -433,7 +433,7 @@ function isAdditiveOpenApiPaths(baselinePaths, currentPaths) {
     }
 
     for (const [method, baselineOperation] of Object.entries(baselinePathItem)) {
-      if (!isAdditiveOpenApiOperation(baselineOperation, currentPathItem[method])) {
+      if (!isAdditiveOpenApiOperation(baselineOperation, currentPathItem[method], pathKey, method)) {
         return false;
       }
     }
@@ -442,7 +442,7 @@ function isAdditiveOpenApiPaths(baselinePaths, currentPaths) {
   return true;
 }
 
-function isAdditiveOpenApiOperation(baselineOperation, currentOperation) {
+function isAdditiveOpenApiOperation(baselineOperation, currentOperation, pathKey, method) {
   if (!isPlainObject(baselineOperation) || !isPlainObject(currentOperation)) {
     return false;
   }
@@ -469,6 +469,23 @@ function isAdditiveOpenApiOperation(baselineOperation, currentOperation) {
       : allowsParameterSchemaRepair
         ? new Set(['responses', 'parameters'])
         : new Set(['responses']);
+  // 旧批量上传错误声明单文件；只接纳已验证的集合元数据修正，其他契约仍逐项比较。
+  if (pathKey === '/api/v1/files/host-files/batch-upload' && method === 'post'
+    && baselineOperation.operationId === 'filesBatchUploadHostFiles'
+    && isDeepStrictEqual(baselineOperation.requestBody, sortKeysDeep({
+      required: true, content: { 'multipart/form-data': {
+        schema: { $ref: '#/components/schemas/IFormFile' }
+      } }
+    }))
+    && isDeepStrictEqual(currentOperation.requestBody, sortKeysDeep({
+      required: true, content: { 'multipart/form-data': {
+        schema: { type: 'object', required: ['files'], properties: {
+          files: { $ref: '#/components/schemas/IFormFileCollection' }
+        } }
+      } }
+    }))) {
+    ignoredFields.add('requestBody');
+  }
   const baselineFields = Object.keys(baselineOperation).filter(field => !ignoredFields.has(field));
   const currentFields = Object.keys(currentOperation).filter(field => !ignoredFields.has(field));
   if (!isDeepStrictEqual(baselineFields, currentFields)

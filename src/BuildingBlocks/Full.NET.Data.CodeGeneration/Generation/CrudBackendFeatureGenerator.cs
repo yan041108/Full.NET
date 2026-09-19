@@ -828,9 +828,11 @@ internal static class CrudBackendFeatureGenerator
             new[]
             {
                 "IQueryExecutor queryExecutor",
-                "IMultiResultQueryExecutor multiResultQueryExecutor",
-                "IOptions<DatabaseOptions> databaseOptions",
             }
+            .Concat(isOrganizationOwned
+                ? []
+                : ["IMultiResultQueryExecutor multiResultQueryExecutor"])
+            .Concat(["IOptions<DatabaseOptions> databaseOptions"])
             .Concat(isOrganizationOwned
                 ? CrudOrganizationOwnershipGenerator
                     .QueryServiceConstructorParameters()
@@ -1818,7 +1820,9 @@ internal static class CrudBackendFeatureGenerator
         string.Concat(char.ToUpperInvariant(value[0]), value[1..]);
 
     private static string HttpSegmentToPascalCase(string value) =>
-        string.Concat(value.Split('-', StringSplitOptions.None).Select(UpperFirst));
+        string.Concat(
+            value.Split(['-', '_'], StringSplitOptions.RemoveEmptyEntries)
+                .Select(UpperFirst));
 
     private static string OperationPrefix(FullNetCrudSchema schema) =>
         LowerFirst(HttpSegmentToPascalCase(schema.ModuleKey));

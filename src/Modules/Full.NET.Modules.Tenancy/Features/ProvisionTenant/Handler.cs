@@ -7,6 +7,7 @@ using Full.NET.Localization;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Domain;
 using Full.NET.Modules.Tenancy.Features.ManageHostTenantPackages;
+using Full.NET.Modules.Tenancy.Features.ReserveTenantQuota.Persistence;
 using Full.NET.Modules.Tenancy.Persistence;
 
 namespace Full.NET.Modules.Tenancy.Features.ProvisionTenant;
@@ -113,7 +114,10 @@ internal sealed class Handler(
                     ("CreatedAtUtc", tenant.CreatedAtUtc),
                     ("Version", tenant.Version),
                     ("DefaultLocale", tenant.DefaultLocale),
-                    ("TenantPackageId", command.TenantPackageId)),
+                    ("TenantPackageId", command.TenantPackageId),
+                    ("LifecycleStatus", TenantLifecycleStatuses.Active),
+                    ("ProvisioningStatus", TenantProvisioningStatuses.InProgress),
+                    ("ProvisioningStep", TenantProvisioningSteps.CreatingTenant)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -122,8 +126,28 @@ internal sealed class Handler(
                 $"Tenant insert affected {affectedRows} rows instead of one.");
         }
 
-        // Expand/Cutover：开通成功后由服务层直接失效缓存；不再写入缓存专用 Outbox。
-        // 旧消息类型与兼容 Handler 保留，仅用于排空升级前已入库消息。
+        await commandExecutor.ExecuteAsync(
+                TenantQuotaSql.InsertMetric,
+                TenancySqlParameters.Create(
+                    ("Id", idGenerator.NewId()),
+                    ("TenantId", tenant.Id),
+                    ("MetricCode", TenantQuotaMetricCodes.IdentitySeats),
+                    ("PeriodKey", TenantQuotaDefaults.PeriodKey),
+                    ("LimitValue", TenantQuotaDefaults.IdentitySeatsLimit),
+                    ("CreatedAtUtc", clock.UtcNow),
+                    ("UpdatedAtUtc", clock.UtcNow)),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await commandExecutor.ExecuteAsync(
+                TenantSql.UpdateProvisioningStatus,
+                TenancySqlParameters.Create(
+                    ("TenantId", tenant.Id),
+                    ("ProvisioningStatus", TenantProvisioningStatuses.Completed),
+                    ("ProvisioningStep", null),
+                    ("UpdatedAtUtc", clock.UtcNow)),
+                cancellationToken)
+            .ConfigureAwait(false);
 
         return Result<TenantSummary>.Success(new TenantSummary(
             tenant.Id,
@@ -135,7 +159,11 @@ internal sealed class Handler(
             tenant.DefaultLocale,
             command.TenantPackageId,
             packageCode,
-            packageName));
+            packageName,
+            TenantLifecycleStatuses.Active,
+            null,
+            TenantProvisioningStatuses.Completed,
+            null));
     }
 
     /// <summary>

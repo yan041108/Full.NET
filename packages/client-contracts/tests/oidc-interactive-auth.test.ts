@@ -125,6 +125,22 @@ describe('OIDC token endpoint mapping', () => {
     );
   });
 
+  it('binds application logout to the active access token when supplied', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await revokeOidcApplicationSession({
+      apiBase: 'http://localhost:5149',
+      clientId: 'admin-spa',
+      accessToken: 'active-access-token'
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:5149/api/v1/identity/oidc/logout/application',
+      expect.objectContaining({
+        headers: expect.objectContaining({ authorization: 'Bearer active-access-token' })
+      })
+    );
+  });
+
   it('revokes center session through logout endpoint', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);

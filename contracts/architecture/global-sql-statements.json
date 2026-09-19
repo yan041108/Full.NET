@@ -5708,6 +5708,160 @@
         "@ConnectionId",
         "fn_ai_mcp_remote_tool_approval"
       ]
+    },
+    {
+      "statementName": "identity.bind_registration_invitation_user",
+      "declaration": "Full.NET.Modules.Identity.Persistence.RegistrationInvitationSql.BindUser",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/RegistrationInvitationSql.cs",
+      "category": "host_catalog",
+      "reason": "邀请绑定用户须在公开注册事务内完成。",
+      "requiredSqlFragments": [
+        "UPDATE fn_identity_registration_invitation",
+        "@BoundUserId"
+      ]
+    },
+    {
+      "statementName": "identity.consume_account_challenge",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.Consume",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
+      "category": "host_catalog",
+      "reason": "匿名挑战消费在账号恢复/注册事务内执行。",
+      "requiredSqlFragments": [
+        "UPDATE fn_identity_account_challenge",
+        "@ChallengeId"
+      ]
+    },
+    {
+      "statementName": "identity.consume_registration_invitation_credential",
+      "declaration": "Full.NET.Modules.Identity.Persistence.RegistrationInvitationSql.MarkConsumed",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/RegistrationInvitationSql.cs",
+      "category": "host_catalog",
+      "reason": "邀请凭据一次消费在注册事务内完成。",
+      "requiredSqlFragments": [
+        "UPDATE fn_identity_registration_invitation",
+        "@InvitationId"
+      ]
+    },
+    {
+      "statementName": "identity.find_account_challenge_by_id",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.FindById",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
+      "category": "host_catalog",
+      "reason": "按挑战标识读取凭据摘要在公开恢复流程使用。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_account_challenge",
+        "@ChallengeId"
+      ]
+    },
+    {
+      "statementName": "identity.find_registration_invitation_by_id",
+      "declaration": "Full.NET.Modules.Identity.Persistence.RegistrationInvitationSql.FindById",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/RegistrationInvitationSql.cs",
+      "category": "host_catalog",
+      "reason": "邀请校验在公开注册流程读取邀请记录。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_registration_invitation",
+        "@InvitationId"
+      ]
+    },
+    {
+      "statementName": "identity.find_user_by_profile_email",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountLifecycleSql.FindUserByProfileEmail",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountLifecycleSql.cs",
+      "category": "host_catalog",
+      "reason": "公开注册/恢复按邮箱查找账号目录。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_user",
+        "@Email"
+      ]
+    },
+    {
+      "statementName": "identity.find_user_profile_email_by_user_id",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountLifecycleSql.FindUserProfileEmailByUserId",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountLifecycleSql.cs",
+      "category": "host_catalog",
+      "reason": "接受租户邀请时校验受邀人邮箱。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_user_profile",
+        "@UserId"
+      ]
+    },
+    {
+      "statementName": "identity.increment_account_challenge_attempt",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.IncrementAttempt",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
+      "category": "host_catalog",
+      "reason": "挑战尝试计数在公开恢复流程更新。",
+      "requiredSqlFragments": [
+        "UPDATE fn_identity_account_challenge",
+        "@ChallengeId"
+      ]
+    },
+    {
+      "statementName": "identity.insert_account_challenge",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
+      "category": "host_catalog",
+      "reason": "公开挑战创建在注册/恢复事务内写入。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_identity_account_challenge",
+        "@ChallengeId"
+      ]
+    },
+    {
+      "statementName": "identity.insert_registration_invitation",
+      "declaration": "Full.NET.Modules.Identity.Persistence.RegistrationInvitationSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/RegistrationInvitationSql.cs",
+      "category": "host_catalog",
+      "reason": "邀请签发在 Identity 事务内写入。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_identity_registration_invitation",
+        "@InvitationId"
+      ]
+    },
+    {
+      "statementName": "identity.invalidate_active_account_challenges",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.InvalidateActive",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
+      "category": "host_catalog",
+      "reason": "重发挑战前撤销同用途活跃记录。",
+      "requiredSqlFragments": [
+        "UPDATE fn_identity_account_challenge",
+        "@Purpose"
+      ]
+    },
+    {
+      "statementName": "identity.tenant_invitations.find_by_token_hash",
+      "declaration": "Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence.TenantMembershipSql.FindInvitationByTokenHash",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageTenantMembers/Persistence/TenantMembershipSql.cs",
+      "category": "host_catalog",
+      "reason": "租户邀请校验在公开接受流程读取。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_tenant_invitation",
+        "@TokenHash"
+      ]
+    },
+    {
+      "statementName": "notifications.identity_challenge.find_first_host_smtp_profile_version.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Features.SendIdentityChallenge.IdentityChallengeDeliverySql.FindFirstHostSmtpProfileVersionMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Features/SendIdentityChallenge/IdentityChallengeDeliverySql.cs",
+      "category": "host_catalog",
+      "reason": "Identity 挑战投递读取 Host SMTP 配置版本。",
+      "requiredSqlFragments": [
+        "FROM fn_notifications_provider_profile",
+        "LIMIT 1"
+      ]
+    },
+    {
+      "statementName": "notifications.identity_challenge.find_first_host_smtp_profile_version.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Features.SendIdentityChallenge.IdentityChallengeDeliverySql.FindFirstHostSmtpProfileVersionSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Features/SendIdentityChallenge/IdentityChallengeDeliverySql.cs",
+      "category": "host_catalog",
+      "reason": "Identity 挑战投递读取 Host SMTP 配置版本。",
+      "requiredSqlFragments": [
+        "FROM fn_notifications_provider_profile",
+        "TOP (1)"
+      ]
     }
   ]
 }

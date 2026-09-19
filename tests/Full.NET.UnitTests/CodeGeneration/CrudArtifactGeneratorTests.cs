@@ -49,6 +49,16 @@ public sealed class CrudArtifactGeneratorTests
         Assert.IsTrue(artifacts.All(artifact =>
             artifact.Content.EndsWith('\n')
             && !artifact.Content.Contains('\r', StringComparison.Ordinal)));
+
+        var underscored = CrudArtifactGenerator.Generate(FullNetCrudSchema.CreateProject(
+            ownerKey: "acme", moduleKey: "enterprise_request", entityKey: "product",
+            databaseTableName: "acme_enterprise_request_product", rootNamespace: "Acme.Modules.Request",
+            clrTypeName: "Product", apiResourceName: "products", permissionResourceName: "products",
+            isTenantScoped: true, hasVersion: true,
+            columns: FullNetCrudSchemaTests.CreateProductSchema().Columns));
+        StringAssert.Contains(Artifact(underscored, "backend/ProductEndpoint.g.cs"), "enterpriseRequestListProducts");
+        StringAssert.Contains(Artifact(underscored, "clients/vue/products.generated.ts"), "enterpriseRequestListProducts");
+        StringAssert.Contains(Artifact(underscored, "contracts/openapi/products.generated.openapi.json"), "enterpriseRequestListProducts");
     }
 
     [TestMethod]
@@ -840,6 +850,8 @@ public sealed class CrudArtifactGeneratorTests
         StringAssert.Contains(feature, "EnsureCanWriteAsync");
         StringAssert.Contains(feature, "OrganizationUnitId = organizationUnitId");
         StringAssert.Contains(feature, "BuildOrganizationUnitFilter");
+        Assert.IsFalse(feature.Contains("GetProperties()", StringComparison.Ordinal));
+        StringAssert.Contains(feature, "new Dictionary<string, object?> { [\"Offset\"] = offset");
         StringAssert.Contains(sql, "CountStatement");
         StringAssert.Contains(sql, "ListSqlServerStatement");
         StringAssert.Contains(endpoint, "OrganizationRequestHeaders.OrganizationUnitId");

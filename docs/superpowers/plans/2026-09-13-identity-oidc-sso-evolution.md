@@ -217,7 +217,7 @@
 
 - **回调 URL**：`#/identity/oidc/callback`（hash 路由，匿名守卫白名单）。
 - **Refresh 存储**：仅 `sessionStorage` 键 `fullnet.admin.oidc.refresh`；access token 仅内存，不落 localStorage。
-- **切租户**：`onTenantContextTokenResponse` 写回轮换后的 refresh；`identity.session_context_conflict` 时保留 Host 上下文与 refresh。
+- **切租户**：`onTenantContextTokenResponse` 写回轮换后的 refresh；`identity.session_context_conflict` 时刷新凭据并最多重试一次，成功后重载权限快照；刷新或重试失败时不继续使用旧授权快照。
 - **并发刷新**：`sessionRefreshCoordinator` 单飞，禁止并行 `/connect/token` refresh。
 - **多标签强撤**：`handleRemoteSessionRevoke` 清本地凭据并导航登录；重复通知幂等。
 - **legacy 并行**：默认 `legacy` 密码登录；`VITE_IDENTITY_AUTH_MODE=oidc-center` 为构建时注入，Helm 未内置该变量。
@@ -231,9 +231,23 @@
 | 监控指标 | `authorize`/`token` 4xx/5xx 比率、`refresh_token` reuse 拒绝计数、会话 revoke 到 access 401 滞后（应 ≤1 请求）、realtime 投递失败率 |
 | 回退 | 移除 `VITE_IDENTITY_AUTH_MODE` 重建 legacy 前端；已撤销 OIDC 会话不能通过遗留 refresh 复活（`admin-oidc-center` E2E 探针） |
 
-**T08 执行记录（2026-09-16，进行中）：** 已交付可选 `oidc-center` 消费路径（PKCE 登录、回调、refresh、双端 logout、实时强撤、切租户与业务页探针）并保持 `legacy` 默认并行；单元与 E2E 用例见[验证记录 §13](../../verification/2026-09-13-identity-oidc-sso-research-validation.md#13-t08-vue-消费与并行入口2026-09-16)。`admin-oidc-center.spec.mjs` 共 **129** 项串行探针，覆盖 §6 工具／审批／后台任务最小 UI 与操作路径、三类 Host API 正／负探针、在线会话撤销后 access/refresh 拒绝，以及 OIDC 创建排队 Agent Run 正探针（三上下文 clientRequestId 幂等后读取仍为排队并可取消，含幂等取消后重复取消负探针与三上下文 UI 加载并取消）、切租户／切租户返回 Host 后后台任务触发与执行历史 API／UI 正探针及退出／强撤后绑定失效、退出／强制下线后后台任务触发与定义列举、已排队 Agent Run 读取／取消／恢复／新建绑定失效（`expectRevokedOidcCenterAgentRunAccessRejected`，含切租户并返回 Host 往返后创建）；单元层补充并行 `restore` 不重叠 token 交换（V09/V18）；`auth-smoke` 与 `spec-contracts` 治理测试登记 legacy 回退与 oidc-center 项目入口。聚焦真实栈入口：`pnpm test:e2e:real:oidc-center`。上述清单项整体仍未勾选通过——缺 CI `real-stack-e2e` fresh TRX 证据（门禁已登记：`pnpm test:e2e:real` 含 `vue-admin-oidc-center`）、旧入口回退演练完整执行（`auth-smoke` 已覆盖遗留 OIDC 凭据不阻断 legacy 登录的自动化探针）、§6 **全量**矩阵与能力状态门禁；§6 **最小**矩阵 E2E 探针已编写完毕（见验证记录 §13 对照表），`captureOidcAccessTokenFromOverviewProbe`、`buildOidcCenterApiHeaders`、`expectOidcApiGetStatus`、`expectOidcApiPostStatus`、`createE2eHostPingJobDefinition` 与 `revokeCurrentOidcCenterSession` 统一探针 token 捕获、API 请求头、GET/POST 状态断言、任务夹具与强撤流程（治理禁止 spec 内联 `/api/v1/me` 拦截）；退出与强撤 API 负探针、受保护路由（Agent 工具／Agent 运行／工作流待办／任务定义）与凭据清理对称覆盖（见验证记录 §13 对称性对照表）；`expectOidcCenterLocalCredentialsCleared` 与 `expectOidcCenterTokensRejected` 统一 token 拒绝断言。
+**T08 执行记录（2026-09-16，进行中）：** 已交付可选 `oidc-center` 消费路径（PKCE 登录、回调、refresh、双端 logout、实时强撤、切租户与业务页探针）并保持 `legacy` 默认并行；单元与 E2E 用例见[验证记录 §13](../../verification/2026-09-13-identity-oidc-sso-research-validation.md#13-t08-vue-消费与并行入口2026-09-16)。`admin-oidc-center.spec.mjs` 共 **130** 项串行探针，覆盖 §6 工具／审批／后台任务最小 UI 与操作路径、三类 Host API 正／负探针、在线会话撤销后 access/refresh 拒绝，以及 OIDC 创建排队 Agent Run 正探针（三上下文 clientRequestId 幂等后读取仍为排队并可取消，含幂等取消后重复取消负探针与三上下文 UI 加载并取消）、切租户／切租户返回 Host 后后台任务触发与执行历史 API／UI 正探针及退出／强撤后绑定失效、退出／强制下线后后台任务触发与定义列举、已排队 Agent Run 读取／取消／恢复／新建绑定失效（`expectRevokedOidcCenterAgentRunAccessRejected`，含切租户并返回 Host 往返后创建）；单元层补充并行 `restore` 不重叠 token 交换（V09/V18）；`auth-smoke` 与 `spec-contracts` 治理测试登记 legacy 回退与 oidc-center 项目入口。聚焦真实栈入口：`pnpm test:e2e:real:oidc-center`。上述清单项整体仍未勾选通过——缺 CI `real-stack-e2e` fresh TRX 证据（门禁已登记：`pnpm test:e2e:real` 含 `vue-admin-oidc-center`）、旧入口回退演练完整执行（`auth-smoke` 已覆盖遗留 OIDC 凭据不阻断 legacy 登录的自动化探针）、§6 **全量**矩阵与能力状态门禁；§6 **最小**矩阵 E2E 探针已编写完毕（见验证记录 §13 对照表），`captureOidcAccessTokenFromOverviewProbe`、`buildOidcCenterApiHeaders`、`expectOidcApiGetStatus`、`expectOidcApiPostStatus`、`createE2eHostPingJobDefinition` 与 `revokeCurrentOidcCenterSession` 统一探针 token 捕获、API 请求头、GET/POST 状态断言、任务夹具与强撤流程（治理禁止 spec 内联 `/api/v1/me` 拦截）；退出与强撤 API 负探针、受保护路由（Agent 工具／Agent 运行／工作流待办／任务定义）与凭据清理对称覆盖（见验证记录 §13 对称性对照表）；`expectOidcCenterLocalCredentialsCleared` 与 `expectOidcCenterTokensRejected` 统一 token 拒绝断言。
 
 ## 5. 验证入口与运行位置
+
+### 2026-09-18 接手复核：已修复项与下一项阻断
+
+Cursor 最近一轮实现复核发现并已修复三处协议边界问题：
+
+- OIDC 中心登录输错密码原先没有推进 `FailedLoginCount`，现已复用 Identity 锁定阈值写入失败记录；`/connect/authorize` 与中心登录 API 均接入 `identity-login` 限流。
+- OIDC 中心登录成功后现会清除连续失败计数，保持与旧登录入口相同的锁定语义。
+- 切租户专用 Refresh Token 由自定义 OpenIddict dispatcher 签发时原先缺少创建／过期元数据，现已显式写入有限生命周期，避免产生无过期刷新令牌。
+
+多标签 P1 已补上代码与单元回归：Vue 在刷新协调锁内刷新 access，再发起单次中心退出；服务端以经过验证的 OIDC bearer 用户确定撤销目标，中心 Cookie 属于另一用户时保留该 Cookie。无效 Authorization 不回落 Cookie，应用退出额外校验令牌 client 与请求 client 一致。无 Authorization 的既有 Cookie 入口保留兼容行为。下一步仍需 SQL Server/MySQL、真实 A/B 多标签与过期 access 浏览器验收；尚不提升生产 Verified。网络或刷新失败时仅保证本地清理，不宣称服务端已退出。
+
+增量验证：`identity-oidc` 单元选择器 51 项通过（其中退出回归 4 项）；Vue 退出／中心登录 8 项通过，共享 OIDC 客户端 10 项通过。Vue 全量 typecheck 未通过，仍有既有 OIDC 用例／页面类型错误及工作区企业申请、租户订阅契约和翻译错误；完整构建门禁保持未通过。
+
+本轮聚焦验证：`pnpm test:dotnet:unit -- --filter "FullyQualifiedName~IdentityOidcCenterLoginServiceTests|FullyQualifiedName~IdentitySessionContextServiceTests" --minimum-expected-tests 2`，7 项通过；Identity 模块构建 0 警告、0 错误。完整双库、真实浏览器、多实例和 CI 门禁仍按本计划执行。
 
 本节是执行时的命令索引，不替代[开发质量 §11](../../../rules/development-quality.md#11-测试与验证)。本次文档任务未运行下面的代码命令。
 
@@ -292,3 +306,68 @@ pnpm test:dotnet:architecture -- --selection api-native-aot
 | 工具、审批、后台任务入口及执行 Port；V13/V21/V23 | 新旧登录均完成一次有权限操作；任务排队后撤销会话、停用账号、撤权或切换上下文，再恢复执行；旧持久化绑定、未知来源绑定和状态库故障 | 正常新会话不会因查询旧刷新表而被拒绝；后续执行／副作用前权威授权拒绝失效绑定；旧记录兼容不依赖外发安全戳，不跨模块直查 Identity 表，不在失败时退回旧验证器 |
 
 通过 P0 后在本计划记录 Go／No-go 和证据，不另建平行计划；任务完成复核输入、文件、断言与未验证项后才勾选。失败／跳过不得借文档批准、历史 JWT 验证或组件官方 AOT 声明转为通过。
+
+### 2026-09-18 后续复核：类型与并发登录
+
+- 已修正 OIDC 回调查询数组的 nullable 类型、Element Plus 提示 mock 返回契约、授权列表列泛型、强撤／切租户测试的 Bearer 字面量类型；全量 typecheck 输出已无 OIDC 文件错误，仍因企业申请契约及租户订阅翻译错误失败。
+- 切租户冲突旧测试与文档错误要求保留旧 Host 令牌；现按已有共享会话层行为验证刷新后重试一次、更新 token／refresh 并重载权限，没有放宽失败关闭逻辑。
+- 中心登录记录失败／成功时增加最多 32 次乐观重试，冲突后重读启用／锁定状态并重新验密；只有成功更新 1 行才能创建登录身份，持续争用拒绝登录。密码哈希需升级时同步更新。
+- 登录回归扩至 7 项，覆盖错误密码锁定、失败和成功写入冲突、并发停用／锁定／改密、持续冲突。重试修复前 3 项中 2 项失败；修复后 `pnpm test:dotnet:unit -- --selection identity-oidc` 为 57 通过、0 失败、0 跳过，构建 0 警告／错误。
+- Vue 聚焦命令覆盖 `oidc-center-login`、`session-oidc-center`、`session-oidc-center-revoke`、`session-oidc-center-switch-tenant`、`OidcCallbackView`，5 文件共 15 项通过。完整 typecheck 仍未通过，不升级生产 Verified；双库、真实浏览器、多实例与原生发布运行继续待 CI。
+- 本轮 pnpm test:aot:analyzers 未通过：Webhooks 反射 JSON 序列化 2 项、Tenancy DbDataReader 日期读取 4 项、企业申请生成代码反射 1 项，共 7 个错误。此结果属于当前完整工作区门禁，不宣称 AOT 通过。中心登录并发修复经独立静态复核未发现明确阻断问题（该复核不替代测试）。
+
+### 2026-09-18 后续复核：AOT 与客户端构建阻塞
+
+- 修复 Webhook JSON 源生成、Tenancy 跨 Provider 日期读取及企业申请生成代码的反射参数复制；Webhook 保持原 PascalCase 负载及签名，生成器使用静态字典参数。`pnpm test:aot:analyzers` 通过（0 警告／错误），`pnpm test:dotnet:architecture -- --selection api-native-aot` 73 项通过；生成器与 Webhook 聚焦回归共 41 项通过。
+- 统一后端、OpenAPI 与 Vue 生成器对下划线模块名的 operationId 转换；企业申请的 5 个真实端点加入客户端生成 manifest。补齐租户订阅相关中英文翻译，修复页面误把翻译函数第二参数作为默认文案的问题；admin-i18n 8 项通过。
+- 真实导出揭示 SQL Server 222／223 迁移在同一批次引用新增列导致首次安装失败，改用 GO 分隔 DDL 与回填。修复后 SQL Server OpenAPI 集成测试 1 项通过、0 跳过；SQL 安全检查 5 项通过。
+- 双库导出尚未通过：MySQL 容器就绪检查返回 Docker API 500，未进入数据库迁移；不能将 SQL Server 结果扩展为双库通过。新迁移的半完成恢复、真实浏览器、多实例和 Linux Native AOT 发布仍待 CI。
+- 当前工作区命名检查失败，包含新增迁移注释缺失、索引名超长及未登记动态 SQL；不以新增豁免隐藏问题。影响集规划也因调用 git hash-object 失败而未完成。上述项不计为通过，不升级生产 Verified。
+- SQL Server 单库导出重跑通过（1 项、0 跳过），已更新真实 OpenAPI 快照并重新生成客户端产物；离线快照检查与生成器 `--check` 均通过，产物零漂移。操作登记由 544 增至 549，同步对应归一化断言。
+- 重生成暴露此前产物与当前契约的积累差异：管理端 typecheck 仍有 41 处错误，主要为请求字段可选性、枚举／数值表示、工作流新增业务标题测试夹具，以及企业申请表格只读数组／行类型。不得仅修改 generated 文件掩盖问题。
+- `pnpm test:openapi` 初次为 160 通过、6 失败（166 项、0 跳过）；其中操作计数断言已更新，其他失败涉及 OIDC Schema 引用、未消费夹具和 7 个 Vue API 模块的覆盖登记。全套未重新通过。
+- 下一步顺序：① 修正真实契约与调用方／测试夹具并清零 typecheck；② 补齐 OIDC 及新增模块契约覆盖，跑通 OpenAPI 门禁；③ 修复新增迁移命名／注释并补半完成恢复证据；④ 在 CI 验证 MySQL 与双库一致性、SSO 真实浏览器及原生运行。保持 Implemented／局部 Build-verified，不作完整验收结论。
+- 客户端归一化契约聚焦复跑：node --test tests/openapi/client-openapi-normalization-contract.test.mjs，5 项全部通过；已同步新增操作数和生成分组。
+
+### 2026-09-18 后续复核：管理端类型检查通过与 OIDC 契约收敛
+
+- 完整 `pnpm --dir ui/admin typecheck` 已通过，上轮 41 处错误清零：请求适配显式补齐 nullable 字段，文件修订号按服务端 int 契约传递，在线会话策略按服务端数值枚举消费；工作流测试夹具补业务标题字段，企业申请表格显式处理只读数组与行类型。
+- 修复批量上传真实契约：Endpoint 使用 IFormFileCollection 绑定并移除错误的单文件 Accepts 元数据。SQL Server 真实 OpenAPI 导出 1 项通过、0 跳过；生成客户端正确追加多个文件。新增上传请求回归验证 FormData 中两个独立 files 字段；文件与模块选择客户端 8 项通过，之前其余工作流相关 29 项通过。生成器 8 项通过，生成产物与离线快照检查均零漂移。
+- OIDC 客户端／授权管理夹具补齐缺失 Schema，新增签名密钥管理夹具，并登记三个 Vue API 模块与页面。字段对照 C# 契约 3 项通过。批量上传兼容修正只接纳精确路径的已确认元数据变化，认证／响应／必填字段变更负例仍拒绝；兼容门禁 18 项通过。
+- 本轮 `pnpm test:aot:analyzers` 通过，0 警告／错误。初次 SQL Server 导出因 Docker 未启动失败，启动后聚焦重跑通过；不代表 MySQL 或原生发布已验证。
+- 最新 `pnpm test:openapi` 为 170 项中 167 通过、3 失败、0 跳过：企业申请样例夹具未消费、样例 API 调用层位置不合规，以及 public-auth／tenancy-entitlements／tenant-members／tenant-subscriptions 四个 Cursor 新增模块尚未完成共享契约及覆盖登记。下一步先完成这三组缺口，再回到迁移命名／注释、双库恢复和 SSO 真实栈验收。保持未完成整体验收状态。
+- 2026-09-19：基础 API 新增响应形状回归 6 项通过；tenant-members、tenant-subscriptions、tenancy-entitlements 和 public-auth 仍需纳入正式共享契约与覆盖清单，暂不将其标记为完成。
+- 2026-09-19：企业申请页面已改为 API 适配层；四个基础 API 和企业申请均登记共享覆盖清单与契约夹具。管理端 typecheck 通过；`pnpm test:openapi` 172/172 通过、0 失败、0 跳过；客户端生成 `--check` 与离线快照检查通过。MySQL 双库、真实浏览器、原生发布及迁移命名债务仍待 CI。
+- 2026-09-19：OpenAPI 与客户端覆盖继续保持 172/172；新增基础 API 共享契约、企业申请适配层和运行时校验已完成，管理端 typecheck 通过。命名门禁当前 29/31 通过，剩余为存量 OIDC 迁移注释目录与新增迁移的精确索引名／动态 SQL 债务登记，未通过豁免隐藏。
+
+### 2026-09-19 接管审查增量
+
+- 修复 `generate-object-comments.mjs` 对 MySQL `IF NOT EXISTS`、`ENGINE` 建表语法的解析缺口，并新增回归测试，避免双库迁移表/列从注释目录漏登记。
+- 为 Identity OIDC 协议状态与会话迁移补齐 SQL Server `MS_Description` 幂等注释；为新增双库迁移应用目录注释。
+- 将账号挑战、注册邀请的超长索引名按确定性压缩规则统一到 SQL Server/MySQL；对仍需兼容旧 MySQL 的固定动态 DDL 登记精确 M1.0 债务。
+- 新鲜门禁证据：`pnpm test:naming` 32/32、`pnpm test:sql-safety` 5/5、`pnpm test:openapi` 172/172、`pnpm --dir ui/admin typecheck` 通过；`git diff --check` 无错误（仅存在换行符提示）。
+- 未完成的环境级验证仍是 MySQL/SQL Server 容器迁移恢复、真实浏览器 OIDC 全链路和 Native AOT 发布；本轮未提交或推送。
+- 回归测试复核：迁移注释解析改为独立 SQL 夹具，覆盖 SQL Server 普通建表、MySQL IF NOT EXISTS + ENGINE、表 COMMENT + ENGINE 及生成列；临时恢复旧解析器时准确失败（漏掉两个 MySQL 表），恢复修复后 `pnpm test:naming` 32/32 通过。
+- AOT 日志复核：`.fullnet/oidc-20260919-aot-final.log` 包含完整构建成功摘要，0 警告、0 错误，随后恢复默认 JIT 依赖图；仅为分析器构建证据，不代表 Linux 原生发布通过。客户端生成零漂移、离线快照与生成就绪 7/7 的上一轮证据已核对。
+- 环境验收执行位置：遵循 R-20260903-github-actions-first-verification，双库集成/迁移恢复及 OIDC 真实浏览器交由 `.github/workflows/ci.yml`，原生发布/运行交由 `.github/workflows/api-native-aot-linux.yml`；当前没有新的远端运行证据。Docker 本地 Linux Engine 管道不可用，不启动本地重型全套，也不将这些项升级为 Verified。
+
+### 2026-09-19 SSO 验收探针复核
+
+- 修正 `identity-oidc-sso.spec.mjs` 的 max_age=0 用例：真实发送 max_age=0，不再用 prompt=login 替代，并完成重新认证与换票。
+- 将授权码领取与兑换分离；错误 PKCE verifier 用例现在使用未消费授权码，要求 HTTP 400 + invalid_grant，避免授权码重放或服务端 500 造成假阳性。
+- 新增辅助函数行为回归，验证未提前兑换、完整登录流只兑换一次、机密客户端凭据保留及服务故障不能充当协议拒绝。新增领取测试先失败，修复后通过；已加入 test:provisioner。
+- 修复 oidc-governance.spec.mjs 的 UTF-16 编码导致 Playwright 全套发现失败；只转换为 UTF-8，保留原用例内容。同步既有 admin-oidc-center 探针的实际数量登记。
+- 本轮证据：pnpm test:e2e:provisioner 27/27，通过且无跳过；在 tests/e2e/admin-real-stack 执行 pnpm exec playwright test --list，发现 59 个文件、286 个用例，退出码 0。发现不执行浏览器与数据库，不代表这些 E2E 已通过；真实双库运行继续待 CI。
+
+### 2026-09-19 SSO state 探针复核
+
+- 修复浏览器 state 篡改用例：保留真实 callback code，仅修改 state，并清除旧授权码后断言拒绝时未写入新授权码。此前跳转缺少 code，只会进入 ready 分支。
+- 请求辅助函数在复用中心 Cookie 的直接 302/303 路径也验证 state，缺失或篡改均拒绝；两条新增回归修复前失败、修复后通过。
+- 通过 Node VM 执行 A/B RP 实际夹具回调，覆盖匹配、篡改、缺失回调 state 和没有发起授权的情况。发现并修复夹具将两侧空 state 视为匹配的问题，两条负例修复前失败。
+- 本轮 pnpm test:e2e:provisioner 37/37 通过，无失败或跳过；Playwright --list 发现 286 项/59 文件，退出码 0；git diff --check 通过。VM 验证只覆盖脚本回调逻辑，用例发现不等同于浏览器、Cookie 或双库协议运行，真实栈仍待 CI。
+
+### 2026-09-19 全量代码提交检查
+
+- 提交前发现 8 个新增文件为 UTF-16，已按文件字节证据转换为 UTF-8：两份 Vue 注册/找回密码页面、一份基线文档及五份迁移脚本。另清理新增文件尾部空白。
+- 修正编码后 `pnpm --dir ui/admin typecheck` 通过，`pnpm test:sql-safety` 5/5 通过；`pnpm test:naming` 为 29/32，通过前记录已不代表当前完整工作区。新增失败为迁移注释目录/脚本注释缺失、228 双库超长索引名和 MySQL 223 固定动态 DDL 未登记。此次提交保存当前代码，不代表这些门禁已修复或 CI 验收完成。
+- 全量正式源码、契约、模板、样例、测试与文档纳入提交；根目录临时日志、CI 下载产物及生成预览副本保留本地，不提交、不推送。

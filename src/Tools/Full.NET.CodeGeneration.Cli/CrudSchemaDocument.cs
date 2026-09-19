@@ -315,6 +315,10 @@ internal sealed class CrudRelationshipDocument
 
     public required FullNetCrudDataScope DependentDataScope { get; init; }
 
+    public IReadOnlyList<string>? CompositeKeyColumnNames { get; init; }
+
+    public bool? CascadeDelete { get; init; }
+
     public FullNetCrudRelationship ToRelationship() =>
         new(
             PrincipalEntityKey,
@@ -322,7 +326,9 @@ internal sealed class CrudRelationshipDocument
             PrincipalDataScope,
             DependentEntityKey,
             DependentColumnName,
-            DependentDataScope);
+            DependentDataScope,
+            CompositeKeyColumnNames,
+            CascadeDelete);
 }
 
 /// <summary>

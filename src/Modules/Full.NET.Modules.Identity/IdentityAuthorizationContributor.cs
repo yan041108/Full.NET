@@ -263,6 +263,26 @@ internal sealed class IdentityAuthorizationContributor
             "删除注册方式",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityTenantMembershipPermissions.Read,
+            "查看租户成员",
+            AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            IdentityTenantMembershipPermissions.Invite,
+            "邀请租户成员",
+            AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            IdentityTenantMembershipPermissions.Update,
+            "更新租户成员",
+            AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            IdentityTenantMembershipPermissions.Remove,
+            "移除租户成员",
+            AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            IdentityTenantMembershipPermissions.RevokeInvitation,
+            "撤销租户邀请",
+            AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new PermissionDefinition(
             IdentityLdapConnectionPermissions.Read,
             "查看 LDAP 连接",
             AuthorizationScope.Host),
@@ -418,6 +438,17 @@ internal sealed class IdentityAuthorizationContributor
             "user-add",
             38,
             IdentityRegistrationWayPermissions.Read),
+        new NavigationDefinition(
+            "tenant-members",
+            null,
+            "tenant-members",
+            "/identity/tenant-members",
+            "tenant-members",
+            "租户成员",
+            "Tenant Members",
+            "peoples",
+            39,
+            IdentityTenantMembershipPermissions.Read),
         new NavigationDefinition(
             "ldap-connections",
             null,

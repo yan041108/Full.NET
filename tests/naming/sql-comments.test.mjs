@@ -3,7 +3,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { describeColumn, describeTable } from '../../scripts/database/object-comment-catalog.mjs';
-import { generateObjectCommentsCatalog } from '../../scripts/database/generate-object-comments.mjs';
+import { extractSchemaFromMigrations, generateObjectCommentsCatalog } from '../../scripts/database/generate-object-comments.mjs';
 import {
   validateCommentCatalogCoverage,
   validateRepositorySqlComments,
@@ -12,6 +12,18 @@ import {
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const fixtureRoot = path.join(repositoryRoot, 'tests/fixtures/naming');
+
+test('MySQL 幂等建表与 ENGINE 子句中的列进入注释目录', () => {
+  const schema = extractSchemaFromMigrations(path.join(fixtureRoot, 'comment-extraction'));
+  assert.deepEqual(Object.keys(schema).sort(), [
+    'fn_identity_fixture_application',
+    'fn_identity_fixture_session',
+    'fn_identity_fixture_token',
+  ]);
+  assert.deepEqual([...schema.fn_identity_fixture_application], ['Id', 'ClientId']);
+  assert.deepEqual([...schema.fn_identity_fixture_session], ['Id', 'ActiveSessionKey']);
+  assert.deepEqual([...schema.fn_identity_fixture_token], ['Id', 'Payload']);
+});
 
 test('注释目录生成器覆盖全部迁移表', () => {
   const violations = validateCommentCatalogCoverage({ repositoryRoot });

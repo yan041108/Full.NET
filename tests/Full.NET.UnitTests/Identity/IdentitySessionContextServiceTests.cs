@@ -376,7 +376,8 @@ public sealed class IdentitySessionContextServiceTests
                 new IdentityOidcContextRefreshTokenIssuer(
                     Substitute.For<IOpenIddictServerDispatcher>(),
                     Options.Create(new OpenIddictServerOptions()),
-                    Substitute.For<ILogger<IdentityOidcContextRefreshTokenIssuer>>()),
+                    Substitute.For<ILogger<IdentityOidcContextRefreshTokenIssuer>>(),
+                    clock),
                 new IdentityOidcGrantRevocationService(queryExecutor, commandExecutor, clock));
         }
 

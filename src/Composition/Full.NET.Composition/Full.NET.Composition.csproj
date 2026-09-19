@@ -41,6 +41,8 @@
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.ObservabilityAdmin\Full.NET.Modules.ObservabilityAdmin.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Workflow\Full.NET.Modules.Workflow.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Mqtt\Full.NET.Modules.Mqtt.csproj" />
+    <ProjectReference Include="..\..\Modules\Full.NET.Modules.Webhooks\Full.NET.Modules.Webhooks.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Cryptography\Full.NET.Modules.Cryptography.csproj" />
+    <ProjectReference Include="..\..\..\samples\enterprise-request\src\Full.NET.Modules.EnterpriseRequest\Full.NET.Modules.EnterpriseRequest.csproj" />
   </ItemGroup>
 </Project>

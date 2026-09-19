@@ -11,6 +11,52 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class CodeGenerationCliTests
 {
     [TestMethod]
+    public async Task Diagnose_minimal_workspace_emits_machine_readable_lines()
+    {
+        using var fixture = CliFixture.Create();
+        foreach (var marker in new[]
+                 {
+                     "src/Composition",
+                     "src/Hosts",
+                     "src/Modules",
+                 })
+        {
+            Directory.CreateDirectory(Path.Combine(fixture.WorkspacePath, marker));
+        }
+
+        File.WriteAllText(
+            Path.Combine(fixture.WorkspacePath, "Full.NET.slnx"),
+            "<Solution />",
+            new UTF8Encoding(false, true));
+        File.WriteAllText(
+            Path.Combine(fixture.WorkspacePath, "appsettings.json"),
+            """
+            {
+              "FullNet": { "Modules": { "Preset": "minimal" } },
+              "Database": { "ConnectionName": "fullnet" }
+            }
+            """,
+            new UTF8Encoding(false, true));
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await CodeGenerationCli.RunAsync(
+            [
+                "diagnose",
+                "--workspace",
+                fixture.WorkspacePath,
+            ],
+            output,
+            error);
+
+        var combined = output.ToString() + error.ToString();
+        StringAssert.Contains(combined, "DIAG_SDK_OK");
+        StringAssert.Contains(combined, "DIAG_WORKSPACE_OK");
+        StringAssert.Contains(combined, "DIAG_MODULES_OK");
+        Assert.IsTrue(exitCode is 0 or 1);
+    }
+
+    [TestMethod]
     public async Task Preview_valid_schema_reports_creates_without_writing()
     {
         using var fixture = CliFixture.Create();

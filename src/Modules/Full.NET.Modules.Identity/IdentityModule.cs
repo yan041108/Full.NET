@@ -54,7 +54,7 @@ public sealed class IdentityModule : IFullNetModule
     public IReadOnlyCollection<string> Dependencies => [];
 
     /// <summary>用户头像与签名通过 Files 合同读写；Files 未启用时自助资料媒体能力不可用。</summary>
-    public IReadOnlyCollection<string> OptionalContractDependencies => ["Files"];
+    public IReadOnlyCollection<string> OptionalContractDependencies => ["Files", "Notifications"];
 
     public void AddServices(
         IServiceCollection services,
@@ -138,6 +138,10 @@ public sealed class IdentityModule : IFullNetModule
         Features.Login.Endpoint.Map(group);
         Features.RefreshSession.Endpoint.Map(group);
         Features.Logout.Endpoint.Map(group);
+        Features.RegisterAccount.Endpoint.Map(group);
+        Features.RegisterAccount.SendEmailChallengeEndpoint.Map(group);
+        Features.RecoverAccount.Endpoint.Map(group);
+        Features.RegistrationInvitations.Endpoint.Map(group);
         Features.GetCurrentUser.Endpoint.Map(endpoints);
         Features.UpdateLocale.Endpoint.Map(endpoints);
         Features.ChangePassword.Endpoint.Map(endpoints);
@@ -157,6 +161,8 @@ public sealed class IdentityModule : IFullNetModule
         Features.ManageOpenAccessClients.Endpoint.Map(endpoints);
         Features.ManageRegistrationPolicy.Endpoint.Map(endpoints);
         Features.ManageRegistrationWays.Endpoint.Map(endpoints);
+        Features.ManageTenantMembers.Endpoint.Map(endpoints);
+        Features.AcceptTenantInvitation.Endpoint.Map(endpoints);
         Features.ManageLdapConnections.Endpoint.Map(endpoints);
         Features.ManageOAuthProviders.Endpoint.Map(endpoints);
         Features.OAuthFlow.Endpoint.Map(endpoints);

@@ -58,6 +58,57 @@ public static class TenancyErrorCodes
     /// <summary>租户 Logo 媒体不存在。</summary>
     public const string BrandingLogoNotFound = "tenancy.tenant_branding.logo_not_found";
 
+    /// <summary>租户所有者用户不存在或未激活。</summary>
+    public const string OwnerUserNotFound = "tenancy.tenant_lifecycle.owner_not_found";
+
+    /// <summary>租户生命周期状态无效。</summary>
+    public const string LifecycleStatusInvalid = "tenancy.tenant_lifecycle.status_invalid";
+
+    /// <summary>Tenancy 设置单例不存在。</summary>
+    public const string SettingsNotFound = "tenancy.settings.not_found";
+
+    /// <summary>Tenancy 设置并发版本冲突。</summary>
+    public const string SettingsVersionConflict = "tenancy.settings.version_conflict";
+
+    /// <summary>权益编码无效。</summary>
+    public const string EntitlementCodeInvalid = "tenancy.entitlements.code_invalid";
+
+    /// <summary>权益编码已存在。</summary>
+    public const string EntitlementCodeExists = "tenancy.entitlements.code_exists";
+
+    /// <summary>权益绑定不存在。</summary>
+    public const string EntitlementBindingNotFound = "tenancy.entitlements.binding_not_found";
+
+    /// <summary>权益强制执行阶段无效。</summary>
+    public const string EntitlementPhaseInvalid = "tenancy.entitlements.phase_invalid";
+
+    /// <summary>Enforced 阶段缺少套餐或有效订阅绑定。</summary>
+    public const string EntitlementCommercialBindingRequired = "tenancy.entitlements.commercial_binding_required";
+
+    /// <summary>配额请求无效。</summary>
+    public const string QuotaRequestInvalid = "tenancy.quota.request_invalid";
+
+    /// <summary>配额指标不存在。</summary>
+    public const string QuotaMetricNotFound = "tenancy.quota.metric_not_found";
+
+    /// <summary>配额预留不存在。</summary>
+    public const string QuotaReservationNotFound = "tenancy.quota.reservation_not_found";
+
+    /// <summary>配额已用尽。</summary>
+    public const string QuotaExceeded = "tenancy.quota.exceeded";
+
+    /// <summary>订阅状态无效。</summary>
+    public const string SubscriptionStatusInvalid = "tenancy.tenant_subscription.status_invalid";
+
+    /// <summary>订阅周期无效。</summary>
+    public const string SubscriptionPeriodInvalid = "tenancy.tenant_subscription.period_invalid";
+
+    /// <summary>订阅不存在。</summary>
+    public const string SubscriptionNotFound = "tenancy.tenant_subscription.not_found";
+
+    /// <summary>订阅版本冲突。</summary>
+    public const string SubscriptionVersionConflict = "tenancy.tenant_subscription.version_conflict";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -79,5 +130,22 @@ public static class TenancyErrorCodes
         BrandingInvalid,
         BrandingLogoInvalid,
         BrandingLogoNotFound,
+        OwnerUserNotFound,
+        LifecycleStatusInvalid,
+        SettingsNotFound,
+        SettingsVersionConflict,
+        EntitlementCodeInvalid,
+        EntitlementCodeExists,
+        EntitlementBindingNotFound,
+        EntitlementPhaseInvalid,
+        EntitlementCommercialBindingRequired,
+        QuotaRequestInvalid,
+        QuotaMetricNotFound,
+        QuotaReservationNotFound,
+        QuotaExceeded,
+        SubscriptionStatusInvalid,
+        SubscriptionPeriodInvalid,
+        SubscriptionNotFound,
+        SubscriptionVersionConflict,
     ]);
 }

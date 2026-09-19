@@ -80,7 +80,7 @@ function formatMetric(metric: ServerRuntimeMetric): string {
     return formatBytes(metric.longValue);
   }
   if (metric.unit === 'percent' && metric.doubleValue != null) {
-    return `${metric.doubleValue.toFixed(2)}%`;
+    return `${Number(metric.doubleValue).toFixed(2)}%`;
   }
   if (metric.longValue != null) {
     return String(metric.longValue);

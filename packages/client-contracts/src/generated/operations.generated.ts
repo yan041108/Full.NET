@@ -12,15 +12,23 @@ import type {
   AdministrativeRegionDatasetManifestResponse,
   AdministrativeRegionResponse,
   AdministrativeRegionTreeNodeResponse,
+  AiAgentApprovalResponse,
+  AiAgentDelegationResponse,
+  AiAgentRunResponse,
   AiAgentToolCallListItem,
   AiAgentToolCatalogItem,
   AiChatMessageResponse,
   AiChatSessionListItem,
   AiChatSessionResponse,
+  AiMcpRemoteConnectionListItem,
+  AiMcpRemoteConnectionResponse,
+  AiMcpRemoteDiscoveredToolItem,
+  AiMcpRemoteToolApprovalItem,
   AiModelConfigListItem,
   AiModelConfigResponse,
   AiTenantQuotaListItem,
   AiTenantQuotaResponse,
+  ApproveAiMcpRemoteToolRequest,
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
   AssignOrganizationPositionUnitRequest,
@@ -87,13 +95,21 @@ import type {
   ConfirmTotpEnrollmentRequest,
   CopyHostRoleRequest,
   CreateAdministrativeRegionRequest,
+  CreateAiAgentApprovalRequest,
+  CreateAiAgentApprovalResponse,
+  CreateAiAgentDelegationRequest,
+  CreateAiAgentDelegationResponse,
+  CreateAiAgentRunRequest,
+  CreateAiAgentRunResponse,
   CreateAiChatSessionRequest,
+  CreateAiMcpRemoteConnectionRequest,
   CreateAiModelConfigRequest,
   CreateCodeGenerationTemplateRequest,
   CreateConfigEntryRequest,
   CreateDataApprovalRequestBody,
   CreateDictItemRequest,
   CreateDictTypeRequest,
+  CreateEnterpriseRequestRequest,
   CreateGoViewProjectRequest,
   CreateHostAnnouncementRequest,
   CreateHostApiKeyRequest,
@@ -138,11 +154,13 @@ import type {
   CurrentUserResponse,
   DataApprovalRequestResponse,
   DataApprovalScenarioResponse,
+  DecideAiAgentApprovalRequest,
   DeleteAdministrativeRegionRequest,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
   DeleteDictItemRequest,
   DeleteDictTypeRequest,
+  DeleteEnterpriseRequestRequest,
   DeleteHostDocumentCategoryRequest,
   DeleteHostDocumentItemRequest,
   DeleteHostDocumentTagRequest,
@@ -156,6 +174,7 @@ import type {
   DictItemResponse,
   DictTypeResponse,
   DisableHostJobDefinitionRequest,
+  EnterpriseRequestResponse,
   EnumCatalogDetail,
   EnumCatalogDictGenerationItemPreview,
   EnumCatalogDictGenerationPreview,
@@ -180,7 +199,10 @@ import type {
   HostAnnouncementUnreadCountResponse,
   HostApiKeyResponse,
   HostDashboardActivityResponse,
+  HostDashboardBusinessEntryResponse,
   HostDashboardSummaryResponse,
+  HostDashboardTrafficTrendBucketResponse,
+  HostDashboardTrafficTrendResponse,
   HostDocumentAccessLogResponse,
   HostDocumentCategoryResponse,
   HostDocumentItemResponse,
@@ -236,10 +258,14 @@ import type {
   IdentitySessionLoginPolicy,
   IdentitySessionPolicyResponse,
   IFormFile,
+  IFormFileCollection,
+  ImportAdministrativeRegionAddedSummary,
   ImportAdministrativeRegionItem,
+  ImportAdministrativeRegionRemovedSummary,
   ImportAdministrativeRegionsApplyResponse,
   ImportAdministrativeRegionsPreviewResponse,
   ImportAdministrativeRegionsRequest,
+  ImportAdministrativeRegionUpdatedSummary,
   ImportExportTaskDetailResponse,
   ImportExportTaskResponse,
   ImportHostUserRowResult,
@@ -298,6 +324,7 @@ import type {
   PagedResultOfDataApprovalRequestResponse,
   PagedResultOfDictItemResponse,
   PagedResultOfDictTypeResponse,
+  PagedResultOfEnterpriseRequestResponse,
   PagedResultOfExceptionLogResponse,
   PagedResultOfHostAnnouncementReadReceiptResponse,
   PagedResultOfHostAnnouncementResponse,
@@ -410,6 +437,7 @@ import type {
   ReturnWorkflowTodoRequest,
   RevealHostUserProfileFieldsRequest,
   RevealHostUserProfileFieldsResponse,
+  RevokeAiAgentDelegationRequest,
   RevokeAllHostUserSessionsResponse,
   RevokeSuperAdministratorRequest,
   RollbackHostDocumentVersionRequest,
@@ -449,6 +477,8 @@ import type {
   TenantRuntimeBrandingResponse,
   TenantSummary,
   TestAiModelConfigResult,
+  TestAiModelEmbeddingRequest,
+  TestAiModelEmbeddingResult,
   TestK3CloudConnectionConfigResult,
   TestOcrProviderConfigResult,
   TestReportingDataSourceResult,
@@ -456,6 +486,7 @@ import type {
   TotpEnrollmentStatusResponse,
   UpdateAdministrativeRegionRequest,
   UpdateAiChatSessionRequest,
+  UpdateAiMcpRemoteConnectionRequest,
   UpdateAiModelConfigRequest,
   UpdateAiTenantQuotaRequest,
   UpdateCodeGenerationTemplateRequest,
@@ -464,6 +495,7 @@ import type {
   UpdateDiagnosticPolicyRequest,
   UpdateDictItemRequest,
   UpdateDictTypeRequest,
+  UpdateEnterpriseRequestRequest,
   UpdateGoViewProjectRequest,
   UpdateHostAnnouncementRequest,
   UpdateHostDocumentCategoryRequest,
@@ -504,7 +536,6 @@ import type {
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
   VerifyRecipientEndpointCodeRequest,
-  WeChatPayNotifyAckResponse,
   WorkflowAssigneePreviewResponse,
   WorkflowCcReadResponse,
   WorkflowCcResponse,
@@ -519,6 +550,8 @@ import type {
   WorkflowFormSchema,
   WorkflowFormSection,
   WorkflowFormVersionResponse,
+  WorkflowGatewayJoinBranchResponse,
+  WorkflowGatewayJoinResponse,
   WorkflowInstanceListItemResponse,
   WorkflowInstanceResponse,
   WorkflowNodeDraft,
@@ -536,12 +569,23 @@ import {
   readAccessLogCursorPageResponse,
   readAdministrativeRegionDatasetManifestResponse,
   readAdministrativeRegionResponse,
+  readAiAgentApprovalResponse,
+  readAiAgentDelegationResponse,
+  readAiAgentRunResponse,
   readAiAgentToolCatalogItem,
+  readAiCancelAgentRunResponse,
   readAiCancelChatGenerationResponse,
   readAiChatSessionResponse,
   readAiDeleteChatSessionResponse,
+  readAiDiscoverMcpRemoteToolsResponse,
+  readAiListAgentDelegationsResponse,
   readAiListAgentToolsResponse,
+  readAiListMcpRemoteConnectionsResponse,
+  readAiListMcpRemoteToolApprovalsResponse,
+  readAiMcpRemoteConnectionResponse,
+  readAiMcpRemoteToolApprovalItem,
   readAiModelConfigResponse,
+  readAiResumeAgentRunResponse,
   readAiTenantQuotaResponse,
   readBatchChangeHostJobScheduleStateResponse,
   readBatchDeleteHostFilesResponse,
@@ -564,6 +608,9 @@ import {
   readCodeGenerationRunRollbackResponse,
   readCodeGenerationTemplateResponse,
   readConfigEntryResponse,
+  readCreateAiAgentApprovalResponse,
+  readCreateAiAgentDelegationResponse,
+  readCreateAiAgentRunResponse,
   readCreateHostApiKeyResponse,
   readCurrentUserResponse,
   readDataApprovalRequestResponse,
@@ -581,6 +628,7 @@ import {
   readDocumentHostListTagsResponse,
   readDocumentHostPurgeRecycleBinItemResponse,
   readDocumentHostSetDocumentPermissionsResponse,
+  readEnterpriseRequestResponse,
   readEnumCatalogDetail,
   readEnumCatalogDictGenerationPreview,
   readEnumCatalogDictGenerationResult,
@@ -678,6 +726,7 @@ import {
   readPagedResultOfDataApprovalRequestResponse,
   readPagedResultOfDictItemResponse,
   readPagedResultOfDictTypeResponse,
+  readPagedResultOfEnterpriseRequestResponse,
   readPagedResultOfExceptionLogResponse,
   readPagedResultOfHostAnnouncementReadReceiptResponse,
   readPagedResultOfHostAnnouncementResponse,
@@ -781,12 +830,12 @@ import {
   readTenantRuntimeBrandingResponse,
   readTenantSummary,
   readTestAiModelConfigResult,
+  readTestAiModelEmbeddingResult,
   readTestK3CloudConnectionConfigResult,
   readTestOcrProviderConfigResult,
   readTestReportingDataSourceResult,
   readTokenResponse,
   readTotpEnrollmentStatusResponse,
-  readWeChatPayNotifyAckResponse,
   readWorkflowAssigneePreviewResponse,
   readWorkflowCcReadResponse,
   readWorkflowDefinitionResponse,
@@ -816,6 +865,47 @@ export type GeneratedJsonOperation<T> = (
   options?: RequestOptions
 ) => Promise<T>;
 
+export interface AiApproveMcpRemoteToolParameters {
+  readonly connectionId: string;
+  readonly body: ApproveAiMcpRemoteToolRequest;
+}
+
+export async function aiApproveMcpRemoteTool(
+  http: HttpClient,
+  parameters: AiApproveMcpRemoteToolParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiMcpRemoteToolApprovalItem> {
+  const path = `/api/v1/ai/mcp/remote-connections/${encodeURIComponent(String(parameters.connectionId))}/approve-tool`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiMcpRemoteToolApprovalItem(value);
+}
+
+export interface AiCancelAgentRunParameters {
+  readonly runId: string;
+}
+
+export async function aiCancelAgentRun(
+  http: HttpClient,
+  parameters: AiCancelAgentRunParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/ai/agent/runs/${encodeURIComponent(String(parameters.runId))}/cancel`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiCancelAgentRunResponse(value);
+}
+
 export interface AiCancelChatGenerationParameters {
   readonly sessionId: string;
 }
@@ -832,6 +922,72 @@ export async function aiCancelChatGeneration(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiCancelChatGenerationResponse(value);
+}
+
+export interface AiCreateAgentApprovalParameters {
+  readonly body: CreateAiAgentApprovalRequest;
+}
+
+export async function aiCreateAgentApproval(
+  http: HttpClient,
+  parameters: AiCreateAgentApprovalParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CreateAiAgentApprovalResponse> {
+  const path = `/api/v1/ai/agent/approvals`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCreateAiAgentApprovalResponse(value);
+}
+
+export interface AiCreateAgentDelegationParameters {
+  readonly body: CreateAiAgentDelegationRequest;
+}
+
+export async function aiCreateAgentDelegation(
+  http: HttpClient,
+  parameters: AiCreateAgentDelegationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CreateAiAgentDelegationResponse> {
+  const path = `/api/v1/ai/agent/delegations`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCreateAiAgentDelegationResponse(value);
+}
+
+export interface AiCreateAgentRunParameters {
+  readonly body: CreateAiAgentRunRequest;
+}
+
+export async function aiCreateAgentRun(
+  http: HttpClient,
+  parameters: AiCreateAgentRunParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CreateAiAgentRunResponse> {
+  const path = `/api/v1/ai/agent/runs`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCreateAiAgentRunResponse(value);
 }
 
 export interface AiCreateChatSessionParameters {
@@ -856,6 +1012,28 @@ export async function aiCreateChatSession(
   return readAiChatSessionResponse(value);
 }
 
+export interface AiCreateMcpRemoteConnectionParameters {
+  readonly body: CreateAiMcpRemoteConnectionRequest;
+}
+
+export async function aiCreateMcpRemoteConnection(
+  http: HttpClient,
+  parameters: AiCreateMcpRemoteConnectionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiMcpRemoteConnectionResponse> {
+  const path = `/api/v1/ai/mcp/remote-connections`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiMcpRemoteConnectionResponse(value);
+}
+
 export interface AiCreateModelConfigParameters {
   readonly body: CreateAiModelConfigRequest;
 }
@@ -876,6 +1054,29 @@ export async function aiCreateModelConfig(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiModelConfigResponse(value);
+}
+
+export interface AiDecideAgentApprovalParameters {
+  readonly approvalId: string;
+  readonly body: DecideAiAgentApprovalRequest;
+}
+
+export async function aiDecideAgentApproval(
+  http: HttpClient,
+  parameters: AiDecideAgentApprovalParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiAgentApprovalResponse> {
+  const path = `/api/v1/ai/agent/approvals/${encodeURIComponent(String(parameters.approvalId))}/decide`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiAgentApprovalResponse(value);
 }
 
 export interface AiDeleteChatSessionParameters {
@@ -914,6 +1115,60 @@ export async function aiDisableModelConfig(
   return readAiModelConfigResponse(value);
 }
 
+export interface AiDiscoverMcpRemoteToolsParameters {
+  readonly connectionId: string;
+}
+
+export async function aiDiscoverMcpRemoteTools(
+  http: HttpClient,
+  parameters: AiDiscoverMcpRemoteToolsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<AiMcpRemoteDiscoveredToolItem>> {
+  const path = `/api/v1/ai/mcp/remote-connections/${encodeURIComponent(String(parameters.connectionId))}/discover-tools`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiDiscoverMcpRemoteToolsResponse(value);
+}
+
+export interface AiGetAgentApprovalParameters {
+  readonly approvalId: string;
+}
+
+export async function aiGetAgentApproval(
+  http: HttpClient,
+  parameters: AiGetAgentApprovalParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiAgentApprovalResponse> {
+  const path = `/api/v1/ai/agent/approvals/${encodeURIComponent(String(parameters.approvalId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiAgentApprovalResponse(value);
+}
+
+export interface AiGetAgentRunParameters {
+  readonly runId: string;
+}
+
+export async function aiGetAgentRun(
+  http: HttpClient,
+  parameters: AiGetAgentRunParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiAgentRunResponse> {
+  const path = `/api/v1/ai/agent/runs/${encodeURIComponent(String(parameters.runId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiAgentRunResponse(value);
+}
+
 export interface AiGetAgentToolParameters {
   readonly toolName: string;
 }
@@ -950,6 +1205,24 @@ export async function aiGetChatSession(
   return readAiChatSessionResponse(value);
 }
 
+export interface AiGetMcpRemoteConnectionParameters {
+  readonly connectionId: string;
+}
+
+export async function aiGetMcpRemoteConnection(
+  http: HttpClient,
+  parameters: AiGetMcpRemoteConnectionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiMcpRemoteConnectionResponse> {
+  const path = `/api/v1/ai/mcp/remote-connections/${encodeURIComponent(String(parameters.connectionId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiMcpRemoteConnectionResponse(value);
+}
+
 export interface AiGetModelConfigParameters {
   readonly modelConfigId: string;
 }
@@ -984,6 +1257,24 @@ export async function aiGetTenantQuota(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiTenantQuotaResponse(value);
+}
+
+export interface AiListAgentDelegationsParameters {
+
+}
+
+export async function aiListAgentDelegations(
+  http: HttpClient,
+  parameters: AiListAgentDelegationsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<AiAgentDelegationResponse>> {
+  const path = `/api/v1/ai/agent/delegations`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiListAgentDelegationsResponse(value);
 }
 
 export interface AiListAgentToolCallsParameters {
@@ -1068,6 +1359,42 @@ export async function aiListChatSessions(
   return readPagedResultOfAiChatSessionListItem(value);
 }
 
+export interface AiListMcpRemoteConnectionsParameters {
+
+}
+
+export async function aiListMcpRemoteConnections(
+  http: HttpClient,
+  parameters: AiListMcpRemoteConnectionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<AiMcpRemoteConnectionListItem>> {
+  const path = `/api/v1/ai/mcp/remote-connections`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiListMcpRemoteConnectionsResponse(value);
+}
+
+export interface AiListMcpRemoteToolApprovalsParameters {
+  readonly connectionId: string;
+}
+
+export async function aiListMcpRemoteToolApprovals(
+  http: HttpClient,
+  parameters: AiListMcpRemoteToolApprovalsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<AiMcpRemoteToolApprovalItem>> {
+  const path = `/api/v1/ai/mcp/remote-connections/${encodeURIComponent(String(parameters.connectionId))}/approvals`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiListMcpRemoteToolApprovalsResponse(value);
+}
+
 export interface AiListModelConfigsParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -1136,6 +1463,47 @@ export async function aiListTenantQuotas(
   return readPagedResultOfAiTenantQuotaListItem(value);
 }
 
+export interface AiResumeAgentRunParameters {
+  readonly runId: string;
+}
+
+export async function aiResumeAgentRun(
+  http: HttpClient,
+  parameters: AiResumeAgentRunParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/ai/agent/runs/${encodeURIComponent(String(parameters.runId))}/resume`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiResumeAgentRunResponse(value);
+}
+
+export interface AiRevokeAgentDelegationParameters {
+  readonly delegationId: string;
+  readonly body: RevokeAiAgentDelegationRequest;
+}
+
+export async function aiRevokeAgentDelegation(
+  http: HttpClient,
+  parameters: AiRevokeAgentDelegationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiAgentDelegationResponse> {
+  const path = `/api/v1/ai/agent/delegations/${encodeURIComponent(String(parameters.delegationId))}/revoke`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiAgentDelegationResponse(value);
+}
+
 export interface AiTestModelConfigParameters {
   readonly modelConfigId: string;
 }
@@ -1152,6 +1520,29 @@ export async function aiTestModelConfig(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readTestAiModelConfigResult(value);
+}
+
+export interface AiTestModelEmbeddingsParameters {
+  readonly modelConfigId: string;
+  readonly body: TestAiModelEmbeddingRequest;
+}
+
+export async function aiTestModelEmbeddings(
+  http: HttpClient,
+  parameters: AiTestModelEmbeddingsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TestAiModelEmbeddingResult> {
+  const path = `/api/v1/ai/model-configs/${encodeURIComponent(String(parameters.modelConfigId))}/test-embeddings`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTestAiModelEmbeddingResult(value);
 }
 
 export interface AiUpdateChatSessionParameters {
@@ -1175,6 +1566,29 @@ export async function aiUpdateChatSession(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiChatSessionResponse(value);
+}
+
+export interface AiUpdateMcpRemoteConnectionParameters {
+  readonly connectionId: string;
+  readonly body: UpdateAiMcpRemoteConnectionRequest;
+}
+
+export async function aiUpdateMcpRemoteConnection(
+  http: HttpClient,
+  parameters: AiUpdateMcpRemoteConnectionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiMcpRemoteConnectionResponse> {
+  const path = `/api/v1/ai/mcp/remote-connections/${encodeURIComponent(String(parameters.connectionId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiMcpRemoteConnectionResponse(value);
 }
 
 export interface AiUpdateModelConfigParameters {
@@ -3015,6 +3429,118 @@ export async function documentPublicAccessDocumentShare(
   return readHostDocumentShareAccessResponse(value);
 }
 
+export interface EnterpriseRequestCreateEnterpriseRequestParameters {
+  readonly body: CreateEnterpriseRequestRequest;
+}
+
+export async function enterpriseRequestCreateEnterpriseRequest(
+  http: HttpClient,
+  parameters: EnterpriseRequestCreateEnterpriseRequestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestDeleteEnterpriseRequestParameters {
+  readonly enterpriseRequestId: string;
+  readonly body: DeleteEnterpriseRequestRequest;
+}
+
+export async function enterpriseRequestDeleteEnterpriseRequest(
+  http: HttpClient,
+  parameters: EnterpriseRequestDeleteEnterpriseRequestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.enterpriseRequestId))}/delete`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestGetEnterpriseRequestParameters {
+  readonly enterpriseRequestId: string;
+}
+
+export async function enterpriseRequestGetEnterpriseRequest(
+  http: HttpClient,
+  parameters: EnterpriseRequestGetEnterpriseRequestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.enterpriseRequestId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestListEnterpriseRequestsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function enterpriseRequestListEnterpriseRequests(
+  http: HttpClient,
+  parameters: EnterpriseRequestListEnterpriseRequestsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfEnterpriseRequestResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/enterprise_request/enterprise-requests` : `/api/v1/enterprise_request/enterprise-requests?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestUpdateEnterpriseRequestParameters {
+  readonly enterpriseRequestId: string;
+  readonly body: UpdateEnterpriseRequestRequest;
+}
+
+export async function enterpriseRequestUpdateEnterpriseRequest(
+  http: HttpClient,
+  parameters: EnterpriseRequestUpdateEnterpriseRequestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.enterpriseRequestId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readEnterpriseRequestResponse(value);
+}
+
 export interface FilesBatchDeleteHostFilesParameters {
   readonly body: BatchDeleteHostFilesRequest;
 }
@@ -3038,8 +3564,8 @@ export async function filesBatchDeleteHostFiles(
 }
 
 export interface FilesBatchUploadHostFilesParameters {
-  readonly files: Array<IFormFile>;
   readonly folderId?: string;
+  readonly files: IFormFileCollection;
 }
 
 export async function filesBatchUploadHostFiles(
@@ -3048,13 +3574,14 @@ export async function filesBatchUploadHostFiles(
   signal?: AbortSignal,
   options?: RequestOptions
 ): Promise<BatchUploadHostFilesResponse> {
-  const path = `/api/v1/files/host-files/batch-upload`;
+  const query = new URLSearchParams();
+  if (parameters.folderId !== undefined) {
+    query.set('folderId', String(parameters.folderId));
+  }
+  const path = query.size === 0 ? `/api/v1/files/host-files/batch-upload` : `/api/v1/files/host-files/batch-upload?${query.toString()}`;
   const body = new FormData();
   for (const file of parameters.files) {
     body.append('files', file);
-  }
-  if (parameters.folderId !== undefined) {
-    body.append('folderId', String(parameters.folderId));
   }
   const init: RequestInit = { method: 'POST', body };
   const value = options === undefined
@@ -3310,8 +3837,8 @@ export async function filesUpdateHostFolder(
 }
 
 export interface FilesUploadHostFileParameters {
-  readonly file?: IFormFile;
   readonly folderId?: string;
+  readonly file?: IFormFile;
 }
 
 export async function filesUploadHostFile(
@@ -3320,13 +3847,14 @@ export async function filesUploadHostFile(
   signal?: AbortSignal,
   options?: RequestOptions
 ): Promise<HostFileResponse> {
-  const path = `/api/v1/files/host-files`;
+  const query = new URLSearchParams();
+  if (parameters.folderId !== undefined) {
+    query.set('folderId', String(parameters.folderId));
+  }
+  const path = query.size === 0 ? `/api/v1/files/host-files` : `/api/v1/files/host-files?${query.toString()}`;
   const body = new FormData();
   if (parameters.file !== undefined) {
     body.append('file', parameters.file);
-  }
-  if (parameters.folderId !== undefined) {
-    body.append('folderId', String(parameters.folderId));
   }
   const init: RequestInit = { method: 'POST', body };
   const value = options === undefined
@@ -3377,7 +3905,7 @@ export async function goviewGetProject(
 
 export interface GoviewGetProjectVersionParameters {
   readonly projectId: string;
-  readonly versionNumber: number | string;
+  readonly versionNumber: number;
 }
 
 export async function goviewGetProjectVersion(
@@ -3395,7 +3923,7 @@ export async function goviewGetProjectVersion(
 }
 
 export interface GoviewListProjectsParameters {
-  readonly nameContains?: null | string;
+  readonly nameContains?: string;
 }
 
 export async function goviewListProjects(
@@ -5032,7 +5560,7 @@ export async function identityUpdateSelfServiceProfile(
 }
 
 export interface IdentityUploadSelfServiceAvatarParameters {
-  readonly file: IFormFile;
+  readonly file?: IFormFile;
 }
 
 export async function identityUploadSelfServiceAvatar(
@@ -5043,7 +5571,9 @@ export async function identityUploadSelfServiceAvatar(
 ): Promise<SelfServiceProfileResponse> {
   const path = `/api/v1/me/profile/avatar`;
   const body = new FormData();
-  body.append('file', parameters.file);
+  if (parameters.file !== undefined) {
+    body.append('file', parameters.file);
+  }
   const init: RequestInit = { method: 'POST', body };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
@@ -5052,7 +5582,7 @@ export async function identityUploadSelfServiceAvatar(
 }
 
 export interface IdentityUploadSelfServiceSignatureParameters {
-  readonly file: IFormFile;
+  readonly file?: IFormFile;
 }
 
 export async function identityUploadSelfServiceSignature(
@@ -5063,7 +5593,9 @@ export async function identityUploadSelfServiceSignature(
 ): Promise<SelfServiceProfileResponse> {
   const path = `/api/v1/me/profile/signature`;
   const body = new FormData();
-  body.append('file', parameters.file);
+  if (parameters.file !== undefined) {
+    body.append('file', parameters.file);
+  }
   const init: RequestInit = { method: 'POST', body };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
@@ -5094,9 +5626,7 @@ export async function identityValidateModuleSelection(
 }
 
 export interface ImportExportCreateImportTaskParameters {
-  readonly file: IFormFile;
-  readonly schemaKey: string;
-  readonly worksheetKey: string;
+
 }
 
 export async function importExportCreateImportTask(
@@ -5107,9 +5637,6 @@ export async function importExportCreateImportTask(
 ): Promise<ImportExportTaskDetailResponse> {
   const path = `/api/v1/import-export/tasks`;
   const body = new FormData();
-  body.append('file', parameters.file);
-  body.append('schemaKey', String(parameters.schemaKey));
-  body.append('worksheetKey', String(parameters.worksheetKey));
   const init: RequestInit = { method: 'POST', body };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
@@ -5213,9 +5740,9 @@ export async function importExportGetStaticSchema(
 }
 
 export interface ImportExportListImportTasksParameters {
-  readonly page?: number | string;
-  readonly pageSize?: number | string;
-  readonly schemaKey?: null | string;
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly schemaKey?: string;
 }
 
 export async function importExportListImportTasks(
@@ -5915,8 +6442,8 @@ export async function k3cloudListConnectionConfigs(
 }
 
 export interface K3cloudListDocumentSyncsParameters {
-  readonly page?: null | number | string;
-  readonly pageSize?: null | number | string;
+  readonly page?: number;
+  readonly pageSize?: number;
 }
 
 export async function k3cloudListDocumentSyncs(
@@ -7179,8 +7706,8 @@ export async function ocrGetProviderConfig(
 }
 
 export interface OcrListIdCardTasksParameters {
-  readonly page?: null | number | string;
-  readonly pageSize?: null | number | string;
+  readonly page?: number;
+  readonly pageSize?: number;
 }
 
 export async function ocrListIdCardTasks(
@@ -8427,7 +8954,6 @@ export async function paymentsUpdateMerchantConfig(
 
 export interface PaymentsWeChatNativeNotifyParameters {
   readonly merchantConfigId: string;
-  readonly body: Readonly<Record<string, unknown>>;
 }
 
 export async function paymentsWeChatNativeNotify(
@@ -8435,17 +8961,14 @@ export async function paymentsWeChatNativeNotify(
   parameters: PaymentsWeChatNativeNotifyParameters,
   signal?: AbortSignal,
   options?: RequestOptions
-): Promise<WeChatPayNotifyAckResponse> {
+): Promise<void> {
   const path = `/api/v1/payments/wechat-native/notify/${encodeURIComponent(String(parameters.merchantConfigId))}`;
-  const init: RequestInit = {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(parameters.body)
-  };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
-  return readWeChatPayNotifyAckResponse(value);
+  const init: RequestInit = { method: 'POST' };
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
 }
 
 export interface PlatformCreateHostReleaseNoteParameters {
@@ -8549,8 +9072,8 @@ export async function platformGetLatestUnreadReleaseNote(
 }
 
 export interface PlatformListHostReleaseNotesParameters {
-  readonly page?: number | string;
-  readonly pageSize?: number | string;
+  readonly page?: number;
+  readonly pageSize?: number;
   readonly title?: string;
   readonly status?: string;
   readonly versionLabel?: string;
@@ -8587,8 +9110,8 @@ export async function platformListHostReleaseNotes(
 }
 
 export interface PlatformListMyReleaseNotesParameters {
-  readonly page?: number | string;
-  readonly pageSize?: number | string;
+  readonly page?: number;
+  readonly pageSize?: number;
 }
 
 export async function platformListMyReleaseNotes(
@@ -8759,7 +9282,7 @@ export async function printingGetTemplate(
 
 export interface PrintingGetTemplateVersionParameters {
   readonly templateId: string;
-  readonly versionNumber: number | string;
+  readonly versionNumber: number;
 }
 
 export async function printingGetTemplateVersion(
@@ -8795,7 +9318,7 @@ export async function printingListFormSchemas(
 }
 
 export interface PrintingListTemplatesParameters {
-  readonly nameContains?: null | string;
+  readonly nameContains?: string;
 }
 
 export async function printingListTemplates(
@@ -9328,8 +9851,8 @@ export async function reportingDownloadExportTask(
 
 export interface ReportingExecuteDefinitionParameters {
   readonly definitionId: string;
-  readonly page?: number | string;
-  readonly pageSize?: number | string;
+  readonly page?: number;
+  readonly pageSize?: number;
   readonly body: ExecuteReportingDefinitionRequest;
 }
 
@@ -9396,7 +9919,7 @@ export async function reportingGetDefinition(
 
 export interface ReportingGetDefinitionVersionParameters {
   readonly definitionId: string;
-  readonly versionNumber: number | string;
+  readonly versionNumber: number;
 }
 
 export async function reportingGetDefinitionVersion(
@@ -9468,11 +9991,11 @@ export async function reportingGetQueryPort(
 }
 
 export interface ReportingListDataSourcesParameters {
-  readonly page?: number | string;
-  readonly pageSize?: number | string;
-  readonly tenantId?: null | string;
-  readonly nameContains?: null | string;
-  readonly isEnabled?: null | boolean;
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly tenantId?: string;
+  readonly nameContains?: string;
+  readonly isEnabled?: boolean;
 }
 
 export async function reportingListDataSources(
@@ -9506,8 +10029,8 @@ export async function reportingListDataSources(
 }
 
 export interface ReportingListDefinitionsParameters {
-  readonly groupId?: null | string;
-  readonly nameContains?: null | string;
+  readonly groupId?: string;
+  readonly nameContains?: string;
 }
 
 export async function reportingListDefinitions(
@@ -9550,9 +10073,9 @@ export async function reportingListDefinitionVersions(
 }
 
 export interface ReportingListExportTasksParameters {
-  readonly page?: number | string;
-  readonly pageSize?: number | string;
-  readonly definitionId?: null | string;
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly definitionId?: string;
 }
 
 export async function reportingListExportTasks(
@@ -11397,7 +11920,7 @@ export async function tenancyUpdateHostTenantPackage(
 }
 
 export interface TenancyUploadCurrentBrandingLogoParameters {
-  readonly file: IFormFile;
+  readonly file?: IFormFile;
 }
 
 export async function tenancyUploadCurrentBrandingLogo(
@@ -11408,7 +11931,9 @@ export async function tenancyUploadCurrentBrandingLogo(
 ): Promise<TenantBrandingResponse> {
   const path = `/api/v1/tenancy/branding/logo`;
   const body = new FormData();
-  body.append('file', parameters.file);
+  if (parameters.file !== undefined) {
+    body.append('file', parameters.file);
+  }
   const init: RequestInit = { method: 'POST', body };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
@@ -11418,7 +11943,7 @@ export async function tenancyUploadCurrentBrandingLogo(
 
 export interface TenancyUploadHostTenantBrandingLogoParameters {
   readonly tenantId: string;
-  readonly file: IFormFile;
+  readonly file?: IFormFile;
 }
 
 export async function tenancyUploadHostTenantBrandingLogo(
@@ -11429,7 +11954,9 @@ export async function tenancyUploadHostTenantBrandingLogo(
 ): Promise<TenantBrandingResponse> {
   const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/branding/logo`;
   const body = new FormData();
-  body.append('file', parameters.file);
+  if (parameters.file !== undefined) {
+    body.append('file', parameters.file);
+  }
   const init: RequestInit = { method: 'POST', body };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)

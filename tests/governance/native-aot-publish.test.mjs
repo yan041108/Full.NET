@@ -276,7 +276,7 @@ test('OIDC Native AOT 门禁登记矩阵、脚本、工作流与专用 TRX', asy
     'tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj'
   );
   assert.equal(oidcGate.filter, 'FullyQualifiedName~NativeApiOidc');
-  assert.equal(oidcGate.minimum, 10);
+  assert.equal(oidcGate.minimum, 16);
   assert.equal(oidcGate.timeout, '45m');
 
   assert.equal(

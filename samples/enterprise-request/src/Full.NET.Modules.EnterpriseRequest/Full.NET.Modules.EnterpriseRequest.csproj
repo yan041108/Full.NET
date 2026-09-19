@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <NeutralLanguage>zh-CN</NeutralLanguage>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Full.NET.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../../../src/BuildingBlocks/Full.NET.Abstractions/Full.NET.Abstractions.csproj" />
+    <ProjectReference Include="../../../../src/BuildingBlocks/Full.NET.Data.Abstractions/Full.NET.Data.Abstractions.csproj" />
+    <ProjectReference Include="../../../../src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj" />
+    <ProjectReference Include="../../../../src/BuildingBlocks/Full.NET.Hosting/Full.NET.Hosting.csproj" />
+    <ProjectReference Include="../../../../src/BuildingBlocks/Full.NET.Modularity/Full.NET.Modularity.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Identity.Contracts/Full.NET.Modules.Identity.Contracts.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Organization.Contracts/Full.NET.Modules.Organization.Contracts.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Files.Contracts/Full.NET.Modules.Files.Contracts.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Workflow.Contracts/Full.NET.Modules.Workflow.Contracts.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.ImportExport.Contracts/Full.NET.Modules.ImportExport.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

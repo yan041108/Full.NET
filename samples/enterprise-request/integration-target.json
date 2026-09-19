@@ -1,0 +1,16 @@
+{
+  "moduleName": "EnterpriseRequest",
+  "moduleProjectPath": "samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/Full.NET.Modules.EnterpriseRequest.csproj",
+  "moduleEntryPointPath": "samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/EnterpriseRequestModule.cs",
+  "compositionProjectPath": "src/Composition/Full.NET.Composition/Full.NET.Composition.csproj",
+  "compositionCatalogPath": "src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs",
+  "vueRouterPath": "ui/admin/src/router/index.ts",
+  "layuiRouterPath": "ui/admin-layui/js/core/route-controllers.js",
+  "clientRoute": {
+    "routePath": "/enterprise-requests",
+    "vueRouteName": "enterprise-requests",
+    "vueComponentPath": "ui/admin/src/views/EnterpriseRequestsView.vue",
+    "layuiControllerPath": "ui/admin-layui/js/controllers/enterprise-requests.js",
+    "layuiControllerExport": "createEnterpriseRequestsController"
+  }
+}

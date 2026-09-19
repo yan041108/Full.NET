@@ -1,0 +1,27 @@
+-- Full.NET 生成的 SQL Server 迁移草案。
+-- 请分配真实迁移编号并完成幂等恢复评审后，再移入正式 DbUp 目录。
+IF OBJECT_ID(N'dbo.demo_enterprise_request_enterprise_request', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.demo_enterprise_request_enterprise_request
+    (
+        Id uniqueidentifier NOT NULL,
+        TenantId uniqueidentifier NOT NULL,
+        OrganizationUnitId uniqueidentifier NOT NULL,
+        RequestNumber nvarchar(64) NOT NULL,
+        Title nvarchar(200) NOT NULL,
+        Status nvarchar(32) NOT NULL,
+        TotalAmount decimal(18, 2) NOT NULL,
+        ApplicantUserId uniqueidentifier NOT NULL,
+        Version bigint NOT NULL,
+        CreatedAtUtc datetimeoffset(7) NOT NULL,
+        CreatedById uniqueidentifier NOT NULL,
+        UpdatedAtUtc datetimeoffset(7) NULL,
+        UpdatedById uniqueidentifier NULL,
+        IsDeleted bit NOT NULL,
+        DeletedAtUtc datetimeoffset(7) NULL,
+        DeletedById uniqueidentifier NULL,
+        CONSTRAINT PK_demo_enterprise_request_enterprise_request PRIMARY KEY NONCLUSTERED (Id)
+    );
+    CREATE CLUSTERED INDEX IX_demo_enterprise_request_enterprise_request_TenantId_Id
+        ON dbo.demo_enterprise_request_enterprise_request(TenantId, Id);
+END;

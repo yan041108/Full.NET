@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 2569,
+      "minimum": 2580,
       "timeout": "10m",
       "selections": {
         "async-lifecycle": {
@@ -32,8 +32,8 @@
           "minimum": 371
         },
         "identity-oidc": {
-          "filter": "FullyQualifiedName~IdentityOidcOptionsTests|FullyQualifiedName~IdentityOidcSessionTests|FullyQualifiedName~IdentityOidcPrincipalTests|FullyQualifiedName~IdentityOidcPkceHelperTests|FullyQualifiedName~IdentityOidcInteractionTests|FullyQualifiedName~IdentityOidcStoreSerializationTests",
-          "minimum": 45
+          "filter": "FullyQualifiedName~IdentityOidcOptionsTests|FullyQualifiedName~IdentityOidcSessionTests|FullyQualifiedName~IdentityOidcPrincipalTests|FullyQualifiedName~IdentityOidcPkceHelperTests|FullyQualifiedName~IdentityOidcInteractionTests|FullyQualifiedName~IdentityOidcStoreSerializationTests|FullyQualifiedName~IdentityOidcCenterLoginServiceTests|FullyQualifiedName~IdentityOidcLogoutTests",
+          "minimum": 56
         },
         "identity-oidc-protocol": {
           "filter": "FullyQualifiedName~IdentityOidcPkceHelperTests|FullyQualifiedName~Oidc_protocol|FullyQualifiedName~IdentityOidcProtocol|FullyQualifiedName~IdentityOidcInteractionTests",
@@ -50,7 +50,7 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 172,
+      "minimum": 230,
       "timeout": "10m",
       "selections": {
         "ai-agentic-boundaries": {
@@ -142,6 +142,189 @@
       }
     },
     "migrationSelections": {
+      "101": {
+        "filter": "FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.MySql_|FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.SqlServer_"
+      },
+      "102": {
+        "filter": "FullyQualifiedName~Migration102WorkflowFirstVerticalSliceRecoveryTests.MySql_|FullyQualifiedName~Migration102WorkflowFirstVerticalSliceRecoveryTests.SqlServer_"
+      },
+      "103": {
+        "filter": "FullyQualifiedName~Migration103WorkflowDefinitionFormVersionBindingRecoveryTests.MySql_|FullyQualifiedName~Migration103WorkflowDefinitionFormVersionBindingRecoveryTests.SqlServer_"
+      },
+      "104": {
+        "filter": "FullyQualifiedName~Migration104NotificationsPlatformExtensionRecoveryTests.MySql_|FullyQualifiedName~Migration104NotificationsPlatformExtensionRecoveryTests.SqlServer_"
+      },
+      "105": {
+        "filter": "FullyQualifiedName~Migration105NotificationsInboxScopeExtensionRecoveryTests.MySql_|FullyQualifiedName~Migration105NotificationsInboxScopeExtensionRecoveryTests.SqlServer_"
+      },
+      "106": {
+        "filter": "FullyQualifiedName~Migration106NotificationsAnnouncementLifecycleRecoveryTests.MySql_|FullyQualifiedName~Migration106NotificationsAnnouncementLifecycleRecoveryTests.SqlServer_"
+      },
+      "107": {
+        "filter": "FullyQualifiedName~Migration107NotificationsAnnouncementRetractPermissionRecoveryTests.MySql_|FullyQualifiedName~Migration107NotificationsAnnouncementRetractPermissionRecoveryTests.SqlServer_"
+      },
+      "109": {
+        "filter": "FullyQualifiedName~Migration109WorkflowSuspendedInstanceOccupancyRecoveryTests.MySql_|FullyQualifiedName~Migration109WorkflowSuspendedInstanceOccupancyRecoveryTests.SqlServer_"
+      },
+      "110": {
+        "filter": "FullyQualifiedName~Migration110WorkflowRecoveryTaskRecoveryTests.MySql_|FullyQualifiedName~Migration110WorkflowRecoveryTaskRecoveryTests.SqlServer_"
+      },
+      "111": {
+        "filter": "FullyQualifiedName~Migration111WorkflowTodoTimeoutPolicyRecoveryTests.MySql_|FullyQualifiedName~Migration111WorkflowTodoTimeoutPolicyRecoveryTests.SqlServer_"
+      },
+      "112": {
+        "filter": "FullyQualifiedName~Migration112WorkflowStepExecutionSequenceRecoveryTests.MySql_|FullyQualifiedName~Migration112WorkflowStepExecutionSequenceRecoveryTests.SqlServer_"
+      },
+      "113": {
+        "filter": "FullyQualifiedName~Migration113WorkflowMultiApprovalRecoveryTests.MySql_|FullyQualifiedName~Migration113WorkflowMultiApprovalRecoveryTests.SqlServer_"
+      },
+      "114": {
+        "filter": "FullyQualifiedName~Migration114WorkflowCountersignRecoveryTests.MySql_|FullyQualifiedName~Migration114WorkflowCountersignRecoveryTests.SqlServer_"
+      },
+      "115": {
+        "filter": "FullyQualifiedName~Migration115WorkflowParallelGatewayRecoveryTests.MySql_|FullyQualifiedName~Migration115WorkflowParallelGatewayRecoveryTests.SqlServer_"
+      },
+      "116": {
+        "filter": "FullyQualifiedName~Migration116WorkflowInclusiveGatewayRecoveryTests.MySql_|FullyQualifiedName~Migration116WorkflowInclusiveGatewayRecoveryTests.SqlServer_"
+      },
+      "117": {
+        "filter": "FullyQualifiedName~Migration117NotificationsTemplateLocaleRecoveryTests.MySql_|FullyQualifiedName~Migration117NotificationsTemplateLocaleRecoveryTests.SqlServer_"
+      },
+      "118": {
+        "filter": "FullyQualifiedName~Migration118DataApprovalRequestRecoveryTests.MySql_|FullyQualifiedName~Migration118DataApprovalRequestRecoveryTests.SqlServer_"
+      },
+      "119": {
+        "filter": "FullyQualifiedName~Migration119DataApprovalScenarioRecoveryTests.MySql_|FullyQualifiedName~Migration119DataApprovalScenarioRecoveryTests.SqlServer_"
+      },
+      "120": {
+        "filter": "FullyQualifiedName~Migration120DataApprovalRequestRecoveryTests.MySql_|FullyQualifiedName~Migration120DataApprovalRequestRecoveryTests.SqlServer_"
+      },
+      "121": {
+        "filter": "FullyQualifiedName~Migration121DataApprovalRequestApplicationTests.MySql_|FullyQualifiedName~Migration121DataApprovalRequestApplicationTests.SqlServer_"
+      },
+      "122": {
+        "filter": "FullyQualifiedName~Migration122WorkflowInstanceInitiatorListIndexTests.MySql_|FullyQualifiedName~Migration122WorkflowInstanceInitiatorListIndexTests.SqlServer_"
+      },
+      "123": {
+        "filter": "FullyQualifiedName~Migration123WorkflowTodoHistoryListIndexTests.MySql_|FullyQualifiedName~Migration123WorkflowTodoHistoryListIndexTests.SqlServer_"
+      },
+      "124": {
+        "filter": "FullyQualifiedName~Migration124WorkflowBusinessTitleTests.MySql_|FullyQualifiedName~Migration124WorkflowBusinessTitleTests.SqlServer_"
+      },
+      "125": {
+        "filter": "FullyQualifiedName~Migration125WorkflowDefinitionLifecycleTests.MySql_|FullyQualifiedName~Migration125WorkflowDefinitionLifecycleTests.SqlServer_"
+      },
+      "126": {
+        "filter": "FullyQualifiedName~Migration126WorkflowFormLifecycleTests.MySql_|FullyQualifiedName~Migration126WorkflowFormLifecycleTests.SqlServer_"
+      },
+      "132": {
+        "filter": "FullyQualifiedName~Migration132CalendarPersonalScheduleRecoveryTests.MySql_|FullyQualifiedName~Migration132CalendarPersonalScheduleRecoveryTests.SqlServer_"
+      },
+      "133": {
+        "filter": "FullyQualifiedName~Migration133CalendarPersonalScheduleActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration133CalendarPersonalScheduleActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "134": {
+        "filter": "FullyQualifiedName~Migration134PlatformReleaseNoteRecoveryTests.MySql_|FullyQualifiedName~Migration134PlatformReleaseNoteRecoveryTests.SqlServer_"
+      },
+      "135": {
+        "filter": "FullyQualifiedName~Migration135PlatformReleaseNoteActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration135PlatformReleaseNoteActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "136": {
+        "filter": "FullyQualifiedName~Migration136RegionsAdministrativeRegionRecoveryTests.MySql_|FullyQualifiedName~Migration136RegionsAdministrativeRegionRecoveryTests.SqlServer_"
+      },
+      "137": {
+        "filter": "FullyQualifiedName~Migration137RegionsAdministrativeRegionActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration137RegionsAdministrativeRegionActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "138": {
+        "filter": "FullyQualifiedName~Migration138IdentityOpenAccessClientRecoveryTests.MySql_|FullyQualifiedName~Migration138IdentityOpenAccessClientRecoveryTests.SqlServer_"
+      },
+      "139": {
+        "filter": "FullyQualifiedName~Migration139IdentityOpenAccessClientActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration139IdentityOpenAccessClientActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "140": {
+        "filter": "FullyQualifiedName~Migration140IdentityOpenAccessClientQuotaRecoveryTests.MySql_|FullyQualifiedName~Migration140IdentityOpenAccessClientQuotaRecoveryTests.SqlServer_"
+      },
+      "141": {
+        "filter": "FullyQualifiedName~Migration141IdentityOpenAccessClientDebugPermissionRecoveryTests.MySql_|FullyQualifiedName~Migration141IdentityOpenAccessClientDebugPermissionRecoveryTests.SqlServer_"
+      },
+      "142": {
+        "filter": "FullyQualifiedName~Migration142NotificationsAnnouncementReadReceiptRecoveryTests.MySql_|FullyQualifiedName~Migration142NotificationsAnnouncementReadReceiptRecoveryTests.SqlServer_"
+      },
+      "143": {
+        "filter": "FullyQualifiedName~Migration143NotificationsAnnouncementReceiptPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration143NotificationsAnnouncementReceiptPermissionsRecoveryTests.SqlServer_"
+      },
+      "144": {
+        "filter": "FullyQualifiedName~Migration144NotificationsIntentAttachmentRecoveryTests.MySql_|FullyQualifiedName~Migration144NotificationsIntentAttachmentRecoveryTests.SqlServer_"
+      },
+      "145": {
+        "filter": "FullyQualifiedName~Migration145SerialNumberRuleDisableApprovalPermissionRecoveryTests.MySql_|FullyQualifiedName~Migration145SerialNumberRuleDisableApprovalPermissionRecoveryTests.SqlServer_"
+      },
+      "146": {
+        "filter": "FullyQualifiedName~Migration146DocumentHostRollbackVersionPermissionRecoveryTests.MySql_|FullyQualifiedName~Migration146DocumentHostRollbackVersionPermissionRecoveryTests.SqlServer_"
+      },
+      "147": {
+        "filter": "FullyQualifiedName~Migration147IdentityRegistrationPolicyAndWaysRecoveryTests.MySql_|FullyQualifiedName~Migration147IdentityRegistrationPolicyAndWaysRecoveryTests.SqlServer_"
+      },
+      "148": {
+        "filter": "FullyQualifiedName~Migration148IdentityRegistrationActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration148IdentityRegistrationActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "149": {
+        "filter": "FullyQualifiedName~Migration149IdentityLdapConnectionRecoveryTests.MySql_|FullyQualifiedName~Migration149IdentityLdapConnectionRecoveryTests.SqlServer_"
+      },
+      "151": {
+        "filter": "FullyQualifiedName~Migration151IdentityOAuthProviderRecoveryTests.MySql_|FullyQualifiedName~Migration151IdentityOAuthProviderRecoveryTests.SqlServer_"
+      },
+      "153": {
+        "filter": "FullyQualifiedName~Migration153FilesStorageProviderActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration153FilesStorageProviderActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "202": {
+        "filter": "FullyQualifiedName~Migration202TenantResourceFileRecoveryTests.MySql_|FullyQualifiedName~Migration202TenantResourceFileRecoveryTests.SqlServer_"
+      },
+      "203": {
+        "filter": "FullyQualifiedName~Migration203PublishedUuidStorageRecoveryTests.MySql_|FullyQualifiedName~Migration203PublishedUuidStorageRecoveryTests.SqlServer_"
+      },
+      "204": {
+        "filter": "FullyQualifiedName~Migration204AiQuotaReservationRecoveryTests.MySql_|FullyQualifiedName~Migration204AiQuotaReservationRecoveryTests.SqlServer_"
+      },
+      "205": {
+        "filter": "FullyQualifiedName~Migration205AiChatGenerationLeaseRecoveryTests.MySql_|FullyQualifiedName~Migration205AiChatGenerationLeaseRecoveryTests.SqlServer_"
+      },
+      "206": {
+        "filter": "FullyQualifiedName~Migration206ExternalSideEffectUnknownStateRecoveryTests.MySql_|FullyQualifiedName~Migration206ExternalSideEffectUnknownStateRecoveryTests.SqlServer_"
+      },
+      "207": {
+        "filter": "FullyQualifiedName~Migration207TaskExecutionLeaseRecoveryTests.MySql_|FullyQualifiedName~Migration207TaskExecutionLeaseRecoveryTests.SqlServer_"
+      },
+      "208": {
+        "filter": "FullyQualifiedName~Migration208MqttHostIdempotencyScopeRecoveryTests.MySql_|FullyQualifiedName~Migration208MqttHostIdempotencyScopeRecoveryTests.SqlServer_"
+      },
+      "209": {
+        "filter": "FullyQualifiedName~Migration209PositionImportReceiptTests.MySql_|FullyQualifiedName~Migration209PositionImportReceiptTests.SqlServer_"
+      },
+      "210": {
+        "filter": "FullyQualifiedName~Migration210AiToolExecutionStatusTests.MySql_|FullyQualifiedName~Migration210AiToolExecutionStatusTests.SqlServer_"
+      },
+      "211": {
+        "filter": "FullyQualifiedName~Migration211AiOperationBudgetTests.MySql_|FullyQualifiedName~Migration211AiOperationBudgetTests.SqlServer_"
+      },
+      "212": {
+        "filter": "FullyQualifiedName~Migration212AiAgentRuntimeTests.MySql_|FullyQualifiedName~Migration212AiAgentRuntimeTests.SqlServer_"
+      },
+      "213": {
+        "filter": "FullyQualifiedName~Migration213AiAgentWorkerHeartbeatTests.MySql_|FullyQualifiedName~Migration213AiAgentWorkerHeartbeatTests.SqlServer_"
+      },
+      "214": {
+        "filter": "FullyQualifiedName~Migration214AiAgentApprovalTests.MySql_|FullyQualifiedName~Migration214AiAgentApprovalTests.SqlServer_"
+      },
+      "215": {
+        "filter": "FullyQualifiedName~Migration215AiMcpRemoteConnectionTests.MySql_|FullyQualifiedName~Migration215AiMcpRemoteConnectionTests.SqlServer_"
+      },
+      "216": {
+        "filter": "FullyQualifiedName~Migration216IdentityOidcRecoveryTests.MySql_|FullyQualifiedName~Migration216IdentityOidcRecoveryTests.SqlServer_"
+      },
+      "217": {
+        "filter": "FullyQualifiedName~Migration217IdentityOidcSessionTests.MySql_|FullyQualifiedName~Migration217IdentityOidcSessionTests.SqlServer_"
+      },
       "008": {
         "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryExpandMigrationTests|FullyQualifiedName~UuidBinaryPartialRecoveryTests"
       },
@@ -345,189 +528,6 @@
       },
       "098": {
         "filter": "FullyQualifiedName~Migration098JobsDefinitionHandlerKindAndArgsRecoveryTests.MySql_|FullyQualifiedName~Migration098JobsDefinitionHandlerKindAndArgsRecoveryTests.SqlServer_"
-      },
-      "101": {
-        "filter": "FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.MySql_|FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.SqlServer_"
-      },
-      "102": {
-        "filter": "FullyQualifiedName~Migration102WorkflowFirstVerticalSliceRecoveryTests.MySql_|FullyQualifiedName~Migration102WorkflowFirstVerticalSliceRecoveryTests.SqlServer_"
-      },
-      "103": {
-        "filter": "FullyQualifiedName~Migration103WorkflowDefinitionFormVersionBindingRecoveryTests.MySql_|FullyQualifiedName~Migration103WorkflowDefinitionFormVersionBindingRecoveryTests.SqlServer_"
-      },
-      "104": {
-        "filter": "FullyQualifiedName~Migration104NotificationsPlatformExtensionRecoveryTests.MySql_|FullyQualifiedName~Migration104NotificationsPlatformExtensionRecoveryTests.SqlServer_"
-      },
-      "105": {
-        "filter": "FullyQualifiedName~Migration105NotificationsInboxScopeExtensionRecoveryTests.MySql_|FullyQualifiedName~Migration105NotificationsInboxScopeExtensionRecoveryTests.SqlServer_"
-      },
-      "106": {
-        "filter": "FullyQualifiedName~Migration106NotificationsAnnouncementLifecycleRecoveryTests.MySql_|FullyQualifiedName~Migration106NotificationsAnnouncementLifecycleRecoveryTests.SqlServer_"
-      },
-      "107": {
-        "filter": "FullyQualifiedName~Migration107NotificationsAnnouncementRetractPermissionRecoveryTests.MySql_|FullyQualifiedName~Migration107NotificationsAnnouncementRetractPermissionRecoveryTests.SqlServer_"
-      },
-      "109": {
-        "filter": "FullyQualifiedName~Migration109WorkflowSuspendedInstanceOccupancyRecoveryTests.MySql_|FullyQualifiedName~Migration109WorkflowSuspendedInstanceOccupancyRecoveryTests.SqlServer_"
-      },
-      "110": {
-        "filter": "FullyQualifiedName~Migration110WorkflowRecoveryTaskRecoveryTests.MySql_|FullyQualifiedName~Migration110WorkflowRecoveryTaskRecoveryTests.SqlServer_"
-      },
-      "111": {
-        "filter": "FullyQualifiedName~Migration111WorkflowTodoTimeoutPolicyRecoveryTests.MySql_|FullyQualifiedName~Migration111WorkflowTodoTimeoutPolicyRecoveryTests.SqlServer_"
-      },
-      "112": {
-        "filter": "FullyQualifiedName~Migration112WorkflowStepExecutionSequenceRecoveryTests.MySql_|FullyQualifiedName~Migration112WorkflowStepExecutionSequenceRecoveryTests.SqlServer_"
-      },
-      "113": {
-        "filter": "FullyQualifiedName~Migration113WorkflowMultiApprovalRecoveryTests.MySql_|FullyQualifiedName~Migration113WorkflowMultiApprovalRecoveryTests.SqlServer_"
-      },
-      "114": {
-        "filter": "FullyQualifiedName~Migration114WorkflowCountersignRecoveryTests.MySql_|FullyQualifiedName~Migration114WorkflowCountersignRecoveryTests.SqlServer_"
-      },
-      "115": {
-        "filter": "FullyQualifiedName~Migration115WorkflowParallelGatewayRecoveryTests.MySql_|FullyQualifiedName~Migration115WorkflowParallelGatewayRecoveryTests.SqlServer_"
-      },
-      "116": {
-        "filter": "FullyQualifiedName~Migration116WorkflowInclusiveGatewayRecoveryTests.MySql_|FullyQualifiedName~Migration116WorkflowInclusiveGatewayRecoveryTests.SqlServer_"
-      },
-      "117": {
-        "filter": "FullyQualifiedName~Migration117NotificationsTemplateLocaleRecoveryTests.MySql_|FullyQualifiedName~Migration117NotificationsTemplateLocaleRecoveryTests.SqlServer_"
-      },
-      "118": {
-        "filter": "FullyQualifiedName~Migration118DataApprovalRequestRecoveryTests.MySql_|FullyQualifiedName~Migration118DataApprovalRequestRecoveryTests.SqlServer_"
-      },
-      "119": {
-        "filter": "FullyQualifiedName~Migration119DataApprovalScenarioRecoveryTests.MySql_|FullyQualifiedName~Migration119DataApprovalScenarioRecoveryTests.SqlServer_"
-      },
-      "120": {
-        "filter": "FullyQualifiedName~Migration120DataApprovalRequestRecoveryTests.MySql_|FullyQualifiedName~Migration120DataApprovalRequestRecoveryTests.SqlServer_"
-      },
-      "121": {
-        "filter": "FullyQualifiedName~Migration121DataApprovalRequestApplicationTests.MySql_|FullyQualifiedName~Migration121DataApprovalRequestApplicationTests.SqlServer_"
-      },
-      "122": {
-        "filter": "FullyQualifiedName~Migration122WorkflowInstanceInitiatorListIndexTests.MySql_|FullyQualifiedName~Migration122WorkflowInstanceInitiatorListIndexTests.SqlServer_"
-      },
-      "123": {
-        "filter": "FullyQualifiedName~Migration123WorkflowTodoHistoryListIndexTests.MySql_|FullyQualifiedName~Migration123WorkflowTodoHistoryListIndexTests.SqlServer_"
-      },
-      "124": {
-        "filter": "FullyQualifiedName~Migration124WorkflowBusinessTitleTests.MySql_|FullyQualifiedName~Migration124WorkflowBusinessTitleTests.SqlServer_"
-      },
-      "125": {
-        "filter": "FullyQualifiedName~Migration125WorkflowDefinitionLifecycleTests.MySql_|FullyQualifiedName~Migration125WorkflowDefinitionLifecycleTests.SqlServer_"
-      },
-      "126": {
-        "filter": "FullyQualifiedName~Migration126WorkflowFormLifecycleTests.MySql_|FullyQualifiedName~Migration126WorkflowFormLifecycleTests.SqlServer_"
-      },
-      "132": {
-        "filter": "FullyQualifiedName~Migration132CalendarPersonalScheduleRecoveryTests.MySql_|FullyQualifiedName~Migration132CalendarPersonalScheduleRecoveryTests.SqlServer_"
-      },
-      "133": {
-        "filter": "FullyQualifiedName~Migration133CalendarPersonalScheduleActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration133CalendarPersonalScheduleActionPermissionsRecoveryTests.SqlServer_"
-      },
-      "134": {
-        "filter": "FullyQualifiedName~Migration134PlatformReleaseNoteRecoveryTests.MySql_|FullyQualifiedName~Migration134PlatformReleaseNoteRecoveryTests.SqlServer_"
-      },
-      "135": {
-        "filter": "FullyQualifiedName~Migration135PlatformReleaseNoteActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration135PlatformReleaseNoteActionPermissionsRecoveryTests.SqlServer_"
-      },
-      "136": {
-        "filter": "FullyQualifiedName~Migration136RegionsAdministrativeRegionRecoveryTests.MySql_|FullyQualifiedName~Migration136RegionsAdministrativeRegionRecoveryTests.SqlServer_"
-      },
-      "137": {
-        "filter": "FullyQualifiedName~Migration137RegionsAdministrativeRegionActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration137RegionsAdministrativeRegionActionPermissionsRecoveryTests.SqlServer_"
-      },
-      "138": {
-        "filter": "FullyQualifiedName~Migration138IdentityOpenAccessClientRecoveryTests.MySql_|FullyQualifiedName~Migration138IdentityOpenAccessClientRecoveryTests.SqlServer_"
-      },
-      "139": {
-        "filter": "FullyQualifiedName~Migration139IdentityOpenAccessClientActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration139IdentityOpenAccessClientActionPermissionsRecoveryTests.SqlServer_"
-      },
-      "140": {
-        "filter": "FullyQualifiedName~Migration140IdentityOpenAccessClientQuotaRecoveryTests.MySql_|FullyQualifiedName~Migration140IdentityOpenAccessClientQuotaRecoveryTests.SqlServer_"
-      },
-      "141": {
-        "filter": "FullyQualifiedName~Migration141IdentityOpenAccessClientDebugPermissionRecoveryTests.MySql_|FullyQualifiedName~Migration141IdentityOpenAccessClientDebugPermissionRecoveryTests.SqlServer_"
-      },
-      "142": {
-        "filter": "FullyQualifiedName~Migration142NotificationsAnnouncementReadReceiptRecoveryTests.MySql_|FullyQualifiedName~Migration142NotificationsAnnouncementReadReceiptRecoveryTests.SqlServer_"
-      },
-      "143": {
-        "filter": "FullyQualifiedName~Migration143NotificationsAnnouncementReceiptPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration143NotificationsAnnouncementReceiptPermissionsRecoveryTests.SqlServer_"
-      },
-      "144": {
-        "filter": "FullyQualifiedName~Migration144NotificationsIntentAttachmentRecoveryTests.MySql_|FullyQualifiedName~Migration144NotificationsIntentAttachmentRecoveryTests.SqlServer_"
-      },
-      "145": {
-        "filter": "FullyQualifiedName~Migration145SerialNumberRuleDisableApprovalPermissionRecoveryTests.MySql_|FullyQualifiedName~Migration145SerialNumberRuleDisableApprovalPermissionRecoveryTests.SqlServer_"
-      },
-      "146": {
-        "filter": "FullyQualifiedName~Migration146DocumentHostRollbackVersionPermissionRecoveryTests.MySql_|FullyQualifiedName~Migration146DocumentHostRollbackVersionPermissionRecoveryTests.SqlServer_"
-      },
-      "147": {
-        "filter": "FullyQualifiedName~Migration147IdentityRegistrationPolicyAndWaysRecoveryTests.MySql_|FullyQualifiedName~Migration147IdentityRegistrationPolicyAndWaysRecoveryTests.SqlServer_"
-      },
-      "148": {
-        "filter": "FullyQualifiedName~Migration148IdentityRegistrationActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration148IdentityRegistrationActionPermissionsRecoveryTests.SqlServer_"
-      },
-      "149": {
-        "filter": "FullyQualifiedName~Migration149IdentityLdapConnectionRecoveryTests.MySql_|FullyQualifiedName~Migration149IdentityLdapConnectionRecoveryTests.SqlServer_"
-      },
-      "151": {
-        "filter": "FullyQualifiedName~Migration151IdentityOAuthProviderRecoveryTests.MySql_|FullyQualifiedName~Migration151IdentityOAuthProviderRecoveryTests.SqlServer_"
-      },
-      "153": {
-        "filter": "FullyQualifiedName~Migration153FilesStorageProviderActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration153FilesStorageProviderActionPermissionsRecoveryTests.SqlServer_"
-      },
-      "202": {
-        "filter": "FullyQualifiedName~Migration202TenantResourceFileRecoveryTests.MySql_|FullyQualifiedName~Migration202TenantResourceFileRecoveryTests.SqlServer_"
-      },
-      "203": {
-        "filter": "FullyQualifiedName~Migration203PublishedUuidStorageRecoveryTests.MySql_|FullyQualifiedName~Migration203PublishedUuidStorageRecoveryTests.SqlServer_"
-      },
-      "204": {
-        "filter": "FullyQualifiedName~Migration204AiQuotaReservationRecoveryTests.MySql_|FullyQualifiedName~Migration204AiQuotaReservationRecoveryTests.SqlServer_"
-      },
-      "205": {
-        "filter": "FullyQualifiedName~Migration205AiChatGenerationLeaseRecoveryTests.MySql_|FullyQualifiedName~Migration205AiChatGenerationLeaseRecoveryTests.SqlServer_"
-      },
-      "206": {
-        "filter": "FullyQualifiedName~Migration206ExternalSideEffectUnknownStateRecoveryTests.MySql_|FullyQualifiedName~Migration206ExternalSideEffectUnknownStateRecoveryTests.SqlServer_"
-      },
-      "207": {
-        "filter": "FullyQualifiedName~Migration207TaskExecutionLeaseRecoveryTests.MySql_|FullyQualifiedName~Migration207TaskExecutionLeaseRecoveryTests.SqlServer_"
-      },
-      "208": {
-        "filter": "FullyQualifiedName~Migration208MqttHostIdempotencyScopeRecoveryTests.MySql_|FullyQualifiedName~Migration208MqttHostIdempotencyScopeRecoveryTests.SqlServer_"
-      },
-      "209": {
-        "filter": "FullyQualifiedName~Migration209PositionImportReceiptTests.MySql_|FullyQualifiedName~Migration209PositionImportReceiptTests.SqlServer_"
-      },
-      "210": {
-        "filter": "FullyQualifiedName~Migration210AiToolExecutionStatusTests.MySql_|FullyQualifiedName~Migration210AiToolExecutionStatusTests.SqlServer_"
-      },
-      "211": {
-        "filter": "FullyQualifiedName~Migration211AiOperationBudgetTests.MySql_|FullyQualifiedName~Migration211AiOperationBudgetTests.SqlServer_"
-      },
-      "212": {
-        "filter": "FullyQualifiedName~Migration212AiAgentRuntimeTests.MySql_|FullyQualifiedName~Migration212AiAgentRuntimeTests.SqlServer_"
-      },
-      "213": {
-        "filter": "FullyQualifiedName~Migration213AiAgentWorkerHeartbeatTests.MySql_|FullyQualifiedName~Migration213AiAgentWorkerHeartbeatTests.SqlServer_"
-      },
-      "214": {
-        "filter": "FullyQualifiedName~Migration214AiAgentApprovalTests.MySql_|FullyQualifiedName~Migration214AiAgentApprovalTests.SqlServer_"
-      },
-      "215": {
-        "filter": "FullyQualifiedName~Migration215AiMcpRemoteConnectionTests.MySql_|FullyQualifiedName~Migration215AiMcpRemoteConnectionTests.SqlServer_"
-      },
-      "216": {
-        "filter": "FullyQualifiedName~Migration216IdentityOidcRecoveryTests.MySql_|FullyQualifiedName~Migration216IdentityOidcRecoveryTests.SqlServer_"
-      },
-      "217": {
-        "filter": "FullyQualifiedName~Migration217IdentityOidcSessionTests.MySql_|FullyQualifiedName~Migration217IdentityOidcSessionTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -571,9 +571,91 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 871,
+        "minimum": 863,
         "timeout": "90m"
       }
+    }
+  },
+  "foundationTasks": {
+    "f00": {
+      "description": "Freeze baseline and capability inventory",
+      "command": "docs-only"
+    },
+    "f01": {
+      "description": "Create independent application from template",
+      "command": "pnpm test:templates",
+      "tests": [
+        "tests/templates/source-bundle.test.mjs",
+        "tests/templates/created-app.test.mjs",
+        "tests/templates/template-options.test.mjs",
+        "tests/templates/source-bundle-upgrade.test.mjs"
+      ]
+    },
+    "f02": {
+      "description": "Diagnostics and generated CRUD sample",
+      "filter": "FullyQualifiedName~CodeGeneration"
+    },
+    "f03": {
+      "description": "Account verification challenges",
+      "filter": "FullyQualifiedName~Identity"
+    },
+    "f04": {
+      "description": "Registration and account recovery",
+      "filter": "FullyQualifiedName~AccountRecovery"
+    },
+    "f05": {
+      "description": "Tenant provisioning and members",
+      "filter": "FullyQualifiedName~TenantMembership"
+    },
+    "f06": {
+      "description": "Owner handoff and tenant lifecycle",
+      "filter": "FullyQualifiedName~TenantLifecycle"
+    },
+    "f07": {
+      "description": "Packages and entitlements",
+      "filter": "FullyQualifiedName~TenantEntitlement"
+    },
+    "f08": {
+      "description": "Unified quota protocol",
+      "filter": "FullyQualifiedName~TenantQuota"
+    },
+    "f09": {
+      "description": "Enterprise request sample",
+      "tests": [
+        "samples/enterprise-request/tests/"
+      ]
+    },
+    "f10": {
+      "description": "Approval and notifications sample",
+      "filter": "FullyQualifiedName~Workflow"
+    },
+    "f11": {
+      "description": "Import report and print sample",
+      "filter": "FullyQualifiedName~ImportExport"
+    },
+    "f12": {
+      "description": "SaaS subscription operations",
+      "filter": "FullyQualifiedName~TenantSubscription"
+    },
+    "f13": {
+      "description": "Webhook delivery",
+      "filter": "FullyQualifiedName~WebhookDelivery"
+    },
+    "f14": {
+      "description": "SDK and integration sample",
+      "tests": [
+        "samples/webhook-consumer/"
+      ]
+    },
+    "f15": {
+      "description": "Application upgrade drill",
+      "tests": [
+        "tests/templates/source-bundle-upgrade.test.mjs"
+      ]
+    },
+    "f16": {
+      "description": "Preset release acceptance",
+      "command": "pnpm test:templates"
     }
   }
 }

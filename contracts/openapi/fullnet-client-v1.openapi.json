@@ -58,6 +58,9 @@
       "name": "WorkflowCc"
     },
     {
+      "name": "EnterpriseRequestEnterpriseRequests"
+    },
+    {
       "name": "JobsHostJobHealth"
     },
     {
@@ -211,16 +214,16 @@
       "name": "DocumentHostPreviewTasks"
     },
     {
-      "name": "GoViewProjects"
-    },
-    {
-      "name": "GoViewPreviews"
-    },
-    {
       "name": "ImportExportStaticSchemas"
     },
     {
       "name": "ImportExportTasks"
+    },
+    {
+      "name": "GoViewProjects"
+    },
+    {
+      "name": "GoViewPreviews"
     },
     {
       "name": "SettingsHostDictTypes"
@@ -9510,6 +9513,231 @@
         ]
       }
     },
+    "/api/v1/enterprise_request/enterprise-requests": {
+      "get": {
+        "operationId": "enterpriseRequestListEnterpriseRequests",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultOfEnterpriseRequestResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "EnterpriseRequestEnterpriseRequests"
+        ]
+      },
+      "post": {
+        "operationId": "enterpriseRequestCreateEnterpriseRequest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEnterpriseRequestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnterpriseRequestResponse"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "EnterpriseRequestEnterpriseRequests"
+        ]
+      }
+    },
+    "/api/v1/enterprise_request/enterprise-requests/{enterpriseRequestId}": {
+      "get": {
+        "operationId": "enterpriseRequestGetEnterpriseRequest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enterpriseRequestId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnterpriseRequestResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "EnterpriseRequestEnterpriseRequests"
+        ]
+      },
+      "put": {
+        "operationId": "enterpriseRequestUpdateEnterpriseRequest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enterpriseRequestId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEnterpriseRequestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnterpriseRequestResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "EnterpriseRequestEnterpriseRequests"
+        ]
+      }
+    },
+    "/api/v1/enterprise_request/enterprise-requests/{enterpriseRequestId}/delete": {
+      "post": {
+        "operationId": "enterpriseRequestDeleteEnterpriseRequest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enterpriseRequestId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteEnterpriseRequestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnterpriseRequestResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "EnterpriseRequestEnterpriseRequests"
+        ]
+      }
+    },
     "/api/v1/files/host-files": {
       "get": {
         "operationId": "filesListHostFiles",
@@ -10132,7 +10360,15 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/IFormFile"
+                "properties": {
+                  "files": {
+                    "$ref": "#/components/schemas/IFormFileCollection"
+                  }
+                },
+                "required": [
+                  "files"
+                ],
+                "type": "object"
               }
             }
           },
@@ -43978,6 +44214,39 @@
         ],
         "type": "object"
       },
+      "CreateEnterpriseRequestRequest": {
+        "properties": {
+          "applicantUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "requestNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "totalAmount": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "requestNumber",
+          "title",
+          "status",
+          "totalAmount",
+          "applicantUserId"
+        ],
+        "type": "object"
+      },
       "CreateGoViewProjectRequest": {
         "properties": {
           "canvasJson": {
@@ -45789,6 +46058,22 @@
         ],
         "type": "object"
       },
+      "DeleteEnterpriseRequestRequest": {
+        "properties": {
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "type": "object"
+      },
       "DeleteHostDocumentCategoryRequest": {
         "additionalProperties": false,
         "properties": {
@@ -46212,6 +46497,109 @@
         },
         "required": [
           "version"
+        ],
+        "type": "object"
+      },
+      "EnterpriseRequestResponse": {
+        "properties": {
+          "applicantUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "createdAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdById": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "deletedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "deletedById": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isDeleted": {
+            "type": "boolean"
+          },
+          "organizationUnitId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "requestNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "totalAmount": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "updatedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updatedById": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "organizationUnitId",
+          "requestNumber",
+          "title",
+          "status",
+          "totalAmount",
+          "applicantUserId",
+          "version",
+          "createdAtUtc",
+          "createdById",
+          "updatedAtUtc",
+          "updatedById",
+          "isDeleted",
+          "deletedAtUtc",
+          "deletedById"
         ],
         "type": "object"
       },
@@ -50159,6 +50547,12 @@
         "format": "binary",
         "type": "string"
       },
+      "IFormFileCollection": {
+        "items": {
+          "$ref": "#/components/schemas/IFormFile"
+        },
+        "type": "array"
+      },
       "ImportAdministrativeRegionAddedSummary": {
         "properties": {
           "code": {
@@ -53448,6 +53842,47 @@
           "items": {
             "items": {
               "$ref": "#/components/schemas/DictTypeResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
+      "PagedResultOfEnterpriseRequestResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EnterpriseRequestResponse"
             },
             "type": "array"
           },
@@ -59240,8 +59675,29 @@
           "isActive": {
             "type": "boolean"
           },
+          "lifecycleStatus": {
+            "default": "Active",
+            "type": "string"
+          },
           "name": {
             "type": "string"
+          },
+          "ownerUserId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "provisioningStatus": {
+            "default": "Completed",
+            "type": "string"
+          },
+          "provisioningStep": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "tenantPackageCode": {
             "type": [
@@ -59925,6 +60381,48 @@
           "name",
           "description",
           "displayOrder",
+          "version"
+        ],
+        "type": "object"
+      },
+      "UpdateEnterpriseRequestRequest": {
+        "properties": {
+          "applicantUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "requestNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "totalAmount": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "requestNumber",
+          "title",
+          "status",
+          "totalAmount",
+          "applicantUserId",
           "version"
         ],
         "type": "object"

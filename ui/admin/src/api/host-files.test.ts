@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http } from './http';
 import {
+  batchUploadHostFiles,
   deleteHostFile,
   downloadHostFileContent,
   listHostFiles,
@@ -30,6 +31,20 @@ const sampleFile = {
 
 describe('Vue Host 文件 API', () => {
   beforeEach(() => requestMock.mockReset());
+
+  it('批量上传将所有文件作为独立 multipart 字段发送', async () => {
+    const files = [new File(['first'], 'first.txt'), new File(['second'], 'second.txt')];
+    const response = { succeededCount: 0, results: [] };
+    requestMock.mockResolvedValueOnce(response);
+
+    await expect(batchUploadHostFiles(files)).resolves.toEqual(response);
+
+    const [path, options] = requestMock.mock.calls[0]!;
+    expect(path).toBe('/api/v1/files/host-files/batch-upload');
+    expect(options?.method).toBe('POST');
+    expect(options?.body).toBeInstanceOf(FormData);
+    expect((options?.body as FormData).getAll('files')).toEqual(files);
+  });
 
   it('校验分页列表响应', async () => {
     requestMock.mockResolvedValueOnce({

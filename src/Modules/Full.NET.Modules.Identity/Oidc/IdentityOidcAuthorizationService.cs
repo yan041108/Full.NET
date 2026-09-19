@@ -222,13 +222,14 @@ internal sealed class IdentityOidcAuthorizationService(
     public async Task<bool> SignOutApplicationAsync(
         HttpContext httpContext,
         string clientId,
+        Guid? authenticatedAccessUserId = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(httpContext);
         ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
-        var userId = await TryReadAuthenticatedCenterUserAsync(httpContext, cancellationToken)
+        var userId = authenticatedAccessUserId ?? await TryReadAuthenticatedCenterUserAsync(httpContext, cancellationToken)
             .ConfigureAwait(false);
-        if (userId is null)
+        if (userId is null || userId == Guid.Empty)
         {
             return false;
         }
@@ -257,12 +258,19 @@ internal sealed class IdentityOidcAuthorizationService(
 
     public async Task SignOutCenterAsync(
         HttpContext httpContext,
+        Guid? authenticatedAccessUserId = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(httpContext);
         var centerUserId = await TryReadAuthenticatedCenterUserAsync(httpContext, cancellationToken)
             .ConfigureAwait(false);
-        if (centerUserId is Guid userId)
+        if (authenticatedAccessUserId == Guid.Empty)
+        {
+            return;
+        }
+
+        // 令牌所属用户决定撤销目标；共享 Cookie 只决定是否清除浏览器中心票据。
+        if ((authenticatedAccessUserId ?? centerUserId) is Guid userId)
         {
             var applicationSessionIds = await sessionService.ListActiveHostApplicationSessionIdsByUserAsync(
                     userId,
@@ -282,8 +290,11 @@ internal sealed class IdentityOidcAuthorizationService(
             }
         }
 
-        await httpContext.SignOutAsync(IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
-            .ConfigureAwait(false);
+        if (authenticatedAccessUserId is null || centerUserId == authenticatedAccessUserId)
+        {
+            await httpContext.SignOutAsync(IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
+                .ConfigureAwait(false);
+        }
     }
 
     private async Task<bool> IsUserEligibleForAuthorizationAsync(

@@ -62,6 +62,7 @@ internal static class CodeGenerationCli
             --schema <json-file>
             --repository <existing-directory>
             --target <json-file>
+          fullnet-codegen diagnose --workspace <existing-directory> [--profile <development|production>]
         """;
 
     /// <summary>
@@ -94,6 +95,15 @@ internal static class CodeGenerationCli
             {
                 await output.WriteLineAsync(Usage);
                 return SuccessExitCode;
+            }
+
+            if (options.Diagnose is not null)
+            {
+                return await DiagnoseCommand.RunAsync(
+                    options.Diagnose,
+                    output,
+                    error,
+                    cancellationToken);
             }
 
             if (options.DatabaseCatalog is not null)
@@ -554,7 +564,83 @@ internal static class CodeGenerationCli
                 ModuleIntegrationCliMode.ApplyClientRoutes);
         }
 
+        if (args.Count > 0
+            && string.Equals(
+                args[0],
+                "diagnose",
+                StringComparison.Ordinal))
+        {
+            return ParseDiagnose(args);
+        }
+
         return ParseSchema(args);
+    }
+
+    private static CliOptions ParseDiagnose(IReadOnlyList<string> args)
+    {
+        string? workspacePath = null;
+        var profile = "development";
+        var showHelp = false;
+        for (var index = 1; index < args.Count; index++)
+        {
+            switch (args[index])
+            {
+                case "--help":
+                case "-h":
+                    showHelp = true;
+                    break;
+
+                case "--workspace":
+                    workspacePath = ReadValue(
+                        args,
+                        ref index,
+                        "--workspace",
+                        workspacePath);
+                    break;
+
+                case "--profile":
+                    profile = ReadValue(
+                        args,
+                        ref index,
+                        "--profile",
+                        profile);
+                    break;
+
+                default:
+                    throw new CliUsageException(
+                        $"未知参数：{args[index]}");
+            }
+        }
+
+        if (showHelp)
+        {
+            return new CliOptions(
+                SchemaPath: null,
+                WorkspacePath: null,
+                Apply: false,
+                ShowHelp: true,
+                DatabaseImport: null);
+        }
+
+        if (workspacePath is null)
+        {
+            throw new CliUsageException(
+                "diagnose 的 --workspace 为必填参数。");
+        }
+
+        if (!Directory.Exists(workspacePath))
+        {
+            throw new CliUsageException(
+                "diagnose 的 --workspace 必须指向已存在的目录。");
+        }
+
+        return new CliOptions(
+            SchemaPath: null,
+            WorkspacePath: workspacePath,
+            Apply: false,
+            ShowHelp: false,
+            DatabaseImport: null,
+            Diagnose: new DiagnoseCliOptions(workspacePath, profile));
     }
 
     private static CliOptions ParseModuleIntegration(
@@ -1142,7 +1228,8 @@ internal static class CodeGenerationCli
         DatabaseImportCliOptions? DatabaseImport,
         DatabaseCatalogCliOptions? DatabaseCatalog = null,
         DatabaseBatchCliOptions? DatabaseBatch = null,
-        ModuleIntegrationCliOptions? ModuleIntegration = null);
+        ModuleIntegrationCliOptions? ModuleIntegration = null,
+        DiagnoseCliOptions? Diagnose = null);
 
     private sealed class CliUsageException(string message)
         : Exception(message);

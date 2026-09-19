@@ -108,15 +108,7 @@ internal static class CrudOrganizationOwnershipGenerator
                         return;
                     }
 
-                    foreach (var property in source.GetType().GetProperties())
-                    {
-                        if (!property.CanRead || property.GetIndexParameters().Length != 0)
-                        {
-                            continue;
-                        }
-
-                        target[property.Name] = property.GetValue(source);
-                    }
+                    throw new InvalidOperationException("Data scope parameters must use a static dictionary.");
                 }
             }
         """;
@@ -171,7 +163,7 @@ internal static class CrudOrganizationOwnershipGenerator
                         .QueryAsync<{{schema.ClrTypeName}}Record>(
                             listStatement,
                             GeneratedTenantDataScopeComposer.MergeParameters(
-                                new { Offset = offset, PageSize = pageSize },
+                                new Dictionary<string, object?> { ["Offset"] = offset, ["PageSize"] = pageSize },
                                 filter),
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -210,7 +202,7 @@ internal static class CrudOrganizationOwnershipGenerator
                         .QuerySingleOrDefaultAsync<{{schema.ClrTypeName}}Record>(
                             statement,
                             GeneratedTenantDataScopeComposer.MergeParameters(
-                                new { Id = {{idParameter}} },
+                                new Dictionary<string, object?> { ["Id"] = {{idParameter}} },
                                 filter),
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -286,7 +278,7 @@ internal static class CrudOrganizationOwnershipGenerator
                     var record = await queryExecutor
                         .QuerySingleOrDefaultAsync<{{schema.ClrTypeName}}Record>(
                             {{schema.ClrTypeName}}Sql.FindByIdStatement,
-                            new { Id = {{idParameter}} },
+                            new Dictionary<string, object?> { ["Id"] = {{idParameter}} },
                             cancellationToken)
                         .ConfigureAwait(false);
                     return record is null

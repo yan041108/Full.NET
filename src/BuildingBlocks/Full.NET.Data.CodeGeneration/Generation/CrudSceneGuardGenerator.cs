@@ -169,7 +169,7 @@ internal static class CrudSceneGuardGenerator
                 _ => "SqlDataScope.Unspecified",
             };
             var tenantBinding = schema.IsTenantScoped
-                ? "SqlTenantBinding.Required"
+                ? "SqlTenantBinding.CurrentTenantId"
                 : "SqlTenantBinding.None";
             methods.Add(
                 $$"""
@@ -216,7 +216,7 @@ internal static class CrudSceneGuardGenerator
                 _ => "SqlDataScope.Unspecified",
             };
             var tenantBinding = schema.IsTenantScoped
-                ? "SqlTenantBinding.Required"
+                ? "SqlTenantBinding.CurrentTenantId"
                 : "SqlTenantBinding.None";
             methods.Add(
                 $$"""
@@ -271,7 +271,7 @@ internal static class CrudSceneGuardGenerator
                         _ => "SqlDataScope.Unspecified",
                     };
                     var tenantBinding = schema.IsTenantScoped
-                        ? "SqlTenantBinding.Required"
+                        ? "SqlTenantBinding.CurrentTenantId"
                         : "SqlTenantBinding.None";
                     return $$"""
                     await commandExecutor.ExecuteAsync(

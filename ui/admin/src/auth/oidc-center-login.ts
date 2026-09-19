@@ -72,7 +72,7 @@ export async function beginAdminOidcCenterLogin(): Promise<void> {
 }
 
 export async function completeAdminOidcCallback(
-  query: Record<string, string | string[] | undefined | null>
+  query: Record<string, string | (string | null)[] | undefined | null>
 ): Promise<TokenResponse> {
   const error = readQueryValue(query.error);
   if (error !== undefined) {
@@ -140,17 +140,19 @@ export async function refreshAdminOidcAccessToken(): Promise<TokenResponse | und
 }
 
 /** 撤销当前管理端 OIDC 应用会话；失败时仍由调用方清理本地状态。 */
-export async function revokeAdminOidcApplicationSession(): Promise<boolean> {
+export async function revokeAdminOidcApplicationSession(accessToken?: string): Promise<boolean> {
   return revokeOidcApplicationSession({
     apiBase: resolveOidcApiBase(),
-    clientId: resolveAdminOidcClientId()
+    clientId: resolveAdminOidcClientId(),
+    accessToken
   });
 }
 
 /** 撤销中心登录会话及全部 OIDC grant；失败时仍由调用方清理本地状态。 */
-export async function revokeAdminOidcCenterSession(): Promise<boolean> {
+export async function revokeAdminOidcCenterSession(accessToken?: string): Promise<boolean> {
   return revokeOidcCenterSession({
-    apiBase: resolveOidcApiBase()
+    apiBase: resolveOidcApiBase(),
+    accessToken
   });
 }
 
@@ -160,7 +162,7 @@ export function clearAdminOidcSessionCredentials(): void {
 }
 
 function readQueryValue(
-  value: string | string[] | undefined | null
+  value: string | (string | null)[] | undefined | null
 ): string | undefined {
   if (typeof value === 'string' && value.length > 0) {
     return value;

@@ -1,0 +1,23 @@
+{
+  "id": "identity-oidc-signing-keys-v1",
+  "version": 1,
+  "description": "OIDC 签名密钥管理契约；仅包含公钥元数据。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/oidc-signing-keys",
+      "operations": [
+        { "method": "GET", "permission": "identity.oidc_signing_keys.read", "successStatus": 200, "responseSchema": "OidcSigningKeyListResponse" }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/oidc-signing-keys/{keyId}/activate",
+      "operations": [
+        { "method": "POST", "permission": "identity.oidc_signing_keys.activate", "successStatus": 200, "responseSchema": "OidcSigningKeyListResponse" }
+      ]
+    }
+  ],
+  "schemas": {
+    "OidcSigningKeyResponse": { "properties": ["keyId", "isActive", "hasPrivateKey", "algorithm", "publicKeyPem"] },
+    "OidcSigningKeyListResponse": { "properties": ["activeSigningKeyId", "usesEphemeralDevelopmentKey", "keys"] }
+  }
+}

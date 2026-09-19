@@ -6,28 +6,121 @@
     {
       "path": "/api/v1/identity/oidc-clients",
       "operations": [
-        { "method": "GET", "permission": "identity.oidc_clients.read", "successStatus": 200, "responseSchema": "OidcClientResponsePage" },
-        { "method": "POST", "permission": "identity.oidc_clients.create", "successStatus": 201, "requestSchema": "CreateOidcClientRequest", "responseSchema": "CreateOidcClientResponse" }
+        {
+          "method": "GET",
+          "permission": "identity.oidc_clients.read",
+          "successStatus": 200,
+          "responseSchema": "OidcClientResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "identity.oidc_clients.create",
+          "successStatus": 201,
+          "requestSchema": "CreateOidcClientRequest",
+          "responseSchema": "CreateOidcClientResponse"
+        }
       ]
     },
     {
       "path": "/api/v1/identity/oidc-clients/{clientId}",
       "operations": [
-        { "method": "GET", "permission": "identity.oidc_clients.read", "successStatus": 200, "responseSchema": "OidcClientResponse" },
-        { "method": "PUT", "permission": "identity.oidc_clients.update", "successStatus": 200, "requestSchema": "UpdateOidcClientRequest", "responseSchema": "OidcClientResponse" }
+        {
+          "method": "GET",
+          "permission": "identity.oidc_clients.read",
+          "successStatus": 200,
+          "responseSchema": "OidcClientResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "identity.oidc_clients.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateOidcClientRequest",
+          "responseSchema": "OidcClientResponse"
+        }
       ]
     },
     {
       "path": "/api/v1/identity/oidc-clients/{clientId}/disable",
       "operations": [
-        { "method": "POST", "permission": "identity.oidc_clients.disable", "successStatus": 200, "responseSchema": "OidcClientResponse" }
+        {
+          "method": "POST",
+          "permission": "identity.oidc_clients.disable",
+          "successStatus": 200,
+          "responseSchema": "OidcClientResponse"
+        }
       ]
     },
     {
       "path": "/api/v1/identity/oidc-clients/{clientId}/rotate",
       "operations": [
-        { "method": "POST", "permission": "identity.oidc_clients.rotate", "successStatus": 200, "responseSchema": "RotateOidcClientSecretResponse" }
+        {
+          "method": "POST",
+          "permission": "identity.oidc_clients.rotate",
+          "successStatus": 200,
+          "responseSchema": "RotateOidcClientSecretResponse"
+        }
       ]
     }
-  ]
+  ],
+  "schemas": {
+    "CreateOidcClientRequest": {
+      "properties": [
+        "clientId",
+        "displayName",
+        "redirectUris",
+        "postLogoutRedirectUris",
+        "scopes",
+        "isConfidential",
+        "isFirstParty",
+        "resourceAudience"
+      ]
+    },
+    "UpdateOidcClientRequest": {
+      "properties": [
+        "displayName",
+        "redirectUris",
+        "postLogoutRedirectUris",
+        "scopes",
+        "isFirstParty",
+        "resourceAudience",
+        "version"
+      ]
+    },
+    "OidcClientResponse": {
+      "properties": [
+        "id",
+        "clientId",
+        "displayName",
+        "clientType",
+        "redirectUris",
+        "postLogoutRedirectUris",
+        "scopes",
+        "isFirstParty",
+        "resourceAudience",
+        "isDisabled",
+        "createdAtUtc",
+        "version"
+      ]
+    },
+    "CreateOidcClientResponse": {
+      "properties": [
+        "client",
+        "secret"
+      ]
+    },
+    "RotateOidcClientSecretResponse": {
+      "properties": [
+        "client",
+        "secret"
+      ]
+    },
+    "OidcClientResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
 }

@@ -111,6 +111,10 @@ public sealed class HostTenantManagementServiceTests
                     DefaultTenant.DefaultLocale,
                     null,
                     null,
+                    null,
+                    TenantLifecycleStatuses.Active,
+                    null,
+                    TenantProvisioningStatuses.Completed,
                     null));
             Query.QuerySingleOrDefaultAsync<long>(
                     TenantSql.CountActiveTenants,
@@ -132,6 +136,7 @@ public sealed class HostTenantManagementServiceTests
             var invalidator = TenantCacheInvalidatorTestFactory.Create(
                 provider.GetRequiredService<IFusionCache>(),
                 new TestHostEnvironment("Testing"));
+            var packageBinder = new TenantHostPackageBinder(Query, Command, clock);
             Service = new HostTenantManagementService(
                 Query,
                 Command,
@@ -142,6 +147,7 @@ public sealed class HostTenantManagementServiceTests
                     {
                         Provider = DatabaseProvider.SqlServer,
                     })),
+                packageBinder,
                 clock,
                 invalidator,
                 AuditWriter);

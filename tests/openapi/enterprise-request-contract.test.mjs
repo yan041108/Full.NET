@@ -1,0 +1,1 @@
+import test from 'node:test'; import { readFile } from 'node:fs/promises'; test('企业申请生成样例快照可读取', async () => { const document = JSON.parse(await readFile(new URL('../../contracts/openapi/enterprise-requests.generated.openapi.json', import.meta.url), 'utf8')); if (!document.paths || Object.keys(document.paths).length === 0) throw new Error('enterprise request paths missing'); });

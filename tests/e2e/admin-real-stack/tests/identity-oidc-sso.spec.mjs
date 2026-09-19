@@ -21,6 +21,7 @@ import {
   readAccessTokenFingerprint,
   resolveApiBase,
   resolveRpUrl,
+  requestAuthorizationCodeViaRequest,
   runAuthorizationCodeFlowViaRequest,
   switchTenantContext
 } from './support/identity-oidc-fixtures.mjs';
@@ -327,9 +328,12 @@ test.describe('Identity OIDC browser SSO', () => {
       password,
       expectLoginForm: true
     });
-    await page.goto(resolveRpUrl(OIDC_CLIENT_B));
-    await page.locator('#sign-in-prompt-login').click();
-    await expect(page.getByRole('heading', { name: 'Identity Center' })).toBeVisible();
+    await completeClientAuthorization(page, OIDC_CLIENT_B, {
+      username,
+      password,
+      expectLoginForm: true,
+      extraAuthorizeParams: { max_age: '0' }
+    });
   });
 
   test('无效防伪令牌不能建立中心会话', async ({ request }) => {
@@ -371,8 +375,14 @@ test.describe('Identity OIDC browser SSO', () => {
       password,
       expectLoginForm: true
     });
-    await page.goto(`${resolveRpUrl(OIDC_CLIENT_A)}&state=tampered`);
+    // 保留真实回调授权码，只篡改 state；缺少 code 会进入 ready 分支而非回调校验。
+    const callback = new URL(page.url());
+    expect(callback.searchParams.get('code')).toBeTruthy();
+    callback.searchParams.set('state', 'tampered');
+    await page.evaluate(() => sessionStorage.removeItem('oidc.auth.code'));
+    await page.goto(callback.href);
     await expect(page.getByTestId('oidc-state-mismatch')).toBeVisible();
+    expect(await page.evaluate(() => sessionStorage.getItem('oidc.auth.code'))).toBeNull();
   });
 
   test('清除中心 Cookie 后 prompt=none 返回 login_required', async ({ page, context }) => {
@@ -410,7 +420,7 @@ test.describe('Identity OIDC browser SSO', () => {
   });
 
   test('错误的 code_verifier 无法兑换授权码', async ({ request }) => {
-    const pending = await runAuthorizationCodeFlowViaRequest(request, {
+    const pending = await requestAuthorizationCodeViaRequest(request, {
       apiBase,
       clientId: OIDC_CLIENT_A.clientId,
       redirectUri: OIDC_CLIENT_A.redirectUri,

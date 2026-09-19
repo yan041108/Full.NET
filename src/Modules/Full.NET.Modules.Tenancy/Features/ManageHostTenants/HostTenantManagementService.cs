@@ -24,6 +24,7 @@ internal sealed class HostTenantManagementService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     HostTenantQueryService tenantQueries,
+    TenantHostPackageBinder packageBinder,
     IClock clock,
     TenantCacheInvalidator cacheInvalidator,
     ITransactionalDomainAuditWriter<TenancyDomainAuditWrite> domainAuditWriter)
@@ -130,20 +131,19 @@ internal sealed class HostTenantManagementService(
 
         if (request.TenantPackageId is Guid packageId)
         {
-            var package = await queryExecutor.QuerySingleOrDefaultAsync<Features.ManageHostTenantPackages.TenantPackageIdentityRecord>(
-                    TenantPackageSql.FindPackageById,
-                    TenancySqlParameters.Create(("PackageId", packageId)),
+            var bindResult = await packageBinder.BindActivePackageAsync(
+                    tenantId,
+                    packageId,
+                    request.Version,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (package is null)
+            if (!bindResult.IsSuccess)
             {
-                return PackageNotFound();
+                return MapBinderFailure(bindResult.Error!);
             }
 
-            if (!package.IsActive)
-            {
-                return PackageInactive();
-            }
+            return await tenantQueries.GetByIdAsync(tenantId, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         var now = clock.UtcNow;
@@ -363,4 +363,7 @@ internal sealed class HostTenantManagementService(
             TenancyErrorCodes.PackageInactive,
             "The tenant package is not active.",
             ErrorType.BusinessRule));
+
+    private static Result<TenantSummary> MapBinderFailure(Error error) =>
+        Result<TenantSummary>.Failure(error);
 }

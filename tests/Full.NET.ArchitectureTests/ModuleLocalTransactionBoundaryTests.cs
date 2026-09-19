@@ -48,18 +48,16 @@ public sealed class ModuleLocalTransactionBoundaryTests
                 "HostDocumentItemManagementService.AddVersionCoreAsync",
                 "IHostFileReferenceReader");
 
-        var valid = new[]
-        {
-            new ModuleBoundaryDebtScanner.CrossModuleTransactionDebt(
-                sample.ConsumerModule,
-                sample.OwnerModule,
-                sample.File,
-                sample.EntryPoint,
-                sample.ContractType,
+        var valid = discovered.Select(usage => new ModuleBoundaryDebtScanner.CrossModuleTransactionDebt(
+                usage.ConsumerModule,
+                usage.OwnerModule,
+                usage.File,
+                usage.EntryPoint,
+                usage.ContractType,
                 "Temporary cross-module transaction debt for gate testing.",
                 "medium",
-                "module-data-consistency-boundary-20260807 Task 2"),
-        };
+                "module-data-consistency-boundary-20260807 Task 2"))
+            .ToArray();
 
         if (discovered.Length > 0)
         {

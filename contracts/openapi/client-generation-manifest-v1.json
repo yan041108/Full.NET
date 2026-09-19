@@ -13,6 +13,36 @@
   ],
   "entries": [
     {
+      "operationId": "enterpriseRequestListEnterpriseRequests",
+      "apiModule": "ui/admin/src/views/enterprise-requests/enterprise-requests.generated.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestGetEnterpriseRequest",
+      "apiModule": "ui/admin/src/views/enterprise-requests/enterprise-requests.generated.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestCreateEnterpriseRequest",
+      "apiModule": "ui/admin/src/views/enterprise-requests/enterprise-requests.generated.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestUpdateEnterpriseRequest",
+      "apiModule": "ui/admin/src/views/enterprise-requests/enterprise-requests.generated.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestDeleteEnterpriseRequest",
+      "apiModule": "ui/admin/src/views/enterprise-requests/enterprise-requests.generated.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowListForms",
       "apiModule": "ui/admin/src/api/workflow-forms.ts",
       "generatedGroup": "workflow-forms",

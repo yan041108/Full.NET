@@ -56,6 +56,10 @@ test('生成器只产生 Full.NET models、guards、operations 与公开入口',
       /body\.append\('file', String\(parameters\.file\)\)/u
     );
     assert.doesNotMatch(files['operations.generated.ts'], /requestBlob[\s\S]*readStream/u);
+    assert.match(files['operations.generated.ts'], /readonly files: IFormFileCollection/u);
+    assert.match(files['models.generated.ts'], /type IFormFileCollection = Array<IFormFile>/u);
+    assert.match(files['models.generated.ts'], /type IFormFile = Blob/u);
+    assert.match(files['operations.generated.ts'], /for \(const file of parameters.files\) \{\s+body.append\('files', file\)/u);
     assert.match(
       files['operations.generated.ts'],
       /export async function reportingDownloadExportTask\(/u

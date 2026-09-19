@@ -1,4 +1,5 @@
 using Full.NET.Data.Abstractions;
+using Full.NET.IntegrationTests.Identity;
 using Full.NET.IntegrationTests.Tenancy;
 
 namespace Full.NET.IntegrationTests.Api;
@@ -54,5 +55,69 @@ public sealed class TenancyApiMySqlTests
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
 
         await TenancyProvisionTenantWithPackageAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Tenant_lifecycle_returns_standard_contract()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await TenantLifecycleAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task TenantQuota_returns_standard_contract()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await TenantQuotaAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task TenantSubscription_returns_standard_contract()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await TenantSubscriptionAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task TenantEntitlement_enforcement_phase_round_trip()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await TenantEntitlementAssertions.VerifyEnforcementPhaseRoundTripAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task TenantCommercial_reactivate_gate_blocks_without_package()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            new Dictionary<string, string?>
+            {
+                ["Tenancy:Commercial:RequirePackageOrSubscriptionOnReactivate"] = "true",
+            });
+
+        await TenantEntitlementAssertions.VerifyCommercialReactivateGateAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Tenant_membership_invitation_returns_standard_contract()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await TenantMembershipAssertions.VerifyAsync(factory);
     }
 }

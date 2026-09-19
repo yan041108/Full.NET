@@ -66,10 +66,15 @@ public sealed class DependencyRulesTests
         const string prefix = "Full.NET.Modules.";
         var expected = Directory
             .EnumerateFiles(Path.Combine(root, "src", "Modules"), "*.csproj", SearchOption.AllDirectories)
+            .Concat(Directory.EnumerateFiles(
+                Path.Combine(root, "samples", "enterprise-request", "src"),
+                "*.csproj",
+                SearchOption.AllDirectories))
             .Select(Path.GetFileNameWithoutExtension)
             .Where(name => name is not null
                 && name.StartsWith(prefix, StringComparison.Ordinal)
                 && !name[prefix.Length..].Contains('.', StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
         var actual = BusinessModuleAssemblies
@@ -222,12 +227,7 @@ public sealed class DependencyRulesTests
         var violations = modules
             .SelectMany(module =>
             {
-                var projectPath = Path.Combine(
-                    root,
-                    "src",
-                    "Modules",
-                    $"Full.NET.Modules.{module.Name}",
-                    $"Full.NET.Modules.{module.Name}.csproj");
+                var projectPath = ResolveBusinessModuleProjectPath(root, module.Name);
                 return XDocument.Load(projectPath)
                     .Descendants("ProjectReference")
                     .Select(element => element.Attribute("Include")?.Value ?? string.Empty)
@@ -392,28 +392,64 @@ public sealed class DependencyRulesTests
             new[]
             {
                 typeof(Full.NET.Modules.Tenancy.Contracts.AssignHostTenantPackageRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.CancelTenantSubscriptionRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ChangeTenantContextRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.CloseTenantRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ConfirmTenantQuotaRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.CreateHostTenantPackageRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.CreateTenantEntitlementBindingRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.CreateTenantEntitlementCatalogRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.CreateTenantSubscriptionRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.HostTenantAdministratorsPageResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.HostTenantDirectoryPermissions).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.HostTenantMemberResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.HostTenantMembersPageResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ITenantProvisioningService).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ITenantQuotaReservationService).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ITenantSubscriptionPaymentFulfillmentPort).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ListTenantQuotaMetricsResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ProvisionTenantRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ReactivateTenantRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ReleaseTenantQuotaRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ReserveTenantQuotaRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ReserveTenantQuotaResponse).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.SuspendTenantRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenancyErrorCodes).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenancySettingsConstants).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantEntitlementPermissions).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantLifecyclePermissions).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantManagementPermissions).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantPackagePermissions).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantQuotaPermissions).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantSubscriptionPermissions).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantBrandingPermissions).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantBrandingResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantChangedIntegrationEvent).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantContextSummary).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantEntitlementBindingResponse).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantEntitlementCatalogResponse).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantEntitlementEnforcementPhases).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantEntitlementEnforcementResponse).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantEntitlementTypes).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantLifecycleStatuses).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantPackageSummary).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantProvisionedIntegrationEvent).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantProvisioningStatuses).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantProvisioningSteps).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantQuotaDefaults).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantQuotaMetricCodes).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantQuotaMetricResponse).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantQuotaReservationStatuses).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantRuntimeBrandingResponse).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantSubscriptionResponse).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantSubscriptionStatuses).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TransferTenantOwnershipRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.UpdateHostTenantPackageRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.UpdateHostTenantRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.UpdateTenantBrandingRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.UpdateTenantEntitlementEnforcementRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.UpsertTenantQuotaMetricRequest).FullName,
                 typeof(TenancyModule).FullName,
             },
             exportedTypes);
@@ -1059,7 +1095,7 @@ public sealed class DependencyRulesTests
             Array.Empty<string>(),
             module.Dependencies.ToArray());
         CollectionAssert.AreEquivalent(
-            new[] { "Files" },
+            new[] { "Files", "Notifications" },
             module.OptionalContractDependencies.ToArray());
     }
 
@@ -1449,6 +1485,38 @@ public sealed class DependencyRulesTests
             StringComparison.Ordinal);
     }
 
+    private static string ResolveBusinessModuleProjectPath(string root, string moduleName)
+    {
+        var projectFileName = $"Full.NET.Modules.{moduleName}.csproj";
+        var defaultPath = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            $"Full.NET.Modules.{moduleName}",
+            projectFileName);
+        if (File.Exists(defaultPath))
+        {
+            return defaultPath;
+        }
+
+        var sampleMatches = Directory
+            .EnumerateFiles(
+                Path.Combine(root, "samples"),
+                projectFileName,
+                SearchOption.AllDirectories)
+            .ToArray();
+        return sampleMatches.Length switch
+        {
+            1 => sampleMatches[0],
+            0 => throw new FileNotFoundException(
+                $"Could not locate project for business module {moduleName}.",
+                defaultPath),
+            _ => throw new InvalidOperationException(
+                $"Multiple projects found for business module {moduleName}: "
+                    + string.Join(", ", sampleMatches)),
+        };
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -1502,6 +1570,8 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Modules.Ocr.OcrModule).Assembly,
         typeof(Full.NET.Modules.Mqtt.MqttModule).Assembly,
         typeof(Full.NET.Modules.Cryptography.CryptographyModule).Assembly,
+        typeof(Full.NET.Modules.Webhooks.WebhooksModule).Assembly,
+        typeof(Full.NET.Modules.EnterpriseRequest.EnterpriseRequestModule).Assembly,
     ];
 
     public static readonly Assembly DataDapper =

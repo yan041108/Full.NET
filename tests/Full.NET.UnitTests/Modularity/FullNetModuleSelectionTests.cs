@@ -63,6 +63,37 @@ public sealed class FullNetModuleSelectionTests
     }
 
     [TestMethod]
+    public void Saas_preset_enables_payments_and_webhooks()
+    {
+        var enabled = FullNetModuleSelection.ResolveEnabledNames(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["FullNet:Modules:Preset"] = FullNetModuleSelectionOptions.Presets.Saas,
+        }));
+
+        CollectionAssert.AreEquivalent(
+            FullNetModuleSelection.SaasPresetModuleNames.ToArray(),
+            enabled.ToArray());
+        Assert.IsTrue(enabled.Contains("Payments"));
+        Assert.IsTrue(enabled.Contains("Webhooks"));
+    }
+
+    [TestMethod]
+    public void Enterprise_preset_enables_workflow_delivery_and_sample_module()
+    {
+        var enabled = FullNetModuleSelection.ResolveEnabledNames(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["FullNet:Modules:Preset"] = FullNetModuleSelectionOptions.Presets.Enterprise,
+        }));
+
+        CollectionAssert.AreEquivalent(
+            FullNetModuleSelection.EnterprisePresetModuleNames.ToArray(),
+            enabled.ToArray());
+        Assert.IsTrue(enabled.Contains("EnterpriseRequest"));
+        Assert.IsTrue(enabled.Contains("Workflow"));
+        Assert.IsTrue(enabled.Contains("ImportExport"));
+    }
+
+    [TestMethod]
     public void Explicit_enabled_list_must_include_module_dependencies()
     {
         var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>

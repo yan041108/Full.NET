@@ -1,0 +1,13 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "ui/admin/src/api/tenant-subscriptions.ts"
+  },
+  "paths": {
+    "/api/v1/tenancy/tenants/": {}
+  },
+  "components": {
+    "schemas": {}
+  }
+}

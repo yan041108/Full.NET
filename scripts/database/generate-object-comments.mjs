@@ -43,7 +43,7 @@ function collectFromDirectory(migrationDirectory, schema) {
 }
 
 function collectCreateTableColumns(sql, schema) {
-  for (const match of sql.matchAll(/CREATE TABLE\s+(?:dbo\.)?([a-z0-9_]+)\s*\(([\s\S]*?)\n\s*\);/gi)) {
+  for (const match of sql.matchAll(/CREATE TABLE\s+(?:IF NOT EXISTS\s+)?(?:dbo\.)?([a-z0-9_]+)\s*\(([\s\S]*?)\n\s*\)\s*(?:COMMENT\s*=\s*'[^']*'\s*)?(?:ENGINE|;)/gi)) {
     const tableName = match[1];
     if (!schema[tableName]) {
       schema[tableName] = new Set();

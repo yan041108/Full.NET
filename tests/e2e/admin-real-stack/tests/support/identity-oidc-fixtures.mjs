@@ -158,11 +158,11 @@ export async function expectRefreshTokenRejects(request, {
   expect(payload).toMatch(/unauthorized_client|invalid_grant/u);
 }
 
-export async function runAuthorizationCodeFlowViaRequest(request, {
+// 领取与兑换分开，负向 PKCE 测试必须使用尚未消费的授权码。
+export async function requestAuthorizationCodeViaRequest(request, {
   apiBase,
   clientId,
   redirectUri,
-  clientSecret = null,
   username,
   password,
   scope = 'openid profile'
@@ -187,6 +187,8 @@ export async function runAuthorizationCodeFlowViaRequest(request, {
   if (authorizeGet.status() === 302 || authorizeGet.status() === 303) {
     const location = authorizeGet.headers().location;
     code = new URL(location, apiBase).searchParams.get('code');
+    // 复用中心会话的重定向与提交登录表单一样，必须绑定本次授权请求。
+    expect(new URL(location, apiBase).searchParams.get('state')).toBe(state);
   } else {
     const loginPage = await authorizeGet.text();
     const match = loginPage.match(/name="__RequestVerificationToken" value="([^"]+)"/u);
@@ -216,15 +218,17 @@ export async function runAuthorizationCodeFlowViaRequest(request, {
   }
 
   expect(code).toBeTruthy();
+  return { code, verifier, state, nonce };
+}
+
+export async function runAuthorizationCodeFlowViaRequest(request, options) {
+  const pending = await requestAuthorizationCodeViaRequest(request, options);
   const token = await exchangeAuthorizationCode(request, {
-    apiBase,
-    clientId,
-    redirectUri,
-    code,
-    verifier,
-    clientSecret
+    ...options,
+    code: pending.code,
+    verifier: pending.verifier
   });
-  return { code, verifier, token, state, nonce };
+  return { ...pending, token };
 }
 
 export async function exchangeAuthorizationCode(request, {
@@ -387,6 +391,7 @@ export async function expectTokenEndpointRejectsWrongVerifier(request, {
   verifier
 }) {
   const wrongVerifier = createPkcePair().verifier;
+  expect(wrongVerifier).not.toBe(verifier);
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
     code,
@@ -402,9 +407,9 @@ export async function expectTokenEndpointRejectsWrongVerifier(request, {
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     data: body.toString()
   });
-  expect(response.ok()).toBeFalsy();
-  const payload = await response.text();
-  expect(payload).toContain('error');
+  expect(response.status()).toBe(400);
+  const payload = await response.json();
+  expect(payload.error).toBe('invalid_grant');
 }
 
 export async function expectTokenEndpointRejectsInvalidCode(request, {

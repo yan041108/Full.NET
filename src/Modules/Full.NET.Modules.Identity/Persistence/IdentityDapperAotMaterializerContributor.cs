@@ -52,6 +52,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<OpenAccessClientQuotaRow>(ReadOpenAccessClientQuotaRow);
         registrar.Register<OpenAccessClientUsageCountRow>(ReadOpenAccessClientUsageCountRow);
         registrar.Register<RegistrationPolicyRecord>(ReadRegistrationPolicyRecord);
+        registrar.Register<AccountChallengeRecord>(ReadAccountChallengeRecord);
+        registrar.Register<RegistrationInvitationRecord>(ReadRegistrationInvitationRecord);
         registrar.Register<RegistrationWayRecord>(ReadRegistrationWayRecord);
         registrar.Register<LdapConnectionRecord>(ReadLdapConnectionRecord);
         registrar.Register<OAuthProviderRecord>(ReadOAuthProviderRecord);
@@ -501,8 +503,37 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         new(
             reader.GetGuid(0),
             AotDataReaderExtensions.ReadBoolean(reader, 1),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 2),
-            AotDataReaderExtensions.ReadInt32(reader, 3));
+            (byte)AotDataReaderExtensions.ReadInt32(reader, 2),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 3),
+            AotDataReaderExtensions.ReadInt32(reader, 4));
+
+    private static AccountChallengeRecord ReadAccountChallengeRecord(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            (byte)AotDataReaderExtensions.ReadInt32(reader, 1),
+            reader.GetString(2),
+            reader.GetString(3),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 4),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 5),
+            AotDataReaderExtensions.ReadInt32(reader, 6),
+            AotDataReaderExtensions.ReadInt32(reader, 7),
+            AotDataReaderExtensions.ReadInt32(reader, 8),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 9));
+
+    private static RegistrationInvitationRecord ReadRegistrationInvitationRecord(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetGuid(4),
+            (byte)AotDataReaderExtensions.ReadInt32(reader, 5),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 6),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 7),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 9),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 10),
+            AotDataReaderExtensions.ReadInt32(reader, 11));
 
     private static RegistrationWayRecord ReadRegistrationWayRecord(DbDataReader reader) =>
         new()

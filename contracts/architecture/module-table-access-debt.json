@@ -1,3 +1,18 @@
 {
-  "entries": []
+  "entries": [
+    {
+      "sourceModule": "identity.contracts",
+      "table": "fn_identity_oidc_application_session",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/SessionBindingKinds.cs",
+      "reason": "会话绑定常量与 Identity 表名保持同模块契约，供 OIDC/刷新族校验引用。",
+      "removalMilestone": "identity-oidc-session-foundation"
+    },
+    {
+      "sourceModule": "identity.contracts",
+      "table": "fn_identity_refresh_session",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/SessionBindingKinds.cs",
+      "reason": "会话绑定常量与 Identity 表名保持同模块契约，供 OIDC/刷新族校验引用。",
+      "removalMilestone": "identity-oidc-session-foundation"
+    }
+  ]
 }

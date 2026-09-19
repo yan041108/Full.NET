@@ -6,6 +6,42 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+test('批量上传只允许纠正文件集合元数据，仍拒绝删除认证或改写响应', async () => {
+  const route = '/api/v1/files/host-files/batch-upload';
+  const baseline = {
+    openapi: '3.1.0', info: { title: 'Full.NET client', version: '1.0.0' },
+    paths: { [route]: { post: {
+      operationId: 'filesBatchUploadHostFiles', security: [{ Bearer: [] }],
+      requestBody: { required: true, content: { 'multipart/form-data': {
+        schema: { $ref: '#/components/schemas/IFormFile' }
+      } } },
+      responses: { '200': { description: 'OK' } }
+    } } }
+  };
+  const repaired = clone(baseline);
+  repaired.paths[route].post.requestBody.content['multipart/form-data'].schema = {
+    type: 'object', required: ['files'], properties: {
+      files: { $ref: '#/components/schemas/IFormFileCollection' }
+    }
+  };
+  const compare = current => compareDirectories(
+    { 'fullnet-client-v1.openapi.json': baseline },
+    { 'fullnet-client-v1.openapi.json': current }
+  );
+  const result = await compare(repaired);
+  assert.equal(result.status, 0, result.stderr);
+  for (const mutate of [
+    operation => { operation.security = []; },
+    operation => { operation.responses['200'].description = 'changed'; },
+    operation => { operation.requestBody.required = false; },
+    operation => { operation.requestBody.content['multipart/form-data'].schema.required = []; }
+  ]) {
+    const changed = clone(repaired);
+    mutate(changed.paths[route].post);
+    assert.equal((await compare(changed)).status, 1);
+  }
+});
+
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../..'

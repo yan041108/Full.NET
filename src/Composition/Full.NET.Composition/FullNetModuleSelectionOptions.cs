@@ -12,7 +12,7 @@ public sealed class FullNetModuleSelectionOptions
 
     /// <summary>
     /// 预设名称：<see cref="Presets.Full"/>（默认）、<see cref="Presets.Minimal"/>、
-    /// <see cref="Presets.Platform"/> 或 <see cref="Presets.Content"/>。
+    /// <see cref="Presets.Platform"/>、<see cref="Presets.Content"/>、<see cref="Presets.Saas"/> 或 <see cref="Presets.Enterprise"/>。
     /// </summary>
     public string Preset { get; init; } = Presets.Full;
 
@@ -45,5 +45,15 @@ public sealed class FullNetModuleSelectionOptions
         /// 内容底座：Platform + Files + Document。
         /// </summary>
         public const string Content = "Content";
+
+        /// <summary>
+        /// SaaS 商业化底座：Platform + Payments + Webhooks。
+        /// </summary>
+        public const string Saas = "Saas";
+
+        /// <summary>
+        /// 企业业务样板：Platform + Webhooks + 工作流 + 数据交付 + EnterpriseRequest。
+        /// </summary>
+        public const string Enterprise = "Enterprise";
     }
 }

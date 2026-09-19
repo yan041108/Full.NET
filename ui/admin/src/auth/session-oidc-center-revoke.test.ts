@@ -85,7 +85,7 @@ function jsonResponse(body: unknown) {
 function tokenResponse(accessToken: string) {
   return {
     accessToken,
-    tokenType: 'Bearer',
+    tokenType: 'Bearer' as const,
     expiresAtUtc: '2026-07-17T04:00:00Z'
   };
 }

@@ -38,72 +38,114 @@ export interface AddHostDocumentVersionRequest {
 }
 
 export interface AdministrativeRegionChildResponse {
-  readonly code?: string;
-  readonly displayOrder?: number;
-  readonly hasChildren?: boolean;
-  readonly id?: string;
-  readonly level?: number;
-  readonly name?: string;
-  readonly parentId?: string;
+  readonly code: string;
+  readonly displayOrder: number;
+  readonly hasChildren: boolean;
+  readonly id: string;
+  readonly level: number;
+  readonly name: string;
+  readonly parentId: null | string;
 }
 
 export interface AdministrativeRegionDatasetManifestResponse {
-  readonly appliedAtUtc?: string;
-  readonly appliedByUserId?: string;
-  readonly datasetKey?: string;
-  readonly datasetVersion?: string;
-  readonly id?: string;
-  readonly recordCount?: number;
-  readonly sourceDigest?: string;
+  readonly appliedAtUtc: string;
+  readonly appliedByUserId: string;
+  readonly datasetKey: string;
+  readonly datasetVersion: string;
+  readonly id: string;
+  readonly recordCount: number;
+  readonly sourceDigest: string;
 }
 
 export interface AdministrativeRegionResponse {
-  readonly cityCode?: string;
-  readonly code?: string;
-  readonly createdAtUtc?: string;
-  readonly displayOrder?: number;
-  readonly id?: string;
-  readonly latitude?: number;
-  readonly level?: number;
-  readonly longitude?: number;
-  readonly mergerName?: string;
-  readonly name?: string;
-  readonly parentId?: string;
-  readonly pinYin?: string;
-  readonly regionType?: string;
-  readonly remark?: string;
-  readonly shortName?: string;
-  readonly updatedAtUtc?: string;
-  readonly version?: number;
-  readonly zipCode?: string;
+  readonly cityCode: null | string;
+  readonly code: string;
+  readonly createdAtUtc: string;
+  readonly displayOrder: number;
+  readonly id: string;
+  readonly latitude: null | number | string;
+  readonly level: number;
+  readonly longitude: null | number | string;
+  readonly mergerName: null | string;
+  readonly name: string;
+  readonly parentId: null | string;
+  readonly pinYin: null | string;
+  readonly regionType: null | string;
+  readonly remark: null | string;
+  readonly shortName: null | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+  readonly zipCode: null | string;
 }
 
 export interface AdministrativeRegionTreeNodeResponse {
-  readonly children?: Array<AdministrativeRegionTreeNodeResponse>;
-  readonly code?: string;
-  readonly displayOrder?: number;
-  readonly id?: string;
-  readonly level?: number;
-  readonly name?: string;
-  readonly parentId?: string;
+  readonly children: Array<AdministrativeRegionTreeNodeResponse>;
+  readonly code: string;
+  readonly displayOrder: number;
+  readonly id: string;
+  readonly level: number;
+  readonly name: string;
+  readonly parentId: null | string;
+}
+
+export interface AiAgentApprovalResponse {
+  readonly actionSummary: string;
+  readonly argumentsHash: string;
+  readonly changeSummary: string;
+  readonly consumedAtUtc: null | string;
+  readonly costCeiling: null | number | string;
+  readonly createdAtUtc: string;
+  readonly currency: null | string;
+  readonly decisionKey: string;
+  readonly expiresAtUtc: string;
+  readonly id: string;
+  readonly operationId: string;
+  readonly runId: string;
+  readonly scopeSummary: string;
+  readonly targetSummary: string;
+  readonly toolName: string;
+  readonly toolVersion: number;
+  readonly version: number;
+}
+
+export interface AiAgentDelegationResponse {
+  readonly createdAtUtc: string;
+  readonly expiresAtUtc: string;
+  readonly granteeUserId: string;
+  readonly grantorUserId: string;
+  readonly id: string;
+  readonly permissionCode: null | string;
+  readonly revokedAtUtc: null | string;
+  readonly toolName: null | string;
+  readonly version: number;
+}
+
+export interface AiAgentRunResponse {
+  readonly createdAtUtc: string;
+  readonly deadlineAtUtc: string;
+  readonly definitionKey: string;
+  readonly definitionVersion: number;
+  readonly id: string;
+  readonly statusKey: string;
+  readonly updatedAtUtc: string;
 }
 
 export interface AiAgentToolCallListItem {
   readonly actorUserId: string;
-  readonly approvalId?: null | string;
-  readonly argumentsHash?: null | string;
+  readonly approvalId: null | string;
+  readonly argumentsHash: null | string;
   readonly createdAtUtc: string;
-  readonly durationMs?: null | number | string;
-  readonly errorCode?: null | string;
+  readonly durationMs: null | number;
+  readonly errorCode: null | string;
   readonly id: string;
   readonly inputSummary: string;
-  readonly outputSummary?: null | string;
+  readonly outputSummary: null | string;
   readonly permissionCode: string;
-  readonly runId?: null | string;
+  readonly runId: null | string;
   readonly statusKey: string;
-  readonly tenantId?: null | string;
+  readonly tenantId: null | string;
   readonly toolName: string;
-  readonly traceId?: null | string;
+  readonly traceId: null | string;
 }
 
 export interface AiAgentToolCatalogItem {
@@ -119,11 +161,11 @@ export interface AiAgentToolCatalogItem {
 }
 
 export interface AiChatMessageResponse {
-  readonly completionTokens?: null | number | string;
+  readonly completionTokens: null | number;
   readonly content: string;
   readonly createdAtUtc: string;
   readonly id: string;
-  readonly promptTokens?: null | number | string;
+  readonly promptTokens: null | number;
   readonly roleKey: string;
   readonly sessionId: string;
   readonly statusKey: string;
@@ -132,15 +174,15 @@ export interface AiChatMessageResponse {
 export interface AiChatSessionListItem {
   readonly createdAtUtc: string;
   readonly id: string;
-  readonly lastMessageAtUtc?: null | string;
-  readonly messageCount: number | string;
+  readonly lastMessageAtUtc: null | string;
+  readonly messageCount: number;
   readonly modelConfigId: string;
   readonly modelName: string;
   readonly ownerUserId: string;
-  readonly tenantId?: null | string;
+  readonly tenantId: null | string;
   readonly title: string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface AiChatSessionResponse {
@@ -151,10 +193,53 @@ export interface AiChatSessionResponse {
   readonly modelConfigId: string;
   readonly modelName: string;
   readonly ownerUserId: string;
-  readonly tenantId?: null | string;
+  readonly tenantId: null | string;
   readonly title: string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
+export interface AiMcpRemoteConnectionListItem {
+  readonly connectionKey: string;
+  readonly createdAtUtc: string;
+  readonly displayName: string;
+  readonly hasServiceToken: boolean;
+  readonly id: string;
+  readonly isEnabled: boolean;
+  readonly maskedEndpointUrl: string;
+  readonly updatedAtUtc: string;
+  readonly version: number;
+}
+
+export interface AiMcpRemoteConnectionResponse {
+  readonly connectionKey: string;
+  readonly createdAtUtc: string;
+  readonly displayName: string;
+  readonly endpointUrl: string;
+  readonly hasServiceToken: boolean;
+  readonly id: string;
+  readonly isEnabled: boolean;
+  readonly oAuthScopesJson: null | string;
+  readonly updatedAtUtc: string;
+  readonly version: number;
+}
+
+export interface AiMcpRemoteDiscoveredToolItem {
+  readonly approvalStatusKey: null | string;
+  readonly inputSchemaJson: string;
+  readonly isApproved: boolean;
+  readonly remoteToolName: string;
+}
+
+export interface AiMcpRemoteToolApprovalItem {
+  readonly approvalStatusKey: string;
+  readonly id: string;
+  readonly localToolName: string;
+  readonly permissionCode: string;
+  readonly remoteToolName: string;
+  readonly sideEffectKey: string;
+  readonly toolVersion: number;
+  readonly version: number;
 }
 
 export interface AiModelConfigListItem {
@@ -163,16 +248,16 @@ export interface AiModelConfigListItem {
   readonly id: string;
   readonly isDefault: boolean;
   readonly isEnabled: boolean;
-  readonly lastTestedAtUtc?: null | string;
-  readonly lastTestMessage?: null | string;
-  readonly lastTestStatusKey?: null | string;
+  readonly lastTestedAtUtc: null | string;
+  readonly lastTestMessage: null | string;
+  readonly lastTestStatusKey: null | string;
   readonly maskedEndpointBaseUrl: string;
   readonly modelId: string;
   readonly name: string;
   readonly providerKey: string;
-  readonly tenantId?: null | string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly tenantId: null | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface AiModelConfigResponse {
@@ -182,33 +267,51 @@ export interface AiModelConfigResponse {
   readonly id: string;
   readonly isDefault: boolean;
   readonly isEnabled: boolean;
-  readonly lastTestedAtUtc?: null | string;
-  readonly lastTestMessage?: null | string;
-  readonly lastTestStatusKey?: null | string;
+  readonly lastTestedAtUtc: null | string;
+  readonly lastTestMessage: null | string;
+  readonly lastTestStatusKey: null | string;
   readonly modelId: string;
   readonly name: string;
-  readonly organizationId?: null | string;
+  readonly organizationId: null | string;
   readonly providerKey: string;
-  readonly tenantId?: null | string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly tenantId: null | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface AiTenantQuotaListItem {
   readonly createdAtUtc: string;
   readonly id: string;
   readonly isEnabled: boolean;
-  readonly monthlyRequestLimit?: null | number | string;
-  readonly monthlyTokenLimit?: null | number | string;
+  readonly monthlyRequestLimit: null | number;
+  readonly monthlyTokenLimit: null | number;
   readonly quotaMonthKey: string;
   readonly tenantId: string;
-  readonly updatedAtUtc?: null | string;
-  readonly usedRequestsThisMonth: number | string;
-  readonly usedTokensThisMonth: number | string;
-  readonly version: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly usedRequestsThisMonth: number;
+  readonly usedTokensThisMonth: number;
+  readonly version: number;
 }
 
-export type AiTenantQuotaResponse = AiTenantQuotaListItem;
+export interface AiTenantQuotaResponse {
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly isEnabled: boolean;
+  readonly monthlyRequestLimit: null | number;
+  readonly monthlyTokenLimit: null | number;
+  readonly quotaMonthKey: string;
+  readonly tenantId: string;
+  readonly updatedAtUtc: null | string;
+  readonly usedRequestsThisMonth: number;
+  readonly usedTokensThisMonth: number;
+  readonly version: number;
+}
+
+export interface ApproveAiMcpRemoteToolRequest {
+  readonly permissionCode: string;
+  readonly remoteToolName: string;
+  readonly sideEffectKey: string;
+}
 
 export interface AssignHostTenantPackageRequest {
   readonly tenantPackageId: null | string;
@@ -265,7 +368,7 @@ export interface BatchChangeHostJobScheduleStateResponse {
 export interface BatchChangeHostJobScheduleStateResultItem {
   readonly errorCode: null | string;
   readonly message: null | string;
-  readonly schedule?: null | HostJobScheduleResponse;
+  readonly schedule: null | HostJobScheduleResponse;
   readonly scheduleId: string;
   readonly succeeded: boolean;
 }
@@ -342,8 +445,8 @@ export interface CacheInvalidationParameterSummary {
 
 export interface CacheInvalidationRequest {
   readonly operationKey: string;
-  readonly parameters?: Readonly<Record<string, unknown>>;
-  readonly scope?: string | null;
+  readonly parameters: null | Readonly<Record<string, unknown>>;
+  readonly scope: null | string;
 }
 
 export interface CacheInvalidationResult {
@@ -359,8 +462,8 @@ export interface CachePolicySummary {
   readonly consistencyClass: string;
   readonly entryName: string;
   readonly invalidationOperations: Array<CacheInvalidationOperationSummary>;
-  readonly l1DurationSeconds?: number | null;
-  readonly l2DurationSeconds?: number | null;
+  readonly l1DurationSeconds: null | number;
+  readonly l2DurationSeconds: null | number;
   readonly ownerModule: string;
   readonly requiresDirectInvalidation: boolean;
 }
@@ -644,13 +747,13 @@ export interface ConfigValueUpdate {
 }
 
 export interface ConfirmOcrIdCardTaskRequest {
-  readonly address?: null | string;
-  readonly birthDate?: null | string;
-  readonly gender?: null | string;
+  readonly address: null | string;
+  readonly birthDate: null | string;
+  readonly gender: null | string;
   readonly idNumber: string;
   readonly name: string;
-  readonly nation?: null | string;
-  readonly version: number | string;
+  readonly nation: null | string;
+  readonly version: number;
 }
 
 export interface ConfirmTotpEnrollmentRequest {
@@ -663,37 +766,81 @@ export interface CopyHostRoleRequest {
 }
 
 export interface CreateAdministrativeRegionRequest {
-  readonly cityCode?: string;
-  readonly code?: string;
-  readonly displayOrder?: number;
-  readonly latitude?: number;
-  readonly level?: number;
-  readonly longitude?: number;
-  readonly mergerName?: string;
-  readonly name?: string;
-  readonly parentId?: string;
-  readonly pinYin?: string;
-  readonly regionType?: string;
-  readonly remark?: string;
-  readonly shortName?: string;
-  readonly zipCode?: string;
+  readonly cityCode: null | string;
+  readonly code: string;
+  readonly displayOrder: number;
+  readonly latitude: null | number | string;
+  readonly level: number;
+  readonly longitude: null | number | string;
+  readonly mergerName: null | string;
+  readonly name: string;
+  readonly parentId: null | string;
+  readonly pinYin: null | string;
+  readonly regionType: null | string;
+  readonly remark: null | string;
+  readonly shortName: null | string;
+  readonly zipCode: null | string;
+}
+
+export interface CreateAiAgentApprovalRequest {
+  readonly argumentsJson: string;
+  readonly operationId: string;
+  readonly runId: string;
+  readonly toolName: string;
+  readonly toolVersion: number;
+}
+
+export interface CreateAiAgentApprovalResponse {
+  readonly approvalId: string;
+}
+
+export interface CreateAiAgentDelegationRequest {
+  readonly expiresAtUtc: string;
+  readonly granteeUserId: string;
+  readonly permissionCode: null | string;
+  readonly toolName: null | string;
+}
+
+export interface CreateAiAgentDelegationResponse {
+  readonly delegationId: string;
+}
+
+export interface CreateAiAgentRunRequest {
+  readonly clientRequestId: string;
+  readonly definitionKey: string;
+  readonly inputTokenLimit: number;
+  readonly modelConfigId: string;
+  readonly outputTokenLimit: number;
+  readonly prompt: string;
+}
+
+export interface CreateAiAgentRunResponse {
+  readonly runId: string;
 }
 
 export interface CreateAiChatSessionRequest {
   readonly modelConfigId: string;
-  readonly title?: null | string;
+  readonly title: null | string;
+}
+
+export interface CreateAiMcpRemoteConnectionRequest {
+  readonly connectionKey: string;
+  readonly displayName: string;
+  readonly endpointUrl: string;
+  readonly oAuthScopesJson: null | string;
+  readonly serviceToken: string;
 }
 
 export interface CreateAiModelConfigRequest {
-  readonly apiKey?: null | string;
+  readonly apiKey: null | string;
   readonly endpointBaseUrl: string;
   readonly isDefault: boolean;
   readonly isEnabled: boolean;
   readonly modelId: string;
   readonly name: string;
-  readonly organizationId?: null | string;
+  readonly organizationId: null | string;
   readonly providerKey: string;
-  readonly tenantId?: null | string;
+  readonly tenantId: null | string;
 }
 
 export interface CreateCodeGenerationTemplateRequest {
@@ -733,8 +880,16 @@ export interface CreateDictTypeRequest {
   readonly name: string;
 }
 
+export interface CreateEnterpriseRequestRequest {
+  readonly applicantUserId: string;
+  readonly requestNumber: string;
+  readonly status: string;
+  readonly title: string;
+  readonly totalAmount: number | string;
+}
+
 export interface CreateGoViewProjectRequest {
-  readonly canvasJson?: null | string;
+  readonly canvasJson: null | string;
   readonly isEnabled: boolean;
   readonly name: string;
   readonly projectKey: string;
@@ -784,7 +939,7 @@ export interface CreateHostDocumentItemRequest {
 
 export interface CreateHostDocumentPreviewTaskRequest {
   readonly documentItemId: string;
-  readonly versionId?: null | string;
+  readonly versionId: null | string;
 }
 
 export interface CreateHostDocumentShareRequest {
@@ -805,7 +960,7 @@ export interface CreateHostDocumentTagRequest {
 export interface CreateHostFolderRequest {
   readonly displayOrder?: number;
   readonly name: string;
-  readonly parentId?: null | string;
+  readonly parentId: null | string;
 }
 
 export interface CreateHostJobDefinitionRequest {
@@ -880,7 +1035,7 @@ export interface CreateK3CloudConnectionConfigRequest {
   readonly baseUrl: string;
   readonly isDefault: boolean;
   readonly isEnabled: boolean;
-  readonly lcid: number | string;
+  readonly lcid: number;
   readonly name: string;
   readonly password: string;
   readonly username: string;
@@ -962,7 +1117,7 @@ export interface CreateOrganizationUserUnitRequest {
 }
 
 export interface CreatePaymentMerchantConfigRequest {
-  readonly apiV3Key?: null | string;
+  readonly apiV3Key: null | string;
   readonly appId: string;
   readonly certificateSerialNo: string;
   readonly channelKey: string;
@@ -971,23 +1126,23 @@ export interface CreatePaymentMerchantConfigRequest {
   readonly merchantId: string;
   readonly name: string;
   readonly notifyUrl: string;
-  readonly privateKeyPem?: null | string;
+  readonly privateKeyPem: null | string;
   readonly returnUrl: string;
-  readonly tenantId?: null | string;
+  readonly tenantId: null | string;
 }
 
 export interface CreatePaymentOrderRequest {
-  readonly amountMinor: number | string;
-  readonly channelKey?: null | string;
+  readonly amountMinor: number;
+  readonly channelKey: null | string;
   readonly currency: string;
-  readonly description?: null | string;
-  readonly merchantConfigId?: null | string;
+  readonly description: null | string;
+  readonly merchantConfigId: null | string;
   readonly subject: string;
   readonly tenantId: string;
 }
 
 export interface CreatePaymentRefundRequest {
-  readonly amountMinor?: null | number | string;
+  readonly amountMinor: null | number;
   readonly reason: string;
 }
 
@@ -1010,10 +1165,10 @@ export interface CreateReportingDataSourceRequest {
   readonly isEnabled: boolean;
   readonly name: string;
   readonly password: string;
-  readonly port: number | string;
+  readonly port: number;
   readonly providerKey: string;
   readonly serverHost: string;
-  readonly tenantId?: null | string;
+  readonly tenantId: null | string;
   readonly trustServerCertificate: boolean;
   readonly username: string;
 }
@@ -1021,10 +1176,10 @@ export interface CreateReportingDataSourceRequest {
 export interface CreateReportingDefinitionRequest {
   readonly dataSourceId: string;
   readonly definitionKey: string;
-  readonly description?: null | string;
+  readonly description: null | string;
   readonly groupId: string;
   readonly isEnabled: boolean;
-  readonly layoutConfigJson?: null | string;
+  readonly layoutConfigJson: null | string;
   readonly name: string;
   readonly parameterSchema: Array<ReportingParameterSchemaEntry>;
   readonly queryPortKey: string;
@@ -1034,14 +1189,14 @@ export interface CreateReportingExportTaskRequest {
   readonly definitionId: string;
   readonly formatKey: string;
   readonly parameters: Array<ReportingExecutionParameterValue>;
-  readonly versionNumber?: null | number | string;
+  readonly versionNumber: null | number;
 }
 
 export interface CreateReportingGroupRequest {
   readonly isEnabled: boolean;
   readonly name: string;
-  readonly parentId?: null | string;
-  readonly sortOrder: number | string;
+  readonly parentId: null | string;
+  readonly sortOrder: number;
 }
 
 export interface CreateSerialNumberRuleRequest {
@@ -1073,6 +1228,7 @@ export interface CurrentUserResponse {
   readonly displayName: string;
   readonly id: string;
   readonly isSuperAdministrator: boolean;
+  readonly passwordChangeRequired: boolean;
   readonly permissions: Array<string>;
   readonly preferredLocale: string;
   readonly profileVersion: number;
@@ -1086,17 +1242,17 @@ export interface DataApprovalRequestResponse {
   readonly afterSnapshotJson: string;
   readonly applicationAttemptCount: number;
   readonly applicationStatusKey: string;
-  readonly beforeSnapshotJson?: string | null;
+  readonly beforeSnapshotJson: null | string;
   readonly id: string;
-  readonly lastApplicationAttemptAtUtc?: string | null;
-  readonly lastApplicationFailureCode?: string | null;
-  readonly lastApplicationFailureMessage?: string | null;
-  readonly lastFailureCode?: string | null;
-  readonly lastFailureMessage?: string | null;
-  readonly lastRecoveryAttemptAtUtc?: string | null;
+  readonly lastApplicationAttemptAtUtc: null | string;
+  readonly lastApplicationFailureCode: null | string;
+  readonly lastApplicationFailureMessage: null | string;
+  readonly lastFailureCode: null | string;
+  readonly lastFailureMessage: null | string;
+  readonly lastRecoveryAttemptAtUtc: null | string;
   readonly recoveryAttemptCount: number;
   readonly recoveryStatusKey: string;
-  readonly resolvedAtUtc?: string | null;
+  readonly resolvedAtUtc: null | string;
   readonly scenarioKey: string;
   readonly statusKey: string;
   readonly submittedAtUtc: string;
@@ -1104,8 +1260,8 @@ export interface DataApprovalRequestResponse {
   readonly targetEntityId: string;
   readonly version: number;
   readonly workflowDefinitionVersionId: string;
-  readonly workflowInstanceId?: string | null;
-  readonly workflowRevision?: number | null;
+  readonly workflowInstanceId: null | string;
+  readonly workflowRevision: null | number;
 }
 
 export interface DataApprovalScenarioResponse {
@@ -1113,13 +1269,18 @@ export interface DataApprovalScenarioResponse {
   readonly isRegistered: boolean;
   readonly scenarioKey: string;
   readonly scopeKey: string;
-  readonly version?: number | null;
-  readonly workflowDefinitionKey?: string | null;
-  readonly workflowDefinitionVersionId?: string | null;
+  readonly version: null | number;
+  readonly workflowDefinitionKey: null | string;
+  readonly workflowDefinitionVersionId: null | string;
+}
+
+export interface DecideAiAgentApprovalRequest {
+  readonly approve: boolean;
+  readonly expectedVersion: number;
 }
 
 export interface DeleteAdministrativeRegionRequest {
-  readonly version?: number;
+  readonly version: number;
 }
 
 export interface DeleteCodeGenerationTemplateRequest {
@@ -1135,6 +1296,10 @@ export interface DeleteDictItemRequest {
 }
 
 export interface DeleteDictTypeRequest {
+  readonly version: number;
+}
+
+export interface DeleteEnterpriseRequestRequest {
   readonly version: number;
 }
 
@@ -1155,7 +1320,7 @@ export interface DeleteHostDocumentVersionRequest {
 }
 
 export interface DeleteHostFolderRequest {
-  readonly expectedRevision: number | string;
+  readonly expectedRevision: number;
 }
 
 export interface DeleteHostJobDefinitionRequest {
@@ -1163,7 +1328,7 @@ export interface DeleteHostJobDefinitionRequest {
 }
 
 export interface DeleteHostReleaseNoteRequest {
-  readonly version: number | string;
+  readonly version: number;
 }
 
 export interface DiagnosticPolicyResponse {
@@ -1221,6 +1386,25 @@ export interface DictTypeResponse {
 }
 
 export interface DisableHostJobDefinitionRequest {
+  readonly version: number;
+}
+
+export interface EnterpriseRequestResponse {
+  readonly applicantUserId: string;
+  readonly createdAtUtc: string;
+  readonly createdById: string;
+  readonly deletedAtUtc: null | string;
+  readonly deletedById: null | string;
+  readonly id: string;
+  readonly isDeleted: boolean;
+  readonly organizationUnitId: string;
+  readonly requestNumber: string;
+  readonly status: string;
+  readonly tenantId: string;
+  readonly title: string;
+  readonly totalAmount: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly updatedById: null | string;
   readonly version: number;
 }
 
@@ -1296,7 +1480,7 @@ export interface ExceptionLogResponse {
 
 export interface ExecuteReportingDefinitionRequest {
   readonly parameters: Array<ReportingExecutionParameterValue>;
-  readonly versionNumber?: null | number | string;
+  readonly versionNumber: null | number;
 }
 
 export type FieldProjectionDefaultVisibility = number;
@@ -1323,7 +1507,7 @@ export interface GoViewProjectPreviewResponse {
   readonly projectId: string;
   readonly projectKey: string;
   readonly projectName: string;
-  readonly versionNumber: number | string;
+  readonly versionNumber: number;
 }
 
 export interface GoViewProjectResponse {
@@ -1331,21 +1515,21 @@ export interface GoViewProjectResponse {
   readonly createdAtUtc: string;
   readonly id: string;
   readonly isEnabled: boolean;
-  readonly latestPublishedVersionNumber: number | string;
+  readonly latestPublishedVersionNumber: number;
   readonly name: string;
   readonly projectKey: string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface GoViewProjectVersionResponse {
   readonly canvasJson: string;
-  readonly changeNote?: null | string;
+  readonly changeNote: null | string;
   readonly id: string;
   readonly projectId: string;
   readonly publishedAtUtc: string;
   readonly publishedByUserId: string;
-  readonly versionNumber: number | string;
+  readonly versionNumber: number;
 }
 
 export interface GrantSuperAdministratorRequest {
@@ -1415,18 +1599,40 @@ export interface HostDashboardActivityResponse {
   readonly succeeded: boolean;
 }
 
+export interface HostDashboardBusinessEntryResponse {
+  readonly count: number;
+  readonly entryKey: string;
+  readonly requiredPermission: string;
+  readonly routePath: string;
+}
+
 export interface HostDashboardSummaryResponse {
-  readonly activeTenantCount: number;
-  readonly onlineSessionCount: number;
-  readonly recentActivities: Array<HostDashboardActivityResponse>;
-  readonly todayErrorRate: number | string;
-  readonly todayRequestCount: number;
+  readonly accessTrafficTrend: null | HostDashboardTrafficTrendResponse;
+  readonly activeTenantCount: null | number;
+  readonly businessEntries: Array<HostDashboardBusinessEntryResponse>;
+  readonly onlineSessionCount: null | number;
+  readonly recentActivities: null | Array<HostDashboardActivityResponse>;
+  readonly todayErrorRate: null | number | string;
+  readonly todayRequestCount: null | number;
+}
+
+export interface HostDashboardTrafficTrendBucketResponse {
+  readonly bucketStartUtc: string;
+  readonly errorCount: number;
+  readonly eventCount: number;
+}
+
+export interface HostDashboardTrafficTrendResponse {
+  readonly buckets: Array<HostDashboardTrafficTrendBucketResponse>;
+  readonly bucketSizeMinutes: number;
+  readonly fromUtc: string;
+  readonly toUtc: string;
 }
 
 export interface HostDocumentAccessLogResponse {
   readonly accessTypeKey: string;
-  readonly actorUserId?: null | string;
-  readonly clientIpFingerprint?: null | string;
+  readonly actorUserId: null | string;
+  readonly clientIpFingerprint: null | string;
   readonly documentItemId: string;
   readonly documentTitle: string;
   readonly id: string;
@@ -1488,20 +1694,20 @@ export interface HostDocumentPermissionResponse {
 }
 
 export interface HostDocumentPreviewTaskResponse {
-  readonly completedAtUtc?: null | string;
+  readonly completedAtUtc: null | string;
   readonly createdAtUtc: string;
   readonly documentItemId: string;
   readonly documentTitle: string;
-  readonly errorCode?: null | string;
+  readonly errorCode: null | string;
   readonly id: string;
-  readonly outputFileId?: null | string;
+  readonly outputFileId: null | string;
   readonly providerKey: string;
   readonly requestedByUserId: string;
   readonly sourceFileId: string;
-  readonly startedAtUtc?: null | string;
+  readonly startedAtUtc: null | string;
   readonly statusKey: string;
   readonly version: number;
-  readonly versionId?: null | string;
+  readonly versionId: null | string;
 }
 
 export interface HostDocumentShareAccessResponse {
@@ -1612,7 +1818,7 @@ export interface HostFileResponse {
   readonly folderId: null | string;
   readonly id: string;
   readonly originalFileName: string;
-  readonly revision: number | string;
+  readonly revision: number;
   readonly sizeBytes: number;
   readonly updatedAtUtc: null | string;
   readonly updatedByUserId: null | string;
@@ -1625,7 +1831,7 @@ export interface HostFolderResponse {
   readonly id: string;
   readonly name: string;
   readonly parentId: null | string;
-  readonly revision: number | string;
+  readonly revision: number;
   readonly updatedAtUtc: null | string;
   readonly updatedByUserId: null | string;
 }
@@ -1636,7 +1842,7 @@ export interface HostFolderTreeNode {
   readonly id: string;
   readonly name: string;
   readonly parentId: null | string;
-  readonly revision: number | string;
+  readonly revision: number;
 }
 
 export interface HostJobDefinitionResponse {
@@ -1799,9 +2005,9 @@ export interface HostReleaseNoteResponse {
   readonly status: string;
   readonly title: string;
   readonly updatedAtUtc: null | string;
-  readonly version: number | string;
+  readonly version: number;
   readonly versionLabel: string;
-  readonly versionSortKey: number | string;
+  readonly versionSortKey: number;
 }
 
 export interface HostRoleDataScopeResponse {
@@ -1974,7 +2180,7 @@ export interface HttpJobSecretHeaderRef {
   readonly configKey: string;
 }
 
-export type IdentitySessionLoginPolicy = "AllowMultiple" | "SingleSession";
+export type IdentitySessionLoginPolicy = number;
 
 export interface IdentitySessionPolicyResponse {
   readonly loginPolicy: IdentitySessionLoginPolicy;
@@ -1982,88 +2188,114 @@ export interface IdentitySessionPolicyResponse {
 
 export type IFormFile = Blob;
 
+export type IFormFileCollection = Array<IFormFile>;
+
+export interface ImportAdministrativeRegionAddedSummary {
+  readonly code: string;
+  readonly level: number;
+  readonly name: string;
+}
+
 export interface ImportAdministrativeRegionItem {
-  readonly cityCode?: string;
-  readonly code?: string;
-  readonly displayOrder?: number;
-  readonly latitude?: number;
-  readonly level?: number;
-  readonly longitude?: number;
-  readonly mergerName?: string;
-  readonly name?: string;
-  readonly parentCode?: string;
-  readonly pinYin?: string;
-  readonly regionType?: string;
-  readonly shortName?: string;
-  readonly zipCode?: string;
+  readonly cityCode: null | string;
+  readonly code: string;
+  readonly displayOrder: null | number;
+  readonly latitude: null | number | string;
+  readonly level: number;
+  readonly longitude: null | number | string;
+  readonly mergerName: null | string;
+  readonly name: string;
+  readonly parentCode: null | string;
+  readonly pinYin: null | string;
+  readonly regionType: null | string;
+  readonly shortName: null | string;
+  readonly zipCode: null | string;
+}
+
+export interface ImportAdministrativeRegionRemovedSummary {
+  readonly code: string;
+  readonly name: string;
 }
 
 export interface ImportAdministrativeRegionsApplyResponse {
-  readonly addedCount?: number;
-  readonly manifest?: AdministrativeRegionDatasetManifestResponse;
-  readonly removedCount?: number;
-  readonly skippedCount?: number;
-  readonly updatedCount?: number;
+  readonly addedCount: number;
+  readonly manifest: AdministrativeRegionDatasetManifestResponse;
+  readonly removedCount: number;
+  readonly skippedCount: number;
+  readonly updatedCount: number;
 }
 
 export interface ImportAdministrativeRegionsPreviewResponse {
-  readonly added?: Array<Readonly<Record<string, unknown>>>;
-  readonly removed?: Array<Readonly<Record<string, unknown>>>;
-  readonly skippedCount?: number;
-  readonly updated?: Array<Readonly<Record<string, unknown>>>;
+  readonly added: Array<ImportAdministrativeRegionAddedSummary>;
+  readonly removed: Array<ImportAdministrativeRegionRemovedSummary>;
+  readonly skippedCount: number;
+  readonly updated: Array<ImportAdministrativeRegionUpdatedSummary>;
 }
 
 export interface ImportAdministrativeRegionsRequest {
-  readonly datasetKey?: string;
-  readonly datasetVersion?: string;
-  readonly items?: Array<ImportAdministrativeRegionItem>;
-  readonly mergeMode?: string;
-  readonly sourceDigest?: string;
+  readonly datasetKey: string;
+  readonly datasetVersion: string;
+  readonly items: Array<ImportAdministrativeRegionItem>;
+  readonly mergeMode: string;
+  readonly sourceDigest: string;
+}
+
+export interface ImportAdministrativeRegionUpdatedSummary {
+  readonly changedFields: Array<string>;
+  readonly code: string;
+  readonly name: string;
 }
 
 export interface ImportExportTaskDetailResponse {
   readonly createdAtUtc: string;
-  readonly errorCode?: null | string;
+  readonly errorCode: null | string;
+  readonly executionCompletedAtUtc: null | string;
+  readonly executionFailedRowCount: number;
+  readonly executionStartedAtUtc: null | string;
+  readonly hasErrorReceipt: boolean;
   readonly id: string;
-  readonly invalidRowCount: number | string;
-  readonly previewCompletedAtUtc?: null | string;
+  readonly invalidRowCount: number;
+  readonly nextLineNumber: number;
+  readonly previewCompletedAtUtc: null | string;
   readonly previewRows: Array<StaticImportRowPreviewResult>;
+  readonly processedRowCount: number;
   readonly requestedByUserId: string;
   readonly schemaDisplayName: string;
   readonly schemaKey: string;
   readonly sourceFileId: string;
-  readonly sourceFileName?: null | string;
+  readonly sourceFileName: null | string;
   readonly statusKey: string;
+  readonly succeededRowCount: number;
   readonly tenantId: string;
-  readonly totalRows: number | string;
-  readonly validRowCount: number | string;
-  readonly version: number | string;
+  readonly totalRows: number;
+  readonly validRowCount: number;
+  readonly version: number;
   readonly worksheetKey: string;
 }
 
 export interface ImportExportTaskResponse {
   readonly createdAtUtc: string;
-  readonly errorCode?: null | string;
-  readonly executionCompletedAtUtc?: null | string;
-  readonly executionFailedRowCount: number | string;
-  readonly executionStartedAtUtc?: null | string;
+  readonly errorCode: null | string;
+  readonly executionCompletedAtUtc: null | string;
+  readonly executionFailedRowCount: number;
+  readonly executionStartedAtUtc: null | string;
   readonly hasErrorReceipt: boolean;
   readonly id: string;
-  readonly invalidRowCount: number | string;
-  readonly nextLineNumber: number | string;
-  readonly previewCompletedAtUtc?: null | string;
-  readonly processedRowCount: number | string;
+  readonly invalidRowCount: number;
+  readonly nextLineNumber: number;
+  readonly previewCompletedAtUtc: null | string;
+  readonly processedRowCount: number;
   readonly requestedByUserId: string;
   readonly schemaDisplayName: string;
   readonly schemaKey: string;
   readonly sourceFileId: string;
-  readonly sourceFileName?: null | string;
+  readonly sourceFileName: null | string;
   readonly statusKey: string;
-  readonly succeededRowCount: number | string;
+  readonly succeededRowCount: number;
   readonly tenantId: string;
-  readonly totalRows: number | string;
-  readonly validRowCount: number | string;
-  readonly version: number | string;
+  readonly totalRows: number;
+  readonly validRowCount: number;
+  readonly version: number;
   readonly worksheetKey: string;
 }
 
@@ -2133,14 +2365,14 @@ export interface K3CloudConnectionConfigResponse {
   readonly id: string;
   readonly isDefault: boolean;
   readonly isEnabled: boolean;
-  readonly lastTestedAtUtc?: null | string;
-  readonly lastTestMessage?: null | string;
-  readonly lastTestStatusKey?: null | string;
-  readonly lcid: number | string;
+  readonly lastTestedAtUtc: null | string;
+  readonly lastTestMessage: null | string;
+  readonly lastTestStatusKey: null | string;
+  readonly lcid: number;
   readonly name: string;
-  readonly updatedAtUtc?: null | string;
+  readonly updatedAtUtc: null | string;
   readonly username: string;
-  readonly version: number | string;
+  readonly version: number;
 }
 
 export interface K3CloudDocumentSyncResponse {
@@ -2149,16 +2381,16 @@ export interface K3CloudDocumentSyncResponse {
   readonly createdAtUtc: string;
   readonly createdByUserId: string;
   readonly documentTypeKey: string;
-  readonly externalBillId?: null | string;
-  readonly externalBillNo?: null | string;
+  readonly externalBillId: null | string;
+  readonly externalBillNo: null | string;
   readonly id: string;
-  readonly lastErrorCode?: null | string;
-  readonly lastErrorMessage?: null | string;
-  readonly lastStepKey?: null | string;
+  readonly lastErrorCode: null | string;
+  readonly lastErrorMessage: null | string;
+  readonly lastStepKey: null | string;
   readonly statusKey: string;
-  readonly submittedAtUtc?: null | string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly submittedAtUtc: null | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface LocalePreferenceResponse {
@@ -2222,8 +2454,8 @@ export interface ModuleSelectionModuleStateResponse {
 }
 
 export interface ModuleSelectionValidateRequest {
-  readonly enabled?: null | Array<string>;
-  readonly preset?: null | string;
+  readonly enabled: null | Array<string>;
+  readonly preset: null | string;
 }
 
 export interface MyReleaseNoteResponse {
@@ -2234,7 +2466,7 @@ export interface MyReleaseNoteResponse {
   readonly readAtUtc: null | string;
   readonly title: string;
   readonly versionLabel: string;
-  readonly versionSortKey: number | string;
+  readonly versionSortKey: number;
 }
 
 export interface NotificationBindingResponse {
@@ -2369,29 +2601,29 @@ export interface NotificationTemplateResponse {
 }
 
 export interface OcrIdCardTaskResponse {
-  readonly confirmedAddress?: null | string;
-  readonly confirmedAtUtc?: null | string;
-  readonly confirmedBirthDate?: null | string;
-  readonly confirmedGender?: null | string;
-  readonly confirmedIdNumber?: null | string;
-  readonly confirmedName?: null | string;
-  readonly confirmedNation?: null | string;
+  readonly confirmedAddress: null | string;
+  readonly confirmedAtUtc: null | string;
+  readonly confirmedBirthDate: null | string;
+  readonly confirmedGender: null | string;
+  readonly confirmedIdNumber: null | string;
+  readonly confirmedName: null | string;
+  readonly confirmedNation: null | string;
   readonly createdAtUtc: string;
   readonly createdByUserId: string;
-  readonly failureMessage?: null | string;
+  readonly failureMessage: null | string;
   readonly id: string;
-  readonly recognizedAddress?: null | string;
-  readonly recognizedAtUtc?: null | string;
-  readonly recognizedBirthDate?: null | string;
-  readonly recognizedGender?: null | string;
-  readonly recognizedIdNumber?: null | string;
-  readonly recognizedName?: null | string;
-  readonly recognizedNation?: null | string;
-  readonly rejectedAtUtc?: null | string;
+  readonly recognizedAddress: null | string;
+  readonly recognizedAtUtc: null | string;
+  readonly recognizedBirthDate: null | string;
+  readonly recognizedGender: null | string;
+  readonly recognizedIdNumber: null | string;
+  readonly recognizedName: null | string;
+  readonly recognizedNation: null | string;
+  readonly rejectedAtUtc: null | string;
   readonly sourceFileId: string;
   readonly statusKey: string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface OcrProviderConfigResponse {
@@ -2400,13 +2632,13 @@ export interface OcrProviderConfigResponse {
   readonly hasApiKey: boolean;
   readonly id: string;
   readonly isEnabled: boolean;
-  readonly lastTestedAtUtc?: null | string;
-  readonly lastTestMessage?: null | string;
-  readonly lastTestStatusKey?: null | string;
+  readonly lastTestedAtUtc: null | string;
+  readonly lastTestMessage: null | string;
+  readonly lastTestStatusKey: null | string;
   readonly name: string;
   readonly providerKey: string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface OperationLogResponse {
@@ -2525,38 +2757,38 @@ export interface PagedResultOfAccessLogResponse {
 }
 
 export interface PagedResultOfAdministrativeRegionResponse {
-  readonly items?: Array<AdministrativeRegionResponse>;
-  readonly page?: number;
-  readonly pageSize?: number;
-  readonly totalCount?: number;
+  readonly items: Array<AdministrativeRegionResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfAiAgentToolCallListItem {
   readonly items: Array<AiAgentToolCallListItem>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfAiChatSessionListItem {
   readonly items: Array<AiChatSessionListItem>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfAiModelConfigListItem {
   readonly items: Array<AiModelConfigListItem>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfAiTenantQuotaListItem {
   readonly items: Array<AiTenantQuotaListItem>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfCodeGenerationRunResponse {
@@ -2596,6 +2828,13 @@ export interface PagedResultOfDictItemResponse {
 
 export interface PagedResultOfDictTypeResponse {
   readonly items: Array<DictTypeResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfEnterpriseRequestResponse {
+  readonly items: Array<EnterpriseRequestResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
@@ -2708,9 +2947,9 @@ export interface PagedResultOfHostOnlineSessionResponse {
 
 export interface PagedResultOfHostReleaseNoteResponse {
   readonly items: Array<HostReleaseNoteResponse>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfHostRoleResponse {
@@ -2729,9 +2968,9 @@ export interface PagedResultOfHostUserResponse {
 
 export interface PagedResultOfImportExportTaskResponse {
   readonly items: Array<ImportExportTaskResponse>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfInboxMessageResponse {
@@ -2743,16 +2982,16 @@ export interface PagedResultOfInboxMessageResponse {
 
 export interface PagedResultOfK3CloudDocumentSyncResponse {
   readonly items: Array<K3CloudDocumentSyncResponse>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfMyReleaseNoteResponse {
   readonly items: Array<MyReleaseNoteResponse>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfNotificationBindingResponse {
@@ -2785,9 +3024,9 @@ export interface PagedResultOfNotificationTemplateResponse {
 
 export interface PagedResultOfOcrIdCardTaskResponse {
   readonly items: Array<OcrIdCardTaskResponse>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfOperationLogResponse {
@@ -2848,23 +3087,23 @@ export interface PagedResultOfOutboundCallLogResponse {
 
 export interface PagedResultOfPaymentMerchantConfigListItem {
   readonly items: Array<PaymentMerchantConfigListItem>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfPaymentOrderListItem {
   readonly items: Array<PaymentOrderListItem>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfPaymentRefundListItem {
   readonly items: Array<PaymentRefundListItem>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfPersonalScheduleResponse {
@@ -2883,16 +3122,16 @@ export interface PagedResultOfReceivedHostAnnouncementListItemResponse {
 
 export interface PagedResultOfReportingDataSourceListItem {
   readonly items: Array<ReportingDataSourceListItem>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfReportingExportTaskResponse {
   readonly items: Array<ReportingExportTaskResponse>;
-  readonly page: number | string;
-  readonly pageSize: number | string;
-  readonly total: number | string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
 }
 
 export interface PagedResultOfSerialNumberRuleResponse {
@@ -2957,9 +3196,9 @@ export interface PaymentMerchantConfigListItem {
   readonly maskedNotifyUrl: string;
   readonly maskedReturnUrl: string;
   readonly name: string;
-  readonly tenantId?: null | string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly tenantId: null | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface PaymentMerchantConfigResponse {
@@ -2976,86 +3215,86 @@ export interface PaymentMerchantConfigResponse {
   readonly name: string;
   readonly notifyUrl: string;
   readonly returnUrl: string;
-  readonly tenantId?: null | string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly tenantId: null | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface PaymentOrderListItem {
-  readonly amountMinor: number | string;
+  readonly amountMinor: number;
   readonly channelKey: string;
-  readonly codeUrl?: null | string;
+  readonly codeUrl: null | string;
   readonly createdAtUtc: string;
   readonly currency: string;
-  readonly description?: null | string;
-  readonly failMessage?: null | string;
+  readonly description: null | string;
+  readonly failMessage: null | string;
   readonly id: string;
   readonly merchantConfigId: string;
   readonly outTradeNo: string;
-  readonly paidAtUtc?: null | string;
-  readonly providerTransactionId?: null | string;
+  readonly paidAtUtc: null | string;
+  readonly providerTransactionId: null | string;
   readonly subject: string;
   readonly tenantId: string;
   readonly tradeStateKey: string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface PaymentOrderResponse {
-  readonly amountMinor: number | string;
+  readonly amountMinor: number;
   readonly channelKey: string;
-  readonly codeUrl?: null | string;
+  readonly codeUrl: null | string;
   readonly createdAtUtc: string;
   readonly currency: string;
-  readonly description?: null | string;
-  readonly failMessage?: null | string;
+  readonly description: null | string;
+  readonly failMessage: null | string;
   readonly id: string;
   readonly merchantConfigId: string;
   readonly outTradeNo: string;
-  readonly paidAtUtc?: null | string;
-  readonly providerTransactionId?: null | string;
+  readonly paidAtUtc: null | string;
+  readonly providerTransactionId: null | string;
   readonly subject: string;
   readonly tenantId: string;
   readonly tradeStateKey: string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface PaymentRefundListItem {
-  readonly amountMinor: number | string;
-  readonly completedAtUtc?: null | string;
+  readonly amountMinor: number;
+  readonly completedAtUtc: null | string;
   readonly createdAtUtc: string;
   readonly currency: string;
-  readonly failMessage?: null | string;
+  readonly failMessage: null | string;
   readonly id: string;
   readonly orderId: string;
   readonly outRefundNo: string;
   readonly outTradeNo: string;
-  readonly providerRefundId?: null | string;
+  readonly providerRefundId: null | string;
   readonly reason: string;
   readonly refundStateKey: string;
   readonly tenantId: string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface PaymentRefundResponse {
-  readonly amountMinor: number | string;
-  readonly completedAtUtc?: null | string;
+  readonly amountMinor: number;
+  readonly completedAtUtc: null | string;
   readonly createdAtUtc: string;
   readonly currency: string;
-  readonly failMessage?: null | string;
+  readonly failMessage: null | string;
   readonly id: string;
   readonly merchantConfigId: string;
   readonly orderId: string;
   readonly outRefundNo: string;
   readonly outTradeNo: string;
-  readonly providerRefundId?: null | string;
+  readonly providerRefundId: null | string;
   readonly reason: string;
   readonly refundStateKey: string;
   readonly tenantId: string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface PersonalScheduleResponse {
@@ -3071,11 +3310,11 @@ export interface PersonalScheduleResponse {
 }
 
 export interface PreviewGoViewProjectRequest {
-  readonly versionNumber?: null | number | string;
+  readonly versionNumber: null | number;
 }
 
 export interface PreviewPrintingTemplateRequest {
-  readonly versionNumber?: null | number | string;
+  readonly versionNumber: null | number;
 }
 
 export interface PreviewSerialNumberRequest {
@@ -3088,8 +3327,8 @@ export interface PreviewSerialNumberRequest {
 }
 
 export interface PreviewWorkflowAssigneeRequest {
-  readonly assigneePolicy: Readonly<Record<string, unknown>>;
-  readonly initiatorUserId?: null | string;
+  readonly assigneePolicy: JsonElement;
+  readonly initiatorUserId: null | string;
 }
 
 export interface PrintingFormFieldDefinition {
@@ -3112,7 +3351,7 @@ export interface PrintingTemplatePreviewResponse {
   readonly templateId: string;
   readonly templateKey: string;
   readonly templateName: string;
-  readonly versionNumber: number | string;
+  readonly versionNumber: number;
 }
 
 export interface PrintingTemplateResponse {
@@ -3120,22 +3359,22 @@ export interface PrintingTemplateResponse {
   readonly formSchemaKey: string;
   readonly id: string;
   readonly isEnabled: boolean;
-  readonly latestPublishedVersionNumber: number | string;
+  readonly latestPublishedVersionNumber: number;
   readonly layoutHtml: string;
   readonly name: string;
   readonly templateKey: string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface PrintingTemplateVersionResponse {
-  readonly changeNote?: null | string;
+  readonly changeNote: null | string;
   readonly id: string;
   readonly layoutHtml: string;
   readonly publishedAtUtc: string;
   readonly publishedByUserId: string;
   readonly templateId: string;
-  readonly versionNumber: number | string;
+  readonly versionNumber: number;
 }
 
 export interface ProblemDetails {
@@ -3154,8 +3393,8 @@ export interface ProvisionTenantRequest {
 }
 
 export interface PublishGoViewProjectRequest {
-  readonly changeNote?: null | string;
-  readonly version: number | string;
+  readonly changeNote: null | string;
+  readonly version: number;
 }
 
 export interface PublishHostAnnouncementRequest {
@@ -3163,7 +3402,7 @@ export interface PublishHostAnnouncementRequest {
 }
 
 export interface PublishHostReleaseNoteRequest {
-  readonly version: number | string;
+  readonly version: number;
 }
 
 export interface PublishNotificationBindingRequest {
@@ -3180,13 +3419,13 @@ export interface PublishNotificationTemplateRequest {
 }
 
 export interface PublishPrintingTemplateRequest {
-  readonly changeNote?: null | string;
-  readonly version: number | string;
+  readonly changeNote: null | string;
+  readonly version: number;
 }
 
 export interface PublishReportingDefinitionRequest {
-  readonly changeNote?: null | string;
-  readonly version: number | string;
+  readonly changeNote: null | string;
+  readonly version: number;
 }
 
 export interface PublishWorkflowDefinitionRequest {
@@ -3275,18 +3514,18 @@ export interface ReportingDataSourceListItem {
   readonly hasPassword: boolean;
   readonly id: string;
   readonly isEnabled: boolean;
-  readonly lastTestedAtUtc?: null | string;
-  readonly lastTestMessage?: null | string;
-  readonly lastTestStatusKey?: null | string;
+  readonly lastTestedAtUtc: null | string;
+  readonly lastTestMessage: null | string;
+  readonly lastTestStatusKey: null | string;
   readonly maskedDatabaseName: string;
   readonly maskedServerEndpoint: string;
   readonly maskedUsername: string;
   readonly name: string;
   readonly providerKey: string;
-  readonly tenantId?: null | string;
+  readonly tenantId: null | string;
   readonly trustServerCertificate: boolean;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface ReportingDataSourceResponse {
@@ -3295,39 +3534,39 @@ export interface ReportingDataSourceResponse {
   readonly hasPassword: boolean;
   readonly id: string;
   readonly isEnabled: boolean;
-  readonly lastTestedAtUtc?: null | string;
-  readonly lastTestMessage?: null | string;
-  readonly lastTestStatusKey?: null | string;
+  readonly lastTestedAtUtc: null | string;
+  readonly lastTestMessage: null | string;
+  readonly lastTestStatusKey: null | string;
   readonly name: string;
-  readonly port: number | string;
+  readonly port: number;
   readonly providerKey: string;
   readonly serverHost: string;
-  readonly tenantId?: null | string;
+  readonly tenantId: null | string;
   readonly trustServerCertificate: boolean;
-  readonly updatedAtUtc?: null | string;
+  readonly updatedAtUtc: null | string;
   readonly username: string;
-  readonly version: number | string;
+  readonly version: number;
 }
 
 export interface ReportingDefinitionResponse {
   readonly createdAtUtc: string;
   readonly dataSourceId: string;
   readonly definitionKey: string;
-  readonly description?: null | string;
+  readonly description: null | string;
   readonly groupId: string;
   readonly id: string;
   readonly isEnabled: boolean;
-  readonly latestPublishedVersionNumber: number | string;
+  readonly latestPublishedVersionNumber: number;
   readonly layoutConfigJson: string;
   readonly name: string;
   readonly parameterSchema: Array<ReportingParameterSchemaEntry>;
   readonly queryPortKey: string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface ReportingDefinitionVersionResponse {
-  readonly changeNote?: null | string;
+  readonly changeNote: null | string;
   readonly dataSourceId: string;
   readonly definitionId: string;
   readonly id: string;
@@ -3336,7 +3575,7 @@ export interface ReportingDefinitionVersionResponse {
   readonly publishedAtUtc: string;
   readonly publishedByUserId: string;
   readonly queryPortKey: string;
-  readonly versionNumber: number | string;
+  readonly versionNumber: number;
 }
 
 export interface ReportingExecutionColumnDefinition {
@@ -3346,46 +3585,63 @@ export interface ReportingExecutionColumnDefinition {
 
 export interface ReportingExecutionPageResponse {
   readonly columns: Array<ReportingExecutionColumnDefinition>;
-  readonly commandTimeoutSeconds: number | string;
+  readonly commandTimeoutSeconds: number;
   readonly definitionId: string;
   readonly definitionKey: string;
   readonly definitionName: string;
   readonly executedAtUtc: string;
   readonly hasMore: boolean;
-  readonly page: number | string;
-  readonly pageSize: number | string;
+  readonly page: number;
+  readonly pageSize: number;
   readonly queryPortKey: string;
   readonly rows: Array<ReportingExecutionRow>;
-  readonly totalRows?: null | number | string;
-  readonly versionNumber: number | string;
+  readonly totalRows: null | number;
+  readonly versionNumber: number;
 }
 
 export interface ReportingExecutionParameterValue {
   readonly parameterKey: string;
-  readonly value?: null | string;
+  readonly value: null | string;
 }
 
 export interface ReportingExecutionRow {
   readonly values: Readonly<Record<string, unknown>>;
 }
 
-export type ReportingExportTaskDetailResponse = ReportingExportTaskResponse & Readonly<Record<string, unknown>>;
-
-export interface ReportingExportTaskResponse {
-  readonly completedAtUtc?: null | string;
+export interface ReportingExportTaskDetailResponse {
+  readonly completedAtUtc: null | string;
   readonly createdAtUtc: string;
   readonly definitionId: string;
   readonly definitionKey: string;
   readonly definitionName: string;
-  readonly errorCode?: null | string;
-  readonly errorMessage?: null | string;
+  readonly errorCode: null | string;
+  readonly errorMessage: null | string;
   readonly formatKey: string;
   readonly id: string;
-  readonly outputFileName?: null | string;
+  readonly outputFileId: null | string;
+  readonly outputFileName: null | string;
+  readonly parameters: Array<ReportingExecutionParameterValue>;
   readonly requestedByUserId: string;
-  readonly rowCount: number | string;
+  readonly rowCount: number;
   readonly statusKey: string;
-  readonly versionNumber: number | string;
+  readonly versionNumber: number;
+}
+
+export interface ReportingExportTaskResponse {
+  readonly completedAtUtc: null | string;
+  readonly createdAtUtc: string;
+  readonly definitionId: string;
+  readonly definitionKey: string;
+  readonly definitionName: string;
+  readonly errorCode: null | string;
+  readonly errorMessage: null | string;
+  readonly formatKey: string;
+  readonly id: string;
+  readonly outputFileName: null | string;
+  readonly requestedByUserId: string;
+  readonly rowCount: number;
+  readonly statusKey: string;
+  readonly versionNumber: number;
 }
 
 export interface ReportingGroupResponse {
@@ -3393,15 +3649,15 @@ export interface ReportingGroupResponse {
   readonly id: string;
   readonly isEnabled: boolean;
   readonly name: string;
-  readonly parentId?: null | string;
-  readonly sortOrder: number | string;
-  readonly updatedAtUtc?: null | string;
-  readonly version: number | string;
+  readonly parentId: null | string;
+  readonly sortOrder: number;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface ReportingParameterSchemaEntry {
   readonly dataTypeKey: string;
-  readonly defaultValue?: null | string;
+  readonly defaultValue: null | string;
   readonly displayName: string;
   readonly isRequired: boolean;
   readonly parameterKey: string;
@@ -3417,11 +3673,11 @@ export interface ReportingQueryPortDefinition {
 
 export interface ReportingQueryPortParameterDefinition {
   readonly dataTypeKey: string;
-  readonly defaultValue?: null | string;
+  readonly defaultValue: null | string;
   readonly displayName: string;
   readonly isRequired: boolean;
-  readonly maximum?: null | number | string;
-  readonly minimum?: null | number | string;
+  readonly maximum: null | number;
+  readonly minimum: null | number;
   readonly parameterKey: string;
 }
 
@@ -3444,7 +3700,7 @@ export interface ResumeWorkflowInstanceRequest {
 }
 
 export interface RetractHostReleaseNoteRequest {
-  readonly version: number | string;
+  readonly version: number;
 }
 
 export interface RetryDataApprovalRequestBody {
@@ -3476,6 +3732,10 @@ export interface RevealHostUserProfileFieldsRequest {
 
 export interface RevealHostUserProfileFieldsResponse {
   readonly values: Readonly<Record<string, unknown>>;
+}
+
+export interface RevokeAiAgentDelegationRequest {
+  readonly expectedVersion: number;
 }
 
 export interface RevokeAllHostUserSessionsResponse {
@@ -3558,7 +3818,7 @@ export interface SerialRuleDisableApprovalPreviewResponse {
 
 export interface SerialRuleDisableApprovalSubmissionResponse {
   readonly afterSnapshotJson: string;
-  readonly beforeSnapshotJson?: string | null;
+  readonly beforeSnapshotJson: null | string;
   readonly requestId: string;
   readonly requestVersion: number;
   readonly statusKey: string;
@@ -3566,8 +3826,8 @@ export interface SerialRuleDisableApprovalSubmissionResponse {
 }
 
 export interface SerialRuleFieldChange {
-  readonly afterValue?: string | null;
-  readonly beforeValue?: string | null;
+  readonly afterValue: null | string;
+  readonly beforeValue: null | string;
   readonly changed: boolean;
   readonly fieldKey: string;
 }
@@ -3583,7 +3843,7 @@ export interface SerialRuleUpdateApprovalPreviewResponse {
 
 export interface SerialRuleUpdateApprovalSubmissionResponse {
   readonly afterSnapshotJson: string;
-  readonly beforeSnapshotJson?: string | null;
+  readonly beforeSnapshotJson: null | string;
   readonly changes: Array<SerialRuleFieldChange>;
   readonly requestId: string;
   readonly requestVersion: number;
@@ -3601,12 +3861,12 @@ export interface ServerInstanceCatalogEntry {
 
 export interface ServerRuntimeMetric {
   readonly availability: string;
-  readonly doubleValue?: number | null;
+  readonly doubleValue: null | number | string;
   readonly key: string;
   readonly label: string;
-  readonly longValue?: number | null;
-  readonly unavailableReason?: string | null;
-  readonly unit?: string | null;
+  readonly longValue: null | number;
+  readonly unavailableReason: null | string;
+  readonly unit: null | string;
 }
 
 export interface ServerRuntimeSnapshot {
@@ -3659,10 +3919,10 @@ export interface StartWorkflowInstanceRequest {
 }
 
 export interface StaticImportRowPreviewResult {
-  readonly errorCode?: null | string;
+  readonly errorCode: null | string;
   readonly isValid: boolean;
-  readonly lineNumber: number | string;
-  readonly message?: null | string;
+  readonly lineNumber: number;
+  readonly message: null | string;
 }
 
 export interface StaticImportSchemaDefinition {
@@ -3753,7 +4013,11 @@ export interface TenantSummary {
   readonly id: string;
   readonly identifier: string;
   readonly isActive: boolean;
+  readonly lifecycleStatus?: string;
   readonly name: string;
+  readonly ownerUserId?: null | string;
+  readonly provisioningStatus?: string;
+  readonly provisioningStep?: null | string;
   readonly tenantPackageCode?: null | string;
   readonly tenantPackageId?: null | string;
   readonly tenantPackageName?: null | string;
@@ -3761,6 +4025,19 @@ export interface TenantSummary {
 }
 
 export interface TestAiModelConfigResult {
+  readonly message: string;
+  readonly succeeded: boolean;
+}
+
+export interface TestAiModelEmbeddingRequest {
+  readonly batchInputs: null | Array<string>;
+  readonly input: null | string;
+}
+
+export interface TestAiModelEmbeddingResult {
+  readonly dimensions: number;
+  readonly inputCount: number;
+  readonly inputTokens: null | number;
   readonly message: string;
   readonly succeeded: boolean;
 }
@@ -3792,45 +4069,55 @@ export interface TotpEnrollmentStatusResponse {
 }
 
 export interface UpdateAdministrativeRegionRequest {
-  readonly cityCode?: string;
-  readonly displayOrder?: number;
-  readonly latitude?: number;
-  readonly level?: number;
-  readonly longitude?: number;
-  readonly mergerName?: string;
-  readonly name?: string;
-  readonly parentId?: string;
-  readonly pinYin?: string;
-  readonly regionType?: string;
-  readonly remark?: string;
-  readonly shortName?: string;
-  readonly version?: number;
-  readonly zipCode?: string;
+  readonly cityCode: null | string;
+  readonly displayOrder: number;
+  readonly latitude: null | number | string;
+  readonly level: number;
+  readonly longitude: null | number | string;
+  readonly mergerName: null | string;
+  readonly name: string;
+  readonly parentId: null | string;
+  readonly pinYin: null | string;
+  readonly regionType: null | string;
+  readonly remark: null | string;
+  readonly shortName: null | string;
+  readonly version: number;
+  readonly zipCode: null | string;
 }
 
 export interface UpdateAiChatSessionRequest {
   readonly title: string;
-  readonly version: number | string;
+  readonly version: number;
+}
+
+export interface UpdateAiMcpRemoteConnectionRequest {
+  readonly clearServiceToken: boolean;
+  readonly displayName: string;
+  readonly endpointUrl: string;
+  readonly isEnabled: boolean;
+  readonly oAuthScopesJson: null | string;
+  readonly serviceToken: null | string;
+  readonly version: number;
 }
 
 export interface UpdateAiModelConfigRequest {
-  readonly apiKey?: null | string;
+  readonly apiKey: null | string;
   readonly clearApiKey: boolean;
   readonly endpointBaseUrl: string;
   readonly isDefault: boolean;
   readonly isEnabled: boolean;
   readonly modelId: string;
   readonly name: string;
-  readonly organizationId?: null | string;
+  readonly organizationId: null | string;
   readonly providerKey: string;
-  readonly version: number | string;
+  readonly version: number;
 }
 
 export interface UpdateAiTenantQuotaRequest {
   readonly isEnabled: boolean;
-  readonly monthlyRequestLimit?: null | number | string;
-  readonly monthlyTokenLimit?: null | number | string;
-  readonly version: number | string;
+  readonly monthlyRequestLimit: null | number;
+  readonly monthlyTokenLimit: null | number;
+  readonly version: number;
 }
 
 export interface UpdateCodeGenerationTemplateRequest {
@@ -3851,8 +4138,8 @@ export interface UpdateConfigEntryRequest {
 
 export interface UpdateDataApprovalScenarioBindingBody {
   readonly isEnabled: boolean;
-  readonly version?: number | null;
-  readonly workflowDefinitionVersionId?: string | null;
+  readonly version: null | number;
+  readonly workflowDefinitionVersionId: null | string;
 }
 
 export interface UpdateDiagnosticPolicyRequest {
@@ -3875,11 +4162,20 @@ export interface UpdateDictTypeRequest {
   readonly version: number;
 }
 
+export interface UpdateEnterpriseRequestRequest {
+  readonly applicantUserId: string;
+  readonly requestNumber: string;
+  readonly status: string;
+  readonly title: string;
+  readonly totalAmount: number | string;
+  readonly version: number;
+}
+
 export interface UpdateGoViewProjectRequest {
   readonly canvasJson: string;
   readonly isEnabled: boolean;
   readonly name: string;
-  readonly version: number | string;
+  readonly version: number;
 }
 
 export interface UpdateHostAnnouncementRequest {
@@ -3929,14 +4225,14 @@ export interface UpdateHostDocumentTagRequest {
 }
 
 export interface UpdateHostFileMetadataRequest {
-  readonly expectedRevision: number | string;
+  readonly expectedRevision: number;
   readonly folderId: null | string;
   readonly originalFileName: string;
 }
 
 export interface UpdateHostFolderRequest {
   readonly displayOrder: number;
-  readonly expectedRevision: number | string;
+  readonly expectedRevision: number;
   readonly name: string;
 }
 
@@ -3985,7 +4281,7 @@ export interface UpdateHostMenuRequest {
 export interface UpdateHostReleaseNoteRequest {
   readonly content: string;
   readonly title: string;
-  readonly version: number | string;
+  readonly version: number;
   readonly versionLabel: string;
 }
 
@@ -4024,11 +4320,11 @@ export interface UpdateK3CloudConnectionConfigRequest {
   readonly baseUrl: string;
   readonly isDefault: boolean;
   readonly isEnabled: boolean;
-  readonly lcid: number | string;
+  readonly lcid: number;
   readonly name: string;
-  readonly password?: null | string;
+  readonly password: null | string;
   readonly username: string;
-  readonly version: number | string;
+  readonly version: number;
 }
 
 export interface UpdateLocaleRequest {
@@ -4059,11 +4355,11 @@ export interface UpdateNotificationTemplateRequest {
 }
 
 export interface UpdateOcrProviderConfigRequest {
-  readonly apiKey?: null | string;
+  readonly apiKey: null | string;
   readonly baseUrl: string;
   readonly isEnabled: boolean;
   readonly name: string;
-  readonly version: number | string;
+  readonly version: number;
 }
 
 export interface UpdateOrganizationPositionLevelRequest {
@@ -4096,7 +4392,7 @@ export interface UpdateOrganizationUserUnitRequest {
 }
 
 export interface UpdatePaymentMerchantConfigRequest {
-  readonly apiV3Key?: null | string;
+  readonly apiV3Key: null | string;
   readonly appId: string;
   readonly certificateSerialNo: string;
   readonly channelKey: string;
@@ -4107,9 +4403,9 @@ export interface UpdatePaymentMerchantConfigRequest {
   readonly merchantId: string;
   readonly name: string;
   readonly notifyUrl: string;
-  readonly privateKeyPem?: null | string;
+  readonly privateKeyPem: null | string;
   readonly returnUrl: string;
-  readonly version: number | string;
+  readonly version: number;
 }
 
 export interface UpdatePersonalScheduleRequest {
@@ -4123,46 +4419,46 @@ export interface UpdatePrintingTemplateRequest {
   readonly isEnabled: boolean;
   readonly layoutHtml: string;
   readonly name: string;
-  readonly version: number | string;
+  readonly version: number;
 }
 
 export interface UpdateReportingDataSourceRequest {
   readonly databaseName: string;
   readonly isEnabled: boolean;
   readonly name: string;
-  readonly password?: null | string;
-  readonly port: number | string;
+  readonly password: null | string;
+  readonly port: number;
   readonly providerKey: string;
   readonly serverHost: string;
   readonly trustServerCertificate: boolean;
   readonly username: string;
-  readonly version: number | string;
+  readonly version: number;
 }
 
 export interface UpdateReportingDefinitionRequest {
   readonly dataSourceId: string;
-  readonly description?: null | string;
+  readonly description: null | string;
   readonly groupId: string;
   readonly isEnabled: boolean;
-  readonly layoutConfigJson?: null | string;
+  readonly layoutConfigJson: null | string;
   readonly name: string;
   readonly parameterSchema: Array<ReportingParameterSchemaEntry>;
   readonly queryPortKey: string;
-  readonly version: number | string;
+  readonly version: number;
 }
 
 export interface UpdateReportingGroupRequest {
   readonly isEnabled: boolean;
   readonly name: string;
-  readonly parentId?: null | string;
-  readonly sortOrder: number | string;
-  readonly version: number | string;
+  readonly parentId: null | string;
+  readonly sortOrder: number;
+  readonly version: number;
 }
 
 export interface UpdateSelfServiceProfileRequest {
-  readonly displayName?: null | string;
-  readonly profile?: null | HostUserProfileWriteRequest;
-  readonly userVersion?: null | number;
+  readonly displayName: null | string;
+  readonly profile: null | HostUserProfileWriteRequest;
+  readonly userVersion: null | number;
 }
 
 export interface UpdateSerialNumberRuleRequest {
@@ -4179,11 +4475,11 @@ export interface UpdateSerialNumberRuleRequest {
 }
 
 export interface UpdateTenantBrandingRequest {
-  readonly contactAddress?: null | string;
-  readonly contactEmail?: null | string;
-  readonly contactPhone?: null | string;
-  readonly copyright?: null | string;
-  readonly systemTitle?: null | string;
+  readonly contactAddress: null | string;
+  readonly contactEmail: null | string;
+  readonly contactPhone: null | string;
+  readonly copyright: null | string;
+  readonly systemTitle: null | string;
   readonly version: number;
 }
 
@@ -4202,11 +4498,6 @@ export interface VerifyRecipientEndpointCodeRequest {
   readonly code: string;
 }
 
-export interface WeChatPayNotifyAckResponse {
-  readonly code: string;
-  readonly message: string;
-}
-
 export interface WorkflowAssigneePreviewResponse {
   readonly users: Array<WorkflowRecipientCandidateResponse>;
 }
@@ -4218,7 +4509,7 @@ export interface WorkflowCcReadResponse {
 
 export interface WorkflowCcResponse {
   readonly businessId: string;
-  readonly businessTitle?: null | string;
+  readonly businessTitle: null | string;
   readonly businessType: string;
   readonly createdAtUtc: string;
   readonly id: string;
@@ -4234,7 +4525,7 @@ export interface WorkflowDefinitionDraft {
 }
 
 export interface WorkflowDefinitionResponse {
-  readonly businessTitleTemplate?: null | string;
+  readonly businessTitleTemplate: null | string;
   readonly createdAtUtc: string;
   readonly definitionKey: string;
   readonly draft: WorkflowDefinitionDraft;
@@ -4247,7 +4538,7 @@ export interface WorkflowDefinitionResponse {
 }
 
 export interface WorkflowDefinitionVersionResponse {
-  readonly businessTitleTemplate?: null | string;
+  readonly businessTitleTemplate: null | string;
   readonly canonicalJson: string;
   readonly contentHash: string;
   readonly definitionId: string;
@@ -4328,9 +4619,25 @@ export interface WorkflowFormVersionResponse {
   readonly webRenderSchemaJson: string;
 }
 
+export interface WorkflowGatewayJoinBranchResponse {
+  readonly arrivedAtUtc: null | string;
+  readonly branchKey: string;
+}
+
+export interface WorkflowGatewayJoinResponse {
+  readonly arrivedBranchCount: number;
+  readonly branches: Array<WorkflowGatewayJoinBranchResponse>;
+  readonly forkNodeKey: string;
+  readonly gatewayTypeKey: string;
+  readonly id: string;
+  readonly joinNodeKey: string;
+  readonly requiredBranchCount: number;
+  readonly statusKey: string;
+}
+
 export interface WorkflowInstanceListItemResponse {
   readonly businessId: string;
-  readonly businessTitle?: null | string;
+  readonly businessTitle: null | string;
   readonly businessType: string;
   readonly completedAtUtc: null | string;
   readonly definitionKey: string;
@@ -4345,19 +4652,20 @@ export interface WorkflowInstanceResponse {
   readonly activeNodeKey?: null | string;
   readonly activeTodoId: null | string;
   readonly approvalModeKey?: null | string;
-  readonly approvedCount?: number | null;
+  readonly approvedCount?: null | number;
   readonly businessId: string;
-  readonly businessTitle?: null | string;
+  readonly businessTitle: null | string;
   readonly businessType: string;
   readonly definitionVersionId: string;
   readonly dueAtUtc?: null | string;
   readonly escalatedAtUtc?: null | string;
   readonly formVersionId: string;
+  readonly gatewayJoins?: null | Array<WorkflowGatewayJoinResponse>;
   readonly id: string;
-  readonly pendingCount?: number | null;
-  readonly rejectedCount?: number | null;
+  readonly pendingCount?: null | number;
+  readonly rejectedCount?: null | number;
   readonly reminderCount?: number;
-  readonly requiredApprovalCount?: number | null;
+  readonly requiredApprovalCount?: null | number;
   readonly revision: number;
   readonly startedAtUtc: string;
   readonly statusKey: string;
@@ -4438,7 +4746,7 @@ export interface WorkflowTodoDetailResponse {
 export interface WorkflowTodoListItemResponse {
   readonly arrivedAtUtc: string;
   readonly businessId: string;
-  readonly businessTitle?: null | string;
+  readonly businessTitle: null | string;
   readonly businessType: string;
   readonly completedAtUtc: null | string;
   readonly definitionKey: string;

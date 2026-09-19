@@ -10,7 +10,7 @@
 
 ## 背景
 
-Full.NET 当前定位是面向管理系统、企业应用和中小型 SaaS 的快速开发底座。代码已经具备显式模块入口、集中 Composition、API/Worker/Migrator Host Profile、双数据库迁移、事务 Outbox、缓存和架构测试；[`FullNetModuleCatalog`](../../../src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs) 与 [`FullNetModuleSelection.OfficialModuleNames`](../../../src/Composition/Full.NET.Composition/FullNetModuleSelection.cs) 已注册 **28 个官方业务模块**（Identity、Auditing、Files、Document、Notifications、Calendar、Platform、Regions、Jobs、Messaging、Tenancy、Organization、ImportExport、Reporting、Printing、Ai、Settings、CodeGeneration、SerialNumbers、DataApproval、ObservabilityAdmin、Workflow、Mqtt、Cryptography、Payments、GoView、K3Cloud、Ocr），各模块成熟度以 [`capability-status.md`](../../roadmap/capability-status.md) 为准。权威清单以代码为准，禁止在 ADR 中另维护一份可漂移的模块表。
+Full.NET 当前定位是面向管理系统、企业应用和中小型 SaaS 的快速开发底座。代码已经具备显式模块入口、集中 Composition、API/Worker/Migrator Host Profile、双数据库迁移、事务 Outbox、缓存和架构测试；[`FullNetModuleCatalog`](../../../src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs) 与 [`FullNetModuleSelection.OfficialModuleNames`](../../../src/Composition/Full.NET.Composition/FullNetModuleSelection.cs) 已注册 **29 个官方业务模块**（Identity、Auditing、Files、Document、Notifications、Calendar、Platform、Regions、Jobs、Messaging、Tenancy、Organization、ImportExport、Reporting、Printing、Ai、Settings、CodeGeneration、SerialNumbers、DataApproval、ObservabilityAdmin、Workflow、Mqtt、Cryptography、Payments、GoView、K3Cloud、Ocr、Webhooks），各模块成熟度以 [`capability-status.md`](../../roadmap/capability-status.md) 为准。权威清单以代码为准，禁止在 ADR 中另维护一份可漂移的模块表。
 
 需要在快速交付、模块生态和未来独立伸缩之间建立稳定边界。过早全面微服务化会放大双数据库、协议版本、可靠消息、部署和测试成本；只保留松散单体约定又会让模块随着业务增长直接共享内部代码和数据表。
 

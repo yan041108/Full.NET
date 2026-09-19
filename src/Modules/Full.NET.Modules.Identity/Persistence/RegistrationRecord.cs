@@ -4,6 +4,7 @@ namespace Full.NET.Modules.Identity.Persistence;
 internal sealed record RegistrationPolicyRecord(
     Guid Id,
     bool IsPublicRegistrationEnabled,
+    byte RegistrationMode,
     DateTimeOffset UpdatedAtUtc,
     int Version);
 

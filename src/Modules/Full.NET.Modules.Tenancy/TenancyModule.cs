@@ -84,6 +84,7 @@ public sealed class TenancyModule : IFullNetModule
             TenancyDomainAuditWriter>();
         services.AddScoped<Features.ManageHostTenants.HostTenantQueryService>();
         services.TryAddScoped<IPrintingTenantProfileBindingSource, TenancyPrintingTenantProfileBindingSource>();
+        services.AddScoped<Features.ManageHostTenants.TenantHostPackageBinder>();
         services.AddScoped<Features.ManageHostTenants.HostTenantManagementService>();
         services.AddScoped<Features.ManageHostTenants.HostTenantDirectoryQueryService>();
         services.TryAddScoped<Directories.ActiveTenantDirectory>();
@@ -91,6 +92,19 @@ public sealed class TenancyModule : IFullNetModule
             provider.GetRequiredService<Directories.ActiveTenantDirectory>());
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageQueryService>();
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageManagementService>();
+        services.AddScoped<Features.ManageTenantLifecycle.TenantCommercialReactivateGate>();
+        services.AddScoped<Features.ManageTenantLifecycle.TenantLifecycleManagementService>();
+        services.AddScoped<Features.ManageTenantEntitlements.TenantEntitlementQueryService>();
+        services.AddScoped<Features.ManageTenantEntitlements.TenantEntitlementManagementService>();
+        services.AddScoped<Features.ManageTenantSubscriptions.TenantSubscriptionQueryService>();
+        services.AddScoped<Features.ManageTenantSubscriptions.TenantSubscriptionManagementService>();
+        services.TryAddSingleton<
+            Contracts.ITenantSubscriptionPaymentFulfillmentPort,
+            Features.ManageTenantSubscriptions.NullTenantSubscriptionPaymentFulfillmentPort>();
+        services.TryAddScoped<ITenantQuotaReservationService, Features.ReserveTenantQuota.TenantQuotaReservationService>();
+        services.AddScoped<Features.ReserveTenantQuota.TenantQuotaReservationService>();
+        services.AddScoped<ITenantMemberSeatQuotaPort, Features.ReserveTenantQuota.TenantMemberSeatQuotaPort>();
+        services.AddScoped<Features.ManageTenantQuota.TenantQuotaManagementService>();
         services.AddScoped<Features.TenantBranding.TenantBrandingService>();
         services.AddScoped<Features.TenantBranding.TenantBrandingMediaService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
@@ -120,6 +134,19 @@ public sealed class TenancyModule : IFullNetModule
         services.AddOptions<TenancyOptions>()
             .Bind(configuration.GetSection(TenancyOptions.SectionName))
             .ValidateOnStart();
+        services.AddOptions<TenancyCommercialOptions>()
+            .Configure<IConfiguration>((options, config) =>
+            {
+                config.GetSection(TenancyCommercialOptions.SectionName).Bind(options);
+                var preset = config["FullNet:Modules:Preset"];
+                if (string.Equals(preset, "Saas", StringComparison.OrdinalIgnoreCase))
+                {
+                    options.RequirePackageOrSubscriptionOnReactivate = true;
+                    options.BootstrapEntitlementEnforcementPhase =
+                        Contracts.TenantEntitlementEnforcementPhases.Enforced;
+                }
+            });
+        services.AddHostedService<TenancySaasDefaultsBootstrapHostedService>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<TenancyOptions>,
             TenancyOptionsValidator>());
@@ -148,6 +175,11 @@ public sealed class TenancyModule : IFullNetModule
         Features.TenantBranding.Endpoint.Map(group);
         Features.ManageHostTenants.Endpoint.Map(endpoints);
         Features.ManageHostTenantPackages.Endpoint.Map(endpoints);
+        Features.ManageTenantLifecycle.Endpoint.Map(endpoints);
+        Features.ManageTenantEntitlements.Endpoint.Map(endpoints);
+        Features.ManageTenantSubscriptions.Endpoint.Map(endpoints);
+        Features.ReserveTenantQuota.Endpoint.Map(endpoints);
+        Features.ManageTenantQuota.Endpoint.Map(endpoints);
     }
 
     /// <summary>

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "artifacts": [
+    {
+      "relativePath": "Generated/EnterpriseRequest/EnterpriseRequestContracts.g.cs",
+      "sha256": "3cc7d618339353f8f4626fb386beee681395f9139872f1261ce208d3bcacc2f4"
+    },
+    {
+      "relativePath": "Generated/EnterpriseRequest/EnterpriseRequestEndpoint.g.cs",
+      "sha256": "5f188174d7552c7c5653f35365bc0321690a771944c8f2bdcf598e59dcd3f0d6"
+    },
+    {
+      "relativePath": "Generated/EnterpriseRequest/EnterpriseRequestFeature.g.cs",
+      "sha256": "951711e14c681093f1f10d7a1cd544f6e76127302f5a921248490f7d264fe50f"
+    },
+    {
+      "relativePath": "Generated/EnterpriseRequest/EnterpriseRequestRecord.g.cs",
+      "sha256": "7ea00ded0c89cca5ffd2a3ec05260a71971b1f0720f0fe8074f16f85339cf7de"
+    },
+    {
+      "relativePath": "Generated/EnterpriseRequest/EnterpriseRequestSql.g.cs",
+      "sha256": "666329bbe9ff119defa166acaa14dd4650f140cadeb73e5f78643ced586745c0"
+    },
+    {
+      "relativePath": "Generated/FullNetGeneratedModuleFeatures.g.cs",
+      "sha256": "eb7f5add07bf286a1c4c6d058f7b16aa668fdd80826a6ba4b5dbef40aff175dd"
+    }
+  ]
+}

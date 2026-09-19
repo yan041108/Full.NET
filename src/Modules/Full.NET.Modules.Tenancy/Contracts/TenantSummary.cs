@@ -25,4 +25,8 @@ public sealed record TenantSummary(
     string DefaultLocale = LocaleCatalog.DefaultLocale,
     Guid? TenantPackageId = null,
     string? TenantPackageCode = null,
-    string? TenantPackageName = null);
+    string? TenantPackageName = null,
+    string LifecycleStatus = TenantLifecycleStatuses.Active,
+    Guid? OwnerUserId = null,
+    string ProvisioningStatus = TenantProvisioningStatuses.Completed,
+    string? ProvisioningStep = null);

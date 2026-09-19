@@ -82,7 +82,11 @@ internal sealed class HostTenantQueryService(
             record.DefaultLocale,
             record.TenantPackageId,
             record.TenantPackageCode,
-            record.TenantPackageName);
+            record.TenantPackageName,
+            record.LifecycleStatus,
+            record.OwnerUserId,
+            record.ProvisioningStatus,
+            record.ProvisioningStep);
 
     private static Result<TenantSummary> NotFound() =>
         Result<TenantSummary>.Failure(new Error(
@@ -101,4 +105,8 @@ internal sealed record HostTenantRecord(
     string DefaultLocale,
     Guid? TenantPackageId,
     string? TenantPackageCode,
-    string? TenantPackageName);
+    string? TenantPackageName,
+    string LifecycleStatus,
+    Guid? OwnerUserId,
+    string ProvisioningStatus,
+    string? ProvisioningStep);

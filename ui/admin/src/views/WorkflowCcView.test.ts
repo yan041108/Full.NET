@@ -15,6 +15,7 @@ const record = {
   instanceId: '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d002',
   stepId: '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d003',
   nodeKey: 'copy',
+  businessTitle: null,
   businessType: 'leave.request',
   businessId: 'REQ-001',
   createdAtUtc: '2026-09-04T00:00:00Z',

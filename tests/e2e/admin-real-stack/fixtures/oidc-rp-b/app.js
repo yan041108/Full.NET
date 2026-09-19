@@ -57,7 +57,8 @@ function handleCallback() {
     return;
   }
   const expectedState = sessionStorage.getItem('oidc.pkce.state');
-  if (params.get('state') !== expectedState) {
+  // 未发起授权时没有可信 state，不能把两侧缺失误认为匹配。
+  if (!expectedState || params.get('state') !== expectedState) {
     renderStatus('state_mismatch', 'oidc-state-mismatch');
     return;
   }

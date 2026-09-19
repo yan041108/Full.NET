@@ -120,6 +120,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string DocumentHostStatisticsTag = "DocumentHostStatistics";
     private const string DataApprovalRequestsTag = "DataApprovalRequests";
     private const string DataApprovalScenariosTag = "DataApprovalScenarios";
+    private const string EnterpriseRequestEnterpriseRequestsTag = "EnterpriseRequestEnterpriseRequests";
 
     [TestMethod]
     public void Approved_client_generation_operations_have_unique_lower_camel_names_and_one_primary_tag()
@@ -664,6 +665,12 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/code-generation/catalog/migration-draft", "codeGenerationGenerateCatalogMigrationDraft", CodeGenerationCatalogTag),
         new("GET", "/api/v1/code-generation/catalog/tables/{tableName}/columns", "codeGenerationListCatalogColumns", CodeGenerationCatalogTag),
         new("POST", "/api/v1/code-generation/catalog/column-sync", "codeGenerationSyncCatalogColumns", CodeGenerationCatalogTag),
+        new("GET", "/api/v1/enterprise_request/enterprise-requests", "enterpriseRequestListEnterpriseRequests", EnterpriseRequestEnterpriseRequestsTag),
+        new("POST", "/api/v1/enterprise_request/enterprise-requests", "enterpriseRequestCreateEnterpriseRequest", EnterpriseRequestEnterpriseRequestsTag),
+        new("GET", "/api/v1/enterprise_request/enterprise-requests/{enterpriseRequestId}", "enterpriseRequestGetEnterpriseRequest", EnterpriseRequestEnterpriseRequestsTag),
+        new("PUT", "/api/v1/enterprise_request/enterprise-requests/{enterpriseRequestId}", "enterpriseRequestUpdateEnterpriseRequest", EnterpriseRequestEnterpriseRequestsTag),
+        new("POST", "/api/v1/enterprise_request/enterprise-requests/{enterpriseRequestId}/delete", "enterpriseRequestDeleteEnterpriseRequest", EnterpriseRequestEnterpriseRequestsTag),
+        new("POST", "/api/v1/enterprise_request/enterprise-requests/{id}/submit-for-approval", "submitEnterpriseRequestForApproval", EnterpriseRequestEnterpriseRequestsTag),
         new("GET", "/api/v1/data-approvals/requests", "dataApprovalsListRequests", DataApprovalRequestsTag),
         new("POST", "/api/v1/data-approvals/requests", "dataApprovalsCreateRequest", DataApprovalRequestsTag),
         new("GET", "/api/v1/data-approvals/requests/{requestId}", "dataApprovalsGetRequest", DataApprovalRequestsTag),

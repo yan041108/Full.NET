@@ -323,6 +323,27 @@ public static class IdentityErrorCodes
     /// <summary>公开注册入口已关闭。</summary>
     public const string PublicRegistrationDisabled = "identity.registration.public_disabled";
 
+    /// <summary>注册功能已禁用。</summary>
+    public const string RegistrationDisabled = "identity.registration.disabled";
+
+    /// <summary>账号挑战无效、已过期或已消费。</summary>
+    public const string AccountChallengeInvalid = "identity.account_challenge.invalid";
+
+    /// <summary>账号挑战尝试次数已耗尽。</summary>
+    public const string AccountChallengeAttemptsExceeded = "identity.account_challenge.attempts_exceeded";
+
+    /// <summary>账号挑战投递失败。</summary>
+    public const string AccountChallengeDeliveryFailed = "identity.account_challenge.delivery_failed";
+
+    /// <summary>注册邀请无效、已过期或已撤销。</summary>
+    public const string RegistrationInvitationInvalid = "identity.registration_invitation.invalid";
+
+    /// <summary>注册邮箱已被占用。</summary>
+    public const string RegistrationEmailAlreadyExists = "identity.registration.email_already_exists";
+
+    /// <summary>密码恢复请求已受理。</summary>
+    public const string PasswordRecoveryAccepted = "identity.password_recovery.accepted";
+
     /// <summary>注册方式不存在。</summary>
     public const string RegistrationWayNotFound = "identity.registration_ways.not_found";
 
@@ -349,6 +370,30 @@ public static class IdentityErrorCodes
     /// <summary>注册方式引用的职位不存在、未激活或跨租户。</summary>
     public const string RegistrationWayPositionNotFound =
         "identity.registration_ways.position_not_found";
+
+    /// <summary>租户成员不存在。</summary>
+    public const string TenantMemberNotFound = "identity.tenant_members.not_found";
+
+    /// <summary>租户成员并发版本冲突。</summary>
+    public const string TenantMemberVersionConflict = "identity.tenant_members.version_conflict";
+
+    /// <summary>租户成员角色无效。</summary>
+    public const string TenantMemberRoleInvalid = "identity.tenant_members.role_invalid";
+
+    /// <summary>租户所有者受保护。</summary>
+    public const string TenantOwnerProtected = "identity.tenant_members.owner_protected";
+
+    /// <summary>用户已是活动租户成员。</summary>
+    public const string TenantMemberAlreadyActive = "identity.tenant_members.already_active";
+
+    /// <summary>租户邀请无效、已过期或已撤销。</summary>
+    public const string TenantInvitationInvalid = "identity.tenant_invitations.invalid";
+
+    /// <summary>租户邀请不存在。</summary>
+    public const string TenantInvitationNotFound = "identity.tenant_invitations.not_found";
+
+    /// <summary>租户席位配额服务不可用（Tenancy 未启用）。</summary>
+    public const string TenantSeatQuotaUnavailable = "identity.tenant_members.seat_quota_unavailable";
 
     /// <summary>LDAP 连接不存在。</summary>
     public const string LdapConnectionNotFound = "identity.ldap_connections.not_found";
@@ -518,6 +563,12 @@ public static class IdentityErrorCodes
         RegistrationPolicyNotFound,
         RegistrationPolicyVersionConflict,
         PublicRegistrationDisabled,
+        RegistrationDisabled,
+        AccountChallengeInvalid,
+        AccountChallengeAttemptsExceeded,
+        AccountChallengeDeliveryFailed,
+        RegistrationInvitationInvalid,
+        RegistrationEmailAlreadyExists,
         RegistrationWayNotFound,
         RegistrationWayVersionConflict,
         RegistrationWayInvalidCode,
@@ -526,6 +577,14 @@ public static class IdentityErrorCodes
         RegistrationWayRoleNotFound,
         RegistrationWayOrganizationUnitNotFound,
         RegistrationWayPositionNotFound,
+        TenantMemberNotFound,
+        TenantMemberVersionConflict,
+        TenantMemberRoleInvalid,
+        TenantOwnerProtected,
+        TenantMemberAlreadyActive,
+        TenantInvitationInvalid,
+        TenantInvitationNotFound,
+        TenantSeatQuotaUnavailable,
         LdapConnectionNotFound,
         LdapConnectionVersionConflict,
         LdapConnectionScopeAlreadyConfigured,

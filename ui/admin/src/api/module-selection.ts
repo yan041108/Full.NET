@@ -29,7 +29,7 @@ export async function validateModuleSelection(
 ): Promise<IdentityModuleSelectionAnalysis> {
   const value = await identityValidateModuleSelection(
     http,
-    { body: request },
+    { body: { enabled: request.enabled ?? null, preset: request.preset ?? null } },
     signal
   );
   if (!isIdentityModuleSelectionAnalysis(value)) {

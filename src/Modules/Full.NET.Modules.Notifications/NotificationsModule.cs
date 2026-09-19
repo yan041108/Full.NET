@@ -5,6 +5,7 @@ using Full.NET.Hosting.Api;
 using Full.NET.Hosting.RateLimiting;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Configuration;
 using Full.NET.Modules.Notifications.Execution;
 using Full.NET.Modules.Notifications.RateLimiting;
@@ -103,6 +104,8 @@ public sealed class NotificationsModule : IFullNetModule
             Features.VerifyRecipientEndpoints.SmtpRecipientEndpointVerificationMailSender>();
         services.TryAddScoped<Features.VerifyRecipientEndpoints.IRecipientEndpointVerificationSmsSender,
             Features.VerifyRecipientEndpoints.AliyunSmsRecipientEndpointVerificationSender>();
+        services.AddScoped<IIdentityChallengeDeliveryPort,
+            Features.SendIdentityChallenge.IdentityChallengeDeliveryPort>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

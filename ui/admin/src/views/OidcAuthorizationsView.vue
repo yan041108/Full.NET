@@ -206,6 +206,7 @@ onMounted(() => {
           <el-table-column :label="t('oidcAuthorizations.scopes')" min-width="220">
             <template #default="{ row }">{{ row.scopes.join(', ') }}</template>
           </el-table-column>
+          <!-- @vue-generic {OidcAuthorization} -->
           <el-table-column :label="t('oidcAuthorizations.fieldStatus')" width="110">
             <template #default="{ row }">
               <el-tag :type="isRevoked(row) ? 'info' : 'success'">{{ row.status }}</el-tag>

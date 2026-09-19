@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Configuration;
@@ -5,9 +6,11 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.Modules.Identity.Features.OidcSession;
 
@@ -43,7 +46,8 @@ internal static class Endpoint
         endpoints.MapPost("/api/v1/identity/oidc/login", HandleLoginAsync)
             .WithName("identityOidcCenterLogin")
             .WithTags("IdentityOidcSession")
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("identity-login");
         endpoints.MapPost("/api/v1/identity/oidc/logout", HandleLogoutAsync)
             .WithName("identityOidcCenterLogout")
             .WithTags("IdentityOidcSession")
@@ -97,7 +101,16 @@ internal static class Endpoint
             return OriginForbidden(mapper, httpContext);
         }
 
-        await authorizationService.SignOutCenterAsync(httpContext, cancellationToken)
+        var accessUserId = await TryReadBearerUserIdAsync(httpContext).ConfigureAwait(false);
+        if (accessUserId == Guid.Empty)
+        {
+            return Results.Unauthorized();
+        }
+
+        await authorizationService.SignOutCenterAsync(
+                httpContext,
+                accessUserId,
+                cancellationToken)
             .ConfigureAwait(false);
         return Results.NoContent();
     }
@@ -120,12 +133,46 @@ internal static class Endpoint
             return Results.BadRequest();
         }
 
+        var accessUserId = await TryReadBearerUserIdAsync(httpContext).ConfigureAwait(false);
+        if (accessUserId == Guid.Empty
+            || (accessUserId is not null && !string.Equals(
+                httpContext.User.FindFirstValue(FullNetIdentityClaimTypes.OidcClientId),
+                request.ClientId, StringComparison.Ordinal)))
+        {
+            return Results.Unauthorized();
+        }
+
         var signedOut = await authorizationService.SignOutApplicationAsync(
                 httpContext,
                 request.ClientId,
+                accessUserId,
                 cancellationToken)
             .ConfigureAwait(false);
         return signedOut ? Results.NoContent() : Results.Unauthorized();
+    }
+
+    internal static async Task<Guid?> TryReadBearerUserIdAsync(HttpContext httpContext)
+    {
+        if (!httpContext.Request.Headers.ContainsKey("Authorization"))
+        {
+            return null;
+        }
+
+        var result = await httpContext.AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme)
+            .ConfigureAwait(false);
+        if (!result.Succeeded
+            || result.Principal?.Identity?.IsAuthenticated != true
+            || result.Principal.FindFirstValue(FullNetIdentityClaimTypes.TokenUse) != "access"
+            || !Guid.TryParse(result.Principal.FindFirstValue(
+                FullNetIdentityClaimTypes.ApplicationSessionId), out var sessionId)
+            || sessionId == Guid.Empty)
+        {
+            return Guid.Empty;
+        }
+
+        httpContext.User = result.Principal;
+        var subject = result.Principal?.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        return Guid.TryParse(subject, out var userId) ? userId : Guid.Empty;
     }
 
     private static bool IsOriginAllowed(

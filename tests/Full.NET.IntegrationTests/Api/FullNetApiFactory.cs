@@ -413,6 +413,46 @@ internal sealed class FullNetApiFactory(
         }
     }
 
+    /// <summary>为 Host 用户写入资料邮箱，供租户邀请接受流程匹配受邀人。</summary>
+    public async Task EnsureHostUserProfileEmailAsync(
+        Guid userId,
+        string email,
+        string displayName,
+        CancellationToken cancellationToken = default)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            await scope.ServiceProvider.GetRequiredService<ICommandExecutor>().ExecuteAsync(
+                new SqlStatement(
+                    "integration.identity.insert_user_profile_email",
+                    """
+                    INSERT INTO fn_identity_user_profile
+                        (UserId, Nickname, PhoneNumber, Email, EmployeeNumber, Gender,
+                         Birthday, IdCardType, IdCardNumber, Address, Remark, Version, CreatedAtUtc, UpdatedAtUtc)
+                    VALUES
+                        (@UserId, @Nickname, NULL, @Email, NULL, NULL,
+                         NULL, NULL, NULL, NULL, NULL, 1, @CreatedAtUtc, NULL)
+                    """,
+                    SqlDataScope.HostOnly),
+                new Dictionary<string, object?>
+                {
+                    ["UserId"] = userId,
+                    ["Nickname"] = displayName,
+                    ["Email"] = email.Trim().ToLowerInvariant(),
+                    ["CreatedAtUtc"] = now,
+                },
+                cancellationToken);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
+    }
+
     public async Task<long> GetAuthenticationAuditCountAsync(
         CancellationToken cancellationToken = default)
     {

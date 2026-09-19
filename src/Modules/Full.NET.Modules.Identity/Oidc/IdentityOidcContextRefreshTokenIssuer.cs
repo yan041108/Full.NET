@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Security.Claims;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Security;
+using Full.NET.Abstractions.Time;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -16,7 +17,8 @@ namespace Full.NET.Modules.Identity.Oidc;
 internal sealed class IdentityOidcContextRefreshTokenIssuer(
     IOpenIddictServerDispatcher dispatcher,
     IOptions<OpenIddictServerOptions> serverOptions,
-    ILogger<IdentityOidcContextRefreshTokenIssuer> logger)
+    ILogger<IdentityOidcContextRefreshTokenIssuer> logger,
+    IClock clock)
 {
     private readonly OpenIddictServerOptions _serverOptions = serverOptions.Value;
 
@@ -33,6 +35,9 @@ internal sealed class IdentityOidcContextRefreshTokenIssuer(
         }
 
         var principal = BuildRefreshPrincipal(issueRequest);
+        var createdAt = clock.UtcNow;
+        principal.SetCreationDate(createdAt);
+        principal.SetExpirationDate(createdAt + (_serverOptions.RefreshTokenLifetime ?? TimeSpan.FromDays(7)));
         var transaction = new OpenIddictServerTransaction
         {
             Options = _serverOptions,

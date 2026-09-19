@@ -69,5 +69,9 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/ai/mcp/remote-connections/{connectionId:guid}/approve-tool|ai.mcp_remote.manage",
         "POST /api/v1/ai/mcp/remote-connections/{connectionId:guid}/discover-tools|ai.mcp_remote.manage",
         "PUT /api/v1/ai/mcp/remote-connections/{connectionId:guid}|ai.mcp_remote.manage",
+        "POST /api/v1/tenancy/tenants/{tenantId:guid}/subscriptions/|tenancy.tenant_subscriptions.manage",
+        "POST /api/v1/tenancy/tenants/{tenantId:guid}/subscriptions/{subscriptionId:guid}/cancel|tenancy.tenant_subscriptions.manage",
+        "PUT /api/v1/tenancy/tenants/{tenantId:guid}/quota/metrics/|tenancy.tenant_quota.manage",
+        "POST /api/v1/webhooks/subscriptions/|webhooks.subscriptions.manage",
     };
 }

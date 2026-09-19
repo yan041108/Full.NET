@@ -37,11 +37,13 @@ public static class FullNetModuleSelection
         "ObservabilityAdmin",
         "Workflow",
         "Mqtt",
+        "Webhooks",
         "Cryptography",
         "Payments",
         "GoView",
         "K3Cloud",
         "Ocr",
+        "EnterpriseRequest",
     ];
 
     /// <summary>
@@ -102,6 +104,58 @@ public static class FullNetModuleSelection
     ];
 
     /// <summary>
+    /// SaaS 预设模块键：Platform 基础上追加 Payments 与 Webhooks。
+    /// </summary>
+    public static readonly IReadOnlyList<string> SaasPresetModuleNames =
+    [
+        "Identity",
+        "Tenancy",
+        "Settings",
+        "Organization",
+        "Auditing",
+        "Files",
+        "Notifications",
+        "Calendar",
+        "Platform",
+        "Regions",
+        "Jobs",
+        "Messaging",
+        "ObservabilityAdmin",
+        "Mqtt",
+        "Cryptography",
+        "Payments",
+        "Webhooks",
+    ];
+
+    /// <summary>
+    /// Enterprise 预设模块键：Platform 基础上追加 Webhooks、工作流、数据交付与 EnterpriseRequest 样板。
+    /// </summary>
+    public static readonly IReadOnlyList<string> EnterprisePresetModuleNames =
+    [
+        "Identity",
+        "Tenancy",
+        "Settings",
+        "Organization",
+        "Auditing",
+        "Files",
+        "Notifications",
+        "Calendar",
+        "Platform",
+        "Regions",
+        "Jobs",
+        "Messaging",
+        "ObservabilityAdmin",
+        "Mqtt",
+        "Cryptography",
+        "Webhooks",
+        "Workflow",
+        "ImportExport",
+        "Reporting",
+        "Printing",
+        "EnterpriseRequest",
+    ];
+
+    /// <summary>
     /// 读取 <c>FullNet:Modules</c> 配置解析出启用模块稳定键集合，并校验名称合法、无重复且包含 Identity。
     /// </summary>
     /// <param name="configuration">宿主配置根，必须包含 <c>FullNet:Modules</c> 节。</param>
@@ -141,6 +195,20 @@ public static class FullNetModuleSelection
                      StringComparison.OrdinalIgnoreCase))
         {
             enabledNames = ContentPresetModuleNames;
+        }
+        else if (string.Equals(
+                     options.Preset,
+                     FullNetModuleSelectionOptions.Presets.Saas,
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            enabledNames = SaasPresetModuleNames;
+        }
+        else if (string.Equals(
+                     options.Preset,
+                     FullNetModuleSelectionOptions.Presets.Enterprise,
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            enabledNames = EnterprisePresetModuleNames;
         }
         else
         {
@@ -314,6 +382,28 @@ public static class FullNetModuleSelection
                 ModuleSelectionSourceKinds.Preset,
                 FullNetModuleSelectionOptions.Presets.Content,
                 ContentPresetModuleNames);
+        }
+
+        if (string.Equals(
+                options.Preset,
+                FullNetModuleSelectionOptions.Presets.Saas,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return (
+                ModuleSelectionSourceKinds.Preset,
+                FullNetModuleSelectionOptions.Presets.Saas,
+                SaasPresetModuleNames);
+        }
+
+        if (string.Equals(
+                options.Preset,
+                FullNetModuleSelectionOptions.Presets.Enterprise,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return (
+                ModuleSelectionSourceKinds.Preset,
+                FullNetModuleSelectionOptions.Presets.Enterprise,
+                EnterprisePresetModuleNames);
         }
 
         return (

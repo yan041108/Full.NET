@@ -112,7 +112,7 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Upload));
 
         group.MapPost("/batch-upload", async (
-            HttpRequest request,
+            IFormFileCollection files,
             Guid? folderId,
             HostFileManagementService service,
             IApiResultMapper mapper,
@@ -124,7 +124,6 @@ internal static class Endpoint
                 return Results.Unauthorized();
             }
 
-            var files = request.Form.Files;
             if (files.Count == 0)
             {
                 return mapper.Map(
@@ -144,7 +143,6 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .WithName("filesBatchUploadHostFiles")
-        .Accepts<IFormFile>("multipart/form-data")
         .Produces<BatchUploadHostFilesResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)

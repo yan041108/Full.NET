@@ -39,8 +39,8 @@ describe('OidcCallbackView', () => {
     replaceMock.mockClear();
     vi.mocked(completeAdminOidcCallback).mockReset();
     vi.mocked(completeAdminOidcCallback).mockResolvedValue(tokenResponse);
-    vi.spyOn(ElMessage, 'success').mockImplementation(() => undefined);
-    vi.spyOn(ElMessage, 'error').mockImplementation(() => undefined);
+    vi.spyOn(ElMessage, 'success').mockImplementation(() => ({ close: vi.fn() }));
+    vi.spyOn(ElMessage, 'error').mockImplementation(() => ({ close: vi.fn() }));
   });
 
   it('legacy 模式仅重定向首页', async () => {

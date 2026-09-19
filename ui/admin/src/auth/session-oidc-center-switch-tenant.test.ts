@@ -86,7 +86,7 @@ describe('oidc-center session tenant switch', () => {
     );
   });
 
-  it('preserves oidc refresh credential when tenant switch conflicts', async () => {
+  it('refreshes and retries once when tenant switch conflicts', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(currentUser()))
       .mockResolvedValueOnce(jsonResponse(navigation()))
@@ -95,7 +95,20 @@ describe('oidc-center session tenant switch', () => {
         status: 409,
         code: 'identity.session_context_conflict',
         title: '会话上下文已变化'
-      }, 409, 'application/problem+json'));
+      }, 409, 'application/problem+json'))
+      .mockResolvedValueOnce(jsonResponse({
+        access_token: 'refreshed-host-token', token_type: 'Bearer', expires_in: 300,
+        refresh_token: 'refreshed-credential'
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        ...tokenResponse('retried-tenant-token'),
+        refreshToken: 'retried-refresh-token',
+        context: { tenantId, identifier: 'acme', name: 'Acme Corporation',
+          scope: `tenant:${tenantId.replaceAll('-', '')}` }
+      }))
+      .mockResolvedValueOnce(jsonResponse(currentUser(tenantId)))
+      .mockResolvedValueOnce(jsonResponse(navigation()))
+      .mockResolvedValueOnce(jsonResponse(tenants()));
     vi.stubGlobal('fetch', fetchMock);
     sessionStorage.setItem('fullnet.admin.oidc.refresh', JSON.stringify({
       refreshToken: 'refresh-token',
@@ -104,14 +117,15 @@ describe('oidc-center session tenant switch', () => {
     const session = useSessionStore();
     await session.completeOidcAuthorization(tokenResponse('oidc-host-token'));
 
-    await expect(session.switchTenant(tenantId)).rejects.toMatchObject({
-      code: 'identity.session_context_conflict'
-    });
+    await session.switchTenant(tenantId);
 
     expect(session.state).toBe('authenticated');
-    expect(session.currentUser?.tenantId).toBeNull();
-    expect(session.readAccessToken()).toBe('oidc-host-token');
-    expect(sessionStorage.getItem('fullnet.admin.oidc.refresh')).toContain('refresh-token');
+    expect(session.currentUser?.tenantId).toBe(tenantId);
+    expect(session.readAccessToken()).toBe('retried-tenant-token');
+    expect(sessionStorage.getItem('fullnet.admin.oidc.refresh')).toContain('retried-refresh-token');
+    expect(fetchMock.mock.calls.filter(call => call[0] === '/api/v1/tenancy/context')).toHaveLength(2);
+    const [, retryInit] = fetchMock.mock.calls[5] as [string, RequestInit];
+    expect(new Headers(retryInit.headers).get('authorization')).toBe('Bearer refreshed-host-token');
   });
 });
 
@@ -129,7 +143,7 @@ function jsonResponse(
 function tokenResponse(accessToken: string) {
   return {
     accessToken,
-    tokenType: 'Bearer',
+    tokenType: 'Bearer' as const,
     expiresAtUtc: '2026-07-17T04:00:00Z'
   };
 }

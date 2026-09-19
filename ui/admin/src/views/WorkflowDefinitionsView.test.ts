@@ -37,6 +37,7 @@ vi.mock('../api/workflow-definitions', () => ({
 vi.mock('../api/workflow-forms', () => ({ listWorkflowForms: vi.fn() }));
 
 const definition = {
+  businessTitleTemplate: null,
   id: '01912345-6789-7abc-8def-0123456789ab',
   definitionKey: 'purchase.approval', statusKey: 'active',
   draft: {
@@ -55,6 +56,7 @@ const definition = {
 };
 
 const version = {
+  businessTitleTemplate: null,
   id: definition.latestPublishedVersionId,
   definitionId: definition.id,
   formVersionId: '01912345-6789-7abc-8def-0123456789ad',
@@ -189,6 +191,7 @@ describe('WorkflowDefinitionsView', () => {
       id: '01912345-6789-7abc-8def-0123456789a3',
       definitionVersionId: version.id,
       formVersionId: version.formVersionId,
+      businessTitle: null,
       businessType: 'purchase',
       businessId: 'PO-001',
       statusKey: 'running',

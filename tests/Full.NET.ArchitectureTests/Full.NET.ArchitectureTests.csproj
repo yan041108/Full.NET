@@ -47,6 +47,8 @@
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Cryptography\Full.NET.Modules.Cryptography.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Workflow\Full.NET.Modules.Workflow.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Workflow.Contracts\Full.NET.Modules.Workflow.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Webhooks\Full.NET.Modules.Webhooks.csproj" />
+    <ProjectReference Include="..\..\samples\enterprise-request\src\Full.NET.Modules.EnterpriseRequest\Full.NET.Modules.EnterpriseRequest.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="NetArchTest.Rules" />

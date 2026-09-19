@@ -1,0 +1,20 @@
+{
+  "Database": {
+    "Provider": "sqlserver",
+    "ConnectionName": "app",
+    "MySqlGuidStorageMode": "Binary16",
+    "CommandTimeoutSeconds": 30
+  },
+  "FullNet": {
+    "Modules": {
+      "Preset": "minimal"
+    }
+  },
+  "Kestrel": {
+    "Endpoints": {
+      "Http": {
+        "Url": "http://localhost:5180"
+      }
+    }
+  }
+}

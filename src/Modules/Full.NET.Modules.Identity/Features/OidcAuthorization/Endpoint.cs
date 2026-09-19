@@ -31,7 +31,8 @@ internal static class Endpoint
             [HttpMethods.Get, HttpMethods.Post],
             HandleAuthorizeAsync)
             .WithName("identityOidcAuthorize")
-            .WithTags("IdentityOidcProtocol");
+            .WithTags("IdentityOidcProtocol")
+            .RequireRateLimiting("identity-login");
     }
 
     internal static async Task<IResult> HandleAuthorizeAsync(

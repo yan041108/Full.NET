@@ -42,10 +42,12 @@ export interface RefreshOidcAccessTokenOptions {
 export interface RevokeOidcApplicationSessionOptions {
   apiBase: string;
   clientId: string;
+  accessToken?: string;
 }
 
 export interface RevokeOidcCenterSessionOptions {
   apiBase: string;
+  accessToken?: string;
 }
 
 export interface BuildOidcAuthorizeUrlOptions {
@@ -227,7 +229,10 @@ export async function revokeOidcApplicationSession(
     credentials: 'include',
     headers: {
       accept: 'application/json',
-      'content-type': 'application/json'
+      'content-type': 'application/json',
+      ...(options.accessToken === undefined
+        ? {}
+        : { authorization: `Bearer ${options.accessToken}` })
     },
     body: JSON.stringify({ clientId: options.clientId })
   });
@@ -242,7 +247,12 @@ export async function revokeOidcCenterSession(
   const response = await fetch(`${apiBase}/api/v1/identity/oidc/logout`, {
     method: 'POST',
     credentials: 'include',
-    headers: { accept: 'application/json' }
+    headers: {
+      accept: 'application/json',
+      ...(options.accessToken === undefined
+        ? {}
+        : { authorization: `Bearer ${options.accessToken}` })
+    }
   });
   return response.status === 204;
 }

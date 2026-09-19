@@ -1,0 +1,17 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "ui/admin/src/api/public-auth.ts"
+  },
+  "paths": {
+    "/api/v1/auth/register": {},
+    "/api/v1/auth/register/email-challenge": {},
+    "/api/v1/auth/recover-password": {},
+    "/api/v1/auth/recover-password/confirm": {},
+    "/api/v1/auth/invitations/verify": {}
+  },
+  "components": {
+    "schemas": {}
+  }
+}

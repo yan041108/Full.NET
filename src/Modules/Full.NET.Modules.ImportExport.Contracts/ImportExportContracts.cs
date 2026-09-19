@@ -23,6 +23,9 @@ public static class StaticImportSchemaKeys
 {
     /// <summary>Organization 租户职位固定模板导入。</summary>
     public const string OrganizationTenantPositions = "organization.tenant_positions";
+
+    /// <summary>Enterprise Request 样板单据 CSV 导入。</summary>
+    public const string DemoEnterpriseRequests = "demo.enterprise_requests";
 }
 
 /// <summary>静态导入 Schema 授权作用域。</summary>

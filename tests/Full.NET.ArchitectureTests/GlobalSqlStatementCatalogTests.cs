@@ -325,8 +325,12 @@ public sealed class GlobalSqlStatementCatalogTests
         }
 
         var expectedFileName = $"{type.Name}.cs";
-        var candidates = Directory
-            .EnumerateFiles(Path.Combine(root, "src"), expectedFileName, SearchOption.AllDirectories)
+        var sourceRoots = GetProductionSourceRoots(root);
+        var candidates = sourceRoots
+            .SelectMany(sourceRoot => Directory.EnumerateFiles(
+                sourceRoot,
+                expectedFileName,
+                SearchOption.AllDirectories))
             .Where(path => !IsBuildOutputPath(path))
             .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/'))
             .ToArray();
@@ -337,7 +341,8 @@ public sealed class GlobalSqlStatementCatalogTests
             var namespacePattern = new Regex(@"(?m)^\s*namespace\s+" + Regex.Escape(type.Namespace!) + @"\s*[;{]");
             var declarationPattern = new Regex(@"(?m)^\s*(?:(?:internal|public|static|sealed|partial|abstract)\s+)*class\s+"
                 + Regex.Escape(type.Name) + @"\b");
-            candidates = Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories)
+            candidates = sourceRoots
+                .SelectMany(sourceRoot => Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories))
                 .Where(path => !IsBuildOutputPath(path))
                 .Where(path =>
                 {
@@ -357,6 +362,12 @@ public sealed class GlobalSqlStatementCatalogTests
                 $"Source file for {type.FullName} is ambiguous: {string.Join(", ", candidates)}"),
         };
     }
+
+    private static string[] GetProductionSourceRoots(string root) =>
+    [
+        Path.Combine(root, "src"),
+        Path.Combine(root, "samples"),
+    ];
 
     private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
     {

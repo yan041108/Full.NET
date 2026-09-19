@@ -31,12 +31,12 @@ afterEach(() => {
 });
 
 describe('oidc-center session logout', () => {
-  it('revokes application session and skips legacy logout endpoint', async () => {
+  it('refreshes an idle access token before a single identity-bound center logout', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(currentUser()))
       .mockResolvedValueOnce(jsonResponse(navigation()))
       .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse({ access_token: 'fresh-logout-token', token_type: 'Bearer', expires_in: 300 }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);
     sessionStorage.setItem('fullnet.admin.oidc.refresh', JSON.stringify({
@@ -55,14 +55,13 @@ describe('oidc-center session logout', () => {
       '/api/v1/me',
       '/api/v1/navigation',
       '/api/v1/tenancy/available',
-      'http://localhost:5149/api/v1/identity/oidc/logout/application',
+      'http://localhost:5149/connect/token',
       'http://localhost:5149/api/v1/identity/oidc/logout'
     ]);
-    const [, applicationLogoutInit] = fetchMock.mock.calls[3] as [string, RequestInit];
-    expect(applicationLogoutInit.credentials).toBe('include');
-    expect(applicationLogoutInit.method).toBe('POST');
-    expect(applicationLogoutInit.body).toBe(JSON.stringify({ clientId: 'admin-spa' }));
     const [, centerLogoutInit] = fetchMock.mock.calls[4] as [string, RequestInit];
+    expect(centerLogoutInit.headers).toEqual(expect.objectContaining({
+      authorization: 'Bearer fresh-logout-token'
+    }));
     expect(centerLogoutInit.credentials).toBe('include');
     expect(centerLogoutInit.method).toBe('POST');
   });
@@ -105,7 +104,7 @@ function jsonResponse(body: unknown) {
 function tokenResponse(accessToken: string) {
   return {
     accessToken,
-    tokenType: 'Bearer',
+    tokenType: 'Bearer' as const,
     expiresAtUtc: '2026-07-17T04:00:00Z'
   };
 }

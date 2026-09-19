@@ -57,7 +57,7 @@ describe('module-selection api', () => {
       '/api/v1/identity/modules/selection/validate',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ preset: 'Minimal' })
+        body: JSON.stringify({ enabled: null, preset: 'Minimal' })
       }),
       undefined
     );

@@ -35,7 +35,15 @@ internal sealed class PublicRegistrationWayQueryService(
             return Result<IReadOnlyList<PublicRegistrationWayResponse>>.Failure(policy.Error!);
         }
 
-        if (!policy.Value!.IsPublicRegistrationEnabled)
+        if (policy.Value!.RegistrationMode == IdentityRegistrationMode.Disabled)
+        {
+            return Result<IReadOnlyList<PublicRegistrationWayResponse>>.Failure(new Error(
+                IdentityErrorCodes.RegistrationDisabled,
+                "Registration is disabled.",
+                ErrorType.Forbidden));
+        }
+
+        if (policy.Value.RegistrationMode != IdentityRegistrationMode.Open)
         {
             return Result<IReadOnlyList<PublicRegistrationWayResponse>>.Failure(new Error(
                 IdentityErrorCodes.PublicRegistrationDisabled,

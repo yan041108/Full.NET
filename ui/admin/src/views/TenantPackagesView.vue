@@ -35,6 +35,10 @@ import {
   listHostTenantPackages,
   updateHostTenantPackage
 } from '../api/tenant-packages';
+import {
+  getEntitlementEnforcementPhase,
+  updateEntitlementEnforcementPhase
+} from '../api/tenancy-entitlements';
 
 defineOptions({ name: 'TenantPackagesView' });
 
@@ -68,6 +72,9 @@ const columnVisibility = ref<Record<PackageTableColumnKey, boolean>>({
   assignedTenantCount: true,
   status: true
 });
+const enforcementPhase = ref('');
+const enforcementVersion = ref(0);
+const enforcementLoading = ref(false);
 
 const {
   tableMainRef,
@@ -159,6 +166,7 @@ const canUpdate = computed(() => session.can('tenancy.tenant_packages.update'));
 watchLoading(loading);
 
 onMounted(() => {
+  void refreshEnforcementPhase();
   void load();
 });
 
@@ -380,6 +388,33 @@ async function disable(pkg: HostTenantPackage): Promise<void> {
   }
 }
 
+async function refreshEnforcementPhase(): Promise<void> {
+  enforcementLoading.value = true;
+  try {
+    const row = await getEntitlementEnforcementPhase();
+    enforcementPhase.value = row.phase;
+    enforcementVersion.value = row.version;
+  } catch {
+    ElMessage.error(t('common.loadFailed'));
+  } finally {
+    enforcementLoading.value = false;
+  }
+}
+
+async function setEnforcementPhase(nextPhase: string): Promise<void> {
+  enforcementLoading.value = true;
+  try {
+    const row = await updateEntitlementEnforcementPhase(nextPhase, enforcementVersion.value);
+    enforcementPhase.value = row.phase;
+    enforcementVersion.value = row.version;
+    ElMessage.success(t('common.saved'));
+  } catch {
+    ElMessage.error(t('common.saveFailed'));
+  } finally {
+    enforcementLoading.value = false;
+  }
+}
+
 function toProblem(
   error: unknown,
   fallbackKey: 'tenantPackages.loadFailed' | 'tenantPackages.operationFailed'
@@ -403,6 +438,37 @@ function toProblem(
       <span>{{ problem.title }}</span>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
+
+    <PermissionGate code="tenancy.tenant_entitlements.read">
+      <el-card class="enforcement-card" shadow="never">
+        <template #header>
+          <div class="view-header">
+            <span>{{ t('tenancy.entitlements.enforcementPhase') }}</span>
+            <el-button :loading="enforcementLoading" @click="refreshEnforcementPhase">
+              {{ t('common.refresh') }}
+            </el-button>
+          </div>
+        </template>
+        <p data-testid="entitlement-enforcement-phase" translate="no">{{ enforcementPhase || '—' }}</p>
+        <PermissionGate code="tenancy.tenant_entitlements.manage_enforcement">
+          <el-button
+            size="small"
+            :disabled="enforcementLoading || enforcementPhase === 'Shadow'"
+            @click="setEnforcementPhase('Shadow')"
+          >
+            Shadow
+          </el-button>
+          <el-button
+            size="small"
+            type="primary"
+            :disabled="enforcementLoading || enforcementPhase === 'Enforced'"
+            @click="setEnforcementPhase('Enforced')"
+          >
+            Enforced
+          </el-button>
+        </PermissionGate>
+      </el-card>
+    </PermissionGate>
 
     <ArtSearchBar
       v-model="searchForm"

@@ -36,21 +36,25 @@ public static class IdentityRegistrationWayPermissions
 
 /// <summary>注册策略响应。</summary>
 /// <param name="Id">策略稳定标识。</param>
-/// <param name="IsPublicRegistrationEnabled">是否允许匿名用户查看启用的注册方式。</param>
+/// <param name="IsPublicRegistrationEnabled">是否允许匿名用户查看启用的注册方式；与 <see cref="RegistrationMode"/> 为 Open 时保持一致。</param>
+/// <param name="RegistrationMode">注册三态模式。</param>
 /// <param name="UpdatedAtUtc">最近更新时间（UTC）。</param>
 /// <param name="Version">乐观并发版本号。</param>
 public sealed record RegistrationPolicyResponse(
     Guid Id,
     bool IsPublicRegistrationEnabled,
+    IdentityRegistrationMode RegistrationMode,
     DateTimeOffset UpdatedAtUtc,
     int Version);
 
 /// <summary>更新注册策略请求。</summary>
-/// <param name="IsPublicRegistrationEnabled">是否允许匿名用户查看启用的注册方式。</param>
+/// <param name="IsPublicRegistrationEnabled">是否允许匿名用户查看启用的注册方式；未提供 <see cref="RegistrationMode"/> 时用于推导模式。</param>
 /// <param name="Version">客户端感知的乐观并发版本号。</param>
+/// <param name="RegistrationMode">显式注册模式；为空时由布尔字段推导。</param>
 public sealed record UpdateRegistrationPolicyRequest(
     bool IsPublicRegistrationEnabled,
-    int Version);
+    int Version,
+    IdentityRegistrationMode? RegistrationMode = null);
 
 /// <summary>注册方式响应。</summary>
 /// <param name="Id">注册方式稳定标识。</param>

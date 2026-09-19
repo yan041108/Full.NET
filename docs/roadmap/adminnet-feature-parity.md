@@ -238,14 +238,14 @@ uni-app 与 Flutter 不复制完整后台管理能力：uni-app 负责 H5/微信
 
 | 编号 | 能力增量 | 归属与交付形态 | 优先级/任务 | 状态 |
 | --- | --- | --- | --- | --- |
-| B01 | 空目录创建应用、模块预设、环境诊断、CRUD 教程、版本升级 | Templates + CodeGeneration + Composition；Template/Tooling | P0；F01/F02/F15 | Mapped |
-| B02 | 企业开通、邀请/接受、成员管理、所有者交接、退出/停用 | Identity + Tenancy + Organization；Core + Client | P0；F05/F06 | Mapped |
-| B03 | 套餐绑定、功能权益、席位/存储配额、幂等占用与对账 | Tenancy；Core，按预设启用 | P0；F07/F08 | Mapped |
-| B04 | 注册政策到实际注册、邮箱验证、密码/MFA 恢复 | Identity + Notifications；Core + Provider + Client | P0；F03/F04 | Mapped |
-| B05 | 试用、订阅期限、续期/取消、支付驱动权益、对账 | Tenancy + Payments；可选官方能力 | P1；F12 | Mapped |
-| B06 | 事件订阅、Webhook 签名/重试/重放、SDK/接入样例 | Webhooks + Identity + OpenAPI；Official Module + Sample | P1；F13/F14 | Mapped |
-| B07 | 单据贯通主子表、附件、数据权限、审批、通知、导入报表打印 | 项目业务 Sample + 既有模块 | P1；F09/F10/F11 | Mapped |
-| B08 | 版本支持矩阵、发布清单、升级/备份恢复演练 | Templates + Deployment + Operations | P1，发布必需；F15/F16 | Mapped |
+| B01 | 空目录创建应用、模块预设、环境诊断、CRUD 教程、版本升级 | Templates + CodeGeneration + Composition；Template/Tooling | P0；F01/F02/F15 | Build-verified |
+| B02 | 企业开通、邀请/接受、成员管理、所有者交接、退出/停用 | Identity + Tenancy + Organization；Core + Client | P0；F05/F06 | Implemented |
+| B03 | 套餐绑定、功能权益、席位/存储配额、幂等占用与对账 | Tenancy；Core，按预设启用 | P0；F07/F08 | Build-verified |
+| B04 | 注册政策到实际注册、邮箱验证、密码/MFA 恢复 | Identity + Notifications；Core + Provider + Client | P0；F03/F04 | Implemented |
+| B05 | 试用、订阅期限、续期/取消、支付驱动权益、对账 | Tenancy + Payments；可选官方能力 | P1；F12 | Implemented |
+| B06 | 事件订阅、Webhook 签名/重试/重放、SDK/接入样例 | Webhooks + Identity + OpenAPI；Official Module + Sample | P1；F13/F14 | Implemented |
+| B07 | 单据贯通主子表、附件、数据权限、审批、通知、导入报表打印 | 项目业务 Sample + 既有模块 | P1；F09/F10/F11 | Implemented |
+| B08 | 版本支持矩阵、发布清单、升级/备份恢复演练 | Templates + Deployment + Operations | P1，发布必需；F15/F16 | Build-verified |
 
 ### 已有模块的收口重点
 

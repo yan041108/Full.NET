@@ -1,0 +1,219 @@
+using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Time;
+using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Domain;
+using Full.NET.Modules.Identity.Features.AccountChallenges;
+using Full.NET.Modules.Identity.Features.ManageRegistrationPolicy;
+using Full.NET.Modules.Identity.Features.RegistrationInvitations;
+using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Security;
+using Microsoft.AspNetCore.Identity;
+using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
+
+namespace Full.NET.Modules.Identity.Features.RegisterAccount;
+
+internal sealed class Handler(
+    RegistrationPolicyService policyService,
+    AccountChallengeService challengeService,
+    RegistrationInvitationService invitationService,
+    IQueryExecutor queryExecutor,
+    ICommandExecutor commandExecutor,
+    ICommandTransaction transaction,
+    IPasswordHasher<IdentityUser> passwordHasher,
+    IIdentityActiveTenantDirectory activeTenants,
+    IClock clock,
+    IIdGenerator idGenerator) : ICommandHandler<Command, RegisterAccountResponse>
+{
+    public Task<Result<RegisterAccountResponse>> HandleAsync(
+        Command command,
+        CancellationToken cancellationToken) =>
+        transaction.ExecuteResultAsync(
+            token => HandleCoreAsync(command.Request, token),
+            cancellationToken);
+
+    private async Task<Result<RegisterAccountResponse>> HandleCoreAsync(
+        RegisterAccountRequest request,
+        CancellationToken cancellationToken)
+    {
+        var policy = await policyService.GetAsync(cancellationToken).ConfigureAwait(false);
+        if (!policy.IsSuccess)
+        {
+            return Result<RegisterAccountResponse>.Failure(policy.Error!);
+        }
+
+        var mode = policy.Value!.RegistrationMode;
+        if (mode == IdentityRegistrationMode.Disabled)
+        {
+            return Result<RegisterAccountResponse>.Failure(new Error(
+                IdentityErrorCodes.RegistrationDisabled,
+                "Registration is disabled.",
+                ErrorType.Forbidden));
+        }
+
+        var normalizedEmail = AccountChallengeService.NormalizeEmail(request.Email);
+        if (normalizedEmail is null)
+        {
+            return ValidationFailure();
+        }
+
+        Guid tenantId;
+        IdentityAccountChallengePurpose challengePurpose;
+        if (mode == IdentityRegistrationMode.InvitationOnly)
+        {
+            if (!request.InvitationId.HasValue || string.IsNullOrWhiteSpace(request.InvitationToken))
+            {
+                return Result<RegisterAccountResponse>.Failure(new Error(
+                    IdentityErrorCodes.RegistrationInvitationInvalid,
+                    "A valid invitation is required.",
+                    ErrorType.Validation));
+            }
+
+            var invitation = await invitationService.VerifyAsync(
+                    request.InvitationId.Value,
+                    request.InvitationToken!,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!invitation.IsSuccess)
+            {
+                return Result<RegisterAccountResponse>.Failure(invitation.Error!);
+            }
+
+            tenantId = invitation.Value!.TenantId;
+            challengePurpose = IdentityAccountChallengePurpose.InvitationEmailVerification;
+            if (!string.Equals(invitation.Value.Email, normalizedEmail, StringComparison.Ordinal))
+            {
+                return ValidationFailure();
+            }
+        }
+        else
+        {
+            if (!request.RegistrationWayId.HasValue)
+            {
+                return ValidationFailure();
+            }
+
+            var way = await queryExecutor.QuerySingleOrDefaultAsync<RegistrationWayRecord>(
+                    RegistrationWaySql.FindById,
+                    IdentitySqlParameters.Create(("WayId", request.RegistrationWayId.Value)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (way is null || !way.IsEnabled)
+            {
+                return Result<RegisterAccountResponse>.Failure(new Error(
+                    IdentityErrorCodes.RegistrationWayNotFound,
+                    "The registration way was not found.",
+                    ErrorType.NotFound));
+            }
+
+            tenantId = way.TenantId;
+            challengePurpose = IdentityAccountChallengePurpose.RegistrationEmailVerification;
+        }
+
+        if (!await activeTenants.IsActiveTenantAsync(tenantId, cancellationToken).ConfigureAwait(false))
+        {
+            return Result<RegisterAccountResponse>.Failure(new Error(
+                IdentityErrorCodes.RegistrationWayTenantInactive,
+                "The target tenant was not found or is inactive.",
+                ErrorType.NotFound));
+        }
+
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                AccountLifecycleSql.FindUserByProfileEmail,
+                IdentitySqlParameters.Create(("Email", normalizedEmail)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is not null)
+        {
+            return Result<RegisterAccountResponse>.Failure(new Error(
+                IdentityErrorCodes.RegistrationEmailAlreadyExists,
+                "An account with this email already exists.",
+                ErrorType.Conflict));
+        }
+
+        var challenge = await challengeService.ConsumeAsync(
+                request.ChallengeId,
+                challengePurpose,
+                normalizedEmail,
+                request.ChallengeCode,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!challenge.IsSuccess)
+        {
+            return Result<RegisterAccountResponse>.Failure(challenge.Error!);
+        }
+
+        var passwordViolations = IdentityPasswordPolicy.Validate(request.Password);
+        if (passwordViolations.Count > 0)
+        {
+            return Result<RegisterAccountResponse>.Failure(new Error(
+                Code: ValidationErrorCodes.Failed,
+                Message: "The password does not satisfy the password policy.",
+                Type: ErrorType.Validation));
+        }
+
+        if (request.InvitationId.HasValue && !string.IsNullOrWhiteSpace(request.InvitationToken))
+        {
+            var consumed = await invitationService.ConsumeCredentialAsync(
+                    request.InvitationId.Value,
+                    request.InvitationToken!,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!consumed.IsSuccess)
+            {
+                return Result<RegisterAccountResponse>.Failure(consumed.Error!);
+            }
+        }
+
+        var now = clock.UtcNow;
+        var scopeKey = $"tenant:{tenantId:N}";
+        var user = new IdentityUser(
+            idGenerator.NewId(),
+            tenantId,
+            scopeKey,
+            normalizedEmail,
+            normalizedEmail.ToUpperInvariant(),
+            request.DisplayName.Trim(),
+            string.Empty,
+            true,
+            0,
+            null,
+            idGenerator.NewId().ToString("N"),
+            now,
+            null,
+            1);
+        user = user with
+        {
+            PasswordHash = passwordHasher.HashPassword(user, request.Password),
+            MustChangePassword = false,
+            PasswordChangedAtUtc = now,
+        };
+
+        await commandExecutor.ExecuteAsync(IdentitySql.InsertUser, user, cancellationToken).ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(
+                AccountLifecycleSql.InsertUserProfileEmail,
+                IdentitySqlParameters.Create(
+                    ("UserId", user.Id),
+                    ("Nickname", request.DisplayName.Trim()),
+                    ("Email", normalizedEmail),
+                    ("CreatedAtUtc", now)),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (request.InvitationId.HasValue)
+        {
+            await invitationService.BindCreatedUserAsync(request.InvitationId.Value, user.Id, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return Result<RegisterAccountResponse>.Success(new RegisterAccountResponse(user.Id, true));
+    }
+
+    private static Result<RegisterAccountResponse> ValidationFailure() =>
+        Result<RegisterAccountResponse>.Failure(new Error(
+            ValidationErrorCodes.Failed,
+            "The registration request is invalid.",
+            ErrorType.Validation));
+}

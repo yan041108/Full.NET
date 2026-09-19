@@ -52,6 +52,10 @@ public sealed class HostTenantCacheInvalidationTests
             existing.DefaultLocale,
             null,
             null,
+            null,
+            TenantLifecycleStatuses.Active,
+            null,
+            TenantProvisioningStatuses.Completed,
             null);
         queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                 TenantSql.FindById,
@@ -93,6 +97,8 @@ public sealed class HostTenantCacheInvalidationTests
                     domainKey,
                     _ => ValueTask.FromResult("fresh-domain")));
         });
+        var clock = Substitute.For<IClock>();
+        var packageBinder = new TenantHostPackageBinder(queryExecutor, commandExecutor, clock);
         var service = new HostTenantManagementService(
             queryExecutor,
             commandExecutor,
@@ -103,7 +109,8 @@ public sealed class HostTenantCacheInvalidationTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
-            Substitute.For<IClock>(),
+            packageBinder,
+            clock,
             TenantCacheInvalidatorTestFactory.Create(
                 fusionCache,
                 new TestHostEnvironment(environmentName)),

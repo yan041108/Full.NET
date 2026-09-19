@@ -1051,6 +1051,90 @@
       "routePrefixes": [
         "/api/v1/observability/elasticsearch-log-pipeline/health"
       ]
+    },
+    {
+      "routePrefixes": [
+        "/api/v1/identity/oidc-clients"
+      ],
+      "openApiFixture": "contracts/openapi/identity-oidc-clients-v1.json",
+      "apiModule": "ui/admin/src/api/oidc-clients.ts",
+      "clientContractModules": [
+        "packages/client-contracts/src/oidc-clients.ts"
+      ]
+    },
+    {
+      "routePrefixes": [
+        "/api/v1/identity/oidc-authorizations"
+      ],
+      "openApiFixture": "contracts/openapi/identity-oidc-authorizations-v1.json",
+      "apiModule": "ui/admin/src/api/oidc-authorizations.ts",
+      "clientContractModules": [
+        "packages/client-contracts/src/oidc-authorizations.ts"
+      ]
+    },
+    {
+      "routePrefixes": [
+        "/api/v1/identity/oidc-signing-keys"
+      ],
+      "openApiFixture": "contracts/openapi/identity-oidc-signing-keys-v1.json",
+      "clientContractModules": [
+        "packages/client-contracts/src/oidc-signing-keys.ts"
+      ],
+      "apiModule": "ui/admin/src/api/oidc-signing-keys.ts"
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/public-auth.ts"
+      ],
+      "routePrefixes": [
+        "/api/v1/auth/register",
+        "/api/v1/auth/register/email-challenge",
+        "/api/v1/auth/recover-password",
+        "/api/v1/auth/recover-password/confirm",
+        "/api/v1/auth/invitations/verify"
+      ],
+      "apiModule": "ui/admin/src/api/public-auth.ts",
+      "openApiFixture": "contracts/openapi/public-auth-v1.json"
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/tenancy-entitlements.ts"
+      ],
+      "routePrefixes": [
+        "/api/v1/tenancy/settings/entitlement-enforcement"
+      ],
+      "apiModule": "ui/admin/src/api/tenancy-entitlements.ts",
+      "openApiFixture": "contracts/openapi/tenancy-entitlements-v1.json"
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/tenant-members.ts"
+      ],
+      "routePrefixes": [
+        "/api/v1/identity/tenant-members"
+      ],
+      "apiModule": "ui/admin/src/api/tenant-members.ts",
+      "openApiFixture": "contracts/openapi/tenant-members-v1.json"
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/tenant-subscriptions.ts"
+      ],
+      "routePrefixes": [
+        "/api/v1/tenancy/tenants/"
+      ],
+      "apiModule": "ui/admin/src/api/tenant-subscriptions.ts",
+      "openApiFixture": "contracts/openapi/tenant-subscriptions-v1.json"
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "routePrefixes": [
+        "/api/v1/enterprise_request/enterprise-requests"
+      ],
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "openApiFixture": "contracts/openapi/enterprise-requests.generated.openapi.json"
     }
   ],
   "infrastructureModules": [
@@ -1689,6 +1773,55 @@
       "consumers": [
         "ui/admin/src/views/ObservabilityElasticsearchHealthView.vue"
       ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/oidc-clients.ts",
+      "consumers": [
+        "ui/admin/src/views/OidcClientsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/oidc-authorizations.ts",
+      "consumers": [
+        "ui/admin/src/views/OidcAuthorizationsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/oidc-signing-keys.ts",
+      "consumers": [
+        "ui/admin/src/views/OidcSigningKeysView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/public-auth.ts",
+      "consumers": [
+        "ui/admin/src/views/RegisterView.vue",
+        "ui/admin/src/views/RecoverPasswordView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/tenancy-entitlements.ts",
+      "consumers": [
+        "ui/admin/src/views/TenantPackagesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/tenant-members.ts",
+      "consumers": [
+        "ui/admin/src/views/TenantMembersView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/tenant-subscriptions.ts",
+      "consumers": [
+        "ui/admin/src/views/TenantSubscriptionView.vue"
+      ]
+    },
+    {
+      "consumers": [
+        "ui/admin/src/views/EnterpriseRequestsView.vue"
+      ],
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts"
     }
   ]
 }

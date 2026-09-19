@@ -102,7 +102,7 @@ async function saveBinding(): Promise<void> {
   try {
     const updated = await updateDataApprovalScenarioBinding(selectedScenarioKey.value, {
       isEnabled: isEnabled.value,
-      workflowDefinitionVersionId: isEnabled.value ? selectedVersionId.value : null,
+      workflowDefinitionVersionId: isEnabled.value ? selectedVersionId.value ?? null : null,
       version: selectedScenario.value.version ?? null
     });
     const index = scenarios.value.findIndex(item => item.scenarioKey === updated.scenarioKey);

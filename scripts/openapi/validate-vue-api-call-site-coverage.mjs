@@ -22,6 +22,7 @@ const allowlistPathPatterns = [
 const allowlistAuthInfrastructure = new Set([
   'ui/admin/src/auth/session.ts',
   'ui/admin/src/auth/session-refresh-coordinator.ts',
+  'ui/admin/src/auth/oidc-center-login.ts',
   'ui/admin/src/auth/session.test.ts'
 ]);
 

@@ -8,7 +8,7 @@ internal static class RegistrationPolicySql
     public static readonly SqlStatement GetPolicy = new(
         "identity.get_registration_policy",
         """
-        SELECT Id, IsPublicRegistrationEnabled, UpdatedAtUtc, Version
+        SELECT Id, IsPublicRegistrationEnabled, RegistrationMode, UpdatedAtUtc, Version
         FROM fn_identity_registration_policy
         WHERE Id = @PolicyId
         """,
@@ -19,6 +19,7 @@ internal static class RegistrationPolicySql
         """
         UPDATE fn_identity_registration_policy
         SET IsPublicRegistrationEnabled = @IsPublicRegistrationEnabled,
+            RegistrationMode = @RegistrationMode,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @PolicyId

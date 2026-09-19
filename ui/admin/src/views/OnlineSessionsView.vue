@@ -23,7 +23,7 @@ interface AppliedFilters {
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const items = ref<HostOnlineSession[]>([]);
-const loginPolicy = ref<IdentitySessionLoginPolicy>('AllowMultiple');
+const loginPolicy = ref<IdentitySessionLoginPolicy>(0);
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
@@ -56,7 +56,7 @@ const filteredItems = computed(() => {
 const { page, pageSize, total, pagedItems, resetPage } = useArtClientPagination(filteredItems);
 
 const sessionPolicyHint = computed(() =>
-  loginPolicy.value === 'SingleSession'
+  loginPolicy.value === 1
     ? t('onlineSessions.policySingleSession')
     : t('onlineSessions.policyAllowMultiple'));
 

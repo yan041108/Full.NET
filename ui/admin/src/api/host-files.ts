@@ -89,7 +89,7 @@ export async function previewHostFileContent(
 export async function updateHostFileMetadata(
   fileId: string,
   body: {
-    expectedRevision: number | string;
+    expectedRevision: number;
     originalFileName: string;
     folderId: string | null;
   },
@@ -134,14 +134,16 @@ export async function createHostFolder(
   },
   signal?: AbortSignal
 ): Promise<HostFolderResponse> {
-  return filesCreateHostFolder(http, { body }, signal);
+  return filesCreateHostFolder(http, {
+    body: { ...body, parentId: body.parentId ?? null, displayOrder: body.displayOrder ?? 0 }
+  }, signal);
 }
 
 /** 更新 Host 虚拟目录。 */
 export async function updateHostFolder(
   folderId: string,
   body: {
-    expectedRevision: number | string;
+    expectedRevision: number;
     name: string;
     displayOrder: number;
   },
@@ -153,7 +155,7 @@ export async function updateHostFolder(
 /** 删除 Host 虚拟目录。 */
 export async function deleteHostFolder(
   folderId: string,
-  body: { expectedRevision: number | string },
+  body: { expectedRevision: number },
   signal?: AbortSignal
 ): Promise<HostFolderResponse> {
   return filesDeleteHostFolder(http, { folderId, body }, signal);

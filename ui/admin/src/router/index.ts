@@ -19,6 +19,13 @@ const selfServicePaths = new Set([
   '/identity/oidc/callback'
 ]);
 
+/** 匿名用户可访问的公开认证页。 */
+const publicAuthPaths = new Set([
+  '/login',
+  '/register',
+  '/recover-password'
+]);
+
 /** 延迟加载状态页，避免普通业务路由首次渲染时额外拉取错误页代码。 */
 const loadStatusView = () => import('../views/StatusView.vue');
 
@@ -31,6 +38,21 @@ export function createAppRouter(
     history,
     routes: [
       { name: 'overview', path: '/', component: OverviewView },
+      {
+        name: 'login',
+        path: '/login',
+        component: () => import('../views/LoginView.vue')
+      },
+      {
+        name: 'register',
+        path: '/register',
+        component: () => import('../views/RegisterView.vue')
+      },
+      {
+        name: 'recover-password',
+        path: '/recover-password',
+        component: () => import('../views/RecoverPasswordView.vue')
+      },
       {
         name: 'tenant-context',
         path: '/tenant-context',
@@ -60,6 +82,26 @@ export function createAppRouter(
         name: 'tenant-branding',
         path: '/settings/tenant-branding',
         component: () => import('../views/TenantBrandingView.vue')
+      },
+      {
+        name: 'tenant-onboarding',
+        path: '/tenant-onboarding',
+        component: () => import('../views/TenantOnboardingView.vue')
+      },
+      {
+        name: 'tenant-members',
+        path: '/identity/tenant-members',
+        component: () => import('../views/TenantMembersView.vue')
+      },
+      {
+        name: 'enterprise-requests',
+        path: '/enterprise-requests',
+        component: () => import('../views/EnterpriseRequestsView.vue')
+      },
+      {
+        name: 'tenant-subscription',
+        path: '/tenancy/tenant-subscriptions',
+        component: () => import('../views/TenantSubscriptionView.vue')
       },
       {
         name: 'users',
@@ -572,7 +614,10 @@ export function createAppRouter(
       return '/account/security?forced=1';
     }
 
-    if (!session.isAuthenticated || statusPaths.has(to.path) || selfServicePaths.has(to.path)) {
+    if (!session.isAuthenticated
+      || statusPaths.has(to.path)
+      || selfServicePaths.has(to.path)
+      || publicAuthPaths.has(to.path)) {
       return true;
     }
 

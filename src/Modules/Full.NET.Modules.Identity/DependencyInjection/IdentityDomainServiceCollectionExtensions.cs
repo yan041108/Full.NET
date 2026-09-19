@@ -15,7 +15,14 @@ using Full.NET.Modules.Identity.Features.ManageOAuthLinks;
 using Full.NET.Modules.Identity.Features.OAuthFlow;
 using Full.NET.Modules.Identity.Features.ManageRegistrationPolicy;
 using Full.NET.Modules.Identity.Features.ManageRegistrationWays;
+using Full.NET.Modules.Identity.Features.ManageTenantMembers;
+using Full.NET.Modules.Identity.Features.AcceptTenantInvitation;
+using Full.NET.Modules.Identity.Features.AccountChallenges;
 using Full.NET.Modules.Identity.Features.PublicRegistrationWays;
+using Full.NET.Modules.Identity.Features.RecoverAccount;
+using Full.NET.Modules.Identity.Features.RegisterAccount;
+using Full.NET.Modules.Identity.Features.RegistrationInvitations;
+using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Identity.Features.QueryHostModuleCatalog;
 using Full.NET.Modules.Identity.Features.QueryHostModuleSelection;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;
@@ -34,6 +41,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using LoginHandler = Full.NET.Modules.Identity.Features.Login.Handler;
+using LoginCommand = Full.NET.Modules.Identity.Features.Login.Command;
 
 namespace Full.NET.Modules.Identity.DependencyInjection;
 
@@ -88,8 +96,15 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<OpenAccessClientAccessSupport>();
         services.TryAddScoped<OpenAccessClientObservabilityService>();
         services.TryAddScoped<RegistrationPolicyService>();
+        services.TryAddScoped<AccountChallengeService>();
+        services.TryAddScoped<RegistrationInvitationService>();
+        services.TryAddScoped<IIdentityChallengeDeliveryPort, NullIdentityChallengeDeliveryPort>();
+        services.TryAddScoped<ITenantMemberSeatQuotaPort, NullTenantMemberSeatQuotaPort>();
         services.TryAddScoped<RegistrationWayQueryService>();
         services.TryAddScoped<RegistrationWayManagementService>();
+        services.TryAddScoped<TenantMembershipQueryService>();
+        services.TryAddScoped<TenantMembershipManagementService>();
+        services.TryAddScoped<AcceptTenantInvitationService>();
         services.TryAddScoped<PublicRegistrationWayQueryService>();
         services.TryAddScoped<LdapConnectionQueryService>();
         services.TryAddScoped<LdapConnectionManagementService>();
@@ -122,7 +137,7 @@ internal static class IdentityDomainServiceCollectionExtensions
             provider.GetRequiredService<HostUsers.HostTenantUserSelectionDirectory>());
         services.TryAddScoped<IWorkflowRoleMemberDirectory, Workflow.WorkflowRoleMemberDirectory>();
         services.TryAddScoped<HostNavigationDefinitionLoader>();
-        services.AddFullNetFluentValidation<Command, LoginSessionResult>();
+        services.AddFullNetFluentValidation<LoginCommand, LoginSessionResult>();
         services.AddFullNetFluentValidation<
             Features.UpdateLocale.Command,
             LocalePreferenceResponse>();
@@ -132,7 +147,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.AddFullNetFluentValidation<
             Features.SelfServiceProfile.UpdateCommand,
             SelfServiceProfileResponse>();
-        services.TryAddScoped<IValidator<Command>, LoginCommandValidator>();
+        services.TryAddScoped<IValidator<LoginCommand>, LoginCommandValidator>();
         services.TryAddScoped<
             IValidator<Features.UpdateLocale.Command>,
             Features.UpdateLocale.Validator>();
@@ -143,7 +158,7 @@ internal static class IdentityDomainServiceCollectionExtensions
             IValidator<UpdateCommand>,
             UpdateValidator>();
         services.TryAddScoped<
-            ICommandHandler<Command, LoginSessionResult>,
+            ICommandHandler<LoginCommand, LoginSessionResult>,
             LoginHandler>();
         services.TryAddScoped<IdentityCookieWriter>();
         services.TryAddScoped<
@@ -169,6 +184,21 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<
             ICommandHandler<UpdateCommand, SelfServiceProfileResponse>,
             UpdateHandler>();
+        services.AddFullNetFluentValidation<
+            Features.RegisterAccount.Command,
+            RegisterAccountResponse>();
+        services.TryAddScoped<
+            IValidator<Features.RegisterAccount.Command>,
+            Features.RegisterAccount.Validator>();
+        services.TryAddScoped<
+            ICommandHandler<Features.RegisterAccount.Command, RegisterAccountResponse>,
+            Features.RegisterAccount.Handler>();
+        services.TryAddScoped<
+            ICommandHandler<Features.RecoverAccount.RequestCommand, AccountChallengeAcceptedResponse>,
+            Features.RecoverAccount.RequestHandler>();
+        services.TryAddScoped<
+            ICommandHandler<Features.RecoverAccount.ConfirmCommand, bool>,
+            Features.RecoverAccount.ConfirmHandler>();
 
         return services;
     }

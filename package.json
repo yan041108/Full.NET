@@ -70,7 +70,8 @@
     "test:e2e:uniapp": "pnpm --filter @fullnet/uniapp-h5-e2e test",
     "test:e2e:uniapp:real": "pnpm --filter @fullnet/uniapp-h5-e2e test:real",
     "audit:clients": "node scripts/audit-client-dependencies.mjs",
-    "audit:dotnet": "node scripts/audit-dotnet-dependencies.mjs"
+    "audit:dotnet": "node scripts/audit-dotnet-dependencies.mjs",
+    "test:templates": "node --test tests/templates/*.test.mjs"
   },
   "pnpm": {
     "overrides": {

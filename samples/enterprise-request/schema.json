@@ -1,0 +1,139 @@
+{
+  "ownerKey": "demo",
+  "moduleKey": "enterprise_request",
+  "entityKey": "enterprise_request",
+  "databaseTableName": "demo_enterprise_request_enterprise_request",
+  "rootNamespace": "Full.NET.Modules.EnterpriseRequest",
+  "clrTypeName": "EnterpriseRequest",
+  "apiResourceName": "enterprise-requests",
+  "permissionResourceName": "enterprise_requests",
+  "dataScope": "tenant.required",
+  "scene": "master.detail",
+  "entityCapabilities": {
+    "deleteMode": "soft.delete",
+    "hasCreatedAudit": true,
+    "hasUpdatedAudit": true,
+    "hasDeletedAudit": true,
+    "hasVersion": true,
+    "ownershipMode": "organization.unit"
+  },
+  "relationships": [
+    {
+      "principalEntityKey": "enterprise_request",
+      "principalColumnName": "Id",
+      "principalDataScope": "tenant.required",
+      "dependentEntityKey": "enterprise_request_line",
+      "dependentColumnName": "RequestId",
+      "dependentDataScope": "tenant.required",
+      "compositeKeyColumnNames": ["RequestId"],
+      "cascadeDelete": true
+    }
+  ],
+  "columns": [
+    {
+      "databaseName": "Id",
+      "clrPropertyName": "Id",
+      "jsonPropertyName": "id",
+      "scalarType": "Uuid"
+    },
+    {
+      "databaseName": "TenantId",
+      "clrPropertyName": "TenantId",
+      "jsonPropertyName": "tenantId",
+      "scalarType": "Uuid"
+    },
+    {
+      "databaseName": "OrganizationUnitId",
+      "clrPropertyName": "OrganizationUnitId",
+      "jsonPropertyName": "organizationUnitId",
+      "scalarType": "Uuid"
+    },
+    {
+      "databaseName": "RequestNumber",
+      "clrPropertyName": "RequestNumber",
+      "jsonPropertyName": "requestNumber",
+      "scalarType": "String",
+      "maxLength": 64
+    },
+    {
+      "databaseName": "Title",
+      "clrPropertyName": "Title",
+      "jsonPropertyName": "title",
+      "scalarType": "String",
+      "maxLength": 200
+    },
+    {
+      "databaseName": "Status",
+      "clrPropertyName": "Status",
+      "jsonPropertyName": "status",
+      "scalarType": "String",
+      "maxLength": 32
+    },
+    {
+      "databaseName": "TotalAmount",
+      "clrPropertyName": "TotalAmount",
+      "jsonPropertyName": "totalAmount",
+      "scalarType": "Decimal",
+      "numericPrecision": 18,
+      "numericScale": 2
+    },
+    {
+      "databaseName": "ApplicantUserId",
+      "clrPropertyName": "ApplicantUserId",
+      "jsonPropertyName": "applicantUserId",
+      "scalarType": "Uuid"
+    },
+    {
+      "databaseName": "Version",
+      "clrPropertyName": "Version",
+      "jsonPropertyName": "version",
+      "scalarType": "Int64"
+    },
+    {
+      "databaseName": "CreatedAtUtc",
+      "clrPropertyName": "CreatedAtUtc",
+      "jsonPropertyName": "createdAtUtc",
+      "scalarType": "DateTimeUtc"
+    },
+    {
+      "databaseName": "CreatedById",
+      "clrPropertyName": "CreatedById",
+      "jsonPropertyName": "createdById",
+      "scalarType": "Uuid"
+    },
+    {
+      "databaseName": "UpdatedAtUtc",
+      "clrPropertyName": "UpdatedAtUtc",
+      "jsonPropertyName": "updatedAtUtc",
+      "scalarType": "DateTimeUtc",
+      "isNullable": true
+    },
+    {
+      "databaseName": "UpdatedById",
+      "clrPropertyName": "UpdatedById",
+      "jsonPropertyName": "updatedById",
+      "scalarType": "Uuid",
+      "isNullable": true
+    },
+    {
+      "databaseName": "IsDeleted",
+      "clrPropertyName": "IsDeleted",
+      "jsonPropertyName": "isDeleted",
+      "scalarType": "Boolean"
+    },
+    {
+      "databaseName": "DeletedAtUtc",
+      "clrPropertyName": "DeletedAtUtc",
+      "jsonPropertyName": "deletedAtUtc",
+      "scalarType": "DateTimeUtc",
+      "isNullable": true
+    },
+    {
+      "databaseName": "DeletedById",
+      "clrPropertyName": "DeletedById",
+      "jsonPropertyName": "deletedById",
+      "scalarType": "Uuid",
+      "isNullable": true
+    }
+  ]
+}

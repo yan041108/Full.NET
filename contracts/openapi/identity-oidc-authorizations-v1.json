@@ -6,20 +6,59 @@
     {
       "path": "/api/v1/identity/oidc-authorizations",
       "operations": [
-        { "method": "GET", "permission": "identity.oidc_authorizations.read", "successStatus": 200, "responseSchema": "OidcAuthorizationResponsePage" }
+        {
+          "method": "GET",
+          "permission": "identity.oidc_authorizations.read",
+          "successStatus": 200,
+          "responseSchema": "OidcAuthorizationResponsePage"
+        }
       ]
     },
     {
       "path": "/api/v1/identity/oidc-authorizations/{id}",
       "operations": [
-        { "method": "GET", "permission": "identity.oidc_authorizations.read", "successStatus": 200, "responseSchema": "OidcAuthorizationResponse" }
+        {
+          "method": "GET",
+          "permission": "identity.oidc_authorizations.read",
+          "successStatus": 200,
+          "responseSchema": "OidcAuthorizationResponse"
+        }
       ]
     },
     {
       "path": "/api/v1/identity/oidc-authorizations/{id}/revoke",
       "operations": [
-        { "method": "POST", "permission": "identity.oidc_authorizations.revoke", "successStatus": 200, "responseSchema": "OidcAuthorizationResponse" }
+        {
+          "method": "POST",
+          "permission": "identity.oidc_authorizations.revoke",
+          "successStatus": 200,
+          "responseSchema": "OidcAuthorizationResponse"
+        }
       ]
     }
-  ]
+  ],
+  "schemas": {
+    "OidcAuthorizationResponse": {
+      "properties": [
+        "id",
+        "applicationId",
+        "clientId",
+        "subject",
+        "scopes",
+        "status",
+        "type",
+        "creationDateUtc",
+        "createdAtUtc",
+        "version"
+      ]
+    },
+    "OidcAuthorizationResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
 }

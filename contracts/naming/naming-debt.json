@@ -2458,6 +2458,20 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/214_AiAgentApproval.sql",
       "reason": "214 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等扩展 fn_ai_agent_tool_call 列；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/220_AiAgentRunSessionKind.sql",
+      "reason": "220 使用固定表列标识生成幂等 ALTER 语句，需保留动态执行以兼容旧版 MySQL。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/222_IdentityRegistrationModeAndInvitations.sql",
+      "reason": "222 使用固定表列标识生成幂等 ALTER 语句，需保留动态执行以兼容旧版 MySQL。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

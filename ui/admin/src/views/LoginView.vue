@@ -199,6 +199,11 @@ onMounted(() => {
             </div>
           </div>
 
+          <div class="art-login-form__links">
+            <router-link to="/register">Create account</router-link>
+            <router-link to="/recover-password">Forgot password</router-link>
+          </div>
+
           <small class="art-login-form__footnote">{{ t('auth.tokenNotice') }}</small>
         </form>
       </main>

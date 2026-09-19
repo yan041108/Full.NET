@@ -65,9 +65,11 @@ internal static class TenantSql
         "tenancy.insert",
         """
         INSERT INTO fn_tenancy_tenant
-            (Id, Identifier, Name, Domain, IsActive, CreatedAtUtc, Version, DefaultLocale, TenantPackageId)
+            (Id, Identifier, Name, Domain, IsActive, CreatedAtUtc, Version, DefaultLocale, TenantPackageId,
+             LifecycleStatus, ProvisioningStatus, ProvisioningStep)
         VALUES
-            (@Id, @Identifier, @Name, @Domain, @IsActive, @CreatedAtUtc, @Version, @DefaultLocale, @TenantPackageId)
+            (@Id, @Identifier, @Name, @Domain, @IsActive, @CreatedAtUtc, @Version, @DefaultLocale, @TenantPackageId,
+             @LifecycleStatus, @ProvisioningStatus, @ProvisioningStep)
         """,
         SqlDataScope.HostOnly);
 
@@ -101,7 +103,11 @@ internal static class TenantSql
                tenant.DefaultLocale,
                tenant.TenantPackageId,
                package.Code AS TenantPackageCode,
-               package.Name AS TenantPackageName
+               package.Name AS TenantPackageName,
+               tenant.LifecycleStatus,
+               tenant.OwnerUserId,
+               tenant.ProvisioningStatus,
+               tenant.ProvisioningStep
         FROM fn_tenancy_tenant AS tenant
         LEFT JOIN fn_tenancy_tenant_package AS package
             ON package.Id = tenant.TenantPackageId
@@ -122,7 +128,11 @@ internal static class TenantSql
                tenant.DefaultLocale,
                tenant.TenantPackageId,
                package.Code AS TenantPackageCode,
-               package.Name AS TenantPackageName
+               package.Name AS TenantPackageName,
+               tenant.LifecycleStatus,
+               tenant.OwnerUserId,
+               tenant.ProvisioningStatus,
+               tenant.ProvisioningStep
         FROM fn_tenancy_tenant AS tenant
         LEFT JOIN fn_tenancy_tenant_package AS package
             ON package.Id = tenant.TenantPackageId
@@ -143,7 +153,11 @@ internal static class TenantSql
                tenant.DefaultLocale,
                tenant.TenantPackageId,
                package.Code AS TenantPackageCode,
-               package.Name AS TenantPackageName
+               package.Name AS TenantPackageName,
+               tenant.LifecycleStatus,
+               tenant.OwnerUserId,
+               tenant.ProvisioningStatus,
+               tenant.ProvisioningStep
         FROM fn_tenancy_tenant AS tenant
         LEFT JOIN fn_tenancy_tenant_package AS package
             ON package.Id = tenant.TenantPackageId
@@ -352,4 +366,41 @@ internal static class TenantSql
         END
         """,
         SqlDataScope.Global);
+
+    public static readonly SqlStatement UpdateProvisioningStatus = new(
+        "tenancy.update_provisioning_status",
+        """
+        UPDATE fn_tenancy_tenant
+        SET ProvisioningStatus = @ProvisioningStatus,
+            ProvisioningStep = @ProvisioningStep,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @TenantId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateLifecycleStatus = new(
+        "tenancy.update_lifecycle_status",
+        """
+        UPDATE fn_tenancy_tenant
+        SET LifecycleStatus = @LifecycleStatus,
+            IsActive = @IsActive,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @TenantId
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateOwnerUser = new(
+        "tenancy.update_owner_user",
+        """
+        UPDATE fn_tenancy_tenant
+        SET OwnerUserId = @OwnerUserId,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @TenantId
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
 }

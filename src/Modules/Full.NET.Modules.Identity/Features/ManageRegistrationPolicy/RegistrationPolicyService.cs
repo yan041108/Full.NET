@@ -43,12 +43,14 @@ internal sealed class RegistrationPolicyService(
         UpdateRegistrationPolicyRequest request,
         CancellationToken cancellationToken = default)
     {
+        var mode = ResolveRegistrationMode(request);
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 RegistrationPolicySql.UpdatePolicy,
                 IdentitySqlParameters.Create(
                     ("PolicyId", IdentityRegistrationPolicyConstants.PolicyId),
-                    ("IsPublicRegistrationEnabled", request.IsPublicRegistrationEnabled),
+                    ("IsPublicRegistrationEnabled", mode == IdentityRegistrationMode.Open),
+                    ("RegistrationMode", (byte)mode),
                     ("UpdatedAtUtc", now),
                     ("Version", request.Version)),
                 cancellationToken)
@@ -64,10 +66,24 @@ internal sealed class RegistrationPolicyService(
         return await GetAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    internal static RegistrationPolicyResponse Map(RegistrationPolicyRecord record) =>
-        new(
+    internal static RegistrationPolicyResponse Map(RegistrationPolicyRecord record)
+    {
+        var mode = record.RegistrationMode == 0
+            ? (record.IsPublicRegistrationEnabled
+                ? IdentityRegistrationMode.Open
+                : IdentityRegistrationMode.InvitationOnly)
+            : (IdentityRegistrationMode)record.RegistrationMode;
+        return new(
             record.Id,
-            record.IsPublicRegistrationEnabled,
+            mode == IdentityRegistrationMode.Open,
+            mode,
             record.UpdatedAtUtc,
             record.Version);
+    }
+
+    internal static IdentityRegistrationMode ResolveRegistrationMode(UpdateRegistrationPolicyRequest request) =>
+        request.RegistrationMode
+        ?? (request.IsPublicRegistrationEnabled
+            ? IdentityRegistrationMode.Open
+            : IdentityRegistrationMode.InvitationOnly);
 }
