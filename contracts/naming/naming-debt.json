@@ -2472,6 +2472,13 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/222_IdentityRegistrationModeAndInvitations.sql",
       "reason": "222 使用固定表列标识生成幂等 ALTER 语句，需保留动态执行以兼容旧版 MySQL。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/223_TenancyTenantMembership.sql",
+      "reason": "223 仅按 INFORMATION_SCHEMA 探测结果选择固定 ALTER TABLE 或 SELECT 1，幂等补齐租户生命周期、所有者及开通状态四列；无外部标识符或值拼接。保留 MySQL 8.0 兼容路径，半完成恢复仍待双库 CI 验证。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

@@ -282,10 +282,7 @@ public sealed class IdentitySessionContextServiceTests
                         new Full.NET.Modules.Tenancy.TenancyAuthorizationContributor(),
                     ])),
                 TokenIssuer,
-                oidcIssuer,
-                refreshIssuer,
                 grantRevocation,
-                clientResolver,
                 new CurrentTenantAccessor(),
                 new FixedClock(),
                 new FixedIdGenerator(),
@@ -295,7 +292,10 @@ public sealed class IdentitySessionContextServiceTests
                     Issuer = "https://localhost/identity",
                     AllowDevelopmentEphemeralSigningKey = true,
                 }),
-                Options.Create(new IdentityOptions()));
+                Options.Create(new IdentityOptions()),
+                oidcIssuer,
+                refreshIssuer,
+                clientResolver);
         }
 
         public IQueryExecutor QueryExecutor { get; }
@@ -349,10 +349,7 @@ public sealed class IdentitySessionContextServiceTests
                         new Full.NET.Modules.Tenancy.TenancyAuthorizationContributor(),
                     ])),
                 TokenIssuer,
-                oidcIssuer,
-                refreshIssuer,
                 grantRevocation,
-                clientResolver,
                 new CurrentTenantAccessor(),
                 new FixedClock(),
                 new FixedIdGenerator(),
@@ -362,7 +359,10 @@ public sealed class IdentitySessionContextServiceTests
                     Issuer = "https://localhost/identity",
                     AllowDevelopmentEphemeralSigningKey = true,
                 }),
-                Options.Create(new IdentityOptions()));
+                Options.Create(new IdentityOptions()),
+                oidcIssuer,
+                refreshIssuer,
+                clientResolver);
         }
 
         internal static (

@@ -9,6 +9,7 @@ using Full.NET.Hosting.RateLimiting;
 using Full.NET.Localization;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modules.Files.Contracts;
+using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Configuration;
@@ -374,6 +375,7 @@ public sealed class IdentityModuleRegistrationTests
 
         RegistrationExpectation.Self<IdentityOidcRegistrationMarker>(ServiceLifetime.Singleton),
         RegistrationExpectation.Self<IdentityOidcSessionService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityOidcGrantRevocationService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityOidcPrincipalFactory>(ServiceLifetime.Singleton),
         RegistrationExpectation.Self<IdentityOidcAccessSessionValidator>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<IValidateOptions<IdentityOidcOptions>, IdentityOidcOptionsValidator>(ServiceLifetime.Singleton),
@@ -481,9 +483,16 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<OpenAccessClientObservabilityService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<RegistrationPolicyService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.AccountChallenges.AccountChallengeService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.RegistrationInvitations.RegistrationInvitationService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IIdentityChallengeDeliveryPort, IdentityFeatures.AccountChallenges.NullIdentityChallengeDeliveryPort>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<ITenantMemberSeatQuotaPort, IdentityFeatures.AcceptTenantInvitation.NullTenantMemberSeatQuotaPort>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<RegistrationWayQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<RegistrationWayManagementService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMembershipQueryService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMembershipManagementService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.AcceptTenantInvitation.AcceptTenantInvitationService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<PublicRegistrationWayQueryService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<LdapConnectionQueryService>(ServiceLifetime.Scoped),
@@ -575,6 +584,10 @@ public sealed class IdentityModuleRegistrationTests
                 SelfServiceProfileResponse>,
             IdentityFeatures.SelfServiceProfile.UpdateHandler>(ServiceLifetime.Scoped),
 
+        RegistrationExpectation.Type<IValidator<IdentityFeatures.RegisterAccount.Command>, IdentityFeatures.RegisterAccount.Validator>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<ICommandHandler<IdentityFeatures.RegisterAccount.Command, RegisterAccountResponse>, IdentityFeatures.RegisterAccount.Handler>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<ICommandHandler<IdentityFeatures.RecoverAccount.RequestCommand, AccountChallengeAcceptedResponse>, IdentityFeatures.RecoverAccount.RequestHandler>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<ICommandHandler<IdentityFeatures.RecoverAccount.ConfirmCommand, bool>, IdentityFeatures.RecoverAccount.ConfirmHandler>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<AllowedOriginValidator>(
             ServiceLifetime.Singleton),
         RegistrationExpectation.Type<

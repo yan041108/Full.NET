@@ -2,42 +2,42 @@
   "schemaVersion": 1,
   "tables": {
     "demo_enterprise_request_enterprise_request": {
-      "comment": "unknowndemo enterprise request enterprise request表",
+      "comment": "企业申请示例主表",
       "columns": {
-        "ApplicantUserId": "Applicant User标识",
+        "ApplicantUserId": "申请人用户标识",
         "CreatedAtUtc": "创建时间(UTC)",
         "CreatedById": "创建人标识",
         "DeletedAtUtc": "删除时间(UTC)",
-        "DeletedById": "Deleted By标识",
+        "DeletedById": "删除人标识",
         "Id": "逻辑主键",
         "IsDeleted": "是否已软删除",
         "OrganizationUnitId": "机构单元标识",
-        "RequestNumber": "Request Number",
+        "RequestNumber": "申请单号",
         "Status": "状态",
-        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TenantId": "所属租户标识",
         "Title": "标题",
-        "TotalAmount": "Total Amount",
+        "TotalAmount": "申请总金额",
         "UpdatedAtUtc": "更新时间(UTC)",
         "UpdatedById": "更新人标识",
         "Version": "乐观并发版本号"
       }
     },
     "demo_enterprise_request_enterprise_request_line": {
-      "comment": "unknowndemo enterprise request enterprise request line表",
+      "comment": "企业申请示例明细表",
       "columns": {
         "CreatedAtUtc": "创建时间(UTC)",
         "CreatedById": "创建人标识",
         "DeletedAtUtc": "删除时间(UTC)",
-        "DeletedById": "Deleted By标识",
+        "DeletedById": "删除人标识",
         "Id": "逻辑主键",
         "IsDeleted": "是否已软删除",
-        "ItemDescription": "Item Description",
-        "LineAmount": "Line Amount",
-        "LineNumber": "Line Number",
-        "Quantity": "Quantity",
-        "RequestId": "Request标识",
-        "TenantId": "租户标识；NULL 表示 Host 级",
-        "UnitPrice": "Unit Price",
+        "ItemDescription": "申请项目说明",
+        "LineAmount": "明细金额",
+        "LineNumber": "明细行号",
+        "Quantity": "数量",
+        "RequestId": "所属申请标识",
+        "TenantId": "所属租户标识",
+        "UnitPrice": "单价",
         "UpdatedAtUtc": "更新时间(UTC)",
         "UpdatedById": "更新人标识",
         "Version": "乐观并发版本号"
@@ -2588,53 +2588,53 @@
       }
     },
     "fn_tenancy_entitlement_catalog": {
-      "comment": "租户entitlement catalog表",
+      "comment": "租户权益目录表",
       "columns": {
-        "Code": "编码",
+        "Code": "权益编码",
         "CreatedAtUtc": "创建时间(UTC)",
         "Description": "描述",
-        "EntitlementType": "Entitlement Type",
+        "EntitlementType": "权益类型",
         "Id": "逻辑主键",
         "IsActive": "是否启用",
-        "Name": "名称",
+        "Name": "权益名称",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Version": "乐观并发版本号"
       }
     },
     "fn_tenancy_quota_metric": {
-      "comment": "租户quota metric表",
+      "comment": "租户配额度量表",
       "columns": {
         "CreatedAtUtc": "创建时间(UTC)",
         "Id": "逻辑主键",
-        "LimitValue": "Limit Value",
-        "MetricCode": "Metric Code",
-        "PeriodKey": "Period Key",
-        "ReservedValue": "Reserved Value",
-        "TenantId": "租户标识；NULL 表示 Host 级",
+        "LimitValue": "上限",
+        "MetricCode": "度量编码",
+        "PeriodKey": "周期键",
+        "ReservedValue": "预留量",
+        "TenantId": "租户标识",
         "UpdatedAtUtc": "更新时间(UTC)",
-        "UsedValue": "Used Value",
+        "UsedValue": "已用量",
         "Version": "乐观并发版本号"
       }
     },
     "fn_tenancy_quota_reservation": {
       "comment": "租户配额预留表",
       "columns": {
-        "Amount": "Amount",
+        "Amount": "预留数量",
         "CreatedAtUtc": "创建时间(UTC)",
         "ExpiresAtUtc": "过期时间(UTC)",
         "Id": "逻辑主键",
-        "MetricCode": "Metric Code",
-        "OperationId": "Operation标识",
-        "Status": "状态",
-        "TenantId": "租户标识；NULL 表示 Host 级",
+        "MetricCode": "度量编码",
+        "OperationId": "幂等操作标识",
+        "Status": "预留状态",
+        "TenantId": "租户标识",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Version": "乐观并发版本号"
       }
     },
     "fn_tenancy_settings": {
-      "comment": "租户settings表",
+      "comment": "租户运行时设置表",
       "columns": {
-        "EntitlementEnforcementPhase": "Entitlement Enforcement Phase",
+        "EntitlementEnforcementPhase": "权益强制执行阶段",
         "Id": "逻辑主键",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Version": "乐观并发版本号"
@@ -2666,15 +2666,15 @@
       }
     },
     "fn_tenancy_tenant_entitlement_binding": {
-      "comment": "租户tenant entitlement binding表",
+      "comment": "租户权益绑定表",
       "columns": {
         "CreatedAtUtc": "创建时间(UTC)",
-        "EffectiveFromUtc": "Effective From(UTC)",
-        "EffectiveToUtc": "Effective To(UTC)",
-        "EntitlementId": "Entitlement标识",
+        "EffectiveFromUtc": "生效时间(UTC)",
+        "EffectiveToUtc": "失效时间(UTC)",
+        "EntitlementId": "权益标识",
         "Id": "逻辑主键",
-        "SourcePackageId": "Source Package标识",
-        "TenantId": "租户标识；NULL 表示 Host 级",
+        "SourcePackageId": "来源套餐标识",
+        "TenantId": "租户标识",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Version": "乐观并发版本号"
       }

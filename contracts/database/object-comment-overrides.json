@@ -213,6 +213,96 @@
         "StepId": "流程步骤标识",
         "TenantScopeKey": "租户作用域唯一键"
       }
+    },
+    "demo_enterprise_request_enterprise_request": {
+      "comment": "企业申请示例主表",
+      "columns": {
+        "ApplicantUserId": "申请人用户标识",
+        "RequestNumber": "申请单号",
+        "TotalAmount": "申请总金额",
+        "DeletedById": "删除人标识",
+        "TenantId": "所属租户标识"
+      }
+    },
+    "demo_enterprise_request_enterprise_request_line": {
+      "comment": "企业申请示例明细表",
+      "columns": {
+        "ItemDescription": "申请项目说明",
+        "LineAmount": "明细金额",
+        "LineNumber": "明细行号",
+        "Quantity": "数量",
+        "RequestId": "所属申请标识",
+        "UnitPrice": "单价",
+        "DeletedById": "删除人标识",
+        "TenantId": "所属租户标识"
+      }
+    },
+    "fn_tenancy_entitlement_catalog": {
+      "comment": "租户权益目录表",
+      "columns": {
+        "EntitlementType": "权益类型",
+        "Id": "逻辑主键",
+        "Code": "权益编码",
+        "Name": "权益名称",
+        "Description": "描述",
+        "IsActive": "是否启用",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_tenancy_tenant_entitlement_binding": {
+      "comment": "租户权益绑定表",
+      "columns": {
+        "EffectiveFromUtc": "生效时间(UTC)",
+        "EffectiveToUtc": "失效时间(UTC)",
+        "EntitlementId": "权益标识",
+        "SourcePackageId": "来源套餐标识",
+        "TenantId": "租户标识",
+        "Id": "逻辑主键",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_tenancy_settings": {
+      "comment": "租户运行时设置表",
+      "columns": {
+        "EntitlementEnforcementPhase": "权益强制执行阶段",
+        "Id": "逻辑主键",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_tenancy_quota_metric": {
+      "comment": "租户配额度量表",
+      "columns": {
+        "LimitValue": "上限",
+        "MetricCode": "度量编码",
+        "PeriodKey": "周期键",
+        "ReservedValue": "预留量",
+        "UsedValue": "已用量",
+        "TenantId": "租户标识",
+        "Id": "逻辑主键",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_tenancy_quota_reservation": {
+      "comment": "租户配额预留表",
+      "columns": {
+        "Amount": "预留数量",
+        "MetricCode": "度量编码",
+        "OperationId": "幂等操作标识",
+        "TenantId": "租户标识",
+        "Id": "逻辑主键",
+        "Status": "预留状态",
+        "ExpiresAtUtc": "过期时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
     }
   }
 }

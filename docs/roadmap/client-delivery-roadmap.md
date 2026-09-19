@@ -23,10 +23,10 @@ Vue 管理端必须优先形成完整、可访问、可真实验收的业务闭�
 | --- | --- | --- | --- |
 | C0 公共契约 | Build-verified | 会话、ProblemDetails、租户、导航、主要模块 API 客户端与运行时校验已存在 | 授权树和逐操作权限契约 |
 | C1 Vue 壳层 | Build-verified | Art Design Pro 壳层、路由、主题、导航、会话、国际化与现有模块页面 | 富文本、人工辅助技术验收、进一步视觉收敛 |
-| C1-SSO 标准认证中心接入 | Mapped | 2026-09-13 方向与阶段已确认；[Identity 规格 §14](../superpowers/specs/2026-07-17-identity-session-foundation-design.md#14-oidc-认证中心与-sso-演进2026-09-13-已确认) | P0/P1 先验证两个受控应用；P3 才迁移 Vue，当前尚未实施 |
+| C1-SSO 标准认证中心接入 | Implementing | 2026-09-13 方向与阶段已确认；[Identity 规格 §14](../superpowers/specs/2026-07-17-identity-session-foundation-design.md#14-oidc-认证中心与-sso-演进2026-09-13-已确认) | P0/P1 服务端与双应用夹具、T08 可选 oidc-center Vue 路径已有实现；当前提交双库、浏览器及 Native 验收未关闭 |
 | C1-Legacy Layui | Frozen | 历史壳层、页面、测试和真实栈证据保留 | 不再补齐功能；另行制定退役计划 |
 | C2 后台业务 | Implementing | Identity、Tenancy、Organization、Settings、Auditing、Files、Notifications、CodeGeneration 等已有 Vue 切片 | 逐页面/逐操作授权；未完成模块继续只做 Vue |
-| C3 uni-app | Build-verified foundation | 三目标工程与基础契约已建立 | 按[批准计划](../superpowers/plans/2026-08-30-workflow-designer-form-runtime.md)交付首个 Workflow 表单纵向样例；当前仍未实现 |
+| C3 uni-app | Build-verified foundation | 三目标工程与基础契约已建立 | Workflow 静态渲染器与 H5 路径已有实现；按[批准计划](../superpowers/plans/2026-08-30-workflow-designer-form-runtime.md)补跨端语义、三目标运行与性能验收 |
 | C4 Flutter | Designing | 框架、组件与设计令牌边界已确定 | 工程基线和首个真实业务样例 |
 
 测试发现数量只维护在 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json)，本路线图不复制门槛数字。
@@ -69,7 +69,7 @@ Layui 的缺失、失败或不兼容不再阻止新功能进入 `Implemented`、
 
 Vue 迁移前先证明服务端换码、主 Cookie 与应用 Cookie 分离、CSRF／跨站回调、权威会话撤销和两个应用 SSO。P3 再根据证据选择 BFF／服务端回调及票据存储，保留旧认证入口回退；不得仅开启 `SaveTokens` 就宣称自动刷新或令牌已保存在服务端。协议端点遵循 OAuth/OIDC 原生契约，普通管理接口继续使用共享 OpenAPI／ProblemDetails 运行时。
 
-**退出条件：** 研究矩阵 V01—V24 对应证据及双库、Linux Native AOT、Vue 真实栈关键流程齐备；未执行、跳过或失败不提升能力状态。当前为 `Mapped`，P0 尚未开始。
+**退出条件：** 研究矩阵 V01—V24 对应证据及双库、Linux Native AOT、Vue 真实栈关键流程齐备；未执行、跳过或失败不提升能力状态。当前为 `Implementing`；P0 与 T08 已有实现和局部验证，整体仍待当前提交的双库、真实浏览器与 Native 证据。
 
 ### C0：公共客户端契约底座
 
@@ -95,7 +95,7 @@ Vue 迁移前先证明服务端换码、主 Cookie 与应用 Cookie 分离、CSR
 
 | 波次 | 后台能力 | 当前状态 | 下一动作 |
 | --- | --- | --- | --- |
-| C2.1 | 用户、角色、菜单、超级管理员、在线会话、API Key | **Build-verified** | Identity W0–W1 精确动作权限与双库迁移已完成；模块分组 UI 仍待 Task 0 后续切片 |
+| C2.1 | 用户、角色、菜单、超级管理员、在线会话、API Key | **Build-verified** | Identity W0–W1 精确动作权限与双库迁移已完成；模块/页面/操作三级授权 UI 已交付，按新增能力继续补当前版本验收 |
 | C2.2 | 租户、套餐、机构、职位、职级、用户隶属 | **Build-verified** | W2 粗粒度写权限已拆分；持续补 Vue 单操作真实栈 E2E |
 | C2.3 | 配置、字典、枚举、Grid 偏好、审计 | Build-verified slices | 完成 Vue 体验与精确操作权限，不再建设 Layui |
 | C2.4 | Files、Notifications、Jobs、CodeGeneration | **Verified**（Vue） | W4 迁移 071–076 已收口；见[W4–W5 验证](../verification/vue-action-authorization-w4-w5-closeout-2026-08-03.md) |

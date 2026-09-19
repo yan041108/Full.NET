@@ -23,15 +23,15 @@ internal sealed class IdentitySessionContextService(
     IPermissionSnapshotReader permissionSnapshotReader,
     PermissionClaimEvaluator permissionClaimEvaluator,
     IAccessTokenIssuer accessTokenIssuer,
-    IdentityOidcContextAccessTokenIssuer oidcContextAccessTokenIssuer,
-    IdentityOidcContextRefreshTokenIssuer oidcContextRefreshTokenIssuer,
     IdentityOidcGrantRevocationService oidcGrantRevocationService,
-    IdentityOidcClientConfigResolver clientConfigResolver,
     ICurrentTenantContextWriter tenantContextWriter,
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<IdentityOidcOptions> oidcOptions,
-    IOptions<IdentityOptions> identityOptions) : IIdentitySessionContextService
+    IOptions<IdentityOptions> identityOptions,
+    IdentityOidcContextAccessTokenIssuer? oidcContextAccessTokenIssuer = null,
+    IdentityOidcContextRefreshTokenIssuer? oidcContextRefreshTokenIssuer = null,
+    IdentityOidcClientConfigResolver? clientConfigResolver = null) : IIdentitySessionContextService
 {
     private const string HostScope = "host";
     private const string SwitchPermission = "tenancy.tenants.switch";
@@ -170,6 +170,10 @@ internal sealed class IdentitySessionContextService(
         VerifiedTenantContext? tenant,
         CancellationToken cancellationToken)
     {
+        // 旧会话在 OIDC 关闭时不需要协议签发依赖；OIDC 分支在任何写入前检查完整装配。
+        ArgumentNullException.ThrowIfNull(oidcContextAccessTokenIssuer);
+        ArgumentNullException.ThrowIfNull(oidcContextRefreshTokenIssuer);
+        ArgumentNullException.ThrowIfNull(clientConfigResolver);
         if (!TryReadOidcIdentity(
                 principal,
                 out var userId,

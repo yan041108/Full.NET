@@ -23,11 +23,12 @@ internal sealed class AcceptTenantInvitationService(
     IClock clock,
     IIdGenerator idGenerator)
 {
+    // 成员已写入后仍可能遇到邀请版本竞争或配额确认失败，失败结果必须回滚本地写入。
     public Task<Result<AcceptTenantInvitationResponse>> AcceptAsync(
         Guid userId,
         AcceptTenantInvitationRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => AcceptCoreAsync(userId, request, token),
             cancellationToken);
 

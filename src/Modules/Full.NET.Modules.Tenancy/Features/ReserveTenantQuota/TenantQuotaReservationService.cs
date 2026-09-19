@@ -15,11 +15,12 @@ internal sealed class TenantQuotaReservationService(
     IClock clock,
     IIdGenerator idGenerator) : ITenantQuotaReservationService
 {
+    // 预留记录与额度、终态与用量是同一事务；后续 CAS 失败不得提交前一条写入。
     public Task<Result<ReserveTenantQuotaResponse>> ReserveAsync(
         Guid tenantId,
         ReserveTenantQuotaRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => ReserveCoreAsync(tenantId, request, token),
             cancellationToken);
 
@@ -27,7 +28,7 @@ internal sealed class TenantQuotaReservationService(
         Guid tenantId,
         ConfirmTenantQuotaRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => ConfirmCoreAsync(tenantId, request, token),
             cancellationToken);
 
@@ -35,7 +36,7 @@ internal sealed class TenantQuotaReservationService(
         Guid tenantId,
         ReleaseTenantQuotaRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => ReleaseCoreAsync(tenantId, request, token),
             cancellationToken);
 

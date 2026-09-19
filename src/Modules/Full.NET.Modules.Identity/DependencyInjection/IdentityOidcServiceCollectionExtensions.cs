@@ -36,6 +36,8 @@ internal static class IdentityOidcServiceCollectionExtensions
 
         services.TryAddSingleton<IdentityOidcRegistrationMarker>();
         services.TryAddScoped<IdentityOidcSessionService>();
+        // 关闭协议入口后仍须允许管理端撤销历史授权，不依赖签发密钥或 OpenIddict 服务。
+        services.TryAddScoped<IdentityOidcGrantRevocationService>();
         services.TryAddSingleton<IdentityOidcPrincipalFactory>();
         services.TryAddScoped<IdentityOidcAccessSessionValidator>();
         services.AddOptions<IdentityOidcOptions>()
@@ -67,7 +69,6 @@ internal static class IdentityOidcServiceCollectionExtensions
         services.TryAddScoped<IdentityOidcAuthorizationService>();
         services.TryAddScoped<IdentityOidcContextAccessTokenIssuer>();
         services.TryAddScoped<IdentityOidcContextRefreshTokenIssuer>();
-        services.TryAddScoped<IdentityOidcGrantRevocationService>();
         services.Replace(ServiceDescriptor.Scoped<
             IIdentityOidcUserAuthorityRevoker,
             IdentityOidcUserAuthorityRevoker>());

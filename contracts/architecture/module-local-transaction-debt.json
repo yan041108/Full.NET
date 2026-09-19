@@ -4,20 +4,10 @@
     {
       "consumerModule": "identity",
       "ownerModule": "tenancy",
-      "file": "src/Modules/Full.NET.Modules.Identity/Features/RegisterAccount/Handler.cs",
-      "entryPoint": "Handler.HandleCoreAsync",
-      "contractType": "IIdentityActiveTenantDirectory",
-      "reason": "公开注册在 Identity 事务内校验目标租户仍有效，读取 Tenancy 提供的活动租户目录 Port。",
-      "risk": "medium",
-      "removeByMilestone": "foundation-productization-f04"
-    },
-    {
-      "consumerModule": "identity",
-      "ownerModule": "tenancy",
       "file": "src/Modules/Full.NET.Modules.Identity/Features/AcceptTenantInvitation/AcceptTenantInvitationService.cs",
       "entryPoint": "AcceptTenantInvitationService.AcceptCoreAsync",
       "contractType": "ITenantMemberSeatQuotaPort",
-      "reason": "接受租户邀请时在 Identity 事务外预留/确认 identity.seats 配额，通过 Tenancy Port 完成席位校验。",
+      "reason": "接受租户邀请时仍在 Identity 本地事务内调用 Tenancy 席位预留、确认与释放；已修复失败 Result 的本地回滚，但跨模块写入须拆为持久化编排、补偿与对账后才能关闭债务。",
       "risk": "medium",
       "removeByMilestone": "foundation-productization-f08b"
     }
