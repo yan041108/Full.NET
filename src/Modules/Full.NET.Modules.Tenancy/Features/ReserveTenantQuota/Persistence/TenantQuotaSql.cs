@@ -99,13 +99,21 @@ internal static class TenantQuotaSql
         """,
         SqlDataScope.HostOnly);
 
+    // 旧协议没有指标，只有租户内操作键唯一时才返回；不按排序随意选取重复记录。
     public static readonly SqlStatement FindReservationByTenantOperation = new(
         "tenancy.quota.find_reservation_by_tenant_operation",
         """
-        SELECT Id, TenantId, MetricCode, OperationId, Amount, Status, ExpiresAtUtc, Version, MetricId
-        FROM fn_tenancy_quota_reservation
-        WHERE TenantId = @TenantId
-          AND OperationId = @OperationId
+        SELECT reservation.Id, reservation.TenantId, reservation.MetricCode, reservation.OperationId,
+               reservation.Amount, reservation.Status, reservation.ExpiresAtUtc, reservation.Version, reservation.MetricId
+        FROM fn_tenancy_quota_reservation AS reservation
+        WHERE reservation.TenantId = @TenantId
+          AND reservation.OperationId = @OperationId
+          AND NOT EXISTS (
+              SELECT 1 FROM fn_tenancy_quota_reservation AS otherReservation
+              WHERE otherReservation.TenantId = reservation.TenantId
+                AND otherReservation.OperationId = reservation.OperationId
+                AND otherReservation.Id <> reservation.Id
+          )
         """,
         SqlDataScope.HostOnly);
 

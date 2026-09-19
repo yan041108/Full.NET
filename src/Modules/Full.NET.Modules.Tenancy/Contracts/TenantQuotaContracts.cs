@@ -38,8 +38,16 @@ public sealed record ReserveTenantQuotaResponse(
     Guid ReservationId, Guid TenantId, string MetricCode, string OperationId,
     long Amount, string Status, DateTimeOffset ExpiresAtUtc);
 
-public sealed record ConfirmTenantQuotaRequest(string OperationId);
-public sealed record ReleaseTenantQuotaRequest(string OperationId);
+public sealed record ConfirmTenantQuotaRequest(string OperationId)
+{
+    /// <summary>精确定位指标；省略时仅兼容租户内无歧义的历史操作键。</summary>
+    public string? MetricCode { get; init; }
+}
+public sealed record ReleaseTenantQuotaRequest(string OperationId)
+{
+    /// <summary>精确定位指标；省略时仅兼容租户内无歧义的历史操作键。</summary>
+    public string? MetricCode { get; init; }
+}
 
 public sealed record UpsertTenantQuotaMetricRequest(
     string MetricCode,

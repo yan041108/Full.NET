@@ -184,7 +184,8 @@ internal sealed class TenantQuotaReservationService(
         CancellationToken cancellationToken)
     {
         var operationId = request.OperationId?.Trim() ?? string.Empty;
-        if (operationId.Length is < 1 or > 128)
+        var metricCode = request.MetricCode?.Trim();
+        if (operationId.Length is < 1 or > 128 || metricCode is { Length: < 1 or > 64 })
         {
             return MetricFailure(TenancyErrorCodes.QuotaRequestInvalid, ErrorType.Validation);
         }
@@ -192,6 +193,7 @@ internal sealed class TenantQuotaReservationService(
         return await CompleteReservationAsync(
                 tenantId,
                 operationId,
+                metricCode,
                 TenantQuotaReservationStatuses.Confirmed,
                 TenantQuotaSql.ConfirmMetric,
                 cancellationToken)
@@ -204,7 +206,8 @@ internal sealed class TenantQuotaReservationService(
         CancellationToken cancellationToken)
     {
         var operationId = request.OperationId?.Trim() ?? string.Empty;
-        if (operationId.Length is < 1 or > 128)
+        var metricCode = request.MetricCode?.Trim();
+        if (operationId.Length is < 1 or > 128 || metricCode is { Length: < 1 or > 64 })
         {
             return MetricFailure(TenancyErrorCodes.QuotaRequestInvalid, ErrorType.Validation);
         }
@@ -212,6 +215,7 @@ internal sealed class TenantQuotaReservationService(
         return await CompleteReservationAsync(
                 tenantId,
                 operationId,
+                metricCode,
                 TenantQuotaReservationStatuses.Released,
                 TenantQuotaSql.ReleaseMetric,
                 cancellationToken)
@@ -221,15 +225,17 @@ internal sealed class TenantQuotaReservationService(
     private async Task<Result<TenantQuotaMetricResponse>> CompleteReservationAsync(
         Guid tenantId,
         string operationId,
+        string? metricCode,
         string targetStatus,
         SqlStatement metricUpdate,
         CancellationToken cancellationToken)
     {
         var reservation = await queryExecutor.QuerySingleOrDefaultAsync<TenantQuotaReservationRecord>(
-                TenantQuotaSql.FindReservationByTenantOperation,
+                metricCode is null ? TenantQuotaSql.FindReservationByTenantOperation : TenantQuotaSql.FindReservationByOperation,
                 Tenancy.Persistence.TenancySqlParameters.Create(
                     ("TenantId", tenantId),
-                    ("OperationId", operationId)),
+                    ("OperationId", operationId),
+                    ("MetricCode", metricCode)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (reservation is null || reservation.MetricId is null)

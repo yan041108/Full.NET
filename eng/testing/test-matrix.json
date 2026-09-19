@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 2622,
+      "minimum": 2634,
       "timeout": "10m",
       "selections": {
         "async-lifecycle": {
@@ -142,6 +142,9 @@
       }
     },
     "migrationSelections": {
+      "229": {
+        "filter": "FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.MySql_|FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.SqlServer_"
+      },
       "101": {
         "filter": "FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.MySql_|FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.SqlServer_"
       },

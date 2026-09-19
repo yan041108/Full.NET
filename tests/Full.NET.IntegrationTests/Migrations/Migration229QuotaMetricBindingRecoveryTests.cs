@@ -10,9 +10,12 @@ namespace Full.NET.IntegrationTests.Migrations;
 public sealed class Migration229QuotaMetricBindingRecoveryTests
 {
     [TestMethod]
-    [DataRow(true)]
-    [DataRow(false)]
-    public async Task Migration_preserves_unbound_legacy_and_bound_rows_on_replay(bool sqlServer)
+    public Task SqlServer_preserves_unbound_legacy_and_bound_rows_on_replay() => VerifyAsync(true);
+
+    [TestMethod]
+    public Task MySql_preserves_unbound_legacy_and_bound_rows_on_replay() => VerifyAsync(false);
+
+    private static async Task VerifyAsync(bool sqlServer)
     {
         var connectionString = sqlServer
             ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()

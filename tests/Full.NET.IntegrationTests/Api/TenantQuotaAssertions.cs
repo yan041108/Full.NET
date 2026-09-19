@@ -146,12 +146,40 @@ internal static class TenantQuotaAssertions
         Assert.AreEqual(0, boundCompletion.ReservedValue);
         Assert.AreEqual(boundCompletion, await CompleteAsync("confirm", boundOperation));
 
-        async Task<TenantQuotaMetricResponse> UpsertBindingMetricAsync(string period)
+        // 同一租户的两个指标允许使用相同业务操作键，旧请求不能任意选择其中一条。
+        const string otherCode = "test.other";
+        await UpsertBindingMetricAsync(TenantQuotaDefaults.PeriodKey, otherCode);
+        var sharedOperation = Guid.CreateVersion7().ToString("D");
+        await AssertReserveAsync(sharedOperation, 1, HttpStatusCode.OK, bindingCode);
+        await AssertReserveAsync(sharedOperation, 1, HttpStatusCode.OK, otherCode);
+        foreach (var action in new[] { "confirm", "release" })
+        {
+            using var ambiguousRequest = new HttpRequestMessage(HttpMethod.Post,
+                $"/api/v1/tenancy/tenants/{tenant.Id:D}/quota/{action}")
+            {
+                Content = JsonContent.Create(new { operationId = sharedOperation }),
+            };
+            ambiguousRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var ambiguousResponse = await client.SendAsync(ambiguousRequest, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.NotFound, ambiguousResponse.StatusCode);
+        }
+        var exactConfirmed = await CompleteAsync("confirm", sharedOperation, bindingCode);
+        var exactReleased = await CompleteAsync("release", sharedOperation, otherCode);
+        Assert.AreEqual(bindingCode, exactConfirmed.MetricCode);
+        Assert.AreEqual(1, exactConfirmed.UsedValue);
+        Assert.AreEqual(0, exactConfirmed.ReservedValue);
+        Assert.AreEqual(otherCode, exactReleased.MetricCode);
+        Assert.AreEqual(0, exactReleased.UsedValue);
+        Assert.AreEqual(0, exactReleased.ReservedValue);
+        Assert.AreEqual(exactConfirmed, await CompleteAsync("confirm", sharedOperation, bindingCode));
+        Assert.AreEqual(exactReleased, await CompleteAsync("release", sharedOperation, otherCode));
+
+        async Task<TenantQuotaMetricResponse> UpsertBindingMetricAsync(string period, string metricCode = bindingCode)
         {
             using var request = new HttpRequestMessage(HttpMethod.Put,
                 $"/api/v1/tenancy/tenants/{tenant.Id:D}/quota/metrics")
             {
-                Content = JsonContent.Create(new UpsertTenantQuotaMetricRequest(bindingCode, period, 10)),
+                Content = JsonContent.Create(new UpsertTenantQuotaMetricRequest(metricCode, period, 10)),
             };
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             using var response = await client.SendAsync(request, cancellationToken);
@@ -174,14 +202,12 @@ internal static class TenantQuotaAssertions
             Assert.AreEqual(expected, response.StatusCode);
         }
 
-        async Task<TenantQuotaMetricResponse> CompleteAsync(string action, string id)
+        async Task<TenantQuotaMetricResponse> CompleteAsync(string action, string id, string? metricCode = null)
         {
             using var request = new HttpRequestMessage(HttpMethod.Post,
                 $"/api/v1/tenancy/tenants/{tenant.Id:D}/quota/{action}")
             {
-                Content = action == "confirm"
-                    ? JsonContent.Create(new ConfirmTenantQuotaRequest(id))
-                    : JsonContent.Create(new ReleaseTenantQuotaRequest(id)),
+                Content = JsonContent.Create(new { operationId = id, metricCode }),
             };
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             using var response = await client.SendAsync(request, cancellationToken);

@@ -20,7 +20,7 @@ internal sealed class TenantMemberSeatQuotaPort(
     {
         var result = await quotaReservationService.ConfirmAsync(
                 tenantId,
-                new ConfirmTenantQuotaRequest(operationId),
+                new ConfirmTenantQuotaRequest(operationId) { MetricCode = TenantQuotaMetricCodes.IdentitySeats },
                 cancellationToken)
             .ConfigureAwait(false);
         return result.IsSuccess
@@ -35,7 +35,7 @@ internal sealed class TenantMemberSeatQuotaPort(
     {
         var result = await quotaReservationService.ReleaseAsync(
                 tenantId,
-                new ReleaseTenantQuotaRequest(operationId),
+                new ReleaseTenantQuotaRequest(operationId) { MetricCode = TenantQuotaMetricCodes.IdentitySeats },
                 cancellationToken)
             .ConfigureAwait(false);
         return result.IsSuccess
