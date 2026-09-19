@@ -78,6 +78,13 @@ internal sealed class TenantQuotaReservationService(
             .ConfigureAwait(false);
         if (existingReservation is not null)
         {
+            if (existingReservation.MetricId is null)
+            {
+                return Result<ReserveTenantQuotaResponse>.Failure(new Error(
+                    TenancyErrorCodes.QuotaReservationNotFound,
+                    "The legacy reservation requires reconciliation before reuse.", ErrorType.Conflict));
+            }
+
             // 操作键绑定首次金额；释放或过期的预留不能被当作新的额度凭证。
             if (existingReservation.Amount != amount)
             {
@@ -132,6 +139,7 @@ internal sealed class TenantQuotaReservationService(
                 TenantQuotaSql.InsertReservation,
                 Tenancy.Persistence.TenancySqlParameters.Create(
                     ("Id", reservationId),
+                    ("MetricId", metric.Id),
                     ("TenantId", tenantId),
                     ("MetricCode", metricCode),
                     ("OperationId", operationId),
@@ -224,7 +232,7 @@ internal sealed class TenantQuotaReservationService(
                     ("OperationId", operationId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (reservation is null)
+        if (reservation is null || reservation.MetricId is null)
         {
             return MetricFailure(TenancyErrorCodes.QuotaReservationNotFound, ErrorType.NotFound);
         }
@@ -232,7 +240,7 @@ internal sealed class TenantQuotaReservationService(
         // 终态确认已持久化时，响应丢失后的同向重放只读返回，不再次调整计数。
         if (reservation.Status == targetStatus)
         {
-            var completedMetric = await FindMetricAsync(tenantId, reservation.MetricCode, cancellationToken)
+            var completedMetric = await FindBoundMetricAsync(tenantId, reservation, cancellationToken)
                 .ConfigureAwait(false);
             return completedMetric is null
                 ? MetricFailure(TenancyErrorCodes.QuotaMetricNotFound, ErrorType.NotFound)
@@ -240,12 +248,12 @@ internal sealed class TenantQuotaReservationService(
         }
 
         if (reservation.Status != TenantQuotaReservationStatuses.Reserved
-            || reservation.ExpiresAtUtc <= clock.UtcNow)
+            || (targetStatus == TenantQuotaReservationStatuses.Confirmed && reservation.ExpiresAtUtc <= clock.UtcNow))
         {
             return MetricFailure(TenancyErrorCodes.QuotaReservationNotFound, ErrorType.NotFound);
         }
 
-        var metric = await FindMetricAsync(tenantId, reservation.MetricCode, cancellationToken)
+        var metric = await FindBoundMetricAsync(tenantId, reservation, cancellationToken)
             .ConfigureAwait(false);
         if (metric is null)
         {
@@ -281,7 +289,7 @@ internal sealed class TenantQuotaReservationService(
             return MetricFailure(TenancyErrorCodes.QuotaReservationNotFound, ErrorType.Conflict);
         }
 
-        var updatedMetric = await FindMetricAsync(tenantId, reservation.MetricCode, cancellationToken)
+        var updatedMetric = await FindBoundMetricAsync(tenantId, reservation, cancellationToken)
             .ConfigureAwait(false);
         if (updatedMetric is null)
         {
@@ -290,6 +298,17 @@ internal sealed class TenantQuotaReservationService(
 
         return Result<TenantQuotaMetricResponse>.Success(MapMetric(updatedMetric));
     }
+
+    // 历史空绑定保留失败关闭；禁止按 default 或当前月份猜测原始计量归属。
+    private Task<TenantQuotaMetricRecord?> FindBoundMetricAsync(
+        Guid tenantId,
+        TenantQuotaReservationRecord reservation,
+        CancellationToken cancellationToken) =>
+        queryExecutor.QuerySingleOrDefaultAsync<TenantQuotaMetricRecord>(
+            TenantQuotaSql.FindBoundMetric,
+            Tenancy.Persistence.TenancySqlParameters.Create(
+                ("TenantId", tenantId), ("MetricId", reservation.MetricId), ("MetricCode", reservation.MetricCode)),
+            cancellationToken);
 
     private async Task<TenantQuotaMetricRecord?> FindMetricAsync(
         Guid tenantId,

@@ -19,6 +19,7 @@ public sealed class TenantQuotaRollbackTests
     public async Task Concurrent_update_failure_rolls_back_prior_quota_write(string operation)
     {
         var tenantId = Guid.NewGuid();
+        var metricId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
         var query = Substitute.For<IQueryExecutor>();
         var command = Substitute.For<ICommandExecutor>();
@@ -31,13 +32,13 @@ public sealed class TenantQuotaRollbackTests
             new DapperCommandTransaction(coordinator), clock, ids);
         query.QuerySingleOrDefaultAsync<TenantQuotaMetricRecord>(
                 Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(new TenantQuotaMetricRecord(Guid.NewGuid(), tenantId, "identity.seats", "all", 10, 0, 1, 1));
+            .Returns(new TenantQuotaMetricRecord(metricId, tenantId, "identity.seats", "all", 10, 0, 1, 1));
         if (operation != "reserve")
         {
             query.QuerySingleOrDefaultAsync<TenantQuotaReservationRecord>(
                     Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
                 .Returns(new TenantQuotaReservationRecord(Guid.NewGuid(), tenantId, "identity.seats",
-                    "operation-1", 1, TenantQuotaReservationStatuses.Reserved, now.AddMinutes(10), 1));
+                    "operation-1", 1, TenantQuotaReservationStatuses.Reserved, now.AddMinutes(10), 1, metricId));
         }
 
         // 首条写入成功，第二条版本条件更新失败；必须回滚已插入预留或已更新的用量。

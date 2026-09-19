@@ -156,6 +156,7 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
             reader.GetInt64(4),
             reader.GetString(5),
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 6),
-            reader.GetInt32(7));
+            reader.GetInt32(7),
+            reader.IsDBNull(8) ? null : reader.GetGuid(8));
 }
 #endif

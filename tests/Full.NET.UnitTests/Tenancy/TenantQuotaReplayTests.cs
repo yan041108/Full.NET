@@ -36,10 +36,10 @@ public sealed class TenantQuotaReplayTests
     [DataRow(TenantQuotaReservationStatuses.Released, false, true, false, 0)]
     [DataRow(TenantQuotaReservationStatuses.Confirmed, false, false, false, 0)]
     [DataRow(TenantQuotaReservationStatuses.Reserved, true, true, false, 0)]
-    [DataRow(TenantQuotaReservationStatuses.Reserved, true, false, false, 0)]
+    [DataRow(TenantQuotaReservationStatuses.Reserved, true, false, true, 2)]
     [DataRow(TenantQuotaReservationStatuses.Expired, false, true, false, 0)]
     [DataRow(TenantQuotaReservationStatuses.Expired, false, false, false, 0)]
-    public async Task Completion_replay_preserves_terminal_state_and_expired_pending_still_fails(
+    public async Task Completion_replay_preserves_terminal_state_and_bound_expired_release_compensates(
         string status, bool expired, bool confirm, bool success, int writes)
     {
         var fixture = new Fixture(status, expired);
@@ -62,6 +62,7 @@ public sealed class TenantQuotaReplayTests
         public Fixture(string status, bool expired)
         {
             var now = DateTimeOffset.UtcNow;
+            var metricId = Guid.NewGuid();
             var query = Substitute.For<IQueryExecutor>();
             var clock = Substitute.For<IClock>();
             clock.UtcNow.Returns(now);
@@ -69,9 +70,9 @@ public sealed class TenantQuotaReplayTests
             ids.NewId().Returns(_ => Guid.NewGuid());
             query.QuerySingleOrDefaultAsync<TenantQuotaReservationRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
                 .Returns(new TenantQuotaReservationRecord(Guid.NewGuid(), TenantId, TenantQuotaMetricCodes.IdentitySeats,
-                    "operation-1", 1, status, now.AddMinutes(expired ? -1 : 5), 1));
+                    "operation-1", 1, status, now.AddMinutes(expired ? -1 : 5), 1, metricId));
             query.QuerySingleOrDefaultAsync<TenantQuotaMetricRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
-                .Returns(new TenantQuotaMetricRecord(Guid.NewGuid(), TenantId, TenantQuotaMetricCodes.IdentitySeats,
+                .Returns(new TenantQuotaMetricRecord(metricId, TenantId, TenantQuotaMetricCodes.IdentitySeats,
                     TenantQuotaDefaults.PeriodKey, 10, 0, 1, 1));
             Command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
             Service = new TenantQuotaReservationService(query, Command, new DapperCommandTransaction(Coordinator), clock, ids);

@@ -132,12 +132,42 @@ internal static class TenantQuotaAssertions
         using var inverseResponse = await client.SendAsync(inverseRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, inverseResponse.StatusCode);
 
-        async Task AssertReserveAsync(string id, long amount, HttpStatusCode expected)
+        // 原周期预留后新增 default 配额，完成操作仍应返回原始月份记录。
+        const string bindingCode = "test.binding";
+        var month = DateTimeOffset.UtcNow.ToString("yyyy-MM");
+        var monthly = await UpsertBindingMetricAsync(month);
+        var boundOperation = Guid.CreateVersion7().ToString("D");
+        await AssertReserveAsync(boundOperation, 1, HttpStatusCode.OK, bindingCode);
+        await UpsertBindingMetricAsync(TenantQuotaDefaults.PeriodKey);
+        var boundCompletion = await CompleteAsync("confirm", boundOperation);
+        Assert.AreEqual(monthly.Id, boundCompletion.Id);
+        Assert.AreEqual(month, boundCompletion.PeriodKey);
+        Assert.AreEqual(1, boundCompletion.UsedValue);
+        Assert.AreEqual(0, boundCompletion.ReservedValue);
+        Assert.AreEqual(boundCompletion, await CompleteAsync("confirm", boundOperation));
+
+        async Task<TenantQuotaMetricResponse> UpsertBindingMetricAsync(string period)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put,
+                $"/api/v1/tenancy/tenants/{tenant.Id:D}/quota/metrics")
+            {
+                Content = JsonContent.Create(new UpsertTenantQuotaMetricRequest(bindingCode, period, 10)),
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var response = await client.SendAsync(request, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            var value = await response.Content.ReadFromJsonAsync<TenantQuotaMetricResponse>(cancellationToken);
+            Assert.IsNotNull(value);
+            return value;
+        }
+
+        async Task AssertReserveAsync(string id, long amount, HttpStatusCode expected,
+            string metricCode = TenantQuotaMetricCodes.IdentitySeats)
         {
             using var request = new HttpRequestMessage(HttpMethod.Post,
                 $"/api/v1/tenancy/tenants/{tenant.Id:D}/quota/reserve")
             {
-                Content = JsonContent.Create(new ReserveTenantQuotaRequest(TenantQuotaMetricCodes.IdentitySeats, id, amount)),
+                Content = JsonContent.Create(new ReserveTenantQuotaRequest(metricCode, id, amount)),
             };
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             using var response = await client.SendAsync(request, cancellationToken);

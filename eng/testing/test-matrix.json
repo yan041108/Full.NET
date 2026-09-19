@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 2612,
+      "minimum": 2622,
       "timeout": "10m",
       "selections": {
         "async-lifecycle": {
@@ -555,7 +555,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 468,
+        "minimum": 470,
         "timeout": "90m"
       },
       "infrastructure": {
@@ -571,7 +571,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1007,
+        "minimum": 1009,
         "timeout": "90m"
       }
     }

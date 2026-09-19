@@ -15,6 +15,16 @@ internal static class TenantQuotaSql
         """,
         SqlDataScope.HostOnly);
 
+    // 必须同时匹配预留的租户、指标和物理记录，不能退回当前周期。
+    public static readonly SqlStatement FindBoundMetric = new(
+        "tenancy.quota.find_bound_metric",
+        """
+        SELECT Id, TenantId, MetricCode, PeriodKey, LimitValue, UsedValue, ReservedValue, Version
+        FROM fn_tenancy_quota_metric
+        WHERE Id = @MetricId AND TenantId = @TenantId AND MetricCode = @MetricCode
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ListMetricsByTenant = new(
         "tenancy.quota.list_metrics_by_tenant",
         """
@@ -92,7 +102,7 @@ internal static class TenantQuotaSql
     public static readonly SqlStatement FindReservationByTenantOperation = new(
         "tenancy.quota.find_reservation_by_tenant_operation",
         """
-        SELECT Id, TenantId, MetricCode, OperationId, Amount, Status, ExpiresAtUtc, Version
+        SELECT Id, TenantId, MetricCode, OperationId, Amount, Status, ExpiresAtUtc, Version, MetricId
         FROM fn_tenancy_quota_reservation
         WHERE TenantId = @TenantId
           AND OperationId = @OperationId
@@ -102,7 +112,7 @@ internal static class TenantQuotaSql
     public static readonly SqlStatement FindReservationByOperation = new(
         "tenancy.quota.find_reservation_by_operation",
         """
-        SELECT Id, TenantId, MetricCode, OperationId, Amount, Status, ExpiresAtUtc, Version
+        SELECT Id, TenantId, MetricCode, OperationId, Amount, Status, ExpiresAtUtc, Version, MetricId
         FROM fn_tenancy_quota_reservation
         WHERE TenantId = @TenantId
           AND MetricCode = @MetricCode
@@ -114,10 +124,10 @@ internal static class TenantQuotaSql
         "tenancy.quota.insert_reservation",
         """
         INSERT INTO fn_tenancy_quota_reservation
-            (Id, TenantId, MetricCode, OperationId, Amount, Status, ExpiresAtUtc,
+            (Id, TenantId, MetricId, MetricCode, OperationId, Amount, Status, ExpiresAtUtc,
              CreatedAtUtc, UpdatedAtUtc, Version)
         VALUES
-            (@Id, @TenantId, @MetricCode, @OperationId, @Amount, @Status, @ExpiresAtUtc,
+            (@Id, @TenantId, @MetricId, @MetricCode, @OperationId, @Amount, @Status, @ExpiresAtUtc,
              @CreatedAtUtc, @UpdatedAtUtc, 1)
         """,
         SqlDataScope.HostOnly);
@@ -153,4 +163,5 @@ internal sealed record TenantQuotaReservationRecord(
     long Amount,
     string Status,
     DateTimeOffset ExpiresAtUtc,
-    int Version);
+    int Version,
+    Guid? MetricId = null);

@@ -2479,6 +2479,13 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/223_TenancyTenantMembership.sql",
       "reason": "223 仅按 INFORMATION_SCHEMA 探测结果选择固定 ALTER TABLE 或 SELECT 1，幂等补齐租户生命周期、所有者及开通状态四列；无外部标识符或值拼接。保留 MySQL 8.0 兼容路径，半完成恢复仍待双库 CI 验证。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/229_TenancyQuotaMetricBinding.sql",
+      "reason": "229 仅按列存在性选择固定 ALTER TABLE 或 SELECT 1，无外部输入拼接；用于 MySQL 8.0 可重跑的加列迁移，双库恢复测试随切片提供。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

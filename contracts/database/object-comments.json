@@ -2624,6 +2624,7 @@
         "ExpiresAtUtc": "过期时间(UTC)",
         "Id": "逻辑主键",
         "MetricCode": "度量编码",
+        "MetricId": "实际配额记录标识；NULL 表示历史归属待对账",
         "OperationId": "幂等操作标识",
         "Status": "预留状态",
         "TenantId": "租户标识",
