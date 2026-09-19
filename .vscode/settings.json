@@ -1,0 +1,15 @@
+{
+  "dotnet.defaultSolution": "Full.NET.slnx",
+  "typescript.tsdk": "ui/admin/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "vue.server.config.typescript.tsdk": "ui/admin/node_modules/typescript/lib",
+  "search.exclude": {
+    "**/backend": true,
+    "**/clients/vue": true,
+    "**/reports/*.generation.json": true
+  },
+  "files.watcherExclude": {
+    "**/backend/**": true,
+    "**/clients/vue/**": true
+  }
+}

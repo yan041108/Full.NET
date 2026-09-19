@@ -28,10 +28,16 @@ namespace Full.NET.Modules.Jobs;
 /// </summary>
 public sealed class JobsModule : IFullNetModule
 {
+    /// <summary>获取 Jobs 业务模块名称。</summary>
     public string Name => "Jobs";
 
+    /// <summary>获取 Jobs 模块所需依赖；Identity 提供授权目录，Settings Contract Port 解析敏感配置引用。</summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity", "Settings"];
 
+    /// <summary>
+    /// 注册 Host 任务定义、调度计划、执行记录的查询与管理服务、Cron 计算分发器、按 HandlerKind 解析的内置执行器与手动触发服务；
+    /// 仅装配查询与管理，不启动后台轮询。
+    /// </summary>
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -60,6 +66,7 @@ public sealed class JobsModule : IFullNetModule
 #endif
     }
 
+    /// <summary>映射 Jobs 模块定义、计划、执行与健康检查的全部受保护 HTTP 路由。</summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageHostJobDefinitions.Endpoint.Map(endpoints);

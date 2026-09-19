@@ -62,17 +62,22 @@ public sealed record ServerRuntimeSnapshot(
 /// <summary>运行时指标可用性状态常量。</summary>
 public static class ServerRuntimeMetricAvailability
 {
+    /// <summary>指标在当前实例可正常采集，客户端可渲染对应数值。</summary>
     public const string Available = "available";
 
+    /// <summary>指标因暂时故障无法采集；客户端应展示不可用占位而非 0。</summary>
     public const string Unavailable = "unavailable";
 
+    /// <summary>当前平台或宿主角色不支持该指标；客户端应隐藏而非展示为不可用。</summary>
     public const string NotSupportedOnPlatform = "not_supported_on_platform";
 }
 
 /// <summary>实例运行时查询能力常量。</summary>
 public static class ServerInstanceRuntimeQueryability
 {
+    /// <summary>当前进程可本地采集运行时指标；监控端点直连本进程。</summary>
     public const string Local = "local";
 
+    /// <summary>仅能在实例目录中展示，当前进程不提供运行时指标查询。</summary>
     public const string CatalogOnly = "catalog_only";
 }

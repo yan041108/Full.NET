@@ -8,11 +8,24 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Hosting.Security;
 
+/// <summary>
+/// Full.NET Data Protection 共享 Key Ring 与证书保护的依赖注入扩展方法集合。
+/// </summary>
+/// <remarks>
+/// Production 环境强制 Key Ring 文件持久化与 X509 证书保护；Development 默认落到 ContentRoot 下的 App_Data 目录以避免各实例 ephemeral 密钥互不可解。该扩展在注册阶段即对 DataProtectionOptions 做一次 fail-fast 校验，避免运行时才发现配置错误。
+/// </remarks>
 public static class DataProtectionServiceCollectionExtensions
 {
     /// <summary>
     /// 为 API/Worker 注册共享 Data Protection Key Ring。Production 强制文件系统持久化与证书保护。
     /// </summary>
+    /// <param name="services">宿主服务集合。</param>
+    /// <param name="configuration">应用配置根，包含 DataProtection 配置节与证书路径。</param>
+    /// <param name="environment">宿主环境信息，用于判定 Production 与解析 ContentRoot。</param>
+    /// <returns>原服务集合，便于链式装配。</returns>
+    /// <exception cref="OptionsValidationException">DataProtectionOptions 配置项非法（如 Production 缺失 KeyRingPath 或 CertificatePath）。</exception>
+    /// <exception cref="InvalidOperationException">Production 环境下 KeyRingPath 或 CertificatePath 解析为空，或证书缺少私钥，或证书指纹在 active/historical 集合中重复。</exception>
+    /// <exception cref="FileNotFoundException">配置的证书文件不存在。</exception>
     public static IServiceCollection AddFullNetDataProtection(
         this IServiceCollection services,
         IConfiguration configuration,

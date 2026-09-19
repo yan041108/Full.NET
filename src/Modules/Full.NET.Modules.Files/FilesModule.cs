@@ -29,10 +29,16 @@ namespace Full.NET.Modules.Files;
 /// </remarks>
 public sealed class FilesModule : IFullNetModule
 {
+    /// <summary>获取 Files 业务模块名称。</summary>
     public string Name => "Files";
 
+    /// <summary>获取 Files 模块所需依赖；Identity 提供授权目录与 Host 用户解析。</summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
+    /// <summary>
+    /// 注册 Files 模块在 API 与 Worker 共用的 Host 文件/目录查询与管理服务、存储 Provider 目录、跨模块引用端口与 TenantResourceFileStore；
+    /// 存储适配器（Local/S3/Oss）按配置注册到默认 Provider 集合，未配置凭据的 Provider 仍可注册但运行时拒绝写入。
+    /// </summary>
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -63,6 +69,7 @@ public sealed class FilesModule : IFullNetModule
 #endif
     }
 
+    /// <summary>映射 Files 模块文件、虚拟目录与存储 Provider 管理的全部受保护 HTTP 路由。</summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageHostFiles.Endpoint.Map(endpoints);

@@ -1,5 +1,12 @@
 namespace Full.NET.Modules.Jobs.Contracts;
 
+/// <summary>
+/// Jobs 模块对外发布的稳定错误码目录；所有错误码以 <c>jobs.</c> 前缀持久化。
+/// </summary>
+/// <remarks>
+/// 机器码稳定性：发布后错误码前缀与字符串不可改名或删除，新增只能追加；
+/// 调用方按精确匹配判断失败原因，<see cref="All"/> 返回当前已发布的全集用于审计与客户端校验。
+/// </remarks>
 public static class JobsErrorCodes
 {
     /// <summary>Jobs 模块所有错误码的前缀。</summary>

@@ -35,10 +35,16 @@ namespace Full.NET.Modules.Messaging;
 /// </remarks>
 public sealed class MessagingModule : IFullNetModule
 {
+    /// <summary>获取消息运维模块名称。</summary>
     public string Name => "Messaging";
 
+    /// <summary>获取消息运维模块所需的依赖；当前仅依赖 Identity 解析授权目录与 Host 作用域。</summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
+    /// <summary>
+    /// 注册消息运维模块在 API 与 Worker 共用的查询、重放、所有权切换/回退服务、订阅目录与授权贡献者；
+    /// 订阅目录以 Scoped 生命周期注册，避免 Singleton Worker 跨消息持有 scoped Handler。
+    /// </summary>
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -73,6 +79,9 @@ public sealed class MessagingModule : IFullNetModule
 #endif
     }
 
+    /// <summary>
+    /// 注册仅由 Worker 承载的消息后台能力；与 AddServices 共用核心注册，但不重复映射 HTTP 路由。
+    /// </summary>
     public void AddBackgroundServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -119,6 +128,7 @@ public sealed class MessagingModule : IFullNetModule
                 .GetRequiredService<IIntegrationEventSubscriptionCatalog>());
     }
 
+    /// <summary>映射消息运维模块全部受保护 HTTP 路由，覆盖死信查询、重放、状态查询与所有权切换。</summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.GetDeadLetters.Endpoint.Map(endpoints);

@@ -55,6 +55,15 @@ public sealed record ReportingDefinitionVersionResponse(
     DateTimeOffset PublishedAtUtc);
 
 /// <summary>创建报表定义请求。</summary>
+/// <param name="GroupId">所属分组标识。</param>
+/// <param name="DataSourceId">绑定的数据源标识。</param>
+/// <param name="DefinitionKey">稳定定义键；发布后不可改名。</param>
+/// <param name="Name">显示名称。</param>
+/// <param name="Description">说明；可为空。</param>
+/// <param name="QueryPortKey">静态 Query Port 键；服务端审查实现。</param>
+/// <param name="ParameterSchema">参数 Schema；覆盖 Query Port 默认展示与默认值。</param>
+/// <param name="LayoutConfigJson">布局配置 JSON；草稿阶段可空，执行层在后续切片消费。</param>
+/// <param name="IsEnabled">是否启用；禁用定义不出现在执行入口。</param>
 public sealed record CreateReportingDefinitionRequest(
     Guid GroupId,
     Guid DataSourceId,
@@ -67,6 +76,15 @@ public sealed record CreateReportingDefinitionRequest(
     bool IsEnabled);
 
 /// <summary>更新报表定义草稿请求。</summary>
+/// <param name="GroupId">所属分组标识。</param>
+/// <param name="DataSourceId">绑定的数据源标识。</param>
+/// <param name="Name">显示名称。</param>
+/// <param name="Description">说明；可为空。</param>
+/// <param name="QueryPortKey">静态 Query Port 键。</param>
+/// <param name="ParameterSchema">参数 Schema；整体覆盖草稿 Schema。</param>
+/// <param name="LayoutConfigJson">布局配置 JSON；可为空。</param>
+/// <param name="IsEnabled">是否启用。</param>
+/// <param name="Version">客户端感知的草稿乐观并发版本号。</param>
 public sealed record UpdateReportingDefinitionRequest(
     Guid GroupId,
     Guid DataSourceId,

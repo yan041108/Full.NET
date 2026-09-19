@@ -52,6 +52,10 @@ public sealed class NotificationsModule : IFullNetModule
     /// <summary>获取仅用于异步提醒投影的可选事件生产者模块。</summary>
     public IReadOnlyCollection<string> OptionalContractDependencies => ["Workflow"];
 
+    /// <summary>
+    /// 注册通知中心在 API 与 Worker 共用的查询、管理、Intent 投影、渠道适配与限流/授权目录服务；
+    /// 渠道适配器（SMTP/AliyunSms/DingTalk/WeCom/WeChatMiniProgram）按配置开关条件注册，未启用渠道不向 DI 注入实现。
+    /// </summary>
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)

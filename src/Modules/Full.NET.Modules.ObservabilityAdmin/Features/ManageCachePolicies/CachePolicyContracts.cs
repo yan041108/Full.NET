@@ -62,27 +62,35 @@ public sealed record CacheInvalidationResult(
 /// <summary>缓存访问语义常量。</summary>
 public static class CachePolicyAccessKinds
 {
+    /// <summary>优先读写缓存层；命中后回填 L1，未命中穿透至权威源。</summary>
     public const string UseCache = "use_cache";
 
+    /// <summary>绕过缓存直接读取权威源；用于一致性问题排查或强制刷新。</summary>
     public const string AuthorityRead = "authority_read";
 
+    /// <summary>本轮读写均绕过缓存；用于短暂降级或重大数据迁移窗口。</summary>
     public const string Bypass = "bypass";
 }
 
 /// <summary>失效传播范围对外常量。</summary>
 public static class CacheInvalidationScopeNames
 {
+    /// <summary>仅失效当前节点 L1，不传播到 L2 与其他节点；用于节点本地临时数据。</summary>
     public const string CurrentNodeOnly = "current_node_only";
 
+    /// <summary>同步失效 L1、L2 并通过 Redis Backplane 广播至所有节点；保证最终一致。</summary>
     public const string AllLayersSynchronous = "all_layers_synchronous";
 }
 
 /// <summary>失效参数类型常量。</summary>
 public static class CacheInvalidationParameterTypes
 {
+    /// <summary>UUID 标识参数；用于按实体主键精确失效。</summary>
     public const string Uuid = "uuid";
 
+    /// <summary>领域键参数；用于按业务维度（租户、模块）失效。</summary>
     public const string Domain = "domain";
 
+    /// <summary>网格键参数；用于按数据分片或区域失效。</summary>
     public const string GridKey = "grid_key";
 }

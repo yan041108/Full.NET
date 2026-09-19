@@ -17,6 +17,7 @@ public interface IWorkflowPublishedDefinitionDirectory
     /// <summary>查找指定定义键在当前可信作用域下的最新已发布版本。</summary>
     /// <param name="definitionKey">稳定工作流定义键。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>当前作用域内最新的已发布版本；不存在或不可见时为 <see langword="null"/>。</returns>
     Task<WorkflowPublishedDefinitionVersion?> FindLatestPublishedAsync(
         string definitionKey,
         CancellationToken cancellationToken = default);
@@ -24,6 +25,7 @@ public interface IWorkflowPublishedDefinitionDirectory
     /// <summary>按版本标识查找当前可信作用域内已发布的工作流定义版本。</summary>
     /// <param name="definitionVersionId">已发布定义版本标识。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>匹配的已发布版本；不存在或不属于当前可信作用域时为 <see langword="null"/>。</returns>
     Task<WorkflowPublishedDefinitionVersion?> FindPublishedByVersionIdAsync(
         Guid definitionVersionId,
         CancellationToken cancellationToken = default);
@@ -35,6 +37,7 @@ public interface IWorkflowPublishedDefinitionDirectory
 /// <param name="BusinessId">稳定业务标识。</param>
 /// <param name="InitialValuesJson">表单初始值 JSON 文本。</param>
 /// <param name="IdempotencyKey">调用方幂等键。</param>
+/// <param name="BusinessTitle">可选业务标题；用于实例列表展示，为空时由 Workflow 模块生成默认标题。</param>
 public sealed record StartWorkflowInstanceCommand(
     Guid DefinitionVersionId,
     string BusinessType,
@@ -70,6 +73,7 @@ public interface IWorkflowInstanceStarter
     /// <param name="actorUserId">发起人用户标识。</param>
     /// <param name="command">启动命令。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>成功时返回启动后的实例摘要；失败时返回 Result 错误，如定义版本未发布、幂等冲突或作用域不匹配。</returns>
     Task<Result<WorkflowInstanceLifecycleResult>> StartAsync(
         Guid actorUserId,
         StartWorkflowInstanceCommand command,
@@ -83,6 +87,7 @@ public interface IWorkflowInstanceCanceller
     /// <param name="actorUserId">执行取消的用户标识。</param>
     /// <param name="command">取消命令。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>成功时返回取消后的实例状态摘要；失败时返回 Result 错误，如实例已终结或 ExpectedRevision 不匹配。</returns>
     Task<Result<WorkflowInstanceLifecycleResult>> CancelAsync(
         Guid actorUserId,
         CancelWorkflowInstanceCommand command,

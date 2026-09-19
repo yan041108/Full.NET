@@ -34,6 +34,11 @@ public static class IntegrationEventHandlerMatcher
     /// <summary>
     /// 校验旧轮询 Handler 在 (MessageType, SchemaVersion) 维度上的路由唯一性。
     /// </summary>
+    /// <param name="handlers">当前容器中已注册的全部 Integration Event Handler；通常为 DI 解析得到的同质集合。</param>
+    /// <exception cref="InvalidOperationException">
+    /// 任一 Handler 的 EventType / SchemaVersion / IdempotencyStrategy / LegacyEventTypes 非法，
+    /// 或 (EventType, SchemaVersion) 路由在多个 Handler 之间发生冲突。
+    /// </exception>
     public static void ValidateUniqueRoutes(IEnumerable<IIntegrationEventHandler> handlers)
     {
         ArgumentNullException.ThrowIfNull(handlers);

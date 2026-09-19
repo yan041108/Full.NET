@@ -15,6 +15,10 @@ namespace Full.NET.Modules.Tenancy.Contracts;
 /// <param name="TenantPackageId">绑定的套餐标识；未绑定时为 <see langword="null"/>。</param>
 /// <param name="TenantPackageCode">绑定的套餐编码；未绑定时为 <see langword="null"/>。</param>
 /// <param name="TenantPackageName">绑定的套餐显示名称；未绑定时为 <see langword="null"/>。</param>
+/// <param name="LifecycleStatus">租户生命周期状态；取值见 <see cref="TenantLifecycleStatuses"/>，影响登录与解析。</param>
+/// <param name="OwnerUserId">租户所有者用户标识；<see langword="null"/> 表示尚未绑定所有者，关闭前须先转移。</param>
+/// <param name="ProvisioningStatus">租户开通状态；取值见 <see cref="TenantProvisioningStatuses"/>。</param>
+/// <param name="ProvisioningStep">当前开通步骤；仅在 ProvisioningStatus 为 InProgress 或 Failed 时有意义，<see langword="null"/> 表示未进入分步流程。</param>
 public sealed record TenantSummary(
     Guid Id,
     string Identifier,

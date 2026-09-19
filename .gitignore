@@ -1,6 +1,13 @@
 .vs/
 .idea/
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+# 本地 CRUD 代码生成落盘（正式产物见 samples / ui/admin 集成路径）
+/backend/
+/clients/vue/
+/reports/
+.fullnet/
 **/bin/
 **/obj/
 TestResults/

@@ -65,6 +65,9 @@ public sealed record AiAgentToolCatalogItem(
 /// <param name="OutputSummary">脱敏后的输出摘要。</param>
 /// <param name="ErrorCode">失败时的稳定错误码。</param>
 /// <param name="TraceId">关联 Trace 标识。</param>
+/// <param name="RunId">关联 Agent Run 标识；非 Run 触发的调用为 <see langword="null"/>。</param>
+/// <param name="ArgumentsHash">输入参数哈希；用于审计比对与重放去重。</param>
+/// <param name="ApprovalId">关联审批请求标识；未触发审批的调用为 <see langword="null"/>。</param>
 /// <param name="CreatedAtUtc">创建时间（UTC）。</param>
 public sealed record AiAgentToolCallListItem(
     Guid Id,

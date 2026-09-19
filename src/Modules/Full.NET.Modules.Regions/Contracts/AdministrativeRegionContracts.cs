@@ -101,6 +101,20 @@ public sealed record AdministrativeRegionDatasetManifestResponse(
     Guid AppliedByUserId);
 
 /// <summary>创建行政区域请求。</summary>
+/// <param name="ParentId">父级区域标识；null 表示创建顶级区域。</param>
+/// <param name="Code">稳定区域编码；创建后不可改名。</param>
+/// <param name="Name">区域名称。</param>
+/// <param name="ShortName">区域简称，可空。</param>
+/// <param name="MergerName">合并全称路径，可空。</param>
+/// <param name="ZipCode">邮政编码，可空。</param>
+/// <param name="CityCode">城市编码，可空。</param>
+/// <param name="Level">层级，取值 1-5。</param>
+/// <param name="RegionType">区域类型，可空。</param>
+/// <param name="PinYin">拼音，可空。</param>
+/// <param name="Longitude">经度，可空。</param>
+/// <param name="Latitude">纬度，可空。</param>
+/// <param name="DisplayOrder">显示顺序。</param>
+/// <param name="Remark">备注，可空。</param>
 public sealed record CreateAdministrativeRegionRequest(
     Guid? ParentId,
     string Code,
@@ -118,6 +132,20 @@ public sealed record CreateAdministrativeRegionRequest(
     string? Remark);
 
 /// <summary>更新行政区域请求；<paramref name="Version"/> 用作 CAS 并发守卫。</summary>
+/// <param name="ParentId">父级区域标识；null 表示提升为顶级。</param>
+/// <param name="Name">区域名称。</param>
+/// <param name="ShortName">简称，可空。</param>
+/// <param name="MergerName">合并全称路径，可空。</param>
+/// <param name="ZipCode">邮政编码，可空。</param>
+/// <param name="CityCode">城市编码，可空。</param>
+/// <param name="Level">层级，取值 1-5。</param>
+/// <param name="RegionType">区域类型，可空。</param>
+/// <param name="PinYin">拼音，可空。</param>
+/// <param name="Longitude">经度，可空。</param>
+/// <param name="Latitude">纬度，可空。</param>
+/// <param name="DisplayOrder">显示顺序。</param>
+/// <param name="Remark">备注，可空。</param>
+/// <param name="Version">乐观并发版本号，必须等于当前行版本。</param>
 public sealed record UpdateAdministrativeRegionRequest(
     Guid? ParentId,
     string Name,
@@ -139,6 +167,19 @@ public sealed record UpdateAdministrativeRegionRequest(
 public sealed record DeleteAdministrativeRegionRequest(int Version);
 
 /// <summary>导入行政区域数据集的单条记录。</summary>
+/// <param name="Code">稳定区域编码，用于合并时主键匹配。</param>
+/// <param name="ParentCode">父级区域编码；null 表示顶级。</param>
+/// <param name="Name">区域名称。</param>
+/// <param name="ShortName">简称，可空。</param>
+/// <param name="MergerName">合并全称路径，可空。</param>
+/// <param name="ZipCode">邮政编码，可空。</param>
+/// <param name="CityCode">城市编码，可空。</param>
+/// <param name="Level">层级，取值 1-5。</param>
+/// <param name="RegionType">区域类型，可空。</param>
+/// <param name="PinYin">拼音，可空。</param>
+/// <param name="Longitude">经度，可空。</param>
+/// <param name="Latitude">纬度，可空。</param>
+/// <param name="DisplayOrder">显示顺序，可空表示沿用导入值。</param>
 public sealed record ImportAdministrativeRegionItem(
     string Code,
     string? ParentCode,
@@ -155,6 +196,11 @@ public sealed record ImportAdministrativeRegionItem(
     int? DisplayOrder);
 
 /// <summary>导入行政区域数据集请求。</summary>
+/// <param name="DatasetKey">数据集键，标识同一来源的数据集。</param>
+/// <param name="DatasetVersion">数据集版本标签，与 DatasetKey 共同唯一标识一次快照。</param>
+/// <param name="SourceDigest">来源摘要，用于幂等校验避免重复导入。</param>
+/// <param name="MergeMode">合并模式稳定机器码，取值自 AdministrativeRegionImportMergeModes。</param>
+/// <param name="Items">待导入的记录集合；空集合仅写入清单不变更数据。</param>
 public sealed record ImportAdministrativeRegionsRequest(
     string DatasetKey,
     string DatasetVersion,
@@ -163,18 +209,30 @@ public sealed record ImportAdministrativeRegionsRequest(
     IReadOnlyList<ImportAdministrativeRegionItem> Items);
 
 /// <summary>导入差异预览中新增项摘要。</summary>
+/// <param name="Code">新增区域稳定编码。</param>
+/// <param name="Name">区域名称。</param>
+/// <param name="Level">层级，取值 1-5。</param>
 public sealed record ImportAdministrativeRegionAddedSummary(string Code, string Name, int Level);
 
 /// <summary>导入差异预览中更新项摘要。</summary>
+/// <param name="Code">更新区域稳定编码。</param>
+/// <param name="Name">区域名称。</param>
+/// <param name="ChangedFields">发生变更的字段名集合，供前端高亮。</param>
 public sealed record ImportAdministrativeRegionUpdatedSummary(
     string Code,
     string Name,
     IReadOnlyList<string> ChangedFields);
 
 /// <summary>导入差异预览中移除项摘要（仅 replace 模式）。</summary>
+/// <param name="Code">移除区域稳定编码。</param>
+/// <param name="Name">区域名称。</param>
 public sealed record ImportAdministrativeRegionRemovedSummary(string Code, string Name);
 
 /// <summary>导入差异预览响应。</summary>
+/// <param name="Added">新增项摘要集合。</param>
+/// <param name="Updated">更新项摘要集合。</param>
+/// <param name="Removed">移除项摘要集合，仅 replace 模式非空。</param>
+/// <param name="SkippedCount">因校验失败跳过的记录数。</param>
 public sealed record ImportAdministrativeRegionsPreviewResponse(
     IReadOnlyList<ImportAdministrativeRegionAddedSummary> Added,
     IReadOnlyList<ImportAdministrativeRegionUpdatedSummary> Updated,
@@ -182,6 +240,11 @@ public sealed record ImportAdministrativeRegionsPreviewResponse(
     int SkippedCount);
 
 /// <summary>导入应用结果响应。</summary>
+/// <param name="AddedCount">实际新增记录数。</param>
+/// <param name="UpdatedCount">实际更新记录数。</param>
+/// <param name="RemovedCount">实际移除记录数，仅 replace 模式非零。</param>
+/// <param name="SkippedCount">跳过记录数。</param>
+/// <param name="Manifest">应用后写入的数据集清单，用于审计与回溯。</param>
 public sealed record ImportAdministrativeRegionsApplyResponse(
     int AddedCount,
     int UpdatedCount,

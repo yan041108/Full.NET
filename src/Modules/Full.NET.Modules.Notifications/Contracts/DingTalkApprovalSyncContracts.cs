@@ -46,6 +46,22 @@ public sealed record CreateDingTalkApprovalSyncRequest(
     string? Summary);
 
 /// <summary>钉钉审批镜像同步记录响应。</summary>
+/// <param name="Id">同步记录稳定标识。</param>
+/// <param name="WorkflowInstanceId">本地 Full.NET Workflow 实例标识；镜像同步的源。</param>
+/// <param name="IdempotencyKey">幂等键；同一实例多次登记只产生一条镜像。</param>
+/// <param name="DingTalkProcessInstanceId">钉钉审批实例标识；尚未创建时为 <see langword="null"/>。</param>
+/// <param name="ProcessCode">钉钉审批模板编码；决定表单与审批节点布局。</param>
+/// <param name="OriginatorUserId">钉钉发起人 userId；与本地发起人不一定相同。</param>
+/// <param name="DeptId">钉钉部门标识；影响审批流路由。</param>
+/// <param name="Title">审批标题；映射为表单组件值。</param>
+/// <param name="Summary">审批摘要；可为空。</param>
+/// <param name="StatusKey">镜像状态稳定机器码，取值自 DingTalkApprovalSyncStatusKeys。</param>
+/// <param name="ExternalStatusKey">钉钉侧原始状态码；仅用于诊断，不可作为流程决策依据。</param>
+/// <param name="ExternalResultKey">钉钉侧原始结果码；可空。</param>
+/// <param name="LastErrorCode">最近同步失败时的稳定错误码；成功时为 <see langword="null"/>。</param>
+/// <param name="LastSyncedAtUtc">最近成功同步时间（UTC）；尚未同步时为 <see langword="null"/>。</param>
+/// <param name="CreatedAtUtc">记录创建时间（UTC）。</param>
+/// <param name="UpdatedAtUtc">记录最近更新时间（UTC）。</param>
 public sealed record DingTalkApprovalSyncResponse(
     Guid Id,
     Guid WorkflowInstanceId,
@@ -65,6 +81,8 @@ public sealed record DingTalkApprovalSyncResponse(
     DateTimeOffset? UpdatedAtUtc);
 
 /// <summary>匿名回调受理响应；只确认镜像记录已更新。</summary>
+/// <param name="SyncRecordId">镜像记录标识；与请求登记的记录对应。</param>
+/// <param name="StatusKey">回调处理后记录的最新状态稳定机器码。</param>
 public sealed record DingTalkApprovalSyncCallbackAcceptedResponse(
     Guid SyncRecordId,
     string StatusKey);

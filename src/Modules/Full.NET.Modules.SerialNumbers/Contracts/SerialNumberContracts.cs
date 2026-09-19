@@ -29,6 +29,12 @@ public enum SerialNumberResetInterval
 }
 
 /// <summary>Host 管理端请求的纯函数流水号预览。</summary>
+/// <param name="Scope">取号作用域，决定使用 Host 全局计数器还是租户计数器。</param>
+/// <param name="Pattern">渲染模板；占位符由服务端解析。</param>
+/// <param name="TenantIdentifier">租户标识；Scope 为 Tenant 时必填，Host 时可空。</param>
+/// <param name="SequenceValue">用于渲染的序列值，即假设下一次分配的序号。</param>
+/// <param name="AtUtc">预览基准时间（UTC），用于计算 ResetBucket。</param>
+/// <param name="ResetInterval">UTC 重置周期，决定 ResetBucket 的取值。</param>
 public sealed record PreviewSerialNumberRequest(
     SerialNumberRuleScope Scope,
     string Pattern,
@@ -47,6 +53,16 @@ public sealed record SerialNumberPreviewResponse(
     long SequenceValue);
 
 /// <summary>创建 Host 管理的流水号规则。</summary>
+/// <param name="RuleKey">规则稳定键；创建后不可改名，跨模块引用基于该键。</param>
+/// <param name="DisplayName">规则展示名称。</param>
+/// <param name="Description">规则说明，可空。</param>
+/// <param name="Scope">取号作用域，决定计数器隔离粒度。</param>
+/// <param name="ResetInterval">UTC 重置周期，决定计数器重置时机。</param>
+/// <param name="Pattern">渲染模板；占位符由服务端解析。</param>
+/// <param name="MinimumValue">序号最小边界（含），到达边界后分配拒绝。</param>
+/// <param name="MaximumValue">序号最大边界（含），到达边界后分配拒绝。</param>
+/// <param name="DisplayOrder">同列表展示顺序，升序。</param>
+/// <param name="IsEnabled">是否启用；禁用后拒绝新的取号请求。</param>
 public sealed record CreateSerialNumberRuleRequest(
     string RuleKey,
     string DisplayName,
@@ -60,6 +76,16 @@ public sealed record CreateSerialNumberRuleRequest(
     bool IsEnabled);
 
 /// <summary>更新流水号规则并使用乐观并发版本。</summary>
+/// <param name="DisplayName">规则展示名称。</param>
+/// <param name="Description">规则说明，可空。</param>
+/// <param name="Scope">取号作用域；已有分配记录时变更受 RuleSemanticsLocked 限制。</param>
+/// <param name="ResetInterval">UTC 重置周期。</param>
+/// <param name="Pattern">渲染模板；变更可能影响已分配序列的可读性。</param>
+/// <param name="MinimumValue">序号最小边界（含）。</param>
+/// <param name="MaximumValue">序号最大边界（含）。</param>
+/// <param name="DisplayOrder">展示顺序。</param>
+/// <param name="IsEnabled">是否启用。</param>
+/// <param name="Version">乐观并发版本号，必须等于当前行版本。</param>
 public sealed record UpdateSerialNumberRuleRequest(
     string DisplayName,
     string? Description,
@@ -73,9 +99,26 @@ public sealed record UpdateSerialNumberRuleRequest(
     long Version);
 
 /// <summary>启用或禁用规则时携带的乐观并发版本。</summary>
+/// <param name="Version">乐观并发版本号，必须等于当前行版本。</param>
 public sealed record ChangeSerialNumberRuleStatusRequest(long Version);
 
 /// <summary>流水号规则的稳定响应。</summary>
+/// <param name="Id">规则稳定标识。</param>
+/// <param name="RuleKey">规则稳定键，跨模块引用基于该键。</param>
+/// <param name="DisplayName">规则展示名称。</param>
+/// <param name="Description">规则说明，可空。</param>
+/// <param name="Scope">取号作用域。</param>
+/// <param name="ResetInterval">UTC 重置周期。</param>
+/// <param name="Pattern">渲染模板。</param>
+/// <param name="MinimumValue">序号最小边界（含）。</param>
+/// <param name="MaximumValue">序号最大边界（含）。</param>
+/// <param name="DisplayOrder">展示顺序。</param>
+/// <param name="IsEnabled">是否启用。</param>
+/// <param name="CreatedAtUtc">创建时间（UTC）。</param>
+/// <param name="CreatedByUserId">创建者用户标识。</param>
+/// <param name="UpdatedAtUtc">最后更新时间（UTC），可空。</param>
+/// <param name="UpdatedByUserId">最后更新者用户标识，可空。</param>
+/// <param name="Version">乐观并发版本号，用于后续更新请求的 CAS 守卫。</param>
 public sealed record SerialNumberRuleResponse(
     Guid Id,
     string RuleKey,
@@ -95,6 +138,11 @@ public sealed record SerialNumberRuleResponse(
     long Version);
 
 /// <summary>一次成功且可按幂等键重放的流水号分配。</summary>
+/// <param name="RuleKey">分配所基于的规则稳定键。</param>
+/// <param name="SerialNumber">按 Pattern 渲染后的最终流水号字符串。</param>
+/// <param name="SequenceValue">本次分配消耗的原始序列值。</param>
+/// <param name="ResetBucket">分配时刻对应的 UTC 重置桶，用于唯一性边界。</param>
+/// <param name="AllocatedAtUtc">分配发生时间（UTC）。</param>
 public sealed record SerialNumberAllocation(
     string RuleKey,
     string SerialNumber,
@@ -107,6 +155,17 @@ public sealed record SerialNumberAllocation(
 /// </summary>
 public interface ISerialNumberAllocator
 {
+    /// <summary>
+    /// 按规则键分配一次流水号；幂等键保证相同调用重复执行不产生重复分配。
+    /// </summary>
+    /// <remarks>
+    /// 至少一次交付：调用方重试是安全的；服务端以 (ruleKey, idempotencyKey) 做幂等去重。
+    /// 规则禁用、序号耗尽或租户上下文不匹配时返回失败 Result，不抛异常。
+    /// </remarks>
+    /// <param name="ruleKey">规则稳定键，决定计数器与 Pattern。</param>
+    /// <param name="idempotencyKey">调用方提供的稳定幂等键，重复请求返回首次分配结果。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>成功时携带 <see cref="SerialNumberAllocation"/>；失败时携带稳定错误码。</returns>
     Task<Result<SerialNumberAllocation>> AllocateAsync(
         string ruleKey,
         string idempotencyKey,

@@ -19,7 +19,7 @@ Hosts / Modules / Composition
 
 BuildingBlocks 之间的依赖关系：
 ```text
-Abstractions (零依赖)
+Abstractions (零依赖，含 ICommandTransaction / IIntegrationEventHandler / Tenancy / Results / Auditing / Ids / Time)
     ▲
     │
     ├── Modularity ──► 引用 Abstractions
@@ -32,13 +32,14 @@ Abstractions (零依赖)
     ├── Migrations.DbUp ──► Data.Abstractions
     ├── Messaging.Abstractions ──► Abstractions
     │       └── Messaging.Kafka ──► Messaging.Abstractions + Data.Dapper
-    ├── Caching.Fusion ──► Abstractions
+    ├── Caching.Abstractions ──► Abstractions
+    │       └── Caching.Fusion ──► Caching.Abstractions + Abstractions
     ├── Realtime.Abstractions ──► Abstractions
     │       └── Realtime.SignalR ──► Realtime.Abstractions
-    ├── Serialization.MessagePack ──► Abstractions
+    ├── Serialization.MemoryPack ──► Data.Abstractions（实现 IIntegrationEventSerializer）
     ├── Validation.FluentValidation ──► Abstractions
     ├── Localization ──► Abstractions
-    ├── Data.CodeGeneration ──► Abstractions
+    ├── Data.CodeGeneration ──► Data.Abstractions + Abstractions
     └── Hosting ──► 引用上述多数 BuildingBlock
 ```
 
@@ -64,27 +65,36 @@ Abstractions (零依赖)
 
 ### 2.2 Messaging — CQRS 消息契约
 
+> 文件目录：[`src/BuildingBlocks/Full.NET.Abstractions/Messaging/`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Abstractions/Messaging)
+
 | 接口 | 说明 |
 |------|------|
-| `ICommand<TResult>` | 写操作命令标记 |
-| `ITransactionalCommand` | 需要事务的命令标记 |
-| `ICommandHandler<TCommand, TResult>` | 命令处理器 |
+| `ICommand<TResult>` | 写操作命令标记（空接口） |
+| `ITransactionalCommand` / `ITransactionalCommand<TResult>` | 需要事务的命令标记；分发器自动包裹 `ICommandTransaction` |
+| `ICommandHandler<TCommand, TResult>` | 命令处理器：`HandleAsync(command, ct)` |
 | `ICommandDispatcher` | 命令分发器：`SendAsync<TCommand, TResult>()` |
 | `IQuery<TResult>` | 读操作查询标记 |
 | `IQueryHandler<TQuery, TResult>` | 查询处理器 |
 | `IQueryDispatcher` | 查询分发器 |
-| `IDispatchBehavior` | 分发管道行为（日志、校验、审计等） |
-| `IIntegrationEventHandler<TEvent>` | 集成事件处理器 |
+| `IDispatchBehavior<TMessage, TResult>` | 分发管道行为（日志、校验、审计等）；按注册顺序逆序嵌套 |
+| `DispatchHandlerDelegate<TResult>` | Behavior 管道下一棒委托 |
+| `ICommandTransaction` | 事务边界：`ExecuteAsync<T>` / `ExecuteResultAsync<T>`（非 Begin/Commit/Rollback） |
+| `IIntegrationEventHandler<TEvent>` | 集成事件处理器；声明 `EventType / LegacyEventTypes / SchemaVersion / IdempotencyStrategy` |
 | `IntegrationEventContext` | 事件处理上下文（租户、元数据、关联 ID） |
+| `IntegrationEventIdempotencyStrategy` | 幂等策略枚举 |
+| `IntegrationEventHandlerMatcher` | Handler 匹配器（含 Legacy 事件类型别名解析） |
 
 ### 2.3 Tenancy — 多租户抽象
 
+> 文件目录：[`src/BuildingBlocks/Full.NET.Abstractions/Tenancy/`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Abstractions/Tenancy)
+
 | 类型 | 说明 |
 |------|------|
-| `ICurrentTenant` | 当前租户访问器：`TenantId / IsHost / Scope` |
-| `TenantContext` | 租户上下文，支持 `Push()`/`Pop()` 嵌套切换 |
+| `ICurrentTenant` | 当前租户只读访问器：`IsAvailable / IsHost / Id / Identifier / Name` |
+| `ICurrentTenantContextWriter` | 上下文写入器：`SetTenant(context) / SetHost() / Clear()` |
+| `TenantContext` | 不可变 `record (Id, Identifier, Name)`；不再支持 Push/Pop 嵌套 |
+| `CurrentTenantAccessor` | Scoped 实现，同时实现 `ICurrentTenant` 与 `ICurrentTenantContextWriter`，内部使用 `AsyncLocal<TenantContext?>` |
 | `IActiveTenantContextResolver` | 解析请求中的活动租户 |
-| `CurrentTenantAccessor` | `AsyncLocal` 实现的当前租户存储 |
 
 ### 2.4 其他
 
@@ -104,26 +114,29 @@ Abstractions (零依赖)
 
 | 类型 | 说明 |
 |------|------|
-| `IFullNetModule` | 模块入口接口：`Name / Dependencies / AddServices / MapEndpoints / ...` |
+| `IFullNetModule` | 模块入口接口：`Name / Dependencies / OptionalContractDependencies（默认空） / AddServices / AddMigrationServices（默认实现） / MapEndpoints / AddBackgroundServices（默认实现） / UseModuleMiddleware（默认实现）` 共 5 方法 + 3 属性 |
 | `IFullNetModuleCatalog` | 模块目录：按名称查询、依赖排序、Host Profile 选择 |
 | `FullNetModuleDescriptor` | 模块描述符：名称、依赖、实例、注册阶段 |
 | `FullNetModuleRegistry` | 模块注册器：静态注册和目录构建 |
 | `ModulePipelineStage` | 中间件插入阶段枚举：`Authentication / Authorization / Routing / Endpoint` |
 
+> `OptionalContractDependencies` 仅用于消费事件或最小只读契约；不能用于同步调用、数据库访问或服务解析，不参与启用集依赖闭包。
+
 ### 3.2 CQRS 分发器实现
 
 | 类 | 职责 |
 |----|------|
-| `CommandDispatcher` | 扫描 `ICommandHandler<,>` 实现，按泛型类型分发，串联 `IDispatchBehavior` 管道 |
-| `QueryDispatcher` | 查询分发器，模式同上 |
+| `CommandDispatcher` | 扫描 `ICommandHandler<,>` 实现，按泛型类型分发，按注册顺序**逆序**串联 `IDispatchBehavior` 管道形成俄罗斯套娃；对 `ITransactionalCommand` 自动包裹 `ICommandTransaction` |
+| `QueryDispatcher` | 查询分发器，模式同上但不参与数据库事务 |
 
-**分发管道执行顺序**：
+**分发管道执行顺序**（Behavior 逆序嵌套，最外层先执行）：
 ```
 CommandDispatcher.SendAsync
-  └── IDispatchBehavior[] 依次执行
-        ├── 校验 Behavior（FluentValidation）
+  └── IDispatchBehavior[] 逆序嵌套
+        ├── 校验 Behavior（FluentValidation，未通过短路）
         ├── 日志 Behavior
         ├── 审计 Behavior
+        ├── 事务 Behavior（仅 ITransactionalCommand）
         └── 实际 CommandHandler.HandleAsync
 ```
 
@@ -135,13 +148,20 @@ CommandDispatcher.SendAsync
 
 ### 4.1 核心执行器
 
+> 文件目录：[`src/BuildingBlocks/Full.NET.Data.Abstractions/`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Data.Abstractions)
+
 | 接口 | 说明 |
 |------|------|
-| `ICommandExecutor` | 命令执行：`ExecuteAsync / ExecuteListAsync` |
-| `IQueryExecutor` | 查询执行：`QueryAsync / QueryFirstOrDefaultAsync / QueryScalarAsync` |
+| `ICommandExecutor` | 命令执行：仅 `ExecuteAsync(statement, parameters, ct) -> Task<int>`（受影响行数） |
+| `IQueryExecutor` | 查询执行：`QuerySingleOrDefaultAsync<T>`（0/1 行，>1 抛异常） + `QueryAsync<T> -> IReadOnlyList<T>` |
 | `IMultiResultQueryExecutor` | 多结果集执行（`QueryMultiple`） |
 | `IMultiResultReader` | 多结果集顺序读取器 |
-| `ICommandTransaction` | 事务边界：`BeginAsync / CommitAsync / RollbackAsync` |
+| `IExternalDatabaseConnectionFactory` | 外部连接工厂（用于跨连接显式事务编排） |
+| `IDatabaseSessionLock` | 数据库会话级锁（Distributed Lock 配合） |
+| `IDatabaseAdmissionPriorityScope` | 数据库准入优先级作用域 |
+| `IDataTransactionState` | 事务状态查询接口 |
+
+> 注：`ICommandTransaction`（事务边界：`ExecuteAsync<T>` / `ExecuteResultAsync<T>`）定义在 [`Full.NET.Abstractions/Messaging/ICommandTransaction.cs`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Abstractions/Messaging/ICommandTransaction.cs)，由 `CommandDispatcher` 对 `ITransactionalCommand` 自动调用，Dapper 实现见 `DapperCommandTransaction`。
 
 ### 4.2 SQL Scope（关键安全边界）
 
@@ -149,19 +169,22 @@ CommandDispatcher.SendAsync
 |------|------|
 | `SqlDataScope` | 枚举：`TenantRequired / HostOnly / Global` |
 | `SqlTenantBinding` | 租户绑定：`CurrentTenantId / None` |
-| `SqlStatement` | SQL 语句包装器，携带 Scope + Binding 元数据 |
-| `SqlScopeExceptions` | Scope 违规异常类型 |
+| `SqlStatement` | 不可变 `record (Name, Text, Scope, TenantBinding)`，按位置参数构造；另提供 `(Name, Text, Scope)` 三参构造（默认 `TenantBinding.None`）与 `Deconstruct` 解构 |
+| `SqlScopeExceptions` | Scope 违规异常类型：`TenantContextMissingException / TenantScopeViolationException / HostContextRequiredException` |
+| `DataCommandException` | 数据命令执行异常 |
 
 ### 4.3 Outbox / Inbox 抽象
 
 | 接口 | 说明 |
 |------|------|
-| `IOutboxStore` | Outbox 查询：按状态领取、更新租约、标记完成/失败 |
-| `IOutboxWriter` | Outbox 写入：与业务数据同事务原子写入 |
-| `IOutboxBacklogReader` | 积压读取：流级别积压/重试统计 |
-| `IOutboxRetentionStore` | 保留策略：清理旧消息、旧版本退役 |
-| `IIntegrationEventInbox` | 消费 Inbox：幂等去重、完成标记、死信 |
-| `IIntegrationEventSerializer` | 事件序列化（默认 MessagePack） |
+| `IOutboxWriter` | Outbox 写入：`AddAsync<TEvent>(...)` 与业务数据同事务原子写入；路由版按 `EventStreamOwnership` 选择目标表 |
+| `IOutboxStore` | Outbox 查询/更新：领取、租约续租、标记完成/失败、死信；含 `OutboxDeadLetterReasons` 与 `OutboxConcurrencyException` / `OutboxLeaseExpiredException` |
+| `IOutboxBacklogReader` | 积压读取：`ReadStreamBacklogAsync(messageType, schemaVersion, ct)` 按事件流粒度查询积压/重试；返回 `OutboxBacklogSnapshot` |
+| `IOutboxRetentionStore` | 保留策略：`DeleteProcessedBatchAsync(...)` 清理已处理消息与旧版本退役 |
+| `IIntegrationEventInbox` | 消费 Inbox：`PrecheckBatchAsync` 批量去重 → `ClaimAsync` 领取 → `MarkProcessedAsync` 标记完成/死信 |
+| `InboxPrecheck` | 幂等预检模型：`InboxMessageFingerprint` + `InboxPrecheckStatus` + `InboxPrecheckResult` |
+| `OutboxEnvelope` | 不可变 record（10 字段：MessageId / EventType / SchemaVersion / TenantId / Payload / ContentType / OccurredAt / Metadata / TraceParent / IdempotencyKey） |
+| `IIntegrationEventSerializer` | 事件序列化抽象（默认实现为 MemoryPack，`ContentType = application/x-memorypack`） |
 
 ### 4.4 数据库配置
 
@@ -181,35 +204,45 @@ CommandDispatcher.SendAsync
 
 | 类 | 职责 |
 |----|------|
-| `DbSession` | 数据库会话：持有连接 + 当前事务 |
-| `DbConnectionFactory` | 连接工厂：按 Provider 创建连接 |
-| `DapperCommandTransaction` | 事务实现：`ICommandTransaction` 的 Dapper 版本 |
-| `DapperSqlExecutor` | SQL 执行器：`ICommandExecutor` + `IQueryExecutor` 实现 |
+| `DbSession` | 数据库会话：持有连接 + 当前事务；`DbSessionConnectionLease` 控制连接生命周期 |
+| `DbConnectionFactory` / `IDbConnectionFactory` | 连接工厂：按 Provider 创建连接；`ExternalDatabaseConnectionFactory` 支持显式外部连接 |
+| `DapperCommandTransaction` | `ICommandTransaction` 的 Dapper 实现；`RecordingDbTransactionCoordinator` + `IDbTransactionCoordinator` 用于多 Outbox 协调 |
+| `DapperSqlExecutor` | `ICommandExecutor` + `IQueryExecutor` 实现；AOT 路径走 `DapperAotSqlExecution` |
 | `DapperMultiResultReader` | 多结果集读取器 |
-| `SqlScopeGuard` | **关键安全类**：执行前校验 SqlDataScope 与当前租户上下文匹配 |
+| `SqlScopeGuard` | **关键安全类**（`internal static sealed`）：执行前同步校验 `SqlDataScope` 与当前租户上下文匹配；轻量词法 `TenantSqlValidation` 缓存校验结果 |
+| `DatabaseAdmissionGate` / `DatabaseAdmissionPriorityScope` | 准入门与优先级作用域：过载保护 |
+| `DatabaseConnectionTelemetry` / `DapperTelemetry` / `DapperLog` | 数据访问可观测性 |
+| `DapperAotCommandFactory` / `DapperAotStaticCommandPlanRegistry` / `DapperAotMaterializerRegistry` | Native AOT 源生成所需注册器 |
+| `IDapperAotMaterializerContributor` / `DapperAotEnumerableParameterExpander` | AOT 物化器贡献者与可枚举参数展开 |
 
 ### 5.2 类型处理器
 
 | 类 | 作用 |
 |----|------|
-| `AssignedGuidTypeHandler` | MySQL `BINARY(16)` ↔ C# `Guid` 互转（RFC 9562 大端） |
-| `UtcDateTimeOffsetTypeHandler` | UTC `DateTimeOffset` 标准化存储 |
+| `AssignedGuidTypeHandler` / `AssignedGuidAotTypeHandler` | MySQL `BINARY(16)` ↔ C# `Guid` 互转（RFC 9562 大端） |
+| `UtcDateTimeOffsetTypeHandler` / `UtcDateTimeOffsetAotTypeHandler` | UTC `DateTimeOffset` 标准化存储 |
+| `MySqlSchemaModeStartupValidator` | MySQL Schema 模式启动校验器 |
+| `MySqlAotUtcDateTimeOffsetShim` | MySQL AOT DateTimeOffset 适配 |
 
 ### 5.3 Outbox 实现
 
 | 类 | 说明 |
 |----|------|
 | `DapperOutboxWriter` | 传统 Outbox Writer → `fn_outbox_message` 表 |
-| `DapperAppendOnlyOutboxWriter` | 追加式 Outbox Writer → `fn_messaging_outbox_event` 表 |
-| `DapperRoutedOutboxWriter` | 路由 Writer：按 `EventStreamOwnership` 选择写入目标 |
-| `DapperOutboxStore` | Outbox 领取/状态更新（租约、续租、完成、死信） |
+| `DapperAppendOnlyOutboxWriter` | 追加式 Outbox Writer → `fn_messaging_outbox_event` 表（CdcKafka 路径） |
+| `DapperRoutedOutboxWriter` | 路由 Writer：按 `EventStreamOwnership` 选择写入目标表 |
+| `DapperOutboxStore` | Outbox 领取/状态更新（租约、续租、完成、死信）；`OutboxSql` / `OutboxMessage` / `AppendOnlyOutboxMessage` 为 SQL 与 DTO |
+| `DapperOutboxCommandPath` / `DapperOutboxCommandPathPolicy` / `OutboxTypedCommandPlans` | SQL 路径策略与类型化命令计划 |
 | `DapperEventStreamOwnershipGate` | 事件流所有权 CAS 切换（Compare-And-Swap + PreviousOwner） |
+| `DapperEventDeliveryProducerFencePositionReader` | 发布端 Fence Position 读取（CutOver 门禁） |
+| `MessagingOutboxOptions` | Outbox 选项 |
 
 ### 5.4 Inbox 实现
 
 | 类 | 说明 |
 |----|------|
-| `DapperIntegrationEventInbox` | 消费端去重、完成标记、死信写入 |
+| `DapperIntegrationEventInbox` | 消费端 PrecheckBatch → Claim → MarkProcessed 三阶段去重；`InboxBatchPrecheckSql` / `InboxSql` 为 SQL |
+| `InboxConsumeResult` | Inbox 消费结果 DTO |
 
 ### 5.5 健康检查
 
@@ -245,20 +278,37 @@ CommandDispatcher.SendAsync
 
 ---
 
-## 7. Full.NET.Caching.Fusion — 混合缓存
+## 7. Full.NET.Caching — 缓存与失效
+
+### 7.0 Full.NET.Caching.Abstractions — 失效边界抽象
+
+> 项目：[`src/BuildingBlocks/Full.NET.Caching.Abstractions`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Caching.Abstractions)
+
+业务模块通过稳定条目名声明失效意图，不接触具体缓存 Provider 选项。
+
+| 类型 | 说明 |
+|------|------|
+| `ICacheInvalidator` | 失效接口：`RemoveAsync(entryName, key, scope, ct)` / `RemoveByTagAsync(entryName, tag, scope, ct)` |
+| `CacheInvalidationScope` | 传播范围枚举：`CurrentNodeOnly`（仅本机 L1，不触发 Backplane）/ `AllLayersSynchronous`（L1+L2+Backplane 同步） |
+
+### 7.1 Full.NET.Caching.Fusion — 混合缓存实现
 
 > 项目：[`src/BuildingBlocks/Full.NET.Caching.Fusion`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Caching.Fusion)
 
-### 7.1 类型速查
+#### 7.1.1 类型速查
 
 | 类型 | 说明 |
 |------|------|
 | `CacheOptions` | 缓存配置：L1/L2/Backplane/序列化 |
 | `CacheEntryPolicy` | 单条缓存策略：TTL / 失效分类 / 一致性等级 |
-| `CacheConsistencyClass` | 一致性枚举：`Weak / Eventual / StrongNoL1` |
+| `CacheConsistencyClass` | 一致性枚举：`Weak / Eventual / StrongNoL1`（强一致类别禁用 L1） |
 | `CacheEntryDefinitionOptions` | 缓存条目定义（用于集中注册） |
-| `CachePolicyRegistry` / `ICachePolicyRegistry` | 策略注册表：按缓存键前缀查找策略 |
-| `CacheKeyBuilder` | 统一缓存键构造器：`fullnet:{env}:{scope}:{module}:{res}:{id}:{ver}` |
+| `CacheAccessDecision` | 缓存访问决策（L1/L2/Backplane） |
+| `CacheEntryLifetime` | 缓存条目生命周期 |
+| `CacheEntryNames` | 稳定缓存条目名常量 |
+| `CachePolicyRegistry` / `ICachePolicyRegistry` | 策略注册表：`GetRequired / ListPolicies / ResolveAccess / CreateEntryOptions / CreateHybridEntryOptions` |
+| `CacheKeyBuilder` | 统一缓存键构造器；按用途分专用方法：`ForTenant / ForGlobal / TenantResolutionByDomain / TenantResolutionById / TenantTag / DomainTag`；键格式 `fullnet:{env}:{scope}:{module}:{res}:{id}:{ver}` |
+| `FusionCacheInvalidator` | `ICacheInvalidator` 的 FusionCache 实现；多实例失效使用直接 L1/L2 删除 + Redis Backplane |
 | `FusionCacheReliabilityMonitor` | 可靠性监控：陈旧命中、失效失败、Backplane 状态 |
 | `CacheReliabilityTelemetry` | 低基数指标发射 |
 
@@ -277,14 +327,28 @@ services.AddFullNetCaching(configuration);  // 启用 FusionCache + HybridCache 
 
 | 类型 | 说明 |
 |------|------|
-| `EventDeliveryOwner` | 所有权枚举：`LegacyPolling / ShadowCdcKafka / CdcKafka` |
+| `EventDeliveryOwner` | 所有权枚举：`LegacyPolling=0 / ShadowCdc=1 / CdcKafka=2`；同一 (EventType, SchemaVersion) 只能声明一个所有者 |
+| `IEffectiveEventDeliveryOwnerResolver` / `LegacyPollingEventDeliveryOwnerResolver` | 解析当前生效所有权；LegacyPolling 解析器用于无 Kafka 模式 |
 | `EventStreamOwnershipRecord` | 事件流所有权记录：`StreamId / CurrentOwner / PreviousOwner / Version` |
-| `IEventStreamOwnershipGate` | 所有权切换门（CAS 原子切换） |
+| `IEventStreamOwnershipGate` | 所有权切换门（CAS 原子切换）；返回 `EventStreamConsumerFenceResult` |
 | `IEventStreamOwnershipStore` | 所有权持久化 |
-| `IntegrationEventEnvelope` | 事件信封：`MessageId / MessageType / SchemaVersion / TenantId / Payload` |
-| `IntegrationEventMetadata` | 事务元数据：`CorrelationId / CausationId / TraceParent / PartitionKey` |
+| `IKafkaConnectAdminClient` | Kafka Connect REST 管理客户端（9 方法：`WaitUntilReadyAsync / RegisterConnectorAsync / WaitForConnectorHealthyAsync / DeleteConnectorAsync / PauseConnectorAsync / ResumeConnectorAsync / IsConnectorPausedAsync / TryReadConnectorPositionAsync / TryGetConnectorStatusAsync`） |
+| `IEventDeliveryProducerFencePositionReader` | 发布端 Fence Position 读取（Cutover 门禁按目标流积压判断） |
+| `IEventDeliveryRollbackReadinessReader` | 切流回退就绪检查 |
+| `EventDeliveryOwnershipRevokedException` / `EventDeliveryProducerFencedException` | 所有权吊销 / Producer 被围栏异常 |
+| `IIntegrationEventSubscription` | 订阅声明：`ConsumerName / EventType / SchemaVersion / IdempotencyStrategy` + `HandleAsync` |
+| `IIntegrationEventHandlerRegistry` | Handler 注册表 |
+| `IntegrationEventSubscriptionCatalog` | Scoped 订阅目录：7 方法（注册/查询/枚举/匹配）；空目录时使用 `EmptyIntegrationEventSubscriptionCatalog` |
+| `LegacyIntegrationEventHandlerSubscriptionAdapter` | 将旧 `IIntegrationEventHandler` 适配为新订阅声明 |
+| `IntegrationEventEnvelope` | 事件信封：`MessageId / MessageType / SchemaVersion / TenantId / Payload / ContentType / ...`（11 字段，`ContentType = application/x-memorypack`） |
+| `IntegrationEventMetadata` | 事务元数据：`CorrelationId / CausationId / TraceParent / PartitionKey`；CdcKafka 路径下缺失则抛 `InvalidOperationException` |
 | `IntegrationEventFailure` | 失败信息：`ReasonCode / RetryCount / LastError` |
-| `KafkaReplayContracts` | Kafka 范围重放 API 契约 |
+| `IntegrationEventPermanentException` | 不可重试的永久性事件异常 |
+| `IntegrationEventTopicDefinition` | 事件流 Topic 定义 |
+| `CdcDeliveryPosition` | CDC 投递位置 |
+| `ShadowEventComparison` | Shadow CDC 比对结果 |
+| `KafkaReplayContracts` | Kafka 范围重放 API 契约；`DisabledKafkaReplayService` / `DisabledKafkaReplayServiceCollectionExtensions` 用于未启用 Kafka 时的占位 |
+| `MessagingNames` / `MessagingJsonSerializerContext` | 命名常量 + JSON 序列化上下文 |
 
 ### 8.2 Kafka 实现层
 
@@ -352,23 +416,34 @@ KafkaConsumerWorker (BackgroundService)
 | `FullNetExceptionHandler` | 全局异常处理器：映射异常 → ProblemDetails |
 | `IApiResultMapper` | 响应结果映射器接口 |
 | `StandardApiResultMapper` | 标准映射：`Result<T>` → HTTP 状态码 + ProblemDetails/JSON |
-| `AdminNetApiResultMapper` | 兼容 Admin.NET 统一信封映射（适配层启用） |
 | `IErrorMessageLocalizer` | 错误消息本地化接口 |
 | `ResourceErrorMessageLocalizer` | `.resx` 资源实现 |
-| `PreV1ProtocolCompatibility` | Pre-v1 旧错误码兼容层 |
+| `IErrorResourceSource` / `HostingErrorResourceSources` / `ResourceManagerErrorResourceSource` | 错误资源源与命名空间常量 |
+| `NamedMessageFormatter` | 命名消息格式化器 |
+| `IPreV1LegacyErrorCodeProfile` / `DefaultPreV1LegacyErrorCodeProfile` | Pre-v1 旧错误码兼容策略声明 |
+
+> 注：`AdminNetApiResultMapper`、`PreV1ProtocolCompatibility`、`AdminNetEnvelope` 等 Admin.NET 包络与 Pre-v1 兼容实现不在 Hosting 项目，而是在独立适配层项目 [`src/Compatibility/Full.NET.Compatibility.AdminNet`](file:///G:/wwwroot/github_fork/Full.NET/src/Compatibility/Full.NET.Compatibility.AdminNet) 中；通过 `ServiceCollectionExtensions.AddAdminNetCompatibility` 显式启用。
 
 ### 10.2 可观测性管道
 
 | 命名空间 | 关键类型 |
 |----------|----------|
 | `Observability` | `ServiceDefaultsExtensions`（Serilog/OTel/Health 默认注入） |
-| | `HttpOperationLogMiddleware`（HTTP 操作审计日志） |
-| | `DiagnosticPolicy`（诊断策略 + 日志降级模式） |
+| | `FullNetLoggingPipeline` / `FullNetLoggingPipelineSink`（日志管道与 Serilog Sink） |
+| | `LoggingOptions` / `HostingLog` / `LogClassification` |
+| | `HttpOperationLogMiddleware` / `HttpOperationLogEmitter` / `HttpOperationLogOptions` / `HttpOperationLogProfile` / `HttpOperationLogSanitizer`（HTTP 操作审计日志全栈） |
+| | `DiagnosticPolicy` / `IDiagnosticPolicyStore` / `DiagnosticPolicySnapshot`（诊断策略 + 日志降级模式） |
 | | `FullNetBoundedAsyncSink`（有界异步 Serilog Sink，防止日志反压） |
-| `RateLimiting` | `FullNetRateLimitExtensions`（固定窗口/滑动窗口/令牌桶策略） |
-| `Forwarding` | `TrustedProxyOptions`（可信代理边界，规范化 X-Forwarded-*） |
+| | `FullNetAsyncLogMonitor` / `FullNetLoggingMonitors` / `HighPriorityLoggingHealthCheck`（异步日志监控与健康检查） |
+| | `HealthEndpointExtensions`（健康检查端点） |
+| | `ElasticsearchSerilogSinkConfigurator` / `ElasticsearchEndpointRedactor` / `ElasticsearchLoggingOptions` / `ElasticsearchLoggingOptionsValidator`（Elasticsearch Sink 安全配置） |
+| | `CacheReliabilityTelemetry`（缓存可靠性指标，跨 Caching 项目） |
+| `RateLimiting` | `FullNetRateLimitExtensions` / `RateLimitingOptions` / `RateLimitingOptionsValidator` / `GlobalApiRateLimiterConfigurator` / `RateLimitPolicyErrorCodes`（固定窗口/滑动窗口/令牌桶策略） |
+| `Forwarding` | `TrustedProxyOptions` / `TrustedProxyForwardingExtensions` / `TrustedProxyForwardedHeadersConfigurator` / `TrustedProxyOptionsValidator`（可信代理边界，规范化 X-Forwarded-*） |
 | `OpenApi` | `FullNetOpenApiExtensions`（Scalar + OpenAPI 文档配置） |
-| `Serialization` | `FullNetJsonOptionsExtensions`（System.Text.Json 源生成） |
+| `Serialization` | `FullNetJsonOptionsExtensions` / `HostingJsonSerializerContext`（System.Text.Json 源生成） |
+| `Security` | `DataProtectionServiceCollectionExtensions` / `DataProtectionOptions`（DataProtection 配置） |
+| `Api` | `FullNetExceptionHandler` / `StandardApiResultMapper` / `IApiResultMapper` 等（见 10.1） |
 
 ### 10.3 资源文件
 
@@ -380,10 +455,13 @@ KafkaConsumerWorker (BackgroundService)
 
 | 项目 | 关键职责 |
 |------|----------|
-| `Full.NET.Data.MySql` | MySQL 特有：连接串策略、Schema 模式启动验证器 |
-| `Full.NET.Data.CodeGeneration` | 代码生成内核：CRUD Schema 元数据、命名 Profile、主键 Profile |
-| `Full.NET.Seeding.Abstractions` | `IDataSeedContributor` / `ISeedOrchestrator` / `SeedProfile` |
-| `Full.NET.Seeding.Dapper` | 种子编排器：确定 Profile 继承、执行租约、幂等审计 |
-| `Full.NET.Serialization.MessagePack` | MessagePack 契约解析器 + 格式化选项 |
-| `Full.NET.Validation.FluentValidation` | FluentValidation 集成：自动扫描 + 统一 `validation.failed` 错误码 |
+| [`Full.NET.Caching.Abstractions`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Caching.Abstractions) | 缓存失效边界抽象：`ICacheInvalidator` + `CacheInvalidationScope`（详见 §7.0） |
+| `Full.NET.Data.MySql` | MySQL 特有：连接串策略、Schema 模式启动验证器（`MySqlSchemaModeStartupValidator`）、AOT DateTimeOffset 适配 |
+| [`Full.NET.Data.CodeGeneration`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Data.CodeGeneration) | 代码生成内核三阶段流水线：`Schema/`（`FullNetCrudSchema` / `DatabaseTableCatalogReader` / `DatabaseCrudSchemaImporter` / `FullNetColumn` / `FullNetCrudDataScope`） → `Generation/`（`CrudArtifactGenerator` / `CrudBackendFeatureGenerator` / `CrudVueViewGenerator` / `CrudClientPageModelGenerator` / `CrudMigrationTemplateGenerator` / `CrudOpenApiContractGenerator` / `CrudOrganizationOwnershipGenerator` / `CrudAuthorizationContributorFragmentGenerator` / `CrudSceneGuardGenerator` / `GenerationWritePlanner` / `GenerationWorkspaceStore` / `GenerationManifest` / `GenerationRollbackWorkspace`） → `Integration/`（`ModuleIntegrationPlanner` / `ModuleIntegrationHostOrchestrator` / `CompositionProjectEditor` / `CompositionCatalogEditor` / `ModuleEntryIntegrationEditor` / `ClientRouteIntegrationEditors` / `AuthorizationContributorIntegrationEditor`）；辅助 `Naming/`、`PrimaryKeys/`、`Packaging/`、`Serialization/` |
+| [`Full.NET.Seeding.Abstractions`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Seeding.Abstractions) | `IDataSeedContributor`（`Name / Version / Profiles : IReadOnlySet<SeedProfile> / Dependencies / SeedAsync`） / `SeedProfile`（enum + `SeedProfileNames.EffectiveLayers` 封闭继承：Baseline + Development/Demo/Test Overlay） |
+| `Full.NET.Seeding.Dapper` | 种子编排器：确定 Profile 继承链（Baseline 先于 Overlay）、执行租约、幂等审计 |
+| [`Full.NET.Serialization.MemoryPack`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Serialization.MemoryPack) | `MemoryPackIntegrationEventSerializer`：实现 `IIntegrationEventSerializer`，`ContentType = application/x-memorypack`；通过 `AddFullNetMemoryPack()` 注册为 Singleton；事件 DTO 须标注 `[MemoryPackable]` 由源生成器产出 AOT 友好格式化器 |
+| `Full.NET.Validation.FluentValidation` | FluentValidation 集成：自动扫描 + `FluentValidationBehavior` 注入 `IDispatchBehavior` 管道 + 统一 `validation.failed` 错误码 |
 | `Full.NET.Localization` | 多语言：`LocaleCatalog`、`CultureScope`、BCP 47 规范化、HTTP Header 协商 |
+
+> 注：`Full.NET.Serialization.MessagePack` 目录下当前无源文件（仅保留 obj 构建产物）；正式事件序列化由 `Full.NET.Serialization.MemoryPack` 提供，文档与代码均以 MemoryPack 为准。
