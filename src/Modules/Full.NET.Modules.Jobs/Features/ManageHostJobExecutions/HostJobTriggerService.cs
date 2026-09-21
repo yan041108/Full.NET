@@ -6,6 +6,8 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Jobs.Contracts;
 using Full.NET.Modules.Jobs.Execution;
 using Full.NET.Modules.Jobs.Features.ManageHostJobDefinitions;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Modules.Jobs.Middleware;
 using Full.NET.Modules.Jobs.Persistence;
 
 namespace Full.NET.Modules.Jobs.Features.ManageHostJobExecutions;
@@ -22,11 +24,21 @@ internal sealed class HostJobTriggerService(
     HostJobExecutionQueryService queries,
     JobExecutionRunner runner,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    ICurrentTenant currentTenant,
+    ICurrentTenantContextWriter tenantContextWriter)
 {
-    public async Task<Result<HostJobExecutionResponse>> TriggerAsync(
+    public Task<Result<HostJobExecutionResponse>> TriggerAsync(
         Guid definitionId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        HostJobsHostContextScope.RunAsync(
+            currentTenant,
+            tenantContextWriter,
+            () => TriggerInHostContextAsync(definitionId, cancellationToken));
+
+    private async Task<Result<HostJobExecutionResponse>> TriggerInHostContextAsync(
+        Guid definitionId,
+        CancellationToken cancellationToken)
     {
         var createResult = await transaction.ExecuteResultAsync(
                 token => CreatePendingExecutionAsync(definitionId, token),

@@ -1417,6 +1417,19 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement RevokeUserSessionsByClientExcept = new(
+        "identity.revoke_user_sessions_by_client_except",
+        """
+        UPDATE fn_identity_refresh_session
+        SET RevokedAtUtc = @RevokedAtUtc,
+            Version = Version + 1
+        WHERE UserId = @UserId
+          AND ClientId = @ClientId
+          AND Id <> @ExceptSessionId
+          AND RevokedAtUtc IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ResetUserPasswordByIdentity = new(
         "identity.reset_user_password_by_identity",
         """

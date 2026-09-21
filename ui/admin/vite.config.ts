@@ -20,6 +20,22 @@ export default defineConfig({
         target: apiTarget,
         changeOrigin: false,
         ws: true
+      },
+      '/connect': {
+        target: apiTarget,
+        changeOrigin: false
+      },
+      '/identity': {
+        target: apiTarget,
+        changeOrigin: false
+      },
+      '/scalar': {
+        target: apiTarget,
+        changeOrigin: false
+      },
+      '/openapi': {
+        target: apiTarget,
+        changeOrigin: false
       }
     }
   }

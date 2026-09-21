@@ -27,9 +27,16 @@ test('Host 管理员可从真实 API 加载异常日志页', async ({ page }, te
     : page.locator('.exception-logs-view');
 
   await expect(exceptionLogsView.getByRole('heading', { name: '异常日志', exact: true })).toBeVisible();
-  await expect(
-    exceptionLogsView.getByText(/最近异常|尚无异常日志/).first()
-  ).toBeVisible({ timeout: 15_000 });
+  await expect(exceptionLogsView.locator('.art-crud-data-table')).toBeVisible({
+    timeout: 15_000
+  });
+  await expect
+    .poll(async () => {
+      const empty = await exceptionLogsView.getByText('尚无异常日志').count();
+      const rows = await exceptionLogsView.locator('.el-table__row').count();
+      return empty > 0 || rows > 0;
+    })
+    .toBeTruthy();
 });
 
 test('受限 Host 账号访问异常日志 API 被拒绝且导航裁剪', async ({

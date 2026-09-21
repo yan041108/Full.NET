@@ -33,7 +33,7 @@ public static class IdentityOpenAccessClientAuditEventTypes
 }
 
 /// <summary>创建 OpenAccess 接入方应用请求。</summary>
-/// <param name="UserId">绑定的 Host 用户标识；该用户必须为活动账号。</param>
+/// <param name="Username">绑定的 Host 用户登录名；该用户必须为活动账号。</param>
 /// <param name="Name">接入方应用名称。</param>
 /// <param name="Description">接入方应用描述；可为空。</param>
 /// <param name="Remark">管理员备注；可为空。</param>
@@ -41,7 +41,7 @@ public static class IdentityOpenAccessClientAuditEventTypes
 /// <param name="ExpiresAtUtc">可选的过期时间；<see langword="null"/> 表示长期有效（仍可被主动停用或轮换）。</param>
 /// <param name="DailyRequestQuota">可选的每日成功认证配额；<see langword="null"/> 表示不限。</param>
 public sealed record CreateOpenAccessClientRequest(
-    Guid UserId,
+    string Username,
     string Name,
     string? Description,
     string? Remark,

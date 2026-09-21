@@ -28,6 +28,11 @@ catch (OutboxVersionRetirementException exception)
 }
 
 var builder = WebApplication.CreateBuilder(commandLine.HostArguments.ToArray());
+builder.Host.UseDefaultServiceProvider((_, options) =>
+{
+    // Worker 仅装配各模块声明的后台闭包，完整依赖图无法在 Build 时静态穷举；HostedService 按实际路径解析。
+    options.ValidateOnBuild = false;
+});
 if (commandLine.VersionRetirement is not null)
 {
     // 一次性扫描的标准输出只保留机器结果，正常启动日志仍沿用默认级别。

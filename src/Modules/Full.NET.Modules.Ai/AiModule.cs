@@ -138,6 +138,9 @@ public sealed class AiModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<AiModelBindingScope>();
         services.TryAddScoped<IProtectedModelCredentialStore>(provider => provider.GetRequiredService<AiModelBindingScope>());
+        services.TryAddSingleton<AiChatGenerationRegistry>();
+        services.TryAddScoped<AiChatQuotaGuard>();
+        services.AddOptions<AiOperationBudgetOptions>().BindConfiguration("FullNet:Ai:Budgets");
         services.TryAddScoped<AiChatSessionQueryService>();
         services.TryAddScoped<AiChatSessionManagementService>();
         services.TryAddScoped<AiAgentRunStore>();
@@ -145,6 +148,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<IAiOperationBudgetStore, AiOperationBudgetStore>();
         services.TryAddScoped<IAgentRunExecutionContext, AgentRunExecutionContext>();
         RegisterAgentToolExecution(services, forWorker: true);
+        services.AddFullNetMcpClient(configuration);
         services.TryAddScoped<AiAgentRunApprovalGate>();
         services.TryAddScoped<AiAgentApprovalConsumption>();
         services.TryAddScoped<AiAgentApprovalService>();

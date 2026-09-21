@@ -75,7 +75,8 @@ function decodeHtmlAttribute(value) {
 export async function createExternalOidcClientViaApi(request, adminAccessToken, {
   clientId,
   redirectUri = EXTERNAL_OIDC_REDIRECT_URI,
-  scopes = ['openid', 'profile']
+  scopes = ['openid', 'profile'],
+  isFirstParty = false
 }) {
   const response = await request.post(`${resolveApiBase()}/api/v1/identity/oidc-clients`, {
     headers: {
@@ -89,7 +90,7 @@ export async function createExternalOidcClientViaApi(request, adminAccessToken, 
       postLogoutRedirectUris: [],
       scopes,
       isConfidential: false,
-      isFirstParty: false,
+      isFirstParty,
       resourceAudience: null
     }
   });
@@ -335,7 +336,7 @@ export function decodeJwtClaim(jwt, claimName) {
     return null;
   }
   const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
-  return payload[claimName] ?? null;
+  return payload[claimName] ?? payload[`fn:${claimName}`] ?? null;
 }
 
 export async function expectMeEndpointAcceptsToken(request, accessToken) {
@@ -361,18 +362,31 @@ export async function expectProtectedEndpointRejectsToken(request, accessToken, 
   expect(body.code).toBe('authorization.permission_denied');
 }
 
-export async function listAvailableTenants(request, accessToken) {
+export async function listAvailableTenants(
+  request,
+  accessToken,
+  origin = 'http://localhost:25173'
+) {
   const response = await request.get(`${resolveApiBase()}/api/v1/tenancy/available`, {
-    headers: { authorization: `Bearer ${accessToken}` }
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      Origin: origin
+    }
   });
   expect(response.status()).toBe(200);
   return response.json();
 }
 
-export async function switchTenantContext(request, accessToken, tenantId) {
+export async function switchTenantContext(
+  request,
+  accessToken,
+  tenantId,
+  origin = 'http://localhost:25173'
+) {
   const response = await request.put(`${resolveApiBase()}/api/v1/tenancy/context`, {
     headers: {
       authorization: `Bearer ${accessToken}`,
+      Origin: origin,
       'content-type': 'application/json'
     },
     data: { tenantId }

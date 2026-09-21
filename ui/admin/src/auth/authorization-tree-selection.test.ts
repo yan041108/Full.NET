@@ -80,6 +80,16 @@ describe('\u6a21\u5757\u7ea7\u6388\u6743\u6811\u9009\u62e9\u89c4\u5219', () => {
     expect(checked).toContain('module:identity');
     expect(checked).toContain('page:users');
     expect(checked).toContain('action:identity.users.create');
+    expect(checked).toContain('action:identity.users.reset-password');
+  });
+
+  it('勾选模块后映射应包含全部后代操作节点键', () => {
+    const selected = applyPermissionNodeCheck(new Set<string>(), moduleNode, true);
+    const checked = permissionCodesToCheckedNodeIds(selected, nodes);
+    expect(checked).toContain('module:identity');
+    expect(checked).toContain('page:users');
+    expect(checked).toContain('action:identity.users.create');
+    expect(checked).toContain('action:identity.users.reset-password');
   });
 
   it('\u4ec5\u52fe\u9009\u9875\u9762\u65f6\u4e0d\u4f1a\u52fe\u9009\u6a21\u5757\u8282\u70b9', () => {
@@ -114,6 +124,53 @@ function collectPermissionCodes(node: PermissionTreeNode): string[] {
   }
   return codes;
 }
+
+describe('嵌套页面权限回显', () => {
+  const nestedModules = [
+    {
+      id: 'tenancy',
+      title: '租户管理',
+      order: 20,
+      pages: [
+        {
+          id: 'tenants-root',
+          title: '租户管理',
+          permissionCode: 'tenancy.tenants.read',
+          order: 10,
+          actions: [],
+          children: [
+            {
+              id: 'tenant-context',
+              title: '租户上下文',
+              permissionCode: 'tenancy.tenant_context.read',
+              order: 10,
+              actions: [
+                {
+                  id: 'tenancy.tenants.switch',
+                  name: '切换租户',
+                  permissionCode: 'tenancy.tenants.switch',
+                  order: 10
+                }
+              ],
+              children: []
+            }
+          ]
+        }
+      ]
+    }
+  ];
+
+  it('仅选中子页面与操作时映射对应节点，不误勾父页面', () => {
+    const nodes = buildPermissionTreeNodes(nestedModules);
+    const checked = permissionCodesToCheckedNodeIds(
+      new Set(['tenancy.tenant_context.read', 'tenancy.tenants.switch']),
+      nodes
+    );
+    expect(checked).toContain('page:tenant-context');
+    expect(checked).toContain('action:tenancy.tenants.switch');
+    expect(checked).not.toContain('page:tenants-root');
+  });
+});
 
 describe('\u6a21\u5757\u8282\u70b9\u5143\u6570\u636e', () => {
   it('\u6a21\u5757\u8282\u70b9\u4ec5\u7528\u4e8e\u5206\u7ec4\u5c55\u793a', () => {

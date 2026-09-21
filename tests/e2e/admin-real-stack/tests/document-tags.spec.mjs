@@ -59,6 +59,8 @@ test('受限 Host 账号访问文档标签 API 被拒绝且导航裁剪', async 
   await expect(navigation.getByRole('link', { name: /文档标签/ })).toHaveCount(0);
 
   await page.goto(statusPath(clientKind, 'document/tags'));
-  await expect(page.getByText('403', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '没有访问权限' })).toBeVisible();
+  await expect(page.getByText('403', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('heading', { name: '没有访问权限' })).toBeVisible({
+    timeout: 15_000
+  });
 });

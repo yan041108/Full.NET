@@ -2,7 +2,9 @@ import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
   clickMainNavLink,
+  createHostUserViaApi,
   loginAccessToken,
+  loginAccessTokenWithPassword,
   loginAsHostAdmin,
   loginAsHostViewer,
   statusPath
@@ -89,7 +91,7 @@ test('Host 管理员可从 UI 强制下线其他在线会话', async ({ page, re
     ? page.locator('[data-route-view="online-sessions"]')
     : page.locator('.online-sessions-view');
 
-  await expect(onlineSessionsView.getByText(victimUsername, { exact: true })).toBeVisible({
+  await expect(onlineSessionsView.getByText(victimUsername, { exact: true }).first()).toBeVisible({
     timeout: 15_000
   });
 

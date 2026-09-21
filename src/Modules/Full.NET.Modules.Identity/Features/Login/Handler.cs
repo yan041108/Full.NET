@@ -159,37 +159,17 @@ internal sealed class Handler(
             session,
             "refresh session insert",
             cancellationToken).ConfigureAwait(false);
-        if (_options.SessionLoginPolicy == IdentitySessionLoginPolicy.SingleSession)
-        {
-            var revokedSessionIds = (await queryExecutor.QueryAsync<Guid>(
-                        OnlineSessionSql.ListActiveHostSessionIdsByUserExcept,
-                        IdentitySqlParameters.Create(
-                            ("UserId", user.Id),
-                            ("ExceptSessionId", sessionId),
-                            ("NowUtc", clock.UtcNow)),
-                        cancellationToken)
-                    .ConfigureAwait(false))
-                .ToArray();
-            if (revokedSessionIds.Length > 0)
-            {
-                var revokedRows = await commandExecutor.ExecuteAsync(
-                        IdentitySql.RevokeUserSessionsExcept,
-                        IdentitySqlParameters.Create(
-                            ("UserId", user.Id),
-                            ("ExceptSessionId", sessionId),
-                            ("RevokedAtUtc", clock.UtcNow)),
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (revokedRows > 0)
-                {
-                    await sessionRealtimeDelivery.PublishSessionsRevokedAsync(
-                            user.Id,
-                            revokedSessionIds,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-            }
-        }
+        await IdentitySessionLoginPolicyCoordinator.EnforceAfterSuccessfulLoginAsync(
+                _options.SessionLoginPolicy,
+                user.Id,
+                sessionId,
+                _options.ClientId,
+                queryExecutor,
+                commandExecutor,
+                clock,
+                sessionRealtimeDelivery,
+                cancellationToken)
+            .ConfigureAwait(false);
 
         await WriteAuditAsync(
             user.Id,

@@ -235,6 +235,48 @@ describe('Vue 角色管理页', () => {
     );
   });
 
+  it('保存后再次打开权限弹窗仍保留完整权限用于提交', async () => {
+    const permissionCodes = [
+      'identity.users.read',
+      'identity.users.create',
+      'identity.users.reset_password'
+    ];
+    const roleAfterSave = { ...customRole, permissionCodes, version: 4 };
+    listMock.mockResolvedValue({
+      items: [roleAfterSave],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+    replacePermissionsMock.mockResolvedValue(roleAfterSave);
+
+    const wrapper = mountWithPermissions(['identity.roles.assign_permissions']);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="role-open-permissions"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+    await nextTick();
+    await wrapper.get('[data-testid="role-save-permissions"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    await wrapper.get('[data-testid="role-open-permissions"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+    await nextTick();
+    await wrapper.get('[data-testid="role-save-permissions"]').trigger('click');
+    await flushPromises();
+
+    expect(replacePermissionsMock).toHaveBeenLastCalledWith(
+      'role-id',
+      [...permissionCodes].sort(),
+      4
+    );
+
+    wrapper.unmount();
+  });
+
   it('打开权限对话框后仍保留全部已存权限用于回显和保存', async () => {
     const permissionCodes = [
       'identity.users.read',

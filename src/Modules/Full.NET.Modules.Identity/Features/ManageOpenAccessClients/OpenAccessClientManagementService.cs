@@ -119,15 +119,25 @@ internal sealed class OpenAccessClientManagementService(
             return Result<CreateOpenAccessClientResponse>.Failure(metadataValidation.Error!);
         }
 
+        var usernameResult = OpenAccessClientRequestValidation.ParseRequiredUsername(request.Username);
+        if (!usernameResult.IsSuccess)
+        {
+            return Result<CreateOpenAccessClientResponse>.Failure(usernameResult.Error!);
+        }
+
+        var boundUsername = usernameResult.Value!;
         var permissionResult = NormalizePermissions(request.Permissions);
         if (!permissionResult.IsSuccess)
         {
             return Result<CreateOpenAccessClientResponse>.Failure(permissionResult.Error!);
         }
 
+        var normalizedUsername = boundUsername.ToUpperInvariant();
         var user = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
-                IdentitySql.FindHostUserById,
-                IdentitySqlParameters.Create(("UserId", request.UserId)),
+                IdentitySql.FindUserByScopeAndUsername,
+                IdentitySqlParameters.Create(
+                    ("ScopeKey", "host"),
+                    ("NormalizedUsername", normalizedUsername)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (user is null)
@@ -148,7 +158,7 @@ internal sealed class OpenAccessClientManagementService(
 
         if (!await HasPermissionCeilingAsync(
                 operatorUserId,
-                request.UserId,
+                user.Id,
                 credentialPermissions,
                 permissionResult.Value!,
                 cancellationToken)
@@ -179,7 +189,7 @@ internal sealed class OpenAccessClientManagementService(
         var apiKeyRecord = new ApiKeyRecord
         {
             Id = apiKeyId,
-            UserId = request.UserId,
+            UserId = user.Id,
             DisplayName = metadataValidation.Value!.Name,
             KeyPrefix = secret[..Math.Min(secret.Length, 16)],
             KeyHash = TokenHash.Compute(secret),

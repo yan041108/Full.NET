@@ -26,7 +26,7 @@ internal static class JobSql
             ORDER BY JobKey
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement ListDefinitionsMySql =
         new(
@@ -40,7 +40,7 @@ internal static class JobSql
             ORDER BY JobKey
             LIMIT @PageSize OFFSET @Offset
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement CountDefinitions =
         new(
@@ -50,7 +50,7 @@ internal static class JobSql
             FROM fn_jobs_definition
             WHERE TenantId IS NULL
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement FindDefinitionById =
         new(
@@ -62,7 +62,7 @@ internal static class JobSql
             FROM fn_jobs_definition
             WHERE Id = @Id AND TenantId IS NULL
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement FindDefinitionsByIds =
         new(
@@ -176,7 +176,7 @@ internal static class JobSql
             ORDER BY e.CreatedAtUtc DESC, e.Id
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement ListExecutionsMySql =
         new(
@@ -199,7 +199,7 @@ internal static class JobSql
             ORDER BY e.CreatedAtUtc DESC, e.Id
             LIMIT @PageSize OFFSET @Offset
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement CountExecutions =
         new(
@@ -214,7 +214,7 @@ internal static class JobSql
               AND (@FromUtc IS NULL OR CreatedAtUtc >= @FromUtc)
               AND (@ToUtc IS NULL OR CreatedAtUtc <= @ToUtc)
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement FindExecutionById =
         new(
@@ -230,7 +230,7 @@ internal static class JobSql
             INNER JOIN fn_jobs_definition d ON d.Id = e.JobDefinitionId
             WHERE e.Id = @Id AND e.TenantId IS NULL
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement FindScheduleById =
         new(

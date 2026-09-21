@@ -5,6 +5,7 @@ import {
   crudTableRow,
   loginAccessToken,
   loginAccessTokenWithPassword,
+  loginHostAdminAccessToken,
   loginAsHostAdmin,
   loginAsHostUser,
   loginAsHostViewer,
@@ -64,8 +65,8 @@ test('Host 管理员可从真实 API 加载用户列表', async ({ page }) => {
   await clickMainNavLink(page, /用户管理/);
 
   await expect(page.getByRole('heading', { name: '用户管理', exact: true })).toBeVisible();
-  await expect(page.getByText('系统管理员', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('admin', { exact: true }).first()).toBeVisible();
+  const adminRow = page.locator('.users-view .el-table__row').filter({ hasText: 'admin' }).first();
+  await expect(adminRow).toBeVisible();
 });
 
 test('Host 管理员可通过 UI 完成用户创建、更新、禁用与启用', async ({
@@ -95,6 +96,9 @@ test('Host 管理员可通过 UI 完成用户创建、更新、禁用与启用',
     await dialog.getByLabel('初始密码', { exact: true }).fill(defaultPassword);
     await dialog.getByTestId('users-editor-submit').click();
     await expect(dialog).toBeHidden({ timeout: 15_000 });
+    const searchBar = view.locator('.art-search-bar');
+    await searchBar.getByPlaceholder('请输入账号').fill(username);
+    await searchBar.getByRole('button', { name: '查询' }).click();
   } else {
     await view.getByLabel('用户名', { exact: true }).fill(username);
     await view.getByLabel('显示名称', { exact: true }).fill(displayName);

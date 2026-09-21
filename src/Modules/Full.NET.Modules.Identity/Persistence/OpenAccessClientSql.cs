@@ -100,6 +100,7 @@ internal static class OpenAccessClientSql
         WHERE identityUser.ScopeKey = 'host'
           AND identityUser.TenantId IS NULL
           AND (@UserId IS NULL OR apiKey.UserId = @UserId)
+          AND (@UsernameContains IS NULL OR identityUser.Username LIKE '%' + @UsernameContains + '%')
           AND (@NameContains IS NULL OR client.Name LIKE '%' + @NameContains + '%')
         """,
         SqlDataScope.HostOnly);
@@ -112,6 +113,7 @@ internal static class OpenAccessClientSql
         WHERE identityUser.ScopeKey = 'host'
           AND identityUser.TenantId IS NULL
           AND (@UserId IS NULL OR apiKey.UserId = @UserId)
+          AND (@UsernameContains IS NULL OR identityUser.Username LIKE CONCAT('%', @UsernameContains, '%'))
           AND (@NameContains IS NULL OR client.Name LIKE CONCAT('%', @NameContains, '%'))
         """,
         SqlDataScope.HostOnly);
@@ -124,6 +126,7 @@ internal static class OpenAccessClientSql
         WHERE identityUser.ScopeKey = 'host'
           AND identityUser.TenantId IS NULL
           AND (@UserId IS NULL OR apiKey.UserId = @UserId)
+          AND (@UsernameContains IS NULL OR identityUser.Username LIKE '%' + @UsernameContains + '%')
           AND (@NameContains IS NULL OR client.Name LIKE '%' + @NameContains + '%')
         ORDER BY client.CreatedAtUtc DESC, client.Id DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
@@ -138,6 +141,7 @@ internal static class OpenAccessClientSql
         WHERE identityUser.ScopeKey = 'host'
           AND identityUser.TenantId IS NULL
           AND (@UserId IS NULL OR apiKey.UserId = @UserId)
+          AND (@UsernameContains IS NULL OR identityUser.Username LIKE CONCAT('%', @UsernameContains, '%'))
           AND (@NameContains IS NULL OR client.Name LIKE CONCAT('%', @NameContains, '%'))
         ORDER BY client.CreatedAtUtc DESC, client.Id DESC
         LIMIT @PageSize OFFSET @Offset

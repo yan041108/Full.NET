@@ -44,28 +44,47 @@ export async function startFromDefinitionsPage(page, assets, reason) {
   return response.json();
 }
 
-export async function openTodoAndAct(page, instanceId, decision, action) {
-  await openTodo(page, instanceId);
+function todoRowMarker(instance) {
+  if (typeof instance === 'string') {
+    return instance;
+  }
+
+  return instance.businessId ?? instance.id;
+}
+
+export async function filterWorkflowTodosByDefinition(page, definitionKey) {
+  await page.getByTestId('workflow-todo-definition-filter').fill(definitionKey);
+  await page.getByTestId('workflow-todo-filter-apply').click();
+}
+
+export async function openTodoAndAct(page, instance, decision, action, options) {
+  await openTodo(page, instance, options);
   const reasonField = page.locator('.workflow-form__field').filter({ hasText: 'reason' });
   await expect(reasonField.locator('input')).toHaveAttribute('readonly', '');
   await expect(page.locator('.workflow-form__field').filter({ hasText: 'secret' }))
     .toHaveCount(0);
   await fillDecision(page, decision);
   const actionButton = page.getByTestId(`workflow-todo-${action}`);
+  await expect(actionButton).toBeEnabled({ timeout: 15_000 });
   await actionButton.click();
-  await expect(page.getByRole('row').filter({ hasText: instanceId })).toHaveCount(0);
+  await expect(page.getByRole('row').filter({ hasText: todoRowMarker(instance) })).toHaveCount(0);
 }
 
-export async function openTodo(page, instanceId) {
-  const row = page.getByRole('row').filter({ hasText: instanceId });
+export async function openTodo(page, instance, options) {
+  const definitionKey = options?.definitionKey;
+  if (definitionKey) {
+    await filterWorkflowTodosByDefinition(page, definitionKey);
+  }
+  const row = page.getByRole('row').filter({ hasText: todoRowMarker(instance) });
   await expect(row).toBeVisible({ timeout: 15_000 });
   await row.getByTestId('workflow-todo-open').click();
   await expect(page.getByTestId('workflow-form-renderer')).toBeVisible();
 }
 
 export async function fillDecision(page, value) {
-  const decisionField = page.locator('.workflow-form__field').filter({ hasText: 'decision' });
-  await decisionField.locator('input').fill(value);
+  const input = page.locator('[data-field-key="decision"] input');
+  await expect(input).toBeVisible({ timeout: 15_000 });
+  await input.fill(value);
 }
 
 export async function publishApprovalAssets(request, clientKind, accessToken) {

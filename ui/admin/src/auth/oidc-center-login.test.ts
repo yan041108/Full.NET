@@ -24,8 +24,9 @@ describe('oidc center login helpers', () => {
     vi.restoreAllMocks();
   });
 
-  it('resolves hash-router callback redirect uri', () => {
-    expect(resolveAdminOidcRedirectUri()).toContain('#/identity/oidc/callback');
+  it('resolves redirect uri without fragment for OpenIddict', () => {
+    expect(resolveAdminOidcRedirectUri()).not.toContain('#');
+    expect(resolveAdminOidcRedirectUri()).toMatch(/\/$/u);
   });
 
   it('rejects callback when state does not match', async () => {

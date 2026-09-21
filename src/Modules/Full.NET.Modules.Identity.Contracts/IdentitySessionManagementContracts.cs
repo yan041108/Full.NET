@@ -15,14 +15,17 @@ public static class IdentitySessionManagementPermissions
     public const string Write = "identity.sessions.write";
 }
 
-/// <summary>登录会话并发策略；默认允许多端同时在线。</summary>
+/// <summary>登录会话并发策略；默认同一客户端仅保留一条活跃刷新会话。</summary>
 public enum IdentitySessionLoginPolicy
 {
-    /// <summary>同一用户可同时维持多个活跃刷新会话。</summary>
+    /// <summary>同一用户可同时维持多个活跃刷新会话（含同一 ClientId 重复登录）。</summary>
     AllowMultiple,
 
     /// <summary>新登录会撤销该用户其余活跃刷新会话，仅保留当前会话。</summary>
     SingleSession,
+
+    /// <summary>新登录仅撤销同一 ClientId 下的其他活跃刷新会话；不同客户端仍可并存。</summary>
+    SingleSessionPerClient,
 }
 
 /// <summary>当前 Host 登录会话策略只读视图。</summary>

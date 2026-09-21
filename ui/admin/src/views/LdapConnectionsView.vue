@@ -348,32 +348,45 @@ onMounted(() => {
       @reset="resetSearch"
     />
 
-    <ElCard ref="tableMainRef" class="art-table-card art-full-height" shadow="never">
-      <ArtTableHeader :title="t('ldapConnections.title')">
-        <template #actions>
-          <PermissionGate code="identity.ldap_connections.create">
-            <ElButton
-              type="primary"
-              :icon="Plus"
-              data-testid="ldap-connections-action-create"
-              @click="openCreate"
-            >
-              {{ t('ldapConnections.create') }}
-            </ElButton>
-          </PermissionGate>
-        </template>
-      </ArtTableHeader>
+    <ElCard class="art-table-card art-full-height" shadow="never">
+      <div ref="tableMainRef" class="art-crud-table-main ldap-connections-table-main">
+        <ArtTableHeader
+          v-model:table-size="tableSize"
+          v-model:zebra="tableZebra"
+          v-model:border="tableBorder"
+          v-model:header-background="tableHeaderBackground"
+          :loading="loading"
+          full-class="ldap-connections-table-main"
+          layout="refresh,size,fullscreen,settings"
+          @refresh="load"
+        >
+          <template #left>
+            <strong>{{ t('ldapConnections.title') }}</strong>
+          </template>
+          <template #right>
+            <PermissionGate code="identity.ldap_connections.create">
+              <ElButton
+                type="primary"
+                :icon="Plus"
+                data-testid="ldap-connections-action-create"
+                @click="openCreate"
+              >
+                {{ t('ldapConnections.create') }}
+              </ElButton>
+            </PermissionGate>
+          </template>
+        </ArtTableHeader>
 
-      <ElTable
-        v-loading="loading"
-        :data="items"
-        :size="tableSize"
-        :stripe="tableZebra"
-        :border="tableBorder"
-        :height="tableHeight"
-        :header-cell-style="tableHeaderCellStyle"
-        :header-cell-class-name="tableHeaderBackground ? 'art-table-header-background' : ''"
-      >
+        <ElTable
+          v-loading="loading"
+          :data="items"
+          :size="tableSize"
+          :stripe="tableZebra"
+          :border="tableBorder"
+          :height="tableHeight"
+          :header-cell-style="tableHeaderCellStyle"
+          :header-cell-class-name="tableHeaderBackground ? 'art-table-header-background' : ''"
+        >
         <ElTableColumn type="index" :index="rowIndex" width="64" />
         <ElTableColumn prop="name" :label="t('ldapConnections.fieldName')" min-width="140" />
         <ElTableColumn prop="host" :label="t('ldapConnections.fieldHost')" min-width="160" />
@@ -434,16 +447,18 @@ onMounted(() => {
             </ArtTableActionGroup>
           </template>
         </ElTableColumn>
-      </ElTable>
+        </ElTable>
 
-      <ElPagination
-        v-model:current-page="page"
-        v-model:page-size="pageSize"
-        class="art-table-pagination"
-        layout="total, sizes, prev, pager, next"
-        :total="total"
-        @change="load"
-      />
+        <ElPagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          class="art-table-pagination"
+          layout="total, sizes, prev, pager, next"
+          :total="total"
+          @current-change="load"
+          @size-change="load"
+        />
+      </div>
     </ElCard>
 
     <ArtFormDialog

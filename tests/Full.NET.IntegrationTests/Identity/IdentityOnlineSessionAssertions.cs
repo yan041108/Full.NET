@@ -290,7 +290,7 @@ internal static class IdentityOnlineSessionAssertions
         var policy = await response.Content.ReadFromJsonAsync<IdentitySessionPolicyResponse>(
             cancellationToken);
         Assert.IsNotNull(policy);
-        Assert.AreEqual(IdentitySessionLoginPolicy.AllowMultiple, policy.LoginPolicy);
+        Assert.AreEqual(IdentitySessionLoginPolicy.SingleSessionPerClient, policy.LoginPolicy);
     }
 
     private static async Task VerifyExactSessionRevokePermissionBoundariesAsync(

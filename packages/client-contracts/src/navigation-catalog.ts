@@ -160,6 +160,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/files/host-files'
   },
   {
+    componentKey: 'import-export-tasks',
+    routeName: 'import-export-tasks',
+    path: '/import-export/tasks'
+  },
+  {
     componentKey: 'storage-providers',
     routeName: 'storage-providers',
     path: '/files/storage-providers'
@@ -375,6 +380,156 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/workflow/recovery-tasks'
   },
   {
+    componentKey: 'ai-model-configs',
+    routeName: 'ai-model-configs',
+    path: '/ai/model-configs'
+  },
+  {
+    componentKey: 'ai-chat',
+    routeName: 'ai-chat',
+    path: '/ai/chat'
+  },
+  {
+    componentKey: 'ai-agent-tools',
+    routeName: 'ai-agent-tools',
+    path: '/ai/agent-tools'
+  },
+  {
+    componentKey: 'ai-mcp-remote-connections',
+    routeName: 'ai-mcp-remote-connections',
+    path: '/ai/mcp-remote-connections'
+  },
+  {
+    componentKey: 'ai-agent-runs',
+    routeName: 'ai-agent-runs',
+    path: '/ai/agent-runs'
+  },
+  {
+    componentKey: 'goview-projects',
+    routeName: 'goview-projects',
+    path: '/goview/projects'
+  },
+  {
+    componentKey: 'k3cloud-connection-configs',
+    routeName: 'k3cloud-connection-configs',
+    path: '/k3cloud/connection-configs'
+  },
+  {
+    componentKey: 'k3cloud-document-syncs',
+    routeName: 'k3cloud-document-syncs',
+    path: '/k3cloud/document-syncs'
+  },
+  {
+    componentKey: 'ocr-provider-config',
+    routeName: 'ocr-provider-config',
+    path: '/ocr/provider-config'
+  },
+  {
+    componentKey: 'ocr-id-card-tasks',
+    routeName: 'ocr-id-card-tasks',
+    path: '/ocr/id-card-tasks'
+  },
+  {
+    componentKey: 'payments-merchant-configs',
+    routeName: 'payments-merchant-configs',
+    path: '/payments/merchant-configs'
+  },
+  {
+    componentKey: 'payments-orders',
+    routeName: 'payments-orders',
+    path: '/payments/orders'
+  },
+  {
+    componentKey: 'payments-refunds',
+    routeName: 'payments-refunds',
+    path: '/payments/refunds'
+  },
+  {
+    componentKey: 'printing-preview',
+    routeName: 'printing-preview',
+    path: '/printing/preview'
+  },
+  {
+    componentKey: 'reporting-data-sources',
+    routeName: 'reporting-data-sources',
+    path: '/reporting/data-sources'
+  },
+  {
+    componentKey: 'reporting-definitions',
+    routeName: 'reporting-definitions',
+    path: '/reporting/definitions'
+  },
+  {
+    componentKey: 'reporting-execute',
+    routeName: 'reporting-execute',
+    path: '/reporting/execute'
+  },
+  {
+    componentKey: 'reporting-export-tasks',
+    routeName: 'reporting-export-tasks',
+    path: '/reporting/export-tasks'
+  },
+  {
+    componentKey: 'tenant-branding',
+    routeName: 'tenant-branding',
+    path: '/settings/tenant-branding'
+  },
+  {
+    componentKey: 'tenant-onboarding',
+    routeName: 'tenant-onboarding',
+    path: '/tenant-onboarding'
+  },
+  {
+    componentKey: 'tenant-members',
+    routeName: 'tenant-members',
+    path: '/identity/tenant-members'
+  },
+  {
+    componentKey: 'my-host-announcements',
+    routeName: 'my-host-announcements',
+    path: '/notifications/my-host-announcements'
+  },
+  {
+    componentKey: 'notification-dingtalk-approval-sync',
+    routeName: 'notification-dingtalk-approval-sync',
+    path: '/notifications/dingtalk-approval-sync'
+  },
+  {
+    componentKey: 'notification-wechat-miniprogram-bindings',
+    routeName: 'notification-wechat-miniprogram-bindings',
+    path: '/notifications/wechat-miniprogram-bindings'
+  },
+  {
+    componentKey: 'cryptography-gm-keys',
+    routeName: 'cryptography-gm-keys',
+    path: '/cryptography/gm-keys'
+  },
+  {
+    componentKey: 'mqtt-control-plane',
+    routeName: 'mqtt-control-plane',
+    path: '/mqtt/control-plane'
+  },
+  {
+    componentKey: 'document-preview-tasks',
+    routeName: 'document-preview-tasks',
+    path: '/document/preview-tasks'
+  },
+  {
+    componentKey: 'enterprise-requests',
+    routeName: 'enterprise-requests',
+    path: '/enterprise-requests'
+  },
+  {
+    componentKey: 'data-approval-requests',
+    routeName: 'data-approval-requests',
+    path: '/data-approvals/requests'
+  },
+  {
+    componentKey: 'data-approval-scenarios',
+    routeName: 'data-approval-scenarios',
+    path: '/data-approvals/scenarios'
+  },
+  {
     componentKey: 'layout',
     routeName: 'layout',
     path: '/'
@@ -411,11 +566,21 @@ export function createAdminNavigationCatalog(
       && node.path.startsWith('/modules/');
   }
 
+  function isDomainDirectoryNode(node: NavigationNode): boolean {
+    return node.componentKey === 'layout'
+      && node.routeName.startsWith('domain-')
+      && node.path.startsWith('/domains/');
+  }
+
+  function isContainerDirectoryNode(node: NavigationNode): boolean {
+    return isDomainDirectoryNode(node) || isModuleDirectoryNode(node);
+  }
+
   function isSupportedNavigationTree(
     navigation: readonly NavigationNode[]
   ): boolean {
     return navigation.every(node => {
-      if (isModuleDirectoryNode(node)) {
+      if (isContainerDirectoryNode(node)) {
         return isSupportedNavigationTree(node.children);
       }
 

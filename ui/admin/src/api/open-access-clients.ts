@@ -29,6 +29,9 @@ function buildListQuery(query: OpenAccessClientListQuery): string {
   if (query.userId?.trim()) {
     params.set('userId', query.userId.trim());
   }
+  if (query.usernameContains?.trim()) {
+    params.set('usernameContains', query.usernameContains.trim());
+  }
   if (query.nameContains?.trim()) {
     params.set('nameContains', query.nameContains.trim());
   }

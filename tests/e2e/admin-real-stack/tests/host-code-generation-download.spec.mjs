@@ -8,8 +8,13 @@ import {
   loginHostAdminAccessToken,
   provisionLimitedHostUserViaApi
 } from './support/real-stack-auth.mjs';
+import { skipCodegenWhenAttachModeWithoutWorkspace } from './support/codegeneration-attach-skip.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+
+test.beforeEach(() => {
+  skipCodegenWhenAttachModeWithoutWorkspace();
+});
 
 const downloadableSchema = {
   ownerKey: 'acme',

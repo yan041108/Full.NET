@@ -88,10 +88,10 @@ internal sealed class IdentityOptions
     public int PasswordExpirationDays { get; set; }
 
     /// <summary>
-    /// 登录会话并发策略；<see cref="IdentitySessionLoginPolicy.SingleSession"/> 会在成功登录后撤销同一用户的其他活跃会话。
+    /// 登录会话并发策略；成功登录后按策略撤销其他活跃刷新会话（刷新轮换不会新建并列会话族）。
     /// </summary>
     public IdentitySessionLoginPolicy SessionLoginPolicy { get; set; } =
-        IdentitySessionLoginPolicy.AllowMultiple;
+        IdentitySessionLoginPolicy.SingleSessionPerClient;
 }
 
 /// <summary>

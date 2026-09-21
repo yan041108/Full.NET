@@ -119,6 +119,7 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<TenantUnits.OrganizationUnitProjectionCatalog>();
         services.TryAddScoped<IIdentityOrganizationUnitProjectionSource>(provider =>
             provider.GetRequiredService<TenantUnits.OrganizationUnitProjectionCatalog>());
+        services.TryAddScoped<IWorkflowUnitLeaderDirectory, TenantUnits.WorkflowUnitLeaderDirectory>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

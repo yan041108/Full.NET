@@ -187,6 +187,16 @@ function syncTabs(): void {
   tabs.value = upsertShellTab(tabs.value, navigation.value, route.path);
 }
 
+/** 清理 keep-alive 页面遗留的表格全屏遮罩，避免挡住侧栏与其它路由。 */
+function clearStaleTableFullscreen(): void {
+  document.querySelectorAll('.el-full-screen').forEach(element => {
+    element.classList.remove('el-full-screen');
+  });
+  if (document.body.style.overflow === 'hidden') {
+    document.body.style.overflow = '';
+  }
+}
+
 function activateTab(path: string): void {
   void router.push(path);
 }
@@ -298,6 +308,7 @@ watch(
 watch(
   () => route.path,
   path => {
+    clearStaleTableFullscreen();
     syncTabs();
     syncActiveMenuGroup(path);
     closeMobileNav();

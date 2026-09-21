@@ -5,7 +5,7 @@ namespace Full.NET.Modules.Identity.Seeding;
 
 /// <summary>
 /// Baseline Profile 播种：将代码 AuthorizationCatalog 中声明的导航定义
-/// 同步写入宿主侧持久化菜单表，支持新增节点与父子重连；已存在的条目按 Id 幂等跳过。
+/// 同步写入宿主侧持久化菜单表，支持新增节点、模块挂接与领域分组合并；已存在的条目按 RouteName 幂等跳过。
 /// 依赖 HostNavigationCatalogSyncService 做具体同步，避免在 Seed 层复制菜单规则。
 /// </summary>
 internal sealed class HostNavigationCatalogSeedContributor(
@@ -13,7 +13,7 @@ internal sealed class HostNavigationCatalogSeedContributor(
 {
     public string Name => "identity.host_navigation_catalog";
 
-    public int Version => 1;
+    public int Version => 2;
 
     public IReadOnlySet<SeedProfile> Profiles { get; } =
         new HashSet<SeedProfile> { SeedProfile.Baseline };

@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { GenericContainer, Wait } from 'testcontainers';
+import { createOidcStackEnv } from './oidc-stack-env.mjs';
 import { provisionViewer } from './provision-viewer.mjs';
 import { waitForApi } from './wait-for-api.mjs';
 
@@ -38,26 +39,6 @@ function resolveDatabaseProvider() {
 /** 真实栈启动 Profile：development 含 Development Seed；production-totp 走 Production + TOTP 强认证。 */
 function resolveStackProfile() {
   return process.env.FULLNET_E2E_STACK_PROFILE ?? 'development';
-}
-
-function createOidcStackEnv(apiBaseUrl) {
-  const issuer = `${apiBaseUrl.replace(/\/$/, '')}/identity`;
-  return {
-    Identity__Oidc__Enable: 'true',
-    Identity__Oidc__Issuer: issuer,
-    Identity__Oidc__AllowDevelopmentEphemeralSigningKey: 'true',
-    Identity__Oidc__Clients__0__ClientId: 'e2e-oidc-rp-a',
-    Identity__Oidc__Clients__0__RedirectUris__0: 'http://localhost:5173/',
-    Identity__Oidc__Clients__0__Scopes__0: 'openid',
-    Identity__Oidc__Clients__0__Scopes__1: 'profile',
-    Identity__Oidc__Clients__0__IsFirstParty: 'true',
-    Identity__Oidc__Clients__1__ClientId: 'e2e-oidc-rp-b',
-    Identity__Oidc__Clients__1__ClientSecret: 'e2e-oidc-rp-b-secret',
-    Identity__Oidc__Clients__1__RedirectUris__0: 'http://localhost:5174/',
-    Identity__Oidc__Clients__1__Scopes__0: 'openid',
-    Identity__Oidc__Clients__1__Scopes__1: 'profile',
-    Identity__Oidc__Clients__1__IsFirstParty: 'true'
-  };
 }
 
 function createProductionSigningKeyEnv(keyId = 'e2eprodsigning') {

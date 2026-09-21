@@ -284,27 +284,48 @@ function syncBasicFormFromProps(): void {
   basicForm.remark = props.profile.remark ?? '';
 }
 
+let openSyncGeneration = 0;
+
+function scheduleSyncBasicFormFromProps(): void {
+  const generation = ++openSyncGeneration;
+  const runSync = (): void => {
+    if (!props.open || generation !== openSyncGeneration) {
+      return;
+    }
+    syncBasicFormFromProps();
+    clearFieldErrors();
+    void nextTick(() => basicFormRef.value?.clearValidate());
+  };
+
+  // 父组件常在同一 tick 内先写 profile 再置 open；destroy-on-close 下控件会再晚一帧挂载，故连续两次同步。
+  void nextTick(() => {
+    runSync();
+    void nextTick(runSync);
+  });
+}
+
 watch(
   () => props.open,
   (open) => {
     if (!open) {
       return;
     }
-    syncBasicFormFromProps();
-    clearFieldErrors();
-    void nextTick(() => basicFormRef.value?.clearValidate());
-  }
+
+    scheduleSyncBasicFormFromProps();
+  },
+  { immediate: true }
 );
 
 watch(
-  () => [props.profile.phoneNumber, props.profile.idCardNumber],
+  () => props.profile,
   () => {
     if (!props.open) {
       return;
     }
-    basicForm.phoneNumber = props.profile.phoneNumber ?? '';
-    basicForm.idCardNumber = props.profile.idCardNumber ?? '';
-  }
+
+    scheduleSyncBasicFormFromProps();
+  },
+  { deep: true }
 );
 
 function close(): void {

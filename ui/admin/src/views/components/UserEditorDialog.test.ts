@@ -175,6 +175,39 @@ describe('UserEditorDialog', () => {
     wrapper.unmount();
   });
 
+  it('打开编辑弹窗时会将 profile 工号灌入表单', async () => {
+    const wrapper = mount(UserEditorDialog, {
+      props: createProps({
+        mode: 'edit',
+        open: true,
+        username: 'demo-user',
+        displayName: '演示用户',
+        effectiveFieldKeys: ['employee_number'],
+        profile: {
+          employeeNumber: '88',
+          fieldKeys: ['employee_number']
+        } as HostUserProfileWrite
+      }),
+      attachTo: document.body,
+      global: {
+        stubs: {
+          ElDialog: {
+            template: '<div class="users-editor-dialog-stub"><slot /></div>'
+          }
+        }
+      }
+    });
+    await flushPromises();
+    await nextTick();
+    await nextTick();
+    await flushPromises();
+
+    const employeeInput = wrapper.findAll('input').find(element => (element.element as HTMLInputElement).value === '88');
+    expect(employeeInput).toBeDefined();
+
+    wrapper.unmount();
+  });
+
   it('点击确定会在校验失败时阻止提交', async () => {
     const onSubmit = vi.fn();
     const wrapper = mount(UserEditorDialog, {

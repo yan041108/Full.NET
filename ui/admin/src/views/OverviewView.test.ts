@@ -19,7 +19,11 @@ describe('Vue 管理端概览页', () => {
 
     await flushPromises();
     expect(wrapper.get('[data-testid="metric-grid"]').text()).toContain('活跃租户');
-    expect(wrapper.get('[data-testid="open-api-docs"]').attributes('href')).toBe('/scalar/v1');
+    expect(wrapper.get('[data-testid="open-api-docs"]').attributes('href')).toBe(
+      import.meta.env.VITE_API_PROXY_TARGET
+        ? `${String(import.meta.env.VITE_API_PROXY_TARGET).replace(/\/$/, '')}/scalar/v1`
+        : '/scalar/v1'
+    );
     expect(wrapper.text()).toContain('系统脉搏');
     expect(wrapper.text()).toContain('待办事项');
     expect(wrapper.text()).toContain('最近活动');

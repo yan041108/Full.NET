@@ -23,11 +23,18 @@ test('Host 管理员可在治理页创建并停用 OIDC 客户端', async ({ pag
     timeout: 15_000
   });
   await page.getByTestId('oidc-clients-action-create').click();
-  await page.getByLabel('Client Id', { exact: true }).fill(clientId);
-  await page.getByLabel('显示名称', { exact: true }).fill('E2E 治理客户端');
-  await page.getByLabel('回调地址（每行一个）', { exact: true }).fill('https://localhost:5199/callback');
-  await page.getByTestId('oidc-clients-editor-submit').click();
-  await expect(page.getByText('OIDC 客户端已创建')).toBeVisible();
+  const editor = page.getByRole('dialog').last();
+  await editor.getByLabel('Client Id', { exact: true }).fill(clientId);
+  await editor.getByLabel('显示名称', { exact: true }).fill('E2E 治理客户端');
+  await editor.getByLabel('回调地址（每行一个）', { exact: true }).fill('https://localhost:5199/callback');
+  const createResponsePromise = page.waitForResponse(
+    response =>
+      response.request().method() === 'POST'
+      && response.url().includes('/api/v1/identity/oidc-clients')
+  );
+  await editor.getByTestId('oidc-clients-editor-submit').click();
+  expect((await createResponsePromise).status()).toBe(201);
+  await expect(page.getByText('OIDC 客户端已创建')).toBeVisible({ timeout: 15_000 });
   const row = page.locator('.el-table__row').filter({ hasText: clientId });
   await expect(row).toBeVisible();
   await row.getByTestId('oidc-clients-action-disable').click();
@@ -41,12 +48,18 @@ test('机密客户端轮换密钥后仅展示一次明文', async ({ page }) => 
   const clientId = `e2e-rotate-${Date.now().toString(36)}`;
   await page.goto('/#/identity/oidc-clients');
   await page.getByTestId('oidc-clients-action-create').click();
-  await page.getByLabel('Client Id', { exact: true }).fill(clientId);
-  await page.getByLabel('显示名称', { exact: true }).fill('E2E 轮换客户端');
-  await page.getByLabel('回调地址（每行一个）', { exact: true }).fill('https://localhost:5198/callback');
-  await page.getByLabel('保密客户端', { exact: true }).locator('..').getByRole('switch').click();
-  await page.getByTestId('oidc-clients-editor-submit').click();
-  await expect(page.getByText('OIDC 客户端已创建')).toBeVisible();
+  const editor = page.getByRole('dialog').last();
+  await editor.getByLabel('Client Id', { exact: true }).fill(clientId);
+  await editor.getByLabel('显示名称', { exact: true }).fill('E2E 轮换客户端');
+  await editor.getByLabel('回调地址（每行一个）', { exact: true }).fill('https://localhost:5198/callback');
+  const createResponsePromise = page.waitForResponse(
+    response =>
+      response.request().method() === 'POST'
+      && response.url().includes('/api/v1/identity/oidc-clients')
+  );
+  await editor.getByTestId('oidc-clients-editor-submit').click();
+  expect((await createResponsePromise).status()).toBe(201);
+  await expect(page.getByText('OIDC 客户端已创建')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('oidc-client-secret')).toBeVisible();
   const secretText = await page.getByTestId('oidc-client-secret').locator('code').textContent();
   expect(secretText?.trim().length).toBeGreaterThan(10);

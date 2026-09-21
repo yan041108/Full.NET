@@ -16,6 +16,7 @@ import {
   resolveFullNetApiUrl
 } from '@fullnet/client-contracts';
 import { getCurrentUser } from '../api/me';
+import { apiBaseUrl } from '../api/http';
 import { getHostDashboardSummary } from '../api/platform-dashboard';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { createTrafficLineOption } from '../framework/art-design/charts/fullNetChartTheme';
@@ -117,9 +118,20 @@ const chartThemeMode = computed<'light' | 'dark'>(() =>
   document.documentElement.dataset.artTheme === 'dark' ? 'dark' : 'light'
 );
 
-const apiDocumentationUrl = computed(() =>
-  resolveFullNetApiUrl(import.meta.env.VITE_API_BASE_URL ?? '', FULLNET_SCALAR_UI_PATH)
-);
+/** 开发代理模式下文档应指向 API 宿主，避免同源 `/scalar` 误落到 SPA 入口导致整页闪烁。 */
+const apiDocumentationUrl = computed(() => {
+  const explicitBase = apiBaseUrl.trim();
+  if (explicitBase.length > 0) {
+    return resolveFullNetApiUrl(explicitBase, FULLNET_SCALAR_UI_PATH);
+  }
+
+  const proxyTarget = import.meta.env.VITE_API_PROXY_TARGET;
+  if (typeof proxyTarget === 'string' && proxyTarget.trim().length > 0) {
+    return resolveFullNetApiUrl(proxyTarget.trim(), FULLNET_SCALAR_UI_PATH);
+  }
+
+  return FULLNET_SCALAR_UI_PATH;
+});
 
 const userStatus = computed(() => currentUser.value
   ? t('overview.connectedUser', { name: currentUser.value.displayName })

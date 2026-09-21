@@ -36,7 +36,8 @@ internal sealed class OpenAccessClientQueryService(
     /// <summary>分页查询接入方应用列表。</summary>
     /// <param name="page">页码，从 1 开始。</param>
     /// <param name="pageSize">每页条数。</param>
-    /// <param name="userId">可选的绑定用户筛选。</param>
+    /// <param name="userId">可选的绑定用户标识筛选。</param>
+    /// <param name="usernameContains">可选的绑定用户登录名模糊筛选。</param>
     /// <param name="nameContains">可选的应用名称模糊筛选。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>分页结果。</returns>
@@ -44,6 +45,7 @@ internal sealed class OpenAccessClientQueryService(
         int page,
         int pageSize,
         Guid? userId,
+        string? usernameContains,
         string? nameContains,
         CancellationToken cancellationToken = default)
     {
@@ -52,6 +54,7 @@ internal sealed class OpenAccessClientQueryService(
         var offset = (page - 1) * pageSize;
         var filter = IdentitySqlParameters.Create(
             ("UserId", userId),
+            ("UsernameContains", NormalizeFilter(usernameContains)),
             ("NameContains", NormalizeFilter(nameContains)),
             ("Offset", offset),
             ("PageSize", pageSize));

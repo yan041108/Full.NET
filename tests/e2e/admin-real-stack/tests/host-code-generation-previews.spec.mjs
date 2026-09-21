@@ -9,8 +9,13 @@ import {
   statusPath
 } from './support/real-stack-auth.mjs';
 import { toOrganizationOwnedExplicitSchema } from './support/organization-owned-codegen-schema.mjs';
+import { skipCodegenWhenAttachModeWithoutWorkspace } from './support/codegeneration-attach-skip.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+
+test.beforeEach(() => {
+  skipCodegenWhenAttachModeWithoutWorkspace();
+});
 const previewRequest = {
   ownerKey: 'acme',
   moduleKey: 'catalog',

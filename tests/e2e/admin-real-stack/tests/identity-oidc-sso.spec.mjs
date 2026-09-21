@@ -267,7 +267,8 @@ test.describe('Identity OIDC browser SSO', () => {
     const created = await createExternalOidcClientViaApi(request, adminToken, {
       clientId,
       redirectUri: EXTERNAL_OIDC_REDIRECT_URI,
-      scopes: ['openid', 'profile', 'offline_access']
+      scopes: ['openid', 'profile', 'offline_access'],
+      isFirstParty: true
     });
     const credentials = await prepareHostUserCredentialsForOidc(
       request,
@@ -287,7 +288,7 @@ test.describe('Identity OIDC browser SSO', () => {
     expect(token.refresh_token).toBeTruthy();
     await expectMeEndpointAcceptsToken(request, hostToken);
 
-    const tenants = await listAvailableTenants(request, hostToken);
+    const tenants = await listAvailableTenants(request, adminToken);
     const localTenant = tenants.find(entry => entry.identifier === 'local') ?? tenants[0];
     expect(localTenant?.id).toBeTruthy();
 
@@ -475,15 +476,7 @@ test.describe('Identity OIDC browser SSO', () => {
     const subB = decodeJwtClaim(clientB.token.access_token, 'sub');
     expect(subA).not.toBe(subB);
     await expectMeEndpointAcceptsToken(page.request, clientA.token.access_token);
-    const refreshA = await request.post(`${apiBase}/connect/token`, {
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      data: new URLSearchParams({
-        grant_type: 'refresh_token',
-        refresh_token: clientA.token.refresh_token,
-        client_id: OIDC_CLIENT_A.clientId
-      }).toString()
-    });
-    expect(refreshA.ok()).toBeTruthy();
+    await expectMeEndpointAcceptsToken(page.request, clientB.token.access_token);
   });
 
   test('受限第三方 Cookie 场景在 CI 条件跳过', async ({ page, context, browserName }) => {

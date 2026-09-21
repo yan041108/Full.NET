@@ -30,6 +30,7 @@ test('Host 管理员可从真实 API 加载并创建数据字典类型与项', a
   page,
   request
 }, testInfo) => {
+  test.setTimeout(90_000);
   const clientKind = testInfo.project.metadata.clientKind;
   const typeCode = uniqueCode(clientKind, 'e2e_dict');
   const itemValue = uniqueCode(clientKind, 'e2e_item');
@@ -55,8 +56,17 @@ test('Host 管理员可从真实 API 加载并创建数据字典类型与项', a
     : page.locator('.dict-types-view');
 
   await expect(dictTypesView.getByRole('heading', { name: '数据字典', exact: true })).toBeVisible();
-  const dictTypeRow = crudTableRow(dictTypesView, clientKind, typeCode);
-  await expect(dictTypeRow).toBeVisible();
+  const typesPane = clientKind === 'vue'
+    ? dictTypesView.locator('.dict-types-view__pane').first()
+    : dictTypesView;
+  if (clientKind === 'vue') {
+    await typesPane.locator('.art-table-header').getByRole('button', { name: '刷新' }).click();
+    const searchBar = typesPane.locator('.art-search-bar');
+    await searchBar.getByPlaceholder('搜索字典编码').fill(typeCode, { force: true });
+    await searchBar.getByRole('button', { name: '查询' }).click();
+  }
+  const dictTypeRow = crudTableRow(typesPane, clientKind, typeCode);
+  await expect(dictTypeRow).toBeVisible({ timeout: 15_000 });
   await expect(dictTypeRow.getByText(`真实栈字典 ${clientKind}`, { exact: true })).toBeVisible();
 
   await dictTypeRow

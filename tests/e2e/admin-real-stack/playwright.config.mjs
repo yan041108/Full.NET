@@ -8,7 +8,14 @@ export default defineConfig({
   workers: 1,
   forbidOnly: Boolean(process.env.GITHUB_ACTIONS),
   retries: process.env.GITHUB_ACTIONS ? 1 : 0,
-  reporter: process.env.GITHUB_ACTIONS ? 'github' : 'line',
+  reporter: process.env.FULLNET_E2E_L3_JSON_REPORT
+    ? [
+        [process.env.GITHUB_ACTIONS ? 'github' : 'line'],
+        ['json', { outputFile: process.env.FULLNET_E2E_L3_JSON_REPORT }]
+      ]
+    : process.env.GITHUB_ACTIONS
+      ? 'github'
+      : 'line',
   globalSetup: './global-setup.mjs',
   globalTeardown: './global-teardown.mjs',
   use: {
@@ -19,36 +26,36 @@ export default defineConfig({
     {
       command: 'pnpm --dir ../../.. --filter @fullnet/admin exec vite --host localhost --port 25173 --logLevel error',
       url: 'http://localhost:25173',
-      reuseExistingServer: !process.env.CI || process.env.FULLNET_E2E_REUSE_SERVER === '1',
+      reuseExistingServer: process.env.FULLNET_E2E_REUSE_SERVER === '1',
       stdout: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'ignore',
       stderr: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'pipe',
       env: {
-        VITE_API_BASE_URL: apiBaseUrl,
+        VITE_API_PROXY_TARGET: apiBaseUrl,
         VITE_STRICT_CSP: '1'
       }
     },
     {
       command: 'node scripts/serve-oidc-fixture.mjs 5173 fixtures/oidc-rp-a',
       url: 'http://localhost:5173',
-      reuseExistingServer: !process.env.CI || process.env.FULLNET_E2E_REUSE_SERVER === '1',
+      reuseExistingServer: process.env.FULLNET_E2E_REUSE_SERVER === '1',
       stdout: 'ignore',
       stderr: 'pipe'
     },
     {
       command: 'node scripts/serve-oidc-fixture.mjs 5174 fixtures/oidc-rp-b',
       url: 'http://localhost:5174',
-      reuseExistingServer: !process.env.CI || process.env.FULLNET_E2E_REUSE_SERVER === '1',
+      reuseExistingServer: process.env.FULLNET_E2E_REUSE_SERVER === '1',
       stdout: 'ignore',
       stderr: 'pipe'
     },
     {
       command: 'pnpm --dir ../../.. --filter @fullnet/admin exec vite --host localhost --port 25175 --logLevel error',
       url: 'http://localhost:25175',
-      reuseExistingServer: !process.env.CI || process.env.FULLNET_E2E_REUSE_SERVER === '1',
+      reuseExistingServer: process.env.FULLNET_E2E_REUSE_SERVER === '1',
       stdout: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'ignore',
       stderr: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'pipe',
       env: {
-        VITE_API_BASE_URL: apiBaseUrl,
+        VITE_API_PROXY_TARGET: apiBaseUrl,
         VITE_STRICT_CSP: '1',
         VITE_IDENTITY_AUTH_MODE: 'oidc-center',
         VITE_IDENTITY_OIDC_CLIENT_ID: 'e2e-admin-oidc-spa'

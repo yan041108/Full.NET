@@ -89,6 +89,24 @@ public sealed class TenantBrandingServiceTests
     }
 
     [TestMethod]
+    public async Task GetRuntime_returns_empty_branding_on_host_context()
+    {
+        var fixture = new Fixture();
+        fixture.CurrentTenant.IsHost.Returns(true);
+        fixture.CurrentTenant.IsAvailable.Returns(true);
+        fixture.CurrentTenant.Id.Returns((Guid?)null);
+
+        var result = await fixture.Service.GetRuntimeAsync();
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsFalse(result.Value!.HasLogo);
+        await fixture.Query.DidNotReceive().QuerySingleOrDefaultAsync<TenantBrandingRecord>(
+            Arg.Any<SqlStatement>(),
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task GetCurrent_requires_tenant_context()
     {
         var fixture = new Fixture();

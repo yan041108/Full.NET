@@ -49,8 +49,13 @@ test('Host 管理员可从真实 API 加载系统配置项', async ({
     : page.locator('.config-entries-view');
 
   await expect(configEntriesView.getByRole('heading', { name: '系统配置', exact: true })).toBeVisible();
+  if (clientKind === 'vue') {
+    const searchBar = configEntriesView.locator('.art-search-bar');
+    await searchBar.getByPlaceholder('搜索配置编码').fill(configKey);
+    await searchBar.getByRole('button', { name: '查询' }).click();
+  }
   const configRow = crudTableRow(configEntriesView, clientKind, configKey);
-  await expect(configRow).toBeVisible();
+  await expect(configRow).toBeVisible({ timeout: 15_000 });
   await expect(configRow.getByText(`真实栈配置 ${clientKind}`, { exact: true })).toBeVisible();
 });
 

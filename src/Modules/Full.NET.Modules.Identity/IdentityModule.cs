@@ -218,6 +218,19 @@ public sealed class IdentityModule : IFullNetModule
             IIntegrationEventHandlerRegistry,
             global::Full.NET.Generated.IntegrationEventHandlerRegistry>());
         services.TryAddSingleton<IClock, SystemClock>();
+        // Worker 后台授权与工具执行依赖权限快照，但不装配完整 HTTP 授权中间件栈。
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IAuthorizationCatalogContributor,
+            IdentityAuthorizationContributor>());
+        services.TryAddSingleton(provider => AuthorizationCatalog.Create(
+            provider.GetServices<IAuthorizationCatalogContributor>()));
+        services.TryAddSingleton<PermissionClaimEvaluator>();
+        services.TryAddScoped<IPermissionSnapshotReader, PermissionSnapshotReader>();
+        services.AddHostUserDirectory();
+        services.TryAddScoped<HostUsers.HostUserSelectionDirectory>();
+        services.TryAddScoped<IHostUserSelectionDirectory>(provider =>
+            provider.GetRequiredService<HostUsers.HostUserSelectionDirectory>());
+        services.TryAddScoped<IWorkflowRoleMemberDirectory, Workflow.WorkflowRoleMemberDirectory>();
         services.TryAddScoped<Contracts.IBackgroundSessionBindingValidator, BackgroundSessionBindingValidator>();
         services.TryAddScoped<Contracts.IBackgroundSessionAuthorization, BackgroundSessionAuthorization>();
         services.AddIdentityOidcRetentionBackgroundService(configuration);

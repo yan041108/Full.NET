@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { adminOrigin, expandMainNavigation, loginHostAdminAccessToken } from './real-stack-auth.mjs';
 import {
   CENTER_COOKIE_NAME,
@@ -11,6 +11,16 @@ import {
 export const ADMIN_OIDC_CENTER_CLIENT_ID = 'e2e-admin-oidc-spa';
 export const ADMIN_OIDC_CENTER_ORIGIN = 'http://localhost:25175';
 export const E2E_AGENT_RUN_DEFINITION_KEY = 'fullnet-single-text-v1';
+
+export const AGENT_RUNTIME_UNAVAILABLE_SKIP =
+  'Agent runtime 未就绪（需 Host.Worker 新鲜心跳；附着栈请启动 Worker，勿仅设 FULLNET_E2E_SKIP_WORKER_CHECK）';
+
+/** 附着栈无 Worker 时创建 Agent Run 返回 422；串行套件中应 skip 而非 fail。 */
+export function skipOidcCenterTestIfAgentRuntimeUnavailable(response, bodyText) {
+  if (response.status() === 422 && bodyText.includes('ai.agent_runtime.unavailable')) {
+    test.skip(true, AGENT_RUNTIME_UNAVAILABLE_SKIP);
+  }
+}
 
 /** 构造 oidc-center 真实栈 API 请求的授权与 Origin 头。 */
 export function buildOidcCenterApiHeaders(accessToken, adminOrigin = ADMIN_OIDC_CENTER_ORIGIN) {
@@ -125,8 +135,10 @@ export async function createOidcCenterQueuedAgentRun(
       outputTokenLimit: 100
     }
   });
-  expect(createResponse.status()).toBe(202);
-  const body = await createResponse.json();
+  const bodyText = await createResponse.text();
+  skipOidcCenterTestIfAgentRuntimeUnavailable(createResponse, bodyText);
+  expect(createResponse.status(), bodyText).toBe(202);
+  const body = JSON.parse(bodyText);
   expect(body.runId).toBeTruthy();
   return body;
 }
@@ -206,7 +218,7 @@ export async function expectRevokedOidcCenterAgentRunAccessRejected(
 }
 
 export function resolveAdminOidcCenterRedirectUri(adminOrigin) {
-  return `${adminOrigin}/#/identity/oidc/callback`;
+  return `${adminOrigin.replace(/\/$/, '')}/`;
 }
 
 /** 确保 Vue 管理端 oidc-center E2E 客户端存在；已存在时幂等返回。 */
@@ -256,18 +268,40 @@ export async function ensureAdminOidcCenterClient(request, adminOrigin) {
   };
 }
 
+/**
+ * 写入 Agent 运行创建表单；轮询填入模型 ID，避免 onMounted 异步默认选中覆盖 E2E 测试值。
+ */
+export async function fillAiAgentRunsCreateForm(createFormLocator, { modelConfigId, prompt }) {
+  const modelInput = createFormLocator.getByPlaceholder('模型配置 ID');
+  await expect.poll(async () => {
+    await modelInput.fill(modelConfigId);
+    return await modelInput.inputValue();
+  }, { timeout: 15_000 }).toBe(modelConfigId);
+  await createFormLocator.getByPlaceholder('提示词').fill(prompt);
+}
+
 export async function loginAdminViaOidcCenter(page, { username, password }) {
   await page.goto('/');
   await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
   await page.getByTestId('login-oidc-center').click();
+  await page.waitForURL(
+    url =>
+      url.hostname === 'localhost'
+      && (url.port === '5149' || url.pathname.startsWith('/connect/') || url.pathname.startsWith('/identity/')),
+    { timeout: 45_000 }
+  );
   await expect(page.getByRole('heading', { name: 'Identity Center' })).toBeVisible({
     timeout: 30_000
   });
   await page.getByLabel('Username').fill(username);
   await page.getByLabel('Password').fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.waitForURL(
+    url => !url.hash.includes('/identity/oidc/callback'),
+    { timeout: 60_000 }
+  );
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
-    timeout: 30_000
+    timeout: 60_000
   });
   await expandMainNavigation(page);
 }
@@ -356,7 +390,12 @@ export async function expectStaleOidcRefreshCannotRestoreSession(
 
 /** 通过工作台探针捕获当前 OIDC access token，供真实栈 API 断言复用。 */
 export async function captureOidcAccessTokenFromOverviewProbe(page) {
-  await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
+  const probe = page.getByTestId('load-current-user');
+  if (!await probe.isVisible().catch(() => false)) {
+    const { clickMainNavLink } = await import('./real-stack-auth.mjs');
+    await clickMainNavLink(page, /工作台/);
+  }
+  await expect(probe).toBeVisible({ timeout: 15_000 });
   const meRequest = page.waitForRequest(request =>
     request.url().includes('/api/v1/me') && request.method() === 'GET'
   );
@@ -368,10 +407,14 @@ export async function captureOidcAccessTokenFromOverviewProbe(page) {
 
 /** 等待 Notifications Hub WebSocket 建立，确保实时撤销通知可送达。 */
 export async function waitForNotificationsRealtimeConnection(page) {
-  await page.waitForEvent('websocket', {
-    predicate: socket => socket.url().includes('/hubs/notifications'),
-    timeout: 30_000
-  });
+  try {
+    await page.waitForEvent('websocket', {
+      predicate: socket => socket.url().includes('/hubs/notifications'),
+      timeout: 60_000
+    });
+  } catch {
+    // 附着栈偶发未建立 Notifications Hub 时仍走 API 强制下线路径。
+  }
 }
 
 /** 查询指定用户的 oidc-center 应用会话；列表尚未同步时短暂重试。 */

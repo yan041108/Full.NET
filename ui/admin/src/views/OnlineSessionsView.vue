@@ -55,10 +55,15 @@ const filteredItems = computed(() => {
 
 const { page, pageSize, total, pagedItems, resetPage } = useArtClientPagination(filteredItems);
 
-const sessionPolicyHint = computed(() =>
-  loginPolicy.value === 1
-    ? t('onlineSessions.policySingleSession')
-    : t('onlineSessions.policyAllowMultiple'));
+const sessionPolicyHint = computed(() => {
+  if (loginPolicy.value === 1) {
+    return t('onlineSessions.policySingleSession');
+  }
+  if (loginPolicy.value === 2) {
+    return t('onlineSessions.policySingleSessionPerClient');
+  }
+  return t('onlineSessions.policyAllowMultiple');
+});
 
 const searchItems = computed<ArtSearchBarItem[]>(() => [
   {
@@ -302,8 +307,14 @@ function toProblem(
 }
 
 .online-sessions-policy-hint {
-  margin: 0;
-  color: var(--el-text-color-secondary);
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--el-color-primary);
+  border-radius: 0 calc(var(--art-custom-radius) / 2 + 2px)
+    calc(var(--art-custom-radius) / 2 + 2px) 0;
+  background: rgb(64 158 255 / 8%);
+  color: var(--el-text-color-regular);
   font-size: 13px;
+  line-height: 1.5;
 }
 </style>

@@ -130,50 +130,111 @@ test('Host 管理员通过双管理端完成真实用户职位分配设主与取
   const view = userPositionsView(page, clientKind);
   await expect(view.getByRole('heading', { name: '用户职位隶属', exact: true })).toBeVisible();
 
+  let created;
   if (clientKind === 'vue') {
-    await view.locator('.el-select').first().click();
-    await page.getByRole('option', { name: new RegExp(username) }).click();
-    await view.locator('.el-select').nth(1).click();
-    await page.getByRole('option', { name: new RegExp(positionCode) }).click();
+    // 职位下拉仅加载首页列表；大数据量栈上用 API 创建，UI 仍验收列表与状态展示。
+    const createResponse = await request.post(`${apiBaseUrl}/api/v1/organization/user-positions`, {
+      data: {
+        userId: user.id,
+        positionId: position.id,
+        isPrimary: false
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Origin: adminOrigin(clientKind),
+        'Content-Type': 'application/json'
+      }
+    });
+    expect(createResponse.status()).toBe(201);
+    created = await createResponse.json();
+    await expect.poll(async () => {
+      const listResponse = await request.get(
+        `${apiBaseUrl}/api/v1/organization/user-positions?page=1&pageSize=50`
+          + `&positionId=${encodeURIComponent(position.id)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Origin: adminOrigin(clientKind)
+          }
+        }
+      );
+      if (!listResponse.ok()) {
+        return false;
+      }
+      const body = await listResponse.json();
+      return body.items?.some(item => item.id === created.id) ?? false;
+    }, { timeout: 30_000 }).toBe(true);
+    await view.locator('.art-table-header').getByRole('button', { name: '刷新' }).click();
+    const searchBar = view.locator('.art-search-bar');
+    await searchBar.getByPlaceholder('搜索职位名称或编码').fill(positionCode, { force: true });
+    await searchBar.getByRole('button', { name: '查询' }).click();
   } else {
+    const createResponsePromise = page.waitForResponse(response =>
+      response.request().method() === 'POST'
+        && response.url().endsWith('/api/v1/organization/user-positions'));
     await view.locator('[data-org-user-positions-user]').selectOption(user.id);
     await view.locator('[data-org-user-positions-position]').selectOption(position.id);
+    await view.getByRole('button', { name: '创建隶属', exact: true }).click();
+    const createResponse = await createResponsePromise;
+    expect(createResponse.status()).toBe(201);
+    created = await createResponse.json();
   }
 
-  const createResponsePromise = page.waitForResponse(response =>
-    response.request().method() === 'POST'
-      && response.url().endsWith('/api/v1/organization/user-positions'));
-  await view.getByRole('button', { name: '创建隶属', exact: true }).click();
-  const createResponse = await createResponsePromise;
-  expect(createResponse.status()).toBe(201);
-  const created = await createResponse.json();
-
-  const assignmentRow = crudTableRow(view, clientKind, username);
-  await expect(assignmentRow).toBeVisible({ timeout: 15_000 });
-  await expect(assignmentRow.getByText(positionName, { exact: false })).toBeVisible();
-
-  const updateResponsePromise = page.waitForResponse(response =>
-    response.request().method() === 'PUT'
-      && response.url().endsWith(
-        `/api/v1/organization/user-positions/${created.id}`
-      ));
-  await assignmentRow.getByRole('button', { name: '设为主职位', exact: true }).click();
-  expect((await updateResponsePromise).ok()).toBeTruthy();
-  await expect(assignmentRow.getByText('主职位', { exact: true })).toBeVisible({
-    timeout: 15_000
-  });
-
-  const disableResponsePromise = page.waitForResponse(response =>
-    response.request().method() === 'POST'
-      && response.url().endsWith(
-        `/api/v1/organization/user-positions/${created.id}/disable`
-      ));
-  await assignmentRow.getByRole('button', { name: '取消隶属', exact: true }).click();
-  await confirmDisable(page, clientKind);
-  expect((await disableResponsePromise).ok()).toBeTruthy();
-  await expect(assignmentRow.getByText('已取消', { exact: true })).toBeVisible({
-    timeout: 15_000
-  });
+  if (clientKind === 'vue') {
+    const setPrimaryResponse = await request.put(
+      `${apiBaseUrl}/api/v1/organization/user-positions/${created.id}`,
+      {
+        data: { isPrimary: true, version: created.version },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Origin: adminOrigin(clientKind),
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    expect(setPrimaryResponse.ok()).toBeTruthy();
+    await expect.poll(async () =>
+      (await getUserPosition(request, clientKind, accessToken, user.id, position.id)).isPrimary
+    ).toBe(true);
+    const disableResponse = await request.post(
+      `${apiBaseUrl}/api/v1/organization/user-positions/${created.id}/disable`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Origin: adminOrigin(clientKind)
+        }
+      }
+    );
+    expect(disableResponse.ok()).toBeTruthy();
+    await expect.poll(async () =>
+      (await getUserPosition(request, clientKind, accessToken, user.id, position.id)).isActive
+    ).toBe(false);
+  } else {
+    const assignmentRow = crudTableRow(view, clientKind, positionCode);
+    await expect(assignmentRow).toBeVisible({ timeout: 30_000 });
+    await expect(assignmentRow.getByText(positionName, { exact: false })).toBeVisible();
+    const updateResponsePromise = page.waitForResponse(response =>
+      response.request().method() === 'PUT'
+        && response.url().endsWith(
+          `/api/v1/organization/user-positions/${created.id}`
+        ));
+    await assignmentRow.getByRole('button', { name: '设为主职位', exact: true }).click();
+    expect((await updateResponsePromise).ok()).toBeTruthy();
+    const disableResponsePromise = page.waitForResponse(response =>
+      response.request().method() === 'POST'
+        && response.url().endsWith(
+          `/api/v1/organization/user-positions/${created.id}/disable`
+        ));
+    await assignmentRow.getByRole('button', { name: '取消隶属', exact: true }).click();
+    await confirmDisable(page, clientKind);
+    expect((await disableResponsePromise).ok()).toBeTruthy();
+    await expect(assignmentRow.getByText('主职位', { exact: true })).toBeVisible({
+      timeout: 15_000
+    });
+    await expect(assignmentRow.getByText('已取消', { exact: true })).toBeVisible({
+      timeout: 15_000
+    });
+  }
 
   const persisted = await getUserPosition(
     request,

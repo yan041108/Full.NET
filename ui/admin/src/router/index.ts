@@ -544,6 +544,11 @@ export function createAppRouter(
         component: () => import('../views/MqttControlPlaneView.vue')
       },
       {
+        name: 'host-messaging-ops',
+        path: '/messaging/operations',
+        component: () => import('../views/HostMessagingOpsView.vue')
+      },
+      {
         name: 'cryptography-gm-keys',
         path: '/cryptography/gm-keys',
         component: () => import('../views/CryptographyGmKeysView.vue')

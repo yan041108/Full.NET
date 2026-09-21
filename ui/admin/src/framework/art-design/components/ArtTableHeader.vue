@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue';
 import {
   DCaret,
   FullScreen,
@@ -38,7 +38,7 @@ const props = withDefaults(defineProps<{
   showHeaderBackground?: boolean;
 }>(), {
   layout: 'refresh,size,fullscreen,columns,settings',
-  fullClass: 'users-view',
+  fullClass: 'art-crud-table-main',
   showZebra: true,
   showBorder: true,
   showHeaderBackground: true
@@ -58,6 +58,7 @@ const { t } = useAdminI18n();
 const isManualRefresh = ref(false);
 const isFullScreen = ref(false);
 const originalOverflow = ref('');
+const headerRootRef = ref<HTMLElement | null>(null);
 
 const layoutItems = computed(() => props.layout.split(',').map((item) => item.trim()));
 
@@ -91,8 +92,28 @@ function handleTableSizeChange(command: TableSize): void {
   tableSize.value = command;
 }
 
+function resolveFullscreenTarget(): HTMLElement | null {
+  const scoped = headerRootRef.value?.closest(`.${props.fullClass}`);
+  if (scoped instanceof HTMLElement) {
+    return scoped;
+  }
+
+  return document.querySelector<HTMLElement>(`.${props.fullClass}`);
+}
+
+function exitFullScreen(): void {
+  if (!isFullScreen.value) {
+    return;
+  }
+
+  const element = resolveFullscreenTarget();
+  document.body.style.overflow = originalOverflow.value;
+  element?.classList.remove('el-full-screen');
+  isFullScreen.value = false;
+}
+
 function toggleFullScreen(): void {
-  const element = document.querySelector(`.${props.fullClass}`);
+  const element = resolveFullscreenTarget();
   if (!element) {
     return;
   }
@@ -121,7 +142,7 @@ watch(
 
 function handleEscapeKey(event: KeyboardEvent): void {
   if (event.key === 'Escape' && isFullScreen.value) {
-    toggleFullScreen();
+    exitFullScreen();
   }
 }
 
@@ -129,21 +150,18 @@ onMounted(() => {
   document.addEventListener('keydown', handleEscapeKey);
 });
 
+onDeactivated(() => {
+  exitFullScreen();
+});
+
 onUnmounted(() => {
   document.removeEventListener('keydown', handleEscapeKey);
-
-  if (!isFullScreen.value) {
-    return;
-  }
-
-  document.body.style.overflow = originalOverflow.value;
-  const element = document.querySelector(`.${props.fullClass}`);
-  element?.classList.remove('el-full-screen');
+  exitFullScreen();
 });
 </script>
 
 <template>
-  <div id="art-table-header" class="art-table-header">
+  <div id="art-table-header" ref="headerRootRef" class="art-table-header">
     <div class="art-table-header__left">
       <slot name="left" />
     </div>

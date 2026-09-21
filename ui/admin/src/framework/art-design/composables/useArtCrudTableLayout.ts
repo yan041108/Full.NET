@@ -7,6 +7,20 @@ export interface ArtCrudTableLayoutOptions {
   bottomOffset?: number;
 }
 
+/** 兼容挂在组件 ref（如 ElCard）上的测量目标。 */
+function resolveLayoutElement(container: unknown): HTMLElement | null {
+  if (!container) {
+    return null;
+  }
+
+  if (container instanceof HTMLElement) {
+    return container;
+  }
+
+  const componentRoot = (container as { $el?: unknown }).$el;
+  return componentRoot instanceof HTMLElement ? componentRoot : null;
+}
+
 /** 管理端 CRUD 列表页表格区域高度与表头样式。 */
 export function useArtCrudTableLayout(options: ArtCrudTableLayoutOptions = {}) {
   const bottomOffset = options.bottomOffset ?? 68;
@@ -36,7 +50,7 @@ export function useArtCrudTableLayout(options: ArtCrudTableLayoutOptions = {}) {
 
   /** 按视口高度重算表格区域，保证分页条固定在底部时主体仍可滚动。 */
   function updateTableHeight(): void {
-    const container = tableMainRef.value;
+    const container = resolveLayoutElement(tableMainRef.value);
     if (!container) {
       return;
     }
@@ -62,7 +76,7 @@ export function useArtCrudTableLayout(options: ArtCrudTableLayoutOptions = {}) {
 
   /** 在异步渲染后重复补标，兼容分页器和下拉框延迟挂载。 */
   function schedulePaginationLabeling(): void {
-    const container = tableMainRef.value;
+    const container = resolveLayoutElement(tableMainRef.value);
     if (!container) {
       void nextTick(labelPaginationComboboxes);
       return;

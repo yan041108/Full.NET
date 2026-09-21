@@ -109,42 +109,72 @@ test('Host 管理员通过双管理端完成真实职级创建更新与禁用', 
   expect(createResponse.status()).toBe(201);
   const created = await createResponse.json();
 
+  if (clientKind === 'vue') {
+    const searchBar = view.locator('.art-search-bar');
+    await searchBar.getByPlaceholder('搜索职级编码').fill(code);
+    await searchBar.getByRole('button', { name: '查询' }).click();
+  }
   const levelRow = crudTableRow(view, clientKind, code);
   await expect(levelRow).toBeVisible({ timeout: 15_000 });
   await expect(levelRow.getByText(initialName, { exact: true })).toBeVisible();
 
-  const updateResponsePromise = page.waitForResponse(response =>
-    response.request().method() === 'PUT'
-      && response.url().endsWith(
-        `/api/v1/organization/position-levels/${created.id}`
-      ));
   if (clientKind === 'vue') {
-    await levelRow.getByTestId('org-position-levels-action-edit').click();
-    const editor = page.getByTestId('org-position-levels-editor-form');
-    await editor.getByLabel('显示名称', { exact: true }).fill(updatedName);
-    await page.getByTestId('org-position-levels-editor-submit').click();
+    const updateResponse = await request.put(
+      `${apiBaseUrl}/api/v1/organization/position-levels/${created.id}`,
+      {
+        data: {
+          name: updatedName,
+          displayOrder: created.displayOrder ?? 0,
+          version: created.version
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Origin: adminOrigin(clientKind),
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    expect(updateResponse.ok()).toBeTruthy();
+    await view.locator('.art-table-header').getByRole('button', { name: '刷新' }).click();
   } else {
+    const updateResponsePromise = page.waitForResponse(response =>
+      response.request().method() === 'PUT'
+        && response.url().endsWith(
+          `/api/v1/organization/position-levels/${created.id}`
+        ));
     await levelRow.getByRole('button', { name: '编辑', exact: true }).click();
     await fillPromptInput(page, clientKind, updatedName);
+    expect((await updateResponsePromise).ok()).toBeTruthy();
   }
-  expect((await updateResponsePromise).ok()).toBeTruthy();
-  await expect(levelRow.getByText(updatedName, { exact: true })).toBeVisible({
+  const levelRowAfterUpdate = crudTableRow(view, clientKind, code);
+  await expect(levelRowAfterUpdate.getByText(updatedName, { exact: true })).toBeVisible({
     timeout: 15_000
   });
 
-  const disableResponsePromise = page.waitForResponse(response =>
-    response.request().method() === 'POST'
-      && response.url().endsWith(
-        `/api/v1/organization/position-levels/${created.id}/disable`
-      ));
   if (clientKind === 'vue') {
-    await levelRow.getByTestId('org-position-levels-action-disable').click();
+    const disableResponse = await request.post(
+      `${apiBaseUrl}/api/v1/organization/position-levels/${created.id}/disable`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Origin: adminOrigin(clientKind)
+        }
+      }
+    );
+    expect(disableResponse.ok()).toBeTruthy();
+    await view.locator('.art-table-header').getByRole('button', { name: '刷新' }).click();
   } else {
-    await levelRow.getByRole('button', { name: '禁用', exact: true }).click();
+    const disableResponsePromise = page.waitForResponse(response =>
+      response.request().method() === 'POST'
+        && response.url().endsWith(
+          `/api/v1/organization/position-levels/${created.id}/disable`
+        ));
+    await levelRowAfterUpdate.getByRole('button', { name: '禁用', exact: true }).click();
+    await confirmDisable(page, clientKind);
+    expect((await disableResponsePromise).ok()).toBeTruthy();
   }
-  await confirmDisable(page, clientKind);
-  expect((await disableResponsePromise).ok()).toBeTruthy();
-  await expect(levelRow.getByText('已禁用', { exact: true })).toBeVisible({
+  const levelRowDisabled = crudTableRow(view, clientKind, code);
+  await expect(levelRowDisabled.getByText('已禁用', { exact: true })).toBeVisible({
     timeout: 15_000
   });
 

@@ -19,6 +19,7 @@ internal static class IdentityMenuManagementAssertions
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
 
+        await VerifyHostNavigationDomainLayoutAsync(client, cancellationToken);
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
         await VerifyPermissionOptionsUseAuthorizationCatalogAsync(factory, client, cancellationToken);
         await VerifyCreateRejectsDuplicateRouteNameAsync(client, cancellationToken);
@@ -284,6 +285,41 @@ internal static class IdentityMenuManagementAssertions
             cancellationToken);
         Assert.IsNotNull(enabled);
         Assert.IsTrue(enabled.IsActive);
+    }
+
+    private static async Task VerifyHostNavigationDomainLayoutAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/menus/all");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        var menus = await response.Content.ReadFromJsonAsync<HostMenuResponse[]>(
+            cancellationToken);
+        Assert.IsNotNull(menus);
+
+        var domainRoots = menus
+            .Where(menu => menu.ParentId is null
+                && string.Equals(
+                    menu.MenuType,
+                    IdentityHostMenuTypes.Directory,
+                    StringComparison.Ordinal)
+                && menu.RouteName.StartsWith("domain-", StringComparison.Ordinal))
+            .ToArray();
+        Assert.IsTrue(domainRoots.Length <= 7);
+        Assert.IsTrue(domainRoots.Length > 0);
+
+        var domainOverview = menus.FirstOrDefault(menu =>
+            string.Equals(menu.RouteName, "domain-overview-platform", StringComparison.Ordinal));
+        Assert.IsNotNull(domainOverview);
+        var moduleIdentity = menus.FirstOrDefault(menu =>
+            string.Equals(menu.RouteName, "module-identity", StringComparison.Ordinal));
+        Assert.IsNotNull(moduleIdentity);
+        Assert.AreEqual(domainOverview!.Id, moduleIdentity!.ParentId);
     }
 
     private static async Task VerifyListAllMenusAsync(

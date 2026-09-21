@@ -55,14 +55,12 @@ internal static class IdentityOpenAccessClientAssertions
         CancellationToken cancellationToken)
     {
         var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
-        var adminUserId = await ResolveAdminUserIdAsync(client, adminToken, cancellationToken);
-
         using var createRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
             "/api/v1/identity/open-access-clients",
             adminToken,
             new CreateOpenAccessClientRequest(
-                adminUserId,
+                "admin",
                 "集成测试接入方",
                 "用于 OpenAccess 集成测试",
                 "备注",
@@ -169,14 +167,12 @@ internal static class IdentityOpenAccessClientAssertions
         CancellationToken cancellationToken)
     {
         var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
-        var adminUserId = await ResolveAdminUserIdAsync(client, adminToken, cancellationToken);
-
         using var createRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
             "/api/v1/identity/open-access-clients",
             adminToken,
             new CreateOpenAccessClientRequest(
-                adminUserId,
+                "admin",
                 "可观测性测试接入方",
                 null,
                 null,

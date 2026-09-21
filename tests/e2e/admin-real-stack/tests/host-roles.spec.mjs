@@ -25,8 +25,13 @@ test('Host 管理员可从真实 API 加载角色列表', async ({ page }) => {
   await clickMainNavLink(page, /角色管理/);
 
   await expect(page.getByRole('heading', { name: '角色管理', exact: true })).toBeVisible();
-  await expect(page.getByText('宿主管理员', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('host-administrator', { exact: true }).first()).toBeVisible();
+  await page.getByPlaceholder('搜索角色编码').fill('host-administrator');
+  await page.getByRole('button', { name: '查询', exact: true }).click();
+  const hostAdminRow = page.locator('.el-table__row').filter({
+    hasText: 'host-administrator'
+  });
+  await expect(hostAdminRow).toBeVisible({ timeout: 15_000 });
+  await expect(hostAdminRow.getByText('宿主管理员', { exact: true })).toBeVisible();
 });
 
 test('受限 Host 账号访问角色 API 被拒绝且导航裁剪', async ({
@@ -114,6 +119,7 @@ test('Vue 仅禁用权限用户只显示禁用按钮', async ({
   request
 }, testInfo) => {
   test.skip(testInfo.project.metadata.clientKind !== 'vue', '精确按钮权限仅验收 Vue 管理端');
+  test.setTimeout(90_000);
   const limited = await provisionLimitedHostUserViaApi(request, testInfo.project.metadata.clientKind, {
     permissionCodes: [
       'platform.dashboard.read',

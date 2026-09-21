@@ -12,8 +12,13 @@ import {
 } from './support/real-stack-auth.mjs';
 import { readAppliedWorkspaceArtifact } from './support/codegeneration-workspace.mjs';
 import { toOrganizationOwnedExplicitSchema } from './support/organization-owned-codegen-schema.mjs';
+import { skipCodegenWhenAttachModeWithoutWorkspace } from './support/codegeneration-attach-skip.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+
+test.beforeEach(() => {
+  skipCodegenWhenAttachModeWithoutWorkspace();
+});
 
 function assertAppliedWorkspaceArtifact(relativePath) {
   if (process.env.FULLNET_E2E_SKIP_BOOTSTRAP === '1') {

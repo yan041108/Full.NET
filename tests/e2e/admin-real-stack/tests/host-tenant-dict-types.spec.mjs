@@ -31,6 +31,7 @@ test('Host 管理员在租户上下文中可从真实 API 加载并创建租户�
   page,
   request
 }, testInfo) => {
+  test.setTimeout(90_000);
   const clientKind = testInfo.project.metadata.clientKind;
   const typeCode = uniqueCode(clientKind, 'e2e_tdict');
   const itemValue = uniqueCode(clientKind, 'e2e_titem');
@@ -54,11 +55,20 @@ test('Host 管理员在租户上下文中可从真实 API 加载并创建租户�
 
   const dictTypesView = clientKind === 'layui'
     ? page.locator('[data-route-view="tenant-dict-types"]')
-    : page.locator('.dict-types-view');
+    : page.locator('.tenant-dict-types-view');
 
   await expect(dictTypesView.getByRole('heading', { name: '数据字典', exact: true })).toBeVisible();
-  const dictTypeRow = crudTableRow(dictTypesView, clientKind, typeCode);
-  await expect(dictTypeRow).toBeVisible();
+  const typesPane = clientKind === 'vue'
+    ? dictTypesView.locator('.tenant-dict-types-view__pane').first()
+    : dictTypesView;
+  if (clientKind === 'vue') {
+    await typesPane.locator('.art-table-header').getByRole('button', { name: '刷新' }).click();
+    const searchBar = typesPane.locator('.art-search-bar');
+    await searchBar.getByPlaceholder('搜索字典编码').fill(typeCode, { force: true });
+    await searchBar.getByRole('button', { name: '查询' }).click();
+  }
+  const dictTypeRow = crudTableRow(typesPane, clientKind, typeCode);
+  await expect(dictTypeRow).toBeVisible({ timeout: 15_000 });
   await expect(dictTypeRow.getByText(`真实栈租户字典 ${clientKind}`, { exact: true })).toBeVisible();
 
   await dictTypeRow
@@ -69,7 +79,9 @@ test('Host 管理员在租户上下文中可从真实 API 加载并创建租户�
     : dictTypesView.locator('[data-dict-items-directory]');
   await expect(itemsPanel).toBeVisible();
   await expect(itemsPanel.getByText('真实栈租户项', { exact: true })).toBeVisible();
-  await expect(itemsPanel.locator('code', { hasText: itemValue })).toBeVisible();
+  await expect(itemsPanel.getByText(itemValue, { exact: true })).toBeVisible({
+    timeout: 15_000
+  });
 });
 
 test('受限 Host 账号在租户上下文中访问租户数据字典 API 被拒绝且导航裁剪', async ({

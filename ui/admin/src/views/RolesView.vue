@@ -138,12 +138,6 @@ const unknownPermissions = ref<string[]>([]);
 const permissionTreeRef = ref<TreeInstance>();
 const permissionTreeRenderKey = ref(0);
 const isPermissionTreeSyncing = ref(false);
-const permissionTreeCheckedKeys = computed(() =>
-  permissionCodesToCheckedNodeIds(
-    new Set(selectedPermissions.value),
-    permissionTreeNodes.value
-  )
-);
 const selectedDataScopeKind = ref<RoleDataScopeKind>('identity.data_scope.all');
 const selectedUnitIds = ref<string[]>([]);
 const dataScopeVersion = ref(0);
@@ -564,14 +558,16 @@ async function openPermissions(role: HostRole): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
+    const freshRole = allRoles.value.find(item => item.id === role.id) ?? role;
     const modules = await getAuthorizationTree();
     permissionTreeNodes.value = buildPermissionTreeNodes(modules);
     const catalog = collectCatalogPermissionCodes(modules);
-    selectedPermissions.value = [...role.permissionCodes];
-    unknownPermissions.value = findUnknownPermissionCodes(role.permissionCodes, catalog);
-    editingRole.value = role;
+    selectedPermissions.value = [...freshRole.permissionCodes];
+    unknownPermissions.value = findUnknownPermissionCodes(freshRole.permissionCodes, catalog);
+    editingRole.value = freshRole;
     permissionTreeRenderKey.value += 1;
     permissionsVisible.value = true;
+    await nextTick();
     await nextTick();
     syncPermissionTreeChecks();
   } catch (error: unknown) {
@@ -590,10 +586,25 @@ function syncPermissionTreeChecks(): void {
     return;
   }
 
+  const snapshot = [...selectedPermissions.value];
+  const checkedKeys = permissionCodesToCheckedNodeIds(
+    new Set(snapshot),
+    permissionTreeNodes.value
+  );
   isPermissionTreeSyncing.value = true;
-  tree.setCheckedKeys(permissionTreeCheckedKeys.value, false);
+  const applyCheckedKeys = (): void => {
+    tree.setCheckedKeys(checkedKeys, false);
+  };
+
+  applyCheckedKeys();
+  // destroy-on-close 下树节点会晚一帧挂载；程序化勾选也可能异步触发 check，需保留快照并延后解除同步锁。
   void nextTick(() => {
-    isPermissionTreeSyncing.value = false;
+    applyCheckedKeys();
+    selectedPermissions.value = snapshot;
+    void nextTick(() => {
+      selectedPermissions.value = snapshot;
+      isPermissionTreeSyncing.value = false;
+    });
   });
 }
 
@@ -609,6 +620,8 @@ function onPermissionTreeCheck(
   selectedPermissions.value = [
     ...applyPermissionNodeCheck(new Set(selectedPermissions.value), node, checked)
   ];
+  // check-strictly 下勾选模块/页面不会联动子节点 UI，需按精确权限集合回写整棵树勾选态。
+  syncPermissionTreeChecks();
 }
 
 async function savePermissions(): Promise<void> {
@@ -1325,7 +1338,6 @@ function toProblem(
           show-checkbox
           check-strictly
           default-expand-all
-          :default-checked-keys="permissionTreeCheckedKeys"
           :props="{ label: 'label', children: 'children' }"
           @check="onPermissionTreeCheck"
         />

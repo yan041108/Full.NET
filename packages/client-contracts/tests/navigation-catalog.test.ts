@@ -56,6 +56,11 @@ describe('headless 管理端导航目录', () => {
       routeName: 'host-document-items',
       path: '/document/host-items'
     });
+    expect(catalog.localNavigationFor('import-export-tasks')).toEqual({
+      componentKey: 'import-export-tasks',
+      routeName: 'import-export-tasks',
+      path: '/import-export/tasks'
+    });
     expect(catalog.localNavigationFor('document-categories')).toEqual({
       componentKey: 'document-categories',
       routeName: 'document-categories',
@@ -139,6 +144,33 @@ describe('headless 管理端导航目录', () => {
             routeName: 'users',
             path: '/identity/users'
           })
+        ]
+      }
+    ])).toBe(true);
+    expect(catalog.isSupportedNavigationTree([
+      {
+        ...createNode('layout', {
+          id: 'domain-overview-platform',
+          routeName: 'domain-overview-platform',
+          path: '/domains/overview-platform'
+        }),
+        children: [
+          {
+            ...createNode('layout', {
+              id: 'module-identity',
+              parentId: 'domain-overview-platform',
+              routeName: 'module-identity',
+              path: '/modules/identity'
+            }),
+            children: [
+              createNode('users', {
+                id: 'users',
+                parentId: 'module-identity',
+                routeName: 'users',
+                path: '/identity/users'
+              })
+            ]
+          }
         ]
       }
     ])).toBe(true);

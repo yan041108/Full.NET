@@ -49,16 +49,7 @@ public sealed class FilesModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IErrorResourceSource,
             FilesErrorResourceSource>());
-        RegisterStorage(services, configuration);
-        services.TryAddSingleton<IClock, SystemClock>();
-        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
-        services.TryAddScoped<Features.ManageHostFiles.HostFileQueryService>();
-        services.TryAddScoped<Features.ManageHostFiles.HostFileManagementService>();
-        services.TryAddScoped<Features.ManageHostFolders.HostFolderQueryService>();
-        services.TryAddScoped<Features.ManageHostFolders.HostFolderManagementService>();
-        services.TryAddScoped<Features.ManageStorageProviders.FileStorageProviderCatalogService>();
-        RegisterHostFileReferencePorts(services);
-        services.TryAddScoped<ITenantResourceFileStore, Features.TenantResourceFiles.TenantResourceFileStore>();
+        RegisterSharedFileServices(services, configuration);
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -89,10 +80,7 @@ public sealed class FilesModule : IFullNetModule
             .RegisterMaterializers(
                 new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
 #endif
-        RegisterStorage(services, configuration);
-        RegisterHostFileReferencePorts(services);
-        services.TryAddSingleton<IClock, SystemClock>();
-        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        RegisterSharedFileServices(services, configuration);
         services.AddOptions<DeletedHostFileBlobCleanupOptions>()
             .Bind(configuration.GetSection(DeletedHostFileBlobCleanupOptions.SectionName))
             .ValidateOnStart();
@@ -123,6 +111,23 @@ public sealed class FilesModule : IFullNetModule
         services.AddHostedService<PendingHostFileReconciliationHostedProcessor>();
         services.AddHostedService<PendingHostFileReferenceClaimReconciliationHostedProcessor>();
         services.AddHostedService<PendingTenantResourceFileReconciliationHostedProcessor>();
+    }
+
+    /// <summary>API 与 Worker 共用的 Host/租户文件运行时；后台清理与跨模块引用均依赖此闭包。</summary>
+    private static void RegisterSharedFileServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        RegisterStorage(services, configuration);
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddScoped<Features.ManageHostFiles.HostFileQueryService>();
+        services.TryAddScoped<Features.ManageHostFiles.HostFileManagementService>();
+        services.TryAddScoped<Features.ManageHostFolders.HostFolderQueryService>();
+        services.TryAddScoped<Features.ManageHostFolders.HostFolderManagementService>();
+        services.TryAddScoped<Features.ManageStorageProviders.FileStorageProviderCatalogService>();
+        RegisterHostFileReferencePorts(services);
+        services.TryAddScoped<ITenantResourceFileStore, Features.TenantResourceFiles.TenantResourceFileStore>();
     }
 
     /// <summary>跨模块文件引用契约；Worker 后台模块（Notifications/Document 等）依赖，须与 API AddServices 保持一致。</summary>

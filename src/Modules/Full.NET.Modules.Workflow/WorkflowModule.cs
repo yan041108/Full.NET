@@ -58,6 +58,24 @@ public sealed class WorkflowModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 WorkflowJsonSerializerContext.Default));
+        RegisterWorkerRuntimeClosure(services);
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostFileReferenceClaimProbe,
+            WorkflowFormSubmissionAttachmentProbe>());
+        services.AddScoped<WorkflowCcManagementService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostDashboardWorkflowEntryReader,
+            HostDashboard.HostDashboardWorkflowEntryReader>());
+#if FULLNET_AOT_COMPILE
+        new Persistence.WorkflowDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
+    }
+
+    /// <summary>Worker 恢复、超时与 DataApproval 跨模块启动共享的运行时闭包。</summary>
+    private static void RegisterWorkerRuntimeClosure(IServiceCollection services)
+    {
         services.AddScoped<WorkflowFormManagementService>();
         services.AddScoped<WorkflowDefinitionManagementService>();
         services.AddScoped<WorkflowRecipientCandidateQueryService>();
@@ -66,9 +84,6 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowAssigneePreviewService>();
         services.AddScoped<WorkflowFormAttachmentCoordinator>();
         services.AddScoped<WorkflowFormAttachmentAccessService>();
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IHostFileReferenceClaimProbe,
-            WorkflowFormSubmissionAttachmentProbe>());
         services.AddScoped<WorkflowAssigneeResolver>();
         services.AddScoped<WorkflowAssigneePublishValidator>();
         services.AddScoped<WorkflowApprovalAssigneeCoordinator>();
@@ -88,15 +103,6 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<IWorkflowPublishedDefinitionDirectory, WorkflowPublishedDefinitionDirectoryAdapter>();
         services.AddScoped<IWorkflowInstanceStarter, WorkflowInstanceStarterAdapter>();
         services.AddScoped<IWorkflowInstanceCanceller, WorkflowInstanceCancellerAdapter>();
-        services.AddScoped<WorkflowCcManagementService>();
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IHostDashboardWorkflowEntryReader,
-            HostDashboard.HostDashboardWorkflowEntryReader>());
-#if FULLNET_AOT_COMPILE
-        new Persistence.WorkflowDapperAotMaterializerContributor()
-            .RegisterMaterializers(
-                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
-#endif
     }
 
     /// <summary>映射工作流表单、定义、实例、待办、抄送和恢复任务端点。</summary>
@@ -126,6 +132,7 @@ public sealed class WorkflowModule : IFullNetModule
             .RegisterMaterializers(
                 new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
 #endif
+        RegisterWorkerRuntimeClosure(services);
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         // BindConfiguration 使用配置绑定源生成器，避免 Worker Native AOT 在启动时反射扫描选项类型。

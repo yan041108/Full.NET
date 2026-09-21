@@ -59,18 +59,23 @@ test('租户管理员可在 Vue 中发起流程并完成同意、驳回与并发
   const concurrentTodo = await getMyTodo(request, clientKind, accessToken, concurrent.id);
 
   await clickMainNavLink(page, /我的待办/, '工作流');
-  await openTodoAndAct(page, approved.id, 'approved', 'approve');
+  const todoFilter = { definitionKey: assets.definitionKey };
+  await openTodoAndAct(page, approved, 'approved', 'approve', todoFilter);
   await expect.poll(async () =>
     (await getInstance(request, clientKind, accessToken, approved.id)).statusKey
   ).toBe('completed');
 
-  await openTodoAndAct(page, rejected.id, 'rejected', 'reject');
+  await openTodoAndAct(page, rejected, 'rejected', 'reject', todoFilter);
   await expect.poll(async () =>
     (await getInstance(request, clientKind, accessToken, rejected.id)).statusKey
   ).toBe('rejected');
 
-  await openTodo(page, concurrent.id);
+  await openTodo(page, concurrent, todoFilter);
   await fillDecision(page, 'stale decision');
+  const conflictResponse = page.waitForResponse(response =>
+    response.url().endsWith(`/api/v1/workflow/todos/${concurrentTodo.id}/approve`)
+    && response.request().method() === 'POST'
+  );
   await post(
     request,
     clientKind,
@@ -83,16 +88,13 @@ test('租户管理员可在 Vue 中发起流程并完成同意、驳回与并发
       idempotencyKey: crypto.randomUUID()
     }
   );
-  const conflictResponse = page.waitForResponse(response =>
-    response.url().endsWith(`/api/v1/workflow/todos/${concurrentTodo.id}/approve`)
-    && response.request().method() === 'POST'
-  );
+  await fillDecision(page, 'stale decision');
   await page.getByTestId('workflow-todo-approve').click();
   expect((await conflictResponse).status()).toBe(409);
   await expect(page.locator('.art-inline-alert')).toContainText('workflow.revision.conflict');
   await expect(page.getByTestId('workflow-todo-approve')).toHaveCount(0);
   await expect(page.getByTestId('workflow-todo-reject')).toHaveCount(0);
-  await expect(page.getByRole('row').filter({ hasText: concurrent.id })).toHaveCount(0);
+  await expect(page.getByRole('row').filter({ hasText: concurrent.businessId ?? concurrent.id })).toHaveCount(0);
 });
 
 test('租户直接提交只读、隐藏或未知字段 Patch 返回 422 且不推进待办', async ({

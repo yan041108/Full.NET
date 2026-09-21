@@ -3,6 +3,7 @@ import {
   computed,
   defineAsyncComponent,
   nextTick,
+  onBeforeMount,
   onMounted,
   onUnmounted,
   provide,
@@ -20,6 +21,7 @@ import type { MessageKey } from '@fullnet/admin-i18n';
 import LoginView from './views/LoginView.vue';
 import { apiBaseUrl } from './api/http';
 import { useSessionStore } from './auth/session';
+import { adminIdentityAuthMode } from './config/identity-auth';
 import { createElementLocaleController } from './i18n/elementLocale';
 import { useAdminI18n } from './i18n/adminI18n';
 import ArtAdminShell from './framework/art-design/layout/ArtAdminShell.vue';
@@ -76,7 +78,20 @@ const hostContextValue = '__fullnet_host__';
 const statusPaths = new Set(['/403', '/404', '/500']);
 const authCallbackPaths = new Set(['/oauth/callback', '/identity/oidc/callback']);
 const publicAuthPaths = new Set(['/login', '/register', '/recover-password']);
-const isAuthCallbackRoute = computed(() => authCallbackPaths.has(route.path));
+/** OIDC 回跳可能在 router 就绪前仅体现在 hash 或根路径 query 上。 */
+function isOidcCenterCallbackLocation(): boolean {
+  const { hash, search } = window.location;
+  if (hash.startsWith('#/identity/oidc/callback') || hash.startsWith('#/oauth/callback')) {
+    return true;
+  }
+
+  const params = new URLSearchParams(search);
+  return params.has('code') || params.has('error');
+}
+
+const isAuthCallbackRoute = computed(() =>
+  authCallbackPaths.has(route.path)
+  || (adminIdentityAuthMode === 'oidc-center' && isOidcCenterCallbackLocation()));
 const isPublicAuthRoute = computed(() => publicAuthPaths.has(route.path));
 const statusTitleKeys = new Map<string, MessageKey>([
   ['/403', 'status.403.title'],
@@ -84,14 +99,25 @@ const statusTitleKeys = new Map<string, MessageKey>([
   ['/500', 'status.500.title']
 ]);
 
+onBeforeMount(() => {
+  // OIDC 回调页由 OidcCallbackView 兑换令牌；保持 anonymous 以渲染 router-view，避免与 restore 竞态。
+  if (adminIdentityAuthMode === 'oidc-center' && isAuthCallbackRoute.value) {
+    session.$patch({ state: 'anonymous' });
+  }
+});
+
 onMounted(() => {
+  if (adminIdentityAuthMode === 'oidc-center' && isAuthCallbackRoute.value) {
+    return;
+  }
+
   if (session.state === 'initializing') {
     void session.restore();
     return;
   }
 
   if (session.isAuthenticated && session.navigation.length === 0) {
-    void session.restore();
+    void session.reloadContext();
   }
 });
 
@@ -99,7 +125,8 @@ watch(
   () => [session.isAuthenticated, session.navigation.length, session.switching] as const,
   ([authenticated, navigationCount, switching]) => {
     if (authenticated && navigationCount === 0 && !switching) {
-      void session.restore();
+      // 已认证时只补拉导航，避免 restore() 进入 initializing 导致壳层整页闪动。
+      void session.reloadContext();
     }
   }
 );

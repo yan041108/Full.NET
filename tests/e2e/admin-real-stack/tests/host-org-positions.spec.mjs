@@ -112,11 +112,16 @@ test('Host 管理员通过双管理端把真实职位绑定到机构与职级', 
   const positionsView = clientKind === 'layui'
     ? page.locator('[data-route-view="org-positions"]')
     : page.locator('.org-positions-view');
+  if (clientKind === 'vue') {
+    const searchBar = positionsView.locator('.art-search-bar');
+    await searchBar.getByPlaceholder('搜索职位编码').fill(positionCode);
+    await searchBar.getByRole('button', { name: '查询' }).click();
+  }
   const positionRow = crudTableRow(positionsView, clientKind, positionCode);
   const identity = clientKind === 'layui'
     ? positionRow.locator('div').first()
     : positionRow.locator('.art-data-row__main');
-  await expect(positionRow).toBeVisible();
+  await expect(positionRow).toBeVisible({ timeout: 15_000 });
 
   const unitBindingResponse = page.waitForResponse(response =>
     response.request().method() === 'PUT'

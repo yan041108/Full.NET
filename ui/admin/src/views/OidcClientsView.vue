@@ -91,6 +91,14 @@ function parseLines(text: string): string[] {
     .filter(Boolean);
 }
 
+/** Scope 允许单行空格分隔，与种子表单默认值一致。 */
+function parseScopes(text: string): string[] {
+  return text
+    .split(/[\n,\s]+/u)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 async function load() {
   loading.value = true;
   problem.value = undefined;
@@ -132,7 +140,7 @@ function openCreate() {
   editorForm.displayName = '';
   editorForm.redirectUrisText = '';
   editorForm.postLogoutRedirectUrisText = '';
-  editorForm.scopesText = 'openid profile offline_access';
+  editorForm.scopesText = 'openid\nprofile\noffline_access';
   editorForm.isConfidential = true;
   editorForm.isFirstParty = true;
   editorForm.resourceAudience = '';
@@ -157,7 +165,7 @@ async function submitEditor() {
   try {
     const redirectUris = parseLines(editorForm.redirectUrisText);
     const postLogoutRedirectUris = parseLines(editorForm.postLogoutRedirectUrisText);
-    const scopes = parseLines(editorForm.scopesText);
+    const scopes = parseScopes(editorForm.scopesText);
     const resourceAudience = editorForm.resourceAudience.trim() || null;
     if (editorMode.value === 'create') {
       const created = await createOidcClient({

@@ -44,7 +44,10 @@ internal sealed class TenantBrandingService(
     public async Task<Result<TenantRuntimeBrandingResponse>> GetRuntimeAsync(
         CancellationToken cancellationToken = default)
     {
-        if (!currentTenant.IsAvailable)
+        // Host 或未解析租户时返回空品牌，避免 TenantRequired SQL 在无 TenantId 时抛错。
+        if (currentTenant.IsHost
+            || !currentTenant.IsAvailable
+            || currentTenant.Id is not Guid)
         {
             return Result<TenantRuntimeBrandingResponse>.Success(
                 new TenantRuntimeBrandingResponse(

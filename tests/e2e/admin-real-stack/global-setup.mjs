@@ -47,6 +47,10 @@ export default async function globalSetup() {
 
     await waitForApi(apiUrl);
     process.env.FULLNET_E2E_API_URL = apiUrl;
+    if (process.env.FULLNET_E2E_SKIP_VIEWER_PROVISION !== '1') {
+      const { provisionViewer } = await import('./scripts/provision-viewer.mjs');
+      await provisionViewer(process.env);
+    }
     return;
   }
 

@@ -41,12 +41,13 @@ test('管理员可在 Vue 中发起流程并完成同意与驳回', async ({ pag
   const rejected = await startInstance(request, clientKind, accessToken, assets.versionId, 'admin rejected');
 
   await clickMainNavLink(page, /我的待办/, '工作流');
-  await openTodoAndAct(page, approved.id, 'approved', 'approve');
+  const todoFilter = { definitionKey: assets.definitionKey };
+  await openTodoAndAct(page, approved, 'approved', 'approve', todoFilter);
   await expect.poll(async () =>
     (await getInstance(request, clientKind, accessToken, approved.id)).statusKey
   ).toBe('completed');
 
-  await openTodoAndAct(page, rejected.id, 'rejected', 'reject');
+  await openTodoAndAct(page, rejected, 'rejected', 'reject', todoFilter);
   await expect.poll(async () =>
     (await getInstance(request, clientKind, accessToken, rejected.id)).statusKey
   ).toBe('rejected');
@@ -79,7 +80,7 @@ test('只有待办读取权限时动作按钮不进入 DOM 且直接 API 返回 
 
   await loginAsHostUser(page, limited.username, limited.password);
   await clickMainNavLink(page, /我的待办/, '工作流');
-  await openTodo(page, instance.id);
+  await openTodo(page, instance, { definitionKey: assets.definitionKey });
   await expect(page.getByTestId('workflow-todo-approve')).toHaveCount(0);
   await expect(page.getByTestId('workflow-todo-reject')).toHaveCount(0);
 
@@ -118,7 +119,8 @@ test('并发处理造成 409 后刷新权威待办并关闭过期动作', async 
 
   await loginAsHostAdmin(page);
   await clickMainNavLink(page, /我的待办/, '工作流');
-  await openTodo(page, instance.id);
+  const todoFilter = { definitionKey: assets.definitionKey };
+  await openTodo(page, instance, todoFilter);
   await fillDecision(page, 'stale decision');
 
   await post(

@@ -37,4 +37,43 @@ public sealed class HostNavigationCatalogSyncServiceTests
         Assert.IsFalse(
             HostNavigationCatalogSyncService.IsModuleDirectoryRouteName("users"));
     }
+
+    [TestMethod]
+    public void BuildDomainDirectoryRouteName_PrefixesDomainKey()
+    {
+        Assert.AreEqual(
+            "domain-overview-platform",
+            HostNavigationCatalogSyncService.BuildDomainDirectoryRouteName("overview-platform"));
+    }
+
+    [TestMethod]
+    public void BuildDomainDirectoryPath_UsesDomainsSegment()
+    {
+        Assert.AreEqual(
+            "/domains/tenancy-commerce",
+            HostNavigationCatalogSyncService.BuildDomainDirectoryPath("tenancy-commerce"));
+    }
+
+    [TestMethod]
+    public void IsDomainDirectoryRouteName_DetectsDomainDirectories()
+    {
+        Assert.IsTrue(
+            HostNavigationCatalogSyncService.IsDomainDirectoryRouteName("domain-other"));
+        Assert.IsFalse(
+            HostNavigationCatalogSyncService.IsDomainDirectoryRouteName("module-identity"));
+    }
+
+    [TestMethod]
+    public void ResolveDomainKeyForModule_MapsKnownModulesAndFallsBackToOther()
+    {
+        Assert.AreEqual(
+            "overview-platform",
+            HostNavigationDomainLayout.ResolveDomainKeyForModule("identity"));
+        Assert.AreEqual(
+            "operations-security",
+            HostNavigationDomainLayout.ResolveDomainKeyForModule("settings"));
+        Assert.AreEqual(
+            HostNavigationDomainLayout.OtherDomainKey,
+            HostNavigationDomainLayout.ResolveDomainKeyForModule("unknown-module"));
+    }
 }

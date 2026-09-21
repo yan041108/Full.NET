@@ -29,7 +29,7 @@ test('Host 管理员可从真实 API 加载套餐目录', async ({ page }, testI
   await expect(packagesView.getByRole('heading', { name: '租户套餐', exact: true })).toBeVisible();
   if (clientKind === 'vue') {
     await expect(packagesView.getByRole('columnheader', { name: '套餐编码' }).first()).toBeVisible();
-    await expect(packagesView.getByText('尚无套餐', { exact: true })).toBeVisible();
+    await expect(packagesView.locator('.el-table__row').first()).toBeVisible({ timeout: 15_000 });
   } else {
     await expect(packagesView.getByText('套餐列表', { exact: true })).toBeVisible();
   }

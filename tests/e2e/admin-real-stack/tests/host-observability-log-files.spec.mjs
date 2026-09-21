@@ -10,12 +10,14 @@ import {
   provisionLimitedHostUserViaApi,
   statusPath
 } from './support/real-stack-auth.mjs';
+import { skipObservabilityWhenAttachModeWithoutLogRoot } from './support/observability-attach-skip.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
 const logFileName = 'e2e-observability.log';
 const logMarker = 'fullnet-observability-real-stack-marker';
 
 test.beforeEach(async ({ page }) => {
+  skipObservabilityWhenAttachModeWithoutLogRoot();
   await page.addInitScript(() => {
     localStorage.setItem('fullnet.admin.locale', 'zh-CN');
   });

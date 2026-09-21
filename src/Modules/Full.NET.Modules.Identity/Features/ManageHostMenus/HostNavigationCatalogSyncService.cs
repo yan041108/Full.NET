@@ -37,11 +37,22 @@ internal sealed class HostNavigationCatalogSyncService(
                 routeNameIndex,
                 cancellationToken)
             .ConfigureAwait(false);
+        var domainCreated = await SyncDomainDirectoriesAsync(
+                routeNameIndex,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var domainReparented = await ReparentModuleDirectoriesToDomainsAsync(
+                routeNameIndex,
+                cancellationToken)
+            .ConfigureAwait(false);
         var totalDefinitions = authorizationCatalog.Navigation.Count
             + authorizationCatalog.Actions.Count
             + authorizationCatalog.Modules.Count;
-        var created = moduleCreated + navigationCreated + buttonCreated;
-        return (created, totalDefinitions - navigationCreated - buttonCreated, reparented);
+        var created = moduleCreated + navigationCreated + buttonCreated + domainCreated;
+        return (
+            created,
+            totalDefinitions - navigationCreated - buttonCreated,
+            reparented + domainReparented);
     }
 
     private async Task<int> SyncModuleDirectoriesAsync(
@@ -290,7 +301,9 @@ internal sealed class HostNavigationCatalogSyncService(
 
         foreach (var row in rows)
         {
-            if (row.ParentId is not null || IsModuleDirectoryRouteName(row.RouteName))
+            if (row.ParentId is not null
+                || IsModuleDirectoryRouteName(row.RouteName)
+                || IsDomainDirectoryRouteName(row.RouteName))
             {
                 continue;
             }
@@ -322,6 +335,114 @@ internal sealed class HostNavigationCatalogSyncService(
                     IdentitySqlParameters.Create(
                         ("MenuId", row.Id),
                         ("ParentId", parentMenuId),
+                        ("UpdatedAtUtc", now)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (affectedRows == 1)
+            {
+                reparented++;
+            }
+        }
+
+        return reparented;
+    }
+
+    private async Task<int> SyncDomainDirectoriesAsync(
+        Dictionary<string, Guid> routeNameIndex,
+        CancellationToken cancellationToken)
+    {
+        var created = 0;
+        var now = clock.UtcNow;
+
+        foreach (var domain in HostNavigationDomainLayout.AllDomains)
+        {
+            var routeName = BuildDomainDirectoryRouteName(domain.Key);
+            if (routeNameIndex.ContainsKey(routeName))
+            {
+                continue;
+            }
+
+            var menuId = idGenerator.NewId();
+            var affectedRows = await commandExecutor.ExecuteAsync(
+                    IdentitySql.InsertHostMenu,
+                    new InsertIdentityNavigation(
+                        menuId,
+                        null,
+                        HostScope,
+                        null,
+                        routeName,
+                        BuildDomainDirectoryPath(domain.Key),
+                        "layout",
+                        domain.Title,
+                        domain.Title,
+                        "grid",
+                        domain.Order * 100,
+                        HostNavigationDomainLayout.DomainDirectoryPermission,
+                        true,
+                        true,
+                        now,
+                        null,
+                        1,
+                        IdentityHostMenuTypes.Directory,
+                        null,
+                        null,
+                        false,
+                        false,
+                        false,
+                        false,
+                        null),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (affectedRows != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Host domain directory sync insert affected {affectedRows} rows instead of one.");
+            }
+
+            routeNameIndex[routeName] = menuId;
+            created++;
+        }
+
+        return created;
+    }
+
+    private async Task<int> ReparentModuleDirectoriesToDomainsAsync(
+        Dictionary<string, Guid> routeNameIndex,
+        CancellationToken cancellationToken)
+    {
+        var rows = await queryExecutor.QueryAsync<HostMenuSyncRow>(
+                IdentitySql.ListHostMenuSyncRows,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        var reparented = 0;
+        var now = clock.UtcNow;
+
+        foreach (var row in rows)
+        {
+            if (!IsModuleDirectoryRouteName(row.RouteName))
+            {
+                continue;
+            }
+
+            var moduleKey = row.RouteName["module-".Length..];
+            var domainKey = HostNavigationDomainLayout.ResolveDomainKeyForModule(moduleKey);
+            if (!routeNameIndex.TryGetValue(
+                    BuildDomainDirectoryRouteName(domainKey),
+                    out var domainParentId))
+            {
+                continue;
+            }
+
+            if (row.ParentId == domainParentId)
+            {
+                continue;
+            }
+
+            var affectedRows = await commandExecutor.ExecuteAsync(
+                    IdentitySql.ReparentHostSystemMenu,
+                    IdentitySqlParameters.Create(
+                        ("MenuId", row.Id),
+                        ("ParentId", domainParentId),
                         ("UpdatedAtUtc", now)),
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -390,6 +511,15 @@ internal sealed class HostNavigationCatalogSyncService(
 
     internal static bool IsModuleDirectoryRouteName(string routeName) =>
         routeName.StartsWith("module-", StringComparison.Ordinal);
+
+    internal static string BuildDomainDirectoryRouteName(string domainKey) =>
+        $"domain-{domainKey}";
+
+    internal static string BuildDomainDirectoryPath(string domainKey) =>
+        $"/domains/{domainKey}";
+
+    internal static bool IsDomainDirectoryRouteName(string routeName) =>
+        routeName.StartsWith("domain-", StringComparison.Ordinal);
 
     private async Task<Dictionary<string, Guid>> LoadRouteNameIndexAsync(
         CancellationToken cancellationToken)

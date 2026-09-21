@@ -140,4 +140,17 @@ internal static class OnlineSessionSql
           AND {ActiveSessionPredicate}
         """,
         SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListActiveHostSessionIdsByUserAndClientExcept = new(
+        "identity.list_active_host_online_session_ids_by_user_client_except",
+        $"""
+        SELECT session.Id
+        FROM fn_identity_refresh_session AS session
+        INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
+        WHERE session.UserId = @UserId
+          AND session.ClientId = @ClientId
+          AND session.Id <> @ExceptSessionId
+          AND {ActiveSessionPredicate}
+        """,
+        SqlDataScope.HostOnly);
 }

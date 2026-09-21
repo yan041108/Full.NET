@@ -1,5 +1,5 @@
 export interface CreateOpenAccessClientRequest {
-  userId: string;
+  username: string;
   name: string;
   description: string | null;
   remark: string | null;
@@ -52,6 +52,7 @@ export interface OpenAccessClientListQuery {
   page?: number;
   pageSize?: number;
   userId?: string;
+  usernameContains?: string;
   nameContains?: string;
 }
 
@@ -113,6 +114,14 @@ export interface OpenAccessClientSignatureDebugResult {
 
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function isOptionalString(value: unknown): boolean {
+  return value === null || value === undefined || typeof value === 'string';
+}
+
+function isOptionalInteger(value: unknown): boolean {
+  return value === null || value === undefined || Number.isInteger(value);
+}
+
 export function isOpenAccessClient(value: unknown): value is OpenAccessClient {
   return isRecord(value)
     && isGuid(value.id)
@@ -120,15 +129,15 @@ export function isOpenAccessClient(value: unknown): value is OpenAccessClient {
     && isGuid(value.userId)
     && typeof value.username === 'string'
     && typeof value.name === 'string'
-    && (value.description === null || typeof value.description === 'string')
-    && (value.remark === null || typeof value.remark === 'string')
+    && isOptionalString(value.description)
+    && isOptionalString(value.remark)
     && typeof value.accessKeyId === 'string'
     && Array.isArray(value.permissions)
     && value.permissions.every((permission) => typeof permission === 'string')
-    && (value.expiresAtUtc === null || typeof value.expiresAtUtc === 'string')
-    && (value.dailyRequestQuota === null || Number.isInteger(value.dailyRequestQuota))
+    && isOptionalString(value.expiresAtUtc)
+    && isOptionalInteger(value.dailyRequestQuota)
     && typeof value.isActive === 'boolean'
-    && (value.lastUsedAtUtc === null || typeof value.lastUsedAtUtc === 'string')
+    && isOptionalString(value.lastUsedAtUtc)
     && typeof value.createdAtUtc === 'string'
     && Number.isInteger(value.version);
 }
@@ -172,7 +181,7 @@ export function isOpenAccessClientAccessLogPage(value: unknown): value is OpenAc
 export function isOpenAccessClientUsage(value: unknown): value is OpenAccessClientUsage {
   return isRecord(value)
     && isGuid(value.clientId)
-    && (value.dailyRequestQuota === null || Number.isInteger(value.dailyRequestQuota))
+    && isOptionalInteger(value.dailyRequestQuota)
     && Number.isInteger(value.todaySuccessCount)
     && Number.isInteger(value.todayFailureCount)
     && typeof value.windowStartUtc === 'string'

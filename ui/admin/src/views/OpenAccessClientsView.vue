@@ -38,6 +38,8 @@ defineOptions({ name: 'OpenAccessClientsView' });
 
 type EditorMode = 'create' | 'edit';
 
+const USERNAME_PATTERN = /^.{3,128}$/u;
+
 const { t } = useAdminI18n();
 const items = ref<OpenAccessClient[]>([]);
 const total = ref(0);
@@ -47,7 +49,7 @@ const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const searchForm = ref<Record<string, string | undefined>>({});
-const appliedFilters = ref({ name: '', userId: '' });
+const appliedFilters = ref({ name: '', username: '' });
 const editorOpen = ref(false);
 const detailOpen = ref(false);
 const detailClient = ref<OpenAccessClient | null>(null);
@@ -55,13 +57,18 @@ const editorMode = ref<EditorMode>('create');
 const editingClient = ref<OpenAccessClient | null>(null);
 const editorFormRef = ref<FormInstance>();
 const editorForm = reactive({
-  userId: '',
+  username: '',
   name: '',
   description: '',
   remark: '',
   permissionsText: '',
   expiresAt: '',
   dailyRequestQuota: ''
+});
+const fieldErrors = reactive({
+  username: '',
+  name: '',
+  permissionsText: ''
 });
 const secret = ref('');
 
@@ -81,7 +88,7 @@ watchLoading(loading);
 
 const searchItems = computed<ArtSearchBarItem[]>(() => [
   { key: 'name', label: t('openAccessClients.fieldName'), type: 'input' },
-  { key: 'userId', label: t('openAccessClients.fieldUserId'), type: 'input' }
+  { key: 'username', label: t('openAccessClients.fieldUsername'), type: 'input' }
 ]);
 
 function rowIndex(index: number) {
@@ -96,7 +103,7 @@ async function load() {
       page: page.value,
       pageSize: pageSize.value,
       nameContains: appliedFilters.value.name,
-      userId: appliedFilters.value.userId
+      usernameContains: appliedFilters.value.username || undefined
     });
     items.value = result.items;
     total.value = result.total;
@@ -111,7 +118,7 @@ async function load() {
 function handleSearch() {
   appliedFilters.value = {
     name: searchForm.value.name?.trim() ?? '',
-    userId: searchForm.value.userId?.trim() ?? ''
+    username: searchForm.value.username?.trim() ?? ''
   };
   page.value = 1;
   void load();
@@ -119,7 +126,7 @@ function handleSearch() {
 
 function resetSearch() {
   searchForm.value = {};
-  appliedFilters.value = { name: '', userId: '' };
+  appliedFilters.value = { name: '', username: '' };
   page.value = 1;
   void load();
 }
@@ -127,14 +134,46 @@ function resetSearch() {
 function openCreate() {
   editorMode.value = 'create';
   editingClient.value = null;
-  editorForm.userId = '';
+  editorForm.username = '';
   editorForm.name = '';
   editorForm.description = '';
   editorForm.remark = '';
   editorForm.permissionsText = '';
   editorForm.expiresAt = '';
   editorForm.dailyRequestQuota = '';
+  clearFieldErrors();
   editorOpen.value = true;
+}
+
+function clearFieldErrors(): void {
+  fieldErrors.username = '';
+  fieldErrors.name = '';
+  fieldErrors.permissionsText = '';
+}
+
+function validateEditorForm(): boolean {
+  fieldErrors.username = '';
+  fieldErrors.name = '';
+  fieldErrors.permissionsText = '';
+
+  if (editorMode.value === 'create') {
+    const username = editorForm.username.trim();
+    if (!username) {
+      fieldErrors.username = t('openAccessClients.usernameRequired');
+    } else if (!USERNAME_PATTERN.test(username)) {
+      fieldErrors.username = t('openAccessClients.usernameInvalid');
+    }
+  }
+
+  if (!editorForm.name.trim()) {
+    fieldErrors.name = t('openAccessClients.nameRequired');
+  }
+
+  if (parsePermissions().length === 0) {
+    fieldErrors.permissionsText = t('openAccessClients.permissionsRequired');
+  }
+
+  return !fieldErrors.username && !fieldErrors.name && !fieldErrors.permissionsText;
 }
 
 function openDetail(row: OpenAccessClient) {
@@ -145,13 +184,14 @@ function openDetail(row: OpenAccessClient) {
 function openEdit(row: OpenAccessClient) {
   editorMode.value = 'edit';
   editingClient.value = row;
-  editorForm.userId = row.userId;
+  editorForm.username = row.username;
   editorForm.name = row.name;
   editorForm.description = row.description ?? '';
   editorForm.remark = row.remark ?? '';
   editorForm.permissionsText = row.permissions.join('\n');
   editorForm.expiresAt = row.expiresAtUtc ?? '';
   editorForm.dailyRequestQuota = row.dailyRequestQuota?.toString() ?? '';
+  clearFieldErrors();
   editorOpen.value = true;
 }
 
@@ -172,13 +212,18 @@ function parseDailyRequestQuota(): number | null {
 }
 
 async function submitEditor() {
+  if (!validateEditorForm()) {
+    ElMessage.warning(t('openAccessClients.formInvalid'));
+    return;
+  }
+
   changing.value = true;
   problem.value = undefined;
   try {
     const permissions = parsePermissions();
     if (editorMode.value === 'create') {
       const created = await createOpenAccessClient({
-        userId: editorForm.userId.trim(),
+        username: editorForm.username.trim(),
         name: editorForm.name.trim(),
         description: editorForm.description.trim() || null,
         remark: editorForm.remark.trim() || null,
@@ -332,6 +377,11 @@ onMounted(() => {
             <template #default="{ $index }">{{ rowIndex($index) }}</template>
           </el-table-column>
           <el-table-column :label="t('openAccessClients.fieldName')" min-width="180" prop="name" />
+          <el-table-column
+            :label="t('openAccessClients.fieldUsername')"
+            min-width="140"
+            prop="username"
+          />
           <el-table-column :label="t('openAccessClients.accessKeyId')" min-width="140" prop="accessKeyId" />
           <el-table-column :label="t('openAccessClients.permissions')" min-width="220">
             <template #default="{ row }">{{ row.permissions.join(', ') }}</template>
@@ -402,10 +452,23 @@ onMounted(() => {
       @confirm="submitEditor"
     >
       <el-form ref="editorFormRef" label-position="top" class="open-access-clients-editor-form">
-        <el-form-item v-if="editorMode === 'create'" :label="t('openAccessClients.fieldUserId')">
-          <el-input v-model="editorForm.userId" translate="no" />
+        <el-form-item
+          :label="t('openAccessClients.fieldUsername')"
+          :required="editorMode === 'create'"
+          :error="fieldErrors.username || undefined"
+        >
+          <el-input
+            v-model="editorForm.username"
+            translate="no"
+            :disabled="editorMode === 'edit'"
+            :placeholder="t('users.usernamePlaceholder')"
+          />
         </el-form-item>
-        <el-form-item :label="t('openAccessClients.fieldName')">
+        <el-form-item
+          :label="t('openAccessClients.fieldName')"
+          required
+          :error="fieldErrors.name || undefined"
+        >
           <el-input v-model="editorForm.name" />
         </el-form-item>
         <el-form-item :label="t('openAccessClients.fieldDescription')">
@@ -414,8 +477,17 @@ onMounted(() => {
         <el-form-item :label="t('openAccessClients.fieldRemark')">
           <el-input v-model="editorForm.remark" />
         </el-form-item>
-        <el-form-item :label="t('openAccessClients.fieldPermissions')">
-          <el-input v-model="editorForm.permissionsText" type="textarea" :rows="4" />
+        <el-form-item
+          :label="t('openAccessClients.fieldPermissions')"
+          required
+          :error="fieldErrors.permissionsText || undefined"
+        >
+          <el-input
+            v-model="editorForm.permissionsText"
+            type="textarea"
+            :rows="4"
+            :placeholder="t('openAccessClients.permissionsHint')"
+          />
         </el-form-item>
         <el-form-item :label="t('openAccessClients.fieldExpiresAt')">
           <el-input v-model="editorForm.expiresAt" placeholder="2026-12-31T00:00:00Z" />

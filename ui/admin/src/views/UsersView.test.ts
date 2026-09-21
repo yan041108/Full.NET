@@ -366,6 +366,62 @@ describe('Vue 用户管理页', () => {
 
     await wrapper.get('[data-testid="users-action-edit"]').trigger('click');
     await flushPromises();
+    await nextTick();
+    await flushPromises();
+
+    const employeeValues = [...document.body.querySelectorAll('.users-editor-dialog input')]
+      .map(element => (element as HTMLInputElement).value);
+    expect(employeeValues).toContain('E-008');
+
+    wrapper.unmount();
+  });
+
+  it('Host 目录编辑弹窗会回显工号档案', async () => {
+    listUsersMock.mockResolvedValueOnce({
+      items: [{
+        ...activeUser,
+        profile: {
+          nickname: null,
+          phoneNumber: null,
+          email: null,
+          employeeNumber: '88',
+          gender: null,
+          joinDateUtc: null,
+          sortOrder: null,
+          idCardType: null,
+          idCardNumber: null,
+          birthDate: null,
+          ethnicity: null,
+          address: null,
+          graduatedSchool: null,
+          educationLevel: null,
+          politicalStatus: null,
+          officePhone: null,
+          emergencyContact: null,
+          emergencyContactRelation: null,
+          emergencyContactPhone: null,
+          emergencyContactAddress: null,
+          remark: null,
+          version: 1
+        }
+      }],
+      page: 1,
+      pageSize: 100,
+      total: 1
+    });
+
+    const wrapper = mountUsers(['identity.users.read', 'identity.users.update']);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="users-action-edit"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+    await nextTick();
+    await flushPromises();
+
+    const employeeValues = [...document.body.querySelectorAll('.users-editor-dialog input')]
+      .map(element => (element as HTMLInputElement).value);
+    expect(employeeValues).toContain('88');
 
     wrapper.unmount();
   });

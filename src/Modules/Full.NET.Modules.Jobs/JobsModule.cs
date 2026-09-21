@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Jobs.Middleware;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Jobs.Execution;
 using Full.NET.Modules.Jobs.Execution.Handlers;
@@ -73,6 +74,15 @@ public sealed class JobsModule : IFullNetModule
         Features.ManageHostJobExecutions.Endpoint.Map(endpoints);
         Features.ManageHostJobSchedules.Endpoint.Map(endpoints);
         Features.ManageHostJobHealth.Endpoint.Map(endpoints);
+    }
+
+    /// <inheritdoc />
+    public void UseModuleMiddleware(IApplicationBuilder app, ModulePipelineStage stage)
+    {
+        if (stage == ModulePipelineStage.BeforeEndpoints)
+        {
+            app.UseMiddleware<HostJobsHostContextMiddleware>();
+        }
     }
 
     /// <summary>Worker 轮询执行待处理任务；不引入 HTTP 与完整模块依赖图。</summary>

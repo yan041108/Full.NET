@@ -25,9 +25,40 @@ export interface AdminOidcPkcePending {
   nonce: string;
 }
 
+/** OpenIddict 要求 redirect_uri 不得含 fragment；与 E2E 种子 `http://localhost:25175/` 对齐。 */
 export function resolveAdminOidcRedirectUri(): string {
   const { origin, pathname, search } = window.location;
-  return `${origin}${pathname}${search}#/identity/oidc/callback`;
+  if (pathname === '/' && search === '') {
+    return `${origin}/`;
+  }
+
+  return `${origin}${pathname}${search}`;
+}
+
+/**
+ * IdP 回跳到站点根路径 query 时，提升到 hash 回调路由供 Vue Router 处理。
+ * @returns 是否已触发整页跳转（调用方应中止后续启动）。
+ */
+export function promoteOidcAuthorizationResponseToHashRoute(): boolean {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has('code') && !url.searchParams.has('error')) {
+    return false;
+  }
+
+  const callbackQuery = new URLSearchParams();
+  for (const key of ['code', 'state', 'iss', 'error', 'error_description']) {
+    const value = url.searchParams.get(key);
+    if (value !== null) {
+      callbackQuery.set(key, value);
+    }
+  }
+
+  const query = callbackQuery.toString();
+  const hashPath = query.length > 0
+    ? `#/identity/oidc/callback?${query}`
+    : '#/identity/oidc/callback';
+  window.location.replace(`${url.origin}${url.pathname}${hashPath}`);
+  return true;
 }
 
 function resolveOidcApiBase(): string {

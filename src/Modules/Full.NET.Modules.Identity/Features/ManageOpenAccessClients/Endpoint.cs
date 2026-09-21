@@ -20,17 +20,27 @@ internal static class Endpoint
         group.MapGet("/", async (
             int? page,
             int? pageSize,
-            Guid? userId,
+            string? userId,
+            string? usernameContains,
             string? nameContains,
             OpenAccessClientQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            var userIdResult = OpenAccessClientRequestValidation.ParseOptionalUserId(userId);
+            if (!userIdResult.IsSuccess)
+            {
+                return mapper.Map(
+                    Result<PagedResult<OpenAccessClientResponse>>.Failure(userIdResult.Error!),
+                    httpContext);
+            }
+
             var result = await queries.ListAsync(
                     page ?? 1,
                     pageSize ?? 20,
-                    userId,
+                    userIdResult.Value,
+                    OpenAccessClientRequestValidation.NormalizeOptionalFilter(usernameContains),
                     nameContains,
                     cancellationToken)
                 .ConfigureAwait(false);

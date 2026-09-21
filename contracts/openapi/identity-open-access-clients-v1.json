@@ -99,7 +99,7 @@
   "schemas": {
     "CreateOpenAccessClientRequest": {
       "properties": [
-        "userId",
+        "username",
         "name",
         "description",
         "remark",

@@ -131,9 +131,7 @@ public sealed class TenancyModule : IFullNetModule
         IConfiguration configuration)
     {
         AddTenantContextAccessor(services);
-        services.AddOptions<TenancyOptions>()
-            .Bind(configuration.GetSection(TenancyOptions.SectionName))
-            .ValidateOnStart();
+        AddTenancyOptionsOnce(services, configuration);
         services.AddOptions<TenancyCommercialOptions>()
             .Configure<IConfiguration>((options, config) =>
             {
@@ -147,9 +145,6 @@ public sealed class TenancyModule : IFullNetModule
                 }
             });
         services.AddHostedService<TenancySaasDefaultsBootstrapHostedService>();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IValidateOptions<TenancyOptions>,
-            TenancyOptionsValidator>());
         services.AddFullNetFluentValidation<ProvisionTenantCommand, TenantSummary>();
         services.TryAddScoped<
             IValidator<ProvisionTenantCommand>,
@@ -195,6 +190,10 @@ public sealed class TenancyModule : IFullNetModule
                 new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
 #endif
         AddTenantContextAccessor(services);
+        AddTenancyOptionsOnce(services, configuration);
+        services.AddScoped<ITenantResolver, TenantResolver>();
+        services.AddScoped<IActiveTenantContextResolver>(provider =>
+            (TenantResolver)provider.GetRequiredService<ITenantResolver>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
             TenantProvisionedCacheInvalidationHandler>());
@@ -202,6 +201,27 @@ public sealed class TenancyModule : IFullNetModule
             IIntegrationEventHandler,
             TenantChangedCacheInvalidationHandler>());
         services.TryAddScoped<TenantCacheInvalidator>();
+    }
+
+    /// <summary>
+    /// API 会同时走 AddMigrationServices 与 AddBackgroundServices，重复 Bind 会让 HostDomains 数组叠加并触发启动校验失败。
+    /// </summary>
+    private static void AddTenancyOptionsOnce(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        if (services.Any(descriptor =>
+                descriptor.ServiceType == typeof(IValidateOptions<TenancyOptions>)))
+        {
+            return;
+        }
+
+        services.AddOptions<TenancyOptions>()
+            .Bind(configuration.GetSection(TenancyOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<TenancyOptions>,
+            TenancyOptionsValidator>());
     }
 
     /// <summary>

@@ -106,6 +106,44 @@ public sealed class LoginHandlerTests
     }
 
     [TestMethod]
+    public async Task Single_session_per_client_policy_revokes_other_sessions_for_same_client_after_login()
+    {
+        var previousSessionId = Guid.Parse("01981a75-f500-7000-8000-000000000088");
+        var fixture = new Fixture();
+        fixture.ReturnUser();
+        fixture.Handler = new Handler(
+            fixture.QueryExecutor,
+            fixture.CommandExecutor,
+            fixture.PasswordHasher,
+            new FixedClock(),
+            new QueueIdGenerator(SessionId, FamilyId, AuditId),
+            fixture.PermissionSnapshotReader,
+            fixture.AccessTokenIssuer,
+            new QueueTokenGenerator("refresh-token", "csrf-token"),
+            Options.Create(new IdentityOptions
+            {
+                AllowDevelopmentEphemeralSigningKey = true,
+                ClientId = "fullnet-admin",
+                SessionLoginPolicy = IdentitySessionLoginPolicy.SingleSessionPerClient,
+            }),
+            fixture.SessionRealtimeDelivery);
+        fixture.QueryExecutor
+            .QueryAsync<Guid>(
+                OnlineSessionSql.ListActiveHostSessionIdsByUserAndClientExcept,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns([previousSessionId]);
+
+        var result = await fixture.Handler.HandleAsync(CreateCommand(), default);
+
+        Assert.IsTrue(result.IsSuccess);
+        await fixture.CommandExecutor.Received(1).ExecuteAsync(
+            IdentitySql.RevokeUserSessionsByClientExcept,
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task Single_session_policy_revokes_other_sessions_after_login()
     {
         var previousSessionId = Guid.Parse("01981a75-f500-7000-8000-000000000099");

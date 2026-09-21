@@ -158,6 +158,9 @@ test('Host 管理员可通过真实 API 导入用户并批量停用启用', asyn
   await expect(view.getByTestId('users-action-import')).toBeVisible();
   await expect(view.getByTestId('users-action-batch-disable')).toBeVisible();
   await expect(view.getByTestId('users-action-batch-enable')).toBeVisible();
+  const searchBar = view.locator('.art-search-bar');
+  await searchBar.getByPlaceholder('请输入账号').fill(importUsername);
+  await searchBar.getByRole('button', { name: '查询' }).click();
   await expect(view.getByText(importUsername, { exact: true }).first()).toBeVisible({
     timeout: 15_000
   });

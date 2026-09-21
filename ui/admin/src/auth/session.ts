@@ -18,6 +18,7 @@ import { isSupportedNavigationTree } from '../navigation/catalog';
 import {
   clearAdminOidcSessionCredentials,
   refreshAdminOidcAccessToken,
+  revokeAdminOidcApplicationSession,
   revokeAdminOidcCenterSession
 } from './oidc-center-login';
 import { resolveAdminOidcClientId } from '../config/identity-auth';
@@ -129,11 +130,16 @@ export const useSessionStore = defineStore('identity-session', () => {
         await sessionRefreshCoordinator.runExclusive(async () => {
           try {
             // 闲置后的 access 可能过期；刷新与退出共用串行边界，避免 refresh 重放。
+            const staleAccessToken = getController().readAccessToken();
             const refreshed = await refreshAdminOidcAccessToken();
-            const accessToken = refreshed?.accessToken ?? getController().readAccessToken();
-            // 中心退出已覆盖应用会话，不能先撤销应用再使用已失效凭据退出中心。
+            const accessToken = refreshed?.accessToken ?? staleAccessToken;
+            // 中心退出已覆盖应用会话，不能先撤销当前应用再使用已失效凭据退出中心。
             if (accessToken !== undefined) {
               await revokeAdminOidcCenterSession(accessToken);
+            }
+            // 切租户后 refresh 可能已轮换 application session；再撤销探针/旧 access，避免孤儿会话仍可调用 API。
+            if (staleAccessToken !== undefined) {
+              await revokeAdminOidcApplicationSession(staleAccessToken);
             }
           } finally {
             // 在释放刷新锁前清理，防止排队恢复操作读到退出前的 refresh。

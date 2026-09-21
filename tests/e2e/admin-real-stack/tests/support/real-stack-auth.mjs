@@ -87,6 +87,9 @@ export function statusPath(_clientKind, code) {
 
 /** 返回当前 Playwright 项目对应的管理端 Origin。 */
 export function adminOrigin(clientKind) {
+  if (process.env.FULLNET_E2E_ADMIN_ORIGIN) {
+    return process.env.FULLNET_E2E_ADMIN_ORIGIN;
+  }
   return clientKind === 'layui'
     ? 'http://localhost:25174'
     : 'http://localhost:25173';
@@ -801,7 +804,15 @@ export async function enterDevelopmentTenant(page, tenantName = 'Full.NET Local'
     .locator('.tenant-context-view .el-table__row')
     .filter({ hasText: tenantName });
   await expect(tenantRow).toBeVisible({ timeout: 15_000 });
+  const contextSwitch = page.waitForResponse(
+    response =>
+      response.url().includes('/api/v1/tenancy/context')
+      && response.request().method() === 'PUT',
+    { timeout: 30_000 }
+  );
   await tenantRow.getByRole('button', { name: '进入租户' }).click();
+  const switchResponse = await contextSwitch;
+  expect(switchResponse.ok()).toBeTruthy();
   await expect(page.getByText('已进入租户上下文')).toBeVisible({ timeout: 15_000 });
   await expect(page).toHaveURL(
     url => {
@@ -811,9 +822,16 @@ export async function enterDevelopmentTenant(page, tenantName = 'Full.NET Local'
     { timeout: 15_000 }
   );
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
-    timeout: 15_000
+    timeout: 30_000
   });
   await expectVisibleCurrentContext(page, tenantName);
+}
+
+/** 从租户上下文经租户上下文页返回 Host，便于在 Host 侧完成 OIDC 中心退出并撤销租户期 access token。 */
+export async function returnToHostContextFromTenant(page) {
+  await clickMainNavLink(page, /租户上下文/);
+  await page.getByRole('button', { name: '返回 Host' }).click();
+  await expectVisibleCurrentContext(page, 'Full.NET Host');
 }
 
 /** 断言当前上下文名称（读取顶栏稳定 test id，避免命中隐藏下拉选项）。 */

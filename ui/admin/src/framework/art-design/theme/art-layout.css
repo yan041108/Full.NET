@@ -1447,7 +1447,9 @@
   background: var(--art-default-bg-color);
 }
 
-.users-table-main.el-full-screen {
+.users-table-main.el-full-screen,
+.art-crud-table-main.el-full-screen,
+.ldap-connections-table-main.el-full-screen {
   position: fixed;
   inset: 16px;
   z-index: 2000;

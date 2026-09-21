@@ -171,6 +171,8 @@ const userUnits = ref<OrganizationUserUnit[]>([]);
 const userPositions = ref<OrganizationUserPosition[]>([]);
 const loading = ref(false);
 const changing = ref(false);
+/** 初始 load 写入租户上下文时跳过 watch，避免与 load 内机构请求竞态并误报 common.unexpected。 */
+let suppressOrgTenantReload = false;
 const revealingProfileField = ref<string | null>(null);
 const selectedUsers = ref<HostUser[]>([]);
 const problem = ref<FullNetProblemDetails>();
@@ -420,8 +422,42 @@ function hasEffectiveField(fieldKey: string, user?: HostUser | null): boolean {
     return true;
   }
 
-  const fieldKeys = user?.projectedFields?.effectiveFieldKeys ?? effectiveUserFieldKeys.value;
-  return fieldKeys.includes(fieldKey);
+  return resolveUserFieldKeys(user).includes(fieldKey);
+}
+
+function resolveUserFieldKeys(user?: HostUser | null): string[] {
+  const keys = user?.projectedFields?.effectiveFieldKeys;
+  if (keys && keys.length > 0) {
+    return keys;
+  }
+
+  return effectiveUserFieldKeys.value;
+}
+
+/** 与编辑弹窗 `:effective-field-keys` 一致，避免列表能看、弹窗能编辑但 loadProfile 按单行键集清空值。 */
+function resolveEditorFieldKeys(user: HostUser | null): string[] {
+  const keys = new Set(resolveUserFieldKeys(user));
+  for (const fieldKey of profileEditorFieldKeys) {
+    if (hasEffectiveField(fieldKey, user)) {
+      keys.add(fieldKey);
+    }
+  }
+  for (const fieldKey of projectedMetaFieldKeys) {
+    if (hasEffectiveField(fieldKey, user)) {
+      keys.add(fieldKey);
+    }
+  }
+  return [...keys];
+}
+
+const editorEffectiveFieldKeys = computed(() => resolveEditorFieldKeys(editingUser.value));
+
+function shouldLoadProfileField(fieldKey: string, user: HostUser): boolean {
+  if (hasEffectiveField(fieldKey, user)) {
+    return true;
+  }
+
+  return resolveEditorFieldKeys(user).includes(fieldKey);
 }
 const canSubmitEditor = computed(() => {
   if (editorMode.value === 'create') {
@@ -701,7 +737,7 @@ watch(pagedUsers, users => {
 });
 
 watch(selectedOrgTenantId, (tenantId, previousTenantId) => {
-  if (!tenantId || tenantId === previousTenantId) {
+  if (suppressOrgTenantReload || !tenantId || tenantId === previousTenantId) {
     return;
   }
 
@@ -877,32 +913,32 @@ function loadProfileFromUser(user: HostUser | null): void {
   }
   editorProfile.value = {
     fieldKeys: [...editableProfileFieldKeys.value],
-    nickname: hasEffectiveField('nickname', user) ? user.profile.nickname : null,
-    phoneNumber: hasEffectiveField('phone_number', user) ? user.profile.phoneNumber : null,
-    email: hasEffectiveField('email', user) ? user.profile.email : null,
-    employeeNumber: hasEffectiveField('employee_number', user) ? user.profile.employeeNumber : null,
-    gender: hasEffectiveField('gender', user) ? user.profile.gender : null,
-    joinDateUtc: hasEffectiveField('join_date_utc', user) ? user.profile.joinDateUtc : null,
-    sortOrder: hasEffectiveField('sort_order', user) ? user.profile.sortOrder : null,
-    idCardType: hasEffectiveField('id_card_type', user) ? user.profile.idCardType : null,
-    idCardNumber: hasEffectiveField('id_card_number', user) ? user.profile.idCardNumber : null,
-    birthDate: hasEffectiveField('birth_date', user) ? user.profile.birthDate : null,
-    ethnicity: hasEffectiveField('ethnicity', user) ? user.profile.ethnicity : null,
-    educationLevel: hasEffectiveField('education_level', user) ? user.profile.educationLevel : null,
-    emergencyContactRelation: hasEffectiveField('emergency_contact_relation', user)
+    nickname: shouldLoadProfileField('nickname', user) ? user.profile.nickname : null,
+    phoneNumber: shouldLoadProfileField('phone_number', user) ? user.profile.phoneNumber : null,
+    email: shouldLoadProfileField('email', user) ? user.profile.email : null,
+    employeeNumber: shouldLoadProfileField('employee_number', user) ? user.profile.employeeNumber : null,
+    gender: shouldLoadProfileField('gender', user) ? user.profile.gender : null,
+    joinDateUtc: shouldLoadProfileField('join_date_utc', user) ? user.profile.joinDateUtc : null,
+    sortOrder: shouldLoadProfileField('sort_order', user) ? user.profile.sortOrder : null,
+    idCardType: shouldLoadProfileField('id_card_type', user) ? user.profile.idCardType : null,
+    idCardNumber: shouldLoadProfileField('id_card_number', user) ? user.profile.idCardNumber : null,
+    birthDate: shouldLoadProfileField('birth_date', user) ? user.profile.birthDate : null,
+    ethnicity: shouldLoadProfileField('ethnicity', user) ? user.profile.ethnicity : null,
+    educationLevel: shouldLoadProfileField('education_level', user) ? user.profile.educationLevel : null,
+    emergencyContactRelation: shouldLoadProfileField('emergency_contact_relation', user)
       ? user.profile.emergencyContactRelation
       : null,
-    emergencyContact: hasEffectiveField('emergency_contact', user)
+    emergencyContact: shouldLoadProfileField('emergency_contact', user)
       ? user.profile.emergencyContact
       : null,
-    emergencyContactPhone: hasEffectiveField('emergency_contact_phone', user)
+    emergencyContactPhone: shouldLoadProfileField('emergency_contact_phone', user)
       ? user.profile.emergencyContactPhone
       : null,
-    emergencyContactAddress: hasEffectiveField('emergency_contact_address', user)
+    emergencyContactAddress: shouldLoadProfileField('emergency_contact_address', user)
       ? user.profile.emergencyContactAddress
       : null,
-    address: hasEffectiveField('address', user) ? user.profile.address : null,
-    remark: hasEffectiveField('remark', user) ? user.profile.remark : null,
+    address: shouldLoadProfileField('address', user) ? user.profile.address : null,
+    remark: shouldLoadProfileField('remark', user) ? user.profile.remark : null,
     version: user.profile.version
   };
 }
@@ -936,23 +972,23 @@ function loadOrgFromUser(user: HostUser | null): void {
 async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
+  suppressOrgTenantReload = true;
   try {
     if (!selectedOrgTenantId.value) {
       selectedOrgTenantId.value = resolveDefaultOrgTenantId();
     }
 
-    const [rolePage, users] = await Promise.all([
-      listHostRoles(1, 200).catch(() => ({
-        items: [] as HostRole[],
-        page: 1,
-        pageSize: 200,
-        total: 0
-      })),
-      fetchAllUsers()
-    ]);
+    const users = await fetchAllUsers();
+    const rolePage = await listHostRoles(1, 200).catch(() => ({
+      items: [] as HostRole[],
+      page: 1,
+      pageSize: 200,
+      total: 0
+    }));
 
     roles.value = rolePage.items;
 
+    let orgLoadFailed = false;
     if (selectedOrgTenantId.value && canManageOrganizations.value) {
       try {
         const orgReference = await loadOrganizationReference(selectedOrgTenantId.value);
@@ -960,12 +996,12 @@ async function load(): Promise<void> {
         orgPositions.value = orgReference.orgPositions;
         userUnits.value = orgReference.userUnits;
         userPositions.value = orgReference.userPositions;
-      } catch (error: unknown) {
+      } catch {
+        orgLoadFailed = true;
         orgUnits.value = [];
         orgPositions.value = [];
         userUnits.value = [];
         userPositions.value = [];
-        problem.value = toProblem(error, 'users.loadFailed');
       }
     } else {
       orgUnits.value = [];
@@ -976,12 +1012,16 @@ async function load(): Promise<void> {
 
     userRoleLabelsById.value = {};
     allUsers.value = enrichUsers(users);
+    if (orgLoadFailed) {
+      ElMessage.warning(t('users.orgReferenceLoadFailed'));
+    }
     total.value = filteredUsers.value.length;
     await hydrateRoleLabels(pagedUsers.value);
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'users.loadFailed');
   } finally {
+    suppressOrgTenantReload = false;
     loading.value = false;
   }
 }
@@ -1151,21 +1191,23 @@ async function openEdit(user: HostUser, tab: EditorTab = 'basic'): Promise<void>
     return;
   }
 
+  const freshUser = allUsers.value.find(item => item.id === user.id) ?? user;
+
   resetEditorSubmitCheckpoint();
   editorMode.value = 'edit';
   editorTab.value = tab;
-  editingUser.value = user;
-  editorUsername.value = user.username;
-  editorDisplayName.value = user.displayName;
-  editorAccountType.value = user.accountType;
+  editingUser.value = freshUser;
+  editorUsername.value = freshUser.username;
+  editorDisplayName.value = freshUser.displayName;
+  editorAccountType.value = freshUser.accountType;
   editorPassword.value = '';
-  loadProfileFromUser(user);
-  loadOrgFromUser(user);
+  loadProfileFromUser(freshUser);
+  loadOrgFromUser(freshUser);
 
   if (canAssignRoles.value) {
     changing.value = true;
     try {
-      const userRoles = await getHostUserRoles(user.id);
+      const userRoles = await getHostUserRoles(freshUser.id);
       selectedRoleIds.value = [...userRoles.roleIds];
       rolesVersion.value = userRoles.version;
     } catch (error: unknown) {
@@ -1176,6 +1218,8 @@ async function openEdit(user: HostUser, tab: EditorTab = 'basic'): Promise<void>
     }
   }
 
+  loadProfileFromUser(editingUser.value);
+  await nextTick();
   editorOpen.value = true;
 }
 
@@ -2355,7 +2399,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
       :education-level-options="profileDictOptions[HOST_USER_PROFILE_DICT_CODES_EXPORT.educationLevel]"
       :emergency-contact-relation-options="profileDictOptions[HOST_USER_PROFILE_DICT_CODES_EXPORT.emergencyContactRelation]"
       :can-submit="canSubmitEditor"
-      :effective-field-keys="editingUser?.projectedFields?.effectiveFieldKeys ?? effectiveUserFieldKeys"
+      :effective-field-keys="editorEffectiveFieldKeys"
       :show-profile-tab="hasProfileTabFields"
       :can-reveal-phone-number="canRevealPhoneNumber"
       :can-reveal-id-card-number="canRevealIdCardNumber"

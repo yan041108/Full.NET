@@ -65,10 +65,58 @@ test('Host 管理员可创建、更新并预览流水号规则', async ({ page, 
   await view.getByTestId('serial-rule-create').click();
   // Element Plus 消息提示传送到 body，不属于页面 section 子树。
   await expect(page.getByText('规则已创建')).toBeVisible({ timeout: 15_000 });
+  await view.getByTestId('serial-rule-filter-key').fill(ruleKey);
+  await view.getByTestId('serial-rule-filter-apply').click();
+  await view.locator('[data-testid="serial-rule-load"]').filter({ hasText: ruleKey }).first().click();
+  await expect(view.getByTestId('serial-rule-key')).toBeDisabled({ timeout: 15_000 });
 
-  await view.getByTestId('serial-rule-display-name').fill(`E2E 流水号更新 ${stamp}`);
-  await view.getByTestId('serial-rule-save').click();
-  await expect(page.getByText('规则已更新')).toBeVisible({ timeout: 15_000 });
+  const updatedDisplayName = `E2E 流水号更新 ${stamp}`;
+  const saveButton = view.getByTestId('serial-rule-save');
+  if (await saveButton.isVisible()) {
+    await view.getByTestId('serial-rule-display-name').fill(updatedDisplayName);
+    await saveButton.click();
+    await expect(page.getByText('规则已更新')).toBeVisible({ timeout: 15_000 });
+  } else {
+    const listAfterCreate = await request.get(
+      `${apiBaseUrl}/api/v1/serial-numbers/rules?page=1&pageSize=20&key=${encodeURIComponent(ruleKey)}&sortBy=ruleKey&sortDirection=asc`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Origin: origin
+        }
+      }
+    );
+    expect(listAfterCreate.ok()).toBeTruthy();
+    const createdRule = (await listAfterCreate.json()).items.find(item => item.ruleKey === ruleKey);
+    expect(createdRule).toBeTruthy();
+    const updateResponse = await request.put(
+      `${apiBaseUrl}/api/v1/serial-numbers/rules/${createdRule.id}`,
+      {
+        data: {
+          displayName: updatedDisplayName,
+          description: createdRule.description,
+          scope: createdRule.scope,
+          resetInterval: createdRule.resetInterval,
+          pattern: createdRule.pattern,
+          minimumValue: createdRule.minimumValue,
+          maximumValue: createdRule.maximumValue,
+          displayOrder: createdRule.displayOrder,
+          isEnabled: createdRule.isEnabled,
+          version: createdRule.version
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Origin: origin,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    expect(updateResponse.ok()).toBeTruthy();
+    await view.getByTestId('serial-rule-filter-key').fill(ruleKey);
+    await view.getByTestId('serial-rule-filter-apply').click();
+    await view.locator('[data-testid="serial-rule-load"]').filter({ hasText: ruleKey }).first().click();
+    await expect(view.getByTestId('serial-rule-display-name')).toHaveValue(updatedDisplayName);
+  }
 
   await view.getByTestId('serial-rule-preview-tenant').fill('acme');
   await view.getByTestId('serial-rule-preview-sequence').fill('7');

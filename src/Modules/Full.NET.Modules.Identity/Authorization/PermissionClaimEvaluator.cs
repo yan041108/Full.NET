@@ -23,9 +23,10 @@ internal sealed class PermissionClaimEvaluator(AuthorizationCatalog catalog)
             return false;
         }
 
+        var permissionScopeMask = ResolvePermissionScopeMask(principal, effectiveScope.Value);
         var definition = catalog.Permissions.SingleOrDefault(permission =>
             string.Equals(permission.Code, permissionCode, StringComparison.Ordinal));
-        if (definition is null || (definition.Scope & effectiveScope.Value) == 0)
+        if (definition is null || (definition.Scope & permissionScopeMask) == 0)
         {
             return false;
         }
@@ -47,8 +48,9 @@ internal sealed class PermissionClaimEvaluator(AuthorizationCatalog catalog)
             return [];
         }
 
+        var permissionScopeMask = ResolvePermissionScopeMask(principal, effectiveScope.Value);
         var permittedCodes = catalog.Permissions
-            .Where(permission => (permission.Scope & effectiveScope.Value) != 0)
+            .Where(permission => (permission.Scope & permissionScopeMask) != 0)
             .Select(permission => permission.Code)
             .ToHashSet(StringComparer.Ordinal);
         var permissions = IsSuperAdministrator(principal)
@@ -82,4 +84,14 @@ internal sealed class PermissionClaimEvaluator(AuthorizationCatalog catalog)
             ? AuthorizationScope.Tenant
             : null;
     }
+
+    /// <summary>
+    /// 超级管理员在租户上下文中仍需执行 Host 平台操作（导航、API 与 OIDC 切租户探针）。
+    /// </summary>
+    private static AuthorizationScope ResolvePermissionScopeMask(
+        ClaimsPrincipal principal,
+        AuthorizationScope effectiveScope) =>
+        IsSuperAdministrator(principal)
+            ? effectiveScope | AuthorizationScope.Host
+            : effectiveScope;
 }

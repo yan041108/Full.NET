@@ -45,11 +45,18 @@ import 'element-plus/theme-chalk/dark/css-vars.css';
 import '@fullnet/design-tokens/tokens.css';
 import './styles/app.css';
 import App from './App.vue';
+import { promoteOidcAuthorizationResponseToHashRoute } from './auth/oidc-center-login';
 import { createAppRouter } from './router';
 
+// IdP 回跳到站点根 query 时先提升到 hash 回调路由；同文档内 replace 不会重载脚本，仍需挂载应用。
+promoteOidcAuthorizationResponseToHashRoute();
+bootstrapAdminApp();
+
+function bootstrapAdminApp(): void {
 const pinia = createPinia();
 
 createApp(App)
   .use(pinia)
   .use(createAppRouter(undefined, pinia))
   .mount('#app');
+}
