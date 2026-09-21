@@ -1,6 +1,7 @@
 namespace Full.NET.Modules.Identity.Contracts;
 
 /// <summary>请求将现有 Host 账号授予超级管理员系统角色。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 CurrentPassword 与 TotpCode 仅用于本次重认证，禁止持久化。</remarks>
 /// <param name="Username">目标 Host 用户名；必须为已存在且活动的普通账号。</param>
 /// <param name="CurrentPassword">操作者（当前超级管理员）的明文密码；用于高风险操作重认证。</param>
 /// <param name="TotpCode">Production 强认证路径下的 TOTP 验证码；Dev/Test 密码 Provider 可省略。</param>
@@ -23,6 +24,7 @@ public sealed record RevokeSuperAdministratorRequest(
     string? TotpCode = null);
 
 /// <summary>描述一个已分配超级管理员系统角色的 Host 账号。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="UserId">Host 用户稳定标识。</param>
 /// <param name="Username">登录名。</param>
 /// <param name="DisplayName">展示名称。</param>
@@ -34,6 +36,7 @@ public sealed record SuperAdministratorResponse(
     bool IsActive);
 
 /// <summary>描述一次可追责的超级管理员关系变更审计记录。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 EventType 与 ResultCode 为稳定机器码，发布后不可改名。</remarks>
 /// <param name="Id">审计记录稳定标识。</param>
 /// <param name="TargetUserId">被授予或撤销角色的目标用户标识。</param>
 /// <param name="ActorUserId">执行变更的操作者标识；自动化迁移场景可能为 <see langword="null"/>。</param>

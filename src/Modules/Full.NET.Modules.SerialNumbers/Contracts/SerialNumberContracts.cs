@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Results;
 namespace Full.NET.Modules.SerialNumbers.Contracts;
 
 /// <summary>定义流水号计数器的可信作用域。</summary>
+/// <remarks>机器码顺序不可变更；新增枚举值只能追加到末尾，避免破坏既有持久化与协议兼容。</remarks>
 public enum SerialNumberRuleScope
 {
     /// <summary>所有租户共享一个 Host 全局计数器。</summary>
@@ -13,6 +14,7 @@ public enum SerialNumberRuleScope
 }
 
 /// <summary>定义流水号达到边界后使用的 UTC 重置周期。</summary>
+/// <remarks>机器码顺序不可变更；新增枚举值只能追加到末尾，避免破坏既有持久化与协议兼容。</remarks>
 public enum SerialNumberResetInterval
 {
     /// <summary>永不重置。</summary>
@@ -29,6 +31,9 @@ public enum SerialNumberResetInterval
 }
 
 /// <summary>Host 管理端请求的纯函数流水号预览。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Scope">取号作用域，决定使用 Host 全局计数器还是租户计数器。</param>
 /// <param name="Pattern">渲染模板；占位符由服务端解析。</param>
 /// <param name="TenantIdentifier">租户标识；Scope 为 Tenant 时必填，Host 时可空。</param>
@@ -44,6 +49,9 @@ public sealed record PreviewSerialNumberRequest(
     SerialNumberResetInterval ResetInterval = SerialNumberResetInterval.Never);
 
 /// <summary>流水号预览结果；不读取或修改计数器状态。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Value">按 Pattern 渲染后的预览值。</param>
 /// <param name="ResetBucket">当前 UTC 时间对应的重置桶。</param>
 /// <param name="SequenceValue">用于渲染的序列值，即下一次将分配的序号。</param>
@@ -53,6 +61,9 @@ public sealed record SerialNumberPreviewResponse(
     long SequenceValue);
 
 /// <summary>创建 Host 管理的流水号规则。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="RuleKey">规则稳定键；创建后不可改名，跨模块引用基于该键。</param>
 /// <param name="DisplayName">规则展示名称。</param>
 /// <param name="Description">规则说明，可空。</param>
@@ -76,6 +87,9 @@ public sealed record CreateSerialNumberRuleRequest(
     bool IsEnabled);
 
 /// <summary>更新流水号规则并使用乐观并发版本。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="DisplayName">规则展示名称。</param>
 /// <param name="Description">规则说明，可空。</param>
 /// <param name="Scope">取号作用域；已有分配记录时变更受 RuleSemanticsLocked 限制。</param>
@@ -99,10 +113,16 @@ public sealed record UpdateSerialNumberRuleRequest(
     long Version);
 
 /// <summary>启用或禁用规则时携带的乐观并发版本。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Version">乐观并发版本号，必须等于当前行版本。</param>
 public sealed record ChangeSerialNumberRuleStatusRequest(long Version);
 
 /// <summary>流水号规则的稳定响应。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">规则稳定标识。</param>
 /// <param name="RuleKey">规则稳定键，跨模块引用基于该键。</param>
 /// <param name="DisplayName">规则展示名称。</param>
@@ -138,6 +158,9 @@ public sealed record SerialNumberRuleResponse(
     long Version);
 
 /// <summary>一次成功且可按幂等键重放的流水号分配。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="RuleKey">分配所基于的规则稳定键。</param>
 /// <param name="SerialNumber">按 Pattern 渲染后的最终流水号字符串。</param>
 /// <param name="SequenceValue">本次分配消耗的原始序列值。</param>
@@ -173,6 +196,7 @@ public interface ISerialNumberAllocator
 }
 
 /// <summary>Host 流水号规则权限。</summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加到本类末尾，避免破坏既有角色分配与策略缓存。</remarks>
 public static class SerialNumberRulePermissions
 {
     /// <summary>读取流水号规则列表与详情。</summary>
@@ -201,6 +225,7 @@ public static class SerialNumberRulePermissions
 }
 
 /// <summary>SerialNumbers 模块稳定错误码。</summary>
+/// <remarks>错误码字符串发布后不可改名或删除；新增错误码只能追加到本类末尾，避免破坏既有客户端错误处理逻辑。</remarks>
 public static class SerialNumberErrorCodes
 {
     /// <summary>流水号 Pattern 不满足受限语法或长度边界。</summary>
@@ -260,6 +285,9 @@ public static class SerialNumberErrorCodes
 }
 
 /// <summary>流水号规则变更审批所需的稳定快照摘要。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="RuleId">目标规则标识。</param>
 /// <param name="RuleKey">规则稳定键。</param>
 /// <param name="DisplayName">规则显示名称。</param>
@@ -318,6 +346,9 @@ public interface ISerialRuleDisableApprovalApplier
 }
 
 /// <summary>流水号规则更新审批的单个字段差异。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="FieldKey">稳定字段键，供前端 i18n 映射。</param>
 /// <param name="BeforeValue">变更前值文本。</param>
 /// <param name="AfterValue">变更后值文本。</param>
@@ -329,6 +360,9 @@ public sealed record SerialRuleFieldChange(
     bool Changed);
 
 /// <summary>提交流水号规则更新审批的请求体。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Update">强类型提议更新。</param>
 /// <param name="IdempotencyKey">调用方幂等键。</param>
 public sealed record SubmitSerialRuleUpdateApprovalRequest(
@@ -336,6 +370,9 @@ public sealed record SubmitSerialRuleUpdateApprovalRequest(
     string IdempotencyKey);
 
 /// <summary>流水号规则更新审批差异预览响应。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="RuleId">目标规则标识。</param>
 /// <param name="RuleKey">规则稳定键。</param>
 /// <param name="DisplayName">规则显示名称。</param>
@@ -351,6 +388,9 @@ public sealed record SerialRuleUpdateApprovalPreviewResponse(
     string AfterSnapshotJson);
 
 /// <summary>流水号规则更新审批提交结果。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="RequestId">DataApproval 请求标识。</param>
 /// <param name="StatusKey">审批请求状态键。</param>
 /// <param name="Changes">字段级差异列表。</param>
@@ -368,6 +408,9 @@ public sealed record SerialRuleUpdateApprovalSubmissionResponse(
     long RequestVersion);
 
 /// <summary>提交流水号规则禁用审批的请求体。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="StatusChange">强类型提议禁用（仅版本号）。</param>
 /// <param name="IdempotencyKey">调用方幂等键。</param>
 public sealed record SubmitSerialRuleDisableApprovalRequest(
@@ -375,6 +418,9 @@ public sealed record SubmitSerialRuleDisableApprovalRequest(
     string IdempotencyKey);
 
 /// <summary>流水号规则禁用审批预览响应。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="RuleId">目标规则标识。</param>
 /// <param name="RuleKey">规则稳定键。</param>
 /// <param name="DisplayName">规则显示名称。</param>
@@ -390,6 +436,9 @@ public sealed record SerialRuleDisableApprovalPreviewResponse(
     string AfterSnapshotJson);
 
 /// <summary>流水号规则禁用审批提交结果。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="RequestId">DataApproval 请求标识。</param>
 /// <param name="StatusKey">审批请求状态键。</param>
 /// <param name="BeforeSnapshotJson">变更前快照 JSON。</param>

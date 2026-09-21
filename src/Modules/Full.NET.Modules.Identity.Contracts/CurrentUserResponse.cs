@@ -3,6 +3,7 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <summary>
 /// 当前认证用户可安全公开给客户端的身份摘要。
 /// </summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Id">当前演员的用户标识。</param>
 /// <param name="Username">当前演员的登录名。</param>
 /// <param name="DisplayName">当前演员的显示名称。</param>

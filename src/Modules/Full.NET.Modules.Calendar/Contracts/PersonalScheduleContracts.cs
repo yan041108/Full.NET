@@ -12,6 +12,9 @@ public static class PersonalScheduleStatuses
     public const string Completed = "completed";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>个人日程响应契约，面向当前用户列表与详情接口。</summary>
 /// <param name="Id">个人日程标识。</param>
 /// <param name="Content">日程内容摘要。</param>

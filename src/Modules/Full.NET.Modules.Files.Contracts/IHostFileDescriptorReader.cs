@@ -14,6 +14,9 @@ public interface IHostFileDescriptorReader
         CancellationToken cancellationToken = default);
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>跨模块安全传递的 Host 文件描述子集；不包含物理存储路径或凭据。</summary>
 /// <param name="FileId">文件标识。</param>
 /// <param name="OriginalFileName">原始文件名。</param>

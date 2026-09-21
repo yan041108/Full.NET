@@ -1,5 +1,8 @@
 namespace Full.NET.Modules.Reporting.Contracts;
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>报表分组响应。</summary>
 /// <param name="Id">分组标识。</param>
 /// <param name="ParentId">父分组标识；根分组为 <see langword="null"/>。</param>

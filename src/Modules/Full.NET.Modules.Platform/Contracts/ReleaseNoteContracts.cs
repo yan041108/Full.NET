@@ -15,6 +15,9 @@ public static class ReleaseNoteStatuses
     public const string Retracted = "retracted";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>Host 更新日志响应契约，包含版本标签、排序键与乐观版本号。</summary>
 /// <param name="Id">更新日志标识。</param>
 /// <param name="VersionLabel">展示用版本标签，如 1.2.3。</param>
@@ -63,6 +66,9 @@ public sealed record MyReleaseNoteResponse(
     bool IsRead,
     DateTimeOffset? ReadAtUtc);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>创建 Host 更新日志草稿的请求契约。</summary>
 /// <param name="VersionLabel">版本标签，必须符合 semver 风格解析规则。</param>
 /// <param name="Title">标题。</param>

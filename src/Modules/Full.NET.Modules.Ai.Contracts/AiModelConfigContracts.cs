@@ -23,6 +23,9 @@ public static class AiModelTestStatusKeys
     public const string Failed = "failed";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>AI 模型配置列表项；端点与密钥已脱敏。</summary>
 /// <param name="Id">配置稳定标识。</param>
 /// <param name="TenantId">所属租户标识；为空表示 Host 级配置。</param>
@@ -56,6 +59,9 @@ public sealed record AiModelConfigListItem(
     DateTimeOffset? UpdatedAtUtc,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>AI 模型配置详情；不回显 API 密钥。</summary>
 /// <param name="Id">配置稳定标识。</param>
 /// <param name="TenantId">所属租户标识；为空表示 Host 级配置。</param>
@@ -91,6 +97,9 @@ public sealed record AiModelConfigResponse(
     DateTimeOffset? UpdatedAtUtc,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>创建 AI 模型配置请求。</summary>
 /// <param name="TenantId">所属租户标识；为空表示 Host 级配置。</param>
 /// <param name="Name">显示名称。</param>
@@ -112,6 +121,9 @@ public sealed record CreateAiModelConfigRequest(
     bool IsDefault,
     bool IsEnabled);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>更新 AI 模型配置请求。</summary>
 /// <param name="Name">显示名称。</param>
 /// <param name="ProviderKey">提供程序键。</param>

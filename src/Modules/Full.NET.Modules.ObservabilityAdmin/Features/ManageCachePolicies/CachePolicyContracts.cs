@@ -1,5 +1,8 @@
 namespace Full.NET.Modules.ObservabilityAdmin.Features.ManageCachePolicies;
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>表示一条已登记缓存策略的只读摘要。</summary>
 /// <param name="EntryName">稳定缓存条目名。</param>
 /// <param name="OwnerModule">所属模块键。</param>

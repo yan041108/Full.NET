@@ -5,6 +5,9 @@ namespace Full.NET.Modules.Tenancy.Contracts;
 /// <summary>
 /// 租户最小只读摘要；供列表、上下文切换与开通结果展示。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">租户稳定标识。</param>
 /// <param name="Identifier">稳定租户编码；创建后不可变。</param>
 /// <param name="Name">租户显示名称。</param>

@@ -1,6 +1,7 @@
 namespace Full.NET.Modules.Identity.Contracts;
 
 /// <summary>用户注册策略与注册方式管理相关稳定常量。</summary>
+/// <remarks>字符串常量发布后不可改名或删除；新增常量只能追加，已发布常量不得调整顺序。</remarks>
 public static class IdentityRegistrationPolicyConstants
 {
     /// <summary>注册策略单例行稳定标识；与迁移种子保持一致。</summary>
@@ -9,6 +10,7 @@ public static class IdentityRegistrationPolicyConstants
 }
 
 /// <summary>注册策略管理权限码。</summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加，已发布权限码不得调整顺序。</remarks>
 public static class IdentityRegistrationPolicyPermissions
 {
     /// <summary>读取注册策略。</summary>
@@ -19,6 +21,7 @@ public static class IdentityRegistrationPolicyPermissions
 }
 
 /// <summary>注册方式管理权限码。</summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加，已发布权限码不得调整顺序。</remarks>
 public static class IdentityRegistrationWayPermissions
 {
     /// <summary>分页查询注册方式。</summary>
@@ -35,6 +38,7 @@ public static class IdentityRegistrationWayPermissions
 }
 
 /// <summary>注册策略响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Id">策略稳定标识。</param>
 /// <param name="IsPublicRegistrationEnabled">是否允许匿名用户查看启用的注册方式；与 <see cref="RegistrationMode"/> 为 Open 时保持一致。</param>
 /// <param name="RegistrationMode">注册三态模式。</param>
@@ -48,6 +52,7 @@ public sealed record RegistrationPolicyResponse(
     int Version);
 
 /// <summary>更新注册策略请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="IsPublicRegistrationEnabled">是否允许匿名用户查看启用的注册方式；未提供 <see cref="RegistrationMode"/> 时用于推导模式。</param>
 /// <param name="Version">客户端感知的乐观并发版本号。</param>
 /// <param name="RegistrationMode">显式注册模式；为空时由布尔字段推导。</param>
@@ -57,6 +62,7 @@ public sealed record UpdateRegistrationPolicyRequest(
     IdentityRegistrationMode? RegistrationMode = null);
 
 /// <summary>注册方式响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Code 发布后不可改名。</remarks>
 /// <param name="Id">注册方式稳定标识。</param>
 /// <param name="TenantId">所属租户标识。</param>
 /// <param name="Name">显示名称。</param>
@@ -86,6 +92,7 @@ public sealed record RegistrationWayResponse(
     int Version);
 
 /// <summary>公开注册方式列表项；不含内部备注。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Id">注册方式稳定标识。</param>
 /// <param name="Name">显示名称。</param>
 /// <param name="Code">稳定机器码。</param>
@@ -97,6 +104,7 @@ public sealed record PublicRegistrationWayResponse(
     int SortOrder);
 
 /// <summary>创建注册方式请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Code 发布后不可改名。</remarks>
 /// <param name="TenantId">所属租户标识。</param>
 /// <param name="Name">显示名称。</param>
 /// <param name="Code">稳定机器码；租户内唯一。</param>
@@ -118,6 +126,7 @@ public sealed record CreateRegistrationWayRequest(
     string? Remark);
 
 /// <summary>更新注册方式请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Name">显示名称。</param>
 /// <param name="Code">稳定机器码；租户内唯一。</param>
 /// <param name="IsEnabled">是否对公开注册入口可见。</param>

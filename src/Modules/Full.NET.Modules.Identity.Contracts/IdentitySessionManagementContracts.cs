@@ -3,6 +3,7 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <summary>
 /// Host 在线会话（刷新令牌族活跃会话）查询与强制下线 API 契约。
 /// </summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加，已发布权限码不得调整顺序。</remarks>
 public static class IdentitySessionManagementPermissions
 {
     /// <summary>分页查询 Host 在线会话列表。</summary>
@@ -16,6 +17,7 @@ public static class IdentitySessionManagementPermissions
 }
 
 /// <summary>登录会话并发策略；默认同一客户端仅保留一条活跃刷新会话。</summary>
+/// <remarks>枚举数值发布后不可改名或删除；新增成员只能追加到末尾，已发布数值不得调整顺序。</remarks>
 public enum IdentitySessionLoginPolicy
 {
     /// <summary>同一用户可同时维持多个活跃刷新会话（含同一 ClientId 重复登录）。</summary>
@@ -29,11 +31,13 @@ public enum IdentitySessionLoginPolicy
 }
 
 /// <summary>当前 Host 登录会话策略只读视图。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="LoginPolicy">登录时如何处置同一用户的其他活跃会话。</param>
 public sealed record IdentitySessionPolicyResponse(
     IdentitySessionLoginPolicy LoginPolicy);
 
 /// <summary>按用户批量强制下线结果。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="UserId">被下线会话所属的 Host 用户标识。</param>
 /// <param name="Username">被下线会话所属的 Host 用户登录名。</param>
 /// <param name="DisplayName">被下线会话所属的 Host 用户展示名称。</param>
@@ -45,6 +49,7 @@ public sealed record RevokeAllHostUserSessionsResponse(
     int RevokedSessionCount);
 
 /// <summary>Host 在线会话列表项。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 会话撤销为敏感操作，服务端须保证刷新令牌族整体失效且不可重放。</remarks>
 /// <param name="Id">刷新会话稳定标识；对应 JWT sid Claim。</param>
 /// <param name="UserId">会话所属的 Host 用户标识。</param>
 /// <param name="Username">会话所属的 Host 用户登录名。</param>

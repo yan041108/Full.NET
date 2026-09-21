@@ -1,5 +1,8 @@
 namespace Full.NET.Modules.Payments.Contracts;
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>支付退款列表项。</summary>
 /// <param name="Id">退款稳定标识。</param>
 /// <param name="TenantId">所属租户标识。</param>
@@ -33,6 +36,9 @@ public sealed record PaymentRefundListItem(
     DateTimeOffset? CompletedAtUtc,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>支付退款详情。</summary>
 /// <param name="Id">退款稳定标识。</param>
 /// <param name="TenantId">所属租户标识。</param>

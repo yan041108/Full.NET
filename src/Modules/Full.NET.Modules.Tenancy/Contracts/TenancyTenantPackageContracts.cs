@@ -1,6 +1,7 @@
 namespace Full.NET.Modules.Tenancy.Contracts;
 
 /// <summary>Host 作用域租户套餐目录 API 的权限与契约。</summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加到本类末尾，避免破坏既有角色分配与策略缓存。</remarks>
 public static class TenancyTenantPackagePermissions
 {
     /// <summary>分页查询套餐目录与详情。</summary>
@@ -20,6 +21,9 @@ public static class TenancyTenantPackagePermissions
 }
 
 /// <summary>租户套餐摘要；编码创建后不可变。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">套餐稳定标识。</param>
 /// <param name="Code">稳定套餐编码；在 Host 作用域内唯一且创建后不可变。</param>
 /// <param name="Name">套餐显示名称。</param>
@@ -37,6 +41,9 @@ public sealed record TenantPackageSummary(
     int AssignedTenantCount = 0);
 
 /// <summary>创建 Host 租户套餐请求。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Code">稳定套餐编码；须在 Host 作用域内保持唯一。</param>
 /// <param name="Name">套餐显示名称。</param>
 /// <param name="Description">套餐说明文本；可省略。</param>
@@ -46,6 +53,9 @@ public sealed record CreateHostTenantPackageRequest(
     string? Description);
 
 /// <summary>更新 Host 租户套餐显示信息请求。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Name">更新后的套餐显示名称。</param>
 /// <param name="Description">更新后的套餐说明文本；可省略。</param>
 /// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>

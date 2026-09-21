@@ -5,6 +5,7 @@ namespace Full.NET.Modules.CodeGeneration.Contracts;
 /// <summary>
 /// 定义代码生成预览能力使用的稳定权限码。
 /// </summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加到本类末尾，避免破坏既有角色分配与策略缓存。</remarks>
 public static class CodeGenerationPreviewPermissions
 {
     /// <summary>
@@ -16,6 +17,7 @@ public static class CodeGenerationPreviewPermissions
 /// <summary>
 /// 定义代码生成预览能力对外返回的稳定错误码。
 /// </summary>
+/// <remarks>错误码字符串发布后不可改名或删除；新增错误码只能追加到本类末尾，避免破坏既有客户端错误处理逻辑。</remarks>
 public static class CodeGenerationErrorCodes
 {
     /// <summary>
@@ -73,6 +75,9 @@ public sealed record CodeGenerationPreviewRequest(
 /// <summary>
 /// 保存无法从列结构安全推断的实体生命周期、审计、并发与归属能力。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="DeleteMode">删除模式稳定机器码，如 soft/hard/none；决定是否生成软删除筛选器。</param>
 /// <param name="HasCreatedAudit">是否记录首次创建审计（创建者、创建时间）。</param>
 /// <param name="HasUpdatedAudit">是否记录最近更新审计（更新者、更新时间）。</param>
@@ -91,6 +96,9 @@ public sealed record CodeGenerationEntityCapabilitiesRequest(
 /// <summary>
 /// 保存跨实体关系两端已经显式确认的语义键、列名与数据作用域。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="PrincipalEntityKey">关系主端（一的一方）实体稳定键。</param>
 /// <param name="PrincipalColumnName">主端被引用列名，通常是主键或唯一约束列。</param>
 /// <param name="PrincipalDataScope">主端实体的数据作用域机器码，用于同租户/同归属校验。</param>
@@ -115,6 +123,9 @@ public sealed record CodeGenerationRelationshipRequest(
 /// <summary>
 /// 表示预览请求中的一个显式字段。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="DatabaseName">数据库列名。</param>
 /// <param name="ClrPropertyName">CLR 属性名。</param>
 /// <param name="JsonPropertyName">JSON 属性名。</param>
@@ -140,6 +151,9 @@ public sealed record CodeGenerationPreviewColumnRequest(
 /// <summary>
 /// 表示列的展示、表单与查询决策，不得改写物理列名。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="ControlKind">UI 控件类型稳定机器码，如 text/textarea/number/date/select/tag/switch 等。</param>
 /// <param name="ShowInList">是否默认出现在列表视图列中。</param>
 /// <param name="IncludeInCreate">是否出现在创建表单中。</param>
@@ -166,6 +180,9 @@ public sealed record CodeGenerationPreviewColumnUiRequest(
 /// <summary>
 /// 表示一次确定性的只读 CRUD 产物预览。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="DatabaseTableName">通过共享命名规则校验的表名。</param>
 /// <param name="ReadPermission">生成的读取权限码。</param>
 /// <param name="WritePermission">兼容写权限码；显式 Schema 等于 update。</param>
@@ -188,6 +205,9 @@ public sealed record CodeGenerationPreviewResponse(
 /// <summary>
 /// 表示一个尚未写入工作区的生成产物。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Path">使用正斜杠的目标相对路径。</param>
 /// <param name="Kind">产物技术边界的稳定机器码。</param>
 /// <param name="Sha256">UTF-8 内容的小写 SHA-256 摘要。</param>

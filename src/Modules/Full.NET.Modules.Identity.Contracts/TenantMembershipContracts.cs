@@ -119,6 +119,7 @@ public sealed record CreateTenantInvitationRequest(
     int ExpiresInHours = 72);
 
 /// <summary>在当前租户内创建 Host 用户并立即加入为活动成员。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Username">新用户登录名。</param>
 /// <param name="DisplayName">展示名称。</param>
 /// <param name="Password">初始密码；创建后通常要求首次登录改密。</param>
@@ -140,6 +141,7 @@ public sealed record CreateTenantInvitationResult(
     string InvitationToken);
 
 /// <summary>更新租户成员角色请求；支持乐观并发。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="MemberRole">更新后的角色机器码；取值必须为 <c>TenantMemberRoles</c> 中的有效值。</param>
 /// <param name="Version">调用方感知的当前版本；服务端据此拒绝并发覆盖。</param>
 public sealed record UpdateTenantMemberRequest(
@@ -147,6 +149,7 @@ public sealed record UpdateTenantMemberRequest(
     int Version);
 
 /// <summary>接受租户邀请请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="InvitationToken">来自邀请邮件的一次性 Token；服务端校验有效性与未过期。</param>
 public sealed record AcceptTenantInvitationRequest(string InvitationToken);
 
@@ -165,6 +168,7 @@ public sealed record AcceptTenantInvitationResponse(
     string Status);
 
 /// <summary>当前登录用户可见的待接受租户邀请摘要。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Id">邀请稳定标识。</param>
 /// <param name="TenantId">目标租户标识。</param>
 /// <param name="TenantName">目标租户展示名称。</param>

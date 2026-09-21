@@ -3,6 +3,7 @@ namespace Full.NET.Modules.Webhooks.Contracts;
 /// <summary>
 /// Webhook 模块稳定权限码集合；不可本地化，作为服务端授权与客户端可见性的共同权威。
 /// </summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加到本类末尾，避免破坏既有角色分配与策略缓存。</remarks>
 public static class WebhookPermissions
 {
     /// <summary>允许读取 Webhook 订阅列表与详情，以及最近投递记录。</summary>

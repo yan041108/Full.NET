@@ -27,6 +27,10 @@ namespace Full.NET.Modules.Jobs;
 /// JobExecutionHostedProcessor 轮询 BackgroundService（到期调度派发 + 待处理执行 + 积压采样可观测）。
 /// 依赖 Identity 模块提供授权目录，并通过 Settings Contract Port 解析敏感配置引用。
 /// </summary>
+/// <remarks>
+/// 依赖 Identity 提供授权目录，Settings Contract Port 解析敏感配置引用；
+/// AddServices 仅装配查询与管理，后台轮询（JobExecutionHostedProcessor）只在 Worker AddBackgroundServices 注册，避免 API 进程重复领取。
+/// </remarks>
 public sealed class JobsModule : IFullNetModule
 {
     /// <summary>获取 Jobs 业务模块名称。</summary>

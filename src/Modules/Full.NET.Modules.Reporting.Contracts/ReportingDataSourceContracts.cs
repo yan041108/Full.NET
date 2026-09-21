@@ -20,6 +20,9 @@ public static class ReportingDataSourceTestStatusKeys
     public const string Failed = "failed";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>报表数据源列表项；连接信息已脱敏，不包含凭据。</summary>
 /// <param name="Id">数据源稳定标识。</param>
 /// <param name="TenantId">所属租户标识；为空表示 Host 级配置。</param>
@@ -55,6 +58,9 @@ public sealed record ReportingDataSourceListItem(
     DateTimeOffset? UpdatedAtUtc,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>报表数据源详情；不回显密码或连接串。</summary>
 /// <param name="Id">数据源稳定标识。</param>
 /// <param name="TenantId">所属租户标识；为空表示 Host 级配置。</param>
@@ -92,6 +98,9 @@ public sealed record ReportingDataSourceResponse(
     DateTimeOffset? UpdatedAtUtc,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>创建报表数据源请求。</summary>
 /// <param name="TenantId">所属租户标识；为空表示 Host 级配置。</param>
 /// <param name="Name">显示名称。</param>
@@ -115,6 +124,9 @@ public sealed record CreateReportingDataSourceRequest(
     bool TrustServerCertificate,
     bool IsEnabled);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>更新报表数据源请求。</summary>
 /// <param name="Name">显示名称。</param>
 /// <param name="ProviderKey">数据库提供程序键。</param>

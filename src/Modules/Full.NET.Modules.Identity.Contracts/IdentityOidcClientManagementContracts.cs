@@ -37,6 +37,7 @@ public sealed record CreateOidcClientRequest(
     string? ResourceAudience);
 
 /// <summary>更新 OIDC 客户端请求；支持乐观并发。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 RedirectUris 与 Scopes 调整需考虑向后兼容。</remarks>
 /// <param name="DisplayName">客户端展示名称。</param>
 /// <param name="RedirectUris">允许回调的 Redirect URI 集合。</param>
 /// <param name="PostLogoutRedirectUris">登出后允许跳转的 URI 集合；可为空。</param>

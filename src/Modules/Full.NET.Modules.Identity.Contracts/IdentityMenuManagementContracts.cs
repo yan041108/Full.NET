@@ -3,6 +3,7 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <summary>
 /// Host 作用域菜单管理 API 的请求与响应契约（纵向切片 Task 1 冻结）。
 /// </summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加，已发布权限码不得调整顺序。</remarks>
 public static class IdentityMenuManagementPermissions
 {
     /// <summary>分页查询 Host 菜单列表与详情。</summary>
@@ -22,6 +23,7 @@ public static class IdentityMenuManagementPermissions
 }
 
 /// <summary>创建 Host 菜单请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="ParentId">父菜单稳定标识；<see langword="null"/> 表示创建根节点。</param>
 /// <param name="RouteName">客户端路由名称；在菜单表内唯一。</param>
 /// <param name="Path">客户端路由路径。</param>
@@ -59,6 +61,7 @@ public sealed record CreateHostMenuRequest(
     string? Remark = null);
 
 /// <summary>更新 Host 菜单请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="ParentId">更新后的父菜单标识；<see langword="null"/> 表示根节点。</param>
 /// <param name="Path">客户端路由路径。</param>
 /// <param name="ComponentKey">客户端本地组件白名单键。</param>
@@ -96,6 +99,7 @@ public sealed record UpdateHostMenuRequest(
     string? Remark = null);
 
 /// <summary>Host 菜单列表项与详情响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Id">菜单稳定标识。</param>
 /// <param name="ParentId">父菜单标识；根节点时为 <see langword="null"/>。</param>
 /// <param name="RouteName">客户端路由名称。</param>
@@ -145,6 +149,7 @@ public sealed record HostMenuResponse(
     string? Remark);
 
 /// <summary>Host 菜单可分配权限选项。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Code">稳定权限码。</param>
 /// <param name="ModuleKey">所属模块稳定键。</param>
 /// <param name="ModuleTitle">所属模块中文标题。</param>
@@ -168,6 +173,7 @@ public sealed record HostMenuPermissionOptionResponse(
     string? ActionKey = null);
 
 /// <summary>将授权目录缺失项同步到 Host 菜单表的结果。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Created">本次新增的菜单节点数量。</param>
 /// <param name="Skipped">已存在且保持不变的菜单节点数量。</param>
 /// <param name="Reparented">因目录结构调整而重新挂接父节点的菜单数量。</param>

@@ -1,6 +1,7 @@
 namespace Full.NET.Modules.Identity.Contracts;
 
 /// <summary>OpenAccess 接入方应用管理 API 契约。</summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加，已发布权限码不得调整顺序。</remarks>
 public static class IdentityOpenAccessClientPermissions
 {
     /// <summary>分页查询 OpenAccess 接入方应用。</summary>
@@ -23,6 +24,7 @@ public static class IdentityOpenAccessClientPermissions
 }
 
 /// <summary>OpenAccess 接入方认证审计事件类型常量。</summary>
+/// <remarks>字符串常量发布后不可改名或删除；新增常量只能追加，已发布常量不得调整顺序。</remarks>
 public static class IdentityOpenAccessClientAuditEventTypes
 {
     /// <summary>HMAC 签名认证尝试。</summary>
@@ -33,6 +35,7 @@ public static class IdentityOpenAccessClientAuditEventTypes
 }
 
 /// <summary>创建 OpenAccess 接入方应用请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Username">绑定的 Host 用户登录名；该用户必须为活动账号。</param>
 /// <param name="Name">接入方应用名称。</param>
 /// <param name="Description">接入方应用描述；可为空。</param>
@@ -50,6 +53,7 @@ public sealed record CreateOpenAccessClientRequest(
     int? DailyRequestQuota = null);
 
 /// <summary>更新 OpenAccess 接入方应用请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Name">接入方应用名称。</param>
 /// <param name="Description">接入方应用描述；可为空。</param>
 /// <param name="Remark">管理员备注；可为空。</param>
@@ -67,6 +71,7 @@ public sealed record UpdateOpenAccessClientRequest(
     int Version);
 
 /// <summary>OpenAccess 接入方应用响应（不含明文密钥）。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Id">接入方应用稳定标识。</param>
 /// <param name="ApiKeyId">当前绑定的 API Key 标识。</param>
 /// <param name="UserId">绑定的 Host 用户标识。</param>
@@ -100,6 +105,7 @@ public sealed record OpenAccessClientResponse(
     int Version);
 
 /// <summary>创建或轮换 OpenAccess 接入方应用成功响应；明文密钥只返回一次。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Secret 仅返回一次，调用方必须立即写入安全 Secret Store，禁止落盘或写日志。</remarks>
 /// <param name="Client">不含明文密钥的应用投影。</param>
 /// <param name="Secret">一次性返回的明文密钥；调用方必须立即写入安全 Secret Store，禁止落盘或写日志。</param>
 public sealed record CreateOpenAccessClientResponse(
@@ -107,6 +113,7 @@ public sealed record CreateOpenAccessClientResponse(
     string Secret);
 
 /// <summary>接入方应用访问审计条目；不含密钥、签名或请求体。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Id">审计事件标识。</param>
 /// <param name="EventType">事件类型。</param>
 /// <param name="ResultCode">稳定结果码。</param>
@@ -124,6 +131,7 @@ public sealed record OpenAccessClientAccessLogEntry(
     DateTimeOffset OccurredAtUtc);
 
 /// <summary>接入方应用当日用量与配额投影。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="ClientId">接入方应用标识。</param>
 /// <param name="DailyRequestQuota">每日成功认证配额；<see langword="null"/> 表示不限。</param>
 /// <param name="TodaySuccessCount">当前 UTC 日成功认证次数。</param>
@@ -141,6 +149,7 @@ public sealed record OpenAccessClientUsageResponse(
     bool QuotaExceeded);
 
 /// <summary>有界签名调试请求；操作者粘贴客户端侧材料，服务端不回显存储密钥。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Secret 仅用于本次验算，禁止持久化。</remarks>
 /// <param name="Secret">客户端持有的明文密钥；仅用于本次验算，禁止持久化。</param>
 /// <param name="Method">HTTP 方法。</param>
 /// <param name="Path">请求路径（含 PathBase）。</param>
@@ -162,6 +171,7 @@ public sealed record OpenAccessClientSignatureDebugRequest(
     string SignatureVersion);
 
 /// <summary>有界签名调试响应；只返回验算材料，不回显服务器存储密钥。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="SignaturesMatch">提供签名是否与按请求材料计算的期望签名一致。</param>
 /// <param name="CanonicalString">规范化签名字符串。</param>
 /// <param name="ContentHash">请求体 SHA-256 十六进制小写摘要。</param>

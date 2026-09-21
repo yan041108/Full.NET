@@ -3,6 +3,7 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <summary>
 /// 定义由模块贡献的导航投影元数据。
 /// </summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Id 发布后不可改名。</remarks>
 /// <param name="Id">全局唯一且稳定的导航标识。</param>
 /// <param name="ParentId">可空的父导航标识。</param>
 /// <param name="RouteName">客户端路由名称。</param>

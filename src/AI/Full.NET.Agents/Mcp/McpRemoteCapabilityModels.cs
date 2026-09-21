@@ -31,8 +31,13 @@ public sealed record McpRemoteApprovedTool(
 public interface IMcpRemoteToolCatalog
 {
     /// <summary>列出已批准且可执行的远端工具。</summary>
+    /// <param name="cancellationToken">用于取消异步枚举的令牌。</param>
+    /// <returns>当前作用域内已批准远端工具的只读列表；无工具时返回空集合。</returns>
     ValueTask<IReadOnlyList<McpRemoteApprovedTool>> ListExecutableAsync(CancellationToken cancellationToken = default);
 
     /// <summary>按本地工具名查找已批准远端工具。</summary>
+    /// <param name="localToolName">本地注册的工具名，区分大小写。</param>
+    /// <param name="cancellationToken">用于取消查询的令牌。</param>
+    /// <returns>匹配的已批准工具；未找到时返回 null。</returns>
     ValueTask<McpRemoteApprovedTool?> FindExecutableAsync(string localToolName, CancellationToken cancellationToken = default);
 }

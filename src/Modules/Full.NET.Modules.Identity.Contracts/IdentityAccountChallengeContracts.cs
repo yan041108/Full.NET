@@ -45,11 +45,13 @@ public enum IdentityRegistrationInvitationStatus : byte
 public sealed record AccountChallengeAcceptedResponse(Guid ChallengeId, DateTimeOffset ExpiresAtUtc);
 
 /// <summary>验证注册邀请 Token 请求；用于在提交注册前确认邀请仍然有效。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="InvitationId">邀请稳定标识。</param>
 /// <param name="InvitationToken">邀请一次性 Token；服务端校验有效性与未过期。</param>
 public sealed record VerifyRegistrationInvitationRequest(Guid InvitationId, string InvitationToken);
 
 /// <summary>验证注册邀请 Token 响应；返回邀请上下文供调用方预填注册表单。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="InvitationId">邀请稳定标识。</param>
 /// <param name="TenantId">邀请关联的租户标识。</param>
 /// <param name="Email">邀请目标邮箱；调用方应禁止修改。</param>
@@ -63,6 +65,7 @@ public sealed record VerifyRegistrationInvitationResponse(
     DateTimeOffset ExpiresAtUtc);
 
 /// <summary>发送注册邮箱挑战请求；服务端据此向邮箱投递验证码。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Email">挑战目标邮箱。</param>
 /// <param name="Purpose">挑战用途；不同用途产生不同挑战，禁止复用。</param>
 /// <param name="InvitationId">关联邀请标识；Purpose 为 InvitationEmailVerification 时必填。</param>
@@ -94,11 +97,13 @@ public sealed record RegisterAccountRequest(
     string? InvitationToken = null);
 
 /// <summary>注册账号响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="UserId">新创建或匹配到的用户标识。</param>
 /// <param name="Created">是否实际新建账号；<see langword="false"/> 表示命中幂等并返回既有账号。</param>
 public sealed record RegisterAccountResponse(Guid UserId, bool Created);
 
 /// <summary>发起密码找回请求；服务端据此向邮箱投递挑战。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Email">账号邮箱。</param>
 public sealed record RequestPasswordRecoveryRequest(string Email);
 

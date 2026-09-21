@@ -16,6 +16,9 @@ public static class ReportingParameterDataTypeKeys
     public const string Date = "date";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>静态 Query Port 参数定义；SQL 仅存在于服务端审查过的实现中。</summary>
 /// <param name="ParameterKey">稳定参数键。</param>
 /// <param name="DisplayName">显示名称。</param>
@@ -33,6 +36,9 @@ public sealed record ReportingQueryPortParameterDefinition(
     int? Minimum,
     int? Maximum);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>静态 Query Port 目录项；禁止客户端提交任意 SQL。</summary>
 /// <param name="QueryPortKey">稳定 Query Port 键。</param>
 /// <param name="DisplayName">显示名称。</param>
@@ -46,6 +52,9 @@ public sealed record ReportingQueryPortDefinition(
     IReadOnlyList<string> SupportedProviderKeys,
     IReadOnlyList<ReportingQueryPortParameterDefinition> Parameters);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>报表定义参数 Schema 项；覆盖 Query Port 参数的展示与默认值。</summary>
 /// <param name="ParameterKey">参数键，必须属于所选 Query Port。</param>
 /// <param name="DisplayName">显示名称。</param>

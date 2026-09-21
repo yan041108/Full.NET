@@ -33,6 +33,9 @@ public static class BackupRunStatuses
     public const string Failed = "failed";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>授权备份任务目录项。</summary>
 /// <param name="Id">任务标识。</param>
 /// <param name="TaskKey">稳定任务键，用于产物目录分段。</param>
@@ -54,6 +57,9 @@ public sealed record BackupTaskResponse(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>授权备份运行结果。</summary>
 /// <param name="Id">运行标识。</param>
 /// <param name="TaskId">任务标识。</param>

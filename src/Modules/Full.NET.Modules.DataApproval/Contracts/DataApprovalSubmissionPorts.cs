@@ -2,6 +2,9 @@ using Full.NET.Abstractions.Results;
 
 namespace Full.NET.Modules.DataApproval.Contracts;
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>跨模块提交 DataApproval 请求的命令。</summary>
 /// <param name="ScenarioKey">稳定场景键。</param>
 /// <param name="TargetEntityId">被变更实体标识。</param>

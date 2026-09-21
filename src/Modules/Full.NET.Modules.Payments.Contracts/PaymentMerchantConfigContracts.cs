@@ -1,5 +1,8 @@
 namespace Full.NET.Modules.Payments.Contracts;
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>支付商户配置列表项；敏感字段已脱敏。</summary>
 /// <param name="Id">配置稳定标识。</param>
 /// <param name="TenantId">所属租户标识；为空表示 Host 级配置。</param>
@@ -35,6 +38,9 @@ public sealed record PaymentMerchantConfigListItem(
     DateTimeOffset? UpdatedAtUtc,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>支付商户配置详情；不回显受保护密钥与私钥。</summary>
 /// <param name="Id">配置稳定标识。</param>
 /// <param name="TenantId">所属租户标识；为空表示 Host 级配置。</param>
@@ -70,6 +76,9 @@ public sealed record PaymentMerchantConfigResponse(
     DateTimeOffset? UpdatedAtUtc,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>创建支付商户配置请求。</summary>
 /// <param name="TenantId">所属租户标识；为空表示 Host 级配置。</param>
 /// <param name="Name">显示名称。</param>
@@ -97,6 +106,9 @@ public sealed record CreatePaymentMerchantConfigRequest(
     bool IsDefault,
     bool IsEnabled);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>更新支付商户配置请求。</summary>
 /// <param name="Name">显示名称。</param>
 /// <param name="ChannelKey">支付渠道键。</param>

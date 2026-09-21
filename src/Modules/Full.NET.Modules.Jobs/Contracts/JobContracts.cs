@@ -5,6 +5,7 @@ namespace Full.NET.Modules.Jobs.Contracts;
 /// <summary>
 /// 作业（Jobs）模块稳定权限码集合；不可本地化，作为服务端授权与客户端可见性的共同权威。
 /// </summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加到本类末尾，避免破坏既有角色分配与策略缓存。</remarks>
 public static class HostJobPermissions
 {
     /// <summary>允许读取作业定义列表与详情。</summary>
@@ -59,6 +60,7 @@ public static class HostJobPermissions
 /// <summary>
 /// 作业模块已知 JobKey 集合，用于标识内置任务；值为稳定机器码不可重命名。
 /// </summary>
+/// <remarks>字符串值为稳定机器码，发布后不可改名或删除；新增值只能追加到本类末尾，以保证持久化与协议兼容性。</remarks>
 public static class JobsWellKnownKeys
 {
     /// <summary>保活心跳任务 JobKey；用于验证 Worker 链路与健康探针。</summary>
@@ -66,6 +68,7 @@ public static class JobsWellKnownKeys
 }
 
 /// <summary>内置任务执行器稳定机器码。</summary>
+/// <remarks>字符串值为稳定机器码，发布后不可改名或删除；新增值只能追加到本类末尾，以保证持久化与协议兼容性。</remarks>
 public static class JobHandlerKinds
 {
     /// <summary>Ping 执行器：只写一条成功执行记录，用于链路自检。</summary>
@@ -83,11 +86,17 @@ public static class JobHandlerKinds
 }
 
 /// <summary>HTTP 任务敏感 Header 的 Settings 密钥引用。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="ConfigKey">Settings 目录中存储实际值的稳定键名；真实值不会出现在 ArgsJson 中。</param>
 public sealed record HttpJobSecretHeaderRef(
     [property: JsonPropertyName("configKey")] string ConfigKey);
 
 /// <summary>HTTP 任务执行参数；序列化为 ArgsJson 持久化。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Url">目标请求 URL。</param>
 /// <param name="Method">HTTP 方法，如 GET/POST/PUT/DELETE。</param>
 /// <param name="Headers">普通 Header 字典；敏感 Header 应通过 SecretHeaders 注入。</param>
@@ -108,6 +117,7 @@ public sealed record HttpJobArgs(
 /// <summary>
 /// 作业触发方式稳定机器码；作为调度计划 TriggerKind 的权威取值范围。
 /// </summary>
+/// <remarks>字符串值为稳定机器码，发布后不可改名或删除；新增值只能追加到本类末尾，以保证持久化与协议兼容性。</remarks>
 public static class JobTriggerKinds
 {
     /// <summary>手动触发：不绑定调度计划，由用户或外部调用即时触发。</summary>
@@ -123,6 +133,7 @@ public static class JobTriggerKinds
 /// <summary>
 /// 作业错失触发（Misfire）的补偿策略稳定机器码。
 /// </summary>
+/// <remarks>字符串值为稳定机器码，发布后不可改名或删除；新增值只能追加到本类末尾，以保证持久化与协议兼容性。</remarks>
 public static class JobMisfirePolicies
 {
     /// <summary>跳过策略：错过的触发窗口直接丢弃，不补偿执行。</summary>
@@ -135,6 +146,7 @@ public static class JobMisfirePolicies
 /// <summary>
 /// 作业执行状态稳定机器码；持久化与协议字段共享同一字符串。
 /// </summary>
+/// <remarks>字符串值为稳定机器码，发布后不可改名或删除；新增值只能追加到本类末尾，以保证持久化与协议兼容性。</remarks>
 public static class JobExecutionStatuses
 {
     /// <summary>已入队待领取；Worker 尚未开始执行。</summary>
@@ -179,6 +191,9 @@ public static class JobExecutionStatuses
 /// <summary>
 /// 作业定义响应契约，用于列表、详情与调度下拉选项。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">作业定义标识。</param>
 /// <param name="JobKey">稳定的作业业务键，用于跨模块引用。</param>
 /// <param name="HandlerKind">执行器稳定机器码，取值自 JobHandlerKinds。</param>
@@ -208,6 +223,9 @@ public sealed record HostJobDefinitionResponse(
 /// <summary>
 /// 创建作业定义的请求契约。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="JobKey">稳定作业业务键；创建后不可更改，用于跨模块与事件引用。</param>
 /// <param name="HandlerKind">执行器稳定机器码，取值自 JobHandlerKinds。</param>
 /// <param name="Args">执行参数；HTTP 任务应传入 HttpJobArgs。</param>
@@ -227,6 +245,9 @@ public sealed record CreateHostJobDefinitionRequest(
 /// <summary>
 /// 更新作业定义的请求契约，使用乐观并发 Version 守卫。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="DisplayName">展示名称。</param>
 /// <param name="Description">用途说明，可空。</param>
 /// <param name="GroupName">分组名称，可空。</param>
@@ -246,22 +267,34 @@ public sealed record UpdateHostJobDefinitionRequest(
 /// <summary>
 /// 停用作业定义的请求契约，使用乐观并发 Version 守卫。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Version">乐观并发版本号，必须等于当前行版本。</param>
 public sealed record DisableHostJobDefinitionRequest(int Version);
 
 /// <summary>
 /// 删除作业定义的请求契约，使用乐观并发 Version 守卫。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Version">乐观并发版本号，必须等于当前行版本。</param>
 public sealed record DeleteHostJobDefinitionRequest(int Version);
 
 /// <summary>作业分组去重选项，对应 Admin.NET ListJobGroup。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="GroupName">分组名称；null 条目表示"未分组"桶。</param>
 public sealed record HostJobGroupResponse(string GroupName);
 
 /// <summary>
 /// 作业调度计划响应契约；字段顺序为稳定机器码的一部分。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">调度计划标识。</param>
 /// <param name="JobDefinitionId">关联的作业定义标识。</param>
 /// <param name="JobDefinitionJobKey">关联作业定义的 JobKey，冗余投影便于搜索。</param>
@@ -309,6 +342,9 @@ public sealed record HostJobScheduleResponse(
 /// <summary>
 /// 创建作业调度计划的请求契约。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="JobDefinitionId">关联的作业定义标识。</param>
 /// <param name="TriggerKind">触发方式稳定机器码，取值自 JobTriggerKinds。</param>
 /// <param name="CronExpression">Cron 表达式；TriggerKind 为 Cron 时必填。</param>
@@ -332,6 +368,9 @@ public sealed record CreateHostJobScheduleRequest(
 /// <summary>
 /// 更新作业调度计划的请求契约，使用乐观并发 Version 守卫。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="TriggerKind">触发方式稳定机器码。</param>
 /// <param name="CronExpression">Cron 表达式。</param>
 /// <param name="TimeZoneId">IANA/Windows 标准时区标识。</param>
@@ -355,12 +394,18 @@ public sealed record UpdateHostJobScheduleRequest(
 /// <summary>
 /// 切换作业调度计划启用/暂停状态的请求契约，使用乐观并发 Version 守卫。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Version">乐观并发版本号，必须等于当前行版本。</param>
 public sealed record ChangeHostJobScheduleStateRequest(int Version);
 
 /// <summary>
 /// 调度计划可选的作业定义下拉响应契约。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">作业定义标识。</param>
 /// <param name="JobKey">作业稳定业务键。</param>
 /// <param name="HandlerKind">执行器稳定机器码。</param>
@@ -374,6 +419,9 @@ public sealed record HostJobScheduleDefinitionOptionResponse(
 /// <summary>
 /// Cron 表达式预览响应契约，用于前端人类可读解释与就近触发预览。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="HumanDescription">已本地化的 Cron 可读描述。</param>
 /// <param name="NextExecutionAtUtc">下一次预计触发时间（UTC）。</param>
 /// <param name="NextOccurrencesUtc">未来若干次触发时间的有序列表，用于预览。</param>
@@ -385,6 +433,9 @@ public sealed record HostJobScheduleCronPreviewResponse(
 /// <summary>
 /// 作业调度健康总览响应契约，用于运维面板。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="RegisteredHandlers">当前集群已注册的执行器稳定键集合。</param>
 /// <param name="Backlog">当前积压快照。</param>
 /// <param name="Workers">当前活动 Worker 实例集合。</param>
@@ -396,6 +447,9 @@ public sealed record HostJobHealthResponse(
 /// <summary>
 /// 作业积压快照，反映待领取与到期重试的队列压力。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="PendingCount">处于 Pending 状态且未被任何 Worker 租约领取的执行数。</param>
 /// <param name="OldestClaimableCreatedAtUtc">最早可领取执行的创建时间，可空表示积压为空。</param>
 /// <param name="DueRetryCount">已到达下次重试时间但尚未被领取的重试执行数。</param>
@@ -409,6 +463,9 @@ public sealed record HostJobHealthBacklogSnapshot(
 /// <summary>
 /// Worker 实例存活响应条目；IsStale 为 true 表示心跳超时，实例可能已失联。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="InstanceId">Worker 实例的唯一标识，进程启动时生成。</param>
 /// <param name="HostProfile">主机与部署角色的复合描述，便于运维定位。</param>
 /// <param name="StartedAtUtc">Worker 进程启动时间（UTC）。</param>
@@ -426,6 +483,9 @@ public sealed record HostJobWorkerInstanceResponse(
 /// <summary>
 /// 单次作业执行记录响应契约，用于执行列表与详情。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">执行记录标识。</param>
 /// <param name="JobDefinitionId">关联作业定义标识。</param>
 /// <param name="JobScheduleId">关联调度计划标识；手动触发时为 null。</param>

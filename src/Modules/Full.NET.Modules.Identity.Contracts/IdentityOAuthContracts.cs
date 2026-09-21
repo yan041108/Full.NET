@@ -1,6 +1,7 @@
 namespace Full.NET.Modules.Identity.Contracts;
 
 /// <summary>OAuth 提供程序管理权限码。</summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加，已发布权限码不得调整顺序。</remarks>
 public static class IdentityOAuthProviderPermissions
 {
     /// <summary>分页查询 OAuth 提供程序。</summary>
@@ -17,6 +18,7 @@ public static class IdentityOAuthProviderPermissions
 }
 
 /// <summary>OAuth 授权模式。</summary>
+/// <remarks>字符串常量发布后不可改名或删除；新增常量只能追加，已发布常量不得调整顺序。</remarks>
 public static class OAuthAuthorizationModes
 {
     /// <summary>匿名登录；仅当外部主体已绑定本地用户时签发会话。</summary>
@@ -27,6 +29,7 @@ public static class OAuthAuthorizationModes
 }
 
 /// <summary>OAuth 回调稳定错误码（查询参数 oauth_error）。</summary>
+/// <remarks>字符串常量发布后不可改名或删除；新增常量只能追加，已发布常量不得调整顺序。</remarks>
 public static class OAuthCallbackErrorCodes
 {
     /// <summary>外部主体尚未绑定本地用户。</summary>
@@ -46,6 +49,7 @@ public static class OAuthCallbackErrorCodes
 }
 
 /// <summary>OAuth 提供程序响应；不包含客户端密钥。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 ProviderKey 发布后不可改名。</remarks>
 /// <param name="Id">提供程序稳定标识。</param>
 /// <param name="ProviderKey">稳定机器码。</param>
 /// <param name="DisplayName">显示名称。</param>
@@ -71,6 +75,7 @@ public sealed record OAuthProviderResponse(
     int Version);
 
 /// <summary>公开可见的已启用 OAuth 提供程序摘要。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="ProviderKey">稳定机器码。</param>
 /// <param name="DisplayName">显示名称。</param>
 public sealed record PublicOAuthProviderResponse(
@@ -78,6 +83,7 @@ public sealed record PublicOAuthProviderResponse(
     string DisplayName);
 
 /// <summary>创建 OAuth 提供程序请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 ProviderKey 一旦发布即不可改名；ClientSecret 仅写入时接受，响应不回显。</remarks>
 /// <param name="ProviderKey">稳定机器码。</param>
 /// <param name="DisplayName">显示名称。</param>
 /// <param name="Authority">OIDC Issuer URL。</param>
@@ -97,6 +103,7 @@ public sealed record CreateOAuthProviderRequest(
     bool IsEnabled);
 
 /// <summary>更新 OAuth 提供程序请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="DisplayName">显示名称。</param>
 /// <param name="Authority">OIDC Issuer URL。</param>
 /// <param name="ClientId">客户端标识。</param>
@@ -116,6 +123,7 @@ public sealed record UpdateOAuthProviderRequest(
     int Version);
 
 /// <summary>当前用户的 OAuth 外部身份绑定。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Id">绑定标识。</param>
 /// <param name="ProviderKey">提供程序机器码。</param>
 /// <param name="ProviderDisplayName">提供程序显示名称。</param>

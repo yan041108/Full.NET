@@ -29,6 +29,9 @@ public static class AiChatMessageStatusKeys
     public const string Failed = "failed";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>聊天会话列表项。</summary>
 /// <param name="Id">会话标识。</param>
 /// <param name="TenantId">租户标识；Host 会话为空。</param>
@@ -73,6 +76,9 @@ public sealed record AiChatMessageResponse(
     int? CompletionTokens,
     DateTimeOffset CreatedAtUtc);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>聊天会话详情。</summary>
 /// <param name="Id">会话标识。</param>
 /// <param name="TenantId">租户标识；Host 会话为空。</param>
@@ -98,6 +104,9 @@ public sealed record AiChatSessionResponse(
     DateTimeOffset? UpdatedAtUtc,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>创建聊天会话请求。</summary>
 /// <param name="ModelConfigId">模型配置标识。</param>
 /// <param name="Title">可选标题；为空时使用默认标题。</param>

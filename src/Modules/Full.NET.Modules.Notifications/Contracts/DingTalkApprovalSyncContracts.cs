@@ -32,6 +32,9 @@ public static class DingTalkApprovalSyncPermissions
     public const string Retry = "notifications.dingtalk_approval_sync.retry";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>登记钉钉审批镜像同步请求；Full.NET Workflow 仍为流程权威。</summary>
 /// <param name="WorkflowInstanceId">本地工作流实例标识。</param>
 /// <param name="OriginatorUserId">钉钉发起人 userId。</param>
@@ -45,6 +48,9 @@ public sealed record CreateDingTalkApprovalSyncRequest(
     string Title,
     string? Summary);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>钉钉审批镜像同步记录响应。</summary>
 /// <param name="Id">同步记录稳定标识。</param>
 /// <param name="WorkflowInstanceId">本地 Full.NET Workflow 实例标识；镜像同步的源。</param>

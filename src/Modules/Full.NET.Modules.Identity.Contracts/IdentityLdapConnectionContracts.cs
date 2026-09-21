@@ -1,6 +1,7 @@
 namespace Full.NET.Modules.Identity.Contracts;
 
 /// <summary>LDAP 连接管理权限码。</summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加，已发布权限码不得调整顺序。</remarks>
 public static class IdentityLdapConnectionPermissions
 {
     /// <summary>分页查询 LDAP 连接。</summary>
@@ -23,6 +24,7 @@ public static class IdentityLdapConnectionPermissions
 }
 
 /// <summary>LDAP 连接响应；不包含凭据字段。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Id">连接稳定标识。</param>
 /// <param name="TenantId">所属租户标识；为空表示 Host 级配置。</param>
 /// <param name="Name">显示名称。</param>
@@ -60,6 +62,7 @@ public sealed record LdapConnectionResponse(
     int Version);
 
 /// <summary>创建 LDAP 连接请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 BindPassword 仅写入时接受，响应不回显。</remarks>
 /// <param name="TenantId">所属租户标识；为空表示 Host 级配置。</param>
 /// <param name="Name">显示名称。</param>
 /// <param name="Host">LDAP 主机名。</param>
@@ -91,6 +94,7 @@ public sealed record CreateLdapConnectionRequest(
     bool IsEnabled);
 
 /// <summary>更新 LDAP 连接请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Name">显示名称。</param>
 /// <param name="Host">LDAP 主机名。</param>
 /// <param name="Port">LDAP 端口。</param>
@@ -122,6 +126,7 @@ public sealed record UpdateLdapConnectionRequest(
     int Version);
 
 /// <summary>LDAP 连接测试结果。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Succeeded">是否成功。</param>
 /// <param name="Message">诊断消息；失败时包含原因摘要。</param>
 public sealed record TestLdapConnectionResult(
@@ -129,6 +134,7 @@ public sealed record TestLdapConnectionResult(
     string Message);
 
 /// <summary>LDAP 用户认证测试请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Password 仅用于本次验证，禁止持久化。</remarks>
 /// <param name="Account">待验证的用户账号。</param>
 /// <param name="Password">待验证的用户密码。</param>
 public sealed record TestLdapAuthenticationRequest(
@@ -136,6 +142,7 @@ public sealed record TestLdapAuthenticationRequest(
     string Password);
 
 /// <summary>LDAP 用户认证测试结果。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Succeeded">是否成功以搜索到的用户 DN 完成绑定。</param>
 /// <param name="MatchedDn">匹配到的目录 DN；失败时为 <see langword="null"/>。</param>
 /// <param name="Message">诊断消息。</param>
@@ -145,6 +152,7 @@ public sealed record TestLdapAuthenticationResult(
     string Message);
 
 /// <summary>LDAP 同步预览请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="SearchBaseDn">可选的搜索根 DN；默认使用连接配置的 <see cref="LdapConnectionResponse.SyncSearchBaseDn"/>。</param>
 /// <param name="MaxEntries">返回条目上限；服务端会裁剪到允许范围。</param>
 public sealed record PreviewLdapSyncRequest(
@@ -152,6 +160,7 @@ public sealed record PreviewLdapSyncRequest(
     int? MaxEntries);
 
 /// <summary>LDAP 同步预览条目类型。</summary>
+/// <remarks>字符串常量发布后不可改名或删除；新增常量只能追加，已发布常量不得调整顺序。</remarks>
 public static class LdapSyncPreviewEntryKinds
 {
     /// <summary>用户条目。</summary>
@@ -162,6 +171,7 @@ public static class LdapSyncPreviewEntryKinds
 }
 
 /// <summary>LDAP 同步预览条目。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Dn">目录 DN。</param>
 /// <param name="EntryKind">条目类型：<see cref="LdapSyncPreviewEntryKinds.User"/> 或 <see cref="LdapSyncPreviewEntryKinds.OrganizationalUnit"/>。</param>
 /// <param name="Account">用户账号；组织单元为空。</param>
@@ -177,6 +187,7 @@ public sealed record LdapSyncPreviewEntry(
     string? DepartmentCode);
 
 /// <summary>LDAP 同步预览响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="SearchBaseDn">实际使用的搜索根 DN。</param>
 /// <param name="Entries">预览条目列表。</param>
 public sealed record PreviewLdapSyncResponse(

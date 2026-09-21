@@ -5,6 +5,7 @@ namespace Full.NET.Modules.Document.Contracts;
 /// <summary>
 /// 主机文档的内容类型稳定枚举；序列化为整型存储，新增值必须追加以保持机器码兼容。
 /// </summary>
+/// <remarks>机器码顺序不可变更；新增枚举值只能追加到末尾，避免破坏既有持久化与协议兼容。</remarks>
 public enum HostDocumentType
 {
     /// <summary>未知或未分类的文档类型。</summary>
@@ -47,6 +48,9 @@ public enum HostDocumentStatus
 /// <summary>
 /// 文档-标签关联响应契约，承载标签分配的最小稳定子集。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="TagId">标签标识。</param>
 /// <param name="TagName">标签展示名称。</param>
 public sealed record HostDocumentTagAssignmentResponse(
@@ -157,6 +161,9 @@ public sealed record AddHostDocumentVersionRequest(
 /// <summary>
 /// 软删除主机文档项的请求契约，使用乐观并发 Version 守卫，避免并发删除冲突。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Version">乐观并发版本号，必须等于当前行版本。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record DeleteHostDocumentItemRequest(long Version);
@@ -164,6 +171,9 @@ public sealed record DeleteHostDocumentItemRequest(long Version);
 /// <summary>
 /// 从回收站恢复主机文档项的请求契约，使用乐观并发 Version 守卫。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Version">乐观并发版本号，必须等于当前行版本。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record RestoreHostDocumentItemRequest(long Version);
@@ -171,6 +181,9 @@ public sealed record RestoreHostDocumentItemRequest(long Version);
 /// <summary>
 /// 将文档当前版本指针回滚到既有历史版本的请求契约，使用乐观并发 Version 守卫。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Version">文档项乐观并发版本号，必须等于当前行版本。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record RollbackHostDocumentVersionRequest(long Version);
@@ -178,6 +191,9 @@ public sealed record RollbackHostDocumentVersionRequest(long Version);
 /// <summary>
 /// 主机文档单个版本的响应契约，用于版本列表与当前版本引用。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">版本行标识。</param>
 /// <param name="VersionNumber">文档内的单调递增版本号，从 1 开始。</param>
 /// <param name="FileId">Files 模块中关联的就绪文件标识。</param>
@@ -199,6 +215,9 @@ public sealed record HostDocumentVersionResponse(
 /// <summary>
 /// 主机文档项完整响应契约，用于列表与详情；字段顺序为线格式稳定的一部分。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">文档标识。</param>
 /// <param name="DocumentNo">稳定可读文档编号，用于对外引用。</param>
 /// <param name="Title">文档标题。</param>
@@ -250,6 +269,9 @@ public sealed record HostDocumentItemResponse(
 /// <summary>
 /// 设置主机文档精确权限的请求契约；提交集合为整体覆盖，按用户幂等替换。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="DocumentId">目标文档标识。</param>
 /// <param name="Permissions">权限条目集合；为空集合表示清空所有非管理员显式授权。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -260,6 +282,9 @@ public sealed record SetHostDocumentPermissionsRequest(
 /// <summary>
 /// 文档权限条目，指定单个用户在文档上的权限级别机器码。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="UserId">被授权用户标识。</param>
 /// <param name="PermissionLevel">权限级别稳定机器码，如 viewer/editor/owner。</param>
 public sealed record HostDocumentPermissionEntry(
@@ -269,6 +294,9 @@ public sealed record HostDocumentPermissionEntry(
 /// <summary>
 /// 文档权限响应契约，用于回显已保存的授权条目。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">权限行标识。</param>
 /// <param name="DocumentId">所属文档标识。</param>
 /// <param name="UserId">被授权用户标识。</param>
@@ -284,6 +312,9 @@ public sealed record HostDocumentPermissionResponse(
 /// <summary>
 /// 创建主机文档匿名分享的请求契约；通过分享码对外暴露，不依赖登录态。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="DocumentId">目标文档标识。</param>
 /// <param name="ValidDays">分享有效天数，从创建时刻起计算。</param>
 /// <param name="Password">可选访问口令；传入后匿名访问必须提交匹配口令。</param>
@@ -298,6 +329,9 @@ public sealed record CreateHostDocumentShareRequest(
 /// <summary>
 /// 启用或停用文档匿名分享的请求契约，使用乐观并发 Version 守卫。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="IsEnabled">true 表示启用分享入口，false 表示停用。</param>
 /// <param name="Version">乐观并发版本号，必须等于当前行版本。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -308,6 +342,9 @@ public sealed record UpdateHostDocumentShareStatusRequest(
 /// <summary>
 /// 主机文档匿名分享响应契约；字段顺序为稳定机器码的一部分。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">分享行标识。</param>
 /// <param name="DocumentId">所属文档标识。</param>
 /// <param name="ShareCode">对外使用的稳定分享码，URL 安全。</param>
@@ -397,11 +434,17 @@ public sealed record HostDocumentShareResponse(
 }
 
 /// <summary>匿名分享访问请求：通过 POST 提交口令，规避 GET 产生副作用与缓存泄漏。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record AccessHostDocumentShareRequest(
     string? Password = null);
 
 /// <summary>匿名分享访问响应：仅回传文档定位、标题元数据与实际下载/展示入口，不含口令相关字段。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 public sealed record HostDocumentShareAccessResponse(
     Guid ShareId,
     Guid DocumentId,
@@ -416,6 +459,9 @@ public sealed record HostDocumentShareAccessResponse(
 /// <summary>
 /// 文档统计汇总响应契约，提供总量级别的聚合指标。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="TotalItems">未删除文档总数。</param>
 /// <param name="TotalVersions">所有版本记录总数。</param>
 /// <param name="TotalSizeKb">所有当前版本合计大小（KB，取整）。</param>
@@ -429,6 +475,9 @@ public sealed record HostDocumentStatisticsSummaryResponse(
 /// <summary>
 /// 按文件扩展名分组的文档统计条目。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Extension">标准化文件扩展名（含前导点），null 表示未识别类型。</param>
 /// <param name="Count">该扩展名对应的文档数量。</param>
 /// <param name="TotalSizeKb">该扩展名下文档合计大小（KB，取整）。</param>
@@ -440,6 +489,9 @@ public sealed record HostDocumentStatisticsTypeItem(
 /// <summary>
 /// 按分类分组的文档统计条目。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="CategoryId">分类标识，null 表示未分类桶。</param>
 /// <param name="CategoryName">分类展示名称，用于界面直接渲染。</param>
 /// <param name="Count">该分类下的文档数量。</param>
@@ -451,6 +503,9 @@ public sealed record HostDocumentStatisticsCategoryItem(
 /// <summary>
 /// 主机文档完整统计响应契约，用于后台统计看板。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Summary">总量级汇总。</param>
 /// <param name="ByType">按扩展名分组的统计集合。</param>
 /// <param name="ByCategory">按分类分组的统计集合。</param>

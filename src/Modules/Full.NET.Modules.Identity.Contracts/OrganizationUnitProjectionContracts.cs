@@ -4,6 +4,7 @@ using global::MemoryPack;
 namespace Full.NET.Modules.Identity.Contracts;
 
 /// <summary>Identity 消费方机构单元投影集成事件的稳定消息类型。</summary>
+/// <remarks>字符串常量发布后不可改名或删除；新增常量只能追加，已发布常量不得调整顺序。</remarks>
 public static class IdentityOrganizationUnitProjectionIntegrationEventTypes
 {
     /// <summary>租户机构单元状态已提交变更。</summary>
@@ -11,6 +12,7 @@ public static class IdentityOrganizationUnitProjectionIntegrationEventTypes
 }
 
 /// <summary>机构单元投影对账 Host 权限码。</summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加，已发布权限码不得调整顺序。</remarks>
 public static class IdentityOrganizationUnitProjectionPermissions
 {
     /// <summary>执行 dry-run 对账并读取差异报告。</summary>
@@ -23,6 +25,7 @@ public static class IdentityOrganizationUnitProjectionPermissions
 }
 
 /// <summary>机构单元投影对账模式稳定机器码。</summary>
+/// <remarks>字符串常量发布后不可改名或删除；新增常量只能追加，已发布常量不得调整顺序。</remarks>
 public static class IdentityOrganizationUnitProjectionReconciliationModes
 {
     /// <summary>只读对账，不写入投影表。</summary>
@@ -33,6 +36,7 @@ public static class IdentityOrganizationUnitProjectionReconciliationModes
 }
 
 /// <summary>表示租户机构单元创建、更新或禁用已与业务状态原子提交。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 该事件经 MemoryPack 序列化后投递，字段顺序直接影响线格式。</remarks>
 /// <param name="TenantId">所属租户标识。</param>
 /// <param name="UnitId">机构单元稳定标识。</param>
 /// <param name="Name">变更后的机构单元名称。</param>
@@ -49,6 +53,7 @@ public partial record IdentityOrganizationUnitChangedIntegrationEvent(
     DateTimeOffset ChangedAtUtc);
 
 /// <summary>机构单元投影回填与对账所需的最小只读快照。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="UnitId">机构单元稳定标识。</param>
 /// <param name="Name">机构单元名称。</param>
 /// <param name="IsActive">是否处于活动状态。</param>
@@ -62,6 +67,7 @@ public sealed record IdentityOrganizationUnitProjectionSnapshot(
     DateTimeOffset ChangedAtUtc);
 
 /// <summary>按 UnitId 递增的 keyset 分页结果。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Items">当前页的机构单元快照集合。</param>
 /// <param name="NextAfterUnitId">下一页起点游标；不存在更多页时为 <see langword="null"/>。</param>
 /// <param name="HasMore">是否仍有后续页。</param>
@@ -71,6 +77,7 @@ public sealed record IdentityOrganizationUnitProjectionPage(
     bool HasMore);
 
 /// <summary>单页机构单元投影对账请求；仅接受 keyset 游标，不接受页码或偏移量。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="TenantId">目标租户标识。</param>
 /// <param name="AfterUnitId">当前页起点游标；首页传 <see langword="null"/>。</param>
 /// <param name="PageSize">单页行数；服务端会限制在 1-100 的有界范围内。</param>
@@ -82,6 +89,7 @@ public sealed record ReconcileOrganizationUnitProjectionRequest(
     string Mode);
 
 /// <summary>单页机构单元投影对账结果。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="TenantId">目标租户标识。</param>
 /// <param name="Scanned">本页扫描的源端快照行数。</param>
 /// <param name="Missing">Identity 侧缺失、需要回填的投影行数。</param>

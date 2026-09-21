@@ -3,6 +3,7 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <summary>
 /// Host 作用域用户管理 API 的请求与响应契约（纵向切片 Task 1 冻结）。
 /// </summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加，已发布权限码不得调整顺序。</remarks>
 public static class IdentityUserManagementPermissions
 {
     /// <summary>分页查询 Host 用户列表与详情。</summary>
@@ -46,6 +47,7 @@ public static class IdentityUserManagementPermissions
 }
 
 /// <summary>创建 Host 用户请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Password 仅存在于请求边界，禁止写日志或缓存。</remarks>
 /// <param name="Username">登录名；在 Host 作用域内须保持唯一。</param>
 /// <param name="DisplayName">面向管理端展示的名称。</param>
 /// <param name="Password">首次创建使用的明文密码；只允许存在于当前请求边界，禁止写入日志或缓存。</param>
@@ -59,6 +61,7 @@ public sealed record CreateHostUserRequest(
     HostUserProfileWriteRequest? Profile = null);
 
 /// <summary>更新 Host 用户基础资料请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="DisplayName">更新后的展示名称。</param>
 /// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>
 /// <param name="AccountType">更新后的账号类型机器码；<see langword="null"/> 表示不修改。</param>
@@ -70,11 +73,13 @@ public sealed record UpdateHostUserRequest(
     HostUserProfileWriteRequest? Profile = null);
 
 /// <summary>管理员重置 Host 用户密码请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Password 仅存在于请求边界。</remarks>
 /// <param name="Password">重置后的明文密码；只允许存在于当前请求边界。</param>
 public sealed record ResetHostUserPasswordRequest(
     string Password);
 
 /// <summary>Host 用户扩展档案响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Nickname">昵称。</param>
 /// <param name="PhoneNumber">手机号。</param>
 /// <param name="Email">邮箱。</param>
@@ -122,6 +127,7 @@ public sealed record HostUserProfileResponse(
     int Version);
 
 /// <summary>Host 用户扩展档案写入请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="FieldKeys">本次显式参与写入的字段键集合；<see langword="null"/> 表示按非空值推断。</param>
 /// <param name="Nickname">昵称。</param>
 /// <param name="PhoneNumber">手机号。</param>
@@ -171,6 +177,7 @@ public sealed record HostUserProfileWriteRequest(
     int? Version);
 
 /// <summary>Host 用户列表项与详情响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Id">Host 用户稳定标识。</param>
 /// <param name="Username">登录名。</param>
 /// <param name="DisplayName">展示名称。</param>
@@ -196,6 +203,7 @@ public sealed record HostUserResponse(
 /// <summary>
 /// Host 用户的受限投影；EffectiveFieldKeys 用于区分无授权与有授权但值为空。
 /// </summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="EffectiveFieldKeys">服务端按角色授权裁剪后实际生效的字段键。</param>
 /// <param name="PreferredLocale">账号首选语言偏好；未设置时为 <see langword="null"/>。</param>
 /// <param name="FailedLoginCount">累计失败登录次数；未启用锁定时为 <see langword="null"/>。</param>
@@ -207,11 +215,13 @@ public sealed record HostUserProjectedFieldsResponse(
     DateTimeOffset? LockoutEndUtc);
 
 /// <summary>批量导入 Host 用户；逐行报告，禁止超级管理员账号类型。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Rows">按工作簿行顺序提交的创建请求；调用方应限制单次导入行数上限。</param>
 public sealed record ImportHostUsersRequest(
     IReadOnlyList<CreateHostUserRequest> Rows);
 
 /// <summary>单行导入结果。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Line">原始工作簿中的行号（从 1 开始），用于回显错误定位。</param>
 /// <param name="Succeeded">本行是否导入成功。</param>
 /// <param name="UserId">导入成功时分配的用户标识；失败时为 <see langword="null"/>。</param>
@@ -225,6 +235,7 @@ public sealed record ImportHostUserRowResult(
     string? Message);
 
 /// <summary>导入汇总。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="SucceededCount">实际导入成功的行数。</param>
 /// <param name="Results">逐行详细结果；顺序与请求行一致。</param>
 public sealed record ImportHostUsersResponse(
@@ -232,11 +243,13 @@ public sealed record ImportHostUsersResponse(
     IReadOnlyList<ImportHostUserRowResult> Results);
 
 /// <summary>批量启用或停用的用户标识列表。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="UserIds">待变更状态的用户标识集合；实现方应保证批量操作的原子性或逐行回滚。</param>
 public sealed record BatchHostUserIdsRequest(
     IReadOnlyList<Guid> UserIds);
 
 /// <summary>批量状态变更的单条结果。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="UserId">本条结果对应的用户标识。</param>
 /// <param name="Succeeded">本条是否变更成功。</param>
 /// <param name="ErrorCode">失败时返回稳定错误码；成功时为 <see langword="null"/>。</param>
@@ -248,6 +261,7 @@ public sealed record BatchHostUserStatusItem(
     string? Message);
 
 /// <summary>批量启用或停用汇总。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="SucceededCount">实际成功变更的用户数。</param>
 /// <param name="Results">逐条结果；顺序与请求集合一致。</param>
 public sealed record BatchHostUserStatusResponse(
@@ -255,11 +269,13 @@ public sealed record BatchHostUserStatusResponse(
     IReadOnlyList<BatchHostUserStatusItem> Results);
 
 /// <summary>揭示 Host 用户敏感档案字段请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="FieldKeys">待揭示的字段键，仅允许 <c>phone_number</c> 与 <c>id_card_number</c>。</param>
 public sealed record RevealHostUserProfileFieldsRequest(
     IReadOnlyList<string> FieldKeys);
 
 /// <summary>揭示 Host 用户敏感档案字段响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Values">按字段键返回的明文值；无值时为 <see langword="null"/>。</param>
 public sealed record RevealHostUserProfileFieldsResponse(
     IReadOnlyDictionary<string, string?> Values);

@@ -56,6 +56,11 @@ public sealed class IntegrationEventHandlerRegistryGenerator : IIncrementalGener
             static (productionContext, items) => Generate(productionContext, items));
     }
 
+    /// <summary>
+    /// 从标注 <c>IntegrationEventSubscriptionAttribute</c> 的类声明中提取订阅元数据。
+    /// </summary>
+    /// <param name="context">特性语法上下文，含目标类型符号与特性构造参数。</param>
+    /// <returns>含类型全名、消费者名、消息类型、版本与声明位置的订阅元数据。</returns>
     private static SubscriptionMetadata CreateSubscription(
         GeneratorAttributeSyntaxContext context)
     {
@@ -69,6 +74,14 @@ public sealed class IntegrationEventHandlerRegistryGenerator : IIncrementalGener
             type.Locations.FirstOrDefault());
     }
 
+    /// <summary>
+    /// 校验机器码约束、检测重复路由并输出 <c>IntegrationEventHandlerRegistry.g.cs</c>。
+    /// </summary>
+    /// <param name="context">源生产上下文，用于报告诊断与添加生成源。</param>
+    /// <param name="items">收集到的全部订阅元数据。</param>
+    /// <remarks>
+    /// 校验失败的订阅只报诊断不进入路由表；重复路由报诊断但保留每组第一条，保证生成代码可编译且运行期无歧义。
+    /// </remarks>
     private static void Generate(
         SourceProductionContext context,
         ImmutableArray<SubscriptionMetadata> items)
@@ -129,6 +142,11 @@ public sealed class IntegrationEventHandlerRegistryGenerator : IIncrementalGener
             SourceText.From(Render(unique), Encoding.UTF8));
     }
 
+    /// <summary>
+    /// 将去重后的订阅列表渲染为实现 <c>IIntegrationEventHandlerRegistry</c> 的 switch 路由表源码。
+    /// </summary>
+    /// <param name="items">已校验且去重的订阅元数据列表。</param>
+    /// <returns>可直接写入编译管道的 C# 源文本。</returns>
     private static string Render(IReadOnlyList<SubscriptionMetadata> items)
     {
         var source = new StringBuilder(

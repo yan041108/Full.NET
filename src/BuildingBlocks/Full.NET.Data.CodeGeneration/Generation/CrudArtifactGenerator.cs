@@ -22,6 +22,10 @@ public static class CrudArtifactGenerator
     /// <param name="schema">已经通过 Naming Profile 与 CRUD 不变量校验的输入。</param>
     /// <param name="includeLayuiClientArtifacts">是否生成 Layui 客户端产物；默认 false（Frozen 客户端仅授权维护时启用）。</param>
     /// <returns>按相对路径稳定排序且路径唯一的只读产物集合。</returns>
+    /// <remarks>
+    /// 产物生成顺序与不变量：Contracts 与 SQL 始终生成；Layui 客户端仅在显式启用时生成；Vue/OpenAPI/授权片段/报告无条件生成；Endpoint/Feature/Record 与迁移模板仅在 DataScope 非 Unspecified 时生成。
+    /// 所有产物路径依赖 Naming Profile 产出的稳定名称，跨机器、跨进程必须字节级一致，禁止引入时间、随机数或机器路径。
+    /// </remarks>
     public static IReadOnlyList<GeneratedArtifact> Generate(
         FullNetCrudSchema schema,
         bool includeLayuiClientArtifacts = false)
@@ -1078,6 +1082,9 @@ public static class CrudArtifactGenerator
                 $"  {column.JsonPropertyName}: {TypeScriptType(column)}"
                 + $"{(column.IsNullable ? " | null" : string.Empty)};"));
 
+    /// <summary>
+    /// Legacy 模式下可写入列：排除主键、租户、版本与创建审计，保留更新审计与软删除标记。
+    /// </summary>
     private static IEnumerable<FullNetColumn> MutableColumns(FullNetCrudSchema schema) =>
         schema.Columns.Where(column =>
             column.DatabaseName is not "Id"
@@ -1085,6 +1092,9 @@ public static class CrudArtifactGenerator
             and not "Version"
             and not "CreatedAtUtc");
 
+    /// <summary>
+    /// 显式模式下可写入列：在 MutableColumns 基础上额外排除更新/删除审计与软删除、组织单元字段，这些由生成器自动填充。
+    /// </summary>
     private static IEnumerable<FullNetColumn> WritableColumns(
         FullNetCrudSchema schema) =>
         schema.Columns.Where(column =>
@@ -1100,6 +1110,9 @@ public static class CrudArtifactGenerator
             and not "DeletedById"
             and not "OrganizationUnitId");
 
+    /// <summary>
+    /// 按数据库列名精确取列；缺失时由 Single 抛出 InvalidOperationException，表示 Schema 违反版本/审计字段不变量。
+    /// </summary>
     private static FullNetColumn RequiredColumn(
         FullNetCrudSchema schema,
         string databaseName) =>
@@ -1168,6 +1181,9 @@ public static class CrudArtifactGenerator
             StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// 统一生成产物的行尾为 LF 并保证末尾恰好一个换行符，使跨平台输出字节级稳定。
+    /// </summary>
     private static string Normalize(string content)
     {
         var builder = new StringBuilder(content.Length + 1);
@@ -1177,6 +1193,9 @@ public static class CrudArtifactGenerator
         return builder.ToString();
     }
 
+    /// <summary>
+    /// 校验显式能力模式下关系场景的前置条件；Legacy 模式直接放行。
+    /// </summary>
     private static void EnsureSupportedExplicitCapabilities(
         FullNetCrudSchema schema)
     {

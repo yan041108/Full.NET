@@ -1,5 +1,8 @@
 namespace Full.NET.Modules.ObservabilityAdmin.Features.MonitorElasticsearchLogPipeline;
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>Elasticsearch 日志管道健康响应。</summary>
 /// <param name="AdapterKind">适配器类型，固定为 serilog-elasticsearch。</param>
 /// <param name="IsEnabled">配置是否声明启用 Sink。</param>

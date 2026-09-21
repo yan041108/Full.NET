@@ -77,6 +77,9 @@ public sealed record UpdateHostDocumentCategoryRequest(
 /// <summary>
 /// 删除文档分类的请求契约，使用乐观并发 Version 守卫；不允许删除仍被文档引用的分类。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Version">乐观并发版本号，必须等于当前行版本。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record DeleteHostDocumentCategoryRequest(long Version);
@@ -84,6 +87,9 @@ public sealed record DeleteHostDocumentCategoryRequest(long Version);
 /// <summary>
 /// 文档分类响应契约；字段顺序为稳定机器码的一部分。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">分类标识。</param>
 /// <param name="ParentId">父分类标识；null 表示顶级。</param>
 /// <param name="Name">分类展示名称。</param>

@@ -11,6 +11,9 @@ public static class AdministrativeRegionImportMergeModes
 }
 
 /// <summary>行政区域响应契约。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">区域标识。</param>
 /// <param name="ParentId">父级区域标识；根节点为 null。</param>
 /// <param name="Code">稳定区域编码。</param>
@@ -50,6 +53,9 @@ public sealed record AdministrativeRegionResponse(
     int Version);
 
 /// <summary>级联子节点响应，不含子孙嵌套。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">区域标识。</param>
 /// <param name="ParentId">父级区域标识。</param>
 /// <param name="Code">稳定区域编码。</param>
@@ -67,6 +73,9 @@ public sealed record AdministrativeRegionChildResponse(
     bool HasChildren);
 
 /// <summary>行政区域树节点响应。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">区域标识。</param>
 /// <param name="ParentId">父级区域标识。</param>
 /// <param name="Code">稳定区域编码。</param>
@@ -84,6 +93,9 @@ public sealed record AdministrativeRegionTreeNodeResponse(
     IReadOnlyList<AdministrativeRegionTreeNodeResponse> Children);
 
 /// <summary>数据集清单响应。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Id">清单记录标识。</param>
 /// <param name="DatasetKey">数据集键。</param>
 /// <param name="DatasetVersion">数据集版本标签。</param>
@@ -101,6 +113,9 @@ public sealed record AdministrativeRegionDatasetManifestResponse(
     Guid AppliedByUserId);
 
 /// <summary>创建行政区域请求。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="ParentId">父级区域标识；null 表示创建顶级区域。</param>
 /// <param name="Code">稳定区域编码；创建后不可改名。</param>
 /// <param name="Name">区域名称。</param>
@@ -132,6 +147,9 @@ public sealed record CreateAdministrativeRegionRequest(
     string? Remark);
 
 /// <summary>更新行政区域请求；<paramref name="Version"/> 用作 CAS 并发守卫。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="ParentId">父级区域标识；null 表示提升为顶级。</param>
 /// <param name="Name">区域名称。</param>
 /// <param name="ShortName">简称，可空。</param>
@@ -163,10 +181,16 @@ public sealed record UpdateAdministrativeRegionRequest(
     int Version);
 
 /// <summary>删除行政区域请求；删除节点及其全部子孙节点。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Version">客户端感知的乐观并发版本号。</param>
 public sealed record DeleteAdministrativeRegionRequest(int Version);
 
 /// <summary>导入行政区域数据集的单条记录。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Code">稳定区域编码，用于合并时主键匹配。</param>
 /// <param name="ParentCode">父级区域编码；null 表示顶级。</param>
 /// <param name="Name">区域名称。</param>
@@ -196,6 +220,9 @@ public sealed record ImportAdministrativeRegionItem(
     int? DisplayOrder);
 
 /// <summary>导入行政区域数据集请求。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="DatasetKey">数据集键，标识同一来源的数据集。</param>
 /// <param name="DatasetVersion">数据集版本标签，与 DatasetKey 共同唯一标识一次快照。</param>
 /// <param name="SourceDigest">来源摘要，用于幂等校验避免重复导入。</param>
@@ -209,12 +236,18 @@ public sealed record ImportAdministrativeRegionsRequest(
     IReadOnlyList<ImportAdministrativeRegionItem> Items);
 
 /// <summary>导入差异预览中新增项摘要。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Code">新增区域稳定编码。</param>
 /// <param name="Name">区域名称。</param>
 /// <param name="Level">层级，取值 1-5。</param>
 public sealed record ImportAdministrativeRegionAddedSummary(string Code, string Name, int Level);
 
 /// <summary>导入差异预览中更新项摘要。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Code">更新区域稳定编码。</param>
 /// <param name="Name">区域名称。</param>
 /// <param name="ChangedFields">发生变更的字段名集合，供前端高亮。</param>
@@ -224,11 +257,17 @@ public sealed record ImportAdministrativeRegionUpdatedSummary(
     IReadOnlyList<string> ChangedFields);
 
 /// <summary>导入差异预览中移除项摘要（仅 replace 模式）。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Code">移除区域稳定编码。</param>
 /// <param name="Name">区域名称。</param>
 public sealed record ImportAdministrativeRegionRemovedSummary(string Code, string Name);
 
 /// <summary>导入差异预览响应。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Added">新增项摘要集合。</param>
 /// <param name="Updated">更新项摘要集合。</param>
 /// <param name="Removed">移除项摘要集合，仅 replace 模式非空。</param>
@@ -240,6 +279,9 @@ public sealed record ImportAdministrativeRegionsPreviewResponse(
     int SkippedCount);
 
 /// <summary>导入应用结果响应。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="AddedCount">实际新增记录数。</param>
 /// <param name="UpdatedCount">实际更新记录数。</param>
 /// <param name="RemovedCount">实际移除记录数，仅 replace 模式非零。</param>

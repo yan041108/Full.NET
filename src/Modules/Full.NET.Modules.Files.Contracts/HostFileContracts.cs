@@ -28,6 +28,9 @@ public static class HostFilePermissions
     public const string ReferencesRead = "files.file_references.read";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>Host 文件元数据列表项与详情响应。</summary>
 /// <param name="Id">Host 文件稳定标识。</param>
 /// <param name="OriginalFileName">上传时客户端提交的原始文件名，仅用于展示。</param>

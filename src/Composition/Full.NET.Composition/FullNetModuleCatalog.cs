@@ -207,6 +207,12 @@ public static class FullNetModuleCatalog
     private static IReadOnlyList<IFullNetModule> CreateModules(IConfiguration configuration) =>
         FullNetModuleSelection.ResolveEnabledModules(configuration, CreateAllModules());
 
+    /// <summary>
+    /// 仅在 AiModule 启用时注册 AI Provider 基础设施：HTTP 客户端、网关策略、凭据保护器与各提供程序的连接探针/客户端工厂。
+    /// </summary>
+    /// <remarks>
+    /// 必须在 AiModule 注册前调用，否则 Provider 无法解析 Ai 模块声明的请求凭据作用域；裁剪 Ai 模块时本方法不会执行，避免留下悬空依赖。
+    /// </remarks>
     private static void AddAiProviderServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddAiProviderHttpClients(configuration);

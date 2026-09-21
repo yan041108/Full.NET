@@ -28,6 +28,9 @@ public sealed record HostFolderTreeNode(
     long Revision,
     IReadOnlyList<HostFolderTreeNode> Children);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>Host 虚拟目录详情响应。</summary>
 /// <param name="Id">目录稳定标识。</param>
 /// <param name="ParentId">父目录标识；根节点为 <see langword="null"/>。</param>
@@ -49,6 +52,9 @@ public sealed record HostFolderResponse(
     DateTimeOffset? UpdatedAtUtc,
     Guid? UpdatedByUserId);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>创建 Host 虚拟目录请求。</summary>
 /// <param name="ParentId">父目录标识；省略或 <see langword="null"/> 表示根目录。</param>
 /// <param name="Name">目录名；同级唯一。</param>
@@ -58,6 +64,9 @@ public sealed record CreateHostFolderRequest(
     string Name,
     int DisplayOrder = 0);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>更新 Host 虚拟目录请求。</summary>
 /// <param name="ExpectedRevision">客户端最后读取到的修订号。</param>
 /// <param name="Name">新目录名。</param>

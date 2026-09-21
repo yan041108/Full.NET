@@ -1,5 +1,8 @@
 namespace Full.NET.Modules.Reporting.Contracts;
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>报表定义响应（草稿工作副本）。</summary>
 /// <param name="Id">定义标识。</param>
 /// <param name="GroupId">所属分组标识。</param>
@@ -54,6 +57,9 @@ public sealed record ReportingDefinitionVersionResponse(
     Guid PublishedByUserId,
     DateTimeOffset PublishedAtUtc);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>创建报表定义请求。</summary>
 /// <param name="GroupId">所属分组标识。</param>
 /// <param name="DataSourceId">绑定的数据源标识。</param>
@@ -75,6 +81,9 @@ public sealed record CreateReportingDefinitionRequest(
     string? LayoutConfigJson,
     bool IsEnabled);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>更新报表定义草稿请求。</summary>
 /// <param name="GroupId">所属分组标识。</param>
 /// <param name="DataSourceId">绑定的数据源标识。</param>
@@ -96,6 +105,9 @@ public sealed record UpdateReportingDefinitionRequest(
     bool IsEnabled,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>发布报表定义请求。</summary>
 /// <param name="ChangeNote">变更说明。</param>
 /// <param name="Version">客户端感知的草稿乐观并发版本号。</param>

@@ -126,6 +126,9 @@ public sealed record ReleaseTenantQuotaRequest(string OperationId)
 }
 
 /// <summary>创建或更新租户配额指标的请求；用于初始化或调整某指标的 LimitValue。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="MetricCode">目标指标编码；取值见 <see cref="TenantQuotaMetricCodes"/>。</param>
 /// <param name="PeriodKey">配额周期键；与现有记录不一致时视为新周期记录。</param>
 /// <param name="LimitValue">该周期内的总额度上限；不得低于当前 UsedValue + ReservedValue。</param>

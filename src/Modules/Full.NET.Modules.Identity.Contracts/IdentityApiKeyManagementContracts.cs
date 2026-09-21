@@ -1,6 +1,7 @@
 namespace Full.NET.Modules.Identity.Contracts;
 
 /// <summary>Host API Key 管理 API 契约。</summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加，已发布权限码不得调整顺序。</remarks>
 public static class IdentityApiKeyManagementPermissions
 {
     /// <summary>分页查询 Host API Key。</summary>
@@ -20,6 +21,7 @@ public static class IdentityApiKeyManagementPermissions
 }
 
 /// <summary>创建 Host API Key 请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="UserId">绑定的 Host 用户标识；该用户必须为活动账号。</param>
 /// <param name="DisplayName">面向管理员展示的名称。</param>
 /// <param name="Permissions">该 Key 被授予的稳定权限码集合；必须为 Host 作用域内已发布权限。</param>
@@ -31,6 +33,7 @@ public sealed record CreateHostApiKeyRequest(
     DateTimeOffset? ExpiresAtUtc);
 
 /// <summary>Host API Key 列表项（不含明文密钥）。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 KeyPrefix 仅用于界面识别，不可反推完整密钥。</remarks>
 /// <param name="Id">API Key 稳定标识。</param>
 /// <param name="UserId">绑定的 Host 用户标识。</param>
 /// <param name="Username">绑定的 Host 用户登录名。</param>
@@ -54,6 +57,7 @@ public sealed record HostApiKeyResponse(
     DateTimeOffset CreatedAtUtc);
 
 /// <summary>创建 Host API Key 成功响应；明文密钥只返回一次。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Secret 仅返回一次，调用方必须立即写入安全 Secret Store，禁止落盘或写日志。</remarks>
 /// <param name="Key">不含明文密钥的列表投影。</param>
 /// <param name="Secret">一次性返回的明文密钥；调用方必须立即写入安全 Secret Store，禁止落盘或写日志。</param>
 public sealed record CreateHostApiKeyResponse(

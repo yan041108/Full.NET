@@ -10,6 +10,11 @@ public static class AgUiEventMapper
 {
     private static readonly AgUiJsonSerializerContext SerializerContext = new(new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
+    /// <summary>
+    /// 构造 AG-UI run.started 事件，携带会话与运行标识。
+    /// </summary>
+    /// <param name="snapshot">当前运行快照，提供 SessionId 与 RunId。</param>
+    /// <returns>可直接序列化下发的 AG-UI 映射事件。</returns>
     public static AgUiMappedEvent CreateRunStarted(AgentRunAgUiSnapshot snapshot) =>
         new(
             AgUiProtocolEventTypes.RunStarted,
@@ -19,6 +24,12 @@ public static class AgUiEventMapper
                 snapshot.RunId.ToString("D")),
             SerializerContext.AgUiRunStartedPayload);
 
+    /// <summary>
+    /// 构造 AG-UI state.snapshot 事件，将运行状态、预算与步骤列表序列化为标准状态快照。
+    /// </summary>
+    /// <param name="snapshot">当前运行快照，提供状态键与定义键。</param>
+    /// <param name="progress">可选进度；为 null 时不输出预算与步骤。</param>
+    /// <returns>包含完整运行状态的 AG-UI 映射事件。</returns>
     public static AgUiMappedEvent CreateStateSnapshot(
         AgentRunAgUiSnapshot snapshot,
         AgentRunAgUiProgress? progress) =>
@@ -45,6 +56,12 @@ public static class AgUiEventMapper
                         step.ErrorCode)).ToArray() ?? [])),
             SerializerContext.AgUiStateSnapshotPayload);
 
+    /// <summary>
+    /// 将持久化事件映射为一个或多个 AG-UI 协议事件；未知事件类型透传为 custom。
+    /// </summary>
+    /// <param name="snapshot">当前运行快照，用于补全会话与运行标识。</param>
+    /// <param name="persisted">持久化事件，含事件类型、序号与载荷。</param>
+    /// <returns>按协议顺序产出的 AG-UI 映射事件流。</returns>
     public static IEnumerable<AgUiMappedEvent> MapPersistedEvent(
         AgentRunAgUiSnapshot snapshot,
         AgentRunPersistedEvent persisted)
@@ -108,6 +125,12 @@ public static class AgUiEventMapper
         }
     }
 
+    /// <summary>
+    /// 根据快照终态构造 AG-UI 终止边界事件，保证前端收到明确的 run.finished/run.error。
+    /// </summary>
+    /// <param name="snapshot">当前运行快照，提供终态 StatusKey。</param>
+    /// <param name="includeWhenNoPersistedEvent">true 时即使无持久化事件也输出边界；false 且已有事件时返回 null。</param>
+    /// <returns>终止边界事件；非终态或无需补边界时返回 null。</returns>
     public static AgUiMappedEvent? CreateTerminalBoundary(
         AgentRunAgUiSnapshot snapshot,
         bool includeWhenNoPersistedEvent)
@@ -174,4 +197,10 @@ public static class AgUiEventMapper
     }
 }
 
+/// <summary>
+/// AG-UI 映射事件的不可变三元组：协议事件类型、强类型载荷与对应的 JSON 序列化元数据。
+/// </summary>
+/// <param name="EventType">AG-UI 协议事件类型常量。</param>
+/// <param name="Payload">与 EventType 对应的强类型载荷对象。</param>
+/// <param name="TypeInfo">JSON Source Generator 元数据，用于无反射序列化。</param>
 public sealed record AgUiMappedEvent(string EventType, object Payload, JsonTypeInfo TypeInfo);

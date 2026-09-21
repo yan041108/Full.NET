@@ -29,12 +29,22 @@ namespace Full.NET.Modules.Auditing;
 /// 并映射查询端点与环境探针端点。依赖 Identity 模块提供授权目录。
 /// 仅在 Worker AddBackgroundServices 中装配保留清理 BackgroundService，避免 API 进程重复执行。
 /// </summary>
+/// <remarks>
+/// 依赖 Identity 提供授权目录；写入缓冲按 B0/B1/B2 三可靠性分级，B1 协调器以 Singleton 共享有界 Channel；
+/// 保留清理 BackgroundService 仅在 Worker AddBackgroundServices 注册，避免 API 进程重复执行。
+/// </remarks>
 public sealed class AuditingModule : IFullNetModule
 {
+    /// <summary>获取 Auditing 业务模块名称。</summary>
     public string Name => "Auditing";
 
+    /// <summary>获取 Auditing 模块所需依赖；Identity 提供授权目录。</summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
+    /// <summary>
+    /// 注册操作/异常/访问/出站调用四类审计日志的写入缓冲、游标分页只读查询、保留策略与中间件管道；
+    /// 写入缓冲按 B0 同事务/B1 异步有界 Channel/B2 Fire-and-Forget 三可靠性分级，B1 协调器以 Singleton 共享有界 Channel。
+    /// </summary>
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -112,6 +122,7 @@ public sealed class AuditingModule : IFullNetModule
                 metrics.AddMeter(AuditMicroBatchTelemetry.MeterName));
     }
 
+    /// <summary>映射 Auditing 模块访问/操作/异常/出站调用日志查询、趋势、变更比对与导出的全部受保护 HTTP 路由。</summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.QueryHostAccessLogs.Endpoint.Map(endpoints);

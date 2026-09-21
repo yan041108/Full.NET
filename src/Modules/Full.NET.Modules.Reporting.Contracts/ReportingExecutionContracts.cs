@@ -17,6 +17,9 @@ public sealed record ReportingExecutionParameterValue(
     string ParameterKey,
     string? Value);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>执行已发布报表定义请求。</summary>
 /// <param name="VersionNumber">目标发布版本号；省略时使用最近发布版本。</param>
 /// <param name="Parameters">受控参数值集合。</param>

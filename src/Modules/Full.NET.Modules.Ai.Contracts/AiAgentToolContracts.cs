@@ -32,6 +32,9 @@ public static class AiAgentToolCallStatusKeys
     public const string Denied = "denied";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>静态 Agent Tool 目录项。</summary>
 /// <param name="ToolName">稳定工具名。</param>
 /// <param name="DisplayName">显示名称。</param>
@@ -53,6 +56,9 @@ public sealed record AiAgentToolCatalogItem(
     bool IsEnabled,
     string McpExposureKey);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>Agent Tool 调用审计列表项。</summary>
 /// <param name="Id">审计记录标识。</param>
 /// <param name="TenantId">租户标识；Host 调用为空。</param>

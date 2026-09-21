@@ -1,6 +1,7 @@
 namespace Full.NET.Modules.Identity.Contracts;
 
 /// <summary>字段投影资源的稳定语义键。</summary>
+/// <remarks>字符串常量发布后不可改名或删除；新增常量只能追加，已发布常量不得调整顺序。</remarks>
 public static class FieldProjectionResourceKeys
 {
     /// <summary>Host 用户列表、详情与导出资源。</summary>
@@ -8,6 +9,7 @@ public static class FieldProjectionResourceKeys
 }
 
 /// <summary>角色字段投影授权管理权限。</summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加，已发布权限码不得调整顺序。</remarks>
 public static class IdentityRoleFieldGrantPermissions
 {
     /// <summary>读取字段目录与角色字段授权。</summary>
@@ -21,6 +23,7 @@ public static class IdentityRoleFieldGrantPermissions
 }
 
 /// <summary>字段信息泄露后的风险级别。</summary>
+/// <remarks>枚举数值发布后不可改名或删除；新增成员只能追加到末尾，已发布数值不得调整顺序。</remarks>
 public enum FieldProjectionSensitivity
 {
     /// <summary>普通业务字段。</summary>
@@ -34,6 +37,7 @@ public enum FieldProjectionSensitivity
 }
 
 /// <summary>字段在没有显式角色授权时的可见性。</summary>
+/// <remarks>枚举数值发布后不可改名或删除；新增成员只能追加到末尾，已发布数值不得调整顺序。</remarks>
 public enum FieldProjectionDefaultVisibility
 {
     /// <summary>为兼容和资源识别而始终返回。</summary>
@@ -44,6 +48,7 @@ public enum FieldProjectionDefaultVisibility
 }
 
 /// <summary>稳定字段目录项；不包含物理表名、列名或 SQL 片段。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 FieldKey 发布后不可改名。</remarks>
 /// <param name="FieldKey">稳定字段键；在同一资源内唯一。</param>
 /// <param name="DisplayName">面向管理员展示的中文名称。</param>
 /// <param name="Sensitivity">字段泄露风险级别。</param>
@@ -57,6 +62,7 @@ public sealed record FieldProjectionFieldDefinition(
     bool Assignable);
 
 /// <summary>稳定资源目录项。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 ResourceKey 发布后不可改名。</remarks>
 /// <param name="ResourceKey">稳定资源键；全局唯一。</param>
 /// <param name="DisplayName">面向管理员展示的中文资源名称。</param>
 /// <param name="Fields">该资源下已发布的字段定义集合。</param>
@@ -66,6 +72,7 @@ public sealed record FieldProjectionResourceDefinition(
     IReadOnlyList<FieldProjectionFieldDefinition> Fields);
 
 /// <summary>当前用户访问资源时的服务端有效字段集合。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="ResourceKey">目标资源键。</param>
 /// <param name="FieldKeys">实际生效的字段键；顺序与目录一致，便于列表按列渲染。</param>
 public sealed record UserFieldProjection(
@@ -73,6 +80,7 @@ public sealed record UserFieldProjection(
     IReadOnlyList<string> FieldKeys);
 
 /// <summary>替换角色在一个资源上的显式字段授权。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="ResourceKey">目标资源键。</param>
 /// <param name="FieldKeys">提交后应完整生效的显式字段键；必须是目录中 Assignable 为 true 的字段。</param>
 /// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>
@@ -82,6 +90,7 @@ public sealed record ReplaceHostRoleFieldGrantsRequest(
     int Version);
 
 /// <summary>角色在一个资源上的显式字段授权。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="RoleId">目标角色标识。</param>
 /// <param name="ResourceKey">目标资源键。</param>
 /// <param name="FieldKeys">当前显式授权的字段键集合；不含 Mandatory 隐含字段。</param>

@@ -10,6 +10,9 @@ public static class HostFileBatchLimits
     public const int MaxDeleteCount = 100;
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>批量删除 Host 文件请求。</summary>
 /// <param name="FileIds">待删除的文件标识集合；顺序决定结果回显顺序。</param>
 public sealed record BatchDeleteHostFilesRequest(

@@ -3,6 +3,7 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <summary>
 /// 表示已经过服务端权限裁剪的客户端导航节点。
 /// </summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Id">稳定导航标识。</param>
 /// <param name="ParentId">可空父节点标识。</param>
 /// <param name="RouteName">客户端路由名称。</param>

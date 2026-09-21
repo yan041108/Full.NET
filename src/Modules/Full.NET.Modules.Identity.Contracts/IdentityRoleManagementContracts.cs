@@ -3,6 +3,7 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <summary>
 /// Host 作用域角色管理 API 的请求与响应契约（纵向切片 Task 1 冻结）。
 /// </summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加，已发布权限码不得调整顺序。</remarks>
 public static class IdentityRoleManagementPermissions
 {
     /// <summary>分页查询 Host 角色列表与详情。</summary>
@@ -37,6 +38,7 @@ public static class IdentityRoleManagementPermissions
 }
 
 /// <summary>创建 Host 角色请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Code 一旦发布即不可改名。</remarks>
 /// <param name="Code">稳定角色编码；在 Host 作用域内唯一且不可更改。</param>
 /// <param name="Name">面向管理员展示的角色名称。</param>
 public sealed record CreateHostRoleRequest(
@@ -44,6 +46,7 @@ public sealed record CreateHostRoleRequest(
     string Name);
 
 /// <summary>复制 Host 角色请求；新角色不继承系统或超级管理员标记。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Code">新角色稳定编码；在 Host 作用域内唯一。</param>
 /// <param name="Name">新角色展示名称。</param>
 public sealed record CopyHostRoleRequest(
@@ -51,6 +54,7 @@ public sealed record CopyHostRoleRequest(
     string Name);
 
 /// <summary>更新 Host 角色显示名称请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Name">更新后的角色展示名称。</param>
 /// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>
 public sealed record UpdateHostRoleRequest(
@@ -58,6 +62,7 @@ public sealed record UpdateHostRoleRequest(
     int Version);
 
 /// <summary>替换 Host 角色权限集合请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="PermissionCodes">提交后应完整生效的稳定权限码；调用方应按服务端目录整量覆盖而非增量差异。</param>
 /// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>
 public sealed record ReplaceHostRolePermissionsRequest(
@@ -65,6 +70,7 @@ public sealed record ReplaceHostRolePermissionsRequest(
     int Version);
 
 /// <summary>Host 角色列表项与详情响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Code 发布后不可改名。</remarks>
 /// <param name="Id">角色稳定标识。</param>
 /// <param name="Code">稳定角色编码。</param>
 /// <param name="Name">角色展示名称。</param>

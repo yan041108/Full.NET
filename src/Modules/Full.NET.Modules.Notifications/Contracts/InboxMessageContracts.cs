@@ -30,6 +30,9 @@ public static class InboxMessageStatuses
     public const string Read = "read";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>站内信响应契约，面向收件箱列表与详情接口。</summary>
 /// <param name="Id">站内信消息标识。</param>
 /// <param name="Title">消息标题。</param>
@@ -75,6 +78,9 @@ public sealed record SentInboxMessageResponse(
     DateTimeOffset? ReadAtUtc,
     DateTimeOffset CreatedAtUtc);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>Host 管理员发送站内信的请求契约，收件人由管理员指定。</summary>
 /// <param name="RecipientUserId">接收者用户标识；必须属于当前租户或 Host 域。</param>
 /// <param name="Title">消息标题，建议不超过 256 字符。</param>
@@ -84,6 +90,9 @@ public sealed record SendHostInboxMessageRequest(
     string Title,
     string Content);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>当前租户管理员发送站内信的请求契约；TenantId 只能来自受信会话。</summary>
 /// <param name="RecipientUserId">接收者用户标识；必须属于当前租户。</param>
 /// <param name="Title">消息标题，建议不超过 256 字符。</param>

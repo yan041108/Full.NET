@@ -19,6 +19,9 @@ public interface IEnumCatalogContributor
     IReadOnlyCollection<EnumCatalogDefinition> Catalogs { get; }
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>一个可查询的稳定枚举/常量目录定义。</summary>
 /// <param name="Key">稳定目录键；发布后不可改名。</param>
 /// <param name="DisplayName">展示名称。</param>
@@ -30,6 +33,9 @@ public sealed record EnumCatalogDefinition(
     string? Description,
     IReadOnlyList<EnumCatalogMemberDefinition> Members);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>目录内单个稳定成员。</summary>
 /// <param name="Code">稳定机器码；发布后不可改名或删除。</param>
 /// <param name="Label">中文展示标签。</param>
@@ -50,6 +56,9 @@ public sealed record EnumCatalogSummary(
     string? Description,
     int MemberCount);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>枚举目录详情（含成员）。</summary>
 /// <param name="Key">稳定目录键。</param>
 /// <param name="DisplayName">展示名称。</param>

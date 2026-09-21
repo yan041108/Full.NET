@@ -3,6 +3,7 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <summary>
 /// 定义页面内可授权的业务操作目录项。
 /// </summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Id 与 PermissionCode 发布后不可改名。</remarks>
 /// <param name="Id">全局唯一、稳定的目录项标识。</param>
 /// <param name="NavigationId">已登记页面导航 ID。</param>
 /// <param name="PermissionCode">已登记权限码。</param>

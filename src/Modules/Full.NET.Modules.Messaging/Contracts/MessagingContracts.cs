@@ -6,6 +6,7 @@ namespace Full.NET.Modules.Messaging.Contracts;
 /// <summary>
 /// Messaging 运维操作的稳定权限码，不可本地化且作为服务端授权与客户端可见性的共同权威。
 /// </summary>
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加到本类末尾，避免破坏既有角色分配与策略缓存。</remarks>
 public static class MessagingPermissions
 {
     /// <summary>允许读取 Outbox 事件流目录与积压摘要。</summary>
@@ -30,6 +31,7 @@ public static class MessagingPermissions
 /// <summary>
 /// Messaging 模块稳定错误码集合，作为机器契约不可本地化。
 /// </summary>
+/// <remarks>错误码字符串发布后不可改名或删除；新增错误码只能追加到本类末尾，避免破坏既有客户端错误处理逻辑。</remarks>
 public static class MessagingErrorCodes
 {
     /// <summary>
@@ -81,6 +83,7 @@ public static class MessagingErrorCodes
 /// <summary>
 /// 死信重放结果机值，持久化与协议字段共享同一稳定字符串。
 /// </summary>
+/// <remarks>字符串值为稳定机器码，发布后不可改名或删除；新增值只能追加到本类末尾，以保证持久化与协议兼容性。</remarks>
 public static class DeadLetterReplayOutcomes
 {
     /// <summary>重放成功提交：消息重新进入消费者 Inbox 并被本次请求同步处理完毕。</summary>
@@ -91,6 +94,9 @@ public static class DeadLetterReplayOutcomes
 }
 
 /// <summary>消费死信响应契约，反映一条进入死信路径的消息及其最后一次失败信息。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="ConsumerName">死信所属的消费者名，唯一标识一条消费链路。</param>
 /// <param name="MessageId">原始集成事件的 MessageId。</param>
 /// <param name="MessageType">事件类型的 CLR FullName 或等价稳定标识。</param>
@@ -112,11 +118,17 @@ public sealed record DeadLetterResponse(
     string? LastError);
 
 /// <summary>重放单条消费死信的请求契约，按消费者名与消息标识定位。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="ConsumerName">死信所属的消费者名。</param>
 /// <param name="MessageId">原始集成事件的 MessageId。</param>
 public sealed record ReplayDeadLetterRequest(string ConsumerName, Guid MessageId);
 
 /// <summary>死信重放响应契约，<c>Outcome</c> 取 <see cref="DeadLetterReplayOutcomes"/> 的稳定值。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="MessageId">被重放消息的 MessageId。</param>
 /// <param name="ConsumerName">被重放消息所属的消费者名。</param>
 /// <param name="Outcome">重放结果稳定机器码，取值自 DeadLetterReplayOutcomes。</param>
@@ -153,6 +165,9 @@ public sealed record KafkaRangeReplayRequest(
     string Reason);
 
 /// <summary>Kafka 范围重放响应契约，汇总扫描、处理、已处理与拒绝计数及是否触达上限。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="ScannedMessages">扫描到的落入指定区间的 Kafka 消息总数。</param>
 /// <param name="ProcessedMessages">实际提交给消费 Handler 并成功执行的消息数。</param>
 /// <param name="AlreadyProcessedMessages">因幂等去重被判定已处理而跳过的消息数。</param>
@@ -166,6 +181,9 @@ public sealed record KafkaRangeReplayResponse(
     bool LimitReached);
 
 /// <summary>Outbox 积压摘要响应契约，用于运维监控当前积压、到期重试、活动租约与死信规模。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="PendingCount">尚未被任何发布者领取、等待发布的事件数。</param>
 /// <param name="DueRetryCount">已达到下次重试时间但尚未被重新领取的事件数。</param>
 /// <param name="ActiveLeaseCount">当前被发布者持有租约、正在发布或重试中的事件数。</param>
@@ -181,6 +199,9 @@ public sealed record OutboxBacklogSummaryResponse(
     DateTimeOffset? OldestDeadLetteredAtUtc);
 
 /// <summary>单条事件流交付状态响应契约，反映当前生效的交付所有者。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="EventType">事件类型的稳定 CLR FullName 标识。</param>
 /// <param name="SchemaVersion">该事件流的 Schema 版本号；不同版本视为独立流。</param>
 /// <param name="TopicCode">Kafka Topic 的稳定编码标识，用于目录映射。</param>
@@ -192,6 +213,9 @@ public sealed record EventStreamStatusResponse(
     EventDeliveryOwner DeliveryOwner);
 
 /// <summary>交付状态总览响应契约，包含 Outbox 积压摘要与各事件流状态。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Backlog">发布侧 Outbox 队列积压快照。</param>
 /// <param name="Streams">已在交付目录中登记的事件流状态列表，按 (EventType, SchemaVersion) 去重。</param>
 public sealed record DeliveryStatusResponse(

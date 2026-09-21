@@ -1,5 +1,8 @@
 namespace Full.NET.Modules.Ai.Contracts;
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>AI 租户配额列表项。</summary>
 /// <param name="Id">配额记录标识。</param>
 /// <param name="TenantId">租户标识。</param>
@@ -25,6 +28,9 @@ public sealed record AiTenantQuotaListItem(
     DateTimeOffset? UpdatedAtUtc,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>AI 租户配额详情。</summary>
 /// <param name="Id">配额记录标识。</param>
 /// <param name="TenantId">租户标识。</param>

@@ -10,6 +10,9 @@ public static class StorageProviderPermissions
     public const string Test = "files.storage_providers.test";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>已注册存储 Provider 目录项。</summary>
 /// <param name="ProviderKey">稳定机器码。</param>
 /// <param name="DisplayName">管理端展示名称。</param>

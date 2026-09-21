@@ -82,6 +82,9 @@ public sealed record TenantEntitlementBindingResponse(
     DateTimeOffset? EffectiveToUtc, Guid? SourcePackageId, int Version);
 
 /// <summary>创建租户权益目录条目的请求；用于声明一个 Feature 或 Limit。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Code">权益编码；须在 Host 作用域内保持唯一，创建后不可变。</param>
 /// <param name="Name">权益显示名称。</param>
 /// <param name="Description">权益说明文本；可省略。</param>
@@ -90,6 +93,9 @@ public sealed record CreateTenantEntitlementCatalogRequest(
     string Code, string Name, string? Description, string EntitlementType);
 
 /// <summary>为指定租户绑定权益目录条目的请求；绑定后权益在生效窗口内对租户生效。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="EntitlementId">被绑定的权益目录条目标识。</param>
 /// <param name="EffectiveFromUtc">生效起始时间（UTC）；调用方须使用 UTC，避免跨时区漂移。</param>
 /// <param name="EffectiveToUtc">生效结束时间（UTC）；<see langword="null"/> 表示长期有效。</param>

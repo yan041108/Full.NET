@@ -80,6 +80,9 @@ public static class HostFileReferenceClaimIdempotencyKeys
         $"notification-intent-attachment:{intentId:D}:{fileId:D}";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>
 /// 创建文件引用 claim 的请求契约；IdempotencyKey 保证重复提交的幂等性。
 /// </summary>
@@ -93,6 +96,9 @@ public sealed record HostFileReferenceClaimRequest(
     Guid ConsumerReferenceId,
     Guid FileId);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>
 /// claim 操作结果，承载 claim 标识、当前状态与就绪文件元数据。
 /// </summary>

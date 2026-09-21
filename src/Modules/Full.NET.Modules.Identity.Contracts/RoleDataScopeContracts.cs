@@ -1,6 +1,7 @@
 namespace Full.NET.Modules.Identity.Contracts;
 
 /// <summary>角色数据范围稳定机器码。</summary>
+/// <remarks>字符串常量发布后不可改名或删除；新增常量只能追加，已发布常量不得调整顺序。</remarks>
 public static class RoleDataScopeKinds
 {
     /// <summary>全部数据。</summary>
@@ -30,6 +31,7 @@ public static class RoleDataScopeKinds
 }
 
 /// <summary>Host 角色数据范围响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="RoleId">目标角色标识。</param>
 /// <param name="DataScopeKind">稳定数据范围种类机器码；参见 <see cref="RoleDataScopeKinds"/>。</param>
 /// <param name="UnitIds">自定义范围下显式选择的机构单元集合；其他种类为空集合。</param>
@@ -41,6 +43,7 @@ public sealed record HostRoleDataScopeResponse(
     int Version);
 
 /// <summary>更新 Host 角色数据范围请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="DataScopeKind">更新后的稳定数据范围种类机器码。</param>
 /// <param name="UnitIds">自定义范围下显式选择的机构单元集合；其他种类应为 <see langword="null"/> 或空。</param>
 /// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>

@@ -1,6 +1,7 @@
 namespace Full.NET.Modules.Identity.Contracts;
 
 /// <summary>当前用户自助档案读取响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="UserId">当前用户标识。</param>
 /// <param name="Username">登录名；只读。</param>
 /// <param name="DisplayName">展示名称。</param>
@@ -24,6 +25,7 @@ public sealed record SelfServiceProfileResponse(
     HostUserProfileResponse? Profile);
 
 /// <summary>当前用户自助档案更新请求。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="DisplayName">新的展示名称；省略表示不修改。</param>
 /// <param name="UserVersion">调用方看到的账号版本；修改展示名称时必填。</param>
 /// <param name="Profile">扩展档案补丁；省略表示不修改档案表。</param>

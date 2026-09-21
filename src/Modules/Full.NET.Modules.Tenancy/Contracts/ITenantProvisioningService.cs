@@ -5,6 +5,9 @@ namespace Full.NET.Modules.Tenancy.Contracts;
 /// <summary>
 /// 开通新租户的显式请求；标识符与域名创建后不可变。
 /// </summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
 /// <param name="Identifier">稳定租户编码；在 Host 作用域内唯一且不可更改。</param>
 /// <param name="Name">租户显示名称；可在后续通过管理 API 变更。</param>
 /// <param name="Domain">租户主域名；在 Host 作用域内唯一且不可更改。</param>

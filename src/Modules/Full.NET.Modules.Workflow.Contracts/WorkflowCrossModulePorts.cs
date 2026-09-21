@@ -31,6 +31,9 @@ public interface IWorkflowPublishedDefinitionDirectory
         CancellationToken cancellationToken = default);
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>跨模块启动工作流实例的命令。</summary>
 /// <param name="DefinitionVersionId">已发布定义版本标识。</param>
 /// <param name="BusinessType">稳定业务类型机器码。</param>

@@ -38,6 +38,7 @@ public interface IHostTenantUserSelectionDirectory
 }
 
 /// <summary>Host 侧查询租户用户目录时使用的最小跨模块只读投影。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Id">稳定用户标识。</param>
 /// <param name="Username">登录名。</param>
 /// <param name="DisplayName">显示名称。</param>

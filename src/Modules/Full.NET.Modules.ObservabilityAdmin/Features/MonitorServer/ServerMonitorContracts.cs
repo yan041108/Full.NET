@@ -1,5 +1,8 @@
 namespace Full.NET.Modules.ObservabilityAdmin.Features.MonitorServer;
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>表示实例目录中的一条只读登记项。</summary>
 /// <param name="InstanceKey">实例稳定标识，用于运行时查询路由。</param>
 /// <param name="DisplayName">面向运维展示的实例名称。</param>
@@ -13,6 +16,9 @@ public sealed record ServerInstanceCatalogEntry(
     bool IsCurrent,
     string RuntimeQueryability);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>表示一条运行时指标及其可用性状态。</summary>
 /// <param name="Key">稳定机器码键，供客户端按语义渲染。</param>
 /// <param name="Label">面向运维展示的中文友好标签。</param>
@@ -30,6 +36,9 @@ public sealed record ServerRuntimeMetric(
     string Availability,
     string? UnavailableReason);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>表示某一实例在采集时刻的运行时快照。</summary>
 /// <param name="InstanceKey">实例稳定标识。</param>
 /// <param name="DisplayName">面向运维展示的实例名称。</param>
