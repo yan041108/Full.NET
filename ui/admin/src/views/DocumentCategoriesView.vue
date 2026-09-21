@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -22,10 +22,8 @@ import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/com
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
-import {
-  useArtClientPagination,
-  useArtCrudTableLayout
-} from '../framework/art-design/composables/useArtCrudTableLayout';
+import { useArtClientPagination } from '../framework/art-design/composables/useArtCrudTableLayout';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -78,9 +76,8 @@ const {
   tableBorder,
   tableHeaderBackground,
   tableHeaderCellStyle,
-  updateTableHeight,
-  watchLoading
-} = useArtCrudTableLayout();
+  syncTableLayout
+} = useArtPagedTableInCard(loading);
 
 const filteredCategories = computed(() => {
   let rows = allCategories.value;
@@ -122,8 +119,6 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
 const canCreate = computed(() => session.can('document.categories.create'));
 const canUpdate = computed(() => session.can('document.categories.update'));
 const canDelete = computed(() => session.can('document.categories.delete'));
-
-watchLoading(loading);
 
 onMounted(() => {
   void load();
@@ -177,17 +172,18 @@ async function load(): Promise<void> {
   problem.value = undefined;
   try {
     allCategories.value = await listDocumentCategories();
-    await nextTick(updateTableHeight);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'documentCategories.loadFailed');
   } finally {
     loading.value = false;
+    void syncTableLayout();
   }
 }
 
 function handleSearch(params: Record<string, string | undefined>): void {
   appliedFilters.value = { name: params.name ?? '' };
   resetPage();
+  void syncTableLayout();
 }
 
 function resetSearch(): void {
@@ -333,7 +329,7 @@ function toProblem(
 </script>
 
 <template>
-  <section class="document-categories-view art-page-stack art-full-height" :aria-busy="loading">
+  <section class="document-categories-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentCategories.title') }}</h1>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
@@ -342,19 +338,21 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <ArtSearchBar
-      v-model="searchForm"
-      :items="searchItems"
-      :default-visible-count="1"
-      :search-label="t('documentCategories.query')"
-      :reset-label="t('documentCategories.reset')"
-      :expand-label="t('documentCategories.expand')"
-      :collapse-label="t('documentCategories.collapse')"
-      @search="handleSearch"
-      @reset="resetSearch"
-    />
+    <el-card class="document-module-query-card" shadow="never">
+      <ArtSearchBar
+        v-model="searchForm"
+        :items="searchItems"
+        :default-visible-count="1"
+        :search-label="t('documentCategories.query')"
+        :reset-label="t('documentCategories.reset')"
+        :expand-label="t('documentCategories.expand')"
+        :collapse-label="t('documentCategories.collapse')"
+        @search="handleSearch"
+        @reset="resetSearch"
+      />
+    </el-card>
 
-    <el-card class="art-table-card" shadow="never">
+    <el-card class="art-table-card art-full-height" shadow="never">
       <div ref="tableMainRef" class="art-crud-table-main">
         <ArtTableHeader
           v-model:columns="tableColumns"
@@ -447,18 +445,17 @@ function toProblem(
 
             <template #empty>{{ t('documentCategories.emptyDirectory') }}</template>
           </el-table>
-
-          <div class="art-table__pagination center custom-pagination">
-            <el-pagination
-              v-model:current-page="page"
-              v-model:page-size="pageSize"
-              :total="total"
-              background
-              layout="total, sizes, prev, pager, next, jumper"
-              :page-sizes="[10, 20, 50, 100]"
-            />
-          </div>
         </div>
+
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          class="art-table-pagination center custom-pagination"
+          :total="total"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50, 100]"
+        />
       </div>
     </el-card>
 
@@ -518,11 +515,21 @@ function toProblem(
   min-height: 0;
 }
 
+.document-categories-view {
+  flex: 1;
+  min-height: 0;
+}
+
 .document-categories-view :deep(.art-table-card .el-card__body) {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-height: 0;
+}
+
+.document-categories-view :deep(.art-crud-table-main) {
+  flex: 1;
+  min-height: 200px;
 }
 
 .document-categories-editor-form {

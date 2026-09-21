@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import DocumentSharesView from './DocumentSharesView.vue';
 import { useSessionStore } from '../auth/session';
 import { listDocumentShares } from '../api/document-shares';
+import { listDocumentItems } from '../api/host-document-items';
 
 vi.mock('../api/document-shares', () => ({
   listDocumentShares: vi.fn(),
@@ -11,7 +12,12 @@ vi.mock('../api/document-shares', () => ({
   updateDocumentShareStatus: vi.fn()
 }));
 
+vi.mock('../api/host-document-items', () => ({
+  listDocumentItems: vi.fn()
+}));
+
 const listMock = vi.mocked(listDocumentShares);
+const listDocumentsMock = vi.mocked(listDocumentItems);
 
 function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
@@ -36,6 +42,12 @@ function mountWithPermissions(permissions: string[]) {
 
 describe('Vue 文档分享页', () => {
   beforeEach(() => {
+    listDocumentsMock.mockReset().mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 100,
+      total: 0
+    } as never);
     listMock.mockReset().mockResolvedValue({
       items: [{
         id: '0198f36e-f7a7-7c52-9cbb-774e67411205',

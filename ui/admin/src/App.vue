@@ -28,7 +28,11 @@ import ArtAdminShell from './framework/art-design/layout/ArtAdminShell.vue';
 import ReleaseNoteUnreadPrompt from './components/ReleaseNoteUnreadPrompt.vue';
 import { buildShellNavigation } from './framework/art-design/adapters/fullNetShellAdapter';
 import { localNavigationFor } from './navigation/catalog';
-import { selfServicePaths } from './router';
+import {
+  isDocumentPublicShareHash,
+  isDocumentPublicShareRoute,
+  selfServicePaths
+} from './router';
 import {
   createVueNotificationsRealtime,
   notificationsRealtimeKey
@@ -46,7 +50,10 @@ const router = useRouter();
 const session = useSessionStore();
 const notificationsRealtime = createVueNotificationsRealtime({
   session,
-  enabled: import.meta.env.VITE_REALTIME_ENABLED !== 'false',
+  enabled:
+    import.meta.env.VITE_REALTIME_ENABLED !== 'false'
+    && !isDocumentPublicShareRoute(route)
+    && !isDocumentPublicShareHash(),
   hubPath: resolveFullNetApiUrl(apiBaseUrl, '/hubs/notifications'),
   onSessionRevoked(sessionId) {
     if (!session.handleRemoteSessionRevoke(sessionId)) {
@@ -94,6 +101,9 @@ const isAuthCallbackRoute = computed(() =>
   authCallbackPaths.has(route.path)
   || (adminIdentityAuthMode === 'oidc-center' && isOidcCenterCallbackLocation()));
 const isPublicAuthRoute = computed(() => publicAuthPaths.has(route.path));
+const isPublicShareRoute = computed(
+  () => isDocumentPublicShareRoute(route) || isDocumentPublicShareHash()
+);
 function isPasswordChangeGateActive(): boolean {
   return session.currentUser?.passwordChangeRequired === true;
 }
@@ -103,7 +113,8 @@ function shouldReloadNavigationContext(): boolean {
   return session.isAuthenticated
     && session.navigation.length === 0
     && !session.switching
-    && !isPasswordChangeGateActive();
+    && !isPasswordChangeGateActive()
+    && !isPublicShareRoute.value;
 }
 
 const statusTitleKeys = new Map<string, MessageKey>([
@@ -113,13 +124,24 @@ const statusTitleKeys = new Map<string, MessageKey>([
 ]);
 
 onBeforeMount(() => {
-  // OIDC 回调页由 OidcCallbackView 兑换令牌；保持 anonymous 以渲染 router-view，避免与 restore 竞态。
+  // 分享页与 OIDC 回调均跳过会话恢复屏，首帧直接渲染目标页。
+  if (isPublicShareRoute.value && session.state === 'initializing') {
+    session.$patch({ state: 'anonymous' });
+  }
   if (adminIdentityAuthMode === 'oidc-center' && isAuthCallbackRoute.value) {
     session.$patch({ state: 'anonymous' });
   }
 });
 
 onMounted(() => {
+  if (isPublicShareRoute.value) {
+    // 分享页独立访问：不恢复后台会话，避免与公开接口 401 刷新链互相影响其他标签页。
+    if (session.state === 'initializing') {
+      session.$patch({ state: 'anonymous' });
+    }
+    return;
+  }
+
   if (adminIdentityAuthMode === 'oidc-center' && isAuthCallbackRoute.value) {
     return;
   }
@@ -276,7 +298,7 @@ watch(
       return;
     }
 
-    if (selfServicePaths.has(route.path) || isPasswordChangeGateActive()) {
+    if (selfServicePaths.has(route.path) || isPasswordChangeGateActive() || isPublicShareRoute.value) {
       return;
     }
 
@@ -302,6 +324,9 @@ watch(
 watch(
   () => route.path,
   async () => {
+    if (isPublicShareRoute.value) {
+      return;
+    }
     await nextTick();
     document.querySelector<HTMLElement>('[data-route-heading]')?.focus();
   }
@@ -313,8 +338,9 @@ watch(
     :locale="elementLocale"
     :dialog="{ draggable: true }"
   >
+    <router-view v-if="isPublicShareRoute" />
     <div
-      v-if="session.state === 'initializing'"
+      v-else-if="session.state === 'initializing'"
       class="session-boot"
       aria-live="polite"
     >

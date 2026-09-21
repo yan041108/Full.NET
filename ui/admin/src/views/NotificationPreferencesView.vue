@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -30,6 +30,7 @@ import {
   sendMyRecipientEndpointVerification,
   verifyMyRecipientEndpoint
 } from '../api/notification-platform';
+import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 
 defineOptions({ name: 'NotificationPreferencesView' });
 
@@ -44,6 +45,10 @@ const registerForm = reactive({
   rawValue: ''
 });
 const loading = ref(false);
+const { tableMainRef, tableHeight, updateTableHeight, watchLoading } = useArtCrudTableLayout({
+  bottomOffset: 8
+});
+watchLoading(loading);
 const saving = ref(false);
 const deletingId = ref<string>();
 const pendingDeleteId = ref<string>();
@@ -165,6 +170,7 @@ async function load(): Promise<void> {
     errorMessage.value = t('notificationPreferences.loadFailed');
   } finally {
     loading.value = false;
+    void nextTick(updateTableHeight);
   }
 }
 
@@ -351,7 +357,7 @@ function endpointNeedsCodeVerification(endpoint: RecipientEndpointResponse): boo
       class="notification-preferences-error"
     />
 
-    <div class="notification-preferences-layout">
+    <div class="notification-preferences-layout art-split-layout">
       <ElCard class="notification-preferences-list art-table-card" shadow="never">
         <template #header>
           <div class="notification-preferences-list__header">
@@ -380,10 +386,15 @@ function endpointNeedsCodeVerification(endpoint: RecipientEndpointResponse): boo
           />
         </div>
 
-        <div data-testid="notification-preferences-endpoint-list" class="notification-preferences-table-wrap">
+        <div
+          ref="tableMainRef"
+          data-testid="notification-preferences-endpoint-list"
+          class="art-crud-table-main notification-preferences-table-wrap"
+        >
           <ElTable
             v-loading="loading"
             :data="endpoints"
+            :height="tableHeight"
             class="notification-preferences-table"
             row-key="id"
             empty-text=""

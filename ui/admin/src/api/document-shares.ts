@@ -3,6 +3,7 @@ import {
   documentHostListDocumentShares,
   documentHostUpdateDocumentShareStatus,
   documentPublicAccessDocumentShare,
+  documentPublicContentDocumentShare,
   isAccessHostDocumentShareRequest,
   isCreateHostDocumentShareRequest,
   isHostDocumentShareAccessResponse,
@@ -82,12 +83,30 @@ export async function accessDocumentShareByCode(
   const value = await documentPublicAccessDocumentShare(
     http,
     { shareCode, body: req },
-    signal
+    signal,
+    { retryUnauthorized: false, skipAuthentication: true }
   );
   if (!isHostDocumentShareAccessResponse(value)) {
     throw new Error('client.invalid_document_share_access');
   }
   return value;
+}
+
+/** 通过分享码读取文档文件内容（匿名，可附带访问密码）。 */
+export async function loadDocumentShareContentByCode(
+  shareCode: string,
+  req: AccessHostDocumentShareRequest = {},
+  signal?: AbortSignal
+): Promise<Blob> {
+  if (!isAccessHostDocumentShareRequest(req)) {
+    throw new Error('client.invalid_access_document_share_request');
+  }
+  return documentPublicContentDocumentShare(
+    http,
+    { shareCode, body: req },
+    signal,
+    { retryUnauthorized: false, skipAuthentication: true }
+  );
 }
 
 /** 导出分享页所需的请求、分页与公开访问模型，避免管理端和公开访问流程契约漂移。 */

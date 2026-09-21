@@ -44,6 +44,18 @@
           "responseSchema": "HostDocumentShareAccessResponse"
         }
       ]
+    },
+    {
+      "path": "/api/v1/document/public/shares/{shareCode}/content",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": null,
+          "successStatus": 200,
+          "requestSchema": "AccessHostDocumentShareRequest",
+          "responseSchema": "Stream"
+        }
+      ]
     }
   ],
   "schemas": {

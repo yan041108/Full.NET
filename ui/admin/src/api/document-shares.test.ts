@@ -109,7 +109,8 @@ describe('document-shares api', () => {
         method: 'POST',
         body: JSON.stringify({ password: 'Share@2026' })
       }),
-      undefined
+      undefined,
+      { retryUnauthorized: false, skipAuthentication: true }
     );
   });
 });

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { ElButton, ElCard, ElDrawer, ElMessage } from 'element-plus';
+import { computed, nextTick, onMounted, ref } from 'vue';
+import { ElButton, ElCard, ElDrawer, ElMessage, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import {
   isFullNetProblemDetails,
   type FullNetProblemDetails,
@@ -37,12 +37,14 @@ import {
   toWorkflowVue3Tree,
   type WorkflowVue3Node
 } from '../workflow/workflow-vue3-adapter';
+import { formatAdminDateTime } from '../workflow/workflowAdminFormat';
+import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 
 interface WorkflowVue3DesignerInstance {
   readDraft: () => WorkflowDefinitionDraft;
 }
 
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
 const session = useSessionStore();
 const definitions = ref<WorkflowDefinitionResponse[]>([]);
 const versions = ref<WorkflowDefinitionVersionResponse[]>([]);
@@ -54,6 +56,10 @@ const initialValues = ref<WorkflowSubmission>({});
 const businessType = ref('');
 const businessId = ref('');
 const loading = ref(false);
+const { tableMainRef, tableHeight, updateTableHeight, watchLoading } = useArtCrudTableLayout({
+  bottomOffset: 8
+});
+watchLoading(loading);
 const acting = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const creating = ref(false);
@@ -241,6 +247,21 @@ function showDesignerError(code: string): void {
   problem.value = { status: 400, code, title: t('workflowDefinitions.operationFailed') };
 }
 
+function formatDateTime(value: string | null | undefined): string {
+  return formatAdminDateTime(locale.value, value);
+}
+
+function definitionStatusTagType(status: 'active' | 'disabled' | 'archived'): 'success' | 'warning' | 'info' {
+  switch (status) {
+    case 'active':
+      return 'success';
+    case 'disabled':
+      return 'warning';
+    default:
+      return 'info';
+  }
+}
+
 function definitionStatus(definition: WorkflowDefinitionResponse): 'active' | 'disabled' | 'archived' {
   const statusKey = (definition as WorkflowDefinitionResponse & { statusKey?: string }).statusKey;
   if (statusKey === 'disabled' || statusKey === 'archived') {
@@ -303,6 +324,7 @@ async function loadDefinitions(): Promise<void> {
     problem.value = toProblem(error, 'workflowDefinitions.loadFailed');
   } finally {
     loading.value = false;
+    void nextTick(updateTableHeight);
   }
 }
 
@@ -402,17 +424,8 @@ function toProblem(
 
 <template>
   <section class="workflow-definitions art-page-stack art-full-height" :aria-busy="loading || acting">
-    <header class="workflow-definitions__header">
-      <div>
-        <h1 data-route-heading tabindex="-1">{{ t('workflowDefinitions.title') }}</h1>
-        <p>{{ t('workflowDefinitions.caption') }}</p>
-      </div>
-      <PermissionGate code="workflow.definitions.create">
-        <el-button type="primary" data-testid="workflow-definition-create" :disabled="acting" @click="openCreate">
-          {{ t('workflowDefinitions.create') }}
-        </el-button>
-      </PermissionGate>
-    </header>
+    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('workflowDefinitions.title') }}</h1>
+    <p class="art-sr-heading">{{ t('workflowDefinitions.caption') }}</p>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
       <strong translate="no">{{ problem.code }}</strong>
@@ -420,65 +433,158 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card shadow="never">
-      <div v-if="definitions.length === 0 && !loading" class="workflow-definitions__empty">
-        {{ t('workflowDefinitions.empty') }}
-      </div>
-      <div v-else class="workflow-definitions__table-wrap">
-        <table>
-          <thead><tr>
-            <th>{{ t('workflowDefinitions.definitionKey') }}</th>
-            <th>{{ t('workflowDefinitions.status') }}</th>
-            <th>{{ t('workflowDefinitions.latestVersion') }}</th>
-            <th>{{ t('workflowDefinitions.updatedAt') }}</th>
-            <th>{{ t('workflowDefinitions.actions') }}</th>
-          </tr></thead>
-          <tbody>
-            <tr v-for="definition in definitions" :key="definition.id">
-              <td><code translate="no">{{ definition.definitionKey }}</code></td>
-              <td>{{ t(`workflowDefinitions.statusLabel.${definitionStatus(definition)}`) }}</td>
-              <td><code translate="no">{{ definition.latestPublishedVersionId ?? '—' }}</code></td>
-              <td>{{ definition.updatedAtUtc ?? definition.createdAtUtc }}</td>
-              <td class="workflow-definitions__actions">
+    <div class="workflow-definitions__layout art-split-layout">
+      <el-card class="workflow-definitions__list art-table-card" shadow="never">
+        <template #header>
+          <div class="workflow-definitions__list-header">
+            <h2>{{ t('workflowDefinitions.listTitle') }}</h2>
+            <PermissionGate code="workflow.definitions.create">
+              <el-button type="primary" size="small" data-testid="workflow-definition-create" :disabled="acting" @click="openCreate">
+                {{ t('workflowDefinitions.create') }}
+              </el-button>
+            </PermissionGate>
+          </div>
+        </template>
+
+        <div ref="tableMainRef" class="art-crud-table-main">
+        <el-table
+          v-loading="loading"
+          :data="definitions"
+          :height="tableHeight"
+          class="workflow-definitions__table"
+          highlight-current-row
+          row-key="id"
+          empty-text=""
+          :current-row-key="selectedDefinitionId"
+        >
+          <el-table-column
+            :label="t('workflowDefinitions.definitionKey')"
+            min-width="160"
+            show-overflow-tooltip
+          >
+            <template #default="{ row }">
+              <code translate="no">{{ row.definitionKey }}</code>
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('workflowDefinitions.status')" width="96" align="center">
+            <template #default="{ row }">
+              <el-tag size="small" :type="definitionStatusTagType(definitionStatus(row))">
+                {{ t(`workflowDefinitions.statusLabel.${definitionStatus(row)}`) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            :label="t('workflowDefinitions.latestVersion')"
+            min-width="120"
+            show-overflow-tooltip
+          >
+            <template #default="{ row }">
+              <span translate="no">{{ row.latestPublishedVersionId ?? '—' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('workflowDefinitions.updatedAt')" width="168">
+            <template #default="{ row }">
+              <span translate="no">{{ formatDateTime(row.updatedAtUtc ?? row.createdAtUtc) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column
+            :label="t('workflowDefinitions.actions')"
+            min-width="320"
+            fixed="right"
+          >
+            <template #default="{ row }">
+              <div class="workflow-definitions__actions">
                 <PermissionGate code="workflow.definitions.update">
                   <el-button
+                    size="small"
                     data-testid="workflow-definition-edit"
-                    :disabled="loading || acting || definitionStatus(definition) === 'archived'"
-                    @click="openEditor(definition)"
+                    :disabled="loading || acting || definitionStatus(row) === 'archived'"
+                    @click="openEditor(row)"
                   >{{ t('workflowDefinitions.edit') }}</el-button>
                 </PermissionGate>
                 <el-button
+                  size="small"
                   data-testid="workflow-definition-versions"
                   :disabled="loading || acting"
-                  @click="openVersions(definition)"
+                  @click="openVersions(row)"
                 >{{ t('workflowDefinitions.versions') }}</el-button>
-                <PermissionGate v-if="definitionStatus(definition) === 'active'" code="workflow.definitions.manage_status">
+                <PermissionGate v-if="definitionStatus(row) === 'active'" code="workflow.definitions.manage_status">
                   <el-button
+                    size="small"
                     data-testid="workflow-definition-disable"
                     :disabled="loading || acting"
-                    @click="changeDefinitionStatus(definition, 'disabled')"
+                    @click="changeDefinitionStatus(row, 'disabled')"
                   >{{ t('workflowDefinitions.disable') }}</el-button>
                 </PermissionGate>
-                <PermissionGate v-if="definitionStatus(definition) === 'disabled'" code="workflow.definitions.manage_status">
+                <PermissionGate v-if="definitionStatus(row) === 'disabled'" code="workflow.definitions.manage_status">
                   <el-button
+                    size="small"
                     data-testid="workflow-definition-enable"
                     :disabled="loading || acting"
-                    @click="changeDefinitionStatus(definition, 'active')"
+                    @click="changeDefinitionStatus(row, 'active')"
                   >{{ t('workflowDefinitions.enable') }}</el-button>
                 </PermissionGate>
-                <PermissionGate v-if="definitionStatus(definition) !== 'archived'" code="workflow.definitions.manage_status">
+                <PermissionGate v-if="definitionStatus(row) !== 'archived'" code="workflow.definitions.manage_status">
                   <el-button
+                    size="small"
                     data-testid="workflow-definition-archive"
                     :disabled="loading || acting"
-                    @click="changeDefinitionStatus(definition, 'archived')"
+                    @click="changeDefinitionStatus(row, 'archived')"
                   >{{ t('workflowDefinitions.archive') }}</el-button>
                 </PermissionGate>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </el-card>
+              </div>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <p v-if="!loading" class="workflow-definitions__empty">{{ t('workflowDefinitions.empty') }}</p>
+          </template>
+        </el-table>
+        </div>
+      </el-card>
+
+      <el-card class="workflow-definitions__versions-panel art-form-card" shadow="never">
+        <template #header>
+          <h2>{{ t('workflowDefinitions.versionsTitle') }}</h2>
+        </template>
+        <p v-if="!selectedDefinitionId" class="workflow-definitions__empty workflow-definitions__versions-hint">
+          {{ t('workflowDefinitions.selectVersions') }}
+        </p>
+        <div v-else-if="versions.length === 0" class="workflow-definitions__empty">
+          {{ t('workflowDefinitions.noVersions') }}
+        </div>
+        <ul v-else class="workflow-definitions__versions">
+          <li v-for="version in versions" :key="version.id">
+            <span>{{ t('workflowDefinitions.version') }} {{ version.versionNumber }}</span>
+            <time :datetime="version.publishedAtUtc">{{ formatDateTime(version.publishedAtUtc) }}</time>
+            <div class="workflow-definitions__version-actions">
+              <PermissionGate
+                v-if="selectedDefinition && definitionStatus(selectedDefinition) === 'active'"
+                code="workflow.instances.start"
+              >
+                <el-button
+                  type="primary"
+                  plain
+                  size="small"
+                  data-testid="workflow-definition-start"
+                  :disabled="loading || acting"
+                  @click="openStart(version)"
+                >{{ t('workflowDefinitions.start') }}</el-button>
+              </PermissionGate>
+              <PermissionGate code="workflow.definitions.delete_version">
+                <el-button
+                  type="danger"
+                  plain
+                  size="small"
+                  data-testid="workflow-definition-delete-version"
+                  :disabled="loading || acting"
+                  @click="removeDefinitionVersion(version)"
+                >{{ t('workflowDefinitions.deleteVersion') }}</el-button>
+              </PermissionGate>
+            </div>
+          </li>
+        </ul>
+      </el-card>
+    </div>
 
     <aside v-if="creating" class="workflow-definitions__panel" aria-modal="true" role="dialog">
       <h2>{{ t('workflowDefinitions.createTitle') }}</h2>
@@ -553,39 +659,6 @@ function toProblem(
       </div>
     </aside>
 
-    <el-card v-if="selectedDefinitionId" shadow="never">
-      <div v-if="versions.length === 0" class="workflow-definitions__empty">
-        {{ t('workflowDefinitions.noVersions') }}
-      </div>
-      <ul v-else class="workflow-definitions__versions">
-        <li v-for="version in versions" :key="version.id">
-          <span>{{ t('workflowDefinitions.version') }} {{ version.versionNumber }}</span>
-          <time :datetime="version.publishedAtUtc">{{ version.publishedAtUtc }}</time>
-          <PermissionGate
-            v-if="selectedDefinition && definitionStatus(selectedDefinition) === 'active'"
-            code="workflow.instances.start"
-          >
-            <el-button
-              type="primary"
-              plain
-              data-testid="workflow-definition-start"
-              :disabled="loading || acting"
-              @click="openStart(version)"
-            >{{ t('workflowDefinitions.start') }}</el-button>
-          </PermissionGate>
-          <PermissionGate code="workflow.definitions.delete_version">
-            <el-button
-              type="danger"
-              plain
-              data-testid="workflow-definition-delete-version"
-              :disabled="loading || acting"
-              @click="removeDefinitionVersion(version)"
-            >{{ t('workflowDefinitions.deleteVersion') }}</el-button>
-          </PermissionGate>
-        </li>
-      </ul>
-    </el-card>
-
     <el-drawer
       :model-value="startSchema !== undefined"
       :title="t('workflowDefinitions.startTitle')"
@@ -627,16 +700,72 @@ function toProblem(
 </template>
 
 <style scoped>
-.workflow-definitions { display: grid; gap: 1rem; }
-.workflow-definitions__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-.workflow-definitions header h1 { margin: 0; color: var(--el-text-color-primary); font-size: clamp(1.35rem, 2vw, 1.8rem); }
-.workflow-definitions header p { margin: 0.35rem 0 0; color: var(--el-text-color-secondary); }
-.workflow-definitions__table-wrap { overflow-x: auto; }
-.workflow-definitions table { width: 100%; border-collapse: collapse; }
-.workflow-definitions th, .workflow-definitions td { padding: 0.8rem; border-bottom: 1px solid var(--el-border-color-lighter); text-align: left; }
-.workflow-definitions th { color: var(--el-text-color-secondary); font-size: 0.78rem; }
-.workflow-definitions code { font-size: 0.76rem; }
-.workflow-definitions__actions { display: flex; gap: 0.5rem; }
+.workflow-definitions { display: grid; gap: 1rem; min-height: 0; }
+.workflow-definitions__layout {
+  display: flex;
+  flex: 1;
+  gap: 12px;
+  min-height: 0;
+}
+.workflow-definitions__list {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.workflow-definitions__list :deep(.el-card__body) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 0;
+}
+.workflow-definitions__list :deep(.el-card__header) {
+  padding: 12px 16px;
+}
+.workflow-definitions__list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.workflow-definitions__list-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.workflow-definitions__table {
+  flex: 1;
+  min-height: 200px;
+}
+.workflow-definitions__versions-panel {
+  flex: 0 0 320px;
+  min-width: 280px;
+  max-width: 380px;
+  overflow: auto;
+}
+.workflow-definitions__versions-panel :deep(.el-card__header) {
+  padding: 12px 16px;
+}
+.workflow-definitions__versions-panel :deep(.el-card__header) h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.workflow-definitions__versions-panel :deep(.el-card__body) {
+  padding: 12px 16px 16px;
+}
+.workflow-definitions__versions-hint {
+  margin: 12px 0;
+}
+.workflow-definitions__version-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.workflow-definitions code { font-size: 0.85rem; }
+.workflow-definitions__actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .workflow-definitions__empty { padding: 2.5rem 1rem; color: var(--el-text-color-secondary); text-align: center; }
 .workflow-definitions__panel { display: grid; gap: 1rem; padding: 1rem; border: 1px solid var(--el-border-color); border-top: 4px solid var(--el-color-primary); background: var(--el-bg-color); box-shadow: var(--el-box-shadow-light); }
 .workflow-definitions__panel--designer { position: fixed; z-index: 2000; inset: 3vh 2vw; overflow: auto; }
@@ -653,8 +782,15 @@ function toProblem(
 .workflow-definitions__business label { display: grid; gap: 0.4rem; color: var(--el-text-color-regular); font-weight: 650; }
 .workflow-definitions__business input { min-height: 38px; padding: 0.5rem 0.7rem; border: 1px solid var(--el-border-color); border-radius: 8px; color: var(--el-text-color-primary); background: var(--el-bg-color); font: inherit; }
 .workflow-definitions__decision-bar { display: flex; justify-content: flex-end; gap: 0.65rem; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--el-border-color-lighter); }
+@media (max-width: 960px) {
+  .workflow-definitions__layout { flex-direction: column; }
+  .workflow-definitions__versions-panel {
+    flex: none;
+    max-width: none;
+    width: 100%;
+  }
+}
 @media (max-width: 720px) {
-  .workflow-definitions__header { align-items: stretch; flex-direction: column; }
   .workflow-definitions__panel--designer { inset: 1rem; }
   .workflow-definitions__business { grid-template-columns: 1fr; }
   .workflow-definitions__versions li { grid-template-columns: 1fr; }

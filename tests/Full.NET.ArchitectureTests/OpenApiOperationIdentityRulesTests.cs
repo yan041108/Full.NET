@@ -748,6 +748,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/document/host/shares", "documentHostCreateDocumentShare", DocumentHostSharesTag),
         new("POST", "/api/v1/document/host/shares/{id}/status", "documentHostUpdateDocumentShareStatus", DocumentHostSharesTag),
         new("POST", "/api/v1/document/public/shares/{shareCode}/access", "documentPublicAccessDocumentShare", DocumentPublicSharesTag),
+        new("POST", "/api/v1/document/public/shares/{shareCode}/content", "documentPublicContentDocumentShare", DocumentPublicSharesTag),
         new("GET", "/api/v1/document/host/statistics", "documentHostGetDocumentStatistics", DocumentHostStatisticsTag),
     ];
 

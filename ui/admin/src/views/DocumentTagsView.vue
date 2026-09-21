@@ -22,10 +22,8 @@ import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/com
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
-import {
-  useArtClientPagination,
-  useArtCrudTableLayout
-} from '../framework/art-design/composables/useArtCrudTableLayout';
+import { useArtClientPagination } from '../framework/art-design/composables/useArtCrudTableLayout';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -73,9 +71,8 @@ const {
   tableBorder,
   tableHeaderBackground,
   tableHeaderCellStyle,
-  updateTableHeight,
-  watchLoading
-} = useArtCrudTableLayout();
+  syncTableLayout
+} = useArtPagedTableInCard(loading);
 
 const filteredTags = computed(() => {
   let rows = allTags.value;
@@ -100,8 +97,6 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
 const canCreate = computed(() => session.can('document.tags.create'));
 const canUpdate = computed(() => session.can('document.tags.update'));
 const canDelete = computed(() => session.can('document.tags.delete'));
-
-watchLoading(loading);
 
 onMounted(() => {
   void load();
@@ -133,11 +128,11 @@ async function load(): Promise<void> {
   problem.value = undefined;
   try {
     allTags.value = await listDocumentTags();
-    await nextTick(updateTableHeight);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'documentTags.loadFailed');
   } finally {
     loading.value = false;
+    void syncTableLayout();
   }
 }
 
@@ -283,7 +278,7 @@ function toProblem(
 </script>
 
 <template>
-  <section class="document-tags-view art-page-stack art-full-height" :aria-busy="loading">
+  <section class="document-tags-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentTags.title') }}</h1>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
@@ -292,19 +287,21 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <ArtSearchBar
-      v-model="searchForm"
-      :items="searchItems"
-      :default-visible-count="1"
-      :search-label="t('documentTags.query')"
-      :reset-label="t('documentTags.reset')"
-      :expand-label="t('documentTags.expand')"
-      :collapse-label="t('documentTags.collapse')"
-      @search="handleSearch"
-      @reset="resetSearch"
-    />
+    <el-card class="document-module-query-card" shadow="never">
+      <ArtSearchBar
+        v-model="searchForm"
+        :items="searchItems"
+        :default-visible-count="1"
+        :search-label="t('documentTags.query')"
+        :reset-label="t('documentTags.reset')"
+        :expand-label="t('documentTags.expand')"
+        :collapse-label="t('documentTags.collapse')"
+        @search="handleSearch"
+        @reset="resetSearch"
+      />
+    </el-card>
 
-    <el-card class="art-table-card" shadow="never">
+    <el-card class="art-table-card art-full-height" shadow="never">
       <div ref="tableMainRef" class="art-crud-table-main">
         <ArtTableHeader
           v-model:table-size="tableSize"
@@ -388,18 +385,17 @@ function toProblem(
 
             <template #empty>{{ t('documentTags.emptyDirectory') }}</template>
           </el-table>
-
-          <div class="art-table__pagination center custom-pagination">
-            <el-pagination
-              v-model:current-page="page"
-              v-model:page-size="pageSize"
-              :total="total"
-              background
-              layout="total, sizes, prev, pager, next, jumper"
-              :page-sizes="[10, 20, 50, 100]"
-            />
-          </div>
         </div>
+
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          class="art-table-pagination center custom-pagination"
+          :total="total"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50, 100]"
+        />
       </div>
     </el-card>
 
@@ -439,6 +435,11 @@ function toProblem(
 </template>
 
 <style scoped>
+.document-tags-view {
+  flex: 1;
+  min-height: 0;
+}
+
 .document-tags-view :deep(.art-table-card) {
   flex: 1;
   display: flex;
@@ -451,6 +452,11 @@ function toProblem(
   flex: 1;
   flex-direction: column;
   min-height: 0;
+}
+
+.document-tags-view :deep(.art-crud-table-main) {
+  flex: 1;
+  min-height: 200px;
 }
 
 .document-tags-editor-form {

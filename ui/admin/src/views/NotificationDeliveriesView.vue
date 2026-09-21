@@ -22,6 +22,7 @@ import {
 } from '@fullnet/client-contracts';
 import { useAdminI18n } from '../i18n/adminI18n';
 import PermissionGate from '../components/PermissionGate.vue';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import {
   getNotificationDelivery,
   listNotificationDeliveries,
@@ -54,6 +55,7 @@ const total = ref(0);
 const retryFormRef = ref<FormInstance>();
 const retryForm = reactive({ reason: '' });
 const loading = ref(false);
+const { tableMainRef, tableHeight, syncTableLayout } = useArtPagedTableInCard(loading);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const attachmentCount = ref<number | null>(null);
@@ -91,6 +93,7 @@ async function load(): Promise<void> {
     problem.value = toProblem(error, 'notificationDeliveries.loadFailed');
   } finally {
     loading.value = false;
+    void syncTableLayout();
   }
 }
 
@@ -260,15 +263,17 @@ function toProblem(
       <span>{{ problem.title }}</span>
     </div>
 
-    <div class="notification-deliveries-layout">
+    <div class="notification-deliveries-layout art-split-layout">
       <ElCard class="notification-deliveries-list art-table-card" shadow="never">
         <template #header>
           <h2>{{ t('notificationDeliveries.listTitle') }}</h2>
         </template>
 
+        <div ref="tableMainRef" class="art-crud-table-main">
         <ElTable
           v-loading="loading"
           :data="items"
+          :height="tableHeight"
           class="notification-deliveries-table"
           highlight-current-row
           row-key="id"
@@ -324,15 +329,16 @@ function toProblem(
           </template>
         </ElTable>
 
-        <div v-if="total > 0" class="notification-deliveries-list__pagination">
-          <ElPagination
-            background
-            layout="prev, pager, next, total"
-            :current-page="page"
-            :page-size="pageSize"
-            :total="total"
-            @current-change="value => { page = value; void load(); }"
-          />
+        <ElPagination
+          v-if="total > 0"
+          class="art-table-pagination"
+          background
+          layout="prev, pager, next, total"
+          :current-page="page"
+          :page-size="pageSize"
+          :total="total"
+          @current-change="value => { page = value; void load(); }"
+        />
         </div>
       </ElCard>
 

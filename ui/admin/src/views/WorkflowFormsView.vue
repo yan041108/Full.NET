@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { ElButton, ElCard, ElMessage } from 'element-plus';
+import { nextTick, onMounted, ref } from 'vue';
+import { ElButton, ElCard, ElMessage, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import {
   createWorkflowFormDraft,
   isFullNetProblemDetails,
@@ -25,12 +25,29 @@ import { useSessionStore } from '../auth/session';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import VForm3WorkflowDesigner from '../workflow/VForm3WorkflowDesigner.vue';
+import { formatAdminDateTime } from '../workflow/workflowAdminFormat';
+import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 
 interface VForm3WorkflowDesignerInstance {
   readSchema: () => WorkflowFormSchema;
 }
 
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
+
+function formatDateTime(value: string | null | undefined): string {
+  return formatAdminDateTime(locale.value, value);
+}
+
+function formStatusTagType(status: 'active' | 'disabled' | 'archived'): 'success' | 'warning' | 'info' {
+  switch (status) {
+    case 'active':
+      return 'success';
+    case 'disabled':
+      return 'warning';
+    default:
+      return 'info';
+  }
+}
 const session = useSessionStore();
 const forms = ref<WorkflowFormResponse[]>([]);
 const versions = ref<WorkflowFormVersionResponse[]>([]);
@@ -42,6 +59,10 @@ const catalog = ref<WorkflowFormComponentCatalogResponse>();
 const formKey = ref('');
 const creating = ref(false);
 const busy = ref(false);
+const { tableMainRef, tableHeight, updateTableHeight, watchLoading } = useArtCrudTableLayout({
+  bottomOffset: 8
+});
+watchLoading(busy);
 const problem = ref<FullNetProblemDetails>();
 const designer = ref<VForm3WorkflowDesignerInstance>();
 
@@ -220,23 +241,15 @@ async function act<T>(
     return undefined;
   } finally {
     busy.value = false;
+    void nextTick(updateTableHeight);
   }
 }
 </script>
 
 <template>
   <section class="workflow-forms art-page-stack art-full-height" :aria-busy="busy">
-    <header class="workflow-forms__header">
-      <div>
-        <h1 data-route-heading tabindex="-1">{{ t('workflowForms.title') }}</h1>
-        <p>{{ t('workflowForms.caption') }}</p>
-      </div>
-      <PermissionGate code="workflow.forms.create">
-        <el-button type="primary" data-testid="workflow-form-create" :disabled="busy" @click="openCreate">
-          {{ t('workflowForms.create') }}
-        </el-button>
-      </PermissionGate>
-    </header>
+    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('workflowForms.title') }}</h1>
+    <p class="art-sr-heading">{{ t('workflowForms.caption') }}</p>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
       <strong translate="no">{{ problem.code }}</strong>
@@ -244,97 +257,103 @@ async function act<T>(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card shadow="never">
-      <div v-if="forms.length === 0 && !busy" class="workflow-forms__empty">{{ t('workflowForms.empty') }}</div>
-      <div v-else class="workflow-forms__table-wrap">
-        <table>
-          <thead><tr>
-            <th>{{ t('workflowForms.formKey') }}</th>
-            <th>{{ t('workflowForms.status') }}</th>
-            <th>{{ t('workflowForms.revision') }}</th>
-            <th>{{ t('workflowForms.publishedVersion') }}</th>
-            <th>{{ t('workflowForms.actions') }}</th>
-          </tr></thead>
-          <tbody>
-            <tr v-for="row in forms" :key="row.id">
-              <td><code translate="no">{{ row.formKey }}</code></td>
-              <td>{{ t(`workflowForms.statusLabel.${formStatus(row)}`) }}</td>
-              <td>Revision {{ row.draftRevision }}</td>
-              <td><code translate="no">{{ row.latestPublishedVersionId ?? '—' }}</code></td>
-              <td class="workflow-forms__actions">
+    <div class="workflow-forms__layout art-split-layout">
+      <el-card class="workflow-forms__list art-table-card" shadow="never">
+        <template #header>
+          <div class="workflow-forms__list-header">
+            <h2>{{ t('workflowForms.listTitle') }}</h2>
+            <PermissionGate code="workflow.forms.create">
+              <el-button type="primary" size="small" data-testid="workflow-form-create" :disabled="busy" @click="openCreate">
+                {{ t('workflowForms.create') }}
+              </el-button>
+            </PermissionGate>
+          </div>
+        </template>
+        <div ref="tableMainRef" class="art-crud-table-main">
+        <el-table
+          v-loading="busy"
+          :data="forms"
+          :height="tableHeight"
+          row-key="id"
+          highlight-current-row
+          empty-text=""
+          :current-row-key="selectedFormId"
+          class="workflow-forms__table"
+        >
+          <el-table-column :label="t('workflowForms.formKey')" min-width="140" show-overflow-tooltip>
+            <template #default="{ row }"><code translate="no">{{ row.formKey }}</code></template>
+          </el-table-column>
+          <el-table-column :label="t('workflowForms.status')" width="96" align="center">
+            <template #default="{ row }">
+              <el-tag size="small" :type="formStatusTagType(formStatus(row))">
+                {{ t(`workflowForms.statusLabel.${formStatus(row)}`) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('workflowForms.revision')" width="110">
+            <template #default="{ row }">Revision {{ row.draftRevision }}</template>
+          </el-table-column>
+          <el-table-column :label="t('workflowForms.publishedVersion')" min-width="120" show-overflow-tooltip>
+            <template #default="{ row }"><span translate="no">{{ row.latestPublishedVersionId ?? '—' }}</span></template>
+          </el-table-column>
+          <el-table-column :label="t('workflowForms.actions')" min-width="360" fixed="right">
+            <template #default="{ row }">
+              <div class="workflow-forms__actions">
                 <PermissionGate code="workflow.forms.update">
-                  <el-button
-                    data-testid="workflow-form-edit"
-                    :disabled="busy || formStatus(row) === 'archived'"
-                    @click="openEditor(row)"
-                  >
+                  <el-button size="small" data-testid="workflow-form-edit" :disabled="busy || formStatus(row) === 'archived'" @click="openEditor(row)">
                     {{ t('workflowForms.edit') }}
                   </el-button>
                 </PermissionGate>
-                <el-button
-                  data-testid="workflow-form-versions"
-                  :disabled="busy"
-                  @click="openVersions(row)"
-                >{{ t('workflowForms.versions') }}</el-button>
+                <el-button size="small" data-testid="workflow-form-versions" :disabled="busy" @click="openVersions(row)">
+                  {{ t('workflowForms.versions') }}
+                </el-button>
                 <PermissionGate code="workflow.forms.publish">
-                  <el-button
-                    type="primary"
-                    plain
-                    data-testid="workflow-form-publish"
-                    :disabled="busy || formStatus(row) !== 'active'"
-                    @click="publish(row)"
-                  >
+                  <el-button type="primary" plain size="small" data-testid="workflow-form-publish" :disabled="busy || formStatus(row) !== 'active'" @click="publish(row)">
                     {{ t('workflowForms.publish') }}
                   </el-button>
                 </PermissionGate>
                 <PermissionGate v-if="formStatus(row) === 'active'" code="workflow.forms.manage_status">
-                  <el-button
-                    data-testid="workflow-form-disable"
-                    :disabled="busy"
-                    @click="changeFormStatus(row, 'disabled')"
-                  >{{ t('workflowForms.disable') }}</el-button>
+                  <el-button size="small" data-testid="workflow-form-disable" :disabled="busy" @click="changeFormStatus(row, 'disabled')">
+                    {{ t('workflowForms.disable') }}
+                  </el-button>
                 </PermissionGate>
                 <PermissionGate v-if="formStatus(row) === 'disabled'" code="workflow.forms.manage_status">
-                  <el-button
-                    data-testid="workflow-form-enable"
-                    :disabled="busy"
-                    @click="changeFormStatus(row, 'active')"
-                  >{{ t('workflowForms.enable') }}</el-button>
+                  <el-button size="small" data-testid="workflow-form-enable" :disabled="busy" @click="changeFormStatus(row, 'active')">
+                    {{ t('workflowForms.enable') }}
+                  </el-button>
                 </PermissionGate>
                 <PermissionGate v-if="formStatus(row) !== 'archived'" code="workflow.forms.manage_status">
-                  <el-button
-                    data-testid="workflow-form-archive"
-                    :disabled="busy"
-                    @click="changeFormStatus(row, 'archived')"
-                  >{{ t('workflowForms.archive') }}</el-button>
+                  <el-button size="small" data-testid="workflow-form-archive" :disabled="busy" @click="changeFormStatus(row, 'archived')">
+                    {{ t('workflowForms.archive') }}
+                  </el-button>
                 </PermissionGate>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </el-card>
+              </div>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <p v-if="!busy" class="workflow-forms__empty">{{ t('workflowForms.empty') }}</p>
+          </template>
+        </el-table>
+        </div>
+      </el-card>
 
-    <el-card v-if="selectedFormId" shadow="never">
-      <div v-if="versions.length === 0" class="workflow-forms__empty">
-        {{ t('workflowForms.noVersions') }}
-      </div>
-      <ul v-else class="workflow-forms__versions">
-        <li v-for="version in versions" :key="version.id">
-          <span>{{ t('workflowForms.version') }} {{ version.versionNumber }}</span>
-          <time :datetime="version.publishedAtUtc">{{ version.publishedAtUtc }}</time>
-          <PermissionGate code="workflow.forms.delete_version">
-            <el-button
-              type="danger"
-              plain
-              data-testid="workflow-form-delete-version"
-              :disabled="busy"
-              @click="removeFormVersion(version)"
-            >{{ t('workflowForms.deleteVersion') }}</el-button>
-          </PermissionGate>
-        </li>
-      </ul>
-    </el-card>
+      <el-card class="workflow-forms__versions-panel art-form-card" shadow="never">
+        <template #header><h2>{{ t('workflowForms.versionsTitle') }}</h2></template>
+        <p v-if="!selectedFormId" class="workflow-forms__empty">{{ t('workflowForms.selectVersions') }}</p>
+        <div v-else-if="versions.length === 0" class="workflow-forms__empty">{{ t('workflowForms.noVersions') }}</div>
+        <ul v-else class="workflow-forms__versions">
+          <li v-for="version in versions" :key="version.id">
+            <span>{{ t('workflowForms.version') }} {{ version.versionNumber }}</span>
+            <time :datetime="version.publishedAtUtc">{{ formatDateTime(version.publishedAtUtc) }}</time>
+            <PermissionGate code="workflow.forms.delete_version">
+              <el-button type="danger" plain size="small" data-testid="workflow-form-delete-version" :disabled="busy" @click="removeFormVersion(version)">
+                {{ t('workflowForms.deleteVersion') }}
+              </el-button>
+            </PermissionGate>
+          </li>
+        </ul>
+      </el-card>
+    </div>
 
     <aside v-if="creating" class="workflow-forms__panel" aria-modal="true" role="dialog">
       <h2>{{ t('workflowForms.createTitle') }}</h2>
@@ -380,15 +399,18 @@ async function act<T>(
 </template>
 
 <style scoped>
-.workflow-forms { display: grid; gap: 1rem; }
-.workflow-forms__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-.workflow-forms__header h1, .workflow-forms__panel h2 { margin: 0; color: var(--el-text-color-primary); }
-.workflow-forms__header p { margin: 0.35rem 0 0; color: var(--el-text-color-secondary); }
-.workflow-forms__table-wrap { overflow-x: auto; }
-.workflow-forms table { width: 100%; border-collapse: collapse; }
-.workflow-forms th, .workflow-forms td { padding: 0.8rem; border-bottom: 1px solid var(--el-border-color-lighter); text-align: left; }
-.workflow-forms th { color: var(--el-text-color-secondary); font-size: 0.78rem; }
-.workflow-forms__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.workflow-forms { display: grid; gap: 1rem; min-height: 0; }
+.workflow-forms__layout { display: flex; flex: 1; gap: 12px; min-height: 0; }
+.workflow-forms__list { flex: 1 1 0; min-width: 0; min-height: 0; }
+.workflow-forms__list :deep(.el-card__body) { padding-top: 0; }
+.workflow-forms__list :deep(.el-card__header) { padding: 12px 16px; }
+.workflow-forms__list-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.workflow-forms__list-header h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.workflow-forms__versions-panel { flex: 0 0 300px; max-width: 360px; overflow: auto; }
+.workflow-forms__versions-panel :deep(.el-card__header) { padding: 12px 16px; }
+.workflow-forms__versions-panel :deep(.el-card__header) h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.workflow-forms__panel h2 { margin: 0; color: var(--el-text-color-primary); }
+.workflow-forms__actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .workflow-forms__versions { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
 .workflow-forms__versions li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
 .workflow-forms__empty { padding: 2.5rem 1rem; color: var(--el-text-color-secondary); text-align: center; }
@@ -400,8 +422,11 @@ async function act<T>(
 .workflow-forms__editor-heading div { display: grid; gap: 0.25rem; }
 .workflow-forms__editor-heading span { color: var(--el-text-color-secondary); font-family: var(--art-font-mono, monospace); }
 .workflow-forms__decision-bar { display: flex; justify-content: flex-end; gap: 0.65rem; padding-top: 1rem; border-top: 1px solid var(--el-border-color-lighter); }
+@media (max-width: 960px) {
+  .workflow-forms__layout { flex-direction: column; }
+  .workflow-forms__versions-panel { flex: none; max-width: none; width: 100%; }
+}
 @media (max-width: 720px) {
-  .workflow-forms__header { align-items: stretch; flex-direction: column; }
   .workflow-forms__panel--designer { inset: 1rem; }
 }
 </style>

@@ -7,6 +7,8 @@ export interface AuthenticationBridge {
 
 export interface RequestOptions {
   retryUnauthorized?: boolean;
+  /** 公开端点：不附带 Bearer，避免 401 触发会话刷新并误清其他标签页登录态。 */
+  skipAuthentication?: boolean;
   /** 追加请求头；同名头不覆盖 init 或已合并值。 */
   headers?: HeadersInit;
 }
@@ -168,9 +170,11 @@ export function createHttpClient(apiBaseUrl = ''): HttpClient {
     }
     headers.set('accept-language', requestLocale?.() ?? 'zh-CN');
 
-    const accessToken = authentication?.getAccessToken();
-    if (accessToken && !headers.has('authorization')) {
-      headers.set('authorization', `Bearer ${accessToken}`);
+    if (!options.skipAuthentication) {
+      const accessToken = authentication?.getAccessToken();
+      if (accessToken && !headers.has('authorization')) {
+        headers.set('authorization', `Bearer ${accessToken}`);
+      }
     }
 
     return await fetch(`${apiBaseUrl}${path}`, {

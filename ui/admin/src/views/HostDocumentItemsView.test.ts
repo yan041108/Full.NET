@@ -14,6 +14,10 @@ import {
   uploadDocumentVersion
 } from '../api/host-document-items';
 
+vi.mock('../api/host-document-categories', () => ({
+  listDocumentCategories: vi.fn().mockResolvedValue([])
+}));
+
 vi.mock('../api/host-document-items', () => ({
   createDocumentItem: vi.fn(),
   deleteDocumentItem: vi.fn(),
@@ -149,6 +153,15 @@ describe('Vue Host 文档库页', () => {
     await flushPromises();
     expect(wrapper.find('[data-testid="host-document-item-upload-version"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="host-document-item-create"]').exists()).toBe(false);
+  });
+
+  it('share create 权限显示分享按钮', async () => {
+    const wrapper = mountWithPermissions([
+      'document.host_documents.read',
+      'document.host_shares.create'
+    ]);
+    await flushPromises();
+    expect(wrapper.find('[data-testid="host-document-item-share"]').exists()).toBe(true);
   });
 
   it('delete-only 只显示删除按钮', async () => {

@@ -6,6 +6,7 @@
     "identityLogout",
     "identityListPublicRegistrationWays",
     "documentPublicAccessDocumentShare",
+    "documentPublicContentDocumentShare",
     "paymentsWeChatNativeNotify",
     "tenancyGetRuntimeBranding",
     "tenancyGetCurrentBrandingLogoContent",
@@ -2210,6 +2211,12 @@
     },
     {
       "operationId": "documentPublicAccessDocumentShare",
+      "apiModule": "ui/admin/src/api/document-shares.ts",
+      "generatedGroup": "document-host-shares",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentPublicContentDocumentShare",
       "apiModule": "ui/admin/src/api/document-shares.ts",
       "generatedGroup": "document-host-shares",
       "status": "generated"

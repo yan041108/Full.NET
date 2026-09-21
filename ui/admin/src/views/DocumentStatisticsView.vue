@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 import { computed, onMounted, ref, watch } from 'vue';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import {
   ElAlert,
   ElCard,
@@ -40,6 +41,8 @@ const accessLogsPageSize = ref(20);
 const accessLogsTotal = ref(0);
 
 const canReadAccessLogs = computed(() => session.can('document.host_access_logs.read'));
+
+const { tableMainRef, tableHeight, syncTableLayout } = useArtPagedTableInCard(accessLogsLoading);
 
 /** 统计面板优先展示服务端已格式化好的总大小文案，避免前端再复制一套单位换算规则。 */
 function formatTotalSize(): string {
@@ -91,6 +94,7 @@ async function loadAccessLogs() {
     accessLogsProblem.value = toProblem(error, 'documentStatistics.accessLogs.loadFailed');
   } finally {
     accessLogsLoading.value = false;
+    void syncTableLayout();
   }
 }
 
@@ -114,7 +118,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="art-page">
+  <section
+    class="document-statistics-view art-page-stack art-full-height"
+    :class="{ 'document-statistics-view--logs': activeTab === 'accessLogs' }"
+  >
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentStatistics.title') }}</h1>
 
     <el-tabs v-model="activeTab" data-testid="document-statistics-tabs">
@@ -190,29 +197,46 @@ onMounted(() => {
         class="art-page-alert"
       />
 
-      <el-card v-loading="accessLogsLoading" shadow="never" data-testid="document-access-logs-panel">
-        <el-table v-if="accessLogs.length" :data="accessLogs" size="small" data-testid="document-access-logs-table">
-          <el-table-column prop="documentTitle" :label="t('documentStatistics.accessLogs.documentTitle')" />
-          <el-table-column :label="t('documentStatistics.accessLogs.accessType')">
-            <template #default="{ row }">
-              <span translate="no">{{ accessTypeLabel(row.accessTypeKey) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column :label="t('documentStatistics.accessLogs.source')">
-            <template #default="{ row }">
-              <span translate="no">{{ sourceLabel(row.sourceKey) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="occurredAtUtc" :label="t('documentStatistics.accessLogs.occurredAt')" />
-        </el-table>
-        <p v-else-if="!accessLogsLoading" data-testid="document-access-logs-empty">
-          {{ t('documentStatistics.accessLogs.empty') }}
-        </p>
+      <el-card
+        v-loading="accessLogsLoading"
+        class="art-table-card art-full-height document-statistics__logs-card"
+        shadow="never"
+        data-testid="document-access-logs-panel"
+      >
+        <div ref="tableMainRef" class="art-crud-table-main">
+          <div class="art-table" :class="{ 'is-empty': accessLogs.length === 0 }">
+            <el-table
+              v-if="accessLogs.length || accessLogsLoading"
+              :data="accessLogs"
+              :height="tableHeight"
+              size="small"
+              class="art-crud-data-table"
+              data-testid="document-access-logs-table"
+            >
+              <el-table-column prop="documentTitle" :label="t('documentStatistics.accessLogs.documentTitle')" />
+              <el-table-column :label="t('documentStatistics.accessLogs.accessType')">
+                <template #default="{ row }">
+                  <span translate="no">{{ accessTypeLabel(row.accessTypeKey) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column :label="t('documentStatistics.accessLogs.source')">
+                <template #default="{ row }">
+                  <span translate="no">{{ sourceLabel(row.sourceKey) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="occurredAtUtc" :label="t('documentStatistics.accessLogs.occurredAt')" />
+              <template #empty>{{ t('documentStatistics.accessLogs.empty') }}</template>
+            </el-table>
+            <p v-else-if="!accessLogsLoading" data-testid="document-access-logs-empty">
+              {{ t('documentStatistics.accessLogs.empty') }}
+            </p>
+          </div>
 
-        <div v-if="accessLogsTotal > 0" class="art-table__pagination center custom-pagination">
           <el-pagination
+            v-if="accessLogsTotal > 0"
             v-model:current-page="accessLogsPage"
             v-model:page-size="accessLogsPageSize"
+            class="art-table-pagination center custom-pagination"
             layout="total, prev, pager, next"
             :total="accessLogsTotal"
             @current-change="loadAccessLogs"
@@ -225,6 +249,35 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.document-statistics-view {
+  flex: 1;
+  min-height: 0;
+}
+
+.document-statistics-view--logs {
+  display: flex;
+  flex-direction: column;
+}
+
+.document-statistics-view--logs .document-statistics__logs-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.document-statistics-view--logs :deep(.document-statistics__logs-card .el-card__body) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.document-statistics-view--logs :deep(.art-crud-table-main) {
+  flex: 1;
+  min-height: 200px;
+}
+
 .document-statistics__summary {
   margin-bottom: 24px;
 }

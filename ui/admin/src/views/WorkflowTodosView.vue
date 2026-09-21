@@ -10,6 +10,8 @@ import {
   ElSelect,
   ElTabPane,
   ElTabs,
+  ElTable,
+  ElTableColumn,
   ElTag
 } from 'element-plus';
 import type { MessageKey } from '@fullnet/admin-i18n';
@@ -44,6 +46,8 @@ import {
   findWorkflowBusinessDetailRoute,
   formatWorkflowBusinessLabel
 } from '../workflow/workflowBusinessDetail';
+import { formatAdminDateTime } from '../workflow/workflowAdminFormat';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 
 const resultActionFilterOptions = [
   'approve',
@@ -55,7 +59,11 @@ const resultActionFilterOptions = [
 
 type TodoTabKey = 'pending' | 'history';
 
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
+
+function formatDateTime(value: string | null | undefined): string {
+  return formatAdminDateTime(locale.value, value ?? '');
+}
 const router = useRouter();
 const { can } = usePermission();
 const activeTab = ref<TodoTabKey>('pending');
@@ -64,6 +72,7 @@ const listPage = ref(1);
 const listPageSize = ref(20);
 const listTotal = ref(0);
 const listLoading = ref(false);
+const { tableMainRef, tableHeight, syncTableLayout } = useArtPagedTableInCard(listLoading);
 const definitionKeyFilter = ref('');
 const businessTypeFilter = ref('');
 const resultActionFilter = ref<string>();
@@ -216,6 +225,7 @@ async function loadList(): Promise<void> {
     }
   } finally {
     listLoading.value = false;
+    void syncTableLayout();
   }
 }
 
@@ -394,12 +404,8 @@ function toProblem(
 
 <template>
   <section class="workflow-todos art-page-stack art-full-height" :aria-busy="listLoading || loading || acting">
-    <header class="workflow-todos__header">
-      <div>
-        <h1 data-route-heading tabindex="-1">{{ t('workflowTodos.title') }}</h1>
-        <p>{{ t('workflowTodos.caption') }}</p>
-      </div>
-    </header>
+    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('workflowTodos.title') }}</h1>
+    <p class="art-sr-heading">{{ t('workflowTodos.caption') }}</p>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
       <strong translate="no">{{ problem.code }}</strong>
@@ -407,7 +413,7 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card shadow="never" class="workflow-todos__list" :aria-busy="listLoading">
+    <el-card shadow="never" class="workflow-todos__list art-table-card" :aria-busy="listLoading">
       <el-tabs v-model="activeTab" data-testid="workflow-todo-tabs">
         <el-tab-pane :label="t('workflowTodos.tabs.pending')" name="pending" />
         <el-tab-pane :label="t('workflowTodos.tabs.history')" name="history" />
@@ -457,58 +463,55 @@ function toProblem(
       >
         {{ t(activeTab === 'history' ? 'workflowTodos.historyEmpty' : 'workflowTodos.empty') }}
       </div>
-      <div v-else class="workflow-todos__table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>{{ t('workflowTodos.business') }}</th>
-              <th>{{ t('workflowTodos.node') }}</th>
-              <th v-if="activeTab === 'history'">{{ t('workflowTodos.resultAction') }}</th>
-              <th>{{ t(activeTab === 'history' ? 'workflowTodos.completedAt' : 'workflowTodos.arrivedAt') }}</th>
-              <th>{{ t('workflowTodos.actions') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="todo in listItems" :key="todo.id">
-              <td>
-                <strong translate="no">{{ formatWorkflowBusinessLabel(todo.businessTitle, todo.businessType, todo.businessId) }}</strong>
-                <small translate="no">{{ todo.definitionKey }}</small>
-              </td>
-              <td><span translate="no">{{ todo.nodeKey }}</span></td>
-              <td v-if="activeTab === 'history'">
-                <el-tag translate="no">{{ resultActionLabel(todo.resultActionKey) }}</el-tag>
-              </td>
-              <td>
-                <time
-                  :datetime="activeTab === 'history' ? (todo.completedAtUtc ?? '') : todo.arrivedAtUtc"
-                >
-                  {{ activeTab === 'history' ? todo.completedAtUtc : todo.arrivedAtUtc }}
-                </time>
-              </td>
-              <td>
-                <el-button
-                  data-testid="workflow-todo-open"
-                  :disabled="listLoading || loading || acting"
-                  @click="openTodo(todo)"
-                >
-                  {{ t(detailReadOnly ? 'workflowTodos.view' : 'workflowTodos.open') }}
-                </el-button>
-                <el-button
-                  v-if="findWorkflowBusinessDetailRoute(todo.businessType)"
-                  link
-                  type="primary"
-                  data-testid="workflow-todo-open-business"
-                  @click="openBusinessDetail(todo.businessType, todo.businessId)"
-                >
-                  {{ t('workflow.business.viewDocument') }}
-                </el-button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <div v-else ref="tableMainRef" class="art-crud-table-main">
+      <el-table v-loading="listLoading" :data="listItems" :height="tableHeight" row-key="id" class="workflow-todos__table">
+        <el-table-column :label="t('workflowTodos.business')" min-width="200">
+          <template #default="{ row }">
+            <div class="workflow-todos__business-cell">
+              <strong translate="no">{{ formatWorkflowBusinessLabel(row.businessTitle, row.businessType, row.businessId) }}</strong>
+              <small translate="no">{{ row.definitionKey }}</small>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('workflowTodos.node')" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }"><span translate="no">{{ row.nodeKey }}</span></template>
+        </el-table-column>
+        <el-table-column v-if="activeTab === 'history'" :label="t('workflowTodos.resultAction')" width="120">
+          <template #default="{ row }">
+            <el-tag size="small" translate="no">{{ resultActionLabel(row.resultActionKey) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t(activeTab === 'history' ? 'workflowTodos.completedAt' : 'workflowTodos.arrivedAt')" width="168">
+          <template #default="{ row }">
+            <time
+              translate="no"
+              :datetime="activeTab === 'history' ? (row.completedAtUtc ?? '') : row.arrivedAtUtc"
+            >
+              {{ formatDateTime(activeTab === 'history' ? row.completedAtUtc : row.arrivedAtUtc) }}
+            </time>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('workflowTodos.actions')" width="200" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" data-testid="workflow-todo-open" :disabled="listLoading || loading || acting" @click="openTodo(row)">
+              {{ t(detailReadOnly ? 'workflowTodos.view' : 'workflowTodos.open') }}
+            </el-button>
+            <el-button
+              v-if="findWorkflowBusinessDetailRoute(row.businessType)"
+              link
+              type="primary"
+              size="small"
+              data-testid="workflow-todo-open-business"
+              @click="openBusinessDetail(row.businessType, row.businessId)"
+            >
+              {{ t('workflow.business.viewDocument') }}
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
       <el-pagination
         v-if="listTotal > 0"
+        class="art-table-pagination"
         background
         layout="prev, pager, next, total"
         data-testid="workflow-todo-pagination"
@@ -517,6 +520,7 @@ function toProblem(
         :total="listTotal"
         @current-change="value => { listPage = value; void loadList(); }"
       />
+      </div>
     </el-card>
 
     <el-drawer
@@ -695,6 +699,27 @@ function toProblem(
 .workflow-todos {
   display: grid;
   gap: 1rem;
+  min-height: 0;
+}
+
+.workflow-todos__list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.workflow-todos__list :deep(.el-card__body) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 0;
+}
+
+.workflow-todos__list .art-crud-table-main {
+  flex: 1;
+  min-height: 200px;
 }
 
 .workflow-todos__header h1 {
@@ -749,6 +774,11 @@ function toProblem(
   border-radius: var(--el-border-radius-base);
   background: var(--el-fill-color-light);
   color: var(--el-text-color-regular);
+}
+
+.workflow-todos__business-cell {
+  display: grid;
+  gap: 4px;
 }
 
 .workflow-todos__table-wrap {

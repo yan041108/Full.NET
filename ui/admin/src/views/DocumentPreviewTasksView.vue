@@ -14,7 +14,7 @@ import {
   ElTableColumn,
   ElTag
 } from 'element-plus';
-import { Plus } from '@element-plus/icons-vue';
+import { Plus, Refresh, Search } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import type { FullNetProblemDetails, HostDocumentPreviewTaskResponse } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
@@ -22,7 +22,7 @@ import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue'
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
-import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -59,11 +59,8 @@ const {
   tableBorder,
   tableHeaderBackground,
   tableHeaderCellStyle,
-  updateTableHeight,
-  watchLoading
-} = useArtCrudTableLayout();
-
-watchLoading(loading);
+  syncTableLayout
+} = useArtPagedTableInCard(loading);
 
 const canCreate = () => session.can('document.host_preview_tasks.create');
 const canRead = () => session.can('document.host_preview_tasks.read');
@@ -97,11 +94,11 @@ async function load() {
     page.value = result.page;
     pageSize.value = result.pageSize;
     total.value = result.total;
-    await updateTableHeight();
   } catch (error) {
     problem.value = toProblem(error);
   } finally {
     loading.value = false;
+    void syncTableLayout();
   }
 }
 
@@ -163,7 +160,7 @@ onMounted(load);
 </script>
 
 <template>
-  <section class="art-page">
+  <section class="document-preview-tasks-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentPreviewTasks.title') }}</h1>
 
     <el-alert
@@ -175,8 +172,32 @@ onMounted(load);
       class="art-page-alert"
     />
 
-    <el-card class="art-table-card" shadow="never">
+    <el-card class="art-table-card art-full-height" shadow="never">
+      <template #header>
+        <div class="document-module-card-header">
+          <span>{{ t('documentPreviewTasks.title') }}</span>
+          <el-button type="primary" :icon="Refresh" :loading="loading" @click="load">
+            {{ t('documentPermissions.refresh') }}
+          </el-button>
+        </div>
+      </template>
       <div ref="tableMainRef" class="art-crud-table-main">
+        <el-form class="document-module-inline-query" :inline="true" @submit.prevent="load">
+          <el-form-item :label="t('documentPreviewTasks.documentItemId')">
+            <el-input
+              v-model="filterDocumentItemId"
+              class="document-preview-tasks-view__filter"
+              :placeholder="t('documentPreviewTasks.filterDocumentItemId')"
+              clearable
+              data-testid="document-preview-task-filter"
+              @keyup.enter="load"
+              @clear="load"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :icon="Search" @click="load">{{ t('documentPermissions.query') }}</el-button>
+          </el-form-item>
+        </el-form>
         <ArtTableHeader
           v-model:table-size="tableSize"
           v-model:zebra="tableZebra"
@@ -188,15 +209,6 @@ onMounted(load);
           @refresh="load"
         >
           <template #left>
-            <el-input
-              v-model="filterDocumentItemId"
-              class="document-preview-tasks-view__filter"
-              :placeholder="t('documentPreviewTasks.filterDocumentItemId')"
-              clearable
-              data-testid="document-preview-task-filter"
-              @keyup.enter="load"
-              @clear="load"
-            />
             <PermissionGate code="document.host_preview_tasks.create">
               <el-button
                 type="primary"
@@ -251,20 +263,19 @@ onMounted(load);
             </el-table-column>
             <template #empty>{{ t('documentPreviewTasks.emptyDirectory') }}</template>
           </el-table>
-
-          <div class="art-table__pagination center custom-pagination">
-            <el-pagination
-              v-model:current-page="page"
-              v-model:page-size="pageSize"
-              :total="total"
-              background
-              layout="total, sizes, prev, pager, next"
-              :page-sizes="[10, 20, 50]"
-              @current-change="load"
-              @size-change="load"
-            />
-          </div>
         </div>
+
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          class="art-table-pagination center custom-pagination"
+          :total="total"
+          background
+          layout="total, sizes, prev, pager, next"
+          :page-sizes="[10, 20, 50]"
+          @current-change="load"
+          @size-change="load"
+        />
       </div>
     </el-card>
 
@@ -291,6 +302,30 @@ onMounted(load);
 </template>
 
 <style scoped>
+.document-preview-tasks-view {
+  flex: 1;
+  min-height: 0;
+}
+
+.document-preview-tasks-view :deep(.art-table-card) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.document-preview-tasks-view :deep(.art-table-card .el-card__body) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.document-preview-tasks-view :deep(.art-crud-table-main) {
+  flex: 1;
+  min-height: 200px;
+}
+
 .document-preview-tasks-view__filter {
   width: 280px;
   margin-right: 12px;

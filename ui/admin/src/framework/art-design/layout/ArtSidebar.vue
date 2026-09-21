@@ -182,6 +182,18 @@ const menuPopperClass = computed(() =>
   border-radius: 6px;
 }
 
+:deep(.el-sub-menu .el-menu-item) {
+  height: 38px;
+  line-height: 38px;
+  margin: 2px 8px;
+  font-size: 13px;
+}
+
+:deep(.el-sub-menu__title) {
+  font-size: 13px;
+  font-weight: 600;
+}
+
 :deep(.el-menu-item.is-active) {
   font-weight: 600;
 }

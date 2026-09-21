@@ -1,6 +1,7 @@
 import {
   createRouter,
   createWebHashHistory,
+  type RouteLocationNormalized,
   type RouterHistory
 } from 'vue-router';
 import type { Pinia } from 'pinia';
@@ -25,6 +26,22 @@ const publicAuthPaths = new Set([
   '/register',
   '/recover-password'
 ]);
+
+/** 文档外部分享页：不在导航目录中，但需独立直达（匿名可访问、已登录不重定向）。 */
+export function isDocumentPublicShareRoute(
+  route: Pick<RouteLocationNormalized, 'name' | 'path'>
+): boolean {
+  if (route.name === 'document-public-share') {
+    return true;
+  }
+  return route.path.startsWith('/document/share/');
+}
+
+/** Hash 路由在 router 就绪前即可判定分享页，避免首帧误显示会话恢复屏。 */
+export function isDocumentPublicShareHash(): boolean {
+  const hash = window.location.hash.replace(/^#/, '');
+  return hash.startsWith('/document/share/');
+}
 
 /** 延迟加载状态页，避免普通业务路由首次渲染时额外拉取错误页代码。 */
 const loadStatusView = () => import('../views/StatusView.vue');
@@ -272,6 +289,11 @@ export function createAppRouter(
         name: 'document-shares',
         path: '/document/shares',
         component: () => import('../views/DocumentSharesView.vue')
+      },
+      {
+        name: 'document-public-share',
+        path: '/document/share/:shareCode',
+        component: () => import('../views/DocumentPublicShareView.vue')
       },
       {
         name: 'document-permissions',
@@ -622,7 +644,8 @@ export function createAppRouter(
     if (!session.isAuthenticated
       || statusPaths.has(to.path)
       || selfServicePaths.has(to.path)
-      || publicAuthPaths.has(to.path)) {
+      || publicAuthPaths.has(to.path)
+      || isDocumentPublicShareRoute(to)) {
       return true;
     }
 

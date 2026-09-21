@@ -1,6 +1,21 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
-import { ElButton, ElCard, ElDrawer, ElInput, ElMessage, ElMessageBox, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
+import { computed, onMounted, ref, watch } from 'vue';
+import { Plus } from '@element-plus/icons-vue';
+import {
+  ElButton,
+  ElCard,
+  ElDrawer,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElMessage,
+  ElMessageBox,
+  ElPagination,
+  ElTable,
+  ElTableColumn,
+  ElTag,
+  ElTree
+} from 'element-plus';
 // 为避免 barrel 层重复标识符冲突，此处用新版 Response 类型别名旧名
 import type {
   FullNetProblemDetails,
@@ -8,12 +23,11 @@ import type {
   HostDocumentVersionResponse
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
-import {
-  useArtClientPagination,
-  useArtCrudTableLayout
-} from '../framework/art-design/composables/useArtCrudTableLayout';
+import { useArtClientPagination } from '../framework/art-design/composables/useArtCrudTableLayout';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -32,8 +46,17 @@ import {
   uploadDocumentVersion
 } from '../api/host-document-items';
 import { createDocumentPreviewTask } from '../api/document-preview-tasks';
+import { listDocumentCategories } from '../api/host-document-categories';
+import type { HostDocumentCategoryResponse, HostDocumentShareResponse } from '@fullnet/client-contracts';
+import DocumentShareCreateDialog from '../components/DocumentShareCreateDialog.vue';
 
 defineOptions({ name: 'HostDocumentItemsView' });
+
+interface CategoryTreeNode {
+  id: string;
+  label: string;
+  children?: CategoryTreeNode[];
+}
 
 interface AppliedFilters {
   title: string;
@@ -47,8 +70,11 @@ interface DeletedDocumentEntry {
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const items = ref<HostDocumentItem[]>([]);
-const title = ref('');
-const description = ref('');
+const createDialogOpen = ref(false);
+const createTitle = ref('');
+const createDescription = ref('');
+const editTitle = ref('');
+const editDescription = ref('');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
@@ -62,6 +88,9 @@ const editingId = ref<string>();
 const recentlyDeleted = ref<DeletedDocumentEntry[]>([]);
 const searchForm = ref<Record<string, string | undefined>>({});
 const appliedFilters = ref<AppliedFilters>({ title: '' });
+const categories = ref<HostDocumentCategoryResponse[]>([]);
+const selectedCategoryId = ref<string | null>(null);
+const ALL_CATEGORIES_NODE_ID = '__all__';
 const canCreate = computed(() => session.can('document.host_documents.create'));
 const canUpdate = computed(() => session.can('document.host_documents.update'));
 const canAddVersion = computed(() => session.can('document.host_documents.add_version'));
@@ -71,8 +100,20 @@ const canRollbackVersion = computed(() => session.can('document.host_documents.r
 const canDeleteVersion = computed(() => session.can('document.host_documents.delete_version'));
 const canDownload = computed(() => session.can('document.host_documents.download'));
 const canCreatePreviewTask = computed(() => session.can('document.host_preview_tasks.create'));
+const canCreateShare = computed(() => session.can('document.host_shares.create'));
 const canRead = computed(() => session.can('document.host_documents.read'));
+const shareDialogOpen = ref(false);
+const shareTarget = ref<HostDocumentItem | null>(null);
 const editingItem = computed(() => items.value.find(entry => entry.id === editingId.value));
+
+const editDialogOpen = computed({
+  get: () => editingId.value !== undefined,
+  set: (open: boolean) => {
+    if (!open) {
+      cancelEdit();
+    }
+  }
+});
 
 const {
   tableMainRef,
@@ -82,16 +123,50 @@ const {
   tableBorder,
   tableHeaderBackground,
   tableHeaderCellStyle,
-  updateTableHeight,
-  watchLoading
-} = useArtCrudTableLayout();
+  syncTableLayout
+} = useArtPagedTableInCard(loading);
+
+const categoryTree = computed<CategoryTreeNode[]>(() => {
+  const nodes = new Map<string, CategoryTreeNode>();
+  for (const category of categories.value) {
+    nodes.set(category.id, { id: category.id, label: category.name, children: [] });
+  }
+  const roots: CategoryTreeNode[] = [];
+  for (const category of categories.value) {
+    const node = nodes.get(category.id);
+    if (!node) {
+      continue;
+    }
+    if (category.parentId && nodes.has(category.parentId)) {
+      nodes.get(category.parentId)?.children?.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  const pruneEmptyChildren = (node: CategoryTreeNode) => {
+    if (node.children?.length === 0) {
+      delete node.children;
+    } else {
+      node.children?.forEach(pruneEmptyChildren);
+    }
+  };
+  roots.forEach(pruneEmptyChildren);
+  return [
+    { id: ALL_CATEGORIES_NODE_ID, label: t('hostDocumentItems.allCategories') },
+    ...roots
+  ];
+});
 
 const filteredItems = computed(() => {
+  let list = items.value;
+  if (selectedCategoryId.value) {
+    list = list.filter(item => item.categoryId === selectedCategoryId.value);
+  }
   const keyword = appliedFilters.value.title.trim().toLowerCase();
   if (!keyword) {
-    return items.value;
+    return list;
   }
-  return items.value.filter(item => item.title.toLowerCase().includes(keyword));
+  return list.filter(item => item.title.toLowerCase().includes(keyword));
 });
 
 const { page, pageSize, total, pagedItems, resetPage } = useArtClientPagination(filteredItems);
@@ -112,11 +187,43 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
   }
 ]);
 
-watchLoading(loading);
+watch([filteredItems, page, pageSize], () => {
+  void syncTableLayout();
+});
 
 onMounted(() => {
   void load();
+  void loadCategories();
 });
+
+async function loadCategories(): Promise<void> {
+  try {
+    categories.value = await listDocumentCategories();
+  } catch {
+    categories.value = [];
+  }
+}
+
+function onCategorySelected(node: CategoryTreeNode): void {
+  selectedCategoryId.value = node.id === ALL_CATEGORIES_NODE_ID ? null : node.id;
+  resetPage();
+  void syncTableLayout();
+}
+
+function openShareDialog(item: HostDocumentItem): void {
+  shareTarget.value = item;
+  shareDialogOpen.value = true;
+}
+
+async function onShareCreated(_share: HostDocumentShareResponse, shareUrl: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    ElMessage.success(t('documentShares.createdWithLink'));
+  } catch {
+    ElMessage.success(t('documentShares.createSuccess'));
+  }
+  shareTarget.value = null;
+}
 
 function rowIndex(index: number): number {
   return (page.value - 1) * pageSize.value + index + 1;
@@ -132,34 +239,60 @@ async function load(): Promise<void> {
   try {
     const pageResult = await listDocumentItems();
     items.value = pageResult.items;
-    await nextTick(updateTableHeight);
   } catch (error: unknown) {
     problem.value = toProblem(error);
   } finally {
     loading.value = false;
+    void syncTableLayout();
   }
 }
 
 function handleSearch(params: Record<string, string | undefined>): void {
   appliedFilters.value = { title: params.title ?? '' };
   resetPage();
+  void syncTableLayout();
 }
 
 function resetSearch(): void {
   appliedFilters.value = { title: '' };
   resetPage();
+  void syncTableLayout();
+}
+
+async function confirmEdit(): Promise<void> {
+  const item = editingItem.value;
+  if (item) {
+    await saveEdit(item);
+  }
+}
+
+function openCreate(): void {
+  createTitle.value = '';
+  createDescription.value = '';
+  createDialogOpen.value = true;
+}
+
+function cancelCreate(): void {
+  createDialogOpen.value = false;
+  createTitle.value = '';
+  createDescription.value = '';
+}
+
+async function confirmCreate(): Promise<void> {
+  await create();
 }
 
 async function create(): Promise<void> {
-  if (changing.value || !canCreate.value || !title.value.trim()) {
+  if (changing.value || !canCreate.value || !createTitle.value.trim()) {
     return;
   }
   changing.value = true;
   problem.value = undefined;
   try {
-    await createDocumentItem(title.value.trim(), description.value.trim() || null);
-    title.value = '';
-    description.value = '';
+    await createDocumentItem(createTitle.value.trim(), createDescription.value.trim() || null);
+    createDialogOpen.value = false;
+    createTitle.value = '';
+    createDescription.value = '';
     ElMessage.success(t('hostDocumentItems.createSuccess'));
     await load();
   } catch (error: unknown) {
@@ -229,14 +362,14 @@ async function remove(item: HostDocumentItem): Promise<void> {
 
 function startEdit(item: HostDocumentItem): void {
   editingId.value = item.id;
-  title.value = item.title;
-  description.value = item.description ?? '';
+  editTitle.value = item.title;
+  editDescription.value = item.description ?? '';
 }
 
 function cancelEdit(): void {
   editingId.value = undefined;
-  title.value = '';
-  description.value = '';
+  editTitle.value = '';
+  editDescription.value = '';
 }
 
 async function saveEdit(item: HostDocumentItem): Promise<void> {
@@ -248,13 +381,13 @@ async function saveEdit(item: HostDocumentItem): Promise<void> {
   try {
     await updateDocumentItem(
       item.id,
-      title.value.trim(),
-      description.value.trim() || null,
+      editTitle.value.trim(),
+      editDescription.value.trim() || null,
       item.version
     );
     editingId.value = undefined;
-    title.value = '';
-    description.value = '';
+    editTitle.value = '';
+    editDescription.value = '';
     ElMessage.success(t('hostDocumentItems.updateSuccess'));
     await load();
   } catch (error: unknown) {
@@ -448,7 +581,7 @@ function toProblem(
 </script>
 
 <template>
-  <section class="host-document-items-view art-page-stack art-full-height" :aria-busy="loading">
+  <section class="host-document-items-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('hostDocumentItems.title') }}</h1>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
@@ -457,57 +590,34 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canCreate && !editingId" class="art-form-card" shadow="never">
-      <div class="art-form-grid art-form-grid--cols-3" aria-labelledby="create-document-item-title">
-        <div><h2 id="create-document-item-title">{{ t('hostDocumentItems.createTitle') }}</h2></div>
-        <label>
-          <span>{{ t('hostDocumentItems.titleLabel') }}</span>
-          <el-input v-model="title" data-testid="host-document-item-title" :placeholder="t('hostDocumentItems.titlePlaceholder')" />
-        </label>
-        <label>
-          <span>{{ t('hostDocumentItems.descriptionLabel') }}</span>
-          <el-input v-model="description" data-testid="host-document-item-description" :placeholder="t('hostDocumentItems.descriptionPlaceholder')" />
-        </label>
-        <PermissionGate code="document.host_documents.create">
-          <el-button type="primary" data-testid="host-document-item-create" :loading="changing" @click="create">
-            {{ t('hostDocumentItems.create') }}
-          </el-button>
-        </PermissionGate>
-      </div>
-    </el-card>
+    <div class="document-module-split">
+      <el-card shadow="never" class="document-module-split__aside">
+        <h2 class="host-document-items-view__tree-title">{{ t('hostDocumentItems.categoryTreeTitle') }}</h2>
+        <el-tree
+          :data="categoryTree"
+          node-key="id"
+          default-expand-all
+          highlight-current
+          :current-node-key="selectedCategoryId ?? ALL_CATEGORIES_NODE_ID"
+          @node-click="onCategorySelected"
+        />
+      </el-card>
 
-    <el-card v-if="editingId && canUpdate" class="art-form-card" shadow="never">
-      <div class="art-form-grid art-form-grid--cols-3" aria-labelledby="edit-document-item-title">
-        <div><h2 id="edit-document-item-title">{{ t('hostDocumentItems.editTitle') }}</h2></div>
-        <label>
-          <span>{{ t('hostDocumentItems.titleLabel') }}</span>
-          <el-input v-model="title" data-testid="host-document-item-edit-title" />
-        </label>
-        <label>
-          <span>{{ t('hostDocumentItems.descriptionLabel') }}</span>
-          <el-input v-model="description" data-testid="host-document-item-edit-description" />
-        </label>
-        <PermissionGate code="document.host_documents.update">
-          <el-button type="primary" data-testid="host-document-item-save" :loading="changing" :disabled="!editingItem" @click="editingItem && saveEdit(editingItem)">
-            {{ t('hostDocumentItems.save') }}
-          </el-button>
-        </PermissionGate>
-        <el-button plain :disabled="changing" @click="cancelEdit">{{ t('hostDocumentItems.cancel') }}</el-button>
-      </div>
-    </el-card>
+      <div class="document-module-split__main">
+        <el-card class="document-module-query-card" shadow="never">
+          <ArtSearchBar
+            v-model="searchForm"
+            :items="searchItems"
+            :default-visible-count="1"
+            :show-expand="false"
+            :search-label="t('hostDocumentItems.query')"
+            :reset-label="t('hostDocumentItems.reset')"
+            @search="handleSearch"
+            @reset="resetSearch"
+          />
+        </el-card>
 
-    <ArtSearchBar
-      v-model="searchForm"
-      :items="searchItems"
-      :default-visible-count="1"
-      :show-expand="false"
-      :search-label="t('hostDocumentItems.query')"
-      :reset-label="t('hostDocumentItems.reset')"
-      @search="handleSearch"
-      @reset="resetSearch"
-    />
-
-    <el-card class="art-table-card" shadow="never">
+        <el-card class="art-table-card art-full-height" shadow="never">
       <div ref="tableMainRef" class="art-crud-table-main">
         <ArtTableHeader
           v-model:table-size="tableSize"
@@ -518,7 +628,21 @@ function toProblem(
           full-class="art-crud-table-main"
           layout="refresh,size,fullscreen,settings"
           @refresh="load"
-        />
+        >
+          <template #left>
+            <PermissionGate code="document.host_documents.create">
+              <el-button
+                type="primary"
+                :icon="Plus"
+                data-testid="host-document-item-create"
+                :disabled="changing"
+                @click="openCreate"
+              >
+                {{ t('hostDocumentItems.create') }}
+              </el-button>
+            </PermissionGate>
+          </template>
+        </ArtTableHeader>
 
         <div class="art-table" :class="{ 'is-empty': pagedItems.length === 0 }">
           <el-table
@@ -554,7 +678,7 @@ function toProblem(
               </template>
             </el-table-column>
 
-            <el-table-column :label="t('users.columnActions')" width="520" fixed="right" align="center">
+            <el-table-column :label="t('users.columnActions')" width="580" fixed="right" align="center">
               <template #default="{ row }">
                 <div class="art-crud-table-actions">
                   <PermissionGate v-if="row.currentVersion" code="document.host_documents.read">
@@ -588,6 +712,17 @@ function toProblem(
                       {{ t('hostDocumentItems.edit') }}
                     </el-button>
                   </PermissionGate>
+                  <PermissionGate code="document.host_shares.create">
+                    <el-button
+                      plain
+                      size="small"
+                      data-testid="host-document-item-share"
+                      :disabled="changing"
+                      @click="openShareDialog(row as HostDocumentItem)"
+                    >
+                      {{ t('hostDocumentItems.share') }}
+                    </el-button>
+                  </PermissionGate>
                   <PermissionGate v-if="canAddVersion" code="document.host_documents.add_version">
                     <label class="host-document-items-view__version-input">
                       <span class="art-sr-heading">{{ t('hostDocumentItems.chooseVersionFile') }}</span>
@@ -614,20 +749,126 @@ function toProblem(
 
             <template #empty>{{ t('hostDocumentItems.emptyDirectory') }}</template>
           </el-table>
-
-          <div class="art-table__pagination center custom-pagination">
-            <el-pagination
-              v-model:current-page="page"
-              v-model:page-size="pageSize"
-              :total="total"
-              background
-              layout="total, sizes, prev, pager, next, jumper"
-              :page-sizes="[10, 20, 50, 100]"
-            />
-          </div>
         </div>
+
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          class="art-table-pagination center custom-pagination"
+          :total="total"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50, 100]"
+        />
       </div>
     </el-card>
+
+    <el-card v-if="recentlyDeleted.length && canRestore" class="art-table-card host-document-items-view__deleted" shadow="never">
+      <template #header>
+        <h2>{{ t('hostDocumentItems.recentlyDeletedTitle') }}</h2>
+      </template>
+
+      <div class="art-table" :class="{ 'is-empty': pagedDeleted.length === 0 }">
+        <el-table
+          :data="pagedDeleted"
+          :size="tableSize"
+          :stripe="tableZebra"
+          :border="tableBorder"
+          :header-cell-style="tableHeaderCellStyle"
+          class="art-crud-data-table"
+        >
+          <el-table-column :label="t('users.columnIndex')" width="72" align="center">
+            <template #default="{ $index }">{{ deletedRowIndex($index) }}</template>
+          </el-table-column>
+
+          <el-table-column :label="t('hostDocumentItems.titleLabel')" min-width="200">
+            <template #default="{ row }">
+              <strong translate="no">{{ row.title }}</strong>
+            </template>
+          </el-table-column>
+
+          <el-table-column :label="t('users.columnActions')" width="120" align="center">
+            <template #default="{ row }">
+              <PermissionGate code="document.host_documents.restore">
+                <el-button
+                  plain
+                  size="small"
+                  data-testid="host-document-item-restore"
+                  :disabled="changing"
+                    @click="findDeletedEntry(row as HostDocumentItem) && restoreDeleted(findDeletedEntry(row as HostDocumentItem)!)"
+                >
+                  {{ t('hostDocumentItems.restore') }}
+                </el-button>
+              </PermissionGate>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <el-pagination
+          v-model:current-page="deletedPage"
+          v-model:page-size="deletedPageSize"
+          class="art-table-pagination center custom-pagination"
+          :total="deletedTotal"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50, 100]"
+        />
+      </div>
+    </el-card>
+      </div>
+    </div>
+
+    <ArtFormDialog
+      v-if="canCreate"
+      v-model:open="createDialogOpen"
+      :title="t('hostDocumentItems.createTitle')"
+      :saving="changing"
+      :confirm-label="t('hostDocumentItems.create')"
+      :cancel-label="t('hostDocumentItems.cancel')"
+      confirm-test-id="host-document-item-create-submit"
+      @confirm="confirmCreate"
+      @cancel="cancelCreate"
+    >
+      <el-form label-width="96px" class="host-document-items-view__editor-form" @submit.prevent>
+        <el-form-item :label="t('hostDocumentItems.titleLabel')" required>
+          <el-input
+            v-model="createTitle"
+            data-testid="host-document-item-title"
+            :placeholder="t('hostDocumentItems.titlePlaceholder')"
+          />
+        </el-form-item>
+        <el-form-item :label="t('hostDocumentItems.descriptionLabel')">
+          <el-input
+            v-model="createDescription"
+            data-testid="host-document-item-description"
+            type="textarea"
+            :rows="3"
+            :placeholder="t('hostDocumentItems.descriptionPlaceholder')"
+          />
+        </el-form-item>
+      </el-form>
+    </ArtFormDialog>
+
+    <ArtFormDialog
+      v-if="canUpdate"
+      v-model:open="editDialogOpen"
+      :title="t('hostDocumentItems.editTitle')"
+      :saving="changing"
+      :confirm-label="t('hostDocumentItems.save')"
+      :cancel-label="t('hostDocumentItems.cancel')"
+      confirm-test-id="host-document-item-save"
+      @confirm="confirmEdit"
+      @cancel="cancelEdit"
+    >
+      <el-form label-width="96px" class="host-document-items-view__editor-form" @submit.prevent>
+        <el-form-item :label="t('hostDocumentItems.titleLabel')" required>
+          <el-input v-model="editTitle" data-testid="host-document-item-edit-title" />
+        </el-form-item>
+        <el-form-item :label="t('hostDocumentItems.descriptionLabel')">
+          <el-input v-model="editDescription" data-testid="host-document-item-edit-description" type="textarea" :rows="3" />
+        </el-form-item>
+      </el-form>
+    </ArtFormDialog>
 
     <el-drawer
       v-model="versionHistoryVisible"
@@ -704,68 +945,31 @@ function toProblem(
       </el-table>
     </el-drawer>
 
-    <el-card v-if="recentlyDeleted.length && canRestore" class="art-table-card host-document-items-view__deleted" shadow="never">
-      <template #header>
-        <h2>{{ t('hostDocumentItems.recentlyDeletedTitle') }}</h2>
-      </template>
-
-      <div class="art-table" :class="{ 'is-empty': pagedDeleted.length === 0 }">
-        <el-table
-          :data="pagedDeleted"
-          :size="tableSize"
-          :stripe="tableZebra"
-          :border="tableBorder"
-          :header-cell-style="tableHeaderCellStyle"
-          class="art-crud-data-table"
-        >
-          <el-table-column :label="t('users.columnIndex')" width="72" align="center">
-            <template #default="{ $index }">{{ deletedRowIndex($index) }}</template>
-          </el-table-column>
-
-          <el-table-column :label="t('hostDocumentItems.titleLabel')" min-width="200">
-            <template #default="{ row }">
-              <strong translate="no">{{ row.title }}</strong>
-            </template>
-          </el-table-column>
-
-          <el-table-column :label="t('users.columnActions')" width="120" align="center">
-            <template #default="{ row }">
-              <PermissionGate code="document.host_documents.restore">
-                <el-button
-                  plain
-                  size="small"
-                  data-testid="host-document-item-restore"
-                  :disabled="changing"
-                    @click="findDeletedEntry(row as HostDocumentItem) && restoreDeleted(findDeletedEntry(row as HostDocumentItem)!)"
-                >
-                  {{ t('hostDocumentItems.restore') }}
-                </el-button>
-              </PermissionGate>
-            </template>
-          </el-table-column>
-        </el-table>
-
-        <div class="art-table__pagination center custom-pagination">
-          <el-pagination
-            v-model:current-page="deletedPage"
-            v-model:page-size="deletedPageSize"
-            :total="deletedTotal"
-            background
-            layout="total, sizes, prev, pager, next, jumper"
-            :page-sizes="[10, 20, 50, 100]"
-          />
-        </div>
-      </div>
-    </el-card>
+    <DocumentShareCreateDialog
+      v-if="canCreateShare"
+      v-model:open="shareDialogOpen"
+      :preset-document="shareTarget"
+      @created="onShareCreated"
+    />
   </section>
 </template>
 
 <style scoped>
+.host-document-items-view {
+  flex: 1;
+  min-height: 0;
+}
+
 .host-document-items-view :deep(.art-table-card) {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.host-document-items-view :deep(.art-crud-table-main) {
+  flex: 1;
+  min-height: 200px;
 }
 
 .host-document-items-view :deep(.art-table-card .el-card__body) {
@@ -777,6 +981,19 @@ function toProblem(
 
 .host-document-items-view__deleted {
   flex: none;
+}
+
+.host-document-items-view__tree-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.host-document-items-view .document-module-split__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .host-document-items-view__version-input {

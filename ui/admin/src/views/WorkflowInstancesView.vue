@@ -12,6 +12,8 @@ import {
   ElSelect,
   ElTabPane,
   ElTabs,
+  ElTable,
+  ElTableColumn,
   ElTag
 } from 'element-plus';
 import type { MessageKey } from '@fullnet/admin-i18n';
@@ -38,6 +40,8 @@ import {
   findWorkflowBusinessDetailRoute,
   formatWorkflowBusinessLabel
 } from '../workflow/workflowBusinessDetail';
+import { formatAdminDateTime } from '../workflow/workflowAdminFormat';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 
 const statusFilterOptions = [
   'active',
@@ -50,7 +54,11 @@ const statusFilterOptions = [
 type InstanceStatusKey = typeof statusFilterOptions[number];
 type InstanceTabKey = 'mine' | 'all';
 
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
+
+function formatDateTime(value: string | null | undefined): string {
+  return formatAdminDateTime(locale.value, value ?? '');
+}
 const router = useRouter();
 const session = useSessionStore();
 const activeTab = ref<InstanceTabKey>('mine');
@@ -59,6 +67,7 @@ const listPage = ref(1);
 const listPageSize = ref(20);
 const listTotal = ref(0);
 const listLoading = ref(false);
+const { tableMainRef, tableHeight, syncTableLayout } = useArtPagedTableInCard(listLoading);
 const statusFilter = ref<string>();
 const definitionKeyFilter = ref('');
 const instanceId = ref('');
@@ -193,6 +202,7 @@ async function loadList(): Promise<void> {
     problem.value = toProblem(error, 'workflowInstances.listFailed');
   } finally {
     listLoading.value = false;
+    void syncTableLayout();
   }
 }
 
@@ -433,12 +443,10 @@ function toProblem(
 
 <template>
   <section class="workflow-instances art-page-stack art-full-height" :aria-busy="loading">
-    <header class="workflow-instances__header">
-      <div>
-        <span class="workflow-instances__eyebrow">{{ t('workflowInstances.eyebrow') }}</span>
-        <h1 data-route-heading tabindex="-1">{{ t('workflowInstances.title') }}</h1>
-        <p>{{ t('workflowInstances.caption') }}</p>
-      </div>
+    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('workflowInstances.title') }}</h1>
+    <p class="art-sr-heading">{{ t('workflowInstances.caption') }}</p>
+
+    <div v-if="instance" class="workflow-instances__toolbar">
       <div class="workflow-instances__actions">
         <el-button
           v-if="canPause"
@@ -480,9 +488,9 @@ function toProblem(
           {{ t('workflowInstances.cancel') }}
         </el-button>
       </div>
-    </header>
+    </div>
 
-    <el-card shadow="never" class="workflow-instances__list-card" :aria-busy="listLoading">
+    <el-card shadow="never" class="workflow-instances__list-card art-table-card" :aria-busy="listLoading">
       <el-tabs v-model="activeTab" data-testid="workflow-instance-tabs">
         <el-tab-pane :label="t('workflowInstances.tabs.mine')" name="mine" />
         <el-tab-pane
@@ -526,24 +534,38 @@ function toProblem(
       <p v-if="!listItems.length && !listLoading" class="workflow-instances__empty">
         {{ t('workflowInstances.listEmpty') }}
       </p>
-      <ul v-else class="workflow-instances__list">
-        <li v-for="item in listItems" :key="item.id">
-          <button
-            type="button"
-            data-testid="workflow-instance-list-item"
-            @click="selectListItem(item)"
-          >
-            <strong translate="no">{{ formatWorkflowBusinessLabel(item.businessTitle, item.businessType, item.businessId) }}</strong>
-            <el-tag :type="instanceStatusTone(item.statusKey)">
-              {{ instanceStatusLabel(item.statusKey) }}
-            </el-tag>
-            <small translate="no">{{ item.definitionKey }}</small>
-            <time :datetime="item.startedAtUtc">{{ item.startedAtUtc }}</time>
-          </button>
-        </li>
-      </ul>
+      <div v-else ref="tableMainRef" class="art-crud-table-main">
+      <el-table
+        v-loading="listLoading"
+        :data="listItems"
+        :height="tableHeight"
+        row-key="id"
+        class="workflow-instances__table"
+        highlight-current-row
+        @row-click="selectListItem"
+      >
+        <el-table-column :label="t('workflowInstances.business')" min-width="200">
+          <template #default="{ row }">
+            <button type="button" class="workflow-instances__row-btn" data-testid="workflow-instance-list-item" @click.stop="selectListItem(row)">
+              <strong translate="no">{{ formatWorkflowBusinessLabel(row.businessTitle, row.businessType, row.businessId) }}</strong>
+            </button>
+            <small translate="no">{{ row.definitionKey }}</small>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('workflowInstances.status')" width="110" align="center">
+          <template #default="{ row }">
+            <el-tag size="small" :type="instanceStatusTone(row.statusKey)">{{ instanceStatusLabel(row.statusKey) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('workflowInstances.startedAt')" width="168">
+          <template #default="{ row }">
+            <time translate="no" :datetime="row.startedAtUtc">{{ formatDateTime(row.startedAtUtc) }}</time>
+          </template>
+        </el-table-column>
+      </el-table>
       <el-pagination
         v-if="listTotal > 0"
+        class="art-table-pagination"
         background
         layout="prev, pager, next, total"
         data-testid="workflow-instance-pagination"
@@ -552,6 +574,7 @@ function toProblem(
         :total="listTotal"
         @current-change="value => { listPage = value; void loadList(); }"
       />
+      </div>
     </el-card>
 
     <el-card shadow="never" class="workflow-instances__search-card">
@@ -745,6 +768,22 @@ function toProblem(
   margin: 0 auto;
 }
 
+.workflow-instances__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+.workflow-instances__row-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--el-color-primary);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
 .workflow-instances__header h1 {
   margin: 0.2rem 0 0;
   color: var(--el-text-color-primary);
@@ -800,9 +839,28 @@ function toProblem(
   gap: 0.75rem;
 }
 
+.workflow-instances {
+  min-height: 0;
+}
+
 .workflow-instances__list-card {
-  display: grid;
-  gap: 1rem;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.workflow-instances__list-card :deep(.el-card__body) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 0;
+}
+
+.workflow-instances__list-card .art-crud-table-main {
+  flex: 1;
+  min-height: 200px;
 }
 
 .workflow-instances__filters {

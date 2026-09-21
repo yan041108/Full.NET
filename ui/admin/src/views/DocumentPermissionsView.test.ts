@@ -1,8 +1,33 @@
-import { describe, expect, it } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import DocumentPermissionsView from './DocumentPermissionsView.vue';
 import { useSessionStore } from '../auth/session';
+import { listDocumentItems } from '../api/host-document-items';
+
+vi.mock('../api/host-document-items', () => ({
+  listDocumentItems: vi.fn()
+}));
+
+vi.mock('../api/document-permissions', () => ({
+  getDocumentPermissionsByDocument: vi.fn().mockResolvedValue([]),
+  setDocumentPermissions: vi.fn()
+}));
+
+const listMock = vi.mocked(listDocumentItems);
+
+const samplePage = {
+  items: [{
+    id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
+    title: 'Spec',
+    documentNo: 'DOC-1',
+    categoryName: null,
+    createdAtUtc: '2026-01-01T00:00:00Z'
+  }],
+  page: 1,
+  pageSize: 20,
+  total: 1
+};
 
 function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
@@ -26,14 +51,29 @@ function mountWithPermissions(permissions: string[]) {
 }
 
 describe('Vue 文档权限页', () => {
-  it('仅有 read 时不显示保存按钮', () => {
-    const wrapper = mountWithPermissions(['document.host_permissions.read']);
-    expect(wrapper.find('[data-testid="document-permissions-load"]').exists()).toBe(true);
+  beforeEach(() => {
+    listMock.mockReset().mockResolvedValue(samplePage as never);
+  });
+
+  it('仅有 read 时不显示保存按钮', async () => {
+    const wrapper = mountWithPermissions([
+      'document.host_documents.read',
+      'document.host_permissions.read'
+    ]);
+    await flushPromises();
+    expect(wrapper.find('[data-testid="document-permissions-set"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="document-permissions-save"]').exists()).toBe(false);
   });
 
-  it('set-only 显示保存按钮', () => {
-    const wrapper = mountWithPermissions(['document.host_permissions.set']);
-    expect(wrapper.find('[data-testid="document-permissions-save"]').exists()).toBe(true);
+  it('set-only 在打开弹窗后显示保存按钮', async () => {
+    const wrapper = mountWithPermissions([
+      'document.host_documents.read',
+      'document.host_permissions.read',
+      'document.host_permissions.set'
+    ]);
+    await flushPromises();
+    await wrapper.find('[data-testid="document-permissions-set"]').trigger('click');
+    await flushPromises();
+    expect(document.body.querySelector('[data-testid="document-permissions-save"]')).not.toBeNull();
   });
 });

@@ -6,8 +6,10 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Document.Features;
 using Full.NET.Modules.Document.Features.DocumentAccessLogs;
+using Full.NET.Modules.Document.Features.ManageHostDocumentItems;
 using Full.NET.Modules.Document.Persistence;
 using Full.NET.Modules.Document.Security;
+using Full.NET.Modules.Files.Contracts;
 using System.Security.Cryptography;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentShares;
@@ -27,6 +29,7 @@ internal sealed class HostDocumentShareManagementService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     HostDocumentShareQueryService queries,
+    HostDocumentItemQueryService documentItemQueries,
     IClock clock,
     IIdGenerator idGenerator,
     IDocumentSharePasswordHasher passwordHasher,
@@ -84,48 +87,20 @@ internal sealed class HostDocumentShareManagementService(
         string? clientIpFingerprint,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(shareCode))
-        {
-            return AccessDenied();
-        }
-
-        var share = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentShareRecord>(
-                DocumentShareSql.FindByCode,
-                DocumentSqlParameters.Create(("ShareCode", shareCode)),
-                cancellationToken)
+        var resolved = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken)
             .ConfigureAwait(false);
-
-        if (share is null)
+        if (!resolved.IsSuccess)
         {
-            return AccessDenied();
+            return MapTupleFailureToAccess(resolved);
         }
 
-        // 中文注释：口令验证必须在过期/禁用/访问上限检查之前执行，
-        // 以保证未授权用户无法通过耗时差异推断出分享存在与否。
-        var hasPassword = !string.IsNullOrEmpty(share.PasswordHash);
-        if (hasPassword)
-        {
-            if (string.IsNullOrEmpty(request.Password))
-            {
-                return PasswordRequired();
-            }
-            if (!passwordHasher.Verify(share.Id, share.PasswordHash!, request.Password!))
-            {
-                return AccessDenied();
-            }
-        }
-
-        var now = clock.UtcNow;
-        if (now > share.ExpireTime || !share.IsEnabled)
-        {
-            return AccessDenied();
-        }
+        var (share, hasPassword) = resolved.Value!;
         if (share.MaxAccessCount.HasValue && share.AccessCount >= share.MaxAccessCount.Value)
         {
             return AccessMaxReached();
         }
 
+        var now = clock.UtcNow;
         // 中文注释：只有验证通过、权限有效的情况下才执行原子计数自增；
         // 错误口令永不进入计数，避免被并发利用做存在性 oracle。
         var result = await transaction.ExecuteResultAsync(
@@ -151,9 +126,123 @@ internal sealed class HostDocumentShareManagementService(
         return result;
     }
 
-    private async Task<Result<HostDocumentShareAccessResponse>> ConsumeAnonymousAccessAsync(
+    /// <summary>
+    /// 匿名分享内容读取：校验口令与有效期后流式返回当前版本文件。
+    /// 若尚未计入访问次数（<c>AccessCount == 0</c>），在本请求内原子消耗一次配额；
+    /// 若已通过 <c>/access</c> 计入，则不再重复消耗，允许在达到上限后继续读取本次已打开的内容。
+    /// </summary>
+    public async Task<Result<HostFileContent>> OpenAnonymousContentAsync(
+        string shareCode,
+        AccessHostDocumentShareRequest request,
+        string? clientIpFingerprint,
+        CancellationToken cancellationToken = default)
+    {
+        var resolved = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken)
+            .ConfigureAwait(false);
+        if (!resolved.IsSuccess)
+        {
+            return MapShareFailureToContent(resolved);
+        }
+
+        var (share, _) = resolved.Value!;
+        var now = clock.UtcNow;
+        var shouldConsume = share.AccessCount == 0;
+        if (shouldConsume)
+        {
+            if (share.MaxAccessCount.HasValue && share.AccessCount >= share.MaxAccessCount.Value)
+            {
+                return AccessMaxReachedContent();
+            }
+
+            var consumeResult = await transaction
+                .ExecuteResultAsync(
+                    token => ConsumeAnonymousAccessSlotAsync(share, now, token),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!consumeResult.IsSuccess)
+            {
+                return MapShareFailureToContent(consumeResult);
+            }
+
+            share = consumeResult.Value!;
+            var documentTitle = await queryExecutor
+                .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
+                    DocumentItemSql.FindActiveById,
+                    DocumentSqlParameters.Create(("Id", share.DocumentId)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (documentTitle is not null)
+            {
+                await accessLogRecorder
+                    .RecordAsync(
+                        share.DocumentId,
+                        documentTitle.Title,
+                        HostDocumentAccessTypeKeys.ShareAccess,
+                        HostDocumentAccessSourceKeys.Share,
+                        actorUserId: null,
+                        clientIpFingerprint,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        var observation = new DocumentAccessObservation(
+            null,
+            clientIpFingerprint,
+            HostDocumentAccessTypeKeys.Preview,
+            HostDocumentAccessSourceKeys.Share);
+        return await documentItemQueries
+            .OpenCurrentVersionContentAsync(share.DocumentId, observation, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<Result<(DocumentShareRecord Share, bool HasPassword)>> ResolveAnonymousShareAsync(
+        string shareCode,
+        AccessHostDocumentShareRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(shareCode))
+        {
+            return AccessDeniedTuple();
+        }
+
+        var share = await queryExecutor
+            .QuerySingleOrDefaultAsync<DocumentShareRecord>(
+                DocumentShareSql.FindByCode,
+                DocumentSqlParameters.Create(("ShareCode", shareCode)),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (share is null)
+        {
+            return AccessDeniedTuple();
+        }
+
+        var hasPassword = !string.IsNullOrEmpty(share.PasswordHash);
+        if (hasPassword)
+        {
+            if (string.IsNullOrEmpty(request.Password))
+            {
+                return PasswordRequiredTuple();
+            }
+
+            if (!passwordHasher.Verify(share.Id, share.PasswordHash!, request.Password!))
+            {
+                return AccessDeniedTuple();
+            }
+        }
+
+        var now = clock.UtcNow;
+        if (now > share.ExpireTime || !share.IsEnabled)
+        {
+            return AccessDeniedTuple();
+        }
+
+        return Result<(DocumentShareRecord, bool)>.Success((share, hasPassword));
+    }
+
+    private async Task<Result<DocumentShareRecord>> ConsumeAnonymousAccessSlotAsync(
         DocumentShareRecord share,
-        bool hasPassword,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
@@ -165,10 +254,9 @@ internal sealed class HostDocumentShareManagementService(
             .ConfigureAwait(false);
         if (document is null)
         {
-            return AccessDenied();
+            return AccessDeniedRecord();
         }
 
-        // 有效性与访问上限必须由同一条更新语句判断；内存预检不能承担并发正确性。
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentShareSql.TryConsumeAccess,
                 DocumentSqlParameters.Create(("Id", share.Id), ("Now", now), ("Version", share.Version)),
@@ -183,8 +271,8 @@ internal sealed class HostDocumentShareManagementService(
                     cancellationToken)
                 .ConfigureAwait(false);
             return current?.MaxAccessCount is int limit && current.AccessCount >= limit
-                ? AccessMaxReached()
-                : AccessDenied();
+                ? AccessMaxReachedRecord()
+                : AccessDeniedRecord();
         }
 
         var consumed = await queryExecutor
@@ -193,7 +281,34 @@ internal sealed class HostDocumentShareManagementService(
                 DocumentSqlParameters.Create(("Id", share.Id)),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (consumed is null)
+        return consumed is null
+            ? AccessDeniedRecord()
+            : Result<DocumentShareRecord>.Success(consumed);
+    }
+
+    private async Task<Result<HostDocumentShareAccessResponse>> ConsumeAnonymousAccessAsync(
+        DocumentShareRecord share,
+        bool hasPassword,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var consumeResult = await ConsumeAnonymousAccessSlotAsync(share, now, cancellationToken)
+            .ConfigureAwait(false);
+        if (!consumeResult.IsSuccess)
+        {
+            return consumeResult.Error!.Code == DocumentErrorCodes.ShareMaxAccessReached
+                ? AccessMaxReached()
+                : AccessDenied();
+        }
+
+        var consumed = consumeResult.Value!;
+        var document = await queryExecutor
+            .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
+                DocumentItemSql.FindActiveById,
+                DocumentSqlParameters.Create(("Id", share.DocumentId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (document is null)
         {
             return AccessDenied();
         }
@@ -323,6 +438,41 @@ internal sealed class HostDocumentShareManagementService(
 
     private static Result<HostDocumentShareAccessResponse> AccessMaxReached() =>
         Result<HostDocumentShareAccessResponse>.Failure(MaxAccessReachedError());
+
+    private static Result<HostFileContent> AccessDeniedContent() =>
+        Result<HostFileContent>.Failure(AccessDeniedError());
+
+    private static Result<HostFileContent> AccessMaxReachedContent() =>
+        Result<HostFileContent>.Failure(MaxAccessReachedError());
+
+    private static Result<(DocumentShareRecord, bool)> AccessDeniedTuple() =>
+        Result<(DocumentShareRecord, bool)>.Failure(AccessDeniedError());
+
+    private static Result<(DocumentShareRecord, bool)> PasswordRequiredTuple() =>
+        Result<(DocumentShareRecord, bool)>.Failure(PasswordRequiredError());
+
+    private static Result<DocumentShareRecord> AccessDeniedRecord() =>
+        Result<DocumentShareRecord>.Failure(AccessDeniedError());
+
+    private static Result<DocumentShareRecord> AccessMaxReachedRecord() =>
+        Result<DocumentShareRecord>.Failure(MaxAccessReachedError());
+
+    private static Result<HostDocumentShareAccessResponse> MapTupleFailureToAccess(
+        Result<(DocumentShareRecord, bool)> failure) =>
+        failure.Error!.Code switch
+        {
+            DocumentErrorCodes.HostSharePasswordRequired => PasswordRequired(),
+            DocumentErrorCodes.ShareMaxAccessReached => AccessMaxReached(),
+            _ => AccessDenied(),
+        };
+
+    private static Result<HostFileContent> MapShareFailureToContent<T>(Result<T> failure) =>
+        failure.Error!.Code switch
+        {
+            DocumentErrorCodes.HostSharePasswordRequired => Result<HostFileContent>.Failure(PasswordRequiredError()),
+            DocumentErrorCodes.ShareMaxAccessReached => AccessMaxReachedContent(),
+            _ => AccessDeniedContent(),
+        };
 
     private static Result<HostDocumentShareResponse> PasswordInvalidLength() =>
         Result<HostDocumentShareResponse>.Failure(PasswordInvalidLengthError());

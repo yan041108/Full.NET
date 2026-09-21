@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
-import { ElButton, ElCard, ElMessage, ElTag } from 'element-plus';
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { ElButton, ElCard, ElMessage, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import {
   isFullNetProblemDetails,
   type FullNetProblemDetails
@@ -14,10 +14,21 @@ import {
   formatWorkflowBusinessLabel
 } from '../workflow/workflowBusinessDetail';
 
-const { t } = useAdminI18n();
+import { formatAdminDateTime } from '../workflow/workflowAdminFormat';
+import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
+
+const { t, locale } = useAdminI18n();
+
+function formatDateTime(value: string): string {
+  return formatAdminDateTime(locale.value, value);
+}
 const router = useRouter();
 const records = ref<WorkflowCcResponse[]>([]);
 const loading = ref(false);
+const { tableMainRef, tableHeight, updateTableHeight, watchLoading } = useArtCrudTableLayout({
+  bottomOffset: 8
+});
+watchLoading(loading);
 const actingId = ref<string>();
 const problem = ref<FullNetProblemDetails>();
 let loadController: AbortController | undefined;
@@ -39,6 +50,7 @@ async function load(): Promise<void> {
     }
   } finally {
     loading.value = false;
+    void nextTick(updateTableHeight);
   }
 }
 
@@ -79,74 +91,94 @@ function openBusinessDetail(businessType: string, businessId: string): void {
 
 <template>
   <section class="workflow-cc art-page-stack art-full-height" :aria-busy="loading || actingId !== undefined">
-    <header>
-      <h1 data-route-heading tabindex="-1">{{ t('workflowCc.title') }}</h1>
-      <p>{{ t('workflowCc.caption') }}</p>
-    </header>
+    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('workflowCc.title') }}</h1>
+    <p class="art-sr-heading">{{ t('workflowCc.caption') }}</p>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
       <strong translate="no">{{ problem.code }}</strong>
       <span>{{ problem.title }}</span>
     </div>
 
-    <el-card shadow="never">
-      <div v-if="records.length === 0 && !loading" class="workflow-cc__empty">
-        {{ t('workflowCc.empty') }}
-      </div>
-      <div v-else class="workflow-cc__table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>{{ t('workflowCc.business') }}</th>
-              <th>{{ t('workflowCc.node') }}</th>
-              <th>{{ t('workflowCc.createdAt') }}</th>
-              <th>{{ t('workflowCc.status') }}</th>
-              <th>{{ t('workflowCc.actions') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="record in records" :key="record.id" :class="{ 'is-unread': record.readAtUtc === null }">
-              <td>
-                <strong translate="no">{{ formatWorkflowBusinessLabel(record.businessTitle, record.businessType, record.businessId) }}</strong>
-                <el-button
-                  v-if="findWorkflowBusinessDetailRoute(record.businessType)"
-                  link
-                  type="primary"
-                  data-testid="workflow-cc-view-document"
-                  @click="openBusinessDetail(record.businessType, record.businessId)"
-                >
-                  {{ t('workflow.business.viewDocument') }}
-                </el-button>
-              </td>
-              <td><code translate="no">{{ record.nodeKey }}</code></td>
-              <td><time :datetime="record.createdAtUtc">{{ record.createdAtUtc }}</time></td>
-              <td><el-tag :type="record.readAtUtc === null ? 'warning' : 'info'">{{ t(record.readAtUtc === null ? 'workflowCc.unread' : 'workflowCc.read') }}</el-tag></td>
-              <td>
-                <PermissionGate code="workflow.cc.mark_read">
-                  <el-button
-                    data-testid="workflow-cc-mark-read"
-                    :disabled="record.readAtUtc !== null"
-                    :loading="actingId === record.id"
-                    @click="markRead(record)"
-                  >{{ t('workflowCc.markRead') }}</el-button>
-                </PermissionGate>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    <el-card class="workflow-cc__card art-table-card" shadow="never">
+      <div ref="tableMainRef" class="art-crud-table-main">
+      <el-table
+        v-loading="loading"
+        :data="records"
+        :height="tableHeight"
+        row-key="id"
+        class="workflow-cc__table"
+        empty-text=""
+        :row-class-name="({ row }) => row.readAtUtc === null ? 'is-unread' : ''"
+      >
+        <el-table-column :label="t('workflowCc.business')" min-width="200">
+          <template #default="{ row }">
+            <div class="workflow-cc__business">
+              <strong translate="no">{{ formatWorkflowBusinessLabel(row.businessTitle, row.businessType, row.businessId) }}</strong>
+              <el-button
+                v-if="findWorkflowBusinessDetailRoute(row.businessType)"
+                link
+                type="primary"
+                data-testid="workflow-cc-view-document"
+                @click="openBusinessDetail(row.businessType, row.businessId)"
+              >
+                {{ t('workflow.business.viewDocument') }}
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('workflowCc.node')" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }"><code translate="no">{{ row.nodeKey }}</code></template>
+        </el-table-column>
+        <el-table-column :label="t('workflowCc.createdAt')" width="168">
+          <template #default="{ row }">
+            <time translate="no" :datetime="row.createdAtUtc">{{ formatDateTime(row.createdAtUtc) }}</time>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('workflowCc.status')" width="96" align="center">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.readAtUtc === null ? 'warning' : 'info'">
+              {{ t(row.readAtUtc === null ? 'workflowCc.unread' : 'workflowCc.read') }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('workflowCc.actions')" width="120" fixed="right">
+          <template #default="{ row }">
+            <PermissionGate code="workflow.cc.mark_read">
+              <el-button
+                size="small"
+                data-testid="workflow-cc-mark-read"
+                :disabled="row.readAtUtc !== null"
+                :loading="actingId === row.id"
+                @click="markRead(row)"
+              >{{ t('workflowCc.markRead') }}</el-button>
+            </PermissionGate>
+          </template>
+        </el-table-column>
+        <template #empty>
+          <p v-if="!loading" class="workflow-cc__empty">{{ t('workflowCc.empty') }}</p>
+        </template>
+      </el-table>
       </div>
     </el-card>
   </section>
 </template>
 
 <style scoped>
-.workflow-cc { display: grid; gap: 1rem; }
-.workflow-cc header h1 { margin: 0; }
-.workflow-cc header p { margin: .35rem 0 0; color: var(--el-text-color-secondary); }
-.workflow-cc__table-wrap { overflow-x: auto; }
-.workflow-cc table { width: 100%; border-collapse: collapse; }
-.workflow-cc th, .workflow-cc td { padding: .85rem; border-bottom: 1px solid var(--el-border-color-lighter); text-align: left; }
-.workflow-cc td:first-child { display: grid; gap: .25rem; }
-.workflow-cc tr.is-unread td:first-child { border-left: 3px solid var(--el-color-warning); }
-.workflow-cc__empty { padding: 3rem 1rem; color: var(--el-text-color-secondary); text-align: center; }
+.workflow-cc { display: grid; gap: 1rem; min-height: 0; }
+.workflow-cc__card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.workflow-cc__card :deep(.el-card__body) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 0;
+}
+.workflow-cc__business { display: grid; gap: 4px; }
+.workflow-cc :deep(tr.is-unread td:first-child) { box-shadow: inset 3px 0 0 var(--el-color-warning); }
+.workflow-cc__empty { padding: 2rem 1rem; color: var(--el-text-color-secondary); text-align: center; }
 </style>

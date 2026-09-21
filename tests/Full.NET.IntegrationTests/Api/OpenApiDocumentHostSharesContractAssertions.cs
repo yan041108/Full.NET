@@ -35,6 +35,10 @@ internal static class OpenApiDocumentHostSharesContractAssertions
             paths.GetProperty("/api/v1/document/public/shares/{shareCode}/access"),
             "post",
             ["200", "400", "401", "403", "404", "409", "429"]);
+        AssertOperation(
+            paths.GetProperty("/api/v1/document/public/shares/{shareCode}/content"),
+            "post",
+            ["200", "400", "401", "403", "404", "409", "429"]);
 
         var schemas = root.GetProperty("components").GetProperty("schemas");
         AssertSchema(
@@ -107,6 +111,16 @@ internal static class OpenApiDocumentHostSharesContractAssertions
             publicTag,
             200,
             "application/json",
+            "application/json",
+            isPublic: true);
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/document/public/shares/{shareCode}/content",
+            HttpMethod.Post,
+            "documentPublicContentDocumentShare",
+            publicTag,
+            200,
+            "application/octet-stream",
             "application/json",
             isPublic: true);
     }

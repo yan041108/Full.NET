@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Hosting.Observability;
 using Full.NET.Modules.Document.Contracts;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -125,5 +126,56 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status429TooManyRequests)
         .RequireRateLimiting(DocumentModule.AnonymousShareAccessRateLimitPolicy)
         .AllowAnonymous();
+
+        publicGroup.MapPost("/{shareCode}/content", async (
+            string shareCode,
+            AccessHostDocumentShareRequest request,
+            HostDocumentShareManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service
+                .OpenAnonymousContentAsync(
+                    shareCode,
+                    request,
+                    HttpOperationLogSanitizer.FingerprintClientIp(
+                        httpContext.Connection.RemoteIpAddress?.ToString()),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return MapShareContentResult(result, mapper, httpContext);
+        })
+        .WithName("documentPublicContentDocumentShare")
+        .Accepts<AccessHostDocumentShareRequest>("application/json")
+        .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests)
+        .RequireRateLimiting(DocumentModule.AnonymousShareAccessRateLimitPolicy)
+        .AllowAnonymous();
+    }
+
+    private static IResult MapShareContentResult(
+        Result<HostFileContent> result,
+        IApiResultMapper mapper,
+        HttpContext httpContext)
+    {
+        if (!result.IsSuccess)
+        {
+            return mapper.Map(
+                Result<HostDocumentShareAccessResponse>.Failure(result.Error!),
+                httpContext);
+        }
+
+        var content = result.Value!;
+        httpContext.Response.Headers.ContentDisposition = "inline";
+        return Results.File(
+            content.Content,
+            content.ContentType,
+            content.OriginalFileName,
+            enableRangeProcessing: true);
     }
 }

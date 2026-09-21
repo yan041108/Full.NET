@@ -28,6 +28,7 @@ test('Host 文档分享 OpenAPI 夹具与 C# 契约和端点一致', async () =>
   assert.match(endpointSource, /\.WithName\("documentHostCreateDocumentShare"\)/u);
   assert.match(endpointSource, /\.WithName\("documentHostUpdateDocumentShareStatus"\)/u);
   assert.match(endpointSource, /\.WithName\("documentPublicAccessDocumentShare"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentPublicContentDocumentShare"\)/u);
   assert.match(contractsSource, /record CreateHostDocumentShareRequest/u);
   assert.match(contractsSource, /record HostDocumentShareAccessResponse/u);
   assert.ok(contract.paths.some((entry) => entry.path.includes('/public/shares/')));

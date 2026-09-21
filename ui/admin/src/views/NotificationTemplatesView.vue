@@ -25,6 +25,7 @@ import {
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import PermissionGate from '../components/PermissionGate.vue';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import {
   createNotificationTemplate,
   listNotificationProviderTypes,
@@ -58,6 +59,7 @@ const parameters = ref<NotificationTemplateParameterDefinition[]>([]);
 const classificationKey = ref('c1');
 const channelOptions = ref<string[]>(['inbox']);
 const loading = ref(false);
+const { tableMainRef, tableHeight, syncTableLayout } = useArtPagedTableInCard(loading);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const canCreate = computed(() => session.can('notifications.templates.create'));
@@ -112,6 +114,7 @@ async function load(): Promise<void> {
     problem.value = toProblem(error, 'notificationTemplates.loadFailed');
   } finally {
     loading.value = false;
+    void syncTableLayout();
   }
 }
 
@@ -306,7 +309,7 @@ function toProblem(
     </div>
 
     <div
-      class="notification-templates-layout"
+      class="notification-templates-layout art-split-layout"
       :class="{ 'is-list-only': !showSplitLayout }"
     >
       <ElCard class="notification-templates-list art-table-card" shadow="never">
@@ -321,9 +324,11 @@ function toProblem(
           </div>
         </template>
 
+        <div ref="tableMainRef" class="art-crud-table-main">
         <ElTable
           v-loading="loading"
           :data="items"
+          :height="tableHeight"
           class="notification-templates-table"
           highlight-current-row
           row-key="id"
@@ -375,15 +380,16 @@ function toProblem(
           </template>
         </ElTable>
 
-        <div v-if="total > 0" class="notification-templates-list__pagination">
-          <ElPagination
-            background
-            layout="prev, pager, next, total"
-            :current-page="page"
-            :page-size="pageSize"
-            :total="total"
-            @current-change="onPageChange"
-          />
+        <ElPagination
+          v-if="total > 0"
+          class="art-table-pagination"
+          background
+          layout="prev, pager, next, total"
+          :current-page="page"
+          :page-size="pageSize"
+          :total="total"
+          @current-change="onPageChange"
+        />
         </div>
       </ElCard>
 

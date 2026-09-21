@@ -19,6 +19,7 @@ import {
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import PermissionGate from '../components/PermissionGate.vue';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import {
   createDingTalkApprovalSync,
   listDingTalkApprovalSync,
@@ -38,6 +39,7 @@ const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 const loading = ref(false);
+const { tableMainRef, tableHeight, syncTableLayout } = useArtPagedTableInCard(loading);
 const saving = ref(false);
 const retrying = ref(false);
 const errorMessage = ref<string>();
@@ -107,6 +109,7 @@ async function load(): Promise<void> {
     errorMessage.value = t('dingtalkApprovalSync.loadFailed');
   } finally {
     loading.value = false;
+    void syncTableLayout();
   }
 }
 
@@ -251,7 +254,7 @@ function statusTone(statusKey: string): 'success' | 'warning' | 'info' | 'danger
       show-icon
     />
 
-    <div v-if="canRead" class="dingtalk-sync-layout">
+    <div v-if="canRead" class="dingtalk-sync-layout art-split-layout">
       <ElCard class="dingtalk-sync-list art-table-card" shadow="never">
         <template #header>
           <div class="dingtalk-sync-list__header">
@@ -262,10 +265,11 @@ function statusTone(statusKey: string): 'success' | 'warning' | 'info' | 'danger
           </div>
         </template>
 
-        <div data-testid="dingtalk-sync-list" class="dingtalk-sync-table-wrap">
+        <div ref="tableMainRef" data-testid="dingtalk-sync-list" class="art-crud-table-main dingtalk-sync-table-wrap">
           <ElTable
             v-loading="loading"
             :data="items"
+            :height="tableHeight"
             class="dingtalk-sync-table"
             highlight-current-row
             row-key="id"
@@ -312,18 +316,17 @@ function statusTone(statusKey: string): 'success' | 'warning' | 'info' | 'danger
               <p class="art-empty-state">{{ t('dingtalkApprovalSync.emptyList') }}</p>
             </template>
           </ElTable>
-        </div>
-
-        <div v-if="total > 0" class="dingtalk-sync-list__pagination">
-          <ElPagination
-            background
-            layout="total, prev, pager, next"
-            :current-page="page"
-            :page-size="pageSize"
-            :total="total"
-            @current-change="value => { page = value; void load(); }"
-            @size-change="value => { pageSize = value; void load(); }"
-          />
+        <ElPagination
+          v-if="total > 0"
+          class="art-table-pagination"
+          background
+          layout="total, prev, pager, next"
+          :current-page="page"
+          :page-size="pageSize"
+          :total="total"
+          @current-change="value => { page = value; void load(); }"
+          @size-change="value => { pageSize = value; void load(); }"
+        />
         </div>
       </ElCard>
 

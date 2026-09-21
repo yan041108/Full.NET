@@ -3429,6 +3429,28 @@ export async function documentPublicAccessDocumentShare(
   return readHostDocumentShareAccessResponse(value);
 }
 
+export interface DocumentPublicContentDocumentShareParameters {
+  readonly shareCode: string;
+  readonly body: AccessHostDocumentShareRequest;
+}
+
+export async function documentPublicContentDocumentShare(
+  http: HttpClient,
+  parameters: DocumentPublicContentDocumentShareParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/document/public/shares/${encodeURIComponent(String(parameters.shareCode))}/content`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
 export interface EnterpriseRequestCreateEnterpriseRequestParameters {
   readonly body: CreateEnterpriseRequestRequest;
 }

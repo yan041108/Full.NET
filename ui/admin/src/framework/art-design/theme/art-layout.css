@@ -511,6 +511,28 @@
   min-height: 0;
 }
 
+.art-split-layout {
+  display: flex;
+  flex: 1;
+  gap: 12px;
+  min-height: 0;
+}
+
+.art-split-layout > .art-table-card {
+  flex: 1 1 0;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.art-crud-table-main > .art-table-pagination,
+.art-crud-table-main > .el-pagination.art-table-pagination {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
 .art-crud-data-table {
   width: 100%;
 }
@@ -1472,4 +1494,87 @@
 
 .users-view .users-data-table.el-table--border .el-table__cell {
   border-color: var(--art-gray-200);
+}
+
+/* 文档中心页壳：对齐 Admin.NET.Pro 文档模块（查询卡 / 工具栏卡 + 内容卡） */
+.document-module-page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.document-module-page .document-module-query-card .el-card__body,
+.document-module-page .document-module-toolbar-card .el-card__body {
+  padding: 12px 16px;
+}
+
+.document-module-card-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.document-module-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.document-module-toolbar__left,
+.document-module-toolbar__right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.document-module-inline-query {
+  margin-bottom: 12px;
+}
+
+.document-module-inline-query .el-form-item {
+  margin-bottom: 8px;
+}
+
+.document-module-split {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.document-module-split__aside {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.document-module-split__aside .el-card__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.document-module-split__main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+@media (max-width: 1100px) {
+  .document-module-split {
+    grid-template-columns: 1fr;
+  }
 }
