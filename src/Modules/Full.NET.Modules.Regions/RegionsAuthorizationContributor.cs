@@ -23,6 +23,10 @@ internal sealed class RegionsAuthorizationContributor : IAuthorizationCatalogCon
             "查询行政区域",
             ReadScopes),
         new PermissionDefinition(
+            RegionsPermissions.Manage,
+            "进入行政区域维护管理页",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             RegionsPermissions.Create,
             "创建行政区域",
             AuthorizationScope.Host),
@@ -53,7 +57,7 @@ internal sealed class RegionsAuthorizationContributor : IAuthorizationCatalogCon
             "Administrative Regions",
             "regions",
             68,
-            RegionsPermissions.Read),
+            RegionsPermissions.Manage),
     ];
 
     /// <summary>行政区域模块页面操作定义。</summary>

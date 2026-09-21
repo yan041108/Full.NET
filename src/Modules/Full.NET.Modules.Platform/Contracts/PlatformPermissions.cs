@@ -8,6 +8,9 @@ public static class PlatformPermissions
     /// <summary>允许查询更新日志（Host 管理端与终端用户已发布列表）。</summary>
     public const string Read = "platform.release_notes.read";
 
+    /// <summary>允许进入 Host 更新日志管理页并查询管理列表/详情。</summary>
+    public const string HostManageRead = "platform.host_release_notes.read";
+
     /// <summary>允许创建更新日志草稿。</summary>
     public const string Create = "platform.release_notes.create";
 

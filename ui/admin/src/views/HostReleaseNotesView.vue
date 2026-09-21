@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import {
   ElButton,
+  ElAlert,
   ElCard,
   ElForm,
   ElFormItem,
@@ -127,6 +128,8 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
   }
 ]);
 
+const inHostContext = computed(() => !session.currentUser?.tenantId);
+
 const canCreate = computed(() => session.can('platform.release_notes.create'));
 const canUpdate = computed(() => session.can('platform.release_notes.update'));
 const canPublish = computed(() => session.can('platform.release_notes.publish'));
@@ -140,7 +143,9 @@ watch([page, pageSize], () => {
 watchLoading(loading);
 
 onMounted(() => {
-  void load();
+  if (inHostContext.value) {
+    void load();
+  }
 });
 
 function isColumnVisible(key: TableColumnKey): boolean {
@@ -182,6 +187,9 @@ function statusTagType(status: HostReleaseNote['status']): 'info' | 'success' | 
 }
 
 async function load(): Promise<void> {
+  if (!inHostContext.value) {
+    return;
+  }
   loading.value = true;
   problem.value = undefined;
   try {
@@ -374,6 +382,15 @@ function resolveProblem(
   <section class="host-release-notes-view art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('hostReleaseNotes.title') }}</h1>
 
+    <ElAlert
+      v-if="!inHostContext"
+      type="warning"
+      :closable="false"
+      :title="t('hostReleaseNotes.hostContextRequired')"
+      show-icon
+      class="host-release-notes-context-alert"
+    />
+
     <div v-if="problem" class="art-inline-alert" role="alert">
       <strong translate="no">{{ problem.code }}</strong>
       <span>{{ problem.title }}</span>
@@ -381,6 +398,7 @@ function resolveProblem(
     </div>
 
     <ArtSearchBar
+      v-if="inHostContext"
       v-model="searchForm"
       :items="searchItems"
       :default-visible-count="2"
@@ -392,7 +410,7 @@ function resolveProblem(
       @reset="resetSearch"
     />
 
-    <el-card class="art-table-card" shadow="never">
+    <el-card v-if="inHostContext" class="art-table-card" shadow="never">
       <div ref="tableMainRef" class="art-crud-table-main">
         <ArtTableHeader
           v-model:columns="tableColumns"

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
@@ -12,6 +13,7 @@ namespace Full.NET.Modules.Identity.Features.GetHostDashboardSummary;
 internal sealed class HostDashboardQueryService(
     IQueryExecutor queryExecutor,
     IClock clock,
+    ICurrentTenant currentTenant,
     IEnumerable<IHostDashboardTenantMetricsReader> tenantMetricsReaders,
     IEnumerable<IHostDashboardAuditMetricsReader> auditMetricsReaders,
     IEnumerable<IHostDashboardAuditTrendReader> auditTrendReaders,
@@ -63,6 +65,9 @@ internal sealed class HostDashboardQueryService(
             principal,
             HostDashboardMetricPermissions.WorkflowInstances);
 
+        // 租户上下文下禁止调度 HostOnly SQL；工作台仍返回租户内可读片段（如工作流入口）。
+        var isHostScope = currentTenant.IsAvailable && currentTenant.IsHost;
+
         var tenantMetricsReader = tenantMetricsReaders.SingleOrDefault();
         var auditMetricsReader = auditMetricsReaders.SingleOrDefault();
         var auditTrendReader = auditTrendReaders.SingleOrDefault();
@@ -71,14 +76,14 @@ internal sealed class HostDashboardQueryService(
         var pendingTasks = new List<Task>();
 
         Task<long>? activeTenantTask = null;
-        if (canReadTenants && tenantMetricsReader is not null)
+        if (isHostScope && canReadTenants && tenantMetricsReader is not null)
         {
             activeTenantTask = tenantMetricsReader.CountActiveTenantsAsync(cancellationToken);
             pendingTasks.Add(activeTenantTask);
         }
 
         Task<long>? onlineSessionTask = null;
-        if (canReadSessions)
+        if (isHostScope && canReadSessions)
         {
             onlineSessionTask = queryExecutor.QuerySingleOrDefaultAsync<long>(
                 HostDashboardSql.CountActiveHostSessions,
@@ -88,7 +93,7 @@ internal sealed class HostDashboardQueryService(
         }
 
         Task<HostDashboardAuditMetrics>? auditMetricsTask = null;
-        if (canReadAuditAccess && auditMetricsReader is not null)
+        if (isHostScope && canReadAuditAccess && auditMetricsReader is not null)
         {
             auditMetricsTask = auditMetricsReader.ReadAsync(
                 startOfDayUtc,
@@ -98,7 +103,7 @@ internal sealed class HostDashboardQueryService(
         }
 
         Task<HostDashboardTrafficTrendResponse>? auditTrendTask = null;
-        if (canReadAuditTrends && auditTrendReader is not null)
+        if (isHostScope && canReadAuditTrends && auditTrendReader is not null)
         {
             auditTrendTask = auditTrendReader.ReadAccessTrendAsync(
                 trendFromUtc,

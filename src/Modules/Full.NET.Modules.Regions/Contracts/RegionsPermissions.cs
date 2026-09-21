@@ -8,6 +8,9 @@ public static class RegionsPermissions
     /// <summary>允许查询行政区域（含级联读取与树查询）。</summary>
     public const string Read = "regions.administrative_regions.read";
 
+    /// <summary>允许进入 Host 行政区域维护管理页。</summary>
+    public const string Manage = "regions.administrative_regions.manage";
+
     /// <summary>允许创建行政区域节点。</summary>
     public const string Create = "regions.administrative_regions.create";
 

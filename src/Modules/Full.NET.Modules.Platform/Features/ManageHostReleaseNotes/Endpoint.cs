@@ -43,7 +43,7 @@ internal static class Endpoint
         .Produces<PagedResult<HostReleaseNoteResponse>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
-        .RequireAuthorization(FullNetPermissionPolicies.For(PlatformPermissions.Read));
+        .RequireAuthorization(FullNetPermissionPolicies.For(PlatformPermissions.HostManageRead));
 
         group.MapGet("/{releaseNoteId:guid}", async (
             Guid releaseNoteId,
@@ -61,7 +61,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAuthorization(FullNetPermissionPolicies.For(PlatformPermissions.Read));
+        .RequireAuthorization(FullNetPermissionPolicies.For(PlatformPermissions.HostManageRead));
 
         group.MapPost("/", async (
             CreateHostReleaseNoteRequest request,

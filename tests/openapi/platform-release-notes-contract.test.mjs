@@ -70,6 +70,7 @@ test('平台更新日志 OpenAPI 夹具与 C# 契约和端点源码一致', asyn
 
   for (const permission of [
     'platform.release_notes.read',
+    'platform.host_release_notes.read',
     'platform.release_notes.create',
     'platform.release_notes.update',
     'platform.release_notes.publish',

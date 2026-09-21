@@ -59,7 +59,7 @@ describe('AdministrativeRegionsView', () => {
   });
 
   it('hides mutating actions without permissions', async () => {
-    const wrapper = mountWithPermissions(['regions.administrative_regions.read']);
+    const wrapper = mountWithPermissions(['regions.administrative_regions.manage']);
     await flushPromises();
 
     expect(wrapper.find('[data-testid="administrative-regions-action-create"]').exists()).toBe(false);
@@ -68,7 +68,7 @@ describe('AdministrativeRegionsView', () => {
 
   it('shows create action when create permission is granted', async () => {
     const wrapper = mountWithPermissions([
-      'regions.administrative_regions.read',
+      'regions.administrative_regions.manage',
       'regions.administrative_regions.create'
     ]);
     await flushPromises();

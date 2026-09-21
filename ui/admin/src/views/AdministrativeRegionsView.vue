@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import {
+  ElAlert,
   ElButton,
   ElCard,
   ElForm,
@@ -36,6 +37,7 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import AdministrativeRegionCascader from '../components/AdministrativeRegionCascader.vue';
 import PermissionGate from '../components/PermissionGate.vue';
+import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   applyAdministrativeRegionImport,
@@ -56,7 +58,9 @@ interface TreeRow extends AdministrativeRegionTreeNode {
   version?: number;
 }
 
+const session = useSessionStore();
 const { t, locale } = useAdminI18n();
+const inHostContext = computed(() => !session.currentUser?.tenantId);
 const treeRows = ref<TreeRow[]>([]);
 const manifest = ref<AdministrativeRegionDatasetManifest | null>(null);
 const loading = ref(false);
@@ -106,10 +110,15 @@ const manifestLabel = computed(() => {
 watchLoading(loading);
 
 onMounted(() => {
-  void load();
+  if (inHostContext.value) {
+    void load();
+  }
 });
 
 async function load(): Promise<void> {
+  if (!inHostContext.value) {
+    return;
+  }
   loading.value = true;
   problem.value = undefined;
   try {
@@ -347,12 +356,20 @@ function formatDateTime(value: string): string {
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('administrativeRegions.title') }}</h1>
     <p class="art-page-description">{{ t('administrativeRegions.description') }}</p>
 
+    <ElAlert
+      v-if="!inHostContext"
+      type="warning"
+      :closable="false"
+      :title="t('administrativeRegions.hostContextRequired')"
+      show-icon
+    />
+
     <div v-if="problem" class="art-inline-alert" role="alert">
       <strong translate="no">{{ problem.code }}</strong>
       <span>{{ problem.title }}</span>
     </div>
 
-    <el-card class="administrative-regions-manifest" shadow="never">
+    <el-card v-if="inHostContext" class="administrative-regions-manifest" shadow="never">
       <p>{{ manifestLabel }}</p>
       <p v-if="manifest" class="administrative-regions-manifest__meta">
         {{ t('administrativeRegions.manifestAppliedAt') }}:
@@ -360,7 +377,7 @@ function formatDateTime(value: string): string {
       </p>
     </el-card>
 
-    <el-card class="art-table-card" shadow="never">
+    <el-card v-if="inHostContext" class="art-table-card" shadow="never">
       <div ref="tableMainRef" class="art-crud-table-main">
         <ArtTableHeader
           v-model:table-size="tableSize"

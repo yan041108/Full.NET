@@ -17,25 +17,25 @@ namespace Full.NET.UnitTests.Organization;
 public sealed class TenantUserUnitManagementServiceTests
 {
     [TestMethod]
-    public async Task Create_does_not_start_transaction_when_host_user_not_found()
+    public async Task Create_does_not_start_transaction_when_tenant_member_not_found()
     {
         var transaction = new RecordingTransaction();
-        var hostUserDirectory = Substitute.For<IHostUserDirectory>();
+        var tenantMemberDirectory = Substitute.For<ITenantMemberSelectionDirectory>();
         var userId = Guid.CreateVersion7();
-        hostUserDirectory
-            .FindActiveHostUserAsync(userId, Arg.Any<CancellationToken>())
-            .Returns((HostUserDirectoryEntry?)null);
+        tenantMemberDirectory
+            .FindActiveTenantMemberAsync(userId, Arg.Any<CancellationToken>())
+            .Returns((TenantUserDirectoryEntry?)null);
         var service = CreateService(
             Substitute.For<IQueryExecutor>(),
             Substitute.For<ICommandExecutor>(),
             transaction,
-            hostUserDirectory);
+            tenantMemberDirectory);
 
         var result = await service.CreateAsync(
             new CreateOrganizationUserUnitRequest(userId, Guid.CreateVersion7(), false));
 
         Assert.IsFalse(result.IsSuccess);
-        Assert.AreEqual(OrganizationErrorCodes.UserUnitUserNotFound, result.Error!.Code);
+        Assert.AreEqual(OrganizationErrorCodes.UserUnitTenantMemberRequired, result.Error!.Code);
         Assert.AreEqual(0, transaction.ExecutionCount);
     }
 
@@ -43,16 +43,16 @@ public sealed class TenantUserUnitManagementServiceTests
     public async Task Create_does_not_start_transaction_when_directory_throws()
     {
         var transaction = new RecordingTransaction();
-        var hostUserDirectory = Substitute.For<IHostUserDirectory>();
+        var tenantMemberDirectory = Substitute.For<ITenantMemberSelectionDirectory>();
         var userId = Guid.CreateVersion7();
-        hostUserDirectory
-            .FindActiveHostUserAsync(userId, Arg.Any<CancellationToken>())
-            .Returns<HostUserDirectoryEntry?>(_ => throw new InvalidOperationException("directory unavailable"));
+        tenantMemberDirectory
+            .FindActiveTenantMemberAsync(userId, Arg.Any<CancellationToken>())
+            .Returns<TenantUserDirectoryEntry?>(_ => throw new InvalidOperationException("directory unavailable"));
         var service = CreateService(
             Substitute.For<IQueryExecutor>(),
             Substitute.For<ICommandExecutor>(),
             transaction,
-            hostUserDirectory);
+            tenantMemberDirectory);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             service.CreateAsync(
@@ -67,13 +67,13 @@ public sealed class TenantUserUnitManagementServiceTests
         var transaction = new RecordingTransaction();
         var command = Substitute.For<ICommandExecutor>();
         var query = Substitute.For<IQueryExecutor>();
-        var hostUserDirectory = Substitute.For<IHostUserDirectory>();
+        var tenantMemberDirectory = Substitute.For<ITenantMemberSelectionDirectory>();
         var userId = Guid.CreateVersion7();
         var unitId = Guid.CreateVersion7();
         var tenantId = Guid.CreateVersion7();
-        hostUserDirectory
-            .FindActiveHostUserAsync(userId, Arg.Any<CancellationToken>())
-            .Returns(new HostUserDirectoryEntry(userId, "user", "用户"));
+        tenantMemberDirectory
+            .FindActiveTenantMemberAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(new TenantUserDirectoryEntry(userId, "user", "用户"));
         query.QuerySingleOrDefaultAsync<OrganizationUnitRecord>(
                 OrganizationSql.FindUnitById,
                 Arg.Any<object?>(),
@@ -89,7 +89,7 @@ public sealed class TenantUserUnitManagementServiceTests
                 DateTimeOffset.UtcNow,
                 null,
                 1));
-        var service = CreateService(query, command, transaction, hostUserDirectory);
+        var service = CreateService(query, command, transaction, tenantMemberDirectory);
 
         var result = await service.CreateAsync(
             new CreateOrganizationUserUnitRequest(userId, unitId, false));
@@ -107,7 +107,7 @@ public sealed class TenantUserUnitManagementServiceTests
         IQueryExecutor query,
         ICommandExecutor command,
         RecordingTransaction transaction,
-        IHostUserDirectory hostUserDirectory)
+        ITenantMemberSelectionDirectory tenantMemberDirectory)
     {
         var databaseOptions = Options.Create(new DatabaseOptions
         {
@@ -130,7 +130,7 @@ public sealed class TenantUserUnitManagementServiceTests
             transaction,
             assignmentQueries,
             unitQueries,
-            hostUserDirectory,
+            tenantMemberDirectory,
             CreateTenantContext(),
             Substitute.For<IClock>(),
             Substitute.For<IIdGenerator>());

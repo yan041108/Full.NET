@@ -18,7 +18,7 @@ internal sealed class TenantUserUnitManagementService(
     ICommandTransaction transaction,
     TenantUserUnitQueryService assignmentQueries,
     TenantUnitQueryService unitQueries,
-    IHostUserDirectory hostUserDirectory,
+    ITenantMemberSelectionDirectory tenantMemberDirectory,
     ICurrentTenant currentTenant,
     IClock clock,
     IIdGenerator idGenerator)
@@ -28,13 +28,13 @@ internal sealed class TenantUserUnitManagementService(
         CancellationToken cancellationToken = default)
     {
         EnsureTenantContext();
-        var hostUser = await hostUserDirectory.FindActiveHostUserAsync(
+        var tenantMember = await tenantMemberDirectory.FindActiveTenantMemberAsync(
                 request.UserId,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (hostUser is null)
+        if (tenantMember is null)
         {
-            return UserNotFound();
+            return TenantMemberRequired();
         }
 
         return await transaction.ExecuteResultAsync(
@@ -254,10 +254,10 @@ internal sealed class TenantUserUnitManagementService(
             "The user is already assigned to this organization unit.",
             ErrorType.Conflict));
 
-    private static Result<OrganizationUserUnitResponse> UserNotFound() =>
+    private static Result<OrganizationUserUnitResponse> TenantMemberRequired() =>
         Result<OrganizationUserUnitResponse>.Failure(new Error(
-            OrganizationErrorCodes.UserUnitUserNotFound,
-            "The host user was not found.",
+            OrganizationErrorCodes.UserUnitTenantMemberRequired,
+            "The user is not an active tenant member.",
             ErrorType.NotFound));
 
     private static Result<OrganizationUserUnitResponse> NotFound() =>

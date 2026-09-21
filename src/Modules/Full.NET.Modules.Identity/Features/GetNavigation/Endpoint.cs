@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Builder;
@@ -18,13 +19,18 @@ internal static class Endpoint
                     PermissionClaimEvaluator permissionClaimEvaluator,
                     NavigationProjector projector,
                     HostNavigationDefinitionLoader navigationLoader,
+                    ICurrentTenant currentTenant,
                     CancellationToken cancellationToken) =>
                 {
                     var permissions = permissionClaimEvaluator.ResolvePermissions(principal);
                     var additionalDefinitions = await navigationLoader
                         .LoadActiveDefinitionsAsync(cancellationToken)
                         .ConfigureAwait(false);
-                    return Results.Ok(projector.Project(permissions, additionalDefinitions));
+                    var isHostDataContext = currentTenant.IsAvailable && currentTenant.IsHost;
+                    return Results.Ok(projector.Project(
+                        permissions,
+                        isHostDataContext,
+                        additionalDefinitions));
                 })
             .WithTags("Identity")
             .RequireFullNetPermission(IdentityAuthorizationContributor.NavigationRead);

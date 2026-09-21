@@ -3,7 +3,7 @@ using Full.NET.Data.Abstractions;
 namespace Full.NET.Modules.Platform.Persistence;
 
 /// <summary>
-/// 平台更新日志表的参数化 SQL 语句集合，全部声明为 <see cref="SqlDataScope.HostOnly"/>。
+/// 平台更新日志 SQL：Host 管理写路径为 HostOnly；终端用户已发布列表与已读为 Global。
 /// </summary>
 internal static class ReleaseNoteSql
 {
@@ -179,7 +179,7 @@ internal static class ReleaseNoteSql
             ORDER BY note.VersionSortKey DESC, note.Id
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement ListPublishedForUserMySql =
         new(
@@ -190,7 +190,7 @@ internal static class ReleaseNoteSql
             ORDER BY note.VersionSortKey DESC, note.Id
             LIMIT @PageSize OFFSET @Offset
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement CountPublishedForUser =
         new(
@@ -199,7 +199,7 @@ internal static class ReleaseNoteSql
             SELECT COUNT(*)
             {MyFromClause}
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement FindLatestUnreadForUser =
         new(
@@ -210,7 +210,7 @@ internal static class ReleaseNoteSql
               AND readState.Id IS NULL
             ORDER BY note.VersionSortKey DESC, note.Id
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement FindLatestUnreadForUserMySql =
         new(
@@ -222,7 +222,7 @@ internal static class ReleaseNoteSql
             ORDER BY note.VersionSortKey DESC, note.Id
             LIMIT 1
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement FindPublishedByIdForUser =
         new(
@@ -232,7 +232,7 @@ internal static class ReleaseNoteSql
             {MyFromClause}
               AND note.Id = @ReleaseNoteId
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement FindReadByUserAndReleaseNote =
         new(
@@ -243,7 +243,7 @@ internal static class ReleaseNoteSql
             WHERE ReleaseNoteId = @ReleaseNoteId
               AND UserId = @UserId
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement InsertRead =
         new(
@@ -254,5 +254,5 @@ internal static class ReleaseNoteSql
             VALUES
                 (@Id, @ReleaseNoteId, @UserId, @ReadAtUtc)
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 }

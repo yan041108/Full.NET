@@ -132,6 +132,9 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<
             ITenantUserSelectionDirectory,
             HostUsers.TenantUserSelectionDirectory>();
+        services.TryAddScoped<
+            ITenantMemberSelectionDirectory,
+            HostUsers.TenantMemberSelectionDirectory>();
         services.TryAddScoped<HostUsers.HostTenantUserSelectionDirectory>();
         services.TryAddScoped<IHostTenantUserSelectionDirectory>(provider =>
             provider.GetRequiredService<HostUsers.HostTenantUserSelectionDirectory>());

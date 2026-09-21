@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Auditing;
@@ -25,6 +26,7 @@ public sealed class HostDashboardQueryServiceTests
         var reducedProfileService = new HostDashboardQueryService(
             queryExecutor,
             new FixedClock(now),
+            HostTenantContext.Host,
             [],
             [],
             [],
@@ -76,6 +78,7 @@ public sealed class HostDashboardQueryServiceTests
         var fullProfileService = new HostDashboardQueryService(
             queryExecutor,
             new FixedClock(now),
+            HostTenantContext.Host,
             [tenantReader],
             [auditReader],
             [trendReader],
@@ -116,6 +119,7 @@ public sealed class HostDashboardQueryServiceTests
         var service = new HostDashboardQueryService(
             new OnlineSessionQueryExecutor(9),
             new FixedClock(now),
+            HostTenantContext.Host,
             [new RecordingTenantMetricsReader(99)],
             [new RecordingAuditMetricsReader(
                 new HostDashboardAuditMetrics(3, 0.1m, []))],
@@ -134,6 +138,44 @@ public sealed class HostDashboardQueryServiceTests
         Assert.AreEqual(3, result.Value.TodayRequestCount);
         Assert.IsNull(result.Value.AccessTrafficTrend);
         Assert.IsEmpty(result.Value.BusinessEntries);
+    }
+
+    [TestMethod]
+    public async Task Summary_skips_host_only_metrics_when_actor_is_in_tenant_scope()
+    {
+        var now = new DateTimeOffset(2026, 7, 26, 9, 30, 0, TimeSpan.Zero);
+        var tenantId = Guid.CreateVersion7();
+        var principal = CreatePrincipal(
+            HostDashboardMetricPermissions.ActiveTenants,
+            HostDashboardMetricPermissions.OnlineSessions,
+            HostDashboardMetricPermissions.AuditAccess,
+            HostDashboardMetricPermissions.AuditTrends,
+            HostDashboardMetricPermissions.WorkflowTodos);
+        var workflowReader = new RecordingWorkflowEntryReader(
+            new HostDashboardWorkflowEntryMetrics(2, 1));
+        var service = new HostDashboardQueryService(
+            new OnlineSessionQueryExecutor(11),
+            new FixedClock(now),
+            HostTenantContext.ForTenant(tenantId),
+            [new RecordingTenantMetricsReader(4)],
+            [new RecordingAuditMetricsReader(
+                new HostDashboardAuditMetrics(9, 0.2m, []))],
+            [new RecordingAuditTrendReader(
+                new HostDashboardTrafficTrendResponse(now.AddHours(-12), now, 60, []))],
+            [workflowReader]);
+
+        var result = await service.GetSummaryAsync(
+            principal,
+            CreateEvaluator(),
+            Guid.CreateVersion7());
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNull(result.Value!.ActiveTenantCount);
+        Assert.IsNull(result.Value.OnlineSessionCount);
+        Assert.IsNull(result.Value.TodayRequestCount);
+        Assert.IsNull(result.Value.AccessTrafficTrend);
+        Assert.HasCount(1, result.Value.BusinessEntries);
+        Assert.AreEqual(2, result.Value.BusinessEntries[0].Count);
     }
 
     private static PermissionClaimEvaluator CreateEvaluator() =>
@@ -162,6 +204,27 @@ public sealed class HostDashboardQueryServiceTests
     private sealed class FixedClock(DateTimeOffset utcNow) : IClock
     {
         public DateTimeOffset UtcNow { get; } = utcNow;
+    }
+
+    private static class HostTenantContext
+    {
+        public static ICurrentTenant Host => new FixedTenant(isHost: true);
+
+        public static ICurrentTenant ForTenant(Guid tenantId) =>
+            new FixedTenant(isHost: false, tenantId);
+    }
+
+    private sealed class FixedTenant(bool isHost, Guid? tenantId = null) : ICurrentTenant
+    {
+        public bool IsAvailable => isHost || tenantId is not null;
+
+        public bool IsHost => isHost;
+
+        public Guid? Id => isHost ? null : tenantId;
+
+        public string? Identifier => isHost ? null : "local";
+
+        public string? Name => isHost ? null : "Full.NET Local";
     }
 
     private sealed class OnlineSessionQueryExecutor(long onlineSessionCount) : IQueryExecutor

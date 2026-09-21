@@ -24,11 +24,11 @@ internal sealed class MqttAuthorizationContributor : IAuthorizationCatalogContri
         new PermissionDefinition(
             MqttPermissions.MessagesRead,
             "读取 MQTT 消息记录",
-            AuthorizationScope.Host | AuthorizationScope.Tenant),
+            AuthorizationScope.Host),
         new PermissionDefinition(
             MqttPermissions.MessagesPublish,
             "在 ACL 与限额内发布 MQTT 消息",
-            AuthorizationScope.Host | AuthorizationScope.Tenant),
+            AuthorizationScope.Host),
     ];
 
     /// <inheritdoc />
@@ -44,7 +44,7 @@ internal sealed class MqttAuthorizationContributor : IAuthorizationCatalogContri
             "MQTT Control Plane",
             "connection",
             75,
-            MqttPermissions.MessagesRead),
+            MqttPermissions.BrokerRead),
     ];
 
     /// <inheritdoc />

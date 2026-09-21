@@ -23,6 +23,10 @@ public static class OrganizationErrorCodes
     /// <summary>目标 Host 用户不存在或已禁用。</summary>
     public const string UserUnitUserNotFound = "organization.user_units.user_not_found";
 
+    /// <summary>目标用户不是当前租户的活动成员。</summary>
+    public const string UserUnitTenantMemberRequired =
+        "organization.user_units.tenant_member_required";
+
     /// <summary>actor 对目标机构单元无写入授权。</summary>
     public const string WriteAccessDenied = "organization.write_access.denied";
 
@@ -57,6 +61,10 @@ public static class OrganizationErrorCodes
     /// <summary>目标 Host 用户不存在或已禁用。</summary>
     public const string UserPositionUserNotFound = "organization.user_positions.user_not_found";
 
+    /// <summary>目标用户不是当前租户的活动成员。</summary>
+    public const string UserPositionTenantMemberRequired =
+        "organization.user_positions.tenant_member_required";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -68,6 +76,7 @@ public static class OrganizationErrorCodes
         UserUnitAlreadyAssigned,
         UserUnitNotFound,
         UserUnitUserNotFound,
+        UserUnitTenantMemberRequired,
         WriteAccessDenied,
         PositionCodeExists,
         PositionNotFound,
@@ -78,5 +87,6 @@ public static class OrganizationErrorCodes
         UserPositionAlreadyAssigned,
         UserPositionNotFound,
         UserPositionUserNotFound,
+        UserPositionTenantMemberRequired,
     ]);
 }

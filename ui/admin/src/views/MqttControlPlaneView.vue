@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -46,10 +46,11 @@ const publishPayload = ref('{"hello":"fullnet"}');
 const publishQos = ref(0);
 const publishIdempotencyKey = ref('');
 
-const canReadBroker = computed(() => session.can('mqtt.broker.read'));
-const canReadClients = computed(() => session.can('mqtt.clients.read'));
-const canReadMessages = computed(() => session.can('mqtt.messages.read'));
-const canPublish = computed(() => session.can('mqtt.messages.publish'));
+const inHostContext = computed(() => !session.currentUser?.tenantId);
+const canReadBroker = computed(() => inHostContext.value && session.can('mqtt.broker.read'));
+const canReadClients = computed(() => inHostContext.value && session.can('mqtt.clients.read'));
+const canReadMessages = computed(() => inHostContext.value && session.can('mqtt.messages.read'));
+const canPublish = computed(() => inHostContext.value && session.can('mqtt.messages.publish'));
 
 function statusLabel(value: string): string {
   switch (value) {
@@ -76,6 +77,14 @@ function statusTagType(value: string): 'info' | 'success' | 'danger' {
 }
 
 async function loadAll(): Promise<void> {
+  if (!inHostContext.value) {
+    status.value = null;
+    clients.value = [];
+    messages.value = [];
+    total.value = 0;
+    return;
+  }
+
   loading.value = true;
   problem.value = undefined;
   try {
@@ -136,6 +145,13 @@ async function onPageChange(nextPage: number): Promise<void> {
   await loadAll();
 }
 
+watch(
+  () => session.currentUser?.tenantId,
+  () => {
+    void loadAll();
+  }
+);
+
 onMounted(() => {
   if (canReadBroker.value || canReadClients.value || canReadMessages.value) {
     void loadAll();
@@ -147,6 +163,14 @@ onMounted(() => {
   <div class="mqtt-control-plane-view art-page-stack">
     <ArtTableHeader :title="t('mqttControlPlane.title')" />
     <p class="art-muted">{{ t('mqttControlPlane.description') }}</p>
+
+    <ElAlert
+      v-if="!inHostContext"
+      type="warning"
+      :closable="false"
+      :title="t('mqttControlPlane.hostContextRequired')"
+      show-icon
+    />
 
     <ElAlert
       v-if="status"

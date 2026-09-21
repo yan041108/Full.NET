@@ -50,3 +50,47 @@ export async function createTenantInvitation(
     signal
   ); return readResponse(value, (v): v is { invitation: TenantInvitation; invitationToken: string } => isRecord(v) && isInvitation(v.invitation) && typeof v.invitationToken === 'string' && v.invitationToken.length > 0, 'client.invalid_tenant_invitation_result');
 }
+
+export async function updateTenantMember(
+  memberId: string,
+  body: { memberRole: string; version: number },
+  signal?: AbortSignal
+): Promise<TenantMember> {
+  const value = await request<unknown>(
+    `/api/v1/identity/tenant-members/${memberId}`,
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    },
+    signal
+  );
+  return readResponse(value, isMember, 'client.invalid_tenant_member');
+}
+
+export async function removeTenantMember(
+  memberId: string,
+  version: number,
+  signal?: AbortSignal
+): Promise<TenantMember> {
+  const params = new URLSearchParams();
+  params.set('version', String(version));
+  const value = await request<unknown>(
+    `/api/v1/identity/tenant-members/${memberId}?${params.toString()}`,
+    { method: 'DELETE' },
+    signal
+  );
+  return readResponse(value, isMember, 'client.invalid_tenant_member');
+}
+
+export async function revokeTenantInvitation(
+  invitationId: string,
+  signal?: AbortSignal
+): Promise<TenantInvitation> {
+  const value = await request<unknown>(
+    `/api/v1/identity/tenant-members/invitations/${invitationId}/revoke`,
+    { method: 'POST' },
+    signal
+  );
+  return readResponse(value, isInvitation, 'client.invalid_tenant_invitation');
+}

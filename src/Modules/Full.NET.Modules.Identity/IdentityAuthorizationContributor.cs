@@ -265,23 +265,23 @@ internal sealed class IdentityAuthorizationContributor
         new PermissionDefinition(
             IdentityTenantMembershipPermissions.Read,
             "查看租户成员",
-            AuthorizationScope.Host | AuthorizationScope.Tenant),
+            AuthorizationScope.Tenant),
         new PermissionDefinition(
             IdentityTenantMembershipPermissions.Invite,
             "邀请租户成员",
-            AuthorizationScope.Host | AuthorizationScope.Tenant),
+            AuthorizationScope.Tenant),
         new PermissionDefinition(
             IdentityTenantMembershipPermissions.Update,
             "更新租户成员",
-            AuthorizationScope.Host | AuthorizationScope.Tenant),
+            AuthorizationScope.Tenant),
         new PermissionDefinition(
             IdentityTenantMembershipPermissions.Remove,
             "移除租户成员",
-            AuthorizationScope.Host | AuthorizationScope.Tenant),
+            AuthorizationScope.Tenant),
         new PermissionDefinition(
             IdentityTenantMembershipPermissions.RevokeInvitation,
             "撤销租户邀请",
-            AuthorizationScope.Host | AuthorizationScope.Tenant),
+            AuthorizationScope.Tenant),
         new PermissionDefinition(
             IdentityLdapConnectionPermissions.Read,
             "查看 LDAP 连接",

@@ -66,7 +66,7 @@ describe('HostReleaseNotesView', () => {
   });
 
   it('hides mutating actions without permissions', async () => {
-    const wrapper = mountWithPermissions(['platform.release_notes.read']);
+    const wrapper = mountWithPermissions(['platform.host_release_notes.read']);
     await flushPromises();
 
     expect(wrapper.find('[data-testid="host-release-notes-action-create"]').exists()).toBe(false);
@@ -76,7 +76,7 @@ describe('HostReleaseNotesView', () => {
 
   it('shows create action when create permission is granted', async () => {
     const wrapper = mountWithPermissions([
-      'platform.release_notes.read',
+      'platform.host_release_notes.read',
       'platform.release_notes.create'
     ]);
     await flushPromises();

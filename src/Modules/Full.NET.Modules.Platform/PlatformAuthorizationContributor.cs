@@ -24,6 +24,10 @@ internal sealed class PlatformAuthorizationContributor
             "查询更新日志",
             PlatformScopes),
         new PermissionDefinition(
+            PlatformPermissions.HostManageRead,
+            "查询 Host 更新日志管理列表与详情",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             PlatformPermissions.Create,
             "创建更新日志",
             AuthorizationScope.Host),
@@ -74,7 +78,7 @@ internal sealed class PlatformAuthorizationContributor
             "Release Notes",
             "platform",
             65,
-            PlatformPermissions.Read),
+            PlatformPermissions.HostManageRead),
         new NavigationDefinition(
             "my-release-notes",
             null,

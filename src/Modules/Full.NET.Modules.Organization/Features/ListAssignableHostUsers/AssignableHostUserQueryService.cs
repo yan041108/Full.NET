@@ -7,10 +7,10 @@ using Full.NET.Modules.Organization.Contracts;
 namespace Full.NET.Modules.Organization.Features.ListAssignableHostUsers;
 
 /// <summary>
-/// 为组织关系写入表单提供活动 Host 用户候选，且只允许在明确租户上下文中读取。
+/// 为组织关系写入表单提供当前租户活动成员候选，且只允许在明确租户上下文中读取。
 /// </summary>
 internal sealed class AssignableHostUserQueryService(
-    IHostUserSelectionDirectory hostUserDirectory,
+    ITenantMemberSelectionDirectory tenantMemberDirectory,
     ICurrentTenant currentTenant)
 {
     public async Task<PagedResult<OrganizationAssignableUserResponse>> ListAsync(
@@ -19,7 +19,7 @@ internal sealed class AssignableHostUserQueryService(
         CancellationToken cancellationToken = default)
     {
         EnsureTenantContext();
-        var users = await hostUserDirectory.ListActiveHostUsersAsync(
+        var users = await tenantMemberDirectory.ListActiveTenantMembersAsync(
                 page,
                 pageSize,
                 cancellationToken)

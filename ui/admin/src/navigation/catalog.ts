@@ -64,6 +64,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.registrationWays.title',
     captionKey: 'navigation.registrationWays.caption'
   }],
+  ['tenant-members', {
+    titleKey: 'navigation.tenantMembers.title',
+    captionKey: 'navigation.tenantMembers.caption'
+  }],
   ['ldap-connections', {
     titleKey: 'navigation.ldapConnections.title',
     captionKey: 'navigation.ldapConnections.caption'

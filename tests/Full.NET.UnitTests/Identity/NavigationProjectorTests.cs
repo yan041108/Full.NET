@@ -15,7 +15,8 @@ public sealed class NavigationProjectorTests
         var projector = new NavigationProjector(catalog);
 
         var result = projector.Project(
-            ["parent.read", "b.read", "a.read"]);
+            ["parent.read", "b.read", "a.read"],
+            isHostDataContext: true);
 
         Assert.HasCount(1, result);
         Assert.AreEqual("parent", result[0].Id);
@@ -45,6 +46,7 @@ public sealed class NavigationProjectorTests
 
         var result = projector.Project(
             ["parent.read", "a.read", "b.read"],
+            isHostDataContext: true,
             [additional]);
 
         Assert.IsTrue(result.Any(node => node.RouteName == "custom-menu"));
@@ -70,6 +72,7 @@ public sealed class NavigationProjectorTests
 
         var result = projector.Project(
             ["parent.read", "a.read", "b.read"],
+            isHostDataContext: true,
             [overrideDefinition]);
 
         var parent = result.Single(node => node.Id == "parent");
@@ -85,9 +88,42 @@ public sealed class NavigationProjectorTests
             [new StubContributor()]);
         var projector = new NavigationProjector(catalog);
 
-        var result = projector.Project(["parent.read"]);
+        var result = projector.Project(["parent.read"], isHostDataContext: true);
 
         Assert.HasCount(0, result);
+    }
+
+    [TestMethod]
+    public void Project_hides_host_only_navigation_in_tenant_data_context()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new StubContributor()]);
+        var projector = new NavigationProjector(catalog);
+
+        var hostResult = projector.Project(
+            ["parent.read", "a.read", "b.read"],
+            isHostDataContext: true);
+        Assert.HasCount(1, hostResult);
+
+        var tenantResult = projector.Project(
+            ["parent.read", "a.read", "b.read"],
+            isHostDataContext: false);
+        Assert.HasCount(0, tenantResult);
+    }
+
+    [TestMethod]
+    public void Project_keeps_dual_scope_navigation_in_tenant_data_context()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new DualScopeContributor()]);
+        var projector = new NavigationProjector(catalog);
+
+        var tenantResult = projector.Project(
+            ["tenant.read"],
+            isHostDataContext: false);
+
+        Assert.HasCount(1, tenantResult);
+        Assert.AreEqual("tenant-page", tenantResult[0].Id);
     }
 
     private sealed class StubContributor : IAuthorizationCatalogContributor
@@ -126,5 +162,34 @@ public sealed class NavigationProjectorTests
                 "grid",
                 order,
                 permission);
+    }
+
+    private sealed class DualScopeContributor : IAuthorizationCatalogContributor
+    {
+        public AuthorizationModuleDefinition Module { get; } =
+            new("dual", "双作用域", 2);
+
+        public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
+        [
+            new PermissionDefinition(
+                "tenant.read",
+                "Tenant",
+                AuthorizationScope.Host | AuthorizationScope.Tenant),
+        ];
+
+        public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
+        [
+            new NavigationDefinition(
+                "tenant-page",
+                null,
+                "tenant-page",
+                "/tenant",
+                "overview",
+                "租户页",
+                "Tenant",
+                "grid",
+                1,
+                "tenant.read"),
+        ];
     }
 }

@@ -22,7 +22,7 @@ internal static class TenantMembershipSql
                member.TenantId,
                member.UserId,
                userAccount.Username,
-               COALESCE(profile.DisplayName, userAccount.Username) AS DisplayName,
+               COALESCE(userAccount.DisplayName, userAccount.Username) AS DisplayName,
                member.MemberRole,
                member.Status,
                member.CreatedAtUtc,
@@ -30,7 +30,6 @@ internal static class TenantMembershipSql
                member.Version
         FROM fn_identity_tenant_member AS member
         INNER JOIN fn_identity_user AS userAccount ON userAccount.Id = member.UserId
-        LEFT JOIN fn_identity_user_profile AS profile ON profile.UserId = member.UserId
         WHERE member.TenantId = @TenantId
           AND (@Status IS NULL OR member.Status = @Status)
         ORDER BY member.CreatedAtUtc DESC, member.Id
@@ -46,7 +45,7 @@ internal static class TenantMembershipSql
                member.TenantId,
                member.UserId,
                userAccount.Username,
-               COALESCE(profile.DisplayName, userAccount.Username) AS DisplayName,
+               COALESCE(userAccount.DisplayName, userAccount.Username) AS DisplayName,
                member.MemberRole,
                member.Status,
                member.CreatedAtUtc,
@@ -54,7 +53,6 @@ internal static class TenantMembershipSql
                member.Version
         FROM fn_identity_tenant_member AS member
         INNER JOIN fn_identity_user AS userAccount ON userAccount.Id = member.UserId
-        LEFT JOIN fn_identity_user_profile AS profile ON profile.UserId = member.UserId
         WHERE member.TenantId = @TenantId
           AND (@Status IS NULL OR member.Status = @Status)
         ORDER BY member.CreatedAtUtc DESC, member.Id
@@ -70,7 +68,7 @@ internal static class TenantMembershipSql
                member.TenantId,
                member.UserId,
                userAccount.Username,
-               COALESCE(profile.DisplayName, userAccount.Username) AS DisplayName,
+               COALESCE(userAccount.DisplayName, userAccount.Username) AS DisplayName,
                member.MemberRole,
                member.Status,
                member.CreatedAtUtc,
@@ -78,7 +76,6 @@ internal static class TenantMembershipSql
                member.Version
         FROM fn_identity_tenant_member AS member
         INNER JOIN fn_identity_user AS userAccount ON userAccount.Id = member.UserId
-        LEFT JOIN fn_identity_user_profile AS profile ON profile.UserId = member.UserId
         WHERE member.Id = @MemberId
           AND member.TenantId = @TenantId
         """,
@@ -203,6 +200,71 @@ internal static class TenantMembershipSql
         VALUES
             (@Id, @TenantId, @TargetEmail, @TargetUserId, @InvitedByUserId, @MemberRole,
              @TokenHash, @Status, @ExpiresAtUtc, @CreatedAtUtc, @UpdatedAtUtc, @Version)
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement CountActiveMemberSelections = new(
+        "identity.tenant_members.count_active_selections",
+        """
+        SELECT COUNT(1)
+        FROM fn_identity_tenant_member AS member
+        INNER JOIN fn_identity_user AS userAccount ON userAccount.Id = member.UserId
+        WHERE member.TenantId = @TenantId
+          AND member.Status = @ActiveStatus
+          AND userAccount.IsActive = 1
+          AND userAccount.ScopeKey = 'host'
+          AND userAccount.TenantId IS NULL
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement ListActiveMemberSelectionsSqlServer = new(
+        "identity.tenant_members.list_active_selections.sql_server",
+        """
+        SELECT userAccount.Id, userAccount.Username, userAccount.DisplayName, userAccount.PreferredLocale
+        FROM fn_identity_tenant_member AS member
+        INNER JOIN fn_identity_user AS userAccount ON userAccount.Id = member.UserId
+        WHERE member.TenantId = @TenantId
+          AND member.Status = @ActiveStatus
+          AND userAccount.IsActive = 1
+          AND userAccount.ScopeKey = 'host'
+          AND userAccount.TenantId IS NULL
+        ORDER BY userAccount.NormalizedUsername, userAccount.Id
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement ListActiveMemberSelectionsMySql = new(
+        "identity.tenant_members.list_active_selections.mysql",
+        """
+        SELECT userAccount.Id, userAccount.Username, userAccount.DisplayName, userAccount.PreferredLocale
+        FROM fn_identity_tenant_member AS member
+        INNER JOIN fn_identity_user AS userAccount ON userAccount.Id = member.UserId
+        WHERE member.TenantId = @TenantId
+          AND member.Status = @ActiveStatus
+          AND userAccount.IsActive = 1
+          AND userAccount.ScopeKey = 'host'
+          AND userAccount.TenantId IS NULL
+        ORDER BY userAccount.NormalizedUsername, userAccount.Id
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement FindActiveMemberSelectionByUserId = new(
+        "identity.tenant_members.find_active_selection_by_user_id",
+        """
+        SELECT userAccount.Id, userAccount.Username, userAccount.DisplayName, userAccount.PreferredLocale
+        FROM fn_identity_tenant_member AS member
+        INNER JOIN fn_identity_user AS userAccount ON userAccount.Id = member.UserId
+        WHERE member.TenantId = @TenantId
+          AND member.UserId = @UserId
+          AND member.Status = @ActiveStatus
+          AND userAccount.IsActive = 1
+          AND userAccount.ScopeKey = 'host'
+          AND userAccount.TenantId IS NULL
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);

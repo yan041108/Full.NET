@@ -18,7 +18,7 @@ internal sealed class TenantUserPositionManagementService(
     ICommandTransaction transaction,
     TenantUserPositionQueryService assignmentQueries,
     TenantPositionQueryService positionQueries,
-    IHostUserDirectory hostUserDirectory,
+    ITenantMemberSelectionDirectory tenantMemberDirectory,
     ICurrentTenant currentTenant,
     IClock clock,
     IIdGenerator idGenerator)
@@ -28,13 +28,13 @@ internal sealed class TenantUserPositionManagementService(
         CancellationToken cancellationToken = default)
     {
         EnsureTenantContext();
-        var hostUser = await hostUserDirectory.FindActiveHostUserAsync(
+        var tenantMember = await tenantMemberDirectory.FindActiveTenantMemberAsync(
                 request.UserId,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (hostUser is null)
+        if (tenantMember is null)
         {
-            return UserNotFound();
+            return TenantMemberRequired();
         }
 
         return await transaction.ExecuteResultAsync(
@@ -208,10 +208,10 @@ internal sealed class TenantUserPositionManagementService(
             "The user is already assigned to this position.",
             ErrorType.Conflict));
 
-    private static Result<OrganizationUserPositionResponse> UserNotFound() =>
+    private static Result<OrganizationUserPositionResponse> TenantMemberRequired() =>
         Result<OrganizationUserPositionResponse>.Failure(new Error(
-            OrganizationErrorCodes.UserPositionUserNotFound,
-            "The host user was not found.",
+            OrganizationErrorCodes.UserPositionTenantMemberRequired,
+            "The user is not an active tenant member.",
             ErrorType.NotFound));
 
     private static Result<OrganizationUserPositionResponse> NotFound() =>
