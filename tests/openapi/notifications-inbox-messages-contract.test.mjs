@@ -37,6 +37,7 @@ test('站内信 OpenAPI 夹具与 C# 契约和端点源码一致', async () => {
   assert.match(contractsSource, /record InboxMessageResponse/u);
   assert.match(contractsSource, /record SendHostInboxMessageRequest/u);
   assert.match(contractsSource, /record SendTenantInboxMessageRequest/u);
+  assert.match(contractsSource, /record SentInboxMessageResponse/u);
   assert.match(
     myEndpointSource,
     /MapGroup\("\/api\/v1\/notifications\/my-inbox-messages"\)/u
@@ -48,6 +49,7 @@ test('站内信 OpenAPI 夹具与 C# 契约和端点源码一致', async () => {
   assert.match(myEndpointSource, /\.WithTags\("NotificationsMyInboxMessages"\)/u);
   assert.match(hostEndpointSource, /\.WithTags\("NotificationsHostInboxMessages"\)/u);
   assert.match(myEndpointSource, /\.WithName\("notificationsListMyInboxMessages"\)/u);
+  assert.match(myEndpointSource, /\.WithName\("notificationsListMySentInboxMessages"\)/u);
   assert.match(myEndpointSource, /\.WithName\("notificationsGetMyInboxUnreadCount"\)/u);
   assert.match(myEndpointSource, /\.WithName\("notificationsMarkMyInboxMessageRead"\)/u);
   assert.match(myEndpointSource, /\.WithName\("notificationsMarkAllMyInboxMessagesRead"\)/u);

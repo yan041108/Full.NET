@@ -28,6 +28,8 @@ namespace Full.NET.Modules.Notifications.Serialization;
 [JsonSerializable(typeof(IReadOnlyList<HostAnnouncementTargetOrganization>))]
 [JsonSerializable(typeof(InboxMessageResponse))]
 [JsonSerializable(typeof(PagedResult<InboxMessageResponse>))]
+[JsonSerializable(typeof(SentInboxMessageResponse))]
+[JsonSerializable(typeof(PagedResult<SentInboxMessageResponse>))]
 [JsonSerializable(typeof(InboxUnreadCountResponse))]
 [JsonSerializable(typeof(SendHostInboxMessageRequest))]
 [JsonSerializable(typeof(SendTenantInboxMessageRequest))]

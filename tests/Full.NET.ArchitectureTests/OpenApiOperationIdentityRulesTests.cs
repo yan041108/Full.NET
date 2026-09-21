@@ -644,6 +644,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/notifications/my-host-announcements/{announcementId}/read", "notificationsMarkMyHostAnnouncementRead", NotificationsMyHostAnnouncementsTag),
         new("POST", "/api/v1/notifications/my-host-announcements/read-all", "notificationsMarkAllMyHostAnnouncementsRead", NotificationsMyHostAnnouncementsTag),
         new("GET", "/api/v1/notifications/my-inbox-messages", "notificationsListMyInboxMessages", NotificationsMyInboxMessagesTag),
+        new("GET", "/api/v1/notifications/my-inbox-messages/sent", "notificationsListMySentInboxMessages", NotificationsMyInboxMessagesTag),
         new("GET", "/api/v1/notifications/my-inbox-messages/unread-count", "notificationsGetMyInboxUnreadCount", NotificationsMyInboxMessagesTag),
         new("POST", "/api/v1/notifications/my-inbox-messages/{messageId}/read", "notificationsMarkMyInboxMessageRead", NotificationsMyInboxMessagesTag),
         new("POST", "/api/v1/notifications/my-inbox-messages/read-all", "notificationsMarkAllMyInboxMessagesRead", NotificationsMyInboxMessagesTag),

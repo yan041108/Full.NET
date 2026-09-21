@@ -98,6 +98,18 @@ internal static class NotificationsInboxMessageAssertions
         Assert.IsNotNull(page);
         Assert.IsTrue(page.Items.Any(item => item.Id == created.Id));
 
+        using var sentListRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/notifications/my-inbox-messages/sent?page=1&pageSize=20");
+        sentListRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var sentListResponse = await client.SendAsync(sentListRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, sentListResponse.StatusCode);
+        var sentPage = await sentListResponse.Content.ReadFromJsonAsync<PagedSentInboxMessageResponses>(
+            cancellationToken);
+        Assert.IsNotNull(sentPage);
+        Assert.IsTrue(sentPage.Items.Any(
+            item => item.Id == created.Id && item.RecipientUserId == currentUser.Id));
+
         using var readRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
             $"/api/v1/notifications/my-inbox-messages/{created.Id:D}/read",
@@ -370,6 +382,12 @@ internal static class NotificationsInboxMessageAssertions
 
     private sealed record PagedInboxMessageResponses(
         InboxMessageResponse[] Items,
+        int Page,
+        int PageSize,
+        long Total);
+
+    private sealed record PagedSentInboxMessageResponses(
+        SentInboxMessageResponse[] Items,
         int Page,
         int PageSize,
         long Total);

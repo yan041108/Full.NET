@@ -85,6 +85,14 @@ internal static class OpenApiNotificationsInboxMessagesContractAssertions
             "application/json");
         OpenApiPilotContractAssertions.AssertOperation(
             document,
+            "/api/v1/notifications/my-inbox-messages/sent",
+            HttpMethod.Get,
+            "notificationsListMySentInboxMessages",
+            myTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
             "/api/v1/notifications/my-inbox-messages/unread-count",
             HttpMethod.Get,
             "notificationsGetMyInboxUnreadCount",

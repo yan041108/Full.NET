@@ -1081,14 +1081,18 @@ export {
   isInboxMessage,
   isInboxMessagePage,
   isInboxUnreadCount,
-  isSendHostInboxMessageRequest
+  isSendHostInboxMessageRequest,
+  isSentInboxMessage,
+  isSentInboxMessagePage
 } from './inbox-messages.js';
 
 export type {
   InboxMessage,
   InboxMessagePage,
   InboxUnreadCount,
-  SendHostInboxMessageRequest
+  SendHostInboxMessageRequest,
+  SentInboxMessage,
+  SentInboxMessagePage
 } from './inbox-messages.js';
 
 export {

@@ -2,13 +2,15 @@ import {
   isInboxMessage,
   isInboxMessagePage,
   isInboxUnreadCount,
+  isSentInboxMessagePage,
   notificationsGetMyInboxUnreadCount,
   notificationsMarkAllMyInboxMessagesRead,
   notificationsMarkMyInboxMessageRead,
   notificationsSendHostInboxMessage,
   type InboxMessage,
   type InboxMessagePage,
-  type InboxUnreadCount
+  type InboxUnreadCount,
+  type SentInboxMessagePage
 } from '@fullnet/client-contracts';
 import { http, request } from './http';
 
@@ -44,6 +46,30 @@ export async function listInboxMessages(
   );
   if (!isInboxMessagePage(value)) {
     throw new Error('client.invalid_inbox_message_page');
+  }
+
+  return value;
+}
+
+/** 分页查询当前用户已发送站内信列表。 */
+export async function listSentInboxMessages(
+  query: Pick<InboxMessageListQuery, 'page' | 'pageSize' | 'title'> = {},
+  signal?: AbortSignal
+): Promise<SentInboxMessagePage> {
+  const params = new URLSearchParams();
+  params.set('page', String(query.page ?? 1));
+  params.set('pageSize', String(query.pageSize ?? 20));
+  if (query.title?.trim()) {
+    params.set('title', query.title.trim());
+  }
+
+  const value = await request<unknown>(
+    `/api/v1/notifications/my-inbox-messages/sent?${params.toString()}`,
+    { method: 'GET' },
+    signal
+  );
+  if (!isSentInboxMessagePage(value)) {
+    throw new Error('client.invalid_sent_inbox_message_page');
   }
 
   return value;
@@ -110,4 +136,5 @@ export async function sendHostInboxMessage(
 }
 
 /** 导出站内信列表、明细与未读数模型，供收件箱页和实时未读提醒共享同一契约。 */
-export type { InboxMessage, InboxMessagePage, InboxUnreadCount };
+export type { InboxMessage, InboxMessagePage, InboxUnreadCount, SentInboxMessagePage };
+export type { SentInboxMessage } from '@fullnet/client-contracts';

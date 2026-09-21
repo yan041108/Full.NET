@@ -53,6 +53,35 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.Read));
 
+        group.MapGet("/sent", async (
+            int? page,
+            int? pageSize,
+            string? title,
+            MyInboxQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await queries.ListSentAsync(
+                    userId,
+                    page ?? 1,
+                    pageSize ?? 20,
+                    new InboxMessageListFilter(title),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("notificationsListMySentInboxMessages")
+        .Produces<PagedResult<SentInboxMessageResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.Send));
+
         group.MapGet("/unread-count", async (
             MyInboxQueryService queries,
             IApiResultMapper mapper,

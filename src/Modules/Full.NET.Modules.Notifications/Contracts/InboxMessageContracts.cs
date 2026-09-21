@@ -58,6 +58,23 @@ public sealed record InboxMessageListFilter(
     string? Title = null,
     string? Status = null);
 
+/// <summary>当前用户发件箱列表项；包含收件人标识供管理端展示。</summary>
+/// <param name="Id">站内信消息标识。</param>
+/// <param name="RecipientUserId">接收者用户标识。</param>
+/// <param name="Title">消息标题。</param>
+/// <param name="Content">消息正文。</param>
+/// <param name="Status">收件人侧的读取状态稳定机器码。</param>
+/// <param name="ReadAtUtc">收件人首次阅读时间（UTC），未读时为 null。</param>
+/// <param name="CreatedAtUtc">消息发送时间（UTC）。</param>
+public sealed record SentInboxMessageResponse(
+    Guid Id,
+    Guid RecipientUserId,
+    string Title,
+    string Content,
+    string Status,
+    DateTimeOffset? ReadAtUtc,
+    DateTimeOffset CreatedAtUtc);
+
 /// <summary>Host 管理员发送站内信的请求契约，收件人由管理员指定。</summary>
 /// <param name="RecipientUserId">接收者用户标识；必须属于当前租户或 Host 域。</param>
 /// <param name="Title">消息标题，建议不超过 256 字符。</param>

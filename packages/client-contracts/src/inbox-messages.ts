@@ -15,6 +15,23 @@ export interface InboxMessagePage {
   total: number;
 }
 
+export interface SentInboxMessage {
+  id: string;
+  recipientUserId: string;
+  title: string;
+  content: string;
+  status: 'unread' | 'read';
+  readAtUtc: string | null;
+  createdAtUtc: string;
+}
+
+export interface SentInboxMessagePage {
+  items: SentInboxMessage[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
 export interface InboxUnreadCount {
   unreadCount: number;
 }
@@ -42,6 +59,26 @@ export function isInboxMessagePage(value: unknown): value is InboxMessagePage {
   return isRecord(value)
     && Array.isArray(value.items)
     && value.items.every(isInboxMessage)
+    && Number.isInteger(value.page)
+    && Number.isInteger(value.pageSize)
+    && Number.isInteger(value.total);
+}
+
+export function isSentInboxMessage(value: unknown): value is SentInboxMessage {
+  return isRecord(value)
+    && isGuid(value.id)
+    && isGuid(value.recipientUserId)
+    && isNonEmptyString(value.title)
+    && isNonEmptyString(value.content)
+    && (value.status === 'unread' || value.status === 'read')
+    && (value.readAtUtc === null || typeof value.readAtUtc === 'string')
+    && typeof value.createdAtUtc === 'string';
+}
+
+export function isSentInboxMessagePage(value: unknown): value is SentInboxMessagePage {
+  return isRecord(value)
+    && Array.isArray(value.items)
+    && value.items.every(isSentInboxMessage)
     && Number.isInteger(value.page)
     && Number.isInteger(value.pageSize)
     && Number.isInteger(value.total);

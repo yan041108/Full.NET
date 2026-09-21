@@ -52,6 +52,39 @@ internal sealed class MyInboxQueryService(
                 total));
     }
 
+    /// <summary>按发送者与当前作用域分页查询已发送站内信。</summary>
+    public async Task<Result<PagedResult<SentInboxMessageResponse>>> ListSentAsync(
+        Guid senderUserId,
+        int page,
+        int pageSize,
+        InboxMessageListFilter? filter = null,
+        CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var offset = (page - 1) * pageSize;
+        var scope = NotificationInboxScope.Resolve(currentTenant);
+        var parameters = BuildSentFilterParameters(scope.TenantScopeKey, senderUserId, filter, offset, pageSize);
+
+        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                InboxMessageSql.CountForSender,
+                parameters,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var rows = await queryExecutor.QueryAsync<InboxMessageRecord>(
+                ResolveSentListStatement(),
+                parameters,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return Result<PagedResult<SentInboxMessageResponse>>.Success(
+            new PagedResult<SentInboxMessageResponse>(
+                rows.Select(MapSent).ToArray(),
+                page,
+                pageSize,
+                total));
+    }
+
     /// <summary>
     /// 查询指定收件人在当前作用域的未读站内信数量，作为实时徽标的权威值。
     /// </summary>
@@ -83,11 +116,30 @@ internal sealed class MyInboxQueryService(
             record.CreatedAtUtc,
             record.CreatedByUserId);
 
+    internal static SentInboxMessageResponse MapSent(InboxMessageRecord record) =>
+        new(
+            record.Id,
+            record.RecipientUserId,
+            record.Title,
+            record.Content,
+            record.Status,
+            record.ReadAtUtc,
+            record.CreatedAtUtc);
+
     private SqlStatement ResolveListStatement() =>
         databaseOptions.Value.Provider switch
         {
             DatabaseProvider.SqlServer => InboxMessageSql.ListForRecipientSqlServer,
             DatabaseProvider.MySql => InboxMessageSql.ListForRecipientMySql,
+            _ => throw new InvalidOperationException(
+                $"Unsupported database provider '{databaseOptions.Value.Provider}'.")
+        };
+
+    private SqlStatement ResolveSentListStatement() =>
+        databaseOptions.Value.Provider switch
+        {
+            DatabaseProvider.SqlServer => InboxMessageSql.ListForSenderSqlServer,
+            DatabaseProvider.MySql => InboxMessageSql.ListForSenderMySql,
             _ => throw new InvalidOperationException(
                 $"Unsupported database provider '{databaseOptions.Value.Provider}'.")
         };
@@ -109,6 +161,23 @@ internal sealed class MyInboxQueryService(
             ("Title", title),
             ("TitlePattern", title is null ? null : $"%{title}%"),
             ("Status", status));
+    }
+
+    private static Dictionary<string, object?> BuildSentFilterParameters(
+        string tenantScopeKey,
+        Guid senderUserId,
+        InboxMessageListFilter? filter,
+        int offset,
+        int pageSize)
+    {
+        var title = string.IsNullOrWhiteSpace(filter?.Title) ? null : filter.Title.Trim();
+        return NotificationPlatformSqlParameters.Create(
+            ("CreatedByUserId", senderUserId),
+            ("TenantScopeKey", tenantScopeKey),
+            ("Offset", offset),
+            ("PageSize", pageSize),
+            ("Title", title),
+            ("TitlePattern", title is null ? null : $"%{title}%"));
     }
 
     internal static string? NormalizeStatusFilter(string? status)

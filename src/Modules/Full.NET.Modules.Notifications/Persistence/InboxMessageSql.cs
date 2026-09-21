@@ -111,6 +111,42 @@ internal static class InboxMessageSql
             """,
             SqlDataScope.Global);
 
+    public static readonly SqlStatement ListForSenderSqlServer =
+        new(
+            "notifications.list_sent_inbox_messages.sql_server",
+            $"""
+            SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
+                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
+            FROM fn_notifications_inbox_message
+            WHERE {SenderWhereClause}
+            ORDER BY CreatedAtUtc DESC, Id
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+            """,
+            SqlDataScope.Global);
+
+    public static readonly SqlStatement ListForSenderMySql =
+        new(
+            "notifications.list_sent_inbox_messages.mysql",
+            $"""
+            SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
+                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
+            FROM fn_notifications_inbox_message
+            WHERE {SenderWhereClause}
+            ORDER BY CreatedAtUtc DESC, Id
+            LIMIT @PageSize OFFSET @Offset
+            """,
+            SqlDataScope.Global);
+
+    public static readonly SqlStatement CountForSender =
+        new(
+            "notifications.count_sent_inbox_messages",
+            $"""
+            SELECT COUNT(*)
+            FROM fn_notifications_inbox_message
+            WHERE {SenderWhereClause}
+            """,
+            SqlDataScope.Global);
+
     public static readonly SqlStatement CountUnreadForRecipient =
         new(
             "notifications.count_unread_inbox_messages",
@@ -182,5 +218,12 @@ internal static class InboxMessageSql
           AND TenantScopeKey = @TenantScopeKey
           AND (@Title IS NULL OR Title LIKE @TitlePattern)
           AND (@Status IS NULL OR Status = @Status)
+        """;
+
+    private const string SenderWhereClause =
+        """
+        CreatedByUserId = @CreatedByUserId
+          AND TenantScopeKey = @TenantScopeKey
+          AND (@Title IS NULL OR Title LIKE @TitlePattern)
         """;
 }
