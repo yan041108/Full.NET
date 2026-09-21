@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
@@ -14,6 +15,7 @@ internal sealed class TenantBrandingMediaService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     IClock clock,
+    ICurrentTenantContextWriter currentTenantWriter,
     IHostFileUploadWriter hostFileUploadWriter,
     IHostFileReferenceClaimService hostFileReferenceClaimService,
     IHostFileDescriptorReader hostFileDescriptorReader,
@@ -34,6 +36,7 @@ internal sealed class TenantBrandingMediaService(
             tenantId,
             uploadedByUserId,
             TenantSql.UpdateTenantLogo,
+            useCurrentTenantScope: false,
             fileName,
             contentType,
             content,
@@ -53,6 +56,7 @@ internal sealed class TenantBrandingMediaService(
             tenantId,
             uploadedByUserId,
             TenantSql.UpdateTenantLogoCurrent,
+            useCurrentTenantScope: true,
             fileName,
             contentType,
             content,
@@ -63,24 +67,38 @@ internal sealed class TenantBrandingMediaService(
     public Task<Result<TenantBrandingResponse>> DeleteLogoByTenantIdAsync(
         Guid tenantId,
         CancellationToken cancellationToken = default) =>
-        DeleteLogoAsync(tenantId, TenantSql.ClearTenantLogo, cancellationToken);
+        DeleteLogoAsync(
+            tenantId,
+            TenantSql.ClearTenantLogo,
+            useCurrentTenantScope: false,
+            cancellationToken);
 
     /// <summary>当前租户上下文删除 Logo。</summary>
     public Task<Result<TenantBrandingResponse>> DeleteLogoCurrentAsync(
         Guid tenantId,
         CancellationToken cancellationToken = default) =>
-        DeleteLogoAsync(tenantId, TenantSql.ClearTenantLogoCurrent, cancellationToken);
+        DeleteLogoAsync(
+            tenantId,
+            TenantSql.ClearTenantLogoCurrent,
+            useCurrentTenantScope: true,
+            cancellationToken);
 
     /// <summary>按租户标识打开 Logo 内容流。</summary>
     public Task<Result<HostFileContent>> OpenLogoContentAsync(
         Guid tenantId,
         CancellationToken cancellationToken = default) =>
-        OpenContentAsync(tenantId, cancellationToken);
+        OpenContentAsync(tenantId, useCurrentTenantScope: false, cancellationToken);
+
+    /// <summary>当前租户上下文打开 Logo 内容流。</summary>
+    public Task<Result<HostFileContent>> OpenCurrentLogoContentAsync(
+        CancellationToken cancellationToken = default) =>
+        OpenContentAsync(useCurrentTenantScope: true, cancellationToken);
 
     private async Task<Result<TenantBrandingResponse>> UploadLogoAsync(
         Guid tenantId,
         Guid uploadedByUserId,
         SqlStatement updateStatement,
+        bool useCurrentTenantScope,
         string fileName,
         string contentType,
         Stream content,
@@ -94,10 +112,9 @@ internal sealed class TenantBrandingMediaService(
             return LogoInvalid<TenantBrandingResponse>();
         }
 
-        var branding = await queryExecutor
-            .QuerySingleOrDefaultAsync<TenantBrandingRecord>(
-                TenantSql.FindTenantBrandingById,
-                TenancySqlParameters.Create(("TenantId", tenantId)),
+        var branding = await LoadBrandingRecordAsync(
+                tenantId,
+                useCurrentTenantScope,
                 cancellationToken)
             .ConfigureAwait(false);
         if (branding is null)
@@ -105,47 +122,60 @@ internal sealed class TenantBrandingMediaService(
             return NotFound<TenantBrandingResponse>();
         }
 
-        var uploadResult = await hostFileUploadWriter
-            .UploadAsync(
-                uploadedByUserId,
-                fileName,
-                contentType,
-                content,
-                contentLength,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!uploadResult.IsSuccess)
-        {
-            return Result<TenantBrandingResponse>.Failure(uploadResult.Error!);
-        }
-
-        var fileId = uploadResult.Value!.FileId;
-        var descriptor = await hostFileDescriptorReader
-            .GetReadyDescriptorAsync(fileId, cancellationToken)
-            .ConfigureAwait(false);
-        if (descriptor is null
-            || descriptor.CreatedByUserId != uploadedByUserId
-            || descriptor.SizeBytes > TenantBrandingPolicy.LogoMaxBytes
-            || !TenantBrandingPolicy.IsAllowedLogoContentType(descriptor.ContentType))
-        {
-            return LogoInvalid<TenantBrandingResponse>();
-        }
-
         var previousFileId = branding.LogoFileId;
-        var idempotencyKey = HostFileReferenceClaimIdempotencyKeys.TenancyTenantLogo(tenantId, fileId);
-        var claimResult = await hostFileReferenceClaimService
-            .ClaimAsync(
-                new HostFileReferenceClaimRequest(
-                    idempotencyKey,
-                    HostFileReferenceClaimConsumerModules.Tenancy,
-                    tenantId,
-                    fileId),
-                cancellationToken)
+        var claimPhase = await RunHostFileOpsIfNeededAsync(
+                useCurrentTenantScope,
+                async () =>
+                {
+                    var uploadResult = await hostFileUploadWriter
+                        .UploadAsync(
+                            uploadedByUserId,
+                            fileName,
+                            contentType,
+                            content,
+                            contentLength,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (!uploadResult.IsSuccess)
+                    {
+                        return Result<(Guid FileId, string IdempotencyKey)>.Failure(uploadResult.Error!);
+                    }
+
+                    var fileId = uploadResult.Value!.FileId;
+                    var descriptor = await hostFileDescriptorReader
+                        .GetReadyDescriptorAsync(fileId, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (descriptor is null
+                        || descriptor.CreatedByUserId != uploadedByUserId
+                        || descriptor.SizeBytes > TenantBrandingPolicy.LogoMaxBytes
+                        || !TenantBrandingPolicy.IsAllowedLogoContentType(descriptor.ContentType))
+                    {
+                        return LogoInvalid<(Guid FileId, string IdempotencyKey)>();
+                    }
+
+                    var idempotencyKey = HostFileReferenceClaimIdempotencyKeys.TenancyTenantLogo(
+                        tenantId,
+                        fileId);
+                    var claimResult = await hostFileReferenceClaimService
+                        .ClaimAsync(
+                            new HostFileReferenceClaimRequest(
+                                idempotencyKey,
+                                HostFileReferenceClaimConsumerModules.Tenancy,
+                                tenantId,
+                                fileId),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    return claimResult.IsSuccess
+                        ? Result<(Guid FileId, string IdempotencyKey)>.Success((fileId, idempotencyKey))
+                        : Result<(Guid FileId, string IdempotencyKey)>.Failure(claimResult.Error!);
+                })
             .ConfigureAwait(false);
-        if (!claimResult.IsSuccess)
+        if (!claimPhase.IsSuccess)
         {
-            return Result<TenantBrandingResponse>.Failure(claimResult.Error!);
+            return Result<TenantBrandingResponse>.Failure(claimPhase.Error!);
         }
+
+        var (fileId, idempotencyKey) = claimPhase.Value;
 
         var bindResult = await transaction.ExecuteResultAsync(
                 token => BindLogoAsync(
@@ -158,14 +188,16 @@ internal sealed class TenantBrandingMediaService(
             .ConfigureAwait(false);
         if (!bindResult.IsSuccess)
         {
-            await hostFileReferenceClaimService
-                .ReleaseAsync(idempotencyKey, cancellationToken)
+            await RunHostFileOpsIfNeededAsync(
+                    useCurrentTenantScope,
+                    () => hostFileReferenceClaimService.ReleaseAsync(idempotencyKey, cancellationToken))
                 .ConfigureAwait(false);
             return Result<TenantBrandingResponse>.Failure(bindResult.Error!);
         }
 
-        var confirmResult = await hostFileReferenceClaimService
-            .ConfirmAsync(idempotencyKey, cancellationToken)
+        var confirmResult = await RunHostFileOpsIfNeededAsync(
+                useCurrentTenantScope,
+                () => hostFileReferenceClaimService.ConfirmAsync(idempotencyKey, cancellationToken))
             .ConfigureAwait(false);
         if (!confirmResult.IsSuccess)
         {
@@ -174,24 +206,24 @@ internal sealed class TenantBrandingMediaService(
 
         if (previousFileId is Guid oldFileId && oldFileId != fileId)
         {
-            await ReleaseLogoClaimAsync(tenantId, oldFileId, cancellationToken)
+            await ReleaseLogoClaimAsync(tenantId, oldFileId, useCurrentTenantScope, cancellationToken)
                 .ConfigureAwait(false);
         }
 
         await InvalidateBrandingCacheAsync(tenantId, cancellationToken).ConfigureAwait(false);
-        return await brandingService.GetByTenantIdAsync(tenantId, cancellationToken)
+        return await ReloadBrandingResponseAsync(tenantId, useCurrentTenantScope, cancellationToken)
             .ConfigureAwait(false);
     }
 
     private async Task<Result<TenantBrandingResponse>> DeleteLogoAsync(
         Guid tenantId,
         SqlStatement clearStatement,
+        bool useCurrentTenantScope,
         CancellationToken cancellationToken)
     {
-        var branding = await queryExecutor
-            .QuerySingleOrDefaultAsync<TenantBrandingRecord>(
-                TenantSql.FindTenantBrandingById,
-                TenancySqlParameters.Create(("TenantId", tenantId)),
+        var branding = await LoadBrandingRecordAsync(
+                tenantId,
+                useCurrentTenantScope,
                 cancellationToken)
             .ConfigureAwait(false);
         if (branding is null)
@@ -201,7 +233,7 @@ internal sealed class TenantBrandingMediaService(
 
         if (branding.LogoFileId is not Guid fileId)
         {
-            return await brandingService.GetByTenantIdAsync(tenantId, cancellationToken)
+            return await ReloadBrandingResponseAsync(tenantId, useCurrentTenantScope, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -212,20 +244,21 @@ internal sealed class TenantBrandingMediaService(
                     ("UpdatedAtUtc", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
-        await ReleaseLogoClaimAsync(tenantId, fileId, cancellationToken).ConfigureAwait(false);
+        await ReleaseLogoClaimAsync(tenantId, fileId, useCurrentTenantScope, cancellationToken)
+            .ConfigureAwait(false);
         await InvalidateBrandingCacheAsync(tenantId, cancellationToken).ConfigureAwait(false);
-        return await brandingService.GetByTenantIdAsync(tenantId, cancellationToken)
+        return await ReloadBrandingResponseAsync(tenantId, useCurrentTenantScope, cancellationToken)
             .ConfigureAwait(false);
     }
 
     private async Task<Result<HostFileContent>> OpenContentAsync(
         Guid tenantId,
+        bool useCurrentTenantScope,
         CancellationToken cancellationToken)
     {
-        var branding = await queryExecutor
-            .QuerySingleOrDefaultAsync<TenantBrandingRecord>(
-                TenantSql.FindTenantBrandingById,
-                TenancySqlParameters.Create(("TenantId", tenantId)),
+        var branding = await LoadBrandingRecordAsync(
+                tenantId,
+                useCurrentTenantScope,
                 cancellationToken)
             .ConfigureAwait(false);
         if (branding?.LogoFileId is not Guid fileId)
@@ -245,13 +278,41 @@ internal sealed class TenantBrandingMediaService(
             return LogoNotFound<HostFileContent>();
         }
 
-        var content = await hostFileContentReader
-            .OpenReadyContentAsync(fileId, cancellationToken)
+        var content = await RunHostFileOpsIfNeededAsync(
+                useCurrentTenantScope,
+                () => hostFileContentReader.OpenReadyContentAsync(fileId, cancellationToken))
             .ConfigureAwait(false);
         return content.IsSuccess
             ? content
             : LogoNotFound<HostFileContent>();
     }
+
+    private Task<TenantBrandingRecord?> LoadBrandingRecordAsync(
+        Guid tenantId,
+        bool useCurrentTenantScope,
+        CancellationToken cancellationToken) =>
+        useCurrentTenantScope
+            ? queryExecutor.QuerySingleOrDefaultAsync<TenantBrandingRecord>(
+                TenantSql.FindTenantBrandingCurrent,
+                TenancySqlParameters.Create(),
+                cancellationToken)
+            : queryExecutor.QuerySingleOrDefaultAsync<TenantBrandingRecord>(
+                TenantSql.FindTenantBrandingById,
+                TenancySqlParameters.Create(("TenantId", tenantId)),
+                cancellationToken);
+
+    private Task<Result<TenantBrandingResponse>> ReloadBrandingResponseAsync(
+        Guid tenantId,
+        bool useCurrentTenantScope,
+        CancellationToken cancellationToken) =>
+        useCurrentTenantScope
+            ? brandingService.GetCurrentAsync(cancellationToken)
+            : brandingService.GetByTenantIdAsync(tenantId, cancellationToken);
+
+    private Task<Result<HostFileContent>> OpenContentAsync(
+        bool useCurrentTenantScope,
+        CancellationToken cancellationToken) =>
+        OpenContentAsync(Guid.Empty, useCurrentTenantScope, cancellationToken);
 
     private async Task<Result<bool>> BindLogoAsync(
         Guid tenantId,
@@ -277,16 +338,36 @@ internal sealed class TenantBrandingMediaService(
                 ErrorType.Conflict));
     }
 
-    private async Task ReleaseLogoClaimAsync(
+    private Task ReleaseLogoClaimAsync(
         Guid tenantId,
         Guid fileId,
+        bool useCurrentTenantScope,
         CancellationToken cancellationToken)
     {
         var idempotencyKey = HostFileReferenceClaimIdempotencyKeys.TenancyTenantLogo(tenantId, fileId);
-        _ = await hostFileReferenceClaimService
-            .ReleaseAsync(idempotencyKey, cancellationToken)
-            .ConfigureAwait(false);
+        return RunHostFileOpsIfNeededAsync(
+            useCurrentTenantScope,
+            async () =>
+            {
+                _ = await hostFileReferenceClaimService
+                    .ReleaseAsync(idempotencyKey, cancellationToken)
+                    .ConfigureAwait(false);
+            });
     }
+
+    private Task<T> RunHostFileOpsIfNeededAsync<T>(
+        bool useCurrentTenantScope,
+        Func<Task<T>> action) =>
+        useCurrentTenantScope
+            ? TenancyHostExecutionScope.RunAsync(currentTenantWriter, action)
+            : action();
+
+    private Task RunHostFileOpsIfNeededAsync(
+        bool useCurrentTenantScope,
+        Func<Task> action) =>
+        useCurrentTenantScope
+            ? TenancyHostExecutionScope.RunAsync(currentTenantWriter, action)
+            : action();
 
     private async Task InvalidateBrandingCacheAsync(
         Guid tenantId,

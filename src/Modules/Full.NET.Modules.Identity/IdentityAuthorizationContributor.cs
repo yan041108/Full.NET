@@ -283,6 +283,10 @@ internal sealed class IdentityAuthorizationContributor
             "撤销租户邀请",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
+            IdentityTenantMembershipPermissions.Provision,
+            "创建租户成员",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
             IdentityLdapConnectionPermissions.Read,
             "查看 LDAP 连接",
             AuthorizationScope.Host),

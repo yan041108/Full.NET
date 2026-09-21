@@ -239,8 +239,7 @@ internal sealed class Handler(
                 IdentitySqlParameters.Create(
                     ("UserId", user.Id),
                     ("Nickname", request.DisplayName.Trim()),
-                    ("Email", normalizedEmail),
-                    ("CreatedAtUtc", now)),
+                    ("Email", normalizedEmail)),
                 cancellationToken)
             .ConfigureAwait(false);
 

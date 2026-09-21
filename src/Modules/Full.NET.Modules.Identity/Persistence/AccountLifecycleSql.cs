@@ -32,11 +32,9 @@ internal static class AccountLifecycleSql
         "identity.insert_user_profile_email",
         """
         INSERT INTO fn_identity_user_profile
-            (UserId, Nickname, PhoneNumber, Email, EmployeeNumber, Gender,
-             Birthday, IdCardType, IdCardNumber, Address, Remark, Version, CreatedAtUtc, UpdatedAtUtc)
+            (UserId, Nickname, Email, SortOrder, Version)
         VALUES
-            (@UserId, @Nickname, NULL, @Email, NULL, NULL,
-             NULL, NULL, NULL, NULL, NULL, 1, @CreatedAtUtc, NULL)
+            (@UserId, @Nickname, @Email, 100, 1)
         """,
         SqlDataScope.HostOnly);
 }

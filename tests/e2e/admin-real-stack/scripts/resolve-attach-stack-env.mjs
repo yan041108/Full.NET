@@ -32,9 +32,24 @@ function tryDockerSqlPassword(containerName = 'sql-hskdsqbw') {
   }
 }
 
+/** 读取 Docker 将 1433 映射到宿主机的端口，避免容器重建后仍使用过期默认端口。 */
+function tryDockerSqlHostPort(containerName = 'sql-hskdsqbw') {
+  try {
+    const out = execSync(`docker port ${containerName} 1433`, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'ignore']
+    }).trim();
+    const match = out.match(/:(\d+)\s*$/);
+    return match ? match[1] : '';
+  } catch {
+    return '';
+  }
+}
+
 const sqlPassword =
   process.env.FULLNET_E2E_SQL_PASSWORD ?? tryDockerSqlPassword() ?? 'FullNet_Test!123';
-const sqlPort = process.env.FULLNET_E2E_SQL_PORT ?? '60099';
+const sqlPort =
+  process.env.FULLNET_E2E_SQL_PORT ?? tryDockerSqlHostPort() ?? '60099';
 const redisPort = process.env.FULLNET_E2E_REDIS_PORT ?? '60100';
 
 function tryDockerRedisPassword(containerName) {

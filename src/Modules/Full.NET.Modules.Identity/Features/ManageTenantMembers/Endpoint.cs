@@ -97,6 +97,21 @@ internal static class Endpoint
         .Produces<CreateTenantInvitationResult>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityTenantMembershipPermissions.Invite);
 
+        group.MapPost("/provision", async (
+            ProvisionTenantMemberRequest request,
+            TenantMemberProvisionService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ProvisionAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityProvisionTenantMember")
+        .Produces<TenantMemberResponse>(StatusCodes.Status200OK)
+        .RequireFullNetPermission(IdentityTenantMembershipPermissions.Provision);
+
         group.MapPost("/invitations/{invitationId:guid}/revoke", async (
             Guid invitationId,
             TenantMembershipManagementService service,

@@ -48,14 +48,52 @@ export function useArtCrudTableLayout(options: ArtCrudTableLayoutOptions = {}) {
     labelComboboxesIn(container, { pageSize: t('table.pageSize') });
   }
 
-  /** 按视口高度重算表格区域，保证分页条固定在底部时主体仍可滚动。 */
+  /** 统计表格容器内除表格与分页外的占位高度（如工具栏）。 */
+  function measureTableChromeHeight(container: HTMLElement): number {
+    let chrome = 0;
+    for (const child of Array.from(container.children)) {
+      if (!(child instanceof HTMLElement)) {
+        continue;
+      }
+      if (child.classList.contains('art-table-pagination')) {
+        continue;
+      }
+      if (child.classList.contains('el-table') || child.querySelector('.el-table')) {
+        continue;
+      }
+      chrome += child.offsetHeight;
+    }
+    return chrome;
+  }
+
+  /** 按容器或视口高度重算表格区域，为分页与工具栏预留空间，避免分页被裁切。 */
   function updateTableHeight(): void {
     const container = resolveLayoutElement(tableMainRef.value);
     if (!container) {
       return;
     }
+
+    const pagination = container.querySelector('.art-table-pagination');
+    const paginationHeight =
+      pagination instanceof HTMLElement && pagination.offsetHeight > 0
+        ? pagination.offsetHeight
+        : bottomOffset;
+    const chromeHeight = measureTableChromeHeight(container);
+
+    if (container.clientHeight > 120) {
+      tableHeight.value = Math.max(
+        120,
+        container.clientHeight - chromeHeight - paginationHeight - 4
+      );
+      void nextTick(labelPaginationComboboxes);
+      return;
+    }
+
     const top = container.getBoundingClientRect().top;
-    tableHeight.value = Math.max(240, window.innerHeight - top - bottomOffset);
+    tableHeight.value = Math.max(
+      240,
+      window.innerHeight - top - paginationHeight - chromeHeight - 4
+    );
     void nextTick(labelPaginationComboboxes);
   }
 

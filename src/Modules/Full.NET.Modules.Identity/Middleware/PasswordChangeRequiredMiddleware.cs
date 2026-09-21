@@ -31,7 +31,8 @@ internal sealed class PasswordChangeRequiredMiddleware(
         }
 
         var path = httpContext.Request.Path.Value ?? string.Empty;
-        if (IsAllowedPath(httpContext, path))
+        if (IsAllowedPath(httpContext, path)
+            || IsSelfServiceTenantInvitationPath(httpContext, path))
         {
             await next(httpContext).ConfigureAwait(false);
             return;
@@ -64,5 +65,21 @@ internal sealed class PasswordChangeRequiredMiddleware(
             "/api/v1/auth/logout" => HttpMethods.IsPost(httpContext.Request.Method),
             _ => false,
         };
+    }
+
+    private static bool IsSelfServiceTenantInvitationPath(HttpContext httpContext, string path)
+    {
+        if (path.Equals("/api/v1/me/tenant-invitations", StringComparison.OrdinalIgnoreCase))
+        {
+            return HttpMethods.IsGet(httpContext.Request.Method);
+        }
+
+        if (!path.StartsWith("/api/v1/me/tenant-invitations/", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return path.EndsWith("/accept", StringComparison.OrdinalIgnoreCase)
+            && HttpMethods.IsPost(httpContext.Request.Method);
     }
 }

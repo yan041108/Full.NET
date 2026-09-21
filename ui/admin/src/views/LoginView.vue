@@ -13,6 +13,7 @@ import ArtLoginLeftPanel from '../framework/art-design/auth/ArtLoginLeftPanel.vu
 import { buildOAuthAuthorizeUrl } from '../api/oauth-links';
 import { listPublicOAuthProviders } from '../api/oauth-providers';
 import { beginAdminOidcCenterLogin } from '../auth/oidc-center-login';
+import { resolveLoginProblemTitle } from '../auth/login-problem';
 import { adminIdentityAuthMode } from '../config/identity-auth';
 
 const session = useSessionStore();
@@ -27,6 +28,8 @@ const oidcSubmitting = ref(false);
 const status = computed(() => session.state === 'authenticated'
   ? t('auth.statusAuthenticated')
   : t('auth.statusAnonymous'));
+const problemTitle = computed(() =>
+  problem.value ? resolveLoginProblemTitle(problem.value, t) : '');
 
 function oauthReturnUrl(): string {
   const { origin, pathname, search } = window.location;
@@ -118,7 +121,7 @@ onMounted(() => {
           <p class="art-login-form__subtitle">{{ t('auth.oidcCenterSubtitle') }}</p>
           <div v-if="problem" class="art-inline-alert" role="alert" aria-live="assertive">
             <strong translate="no">{{ problem.code }}</strong>
-            <span>{{ problem.title }}</span>
+            <span>{{ problemTitle }}</span>
             <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
           </div>
           <el-button
@@ -171,7 +174,7 @@ onMounted(() => {
 
           <div v-if="problem" class="art-inline-alert" role="alert" aria-live="assertive">
             <strong translate="no">{{ problem.code }}</strong>
-            <span>{{ problem.title }}</span>
+            <span>{{ problemTitle }}</span>
             <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
           </div>
 

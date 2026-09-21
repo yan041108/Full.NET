@@ -184,7 +184,7 @@ export async function downloadSelfServiceAvatarContent(
   http: HttpClient,
   signal?: AbortSignal
 ): Promise<Blob> {
-  return http.request<Blob>(
+  return http.requestBlob(
     '/api/v1/me/profile/avatar/content',
     { method: 'GET' },
     signal
@@ -196,7 +196,7 @@ export async function downloadSelfServiceSignatureContent(
   http: HttpClient,
   signal?: AbortSignal
 ): Promise<Blob> {
-  return http.request<Blob>(
+  return http.requestBlob(
     '/api/v1/me/profile/signature/content',
     { method: 'GET' },
     signal

@@ -109,7 +109,9 @@ export function createVueNotificationsRealtime(
   });
   const unsubscribeSession = options.session.subscribe(snapshot => {
     const generation = ++sessionGeneration;
-    refreshEnabled = snapshot.state === 'authenticated' && !snapshot.switching;
+    refreshEnabled = snapshot.state === 'authenticated'
+      && !snapshot.switching
+      && snapshot.currentUser?.passwordChangeRequired !== true;
     pendingLoad = undefined;
     if (snapshot.state !== 'authenticated') {
       unreadCount.value = 0;

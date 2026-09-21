@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElMessage, ElTable, ElTableColumn } from 'element-plus';
+import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn } from 'element-plus';
 import type { OAuthUserLink, PublicOAuthProvider } from '@fullnet/client-contracts';
-import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import {
+  showProblem,
+  showSuccess,
+  showWarning
+} from '../feedback/fullNetMessage';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { isIdentityPasswordValid } from '../auth/identity-password-policy';
@@ -58,21 +62,21 @@ function startOAuthBind(providerKey: string): void {
 
 async function unbindLink(link: OAuthUserLink): Promise<void> {
   await deleteOAuthUserLink(link.id);
-  ElMessage.success(t('oauthLinks.unbindSuccess'));
+  showSuccess(t('oauthLinks.unbindSuccess'));
   await loadOAuthSection();
 }
 
 async function submit(): Promise<void> {
   if (!form.currentPassword || !form.newPassword) {
-    ElMessage.warning(t('securitySettings.requiredFields'));
+    showWarning(t('securitySettings.requiredFields'));
     return;
   }
   if (form.newPassword !== form.confirmPassword) {
-    ElMessage.warning(t('securitySettings.passwordMismatch'));
+    showWarning(t('securitySettings.passwordMismatch'));
     return;
   }
   if (!isIdentityPasswordValid(form.newPassword)) {
-    ElMessage.warning(t('securitySettings.passwordInvalid'));
+    showWarning(t('securitySettings.passwordInvalid'));
     return;
   }
 
@@ -82,23 +86,21 @@ async function submit(): Promise<void> {
     form.currentPassword = '';
     form.newPassword = '';
     form.confirmPassword = '';
-    ElMessage.success(t('securitySettings.changeSuccess'));
+    showSuccess(t('securitySettings.changeSuccess'));
     if (forced.value) {
       await router.replace('/');
     }
   } catch (error: unknown) {
-    if (isFullNetProblemDetails(error)) {
-      ElMessage.error(error.title || error.detail || t('securitySettings.changeFailed'));
-      return;
-    }
-    ElMessage.error(t('securitySettings.changeFailed'));
+    showProblem(error, t('securitySettings.changeFailed'));
   } finally {
     saving.value = false;
   }
 }
 
 onMounted(() => {
-  void loadOAuthSection();
+  if (!forced.value) {
+    void loadOAuthSection();
+  }
 });
 </script>
 

@@ -62,6 +62,23 @@ describe('headless HTTP 客户端', () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
+  it('JSON 字符串请求体自动补充 application/json', async () => {
+    const http = createHttpClient();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await http.request('/api/v1/me/password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword: 'old', newPassword: 'new' })
+    }, undefined, { retryUnauthorized: false });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(new Headers(init.headers).get('content-type')).toBe('application/json');
+  });
+
   it('RequestOptions.headers 只补充缺失头且不覆盖 init', async () => {
     const http = createHttpClient();
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), {

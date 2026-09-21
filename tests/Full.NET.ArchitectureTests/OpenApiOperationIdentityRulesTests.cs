@@ -349,6 +349,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("DELETE", "/api/v1/me/profile/signature", "identityDeleteSelfServiceSignature", IdentityMeTag),
         new("GET", "/api/v1/me/profile/signature/content", "identityGetSelfServiceSignatureContent", IdentityMeTag),
         new("POST", "/api/v1/me/password", "identityChangePassword", IdentityMeTag),
+        new("GET", "/api/v1/me/tenant-invitations", "identityListMyTenantInvitations", IdentityMeTag),
+        new("POST", "/api/v1/me/tenant-invitations/{invitationId}", "identityAcceptMyTenantInvitation", IdentityMeTag),
         new("GET", "/api/v1/identity/me/mfa/totp", "identityGetTotpEnrollmentStatus", IdentityTotpEnrollmentTag),
         new("POST", "/api/v1/identity/me/mfa/totp/begin", "identityBeginTotpEnrollment", IdentityTotpEnrollmentTag),
         new("POST", "/api/v1/identity/me/mfa/totp/confirm", "identityConfirmTotpEnrollment", IdentityTotpEnrollmentTag),

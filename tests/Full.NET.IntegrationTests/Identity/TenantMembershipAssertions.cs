@@ -81,14 +81,22 @@ internal static class TenantMembershipAssertions
             acmeTenant.Id,
             cancellationToken);
 
-        using var acceptRequest = new HttpRequestMessage(
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/me/tenant-invitations");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", inviteeHostToken);
+        using var listResponse = await hostClient.SendAsync(listRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+        var pendingInvitations = await listResponse.Content
+            .ReadFromJsonAsync<IReadOnlyList<MyTenantInvitationResponse>>(cancellationToken);
+        Assert.IsNotNull(pendingInvitations);
+        Assert.IsTrue(pendingInvitations!.Any(item => item.Id == invitation.Invitation.Id));
+
+        using var acceptByIdRequest = new HttpRequestMessage(
             HttpMethod.Post,
-            "/api/v1/identity/tenant-invitations/accept")
-        {
-            Content = JsonContent.Create(new AcceptTenantInvitationRequest(invitation.InvitationToken)),
-        };
-        acceptRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", inviteeTenantToken);
-        using var acceptResponse = await tenantClient.SendAsync(acceptRequest, cancellationToken);
+            $"/api/v1/me/tenant-invitations/{invitation.Invitation.Id:D}/accept");
+        acceptByIdRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", inviteeHostToken);
+        using var acceptResponse = await hostClient.SendAsync(acceptByIdRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, acceptResponse.StatusCode);
         var accepted = await acceptResponse.Content.ReadFromJsonAsync<AcceptTenantInvitationResponse>(
             cancellationToken);
@@ -103,6 +111,57 @@ internal static class TenantMembershipAssertions
             acmeTenant.Id,
             cancellationToken);
         Assert.AreEqual(usedBefore + 1, usedAfter);
+
+        var provisionToken = await factory.CreateHostAccessTokenAsync(
+            [
+                "identity.tenant_members.read",
+                "identity.tenant_members.provision",
+                "tenancy.tenants.switch",
+            ],
+            cancellationToken);
+        var provisionTenantToken = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(
+            hostClient,
+            provisionToken,
+            acmeTenant.Id,
+            cancellationToken);
+        var provisionUsername = $"provisioned-{Guid.NewGuid():N}";
+        var provisionPassword = FullNetApiFactory.TestPassword;
+        using var provisionRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/identity/tenant-members/provision")
+        {
+            Content = JsonContent.Create(new ProvisionTenantMemberRequest(
+                provisionUsername,
+                "Provisioned Member",
+                provisionPassword,
+                TenantMemberRoles.Member,
+                null)),
+        };
+        provisionRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            provisionTenantToken);
+        using var provisionResponse = await tenantClient.SendAsync(provisionRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, provisionResponse.StatusCode);
+        var provisionedMember = await provisionResponse.Content.ReadFromJsonAsync<TenantMemberResponse>(
+            cancellationToken);
+        Assert.IsNotNull(provisionedMember);
+        Assert.AreEqual(acmeTenant.Id, provisionedMember!.TenantId);
+        Assert.AreEqual(provisionUsername, provisionedMember.Username);
+        Assert.AreEqual(TenantMemberStatuses.Active, provisionedMember.Status);
+
+        var usedAfterProvision = await ReadIdentitySeatsUsedAsync(
+            hostClient,
+            quotaToken,
+            acmeTenant.Id,
+            cancellationToken);
+        Assert.AreEqual(usedAfter + 1, usedAfterProvision);
+
+        var provisionedLoginToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            hostClient,
+            provisionUsername,
+            provisionPassword,
+            cancellationToken);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(provisionedLoginToken));
     }
 
     private static async Task<long> ReadIdentitySeatsUsedAsync(

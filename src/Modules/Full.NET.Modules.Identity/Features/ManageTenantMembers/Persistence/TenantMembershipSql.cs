@@ -92,6 +92,27 @@ internal static class TenantMembershipSql
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
 
+    public static readonly SqlStatement FindMemberListRowByTenantAndUser = new(
+        "identity.tenant_members.find_list_row_by_tenant_user",
+        """
+        SELECT member.Id,
+               member.TenantId,
+               member.UserId,
+               userAccount.Username,
+               COALESCE(userAccount.DisplayName, userAccount.Username) AS DisplayName,
+               member.MemberRole,
+               member.Status,
+               member.CreatedAtUtc,
+               member.UpdatedAtUtc,
+               member.Version
+        FROM fn_identity_tenant_member AS member
+        INNER JOIN fn_identity_user AS userAccount ON userAccount.Id = member.UserId
+        WHERE member.TenantId = @TenantId
+          AND member.UserId = @UserId
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement InsertMember = new(
         "identity.tenant_members.insert",
         """
@@ -188,6 +209,36 @@ internal static class TenantMembershipSql
                MemberRole, TokenHash, Status, ExpiresAtUtc, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_identity_tenant_invitation
         WHERE TokenHash = @TokenHash
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement FindInvitationByIdGlobal = new(
+        "identity.tenant_invitations.find_by_id_global",
+        """
+        SELECT Id, TenantId, TargetEmail, TargetUserId, InvitedByUserId,
+               MemberRole, TokenHash, Status, ExpiresAtUtc, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_tenant_invitation
+        WHERE Id = @InvitationId
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListPendingInvitationsForInvitee = new(
+        "identity.tenant_invitations.list_pending_for_invitee",
+        """
+        SELECT Id, TenantId, TargetEmail, TargetUserId, InvitedByUserId,
+               MemberRole, TokenHash, Status, ExpiresAtUtc, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_tenant_invitation
+        WHERE Status = @PendingStatus
+          AND ExpiresAtUtc > @NowUtc
+          AND (
+            TargetUserId = @UserId
+            OR (
+              @NormalizedEmail IS NOT NULL
+              AND TargetUserId IS NULL
+              AND LOWER(TargetEmail) = @NormalizedEmail
+            )
+          )
+        ORDER BY CreatedAtUtc DESC, Id
         """,
         SqlDataScope.Global);
 

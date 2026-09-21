@@ -1,8 +1,10 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Features;
 using Full.NET.Modules.Identity.Persistence;
 
 namespace Full.NET.Modules.Identity.Features.SelfServiceProfile;
@@ -16,7 +18,8 @@ internal sealed class SelfServiceProfileMediaService(
     IHostFileReferenceClaimService hostFileReferenceClaimService,
     IHostFileDescriptorReader hostFileDescriptorReader,
     IHostFileContentReader hostFileContentReader,
-    SelfServiceProfileService profileService)
+    SelfServiceProfileService profileService,
+    ICurrentTenantContextWriter currentTenantWriter)
 {
     /// <summary>上传并绑定头像。</summary>
     public Task<Result<SelfServiceProfileResponse>> UploadAvatarAsync(
@@ -27,15 +30,17 @@ internal sealed class SelfServiceProfileMediaService(
         Stream content,
         long contentLength,
         CancellationToken cancellationToken = default) =>
-        UploadAsync(
-            userId,
-            actorScope,
-            SelfServiceProfileMediaKind.Avatar,
-            fileName,
-            contentType,
-            content,
-            contentLength,
-            cancellationToken);
+        IdentityHostExecutionScope.RunAsync(
+            currentTenantWriter,
+            () => UploadAsync(
+                userId,
+                actorScope,
+                SelfServiceProfileMediaKind.Avatar,
+                fileName,
+                contentType,
+                content,
+                contentLength,
+                cancellationToken));
 
     /// <summary>上传并绑定签名图。</summary>
     public Task<Result<SelfServiceProfileResponse>> UploadSignatureAsync(
@@ -46,43 +51,53 @@ internal sealed class SelfServiceProfileMediaService(
         Stream content,
         long contentLength,
         CancellationToken cancellationToken = default) =>
-        UploadAsync(
-            userId,
-            actorScope,
-            SelfServiceProfileMediaKind.Signature,
-            fileName,
-            contentType,
-            content,
-            contentLength,
-            cancellationToken);
+        IdentityHostExecutionScope.RunAsync(
+            currentTenantWriter,
+            () => UploadAsync(
+                userId,
+                actorScope,
+                SelfServiceProfileMediaKind.Signature,
+                fileName,
+                contentType,
+                content,
+                contentLength,
+                cancellationToken));
 
     /// <summary>解除头像绑定。</summary>
     public Task<Result<SelfServiceProfileResponse>> DeleteAvatarAsync(
         Guid userId,
         string actorScope,
         CancellationToken cancellationToken = default) =>
-        DeleteAsync(userId, actorScope, SelfServiceProfileMediaKind.Avatar, cancellationToken);
+        IdentityHostExecutionScope.RunAsync(
+            currentTenantWriter,
+            () => DeleteAsync(userId, actorScope, SelfServiceProfileMediaKind.Avatar, cancellationToken));
 
     /// <summary>解除签名绑定。</summary>
     public Task<Result<SelfServiceProfileResponse>> DeleteSignatureAsync(
         Guid userId,
         string actorScope,
         CancellationToken cancellationToken = default) =>
-        DeleteAsync(userId, actorScope, SelfServiceProfileMediaKind.Signature, cancellationToken);
+        IdentityHostExecutionScope.RunAsync(
+            currentTenantWriter,
+            () => DeleteAsync(userId, actorScope, SelfServiceProfileMediaKind.Signature, cancellationToken));
 
     /// <summary>打开当前用户头像内容流。</summary>
     public Task<Result<HostFileContent>> OpenAvatarContentAsync(
         Guid userId,
         string actorScope,
         CancellationToken cancellationToken = default) =>
-        OpenContentAsync(userId, actorScope, SelfServiceProfileMediaKind.Avatar, cancellationToken);
+        IdentityHostExecutionScope.RunAsync(
+            currentTenantWriter,
+            () => OpenContentAsync(userId, actorScope, SelfServiceProfileMediaKind.Avatar, cancellationToken));
 
     /// <summary>打开当前用户签名内容流。</summary>
     public Task<Result<HostFileContent>> OpenSignatureContentAsync(
         Guid userId,
         string actorScope,
         CancellationToken cancellationToken = default) =>
-        OpenContentAsync(userId, actorScope, SelfServiceProfileMediaKind.Signature, cancellationToken);
+        IdentityHostExecutionScope.RunAsync(
+            currentTenantWriter,
+            () => OpenContentAsync(userId, actorScope, SelfServiceProfileMediaKind.Signature, cancellationToken));
 
     private async Task<Result<SelfServiceProfileResponse>> UploadAsync(
         Guid userId,

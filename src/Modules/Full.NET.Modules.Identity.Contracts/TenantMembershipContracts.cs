@@ -14,6 +14,8 @@ public static class IdentityTenantMembershipPermissions
     public const string Remove = "identity.tenant_members.remove";
     /// <summary>撤销尚未被接受的租户邀请。</summary>
     public const string RevokeInvitation = "identity.tenant_members.revoke_invitation";
+    /// <summary>在当前租户内直接创建 Host 用户并加入为活动成员。</summary>
+    public const string Provision = "identity.tenant_members.provision";
 }
 
 /// <summary>租户成员角色机器码常量集合。</summary>
@@ -116,6 +118,19 @@ public sealed record CreateTenantInvitationRequest(
     string MemberRole,
     int ExpiresInHours = 72);
 
+/// <summary>在当前租户内创建 Host 用户并立即加入为活动成员。</summary>
+/// <param name="Username">新用户登录名。</param>
+/// <param name="DisplayName">展示名称。</param>
+/// <param name="Password">初始密码；创建后通常要求首次登录改密。</param>
+/// <param name="MemberRole">租户成员角色；仅允许 Admin 或 Member。</param>
+/// <param name="Email">可选资料邮箱，便于后续邀请与组织场景匹配。</param>
+public sealed record ProvisionTenantMemberRequest(
+    string Username,
+    string DisplayName,
+    string Password,
+    string MemberRole,
+    string? Email);
+
 /// <summary>创建租户邀请结果；包含邀请投影与一次性 Token。</summary>
 /// <remarks>InvitationToken 仅返回一次，调用方必须立即投递给被邀请方；Token 撤销或过期后不可再用。</remarks>
 /// <param name="Invitation">邀请投影。</param>
@@ -148,3 +163,20 @@ public sealed record AcceptTenantInvitationResponse(
     Guid UserId,
     string MemberRole,
     string Status);
+
+/// <summary>当前登录用户可见的待接受租户邀请摘要。</summary>
+/// <param name="Id">邀请稳定标识。</param>
+/// <param name="TenantId">目标租户标识。</param>
+/// <param name="TenantName">目标租户展示名称。</param>
+/// <param name="TargetEmail">邀请目标邮箱。</param>
+/// <param name="MemberRole">接受后授予的角色机器码。</param>
+/// <param name="ExpiresAtUtc">邀请过期时间（UTC）。</param>
+/// <param name="CreatedAtUtc">邀请创建时间（UTC）。</param>
+public sealed record MyTenantInvitationResponse(
+    Guid Id,
+    Guid TenantId,
+    string TenantName,
+    string TargetEmail,
+    string MemberRole,
+    DateTimeOffset ExpiresAtUtc,
+    DateTimeOffset CreatedAtUtc);

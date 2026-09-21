@@ -77,6 +77,47 @@ describe('Vue 管理端壳层', () => {
     expect(wrapper.text()).not.toContain('身份权限');
   });
 
+  it('强制改密时空导航不会把账户安全页重定向到 403', async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const session = useSessionStore();
+    session.$patch({
+      state: 'authenticated',
+      currentUser: {
+        id: 'user-id',
+        username: 'e2e_user',
+        displayName: 'E2E',
+        tenantId: null,
+        actorScope: 'host',
+        scope: 'host',
+        isSuperAdministrator: false,
+        passwordChangeRequired: true,
+        permissions: [],
+        sessionId: 'session-id',
+        preferredLocale: 'zh-CN',
+        profileVersion: 1
+      },
+      navigation: []
+    });
+    const router = createAppRouter(createMemoryHistory(), pinia);
+    await router.push('/account/security?forced=1');
+    await router.isReady();
+
+    const reloadContext = vi.fn().mockResolvedValue(undefined);
+    session.reloadContext = reloadContext;
+
+    const wrapper = mount(App, {
+      global: { plugins: [pinia, router] }
+    });
+    await nextTick();
+    await nextTick();
+
+    expect(router.currentRoute.value.path).toBe('/account/security');
+    expect(wrapper.text()).not.toContain('没有访问权限');
+    expect(reloadContext).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
   it('403 路由呈现权限错误页', async () => {
     const pinia = createAuthenticatedPinia();
     const router = createAppRouter(createMemoryHistory(), pinia);

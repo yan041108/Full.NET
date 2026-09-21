@@ -1,8 +1,23 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElButton, ElCard, ElMessage, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
+import {
+  ElButton,
+  ElCard,
+  ElInput,
+  ElPagination,
+  ElTable,
+  ElTableColumn,
+  ElTag
+} from 'element-plus';
 import { isFullNetProblemDetails, type FullNetProblemDetails } from '@fullnet/client-contracts';
+import {
+  acceptMyTenantInvitation,
+  acceptTenantInvitationByToken,
+  listMyTenantInvitations,
+  type MyTenantInvitation
+} from '../api/my-tenant-invitations';
+import { showProblem, showSuccess, showWarning } from '../feedback/fullNetMessage';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import {
@@ -23,6 +38,11 @@ const router = useRouter();
 const { t } = useAdminI18n();
 const problem = ref<FullNetProblemDetails>();
 const pendingTenantId = ref<string | null>();
+const myInvitations = ref<MyTenantInvitation[]>([]);
+const loadingInvitations = ref(false);
+const acceptingInvitationId = ref<string | null>(null);
+const invitationToken = ref('');
+const acceptingByToken = ref(false);
 const searchForm = ref<Record<string, string | undefined>>({});
 const appliedFilters = ref<AppliedFilters>({ keyword: '' });
 const canSwitch = computed(() => session.can('tenancy.tenants.switch'));
@@ -65,8 +85,74 @@ const loading = computed(() => session.switching);
 
 watchLoading(loading);
 
+async function loadMyInvitations(): Promise<void> {
+  loadingInvitations.value = true;
+  try {
+    myInvitations.value = await listMyTenantInvitations();
+  } catch {
+    myInvitations.value = [];
+  } finally {
+    loadingInvitations.value = false;
+  }
+}
+
+async function acceptInvitation(invitation: MyTenantInvitation): Promise<void> {
+  if (acceptingInvitationId.value) {
+    return;
+  }
+
+  acceptingInvitationId.value = invitation.id;
+  try {
+    await acceptMyTenantInvitation(invitation.id);
+    showSuccess(t('tenant.acceptInvitationSuccess'));
+    await session.reloadContext();
+    await loadMyInvitations();
+  } catch (error: unknown) {
+    showProblem(error, t('tenant.acceptInvitationFailed'));
+  } finally {
+    acceptingInvitationId.value = null;
+  }
+}
+
+async function acceptByToken(): Promise<void> {
+  const token = invitationToken.value.trim();
+  if (token.length < 16) {
+    showWarning(t('tenant.invitationTokenPlaceholder'));
+    return;
+  }
+
+  acceptingByToken.value = true;
+  try {
+    await acceptTenantInvitationByToken(token);
+    invitationToken.value = '';
+    showSuccess(t('tenant.acceptInvitationSuccess'));
+    await session.reloadContext();
+    await loadMyInvitations();
+  } catch (error: unknown) {
+    showProblem(error, t('tenant.acceptInvitationFailed'));
+  } finally {
+    acceptingByToken.value = false;
+  }
+}
+
+function formatMemberRole(role: string): string {
+  if (role === 'Owner') {
+    return t('tenantMembers.roleOwner');
+  }
+  if (role === 'Admin') {
+    return t('tenantMembers.roleAdmin');
+  }
+  return t('tenantMembers.roleMember');
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
 onMounted(() => {
   void nextTick(updateTableHeight);
+  void loadMyInvitations();
 });
 
 /** 让客户端分页序号与当前页保持一致，避免切页后索引重新从 1 开始。 */
@@ -97,10 +183,10 @@ async function selectContext(tenantId: string | null): Promise<void> {
   try {
     await session.switchTenant(tenantId);
     if (tenantId) {
-      ElMessage.success(t('tenant.enterSuccess'));
+      showSuccess(t('tenant.enterSuccess'));
       await router.push('/');
     } else {
-      ElMessage.success(t('tenant.returnHostSuccess'));
+      showSuccess(t('tenant.returnHostSuccess'));
       await router.push('/tenant-context');
     }
   } catch (error: unknown) {
@@ -152,6 +238,70 @@ function toProblem(error: unknown): FullNetProblemDetails {
       <span>{{ problem.title }}</span>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
+
+    <el-card
+      v-loading="loadingInvitations"
+      class="art-form-card tenant-context-view__invitations"
+      shadow="never"
+      data-testid="my-tenant-invitations"
+    >
+      <template #header>
+        <h2 class="tenant-context-view__section-title">{{ t('tenant.myInvitationsTitle') }}</h2>
+        <p class="tenant-context-view__section-subtitle">{{ t('tenant.myInvitationsSubtitle') }}</p>
+      </template>
+
+      <p v-if="myInvitations.length === 0" class="tenant-context-view__hint">
+        {{ t('tenant.myInvitationsEmpty') }}
+        {{ t('tenant.myInvitationsEmailHint') }}
+      </p>
+
+      <el-table
+        v-else
+        :data="myInvitations"
+        style="width: 100%; margin-bottom: 16px;"
+      >
+        <el-table-column :label="t('tenant.name')" prop="tenantName" min-width="160" />
+        <el-table-column :label="t('tenantMembers.fieldEmail')" prop="targetEmail" min-width="180" />
+        <el-table-column :label="t('tenantMembers.fieldRole')" min-width="100">
+          <template #default="{ row }">{{ formatMemberRole(row.memberRole) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('tenant.invitationExpires')" min-width="160">
+          <template #default="{ row }">{{ formatDateTime(row.expiresAtUtc) }}</template>
+        </el-table-column>
+        <el-table-column width="140">
+          <template #default="{ row }">
+            <el-button
+              type="primary"
+              link
+              :loading="acceptingInvitationId === row.id"
+              data-testid="accept-tenant-invitation"
+              @click="acceptInvitation(row)"
+            >
+              {{ t('tenant.acceptInvitation') }}
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="tenant-context-view__token-row">
+        <span>{{ t('tenant.invitationTokenTitle') }}</span>
+        <el-input
+          v-model="invitationToken"
+          :placeholder="t('tenant.invitationTokenPlaceholder')"
+          maxlength="256"
+          show-password
+        />
+        <el-button
+          type="primary"
+          plain
+          :loading="acceptingByToken"
+          data-testid="accept-tenant-invitation-token"
+          @click="acceptByToken"
+        >
+          {{ t('tenant.invitationTokenSubmit') }}
+        </el-button>
+      </div>
+    </el-card>
 
     <ArtSearchBar
       v-model="searchForm"
@@ -267,5 +417,30 @@ function toProblem(error: unknown): FullNetProblemDetails {
   flex: 1;
   flex-direction: column;
   min-height: 0;
+}
+
+.tenant-context-view__section-title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.tenant-context-view__section-subtitle,
+.tenant-context-view__hint {
+  margin: 8px 0 0;
+  color: var(--art-gray-600);
+  font-size: 13px;
+}
+
+.tenant-context-view__token-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .tenant-context-view__token-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

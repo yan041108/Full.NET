@@ -28,6 +28,7 @@ import ArtAdminShell from './framework/art-design/layout/ArtAdminShell.vue';
 import ReleaseNoteUnreadPrompt from './components/ReleaseNoteUnreadPrompt.vue';
 import { buildShellNavigation } from './framework/art-design/adapters/fullNetShellAdapter';
 import { localNavigationFor } from './navigation/catalog';
+import { selfServicePaths } from './router';
 import {
   createVueNotificationsRealtime,
   notificationsRealtimeKey
@@ -93,6 +94,18 @@ const isAuthCallbackRoute = computed(() =>
   authCallbackPaths.has(route.path)
   || (adminIdentityAuthMode === 'oidc-center' && isOidcCenterCallbackLocation()));
 const isPublicAuthRoute = computed(() => publicAuthPaths.has(route.path));
+function isPasswordChangeGateActive(): boolean {
+  return session.currentUser?.passwordChangeRequired === true;
+}
+
+/** 导航为空时仅对正常会话补拉目录；强制改密会话故意保持空导航。 */
+function shouldReloadNavigationContext(): boolean {
+  return session.isAuthenticated
+    && session.navigation.length === 0
+    && !session.switching
+    && !isPasswordChangeGateActive();
+}
+
 const statusTitleKeys = new Map<string, MessageKey>([
   ['/403', 'status.403.title'],
   ['/404', 'status.404.title'],
@@ -116,15 +129,20 @@ onMounted(() => {
     return;
   }
 
-  if (session.isAuthenticated && session.navigation.length === 0) {
+  if (shouldReloadNavigationContext()) {
     void session.reloadContext();
   }
 });
 
 watch(
-  () => [session.isAuthenticated, session.navigation.length, session.switching] as const,
-  ([authenticated, navigationCount, switching]) => {
-    if (authenticated && navigationCount === 0 && !switching) {
+  () => [
+    session.isAuthenticated,
+    session.navigation.length,
+    session.switching,
+    session.currentUser?.passwordChangeRequired
+  ] as const,
+  () => {
+    if (shouldReloadNavigationContext()) {
       // 已认证时只补拉导航，避免 restore() 进入 initializing 导致壳层整页闪动。
       void session.reloadContext();
     }
@@ -255,6 +273,10 @@ watch(
   () => [session.state, session.navigation, route.path] as const,
   () => {
     if (!session.isAuthenticated || statusPaths.has(route.path)) {
+      return;
+    }
+
+    if (selfServicePaths.has(route.path) || isPasswordChangeGateActive()) {
       return;
     }
 

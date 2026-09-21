@@ -330,6 +330,7 @@ internal static class Endpoint
             mediaService,
             mapper,
             httpContext,
+            useCurrentTenantScope: false,
             cancellationToken).ConfigureAwait(false);
 
     /// <summary>匿名读取当前租户品牌 Logo 内容。</summary>
@@ -355,6 +356,7 @@ internal static class Endpoint
             mediaService,
             mapper,
             httpContext,
+            useCurrentTenantScope: true,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -363,10 +365,14 @@ internal static class Endpoint
         TenantBrandingMediaService mediaService,
         IApiResultMapper mapper,
         HttpContext httpContext,
+        bool useCurrentTenantScope,
         CancellationToken cancellationToken)
     {
-        var result = await mediaService.OpenLogoContentAsync(tenantId, cancellationToken)
-            .ConfigureAwait(false);
+        var result = useCurrentTenantScope
+            ? await mediaService.OpenCurrentLogoContentAsync(cancellationToken)
+                .ConfigureAwait(false)
+            : await mediaService.OpenLogoContentAsync(tenantId, cancellationToken)
+                .ConfigureAwait(false);
         if (!result.IsSuccess)
         {
             return mapper.Map(result, httpContext);

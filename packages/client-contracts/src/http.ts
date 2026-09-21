@@ -154,6 +154,15 @@ export function createHttpClient(apiBaseUrl = ''): HttpClient {
         }
       });
     }
+    if (
+      init.body !== undefined
+      && init.body !== null
+      && typeof init.body === 'string'
+      && !headers.has('content-type')
+    ) {
+      headers.set('content-type', 'application/json');
+    }
+
     if (!headers.has('accept')) {
       headers.set('accept', 'application/json');
     }

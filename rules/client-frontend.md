@@ -41,6 +41,7 @@
 5. 页面不得维护手写权限白名单副本。可显示的页面和操作元数据来自经过运行时结构校验的服务端目录；组件与路由仍映射到本地可信白名单，权限变化通过统一 Session 快照响应式生效。
 6. 列表页 **操作列** 默认使用 `ArtTableActionGroup`：直接展示最多 4 个图标操作，超出部分收入「更多（…）」下拉，禁止换行挤出列宽。标准列宽使用 `ART_TABLE_ACTION_COLUMN_WIDTH`（`ui/admin/src/framework/art-design/components/artTableActions.ts`）。页面若有文本按钮、上传控件等特殊交互，可在计划中说明并偏离该默认，但第一版生成与 CRUD 模板仍须遵守此规则。
 7. **表单必填标识**：凡在提交前会校验为必填（含 `el-form` `rules`、手写 `validate*` 或等价逻辑）的 `el-form-item` / `ElFormItem`，必须在标签前展示 Element Plus 默认红色 `*`。实现方式为在对应表单项上设置布尔属性 `required`（或 `rules` 中 `required: true` 且表单项与规则绑定），禁止在 `label` 文案里手写星号或依赖仅底部 `:error` 提示表达必填。标签已含「（可选）」或字段在特定模式下只读展示、不参与提交校验的，不得标为必填。
+8. **轻量操作反馈（ElMessage）**：保存结果、表单校验、可恢复的 API 拒绝与未知失败必须使用 Element Plus `ElMessage` 展示，禁止页面底部自定义条状提示、`window.alert` 或仅 `console` 输出。统一通过 `ui/admin/src/feedback/fullNetMessage.ts` 调用：`showSuccess` / `showWarning` / `showError` / `showInfo` 对应成功、校验或可恢复业务拒绝、鉴权/禁止/服务端或未知失败、中性说明；`showProblem` 将 `ProblemDetails` 按 HTTP 状态映射级别（`401`/`403`/`404`/`5xx` → `error`，其余常见 `4xx` 与 `409`/`429` → `warning`），文案优先 `title` 再 `detail`，不得在消息正文暴露 `traceId`。默认 `placement: 'top'`、`showClose: true`；`main.ts` 必须引入 `element-plus/theme-chalk/el-message.css`。需用户确认的重操作继续使用 `ElMessageBox`；整页或区块级错误仍可用 `art-inline-alert`，但不得与同一失败重复弹出 Message。
 
 验证：`pnpm --filter @fullnet/admin test`、Vue 生产构建、受影响 Vue E2E、`pnpm audit:clients`、`pnpm licenses list --prod --json`；设计背景见 [`client-ui-framework-design`](../docs/superpowers/specs/2026-07-18-client-ui-framework-design.md)与 [`vue-art-design-pro-adoption`](../docs/superpowers/plans/2026-07-18-vue-art-design-pro-adoption.md)。
 

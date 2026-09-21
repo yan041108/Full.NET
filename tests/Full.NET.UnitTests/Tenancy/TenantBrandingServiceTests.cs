@@ -118,6 +118,21 @@ public sealed class TenantBrandingServiceTests
         Assert.AreEqual(TenancyErrorCodes.NotFound, result.Error!.Code);
     }
 
+    [TestMethod]
+    public async Task GetCurrent_uses_tenant_scoped_branding_query()
+    {
+        var fixture = new Fixture();
+        fixture.SetupCurrentBranding(version: 2);
+
+        var result = await fixture.Service.GetCurrentAsync();
+
+        Assert.IsTrue(result.IsSuccess);
+        await fixture.Query.Received(1).QuerySingleOrDefaultAsync<TenantBrandingRecord>(
+            TenantSql.FindTenantBrandingCurrent,
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
+    }
+
     private sealed class Fixture
     {
         public IQueryExecutor Query { get; } = Substitute.For<IQueryExecutor>();
@@ -174,6 +189,23 @@ public sealed class TenantBrandingServiceTests
                 .Returns(new TenantBrandingRecord(
                     TenantId,
                     null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    version));
+        }
+
+        public void SetupCurrentBranding(int version)
+        {
+            Query.QuerySingleOrDefaultAsync<TenantBrandingRecord>(
+                    TenantSql.FindTenantBrandingCurrent,
+                    Arg.Any<object>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(new TenantBrandingRecord(
+                    TenantId,
+                    "演示租户",
                     null,
                     null,
                     null,

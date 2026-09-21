@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.SelfServiceProfile;
@@ -173,7 +174,8 @@ public sealed class SelfServiceProfileServiceTests
             queryExecutor,
             commandExecutor,
             projectionResolver,
-            clock);
+            clock,
+            Substitute.For<ICurrentTenantContextWriter>());
     }
 
     private static IdentityUserRecord CreateUser(int version = 1) => new()

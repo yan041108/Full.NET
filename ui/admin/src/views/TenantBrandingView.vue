@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useBlobPreview } from '../composables/useBlobPreview';
 import {
   ElButton,
   ElCard,
   ElForm,
   ElFormItem,
-  ElInput,
-  ElMessage
+  ElInput
 } from 'element-plus';
 import type { TenantBrandingResponse } from '@fullnet/client-contracts';
 import {
@@ -17,11 +16,16 @@ import {
   updateCurrentScopeTenantBranding,
   uploadCurrentScopeTenantBrandingLogo
 } from '../api/tenant-branding';
+import { useSessionStore } from '../auth/session';
+import { showProblem, showSuccess } from '../feedback/fullNetMessage';
 import { useAdminI18n } from '../i18n/adminI18n';
 
 defineOptions({ name: 'TenantBrandingView' });
 
+const session = useSessionStore();
 const { t } = useAdminI18n();
+const inTenantContext = computed(() => Boolean(session.currentUser?.tenantId));
+const logoInputRef = ref<HTMLInputElement | null>(null);
 const loading = ref(false);
 const saving = ref(false);
 const uploadingLogo = ref(false);
@@ -60,17 +64,35 @@ function applyBranding(branding: TenantBrandingResponse): void {
 }
 
 async function loadBranding(): Promise<void> {
+  if (!inTenantContext.value) {
+    return;
+  }
+
   loading.value = true;
   try {
     const branding = await getCurrentScopeTenantBranding();
     applyBranding(branding);
     await refreshLogoPreview(branding.logoFileId !== null);
+  } catch (error) {
+    showProblem(error, t('tenantBranding.loadFailed'));
   } finally {
     loading.value = false;
   }
 }
 
+function openLogoFilePicker(): void {
+  if (!inTenantContext.value || uploadingLogo.value || removingLogo.value) {
+    return;
+  }
+
+  logoInputRef.value?.click();
+}
+
 async function saveBranding(): Promise<void> {
+  if (!inTenantContext.value || saving.value) {
+    return;
+  }
+
   saving.value = true;
   try {
     const branding = await updateCurrentScopeTenantBranding({
@@ -82,7 +104,9 @@ async function saveBranding(): Promise<void> {
       version: version.value
     });
     applyBranding(branding);
-    ElMessage.success(t('tenantBranding.saveSuccess'));
+    showSuccess(t('tenantBranding.saveSuccess'));
+  } catch (error) {
+    showProblem(error, t('tenantBranding.saveFailed'));
   } finally {
     saving.value = false;
   }
@@ -101,7 +125,9 @@ async function handleLogoSelected(event: Event): Promise<void> {
     const branding = await uploadCurrentScopeTenantBrandingLogo(file);
     applyBranding(branding);
     await refreshLogoPreview(true);
-    ElMessage.success(t('tenantBranding.logoUploadSuccess'));
+    showSuccess(t('tenantBranding.logoUploadSuccess'));
+  } catch (error) {
+    showProblem(error, t('tenantBranding.logoUploadFailed'));
   } finally {
     uploadingLogo.value = false;
   }
@@ -113,7 +139,9 @@ async function removeLogo(): Promise<void> {
     const branding = await deleteCurrentScopeTenantBrandingLogo();
     applyBranding(branding);
     await refreshLogoPreview(false);
-    ElMessage.success(t('tenantBranding.logoRemoveSuccess'));
+    showSuccess(t('tenantBranding.logoRemoveSuccess'));
+  } catch (error) {
+    showProblem(error, t('tenantBranding.logoRemoveFailed'));
   } finally {
     removingLogo.value = false;
   }
@@ -134,27 +162,45 @@ onMounted(() => {
       </div>
     </header>
 
-    <el-card shadow="never" :aria-busy="loading">
-      <el-form label-width="120px" class="tenant-branding__form">
+    <div v-if="!inTenantContext" class="art-inline-alert" role="status">
+      <span>{{ t('tenantBranding.tenantContextRequired') }}</span>
+    </div>
+
+    <el-card v-else shadow="never" :aria-busy="loading">
+      <el-form
+        label-width="120px"
+        class="tenant-branding__form"
+        @submit.prevent="saveBranding"
+      >
+        <input
+          ref="logoInputRef"
+          class="tenant-branding__file-input"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+          tabindex="-1"
+          aria-hidden="true"
+          :disabled="uploadingLogo || removingLogo || loading"
+          @change="handleLogoSelected"
+        />
         <el-form-item :label="t('tenantBranding.logo')">
           <div class="tenant-branding__logo-row">
             <div v-if="logoPreviewUrl" class="tenant-branding__logo-preview">
               <img :src="logoPreviewUrl" alt="" />
             </div>
             <div class="tenant-branding__logo-actions">
-              <label class="tenant-branding__upload">
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                  hidden
-                  :disabled="uploadingLogo || removingLogo"
-                  @change="handleLogoSelected"
-                />
-                <el-button :loading="uploadingLogo">{{ t('tenantBranding.uploadLogo') }}</el-button>
-              </label>
+              <el-button
+                type="button"
+                :loading="uploadingLogo"
+                :disabled="loading"
+                @click="openLogoFilePicker"
+              >
+                {{ t('tenantBranding.uploadLogo') }}
+              </el-button>
               <el-button
                 v-if="logoPreviewUrl"
+                type="button"
                 :loading="removingLogo"
+                :disabled="loading"
                 @click="removeLogo"
               >
                 {{ t('tenantBranding.removeLogo') }}
@@ -178,7 +224,12 @@ onMounted(() => {
           <el-input v-model="form.copyright" maxlength="256" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="saving" @click="saveBranding">
+          <el-button
+            type="primary"
+            native-type="submit"
+            :loading="saving"
+            :disabled="loading"
+          >
             {{ t('users.confirm') }}
           </el-button>
         </el-form-item>
@@ -220,5 +271,14 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.tenant-branding__file-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 </style>

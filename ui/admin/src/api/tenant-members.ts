@@ -36,6 +36,28 @@ export async function listTenantInvitations(
   ); return readResponse(value, v => isPage(v, isInvitation), 'client.invalid_tenant_invitation_page') as TenantInvitationPage;
 }
 
+export async function provisionTenantMember(
+  body: {
+    username: string;
+    displayName: string;
+    password: string;
+    memberRole: string;
+    email?: string | null;
+  },
+  signal?: AbortSignal
+): Promise<TenantMember> {
+  const value = await request<unknown>(
+    '/api/v1/identity/tenant-members/provision',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    },
+    signal
+  );
+  return readResponse(value, isMember, 'client.invalid_tenant_member');
+}
+
 export async function createTenantInvitation(
   body: CreateTenantInvitationRequest,
   signal?: AbortSignal

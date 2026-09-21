@@ -1,7 +1,9 @@
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Features;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
 using Full.NET.Modules.Identity.FieldProjection;
 using Full.NET.Modules.Identity.Persistence;
@@ -14,13 +16,22 @@ internal sealed class SelfServiceProfileService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     IUserFieldProjectionResolver projectionResolver,
-    IClock clock)
+    IClock clock,
+    ICurrentTenantContextWriter currentTenantWriter)
 {
     /// <summary>读取当前 Host 用户的自助档案快照。</summary>
-    public async Task<Result<SelfServiceProfileResponse>> GetAsync(
+    public Task<Result<SelfServiceProfileResponse>> GetAsync(
         Guid userId,
         string actorScope,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        IdentityHostExecutionScope.RunAsync(
+            currentTenantWriter,
+            () => GetCoreAsync(userId, actorScope, cancellationToken));
+
+    private async Task<Result<SelfServiceProfileResponse>> GetCoreAsync(
+        Guid userId,
+        string actorScope,
+        CancellationToken cancellationToken)
     {
         if (!SelfServiceProfilePolicy.IsHostActorScope(actorScope))
         {
@@ -73,14 +84,24 @@ internal sealed class SelfServiceProfileService(
     }
 
     /// <summary>按自助边界更新展示名称与/或扩展档案。</summary>
-    public async Task<Result<SelfServiceProfileResponse>> UpdateAsync(
+    public Task<Result<SelfServiceProfileResponse>> UpdateAsync(
         Guid userId,
         string actorScope,
         UpdateSelfServiceProfileRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        return IdentityHostExecutionScope.RunAsync(
+            currentTenantWriter,
+            () => UpdateCoreAsync(userId, actorScope, request, cancellationToken));
+    }
 
+    private async Task<Result<SelfServiceProfileResponse>> UpdateCoreAsync(
+        Guid userId,
+        string actorScope,
+        UpdateSelfServiceProfileRequest request,
+        CancellationToken cancellationToken)
+    {
         if (!SelfServiceProfilePolicy.IsHostActorScope(actorScope))
         {
             return HostOnlyFailure<SelfServiceProfileResponse>();

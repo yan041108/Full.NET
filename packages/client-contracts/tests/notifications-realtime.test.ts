@@ -26,6 +26,29 @@ describe('Notifications 实时客户端', () => {
     })).toBe(false);
   });
 
+  it('强制改密时不建立 Notifications 连接', async () => {
+    const session = createSession();
+    const connection = createConnection();
+    const controller = createNotificationsRealtimeController({
+      session,
+      onMessage: vi.fn(),
+      connectionFactory: () => connection
+    });
+
+    const base = authenticatedSnapshot(null);
+    session.publish({
+      ...base,
+      currentUser: {
+        ...base.currentUser!,
+        passwordChangeRequired: true,
+        permissions: []
+      }
+    });
+    await controller.whenSettled();
+    expect(connection.start).not.toHaveBeenCalled();
+    await controller.dispose();
+  });
+
   it('认证后连接，切换上下文时重连，匿名后停止', async () => {
     const session = createSession();
     const first = createConnection();
@@ -314,6 +337,7 @@ function authenticatedSnapshot(tenantId: string | null): IdentitySessionSnapshot
       actorScope: 'host',
       scope: 'host',
       isSuperAdministrator: true,
+      passwordChangeRequired: false,
       permissions: [],
       sessionId: 'session-id',
       preferredLocale: 'zh-CN',

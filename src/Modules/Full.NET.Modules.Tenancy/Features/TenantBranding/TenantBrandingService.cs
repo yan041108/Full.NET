@@ -29,15 +29,18 @@ internal sealed class TenantBrandingService(
     }
 
     /// <summary>当前租户上下文读取品牌信息。</summary>
-    public Task<Result<TenantBrandingResponse>> GetCurrentAsync(
+    public async Task<Result<TenantBrandingResponse>> GetCurrentAsync(
         CancellationToken cancellationToken = default)
     {
-        if (!currentTenant.IsAvailable || currentTenant.Id is not Guid tenantId)
+        if (!currentTenant.IsAvailable || currentTenant.Id is not Guid)
         {
-            return Task.FromResult(NotFound<TenantBrandingResponse>());
+            return NotFound<TenantBrandingResponse>();
         }
 
-        return GetByTenantIdAsync(tenantId, cancellationToken);
+        var record = await LoadCurrentAsync(cancellationToken).ConfigureAwait(false);
+        return record is null
+            ? NotFound<TenantBrandingResponse>()
+            : Result<TenantBrandingResponse>.Success(Map(record));
     }
 
     /// <summary>登录壳层读取运行时品牌摘要。</summary>
@@ -94,6 +97,7 @@ internal sealed class TenantBrandingService(
                     tenantId,
                     request,
                     TenantSql.UpdateTenantBranding,
+                    useCurrentTenantScope: false,
                     token),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -138,6 +142,7 @@ internal sealed class TenantBrandingService(
                     tenantId,
                     request,
                     TenantSql.UpdateTenantBrandingCurrent,
+                    useCurrentTenantScope: true,
                     token),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -153,9 +158,12 @@ internal sealed class TenantBrandingService(
         Guid tenantId,
         UpdateTenantBrandingRequest request,
         SqlStatement updateStatement,
+        bool useCurrentTenantScope,
         CancellationToken cancellationToken)
     {
-        var existing = await LoadByTenantIdAsync(tenantId, cancellationToken).ConfigureAwait(false);
+        var existing = useCurrentTenantScope
+            ? await LoadCurrentAsync(cancellationToken).ConfigureAwait(false)
+            : await LoadByTenantIdAsync(tenantId, cancellationToken).ConfigureAwait(false);
         if (existing is null)
         {
             return NotFound<TenantBrandingResponse>();
@@ -176,14 +184,17 @@ internal sealed class TenantBrandingService(
             .ConfigureAwait(false);
         if (affected != 1)
         {
-            var stillExists = await LoadByTenantIdAsync(tenantId, cancellationToken)
-                .ConfigureAwait(false);
+            var stillExists = useCurrentTenantScope
+                ? await LoadCurrentAsync(cancellationToken).ConfigureAwait(false)
+                : await LoadByTenantIdAsync(tenantId, cancellationToken).ConfigureAwait(false);
             return stillExists is null
                 ? NotFound<TenantBrandingResponse>()
                 : VersionConflict<TenantBrandingResponse>();
         }
 
-        var updated = await LoadByTenantIdAsync(tenantId, cancellationToken).ConfigureAwait(false);
+        var updated = useCurrentTenantScope
+            ? await LoadCurrentAsync(cancellationToken).ConfigureAwait(false)
+            : await LoadByTenantIdAsync(tenantId, cancellationToken).ConfigureAwait(false);
         return updated is null
             ? NotFound<TenantBrandingResponse>()
             : Result<TenantBrandingResponse>.Success(Map(updated));
@@ -215,6 +226,12 @@ internal sealed class TenantBrandingService(
         queryExecutor.QuerySingleOrDefaultAsync<TenantBrandingRecord>(
             TenantSql.FindTenantBrandingById,
             TenancySqlParameters.Create(("TenantId", tenantId)),
+            cancellationToken);
+
+    private Task<TenantBrandingRecord?> LoadCurrentAsync(CancellationToken cancellationToken) =>
+        queryExecutor.QuerySingleOrDefaultAsync<TenantBrandingRecord>(
+            TenantSql.FindTenantBrandingCurrent,
+            TenancySqlParameters.Create(),
             cancellationToken);
 
     private static TenantBrandingResponse Map(TenantBrandingRecord record) =>

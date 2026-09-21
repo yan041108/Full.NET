@@ -32,6 +32,10 @@ onMounted(() => {
 });
 
 async function refresh(): Promise<void> {
+  if (session.currentUser?.passwordChangeRequired === true) {
+    return;
+  }
+
   if (!session.can('platform.release_notes.read')) {
     return;
   }

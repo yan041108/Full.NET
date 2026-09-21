@@ -27,6 +27,7 @@ import 'element-plus/theme-chalk/el-table.css';
 import 'element-plus/theme-chalk/el-table-column.css';
 import 'element-plus/theme-chalk/el-loading.css';
 import 'element-plus/theme-chalk/el-message-box.css';
+import 'element-plus/theme-chalk/el-message.css';
 import 'element-plus/theme-chalk/el-checkbox.css';
 import 'element-plus/theme-chalk/el-overlay.css';
 import 'element-plus/theme-chalk/el-radio.css';

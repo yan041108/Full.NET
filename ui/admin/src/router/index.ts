@@ -12,7 +12,7 @@ import OverviewView from '../views/OverviewView.vue';
 const statusPaths = new Set(['/403', '/404', '/500']);
 
 /** 自助账户页不依赖导航目录下发，已认证用户可直接访问。 */
-const selfServicePaths = new Set([
+export const selfServicePaths = new Set([
   '/account/security',
   '/account/profile',
   '/oauth/callback',

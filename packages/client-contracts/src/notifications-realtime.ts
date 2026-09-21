@@ -240,6 +240,10 @@ function readConnectionKey(snapshot: IdentitySessionSnapshot): string | undefine
     return undefined;
   }
 
+  if (snapshot.currentUser.passwordChangeRequired) {
+    return undefined;
+  }
+
   return `${snapshot.currentUser.sessionId}:${snapshot.currentUser.tenantId ?? 'host'}`;
 }
 

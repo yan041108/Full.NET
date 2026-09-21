@@ -86,6 +86,17 @@ const profileDictOptions = ref<Record<string, HostUserProfileDictOption[]>>({
   [HOST_USER_PROFILE_DICT_CODES.emergencyContactRelation]: []
 });
 
+const avatarFileInput = ref<HTMLInputElement | null>(null);
+const signatureFileInput = ref<HTMLInputElement | null>(null);
+
+function openAvatarFilePicker(): void {
+  avatarFileInput.value?.click();
+}
+
+function openSignatureFilePicker(): void {
+  signatureFileInput.value?.click();
+}
+
 async function refreshMediaPreviews(): Promise<void> {
   avatarPreview.clear();
   signaturePreview.clear();
@@ -253,6 +264,10 @@ function profilePayloadForSubmit(): HostUserProfileWriteRequest | null {
   const fieldKeys = writableFieldKeys.value.filter(fieldKey =>
     fieldKey !== 'phone_number' && fieldKey !== 'id_card_number' && fieldKey !== 'id_card_type'
   );
+  if (fieldKeys.length === 0) {
+    return null;
+  }
+
   return {
     fieldKeys: [...fieldKeys].sort(),
     nickname: hasField('nickname', true) ? profile.nickname ?? null : null,
@@ -351,16 +366,22 @@ const canEditDisplayName = computed(() => true);
             <span v-else>{{ t('profileSettings.mediaEmpty') }}</span>
           </div>
           <div class="profile-media-actions">
-            <label class="profile-media-upload">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                data-testid="profile-settings-avatar-input"
-                :disabled="uploadingAvatar || removingAvatar"
-                @change="handleAvatarSelected"
-              >
-              <ElButton :loading="uploadingAvatar">{{ t('profileSettings.avatarUpload') }}</ElButton>
-            </label>
+            <input
+              ref="avatarFileInput"
+              class="profile-media-file-input"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              data-testid="profile-settings-avatar-input"
+              :disabled="uploadingAvatar || removingAvatar"
+              @change="handleAvatarSelected"
+            >
+            <ElButton
+              :loading="uploadingAvatar"
+              data-testid="profile-settings-avatar-upload"
+              @click="openAvatarFilePicker"
+            >
+              {{ t('profileSettings.avatarUpload') }}
+            </ElButton>
             <ElButton
               v-if="avatarFileId"
               plain
@@ -380,16 +401,22 @@ const canEditDisplayName = computed(() => true);
             <span v-else>{{ t('profileSettings.mediaEmpty') }}</span>
           </div>
           <div class="profile-media-actions">
-            <label class="profile-media-upload">
-              <input
-                type="file"
-                accept="image/jpeg,image/png"
-                data-testid="profile-settings-signature-input"
-                :disabled="uploadingSignature || removingSignature"
-                @change="handleSignatureSelected"
-              >
-              <ElButton :loading="uploadingSignature">{{ t('profileSettings.signatureUpload') }}</ElButton>
-            </label>
+            <input
+              ref="signatureFileInput"
+              class="profile-media-file-input"
+              type="file"
+              accept="image/jpeg,image/png"
+              data-testid="profile-settings-signature-input"
+              :disabled="uploadingSignature || removingSignature"
+              @change="handleSignatureSelected"
+            >
+            <ElButton
+              :loading="uploadingSignature"
+              data-testid="profile-settings-signature-upload"
+              @click="openSignatureFilePicker"
+            >
+              {{ t('profileSettings.signatureUpload') }}
+            </ElButton>
             <ElButton
               v-if="signatureFileId"
               plain
@@ -552,7 +579,7 @@ const canEditDisplayName = computed(() => true);
   gap: 8px;
 }
 
-.profile-media-upload input {
+.profile-media-file-input {
   display: none;
 }
 
