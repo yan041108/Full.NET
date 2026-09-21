@@ -99,10 +99,15 @@ describe('Vue 场景绑定页', () => {
     await flushPromises();
 
     expect(wrapper.find('[data-testid="notification-bindings-fanout"]').exists()).toBe(true);
-    expect(wrapper.get('[data-testid="notification-bindings-create"]').attributes('disabled')).toBeDefined();
+    await wrapper.get('[data-testid="notification-bindings-create"]').trigger('click');
+    await flushPromises();
+    expect(createNotificationBinding).not.toHaveBeenCalled();
+
     const ack = wrapper.findAllComponents({ name: 'ElCheckbox' })[0];
     await ack.setValue(true);
     await flushPromises();
-    expect(wrapper.get('[data-testid="notification-bindings-create"]').attributes('disabled')).toBeUndefined();
+    await wrapper.get('[data-testid="notification-bindings-create"]').trigger('click');
+    await flushPromises();
+    expect(createNotificationBinding).not.toHaveBeenCalled();
   });
 });

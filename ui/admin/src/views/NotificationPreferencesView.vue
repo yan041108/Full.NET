@@ -1,14 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import {
   ElAlert,
   ElButton,
   ElCard,
+  ElForm,
+  ElFormItem,
   ElInput,
   ElMessage,
   ElOption,
   ElSelect,
-  ElTag
+  ElTable,
+  ElTableColumn,
+  ElTag,
+  type FormInstance,
+  type FormRules
 } from 'element-plus';
 import type {
   NotificationProviderProfileResponse,
@@ -32,8 +38,11 @@ const session = useSessionStore();
 const { t } = useAdminI18n();
 const profiles = ref<NotificationProviderProfileResponse[]>([]);
 const endpoints = ref<RecipientEndpointResponse[]>([]);
-const selectedProfileVersionId = ref('');
-const rawEndpointValue = ref('');
+const registerFormRef = ref<FormInstance>();
+const registerForm = reactive({
+  providerProfileVersionId: '',
+  rawValue: ''
+});
 const loading = ref(false);
 const saving = ref(false);
 const deletingId = ref<string>();
@@ -56,8 +65,25 @@ const availableProfiles = computed(() => profiles.value.filter(profile =>
 ));
 const selectedProfile = computed(() =>
   availableProfiles.value.find(profile =>
-    profile.latestPublishedVersionId === selectedProfileVersionId.value)
+    profile.latestPublishedVersionId === registerForm.providerProfileVersionId)
 );
+const registerRules = computed<FormRules>(() => {
+  const message = t('notificationPreferences.validationRequired');
+  const requiredTextRule = {
+    validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
+      if (typeof value !== 'string' || !value.trim()) {
+        callback(new Error(message));
+        return;
+      }
+      callback();
+    },
+    trigger: ['blur', 'change'] as const
+  };
+  return {
+    providerProfileVersionId: [requiredTextRule],
+    rawValue: [requiredTextRule]
+  };
+});
 const selectedEndpointKind = computed(() => {
   switch (selectedProfile.value?.providerTypeKey) {
     case 'sms.aliyun':
@@ -130,10 +156,10 @@ async function load(): Promise<void> {
     profiles.value = profilePage.items;
     endpoints.value = endpointItems;
     const selectedStillAvailable = availableProfiles.value.some(profile =>
-      profile.latestPublishedVersionId === selectedProfileVersionId.value
+      profile.latestPublishedVersionId === registerForm.providerProfileVersionId
     );
     if (!selectedStillAvailable) {
-      selectedProfileVersionId.value = availableProfiles.value[0]?.latestPublishedVersionId ?? '';
+      registerForm.providerProfileVersionId = availableProfiles.value[0]?.latestPublishedVersionId ?? '';
     }
   } catch {
     errorMessage.value = t('notificationPreferences.loadFailed');
@@ -142,11 +168,39 @@ async function load(): Promise<void> {
   }
 }
 
+function passesRegisterValidation(): boolean {
+  return Boolean(registerForm.providerProfileVersionId.trim())
+    && Boolean(registerForm.rawValue.trim());
+}
+
+async function validateRegisterForm(): Promise<boolean> {
+  const form = registerFormRef.value;
+  if (!form) {
+    return false;
+  }
+  let formValid = true;
+  try {
+    await form.validate();
+  } catch {
+    formValid = false;
+  }
+  if (!passesRegisterValidation()) {
+    const fields = ['providerProfileVersionId', 'rawValue'] as const;
+    for (const field of fields) {
+      try {
+        await form.validateField(field);
+      } catch {
+        /* 单字段错误由表单项展示 */
+      }
+    }
+    return false;
+  }
+  return formValid;
+}
+
 /** 登记待验证端点；请求体不携带用户、租户或验证状态。 */
 async function createEndpoint(): Promise<void> {
-  const providerProfileVersionId = selectedProfileVersionId.value;
-  const rawValue = rawEndpointValue.value.trim();
-  if (saving.value || !providerProfileVersionId || !rawValue) {
+  if (saving.value || !(await validateRegisterForm())) {
     return;
   }
 
@@ -154,11 +208,12 @@ async function createEndpoint(): Promise<void> {
   errorMessage.value = undefined;
   try {
     await createMyRecipientEndpoint({
-      providerProfileVersionId,
+      providerProfileVersionId: registerForm.providerProfileVersionId,
       endpointKindKey: selectedEndpointKind.value,
-      rawValue
+      rawValue: registerForm.rawValue.trim()
     });
-    rawEndpointValue.value = '';
+    registerForm.rawValue = '';
+    registerFormRef.value?.clearValidate(['rawValue']);
     endpoints.value = await listMyRecipientEndpoints();
     ElMessage.success(t('notificationPreferences.createSuccess'));
   } catch {
@@ -274,15 +329,18 @@ function profileLabel(profileVersionId: string): string {
     profile.latestPublishedVersionId === profileVersionId
   )?.profileKey ?? profileVersionId;
 }
+
+function endpointNeedsCodeVerification(endpoint: RecipientEndpointResponse): boolean {
+  return endpoint.verificationStatusKey === 'pending'
+    && endpoint.endpointKindKey !== 'dingtalk'
+    && endpoint.endpointKindKey !== 'wecom';
+}
 </script>
 
 <template>
-  <section class="notification-preferences-view art-page-stack">
-    <header class="art-page-header">
-      <p class="art-eyebrow">{{ t('notificationPreferences.eyebrow') }}</p>
-      <h1 data-route-heading tabindex="-1">{{ t('notificationPreferences.title') }}</h1>
-      <p>{{ t('notificationPreferences.description') }}</p>
-    </header>
+  <section class="notification-preferences-view art-page-stack art-full-height">
+    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('notificationPreferences.title') }}</h1>
+    <p class="art-sr-heading">{{ t('notificationPreferences.description') }}</p>
 
     <ElAlert
       v-if="errorMessage"
@@ -290,206 +348,340 @@ function profileLabel(profileVersionId: string): string {
       :title="errorMessage"
       :closable="false"
       show-icon
+      class="notification-preferences-error"
     />
 
-    <ElCard shadow="never">
-      <template #header>
-        <div class="art-section-heading">
-          <div>
-            <h2>{{ t('notificationPreferences.endpointTitle') }}</h2>
-            <p>{{ t('notificationPreferences.endpointHint') }}</p>
-          </div>
-          <ElButton :loading="loading" data-testid="notification-preferences-load" @click="load">
-            {{ t('notificationPreferences.refresh') }}
-          </ElButton>
-        </div>
-      </template>
-
-      <ElAlert
-        type="warning"
-        :title="t('notificationPreferences.pendingWarning')"
-        :closable="false"
-        show-icon
-      />
-      <ElAlert
-        type="info"
-        :title="t('notificationPreferences.externalAuthNotice')"
-        :closable="false"
-        show-icon
-      />
-
-      <div
-        v-if="canUpdate && availableProfiles.length > 0"
-        class="recipient-endpoint-form"
-      >
-        <ElSelect
-          v-model="selectedProfileVersionId"
-          data-testid="notification-preferences-profile"
-          :aria-label="t('notificationPreferences.profile')"
-        >
-          <ElOption
-            v-for="profile in availableProfiles"
-            :key="profile.latestPublishedVersionId!"
-            :label="profile.profileKey"
-            :value="profile.latestPublishedVersionId!"
-          />
-        </ElSelect>
-        <ElInput
-          v-model="rawEndpointValue"
-          :data-testid="selectedEndpointInputTestId"
-          :type="selectedEndpointInputType"
-          :placeholder="selectedEndpointPlaceholder"
-          @keyup.enter="createEndpoint"
-        />
-        <ElButton
-          type="primary"
-          :loading="saving"
-          data-testid="notification-preferences-save"
-          @click="createEndpoint"
-        >
-          {{ t('notificationPreferences.register') }}
-        </ElButton>
-      </div>
-      <ElAlert
-        v-else-if="canUpdate"
-        data-testid="notification-preferences-no-profile"
-        type="info"
-        :title="t('notificationPreferences.noProfile')"
-        :closable="false"
-      />
-
-      <div
-        class="recipient-endpoint-list"
-        data-testid="notification-preferences-endpoint-list"
-      >
-        <article
-          v-for="endpoint in endpoints"
-          :key="endpoint.id"
-          class="recipient-endpoint-item"
-        >
-          <div>
-            <strong>{{ endpoint.maskedValue }}</strong>
-            <p>{{ profileLabel(endpoint.providerProfileVersionId) }}</p>
-          </div>
-          <div class="recipient-endpoint-actions">
-            <ElTag :type="endpoint.verificationStatusKey === 'verified' ? 'success' : 'warning'">
-              {{ statusText(endpoint.verificationStatusKey) }}
-            </ElTag>
-            <div
-              v-if="canUpdate && endpoint.verificationStatusKey === 'pending' && endpoint.endpointKindKey !== 'dingtalk' && endpoint.endpointKindKey !== 'wecom'"
-              class="recipient-endpoint-verify"
-            >
-              <ElInput
-                v-model="verificationCodes[endpoint.id]"
-                data-testid="notification-preferences-code"
-                maxlength="6"
-                inputmode="numeric"
-                :placeholder="t('notificationPreferences.codePlaceholder')"
-              />
-              <ElButton
-                :loading="sendingId === endpoint.id"
-                :disabled="isResendCooldown(endpoint.id)"
-                data-testid="notification-preferences-send-code"
-                @click="sendVerification(endpoint.id)"
-              >
-                {{ sendCodeLabel(endpoint.id) }}
-              </ElButton>
-              <ElButton
-                type="primary"
-                :loading="verifyingId === endpoint.id"
-                data-testid="notification-preferences-verify"
-                @click="verifyEndpoint(endpoint.id)"
-              >
-                {{ t('notificationPreferences.verifyCode') }}
-              </ElButton>
+    <div class="notification-preferences-layout">
+      <ElCard class="notification-preferences-list art-table-card" shadow="never">
+        <template #header>
+          <div class="notification-preferences-list__header">
+            <div>
+              <h2>{{ t('notificationPreferences.endpointTitle') }}</h2>
+              <p class="art-muted">{{ t('notificationPreferences.endpointHint') }}</p>
             </div>
-            <ElButton
-              v-if="canUpdate"
-              text
-              type="danger"
-              :loading="deletingId === endpoint.id"
-              data-testid="notification-preferences-delete"
-              @click="removeEndpoint(endpoint.id)"
-            >
-              {{ pendingDeleteId === endpoint.id
-                ? t('notificationPreferences.confirmDelete')
-                : t('notificationPreferences.delete') }}
+            <ElButton :loading="loading" data-testid="notification-preferences-load" @click="load">
+              {{ t('notificationPreferences.refresh') }}
             </ElButton>
           </div>
-        </article>
-        <p v-if="!loading && endpoints.length === 0" class="art-empty-state">
-          {{ t('notificationPreferences.empty') }}
-        </p>
-      </div>
-    </ElCard>
+        </template>
 
-    <ElCard shadow="never">
-      <h2>{{ t('notificationPreferences.policyTitle') }}</h2>
-      <p>{{ t('notificationPreferences.policyUnavailable') }}</p>
-    </ElCard>
+        <div class="notification-preferences-notices">
+          <ElAlert
+            type="warning"
+            :title="t('notificationPreferences.pendingWarning')"
+            :closable="false"
+            show-icon
+          />
+          <ElAlert
+            type="info"
+            :title="t('notificationPreferences.externalAuthNotice')"
+            :closable="false"
+            show-icon
+          />
+        </div>
+
+        <div data-testid="notification-preferences-endpoint-list" class="notification-preferences-table-wrap">
+          <ElTable
+            v-loading="loading"
+            :data="endpoints"
+            class="notification-preferences-table"
+            row-key="id"
+            empty-text=""
+          >
+            <ElTableColumn :label="t('notificationPreferences.fieldEndpoint')" min-width="140">
+              <template #default="{ row }">
+                <strong translate="no">{{ row.maskedValue }}</strong>
+              </template>
+            </ElTableColumn>
+
+            <ElTableColumn :label="t('notificationPreferences.profile')" min-width="120" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span translate="no">{{ profileLabel(row.providerProfileVersionId) }}</span>
+              </template>
+            </ElTableColumn>
+
+            <ElTableColumn :label="t('users.status')" width="100" align="center">
+              <template #default="{ row }">
+                <ElTag
+                  size="small"
+                  :type="row.verificationStatusKey === 'verified' ? 'success' : 'warning'"
+                >
+                  {{ statusText(row.verificationStatusKey) }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+
+            <ElTableColumn
+              v-if="canUpdate"
+              :label="t('notificationPreferences.actions')"
+              min-width="320"
+              class-name="notification-preferences-actions-col"
+            >
+              <template #default="{ row }">
+                <div class="recipient-endpoint-actions">
+                  <div
+                    v-if="endpointNeedsCodeVerification(row)"
+                    class="recipient-endpoint-verify"
+                  >
+                    <ElInput
+                      v-model="verificationCodes[row.id]"
+                      data-testid="notification-preferences-code"
+                      maxlength="6"
+                      inputmode="numeric"
+                      :placeholder="t('notificationPreferences.codePlaceholder')"
+                    />
+                    <ElButton
+                      :loading="sendingId === row.id"
+                      :disabled="isResendCooldown(row.id)"
+                      data-testid="notification-preferences-send-code"
+                      @click="sendVerification(row.id)"
+                    >
+                      {{ sendCodeLabel(row.id) }}
+                    </ElButton>
+                    <ElButton
+                      type="primary"
+                      :loading="verifyingId === row.id"
+                      data-testid="notification-preferences-verify"
+                      @click="verifyEndpoint(row.id)"
+                    >
+                      {{ t('notificationPreferences.verifyCode') }}
+                    </ElButton>
+                  </div>
+                  <ElButton
+                    text
+                    type="danger"
+                    :loading="deletingId === row.id"
+                    data-testid="notification-preferences-delete"
+                    @click="removeEndpoint(row.id)"
+                  >
+                    {{ pendingDeleteId === row.id
+                      ? t('notificationPreferences.confirmDelete')
+                      : t('notificationPreferences.delete') }}
+                  </ElButton>
+                </div>
+              </template>
+            </ElTableColumn>
+
+            <template #empty>
+              <p v-if="!loading" class="art-empty-state">{{ t('notificationPreferences.empty') }}</p>
+            </template>
+          </ElTable>
+        </div>
+      </ElCard>
+
+      <div class="notification-preferences-side">
+        <ElCard v-if="canUpdate" class="notification-preferences-register art-form-card" shadow="never">
+          <template #header>
+            <h2>{{ t('notificationPreferences.registerTitle') }}</h2>
+          </template>
+
+          <ElForm
+            v-if="availableProfiles.length > 0"
+            ref="registerFormRef"
+            :model="registerForm"
+            :rules="registerRules"
+            label-position="top"
+            class="notification-preferences-register__form"
+            @submit.prevent
+          >
+            <ElFormItem prop="providerProfileVersionId" :label="t('notificationPreferences.profile')" required>
+              <ElSelect
+                v-model="registerForm.providerProfileVersionId"
+                data-testid="notification-preferences-profile"
+                :teleported="false"
+              >
+                <ElOption
+                  v-for="profileItem in availableProfiles"
+                  :key="profileItem.latestPublishedVersionId!"
+                  :label="profileItem.profileKey"
+                  :value="profileItem.latestPublishedVersionId!"
+                />
+              </ElSelect>
+            </ElFormItem>
+            <ElFormItem prop="rawValue" :label="t('notificationPreferences.fieldEndpoint')" required>
+              <ElInput
+                v-model="registerForm.rawValue"
+                :data-testid="selectedEndpointInputTestId"
+                :type="selectedEndpointInputType"
+                :placeholder="selectedEndpointPlaceholder"
+                @keyup.enter="createEndpoint"
+              />
+            </ElFormItem>
+            <ElFormItem>
+              <ElButton
+                type="primary"
+                :loading="saving"
+                data-testid="notification-preferences-save"
+                @click="createEndpoint"
+              >
+                {{ t('notificationPreferences.register') }}
+              </ElButton>
+            </ElFormItem>
+          </ElForm>
+
+          <ElAlert
+            v-else
+            data-testid="notification-preferences-no-profile"
+            type="info"
+            :title="t('notificationPreferences.noProfile')"
+            :closable="false"
+          />
+        </ElCard>
+
+        <ElCard class="notification-preferences-policy" shadow="never">
+          <template #header>
+            <h2>{{ t('notificationPreferences.policyTitle') }}</h2>
+          </template>
+          <p class="art-muted">{{ t('notificationPreferences.policyUnavailable') }}</p>
+        </ElCard>
+      </div>
+    </div>
   </section>
 </template>
 
 <style scoped>
-.recipient-endpoint-form,
-.recipient-endpoint-item,
-.recipient-endpoint-actions,
-.art-section-heading {
+.notification-preferences-view {
+  min-height: 0;
+}
+
+.notification-preferences-error {
+  margin-bottom: 0;
+}
+
+.notification-preferences-layout {
   display: flex;
-  align-items: center;
+  flex: 1;
   gap: 12px;
+  min-height: 0;
+}
+
+.notification-preferences-list {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.notification-preferences-list :deep(.el-card__body) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding-top: 0;
+}
+
+.notification-preferences-list :deep(.el-card__header) {
+  padding: 12px 16px;
+}
+
+.notification-preferences-list__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notification-preferences-list__header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.notification-preferences-list__header p {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.notification-preferences-notices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notification-preferences-notices :deep(.el-alert) {
+  padding: 8px 12px;
+}
+
+.notification-preferences-table-wrap {
+  flex: 1;
+  min-height: 200px;
+}
+
+.notification-preferences-table {
+  width: 100%;
+}
+
+.recipient-endpoint-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .recipient-endpoint-verify {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
 .recipient-endpoint-verify .el-input {
-  width: 140px;
+  width: 120px;
 }
 
-.art-section-heading,
-.recipient-endpoint-item {
-  justify-content: space-between;
+.notification-preferences-side {
+  flex: 0 0 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 280px;
+  max-width: 380px;
 }
 
-.recipient-endpoint-form {
-  margin: 18px 0;
+.notification-preferences-register :deep(.el-card__header),
+.notification-preferences-policy :deep(.el-card__header) {
+  padding: 12px 16px;
 }
 
-.recipient-endpoint-form .el-select {
-  width: 220px;
+.notification-preferences-register :deep(.el-card__header) h2,
+.notification-preferences-policy :deep(.el-card__header) h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
 }
 
-.recipient-endpoint-list {
-  display: grid;
-  gap: 10px;
-  margin-top: 18px;
+.notification-preferences-register :deep(.el-card__body) {
+  padding: 12px 16px 16px;
 }
 
-.recipient-endpoint-item {
-  padding: 14px 16px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 10px;
+.notification-preferences-register__form :deep(.el-form-item) {
+  margin-bottom: 12px;
 }
 
-.recipient-endpoint-item p,
-.art-section-heading p {
-  margin: 4px 0 0;
-  color: var(--el-text-color-secondary);
+.notification-preferences-register__form :deep(.el-form-item:last-child) {
+  margin-bottom: 0;
 }
 
-@media (max-width: 720px) {
-  .recipient-endpoint-form,
-  .recipient-endpoint-item {
-    align-items: stretch;
+.notification-preferences-policy :deep(.el-card__body) {
+  padding: 12px 16px 16px;
+}
+
+.notification-preferences-policy p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 960px) {
+  .notification-preferences-layout {
     flex-direction: column;
   }
 
-  .recipient-endpoint-form .el-select {
+  .notification-preferences-side {
+    flex: none;
+    max-width: none;
     width: 100%;
   }
 }
