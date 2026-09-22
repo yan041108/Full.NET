@@ -28,7 +28,8 @@
 |------|------|------|
 | 19 | **closeout** | [2026-09-23-execution-checklist-19-closeout](2026-09-23-execution-checklist-19-closeout.md)；`host-roles` API 复制 E2E |
 | 20 | **closeout** | [2026-09-23-execution-checklist-20-closeout](2026-09-23-execution-checklist-20-closeout.md) |
-| 21–47 | **待串行** | B-3…B-28 逐编号 closeout（见 [B 区审计](2026-09-23-execution-checklist-b-zone-audit.md)） |
+| 21 | **closeout** | [2026-09-23-execution-checklist-21-closeout](2026-09-23-execution-checklist-21-closeout.md) |
+| 22–47 | **待串行** | B-4…B-28（见 [B 区审计](2026-09-23-execution-checklist-b-zone-audit.md)） |
 
 ## Phase D / Gate C / Phase C
 
