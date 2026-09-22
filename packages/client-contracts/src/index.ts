@@ -818,6 +818,38 @@ export type {
 } from './document-statistics.js';
 
 export {
+  isHostDocumentVersionRetentionSettingsResponse,
+  isUpdateHostDocumentVersionRetentionRequest
+} from './document-version-retention.js';
+
+export type {
+  HostDocumentVersionRetentionSettingsResponse,
+  UpdateHostDocumentVersionRetentionRequest
+} from './document-version-retention.js';
+
+export {
+  isMessagingDeadLetter,
+  isMessagingDeadLetterPage
+} from './messaging-dead-letters.js';
+
+export type {
+  MessagingDeadLetter,
+  MessagingDeadLetterPage
+} from './messaging-dead-letters.js';
+
+export {
+  isAcceptTenantInvitationResult,
+  isMyTenantInvitation,
+  readAcceptTenantInvitationResult,
+  readMyTenantInvitationList
+} from './my-tenant-invitations.js';
+
+export type {
+  AcceptTenantInvitationResult,
+  MyTenantInvitation
+} from './my-tenant-invitations.js';
+
+export {
   isHostRecycleBinItemResponse,
   isHostRecycleBinPage,
   isRestoreHostRecycleBinItemRequest

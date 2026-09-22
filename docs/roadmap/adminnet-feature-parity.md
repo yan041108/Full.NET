@@ -128,7 +128,7 @@
 | `Admin.NET.Plugin.Ai` | AI 模型配置、对话、Agent、工具调用、MCP 与 Agentic Web | AI + Agents + AgenticWeb | Official Module + Provider + Protocol Adapter | Mapped |
 | `Admin.NET.Plugin.DataApproval` | 数据变更审批 | DataApproval | Official Module | Mapped |
 | `Admin.NET.Plugin.DingTalk` | 钉钉组织、消息和接口 | DingTalk | Provider | Mapped |
-| `Admin.NET.Plugin.Document` | 文档、分类、标签、权限、分享、预览、版本、回收站和统计 | Document | Official Module | **Build-verified**（Host 全矩阵 + 版本历史 + MVP 预览已落地；admin-parity WCAG 与 admin-real-stack 双库 E2E 待 fresh 全绿后升 **Verified**；Office 转 PDF 为有意差异） |
+| `Admin.NET.Plugin.Document` | 文档、分类、标签、权限、分享、预览、版本、回收站和统计 | Document | Official Module | **Build-verified**（一期/二期 Host 能力已合入；2026-09-22 governance/openapi/admin-parity WCAG fresh 通过；**Verified** 仍待 admin-real-stack 双库 E2E + 运行时 OpenAPI snapshot；Office 转 PDF 为有意差异） |
 | `Admin.NET.Plugin.GoView` | 可视化大屏 | GoView | Official Module + Client | Mapped |
 | `Admin.NET.Plugin.K3Cloud` | 金蝶云星空接口集成 | K3Cloud | Provider + Sample | Mapped |
 | `Admin.NET.Plugin.PaddleOCR` | OCR 识别 | OCR | Provider | Mapped |
@@ -144,7 +144,7 @@
 
 | 顺序 | 模块 | 前置依赖 | 所有权与契约边界 | 退出门禁 |
 | --- | --- | --- | --- | --- |
-| 1 | ~~Document~~ | Files Provider 稳定；字段投影可用 | **Build-verified**；Verified 升档待 WCAG/E2E fresh 输出 | 见 [`document-parity-2026-08-09.md`](../verification/document-parity-2026-08-09.md) |
+| 1 | ~~Document~~ | Files Provider 稳定；字段投影可用 | **Build-verified**；Verified 升档待 admin-real-stack 双库 E2E（见 [`2026-09-22-document-verified-gates.md`](../verification/2026-09-22-document-verified-gates.md)） | 见 [`document-parity-2026-08-09.md`](../verification/document-parity-2026-08-09.md) |
 | 2 | Workflow | Notifications 与 Jobs 恢复路径可用 | 拥有不可变定义/表单版本、实例、步骤、待办、抄送、提交、执行日志与恢复；禁止业务模块直连流程表 | Spec 已批准；先执行核心首切片，再执行设计器/跨端计划；必须覆盖双库、AOT、实例恢复与幂等推进 |
 | 3 | DataApproval | Workflow 可用 | 通过显式用例契约集成，禁止任意 HTTP 中间件拦截改写业务写路径 | 同上，且必须覆盖审批拒绝/撤回与审计 |
 | 4 | ImportExport / Reporting | 字段投影稳定 | 导入导出与报表配置分模块；禁止动态 SQL 拼接与未授权列泄露 | 同上，且必须覆盖大文件/批处理背压与失败续跑 |
@@ -156,7 +156,7 @@
 
 ### 4.2 Document 队列关闭后的 Admin.NET 广度波次（2026-08-16）
 
-Document 队列 #1 已于 2026-08-16 完成功能实现并关闭，当前保持 **Build-verified**；WCAG 与双库 admin-real-stack 需要 fresh 全绿后才能升 `Verified`。后续按依赖链与 `Implementing` 收口排期：
+Document 队列 #1 功能已于 2026-09 收口（分享筛选、标签 assignment、保留策略可写、服务端 `tagId` 筛选等）；2026-09-22 governance/openapi/admin-parity WCAG 已 fresh 通过，**Verified** 仍待双库 admin-real-stack 与运行时 OpenAPI snapshot。后续按依赖链与 `Implementing` 收口排期：
 
 | 波次 | 优先级 | 能力 | 下一切片 |
 | --- | --- | --- | --- |

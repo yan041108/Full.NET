@@ -685,6 +685,27 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/my-tenant-invitations.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-my-tenant-invitations-v1.json",
+      "apiModule": "ui/admin/src/api/my-tenant-invitations.ts",
+      "routePrefixes": [
+        "/api/v1/me/tenant-invitations",
+        "/api/v1/identity/tenant-invitations"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/messaging-dead-letters.ts"
+      ],
+      "openApiFixture": "contracts/openapi/messaging-dead-letters-v1.json",
+      "apiModule": "ui/admin/src/api/messaging-operations.ts",
+      "routePrefixes": [
+        "/api/v1/messaging/dead-letters"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/workflow-todos.ts"
       ],
       "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
@@ -1339,6 +1360,24 @@
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "consumers": [
         "ui/admin/src/views/DocumentStatisticsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/document-version-retention.ts",
+      "consumers": [
+        "ui/admin/src/views/DocumentStatisticsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/my-tenant-invitations.ts",
+      "consumers": [
+        "ui/admin/src/views/TenantContextView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/messaging-operations.ts",
+      "consumers": [
+        "ui/admin/src/views/HostMessagingOpsView.vue"
       ]
     },
     {

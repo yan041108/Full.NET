@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { Plus } from '@element-plus/icons-vue';
 import {
   ElButton,
@@ -71,6 +72,7 @@ interface DeletedDocumentEntry {
 }
 
 const session = useSessionStore();
+const router = useRouter();
 const { t } = useAdminI18n();
 const items = ref<HostDocumentItem[]>([]);
 const createDialogOpen = ref(false);
@@ -285,6 +287,7 @@ function onShareBatchCreated(succeeded: number, total: number): void {
   }
   shareBatchTargets.value = [];
   selectedItems.value = [];
+  void router.push({ name: 'document-shares' });
 }
 
 async function onShareCreated(_share: HostDocumentShareResponse, shareUrl: string): Promise<void> {

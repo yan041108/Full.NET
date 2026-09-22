@@ -1,0 +1,42 @@
+{
+  "id": "messaging-dead-letters-v1",
+  "version": 1,
+  "description": "消费死信分页查询 HTTP 契约夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/messaging/dead-letters",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "messaging.dead_letters.read",
+          "successStatus": 200,
+          "responseSchema": "MessagingDeadLetterPage"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "MessagingDeadLetter": {
+      "properties": [
+        "consumerName",
+        "messageId",
+        "messageType",
+        "schemaVersion",
+        "tenantId",
+        "attempts",
+        "receivedAtUtc",
+        "lastErrorCode",
+        "lastError"
+      ]
+    },
+    "MessagingDeadLetterPage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "MessagingDeadLetter"
+    }
+  }
+}

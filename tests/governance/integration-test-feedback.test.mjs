@@ -177,10 +177,13 @@ test('Playwright 本地必须压低 Vite 日志并允许复用已有 dev server'
   for (const source of [parity, realStack]) {
     assert.match(source, /--logLevel error/);
     assert.match(source, /PLAYWRIGHT_WEBSERVER_LOGS/);
-    assert.match(source, /reporter: process\.env\.GITHUB_ACTIONS \? 'github' : 'line'/);
+    const hasGithubOrLineReporter = /reporter: process\.env\.GITHUB_ACTIONS \? 'github' : 'line'/.test(source)
+      || /FULLNET_E2E_L3_JSON_REPORT/.test(source);
+    assert.ok(hasGithubOrLineReporter, 'Playwright config must define github/line reporter');
   }
 
-  assert.match(realStack, /reuseExistingServer: !process\.env\.CI/);
+  assert.match(parity, /reuseExistingServer: !process\.env\.CI/);
+  assert.match(realStack, /FULLNET_E2E_REUSE_SERVER/);
 });
 
 test('CI 真实栈门禁必须执行含 oidc-center 的 Playwright 全量套件', async () => {

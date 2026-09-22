@@ -197,6 +197,27 @@
         "hasPassword",
         "accessCountRemaining"
       ]
+    },
+    "HostDocumentPreviewTaskResponse": {
+      "properties": [
+        "id",
+        "documentItemId",
+        "documentTitle",
+        "versionId",
+        "sourceFileId",
+        "outputFileId",
+        "statusKey",
+        "providerKey",
+        "errorCode",
+        "requestedByUserId",
+        "createdAtUtc",
+        "startedAtUtc",
+        "completedAtUtc",
+        "version"
+      ]
+    },
+    "Stream": {
+      "properties": []
     }
   }
 }

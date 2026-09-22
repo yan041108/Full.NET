@@ -1,0 +1,72 @@
+{
+  "id": "identity-my-tenant-invitations-v1",
+  "version": 1,
+  "description": "当前用户租户邀请列表与接受 HTTP 契约夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/me/tenant-invitations",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": null,
+          "successStatus": 200,
+          "responseSchema": "MyTenantInvitationList"
+        },
+        {
+          "method": "POST",
+          "permission": null,
+          "successStatus": 200,
+          "requestSchema": null,
+          "responseSchema": "AcceptTenantInvitationResponse",
+          "pathSuffix": "/{invitationId}/accept"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/tenant-invitations/accept",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": null,
+          "successStatus": 200,
+          "requestSchema": "AcceptTenantInvitationRequest",
+          "responseSchema": "AcceptTenantInvitationResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "MyTenantInvitation": {
+      "properties": [
+        "id",
+        "tenantId",
+        "tenantName",
+        "targetEmail",
+        "memberRole",
+        "expiresAtUtc",
+        "createdAtUtc"
+      ]
+    },
+    "MyTenantInvitationList": {
+      "properties": [
+        "items"
+      ],
+      "itemSchema": "MyTenantInvitation",
+      "array": true
+    },
+    "AcceptTenantInvitationRequest": {
+      "properties": [
+        "invitationToken"
+      ]
+    },
+    "AcceptTenantInvitationResponse": {
+      "properties": [
+        "memberId",
+        "tenantId",
+        "userId",
+        "memberRole",
+        "status"
+      ]
+    }
+  }
+}

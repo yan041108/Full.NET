@@ -31,7 +31,7 @@ async function loadContract() {
 }
 
 function isValidPlatformPermission(permission) {
-  return /^platform\.release_notes\.(read|create|update|publish|retract|delete|mark_read)$/u.test(
+  return /^platform\.(host_release_notes\.read|release_notes\.(read|create|update|publish|retract|delete|mark_read))$/u.test(
     permission
   );
 }

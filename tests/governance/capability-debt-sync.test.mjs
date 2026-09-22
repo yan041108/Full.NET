@@ -30,7 +30,7 @@ const forbiddenPhrasesWhenDebtEmpty = [
   '反向模块契约债务'
 ];
 
-test('architecture 债务目录为空时 capability-status 不得声称仍存登记债务', async () => {
+test('architecture 债务目录与 capability-status 表述一致', async () => {
   const catalogs = await Promise.all(
     architectureDebtFiles.map(async filePath => {
       const catalog = await parseDebtCatalog(filePath);
@@ -38,21 +38,40 @@ test('architecture 债务目录为空时 capability-status 不得声称仍存登
     })
   );
 
+  const capabilityStatus = await read('docs/roadmap/capability-status.md');
+  const localTransactionDebt = catalogs.find(
+    ({ filePath }) => filePath.endsWith('module-local-transaction-debt.json')
+  );
+  const localTransactionEntries = localTransactionDebt?.entries ?? [];
+
+  const catalogDocumentationPatterns = {
+    'module-local-transaction-debt.json': /AcceptTenantInvitation|local-transaction/,
+    'module-table-access-debt.json': /table-access|SessionBindingKinds/,
+    'module-cross-foreign-key-debt.json': /cross-foreign-key/
+  };
+
   for (const { filePath, entries } of catalogs) {
-    assert.deepEqual(
-      entries,
-      [],
-      `${filePath} 必须为空，或同步更新 capability-status 与治理测试`
+    const baseName = path.basename(filePath);
+    if (entries.length === 0) {
+      continue;
+    }
+    const pattern = catalogDocumentationPatterns[baseName];
+    assert.ok(pattern, `${filePath} 含债务条目但未配置 capability-status 校验规则`);
+    assert.match(
+      capabilityStatus,
+      pattern,
+      `capability-status 必须登记 ${baseName} 中的债务条目`
     );
   }
 
-  const capabilityStatus = await read('docs/roadmap/capability-status.md');
-  for (const phrase of forbiddenPhrasesWhenDebtEmpty) {
-    assert.doesNotMatch(
-      capabilityStatus,
-      new RegExp(phrase),
-      `capability-status 在债务目录已空时不得包含“${phrase}”`
-    );
+  if (localTransactionEntries.length === 0) {
+    for (const phrase of forbiddenPhrasesWhenDebtEmpty) {
+      assert.doesNotMatch(
+        capabilityStatus,
+        new RegExp(phrase),
+        `capability-status 在 local-transaction 债务目录已空时不得包含“${phrase}”`
+      );
+    }
   }
 });
 
