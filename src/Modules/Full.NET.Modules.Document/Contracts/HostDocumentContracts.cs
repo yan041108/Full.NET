@@ -326,6 +326,34 @@ public sealed record CreateHostDocumentShareRequest(
     string? Password = null,
     int? MaxAccessCount = null);
 
+/// <summary>Host 文档分享批量创建的有界上限。</summary>
+public static class HostDocumentShareBatchLimits
+{
+    /// <summary>单次批量创建分享允许的最大文档数。</summary>
+    public const int MaxDocumentCount = 50;
+}
+
+/// <summary>批量创建主机文档分享的请求契约；各文档共用同一有效期、口令与访问上限策略。</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record BatchCreateHostDocumentSharesRequest(
+    IReadOnlyList<Guid> DocumentIds,
+    int ValidDays,
+    string? Password = null,
+    int? MaxAccessCount = null);
+
+/// <summary>批量创建分享的单条结果。</summary>
+public sealed record BatchCreateHostDocumentShareItem(
+    Guid DocumentId,
+    bool Succeeded,
+    HostDocumentShareResponse? Share,
+    string? ErrorCode,
+    string? Message);
+
+/// <summary>批量创建分享汇总响应。</summary>
+public sealed record BatchCreateHostDocumentSharesResponse(
+    int SucceededCount,
+    IReadOnlyList<BatchCreateHostDocumentShareItem> Results);
+
 /// <summary>
 /// 启用或停用文档匿名分享的请求契约，使用乐观并发 Version 守卫。
 /// </summary>
@@ -499,6 +527,21 @@ public sealed record HostDocumentStatisticsCategoryItem(
     Guid? CategoryId,
     string? CategoryName,
     long Count);
+
+/// <summary>Host 文档历史版本自动保留策略快照（有效值：数据库覆盖优先于 appsettings）。</summary>
+public sealed record HostDocumentVersionRetentionSettingsResponse(
+    int MinimumRetainedVersionsPerItem,
+    int MaximumRetainedHistoryVersions,
+    int PollSeconds,
+    int BatchSize);
+
+/// <summary>更新 Host 版本保留策略的请求契约；持久化后通过 Options 合并立即生效。</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record UpdateHostDocumentVersionRetentionRequest(
+    int MinimumRetainedVersionsPerItem,
+    int MaximumRetainedHistoryVersions,
+    int PollSeconds,
+    int BatchSize);
 
 /// <summary>
 /// 主机文档完整统计响应契约，用于后台统计看板。

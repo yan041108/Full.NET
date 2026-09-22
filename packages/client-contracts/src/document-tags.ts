@@ -6,6 +6,8 @@ export interface HostDocumentTagResponse {
   color: string | null;
   description: string | null;
   useCount: number;
+  isHot: boolean;
+  isRecommended: boolean;
   createdAtUtc: string;
   updatedAtUtc: string | null;
   version: number;
@@ -17,6 +19,8 @@ export interface CreateHostDocumentTagRequest {
   icon?: string | null;
   color?: string | null;
   description?: string | null;
+  isHot?: boolean;
+  isRecommended?: boolean;
 }
 
 export interface UpdateHostDocumentTagRequest {
@@ -26,6 +30,8 @@ export interface UpdateHostDocumentTagRequest {
   color?: string | null;
   description?: string | null;
   version: number;
+  isHot?: boolean;
+  isRecommended?: boolean;
 }
 
 export interface DeleteHostDocumentTagRequest {
@@ -50,6 +56,14 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
 }
 
+function isOptionalBoolean(value: unknown): boolean {
+  return value === undefined || typeof value === 'boolean';
+}
+
+function readBooleanFlag(value: unknown, fallback = false): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
 export function isHostDocumentTagResponse(value: unknown): value is HostDocumentTagResponse {
   return isRecord(value)
     && isGuid(value.id)
@@ -59,6 +73,8 @@ export function isHostDocumentTagResponse(value: unknown): value is HostDocument
     && isNullableString(value.color)
     && isNullableString(value.description)
     && Number.isInteger(value.useCount)
+    && isOptionalBoolean(value.isHot)
+    && isOptionalBoolean(value.isRecommended)
     && typeof value.createdAtUtc === 'string'
     && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
     && Number.isInteger(value.version);
@@ -74,7 +90,9 @@ export function isCreateHostDocumentTagRequest(value: unknown): value is CreateH
     && (value.code === undefined || isNullableString(value.code))
     && (value.icon === undefined || isNullableString(value.icon))
     && (value.color === undefined || isNullableString(value.color))
-    && (value.description === undefined || isNullableString(value.description));
+    && (value.description === undefined || isNullableString(value.description))
+    && isOptionalBoolean(value.isHot)
+    && isOptionalBoolean(value.isRecommended);
 }
 
 export function isUpdateHostDocumentTagRequest(value: unknown): value is UpdateHostDocumentTagRequest {
@@ -84,7 +102,20 @@ export function isUpdateHostDocumentTagRequest(value: unknown): value is UpdateH
     && (value.icon === undefined || isNullableString(value.icon))
     && (value.color === undefined || isNullableString(value.color))
     && (value.description === undefined || isNullableString(value.description))
-    && Number.isInteger(value.version);
+    && Number.isInteger(value.version)
+    && isOptionalBoolean(value.isHot)
+    && isOptionalBoolean(value.isRecommended);
+}
+
+/** 将 API 标签响应规范化为带默认布尔运营标记的结构。 */
+export function normalizeHostDocumentTagResponse(
+  value: HostDocumentTagResponse
+): HostDocumentTagResponse {
+  return {
+    ...value,
+    isHot: readBooleanFlag(value.isHot),
+    isRecommended: readBooleanFlag(value.isRecommended)
+  };
 }
 
 export function isDeleteHostDocumentTagRequest(value: unknown): value is DeleteHostDocumentTagRequest {

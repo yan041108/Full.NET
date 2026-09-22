@@ -9,8 +9,10 @@ import {
   ElMessage,
   ElMessageBox,
   ElPagination,
+  ElSwitch,
   ElTable,
-  ElTableColumn
+  ElTableColumn,
+  ElTag
 } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
@@ -40,6 +42,8 @@ type EditorMode = 'create' | 'edit';
 
 interface AppliedFilters {
   name: string;
+  isHot: string;
+  isRecommended: string;
 }
 
 const session = useSessionStore();
@@ -49,7 +53,7 @@ const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const searchForm = ref<Record<string, string | undefined>>({});
-const appliedFilters = ref<AppliedFilters>({ name: '' });
+const appliedFilters = ref<AppliedFilters>({ name: '', isHot: '', isRecommended: '' });
 const editorOpen = ref(false);
 const editorMode = ref<EditorMode>('create');
 const editingTag = ref<HostDocumentTag | null>(null);
@@ -59,7 +63,9 @@ const editorForm = reactive({
   code: null as string | null,
   icon: null as string | null,
   color: null as string | null,
-  description: null as string | null
+  description: null as string | null,
+  isHot: false,
+  isRecommended: false
 });
 const fieldErrors = reactive({ name: '' });
 
@@ -86,11 +92,29 @@ const filteredTags = computed(() => {
 const { page, pageSize, total, pagedItems: pagedTags, resetPage } =
   useArtClientPagination(filteredTags);
 
+const triStateOptions = (yes: string, no: string) => [
+  { label: t('documentTags.filterAny'), value: '' },
+  { label: yes, value: 'true' },
+  { label: no, value: 'false' }
+];
+
 const searchItems = computed<ArtSearchBarItem[]>(() => [
   {
     key: 'name',
     label: t('documentTags.name'),
     placeholder: t('documentTags.searchNamePlaceholder')
+  },
+  {
+    key: 'isHot',
+    label: t('documentTags.isHot'),
+    type: 'select',
+    options: triStateOptions(t('documentTags.yes'), t('documentTags.no'))
+  },
+  {
+    key: 'isRecommended',
+    label: t('documentTags.isRecommended'),
+    type: 'select',
+    options: triStateOptions(t('documentTags.yes'), t('documentTags.no'))
   }
 ]);
 
@@ -123,11 +147,24 @@ function applyFieldErrors(): boolean {
   return !fieldErrors.name;
 }
 
+function parseTriState(value: string): boolean | undefined {
+  if (value === 'true') {
+    return true;
+  }
+  if (value === 'false') {
+    return false;
+  }
+  return undefined;
+}
+
 async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    allTags.value = await listDocumentTags();
+    allTags.value = await listDocumentTags({
+      isHot: parseTriState(appliedFilters.value.isHot),
+      isRecommended: parseTriState(appliedFilters.value.isRecommended)
+    });
   } catch (error: unknown) {
     problem.value = toProblem(error, 'documentTags.loadFailed');
   } finally {
@@ -136,14 +173,20 @@ async function load(): Promise<void> {
   }
 }
 
-function handleSearch(params: Record<string, string | undefined>): void {
-  appliedFilters.value = { name: params.name ?? '' };
+async function handleSearch(params: Record<string, string | undefined>): Promise<void> {
+  appliedFilters.value = {
+    name: params.name ?? '',
+    isHot: params.isHot ?? '',
+    isRecommended: params.isRecommended ?? ''
+  };
   resetPage();
+  await load();
 }
 
-function resetSearch(): void {
-  appliedFilters.value = { name: '' };
+async function resetSearch(): Promise<void> {
+  appliedFilters.value = { name: '', isHot: '', isRecommended: '' };
   resetPage();
+  await load();
 }
 
 function openCreate(): void {
@@ -154,6 +197,8 @@ function openCreate(): void {
   editorForm.icon = null;
   editorForm.color = null;
   editorForm.description = null;
+  editorForm.isHot = false;
+  editorForm.isRecommended = false;
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -169,6 +214,8 @@ function openEdit(tag: HostDocumentTag): void {
   editorForm.icon = null;
   editorForm.color = tag.color;
   editorForm.description = null;
+  editorForm.isHot = tag.isHot;
+  editorForm.isRecommended = tag.isRecommended;
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -200,7 +247,9 @@ async function create(): Promise<void> {
       editorForm.code ?? null,
       editorForm.icon ?? null,
       editorForm.color ?? null,
-      editorForm.description ?? null
+      editorForm.description ?? null,
+      editorForm.isHot,
+      editorForm.isRecommended
     );
     editorOpen.value = false;
     ElMessage.success(t('documentTags.createSuccess'));
@@ -227,7 +276,9 @@ async function saveEdit(): Promise<void> {
       editorForm.icon ?? null,
       editorForm.color ?? null,
       editorForm.description ?? null,
-      tag.version
+      tag.version,
+      editorForm.isHot,
+      editorForm.isRecommended
     );
     editorOpen.value = false;
     ElMessage.success(t('documentTags.updateSuccess'));
@@ -353,6 +404,18 @@ function toProblem(
               </template>
             </el-table-column>
 
+            <el-table-column :label="t('documentTags.flags')" width="160" align="center">
+              <template #default="{ row }">
+                <el-tag v-if="row.isHot" size="small" type="danger" class="document-tags-view__flag">
+                  {{ t('documentTags.isHot') }}
+                </el-tag>
+                <el-tag v-if="row.isRecommended" size="small" type="warning" class="document-tags-view__flag">
+                  {{ t('documentTags.isRecommended') }}
+                </el-tag>
+                <span v-if="!row.isHot && !row.isRecommended">—</span>
+              </template>
+            </el-table-column>
+
             <el-table-column
               :label="t('users.columnActions')"
               width="120"
@@ -429,6 +492,12 @@ function toProblem(
             @update:model-value="fieldErrors.name = validateName()"
           />
         </el-form-item>
+        <el-form-item :label="t('documentTags.isHot')">
+          <el-switch v-model="editorForm.isHot" data-testid="document-tag-is-hot" />
+        </el-form-item>
+        <el-form-item :label="t('documentTags.isRecommended')">
+          <el-switch v-model="editorForm.isRecommended" data-testid="document-tag-is-recommended" />
+        </el-form-item>
       </el-form>
     </ArtFormDialog>
   </section>
@@ -461,6 +530,10 @@ function toProblem(
 
 .document-tags-editor-form {
   padding-top: 8px;
+}
+
+.document-tags-view__flag {
+  margin: 0 4px 4px 0;
 }
 
 .art-sr-heading {

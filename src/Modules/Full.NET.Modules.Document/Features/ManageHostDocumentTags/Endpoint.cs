@@ -15,12 +15,14 @@ internal static class Endpoint
             .WithTags("DocumentHostTags");
 
         group.MapGet("/", async (
+            bool? isHot,
+            bool? isRecommended,
             HostDocumentTagQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.ListAsync(cancellationToken).ConfigureAwait(false);
+            var result = await queries.ListAsync(isHot, isRecommended, cancellationToken).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("documentHostListTags")

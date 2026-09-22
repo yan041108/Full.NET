@@ -25,7 +25,9 @@ test('Host 文档分享 OpenAPI 夹具与 C# 契约和端点一致', async () =>
   assert.match(endpointSource, /\.WithTags\("DocumentHostShares"\)/u);
   assert.match(endpointSource, /\.WithTags\("DocumentPublicShares"\)/u);
   assert.match(endpointSource, /\.WithName\("documentHostListDocumentShares"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentHostBatchCreateDocumentShares"\)/u);
   assert.match(endpointSource, /\.WithName\("documentHostCreateDocumentShare"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentPublicCreateDocumentSharePreviewTask"\)/u);
   assert.match(endpointSource, /\.WithName\("documentHostUpdateDocumentShareStatus"\)/u);
   assert.match(endpointSource, /\.WithName\("documentPublicAccessDocumentShare"\)/u);
   assert.match(endpointSource, /\.WithName\("documentPublicContentDocumentShare"\)/u);

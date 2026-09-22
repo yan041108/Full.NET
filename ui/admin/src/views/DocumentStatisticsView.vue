@@ -4,10 +4,18 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import {
   ElAlert,
+  ElButton,
   ElCard,
   ElCol,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElOption,
   ElPagination,
   ElRow,
+  ElSelect,
   ElStatistic,
   ElTable,
   ElTableColumn,
@@ -22,25 +30,45 @@ import type {
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { listDocumentAccessLogs } from '../api/document-access-logs';
+import { listDocumentAccessLogs, type DocumentAccessLogListFilters } from '../api/document-access-logs';
 import { getDocumentStatistics } from '../api/document-statistics';
+import {
+  getDocumentVersionRetentionSettings,
+  updateDocumentVersionRetentionSettings
+} from '../api/document-version-retention';
 
 defineOptions({ name: 'DocumentStatisticsView' });
 
 const { t } = useAdminI18n();
 const session = useSessionStore();
-const activeTab = ref<'statistics' | 'accessLogs'>('statistics');
+const activeTab = ref<'statistics' | 'accessLogs' | 'retention'>('statistics');
 const statisticsLoading = ref(false);
 const accessLogsLoading = ref(false);
+const retentionLoading = ref(false);
 const statisticsProblem = ref<FullNetProblemDetails>();
 const accessLogsProblem = ref<FullNetProblemDetails>();
+const retentionProblem = ref<FullNetProblemDetails>();
 const statistics = ref<HostDocumentStatisticsResponse | null>(null);
 const accessLogs = ref<HostDocumentAccessLogResponse[]>([]);
 const accessLogsPage = ref(1);
 const accessLogsPageSize = ref(20);
 const accessLogsTotal = ref(0);
+const accessLogFilters = ref<DocumentAccessLogListFilters>({
+  documentItemId: '',
+  accessTypeKey: '',
+  sourceKey: ''
+});
+const retentionSettings = ref<Awaited<ReturnType<typeof getDocumentVersionRetentionSettings>> | null>(null);
+const retentionSaving = ref(false);
+const retentionForm = ref({
+  minimumRetainedVersionsPerItem: 1,
+  maximumRetainedHistoryVersions: 0,
+  pollSeconds: 300,
+  batchSize: 50
+});
 
 const canReadAccessLogs = computed(() => session.can('document.host_access_logs.read'));
+const canUpdateRetention = computed(() => session.can('document.host_documents.update'));
 
 const { tableMainRef, tableHeight, syncTableLayout } = useArtPagedTableInCard(accessLogsLoading);
 
@@ -84,7 +112,11 @@ async function loadAccessLogs() {
   accessLogsLoading.value = true;
   accessLogsProblem.value = undefined;
   try {
-    const result = await listDocumentAccessLogs(accessLogsPage.value, accessLogsPageSize.value);
+    const result = await listDocumentAccessLogs(
+      accessLogsPage.value,
+      accessLogsPageSize.value,
+      buildAccessLogFilters()
+    );
     accessLogs.value = result.items;
     accessLogsPage.value = result.page;
     accessLogsPageSize.value = result.pageSize;
@@ -106,9 +138,71 @@ function toProblem(error: unknown, fallbackCode: string): FullNetProblemDetails 
   return { title: translateRuntimeMessage(t, fallbackCode), status: 500, code: fallbackCode };
 }
 
-watch(activeTab, (tab) => {
+function buildAccessLogFilters(): DocumentAccessLogListFilters {
+  const filters: DocumentAccessLogListFilters = {};
+  const documentItemId = accessLogFilters.value.documentItemId?.trim();
+  const accessTypeKey = accessLogFilters.value.accessTypeKey?.trim();
+  const sourceKey = accessLogFilters.value.sourceKey?.trim();
+  if (documentItemId) {
+    filters.documentItemId = documentItemId;
+  }
+  if (accessTypeKey) {
+    filters.accessTypeKey = accessTypeKey;
+  }
+  if (sourceKey) {
+    filters.sourceKey = sourceKey;
+  }
+  return filters;
+}
+
+function applyAccessLogFilters(): void {
+  accessLogsPage.value = 1;
+  void loadAccessLogs();
+}
+
+function resetAccessLogFilters(): void {
+  accessLogFilters.value = { documentItemId: '', accessTypeKey: '', sourceKey: '' };
+  accessLogsPage.value = 1;
+  void loadAccessLogs();
+}
+
+async function loadRetentionSettings() {
+  retentionLoading.value = true;
+  retentionProblem.value = undefined;
+  try {
+    retentionSettings.value = await getDocumentVersionRetentionSettings();
+    retentionForm.value = { ...retentionSettings.value };
+  } catch (error) {
+    retentionSettings.value = null;
+    retentionProblem.value = toProblem(error, 'documentStatistics.retention.loadFailed');
+  } finally {
+    retentionLoading.value = false;
+  }
+}
+
+async function saveRetentionSettings() {
+  if (!canUpdateRetention.value || retentionSaving.value) {
+    return;
+  }
+  retentionSaving.value = true;
+  retentionProblem.value = undefined;
+  try {
+    retentionSettings.value = await updateDocumentVersionRetentionSettings(retentionForm.value);
+    retentionForm.value = { ...retentionSettings.value };
+    ElMessage.success(t('documentStatistics.retention.saveSuccess'));
+  } catch (error) {
+    retentionProblem.value = toProblem(error, 'documentStatistics.retention.saveFailed');
+  } finally {
+    retentionSaving.value = false;
+  }
+}
+
+watch(activeTab, tab => {
   if (tab === 'accessLogs' && canReadAccessLogs.value && accessLogs.value.length === 0 && !accessLogsLoading.value) {
     void loadAccessLogs();
+  }
+  if (tab === 'retention' && !retentionSettings.value && !retentionLoading.value) {
+    void loadRetentionSettings();
   }
 });
 
@@ -131,6 +225,7 @@ onMounted(() => {
         :label="t('documentStatistics.tabs.accessLogs')"
         name="accessLogs"
       />
+      <el-tab-pane :label="t('documentStatistics.tabs.retention')" name="retention" />
     </el-tabs>
 
     <template v-if="activeTab === 'statistics'">
@@ -168,6 +263,18 @@ onMounted(() => {
             <el-col :xs="24" :sm="12" :md="8">
               <el-statistic :title="t('documentStatistics.todayCreated')" :value="statistics.todayCreatedCount" />
             </el-col>
+            <el-col :xs="24" :sm="12" :md="8">
+              <el-statistic
+                :title="t('documentStatistics.todayAccess')"
+                :value="statistics.todayAccessCount"
+              />
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="8">
+              <el-statistic
+                :title="t('documentStatistics.todayDownload')"
+                :value="statistics.todayDownloadCount"
+              />
+            </el-col>
           </el-row>
 
           <h2 class="document-statistics__section-title">{{ t('documentStatistics.byTypeTitle') }}</h2>
@@ -188,6 +295,41 @@ onMounted(() => {
     </template>
 
     <template v-else-if="activeTab === 'accessLogs' && canReadAccessLogs">
+      <el-card class="document-statistics__filters-card" shadow="never">
+        <el-form inline label-width="96px" @submit.prevent="applyAccessLogFilters">
+          <el-form-item :label="t('documentStatistics.accessLogs.documentId')">
+            <el-input
+              v-model="accessLogFilters.documentItemId"
+              clearable
+              :placeholder="t('documentStatistics.accessLogs.documentIdPlaceholder')"
+            />
+          </el-form-item>
+          <el-form-item :label="t('documentStatistics.accessLogs.accessType')">
+            <el-select v-model="accessLogFilters.accessTypeKey" clearable>
+              <el-option :label="t('documentStatistics.accessLogs.accessType.download')" value="download" />
+              <el-option :label="t('documentStatistics.accessLogs.accessType.preview')" value="preview" />
+              <el-option
+                :label="t('documentStatistics.accessLogs.accessType.share_access')"
+                value="share_access"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item :label="t('documentStatistics.accessLogs.source')">
+            <el-select v-model="accessLogFilters.sourceKey" clearable>
+              <el-option
+                :label="t('documentStatistics.accessLogs.source.authenticated')"
+                value="authenticated"
+              />
+              <el-option :label="t('documentStatistics.accessLogs.source.share')" value="share" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="applyAccessLogFilters">{{ t('documentStatistics.accessLogs.filter') }}</el-button>
+            <el-button @click="resetAccessLogFilters">{{ t('documentStatistics.accessLogs.resetFilters') }}</el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
       <el-alert
         v-if="accessLogsProblem"
         type="error"
@@ -245,6 +387,78 @@ onMounted(() => {
         </div>
       </el-card>
     </template>
+
+    <template v-else-if="activeTab === 'retention'">
+      <el-alert
+        v-if="retentionProblem"
+        type="error"
+        :title="retentionProblem.title"
+        :description="retentionProblem.detail ?? retentionProblem.code"
+        show-icon
+        class="art-page-alert"
+      />
+
+      <el-card v-loading="retentionLoading" shadow="never" data-testid="document-version-retention-panel">
+        <p class="document-statistics__retention-hint">{{ t('documentStatistics.retention.readOnlyHint') }}</p>
+        <template v-if="retentionSettings">
+          <el-form
+            v-if="canUpdateRetention"
+            label-width="200px"
+            class="document-statistics__retention-form"
+            @submit.prevent
+          >
+            <el-form-item :label="t('documentStatistics.retention.minimumRetainedVersions')">
+              <el-input-number v-model="retentionForm.minimumRetainedVersionsPerItem" :min="1" :max="1000" />
+            </el-form-item>
+            <el-form-item :label="t('documentStatistics.retention.maximumHistoryVersions')">
+              <el-input-number v-model="retentionForm.maximumRetainedHistoryVersions" :min="0" :max="10000" />
+            </el-form-item>
+            <el-form-item :label="t('documentStatistics.retention.pollSeconds')">
+              <el-input-number v-model="retentionForm.pollSeconds" :min="60" :max="86400" />
+            </el-form-item>
+            <el-form-item :label="t('documentStatistics.retention.batchSize')">
+              <el-input-number v-model="retentionForm.batchSize" :min="1" :max="1000" />
+            </el-form-item>
+            <el-form-item>
+              <el-button
+                type="primary"
+                data-testid="document-version-retention-save"
+                :loading="retentionSaving"
+                @click="saveRetentionSettings"
+              >
+                {{ t('documentStatistics.retention.save') }}
+              </el-button>
+            </el-form-item>
+          </el-form>
+          <el-row v-else :gutter="16">
+            <el-col :xs="24" :sm="12" :md="6">
+              <el-statistic
+                :title="t('documentStatistics.retention.minimumRetainedVersions')"
+                :value="retentionSettings.minimumRetainedVersionsPerItem"
+              />
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="6">
+              <el-statistic
+                :title="t('documentStatistics.retention.maximumHistoryVersions')"
+                :value="retentionSettings.maximumRetainedHistoryVersions"
+              />
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="6">
+              <el-statistic
+                :title="t('documentStatistics.retention.pollSeconds')"
+                :value="retentionSettings.pollSeconds"
+              />
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="6">
+              <el-statistic
+                :title="t('documentStatistics.retention.batchSize')"
+                :value="retentionSettings.batchSize"
+              />
+            </el-col>
+          </el-row>
+        </template>
+      </el-card>
+    </template>
   </section>
 </template>
 
@@ -286,5 +500,15 @@ onMounted(() => {
   margin: 0 0 12px;
   font-size: 16px;
   font-weight: 600;
+}
+
+.document-statistics__filters-card {
+  margin-bottom: 12px;
+}
+
+.document-statistics__retention-hint {
+  margin: 0 0 16px;
+  color: var(--art-gray-600);
+  font-size: 13px;
 }
 </style>

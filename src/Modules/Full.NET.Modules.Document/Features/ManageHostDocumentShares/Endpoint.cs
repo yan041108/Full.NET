@@ -21,12 +21,31 @@ internal static class Endpoint
         group.MapGet("/", async (
             int? page,
             int? pageSize,
+            bool? isEnabled,
+            string? shareCode,
+            string? documentId,
+            bool? expiredOnly,
+            bool? activeOnly,
+            int? minAccessCount,
+            int? maxAccessCount,
+            string? sortBy,
+            string? sortDir,
             HostDocumentShareQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.PageAsync(page ?? 1, pageSize ?? 20, cancellationToken)
+            var listQuery = new HostDocumentShareListQuery(
+                IsEnabled: isEnabled,
+                ShareCode: shareCode,
+                DocumentId: documentId,
+                ExpiredOnly: expiredOnly == true,
+                ActiveOnly: activeOnly == true,
+                MinAccessCount: minAccessCount,
+                MaxAccessCount: maxAccessCount,
+                SortBy: sortBy,
+                SortDir: sortDir);
+            var result = await queries.PageAsync(page ?? 1, pageSize ?? 20, listQuery, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
@@ -60,6 +79,25 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentSharePermissions.Create));
+
+        group.MapPost("/batch", async (
+            BatchCreateHostDocumentSharesRequest request,
+            HostDocumentShareManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.BatchCreateAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("documentHostBatchCreateDocumentShares")
+        .Accepts<BatchCreateHostDocumentSharesRequest>("application/json")
+        .Produces<BatchCreateHostDocumentSharesResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentSharePermissions.Create));
 
         group.MapPost("/{id:guid}/status", async (
@@ -153,6 +191,90 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests)
+        .RequireRateLimiting(DocumentModule.AnonymousShareAccessRateLimitPolicy)
+        .AllowAnonymous();
+
+        publicGroup.MapPost("/{shareCode}/preview-task", async (
+            string shareCode,
+            AccessHostDocumentShareRequest request,
+            HostDocumentShareManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service
+                .CreateAnonymousPreviewTaskAsync(shareCode, request, cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(result, httpContext);
+            }
+
+            return Results.Created(
+                $"/api/v1/document/public/shares/{shareCode}/preview-tasks/{result.Value!.Id:D}",
+                result.Value);
+        })
+        .WithName("documentPublicCreateDocumentSharePreviewTask")
+        .Accepts<AccessHostDocumentShareRequest>("application/json")
+        .Produces<HostDocumentPreviewTaskResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests)
+        .RequireRateLimiting(DocumentModule.AnonymousShareAccessRateLimitPolicy)
+        .AllowAnonymous();
+
+        publicGroup.MapPost("/{shareCode}/preview-tasks/{taskId:guid}", async (
+            string shareCode,
+            Guid taskId,
+            AccessHostDocumentShareRequest request,
+            HostDocumentShareManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service
+                .GetAnonymousPreviewTaskAsync(shareCode, taskId, request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("documentPublicGetDocumentSharePreviewTask")
+        .Accepts<AccessHostDocumentShareRequest>("application/json")
+        .Produces<HostDocumentPreviewTaskResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests)
+        .RequireRateLimiting(DocumentModule.AnonymousShareAccessRateLimitPolicy)
+        .AllowAnonymous();
+
+        publicGroup.MapPost("/{shareCode}/preview-tasks/{taskId:guid}/content", async (
+            string shareCode,
+            Guid taskId,
+            AccessHostDocumentShareRequest request,
+            HostDocumentShareManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service
+                .OpenAnonymousPreviewTaskContentAsync(shareCode, taskId, request, cancellationToken)
+                .ConfigureAwait(false);
+            return MapShareContentResult(result, mapper, httpContext);
+        })
+        .WithName("documentPublicContentDocumentSharePreviewTask")
+        .Accepts<AccessHostDocumentShareRequest>("application/json")
+        .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .ProducesProblem(StatusCodes.Status429TooManyRequests)
         .RequireRateLimiting(DocumentModule.AnonymousShareAccessRateLimitPolicy)
         .AllowAnonymous();

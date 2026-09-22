@@ -12,10 +12,17 @@ namespace Full.NET.Modules.Document.Features.ManageHostDocumentTags;
 internal sealed class HostDocumentTagQueryService(IQueryExecutor queryExecutor)
 {
     public async Task<Result<IReadOnlyList<HostDocumentTagResponse>>> ListAsync(
+        bool? isHot,
+        bool? isRecommended,
         CancellationToken cancellationToken = default)
     {
         var rows = await queryExecutor
-            .QueryAsync<DocumentTagRecord>(DocumentTagSql.ListActive, null, cancellationToken)
+            .QueryAsync<DocumentTagRecord>(
+                DocumentTagSql.ListActive,
+                DocumentSqlParameters.Create(
+                    ("IsHot", isHot),
+                    ("IsRecommended", isRecommended)),
+                cancellationToken)
             .ConfigureAwait(false);
         return Result<IReadOnlyList<HostDocumentTagResponse>>.Success(
             rows.Select(Map).ToArray());
@@ -47,7 +54,9 @@ internal sealed class HostDocumentTagQueryService(IQueryExecutor queryExecutor)
             record.UseCount,
             record.CreatedAtUtc,
             record.UpdatedAtUtc,
-            record.Version);
+            record.Version,
+            record.IsHot,
+            record.IsRecommended);
 
     private static Result<HostDocumentTagResponse> NotFound() =>
         Result<HostDocumentTagResponse>.Failure(

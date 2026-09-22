@@ -39,6 +39,9 @@ import type {
   BatchChangeHostJobScheduleStateRequest,
   BatchChangeHostJobScheduleStateResponse,
   BatchChangeHostJobScheduleStateResultItem,
+  BatchCreateHostDocumentShareItem,
+  BatchCreateHostDocumentSharesRequest,
+  BatchCreateHostDocumentSharesResponse,
   BatchDeleteConfigEntriesRequest,
   BatchDeleteHostFileItem,
   BatchDeleteHostFilesRequest,
@@ -220,6 +223,7 @@ import type {
   HostDocumentTagResponse,
   HostDocumentType,
   HostDocumentVersionResponse,
+  HostDocumentVersionRetentionSettingsResponse,
   HostFileReferenceClaimResponse,
   HostFileResponse,
   HostFolderResponse,
@@ -502,6 +506,7 @@ import type {
   UpdateHostDocumentItemRequest,
   UpdateHostDocumentShareStatusRequest,
   UpdateHostDocumentTagRequest,
+  UpdateHostDocumentVersionRetentionRequest,
   UpdateHostFileMetadataRequest,
   UpdateHostFolderRequest,
   UpdateHostJobDefinitionRequest,
@@ -588,6 +593,7 @@ import {
   readAiResumeAgentRunResponse,
   readAiTenantQuotaResponse,
   readBatchChangeHostJobScheduleStateResponse,
+  readBatchCreateHostDocumentSharesResponse,
   readBatchDeleteHostFilesResponse,
   readBatchHostUserStatusResponse,
   readBatchUploadHostFilesResponse,
@@ -650,6 +656,7 @@ import {
   readHostDocumentShareResponse,
   readHostDocumentStatisticsResponse,
   readHostDocumentTagResponse,
+  readHostDocumentVersionRetentionSettingsResponse,
   readHostFileResponse,
   readHostFolderResponse,
   readHostJobDefinitionResponse,
@@ -2651,6 +2658,28 @@ export async function documentHostAddItemVersion(
   return readHostDocumentItemResponse(value);
 }
 
+export interface DocumentHostBatchCreateDocumentSharesParameters {
+  readonly body: BatchCreateHostDocumentSharesRequest;
+}
+
+export async function documentHostBatchCreateDocumentShares(
+  http: HttpClient,
+  parameters: DocumentHostBatchCreateDocumentSharesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<BatchCreateHostDocumentSharesResponse> {
+  const path = `/api/v1/document/host/shares/batch`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readBatchCreateHostDocumentSharesResponse(value);
+}
+
 export interface DocumentHostCreateCategoryParameters {
   readonly body: CreateHostDocumentCategoryRequest;
 }
@@ -2930,6 +2959,24 @@ export async function documentHostGetDocumentStatistics(
   return readHostDocumentStatisticsResponse(value);
 }
 
+export interface DocumentHostGetVersionRetentionSettingsParameters {
+
+}
+
+export async function documentHostGetVersionRetentionSettings(
+  http: HttpClient,
+  parameters: DocumentHostGetVersionRetentionSettingsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentVersionRetentionSettingsResponse> {
+  const path = `/api/v1/document/host/version-retention`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentVersionRetentionSettingsResponse(value);
+}
+
 export interface DocumentHostListCategoriesParameters {
 
 }
@@ -2952,6 +2999,8 @@ export interface DocumentHostListDocumentAccessLogsParameters {
   readonly page?: number;
   readonly pageSize?: number;
   readonly documentItemId?: string;
+  readonly accessTypeKey?: string;
+  readonly sourceKey?: string;
 }
 
 export async function documentHostListDocumentAccessLogs(
@@ -2969,6 +3018,12 @@ export async function documentHostListDocumentAccessLogs(
   }
   if (parameters.documentItemId !== undefined) {
     query.set('documentItemId', String(parameters.documentItemId));
+  }
+  if (parameters.accessTypeKey !== undefined) {
+    query.set('accessTypeKey', String(parameters.accessTypeKey));
+  }
+  if (parameters.sourceKey !== undefined) {
+    query.set('sourceKey', String(parameters.sourceKey));
   }
   const path = query.size === 0 ? `/api/v1/document/host/access-logs` : `/api/v1/document/host/access-logs?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -3029,6 +3084,15 @@ export async function documentHostListDocumentPreviewTasks(
 export interface DocumentHostListDocumentSharesParameters {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly isEnabled?: boolean;
+  readonly shareCode?: string;
+  readonly documentId?: string;
+  readonly expiredOnly?: boolean;
+  readonly activeOnly?: boolean;
+  readonly minAccessCount?: number;
+  readonly maxAccessCount?: number;
+  readonly sortBy?: string;
+  readonly sortDir?: string;
 }
 
 export async function documentHostListDocumentShares(
@@ -3044,6 +3108,33 @@ export async function documentHostListDocumentShares(
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
   }
+  if (parameters.isEnabled !== undefined) {
+    query.set('isEnabled', String(parameters.isEnabled));
+  }
+  if (parameters.shareCode !== undefined) {
+    query.set('shareCode', String(parameters.shareCode));
+  }
+  if (parameters.documentId !== undefined) {
+    query.set('documentId', String(parameters.documentId));
+  }
+  if (parameters.expiredOnly !== undefined) {
+    query.set('expiredOnly', String(parameters.expiredOnly));
+  }
+  if (parameters.activeOnly !== undefined) {
+    query.set('activeOnly', String(parameters.activeOnly));
+  }
+  if (parameters.minAccessCount !== undefined) {
+    query.set('minAccessCount', String(parameters.minAccessCount));
+  }
+  if (parameters.maxAccessCount !== undefined) {
+    query.set('maxAccessCount', String(parameters.maxAccessCount));
+  }
+  if (parameters.sortBy !== undefined) {
+    query.set('sortBy', String(parameters.sortBy));
+  }
+  if (parameters.sortDir !== undefined) {
+    query.set('sortDir', String(parameters.sortDir));
+  }
   const path = query.size === 0 ? `/api/v1/document/host/shares` : `/api/v1/document/host/shares?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
@@ -3055,6 +3146,7 @@ export async function documentHostListDocumentShares(
 export interface DocumentHostListItemsParameters {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly tagId?: string;
 }
 
 export async function documentHostListItems(
@@ -3069,6 +3161,9 @@ export async function documentHostListItems(
   }
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.tagId !== undefined) {
+    query.set('tagId', String(parameters.tagId));
   }
   const path = query.size === 0 ? `/api/v1/document/host/items` : `/api/v1/document/host/items?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -3123,7 +3218,8 @@ export async function documentHostListRecycleBinItems(
 }
 
 export interface DocumentHostListTagsParameters {
-
+  readonly isHot?: boolean;
+  readonly isRecommended?: boolean;
 }
 
 export async function documentHostListTags(
@@ -3132,7 +3228,14 @@ export async function documentHostListTags(
   signal?: AbortSignal,
   options?: RequestOptions
 ): Promise<Array<HostDocumentTagResponse>> {
-  const path = `/api/v1/document/host/tags`;
+  const query = new URLSearchParams();
+  if (parameters.isHot !== undefined) {
+    query.set('isHot', String(parameters.isHot));
+  }
+  if (parameters.isRecommended !== undefined) {
+    query.set('isRecommended', String(parameters.isRecommended));
+  }
+  const path = query.size === 0 ? `/api/v1/document/host/tags` : `/api/v1/document/host/tags?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
@@ -3383,6 +3486,28 @@ export async function documentHostUpdateTag(
   return readHostDocumentTagResponse(value);
 }
 
+export interface DocumentHostUpdateVersionRetentionSettingsParameters {
+  readonly body: UpdateHostDocumentVersionRetentionRequest;
+}
+
+export async function documentHostUpdateVersionRetentionSettings(
+  http: HttpClient,
+  parameters: DocumentHostUpdateVersionRetentionSettingsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentVersionRetentionSettingsResponse> {
+  const path = `/api/v1/document/host/version-retention`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentVersionRetentionSettingsResponse(value);
+}
+
 export interface DocumentHostUploadItemVersionParameters {
   readonly itemId: string;
   readonly file?: IFormFile;
@@ -3449,6 +3574,76 @@ export async function documentPublicContentDocumentShare(
   return options === undefined
     ? await http.requestBlob(path, init, signal)
     : await http.requestBlob(path, init, signal, options);
+}
+
+export interface DocumentPublicContentDocumentSharePreviewTaskParameters {
+  readonly shareCode: string;
+  readonly taskId: string;
+  readonly body: AccessHostDocumentShareRequest;
+}
+
+export async function documentPublicContentDocumentSharePreviewTask(
+  http: HttpClient,
+  parameters: DocumentPublicContentDocumentSharePreviewTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/document/public/shares/${encodeURIComponent(String(parameters.shareCode))}/preview-tasks/${encodeURIComponent(String(parameters.taskId))}/content`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
+export interface DocumentPublicCreateDocumentSharePreviewTaskParameters {
+  readonly shareCode: string;
+  readonly body: AccessHostDocumentShareRequest;
+}
+
+export async function documentPublicCreateDocumentSharePreviewTask(
+  http: HttpClient,
+  parameters: DocumentPublicCreateDocumentSharePreviewTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentPreviewTaskResponse> {
+  const path = `/api/v1/document/public/shares/${encodeURIComponent(String(parameters.shareCode))}/preview-task`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentPreviewTaskResponse(value);
+}
+
+export interface DocumentPublicGetDocumentSharePreviewTaskParameters {
+  readonly shareCode: string;
+  readonly taskId: string;
+  readonly body: AccessHostDocumentShareRequest;
+}
+
+export async function documentPublicGetDocumentSharePreviewTask(
+  http: HttpClient,
+  parameters: DocumentPublicGetDocumentSharePreviewTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentPreviewTaskResponse> {
+  const path = `/api/v1/document/public/shares/${encodeURIComponent(String(parameters.shareCode))}/preview-tasks/${encodeURIComponent(String(parameters.taskId))}`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentPreviewTaskResponse(value);
 }
 
 export interface EnterpriseRequestCreateEnterpriseRequestParameters {

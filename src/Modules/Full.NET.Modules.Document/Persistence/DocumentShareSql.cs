@@ -14,40 +14,81 @@ internal static class DocumentShareSql
         PasswordHash, MaxAccessCount, AccessCount, IsEnabled, Version
         """;
 
-    /// <summary>
-    /// 分享分页（SQL Server）：按 CreatedAtUtc 倒序，先 COUNT 再分页。
-    /// 仅返回 Host 行（TenantId IS NULL）。
-    /// </summary>
-    public static readonly SqlStatement PageSqlServer = new(
-        "document.host_share.page.sql_server",
-        $$"""
-        SELECT COUNT(1)
-        FROM fn_document_share
-        WHERE TenantId IS NULL;
-
-        SELECT {{Projection}}
-        FROM fn_document_share
+    private const string PageFilterWhere = """
         WHERE TenantId IS NULL
-        ORDER BY CreatedAtUtc DESC, Id
-        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
-        """,
-        SqlDataScope.HostOnly);
+          AND (@IsEnabled IS NULL OR IsEnabled = @IsEnabled)
+          AND (@ShareCodePattern IS NULL OR ShareCode LIKE @ShareCodePattern)
+          AND (@DocumentIdPattern IS NULL OR CAST(DocumentId AS VARCHAR(36)) LIKE @DocumentIdPattern)
+          AND (@ApplyExpiredOnly = 0 OR ExpireTime < @Now)
+          AND (@ApplyActiveOnly = 0 OR (ExpireTime >= @Now AND IsEnabled = 1))
+          AND (@MinAccessCount IS NULL OR AccessCount >= @MinAccessCount)
+          AND (@MaxAccessCount IS NULL OR AccessCount <= @MaxAccessCount)
+        """;
+
+    private const string PageFilterWhereMySql = """
+        WHERE TenantId IS NULL
+          AND (@IsEnabled IS NULL OR IsEnabled = @IsEnabled)
+          AND (@ShareCodePattern IS NULL OR ShareCode LIKE @ShareCodePattern)
+          AND (@DocumentIdPattern IS NULL OR CAST(DocumentId AS CHAR(36)) LIKE @DocumentIdPattern)
+          AND (@ApplyExpiredOnly = 0 OR ExpireTime < @Now)
+          AND (@ApplyActiveOnly = 0 OR (ExpireTime >= @Now AND IsEnabled = 1))
+          AND (@MinAccessCount IS NULL OR AccessCount >= @MinAccessCount)
+          AND (@MaxAccessCount IS NULL OR AccessCount <= @MaxAccessCount)
+        """;
+
+    /// <summary>
+    /// 分享分页（SQL Server）：可选筛选 + 白名单排序列，先 COUNT 再分页。
+    /// <paramref name="orderBySql"/> 必须由调用方通过 <see cref="ResolvePageOrderBy"/> 生成。
+    /// </summary>
+    public static SqlStatement BuildPageSqlServer(string orderBySql) =>
+        new(
+            $"document.host_share.page.sql_server.{orderBySql}",
+            $$"""
+            SELECT COUNT(1)
+            FROM fn_document_share
+            {{PageFilterWhere}};
+
+            SELECT {{Projection}}
+            FROM fn_document_share
+            {{PageFilterWhere}}
+            ORDER BY {{orderBySql}}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+            """,
+            SqlDataScope.HostOnly);
 
     /// <summary>分享分页（MySQL）：与 SQL Server 版本语义等价。</summary>
-    public static readonly SqlStatement PageMySql = new(
-        "document.host_share.page.my_sql",
-        $$"""
-        SELECT COUNT(1)
-        FROM fn_document_share
-        WHERE TenantId IS NULL;
+    public static SqlStatement BuildPageMySql(string orderBySql) =>
+        new(
+            $"document.host_share.page.my_sql.{orderBySql}",
+            $$"""
+            SELECT COUNT(1)
+            FROM fn_document_share
+            {{PageFilterWhereMySql}};
 
-        SELECT {{Projection}}
-        FROM fn_document_share
-        WHERE TenantId IS NULL
-        ORDER BY CreatedAtUtc DESC, Id
-        LIMIT @PageSize OFFSET @Offset
-        """,
-        SqlDataScope.HostOnly);
+            SELECT {{Projection}}
+            FROM fn_document_share
+            {{PageFilterWhereMySql}}
+            ORDER BY {{orderBySql}}
+            LIMIT @PageSize OFFSET @Offset
+            """,
+            SqlDataScope.HostOnly);
+
+    /// <summary>将 API sortBy/sortDir 解析为 SQL ORDER BY 片段（仅允许固定列名）。</summary>
+    public static string ResolvePageOrderBy(string? sortBy, string? sortDir)
+    {
+        var normalized = sortBy?.Trim().ToLowerInvariant();
+        var column = normalized switch
+        {
+            "accesscount" or "access_count" => "AccessCount",
+            "expiretime" or "expire_time" => "ExpireTime",
+            "createdatutc" or "created_at_utc" => "CreatedAtUtc",
+            _ => "CreatedAtUtc",
+        };
+
+        var ascending = sortDir?.Trim().Equals("asc", StringComparison.OrdinalIgnoreCase) == true;
+        var direction = ascending ? "ASC" : "DESC";
+        return $"{column} {direction}, Id {direction}";
+    }
 
     /// <summary>按 Id 查找分享；用于管理端读取与原子计数后回读。</summary>
     public static readonly SqlStatement FindById = new(

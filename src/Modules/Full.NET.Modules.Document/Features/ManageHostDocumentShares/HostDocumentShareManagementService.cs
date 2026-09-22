@@ -7,6 +7,7 @@ using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Document.Features;
 using Full.NET.Modules.Document.Features.DocumentAccessLogs;
 using Full.NET.Modules.Document.Features.ManageHostDocumentItems;
+using Full.NET.Modules.Document.Features.ManageHostDocumentPreviewTasks;
 using Full.NET.Modules.Document.Persistence;
 using Full.NET.Modules.Document.Security;
 using Full.NET.Modules.Files.Contracts;
@@ -30,6 +31,8 @@ internal sealed class HostDocumentShareManagementService(
     ICommandTransaction transaction,
     HostDocumentShareQueryService queries,
     HostDocumentItemQueryService documentItemQueries,
+    HostDocumentPreviewTaskManagementService previewTaskManagement,
+    HostDocumentPreviewTaskQueryService previewTaskQueries,
     IClock clock,
     IIdGenerator idGenerator,
     IDocumentSharePasswordHasher passwordHasher,
@@ -42,24 +45,111 @@ internal sealed class HostDocumentShareManagementService(
         CreateHostDocumentShareRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (request.DocumentId == Guid.Empty
-            || request.ValidDays < 1
-            || request.ValidDays > 365)
+        var validation = ValidateShareCreateRequest(
+            request.DocumentId,
+            request.ValidDays,
+            request.Password);
+        if (!validation.IsSuccess)
         {
-            return Task.FromResult(Invalid());
-        }
-
-        // 口令长度校验：8–128 字符；空字符串视同未设置。
-        if (!string.IsNullOrEmpty(request.Password)
-            && (request.Password.Length < 8 || request.Password.Length > 128))
-        {
-            return Task.FromResult(PasswordInvalidLength());
+            return Task.FromResult(Result<HostDocumentShareResponse>.Failure(validation.Error!));
         }
 
         return transaction.ExecuteResultAsync(
             token => CreateCoreAsync(request, token),
             cancellationToken);
     }
+
+    /// <summary>批量创建分享；逐文档独立事务，允许部分成功。</summary>
+    public async Task<Result<BatchCreateHostDocumentSharesResponse>> BatchCreateAsync(
+        BatchCreateHostDocumentSharesRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.DocumentIds is null
+            || request.DocumentIds.Count == 0
+            || request.DocumentIds.Count > HostDocumentShareBatchLimits.MaxDocumentCount)
+        {
+            return InvalidBatch();
+        }
+
+        if (request.DocumentIds.Any(id => id == Guid.Empty))
+        {
+            return InvalidBatch();
+        }
+
+        var validation = ValidateSharePolicy(request.ValidDays, request.Password);
+        if (!validation.IsSuccess)
+        {
+            return Result<BatchCreateHostDocumentSharesResponse>.Failure(validation.Error!);
+        }
+
+        var results = new List<BatchCreateHostDocumentShareItem>(request.DocumentIds.Count);
+        var succeeded = 0;
+        foreach (var documentId in request.DocumentIds)
+        {
+            var single = new CreateHostDocumentShareRequest(
+                documentId,
+                request.ValidDays,
+                request.Password,
+                request.MaxAccessCount);
+            var createResult = await transaction
+                .ExecuteResultAsync(token => CreateCoreAsync(single, token), cancellationToken)
+                .ConfigureAwait(false);
+            if (createResult.IsSuccess)
+            {
+                succeeded++;
+                results.Add(new BatchCreateHostDocumentShareItem(
+                    documentId,
+                    true,
+                    createResult.Value,
+                    null,
+                    null));
+            }
+            else
+            {
+                results.Add(new BatchCreateHostDocumentShareItem(
+                    documentId,
+                    false,
+                    null,
+                    createResult.Error!.Code,
+                    createResult.Error.Message));
+            }
+        }
+
+        return Result<BatchCreateHostDocumentSharesResponse>.Success(
+            new BatchCreateHostDocumentSharesResponse(succeeded, results));
+    }
+
+    private static Result<bool> ValidateShareCreateRequest(
+        Guid documentId,
+        int validDays,
+        string? password)
+    {
+        if (documentId == Guid.Empty)
+        {
+            return Result<bool>.Failure(InvalidError());
+        }
+
+        return ValidateSharePolicy(validDays, password);
+    }
+
+    private static Result<bool> ValidateSharePolicy(int validDays, string? password)
+    {
+        if (validDays < 1 || validDays > 365)
+        {
+            return Result<bool>.Failure(InvalidError());
+        }
+
+        if (!string.IsNullOrEmpty(password)
+            && (password.Length < 8 || password.Length > 128))
+        {
+            return Result<bool>.Failure(PasswordInvalidLengthError());
+        }
+
+        return Result<bool>.Success(true);
+    }
+
+    private static Result<BatchCreateHostDocumentSharesResponse> InvalidBatch() =>
+        Result<BatchCreateHostDocumentSharesResponse>.Failure(InvalidError());
 
     public Task<Result<HostDocumentShareResponse>> UpdateStatusAsync(
         Guid shareId,
@@ -194,6 +284,83 @@ internal sealed class HostDocumentShareManagementService(
         return await documentItemQueries
             .OpenCurrentVersionContentAsync(share.DocumentId, observation, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>匿名分享场景提交 Office 预览转换任务；不额外消耗访问次数，但仍校验口令与有效期。</summary>
+    public async Task<Result<HostDocumentPreviewTaskResponse>> CreateAnonymousPreviewTaskAsync(
+        string shareCode,
+        AccessHostDocumentShareRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var resolved = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken)
+            .ConfigureAwait(false);
+        if (!resolved.IsSuccess)
+        {
+            return MapShareFailureToPreviewTask(resolved);
+        }
+
+        var (share, _) = resolved.Value!;
+        return await previewTaskManagement
+            .CreateAsync(
+                new CreateHostDocumentPreviewTaskRequest(share.DocumentId, null),
+                Guid.Empty,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>匿名读取分享关联的预览任务状态；任务必须属于分享绑定的文档。</summary>
+    public async Task<Result<HostDocumentPreviewTaskResponse>> GetAnonymousPreviewTaskAsync(
+        string shareCode,
+        Guid taskId,
+        AccessHostDocumentShareRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var resolved = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken)
+            .ConfigureAwait(false);
+        if (!resolved.IsSuccess)
+        {
+            return MapShareFailureToPreviewTask(resolved);
+        }
+
+        var (share, _) = resolved.Value!;
+        var taskResult = await previewTaskQueries.GetAsync(taskId, cancellationToken).ConfigureAwait(false);
+        if (!taskResult.IsSuccess)
+        {
+            return taskResult;
+        }
+
+        return taskResult.Value!.DocumentItemId != share.DocumentId
+            ? Result<HostDocumentPreviewTaskResponse>.Failure(AccessDeniedError())
+            : taskResult;
+    }
+
+    /// <summary>匿名读取分享关联且已完成的预览任务输出内容。</summary>
+    public async Task<Result<HostFileContent>> OpenAnonymousPreviewTaskContentAsync(
+        string shareCode,
+        Guid taskId,
+        AccessHostDocumentShareRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var resolved = await ResolveAnonymousShareAsync(shareCode, request, cancellationToken)
+            .ConfigureAwait(false);
+        if (!resolved.IsSuccess)
+        {
+            return MapShareFailureToContent(resolved);
+        }
+
+        var (share, _) = resolved.Value!;
+        var taskResult = await previewTaskQueries.GetAsync(taskId, cancellationToken).ConfigureAwait(false);
+        if (!taskResult.IsSuccess)
+        {
+            return Result<HostFileContent>.Failure(taskResult.Error!);
+        }
+
+        if (taskResult.Value!.DocumentItemId != share.DocumentId)
+        {
+            return AccessDeniedContent();
+        }
+
+        return await previewTaskQueries.OpenOutputContentAsync(taskId, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<(DocumentShareRecord Share, bool HasPassword)>> ResolveAnonymousShareAsync(
@@ -472,6 +639,16 @@ internal sealed class HostDocumentShareManagementService(
             DocumentErrorCodes.HostSharePasswordRequired => Result<HostFileContent>.Failure(PasswordRequiredError()),
             DocumentErrorCodes.ShareMaxAccessReached => AccessMaxReachedContent(),
             _ => AccessDeniedContent(),
+        };
+
+    private static Result<HostDocumentPreviewTaskResponse> MapShareFailureToPreviewTask<T>(Result<T> failure) =>
+        failure.Error!.Code switch
+        {
+            DocumentErrorCodes.HostSharePasswordRequired => Result<HostDocumentPreviewTaskResponse>.Failure(
+                PasswordRequiredError()),
+            DocumentErrorCodes.ShareMaxAccessReached => Result<HostDocumentPreviewTaskResponse>.Failure(
+                MaxAccessReachedError()),
+            _ => Result<HostDocumentPreviewTaskResponse>.Failure(AccessDeniedError()),
         };
 
     private static Result<HostDocumentShareResponse> PasswordInvalidLength() =>

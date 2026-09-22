@@ -58,7 +58,9 @@
         "code",
         "icon",
         "color",
-        "description"
+        "description",
+        "isHot",
+        "isRecommended"
       ]
     },
     "UpdateHostDocumentTagRequest": {
@@ -68,7 +70,9 @@
         "icon",
         "color",
         "description",
-        "version"
+        "version",
+        "isHot",
+        "isRecommended"
       ]
     },
     "DeleteHostDocumentTagRequest": {
@@ -85,6 +89,8 @@
         "color",
         "description",
         "useCount",
+        "isHot",
+        "isRecommended",
         "createdAtUtc",
         "updatedAtUtc",
         "version"

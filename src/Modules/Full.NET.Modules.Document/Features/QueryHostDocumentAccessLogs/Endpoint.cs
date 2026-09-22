@@ -20,13 +20,21 @@ internal static class Endpoint
             int? page,
             int? pageSize,
             Guid? documentItemId,
+            string? accessTypeKey,
+            string? sourceKey,
             HostDocumentAccessLogQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
             var result = await queries
-                .ListAsync(page ?? 1, pageSize ?? 20, documentItemId, cancellationToken)
+                .ListAsync(
+                    page ?? 1,
+                    pageSize ?? 20,
+                    documentItemId,
+                    accessTypeKey,
+                    sourceKey,
+                    cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

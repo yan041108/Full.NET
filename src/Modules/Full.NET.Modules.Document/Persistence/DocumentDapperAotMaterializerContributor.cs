@@ -16,6 +16,7 @@ internal sealed class DocumentDapperAotMaterializerContributor
         registrar.Register<DocumentCategoryRecord>(ReadCategory);
         registrar.Register<DocumentTagRecord>(ReadTag);
         registrar.Register<DocumentNameConflictRecord>(ReadNameConflict);
+        registrar.Register<DocumentTagAssignmentRow>(ReadTagAssignment);
         registrar.Register<DocumentItemRecord>(ReadItem);
         registrar.Register<DocumentItemDetailRecord>(ReadItemDetail);
         registrar.Register<DocumentVersionRecord>(ReadVersion);
@@ -28,6 +29,7 @@ internal sealed class DocumentDapperAotMaterializerContributor
         registrar.Register<DocumentStatisticsByTypeRecord>(ReadStatisticsByType);
         registrar.Register<DocumentStatisticsByCategoryRecord>(ReadStatisticsByCategory);
         registrar.Register<DocumentStatisticsShareCountRecord>(ReadStatisticsShareCount);
+        registrar.Register<DocumentVersionRetentionSettingRecord>(ReadVersionRetentionSetting);
     }
 
     private static DocumentCategoryRecord ReadCategory(DbDataReader reader) => new()
@@ -57,6 +59,8 @@ internal sealed class DocumentDapperAotMaterializerContributor
         CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"),
         UpdatedAtUtc = ReadNullableDateTimeOffset(reader, "UpdatedAtUtc"),
         Version = ReadInt64(reader, "Version"),
+        IsHot = ReadBoolean(reader, "IsHot"),
+        IsRecommended = ReadBoolean(reader, "IsRecommended"),
     };
 
     private static DocumentNameConflictRecord ReadNameConflict(DbDataReader reader) => new()
@@ -64,6 +68,13 @@ internal sealed class DocumentDapperAotMaterializerContributor
         Id = ReadGuid(reader, "Id"),
         Name = ReadString(reader, "Name"),
         Version = ReadInt64(reader, "Version"),
+    };
+
+    private static DocumentTagAssignmentRow ReadTagAssignment(DbDataReader reader) => new()
+    {
+        DocumentItemId = ReadGuid(reader, "DocumentItemId"),
+        TagId = ReadGuid(reader, "TagId"),
+        TagName = ReadString(reader, "TagName"),
     };
 
     private static DocumentItemRecord ReadItem(DbDataReader reader)
@@ -208,6 +219,18 @@ internal sealed class DocumentDapperAotMaterializerContributor
         IsEnabled = ReadBoolean(reader, "IsEnabled"),
         Version = ReadInt64(reader, "Version"),
     };
+
+    private static DocumentVersionRetentionSettingRecord ReadVersionRetentionSetting(DbDataReader reader) =>
+        new()
+        {
+            Id = ReadGuid(reader, "Id"),
+            MinimumRetainedVersionsPerItem = ReadInt32(reader, "MinimumRetainedVersionsPerItem"),
+            MaximumRetainedHistoryVersions = ReadInt32(reader, "MaximumRetainedHistoryVersions"),
+            PollSeconds = ReadInt32(reader, "PollSeconds"),
+            BatchSize = ReadInt32(reader, "BatchSize"),
+            Version = ReadInt64(reader, "Version"),
+            UpdatedAtUtc = ReadDateTimeOffset(reader, "UpdatedAtUtc"),
+        };
 
     private static DocumentStatisticsSummaryRecord ReadStatisticsSummary(DbDataReader reader) => new()
     {

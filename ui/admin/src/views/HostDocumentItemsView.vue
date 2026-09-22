@@ -11,6 +11,8 @@ import {
   ElMessage,
   ElMessageBox,
   ElPagination,
+  ElOption,
+  ElSelect,
   ElTable,
   ElTableColumn,
   ElTag,
@@ -49,6 +51,7 @@ import { createDocumentPreviewTask } from '../api/document-preview-tasks';
 import { listDocumentCategories } from '../api/host-document-categories';
 import type { HostDocumentCategoryResponse, HostDocumentShareResponse } from '@fullnet/client-contracts';
 import DocumentShareCreateDialog from '../components/DocumentShareCreateDialog.vue';
+import { listDocumentTags, type HostDocumentTagResponse } from '../api/host-document-tags';
 
 defineOptions({ name: 'HostDocumentItemsView' });
 
@@ -73,8 +76,15 @@ const items = ref<HostDocumentItem[]>([]);
 const createDialogOpen = ref(false);
 const createTitle = ref('');
 const createDescription = ref('');
+const createTitleError = ref('');
 const editTitle = ref('');
 const editDescription = ref('');
+const editTitleError = ref('');
+const hotTags = ref<HostDocumentTagResponse[]>([]);
+const allTags = ref<HostDocumentTagResponse[]>([]);
+const createTagIds = ref<string[]>([]);
+const editTagIds = ref<string[]>([]);
+const selectedTagFilterId = ref<string | null>(null);
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
@@ -104,6 +114,8 @@ const canCreateShare = computed(() => session.can('document.host_shares.create')
 const canRead = computed(() => session.can('document.host_documents.read'));
 const shareDialogOpen = ref(false);
 const shareTarget = ref<HostDocumentItem | null>(null);
+const shareBatchTargets = ref<HostDocumentItem[]>([]);
+const selectedItems = ref<HostDocumentItem[]>([]);
 const editingItem = computed(() => items.value.find(entry => entry.id === editingId.value));
 
 const editDialogOpen = computed({
@@ -194,7 +206,37 @@ watch([filteredItems, page, pageSize], () => {
 onMounted(() => {
   void load();
   void loadCategories();
+  void loadHotTags();
+  void loadAllTags();
 });
+
+async function loadHotTags(): Promise<void> {
+  try {
+    hotTags.value = await listDocumentTags({ isHot: true });
+  } catch {
+    hotTags.value = [];
+  }
+}
+
+async function loadAllTags(): Promise<void> {
+  try {
+    allTags.value = await listDocumentTags();
+  } catch {
+    allTags.value = [];
+  }
+}
+
+function toggleTagFilter(tagId: string): void {
+  selectedTagFilterId.value = selectedTagFilterId.value === tagId ? null : tagId;
+  resetPage();
+  void load();
+}
+
+function clearTagFilter(): void {
+  selectedTagFilterId.value = null;
+  resetPage();
+  void load();
+}
 
 async function loadCategories(): Promise<void> {
   try {
@@ -211,8 +253,38 @@ function onCategorySelected(node: CategoryTreeNode): void {
 }
 
 function openShareDialog(item: HostDocumentItem): void {
+  shareBatchTargets.value = [];
   shareTarget.value = item;
   shareDialogOpen.value = true;
+}
+
+function openBatchShareDialog(): void {
+  if (selectedItems.value.length === 0) {
+    return;
+  }
+  shareTarget.value = null;
+  shareBatchTargets.value = [...selectedItems.value];
+  shareDialogOpen.value = true;
+}
+
+function onTableSelectionChange(rows: HostDocumentItem[]): void {
+  selectedItems.value = rows;
+}
+
+const DOCUMENT_SHARE_BATCH_HINT_KEY = 'documentShares.recentBatch';
+
+function onShareBatchCreated(succeeded: number, total: number): void {
+  ElMessage.success(t('documentShares.batchCreateResult', { succeeded, total }));
+  try {
+    sessionStorage.setItem(
+      DOCUMENT_SHARE_BATCH_HINT_KEY,
+      JSON.stringify({ succeeded, total })
+    );
+  } catch {
+    // 忽略 sessionStorage 不可用场景
+  }
+  shareBatchTargets.value = [];
+  selectedItems.value = [];
 }
 
 async function onShareCreated(_share: HostDocumentShareResponse, shareUrl: string): Promise<void> {
@@ -237,7 +309,9 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    const pageResult = await listDocumentItems();
+    const pageResult = await listDocumentItems(1, 100, {
+      tagId: selectedTagFilterId.value
+    });
     items.value = pageResult.items;
   } catch (error: unknown) {
     problem.value = toProblem(error);
@@ -269,6 +343,8 @@ async function confirmEdit(): Promise<void> {
 function openCreate(): void {
   createTitle.value = '';
   createDescription.value = '';
+  createTitleError.value = '';
+  createTagIds.value = [];
   createDialogOpen.value = true;
 }
 
@@ -276,6 +352,33 @@ function cancelCreate(): void {
   createDialogOpen.value = false;
   createTitle.value = '';
   createDescription.value = '';
+  createTitleError.value = '';
+  createTagIds.value = [];
+}
+
+function applyTitleConflictError(
+  error: unknown,
+  target: 'create' | 'edit'
+): boolean {
+  if (!isFullNetProblemDetails(error) || error.code !== 'document.host_document.title_conflict') {
+    return false;
+  }
+  const message = t('hostDocumentItems.titleConflict');
+  if (target === 'create') {
+    createTitleError.value = message;
+    createDialogOpen.value = true;
+  } else {
+    editTitleError.value = message;
+  }
+  return true;
+}
+
+function applyInvalidTagError(error: unknown): boolean {
+  if (!isFullNetProblemDetails(error) || error.code !== 'document.host_tag.invalid') {
+    return false;
+  }
+  ElMessage.error(t('hostDocumentItems.invalidTag'));
+  return true;
 }
 
 async function confirmCreate(): Promise<void> {
@@ -289,14 +392,20 @@ async function create(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await createDocumentItem(createTitle.value.trim(), createDescription.value.trim() || null);
+    await createDocumentItem(createTitle.value.trim(), createDescription.value.trim() || null, {
+      categoryId: selectedCategoryId.value,
+      tagIds: createTagIds.value
+    });
     createDialogOpen.value = false;
     createTitle.value = '';
     createDescription.value = '';
+    createTagIds.value = [];
     ElMessage.success(t('hostDocumentItems.createSuccess'));
     await load();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
+    if (!applyTitleConflictError(error, 'create') && !applyInvalidTagError(error)) {
+      problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
+    }
   } finally {
     changing.value = false;
   }
@@ -364,12 +473,16 @@ function startEdit(item: HostDocumentItem): void {
   editingId.value = item.id;
   editTitle.value = item.title;
   editDescription.value = item.description ?? '';
+  editTitleError.value = '';
+  editTagIds.value = item.tags?.map(tag => tag.tagId) ?? [];
 }
 
 function cancelEdit(): void {
   editingId.value = undefined;
   editTitle.value = '';
   editDescription.value = '';
+  editTitleError.value = '';
+  editTagIds.value = [];
 }
 
 async function saveEdit(item: HostDocumentItem): Promise<void> {
@@ -379,19 +492,19 @@ async function saveEdit(item: HostDocumentItem): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await updateDocumentItem(
-      item.id,
-      editTitle.value.trim(),
-      editDescription.value.trim() || null,
-      item.version
-    );
+    await updateDocumentItem(item, editTitle.value.trim(), editDescription.value.trim() || null, {
+      tagIds: editTagIds.value
+    });
     editingId.value = undefined;
     editTitle.value = '';
     editDescription.value = '';
+    editTagIds.value = [];
     ElMessage.success(t('hostDocumentItems.updateSuccess'));
     await load();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
+    if (!applyTitleConflictError(error, 'edit') && !applyInvalidTagError(error)) {
+      problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
+    }
   } finally {
     changing.value = false;
   }
@@ -615,6 +728,30 @@ function toProblem(
             @search="handleSearch"
             @reset="resetSearch"
           />
+          <div v-if="hotTags.length || selectedTagFilterId" class="host-document-items-view__hot-tags">
+            <span class="host-document-items-view__hot-tags-label">{{ t('hostDocumentItems.filterByTag') }}</span>
+            <el-tag
+              v-for="tag in hotTags"
+              :key="tag.id"
+              size="small"
+              :type="selectedTagFilterId === tag.id ? 'primary' : 'danger'"
+              :effect="selectedTagFilterId === tag.id ? 'dark' : 'plain'"
+              class="host-document-items-view__hot-tag"
+              translate="no"
+              @click="toggleTagFilter(tag.id)"
+            >
+              {{ tag.name }}
+            </el-tag>
+            <el-button
+              v-if="selectedTagFilterId"
+              link
+              type="primary"
+              size="small"
+              @click="clearTagFilter"
+            >
+              {{ t('hostDocumentItems.clearTagFilter') }}
+            </el-button>
+          </div>
         </el-card>
 
         <el-card class="art-table-card art-full-height" shadow="never">
@@ -641,6 +778,16 @@ function toProblem(
                 {{ t('hostDocumentItems.create') }}
               </el-button>
             </PermissionGate>
+            <PermissionGate v-if="canCreateShare" code="document.host_shares.create">
+              <el-button
+                plain
+                data-testid="host-document-item-batch-share"
+                :disabled="changing || selectedItems.length === 0"
+                @click="openBatchShareDialog"
+              >
+                {{ t('documentShares.batchShare') }}
+              </el-button>
+            </PermissionGate>
           </template>
         </ArtTableHeader>
 
@@ -648,6 +795,8 @@ function toProblem(
           <el-table
             v-loading="loading"
             :data="pagedItems"
+            row-key="id"
+            @selection-change="onTableSelectionChange"
             :height="tableHeight"
             :size="tableSize"
             :stripe="tableZebra"
@@ -656,6 +805,12 @@ function toProblem(
             class="art-crud-data-table"
             :class="{ 'art-table--header-bg': tableHeaderBackground }"
           >
+            <el-table-column
+              v-if="canCreateShare"
+              type="selection"
+              width="48"
+              reserve-selection
+            />
             <el-table-column :label="t('users.columnIndex')" width="72" align="center">
               <template #default="{ $index }">{{ rowIndex($index) }}</template>
             </el-table-column>
@@ -675,6 +830,22 @@ function toProblem(
             <el-table-column :label="t('hostDocumentItems.versionLabel')" width="120" align="center">
               <template #default="{ row }">
                 {{ row.currentVersion?.versionNumber ?? '—' }}
+              </template>
+            </el-table-column>
+
+            <el-table-column :label="t('hostDocumentItems.tagsLabel')" min-width="160">
+              <template #default="{ row }">
+                <span v-if="!row.tags?.length" class="host-document-items-view__no-tags">—</span>
+                <div v-else class="host-document-items-view__row-tags">
+                  <el-tag
+                    v-for="tag in row.tags"
+                    :key="tag.tagId"
+                    size="small"
+                    translate="no"
+                  >
+                    {{ tag.tagName }}
+                  </el-tag>
+                </div>
               </template>
             </el-table-column>
 
@@ -830,11 +1001,16 @@ function toProblem(
       @cancel="cancelCreate"
     >
       <el-form label-width="96px" class="host-document-items-view__editor-form" @submit.prevent>
-        <el-form-item :label="t('hostDocumentItems.titleLabel')" required>
+        <el-form-item
+          :label="t('hostDocumentItems.titleLabel')"
+          required
+          :error="createTitleError || undefined"
+        >
           <el-input
             v-model="createTitle"
             data-testid="host-document-item-title"
             :placeholder="t('hostDocumentItems.titlePlaceholder')"
+            @update:model-value="createTitleError = ''"
           />
         </el-form-item>
         <el-form-item :label="t('hostDocumentItems.descriptionLabel')">
@@ -845,6 +1021,25 @@ function toProblem(
             :rows="3"
             :placeholder="t('hostDocumentItems.descriptionPlaceholder')"
           />
+        </el-form-item>
+        <el-form-item :label="t('hostDocumentItems.tagsLabel')">
+          <el-select
+            v-model="createTagIds"
+            data-testid="host-document-item-create-tags"
+            multiple
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            :placeholder="t('hostDocumentItems.tagsPlaceholder')"
+            class="host-document-items-view__tag-select"
+          >
+            <el-option
+              v-for="tag in allTags"
+              :key="tag.id"
+              :label="tag.name"
+              :value="tag.id"
+            />
+          </el-select>
         </el-form-item>
       </el-form>
     </ArtFormDialog>
@@ -861,11 +1056,38 @@ function toProblem(
       @cancel="cancelEdit"
     >
       <el-form label-width="96px" class="host-document-items-view__editor-form" @submit.prevent>
-        <el-form-item :label="t('hostDocumentItems.titleLabel')" required>
-          <el-input v-model="editTitle" data-testid="host-document-item-edit-title" />
+        <el-form-item
+          :label="t('hostDocumentItems.titleLabel')"
+          required
+          :error="editTitleError || undefined"
+        >
+          <el-input
+            v-model="editTitle"
+            data-testid="host-document-item-edit-title"
+            @update:model-value="editTitleError = ''"
+          />
         </el-form-item>
         <el-form-item :label="t('hostDocumentItems.descriptionLabel')">
           <el-input v-model="editDescription" data-testid="host-document-item-edit-description" type="textarea" :rows="3" />
+        </el-form-item>
+        <el-form-item :label="t('hostDocumentItems.tagsLabel')">
+          <el-select
+            v-model="editTagIds"
+            data-testid="host-document-item-edit-tags"
+            multiple
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            :placeholder="t('hostDocumentItems.tagsPlaceholder')"
+            class="host-document-items-view__tag-select"
+          >
+            <el-option
+              v-for="tag in allTags"
+              :key="tag.id"
+              :label="tag.name"
+              :value="tag.id"
+            />
+          </el-select>
         </el-form-item>
       </el-form>
     </ArtFormDialog>
@@ -949,7 +1171,9 @@ function toProblem(
       v-if="canCreateShare"
       v-model:open="shareDialogOpen"
       :preset-document="shareTarget"
+      :preset-documents="shareBatchTargets.length > 1 ? shareBatchTargets : null"
       @created="onShareCreated"
+      @batch-created="onShareBatchCreated"
     />
   </section>
 </template>
@@ -999,5 +1223,36 @@ function toProblem(
 .host-document-items-view__version-input {
   display: inline-flex;
   align-items: center;
+}
+
+.host-document-items-view__hot-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.host-document-items-view__hot-tags-label {
+  font-size: 13px;
+  color: var(--art-gray-600);
+}
+
+.host-document-items-view__hot-tag {
+  cursor: pointer;
+}
+
+.host-document-items-view__row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.host-document-items-view__no-tags {
+  color: var(--art-gray-500);
+}
+
+.host-document-items-view__tag-select {
+  width: 100%;
 }
 </style>

@@ -22,6 +22,7 @@ internal sealed class HostDocumentItemManagementService(
     IHostFileReferenceClaimService hostFileReferenceClaimService,
     IHostFileUploadWriter hostFileUploadWriter,
     DocumentVersionDeletionService documentVersionDeletionService,
+    DocumentItemTagAssignmentService documentItemTagAssignmentService,
     IClock clock,
     IIdGenerator idGenerator)
 {
@@ -199,13 +200,49 @@ internal sealed class HostDocumentItemManagementService(
         CreateHostDocumentItemRequest request,
         CancellationToken cancellationToken)
     {
+        if (await FindTitleConflictAsync(
+                request.Title.Trim(),
+                request.CategoryId,
+                null,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return TitleConflict();
+        }
+
+        var tagIds = request.TagIds?.ToArray() ?? Array.Empty<Guid>();
+        var tagValidation = await documentItemTagAssignmentService
+            .ValidateTagIdsAsync(tagIds, cancellationToken)
+            .ConfigureAwait(false);
+        if (!tagValidation.IsSuccess)
+        {
+            return Result<HostDocumentItemResponse>.Failure(tagValidation.Error!);
+        }
+
         var id = idGenerator.NewId();
         var now = clock.UtcNow;
         await commandExecutor.ExecuteAsync(
                 DocumentItemSql.Insert,
-                DocumentSqlParameters.Create(("Id", id), ("Title", request.Title.Trim()), ("Description", request.Description?.Trim()), ("CreatedAtUtc", now), ("CreatedByUserId", actorUserId), ("Version", 1L)),
+                DocumentSqlParameters.Create(
+                    ("Id", id),
+                    ("CategoryId", request.CategoryId),
+                    ("Title", request.Title.Trim()),
+                    ("Description", request.Description?.Trim()),
+                    ("DocumentType", (int)request.DocumentType),
+                    ("Status", (int)request.Status),
+                    ("Sort", request.Sort),
+                    ("Thumbnail", request.Thumbnail),
+                    ("CreatedAtUtc", now),
+                    ("CreatedByUserId", actorUserId),
+                    ("Version", 1L)),
                 cancellationToken)
             .ConfigureAwait(false);
+
+        if (tagIds.Length > 0)
+        {
+            await documentItemTagAssignmentService
+                .ReplaceAssignmentsAsync(id, tagIds, now, cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         return await ReloadActiveAsync(id, cancellationToken).ConfigureAwait(false);
     }
@@ -216,20 +253,59 @@ internal sealed class HostDocumentItemManagementService(
         UpdateHostDocumentItemRequest request,
         CancellationToken cancellationToken)
     {
-        if (await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false) is null)
+        var existing = await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
+        if (existing is null)
         {
             return NotFound();
+        }
+
+        var categoryId = request.CategoryId ?? existing.CategoryId;
+        if (await FindTitleConflictAsync(
+                request.Title.Trim(),
+                categoryId,
+                itemId,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return TitleConflict();
+        }
+
+        if (request.TagIds is not null)
+        {
+            var tagValidation = await documentItemTagAssignmentService
+                .ValidateTagIdsAsync(request.TagIds, cancellationToken)
+                .ConfigureAwait(false);
+            if (!tagValidation.IsSuccess)
+            {
+                return Result<HostDocumentItemResponse>.Failure(tagValidation.Error!);
+            }
         }
 
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentItemSql.Update,
-                DocumentSqlParameters.Create(("Id", itemId), ("Title", request.Title.Trim()), ("Description", request.Description?.Trim()), ("UpdatedAtUtc", now), ("UpdatedByUserId", actorUserId), ("Version", request.Version)),
+                DocumentSqlParameters.Create(
+                    ("Id", itemId),
+                    ("Title", request.Title.Trim()),
+                    ("Description", request.Description?.Trim()),
+                    ("CategoryId", categoryId),
+                    ("Thumbnail", request.Thumbnail ?? existing.Thumbnail),
+                    ("Status", (int)(request.Status ?? (HostDocumentStatus)existing.Status)),
+                    ("Sort", request.Sort ?? existing.Sort),
+                    ("UpdatedAtUtc", now),
+                    ("UpdatedByUserId", actorUserId),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1)
         {
             return VersionConflict();
+        }
+
+        if (request.TagIds is not null)
+        {
+            await documentItemTagAssignmentService
+                .ReplaceAssignmentsAsync(itemId, request.TagIds, now, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         return await ReloadActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
@@ -444,13 +520,40 @@ internal sealed class HostDocumentItemManagementService(
         CancellationToken cancellationToken)
     {
         var record = await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
-        return record is null
-            ? NotFound()
-            : Result<HostDocumentItemResponse>.Success(Map(record));
+        if (record is null)
+        {
+            return NotFound();
+        }
+
+        var tagsByItem = await documentItemTagAssignmentService
+            .ListByDocumentItemIdsAsync([itemId], cancellationToken)
+            .ConfigureAwait(false);
+        tagsByItem.TryGetValue(itemId, out var tags);
+        return Result<HostDocumentItemResponse>.Success(Map(record, tags));
     }
 
-    private static HostDocumentItemResponse Map(DocumentItemDetailRecord record) =>
-        HostDocumentItemResponseMapper.Map(record);
+    private async Task<bool> FindTitleConflictAsync(
+        string title,
+        Guid? categoryId,
+        Guid? excludeItemId,
+        CancellationToken cancellationToken)
+    {
+        var conflict = await queryExecutor
+            .QuerySingleOrDefaultAsync<DocumentNameConflictRecord>(
+                DocumentItemSql.FindActiveByTitle,
+                DocumentSqlParameters.Create(
+                    ("Title", title),
+                    ("CategoryId", categoryId),
+                    ("ExcludeId", excludeItemId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return conflict is not null;
+    }
+
+    private static HostDocumentItemResponse Map(
+        DocumentItemDetailRecord record,
+        IReadOnlyList<HostDocumentTagAssignmentResponse>? tags = null) =>
+        HostDocumentItemResponseMapper.Map(record, tags);
 
     private static Result<HostDocumentItemResponse> MapClaimFailure(Error error) =>
         string.Equals(error.Code, FilesErrorCodes.FileNotFound, StringComparison.Ordinal)
@@ -465,6 +568,9 @@ internal sealed class HostDocumentItemManagementService(
 
     private static Result<HostDocumentItemResponse> VersionConflict() =>
         Result<HostDocumentItemResponse>.Failure(VersionConflictError());
+
+    private static Result<HostDocumentItemResponse> TitleConflict() =>
+        Result<HostDocumentItemResponse>.Failure(TitleConflictError());
 
     private static Result<HostDocumentItemResponse> VersionAlreadyCurrent() =>
         Result<HostDocumentItemResponse>.Failure(new Error(
@@ -490,6 +596,12 @@ internal sealed class HostDocumentItemManagementService(
 
     private static Error NotFoundError() =>
         new(DocumentErrorCodes.NotFound, "Document item was not found.", ErrorType.NotFound);
+
+    private static Error TitleConflictError() =>
+        new(
+            DocumentErrorCodes.TitleConflict,
+            "A document with the same title already exists in this category.",
+            ErrorType.Conflict);
 
     private static Error VersionConflictError() =>
         new(DocumentErrorCodes.VersionConflict, "Document item was updated by another operation.", ErrorType.Conflict);

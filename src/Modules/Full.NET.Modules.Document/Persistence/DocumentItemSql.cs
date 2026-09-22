@@ -33,17 +33,28 @@ internal static class DocumentItemSql
     /// 活动文档项分页（SQL Server）：先 COUNT 再分页详情，按 UpdatedAtUtc/CreatedAtUtc 取最近变更优先；
     /// OFFSET/FETCH NEXT 语法仅在 SQL Server 中支持，过滤条件显式 TenantId IS NULL AND IsDeleted = 0。
     /// </summary>
+    private const string PageTagFilter = """
+          AND (@TagId IS NULL OR EXISTS (
+              SELECT 1
+              FROM fn_document_tag_assignment AS assignment
+              WHERE assignment.DocumentItemId = i.Id
+                AND assignment.TagId = @TagId
+          ))
+        """;
+
     public static readonly SqlStatement PageSqlServer = new(
         "document.host_item.page.sql_server",
         $$"""
         SELECT COUNT(1)
-        FROM fn_document_item
-        WHERE TenantId IS NULL AND IsDeleted = 0;
+        FROM fn_document_item AS i
+        WHERE i.TenantId IS NULL AND i.IsDeleted = 0
+        {{PageTagFilter}};
 
         SELECT {{DetailProjection}}
         FROM fn_document_item AS i
         LEFT JOIN fn_document_version AS v ON v.Id = i.CurrentVersionId
         WHERE i.TenantId IS NULL AND i.IsDeleted = 0
+        {{PageTagFilter}}
         ORDER BY COALESCE(i.UpdatedAtUtc, i.CreatedAtUtc) DESC, i.Id
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
@@ -57,13 +68,15 @@ internal static class DocumentItemSql
         "document.host_item.page.my_sql",
         $$"""
         SELECT COUNT(1)
-        FROM fn_document_item
-        WHERE TenantId IS NULL AND IsDeleted = 0;
+        FROM fn_document_item AS i
+        WHERE i.TenantId IS NULL AND i.IsDeleted = 0
+        {{PageTagFilter}};
 
         SELECT {{DetailProjection}}
         FROM fn_document_item AS i
         LEFT JOIN fn_document_version AS v ON v.Id = i.CurrentVersionId
         WHERE i.TenantId IS NULL AND i.IsDeleted = 0
+        {{PageTagFilter}}
         ORDER BY COALESCE(i.UpdatedAtUtc, i.CreatedAtUtc) DESC, i.Id
         LIMIT @PageSize OFFSET @Offset
         """,
@@ -145,15 +158,33 @@ internal static class DocumentItemSql
     /// 新建文档项；CategoryId 与 CurrentVersionId 创建时为 NULL，由后续 Update 或 SetCurrentVersion 维护。
     /// TenantId 固定 NULL 以保证 Host 行；Version 初始为 1。
     /// </summary>
+    public static readonly SqlStatement FindActiveByTitle = new(
+        "document.host_item.find_active_by_title",
+        """
+        SELECT Id, Title AS Name, Version
+        FROM fn_document_item
+        WHERE TenantId IS NULL
+          AND IsDeleted = 0
+          AND Title = @Title
+          AND (
+              (CategoryId = @CategoryId)
+              OR (CategoryId IS NULL AND @CategoryId IS NULL)
+          )
+          AND (@ExcludeId IS NULL OR Id <> @ExcludeId)
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement Insert = new(
         "document.host_item.insert",
         """
         INSERT INTO fn_document_item
             (Id, TenantId, CategoryId, CurrentVersionId, Title, Description,
+             DocumentType, Status, Sort, Thumbnail,
              IsDeleted, DeletedAtUtc, DeletedByUserId,
              CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId, Version)
         VALUES
-            (@Id, NULL, NULL, NULL, @Title, @Description,
+            (@Id, NULL, @CategoryId, NULL, @Title, @Description,
+             @DocumentType, @Status, @Sort, @Thumbnail,
              0, NULL, NULL,
              @CreatedAtUtc, @CreatedByUserId, NULL, NULL, @Version)
         """,
@@ -169,6 +200,10 @@ internal static class DocumentItemSql
         UPDATE fn_document_item
         SET Title = @Title,
             Description = @Description,
+            CategoryId = @CategoryId,
+            Thumbnail = @Thumbnail,
+            Status = @Status,
+            Sort = @Sort,
             UpdatedAtUtc = @UpdatedAtUtc,
             UpdatedByUserId = @UpdatedByUserId,
             Version = Version + 1

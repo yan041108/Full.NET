@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
   ElAlert,
   ElButton,
   ElCard,
+  ElCheckbox,
   ElInput,
   ElMessage,
+  ElOption,
   ElPagination,
+  ElSelect,
   ElSwitch,
   ElTable,
   ElTableColumn,
@@ -16,6 +19,7 @@ import { Plus, Refresh } from '@element-plus/icons-vue';
 import type { FullNetProblemDetails, HostDocumentShareResponse } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import DocumentShareCreateDialog from '../components/DocumentShareCreateDialog.vue';
+import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
@@ -23,7 +27,11 @@ import { useArtPagedTableInCard } from '../framework/art-design/composables/useA
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { listDocumentShares, updateDocumentShareStatus } from '../api/document-shares';
+import {
+  listDocumentShares,
+  updateDocumentShareStatus,
+  type DocumentShareListFilters
+} from '../api/document-shares';
 import { listDocumentItems } from '../api/host-document-items';
 import { buildDocumentShareUrl } from '../utils/documentShareUrl';
 
@@ -45,6 +53,69 @@ const pageSize = ref(20);
 const total = ref(0);
 const editorOpen = ref(false);
 const documentLabels = ref<Map<string, DocumentLabel>>(new Map());
+const searchForm = ref<Record<string, string | undefined>>({});
+const appliedFilters = ref<DocumentShareListFilters>({
+  sortBy: 'createdAtUtc',
+  sortDir: 'desc'
+});
+const DOCUMENT_SHARE_BATCH_HINT_KEY = 'documentShares.recentBatch';
+const batchShareHint = ref<{ succeeded: number; total: number } | null>(null);
+
+function consumeBatchShareHint(): void {
+  try {
+    const raw = sessionStorage.getItem(DOCUMENT_SHARE_BATCH_HINT_KEY);
+    if (!raw) {
+      return;
+    }
+    sessionStorage.removeItem(DOCUMENT_SHARE_BATCH_HINT_KEY);
+    const parsed = JSON.parse(raw) as { succeeded?: number; total?: number };
+    if (typeof parsed.succeeded === 'number' && typeof parsed.total === 'number') {
+      batchShareHint.value = { succeeded: parsed.succeeded, total: parsed.total };
+    }
+  } catch {
+    sessionStorage.removeItem(DOCUMENT_SHARE_BATCH_HINT_KEY);
+  }
+}
+
+function dismissBatchShareHint(): void {
+  batchShareHint.value = null;
+}
+
+const searchItems = computed<ArtSearchBarItem[]>(() => [
+  { key: 'shareCode', label: t('documentShares.filterShareCode') },
+  { key: 'documentId', label: t('documentShares.filterDocumentId') },
+  {
+    key: 'isEnabled',
+    label: t('documentShares.filterEnabled'),
+    type: 'select',
+    options: [
+      { label: t('documentShares.filterEnabledAll'), value: '' },
+      { label: t('documentShares.filterEnabledOn'), value: 'true' },
+      { label: t('documentShares.filterEnabledOff'), value: 'false' }
+    ]
+  },
+  { key: 'minAccessCount', label: t('documentShares.filterMinAccess') },
+  { key: 'maxAccessCount', label: t('documentShares.filterMaxAccess') },
+  {
+    key: 'sortBy',
+    label: t('documentShares.sortBy'),
+    type: 'select',
+    options: [
+      { label: t('documentShares.sortCreatedAt'), value: 'createdAtUtc' },
+      { label: t('documentShares.sortAccessCount'), value: 'accessCount' },
+      { label: t('documentShares.sortExpireTime'), value: 'expireTime' }
+    ]
+  },
+  {
+    key: 'sortDir',
+    label: t('documentShares.sortDir'),
+    type: 'select',
+    options: [
+      { label: t('documentShares.sortDesc'), value: 'desc' },
+      { label: t('documentShares.sortAsc'), value: 'asc' }
+    ]
+  }
+]);
 
 const {
   tableMainRef,
@@ -95,11 +166,45 @@ async function loadDocumentLabels() {
   }
 }
 
+function buildFiltersFromSearch(params: Record<string, string | undefined>): DocumentShareListFilters {
+  const isEnabledRaw = params.isEnabled?.trim();
+  const isEnabled =
+    isEnabledRaw === 'true' ? true : isEnabledRaw === 'false' ? false : undefined;
+  const minAccess = params.minAccessCount?.trim();
+  const maxAccess = params.maxAccessCount?.trim();
+  return {
+    ...appliedFilters.value,
+    shareCode: params.shareCode?.trim() || undefined,
+    documentId: params.documentId?.trim() || undefined,
+    isEnabled,
+    minAccessCount: minAccess ? Number(minAccess) : undefined,
+    maxAccessCount: maxAccess ? Number(maxAccess) : undefined,
+    sortBy: params.sortBy?.trim() || 'createdAtUtc',
+    sortDir: (params.sortDir?.trim() === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc'
+  };
+}
+
+function handleSearch(params: Record<string, string | undefined>) {
+  appliedFilters.value = buildFiltersFromSearch(params);
+  page.value = 1;
+  void load();
+}
+
+function resetSearch() {
+  appliedFilters.value = { sortBy: 'createdAtUtc', sortDir: 'desc', expiredOnly: false, activeOnly: false };
+  searchForm.value = {
+    sortBy: 'createdAtUtc',
+    sortDir: 'desc'
+  };
+  page.value = 1;
+  void load();
+}
+
 async function load() {
   loading.value = true;
   problem.value = undefined;
   try {
-    const result = await listDocumentShares(page.value, pageSize.value);
+    const result = await listDocumentShares(page.value, pageSize.value, appliedFilters.value);
     items.value = result.items;
     page.value = result.page;
     pageSize.value = result.pageSize;
@@ -163,6 +268,7 @@ function toProblem(
 }
 
 onMounted(async () => {
+  consumeBatchShareHint();
   await loadDocumentLabels();
   await load();
 });
@@ -173,6 +279,16 @@ onMounted(async () => {
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentShares.title') }}</h1>
 
     <el-alert
+      v-if="batchShareHint"
+      type="success"
+      :title="t('documentShares.batchCreateResult', batchShareHint)"
+      show-icon
+      closable
+      class="art-page-alert"
+      @close="dismissBatchShareHint"
+    />
+
+    <el-alert
       v-if="problem"
       type="error"
       :title="problem.title"
@@ -180,6 +296,34 @@ onMounted(async () => {
       show-icon
       class="art-page-alert"
     />
+
+    <el-card class="document-module-query-card" shadow="never">
+      <ArtSearchBar
+        v-model="searchForm"
+        :items="searchItems"
+        :default-visible-count="3"
+        :search-label="t('documentShares.query')"
+        :reset-label="t('documentShares.reset')"
+        @search="handleSearch"
+        @reset="resetSearch"
+      />
+      <div class="document-shares-view__flags">
+        <el-checkbox
+          v-model="appliedFilters.expiredOnly"
+          :disabled="appliedFilters.activeOnly"
+          @change="page = 1; load()"
+        >
+          {{ t('documentShares.filterExpiredOnly') }}
+        </el-checkbox>
+        <el-checkbox
+          v-model="appliedFilters.activeOnly"
+          :disabled="appliedFilters.expiredOnly"
+          @change="page = 1; load()"
+        >
+          {{ t('documentShares.filterActiveOnly') }}
+        </el-checkbox>
+      </div>
+    </el-card>
 
     <el-card class="art-table-card art-full-height" shadow="never">
       <template #header>
@@ -330,5 +474,12 @@ onMounted(async () => {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.document-shares-view__flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
 }
 </style>

@@ -21,12 +21,13 @@ internal static class Endpoint
         group.MapGet("/", async (
             int? page,
             int? pageSize,
+            Guid? tagId,
             HostDocumentItemQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.ListAsync(page ?? 1, pageSize ?? 20, cancellationToken)
+            var result = await queries.ListAsync(page ?? 1, pageSize ?? 20, tagId, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

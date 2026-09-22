@@ -1,0 +1,43 @@
+{
+  "id": "document-host-version-retention-v1",
+  "version": 1,
+  "description": "Host 文档版本保留策略查询与更新 HTTP 契约夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/document/host/version-retention",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_documents.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentVersionRetentionSettingsResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "document.host_documents.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostDocumentVersionRetentionRequest",
+          "responseSchema": "HostDocumentVersionRetentionSettingsResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostDocumentVersionRetentionSettingsResponse": {
+      "properties": [
+        "minimumRetainedVersionsPerItem",
+        "maximumRetainedHistoryVersions",
+        "pollSeconds",
+        "batchSize"
+      ]
+    },
+    "UpdateHostDocumentVersionRetentionRequest": {
+      "properties": [
+        "minimumRetainedVersionsPerItem",
+        "maximumRetainedHistoryVersions",
+        "pollSeconds",
+        "batchSize"
+      ]
+    }
+  }
+}

@@ -12,13 +12,15 @@ public sealed record CreateHostDocumentTagRequest(
     string? Code,
     string? Icon,
     string? Color,
-    string? Description)
+    string? Description,
+    bool IsHot = false,
+    bool IsRecommended = false)
 {
     /// <summary>
     /// 保留原标签创建构造方式，新增展示字段缺省为空。
     /// </summary>
     public CreateHostDocumentTagRequest(string name)
-        : this(name, null, null, null, null)
+        : this(name, null, null, null, null, false, false)
     {
     }
 }
@@ -34,13 +36,15 @@ public sealed record UpdateHostDocumentTagRequest(
     string? Icon,
     string? Color,
     string? Description,
-    long Version)
+    long Version,
+    bool IsHot = false,
+    bool IsRecommended = false)
 {
     /// <summary>
     /// 保留原标签更新构造方式，新增展示字段缺省为空。
     /// </summary>
     public UpdateHostDocumentTagRequest(string name, long version)
-        : this(name, null, null, null, null, version)
+        : this(name, null, null, null, null, version, false, false)
     {
     }
 }
@@ -67,7 +71,9 @@ public sealed record HostDocumentTagResponse(
     int UseCount,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
-    long Version)
+    long Version,
+    bool IsHot,
+    bool IsRecommended)
 {
     /// <summary>
     /// 兼容策略：保留扩展前的旧构造签名，避免新增 Code/Icon/Color/Description/UseCount
@@ -91,7 +97,9 @@ public sealed record HostDocumentTagResponse(
             0,
             createdAtUtc,
             updatedAtUtc,
-            version)
+            version,
+            false,
+            false)
     {
     }
 }

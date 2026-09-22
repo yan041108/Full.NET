@@ -10,7 +10,20 @@
           "method": "GET",
           "permission": "document.host_shares.read",
           "successStatus": 200,
-          "responseSchema": "HostDocumentShareResponsePage"
+          "responseSchema": "HostDocumentShareResponsePage",
+          "queryParameters": [
+            "page",
+            "pageSize",
+            "isEnabled",
+            "shareCode",
+            "documentId",
+            "expiredOnly",
+            "activeOnly",
+            "minAccessCount",
+            "maxAccessCount",
+            "sortBy",
+            "sortDir"
+          ]
         },
         {
           "method": "POST",
@@ -18,6 +31,18 @@
           "successStatus": 201,
           "requestSchema": "CreateHostDocumentShareRequest",
           "responseSchema": "HostDocumentShareResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/shares/batch",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_shares.create",
+          "successStatus": 200,
+          "requestSchema": "BatchCreateHostDocumentSharesRequest",
+          "responseSchema": "BatchCreateHostDocumentSharesResponse"
         }
       ]
     },
@@ -56,9 +81,68 @@
           "responseSchema": "Stream"
         }
       ]
+    },
+    {
+      "path": "/api/v1/document/public/shares/{shareCode}/preview-task",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": null,
+          "successStatus": 201,
+          "requestSchema": "AccessHostDocumentShareRequest",
+          "responseSchema": "HostDocumentPreviewTaskResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/public/shares/{shareCode}/preview-tasks/{taskId}",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": null,
+          "successStatus": 200,
+          "requestSchema": "AccessHostDocumentShareRequest",
+          "responseSchema": "HostDocumentPreviewTaskResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/public/shares/{shareCode}/preview-tasks/{taskId}/content",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": null,
+          "successStatus": 200,
+          "requestSchema": "AccessHostDocumentShareRequest",
+          "responseSchema": "Stream"
+        }
+      ]
     }
   ],
   "schemas": {
+    "BatchCreateHostDocumentSharesRequest": {
+      "properties": [
+        "documentIds",
+        "validDays",
+        "password",
+        "maxAccessCount"
+      ]
+    },
+    "BatchCreateHostDocumentSharesResponse": {
+      "properties": [
+        "succeededCount",
+        "results"
+      ]
+    },
+    "BatchCreateHostDocumentShareItem": {
+      "properties": [
+        "documentId",
+        "succeeded",
+        "share",
+        "errorCode",
+        "message"
+      ]
+    },
     "CreateHostDocumentShareRequest": {
       "properties": [
         "documentId",

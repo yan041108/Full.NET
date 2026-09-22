@@ -7,6 +7,9 @@
     "identityListPublicRegistrationWays",
     "documentPublicAccessDocumentShare",
     "documentPublicContentDocumentShare",
+    "documentPublicCreateDocumentSharePreviewTask",
+    "documentPublicGetDocumentSharePreviewTask",
+    "documentPublicContentDocumentSharePreviewTask",
     "paymentsWeChatNativeNotify",
     "tenancyGetRuntimeBranding",
     "tenancyGetCurrentBrandingLogoContent",
@@ -2219,6 +2222,42 @@
       "operationId": "documentPublicContentDocumentShare",
       "apiModule": "ui/admin/src/api/document-shares.ts",
       "generatedGroup": "document-host-shares",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostBatchCreateDocumentShares",
+      "apiModule": "ui/admin/src/api/document-shares.ts",
+      "generatedGroup": "document-host-shares",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentPublicCreateDocumentSharePreviewTask",
+      "apiModule": "ui/admin/src/api/document-shares.ts",
+      "generatedGroup": "document-host-shares",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentPublicGetDocumentSharePreviewTask",
+      "apiModule": "ui/admin/src/api/document-shares.ts",
+      "generatedGroup": "document-host-shares",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentPublicContentDocumentSharePreviewTask",
+      "apiModule": "ui/admin/src/api/document-shares.ts",
+      "generatedGroup": "document-host-shares",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostGetVersionRetentionSettings",
+      "apiModule": "ui/admin/src/api/document-version-retention.ts",
+      "generatedGroup": "document-host-version-retention",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostUpdateVersionRetentionSettings",
+      "apiModule": "ui/admin/src/api/document-version-retention.ts",
+      "generatedGroup": "document-host-version-retention",
       "status": "generated"
     },
     {

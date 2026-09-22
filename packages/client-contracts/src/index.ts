@@ -478,7 +478,8 @@ export {
   isDeleteHostDocumentTagRequest,
   isHostDocumentTagResponse,
   isHostDocumentTagResponseList,
-  isUpdateHostDocumentTagRequest
+  isUpdateHostDocumentTagRequest,
+  normalizeHostDocumentTagResponse
 } from './document-tags.js';
 
 export type {

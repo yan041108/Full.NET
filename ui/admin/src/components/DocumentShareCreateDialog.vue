@@ -5,7 +5,7 @@ import type { HostDocumentItemResponse, HostDocumentShareResponse } from '@fulln
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listDocumentItems } from '../api/host-document-items';
-import { createDocumentShare } from '../api/document-shares';
+import { batchCreateDocumentShares, createDocumentShare } from '../api/document-shares';
 import { buildDocumentShareUrl } from '../utils/documentShareUrl';
 
 defineOptions({ name: 'DocumentShareCreateDialog' });
@@ -14,11 +14,14 @@ const props = defineProps<{
   open: boolean;
   /** 从 Host 文档库带入时锁定文档，无需手输 ID。 */
   presetDocument?: Pick<HostDocumentItemResponse, 'id' | 'title' | 'documentNo'> | null;
+  /** 批量分享时传入多个文档；优先于 presetDocument。 */
+  presetDocuments?: Pick<HostDocumentItemResponse, 'id' | 'title' | 'documentNo'>[] | null;
 }>();
 
 const emit = defineEmits<{
   'update:open': [value: boolean];
   created: [share: HostDocumentShareResponse, shareUrl: string];
+  batchCreated: [succeededCount: number, total: number];
 }>();
 
 const { t } = useAdminI18n();
@@ -33,7 +36,11 @@ const editorForm = reactive({
 });
 
 const lockedDocument = computed(() => props.presetDocument ?? null);
-const documentSelectDisabled = computed(() => lockedDocument.value !== null);
+const lockedDocuments = computed(() => props.presetDocuments ?? []);
+const isBatchPreset = computed(() => lockedDocuments.value.length > 1);
+const documentSelectDisabled = computed(
+  () => lockedDocument.value !== null || lockedDocuments.value.length > 0
+);
 
 const dialogOpen = computed({
   get: () => props.open,
@@ -46,11 +53,11 @@ watch(
     if (!open) {
       return;
     }
-    editorForm.documentId = lockedDocument.value?.id ?? '';
+    editorForm.documentId = lockedDocument.value?.id ?? lockedDocuments.value[0]?.id ?? '';
     editorForm.validDays = '7';
     editorForm.password = '';
     editorForm.maxAccessCount = '';
-    if (!lockedDocument.value) {
+    if (!lockedDocument.value && lockedDocuments.value.length === 0) {
       void loadDocumentOptions();
     }
   }
@@ -81,8 +88,10 @@ function documentOptionLabel(item: HostDocumentItemResponse): string {
 }
 
 async function submitCreate() {
-  const documentId = (lockedDocument.value?.id ?? editorForm.documentId).trim();
-  if (!documentId) {
+  const documentIds = isBatchPreset.value
+    ? lockedDocuments.value.map(item => item.id)
+    : [(lockedDocument.value?.id ?? editorForm.documentId).trim()].filter(Boolean);
+  if (documentIds.length === 0) {
     ElMessage.warning(t('documentShares.selectDocumentRequired'));
     return;
   }
@@ -94,12 +103,24 @@ async function submitCreate() {
   const maxAccessCount = editorForm.maxAccessCount.trim()
     ? Number(editorForm.maxAccessCount)
     : null;
+  const password = editorForm.password.trim() || null;
   saving.value = true;
   try {
+    if (documentIds.length > 1) {
+      const batch = await batchCreateDocumentShares({
+        documentIds,
+        validDays,
+        password,
+        maxAccessCount: Number.isFinite(maxAccessCount) ? maxAccessCount : null
+      });
+      emit('batchCreated', batch.succeededCount, documentIds.length);
+      dialogOpen.value = false;
+      return;
+    }
     const share = await createDocumentShare({
-      documentId,
+      documentId: documentIds[0]!,
       validDays,
-      password: editorForm.password.trim() || null,
+      password,
       maxAccessCount: Number.isFinite(maxAccessCount) ? maxAccessCount : null
     });
     const shareUrl = buildDocumentShareUrl(share.shareCode);
@@ -125,7 +146,14 @@ async function submitCreate() {
     @confirm="submitCreate"
   >
     <el-form data-testid="document-share-editor-form" label-width="120px">
-      <el-form-item v-if="lockedDocument" :label="t('documentShares.documentLabel')">
+      <el-form-item v-if="isBatchPreset" :label="t('documentShares.documentLabel')">
+        <ul class="document-share-create-dialog__batch-list">
+          <li v-for="item in lockedDocuments" :key="item.id" translate="no">
+            {{ item.title }} · {{ item.documentNo }}
+          </li>
+        </ul>
+      </el-form-item>
+      <el-form-item v-else-if="lockedDocument" :label="t('documentShares.documentLabel')">
         <span translate="no">{{ lockedDocument.title }} · {{ lockedDocument.documentNo }}</span>
       </el-form-item>
       <el-form-item v-else :label="t('documentShares.documentLabel')">
@@ -133,6 +161,7 @@ async function submitCreate() {
           v-model="editorForm.documentId"
           filterable
           clearable
+          :disabled="documentSelectDisabled"
           :loading="optionsLoading"
           :placeholder="t('documentShares.selectDocument')"
           data-testid="document-share-document-select"
@@ -158,3 +187,12 @@ async function submitCreate() {
     </el-form>
   </ArtFormDialog>
 </template>
+
+<style scoped>
+.document-share-create-dialog__batch-list {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 160px;
+  overflow: auto;
+}
+</style>

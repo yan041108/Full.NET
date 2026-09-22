@@ -13,7 +13,7 @@ internal static class DocumentTagSql
     /// 与 DocumentTagRecord 属性顺序对齐，确保 Dapper 直接映射。
     /// </summary>
     private const string Projection = """
-        Id, Name, Code, Icon, Color, Description, UseCount, CreatedAtUtc, UpdatedAtUtc, Version
+        Id, Name, Code, Icon, Color, Description, UseCount, CreatedAtUtc, UpdatedAtUtc, Version, IsHot, IsRecommended
         """;
 
     public static readonly SqlStatement ListActive = new(
@@ -22,6 +22,8 @@ internal static class DocumentTagSql
         SELECT {{Projection}}
         FROM fn_document_tag
         WHERE TenantId IS NULL AND IsDeleted = 0
+          AND (@IsHot IS NULL OR IsHot = @IsHot)
+          AND (@IsRecommended IS NULL OR IsRecommended = @IsRecommended)
         ORDER BY Name, Id
         """,
         SqlDataScope.HostOnly);
@@ -52,10 +54,12 @@ internal static class DocumentTagSql
         """
         INSERT INTO fn_document_tag
             (Id, TenantId, Name, Code, Icon, Color, Description, UseCount,
+             IsHot, IsRecommended,
              IsDeleted, DeletedAtUtc, DeletedByUserId,
              CreatedAtUtc, UpdatedAtUtc, Version)
         VALUES
             (@Id, NULL, @Name, @Code, @Icon, @Color, @Description, @UseCount,
+             @IsHot, @IsRecommended,
              0, NULL, NULL,
              @CreatedAtUtc, NULL, @Version)
         """,
@@ -73,6 +77,8 @@ internal static class DocumentTagSql
             Icon = @Icon,
             Color = @Color,
             Description = @Description,
+            IsHot = @IsHot,
+            IsRecommended = @IsRecommended,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @Id

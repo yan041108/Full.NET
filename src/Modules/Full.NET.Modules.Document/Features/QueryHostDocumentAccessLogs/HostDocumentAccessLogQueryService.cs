@@ -16,6 +16,8 @@ internal sealed class HostDocumentAccessLogQueryService(
         int page,
         int pageSize,
         Guid? documentItemId,
+        string? accessTypeKey,
+        string? sourceKey,
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
@@ -33,6 +35,8 @@ internal sealed class HostDocumentAccessLogQueryService(
                 statement,
                 DocumentSqlParameters.Create(
                     ("DocumentItemId", documentItemId),
+                    ("AccessTypeKey", accessTypeKey),
+                    ("SourceKey", sourceKey),
                     ("Offset", offset),
                     ("PageSize", pageSize)),
                 async (reader, _) =>

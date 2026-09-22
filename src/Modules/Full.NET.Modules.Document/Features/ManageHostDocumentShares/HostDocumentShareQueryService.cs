@@ -18,22 +18,41 @@ internal sealed class HostDocumentShareQueryService(
     public async Task<Result<PagedResult<HostDocumentShareResponse>>> PageAsync(
         int page,
         int pageSize,
+        HostDocumentShareListQuery? query = null,
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = ((long)page - 1) * pageSize;
+        query ??= new HostDocumentShareListQuery();
 
+        var orderBy = DocumentShareSql.ResolvePageOrderBy(query.SortBy, query.SortDir);
         var statement = databaseOptions.Value.Provider switch
         {
-            DatabaseProvider.SqlServer => DocumentShareSql.PageSqlServer,
-            DatabaseProvider.MySql => DocumentShareSql.PageMySql,
+            DatabaseProvider.SqlServer => DocumentShareSql.BuildPageSqlServer(orderBy),
+            DatabaseProvider.MySql => DocumentShareSql.BuildPageMySql(orderBy),
             _ => throw new InvalidOperationException("The configured database provider is not supported."),
         };
 
+        var now = DateTimeOffset.UtcNow;
+        var shareCodePattern = ToLikePattern(query.ShareCode);
+        var documentIdPattern = ToLikePattern(query.DocumentId);
+        var applyExpiredOnly = query.ExpiredOnly && !query.ActiveOnly;
+        var applyActiveOnly = query.ActiveOnly && !query.ExpiredOnly;
+
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
-                DocumentSqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
+                DocumentSqlParameters.Create(
+                    ("Offset", offset),
+                    ("PageSize", pageSize),
+                    ("IsEnabled", query.IsEnabled),
+                    ("ShareCodePattern", shareCodePattern),
+                    ("DocumentIdPattern", documentIdPattern),
+                    ("ApplyExpiredOnly", applyExpiredOnly ? 1 : 0),
+                    ("ApplyActiveOnly", applyActiveOnly ? 1 : 0),
+                    ("Now", now),
+                    ("MinAccessCount", query.MinAccessCount),
+                    ("MaxAccessCount", query.MaxAccessCount)),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>().ConfigureAwait(false);
@@ -109,4 +128,15 @@ internal sealed class HostDocumentShareQueryService(
 
     private static Error CodeNotFoundError() =>
         new(DocumentErrorCodes.ShareCodeNotFound, "Share code was not found.", ErrorType.NotFound);
+
+    private static string? ToLikePattern(string? term)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+        {
+            return null;
+        }
+
+        var trimmed = term.Trim();
+        return $"%{trimmed}%";
+    }
 }

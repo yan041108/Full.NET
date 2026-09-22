@@ -21,33 +21,52 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+export interface ListDocumentItemsOptions {
+  readonly tagId?: string | null;
+}
+
 /** 分页查询文档项列表，并对响应页做失败关闭校验。 */
 export async function listDocumentItems(
   page = 1,
   pageSize = 20,
+  options: ListDocumentItemsOptions = {},
   signal?: AbortSignal
 ): Promise<HostDocumentItemPage> {
-  const value = await documentHostListItems(http, { page, pageSize }, signal);
+  const value = await documentHostListItems(
+    http,
+    {
+      page,
+      pageSize,
+      tagId: options.tagId ?? undefined
+    },
+    signal
+  );
   if (!isHostDocumentItemPage(value)) {
     throw new Error('client.invalid_document_item_page');
   }
   return value;
 }
 
-/** 创建文档项；当前前端固定使用默认文档类型与空分类/标签占位。 */
+export interface CreateDocumentItemOptions {
+  readonly categoryId?: string | null;
+  readonly tagIds?: readonly string[] | null;
+}
+
+/** 创建文档项。 */
 export async function createDocumentItem(
   title: string,
   description: string | null,
+  options: CreateDocumentItemOptions = {},
   signal?: AbortSignal
 ): Promise<HostDocumentItemResponse> {
   const body: Parameters<typeof documentHostCreateItem>[1]['body'] = {
     title,
     description,
-    categoryId: null,
+    categoryId: options.categoryId ?? null,
     documentType: 1,
     sort: 0,
     status: 1,
-    tagIds: null,
+    tagIds: options.tagIds ? [...options.tagIds] : null,
     thumbnail: null
   };
   const value = await documentHostCreateItem(http, { body }, signal);
@@ -57,28 +76,32 @@ export async function createDocumentItem(
   return value;
 }
 
+export interface UpdateDocumentItemOptions {
+  readonly tagIds?: readonly string[] | null;
+}
+
 /** 更新文档项基础信息，并携带版本号维持乐观并发。 */
 export async function updateDocumentItem(
-  itemId: string,
+  item: HostDocumentItemResponse,
   title: string,
   description: string | null,
-  version: number,
+  options: UpdateDocumentItemOptions = {},
   signal?: AbortSignal
 ): Promise<HostDocumentItemResponse> {
   const body: Parameters<typeof documentHostUpdateItem>[1]['body'] = {
     title,
     description,
-    version,
-    categoryId: null,
-    sort: null,
-    status: null,
-    tagIds: null,
-    thumbnail: null
+    version: item.version,
+    categoryId: item.categoryId,
+    sort: item.sort,
+    status: item.status,
+    thumbnail: item.thumbnail,
+    tagIds: options.tagIds ? [...options.tagIds] : null
   };
   const value = await documentHostUpdateItem(
     http,
     {
-      itemId,
+      itemId: item.id,
       body
     },
     signal

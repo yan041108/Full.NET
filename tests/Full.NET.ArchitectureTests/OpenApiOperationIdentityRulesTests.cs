@@ -96,6 +96,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string DocumentHostRecycleBinTag = "DocumentHostRecycleBin";
     private const string DocumentHostSharesTag = "DocumentHostShares";
     private const string DocumentPublicSharesTag = "DocumentPublicShares";
+    private const string DocumentHostSettingsTag = "DocumentHostSettings";
     private const string DocumentHostAccessLogsTag = "DocumentHostAccessLogs";
     private const string DocumentHostPreviewTasksTag = "DocumentHostPreviewTasks";
     private const string ImportExportStaticSchemasTag = "ImportExportStaticSchemas";
@@ -350,7 +351,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/me/profile/signature/content", "identityGetSelfServiceSignatureContent", IdentityMeTag),
         new("POST", "/api/v1/me/password", "identityChangePassword", IdentityMeTag),
         new("GET", "/api/v1/me/tenant-invitations", "identityListMyTenantInvitations", IdentityMeTag),
-        new("POST", "/api/v1/me/tenant-invitations/{invitationId}", "identityAcceptMyTenantInvitation", IdentityMeTag),
+        new("POST", "/api/v1/me/tenant-invitations/{invitationId}/accept", "identityAcceptMyTenantInvitation", IdentityMeTag),
         new("GET", "/api/v1/identity/me/mfa/totp", "identityGetTotpEnrollmentStatus", IdentityTotpEnrollmentTag),
         new("POST", "/api/v1/identity/me/mfa/totp/begin", "identityBeginTotpEnrollment", IdentityTotpEnrollmentTag),
         new("POST", "/api/v1/identity/me/mfa/totp/confirm", "identityConfirmTotpEnrollment", IdentityTotpEnrollmentTag),
@@ -746,9 +747,15 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/document/host/recycle-bin/{id}/purge", "documentHostPurgeRecycleBinItem", DocumentHostRecycleBinTag),
         new("GET", "/api/v1/document/host/shares", "documentHostListDocumentShares", DocumentHostSharesTag),
         new("POST", "/api/v1/document/host/shares", "documentHostCreateDocumentShare", DocumentHostSharesTag),
+        new("POST", "/api/v1/document/host/shares/batch", "documentHostBatchCreateDocumentShares", DocumentHostSharesTag),
         new("POST", "/api/v1/document/host/shares/{id}/status", "documentHostUpdateDocumentShareStatus", DocumentHostSharesTag),
         new("POST", "/api/v1/document/public/shares/{shareCode}/access", "documentPublicAccessDocumentShare", DocumentPublicSharesTag),
         new("POST", "/api/v1/document/public/shares/{shareCode}/content", "documentPublicContentDocumentShare", DocumentPublicSharesTag),
+        new("POST", "/api/v1/document/public/shares/{shareCode}/preview-task", "documentPublicCreateDocumentSharePreviewTask", DocumentPublicSharesTag),
+        new("POST", "/api/v1/document/public/shares/{shareCode}/preview-tasks/{taskId}", "documentPublicGetDocumentSharePreviewTask", DocumentPublicSharesTag),
+        new("POST", "/api/v1/document/public/shares/{shareCode}/preview-tasks/{taskId}/content", "documentPublicContentDocumentSharePreviewTask", DocumentPublicSharesTag),
+        new("GET", "/api/v1/document/host/version-retention", "documentHostGetVersionRetentionSettings", DocumentHostSettingsTag),
+        new("PUT", "/api/v1/document/host/version-retention", "documentHostUpdateVersionRetentionSettings", DocumentHostSettingsTag),
         new("GET", "/api/v1/document/host/statistics", "documentHostGetDocumentStatistics", DocumentHostStatisticsTag),
     ];
 

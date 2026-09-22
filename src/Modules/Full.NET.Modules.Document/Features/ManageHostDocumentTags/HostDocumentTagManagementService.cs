@@ -32,7 +32,15 @@ internal sealed class HostDocumentTagManagementService(
 
         // 修复：传递新字段 Code/Icon/Color/Description 到 CreateCoreAsync，确保写入SQL时不丢失数据
         return transaction.ExecuteAsync(
-            token => CreateCoreAsync(name, request.Code, request.Icon, request.Color, request.Description, token),
+            token => CreateCoreAsync(
+                name,
+                request.Code,
+                request.Icon,
+                request.Color,
+                request.Description,
+                request.IsHot,
+                request.IsRecommended,
+                token),
             cancellationToken);
     }
 
@@ -48,7 +56,17 @@ internal sealed class HostDocumentTagManagementService(
 
         // 修复：传递新字段 Code/Icon/Color/Description 到 UpdateCoreAsync，确保更新SQL时同步写入
         return transaction.ExecuteAsync(
-            token => UpdateCoreAsync(tagId, name, request.Code, request.Icon, request.Color, request.Description, request.Version, token),
+            token => UpdateCoreAsync(
+                tagId,
+                name,
+                request.Code,
+                request.Icon,
+                request.Color,
+                request.Description,
+                request.Version,
+                request.IsHot,
+                request.IsRecommended,
+                token),
             cancellationToken);
     }
 
@@ -75,6 +93,8 @@ internal sealed class HostDocumentTagManagementService(
         string? icon,
         string? color,
         string? description,
+        bool isHot,
+        bool isRecommended,
         CancellationToken cancellationToken)
     {
         if (await FindNameConflictAsync(name, null, cancellationToken).ConfigureAwait(false))
@@ -87,7 +107,18 @@ internal sealed class HostDocumentTagManagementService(
         // 修复：Insert SQL 匿名对象补齐 Code/Icon/Color/Description/UseCount，UseCount 新标签默认 0
         await commandExecutor.ExecuteAsync(
                 DocumentTagSql.Insert,
-                DocumentSqlParameters.Create(("Id", id), ("Name", name), ("Code", code), ("Icon", icon), ("Color", color), ("Description", description), ("UseCount", 0), ("CreatedAtUtc", now), ("Version", 1)),
+                DocumentSqlParameters.Create(
+                    ("Id", id),
+                    ("Name", name),
+                    ("Code", code),
+                    ("Icon", icon),
+                    ("Color", color),
+                    ("Description", description),
+                    ("UseCount", 0),
+                    ("IsHot", isHot),
+                    ("IsRecommended", isRecommended),
+                    ("CreatedAtUtc", now),
+                    ("Version", 1)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -103,6 +134,8 @@ internal sealed class HostDocumentTagManagementService(
         string? color,
         string? description,
         long version,
+        bool isHot,
+        bool isRecommended,
         CancellationToken cancellationToken)
     {
         if (await queries.GetByIdAsync(tagId, cancellationToken).ConfigureAwait(false) is { IsSuccess: false })
@@ -119,7 +152,17 @@ internal sealed class HostDocumentTagManagementService(
         // 修复：Update SQL 匿名对象补齐 Code/Icon/Color/Description 四个新字段，确保更新操作完整写入
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentTagSql.Update,
-                DocumentSqlParameters.Create(("Id", tagId), ("Name", name), ("Code", code), ("Icon", icon), ("Color", color), ("Description", description), ("UpdatedAtUtc", now), ("Version", version)),
+                DocumentSqlParameters.Create(
+                    ("Id", tagId),
+                    ("Name", name),
+                    ("Code", code),
+                    ("Icon", icon),
+                    ("Color", color),
+                    ("Description", description),
+                    ("IsHot", isHot),
+                    ("IsRecommended", isRecommended),
+                    ("UpdatedAtUtc", now),
+                    ("Version", version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1)

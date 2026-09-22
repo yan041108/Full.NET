@@ -373,6 +373,26 @@ export interface BatchChangeHostJobScheduleStateResultItem {
   readonly succeeded: boolean;
 }
 
+export interface BatchCreateHostDocumentShareItem {
+  readonly documentId: string;
+  readonly errorCode: null | string;
+  readonly message: null | string;
+  readonly share: null | HostDocumentShareResponse;
+  readonly succeeded: boolean;
+}
+
+export interface BatchCreateHostDocumentSharesRequest {
+  readonly documentIds: Array<string>;
+  readonly maxAccessCount?: null | number;
+  readonly password?: null | string;
+  readonly validDays: number;
+}
+
+export interface BatchCreateHostDocumentSharesResponse {
+  readonly results: Array<BatchCreateHostDocumentShareItem>;
+  readonly succeededCount: number;
+}
+
 export interface BatchDeleteConfigEntriesRequest {
   readonly ids: Array<string>;
 }
@@ -954,6 +974,8 @@ export interface CreateHostDocumentTagRequest {
   readonly color: null | string;
   readonly description: null | string;
   readonly icon: null | string;
+  readonly isHot?: boolean;
+  readonly isRecommended?: boolean;
   readonly name: string;
 }
 
@@ -1779,6 +1801,8 @@ export interface HostDocumentTagResponse {
   readonly description: null | string;
   readonly icon: null | string;
   readonly id: string;
+  readonly isHot: boolean;
+  readonly isRecommended: boolean;
   readonly name: string;
   readonly updatedAtUtc: null | string;
   readonly useCount: number;
@@ -1796,6 +1820,13 @@ export interface HostDocumentVersionResponse {
   readonly sizeBytes: number;
   readonly uploadedByUserId: string;
   readonly versionNumber: number;
+}
+
+export interface HostDocumentVersionRetentionSettingsResponse {
+  readonly batchSize: number;
+  readonly maximumRetainedHistoryVersions: number;
+  readonly minimumRetainedVersionsPerItem: number;
+  readonly pollSeconds: number;
 }
 
 export interface HostFileReferenceClaimResponse {
@@ -4220,8 +4251,17 @@ export interface UpdateHostDocumentTagRequest {
   readonly color: null | string;
   readonly description: null | string;
   readonly icon: null | string;
+  readonly isHot?: boolean;
+  readonly isRecommended?: boolean;
   readonly name: string;
   readonly version: number;
+}
+
+export interface UpdateHostDocumentVersionRetentionRequest {
+  readonly batchSize: number;
+  readonly maximumRetainedHistoryVersions: number;
+  readonly minimumRetainedVersionsPerItem: number;
+  readonly pollSeconds: number;
 }
 
 export interface UpdateHostFileMetadataRequest {

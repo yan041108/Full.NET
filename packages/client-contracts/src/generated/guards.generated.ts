@@ -38,6 +38,9 @@ import type {
   BatchChangeHostJobScheduleStateRequest,
   BatchChangeHostJobScheduleStateResponse,
   BatchChangeHostJobScheduleStateResultItem,
+  BatchCreateHostDocumentShareItem,
+  BatchCreateHostDocumentSharesRequest,
+  BatchCreateHostDocumentSharesResponse,
   BatchDeleteConfigEntriesRequest,
   BatchDeleteHostFileItem,
   BatchDeleteHostFilesRequest,
@@ -219,6 +222,7 @@ import type {
   HostDocumentTagResponse,
   HostDocumentType,
   HostDocumentVersionResponse,
+  HostDocumentVersionRetentionSettingsResponse,
   HostFileReferenceClaimResponse,
   HostFileResponse,
   HostFolderResponse,
@@ -501,6 +505,7 @@ import type {
   UpdateHostDocumentItemRequest,
   UpdateHostDocumentShareStatusRequest,
   UpdateHostDocumentTagRequest,
+  UpdateHostDocumentVersionRetentionRequest,
   UpdateHostFileMetadataRequest,
   UpdateHostFolderRequest,
   UpdateHostJobDefinitionRequest,
@@ -959,6 +964,39 @@ export function readBatchChangeHostJobScheduleStateResultItem(value: unknown): B
 
 function isBatchChangeHostJobScheduleStateResultItem(value: unknown): value is BatchChangeHostJobScheduleStateResultItem {
   return isRecord(value) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["message"] === null) || (typeof value["message"] === 'string')) && ((value["schedule"] === null) || (isHostJobScheduleResponse(value["schedule"]))) && (typeof value["scheduleId"] === 'string' && guidPattern.test(value["scheduleId"])) && (typeof value["succeeded"] === 'boolean');
+}
+
+export function readBatchCreateHostDocumentShareItem(value: unknown): BatchCreateHostDocumentShareItem {
+  if (!(isBatchCreateHostDocumentShareItem(value))) {
+    throw new Error('client.invalid_batch_create_host_document_share_item');
+  }
+  return value;
+}
+
+function isBatchCreateHostDocumentShareItem(value: unknown): value is BatchCreateHostDocumentShareItem {
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["message"] === null) || (typeof value["message"] === 'string')) && ((value["share"] === null) || (isHostDocumentShareResponse(value["share"]))) && (typeof value["succeeded"] === 'boolean');
+}
+
+export function readBatchCreateHostDocumentSharesRequest(value: unknown): BatchCreateHostDocumentSharesRequest {
+  if (!(isBatchCreateHostDocumentSharesRequest(value))) {
+    throw new Error('client.invalid_batch_create_host_document_shares_request');
+  }
+  return value;
+}
+
+function isBatchCreateHostDocumentSharesRequest(value: unknown): value is BatchCreateHostDocumentSharesRequest {
+  return isRecord(value) && (Array.isArray(value["documentIds"]) && value["documentIds"].every(item20 => typeof item20 === 'string' && guidPattern.test(item20))) && (value["maxAccessCount"] === undefined || ((value["maxAccessCount"] === null) || (typeof value["maxAccessCount"] === 'number' && Number.isInteger(value["maxAccessCount"])))) && (value["password"] === undefined || ((value["password"] === null) || (typeof value["password"] === 'string'))) && (typeof value["validDays"] === 'number' && Number.isInteger(value["validDays"]));
+}
+
+export function readBatchCreateHostDocumentSharesResponse(value: unknown): BatchCreateHostDocumentSharesResponse {
+  if (!(isBatchCreateHostDocumentSharesResponse(value))) {
+    throw new Error('client.invalid_batch_create_host_document_shares_response');
+  }
+  return value;
+}
+
+function isBatchCreateHostDocumentSharesResponse(value: unknown): value is BatchCreateHostDocumentSharesResponse {
+  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isBatchCreateHostDocumentShareItem(item16))) && (typeof value["succeededCount"] === 'number' && Number.isInteger(value["succeededCount"]));
 }
 
 export function readBatchDeleteConfigEntriesRequest(value: unknown): BatchDeleteConfigEntriesRequest {
@@ -1838,7 +1876,7 @@ export function readCreateHostDocumentTagRequest(value: unknown): CreateHostDocu
 }
 
 function isCreateHostDocumentTagRequest(value: unknown): value is CreateHostDocumentTagRequest {
-  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["name"] === 'string');
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (value["isHot"] === undefined || (typeof value["isHot"] === 'boolean')) && (value["isRecommended"] === undefined || (typeof value["isRecommended"] === 'boolean')) && (typeof value["name"] === 'string');
 }
 
 export function readCreateHostFolderRequest(value: unknown): CreateHostFolderRequest {
@@ -2927,7 +2965,7 @@ export function readHostDocumentTagResponse(value: unknown): HostDocumentTagResp
 }
 
 function isHostDocumentTagResponse(value: unknown): value is HostDocumentTagResponse {
-  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["useCount"] === 'number' && Number.isInteger(value["useCount"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isHot"] === 'boolean') && (typeof value["isRecommended"] === 'boolean') && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["useCount"] === 'number' && Number.isInteger(value["useCount"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readHostDocumentType(value: unknown): HostDocumentType {
@@ -2950,6 +2988,17 @@ export function readHostDocumentVersionResponse(value: unknown): HostDocumentVer
 
 function isHostDocumentVersionResponse(value: unknown): value is HostDocumentVersionResponse {
   return isRecord(value) && ((value["changeDescription"] === null) || (typeof value["changeDescription"] === 'string')) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["fileId"] === 'string' && guidPattern.test(value["fileId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["sizeBytes"] === 'number' && Number.isInteger(value["sizeBytes"])) && (typeof value["uploadedByUserId"] === 'string' && guidPattern.test(value["uploadedByUserId"])) && (typeof value["versionNumber"] === 'number' && Number.isInteger(value["versionNumber"]));
+}
+
+export function readHostDocumentVersionRetentionSettingsResponse(value: unknown): HostDocumentVersionRetentionSettingsResponse {
+  if (!(isHostDocumentVersionRetentionSettingsResponse(value))) {
+    throw new Error('client.invalid_host_document_version_retention_settings_response');
+  }
+  return value;
+}
+
+function isHostDocumentVersionRetentionSettingsResponse(value: unknown): value is HostDocumentVersionRetentionSettingsResponse {
+  return isRecord(value) && (typeof value["batchSize"] === 'number' && Number.isInteger(value["batchSize"])) && (typeof value["maximumRetainedHistoryVersions"] === 'number' && Number.isInteger(value["maximumRetainedHistoryVersions"])) && (typeof value["minimumRetainedVersionsPerItem"] === 'number' && Number.isInteger(value["minimumRetainedVersionsPerItem"])) && (typeof value["pollSeconds"] === 'number' && Number.isInteger(value["pollSeconds"]));
 }
 
 export function readHostFileReferenceClaimResponse(value: unknown): HostFileReferenceClaimResponse {
@@ -6051,7 +6100,18 @@ export function readUpdateHostDocumentTagRequest(value: unknown): UpdateHostDocu
 }
 
 function isUpdateHostDocumentTagRequest(value: unknown): value is UpdateHostDocumentTagRequest {
-  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (value["isHot"] === undefined || (typeof value["isHot"] === 'boolean')) && (value["isRecommended"] === undefined || (typeof value["isRecommended"] === 'boolean')) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateHostDocumentVersionRetentionRequest(value: unknown): UpdateHostDocumentVersionRetentionRequest {
+  if (!(isUpdateHostDocumentVersionRetentionRequest(value))) {
+    throw new Error('client.invalid_update_host_document_version_retention_request');
+  }
+  return value;
+}
+
+function isUpdateHostDocumentVersionRetentionRequest(value: unknown): value is UpdateHostDocumentVersionRetentionRequest {
+  return isRecord(value) && (typeof value["batchSize"] === 'number' && Number.isInteger(value["batchSize"])) && (typeof value["maximumRetainedHistoryVersions"] === 'number' && Number.isInteger(value["maximumRetainedHistoryVersions"])) && (typeof value["minimumRetainedVersionsPerItem"] === 'number' && Number.isInteger(value["minimumRetainedVersionsPerItem"])) && (typeof value["pollSeconds"] === 'number' && Number.isInteger(value["pollSeconds"]));
 }
 
 export function readUpdateHostFileMetadataRequest(value: unknown): UpdateHostFileMetadataRequest {

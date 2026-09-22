@@ -4,6 +4,7 @@ using Full.NET.Hosting.Api;
 using Full.NET.Hosting.RateLimiting;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Document.Configuration;
+using Full.NET.Modules.Document.Persistence;
 using Full.NET.Modules.Document.PreviewTasks;
 using Full.NET.Modules.Document.Providers.OfficePreview;
 using Full.NET.Modules.Document.RateLimiting;
@@ -18,6 +19,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Document;
@@ -75,6 +77,7 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddSingleton<IDocumentSharePasswordHasher, DocumentSharePasswordHasher>();
         services.TryAddScoped<Features.ManageHostDocumentItems.HostDocumentItemQueryService>();
+        services.TryAddScoped<Features.ManageHostDocumentItems.DocumentItemTagAssignmentService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.HostDocumentItemManagementService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentVersionDeletionService>();
         services.TryAddScoped<Features.DocumentAccessLogs.DocumentAccessLogRecorder>();
@@ -98,12 +101,8 @@ public sealed class DocumentModule : IFullNetModule
             IValidateOptions<DocumentOfficePreviewConversionOptions>,
             DocumentOfficePreviewConversionOptionsValidator>());
         services.AddHttpClient(nameof(ExternalHttpDocumentOfficePreviewConversionProvider));
-        services.AddOptions<DocumentVersionRetentionOptions>()
-            .Bind(configuration.GetSection(DocumentVersionRetentionOptions.SectionName))
-            .ValidateOnStart();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IValidateOptions<DocumentVersionRetentionOptions>,
-            DocumentVersionRetentionOptionsValidator>());
+        ConfigureDocumentVersionRetentionOptions(services, configuration, registerSettingsLoader: true);
+        services.TryAddScoped<Features.UpdateHostDocumentVersionRetention.DocumentVersionRetentionSettingService>();
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryManagementService>();
         services.TryAddScoped<Features.ManageHostDocumentTags.HostDocumentTagQueryService>();
@@ -141,7 +140,36 @@ public sealed class DocumentModule : IFullNetModule
         Features.ManageHostDocumentShares.Endpoint.Map(endpoints);
         Features.QueryHostDocumentStatistics.Endpoint.Map(endpoints);
         Features.QueryHostDocumentAccessLogs.Endpoint.Map(endpoints);
+        Features.QueryHostDocumentVersionRetention.Endpoint.Map(endpoints);
+        Features.UpdateHostDocumentVersionRetention.Endpoint.Map(endpoints);
         Features.ManageHostDocumentPreviewTasks.Endpoint.Map(endpoints);
+    }
+
+    private static void ConfigureDocumentVersionRetentionOptions(
+        IServiceCollection services,
+        IConfiguration configuration,
+        bool registerSettingsLoader)
+    {
+        services.TryAddSingleton<DocumentVersionRetentionSettingsStore>();
+        services.TryAddSingleton<DocumentVersionRetentionOptionsChangeTokenSource>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IOptionsChangeTokenSource<DocumentVersionRetentionOptions>,
+            DocumentVersionRetentionOptionsChangeTokenSource>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IPostConfigureOptions<DocumentVersionRetentionOptions>,
+            DocumentVersionRetentionOptionsPostConfigurer>());
+        services.AddOptions<DocumentVersionRetentionOptions>()
+            .Bind(configuration.GetSection(DocumentVersionRetentionOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<DocumentVersionRetentionOptions>,
+            DocumentVersionRetentionOptionsValidator>());
+        services.TryAddScoped<DocumentVersionRetentionSettingRepository>();
+        services.TryAddSingleton<DocumentVersionRetentionSettingsBootstrap>();
+        if (registerSettingsLoader)
+        {
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, DocumentVersionRetentionSettingsBootstrap>());
+        }
     }
 
     /// <summary>
@@ -162,12 +190,7 @@ public sealed class DocumentModule : IFullNetModule
             Features.HostFileReferences.HostDocumentVersionReferenceProbe>());
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentVersionDeletionService>();
         services.TryAddScoped<Retention.DocumentVersionRetentionRunner>();
-        services.AddOptions<DocumentVersionRetentionOptions>()
-            .Bind(configuration.GetSection(DocumentVersionRetentionOptions.SectionName))
-            .ValidateOnStart();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IValidateOptions<DocumentVersionRetentionOptions>,
-            DocumentVersionRetentionOptionsValidator>());
+        ConfigureDocumentVersionRetentionOptions(services, configuration, registerSettingsLoader: true);
         services.TryAddScoped<PreviewTasks.DocumentPreviewTaskRunner>();
         services.AddOptions<DocumentOfficePreviewConversionOptions>()
             .Bind(configuration.GetSection(DocumentOfficePreviewConversionOptions.SectionName))

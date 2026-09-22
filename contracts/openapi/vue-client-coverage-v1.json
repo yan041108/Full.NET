@@ -257,6 +257,16 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/document-version-retention.ts"
+      ],
+      "openApiFixture": "contracts/openapi/document-host-version-retention-v1.json",
+      "apiModule": "ui/admin/src/api/document-version-retention.ts",
+      "routePrefixes": [
+        "/api/v1/document/host/version-retention"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/document-preview-tasks.ts"
       ],
       "openApiFixture": "contracts/openapi/document-host-preview-tasks-v1.json",

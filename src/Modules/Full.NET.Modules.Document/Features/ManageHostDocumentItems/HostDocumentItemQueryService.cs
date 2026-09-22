@@ -19,11 +19,13 @@ internal sealed class HostDocumentItemQueryService(
     IQueryExecutor queryExecutor,
     IHostFileContentReader hostFileContentReader,
     DocumentAccessLogRecorder accessLogRecorder,
+    DocumentItemTagAssignmentService documentItemTagAssignmentService,
     IOptions<DatabaseOptions> databaseOptions)
 {
     public async Task<Result<PagedResult<HostDocumentItemResponse>>> ListAsync(
         int page,
         int pageSize,
+        Guid? tagId = null,
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
@@ -37,7 +39,10 @@ internal sealed class HostDocumentItemQueryService(
         };
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
-                DocumentSqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
+                DocumentSqlParameters.Create(
+                    ("Offset", offset),
+                    ("PageSize", pageSize),
+                    ("TagId", tagId)),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>().ConfigureAwait(false);
@@ -47,9 +52,20 @@ internal sealed class HostDocumentItemQueryService(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        var itemIds = pageResult.Rows.Select(row => row.Id).ToArray();
+        var tagsByItem = await documentItemTagAssignmentService
+            .ListByDocumentItemIdsAsync(itemIds, cancellationToken)
+            .ConfigureAwait(false);
+
         return Result<PagedResult<HostDocumentItemResponse>>.Success(
             new PagedResult<HostDocumentItemResponse>(
-                pageResult.Rows.Select(Map).ToArray(),
+                pageResult.Rows
+                    .Select(row =>
+                    {
+                        tagsByItem.TryGetValue(row.Id, out var tags);
+                        return Map(row, tags);
+                    })
+                    .ToArray(),
                 page,
                 pageSize,
                 pageResult.Total));
@@ -65,7 +81,16 @@ internal sealed class HostDocumentItemQueryService(
                 DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        return record is null ? NotFound() : Result<HostDocumentItemResponse>.Success(Map(record));
+        if (record is null)
+        {
+            return NotFound();
+        }
+
+        var tagsByItem = await documentItemTagAssignmentService
+            .ListByDocumentItemIdsAsync([itemId], cancellationToken)
+            .ConfigureAwait(false);
+        tagsByItem.TryGetValue(itemId, out var tags);
+        return Result<HostDocumentItemResponse>.Success(Map(record, tags));
     }
 
     public async Task<Result<HostFileContent>> OpenCurrentVersionContentAsync(
@@ -242,8 +267,10 @@ internal sealed class HostDocumentItemQueryService(
             || normalized == "application/pdf";
     }
 
-    private static HostDocumentItemResponse Map(DocumentItemDetailRecord record) =>
-        HostDocumentItemResponseMapper.Map(record);
+    private static HostDocumentItemResponse Map(
+        DocumentItemDetailRecord record,
+        IReadOnlyList<HostDocumentTagAssignmentResponse>? tags = null) =>
+        HostDocumentItemResponseMapper.Map(record, tags);
 
     private static Result<HostDocumentItemResponse> NotFound() =>
         Result<HostDocumentItemResponse>.Failure(NotFoundError());

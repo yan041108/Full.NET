@@ -36,7 +36,9 @@ internal static class DocumentAccessLogSql
         FROM fn_document_access_log AS log
         INNER JOIN fn_document_item AS item ON item.Id = log.DocumentItemId
         WHERE item.TenantId IS NULL
-          AND (@DocumentItemId IS NULL OR log.DocumentItemId = @DocumentItemId);
+          AND (@DocumentItemId IS NULL OR log.DocumentItemId = @DocumentItemId)
+          AND (@AccessTypeKey IS NULL OR log.AccessTypeKey = @AccessTypeKey)
+          AND (@SourceKey IS NULL OR log.SourceKey = @SourceKey);
 
         SELECT
             log.Id, log.DocumentItemId, log.DocumentTitle, log.AccessTypeKey, log.SourceKey,
@@ -45,6 +47,8 @@ internal static class DocumentAccessLogSql
         INNER JOIN fn_document_item AS item ON item.Id = log.DocumentItemId
         WHERE item.TenantId IS NULL
           AND (@DocumentItemId IS NULL OR log.DocumentItemId = @DocumentItemId)
+          AND (@AccessTypeKey IS NULL OR log.AccessTypeKey = @AccessTypeKey)
+          AND (@SourceKey IS NULL OR log.SourceKey = @SourceKey)
         ORDER BY log.OccurredAtUtc DESC, log.Id DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
@@ -57,7 +61,9 @@ internal static class DocumentAccessLogSql
         FROM fn_document_access_log AS log
         INNER JOIN fn_document_item AS item ON item.Id = log.DocumentItemId
         WHERE item.TenantId IS NULL
-          AND (@DocumentItemId IS NULL OR log.DocumentItemId = @DocumentItemId);
+          AND (@DocumentItemId IS NULL OR log.DocumentItemId = @DocumentItemId)
+          AND (@AccessTypeKey IS NULL OR log.AccessTypeKey = @AccessTypeKey)
+          AND (@SourceKey IS NULL OR log.SourceKey = @SourceKey);
 
         SELECT
             log.Id, log.DocumentItemId, log.DocumentTitle, log.AccessTypeKey, log.SourceKey,
@@ -66,6 +72,8 @@ internal static class DocumentAccessLogSql
         INNER JOIN fn_document_item AS item ON item.Id = log.DocumentItemId
         WHERE item.TenantId IS NULL
           AND (@DocumentItemId IS NULL OR log.DocumentItemId = @DocumentItemId)
+          AND (@AccessTypeKey IS NULL OR log.AccessTypeKey = @AccessTypeKey)
+          AND (@SourceKey IS NULL OR log.SourceKey = @SourceKey)
         ORDER BY log.OccurredAtUtc DESC, log.Id DESC
         LIMIT @PageSize OFFSET @Offset
         """,

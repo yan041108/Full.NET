@@ -21,6 +21,11 @@ public static class DocumentErrorCodes
     /// <summary>乐观并发冲突：文档已被其他请求修改，请重新读取。</summary>
     public const string VersionConflict = "document.host_document.version_conflict";
 
+    /// <summary>同一 Host 作用域下已存在相同标题的活跃文档。</summary>
+    public const string TitleConflict = "document.host_document.title_conflict";
+
+    public const string InvalidTag = "document.host_tag.invalid";
+
     /// <summary>目标历史版本已是当前版本，无需重复回滚。</summary>
     public const string VersionAlreadyCurrent = "document.host_document.version_already_current";
 

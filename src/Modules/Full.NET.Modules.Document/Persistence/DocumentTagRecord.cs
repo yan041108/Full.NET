@@ -33,4 +33,8 @@ internal sealed class DocumentTagRecord
     public DateTimeOffset? UpdatedAtUtc { get; init; }
 
     public long Version { get; init; }
+
+    public bool IsHot { get; init; }
+
+    public bool IsRecommended { get; init; }
 }
