@@ -311,6 +311,20 @@ test('Document 管理页通过 WCAG 2.2 A/AA 自动检查', async ({ page }, tes
   }
 });
 
+test('超级管理员页通过 WCAG 2.2 A/AA 自动检查', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'vue-admin', '超级管理员页面仅在 Vue 管理端验收。');
+  test.setTimeout(90_000);
+
+  await mockSuperAdministratorAdminSession(page);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: '早上好，系统管理员' })).toBeVisible();
+  await page.goto('/#/identity/super-administrators');
+  await expect(page.getByRole('heading', { name: '超级管理员', exact: true })).toBeVisible({
+    timeout: 15_000
+  });
+  await expectNoWcagViolations(page);
+});
+
 test('双端标签页可切换并保持可访问性', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
 
@@ -490,6 +504,48 @@ const documentAdminPermissions = [
   'document.host_statistics.read'
 ];
 
+const superAdministratorPermissions = [
+  'identity.navigation.read',
+  'platform.dashboard.read',
+  'identity.super_administrators.read',
+  'identity.super_administrators.grant',
+  'identity.super_administrators.revoke',
+  'identity.totp_enrollment.read',
+  'identity.totp_enrollment.manage'
+];
+
+async function mockSuperAdministratorAdminSession(page) {
+  await mockAuthenticatedSession(page, {
+    permissions: superAdministratorPermissions,
+    isSuperAdministrator: true
+  });
+  await page.route('**/api/v1/navigation', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(superAdministratorNavigationResponse())
+  }));
+  await page.route('**/api/v1/identity/super-administrators/audits?*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([])
+  }));
+  await page.route('**/api/v1/identity/super-administrators', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([{
+      userId: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
+      username: 'admin',
+      displayName: '系统管理员',
+      isActive: true
+    }])
+  }));
+  await page.route('**/api/v1/identity/me/mfa/totp**', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ isEnrolled: false, isEnabled: false })
+  }));
+}
+
 async function mockDocumentAdminSession(page) {
   const server = await mockAuthenticatedSession(page, {
     permissions: documentAdminPermissions
@@ -589,6 +645,25 @@ function navigationResponse() {
       title: 'SERVER CONTROLLED TITLE', caption: 'SERVER CONTROLLED CAPTION',
       icon: 'building', order: 20,
       requiredPermission: 'tenancy.tenants.read', children: []
+    }
+  ];
+}
+
+function superAdministratorNavigationResponse() {
+  return [
+    ...navigationResponse(),
+    {
+      id: 'super-administrators',
+      parentId: null,
+      routeName: 'super-administrators',
+      path: '/identity/super-administrators',
+      componentKey: 'super-administrators',
+      title: '超级管理员',
+      caption: '超级管理员',
+      icon: 'user',
+      order: 30,
+      requiredPermission: 'identity.super_administrators.read',
+      children: []
     }
   ];
 }

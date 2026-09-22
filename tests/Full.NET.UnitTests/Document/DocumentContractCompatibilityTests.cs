@@ -70,6 +70,9 @@ public sealed class DocumentContractCompatibilityTests
             null!,
             null!,
             null!,
+            null!,
+            null!,
+            null!,
             NullPasswordHasher.Instance,
             null!);
 

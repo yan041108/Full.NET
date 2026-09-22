@@ -21,7 +21,11 @@
 
 > 说明：bootstrap 曾缺 `PreV1NamingContract` 导致 011 迁移失败；补齐后 Migrator 可执行至 016。默认禁止复用本机 Vite（`FULLNET_E2E_REUSE_SERVER=1` 才允许），避免陈旧进程缺 `VITE_API_BASE_URL` 表现为全套 `client.login_failed`。机构/租户上下文失败表现为进入租户后 `Full.NET Local` 选项 hidden，需另开切片排查。
 
+## 2026-09-22 B1 续篇
+
+见 [2026-09-22-identity-super-admin-b1-closeout.md](./2026-09-22-identity-super-admin-b1-closeout.md)：Vue 对话框授撤与最后一名 UI 断言、`host-super-administrators-production-totp.spec.mjs`（`FULLNET_E2E_STACK_PROFILE=production-totp`）、admin-parity WCAG。双库 fresh 执行依赖 Testcontainers/Docker，本机无容器运行时仅交付脚本与用例。
+
 ## 明确仍开放
 
-- Production 环境 TOTP 强制路径的真实栈覆盖（Development 下 `totpCode` 可选）
+- Production TOTP profile 在 **CI matrix** 上的双库 green 证据（用例已登记，Development 下 `totpCode` 仍可选）
 - 真实栈纳入 Redis

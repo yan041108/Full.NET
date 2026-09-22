@@ -391,7 +391,7 @@ function toProblem(
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('superAdmin.title') }}</h1>
 
     <div class="super-admin-view__toolbar">
-      <el-tag effect="plain" type="danger">{{ t('superAdmin.protected') }}</el-tag>
+      <el-tag class="super-admin-view__protected-badge" type="danger">{{ t('superAdmin.protected') }}</el-tag>
     </div>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
@@ -698,6 +698,12 @@ function toProblem(
   flex: 1;
   flex-direction: column;
   min-height: 0;
+}
+
+.super-admin-view__protected-badge {
+  --el-tag-bg-color: #8b1c1c;
+  --el-tag-border-color: #8b1c1c;
+  --el-tag-text-color: #ffffff;
 }
 
 .super-admin-audit-card {

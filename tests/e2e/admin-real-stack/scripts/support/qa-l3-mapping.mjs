@@ -35,7 +35,10 @@ const L3_BY_KEY = {
   'operation-logs': ['host-operation-logs.spec.mjs'],
   'exception-logs': ['host-exception-logs.spec.mjs'],
   'online-sessions': ['host-online-sessions.spec.mjs'],
-  'super-administrators': ['host-super-administrators.spec.mjs'],
+  'super-administrators': [
+    'host-super-administrators.spec.mjs',
+    'host-super-administrators-production-totp.spec.mjs'
+  ],
   'host-announcements': ['host-announcements.spec.mjs'],
   overview: ['host-overview-probe.spec.mjs'],
   'code-generation-templates': ['host-code-generation-templates.spec.mjs'],

@@ -17,69 +17,79 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('Host 管理员可从真实 API 加载超管目录并完成密码重认证授予与撤销', async ({
-  page,
-  request
-}, testInfo) => {
-  test.setTimeout(90_000);
-  const clientKind = testInfo.project.metadata.clientKind;
-  const origin = adminOrigin(clientKind);
-  const targetUsername = `sa-target-${Date.now().toString(36)}`;
-  const created = await createHostUserViaApi(request, clientKind, {
-    username: targetUsername,
-    displayName: '超管授予目标',
-    password: targetPassword
-  });
-
+async function openSuperAdministratorsPage(page) {
   await loginAsHostAdmin(page);
   await clickMainNavLink(page, /超级管理员/, '系统管理');
   await expect(page.getByRole('heading', { name: '超级管理员', exact: true })).toBeVisible();
   await expect(page.getByTestId('super-admin-action-grant')).toBeVisible();
+}
 
-  const adminToken = await loginHostAdminAccessToken(request, clientKind);
-  const grantResponse = await request.post(`${apiBaseUrl}/api/v1/identity/super-administrators/grant`, {
-    data: {
-      username: targetUsername,
-      currentPassword: adminPassword
-    },
-    headers: {
-      Authorization: `Bearer ${adminToken}`,
-      Origin: origin,
-      'Content-Type': 'application/json'
-    }
+async function grantSuperAdministratorViaUi(page, targetUsername, password) {
+  await page.getByTestId('super-admin-action-grant').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel('Host 账号', { exact: true }).fill(targetUsername);
+  await dialog.getByLabel('当前密码', { exact: true }).fill(password);
+  await dialog.getByTestId('super-admin-grant-submit').click();
+  await expect(dialog).toBeHidden({ timeout: 20_000 });
+}
+
+async function revokeSuperAdministratorViaUi(page, targetUsername, password) {
+  const row = page.locator('.el-table__row').filter({ hasText: targetUsername });
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  await row.getByTestId('super-admin-action-revoke').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel('当前密码', { exact: true }).fill(password);
+  await dialog.getByTestId('super-admin-revoke-submit').click();
+}
+
+test('Host 管理员可通过 Vue 对话框完成密码重认证授予与撤销', async ({ page, request }, testInfo) => {
+  test.setTimeout(120_000);
+  test.skip(testInfo.project.metadata.clientKind === 'layui', 'Layui 管理端已冻结，超管 UI 只验收 Vue。');
+
+  const targetUsername = `sa-ui-${Date.now().toString(36)}`;
+  await createHostUserViaApi(request, testInfo.project.metadata.clientKind, {
+    username: targetUsername,
+    displayName: '超管 UI 授予目标',
+    password: targetPassword
   });
-  const grantBody = await grantResponse.text();
-  expect(grantResponse.status(), grantBody).toBe(200);
 
-  await page.reload();
+  await openSuperAdministratorsPage(page);
+  await grantSuperAdministratorViaUi(page, targetUsername, adminPassword);
   await expect(page.getByText(targetUsername, { exact: true }).first()).toBeVisible({
     timeout: 15_000
   });
 
-  const revokeResponse = await request.post(
-    `${apiBaseUrl}/api/v1/identity/super-administrators/${created.id}/revoke`,
-    {
-      data: { currentPassword: adminPassword },
-      headers: {
-        Authorization: `Bearer ${adminToken}`,
-        Origin: origin,
-        'Content-Type': 'application/json'
-      }
-    }
-  );
-  expect(revokeResponse.status()).toBe(200);
-
-  await page.reload();
+  await revokeSuperAdministratorViaUi(page, targetUsername, adminPassword);
   await expect(page.getByText(targetUsername, { exact: true })).toHaveCount(0, {
-    timeout: 15_000
+    timeout: 20_000
   });
 });
 
-test('撤销最后一名超级管理员时 API 返回稳定错误码且 Vue 展示该码', async ({
+test('Host 管理员可从真实 API 加载超管目录', async ({ page, request }, testInfo) => {
+  test.setTimeout(60_000);
+  const clientKind = testInfo.project.metadata.clientKind;
+  const origin = adminOrigin(clientKind);
+  const adminToken = await loginHostAdminAccessToken(request, clientKind);
+
+  const listResponse = await request.get(`${apiBaseUrl}/api/v1/identity/super-administrators`, {
+    headers: { Authorization: `Bearer ${adminToken}`, Origin: origin }
+  });
+  expect(listResponse.status()).toBe(200);
+  const administrators = await listResponse.json();
+  expect(Array.isArray(administrators)).toBe(true);
+  expect(administrators.length).toBeGreaterThanOrEqual(1);
+
+  await openSuperAdministratorsPage(page);
+  await expect(page.getByText('admin', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+});
+
+test('撤销最后一名超级管理员时 API 与 Vue 对话框均返回稳定错误码', async ({
   page,
   request
 }, testInfo) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   const clientKind = testInfo.project.metadata.clientKind;
   test.skip(clientKind === 'layui', 'Layui 管理端已冻结，最后一名保护只验收 Vue。');
   const origin = adminOrigin(clientKind);
@@ -108,8 +118,10 @@ test('撤销最后一名超级管理员时 API 返回稳定错误码且 Vue 展�
   const problem = await revokeResponse.json();
   expect(problem.code).toBe('identity.super_administrator.last_remaining');
 
-  await loginAsHostAdmin(page);
-  await page.goto('/#/identity/super-administrators');
-  await expect(page.getByRole('heading', { name: '超级管理员', exact: true })).toBeVisible();
-  await expect(page.getByTestId('super-admin-action-revoke').first()).toBeVisible();
+  await openSuperAdministratorsPage(page);
+  const adminUsername = lastAdmin.username;
+  await revokeSuperAdministratorViaUi(page, adminUsername, adminPassword);
+  const alert = page.locator('.art-inline-alert[role="alert"]');
+  await expect(alert).toBeVisible({ timeout: 15_000 });
+  await expect(alert.locator('strong')).toHaveText('identity.super_administrator.last_remaining');
 });
