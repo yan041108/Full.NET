@@ -346,5 +346,5 @@ test('Host 管理员可提交流水号规则变更审批并打开审批请求', 
   );
   expect(listResponse.status()).toBe(200);
   const items = (await listResponse.json()).items ?? [];
-  expect(items.some(item => item.scenarioKey?.includes('serial_rule'))).toBeTruthy();
+  expect(items.some(item => item.scenarioKey === 'serial_numbers.host_rule.update')).toBeTruthy();
 });
