@@ -25,9 +25,9 @@
 
 | 编号 | 状态 | 说明 |
 |------|------|------|
-| 19 | **已有** | `identityCopyHostRole`、`RolesView` copy、`identity.roles.copy` |
-| 20 | **已有** | enable/disable/delete、members API + `RolesView` |
-| 21–47 | **待串行** | 按计划 B-3…B-28 逐编号交付或核验 |
+| 19 | **closeout** | [2026-09-23-execution-checklist-19-closeout](2026-09-23-execution-checklist-19-closeout.md)；`host-roles` API 复制 E2E |
+| 20 | **closeout** | [2026-09-23-execution-checklist-20-closeout](2026-09-23-execution-checklist-20-closeout.md) |
+| 21–47 | **待串行** | B-3…B-28 逐编号 closeout（见 [B 区审计](2026-09-23-execution-checklist-b-zone-audit.md)） |
 
 ## Phase D / Gate C / Phase C
 

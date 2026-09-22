@@ -73,4 +73,53 @@ public sealed class AiBudgetRowReaderTests
         Assert.AreEqual(2, value.ToolVersion);
         Assert.AreEqual("approved", value.ApprovalStatusKey);
     }
+
+    [TestMethod]
+    public void Agent_approval_maps_nullable_columns()
+    {
+        using var table = new DataTable();
+        foreach (var name in new[] { "Id", "RunId", "OperationId", "SessionId", "RequestedBy" }) table.Columns.Add(name, typeof(Guid));
+        foreach (var name in new[] { "ScopeKey", "ToolName", "ArgumentsHash", "ArgumentsProtected", "PresentationJson", "DecisionKey" })
+            table.Columns.Add(name, typeof(string));
+        table.Columns.Add("TenantId", typeof(Guid));
+        table.Columns.Add("ApproverId", typeof(Guid));
+        table.Columns.Add("ToolVersion", typeof(int));
+        table.Columns.Add("PolicyVersion", typeof(int));
+        table.Columns.Add("Version", typeof(long));
+        table.Columns.Add("ExpiresAtUtc", typeof(DateTimeOffset));
+        table.Columns.Add("ConsumedAtUtc", typeof(DateTimeOffset));
+        table.Columns.Add("CreatedAtUtc", typeof(DateTimeOffset));
+        table.Columns.Add("UpdatedAtUtc", typeof(DateTimeOffset));
+        var id = Guid.NewGuid();
+        var row = table.NewRow();
+        row["Id"] = id;
+        row["ScopeKey"] = "host";
+        row["TenantId"] = DBNull.Value;
+        row["RunId"] = Guid.NewGuid();
+        row["OperationId"] = Guid.NewGuid();
+        row["SessionId"] = Guid.NewGuid();
+        row["ToolName"] = "demo.tool";
+        row["ToolVersion"] = 1;
+        row["ArgumentsHash"] = "hash";
+        row["ArgumentsProtected"] = "protected";
+        row["PolicyVersion"] = 2;
+        row["PresentationJson"] = "{}";
+        row["RequestedBy"] = Guid.NewGuid();
+        row["ApproverId"] = DBNull.Value;
+        row["DecisionKey"] = "pending";
+        row["ExpiresAtUtc"] = DateTimeOffset.UtcNow;
+        row["ConsumedAtUtc"] = DBNull.Value;
+        row["Version"] = 1L;
+        row["CreatedAtUtc"] = DateTimeOffset.UtcNow;
+        row["UpdatedAtUtc"] = DateTimeOffset.UtcNow;
+        table.Rows.Add(row);
+        using var reader = table.CreateDataReader();
+        Assert.IsTrue(reader.Read());
+        var value = AiBudgetRowReaders.ReadAgentApproval(reader);
+        Assert.AreEqual(id, value.Id);
+        Assert.IsNull(value.TenantId);
+        Assert.IsNull(value.ApproverId);
+        Assert.IsNull(value.ConsumedAtUtc);
+        Assert.AreEqual("pending", value.DecisionKey);
+    }
 }

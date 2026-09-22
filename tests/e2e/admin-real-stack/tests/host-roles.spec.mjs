@@ -7,6 +7,7 @@ import {
   loginAsHostAdmin,
   loginAsHostUser,
   loginAsHostViewer,
+  loginHostAdminAccessToken,
   provisionLimitedHostUserViaApi,
   statusPath
 } from './support/real-stack-auth.mjs';
@@ -183,4 +184,42 @@ test('仅页面读权限调用相邻写 API 返回 authorization.permission_deni
   expect(response.status()).toBe(403);
   const problem = await response.json();
   expect(problem.code).toBe('authorization.permission_denied');
+});
+
+test('Host 管理员可通过 API 复制角色（清单 19）', async ({ request }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const listResponse = await request.get(`${apiBaseUrl}/api/v1/identity/roles?page=1&pageSize=50`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin
+    }
+  });
+  expect(listResponse.ok()).toBeTruthy();
+  const listBody = await listResponse.json();
+  const source = (listBody.items ?? []).find(
+    item => item.code === 'e2e-host-viewer' && item.isSystemRole !== true
+  ) ?? (listBody.items ?? []).find(item => item.isSystemRole !== true && item.code !== 'host-administrator');
+  expect(source?.id).toBeTruthy();
+
+  const stamp = Date.now().toString(36);
+  const copyResponse = await request.post(
+    `${apiBaseUrl}/api/v1/identity/roles/${source.id}/copy`,
+    {
+      data: {
+        code: `e2e-copy-${stamp}`,
+        name: `E2E 复制 ${stamp}`
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Origin: origin,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+  expect(copyResponse.status()).toBe(201);
+  const copied = await copyResponse.json();
+  expect(copied.code).toBe(`e2e-copy-${stamp}`);
+  expect(copied.id).not.toBe(source.id);
 });

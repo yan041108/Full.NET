@@ -7,7 +7,7 @@
 | ID | 实现状态 | 源码锚点 | 测试证据 | 仍缺动作 |
 |----|----------|----------|----------|----------|
 | 01 | 已实现 | `DataApprovalScenarioService`、`DataApprovalScenariosView.vue` | OpenAPI + `DataApprovalApiAssertions` 双库；`data-approval-scenarios.spec.mjs` | — |
-| 02 | 已实现 | 流水号强类型提案、`SerialNumberRulesView` 提交审批 | Unit + `data-approval-requests.spec.mjs`（列表/详情 UI） | 流水号规则页提交审批 full path |
+| 02 | 已实现 | 流水号强类型提案、`SerialNumberRulesView` 提交审批 | Unit + `serial-number-rules.spec.mjs`（UI 提交审批 full path，2026-09-23）+ `data-approval-requests.spec.mjs` | — |
 | 03 | 已实现 | `retry` 端点、`DataApprovalRequestRecoveryHostedProcessor` | 迁移 118–120；本切片补 API 列表/读权限断言 | 进程中断恢复 full E2E |
 | 04 | 已实现 | `retry-apply`、`DataApprovalRequestApplicationRecoveryBatchProcessor` | Unit + 迁移 121 | 应用冲突 real-stack |
 | 05 | 已实现 | `workflowListInstances`、`/instances/mine`、`WorkflowInstancesView` | `WorkflowRuntimeApiAssertions` 部分路径 | 本切片 `workflow-instances` real-stack |
