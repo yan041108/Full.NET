@@ -303,3 +303,48 @@ test('仅有 read 时写操作按钮不可见且 create/update/preview API 返�
   await expect(view.getByTestId('serial-rule-enable')).toHaveCount(0);
   await expect(view.getByTestId('serial-rule-disable')).toHaveCount(0);
 });
+
+test('Host 管理员可提交流水号规则变更审批并打开审批请求', async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.metadata.clientKind !== 'vue', '流水号审批提交流仅验收 Vue');
+  test.setTimeout(120_000);
+
+  const clientKind = testInfo.project.metadata.clientKind;
+  const stamp = Date.now().toString(36);
+  const ruleKey = `e2e.approval.${stamp}`;
+  const displayName = `E2E 审批 ${stamp}`;
+  const updatedDisplayName = `E2E 审批已改 ${stamp}`;
+
+  await loginAsHostAdmin(page);
+  await clickMainNavLink(page, /流水号规则/, '流水号');
+  const view = page.locator('.serial-number-rules-view');
+  await view.getByTestId('serial-rule-key').fill(ruleKey);
+  await view.getByTestId('serial-rule-display-name').fill(displayName);
+  await view.getByTestId('serial-rule-pattern').fill('APR-{sequence:4}');
+  await view.getByTestId('serial-rule-minimum').fill('1');
+  await view.getByTestId('serial-rule-maximum').fill('9999');
+  await view.getByTestId('serial-rule-create').click();
+  await expect(page.getByText('规则已创建')).toBeVisible({ timeout: 15_000 });
+  await view.getByTestId('serial-rule-filter-key').fill(ruleKey);
+  await view.getByTestId('serial-rule-filter-apply').click();
+  await view.locator('[data-testid="serial-rule-load"]').filter({ hasText: ruleKey }).first().click();
+  await view.getByTestId('serial-rule-display-name').fill(updatedDisplayName);
+  await view.getByTestId('serial-rule-submit-approval').click();
+  await expect(view.getByTestId('serial-rule-approval-diff')).toBeVisible({ timeout: 15_000 });
+  await view.getByTestId('serial-rule-approval-confirm').click();
+  await expect(page.getByText('已提交更新审批请求')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('data-approval-detail-status')).toBeVisible({ timeout: 15_000 });
+
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const listResponse = await request.get(
+    `${apiBaseUrl}/api/v1/data-approvals/requests?page=1&pageSize=20`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Origin: adminOrigin(clientKind)
+      }
+    }
+  );
+  expect(listResponse.status()).toBe(200);
+  const items = (await listResponse.json()).items ?? [];
+  expect(items.some(item => item.scenarioKey?.includes('serial_rule'))).toBeTruthy();
+});

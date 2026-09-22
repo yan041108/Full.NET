@@ -116,6 +116,72 @@ test('管理员可在严格 CSP 下通过 VForm3 完成表单草稿回读、保�
   expect(runtimeErrors).toEqual([]);
 });
 
+test('管理员可保存并发布含子表列配置的表单草稿', async ({ request }, testInfo) => {
+  test.skip(testInfo.project.metadata.clientKind !== 'vue', '子表字段契约仅在 Vue 交付线验收');
+  test.setTimeout(60_000);
+
+  const stamp = Date.now().toString(36);
+  const formKey = `e2e.subtable.${stamp}`;
+  const subtableKey = `lines_${stamp}`;
+  const columnKey = `item_${stamp}`;
+  const accessToken = await loginHostAdminAccessToken(request, testInfo.project.metadata.clientKind);
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    Origin: adminOrigin(testInfo.project.metadata.clientKind),
+    'Content-Type': 'application/json'
+  };
+
+  const createResponse = await request.post(`${apiBaseUrl}/api/v1/workflow/forms/`, {
+    data: {
+      formKey,
+      draft: {
+        schemaVersion: 1,
+        adapterVersion: 1,
+        sections: [{
+          sectionKey: 'main',
+          fields: [{
+            fieldKey: subtableKey,
+            fieldTypeKey: 'subtable',
+            required: false,
+            constraints: {
+              maxRows: 5,
+              columns: [{
+                columnKey,
+                fieldTypeKey: 'text',
+                required: true,
+                constraints: { minLength: 1, maxLength: 128 }
+              }]
+            }
+          }]
+        }]
+      }
+    },
+    headers
+  });
+  expect(createResponse.status()).toBe(201);
+  const form = await createResponse.json();
+
+  const publishResponse = await request.post(
+    `${apiBaseUrl}/api/v1/workflow/forms/${form.id}/publish`,
+    { data: { expectedRevision: form.draftRevision }, headers }
+  );
+  expect(publishResponse.status()).toBe(200);
+  const published = await publishResponse.json();
+  expect(published.latestPublishedVersionId).toBeTruthy();
+
+  const frozenResponse = await request.get(
+    `${apiBaseUrl}/api/v1/workflow/form-versions/${published.latestPublishedVersionId}`,
+    { headers }
+  );
+  expect(frozenResponse.status()).toBe(200);
+  const frozen = await frozenResponse.json();
+  const subtableField = JSON.parse(frozen.formSchemaJson).sections
+    .flatMap(section => section.fields)
+    .find(field => field.fieldKey === subtableKey);
+  expect(subtableField?.fieldTypeKey).toBe('subtable');
+  expect(subtableField?.constraints?.columns?.[0]?.columnKey).toBe(columnKey);
+});
+
 test('管理员可通过 Workflow-Vue3 创建、保存并绑定已发布表单发布流程定义', async ({
   page,
   request

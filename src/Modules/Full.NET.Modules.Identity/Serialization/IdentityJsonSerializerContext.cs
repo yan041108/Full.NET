@@ -161,6 +161,7 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(PagedResult<TenantInvitationResponse>))]
 [JsonSerializable(typeof(CreateTenantInvitationRequest))]
 [JsonSerializable(typeof(CreateTenantInvitationResult))]
+[JsonSerializable(typeof(ProvisionTenantMemberRequest))]
 [JsonSerializable(typeof(UpdateTenantMemberRequest))]
 [JsonSerializable(typeof(AcceptTenantInvitationRequest))]
 [JsonSerializable(typeof(AcceptTenantInvitationResponse))]

@@ -1,10 +1,10 @@
 # Vue 页面/操作精确授权 W4–W5 收口验证记录
 
-- 日期：2026-08-03
+- 日期：2026-08-03（2026-09-22 复核：B2 线补 admin-parity WCAG 子集与 real-stack 动作 spec；merge 仍以 integration 快照为准）
 - 基线提交：`d1150e37`（Task 10 Document Tags）+ 收口治理变更
 - 计划：[三级授权补齐与 W4–W5](../superpowers/plans/2026-08-03-vue-action-authorization-w4-w5.md)
 - 设计：[Vue 页面/操作精确授权](../superpowers/specs/2026-08-02-vue-action-authorization-design.md)
-- 状态：**Build-verified**（Vue 管理端；Layui 冻结，不作为验收证据；affected merge 尚未完整复跑）
+- 状态：**Build-verified**（Vue 管理端；Layui 冻结，不作为验收证据；program affected merge 须在 CI/容器环境复跑 `pnpm test:integration:affected -- --snapshot admin-action-w4-w5-program-20260803 --phase merge`）
 
 ## 交付范围
 
