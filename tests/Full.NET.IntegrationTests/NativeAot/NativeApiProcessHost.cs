@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -161,7 +162,14 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
 
     public HttpClient CreateClient(string hostHeader = "localhost")
     {
-        var client = new HttpClient
+        // 与 FullNetApiFactory 一致：OIDC 授权码流返回外部 redirect_uri，禁止自动跟跳。
+        var handler = new HttpClientHandler
+        {
+            AllowAutoRedirect = false,
+            UseCookies = true,
+            CookieContainer = new CookieContainer(),
+        };
+        var client = new HttpClient(handler)
         {
             BaseAddress = BaseAddress,
             Timeout = NativeAotTestTimeouts.HttpClient,

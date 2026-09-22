@@ -17,7 +17,8 @@
 | 推送 | Workflow / Run | 结论（滚动更新） |
 |------|----------------|------------------|
 | `b11806fb` | `ci` / `35712818129` | 失败：`build-test`（dotnet 发现数门禁）、`real-stack-e2e-mysql` 等（文档/代码生成等超时或 500，非 B2 新增 spec 专项结论） |
-| `a9eff2df` | `api-native-aot-linux` / `35708760161` | 失败：OIDC E2E 启动超时；`NoMetadataForType` @ `MapPost77`（根因：`Identity:Oidc:Enable` 时 OIDC 管理 DTO 未入 `IdentityJsonSerializerContext`，门禁未映射 OIDC 端点；本机已补登记 + 门禁开 OIDC） |
+| `038ec463` | `api-native-aot-linux` / `35728061700` | 失败：OIDC E2E（~30s，非启动超时）；`Connection refused localhost:5001`（Native `HttpClient` 自动跟跳 redirect_uri；已修 `AllowAutoRedirect=false`） |
+| `a9eff2df` | `api-native-aot-linux` / `35708760161` | 失败：OIDC E2E 启动超时；`NoMetadataForType` @ `MapPost77`（OIDC 管理 DTO 未登记，已于 `038ec463` 修复） |
 | `a9eff2df` | `ci` / `35708760050` | 失败：多 job 红；`integration-matrix` 曾绿 |
 | `f3ce3710` | `35698509441` | `api-native-aot-linux` 红（JSON 元数据，已修于 `9187daa5`） |
 
