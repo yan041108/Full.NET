@@ -12,13 +12,15 @@
 | DataApproval 01 | `dotnet test` …`DataApprovalApiSqlServerTests` | 场景目录双库契约通过 |
 | HTTP JSON 源生成 | `SerializationRulesTests.ProductionSerialization` | 修复 `ProvisionTenantMemberRequest` 登记后通过（2026-09-22 本机） |
 
-## CI 观测（`f3ce3710`，run `35698509441`）
+## CI 观测
 
-| Job | 结论 | 备注 |
-|-----|------|------|
-| `api-native-aot-linux` | 失败 | Host.Api 启动超时；`NoMetadataForType` @ `MapPost105`，链中缺 `ProvisionTenantMemberRequest` 元数据（已本机修） |
-| `worker-native-aot-linux` | 成功 | — |
-| `ci` / integration / real-stack | 待观测 | push `6f2c027a` 后复跑（含 AOT JSON 修复） |
+| 推送 | Workflow / Run | 结论（滚动更新） |
+|------|----------------|------------------|
+| `a9eff2df` | `ci` / `35708760050` | 进行中：`integration-matrix` 绿；`client-build-test`、`build-test`、`api-sqlserver`、`api-mysql`、`infrastructure`、`production-totp` 红；`real-stack-e2e*` 待完 |
+| `a9eff2df` | `api-native-aot-linux` / `35708760161` | 进行中（`ProvisionTenantMemberRequest` JSON 修复后） |
+| `f3ce3710` | `35698509441` | `api-native-aot-linux` 红（JSON 元数据，已修于 `9187daa5`） |
+
+本机（`a9eff2df`）：Release build、`pnpm test:openapi` 175/175、`SerializationRulesTests` 绿；正在本地复跑 `pnpm test:integration:api:sqlserver`。
 
 ## 仍待环境（未升 Verified）
 
