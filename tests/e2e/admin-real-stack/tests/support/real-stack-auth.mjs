@@ -17,7 +17,7 @@ export function crudTableRow(view, clientKind, text) {
 /** 展开 Art 侧栏全部分组，使折叠菜单中的叶子链接进入可点击树。 */
 export async function expandMainNavigation(page) {
   const navigation = page.getByRole('navigation', { name: '主导航' }).first();
-  await expect(navigation).toBeVisible({ timeout: 15_000 });
+  await expect(navigation).toBeVisible({ timeout: 30_000 });
   const subMenus = navigation.locator('.el-sub-menu');
   const subMenuCount = await subMenus.count();
   for (let index = 0; index < subMenuCount; index += 1) {
@@ -27,6 +27,23 @@ export async function expandMainNavigation(page) {
       await expect(subMenu).toHaveClass(/is-opened/);
     }
   }
+}
+
+/** 提交 legacy 密码登录并等待 `/api/v1/navigation` 与侧栏渲染（CI 上导航常晚于路由跳转）。 */
+async function submitLegacyConsoleLogin(page) {
+  const navigationReady = page.waitForResponse(
+    response =>
+      response.url().includes('/api/v1/navigation')
+      && response.request().method() === 'GET'
+      && response.ok(),
+    { timeout: 60_000 }
+  );
+  await page.getByRole('button', { name: '进入控制台' }).click();
+  await navigationReady;
+  await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
+    timeout: 30_000
+  });
+  await expandMainNavigation(page);
 }
 
 /** 登录 Host 管理员并等待动态导航就绪。 */
@@ -47,11 +64,7 @@ export async function loginAsHostAdmin(page, baseUrl = '/') {
   await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible();
   await page.getByLabel('账号', { exact: true }).fill(username);
   await page.getByLabel('密码', { exact: true }).fill(effectivePassword);
-  await page.getByRole('button', { name: '进入控制台' }).click();
-  await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
-    timeout: 15_000
-  });
-  await expandMainNavigation(page);
+  await submitLegacyConsoleLogin(page);
 }
 
 /** 登录 Development 受限查看者并等待动态导航就绪。 */
@@ -73,11 +86,7 @@ export async function loginAsHostViewer(page, baseUrl = '/') {
   });
   await page.getByLabel('账号', { exact: true }).fill(viewerUsername);
   await page.getByLabel('密码', { exact: true }).fill(effectivePassword);
-  await page.getByRole('button', { name: '进入控制台' }).click();
-  await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
-    timeout: 15_000
-  });
-  await expandMainNavigation(page);
+  await submitLegacyConsoleLogin(page);
 }
 
 /** 双管理端均使用 hash 路由访问状态页。 */
@@ -314,11 +323,7 @@ export async function loginAsHostUser(page, username, password, baseUrl = '/') {
   });
   await page.getByLabel('账号', { exact: true }).fill(username);
   await page.getByLabel('密码', { exact: true }).fill(effectivePassword);
-  await page.getByRole('button', { name: '进入控制台' }).click();
-  await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
-    timeout: 15_000
-  });
-  await expandMainNavigation(page);
+  await submitLegacyConsoleLogin(page);
 }
 
 /** 展开侧栏并打开叶子导航，等待 hash 路由就绪。 */

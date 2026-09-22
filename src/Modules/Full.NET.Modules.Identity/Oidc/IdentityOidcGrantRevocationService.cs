@@ -72,7 +72,7 @@ internal sealed class IdentityOidcGrantRevocationService(
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
-        var application = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplication>(
+        var application = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplicationRow>(
                 IdentityOidcSql.FindApplicationByClientId,
                 IdentitySqlParameters.Create(("ClientId", clientId)),
                 cancellationToken)
@@ -104,7 +104,7 @@ internal sealed class IdentityOidcGrantRevocationService(
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
-        var application = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplication>(
+        var application = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplicationRow>(
                 IdentityOidcSql.FindApplicationByClientId,
                 IdentitySqlParameters.Create(("ClientId", clientId)),
                 cancellationToken)

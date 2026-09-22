@@ -64,11 +64,29 @@ public sealed class IdentityOidcGrantRevocationServiceTests
     {
         var query = Substitute.For<IQueryExecutor>();
         query
-            .QuerySingleOrDefaultAsync<IdentityOidcApplication>(
+            .QuerySingleOrDefaultAsync<IdentityOidcApplicationRow>(
                 IdentityOidcSql.FindApplicationByClientId,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
-            .Returns(new IdentityOidcApplication { Id = ApplicationId, ClientId = ClientId });
+            .Returns(new IdentityOidcApplicationRow(
+                ApplicationId,
+                ClientId,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                Now,
+                Now));
         var command = new RecordingCommandExecutor(
             new Dictionary<string, Queue<int>>(StringComparer.Ordinal)
             {
@@ -101,11 +119,11 @@ public sealed class IdentityOidcGrantRevocationServiceTests
     {
         var query = Substitute.For<IQueryExecutor>();
         query
-            .QuerySingleOrDefaultAsync<IdentityOidcApplication>(
+            .QuerySingleOrDefaultAsync<IdentityOidcApplicationRow>(
                 IdentityOidcSql.FindApplicationByClientId,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
-            .Returns((IdentityOidcApplication?)null);
+            .Returns((IdentityOidcApplicationRow?)null);
         var command = new RecordingCommandExecutor();
         var service = CreateService(command, query);
 
