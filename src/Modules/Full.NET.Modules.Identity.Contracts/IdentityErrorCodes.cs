@@ -112,6 +112,13 @@ public static class IdentityErrorCodes
     /// <summary>已禁用用户须通过启用操作恢复，禁止借解锁间接启用。</summary>
     public const string UnlockInactiveUserRejected = "identity.users.unlock_inactive_user_rejected";
 
+    /// <summary>Host 用户已退役，不能再启用或更新。</summary>
+    public const string HostUserAlreadyRetired = "identity.users.already_retired";
+
+    /// <summary>存在活动租户成员关系时不能退役 Host 用户。</summary>
+    public const string HostUserActiveTenantMemberships =
+        "identity.users.active_tenant_memberships";
+
     /// <summary>当前账号必须先完成改密后才能访问普通业务 API。</summary>
     public const string PasswordChangeRequired = "identity.password_change_required";
 
@@ -496,6 +503,8 @@ public static class IdentityErrorCodes
         UserNotFound,
         LoginNotLocked,
         UnlockInactiveUserRejected,
+        HostUserAlreadyRetired,
+        HostUserActiveTenantMemberships,
         PasswordChangeRequired,
         SuperAdministratorImportRejected,
         RoleCodeExists,

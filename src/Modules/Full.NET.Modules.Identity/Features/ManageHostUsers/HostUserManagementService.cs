@@ -7,6 +7,7 @@ using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Oidc;
+using Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
@@ -48,6 +49,13 @@ internal sealed class HostUserManagementService(
         CancellationToken cancellationToken = default) =>
         transaction.ExecuteAsync(
             token => EnableCoreAsync(userId, token),
+            cancellationToken);
+
+    public Task<Result<HostUserResponse>> RetireAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => RetireCoreAsync(userId, token),
             cancellationToken);
 
     /// <summary>
@@ -412,6 +420,100 @@ internal sealed class HostUserManagementService(
         return Result<HostUserResponse>.Success(MapHostUserResponse(updated));
     }
 
+    private async Task<Result<HostUserResponse>> RetireCoreAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                IdentitySql.FindHostUserById,
+                IdentitySqlParameters.Create(("UserId", userId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null || record.RetiredAtUtc is not null)
+        {
+            return record?.RetiredAtUtc is not null
+                ? Result<HostUserResponse>.Failure(new Error(
+                    IdentityErrorCodes.HostUserAlreadyRetired,
+                    "The host user has already been retired.",
+                    ErrorType.BusinessRule))
+                : NotFound();
+        }
+
+        if (!record.IsActive)
+        {
+            return Result<HostUserResponse>.Failure(new Error(
+                IdentityErrorCodes.HostUserAlreadyRetired,
+                "Only active host users can be retired.",
+                ErrorType.BusinessRule));
+        }
+
+        var activeMemberships = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                TenantMembershipSql.CountActiveMembershipsByUserId,
+                IdentitySqlParameters.Create(
+                    ("UserId", userId),
+                    ("Status", TenantMemberStatuses.Active)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (activeMemberships > 0)
+        {
+            return Result<HostUserResponse>.Failure(new Error(
+                IdentityErrorCodes.HostUserActiveTenantMemberships,
+                "The host user still has active tenant memberships.",
+                ErrorType.BusinessRule));
+        }
+
+        if (await IsActiveSuperAdministratorAsync(userId, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            var activeCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                    IdentitySql.CountActiveSuperAdministrators,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            if (activeCount <= 1)
+            {
+                return Result<HostUserResponse>.Failure(new Error(
+                    IdentityErrorCodes.SuperAdministratorLastRemaining,
+                    "The last active super administrator cannot be retired.",
+                    ErrorType.BusinessRule));
+            }
+        }
+
+        var now = clock.UtcNow;
+        var retiredRows = await commandExecutor.ExecuteAsync(
+                IdentitySql.RetireHostUser,
+                IdentitySqlParameters.Create(
+                    ("UserId", userId),
+                    ("RetiredAtUtc", now),
+                    ("SecurityStamp", idGenerator.NewId().ToString("N")),
+                    ("UpdatedAtUtc", now)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (retiredRows != 1)
+        {
+            return NotFound();
+        }
+
+        await commandExecutor.ExecuteAsync(
+                IdentitySql.RevokeAllUserSessions,
+                IdentitySqlParameters.Create(("UserId", userId), ("RevokedAtUtc", now)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        await oidcUserAuthorityRevoker.RevokeUserAuthorityAsync(userId, cancellationToken)
+            .ConfigureAwait(false);
+
+        var updated = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                IdentitySql.FindHostUserById,
+                IdentitySqlParameters.Create(("UserId", userId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (updated is null)
+        {
+            return NotFound();
+        }
+
+        return Result<HostUserResponse>.Success(MapHostUserResponse(updated));
+    }
+
     private async Task<Result<HostUserResponse>> EnableCoreAsync(
         Guid userId,
         CancellationToken cancellationToken)
@@ -424,6 +526,14 @@ internal sealed class HostUserManagementService(
         if (record is null || record.IsActive)
         {
             return NotFound();
+        }
+
+        if (record.RetiredAtUtc is not null)
+        {
+            return Result<HostUserResponse>.Failure(new Error(
+                IdentityErrorCodes.HostUserAlreadyRetired,
+                "The host user has been retired and cannot be enabled.",
+                ErrorType.BusinessRule));
         }
 
         var now = clock.UtcNow;
@@ -965,5 +1075,6 @@ internal sealed class HostUserManagementService(
             record.CreatedAtUtc,
             record.UpdatedAtUtc,
             record.Version,
-            Profile: profileResponse);
+            Profile: profileResponse,
+            RetiredAtUtc: record.RetiredAtUtc);
 }

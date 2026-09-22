@@ -32,9 +32,7 @@ internal sealed class TenantMemberProvisionService(
     public Task<Result<TenantMemberResponse>> ProvisionAsync(
         ProvisionTenantMemberRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(
-            token => ProvisionCoreAsync(request, token),
-            cancellationToken);
+        ProvisionCoreAsync(request, cancellationToken);
 
     private async Task<Result<TenantMemberResponse>> ProvisionCoreAsync(
         ProvisionTenantMemberRequest request,
@@ -159,110 +157,129 @@ internal sealed class TenantMemberProvisionService(
             user.PasswordChangedAtUtc);
 
         var operationId = idGenerator.NewId().ToString("D");
-        var reserved = false;
-        try
+        var reserveResult = await IdentityHostExecutionScope.RunAsync(
+                currentTenantWriter,
+                () => seatQuotaPort.TryReserveAsync(
+                    tenantId,
+                    operationId,
+                    cancellationToken))
+            .ConfigureAwait(false);
+        if (!reserveResult.IsSuccess)
         {
-            var reserveResult = await IdentityHostExecutionScope.RunAsync(
-                    currentTenantWriter,
-                    () => seatQuotaPort.TryReserveAsync(
-                        tenantId,
-                        operationId,
-                        cancellationToken))
-                .ConfigureAwait(false);
-            if (!reserveResult.IsSuccess)
-            {
-                return Result<TenantMemberResponse>.Failure(reserveResult.Error!);
-            }
-
-            reserved = true;
-            await IdentityHostExecutionScope.RunAsync(
-                    currentTenantWriter,
-                    async () =>
-                    {
-                        var userAffected = await commandExecutor.ExecuteAsync(
-                                IdentitySql.InsertUser,
-                                userRecord,
-                                cancellationToken)
-                            .ConfigureAwait(false);
-                        if (userAffected != 1)
-                        {
-                            throw new InvalidOperationException(
-                                $"Host user insert affected {userAffected} rows instead of one.");
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(email))
-                        {
-                            await commandExecutor.ExecuteAsync(
-                                    AccountLifecycleSql.InsertUserProfileEmail,
-                                    IdentitySqlParameters.Create(
-                                        ("UserId", userId),
-                                        ("Nickname", displayName),
-                                        ("Email", AccountChallengeService.NormalizeEmail(email))),
-                                    cancellationToken)
-                                .ConfigureAwait(false);
-                        }
-                    })
-                .ConfigureAwait(false);
-
-            var memberId = idGenerator.NewId();
-            await commandExecutor.ExecuteAsync(
-                    TenantMembershipSql.InsertMember,
-                    IdentitySqlParameters.Create(
-                        ("Id", memberId),
-                        ("UserId", userId),
-                        ("MemberRole", role),
-                        ("Status", TenantMemberStatuses.Active),
-                        ("CreatedAtUtc", now),
-                        ("UpdatedAtUtc", now),
-                        ("Version", 1)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-
-            var confirmResult = await IdentityHostExecutionScope.RunAsync(
-                    currentTenantWriter,
-                    () => seatQuotaPort.ConfirmAsync(
-                        tenantId,
-                        operationId,
-                        cancellationToken))
-                .ConfigureAwait(false);
-            if (!confirmResult.IsSuccess)
-            {
-                return Result<TenantMemberResponse>.Failure(confirmResult.Error!);
-            }
-
-            reserved = false;
-            var row = await queryExecutor.QuerySingleOrDefaultAsync<TenantMemberListRow>(
-                    TenantMembershipSql.FindMemberListRowByTenantAndUser,
-                    IdentitySqlParameters.Create(("UserId", userId)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (row is null)
-            {
-                return await queries.GetMemberByIdAsync(memberId, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-
-            return Result<TenantMemberResponse>.Success(new TenantMemberResponse(
-                row.Id,
-                row.TenantId,
-                row.UserId,
-                row.Username,
-                row.DisplayName,
-                row.MemberRole,
-                row.Status,
-                row.CreatedAtUtc,
-                row.UpdatedAtUtc,
-                row.Version));
+            return Result<TenantMemberResponse>.Failure(reserveResult.Error!);
         }
-        finally
-        {
-            if (reserved)
+
+        var memberId = idGenerator.NewId();
+        var writeResult = await transaction.ExecuteResultAsync(
+            async token =>
             {
                 await IdentityHostExecutionScope.RunAsync(
                         currentTenantWriter,
-                        () => seatQuotaPort.ReleaseAsync(tenantId, operationId, cancellationToken))
+                        async () =>
+                        {
+                            var userAffected = await commandExecutor.ExecuteAsync(
+                                    IdentitySql.InsertUser,
+                                    userRecord,
+                                    token)
+                                .ConfigureAwait(false);
+                            if (userAffected != 1)
+                            {
+                                throw new InvalidOperationException(
+                                    $"Host user insert affected {userAffected} rows instead of one.");
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(email))
+                            {
+                                await commandExecutor.ExecuteAsync(
+                                        AccountLifecycleSql.InsertUserProfileEmail,
+                                        IdentitySqlParameters.Create(
+                                            ("UserId", userId),
+                                            ("Nickname", displayName),
+                                            ("Email", AccountChallengeService.NormalizeEmail(email))),
+                                        token)
+                                    .ConfigureAwait(false);
+                            }
+                        })
                     .ConfigureAwait(false);
-            }
+
+                await commandExecutor.ExecuteAsync(
+                        TenantMembershipSql.InsertMember,
+                        IdentitySqlParameters.Create(
+                            ("Id", memberId),
+                            ("UserId", userId),
+                            ("MemberRole", role),
+                            ("Status", TenantMemberStatuses.Active),
+                            ("CreatedAtUtc", now),
+                            ("UpdatedAtUtc", now),
+                            ("Version", 1)),
+                        token)
+                    .ConfigureAwait(false);
+
+                return Result<Guid>.Success(memberId);
+            },
+            cancellationToken).ConfigureAwait(false);
+        if (!writeResult.IsSuccess)
+        {
+            await IdentityHostExecutionScope.RunAsync(
+                    currentTenantWriter,
+                    () => seatQuotaPort.ReleaseAsync(tenantId, operationId, cancellationToken))
+                .ConfigureAwait(false);
+            return Result<TenantMemberResponse>.Failure(writeResult.Error!);
         }
+
+        var confirmResult = await IdentityHostExecutionScope.RunAsync(
+                currentTenantWriter,
+                () => seatQuotaPort.ConfirmAsync(
+                    tenantId,
+                    operationId,
+                    cancellationToken))
+            .ConfigureAwait(false);
+        if (!confirmResult.IsSuccess)
+        {
+            await transaction.ExecuteAsync(
+                async token =>
+                {
+                    await commandExecutor.ExecuteAsync(
+                            TenantMembershipSql.UpdateMember,
+                            IdentitySqlParameters.Create(
+                                ("MemberId", memberId),
+                                ("MemberRole", role),
+                                ("Status", TenantMemberStatuses.Removed),
+                                ("UpdatedAtUtc", clock.UtcNow),
+                                ("Version", 1)),
+                            token)
+                        .ConfigureAwait(false);
+                    return true;
+                },
+                cancellationToken).ConfigureAwait(false);
+            await IdentityHostExecutionScope.RunAsync(
+                    currentTenantWriter,
+                    () => seatQuotaPort.ReleaseAsync(tenantId, operationId, cancellationToken))
+                .ConfigureAwait(false);
+            return Result<TenantMemberResponse>.Failure(confirmResult.Error!);
+        }
+
+        var row = await queryExecutor.QuerySingleOrDefaultAsync<TenantMemberListRow>(
+                TenantMembershipSql.FindMemberListRowByTenantAndUser,
+                IdentitySqlParameters.Create(("UserId", userId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (row is null)
+        {
+            return await queries.GetMemberByIdAsync(memberId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return Result<TenantMemberResponse>.Success(new TenantMemberResponse(
+            row.Id,
+            row.TenantId,
+            row.UserId,
+            row.Username,
+            row.DisplayName,
+            row.MemberRole,
+            row.Status,
+            row.CreatedAtUtc,
+            row.UpdatedAtUtc,
+            row.Version));
     }
 }

@@ -71,6 +71,10 @@ internal sealed class IdentityAuthorizationContributor
             "启用 Host 用户",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityUserManagementPermissions.Retire,
+            "退役 Host 用户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             IdentityRoleManagementPermissions.Read,
             "查看 Host 角色",
             AuthorizationScope.Host),
@@ -583,6 +587,13 @@ internal sealed class IdentityAuthorizationContributor
             "启用用户",
             "enable",
             70),
+        new AuthorizationActionDefinition(
+            "identity.users.retire",
+            "users",
+            IdentityUserManagementPermissions.Retire,
+            "退役用户",
+            "retire",
+            72),
         new AuthorizationActionDefinition(
             "identity.users.unlock-login",
             "users",

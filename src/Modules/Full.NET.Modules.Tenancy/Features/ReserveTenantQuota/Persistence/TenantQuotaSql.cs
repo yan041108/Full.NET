@@ -140,6 +140,29 @@ internal static class TenantQuotaSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement ListReservationsWithNullMetricId = new(
+        "tenancy.quota.list_reservations_null_metric_id",
+        """
+        SELECT Id, TenantId, MetricCode, Version
+        FROM fn_tenancy_quota_reservation
+        WHERE MetricId IS NULL
+        ORDER BY CreatedAtUtc, Id
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateReservationMetricId = new(
+        "tenancy.quota.update_reservation_metric_id",
+        """
+        UPDATE fn_tenancy_quota_reservation
+        SET MetricId = @MetricId,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @ReservationId
+          AND MetricId IS NULL
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement UpdateReservationStatus = new(
         "tenancy.quota.update_reservation_status",
         """

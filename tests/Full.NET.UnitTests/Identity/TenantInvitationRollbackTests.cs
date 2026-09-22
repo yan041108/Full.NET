@@ -51,8 +51,18 @@ public sealed class TenantInvitationRollbackTests
         var result = await service.AcceptAsync(userId, new AcceptTenantInvitationRequest("valid-invitation-token"));
 
         Assert.IsFalse(result.IsSuccess);
-        await command.Received(2).ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
-        Assert.AreEqual(0, coordinator.CommitCount);
-        Assert.AreEqual(1, coordinator.RollbackCount);
+        if (failConfirmation)
+        {
+            // 成员写入提交后配额确认失败，补偿事务会再次更新成员与邀请。
+            await command.Received(4).ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+            Assert.AreEqual(2, coordinator.CommitCount);
+            Assert.AreEqual(0, coordinator.RollbackCount);
+        }
+        else
+        {
+            await command.Received(2).ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+            Assert.AreEqual(0, coordinator.CommitCount);
+            Assert.AreEqual(1, coordinator.RollbackCount);
+        }
     }
 }

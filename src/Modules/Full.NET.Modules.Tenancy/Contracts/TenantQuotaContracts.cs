@@ -14,7 +14,21 @@ public static class TenancyTenantQuotaPermissions
 
     /// <summary>对配额发起预留、确认与释放；面向业务侧资源占用流程。</summary>
     public const string Reserve = "tenancy.tenant_quota.reserve";
+
+    /// <summary>修复历史预留缺失的 MetricId；Production 手工对账。</summary>
+    public const string ReconcileMetricIds = "tenancy.tenant_quota.reconcile_metric_ids";
 }
+
+/// <summary>历史预留 MetricId 对账请求。</summary>
+/// <param name="DryRun">为 true 时仅统计可修复条数，不写库。</param>
+public sealed record ReconcileTenantQuotaMetricIdsRequest(bool DryRun = true);
+
+/// <summary>历史预留 MetricId 对账结果。</summary>
+public sealed record ReconcileTenantQuotaMetricIdsResponse(
+    int OutstandingCount,
+    int RepairedCount,
+    int SkippedCount,
+    bool DryRun);
 
 /// <summary>租户配额指标编码常量；用于在预留、确认与释放流程中稳定引用指标。</summary>
 /// <remarks>

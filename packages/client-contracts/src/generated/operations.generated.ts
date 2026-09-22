@@ -5504,6 +5504,24 @@ export async function identityResetHostUserPassword(
   return readHostUserResponse(value);
 }
 
+export interface IdentityRetireHostUserParameters {
+  readonly userId: string;
+}
+
+export async function identityRetireHostUser(
+  http: HttpClient,
+  parameters: IdentityRetireHostUserParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostUserResponse> {
+  const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/retire`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostUserResponse(value);
+}
+
 export interface IdentityRevealHostUserProfileFieldsParameters {
   readonly userId: string;
   readonly body: RevealHostUserProfileFieldsRequest;

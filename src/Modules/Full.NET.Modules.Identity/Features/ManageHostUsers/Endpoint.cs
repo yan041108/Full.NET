@@ -423,6 +423,23 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.Enable);
 
+        group.MapPost("/{userId:guid}/retire", async (
+            Guid userId,
+            HostUserManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.RetireAsync(userId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityRetireHostUser")
+        .Produces<HostUserResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Retire);
+
         group.MapPost("/{userId:guid}/reset-password", async (
             Guid userId,
             ResetHostUserPasswordRequest request,

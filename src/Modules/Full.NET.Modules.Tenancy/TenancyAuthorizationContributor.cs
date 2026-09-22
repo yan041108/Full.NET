@@ -120,6 +120,10 @@ internal sealed class TenancyAuthorizationContributor
             "预留租户配额",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            TenancyTenantQuotaPermissions.ReconcileMetricIds,
+            "对账配额预留 MetricId",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             TenantsSwitch,
             "切换租户上下文",
             AuthorizationScope.Host | AuthorizationScope.Tenant),

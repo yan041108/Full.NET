@@ -86,6 +86,7 @@ internal static class OpenApiHostUsersContractAssertions
         OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}", HttpMethod.Put, "identityUpdateHostUser", tag, 200, "application/json", "application/json");
         OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}/disable", HttpMethod.Post, "identityDisableHostUser", tag, 200, "application/json");
         OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}/enable", HttpMethod.Post, "identityEnableHostUser", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}/retire", HttpMethod.Post, "identityRetireHostUser", tag, 200, "application/json");
         OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}/reset-password", HttpMethod.Post, "identityResetHostUserPassword", tag, 200, "application/json", "application/json");
         OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}/roles", HttpMethod.Get, "identityGetHostUserRoles", tag, 200, "application/json");
         OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}/roles", HttpMethod.Put, "identityReplaceHostUserRoles", tag, 200, "application/json", "application/json");

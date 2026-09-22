@@ -120,7 +120,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             AotDataReaderExtensions.ReadInt32(reader, 15),
             reader.GetString(16),
             AotDataReaderExtensions.ReadBoolean(reader, 17),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 18));
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 18),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 19));
 
     private static IdentityAuthorizationRow ReadIdentityAuthorizationRow(DbDataReader reader) =>
         new(

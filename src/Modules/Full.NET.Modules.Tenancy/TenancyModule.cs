@@ -105,6 +105,7 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<Features.ReserveTenantQuota.TenantQuotaReservationService>();
         services.AddScoped<ITenantMemberSeatQuotaPort, Features.ReserveTenantQuota.TenantMemberSeatQuotaPort>();
         services.AddScoped<Features.ManageTenantQuota.TenantQuotaManagementService>();
+        services.AddScoped<Features.ReconcileQuotaReservationMetricIds.TenantQuotaMetricIdReconciliationService>();
         services.AddScoped<Features.TenantBranding.TenantBrandingService>();
         services.AddScoped<Features.TenantBranding.TenantBrandingMediaService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
@@ -175,6 +176,7 @@ public sealed class TenancyModule : IFullNetModule
         Features.ManageTenantSubscriptions.Endpoint.Map(endpoints);
         Features.ReserveTenantQuota.Endpoint.Map(endpoints);
         Features.ManageTenantQuota.Endpoint.Map(endpoints);
+        Features.ReconcileQuotaReservationMetricIds.Endpoint.Map(endpoints);
     }
 
     /// <summary>

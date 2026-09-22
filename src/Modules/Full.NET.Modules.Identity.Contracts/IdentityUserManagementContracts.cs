@@ -42,6 +42,9 @@ public static class IdentityUserManagementPermissions
     /// <summary>解除 Host 用户登录锁定；不得用于启用已禁用用户。</summary>
     public const string UnlockLogin = "identity.users.unlock_login";
 
+    /// <summary>退役 Host 用户；与禁用不同，退役后不可再启用。</summary>
+    public const string Retire = "identity.users.retire";
+
     /// <summary>迁移 054 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "identity.users.write";
 }
@@ -198,7 +201,8 @@ public sealed record HostUserResponse(
     DateTimeOffset? UpdatedAtUtc,
     int Version,
     HostUserProjectedFieldsResponse? ProjectedFields = null,
-    HostUserProfileResponse? Profile = null);
+    HostUserProfileResponse? Profile = null,
+    DateTimeOffset? RetiredAtUtc = null);
 
 /// <summary>
 /// Host 用户的受限投影；EffectiveFieldKeys 用于区分无授权与有授权但值为空。

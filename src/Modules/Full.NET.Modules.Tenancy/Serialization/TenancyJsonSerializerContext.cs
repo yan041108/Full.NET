@@ -55,4 +55,6 @@ namespace Full.NET.Modules.Tenancy.Serialization;
 [JsonSerializable(typeof(TenantQuotaMetricResponse[]))]
 [JsonSerializable(typeof(IReadOnlyList<TenantQuotaMetricResponse>))]
 [JsonSerializable(typeof(UpsertTenantQuotaMetricRequest))]
+[JsonSerializable(typeof(ReconcileTenantQuotaMetricIdsRequest))]
+[JsonSerializable(typeof(ReconcileTenantQuotaMetricIdsResponse))]
 internal partial class TenancyJsonSerializerContext : JsonSerializerContext;

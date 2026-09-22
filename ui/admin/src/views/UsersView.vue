@@ -65,6 +65,7 @@ import {
   disableHostUser,
   downloadHostUserImportTemplate,
   enableHostUser,
+  retireHostUser,
   exportHostUsersWorkbook,
   getHostUserRoles,
   importHostUsersWorkbook,
@@ -1679,6 +1680,35 @@ async function disable(user: HostUser): Promise<void> {
   }
 }
 
+async function retire(user: HostUser): Promise<void> {
+  if (changing.value || !user.isActive) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('users.confirmRetire', { name: user.username }),
+      t('users.retire'),
+      {
+        type: 'warning',
+        confirmButtonText: t('users.retire'),
+        cancelButtonText: t('hostDocumentItems.cancel')
+      }
+    );
+    changing.value = true;
+    await retireHostUser(user.id);
+    ElMessage.success(t('users.retireSuccess'));
+    await load();
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
 async function enable(user: HostUser): Promise<void> {
   if (changing.value || user.isActive) {
     return;
@@ -2328,6 +2358,21 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                         :title="t('users.disable')"
                   @click="disable(row as UserRow)"
                       />
+                    </PermissionGate>
+                    <PermissionGate
+                      v-if="row.isActive"
+                      key="retire-user"
+                      code="identity.users.retire"
+                    >
+                      <el-button
+                        link
+                        type="danger"
+                        data-testid="users-action-retire"
+                        :title="t('users.retire')"
+                        @click="retire(row as UserRow)"
+                      >
+                        {{ t('users.retire') }}
+                      </el-button>
                     </PermissionGate>
                     <PermissionGate
                       v-if="!row.isActive"

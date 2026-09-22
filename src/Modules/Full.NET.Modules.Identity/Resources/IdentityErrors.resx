@@ -34,6 +34,8 @@
   <data name="identity.users.not_found" xml:space="preserve"><value>未找到指定的 Host 用户。</value></data>
   <data name="identity.users.login_not_locked" xml:space="preserve"><value>该用户当前不存在可解除的登录锁定状态。</value></data>
   <data name="identity.users.unlock_inactive_user_rejected" xml:space="preserve"><value>已禁用用户须先启用，不能通过解除登录锁定间接启用账号。</value></data>
+  <data name="identity.users.already_retired" xml:space="preserve"><value>该 Host 用户已退役，不能再次启用或执行此操作。</value></data>
+  <data name="identity.users.active_tenant_memberships" xml:space="preserve"><value>该用户仍存在活动租户成员关系，不能退役。</value></data>
   <data name="identity.password_change_required" xml:space="preserve"><value>当前账号必须先修改密码后才能继续访问系统。</value></data>
   <data name="identity.self_service_profile.host_only" xml:space="preserve"><value>个人资料自助维护仅适用于 Host 参与者范围。</value></data>
   <data name="identity.self_service_profile.read_only_field_rejected" xml:space="preserve"><value>个人资料包含只读敏感或内部字段，无法通过自助入口修改。</value></data>

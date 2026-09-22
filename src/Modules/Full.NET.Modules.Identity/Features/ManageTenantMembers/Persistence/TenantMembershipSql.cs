@@ -4,6 +4,16 @@ namespace Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
 
 internal static class TenantMembershipSql
 {
+    public static readonly SqlStatement CountActiveMembershipsByUserId = new(
+        "identity.tenant_members.count_active_by_user",
+        """
+        SELECT COUNT(1)
+        FROM fn_identity_tenant_member
+        WHERE UserId = @UserId
+          AND Status = @Status
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement CountMembers = new(
         "identity.tenant_members.count",
         """

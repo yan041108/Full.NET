@@ -28,7 +28,8 @@ internal sealed class IdentityUserRecord
         int profileVersion = 1,
         string accountType = IdentityAccountTypes.NormalUser,
         bool mustChangePassword = false,
-        DateTimeOffset? passwordChangedAtUtc = null)
+        DateTimeOffset? passwordChangedAtUtc = null,
+        DateTimeOffset? retiredAtUtc = null)
     {
         Id = id;
         TenantId = tenantId;
@@ -49,6 +50,7 @@ internal sealed class IdentityUserRecord
         AccountType = accountType;
         MustChangePassword = mustChangePassword;
         PasswordChangedAtUtc = passwordChangedAtUtc;
+        RetiredAtUtc = retiredAtUtc;
     }
 
     public Guid Id { get; set; }
@@ -88,4 +90,6 @@ internal sealed class IdentityUserRecord
     public bool MustChangePassword { get; set; }
 
     public DateTimeOffset? PasswordChangedAtUtc { get; set; }
+
+    public DateTimeOffset? RetiredAtUtc { get; set; }
 }

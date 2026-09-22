@@ -58,6 +58,9 @@
       "name": "WorkflowCc"
     },
     {
+      "name": "DocumentHostSettings"
+    },
+    {
       "name": "EnterpriseRequestEnterpriseRequests"
     },
     {
@@ -9981,16 +9984,6 @@
             },
             "description": "Not Found"
           },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Conflict"
-          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -10100,16 +10093,6 @@
               }
             },
             "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Conflict"
           },
           "429": {
             "content": {
@@ -14951,6 +14934,65 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostUserResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityHostUsers"
+        ]
+      }
+    },
+    "/api/v1/identity/users/{userId}/retire": {
+      "post": {
+        "operationId": "identityRetireHostUser",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -45408,9 +45450,11 @@
             ]
           },
           "isHot": {
+            "default": false,
             "type": "boolean"
           },
           "isRecommended": {
+            "default": false,
             "type": "boolean"
           },
           "name": {
@@ -51296,6 +51340,13 @@
               {
                 "$ref": "#/components/schemas/HostUserProjectedFieldsResponse"
               }
+            ]
+          },
+          "retiredAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
             ]
           },
           "updatedAtUtc": {
@@ -61596,9 +61647,11 @@
             ]
           },
           "isHot": {
+            "default": false,
             "type": "boolean"
           },
           "isRecommended": {
+            "default": false,
             "type": "boolean"
           },
           "name": {
@@ -61624,6 +61677,7 @@
         "type": "object"
       },
       "UpdateHostDocumentVersionRetentionRequest": {
+        "additionalProperties": false,
         "properties": {
           "batchSize": {
             "format": "int32",

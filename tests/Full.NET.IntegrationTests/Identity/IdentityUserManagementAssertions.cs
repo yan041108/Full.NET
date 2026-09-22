@@ -47,6 +47,9 @@ internal static class IdentityUserManagementAssertions
         await VerifyEnableUserRestoresLoginAsync(
             client,
             cancellationToken);
+        await VerifyRetireHostUserAsync(
+            client,
+            cancellationToken);
         await VerifyExactActionPermissionBoundariesAsync(
             factory,
             client,
@@ -682,6 +685,60 @@ internal static class IdentityUserManagementAssertions
         Assert.AreEqual(HttpStatusCode.OK, loginAfterEnableResponse.StatusCode);
     }
 
+    private static async Task VerifyRetireHostUserAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var username = $"retired-{Guid.NewGuid():N}";
+        var password = Api.FullNetApiFactory.TestPassword;
+        var created = await CreateHostUserAsync(
+            client,
+            adminToken,
+            username,
+            "退役测试",
+            password,
+            cancellationToken);
+
+        using var retireRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{created.Id:D}/retire",
+            adminToken,
+            new { });
+        using var retireResponse = await client.SendAsync(retireRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, retireResponse.StatusCode);
+        var retired = await retireResponse.Content.ReadFromJsonAsync<HostUserResponse>(
+            cancellationToken);
+        Assert.IsNotNull(retired);
+        Assert.IsFalse(retired.IsActive);
+        Assert.IsNotNull(retired.RetiredAtUtc);
+
+        using var enableRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{created.Id:D}/enable",
+            adminToken,
+            new { });
+        using var enableResponse = await client.SendAsync(enableRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, enableResponse.StatusCode);
+        using (var problem = JsonDocument.Parse(
+                   await enableResponse.Content.ReadAsStringAsync(cancellationToken)))
+        {
+            Assert.AreEqual(
+                IdentityErrorCodes.HostUserAlreadyRetired,
+                problem.RootElement.GetProperty("code").GetString());
+        }
+
+        using var loginRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(new LoginRequest(username, password)),
+        };
+        loginRequest.Headers.Add("Origin", "http://localhost");
+        using var loginResponse = await client.SendAsync(loginRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, loginResponse.StatusCode);
+    }
+
     private static async Task VerifyExactActionPermissionBoundariesAsync(
         Api.FullNetApiFactory factory,
         HttpClient client,
@@ -838,6 +895,33 @@ internal static class IdentityUserManagementAssertions
             enableToken,
             HttpMethod.Post,
             $"/api/v1/identity/users/{activeUser.Id:D}/disable",
+            new { },
+            cancellationToken);
+
+        var retireToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityUserManagementPermissions.Read,
+                IdentityUserManagementPermissions.Retire,
+            ],
+            cancellationToken);
+        var retireTarget = await CreateHostUserAsync(
+            client,
+            adminToken,
+            $"retire-target-{Guid.NewGuid():N}",
+            "退役目标",
+            password,
+            cancellationToken);
+        await PostWithoutBodyAsync(
+            client,
+            retireToken,
+            $"/api/v1/identity/users/{retireTarget.Id:D}/retire",
+            HttpStatusCode.OK,
+            cancellationToken);
+        await AssertPermissionDeniedAsync(
+            client,
+            retireToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{retireTarget.Id:D}/enable",
             new { },
             cancellationToken);
 

@@ -2187,6 +2187,7 @@ export interface HostUserResponse {
   readonly isActive: boolean;
   readonly profile?: null | HostUserProfileResponse;
   readonly projectedFields?: null | HostUserProjectedFieldsResponse;
+  readonly retiredAtUtc?: null | string;
   readonly updatedAtUtc: null | string;
   readonly username: string;
   readonly version: number;

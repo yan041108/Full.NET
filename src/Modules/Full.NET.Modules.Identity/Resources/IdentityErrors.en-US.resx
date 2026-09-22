@@ -34,6 +34,8 @@
   <data name="identity.users.not_found" xml:space="preserve"><value>The host user was not found.</value></data>
   <data name="identity.users.login_not_locked" xml:space="preserve"><value>The host user is not currently in a login lockout state.</value></data>
   <data name="identity.users.unlock_inactive_user_rejected" xml:space="preserve"><value>Disabled host users must be enabled before login lockout can be cleared.</value></data>
+  <data name="identity.users.already_retired" xml:space="preserve"><value>The host user has been retired and cannot be enabled or updated.</value></data>
+  <data name="identity.users.active_tenant_memberships" xml:space="preserve"><value>The host user still has active tenant memberships and cannot be retired.</value></data>
   <data name="identity.password_change_required" xml:space="preserve"><value>The current account must change its password before accessing this resource.</value></data>
   <data name="identity.self_service_profile.host_only" xml:space="preserve"><value>Self-service profile maintenance is only available in the host actor scope.</value></data>
   <data name="identity.self_service_profile.read_only_field_rejected" xml:space="preserve"><value>The profile update includes read-only sensitive or internal fields.</value></data>

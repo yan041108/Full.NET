@@ -407,6 +407,12 @@
       "status": "generated"
     },
     {
+      "operationId": "identityRetireHostUser",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "generated"
+    },
+    {
       "operationId": "identityResetHostUserPassword",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",

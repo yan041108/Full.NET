@@ -11,7 +11,7 @@ internal static class IdentitySql
                PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
                SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version,
                PreferredLocale, ProfileVersion, AccountType,
-               MustChangePassword, PasswordChangedAtUtc
+               MustChangePassword, PasswordChangedAtUtc, RetiredAtUtc
         FROM fn_identity_user
         WHERE ScopeKey = @ScopeKey AND NormalizedUsername = @NormalizedUsername
         """,
@@ -24,7 +24,7 @@ internal static class IdentitySql
                PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
                SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version,
                PreferredLocale, ProfileVersion, AccountType,
-               MustChangePassword, PasswordChangedAtUtc
+               MustChangePassword, PasswordChangedAtUtc, RetiredAtUtc
         FROM fn_identity_user
         WHERE Id = @UserId AND ScopeKey = 'host' AND TenantId IS NULL
         """,
@@ -527,6 +527,24 @@ internal static class IdentitySql
           AND ScopeKey = 'host'
           AND TenantId IS NULL
           AND IsActive = 0
+          AND RetiredAtUtc IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement RetireHostUser = new(
+        "identity.retire_host_user",
+        """
+        UPDATE fn_identity_user
+        SET IsActive = 0,
+            RetiredAtUtc = @RetiredAtUtc,
+            SecurityStamp = @SecurityStamp,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @UserId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND RetiredAtUtc IS NULL
+          AND IsActive = 1
         """,
         SqlDataScope.HostOnly);
 
@@ -1936,7 +1954,7 @@ internal static class IdentitySql
         """
         SELECT Id, ScopeKey, Username, DisplayName, IsActive,
                PreferredLocale, ProfileVersion,
-               MustChangePassword, PasswordChangedAtUtc
+               MustChangePassword, PasswordChangedAtUtc, RetiredAtUtc
         FROM fn_identity_user
         WHERE Id = @UserId AND ScopeKey = @ScopeKey
         """,

@@ -5,6 +5,7 @@ import {
   identityDisableHostUser,
   identityDownloadHostUserImportTemplate,
   identityEnableHostUser,
+  identityRetireHostUser,
   identityExportHostUsers,
   identityExportHostUsersWorkbook,
   identityGetHostUserRoles,
@@ -145,6 +146,14 @@ export async function enableHostUser(
   signal?: AbortSignal
 ): Promise<HostUser> {
   return identityEnableHostUser(http, { userId: id }, signal);
+}
+
+/** 退役指定 Host 用户（不可再启用）。 */
+export async function retireHostUser(
+  id: string,
+  signal?: AbortSignal
+): Promise<HostUser> {
+  return identityRetireHostUser(http, { userId: id }, signal);
 }
 
 /** 更新 Host 用户基础信息与档案，并携带版本号维持乐观并发。 */
