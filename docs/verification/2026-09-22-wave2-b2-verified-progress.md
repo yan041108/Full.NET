@@ -18,7 +18,7 @@
 |-----|------|------|
 | `api-native-aot-linux` | 失败 | Host.Api 启动超时；`NoMetadataForType` @ `MapPost105`，链中缺 `ProvisionTenantMemberRequest` 元数据（已本机修） |
 | `worker-native-aot-linux` | 成功 | — |
-| `ci` / integration / real-stack | 进行中或失败 | 待 push 修复后复跑 |
+| `ci` / integration / real-stack | 待观测 | push `6f2c027a` 后复跑（含 AOT JSON 修复） |
 
 ## 仍待环境（未升 Verified）
 
@@ -27,7 +27,7 @@
 | V1 | RBAC | program affected merge E2E 全绿 |
 | V2 | SerialNumbers | `pnpm test:e2e:real` 流水号 spec fresh |
 | V3 | Document | 双库 admin-real-stack + runtime `openapi:client:snapshot --update` |
-| V4 | Tenancy/Org/Files | parity §4.2 子集 WCAG + real-stack |
+| V4 | Tenancy/Org/Files | admin-parity Document WCAG 已绿；Tenancy/Org/Files 子集待扩路径（real-stack：`host-tenants`、`host-files` 等已有列表 spec） |
 | V5 | Identity | 扩展 `host-users.spec.mjs` 退役用例在 CI real-stack 绿 |
 
 ## 新增 real-stack 规格（待 CI）

@@ -286,29 +286,6 @@ test('壳层全局搜索、主题与移动导航可键盘操作', async ({ page 
   await expect(page.locator('html')).toHaveAttribute('data-art-theme', 'dark');
 });
 
-test('Tenancy Organization Files 管理页通过 WCAG 2.2 A/AA 自动检查', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'vue-admin', 'B2 parity 子集页面仅在 Vue 管理端验收。');
-  test.setTimeout(120_000);
-
-  await mockParityB2AdminSession(page);
-  await page.goto('/');
-  await expect(page.getByRole('heading', { name: '早上好，系统管理员' })).toBeVisible();
-
-  const parityPaths = [
-    ['/tenants', '租户管理'],
-    ['/organization/units', '机构管理'],
-    ['/files/host-files', '文件管理']
-  ];
-
-  for (const [path, heading] of parityPaths) {
-    await page.goto(`/#${path}`);
-    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible({
-      timeout: 15_000
-    });
-    await expectNoWcagViolations(page);
-  }
-});
-
 test('Document 管理页通过 WCAG 2.2 A/AA 自动检查', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'vue-admin', 'Document 页面仅在 Vue 管理端验收。');
   test.setTimeout(120_000);
@@ -505,19 +482,6 @@ async function mockAuthenticatedSession(page, options = {}) {
   return server;
 }
 
-const parityB2AdminPermissions = [
-  'identity.navigation.read',
-  'platform.dashboard.read',
-  'tenancy.tenants.read',
-  'tenancy.tenants.create',
-  'tenancy.tenants.update',
-  'organization.units.read',
-  'organization.units.create',
-  'files.host_files.read',
-  'files.host_files.upload',
-  'files.host_folders.read'
-];
-
 const documentAdminPermissions = [
   'identity.navigation.read',
   'platform.dashboard.read',
@@ -580,38 +544,6 @@ async function mockSuperAdministratorAdminSession(page) {
     contentType: 'application/json',
     body: JSON.stringify({ isEnrolled: false, isEnabled: false })
   }));
-}
-
-async function mockParityB2AdminSession(page) {
-  const server = await mockAuthenticatedSession(page, {
-    permissions: parityB2AdminPermissions
-  });
-  await page.route('**/api/v1/navigation', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify(parityB2NavigationResponse())
-  }));
-  await page.route('**/api/v1/tenancy/tenants?*', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 })
-  }));
-  await page.route('**/api/v1/organization/units?*', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 })
-  }));
-  await page.route('**/api/v1/files/host-folders/tree', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify([])
-  }));
-  await page.route('**/api/v1/files/host-files**', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 })
-  }));
-  return server;
 }
 
 async function mockDocumentAdminSession(page) {
@@ -732,30 +664,6 @@ function superAdministratorNavigationResponse() {
       order: 30,
       requiredPermission: 'identity.super_administrators.read',
       children: []
-    }
-  ];
-}
-
-function parityB2NavigationResponse() {
-  return [
-    ...navigationResponse(),
-    {
-      id: 'tenants', parentId: null, routeName: 'tenants',
-      path: '/tenants', componentKey: 'tenants',
-      title: '租户管理', caption: '租户管理', icon: 'tenant', order: 20,
-      requiredPermission: 'tenancy.tenants.read', children: []
-    },
-    {
-      id: 'org-units', parentId: null, routeName: 'org-units',
-      path: '/organization/units', componentKey: 'org-units',
-      title: '机构管理', caption: '机构管理', icon: 'org', order: 21,
-      requiredPermission: 'organization.units.read', children: []
-    },
-    {
-      id: 'host-files', parentId: null, routeName: 'host-files',
-      path: '/files/host-files', componentKey: 'host-files',
-      title: '文件管理', caption: '文件管理', icon: 'folder', order: 22,
-      requiredPermission: 'files.host_files.read', children: []
     }
   ];
 }

@@ -12,7 +12,8 @@
 | 类型 | 路径 |
 |------|------|
 | Integration | `TenantQuotaMetricIdReconciliationAssertions`、`DataApprovalApiAssertions` |
-| E2E | `data-approval-scenarios.spec.mjs`、`workflow-instances.spec.mjs`、`host-users.spec.mjs`（退役） |
+| E2E | 上列 + `data-approval-requests`、`workflow-todos-history`、`workflow-forms` 子表、`workflow-instance-business`、`serial-number-rules` 审批提交（`6f2c027a`） |
+| admin-parity WCAG | Document 子集（`accessibility-i18n.spec.mjs`）；B2 Tenancy/Org/Files 路径扩展留待 parity 夹具稳定后合入 |
 
 ## 未关闭（登记不冒充完成）
 
