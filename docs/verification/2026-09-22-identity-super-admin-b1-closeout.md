@@ -33,8 +33,8 @@
 | `pnpm test:governance` | 54/54 通过 |
 | `pnpm test:e2e:admin -- --grep "超级管理员页"` | 通过（axe 2.2 A/AA） |
 | `dotnet test tests/Full.NET.UnitTests --filter SuperAdministrator` | 见当次 CI/本地构建（曾因 Document 契约测试构造函数参数未对齐而阻塞，已补齐 `IIdGenerator` 占位） |
-| `pnpm test:e2e:real -- --grep super-admin` | **未执行**（`Could not find a working container runtime strategy`） |
-| `pnpm test:e2e:real:production-totp` | **未执行**（同上，需 Docker/Testcontainers） |
+| `pnpm test:e2e:real -- --grep host-super-administrators.spec` | **3/3 通过**（2026-09-22 本机 Docker Desktop + SqlServer Testcontainers） |
+| `pnpm test:e2e:real:production-totp` | 待 CI `real-stack-e2e-production-totp` job（本机未单独跑） |
 
 双库 real-stack 与 Production TOTP profile 须在容器就绪的 CI 或开发机上复跑后再记入 [identity-super-admin-real-stack-2026-07-21.md](./identity-super-admin-real-stack-2026-07-21.md) §仍开放。
 
