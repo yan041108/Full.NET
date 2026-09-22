@@ -20,6 +20,8 @@
 | `038ec463` | `api-native-aot-linux` / `35728061700` | 失败：OIDC E2E（~30s，非启动超时）；`Connection refused localhost:5001`（Native `HttpClient` 自动跟跳 redirect_uri；已修 `AllowAutoRedirect=false`） |
 | `03ec7706` | `api-native-aot-linux` / `35735833544` | 失败：OIDC 在线会话撤销等仍 500（`IdentityOidcApplication` 缺 AOT materializer；已改为 `IdentityOidcApplicationRow` 待推送） |
 | `03ec7706` | `ci` / `35735833767` | 失败：`real-stack-e2e*`（`loginAsHostAdmin` 等导航超时、`identity/roles` 403）、`integration-shard*`、`build-test`/`client-build-test`；`worker-native-aot-linux` 绿 |
+| `780b37bb` | `api-native-aot-linux` / `35750315918` | 推送后观测中（OIDC revoke 行类型 + real-stack 登录等待 navigation） |
+| `60924229` | RBAC closeout | `vue-action-authorization-w4-w5-closeout` 登记 integration-shard 证据口径 |
 | `a9eff2df` | `api-native-aot-linux` / `35708760161` | 失败：OIDC E2E 启动超时；`NoMetadataForType` @ `MapPost77`（OIDC 管理 DTO 未登记，已于 `038ec463` 修复） |
 | `a9eff2df` | `ci` / `35708760050` | 失败：多 job 红；`integration-matrix` 曾绿 |
 | `f3ce3710` | `35698509441` | `api-native-aot-linux` 红（JSON 元数据，已修于 `9187daa5`） |
