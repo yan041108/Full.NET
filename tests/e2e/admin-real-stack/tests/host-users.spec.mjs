@@ -221,6 +221,57 @@ test('Vue 仅禁用权限用户只显示禁用按钮', async ({
   await expect(activeRow.getByTestId('users-action-enable')).toHaveCount(0);
 });
 
+test('Host 管理员可退役用户且不能再次启用', async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.metadata.clientKind !== 'vue', '用户退役仅在 Vue 交付线验收');
+  test.setTimeout(120_000);
+  const clientKind = testInfo.project.metadata.clientKind;
+  const username = uniqueUsername(clientKind);
+  const displayName = `退役测试 ${clientKind}`;
+
+  await loginAsHostAdmin(page);
+  await clickMainNavLink(page, /用户管理/);
+  const view = usersView(page, clientKind);
+  await view.getByTestId('users-action-create').click();
+  const dialog = page.getByRole('dialog').last();
+  await dialog.getByLabel('用户名', { exact: true }).fill(username);
+  await dialog.getByLabel('姓名', { exact: true }).fill(displayName);
+  await dialog.getByLabel('初始密码', { exact: true }).fill(defaultPassword);
+  await dialog.getByTestId('users-editor-submit').click();
+  await expect(dialog).toBeHidden({ timeout: 15_000 });
+
+  const searchBar = view.locator('.art-search-bar');
+  await searchBar.getByPlaceholder('请输入账号').fill(username);
+  await searchBar.getByRole('button', { name: '查询' }).click();
+  const userRow = crudTableRow(view, clientKind, username);
+  await expect(userRow).toBeVisible({ timeout: 15_000 });
+
+  await userRow.getByTestId('users-action-retire').click();
+  await confirmLayerPrimary(page, clientKind, '退役');
+  await expect(userRow.getByText('已禁用', { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  const adminToken = await loginHostAdminAccessToken(request, clientKind);
+  const listResponse = await request.get(
+    `${apiBaseUrl}/api/v1/identity/users?page=1&pageSize=50&username=${encodeURIComponent(username)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        Origin: adminOrigin(clientKind)
+      }
+    }
+  );
+  expect(listResponse.status()).toBe(200);
+  const listBody = await listResponse.json();
+  const user = listBody.items.find(item => item.username === username);
+  expect(user).toBeTruthy();
+  expect(user.retiredAtUtc).toBeTruthy();
+
+  await userRow.getByTestId('users-action-enable').click();
+  await confirmLayerPrimary(page, clientKind, '启用');
+  await expect(view.locator('[role="alert"]')).toContainText('identity.users.already_retired', {
+    timeout: 15_000
+  });
+});
+
 test('仅页面读权限调用相邻写 API 返回 authorization.permission_denied', async ({
   request
 }, testInfo) => {

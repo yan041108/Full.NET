@@ -22,7 +22,7 @@
 |---|---|---|
 | 模块化单体、API/Worker/Migrator 运行角色 | Build-verified | [总体架构规格](../superpowers/specs/2026-07-17-fullnet-architecture-design.md)、[`ADR-0002`](../architecture/adr/ADR-0002-modular-monolith-evolution.md) 与 Architecture 门禁共同约束；尚未触发全面微服务拆分门槛。 |
 | 命名、迁移与 CRUD 生成治理 | Build-verified | 统一由 [`rules/naming-conventions.md`](../../rules/naming-conventions.md)、迁移命名测试和 CodeGeneration 契约门禁约束。 |
-| Dapper、租户 SQL 与命令事务边界 | Build-verified | 模块内强事务已形成统一边界；2026-09-19 核对：RegisterAccount 的 Tenancy 权威读取已移出 Identity 事务，事务内复核注册目标；local-transaction 目录剩余 AcceptTenantInvitation 一条 Identity→Tenancy 席位写入债务；table-access 登记 `SessionBindingKinds` 对 Identity 会话表名的同模块契约引用（`identity-oidc-session-foundation` 里程碑清理）。cross-foreign-key 与 `AllowedReverseContractDependencies` 保持空目录。Organization 单位投影采用消费方拥有的 `Identity.Contracts` Port + Organization 侧适配器，模块依赖 DAG 无登记例外。 |
+| Dapper、租户 SQL 与命令事务边界 | Build-verified | 模块内强事务已形成统一边界；2026-09-22：`AcceptTenantInvitation`/`TenantMemberProvision` 席位预留与确认已移出 Identity 本地事务并带补偿，[`module-local-transaction-debt.json`](../../contracts/architecture/module-local-transaction-debt.json) 目录为空；2026-09-19 RegisterAccount 权威读取已移出事务。table-access 登记 `SessionBindingKinds` 对 Identity 会话表名的同模块契约引用（`identity-oidc-session-foundation` 里程碑清理）。cross-foreign-key 与 `AllowedReverseContractDependencies` 保持空目录。Organization 单位投影采用消费方拥有的 `Identity.Contracts` Port + Organization 侧适配器，模块依赖 DAG 无登记例外。 |
 | UUID v7 逻辑主键与双库物理映射 | Build-verified | SQL Server `uniqueidentifier` 与 MySQL `binary(16)` 已由 008/009 扩展—回填—收缩迁移及恢复测试覆盖；生产维护窗口、备份和 RPO/RTO 演练仍待环境验收。 |
 | SQL Server/MySQL 成对迁移 | Build-verified | 迁移命名、顺序、恢复和双 Provider 集成测试已形成门禁。 |
 | 事务 Outbox、租约、重试与死信 | Build-verified | 仅承载需要事务原子性的重要 Integration Event；缓存失效、日志、Trace、Metrics 与普通审计禁止进入 Outbox。 |

@@ -78,6 +78,16 @@ public sealed class TenancyApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task TenantQuota_metric_id_reconciliation_returns_standard_contract()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await TenantQuotaMetricIdReconciliationAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task TenantSubscription_returns_standard_contract()
     {
         using var factory = new FullNetApiFactory(
