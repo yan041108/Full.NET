@@ -7,7 +7,7 @@
 
 | 包 | 状态 | 证据/备注 |
 |----|------|-----------|
-| G0-1 CI | 进行中 | `api-native-aot-linux`：OIDC 消费者路径 500 → **AiAgentApprovalRecord** 缺 AOT materializer（`780b37bb` 后）；修于本提交 `AiBudgetRowReaders.Register` |
+| G0-1 CI | 已推送待 CI | `be03a5b8`：`AiAgentApprovalRecord` AOT materializer；观测 `api-native-aot-linux` / `ci` |
 | G0-2 A 区 E2E | 部分 | real-stack 登录等待 `/api/v1/navigation`（`780b37bb`）；Recovery 通知投影仍登记 Inconclusive |
 | G0-3 RBAC merge | 待 CI | `admin-action-w4-w5-program-20260803` merge 以 `integration-shard` 为准 |
 
