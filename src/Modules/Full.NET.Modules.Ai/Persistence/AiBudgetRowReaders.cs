@@ -16,8 +16,33 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiModelPriceRecord>(ReadPrice);
         registrar.Register<AiTenantQuotaRecord>(ReadQuota);
         registrar.Register<AiMcpRemoteToolRecord>(ReadMcpRemoteTool);
+        registrar.Register<AiAgentApprovalRecord>(ReadAgentApproval);
     }
 #endif
+
+    internal static AiAgentApprovalRecord ReadAgentApproval(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")),
+        ScopeKey = Text(reader, "ScopeKey"),
+        TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        RunId = reader.GetGuid(reader.GetOrdinal("RunId")),
+        OperationId = reader.GetGuid(reader.GetOrdinal("OperationId")),
+        SessionId = reader.GetGuid(reader.GetOrdinal("SessionId")),
+        ToolName = Text(reader, "ToolName"),
+        ToolVersion = checked((int)Integer(reader, "ToolVersion")),
+        ArgumentsHash = Text(reader, "ArgumentsHash"),
+        ArgumentsProtected = Text(reader, "ArgumentsProtected"),
+        PolicyVersion = checked((int)Integer(reader, "PolicyVersion")),
+        PresentationJson = Text(reader, "PresentationJson"),
+        RequestedBy = reader.GetGuid(reader.GetOrdinal("RequestedBy")),
+        ApproverId = Null(reader, "ApproverId") ? null : reader.GetGuid(reader.GetOrdinal("ApproverId")),
+        DecisionKey = Text(reader, "DecisionKey"),
+        ExpiresAtUtc = Timestamp(reader, "ExpiresAtUtc"),
+        ConsumedAtUtc = Null(reader, "ConsumedAtUtc") ? null : Timestamp(reader, "ConsumedAtUtc"),
+        Version = Integer(reader, "Version"),
+        CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+        UpdatedAtUtc = Timestamp(reader, "UpdatedAtUtc"),
+    };
 
     internal static AiMcpRemoteToolRecord ReadMcpRemoteTool(DbDataReader reader) => new()
     {

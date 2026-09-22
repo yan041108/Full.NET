@@ -30,3 +30,7 @@
 ## 结论
 
 清单 01–12 **产品代码已基本到位**；Wave 3 剩余工作主要是 **双库 Integration、admin-real-stack E2E、Recovery Linux 证据**，不应对 05–09 重复立项。parity `Verified` 仍受 [B2 运行手册](2026-09-22-b2-verified-gates-runbook.md) 约束。
+
+## Phase A 程序收口（2026-09-23）
+
+全量排期 Phase A：对 01–12 执行 **只读核对**；07 已 B1b 关闭。其余编号维持上表「已实现」；证据缺口并入 [程序跟踪 Gate0 G0-2](2026-09-23-execution-checklist-program-tracker.md)，不在此重复立项。
