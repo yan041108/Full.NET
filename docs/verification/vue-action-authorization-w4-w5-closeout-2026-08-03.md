@@ -31,7 +31,8 @@
 | `pnpm test:dotnet:unit` | 通过 |
 | `pnpm test:dotnet:architecture` | 通过 |
 | `node --test tests/governance/layui-freeze.test.mjs` | 通过 |
-| `pnpm test:integration:affected -- --snapshot admin-action-w4-w5-program-20260803 --phase merge` | 已启动（185/270 后因会话中断，需本地复跑至完成） |
+| `pnpm test:integration:affected -- --snapshot admin-action-w4-w5-program-20260803 --phase merge` | 本机未跑完（185/270 后中断）；**main** 上由 `integration-shard` 矩阵分担 Integration（见 `ci` workflow `35735833767` 等），merge 快照仍须 shard 全绿后记 fresh 日期 |
+| B2 复核（2026-09-22） | `real-stack-auth.mjs` 登录等待 `/api/v1/navigation`；OIDC revoke AOT materializer 修于 `780b37bb` |
 | `git diff --check` | 无冲突标记 |
 
 ## 明确未做
