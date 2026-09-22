@@ -194,8 +194,11 @@ test('CI 真实栈门禁必须执行含 oidc-center 的 Playwright 全量套件'
   );
 
   assert.match(workflow, /real-stack-e2e:/);
+  assert.match(workflow, /real-stack-e2e-production-totp:/);
   assert.match(workflow, /pnpm test:e2e:real/);
+  assert.match(workflow, /pnpm test:e2e:real:production-totp/);
   assert.match(rootPackage, /"test:e2e:real:oidc-center"/);
+  assert.match(rootPackage, /"test:e2e:real:production-totp"/);
   assert.match(realStack, /name:\s*'vue-admin-oidc-center'/);
   assert.match(realStack, /testMatch:\s*'\*\*\/admin-oidc-center\.spec\.mjs'/);
   assert.match(realStack, /testIgnore:\s*'\*\*\/admin-oidc-center\.spec\.mjs'/);

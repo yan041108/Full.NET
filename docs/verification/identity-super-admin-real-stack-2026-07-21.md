@@ -27,5 +27,5 @@
 
 ## 明确仍开放
 
-- Production TOTP profile 在 **CI matrix** 上的双库 green 证据（用例已登记，Development 下 `totpCode` 仍可选）
+- Production TOTP **MySQL** real-stack 与 SqlServer CI job green 证据（`real-stack-e2e-production-totp` 已登记；Development 下 `totpCode` 仍可选）
 - 真实栈纳入 Redis

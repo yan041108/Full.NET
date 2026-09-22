@@ -41,5 +41,5 @@
 ## 仍开放
 
 - Identity 用户管理缺口（执行清单 ID03–ID09）、F05/F08 席位编排（foundation 切片）。
-- Production TOTP 纳入 main CI matrix（当前为独立脚本 + 条件 skip）。
+- Production TOTP：main push 已登记 `real-stack-e2e-production-totp`（`pnpm test:e2e:real:production-totp`）；MySQL 变体仍待独立 job 或矩阵扩展。
 - 双库 fresh 全绿后，再讨论 super-admin / Identity 行升 **Verified**。
