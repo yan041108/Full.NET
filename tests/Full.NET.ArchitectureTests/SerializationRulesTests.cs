@@ -115,6 +115,9 @@ public sealed class SerializationRulesTests
             ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true",
             ["Identity:EnableRemoteSuperAdministratorManagement"] = "true",
             ["Identity:AllowedOrigins:0"] = "http://localhost",
+            ["Identity:Oidc:Enable"] = "true",
+            ["Identity:Oidc:Issuer"] = "https://localhost/identity",
+            ["Identity:Oidc:AllowDevelopmentEphemeralSigningKey"] = "true",
             ["Tenancy:HostDomains:0"] = "localhost",
         });
         builder.AddFullNetServiceDefaults();

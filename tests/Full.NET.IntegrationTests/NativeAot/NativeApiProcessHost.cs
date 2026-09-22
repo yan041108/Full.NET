@@ -375,12 +375,37 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
 
         var content = await File.ReadAllTextAsync(logFilePath, cancellationToken)
             .ConfigureAwait(false);
+        var focused = TryExtractJsonMetadataFailureSnippet(content);
+        if (!string.IsNullOrEmpty(focused))
+        {
+            return focused.Length <= maxChars
+                ? focused
+                : focused[^maxChars..];
+        }
+
         if (content.Length <= maxChars)
         {
             return content;
         }
 
         return content[^maxChars..];
+    }
+
+    /// <summary>
+    /// 从完整日志中提取最近一次 JSON 源生成元数据失败片段，避免 4KB 尾截断丢掉类型名。
+    /// </summary>
+    private static string? TryExtractJsonMetadataFailureSnippet(string content)
+    {
+        const string typeMarker = "deserialization of type '";
+        var typeIndex = content.LastIndexOf(typeMarker, StringComparison.Ordinal);
+        if (typeIndex < 0)
+        {
+            return null;
+        }
+
+        var windowStart = Math.Max(0, typeIndex - 256);
+        var windowEnd = Math.Min(content.Length, typeIndex + 6_000);
+        return content[windowStart..windowEnd];
     }
 
     private static void TrySendSigTerm(int processId)

@@ -10,14 +10,15 @@
 | OpenAPI/客户端 | `pnpm test:openapi` | 175/175 通过（manifest 557 与 `identityRetireHostUser` 对齐） |
 | Tenancy F08a | `dotnet test` …`TenantQuota_metric_id_reconciliation` | SqlServer + MySql 双库通过 |
 | DataApproval 01 | `dotnet test` …`DataApprovalApiSqlServerTests` | 场景目录双库契约通过 |
-| HTTP JSON 源生成 | `SerializationRulesTests.ProductionSerialization` | 修复 `ProvisionTenantMemberRequest` 登记后通过（2026-09-22 本机） |
+| HTTP JSON 源生成 | `SerializationRulesTests.ProductionSerialization` | `ProvisionTenantMemberRequest` + OIDC 客户端/授权 DTO；门禁配置 `Identity:Oidc:Enable=true`（2026-09-22 本机） |
 
 ## CI 观测
 
 | 推送 | Workflow / Run | 结论（滚动更新） |
 |------|----------------|------------------|
-| `a9eff2df` | `ci` / `35708760050` | 进行中：`integration-matrix` 绿；`client-build-test`、`build-test`、`api-sqlserver`、`api-mysql`、`infrastructure`、`production-totp` 红；`real-stack-e2e*` 待完 |
-| `a9eff2df` | `api-native-aot-linux` / `35708760161` | 进行中（`ProvisionTenantMemberRequest` JSON 修复后） |
+| `b11806fb` | `ci` / `35712818129` | 失败：`build-test`（dotnet 发现数门禁）、`real-stack-e2e-mysql` 等（文档/代码生成等超时或 500，非 B2 新增 spec 专项结论） |
+| `a9eff2df` | `api-native-aot-linux` / `35708760161` | 失败：OIDC E2E 启动超时；`NoMetadataForType` @ `MapPost77`（根因：`Identity:Oidc:Enable` 时 OIDC 管理 DTO 未入 `IdentityJsonSerializerContext`，门禁未映射 OIDC 端点；本机已补登记 + 门禁开 OIDC） |
+| `a9eff2df` | `ci` / `35708760050` | 失败：多 job 红；`integration-matrix` 曾绿 |
 | `f3ce3710` | `35698509441` | `api-native-aot-linux` 红（JSON 元数据，已修于 `9187daa5`） |
 
 本机（`a9eff2df`）：Release build、`pnpm test:openapi` 175/175、`SerializationRulesTests` 绿；正在本地复跑 `pnpm test:integration:api:sqlserver`。
