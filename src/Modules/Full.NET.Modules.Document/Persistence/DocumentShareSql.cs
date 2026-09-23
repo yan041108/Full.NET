@@ -36,42 +36,58 @@ internal static class DocumentShareSql
           AND (@MaxAccessCount IS NULL OR AccessCount <= @MaxAccessCount)
         """;
 
+    private static readonly SqlStatement PageSqlServerTemplate = new(
+        "document.host_share.page.sql_server",
+        $"""
+        SELECT COUNT(1)
+        FROM fn_document_share
+        {PageFilterWhere};
+
+        SELECT {Projection}
+        FROM fn_document_share
+        {PageFilterWhere}
+        ORDER BY __ORDER_BY__
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.HostOnly);
+
+    private static readonly SqlStatement PageMySqlTemplate = new(
+        "document.host_share.page.my_sql",
+        $"""
+        SELECT COUNT(1)
+        FROM fn_document_share
+        {PageFilterWhereMySql};
+
+        SELECT {Projection}
+        FROM fn_document_share
+        {PageFilterWhereMySql}
+        ORDER BY __ORDER_BY__
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.HostOnly);
+
     /// <summary>
     /// 分享分页（SQL Server）：可选筛选 + 白名单排序列，先 COUNT 再分页。
     /// <paramref name="orderBySql"/> 必须由调用方通过 <see cref="ResolvePageOrderBy"/> 生成。
     /// </summary>
     public static SqlStatement BuildPageSqlServer(string orderBySql) =>
-        new(
-            $"document.host_share.page.sql_server.{orderBySql}",
-            $$"""
-            SELECT COUNT(1)
-            FROM fn_document_share
-            {{PageFilterWhere}};
-
-            SELECT {{Projection}}
-            FROM fn_document_share
-            {{PageFilterWhere}}
-            ORDER BY {{orderBySql}}
-            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
-            """,
-            SqlDataScope.HostOnly);
+        PageSqlServerTemplate with
+        {
+            Text = PageSqlServerTemplate.Text.Replace(
+                "__ORDER_BY__",
+                orderBySql,
+                StringComparison.Ordinal),
+        };
 
     /// <summary>分享分页（MySQL）：与 SQL Server 版本语义等价。</summary>
     public static SqlStatement BuildPageMySql(string orderBySql) =>
-        new(
-            $"document.host_share.page.my_sql.{orderBySql}",
-            $$"""
-            SELECT COUNT(1)
-            FROM fn_document_share
-            {{PageFilterWhereMySql}};
-
-            SELECT {{Projection}}
-            FROM fn_document_share
-            {{PageFilterWhereMySql}}
-            ORDER BY {{orderBySql}}
-            LIMIT @PageSize OFFSET @Offset
-            """,
-            SqlDataScope.HostOnly);
+        PageMySqlTemplate with
+        {
+            Text = PageMySqlTemplate.Text.Replace(
+                "__ORDER_BY__",
+                orderBySql,
+                StringComparison.Ordinal),
+        };
 
     /// <summary>将 API sortBy/sortDir 解析为 SQL ORDER BY 片段（仅允许固定列名）。</summary>
     public static string ResolvePageOrderBy(string? sortBy, string? sortDir)

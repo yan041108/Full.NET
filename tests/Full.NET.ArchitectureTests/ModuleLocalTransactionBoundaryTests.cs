@@ -58,16 +58,31 @@ public sealed class ModuleLocalTransactionBoundaryTests
                 "medium",
                 "module-data-consistency-boundary-20260807 Task 2"))
             .ToArray();
+        var sampleDebt = new ModuleBoundaryDebtScanner.CrossModuleTransactionDebt(
+            sample.ConsumerModule,
+            sample.OwnerModule,
+            sample.File,
+            sample.EntryPoint,
+            sample.ContractType,
+            "Temporary cross-module transaction debt for gate testing.",
+            "medium",
+            "module-data-consistency-boundary-20260807 Task 2");
 
         if (discovered.Length > 0)
         {
             Assert.HasCount(0, ModuleBoundaryDebtScanner.ValidateTransactionCatalog(discovered, valid));
+            Assert.IsGreaterThan(
+                0,
+                ModuleBoundaryDebtScanner.ValidateTransactionCatalog(
+                    discovered,
+                    [valid[0] with { EntryPoint = "StaleEntryPoint" }]).Length);
+            return;
         }
 
         Assert.IsGreaterThan(
             0,
             ModuleBoundaryDebtScanner.ValidateTransactionCatalog(
-                discovered.Length > 0 ? discovered : [sample],
-                [valid[0] with { EntryPoint = "StaleEntryPoint" }]).Length);
+                [sample],
+                [sampleDebt with { EntryPoint = "StaleEntryPoint" }]).Length);
     }
 }

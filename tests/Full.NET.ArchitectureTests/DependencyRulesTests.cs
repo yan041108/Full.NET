@@ -410,6 +410,8 @@ public sealed class DependencyRulesTests
                 typeof(Full.NET.Modules.Tenancy.Contracts.ListTenantQuotaMetricsResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ProvisionTenantRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ReactivateTenantRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ReconcileTenantQuotaMetricIdsRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ReconcileTenantQuotaMetricIdsResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ReleaseTenantQuotaRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ReserveTenantQuotaRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ReserveTenantQuotaResponse).FullName,

@@ -13,6 +13,34 @@
       "file": "src/Modules/Full.NET.Modules.Identity.Contracts/SessionBindingKinds.cs",
       "reason": "会话绑定常量与 Identity 表名保持同模块契约，供 OIDC/刷新族校验引用。",
       "removalMilestone": "identity-oidc-session-foundation"
+    },
+    {
+      "sourceModule": "identity",
+      "table": "fn_tenancy_tenant",
+      "file": "src/Modules/Full.NET.Modules.Identity/Seeding/IdentityBaselineSeedSql.cs",
+      "reason": "Migrator Baseline 种子只读枚举活动租户，待 tenancy 提供只读 Port。",
+      "removalMilestone": "identity-tenant-membership-foundation"
+    },
+    {
+      "sourceModule": "identity.contracts",
+      "table": "fn_identity_tenant_member",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/ITenantMemberSelectionDirectory.cs",
+      "reason": "成员选择目录契约与表名同模块对齐，供通知/工作流引用。",
+      "removalMilestone": "identity-tenant-membership-foundation"
+    },
+    {
+      "sourceModule": "webhooks",
+      "table": "fn_messaging_outbox_event",
+      "file": "src/Modules/Full.NET.Modules.Webhooks/Contracts/WebhookContracts.cs",
+      "reason": "Webhook 事件类型常量与可靠事件表名同模块登记。",
+      "removalMilestone": "webhooks-outbox-contract-alignment"
+    },
+    {
+      "sourceModule": "webhooks",
+      "table": "fn_outbox_message",
+      "file": "src/Modules/Full.NET.Modules.Webhooks/Contracts/WebhookContracts.cs",
+      "reason": "Webhook 投递契约引用 Outbox 表名，待 messaging 提供稳定常量 Port。",
+      "removalMilestone": "webhooks-outbox-contract-alignment"
     }
   ]
 }
