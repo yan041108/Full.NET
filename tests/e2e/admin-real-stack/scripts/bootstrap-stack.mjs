@@ -3,6 +3,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import {
   createWriteStream,
   existsSync,
+  readFileSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
@@ -22,7 +23,8 @@ const statePath = path.join(repoRoot, 'tests/e2e/admin-real-stack/.stack-state.j
 const sqlPassword = 'FullNet_Test!123';
 const mysqlPassword = 'FullNet_Test!123';
 const apiPort = Number.parseInt(process.env.FULLNET_E2E_API_PORT ?? '5149', 10);
-const apiUrl = `http://localhost:${apiPort}`;
+// 使用 127.0.0.1 避免 Linux CI 上 localhost→::1 与 Kestrel 绑定不一致导致健康检查 fetch failed。
+const apiUrl = `http://127.0.0.1:${apiPort}`;
 const adminPassword = process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure';
 const adminUsername = process.env.FULLNET_E2E_USERNAME ?? 'admin';
 
@@ -317,15 +319,12 @@ export async function bootstrapStack() {
   const apiLogStream = createWriteStream(apiLogPath, { flags: 'a' });
   const apiProcess = spawn(
     'dotnet',
-    [
-      apiAssemblyPath,
-      '--urls',
-      apiUrl
-    ],
+    [apiAssemblyPath],
     {
       cwd: apiProjectDirectory,
       env: {
         ...sharedEnv,
+        ASPNETCORE_URLS: apiUrl,
         Identity__EnableRemoteSuperAdministratorManagement: 'true'
       },
       stdio: 'pipe'
@@ -334,7 +333,34 @@ export async function bootstrapStack() {
   apiProcess.stdout?.pipe(apiLogStream, { end: false });
   apiProcess.stderr?.pipe(apiLogStream, { end: false });
 
-  await waitForApi(apiUrl);
+  const apiExit = new Promise((resolve, reject) => {
+    apiProcess.once('error', reject);
+    apiProcess.once('exit', (code, signal) => {
+      resolve({ code, signal });
+    });
+  });
+  const apiReady = waitForApi(apiUrl, 120_000, apiLogPath);
+  const earlyExit = await Promise.race([
+    apiReady.then(() => null),
+    apiExit.then(exit => exit)
+  ]);
+  if (earlyExit) {
+    let logTail = '';
+    try {
+      const text = readFileSync(apiLogPath, 'utf8').trim();
+      if (text) {
+        logTail = `\n${text.split(/\r?\n/).slice(-40).join('\n')}`;
+      }
+    } catch {
+      // 忽略日志读取失败，保留退出码信息。
+    }
+
+    throw new Error(
+      `Host.Api 在健康检查前退出（code=${earlyExit.code ?? 'null'}, signal=${earlyExit.signal ?? 'null'}）。${logTail}`
+    );
+  }
+
+  await apiReady;
 
   if (!isProductionTotp) {
     const viewerEnvironment = {
