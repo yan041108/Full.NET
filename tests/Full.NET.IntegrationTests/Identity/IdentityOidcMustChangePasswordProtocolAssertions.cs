@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace Full.NET.IntegrationTests.Identity;
 
@@ -111,10 +112,14 @@ internal static class IdentityOidcMustChangePasswordProtocolAssertions
             }),
         };
         using var authorizePostResponse = await client.SendAsync(authorizePost, cancellationToken);
-        Assert.IsTrue(
-            authorizePostResponse.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized,
-            $"Authorize must reject must-change-password users before issuing auth codes, got {(int)authorizePostResponse.StatusCode}.");
-        Assert.IsNull(authorizePostResponse.Headers.Location);
+        Assert.AreEqual(HttpStatusCode.Redirect, authorizePostResponse.StatusCode);
+        var location = authorizePostResponse.Headers.Location;
+        Assert.IsNotNull(location);
+        Assert.AreEqual(IdentityOidcRelyingPartyFixture.PublicRedirectUri, location.GetLeftPart(UriPartial.Path));
+        var query = QueryHelpers.ParseQuery(location.Query);
+        Assert.AreEqual("access_denied", query["error"].ToString());
+        Assert.AreEqual(state, query["state"].ToString());
+        Assert.IsFalse(query.ContainsKey("code"), "首次改密前不得签发授权码。");
     }
 
     private static async Task CreateHostUserAsync(
