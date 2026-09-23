@@ -431,7 +431,7 @@ function endpointNeedsCodeVerification(endpoint: RecipientEndpointResponse): boo
               <template #default="{ row }">
                 <div class="recipient-endpoint-actions">
                   <div
-                    v-if="endpointNeedsCodeVerification(row)"
+                    v-if="endpointNeedsCodeVerification(row as RecipientEndpointResponse)"
                     class="recipient-endpoint-verify"
                   >
                     <ElInput

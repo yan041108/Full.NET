@@ -292,7 +292,7 @@ function toProblem(
                 class="notification-deliveries-table__id"
                 data-testid="notification-deliveries-load"
                 translate="no"
-                @click.stop="void selectItem(row)"
+                @click.stop="void selectItem(row as NotificationDeliveryResponse)"
               >
                 {{ row.id }}
               </button>

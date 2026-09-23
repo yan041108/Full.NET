@@ -139,20 +139,14 @@ function toProblem(error: unknown, fallbackCode: string): FullNetProblemDetails 
 }
 
 function buildAccessLogFilters(): DocumentAccessLogListFilters {
-  const filters: DocumentAccessLogListFilters = {};
   const documentItemId = accessLogFilters.value.documentItemId?.trim();
   const accessTypeKey = accessLogFilters.value.accessTypeKey?.trim();
   const sourceKey = accessLogFilters.value.sourceKey?.trim();
-  if (documentItemId) {
-    filters.documentItemId = documentItemId;
-  }
-  if (accessTypeKey) {
-    filters.accessTypeKey = accessTypeKey;
-  }
-  if (sourceKey) {
-    filters.sourceKey = sourceKey;
-  }
-  return filters;
+  return {
+    ...(documentItemId ? { documentItemId } : {}),
+    ...(accessTypeKey ? { accessTypeKey } : {}),
+    ...(sourceKey ? { sourceKey } : {}),
+  };
 }
 
 function applyAccessLogFilters(): void {

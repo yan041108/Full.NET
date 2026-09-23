@@ -149,7 +149,7 @@ function openBusinessDetail(businessType: string, businessId: string): void {
                 data-testid="workflow-cc-mark-read"
                 :disabled="row.readAtUtc !== null"
                 :loading="actingId === row.id"
-                @click="markRead(row)"
+                @click="markRead(row as WorkflowCcResponse)"
               >{{ t('workflowCc.markRead') }}</el-button>
             </PermissionGate>
           </template>

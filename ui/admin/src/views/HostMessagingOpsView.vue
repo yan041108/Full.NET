@@ -121,7 +121,6 @@ function onSearch(): void {
             :stripe="tableZebra"
             :border="tableBorder"
             :header-cell-style="tableHeaderCellStyle"
-            :header-row-class-name="tableHeaderBackground"
           >
             <ElTableColumn prop="consumerName" label="Consumer" min-width="160" />
             <ElTableColumn prop="messageType" label="MessageType" min-width="220" show-overflow-tooltip />

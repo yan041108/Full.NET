@@ -26,6 +26,8 @@ const tag = {
   color: null,
   description: null,
   useCount: 0,
+  isHot: false,
+  isRecommended: false,
   createdAtUtc: '2026-07-30T08:00:00Z',
   updatedAtUtc: null,
   version: 1

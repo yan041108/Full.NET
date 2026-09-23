@@ -468,8 +468,8 @@ function toProblem(
           </el-table-column>
           <el-table-column :label="t('workflowDefinitions.status')" width="96" align="center">
             <template #default="{ row }">
-              <el-tag size="small" :type="definitionStatusTagType(definitionStatus(row))">
-                {{ t(`workflowDefinitions.statusLabel.${definitionStatus(row)}`) }}
+              <el-tag size="small" :type="definitionStatusTagType(definitionStatus(row as WorkflowDefinitionResponse))">
+                {{ t(`workflowDefinitions.statusLabel.${definitionStatus(row as WorkflowDefinitionResponse)}`) }}
               </el-tag>
             </template>
           </el-table-column>
@@ -498,38 +498,38 @@ function toProblem(
                   <el-button
                     size="small"
                     data-testid="workflow-definition-edit"
-                    :disabled="loading || acting || definitionStatus(row) === 'archived'"
-                    @click="openEditor(row)"
+                    :disabled="loading || acting || definitionStatus(row as WorkflowDefinitionResponse) === 'archived'"
+                    @click="openEditor(row as WorkflowDefinitionResponse)"
                   >{{ t('workflowDefinitions.edit') }}</el-button>
                 </PermissionGate>
                 <el-button
                   size="small"
                   data-testid="workflow-definition-versions"
                   :disabled="loading || acting"
-                  @click="openVersions(row)"
+                  @click="openVersions(row as WorkflowDefinitionResponse)"
                 >{{ t('workflowDefinitions.versions') }}</el-button>
-                <PermissionGate v-if="definitionStatus(row) === 'active'" code="workflow.definitions.manage_status">
+                <PermissionGate v-if="definitionStatus(row as WorkflowDefinitionResponse) === 'active'" code="workflow.definitions.manage_status">
                   <el-button
                     size="small"
                     data-testid="workflow-definition-disable"
                     :disabled="loading || acting"
-                    @click="changeDefinitionStatus(row, 'disabled')"
+                    @click="changeDefinitionStatus(row as WorkflowDefinitionResponse, 'disabled')"
                   >{{ t('workflowDefinitions.disable') }}</el-button>
                 </PermissionGate>
-                <PermissionGate v-if="definitionStatus(row) === 'disabled'" code="workflow.definitions.manage_status">
+                <PermissionGate v-if="definitionStatus(row as WorkflowDefinitionResponse) === 'disabled'" code="workflow.definitions.manage_status">
                   <el-button
                     size="small"
                     data-testid="workflow-definition-enable"
                     :disabled="loading || acting"
-                    @click="changeDefinitionStatus(row, 'active')"
+                    @click="changeDefinitionStatus(row as WorkflowDefinitionResponse, 'active')"
                   >{{ t('workflowDefinitions.enable') }}</el-button>
                 </PermissionGate>
-                <PermissionGate v-if="definitionStatus(row) !== 'archived'" code="workflow.definitions.manage_status">
+                <PermissionGate v-if="definitionStatus(row as WorkflowDefinitionResponse) !== 'archived'" code="workflow.definitions.manage_status">
                   <el-button
                     size="small"
                     data-testid="workflow-definition-archive"
                     :disabled="loading || acting"
-                    @click="changeDefinitionStatus(row, 'archived')"
+                    @click="changeDefinitionStatus(row as WorkflowDefinitionResponse, 'archived')"
                   >{{ t('workflowDefinitions.archive') }}</el-button>
                 </PermissionGate>
               </div>

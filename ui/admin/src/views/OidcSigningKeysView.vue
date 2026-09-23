@@ -153,7 +153,6 @@ onMounted(() => {
           :stripe="tableZebra"
           :border="tableBorder"
           :header-cell-style="tableHeaderCellStyle"
-          :header-cell-class-name="tableHeaderBackground"
         >
           <el-table-column type="index" width="56" />
           <el-table-column :label="t('oidcSigningKeys.fieldKeyId')" min-width="180" prop="keyId" />
@@ -178,16 +177,16 @@ onMounted(() => {
                     type="view"
                     :title="t('oidcSigningKeys.detail')"
                     test-id="oidc-signing-keys-action-detail"
-                    @click="openDetail(row)"
+                    @click="openDetail(row as OidcSigningKey)"
                   />
                 </PermissionGate>
                 <PermissionGate code="identity.oidc_signing_keys.activate">
                   <ArtTableActionButton
-                    v-if="canActivate(row)"
+                    v-if="canActivate(row as OidcSigningKey)"
                     type="password"
                     :title="t('oidcSigningKeys.activate')"
                     test-id="oidc-signing-keys-action-activate"
-                    @click="confirmActivate(row)"
+                    @click="confirmActivate(row as OidcSigningKey)"
                   />
                 </PermissionGate>
               </ArtTableActionGroup>

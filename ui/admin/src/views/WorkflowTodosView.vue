@@ -493,7 +493,7 @@ function toProblem(
         </el-table-column>
         <el-table-column :label="t('workflowTodos.actions')" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" data-testid="workflow-todo-open" :disabled="listLoading || loading || acting" @click="openTodo(row)">
+            <el-button size="small" data-testid="workflow-todo-open" :disabled="listLoading || loading || acting" @click="openTodo(row as WorkflowTodoListItemResponse)">
               {{ t(detailReadOnly ? 'workflowTodos.view' : 'workflowTodos.open') }}
             </el-button>
             <el-button

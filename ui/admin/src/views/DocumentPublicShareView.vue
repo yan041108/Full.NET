@@ -28,7 +28,7 @@ const access = ref<HostDocumentShareAccessResponse>();
 const problem = ref<FullNetProblemDetails>();
 const contentProblem = ref<FullNetProblemDetails>();
 const passwordRequired = ref(false);
-const preview = useBlobPreview();
+const { url: previewUrl, load: loadPreview, clear: clearPreview } = useBlobPreview();
 
 const shareCode = computed(() => String(route.params.shareCode ?? '').trim());
 
@@ -76,7 +76,7 @@ async function loadOfficePreview(): Promise<void> {
       throw new Error('document.public_share.preview_task_failed');
     }
     if (status.statusKey === 'succeeded') {
-      await preview.load(() =>
+      await loadPreview(() =>
         loadDocumentSharePreviewTaskContentByCode(shareCode.value, task.id, shareAccessBody())
       );
       return;
@@ -107,7 +107,7 @@ async function loadContent() {
     if (needsOfficePreview.value) {
       await loadOfficePreview();
     } else {
-      await preview.load(() => loadDocumentShareContentByCode(shareCode.value, shareAccessBody()));
+      await loadPreview(() => loadDocumentShareContentByCode(shareCode.value, shareAccessBody()));
     }
   } catch (error) {
     if (isFullNetProblemDetails(error)) {
@@ -125,7 +125,7 @@ async function loadContent() {
 }
 
 function downloadContent() {
-  if (!preview.url.value && !access.value) {
+  if (!previewUrl.value && !access.value) {
     return;
   }
   void (async () => {
@@ -147,7 +147,7 @@ async function submitAccess() {
   loading.value = true;
   problem.value = undefined;
   contentProblem.value = undefined;
-  preview.clear();
+  clearPreview();
   if (!password.value.trim()) {
     passwordRequired.value = false;
   }
@@ -248,20 +248,20 @@ watch(
         />
 
         <div
-          v-if="preview.url && (canInlinePreview || needsOfficePreview)"
+          v-if="previewUrl && (canInlinePreview || needsOfficePreview)"
           class="document-public-share-view__preview"
         >
-          <img v-if="isImage" :src="preview.url" :alt="access.title" class="document-public-share-view__image" />
+          <img v-if="isImage" :src="previewUrl" :alt="access.title" class="document-public-share-view__image" />
           <iframe
             v-else
-            :src="preview.url"
+            :src="previewUrl"
             class="document-public-share-view__frame"
             title="preview"
           />
         </div>
 
         <el-button
-          v-if="access && !preview.url && !contentLoading && !needsOfficePreview"
+          v-if="access && !previewUrl && !contentLoading && !needsOfficePreview"
           type="primary"
           data-testid="document-public-share-download"
           @click="downloadContent"
@@ -269,7 +269,7 @@ watch(
           {{ t('documentPublicShare.download') }}
         </el-button>
         <el-button
-          v-else-if="access && preview.url"
+          v-else-if="access && previewUrl"
           data-testid="document-public-share-download"
           @click="downloadContent"
         >

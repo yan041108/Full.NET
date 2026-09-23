@@ -95,7 +95,7 @@ async function submitCreate(): Promise<void> {
 }
 
 async function openEditor(row: WorkflowFormResponse): Promise<void> {
-  if (busy.value || formStatus(row) === 'archived') return;
+  if (busy.value || formStatus(row as WorkflowFormResponse) === 'archived') return;
   const result = await act(
     () => Promise.all([getWorkflowForm(row.id), getWorkflowFormComponentCatalog()]),
     'workflowForms.loadFailed'
@@ -285,8 +285,8 @@ async function act<T>(
           </el-table-column>
           <el-table-column :label="t('workflowForms.status')" width="96" align="center">
             <template #default="{ row }">
-              <el-tag size="small" :type="formStatusTagType(formStatus(row))">
-                {{ t(`workflowForms.statusLabel.${formStatus(row)}`) }}
+              <el-tag size="small" :type="formStatusTagType(formStatus(row as WorkflowFormResponse))">
+                {{ t(`workflowForms.statusLabel.${formStatus(row as WorkflowFormResponse)}`) }}
               </el-tag>
             </template>
           </el-table-column>
@@ -300,30 +300,30 @@ async function act<T>(
             <template #default="{ row }">
               <div class="workflow-forms__actions">
                 <PermissionGate code="workflow.forms.update">
-                  <el-button size="small" data-testid="workflow-form-edit" :disabled="busy || formStatus(row) === 'archived'" @click="openEditor(row)">
+                  <el-button size="small" data-testid="workflow-form-edit" :disabled="busy || formStatus(row as WorkflowFormResponse) === 'archived'" @click="openEditor(row as WorkflowFormResponse)">
                     {{ t('workflowForms.edit') }}
                   </el-button>
                 </PermissionGate>
-                <el-button size="small" data-testid="workflow-form-versions" :disabled="busy" @click="openVersions(row)">
+                <el-button size="small" data-testid="workflow-form-versions" :disabled="busy" @click="openVersions(row as WorkflowFormResponse)">
                   {{ t('workflowForms.versions') }}
                 </el-button>
                 <PermissionGate code="workflow.forms.publish">
-                  <el-button type="primary" plain size="small" data-testid="workflow-form-publish" :disabled="busy || formStatus(row) !== 'active'" @click="publish(row)">
+                  <el-button type="primary" plain size="small" data-testid="workflow-form-publish" :disabled="busy || formStatus(row as WorkflowFormResponse) !== 'active'" @click="publish(row as WorkflowFormResponse)">
                     {{ t('workflowForms.publish') }}
                   </el-button>
                 </PermissionGate>
-                <PermissionGate v-if="formStatus(row) === 'active'" code="workflow.forms.manage_status">
-                  <el-button size="small" data-testid="workflow-form-disable" :disabled="busy" @click="changeFormStatus(row, 'disabled')">
+                <PermissionGate v-if="formStatus(row as WorkflowFormResponse) === 'active'" code="workflow.forms.manage_status">
+                  <el-button size="small" data-testid="workflow-form-disable" :disabled="busy" @click="changeFormStatus(row as WorkflowFormResponse, 'disabled')">
                     {{ t('workflowForms.disable') }}
                   </el-button>
                 </PermissionGate>
-                <PermissionGate v-if="formStatus(row) === 'disabled'" code="workflow.forms.manage_status">
-                  <el-button size="small" data-testid="workflow-form-enable" :disabled="busy" @click="changeFormStatus(row, 'active')">
+                <PermissionGate v-if="formStatus(row as WorkflowFormResponse) === 'disabled'" code="workflow.forms.manage_status">
+                  <el-button size="small" data-testid="workflow-form-enable" :disabled="busy" @click="changeFormStatus(row as WorkflowFormResponse, 'active')">
                     {{ t('workflowForms.enable') }}
                   </el-button>
                 </PermissionGate>
-                <PermissionGate v-if="formStatus(row) !== 'archived'" code="workflow.forms.manage_status">
-                  <el-button size="small" data-testid="workflow-form-archive" :disabled="busy" @click="changeFormStatus(row, 'archived')">
+                <PermissionGate v-if="formStatus(row as WorkflowFormResponse) !== 'archived'" code="workflow.forms.manage_status">
+                  <el-button size="small" data-testid="workflow-form-archive" :disabled="busy" @click="changeFormStatus(row as WorkflowFormResponse, 'archived')">
                     {{ t('workflowForms.archive') }}
                   </el-button>
                 </PermissionGate>

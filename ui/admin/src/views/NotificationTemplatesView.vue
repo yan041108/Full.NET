@@ -342,7 +342,7 @@ function toProblem(
                 class="notification-templates-table__key"
                 data-testid="notification-templates-load"
                 translate="no"
-                @click.stop="selectItem(row)"
+                @click.stop="selectItem(row as NotificationTemplateResponse)"
               >
                 {{ row.templateKey }}
               </button>
@@ -370,7 +370,7 @@ function toProblem(
                 data-testid="notification-templates-state"
                 :type="row.latestPublishedVersionNumber == null ? 'info' : 'success'"
               >
-                {{ publishStateLabel(row) }}
+                {{ publishStateLabel(row as NotificationTemplateResponse) }}
               </ElTag>
             </template>
           </ElTableColumn>

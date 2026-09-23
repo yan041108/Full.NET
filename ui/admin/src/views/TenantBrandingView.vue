@@ -189,7 +189,6 @@ onMounted(() => {
             </div>
             <div class="tenant-branding__logo-actions">
               <el-button
-                type="button"
                 :loading="uploadingLogo"
                 :disabled="loading"
                 @click="openLogoFilePicker"
@@ -198,7 +197,6 @@ onMounted(() => {
               </el-button>
               <el-button
                 v-if="logoPreviewUrl"
-                type="button"
                 :loading="removingLogo"
                 :disabled="loading"
                 @click="removeLogo"

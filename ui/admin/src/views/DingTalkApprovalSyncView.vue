@@ -287,7 +287,7 @@ function statusTone(statusKey: string): 'success' | 'warning' | 'info' | 'danger
                   type="button"
                   class="dingtalk-sync-table__title"
                   translate="no"
-                  @click.stop="selectItem(row)"
+                  @click.stop="selectItem(row as DingTalkApprovalSyncResponse)"
                 >
                   {{ row.title }}
                 </button>

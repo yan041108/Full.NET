@@ -275,7 +275,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
               link
               :loading="acceptingInvitationId === row.id"
               data-testid="accept-tenant-invitation"
-              @click="acceptInvitation(row)"
+              @click="acceptInvitation(row as MyTenantInvitation)"
             >
               {{ t('tenant.acceptInvitation') }}
             </el-button>

@@ -546,7 +546,7 @@ function toProblem(
       >
         <el-table-column :label="t('workflowInstances.business')" min-width="200">
           <template #default="{ row }">
-            <button type="button" class="workflow-instances__row-btn" data-testid="workflow-instance-list-item" @click.stop="selectListItem(row)">
+            <button type="button" class="workflow-instances__row-btn" data-testid="workflow-instance-list-item" @click.stop="selectListItem(row as WorkflowInstanceListItemResponse)">
               <strong translate="no">{{ formatWorkflowBusinessLabel(row.businessTitle, row.businessType, row.businessId) }}</strong>
             </button>
             <small translate="no">{{ row.definitionKey }}</small>

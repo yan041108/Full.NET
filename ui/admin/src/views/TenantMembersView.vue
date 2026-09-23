@@ -692,13 +692,13 @@ onMounted(() => {
               </el-table-column>
               <el-table-column :label="t('users.columnActions')" width="200" fixed="right">
                 <template #default="{ row }">
-                  <ArtTableActionGroup v-if="canManageMember(row)">
+                  <ArtTableActionGroup v-if="canManageMember(row as TenantMember)">
                     <PermissionGate code="identity.tenant_members.update">
                       <ArtTableActionButton
                         type="edit"
                         :title="t('tenantMembers.editRole')"
                         test-id="tenant-members-action-edit-role"
-                        @click="openEditRole(row)"
+                        @click="openEditRole(row as TenantMember)"
                       />
                     </PermissionGate>
                     <PermissionGate code="identity.tenant_members.remove">
@@ -706,7 +706,7 @@ onMounted(() => {
                         type="delete"
                         :title="t('tenantMembers.remove')"
                         test-id="tenant-members-action-remove"
-                        @click="confirmRemove(row)"
+                        @click="confirmRemove(row as TenantMember)"
                       />
                     </PermissionGate>
                   </ArtTableActionGroup>
@@ -775,7 +775,7 @@ onMounted(() => {
                         type="delete"
                         :title="t('tenantMembers.revokeInvitation')"
                         test-id="tenant-members-action-revoke"
-                        @click="confirmRevoke(row)"
+                        @click="confirmRevoke(row as TenantInvitation)"
                       />
                     </PermissionGate>
                   </ArtTableActionGroup>

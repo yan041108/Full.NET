@@ -192,7 +192,7 @@ function toProblem(
         >
           <ElTableColumn label="ID" min-width="200" show-overflow-tooltip>
             <template #default="{ row }">
-              <button type="button" class="workflow-recovery-tasks__id" data-testid="workflow-recovery-tasks-load" translate="no" @click.stop="void selectItem(row)">
+              <button type="button" class="workflow-recovery-tasks__id" data-testid="workflow-recovery-tasks-load" translate="no" @click.stop="void selectItem(row as WorkflowRecoveryTaskResponse)">
                 {{ row.id }}
               </button>
             </template>

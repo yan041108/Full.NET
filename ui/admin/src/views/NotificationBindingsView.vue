@@ -423,7 +423,7 @@ function toProblem(
                 class="notification-bindings-table__key"
                 data-testid="notification-bindings-load"
                 translate="no"
-                @click.stop="selectItem(row)"
+                @click.stop="selectItem(row as NotificationBindingResponse)"
               >
                 {{ row.bindingKey }}
               </button>
@@ -442,7 +442,7 @@ function toProblem(
                 size="small"
                 :type="row.latestPublishedVersionNumber == null ? 'info' : 'success'"
               >
-                {{ publishStateLabel(row) }}
+                {{ publishStateLabel(row as NotificationBindingResponse) }}
               </ElTag>
             </template>
           </ElTableColumn>
