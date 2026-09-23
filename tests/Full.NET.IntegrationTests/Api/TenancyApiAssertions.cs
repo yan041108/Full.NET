@@ -63,6 +63,10 @@ internal static class TenancyApiAssertions
                 "tenantPackageId",
                 "tenantPackageCode",
                 "tenantPackageName",
+                "lifecycleStatus",
+                "ownerUserId",
+                "provisioningStatus",
+                "provisioningStep",
             },
             actualProperties);
 

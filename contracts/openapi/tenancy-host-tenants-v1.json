@@ -75,7 +75,11 @@
         "defaultLocale",
         "tenantPackageId",
         "tenantPackageCode",
-        "tenantPackageName"
+        "tenantPackageName",
+        "lifecycleStatus",
+        "ownerUserId",
+        "provisioningStatus",
+        "provisioningStep"
       ]
     },
     "ProvisionTenantRequest": {

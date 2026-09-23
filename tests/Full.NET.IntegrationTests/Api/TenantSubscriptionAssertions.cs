@@ -45,7 +45,7 @@ internal static class TenantSubscriptionAssertions
         };
         createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var createResponse = await client.SendAsync(createRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, createResponse.StatusCode);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
         var created = await createResponse.Content.ReadFromJsonAsync<TenantSubscriptionResponse>(
             cancellationToken);
         Assert.IsNotNull(created);

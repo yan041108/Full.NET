@@ -149,13 +149,15 @@ internal sealed class Handler(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        // UpdateProvisioningStatus 会递增 Version；响应须与数据库一致，避免后续乐观并发更新 409。
+        var publishedVersion = tenant.Version + 1;
         return Result<TenantSummary>.Success(new TenantSummary(
             tenant.Id,
             tenant.Identifier,
             tenant.Name,
             tenant.Domain,
             tenant.IsActive,
-            tenant.Version,
+            publishedVersion,
             tenant.DefaultLocale,
             command.TenantPackageId,
             packageCode,
