@@ -297,9 +297,13 @@ internal static class NativeApiOidcE2EAssertions
             requestOfflineAccess: false,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         Assert.IsFalse(string.IsNullOrWhiteSpace(flow.AccessToken));
-        var acmeTenant = await GetAcmeTenantAsync(primaryClient, flow.AccessToken, primaryHost.LogFilePath, cancellationToken).ConfigureAwait(false);
+        var developmentTenant = await GetDevelopmentTenantForContextSwitchAsync(
+            primaryClient,
+            flow.AccessToken,
+            primaryHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
         using var switchToTenantResponse = await primaryClient.SendAsync(
-            AuthorizedJson(HttpMethod.Put, "/api/v1/tenancy/context", flow.AccessToken, new ChangeTenantContextRequest(acmeTenant.Id)),
+            AuthorizedJson(HttpMethod.Put, "/api/v1/tenancy/context", flow.AccessToken, new ChangeTenantContextRequest(developmentTenant.Id)),
             cancellationToken).ConfigureAwait(false);
         await AssertStatusAsync(
             switchToTenantResponse,
@@ -427,13 +431,13 @@ internal static class NativeApiOidcE2EAssertions
             cancellationToken: cancellationToken).ConfigureAwait(false);
         Assert.IsFalse(string.IsNullOrWhiteSpace(flow.RefreshToken));
 
-        var acmeTenant = await GetAcmeTenantAsync(
+        var developmentTenant = await GetDevelopmentTenantForContextSwitchAsync(
             primaryClient,
             flow.AccessToken,
             primaryHost.LogFilePath,
             cancellationToken).ConfigureAwait(false);
         using var switchToTenantResponse = await primaryClient.SendAsync(
-            AuthorizedJson(HttpMethod.Put, "/api/v1/tenancy/context", flow.AccessToken, new ChangeTenantContextRequest(acmeTenant.Id)),
+            AuthorizedJson(HttpMethod.Put, "/api/v1/tenancy/context", flow.AccessToken, new ChangeTenantContextRequest(developmentTenant.Id)),
             cancellationToken).ConfigureAwait(false);
         await AssertStatusAsync(
             switchToTenantResponse,
@@ -699,7 +703,7 @@ internal static class NativeApiOidcE2EAssertions
             IdentityOidcMultiInstanceTestSupport.DataProtectionPassword;
     }
 
-    private static async Task<TenantContextSummary> GetAcmeTenantAsync(
+    private static async Task<TenantContextSummary> GetDevelopmentTenantForContextSwitchAsync(
         HttpClient client,
         string accessToken,
         string logFilePath,
@@ -711,7 +715,12 @@ internal static class NativeApiOidcE2EAssertions
         await AssertStatusAsync(response, HttpStatusCode.OK, "List available tenants with OIDC token", logFilePath, cancellationToken).ConfigureAwait(false);
         var available = await response.Content.ReadFromJsonAsync<TenantContextSummary[]>(cancellationToken).ConfigureAwait(false);
         Assert.IsNotNull(available);
-        return available.Single(tenant => tenant.Identifier == "acme");
+        var developmentTenant = available.SingleOrDefault(tenant => tenant.Identifier == "local");
+        Assert.IsNotNull(
+            developmentTenant,
+            "Available tenants did not contain Development seed 'local': "
+                + string.Join(", ", available.Select(tenant => $"{tenant.Identifier} ({tenant.Id})")));
+        return developmentTenant;
     }
 
     private static async Task AssertMeAcceptsTokenAsync(
