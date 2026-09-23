@@ -53,7 +53,7 @@
 | Tenancy Dapper | `TenantEntitlementEnforcementRecord.EntitlementEnforcementPhase` + 调用点 |
 | OIDC 多实例测试 | `UsingConfiguredPairAsync`；Context switch / governance / **revoke-all** 多实例断言；Native 双实例 `EncryptionKeyBase64` |
 | 验证 | `pnpm audit:clients` 通过；Tenancy + IntegrationTests **Release build** 通过 |
-| 本机集成 | `dotnet …IntegrationTests.dll --filter … --minimum-expected-tests N`（**非** `dotnet test`）；本机 Docker Desktop **未运行**（`npipe://./pipe/dockerDesktopLinuxEngine`），Testcontainers 未执行 |
+| 本机集成 spot | **6/6**（[fix-bundle 验证](2026-09-23-gate0-fix-bundle-verification.md)） |
 
 ## 建议合入批次（Gate0 最小修复集）
 
