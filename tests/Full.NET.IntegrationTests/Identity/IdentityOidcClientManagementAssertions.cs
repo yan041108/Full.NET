@@ -181,10 +181,12 @@ internal static class IdentityOidcClientManagementAssertions
         using var mismatchedRedirectResponse = await client.GetAsync(
             mismatchedRedirectAuthorizeUrl,
             cancellationToken);
-        Assert.IsTrue(mismatchedRedirectResponse.Headers.Location is not null);
+        // 回调地址未注册时不得向请求提供的地址重定向，即使响应中携带协议错误。
+        Assert.AreEqual(HttpStatusCode.BadRequest, mismatchedRedirectResponse.StatusCode);
+        Assert.IsNull(mismatchedRedirectResponse.Headers.Location);
         StringAssert.Contains(
-            mismatchedRedirectResponse.Headers.Location!.ToString(),
-            "error=redirect_uri");
+            await mismatchedRedirectResponse.Content.ReadAsStringAsync(cancellationToken),
+            "invalid_request");
 
         var invalidScopeAuthorizeUrl = "/connect/authorize"
             + $"?client_id={Uri.EscapeDataString(publicClientId)}"
@@ -194,8 +196,11 @@ internal static class IdentityOidcClientManagementAssertions
             + $"&code_challenge={Uri.EscapeDataString(challenge)}"
             + "&code_challenge_method=S256";
         using var invalidScopeResponse = await client.GetAsync(invalidScopeAuthorizeUrl, cancellationToken);
-        Assert.IsTrue(invalidScopeResponse.Headers.Location is not null);
-        StringAssert.Contains(invalidScopeResponse.Headers.Location!.ToString(), "error=invalid_scope");
+        Assert.AreEqual(HttpStatusCode.BadRequest, invalidScopeResponse.StatusCode);
+        Assert.IsNull(invalidScopeResponse.Headers.Location);
+        StringAssert.Contains(
+            await invalidScopeResponse.Content.ReadAsStringAsync(cancellationToken),
+            "invalid_scope");
 
         var confidentialClientId = $"mgmt-boundary-conf-{Guid.NewGuid():N}"[..24];
         using var createConfidentialRequest = CreateBearerJsonRequest(
