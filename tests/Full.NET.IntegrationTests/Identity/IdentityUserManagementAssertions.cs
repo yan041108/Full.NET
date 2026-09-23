@@ -163,51 +163,40 @@ internal static class IdentityUserManagementAssertions
             cancellationToken);
 
         var racedPhone = $"137{Random.Shared.NextInt64(10_000_000, 99_999_999)}";
-        var racedConflictVerified = false;
-        for (var attempt = 0; attempt < 3 && !racedConflictVerified; attempt++)
-        {
-            using var racedRequestA = CreateBearerJsonRequest(
-                HttpMethod.Post,
-                "/api/v1/identity/users",
-                adminToken,
-                new CreateHostUserRequest(
-                    $"profile-race-a-{Guid.NewGuid():N}",
-                    "并发资料 A",
-                    Api.FullNetApiFactory.TestPassword,
-                    Profile: CreateProfile(phoneNumber: racedPhone)));
-            using var racedRequestB = CreateBearerJsonRequest(
-                HttpMethod.Post,
-                "/api/v1/identity/users",
-                adminToken,
-                new CreateHostUserRequest(
-                    $"profile-race-b-{Guid.NewGuid():N}",
-                    "并发资料 B",
-                    Api.FullNetApiFactory.TestPassword,
-                    Profile: CreateProfile(phoneNumber: racedPhone)));
-            var racedResponses = await Task.WhenAll(
-                client.SendAsync(racedRequestA, cancellationToken),
-                client.SendAsync(racedRequestB, cancellationToken));
-            using var responseA = racedResponses[0];
-            using var responseB = racedResponses[1];
-            var statusCodes = new[] { responseA.StatusCode, responseB.StatusCode };
-            if (statusCodes.Contains(HttpStatusCode.InternalServerError))
-            {
-                continue;
-            }
-
-            CollectionAssert.AreEquivalent(
-                new[] { HttpStatusCode.Created, HttpStatusCode.Conflict },
-                statusCodes);
-            var conflictResponse = statusCodes[0] == HttpStatusCode.Conflict ? responseA : responseB;
-            using var problem = JsonDocument.Parse(
-                await conflictResponse.Content.ReadAsStringAsync(cancellationToken));
-            Assert.AreEqual(
-                IdentityErrorCodes.UserPhoneNumberExists,
-                problem.RootElement.GetProperty("code").GetString());
-            racedConflictVerified = true;
-        }
-
-        Assert.IsTrue(racedConflictVerified, "并发手机号竞态在重试后仍未得到 Created/Conflict 结果。");
+        using var racedRequestA = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(
+                $"profile-race-a-{Guid.NewGuid():N}",
+                "并发资料 A",
+                Api.FullNetApiFactory.TestPassword,
+                Profile: CreateProfile(phoneNumber: racedPhone)));
+        using var racedRequestB = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(
+                $"profile-race-b-{Guid.NewGuid():N}",
+                "并发资料 B",
+                Api.FullNetApiFactory.TestPassword,
+                Profile: CreateProfile(phoneNumber: racedPhone)));
+        var racedResponses = await Task.WhenAll(
+            client.SendAsync(racedRequestA, cancellationToken),
+            client.SendAsync(racedRequestB, cancellationToken));
+        using var responseA = racedResponses[0];
+        using var responseB = racedResponses[1];
+        var statusCodes = new[] { responseA.StatusCode, responseB.StatusCode };
+        // 数据库死锁由创建事务内部重放；测试不得以重发整组 HTTP 请求掩盖 500。
+        CollectionAssert.AreEquivalent(
+            new[] { HttpStatusCode.Created, HttpStatusCode.Conflict },
+            statusCodes);
+        var conflictResponse = statusCodes[0] == HttpStatusCode.Conflict ? responseA : responseB;
+        using var racedProblem = JsonDocument.Parse(
+            await conflictResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            IdentityErrorCodes.UserPhoneNumberExists,
+            racedProblem.RootElement.GetProperty("code").GetString());
 
         var updateOwnerA = await CreateHostUserWithProfileAsync(
             client,

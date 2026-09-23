@@ -14,11 +14,43 @@ using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 namespace Full.NET.UnitTests.Identity;
 
 /// <summary>
-/// 验证 Host 用户更新仅在数据库回滚死锁事务后重放完整事务单元。
+/// 验证 Host 用户创建和更新仅在数据库回滚死锁事务后重放完整事务单元。
 /// </summary>
 [TestClass]
 public sealed class HostUserManagementDeadlockRetryTests
 {
+    /// <summary>
+    /// 验证创建事务首次死锁后会重新执行整个事务，并返回下一次执行的业务结果。
+    /// </summary>
+    [TestMethod]
+    public async Task CreateAsync_retries_complete_transaction_after_deadlock()
+    {
+        var transaction = Substitute.For<ICommandTransaction>();
+        var deadlock = new DataCommandException(
+            DataCommandFailureKind.Deadlock,
+            new InvalidOperationException("deadlock victim"));
+        var expected = Result<HostUserResponse>.Failure(new Error(
+            IdentityErrorCodes.UserPhoneNumberExists,
+            "Phone number is already assigned to another host user.",
+            ErrorType.Conflict));
+        transaction.ExecuteResultAsync<HostUserResponse>(
+                Arg.Any<Func<CancellationToken, Task<Result<HostUserResponse>>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(
+                Task.FromException<Result<HostUserResponse>>(deadlock),
+                Task.FromResult(expected));
+        var service = CreateService(transaction);
+
+        var result = await service.CreateAsync(
+            new CreateHostUserRequest("deadlock-create", "并发创建", "Passw0rd!"),
+            cancellationToken: CancellationToken.None);
+
+        Assert.AreSame(expected, result);
+        _ = transaction.Received(2).ExecuteResultAsync<HostUserResponse>(
+            Arg.Any<Func<CancellationToken, Task<Result<HostUserResponse>>>>(),
+            CancellationToken.None);
+    }
+
     /// <summary>
     /// 验证首次事务死锁后会重新执行整个事务，并返回下一次执行的业务结果。
     /// </summary>
