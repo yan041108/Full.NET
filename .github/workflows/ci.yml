@@ -246,6 +246,7 @@ jobs:
           path: |
             tests/e2e/admin-real-stack/playwright-report/**
             tests/e2e/admin-real-stack/test-results/**
+            .tmp/e2e-real-stack/**
           if-no-files-found: warn
 
   build-test:
