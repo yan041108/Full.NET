@@ -1,13 +1,15 @@
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { generateKeyPairSync } from 'node:crypto';
 import {
   createWriteStream,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
+  unlinkSync,
   writeFileSync
 } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { platform, tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { GenericContainer, Wait } from 'testcontainers';
@@ -44,6 +46,90 @@ function resolveStackProfile() {
 /** Linux CI 子进程环境变量不宜携带多行 PEM；与 RsaSigningKeyRing.NormalizePem 的 \\n 约定一致。 */
 function pemForProcessEnvironment(pem) {
   return pem.replace(/\r?\n/g, '\\n');
+}
+
+const productionDataProtectionPassword = 'FullNet-Test-Only!';
+
+/** Production 门禁要求非临时目录 Key Ring 与加密证书；与集成测试 IdentityOidcMultiInstanceTestSupport 对齐。 */
+function createProductionDataProtectionEnv(repoRoot) {
+  const root = path.join(repoRoot, '.tmp', 'e2e-real-stack', 'dataprotection');
+  const keyRingPath = path.join(root, 'keys');
+  const certificatePath = path.join(root, 'active.pfx');
+  mkdirSync(keyRingPath, { recursive: true });
+
+  if (!existsSync(certificatePath)) {
+    createSelfSignedPfxCertificate(certificatePath, productionDataProtectionPassword);
+  }
+
+  return {
+    DataProtection__ApplicationName: 'Full.NET',
+    DataProtection__KeyRingPath: keyRingPath,
+    DataProtection__CertificatePath: certificatePath,
+    DataProtection__CertificatePassword: productionDataProtectionPassword
+  };
+}
+
+function createSelfSignedPfxCertificate(certificatePath, password) {
+  if (platform() === 'win32') {
+    const escapedPath = certificatePath.replace(/'/g, "''");
+    const escapedPassword = password.replace(/'/g, "''");
+    execFileSync(
+      'powershell',
+      [
+        '-NoProfile',
+        '-Command',
+        `$pwd = ConvertTo-SecureString -String '${escapedPassword}' -Force -AsPlainText; `
+          + `$cert = New-SelfSignedCertificate -Subject 'CN=Full.NET.DP.Active' `
+          + `-CertStoreLocation 'Cert:\\CurrentUser\\My' -KeyExportPolicy Exportable `
+          + `-NotAfter (Get-Date).AddYears(2); `
+          + `Export-PfxCertificate -Cert $cert -FilePath '${escapedPath}' -Password $pwd | Out-Null; `
+          + `Remove-Item $cert.PSPath`
+      ],
+      { stdio: 'pipe' }
+    );
+    return;
+  }
+
+  const root = path.dirname(certificatePath);
+  const keyPath = path.join(root, 'active.key.pem');
+  const certPath = path.join(root, 'active.cert.pem');
+  execFileSync(
+    'openssl',
+    [
+      'req',
+      '-x509',
+      '-newkey',
+      'rsa:2048',
+      '-keyout',
+      keyPath,
+      '-out',
+      certPath,
+      '-days',
+      '825',
+      '-nodes',
+      '-subj',
+      '/CN=Full.NET.DP.Active'
+    ],
+    { stdio: 'pipe' }
+  );
+  execFileSync(
+    'openssl',
+    [
+      'pkcs12',
+      '-export',
+      '-out',
+      certificatePath,
+      '-inkey',
+      keyPath,
+      '-in',
+      certPath,
+      '-passout',
+      `pass:${password}`
+    ],
+    { stdio: 'pipe' }
+  );
+  unlinkSync(keyPath);
+  unlinkSync(certPath);
 }
 
 function createProductionSigningKeyEnv(keyId = 'e2eprodsigning') {
@@ -189,16 +275,18 @@ export async function bootstrapStack() {
     FullNet__ObservabilityAdmin__LogRootPath: observabilityLogRoot,
     DOTNET_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
     ASPNETCORE_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
-    ...createOidcStackEnv(apiUrl),
     ...(isProductionTotp
       ? {
+          ...createProductionDataProtectionEnv(repoRoot),
           ...createProductionSigningKeyEnv(),
+          Identity__Oidc__Enable: 'false',
           Identity__AllowDevelopmentEphemeralSigningKey: 'false',
           Identity__EnableTotpStrongReauthentication: 'true',
           Identity__EnableRemoteSuperAdministratorManagement: 'true',
           Files__Local__RootPath: path.join(repoRoot, '.tmp/e2e-real-stack-files')
         }
       : {
+          ...createOidcStackEnv(apiUrl),
           Identity__AllowDevelopmentEphemeralSigningKey: 'true'
         })
   };

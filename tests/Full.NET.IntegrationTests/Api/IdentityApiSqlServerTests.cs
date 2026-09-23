@@ -112,7 +112,8 @@ public sealed class IdentityApiSqlServerTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
 
         await IdentityOnlineSessionAssertions.VerifyAsync(factory);
     }

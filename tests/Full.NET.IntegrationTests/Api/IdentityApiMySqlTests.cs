@@ -112,7 +112,8 @@ public sealed class IdentityApiMySqlTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
 
         await IdentityOnlineSessionAssertions.VerifyAsync(factory);
     }
