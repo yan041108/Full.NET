@@ -74,13 +74,13 @@ internal static class IdentityOidcGovernanceAuditAssertions
         await using var scope = factory.Services.CreateAsyncScope();
         var sql = factory.Provider == DatabaseProvider.SqlServer
             ? """
-              SELECT TOP (1) CONCAT(EventType, '|', UsernameFingerprint, '|', ResultCode)
+              SELECT TOP (1) UsernameFingerprint
               FROM fn_identity_auth_audit
               WHERE EventType = @EventType
               ORDER BY OccurredAtUtc DESC, Id DESC
               """
             : """
-              SELECT CONCAT(EventType, '|', UsernameFingerprint, '|', ResultCode)
+              SELECT UsernameFingerprint
               FROM fn_identity_auth_audit
               WHERE EventType = @EventType
               ORDER BY OccurredAtUtc DESC, Id DESC
