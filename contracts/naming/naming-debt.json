@@ -2486,6 +2486,27 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/229_TenancyQuotaMetricBinding.sql",
       "reason": "229 仅按列存在性选择固定 ALTER TABLE 或 SELECT 1，无外部输入拼接；用于 MySQL 8.0 可重跑的加列迁移，双库恢复测试随切片提供。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/231_DocumentTagHotRecommended.sql",
+      "reason": "231 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等追加文档标签热门/推荐列；表列名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/232_DocumentVersionRetentionSetting.sql",
+      "reason": "232 在 CREATE TABLE 后按索引存在性选择固定 CREATE UNIQUE INDEX 或 SELECT 1，幂等补齐 Host 单行唯一约束；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/233_IdentityUserRetiredAtUtc.sql",
+      "reason": "233 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等追加用户退役时间列；表列名与 COMMENT 均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

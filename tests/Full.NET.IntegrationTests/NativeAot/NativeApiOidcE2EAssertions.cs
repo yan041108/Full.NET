@@ -98,10 +98,23 @@ internal static class NativeApiOidcE2EAssertions
     {
         var artifact = NativeApiArtifactLocator.RequireArtifact();
         await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString, cancellationToken).ConfigureAwait(false);
+        var dataProtectionAssets = IdentityOidcMultiInstanceTestSupport.CreateDataProtectionAssets();
         using var keyA = RSA.Create(3072);
         using var keyB = RSA.Create(3072);
-        var settingsA = BuildDualKeySettings(keyA, keyB, IdentityOidcSigningKeyRotationAssertions.KeyAId);
-        var settingsB = BuildDualKeySettings(keyA, keyB, IdentityOidcSigningKeyRotationAssertions.KeyBId);
+        var settingsA = ToNativeSettings(IdentityOidcMultiInstanceTestSupport.BuildDualKeyFactorySettings(
+            keyA,
+            keyB,
+            IdentityOidcSigningKeyRotationAssertions.KeyAId,
+            dataProtectionAssets.KeyRingPath,
+            dataProtectionAssets.CertificatePath));
+        var settingsB = ToNativeSettings(IdentityOidcMultiInstanceTestSupport.BuildDualKeyFactorySettings(
+            keyA,
+            keyB,
+            IdentityOidcSigningKeyRotationAssertions.KeyBId,
+            dataProtectionAssets.KeyRingPath,
+            dataProtectionAssets.CertificatePath));
+        try
+        {
         await using var primaryHost = await NativeApiProcessHost.StartAsync(
             artifact, provider, connectionString, settingsA, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         await using var secondaryHost = await NativeApiProcessHost.StartAsync(
@@ -139,6 +152,11 @@ internal static class NativeApiOidcE2EAssertions
         await secondaryHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         primaryHost.AssertNoFatalMarkersInLogs();
         secondaryHost.AssertNoFatalMarkersInLogs();
+        }
+        finally
+        {
+            IdentityOidcMultiInstanceTestSupport.TryDeleteDirectory(dataProtectionAssets.RootPath);
+        }
     }
 
     public static async Task VerifyCenterRestartPreservesAuthorizationExchangeAsync(
@@ -148,7 +166,15 @@ internal static class NativeApiOidcE2EAssertions
     {
         var artifact = NativeApiArtifactLocator.RequireArtifact();
         await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString, cancellationToken).ConfigureAwait(false);
-        var settings = BuildOidcSettings();
+        var dataProtectionAssets = IdentityOidcMultiInstanceTestSupport.CreateDataProtectionAssets();
+        using var signingKey = RSA.Create(3072);
+        var settings = BuildOidcSettings(
+            signingKey,
+            "native-aot-center-restart",
+            dataProtectionAssets.KeyRingPath,
+            dataProtectionAssets.CertificatePath);
+        try
+        {
         await using var host = await NativeApiProcessHost.StartAsync(
             artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         using var client = host.CreateClient();
@@ -186,6 +212,11 @@ internal static class NativeApiOidcE2EAssertions
         Assert.IsTrue(refreshResult.IsSuccessStatusCode, refreshResult.RawBody);
         await restartedHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         restartedHost.AssertNoFatalMarkersInLogs();
+        }
+        finally
+        {
+            IdentityOidcMultiInstanceTestSupport.TryDeleteDirectory(dataProtectionAssets.RootPath);
+        }
     }
 
     public static async Task VerifyDualInstanceAuthorizationCodeExchangeAsync(
@@ -195,8 +226,15 @@ internal static class NativeApiOidcE2EAssertions
     {
         var artifact = NativeApiArtifactLocator.RequireArtifact();
         await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString, cancellationToken).ConfigureAwait(false);
+        var dataProtectionAssets = IdentityOidcMultiInstanceTestSupport.CreateDataProtectionAssets();
         using var sharedKey = RSA.Create(3072);
-        var settings = BuildOidcSettings(sharedKey, "native-aot-shared");
+        var settings = BuildOidcSettings(
+            sharedKey,
+            "native-aot-shared",
+            dataProtectionAssets.KeyRingPath,
+            dataProtectionAssets.CertificatePath);
+        try
+        {
         await using var authorizeHost = await NativeApiProcessHost.StartAsync(
             artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         await using var tokenHost = await NativeApiProcessHost.StartAsync(
@@ -220,6 +258,11 @@ internal static class NativeApiOidcE2EAssertions
         await tokenHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         authorizeHost.AssertNoFatalMarkersInLogs();
         tokenHost.AssertNoFatalMarkersInLogs();
+        }
+        finally
+        {
+            IdentityOidcMultiInstanceTestSupport.TryDeleteDirectory(dataProtectionAssets.RootPath);
+        }
     }
 
     public static async Task VerifyDualInstanceContextSwitchAsync(
@@ -229,8 +272,15 @@ internal static class NativeApiOidcE2EAssertions
     {
         var artifact = NativeApiArtifactLocator.RequireArtifact();
         await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString, cancellationToken).ConfigureAwait(false);
+        var dataProtectionAssets = IdentityOidcMultiInstanceTestSupport.CreateDataProtectionAssets();
         using var sharedKey = RSA.Create(3072);
-        var settings = BuildOidcSettings(sharedKey, "native-aot-context-switch");
+        var settings = BuildOidcSettings(
+            sharedKey,
+            "native-aot-context-switch",
+            dataProtectionAssets.KeyRingPath,
+            dataProtectionAssets.CertificatePath);
+        try
+        {
         await using var primaryHost = await NativeApiProcessHost.StartAsync(
             artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         await using var peerHost = await NativeApiProcessHost.StartAsync(
@@ -300,6 +350,11 @@ internal static class NativeApiOidcE2EAssertions
         await peerHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         primaryHost.AssertNoFatalMarkersInLogs();
         peerHost.AssertNoFatalMarkersInLogs();
+        }
+        finally
+        {
+            IdentityOidcMultiInstanceTestSupport.TryDeleteDirectory(dataProtectionAssets.RootPath);
+        }
     }
 
     public static async Task VerifyDualInstanceContextSwitchGovernanceAsync(
@@ -309,8 +364,15 @@ internal static class NativeApiOidcE2EAssertions
     {
         var artifact = NativeApiArtifactLocator.RequireArtifact();
         await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString, cancellationToken).ConfigureAwait(false);
+        var dataProtectionAssets = IdentityOidcMultiInstanceTestSupport.CreateDataProtectionAssets();
         using var sharedKey = RSA.Create(3072);
-        var settings = BuildOidcSettings(sharedKey, "native-aot-context-gov");
+        var settings = BuildOidcSettings(
+            sharedKey,
+            "native-aot-context-gov",
+            dataProtectionAssets.KeyRingPath,
+            dataProtectionAssets.CertificatePath);
+        try
+        {
         await using var primaryHost = await NativeApiProcessHost.StartAsync(
             artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         await using var peerHost = await NativeApiProcessHost.StartAsync(
@@ -418,6 +480,11 @@ internal static class NativeApiOidcE2EAssertions
         await peerHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         primaryHost.AssertNoFatalMarkersInLogs();
         peerHost.AssertNoFatalMarkersInLogs();
+        }
+        finally
+        {
+            IdentityOidcMultiInstanceTestSupport.TryDeleteDirectory(dataProtectionAssets.RootPath);
+        }
     }
 
     private static async Task VerifyOidcOnlineSessionRevokeAsync(
@@ -589,11 +656,16 @@ internal static class NativeApiOidcE2EAssertions
         StringAssert.Contains(refreshResult.RawBody, "invalid_grant");
     }
 
-    private static Dictionary<string, string?> BuildOidcSettings(RSA? sharedSigningKey = null, string? sharedSigningKeyId = null)
+    private static Dictionary<string, string?> BuildOidcSettings(
+        RSA? sharedSigningKey = null,
+        string? sharedSigningKeyId = null,
+        string? dataProtectionKeyRingPath = null,
+        string? dataProtectionCertificatePath = null)
     {
         var settings = new Dictionary<string, string?>(IdentityOidcProtocolAssertions.Settings);
         if (sharedSigningKey is not null && !string.IsNullOrWhiteSpace(sharedSigningKeyId))
         {
+            settings["Identity:AllowDevelopmentEphemeralSigningKey"] = "false";
             settings["Identity:Oidc:AllowDevelopmentEphemeralSigningKey"] = "false";
             settings["Identity:Oidc:EncryptionKeyBase64"] =
                 IdentityOidcMultiInstanceTestSupport.SharedEncryptionKeyBase64;
@@ -601,11 +673,31 @@ internal static class NativeApiOidcE2EAssertions
             settings["Identity:Oidc:SigningKeys:" + sharedSigningKeyId + ":PrivateKeyPem"] = sharedSigningKey.ExportRSAPrivateKeyPem();
             settings["Identity:Oidc:SigningKeys:" + sharedSigningKeyId + ":PublicKeyPem"] = sharedSigningKey.ExportRSAPublicKeyPem();
         }
+
+        ApplyMultiInstanceDataProtection(settings, dataProtectionKeyRingPath, dataProtectionCertificatePath);
         return settings;
     }
 
-    private static IReadOnlyDictionary<string, string?> BuildDualKeySettings(RSA keyA, RSA keyB, string activeKeyId) =>
-        IdentityOidcSigningKeyRotationAssertions.BuildDualKeySettings(keyA, keyB, activeKeyId);
+    private static Dictionary<string, string?> ToNativeSettings(IReadOnlyDictionary<string, string?> settings) =>
+        new Dictionary<string, string?>(settings, StringComparer.Ordinal);
+
+    private static void ApplyMultiInstanceDataProtection(
+        Dictionary<string, string?> settings,
+        string? dataProtectionKeyRingPath,
+        string? dataProtectionCertificatePath)
+    {
+        if (string.IsNullOrWhiteSpace(dataProtectionKeyRingPath)
+            || string.IsNullOrWhiteSpace(dataProtectionCertificatePath))
+        {
+            return;
+        }
+
+        settings["DataProtection:ApplicationName"] = "Full.NET.MultiInstance";
+        settings["DataProtection:KeyRingPath"] = dataProtectionKeyRingPath;
+        settings["DataProtection:CertificatePath"] = dataProtectionCertificatePath;
+        settings["DataProtection:CertificatePassword"] =
+            IdentityOidcMultiInstanceTestSupport.DataProtectionPassword;
+    }
 
     private static async Task<TenantContextSummary> GetAcmeTenantAsync(
         HttpClient client,
