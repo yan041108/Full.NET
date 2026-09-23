@@ -64,7 +64,8 @@ internal static class TenantMembershipAssertions
         var invitee = await factory.CreateHostIdentityAsync(
             inviteeUsername,
             ["tenancy.tenants.switch"],
-            cancellationToken);
+            cancellationToken,
+            password: FullNetApiFactory.TestPassword);
         await factory.EnsureHostUserProfileEmailAsync(
             invitee.UserId,
             inviteEmail,
@@ -75,12 +76,6 @@ internal static class TenantMembershipAssertions
             inviteeUsername,
             FullNetApiFactory.TestPassword,
             cancellationToken);
-        var inviteeTenantToken = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(
-            hostClient,
-            inviteeHostToken,
-            acmeTenant.Id,
-            cancellationToken);
-
         using var listRequest = new HttpRequestMessage(
             HttpMethod.Get,
             "/api/v1/me/tenant-invitations");

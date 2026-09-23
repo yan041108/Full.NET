@@ -96,10 +96,13 @@ internal sealed class AcceptTenantInvitationService(
         }
 
         var operationId = invitation.Id.ToString("D");
-        var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantMemberRecord>(
-                TenantMembershipSql.FindMemberByTenantAndUser,
-                IdentitySqlParameters.Create(("UserId", userId)),
-                cancellationToken)
+        var existing = await IdentityTenantInvitationScope.RunAsync(
+                currentTenant,
+                tenant,
+                () => queryExecutor.QuerySingleOrDefaultAsync<TenantMemberRecord>(
+                    TenantMembershipSql.FindMemberByTenantAndUser,
+                    IdentitySqlParameters.Create(("UserId", userId)),
+                    cancellationToken))
             .ConfigureAwait(false);
         if (existing is { Status: TenantMemberStatuses.Active })
         {

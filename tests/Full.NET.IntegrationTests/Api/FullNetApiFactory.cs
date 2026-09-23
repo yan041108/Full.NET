@@ -306,7 +306,8 @@ internal sealed class FullNetApiFactory(
     public async Task<HostTestIdentity> CreateHostIdentityAsync(
         string username,
         IReadOnlyCollection<string> permissions,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? password = null)
     {
         var now = DateTimeOffset.UtcNow;
         var userId = Guid.NewGuid();
@@ -327,6 +328,14 @@ internal sealed class FullNetApiFactory(
             now,
             null,
             1);
+        if (password is not null)
+        {
+            user = user with
+            {
+                PasswordHash = new Microsoft.AspNetCore.Identity.PasswordHasher<IdentityUser>()
+                    .HashPassword(user, password),
+            };
+        }
         await using var scope = Services.CreateAsyncScope();
         var currentTenant = scope.ServiceProvider
             .GetRequiredService<CurrentTenantAccessor>();
@@ -425,17 +434,14 @@ internal sealed class FullNetApiFactory(
         currentTenant.SetHost();
         try
         {
-            var now = DateTimeOffset.UtcNow;
             await scope.ServiceProvider.GetRequiredService<ICommandExecutor>().ExecuteAsync(
                 new SqlStatement(
                     "integration.identity.insert_user_profile_email",
                     """
                     INSERT INTO fn_identity_user_profile
-                        (UserId, Nickname, PhoneNumber, Email, EmployeeNumber, Gender,
-                         Birthday, IdCardType, IdCardNumber, Address, Remark, Version, CreatedAtUtc, UpdatedAtUtc)
+                        (UserId, Nickname, Email)
                     VALUES
-                        (@UserId, @Nickname, NULL, @Email, NULL, NULL,
-                         NULL, NULL, NULL, NULL, NULL, 1, @CreatedAtUtc, NULL)
+                        (@UserId, @Nickname, @Email)
                     """,
                     SqlDataScope.HostOnly),
                 new Dictionary<string, object?>
@@ -443,7 +449,6 @@ internal sealed class FullNetApiFactory(
                     ["UserId"] = userId,
                     ["Nickname"] = displayName,
                     ["Email"] = email.Trim().ToLowerInvariant(),
-                    ["CreatedAtUtc"] = now,
                 },
                 cancellationToken);
         }
