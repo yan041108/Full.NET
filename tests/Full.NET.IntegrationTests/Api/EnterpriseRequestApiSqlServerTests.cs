@@ -6,6 +6,12 @@ namespace Full.NET.IntegrationTests.Api;
 [TestClass]
 public sealed class EnterpriseRequestApiSqlServerTests
 {
+    private static readonly IReadOnlyDictionary<string, string?> ImportExportSyncSettings =
+        new Dictionary<string, string?>
+        {
+            ["FullNet:ImportExport:RunSynchronously"] = "true",
+        };
+
     [TestMethod]
     public async Task Tenant_enterprise_request_crud_contract()
     {
@@ -31,7 +37,8 @@ public sealed class EnterpriseRequestApiSqlServerTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            ImportExportSyncSettings);
 
         await EnterpriseRequestAssertions.VerifyTenantDemoEnterpriseRequestsCsvImportAsync(factory);
     }

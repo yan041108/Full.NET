@@ -126,10 +126,19 @@ export async function bootstrapStack() {
   }
 
   const stackProfile = resolveStackProfile();
+  const isProductionTotp = stackProfile === 'production-totp';
   const databaseProvider = resolveDatabaseProvider();
   const { container, connectionString } = await startDatabaseContainer(databaseProvider);
-  const { container: redisContainer, connectionString: redisConnectionString } =
+  const { container: redisContainer, connectionString: cacheRedisConnectionString } =
     await startRedisContainer();
+  let realtimeRedisContainer = redisContainer;
+  let realtimeRedisConnectionString = cacheRedisConnectionString;
+  // Production 门禁禁止 Cache 与 Realtime Backplane 共用同一 Redis；development 栈仍允许共用。
+  if (isProductionTotp) {
+    const realtimeRedis = await startRedisContainer();
+    realtimeRedisContainer = realtimeRedis.container;
+    realtimeRedisConnectionString = realtimeRedis.connectionString;
+  }
   const codeGenerationWorkspaceRoot = mkdtempSync(path.join(
     tmpdir(),
     'fullnet-codegeneration-e2e-'
@@ -143,15 +152,14 @@ export async function bootstrapStack() {
     'fullnet-observability-real-stack-start\nfullnet-observability-real-stack-marker\n'
   );
 
-  const isProductionTotp = stackProfile === 'production-totp';
   const sharedEnv = {
     ...withoutTestScenarioHostConfiguration(process.env),
     Database__Provider: databaseProvider,
     Database__ConnectionString: connectionString,
     Database__MySqlGuidStorageMode: 'Binary16',
-    Cache__RedisConnectionString: redisConnectionString,
-    Realtime__RedisBackplaneConnectionString: redisConnectionString,
-    Realtime__AllowSharedRedisInDevelopment: 'true',
+    Cache__RedisConnectionString: cacheRedisConnectionString,
+    Realtime__RedisBackplaneConnectionString: realtimeRedisConnectionString,
+    Realtime__AllowSharedRedisInDevelopment: isProductionTotp ? 'false' : 'true',
     UuidBinaryContract__MaintenanceMode: 'true',
     UuidBinaryContract__BackupVerified: 'true',
     UuidBinaryContract__LegacyWritersStopped: 'true',
@@ -285,9 +293,11 @@ export async function bootstrapStack() {
     workerLogStream,
     container,
     redisContainer,
+    realtimeRedisContainer,
     databaseProvider,
     stackProfile,
-    redisConnectionString,
+    cacheRedisConnectionString,
+    realtimeRedisConnectionString,
     codeGenerationWorkspaceRoot,
     observabilityLogRoot
   };
@@ -299,9 +309,11 @@ export async function bootstrapStack() {
     workerLogPath,
     containerId: container.getId(),
     redisContainerId: redisContainer.getId(),
+    realtimeRedisContainerId: realtimeRedisContainer.getId(),
     databaseProvider,
     stackProfile,
-    redisConnectionString,
+    cacheRedisConnectionString,
+    realtimeRedisConnectionString,
     codeGenerationWorkspaceRoot,
     observabilityLogRoot
   }, null, 2));
@@ -333,6 +345,12 @@ export async function teardownStack() {
   await activeStack.container.stop();
   if (activeStack.redisContainer) {
     await activeStack.redisContainer.stop();
+  }
+  if (
+    activeStack.realtimeRedisContainer
+    && activeStack.realtimeRedisContainer !== activeStack.redisContainer
+  ) {
+    await activeStack.realtimeRedisContainer.stop();
   }
   if (activeStack.codeGenerationWorkspaceRoot) {
     rmSync(activeStack.codeGenerationWorkspaceRoot, {
