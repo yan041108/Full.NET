@@ -79,10 +79,10 @@ describe('workflow todo 管理 API', () => {
       statusKey: 'active',
       revision: 4,
       activeTodoId: '01912345-6789-7abc-8def-0123456789a3',
-      activeTodoDueAtUtc: null,
-      activeTodoTimeoutStatusKey: null,
-      activeTodoReminderCount: 0,
-      activeTodoEscalatedAtUtc: null,
+      businessTitle: null,
+      dueAtUtc: null,
+      reminderCount: 0,
+      escalatedAtUtc: null,
       startedAtUtc: '2026-08-30T00:00:00Z'
     });
     const targetStepId = '01912345-6789-7abc-8def-0123456789a1';

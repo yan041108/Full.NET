@@ -37,6 +37,7 @@ describe('oidc-center session logout', () => {
       .mockResolvedValueOnce(jsonResponse(navigation()))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ access_token: 'fresh-logout-token', token_type: 'Bearer', expires_in: 300 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);
     sessionStorage.setItem('fullnet.admin.oidc.refresh', JSON.stringify({
@@ -56,7 +57,8 @@ describe('oidc-center session logout', () => {
       '/api/v1/navigation',
       '/api/v1/tenancy/available',
       'http://localhost:5149/connect/token',
-      'http://localhost:5149/api/v1/identity/oidc/logout'
+      'http://localhost:5149/api/v1/identity/oidc/logout',
+      'http://localhost:5149/api/v1/identity/oidc/logout/application'
     ]);
     const [, centerLogoutInit] = fetchMock.mock.calls[4] as [string, RequestInit];
     expect(centerLogoutInit.headers).toEqual(expect.objectContaining({
@@ -64,6 +66,12 @@ describe('oidc-center session logout', () => {
     }));
     expect(centerLogoutInit.credentials).toBe('include');
     expect(centerLogoutInit.method).toBe('POST');
+    const [, applicationLogoutInit] = fetchMock.mock.calls[5] as [string, RequestInit];
+    expect(applicationLogoutInit.headers).toEqual(expect.objectContaining({
+      authorization: 'Bearer oidc-access-token'
+    }));
+    expect(applicationLogoutInit.credentials).toBe('include');
+    expect(applicationLogoutInit.method).toBe('POST');
   });
 });
 

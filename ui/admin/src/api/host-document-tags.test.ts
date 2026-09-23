@@ -18,6 +18,8 @@ const tag = {
   color: null,
   description: null,
   useCount: 0,
+  isHot: false,
+  isRecommended: false,
   createdAtUtc: '2026-08-02T00:00:00Z',
   updatedAtUtc: null,
   version: 1
@@ -52,7 +54,9 @@ describe('document-tags api', () => {
           code: null,
           icon: null,
           color: null,
-          description: null
+          description: null,
+          isHot: false,
+          isRecommended: false
         })
       }),
       undefined

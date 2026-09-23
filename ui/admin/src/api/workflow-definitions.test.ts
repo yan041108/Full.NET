@@ -19,6 +19,7 @@ const response = {
   statusKey: 'active',
   draft: { schemaVersion: 1, nodes: [] },
   draftRevision: 1,
+  businessTitleTemplate: null,
   latestPublishedVersionId: null,
   version: 1,
   createdAtUtc: '2026-08-30T00:00:00Z',
@@ -71,7 +72,8 @@ describe('workflow definition 管理 API', () => {
       canonicalJson: '{}',
       contentHash: 'a'.repeat(64),
       publishedById: '0198f955-899d-7000-8000-000000000004',
-      publishedAtUtc: '2026-08-30T00:00:00Z'
+      publishedAtUtc: '2026-08-30T00:00:00Z',
+      businessTitleTemplate: null
     });
 
     await publishWorkflowDefinition(response.id, 1, '0198f955-899d-7000-8000-000000000003');

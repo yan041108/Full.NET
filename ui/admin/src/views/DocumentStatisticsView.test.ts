@@ -101,7 +101,7 @@ describe('Vue 文档统计页', () => {
     await tabs[1].trigger('click');
     await flushPromises();
 
-    expect(accessLogsMock).toHaveBeenCalledWith(1, 20);
+    expect(accessLogsMock).toHaveBeenCalledWith(1, 20, {});
     expect(wrapper.find('[data-testid="document-access-logs-table"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('Demo');
   });
