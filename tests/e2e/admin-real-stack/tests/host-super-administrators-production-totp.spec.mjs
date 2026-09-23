@@ -57,10 +57,17 @@ test('Production 栈登记 TOTP 后远程授予必须携带验证码', async ({ 
     password: targetPassword
   });
 
+  // 创建用户的共用准备函数会再次登录；单会话策略使此前的管理员令牌失效。
+  const grantToken = await loginHostAdminAccessToken(request, clientKind);
+  const grantHeaders = {
+    ...authHeaders,
+    Authorization: `Bearer ${grantToken}`
+  };
+
   const missingTotpResponse = await request.post(
     `${apiBaseUrl}/api/v1/identity/super-administrators/grant`,
     {
-      headers: authHeaders,
+      headers: grantHeaders,
       data: { username: targetUsername, currentPassword: adminPassword }
     }
   );
@@ -69,7 +76,7 @@ test('Production 栈登记 TOTP 后远程授予必须携带验证码', async ({ 
   expect(missingTotpBody.code).toBe('identity.mfa.totp_required');
 
   const grantResponse = await request.post(`${apiBaseUrl}/api/v1/identity/super-administrators/grant`, {
-    headers: authHeaders,
+    headers: grantHeaders,
     data: {
       username: targetUsername,
       currentPassword: adminPassword,

@@ -269,6 +269,7 @@ export async function bootstrapStack() {
     Identity__LoginRateLimitPermitLimitPerMinute: '240',
     Identity__SessionMutationRateLimitPermitLimitPerMinute: '240',
     Tenancy__HostDomains__0: 'localhost',
+    Tenancy__HostDomains__1: '127.0.0.1',
     Realtime__Enabled: 'true',
     Realtime__HubPath: '/hubs/notifications',
     OutboxWorker__PollMilliseconds: '100',
@@ -285,7 +286,17 @@ export async function bootstrapStack() {
           Identity__AllowDevelopmentEphemeralSigningKey: 'false',
           Identity__EnableTotpStrongReauthentication: 'true',
           Identity__EnableRemoteSuperAdministratorManagement: 'true',
-          Files__Local__RootPath: path.join(repoRoot, '.tmp/e2e-real-stack-files')
+          Files__Local__RootPath: path.join(repoRoot, '.tmp/e2e-real-stack-files'),
+          // 此套件只验证 TOTP；提供测试专用对象存储配置以通过 Production 启动校验。
+          Files__Storage__DefaultProviderKey: 's3',
+          Files__S3__BucketName: 'fullnet-e2e-only',
+          Files__S3__Region: 'us-east-1',
+          Files__S3__AccessKeyId: 'fullnet-e2e-only',
+          Files__S3__SecretAccessKey: 'fullnet-e2e-only',
+          Files__Oss__BucketName: 'fullnet-e2e-only',
+          Files__Oss__Endpoint: 'oss-cn-hangzhou.aliyuncs.com',
+          Files__Oss__AccessKeyId: 'fullnet-e2e-only',
+          Files__Oss__AccessKeySecret: 'fullnet-e2e-only'
         }
       : {
           ...createOidcStackEnv(apiUrl),
