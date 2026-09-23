@@ -57,18 +57,7 @@ public sealed class DataApprovalModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 DataApprovalJsonSerializerContext.Default));
-        services.AddOptions<DataApprovalRequestRecoveryWorkerOptions>()
-            .Bind(configuration.GetSection(DataApprovalRequestRecoveryWorkerOptions.SectionName))
-            .ValidateOnStart();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IValidateOptions<DataApprovalRequestRecoveryWorkerOptions>,
-            DataApprovalRequestRecoveryWorkerOptionsValidator>());
-        services.AddOptions<DataApprovalRequestApplicationRecoveryWorkerOptions>()
-            .Bind(configuration.GetSection(DataApprovalRequestApplicationRecoveryWorkerOptions.SectionName))
-            .ValidateOnStart();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IValidateOptions<DataApprovalRequestApplicationRecoveryWorkerOptions>,
-            DataApprovalRequestApplicationRecoveryWorkerOptionsValidator>());
+        AddRecoveryWorkerOptions(services, configuration);
 #if FULLNET_AOT_COMPILE
         new Persistence.DataApprovalDapperAotMaterializerContributor()
             .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
@@ -80,6 +69,7 @@ public sealed class DataApprovalModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        AddRecoveryWorkerOptions(services, configuration);
 #if FULLNET_AOT_COMPILE
         new Persistence.DataApprovalDapperAotMaterializerContributor()
             .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
@@ -100,6 +90,22 @@ public sealed class DataApprovalModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IWorkflowInstanceCancelledSink,
             WorkflowInstanceCancelledDataApprovalSink>());
+    }
+
+    private static void AddRecoveryWorkerOptions(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<DataApprovalRequestRecoveryWorkerOptions>()
+            .Bind(configuration.GetSection(DataApprovalRequestRecoveryWorkerOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<DataApprovalRequestRecoveryWorkerOptions>,
+            DataApprovalRequestRecoveryWorkerOptionsValidator>());
+        services.AddOptions<DataApprovalRequestApplicationRecoveryWorkerOptions>()
+            .Bind(configuration.GetSection(DataApprovalRequestApplicationRecoveryWorkerOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<DataApprovalRequestApplicationRecoveryWorkerOptions>,
+            DataApprovalRequestApplicationRecoveryWorkerOptionsValidator>());
     }
 
     /// <inheritdoc />
