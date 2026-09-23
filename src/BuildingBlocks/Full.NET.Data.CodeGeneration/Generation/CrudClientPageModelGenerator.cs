@@ -50,11 +50,13 @@ internal static class CrudClientPageModelGenerator
             import { computed, readonly, ref } from 'vue';
             import {
               create{{apiFactoryName}}Api,
-              {{entityVariable}}Permissions,
-              type Create{{schema.ClrTypeName}}Request,
-              type GeneratedRequest,
-              type {{schema.ClrTypeName}}Response,
-              type Update{{schema.ClrTypeName}}Request
+              {{entityVariable}}Permissions
+            } from './{{schema.ApiResourceName}}.generated';
+            import type {
+              Create{{schema.ClrTypeName}}Request,
+              GeneratedRequest,
+              {{schema.ClrTypeName}}Response,
+              Update{{schema.ClrTypeName}}Request
             } from './{{schema.ApiResourceName}}.generated';
 
             export type {{schema.ClrTypeName}}PageUpdate = {{updateType}};
@@ -404,10 +406,12 @@ internal static class CrudClientPageModelGenerator
             import { computed, readonly, ref } from 'vue';
             import {
               create{{apiFactoryName}}Api,
-              {{entityVariable}}Permissions,
-              type Create{{schema.ClrTypeName}}Request,
-              type GeneratedRequest,
-              type {{schema.ClrTypeName}}Response{{updateImport}}
+              {{entityVariable}}Permissions
+            } from './{{schema.ApiResourceName}}.generated';
+            import type {
+              Create{{schema.ClrTypeName}}Request,
+              GeneratedRequest,
+              {{schema.ClrTypeName}}Response{{updateImport}}
             } from './{{schema.ApiResourceName}}.generated';{{updateAlias}}
 
             export type {{schema.ClrTypeName}}PageProblemCode =

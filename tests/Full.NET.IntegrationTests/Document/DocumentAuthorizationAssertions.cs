@@ -21,6 +21,7 @@ internal static class DocumentAuthorizationAssertions
             $"document-reader-{Guid.NewGuid():N}",
             [
                 "identity.navigation.read",
+                "platform.dashboard.read",
                 HostDocumentPermissions.Read,
                 HostDocumentCategoryPermissions.Read,
                 HostDocumentTagPermissions.Read,
@@ -38,6 +39,7 @@ internal static class DocumentAuthorizationAssertions
             $"document-manager-{Guid.NewGuid():N}",
             [
                 "identity.navigation.read",
+                "platform.dashboard.read",
                 HostDocumentPermissions.Read,
                 HostDocumentPermissions.Create,
                 HostDocumentPermissions.Update,

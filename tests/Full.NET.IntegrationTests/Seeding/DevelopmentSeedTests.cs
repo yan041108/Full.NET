@@ -42,6 +42,7 @@ public sealed class DevelopmentSeedTests
     private static readonly string[] DevelopmentContributors =
     [
         "identity.host_administrator",
+        "identity.bootstrap_admin_tenant_membership",
         "identity.host_navigation_catalog",
         "regions.administrative_baseline",
         "settings.host_user_profile_dictionaries",
@@ -244,6 +245,7 @@ public sealed class DevelopmentSeedTests
             testOptions,
             [
                 "identity.host_administrator",
+                "identity.bootstrap_admin_tenant_membership",
                 "identity.host_navigation_catalog",
                 "regions.administrative_baseline",
                 "settings.host_user_profile_dictionaries",
@@ -251,6 +253,7 @@ public sealed class DevelopmentSeedTests
             ],
             [
                 "identity.host_administrator",
+                "identity.bootstrap_admin_tenant_membership",
                 "identity.host_navigation_catalog",
                 "regions.administrative_baseline",
                 "settings.host_user_profile_dictionaries",

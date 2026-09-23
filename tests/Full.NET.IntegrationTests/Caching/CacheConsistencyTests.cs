@@ -171,7 +171,7 @@ public sealed class CacheConsistencyTests
         var updated = await UpdateTenantAsync(
             primaryFactory,
             provisioned.Id,
-            provisioned.Version,
+            localTenant.Version,
             $"{identifier}-updated");
         Assert.AreEqual(
             cacheOutboxBeforeUpdate,

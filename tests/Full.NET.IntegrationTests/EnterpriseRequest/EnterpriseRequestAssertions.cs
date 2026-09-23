@@ -186,7 +186,39 @@ internal static class EnterpriseRequestAssertions
         using var response = await client.SendAsync(request, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Created, response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken));
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        var unitId = json.RootElement.GetProperty("id").GetGuid();
+        var actorUserId = await GetCurrentUserIdAsync(client, token, cancellationToken);
+        await AssignUserToOrganizationUnitAsync(client, token, actorUserId, unitId, cancellationToken);
+        return unitId;
+    }
+
+    private static async Task<Guid> GetCurrentUserIdAsync(
+        HttpClient client,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
         return json.RootElement.GetProperty("id").GetGuid();
+    }
+
+    private static async Task AssignUserToOrganizationUnitAsync(
+        HttpClient client,
+        string token,
+        Guid userId,
+        Guid unitId,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/organization/user-units")
+        {
+            Content = JsonContent.Create(new CreateOrganizationUserUnitRequest(userId, unitId, false)),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken));
     }
 
     private static async Task<string> LoginAndEnterAcmeTenantAsync(
