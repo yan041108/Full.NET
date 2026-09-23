@@ -133,7 +133,8 @@ public sealed class WebhookDeliveryTests
                     0,
                     1,
                     tenantId,
-                    "https://example.com/hooks/callback",
+                    // 使用公网字面量 IP，避免 CI 上 example.com DNS 偶发失败导致 SSRF 校验未发起 HTTP。
+                    "https://93.184.216.34/hooks/callback",
                     protectedSecret,
                     "fullnet.workflow.instance.completed"),
             ]));
