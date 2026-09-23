@@ -469,6 +469,16 @@ async function mockAuthenticatedSession(page, options = {}) {
       businessEntries: []
     })
   }));
+  await page.route('**/api/v1/identity/session-policy', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ loginPolicy: 0 })
+  }));
+  await page.route('**/api/v1/me/tenant-invitations', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([])
+  }));
   await page.route('**/api/v1/tenancy/tenants**', route => route.fulfill({
     status: 200,
     contentType: 'application/json',

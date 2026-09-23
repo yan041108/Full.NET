@@ -183,7 +183,7 @@
 
 .art-login-form__subtitle {
   margin: 10px 0 24px;
-  color: var(--art-gray-700);
+  color: var(--art-gray-800);
   font-size: 14px;
 }
 
@@ -194,7 +194,7 @@
 }
 
 .art-login-form__field label {
-  color: var(--art-gray-700);
+  color: var(--art-gray-800);
   font-size: 13px;
   font-weight: 500;
 }
@@ -208,10 +208,41 @@
   margin-top: 8px;
 }
 
+.art-login-form__submit.el-button--primary {
+  --el-button-bg-color: var(--el-color-primary-dark-2);
+  --el-button-border-color: var(--el-color-primary-dark-2);
+  --el-button-hover-bg-color: #062e63;
+  --el-button-hover-border-color: #062e63;
+  --el-button-active-bg-color: #052854;
+  --el-button-active-border-color: #052854;
+}
+
+.art-login-form__links {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.art-login-form__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 0;
+  color: var(--el-color-primary-dark-2);
+  font-size: 13px;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.art-login-form__links a:hover {
+  text-decoration: underline;
+}
+
 .art-login-form__footnote {
   display: block;
   margin-top: 14px;
-  color: var(--art-gray-700);
+  color: var(--art-gray-800);
   font-size: 12px;
   text-align: center;
 }

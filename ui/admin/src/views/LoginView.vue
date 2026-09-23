@@ -125,7 +125,7 @@ onMounted(() => {
             <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
           </div>
           <el-button
-            class="art-login-form__submit art-contrast-primary"
+            class="art-login-form__submit"
             type="primary"
             data-testid="login-oidc-center"
             :loading="oidcSubmitting"
@@ -179,7 +179,7 @@ onMounted(() => {
           </div>
 
           <el-button
-            class="art-login-form__submit art-contrast-primary"
+            class="art-login-form__submit"
             type="primary"
             native-type="submit"
             :loading="submitting"

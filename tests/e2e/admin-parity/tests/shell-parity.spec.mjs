@@ -451,12 +451,14 @@ test('租户列表、开通与禁用在两端保持一致', async ({ page }, tes
   }]);
   await expect(page.getByText('对等租户', { exact: true }).first()).toBeVisible();
 
-  await page.getByRole('button', { name: '禁用' }).first().click();
   if (clientKind === 'vue') {
+    await tenantsView.getByTestId('art-table-action-more').click();
+    await page.getByTestId('tenants-action-disable').evaluate(button => button.click());
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
       .evaluate(button => button.click());
   } else {
+    await page.getByRole('button', { name: '禁用' }).first().click();
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
@@ -2100,7 +2102,8 @@ test('消息中心列表与发信在两端保持一致', async ({ page }, testIn
 
   const inboxView = routeView(page, clientKind, 'inbox-messages', '.inbox-messages-view');
   if (clientKind === 'vue') {
-    await inboxView.getByTestId('inbox-messages-recipient').click();
+    await inboxView.getByTestId('inbox-messages-nav-compose').click();
+    await inboxView.locator('[data-testid="inbox-messages-recipient"] .el-select__wrapper').click();
     await page.getByRole('option', { name: /对等收件人/ }).click();
   } else {
     await inboxView.locator('input').nth(0).fill(recipientUserId);
@@ -3510,7 +3513,7 @@ test('进入租户、刷新恢复并返回 Host 的闭环等价', async ({ page 
   await page.goto('/');
   await openNavigationLink(page, /租户上下文/);
 
-  await page.getByRole('button', { name: '进入租户' }).click();
+  await clickEnterTenant(page);
   await expect.poll(() => state.tenantId).toBe(tenantId);
   await page.getByRole('button', { name: '系统管理员' }).click();
   await expect(page.getByTestId('shell-tenant-select')).toContainText('Acme Corporation');
@@ -3521,7 +3524,7 @@ test('进入租户、刷新恢复并返回 Host 的闭环等价', async ({ page 
   await expect(page.getByTestId('shell-tenant-select')).toContainText('Acme Corporation');
   await page.keyboard.press('Escape');
   await openNavigationLink(page, /租户上下文/);
-  await page.getByRole('button', { name: '返回 Host' }).click();
+  await page.getByTestId('return-host').evaluate(button => button.click());
 
   await expect.poll(() => state.tenantId).toBeNull();
   await expect(page.getByText('Full.NET Host', { exact: true }).first())
@@ -3719,7 +3722,12 @@ async function mockAuthenticatedSession(page, options = {}) {
   await page.route('**/api/v1/identity/session-policy', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify({ loginPolicy: 'AllowMultiple' })
+    body: JSON.stringify({ loginPolicy: 0 })
+  }));
+  await page.route('**/api/v1/me/tenant-invitations', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([])
   }));
   await page.route('**/api/v1/platform/host-dashboard-summary', route => route.fulfill({
     status: 200,
@@ -4131,6 +4139,11 @@ function routeView(page, clientKind, layuiViewKey, vueSelector) {
   return clientKind === 'layui'
     ? page.locator(`[data-route-view="${layuiViewKey}"]`)
     : page.locator(vueSelector);
+}
+
+/** Element Plus 固定列会挡住 Playwright 常规 click，租户上下文表内操作统一走 DOM click。 */
+async function clickEnterTenant(page, id = tenantId) {
+  await page.locator(`button[data-tenant-id="${id}"]`).evaluate(button => button.click());
 }
 
 async function revealNavigationLink(page, name) {
