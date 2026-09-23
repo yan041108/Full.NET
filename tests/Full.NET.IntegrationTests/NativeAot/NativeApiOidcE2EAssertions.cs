@@ -595,6 +595,8 @@ internal static class NativeApiOidcE2EAssertions
         if (sharedSigningKey is not null && !string.IsNullOrWhiteSpace(sharedSigningKeyId))
         {
             settings["Identity:Oidc:AllowDevelopmentEphemeralSigningKey"] = "false";
+            settings["Identity:Oidc:EncryptionKeyBase64"] =
+                IdentityOidcMultiInstanceTestSupport.SharedEncryptionKeyBase64;
             settings["Identity:Oidc:ActiveSigningKeyId"] = sharedSigningKeyId;
             settings["Identity:Oidc:SigningKeys:" + sharedSigningKeyId + ":PrivateKeyPem"] = sharedSigningKey.ExportRSAPrivateKeyPem();
             settings["Identity:Oidc:SigningKeys:" + sharedSigningKeyId + ":PublicKeyPem"] = sharedSigningKey.ExportRSAPublicKeyPem();

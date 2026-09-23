@@ -49,7 +49,7 @@ internal sealed class TenantEntitlementQueryService(IQueryExecutor queryExecutor
         }
 
         return Result<TenantEntitlementEnforcementResponse>.Success(
-            new TenantEntitlementEnforcementResponse(row.Phase, row.Version));
+            new TenantEntitlementEnforcementResponse(row.EntitlementEnforcementPhase, row.Version));
     }
 
     private static TenantEntitlementCatalogResponse MapCatalog(TenantEntitlementCatalogRecord row) =>

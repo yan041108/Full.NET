@@ -83,7 +83,7 @@
       "@intlify/message-resolver@9.1.10": "9.1.11",
       "@jimp/jpeg>jpeg-js": "0.4.4",
       "@dcloudio/uni-mp-weixin>ws": "8.21.0",
-      "@dcloudio/uni-cli-shared>adm-zip": "0.6.0",
+      "@dcloudio/uni-cli-shared>adm-zip": "0.6.1",
       "@dcloudio/uni-nvue-styler>postcss": "8.5.19",
       "browserslist": "4.28.8",
       "nanoid": "3.3.18",

@@ -13,20 +13,19 @@ internal static class IdentityOidcContextSwitchMultiInstanceAssertions
     public static async Task VerifyAsync(
         DatabaseProvider provider,
         string connectionString,
-        CancellationToken cancellationToken = default)
-    {
-        using var primaryFactory = new FullNetApiFactory(
+        CancellationToken cancellationToken = default) =>
+        await IdentityOidcMultiInstanceTestSupport.UsingConfiguredPairAsync(
             provider,
             connectionString,
-            IdentityOidcProtocolAssertions.Settings);
-        using var secondaryFactory = primaryFactory.CreateIsolatedFactory();
-        await primaryFactory.InitializeAsync(cancellationToken);
-        await secondaryFactory.InitializeAsync(cancellationToken);
-        await VerifyPeerInstanceHonorsContextSwitchAsync(
-            primaryFactory,
-            secondaryFactory,
+            "context-switch-peer-key",
+            async (primaryFactory, secondaryFactory, token) =>
+            {
+                await VerifyPeerInstanceHonorsContextSwitchAsync(
+                    primaryFactory,
+                    secondaryFactory,
+                    token);
+            },
             cancellationToken);
-    }
 
     private static async Task VerifyPeerInstanceHonorsContextSwitchAsync(
         FullNetApiFactory primaryFactory,

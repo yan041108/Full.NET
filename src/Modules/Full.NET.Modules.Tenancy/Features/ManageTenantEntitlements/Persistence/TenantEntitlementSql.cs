@@ -115,4 +115,4 @@ internal sealed record TenantEntitlementBindingRecord(
     Guid? SourcePackageId,
     int Version);
 
-internal sealed record TenantEntitlementEnforcementRecord(string Phase, int Version);
+internal sealed record TenantEntitlementEnforcementRecord(string EntitlementEnforcementPhase, int Version);

@@ -36,7 +36,7 @@ internal sealed class TenancySaasDefaultsBootstrapHostedService(
             .ConfigureAwait(false);
         if (row is null
             || !string.Equals(
-                row.Phase,
+                row.EntitlementEnforcementPhase,
                 TenantEntitlementEnforcementPhases.Compatibility,
                 StringComparison.Ordinal))
         {

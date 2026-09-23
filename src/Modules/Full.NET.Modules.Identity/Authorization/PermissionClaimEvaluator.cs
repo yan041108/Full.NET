@@ -31,6 +31,13 @@ internal sealed class PermissionClaimEvaluator(AuthorizationCatalog catalog)
             return false;
         }
 
+        // Host 专属权限必须在 Host 请求上下文中授权；租户内超级管理员需先切回 Host，避免 HostOnly SQL 抛 500。
+        if (definition.Scope == AuthorizationScope.Host
+            && effectiveScope != AuthorizationScope.Host)
+        {
+            return false;
+        }
+
         return IsSuperAdministrator(principal)
             || principal.FindAll(IdentityClaimTypes.Permission).Any(claim =>
                 string.Equals(claim.Value, permissionCode, StringComparison.Ordinal));

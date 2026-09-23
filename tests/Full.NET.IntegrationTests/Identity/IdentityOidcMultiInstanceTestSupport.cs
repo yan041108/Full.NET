@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using Full.NET.Data.Abstractions;
+using Full.NET.IntegrationTests.Api;
 
 namespace Full.NET.IntegrationTests.Identity;
 
@@ -21,6 +23,37 @@ internal static class IdentityOidcMultiInstanceTestSupport
         Directory.CreateDirectory(keyRing);
         CreateSelfSignedPfx(certificate, DataProtectionPassword, "CN=Full.NET.DP.Active");
         return (root, keyRing, certificate);
+    }
+
+    /// <summary>
+    /// 使用共享 OIDC 签名密钥、加密密钥与 DataProtection 密钥环启动两个隔离 Host 工厂。
+    /// </summary>
+    internal static async Task UsingConfiguredPairAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        string signingKeyId,
+        Func<FullNetApiFactory, FullNetApiFactory, CancellationToken, Task> scenario,
+        CancellationToken cancellationToken = default)
+    {
+        var dataProtectionAssets = CreateDataProtectionAssets();
+        using var signingKey = RSA.Create(3072);
+        var settings = BuildFactorySettings(
+            signingKey,
+            signingKeyId,
+            dataProtectionAssets.KeyRingPath,
+            dataProtectionAssets.CertificatePath);
+        try
+        {
+            using var primaryFactory = new FullNetApiFactory(provider, connectionString, settings);
+            using var secondaryFactory = primaryFactory.CreateIsolatedFactory();
+            await primaryFactory.InitializeAsync(cancellationToken);
+            await secondaryFactory.InitializeAsync(cancellationToken);
+            await scenario(primaryFactory, secondaryFactory, cancellationToken);
+        }
+        finally
+        {
+            TryDeleteDirectory(dataProtectionAssets.RootPath);
+        }
     }
 
     internal static void TryDeleteDirectory(string rootPath)

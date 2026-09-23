@@ -14,23 +14,21 @@ internal static class IdentityOidcMultiInstanceGovernanceAssertions
     public static async Task VerifyAsync(
         DatabaseProvider provider,
         string connectionString,
-        CancellationToken cancellationToken = default)
-    {
-        using var primaryFactory = new FullNetApiFactory(
+        CancellationToken cancellationToken = default) =>
+        await IdentityOidcMultiInstanceTestSupport.UsingConfiguredPairAsync(
             provider,
             connectionString,
-            IdentityOidcProtocolAssertions.Settings);
-        using var secondaryFactory = primaryFactory.CreateIsolatedFactory();
-        await primaryFactory.InitializeAsync(cancellationToken);
-        await secondaryFactory.InitializeAsync(cancellationToken);
-
-        using var primaryClient = primaryFactory.CreateClientForHost("localhost");
-        using var secondaryClient = secondaryFactory.CreateClientForHost("localhost");
-        await VerifyDisabledClientRejectedOnSecondaryInstanceAsync(
-            primaryClient,
-            secondaryClient,
+            "governance-peer-key",
+            async (primaryFactory, secondaryFactory, token) =>
+            {
+                using var primaryClient = primaryFactory.CreateClientForHost("localhost");
+                using var secondaryClient = secondaryFactory.CreateClientForHost("localhost");
+                await VerifyDisabledClientRejectedOnSecondaryInstanceAsync(
+                    primaryClient,
+                    secondaryClient,
+                    token);
+            },
             cancellationToken);
-    }
 
     private static async Task VerifyDisabledClientRejectedOnSecondaryInstanceAsync(
         HttpClient primaryClient,
