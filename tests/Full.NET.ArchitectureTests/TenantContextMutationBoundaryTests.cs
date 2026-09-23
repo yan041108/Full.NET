@@ -70,6 +70,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Tenancy/Features/TenantBranding/TenantBrandingMediaService.cs",
         "src/Modules/Full.NET.Modules.Tenancy/TenancyModule.cs",
         "src/Modules/Full.NET.Modules.Tenancy/TenantResolutionMiddleware.cs",
+        // Webhook 后台批处理在独立作用域中固定 Host 上下文，结束后清除，避免沿用请求租户。
+        "src/Modules/Full.NET.Modules.Webhooks/Delivery/WebhookDeliveryHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Workflow/Execution/WorkflowTodoTimeoutProcessor.cs",
     ];
 
