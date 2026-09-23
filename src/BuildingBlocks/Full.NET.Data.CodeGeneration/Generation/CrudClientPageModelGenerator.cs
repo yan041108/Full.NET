@@ -373,7 +373,7 @@ internal static class CrudClientPageModelGenerator
             ? JsonProperty(schema, "Version")
             : null;
         var updateImport = schema.EntityCapabilities.CanUpdate
-            ? $",\n  type Update{schema.ClrTypeName}Request"
+            ? $",\n  Update{schema.ClrTypeName}Request"
             : string.Empty;
         var updateAlias = schema.EntityCapabilities.CanUpdate
             ? "\n\n" + (schema.HasVersion

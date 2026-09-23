@@ -722,6 +722,13 @@ public sealed class ModuleIntegrationCompilationTests
         string schemaPath,
         string testRoot)
     {
+        const string typeScriptSyntaxCheckScript = """
+            const { readFileSync } = require('node:fs');
+            const { stripTypeScriptTypes } = require('node:module');
+            const { SourceTextModule } = require('node:vm');
+            const source = stripTypeScriptTypes(readFileSync(process.argv[1], 'utf8'), { mode: 'strip' });
+            new SourceTextModule(source);
+            """;
         var schema = await CrudSchemaDocument.LoadAsync(
             schemaPath,
             CancellationToken.None);
@@ -753,10 +760,16 @@ public sealed class ModuleIntegrationCompilationTests
             };
             if (extension == ".ts")
             {
-                startInfo.ArgumentList.Add("--experimental-strip-types");
+                // Linux Node 的 --check 不擦除 TypeScript 类型，先擦除再按 ES 模块语法解析。
+                startInfo.ArgumentList.Add("--experimental-vm-modules");
+                startInfo.ArgumentList.Add("-e");
+                startInfo.ArgumentList.Add(typeScriptSyntaxCheckScript);
+            }
+            else
+            {
+                startInfo.ArgumentList.Add("--check");
             }
 
-            startInfo.ArgumentList.Add("--check");
             startInfo.ArgumentList.Add(syntaxPath);
             using var process = Process.Start(startInfo)
                 ?? throw new InvalidOperationException(
