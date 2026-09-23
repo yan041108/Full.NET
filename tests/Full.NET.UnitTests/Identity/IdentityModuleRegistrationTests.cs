@@ -340,6 +340,9 @@ public sealed class IdentityModuleRegistrationTests
             HostAdministratorSeedContributor>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
             IDataSeedContributor,
+            BootstrapAdminTenantMembershipSeedContributor>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
+            IDataSeedContributor,
             HostNavigationCatalogSeedContributor>(ServiceLifetime.Scoped),
 
         RegistrationExpectation.Self<
@@ -492,7 +495,9 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMembershipQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMembershipManagementService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMemberProvisionService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.AcceptTenantInvitation.AcceptTenantInvitationService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.ManageMyTenantInvitations.MyTenantInvitationQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<PublicRegistrationWayQueryService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<LdapConnectionQueryService>(ServiceLifetime.Scoped),
@@ -534,6 +539,9 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<
             ITenantUserSelectionDirectory,
             TenantUserSelectionDirectory>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
+            ITenantMemberSelectionDirectory,
+            TenantMemberSelectionDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostTenantUserSelectionDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Factory<IHostTenantUserSelectionDirectory>(
             ServiceLifetime.Scoped),

@@ -20,4 +20,21 @@
   <data name="tenancy.tenant_branding.invalid" xml:space="preserve"><value>The tenant branding fields are invalid.</value></data>
   <data name="tenancy.tenant_branding.logo_invalid" xml:space="preserve"><value>The uploaded logo file is invalid for tenant branding.</value></data>
   <data name="tenancy.tenant_branding.logo_not_found" xml:space="preserve"><value>The requested tenant logo is not available.</value></data>
+  <data name="tenancy.tenant_lifecycle.owner_not_found" xml:space="preserve"><value>The tenant owner user was not found or is inactive.</value></data>
+  <data name="tenancy.tenant_lifecycle.status_invalid" xml:space="preserve"><value>The tenant lifecycle status is invalid.</value></data>
+  <data name="tenancy.settings.not_found" xml:space="preserve"><value>The tenancy settings record was not found.</value></data>
+  <data name="tenancy.settings.version_conflict" xml:space="preserve"><value>The tenancy settings record was updated by another operation.</value></data>
+  <data name="tenancy.entitlements.code_invalid" xml:space="preserve"><value>The entitlement code is invalid.</value></data>
+  <data name="tenancy.entitlements.code_exists" xml:space="preserve"><value>The entitlement code already exists.</value></data>
+  <data name="tenancy.entitlements.binding_not_found" xml:space="preserve"><value>The entitlement binding was not found.</value></data>
+  <data name="tenancy.entitlements.phase_invalid" xml:space="preserve"><value>The entitlement enforcement phase is invalid.</value></data>
+  <data name="tenancy.entitlements.commercial_binding_required" xml:space="preserve"><value>A valid package or subscription binding is required for enforced entitlements.</value></data>
+  <data name="tenancy.quota.request_invalid" xml:space="preserve"><value>The quota request is invalid.</value></data>
+  <data name="tenancy.quota.metric_not_found" xml:space="preserve"><value>The quota metric was not found.</value></data>
+  <data name="tenancy.quota.reservation_not_found" xml:space="preserve"><value>The quota reservation was not found.</value></data>
+  <data name="tenancy.quota.exceeded" xml:space="preserve"><value>The tenant quota has been exceeded.</value></data>
+  <data name="tenancy.tenant_subscription.status_invalid" xml:space="preserve"><value>The tenant subscription status is invalid.</value></data>
+  <data name="tenancy.tenant_subscription.period_invalid" xml:space="preserve"><value>The tenant subscription period is invalid.</value></data>
+  <data name="tenancy.tenant_subscription.not_found" xml:space="preserve"><value>The tenant subscription was not found.</value></data>
+  <data name="tenancy.tenant_subscription.version_conflict" xml:space="preserve"><value>The tenant subscription record was updated by another operation.</value></data>
 </root>

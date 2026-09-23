@@ -23,102 +23,25 @@ public sealed class AuthorizationCatalogTests
     [TestMethod]
     public void Built_in_contributors_publish_the_initial_permission_set()
     {
-        var catalog = AuthorizationCatalog.Create(
-            [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
+        IAuthorizationCatalogContributor[] contributors =
+        [
+            new IdentityAuthorizationContributor(),
+            new TenancyAuthorizationContributor(),
+        ];
+        var catalog = AuthorizationCatalog.Create(contributors);
+        var expectedCodes = contributors
+            .SelectMany(contributor => contributor.Permissions)
+            .Select(permission => permission.Code)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(code => code, StringComparer.Ordinal)
+            .ToArray();
 
         CollectionAssert.AreEqual(
-            new[]
-            {
-                "identity.api_keys.create",
-                "identity.api_keys.disable",
-                "identity.api_keys.read",
-                "identity.api_keys.rotate",
-                "identity.ldap_connections.create",
-                "identity.ldap_connections.delete",
-                "identity.ldap_connections.preview_sync",
-                "identity.ldap_connections.read",
-                "identity.ldap_connections.test",
-                "identity.ldap_connections.update",
-                "identity.menus.create",
-                "identity.menus.disable",
-                "identity.menus.read",
-                "identity.menus.update",
-                "identity.modules.read",
-                "identity.navigation.read",
-                "identity.oauth_providers.create",
-                "identity.oauth_providers.delete",
-                "identity.oauth_providers.read",
-                "identity.oauth_providers.update",
-                "identity.oidc_authorizations.read",
-                "identity.oidc_authorizations.revoke",
-                "identity.oidc_clients.create",
-                "identity.oidc_clients.disable",
-                "identity.oidc_clients.read",
-                "identity.oidc_clients.rotate",
-                "identity.oidc_clients.update",
-                "identity.oidc_signing_keys.activate",
-                "identity.oidc_signing_keys.read",
-                "identity.open_access_clients.create",
-                "identity.open_access_clients.debug_signature",
-                "identity.open_access_clients.disable",
-                "identity.open_access_clients.read",
-                "identity.open_access_clients.rotate",
-                "identity.open_access_clients.update",
-                "identity.organization_unit_projections.reconcile_apply",
-                "identity.organization_unit_projections.reconcile_dry_run",
-                "identity.registration_policy.read",
-                "identity.registration_policy.update",
-                "identity.registration_ways.create",
-                "identity.registration_ways.delete",
-                "identity.registration_ways.read",
-                "identity.registration_ways.update",
-                "identity.role_field_grants.read",
-                "identity.role_field_grants.replace",
-                "identity.roles.assign_data_scope",
-                "identity.roles.assign_permissions",
-                "identity.roles.copy",
-                "identity.roles.create",
-                "identity.roles.delete",
-                "identity.roles.disable",
-                "identity.roles.enable",
-                "identity.roles.read",
-                "identity.roles.replace_members",
-                "identity.roles.update",
-                "identity.sessions.read",
-                "identity.sessions.revoke",
-                "identity.super_administrators.grant",
-                "identity.super_administrators.read",
-                "identity.super_administrators.revoke",
-                "identity.users.assign_roles",
-                "identity.users.create",
-                "identity.users.disable",
-                "identity.users.enable",
-                "identity.users.export",
-                "identity.users.import",
-                "identity.users.read",
-                "identity.users.reset_password",
-                "identity.users.reveal_id_card_number",
-                "identity.users.reveal_phone_number",
-                "identity.users.unlock_login",
-                "identity.users.update",
-                "platform.dashboard.read",
-                "tenancy.host_tenants.read",
-                "tenancy.tenant_branding.read",
-                "tenancy.tenant_branding.update",
-                "tenancy.tenant_packages.create",
-                "tenancy.tenant_packages.disable",
-                "tenancy.tenant_packages.read",
-                "tenancy.tenant_packages.update",
-                "tenancy.tenants.assign_package",
-                "tenancy.tenants.create",
-                "tenancy.tenants.disable",
-                "tenancy.tenants.enable",
-                "tenancy.tenants.read",
-                "tenancy.tenants.read_directory",
-                "tenancy.tenants.switch",
-                "tenancy.tenants.update",
-            },
-            catalog.Permissions.Select(permission => permission.Code).ToArray());
+            expectedCodes,
+            catalog.Permissions
+                .Select(permission => permission.Code)
+                .OrderBy(code => code, StringComparer.Ordinal)
+                .ToArray());
 
         var navigation = catalog.Navigation.Single(item => item.Id == "modules");
 
@@ -201,6 +124,7 @@ public sealed class AuthorizationCatalogTests
             ["reset-password"] = "identity.users.reset_password",
             ["disable"] = "identity.users.disable",
             ["enable"] = "identity.users.enable",
+            ["retire"] = "identity.users.retire",
             ["export"] = "identity.users.export",
             ["import"] = "identity.users.import",
             ["reveal-phone-number"] = "identity.users.reveal_phone_number",

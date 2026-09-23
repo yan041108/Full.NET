@@ -58,6 +58,27 @@
   <data name="identity.menus.not_found" xml:space="preserve"><value>未找到指定的 Host 菜单。</value></data>
   <data name="identity.menus.system_locked" xml:space="preserve"><value>系统菜单受保护，禁止变更。</value></data>
   <data name="identity.api_keys.not_found" xml:space="preserve"><value>API Key 不存在或已禁用。</value></data>
+  <data name="identity.oidc_clients.not_found" xml:space="preserve"><value>OIDC 客户端不存在。</value></data>
+  <data name="identity.oidc_clients.client_id_conflict" xml:space="preserve"><value>OIDC client_id 在作用域内已存在。</value></data>
+  <data name="identity.oidc_clients.disabled" xml:space="preserve"><value>OIDC 客户端已停用。</value></data>
+  <data name="identity.oidc_authorizations.not_found" xml:space="preserve"><value>OIDC 授权授予不存在。</value></data>
+  <data name="identity.oidc_signing_keys.not_activatable" xml:space="preserve"><value>OIDC 签名密钥无法激活。</value></data>
+  <data name="identity.oidc_context_switch_not_supported" xml:space="preserve"><value>当前客户端不支持 OIDC 租户上下文切换。</value></data>
+  <data name="identity.registration.disabled" xml:space="preserve"><value>注册功能已禁用。</value></data>
+  <data name="identity.registration.email_already_exists" xml:space="preserve"><value>注册邮箱已被占用。</value></data>
+  <data name="identity.registration_invitation.invalid" xml:space="preserve"><value>注册邀请无效、已过期或已撤销。</value></data>
+  <data name="identity.password_recovery.accepted" xml:space="preserve"><value>密码恢复请求已受理。</value></data>
+  <data name="identity.account_challenge.invalid" xml:space="preserve"><value>账号挑战无效、已过期或已消费。</value></data>
+  <data name="identity.account_challenge.attempts_exceeded" xml:space="preserve"><value>账号挑战尝试次数已耗尽。</value></data>
+  <data name="identity.account_challenge.delivery_failed" xml:space="preserve"><value>账号挑战投递失败。</value></data>
+  <data name="identity.tenant_members.not_found" xml:space="preserve"><value>租户成员不存在。</value></data>
+  <data name="identity.tenant_members.version_conflict" xml:space="preserve"><value>租户成员记录已被其他操作更新，请刷新后重试。</value></data>
+  <data name="identity.tenant_members.role_invalid" xml:space="preserve"><value>租户成员角色无效。</value></data>
+  <data name="identity.tenant_members.owner_protected" xml:space="preserve"><value>租户所有者受保护，不能执行该操作。</value></data>
+  <data name="identity.tenant_members.already_active" xml:space="preserve"><value>用户已是活动租户成员。</value></data>
+  <data name="identity.tenant_members.seat_quota_unavailable" xml:space="preserve"><value>租户席位配额服务不可用。</value></data>
+  <data name="identity.tenant_invitations.invalid" xml:space="preserve"><value>租户邀请无效、已过期或已撤销。</value></data>
+  <data name="identity.tenant_invitations.not_found" xml:space="preserve"><value>租户邀请不存在。</value></data>
   <data name="identity.api_keys.invalid_permissions" xml:space="preserve"><value>API Key 权限列表无效。</value></data>
   <data name="identity.api_keys.user_not_found" xml:space="preserve"><value>API Key 绑定的 Host 用户不存在。</value></data>
   <data name="identity.api_keys.user_inactive" xml:space="preserve"><value>API Key 绑定的 Host 用户已禁用。</value></data>

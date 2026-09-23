@@ -4,6 +4,7 @@ using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 
 namespace Full.NET.Modules.Identity.Features.GetNavigation;
@@ -19,7 +20,7 @@ internal static class Endpoint
                     PermissionClaimEvaluator permissionClaimEvaluator,
                     NavigationProjector projector,
                     HostNavigationDefinitionLoader navigationLoader,
-                    ICurrentTenant currentTenant,
+                    [FromServices] ICurrentTenant currentTenant,
                     CancellationToken cancellationToken) =>
                 {
                     var permissions = permissionClaimEvaluator.ResolvePermissions(principal);

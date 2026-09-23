@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Http;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -114,6 +115,7 @@ public sealed class AiToolCurrentSessionTests
             new(FullNetIdentityClaimTypes.Scope, "host"),
             new(FullNetIdentityClaimTypes.Permission, "permission"),
             new("iss", "https://localhost/identity"),
+            new(JwtRegisteredClaimNames.Aud, "Full.NET.Api"),
             new("exp", now.AddMinutes(5).ToUnixTimeSeconds().ToString()),
         };
         var http = new HttpContextAccessor

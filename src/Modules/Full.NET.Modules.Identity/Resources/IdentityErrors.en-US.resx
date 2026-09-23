@@ -58,6 +58,27 @@
   <data name="identity.menus.not_found" xml:space="preserve"><value>The host menu was not found.</value></data>
   <data name="identity.menus.system_locked" xml:space="preserve"><value>System menus are protected and cannot be changed.</value></data>
   <data name="identity.api_keys.not_found" xml:space="preserve"><value>The API key was not found or is disabled.</value></data>
+  <data name="identity.oidc_clients.not_found" xml:space="preserve"><value>The OIDC client was not found.</value></data>
+  <data name="identity.oidc_clients.client_id_conflict" xml:space="preserve"><value>The OIDC client_id already exists in this scope.</value></data>
+  <data name="identity.oidc_clients.disabled" xml:space="preserve"><value>The OIDC client is disabled.</value></data>
+  <data name="identity.oidc_authorizations.not_found" xml:space="preserve"><value>The OIDC authorization grant was not found.</value></data>
+  <data name="identity.oidc_signing_keys.not_activatable" xml:space="preserve"><value>The OIDC signing key cannot be activated.</value></data>
+  <data name="identity.oidc_context_switch_not_supported" xml:space="preserve"><value>OIDC tenant context switching is not supported for this client.</value></data>
+  <data name="identity.registration.disabled" xml:space="preserve"><value>Registration is disabled.</value></data>
+  <data name="identity.registration.email_already_exists" xml:space="preserve"><value>The registration email address is already in use.</value></data>
+  <data name="identity.registration_invitation.invalid" xml:space="preserve"><value>The registration invitation is invalid, expired, or revoked.</value></data>
+  <data name="identity.password_recovery.accepted" xml:space="preserve"><value>The password recovery request has been accepted.</value></data>
+  <data name="identity.account_challenge.invalid" xml:space="preserve"><value>The account challenge is invalid, expired, or already consumed.</value></data>
+  <data name="identity.account_challenge.attempts_exceeded" xml:space="preserve"><value>The account challenge attempt limit has been exceeded.</value></data>
+  <data name="identity.account_challenge.delivery_failed" xml:space="preserve"><value>The account challenge could not be delivered.</value></data>
+  <data name="identity.tenant_members.not_found" xml:space="preserve"><value>The tenant member was not found.</value></data>
+  <data name="identity.tenant_members.version_conflict" xml:space="preserve"><value>The tenant member record was updated by another operation.</value></data>
+  <data name="identity.tenant_members.role_invalid" xml:space="preserve"><value>The tenant member role is invalid.</value></data>
+  <data name="identity.tenant_members.owner_protected" xml:space="preserve"><value>The tenant owner is protected and cannot be changed this way.</value></data>
+  <data name="identity.tenant_members.already_active" xml:space="preserve"><value>The user is already an active tenant member.</value></data>
+  <data name="identity.tenant_members.seat_quota_unavailable" xml:space="preserve"><value>Tenant seat quota services are unavailable.</value></data>
+  <data name="identity.tenant_invitations.invalid" xml:space="preserve"><value>The tenant invitation is invalid, expired, or revoked.</value></data>
+  <data name="identity.tenant_invitations.not_found" xml:space="preserve"><value>The tenant invitation was not found.</value></data>
   <data name="identity.api_keys.invalid_permissions" xml:space="preserve"><value>The API key permission list is invalid.</value></data>
   <data name="identity.api_keys.user_not_found" xml:space="preserve"><value>The host user bound to the API key was not found.</value></data>
   <data name="identity.api_keys.user_inactive" xml:space="preserve"><value>The host user bound to the API key is inactive.</value></data>

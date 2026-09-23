@@ -20,4 +20,21 @@
   <data name="tenancy.tenant_branding.invalid" xml:space="preserve"><value>租户品牌字段无效，请检查长度与内容格式。</value></data>
   <data name="tenancy.tenant_branding.logo_invalid" xml:space="preserve"><value>上传的 Logo 文件无效或超出允许范围。</value></data>
   <data name="tenancy.tenant_branding.logo_not_found" xml:space="preserve"><value>未找到可用的租户 Logo。</value></data>
+  <data name="tenancy.tenant_lifecycle.owner_not_found" xml:space="preserve"><value>租户所有者用户不存在或未激活。</value></data>
+  <data name="tenancy.tenant_lifecycle.status_invalid" xml:space="preserve"><value>租户生命周期状态无效。</value></data>
+  <data name="tenancy.settings.not_found" xml:space="preserve"><value>Tenancy 设置不存在。</value></data>
+  <data name="tenancy.settings.version_conflict" xml:space="preserve"><value>Tenancy 设置已被其他操作更新，请刷新后重试。</value></data>
+  <data name="tenancy.entitlements.code_invalid" xml:space="preserve"><value>权益编码无效。</value></data>
+  <data name="tenancy.entitlements.code_exists" xml:space="preserve"><value>权益编码已存在。</value></data>
+  <data name="tenancy.entitlements.binding_not_found" xml:space="preserve"><value>权益绑定不存在。</value></data>
+  <data name="tenancy.entitlements.phase_invalid" xml:space="preserve"><value>权益强制执行阶段无效。</value></data>
+  <data name="tenancy.entitlements.commercial_binding_required" xml:space="preserve"><value>Enforced 阶段需要有效的套餐或订阅绑定。</value></data>
+  <data name="tenancy.quota.request_invalid" xml:space="preserve"><value>配额请求无效。</value></data>
+  <data name="tenancy.quota.metric_not_found" xml:space="preserve"><value>配额指标不存在。</value></data>
+  <data name="tenancy.quota.reservation_not_found" xml:space="preserve"><value>配额预留不存在。</value></data>
+  <data name="tenancy.quota.exceeded" xml:space="preserve"><value>配额已用尽。</value></data>
+  <data name="tenancy.tenant_subscription.status_invalid" xml:space="preserve"><value>订阅状态无效。</value></data>
+  <data name="tenancy.tenant_subscription.period_invalid" xml:space="preserve"><value>订阅周期无效。</value></data>
+  <data name="tenancy.tenant_subscription.not_found" xml:space="preserve"><value>订阅不存在。</value></data>
+  <data name="tenancy.tenant_subscription.version_conflict" xml:space="preserve"><value>订阅记录已被其他操作更新，请刷新后重试。</value></data>
 </root>
