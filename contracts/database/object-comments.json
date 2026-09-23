@@ -675,6 +675,8 @@
         "Icon": "图标",
         "Id": "逻辑主键",
         "IsDeleted": "是否已软删除",
+        "IsHot": "是否Hot",
+        "IsRecommended": "是否Recommended",
         "Name": "名称",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "UpdatedAtUtc": "更新时间(UTC)",
@@ -722,6 +724,19 @@
         "VersionCreatedAtUtc": "Version Created At(UTC)",
         "VersionId": "版本标识",
         "VersionNumber": "版本号"
+      }
+    },
+    "fn_document_version_retention_setting": {
+      "comment": "文档version retention setting表",
+      "columns": {
+        "BatchSize": "Batch Size",
+        "Id": "逻辑主键",
+        "MaximumRetainedHistoryVersions": "Maximum Retained History Versions",
+        "MinimumRetainedVersionsPerItem": "Minimum Retained Versions Per Item",
+        "PollSeconds": "Poll Seconds",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
       }
     },
     "fn_files_file": {
@@ -1246,6 +1261,7 @@
         "PasswordHash": "密码哈希",
         "PreferredLocale": "首选语言区域",
         "ProfileVersion": "资料版本号",
+        "RetiredAtUtc": "Retired At(UTC)",
         "ScopeKey": "作用域键",
         "SecurityStamp": "安全戳",
         "TenantId": "租户标识；NULL 表示 Host 级",

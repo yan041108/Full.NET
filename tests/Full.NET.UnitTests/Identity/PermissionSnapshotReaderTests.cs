@@ -1,6 +1,7 @@
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Tenancy;
 
@@ -50,17 +51,12 @@ public sealed class PermissionSnapshotReaderTests
             default);
 
         Assert.IsTrue(snapshot.IsSuperAdministrator);
-        CollectionAssert.AreEqual(
-            new[]
-            {
-                "identity.navigation.read",
-                "platform.dashboard.read",
-                "tenancy.tenant_branding.read",
-                "tenancy.tenant_branding.update",
-                "tenancy.tenants.read",
-                "tenancy.tenants.switch",
-            },
-            snapshot.Permissions.ToArray());
+        var expectedTenantCatalogCodes = catalog.Permissions
+            .Where(permission => (permission.Scope & AuthorizationScope.Tenant) != 0)
+            .Select(permission => permission.Code)
+            .OrderBy(code => code, StringComparer.Ordinal)
+            .ToArray();
+        CollectionAssert.AreEqual(expectedTenantCatalogCodes, snapshot.Permissions.ToArray());
     }
 
     private sealed class StubQueryExecutor(
