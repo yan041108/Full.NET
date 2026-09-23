@@ -198,6 +198,13 @@ internal sealed class OutboxProcessor(
         {
             throw;
         }
+        catch (Exception exception) when (cancellationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(
+                "Outbox backlog sampling stopped.",
+                exception,
+                cancellationToken);
+        }
         catch (Exception exception)
         {
             OutboxProcessorLog.BacklogSamplingFailed(logger, exception);

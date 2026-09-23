@@ -5,6 +5,7 @@ using Full.NET.Modules.Webhooks.Serialization;
 using Full.NET.Modules.Webhooks;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Webhooks.Contracts;
 using Full.NET.Modules.Webhooks.Delivery;
@@ -38,6 +39,47 @@ public sealed class WebhookDeliveryTests
             && descriptor.Lifetime == ServiceLifetime.Scoped));
         Assert.IsTrue(services.Any(descriptor =>
             descriptor.ServiceType == typeof(IHttpClientFactory)));
+    }
+
+    [TestMethod]
+    public async Task Worker_iteration_uses_host_context_for_delivery_sql()
+    {
+        var tenant = new CurrentTenantAccessor();
+        var query = Substitute.For<IQueryExecutor>();
+        query.QueryAsync<WebhookDeliveryWorkItem>(
+                Arg.Any<SqlStatement>(),
+                Arg.Any<IReadOnlyDictionary<string, object?>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                Assert.IsTrue(tenant.IsHost);
+                return Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([]);
+            });
+        var processor = new WebhookDeliveryBatchProcessor(
+            query,
+            Substitute.For<ICommandExecutor>(),
+            Substitute.For<ICommandTransaction>(),
+            Substitute.For<IHttpClientFactory>(),
+            new WebhookSigningSecretProtector(DataProtectionProvider.Create(nameof(WebhookDeliveryTests))),
+            new FixedClock(DateTimeOffset.Parse("2026-09-17T00:00:00Z")),
+            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
+            Options.Create(new WebhookDeliveryWorkerOptions()),
+            NullLogger<WebhookDeliveryBatchProcessor>.Instance);
+        var services = new ServiceCollection();
+        services.AddScoped<ICurrentTenantContextWriter>(_ => tenant);
+        services.AddScoped(_ => processor);
+        using var provider = services.BuildServiceProvider();
+        var worker = new WebhookDeliveryHostedProcessor(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new WebhookDeliveryWorkerOptions()),
+            NullLogger<WebhookDeliveryHostedProcessor>.Instance);
+
+        Assert.AreEqual(0, await worker.ProcessOnceAsync(CancellationToken.None));
+        Assert.IsFalse(tenant.IsHost);
+        await query.Received(1).QueryAsync<WebhookDeliveryWorkItem>(
+            WebhookDeliverySql.ClaimPendingSqlServer,
+            Arg.Any<IReadOnlyDictionary<string, object?>>(),
+            Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

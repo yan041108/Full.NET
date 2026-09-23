@@ -804,6 +804,27 @@ public sealed class OutboxProcessorTests
     }
 
     [TestMethod]
+    public async Task ProcessOnceAsync_WhenShutdownAbortsBacklogSqlPropagatesCancellation()
+    {
+        var store = CreateStore();
+        BacklogReader(store)
+            .ReadBacklogAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<OutboxBacklogSnapshot>(
+                new InvalidOperationException("Database command aborted during shutdown.")));
+        await using var provider = CreateProvider(store);
+        var processor = CreateProcessor(provider, new DateTimeOffset(2026, 7, 26, 0, 2, 0, TimeSpan.Zero));
+        using var stopping = new CancellationTokenSource();
+        stopping.Cancel();
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+            () => processor.ProcessOnceAsync(stopping.Token));
+        await store.DidNotReceiveWithAnyArgs().AcquireAsync(
+            default,
+            default,
+            default);
+    }
+
+    [TestMethod]
     public async Task ProcessOnceAsync_WithinBacklogSampleIntervalReadsSnapshotOnlyOnce()
     {
         var now = new DateTimeOffset(2026, 7, 26, 0, 2, 0, TimeSpan.Zero);
