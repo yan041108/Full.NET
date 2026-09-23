@@ -665,7 +665,7 @@ internal static class NativeApiOidcE2EAssertions
         var settings = new Dictionary<string, string?>(IdentityOidcProtocolAssertions.Settings);
         if (sharedSigningKey is not null && !string.IsNullOrWhiteSpace(sharedSigningKeyId))
         {
-            settings["Identity:AllowDevelopmentEphemeralSigningKey"] = "false";
+            // 仅关闭 OIDC 临时密钥；JWT 仍允许 Testing 临时密钥，避免 IdentityOptions 要求根级 SigningKeys。
             settings["Identity:Oidc:AllowDevelopmentEphemeralSigningKey"] = "false";
             settings["Identity:Oidc:EncryptionKeyBase64"] =
                 IdentityOidcMultiInstanceTestSupport.SharedEncryptionKeyBase64;
