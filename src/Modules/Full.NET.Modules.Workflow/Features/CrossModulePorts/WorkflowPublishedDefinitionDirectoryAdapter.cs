@@ -42,7 +42,7 @@ internal sealed class WorkflowPublishedDefinitionDirectoryAdapter(
         var version = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowDefinitionVersionRecord>(
             WorkflowSql.FindDefinitionVersionById,
             WorkflowSqlParameters.Create(
-                ("VersionId", versionId),
+                ("Id", versionId),
                 ("TenantScopeKey", scope.TenantScopeKey)),
             cancellationToken).ConfigureAwait(false);
         if (version is null)
