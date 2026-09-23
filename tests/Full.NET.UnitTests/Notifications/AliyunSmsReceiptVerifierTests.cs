@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace Full.NET.UnitTests.Notifications;
 
+[DoNotParallelize]
 [TestClass]
 public sealed class AliyunSmsReceiptVerifierTests
 {

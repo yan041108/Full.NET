@@ -78,6 +78,7 @@ describe('workflow todo client', () => {
         formVersionId,
         businessType: 'leave',
         businessId: 'leave-1',
+        businessTitle: null,
         statusKey: 'completed',
         revision: 4,
         activeTodoId: null,

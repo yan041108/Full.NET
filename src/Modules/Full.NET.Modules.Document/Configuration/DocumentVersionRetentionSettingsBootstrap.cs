@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Document.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,6 +30,8 @@ internal sealed class DocumentVersionRetentionSettingsBootstrap(
     public async Task ReloadAsync(CancellationToken cancellationToken)
     {
         await using var scope = scopeFactory.CreateAsyncScope();
+        var tenantWriter = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+        tenantWriter.SetHost();
         var repository = scope.ServiceProvider.GetRequiredService<DocumentVersionRetentionSettingRepository>();
         var record = await repository.GetHostAsync(cancellationToken).ConfigureAwait(false);
         store.SetHostOverride(record);
