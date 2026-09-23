@@ -69,6 +69,10 @@ public sealed class DataApprovalModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<DataApprovalRequestApplicationRecoveryWorkerOptions>,
             DataApprovalRequestApplicationRecoveryWorkerOptionsValidator>());
+#if FULLNET_AOT_COMPILE
+        new Persistence.DataApprovalDapperAotMaterializerContributor()
+            .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
     }
 
     /// <inheritdoc />
@@ -76,6 +80,10 @@ public sealed class DataApprovalModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.DataApprovalDapperAotMaterializerContributor()
+            .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         services.TryAddScoped<DataApprovalRequestLinkService>();
         services.TryAddScoped<DataApprovalRequestApplicationService>();
         services.TryAddScoped<DataApprovalRequestRecoveryBatchProcessor>();

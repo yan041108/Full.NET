@@ -27,24 +27,10 @@ public sealed class WebhooksModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             WebhooksAuthorizationContributor>());
-        services.Configure<WebhookDeliveryWorkerOptions>(
-            configuration.GetSection(WebhookDeliveryWorkerOptions.SectionName));
-        services.AddHttpClient(
-            WebhookHttpClientNames.Delivery,
-            client =>
-            {
-                client.Timeout = TimeSpan.FromSeconds(30);
-                client.MaxResponseContentBufferSize = 64 * 1024;
-            })
-            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-            {
-                AllowAutoRedirect = false,
-            });
-        services.AddScoped<WebhookSigningSecretProtector>();
+        AddDeliveryServices(services, configuration);
         services.AddScoped<Features.ManageWebhookSubscriptions.WebhookSubscriptionQueryService>();
         services.AddScoped<Features.ManageWebhookSubscriptions.WebhookSubscriptionManagementService>();
         services.AddScoped<WebhookEventEnqueueService>();
-        services.AddScoped<WebhookDeliveryBatchProcessor>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
             WorkflowInstanceCompletedWebhookHandler>());
@@ -60,11 +46,31 @@ public sealed class WebhooksModule : IFullNetModule
 
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+        AddDeliveryServices(services, configuration);
 #if FULLNET_AOT_COMPILE
         new Persistence.WebhooksDapperAotMaterializerContributor()
             .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
 #endif
         services.AddHostedService<WebhookDeliveryHostedProcessor>();
+    }
+
+    private static void AddDeliveryServices(IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<WebhookDeliveryWorkerOptions>(
+            configuration.GetSection(WebhookDeliveryWorkerOptions.SectionName));
+        services.AddHttpClient(
+            WebhookHttpClientNames.Delivery,
+            client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(30);
+                client.MaxResponseContentBufferSize = 64 * 1024;
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                AllowAutoRedirect = false,
+            });
+        services.AddScoped<WebhookSigningSecretProtector>();
+        services.AddScoped<WebhookDeliveryBatchProcessor>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) =>

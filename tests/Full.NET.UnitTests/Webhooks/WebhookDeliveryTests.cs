@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Full.NET.Modules.Webhooks.Serialization;
+using Full.NET.Modules.Webhooks;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -12,6 +13,8 @@ using Full.NET.Modules.Webhooks.Features.DeliverWebhooks.Persistence;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions;
 using Full.NET.Modules.Webhooks.Security;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -21,6 +24,22 @@ namespace Full.NET.UnitTests.Webhooks;
 [TestClass]
 public sealed class WebhookDeliveryTests
 {
+    [TestMethod]
+    public void Worker_registration_includes_delivery_processor_and_dependencies()
+    {
+        var services = new ServiceCollection();
+        new WebhooksModule().AddBackgroundServices(services, new ConfigurationBuilder().Build());
+
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(WebhookDeliveryBatchProcessor)
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(WebhookSigningSecretProtector)
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(IHttpClientFactory)));
+    }
+
     [TestMethod]
     public void ValidateTargetUrl_rejects_relative_urls()
     {
