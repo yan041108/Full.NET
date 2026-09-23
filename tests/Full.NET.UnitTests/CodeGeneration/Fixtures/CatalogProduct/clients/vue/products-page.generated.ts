@@ -1,11 +1,13 @@
 import { computed, readonly, ref } from 'vue';
 import {
   createProductsApi,
-  productPermissions,
-  type CreateProductRequest,
-  type GeneratedRequest,
-  type ProductResponse,
-  type UpdateProductRequest
+  productPermissions
+} from './products.generated';
+import type {
+  CreateProductRequest,
+  GeneratedRequest,
+  ProductResponse,
+  UpdateProductRequest
 } from './products.generated';
 
 export type ProductPageUpdate = Omit<UpdateProductRequest, 'version'>;

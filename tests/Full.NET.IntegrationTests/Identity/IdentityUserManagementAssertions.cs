@@ -719,7 +719,9 @@ internal static class IdentityUserManagementAssertions
             adminToken,
             new { });
         using var enableResponse = await client.SendAsync(enableRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.Conflict, enableResponse.StatusCode);
+        Assert.AreEqual(
+            HttpStatusCode.UnprocessableEntity,
+            enableResponse.StatusCode);
         using (var problem = JsonDocument.Parse(
                    await enableResponse.Content.ReadAsStringAsync(cancellationToken)))
         {

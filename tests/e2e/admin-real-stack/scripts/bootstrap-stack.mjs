@@ -41,6 +41,11 @@ function resolveStackProfile() {
   return process.env.FULLNET_E2E_STACK_PROFILE ?? 'development';
 }
 
+/** Linux CI 子进程环境变量不宜携带多行 PEM；与 RsaSigningKeyRing.NormalizePem 的 \\n 约定一致。 */
+function pemForProcessEnvironment(pem) {
+  return pem.replace(/\r?\n/g, '\\n');
+}
+
 function createProductionSigningKeyEnv(keyId = 'e2eprodsigning') {
   const { publicKey, privateKey } = generateKeyPairSync('rsa', {
     modulusLength: 2048,
@@ -50,8 +55,8 @@ function createProductionSigningKeyEnv(keyId = 'e2eprodsigning') {
 
   return {
     Identity__ActiveKeyId: keyId,
-    [`Identity__SigningKeys__${keyId}__PublicKeyPem`]: publicKey,
-    [`Identity__SigningKeys__${keyId}__PrivateKeyPem`]: privateKey
+    [`Identity__SigningKeys__${keyId}__PublicKeyPem`]: pemForProcessEnvironment(publicKey),
+    [`Identity__SigningKeys__${keyId}__PrivateKeyPem`]: pemForProcessEnvironment(privateKey)
   };
 }
 

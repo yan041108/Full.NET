@@ -60,6 +60,10 @@ public sealed class TenancyDomainAuditTransactionAssertions
         using var client = factory.CreateClientForHost("localhost");
         var adminToken = await LoginAsHostAdminAsync(client);
         var created = await CreateTenantAsync(client, adminToken, "rollback");
+        var versionBeforeDisable = (await GetTenantByIdAsync(
+            client,
+            adminToken,
+            created.Id)).Version;
 
         using var disableRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
@@ -78,7 +82,7 @@ public sealed class TenancyDomainAuditTransactionAssertions
             stillActive.IsActive,
             "审计写入失败必须回滚同一事务内的业务 UPDATE，禁用不能生效。");
         Assert.AreEqual(
-            created.Version,
+            versionBeforeDisable,
             stillActive.Version,
             "回滚后乐观并发版本号不得被业务 UPDATE 提前推进。");
         Assert.AreEqual(
