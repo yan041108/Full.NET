@@ -20,6 +20,8 @@ internal static class WebhookDeliveryAssertions
             factory,
             client,
             [
+                TenancyTenantManagementPermissions.Read,
+                "tenancy.tenants.switch",
                 WebhookPermissions.SubscriptionsRead,
                 WebhookPermissions.SubscriptionsManage,
             ],
@@ -77,6 +79,9 @@ internal static class WebhookDeliveryAssertions
             identity.AccessToken);
         using var enterResponse = await client.SendAsync(enterRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, enterResponse.StatusCode);
-        return identity.AccessToken;
+        var entered = await enterResponse.Content.ReadFromJsonAsync<TenantContextTokenResponse>(
+            cancellationToken);
+        Assert.IsNotNull(entered);
+        return entered.AccessToken;
     }
 }
