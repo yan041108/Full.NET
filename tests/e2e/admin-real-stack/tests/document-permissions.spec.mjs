@@ -29,10 +29,14 @@ test('Host 管理员可加载文档权限列表', async ({ page, request }, test
   await page.goto(statusPath(clientKind, 'document/permissions'));
   await expect(page.getByRole('heading', { name: '文档权限', exact: true })).toBeVisible();
 
-  const form = page.getByTestId('document-permissions-form');
-  await form.locator('input').fill(document.id);
-  await page.getByTestId('document-permissions-load').click();
-  await expect(page.getByText('尚未配置权限')).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('document-permissions-keyword').fill(document.title);
+  await page.getByTestId('document-permissions-query').click();
+  const row = page.locator('.el-table__row').filter({ hasText: document.title });
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  await row.getByTestId('document-permissions-set').click();
+  await expect(page.getByRole('dialog').getByText('尚未配置权限')).toBeVisible({
+    timeout: 15_000
+  });
 });
 
 test('受限 Host 账号读取文档权限 API 被拒绝', async ({ request }, testInfo) => {
