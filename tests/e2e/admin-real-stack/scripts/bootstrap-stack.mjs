@@ -268,6 +268,7 @@ export async function bootstrapStack() {
     Identity__AllowedOrigins__6: 'http://localhost:5175',
     Identity__LoginRateLimitPermitLimitPerMinute: '240',
     Identity__SessionMutationRateLimitPermitLimitPerMinute: '240',
+    ...(isProductionTotp ? {} : { RateLimiting__EnableGlobalApiLimit: 'false' }),
     Tenancy__HostDomains__0: 'localhost',
     Tenancy__HostDomains__1: '127.0.0.1',
     Realtime__Enabled: 'true',

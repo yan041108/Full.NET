@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
@@ -29,7 +30,8 @@ internal sealed class IdentityOidcAuthorizationService(
     IQueryExecutor queryExecutor,
     IClock clock,
     IOptions<IdentityOptions> identityOptions,
-    IOptions<IdentityOidcOptions> oidcOptions)
+    IOptions<IdentityOidcOptions> oidcOptions,
+    ICurrentTenantContextWriter tenantContextWriter)
 {
     private const string HostScope = "host";
     private readonly IdentityOptions _identityOptions = identityOptions.Value;
@@ -234,26 +236,29 @@ internal sealed class IdentityOidcAuthorizationService(
             return false;
         }
 
-        var revokedSessionIds = await sessionService.RevokeActiveApplicationSessionsByUserAndClientAsync(
-                userId.Value,
-                clientId,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (revokedSessionIds.Count > 0)
+        return await RunInHostScopeAsync(async token =>
         {
-            await grantRevocationService.RevokeByUserAndClientAsync(
+            var revokedSessionIds = await sessionService.RevokeActiveApplicationSessionsByUserAndClientAsync(
                     userId.Value,
                     clientId,
-                    cancellationToken)
+                    token)
                 .ConfigureAwait(false);
-            await sessionRealtimeDelivery.PublishSessionsRevokedAsync(
-                    userId.Value,
-                    revokedSessionIds,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
+            if (revokedSessionIds.Count > 0)
+            {
+                await grantRevocationService.RevokeByUserAndClientAsync(
+                        userId.Value,
+                        clientId,
+                        token)
+                    .ConfigureAwait(false);
+                await sessionRealtimeDelivery.PublishSessionsRevokedAsync(
+                        userId.Value,
+                        revokedSessionIds,
+                        token)
+                    .ConfigureAwait(false);
+            }
 
-        return true;
+            return true;
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task SignOutCenterAsync(
@@ -272,28 +277,63 @@ internal sealed class IdentityOidcAuthorizationService(
         // 令牌所属用户决定撤销目标；共享 Cookie 只决定是否清除浏览器中心票据。
         if ((authenticatedAccessUserId ?? centerUserId) is Guid userId)
         {
-            var applicationSessionIds = await sessionService.ListActiveHostApplicationSessionIdsByUserAsync(
-                    userId,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            await sessionService.RevokeAllCenterSessionsByUserAsync(userId, cancellationToken)
-                .ConfigureAwait(false);
-            await grantRevocationService.RevokeByUserIdAsync(userId, cancellationToken)
-                .ConfigureAwait(false);
-            if (applicationSessionIds.Count > 0)
+            await RunInHostScopeAsync(async token =>
             {
-                await sessionRealtimeDelivery.PublishSessionsRevokedAsync(
+                var applicationSessionIds = await sessionService.ListActiveHostApplicationSessionIdsByUserAsync(
                         userId,
-                        applicationSessionIds,
-                        cancellationToken)
+                        token)
                     .ConfigureAwait(false);
-            }
+                await sessionService.RevokeAllCenterSessionsByUserAsync(userId, token)
+                    .ConfigureAwait(false);
+                await grantRevocationService.RevokeByUserIdAsync(userId, token)
+                    .ConfigureAwait(false);
+                if (applicationSessionIds.Count > 0)
+                {
+                    await sessionRealtimeDelivery.PublishSessionsRevokedAsync(
+                            userId,
+                            applicationSessionIds,
+                            token)
+                        .ConfigureAwait(false);
+                }
+
+                return true;
+            }, cancellationToken).ConfigureAwait(false);
         }
 
         if (authenticatedAccessUserId is null || centerUserId == authenticatedAccessUserId)
         {
             await httpContext.SignOutAsync(IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
                 .ConfigureAwait(false);
+        }
+    }
+
+    private async Task<T> RunInHostScopeAsync<T>(
+        Func<CancellationToken, Task<T>> action,
+        CancellationToken cancellationToken)
+    {
+        var wasHost = tenantContextWriter.IsHost;
+        var previousTenant = tenantContextWriter.Id is Guid tenantId
+            ? new TenantContext(tenantId, tenantContextWriter.Identifier!, tenantContextWriter.Name!)
+            : null;
+        tenantContextWriter.SetHost();
+        try
+        {
+            return await action(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (previousTenant is not null)
+            {
+                tenantContextWriter.SetTenant(previousTenant);
+            }
+            else if (wasHost)
+            {
+                tenantContextWriter.SetHost();
+            }
+            else
+            {
+                tenantContextWriter.Clear();
+            }
         }
     }
 

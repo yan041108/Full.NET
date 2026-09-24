@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Configuration;
@@ -45,7 +46,8 @@ public sealed class IdentityOidcLogoutTests
             new IdentityOidcSessionService(query, command, clock),
             new IdentityOidcGrantRevocationService(query, command, clock),
             null!, null!, null!, null!, query, clock,
-            Options.Create(new IdentityOptions()), Options.Create(new IdentityOidcOptions()));
+            Options.Create(new IdentityOptions()), Options.Create(new IdentityOidcOptions()),
+            new CurrentTenantAccessor());
 
         await service.SignOutCenterAsync(context, owner);
 
@@ -54,6 +56,43 @@ public sealed class IdentityOidcLogoutTests
                 Equals(((Dictionary<string, object?>)value)["UserId"], owner)), Arg.Any<CancellationToken>());
         await authentication.Received(sameUser ? 1 : 0).SignOutAsync(context,
             IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme, Arg.Any<AuthenticationProperties?>());
+    }
+
+    [TestMethod]
+    public async Task Center_logout_executes_host_only_queries_in_host_scope_and_restores_tenant_context()
+    {
+        var tenant = new CurrentTenantAccessor();
+        ((ICurrentTenantContextWriter)tenant).SetTenant(
+            new TenantContext(Guid.NewGuid(), "tenant", "Tenant"));
+        var authentication = Substitute.For<IAuthenticationService>();
+        using var services = new ServiceCollection().AddSingleton(authentication).BuildServiceProvider();
+        var context = new DefaultHttpContext { RequestServices = services };
+        authentication.AuthenticateAsync(context, IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
+            .Returns(AuthenticateResult.NoResult());
+        var query = Substitute.For<IQueryExecutor>();
+        var command = Substitute.For<ICommandExecutor>();
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        query.QueryAsync<Guid>(
+                IdentityOidcSessionSql.ListActiveHostOidcApplicationSessionIdsByUser,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                Assert.IsTrue(tenant.IsHost, "Host-only SQL must run in the trusted Host context.");
+                return Array.Empty<Guid>();
+            });
+        var service = new IdentityOidcAuthorizationService(null!,
+            new IdentityOidcSessionService(query, command, clock),
+            new IdentityOidcGrantRevocationService(query, command, clock),
+            null!, null!, null!, null!, query, clock,
+            Options.Create(new IdentityOptions()), Options.Create(new IdentityOidcOptions()),
+            tenant);
+
+        await service.SignOutCenterAsync(context, Guid.NewGuid());
+
+        Assert.IsFalse(tenant.IsHost);
+        Assert.AreEqual("tenant", tenant.Identifier);
     }
 
     [TestMethod]
