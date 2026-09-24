@@ -34,6 +34,11 @@ internal sealed class OutboxProcessor(
             {
                 break;
             }
+            catch (Exception) when (stoppingToken.IsCancellationRequested)
+            {
+                // 数据库驱动可能把停机取消包装为普通异常，此时不再重试或报告轮询故障。
+                break;
+            }
             catch (ServiceCapacityExceededException exception)
             {
                 capacityBackoff = GetDelayAfterCapacityRejection();

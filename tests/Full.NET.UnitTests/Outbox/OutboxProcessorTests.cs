@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Host.Worker;
 using Full.NET.Messaging.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -822,6 +823,58 @@ public sealed class OutboxProcessorTests
             default,
             default,
             default);
+    }
+
+    [TestMethod]
+    public async Task ExecuteAsync_WhenShutdownAbortsAcquireWithoutOperationCanceledExceptionDoesNotLogFailure()
+    {
+        var store = CreateStore();
+        var acquired = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pending = new TaskCompletionSource<IReadOnlyList<OutboxEnvelope>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        store.AcquireAsync(
+                Arg.Any<int>(),
+                Arg.Any<TimeSpan>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                call.ArgAt<CancellationToken>(2).Register(() =>
+                    pending.TrySetException(new InvalidOperationException(
+                        "Database provider wrapped command cancellation.")));
+                acquired.TrySetResult();
+                return pending.Task;
+            });
+        await using var provider = CreateProvider(store);
+        var logger = new RecordingOutboxLogger();
+        using var processor = new OutboxProcessor(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            new FixedClock(new DateTimeOffset(2026, 7, 26, 0, 2, 0, TimeSpan.Zero)),
+            Options.Create(new OutboxWorkerOptions()),
+            logger);
+
+        await processor.StartAsync(CancellationToken.None);
+        await acquired.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await processor.StopAsync(CancellationToken.None);
+
+        Assert.IsFalse(logger.EventIds.Contains(3004));
+    }
+
+    private sealed class RecordingOutboxLogger : ILogger<OutboxProcessor>
+    {
+        public ConcurrentQueue<int> EventIds { get; } = new();
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull =>
+            NullLogger<OutboxProcessor>.Instance.BeginScope(state)!;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter) =>
+            EventIds.Enqueue(eventId.Id);
     }
 
     [TestMethod]
