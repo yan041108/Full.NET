@@ -178,18 +178,17 @@ internal static class IdentityOidcRevokeNotificationAssertions
         Assert.IsFalse(string.IsNullOrWhiteSpace(publicFlow.RefreshToken));
         Assert.IsFalse(string.IsNullOrWhiteSpace(confidentialFlow.RefreshToken));
 
-        var publicSessionId = await ResolveOidcSessionIdAsync(
+        var activeSessions = await ListUserSessionsAsync(
             adminClient,
             adminToken,
             testUser.Id,
-            IdentityOidcRelyingPartyFixture.PublicClientId,
             cancellationToken);
-        var confidentialSessionId = await ResolveOidcSessionIdAsync(
-            adminClient,
-            adminToken,
-            testUser.Id,
-            IdentityOidcRelyingPartyFixture.ConfidentialClientId,
-            cancellationToken);
+        Assert.AreEqual(activeSessions.Total, activeSessions.Items.Count);
+        Assert.AreEqual(1, activeSessions.Items.Count(item =>
+            item.ClientId == IdentityOidcRelyingPartyFixture.PublicClientId));
+        Assert.AreEqual(1, activeSessions.Items.Count(item =>
+            item.ClientId == IdentityOidcRelyingPartyFixture.ConfidentialClientId));
+        var expectedSessionIds = activeSessions.Items.Select(item => item.Id).ToArray();
 
         publisher.Reset();
         using var revokeAllRequest = CreateRevokeAllRequest(testUser.Id, adminToken);
@@ -199,6 +198,7 @@ internal static class IdentityOidcRevokeNotificationAssertions
             .ReadFromJsonAsync<RevokeAllHostUserSessionsResponse>(cancellationToken);
         Assert.IsNotNull(payload);
         Assert.IsTrue(payload.RevokedSessionCount >= 2);
+        Assert.AreEqual(expectedSessionIds.Length, payload.RevokedSessionCount);
 
         Assert.AreEqual(
             payload.RevokedSessionCount,
@@ -213,7 +213,7 @@ internal static class IdentityOidcRevokeNotificationAssertions
             .OrderBy(id => id)
             .ToArray();
         CollectionAssert.AreEquivalent(
-            new[] { publicSessionId, confidentialSessionId },
+            expectedSessionIds,
             notifiedSessionIds,
             "Revoke-all notifications must carry authoritative session identifiers.");
         foreach (var notification in publisher.SessionRevokedNotifications)
@@ -314,6 +314,16 @@ internal static class IdentityOidcRevokeNotificationAssertions
         string clientId,
         CancellationToken cancellationToken)
     {
+        var page = await ListUserSessionsAsync(client, adminToken, userId, cancellationToken);
+        return page.Items.Single(item => item.ClientId == clientId).Id;
+    }
+
+    private static async Task<PagedResult<HostOnlineSessionResponse>> ListUserSessionsAsync(
+        HttpClient client,
+        string adminToken,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
             $"/api/v1/identity/online-sessions?page=1&pageSize=50&userId={userId:D}");
@@ -323,7 +333,7 @@ internal static class IdentityOidcRevokeNotificationAssertions
         var page = await response.Content
             .ReadFromJsonAsync<PagedResult<HostOnlineSessionResponse>>(cancellationToken);
         Assert.IsNotNull(page);
-        return page.Items.Single(item => item.ClientId == clientId).Id;
+        return page;
     }
 
     private static async Task<Guid> ResolveAdminUserIdAsync(
