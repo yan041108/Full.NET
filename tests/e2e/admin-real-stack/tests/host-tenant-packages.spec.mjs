@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
   clickMainNavLink,
+  createTenantPackageViaApi,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -16,8 +17,14 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('Host 管理员可从真实 API 加载套餐目录', async ({ page }, testInfo) => {
+test('Host 管理员可从真实 API 加载套餐目录', async ({ page, request }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
+  const packageCode = `e2e-rs-${Date.now().toString(36)}`;
+  const packageName = `真实栈套餐 ${packageCode}`;
+  await createTenantPackageViaApi(request, clientKind, {
+    code: packageCode,
+    name: packageName
+  });
   await loginAsHostAdmin(page);
 
   await clickMainNavLink(page, /租户套餐/);
@@ -29,7 +36,8 @@ test('Host 管理员可从真实 API 加载套餐目录', async ({ page }, testI
   await expect(packagesView.getByRole('heading', { name: '租户套餐', exact: true })).toBeVisible();
   if (clientKind === 'vue') {
     await expect(packagesView.getByRole('columnheader', { name: '套餐编码' }).first()).toBeVisible();
-    await expect(packagesView.locator('.el-table__row').first()).toBeVisible({ timeout: 15_000 });
+    await expect(packagesView.locator('.el-table__row').filter({ hasText: packageCode }))
+      .toBeVisible({ timeout: 15_000 });
   } else {
     await expect(packagesView.getByText('套餐列表', { exact: true })).toBeVisible();
   }
