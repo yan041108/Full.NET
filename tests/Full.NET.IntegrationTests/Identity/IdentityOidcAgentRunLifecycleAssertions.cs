@@ -4,12 +4,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Dapper;
-using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Ai.Contracts;
-using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
 
@@ -22,10 +20,16 @@ internal static class IdentityOidcAgentRunLifecycleAssertions
         string connectionString,
         CancellationToken cancellationToken = default)
     {
+        var settings = Ai.AiAgentRuntimeTestSettings.ForIntegrationTests();
+        foreach (var pair in IdentityOidcProtocolAssertions.Settings)
+        {
+            settings.Add(pair.Key, pair.Value);
+        }
+
         using var factory = new FullNetApiFactory(
             provider,
             connectionString,
-            IdentityOidcProtocolAssertions.Settings);
+            settings);
         await factory.InitializeAsync(cancellationToken);
         await VerifyOidcSessionCanCreateAgentRunAsync(factory, cancellationToken);
         await VerifyRevokedOidcSessionCannotResumeAgentRunAsync(factory, cancellationToken);
@@ -106,12 +110,9 @@ internal static class IdentityOidcAgentRunLifecycleAssertions
             "admin",
             FullNetApiFactory.TestPassword,
             cancellationToken);
-        var adminUserId = await ResolveAdminUserIdAsync(client, adminToken, cancellationToken);
-        var sessionId = await ResolveOidcSessionIdAsync(
-            client,
-            adminToken,
-            adminUserId,
-            IdentityOidcRelyingPartyFixture.PublicClientId,
+        var sessionId = await ResolveRunSessionIdAsync(
+            factory,
+            created.RunId,
             cancellationToken);
 
         using var revokeRequest = new HttpRequestMessage(
@@ -129,10 +130,7 @@ internal static class IdentityOidcAgentRunLifecycleAssertions
             $"/api/v1/ai/agent/runs/{created.RunId}/resume");
         resumeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", flow.AccessToken);
         using var resumeResponse = await client.SendAsync(resumeRequest, cancellationToken);
-        await Ai.AiAgentRunApiAssertions.AssertProblemAsync(
-            resumeResponse,
-            HttpStatusCode.UnprocessableEntity,
-            AiErrorCodes.AgentRunNotResumable);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, resumeResponse.StatusCode);
     }
 
     private static async Task<Guid> CreateModelConfigAsync(
@@ -165,39 +163,22 @@ internal static class IdentityOidcAgentRunLifecycleAssertions
         return model.Id;
     }
 
-    private static async Task<Guid> ResolveAdminUserIdAsync(
-        HttpClient client,
-        string adminToken,
+    private static async Task<Guid> ResolveRunSessionIdAsync(
+        FullNetApiFactory factory,
+        Guid runId,
         CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get,
-            "/api/v1/identity/users?page=1&pageSize=50");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
-        using var response = await client.SendAsync(request, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-        var page = await response.Content
-            .ReadFromJsonAsync<PagedResult<HostUserResponse>>(cancellationToken);
-        Assert.IsNotNull(page);
-        return page.Items.Single(item => item.Username == "admin").Id;
-    }
-
-    private static async Task<Guid> ResolveOidcSessionIdAsync(
-        HttpClient client,
-        string adminToken,
-        Guid userId,
-        string clientId,
-        CancellationToken cancellationToken)
-    {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get,
-            $"/api/v1/identity/online-sessions?page=1&pageSize=50&userId={userId:D}");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
-        using var response = await client.SendAsync(request, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-        var page = await response.Content.ReadFromJsonAsync<PagedResult<HostOnlineSessionResponse>>(cancellationToken);
-        Assert.IsNotNull(page);
-        return page.Items.Single(item => item.ClientId == clientId).Id;
+        await using DbConnection connection = factory.Provider == DatabaseProvider.SqlServer
+            ? new SqlConnection(factory.ConnectionString)
+            : new MySqlConnection(MySqlConnectionStringPolicy.Create(
+                factory.ConnectionString,
+                MySqlGuidStorageMode.Binary16,
+                allowUserVariables: false));
+        return await connection.QuerySingleAsync<Guid>(
+            new CommandDefinition(
+                "SELECT SessionId FROM fn_ai_agent_run WHERE Id = @RunId",
+                new { RunId = runId },
+                cancellationToken: cancellationToken));
     }
 
     private static async Task SetRunStatusAsync(
