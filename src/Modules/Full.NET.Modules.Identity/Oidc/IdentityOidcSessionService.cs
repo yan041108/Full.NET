@@ -127,24 +127,14 @@ internal sealed class IdentityOidcSessionService(
         Guid applicationSessionId,
         CancellationToken cancellationToken = default)
     {
-        var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionRow>(
-                IdentityOidcSessionSql.FindApplicationSessionById,
-                IdentitySqlParameters.Create(("Id", applicationSessionId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (record is null || record.RevokedAtUtc.HasValue)
-        {
-            return false;
-        }
-
         var now = clock.UtcNow;
+        // 撤销是单向状态转换，不受并发租户上下文切换造成的 Version 递增影响。
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentityOidcSessionSql.RevokeApplicationSession,
                 IdentitySqlParameters.Create(
                     ("Id", applicationSessionId),
                     ("RevokedAtUtc", now),
-                    ("UpdatedAtUtc", now),
-                    ("Version", record.Version)),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         return affectedRows > 0;

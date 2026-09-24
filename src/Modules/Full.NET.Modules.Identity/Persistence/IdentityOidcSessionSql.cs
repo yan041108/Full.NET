@@ -118,7 +118,7 @@ internal static class IdentityOidcSessionSql
         """
         UPDATE fn_identity_oidc_application_session
         SET RevokedAtUtc = @RevokedAtUtc, UpdatedAtUtc = @UpdatedAtUtc, Version = Version + 1
-        WHERE Id = @Id AND RevokedAtUtc IS NULL AND Version = @Version
+        WHERE Id = @Id AND RevokedAtUtc IS NULL
         """,
         SqlDataScope.HostOnly);
 

@@ -53,6 +53,7 @@ internal static class IdentityOidcContextSwitchRevokeRaceAssertions
             adminToken,
             adminUserId,
             IdentityOidcRelyingPartyFixture.PublicClientId,
+            flow.AccessToken,
             cancellationToken);
         var acmeTenant = await GetAcmeTenantAsync(hostClient, flow.AccessToken, cancellationToken);
 
@@ -145,6 +146,7 @@ internal static class IdentityOidcContextSwitchRevokeRaceAssertions
             adminToken,
             adminUserId,
             IdentityOidcRelyingPartyFixture.PublicClientId,
+            flow.AccessToken,
             cancellationToken);
         using var revokeResponse = await hostClient.SendAsync(
             CreateRevokeRequest(sessionId, adminToken),
@@ -176,6 +178,7 @@ internal static class IdentityOidcContextSwitchRevokeRaceAssertions
         string adminToken,
         Guid userId,
         string clientId,
+        string accessToken,
         CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(
@@ -187,11 +190,12 @@ internal static class IdentityOidcContextSwitchRevokeRaceAssertions
         var page = await response.Content
             .ReadFromJsonAsync<PagedResult<HostOnlineSessionResponse>>(cancellationToken);
         Assert.IsNotNull(page);
-        return page.Items
-            .Where(item => item.ClientId == clientId)
-            .OrderByDescending(item => item.CreatedAtUtc)
-            .First()
-            .Id;
+        // 并发撤销必须命中本次令牌的应用会话，不能依赖同客户端会话的创建时间排序。
+        var sessionId = Guid.Parse(IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(
+            accessToken,
+            FullNetIdentityClaimTypes.ApplicationSessionId)
+            ?? throw new InvalidOperationException("OIDC access token is missing its application session ID."));
+        return page.Items.Single(item => item.Id == sessionId && item.ClientId == clientId).Id;
     }
 
     private static async Task<Guid> ResolveAdminUserIdAsync(
