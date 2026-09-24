@@ -147,11 +147,11 @@ test('真实栈必须按生产角色分离启动并清理 Worker', async () => {
   assert.match(source, /FULLNET_E2E_API_PORT/u);
   assert.match(source, /apiLogPath/u);
   assert.match(source, /activeStack\.apiLogStream\?\.end\(\)/u);
-  assert.match(
-    source,
-    /Realtime__RedisBackplaneConnectionString:\s*redisConnectionString/u,
-    /Realtime__AllowSharedRedisInDevelopment:\s*'true'/u,
-  );
+  assert.match(source, /Cache__RedisConnectionString:\s*cacheRedisConnectionString/u);
+  assert.match(source, /Realtime__RedisBackplaneConnectionString:\s*realtimeRedisConnectionString/u);
+  assert.match(source, /Realtime__AllowSharedRedisInDevelopment:\s*isProductionTotp\s*\?\s*'false'\s*:\s*'true'/u);
+  assert.match(source, /realtimeRedisContainer !== activeStack\.redisContainer/u);
+  assert.match(source, /await activeStack\.realtimeRedisContainer\.stop\(\)/u);
 });
 
 test('真实栈复用前必须确认 Worker 进程仍存活', async () => {

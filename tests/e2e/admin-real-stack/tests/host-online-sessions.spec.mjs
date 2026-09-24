@@ -99,6 +99,11 @@ test('Host 管理员可从 UI 强制下线其他在线会话', async ({ page, re
     .getByRole('row')
     .filter({ hasText: victimUsername })
     .first();
+  const revokeResponse = page.waitForResponse(response =>
+    response.url().includes('/api/v1/identity/online-sessions/')
+    && response.url().endsWith('/revoke')
+    && response.request().method() === 'POST'
+  );
   await victimRow.getByRole('button', { name: '强制下线' }).click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
@@ -106,6 +111,7 @@ test('Host 管理员可从 UI 强制下线其他在线会话', async ({ page, re
   } else {
     await page.locator('.layui-layer-btn0').click();
   }
+  expect((await revokeResponse).ok()).toBeTruthy();
 
   const meResponse = await request.get(`${apiBaseUrl}/api/v1/me`, {
     headers: {
