@@ -5,7 +5,7 @@ import {
   crudTableRow,
   enterDevelopmentTenant,
   loginAsHostAdmin,
-  loginTenantAdminAccessToken
+  trackUiAccessToken
 } from './support/real-stack-auth.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
@@ -75,7 +75,7 @@ test('Host 管理员通过双管理端完成真实职级创建更新与禁用', 
 }, testInfo) => {
   test.setTimeout(120_000);
   const clientKind = testInfo.project.metadata.clientKind;
-  const accessToken = await loginTenantAdminAccessToken(request, clientKind);
+  const currentAccessToken = trackUiAccessToken(page);
   const code = uniqueCode(clientKind);
   const initialName = `真实栈职级 ${clientKind}`;
   const updatedName = `真实栈职级已更新 ${clientKind}`;
@@ -128,7 +128,7 @@ test('Host 管理员通过双管理端完成真实职级创建更新与禁用', 
           version: created.version
         },
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${currentAccessToken()}`,
           Origin: adminOrigin(clientKind),
           'Content-Type': 'application/json'
         }
@@ -156,7 +156,7 @@ test('Host 管理员通过双管理端完成真实职级创建更新与禁用', 
       `${apiBaseUrl}/api/v1/organization/position-levels/${created.id}/disable`,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${currentAccessToken()}`,
           Origin: adminOrigin(clientKind)
         }
       }
@@ -181,7 +181,7 @@ test('Host 管理员通过双管理端完成真实职级创建更新与禁用', 
   const persisted = await getPositionLevel(
     request,
     clientKind,
-    accessToken,
+    currentAccessToken(),
     created.id
   );
   expect(persisted.code).toBe(code);

@@ -8,7 +8,8 @@ import {
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
-  loginHostAdminAccessToken
+  loginHostAdminAccessToken,
+  trackUiAccessToken
 } from './support/real-stack-auth.mjs';
 import { readAppliedWorkspaceArtifact } from './support/codegeneration-workspace.mjs';
 import { toOrganizationOwnedExplicitSchema } from './support/organization-owned-codegen-schema.mjs';
@@ -217,24 +218,6 @@ async function templateByName(request, clientKind, accessToken, name) {
   expect(response.ok()).toBeTruthy();
   const page = await response.json();
   return page.items.find(template => template.name === name);
-}
-
-/** UI 刷新会轮换会话；API 断言使用页面最近发出的令牌。 */
-function trackUiAccessToken(page) {
-  let accessToken;
-  page.on('request', currentRequest => {
-    if (!currentRequest.url().includes('/api/v1/')) {
-      return;
-    }
-    const authorization = currentRequest.headers().authorization;
-    if (authorization?.startsWith('Bearer ')) {
-      accessToken = authorization.slice('Bearer '.length);
-    }
-  });
-  return () => {
-    expect(accessToken).toBeTruthy();
-    return accessToken;
-  };
 }
 
 test.beforeEach(async ({ page }) => {

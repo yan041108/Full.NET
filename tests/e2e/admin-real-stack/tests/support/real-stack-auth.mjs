@@ -104,6 +104,24 @@ export function adminOrigin(clientKind) {
     : 'http://localhost:25173';
 }
 
+/** UI 登录、刷新和租户切换会轮换令牌；API 断言读取页面最近使用的令牌。 */
+export function trackUiAccessToken(page) {
+  let accessToken;
+  page.on('request', currentRequest => {
+    if (!currentRequest.url().includes('/api/v1/')) {
+      return;
+    }
+    const authorization = currentRequest.headers().authorization;
+    if (authorization?.startsWith('Bearer ')) {
+      accessToken = authorization.slice('Bearer '.length);
+    }
+  });
+  return () => {
+    expect(accessToken).toBeTruthy();
+    return accessToken;
+  };
+}
+
 /** 使用真实登录 API 获取 Access Token（不依赖 route mock）。 */
 export async function loginAccessToken(request, clientKind) {
   return loginWithPassword(request, clientKind, viewerUsername, viewerPassword);
