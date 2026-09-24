@@ -17,7 +17,23 @@ test('Host 管理员可切换待办与已办历史页签', async ({ page }, test
   const view = page.locator('.workflow-todos');
   await expect(view.getByRole('heading', { name: '我的工作流待办', exact: true })).toBeVisible();
   const tabs = view.getByRole('tablist');
+  const historyResponsePromise = page.waitForResponse(response =>
+    response.request().method() === 'GET'
+    && new URL(response.url()).pathname === '/api/v1/workflow/todos/mine/history'
+  );
   await tabs.getByRole('tab', { name: '已办', exact: true }).click();
-  await expect(view.getByText('当前没有已办记录', { exact: true })).toBeVisible({ timeout: 15_000 });
+  const historyResponse = await historyResponsePromise;
+  expect(historyResponse.status()).toBe(200);
+  const history = await historyResponse.json();
+  await expect(tabs.getByRole('tab', { name: '已办', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(view.getByTestId('workflow-todo-result-action-filter')).toBeVisible();
+  if (history.items.length === 0) {
+    await expect(view.getByText('当前没有已办记录', { exact: true })).toBeVisible();
+  } else {
+    await expect(view.locator('.workflow-todos__table .el-table__row')).toHaveCount(history.items.length);
+  }
+
   await tabs.getByRole('tab', { name: '待办', exact: true }).click();
+  await expect(tabs.getByRole('tab', { name: '待办', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(view.getByTestId('workflow-todo-result-action-filter')).toHaveCount(0);
 });
