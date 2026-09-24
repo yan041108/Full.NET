@@ -6,7 +6,8 @@ import {
   loginAsHostAdmin,
   loginAsHostUser,
   loginHostAdminAccessToken,
-  provisionLimitedHostUserViaApi
+  provisionLimitedHostUserViaApi,
+  trackUiAccessToken
 } from './support/real-stack-auth.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
@@ -36,6 +37,7 @@ test('管理员可在严格 CSP 下通过 VForm3 完成表单草稿回读、保�
   const stamp = Date.now().toString(36);
   const formKey = `e2e.form.${stamp}`;
   const fieldKey = `amount_${stamp}`;
+  const currentAccessToken = trackUiAccessToken(page);
   await loginAsHostAdmin(page);
   await clickMainNavLink(page, /工作流表单/, '工作流');
 
@@ -48,9 +50,8 @@ test('管理员可在严格 CSP 下通过 VForm3 完成表单草稿回读、保�
   const row = view.getByRole('row').filter({ hasText: formKey });
   await expect(row).toBeVisible({ timeout: 15_000 });
 
-  const accessToken = await loginHostAdminAccessToken(request, testInfo.project.metadata.clientKind);
   const headers = {
-    Authorization: `Bearer ${accessToken}`,
+    Authorization: `Bearer ${currentAccessToken()}`,
     Origin: adminOrigin(testInfo.project.metadata.clientKind),
     'Content-Type': 'application/json'
   };
@@ -97,8 +98,9 @@ test('管理员可在严格 CSP 下通过 VForm3 完成表单草稿回读、保�
 
   await refreshedView.getByTestId('workflow-form-close-editor').click();
   await refreshedRow.getByTestId('workflow-form-publish').click();
-  await expect(refreshedRow.locator('td').nth(2)).not.toHaveText('—', { timeout: 15_000 });
+  await expect(refreshedRow.locator('td').nth(3)).not.toHaveText('—', { timeout: 15_000 });
 
+  headers.Authorization = `Bearer ${currentAccessToken()}`;
   const authoritativeResponse = await request.get(`${apiBaseUrl}/api/v1/workflow/forms`, { headers });
   expect(authoritativeResponse.status()).toBe(200);
   const authoritative = (await authoritativeResponse.json()).find(item => item.formKey === formKey);
@@ -167,10 +169,10 @@ test('管理员可保存并发布含子表列配置的表单草稿', async ({ re
   );
   expect(publishResponse.status()).toBe(200);
   const published = await publishResponse.json();
-  expect(published.latestPublishedVersionId).toBeTruthy();
+  expect(published.id).toBeTruthy();
 
   const frozenResponse = await request.get(
-    `${apiBaseUrl}/api/v1/workflow/form-versions/${published.latestPublishedVersionId}`,
+    `${apiBaseUrl}/api/v1/workflow/form-versions/${published.id}`,
     { headers }
   );
   expect(frozenResponse.status()).toBe(200);
@@ -231,6 +233,7 @@ test('管理员可通过 Workflow-Vue3 创建、保存并绑定已发布表单�
   expect(publishFormResponse.status()).toBe(200);
   const formVersion = await publishFormResponse.json();
 
+  const currentAccessToken = trackUiAccessToken(page);
   await loginAsHostAdmin(page);
   await clickMainNavLink(page, /工作流定义/, '工作流');
   const view = page.locator('.workflow-definitions');
@@ -247,6 +250,7 @@ test('管理员可通过 Workflow-Vue3 创建、保存并绑定已发布表单�
   await view.getByTestId('workflow-definition-form-version').selectOption(formVersion.id);
   await view.getByTestId('workflow-definition-publish').click();
 
+  headers.Authorization = `Bearer ${currentAccessToken()}`;
   const definitionsResponse = await request.get(`${apiBaseUrl}/api/v1/workflow/definitions`, { headers });
   expect(definitionsResponse.status()).toBe(200);
   await expect.poll(async () => {
