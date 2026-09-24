@@ -2,6 +2,23 @@ import { expect, test } from '@playwright/test';
 
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 
+async function clickUserAction(page, row, clientKind, testId, buttonName) {
+  if (clientKind !== 'vue') {
+    await row.getByRole('button', { name: buttonName, exact: true }).click();
+    return;
+  }
+  const inlineAction = row.getByTestId(testId);
+  if (await inlineAction.count()) {
+    await inlineAction.click();
+    return;
+  }
+  const overflowAction = page.locator('[role="menu"]:visible').getByTestId(testId);
+  if (!await overflowAction.isVisible()) {
+    await row.getByTestId('art-table-action-more').click();
+  }
+  await overflowAction.click();
+}
+
 async function expectShellHostContextVisible(page, testInfo) {
   if (testInfo.project.name === 'vue-admin') {
     await page.getByRole('button', { name: '系统管理员' }).click();
@@ -312,7 +329,7 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
   }
   await expect.poll(() => operations.some(operation => operation.type === 'roles')).toBe(true);
 
-  await userRow.getByRole('button', { name: '重置密码' }).click();
+  await clickUserAction(page, userRow, clientKind, 'users-action-reset-password', '重置密码');
   if (clientKind === 'vue') {
     const passwordBox = page.locator('.el-message-box').last();
     await expect(passwordBox.locator('input')).toBeVisible();
@@ -330,7 +347,7 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
     body: { password: 'FullNet!2026Rotate' }
   }]);
 
-  await userRow.getByRole('button', { name: '禁用' }).click();
+  await clickUserAction(page, userRow, clientKind, 'users-action-disable', '禁用');
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -341,7 +358,7 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
   await expect(page.getByText('已禁用', { exact: true }).first()).toBeVisible();
 
-  await userRow.getByRole('button', { name: '启用' }).click();
+  await clickUserAction(page, userRow, clientKind, 'users-action-enable', '启用');
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '启用', exact: true })
