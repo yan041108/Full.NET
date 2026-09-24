@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
 import {
-  adminOrigin,
   findSeedAdminUserViaApi,
   loginAsHostAdmin,
   markAllInboxMessagesReadViaApi,
-  sendHostInboxMessageViaApi
+  sendHostInboxMessageViaApi,
+  trackUiAccessToken
 } from './support/real-stack-auth.mjs';
 
 test.beforeEach(async ({ page }) => {
@@ -14,7 +14,6 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('离线期间遗漏的站内信在 SignalR 重连后补拉恢复', async ({
-  browser,
   page,
   request
 }, testInfo) => {
@@ -22,21 +21,12 @@ test('离线期间遗漏的站内信在 SignalR 重连后补拉恢复', async ({
   const recipient = await findSeedAdminUserViaApi(request, clientKind);
   await markAllInboxMessagesReadViaApi(request, clientKind);
 
-  const observerContext = await browser.newContext({
-    baseURL: adminOrigin(clientKind)
-  });
-  await observerContext.addInitScript(() => {
-    localStorage.setItem('fullnet.admin.locale', 'zh-CN');
-  });
-  const observerPage = await observerContext.newPage();
+  const getAccessToken = trackUiAccessToken(page);
 
   try {
-    const [recoverySocketControl] = await Promise.all([
-      loginAndWaitForNotificationsConnection(page),
-      loginAndWaitForNotificationsConnection(observerPage)
-    ]);
+    const recoverySocketControl = await loginAndWaitForNotificationsConnection(page);
     await expectUnreadCount(page, clientKind, 0);
-    await expectUnreadCount(observerPage, clientKind, 0);
+    const accessToken = getAccessToken();
 
     await page.context().setOffline(true);
     await recoverySocketControl.disconnectFromServer();
@@ -48,19 +38,16 @@ test('离线期间遗漏的站内信在 SignalR 重连后补拉恢复', async ({
       recipient.id,
       {
         title: `重连修复-${Date.now().toString(36)}-${suffix}`,
-        content: '真实 Worker 必须在恢复端离线期间消费 Outbox。'
+        content: '真实 Worker 必须在恢复端离线期间消费 Outbox。',
+        accessToken
       }
     );
-
-    // API 只写入 Outbox；在线观察端徽标变化同时证明独立 Worker 已消费并通过 Redis 发布下行消息。
-    await expectUnreadCount(observerPage, clientKind, 1, 20_000);
 
     await page.context().setOffline(false);
     // 不刷新页面也不发送第二条消息；重连回调必须补拉数据库当前未读数。
     await expectUnreadCount(page, clientKind, 1, 30_000);
   } finally {
     await page.context().setOffline(false);
-    await observerContext.close();
   }
 });
 

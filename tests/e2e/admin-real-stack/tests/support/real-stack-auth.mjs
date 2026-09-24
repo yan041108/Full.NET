@@ -163,7 +163,8 @@ export async function sendHostInboxMessageViaApi(
 ) {
   const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
   const origin = adminOrigin(clientKind);
-  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const accessToken = options.accessToken
+    ?? await loginHostAdminAccessToken(request, clientKind);
   const response = await request.post(
     `${apiBaseUrl}/api/v1/notifications/host-inbox-messages`,
     {
