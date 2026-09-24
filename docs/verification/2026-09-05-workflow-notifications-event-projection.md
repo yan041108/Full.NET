@@ -38,6 +38,13 @@
 - 页面级真实栈 E2E 和逐页人工验收按 `R-20260905-feature-first-page-acceptance` 延后到功能建设完成后统一执行。
 - Worker 卡住实例恢复、超时提醒、重新指派、生产容量和外部渠道送达回执仍开放。
 
+## Worker 双库投影证据（2026-09-24）
+
+- 新增 Native Worker 外部进程探针：写入 `WorkflowTodoAssignedIntegrationEvent`，等待 Outbox 完成，并核对 Workflow 幂等键对应的 Notifications Intent、收件用户 Inbox 与未读状态。
+- [Worker Native AOT CI 36058568904](https://github.com/yan041108/Full.NET/actions/runs/36058568904)：AOT 分析器、Linux NativeAOT 发布、架构门禁与 Worker 双库 E2E 全部通过。
+- TRX：`MySql_native_worker_projects_workflow_notification_to_inbox` 与 `SqlServer_native_worker_projects_workflow_notification_to_inbox` 均为 Passed；Worker 外部进程矩阵总计 16/16、0 失败、0 跳过。
+- 此证据关闭“Worker 双库端到端投影测试”待办；能力仍为 `Build-verified`，页面级真实栈/人工验收、恢复与重试场景、生产容量及外部渠道送达回执保持开放。
+
 ## 规则与 Skill 演进
 
 - 规则演进未再次触发；本轮直接执行已新增的功能优先、页面后验收规则。

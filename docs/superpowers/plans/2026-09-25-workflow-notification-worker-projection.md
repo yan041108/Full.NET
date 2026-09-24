@@ -30,4 +30,4 @@
 - [x] Implemented the assertion and provider-aware probe using an active Host user, `MemoryPackIntegrationEventSerializer`, and the existing Worker process host.
 - [x] `dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj -c Release --no-restore` succeeded with 0 warnings and 0 errors. `pnpm test:aot:worker:native:e2e` discovered 16 tests including both new cases; Windows marked all 16 Inconclusive because native Worker external-process tests run only on Linux. Linux SQL Server/MySQL execution remains assigned to Worker Native AOT CI.
 - [x] `pnpm test:integration:affected:plan -- --snapshot workflow-notification-worker-projection-20260925 --phase slice` selected only the four NativeAOT test files. `git diff --check` passed.
-- [ ] Commit the plan and four test files, push to `main`, and verify the resulting Worker Native AOT CI run executes the two new scenarios on Linux.
+- [x] Commit `e0f67f74` and push to `main`. Worker Native AOT CI [36058568904](https://github.com/yan041108/Full.NET/actions/runs/36058568904) passed; TRX reports both new SQL Server and MySQL cases Passed, with the complete Worker E2E matrix at 16/16.
