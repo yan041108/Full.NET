@@ -9,7 +9,8 @@ import {
   loginAsHostViewer,
   loginHostAdminAccessToken,
   provisionLimitedHostUserViaApi,
-  statusPath
+  statusPath,
+  trackUiAccessToken
 } from './support/real-stack-auth.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
@@ -44,7 +45,7 @@ test('Host 管理员可创建、更新并预览流水号规则', async ({ page, 
 
   const clientKind = testInfo.project.metadata.clientKind;
   const origin = adminOrigin(clientKind);
-  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const currentAccessToken = trackUiAccessToken(page);
   const stamp = Date.now().toString(36);
   const ruleKey = `e2e.serial.${stamp}`;
 
@@ -81,7 +82,7 @@ test('Host 管理员可创建、更新并预览流水号规则', async ({ page, 
       `${apiBaseUrl}/api/v1/serial-numbers/rules?page=1&pageSize=20&key=${encodeURIComponent(ruleKey)}&sortBy=ruleKey&sortDirection=asc`,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${currentAccessToken()}`,
           Origin: origin
         }
       }
@@ -105,7 +106,7 @@ test('Host 管理员可创建、更新并预览流水号规则', async ({ page, 
           version: createdRule.version
         },
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${currentAccessToken()}`,
           Origin: origin,
           'Content-Type': 'application/json'
         }
@@ -131,7 +132,7 @@ test('Host 管理员可创建、更新并预览流水号规则', async ({ page, 
     `${apiBaseUrl}/api/v1/serial-numbers/rules?page=1&pageSize=20&key=${encodeURIComponent(ruleKey)}&sortBy=ruleKey&sortDirection=asc`,
     {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${currentAccessToken()}`,
         Origin: origin
       }
     }
