@@ -223,6 +223,11 @@ internal static class IdentityOnlineSessionAssertions
             new CreateHostUserRequest(username, "OIDC 混合会话", password));
         using var createResponse = await client.SendAsync(createRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        await IntegrationTestAuthHelper.ClearInitialPasswordChangeRequirementAsync(
+            client,
+            username,
+            password,
+            cancellationToken);
 
         var oidcFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             client,
@@ -230,10 +235,14 @@ internal static class IdentityOnlineSessionAssertions
             IdentityOidcRelyingPartyFixture.PublicRedirectUri,
             null,
             username,
-            password,
+            IntegrationTestAuthHelper.ClearedPassword,
             requestOfflineAccess: false,
             cancellationToken: cancellationToken);
-        var legacyToken = await LoginAsync(client, username, password, cancellationToken);
+        var legacyToken = await LoginAsync(
+            client,
+            username,
+            IntegrationTestAuthHelper.ClearedPassword,
+            cancellationToken);
 
         using var listRequest = new HttpRequestMessage(
             HttpMethod.Get,
