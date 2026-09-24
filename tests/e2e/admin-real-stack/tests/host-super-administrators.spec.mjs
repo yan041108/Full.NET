@@ -86,6 +86,7 @@ async function revokeSuperAdministratorViaUi(page, targetUsername, password) {
   await row.getByTestId('super-admin-action-revoke').evaluate(button => button.click());
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible({ timeout: 15_000 });
+  await expect(dialog.getByLabel('目标账号')).toHaveValue(targetUsername);
   await dialog.getByLabel('当前密码', { exact: true }).fill(password);
   await dialog.getByTestId('super-admin-revoke-submit').click();
 }
@@ -152,4 +153,7 @@ test('Host 管理员可通过 Vue 对话框完成密码重认证授予与撤销'
   await expect(page.getByText(targetUsername, { exact: true })).toHaveCount(0, {
     timeout: 20_000
   });
+  const { administrators } = await listSuperAdministrators(request, clientKind);
+  expect(administrators.some(item => item.username === 'admin')).toBe(true);
+  expect(administrators.some(item => item.username === targetUsername)).toBe(false);
 });

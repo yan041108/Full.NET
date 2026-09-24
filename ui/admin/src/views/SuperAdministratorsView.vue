@@ -480,6 +480,7 @@ function toProblem(
           <el-table
             v-loading="loading"
             :data="pagedAdministrators"
+            row-key="userId"
             :height="tableHeight"
             :size="tableSize"
             :stripe="tableZebra"
