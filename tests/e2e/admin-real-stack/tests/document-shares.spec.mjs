@@ -54,8 +54,11 @@ test('Host 管理员可通过 UI 创建分享', async ({ page, request }, testIn
   await expect(page.getByRole('heading', { name: '文档分享', exact: true })).toBeVisible();
 
   await page.getByTestId('document-share-create').click();
-  await page.getByTestId('document-share-editor-form').locator('input').first().fill(document.id);
+  await page.getByTestId('document-share-document-select').click();
+  await page.getByRole('option', { name: `${document.title} (${document.documentNo})` }).click();
   await page.getByTestId('document-share-editor-submit').click();
   await expect(page.getByText('分享已创建')).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator('.el-table__row').filter({ hasText: document.id })).toBeVisible();
+  await expect(page.locator('.el-table__row').filter({ hasText: document.title })).toBeVisible({
+    timeout: 15_000
+  });
 });
