@@ -129,11 +129,12 @@ test('Host 管理员可通过真实 API 导入用户并批量停用启用', asyn
     displayName: `批量用户 ${stamp}`,
     password: defaultPassword
   });
+  const batchAccessToken = await loginHostAdminAccessToken(request, clientKind);
 
   const disableResponse = await request.post(`${apiBaseUrl}/api/v1/identity/users/batch-disable`, {
     data: { userIds: [batchUser.id] },
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${batchAccessToken}`,
       Origin: origin,
       'Content-Type': 'application/json'
     }
@@ -144,7 +145,7 @@ test('Host 管理员可通过真实 API 导入用户并批量停用启用', asyn
   const enableResponse = await request.post(`${apiBaseUrl}/api/v1/identity/users/batch-enable`, {
     data: { userIds: [batchUser.id] },
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${batchAccessToken}`,
       Origin: origin,
       'Content-Type': 'application/json'
     }
