@@ -32,11 +32,14 @@ test('Host 管理员可创建文档并绑定新版本', async ({ page }, testInf
   const view = page.locator('.host-document-items-view');
   await expect(view.getByRole('heading', { name: 'Host 文档库', exact: true })).toBeVisible();
 
-  await view.getByTestId('host-document-item-title').fill(title);
   await view.getByTestId('host-document-item-create').click();
-  await expect(view.getByText(title, { exact: true })).toBeVisible();
+  const createDialog = page.getByRole('dialog');
+  await createDialog.getByTestId('host-document-item-title').fill(title);
+  await createDialog.getByTestId('host-document-item-create-submit').click();
+  await expect(createDialog).toBeHidden();
 
   const row = view.locator('.el-table__row').filter({ hasText: title });
+  await expect(row).toBeVisible();
   await row.getByTestId('host-document-item-version-file').setInputFiles({
     name: `${title}.txt`,
     mimeType: 'text/plain',
