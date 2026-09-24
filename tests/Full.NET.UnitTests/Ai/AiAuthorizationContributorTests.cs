@@ -50,13 +50,14 @@ public sealed class AiAuthorizationContributorTests
     }
 
     [TestMethod]
-    public void Agent_run_permissions_are_available_in_host_and_tenant_scopes()
+    public void Tenant_agent_permissions_include_the_tool_catalog_and_agent_run_actions()
     {
         var catalog = AuthorizationCatalog.Create([new AiAuthorizationContributor()]);
         var expectedScope = AuthorizationScope.Host | AuthorizationScope.Tenant;
 
         foreach (var code in new[]
                  {
+                     AiAgentToolPermissions.CatalogRead,
                      AiAgentRunPermissions.Read,
                      AiAgentRunPermissions.Create,
                      AiAgentRunPermissions.Cancel,

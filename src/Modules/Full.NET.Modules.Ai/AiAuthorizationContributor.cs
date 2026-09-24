@@ -23,7 +23,7 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
         new(AiChatPermissions.Delete, "删除 AI 聊天会话", AuthorizationScope.Host),
         new(AiChatPermissions.Send, "发送 AI 聊天消息", AuthorizationScope.Host),
         new(AiChatPermissions.Cancel, "取消 AI 聊天生成", AuthorizationScope.Host),
-        new(AiAgentToolPermissions.CatalogRead, "读取 Agent Tool 静态目录", AuthorizationScope.Host),
+        new(AiAgentToolPermissions.CatalogRead, "读取 Agent Tool 静态目录", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiAgentToolPermissions.CallsRead, "读取 Agent Tool 调用审计", AuthorizationScope.Host),
         new(AiAgentRunPermissions.Read, "读取 Agent 运行", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiAgentRunPermissions.Create, "创建 Agent 运行", AuthorizationScope.Host | AuthorizationScope.Tenant),
