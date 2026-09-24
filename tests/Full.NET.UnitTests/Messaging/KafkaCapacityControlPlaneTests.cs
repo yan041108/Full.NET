@@ -47,6 +47,50 @@ public sealed class KafkaCapacityControlPlaneTests
     }
 
     [TestMethod]
+    public async Task Topic_manager_waits_for_created_topic_identity_to_become_visible()
+    {
+        var admin = new RecordingAdminClient("cluster-a", brokerCount: 1)
+        {
+            PostCreateInvisibleReads = 2,
+        };
+        var manager = new KafkaCapacityTopicManager(admin);
+
+        var identity = await manager.EnsureTopicAsync(
+            "visibility",
+            KafkaCapacityFingerprint.Sha256("cluster-a"),
+            partitions: 1,
+            replicationFactor: 1,
+            resumeIdentity: null,
+            CancellationToken.None);
+
+        Assert.AreEqual("fullnet.capacity.visibility.v1", identity.TopicName);
+        Assert.AreEqual(1, admin.CreateCalls);
+        Assert.AreEqual(0, admin.PostCreateInvisibleReads);
+    }
+
+    [TestMethod]
+    public async Task Topic_manager_rejects_created_topic_without_visible_identity()
+    {
+        var admin = new RecordingAdminClient("cluster-a", brokerCount: 1)
+        {
+            PostCreateInvisibleReads = 20,
+        };
+        var manager = new KafkaCapacityTopicManager(admin);
+
+        var failure = await Assert.ThrowsExactlyAsync<KafkaCapacityControlPlaneException>(() =>
+            manager.EnsureTopicAsync(
+                "invisible",
+                KafkaCapacityFingerprint.Sha256("cluster-a"),
+                partitions: 1,
+                replicationFactor: 1,
+                resumeIdentity: null,
+                CancellationToken.None));
+
+        Assert.AreEqual("topic_create_incomplete", failure.ReasonCode);
+        Assert.AreEqual(1, admin.CreateCalls);
+    }
+
+    [TestMethod]
     public async Task Topic_manager_rejects_unknown_existing_topic_and_cluster_change()
     {
         var admin = new RecordingAdminClient("cluster-a", 1);
@@ -334,6 +378,8 @@ public sealed class KafkaCapacityControlPlaneTests
 
         public int CreateCalls { get; private set; }
 
+        public int PostCreateInvisibleReads { get; set; }
+
         public int DeleteCalls { get; private set; }
 
         public Task<KafkaCapacityClusterDescription> DescribeClusterAsync(
@@ -344,8 +390,16 @@ public sealed class KafkaCapacityControlPlaneTests
 
         public Task<KafkaCapacityTopicDescription?> DescribeTopicAsync(
             string topicName,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(Topic?.TopicName == topicName ? Topic : null);
+            CancellationToken cancellationToken)
+        {
+            if (Topic is not null && PostCreateInvisibleReads > 0)
+            {
+                PostCreateInvisibleReads--;
+                return Task.FromResult<KafkaCapacityTopicDescription?>(null);
+            }
+
+            return Task.FromResult(Topic?.TopicName == topicName ? Topic : null);
+        }
 
         public Task CreateTopicAsync(
             string topicName,

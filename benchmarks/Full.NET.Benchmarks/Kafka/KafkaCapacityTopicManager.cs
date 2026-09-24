@@ -83,12 +83,29 @@ public sealed class KafkaCapacityTopicManager(IKafkaCapacityAdminClient adminCli
                 partitions,
                 replicationFactor,
                 cancellationToken);
-            current = await adminClient.DescribeTopicAsync(
-                topicName,
-                CancellationToken.None)
-                ?? throw Rejected(
+            // 创建已产生副作用；短暂等待元数据可见，以便记录真实 Topic 身份。
+            for (var attempt = 0; attempt <= 10; attempt++)
+            {
+                current = await adminClient.DescribeTopicAsync(
+                    topicName,
+                    CancellationToken.None);
+                if (current is not null)
+                {
+                    break;
+                }
+
+                if (attempt < 10)
+                {
+                    await Task.Delay(200, CancellationToken.None);
+                }
+            }
+
+            if (current is null)
+            {
+                throw Rejected(
                     "topic_create_incomplete",
                     "Kafka did not expose the created Topic identity.");
+            }
         }
         else if (resumeIdentity is null)
         {
