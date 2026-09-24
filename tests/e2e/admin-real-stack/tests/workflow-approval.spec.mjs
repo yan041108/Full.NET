@@ -5,7 +5,8 @@ import {
   loginAsHostAdmin,
   loginAsHostUser,
   loginHostAdminAccessToken,
-  provisionLimitedHostUserViaApi
+  provisionLimitedHostUserViaApi,
+  trackUiAccessToken
 } from './support/real-stack-auth.mjs';
 import {
   apiHeaders,
@@ -33,23 +34,24 @@ test.beforeEach(async ({ page }) => {
 test('管理员可在 Vue 中发起流程并完成同意与驳回', async ({ page, request }, testInfo) => {
   test.setTimeout(120_000);
   const clientKind = testInfo.project.metadata.clientKind;
+  const currentAccessToken = trackUiAccessToken(page);
   const accessToken = await loginHostAdminAccessToken(request, clientKind);
   const assets = await publishApprovalAssets(request, clientKind, accessToken);
 
   await loginAsHostAdmin(page);
   const approved = await startFromDefinitionsPage(page, assets, 'admin approved');
-  const rejected = await startInstance(request, clientKind, accessToken, assets.versionId, 'admin rejected');
+  const rejected = await startInstance(request, clientKind, currentAccessToken(), assets.versionId, 'admin rejected');
 
   await clickMainNavLink(page, /我的待办/, '工作流');
   const todoFilter = { definitionKey: assets.definitionKey };
   await openTodoAndAct(page, approved, 'approved', 'approve', todoFilter);
   await expect.poll(async () =>
-    (await getInstance(request, clientKind, accessToken, approved.id)).statusKey
+    (await getInstance(request, clientKind, currentAccessToken(), approved.id)).statusKey
   ).toBe('completed');
 
   await openTodoAndAct(page, rejected, 'rejected', 'reject', todoFilter);
   await expect.poll(async () =>
-    (await getInstance(request, clientKind, accessToken, rejected.id)).statusKey
+    (await getInstance(request, clientKind, currentAccessToken(), rejected.id)).statusKey
   ).toBe('rejected');
 });
 
@@ -59,6 +61,7 @@ test('只有待办读取权限时动作按钮不进入 DOM 且直接 API 返回 
 }, testInfo) => {
   test.setTimeout(120_000);
   const clientKind = testInfo.project.metadata.clientKind;
+  const currentAccessToken = trackUiAccessToken(page);
   const limited = await provisionLimitedHostUserViaApi(request, clientKind, {
     permissionCodes: workflowReadOnlyTodoPermissions
   });
@@ -93,7 +96,7 @@ test('只有待办读取权限时动作按钮不进入 DOM 且直接 API 返回 
         comment: 'must be forbidden',
         idempotencyKey: crypto.randomUUID()
       },
-      headers: apiHeaders(clientKind, accessToken)
+      headers: apiHeaders(clientKind, currentAccessToken())
     }
   );
   expect(bypass.status(), await bypass.text()).toBe(403);
@@ -106,6 +109,7 @@ test('并发处理造成 409 后刷新权威待办并关闭过期动作', async 
 }, testInfo) => {
   test.setTimeout(120_000);
   const clientKind = testInfo.project.metadata.clientKind;
+  const currentAccessToken = trackUiAccessToken(page);
   const accessToken = await loginHostAdminAccessToken(request, clientKind);
   const assets = await publishApprovalAssets(request, clientKind, accessToken);
   const instance = await startInstance(
@@ -126,7 +130,7 @@ test('并发处理造成 409 后刷新权威待办并关闭过期动作', async 
   await post(
     request,
     clientKind,
-    accessToken,
+    currentAccessToken(),
     `/api/v1/workflow/todos/${todo.id}/approve`,
     {
       expectedRevision: 1,
