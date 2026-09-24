@@ -49,6 +49,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Identity/Features/SelfServiceProfile/SelfServiceProfileService.cs",
         "src/Modules/Full.NET.Modules.Identity/Middleware/IdentityOidcHostContextMiddleware.cs",
         "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcAccessSessionValidator.cs",
+        // OIDC 登出在 Host 作用域撤销跨租户会话和授权记录，然后恢复原租户。
+        "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcAuthorizationService.cs",
         "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcClientRegistrar.cs",
         "src/Modules/Full.NET.Modules.Identity/Retention/IdentityOidcRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Identity/Security/FullNetJwtBearerEvents.cs",
