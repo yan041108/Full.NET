@@ -29,7 +29,11 @@ public sealed class WorkflowApiSqlServerTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            settingsOverrides: new Dictionary<string, string?>
+            {
+                ["Identity:SessionLoginPolicy"] = "AllowMultiple",
+            });
         await WorkflowRuntimeApiAssertions.VerifyTenantScopeAsync(factory);
     }
 

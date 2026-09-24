@@ -2,11 +2,16 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.IntegrationTests.Identity;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
+using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Organization;
 
@@ -115,6 +120,7 @@ internal static class OrganizationDataScopeFilteringAssertions
         var createdUser = await createUserResponse.Content
             .ReadFromJsonAsync<HostUserResponse>(cancellationToken);
         Assert.IsNotNull(createdUser);
+        await AddTenantMemberAsync(factory, adminTenant.TenantId, createdUser.Id, cancellationToken);
 
         using var getRolesRequest = new HttpRequestMessage(
             HttpMethod.Get,
@@ -317,6 +323,7 @@ internal static class OrganizationDataScopeFilteringAssertions
         var createdUser = await createUserResponse.Content
             .ReadFromJsonAsync<HostUserResponse>(cancellationToken);
         Assert.IsNotNull(createdUser);
+        await AddTenantMemberAsync(factory, adminTenant.TenantId, createdUser.Id, cancellationToken);
 
         using var getRolesRequest = new HttpRequestMessage(
             HttpMethod.Get,
@@ -359,6 +366,38 @@ internal static class OrganizationDataScopeFilteringAssertions
         Assert.AreEqual(1, page.Total);
         Assert.AreEqual(1, page.Items.Count);
         Assert.AreEqual(visibleUnit.Id, page.Items[0].UnitId);
+    }
+
+    private static async Task AddTenantMemberAsync(
+        FullNetApiFactory factory,
+        Guid tenantId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetTenant(new TenantContext(tenantId, "acme", "Acme Corporation"));
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var command = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+            var rows = await command.ExecuteAsync(
+                TenantMembershipSql.InsertMember,
+                IdentitySqlParameters.Create(
+                    ("Id", Guid.CreateVersion7()),
+                    ("UserId", userId),
+                    ("MemberRole", TenantMemberRoles.Member),
+                    ("Status", TenantMemberStatuses.Active),
+                    ("CreatedAtUtc", now),
+                    ("UpdatedAtUtc", now),
+                    ("Version", 1)),
+                cancellationToken);
+            Assert.AreEqual(1, rows);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
     }
 
     private static async Task CreateUserUnitAssignmentAsync(

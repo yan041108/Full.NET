@@ -22,7 +22,11 @@ public sealed class OrganizationApiSqlServerTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            settingsOverrides: new Dictionary<string, string?>
+            {
+                ["Identity:SessionLoginPolicy"] = "AllowMultiple",
+            });
 
         await OrganizationDataScopeFilteringAssertions.VerifyTenantUnitDataScopeFilteringAsync(factory);
     }

@@ -17,6 +17,7 @@ public sealed class NotificationsApiSqlServerTests
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
             settingsOverrides: new Dictionary<string, string?>
             {
+                ["Identity:SessionLoginPolicy"] = "AllowMultiple",
                 ["Notifications:Providers:Smtp:Enabled"] = "true",
                 ["Notifications:Providers:AliyunSms:Enabled"] = "true",
                 ["Notifications:Providers:AliyunSms:ReceiptSecretReference"] =
