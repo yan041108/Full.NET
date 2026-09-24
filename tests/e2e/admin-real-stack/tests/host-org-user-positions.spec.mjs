@@ -9,7 +9,8 @@ import {
   loginAsHostAdmin,
   loginAsHostViewer,
   loginTenantAdminAccessToken,
-  statusPath
+  statusPath,
+  trackUiAccessToken
 } from './support/real-stack-auth.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
@@ -49,21 +50,26 @@ async function createTenantPosition(request, clientKind, accessToken, code, name
   return response.json();
 }
 
-async function getAssignableUser(request, clientKind, accessToken) {
-  const response = await request.get(
-    `${apiBaseUrl}/api/v1/organization/user-positions/assignable-users`
-      + '?page=1&pageSize=100',
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Origin: adminOrigin(clientKind)
+async function getAssignableUser(request, clientKind, accessToken, username) {
+  let user;
+  for (let page = 1; !user; page += 1) {
+    const response = await request.get(
+      `${apiBaseUrl}/api/v1/organization/user-positions/assignable-users`
+        + `?page=${page}&pageSize=100`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Origin: adminOrigin(clientKind)
+        }
       }
+    );
+    expect(response.ok()).toBeTruthy();
+    const body = await response.json();
+    user = body.items.find(candidate => candidate.username === username);
+    if (page >= Math.ceil(body.total / 100)) {
+      break;
     }
-  );
-  expect(response.ok()).toBeTruthy();
-  const body = await response.json();
-  const user = body.items.find(candidate => candidate.username === 'admin')
-    ?? body.items[0];
+  }
   expect(user).toBeTruthy();
   return user;
 }
@@ -109,11 +115,29 @@ test('Host 管理员通过双管理端完成真实用户职位分配设主与取
 }, testInfo) => {
   test.setTimeout(120_000);
   const clientKind = testInfo.project.metadata.clientKind;
+  const currentAccessToken = trackUiAccessToken(page);
+  const username = uniqueCode(clientKind, 'a-e2e-member');
   const positionCode = uniqueCode(clientKind, 'a-e2e-upos');
   const positionName = `真实栈隶属职位 ${clientKind}`;
   const accessToken = await loginTenantAdminAccessToken(request, clientKind);
-  const user = await getAssignableUser(request, clientKind, accessToken);
-  const username = user.username;
+  const provisionResponse = await request.post(`${apiBaseUrl}/api/v1/identity/tenant-members/provision`, {
+    data: {
+      username,
+      displayName: `真实栈成员 ${clientKind}`,
+      password: 'FullNet!2026Secure',
+      memberRole: 'Member',
+      email: null
+    },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: adminOrigin(clientKind),
+      'Content-Type': 'application/json'
+    }
+  });
+  expect(provisionResponse.status(), await provisionResponse.text()).toBe(200);
+  const provisioned = await provisionResponse.json();
+  const user = await getAssignableUser(request, clientKind, accessToken, username);
+  expect(user.id).toBe(provisioned.userId);
   const position = await createTenantPosition(
     request,
     clientKind,
@@ -140,7 +164,7 @@ test('Host 管理员通过双管理端完成真实用户职位分配设主与取
         isPrimary: false
       },
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${currentAccessToken()}`,
         Origin: adminOrigin(clientKind),
         'Content-Type': 'application/json'
       }
@@ -153,7 +177,7 @@ test('Host 管理员通过双管理端完成真实用户职位分配设主与取
           + `&positionId=${encodeURIComponent(position.id)}`,
         {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${currentAccessToken()}`,
             Origin: adminOrigin(clientKind)
           }
         }
@@ -186,7 +210,7 @@ test('Host 管理员通过双管理端完成真实用户职位分配设主与取
       {
         data: { isPrimary: true, version: created.version },
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${currentAccessToken()}`,
           Origin: adminOrigin(clientKind),
           'Content-Type': 'application/json'
         }
@@ -194,20 +218,20 @@ test('Host 管理员通过双管理端完成真实用户职位分配设主与取
     );
     expect(setPrimaryResponse.ok()).toBeTruthy();
     await expect.poll(async () =>
-      (await getUserPosition(request, clientKind, accessToken, user.id, position.id)).isPrimary
+      (await getUserPosition(request, clientKind, currentAccessToken(), user.id, position.id)).isPrimary
     ).toBe(true);
     const disableResponse = await request.post(
       `${apiBaseUrl}/api/v1/organization/user-positions/${created.id}/disable`,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${currentAccessToken()}`,
           Origin: adminOrigin(clientKind)
         }
       }
     );
     expect(disableResponse.ok()).toBeTruthy();
     await expect.poll(async () =>
-      (await getUserPosition(request, clientKind, accessToken, user.id, position.id)).isActive
+      (await getUserPosition(request, clientKind, currentAccessToken(), user.id, position.id)).isActive
     ).toBe(false);
   } else {
     const assignmentRow = crudTableRow(view, clientKind, positionCode);
@@ -239,7 +263,7 @@ test('Host 管理员通过双管理端完成真实用户职位分配设主与取
   const persisted = await getUserPosition(
     request,
     clientKind,
-    accessToken,
+    currentAccessToken(),
     user.id,
     position.id
   );
