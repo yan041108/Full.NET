@@ -7,7 +7,7 @@ namespace Full.NET.IntegrationTests.Api;
 public sealed class DataApprovalRecoveryRestartApiMySqlTests
 {
     [TestMethod]
-    public async Task MySql_pending_request_is_linked_by_recovery_worker_after_host_restart()
+    public async Task MySql_pending_request_is_linked_after_recovery_worker_starts()
     {
         var connectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         await DataApprovalRecoveryRestartAssertions.VerifyAsync(

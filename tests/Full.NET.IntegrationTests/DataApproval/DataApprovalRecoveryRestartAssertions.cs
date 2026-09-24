@@ -3,14 +3,29 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Time;
+using Full.NET.Caching.Fusion;
+using Full.NET.Composition;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.Dapper;
+using Full.NET.Hosting.Api;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Modules.DataApproval.Contracts;
 using Full.NET.Modules.DataApproval.Domain;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Realtime.SignalR;
+using Full.NET.Serialization.MemoryPack;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 
 namespace Full.NET.IntegrationTests.DataApproval;
 
@@ -36,71 +51,68 @@ internal static class DataApprovalRecoveryRestartAssertions
         };
         DataApprovalRequestResponse failedRequest;
 
-        using (var interruptedHost = new FullNetApiFactory(
-                   provider,
-                   connectionString,
-                   CreateWorkerSettings(pollMilliseconds: 60_000, retryDelaySeconds: 3_600),
-                   configureTestServices: services =>
-                   {
-                       services.RemoveAll<IWorkflowInstanceStarter>();
-                       services.AddSingleton<IWorkflowInstanceStarter, FailingWorkflowInstanceStarter>();
-                   }))
-        {
-            await interruptedHost.InitializeAsync(cancellationToken).ConfigureAwait(false);
-            using var client = interruptedHost.CreateClientForHost("localhost");
-            var token = await interruptedHost.CreateHostAccessTokenAsync(permissions, cancellationToken)
-                .ConfigureAwait(false);
-
-            var definitionVersionId = await CreatePublishedDefinitionAsync(
-                    client,
-                    token,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            await BindScenarioAsync(client, token, definitionVersionId, cancellationToken)
-                .ConfigureAwait(false);
-            var ruleId = await CreateSerialRuleAsync(client, token, cancellationToken)
-                .ConfigureAwait(false);
-            failedRequest = await CreateRequestInterruptedDuringWorkflowStartAsync(
-                    client,
-                    token,
-                    ruleId,
-                    cancellationToken)
-                .ConfigureAwait(false);
-
-            Assert.AreEqual(DataApprovalStatusKeys.Pending, failedRequest.StatusKey);
-            Assert.AreEqual(DataApprovalRecoveryStatusKeys.PendingLink, failedRequest.RecoveryStatusKey);
-            Assert.IsNull(failedRequest.WorkflowInstanceId);
-            Assert.IsNull(failedRequest.LastFailureCode);
-        }
-
-        using var restartedHost = new FullNetApiFactory(
+        using var apiHost = new FullNetApiFactory(
             provider,
             connectionString,
-            CreateWorkerSettings(pollMilliseconds: 500, retryDelaySeconds: 5));
-        await restartedHost.InitializeAsync(cancellationToken).ConfigureAwait(false);
-        using var restartedClient = restartedHost.CreateClientForHost("localhost");
-        var restartedToken = await restartedHost.CreateHostAccessTokenAsync(permissions, cancellationToken)
+            CreateWorkerSettings(pollMilliseconds: 60_000, retryDelaySeconds: 3_600),
+            configureTestServices: services =>
+            {
+                services.RemoveAll<IWorkflowInstanceStarter>();
+                services.AddSingleton<IWorkflowInstanceStarter, FailingWorkflowInstanceStarter>();
+            });
+        await apiHost.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        using var client = apiHost.CreateClientForHost("localhost");
+        var token = await apiHost.CreateHostAccessTokenAsync(permissions, cancellationToken)
             .ConfigureAwait(false);
 
-        var recovered = await WaitForWorkflowLinkAsync(
-                restartedClient,
-                restartedToken,
-                failedRequest.Id,
+        var definitionVersionId = await CreatePublishedDefinitionAsync(client, token, cancellationToken)
+            .ConfigureAwait(false);
+        await BindScenarioAsync(client, token, definitionVersionId, cancellationToken).ConfigureAwait(false);
+        var ruleId = await CreateSerialRuleAsync(client, token, cancellationToken).ConfigureAwait(false);
+        failedRequest = await CreateRequestInterruptedDuringWorkflowStartAsync(
+                client,
+                token,
+                ruleId,
                 cancellationToken)
             .ConfigureAwait(false);
-        Assert.AreEqual(DataApprovalStatusKeys.InReview, recovered.StatusKey);
-        Assert.AreEqual(DataApprovalRecoveryStatusKeys.None, recovered.RecoveryStatusKey);
-        Assert.IsNotNull(recovered.WorkflowInstanceId);
-        Assert.IsNull(recovered.LastFailureCode);
 
-        using var workflowRead = await SendAuthorizedAsync(
-                restartedClient,
-                HttpMethod.Get,
-                $"/api/v1/workflow/instances/{recovered.WorkflowInstanceId:D}",
-                restartedToken,
-                cancellationToken)
+        Assert.AreEqual(DataApprovalStatusKeys.Pending, failedRequest.StatusKey);
+        Assert.AreEqual(DataApprovalRecoveryStatusKeys.PendingLink, failedRequest.RecoveryStatusKey);
+        Assert.IsNull(failedRequest.WorkflowInstanceId);
+        Assert.IsNull(failedRequest.LastFailureCode);
+
+        using var workerHost = await BuildRecoveryWorkerHostAsync(
+            provider,
+            connectionString,
+            CreateWorkerSettings(pollMilliseconds: 500, retryDelaySeconds: 5))
             .ConfigureAwait(false);
-        Assert.AreEqual(HttpStatusCode.OK, workflowRead.StatusCode, await workflowRead.Content.ReadAsStringAsync(cancellationToken));
+        await workerHost.StartAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var recovered = await WaitForWorkflowLinkAsync(
+                    client,
+                    token,
+                    failedRequest.Id,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            Assert.AreEqual(DataApprovalStatusKeys.InReview, recovered.StatusKey);
+            Assert.AreEqual(DataApprovalRecoveryStatusKeys.None, recovered.RecoveryStatusKey);
+            Assert.IsNotNull(recovered.WorkflowInstanceId);
+            Assert.IsNull(recovered.LastFailureCode);
+
+            using var workflowRead = await SendAuthorizedAsync(
+                    client,
+                    HttpMethod.Get,
+                    $"/api/v1/workflow/instances/{recovered.WorkflowInstanceId:D}",
+                    token,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            Assert.AreEqual(HttpStatusCode.OK, workflowRead.StatusCode, await workflowRead.Content.ReadAsStringAsync(cancellationToken));
+        }
+        finally
+        {
+            await workerHost.StopAsync(cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private static Dictionary<string, string?> CreateWorkerSettings(
@@ -113,6 +125,71 @@ internal static class DataApprovalRecoveryRestartAssertions
         ["DataApproval:ApplicationRecoveryWorker:PollMilliseconds"] = "60000",
         ["DataApproval:ApplicationRecoveryWorker:RetryDelaySeconds"] = "3600",
     };
+
+    private static async Task<IHost> BuildRecoveryWorkerHostAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        IReadOnlyDictionary<string, string?> workerSettings)
+    {
+        var redisConnectionString = await SharedDatabaseFixture.GetRedisConnectionStringAsync()
+            .ConfigureAwait(false);
+        var settings = new Dictionary<string, string?>(workerSettings)
+        {
+            [$"{DatabaseOptions.SectionName}:Provider"] = provider.ToString(),
+            [$"{DatabaseOptions.SectionName}:ConnectionString"] = connectionString,
+            [$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] = "Binary16",
+            [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
+            ["Cache:RedisConnectionString"] = redisConnectionString,
+            ["Realtime:RedisBackplaneConnectionString"] = redisConnectionString,
+            ["Realtime:AllowSharedRedisInDevelopment"] = "true",
+            ["ConnectionStrings:redis"] = redisConnectionString,
+            ["Files:Local:RootPath"] = Path.Combine(
+                Path.GetTempPath(),
+                "fullnet-files-integration",
+                $"data-approval-worker-{Guid.NewGuid():N}"),
+        };
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(settings)
+            .Build();
+        var builder = global::Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            ApplicationName = "Full.NET.IntegrationTests.DataApproval.Worker",
+            EnvironmentName = "Testing",
+        });
+        builder.Configuration.AddConfiguration(configuration);
+        builder.Services.AddLogging();
+        builder.Services.AddRouting();
+        builder.Services.AddScoped<CurrentTenantAccessor>();
+        builder.Services.AddScoped<ICurrentTenant>(services =>
+            services.GetRequiredService<CurrentTenantAccessor>());
+        builder.Services.AddScoped<ICurrentTenantContextWriter>(services =>
+            services.GetRequiredService<CurrentTenantAccessor>());
+        builder.Services.AddSingleton<IClock, SystemClock>();
+        builder.Services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        builder.Services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
+        builder.Services.AddSingleton<
+            ITenantOrganizationUnitDirectory,
+            EmptyTenantOrganizationUnitDirectory>();
+        builder.Services.AddSingleton<
+            IIdentityOrganizationUnitDirectory,
+            EmptyIdentityOrganizationUnitDirectory>();
+        builder.Services.AddFullNetDapper(configuration, "Testing");
+        builder.Services.AddFullNetMemoryPack();
+        builder.Services.AddFullNetCaching(configuration, "Testing");
+        builder.Services.AddFullNetRealtimePublisher(configuration, "Testing");
+        builder.Services.AddFullNetApplicationModules(
+            configuration,
+            FullNetHostProfile.Worker);
+        foreach (var descriptor in builder.Services
+                     .Where(descriptor => descriptor.ServiceType == typeof(IHostedService)
+                         && descriptor.ImplementationType?.Name != "DataApprovalRequestRecoveryHostedProcessor")
+                     .ToArray())
+        {
+            builder.Services.Remove(descriptor);
+        }
+
+        return builder.Build();
+    }
 
     private static async Task<Guid> CreatePublishedDefinitionAsync(
         HttpClient client,
@@ -320,7 +397,7 @@ internal static class DataApprovalRecoveryRestartAssertions
             await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken).ConfigureAwait(false);
         }
 
-        Assert.Fail($"DataApproval request {requestId:D} was not linked after the API host restarted.");
+        Assert.Fail($"DataApproval request {requestId:D} was not linked after the recovery worker started.");
         throw new InvalidOperationException("Unreachable after Assert.Fail.");
     }
 
@@ -350,6 +427,35 @@ internal static class DataApprovalRecoveryRestartAssertions
         var request = new HttpRequestMessage(method, path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client.SendAsync(request, cancellationToken);
+    }
+
+    private sealed class EmptyTenantOrganizationUnitDirectory
+        : ITenantOrganizationUnitDirectory
+    {
+        public Task<TenantOrganizationUnitDirectoryEntry?> FindActiveUnitAsync(
+            Guid tenantId,
+            Guid unitId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<TenantOrganizationUnitDirectoryEntry?>(null);
+    }
+
+    private sealed class EmptyIdentityOrganizationUnitDirectory
+        : IIdentityOrganizationUnitDirectory
+    {
+        public Task<IdentityOrganizationUnitDirectoryEntry?> FindActiveUnitAsync(
+            Guid tenantId,
+            Guid unitId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IdentityOrganizationUnitDirectoryEntry?>(null);
+    }
+
+    private sealed class NonHttpApiResultMapper : IApiResultMapper
+    {
+        public IResult Map<T>(Result<T> result, HttpContext httpContext) =>
+            throw new NotSupportedException("非 HTTP Worker 集成夹具不映射 API 结果。");
+
+        public IResult MapException(Exception exception, HttpContext httpContext) =>
+            throw new NotSupportedException("非 HTTP Worker 集成夹具不映射 API 异常。");
     }
 
     private sealed class FailingWorkflowInstanceStarter : IWorkflowInstanceStarter

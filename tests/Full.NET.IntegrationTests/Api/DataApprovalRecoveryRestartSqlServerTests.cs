@@ -7,7 +7,7 @@ namespace Full.NET.IntegrationTests.Api;
 public sealed class DataApprovalRecoveryRestartApiSqlServerTests
 {
     [TestMethod]
-    public async Task SqlServer_pending_request_is_linked_by_recovery_worker_after_host_restart()
+    public async Task SqlServer_pending_request_is_linked_after_recovery_worker_starts()
     {
         var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
         await DataApprovalRecoveryRestartAssertions.VerifyAsync(
