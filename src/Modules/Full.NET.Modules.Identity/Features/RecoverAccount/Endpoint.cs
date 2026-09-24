@@ -40,7 +40,9 @@ internal static class Endpoint
                     new ConfirmCommand(request),
                     cancellationToken)
                 .ConfigureAwait(false);
-            return mapper.Map(result, httpContext);
+            return result.IsSuccess
+                ? Results.NoContent()
+                : mapper.Map(result, httpContext);
         })
         .WithName("identityConfirmPasswordRecovery")
         .Produces(StatusCodes.Status204NoContent)

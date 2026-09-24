@@ -50,16 +50,30 @@ internal static class AccountLifecycleAssertions
         };
         using var confirmResponse = await client.SendAsync(confirmRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NoContent, confirmResponse.StatusCode);
+
+        using var replayRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/auth/recover-password/confirm")
+        {
+            Content = JsonContent.Create(new ConfirmPasswordRecoveryRequest(
+                deliveryPort.LastIntent.ChallengeId,
+                deliveryPort.LastIntent.Credential,
+                "FullNet!2026Recovered")),
+        };
+        using var replayResponse = await client.SendAsync(replayRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, replayResponse.StatusCode);
     }
 
     private static async Task<string> LoginAsHostAdminAsync(
         HttpClient client,
         CancellationToken cancellationToken)
     {
-        using var response = await client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new LoginRequest("admin", FullNetApiFactory.TestPassword),
-            cancellationToken);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(new LoginRequest("admin", FullNetApiFactory.TestPassword)),
+        };
+        request.Headers.Add("Origin", "http://localhost");
+        using var response = await client.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
         var token = await response.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken);
         return token!.AccessToken;
