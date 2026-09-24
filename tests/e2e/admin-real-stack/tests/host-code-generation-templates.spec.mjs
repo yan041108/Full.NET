@@ -219,6 +219,24 @@ async function templateByName(request, clientKind, accessToken, name) {
   return page.items.find(template => template.name === name);
 }
 
+/** UI 刷新会轮换会话；API 断言使用页面最近发出的令牌。 */
+function trackUiAccessToken(page) {
+  let accessToken;
+  page.on('request', currentRequest => {
+    if (!currentRequest.url().includes('/api/v1/')) {
+      return;
+    }
+    const authorization = currentRequest.headers().authorization;
+    if (authorization?.startsWith('Bearer ')) {
+      accessToken = authorization.slice('Bearer '.length);
+    }
+  });
+  return () => {
+    expect(accessToken).toBeTruthy();
+    return accessToken;
+  };
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('fullnet.admin.locale', 'zh-CN');
@@ -231,7 +249,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
 }, testInfo) => {
   testInfo.setTimeout(90_000);
   const clientKind = testInfo.project.metadata.clientKind;
-  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const currentAccessToken = trackUiAccessToken(page);
   const suffix = `${clientKind}-${Date.now()}`;
   const templateName = `e2e-template-${suffix}`;
   const updatedName = `${templateName}-updated`;
@@ -276,7 +294,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   const created = await templateByName(
     request,
     clientKind,
-    accessToken,
+    currentAccessToken(),
     templateName
   );
   expect(created).toBeTruthy();
@@ -448,7 +466,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
         version: created.version
       },
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${currentAccessToken()}`,
         Origin: adminOrigin(clientKind),
         'Content-Type': 'application/json'
       }
@@ -484,7 +502,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
     `${apiBaseUrl}/api/v1/code-generation/templates/${created.id}`,
     {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${currentAccessToken()}`,
         Origin: adminOrigin(clientKind)
       }
     }
@@ -657,7 +675,7 @@ test('Vue 工作台支持筛选、复制、列元数据与预览深链', async (
     '工作台 UX 对齐只验收 Vue 管理端'
   );
 
-  const accessToken = await loginHostAdminAccessToken(request, 'vue');
+  const currentAccessToken = trackUiAccessToken(page);
   const suffix = `ux-${Date.now()}`;
   const templateName = `e2e-ux-${suffix}`;
 
@@ -730,6 +748,6 @@ test('Vue 工作台支持筛选、复制、列元数据与预览深链', async (
   );
   await expect(previewView.getByTestId('codegen-integration-target')).toBeVisible();
 
-  const listed = await templateByName(request, 'vue', accessToken, templateName);
+  const listed = await templateByName(request, 'vue', currentAccessToken(), templateName);
   expect(listed).toBeTruthy();
 });
