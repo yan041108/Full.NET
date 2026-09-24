@@ -229,6 +229,62 @@ internal static class NativeWorkerE2EAssertions
         host.AssertNoFatalMarkersInLogs();
     }
 
+    public static async Task VerifyWorkflowNotificationProjectionAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        if (!NativeWorkerArtifactLocator.TryResolve(out var artifact, out var skipReason))
+        {
+            Assert.Inconclusive(skipReason ?? "Native Worker artifact unavailable.");
+        }
+
+        await NativeApiDatabaseBootstrap.BootstrapAsync(
+                provider,
+                connectionString,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var scenario = await NativeWorkerWorkflowNotificationProbe.EnqueueAsync(
+                provider,
+                connectionString,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await using var host = await NativeWorkerProcessHost.StartAsync(
+                artifact,
+                provider,
+                connectionString,
+                NativeAotTestTimeouts.ProcessStartup,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var result = await NativeWorkerWorkflowNotificationProbe.WaitForProjectionAsync(
+                provider,
+                connectionString,
+                scenario,
+                TimeSpan.FromSeconds(30),
+                host.LogFilePath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(1L, result.IsProcessed);
+        Assert.IsNull(result.DeadLetterReasonCode);
+        Assert.AreEqual("workflow", result.ProducerKey);
+        Assert.AreEqual("workflow.todo.assigned", result.SceneKey);
+        Assert.AreEqual(scenario.IdempotencyKey, result.IdempotencyKey);
+        Assert.AreEqual(scenario.RecipientUserId, result.RecipientUserId);
+        Assert.AreEqual("unread", result.InboxStatus);
+        Assert.IsNotNull(result.InboxMessageId);
+
+        await host.StopGracefullyAsync(
+                TimeSpan.FromSeconds(30),
+                cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(
+            0,
+            host.ExitCode,
+            $"Native Worker 未正常响应 SIGTERM。日志：{host.LogFilePath}");
+        host.AssertNoFatalMarkersInLogs();
+    }
+
     public static async Task VerifyJobsPingExecutionAsync(
         DatabaseProvider provider,
         string connectionString,

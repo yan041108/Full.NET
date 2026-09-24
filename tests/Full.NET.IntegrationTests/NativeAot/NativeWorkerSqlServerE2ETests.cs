@@ -46,6 +46,19 @@ public sealed class NativeWorkerSqlServerE2ETests
     }
 
     [TestMethod]
+    public async Task SqlServer_native_worker_projects_workflow_notification_to_inbox()
+    {
+        if (!NativeWorkerArtifactLocator.TryResolve(out _, out var skipReason))
+        {
+            Assert.Inconclusive(skipReason ?? "Native Worker artifact unavailable.");
+        }
+
+        await NativeWorkerE2EAssertions.VerifyWorkflowNotificationProjectionAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task SqlServer_native_worker_processes_pending_ping_job()
     {
         if (!NativeWorkerArtifactLocator.TryResolve(out _, out var skipReason))
