@@ -1197,6 +1197,11 @@ test.describe('Vue admin oidc-center auth', () => {
     const apiBase = resolveApiBase();
     const stamp = Date.now().toString(36);
     const displayName = `E2E OIDC Host Return UI Trigger ${stamp}`;
+    await createE2eHostPingJobDefinition(request, {
+      jobKey: `e2e.oidc.hrui.decoy.${stamp}`.slice(0, 32),
+      displayName: `E2E OIDC Host Return UI Trigger Decoy ${stamp}`,
+      description: 'older row verifies refreshed host job actions retain their definition id'
+    });
     const definition = await createE2eHostPingJobDefinition(request, {
       jobKey: `e2e.oidc.hrui.${stamp}`.slice(0, 32),
       displayName,

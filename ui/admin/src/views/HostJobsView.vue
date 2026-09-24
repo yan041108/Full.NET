@@ -729,6 +729,7 @@ function toProblem(
           <el-table
             v-loading="loading"
             :data="pagedDefinitions"
+            row-key="id"
             :height="tableHeight"
             :size="tableSize"
             :stripe="tableZebra"
