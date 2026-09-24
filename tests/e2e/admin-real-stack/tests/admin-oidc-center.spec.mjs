@@ -2192,12 +2192,13 @@ test.describe('Vue admin oidc-center auth', () => {
     await expectVisibleCurrentContext(page, 'Full.NET Local');
     const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
-    await expectOidcApiPostStatus(
+    const tenantTriggerResponse = await expectOidcApiPostStatus(
       request,
       oidcAccessToken,
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
-      201
+      403
     );
+    expect((await tenantTriggerResponse.json()).code).toBe('authorization.permission_denied');
 
     await returnToHostContextFromTenant(page);
     await logoutAdminShell(page);
@@ -2230,21 +2231,21 @@ test.describe('Vue admin oidc-center auth', () => {
     await expectVisibleCurrentContext(page, 'Full.NET Local');
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
-    const triggerResponse = await expectOidcApiPostStatus(
+    const tenantTriggerResponse = await expectOidcApiPostStatus(
       request,
       accessToken,
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
-      201
+      403
     );
-    const execution = await triggerResponse.json();
+    expect((await tenantTriggerResponse.json()).code).toBe('authorization.permission_denied');
 
     const beforeLogout = await expectOidcApiGetStatus(
       request,
       accessToken,
       `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
-      200
+      403
     );
-    expect((await beforeLogout.json()).items?.some(item => item.id === execution.id)).toBe(true);
+    expect((await beforeLogout.json()).code).toBe('authorization.permission_denied');
 
     await returnToHostContextFromTenant(page);
     await logoutAdminShell(page);
