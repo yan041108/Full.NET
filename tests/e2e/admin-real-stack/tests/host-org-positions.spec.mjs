@@ -9,7 +9,8 @@ import {
   loginAsHostAdmin,
   loginAsHostViewer,
   loginTenantAdminAccessToken,
-  statusPath
+  statusPath,
+  trackUiAccessToken
 } from './support/real-stack-auth.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
@@ -64,6 +65,7 @@ test('Host 管理员通过双管理端把真实职位绑定到机构与职级', 
   request
 }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
+  const currentAccessToken = trackUiAccessToken(page);
   const accessToken = await loginTenantAdminAccessToken(request, clientKind);
   const unitCode = uniqueCode(clientKind, 'e2e-unit');
   const positionLevelCode = uniqueCode(clientKind, 'e2e-level');
@@ -164,7 +166,7 @@ test('Host 管理员通过双管理端把真实职位绑定到机构与职级', 
   const persisted = await getPosition(
     request,
     clientKind,
-    accessToken,
+    currentAccessToken(),
     position.id
   );
   expect(persisted.unitId).toBe(unit.id);
