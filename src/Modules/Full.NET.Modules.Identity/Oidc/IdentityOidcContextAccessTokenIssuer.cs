@@ -49,6 +49,7 @@ internal sealed class IdentityOidcContextAccessTokenIssuer(
         claims[JwtRegisteredClaimNames.Jti] = idGenerator.NewId().ToString("D");
         var descriptor = new SecurityTokenDescriptor
         {
+            TokenType = "at+jwt",
             Issuer = _oidcOptions.Issuer,
             Audience = request.Audience,
             Claims = claims,
