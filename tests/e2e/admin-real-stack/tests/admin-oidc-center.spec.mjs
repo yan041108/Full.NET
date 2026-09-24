@@ -800,8 +800,7 @@ test.describe('Vue admin oidc-center auth', () => {
   test('OIDC 中心 Host 上下文可触发后台任务', async ({ page, request }) => {
     test.setTimeout(90_000);
     const apiBase = resolveApiBase();
-    const setupOrigin = 'http://localhost:25173';
-    const accessToken = await loginHostAdminAccessToken(request, 'vue');
+    const oidcOrigin = ADMIN_OIDC_CENTER_ORIGIN;
     const stamp = Date.now().toString(36);
     const jobKey = `e2e.oidc.${stamp}`.slice(0, 32);
     const displayName = `E2E OIDC Ping ${stamp}`;
@@ -816,12 +815,13 @@ test.describe('Vue admin oidc-center auth', () => {
     const jobsView = page.locator('.host-jobs-view');
     const row = await hostJobsRowByDisplayName(jobsView, displayName);
     await expect(row.getByTestId('host-jobs-action-trigger')).toBeVisible();
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
     const execution = await triggerHostJobDefinitionViaApi(
       request,
       apiBase,
       definition.id,
       accessToken,
-      setupOrigin
+      oidcOrigin
     );
 
     await expect.poll(async () => {
@@ -830,7 +830,7 @@ test.describe('Vue admin oidc-center auth', () => {
         {
           headers: {
             authorization: `Bearer ${accessToken}`,
-            origin: setupOrigin
+            origin: oidcOrigin
           }
         }
       );

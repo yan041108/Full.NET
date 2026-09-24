@@ -262,6 +262,12 @@ test.describe('Identity OIDC browser SSO', () => {
   });
 
   test('禁用外部 OIDC 客户端后上下文切换令牌被拒绝', async ({ request }) => {
+    const credentials = await prepareHostUserCredentialsForOidc(
+      request,
+      'vue',
+      username,
+      password
+    );
     const adminToken = await loginHostAdminAccessToken(request, 'vue');
     const clientId = `e2e-ctx-gov-${Date.now().toString(36)}`;
     const created = await createExternalOidcClientViaApi(request, adminToken, {
@@ -270,12 +276,6 @@ test.describe('Identity OIDC browser SSO', () => {
       scopes: ['openid', 'profile', 'offline_access'],
       isFirstParty: true
     });
-    const credentials = await prepareHostUserCredentialsForOidc(
-      request,
-      'vue',
-      username,
-      password
-    );
     const { token } = await runAuthorizationCodeFlowViaRequest(request, {
       apiBase,
       clientId: created.clientId,
