@@ -402,6 +402,8 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 
 **§6 最小矩阵（E2E 探针编写状态，待 CI 执行）：**
 
+**2026-09-24 安全边界校正：** `HostJobPermissions` 仅允许 `AuthorizationScope.Host`。租户上下文对 Host 后台任务定义、触发和执行历史 API 必须返回 403；租户切换后 Host job 正向探针不成立，Host 上下文及切换回 Host 的正向探针继续保留。
+
 | 入口组 | 已编写探针 |
 | --- | --- |
 | 在线会话管理 | 应用退出／强制下线后 access／refresh 拒绝、四类受保护路由回登录（`OIDC_CENTER_PROTECTED_ROUTE_PROBES`，含 Agent 运行页；Host／切租户／切租户返回 Host 三上下文退出／强撤后批量探针）、三上下文 Agent 运行页加载运行后退出／强撤无法直达该页、本地凭据与中心 Cookie 清理对称探针（Host／切租户／切租户返回 Host 三上下文退出／强撤后 `expectOidcCenterLocalCredentialsCleared` + `expectOidcCenterTokensRejected`，三上下文 stale refresh 写回拒绝与强撤实时通知综合探针）、已撤销 refresh 无法恢复；强撤独立 API 负探针与 `revokeCurrentOidcCenterSession` 辅助 |

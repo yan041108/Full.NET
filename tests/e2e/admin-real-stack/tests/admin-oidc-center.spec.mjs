@@ -2113,7 +2113,7 @@ test.describe('Vue admin oidc-center auth', () => {
     expect(Array.isArray(await response.json())).toBe(true);
   });
 
-  test('OIDC 中心切租户后 access token 仍可访问后台任务定义 API', async ({ page, request }) => {
+  test('OIDC 中心切租户后 access token 无权访问 Host 后台任务定义 API', async ({ page, request }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
     await expectVisibleCurrentContext(page, 'Full.NET Local');
@@ -2123,14 +2123,12 @@ test.describe('Vue admin oidc-center auth', () => {
       request,
       accessToken,
       `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
-      200
+      403
     );
-    const body = await response.json();
-    expect(Array.isArray(body.items)).toBe(true);
+    expect((await response.json()).code).toBe('authorization.permission_denied');
   });
 
-  test('OIDC 中心切租户后 access token 仍可触发后台任务并读取执行历史', async ({ page, request }) => {
-    test.setTimeout(90_000);
+  test('OIDC 中心切租户后 access token 无权触发 Host 后台任务或读取执行历史', async ({ page, request }) => {
     const apiBase = resolveApiBase();
     const stamp = Date.now().toString(36);
     const jobKey = `e2e.oidc.tenant.${stamp}`.slice(0, 32);
@@ -2149,17 +2147,25 @@ test.describe('Vue admin oidc-center auth', () => {
       request,
       accessToken,
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
-      201
+      403
     );
-    const execution = await triggerResponse.json();
+    expect((await triggerResponse.json()).code).toBe('authorization.permission_denied');
 
-    const listResponse = await expectOidcApiGetStatus(
+    const definitionsResponse = await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
+      403
+    );
+    expect((await definitionsResponse.json()).code).toBe('authorization.permission_denied');
+
+    const historyResponse = await expectOidcApiGetStatus(
       request,
       accessToken,
       `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
-      200
+      403
     );
-    expect((await listResponse.json()).items?.some(item => item.id === execution.id)).toBe(true);
+    expect((await historyResponse.json()).code).toBe('authorization.permission_denied');
   });
 
   test('OIDC 中心切租户后不显示 Host 任务定义导航', async ({ page }) => {

@@ -311,9 +311,8 @@ test('oidc-center 真实栈必须覆盖 §6 最小消费探针', async () => {
   assert.match(source, /Host 上下文 API 幂等创建后可通过 Agent 运行页 UI 加载并取消排队运行/u);
   assert.match(source, /切租户后 API 幂等创建后可通过 Agent 运行页 UI 加载并取消排队运行/u);
   assert.match(source, /切租户并返回 Host 后 API 幂等创建后可通过 Agent 运行页 UI 加载并取消排队运行/u);
-  assert.match(source, /切租户后 access token 仍可触发后台任务并读取执行历史/u);
+  assert.match(source, /切租户后 access token 无权触发 Host 后台任务或读取执行历史/u);
   assert.match(source, /切租户并返回 Host 后 access token 仍可触发后台任务并读取执行历史/u);
-  assert.match(source, /切租户后可通过任务定义页 UI 触发后台任务/u);
   assert.match(source, /切租户并返回 Host 后可通过任务定义页 UI 触发后台任务/u);
   assert.match(source, /切租户后退出后已失效 access token 无法触发后台任务/u);
   assert.match(source, /切租户后退出后已失效 access token 无法访问后台任务执行历史 API/u);
@@ -383,7 +382,7 @@ test('oidc-center 真实栈必须覆盖 §6 最小消费探针', async () => {
   assert.match(source, /可访问工作流待办 API/u);
   assert.match(source, /切租户后 access token 仍可访问工作流待办 API/u);
   assert.match(source, /切租户后 access token 仍可访问 \/api\/v1\/ai\/agent-tools/u);
-  assert.match(source, /切租户后 access token 仍可访问后台任务定义 API/u);
+  assert.match(source, /切租户后 access token 无权访问 Host 后台任务定义 API/u);
   assert.match(source, /切租户后 access token 仍可创建并读取排队 Agent Run/u);
   assert.match(source, /切租户后创建的排队 Agent Run 在应用退出后绑定失效/u);
   assert.match(source, /切租户后创建的排队 Agent Run 在强制下线后绑定失效/u);
