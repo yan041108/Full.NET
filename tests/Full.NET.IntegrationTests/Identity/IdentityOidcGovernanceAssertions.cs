@@ -20,7 +20,6 @@ internal static class IdentityOidcGovernanceAssertions
         await VerifyV09RefreshTokenReuseAsync(client, cancellationToken);
         await VerifyV11ScopePermissionBoundaryAsync(client, cancellationToken);
         await VerifyV15DisabledClientRejectedAtTokenEndpointAsync(client, cancellationToken);
-        AssertInconclusiveV19MigrationRecovery();
     }
 
     private static async Task VerifyV08WithoutOfflineAccessAsync(
@@ -187,6 +186,4 @@ internal static class IdentityOidcGovernanceAssertions
             "Disabled clients must fail closed on resource APIs.");
     }
 
-    private static void AssertInconclusiveV19MigrationRecovery() =>
-        Assert.Inconclusive("V19 migration recovery is covered by Migration216IdentityOidcRecoveryTests.");
 }

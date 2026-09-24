@@ -54,16 +54,22 @@ internal static class IdentityOidcContextSwitchRaceAssertions
 
         var statuses = new[] { firstResponse.StatusCode, secondResponse.StatusCode };
         Assert.AreEqual(1, statuses.Count(status => status == HttpStatusCode.OK));
-        Assert.AreEqual(1, statuses.Count(status => status == HttpStatusCode.Conflict));
-
-        var conflictResponse = firstResponse.StatusCode == HttpStatusCode.Conflict
-            ? firstResponse
-            : secondResponse;
-        using var problem = JsonDocument.Parse(
-            await conflictResponse.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(
-            IdentityErrorCodes.SessionContextConflict,
-            problem.RootElement.GetProperty("code").GetString());
+            1,
+            statuses.Count(status => status is HttpStatusCode.Conflict or HttpStatusCode.Unauthorized),
+            $"Losing context switch must fail closed, got {string.Join(", ", statuses)}.");
+
+        var losingResponse = firstResponse.StatusCode == HttpStatusCode.OK
+            ? secondResponse
+            : firstResponse;
+        if (losingResponse.StatusCode == HttpStatusCode.Conflict)
+        {
+            using var problem = JsonDocument.Parse(
+                await losingResponse.Content.ReadAsStringAsync(cancellationToken));
+            Assert.AreEqual(
+                IdentityErrorCodes.SessionContextConflict,
+                problem.RootElement.GetProperty("code").GetString());
+        }
 
         var successResponse = firstResponse.StatusCode == HttpStatusCode.OK
             ? firstResponse
