@@ -1,4 +1,5 @@
 using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Ai;
 using Full.NET.Modules.Ai.Contracts;
 
@@ -46,5 +47,24 @@ public sealed class AiAuthorizationContributorTests
         var navigation = catalog.Navigation.Single(item => item.Id == "ai-model-configs");
         Assert.AreEqual(AiModelPermissions.Read, navigation.RequiredPermission);
         Assert.AreEqual("/ai/model-configs", navigation.Path);
+    }
+
+    [TestMethod]
+    public void Agent_run_permissions_are_available_in_host_and_tenant_scopes()
+    {
+        var catalog = AuthorizationCatalog.Create([new AiAuthorizationContributor()]);
+        var expectedScope = AuthorizationScope.Host | AuthorizationScope.Tenant;
+
+        foreach (var code in new[]
+                 {
+                     AiAgentRunPermissions.Read,
+                     AiAgentRunPermissions.Create,
+                     AiAgentRunPermissions.Cancel,
+                     AiAgentRunPermissions.Resume,
+                 })
+        {
+            var permission = catalog.Permissions.Single(item => item.Code == code);
+            Assert.AreEqual(expectedScope, permission.Scope, code);
+        }
     }
 }
