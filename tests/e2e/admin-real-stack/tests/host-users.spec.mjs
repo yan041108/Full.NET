@@ -5,12 +5,12 @@ import {
   crudTableRow,
   loginAccessToken,
   loginAccessTokenWithPassword,
-  loginHostAdminAccessToken,
   loginAsHostAdmin,
   loginAsHostUser,
   loginAsHostViewer,
   provisionLimitedHostUserViaApi,
-  statusPath
+  statusPath,
+  trackUiAccessToken
 } from './support/real-stack-auth.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
@@ -57,6 +57,20 @@ async function fillPromptInput(page, clientKind, value) {
     await layer.locator('.layui-layer-input').fill(value);
     await layer.locator('.layui-layer-btn0').click({ force: true });
   }
+}
+
+async function clickUserAction(page, row, clientKind, testId, buttonName) {
+  if (clientKind === 'layui') {
+    await row.getByRole('button', { name: buttonName, exact: true }).click();
+    return;
+  }
+  const inlineAction = row.getByTestId(testId);
+  if (await inlineAction.count()) {
+    await inlineAction.click();
+    return;
+  }
+  await row.getByTestId('art-table-action-more').click();
+  await page.locator('[role="menu"]:visible').getByTestId(testId).click();
 }
 
 test('Host 管理员可从真实 API 加载用户列表', async ({ page }) => {
@@ -110,13 +124,13 @@ test('Host 管理员可通过 UI 完成用户创建、更新、禁用与启用',
   await expect(userRow).toBeVisible({ timeout: 15_000 });
   await expect(userRow.getByText(displayName, { exact: true })).toBeVisible();
 
-  await userRow.getByRole('button', { name: '编辑', exact: true }).click();
+  await clickUserAction(page, userRow, clientKind, 'users-action-edit', '编辑');
   await fillPromptInput(page, clientKind, updatedDisplayName);
   await expect(userRow.getByText(updatedDisplayName, { exact: true })).toBeVisible({
     timeout: 15_000
   });
 
-  await userRow.getByRole('button', { name: '禁用', exact: true }).click();
+  await clickUserAction(page, userRow, clientKind, 'users-action-disable', '禁用');
   await confirmLayerPrimary(page, clientKind, '禁用');
   await expect(userRow.getByText('已禁用', { exact: true })).toBeVisible({ timeout: 15_000 });
 
@@ -128,7 +142,7 @@ test('Host 管理员可通过 UI 完成用户创建、更新、禁用与启用',
   const disabledProblem = await disabledLogin.json();
   expect(disabledProblem.code).toBe('identity.invalid_credentials');
 
-  await userRow.getByRole('button', { name: '启用', exact: true }).click();
+  await clickUserAction(page, userRow, clientKind, 'users-action-enable', '启用');
   await confirmLayerPrimary(page, clientKind, '启用');
   await expect(userRow.getByText('有效', { exact: true })).toBeVisible({ timeout: 15_000 });
 });
@@ -227,6 +241,7 @@ test('Host 管理员可退役用户且不能再次启用', async ({ page, reques
   const clientKind = testInfo.project.metadata.clientKind;
   const username = uniqueUsername(clientKind);
   const displayName = `退役测试 ${clientKind}`;
+  const currentAccessToken = trackUiAccessToken(page);
 
   await loginAsHostAdmin(page);
   await clickMainNavLink(page, /用户管理/);
@@ -245,16 +260,15 @@ test('Host 管理员可退役用户且不能再次启用', async ({ page, reques
   const userRow = crudTableRow(view, clientKind, username);
   await expect(userRow).toBeVisible({ timeout: 15_000 });
 
-  await userRow.getByTestId('users-action-retire').click();
+  await clickUserAction(page, userRow, clientKind, 'users-action-retire', '退役');
   await confirmLayerPrimary(page, clientKind, '退役');
   await expect(userRow.getByText('已禁用', { exact: true })).toBeVisible({ timeout: 15_000 });
 
-  const adminToken = await loginHostAdminAccessToken(request, clientKind);
   const listResponse = await request.get(
     `${apiBaseUrl}/api/v1/identity/users?page=1&pageSize=50&username=${encodeURIComponent(username)}`,
     {
       headers: {
-        Authorization: `Bearer ${adminToken}`,
+        Authorization: `Bearer ${currentAccessToken()}`,
         Origin: adminOrigin(clientKind)
       }
     }
@@ -265,7 +279,7 @@ test('Host 管理员可退役用户且不能再次启用', async ({ page, reques
   expect(user).toBeTruthy();
   expect(user.retiredAtUtc).toBeTruthy();
 
-  await userRow.getByTestId('users-action-enable').click();
+  await clickUserAction(page, userRow, clientKind, 'users-action-enable', '启用');
   await confirmLayerPrimary(page, clientKind, '启用');
   await expect(view.locator('[role="alert"]')).toContainText('identity.users.already_retired', {
     timeout: 15_000

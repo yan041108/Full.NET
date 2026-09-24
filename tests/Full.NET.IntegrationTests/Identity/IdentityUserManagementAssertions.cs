@@ -702,6 +702,33 @@ internal static class IdentityUserManagementAssertions
         Assert.IsFalse(retired.IsActive);
         Assert.IsNotNull(retired.RetiredAtUtc);
 
+        using var detailRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/identity/users/{created.Id:D}");
+        detailRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var detailResponse = await client.SendAsync(detailRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, detailResponse.StatusCode);
+        var detail = await detailResponse.Content.ReadFromJsonAsync<HostUserResponse>(
+            cancellationToken);
+        Assert.IsNotNull(detail);
+        Assert.IsNotNull(detail.RetiredAtUtc);
+
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/users?page=1&pageSize=100");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+        var page = await listResponse.Content.ReadFromJsonAsync<PagedResult<HostUserResponse>>(
+            cancellationToken);
+        Assert.IsNotNull(page);
+        var listed = page.Items.Single(user => user.Id == created.Id);
+        Assert.IsNotNull(listed.RetiredAtUtc);
+
         using var enableRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
             $"/api/v1/identity/users/{created.Id:D}/enable",

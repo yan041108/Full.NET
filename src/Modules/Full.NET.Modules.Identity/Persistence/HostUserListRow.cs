@@ -16,6 +16,8 @@ internal sealed class HostUserListRow
 
     public DateTimeOffset? UpdatedAtUtc { get; set; }
 
+    public DateTimeOffset? RetiredAtUtc { get; set; }
+
     public int Version { get; set; }
 }
 

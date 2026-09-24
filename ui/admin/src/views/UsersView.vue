@@ -2233,6 +2233,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
             <el-table
               v-loading="loading"
               :data="pagedUsers"
+              row-key="id"
               :height="tableHeight"
               :size="tableSize"
               :stripe="tableZebra"
@@ -2293,9 +2294,8 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                 <template #default="{ row }">
                   <ArtTableActionGroup
                     :key="`${(row as UserRow).id}:${(row as UserRow).isActive}`"
-                    :max-visible="8"
                   >
-                    <PermissionGate code="identity.users.update">
+                    <PermissionGate v-if="canUpdate" code="identity.users.update">
                       <ArtTableActionButton
                         type="edit"
                         test-id="users-action-edit"
@@ -2303,7 +2303,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                   @click="openEdit(row as UserRow)"
                       />
                     </PermissionGate>
-                    <PermissionGate code="identity.users.assign_roles">
+                    <PermissionGate v-if="canAssignRoles" code="identity.users.assign_roles">
                       <ArtTableActionButton
                         type="roles"
                         test-id="users-action-roles"
@@ -2325,7 +2325,10 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                       :title="t('users.assignPositions')"
                   @click="openEdit(row as UserRow, 'org-positions')"
                     />
-                    <PermissionGate v-if="row.isActive" code="identity.users.reset_password">
+                    <PermissionGate
+                      v-if="row.isActive && session.can('identity.users.reset_password')"
+                      code="identity.users.reset_password"
+                    >
                       <ArtTableActionButton
                         type="password"
                         test-id="users-action-reset-password"
@@ -2334,7 +2337,9 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                       />
                     </PermissionGate>
                     <PermissionGate
-                      v-if="row.isActive && isUserLoginLocked(row as UserRow)"
+                      v-if="row.isActive
+                        && isUserLoginLocked(row as UserRow)
+                        && session.can('identity.users.unlock_login')"
                       code="identity.users.unlock_login"
                     >
                       <el-button
@@ -2348,7 +2353,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                       </el-button>
                     </PermissionGate>
                     <PermissionGate
-                      v-if="row.isActive"
+                      v-if="row.isActive && session.can('identity.users.disable')"
                       key="disable-user"
                       code="identity.users.disable"
                     >
@@ -2360,7 +2365,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                       />
                     </PermissionGate>
                     <PermissionGate
-                      v-if="row.isActive"
+                      v-if="row.isActive && session.can('identity.users.retire')"
                       key="retire-user"
                       code="identity.users.retire"
                     >
@@ -2375,7 +2380,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                       </el-button>
                     </PermissionGate>
                     <PermissionGate
-                      v-if="!row.isActive"
+                      v-if="!row.isActive && session.can('identity.users.enable')"
                       key="enable-user"
                       code="identity.users.enable"
                     >

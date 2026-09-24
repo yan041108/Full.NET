@@ -153,7 +153,8 @@ internal sealed class HostUserQueryService(
             row.UpdatedAtUtc,
             row.Version,
             projectedFields,
-            profile);
+            profile,
+            row.RetiredAtUtc);
 
     private async Task<IReadOnlyDictionary<Guid, HostUserProfileResponse?>> LoadProfilesAsync(
         IReadOnlyList<Guid> userIds,

@@ -209,7 +209,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
 </script>
 
 <template>
-  <section class="tenant-context-view art-page-stack" :aria-busy="session.switching">
+  <section class="tenant-context-view art-page-stack art-full-height" :aria-busy="session.switching">
     <div class="tenant-context-view__toolbar">
       <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('tenant.title') }}</h1>
       <span class="art-page-badge">{{ t('tenant.sessionBound') }}</span>
@@ -397,6 +397,11 @@ function toProblem(error: unknown): FullNetProblemDetails {
 </template>
 
 <style scoped>
+.tenant-context-view {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .tenant-context-view__toolbar {
   display: flex;
   align-items: center;

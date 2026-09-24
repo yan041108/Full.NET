@@ -199,6 +199,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             IsActive = ReadBooleanByName(reader, "IsActive"),
             CreatedAtUtc = ReadDateTimeOffsetByName(reader, "CreatedAtUtc"),
             UpdatedAtUtc = ReadNullableDateTimeOffsetByName(reader, "UpdatedAtUtc"),
+            RetiredAtUtc = ReadNullableDateTimeOffsetByName(reader, "RetiredAtUtc"),
             Version = ReadInt32ByName(reader, "Version"),
         };
         if (TryOrdinal(reader, "AccountType", out var accountType))

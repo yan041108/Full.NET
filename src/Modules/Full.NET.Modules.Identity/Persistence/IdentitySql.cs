@@ -482,7 +482,7 @@ internal static class IdentitySql
     public static readonly SqlStatement ListHostUsersSqlServer = new(
         "identity.list_host_users.sql_server",
         """
-        SELECT Id, Username, DisplayName, AccountType, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
+        SELECT Id, Username, DisplayName, AccountType, IsActive, CreatedAtUtc, UpdatedAtUtc, RetiredAtUtc, Version
         FROM fn_identity_user
         WHERE ScopeKey = 'host' AND TenantId IS NULL
         ORDER BY NormalizedUsername
@@ -493,7 +493,7 @@ internal static class IdentitySql
     public static readonly SqlStatement ListHostUsersMySql = new(
         "identity.list_host_users.mysql",
         """
-        SELECT Id, Username, DisplayName, AccountType, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
+        SELECT Id, Username, DisplayName, AccountType, IsActive, CreatedAtUtc, UpdatedAtUtc, RetiredAtUtc, Version
         FROM fn_identity_user
         WHERE ScopeKey = 'host' AND TenantId IS NULL
         ORDER BY NormalizedUsername
@@ -1574,7 +1574,7 @@ internal static class IdentitySql
         "identity.find_host_user_projection_base_by_id",
         """
         SELECT Id, Username, DisplayName, IsActive,
-               CreatedAtUtc, UpdatedAtUtc, Version
+               CreatedAtUtc, UpdatedAtUtc, RetiredAtUtc, Version
         FROM fn_identity_user
         WHERE Id = @UserId AND ScopeKey = 'host' AND TenantId IS NULL
         """,
