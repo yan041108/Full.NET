@@ -48,7 +48,8 @@ test('Host 管理员可打开通知控制面；空目录、FanOut 明示且不�
   expect(createResponse.status()).toBe(201);
   await expect(page.getByText('模板草稿已创建')).toBeVisible();
 
-  const templateRow = page.getByTestId('notification-templates-load').filter({ hasText: templateKey });
+  const templateRow = templatesView.locator('.notification-templates-table .el-table__row')
+    .filter({ hasText: templateKey });
   await expect(templateRow).toBeVisible();
   await expect(templateRow.getByTestId('notification-templates-state')).toContainText('草稿');
 
@@ -70,7 +71,8 @@ test('Host 管理员可打开通知控制面；空目录、FanOut 明示且不�
   await page.getByTestId('notification-bindings-mode').click();
   await page.getByRole('option', { name: /扇出/ }).click();
   await expect(page.getByTestId('notification-bindings-fanout')).toContainText('不会隐式多发');
-  await expect(page.getByTestId('notification-bindings-create')).toBeDisabled();
+  await page.getByTestId('notification-bindings-create').click();
+  await expect(page.getByTestId('notification-bindings-fanout')).toContainText('请确认扇出目标');
 
   await clickMainNavLink(page, /投递运维/, '通知');
   const deliveriesView = page.locator('.notification-deliveries-view');
