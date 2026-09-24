@@ -238,6 +238,10 @@ async function openTodo(todo: WorkflowTodoListItemResponse): Promise<void> {
   selectedListItem.value = todo;
   try {
     const detail = await getWorkflowTodo(todo.id);
+    // 详情一旦展示即可编辑；先清理上一条待办状态，避免后续辅助请求覆盖新输入。
+    fieldPatch.value = {};
+    comment.value = '';
+    returnTargetStepId.value = '';
     selected.value = detail;
     if (!detailReadOnly.value) {
       const targets = canReturn.value
@@ -251,9 +255,6 @@ async function openTodo(todo: WorkflowTodoListItemResponse): Promise<void> {
       countersignAssigneeIds.value = [];
       countersignCandidates.value = [];
     }
-    fieldPatch.value = {};
-    comment.value = '';
-    returnTargetStepId.value = '';
   } catch (error: unknown) {
     problem.value = toProblem(error, 'workflowTodos.loadFailed');
     selectedListItem.value = undefined;

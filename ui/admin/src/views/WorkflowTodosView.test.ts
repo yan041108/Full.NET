@@ -160,6 +160,54 @@ describe('WorkflowTodosView', () => {
     expect(wrapper.find('[data-testid="workflow-todo-reject"]').exists()).toBe(false);
   });
 
+  it('退回目标延迟返回后保留已填写的审批字段', async () => {
+    let resolveTargets!: (value: Awaited<ReturnType<typeof listWorkflowTodoReturnTargets>>) => void;
+    vi.mocked(listWorkflowTodoReturnTargets).mockReturnValue(new Promise(resolve => {
+      resolveTargets = resolve;
+    }));
+    vi.mocked(getWorkflowTodo).mockResolvedValue({
+      ...detail,
+      formSchema: {
+        ...detail.formSchema,
+        sections: [{
+          sectionKey: 'request',
+          fields: [{
+            fieldKey: 'decision',
+            fieldTypeKey: 'text',
+            required: true,
+            constraints: {}
+          }]
+        }]
+      },
+      fieldPolicies: { decision: 'required' }
+    });
+    const wrapper = mountWithPermissions([
+      'workflow.todos.read',
+      'workflow.todos.approve',
+      'workflow.todos.return'
+    ]);
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-todo-open"]').trigger('click');
+    await flushPromises();
+
+    await wrapper.get('[data-field-key="decision"] input').setValue('同意');
+    expect(wrapper.get('[data-testid="workflow-todo-approve"]').attributes('disabled')).toBeUndefined();
+
+    resolveTargets([]);
+    await flushPromises();
+    expect(wrapper.get('[data-testid="workflow-todo-approve"]').attributes('disabled')).toBeUndefined();
+
+    await wrapper.get('[data-testid="workflow-todo-approve"]').trigger('click');
+    await flushPromises();
+    expect(approveWorkflowTodo).toHaveBeenCalledWith(
+      todo.id,
+      todo.revision,
+      { decision: '同意' },
+      null,
+      expect.any(String)
+    );
+  });
+
   it('多人审批详情展示权威票数和通过门槛', async () => {
     vi.mocked(getWorkflowTodo).mockResolvedValue({
       ...detail,
