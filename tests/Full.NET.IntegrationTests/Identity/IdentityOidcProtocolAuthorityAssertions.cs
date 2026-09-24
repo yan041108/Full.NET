@@ -8,6 +8,7 @@ using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
 using IdentitySql = Full.NET.Modules.Identity.Persistence.IdentitySql;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
@@ -184,10 +185,14 @@ internal static class IdentityOidcProtocolAuthorityAssertions
             + $"&code_challenge={Uri.EscapeDataString(challenge)}"
             + "&code_challenge_method=S256";
         using var response = await client.GetAsync(authorizeUrl, cancellationToken);
-        Assert.IsTrue(
-            response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized,
-            $"Authorize must fail closed during session state outage, got {(int)response.StatusCode}.");
-        Assert.IsNull(response.Headers.Location);
+        Assert.AreEqual(HttpStatusCode.Redirect, response.StatusCode);
+        var location = response.Headers.Location;
+        Assert.IsNotNull(location);
+        Assert.AreEqual(IdentityOidcRelyingPartyFixture.PublicRedirectUri, location.GetLeftPart(UriPartial.Path));
+        var query = QueryHelpers.ParseQuery(location.Query);
+        Assert.AreEqual("access_denied", query["error"].ToString());
+        Assert.AreEqual(state, query["state"].ToString());
+        Assert.IsFalse(query.ContainsKey("code"), "会话权威源故障时不得签发授权码。");
     }
 
     private static async Task AssertUserInfoAcceptsTokenAsync(

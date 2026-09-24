@@ -45,10 +45,25 @@ internal sealed class IdentityOidcProtocolSessionAuthorityHandler(
         if (context.Request.IsRefreshTokenGrantType()
             && TryReadApplicationSessionId(context.Principal, out var applicationSessionId))
         {
-            await TryExtendApplicationSessionAsync(
-                    applicationSessionId,
-                    context.CancellationToken)
-                .ConfigureAwait(false);
+            try
+            {
+                await TryExtendApplicationSessionAsync(
+                        applicationSessionId,
+                        context.CancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // 会话权威源不可用时不得继续签发 refresh 令牌，协议错误与普通校验失败保持一致。
+                context.Reject(
+                    error: Errors.InvalidGrant,
+                    description: "The user session is no longer active.");
+                return;
+            }
         }
 
         if (!await sessionValidator.IsValidAsync(context.Principal, context.CancellationToken).ConfigureAwait(false))
