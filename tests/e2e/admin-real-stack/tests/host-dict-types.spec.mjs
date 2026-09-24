@@ -69,13 +69,24 @@ test('Host 管理员可从真实 API 加载并创建数据字典类型与项', a
   await expect(dictTypeRow).toBeVisible({ timeout: 15_000 });
   await expect(dictTypeRow.getByText(`真实栈字典 ${clientKind}`, { exact: true })).toBeVisible();
 
+  const itemsResponsePromise = page.waitForResponse(response =>
+    response.request().method() === 'GET'
+    && new URL(response.url()).pathname === `/api/v1/settings/dict-types/${dictType.id}/items`
+  );
   await dictTypeRow
     .getByRole('button', { name: '字典项', exact: true })
     .click();
+  const itemsResponse = await itemsResponsePromise;
+  expect(itemsResponse.status()).toBe(200);
+  const items = await itemsResponse.json();
+  expect(items.items).toEqual(expect.arrayContaining([
+    expect.objectContaining({ value: itemValue, label: '真实栈项' })
+  ]));
   const itemsPanel = dictTypesView.locator('[data-dict-items-directory]');
   await expect(itemsPanel).toBeVisible();
-  await expect(itemsPanel.getByText('真实栈项', { exact: true })).toBeVisible();
-  await expect(itemsPanel.getByRole('cell', {
+  const itemRow = itemsPanel.locator('.el-table__row').filter({ hasText: itemValue });
+  await expect(itemRow.getByText('真实栈项', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(itemRow.getByRole('cell', {
     name: itemValue,
     exact: true
   })).toBeVisible();
