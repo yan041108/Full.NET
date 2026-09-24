@@ -33,7 +33,8 @@ import {
   returnToHostContextFromTenant,
   loginHostAdminAccessToken,
   loginTenantAdminAccessToken,
-  prepareHostUserCredentialsForOidc
+  prepareHostUserCredentialsForOidc,
+  trackUiAccessToken
 } from './support/real-stack-auth.mjs';
 import {
   getInstance,
@@ -65,6 +66,19 @@ async function triggerHostJobDefinitionViaApi(request, apiBase, definitionId, be
       origin
     }
   });
+  expect(response.status()).toBe(201);
+  const execution = await response.json();
+  expect(typeof execution.id).toBe('string');
+  return execution;
+}
+
+async function triggerHostJobDefinitionViaUi(page, row, definitionId) {
+  const triggerResponsePromise = page.waitForResponse(response =>
+    response.request().method() === 'POST'
+    && new URL(response.url()).pathname === `/api/v1/jobs/host-definitions/${definitionId}/trigger`
+  );
+  await row.getByTestId('host-jobs-action-trigger').click();
+  const response = await triggerResponsePromise;
   expect(response.status()).toBe(201);
   const execution = await response.json();
   expect(typeof execution.id).toBe('string');
@@ -1181,8 +1195,6 @@ test.describe('Vue admin oidc-center auth', () => {
   test('OIDC 中心切租户并返回 Host 后可通过任务定义页 UI 触发后台任务', async ({ page, request }) => {
     test.setTimeout(90_000);
     const apiBase = resolveApiBase();
-    const setupOrigin = 'http://localhost:25173';
-    const setupToken = await loginHostAdminAccessToken(request, 'vue');
     const stamp = Date.now().toString(36);
     const displayName = `E2E OIDC Host Return UI Trigger ${stamp}`;
     const definition = await createE2eHostPingJobDefinition(request, {
@@ -1191,6 +1203,7 @@ test.describe('Vue admin oidc-center auth', () => {
       description: 'oidc-center host return context job ui trigger probe'
     });
 
+    const currentAccessToken = trackUiAccessToken(page);
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
     await clickMainNavLink(page, /租户上下文/);
@@ -1201,21 +1214,15 @@ test.describe('Vue admin oidc-center auth', () => {
     const jobsView = page.locator('.host-jobs-view');
     const row = await hostJobsRowByDisplayName(jobsView, displayName);
     await expect(row.getByTestId('host-jobs-action-trigger')).toBeVisible();
-    const execution = await triggerHostJobDefinitionViaApi(
-      request,
-      apiBase,
-      definition.id,
-      setupToken,
-      setupOrigin
-    );
+    const execution = await triggerHostJobDefinitionViaUi(page, row, definition.id);
 
     await expect.poll(async () => {
       const listResponse = await request.get(
         `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
         {
           headers: {
-            authorization: `Bearer ${setupToken}`,
-            origin: setupOrigin
+            authorization: `Bearer ${currentAccessToken()}`,
+            origin: ADMIN_OIDC_CENTER_ORIGIN
           }
         }
       );
@@ -2150,51 +2157,12 @@ test.describe('Vue admin oidc-center auth', () => {
     expect((await listResponse.json()).items?.some(item => item.id === execution.id)).toBe(true);
   });
 
-  test('OIDC 中心切租户后可通过任务定义页 UI 触发后台任务', async ({ page, request }) => {
-    test.setTimeout(90_000);
-    const apiBase = resolveApiBase();
-    const setupOrigin = 'http://localhost:25173';
-    const setupToken = await loginHostAdminAccessToken(request, 'vue');
-    const stamp = Date.now().toString(36);
-    const displayName = `E2E OIDC Tenant UI Trigger ${stamp}`;
-    const definition = await createE2eHostPingJobDefinition(request, {
-      jobKey: `e2e.oidc.tui.${stamp}`.slice(0, 32),
-      displayName,
-      description: 'oidc-center tenant context job ui trigger probe'
-    });
-
+  test('OIDC 中心切租户后不显示 Host 任务定义导航', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
     await expectVisibleCurrentContext(page, 'Full.NET Local');
-
-    await clickMainNavLink(page, /任务定义/, '任务');
-    const jobsView = page.locator('.host-jobs-view');
-    const row = await hostJobsRowByDisplayName(jobsView, displayName);
-    await expect(row.getByTestId('host-jobs-action-trigger')).toBeVisible();
-    const execution = await triggerHostJobDefinitionViaApi(
-      request,
-      apiBase,
-      definition.id,
-      setupToken,
-      setupOrigin
-    );
-
-    await expect.poll(async () => {
-      const listResponse = await request.get(
-        `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
-        {
-          headers: {
-            authorization: `Bearer ${setupToken}`,
-            origin: setupOrigin
-          }
-        }
-      );
-      if (!listResponse.ok()) {
-        return false;
-      }
-      const body = await listResponse.json();
-      return (body.items ?? []).some(item => item.id === execution.id);
-    }).toBe(true);
+    const navigation = page.getByRole('navigation', { name: '主导航' });
+    await expect(navigation.getByRole('link', { name: '任务定义', exact: true })).toHaveCount(0);
   });
 
   test('OIDC 中心切租户后退出后已失效 access token 无法触发后台任务', async ({ page, request }) => {
