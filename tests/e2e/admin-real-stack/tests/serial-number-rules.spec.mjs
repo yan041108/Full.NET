@@ -12,6 +12,7 @@ import {
   statusPath,
   trackUiAccessToken
 } from './support/real-stack-auth.mjs';
+import { ensureSerialRuleUpdateApprovalScenario } from './support/workflow-approval-fixtures.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
 
@@ -310,6 +311,8 @@ test('Host 管理员可提交流水号规则变更审批并打开审批请求', 
   test.setTimeout(120_000);
 
   const clientKind = testInfo.project.metadata.clientKind;
+  const setupToken = await loginHostAdminAccessToken(request, clientKind);
+  await ensureSerialRuleUpdateApprovalScenario(request, clientKind, setupToken);
   const stamp = Date.now().toString(36);
   const ruleKey = `e2e.approval.${stamp}`;
   const displayName = `E2E 审批 ${stamp}`;

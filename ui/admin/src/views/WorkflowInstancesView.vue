@@ -935,7 +935,12 @@ function toProblem(
   color: var(--el-text-color-primary);
 }
 
-.workflow-instances__identity {
+.workflow-instances__summary .workflow-instances__identity {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow-wrap: anywhere;
   background: linear-gradient(145deg, var(--el-color-primary-light-9), transparent 72%);
 }
 

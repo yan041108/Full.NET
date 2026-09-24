@@ -87,7 +87,7 @@ export async function fillDecision(page, value) {
   await input.fill(value);
 }
 
-export async function publishApprovalAssets(request, clientKind, accessToken) {
+export async function publishApprovalAssets(request, clientKind, accessToken, options = {}) {
   const stamp = `${Date.now().toString(36)}-${crypto.randomUUID()}`;
   const form = await post(request, clientKind, accessToken, '/api/v1/workflow/forms', {
     formKey: `admin.approval.${stamp}`,
@@ -97,7 +97,7 @@ export async function publishApprovalAssets(request, clientKind, accessToken) {
       sections: [{
         sectionKey: 'main',
         fields: [
-          { fieldKey: 'reason', fieldTypeKey: 'text', required: true, constraints: {} },
+          { fieldKey: 'reason', fieldTypeKey: 'text', required: options.reasonRequired !== false, constraints: {} },
           { fieldKey: 'secret', fieldTypeKey: 'text', required: false, constraints: {} },
           { fieldKey: 'decision', fieldTypeKey: 'text', required: false, constraints: {} }
         ]
@@ -156,6 +156,37 @@ export async function publishApprovalAssets(request, clientKind, accessToken) {
     { expectedRevision: definition.draftRevision, formVersionId: formVersion.id }
   );
   return { definitionKey, versionId: version.id };
+}
+
+/** 真实栈默认不绑定审批流程；为流水号更新场景准备可从空初始表单启动的版本。 */
+export async function ensureSerialRuleUpdateApprovalScenario(request, clientKind, accessToken) {
+  const scenarioKey = 'serial_numbers.host_rule.update';
+  const listResponse = await request.get(`${apiBaseUrl}/api/v1/data-approvals/scenarios`, {
+    headers: apiHeaders(clientKind, accessToken)
+  });
+  expect(listResponse.status(), await listResponse.text()).toBe(200);
+  const scenario = (await listResponse.json()).find(item => item.scenarioKey === scenarioKey);
+  expect(scenario).toBeDefined();
+  if (scenario.isEnabled) {
+    return;
+  }
+
+  const assets = await publishApprovalAssets(request, clientKind, accessToken, {
+    reasonRequired: false
+  });
+  const response = await request.put(
+    `${apiBaseUrl}/api/v1/data-approvals/scenarios/${scenarioKey}`,
+    {
+      data: {
+        isEnabled: true,
+        workflowDefinitionVersionId: assets.versionId,
+        version: scenario.version ?? null
+      },
+      headers: apiHeaders(clientKind, accessToken)
+    }
+  );
+  expect(response.status(), await response.text()).toBe(200);
+  expect((await response.json()).isEnabled).toBe(true);
 }
 
 export async function startInstance(request, clientKind, accessToken, definitionVersionId, reason) {

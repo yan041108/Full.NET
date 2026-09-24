@@ -5,6 +5,7 @@ import {
   loginAsHostAdmin,
   loginHostAdminAccessToken
 } from './support/real-stack-auth.mjs';
+import { ensureSerialRuleUpdateApprovalScenario } from './support/workflow-approval-fixtures.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
 const businessType = 'data_approval.serial_rule.update';
@@ -23,6 +24,7 @@ async function createRuleAndSubmitUpdateApproval(request, clientKind) {
     Origin: origin,
     'Content-Type': 'application/json'
   };
+  await ensureSerialRuleUpdateApprovalScenario(request, clientKind, accessToken);
   const stamp = Date.now().toString(36);
   const ruleKey = `e2e.biz.${stamp}`;
   const createResponse = await request.post(`${apiBaseUrl}/api/v1/serial-numbers/rules`, {
@@ -67,7 +69,7 @@ async function createRuleAndSubmitUpdateApproval(request, clientKind) {
   expect(submitResponse.status(), await submitResponse.text()).toBe(201);
   const submission = await submitResponse.json();
   expect(submission.requestId).toBeTruthy();
-  return { requestId: submission.requestId, ruleKey, headers, accessToken };
+  return { requestId: submission.requestId, ruleId: rule.id, ruleKey, headers, accessToken };
 }
 
 async function waitForWorkflowInstance(request, headers, requestId) {
@@ -94,7 +96,7 @@ test('工作流实例详情可跳转到数据审批请求', async ({ page, reque
   test.setTimeout(180_000);
 
   const clientKind = testInfo.project.metadata.clientKind;
-  const { requestId, headers } = await createRuleAndSubmitUpdateApproval(request, clientKind);
+  const { requestId, ruleId, headers } = await createRuleAndSubmitUpdateApproval(request, clientKind);
   const instance = await waitForWorkflowInstance(request, headers, requestId);
 
   await loginAsHostAdmin(page);
@@ -103,7 +105,7 @@ test('工作流实例详情可跳转到数据审批请求', async ({ page, reque
   const view = page.locator('.workflow-instances');
   await expect(view.getByRole('heading', { name: '工作流实例', exact: true })).toBeVisible();
   await view.getByTestId('workflow-instance-tabs').getByRole('tab', { name: '我发起的' }).click();
-  const instanceRow = view.getByRole('row').filter({ hasText: String(requestId) });
+  const instanceRow = view.getByRole('row').filter({ hasText: String(ruleId) });
   await expect(instanceRow.first()).toBeVisible({ timeout: 30_000 });
   await instanceRow.first().click();
   await expect(view.getByTestId('workflow-instance-summary')).toBeVisible({ timeout: 15_000 });
