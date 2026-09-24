@@ -6,7 +6,14 @@ internal sealed record RegistrationPolicyRecord(
     bool IsPublicRegistrationEnabled,
     byte RegistrationMode,
     DateTimeOffset UpdatedAtUtc,
-    int Version);
+    int Version)
+{
+    // MySQL 的 tinyint 与 datetime 类型不匹配位置构造签名，保留无参映射路径。
+    public RegistrationPolicyRecord()
+        : this(Guid.Empty, false, 0, DateTimeOffset.MinValue, 0)
+    {
+    }
+}
 
 /// <summary>映射 <c>fn_identity_user_registration_way</c> 行。</summary>
 internal sealed class RegistrationWayRecord

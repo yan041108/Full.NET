@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
@@ -31,9 +32,8 @@ internal static class InvitedRegistrationAssertions
         using var client = scopedFactory.CreateClientForHost("localhost");
 
         var tenantId = await ResolveDefaultTenantIdAsync(scopedFactory, factory.Provider, cancellationToken);
-        var registrationWayId = await ResolveRegistrationWayIdAsync(
+        var registrationWayId = await CreateRegistrationWayAsync(
             scopedFactory,
-            factory.Provider,
             tenantId,
             cancellationToken);
         var email = $"invite-{Guid.NewGuid():N}@example.com";
@@ -64,11 +64,15 @@ internal static class InvitedRegistrationAssertions
                    Content = JsonContent.Create(new SendRegistrationEmailChallengeRequest(
                        email,
                        IdentityAccountChallengePurpose.InvitationEmailVerification,
-                       invitationId)),
+                       invitationId,
+                       invitationToken)),
                })
         using (var challengeResponse = await client.SendAsync(challengeRequest, cancellationToken))
         {
-            Assert.AreEqual(HttpStatusCode.OK, challengeResponse.StatusCode);
+            Assert.AreEqual(
+                HttpStatusCode.OK,
+                challengeResponse.StatusCode,
+                await challengeResponse.Content.ReadAsStringAsync(cancellationToken));
         }
 
         Assert.IsNotNull(deliveryPort.LastIntent);
@@ -139,33 +143,88 @@ internal static class InvitedRegistrationAssertions
         return tenantId.Value;
     }
 
-    private static async Task<Guid> ResolveRegistrationWayIdAsync(
+    private static async Task<Guid> CreateRegistrationWayAsync(
         FullNetApiFactory factory,
-        DatabaseProvider provider,
         Guid tenantId,
         CancellationToken cancellationToken)
     {
         await using var scope = factory.Services.CreateAsyncScope();
-        var executor = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
-        var sql = provider == DatabaseProvider.MySql
-            ? """
-              SELECT Id
-              FROM fn_identity_user_registration_way
-              WHERE TenantId = @TenantId
-              ORDER BY SortOrder, Name, Id
-              LIMIT 1
-              """
-            : """
-              SELECT TOP (1) Id
-              FROM fn_identity_user_registration_way
-              WHERE TenantId = @TenantId
-              ORDER BY SortOrder, Name, Id
-              """;
-        var registrationWayId = await executor.QuerySingleOrDefaultAsync<Guid?>(
-            new SqlStatement("integration.find_registration_way", sql, SqlDataScope.Global),
-            new { TenantId = tenantId },
-            cancellationToken);
-        Assert.IsNotNull(registrationWayId);
-        return registrationWayId.Value;
+        var command = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+        var idGenerator = scope.ServiceProvider.GetRequiredService<IIdGenerator>();
+        var now = scope.ServiceProvider.GetRequiredService<IClock>().UtcNow;
+        var currentTenant = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+        var roleId = idGenerator.NewId();
+        var unitId = idGenerator.NewId();
+        var wayId = idGenerator.NewId();
+        var suffix = wayId.ToString("N");
+
+        try
+        {
+            // 受邀注册依赖有效注册方式；测试自行创建场景数据，不依赖环境 Overlay。
+            currentTenant.SetHost();
+            await command.ExecuteAsync(
+                IdentitySql.InsertRole,
+                new
+                {
+                    Id = roleId,
+                    TenantId = (Guid?)tenantId,
+                    ScopeKey = $"tenant:{tenantId:N}",
+                    Code = $"invite-{suffix}",
+                    Name = "Invited Registration Role",
+                    IsSystem = false,
+                    IsActive = true,
+                    IsSuperAdministrator = false,
+                    DataScopeKind = "all",
+                    CreatedAtUtc = now,
+                    Version = 1,
+                },
+                cancellationToken);
+
+            currentTenant.SetTenant(new TenantContext(tenantId, "acme", "Acme Corporation"));
+            await command.ExecuteAsync(
+                new SqlStatement(
+                    "integration.insert_invited_registration_unit",
+                    """
+                    INSERT INTO fn_organization_unit
+                        (Id, TenantId, ParentId, Code, Name, DisplayOrder,
+                         IsActive, CreatedAtUtc, UpdatedAtUtc, Version)
+                    VALUES
+                        (@Id, @TenantId, NULL, @Code, @Name, 0,
+                         1, @CreatedAtUtc, NULL, 1)
+                    """,
+                    SqlDataScope.TenantRequired,
+                    SqlTenantBinding.CurrentTenantId),
+                new
+                {
+                    Id = unitId,
+                    Code = $"invite-{suffix}",
+                    Name = "Invited Registration Unit",
+                    CreatedAtUtc = now,
+                },
+                cancellationToken);
+
+            currentTenant.SetHost();
+            await command.ExecuteAsync(
+                RegistrationWaySql.Insert,
+                new RegistrationWayRecord
+                {
+                    Id = wayId,
+                    TenantId = tenantId,
+                    Name = "Invited Registration",
+                    Code = $"invite-{suffix}",
+                    IsEnabled = true,
+                    RoleId = roleId,
+                    OrganizationUnitId = unitId,
+                    SortOrder = 0,
+                    CreatedAtUtc = now,
+                    Version = 1,
+                },
+                cancellationToken);
+            return wayId;
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
     }
 }
