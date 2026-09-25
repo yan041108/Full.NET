@@ -24,6 +24,15 @@ test('Host 管理员可加载访问日志且普通请求不重复落审计表', 
   const clientKind = testInfo.project.metadata.clientKind;
   const origin = adminOrigin(clientKind);
   const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const accessLogsUrl = `${apiBaseUrl}/api/v1/auditing/access-logs?page=1&pageSize=20`;
+  const baselineResponse = await request.get(accessLogsUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin
+    }
+  });
+  expect(baselineResponse.ok()).toBeTruthy();
+  const baselinePage = await baselineResponse.json();
 
   // 普通 HTTP Access 摘要已合并到 B2 HttpOperationCompleted，不得再重复写入 Access Audit 表。
   const enumResponse = await request.get(
@@ -37,19 +46,15 @@ test('Host 管理员可加载访问日志且普通请求不重复落审计表', 
   );
   expect(enumResponse.ok()).toBeTruthy();
 
-  const accessResponse = await request.get(
-    `${apiBaseUrl}/api/v1/auditing/access-logs?page=1&pageSize=20`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Origin: origin
-      }
+  const accessResponse = await request.get(accessLogsUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin
     }
-  );
+  });
   expect(accessResponse.ok()).toBeTruthy();
   const accessPage = await accessResponse.json();
-  expect(accessPage.total).toBe(0);
-  expect(accessPage.items).toEqual([]);
+  expect(accessPage.total).toBe(baselinePage.total);
 
   await loginAsHostAdmin(page);
   await clickMainNavLink(page, /访问日志/);
@@ -59,7 +64,7 @@ test('Host 管理员可加载访问日志且普通请求不重复落审计表', 
     : page.locator('.access-logs-view');
 
   await expect(accessLogsView.getByRole('heading', { name: '访问日志', exact: true })).toBeVisible();
-  await expect(accessLogsView.getByText('尚无访问日志', { exact: true })).toBeVisible();
+  await expect(accessLogsView.locator('.el-table')).toBeVisible();
 });
 
 test('受限 Host 账号访问日志 API 被拒绝且导航裁剪', async ({

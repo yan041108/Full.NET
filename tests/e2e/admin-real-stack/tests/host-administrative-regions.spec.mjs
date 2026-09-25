@@ -30,7 +30,7 @@ function authHeaders(token, origin) {
 }
 
 function uniqueRegionCode() {
-  const suffix = Date.now().toString(36).slice(-6).padStart(6, '0');
+  const suffix = String(Date.now() % 1_000_000).padStart(6, '0');
   return `38${suffix}`;
 }
 

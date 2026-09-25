@@ -153,9 +153,11 @@ test('Host 管理员可提交流水号规则禁用审批并打开审批请求（
   await expect(page.getByText('已提交禁用审批请求')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('data-approval-detail-status')).toBeVisible({ timeout: 15_000 });
 
+  // 默认 SingleSessionPerClient 会使刚才 UI 登录前取得的 API Token 失效。
+  const listToken = await loginHostAdminAccessToken(request, clientKind);
   const listResponse = await request.get(
     `${apiBaseUrl}/api/v1/data-approvals/requests?page=1&pageSize=20`,
-    { headers: { Authorization: `Bearer ${token}`, Origin: origin } }
+    { headers: { Authorization: `Bearer ${listToken}`, Origin: origin } }
   );
   expect(listResponse.status()).toBe(200);
   const items = (await listResponse.json()).items ?? [];
