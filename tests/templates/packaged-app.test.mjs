@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -16,18 +16,19 @@ test('application template package includes framework sources and root manifest'
     assert.ok(existsSync(join(templateRoot, 'framework/fullnet/src/Hosts/Full.NET.Host.Api/Program.cs')));
     assert.ok(existsSync(join(templateRoot, 'framework/fullnet/src/Composition/Full.NET.Composition/Full.NET.Composition.csproj')));
     assert.ok(existsSync(join(templateRoot, 'src/FullNetAppNameToken.Host.Api/appsettings.json')));
+    assert.ok(existsSync(join(templateRoot, '.fullnet-tools/create-app.mjs')));
     assert.ok(Object.keys(manifest.managedFiles).length > 0);
 
-    const hive = join(workspace, 'hive');
     const appRoot = join(workspace, 'created');
-    const install = spawnSync('dotnet', ['new', 'install', templateRoot, '--debug:custom-hive', hive], { encoding: 'utf8' });
-    assert.equal(install.status, 0, install.stderr || install.stdout);
-    const create = spawnSync('dotnet', [
-      'new', 'fullnet-app', '--name', 'Demo', '--owner-key', 'acme', '--database', 'mysql',
-      '--preset', 'minimal', '--output', appRoot, '--debug:custom-hive', hive,
-    ], { encoding: 'utf8', timeout: 120_000 });
+    const createTool = join(templateRoot, '.fullnet-tools/create-app.mjs');
+    const create = spawnSync(process.execPath, [
+      createTool, '--package', templateRoot, '--output', appRoot, '--name', 'Demo',
+      '--owner-key', 'acme', '--database', 'mysql', '--preset', 'minimal',
+    ], { encoding: 'utf8', timeout: 150_000 });
     assert.equal(create.status, 0, create.stderr || create.stdout);
+    assert.deepEqual(readdirSync(workspace).filter((entry) => entry.startsWith('.fullnet-create-')), []);
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj')));
+    assert.equal(existsSync(join(appRoot, '.fullnet-tools')), false);
     const verification = verifyCreatedApp(appRoot);
     assert.equal(verification.ok, true, verification.errors.join('; '));
     const appProfile = JSON.parse(readFileSync(join(appRoot, 'fullnet-app.json'), 'utf8'));
@@ -46,10 +47,10 @@ test('application template package includes framework sources and root manifest'
     ], { cwd: appRoot, encoding: 'utf8', timeout: 300_000 });
     assert.equal(build.status, 0, build.stderr || build.stdout);
 
-    const repeat = spawnSync('dotnet', [
-      'new', 'fullnet-app', '--name', 'Second', '--owner-key', 'acme', '--database', 'mysql',
-      '--preset', 'minimal', '--output', appRoot, '--debug:custom-hive', hive,
-    ], { encoding: 'utf8', timeout: 120_000 });
+    const repeat = spawnSync(process.execPath, [
+      createTool, '--package', templateRoot, '--output', appRoot, '--name', 'Second',
+      '--owner-key', 'acme', '--database', 'mysql', '--preset', 'minimal',
+    ], { encoding: 'utf8', timeout: 150_000 });
     assert.notEqual(repeat.status, 0, 'repeated creation must reject an occupied directory');
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj')));
     assert.equal(existsSync(join(appRoot, 'src/Second.Host.Api')), false);

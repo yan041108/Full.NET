@@ -11,6 +11,7 @@
     {
       "source": "./",
       "target": "./",
+      "exclude": [".template.config/**/*", ".fullnet-tools/**/*"],
       "copyOnly": ["framework/**/*", "framework-manifest.json"]
     }
   ],

@@ -590,6 +590,7 @@
       "tests": [
         "tests/templates/source-bundle.test.mjs",
         "tests/templates/packaged-app.test.mjs",
+        "tests/templates/create-app.test.mjs",
         "tests/templates/created-app.test.mjs",
         "tests/templates/template-options.test.mjs",
         "tests/templates/source-bundle-upgrade.test.mjs"

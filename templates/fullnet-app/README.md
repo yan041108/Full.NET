@@ -2,11 +2,10 @@
 
 This template creates an independently buildable Full.NET application with a versioned framework source bundle under `framework/fullnet/`.
 
-From the Full.NET source checkout, first assemble and install the template package into an empty output directory:
+From the Full.NET source checkout, first assemble the template package into an empty output directory:
 
 ```bash
 node scripts/templates/build-app-template.mjs --output artifacts/templates/fullnet-app-package
-dotnet new install artifacts/templates/fullnet-app-package
 ```
 
 ## Parameters
@@ -21,9 +20,13 @@ dotnet new install artifacts/templates/fullnet-app-package
 
 ## Create an app
 
+Use the package's validated creator so invalid owner keys, modified or unlisted framework files, and existing output paths are rejected before instantiation. It builds in a temporary sibling directory and publishes the app only after verification succeeds:
+
 ```bash
-dotnet new fullnet-app --name Demo --owner-key demo --database mysql --preset platform --http-port 5180
+node artifacts/templates/fullnet-app-package/.fullnet-tools/create-app.mjs --output Demo --name Demo --owner-key demo --database mysql --preset platform --http-port 5180
 ```
+
+The creator uses an isolated `dotnet new` template hive. Its manifest validates the managed framework bundle; it is not a signature for the outer template files. Direct `dotnet new fullnet-app` installation remains possible, but does not perform these preflight checks.
 
 ## Layout
 
