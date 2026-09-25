@@ -24,7 +24,7 @@ internal static class ReportingDataSourceMapper
             row.IsEnabled,
             row.LastTestedAtUtc,
             row.LastTestStatusKey,
-            row.LastTestMessage,
+            SafeTestMessage(row),
             row.CreatedAtUtc,
             row.UpdatedAtUtc,
             row.Version);
@@ -47,11 +47,19 @@ internal static class ReportingDataSourceMapper
             row.IsEnabled,
             row.LastTestedAtUtc,
             row.LastTestStatusKey,
-            row.LastTestMessage,
+            SafeTestMessage(row),
             row.CreatedAtUtc,
             row.UpdatedAtUtc,
             row.Version);
 
     private static bool HasPassword(ReportingDataSourceRecord row) =>
         !string.IsNullOrWhiteSpace(row.PasswordProtected);
+
+    private static string? SafeTestMessage(ReportingDataSourceRecord row) =>
+        row.LastTestMessage is null
+            ? null
+            : string.Equals(row.LastTestStatusKey, ReportingDataSourceTestStatusKeys.Succeeded,
+                StringComparison.Ordinal)
+                ? "Connected successfully. Ensure the account is read-only."
+                : "Reporting data source test failed.";
 }

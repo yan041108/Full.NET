@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Globalization;
 using Full.NET.Data.Abstractions;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Options;
 using MySqlConnector;
 
 namespace Full.NET.Data.Dapper;
@@ -10,14 +11,29 @@ namespace Full.NET.Data.Dapper;
 /// 按受控参数打开外部 SQL Server / MySQL 会话。SQL Server 强制加密；
 /// 外部 MySQL 不套用主库 Binary16 Guid 策略，避免破坏客户库类型约定。
 /// </summary>
-internal sealed class ExternalDatabaseConnectionFactory : IExternalDatabaseConnectionFactory
+internal sealed class ExternalDatabaseConnectionFactory(
+    IOptions<ExternalDatabaseAccessOptions> accessOptions) : IExternalDatabaseConnectionFactory
 {
+    private readonly SemaphoreSlim _sessionGate = new(accessOptions.Value.MaxConcurrentSessions);
+
     /// <inheritdoc />
     public async Task<ExternalDatabaseSessionResult> OpenAsync(
         ExternalDatabaseConnectionRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (!ExternalDatabaseAccessPolicy.IsAllowed(request, accessOptions.Value))
+        {
+            return new ExternalDatabaseSessionResult(false, "External database destination is not allowed.", null);
+        }
+
+        if (!await _sessionGate.WaitAsync(
+                TimeSpan.FromSeconds(accessOptions.Value.AdmissionTimeoutSeconds),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return new ExternalDatabaseSessionResult(false, "External database capacity is busy.", null);
+        }
+
         DbConnection? connection = null;
         try
         {
@@ -34,16 +50,32 @@ internal sealed class ExternalDatabaseConnectionFactory : IExternalDatabaseConne
             return new ExternalDatabaseSessionResult(
                 true,
                 null,
-                new ExternalDatabaseSession(connection));
+                new ExternalDatabaseSession(connection, _sessionGate));
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            if (connection is not null)
+            try
             {
-                await connection.DisposeAsync().ConfigureAwait(false);
+                await DisposeFailedConnectionAsync(connection).ConfigureAwait(false);
+            }
+            finally
+            {
+                _sessionGate.Release();
+            }
+            return new ExternalDatabaseSessionResult(false, "Failed to open external database connection.", null);
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                await DisposeFailedConnectionAsync(connection).ConfigureAwait(false);
+            }
+            finally
+            {
+                _sessionGate.Release();
             }
 
-            return new ExternalDatabaseSessionResult(false, SanitizeMessage(exception.Message), null);
+            throw;
         }
     }
 
@@ -67,7 +99,7 @@ internal sealed class ExternalDatabaseConnectionFactory : IExternalDatabaseConne
 
     /// <summary>构造外部 MySQL 连接，不改写客户库 Guid 存储格式。</summary>
     /// <param name="request">外部连接请求。</param>
-    private static MySqlConnection CreateMySqlConnection(ExternalDatabaseConnectionRequest request)
+    internal static MySqlConnection CreateMySqlConnection(ExternalDatabaseConnectionRequest request)
     {
         var builder = new MySqlConnectionStringBuilder
         {
@@ -76,22 +108,37 @@ internal sealed class ExternalDatabaseConnectionFactory : IExternalDatabaseConne
             Database = request.DatabaseName,
             UserID = request.Username,
             Password = request.Password,
+            SslMode = MySqlSslMode.VerifyFull,
             ConnectionTimeout = (uint)request.ConnectionTimeoutSeconds,
             ApplicationName = request.ApplicationName,
         };
         return new MySqlConnection(builder.ConnectionString);
     }
 
-    /// <summary>截断驱动错误，避免把连接串或过长堆栈泄漏给调用方。</summary>
-    /// <param name="message">原始异常消息。</param>
-    private static string SanitizeMessage(string message) =>
-        message.Length <= 512 ? message : message[..512];
+    private static async ValueTask DisposeFailedConnectionAsync(DbConnection? connection)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await connection.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // 清理异常不得覆盖已脱敏的连接失败摘要，也不得阻止配额释放。
+        }
+    }
 }
 
 /// <summary>封装已打开的外部连接，把命令执行留在数据边界内。</summary>
 /// <param name="connection">已打开连接。</param>
-internal sealed class ExternalDatabaseSession(DbConnection connection) : IExternalDatabaseSession
+internal sealed class ExternalDatabaseSession(DbConnection connection, SemaphoreSlim sessionGate) : IExternalDatabaseSession
 {
+    private int _disposed;
+
     /// <inheritdoc />
     public async Task<ExternalDatabaseScalarResult> ExecuteScalarAsync(
         string sql,
@@ -108,7 +155,7 @@ internal sealed class ExternalDatabaseSession(DbConnection connection) : IExtern
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            return new ExternalDatabaseScalarResult(false, SanitizeMessage(exception.Message), null);
+            return new ExternalDatabaseScalarResult(false, "Failed to probe external database.", null);
         }
     }
 
@@ -153,12 +200,31 @@ internal sealed class ExternalDatabaseSession(DbConnection connection) : IExtern
         }
         catch (Exception exception) when (exception is DbException or InvalidOperationException or TimeoutException)
         {
-            return new ExternalDatabaseQueryResult(false, SanitizeMessage(exception.Message), [], []);
+            return new ExternalDatabaseQueryResult(false, "External database query failed.", [], []);
         }
     }
 
     /// <inheritdoc />
-    public ValueTask DisposeAsync() => connection.DisposeAsync();
+    public async ValueTask DisposeAsync()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await connection.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            throw new InvalidOperationException("Failed to close external database session.");
+        }
+        finally
+        {
+            sessionGate.Release();
+        }
+    }
 
     /// <summary>把单元格格式化为不变区域性文本并截断。</summary>
     /// <param name="reader">结果读取器。</param>
@@ -186,9 +252,4 @@ internal sealed class ExternalDatabaseSession(DbConnection connection) : IExtern
 
         return text.Length <= maxCellValueLength ? text : text[..maxCellValueLength];
     }
-
-    /// <summary>截断驱动错误。</summary>
-    /// <param name="message">原始异常消息。</param>
-    private static string SanitizeMessage(string message) =>
-        message.Length <= 512 ? message : message[..512];
 }

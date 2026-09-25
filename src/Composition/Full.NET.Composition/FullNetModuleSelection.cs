@@ -170,53 +170,16 @@ public static class FullNetModuleSelection
             .Get<FullNetModuleSelectionOptions>()
             ?? new FullNetModuleSelectionOptions();
 
-        IReadOnlyList<string> enabledNames;
-        if (options.Enabled is { Length: > 0 })
+        var resolution = ResolveCandidateNames(options);
+        if (resolution.SourceKind == ModuleSelectionSourceKinds.Preset &&
+            !IsKnownPreset(options.Preset))
         {
-            enabledNames = options.Enabled;
-        }
-        else if (string.Equals(
-                     options.Preset,
-                     FullNetModuleSelectionOptions.Presets.Minimal,
-                     StringComparison.OrdinalIgnoreCase))
-        {
-            enabledNames = MinimalPresetModuleNames;
-        }
-        else if (string.Equals(
-                     options.Preset,
-                     FullNetModuleSelectionOptions.Presets.Platform,
-                     StringComparison.OrdinalIgnoreCase))
-        {
-            enabledNames = PlatformPresetModuleNames;
-        }
-        else if (string.Equals(
-                     options.Preset,
-                     FullNetModuleSelectionOptions.Presets.Content,
-                     StringComparison.OrdinalIgnoreCase))
-        {
-            enabledNames = ContentPresetModuleNames;
-        }
-        else if (string.Equals(
-                     options.Preset,
-                     FullNetModuleSelectionOptions.Presets.Saas,
-                     StringComparison.OrdinalIgnoreCase))
-        {
-            enabledNames = SaasPresetModuleNames;
-        }
-        else if (string.Equals(
-                     options.Preset,
-                     FullNetModuleSelectionOptions.Presets.Enterprise,
-                     StringComparison.OrdinalIgnoreCase))
-        {
-            enabledNames = EnterprisePresetModuleNames;
-        }
-        else
-        {
-            enabledNames = OfficialModuleNames;
+            throw new InvalidOperationException(
+                $"FullNet:Modules:Preset 包含未知预设“{options.Preset}”。");
         }
 
-        ValidateEnabledNames(enabledNames);
-        return enabledNames.ToHashSet(StringComparer.Ordinal);
+        ValidateEnabledNames(resolution.EnabledNames);
+        return resolution.EnabledNames.ToHashSet(StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -310,8 +273,20 @@ public static class FullNetModuleSelection
 
         var issues = new List<ModuleSelectionIssue>();
         var resolution = ResolveCandidateNames(options);
+        if (resolution.SourceKind == ModuleSelectionSourceKinds.Preset &&
+            !IsKnownPreset(options.Preset))
+        {
+            issues.Add(new ModuleSelectionIssue(
+                ModuleSelectionIssueCodes.UnknownPreset,
+                $"Unknown FullNet:Modules:Preset '{options.Preset}'.",
+                null,
+                null));
+        }
         var enabledNames = resolution.EnabledNames;
-        CollectEnabledNameIssues(enabledNames, issues);
+        if (resolution.SourceKind == ModuleSelectionSourceKinds.Explicit || IsKnownPreset(options.Preset))
+        {
+            CollectEnabledNameIssues(enabledNames, issues);
+        }
         var enabledSet = enabledNames
             .Where(name => !string.IsNullOrWhiteSpace(name)
                 && OfficialModuleNames.Contains(name, StringComparer.Ordinal))
@@ -343,7 +318,7 @@ public static class FullNetModuleSelection
     private static (string SourceKind, string? Preset, IReadOnlyList<string> EnabledNames)
         ResolveCandidateNames(FullNetModuleSelectionOptions options)
     {
-        if (options.Enabled is { Length: > 0 })
+        if (options.Enabled is not null)
         {
             return (
                 ModuleSelectionSourceKinds.Explicit,
@@ -408,11 +383,20 @@ public static class FullNetModuleSelection
 
         return (
             ModuleSelectionSourceKinds.Preset,
-            string.IsNullOrWhiteSpace(options.Preset)
-                ? FullNetModuleSelectionOptions.Presets.Full
-                : options.Preset,
-            OfficialModuleNames);
+            options.Preset,
+            string.Equals(options.Preset, FullNetModuleSelectionOptions.Presets.Full,
+                StringComparison.OrdinalIgnoreCase)
+                ? OfficialModuleNames
+                : []);
     }
+
+    private static bool IsKnownPreset(string? preset) =>
+        string.Equals(preset, FullNetModuleSelectionOptions.Presets.Full, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(preset, FullNetModuleSelectionOptions.Presets.Minimal, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(preset, FullNetModuleSelectionOptions.Presets.Platform, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(preset, FullNetModuleSelectionOptions.Presets.Content, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(preset, FullNetModuleSelectionOptions.Presets.Saas, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(preset, FullNetModuleSelectionOptions.Presets.Enterprise, StringComparison.OrdinalIgnoreCase);
 
     private static void CollectEnabledNameIssues(
         IReadOnlyList<string> enabledNames,

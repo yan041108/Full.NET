@@ -19,6 +19,8 @@ public static class ModuleSelectionSourceKinds
 /// </summary>
 public static class ModuleSelectionIssueCodes
 {
+    public const string UnknownPreset = "modules.unknown_preset";
+
     public const string EmptyEnabled = "modules.empty_enabled";
 
     public const string BlankModuleName = "modules.blank_module_name";

@@ -5,6 +5,7 @@ using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Organization;
 using Full.NET.Modules.Tenancy;
 using Microsoft.Extensions.Configuration;
+using System.Text;
 
 namespace Full.NET.UnitTests.Modularity;
 
@@ -21,6 +22,29 @@ public sealed class FullNetModuleSelectionTests
         {
             Assert.IsTrue(enabled.Contains(name));
         }
+    }
+
+    [TestMethod]
+    public void Unknown_preset_must_not_enable_all_modules()
+    {
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            FullNetModuleSelection.ResolveEnabledNames(CreateConfiguration(new Dictionary<string, string?>
+            {
+                ["FullNet:Modules:Preset"] = "Typo",
+            })));
+
+        StringAssert.Contains(exception.Message, "Preset");
+    }
+
+    [TestMethod]
+    public void Explicit_empty_enabled_array_must_not_enable_all_modules()
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(
+            """{"FullNet":{"Modules":{"Enabled":[]}}}"""));
+        var configuration = new ConfigurationBuilder().AddJsonStream(stream).Build();
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            FullNetModuleSelection.ResolveEnabledNames(configuration));
     }
 
     [TestMethod]
