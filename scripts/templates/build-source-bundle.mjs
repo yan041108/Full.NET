@@ -34,6 +34,11 @@ const INCLUDE_ROOTS = [
   join('src', 'Tools', 'Full.NET.CodeGeneration.Cli'),
   'samples/enterprise-request',
   'contracts/naming',
+  'ui/admin',
+  'packages/client-contracts',
+  'packages/admin-i18n',
+  'packages/admin-form-designer',
+  'packages/design-tokens',
 ];
 
 const INCLUDE_FILES = [
@@ -42,6 +47,9 @@ const INCLUDE_FILES = [
   'Directory.Build.targets',
   'global.json',
   'nuget.config',
+  'package.json',
+  'pnpm-lock.yaml',
+  'pnpm-workspace.yaml',
 ];
 
 const EXCLUDED_DIR_NAMES = new Set(['bin', 'obj', '.vs', 'node_modules']);

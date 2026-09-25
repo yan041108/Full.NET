@@ -19,17 +19,23 @@ test('application template package includes framework sources and root manifest'
     assert.ok(existsSync(join(templateRoot, 'src/FullNetAppNameToken.Host.Api/appsettings.json')));
     assert.ok(existsSync(join(templateRoot, '.fullnet-tools/create-app.mjs')));
     assert.ok(existsSync(join(templateRoot, '.fullnet-tools/project-preset-composition.mjs')));
+    assert.ok(existsSync(join(templateRoot, 'ui/admin/package.json')));
+    assert.ok(existsSync(join(templateRoot, 'packages/client-contracts/package.json')));
+    assert.ok(existsSync(join(templateRoot, 'pnpm-lock.yaml')));
     assert.ok(Object.keys(manifest.managedFiles).length > 0);
 
     const appRoot = join(workspace, 'created');
     const createTool = join(templateRoot, '.fullnet-tools/create-app.mjs');
     const create = spawnSync(process.execPath, [
       createTool, '--package', templateRoot, '--output', appRoot, '--name', 'Demo',
-      '--owner-key', 'acme', '--database', 'mysql', '--preset', 'minimal',
+      '--owner-key', 'acme', '--database', 'mysql', '--preset', 'minimal', '--http-port', '5500',
     ], { encoding: 'utf8', timeout: 150_000 });
     assert.equal(create.status, 0, create.stderr || create.stdout);
     assert.deepEqual(readdirSync(workspace).filter((entry) => entry.startsWith('.fullnet-create-')), []);
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj')));
+    assert.ok(existsSync(join(appRoot, 'ui/admin/src/App.vue')));
+    assert.match(readFileSync(join(appRoot, 'ui/admin/vite.config.ts'), 'utf8'), /http:\/\/localhost:5500/);
+    assert.ok(existsSync(join(appRoot, 'packages/admin-form-designer/package.json')));
     assert.equal(existsSync(join(appRoot, '.fullnet-tools')), false);
     const verification = verifyCreatedApp(appRoot);
     assert.equal(verification.ok, true, verification.errors.join('; '));
@@ -62,6 +68,15 @@ test('application template package includes framework sources and root manifest'
       assert.ok(['Identity', 'Tenancy', 'Settings', 'Organization'].includes(module),
         `unexpected implementation module in minimal build: ${module}`);
     }
+    const pnpm = 'pnpm';
+    const install = spawnSync(pnpm, [
+      'install', '--filter', '@fullnet/admin...', '--frozen-lockfile', '--ignore-scripts',
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 180_000, shell: process.platform === 'win32' });
+    assert.equal(install.status, 0, install.stderr || install.stdout || install.error?.message);
+    const frontendBuild = spawnSync(pnpm, [
+      '--filter', '@fullnet/admin', 'build',
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 180_000, shell: process.platform === 'win32' });
+    assert.equal(frontendBuild.status, 0, frontendBuild.stderr || frontendBuild.stdout || frontendBuild.error?.message);
 
     const repeat = spawnSync(process.execPath, [
       createTool, '--package', templateRoot, '--output', appRoot, '--name', 'Second',

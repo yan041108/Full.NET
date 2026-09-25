@@ -4,7 +4,7 @@
  */
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +14,7 @@ import { verifyCreatedApp } from './verify-created-app.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
-function assertPackageIntegrity(root) {
+function assertPackageIntegrity(root, verifyFrontendSkeleton = false) {
   const manifest = JSON.parse(readFileSync(join(root, 'framework-manifest.json'), 'utf8'));
   const bundleRoot = join(root, 'framework', 'fullnet');
   const bundleManifest = readFileSync(join(bundleRoot, 'framework-manifest.json'));
@@ -60,6 +60,42 @@ function assertPackageIntegrity(root) {
     }
   };
   inspect(bundleRoot);
+  if (verifyFrontendSkeleton) {
+    const isFrontendPath = (relativePath) =>
+      relativePath.startsWith('ui/admin/') || relativePath.startsWith('packages/')
+      || ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'].includes(relativePath);
+    const copiedPaths = new Set(Object.keys(manifest.managedFiles).filter(isFrontendPath));
+    for (const relativePath of copiedPaths) {
+      let current = root;
+      for (const segment of relativePath.split('/')) {
+        current = join(current, segment);
+        if (!existsSync(current) || lstatSync(current).isSymbolicLink()) {
+          throw new Error('Frontend skeleton path is missing or linked: ' + relativePath);
+        }
+      }
+      if (!lstatSync(current).isFile()) throw new Error('Frontend skeleton path is not a file: ' + relativePath);
+      const actualHash = createHash('sha256').update(readFileSync(current)).digest('hex');
+      if (actualHash !== manifest.managedFiles[relativePath]) {
+        throw new Error('Frontend skeleton digest mismatch: ' + relativePath);
+      }
+    }
+    const inspectCopied = (directory, prefix) => {
+      if (!existsSync(directory)) return;
+      for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        const relativePath = prefix + '/' + entry.name;
+        const absolutePath = join(directory, entry.name);
+        if (lstatSync(absolutePath).isSymbolicLink()) {
+          throw new Error('Frontend skeleton contains a symbolic link: ' + relativePath);
+        }
+        if (entry.isDirectory()) inspectCopied(absolutePath, relativePath);
+        else if (!entry.isFile() || !copiedPaths.has(relativePath)) {
+          throw new Error('Unexpected frontend skeleton file: ' + relativePath);
+        }
+      }
+    };
+    inspectCopied(join(root, 'ui'), 'ui');
+    inspectCopied(join(root, 'packages'), 'packages');
+  }
 }
 
 function runDotnet(args) {
@@ -67,6 +103,19 @@ function runDotnet(args) {
   if (result.status !== 0) {
     throw new Error('dotnet ' + args.slice(0, 2).join(' ') + ' failed: ' + (result.stderr || result.stdout || result.error?.message || 'unknown error'));
   }
+}
+
+function projectFrontendProxy(appRoot, httpPort) {
+  const configPath = join(appRoot, 'ui', 'admin', 'vite.config.ts');
+  const source = readFileSync(configPath, 'utf8');
+  const target = "process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:5149'";
+  if (source.split(target).length !== 2) throw new Error('Cannot locate the Vue API proxy default');
+  writeFileSync(configPath, source.replace(target,
+    `process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:${httpPort}'`), 'utf8');
+  const examplePath = join(appRoot, 'ui', 'admin', '.env.example');
+  const example = readFileSync(examplePath, 'utf8');
+  if (!example.includes('http://localhost:5149')) throw new Error('Cannot locate the Vue API example default');
+  writeFileSync(examplePath, example.replaceAll('http://localhost:5149', `http://localhost:${httpPort}`), 'utf8');
 }
 
 export function createApp({ packageRoot, output, name, ownerKey, database = 'sqlserver', preset = 'minimal', httpPort = 5180 }) {
@@ -84,7 +133,7 @@ export function createApp({ packageRoot, output, name, ownerKey, database = 'sql
   }
   if (!packageRoot) throw new Error('Missing template package directory');
   const templateRoot = resolve(packageRoot);
-  assertPackageIntegrity(templateRoot);
+  assertPackageIntegrity(templateRoot, true);
 
   mkdirSync(dirname(appRoot), { recursive: true });
   const stagedRoot = mkdtempSync(join(dirname(appRoot), '.fullnet-create-'));
@@ -97,6 +146,7 @@ export function createApp({ packageRoot, output, name, ownerKey, database = 'sql
       '--output', stagedRoot, '--debug:custom-hive', hive,
     ]);
     projectPresetComposition(stagedRoot, preset, modules);
+    projectFrontendProxy(stagedRoot, httpPort);
     assertPackageIntegrity(stagedRoot);
     const verification = verifyCreatedApp(stagedRoot);
     if (!verification.ok) throw new Error('Created application is invalid: ' + verification.errors.join('; '));

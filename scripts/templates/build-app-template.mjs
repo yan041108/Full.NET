@@ -24,6 +24,19 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
   const { bundleRoot } = buildSourceBundle({ output: join(templateRoot, 'framework', 'fullnet') });
   copyFileSync(join(bundleRoot, 'framework-manifest.json'), join(templateRoot, 'framework-manifest.json'));
   copyFileSync(join(bundleRoot, 'global.json'), join(templateRoot, 'global.json'));
+  // 管理端是应用拥有的骨架；共享源码与锁文件随分发包固定版本交付。
+  for (const relative of [
+    'ui/admin',
+    'packages/client-contracts',
+    'packages/admin-i18n',
+    'packages/admin-form-designer',
+    'packages/design-tokens',
+  ]) {
+    cpSync(join(bundleRoot, relative), join(templateRoot, relative), { recursive: true, force: false });
+  }
+  for (const relative of ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']) {
+    copyFileSync(join(bundleRoot, relative), join(templateRoot, relative));
+  }
 
   const configTemplate = join(templateRoot, 'appsettings.json.template');
   copyFileSync(configTemplate, join(templateRoot, 'appsettings.json'));

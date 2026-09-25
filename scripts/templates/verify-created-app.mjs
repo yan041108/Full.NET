@@ -11,6 +11,12 @@ const REQUIRED_FILES = [
   'framework-manifest.json',
   'appsettings.json',
   'fullnet-app.json',
+  'pnpm-lock.yaml',
+  'ui/admin/package.json',
+  'packages/client-contracts/package.json',
+  'packages/admin-i18n/package.json',
+  'packages/admin-form-designer/package.json',
+  'packages/design-tokens/package.json',
 ];
 
 export function verifyCreatedApp(appRoot) {

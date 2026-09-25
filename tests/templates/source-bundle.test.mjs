@@ -30,6 +30,12 @@ test('build-source-bundle writes manifest with sha256 managed files', async () =
     assert.ok(Object.keys(manifest.managedFiles).length > 0);
     assert.deepEqual(onDisk.managedFiles, manifest.managedFiles);
     assert.equal(existsSync(join(bundleRoot, 'src/Hosts/Full.NET.Host.Api/App_Data')), false);
+    assert.ok(existsSync(join(bundleRoot, 'ui/admin/package.json')));
+    assert.ok(existsSync(join(bundleRoot, 'packages/client-contracts/package.json')));
+    assert.ok(existsSync(join(bundleRoot, 'packages/admin-i18n/package.json')));
+    assert.ok(existsSync(join(bundleRoot, 'packages/admin-form-designer/package.json')));
+    assert.ok(existsSync(join(bundleRoot, 'packages/design-tokens/package.json')));
+    assert.ok(existsSync(join(bundleRoot, 'pnpm-lock.yaml')));
 
     for (const [relativePath, digest] of Object.entries(manifest.managedFiles)) {
       assert.match(digest, /^[a-f0-9]{64}$/, relativePath + ' digest');

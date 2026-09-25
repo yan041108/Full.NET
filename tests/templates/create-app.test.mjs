@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { createApp } from '../../scripts/templates/create-app.mjs';
+import { buildAppTemplate } from '../../scripts/templates/build-app-template.mjs';
 
 test('create-app rejects invalid owner key before creating output', () => {
   const parent = mkdtempSync(join(tmpdir(), 'fullnet-create-app-'));
@@ -80,6 +81,28 @@ test('create-app rejects unlisted framework files before creating output', () =>
   }
 });
 
+test('create-app rejects a modified Vue skeleton before creating output', () => {
+  const parent = mkdtempSync(join(tmpdir(), 'fullnet-create-app-'));
+  try {
+    const packageRoot = join(parent, 'package');
+    const bundleRoot = join(packageRoot, 'framework', 'fullnet');
+    mkdirSync(join(bundleRoot, 'ui', 'admin'), { recursive: true });
+    mkdirSync(join(packageRoot, 'ui', 'admin'), { recursive: true });
+    const content = '{}';
+    const digest = createHash('sha256').update(content).digest('hex');
+    const manifest = JSON.stringify({ managedFiles: { 'ui/admin/package.json': digest } });
+    writeFileSync(join(packageRoot, 'framework-manifest.json'), manifest);
+    writeFileSync(join(bundleRoot, 'framework-manifest.json'), manifest);
+    writeFileSync(join(bundleRoot, 'ui/admin/package.json'), content);
+    writeFileSync(join(packageRoot, 'ui/admin/package.json'), '{"tampered":true}');
+    const output = join(parent, 'app');
+    assert.throws(() => createApp({ packageRoot, output, name: 'Demo', ownerKey: 'acme' }), /Frontend skeleton digest mismatch/);
+    assert.equal(existsSync(output), false);
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
 test('create-app removes staging after template installation fails', () => {
   const parent = mkdtempSync(join(tmpdir(), 'fullnet-create-app-'));
   try {
@@ -96,6 +119,19 @@ test('create-app removes staging after template installation fails', () => {
     assert.throws(() => createApp({ packageRoot, output, name: 'Demo', ownerKey: 'acme' }), /dotnet new fullnet-app failed/);
     assert.equal(existsSync(output), false);
     assert.deepEqual(readdirSync(parent).filter((entry) => entry.startsWith('.fullnet-create-')), []);
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test('create-app accepts the packaged Vue skeleton and writes the selected proxy port', () => {
+  const parent = mkdtempSync(join(tmpdir(), 'fullnet-create-app-'));
+  try {
+    const { templateRoot } = buildAppTemplate({ output: join(parent, 'package') });
+    const output = join(parent, 'app');
+    createApp({ packageRoot: templateRoot, output, name: 'Demo', ownerKey: 'acme', httpPort: 5500 });
+    assert.match(readFileSync(join(output, 'ui/admin/vite.config.ts'), 'utf8'), /http:\/\/localhost:5500/);
+    assert.match(readFileSync(join(output, 'ui/admin/.env.example'), 'utf8'), /http:\/\/localhost:5500/);
   } finally {
     rmSync(parent, { recursive: true, force: true });
   }
