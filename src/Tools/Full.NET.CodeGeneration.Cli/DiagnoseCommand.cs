@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Xml.Linq;
 
 namespace Full.NET.CodeGeneration.Cli;
 
@@ -98,6 +99,28 @@ internal static class DiagnoseCommand
             return;
         }
 
+        if (File.Exists(Path.Combine(workspacePath, "fullnet-app.json")))
+        {
+            var host = FindStandaloneHost(workspacePath);
+            if (host is not null
+                && Directory.Exists(Path.Combine(workspacePath, "framework/fullnet/src/Composition"))
+                && Directory.Exists(Path.Combine(workspacePath, "framework/fullnet/src/Modules")))
+            {
+                findings.Add(DiagnoseFinding.Ok(
+                    "DIAG_WORKSPACE_OK",
+                    "独立应用工作区结构完整。"));
+            }
+            else
+            {
+                findings.Add(DiagnoseFinding.Error(
+                    "DIAG_WORKSPACE_INCOMPLETE",
+                    "独立应用缺少宿主或框架源码目录。",
+                    "检查 src/<name>.Host.Api 与 framework/fullnet/src/Composition、Modules。"));
+            }
+
+            return;
+        }
+
         var missing = RequiredWorkspaceMarkers
             .Where(marker => !Directory.Exists(Path.Combine(workspacePath, marker)))
             .ToArray();
@@ -122,13 +145,17 @@ internal static class DiagnoseCommand
         string profile,
         List<DiagnoseFinding> findings)
     {
+        var standaloneHost = File.Exists(Path.Combine(workspacePath, "fullnet-app.json"))
+            ? FindStandaloneHost(workspacePath)
+            : null;
         var candidates = new[]
         {
+            standaloneHost is null ? null : Path.Combine(standaloneHost, "appsettings.json"),
             Path.Combine(workspacePath, "src/Hosts/Full.NET.Host.Api/appsettings.json"),
             Path.Combine(workspacePath, "src/App.Host.Api/appsettings.json"),
             Path.Combine(workspacePath, "appsettings.json"),
         };
-        var appsettingsPath = candidates.FirstOrDefault(File.Exists);
+        var appsettingsPath = candidates.FirstOrDefault(path => path is not null && File.Exists(path));
         if (appsettingsPath is null)
         {
             findings.Add(DiagnoseFinding.Warn(
@@ -162,8 +189,133 @@ internal static class DiagnoseCommand
         }
 
         CheckModulesSection(root, findings);
+        if (standaloneHost is not null)
+        {
+            CheckStandaloneAppProfile(workspacePath, root, findings);
+            CheckStandaloneModuleClosure(workspacePath, findings);
+        }
         CheckConnectionPlaceholder(root, appsettingsPath, workspacePath, profile, findings);
         CheckSecretPlaceholders(root, profile, findings);
+    }
+
+    private static string? FindStandaloneHost(string workspacePath)
+    {
+        var sourcePath = Path.Combine(workspacePath, "src");
+        if (!Directory.Exists(sourcePath))
+        {
+            return null;
+        }
+
+        var hosts = Directory.GetDirectories(sourcePath, "*.Host.Api", SearchOption.TopDirectoryOnly)
+            .Where(path => File.Exists(Path.Combine(path, Path.GetFileName(path) + ".csproj")))
+            .Take(2)
+            .ToArray();
+        return hosts.Length == 1 ? hosts[0] : null;
+    }
+
+    private static void CheckStandaloneAppProfile(
+        string workspacePath,
+        JsonNode runtime,
+        List<DiagnoseFinding> findings)
+    {
+        try
+        {
+            var app = JsonNode.Parse(File.ReadAllText(Path.Combine(workspacePath, "fullnet-app.json")));
+            var preset = app?["preset"]?.GetValue<string>();
+            var provider = app?["databaseProvider"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(preset) || string.IsNullOrWhiteSpace(provider))
+            {
+                throw new JsonException("Missing application profile fields.");
+            }
+
+            var runtimePreset = runtime["FullNet"]?["Modules"]?["Preset"]?.GetValue<string>();
+            var runtimeProvider = runtime["Database"]?["Provider"]?.GetValue<string>();
+            if (!string.Equals(preset, runtimePreset, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(provider, runtimeProvider, StringComparison.OrdinalIgnoreCase))
+            {
+                findings.Add(DiagnoseFinding.Error(
+                    "DIAG_APP_PROFILE_MISMATCH",
+                    "独立应用清单与 API 宿主的模块预设或数据库 Provider 不一致。",
+                    "核对 fullnet-app.json 与 src/<name>.Host.Api/appsettings.json；不要直接修改冻结的应用清单。"));
+                return;
+            }
+
+            findings.Add(DiagnoseFinding.Ok(
+                "DIAG_APP_PROFILE_OK",
+                "独立应用清单与 API 宿主配置一致。"));
+        }
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException or FormatException)
+        {
+            findings.Add(DiagnoseFinding.Error(
+                "DIAG_APP_PROFILE_INVALID",
+                "独立应用清单格式无效。",
+                "检查 fullnet-app.json 中的 preset 与 databaseProvider。"));
+        }
+    }
+
+    private static void CheckStandaloneModuleClosure(
+        string workspacePath,
+        List<DiagnoseFinding> findings)
+    {
+        try
+        {
+            var app = JsonNode.Parse(File.ReadAllText(Path.Combine(workspacePath, "fullnet-app.json")));
+            var preset = app?["preset"]?.GetValue<string>();
+            var manifestPath = Path.Combine(workspacePath, "framework-manifest.json");
+            var manifest = JsonNode.Parse(File.ReadAllText(manifestPath));
+            var selected = manifest?["presetModules"]?[preset ?? string.Empty]?.AsArray();
+            if (selected is null || selected.Count == 0)
+            {
+                throw new JsonException("Selected preset has no module closure.");
+            }
+
+            var compositionRoot = Path.Combine(workspacePath,
+                "framework/fullnet/src/Composition/Full.NET.Composition");
+            var compositionProject = Path.Combine(compositionRoot, "Full.NET.Composition.csproj");
+            var references = XDocument.Load(compositionProject).Descendants()
+                .Where(element => element.Name.LocalName == "ProjectReference")
+                .Select(element => element.Attribute("Include")?.Value)
+                .Where(include => !string.IsNullOrWhiteSpace(include))
+                .Select(include => Path.GetFullPath(Path.Combine(
+                    compositionRoot, include!.Replace('\\', Path.DirectorySeparatorChar))))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in selected)
+            {
+                var module = entry?.GetValue<string>();
+                if (string.IsNullOrWhiteSpace(module)
+                    || !char.IsLetter(module[0])
+                    || !module.All(char.IsLetterOrDigit))
+                {
+                    throw new JsonException("Invalid module name in preset closure.");
+                }
+
+                var project = Path.GetFullPath(Path.Combine(workspacePath,
+                    "framework/fullnet/src/Modules", $"Full.NET.Modules.{module}",
+                    $"Full.NET.Modules.{module}.csproj"));
+                if (!File.Exists(project) || !references.Contains(project))
+                {
+                    findings.Add(DiagnoseFinding.Error(
+                        "DIAG_MODULE_DEPENDENCY_MISSING",
+                        $"预设模块 {module} 缺少项目或 Composition 引用。",
+                        "恢复受管框架源码，或重新用已验证的模板包创建应用。"));
+                }
+            }
+
+            if (!findings.Any(f => f.Code == "DIAG_MODULE_DEPENDENCY_MISSING"))
+            {
+                findings.Add(DiagnoseFinding.Ok(
+                    "DIAG_MODULE_CLOSURE_OK",
+                    "所选预设模块的项目与 Composition 引用齐全。"));
+            }
+        }
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException
+            or FormatException or IOException or System.Xml.XmlException)
+        {
+            findings.Add(DiagnoseFinding.Error(
+                "DIAG_MODULE_CLOSURE_INVALID",
+                "无法读取独立应用的预设模块闭包。",
+                "检查 framework-manifest.json 与 framework/fullnet/src/Composition 项目文件。"));
+        }
     }
 
     private static void CheckModulesSection(JsonNode root, List<DiagnoseFinding> findings)

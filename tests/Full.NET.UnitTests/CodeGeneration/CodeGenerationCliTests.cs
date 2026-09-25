@@ -57,6 +57,94 @@ public sealed class CodeGenerationCliTests
     }
 
     [TestMethod]
+    public async Task Diagnose_generated_app_accepts_standalone_layout_and_runtime_host_config()
+    {
+        using var fixture = CliFixture.Create();
+        var composition = Path.Combine(fixture.WorkspacePath,
+            "framework/fullnet/src/Composition/Full.NET.Composition");
+        Directory.CreateDirectory(composition);
+        File.WriteAllText(Path.Combine(composition, "Full.NET.Composition.csproj"),
+            """<Project><ItemGroup><ProjectReference Include="../../Modules/Full.NET.Modules.Identity/Full.NET.Modules.Identity.csproj" /></ItemGroup></Project>""");
+        var module = Path.Combine(fixture.WorkspacePath,
+            "framework/fullnet/src/Modules/Full.NET.Modules.Identity");
+        Directory.CreateDirectory(module);
+        File.WriteAllText(Path.Combine(module, "Full.NET.Modules.Identity.csproj"), "<Project />");
+        var host = Path.Combine(fixture.WorkspacePath, "src/Demo.Host.Api");
+        Directory.CreateDirectory(host);
+        File.WriteAllText(Path.Combine(host, "Demo.Host.Api.csproj"), "<Project />");
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "fullnet-app.json"),
+            """{"preset":"minimal","databaseProvider":"mysql"}""");
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "framework-manifest.json"),
+            """{"presetModules":{"minimal":["Identity"]}}""");
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "appsettings.json"),
+            """{"FullNet":{"Modules":{"Preset":"enterprise"}},"Database":{"Provider":"sqlserver"}}""");
+        File.WriteAllText(Path.Combine(host, "appsettings.json"),
+            """{"FullNet":{"Modules":{"Preset":"minimal"}},"Database":{"Provider":"mysql"}}""");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.WorkspacePath], output, error);
+
+        StringAssert.Contains(output.ToString(), "DIAG_WORKSPACE_OK");
+        StringAssert.Contains(output.ToString(), "DIAG_APP_PROFILE_OK");
+        StringAssert.Contains(output.ToString(), "DIAG_MODULE_CLOSURE_OK");
+        Assert.IsFalse(output.ToString().Contains("DIAG_APP_PROFILE_MISMATCH", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task Diagnose_generated_app_reports_profile_mismatch_without_credentials()
+    {
+        using var fixture = CliFixture.Create();
+        Directory.CreateDirectory(Path.Combine(fixture.WorkspacePath, "framework/fullnet/src/Composition"));
+        Directory.CreateDirectory(Path.Combine(fixture.WorkspacePath, "framework/fullnet/src/Modules"));
+        var host = Path.Combine(fixture.WorkspacePath, "src/Demo.Host.Api");
+        Directory.CreateDirectory(host);
+        File.WriteAllText(Path.Combine(host, "Demo.Host.Api.csproj"), "<Project />");
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "fullnet-app.json"),
+            """{"preset":"minimal","databaseProvider":"mysql"}""");
+        File.WriteAllText(Path.Combine(host, "appsettings.json"),
+            """{"FullNet":{"Modules":{"Preset":"enterprise"}},"Database":{"Provider":"sqlserver"},"ConnectionStrings":{"app":"secret-value"}}""");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.WorkspacePath], output, error);
+
+        Assert.AreEqual(1, exitCode);
+        StringAssert.Contains(output.ToString(), "DIAG_APP_PROFILE_MISMATCH");
+        Assert.IsFalse((output.ToString() + error).Contains("secret-value", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task Diagnose_generated_app_reports_missing_selected_module_reference()
+    {
+        using var fixture = CliFixture.Create();
+        var composition = Path.Combine(fixture.WorkspacePath,
+            "framework/fullnet/src/Composition/Full.NET.Composition");
+        Directory.CreateDirectory(composition);
+        File.WriteAllText(Path.Combine(composition, "Full.NET.Composition.csproj"), "<Project />");
+        var module = Path.Combine(fixture.WorkspacePath,
+            "framework/fullnet/src/Modules/Full.NET.Modules.Identity");
+        Directory.CreateDirectory(module);
+        File.WriteAllText(Path.Combine(module, "Full.NET.Modules.Identity.csproj"), "<Project />");
+        var host = Path.Combine(fixture.WorkspacePath, "src/Demo.Host.Api");
+        Directory.CreateDirectory(host);
+        File.WriteAllText(Path.Combine(host, "Demo.Host.Api.csproj"), "<Project />");
+        File.WriteAllText(Path.Combine(host, "appsettings.json"),
+            """{"FullNet":{"Modules":{"Preset":"minimal"}},"Database":{"Provider":"mysql"}}""");
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "fullnet-app.json"),
+            """{"preset":"minimal","databaseProvider":"mysql"}""");
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "framework-manifest.json"),
+            """{"presetModules":{"minimal":["Identity"]}}""");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.WorkspacePath], output, error);
+
+        Assert.AreEqual(1, exitCode);
+        StringAssert.Contains(output.ToString(), "DIAG_MODULE_DEPENDENCY_MISSING");
+    }
+
+    [TestMethod]
     public async Task Preview_valid_schema_reports_creates_without_writing()
     {
         using var fixture = CliFixture.Create();
