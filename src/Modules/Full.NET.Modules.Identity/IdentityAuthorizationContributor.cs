@@ -163,6 +163,14 @@ internal sealed class IdentityAuthorizationContributor
             "查看 Host 在线会话",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            AuthenticationEventPermissions.Read,
+            "查看认证事件日志",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            AuthenticationEventPermissions.Export,
+            "导出认证事件日志",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             IdentitySessionManagementPermissions.Revoke,
             "强制下线 Host 在线会话",
             AuthorizationScope.Host),

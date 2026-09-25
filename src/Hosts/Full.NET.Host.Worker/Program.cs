@@ -54,6 +54,7 @@ builder.Services
     .WithMetrics(metrics => metrics
         .AddMeter(OutboxBacklogTelemetry.MeterName)
         .AddMeter(OutboxRetentionTelemetry.MeterName)
+        .AddMeter("Full.NET.Identity.AuthenticationEventRetention")
         .AddMeter(ShadowEventComparisonProcessor.MeterName)
         .AddMeter(KafkaMessagingTelemetry.MeterName))
     .WithTracing(tracing => tracing

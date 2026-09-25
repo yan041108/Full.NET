@@ -122,7 +122,8 @@ function inspectSql(sql, file, profile, debt, violations) {
     }
     const containsUnsupportedDdl = /\bCREATE\s+(?:OR\s+ALTER\s+)?(?:VIEW|PROCEDURE|FUNCTION|TRIGGER|SCHEMA|DATABASE)\b|\bDROP\s+(?:TABLE|VIEW|COLUMN|INDEX|CONSTRAINT|PROCEDURE|FUNCTION|TRIGGER|SCHEMA|DATABASE)\b|\bRENAME\s+(?:TABLE|COLUMN)\b|\bALTER\s+TABLE\b.*\bRENAME\b/i
       .test(text);
-    if (!containsDynamicSql && containsUnsupportedDdl) {
+    const supportedDropConstraint = /^\s*ALTER\s+TABLE\s+(?:[A-Za-z][A-Za-z0-9_]*\.)?[A-Za-z][A-Za-z0-9_]*\s+DROP\s+CONSTRAINT\s+[A-Za-z][A-Za-z0-9_]*\s*;?\s*$/i.test(text);
+    if (!containsDynamicSql && containsUnsupportedDdl && !supportedDropConstraint) {
       violations.push(violation(
         'FNSQL003',
         'unsupported_sql',

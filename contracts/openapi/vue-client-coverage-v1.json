@@ -3,6 +3,16 @@
   "entries": [
     {
       "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/authentication-events.ts",
+      "routePrefixes": [
+        "/api/v1/identity/authentication-events"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/auditing-access-logs.ts"
       ],
       "openApiFixture": "contracts/openapi/auditing-access-logs-v1.json",
@@ -1172,6 +1182,12 @@
     "ui/admin/src/preferences/grid-preferences.ts"
   ],
   "consumerModules": [
+    {
+      "apiModule": "ui/admin/src/api/authentication-events.ts",
+      "consumers": [
+        "ui/admin/src/views/AuthenticationEventsView.vue"
+      ]
+    },
     {
       "apiModule": "ui/admin/src/api/access-logs.ts",
       "consumers": [

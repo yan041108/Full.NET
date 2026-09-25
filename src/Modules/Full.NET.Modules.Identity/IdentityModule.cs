@@ -63,11 +63,12 @@ public sealed class IdentityModule : IFullNetModule
         AddMigrationServices(services, configuration);
         services.AddIdentityAuthentication(configuration);
         services.AddIdentityOidc(configuration);
+        services.AddAuthenticationEventRetention(configuration);
         services.AddIdentityAuthorization(configuration);
         services.AddIdentityDomainServices(configuration);
         services.AddIdentityHttpPolicies(configuration);
         AddOrganizationUnitProjection(services);
-        AddBackgroundServices(services, configuration);
+        AddBackgroundServicesCore(services, configuration, workerHost: false);
 #if FULLNET_AOT_COMPILE
         new Persistence.IdentityDapperAotMaterializerContributor()
             .RegisterMaterializers(new DapperAotMaterializerRegistrar());
@@ -160,6 +161,7 @@ public sealed class IdentityModule : IFullNetModule
         Features.ManageHostRoleFieldGrants.Endpoint.Map(endpoints);
         Features.ManageHostMenus.Endpoint.Map(endpoints);
         Features.ManageHostOnlineSessions.Endpoint.Map(endpoints);
+        Features.QueryAuthenticationEvents.Endpoint.Map(endpoints);
         Features.ManageHostApiKeys.Endpoint.Map(endpoints);
         Features.ManageOpenAccessClients.Endpoint.Map(endpoints);
         Features.ManageRegistrationPolicy.Endpoint.Map(endpoints);
@@ -195,7 +197,13 @@ public sealed class IdentityModule : IFullNetModule
     /// <summary>注册 Worker 消费机构单元投影事件所需的最小后台能力。</summary>
     public void AddBackgroundServices(
         IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration) =>
+        AddBackgroundServicesCore(services, configuration, workerHost: true);
+
+    private static void AddBackgroundServicesCore(
+        IServiceCollection services,
+        IConfiguration configuration,
+        bool workerHost)
     {
 #if FULLNET_AOT_COMPILE
         new Persistence.IdentityDapperAotMaterializerContributor()
@@ -238,6 +246,10 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddScoped<Contracts.IBackgroundSessionBindingValidator, BackgroundSessionBindingValidator>();
         services.TryAddScoped<Contracts.IBackgroundSessionAuthorization, BackgroundSessionAuthorization>();
         services.AddIdentityOidcRetentionBackgroundService(configuration);
+        if (workerHost)
+        {
+            services.AddAuthenticationEventRetentionBackgroundService(configuration);
+        }
     }
 
     private static void AddOrganizationUnitProjection(IServiceCollection services)

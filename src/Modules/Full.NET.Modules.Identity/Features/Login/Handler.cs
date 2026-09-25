@@ -361,7 +361,10 @@ internal sealed class Handler(
             Truncate(command.Client.IpAddress, 64),
             Truncate(command.Client.UserAgent, 512),
             null,
-            clock.UtcNow);
+            clock.UtcNow,
+            ActorUserId: succeeded ? userId : null,
+            TraceId: System.Diagnostics.Activity.Current?.TraceId.ToString(),
+            AuthenticationMethod: "password");
         await EnsureSingleRowAsync(
             IdentitySql.InsertAuthAudit,
             audit,

@@ -635,6 +635,24 @@
       "status": "generated"
     },
     {
+      "operationId": "identityListAuthenticationEvents",
+      "apiModule": "ui/admin/src/api/authentication-events.ts",
+      "generatedGroup": "identity-authentication-events",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityGetAuthenticationEvent",
+      "apiModule": "ui/admin/src/api/authentication-events.ts",
+      "generatedGroup": "identity-authentication-events",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityExportAuthenticationEvents",
+      "apiModule": "ui/admin/src/api/authentication-events.ts",
+      "generatedGroup": "identity-authentication-events",
+      "status": "generated"
+    },
+    {
       "operationId": "identityRevokeAllHostUserOnlineSessions",
       "apiModule": "ui/admin/src/api/online-sessions.ts",
       "generatedGroup": "identity-host-online-sessions",

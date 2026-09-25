@@ -41,4 +41,28 @@ internal static class IdentityOidcRetentionServiceCollectionExtensions
         services.AddHostedService<IdentityOidcRetentionHostedProcessor>();
         return services;
     }
+
+    internal static IServiceCollection AddAuthenticationEventRetention(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOptions<AuthenticationEventRetentionOptions>()
+            .Bind(configuration.GetSection(AuthenticationEventRetentionOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<AuthenticationEventRetentionOptions>,
+            AuthenticationEventRetentionOptionsValidator>());
+        services.TryAddScoped<AuthenticationEventRetentionRunner>();
+        return services;
+    }
+
+    internal static IServiceCollection AddAuthenticationEventRetentionBackgroundService(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddAuthenticationEventRetention(configuration);
+        services.AddHostedService<AuthenticationEventRetentionHostedProcessor>();
+
+        return services;
+    }
 }

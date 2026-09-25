@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -42,7 +43,7 @@ public sealed class IdentityOidcLogoutTests
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         query.QueryAsync<Guid>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(Array.Empty<Guid>());
-        var service = new IdentityOidcAuthorizationService(null!,
+        var service = new IdentityOidcAuthorizationService(null!, null!, new PassthroughCommandTransaction(),
             new IdentityOidcSessionService(query, command, clock),
             new IdentityOidcGrantRevocationService(query, command, clock),
             null!, null!, null!, null!, query, clock,
@@ -82,7 +83,7 @@ public sealed class IdentityOidcLogoutTests
                 Assert.IsTrue(tenant.IsHost, "Host-only SQL must run in the trusted Host context.");
                 return Array.Empty<Guid>();
             });
-        var service = new IdentityOidcAuthorizationService(null!,
+        var service = new IdentityOidcAuthorizationService(null!, null!, new PassthroughCommandTransaction(),
             new IdentityOidcSessionService(query, command, clock),
             new IdentityOidcGrantRevocationService(query, command, clock),
             null!, null!, null!, null!, query, clock,
@@ -113,5 +114,11 @@ public sealed class IdentityOidcLogoutTests
             : AuthenticateResult.Fail("invalid"));
 
         Assert.AreEqual(Guid.Empty, await Endpoint.TryReadBearerUserIdAsync(context));
+    }
+
+    private sealed class PassthroughCommandTransaction : ICommandTransaction
+    {
+        public Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> action,
+            CancellationToken cancellationToken) => action(cancellationToken);
     }
 }

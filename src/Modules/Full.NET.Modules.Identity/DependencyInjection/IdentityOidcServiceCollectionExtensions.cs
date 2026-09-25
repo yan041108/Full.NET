@@ -66,6 +66,7 @@ internal static class IdentityOidcServiceCollectionExtensions
         services.TryAddScoped<IdentityOidcScopeStore>();
         services.TryAddScoped<IdentityOidcTokenStore>();
         services.TryAddScoped<IdentityOidcCenterLoginService>();
+        services.TryAddScoped<OidcAuthenticationEventWriter>();
         services.TryAddScoped<IdentityOidcAuthorizationService>();
         services.TryAddScoped<IdentityOidcContextAccessTokenIssuer>();
         services.TryAddScoped<IdentityOidcContextRefreshTokenIssuer>();

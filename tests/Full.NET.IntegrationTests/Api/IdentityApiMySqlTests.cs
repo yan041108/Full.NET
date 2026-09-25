@@ -8,6 +8,25 @@ namespace Full.NET.IntegrationTests.Api;
 public sealed class IdentityApiMySqlTests
 {
     [TestMethod]
+    public async Task Authentication_events_are_queryable_with_my_sql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await AuthenticationEventAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Authentication_event_retention_deletes_only_expired_rows_with_my_sql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            AuthenticationEventRetentionAssertions.Settings);
+        await AuthenticationEventRetentionAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Login_and_current_user_follow_secure_http_contract()
     {
         using var factory = new FullNetApiFactory(

@@ -32,6 +32,7 @@ import type {
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
   AssignOrganizationPositionUnitRequest,
+  AuthenticationEventResponse,
   AuthorizationTreeActionResponse,
   AuthorizationTreeModuleResponse,
   AuthorizationTreePageResponse,
@@ -322,6 +323,7 @@ import type {
   PagedResultOfAiChatSessionListItem,
   PagedResultOfAiModelConfigListItem,
   PagedResultOfAiTenantQuotaListItem,
+  PagedResultOfAuthenticationEventResponse,
   PagedResultOfCodeGenerationRunResponse,
   PagedResultOfCodeGenerationTemplateResponse,
   PagedResultOfConfigEntryResponse,
@@ -592,6 +594,7 @@ import {
   readAiModelConfigResponse,
   readAiResumeAgentRunResponse,
   readAiTenantQuotaResponse,
+  readAuthenticationEventResponse,
   readBatchChangeHostJobScheduleStateResponse,
   readBatchCreateHostDocumentSharesResponse,
   readBatchDeleteHostFilesResponse,
@@ -727,6 +730,7 @@ import {
   readPagedResultOfAiChatSessionListItem,
   readPagedResultOfAiModelConfigListItem,
   readPagedResultOfAiTenantQuotaListItem,
+  readPagedResultOfAuthenticationEventResponse,
   readPagedResultOfCodeGenerationRunResponse,
   readPagedResultOfCodeGenerationTemplateResponse,
   readPagedResultOfConfigEntryResponse,
@@ -4666,6 +4670,42 @@ export async function identityEnableHostUser(
   return readHostUserResponse(value);
 }
 
+export interface IdentityExportAuthenticationEventsParameters {
+  readonly fromUtc: string;
+  readonly toUtc: string;
+  readonly userId?: string;
+  readonly eventType?: string;
+  readonly succeeded?: boolean;
+}
+
+export async function identityExportAuthenticationEvents(
+  http: HttpClient,
+  parameters: IdentityExportAuthenticationEventsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const query = new URLSearchParams();
+  query.set('fromUtc', String(parameters.fromUtc));
+  query.set('toUtc', String(parameters.toUtc));
+  if (parameters.userId !== undefined) {
+    query.set('userId', String(parameters.userId));
+  }
+  if (parameters.eventType !== undefined) {
+    query.set('eventType', String(parameters.eventType));
+  }
+  if (parameters.succeeded !== undefined) {
+    query.set('succeeded', String(parameters.succeeded));
+  }
+  const path = query.size === 0 ? `/api/v1/identity/authentication-events/exports` : `/api/v1/identity/authentication-events/exports?${query.toString()}`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
 export interface IdentityExportHostUsersParameters {
 
 }
@@ -4702,6 +4742,24 @@ export async function identityExportHostUsersWorkbook(
   return options === undefined
     ? await http.requestBlob(path, init, signal)
     : await http.requestBlob(path, init, signal, options);
+}
+
+export interface IdentityGetAuthenticationEventParameters {
+  readonly id: string;
+}
+
+export async function identityGetAuthenticationEvent(
+  http: HttpClient,
+  parameters: IdentityGetAuthenticationEventParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AuthenticationEventResponse> {
+  const path = `/api/v1/identity/authentication-events/${encodeURIComponent(String(parameters.id))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAuthenticationEventResponse(value);
 }
 
 export interface IdentityGetAuthorizationTreeParameters {
@@ -5061,6 +5119,52 @@ export async function identityListAllHostMenus(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readIdentityListAllHostMenusResponse(value);
+}
+
+export interface IdentityListAuthenticationEventsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly userId?: string;
+  readonly eventType?: string;
+  readonly succeeded?: boolean;
+  readonly fromUtc?: string;
+  readonly toUtc?: string;
+}
+
+export async function identityListAuthenticationEvents(
+  http: HttpClient,
+  parameters: IdentityListAuthenticationEventsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAuthenticationEventResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.userId !== undefined) {
+    query.set('userId', String(parameters.userId));
+  }
+  if (parameters.eventType !== undefined) {
+    query.set('eventType', String(parameters.eventType));
+  }
+  if (parameters.succeeded !== undefined) {
+    query.set('succeeded', String(parameters.succeeded));
+  }
+  if (parameters.fromUtc !== undefined) {
+    query.set('fromUtc', String(parameters.fromUtc));
+  }
+  if (parameters.toUtc !== undefined) {
+    query.set('toUtc', String(parameters.toUtc));
+  }
+  const path = query.size === 0 ? `/api/v1/identity/authentication-events` : `/api/v1/identity/authentication-events?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAuthenticationEventResponse(value);
 }
 
 export interface IdentityListFieldProjectionCatalogParameters {

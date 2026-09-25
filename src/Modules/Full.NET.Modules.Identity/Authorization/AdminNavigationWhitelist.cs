@@ -30,6 +30,7 @@ internal static class AdminNavigationWhitelist
             ["config-entries"] = new("config-entries", "/settings/config-entries"),
             ["enum-catalogs"] = new("enum-catalogs", "/settings/enum-catalogs"),
             ["access-logs"] = new("access-logs", "/auditing/access-logs"),
+            ["authentication-events"] = new("authentication-events", "/auditing/authentication-events"),
             ["operation-logs"] = new("operation-logs", "/auditing/operation-logs"),
             ["exception-logs"] = new("exception-logs", "/auditing/exception-logs"),
             ["outbound-call-logs"] = new("outbound-call-logs", "/auditing/outbound-call-logs"),

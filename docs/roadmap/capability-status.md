@@ -20,6 +20,7 @@
 
 | 能力 | 状态 | 稳定证据与剩余边界 |
 |---|---|---|
+| 认证事件日志管理（2026-09-25） | Partial | 复用 Identity `fn_identity_auth_audit`；双库上下文字段、Host 权限查询 API、Vue 页面、OIDC 中心登录/应用会话/主动退出事件、默认关闭的 Worker 保留及受控 CSV 导出已形成纵向切片。完整事件矩阵、故障/并发门禁、游标分页和真实运维证据仍待开发；见[唯一开发计划 AE01—AE06](../superpowers/plans/2026-09-25-authentication-event-logs.md)。不得与 B2 API 访问日志混同。 |
 | 模块化单体、API/Worker/Migrator 运行角色 | Build-verified | [总体架构规格](../superpowers/specs/2026-07-17-fullnet-architecture-design.md)、[`ADR-0002`](../architecture/adr/ADR-0002-modular-monolith-evolution.md) 与 Architecture 门禁共同约束；尚未触发全面微服务拆分门槛。 |
 | 命名、迁移与 CRUD 生成治理 | Build-verified | 统一由 [`rules/naming-conventions.md`](../../rules/naming-conventions.md)、迁移命名测试和 CodeGeneration 契约门禁约束。 |
 | Dapper、租户 SQL 与命令事务边界 | Build-verified | 模块内强事务已形成统一边界；2026-09-22：`AcceptTenantInvitation`/`TenantMemberProvision` 席位预留与确认已移出 Identity 本地事务并带补偿，[`module-local-transaction-debt.json`](../../contracts/architecture/module-local-transaction-debt.json) 目录为空；2026-09-19 RegisterAccount 权威读取已移出事务。table-access 登记 `SessionBindingKinds` 对 Identity 会话表名的同模块契约引用（`identity-oidc-session-foundation` 里程碑清理）。cross-foreign-key 与 `AllowedReverseContractDependencies` 保持空目录。Organization 单位投影采用消费方拥有的 `Identity.Contracts` Port + Organization 侧适配器，模块依赖 DAG 无登记例外。 |

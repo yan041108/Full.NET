@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -21,6 +22,8 @@ namespace Full.NET.Modules.Identity.Oidc;
 
 internal sealed class IdentityOidcAuthorizationService(
     IdentityOidcCenterLoginService centerLoginService,
+    OidcAuthenticationEventWriter authenticationEvents,
+    ICommandTransaction transaction,
     IdentityOidcSessionService sessionService,
     IdentityOidcGrantRevocationService grantRevocationService,
     IdentitySessionRealtimeDelivery sessionRealtimeDelivery,
@@ -42,22 +45,43 @@ internal sealed class IdentityOidcAuthorizationService(
         string password,
         CancellationToken cancellationToken = default)
     {
-        var login = await centerLoginService.AuthenticateAsync(
-                username,
-                password,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (login is null)
+        // 凭据状态、中心会话和对应事件共用 Identity 本地事务。
+        var (login, centerSession) = await transaction.ExecuteAsync(async token =>
+        {
+            var attempt = await centerLoginService.AuthenticateWithOutcomeAsync(
+                    username, password, token)
+                .ConfigureAwait(false);
+            var authenticated = attempt.Login;
+            if (authenticated is null)
+            {
+                await authenticationEvents.WriteAsync(
+                    attempt.UserId, username.Trim().ToUpperInvariant(),
+                    OidcAuthenticationEventWriter.CenterLogin,
+                    attempt.ResultCode, false, token)
+                    .ConfigureAwait(false);
+                return (Login: (IdentityOidcCenterLoginResult?)null,
+                    Session: (IdentityOidcCenterSession?)null);
+            }
+
+            var session = await sessionService.CreateCenterSessionAsync(
+                    authenticated.UserId,
+                    authenticated.SecurityStamp,
+                    clock.UtcNow.AddDays(_identityOptions.RefreshTokenDays),
+                    token)
+                .ConfigureAwait(false);
+            await authenticationEvents.WriteAsync(
+                authenticated.UserId, username.Trim().ToUpperInvariant(),
+                OidcAuthenticationEventWriter.CenterLogin,
+                "identity.oidc_center_login_succeeded", true, token,
+                session.Id)
+                .ConfigureAwait(false);
+            return (Login: (IdentityOidcCenterLoginResult?)authenticated,
+                Session: (IdentityOidcCenterSession?)session);
+        }, cancellationToken).ConfigureAwait(false);
+        if (login is null || centerSession is null)
         {
             return AuthenticateResult.Fail("Invalid credentials.");
         }
-
-        var centerSession = await sessionService.CreateCenterSessionAsync(
-                login.UserId,
-                login.SecurityStamp,
-                clock.UtcNow.AddDays(_identityOptions.RefreshTokenDays),
-                cancellationToken)
-            .ConfigureAwait(false);
         var identity = new ClaimsIdentity(
             IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme);
         identity.AddClaim(new Claim(
@@ -167,17 +191,27 @@ internal sealed class IdentityOidcAuthorizationService(
                 null,
                 cancellationToken)
             .ConfigureAwait(false);
-        var applicationSession = await sessionService.CreateApplicationSessionAsync(
-                centerSessionId,
-                applicationId,
-                request.ClientId!,
-                userId,
-                HostScope,
-                HostScope,
-                null,
-                clock.UtcNow.AddMinutes(_identityOptions.AccessTokenMinutes),
-                cancellationToken)
-            .ConfigureAwait(false);
+        var applicationSession = await transaction.ExecuteAsync(async token =>
+        {
+            var session = await sessionService.CreateApplicationSessionAsync(
+                    centerSessionId,
+                    applicationId,
+                    request.ClientId!,
+                    userId,
+                    HostScope,
+                    HostScope,
+                    null,
+                    clock.UtcNow.AddMinutes(_identityOptions.AccessTokenMinutes),
+                    token)
+                .ConfigureAwait(false);
+            await authenticationEvents.WriteAsync(
+                userId, null,
+                OidcAuthenticationEventWriter.ApplicationSessionCreated,
+                "identity.oidc_application_session_created", true, token,
+                centerSessionId, request.ClientId, session.Id)
+                .ConfigureAwait(false);
+            return session;
+        }, cancellationToken).ConfigureAwait(false);
         var scopes = (request.Scope ?? string.Empty)
             .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Distinct(StringComparer.Ordinal)
@@ -238,18 +272,28 @@ internal sealed class IdentityOidcAuthorizationService(
 
         return await RunInHostScopeAsync(async token =>
         {
-            var revokedSessionIds = await sessionService.RevokeActiveApplicationSessionsByUserAndClientAsync(
-                    userId.Value,
-                    clientId,
-                    token)
-                .ConfigureAwait(false);
+            var revokedSessionIds = await transaction.ExecuteAsync(async transactionToken =>
+            {
+                var ids = await sessionService.RevokeActiveApplicationSessionsByUserAndClientAsync(
+                        userId.Value, clientId, transactionToken)
+                    .ConfigureAwait(false);
+                if (ids.Count > 0)
+                {
+                    await grantRevocationService.RevokeByUserAndClientAsync(
+                            userId.Value, clientId, transactionToken)
+                        .ConfigureAwait(false);
+                    await authenticationEvents.WriteAsync(
+                        userId.Value, null,
+                        OidcAuthenticationEventWriter.ApplicationLogout,
+                        "identity.oidc_application_logout_succeeded", true, transactionToken,
+                        clientId: clientId)
+                        .ConfigureAwait(false);
+                }
+
+                return ids;
+            }, token).ConfigureAwait(false);
             if (revokedSessionIds.Count > 0)
             {
-                await grantRevocationService.RevokeByUserAndClientAsync(
-                        userId.Value,
-                        clientId,
-                        token)
-                    .ConfigureAwait(false);
                 await sessionRealtimeDelivery.PublishSessionsRevokedAsync(
                         userId.Value,
                         revokedSessionIds,
@@ -283,10 +327,26 @@ internal sealed class IdentityOidcAuthorizationService(
                         userId,
                         token)
                     .ConfigureAwait(false);
-                await sessionService.RevokeAllCenterSessionsByUserAsync(userId, token)
-                    .ConfigureAwait(false);
-                await grantRevocationService.RevokeByUserIdAsync(userId, token)
-                    .ConfigureAwait(false);
+                await transaction.ExecuteAsync(async transactionToken =>
+                {
+                    var count = await sessionService.RevokeAllCenterSessionsByUserAsync(
+                            userId, transactionToken)
+                        .ConfigureAwait(false);
+                    var grants = await grantRevocationService.RevokeByUserIdAsync(
+                            userId, transactionToken)
+                        .ConfigureAwait(false);
+                    if (count > 0 || applicationSessionIds.Count > 0
+                        || grants.TokensRevoked > 0 || grants.AuthorizationsRevoked > 0)
+                    {
+                        await authenticationEvents.WriteAsync(
+                            userId, null,
+                            OidcAuthenticationEventWriter.CenterLogout,
+                            "identity.oidc_center_logout_succeeded", true, transactionToken)
+                            .ConfigureAwait(false);
+                    }
+
+                    return count;
+                }, token).ConfigureAwait(false);
                 if (applicationSessionIds.Count > 0)
                 {
                     await sessionRealtimeDelivery.PublishSessionsRevokedAsync(

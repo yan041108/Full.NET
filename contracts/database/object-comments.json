@@ -874,6 +874,10 @@
       "comment": "身份认证审计事件",
       "columns": {
         "ActorUserId": "操作者用户标识",
+        "ApplicationSessionId": "Application Session标识",
+        "AuthenticationMethod": "Authentication Method",
+        "CenterSessionId": "Center Session标识",
+        "ClientId": "客户端标识",
         "ContextTenantId": "上下文租户标识",
         "EventType": "事件类型",
         "Id": "逻辑主键",
@@ -882,6 +886,7 @@
         "ResultCode": "结果码",
         "SessionId": "会话标识",
         "Succeeded": "是否成功",
+        "TraceId": "追踪标识",
         "UserAgent": "用户代理",
         "UserId": "用户标识",
         "UsernameFingerprint": "用户名指纹"

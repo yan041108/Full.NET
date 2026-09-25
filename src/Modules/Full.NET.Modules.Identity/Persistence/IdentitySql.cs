@@ -1872,11 +1872,13 @@ internal static class IdentitySql
         INSERT INTO fn_identity_auth_audit
             (Id, UserId, SessionId, UsernameFingerprint, EventType,
              ResultCode, Succeeded, IpAddress, UserAgent, ContextTenantId,
-             OccurredAtUtc)
+             OccurredAtUtc, ActorUserId, TraceId, AuthenticationMethod,
+             ClientId, CenterSessionId, ApplicationSessionId)
         VALUES
             (@Id, @UserId, @SessionId, @UsernameFingerprint, @EventType,
              @ResultCode, @Succeeded, @IpAddress, @UserAgent, @ContextTenantId,
-             @OccurredAtUtc)
+             @OccurredAtUtc, @ActorUserId, @TraceId, @AuthenticationMethod,
+             @ClientId, @CenterSessionId, @ApplicationSessionId)
         """,
         // ApiKey/Signature 认证在 Host 上下文建立前写入审计，须允许 Global。
         SqlDataScope.Global);

@@ -50,14 +50,19 @@ public sealed class IdentityOidcCenterLoginServiceTests
             query, command, hasher, clock,
             Options.Create(new IdentityOptions { LockoutThreshold = 5, LockoutMinutes = 15 }));
 
-        var result = await service.AuthenticateAsync("admin", correctPassword ? "correct" : "wrong");
+        var attempt = await service.AuthenticateWithOutcomeAsync(
+            "admin", correctPassword ? "correct" : "wrong");
+        var result = attempt.Login;
         if (correctPassword)
         {
             Assert.IsNotNull(result);
+            Assert.AreEqual("identity.oidc_center_login_succeeded", attempt.ResultCode);
         }
         else
         {
             Assert.IsNull(result);
+            Assert.AreEqual("identity.invalid-password", attempt.ResultCode);
+            Assert.AreEqual(userId, attempt.UserId);
         }
 
         await query.Received(conflict ? 2 : 1).QuerySingleOrDefaultAsync<IdentityUserRecord>(
@@ -109,7 +114,15 @@ public sealed class IdentityOidcCenterLoginServiceTests
         var service = new IdentityOidcCenterLoginService(query, command, hasher, clock,
             Options.Create(new IdentityOptions()));
 
-        Assert.IsNull(await service.AuthenticateAsync("admin", "password"));
+        var attempt = await service.AuthenticateWithOutcomeAsync("admin", "password");
+        Assert.IsNull(attempt.Login);
+        Assert.AreEqual(change switch
+        {
+            "disabled" => "identity.user-disabled",
+            "locked" => "identity.user-locked",
+            "password" => "identity.invalid-password",
+            _ => "identity.login-contention"
+        }, attempt.ResultCode);
         await command.Received(change == "contention" ? 32 : 1).ExecuteAsync(
             IdentitySql.UpdateLoginSuccess, Arg.Any<object?>(), Arg.Any<CancellationToken>());
     }

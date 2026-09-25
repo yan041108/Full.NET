@@ -43,6 +43,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<HostNavigationCatalogSyncService.HostMenuRouteNameRow>(
             ReadHostMenuRouteNameRow);
         registrar.Register<OnlineSessionListRow>(ReadOnlineSessionListRow);
+        registrar.Register<AuthenticationEventResponse>(ReadAuthenticationEventResponse);
         registrar.Register<OnlineSessionRevokeRow>(ReadOnlineSessionRevokeRow);
         registrar.Register<ApiKeyListRow>(ReadApiKeyListRow);
         registrar.Register<ApiKeyAuthenticationRow>(ReadApiKeyAuthenticationRow);
@@ -466,6 +467,23 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             Version = AotDataReaderExtensions.ReadInt32(reader, 13),
             DailyRequestQuota = reader.IsDBNull(14) ? null : reader.GetInt32(14),
         };
+
+    private static AuthenticationEventResponse ReadAuthenticationEventResponse(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 1),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 2),
+            reader.GetString(3),
+            reader.GetString(4),
+            AotDataReaderExtensions.ReadBoolean(reader, 5),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 6),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 7),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 8),
+            AotDataReaderExtensions.ReadNullableString(reader, 9),
+            AotDataReaderExtensions.ReadNullableString(reader, 10),
+            AotDataReaderExtensions.ReadNullableString(reader, 11),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 12),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 13));
 
     private static OpenAccessClientAccessLogRow ReadOpenAccessClientAccessLogRow(DbDataReader reader) =>
         new()
@@ -1043,6 +1061,12 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         parameters.Add("UserAgent", audit.UserAgent);
         parameters.Add("ContextTenantId", audit.ContextTenantId);
         parameters.Add("OccurredAtUtc", audit.OccurredAtUtc);
+        parameters.Add("ActorUserId", audit.ActorUserId);
+        parameters.Add("TraceId", audit.TraceId);
+        parameters.Add("AuthenticationMethod", audit.AuthenticationMethod);
+        parameters.Add("ClientId", audit.ClientId);
+        parameters.Add("CenterSessionId", audit.CenterSessionId);
+        parameters.Add("ApplicationSessionId", audit.ApplicationSessionId);
         return parameters;
     }
 

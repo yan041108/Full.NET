@@ -54,6 +54,40 @@ SQL Server 使用 `UPDLOCK, READPAST, ROWLOCK` 的有界候选 CTE。MySQL 在�
 指标 Meter 为 `Full.NET.Auditing.Retention`，包含删除行数、失败数、最近成功 Unix 时间和
 单轮耗时。标签只使用 `category`、`provider` 和 `result`。
 
+## 认证事件日志保留
+
+Identity 的 `fn_identity_auth_audit` 已保存部分登录/退出等认证事件，不属于上述
+`Auditing:Retention` 三表清理范围。已有 OIDC 令牌/会话保留策略也不能被视为认证事件表的保留策略。
+认证事件管理和独立清理由[AE01—AE06 计划](../superpowers/plans/2026-09-25-authentication-event-logs.md)
+跟踪。Worker 使用独立的 `Identity:AuthenticationEvents:Retention` 配置，默认关闭：
+
+```json
+{
+  "Identity": {
+    "AuthenticationEvents": {
+      "Retention": {
+        "Enabled": false,
+        "RetentionDays": 365,
+        "BatchSize": 200,
+        "MaxBatchesPerRun": 15,
+        "PollSeconds": 3600
+      }
+    }
+  }
+}
+```
+
+保留天数、批大小、单轮批数、轮询间隔分别限制为 `1–3650`、`1–2000`、`1–100`、
+`60–86400`；非法配置启动失败。严格删除早于截止时间的记录，等于截止时间的保留。
+SQL Server 使用有界锁候选删除，MySQL 在短事务中 `FOR UPDATE SKIP LOCKED` 领取后删除。
+配置关闭后不启动新批次；Meter `Full.NET.Identity.AuthenticationEventRetention` 记录删除数与失败数。
+部署方须先确认适用的保留制度，再启用；`365` 只是默认建议值，不自动清理任何数据。
+
+认证审计的事务可靠性不随访问日志采样或丢弃配置改变。当前 IP 为地址、用户名为指纹，仍须限制
+访问与导出；界面默认脱敏。导出须同时具备读取与独立导出权限，单次最多 31 天、1 万行，
+超过上限要求缩小范围；CSV 包含安全投影，不输出指纹、IP 或 User-Agent，并转义公式单元格。
+导出成功前先写入 Identity 认证事件。双库并发清理、故障恢复与导出故障演练仍按计划验收。
+
 ## Outbox 配置与删除边界
 
 Worker 使用独立的 `OutboxRetention` 配置：

@@ -31,6 +31,7 @@ import type {
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
   AssignOrganizationPositionUnitRequest,
+  AuthenticationEventResponse,
   AuthorizationTreeActionResponse,
   AuthorizationTreeModuleResponse,
   AuthorizationTreePageResponse,
@@ -321,6 +322,7 @@ import type {
   PagedResultOfAiChatSessionListItem,
   PagedResultOfAiModelConfigListItem,
   PagedResultOfAiTenantQuotaListItem,
+  PagedResultOfAuthenticationEventResponse,
   PagedResultOfCodeGenerationRunResponse,
   PagedResultOfCodeGenerationTemplateResponse,
   PagedResultOfConfigEntryResponse,
@@ -887,6 +889,17 @@ export function readAssignOrganizationPositionUnitRequest(value: unknown): Assig
 
 function isAssignOrganizationPositionUnitRequest(value: unknown): value is AssignOrganizationPositionUnitRequest {
   return isRecord(value) && ((value["unitId"] === null) || (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"]))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readAuthenticationEventResponse(value: unknown): AuthenticationEventResponse {
+  if (!(isAuthenticationEventResponse(value))) {
+    throw new Error('client.invalid_authentication_event_response');
+  }
+  return value;
+}
+
+function isAuthenticationEventResponse(value: unknown): value is AuthenticationEventResponse {
+  return isRecord(value) && ((value["actorUserId"] === null) || (typeof value["actorUserId"] === 'string' && guidPattern.test(value["actorUserId"]))) && ((value["applicationSessionId"] === null) || (typeof value["applicationSessionId"] === 'string' && guidPattern.test(value["applicationSessionId"]))) && ((value["authenticationMethod"] === null) || (typeof value["authenticationMethod"] === 'string')) && ((value["centerSessionId"] === null) || (typeof value["centerSessionId"] === 'string' && guidPattern.test(value["centerSessionId"]))) && ((value["clientId"] === null) || (typeof value["clientId"] === 'string')) && ((value["contextTenantId"] === null) || (typeof value["contextTenantId"] === 'string' && guidPattern.test(value["contextTenantId"]))) && (typeof value["eventType"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["occurredAtUtc"] === 'string') && (typeof value["resultCode"] === 'string') && ((value["sessionId"] === null) || (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"]))) && (typeof value["succeeded"] === 'boolean') && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
 }
 
 export function readAuthorizationTreeActionResponse(value: unknown): AuthorizationTreeActionResponse {
@@ -4077,6 +4090,17 @@ export function readPagedResultOfAiTenantQuotaListItem(value: unknown): PagedRes
 
 function isPagedResultOfAiTenantQuotaListItem(value: unknown): value is PagedResultOfAiTenantQuotaListItem {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiTenantQuotaListItem(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfAuthenticationEventResponse(value: unknown): PagedResultOfAuthenticationEventResponse {
+  if (!(isPagedResultOfAuthenticationEventResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_authentication_event_response');
+  }
+  return value;
+}
+
+function isPagedResultOfAuthenticationEventResponse(value: unknown): value is PagedResultOfAuthenticationEventResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAuthenticationEventResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
 export function readPagedResultOfCodeGenerationRunResponse(value: unknown): PagedResultOfCodeGenerationRunResponse {

@@ -15,6 +15,12 @@ internal sealed record IdentityOidcCenterLoginResult(
     string DisplayName,
     string SecurityStamp);
 
+/// <summary>内部认证结果；仅用于安全审计，对外仍返回统一的凭据拒绝。</summary>
+internal sealed record IdentityOidcCenterLoginAttempt(
+    IdentityOidcCenterLoginResult? Login,
+    Guid? UserId,
+    string ResultCode);
+
 /// <summary>中心登录凭据校验；不创建旧 Refresh Session，仅返回账号权威状态。</summary>
 internal sealed class IdentityOidcCenterLoginService(
     IQueryExecutor queryExecutor,
@@ -29,6 +35,13 @@ internal sealed class IdentityOidcCenterLoginService(
     private readonly Full.NET.Modules.Identity.Configuration.IdentityOptions _identityOptions = identityOptions.Value;
 
     public async Task<IdentityOidcCenterLoginResult?> AuthenticateAsync(
+        string username,
+        string password,
+        CancellationToken cancellationToken = default)
+        => (await AuthenticateWithOutcomeAsync(username, password, cancellationToken)
+            .ConfigureAwait(false)).Login;
+
+    public async Task<IdentityOidcCenterLoginAttempt> AuthenticateWithOutcomeAsync(
         string username,
         string password,
         CancellationToken cancellationToken = default)
@@ -50,13 +63,17 @@ internal sealed class IdentityOidcCenterLoginService(
                     TimingDefenseCredential.User,
                     TimingDefenseCredential.PasswordHash,
                     password);
-                return null;
+                return new IdentityOidcCenterLoginAttempt(null, null, "identity.user-not-found");
             }
 
             var user = ToUser(record);
-            if (!user.IsActive || user.LockoutEndUtc > clock.UtcNow)
+            if (!user.IsActive)
             {
-                return null;
+                return new IdentityOidcCenterLoginAttempt(null, user.Id, "identity.user-disabled");
+            }
+            if (user.LockoutEndUtc > clock.UtcNow)
+            {
+                return new IdentityOidcCenterLoginAttempt(null, user.Id, "identity.user-locked");
             }
 
             var verification = passwordHasher.VerifyHashedPassword(
@@ -83,7 +100,7 @@ internal sealed class IdentityOidcCenterLoginService(
                 {
                     continue;
                 }
-                return null;
+                return new IdentityOidcCenterLoginAttempt(null, user.Id, "identity.invalid-password");
             }
 
             var passwordHash = verification == PasswordVerificationResult.SuccessRehashNeeded
@@ -100,18 +117,18 @@ internal sealed class IdentityOidcCenterLoginService(
             }
             if (successRows != 1)
             {
-                return null;
+                return new IdentityOidcCenterLoginAttempt(null, user.Id, "identity.login-update-failed");
             }
 
-            return new IdentityOidcCenterLoginResult(
+            return new IdentityOidcCenterLoginAttempt(
+                new IdentityOidcCenterLoginResult(
+                    user.Id, user.Username, user.DisplayName, user.SecurityStamp),
                 user.Id,
-                user.Username,
-                user.DisplayName,
-                user.SecurityStamp);
+                "identity.oidc_center_login_succeeded");
         }
 
         // 持续争用时拒绝创建中心会话，不能使用未写入的旧账号状态登录。
-        return null;
+        return new IdentityOidcCenterLoginAttempt(null, null, "identity.login-contention");
     }
 
     private static IdentityUser ToUser(IdentityUserRecord record) => new(

@@ -20,6 +20,16 @@ test('规范 DDL 和显式查询不产生违规', async () => {
   assert.deepEqual(violations, []);
 });
 
+test('明确的 ALTER TABLE DROP CONSTRAINT 可扫描，其他 DROP 仍报告', async () => {
+  const violations = await validateSqlNaming(
+    [path.join(fixtureRoot, 'drop-constraint.sql')],
+    { repositoryRoot, debt: { schemaVersion: 1, items: [] } }
+  );
+
+  assert.equal(violations.filter(item => item.ruleId === 'FNSQL003').length, 1);
+  assert.equal(violations.find(item => item.ruleId === 'FNSQL003')?.line, 2);
+});
+
 test('SQL 门禁报告表、列、约束、长度、保留所有权和 SELECT 星号', async () => {
   const violations = await validateSqlNaming(
     [path.join(fixtureRoot, 'invalid-schema.sql')],

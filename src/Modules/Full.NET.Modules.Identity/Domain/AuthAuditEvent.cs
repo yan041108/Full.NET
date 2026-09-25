@@ -28,4 +28,10 @@ internal sealed record AuthAuditEvent(
     string? IpAddress,
     string? UserAgent,
     Guid? ContextTenantId,
-    DateTimeOffset OccurredAtUtc);
+    DateTimeOffset OccurredAtUtc,
+    Guid? ActorUserId = null,
+    string? TraceId = null,
+    string? AuthenticationMethod = null,
+    string? ClientId = null,
+    Guid? CenterSessionId = null,
+    Guid? ApplicationSessionId = null);

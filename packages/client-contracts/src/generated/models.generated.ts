@@ -328,6 +328,23 @@ export interface AssignOrganizationPositionUnitRequest {
   readonly version: number;
 }
 
+export interface AuthenticationEventResponse {
+  readonly actorUserId: null | string;
+  readonly applicationSessionId: null | string;
+  readonly authenticationMethod: null | string;
+  readonly centerSessionId: null | string;
+  readonly clientId: null | string;
+  readonly contextTenantId: null | string;
+  readonly eventType: string;
+  readonly id: string;
+  readonly occurredAtUtc: string;
+  readonly resultCode: string;
+  readonly sessionId: null | string;
+  readonly succeeded: boolean;
+  readonly traceId: null | string;
+  readonly userId: null | string;
+}
+
 export interface AuthorizationTreeActionResponse {
   readonly id: string;
   readonly name: string;
@@ -2818,6 +2835,13 @@ export interface PagedResultOfAiModelConfigListItem {
 
 export interface PagedResultOfAiTenantQuotaListItem {
   readonly items: Array<AiTenantQuotaListItem>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfAuthenticationEventResponse {
+  readonly items: Array<AuthenticationEventResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
