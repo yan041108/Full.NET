@@ -204,8 +204,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 557);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 557);
+  assert.equal(manifest.entries.length, 560);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 560);
   assert.deepEqual(
     manifest.entries
       .filter(entry => entry.generatedGroup === 'workflow-forms')
@@ -259,6 +259,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'files-host-folders',
       'goview-projects',
       'identity-auth-session',
+      'identity-authentication-events',
       'identity-host-api-keys',
       'identity-host-menus',
       'identity-host-modules',
@@ -327,7 +328,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    557
+    560
   );
   assert.equal(
     snapshot.paths['/api/v1/workflow/forms/component-catalog'].get.operationId,
