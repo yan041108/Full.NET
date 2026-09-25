@@ -20,7 +20,7 @@ test('Host 管理员可通过 API 读写种子租户品牌（清单 22）', asyn
   const clientKind = testInfo.project.metadata.clientKind;
   const origin = adminOrigin(clientKind);
   const accessToken = await loginHostAdminAccessToken(request, clientKind);
-  const tenant = await findSeedTenantViaApi(request, clientKind);
+  const tenant = await findSeedTenantViaApi(request, clientKind, 'local', accessToken);
   const authHeaders = {
     Authorization: `Bearer ${accessToken}`,
     Origin: origin

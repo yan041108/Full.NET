@@ -38,7 +38,7 @@ async function createQuotaClient(request, clientKind) {
   const token = await loginHostAdminAccessToken(request, clientKind);
   const headers = authHeaders(token, origin);
   const stamp = Date.now().toString(36);
-  const adminUser = await findSeedAdminUserViaApi(request, clientKind);
+  const adminUser = await findSeedAdminUserViaApi(request, clientKind, 'admin', token);
   const createResponse = await request.post(
     `${apiBaseUrl}/api/v1/identity/open-access-clients`,
     {

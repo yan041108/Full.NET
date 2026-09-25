@@ -47,7 +47,7 @@ test('Host 管理员可创建接入方、轮换密钥并停用（清单 39 API�
   const token = await loginHostAdminAccessToken(request, clientKind);
   const headers = authHeaders(token, origin);
   const stamp = Date.now().toString(36);
-  const adminUser = await findSeedAdminUserViaApi(request, clientKind);
+  const adminUser = await findSeedAdminUserViaApi(request, clientKind, 'admin', token);
 
   const createResponse = await request.post(
     `${apiBaseUrl}/api/v1/identity/open-access-clients`,

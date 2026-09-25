@@ -19,7 +19,7 @@ test('API：默认关闭注册与公开注册方式（清单 48）', async ({ re
   const clientKind = testInfo.project.metadata.clientKind;
   const origin = adminOrigin(clientKind);
   const token = await loginHostAdminAccessToken(request, clientKind);
-  const tenant = await findSeedTenantViaApi(request, clientKind);
+  const tenant = await findSeedTenantViaApi(request, clientKind, 'local', token);
   const authHeaders = {
     Authorization: `Bearer ${token}`,
     Origin: origin

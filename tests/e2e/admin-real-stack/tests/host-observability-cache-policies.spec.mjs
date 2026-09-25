@@ -48,7 +48,7 @@ test('Host 管理员可列出缓存策略并执行租户解析精确失效（清
   );
   expect(detailResponse.ok()).toBeTruthy();
 
-  const tenant = await findSeedTenantViaApi(request, clientKind);
+  const tenant = await findSeedTenantViaApi(request, clientKind, 'local', accessToken);
   const invalidateResponse = await request.post(
     `${apiBaseUrl}/api/v1/observability/cache-policies/${encodeURIComponent(tenantResolutionEntry)}/invalidations`,
     {

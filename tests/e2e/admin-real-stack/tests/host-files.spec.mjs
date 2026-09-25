@@ -113,7 +113,8 @@ test('Host 管理员可管理虚拟目录、更新元数据并查询引用（清
   const fileName = uniqueFileName(clientKind, 'e2e-meta');
   const uploaded = await uploadHostFileViaApi(request, clientKind, {
     fileName,
-    content: `metadata ${stamp}`
+    content: `metadata ${stamp}`,
+    accessToken
   });
 
   const detailResponse = await request.get(
@@ -210,22 +211,12 @@ test('Host 管理员可批量上传、预览并批量删除（清单 32）', asy
   const firstBody = `batch-one-${stamp}`;
   const secondBody = `batch-two-${stamp}`;
 
+  const multipart = new FormData();
+  multipart.append('files', new File([firstBody], firstName, { type: 'text/plain' }));
+  multipart.append('files', new File([secondBody], secondName, { type: 'text/plain' }));
   const uploadResponse = await request.post(`${apiBaseUrl}/api/v1/files/host-files/batch-upload`, {
     headers: authHeaders,
-    multipart: {
-      files: [
-        {
-          name: firstName,
-          mimeType: 'text/plain',
-          buffer: Buffer.from(firstBody)
-        },
-        {
-          name: secondName,
-          mimeType: 'text/plain',
-          buffer: Buffer.from(secondBody)
-        }
-      ]
-    }
+    multipart
   });
   expect(uploadResponse.ok()).toBeTruthy();
   const uploaded = await uploadResponse.json();
@@ -283,8 +274,10 @@ test('Vue 文件管理可批量上传并批量删除（清单 32）', async ({ p
     }
   ]);
   await hostFilesView.getByTestId('host-files-upload').click();
-  await expect(hostFilesView.getByText(firstName, { exact: true })).toBeVisible({ timeout: 15_000 });
-  await expect(hostFilesView.getByText(secondName, { exact: true })).toBeVisible();
+  await expect(hostFilesView.locator('.el-table__row').filter({ hasText: firstName }))
+    .toBeVisible({ timeout: 15_000 });
+  await expect(hostFilesView.locator('.el-table__row').filter({ hasText: secondName }))
+    .toBeVisible();
 
   for (const fileName of [firstName, secondName]) {
     const row = hostFilesView.getByRole('row').filter({ hasText: fileName }).first();

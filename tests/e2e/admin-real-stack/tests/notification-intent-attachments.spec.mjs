@@ -24,6 +24,18 @@ async function getCurrentUserId(request, token, origin) {
   return user.id;
 }
 
+async function requireRegisteredEmailChannel(request, token, origin) {
+  const response = await request.get(`${apiBaseUrl}/api/v1/notifications/provider-types`, {
+    headers: { Authorization: `Bearer ${token}`, Origin: origin }
+  });
+  expect(response.ok()).toBeTruthy();
+  const providerTypes = await response.json();
+  test.skip(
+    !providerTypes.some(provider => provider.supportedChannelKeys?.includes('email')),
+    'Email attachment intent requires a registered email provider; Inbox coverage remains active.'
+  );
+}
+
 async function createTemplate(request, headers, templateKey, channelKey) {
   const response = await request.post(`${apiBaseUrl}/api/v1/notifications/templates`, {
     headers,
@@ -76,7 +88,8 @@ test('Inbox Intent 拒绝附件引用（清单 43）', async ({ request }, testI
   const file = await uploadHostFileViaApi(request, clientKind, {
     fileName: `e2e-${stamp}.pdf`,
     content: '%PDF-1.4 e2e',
-    contentType: 'application/pdf'
+    contentType: 'application/pdf',
+    accessToken: token
   });
   const userId = await getCurrentUserId(request, token, origin);
 
@@ -94,13 +107,15 @@ test('Email Intent 可绑定 Files 引用附件（清单 43 API）', async ({ re
   const token = await loginHostAdminAccessToken(request, clientKind);
   const headers = authHeaders(token, origin);
   const stamp = Date.now().toString(36);
+  await requireRegisteredEmailChannel(request, token, origin);
   const templateKey = `e2e.email.attach.${stamp}`.slice(0, 32);
   const template = await createTemplate(request, headers, templateKey, 'email');
   await publishTemplate(request, headers, template);
   const file = await uploadHostFileViaApi(request, clientKind, {
     fileName: `report-${stamp}.pdf`,
     content: '%PDF-1.4 e2e attachment',
-    contentType: 'application/pdf'
+    contentType: 'application/pdf',
+    accessToken: token
   });
   const userId = await getCurrentUserId(request, token, origin);
 
@@ -128,13 +143,15 @@ test('Email Intent 拒绝不允许的附件扩展名（清单 43）', async ({ r
   const token = await loginHostAdminAccessToken(request, clientKind);
   const headers = authHeaders(token, origin);
   const stamp = Date.now().toString(36);
+  await requireRegisteredEmailChannel(request, token, origin);
   const templateKey = `e2e.email.bad.${stamp}`.slice(0, 32);
   const template = await createTemplate(request, headers, templateKey, 'email');
   await publishTemplate(request, headers, template);
   const file = await uploadHostFileViaApi(request, clientKind, {
     fileName: `bad-${stamp}.exe`,
     content: 'MZ',
-    contentType: 'application/octet-stream'
+    contentType: 'application/octet-stream',
+    accessToken: token
   });
   const userId = await getCurrentUserId(request, token, origin);
 

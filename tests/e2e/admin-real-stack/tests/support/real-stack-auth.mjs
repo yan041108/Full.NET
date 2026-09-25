@@ -30,12 +30,14 @@ export async function expandMainNavigation(page) {
 }
 
 /** 提交 legacy 密码登录并等待 `/api/v1/navigation` 与侧栏渲染（CI 上导航常晚于路由跳转）。 */
-async function submitLegacyConsoleLogin(page) {
-  const releaseNoteLookup = page.waitForResponse(
-    response => response.url().includes('/api/v1/platform/my-release-notes/latest-unread')
-      && response.request().method() === 'GET',
-    { timeout: 5_000 }
-  ).catch(() => null);
+async function submitLegacyConsoleLogin(page, expectReleaseNoteLookup = false) {
+  const releaseNoteLookup = expectReleaseNoteLookup
+    ? page.waitForResponse(
+      response => response.url().includes('/api/v1/platform/my-release-notes/latest-unread')
+        && response.request().method() === 'GET',
+      { timeout: 5_000 }
+    ).catch(() => null)
+    : Promise.resolve(null);
   const navigationReady = page.waitForResponse(
     response =>
       response.url().includes('/api/v1/navigation')
@@ -48,9 +50,10 @@ async function submitLegacyConsoleLogin(page) {
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
     timeout: 30_000
   });
-  await releaseNoteLookup;
+  const releaseNoteResponse = await releaseNoteLookup;
   const releaseNoteDialog = page.getByTestId('release-note-unread-dialog');
-  if (await releaseNoteDialog.isVisible().catch(() => false)) {
+  if (releaseNoteResponse?.status() === 200) {
+    await expect(releaseNoteDialog).toBeVisible({ timeout: 5_000 });
     await releaseNoteDialog.getByRole('button', { name: /稍后查看|Later/ }).click();
     await expect(releaseNoteDialog).toBeHidden();
   }
@@ -75,7 +78,7 @@ export async function loginAsHostAdmin(page, baseUrl = '/') {
   await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible();
   await page.getByLabel('账号', { exact: true }).fill(username);
   await page.getByLabel('密码', { exact: true }).fill(effectivePassword);
-  await submitLegacyConsoleLogin(page);
+  await submitLegacyConsoleLogin(page, true);
 }
 
 /** 登录 Development 受限查看者并等待动态导航就绪。 */
@@ -618,7 +621,8 @@ export async function createSettingsConfigEntryViaApi(request, clientKind, optio
 export async function uploadHostFileViaApi(request, clientKind, options) {
   const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
   const origin = adminOrigin(clientKind);
-  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  // 复用调用者的 Token，避免准备文件时再次登录撤销现有会话。
+  const accessToken = options.accessToken ?? await loginHostAdminAccessToken(request, clientKind);
   const response = await request.post(`${apiBaseUrl}/api/v1/files/host-files`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -647,10 +651,16 @@ export async function uploadHostFileViaApi(request, clientKind, options) {
  * 从 Host 用户目录查找种子管理员，供 API Key 等写路径绑定用户。
  * @returns {Promise<{ id: string, username: string }>}
  */
-export async function findSeedAdminUserViaApi(request, clientKind, loginUsername = 'admin') {
+export async function findSeedAdminUserViaApi(
+  request,
+  clientKind,
+  loginUsername = 'admin',
+  existingAccessToken
+) {
   const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
   const origin = adminOrigin(clientKind);
-  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  // 复用调用者的 Token，避免单会话策略下额外登录使其失效。
+  const accessToken = existingAccessToken ?? await loginHostAdminAccessToken(request, clientKind);
   const response = await request.get(`${apiBaseUrl}/api/v1/identity/users?page=1&pageSize=50`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -668,10 +678,16 @@ export async function findSeedAdminUserViaApi(request, clientKind, loginUsername
  * 从 Host 租户目录查找种子租户，供真实栈分配套餐等写路径使用。
  * @returns {Promise<{ id: string, identifier: string, name: string, version: number }>}
  */
-export async function findSeedTenantViaApi(request, clientKind, identifier = 'local') {
+export async function findSeedTenantViaApi(
+  request,
+  clientKind,
+  identifier = 'local',
+  existingAccessToken
+) {
   const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
   const origin = adminOrigin(clientKind);
-  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  // 复用调用者的 Token，避免单会话策略下额外登录使其失效。
+  const accessToken = existingAccessToken ?? await loginHostAdminAccessToken(request, clientKind);
   const response = await request.get(`${apiBaseUrl}/api/v1/tenancy/tenants?page=1&pageSize=50`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
