@@ -15,6 +15,7 @@ internal sealed class TotpStrongReauthenticationProvider(
     IQueryExecutor queryExecutor,
     IPasswordHasher<IdentityUser> passwordHasher,
     TotpSecretProtector secretProtector,
+    AuthenticationSecurityEventWriter authenticationEvents,
     IClock clock) : IStrongReauthenticationProvider
 {
     public bool IsProductionEligible => true;
@@ -24,6 +25,23 @@ internal sealed class TotpStrongReauthenticationProvider(
         string currentPassword,
         string? totpCode,
         CancellationToken cancellationToken = default)
+    {
+        var result = await VerifyCoreAsync(operatorUserId, currentPassword,
+            totpCode, cancellationToken).ConfigureAwait(false);
+        await authenticationEvents.WriteAsync(operatorUserId,
+            result.IsSuccess ? operatorUserId : null,
+            "mfa.strong_reauthentication",
+            result.IsSuccess ? "identity.mfa_strong_reauthentication_succeeded"
+                : result.Error!.Code,
+            result.IsSuccess, "password+totp", cancellationToken).ConfigureAwait(false);
+        return result;
+    }
+
+    private async Task<Result<IdentityUser>> VerifyCoreAsync(
+        Guid operatorUserId,
+        string currentPassword,
+        string? totpCode,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(currentPassword))
         {

@@ -62,6 +62,19 @@ internal static class AccountLifecycleAssertions
         };
         using var replayResponse = await client.SendAsync(replayRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.BadRequest, replayResponse.StatusCode);
+
+        using var auditRequest = new HttpRequestMessage(HttpMethod.Get,
+            "/api/v1/identity/authentication-events?eventType=password_recovery.completed");
+        auditRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+            "Bearer", adminToken);
+        using var auditResponse = await client.SendAsync(auditRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, auditResponse.StatusCode);
+        var events = await auditResponse.Content.ReadFromJsonAsync<AuthenticationEventCursorPage>(
+            cancellationToken);
+        Assert.IsNotNull(events);
+        Assert.IsTrue(events.Items.Any(item => item.Succeeded && item.UserId.HasValue));
+        Assert.IsTrue(events.Items.Any(item => !item.Succeeded && item.UserId.HasValue
+            && item.ResultCode == IdentityErrorCodes.AccountChallengeInvalid));
     }
 
     private static async Task<string> LoginAsHostAdminAsync(

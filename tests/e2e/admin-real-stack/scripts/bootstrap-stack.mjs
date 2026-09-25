@@ -305,11 +305,25 @@ export async function bootstrapStack() {
         })
   };
 
+  // 所有 Host 使用独立产物和单并发构建，避免开发栈进程锁住默认 bin 目录。
+  const stackArtifactsPath = path.join(repoRoot, '.tmp/e2e-real-stack/build');
+  const isolatedBuildArgs = [
+    '-p:UseArtifactsOutput=true',
+    `-p:ArtifactsPath=${stackArtifactsPath}`,
+    '-m:1',
+    '-nodeReuse:false'
+  ];
+  const migratorProjectPath = path.join(
+    repoRoot,
+    'src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj'
+  );
+  await runDotnet(['build', migratorProjectPath, ...isolatedBuildArgs], sharedEnv);
+  const migratorAssemblyPath = path.join(
+    stackArtifactsPath,
+    'bin/Full.NET.Host.Migrator/debug/Full.NET.Host.Migrator.dll'
+  );
   await runDotnet([
-    'run',
-    '--project',
-    'src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj',
-    '--',
+    migratorAssemblyPath,
     '--seed',
     isProductionTotp ? 'baseline' : 'development'
   ], sharedEnv);
@@ -319,10 +333,10 @@ export async function bootstrapStack() {
     'src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj'
   );
   const apiProjectDirectory = path.dirname(apiProjectPath);
-  await runDotnet(['build', apiProjectPath], sharedEnv);
+  await runDotnet(['build', apiProjectPath, ...isolatedBuildArgs], sharedEnv);
   const apiAssemblyPath = path.join(
-    repoRoot,
-    'src/Hosts/Full.NET.Host.Api/bin/Debug/net10.0/Full.NET.Host.Api.dll'
+    stackArtifactsPath,
+    'bin/Full.NET.Host.Api/debug/Full.NET.Host.Api.dll'
   );
 
   const apiLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/api.log');
@@ -390,10 +404,10 @@ export async function bootstrapStack() {
     'src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj'
   );
   const workerProjectDirectory = path.dirname(workerProjectPath);
-  await runDotnet(['build', workerProjectPath], sharedEnv);
+  await runDotnet(['build', workerProjectPath, ...isolatedBuildArgs], sharedEnv);
   const workerAssemblyPath = path.join(
-    repoRoot,
-    'src/Hosts/Full.NET.Host.Worker/bin/Debug/net10.0/Full.NET.Host.Worker.dll'
+    stackArtifactsPath,
+    'bin/Full.NET.Host.Worker/debug/Full.NET.Host.Worker.dll'
   );
   const workerLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/worker.log');
   mkdirSync(path.dirname(workerLogPath), { recursive: true });

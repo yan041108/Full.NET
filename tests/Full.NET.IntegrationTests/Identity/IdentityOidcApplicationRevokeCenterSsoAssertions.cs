@@ -107,6 +107,8 @@ internal static class IdentityOidcApplicationRevokeCenterSsoAssertions
             "admin",
             FullNetApiFactory.TestPassword,
             cancellationToken);
+        await AssertApplicationEventsShareCenterSessionAsync(
+            client, adminToken, cancellationToken);
         var adminUserId = await ResolveAdminUserIdAsync(client, adminToken, cancellationToken);
         var publicSessionId = await ResolveOidcSessionIdAsync(
             client,
@@ -138,6 +140,31 @@ internal static class IdentityOidcApplicationRevokeCenterSsoAssertions
             IdentityOidcRelyingPartyFixture.ConfidentialClientId,
             IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
             cancellationToken);
+    }
+
+    private static async Task AssertApplicationEventsShareCenterSessionAsync(
+        HttpClient client,
+        string adminToken,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get,
+            "/api/v1/identity/authentication-events?pageSize=20&eventType=oidc.application_session_created");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadFromJsonAsync<AuthenticationEventCursorPage>(cancellationToken);
+        Assert.IsNotNull(page);
+        var events = page.Items.Take(2).ToArray();
+        Assert.AreEqual(2, events.Length, "两个 OIDC 客户端均应产生应用会话事件。");
+        Assert.IsTrue(events.All(item => item.Succeeded));
+        Assert.AreEqual(events[0].CenterSessionId, events[1].CenterSessionId,
+            "同一中心 Cookie 的 SSO 应关联同一中心会话。");
+        Assert.AreNotEqual(Guid.Empty, events[0].CenterSessionId);
+        Assert.AreNotEqual(events[0].ApplicationSessionId, events[1].ApplicationSessionId);
+        CollectionAssert.AreEquivalent(
+            new[] { IdentityOidcRelyingPartyFixture.PublicClientId,
+                IdentityOidcRelyingPartyFixture.ConfidentialClientId },
+            events.Select(item => item.ClientId).ToArray());
     }
 
     private static async Task AssertCenterCookieAuthorizeAndExchangeAsync(

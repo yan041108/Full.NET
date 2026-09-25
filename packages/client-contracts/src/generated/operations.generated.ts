@@ -32,6 +32,7 @@ import type {
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
   AssignOrganizationPositionUnitRequest,
+  AuthenticationEventCursorPage,
   AuthenticationEventResponse,
   AuthorizationTreeActionResponse,
   AuthorizationTreeModuleResponse,
@@ -323,7 +324,6 @@ import type {
   PagedResultOfAiChatSessionListItem,
   PagedResultOfAiModelConfigListItem,
   PagedResultOfAiTenantQuotaListItem,
-  PagedResultOfAuthenticationEventResponse,
   PagedResultOfCodeGenerationRunResponse,
   PagedResultOfCodeGenerationTemplateResponse,
   PagedResultOfConfigEntryResponse,
@@ -594,6 +594,7 @@ import {
   readAiModelConfigResponse,
   readAiResumeAgentRunResponse,
   readAiTenantQuotaResponse,
+  readAuthenticationEventCursorPage,
   readAuthenticationEventResponse,
   readBatchChangeHostJobScheduleStateResponse,
   readBatchCreateHostDocumentSharesResponse,
@@ -730,7 +731,6 @@ import {
   readPagedResultOfAiChatSessionListItem,
   readPagedResultOfAiModelConfigListItem,
   readPagedResultOfAiTenantQuotaListItem,
-  readPagedResultOfAuthenticationEventResponse,
   readPagedResultOfCodeGenerationRunResponse,
   readPagedResultOfCodeGenerationTemplateResponse,
   readPagedResultOfConfigEntryResponse,
@@ -5129,6 +5129,7 @@ export interface IdentityListAuthenticationEventsParameters {
   readonly succeeded?: boolean;
   readonly fromUtc?: string;
   readonly toUtc?: string;
+  readonly cursor?: string;
 }
 
 export async function identityListAuthenticationEvents(
@@ -5136,7 +5137,7 @@ export async function identityListAuthenticationEvents(
   parameters: IdentityListAuthenticationEventsParameters,
   signal?: AbortSignal,
   options?: RequestOptions
-): Promise<PagedResultOfAuthenticationEventResponse> {
+): Promise<AuthenticationEventCursorPage> {
   const query = new URLSearchParams();
   if (parameters.page !== undefined) {
     query.set('page', String(parameters.page));
@@ -5159,12 +5160,15 @@ export async function identityListAuthenticationEvents(
   if (parameters.toUtc !== undefined) {
     query.set('toUtc', String(parameters.toUtc));
   }
+  if (parameters.cursor !== undefined) {
+    query.set('cursor', String(parameters.cursor));
+  }
   const path = query.size === 0 ? `/api/v1/identity/authentication-events` : `/api/v1/identity/authentication-events?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
-  return readPagedResultOfAuthenticationEventResponse(value);
+  return readAuthenticationEventCursorPage(value);
 }
 
 export interface IdentityListFieldProjectionCatalogParameters {

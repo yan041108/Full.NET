@@ -31,6 +31,7 @@ import type {
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
   AssignOrganizationPositionUnitRequest,
+  AuthenticationEventCursorPage,
   AuthenticationEventResponse,
   AuthorizationTreeActionResponse,
   AuthorizationTreeModuleResponse,
@@ -322,7 +323,6 @@ import type {
   PagedResultOfAiChatSessionListItem,
   PagedResultOfAiModelConfigListItem,
   PagedResultOfAiTenantQuotaListItem,
-  PagedResultOfAuthenticationEventResponse,
   PagedResultOfCodeGenerationRunResponse,
   PagedResultOfCodeGenerationTemplateResponse,
   PagedResultOfConfigEntryResponse,
@@ -889,6 +889,17 @@ export function readAssignOrganizationPositionUnitRequest(value: unknown): Assig
 
 function isAssignOrganizationPositionUnitRequest(value: unknown): value is AssignOrganizationPositionUnitRequest {
   return isRecord(value) && ((value["unitId"] === null) || (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"]))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readAuthenticationEventCursorPage(value: unknown): AuthenticationEventCursorPage {
+  if (!(isAuthenticationEventCursorPage(value))) {
+    throw new Error('client.invalid_authentication_event_cursor_page');
+  }
+  return value;
+}
+
+function isAuthenticationEventCursorPage(value: unknown): value is AuthenticationEventCursorPage {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAuthenticationEventResponse(item14))) && ((value["nextCursor"] === null) || (typeof value["nextCursor"] === 'string'));
 }
 
 export function readAuthenticationEventResponse(value: unknown): AuthenticationEventResponse {
@@ -4090,17 +4101,6 @@ export function readPagedResultOfAiTenantQuotaListItem(value: unknown): PagedRes
 
 function isPagedResultOfAiTenantQuotaListItem(value: unknown): value is PagedResultOfAiTenantQuotaListItem {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiTenantQuotaListItem(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
-}
-
-export function readPagedResultOfAuthenticationEventResponse(value: unknown): PagedResultOfAuthenticationEventResponse {
-  if (!(isPagedResultOfAuthenticationEventResponse(value))) {
-    throw new Error('client.invalid_paged_result_of_authentication_event_response');
-  }
-  return value;
-}
-
-function isPagedResultOfAuthenticationEventResponse(value: unknown): value is PagedResultOfAuthenticationEventResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAuthenticationEventResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
 export function readPagedResultOfCodeGenerationRunResponse(value: unknown): PagedResultOfCodeGenerationRunResponse {

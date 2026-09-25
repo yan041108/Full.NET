@@ -448,7 +448,14 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.ResetPasswordAsync(userId, request, cancellationToken)
+            if (!Guid.TryParse(httpContext.User.FindFirst("sub")?.Value, out var actorUserId))
+            {
+                return Results.Problem(statusCode: StatusCodes.Status401Unauthorized,
+                    title: "Authenticated user id is required.");
+            }
+
+            var result = await service.ResetPasswordAsync(
+                    userId, request, actorUserId, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

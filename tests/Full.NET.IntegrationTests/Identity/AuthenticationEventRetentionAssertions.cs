@@ -24,7 +24,7 @@ internal static class AuthenticationEventRetentionAssertions
     public static async Task VerifyAsync(FullNetApiFactory factory,
         CancellationToken cancellationToken = default)
     {
-        await factory.InitializeAsync(cancellationToken);
+        await factory.InitializeAsync(cancellationToken, useSchemaTemplate: false);
         await using var scope = factory.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var tenant = services.GetRequiredService<ICurrentTenantContextWriter>();
@@ -54,6 +54,46 @@ internal static class AuthenticationEventRetentionAssertions
                 IdentitySqlParameters.Create(("Id", recentId)), cancellationToken);
             Assert.IsNull(oldEvent);
             Assert.IsNotNull(recentEvent);
+
+            var concurrentIds = Enumerable.Range(0, 4)
+                .Select(_ => Guid.CreateVersion7()).ToArray();
+            foreach (var id in concurrentIds)
+            {
+                await InsertAsync(command, id, now.AddDays(-400), cancellationToken);
+            }
+
+            // 两个独立 Worker scope 同时领取，必须各守住批量边界且不能重复删除。
+            var concurrent = await Task.WhenAll(
+                RunConcurrentBatchAsync(factory, cancellationToken),
+                RunConcurrentBatchAsync(factory, cancellationToken));
+            Assert.AreEqual(4, concurrent.Sum(item => item.Deleted));
+            Assert.IsTrue(concurrent.All(item => item.Deleted <= 2));
+            foreach (var id in concurrentIds)
+            {
+                Assert.IsNull(await query.QuerySingleOrDefaultAsync<AuthenticationEventResponse>(
+                    AuthenticationEventSql.GetById,
+                    IdentitySqlParameters.Create(("Id", id)), cancellationToken));
+            }
+        }
+        finally
+        {
+            tenant.Clear();
+        }
+    }
+
+    private static async Task<AuthenticationEventRetentionResult> RunConcurrentBatchAsync(
+        FullNetApiFactory factory, CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var tenant = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+        tenant.SetHost();
+        try
+        {
+            return await scope.ServiceProvider.GetRequiredService<AuthenticationEventRetentionRunner>()
+                .RunOnceAsync(new AuthenticationEventRetentionOptions
+                {
+                    Enabled = true, RetentionDays = 365, BatchSize = 2, MaxBatchesPerRun = 1
+                }, cancellationToken);
         }
         finally
         {

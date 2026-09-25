@@ -18,12 +18,19 @@ internal sealed class ConfirmHandler(
     AccountChallengeService challengeService,
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
+    ICommandTransaction transaction,
+    AuthenticationSecurityEventWriter authenticationEvents,
     IPasswordHasher<IdentityUser> passwordHasher,
     IIdentityOidcUserAuthorityRevoker oidcUserAuthorityRevoker,
     IClock clock,
     IIdGenerator idGenerator) : ICommandHandler<ConfirmCommand, bool>
 {
-    public async Task<Result<bool>> HandleAsync(
+    public Task<Result<bool>> HandleAsync(
+        ConfirmCommand command,
+        CancellationToken cancellationToken) =>
+        transaction.ExecuteAsync(token => HandleCoreAsync(command, token), cancellationToken);
+
+    private async Task<Result<bool>> HandleCoreAsync(
         ConfirmCommand command,
         CancellationToken cancellationToken)
     {
@@ -35,18 +42,6 @@ internal sealed class ConfirmHandler(
         if (challenge is null)
         {
             return Result<bool>.Failure(InvalidChallenge());
-        }
-
-        var consumed = await challengeService.ConsumeAsync(
-                command.Request.ChallengeId,
-                IdentityAccountChallengePurpose.PasswordRecovery,
-                challenge.NormalizedEmail,
-                command.Request.ChallengeCode,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!consumed.IsSuccess)
-        {
-            return consumed;
         }
 
         var user = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
@@ -66,6 +61,21 @@ internal sealed class ConfirmHandler(
                 ValidationErrorCodes.Failed,
                 "The password does not satisfy the password policy.",
                 ErrorType.Validation));
+        }
+
+        var consumed = await challengeService.ConsumeAsync(
+                command.Request.ChallengeId,
+                IdentityAccountChallengePurpose.PasswordRecovery,
+                challenge.NormalizedEmail,
+                command.Request.ChallengeCode,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!consumed.IsSuccess)
+        {
+            await authenticationEvents.WriteAsync(user.Id, null,
+                "password_recovery.completed", consumed.Error!.Code,
+                false, "recovery", cancellationToken).ConfigureAwait(false);
+            return consumed;
         }
 
         var domainUser = new IdentityUser(
@@ -99,7 +109,8 @@ internal sealed class ConfirmHandler(
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
-            return Result<bool>.Failure(InvalidChallenge());
+            // 成功消费挑战码后发生并发改密时回滚整个本地事务，保留挑战码的真实状态。
+            throw new InvalidOperationException("Password recovery state changed concurrently.");
         }
 
         await commandExecutor.ExecuteAsync(
@@ -109,6 +120,9 @@ internal sealed class ConfirmHandler(
             .ConfigureAwait(false);
         await oidcUserAuthorityRevoker.RevokeUserAuthorityAsync(user.Id, cancellationToken)
             .ConfigureAwait(false);
+        await authenticationEvents.WriteAsync(user.Id, null,
+            "password_recovery.completed", "identity.password_recovery_completed",
+            true, "recovery", cancellationToken).ConfigureAwait(false);
         return Result<bool>.Success(true);
     }
 

@@ -19,16 +19,17 @@ internal static class Endpoint
         group.MapGet("/", async (
             int? page, int? pageSize, Guid? userId, string? eventType,
             bool? succeeded, DateTimeOffset? fromUtc, DateTimeOffset? toUtc,
+            string? cursor,
             AuthenticationEventQueryService queries, IApiResultMapper mapper,
             HttpContext context, CancellationToken cancellationToken) =>
         {
             var result = await queries.ListAsync(page ?? 1, pageSize ?? 20,
-                userId, eventType, succeeded, fromUtc, toUtc, cancellationToken)
+                userId, eventType, succeeded, fromUtc, toUtc, cursor, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, context);
         })
         .WithName("identityListAuthenticationEvents")
-        .Produces<PagedResult<AuthenticationEventResponse>>(StatusCodes.Status200OK)
+        .Produces<AuthenticationEventCursorPage>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)

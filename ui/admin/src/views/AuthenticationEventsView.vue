@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { ElButton, ElCard, ElDescriptions, ElDescriptionsItem, ElDialog, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
+import { ElButton, ElCard, ElDescriptions, ElDescriptionsItem, ElDialog, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import type { FullNetProblemDetails } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
@@ -16,7 +16,8 @@ const { t } = useAdminI18n();
 const rows = ref<AuthenticationEvent[]>([]);
 const page = ref(1);
 const pageSize = ref(20);
-const total = ref(0);
+const cursors = ref<Array<string | undefined>>([undefined]);
+const nextCursor = ref<string>();
 const loading = ref(false);
 const exporting = ref(false);
 const problem = ref<FullNetProblemDetails>();
@@ -24,6 +25,7 @@ const selected = ref<AuthenticationEvent>();
 const detailOpen = ref(false);
 const searchForm = ref<Record<string, string | undefined>>({});
 const filters = ref<Record<string, string | undefined>>({});
+let latestLoadId = 0;
 const searchItems: ArtSearchBarItem[] = [
   { key: 'userId', label: t('authenticationEvents.userId'), placeholder: t('authenticationEvents.userId') },
   { key: 'eventType', label: t('authenticationEvents.eventType'), placeholder: 'login / logout / refresh' },
@@ -41,12 +43,14 @@ const {
 } = useArtPagedTableInCard(loading);
 
 async function load(): Promise<void> {
+  const loadId = ++latestLoadId;
   loading.value = true;
   problem.value = undefined;
   try {
     const result = await listAuthenticationEvents({
-      page: page.value,
+      page: 1,
       pageSize: pageSize.value,
+      cursor: cursors.value[page.value - 1],
       userId: filters.value.userId?.trim() || undefined,
       eventType: filters.value.eventType?.trim() || undefined,
       succeeded: filters.value.succeeded === 'true' ? true
@@ -54,16 +58,20 @@ async function load(): Promise<void> {
       fromUtc: filters.value.fromUtc?.trim() || undefined,
       toUtc: filters.value.toUtc?.trim() || undefined
     });
+    if (loadId !== latestLoadId) return;
     rows.value = result.items;
-    total.value = result.total;
+    nextCursor.value = result.nextCursor ?? undefined;
   } catch (error) {
+    if (loadId !== latestLoadId) return;
     rows.value = [];
-    total.value = 0;
+    nextCursor.value = undefined;
     problem.value = isFullNetProblemDetails(error)
       ? error : { status: 500, code: 'client.authentication_events_failed', title: t('authenticationEvents.loadFailed') };
   } finally {
-    loading.value = false;
-    await syncTableLayout();
+    if (loadId === latestLoadId) {
+      loading.value = false;
+      await syncTableLayout();
+    }
   }
 }
 
@@ -110,6 +118,7 @@ async function downloadExport(): Promise<void> {
 function applySearch(form: Record<string, string | undefined>): void {
   filters.value = { ...form };
   page.value = 1;
+  cursors.value = [undefined];
   void load();
 }
 
@@ -117,6 +126,27 @@ function resetSearch(): void {
   searchForm.value = {};
   filters.value = {};
   page.value = 1;
+  cursors.value = [undefined];
+  void load();
+}
+
+function nextPage(): void {
+  if (!nextCursor.value) return;
+  cursors.value[page.value] = nextCursor.value;
+  page.value += 1;
+  void load();
+}
+
+function previousPage(): void {
+  if (page.value <= 1) return;
+  page.value -= 1;
+  void load();
+}
+
+function changePageSize(value: number): void {
+  pageSize.value = value;
+  page.value = 1;
+  cursors.value = [undefined];
   void load();
 }
 
@@ -174,13 +204,17 @@ onMounted(() => { void load(); });
             </el-table-column>
           </el-table>
         </div>
-        <el-pagination
-          class="art-table-pagination" background layout="total, sizes, prev, pager, next"
-          :total="total" :current-page="page" :page-size="pageSize"
-          :page-sizes="[20, 50, 100]"
-          @current-change="(value: number) => { page = value; void load(); }"
-          @size-change="(value: number) => { pageSize = value; page = 1; void load(); }"
-        />
+        <div class="authentication-events-pagination">
+          <label>
+            {{ t('authenticationEvents.pageSize') }}
+            <select :value="pageSize" @change="changePageSize(Number(($event.target as HTMLSelectElement).value))">
+              <option :value="20">20</option><option :value="50">50</option><option :value="100">100</option>
+            </select>
+          </label>
+          <span>{{ t('authenticationEvents.page') }} {{ page }}</span>
+          <el-button :disabled="page <= 1 || loading" @click="previousPage">{{ t('authenticationEvents.previous') }}</el-button>
+          <el-button :disabled="!nextCursor || loading" @click="nextPage">{{ t('authenticationEvents.next') }}</el-button>
+        </div>
       </div>
     </el-card>
     <el-dialog v-model="detailOpen" :title="t('authenticationEvents.detail')" width="700px">
@@ -207,4 +241,5 @@ onMounted(() => { void load(); });
   display: flex; flex-direction: column; min-height: 0; height: 100%;
 }
 .authentication-events-actions { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.authentication-events-pagination { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 12px; }
 </style>

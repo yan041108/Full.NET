@@ -75,6 +75,7 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(HostOnlineSessionResponse))]
 [JsonSerializable(typeof(PagedResult<HostOnlineSessionResponse>))]
 [JsonSerializable(typeof(AuthenticationEventResponse))]
+[JsonSerializable(typeof(AuthenticationEventCursorPage))]
 [JsonSerializable(typeof(PagedResult<AuthenticationEventResponse>))]
 [JsonSerializable(typeof(IdentitySessionPolicyResponse))]
 [JsonSerializable(typeof(RevokeAllHostUserSessionsResponse))]

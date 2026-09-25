@@ -23,3 +23,8 @@ public sealed record AuthenticationEventResponse(
     string? ClientId,
     Guid? CenterSessionId,
     Guid? ApplicationSessionId);
+
+/// <summary>按时间和标识稳定翻页的认证事件结果。</summary>
+public sealed record AuthenticationEventCursorPage(
+    IReadOnlyList<AuthenticationEventResponse> Items,
+    string? NextCursor);

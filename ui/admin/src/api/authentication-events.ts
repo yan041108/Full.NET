@@ -4,17 +4,18 @@ import {
   identityExportAuthenticationEvents,
   type AuthenticationEventResponse,
   type IdentityExportAuthenticationEventsParameters,
-  type PagedResultOfAuthenticationEventResponse
+  type AuthenticationEventCursorPage
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
 export type AuthenticationEvent = AuthenticationEventResponse;
-export type AuthenticationEventPage = PagedResultOfAuthenticationEventResponse;
+export type AuthenticationEventPage = AuthenticationEventCursorPage;
 export type AuthenticationEventExportQuery = IdentityExportAuthenticationEventsParameters;
 
 export interface AuthenticationEventQuery {
   page: number;
   pageSize: number;
+  cursor?: string;
   userId?: string;
   eventType?: string;
   succeeded?: boolean;

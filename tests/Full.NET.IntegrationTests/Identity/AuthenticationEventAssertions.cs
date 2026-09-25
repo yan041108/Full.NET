@@ -21,7 +21,8 @@ internal static class AuthenticationEventAssertions
     public static async Task VerifyAsync(FullNetApiFactory factory,
         CancellationToken cancellationToken = default)
     {
-        await factory.InitializeAsync(cancellationToken);
+        // 每次从空库执行当前迁移，避免旧 schema 模板仅凭 journal 数量复用旧版 235。
+        await factory.InitializeAsync(cancellationToken, useSchemaTemplate: false);
         if (factory.Provider == DatabaseProvider.SqlServer)
         {
             await using var connection = new SqlConnection(factory.ConnectionString);
@@ -76,11 +77,84 @@ internal static class AuthenticationEventAssertions
         using var listResponse = await client.SendAsync(listRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
         var page = await listResponse.Content.ReadFromJsonAsync<
-            Full.NET.Abstractions.Results.PagedResult<AuthenticationEventResponse>>(cancellationToken);
+            AuthenticationEventCursorPage>(cancellationToken);
         Assert.IsNotNull(page);
         var login = page.Items.FirstOrDefault(item =>
             item.EventType == "login" && item.Succeeded);
         Assert.IsNotNull(login, "登录成功的认证事件应可在管理端查询。");
+
+        using var firstCursorRequest = new HttpRequestMessage(HttpMethod.Get,
+            "/api/v1/identity/authentication-events?pageSize=1&eventType=login");
+        firstCursorRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var firstCursorResponse = await client.SendAsync(firstCursorRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, firstCursorResponse.StatusCode);
+        using var firstCursorBody = JsonDocument.Parse(
+            await firstCursorResponse.Content.ReadAsStringAsync(cancellationToken));
+        var firstCursorId = firstCursorBody.RootElement.GetProperty("items")[0].GetProperty("id").GetString();
+        var nextCursor = firstCursorBody.RootElement.GetProperty("nextCursor").GetString();
+        Assert.IsFalse(string.IsNullOrWhiteSpace(nextCursor));
+        using var secondCursorRequest = new HttpRequestMessage(HttpMethod.Get,
+            $"/api/v1/identity/authentication-events?pageSize=1&eventType=login&cursor={Uri.EscapeDataString(nextCursor)}");
+        secondCursorRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var secondCursorResponse = await client.SendAsync(secondCursorRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, secondCursorResponse.StatusCode);
+        using var secondCursorBody = JsonDocument.Parse(
+            await secondCursorResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreNotEqual(firstCursorId,
+            secondCursorBody.RootElement.GetProperty("items")[0].GetProperty("id").GetString());
+        using var mismatchedCursorRequest = new HttpRequestMessage(HttpMethod.Get,
+            $"/api/v1/identity/authentication-events?pageSize=1&eventType=logout&cursor={Uri.EscapeDataString(nextCursor)}");
+        mismatchedCursorRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var mismatchedCursorResponse = await client.SendAsync(mismatchedCursorRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, mismatchedCursorResponse.StatusCode);
+        using var invalidCursorRequest = new HttpRequestMessage(HttpMethod.Get,
+            "/api/v1/identity/authentication-events?pageSize=1&cursor=invalid");
+        invalidCursorRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var invalidCursorResponse = await client.SendAsync(invalidCursorRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, invalidCursorResponse.StatusCode);
+
+        var tiedAt = DateTimeOffset.UtcNow.AddSeconds(-2);
+        var tiedIds = new[] { Guid.CreateVersion7(), Guid.CreateVersion7() };
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var tenant = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+            tenant.SetHost();
+            try
+            {
+                var commands = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+                foreach (var id in tiedIds)
+                {
+                    Assert.AreEqual(1, await commands.ExecuteAsync(
+                        IdentitySql.InsertAuthAudit,
+                        new AuthAuditEvent(id, null, null, new string('0', 64),
+                            "integration.cursor", "integration.cursor", true,
+                            null, null, null, tiedAt), cancellationToken));
+                }
+            }
+            finally
+            {
+                tenant.Clear();
+            }
+        }
+
+        using var tiedFirstRequest = new HttpRequestMessage(HttpMethod.Get,
+            "/api/v1/identity/authentication-events?pageSize=1&eventType=integration.cursor");
+        tiedFirstRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var tiedFirstResponse = await client.SendAsync(tiedFirstRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, tiedFirstResponse.StatusCode);
+        var tiedFirst = await tiedFirstResponse.Content.ReadFromJsonAsync<AuthenticationEventCursorPage>(cancellationToken);
+        Assert.IsNotNull(tiedFirst);
+        Assert.HasCount(1, tiedFirst.Items);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(tiedFirst.NextCursor));
+        using var tiedSecondRequest = new HttpRequestMessage(HttpMethod.Get,
+            $"/api/v1/identity/authentication-events?pageSize=1&eventType=integration.cursor&cursor={Uri.EscapeDataString(tiedFirst.NextCursor)}");
+        tiedSecondRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var tiedSecondResponse = await client.SendAsync(tiedSecondRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, tiedSecondResponse.StatusCode);
+        var tiedSecond = await tiedSecondResponse.Content.ReadFromJsonAsync<AuthenticationEventCursorPage>(cancellationToken);
+        Assert.IsNotNull(tiedSecond);
+        Assert.HasCount(1, tiedSecond.Items);
+        CollectionAssert.AreEquivalent(tiedIds, new[] { tiedFirst.Items[0].Id, tiedSecond.Items[0].Id });
 
         using var failedEventRequest = new HttpRequestMessage(HttpMethod.Get,
             "/api/v1/identity/authentication-events?eventType=login&succeeded=false");
@@ -88,7 +162,7 @@ internal static class AuthenticationEventAssertions
         using var failedEventResponse = await client.SendAsync(failedEventRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, failedEventResponse.StatusCode);
         var failedEvents = await failedEventResponse.Content.ReadFromJsonAsync<
-            Full.NET.Abstractions.Results.PagedResult<AuthenticationEventResponse>>(cancellationToken);
+            AuthenticationEventCursorPage>(cancellationToken);
         Assert.IsNotNull(failedEvents);
         Assert.IsTrue(failedEvents.Items.Any(item =>
             item.EventType == "login" && !item.Succeeded && item.ActorUserId is null));
@@ -166,7 +240,7 @@ internal static class AuthenticationEventAssertions
         using var exportAuditResponse = await client.SendAsync(exportAuditRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, exportAuditResponse.StatusCode);
         var exportEvents = await exportAuditResponse.Content.ReadFromJsonAsync<
-            Full.NET.Abstractions.Results.PagedResult<AuthenticationEventResponse>>(cancellationToken);
+            AuthenticationEventCursorPage>(cancellationToken);
         Assert.IsNotNull(exportEvents);
         Assert.IsTrue(exportEvents.Items.Any(item => item.EventType == "authentication_events.export"));
     }

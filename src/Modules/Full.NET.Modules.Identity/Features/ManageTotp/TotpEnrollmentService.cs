@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -16,6 +17,8 @@ namespace Full.NET.Modules.Identity.Features.ManageTotp;
 internal sealed class TotpEnrollmentService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
+    ICommandTransaction transaction,
+    AuthenticationSecurityEventWriter authenticationEvents,
     TotpSecretProtector secretProtector,
     IOptions<FullNetIdentityOptions> identityOptions,
     IClock clock)
@@ -73,22 +76,23 @@ internal sealed class TotpEnrollmentService(
             ("SecretProtected", secretProtector.Protect(sharedSecret)),
             ("CreatedAtUtc", now),
             ("UpdatedAtUtc", now));
-        if (existing is null)
+        await transaction.ExecuteAsync(async token =>
         {
-            await commandExecutor.ExecuteAsync(
-                    IdentitySql.InsertUserTotpPending,
-                    parameters,
-                    cancellationToken)
+            var affected = await commandExecutor.ExecuteAsync(
+                    existing is null ? IdentitySql.InsertUserTotpPending
+                        : IdentitySql.ResetUserTotpPending,
+                    parameters, token)
                 .ConfigureAwait(false);
-        }
-        else
-        {
-            await commandExecutor.ExecuteAsync(
-                    IdentitySql.ResetUserTotpPending,
-                    parameters,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
+            if (affected != 1)
+            {
+                throw new InvalidOperationException("TOTP enrollment state was not written.");
+            }
+
+            await authenticationEvents.WriteAsync(userId, userId,
+                "mfa.totp_enrollment_started", "identity.mfa_totp_enrollment_started",
+                true, "totp", token).ConfigureAwait(false);
+            return true;
+        }, cancellationToken).ConfigureAwait(false);
 
         return Result<BeginTotpEnrollmentResponse>.Success(
             new BeginTotpEnrollmentResponse(
@@ -111,6 +115,9 @@ internal sealed class TotpEnrollmentService(
 
         if (string.IsNullOrWhiteSpace(totpCode))
         {
+            await authenticationEvents.WriteAsync(userId, null,
+                "mfa.totp_enrollment_confirmed", IdentityErrorCodes.MfaTotpRequired,
+                false, "totp", cancellationToken).ConfigureAwait(false);
             return Result<TotpEnrollmentStatusResponse>.Failure(new Error(
                 IdentityErrorCodes.MfaTotpRequired,
                 "A TOTP code is required to confirm enrollment.",
@@ -124,6 +131,9 @@ internal sealed class TotpEnrollmentService(
             .ConfigureAwait(false);
         if (pending is null || string.IsNullOrEmpty(pending.SecretProtected))
         {
+            await authenticationEvents.WriteAsync(userId, null,
+                "mfa.totp_enrollment_confirmed", IdentityErrorCodes.MfaTotpNotEnrolled,
+                false, "totp", cancellationToken).ConfigureAwait(false);
             return Result<TotpEnrollmentStatusResponse>.Failure(new Error(
                 IdentityErrorCodes.MfaTotpNotEnrolled,
                 "Begin TOTP enrollment before confirming.",
@@ -143,6 +153,9 @@ internal sealed class TotpEnrollmentService(
         }
         catch
         {
+            await authenticationEvents.WriteAsync(userId, null,
+                "mfa.totp_enrollment_confirmed", IdentityErrorCodes.MfaTotpInvalid,
+                false, "totp", cancellationToken).ConfigureAwait(false);
             return Result<TotpEnrollmentStatusResponse>.Failure(new Error(
                 IdentityErrorCodes.MfaTotpInvalid,
                 "The pending TOTP credential cannot be read.",
@@ -156,6 +169,9 @@ internal sealed class TotpEnrollmentService(
         }
         catch (FormatException)
         {
+            await authenticationEvents.WriteAsync(userId, null,
+                "mfa.totp_enrollment_confirmed", IdentityErrorCodes.MfaTotpInvalid,
+                false, "totp", cancellationToken).ConfigureAwait(false);
             return Result<TotpEnrollmentStatusResponse>.Failure(new Error(
                 IdentityErrorCodes.MfaTotpInvalid,
                 "The pending TOTP credential is malformed.",
@@ -164,6 +180,9 @@ internal sealed class TotpEnrollmentService(
 
         if (!TotpAlgorithm.Verify(key, totpCode, clock.UtcNow))
         {
+            await authenticationEvents.WriteAsync(userId, null,
+                "mfa.totp_enrollment_confirmed", IdentityErrorCodes.MfaTotpInvalid,
+                false, "totp", cancellationToken).ConfigureAwait(false);
             return Result<TotpEnrollmentStatusResponse>.Failure(new Error(
                 IdentityErrorCodes.MfaTotpInvalid,
                 "The TOTP code is invalid.",
@@ -171,17 +190,30 @@ internal sealed class TotpEnrollmentService(
         }
 
         var now = clock.UtcNow;
-        var affected = await commandExecutor.ExecuteAsync(
-                IdentitySql.ConfirmUserTotp,
-                IdentitySqlParameters.Create(
-                    ("UserId", userId),
-                    ("ConfirmedAtUtc", now),
-                    ("UpdatedAtUtc", now),
-                    ("Version", pending.Version)),
-                cancellationToken)
-            .ConfigureAwait(false);
+        var affected = await transaction.ExecuteAsync(async token =>
+        {
+            var rows = await commandExecutor.ExecuteAsync(
+                    IdentitySql.ConfirmUserTotp,
+                    IdentitySqlParameters.Create(
+                        ("UserId", userId),
+                        ("ConfirmedAtUtc", now),
+                        ("UpdatedAtUtc", now),
+                        ("Version", pending.Version)),
+                    token)
+                .ConfigureAwait(false);
+            if (rows == 1)
+            {
+                await authenticationEvents.WriteAsync(userId, userId,
+                    "mfa.totp_enrollment_confirmed", "identity.mfa_totp_enrollment_confirmed",
+                    true, "totp", token).ConfigureAwait(false);
+            }
+            return rows;
+        }, cancellationToken).ConfigureAwait(false);
         if (affected != 1)
         {
+            await authenticationEvents.WriteAsync(userId, null,
+                "mfa.totp_enrollment_confirmed", IdentityErrorCodes.MfaTotpInvalid,
+                false, "totp", cancellationToken).ConfigureAwait(false);
             return Result<TotpEnrollmentStatusResponse>.Failure(new Error(
                 IdentityErrorCodes.MfaTotpInvalid,
                 "TOTP enrollment confirmation conflicted; retry begin.",

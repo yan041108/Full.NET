@@ -22,6 +22,7 @@ internal sealed class HostUserManagementService(
     Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser> passwordHasher,
     IClock clock,
     IIdGenerator idGenerator,
+    AuthenticationSecurityEventWriter authenticationEvents,
     IPermissionSnapshotReader permissionSnapshots,
     IIdentityOidcUserAuthorityRevoker oidcUserAuthorityRevoker)
 {
@@ -135,9 +136,10 @@ internal sealed class HostUserManagementService(
     public Task<Result<HostUserResponse>> ResetPasswordAsync(
         Guid userId,
         ResetHostUserPasswordRequest request,
+        Guid actorUserId,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => ResetPasswordCoreAsync(userId, request, token),
+        transaction.ExecuteResultAsync(
+            token => ResetPasswordCoreAsync(userId, request, actorUserId, token),
             cancellationToken);
 
     /// <summary>逐行导入；超级管理员账号类型直接拒绝且不创建。</summary>
@@ -699,6 +701,7 @@ internal sealed class HostUserManagementService(
     private async Task<Result<HostUserResponse>> ResetPasswordCoreAsync(
         Guid userId,
         ResetHostUserPasswordRequest request,
+        Guid actorUserId,
         CancellationToken cancellationToken)
     {
         var password = request.Password ?? string.Empty;
@@ -767,6 +770,10 @@ internal sealed class HostUserManagementService(
         {
             return NotFound();
         }
+
+        await authenticationEvents.WriteAsync(userId, actorUserId,
+            "password.admin_reset", "identity.password_admin_reset_succeeded",
+            true, "admin", cancellationToken).ConfigureAwait(false);
 
         return Result<HostUserResponse>.Success(MapHostUserResponse(updated));
     }

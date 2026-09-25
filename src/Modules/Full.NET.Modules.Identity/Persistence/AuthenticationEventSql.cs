@@ -26,14 +26,18 @@ internal static class AuthenticationEventSql
 
     public static readonly SqlStatement ListSqlServer = new(
         "identity.list_authentication_events.sql_server",
-        "SELECT " + Projection + " " + Filter
-            + " ORDER BY OccurredAtUtc DESC, Id DESC OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY",
+        "SELECT TOP (@FetchSize) " + Projection + " " + Filter
+            + " AND (@CursorOccurredAtUtc IS NULL OR OccurredAtUtc < @CursorOccurredAtUtc"
+            + " OR (OccurredAtUtc = @CursorOccurredAtUtc AND Id < @CursorId))"
+            + " ORDER BY OccurredAtUtc DESC, Id DESC",
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement ListMySql = new(
         "identity.list_authentication_events.my_sql",
         "SELECT " + Projection + " " + Filter
-            + " ORDER BY OccurredAtUtc DESC, Id DESC LIMIT @PageSize OFFSET @Offset",
+            + " AND (@CursorOccurredAtUtc IS NULL OR OccurredAtUtc < @CursorOccurredAtUtc"
+            + " OR (OccurredAtUtc = @CursorOccurredAtUtc AND Id < @CursorId))"
+            + " ORDER BY OccurredAtUtc DESC, Id DESC LIMIT @FetchSize",
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement GetById = new(

@@ -328,6 +328,11 @@ export interface AssignOrganizationPositionUnitRequest {
   readonly version: number;
 }
 
+export interface AuthenticationEventCursorPage {
+  readonly items: Array<AuthenticationEventResponse>;
+  readonly nextCursor: null | string;
+}
+
 export interface AuthenticationEventResponse {
   readonly actorUserId: null | string;
   readonly applicationSessionId: null | string;
@@ -2835,13 +2840,6 @@ export interface PagedResultOfAiModelConfigListItem {
 
 export interface PagedResultOfAiTenantQuotaListItem {
   readonly items: Array<AiTenantQuotaListItem>;
-  readonly page: number;
-  readonly pageSize: number;
-  readonly total: number;
-}
-
-export interface PagedResultOfAuthenticationEventResponse {
-  readonly items: Array<AuthenticationEventResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;

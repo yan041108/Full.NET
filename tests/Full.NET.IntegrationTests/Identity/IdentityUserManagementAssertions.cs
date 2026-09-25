@@ -588,6 +588,17 @@ internal static class IdentityUserManagementAssertions
         using var resetResponse = await client.SendAsync(resetRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, resetResponse.StatusCode);
 
+        using var resetAuditRequest = new HttpRequestMessage(HttpMethod.Get,
+            $"/api/v1/identity/authentication-events?eventType=password.admin_reset&userId={created.Id:D}");
+        resetAuditRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var resetAuditResponse = await client.SendAsync(resetAuditRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, resetAuditResponse.StatusCode);
+        var resetEvents = await resetAuditResponse.Content.ReadFromJsonAsync<AuthenticationEventCursorPage>(
+            cancellationToken);
+        Assert.IsNotNull(resetEvents);
+        Assert.IsTrue(resetEvents.Items.Any(item => item.Succeeded
+            && item.UserId == created.Id && item.ActorUserId.HasValue));
+
         using var oldLoginRequest = new HttpRequestMessage(
             HttpMethod.Post,
             "/api/v1/auth/login")

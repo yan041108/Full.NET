@@ -112,9 +112,17 @@ public sealed class TotpStrongReauthTests
 
         var key = TotpAlgorithm.DecodeSharedSecret(begin.Value!.SharedSecretBase32);
         var code = TotpAlgorithm.ComputeCode(key, sp.GetRequiredService<IClock>().UtcNow);
+        var invalidConfirmation = await enrollment.ConfirmAsync(principal, "invalid");
+        Assert.IsFalse(invalidConfirmation.IsSuccess);
+        Assert.AreEqual(1L, await CountAuthenticationEventsAsync(
+            query, sp.GetRequiredService<IClock>().UtcNow,
+            admin.Id, "mfa.totp_enrollment_confirmed", false));
         var confirm = await enrollment.ConfirmAsync(principal, code);
         Assert.IsTrue(confirm.IsSuccess, confirm.Error?.Message);
         Assert.IsTrue(confirm.Value!.IsEnabled);
+        Assert.AreEqual(1L, await CountAuthenticationEventsAsync(
+            query, sp.GetRequiredService<IClock>().UtcNow,
+            admin.Id, "mfa.totp_enrollment_confirmed", true));
 
         var hostUsers = sp.GetRequiredService<HostUserManagementService>();
         var created = await hostUsers.CreateAsync(
@@ -142,7 +150,22 @@ public sealed class TotpStrongReauthTests
             freshCode);
         Assert.IsTrue(grant.IsSuccess, grant.Error?.Message);
         Assert.IsTrue(grant.Value!.Changed);
+        Assert.AreEqual(1L, await CountAuthenticationEventsAsync(
+            query, sp.GetRequiredService<IClock>().UtcNow,
+            admin.Id, "mfa.strong_reauthentication", false));
+        Assert.AreEqual(1L, await CountAuthenticationEventsAsync(
+            query, sp.GetRequiredService<IClock>().UtcNow,
+            admin.Id, "mfa.strong_reauthentication", true));
     }
+
+    private static Task<long> CountAuthenticationEventsAsync(
+        IQueryExecutor query, DateTimeOffset now, Guid userId,
+        string eventType, bool succeeded) =>
+        query.QuerySingleOrDefaultAsync<long>(AuthenticationEventSql.Count,
+            IdentitySqlParameters.Create(
+                ("FromUtc", now.AddDays(-1)), ("ToUtc", now.AddDays(1)),
+                ("UserId", userId), ("EventType", eventType),
+                ("Succeeded", succeeded)));
 
     private static ServiceProvider BuildProductionServices(DatabaseOptions options)
     {

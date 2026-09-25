@@ -7,6 +7,7 @@ using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
 using Full.NET.Modules.Identity.Oidc;
+using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Identity;
 using NSubstitute;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
@@ -99,6 +100,10 @@ public sealed class HostUserManagementDeadlockRetryTests
             new StubPasswordHasher(),
             Substitute.For<IClock>(),
             Substitute.For<IIdGenerator>(),
+            new AuthenticationSecurityEventWriter(
+                Substitute.For<ICommandExecutor>(),
+                Substitute.For<IIdGenerator>(),
+                Substitute.For<IClock>()),
             Substitute.For<IPermissionSnapshotReader>(),
             Substitute.For<IIdentityOidcUserAuthorityRevoker>());
 

@@ -12066,6 +12066,13 @@
               "format": "date-time",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -12073,7 +12080,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PagedResultOfAuthenticationEventResponse"
+                  "$ref": "#/components/schemas/AuthenticationEventCursorPage"
                 }
               }
             },
@@ -42858,6 +42865,27 @@
         ],
         "type": "object"
       },
+      "AuthenticationEventCursorPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuthenticationEventResponse"
+            },
+            "type": "array"
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object"
+      },
       "AuthenticationEventResponse": {
         "properties": {
           "actorUserId": {
@@ -54935,47 +54963,6 @@
           "items": {
             "items": {
               "$ref": "#/components/schemas/AiTenantQuotaListItem"
-            },
-            "type": "array"
-          },
-          "page": {
-            "format": "int32",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
-          },
-          "pageSize": {
-            "format": "int32",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
-          },
-          "total": {
-            "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
-          }
-        },
-        "required": [
-          "items",
-          "page",
-          "pageSize",
-          "total"
-        ],
-        "type": "object"
-      },
-      "PagedResultOfAuthenticationEventResponse": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/AuthenticationEventResponse"
             },
             "type": "array"
           },

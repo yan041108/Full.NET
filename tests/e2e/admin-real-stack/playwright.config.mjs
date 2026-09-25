@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
-const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+const apiBaseUrl = process.env.FULLNET_E2E_API_URL
+  ?? `http://localhost:${process.env.FULLNET_E2E_API_PORT ?? '5149'}`;
 
 export default defineConfig({
   testDir: './tests',
