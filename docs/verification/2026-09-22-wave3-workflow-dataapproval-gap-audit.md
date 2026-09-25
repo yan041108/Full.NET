@@ -1,14 +1,14 @@
 # Wave 3 — Workflow / DataApproval 差距核对（清单 01–12）
 
 **日期**：2026-09-22  
-**基线**：`da77e74e` 及本切片文档/测试增量  
+**基线**：`9ca8f003`；CI [36077487558](https://github.com/yan041108/Full.NET/actions/runs/36077487558) 全绿
 **口径**：对照 [2026-09-05 执行清单 §7.A](2026-09-05-adminnet-module-gap-and-execution-checklist.md)；`已实现` = 源码存在；`证据` = 双库 Integration 或 admin-real-stack E2E。
 
 | ID | 实现状态 | 源码锚点 | 测试证据 | 仍缺动作 |
 |----|----------|----------|----------|----------|
 | 01 | 已实现 | `DataApprovalScenarioService`、`DataApprovalScenariosView.vue` | OpenAPI + `DataApprovalApiAssertions` 双库；`data-approval-scenarios.spec.mjs` | — |
 | 02 | 已实现 | 流水号强类型提案、`SerialNumberRulesView` 提交审批 | Unit + `serial-number-rules.spec.mjs`（UI 提交审批 full path，2026-09-23）+ `data-approval-requests.spec.mjs` | — |
-| 03 | 已实现 | `retry` 端点、`DataApprovalRequestRecoveryHostedProcessor` | 迁移 118–120；本切片补 API 列表/读权限断言 | 进程中断恢复 full E2E |
+| 03 | 已实现 | `retry` 端点、`DataApprovalRequestRecoveryHostedProcessor` | 迁移 118–120；`DataApprovalRecoveryRestartAssertions` 在 SQL Server/MySQL 验证请求失败后关闭并重启 API、启动独立 Worker 后完成关联；CI 36077487558 双库通过 | — |
 | 04 | 已实现 | `retry-apply`、`DataApprovalRequestApplicationRecoveryBatchProcessor` | Unit + 迁移 121 | 应用冲突 real-stack |
 | 05 | 已实现 | `workflowListInstances`、`/instances/mine`、`WorkflowInstancesView` | `WorkflowRuntimeApiAssertions`；`workflow-instances.spec.mjs`（main CI [36058569059](https://github.com/yan041108/Full.NET/actions/runs/36058569059) real-stack green） | — |
 | 06 | 已实现 | `workflowListMyTodoHistory`、`WorkflowTodosView` history | `workflow-todos-history.spec.mjs`（待办/已办页签） | 有数据时详情断言 |
@@ -29,7 +29,7 @@
 
 ## 结论
 
-清单 01–12 **产品代码已基本到位**；Wave 3 剩余工作是 DataApproval 进程中断恢复与应用冲突 real-stack、待办历史有数据时的详情断言、Workflow 表单附件 real-stack，以及 Recovery 专属 full E2E。通知投影、Workflow 实例列表与业务单据跳转已有 fresh CI 证据；不应对 05–09 重复立项。parity `Verified` 仍受 [B2 运行手册](2026-09-22-b2-verified-gates-runbook.md) 约束。
+清单 01–12 **产品代码已基本到位**；DataApproval 请求在 API 主机重启后的恢复已有 SQL Server/MySQL 集成证据。Wave 3 剩余工作是 DataApproval 应用冲突 real-stack、待办历史有数据时的详情断言、Workflow 表单附件 real-stack，以及 Workflow Recovery 专属触发/恢复 full E2E。通知投影、Workflow 实例列表与业务单据跳转已有 fresh CI 证据；不应对 05–09 重复立项。parity `Verified` 仍受 [B2 运行手册](2026-09-22-b2-verified-gates-runbook.md) 约束。
 
 ## Phase A 程序收口（2026-09-23）
 

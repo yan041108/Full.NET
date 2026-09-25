@@ -7,7 +7,7 @@
 
 | 包 | 状态 | 证据/备注 |
 |----|------|-----------|
-| G0-1 CI | **fresh green（2026-09-24）** | [CI 36058569059](https://github.com/yan041108/Full.NET/actions/runs/36058569059)：全 integration shard、real-stack 双库与 integration-gate 通过；[API Native AOT 36058568698](https://github.com/yan041108/Full.NET/actions/runs/36058568698)；[Worker Native AOT 36058568904](https://github.com/yan041108/Full.NET/actions/runs/36058568904) |
+| G0-1 CI | **fresh green（2026-09-25）** | [CI 36077487558](https://github.com/yan041108/Full.NET/actions/runs/36077487558)：全 integration shard、real-stack 双库与 integration-gate 通过；[API Native AOT 36077487537](https://github.com/yan041108/Full.NET/actions/runs/36077487537)；[Worker Native AOT 36077487567](https://github.com/yan041108/Full.NET/actions/runs/36077487567) |
 | G0-2 A 区 E2E | **仍开放** | 清单 02 UI 路径见 `serial-number-rules.spec.mjs`；`8b6d0076` 补 19 API 复制；Workflow→Notifications Worker 投影已双库通过（[验证记录](2026-09-05-workflow-notifications-event-projection.md)）；Recovery 专属流程与 A 区 P0 证据仍需核对 |
 | G0-3 RBAC merge | **integration merge fresh green；Verified 补强仍开放** | `admin-action-w4-w5-program-20260803` 的 integration-shard 条件由 [CI 36058569059](https://github.com/yan041108/Full.NET/actions/runs/36058569059) 满足；额外跨模块动作权限 real-stack 场景仍按 [W4–W5 验证记录](vue-action-authorization-w4-w5-closeout-2026-08-03.md) 保持开放 |
 | 本机 | 2026-09-23 | `pnpm test:governance` 55/55；`AiBudgetRowReader` 4/4；`HostRoleManagementServiceTests` 13/13 |
