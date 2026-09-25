@@ -26,13 +26,22 @@ vi.mock('../api/platform-dashboard', () => ({
 
 import OverviewView from './OverviewView.vue';
 
+const mountedWrappers: ReturnType<typeof mount>[] = [];
+
+function mountOverview() {
+  const wrapper = mount(OverviewView);
+  mountedWrappers.push(wrapper);
+  return wrapper;
+}
+
 afterEach(() => {
+  mountedWrappers.splice(0).forEach(wrapper => wrapper.unmount());
   vi.unstubAllGlobals();
 });
 
 describe('Vue 管理端概览页', () => {
   it('呈现运营指标、系统脉搏和最近活动分区', async () => {
-    const wrapper = mount(OverviewView);
+    const wrapper = mountOverview();
 
     await flushPromises();
     expect(wrapper.get('[data-testid="metric-grid"]').text()).toContain('活跃租户');
@@ -58,7 +67,7 @@ describe('Vue 管理端概览页', () => {
       headers: { 'content-type': 'application/problem+json' }
     })));
 
-    const wrapper = mount(OverviewView);
+    const wrapper = mountOverview();
 
     await flushPromises();
     await wrapper.get('[data-testid="load-current-user"]').trigger('click');
@@ -77,7 +86,7 @@ describe('Vue 管理端概览页', () => {
     });
     const fetchMock = vi.fn().mockReturnValue(pendingResponse);
     vi.stubGlobal('fetch', fetchMock);
-    const wrapper = mount(OverviewView);
+    const wrapper = mountOverview();
     await flushPromises();
     const button = wrapper.get('[data-testid="load-current-user"]');
 
