@@ -32,6 +32,8 @@ public sealed class GlobalSqlStatementCatalogTests
         "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.BuildOperations",
         "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.BuildExceptions",
         "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.BuildOutbounds",
+        // 访问日志批量 INSERT 只展开固定列和参数名，不允许由日志内容改变 SQL 结构。
+        "Full.NET.Modules.Auditing.Features.WriteAccessLogs.AccessLogBatchSql.Build",
         "Full.NET.Modules.Identity.Persistence.IdentitySql.BuildProjectedHostUserProfilesByIds",
         "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.CreatePageRulesMySql",
         "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.CreatePageRulesSqlServer",

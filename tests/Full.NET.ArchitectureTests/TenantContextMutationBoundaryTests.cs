@@ -52,6 +52,7 @@ public sealed class TenantContextMutationBoundaryTests
         // OIDC 登出在 Host 作用域撤销跨租户会话和授权记录，然后恢复原租户。
         "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcAuthorizationService.cs",
         "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcClientRegistrar.cs",
+        "src/Modules/Full.NET.Modules.Identity/Retention/AuthenticationEventRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Identity/Retention/IdentityOidcRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Identity/Security/FullNetJwtBearerEvents.cs",
         // 种子数据在 Host 作用域写入成员关系，租户来自已授权种子上下文而非请求参数。
