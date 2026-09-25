@@ -8,6 +8,14 @@ Audit Access、Operation、Exception 汇总表和已成功处理的 Outbox 已�
 
 ## Audit 配置
 
+API 的访问日志入库由 `Auditing:AccessLogCapture:Enabled` 控制。Development 默认开启，
+其他环境默认关闭；生产启用前需确认访问量、数据库写入预算和保留制度。
+开启后记录 `/api` HTTP 请求的路由模板、状态码、耗时和可信身份摘要，不记录查询参数、
+请求体或令牌。纯 Vue 前端路由切换没有 HTTP API 请求时，不产生访问日志。
+写入使用独立 B2 有界队列，每批最多 100 行；队列满、数据库故障或停机超时会丢弃记录，
+不阻塞业务请求。通过 `Full.NET.Auditing.AccessLog` Meter 的 accepted、written、dropped
+计数器观察丢弃情况。该能力不承诺每条请求都能持久化，也不替代 B1 操作审计。
+
 Worker 使用 `Auditing:Retention`：
 
 ```json

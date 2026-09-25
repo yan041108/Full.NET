@@ -11,7 +11,11 @@ public sealed class AuditingApiSqlServerTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            new Dictionary<string, string?>
+            {
+                ["Auditing:AccessLogCapture:Enabled"] = "true",
+            });
 
         await AuditingAccessLogAssertions.VerifyAsync(factory);
     }

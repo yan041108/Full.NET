@@ -81,8 +81,9 @@ internal static class AuditingAccessLogAssertions
             client,
             adminToken,
             cancellationToken);
+        await VerifyCapturedGetAsync(client, adminToken, cancellationToken);
 
-        // 生产默认不再逐请求写 Access 表；查询/保留契约通过显式种子行验证。
+        // 游标同时间戳边界仍使用确定性种子行验证。
         var referenceUtc = DateTimeOffset.UtcNow;
         await SeedAccessLogRowsAsync(
             factory,
@@ -146,6 +147,56 @@ internal static class AuditingAccessLogAssertions
         Assert.AreEqual(
             AuditingErrorCodes.AccessLogNotFound,
             problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyCapturedGetAsync(
+        HttpClient client,
+        string adminToken,
+        CancellationToken cancellationToken)
+    {
+        var startedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-1);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/settings/enum-catalogs?access_token=must-not-be-stored");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+        AccessLogResponse? captured = null;
+        while (DateTimeOffset.UtcNow < deadline && captured is null)
+        {
+            var timeRangeQuery = CreateTimeRangeQuery(
+                startedAtUtc,
+                DateTimeOffset.UtcNow.AddMinutes(1));
+            using var listRequest = new HttpRequestMessage(
+                HttpMethod.Get,
+                "/api/v1/auditing/access-logs?page=1&pageSize=20"
+                + "&pathContains=/api/v1/settings/enum-catalogs"
+                + $"&{timeRangeQuery}");
+            listRequest.Headers.Authorization = new AuthenticationHeaderValue(
+                "Bearer",
+                adminToken);
+            using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+            var page = await listResponse.Content
+                .ReadFromJsonAsync<PagedResult<AccessLogResponse>>(cancellationToken);
+            captured = page?.Items.FirstOrDefault(item =>
+                item.RequestPath.StartsWith(
+                    "/api/v1/settings/enum-catalogs",
+                    StringComparison.Ordinal));
+            if (captured is null)
+            {
+                await Task.Delay(100, cancellationToken);
+            }
+        }
+
+        Assert.IsNotNull(captured, "GET 请求应通过 B2 批量通道写入访问日志。");
+        Assert.AreEqual("GET", captured.HttpMethod);
+        Assert.AreEqual(200, captured.StatusCode);
+        Assert.IsTrue(captured.IsAuthenticated);
+        Assert.IsFalse(captured.RequestPath.Contains('?', StringComparison.Ordinal));
+        Assert.IsFalse(captured.RequestPath.Contains("must-not-be-stored", StringComparison.Ordinal));
     }
 
     private static async Task SeedAccessLogRowsAsync(

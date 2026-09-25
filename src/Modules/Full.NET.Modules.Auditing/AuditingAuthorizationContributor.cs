@@ -57,6 +57,17 @@ internal sealed class AuditingAuthorizationContributor
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
     [
         new NavigationDefinition(
+            "authentication-events",
+            null,
+            "authentication-events",
+            "/auditing/authentication-events",
+            "authentication-events",
+            "认证事件日志",
+            "Authentication Events",
+            "document",
+            59,
+            AuthenticationEventPermissions.Read),
+        new NavigationDefinition(
             "access-logs",
             null,
             "access-logs",

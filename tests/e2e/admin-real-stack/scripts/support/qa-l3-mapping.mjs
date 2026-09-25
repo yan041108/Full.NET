@@ -21,7 +21,7 @@ const L3_BY_KEY = {
   'org-user-units': ['host-org-user-units.spec.mjs'],
   'org-user-positions': ['host-org-user-positions.spec.mjs'],
   'host-files': ['host-files.spec.mjs'],
-  'host-documents': ['host-documents.spec.mjs'],
+  'host-documents': ['host-documents.spec.mjs', 'host-document-version-rollback.spec.mjs'],
   'document-categories': ['document-categories.spec.mjs'],
   'document-tags': ['document-tags.spec.mjs'],
   'document-shares': ['document-shares.spec.mjs'],

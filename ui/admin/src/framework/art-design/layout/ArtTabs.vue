@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import {
   computed,
+  nextTick,
   onMounted,
   onUnmounted,
-  ref
+  ref,
+  watch
 } from 'vue';
 import { ArrowDown, Close } from '@element-plus/icons-vue';
 import {
@@ -15,6 +17,7 @@ import {
 import type { MessageKey } from '@fullnet/admin-i18n';
 import type { ShellTabCloseScope, ShellTabItem } from '../adapters/fullNetShellAdapter';
 import { isShellTabClosable } from '../adapters/fullNetShellAdapter';
+import { moveHorizontalTabScrollToTarget } from '../utils/shellScrollIntoView';
 
 defineOptions({ name: 'ArtTabs' });
 
@@ -132,9 +135,63 @@ function onDocumentKeydown(event: KeyboardEvent): void {
   }
 }
 
+function collectTabElements(): HTMLElement[] {
+  const root = scrollRef.value;
+  if (!root) {
+    return [];
+  }
+
+  return Array.from(
+    root.querySelectorAll<HTMLElement>('.art-tabs__item[data-shell-tab-path]')
+  );
+}
+
+async function scrollActiveTabIntoView(): Promise<void> {
+  await nextTick();
+  const scrollContainer = scrollRef.value;
+  if (!scrollContainer) {
+    return;
+  }
+
+  const tabElements = collectTabElements();
+  const activeIndex = props.tabs.findIndex(tab => tab.path === props.activePath);
+  if (activeIndex < 0) {
+    return;
+  }
+
+  moveHorizontalTabScrollToTarget(scrollContainer, tabElements, activeIndex);
+}
+
+function onTabStripWheel(event: WheelEvent): void {
+  const scrollContainer = scrollRef.value;
+  if (!scrollContainer) {
+    return;
+  }
+
+  if (scrollContainer.scrollWidth <= scrollContainer.clientWidth) {
+    return;
+  }
+
+  const delta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
+  if (delta === 0) {
+    return;
+  }
+
+  event.preventDefault();
+  scrollContainer.scrollLeft += delta;
+}
+
+watch(
+  () => [props.activePath, props.tabs.length, props.tabs.map(tab => tab.path).join('\0')] as const,
+  () => {
+    void scrollActiveTabIntoView();
+  }
+);
+
 onMounted(() => {
   document.addEventListener('click', onDocumentClick);
   document.addEventListener('keydown', onDocumentKeydown);
+  void scrollActiveTabIntoView();
 });
 
 onUnmounted(() => {
@@ -148,7 +205,11 @@ onUnmounted(() => {
     v-if="tabs.length > 0"
     class="art-tabs-bar"
   >
-    <div ref="scrollRef" class="art-tabs-bar__scroll">
+    <div
+      ref="scrollRef"
+      class="art-tabs-bar__scroll"
+      @wheel.prevent="onTabStripWheel"
+    >
       <div
         class="art-tabs"
         role="tablist"
@@ -165,6 +226,7 @@ onUnmounted(() => {
             'art-tabs__item--google': tabStyle === 'google'
           }"
           :aria-selected="tab.path === activePath"
+          :data-shell-tab-path="tab.path"
           @click="emit('activate', tab.path)"
           @contextmenu.prevent="openMenu($event, tab.path)"
         >

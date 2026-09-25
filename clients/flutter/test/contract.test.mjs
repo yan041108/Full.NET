@@ -41,4 +41,13 @@ describe('flutter workflow client contract', () => {
     assert.match(client, /'approve'/);
     assert.match(client, /'reject'/);
   });
+
+  it('limits the first slice to workflow todos without admin shell pages', async () => {
+    const app = await readDart('../lib/app/full_net_app.dart');
+
+    assert.match(app, /WorkflowTodosPage/);
+    assert.match(app, /LoginPage/);
+    assert.doesNotMatch(app, /notifications|inbox|admin|crud/i);
+    assert.doesNotMatch(app, /MaterialApp\([\s\S]*routes:/);
+  });
 });

@@ -7,6 +7,7 @@ import {
   loginAccessTokenWithPassword,
   loginAsHostAdmin,
   loginAsHostViewer,
+  loginHostAdminAccessToken,
   statusPath
 } from './support/real-stack-auth.mjs';
 
@@ -112,6 +113,107 @@ test('Host 管理员可从 UI 强制下线其他在线会话', async ({ page, re
     await page.locator('.layui-layer-btn0').click();
   }
   expect((await revokeResponse).ok()).toBeTruthy();
+
+  const meResponse = await request.get(`${apiBaseUrl}/api/v1/me`, {
+    headers: {
+      Authorization: `Bearer ${victimToken}`,
+      Origin: origin
+    }
+  });
+  expect(meResponse.status()).toBe(401);
+});
+
+test('Host 管理员可按用户撤销全部在线会话并读取会话策略（清单 30）', async ({ request }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  const origin = adminOrigin(clientKind);
+  const victimPassword = 'FullNet!2026Secure';
+  const victimUsername = `e2e-revoke-all-${Date.now()}`;
+  const victim = await createHostUserViaApi(request, clientKind, {
+    username: victimUsername,
+    displayName: 'E2E 全量下线',
+    password: victimPassword
+  });
+  const tokenA = await loginAccessTokenWithPassword(
+    request,
+    clientKind,
+    victimUsername,
+    victimPassword
+  );
+  const tokenB = await loginAccessTokenWithPassword(
+    request,
+    clientKind,
+    victimUsername,
+    victimPassword
+  );
+
+  const hostToken = await loginHostAdminAccessToken(request, clientKind);
+  const hostHeaders = {
+    Authorization: `Bearer ${hostToken}`,
+    Origin: origin
+  };
+
+  const policyResponse = await request.get(`${apiBaseUrl}/api/v1/identity/session-policy`, {
+    headers: hostHeaders
+  });
+  expect(policyResponse.ok()).toBeTruthy();
+  const policy = await policyResponse.json();
+  expect(typeof policy.loginPolicy).toBe('number');
+
+  const revokeResponse = await request.post(
+    `${apiBaseUrl}/api/v1/identity/online-sessions/users/${victim.id}/revoke-all`,
+    { headers: hostHeaders }
+  );
+  expect(revokeResponse.ok()).toBeTruthy();
+  const revoked = await revokeResponse.json();
+  expect(revoked.userId).toBe(victim.id);
+  expect(revoked.username).toBe(victimUsername);
+  expect(revoked.revokedSessionCount).toBeGreaterThanOrEqual(1);
+
+  for (const token of [tokenA, tokenB]) {
+    const meResponse = await request.get(`${apiBaseUrl}/api/v1/me`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Origin: origin
+      }
+    });
+    expect(meResponse.status()).toBe(401);
+  }
+});
+
+test('Vue 在线用户页展示会话策略并可全部下线（清单 30）', async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.metadata.clientKind !== 'vue', '会话策略与全部下线仅验收 Vue');
+  const clientKind = testInfo.project.metadata.clientKind;
+  const origin = adminOrigin(clientKind);
+  const victimPassword = 'FullNet!2026Secure';
+  const victimUsername = `e2e-revoke-all-ui-${Date.now()}`;
+  await createHostUserViaApi(request, clientKind, {
+    username: victimUsername,
+    displayName: 'E2E 全量下线 UI',
+    password: victimPassword
+  });
+  const victimToken = await loginAccessTokenWithPassword(
+    request,
+    clientKind,
+    victimUsername,
+    victimPassword
+  );
+
+  await loginAsHostAdmin(page);
+  await clickMainNavLink(page, /在线用户/);
+
+  const onlineSessionsView = page.locator('.online-sessions-view');
+  await expect(onlineSessionsView.getByText(/当前策略/u)).toBeVisible({ timeout: 15_000 });
+  await expect(onlineSessionsView.getByText(victimUsername, { exact: true }).first()).toBeVisible({
+    timeout: 15_000
+  });
+
+  const victimRow = onlineSessionsView
+    .getByRole('row')
+    .filter({ hasText: victimUsername })
+    .first();
+  await victimRow.getByRole('button', { name: '全部下线', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: '全部下线', exact: true }).click();
 
   const meResponse = await request.get(`${apiBaseUrl}/api/v1/me`, {
     headers: {

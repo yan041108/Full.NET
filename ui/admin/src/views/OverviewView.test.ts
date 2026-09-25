@@ -2,8 +2,25 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 vi.mock('../api/platform-dashboard', () => ({
   getHostDashboardSummary: vi.fn().mockResolvedValue({
-    activeTenantCount: 3, onlineSessionCount: 2, todayRequestCount: 10, todayErrorRate: 0,
-    recentActivities: [], accessTrafficTrend: null, businessEntries: []
+    activeTenantCount: 3,
+    onlineSessionCount: 2,
+    todayRequestCount: 10,
+    todayErrorRate: 0,
+    recentActivities: [],
+    accessTrafficTrend: {
+      windowStartUtc: '2026-09-23T00:00:00Z',
+      windowEndUtc: '2026-09-23T12:00:00Z',
+      bucketSizeMinutes: 60,
+      buckets: [{ bucketStartUtc: '2026-09-23T11:00:00Z', eventCount: 4, errorCount: 0 }]
+    },
+    businessEntries: [
+      {
+        entryKey: 'workflow.pending_todos',
+        count: 2,
+        routePath: '/workflow/todos',
+        requiredPermission: 'workflow.todos.read'
+      }
+    ]
   })
 }));
 
@@ -27,6 +44,8 @@ describe('Vue 管理端概览页', () => {
     expect(wrapper.text()).toContain('系统脉搏');
     expect(wrapper.text()).toContain('待办事项');
     expect(wrapper.text()).toContain('最近活动');
+    expect(wrapper.text()).toContain('运行态势');
+    expect(wrapper.text()).toContain('工作流待办');
   });
 
   it('接口失败时展示稳定错误码和 TraceId', async () => {

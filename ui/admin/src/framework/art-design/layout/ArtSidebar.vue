@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMenu } from 'element-plus';
 import type { ShellNavigationTreeItem } from '../adapters/fullNetShellAdapter';
 import ArtSidebarSubmenu from './ArtSidebarSubmenu.vue';
+import { revealElementInScrollContainer } from '../utils/shellScrollIntoView';
 
 defineOptions({ name: 'ArtSidebar' });
 
@@ -22,7 +23,35 @@ const props = withDefaults(defineProps<{
 });
 
 const route = useRoute();
+const menuScrollRef = ref<HTMLElement>();
 const activePath = computed(() => route.path);
+
+async function scrollActiveMenuIntoView(): Promise<void> {
+  if (props.menuCollapsed) {
+    return;
+  }
+
+  await nextTick();
+  const scrollContainer = menuScrollRef.value;
+  if (!scrollContainer) {
+    return;
+  }
+
+  const activeItem = scrollContainer.querySelector<HTMLElement>('.el-menu-item.is-active');
+  if (!activeItem) {
+    return;
+  }
+
+  revealElementInScrollContainer(scrollContainer, activeItem, 'vertical');
+}
+
+watch(
+  () => [activePath.value, props.defaultOpeneds.join('\0'), props.menuCollapsed] as const,
+  () => {
+    void scrollActiveMenuIntoView();
+  },
+  { flush: 'post' }
+);
 const sidebarClass = computed(() => {
   if (props.menuStyle === 'design') {
     return 'art-sidebar--design';
@@ -56,7 +85,7 @@ const menuPopperClass = computed(() =>
       <p v-show="!menuCollapsed">{{ systemName }}</p>
     </router-link>
 
-    <div class="art-sidebar__menu-scroll" tabindex="0">
+    <div ref="menuScrollRef" class="art-sidebar__menu-scroll" tabindex="0">
       <ElMenu
         class="art-sidebar__menu"
         :class="`art-sidebar__menu--${menuStyle}`"
@@ -131,6 +160,12 @@ const menuPopperClass = computed(() =>
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.art-sidebar__menu-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .art-sidebar__menu {

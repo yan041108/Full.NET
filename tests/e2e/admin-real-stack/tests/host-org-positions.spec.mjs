@@ -207,3 +207,41 @@ test('受限 Host 账号在租户上下文中访问职位 API 被拒绝且导航
   await expect(page.getByText('403', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: '没有访问权限' })).toBeVisible();
 });
+
+test('租户管理员可下载职位导入模板并通过 API 导入（清单 24）', async ({ request }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginTenantAdminAccessToken(request, clientKind);
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    Origin: origin
+  };
+
+  const templateResponse = await request.get(
+    `${apiBaseUrl}/api/v1/organization/positions/import-template`,
+    { headers }
+  );
+  expect(templateResponse.ok()).toBeTruthy();
+  const body = await templateResponse.body();
+  expect(body.byteLength).toBeGreaterThan(100);
+
+  const positionCode = uniqueCode(clientKind, 'e2e-imp');
+  const importResponse = await request.post(`${apiBaseUrl}/api/v1/organization/positions/import`, {
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    data: {
+      rows: [
+        {
+          code: positionCode,
+          name: `导入职位 ${positionCode}`,
+          displayOrder: 42,
+          unitCode: null,
+          positionLevelCode: null
+        }
+      ]
+    }
+  });
+  expect(importResponse.ok()).toBeTruthy();
+  const imported = await importResponse.json();
+  expect(imported.succeededCount).toBe(1);
+  expect(imported.results[0].succeeded).toBe(true);
+});

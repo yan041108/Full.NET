@@ -11,7 +11,11 @@ public sealed class AuditingApiMySqlTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            new Dictionary<string, string?>
+            {
+                ["Auditing:AccessLogCapture:Enabled"] = "true",
+            });
 
         await AuditingAccessLogAssertions.VerifyAsync(factory);
     }

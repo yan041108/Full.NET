@@ -16,6 +16,16 @@ var uuidContractLegacyWritersStopped = builder.AddParameter(
     "uuid-contract-legacy-writers-stopped");
 var uuidContractApprovalId = builder.AddParameter(
     "uuid-contract-ddl-approval-id");
+var namingContractMaintenanceMode = builder.AddParameter(
+    "pre-v1-naming-contract-maintenance-mode");
+var namingContractBackupVerified = builder.AddParameter(
+    "pre-v1-naming-contract-backup-verified");
+var namingContractLegacyWritersStopped = builder.AddParameter(
+    "pre-v1-naming-contract-legacy-writers-stopped");
+var namingContractLegacyOutboxDrained = builder.AddParameter(
+    "pre-v1-naming-contract-legacy-outbox-drained");
+var namingContractApprovalId = builder.AddParameter(
+    "pre-v1-naming-contract-ddl-approval-id");
 
 IResourceBuilder<IResourceWithConnectionString> database = useMySql
     ? builder.AddMySql("mysql").AddDatabase("fullnet")
@@ -25,6 +35,7 @@ var provider = useMySql ? "MySql" : "SqlServer";
 var migrator = builder
     .AddProject<Projects.Full_NET_Host_Migrator>("migrator")
     .WithReference(database)
+    .WithEnvironment("DOTNET_ENVIRONMENT", "Development")
     .WithEnvironment("Database__Provider", provider)
     .WithEnvironment("Database__MySqlGuidStorageMode", "Binary16")
     .WithEnvironment(
@@ -39,6 +50,21 @@ var migrator = builder
     .WithEnvironment(
         "UuidBinaryContract__DestructiveDdlApprovalId",
         uuidContractApprovalId)
+    .WithEnvironment(
+        "PreV1NamingContract__MaintenanceMode",
+        namingContractMaintenanceMode)
+    .WithEnvironment(
+        "PreV1NamingContract__BackupVerified",
+        namingContractBackupVerified)
+    .WithEnvironment(
+        "PreV1NamingContract__LegacyWritersStopped",
+        namingContractLegacyWritersStopped)
+    .WithEnvironment(
+        "PreV1NamingContract__LegacyOutboxDrained",
+        namingContractLegacyOutboxDrained)
+    .WithEnvironment(
+        "PreV1NamingContract__DestructiveDdlApprovalId",
+        namingContractApprovalId)
     .WithEnvironment("Identity__Bootstrap__Username", bootstrapUsername)
     .WithEnvironment("Identity__Bootstrap__Password", bootstrapPassword)
     .WithArgs("--seed", "development")
@@ -48,6 +74,7 @@ builder
     .AddProject<Projects.Full_NET_Host_Api>("api")
     .WithReference(database)
     .WithReference(redis)
+    .WithEnvironment("DOTNET_ENVIRONMENT", "Development")
     .WithEnvironment("Database__Provider", provider)
     .WithEnvironment("Database__MySqlGuidStorageMode", "Binary16")
     // 本地 Aspire 仍共用一个 Redis；生产隔离由显式 Cache/Realtime 连接串门禁强制。
@@ -58,6 +85,7 @@ builder
     .AddProject<Projects.Full_NET_Host_Worker>("worker")
     .WithReference(database)
     .WithReference(redis)
+    .WithEnvironment("DOTNET_ENVIRONMENT", "Development")
     .WithEnvironment("Database__Provider", provider)
     .WithEnvironment("Database__MySqlGuidStorageMode", "Binary16")
     .WithEnvironment("Realtime__AllowSharedRedisInDevelopment", "true")

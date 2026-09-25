@@ -8,7 +8,7 @@ using Full.NET.Modules.Auditing.Persistence;
 namespace Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 
 /// <summary>
-/// B1 多行 INSERT 的 SQL 构造。Access 写入已迁出，生产默认不再逐请求写业务主库。
+/// B1 多行 INSERT 的 SQL 构造。Access 由独立 B2 队列批量写入。
 /// 动态 VALUES 只能克隆固定 Global 原型，禁止运行时 new SqlStatement 改变作用域元数据。
 /// </summary>
 internal static class AuditWriteBatchSql

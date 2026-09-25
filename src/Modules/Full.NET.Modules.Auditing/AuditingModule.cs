@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Auditing.Features.WriteAuditBatch;
+using Full.NET.Modules.Auditing.Features.WriteAccessLogs;
 using Full.NET.Modules.Auditing.Features.WriteExceptionLogs;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 using Full.NET.Modules.Auditing.Features.WriteOutboundCallLogs;
@@ -24,13 +25,13 @@ using OpenTelemetry.Metrics;
 namespace Full.NET.Modules.Auditing;
 
 /// <summary>
-/// Auditing 业务模块入口。注册操作/异常/访问/出站调用四类审计日志的写入缓冲（B0 同事务/B1 异步有界 Channel/B2 Fire-and-Forget 三可靠性分级）、
-/// 游标分页只读查询、审计保留策略后台清理服务、中间件管道（AuditWriteCoordinator→Operation→Exception），
+/// Auditing 业务模块入口。Operation/Exception/Outbound 使用 B1 微批，访问日志使用独立 B2 有界队列；
+/// 注册游标分页查询、审计保留清理及请求中间件，
 /// 并映射查询端点与环境探针端点。依赖 Identity 模块提供授权目录。
 /// 仅在 Worker AddBackgroundServices 中装配保留清理 BackgroundService，避免 API 进程重复执行。
 /// </summary>
 /// <remarks>
-/// 依赖 Identity 提供授权目录；写入缓冲按 B0/B1/B2 三可靠性分级，B1 协调器以 Singleton 共享有界 Channel；
+/// 依赖 Identity 提供授权目录；B1 与 B2 各自持有 Singleton 有界 Channel；
 /// 保留清理 BackgroundService 仅在 Worker AddBackgroundServices 注册，避免 API 进程重复执行。
 /// </remarks>
 public sealed class AuditingModule : IFullNetModule
@@ -42,8 +43,7 @@ public sealed class AuditingModule : IFullNetModule
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
     /// <summary>
-    /// 注册操作/异常/访问/出站调用四类审计日志的写入缓冲、游标分页只读查询、保留策略与中间件管道；
-    /// 写入缓冲按 B0 同事务/B1 异步有界 Channel/B2 Fire-and-Forget 三可靠性分级，B1 协调器以 Singleton 共享有界 Channel。
+    /// 注册 B1 操作/异常/出站审计与 B2 访问日志通道、游标分页查询、保留策略及中间件。
     /// </summary>
     public void AddServices(
         IServiceCollection services,
@@ -72,6 +72,12 @@ public sealed class AuditingModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<AuditMicroBatchOptions>,
             AuditMicroBatchOptionsValidator>());
+        services.AddOptions<AccessLogCaptureOptions>()
+            .Bind(configuration.GetSection(AccessLogCaptureOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<AccessLogCaptureOptions>,
+            AccessLogCaptureOptionsValidator>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             AuditingAuthorizationContributor>());
@@ -89,6 +95,9 @@ public sealed class AuditingModule : IFullNetModule
         services.TryAddSingleton<AuditMicroBatchCoordinator>();
         services.AddHostedService(provider =>
             provider.GetRequiredService<AuditMicroBatchCoordinator>());
+        services.TryAddSingleton<AccessLogWriteQueue>();
+        services.AddHostedService(provider =>
+            provider.GetRequiredService<AccessLogWriteQueue>());
         services.TryAddScoped<OperationLogWriter>();
         services.TryAddScoped<ExceptionLogWriter>();
         services.TryAddScoped(provider => new OutboundCallAuditHandler(
@@ -119,7 +128,9 @@ public sealed class AuditingModule : IFullNetModule
         services
             .AddOpenTelemetry()
             .WithMetrics(metrics =>
-                metrics.AddMeter(AuditMicroBatchTelemetry.MeterName));
+                metrics.AddMeter(
+                    AuditMicroBatchTelemetry.MeterName,
+                    AccessLogTelemetry.MeterName));
     }
 
     /// <summary>映射 Auditing 模块访问/操作/异常/出站调用日志查询、趋势、变更比对与导出的全部受保护 HTTP 路由。</summary>
@@ -165,10 +176,16 @@ public sealed class AuditingModule : IFullNetModule
     }
 
     /// <summary>
-    /// 异常日志中间件必须最靠近 Endpoint，以便捕获业务异常后重抛给外层 ExceptionHandler。
+    /// Access 在认证前包裹请求以捕获 401/403；Exception 最靠近 Endpoint，
+    /// 业务异常重抛给外层 ExceptionHandler。
     /// </summary>
     public void UseModuleMiddleware(IApplicationBuilder app, ModulePipelineStage stage)
     {
+        if (stage == ModulePipelineStage.BeforeAuthentication)
+        {
+            app.UseMiddleware<AccessLogMiddleware>();
+        }
+
         if (stage == ModulePipelineStage.BeforeEndpoints)
         {
             app.UseMiddleware<AuditWriteCoordinatorMiddleware>();
