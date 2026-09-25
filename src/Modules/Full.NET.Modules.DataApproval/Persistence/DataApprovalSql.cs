@@ -146,6 +146,11 @@ internal static class DataApprovalSql
             ApplicationStatusKey = @ApplicationStatusKey,
             LastApplicationFailureCode = NULL,
             LastApplicationFailureMessage = NULL,
+            LastApplicationAttemptAtUtc = CASE
+                WHEN @ApplicationAttemptIncrement = 1 THEN @LastApplicationAttemptAtUtc
+                ELSE LastApplicationAttemptAtUtc
+            END,
+            ApplicationAttemptCount = ApplicationAttemptCount + @ApplicationAttemptIncrement,
             ResolvedAtUtc = @ResolvedAtUtc,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1

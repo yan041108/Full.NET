@@ -13,6 +13,99 @@ namespace Full.NET.UnitTests.DataApproval;
 [TestClass]
 public sealed class DataApprovalRequestApplicationServiceTests
 {
+    /// <summary>成功应用也应递增尝试次数并记录最后尝试时间。</summary>
+    /// <returns>表示异步验证过程的任务。</returns>
+    [TestMethod]
+    public async Task Successful_application_records_attempt_count_and_timestamp()
+    {
+        var row = CreateInReviewRow();
+        var pendingRow = row with
+        {
+            ApplicationStatusKey = DataApprovalApplicationStatusKeys.PendingApply,
+            Version = row.Version + 1
+        };
+        var now = DateTimeOffset.UtcNow;
+        var completedRow = pendingRow with
+        {
+            StatusKey = DataApprovalStatusKeys.Approved,
+            ApplicationStatusKey = DataApprovalApplicationStatusKeys.Applied,
+            LastApplicationAttemptAtUtc = now,
+            ApplicationAttemptCount = 1,
+            Version = pendingRow.Version + 1
+        };
+        var queryExecutor = Substitute.For<IQueryExecutor>();
+        var commandExecutor = Substitute.For<ICommandExecutor>();
+        var clock = Substitute.For<IClock>();
+        var applier = Substitute.For<ISerialRuleChangeApprovalApplier>();
+        clock.UtcNow.Returns(now);
+        commandExecutor.ExecuteAsync(
+                DataApprovalSql.MarkApplicationPending,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+        queryExecutor.QuerySingleOrDefaultAsync<DataApprovalRequestRecord>(
+                DataApprovalSql.FindRequestById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(pendingRow, completedRow);
+        applier.ApplyApprovedUpdateAsync(
+                row.TargetEntityId,
+                row.AfterSnapshotJson,
+                row.SubmittedByUserId,
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Result<SerialNumberRuleResponse>.Success(new SerialNumberRuleResponse(
+                row.TargetEntityId,
+                "rule.key",
+                "Rule",
+                null,
+                SerialNumberRuleScope.Host,
+                SerialNumberResetInterval.Day,
+                "P-{sequence:3}",
+                1,
+                999,
+                1,
+                false,
+                now,
+                row.SubmittedByUserId,
+                now,
+                row.SubmittedByUserId,
+                2)));
+        commandExecutor.ExecuteAsync(
+                DataApprovalSql.CompleteApprovedApplication,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+
+        var service = new DataApprovalRequestApplicationService(
+            queryExecutor,
+            commandExecutor,
+            clock,
+            applier,
+            Substitute.For<ISerialRuleDisableApprovalApplier>());
+
+        var result = await service.TryApplyApprovedChangeAsync(
+            row,
+            row.SubmittedByUserId,
+            "message-id");
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(1, result.Value!.ApplicationAttemptCount);
+        Assert.AreEqual(now, result.Value.LastApplicationAttemptAtUtc);
+        var completionCall = commandExecutor.ReceivedCalls()
+            .Single(call => call.GetMethodInfo().Name == nameof(ICommandExecutor.ExecuteAsync)
+                && ReferenceEquals(call.GetArguments()[0], DataApprovalSql.CompleteApprovedApplication));
+        var parameters = (Dictionary<string, object?>)completionCall.GetArguments()[1]!;
+        Assert.AreEqual(1, parameters["ApplicationAttemptIncrement"]);
+        Assert.AreEqual(now, parameters["LastApplicationAttemptAtUtc"]);
+        StringAssert.Contains(
+            DataApprovalSql.CompleteApprovedApplication.Text,
+            "ApplicationAttemptCount = ApplicationAttemptCount + @ApplicationAttemptIncrement");
+        StringAssert.Contains(
+            DataApprovalSql.CompleteApprovedApplication.Text,
+            "THEN @LastApplicationAttemptAtUtc");
+    }
+
     /// <summary>版本冲突时不得把审批请求标记为 approved，并应持久化可重试应用失败。</summary>
     /// <returns>表示异步验证过程的任务。</returns>
     [TestMethod]

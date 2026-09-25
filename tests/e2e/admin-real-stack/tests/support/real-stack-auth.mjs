@@ -31,6 +31,11 @@ export async function expandMainNavigation(page) {
 
 /** 提交 legacy 密码登录并等待 `/api/v1/navigation` 与侧栏渲染（CI 上导航常晚于路由跳转）。 */
 async function submitLegacyConsoleLogin(page) {
+  const releaseNoteLookup = page.waitForResponse(
+    response => response.url().includes('/api/v1/platform/my-release-notes/latest-unread')
+      && response.request().method() === 'GET',
+    { timeout: 5_000 }
+  ).catch(() => null);
   const navigationReady = page.waitForResponse(
     response =>
       response.url().includes('/api/v1/navigation')
@@ -43,6 +48,12 @@ async function submitLegacyConsoleLogin(page) {
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
     timeout: 30_000
   });
+  await releaseNoteLookup;
+  const releaseNoteDialog = page.getByTestId('release-note-unread-dialog');
+  if (await releaseNoteDialog.isVisible().catch(() => false)) {
+    await releaseNoteDialog.getByRole('button', { name: /稍后查看|Later/ }).click();
+    await expect(releaseNoteDialog).toBeHidden();
+  }
   await expandMainNavigation(page);
 }
 
