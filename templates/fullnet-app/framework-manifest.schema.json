@@ -16,6 +16,7 @@
     "schemaVersion": { "type": "integer", "const": 1 },
     "sourceCommit": { "type": "string", "minLength": 40, "maxLength": 40 },
     "frameworkVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "projectedPreset": { "type": "string", "enum": ["minimal", "platform", "saas", "enterprise"] },
     "presetModules": {
       "type": "object",
       "additionalProperties": {

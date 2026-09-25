@@ -31,7 +31,7 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
   rmSync(configTemplate);
   const toolRoot = join(templateRoot, '.fullnet-tools');
   mkdirSync(toolRoot);
-  for (const tool of ['create-app.mjs', 'preset-modules.mjs', 'verify-created-app.mjs']) {
+  for (const tool of ['create-app.mjs', 'preset-modules.mjs', 'project-preset-composition.mjs', 'verify-created-app.mjs']) {
     copyFileSync(join(SCRIPT_DIR, tool), join(toolRoot, tool));
   }
   return { templateRoot };

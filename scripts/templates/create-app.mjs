@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolvePresetModules, validateOwnerKey } from './preset-modules.mjs';
+import { projectPresetComposition } from './project-preset-composition.mjs';
 import { verifyCreatedApp } from './verify-created-app.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -70,7 +71,7 @@ function runDotnet(args) {
 
 export function createApp({ packageRoot, output, name, ownerKey, database = 'sqlserver', preset = 'minimal', httpPort = 5180 }) {
   validateOwnerKey(ownerKey);
-  resolvePresetModules(preset);
+  const modules = resolvePresetModules(preset);
   if (!['sqlserver', 'mysql'].includes(database)) throw new Error('Unknown database provider');
   if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(name)) throw new Error('Invalid application name');
   if (!Number.isInteger(Number(httpPort)) || Number(httpPort) < 1 || Number(httpPort) > 65535) {
@@ -95,6 +96,7 @@ export function createApp({ packageRoot, output, name, ownerKey, database = 'sql
       '--database', database, '--preset', preset, '--http-port', String(httpPort),
       '--output', stagedRoot, '--debug:custom-hive', hive,
     ]);
+    projectPresetComposition(stagedRoot, preset, modules);
     assertPackageIntegrity(stagedRoot);
     const verification = verifyCreatedApp(stagedRoot);
     if (!verification.ok) throw new Error('Created application is invalid: ' + verification.errors.join('; '));

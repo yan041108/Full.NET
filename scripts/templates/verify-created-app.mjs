@@ -56,9 +56,11 @@ export function verifyCreatedApp(appRoot) {
   }
 
   const profilePath = join(root, 'fullnet-app.json');
+  let profilePreset;
   if (existsSync(profilePath)) {
     try {
       const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+      profilePreset = profile.preset;
       validateOwnerKey(profile.ownerKey);
       resolvePresetModules(profile.preset);
       if (!['sqlserver', 'mysql'].includes(profile.databaseProvider)) {
@@ -78,6 +80,9 @@ export function verifyCreatedApp(appRoot) {
       }
       if (!manifest.managedFiles || typeof manifest.managedFiles !== 'object') {
         errors.push('framework-manifest.json must include managedFiles');
+      }
+      if (manifest.projectedPreset && profilePreset && manifest.projectedPreset !== profilePreset) {
+        errors.push('framework-manifest.json projectedPreset does not match fullnet-app.json');
       }
     } catch (error) {
       errors.push('framework-manifest.json is not valid JSON: ' + (error instanceof Error ? error.message : String(error)));

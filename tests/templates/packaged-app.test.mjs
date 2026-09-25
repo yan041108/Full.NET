@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { buildAppTemplate } from '../../scripts/templates/build-app-template.mjs';
+import { resolvePresetModules } from '../../scripts/templates/preset-modules.mjs';
 import { verifyCreatedApp } from '../../scripts/templates/verify-created-app.mjs';
 
 test('application template package includes framework sources and root manifest', () => {
@@ -17,6 +18,7 @@ test('application template package includes framework sources and root manifest'
     assert.ok(existsSync(join(templateRoot, 'framework/fullnet/src/Composition/Full.NET.Composition/Full.NET.Composition.csproj')));
     assert.ok(existsSync(join(templateRoot, 'src/FullNetAppNameToken.Host.Api/appsettings.json')));
     assert.ok(existsSync(join(templateRoot, '.fullnet-tools/create-app.mjs')));
+    assert.ok(existsSync(join(templateRoot, '.fullnet-tools/project-preset-composition.mjs')));
     assert.ok(Object.keys(manifest.managedFiles).length > 0);
 
     const appRoot = join(workspace, 'created');
@@ -34,8 +36,14 @@ test('application template package includes framework sources and root manifest'
     const appProfile = JSON.parse(readFileSync(join(appRoot, 'fullnet-app.json'), 'utf8'));
     assert.equal(appProfile.ownerKey, 'acme');
     assert.equal(appProfile.databaseProvider, 'mysql');
+    const generatedManifest = JSON.parse(readFileSync(join(appRoot, 'framework-manifest.json'), 'utf8'));
+    assert.equal(generatedManifest.projectedPreset, 'minimal');
+    const compositionProject = readFileSync(join(appRoot, 'framework/fullnet/src/Composition/Full.NET.Composition/Full.NET.Composition.csproj'), 'utf8');
+    const compositionCatalog = readFileSync(join(appRoot, 'framework/fullnet/src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs'), 'utf8');
+    assert.doesNotMatch(compositionProject, /Full\.NET\.Modules\.Payments\\|Full\.NET\.AI\.Providers/);
+    assert.doesNotMatch(compositionCatalog, /new PaymentsModule\(\)|AddAiProviderServices/);
 
-    for (const [managedPath, digest] of Object.entries(manifest.managedFiles)) {
+    for (const [managedPath, digest] of Object.entries(generatedManifest.managedFiles)) {
       const generatedPath = join(appRoot, 'framework/fullnet', managedPath);
       assert.ok(existsSync(generatedPath), `framework path changed during instantiation: ${managedPath}`);
       const actualHash = createHash('sha256').update(readFileSync(generatedPath)).digest('hex');
@@ -46,6 +54,14 @@ test('application template package includes framework sources and root manifest'
       'build', join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj'), '-c', 'Release', '-v', 'quiet',
     ], { cwd: appRoot, encoding: 'utf8', timeout: 300_000 });
     assert.equal(build.status, 0, build.stderr || build.stdout);
+    const assets = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
+    const implementationModules = Object.keys(assets.libraries)
+      .map((name) => /^Full\.NET\.Modules\.([A-Za-z0-9]+)\//.exec(name)?.[1])
+      .filter(Boolean);
+    for (const module of implementationModules) {
+      assert.ok(['Identity', 'Tenancy', 'Settings', 'Organization'].includes(module),
+        `unexpected implementation module in minimal build: ${module}`);
+    }
 
     const repeat = spawnSync(process.execPath, [
       createTool, '--package', templateRoot, '--output', appRoot, '--name', 'Second',
@@ -55,7 +71,26 @@ test('application template package includes framework sources and root manifest'
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj')));
     assert.equal(existsSync(join(appRoot, 'src/Second.Host.Api')), false);
     assert.equal(readFileSync(join(appRoot, 'framework-manifest.json'), 'utf8'),
-      readFileSync(join(templateRoot, 'framework-manifest.json'), 'utf8'));
+      readFileSync(join(appRoot, 'framework/fullnet/framework-manifest.json'), 'utf8'));
+
+    for (const preset of ['platform', 'saas', 'enterprise']) {
+      const presetRoot = join(workspace, preset);
+      const generated = spawnSync(process.execPath, [
+        createTool, '--package', templateRoot, '--output', presetRoot, '--name', 'Demo',
+        '--owner-key', 'acme', '--database', 'sqlserver', '--preset', preset,
+      ], { encoding: 'utf8', timeout: 150_000 });
+      assert.equal(generated.status, 0, `${preset}: ${generated.stderr || generated.stdout}`);
+      const presetBuild = spawnSync('dotnet', [
+        'build', join(presetRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj'), '-c', 'Release', '-v', 'quiet',
+      ], { cwd: presetRoot, encoding: 'utf8', timeout: 300_000 });
+      assert.equal(presetBuild.status, 0, `${preset}: ${presetBuild.stderr || presetBuild.stdout}`);
+      const presetAssets = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
+      const selected = resolvePresetModules(preset);
+      for (const library of Object.keys(presetAssets.libraries)) {
+        const module = /^Full\.NET\.Modules\.([A-Za-z0-9]+)\//.exec(library)?.[1];
+        if (module) assert.ok(selected.includes(module), `${preset}: unexpected implementation module ${module}`);
+      }
+    }
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
