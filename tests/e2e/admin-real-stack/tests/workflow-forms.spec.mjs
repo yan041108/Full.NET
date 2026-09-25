@@ -184,6 +184,131 @@ test('管理员可保存并发布含子表列配置的表单草稿', async ({ re
   expect(subtableField?.constraints?.columns?.[0]?.columnKey).toBe(columnKey);
 });
 
+test('管理员可在工作流待办上传附件并经实例上下文读取', async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.metadata.clientKind !== 'vue', '工作流表单附件仅在 Vue 交付线验收');
+  test.setTimeout(90_000);
+
+  const clientKind = testInfo.project.metadata.clientKind;
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    Origin: origin,
+    'Content-Type': 'application/json'
+  };
+  const stamp = Date.now().toString(36);
+  const formKey = `e2e.attachment.${stamp}`;
+  const definitionKey = `e2e.attachment.${stamp}`;
+  const businessId = crypto.randomUUID();
+  const fieldKey = 'evidence';
+
+  const createFormResponse = await request.post(`${apiBaseUrl}/api/v1/workflow/forms`, {
+    headers,
+    data: {
+      formKey,
+      draft: {
+        schemaVersion: 1,
+        adapterVersion: 1,
+        sections: [{
+          sectionKey: 'main',
+          fields: [{
+            fieldKey,
+            fieldTypeKey: 'attachment',
+            required: false,
+            constraints: {
+              maxCount: 2,
+              maxSizeBytes: 4096,
+              allowedExtensions: ['txt']
+            }
+          }]
+        }]
+      }
+    }
+  });
+  expect(createFormResponse.status(), await createFormResponse.text()).toBe(201);
+  const form = await createFormResponse.json();
+  const publishFormResponse = await request.post(
+    `${apiBaseUrl}/api/v1/workflow/forms/${form.id}/publish`,
+    { headers, data: { expectedRevision: form.draftRevision } }
+  );
+  expect(publishFormResponse.status(), await publishFormResponse.text()).toBe(200);
+  const formVersion = await publishFormResponse.json();
+
+  const createDefinitionResponse = await request.post(`${apiBaseUrl}/api/v1/workflow/definitions`, {
+    headers,
+    data: {
+      definitionKey,
+      draft: {
+        schemaVersion: 1,
+        nodes: [
+          { nodeKey: 'start', nodeTypeKey: 'start', nodeSchemaVersion: 1, config: { nextNodeKeys: ['approve'] } },
+          {
+            nodeKey: 'approve',
+            nodeTypeKey: 'human.approval',
+            nodeSchemaVersion: 1,
+            config: { nextNodeKeys: ['end'], fieldPolicies: { [fieldKey]: 'editable' } }
+          },
+          { nodeKey: 'end', nodeTypeKey: 'end', nodeSchemaVersion: 1, config: { nextNodeKeys: [] } }
+        ]
+      }
+    }
+  });
+  expect(createDefinitionResponse.status(), await createDefinitionResponse.text()).toBe(201);
+  const definition = await createDefinitionResponse.json();
+  const publishDefinitionResponse = await request.post(
+    `${apiBaseUrl}/api/v1/workflow/definitions/${definition.id}/publish`,
+    { headers, data: { expectedRevision: definition.draftRevision, formVersionId: formVersion.id } }
+  );
+  expect(publishDefinitionResponse.status(), await publishDefinitionResponse.text()).toBe(200);
+  const definitionVersion = await publishDefinitionResponse.json();
+
+  const startResponse = await request.post(`${apiBaseUrl}/api/v1/workflow/instances`, {
+    headers,
+    data: {
+      definitionVersionId: definitionVersion.id,
+      businessType: 'e2e.workflow.attachment',
+      businessId,
+      initialValues: {},
+      idempotencyKey: `start-${crypto.randomUUID()}`
+    }
+  });
+  expect(startResponse.status(), await startResponse.text()).toBe(201);
+  const instance = await startResponse.json();
+
+  await loginAsHostAdmin(page);
+  await clickMainNavLink(page, /我的待办/, '工作流');
+  const todos = page.locator('.workflow-todos');
+  await expect(todos.getByRole('heading', { name: '我的工作流待办', exact: true })).toBeVisible();
+  await todos.getByTestId('workflow-todo-business-type-filter').fill('e2e.workflow.attachment');
+  await todos.getByTestId('workflow-todo-filter-apply').click();
+  const todoRow = todos.getByRole('row').filter({ hasText: definitionKey });
+  await expect(todoRow).toBeVisible({ timeout: 15_000 });
+  await todoRow.getByTestId('workflow-todo-open').click();
+
+  const attachmentField = page.getByTestId(`workflow-form-attachment-${fieldKey}`);
+  await expect(attachmentField).toBeVisible();
+  await attachmentField.locator('input[type="file"]').setInputFiles({
+    name: `evidence-${stamp}.txt`,
+    mimeType: 'text/plain',
+    buffer: Buffer.from(`workflow-attachment-${stamp}`)
+  });
+  const attachmentLink = attachmentField.locator('.workflow-form__attachment-link');
+  await expect(attachmentLink).toBeVisible({ timeout: 15_000 });
+  const fileId = (await attachmentLink.innerText()).trim();
+  expect(fileId).toMatch(/^[0-9a-f-]{36}$/iu);
+
+  const attachmentUrl = `${apiBaseUrl}/api/v1/workflow/instances/${instance.id}/form-attachments/${fileId}/content`;
+  const beforeApproval = await request.get(attachmentUrl, { headers });
+  expect(beforeApproval.status()).toBe(403);
+
+  await todos.getByTestId('workflow-todo-approve').click();
+  await expect(todoRow).toHaveCount(0, { timeout: 15_000 });
+  const downloadResponse = await request.get(attachmentUrl, { headers });
+  expect(downloadResponse.status(), await downloadResponse.text()).toBe(200);
+  expect(downloadResponse.headers()['content-type']).toContain('text/plain');
+  expect((await downloadResponse.body()).toString('utf8')).toBe(`workflow-attachment-${stamp}`);
+});
+
 test('管理员可通过 Workflow-Vue3 创建、保存并绑定已发布表单发布流程定义', async ({
   page,
   request
