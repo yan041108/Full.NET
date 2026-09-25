@@ -89,9 +89,10 @@ test('H5：登录后待办与站内信链路（清单 81，微信小程序切片
   await installApiMocks(page);
   await page.goto('/#/pages/identity/login');
 
-  await page.getByPlaceholder('用户名').fill('e2e-uniapp');
-  await page.getByPlaceholder('密码').fill('secret');
-  await page.getByRole('button', { name: '登录' }).click();
+  const textboxes = page.getByRole('textbox');
+  await textboxes.nth(0).fill('e2e-uniapp');
+  await textboxes.nth(1).fill('secret');
+  await page.getByTestId('login-submit').click();
 
   await expect(page.getByText('我的待办', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('当前没有待办任务。', { exact: true })).toBeVisible();

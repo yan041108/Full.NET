@@ -59,7 +59,12 @@ async function submit(): Promise<void> {
       <view v-if="loginAvailable" class="form">
         <uni-easyinput v-model="username" :placeholder="t('identity.login.username')" :disabled="submitting" />
         <uni-easyinput v-model="password" type="password" :placeholder="t('identity.login.password')" :disabled="submitting" />
-        <button class="primary" :disabled="submitting || !username.trim() || !password" @click="submit">
+      <button
+        class="primary"
+        data-testid="login-submit"
+        :disabled="submitting || !username.trim() || !password"
+        @click="submit"
+      >
           {{ submitting ? t('identity.login.submitting') : t('identity.login.submit') }}
         </button>
         <text v-if="failed" class="error" role="alert">{{ t('identity.login.failed') }}</text>
