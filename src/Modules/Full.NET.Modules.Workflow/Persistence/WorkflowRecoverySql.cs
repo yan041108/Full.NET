@@ -14,7 +14,8 @@ internal static class WorkflowRecoverySql
     public static readonly SqlStatement ScanExpiredLeases = new(
         "workflow.recovery.scan_expired_leases",
         """
-        SELECT instance.TenantId, instance.ScopeKey, instance.TenantScopeKey, instance.Id, NULL
+        SELECT instance.TenantId, instance.ScopeKey, instance.TenantScopeKey,
+               instance.Id AS InstanceId, NULLIF(instance.Id, instance.Id) AS StepId
         FROM fn_workflow_instance AS instance
         WHERE instance.StatusKey = 'active'
           AND instance.LeaseExpiresAtUtc IS NOT NULL
@@ -25,7 +26,8 @@ internal static class WorkflowRecoverySql
     public static readonly SqlStatement ScanStuckInstances = new(
         "workflow.recovery.scan_stuck_instances",
         """
-        SELECT instance.TenantId, instance.ScopeKey, instance.TenantScopeKey, instance.Id, NULL
+        SELECT instance.TenantId, instance.ScopeKey, instance.TenantScopeKey,
+               instance.Id AS InstanceId, NULLIF(instance.Id, instance.Id) AS StepId
         FROM fn_workflow_instance AS instance
         WHERE instance.StatusKey = 'active'
           AND (instance.LeaseExpiresAtUtc IS NULL OR instance.LeaseExpiresAtUtc <= @Now)
@@ -40,7 +42,8 @@ internal static class WorkflowRecoverySql
     public static readonly SqlStatement ScanIncompleteSteps = new(
         "workflow.recovery.scan_incomplete_steps",
         """
-        SELECT instance.TenantId, instance.ScopeKey, instance.TenantScopeKey, instance.Id, step.Id
+        SELECT instance.TenantId, instance.ScopeKey, instance.TenantScopeKey,
+               instance.Id AS InstanceId, step.Id AS StepId
         FROM fn_workflow_step AS step
         INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
         WHERE instance.StatusKey = 'active'

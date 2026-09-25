@@ -240,7 +240,7 @@ internal sealed class WorkflowRecoveryBatchProcessor(
                     ("ScopeKey", task.ScopeKey),
                     ("InstanceId", task.InstanceId),
                     ("OperationKey", $"recovery.{task.KindKey}"),
-                    ("ActorUserId", Guid.Empty),
+                    ("ActorUserId", (Guid?)null),
                     ("ResourceTypeKey", "recovery_task"),
                     ("ResourceId", task.Id),
                     ("OutcomeKey", status),

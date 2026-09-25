@@ -37,6 +37,16 @@ public sealed class WorkflowApiMySqlTests
         await WorkflowRuntimeApiAssertions.VerifyTenantScopeAsync(factory);
     }
 
+    /// <summary>验证 MySQL Worker 会扫描并暂停无法自动修复的工作流实例。</summary>
+    [TestMethod]
+    public async Task Recovery_worker_scans_and_suspends_unrecoverable_instance_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await WorkflowRuntimeApiAssertions.VerifyRecoveryWorkerAsync(factory);
+    }
+
     /// <summary>验证 MySQL 上三人 N-of-M 审批的票数进度、收敛和幂等回放。</summary>
     [TestMethod]
     public async Task Multi_approval_contract_holds_with_mysql()

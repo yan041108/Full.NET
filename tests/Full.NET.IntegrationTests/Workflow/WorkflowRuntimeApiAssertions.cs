@@ -813,6 +813,164 @@ internal static class WorkflowRuntimeApiAssertions
         await VerifyRecoveryTasksAsync(factory, client, identity, versions, cancellationToken);
     }
 
+    /// <summary>验收独立 Worker 扫描异常实例、生成恢复任务并在耗尽后安全暂停实例。</summary>
+    /// <param name="factory">当前数据库提供程序的 API 工厂。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    public static async Task VerifyRecoveryWorkerAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken = default)
+    {
+        await factory.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        using var client = factory.CreateClientForHost("localhost");
+        var identity = await factory.CreateHostIdentityAsync(
+            $"workflow-recovery-worker-{Guid.NewGuid():N}",
+            [
+                WorkflowPermissions.FormsCreate,
+                WorkflowPermissions.FormsPublish,
+                WorkflowPermissions.DefinitionsCreate,
+                WorkflowPermissions.DefinitionsPublish,
+                WorkflowPermissions.InstancesStart,
+                WorkflowPermissions.InstancesRead,
+                WorkflowPermissions.RecoveryTasksRead,
+            ],
+            cancellationToken).ConfigureAwait(false);
+        var versions = await PublishRuntimeAssetsAsync(client, identity.AccessToken, cancellationToken)
+            .ConfigureAwait(false);
+        using var start = await client.SendAsync(
+                AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
+                {
+                    definitionVersionId = versions.DefinitionVersionId,
+                    businessType = "leave.request",
+                    businessId = Guid.NewGuid().ToString("N"),
+                    initialValues = new { reason = "recovery worker integration" },
+                    idempotencyKey = $"recovery-worker-{Guid.NewGuid():N}",
+                }),
+                cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(HttpStatusCode.Created, start.StatusCode,
+            await start.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        using var started = JsonDocument.Parse(await start.Content.ReadAsStringAsync(cancellationToken)
+            .ConfigureAwait(false));
+        var instanceId = started.RootElement.GetProperty("id").GetGuid();
+        var todoId = started.RootElement.GetProperty("activeTodoId").GetGuid();
+
+        var now = DateTimeOffset.UtcNow;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var command = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+            var closedTodo = await command.ExecuteAsync(
+                    new SqlStatement(
+                        "test.workflow.recovery_worker.close_abandoned_todo",
+                        """
+                        UPDATE fn_workflow_todo
+                        SET StatusKey = 'completed',
+                            CompletedAtUtc = @Now,
+                            ResultActionKey = 'system'
+                        WHERE Id = @TodoId
+                          AND StatusKey = 'active'
+                        """,
+                        SqlDataScope.Global),
+                    WorkflowSqlParameters.Create(("TodoId", todoId), ("Now", now)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            Assert.AreEqual(1, closedTodo, "故障夹具必须关闭唯一的活动待办。");
+
+            var expiredLease = await command.ExecuteAsync(
+                    new SqlStatement(
+                        "test.workflow.recovery_worker.expire_instance_lease",
+                        """
+                        UPDATE fn_workflow_instance
+                        SET LeaseOwnerKey = 'abandoned-worker',
+                            LeaseExpiresAtUtc = @ExpiredAtUtc
+                        WHERE Id = @InstanceId
+                          AND StatusKey = 'active'
+                        """,
+                        SqlDataScope.Global),
+                    WorkflowSqlParameters.Create(
+                        ("InstanceId", instanceId),
+                        ("ExpiredAtUtc", now.AddMinutes(-1))),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            Assert.AreEqual(1, expiredLease, "故障夹具必须让实例租约过期。");
+        }
+
+        using var workerHost = await IntegrationWorkerHostFactory.BuildAsync(
+                factory.Provider,
+                factory.ConnectionString,
+                new Dictionary<string, string?>
+                {
+                    ["Workflow:RecoveryWorker:BatchSize"] = "10",
+                    ["Workflow:RecoveryWorker:PollMilliseconds"] = "100",
+                    ["Workflow:RecoveryWorker:MaxAttempts"] = "1",
+                    ["Workflow:RecoveryWorker:RetryDelaySeconds"] = "1",
+                    ["Workflow:RecoveryWorker:RetryBackoffMode"] = "fixed",
+                    ["Workflow:RecoveryWorker:RetryMaxDelaySeconds"] = "1",
+                },
+                "Full.NET.IntegrationTests.WorkflowRecovery.Worker",
+                "WorkflowRecoveryHostedProcessor")
+            .ConfigureAwait(false);
+        await workerHost.StartAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
+            string? instanceStatus = null;
+            var currentTaskItems = Array.Empty<(string Kind, string Status)>();
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var tasksResponse = await client.SendAsync(
+                        Authorized(HttpMethod.Get, "/api/v1/workflow/recovery-tasks?page=1&pageSize=100", identity.AccessToken),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                Assert.AreEqual(HttpStatusCode.OK, tasksResponse.StatusCode,
+                    await tasksResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+                using var tasks = JsonDocument.Parse(await tasksResponse.Content.ReadAsStringAsync(cancellationToken)
+                    .ConfigureAwait(false));
+                currentTaskItems = tasks.RootElement.GetProperty("items").EnumerateArray()
+                    .Where(item => item.GetProperty("instanceId").GetGuid() == instanceId)
+                    .Select(item => (
+                        item.GetProperty("kindKey").GetString()!,
+                        item.GetProperty("statusKey").GetString()!))
+                    .ToArray();
+
+                using var instanceResponse = await client.SendAsync(
+                        Authorized(HttpMethod.Get, $"/api/v1/workflow/instances/{instanceId:D}", identity.AccessToken),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                Assert.AreEqual(HttpStatusCode.OK, instanceResponse.StatusCode,
+                    await instanceResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+                using var instance = JsonDocument.Parse(await instanceResponse.Content.ReadAsStringAsync(cancellationToken)
+                    .ConfigureAwait(false));
+                instanceStatus = instance.RootElement.GetProperty("statusKey").GetString();
+                var taskKinds = currentTaskItems.Select(item => item.Kind).ToHashSet(StringComparer.Ordinal);
+                var allRecoveryKindsPresent = taskKinds.Contains("expired_lease")
+                    && taskKinds.Contains("stuck_instance")
+                    && taskKinds.Contains("incomplete_step");
+                var allTasksTerminal = currentTaskItems.Length > 0
+                    && currentTaskItems.All(item => item.Status is "dead_lettered" or "succeeded");
+                if (instanceStatus == "suspended"
+                    && currentTaskItems.Any(item => item.Status == "dead_lettered")
+                    && allRecoveryKindsPresent
+                    && allTasksTerminal)
+                {
+                    break;
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
+            }
+
+            Assert.AreEqual("suspended", instanceStatus, "恢复任务耗尽后必须暂停无法自动修复的实例。");
+            Assert.IsTrue(currentTaskItems.Any(item => item.Status == "dead_lettered"));
+            CollectionAssert.Contains(currentTaskItems.Select(item => item.Kind).ToArray(), "expired_lease");
+            CollectionAssert.Contains(currentTaskItems.Select(item => item.Kind).ToArray(), "stuck_instance");
+            CollectionAssert.Contains(currentTaskItems.Select(item => item.Kind).ToArray(), "incomplete_step");
+            Assert.IsTrue(currentTaskItems.All(item => item.Status is "dead_lettered" or "succeeded"));
+        }
+        finally
+        {
+            await workerHost.StopAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     /// <summary>
     /// 在种子租户内复验同意/拒绝、危险 Patch 422、旧修订 409、精确权限 403，以及禁止引用 Host 定义。
     /// </summary>

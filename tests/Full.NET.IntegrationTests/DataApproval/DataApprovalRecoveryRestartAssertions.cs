@@ -96,10 +96,12 @@ internal static class DataApprovalRecoveryRestartAssertions
         var restartedToken = await restartedHost.CreateHostAccessTokenAsync(permissions, cancellationToken)
             .ConfigureAwait(false);
 
-        using var workerHost = await BuildRecoveryWorkerHostAsync(
-            provider,
-            connectionString,
-            CreateWorkerSettings(pollMilliseconds: 500, retryDelaySeconds: 5))
+        using var workerHost = await IntegrationWorkerHostFactory.BuildAsync(
+                provider,
+                connectionString,
+                CreateWorkerSettings(pollMilliseconds: 500, retryDelaySeconds: 5),
+                "Full.NET.IntegrationTests.DataApproval.Worker",
+                "DataApprovalRequestRecoveryHostedProcessor")
             .ConfigureAwait(false);
         await workerHost.StartAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -131,71 +133,6 @@ internal static class DataApprovalRecoveryRestartAssertions
         ["DataApproval:ApplicationRecoveryWorker:PollMilliseconds"] = "60000",
         ["DataApproval:ApplicationRecoveryWorker:RetryDelaySeconds"] = "3600",
     };
-
-    private static async Task<IHost> BuildRecoveryWorkerHostAsync(
-        DatabaseProvider provider,
-        string connectionString,
-        IReadOnlyDictionary<string, string?> workerSettings)
-    {
-        var redisConnectionString = await SharedDatabaseFixture.GetRedisConnectionStringAsync()
-            .ConfigureAwait(false);
-        var settings = new Dictionary<string, string?>(workerSettings)
-        {
-            [$"{DatabaseOptions.SectionName}:Provider"] = provider.ToString(),
-            [$"{DatabaseOptions.SectionName}:ConnectionString"] = connectionString,
-            [$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] = "Binary16",
-            [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
-            ["Cache:RedisConnectionString"] = redisConnectionString,
-            ["Realtime:RedisBackplaneConnectionString"] = redisConnectionString,
-            ["Realtime:AllowSharedRedisInDevelopment"] = "true",
-            ["ConnectionStrings:redis"] = redisConnectionString,
-            ["Files:Local:RootPath"] = Path.Combine(
-                Path.GetTempPath(),
-                "fullnet-files-integration",
-                $"data-approval-worker-{Guid.NewGuid():N}"),
-        };
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(settings)
-            .Build();
-        var builder = global::Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
-        {
-            ApplicationName = "Full.NET.IntegrationTests.DataApproval.Worker",
-            EnvironmentName = "Testing",
-        });
-        builder.Configuration.AddConfiguration(configuration);
-        builder.Services.AddLogging();
-        builder.Services.AddRouting();
-        builder.Services.AddScoped<CurrentTenantAccessor>();
-        builder.Services.AddScoped<ICurrentTenant>(services =>
-            services.GetRequiredService<CurrentTenantAccessor>());
-        builder.Services.AddScoped<ICurrentTenantContextWriter>(services =>
-            services.GetRequiredService<CurrentTenantAccessor>());
-        builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
-        builder.Services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
-        builder.Services.AddSingleton<
-            ITenantOrganizationUnitDirectory,
-            EmptyTenantOrganizationUnitDirectory>();
-        builder.Services.AddSingleton<
-            IIdentityOrganizationUnitDirectory,
-            EmptyIdentityOrganizationUnitDirectory>();
-        builder.Services.AddFullNetDapper(configuration, "Testing");
-        builder.Services.AddFullNetMemoryPack();
-        builder.Services.AddFullNetCaching(configuration, "Testing");
-        builder.Services.AddFullNetRealtimePublisher(configuration, "Testing");
-        builder.Services.AddFullNetApplicationModules(
-            configuration,
-            FullNetHostProfile.Worker);
-        foreach (var descriptor in builder.Services
-                     .Where(descriptor => descriptor.ServiceType == typeof(IHostedService)
-                         && descriptor.ImplementationType?.Name != "DataApprovalRequestRecoveryHostedProcessor")
-                     .ToArray())
-        {
-            builder.Services.Remove(descriptor);
-        }
-
-        return builder.Build();
-    }
 
     private static async Task<Guid> CreatePublishedDefinitionAsync(
         HttpClient client,
@@ -433,35 +370,6 @@ internal static class DataApprovalRecoveryRestartAssertions
         var request = new HttpRequestMessage(method, path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client.SendAsync(request, cancellationToken);
-    }
-
-    private sealed class EmptyTenantOrganizationUnitDirectory
-        : ITenantOrganizationUnitDirectory
-    {
-        public Task<TenantOrganizationUnitDirectoryEntry?> FindActiveUnitAsync(
-            Guid tenantId,
-            Guid unitId,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<TenantOrganizationUnitDirectoryEntry?>(null);
-    }
-
-    private sealed class EmptyIdentityOrganizationUnitDirectory
-        : IIdentityOrganizationUnitDirectory
-    {
-        public Task<IdentityOrganizationUnitDirectoryEntry?> FindActiveUnitAsync(
-            Guid tenantId,
-            Guid unitId,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IdentityOrganizationUnitDirectoryEntry?>(null);
-    }
-
-    private sealed class NonHttpApiResultMapper : IApiResultMapper
-    {
-        public IResult Map<T>(Result<T> result, HttpContext httpContext) =>
-            throw new NotSupportedException("非 HTTP Worker 集成夹具不映射 API 结果。");
-
-        public IResult MapException(Exception exception, HttpContext httpContext) =>
-            throw new NotSupportedException("非 HTTP Worker 集成夹具不映射 API 异常。");
     }
 
     private sealed class FailingWorkflowInstanceStarter : IWorkflowInstanceStarter
