@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { createApp } from '../../scripts/templates/create-app.mjs';
 import { buildAppTemplate } from '../../scripts/templates/build-app-template.mjs';
+import { buildMigrationInventory } from '../../scripts/templates/framework-manifest-utils.mjs';
+import { PRESET_MODULE_CLOSURE } from '../../scripts/templates/preset-modules.mjs';
 
 test('create-app rejects invalid owner key before creating output', () => {
   const parent = mkdtempSync(join(tmpdir(), 'fullnet-create-app-'));
@@ -141,6 +143,39 @@ test('create-app requires migration inventory for schema version two', () => {
     writeFileSync(join(bundleRoot, 'global.json'), content);
     const output = join(parent, 'app');
     assert.throws(() => createApp({ packageRoot, output, name: 'Demo', ownerKey: 'acme' }), /migration inventory is missing/);
+    assert.equal(existsSync(output), false);
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test('create-app rejects a seed inventory that omits registered contributors', () => {
+  const parent = mkdtempSync(join(tmpdir(), 'fullnet-seed-inventory-'));
+  try {
+    const packageRoot = join(parent, 'package');
+    const bundleRoot = join(packageRoot, 'framework', 'fullnet');
+    const modulePath = 'src/Modules/Full.NET.Modules.Identity/IdentityModule.cs';
+    const seedPath = 'src/Modules/Full.NET.Modules.Identity/Seeding/HostAdministratorSeedContributor.cs';
+    const files = {
+      [modulePath]: 'public void AddMigrationServices() { services.AddScoped<IDataSeedContributor, HostAdministratorSeedContributor>(); }',
+      [seedPath]: 'internal sealed class HostAdministratorSeedContributor {}',
+      'src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/001_Foundation.sql': 'SELECT 1;',
+      'src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/001_Foundation.sql': 'SELECT 1;',
+    };
+    const managedFiles = {};
+    for (const [path, content] of Object.entries(files)) {
+      const absolute = join(bundleRoot, path);
+      mkdirSync(join(absolute, '..'), { recursive: true });
+      writeFileSync(absolute, content);
+      managedFiles[path] = createHash('sha256').update(content).digest('hex');
+    }
+    const manifest = JSON.stringify({ schemaVersion: 3, managedFiles,
+      presetModules: PRESET_MODULE_CLOSURE, migrationInventory: buildMigrationInventory(managedFiles),
+      seedInventory: { contributors: [], presets: {} } });
+    writeFileSync(join(packageRoot, 'framework-manifest.json'), manifest);
+    writeFileSync(join(bundleRoot, 'framework-manifest.json'), manifest);
+    const output = join(parent, 'app');
+    assert.throws(() => createApp({ packageRoot, output, name: 'Demo', ownerKey: 'acme' }), /seed inventory does not match/);
     assert.equal(existsSync(output), false);
   } finally {
     rmSync(parent, { recursive: true, force: true });

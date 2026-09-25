@@ -16,13 +16,13 @@ import {
 import { dirname, join, posix, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRESET_MODULE_CLOSURE, VALID_PRESETS } from './preset-modules.mjs';
-import { buildMigrationInventory } from './framework-manifest-utils.mjs';
+import { buildMigrationInventory, buildSeedInventory } from './framework-manifest-utils.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 const DEFAULT_OUTPUT = resolve(REPO_ROOT, 'artifacts', 'templates', 'fullnet-source-bundle');
 const FRAMEWORK_VERSION = '0.1.0';
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const INCLUDE_ROOTS = [
   'src/AI',
@@ -238,7 +238,7 @@ function pruneExcluded(bundleRoot) {
   removeExcluded(bundleRoot);
 }
 
-function buildManifest(sourceCommit, managedFiles) {
+function buildManifest(sourceCommit, managedFiles, bundleRoot) {
   return {
     schemaVersion: SCHEMA_VERSION,
     sourceCommit,
@@ -246,6 +246,7 @@ function buildManifest(sourceCommit, managedFiles) {
     presetModules: PRESET_MODULE_CLOSURE,
     validPresets: VALID_PRESETS,
     migrationInventory: buildMigrationInventory(managedFiles),
+    seedInventory: buildSeedInventory(managedFiles, (path) => readFileSync(join(bundleRoot, path), 'utf8'), PRESET_MODULE_CLOSURE),
     managedFiles,
   };
 }
@@ -270,7 +271,7 @@ export function buildSourceBundle({ output = DEFAULT_OUTPUT } = {}) {
     throw new Error('Bundle contains no managed files');
   }
 
-  const manifest = buildManifest(sourceCommit, managedFiles);
+  const manifest = buildManifest(sourceCommit, managedFiles, bundleRoot);
   writeFileSync(join(bundleRoot, 'framework-manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
   return { bundleRoot, manifest };
 }

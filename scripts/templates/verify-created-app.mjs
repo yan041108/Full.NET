@@ -87,13 +87,18 @@ export function verifyCreatedApp(appRoot) {
       if (!manifest.managedFiles || typeof manifest.managedFiles !== 'object') {
         errors.push('framework-manifest.json must include managedFiles');
       }
-      if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== 2) {
+      if (![1, 2, 3].includes(manifest.schemaVersion)) {
         errors.push('framework-manifest.json has an unsupported schemaVersion');
       }
-      if (manifest.schemaVersion === 2 && (manifest.migrationInventory?.selectionStatus !== 'unscoped'
+      if (manifest.schemaVersion >= 2 && (manifest.migrationInventory?.selectionStatus !== 'unscoped'
         || !Array.isArray(manifest.migrationInventory.scripts)
         || manifest.migrationInventory.scripts.length === 0)) {
         errors.push('framework-manifest.json must include the paired unscoped migration inventory');
+      }
+      if (manifest.schemaVersion >= 3 && (!Array.isArray(manifest.seedInventory?.contributors)
+        || manifest.seedInventory.contributors.length === 0
+        || !manifest.seedInventory.presets || !Array.isArray(manifest.seedInventory.presets[profilePreset]))) {
+        errors.push('framework-manifest.json must include the selected seed inventory');
       }
       if (manifest.projectedPreset && profilePreset && manifest.projectedPreset !== profilePreset) {
         errors.push('framework-manifest.json projectedPreset does not match fullnet-app.json');

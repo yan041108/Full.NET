@@ -8,8 +8,8 @@ import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolvePresetModules, validateOwnerKey } from './preset-modules.mjs';
-import { buildMigrationInventory } from './framework-manifest-utils.mjs';
+import { PRESET_MODULE_CLOSURE, resolvePresetModules, validateOwnerKey } from './preset-modules.mjs';
+import { buildMigrationInventory, buildSeedInventory } from './framework-manifest-utils.mjs';
 import { projectPresetComposition } from './project-preset-composition.mjs';
 import { verifyCreatedApp } from './verify-created-app.mjs';
 
@@ -25,7 +25,7 @@ function assertPackageIntegrity(root, verifyFrontendSkeleton = false) {
   if (!manifest.managedFiles || Object.keys(manifest.managedFiles).length === 0) {
     throw new Error('Framework manifest has no managed files');
   }
-  if (manifest.schemaVersion === 2 && !manifest.migrationInventory) {
+  if (manifest.schemaVersion >= 2 && !manifest.migrationInventory) {
     throw new Error('Framework migration inventory is missing');
   }
   if (manifest.migrationInventory) {
@@ -54,6 +54,17 @@ function assertPackageIntegrity(root, verifyFrontendSkeleton = false) {
     const actualHash = createHash('sha256').update(readFileSync(current)).digest('hex');
     if (actualHash !== expectedHash) {
       throw new Error('Framework managed file digest mismatch: ' + relativePath);
+    }
+  }
+  if (manifest.schemaVersion >= 3) {
+    if (JSON.stringify(manifest.presetModules) !== JSON.stringify(PRESET_MODULE_CLOSURE)) {
+      throw new Error('Framework preset module closure does not match the creator');
+    }
+    if (!manifest.seedInventory) throw new Error('Framework seed inventory is missing');
+    const expected = buildSeedInventory(manifest.managedFiles,
+      (path) => readFileSync(join(bundleRoot, path), 'utf8'), PRESET_MODULE_CLOSURE);
+    if (JSON.stringify(manifest.seedInventory) !== JSON.stringify(expected)) {
+      throw new Error('Framework seed inventory does not match managed source');
     }
   }
   const expectedPaths = new Set([...Object.keys(manifest.managedFiles), 'framework-manifest.json']);

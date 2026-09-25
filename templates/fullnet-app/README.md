@@ -41,4 +41,4 @@ After generation, build the API with `dotnet build src/<name>.Host.Api/<name>.Ho
 
 The generated Composition project references only selected module implementations. The framework source bundle still contains source for all modules, and transitive project reference closure, migrations, login, and dual-database acceptance remain separate gates.
 
-The manifest records paired SQL Server/MySQL migration scripts with `selectionStatus: unscoped`. This is an inventory, not permission to run the full migration set for a selected preset. Module ownership, historical prerequisites, and first-run database validation must be completed before enabling a generated-app migrator.
+The manifest records paired SQL Server/MySQL migration scripts with `selectionStatus: unscoped` and records registered seed contributors for each preset. The migration list is an inventory, not permission to run the full migration set for a selected preset. Module ownership, historical prerequisites, and first-run database validation must be completed before enabling a generated-app migrator.
