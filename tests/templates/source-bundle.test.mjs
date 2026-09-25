@@ -1,9 +1,21 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
-import { assertManagedPath, buildSourceBundle } from '../../scripts/templates/build-source-bundle.mjs';
+import { assertArchiveEntryModes, assertCleanBundleInputStatus, assertManagedPath, buildSourceBundle } from '../../scripts/templates/build-source-bundle.mjs';
+
+test('source bundle rejects a dirty source tree before assigning a commit', () => {
+  assert.throws(() => assertCleanBundleInputStatus(' M src/Modules/Full.NET.Modules.Identity/IdentityModule.cs'), /uncommitted/);
+  assert.doesNotThrow(() => assertCleanBundleInputStatus(''));
+});
+
+test('source bundle rejects symlinks and submodules in committed inputs', () => {
+  const digest = '0'.repeat(40);
+  assert.throws(() => assertArchiveEntryModes(`120000 blob ${digest}\tsrc/link\0`), /unsupported git entry mode/);
+  assert.throws(() => assertArchiveEntryModes(`160000 commit ${digest}\tsrc/submodule\0`), /unsupported git entry mode/);
+  assert.doesNotThrow(() => assertArchiveEntryModes(`100644 blob ${digest}\tsrc/file.cs\0`));
+});
 
 test('build-source-bundle writes manifest with sha256 managed files', async () => {
   const output = mkdtempSync(join(tmpdir(), 'fullnet-bundle-'));
@@ -17,6 +29,7 @@ test('build-source-bundle writes manifest with sha256 managed files', async () =
     assert.equal(manifest.frameworkVersion, '0.1.0');
     assert.ok(Object.keys(manifest.managedFiles).length > 0);
     assert.deepEqual(onDisk.managedFiles, manifest.managedFiles);
+    assert.equal(existsSync(join(bundleRoot, 'src/Hosts/Full.NET.Host.Api/App_Data')), false);
 
     for (const [relativePath, digest] of Object.entries(manifest.managedFiles)) {
       assert.match(digest, /^[a-f0-9]{64}$/, relativePath + ' digest');
@@ -32,4 +45,43 @@ test('build-source-bundle writes manifest with sha256 managed files', async () =
 test('build-source-bundle rejects bad managed paths', () => {
   assert.throws(() => assertManagedPath('../escape.txt'), /outside bundle root/);
   assert.throws(() => assertManagedPath('src/obj/cache.txt'), /excluded path/);
+});
+
+test('build-source-bundle preserves an existing output directory', () => {
+  const output = mkdtempSync(join(tmpdir(), 'fullnet-bundle-owned-'));
+  const marker = join(output, 'keep.txt');
+  try {
+    writeFileSync(marker, 'user content');
+    assert.throws(() => buildSourceBundle({ output }), /must be empty/);
+    assert.equal(readFileSync(marker, 'utf8'), 'user content');
+  } finally {
+    rmSync(output, { recursive: true, force: true });
+  }
+});
+
+test('build-source-bundle contains the API host and its project reference closure', () => {
+  const output = mkdtempSync(join(tmpdir(), 'fullnet-bundle-closure-'));
+  try {
+    const { bundleRoot } = buildSourceBundle({ output });
+    const hostProject = join(bundleRoot, 'src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj');
+    assert.ok(existsSync(hostProject), 'the created application must contain the framework API host');
+    assert.ok(existsSync(join(dirname(hostProject), 'Program.cs')));
+    assert.ok(existsSync(join(bundleRoot, 'Directory.Build.targets')), 'the project build targets must ship with the source');
+
+    const visited = new Set();
+    const visit = (projectPath) => {
+      const absolutePath = resolve(projectPath);
+      if (visited.has(absolutePath)) return;
+      visited.add(absolutePath);
+      const xml = readFileSync(absolutePath, 'utf8');
+      for (const match of xml.matchAll(/<ProjectReference\s+Include="([^"]+)"/g)) {
+        const dependency = resolve(dirname(absolutePath), match[1].replaceAll('\\', '/'));
+        assert.ok(existsSync(dependency), `missing project dependency: ${dependency}`);
+        visit(dependency);
+      }
+    };
+    visit(hostProject);
+  } finally {
+    rmSync(output, { recursive: true, force: true });
+  }
 });

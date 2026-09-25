@@ -2,17 +2,15 @@
 /**
  * 校验由 fullnet-app 模板创建的应用目录结构。
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-const REQUIRED_HOSTS = [
-  'src/App.Host.Api',
-];
+import { resolvePresetModules, validateOwnerKey } from './preset-modules.mjs';
 
 const REQUIRED_FILES = [
   'framework-manifest.json',
   'appsettings.json',
+  'fullnet-app.json',
 ];
 
 export function verifyCreatedApp(appRoot) {
@@ -26,10 +24,19 @@ export function verifyCreatedApp(appRoot) {
     }
   }
 
-  for (const relativeHost of REQUIRED_HOSTS) {
-    const absolutePath = join(root, relativeHost);
-    if (!existsSync(absolutePath)) {
-      errors.push('Missing required host directory: ' + relativeHost);
+  const sourceRoot = join(root, 'src');
+  const hosts = existsSync(sourceRoot)
+    ? readdirSync(sourceRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && entry.name.endsWith('.Host.Api'))
+    : [];
+  if (hosts.length !== 1) {
+    errors.push('Created app must contain exactly one application API host');
+  } else {
+    const hostRoot = join(sourceRoot, hosts[0].name);
+    for (const hostFile of ['Program.cs', hosts[0].name + '.csproj', 'appsettings.json']) {
+      if (!existsSync(join(hostRoot, hostFile))) {
+        errors.push('Missing required host file: ' + join('src', hosts[0].name, hostFile));
+      }
     }
   }
 
@@ -45,6 +52,20 @@ export function verifyCreatedApp(appRoot) {
 
     if (config && !config.FullNet?.Modules) {
       errors.push('appsettings.json must define FullNet:Modules');
+    }
+  }
+
+  const profilePath = join(root, 'fullnet-app.json');
+  if (existsSync(profilePath)) {
+    try {
+      const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+      validateOwnerKey(profile.ownerKey);
+      resolvePresetModules(profile.preset);
+      if (!['sqlserver', 'mysql'].includes(profile.databaseProvider)) {
+        errors.push('fullnet-app.json has an invalid databaseProvider');
+      }
+    } catch (error) {
+      errors.push('fullnet-app.json is invalid: ' + (error instanceof Error ? error.message : String(error)));
     }
   }
 

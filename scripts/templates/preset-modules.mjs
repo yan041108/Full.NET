@@ -8,7 +8,7 @@ export const PRESET_MODULE_CLOSURE = {
   enterprise: ['Identity', 'Tenancy', 'Settings', 'Organization', 'Auditing', 'Files', 'Notifications', 'Calendar', 'Platform', 'Regions', 'Jobs', 'Messaging', 'ObservabilityAdmin', 'Mqtt', 'Cryptography', 'Webhooks', 'Workflow', 'ImportExport', 'Reporting', 'Printing', 'EnterpriseRequest'],
 };
 export const VALID_PRESETS = Object.keys(PRESET_MODULE_CLOSURE);
-export const OWNER_KEY_PATTERN = /^[a-z][a-z0-9-]{1,31}$/;
+export const OWNER_KEY_PATTERN = /^[a-z][a-z0-9]{1,11}$/;
 export const RESERVED_OWNER_KEYS = new Set(['fn', 'sys']);
 export function resolvePresetModules(preset) {
   const key = preset.toLowerCase();

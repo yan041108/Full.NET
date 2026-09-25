@@ -5,22 +5,22 @@
   "identity": "Full.NET.Templates.FullNetApp",
   "name": "Full.NET Application",
   "shortName": "fullnet-app",
-  "sourceName": "App",
+  "sourceName": "FullNetAppNameToken",
   "preferNameDirectory": true,
+  "sources": [
+    {
+      "source": "./",
+      "target": "./",
+      "copyOnly": ["framework/**/*", "framework-manifest.json"]
+    }
+  ],
   "symbols": {
-    "name": {
-      "type": "parameter",
-      "datatype": "string",
-      "replaces": "App",
-      "fileRename": "App",
-      "description": "Application name used for namespaces and project folders."
-    },
     "owner-key": {
       "type": "parameter",
       "datatype": "string",
       "defaultValue": "demo",
       "replaces": "demo",
-      "description": "Official owner key for naming profile tables (lowercase, 2-32 chars)."
+      "description": "Application owner key for naming profile tables (lowercase letters and digits, 2-12 chars)."
     },
     "database": {
       "type": "parameter",

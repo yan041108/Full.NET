@@ -1,0 +1,4 @@
+<Project>
+  <!-- 应用宿主与框架项目使用同一 Native AOT 分析和生成器配置。 -->
+  <Import Project="framework/fullnet/Directory.Build.targets" />
+</Project>
