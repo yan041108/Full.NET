@@ -101,6 +101,7 @@ public sealed class IdentityModuleRegistrationTests
         module.AddMigrationServices(splitServices, configuration);
         splitServices.AddIdentityAuthentication(configuration);
         splitServices.AddIdentityOidc(configuration);
+        splitServices.AddAuthenticationEventRetention(configuration);
         splitServices.AddIdentityAuthorization(configuration);
         splitServices.AddIdentityDomainServices(configuration);
         splitServices.AddIdentityHttpPolicies(configuration);
@@ -108,7 +109,8 @@ public sealed class IdentityModuleRegistrationTests
 
         CollectionAssert.AreEqual(
             SnapshotIdentityOwnedRegistrations(moduleServices),
-            SnapshotIdentityOwnedRegistrations(splitServices));
+            SnapshotIdentityOwnedRegistrations(splitServices.Where(descriptor =>
+                descriptor.ImplementationType != typeof(AuthenticationEventRetentionHostedProcessor))));
         CollectionAssert.AreEqual(
             ExpectedIdentityOwnedRegistrations(),
             SnapshotIdentityOwnedRegistrations(moduleServices));
@@ -384,6 +386,8 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<IValidateOptions<IdentityOidcOptions>, IdentityOidcOptionsValidator>(ServiceLifetime.Singleton),
         RegistrationExpectation.Type<IValidateOptions<IdentityOidcRetentionOptions>, IdentityOidcRetentionOptionsValidator>(ServiceLifetime.Singleton),
         RegistrationExpectation.Self<IdentityOidcRetentionRunner>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IValidateOptions<AuthenticationEventRetentionOptions>, AuthenticationEventRetentionOptionsValidator>(ServiceLifetime.Singleton),
+        RegistrationExpectation.Self<AuthenticationEventRetentionRunner>(ServiceLifetime.Scoped),
 
         RegistrationExpectation.Self<PermissionClaimEvaluator>(
             ServiceLifetime.Singleton),
@@ -431,6 +435,8 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<HostUserQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserManagementService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<AuthenticationSecurityEventWriter>(
+            ServiceLifetime.Scoped),
         RegistrationExpectation.Type<IIdentityOidcUserAuthorityRevoker, NullIdentityOidcUserAuthorityRevoker>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserSensitiveFieldRevealService>(
             ServiceLifetime.Scoped),
@@ -469,6 +475,10 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<HostMenuManagementService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostOnlineSessionQueryService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.QueryAuthenticationEvents.AuthenticationEventQueryService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.QueryAuthenticationEvents.AuthenticationEventExportService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostOnlineSessionManagementService>(
             ServiceLifetime.Scoped),
