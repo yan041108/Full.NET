@@ -16,12 +16,13 @@ import {
 import { dirname, join, posix, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRESET_MODULE_CLOSURE, VALID_PRESETS } from './preset-modules.mjs';
+import { buildMigrationInventory } from './framework-manifest-utils.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 const DEFAULT_OUTPUT = resolve(REPO_ROOT, 'artifacts', 'templates', 'fullnet-source-bundle');
 const FRAMEWORK_VERSION = '0.1.0';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 const INCLUDE_ROOTS = [
   'src/AI',
@@ -244,6 +245,7 @@ function buildManifest(sourceCommit, managedFiles) {
     frameworkVersion: FRAMEWORK_VERSION,
     presetModules: PRESET_MODULE_CLOSURE,
     validPresets: VALID_PRESETS,
+    migrationInventory: buildMigrationInventory(managedFiles),
     managedFiles,
   };
 }

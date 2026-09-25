@@ -10,10 +10,11 @@
     "frameworkVersion",
     "presetModules",
     "validPresets",
+    "migrationInventory",
     "managedFiles"
   ],
   "properties": {
-    "schemaVersion": { "type": "integer", "const": 1 },
+    "schemaVersion": { "type": "integer", "const": 2 },
     "sourceCommit": { "type": "string", "minLength": 40, "maxLength": 40 },
     "frameworkVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
     "projectedPreset": { "type": "string", "enum": ["minimal", "platform", "saas", "enterprise"] },
@@ -29,6 +30,35 @@
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
       "minItems": 1
+    },
+    "migrationInventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selectionStatus", "scripts"],
+      "properties": {
+        "selectionStatus": { "const": "unscoped" },
+        "scripts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "providers"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[0-9]{3}_[A-Za-z0-9]+\\.sql$" },
+              "providers": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["SqlServer", "MySql"],
+                "properties": {
+                  "SqlServer": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                  "MySql": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "managedFiles": {
       "type": "object",

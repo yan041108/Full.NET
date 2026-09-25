@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { assertArchiveEntryModes, assertCleanBundleInputStatus, assertManagedPath, buildSourceBundle } from '../../scripts/templates/build-source-bundle.mjs';
+import { buildMigrationInventory } from '../../scripts/templates/framework-manifest-utils.mjs';
 
 test('source bundle rejects a dirty source tree before assigning a commit', () => {
   assert.throws(() => assertCleanBundleInputStatus(' M src/Modules/Full.NET.Modules.Identity/IdentityModule.cs'), /uncommitted/);
@@ -24,7 +25,7 @@ test('build-source-bundle writes manifest with sha256 managed files', async () =
     const manifestPath = join(bundleRoot, 'framework-manifest.json');
     const onDisk = JSON.parse(readFileSync(manifestPath, 'utf8'));
 
-    assert.equal(manifest.schemaVersion, 1);
+    assert.equal(manifest.schemaVersion, 2);
     assert.match(manifest.sourceCommit, /^[0-9a-f]{40}$/);
     assert.equal(manifest.frameworkVersion, '0.1.0');
     assert.ok(Object.keys(manifest.managedFiles).length > 0);
@@ -36,6 +37,14 @@ test('build-source-bundle writes manifest with sha256 managed files', async () =
     assert.ok(existsSync(join(bundleRoot, 'packages/admin-form-designer/package.json')));
     assert.ok(existsSync(join(bundleRoot, 'packages/design-tokens/package.json')));
     assert.ok(existsSync(join(bundleRoot, 'pnpm-lock.yaml')));
+    assert.equal(manifest.migrationInventory.selectionStatus, 'unscoped');
+    assert.equal(manifest.migrationInventory.scripts.length, 239);
+    for (const script of manifest.migrationInventory.scripts) {
+      for (const provider of ['SqlServer', 'MySql']) {
+        const relative = `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/${provider}/${script.name}`;
+        assert.equal(script.providers[provider], manifest.managedFiles[relative]);
+      }
+    }
 
     for (const [relativePath, digest] of Object.entries(manifest.managedFiles)) {
       assert.match(digest, /^[a-f0-9]{64}$/, relativePath + ' digest');
@@ -46,6 +55,11 @@ test('build-source-bundle writes manifest with sha256 managed files', async () =
   } finally {
     rmSync(output, { recursive: true, force: true });
   }
+});
+
+test('migration inventory rejects a missing provider counterpart', () => {
+  const prefix = 'src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/';
+  assert.throws(() => buildMigrationInventory({ [`${prefix}SqlServer/001_Foundation.sql`]: '0'.repeat(64) }), /missing MySql counterpart/);
 });
 
 test('build-source-bundle rejects bad managed paths', () => {

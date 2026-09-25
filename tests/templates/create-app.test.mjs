@@ -103,6 +103,50 @@ test('create-app rejects a modified Vue skeleton before creating output', () => 
   }
 });
 
+test('create-app rejects a migration inventory that omits a managed script', () => {
+  const parent = mkdtempSync(join(tmpdir(), 'fullnet-create-app-'));
+  try {
+    const packageRoot = join(parent, 'package');
+    const bundleRoot = join(packageRoot, 'framework', 'fullnet');
+    const prefix = 'src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations';
+    for (const provider of ['SqlServer', 'MySql']) {
+      mkdirSync(join(bundleRoot, prefix, provider), { recursive: true });
+      writeFileSync(join(bundleRoot, prefix, provider, '001_Foundation.sql'), 'SELECT 1;');
+    }
+    const digest = createHash('sha256').update('SELECT 1;').digest('hex');
+    const managedFiles = Object.fromEntries(['SqlServer', 'MySql'].map((provider) =>
+      [`${prefix}/${provider}/001_Foundation.sql`, digest]));
+    const manifest = JSON.stringify({ managedFiles, migrationInventory: { selectionStatus: 'unscoped', scripts: [] } });
+    writeFileSync(join(packageRoot, 'framework-manifest.json'), manifest);
+    writeFileSync(join(bundleRoot, 'framework-manifest.json'), manifest);
+    const output = join(parent, 'app');
+    assert.throws(() => createApp({ packageRoot, output, name: 'Demo', ownerKey: 'acme' }), /migration inventory does not match/);
+    assert.equal(existsSync(output), false);
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test('create-app requires migration inventory for schema version two', () => {
+  const parent = mkdtempSync(join(tmpdir(), 'fullnet-create-app-'));
+  try {
+    const packageRoot = join(parent, 'package');
+    const bundleRoot = join(packageRoot, 'framework', 'fullnet');
+    mkdirSync(bundleRoot, { recursive: true });
+    const content = '{}';
+    const digest = createHash('sha256').update(content).digest('hex');
+    const manifest = JSON.stringify({ schemaVersion: 2, managedFiles: { 'global.json': digest } });
+    writeFileSync(join(packageRoot, 'framework-manifest.json'), manifest);
+    writeFileSync(join(bundleRoot, 'framework-manifest.json'), manifest);
+    writeFileSync(join(bundleRoot, 'global.json'), content);
+    const output = join(parent, 'app');
+    assert.throws(() => createApp({ packageRoot, output, name: 'Demo', ownerKey: 'acme' }), /migration inventory is missing/);
+    assert.equal(existsSync(output), false);
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
 test('create-app removes staging after template installation fails', () => {
   const parent = mkdtempSync(join(tmpdir(), 'fullnet-create-app-'));
   try {

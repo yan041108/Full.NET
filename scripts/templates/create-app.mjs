@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolvePresetModules, validateOwnerKey } from './preset-modules.mjs';
+import { buildMigrationInventory } from './framework-manifest-utils.mjs';
 import { projectPresetComposition } from './project-preset-composition.mjs';
 import { verifyCreatedApp } from './verify-created-app.mjs';
 
@@ -23,6 +24,17 @@ function assertPackageIntegrity(root, verifyFrontendSkeleton = false) {
   }
   if (!manifest.managedFiles || Object.keys(manifest.managedFiles).length === 0) {
     throw new Error('Framework manifest has no managed files');
+  }
+  if (manifest.schemaVersion === 2 && !manifest.migrationInventory) {
+    throw new Error('Framework migration inventory is missing');
+  }
+  if (manifest.migrationInventory) {
+    const expectedInventory = buildMigrationInventory(manifest.managedFiles);
+    if (JSON.stringify(manifest.migrationInventory) !== JSON.stringify(expectedInventory)) {
+      throw new Error('Framework migration inventory does not match managed files');
+    }
+  } else if (Object.keys(manifest.managedFiles).some((path) => path.includes('/Migrations/'))) {
+    throw new Error('Framework migration inventory is missing');
   }
   for (const [relativePath, expectedHash] of Object.entries(manifest.managedFiles)) {
     const segments = relativePath.split('/');
