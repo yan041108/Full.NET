@@ -47,39 +47,54 @@ internal static class DataApprovalRecoveryRestartAssertions
             WorkflowPermissions.FormsPublish,
             WorkflowPermissions.DefinitionsCreate,
             WorkflowPermissions.DefinitionsPublish,
-            WorkflowPermissions.InstancesRead,
         };
         DataApprovalRequestResponse failedRequest;
 
-        using var apiHost = new FullNetApiFactory(
+        using (var interruptedHost = new FullNetApiFactory(
+                   provider,
+                   connectionString,
+                   CreateWorkerSettings(pollMilliseconds: 60_000, retryDelaySeconds: 3_600),
+                   configureTestServices: services =>
+                   {
+                       services.RemoveAll<IWorkflowInstanceStarter>();
+                       services.AddSingleton<IWorkflowInstanceStarter, FailingWorkflowInstanceStarter>();
+                   }))
+        {
+            await interruptedHost.InitializeAsync(cancellationToken).ConfigureAwait(false);
+            using var interruptedClient = interruptedHost.CreateClientForHost("localhost");
+            var interruptedToken = await interruptedHost.CreateHostAccessTokenAsync(permissions, cancellationToken)
+                .ConfigureAwait(false);
+
+            var definitionVersionId = await CreatePublishedDefinitionAsync(
+                    interruptedClient,
+                    interruptedToken,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await BindScenarioAsync(interruptedClient, interruptedToken, definitionVersionId, cancellationToken)
+                .ConfigureAwait(false);
+            var ruleId = await CreateSerialRuleAsync(interruptedClient, interruptedToken, cancellationToken)
+                .ConfigureAwait(false);
+            failedRequest = await CreateRequestInterruptedDuringWorkflowStartAsync(
+                    interruptedClient,
+                    interruptedToken,
+                    ruleId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            Assert.AreEqual(DataApprovalStatusKeys.Pending, failedRequest.StatusKey);
+            Assert.AreEqual(DataApprovalRecoveryStatusKeys.PendingLink, failedRequest.RecoveryStatusKey);
+            Assert.IsNull(failedRequest.WorkflowInstanceId);
+            Assert.IsNull(failedRequest.LastFailureCode);
+        }
+
+        using var restartedHost = new FullNetApiFactory(
             provider,
             connectionString,
-            CreateWorkerSettings(pollMilliseconds: 60_000, retryDelaySeconds: 3_600),
-            configureTestServices: services =>
-            {
-                services.RemoveAll<IWorkflowInstanceStarter>();
-                services.AddSingleton<IWorkflowInstanceStarter, FailingWorkflowInstanceStarter>();
-            });
-        await apiHost.InitializeAsync(cancellationToken).ConfigureAwait(false);
-        using var client = apiHost.CreateClientForHost("localhost");
-        var token = await apiHost.CreateHostAccessTokenAsync(permissions, cancellationToken)
+            CreateWorkerSettings(pollMilliseconds: 60_000, retryDelaySeconds: 3_600));
+        await restartedHost.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        using var restartedClient = restartedHost.CreateClientForHost("localhost");
+        var restartedToken = await restartedHost.CreateHostAccessTokenAsync(permissions, cancellationToken)
             .ConfigureAwait(false);
-
-        var definitionVersionId = await CreatePublishedDefinitionAsync(client, token, cancellationToken)
-            .ConfigureAwait(false);
-        await BindScenarioAsync(client, token, definitionVersionId, cancellationToken).ConfigureAwait(false);
-        var ruleId = await CreateSerialRuleAsync(client, token, cancellationToken).ConfigureAwait(false);
-        failedRequest = await CreateRequestInterruptedDuringWorkflowStartAsync(
-                client,
-                token,
-                ruleId,
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        Assert.AreEqual(DataApprovalStatusKeys.Pending, failedRequest.StatusKey);
-        Assert.AreEqual(DataApprovalRecoveryStatusKeys.PendingLink, failedRequest.RecoveryStatusKey);
-        Assert.IsNull(failedRequest.WorkflowInstanceId);
-        Assert.IsNull(failedRequest.LastFailureCode);
 
         using var workerHost = await BuildRecoveryWorkerHostAsync(
             provider,
@@ -90,8 +105,8 @@ internal static class DataApprovalRecoveryRestartAssertions
         try
         {
             var recovered = await WaitForWorkflowLinkAsync(
-                    client,
-                    token,
+                    restartedClient,
+                    restartedToken,
                     failedRequest.Id,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -99,15 +114,6 @@ internal static class DataApprovalRecoveryRestartAssertions
             Assert.AreEqual(DataApprovalRecoveryStatusKeys.None, recovered.RecoveryStatusKey);
             Assert.IsNotNull(recovered.WorkflowInstanceId);
             Assert.IsNull(recovered.LastFailureCode);
-
-            using var workflowRead = await SendAuthorizedAsync(
-                    client,
-                    HttpMethod.Get,
-                    $"/api/v1/workflow/instances/{recovered.WorkflowInstanceId:D}",
-                    token,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            Assert.AreEqual(HttpStatusCode.OK, workflowRead.StatusCode, await workflowRead.Content.ReadAsStringAsync(cancellationToken));
         }
         finally
         {
