@@ -638,6 +638,87 @@ public sealed class CodeGenerationCliTests
     }
 
     [TestMethod]
+    [DataRow("root")]
+    [DataRow("parent")]
+    [DataRow("file")]
+    [DataRow("dangling")]
+    [DataRow("alias")]
+    [DataRow("directory")]
+    public async Task Plan_module_integration_rejects_unsafe_filesystem_targets_without_writes(string kind)
+    {
+        using var fixture = CliFixture.Create();
+        const string project = "src/Modules/Acme.Modules.Catalog/Acme.Modules.Catalog.csproj";
+        var repository = Path.Combine(fixture.RootPath, "repository");
+        var outside = Path.Combine(fixture.RootPath, "outside");
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        Directory.CreateDirectory(repository);
+        Directory.CreateDirectory(outside);
+        File.WriteAllText(targetPath, ValidIntegrationTargetJson, new UTF8Encoding(false));
+        var protectedFile = Path.Combine(outside, "protected.csproj");
+        const string protectedContent = "<Project><!-- 仓库外人工文件 --></Project>\n";
+        File.WriteAllText(protectedFile, protectedContent, new UTF8Encoding(false));
+        string? directoryLink = null;
+        if (kind == "root")
+        {
+            WriteRepositoryFile(outside, project, "<Project />");
+            Directory.Delete(repository);
+            Directory.CreateSymbolicLink(repository, outside);
+            directoryLink = repository;
+        }
+        else if (kind == "parent")
+        {
+            WriteRepositoryFile(outside, project[4..], "<Project />");
+            directoryLink = Path.Combine(repository, "src");
+            Directory.CreateSymbolicLink(directoryLink, outside);
+        }
+        else if (kind is "file" or "dangling")
+        {
+            var destination = Path.Combine(repository, project);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.CreateSymbolicLink(destination, kind == "file" ? protectedFile : Path.Combine(outside, "missing.csproj"));
+        }
+        else if (kind == "alias")
+        {
+            WriteRepositoryFile(repository, project.Replace("Acme.Modules.Catalog.csproj", "acme.modules.catalog.csproj", StringComparison.Ordinal), "<Project />");
+        }
+        else
+        {
+            Directory.CreateDirectory(Path.Combine(repository, project));
+        }
+
+        try
+        {
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var code = await CodeGenerationCli.RunAsync(
+                ModuleIntegrationArguments(fixture.SchemaPath, repository, targetPath), output, error);
+            Assert.AreEqual(2, code, error.ToString());
+            Assert.AreEqual(string.Empty, output.ToString());
+            StringAssert.Contains(error.ToString(), "工作区冲突");
+            Assert.AreEqual(protectedContent, File.ReadAllText(protectedFile));
+            Assert.IsFalse(Directory.Exists(Path.Combine(repository, ".fullnet")));
+        }
+        finally
+        {
+            if (directoryLink is not null) Directory.Delete(directoryLink);
+        }
+    }
+
+    [TestMethod]
+    public async Task Plan_module_integration_honors_cancellation_when_all_targets_are_missing()
+    {
+        using var fixture = CliFixture.Create();
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        File.WriteAllText(targetPath, ValidIntegrationTargetJson, new UTF8Encoding(false));
+        var target = await ModuleIntegrationTargetDocument.LoadAsync(targetPath, CancellationToken.None);
+        using var source = new CancellationTokenSource();
+        source.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => ModuleIntegrationPlanCommand.PlanAsync(
+            fixture.WorkspacePath, FullNetCrudSchemaTests.CreateProductSchema(), target, source.Token));
+        Assert.AreEqual(0, Directory.GetFiles(fixture.WorkspacePath, "*", SearchOption.AllDirectories).Length);
+    }
+
+    [TestMethod]
     public async Task Plan_module_integration_reports_impacts_without_writing_repository()
     {
         using var fixture = CliFixture.Create();
