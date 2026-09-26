@@ -131,11 +131,8 @@ public static class ModuleIntegrationHostOrchestrator
                 if (edited.Changed)
                 {
                     // 前置检查不能替代最终写入边界，重新拒绝期间出现的链接、别名或目录占用。
-                    ResolveAuthorizationContributor(root, target.AuthorizationContributorPath);
-                    await File.WriteAllTextAsync(
-                            contributorFullPath,
-                            edited.DesiredContent,
-                            cancellationToken)
+                    await CommitAuthorizationContributorAsync(root, target.AuthorizationContributorPath,
+                            original, edited.DesiredContent, cancellationToken)
                         .ConfigureAwait(false);
                 }
             }
@@ -146,6 +143,110 @@ public static class ModuleIntegrationHostOrchestrator
         }
 
         return ModuleIntegrationHostApplyResult.Success();
+    }
+
+    internal static async Task CommitAuthorizationContributorAsync(
+        string repositoryRoot, string relativePath, string original, string desired,
+        CancellationToken cancellationToken, Func<Task>? afterStaging = null)
+    {
+        var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
+        const string lockRelative = ".fullnet/codegeneration-authorization.lock";
+        GenerationWorkspacePath.ResolveFile(root, lockRelative);
+        GenerationWorkspacePath.EnsureParentDirectory(root, lockRelative);
+        var lockPath = GenerationWorkspacePath.ResolveFile(root, lockRelative);
+        FileStream workspaceLock;
+        try
+        {
+            workspaceLock = new FileStream(lockPath, FileMode.OpenOrCreate,
+                FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+        }
+        catch (IOException exception)
+        {
+            throw new GenerationWorkspaceConflictException("另一个授权接入进程正在占用工作区锁。", lockRelative, exception);
+        }
+
+        await using var heldLock = workspaceLock;
+        var path = await ValidateAuthorizationOriginalAsync(root, relativePath, original, cancellationToken);
+        var temporaryRelative = Path.GetRelativePath(root, Path.Combine(Path.GetDirectoryName(path)!,
+            $".fullnet-authorization-{Guid.NewGuid():N}.tmp")).Replace(Path.DirectorySeparatorChar, '/');
+        var temporaryPath = GenerationWorkspacePath.ResolveFile(root, temporaryRelative);
+        var desiredBytes = System.Text.Encoding.UTF8.GetBytes(desired);
+        Exception? commitFailure = null;
+        var stagingCompleted = false;
+        try
+        {
+            await using (var stream = new FileStream(temporaryPath, FileMode.CreateNew,
+                FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                await stream.WriteAsync(desiredBytes, cancellationToken);
+                await stream.FlushAsync(cancellationToken);
+                stream.Flush(flushToDisk: true);
+                stagingCompleted = true;
+            }
+
+            if (afterStaging is not null) await afterStaging();
+            // 暂存期间的人工修改同样不能覆盖；最终路径仍受原工作区边界约束。
+            path = await ValidateAuthorizationOriginalAsync(root, relativePath, original, cancellationToken);
+            GenerationWorkspacePath.RevalidateFile(root, temporaryPath);
+            var stagedBytes = await File.ReadAllBytesAsync(temporaryPath, cancellationToken);
+            if (!stagedBytes.AsSpan().SequenceEqual(desiredBytes))
+            {
+                throw new GenerationWorkspaceConflictException("授权暂存材料发生漂移，必须人工审查。", temporaryRelative);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(temporaryPath, path, overwrite: true);
+        }
+        catch (Exception exception)
+        {
+            commitFailure = exception;
+            throw;
+        }
+        finally
+        {
+            // 父目录若被替换，保留现场而不沿新链接删除工作区外文件；漂移材料也不能当作本次内容清理。
+            string? safeTemporary = null;
+            try
+            {
+                safeTemporary = GenerationWorkspacePath.ResolveFile(root, temporaryRelative);
+            }
+            catch (GenerationWorkspaceConflictException) { }
+            // 未完成写入的半成品保留，不把原始 I/O 或取消误报成“人工漂移”。
+            if (stagingCompleted && safeTemporary is not null && File.Exists(safeTemporary))
+            {
+                try
+                {
+                    var remaining = await File.ReadAllBytesAsync(safeTemporary, CancellationToken.None);
+                    if (!remaining.AsSpan().SequenceEqual(desiredBytes))
+                    {
+                        throw new GenerationWorkspaceConflictException(
+                            "授权暂存材料发生漂移，材料已保留，必须人工审查。", temporaryRelative, commitFailure);
+                    }
+                    File.Delete(safeTemporary);
+                }
+                catch (GenerationWorkspaceConflictException) { throw; }
+                catch (Exception cleanupFailure) when (cleanupFailure is IOException or UnauthorizedAccessException)
+                {
+                    // 清理失败不得丢失先前提交原因；保留材料并向 Host 返回受控冲突。
+                    throw new GenerationWorkspaceConflictException(
+                        "授权暂存材料清理失败，材料已保留，必须人工审查。", temporaryRelative,
+                        commitFailure is null ? cleanupFailure : new AggregateException(commitFailure, cleanupFailure));
+                }
+            }
+        }
+    }
+
+    private static async Task<string> ValidateAuthorizationOriginalAsync(
+        string root, string relativePath, string original, CancellationToken cancellationToken)
+    {
+        var path = ResolveAuthorizationContributor(root, relativePath);
+        var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
+        // 字节一致才允许替换，非法编码或 BOM 不因文本解码归一化而被静默改写。
+        if (!bytes.AsSpan().SequenceEqual(System.Text.Encoding.UTF8.GetBytes(original)))
+        {
+            throw new GenerationWorkspaceConflictException("授权贡献者发生并发变化或编码漂移，拒绝覆盖。", relativePath);
+        }
+
+        return path;
     }
 
     private static string ResolveAuthorizationContributor(string root, string relativePath)

@@ -9,6 +9,114 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class IntegrationCommitBoundaryTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Authorization_commit_preserves_concurrent_human_content(bool afterStaging)
+    {
+        using var fixture = new CommitFixture();
+        const string human = "human concurrent entry\n";
+        if (!afterStaging) File.WriteAllText(fixture.Entry, human);
+        await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() =>
+            fixture.CommitAuthorization(afterStaging ? () =>
+            {
+                File.WriteAllText(fixture.Entry, human);
+                return Task.CompletedTask;
+            } : null));
+        Assert.AreEqual(human, File.ReadAllText(fixture.Entry));
+        Assert.AreEqual(0, fixture.TemporaryFiles().Length);
+    }
+
+    [TestMethod]
+    [DataRow("file")]
+    [DataRow("dangling")]
+    [DataRow("alias")]
+    [DataRow("directory")]
+    public async Task Authorization_commit_rejects_unsafe_lock(string kind)
+    {
+        using var fixture = new CommitFixture();
+        var path = Path.Combine(fixture.Repository, ".fullnet/codegeneration-authorization.lock");
+        File.WriteAllText(path, "lock");
+        fixture.Replace(path, kind);
+        var outside = fixture.CaptureOutside();
+        await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitAuthorization());
+        CollectionAssert.AreEquivalent(outside, fixture.CaptureOutside());
+        Assert.AreEqual(CommitFixture.EntryContent, File.ReadAllText(fixture.Entry));
+        Assert.AreEqual(0, fixture.TemporaryFiles().Length);
+    }
+
+    [TestMethod]
+    public async Task Authorization_commit_rejects_held_lock()
+    {
+        using var fixture = new CommitFixture();
+        using var held = new FileStream(Path.Combine(fixture.Repository, ".fullnet/codegeneration-authorization.lock"),
+            FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitAuthorization());
+        Assert.AreEqual(CommitFixture.EntryContent, File.ReadAllText(fixture.Entry));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Authorization_commit_preserves_drifted_staging_material(bool failAfterDrift)
+    {
+        using var fixture = new CommitFixture();
+        string? staged = null;
+        await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitAuthorization(() =>
+        {
+            staged = fixture.TemporaryFiles().Single();
+            File.WriteAllText(staged, "human staging change\n");
+            if (failAfterDrift) throw new IOException("staging fault after drift");
+            return Task.CompletedTask;
+        }));
+        Assert.AreEqual(CommitFixture.EntryContent, File.ReadAllText(fixture.Entry));
+        Assert.IsNotNull(staged);
+        Assert.AreEqual("human staging change\n", File.ReadAllText(staged));
+    }
+
+    [TestMethod]
+    public async Task Authorization_cleanup_preserves_locked_material_and_original_failure()
+    {
+        using var fixture = new CommitFixture();
+        FileStream? writer = null;
+        string? staged = null;
+        try
+        {
+            var conflict = await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitAuthorization(() =>
+            {
+                staged = fixture.TemporaryFiles().Single();
+                writer = new FileStream(staged, FileMode.Open, FileAccess.Write, FileShare.None);
+                throw new IOException("original commit fault");
+            }));
+            Assert.IsInstanceOfType<AggregateException>(conflict.InnerException);
+            var failures = ((AggregateException)conflict.InnerException!).InnerExceptions;
+            Assert.AreEqual(2, failures.Count);
+            StringAssert.Contains(failures[0].Message, "original commit fault");
+            Assert.AreEqual(CommitFixture.EntryContent, File.ReadAllText(fixture.Entry));
+        }
+        finally { writer?.Dispose(); }
+        Assert.IsNotNull(staged);
+        Assert.IsTrue(File.Exists(staged));
+    }
+
+    [TestMethod]
+    public async Task Authorization_commit_staging_failure_preserves_original()
+    {
+        using var fixture = new CommitFixture();
+        await Assert.ThrowsExactlyAsync<IOException>(() => fixture.CommitAuthorization(() => throw new IOException("staging fault")));
+        Assert.AreEqual(CommitFixture.EntryContent, File.ReadAllText(fixture.Entry));
+        Assert.AreEqual(0, fixture.TemporaryFiles().Length);
+    }
+
+    [TestMethod]
+    public async Task Authorization_commit_success_replaces_content_and_cleans_material()
+    {
+        using var fixture = new CommitFixture();
+        await fixture.CommitAuthorization();
+        Assert.AreEqual("updated authorization\n", File.ReadAllText(fixture.Entry));
+        Assert.AreEqual(0, fixture.TemporaryFiles().Length);
+    }
+
+    [TestMethod]
     [DataRow("file")]
     [DataRow("dangling")]
     [DataRow("parent")]
@@ -451,6 +559,11 @@ public sealed class IntegrationCommitBoundaryTests
         // 只调用生产提交阶段，模拟候选编译已经成功；不启动 MSBuild 或增加公共测试入口。
         public Task CommitEntry() => ModuleEntryIntegrationApplyCommand.ApplyUnderWorkspaceLockAsync(
             Repository, Module, Entry, EntryContent, "updated entry\n", CancellationToken.None);
+
+        public Task CommitAuthorization(Func<Task>? afterStaging = null) =>
+            ModuleIntegrationHostOrchestrator.CommitAuthorizationContributorAsync(Repository,
+                Path.GetRelativePath(Repository, Entry).Replace(Path.DirectorySeparatorChar, '/'),
+                EntryContent, "updated authorization\n", CancellationToken.None, afterStaging);
 
         public Task CommitComposition(Func<Task>? afterProjectCommit = null, Func<Task>? beforeRecoveryRegistration = null) => CompositionIntegrationApplyCommand.CommitAsync(
             Repository, Module, Entry, EntryContent, Project, ProjectContent,
