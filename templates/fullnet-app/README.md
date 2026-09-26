@@ -31,7 +31,8 @@ The creator uses an isolated `dotnet new` template hive and projects the selecte
 ## Layout
 
 - `framework/fullnet/` — managed framework source bundle and `framework-manifest.json`
-- `src/FullNetAppNameToken.Host.Api/` — application-owned API host referencing framework modules
+- `src/FullNetAppNameToken.Host.Api/` — application-owned API host
+- `src/FullNetAppNameToken.Composition/` — application-owned static business module catalog; references the managed framework Composition
 - `ui/admin/` — application-owned Vue administration UI
 - `packages/` and `pnpm-lock.yaml` — local workspace dependencies and their locked third-party versions
 - `fullnet-app.json` — frozen application owner key, database provider, and preset
@@ -42,5 +43,7 @@ After generation, build the API with `dotnet build src/<name>.Host.Api/<name>.Ho
 Run `dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- diagnose --workspace . --profile development` from the generated app root to check its host layout, frozen preset and database provider, selected module references, and configuration placeholders. Use `--profile production` for production configuration checks. The command reads files and environment metadata without initializing the database.
 
 The generated Composition project references only selected module implementations. The framework source bundle still contains source for all modules, and transitive project reference closure, migrations, login, and dual-database acceptance remain separate gates.
+
+Declare business modules in the application-owned `ApplicationModuleCatalog.CreateModules()` and reference their projects from the application Composition project. The API calls this catalog; it combines the frozen official preset with the explicit application list, validates dependencies before registration, and labels business modules `Application` in the read-only catalog. Worker and Migrator consumers can reuse the same catalog with their respective profiles; this template currently supplies only the API host. For CLI integration, target this application-owned project and catalog, not files under `framework/fullnet/`. Application migrations and full generated-business acceptance still require their own verification.
 
 The manifest records paired SQL Server/MySQL migration scripts with `selectionStatus: unscoped` and records registered seed contributors for each preset. The migration list is an inventory, not permission to run the full migration set for a selected preset. Module ownership, historical prerequisites, and first-run database validation must be completed before enabling a generated-app migrator.

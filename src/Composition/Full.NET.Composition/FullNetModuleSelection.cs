@@ -49,6 +49,10 @@ public static class FullNetModuleSelection
     // 模板裁剪可启用的实现后，仍保留完整官方契约来源，允许未安装的可选生产者。
     private static readonly IReadOnlyList<string> ContractModuleNames = OfficialModuleNames;
 
+    // 预设只裁剪可用实现；应用模块仍不得占用未安装的官方契约键。
+    internal static bool IsOfficialModuleName(string name) =>
+        ContractModuleNames.Contains(name, StringComparer.Ordinal);
+
     /// <summary>
     /// Minimal 预设模块键：Identity + Tenancy + Settings + Organization。
     /// </summary>

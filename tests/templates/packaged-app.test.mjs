@@ -41,6 +41,8 @@ test('application template package includes framework sources and root manifest'
     assert.equal(create.status, 0, create.stderr || create.stdout);
     assert.deepEqual(readdirSync(workspace).filter((entry) => entry.startsWith('.fullnet-create-')), []);
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj')));
+    assert.ok(existsSync(join(appRoot, 'src/Demo.Composition/Demo.Composition.csproj')));
+    assert.match(readFileSync(join(appRoot, 'src/Demo.Composition/ApplicationModuleCatalog.cs'), 'utf8'), /namespace Demo\.Composition;/u);
     assert.ok(existsSync(join(appRoot, 'ui/admin/src/App.vue')));
     assert.match(readFileSync(join(appRoot, 'ui/admin/vite.config.ts'), 'utf8'), /http:\/\/localhost:5500/);
     assert.ok(existsSync(join(appRoot, 'packages/admin-form-designer/package.json')));

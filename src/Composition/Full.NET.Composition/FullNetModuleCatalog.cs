@@ -101,16 +101,35 @@ public static class FullNetModuleCatalog
     public static IServiceCollection AddFullNetApplicationModules(
         this IServiceCollection services,
         IConfiguration configuration,
-        FullNetHostProfile profile)
+        FullNetHostProfile profile) =>
+        services.AddFullNetApplicationModules(configuration, profile, []);
+
+    /// <summary>合并官方预设与应用组合根的静态模块清单，先验证依赖再按角色注册。</summary>
+    /// <param name="services">宿主服务集合。</param>
+    /// <param name="configuration">官方预设及模块配置。</param>
+    /// <param name="profile">API、Worker 或 Migrator 角色。</param>
+    /// <param name="applicationModules">应用拥有的静态实例，不通过配置或程序集扫描加载。</param>
+    /// <returns>宿主服务集合。</returns>
+    public static IServiceCollection AddFullNetApplicationModules(
+        this IServiceCollection services, IConfiguration configuration, FullNetHostProfile profile,
+        IReadOnlyList<IFullNetModule> applicationModules)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(applicationModules);
+        if (profile is not (FullNetHostProfile.Api or FullNetHostProfile.Worker or FullNetHostProfile.Migrator))
+        {
+            throw new ArgumentOutOfRangeException(nameof(profile), profile, "未知的 Full.NET 宿主 Profile。");
+        }
+        var applications = applicationModules.ToArray();
+        var hostModules = ResolveHostModules(configuration, applications);
+        var applicationNames = applications.Select(module => module.Name).ToHashSet(StringComparer.Ordinal);
 
         switch (profile)
         {
             case FullNetHostProfile.Api:
                 services.AddFullNetModularity();
-                var apiModules = CreateModules(configuration);
+                var apiModules = hostModules;
                 // Provider 消费 Ai 的请求凭据作用域；裁剪 Ai 模块时不能留下悬空依赖。
                 if (apiModules.Any(module => module is AiModule))
                 {
@@ -122,14 +141,16 @@ public static class FullNetModuleCatalog
                 }
 
                 // 只读模块清单必须在全部模块注册后物化，禁止运行时再追加或编译加载。
-                services.AddFullNetModuleCatalogSnapshot(CreateOfficialDescriptor);
+                services.AddFullNetModuleCatalogSnapshot(module => applicationNames.Contains(module.Name)
+                    ? CreateDescriptor(module, FullNetModuleSourceClassification.Application)
+                    : CreateOfficialDescriptor(module));
                 services.AddSingleton<IFullNetModuleSelectionPreview>(
                     _ => new FullNetModuleSelectionPreview(CreateAllModules()));
                 break;
 
             case FullNetHostProfile.Migrator:
                 services.AddFullNetModularity();
-                foreach (var module in CreateModules(configuration))
+                foreach (var module in hostModules)
                 {
                     module.AddMigrationServices(services, configuration);
                 }
@@ -139,7 +160,7 @@ public static class FullNetModuleCatalog
             case FullNetHostProfile.Worker:
             {
                 // Worker 只装配各模块声明的后台能力，避免把 HTTP、认证和完整模块依赖图带入后台进程。
-                var workerModules = CreateModules(configuration);
+                var workerModules = hostModules;
                 if (workerModules.Any(module => module is AiModule))
                 {
                     AddAiProviderServices(services, configuration);
@@ -161,6 +182,26 @@ public static class FullNetModuleCatalog
         }
 
         return services;
+    }
+
+    // 在修改服务集合之前验证完整图，不能因 API、Worker、Migrator 的入口不同而漏过依赖。
+    private static IReadOnlyList<IFullNetModule> ResolveHostModules(
+        IConfiguration configuration, IReadOnlyList<IFullNetModule> applications)
+    {
+        var official = CreateModules(configuration);
+        if (applications.Count == 0) return official;
+        var registry = new FullNetModuleRegistry();
+        foreach (var module in official) registry.Add(module);
+        foreach (var module in applications)
+        {
+            ArgumentNullException.ThrowIfNull(module);
+            if (FullNetModuleSelection.IsOfficialModuleName(module.Name))
+            {
+                throw new InvalidOperationException($"应用模块不得占用官方模块键：{module.Name}。");
+            }
+            registry.Add(module);
+        }
+        return registry.GetOrderedModules();
     }
 
     /// <summary>
@@ -236,7 +277,11 @@ public static class FullNetModuleCatalog
     /// <summary>
     /// 由已注册模块生成官方描述符；版本取程序集版本，不暴露路径或载荷。
     /// </summary>
-    private static FullNetModuleDescriptor CreateOfficialDescriptor(IFullNetModule module)
+    private static FullNetModuleDescriptor CreateOfficialDescriptor(IFullNetModule module) =>
+        CreateDescriptor(module, FullNetModuleSourceClassification.Official);
+
+    private static FullNetModuleDescriptor CreateDescriptor(
+        IFullNetModule module, FullNetModuleSourceClassification classification)
     {
         var assemblyVersion = module.GetType().Assembly.GetName().Version;
         var version = assemblyVersion is null
@@ -249,7 +294,7 @@ public static class FullNetModuleCatalog
             version,
             module.Dependencies,
             OfficialHostProfiles,
-            FullNetModuleSourceClassification.Official,
+            classification,
             FullNetModuleHealthCapability.None);
     }
 }
