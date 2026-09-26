@@ -6,7 +6,7 @@ namespace Full.NET.Modules.Files.Contracts;
 public interface ITenantResourceFileStorageUsagePort
 {
     /// <summary>
-    /// 统计指定租户 <c>fn_files_tenant_resource_file</c> 中 StatusKey 为 ready 的 SizeBytes 之和。
+    /// 由 Files 权威边界统计指定租户已发布资源文件的存储字节总和，不向消费者暴露物理表。
     /// </summary>
     Task<long> SumReadyStorageBytesAsync(
         Guid tenantId,

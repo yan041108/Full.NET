@@ -1,6 +1,12 @@
 {
   "schemaVersion": 1,
   "tables": {
+    "fn_identity_user_mfa_recovery_code": {
+      "comment": "身份认证 MFA 恢复码表",
+      "columns": {
+        "CodeHash": "恢复码 SHA-256 摘要；不保存明文"
+      }
+    },
     "fn_notifications_announcement": {
       "columns": {
         "AudienceKind": "公告受众类型键",

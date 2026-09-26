@@ -38,4 +38,5 @@
   <data name="tenancy.tenant_subscription.period_invalid" xml:space="preserve"><value>The tenant subscription period is invalid.</value></data>
   <data name="tenancy.tenant_subscription.not_found" xml:space="preserve"><value>The tenant subscription was not found.</value></data>
   <data name="tenancy.tenant_subscription.version_conflict" xml:space="preserve"><value>The tenant subscription record was updated by another operation.</value></data>
+  <data name="tenancy.quota.usage_baseline_unsupported_metric" xml:space="preserve"><value>This quota metric does not support rebuilding usage from authoritative resources.</value></data>
 </root>

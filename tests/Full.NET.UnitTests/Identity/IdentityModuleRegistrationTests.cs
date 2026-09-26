@@ -505,6 +505,7 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMembershipQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMembershipManagementService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.ManageMfaRecoveryCodes.MfaRecoveryCodeService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMemberProvisionService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.AcceptTenantInvitation.AcceptTenantInvitationService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageMyTenantInvitations.MyTenantInvitationQueryService>(ServiceLifetime.Scoped),
@@ -552,6 +553,7 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<
             ITenantMemberSelectionDirectory,
             TenantMemberSelectionDirectory>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<ITenantActiveMemberCountPort, TenantActiveMemberCountPort>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostTenantUserSelectionDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Factory<IHostTenantUserSelectionDirectory>(
             ServiceLifetime.Scoped),

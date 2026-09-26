@@ -1275,6 +1275,17 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_identity_user_mfa_recovery_code": {
+      "comment": "身份认证 MFA 恢复码表",
+      "columns": {
+        "CodeHash": "恢复码 SHA-256 摘要；不保存明文",
+        "ConsumedAtUtc": "消费时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "UserId": "用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
     "fn_identity_user_profile": {
       "comment": "身份认证用户资料表",
       "columns": {

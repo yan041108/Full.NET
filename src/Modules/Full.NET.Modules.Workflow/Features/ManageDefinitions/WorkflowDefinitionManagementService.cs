@@ -163,10 +163,26 @@ internal sealed class WorkflowDefinitionManagementService(
         }
     }
 
-    public Task<Result<WorkflowDefinitionResponse>> UpdateDraftAsync(
+    public async Task<Result<WorkflowDefinitionResponse>> UpdateDraftAsync(
         Guid id, Guid actorUserId, UpdateWorkflowDefinitionDraftRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(token => UpdateDraftCoreAsync(id, actorUserId, request, token), cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        if (request.ExpectedRevision < 1 || !WorkflowBusinessTitleRules.IsValidTemplate(request.BusinessTitleTemplate))
+        {
+            return Invalid<WorkflowDefinitionResponse>();
+        }
+
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        // Tenancy 权益读取须先完成，避免复用 Workflow 的本地事务。
+        if (await TryDenyTenantMutationAsync<WorkflowDefinitionResponse>(scope, cancellationToken).ConfigureAwait(false)
+            is { } draftDenied)
+        {
+            return draftDenied;
+        }
+
+        return await transaction.ExecuteResultAsync(
+            token => UpdateDraftCoreAsync(id, actorUserId, request, scope, token), cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>校验不可变定义资产和跨模块用户引用后，在 Workflow 本地事务内发布版本。</summary>
     /// <param name="id">工作流定义标识。</param>
@@ -315,22 +331,10 @@ internal sealed class WorkflowDefinitionManagementService(
     }
 
     private async Task<Result<WorkflowDefinitionResponse>> UpdateDraftCoreAsync(
-        Guid id, Guid actorUserId, UpdateWorkflowDefinitionDraftRequest request, CancellationToken token)
+        Guid id, Guid actorUserId, UpdateWorkflowDefinitionDraftRequest request,
+        WorkflowManagementScope scope, CancellationToken token)
     {
-        if (request.ExpectedRevision < 1 || !WorkflowBusinessTitleRules.IsValidTemplate(request.BusinessTitleTemplate))
-        {
-            return Invalid<WorkflowDefinitionResponse>();
-        }
-
         var template = WorkflowBusinessTitleRules.NormalizeTemplate(request.BusinessTitleTemplate);
-
-        var scope = WorkflowManagementScope.Resolve(currentTenant);
-        if (await TryDenyTenantMutationAsync<WorkflowDefinitionResponse>(scope, token).ConfigureAwait(false)
-            is { } draftDenied)
-        {
-            return draftDenied;
-        }
-
         var definition = await FindDefinitionAsync(id, scope, token).ConfigureAwait(false);
         if (definition is null)
         {

@@ -412,6 +412,8 @@ public sealed class DependencyRulesTests
                 typeof(Full.NET.Modules.Tenancy.Contracts.ReactivateTenantRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ReconcileTenantQuotaMetricIdsRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ReconcileTenantQuotaMetricIdsResponse).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ReconcileTenantQuotaUsageBaselineRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ReconcileTenantQuotaUsageBaselineResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ReleaseTenantQuotaRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ReserveTenantQuotaRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ReserveTenantQuotaResponse).FullName,
@@ -428,6 +430,8 @@ public sealed class DependencyRulesTests
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantBrandingResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantChangedIntegrationEvent).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantContextSummary).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantEntitlementBackfillRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantEntitlementBackfillResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantEntitlementBindingResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantEntitlementCatalogResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantEntitlementEnforcementPhases).FullName,
@@ -584,6 +588,8 @@ public sealed class DependencyRulesTests
             // API 只注册受权限与审计保护的一次性范围重放，不得启动常驻 Kafka Consumer。
             Path.Combine("src", "Hosts", "Full.NET.Host.Api", "Full.NET.Host.Api.csproj"),
             Path.Combine("src", "Hosts", "Full.NET.Host.Worker", "Full.NET.Host.Worker.csproj"),
+            // 独立应用 API 模板沿用相同受控 Kafka 重放注册，生成物由模板验收验证。
+            Path.Combine("templates", "fullnet-app", "src", "FullNetAppNameToken.Host.Api", "FullNetAppNameToken.Host.Api.csproj"),
             // Benchmarks 只承载显式执行的独立容量工具，不进入 API/Worker 生产依赖图。
             Path.Combine("benchmarks", "Full.NET.Benchmarks", "Full.NET.Benchmarks.csproj"),
             Path.Combine("tests", "Full.NET.UnitTests", "Full.NET.UnitTests.csproj"),
@@ -1006,6 +1012,8 @@ public sealed class DependencyRulesTests
             Path.Combine(fixtureRoot, ".git", "internal", "Ignored.csproj"),
             Path.Combine(fixtureRoot, "src", "Approved", "bin", "Generated.csproj"),
             Path.Combine(fixtureRoot, "src", "Approved", "obj", "Generated.csproj"),
+            Path.Combine(fixtureRoot, "artifacts", "templates", "Generated.csproj"),
+            Path.Combine(fixtureRoot, ".tmp", "Generated.csproj"),
         };
 
         try
@@ -1140,7 +1148,7 @@ public sealed class DependencyRulesTests
         var module = new WorkflowModule();
 
         CollectionAssert.AreEquivalent(
-            new[] { "Files", "Identity", "Notifications", "Organization" },
+            new[] { "Files", "Identity", "Notifications", "Organization", "Tenancy" },
             module.Dependencies.ToArray());
     }
 
@@ -1353,7 +1361,7 @@ public sealed class DependencyRulesTests
 
             foreach (var childDirectory in Directory
                          .EnumerateDirectories(directory, "*", SearchOption.TopDirectoryOnly)
-                         .Where(path => !IsExcludedRepositoryScanDirectory(path))
+                         .Where(path => !IsExcludedRepositoryScanDirectory(path, root))
                          .OrderByDescending(path => path, StringComparer.Ordinal))
             {
                 pendingDirectories.Push(childDirectory);
@@ -1363,9 +1371,16 @@ public sealed class DependencyRulesTests
 
     /// <summary>扫描自有仓库代码，跳过构建产物和包管理器维护的外部依赖树。</summary>
     /// <param name="path">待遍历目录。</param>
-    private static bool IsExcludedRepositoryScanDirectory(string path)
+    /// <param name="root">自有仓库根目录；仅根级产物目录可排除。</param>
+    private static bool IsExcludedRepositoryScanDirectory(string path, string root)
     {
         var name = Path.GetFileName(path);
+        if (string.Equals(Path.GetDirectoryName(path), root, StringComparison.OrdinalIgnoreCase)
+            && (name.Equals("artifacts", StringComparison.OrdinalIgnoreCase)
+                || name.Equals(".tmp", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
         return name.Equals(".git", StringComparison.OrdinalIgnoreCase)
             || name.Equals(".worktrees", StringComparison.OrdinalIgnoreCase)
             || name.Equals("node_modules", StringComparison.OrdinalIgnoreCase)

@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 2641,
+      "minimum": 3015,
       "timeout": "10m",
       "selections": {
         "async-lifecycle": {
@@ -142,6 +142,9 @@
       }
     },
     "migrationSelections": {
+      "238": {
+        "filter": "FullyQualifiedName~Migration238MfaRecoveryCodeRecoveryTests.MySql_|FullyQualifiedName~Migration238MfaRecoveryCodeRecoveryTests.SqlServer_"
+      },
       "229": {
         "filter": "FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.MySql_|FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.SqlServer_"
       },
@@ -558,7 +561,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 470,
+        "minimum": 472,
         "timeout": "90m"
       },
       "infrastructure": {
@@ -579,7 +582,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1049,
+        "minimum": 1051,
         "timeout": "90m"
       }
     }
@@ -597,6 +600,7 @@
         "tests/templates/packaged-app.test.mjs",
         "tests/templates/create-app.test.mjs",
         "tests/templates/project-preset-composition.test.mjs",
+        "tests/templates/projected-selection-runtime.test.mjs",
         "tests/templates/created-app.test.mjs",
         "tests/templates/template-options.test.mjs",
         "tests/templates/migration-script-modules.test.mjs",

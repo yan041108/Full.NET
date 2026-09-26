@@ -110,22 +110,50 @@ internal sealed class WorkflowFormManagementService(
         }
     }
 
-    public Task<Result<WorkflowFormResponse>> UpdateDraftAsync(
+    public async Task<Result<WorkflowFormResponse>> UpdateDraftAsync(
         Guid id,
         UpdateWorkflowFormDraftRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(
-            token => UpdateDraftCoreAsync(id, request, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        if (request.ExpectedRevision < 1)
+        {
+            return Invalid<WorkflowFormResponse>();
+        }
 
-    public Task<Result<WorkflowFormVersionResponse>> PublishAsync(
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        // 跨模块检查在事务前完成，事务内只维护表单自身的数据与并发约束。
+        if (await TryDenyTenantMutationAsync<WorkflowFormResponse>(scope, cancellationToken).ConfigureAwait(false)
+            is { } draftDenied)
+        {
+            return draftDenied;
+        }
+
+        return await transaction.ExecuteResultAsync(
+            token => UpdateDraftCoreAsync(id, request, scope, token), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<Result<WorkflowFormVersionResponse>> PublishAsync(
         Guid id,
         Guid actorUserId,
         PublishWorkflowFormRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(
-            token => PublishCoreAsync(id, actorUserId, request, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        if (request.ExpectedRevision < 1)
+        {
+            return Invalid<WorkflowFormVersionResponse>();
+        }
+
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        // 权益拒绝时不进入本地事务，也不写入任何 Workflow 资产。
+        if (await TryDenyTenantMutationAsync<WorkflowFormVersionResponse>(scope, cancellationToken).ConfigureAwait(false)
+            is { } publishDenied)
+        {
+            return publishDenied;
+        }
+
+        return await transaction.ExecuteResultAsync(
+            token => PublishCoreAsync(id, actorUserId, request, scope, token), cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>在乐观并发保护下变更表单启停或归档状态。</summary>
     /// <param name="id">表单定义标识。</param>
@@ -290,20 +318,9 @@ internal sealed class WorkflowFormManagementService(
     private async Task<Result<WorkflowFormResponse>> UpdateDraftCoreAsync(
         Guid id,
         UpdateWorkflowFormDraftRequest request,
+        WorkflowManagementScope scope,
         CancellationToken cancellationToken)
     {
-        if (request.ExpectedRevision < 1)
-        {
-            return Invalid<WorkflowFormResponse>();
-        }
-
-        var scope = WorkflowManagementScope.Resolve(currentTenant);
-        if (await TryDenyTenantMutationAsync<WorkflowFormResponse>(scope, cancellationToken).ConfigureAwait(false)
-            is { } draftDenied)
-        {
-            return draftDenied;
-        }
-
         var definition = await FindAsync(id, scope, cancellationToken).ConfigureAwait(false);
         if (definition is null)
         {
@@ -337,20 +354,9 @@ internal sealed class WorkflowFormManagementService(
         Guid id,
         Guid actorUserId,
         PublishWorkflowFormRequest request,
+        WorkflowManagementScope scope,
         CancellationToken cancellationToken)
     {
-        if (request.ExpectedRevision < 1)
-        {
-            return Invalid<WorkflowFormVersionResponse>();
-        }
-
-        var scope = WorkflowManagementScope.Resolve(currentTenant);
-        if (await TryDenyTenantMutationAsync<WorkflowFormVersionResponse>(scope, cancellationToken)
-                .ConfigureAwait(false) is { } publishDenied)
-        {
-            return publishDenied;
-        }
-
         var definition = await FindAsync(id, scope, cancellationToken).ConfigureAwait(false);
         if (definition is null)
         {
