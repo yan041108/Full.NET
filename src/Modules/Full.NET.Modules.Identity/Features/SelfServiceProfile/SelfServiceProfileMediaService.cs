@@ -14,12 +14,12 @@ internal sealed class SelfServiceProfileMediaService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
-    IHostFileUploadWriter hostFileUploadWriter,
-    IHostFileReferenceClaimService hostFileReferenceClaimService,
-    IHostFileDescriptorReader hostFileDescriptorReader,
-    IHostFileContentReader hostFileContentReader,
     SelfServiceProfileService profileService,
-    ICurrentTenantContextWriter currentTenantWriter)
+    ICurrentTenantContextWriter currentTenantWriter,
+    IHostFileUploadWriter? hostFileUploadWriter = null,
+    IHostFileReferenceClaimService? hostFileReferenceClaimService = null,
+    IHostFileDescriptorReader? hostFileDescriptorReader = null,
+    IHostFileContentReader? hostFileContentReader = null)
 {
     /// <summary>上传并绑定头像。</summary>
     public Task<Result<SelfServiceProfileResponse>> UploadAvatarAsync(
@@ -112,6 +112,12 @@ internal sealed class SelfServiceProfileMediaService(
         if (!SelfServiceProfilePolicy.IsHostActorScope(actorScope))
         {
             return HostOnlyFailure<SelfServiceProfileResponse>();
+        }
+
+        // 基础预设允许不装配 Files；媒体依赖不完整时，必须在上传及数据库访问前拒绝。
+        if (hostFileUploadWriter is null || hostFileReferenceClaimService is null || hostFileDescriptorReader is null)
+        {
+            return MediaInvalid<SelfServiceProfileResponse>();
         }
 
         if (!IsAllowedContentType(kind, contentType))
@@ -273,6 +279,12 @@ internal sealed class SelfServiceProfileMediaService(
             return HostOnlyFailure<SelfServiceProfileResponse>();
         }
 
+        // 缺少引用释放能力时保留已有绑定，避免解除档案后遗留孤立引用。
+        if (hostFileReferenceClaimService is null)
+        {
+            return MediaInvalid<SelfServiceProfileResponse>();
+        }
+
         var user = await FindActiveUserAsync(userId, cancellationToken).ConfigureAwait(false);
         if (user is null)
         {
@@ -312,6 +324,11 @@ internal sealed class SelfServiceProfileMediaService(
         if (!SelfServiceProfilePolicy.IsHostActorScope(actorScope))
         {
             return HostOnlyFailure<HostFileContent>();
+        }
+
+        if (hostFileContentReader is null)
+        {
+            return MediaNotFound<HostFileContent>();
         }
 
         var user = await FindActiveUserAsync(userId, cancellationToken).ConfigureAwait(false);
@@ -357,7 +374,7 @@ internal sealed class SelfServiceProfileMediaService(
         CancellationToken cancellationToken)
     {
         var idempotencyKey = BuildIdempotencyKey(kind, userId, fileId);
-        _ = await hostFileReferenceClaimService
+        _ = await hostFileReferenceClaimService!
             .ReleaseAsync(idempotencyKey, cancellationToken)
             .ConfigureAwait(false);
     }
