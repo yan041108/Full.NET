@@ -70,6 +70,8 @@ public static class CompositionIntegrationApplyCommand
         CancellationToken cancellationToken)
     {
         var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
+        CompositionIntegrationRecovery.RejectPending(root,
+            Path.Combine(root, target.CompositionProjectPath), Path.Combine(root, target.CompositionCatalogPath));
 
         if (!MatchesModule(schema.RootNamespace, target.ModuleName))
         {
@@ -214,9 +216,11 @@ public static class CompositionIntegrationApplyCommand
         string originalCatalog,
         CompositionIntegrationEditResult catalogEdit,
         CancellationToken cancellationToken,
-        Func<Task>? afterProjectCommit = null)
+        Func<Task>? afterProjectCommit = null,
+        Func<Task>? beforeRecoveryRegistration = null)
     {
         var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
+        CompositionIntegrationRecovery.RejectPending(root, compositionProjectPath, compositionCatalogPath);
         GenerationWorkspacePath.RevalidateFile(root, moduleEntryPath);
         GenerationWorkspacePath.RevalidateFile(root, compositionProjectPath);
         GenerationWorkspacePath.RevalidateFile(root, compositionCatalogPath);
@@ -236,6 +240,7 @@ public static class CompositionIntegrationApplyCommand
         await using var moduleLock = OpenLock(
             moduleLockPath,
             ModuleWorkspaceLockRelativePath);
+        CompositionIntegrationRecovery.RejectPending(root, compositionProjectPath, compositionCatalogPath);
 
         var registryFailure =
             await ModuleEntryIntegrationApplyCommand
@@ -324,8 +329,7 @@ public static class CompositionIntegrationApplyCommand
         catch (Exception commitException)
         {
             if (projectCommitted
-                && projectRecovery is not null
-                && File.Exists(projectRecovery))
+                && projectRecovery is not null)
             {
                 try
                 {
@@ -345,11 +349,31 @@ public static class CompositionIntegrationApplyCommand
                         or UnauthorizedAccessException
                         or DecoderFallbackException)
                 {
-                    var preservedRecovery = projectRecovery;
+                    var preservedRecovery = projectRecovery!;
                     projectRecovery = null;
+                    try
+                    {
+                        if (beforeRecoveryRegistration is not null)
+                        {
+                            await beforeRecoveryRegistration();
+                        }
+                        await CompositionIntegrationRecovery.RegisterAsync(root,
+                            compositionProjectPath, compositionCatalogPath, preservedRecovery,
+                            originalProject, originalCatalog);
+                    }
+                    catch (Exception registrationException)
+                        when (registrationException is IOException or UnauthorizedAccessException)
+                    {
+                        // 登记失败时仍保留已暂存的 Catalog；即使旧项目副本被外部删除，也有材料阻断重试。
+                        stagedCatalog = null;
+                        throw new GenerationWorkspaceConflictException(
+                            "Composition 回滚及恢复登记失败；材料已保留，必须人工审查。",
+                            CompositionIntegrationRecovery.MarkerRelativePath,
+                            new AggregateException(commitException, recoveryException, registrationException));
+                    }
                     throw new GenerationWorkspaceConflictException(
                         "Composition Catalog 提交失败且项目回滚失败；"
-                        + "原项目恢复副本已保留，必须人工审查。",
+                        + "恢复现场已登记，必须人工审查。",
                         Path.GetFileName(preservedRecovery),
                         new AggregateException(
                             commitException,

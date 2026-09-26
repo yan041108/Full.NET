@@ -1121,6 +1121,24 @@ public sealed class CodeGenerationCliTests
     }
 
     [TestMethod]
+    public async Task Apply_composition_blocks_registered_recovery_before_reading_prerequisites()
+    {
+        using var fixture = CliFixture.Create();
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        File.WriteAllText(targetPath, ValidIntegrationTargetJson, new UTF8Encoding(false));
+        WriteRepositoryFile(fixture.WorkspacePath, ".fullnet/codegeneration-composition-recovery.pending", "待人工审查");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var code = await CodeGenerationCli.RunAsync(
+            ModuleIntegrationArguments(fixture.SchemaPath, fixture.WorkspacePath, targetPath, "apply-composition-integration"), output, error);
+        Assert.AreEqual(2, code);
+        Assert.AreEqual(string.Empty, output.ToString());
+        StringAssert.Contains(error.ToString(), "工作区冲突");
+        StringAssert.Contains(error.ToString(), "待审查");
+        Assert.AreEqual("待人工审查", File.ReadAllText(Path.Combine(fixture.WorkspacePath, ".fullnet/codegeneration-composition-recovery.pending")));
+    }
+
+    [TestMethod]
     public async Task Apply_module_entry_integration_reports_missing_project_without_writes()
     {
         using var fixture = CliFixture.Create();

@@ -154,6 +154,8 @@ public sealed class IntegrationCommitBoundaryTests
     [DataRow("link")]
     [DataRow("recovery-drift")]
     [DataRow("recovery-link")]
+    [DataRow("recovery-deleted")]
+    [DataRow("recovery-dangling")]
     public async Task Composition_rollback_preserves_concurrent_project_and_recovery_material(string kind)
     {
         using var fixture = new CommitFixture();
@@ -168,6 +170,8 @@ public sealed class IntegrationCommitBoundaryTests
             else if (kind == "invalid-utf8") File.WriteAllBytes(fixture.Project, [0xFF]);
             else if (kind == "link") fixture.Replace(fixture.Project, "file");
             else if (kind == "recovery-drift") File.WriteAllText(recovery, "人工恢复资料\n");
+            else if (kind == "recovery-deleted") File.Delete(recovery);
+            else if (kind == "recovery-dangling") fixture.Replace(recovery, "dangling");
             else fixture.Replace(recovery, "file");
             fixture.Replace(fixture.Catalog, "directory");
             outside = fixture.CaptureOutside();
@@ -175,8 +179,21 @@ public sealed class IntegrationCommitBoundaryTests
         }));
         CollectionAssert.AreEquivalent(outside, fixture.CaptureOutside());
         Assert.IsNotNull(recovery);
-        Assert.IsTrue(File.Exists(recovery));
-        Assert.AreEqual(kind == "recovery-drift" ? "人工恢复资料\n" : CommitFixture.ProjectContent, File.ReadAllText(recovery));
+        if (kind is "recovery-deleted" or "recovery-dangling")
+        {
+            if (kind == "recovery-deleted") Assert.IsFalse(File.Exists(recovery));
+            else
+            {
+                var target = new FileInfo(recovery).LinkTarget;
+                Assert.IsNotNull(target);
+                Assert.IsFalse(File.Exists(target));
+            }
+        }
+        else
+        {
+            Assert.IsTrue(File.Exists(recovery));
+            Assert.AreEqual(kind == "recovery-drift" ? "人工恢复资料\n" : CommitFixture.ProjectContent, File.ReadAllText(recovery));
+        }
         if (kind == "human") Assert.AreEqual("人工新项目\n", File.ReadAllText(fixture.Project));
         else if (kind == "deleted") Assert.IsFalse(File.Exists(fixture.Project));
         else if (kind == "invalid-utf8") CollectionAssert.AreEqual(new byte[] { 0xFF }, File.ReadAllBytes(fixture.Project));
@@ -185,7 +202,12 @@ public sealed class IntegrationCommitBoundaryTests
             Assert.AreEqual("updated project\n", File.ReadAllText(fixture.Project));
             if (kind == "link") Assert.IsNotNull(new FileInfo(fixture.Project).LinkTarget);
         }
-        Assert.AreEqual(1, fixture.TemporaryFiles().Length);
+        Assert.AreEqual(kind == "recovery-deleted" ? 0 : 1, fixture.TemporaryFiles().Length);
+        var marker = Path.Combine(fixture.Repository, ".fullnet/codegeneration-composition-recovery.pending");
+        Assert.IsTrue(File.Exists(marker));
+        var registration = File.ReadAllText(marker);
+        StringAssert.Contains(registration, Path.GetRelativePath(fixture.Repository, recovery).Replace(Path.DirectorySeparatorChar, '/'));
+        StringAssert.Contains(registration, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(CommitFixture.ProjectContent))).ToLowerInvariant());
         Assert.IsTrue(Directory.Exists(fixture.Catalog));
     }
 
@@ -204,6 +226,94 @@ public sealed class IntegrationCommitBoundaryTests
     }
 
 
+    [TestMethod]
+    [DataRow("file")]
+    [DataRow("alias")]
+    [DataRow("directory")]
+    [DataRow("link")]
+    [DataRow("dangling")]
+    [DataRow("invalid-utf8")]
+    public async Task Composition_commit_blocks_existing_recovery_registration(string kind)
+    {
+        using var fixture = new CommitFixture();
+        var marker = Path.Combine(fixture.Repository, ".fullnet/codegeneration-composition-recovery.pending");
+        File.WriteAllText(marker, "待人工审查");
+        if (kind is "alias" or "directory" or "link" or "dangling") fixture.Replace(marker, kind == "link" ? "file" : kind);
+        else if (kind == "invalid-utf8") File.WriteAllBytes(marker, [0xFF]);
+        await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitComposition());
+        Assert.AreEqual(CommitFixture.ProjectContent, File.ReadAllText(fixture.Project));
+        Assert.AreEqual(CommitFixture.CatalogContent, File.ReadAllText(fixture.Catalog));
+        Assert.AreEqual(0, fixture.TemporaryFiles().Length);
+    }
+
+    [TestMethod]
+    [DataRow("project", "file")]
+    [DataRow("project", "alias")]
+    [DataRow("project", "directory")]
+    [DataRow("project", "link")]
+    [DataRow("project", "dangling")]
+    [DataRow("project", "invalid-utf8")]
+    [DataRow("catalog", "file")]
+    [DataRow("catalog", "alias")]
+    [DataRow("catalog", "directory")]
+    [DataRow("catalog", "link")]
+    [DataRow("catalog", "dangling")]
+    [DataRow("catalog", "invalid-utf8")]
+    public async Task Composition_commit_blocks_orphan_recovery_material_without_registration(string target, string kind)
+    {
+        using var fixture = new CommitFixture(separateCatalog: target == "catalog");
+        var orphan = Path.Combine(Path.GetDirectoryName(fixture.PathFor(target))!, ".fullnet-composition-orphan.tmp");
+        File.WriteAllText(orphan, "待人工审查");
+        if (kind is "alias" or "directory" or "link" or "dangling") fixture.Replace(orphan, kind == "link" ? "file" : kind);
+        else if (kind == "invalid-utf8") File.WriteAllBytes(orphan, [0xFF]);
+        var outside = fixture.CaptureOutside();
+        await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitComposition());
+        CollectionAssert.AreEquivalent(outside, fixture.CaptureOutside());
+        Assert.AreEqual(CommitFixture.ProjectContent, File.ReadAllText(fixture.Project));
+        Assert.AreEqual(CommitFixture.CatalogContent, File.ReadAllText(fixture.Catalog));
+    }
+
+    [TestMethod]
+    public async Task Composition_registration_failure_preserves_material_and_reports_all_failures()
+    {
+        using var fixture = new CommitFixture();
+        var failure = await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitComposition(() =>
+        {
+            File.WriteAllText(fixture.Project, "人工新项目\n");
+            fixture.Replace(fixture.Catalog, "directory");
+            Directory.CreateDirectory(Path.Combine(fixture.Repository, ".fullnet/codegeneration-composition-recovery.pending"));
+            return Task.CompletedTask;
+        }));
+        StringAssert.Contains(failure.Message, "登记失败");
+        Assert.IsInstanceOfType<AggregateException>(failure.InnerException);
+        Assert.AreEqual(3, ((AggregateException)failure.InnerException!).InnerExceptions.Count);
+        Assert.AreEqual("人工新项目\n", File.ReadAllText(fixture.Project));
+        Assert.IsTrue(fixture.TemporaryFiles().Any(path => File.ReadAllText(path) == CommitFixture.ProjectContent));
+    }
+
+
+    [TestMethod]
+    public async Task Composition_registration_failure_with_deleted_backup_preserves_candidate_and_blocks_retry()
+    {
+        using var fixture = new CommitFixture();
+        await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitComposition(() =>
+        {
+            var backup = fixture.TemporaryFiles().Single(path => File.ReadAllText(path) == CommitFixture.ProjectContent);
+            File.Delete(backup);
+            fixture.Replace(fixture.Catalog, "directory");
+            return Task.CompletedTask;
+        }, () => throw new IOException("注入登记文件创建前的故障")));
+        Assert.IsFalse(File.Exists(Path.Combine(fixture.Repository, ".fullnet/codegeneration-composition-recovery.pending")));
+        Assert.AreEqual("updated catalog\n", File.ReadAllText(fixture.TemporaryFiles().Single()));
+        Directory.Delete(fixture.Catalog);
+        File.WriteAllText(fixture.Catalog, CommitFixture.CatalogContent);
+        var retry = await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitComposition());
+        StringAssert.Contains(retry.Message, "待审查");
+        Assert.AreEqual("updated project\n", File.ReadAllText(fixture.Project));
+        Assert.AreEqual(CommitFixture.CatalogContent, File.ReadAllText(fixture.Catalog));
+    }
+
+
     private sealed class CommitFixture : IDisposable
     {
         public const string EntryContent = "original entry\n";
@@ -212,14 +322,14 @@ public sealed class IntegrationCommitBoundaryTests
         private readonly string _root = Path.Combine(Path.GetTempPath(), $"fullnet-integration-commit-{Guid.NewGuid():N}");
         private readonly List<string> _directoryLinks = [];
 
-        public CommitFixture()
+        public CommitFixture(bool separateCatalog = false)
         {
             Repository = Path.Combine(_root, "repository");
             Outside = Path.Combine(_root, "outside");
             Module = Path.Combine(Repository, "src/Modules/Acme.Modules.Catalog");
             Entry = Path.Combine(Module, "CatalogModule.cs");
             Project = Path.Combine(Repository, "src/Composition/Acme.Composition/Acme.Composition.csproj");
-            Catalog = Path.Combine(Path.GetDirectoryName(Project)!, "ModuleCatalog.cs");
+            Catalog = Path.Combine(separateCatalog ? Path.Combine(Repository, "catalog") : Path.GetDirectoryName(Project)!, "ModuleCatalog.cs");
             Directory.CreateDirectory(Outside);
             Write(Entry, EntryContent);
             Write(Project, ProjectContent);
@@ -257,11 +367,11 @@ public sealed class IntegrationCommitBoundaryTests
         public Task CommitEntry() => ModuleEntryIntegrationApplyCommand.ApplyUnderWorkspaceLockAsync(
             Repository, Module, Entry, EntryContent, "updated entry\n", CancellationToken.None);
 
-        public Task CommitComposition(Func<Task>? afterProjectCommit = null) => CompositionIntegrationApplyCommand.CommitAsync(
+        public Task CommitComposition(Func<Task>? afterProjectCommit = null, Func<Task>? beforeRecoveryRegistration = null) => CompositionIntegrationApplyCommand.CommitAsync(
             Repository, Module, Entry, EntryContent, Project, ProjectContent,
             CompositionIntegrationEditResult.Success(ProjectContent, "updated project\n"),
             Catalog, CatalogContent, CompositionIntegrationEditResult.Success(CatalogContent, "updated catalog\n"),
-            CancellationToken.None, afterProjectCommit);
+            CancellationToken.None, afterProjectCommit, beforeRecoveryRegistration);
 
         public void Replace(string path, string kind)
         {
