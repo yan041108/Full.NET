@@ -1,5 +1,5 @@
 using System.Xml.Linq;
-using Full.NET.CodeGeneration.Cli;
+using Full.NET.Data.CodeGeneration.Integration;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
