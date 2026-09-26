@@ -693,6 +693,10 @@ export function parseArguments(args) {
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
+    // pnpm 传递脚本参数时保留分隔符，不应将其当作未知业务选项。
+    if (argument === '--') {
+      continue;
+    }
     if (argument === '--plan') {
       planOnly = true;
       continue;

@@ -673,6 +673,12 @@ test('聚焦发现必须同时包含 SQL Server 与 MySQL', () => {
   assert.throws(() => verifyFocusedDiscovery([mySql]), /SQL Server/);
 });
 
+test('pnpm 参数分隔符不改变受影响集成验证的基线和阶段', () => {
+  assert.deepEqual(parseArguments(['--', '--base', 'abc123', '--phase', 'merge']),
+    parseArguments(['--base', 'abc123', '--phase', 'merge']));
+  assert.throws(() => parseArguments(['--', '--unknown']), /未知参数/);
+});
+
 test('命令参数要求显式任务基线并支持只规划模式', () => {
   assert.deepEqual(
     parseArguments(['--base', 'abc123', '--plan']),

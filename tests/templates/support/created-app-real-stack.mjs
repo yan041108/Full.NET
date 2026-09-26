@@ -73,7 +73,7 @@ async function startRedisContainer() {
   };
 }
 
-function runDotnet(args, cwd, env, timeoutMs = 300_000) {
+function runDotnet(args, cwd, env, timeoutMs = 300_000, logPath) {
   const result = spawnSync('dotnet', args, {
     cwd,
     encoding: 'utf8',
@@ -81,8 +81,10 @@ function runDotnet(args, cwd, env, timeoutMs = 300_000) {
     env: { ...process.env, ...env },
     windowsHide: true,
   });
+  if (logPath) writeFileSync(logPath, `${result.stdout ?? ''}\n${result.stderr ?? ''}`);
   if (result.status !== 0) {
-    throw new Error(`dotnet ${args.join(' ')} failed: ${result.stderr || result.stdout || result.error?.message}`);
+    // Migrator 的稳定错误码写 stderr，详细原因写 stdout；两者都必须保留供远端定位。
+    throw new Error(`dotnet ${args.join(' ')} failed: ${result.stderr ?? ''}\n${(result.stdout ?? '').slice(-16000)}\n${result.error?.message ?? ''}`);
   }
   return result;
 }
@@ -217,15 +219,15 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
 
     const migratorProject = join(appRoot, 'framework/fullnet/src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj');
     const hostProject = join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj');
+    const logRoot = join(repoRoot, '.tmp/template-real-stack', databaseProviderKey);
+    mkdirSync(logRoot, { recursive: true });
     runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
     runDotnet(['build', hostProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
     runDotnet([
       'run', '--project', migratorProject, '-c', 'Release', '--no-build', '--',
       '--seed', 'development',
-    ], appRoot, env, 600_000);
+    ], appRoot, env, 600_000, join(logRoot, 'migrator.log'));
 
-    const logRoot = join(repoRoot, '.tmp/template-real-stack', databaseProviderKey);
-    mkdirSync(logRoot, { recursive: true });
     const apiLogPath = join(logRoot, 'api.log');
     writeFileSync(apiLogPath, '');
     apiLogStream = createWriteStream(apiLogPath, { flags: 'a' });
