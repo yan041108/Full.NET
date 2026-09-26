@@ -16,6 +16,8 @@ public static class IdentityTenantMembershipPermissions
     public const string RevokeInvitation = "identity.tenant_members.revoke_invitation";
     /// <summary>在当前租户内直接创建 Host 用户并加入为活动成员。</summary>
     public const string Provision = "identity.tenant_members.provision";
+    /// <summary>当前用户主动退出当前租户成员关系。</summary>
+    public const string LeaveSelf = "identity.tenant_members.leave_self";
 }
 
 /// <summary>租户成员角色机器码常量集合。</summary>
@@ -147,6 +149,10 @@ public sealed record CreateTenantInvitationResult(
 public sealed record UpdateTenantMemberRequest(
     string MemberRole,
     int Version);
+
+/// <summary>当前用户主动退出当前租户成员关系。</summary>
+/// <param name="Version">成员记录乐观并发版本。</param>
+public sealed record LeaveTenantMembershipRequest(int Version);
 
 /// <summary>接受租户邀请请求。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>

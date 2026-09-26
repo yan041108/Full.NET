@@ -11,6 +11,82 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class CodeGenerationCliTests
 {
     [TestMethod]
+    [DataRow("missing")]
+    [DataRow("null")]
+    [DataRow("")]
+    [DataRow(" ")]
+    public async Task Host_cli_requires_explicit_authorization_target(string value)
+    {
+        using var fixture = CliFixture.Create();
+        var target = JsonNode.Parse(ValidIntegrationTargetJson)!.AsObject();
+        if (value != "missing") target["authorizationContributorPath"] = value == "null" ? null : value;
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        File.WriteAllText(targetPath, target.ToJsonString());
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var code = await CodeGenerationCli.RunAsync(ModuleIntegrationArguments(fixture.SchemaPath,
+            fixture.WorkspacePath, targetPath, "apply-host-integration"), output, error);
+        Assert.AreEqual(64, code);
+        StringAssert.Contains(error.ToString(), "authorizationContributorPath");
+        Assert.AreEqual(string.Empty, output.ToString());
+    }
+
+    [TestMethod]
+    [DataRow("missing")]
+    [DataRow("composition-pending")]
+    [DataRow("authorization-pending")]
+    public async Task Host_cli_uses_shared_preflight_before_backend_reads(string kind)
+    {
+        using var fixture = CliFixture.Create();
+        var target = JsonNode.Parse(ValidIntegrationTargetJson)!.AsObject();
+        target["authorizationContributorPath"] = "authorization/CatalogAuthorizationContributor.cs";
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        File.WriteAllText(targetPath, target.ToJsonString());
+        if (kind != "missing")
+            fixture.WriteWorkspaceFile("authorization/CatalogAuthorizationContributor.cs", "human contributor\n");
+        if (kind == "composition-pending")
+            fixture.WriteWorkspaceFile(".fullnet/codegeneration-composition-recovery.pending", "pending review");
+        if (kind == "authorization-pending")
+            fixture.WriteWorkspaceFile("authorization/.fullnet-authorization-orphan.tmp", "pending review");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var code = await CodeGenerationCli.RunAsync(ModuleIntegrationArguments(fixture.SchemaPath,
+            fixture.WorkspacePath, targetPath, "apply-host-integration"), output, error);
+        Assert.AreEqual(2, code);
+        StringAssert.Contains(error.ToString(), kind == "missing" ? "AuthorizationContributor 文件不存在" : "待审查");
+        Assert.AreEqual(string.Empty, output.ToString());
+    }
+
+    [TestMethod]
+    [DataRow("plan-module-integration", false)]
+    [DataRow("validate-module-integration", false)]
+    [DataRow("apply-module-integration", false)]
+    [DataRow("apply-module-entry-integration", false)]
+    [DataRow("apply-composition-integration", false)]
+    [DataRow("apply-client-route-integration", false)]
+    [DataRow("plan-module-integration", true)]
+    [DataRow("validate-module-integration", true)]
+    [DataRow("apply-module-integration", true)]
+    [DataRow("apply-module-entry-integration", true)]
+    [DataRow("apply-composition-integration", true)]
+    [DataRow("apply-client-route-integration", true)]
+    public async Task Stage_cli_does_not_silently_ignore_authorization_target(string command, bool explicitNull)
+    {
+        using var fixture = CliFixture.Create();
+        var target = JsonNode.Parse(ValidIntegrationTargetJson)!.AsObject();
+        target["authorizationContributorPath"] = explicitNull ? null : "authorization/CatalogAuthorizationContributor.cs";
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        File.WriteAllText(targetPath, target.ToJsonString());
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var code = await CodeGenerationCli.RunAsync(ModuleIntegrationArguments(fixture.SchemaPath,
+            fixture.WorkspacePath, targetPath, command), output, error);
+        Assert.AreEqual(64, code);
+        Assert.AreEqual(string.Empty, output.ToString());
+        Assert.AreEqual(0, Directory.GetFiles(fixture.WorkspacePath, "*", SearchOption.AllDirectories).Length);
+    }
+
+    [TestMethod]
     public async Task Diagnose_minimal_workspace_emits_machine_readable_lines()
     {
         using var fixture = CliFixture.Create();
@@ -54,6 +130,94 @@ public sealed class CodeGenerationCliTests
         StringAssert.Contains(combined, "DIAG_WORKSPACE_OK");
         StringAssert.Contains(combined, "DIAG_MODULES_OK");
         Assert.IsTrue(exitCode is 0 or 1);
+    }
+
+    [TestMethod]
+    public async Task Diagnose_generated_app_accepts_standalone_layout_and_runtime_host_config()
+    {
+        using var fixture = CliFixture.Create();
+        var composition = Path.Combine(fixture.WorkspacePath,
+            "framework/fullnet/src/Composition/Full.NET.Composition");
+        Directory.CreateDirectory(composition);
+        File.WriteAllText(Path.Combine(composition, "Full.NET.Composition.csproj"),
+            """<Project><ItemGroup><ProjectReference Include="../../Modules/Full.NET.Modules.Identity/Full.NET.Modules.Identity.csproj" /></ItemGroup></Project>""");
+        var module = Path.Combine(fixture.WorkspacePath,
+            "framework/fullnet/src/Modules/Full.NET.Modules.Identity");
+        Directory.CreateDirectory(module);
+        File.WriteAllText(Path.Combine(module, "Full.NET.Modules.Identity.csproj"), "<Project />");
+        var host = Path.Combine(fixture.WorkspacePath, "src/Demo.Host.Api");
+        Directory.CreateDirectory(host);
+        File.WriteAllText(Path.Combine(host, "Demo.Host.Api.csproj"), "<Project />");
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "fullnet-app.json"),
+            """{"preset":"minimal","databaseProvider":"mysql"}""");
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "framework-manifest.json"),
+            """{"presetModules":{"minimal":["Identity"]}}""");
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "appsettings.json"),
+            """{"FullNet":{"Modules":{"Preset":"enterprise"}},"Database":{"Provider":"sqlserver"}}""");
+        File.WriteAllText(Path.Combine(host, "appsettings.json"),
+            """{"FullNet":{"Modules":{"Preset":"minimal"}},"Database":{"Provider":"mysql"}}""");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.WorkspacePath], output, error);
+
+        StringAssert.Contains(output.ToString(), "DIAG_WORKSPACE_OK");
+        StringAssert.Contains(output.ToString(), "DIAG_APP_PROFILE_OK");
+        StringAssert.Contains(output.ToString(), "DIAG_MODULE_CLOSURE_OK");
+        Assert.IsFalse(output.ToString().Contains("DIAG_APP_PROFILE_MISMATCH", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task Diagnose_generated_app_reports_profile_mismatch_without_credentials()
+    {
+        using var fixture = CliFixture.Create();
+        Directory.CreateDirectory(Path.Combine(fixture.WorkspacePath, "framework/fullnet/src/Composition"));
+        Directory.CreateDirectory(Path.Combine(fixture.WorkspacePath, "framework/fullnet/src/Modules"));
+        var host = Path.Combine(fixture.WorkspacePath, "src/Demo.Host.Api");
+        Directory.CreateDirectory(host);
+        File.WriteAllText(Path.Combine(host, "Demo.Host.Api.csproj"), "<Project />");
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "fullnet-app.json"),
+            """{"preset":"minimal","databaseProvider":"mysql"}""");
+        File.WriteAllText(Path.Combine(host, "appsettings.json"),
+            """{"FullNet":{"Modules":{"Preset":"enterprise"}},"Database":{"Provider":"sqlserver"},"ConnectionStrings":{"app":"secret-value"}}""");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.WorkspacePath], output, error);
+
+        Assert.AreEqual(1, exitCode);
+        StringAssert.Contains(output.ToString(), "DIAG_APP_PROFILE_MISMATCH");
+        Assert.IsFalse((output.ToString() + error).Contains("secret-value", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task Diagnose_generated_app_reports_missing_selected_module_reference()
+    {
+        using var fixture = CliFixture.Create();
+        var composition = Path.Combine(fixture.WorkspacePath,
+            "framework/fullnet/src/Composition/Full.NET.Composition");
+        Directory.CreateDirectory(composition);
+        File.WriteAllText(Path.Combine(composition, "Full.NET.Composition.csproj"), "<Project />");
+        var module = Path.Combine(fixture.WorkspacePath,
+            "framework/fullnet/src/Modules/Full.NET.Modules.Identity");
+        Directory.CreateDirectory(module);
+        File.WriteAllText(Path.Combine(module, "Full.NET.Modules.Identity.csproj"), "<Project />");
+        var host = Path.Combine(fixture.WorkspacePath, "src/Demo.Host.Api");
+        Directory.CreateDirectory(host);
+        File.WriteAllText(Path.Combine(host, "Demo.Host.Api.csproj"), "<Project />");
+        File.WriteAllText(Path.Combine(host, "appsettings.json"),
+            """{"FullNet":{"Modules":{"Preset":"minimal"}},"Database":{"Provider":"mysql"}}""");
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "fullnet-app.json"),
+            """{"preset":"minimal","databaseProvider":"mysql"}""");
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "framework-manifest.json"),
+            """{"presetModules":{"minimal":["Identity"]}}""");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.WorkspacePath], output, error);
+
+        Assert.AreEqual(1, exitCode);
+        StringAssert.Contains(output.ToString(), "DIAG_MODULE_DEPENDENCY_MISSING");
     }
 
     [TestMethod]
@@ -550,6 +714,161 @@ public sealed class CodeGenerationCliTests
     }
 
     [TestMethod]
+    [DataRow("root", "plan-module-integration")]
+    [DataRow("parent", "plan-module-integration")]
+    [DataRow("file", "plan-module-integration")]
+    [DataRow("dangling", "plan-module-integration")]
+    [DataRow("alias", "plan-module-integration")]
+    [DataRow("directory", "plan-module-integration")]
+    [DataRow("root", "apply-module-integration")]
+    [DataRow("parent", "apply-module-integration")]
+    [DataRow("file", "apply-module-integration")]
+    [DataRow("dangling", "apply-module-integration")]
+    [DataRow("alias", "apply-module-integration")]
+    [DataRow("directory", "apply-module-integration")]
+    [DataRow("root", "apply-module-entry-integration")]
+    [DataRow("parent", "apply-module-entry-integration")]
+    [DataRow("file", "apply-module-entry-integration")]
+    [DataRow("dangling", "apply-module-entry-integration")]
+    [DataRow("alias", "apply-module-entry-integration")]
+    [DataRow("directory", "apply-module-entry-integration")]
+    [DataRow("root", "apply-composition-integration")]
+    [DataRow("parent", "apply-composition-integration")]
+    [DataRow("file", "apply-composition-integration")]
+    [DataRow("dangling", "apply-composition-integration")]
+    [DataRow("alias", "apply-composition-integration")]
+    [DataRow("directory", "apply-composition-integration")]
+    [DataRow("root", "validate-module-integration")]
+    [DataRow("parent", "validate-module-integration")]
+    [DataRow("file", "validate-module-integration")]
+    [DataRow("dangling", "validate-module-integration")]
+    [DataRow("alias", "validate-module-integration")]
+    [DataRow("directory", "validate-module-integration")]
+    public async Task Plan_module_integration_rejects_unsafe_filesystem_targets_without_writes(string kind, string command)
+    {
+        using var fixture = CliFixture.Create();
+        const string project = "src/Modules/Acme.Modules.Catalog/Acme.Modules.Catalog.csproj";
+        var repository = Path.Combine(fixture.RootPath, "repository");
+        var outside = Path.Combine(fixture.RootPath, "outside");
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        Directory.CreateDirectory(repository);
+        Directory.CreateDirectory(outside);
+        File.WriteAllText(targetPath, ValidIntegrationTargetJson, new UTF8Encoding(false));
+        var protectedFile = Path.Combine(outside, "protected.csproj");
+        const string protectedContent = "<Project><!-- 仓库外人工文件 --></Project>\n";
+        File.WriteAllText(protectedFile, protectedContent, new UTF8Encoding(false));
+        string? directoryLink = null;
+        if (kind == "root")
+        {
+            WriteRepositoryFile(outside, project, "<Project />");
+            Directory.Delete(repository);
+            Directory.CreateSymbolicLink(repository, outside);
+            directoryLink = repository;
+        }
+        else if (kind == "parent")
+        {
+            WriteRepositoryFile(outside, project[4..], "<Project />");
+            directoryLink = Path.Combine(repository, "src");
+            Directory.CreateSymbolicLink(directoryLink, outside);
+        }
+        else if (kind is "file" or "dangling")
+        {
+            var destination = Path.Combine(repository, project);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.CreateSymbolicLink(destination, kind == "file" ? protectedFile : Path.Combine(outside, "missing.csproj"));
+        }
+        else if (kind == "alias")
+        {
+            WriteRepositoryFile(repository, project.Replace("Acme.Modules.Catalog.csproj", "acme.modules.catalog.csproj", StringComparison.Ordinal), "<Project />");
+        }
+        else
+        {
+            Directory.CreateDirectory(Path.Combine(repository, project));
+        }
+
+        try
+        {
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var code = await CodeGenerationCli.RunAsync(
+                ModuleIntegrationArguments(fixture.SchemaPath, repository, targetPath, command), output, error);
+            Assert.AreEqual(2, code, error.ToString());
+            Assert.AreEqual(string.Empty, output.ToString());
+            StringAssert.Contains(error.ToString(), "工作区冲突");
+            Assert.AreEqual(protectedContent, File.ReadAllText(protectedFile));
+            Assert.IsFalse(Directory.Exists(Path.Combine(repository, ".fullnet")));
+        }
+        finally
+        {
+            if (directoryLink is not null) Directory.Delete(directoryLink);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("apply-module-entry-integration", "src/Modules/Acme.Modules.Catalog/CatalogModule.cs", "file")]
+    [DataRow("apply-module-entry-integration", "src/Modules/Acme.Modules.Catalog/CatalogModule.cs", "dangling")]
+    [DataRow("apply-module-entry-integration", "src/Modules/Acme.Modules.Catalog/CatalogModule.cs", "alias")]
+    [DataRow("apply-module-entry-integration", "src/Modules/Acme.Modules.Catalog/CatalogModule.cs", "directory")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/Acme.Composition.csproj", "file")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/Acme.Composition.csproj", "dangling")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/Acme.Composition.csproj", "alias")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/Acme.Composition.csproj", "directory")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/ModuleCatalog.cs", "file")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/ModuleCatalog.cs", "dangling")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/ModuleCatalog.cs", "alias")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/ModuleCatalog.cs", "directory")]
+    public async Task Apply_integration_rejects_unsafe_handwritten_targets_before_prerequisite_reads(string command, string relativePath, string kind)
+    {
+        using var fixture = CliFixture.Create();
+        var repository = fixture.WorkspacePath;
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        File.WriteAllText(targetPath, ValidIntegrationTargetJson, new UTF8Encoding(false));
+        WriteRepositoryFile(repository, "src/Modules/Acme.Modules.Catalog/Acme.Modules.Catalog.csproj", "<Project />");
+        var outside = Path.Combine(fixture.RootPath, "protected.txt");
+        const string content = "仓库外手写内容";
+        File.WriteAllText(outside, content);
+        var destination = Path.Combine(repository, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        if (kind is "file" or "dangling")
+        {
+            File.CreateSymbolicLink(destination, kind == "file" ? outside : outside + ".missing");
+        }
+        else if (kind == "alias")
+        {
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName(destination)!, Path.GetFileName(destination).ToLowerInvariant()), content);
+        }
+        else
+        {
+            Directory.CreateDirectory(destination);
+        }
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var code = await CodeGenerationCli.RunAsync(
+            ModuleIntegrationArguments(fixture.SchemaPath, repository, targetPath, command), output, error);
+        Assert.AreEqual(2, code, error.ToString());
+        Assert.AreEqual(string.Empty, output.ToString());
+        StringAssert.Contains(error.ToString(), "工作区冲突");
+        Assert.AreEqual(content, File.ReadAllText(outside));
+        Assert.IsFalse(Directory.Exists(Path.Combine(repository, ".fullnet")));
+    }
+
+
+    [TestMethod]
+    public async Task Plan_module_integration_honors_cancellation_when_all_targets_are_missing()
+    {
+        using var fixture = CliFixture.Create();
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        File.WriteAllText(targetPath, ValidIntegrationTargetJson, new UTF8Encoding(false));
+        var target = await ModuleIntegrationTargetDocument.LoadAsync(targetPath, CancellationToken.None);
+        using var source = new CancellationTokenSource();
+        source.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => ModuleIntegrationPlanCommand.PlanAsync(
+            fixture.WorkspacePath, FullNetCrudSchemaTests.CreateProductSchema(), target, source.Token));
+        Assert.AreEqual(0, Directory.GetFiles(fixture.WorkspacePath, "*", SearchOption.AllDirectories).Length);
+    }
+
+    [TestMethod]
     public async Task Plan_module_integration_reports_impacts_without_writing_repository()
     {
         using var fixture = CliFixture.Create();
@@ -875,6 +1194,24 @@ public sealed class CodeGenerationCliTests
                 repositoryPath,
                 "*",
                 SearchOption.AllDirectories).Length);
+    }
+
+    [TestMethod]
+    public async Task Apply_composition_blocks_registered_recovery_before_reading_prerequisites()
+    {
+        using var fixture = CliFixture.Create();
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        File.WriteAllText(targetPath, ValidIntegrationTargetJson, new UTF8Encoding(false));
+        WriteRepositoryFile(fixture.WorkspacePath, ".fullnet/codegeneration-composition-recovery.pending", "待人工审查");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var code = await CodeGenerationCli.RunAsync(
+            ModuleIntegrationArguments(fixture.SchemaPath, fixture.WorkspacePath, targetPath, "apply-composition-integration"), output, error);
+        Assert.AreEqual(2, code);
+        Assert.AreEqual(string.Empty, output.ToString());
+        StringAssert.Contains(error.ToString(), "工作区冲突");
+        StringAssert.Contains(error.ToString(), "待审查");
+        Assert.AreEqual("待人工审查", File.ReadAllText(Path.Combine(fixture.WorkspacePath, ".fullnet/codegeneration-composition-recovery.pending")));
     }
 
     [TestMethod]

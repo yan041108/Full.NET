@@ -673,6 +673,52 @@ test('聚焦发现必须同时包含 SQL Server 与 MySQL', () => {
   assert.throws(() => verifyFocusedDiscovery([mySql]), /SQL Server/);
 });
 
+test('CI 执行分组保留全部模块、工具门禁和双库迁移目标且没有重叠', () => {
+  const split = affectedIntegration.targetsForExecutionGroup;
+  assert.equal(typeof split, 'function');
+  const targets = [
+    { kind: 'tooling', name: 'integration-matrix' },
+    { kind: 'filter', name: 'Identity', filter: 'identity' },
+    { kind: 'filter', name: 'smoke', filter: 'smoke' },
+    { kind: 'shard', name: 'migrations' }
+  ];
+  assert.deepEqual(split(targets, 'all'), targets);
+  assert.deepEqual(split(targets, 'modules'), targets.slice(0, 3));
+  const legacy = split(targets, 'migrations-legacy');
+  const current = split(targets, 'migrations-current');
+  assert.equal(legacy.length, 1);
+  assert.equal(current.length, 1);
+  assert.equal(legacy[0].kind, 'filter');
+  assert.equal(current[0].kind, 'filter');
+  assert.equal(legacy[0].filter, 'FullyQualifiedName~Full.NET.IntegrationTests.Migrations.Migration0');
+  assert.equal(current[0].filter,
+    'FullyQualifiedName~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations.Migration0');
+  assert.throws(() => split(targets, 'unknown'), /执行分组/);
+});
+
+test('登记过的精确恢复集只进入所属迁移分组，不混入模块分组', () => {
+  const split = affectedIntegration.targetsForExecutionGroup;
+  assert.equal(typeof split, 'function');
+  const legacy = { kind: 'filter', name: 'migration-093', filter: 'legacy' };
+  const current = { kind: 'filter', name: 'migration-238', filter: 'current' };
+  assert.deepEqual(split([legacy, current], 'modules'), []);
+  assert.deepEqual(split([legacy, current], 'migrations-legacy'), [legacy]);
+  assert.deepEqual(split([legacy, current], 'migrations-current'), [current]);
+});
+
+test('CI 执行分组参数必须显式有效，未提供时保持原完整执行', () => {
+  assert.equal(parseArguments(['--base', 'abc123', '--execution-group', 'modules']).executionGroup, 'modules');
+  assert.equal(parseArguments(['--base', 'abc123']).executionGroup, 'all');
+  assert.throws(() => parseArguments(['--base', 'abc123', '--execution-group', 'unknown']), /执行分组/);
+  assert.throws(() => parseArguments(['--base', 'abc123', '--execution-group']), /执行分组/);
+});
+
+test('pnpm 参数分隔符不改变受影响集成验证的基线和阶段', () => {
+  assert.deepEqual(parseArguments(['--', '--base', 'abc123', '--phase', 'merge']),
+    parseArguments(['--base', 'abc123', '--phase', 'merge']));
+  assert.throws(() => parseArguments(['--', '--unknown']), /未知参数/);
+});
+
 test('命令参数要求显式任务基线并支持只规划模式', () => {
   assert.deepEqual(
     parseArguments(['--base', 'abc123', '--plan']),
@@ -681,7 +727,8 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       phase: 'slice',
       planOnly: true,
       snapshotId: null,
-      includeHeavy: false
+      includeHeavy: false,
+      executionGroup: 'all'
     }
   );
   assert.deepEqual(
@@ -691,7 +738,8 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       phase: 'inner',
       planOnly: false,
       snapshotId: 'task-123',
-      includeHeavy: false
+      includeHeavy: false,
+      executionGroup: 'all'
     }
   );
   assert.deepEqual(
@@ -701,7 +749,8 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       phase: 'merge',
       planOnly: false,
       snapshotId: null,
-      includeHeavy: true
+      includeHeavy: true,
+      executionGroup: 'all'
     }
   );
   assert.throws(() => parseArguments([]), /--base/);

@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 2638,
+      "minimum": 3321,
       "timeout": "10m",
       "selections": {
         "async-lifecycle": {
@@ -29,7 +29,7 @@
         },
         "code-generation-realtime": {
           "filter": "FullyQualifiedName~CodeGeneration|FullyQualifiedName~Realtime",
-          "minimum": 371
+          "minimum": 642
         },
         "identity-oidc": {
           "filter": "FullyQualifiedName~IdentityOidcOptionsTests|FullyQualifiedName~IdentityOidcSessionTests|FullyQualifiedName~IdentityOidcPrincipalTests|FullyQualifiedName~IdentityOidcPkceHelperTests|FullyQualifiedName~IdentityOidcInteractionTests|FullyQualifiedName~IdentityOidcStoreSerializationTests|FullyQualifiedName~IdentityOidcCenterLoginServiceTests|FullyQualifiedName~IdentityOidcLogoutTests",
@@ -137,11 +137,16 @@
         "integration-matrix": 30,
         "integration-tooling": 5,
         "migrations": 1800,
+        "migrations-legacy": 2700,
+        "migrations-current": 2700,
         "messaging-heavy": 2400,
         "smoke": 180
       }
     },
     "migrationSelections": {
+      "238": {
+        "filter": "FullyQualifiedName~Migration238MfaRecoveryCodeRecoveryTests.MySql_|FullyQualifiedName~Migration238MfaRecoveryCodeRecoveryTests.SqlServer_"
+      },
       "229": {
         "filter": "FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.MySql_|FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.SqlServer_"
       },
@@ -548,22 +553,22 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 159,
+        "minimum": 173,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 159,
+        "minimum": 173,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 470,
-        "timeout": "90m"
+        "minimum": 494,
+        "timeout": "120m"
       },
       "infrastructure": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests",
-        "minimum": 176,
+        "minimum": 182,
         "timeout": "60m"
       },
       "messaging-heavy": {
@@ -572,9 +577,14 @@
         "minimumPassedOnTestcontainers": 51,
         "timeout": "90m"
       },
+      "enterprise-sample": {
+        "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Api.EnterpriseRequestApi",
+        "minimum": 6,
+        "timeout": "15m"
+      },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1021,
+        "minimum": 1079,
         "timeout": "90m"
       }
     }
@@ -589,9 +599,16 @@
       "command": "pnpm test:templates",
       "tests": [
         "tests/templates/source-bundle.test.mjs",
+        "tests/templates/packaged-app.test.mjs",
+        "tests/templates/create-app.test.mjs",
+        "tests/templates/project-preset-composition.test.mjs",
+        "tests/templates/projected-selection-runtime.test.mjs",
         "tests/templates/created-app.test.mjs",
         "tests/templates/template-options.test.mjs",
-        "tests/templates/source-bundle-upgrade.test.mjs"
+        "tests/templates/migration-script-modules.test.mjs",
+        "tests/templates/created-app-real-stack.test.mjs",
+        "tests/templates/source-bundle-upgrade.test.mjs",
+        "tests/templates/framework-upgrade-safety.test.mjs"
       ]
     },
     "f02": {
@@ -653,7 +670,8 @@
     "f15": {
       "description": "Application upgrade drill",
       "tests": [
-        "tests/templates/source-bundle-upgrade.test.mjs"
+        "tests/templates/source-bundle-upgrade.test.mjs",
+        "tests/templates/framework-upgrade-safety.test.mjs"
       ]
     },
     "f16": {

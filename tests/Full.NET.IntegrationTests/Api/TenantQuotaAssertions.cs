@@ -2,8 +2,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Api;
 
@@ -216,5 +220,275 @@ internal static class TenantQuotaAssertions
             Assert.IsNotNull(value);
             return value;
         }
+    }
+
+    public static async Task VerifySeatUsageBaselineDryRunAndApplyAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken = default)
+    {
+        await factory.InitializeAsync(cancellationToken);
+        using var client = factory.CreateClientForHost("localhost");
+        var token = await factory.CreateHostAccessTokenAsync(
+            [
+                "tenancy.tenant_quota.read",
+                "tenancy.tenant_quota.reconcile_usage_baseline",
+                "tenancy.host_tenants.read",
+            ],
+            cancellationToken);
+
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/tenancy/tenants?page=1&pageSize=20");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+        var page = await listResponse.Content.ReadFromJsonAsync<PagedResult<TenantSummary>>(cancellationToken);
+        Assert.IsNotNull(page);
+        var acme = page!.Items.First(item => item.Identifier == "acme");
+
+        var dryRun = await PostUsageBaselineAsync(client, token, dryRun: true, cancellationToken);
+        Assert.IsNotNull(dryRun);
+        Assert.IsTrue(dryRun!.DryRun);
+        Assert.AreEqual(0, dryRun.AppliedCount);
+
+        if (dryRun.CandidateCount > 0)
+        {
+            Assert.Contains(acme.Id, dryRun.TenantIds);
+            var applied = await PostUsageBaselineAsync(client, token, dryRun: false, cancellationToken);
+            Assert.IsNotNull(applied);
+            Assert.IsFalse(applied!.DryRun);
+            Assert.IsTrue(applied.AppliedCount >= 1);
+
+            using var metricsRequest = new HttpRequestMessage(
+                HttpMethod.Get,
+                $"/api/v1/tenancy/tenants/{acme.Id:D}/quota/metrics");
+            metricsRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var metricsResponse = await client.SendAsync(metricsRequest, cancellationToken);
+            var metrics = await metricsResponse.Content.ReadFromJsonAsync<
+                IReadOnlyList<TenantQuotaMetricResponse>>(cancellationToken);
+            var seats = metrics!.First(metric =>
+                metric.MetricCode == TenantQuotaMetricCodes.IdentitySeats
+                && metric.PeriodKey == TenantQuotaDefaults.PeriodKey);
+            Assert.IsTrue(seats.UsedValue >= 1);
+
+            var afterApply = await PostUsageBaselineAsync(client, token, dryRun: true, cancellationToken);
+            Assert.IsNotNull(afterApply);
+            Assert.IsFalse(afterApply!.TenantIds.Contains(acme.Id));
+        }
+    }
+
+    public static async Task VerifyStorageUsageBaselineAfterUploadAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken = default)
+    {
+        await factory.InitializeAsync(cancellationToken);
+        using var tenantClient = factory.CreateClientForHost("acme.localhost");
+        var acmeTenant = await IntegrationTestTenantContextHelper.GetCurrentTenantAsync(
+            tenantClient,
+            cancellationToken);
+
+        using var hostClient = factory.CreateClientForHost("localhost");
+        var token = await factory.CreateHostAccessTokenAsync(
+            [
+                "tenancy.tenant_quota.read",
+                "tenancy.tenant_quota.manage",
+                "tenancy.tenant_quota.reconcile_usage_baseline",
+            ],
+            cancellationToken);
+
+        await UpsertStorageBytesLimitAsync(
+            hostClient,
+            token,
+            acmeTenant.Id,
+            limitBytes: 1_000_000,
+            cancellationToken);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetTenant(new TenantContext(
+            acmeTenant.Id,
+            acmeTenant.Identifier,
+            acmeTenant.Name));
+        try
+        {
+            var store = scope.ServiceProvider.GetRequiredService<ITenantResourceFileStore>();
+            using var content = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
+            var upload = await store.UploadAsync(
+                "import_export",
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                "baseline-probe.bin",
+                "application/octet-stream",
+                content,
+                5,
+                cancellationToken);
+            Assert.IsTrue(upload.IsSuccess);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
+
+        var dryRun = await PostUsageBaselineAsync(
+            hostClient,
+            token,
+            dryRun: true,
+            cancellationToken: cancellationToken,
+            metricCode: TenantQuotaMetricCodes.FilesStorageBytes);
+        Assert.IsNotNull(dryRun);
+        Assert.IsTrue(dryRun!.DryRun);
+        Assert.AreEqual(0, dryRun.AppliedCount);
+
+        using var metricsRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/tenancy/tenants/{acmeTenant.Id:D}/quota/metrics");
+        metricsRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var metricsResponse = await hostClient.SendAsync(metricsRequest, cancellationToken);
+        var metrics = await metricsResponse.Content.ReadFromJsonAsync<
+            IReadOnlyList<TenantQuotaMetricResponse>>(cancellationToken);
+        var storageMetric = metrics!.First(metric =>
+            metric.MetricCode == TenantQuotaMetricCodes.FilesStorageBytes
+            && metric.PeriodKey == TenantQuotaDefaults.PeriodKey);
+        Assert.IsTrue(storageMetric.UsedValue >= 5);
+        Assert.AreEqual(0, dryRun.CandidateCount);
+    }
+
+    public static async Task VerifyMissingStorageMetricProvisionedViaUsageBaselineAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken = default)
+    {
+        await factory.InitializeAsync(cancellationToken);
+        using var hostClient = factory.CreateClientForHost("localhost");
+        var token = await factory.CreateHostAccessTokenAsync(
+            [
+                "tenancy.tenant_quota.read",
+                "tenancy.tenant_quota.reconcile_usage_baseline",
+                "tenancy.host_tenants.read",
+            ],
+            cancellationToken);
+
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/tenancy/tenants?page=1&pageSize=20");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var listResponse = await hostClient.SendAsync(listRequest, cancellationToken);
+        var page = await listResponse.Content.ReadFromJsonAsync<PagedResult<TenantSummary>>(cancellationToken);
+        Assert.IsNotNull(page);
+        var acme = page!.Items.First(item => item.Identifier == "acme");
+
+        await DeleteQuotaMetricRowAsync(
+            factory,
+            acme.Id,
+            TenantQuotaMetricCodes.FilesStorageBytes,
+            cancellationToken);
+
+        var dryRun = await PostUsageBaselineAsync(
+            hostClient,
+            token,
+            dryRun: true,
+            cancellationToken: cancellationToken,
+            metricCode: TenantQuotaMetricCodes.FilesStorageBytes);
+        Assert.IsNotNull(dryRun);
+        Assert.IsTrue(dryRun!.DryRun);
+        Assert.Contains(acme.Id, dryRun.TenantIds);
+
+        var applied = await PostUsageBaselineAsync(
+            hostClient,
+            token,
+            dryRun: false,
+            cancellationToken: cancellationToken,
+            metricCode: TenantQuotaMetricCodes.FilesStorageBytes);
+        Assert.IsNotNull(applied);
+        Assert.IsFalse(applied!.DryRun);
+        Assert.IsTrue(applied.AppliedCount >= 1);
+
+        using var metricsRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/tenancy/tenants/{acme.Id:D}/quota/metrics");
+        metricsRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var metricsResponse = await hostClient.SendAsync(metricsRequest, cancellationToken);
+        var metrics = await metricsResponse.Content.ReadFromJsonAsync<
+            IReadOnlyList<TenantQuotaMetricResponse>>(cancellationToken);
+        var storageMetric = metrics!.First(metric =>
+            metric.MetricCode == TenantQuotaMetricCodes.FilesStorageBytes
+            && metric.PeriodKey == TenantQuotaDefaults.PeriodKey);
+        Assert.AreEqual(TenantQuotaDefaults.FilesStorageBytesLimit, storageMetric.LimitValue);
+    }
+
+    private static async Task DeleteQuotaMetricRowAsync(
+        FullNetApiFactory factory,
+        Guid tenantId,
+        string metricCode,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            await scope.ServiceProvider.GetRequiredService<ICommandExecutor>().ExecuteAsync(
+                new SqlStatement(
+                    "integration.tenancy.delete_quota_metric",
+                    """
+                    DELETE FROM fn_tenancy_quota_metric
+                    WHERE TenantId = @TenantId
+                      AND MetricCode = @MetricCode
+                      AND PeriodKey = @PeriodKey
+                    """,
+                    SqlDataScope.HostOnly),
+                new Dictionary<string, object?>
+                {
+                    ["TenantId"] = tenantId,
+                    ["MetricCode"] = metricCode,
+                    ["PeriodKey"] = TenantQuotaDefaults.PeriodKey,
+                },
+                cancellationToken);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
+    }
+
+    private static async Task UpsertStorageBytesLimitAsync(
+        HttpClient hostClient,
+        string accessToken,
+        Guid tenantId,
+        long limitBytes,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Put,
+            $"/api/v1/tenancy/tenants/{tenantId:D}/quota/metrics")
+        {
+            Content = JsonContent.Create(new UpsertTenantQuotaMetricRequest(
+                TenantQuotaMetricCodes.FilesStorageBytes,
+                TenantQuotaDefaults.PeriodKey,
+                limitBytes)),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using var response = await hostClient.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static async Task<ReconcileTenantQuotaUsageBaselineResponse?> PostUsageBaselineAsync(
+        HttpClient client,
+        string token,
+        bool dryRun,
+        CancellationToken cancellationToken,
+        string? metricCode = null)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/tenancy/quota/usage-baseline")
+        {
+            Content = JsonContent.Create(new ReconcileTenantQuotaUsageBaselineRequest(
+                DryRun: dryRun,
+                MetricCode: metricCode)),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        return await response.Content.ReadFromJsonAsync<ReconcileTenantQuotaUsageBaselineResponse>(
+            cancellationToken);
     }
 }

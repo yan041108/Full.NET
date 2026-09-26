@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { createRequire, stripTypeScriptTypes } from 'node:module';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const snapshotPath = path.join(
@@ -18,6 +19,82 @@ const expectedFileNames = [
   'models.generated.ts',
   'operations.generated.ts'
 ];
+
+test('生成守卫读取服务端整数字符串且拒绝精度丢失，嵌套引用和数组保持一致', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  const files = renderGeneratedFiles({ openapi: '3.1.0', paths: {}, components: { schemas: {
+    Row: { type: 'object', required: ['version', 'amount', 'code'], properties: {
+      version: { type: ['integer', 'string'], format: 'int64', pattern: '^-?(?:0|[1-9]\\d*)$' },
+      amount: { type: ['number', 'string'] }, code: { type: 'string' }
+    } },
+    Page: { type: 'object', required: ['items'], properties: {
+      items: { type: 'array', items: { $ref: '#/components/schemas/Row' } }
+    } },
+    Wrapped: { allOf: [{ $ref: '#/components/schemas/Page' }] },
+    NativeInteger: { type: 'integer' }
+  } } });
+  const code = stripTypeScriptTypes(files['guards.generated.ts']) + '\n//# sourceURL=fullnet-test-generated-guards.mjs';
+  const readers = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+  const row = { version: '42', amount: '12.50', code: '00042' };
+  assert.deepEqual(readers.readWrapped({ items: [row] }), { items: [{ ...row, version: 42 }] });
+  assert.equal(row.version, '42', '读取器不能修改调用者的原始响应对象');
+  for (const version of ['9007199254740993', 9007199254740992, '1.5', 'abc', '1e3', ' 1']) {
+    assert.throws(() => readers.readRow({ ...row, version }), /invalid_row/);
+  }
+  assert.equal(readers.readRow({ ...row, version: Number.MAX_SAFE_INTEGER }).version, Number.MAX_SAFE_INTEGER);
+  assert.throws(() => readers.readNativeInteger('42'), /invalid_native_integer/);
+});
+
+test('联合 Schema 按匹配分支归一，不改写另一分支的普通字符串', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  const integer = { type: ['integer', 'string'], pattern: '^-?(?:0|[1-9]\\d*)$' };
+  const branch = (kind, value) => ({ type: 'object', required: ['kind', 'value'], properties: {
+    kind: { type: 'string', enum: [kind] }, value
+  } });
+  const files = renderGeneratedFiles({ openapi: '3.1.0', paths: {}, components: { schemas: {
+    Count: branch('count', integer),
+    Union: { anyOf: [branch('label', { type: 'string' }), { $ref: '#/components/schemas/Count' }] },
+    Nullable: { oneOf: [{ type: 'null' }, { $ref: '#/components/schemas/Count' }] }
+  } } });
+  const code = stripTypeScriptTypes(files['guards.generated.ts']) + '\n//# sourceURL=fullnet-test-union-guards.mjs';
+  const readers = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+  assert.deepEqual(readers.readUnion({ kind: 'label', value: '42' }), { kind: 'label', value: '42' });
+  assert.deepEqual(readers.readUnion({ kind: 'count', value: '42' }), { kind: 'count', value: 42 });
+  assert.equal(readers.readNullable(null), null);
+  assert.deepEqual(readers.readNullable({ kind: 'count', value: '42' }), { kind: 'count', value: 42 });
+});
+
+test('内联 allOf 的多个整数编码对象可以通过 TypeScript 编译并正确读取', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  const integer = { type: ['integer', 'string'], pattern: '^-?(?:0|[1-9]\\d*)$' };
+  const field = name => ({ type: 'object', required: [name], properties: { [name]: integer } });
+  const files = renderGeneratedFiles({ openapi: '3.1.0', paths: {}, components: { schemas: {
+    Combined: { allOf: [field('first'), field('second')] }
+  } } });
+  const ts = createRequire(path.join(repositoryRoot, 'ui/admin/package.json'))('typescript');
+  const options = { noEmit: true, strict: true, types: [], target: ts.ScriptTarget.ES2022,
+    module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler };
+  const host = ts.createCompilerHost(options);
+  const sourceRoot = '/fullnet-generator-regression';
+  const sources = new Map(Object.entries(files).map(([name, content]) => [`${sourceRoot}/${name}`, content]));
+  const originalGetSourceFile = host.getSourceFile.bind(host);
+  const originalFileExists = host.fileExists.bind(host);
+  const originalReadFile = host.readFile.bind(host);
+  host.fileExists = name => sources.has(name) || originalFileExists(name);
+  host.readFile = name => sources.get(name) ?? originalReadFile(name);
+  host.resolveModuleNames = names => names.map(name => name === './models.generated.js'
+    ? { resolvedFileName: `${sourceRoot}/models.generated.ts`, extension: ts.Extension.Ts }
+    : undefined);
+  host.getSourceFile = (name, languageVersion, onError, shouldCreateNewSourceFile) => sources.has(name)
+    ? ts.createSourceFile(name, sources.get(name), languageVersion)
+    : originalGetSourceFile(name, languageVersion, onError, shouldCreateNewSourceFile);
+  const program = ts.createProgram([`${sourceRoot}/guards.generated.ts`], options, host);
+  assert.deepEqual(ts.getPreEmitDiagnostics(program).map(diagnostic =>
+    ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')), []);
+  const code = stripTypeScriptTypes(files['guards.generated.ts']) + '\n//# sourceURL=fullnet-test-allof-guards.mjs';
+  const readers = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+  assert.deepEqual(readers.readCombined({ first: '1', second: '2' }), { first: 1, second: 2 });
+});
 
 test('生成器只产生 Full.NET models、guards、operations 与公开入口', async () => {
   const { generateFullNetClient } = await import(

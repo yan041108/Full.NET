@@ -1,6 +1,6 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-08-31。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-09-26（本轮仅同步创建/升级验收切片）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 > 2026-09-16 规划增补：已纳入[八项底座完善能力及七类收口重点](adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)，执行见[唯一总计划](../superpowers/plans/2026-09-16-foundation-productization.md)。本次未重新认证下表的实现状态；部分历史条目落后于专项记录，F00 将逐项核对。工作区其他改动不作为能力完成证据。
 
@@ -23,6 +23,7 @@
 | 认证事件日志管理（2026-09-25） | Partial | 复用 Identity `fn_identity_auth_audit`；双库上下文字段、Host 权限查询 API、Vue 页面、OIDC 中心登录/应用会话/主动退出事件、默认关闭的 Worker 保留及受控 CSV 导出已形成纵向切片。完整事件矩阵、故障/并发门禁、游标分页和真实运维证据仍待开发；见[唯一开发计划 AE01—AE06](../superpowers/plans/2026-09-25-authentication-event-logs.md)。不得与 B2 API 访问日志混同。 |
 | 模块化单体、API/Worker/Migrator 运行角色 | Build-verified | [总体架构规格](../superpowers/specs/2026-07-17-fullnet-architecture-design.md)、[`ADR-0002`](../architecture/adr/ADR-0002-modular-monolith-evolution.md) 与 Architecture 门禁共同约束；尚未触发全面微服务拆分门槛。 |
 | 命名、迁移与 CRUD 生成治理 | Build-verified | 统一由 [`rules/naming-conventions.md`](../../rules/naming-conventions.md)、迁移命名测试和 CodeGeneration 契约门禁约束。 |
+| 独立应用创建与框架源码升级（F01/F15 子集） | Build-verified | 四预设独立 API 构建、Minimal 双库真实字典 CRUD、源码升级的包校验/定制冲突/中断恢复与固定闭包已取得实现提交 `2c10a5d2` 的 CI 证据，见[首轮交付报告](../verification/2026-09-26-f01-created-app-real-stack-closeout.md)。直接 `dotnet new` 安装、完整业务生成、数据库/对象文件/密钥灾难恢复、混合版本运行及独立应用 Native 发布仍未验收；不关闭 F01/F15/F16 整项，保持 `Capacity-not-verified`。 |
 | Dapper、租户 SQL 与命令事务边界 | Build-verified | 模块内强事务已形成统一边界；2026-09-22：`AcceptTenantInvitation`/`TenantMemberProvision` 席位预留与确认已移出 Identity 本地事务并带补偿，[`module-local-transaction-debt.json`](../../contracts/architecture/module-local-transaction-debt.json) 目录为空；2026-09-19 RegisterAccount 权威读取已移出事务。table-access 登记 `SessionBindingKinds` 对 Identity 会话表名的同模块契约引用（`identity-oidc-session-foundation` 里程碑清理）。cross-foreign-key 与 `AllowedReverseContractDependencies` 保持空目录。Organization 单位投影采用消费方拥有的 `Identity.Contracts` Port + Organization 侧适配器，模块依赖 DAG 无登记例外。 |
 | UUID v7 逻辑主键与双库物理映射 | Build-verified | SQL Server `uniqueidentifier` 与 MySQL `binary(16)` 已由 008/009 扩展—回填—收缩迁移及恢复测试覆盖；生产维护窗口、备份和 RPO/RTO 演练仍待环境验收。 |
 | SQL Server/MySQL 成对迁移 | Build-verified | 迁移命名、顺序、恢复和双 Provider 集成测试已形成门禁。 |

@@ -1183,6 +1183,171 @@ internal static class WorkflowRuntimeApiAssertions
             forbiddenProblem.RootElement.GetProperty("code").GetString());
     }
 
+    /// <summary>
+    /// Enforced 阶段下，租户作用域 Workflow 变更（表单/定义/启动）须具备 <c>feature.workflow</c> 绑定。
+    /// 资产在切换 Enforced 前发布，以便单独验证启动门禁。
+    /// </summary>
+    public static async Task VerifyEnforcedTenantWorkflowStartRequiresFeatureBindingAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken = default)
+    {
+        await factory.InitializeAsync(cancellationToken);
+        using var hostClient = factory.CreateClientForHost("localhost");
+        using var tenantClient = factory.CreateClientForHost("localhost");
+        var hostAdminToken = await LoginAsHostAdminAsync(hostClient, cancellationToken);
+        var tenantContext = await EnterAcmeTenantContextAsync(
+            tenantClient,
+            await LoginAsHostAdminAsync(tenantClient, cancellationToken),
+            cancellationToken);
+        var tenantAdminToken = tenantContext.AccessToken;
+        var tenantId = tenantContext.Context.TenantId
+            ?? throw new InvalidOperationException("租户上下文令牌缺少 TenantId。");
+
+        var tenantVersions = await PublishRuntimeAssetsAsync(tenantClient, tenantAdminToken, cancellationToken);
+
+        var phase = await GetEntitlementEnforcementPhaseAsync(hostClient, hostAdminToken, cancellationToken);
+        Assert.IsNotNull(phase);
+        var enforced = await PutEntitlementEnforcementPhaseAsync(
+            hostClient,
+            hostAdminToken,
+            TenantEntitlementEnforcementPhases.Enforced,
+            phase!.Version,
+            cancellationToken);
+        Assert.AreEqual(TenantEntitlementEnforcementPhases.Enforced, enforced!.Phase);
+
+        var workflowCatalogId = await FindEntitlementCatalogIdAsync(
+            hostClient,
+            hostAdminToken,
+            TenantEntitlementCatalogCodes.Workflow,
+            cancellationToken);
+
+        using var deniedFormCreate = await tenantClient.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/forms", tenantAdminToken, new
+            {
+                formKey = $"entitlement.{Guid.NewGuid():N}",
+                draft = new
+                {
+                    schemaVersion = 1,
+                    adapterVersion = 1,
+                    sections = new[]
+                    {
+                        new
+                        {
+                            sectionKey = "main",
+                            fields = new[]
+                            {
+                                new
+                                {
+                                    fieldKey = "reason",
+                                    fieldTypeKey = "text",
+                                    required = true,
+                                    constraints = new Dictionary<string, object?>(),
+                                },
+                            },
+                        },
+                    },
+                },
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, deniedFormCreate.StatusCode,
+            await deniedFormCreate.Content.ReadAsStringAsync(cancellationToken));
+        using var deniedFormProblem = JsonDocument.Parse(
+            await deniedFormCreate.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            TenancyErrorCodes.EntitlementFeatureNotGranted,
+            deniedFormProblem.RootElement.GetProperty("code").GetString());
+
+        using var deniedStart = await tenantClient.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", tenantAdminToken, new
+            {
+                definitionVersionId = tenantVersions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "entitlement gate" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, deniedStart.StatusCode);
+        using var deniedProblem = JsonDocument.Parse(
+            await deniedStart.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            TenancyErrorCodes.EntitlementFeatureNotGranted,
+            deniedProblem.RootElement.GetProperty("code").GetString());
+
+        using var bindRequest = AuthorizedJson(
+            HttpMethod.Post,
+            $"/api/v1/tenancy/tenants/{tenantId:D}/entitlements",
+            hostAdminToken,
+            new CreateTenantEntitlementBindingRequest(
+                workflowCatalogId,
+                DateTimeOffset.UtcNow.AddMinutes(-5),
+                null,
+                null));
+        using var bindResponse = await hostClient.SendAsync(bindRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, bindResponse.StatusCode,
+            await bindResponse.Content.ReadAsStringAsync(cancellationToken));
+
+        using var allowedStart = await tenantClient.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", tenantAdminToken, new
+            {
+                definitionVersionId = tenantVersions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "entitlement granted" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, allowedStart.StatusCode,
+            await allowedStart.Content.ReadAsStringAsync(cancellationToken));
+    }
+
+    private static async Task<TenantEntitlementEnforcementResponse?> GetEntitlementEnforcementPhaseAsync(
+        HttpClient client,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        using var getRequest = Authorized(
+            HttpMethod.Get,
+            "/api/v1/tenancy/settings/entitlement-enforcement",
+            token);
+        using var getResponse = await client.SendAsync(getRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, getResponse.StatusCode);
+        return await getResponse.Content.ReadFromJsonAsync<TenantEntitlementEnforcementResponse>(
+            cancellationToken);
+    }
+
+    private static async Task<TenantEntitlementEnforcementResponse?> PutEntitlementEnforcementPhaseAsync(
+        HttpClient client,
+        string token,
+        string phase,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        using var putRequest = AuthorizedJson(
+            HttpMethod.Put,
+            "/api/v1/tenancy/settings/entitlement-enforcement",
+            token,
+            new UpdateTenantEntitlementEnforcementRequest(phase, version));
+        using var putResponse = await client.SendAsync(putRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, putResponse.StatusCode);
+        return await putResponse.Content.ReadFromJsonAsync<TenantEntitlementEnforcementResponse>(
+            cancellationToken);
+    }
+
+    private static async Task<Guid> FindEntitlementCatalogIdAsync(
+        HttpClient client,
+        string token,
+        string code,
+        CancellationToken cancellationToken)
+    {
+        using var listRequest = Authorized(HttpMethod.Get, "/api/v1/tenancy/entitlements/catalog", token);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+        var catalog = await listResponse.Content.ReadFromJsonAsync<
+            IReadOnlyList<TenantEntitlementCatalogResponse>>(cancellationToken);
+        Assert.IsNotNull(catalog);
+        var entry = catalog!.Single(item =>
+            string.Equals(item.Code, code, StringComparison.Ordinal));
+        return entry.Id;
+    }
+
     private static async Task AssertDangerousPatchesRejectedAsync(
         HttpClient client,
         string token,

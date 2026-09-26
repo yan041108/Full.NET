@@ -36,6 +36,9 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Document/PreviewTasks/DocumentPreviewTaskHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Document/Retention/DocumentVersionRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Files/Cleanup/DeletedHostFileBlobCleanupHostedProcessor.cs",
+        // 上传从可信租户上下文捕获租户后临时调用 Host 配额端口，结束或异常均恢复原作用域。
+        "src/Modules/Full.NET.Modules.Files/Features/FilesHostExecutionScope.cs",
+        "src/Modules/Full.NET.Modules.Files/Features/TenantResourceFiles/TenantResourceFileStore.cs",
         "src/Modules/Full.NET.Modules.Files/Reconciliation/PendingHostFileReconciliationHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Files/Reconciliation/PendingHostFileReferenceClaimReconciliationHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Files/Reconciliation/PendingTenantResourceFileReconciliationRunner.cs",
@@ -57,6 +60,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Identity/Security/FullNetJwtBearerEvents.cs",
         // 种子数据在 Host 作用域写入成员关系，租户来自已授权种子上下文而非请求参数。
         "src/Modules/Full.NET.Modules.Identity/Seeding/BootstrapAdminTenantMembershipSeedContributor.cs",
+        // 开发 Overlay 仅把可信依赖交给既有种子实现；租户来自 local 目录并由其 finally 恢复。
+        "src/Modules/Full.NET.Modules.Identity/Seeding/DevelopmentBootstrapAdminTenantMembershipSeedContributor.cs",
         "src/Modules/Full.NET.Modules.ImportExport/ImportTasks/ImportExportTaskRunner.cs",
         "src/Modules/Full.NET.Modules.Jobs/Execution/JobExecutionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Jobs/Execution/JobExecutionRunner.cs",
@@ -69,6 +74,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/HostUserManagementTenantScope.cs",
         "src/Modules/Full.NET.Modules.Reporting/Features/ManageExportTasks/ReportingExportTaskRunner.cs",
         "src/Modules/Full.NET.Modules.Settings/Features/ManageDiagnosticPolicy/DiagnosticPolicyStore.cs",
+        // 权益只读 Port 临时进入 Host 目录读取阶段与绑定，租户来自调用方可信作用域，结束后恢复。
+        "src/Modules/Full.NET.Modules.Tenancy/Features/ManageTenantEntitlements/TenantFeatureEntitlementPort.cs",
         "src/Modules/Full.NET.Modules.Tenancy/Features/TenancyHostExecutionScope.cs",
         "src/Modules/Full.NET.Modules.Tenancy/Features/TenantBranding/TenantBrandingMediaService.cs",
         "src/Modules/Full.NET.Modules.Tenancy/TenancyModule.cs",

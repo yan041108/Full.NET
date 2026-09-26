@@ -30,7 +30,7 @@ internal sealed class ReportingDataSourceConnectionTester(IExternalDatabaseConne
         var opened = await connections.OpenAsync(request, cancellationToken).ConfigureAwait(false);
         if (!opened.Succeeded || opened.Session is null)
         {
-            return (false, opened.ErrorMessage ?? "Failed to open reporting data source.");
+            return (false, "Failed to open reporting data source.");
         }
 
         await using (opened.Session)
@@ -42,7 +42,7 @@ internal sealed class ReportingDataSourceConnectionTester(IExternalDatabaseConne
                 .ConfigureAwait(false);
             if (!probe.Succeeded)
             {
-                return (false, probe.ErrorMessage ?? "Failed to probe reporting data source.");
+                return (false, "Failed to probe reporting data source.");
             }
 
             if (probe.Value is null)

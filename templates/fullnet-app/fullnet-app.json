@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "ownerKey": "demo",
+  "databaseProvider": "sqlserver",
+  "preset": "minimal",
+  "httpPort": 5180
+}

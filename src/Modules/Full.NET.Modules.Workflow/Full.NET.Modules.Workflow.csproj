@@ -14,6 +14,7 @@
     <ProjectReference Include="..\Full.NET.Modules.Files.Contracts\Full.NET.Modules.Files.Contracts.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Organization.Contracts\Full.NET.Modules.Organization.Contracts.csproj" />
+    <ProjectReference Include="..\Full.NET.Modules.Tenancy.Contracts\Full.NET.Modules.Tenancy.Contracts.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Workflow.Contracts\Full.NET.Modules.Workflow.Contracts.csproj" />
   </ItemGroup>
 

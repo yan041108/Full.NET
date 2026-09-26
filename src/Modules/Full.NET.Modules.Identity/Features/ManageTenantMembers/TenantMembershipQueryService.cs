@@ -61,6 +61,23 @@ internal sealed class TenantMembershipQueryService(
         return Result<TenantMemberResponse>.Success(MapMember(row));
     }
 
+    public async Task<Result<TenantMemberResponse>> GetCurrentMemberAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var row = await queryExecutor.QuerySingleOrDefaultAsync<TenantMemberListRow>(
+                TenantMembershipSql.FindMemberListRowByTenantAndUser,
+                Identity.Persistence.IdentitySqlParameters.Create(("UserId", userId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (row is null)
+        {
+            return MemberNotFound();
+        }
+
+        return Result<TenantMemberResponse>.Success(MapMember(row));
+    }
+
     public async Task<Result<PagedResult<TenantInvitationResponse>>> ListInvitationsAsync(
         int page,
         int pageSize,

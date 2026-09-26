@@ -5,40 +5,52 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import {
-  cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from 'node:fs';
 import { dirname, join, posix, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRESET_MODULE_CLOSURE, VALID_PRESETS } from './preset-modules.mjs';
+import { buildMigrationInventory, buildSeedInventory } from './framework-manifest-utils.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 const DEFAULT_OUTPUT = resolve(REPO_ROOT, 'artifacts', 'templates', 'fullnet-source-bundle');
 const FRAMEWORK_VERSION = '0.1.0';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 3;
 
 const INCLUDE_ROOTS = [
+  'src/AI',
   'src/BuildingBlocks',
   'src/Composition',
   'src/Compatibility',
   'src/Generators',
+  'src/Hosts',
   'src/Modules',
   join('src', 'Tools', 'Full.NET.CodeGeneration.Cli'),
+  'samples/enterprise-request',
   'contracts/naming',
+  'ui/admin',
+  'packages/client-contracts',
+  'packages/admin-i18n',
+  'packages/admin-form-designer',
+  'packages/design-tokens',
 ];
 
 const INCLUDE_FILES = [
   'Directory.Packages.props',
   'Directory.Build.props',
+  'Directory.Build.targets',
   'global.json',
   'nuget.config',
+  'package.json',
+  'pnpm-lock.yaml',
+  'pnpm-workspace.yaml',
 ];
 
 const EXCLUDED_DIR_NAMES = new Set(['bin', 'obj', '.vs', 'node_modules']);
@@ -72,9 +84,46 @@ function readGitCommit() {
     encoding: 'utf8',
   });
   if (result.status !== 0 || !result.stdout?.trim()) {
-    throw new Error('Unable to read git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>": ' + (result.stderr || result.stdout || 'unknown error'));
+    throw new Error('Unable to read source git commit: ' + (result.stderr || result.stdout || 'unknown error'));
   }
   return result.stdout.trim();
+}
+
+export function assertCleanBundleInputStatus(statusOutput) {
+  if (statusOutput.trim()) {
+    throw new Error('Source bundle inputs contain uncommitted changes; commit them before assigning sourceCommit');
+  }
+}
+
+export function assertArchiveEntryModes(treeOutput) {
+  for (const entry of treeOutput.split('\0')) {
+    if (!entry) continue;
+    const mode = entry.slice(0, entry.indexOf(' '));
+    if (mode !== '100644' && mode !== '100755') {
+      throw new Error('Source bundle contains unsupported git entry mode: ' + mode);
+    }
+  }
+}
+
+function assertCommittedBundleInputs() {
+  assertCleanBundleInputStatus(readBundleInputStatus());
+}
+
+/** 供模板测试在脏工作区跳过需完整打包的用例；CI 干净提交仍必须跑绿。 */
+export function readBundleInputStatus() {
+  const pathspecs = [...INCLUDE_ROOTS, ...INCLUDE_FILES].map(toPosixPath);
+  const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=all', '--', ...pathspecs], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) {
+    throw new Error('Unable to check source bundle inputs: ' + (result.stderr || 'unknown error'));
+  }
+  return result.stdout ?? '';
+}
+
+export function areBundleInputsClean() {
+  return readBundleInputStatus().trim().length === 0;
 }
 
 function toPosixPath(path) {
@@ -116,7 +165,10 @@ function collectManagedFiles(bundleRoot) {
     for (const entry of readdirSorted(absoluteDir)) {
       const absolutePath = join(absoluteDir, entry);
       const relativePath = relativeDir ? join(relativeDir, entry) : entry;
-      const stats = statSync(absolutePath);
+      const stats = lstatSync(absolutePath);
+      if (stats.isSymbolicLink()) {
+        throw new Error('Source bundle contains a symbolic link: ' + relativePath);
+      }
       if (stats.isDirectory()) {
         if (shouldExclude(relativePath, true)) {
           continue;
@@ -136,28 +188,37 @@ function collectManagedFiles(bundleRoot) {
   return managedFiles;
 }
 
-function copyIncludedPaths(bundleRoot) {
-  for (const relativeRoot of INCLUDE_ROOTS) {
-    const source = join(REPO_ROOT, relativeRoot);
-    if (!existsSync(source)) {
-      throw new Error('Missing required bundle path: ' + relativeRoot);
-    }
-    const destination = join(bundleRoot, relativeRoot);
-    mkdirSync(dirname(destination), { recursive: true });
-    cpSync(source, destination, { recursive: true, force: true });
+function copyIncludedPaths(bundleRoot, sourceCommit) {
+  const pathspecs = [...INCLUDE_ROOTS, ...INCLUDE_FILES]
+    .filter((relativePath) => existsSync(join(REPO_ROOT, relativePath)))
+    .map(toPosixPath);
+  const archivePath = join(bundleRoot, '.fullnet-source.tar');
+  const tree = spawnSync('git', ['ls-tree', '-r', '-z', sourceCommit, '--', ...pathspecs], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  if (tree.status !== 0) {
+    throw new Error('Unable to inspect committed source: ' + (tree.stderr || 'unknown error'));
   }
-
-  for (const relativeFile of INCLUDE_FILES) {
-    if (relativeFile === 'nuget.config' && !existsSync(join(REPO_ROOT, relativeFile))) {
-      continue;
+  assertArchiveEntryModes(tree.stdout);
+  // 直接导出固定提交，忽略文件和本机密钥永远不进入分发包。
+  try {
+    const archive = spawnSync('git', [
+      'archive', '--format=tar', '--output', archivePath, sourceCommit, ...pathspecs,
+    ], { cwd: REPO_ROOT, encoding: 'utf8' });
+    if (archive.status !== 0) {
+      throw new Error('Unable to archive committed source: ' + (archive.stderr || 'unknown error'));
     }
-    const source = join(REPO_ROOT, relativeFile);
-    if (!existsSync(source)) {
-      throw new Error('Missing required bundle file: ' + relativeFile);
+    const extract = spawnSync('tar', ['-xf', archivePath, '-C', bundleRoot], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    });
+    if (extract.status !== 0) {
+      throw new Error('Unable to extract committed source: ' + (extract.stderr || 'unknown error'));
     }
-    const destination = join(bundleRoot, relativeFile);
-    mkdirSync(dirname(destination), { recursive: true });
-    cpSync(source, destination, { force: true });
+  } finally {
+    rmSync(archivePath, { force: true });
   }
 }
 
@@ -166,7 +227,10 @@ function pruneExcluded(bundleRoot) {
     for (const entry of readdirSorted(absoluteDir)) {
       const absolutePath = join(absoluteDir, entry);
       const relativePath = relativeDir ? join(relativeDir, entry) : entry;
-      const stats = statSync(absolutePath);
+      const stats = lstatSync(absolutePath);
+      if (stats.isSymbolicLink()) {
+        throw new Error('Source bundle contains a symbolic link: ' + relativePath);
+      }
       if (stats.isDirectory()) {
         if (shouldExclude(relativePath, true)) {
           rmSync(absolutePath, { recursive: true, force: true });
@@ -183,13 +247,15 @@ function pruneExcluded(bundleRoot) {
   removeExcluded(bundleRoot);
 }
 
-function buildManifest(sourceCommit, managedFiles) {
+function buildManifest(sourceCommit, managedFiles, bundleRoot) {
   return {
     schemaVersion: SCHEMA_VERSION,
     sourceCommit,
     frameworkVersion: FRAMEWORK_VERSION,
     presetModules: PRESET_MODULE_CLOSURE,
     validPresets: VALID_PRESETS,
+    migrationInventory: buildMigrationInventory(managedFiles),
+    seedInventory: buildSeedInventory(managedFiles, (path) => readFileSync(join(bundleRoot, path), 'utf8'), PRESET_MODULE_CLOSURE),
     managedFiles,
   };
 }
@@ -197,19 +263,24 @@ function buildManifest(sourceCommit, managedFiles) {
 export function buildSourceBundle({ output = DEFAULT_OUTPUT } = {}) {
   const bundleRoot = resolve(output);
   const sourceCommit = readGitCommit();
+  assertCommittedBundleInputs();
 
-  rmSync(bundleRoot, { recursive: true, force: true });
+  // 构建器不拥有调用方既有目录；拒绝覆盖，避免删除应用文件或人工修改。
+  if (existsSync(bundleRoot) && readdirSync(bundleRoot).length > 0) {
+    throw new Error('Bundle output directory must be empty: ' + bundleRoot);
+  }
   mkdirSync(bundleRoot, { recursive: true });
 
-  copyIncludedPaths(bundleRoot);
+  copyIncludedPaths(bundleRoot, sourceCommit);
   pruneExcluded(bundleRoot);
+  assertCommittedBundleInputs();
 
   const managedFiles = collectManagedFiles(bundleRoot);
   if (Object.keys(managedFiles).length === 0) {
     throw new Error('Bundle contains no managed files');
   }
 
-  const manifest = buildManifest(sourceCommit, managedFiles);
+  const manifest = buildManifest(sourceCommit, managedFiles, bundleRoot);
   writeFileSync(join(bundleRoot, 'framework-manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
   return { bundleRoot, manifest };
 }

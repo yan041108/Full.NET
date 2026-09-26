@@ -1,0 +1,81 @@
+using Demo.Composition;
+using Full.NET.Composition;
+using Full.NET.Modularity.Modules;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+var configuration = new ConfigurationBuilder().AddInMemoryCollection(
+    new Dictionary<string, string?> { ["FullNet:Modules:Preset"] = "minimal" }).Build();
+var roles = 0;
+var reservedNames = 0;
+var invalidGraphs = 0;
+foreach (var profile in new[] { FullNetHostProfile.Api, FullNetHostProfile.Worker, FullNetHostProfile.Migrator })
+{
+    var services = new ServiceCollection();
+    services.AddLogging();
+    services.AddApplicationModules(configuration, profile);
+    using var provider = services.BuildServiceProvider();
+    var registrations = provider.GetServices<string>().Where(value => value.StartsWith("CompositionProbe:", StringComparison.Ordinal)).ToArray();
+    Require(registrations.SequenceEqual(new[] { $"CompositionProbe:{profile}" }), $"incorrect role registration: {profile}");
+    if (profile == FullNetHostProfile.Api)
+    {
+        var keys = provider.GetRequiredService<FullNetModuleRegistry>().GetOrderedModules().Select(module => module.Name).ToArray();
+        Require(keys.Count(key => key == "SampleCatalog") == 1, "application module missing or duplicated");
+        Require(Array.IndexOf(keys, "Identity") < Array.IndexOf(keys, "SampleCatalog"), "dependency order incorrect");
+        Require(!keys.Contains("Workflow") && !keys.Contains("Payments"), "minimal projection unexpectedly installed optional modules");
+        var catalog = provider.GetRequiredService<IFullNetModuleCatalog>();
+        Require(catalog.FindByKey("SampleCatalog")?.SourceClassification == FullNetModuleSourceClassification.Application, "application source missing");
+        Require(catalog.FindByKey("Identity")?.SourceClassification == FullNetModuleSourceClassification.Official, "official source changed");
+    }
+    roles++;
+
+    // 使用投影后的真实框架；未安装的官方键也必须保留，且拒绝发生在服务注册之前。
+    foreach (var name in new[] { "Workflow", "Payments" })
+    {
+        Reject([new RejectedModule(name, [])], profile);
+        reservedNames++;
+    }
+    Reject([new RejectedModule("Duplicate", []), new RejectedModule("Duplicate", [])], profile);
+    Reject([new RejectedModule("Missing", ["Workflow"])], profile);
+    Reject([new RejectedModule("First", ["Second"]), new RejectedModule("Second", ["First"])], profile);
+    invalidGraphs += 3;
+}
+
+Console.WriteLine($"FULLNET_APPLICATION_COMPOSITION {{\"roles\":{roles},\"reservedNames\":{reservedNames},\"invalidGraphs\":{invalidGraphs}}}");
+
+void Reject(RejectedModule[] modules, FullNetHostProfile profile)
+{
+    var services = new ServiceCollection();
+    services.AddLogging();
+    var original = services.ToArray();
+    var rejected = false;
+    try
+    {
+        services.AddFullNetApplicationModules(configuration, profile, modules);
+    }
+    catch (InvalidOperationException)
+    {
+        rejected = true;
+    }
+    Require(rejected, $"invalid graph accepted by {profile}: {modules[0].Name}");
+    Require(modules.All(module => !module.Called), "invalid graph invoked a module registration");
+    Require(services.SequenceEqual(original), "invalid graph polluted services");
+}
+
+static void Require(bool condition, string message)
+{
+    if (!condition) throw new InvalidOperationException(message);
+}
+
+// 验收故障模块显式暴露是否被调用，防止把注册入口内的异常误当成依赖校验拒绝。
+internal sealed class RejectedModule(string name, IReadOnlyCollection<string> dependencies) : IFullNetModule
+{
+    public string Name => name;
+    public IReadOnlyCollection<string> Dependencies => dependencies;
+    public bool Called { get; private set; }
+    public void AddServices(IServiceCollection services, IConfiguration configuration) => Called = true;
+    public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration) => Called = true;
+    public void AddMigrationServices(IServiceCollection services, IConfiguration configuration) => Called = true;
+    public void MapEndpoints(IEndpointRouteBuilder endpoints) { }
+}

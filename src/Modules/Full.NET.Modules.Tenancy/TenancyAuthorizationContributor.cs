@@ -100,6 +100,10 @@ internal sealed class TenancyAuthorizationContributor
             "管理权益强制执行阶段",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            TenancyTenantEntitlementPermissions.ReconcileBackfill,
+            "权益兼容回填 dry-run/apply",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             TenancyTenantSubscriptionPermissions.Read,
             "读取租户订阅",
             AuthorizationScope.Host),
@@ -122,6 +126,10 @@ internal sealed class TenancyAuthorizationContributor
         new PermissionDefinition(
             TenancyTenantQuotaPermissions.ReconcileMetricIds,
             "对账配额预留 MetricId",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantQuotaPermissions.ReconcileUsageBaseline,
+            "对齐席位配额 UsedValue 用量基线",
             AuthorizationScope.Host),
         new PermissionDefinition(
             TenantsSwitch,

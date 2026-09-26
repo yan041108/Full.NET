@@ -60,6 +60,8 @@ public static class ServiceCollectionExtensions
                         options.DestructiveDdlApprovalId),
                 "PreV1NamingContract:DestructiveDdlApprovalId has an invalid format.")
             .ValidateOnStart();
+        services.AddOptions<FrameworkManifestMigrationOptions>()
+            .Bind(configuration.GetSection(FrameworkManifestMigrationOptions.SectionName));
         services.AddSingleton<IDatabaseMigrationRunner, DbUpMigrationRunner>();
         return services;
     }

@@ -2,6 +2,7 @@ extern alias codegencli;
 
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Nodes;
 using Full.NET.Data.CodeGeneration.Generation;
 using Full.NET.Data.CodeGeneration.Integration;
 using CodeGenerationCli =
@@ -13,6 +14,106 @@ namespace Full.NET.IntegrationTests.CodeGeneration;
 [DoNotParallelize]
 public sealed class ModuleIntegrationBackendApplyTests
 {
+    [TestMethod]
+    [DataRow("entry")]
+    [DataRow("composition")]
+    public async Task Host_cli_reports_failure_from_later_stage_compilation_diagnostics(string stage)
+    {
+        using var fixture = ModuleApplyFixture.Create(compilable: true);
+        var target = JsonNode.Parse(File.ReadAllText(fixture.TargetPath))!.AsObject();
+        target["authorizationContributorPath"] = "authorization/CatalogAuthorizationContributor.cs";
+        File.WriteAllText(fixture.TargetPath, target.ToJsonString(), new UTF8Encoding(false));
+        fixture.WriteRepositoryFile("authorization/CatalogAuthorizationContributor.cs", "human contributor\n");
+        if (stage == "entry") fixture.DeleteModuleFile("CatalogModule.cs");
+        else fixture.DeleteCompositionFile("Acme.Composition.csproj");
+        var result = await RunApplyAsync(fixture, "apply-host-integration");
+        Assert.AreEqual(2, result.ExitCode);
+        Assert.AreEqual(string.Empty, result.Output);
+        StringAssert.Contains(result.Error, stage == "entry" ? "模块入口" : "Composition");
+        Assert.IsTrue(File.Exists(Path.Combine(fixture.ModuleDirectory, GenerationWorkspaceStore.ManifestRelativePath)));
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task Host_cli_candidate_compilation_controls_authorization_commit(bool importGenerated)
+    {
+        using var fixture = ModuleApplyFixture.Create(compilable: true);
+        const string contributor = "src/Modules/Acme.Modules.Catalog/CatalogAuthorizationContributor.cs";
+        const string view = "ui/admin/src/views/GeneratedCatalogProductsView.vue";
+        var target = JsonNode.Parse(File.ReadAllText(fixture.TargetPath))!.AsObject();
+        target.Remove("layuiRouterPath");
+        target["authorizationContributorPath"] = contributor;
+        target["clientRoute"] = new JsonObject
+        {
+            ["routePath"] = "/catalog/products",
+            ["vueRouteName"] = "catalog-products",
+            ["vueComponentPath"] = view,
+        };
+        File.WriteAllText(fixture.TargetPath, target.ToJsonString(), new UTF8Encoding(false));
+        fixture.WriteRepositoryFile(contributor, """
+            using System.Collections.Generic;
+            using Full.NET.Modules.Identity.Contracts;
+            using Acme.Modules.Catalog.Generated;
+            namespace Acme.Modules.Catalog;
+            public sealed class CatalogAuthorizationContributor : IAuthorizationCatalogContributor
+            {
+                public AuthorizationModuleDefinition Module { get; } = new("catalog", "目录", 1);
+                public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
+                [new PermissionDefinition("catalog.manual", "手写权限", AuthorizationScope.Tenant)];
+                public IReadOnlyCollection<NavigationDefinition> Navigation { get; } = [];
+                public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } = [];
+            }
+            """);
+        if (!importGenerated)
+        {
+            fixture.WriteRepositoryFile(contributor, fixture.ReadRepositoryFile(contributor)
+                .Replace("using Acme.Modules.Catalog.Generated;", string.Empty, StringComparison.Ordinal));
+        }
+        var originalContributor = fixture.ReadRepositoryFile(contributor);
+        fixture.WriteModuleFile("CatalogModule.cs", ModuleApplyFixture.ModuleEntry.Replace("services.AddOptions();",
+            "services.AddOptions();\nservices.AddScoped<Full.NET.Modules.Identity.Contracts.IAuthorizationCatalogContributor, CatalogAuthorizationContributor>();",
+            StringComparison.Ordinal));
+        var manualView = fixture.ReadRepositoryFile("ui/admin/src/views/CatalogProductsView.vue");
+        var frozenLayui = fixture.ReadRepositoryFile("ui/admin-layui/js/core/route-controllers.js");
+        var first = await RunApplyAsync(fixture, "apply-host-integration");
+        if (!importGenerated)
+        {
+            // 原 Contributor 可编译，只有待写入片段缺少命名空间；拒绝提交候选而保留前序阶段。
+            Assert.AreEqual(2, first.ExitCode);
+            StringAssert.Contains(first.Error, "CS0103");
+            Assert.AreEqual(string.Empty, first.Output);
+            Assert.AreEqual(originalContributor, fixture.ReadRepositoryFile(contributor));
+            Assert.IsTrue(File.Exists(Path.Combine(fixture.RepositoryRoot, view)));
+            return;
+        }
+        Assert.AreEqual(0, first.ExitCode, first.Error);
+        StringAssert.Contains(first.Output, "Applied HostIntegration");
+        StringAssert.Contains(fixture.ReadRepositoryFile(contributor), "catalog.product permissions>");
+        StringAssert.Contains(fixture.ReadRepositoryFile(contributor), "catalog.manual");
+        var authorization = fixture.ReadRepositoryFile(contributor);
+        var permissionsStart = authorization.IndexOf("<fullnet-generated catalog.product permissions>", StringComparison.Ordinal);
+        var permissionsEnd = authorization.IndexOf("</fullnet-generated catalog.product permissions>", StringComparison.Ordinal);
+        Assert.IsTrue(permissionsStart >= 0 && permissionsEnd > permissionsStart);
+        // 只检查生成块，不能让手写 Tenant 权限掩盖生成权限错误地使用 Host。
+        var generatedPermissions = authorization[permissionsStart..permissionsEnd];
+        Assert.AreEqual(2, generatedPermissions.Split("AuthorizationScope.Tenant", StringSplitOptions.None).Length - 1);
+        Assert.IsFalse(generatedPermissions.Contains("AuthorizationScope.Host", StringComparison.Ordinal));
+        StringAssert.Contains(fixture.ReadCompositionFile("ModuleCatalog.cs"), "new CatalogModule()");
+        Assert.IsTrue(File.Exists(Path.Combine(fixture.RepositoryRoot, view)));
+        Assert.AreEqual(manualView, fixture.ReadRepositoryFile("ui/admin/src/views/CatalogProductsView.vue"));
+        Assert.AreEqual(frozenLayui, fixture.ReadRepositoryFile("ui/admin-layui/js/core/route-controllers.js"));
+        var beforeRepeat = fixture.CaptureRepository();
+        var repeat = await RunApplyAsync(fixture, "apply-host-integration");
+        Assert.AreEqual(0, repeat.ExitCode, repeat.Error);
+        CollectionAssert.AreEquivalent(beforeRepeat.ToArray(), fixture.CaptureRepository().ToArray());
+        // 授权片段写入后的完整模块仍须真实编译；逐阶段验证明确使用不含授权字段的目标。
+        target.Remove("authorizationContributorPath");
+        File.WriteAllText(fixture.TargetPath, target.ToJsonString(), new UTF8Encoding(false));
+        var compiled = await RunApplyAsync(fixture, "validate-module-integration");
+        Assert.AreEqual(0, compiled.ExitCode, compiled.Error);
+    }
+
     [TestMethod]
     public async Task Apply_compiles_writes_idempotently_and_rejects_handwritten_conflict()
     {
@@ -383,13 +484,13 @@ public sealed class ModuleIntegrationBackendApplyTests
     }
 
     private static async Task<CommandResult> RunApplyAsync(
-        ModuleApplyFixture fixture)
+        ModuleApplyFixture fixture, string command = "apply-module-integration")
     {
         using var output = new StringWriter();
         using var error = new StringWriter();
         var exitCode = await CodeGenerationCli.RunAsync(
             [
-                "apply-module-integration",
+                command,
                 "--schema",
                 fixture.SchemaPath,
                 "--repository",

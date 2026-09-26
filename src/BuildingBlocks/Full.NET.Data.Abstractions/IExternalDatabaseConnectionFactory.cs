@@ -6,7 +6,7 @@ namespace Full.NET.Data.Abstractions;
 /// </summary>
 public interface IExternalDatabaseConnectionFactory
 {
-    /// <summary>打开外部会话；失败时不抛出驱动异常，返回截断后的安全摘要。</summary>
+    /// <summary>打开外部会话；失败时不抛出驱动异常，返回不含驱动详情的固定摘要。</summary>
     /// <param name="request">已由业务模块校验过的连接参数。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>成功时携带已打开会话，调用方负责释放。</returns>

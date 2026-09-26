@@ -25,6 +25,17 @@ internal static class TenantMembershipSql
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
 
+    /// <summary>Host 运维对账：按显式 TenantId 统计活动成员，不依赖当前租户上下文。</summary>
+    public static readonly SqlStatement CountActiveMembersByTenantForHost = new(
+        "identity.tenant_members.count_active_by_tenant_host",
+        """
+        SELECT COUNT(1)
+        FROM fn_identity_tenant_member
+        WHERE TenantId = @TenantId
+          AND Status = @ActiveStatus
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ListMembersSqlServer = new(
         "identity.tenant_members.list.sql_server",
         """

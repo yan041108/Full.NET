@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Claims;
+using Full.NET.Abstractions.Tenancy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
@@ -9,9 +10,10 @@ namespace Full.NET.Realtime.SignalR;
 /// Host/租户管理端通知 Hub：只负责连接、鉴权与分组，不承载业务规则。
 /// </summary>
 [Authorize]
-public sealed class FullNetNotificationHub : Hub
+public sealed class FullNetNotificationHub(ITenantActivityReadPort tenantActivity) : Hub
 {
     private static readonly object ActiveConnectionMarker = new();
+    private readonly ITenantActivityReadPort _tenantActivity = tenantActivity;
 
     /// <summary>
     /// 连接建立后按已验证身份加入用户组与可选租户组。
@@ -22,7 +24,18 @@ public sealed class FullNetNotificationHub : Hub
             Context.User,
             out var userId,
             out var broadcastGroup,
+            out var tenantId,
             out var authorizationOutcome);
+        if (isAuthorized
+            && tenantId is Guid activeTenantId
+            && !await _tenantActivity
+                .IsActiveTenantAsync(activeTenantId, Context.ConnectionAborted)
+                .ConfigureAwait(false))
+        {
+            isAuthorized = false;
+            authorizationOutcome = "rejected_tenant_inactive";
+        }
+
         RealtimeHubTelemetry.RecordAuthorizationDecision(
             authorizationOutcome);
         if (isAuthorized)
@@ -119,10 +132,12 @@ public sealed class FullNetNotificationHub : Hub
         ClaimsPrincipal? user,
         out Guid userId,
         out string broadcastGroup,
+        out Guid? tenantId,
         out string authorizationOutcome)
     {
         userId = default;
         broadcastGroup = string.Empty;
+        tenantId = null;
         authorizationOutcome =
             "rejected_invalid_subject";
         if (!TryGetSingleClaimValue(
@@ -167,15 +182,16 @@ public sealed class FullNetNotificationHub : Hub
                 user,
                 "fullnet_tenant_id",
                 out var tenantClaim)
-            && Guid.TryParse(tenantClaim, out var tenantId)
-            && tenantId != Guid.Empty
+            && Guid.TryParse(tenantClaim, out var parsedTenantId)
+            && parsedTenantId != Guid.Empty
             && string.Equals(
                 effectiveScope,
-                $"tenant:{tenantId:N}",
+                $"tenant:{parsedTenantId:N}",
                 StringComparison.Ordinal))
         {
-            broadcastGroup = RealtimeGroups.Tenant(tenantId);
+            broadcastGroup = RealtimeGroups.Tenant(parsedTenantId);
             authorizationOutcome = "authorized_tenant";
+            tenantId = parsedTenantId;
             return true;
         }
 

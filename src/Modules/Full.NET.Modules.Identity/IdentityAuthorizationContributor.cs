@@ -291,6 +291,10 @@ internal sealed class IdentityAuthorizationContributor
             "移除租户成员",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
+            IdentityTenantMembershipPermissions.LeaveSelf,
+            "退出当前租户",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
             IdentityTenantMembershipPermissions.RevokeInvitation,
             "撤销租户邀请",
             AuthorizationScope.Tenant),

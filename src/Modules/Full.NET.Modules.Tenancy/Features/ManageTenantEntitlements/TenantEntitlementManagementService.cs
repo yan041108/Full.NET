@@ -188,6 +188,7 @@ internal sealed partial class TenantEntitlementManagementService(
             .ConfigureAwait(false);
     }
 
-    [GeneratedRegex("^[a-z][a-z0-9_]{2,63}$")]
+    // 与 TenantEntitlementCatalogCodes 一致：单段 snake 或多段 dot 机器码（如 compatibility.baseline）。
+    [GeneratedRegex("^[a-z](?:[a-z0-9_]{2,63}|[a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+)$")]
     private static partial Regex CodeRegex();
 }

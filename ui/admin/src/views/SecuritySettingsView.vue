@@ -13,6 +13,7 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import { isIdentityPasswordValid } from '../auth/identity-password-policy';
 import { buildOAuthAuthorizeUrl, deleteOAuthUserLink, listOAuthUserLinks } from '../api/oauth-links';
 import { listPublicOAuthProviders } from '../api/oauth-providers';
+import { regenerateMyMfaRecoveryCodes } from '../api/mfaRecoveryCodes';
 
 defineOptions({ name: 'SecuritySettingsView' });
 
@@ -21,6 +22,8 @@ const route = useRoute();
 const router = useRouter();
 const { t } = useAdminI18n();
 const saving = ref(false);
+const regeneratingRecoveryCodes = ref(false);
+const recoveryCodes = ref<string[]>([]);
 const linksLoading = ref(false);
 const oauthLinks = ref<OAuthUserLink[]>([]);
 const availableProviders = ref<PublicOAuthProvider[]>([]);
@@ -97,6 +100,20 @@ async function submit(): Promise<void> {
   }
 }
 
+async function regenerateRecoveryCodes(): Promise<void> {
+  regeneratingRecoveryCodes.value = true;
+  recoveryCodes.value = [];
+  try {
+    const result = await regenerateMyMfaRecoveryCodes();
+    recoveryCodes.value = [...result.recoveryCodes];
+    showSuccess(t('mfaRecovery.regenerateSuccess'));
+  } catch (error: unknown) {
+    showProblem(error, t('mfaRecovery.regenerateFailed'));
+  } finally {
+    regeneratingRecoveryCodes.value = false;
+  }
+}
+
 onMounted(() => {
   if (!forced.value) {
     void loadOAuthSection();
@@ -145,6 +162,19 @@ onMounted(() => {
           </el-button>
         </el-form-item>
       </el-form>
+    </el-card>
+
+    <el-card v-if="!forced" shadow="never" class="security-settings-card security-settings-card--oauth">
+      <template #header>
+        <h2 class="security-settings-card__title">{{ t('mfaRecovery.title') }}</h2>
+        <p class="security-settings-card__subtitle">{{ t('mfaRecovery.subtitle') }}</p>
+      </template>
+      <el-button type="primary" :loading="regeneratingRecoveryCodes" @click="regenerateRecoveryCodes">
+        {{ t('mfaRecovery.regenerate') }}
+      </el-button>
+      <ul v-if="recoveryCodes.length > 0" class="security-settings-recovery-codes">
+        <li v-for="code in recoveryCodes" :key="code">{{ code }}</li>
+      </ul>
     </el-card>
 
     <el-card shadow="never" class="security-settings-card security-settings-card--oauth">
@@ -216,5 +246,12 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.security-settings-recovery-codes {
+  margin: 16px 0 0;
+  padding-left: 20px;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
 }
 </style>

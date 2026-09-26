@@ -15,6 +15,7 @@ using Full.NET.Modules.Identity.Features.ManageOAuthLinks;
 using Full.NET.Modules.Identity.Features.OAuthFlow;
 using Full.NET.Modules.Identity.Features.ManageRegistrationPolicy;
 using Full.NET.Modules.Identity.Features.ManageRegistrationWays;
+using Full.NET.Modules.Identity.Features.ManageMfaRecoveryCodes;
 using Full.NET.Modules.Identity.Features.ManageTenantMembers;
 using Full.NET.Modules.Identity.Features.AcceptTenantInvitation;
 using Full.NET.Modules.Identity.Features.AccountChallenges;
@@ -107,6 +108,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<RegistrationWayManagementService>();
         services.TryAddScoped<TenantMembershipQueryService>();
         services.TryAddScoped<TenantMembershipManagementService>();
+        services.TryAddScoped<MfaRecoveryCodeService>();
         services.TryAddScoped<TenantMemberProvisionService>();
         services.TryAddScoped<AcceptTenantInvitationService>();
         services.TryAddScoped<Features.ManageMyTenantInvitations.MyTenantInvitationQueryService>();
@@ -140,6 +142,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<
             ITenantMemberSelectionDirectory,
             HostUsers.TenantMemberSelectionDirectory>();
+        services.TryAddScoped<ITenantActiveMemberCountPort, HostUsers.TenantActiveMemberCountPort>();
         services.TryAddScoped<HostUsers.HostTenantUserSelectionDirectory>();
         services.TryAddScoped<IHostTenantUserSelectionDirectory>(provider =>
             provider.GetRequiredService<HostUsers.HostTenantUserSelectionDirectory>());

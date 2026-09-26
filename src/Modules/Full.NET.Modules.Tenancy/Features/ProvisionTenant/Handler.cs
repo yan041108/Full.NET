@@ -134,6 +134,21 @@ internal sealed class Handler(
                     ("MetricCode", TenantQuotaMetricCodes.IdentitySeats),
                     ("PeriodKey", TenantQuotaDefaults.PeriodKey),
                     ("LimitValue", TenantQuotaDefaults.IdentitySeatsLimit),
+                    ("UsedValue", 0L),
+                    ("CreatedAtUtc", clock.UtcNow),
+                    ("UpdatedAtUtc", clock.UtcNow)),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await commandExecutor.ExecuteAsync(
+                TenantQuotaSql.InsertMetric,
+                TenancySqlParameters.Create(
+                    ("Id", idGenerator.NewId()),
+                    ("TenantId", tenant.Id),
+                    ("MetricCode", TenantQuotaMetricCodes.FilesStorageBytes),
+                    ("PeriodKey", TenantQuotaDefaults.PeriodKey),
+                    ("LimitValue", TenantQuotaDefaults.FilesStorageBytesLimit),
+                    ("UsedValue", 0L),
                     ("CreatedAtUtc", clock.UtcNow),
                     ("UpdatedAtUtc", clock.UtcNow)),
                 cancellationToken)

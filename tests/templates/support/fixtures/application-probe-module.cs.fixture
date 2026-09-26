@@ -1,0 +1,29 @@
+using Full.NET.Modularity.Modules;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Demo.Modules.Probe;
+
+/// <summary>独立应用验收模块；记录角色入口并映射无业务数据的匿名验收标记。</summary>
+public sealed class ProbeModule : IFullNetModule
+{
+    public string Name => "SampleCatalog";
+    public IReadOnlyCollection<string> Dependencies => ["Identity"];
+    public void AddServices(IServiceCollection services, IConfiguration configuration) =>
+        services.AddSingleton("CompositionProbe:Api");
+    public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration) =>
+        services.AddSingleton("CompositionProbe:Worker");
+    public void AddMigrationServices(IServiceCollection services, IConfiguration configuration) =>
+        services.AddSingleton("CompositionProbe:Migrator");
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        // 显式匿名且无副作用；精确权限、租户与业务数据仍由独立验收场景证明。
+        endpoints.MapGet("/api/v1/application-composition-probe", () => Results.Text("application-module-active"))
+            .WithName("applicationCompositionProbe")
+            .WithTags("ApplicationCompositionProbe")
+            .AllowAnonymous();
+    }
+}

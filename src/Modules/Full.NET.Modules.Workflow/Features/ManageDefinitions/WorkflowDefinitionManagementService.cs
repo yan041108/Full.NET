@@ -12,6 +12,8 @@ using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Persistence;
 using Full.NET.Modules.Workflow.Serialization;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Workflow.Features;
 
 namespace Full.NET.Modules.Workflow.Features.ManageDefinitions;
 
@@ -33,7 +35,8 @@ internal sealed class WorkflowDefinitionManagementService(
     IIdGenerator idGenerator,
     IHostUserBatchSelectionDirectory hostUserDirectory,
     ITenantUserSelectionDirectory tenantUserDirectory,
-    WorkflowAssigneePublishValidator assigneePublishValidator)
+    WorkflowAssigneePublishValidator assigneePublishValidator,
+    ITenantFeatureEntitlementPort featureEntitlements)
 {
     public async Task<Result<IReadOnlyList<WorkflowDefinitionResponse>>> ListAsync(
         CancellationToken cancellationToken = default)
@@ -123,6 +126,12 @@ internal sealed class WorkflowDefinitionManagementService(
         var template = WorkflowBusinessTitleRules.NormalizeTemplate(request.BusinessTitleTemplate);
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
+        if (await TryDenyTenantMutationAsync<WorkflowDefinitionResponse>(scope, cancellationToken)
+                .ConfigureAwait(false) is { } createDenied)
+        {
+            return createDenied;
+        }
+
         var definitionId = idGenerator.NewId();
         var draftId = idGenerator.NewId();
         var now = clock.UtcNow;
@@ -154,10 +163,26 @@ internal sealed class WorkflowDefinitionManagementService(
         }
     }
 
-    public Task<Result<WorkflowDefinitionResponse>> UpdateDraftAsync(
+    public async Task<Result<WorkflowDefinitionResponse>> UpdateDraftAsync(
         Guid id, Guid actorUserId, UpdateWorkflowDefinitionDraftRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(token => UpdateDraftCoreAsync(id, actorUserId, request, token), cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        if (request.ExpectedRevision < 1 || !WorkflowBusinessTitleRules.IsValidTemplate(request.BusinessTitleTemplate))
+        {
+            return Invalid<WorkflowDefinitionResponse>();
+        }
+
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        // Tenancy 权益读取须先完成，避免复用 Workflow 的本地事务。
+        if (await TryDenyTenantMutationAsync<WorkflowDefinitionResponse>(scope, cancellationToken).ConfigureAwait(false)
+            is { } draftDenied)
+        {
+            return draftDenied;
+        }
+
+        return await transaction.ExecuteResultAsync(
+            token => UpdateDraftCoreAsync(id, actorUserId, request, scope, token), cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>校验不可变定义资产和跨模块用户引用后，在 Workflow 本地事务内发布版本。</summary>
     /// <param name="id">工作流定义标识。</param>
@@ -186,6 +211,12 @@ internal sealed class WorkflowDefinitionManagementService(
         }
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
+        if (await TryDenyTenantMutationAsync<WorkflowDefinitionResponse>(scope, cancellationToken)
+                .ConfigureAwait(false) is { } statusDenied)
+        {
+            return statusDenied;
+        }
+
         var definition = await FindDefinitionAsync(id, scope, cancellationToken).ConfigureAwait(false);
         if (definition is null)
         {
@@ -235,6 +266,11 @@ internal sealed class WorkflowDefinitionManagementService(
         }
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
+        if (await TryDenyTenantMutationAsync<bool>(scope, cancellationToken).ConfigureAwait(false) is { } deleteDenied)
+        {
+            return deleteDenied;
+        }
+
         var version = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowDefinitionVersionRecord>(
                 WorkflowSql.FindDefinitionVersionById,
                 Parameters(("Id", versionId), ("TenantScopeKey", scope.TenantScopeKey)),
@@ -295,16 +331,10 @@ internal sealed class WorkflowDefinitionManagementService(
     }
 
     private async Task<Result<WorkflowDefinitionResponse>> UpdateDraftCoreAsync(
-        Guid id, Guid actorUserId, UpdateWorkflowDefinitionDraftRequest request, CancellationToken token)
+        Guid id, Guid actorUserId, UpdateWorkflowDefinitionDraftRequest request,
+        WorkflowManagementScope scope, CancellationToken token)
     {
-        if (request.ExpectedRevision < 1 || !WorkflowBusinessTitleRules.IsValidTemplate(request.BusinessTitleTemplate))
-        {
-            return Invalid<WorkflowDefinitionResponse>();
-        }
-
         var template = WorkflowBusinessTitleRules.NormalizeTemplate(request.BusinessTitleTemplate);
-
-        var scope = WorkflowManagementScope.Resolve(currentTenant);
         var definition = await FindDefinitionAsync(id, scope, token).ConfigureAwait(false);
         if (definition is null)
         {
@@ -344,6 +374,12 @@ internal sealed class WorkflowDefinitionManagementService(
         }
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
+        if (await TryDenyTenantMutationAsync<WorkflowDefinitionVersionResponse>(scope, token).ConfigureAwait(false)
+            is { } publishDenied)
+        {
+            return publishDenied;
+        }
+
         var definition = await FindDefinitionAsync(id, scope, token).ConfigureAwait(false);
         if (definition is null)
         {
@@ -552,6 +588,19 @@ internal sealed class WorkflowDefinitionManagementService(
             versionId, id, request.FormVersionId, number, model.SchemaVersion,
             artifact.CanonicalJson, artifact.ContentHash, definition.BusinessTitleTemplate,
             actorUserId, now));
+    }
+
+    private async Task<Result<T>?> TryDenyTenantMutationAsync<T>(
+        WorkflowManagementScope scope,
+        CancellationToken cancellationToken)
+    {
+        if (await WorkflowTenantFeatureEntitlementGate.TryGetDenialAsync(scope, featureEntitlements, cancellationToken)
+                .ConfigureAwait(false) is { } denial)
+        {
+            return WorkflowTenantFeatureEntitlementGate.Deny<T>(denial);
+        }
+
+        return null;
     }
 
     private Task<WorkflowDefinitionRecord?> FindDefinitionAsync(Guid id, WorkflowManagementScope scope, CancellationToken token) =>

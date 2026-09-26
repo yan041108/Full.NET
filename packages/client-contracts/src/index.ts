@@ -193,6 +193,17 @@ export type {
 } from './totp-enrollment.js';
 
 export {
+  isConsumeMfaRecoveryCodeResponse,
+  isRegenerateMfaRecoveryCodesResponse
+} from './mfa-recovery-codes.js';
+
+export type {
+  ConsumeMfaRecoveryCodeRequest,
+  ConsumeMfaRecoveryCodeResponse,
+  RegenerateMfaRecoveryCodesResponse
+} from './mfa-recovery-codes.js';
+
+export {
   isHostUser,
   isHostUserPage,
   isHostUserRoles,

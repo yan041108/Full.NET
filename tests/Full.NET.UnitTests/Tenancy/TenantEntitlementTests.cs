@@ -22,4 +22,19 @@ public sealed class TenantEntitlementTests
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual("workflow_start", result.Value);
     }
+
+    [TestMethod]
+    public void ValidateCatalogCode_accepts_dotted_catalog_codes()
+    {
+        foreach (var code in new[]
+                 {
+                     TenantEntitlementCatalogCodes.CompatibilityBaseline,
+                     TenantEntitlementCatalogCodes.Workflow,
+                 })
+        {
+            var result = TenantEntitlementManagementService.ValidateCatalogCode(code);
+            Assert.IsTrue(result.IsSuccess, code);
+            Assert.AreEqual(code, result.Value);
+        }
+    }
 }

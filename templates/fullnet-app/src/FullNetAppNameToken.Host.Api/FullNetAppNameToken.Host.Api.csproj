@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>FullNetAppNameToken.Host.Api</RootNamespace>
+    <AssemblyName>FullNetAppNameToken.Host.Api</AssemblyName>
+    <FullNetPublishMode>Jit</FullNetPublishMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../FullNetAppNameToken.Composition/FullNetAppNameToken.Composition.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Caching.Fusion/Full.NET.Caching.Fusion.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Hosting/Full.NET.Hosting.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Localization/Full.NET.Localization.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Modularity/Full.NET.Modularity.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Messaging.Kafka/Full.NET.Messaging.Kafka.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Realtime.SignalR/Full.NET.Realtime.SignalR.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Serialization.MemoryPack/Full.NET.Serialization.MemoryPack.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
+  </ItemGroup>
+
+</Project>

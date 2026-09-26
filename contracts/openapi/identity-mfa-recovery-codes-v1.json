@@ -1,0 +1,14 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "ui/admin/src/api/mfaRecoveryCodes.ts"
+  },
+  "paths": {
+    "/api/v1/identity/me/mfa/recovery-codes/regenerate": {},
+    "/api/v1/identity/me/mfa/recovery-codes/consume": {}
+  },
+  "components": {
+    "schemas": {}
+  }
+}

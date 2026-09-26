@@ -15,4 +15,15 @@ public sealed class FilesApiMySqlTests
 
         await FilesHostFileManagementAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Tenant_resource_upload_blocked_when_storage_quota_exhausted()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await TenantResourceFileStorageQuotaAssertions.VerifyUploadBlockedWhenStorageQuotaExhaustedAsync(
+            factory);
+    }
 }

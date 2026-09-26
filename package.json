@@ -72,7 +72,7 @@
     "test:e2e:uniapp:real": "pnpm --filter @fullnet/uniapp-h5-e2e test:real",
     "audit:clients": "node scripts/audit-client-dependencies.mjs",
     "audit:dotnet": "node scripts/audit-dotnet-dependencies.mjs",
-    "test:templates": "node --test tests/templates/*.test.mjs"
+    "test:templates": "node --test --test-concurrency=1 tests/templates/*.test.mjs"
   },
   "pnpm": {
     "overrides": {

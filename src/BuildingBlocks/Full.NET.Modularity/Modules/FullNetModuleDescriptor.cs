@@ -1,6 +1,6 @@
 namespace Full.NET.Modularity.Modules;
 
-/// <summary>官方模块来源分类；只描述静态清单，不表示可动态加载。</summary>
+/// <summary>模块来源分类；只描述静态清单，不表示可动态加载。</summary>
 public enum FullNetModuleSourceClassification
 {
     /// <summary>Full.NET 官方 Composition 目录中的模块。</summary>
@@ -11,6 +11,9 @@ public enum FullNetModuleSourceClassification
 
     /// <summary>示例或演示模块。</summary>
     Sample = 2,
+
+    /// <summary>应用自有组合根显式声明的业务模块。</summary>
+    Application = 3,
 }
 
 /// <summary>模块健康检查能力声明；不包含可执行探针脚本。</summary>

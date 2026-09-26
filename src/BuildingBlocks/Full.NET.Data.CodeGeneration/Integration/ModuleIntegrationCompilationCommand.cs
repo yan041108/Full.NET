@@ -124,6 +124,19 @@ public static class ModuleIntegrationCompilationCommand
             cancellationToken);
     }
 
+    // 授权候选复用 Compile Remove/Include；固定临时名称避免与生成编译探针同名覆盖。
+    internal static async Task<ModuleIntegrationCompilationResult> ValidateSourceCandidateAsync(
+        string repositoryRoot, FullNetCrudSchema schema, ModuleIntegrationTarget target,
+        string sourceFullPath, string desiredContent, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceFullPath);
+        ArgumentNullException.ThrowIfNull(desiredContent);
+        return await ValidateAsync(repositoryRoot, schema, target,
+            [Path.GetFullPath(sourceFullPath)],
+            [new GeneratedArtifact("FullNet.SourceCandidate.cs", GeneratedArtifactKind.Backend, desiredContent)],
+            entryCandidate: null, cancellationToken).ConfigureAwait(false);
+    }
+
     private static async Task<ModuleIntegrationCompilationResult> ValidateAsync(
         string repositoryRoot,
         FullNetCrudSchema schema,
@@ -137,11 +150,7 @@ public static class ModuleIntegrationCompilationCommand
         ArgumentNullException.ThrowIfNull(schema);
         ArgumentNullException.ThrowIfNull(target);
 
-        var root = Path.GetFullPath(repositoryRoot);
-        if (!Directory.Exists(root))
-        {
-            throw new DirectoryNotFoundException();
-        }
+        var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
 
         if (!StringComparer.Ordinal.Equals(
                 schema.RootNamespace,
@@ -154,11 +163,9 @@ public static class ModuleIntegrationCompilationCommand
                 ["Schema 根命名空间与显式目标模块不匹配。"]);
         }
 
-        var moduleProjectFullPath = Path.Combine(
+        var moduleProjectFullPath = GenerationWorkspacePath.ResolveFile(
             root,
-            target.ModuleProjectPath.Replace(
-                '/',
-                Path.DirectorySeparatorChar));
+            target.ModuleProjectPath);
         if (!File.Exists(moduleProjectFullPath))
         {
             return ModuleIntegrationCompilationResult.Failure(

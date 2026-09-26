@@ -1,5 +1,6 @@
 using System.Diagnostics.Metrics;
 using System.Security.Claims;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Realtime;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Realtime.SignalR.Health;
@@ -555,7 +556,11 @@ public sealed class FullNetNotificationHubTests
         context.User.Returns(
             new ClaimsPrincipal(
                 new ClaimsIdentity(claims, "Testing")));
-        return new FullNetNotificationHub
+        var tenantActivity = Substitute.For<ITenantActivityReadPort>();
+        tenantActivity
+            .IsActiveTenantAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+        return new FullNetNotificationHub(tenantActivity)
         {
             Context = context,
             Groups = groups,

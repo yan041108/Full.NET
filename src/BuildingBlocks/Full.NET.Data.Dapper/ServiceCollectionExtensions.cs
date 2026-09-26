@@ -145,6 +145,19 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DbConnectionFactory>();
         services.AddSingleton<IDbConnectionFactory>(provider =>
             provider.GetRequiredService<DbConnectionFactory>());
+        services.AddOptions<ExternalDatabaseAccessOptions>()
+            .BindConfiguration(ExternalDatabaseAccessOptions.SectionName)
+            .Validate(options => options.MaxConcurrentSessions is >= 1 and <= 256,
+                "External database MaxConcurrentSessions must be between 1 and 256.")
+            .Validate(options => options.AdmissionTimeoutSeconds is >= 1 and <= 30,
+                "External database AdmissionTimeoutSeconds must be between 1 and 30.")
+            .Validate(options => options.AllowedDestinations is not null
+                && options.AllowedDestinations.All(destination =>
+                    Enum.IsDefined(destination.Provider)
+                    && !string.IsNullOrWhiteSpace(destination.Host)
+                    && destination.Port is >= 1 and <= 65535),
+                "External database destinations require a supported provider, host, and port.")
+            .ValidateOnStart();
         services.TryAddSingleton<IExternalDatabaseConnectionFactory, ExternalDatabaseConnectionFactory>();
         services.AddSingleton<DatabaseConnectionTelemetry>();
         services.AddSingleton<DatabaseAdmissionGate>();

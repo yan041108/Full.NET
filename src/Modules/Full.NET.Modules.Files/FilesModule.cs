@@ -127,6 +127,8 @@ public sealed class FilesModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostFolders.HostFolderManagementService>();
         services.TryAddScoped<Features.ManageStorageProviders.FileStorageProviderCatalogService>();
         RegisterHostFileReferencePorts(services);
+        services.TryAddScoped<ITenantFileStorageQuotaPort, Features.TenantResourceFiles.NullTenantFileStorageQuotaPort>();
+        services.AddScoped<ITenantResourceFileStorageUsagePort, Features.TenantResourceFiles.TenantResourceFileStorageUsagePort>();
         services.TryAddScoped<ITenantResourceFileStore, Features.TenantResourceFiles.TenantResourceFileStore>();
     }
 

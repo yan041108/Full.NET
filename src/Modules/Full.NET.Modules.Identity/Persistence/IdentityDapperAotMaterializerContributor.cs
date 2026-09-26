@@ -3,7 +3,9 @@ using System.Data.Common;
 using Full.NET.Data.Dapper;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
+using Full.NET.Modules.Identity.Features.ManageMfaRecoveryCodes;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;
+using Full.NET.Modules.Identity.Features.ManageTenantMembers;
 using Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 using Full.NET.Modules.Identity.FieldProjection;
 using global::Dapper;
@@ -63,6 +65,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<OAuthUserLinkWithProviderRecord>(ReadOAuthUserLinkWithProviderRecord);
         registrar.Register<OAuthAuthorizationStateRecord>(ReadOAuthAuthorizationStateRecord);
         registrar.Register<IdentityUserTotpRecord>(ReadIdentityUserTotpRecord);
+        registrar.Register<MfaRecoveryCodeRecord>(ReadMfaRecoveryCodeRecord);
         registrar.Register<OrganizationUnitProjectionRecord>(ReadOrganizationUnitProjectionRecord);
         registrar.Register<UserFieldProjectionGrantRow>(ReadUserFieldProjectionGrantRow);
         registrar.Register<IdentityRoleFieldGrantRow>(ReadIdentityRoleFieldGrantRow);
@@ -80,6 +83,9 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             ReadIdentityOidcApplicationSessionValidationRecord);
         registrar.Register<IdentityOidcActiveApplicationSessionOwnershipRow>(
             ReadIdentityOidcActiveApplicationSessionOwnershipRow);
+        registrar.Register<TenantMemberRecord>(ReadTenantMemberRecord);
+        registrar.Register<TenantMemberListRow>(ReadTenantMemberListRow);
+        registrar.Register<TenantInvitationRecord>(ReadTenantInvitationRecord);
 
         DapperAotParameterRegistry.Register<LoginFailureUpdate>(BindLoginFailureUpdate);
         DapperAotParameterRegistry.Register<LoginSuccessUpdate>(BindLoginSuccessUpdate);
@@ -983,6 +989,12 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 5),
             AotDataReaderExtensions.ReadInt32(reader, 6));
 
+    private static MfaRecoveryCodeRecord ReadMfaRecoveryCodeRecord(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            (byte[])reader.GetValue(1),
+            reader.GetInt32(2));
+
     private static OrganizationUnitProjectionRecord ReadOrganizationUnitProjectionRecord(
         DbDataReader reader) =>
         new()
@@ -1241,6 +1253,45 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
 
     private static bool ReadBooleanByName(DbDataReader reader, string name) =>
         AotDataReaderExtensions.ReadBoolean(reader, RequiredOrdinal(reader, name));
+
+    private static TenantMemberRecord ReadTenantMemberRecord(DbDataReader reader) =>
+        new(
+            ReadGuidByName(reader, "Id"),
+            ReadGuidByName(reader, "TenantId"),
+            ReadGuidByName(reader, "UserId"),
+            ReadStringByName(reader, "MemberRole"),
+            ReadStringByName(reader, "Status"),
+            ReadDateTimeOffsetByName(reader, "CreatedAtUtc"),
+            ReadDateTimeOffsetByName(reader, "UpdatedAtUtc"),
+            ReadInt32ByName(reader, "Version"));
+
+    private static TenantMemberListRow ReadTenantMemberListRow(DbDataReader reader) =>
+        new(
+            ReadGuidByName(reader, "Id"),
+            ReadGuidByName(reader, "TenantId"),
+            ReadGuidByName(reader, "UserId"),
+            ReadStringByName(reader, "Username"),
+            ReadStringByName(reader, "DisplayName"),
+            ReadStringByName(reader, "MemberRole"),
+            ReadStringByName(reader, "Status"),
+            ReadDateTimeOffsetByName(reader, "CreatedAtUtc"),
+            ReadDateTimeOffsetByName(reader, "UpdatedAtUtc"),
+            ReadInt32ByName(reader, "Version"));
+
+    private static TenantInvitationRecord ReadTenantInvitationRecord(DbDataReader reader) =>
+        new(
+            ReadGuidByName(reader, "Id"),
+            ReadGuidByName(reader, "TenantId"),
+            ReadStringByName(reader, "TargetEmail"),
+            ReadOptionalGuidByName(reader, "TargetUserId"),
+            ReadGuidByName(reader, "InvitedByUserId"),
+            ReadStringByName(reader, "MemberRole"),
+            ReadStringByName(reader, "TokenHash"),
+            ReadStringByName(reader, "Status"),
+            ReadDateTimeOffsetByName(reader, "ExpiresAtUtc"),
+            ReadDateTimeOffsetByName(reader, "CreatedAtUtc"),
+            ReadDateTimeOffsetByName(reader, "UpdatedAtUtc"),
+            ReadInt32ByName(reader, "Version"));
 
     private static int ReadInt32ByName(DbDataReader reader, string name) =>
         AotDataReaderExtensions.ReadInt32(reader, RequiredOrdinal(reader, name));

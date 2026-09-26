@@ -78,6 +78,7 @@ internal sealed class TenantQuotaManagementService(
                         ("MetricCode", metricCode),
                         ("PeriodKey", periodKey),
                         ("LimitValue", request.LimitValue),
+                        ("UsedValue", 0L),
                         ("CreatedAtUtc", now),
                         ("UpdatedAtUtc", now)),
                     cancellationToken)

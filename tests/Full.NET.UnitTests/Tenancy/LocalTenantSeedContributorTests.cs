@@ -134,7 +134,7 @@ public sealed class LocalTenantSeedContributorTests
     }
 
     [TestMethod]
-    public void Tenancy_module_registers_one_scoped_contributor_when_added_twice()
+    public void Tenancy_module_registers_each_scoped_contributor_once_when_added_twice()
     {
         var services = new ServiceCollection();
         var configuration = new ConfigurationBuilder().Build();
@@ -146,11 +146,11 @@ public sealed class LocalTenantSeedContributorTests
         var descriptors = services
             .Where(descriptor => descriptor.ServiceType == typeof(IDataSeedContributor))
             .ToArray();
-        Assert.HasCount(1, descriptors);
-        Assert.AreEqual(ServiceLifetime.Scoped, descriptors[0].Lifetime);
-        Assert.AreEqual(
-            typeof(LocalTenantSeedContributor),
-            descriptors[0].ImplementationType);
+        Assert.HasCount(2, descriptors);
+        Assert.IsTrue(descriptors.All(descriptor => descriptor.Lifetime == ServiceLifetime.Scoped));
+        CollectionAssert.AreEquivalent(
+            new[] { typeof(LocalTenantSeedContributor), typeof(TenancyEntitlementCatalogBaselineSeedContributor) },
+            descriptors.Select(descriptor => descriptor.ImplementationType).ToArray());
     }
 
     private static TenantSummary Tenant() => new(

@@ -1,0 +1,4 @@
+<Project>
+  <!-- 应用宿主从随应用分发的框架源码读取锁定的集中包版本。 -->
+  <Import Project="framework/fullnet/Directory.Packages.props" />
+</Project>

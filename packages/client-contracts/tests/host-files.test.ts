@@ -34,9 +34,10 @@ describe('host-files contracts', () => {
     expect(isHostFile({ ...sample, id: 'not-a-guid' })).toBe(false);
   });
 
-  it('生成守卫拒绝错误 primitive 与分页数组坏项', () => {
+  it('生成守卫归一合法整数字符串并拒绝错误 primitive 与分页数组坏项', () => {
     expect(readHostFileResponse(sample)).toEqual(sample);
-    expect(() => readHostFileResponse({ ...sample, sizeBytes: '12' }))
+    expect(readHostFileResponse({ ...sample, sizeBytes: '12' })).toEqual(sample);
+    expect(() => readHostFileResponse({ ...sample, sizeBytes: '12x' }))
       .toThrow('client.invalid_host_file_response');
     expect(() => readPagedResultOfHostFileResponse({
       items: [{ ...sample, createdByUserId: 'bad' }],

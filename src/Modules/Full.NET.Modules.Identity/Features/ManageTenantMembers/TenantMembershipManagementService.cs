@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
@@ -15,6 +16,8 @@ internal sealed class TenantMembershipManagementService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     TenantMembershipQueryService queries,
+    ICurrentTenant currentTenant,
+    IIdentityActiveTenantDirectory activeTenants,
     IClock clock,
     IIdGenerator idGenerator)
 {
@@ -47,6 +50,14 @@ internal sealed class TenantMembershipManagementService(
         CancellationToken cancellationToken = default) =>
         transaction.ExecuteAsync(
             token => RemoveMemberCoreAsync(memberId, version, token),
+            cancellationToken);
+
+    public Task<Result<TenantMemberResponse>> LeaveCurrentTenantAsync(
+        Guid userId,
+        int version,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => LeaveCurrentTenantCoreAsync(userId, version, token),
             cancellationToken);
 
     internal static Result<(string Email, string Role)> ValidateInvitationRequest(
@@ -83,6 +94,16 @@ internal sealed class TenantMembershipManagementService(
         if (!validation.IsSuccess)
         {
             return Result<CreateTenantInvitationResult>.Failure(validation.Error!);
+        }
+
+        var tenantActive = await TenantMembershipActiveTenantGuard.EnsureCurrentTenantActiveAsync(
+                currentTenant,
+                activeTenants,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!tenantActive.IsSuccess)
+        {
+            return Result<CreateTenantInvitationResult>.Failure(tenantActive.Error!);
         }
 
         var (email, role) = validation.Value;
@@ -177,6 +198,16 @@ internal sealed class TenantMembershipManagementService(
         UpdateTenantMemberRequest request,
         CancellationToken cancellationToken)
     {
+        var tenantActive = await TenantMembershipActiveTenantGuard.EnsureCurrentTenantActiveAsync(
+                currentTenant,
+                activeTenants,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!tenantActive.IsSuccess)
+        {
+            return Result<TenantMemberResponse>.Failure(tenantActive.Error!);
+        }
+
         var role = request.MemberRole?.Trim() ?? string.Empty;
         if (role is not (TenantMemberRoles.Admin or TenantMemberRoles.Member))
         {
@@ -214,7 +245,17 @@ internal sealed class TenantMembershipManagementService(
         int version,
         CancellationToken cancellationToken)
     {
-        var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantMemberRecord>(
+        var tenantActive = await TenantMembershipActiveTenantGuard.EnsureCurrentTenantActiveAsync(
+                currentTenant,
+                activeTenants,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!tenantActive.IsSuccess)
+        {
+            return Result<TenantMemberResponse>.Failure(tenantActive.Error!);
+        }
+
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantMemberListRow>(
                 TenantMembershipSql.FindMemberById,
                 Identity.Persistence.IdentitySqlParameters.Create(("MemberId", memberId)),
                 cancellationToken)
@@ -255,6 +296,28 @@ internal sealed class TenantMembershipManagementService(
         }
 
         return await queries.GetMemberByIdAsync(memberId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<Result<TenantMemberResponse>> LeaveCurrentTenantCoreAsync(
+        Guid userId,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantMemberRecord>(
+                TenantMembershipSql.FindMemberByTenantAndUser,
+                Identity.Persistence.IdentitySqlParameters.Create(("UserId", userId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is null || existing.Status != TenantMemberStatuses.Active)
+        {
+            return Result<TenantMemberResponse>.Failure(new Error(
+                IdentityErrorCodes.TenantMemberNotFound,
+                "The tenant member was not found.",
+                ErrorType.NotFound));
+        }
+
+        return await RemoveMemberCoreAsync(existing.Id, version, cancellationToken)
             .ConfigureAwait(false);
     }
 }

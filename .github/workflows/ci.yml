@@ -119,6 +119,81 @@ jobs:
             tests/e2e/uniapp-h5/test-results/**
           if-no-files-found: warn
 
+  template-created-app-real-stack:
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install client dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify created application template real-stack (SqlServer + MySQL)
+        run: pnpm test:templates
+
+      - name: Upload created application logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fullnet-created-app-real-stack-reports
+          path: .tmp/template-real-stack/**
+          if-no-files-found: warn
+
+  foundation-sample-e2e:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [SqlServer, MySql]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Install dependencies and browser
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
+      - name: Build backend
+        run: dotnet build Full.NET.slnx --configuration Release
+      - name: Verify representative enterprise sample
+        env:
+          FULLNET_E2E_DATABASE_PROVIDER: ${{ matrix.provider }}
+        run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright test enterprise-request.spec.mjs --project vue-admin
+      - name: Upload sample reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fullnet-foundation-sample-${{ matrix.provider }}
+          path: |
+            tests/e2e/admin-real-stack/test-results/**
+            .tmp/e2e-real-stack/**
+          if-no-files-found: warn
+
   real-stack-e2e:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -249,12 +324,14 @@ jobs:
             .tmp/e2e-real-stack/**
           if-no-files-found: warn
 
-  build-test:
+  build-and-module-test:
     runs-on: ubuntu-latest
-    # PR ????push main ????????�?90m??????�?--timeout�?
+    # PR 按差异验证模块和 Smoke；迁移恢复由独立分组并行执行。
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -289,10 +366,16 @@ jobs:
       - name: Architecture tests
         run: pnpm test:dotnet:architecture -- --no-build
 
-      # PR ?????? Identity/Tenancy/Outbox ??????????????�?push main�?
-      - name: Integration smoke (dual-provider)
+      # 开发分支按真实差异选择双库影响集，merge 阶段自动追加 Smoke。
+      - name: Affected Integration and smoke (dual-provider)
         if: github.event_name != 'push' || github.ref != 'refs/heads/main'
-        run: node scripts/testing/run-integration-shard.mjs smoke
+        env:
+          INTEGRATION_BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: pnpm test:integration:affected -- --base "$INTEGRATION_BASE_REF" --phase merge --execution-group modules
+
+      - name: Verify representative enterprise API sample (dual-provider)
+        if: github.event_name == 'pull_request'
+        run: node scripts/testing/run-integration-shard.mjs enterprise-sample
 
       - name: Serialization baseline
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -312,8 +395,62 @@ jobs:
           name: fullnet-quality-reports
           path: |
             tests/Full.NET.IntegrationTests/bin/Release/net10.0/TestResults/**/*.trx
+            Full.NET.IntegrationTests-*.trx
             BenchmarkDotNet.Artifacts/results/**
           if-no-files-found: warn
+
+  affected-migration-recovery:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [migrations-legacy, migrations-current]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+      - name: Restore Integration dependencies
+        run: dotnet restore tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj
+      - name: Verify affected migration recovery (dual-provider)
+        env:
+          INTEGRATION_BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: pnpm test:integration:affected -- --base "$INTEGRATION_BASE_REF" --phase merge --execution-group ${{ matrix.group }}
+      - name: Upload migration recovery reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fullnet-affected-${{ matrix.group }}-reports
+          path: |
+            tests/Full.NET.IntegrationTests/bin/Release/net10.0/TestResults/**/*.trx
+            Full.NET.IntegrationTests-*.trx
+          if-no-files-found: warn
+
+  build-test:
+    needs: [build-and-module-test, affected-migration-recovery]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify required build and migration results
+        env:
+          CI_EVENT_NAME: ${{ github.event_name }}
+          BUILD_RESULT: ${{ needs.build-and-module-test.result }}
+          MIGRATION_RESULT: ${{ needs.affected-migration-recovery.result }}
+        run: node scripts/testing/verify-ci-job-results.mjs
 
   integration-matrix:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

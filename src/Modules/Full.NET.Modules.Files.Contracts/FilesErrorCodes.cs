@@ -21,6 +21,9 @@ public static class FilesErrorCodes
     /// <summary>上传文件字节数超出当前租户或套餐允许的单文件上限。</summary>
     public const string FileTooLarge = "files.file.too_large";
 
+    /// <summary>租户文件存储配额不足或配额服务拒绝预留。</summary>
+    public const string StorageQuotaExceeded = "files.storage_quota.exceeded";
+
     /// <summary>文件引用声明（Claim）请求缺少业务键、过期时间或签名校验失败。</summary>
     public const string InvalidClaim = "files.file_reference_claim.invalid";
 
@@ -51,6 +54,9 @@ public static class FilesErrorCodes
     /// <summary>虚拟目录请求参数无效。</summary>
     public const string InvalidFolder = "files.folder.invalid";
 
+    /// <summary>租户已暂停或未激活，不能上传租户资源文件。</summary>
+    public const string TenantInactive = "files.tenant.inactive";
+
     /// <summary>批量上传或批量删除请求超出有界上限或结构无效。</summary>
     public const string InvalidBatch = "files.file.invalid_batch";
 
@@ -66,6 +72,8 @@ public static class FilesErrorCodes
         FileNotFound,
         InvalidUpload,
         FileTooLarge,
+        StorageQuotaExceeded,
+        TenantInactive,
         InvalidClaim,
         ClaimNotFound,
         ClaimPayloadConflict,

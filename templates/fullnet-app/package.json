@@ -1,0 +1,8 @@
+{
+  "name": "fullnet-application",
+  "private": true,
+  "scripts": {
+    "diagnose:development": "dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- diagnose --workspace . --profile development",
+    "diagnose:production": "dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- diagnose --workspace . --profile production"
+  }
+}

@@ -12,34 +12,38 @@ internal static class CrudAuthorizationContributorFragmentGenerator
     internal static string Generate(FullNetCrudSchema schema)
     {
         ArgumentNullException.ThrowIfNull(schema);
+        // 租户数据权限归属于租户目录；其他数据作用域保留现有 Host 授权边界。
+        var authorizationScope = schema.DataScope == FullNetCrudDataScope.TenantRequired
+            ? "Tenant"
+            : "Host";
         var permissions = schema.UsesLegacyEntityCapabilities
             ? $$"""
                 new PermissionDefinition(
                     {{schema.ClrTypeName}}Permissions.Read,
                     "读取 {{schema.ClrTypeName}}",
-                    AuthorizationScope.Host),
+                    AuthorizationScope.{{authorizationScope}}),
                 new PermissionDefinition(
                     {{schema.ClrTypeName}}Permissions.Write,
                     "写入 {{schema.ClrTypeName}}",
-                    AuthorizationScope.Host),
+                    AuthorizationScope.{{authorizationScope}}),
                 """
             : $$"""
                 new PermissionDefinition(
                     {{schema.ClrTypeName}}Permissions.Read,
                     "读取 {{schema.ClrTypeName}}",
-                    AuthorizationScope.Host),
+                    AuthorizationScope.{{authorizationScope}}),
                 new PermissionDefinition(
                     {{schema.ClrTypeName}}Permissions.Create,
                     "创建 {{schema.ClrTypeName}}",
-                    AuthorizationScope.Host),
+                    AuthorizationScope.{{authorizationScope}}),
                 new PermissionDefinition(
                     {{schema.ClrTypeName}}Permissions.Update,
                     "更新 {{schema.ClrTypeName}}",
-                    AuthorizationScope.Host),
+                    AuthorizationScope.{{authorizationScope}}),
                 new PermissionDefinition(
                     {{schema.ClrTypeName}}Permissions.Disable,
                     "停用 {{schema.ClrTypeName}}",
-                    AuthorizationScope.Host),
+                    AuthorizationScope.{{authorizationScope}}),
                 """;
         var actions = schema.UsesLegacyEntityCapabilities
             ? $$"""

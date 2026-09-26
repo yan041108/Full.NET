@@ -1,7 +1,7 @@
-import type { TenantMemberListQuery, TenantMember, TenantMemberPage, TenantInvitation, TenantInvitationPage, CreateTenantInvitationRequest } from '@fullnet/client-contracts';
+import type { TenantMemberListQuery, TenantMember, TenantMemberPage, TenantInvitation, TenantInvitationPage, CreateTenantInvitationRequest, LeaveTenantMembershipRequest } from '@fullnet/client-contracts';
 import { request } from './http';
-import { isRecord, isGuid, isInteger, isDate, isPage, readResponse } from '@fullnet/client-contracts';
-function isMember(v: unknown): v is TenantMember { return isRecord(v) && isGuid(v.id) && isGuid(v.tenantId) && isGuid(v.userId) && typeof v.username === 'string' && typeof v.displayName === 'string' && typeof v.memberRole === 'string' && typeof v.status === 'string' && isDate(v.createdAtUtc) && isDate(v.updatedAtUtc) && isInteger(v.version); }
+import { isRecord, isGuid, isInteger, isDate, isPage, readResponse, isTenantMember } from '@fullnet/client-contracts';
+function isMember(v: unknown): v is TenantMember { return isTenantMember(v); }
 function isInvitation(v: unknown): v is TenantInvitation { return isRecord(v) && isGuid(v.id) && isGuid(v.tenantId) && typeof v.targetEmail === 'string' && (v.targetUserId === null || v.targetUserId === undefined || isGuid(v.targetUserId)) && isGuid(v.invitedByUserId) && typeof v.memberRole === 'string' && typeof v.status === 'string' && isDate(v.expiresAtUtc) && isDate(v.createdAtUtc) && isDate(v.updatedAtUtc) && isInteger(v.version); }
 
 function buildQuery(query: TenantMemberListQuery): string {
@@ -115,4 +115,30 @@ export async function revokeTenantInvitation(
     signal
   );
   return readResponse(value, isInvitation, 'client.invalid_tenant_invitation');
+}
+
+export async function getCurrentTenantMember(signal?: AbortSignal): Promise<TenantMember> {
+  const value = await request<unknown>(
+    '/api/v1/identity/tenant-members/me',
+    { method: 'GET' },
+    signal
+  );
+  return readResponse(value, isMember, 'client.invalid_tenant_member');
+}
+
+export async function leaveCurrentTenantMember(
+  version: number,
+  signal?: AbortSignal
+): Promise<TenantMember> {
+  const body: LeaveTenantMembershipRequest = { version };
+  const value = await request<unknown>(
+    '/api/v1/identity/tenant-members/me/leave',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    },
+    signal
+  );
+  return readResponse(value, isMember, 'client.invalid_tenant_member');
 }

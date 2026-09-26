@@ -7,6 +7,8 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Persistence;
 using Full.NET.Modules.Files.Storage;
+using Full.NET.Modules.Files.Features;
+using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Files.Features.TenantResourceFiles;
@@ -21,9 +23,13 @@ namespace Full.NET.Modules.Files.Features.TenantResourceFiles;
 /// <param name="clock">时钟。</param>
 /// <param name="ids">UUID 生成器。</param>
 /// <param name="options">上传预算。</param>
+/// <param name="storageQuotaPort">租户文件存储配额端口；由 Tenancy 在 SaaS 组合中替换默认空实现。</param>
+/// <param name="activeTenants">活动租户目录；暂停租户拒绝上传。</param>
 internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandExecutor commands,
-    ICurrentTenant tenant, IDataTransactionState transactionState, FileStorageProviderRegistry providers,
-    IEnumerable<ITenantResourceFileOwner> resourceOwners, IClock clock, IIdGenerator ids, IOptions<LocalFileStorageOptions> options) : ITenantResourceFileStore
+    ICurrentTenantContextWriter tenant, IDataTransactionState transactionState, FileStorageProviderRegistry providers,
+    IEnumerable<ITenantResourceFileOwner> resourceOwners, IClock clock, IIdGenerator ids,
+    IOptions<LocalFileStorageOptions> options, ITenantFileStorageQuotaPort storageQuotaPort,
+    IIdentityActiveTenantDirectory activeTenants) : ITenantResourceFileStore
 {
     /// <inheritdoc />
     public async Task<Result<TenantResourceFileReference>> UploadAsync(string ownerModuleKey, Guid resourceId,
@@ -32,6 +38,11 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
     {
         var tenantId = RequireScope(ownerModuleKey, resourceId);
         RequireNoTransaction();
+        if (!await activeTenants.IsActiveTenantAsync(tenantId, cancellationToken).ConfigureAwait(false))
+        {
+            return Failure<TenantResourceFileReference>(FilesErrorCodes.TenantInactive, ErrorType.Validation);
+        }
+
         var fileName = Path.GetFileName((originalFileName ?? string.Empty).Replace('\\', '/')).Trim();
         if (fileName.Length is < 1 or > 255 || fileName.Any(char.IsControl)
             || string.IsNullOrWhiteSpace(contentType) || contentType.Length > 128 || contentType.Any(char.IsControl)
@@ -67,6 +78,20 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         var digest = Convert.ToHexString(await SHA256.HashDataAsync(buffered, cancellationToken).ConfigureAwait(false));
         buffered.Position = 0;
         var fileId = ids.NewId();
+        var operationId = fileId.ToString("N");
+        var reserveResult = await FilesHostExecutionScope.RunAsync(
+                tenant,
+                () => storageQuotaPort.TryReserveAsync(
+                    tenantId,
+                    operationId,
+                    buffered.Length,
+                    cancellationToken))
+            .ConfigureAwait(false);
+        if (!reserveResult.IsSuccess)
+        {
+            return MapQuotaFailure<TenantResourceFileReference>(reserveResult.Error!);
+        }
+
         var provider = providers.DefaultProvider;
         var storageKey = $"tenant-resources/{tenantId:N}/{fileId:N}";
         var parameters = Parameters(ownerModuleKey, resourceId, fileId);
@@ -80,24 +105,62 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         parameters["CreatedAtUtc"] = clock.UtcNow;
         if (await commands.ExecuteAsync(TenantResourceFileSql.Insert, parameters, cancellationToken).ConfigureAwait(false) != 1)
         {
+            await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
             throw new InvalidOperationException("Tenant resource upload intent was not persisted.");
         }
 
-        // 元数据已提交后才接触对象存储；外部结果或后续提交不确定时保留 pending，绝不误报 ready。
-        await provider.SaveAsync(storageKey, buffered, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await provider.SaveAsync(storageKey, buffered, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
+            throw;
+        }
+
         if (await commands.ExecuteAsync(TenantResourceFileSql.MarkReady,
             Parameters(ownerModuleKey, resourceId, fileId), cancellationToken).ConfigureAwait(false) != 1)
         {
+            await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
             var current = await queries.QuerySingleOrDefaultAsync<TenantResourceFileRecord>(TenantResourceFileSql.FindOwned,
                 Parameters(ownerModuleKey, resourceId, fileId), cancellationToken).ConfigureAwait(false);
             if (current?.StatusKey == "released")
             {
                 await provider.DeleteAsync(storageKey, cancellationToken).ConfigureAwait(false);
             }
+
             return Failure<TenantResourceFileReference>(FilesErrorCodes.RevisionConflict, ErrorType.Conflict);
         }
+
+        var confirmResult = await FilesHostExecutionScope.RunAsync(
+                tenant,
+                () => storageQuotaPort.ConfirmAsync(tenantId, operationId, cancellationToken))
+            .ConfigureAwait(false);
+        if (!confirmResult.IsSuccess)
+        {
+            await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
+            return MapQuotaFailure<TenantResourceFileReference>(confirmResult.Error!);
+        }
+
         return Result<TenantResourceFileReference>.Success(new(fileId, buffered.Length, digest));
     }
+
+    private async Task ReleaseQuotaReservationAsync(
+        Guid tenantId,
+        string operationId,
+        CancellationToken cancellationToken)
+    {
+        await FilesHostExecutionScope.RunAsync(
+                tenant,
+                () => storageQuotaPort.ReleaseAsync(tenantId, operationId, cancellationToken))
+            .ConfigureAwait(false);
+    }
+
+    private static Result<T> MapQuotaFailure<T>(Error error) =>
+        error.Code.StartsWith("tenancy.", StringComparison.Ordinal)
+            ? Failure<T>(FilesErrorCodes.StorageQuotaExceeded, ErrorType.Conflict)
+            : Result<T>.Failure(error);
 
     /// <inheritdoc />
     public async Task<Result<TenantResourceFileContent>> OpenReadyContentAsync(string ownerModuleKey,

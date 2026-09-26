@@ -10,12 +10,15 @@
     "frameworkVersion",
     "presetModules",
     "validPresets",
+    "migrationInventory",
+    "seedInventory",
     "managedFiles"
   ],
   "properties": {
-    "schemaVersion": { "type": "integer", "const": 1 },
+    "schemaVersion": { "type": "integer", "const": 3 },
     "sourceCommit": { "type": "string", "minLength": 40, "maxLength": 40 },
     "frameworkVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "projectedPreset": { "type": "string", "enum": ["minimal", "platform", "saas", "enterprise"] },
     "presetModules": {
       "type": "object",
       "additionalProperties": {
@@ -28,6 +31,70 @@
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
       "minItems": 1
+    },
+    "migrationInventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selectionStatus", "scripts"],
+      "properties": {
+        "selectionStatus": {
+          "type": "string",
+          "pattern": "^(unscoped|preset-(minimal|platform|saas|enterprise))$"
+        },
+        "preset": {
+          "type": "string",
+          "enum": ["minimal", "platform", "saas", "enterprise"]
+        },
+        "scripts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "providers"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[0-9]{3}_[A-Za-z0-9]+\\.sql$" },
+              "providers": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["SqlServer", "MySql"],
+                "properties": {
+                  "SqlServer": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                  "MySql": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "seedInventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contributors", "presets"],
+      "properties": {
+        "contributors": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["module", "name", "path"],
+            "properties": {
+              "module": { "type": "string", "minLength": 1 },
+              "name": { "type": "string", "minLength": 1 },
+              "path": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "presets": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
     },
     "managedFiles": {
       "type": "object",

@@ -177,4 +177,8 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(UpdateTenantMemberRequest))]
 [JsonSerializable(typeof(AcceptTenantInvitationRequest))]
 [JsonSerializable(typeof(AcceptTenantInvitationResponse))]
+[JsonSerializable(typeof(LeaveTenantMembershipRequest))]
+[JsonSerializable(typeof(RegenerateMfaRecoveryCodesResponse))]
+[JsonSerializable(typeof(ConsumeMfaRecoveryCodeRequest))]
+[JsonSerializable(typeof(ConsumeMfaRecoveryCodeResponse))]
 internal partial class IdentityJsonSerializerContext : JsonSerializerContext;

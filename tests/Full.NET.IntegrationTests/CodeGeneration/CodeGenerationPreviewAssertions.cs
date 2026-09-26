@@ -22,6 +22,7 @@ internal static class CodeGenerationPreviewAssertions
         await VerifyAnonymousRequestAsync(client, cancellationToken);
         await VerifyPermissionAsync(factory, client, cancellationToken);
         await VerifyPreviewAsync(factory, client, cancellationToken);
+        await VerifyDeterministicPreviewAsync(factory, client, cancellationToken);
         await VerifyOrganizationOwnedPreviewAsync(factory, client, cancellationToken);
         await VerifyHostScopeOrganizationOwnershipRejectedAsync(
             factory,
@@ -87,6 +88,33 @@ internal static class CodeGenerationPreviewAssertions
         // Layui 客户端已冻结，Host 预览默认不再发出 layui_client。
         Assert.IsFalse(preview.Artifacts.Any(artifact =>
             artifact.Kind == "layui_client"));
+    }
+
+    private static async Task VerifyDeterministicPreviewAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var token = await factory.CreateHostAccessTokenAsync(
+            [CodeGenerationPreviewPermissions.Read],
+            cancellationToken);
+        using var firstRequest = CreateRequest(token, CreatePreviewRequest());
+        using var firstResponse = await client.SendAsync(firstRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, firstResponse.StatusCode);
+        var first = await firstResponse.Content.ReadFromJsonAsync<CodeGenerationPreviewResponse>(
+            cancellationToken);
+        Assert.IsNotNull(first);
+
+        using var secondRequest = CreateRequest(token, CreatePreviewRequest());
+        using var secondResponse = await client.SendAsync(secondRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, secondResponse.StatusCode);
+        var second = await secondResponse.Content.ReadFromJsonAsync<CodeGenerationPreviewResponse>(
+            cancellationToken);
+        Assert.IsNotNull(second);
+        Assert.AreEqual(first!.Artifacts.Count, second!.Artifacts.Count);
+        CollectionAssert.AreEquivalent(
+            first.Artifacts.Select(artifact => artifact.Sha256).ToArray(),
+            second.Artifacts.Select(artifact => artifact.Sha256).ToArray());
     }
 
     private static async Task VerifyOrganizationOwnedPreviewAsync(

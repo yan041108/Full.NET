@@ -2,6 +2,38 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "statementName": "identity.mfa_recovery_codes.consume",
+      "declaration": "Full.NET.Modules.Identity.Features.ManageMfaRecoveryCodes.Persistence.MfaRecoveryCodeSql.Consume",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageMfaRecoveryCodes/Persistence/MfaRecoveryCodeSql.cs",
+      "category": "verified_identity",
+      "reason": "只能消费当前认证用户查询并匹配摘要的恢复码标识，使用未消费状态和版本实现一次性 CAS；不接收客户端行标识。",
+      "requiredSqlFragments": ["WHERE Id = @Id", "AND ConsumedAtUtc IS NULL", "AND Version = @Version"]
+    },
+    {
+      "statementName": "identity.mfa_recovery_codes.delete_by_user",
+      "declaration": "Full.NET.Modules.Identity.Features.ManageMfaRecoveryCodes.Persistence.MfaRecoveryCodeSql.DeleteByUserId",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageMfaRecoveryCodes/Persistence/MfaRecoveryCodeSql.cs",
+      "category": "verified_identity",
+      "reason": "恢复码随身份而非租户存储；重生成事务仅按当前认证用户标识撤销旧码，用户标识不能来自请求体。",
+      "requiredSqlFragments": ["DELETE FROM fn_identity_user_mfa_recovery_code", "WHERE UserId = @UserId"]
+    },
+    {
+      "statementName": "identity.mfa_recovery_codes.insert",
+      "declaration": "Full.NET.Modules.Identity.Features.ManageMfaRecoveryCodes.Persistence.MfaRecoveryCodeSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageMfaRecoveryCodes/Persistence/MfaRecoveryCodeSql.cs",
+      "category": "verified_identity",
+      "reason": "为当前认证用户写入应用生成的标识与随机码摘要，与撤销旧码共用事务；不保存明文。",
+      "requiredSqlFragments": ["INSERT INTO fn_identity_user_mfa_recovery_code", "@UserId", "@CodeHash"]
+    },
+    {
+      "statementName": "identity.mfa_recovery_codes.list_active_by_user",
+      "declaration": "Full.NET.Modules.Identity.Features.ManageMfaRecoveryCodes.Persistence.MfaRecoveryCodeSql.ListActiveByUserId",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageMfaRecoveryCodes/Persistence/MfaRecoveryCodeSql.cs",
+      "category": "verified_identity",
+      "reason": "仅在恢复码消费内部读取当前认证用户的未消费摘要，端点不暴露摘要或其他用户的码。",
+      "requiredSqlFragments": ["WHERE UserId = @UserId", "AND ConsumedAtUtc IS NULL"]
+    },
+    {
       "statementName": "ai.acquire_chat_generation",
       "declaration": "Full.NET.Modules.Ai.Persistence.AiChatGenerationSql.Acquire",
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatGenerationSql.cs",

@@ -1,4 +1,5 @@
 using Full.NET.Data.Abstractions;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Persistence;
 
@@ -8,7 +9,7 @@ namespace Full.NET.Modules.Tenancy.Directories;
 /// 为其他模块提供活动租户存在性只读校验。
 /// </summary>
 internal sealed class ActiveTenantDirectory(IQueryExecutor queryExecutor)
-    : IIdentityActiveTenantDirectory
+    : IIdentityActiveTenantDirectory, ITenantActivityReadPort
 {
     /// <inheritdoc />
     public async Task<bool> IsActiveTenantAsync(

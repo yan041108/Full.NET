@@ -37,6 +37,16 @@ namespace Full.NET.IntegrationTests.Tenancy;
 public sealed class TenantProvisioningTests
 {
     [TestMethod]
+    public void Partial_fixture_service_graph_is_valid_without_opening_database()
+    {
+        using var services = BuildServices(CreateConfiguration(new DatabaseOptions
+        {
+            Provider = DatabaseProvider.SqlServer,
+            ConnectionString = "Server=localhost;Database=fullnet;User ID=sa;Password=unused;TrustServerCertificate=true",
+        }));
+    }
+
+    [TestMethod]
     public async Task SqlServer_provisioning_is_atomic_without_cache_outbox()
     {
         await VerifyProviderAsync(
@@ -123,6 +133,9 @@ public sealed class TenantProvisioningTests
             1L,
             await CountAsync(databaseProvider, connectionString, "fn_tenancy_tenant"));
         Assert.AreEqual(
+            2L,
+            await CountAsync(databaseProvider, connectionString, "fn_tenancy_quota_metric"));
+        Assert.AreEqual(
             0L,
             await CountAsync(databaseProvider, connectionString, "fn_outbox_message"));
     }
@@ -175,6 +188,7 @@ public sealed class TenantProvisioningTests
         services.AddSingleton<IHostFileReferenceClaimService, NoOpHostFileReferenceClaimService>();
         services.AddSingleton<IHostFileDescriptorReader, NoOpHostFileDescriptorReader>();
         services.AddSingleton<IHostFileContentReader, NoOpHostFileContentReader>();
+        services.AddSingleton<ITenantResourceFileStorageUsagePort, UnsupportedStorageUsagePort>();
         services.AddSingleton<IRealtimePublisher, NoOpRealtimePublisher>();
         services.AddSingleton<IFullNetModuleSelectionPreview, EmptyModuleSelectionPreview>();
         services.AddFullNetModule<IdentityModule>(configuration);
@@ -185,6 +199,13 @@ public sealed class TenantProvisioningTests
             ValidateOnBuild = true,
             ValidateScopes = true,
         });
+    }
+
+    /// <summary>该夹具不启用 Files 对账；意外调用时失败，避免把未知用量伪报为零。</summary>
+    private sealed class UnsupportedStorageUsagePort : ITenantResourceFileStorageUsagePort
+    {
+        public Task<long> SumReadyStorageBytesAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException("The provisioning fixture does not reconcile file storage usage.");
     }
 
     private sealed class EmptyTenantOrganizationUnitDirectory

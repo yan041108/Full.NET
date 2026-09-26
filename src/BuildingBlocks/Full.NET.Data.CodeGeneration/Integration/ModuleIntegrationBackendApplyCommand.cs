@@ -53,11 +53,7 @@ public static class ModuleIntegrationBackendApplyCommand
         ArgumentNullException.ThrowIfNull(schema);
         ArgumentNullException.ThrowIfNull(target);
 
-        var root = Path.GetFullPath(repositoryRoot);
-        if (!Directory.Exists(root))
-        {
-            throw new DirectoryNotFoundException();
-        }
+        var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
 
         if (!MatchesModule(schema.RootNamespace, target.ModuleName))
         {
@@ -65,11 +61,9 @@ public static class ModuleIntegrationBackendApplyCommand
                 "Schema 根命名空间与显式目标模块不匹配。");
         }
 
-        var moduleProjectFullPath = Path.Combine(
+        var moduleProjectFullPath = GenerationWorkspacePath.ResolveFile(
             root,
-            target.ModuleProjectPath.Replace(
-                '/',
-                Path.DirectorySeparatorChar));
+            target.ModuleProjectPath);
         if (!File.Exists(moduleProjectFullPath))
         {
             return Failure(

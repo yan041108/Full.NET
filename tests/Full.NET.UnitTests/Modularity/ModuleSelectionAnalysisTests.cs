@@ -46,6 +46,31 @@ public sealed class ModuleSelectionAnalysisTests
             documentState.MissingDependencies.ToArray());
     }
 
+    [TestMethod]
+    public void AnalyzeOptions_reports_unknown_preset_without_enabling_modules()
+    {
+        var analysis = FullNetModuleSelection.AnalyzeOptions(
+            new FullNetModuleSelectionOptions { Preset = "Typo" },
+            [new IdentityModule()]);
+
+        Assert.IsFalse(analysis.IsValid);
+        Assert.IsEmpty(analysis.EnabledModuleKeys);
+        Assert.HasCount(1, analysis.Issues);
+        Assert.AreEqual(ModuleSelectionIssueCodes.UnknownPreset, analysis.Issues[0].Code);
+    }
+
+    [TestMethod]
+    public void AnalyzeOptions_reports_explicit_empty_list()
+    {
+        var analysis = FullNetModuleSelection.AnalyzeOptions(
+            new FullNetModuleSelectionOptions { Enabled = [] },
+            [new IdentityModule()]);
+
+        Assert.IsFalse(analysis.IsValid);
+        Assert.AreEqual(ModuleSelectionSourceKinds.Explicit, analysis.SourceKind);
+        Assert.IsTrue(analysis.Issues.Any(issue => issue.Code == ModuleSelectionIssueCodes.EmptyEnabled));
+    }
+
     private static IConfiguration CreateConfiguration(
         IReadOnlyDictionary<string, string?>? values = null)
     {

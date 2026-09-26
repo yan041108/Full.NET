@@ -46,6 +46,13 @@ public static class FullNetModuleSelection
         "EnterpriseRequest",
     ];
 
+    // 模板裁剪可启用的实现后，仍保留完整官方契约来源，允许未安装的可选生产者。
+    private static readonly IReadOnlyList<string> ContractModuleNames = OfficialModuleNames;
+
+    // 预设只裁剪可用实现；应用模块仍不得占用未安装的官方契约键。
+    internal static bool IsOfficialModuleName(string name) =>
+        ContractModuleNames.Contains(name, StringComparer.Ordinal);
+
     /// <summary>
     /// Minimal 预设模块键：Identity + Tenancy + Settings + Organization。
     /// </summary>
@@ -170,53 +177,16 @@ public static class FullNetModuleSelection
             .Get<FullNetModuleSelectionOptions>()
             ?? new FullNetModuleSelectionOptions();
 
-        IReadOnlyList<string> enabledNames;
-        if (options.Enabled is { Length: > 0 })
+        var resolution = ResolveCandidateNames(options);
+        if (resolution.SourceKind == ModuleSelectionSourceKinds.Preset &&
+            !IsKnownPreset(options.Preset))
         {
-            enabledNames = options.Enabled;
-        }
-        else if (string.Equals(
-                     options.Preset,
-                     FullNetModuleSelectionOptions.Presets.Minimal,
-                     StringComparison.OrdinalIgnoreCase))
-        {
-            enabledNames = MinimalPresetModuleNames;
-        }
-        else if (string.Equals(
-                     options.Preset,
-                     FullNetModuleSelectionOptions.Presets.Platform,
-                     StringComparison.OrdinalIgnoreCase))
-        {
-            enabledNames = PlatformPresetModuleNames;
-        }
-        else if (string.Equals(
-                     options.Preset,
-                     FullNetModuleSelectionOptions.Presets.Content,
-                     StringComparison.OrdinalIgnoreCase))
-        {
-            enabledNames = ContentPresetModuleNames;
-        }
-        else if (string.Equals(
-                     options.Preset,
-                     FullNetModuleSelectionOptions.Presets.Saas,
-                     StringComparison.OrdinalIgnoreCase))
-        {
-            enabledNames = SaasPresetModuleNames;
-        }
-        else if (string.Equals(
-                     options.Preset,
-                     FullNetModuleSelectionOptions.Presets.Enterprise,
-                     StringComparison.OrdinalIgnoreCase))
-        {
-            enabledNames = EnterprisePresetModuleNames;
-        }
-        else
-        {
-            enabledNames = OfficialModuleNames;
+            throw new InvalidOperationException(
+                $"FullNet:Modules:Preset 包含未知预设“{options.Preset}”。");
         }
 
-        ValidateEnabledNames(enabledNames);
-        return enabledNames.ToHashSet(StringComparer.Ordinal);
+        ValidateEnabledNames(resolution.EnabledNames);
+        return resolution.EnabledNames.ToHashSet(StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -310,8 +280,20 @@ public static class FullNetModuleSelection
 
         var issues = new List<ModuleSelectionIssue>();
         var resolution = ResolveCandidateNames(options);
+        if (resolution.SourceKind == ModuleSelectionSourceKinds.Preset &&
+            !IsKnownPreset(options.Preset))
+        {
+            issues.Add(new ModuleSelectionIssue(
+                ModuleSelectionIssueCodes.UnknownPreset,
+                $"Unknown FullNet:Modules:Preset '{options.Preset}'.",
+                null,
+                null));
+        }
         var enabledNames = resolution.EnabledNames;
-        CollectEnabledNameIssues(enabledNames, issues);
+        if (resolution.SourceKind == ModuleSelectionSourceKinds.Explicit || IsKnownPreset(options.Preset))
+        {
+            CollectEnabledNameIssues(enabledNames, issues);
+        }
         var enabledSet = enabledNames
             .Where(name => !string.IsNullOrWhiteSpace(name)
                 && OfficialModuleNames.Contains(name, StringComparer.Ordinal))
@@ -343,7 +325,7 @@ public static class FullNetModuleSelection
     private static (string SourceKind, string? Preset, IReadOnlyList<string> EnabledNames)
         ResolveCandidateNames(FullNetModuleSelectionOptions options)
     {
-        if (options.Enabled is { Length: > 0 })
+        if (options.Enabled is not null)
         {
             return (
                 ModuleSelectionSourceKinds.Explicit,
@@ -408,11 +390,20 @@ public static class FullNetModuleSelection
 
         return (
             ModuleSelectionSourceKinds.Preset,
-            string.IsNullOrWhiteSpace(options.Preset)
-                ? FullNetModuleSelectionOptions.Presets.Full
-                : options.Preset,
-            OfficialModuleNames);
+            options.Preset,
+            string.Equals(options.Preset, FullNetModuleSelectionOptions.Presets.Full,
+                StringComparison.OrdinalIgnoreCase)
+                ? OfficialModuleNames
+                : []);
     }
+
+    private static bool IsKnownPreset(string? preset) =>
+        string.Equals(preset, FullNetModuleSelectionOptions.Presets.Full, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(preset, FullNetModuleSelectionOptions.Presets.Minimal, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(preset, FullNetModuleSelectionOptions.Presets.Platform, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(preset, FullNetModuleSelectionOptions.Presets.Content, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(preset, FullNetModuleSelectionOptions.Presets.Saas, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(preset, FullNetModuleSelectionOptions.Presets.Enterprise, StringComparison.OrdinalIgnoreCase);
 
     private static void CollectEnabledNameIssues(
         IReadOnlyList<string> enabledNames,
@@ -481,7 +472,7 @@ public static class FullNetModuleSelection
         {
             foreach (var optionalDependency in module.OptionalContractDependencies)
             {
-                if (!OfficialModuleNames.Contains(optionalDependency, StringComparer.Ordinal) ||
+                if (!ContractModuleNames.Contains(optionalDependency, StringComparer.Ordinal) ||
                     module.Dependencies.Contains(optionalDependency, StringComparer.Ordinal))
                 {
                     issues.Add(new ModuleSelectionIssue(
@@ -553,7 +544,7 @@ public static class FullNetModuleSelection
         {
             foreach (var optionalDependency in module.OptionalContractDependencies)
             {
-                if (!OfficialModuleNames.Contains(optionalDependency, StringComparer.Ordinal) ||
+                if (!ContractModuleNames.Contains(optionalDependency, StringComparer.Ordinal) ||
                     module.Dependencies.Contains(optionalDependency, StringComparer.Ordinal))
                 {
                     throw new InvalidOperationException(

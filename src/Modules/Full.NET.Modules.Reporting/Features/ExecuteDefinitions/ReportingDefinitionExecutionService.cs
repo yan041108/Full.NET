@@ -132,7 +132,7 @@ internal sealed class ReportingDefinitionExecutionService(
             .ConfigureAwait(false);
         if (!sessionOutcome.Succeeded || sessionOutcome.Session is null)
         {
-            return ExecutionFailed(sessionOutcome.ErrorMessage ?? "Failed to open reporting data source.");
+            return ExecutionFailed("Failed to open reporting data source.");
         }
 
         await using (sessionOutcome.Session)
@@ -147,7 +147,7 @@ internal sealed class ReportingDefinitionExecutionService(
                 .ConfigureAwait(false);
             if (!queryOutcome.Succeeded)
             {
-                return ExecutionFailed(queryOutcome.ErrorMessage ?? "Reporting query execution failed.");
+                return ExecutionFailed("Reporting query execution failed.");
             }
 
             var resultColumnKeys = queryOutcome.ColumnKeys.Count > 0

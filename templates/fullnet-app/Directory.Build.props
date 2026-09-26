@@ -1,0 +1,4 @@
+<Project>
+  <!-- 应用宿主沿用所选框架包的 .NET 编译基线，避免依赖原仓库父目录。 -->
+  <Import Project="framework/fullnet/Directory.Build.props" />
+</Project>

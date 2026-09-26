@@ -62,6 +62,10 @@ internal static class CodeGenerationCli
             --schema <json-file>
             --repository <existing-directory>
             --target <json-file>
+          fullnet-codegen apply-host-integration
+            --schema <json-file>
+            --repository <existing-directory>
+            --target <json-file-with-authorizationContributorPath>
           fullnet-codegen diagnose --workspace <existing-directory> [--profile <development|production>]
         """;
 
@@ -128,7 +132,17 @@ internal static class CodeGenerationCli
                     cancellationToken);
                 var target = await ModuleIntegrationTargetDocument.LoadAsync(
                     options.ModuleIntegration.TargetPath,
-                    cancellationToken);
+                    cancellationToken,
+                    allowHostAuthorization: options.ModuleIntegration.Mode == ModuleIntegrationCliMode.ApplyHost);
+                if (options.ModuleIntegration.Mode == ModuleIntegrationCliMode.ApplyHost)
+                {
+                    var result = await ModuleIntegrationHostOrchestrator.ApplyAsync(
+                        options.ModuleIntegration.RepositoryPath, integrationSchema, target, cancellationToken);
+                    foreach (var diagnostic in result.Diagnostics) await error.WriteLineAsync(diagnostic);
+                    if (!result.Succeeded) return ConflictExitCode;
+                    await output.WriteLineAsync($"Applied HostIntegration {target.ModuleProjectPath}");
+                    return SuccessExitCode;
+                }
                 if (options.ModuleIntegration.Mode
                     == ModuleIntegrationCliMode.ApplyClientRoutes)
                 {
@@ -151,9 +165,13 @@ internal static class CodeGenerationCli
                     await output.WriteLineAsync(
                         $"{(routeResult.VueChanged ? "Update" : "Unchanged")} "
                         + target.VueRouterPath);
-                    await output.WriteLineAsync(
-                        $"{(routeResult.LayuiChanged ? "Update" : "Unchanged")} "
-                        + target.LayuiRouterPath);
+                    if (target.LayuiRouterPath is not null
+                        && target.ClientRoute!.LayuiControllerPath is not null)
+                    {
+                        await output.WriteLineAsync(
+                            $"{(routeResult.LayuiChanged ? "Update" : "Unchanged")} "
+                            + target.LayuiRouterPath);
+                    }
                     await output.WriteLineAsync(
                         "Validated ClientRouteStructure "
                         + target.ClientRoute!.RoutePath);
@@ -520,6 +538,11 @@ internal static class CodeGenerationCli
                 ModuleIntegrationCliMode.ValidateCompilation);
         }
 
+        if (args.Count > 0 && string.Equals(args[0], "apply-host-integration", StringComparison.Ordinal))
+        {
+            return ParseModuleIntegration(args, ModuleIntegrationCliMode.ApplyHost);
+        }
+
         if (args.Count > 0
             && string.Equals(
                 args[0],
@@ -579,7 +602,7 @@ internal static class CodeGenerationCli
     private static CliOptions ParseDiagnose(IReadOnlyList<string> args)
     {
         string? workspacePath = null;
-        var profile = "development";
+        string? profile = null;
         var showHelp = false;
         for (var index = 1; index < args.Count; index++)
         {
@@ -634,13 +657,18 @@ internal static class CodeGenerationCli
                 "diagnose 的 --workspace 必须指向已存在的目录。");
         }
 
+        if (profile is not null && profile is not ("development" or "production"))
+        {
+            throw new CliUsageException("diagnose 的 --profile 只接受 development 或 production。");
+        }
+
         return new CliOptions(
             SchemaPath: null,
             WorkspacePath: workspacePath,
             Apply: false,
             ShowHelp: false,
             DatabaseImport: null,
-            Diagnose: new DiagnoseCliOptions(workspacePath, profile));
+            Diagnose: new DiagnoseCliOptions(workspacePath, profile ?? "development"));
     }
 
     private static CliOptions ParseModuleIntegration(

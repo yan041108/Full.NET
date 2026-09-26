@@ -675,6 +675,16 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/mfa-recovery-codes.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-mfa-recovery-codes-v1.json",
+      "apiModule": "ui/admin/src/api/mfaRecoveryCodes.ts",
+      "routePrefixes": [
+        "/api/v1/identity/me/mfa/recovery-codes"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/host-users.ts"
       ],
       "openApiFixture": "contracts/openapi/identity-host-users-v1.json",
@@ -1742,6 +1752,12 @@
       ]
     },
     {
+      "apiModule": "ui/admin/src/api/mfaRecoveryCodes.ts",
+      "consumers": [
+        "ui/admin/src/views/SecuritySettingsView.vue"
+      ]
+    },
+    {
       "apiModule": "ui/admin/src/api/data-approval-scenarios.ts",
       "consumers": [
         "ui/admin/src/views/DataApprovalScenariosView.vue",
@@ -1873,7 +1889,8 @@
     {
       "apiModule": "ui/admin/src/api/tenant-members.ts",
       "consumers": [
-        "ui/admin/src/views/TenantMembersView.vue"
+        "ui/admin/src/views/TenantMembersView.vue",
+        "ui/admin/src/views/TenantContextView.vue"
       ]
     },
     {

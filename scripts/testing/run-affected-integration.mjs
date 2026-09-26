@@ -639,6 +639,29 @@ export function estimateSelectionSeconds(targets) {
   };
 }
 
+// CI 将迁移恢复与模块验收分开运行；两个互补迁移分组覆盖原集合，保留每组双库发现门禁。
+export function targetsForExecutionGroup(targets, group = 'all') {
+  const isMigration = target => target.name === 'migrations' || /^migration-\d+$/.test(target.name);
+  if (group === 'all') return targets;
+  if (group === 'modules') return targets.filter(target => !isMigration(target));
+  if (group !== 'migrations-legacy' && group !== 'migrations-current') {
+    throw new Error(`未知执行分组：${group}`);
+  }
+  const isLegacy = group === 'migrations-legacy';
+  return targets.filter(isMigration).flatMap(target => {
+    if (target.name === 'migrations') {
+      return [{
+        kind: 'filter',
+        name: group,
+        filter: isLegacy
+          ? 'FullyQualifiedName~Full.NET.IntegrationTests.Migrations.Migration0'
+          : 'FullyQualifiedName~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations.Migration0'
+      }];
+    }
+    return (Number(target.name.slice('migration-'.length)) < 100) === isLegacy ? [target] : [];
+  });
+}
+
 function focusedTimeoutMinutes(discoveredCount) {
   // 双 worker 下按每用例约一分钟估算；30 分钟下限会截断 Identity 这类 100+ 聚焦集。
   return Math.max(30, Math.ceil(discoveredCount / 2));
@@ -690,15 +713,25 @@ export function parseArguments(args) {
   let phase = 'slice';
   let planOnly = false;
   let includeHeavy = false;
+  let executionGroup = 'all';
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
+    // pnpm 传递脚本参数时保留分隔符，不应将其当作未知业务选项。
+    if (argument === '--') {
+      continue;
+    }
     if (argument === '--plan') {
       planOnly = true;
       continue;
     }
     if (argument === '--include-heavy') {
       includeHeavy = true;
+      continue;
+    }
+    if (argument === '--execution-group') {
+      executionGroup = args[index + 1] ?? '';
+      index += 1;
       continue;
     }
     if (argument === '--base') {
@@ -743,7 +776,8 @@ export function parseArguments(args) {
     throw new Error('--phase 只支持 inner、slice 或 merge。');
   }
 
-  return { baseRef, phase, planOnly, snapshotId, includeHeavy };
+  targetsForExecutionGroup([], executionGroup);
+  return { baseRef, phase, planOnly, snapshotId, includeHeavy, executionGroup };
 }
 
 function lines(value) {
@@ -1100,7 +1134,8 @@ async function runCli(args, cwd = process.cwd()) {
     phase,
     planOnly,
     snapshotId,
-    includeHeavy
+    includeHeavy,
+    executionGroup
   } = parseArguments(args);
   const paths = await collectChangedPaths({ baseRef, snapshotId, cwd });
   if (paths.length === 0) {
@@ -1110,9 +1145,9 @@ async function runCli(args, cwd = process.cwd()) {
   }
 
   const selection = classifyChangedPaths(paths);
-  const executionTargets = targetsForPhase(selection.targets, phase, {
+  const executionTargets = targetsForExecutionGroup(targetsForPhase(selection.targets, phase, {
     includeHeavy
-  });
+  }), executionGroup);
   process.stdout.write(
     renderSelection(
       paths,

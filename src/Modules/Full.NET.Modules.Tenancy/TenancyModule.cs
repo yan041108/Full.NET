@@ -90,6 +90,8 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddScoped<Directories.ActiveTenantDirectory>();
         services.TryAddScoped<IIdentityActiveTenantDirectory>(provider =>
             provider.GetRequiredService<Directories.ActiveTenantDirectory>());
+        services.TryAddScoped<ITenantActivityReadPort>(provider =>
+            provider.GetRequiredService<Directories.ActiveTenantDirectory>());
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageQueryService>();
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageManagementService>();
         services.AddScoped<Features.ManageTenantLifecycle.TenantCommercialReactivateGate>();
@@ -98,14 +100,18 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<Features.ManageTenantEntitlements.TenantEntitlementManagementService>();
         services.AddScoped<Features.ManageTenantSubscriptions.TenantSubscriptionQueryService>();
         services.AddScoped<Features.ManageTenantSubscriptions.TenantSubscriptionManagementService>();
-        services.TryAddSingleton<
+        services.TryAddScoped<
             Contracts.ITenantSubscriptionPaymentFulfillmentPort,
-            Features.ManageTenantSubscriptions.NullTenantSubscriptionPaymentFulfillmentPort>();
+            Features.ManageTenantSubscriptions.TestChannelTenantSubscriptionPaymentFulfillmentPort>();
         services.TryAddScoped<ITenantQuotaReservationService, Features.ReserveTenantQuota.TenantQuotaReservationService>();
         services.AddScoped<Features.ReserveTenantQuota.TenantQuotaReservationService>();
         services.AddScoped<ITenantMemberSeatQuotaPort, Features.ReserveTenantQuota.TenantMemberSeatQuotaPort>();
+        services.AddScoped<ITenantFileStorageQuotaPort, Features.ReserveTenantQuota.TenantFileStorageQuotaPort>();
+        services.AddScoped<Features.ManageTenantEntitlements.TenantEntitlementBackfillService>();
+        services.AddScoped<ITenantFeatureEntitlementPort, Features.ManageTenantEntitlements.TenantFeatureEntitlementPort>();
         services.AddScoped<Features.ManageTenantQuota.TenantQuotaManagementService>();
         services.AddScoped<Features.ReconcileQuotaReservationMetricIds.TenantQuotaMetricIdReconciliationService>();
+        services.AddScoped<Features.ReconcileQuotaUsageBaseline.TenantQuotaUsageBaselineService>();
         services.AddScoped<Features.TenantBranding.TenantBrandingService>();
         services.AddScoped<Features.TenantBranding.TenantBrandingMediaService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
@@ -160,6 +166,9 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IDataSeedContributor,
             LocalTenantSeedContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IDataSeedContributor,
+            TenancyEntitlementCatalogBaselineSeedContributor>());
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
@@ -177,6 +186,7 @@ public sealed class TenancyModule : IFullNetModule
         Features.ReserveTenantQuota.Endpoint.Map(endpoints);
         Features.ManageTenantQuota.Endpoint.Map(endpoints);
         Features.ReconcileQuotaReservationMetricIds.Endpoint.Map(endpoints);
+        Features.ReconcileQuotaUsageBaseline.Endpoint.Map(endpoints);
     }
 
     /// <summary>
