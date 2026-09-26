@@ -65,12 +65,19 @@ public static class ModuleIntegrationHostOrchestrator
 
         if (target.ClientRoute is not null)
         {
-            await WriteVueViewAsync(
+            try
+            {
+                await WriteVueViewAsync(
                     repositoryRoot,
                     schema,
                     target.ClientRoute,
                     cancellationToken)
-                .ConfigureAwait(false);
+                    .ConfigureAwait(false);
+            }
+            catch (GenerationWorkspaceConflictException exception)
+            {
+                return ModuleIntegrationHostApplyResult.Failure(exception.Message);
+            }
             var routes = await ClientRouteIntegrationApplyCommand
                 .ApplyAsync(repositoryRoot, schema, target, cancellationToken)
                 .ConfigureAwait(false);
@@ -129,42 +136,51 @@ public static class ModuleIntegrationHostOrchestrator
         ModuleClientRouteTarget route,
         CancellationToken cancellationToken)
     {
-        var vueView = CrudArtifactGenerator.Generate(schema)
-            .Single(artifact => artifact.Kind == GeneratedArtifactKind.VueView);
-        var destination = Path.Combine(
-            Path.GetFullPath(repositoryRoot),
-            route.VueComponentPath.Replace('/', Path.DirectorySeparatorChar));
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        var pageModel = CrudArtifactGenerator.Generate(schema)
-            .Single(artifact =>
-                artifact.RelativePath.EndsWith(
-                    "-page.generated.ts",
-                    StringComparison.Ordinal));
-        var client = CrudArtifactGenerator.Generate(schema)
-            .Single(artifact =>
-                artifact.Kind == GeneratedArtifactKind.VueClient
-                && artifact.RelativePath.EndsWith(
-                    ".generated.ts",
-                    StringComparison.Ordinal)
-                && !artifact.RelativePath.EndsWith(
-                    "-page.generated.ts",
-                    StringComparison.Ordinal));
-        var directory = Path.GetDirectoryName(destination)!;
-        await File.WriteAllTextAsync(
-                destination,
-                vueView.Content,
-                cancellationToken)
-            .ConfigureAwait(false);
-        await File.WriteAllTextAsync(
-                Path.Combine(directory, Path.GetFileName(pageModel.RelativePath)),
-                pageModel.Content,
-                cancellationToken)
-            .ConfigureAwait(false);
-        await File.WriteAllTextAsync(
-                Path.Combine(directory, Path.GetFileName(client.RelativePath)),
-                client.Content,
-                cancellationToken)
-            .ConfigureAwait(false);
+        var artifacts = CrudArtifactGenerator.Generate(schema);
+        var directory = route.VueComponentPath.Contains('/', StringComparison.Ordinal)
+            ? route.VueComponentPath[..route.VueComponentPath.LastIndexOf('/')]
+            : string.Empty;
+        var view = artifacts.Single(artifact => artifact.Kind == GeneratedArtifactKind.VueView);
+        var mapped = new List<GeneratedArtifact>
+        {
+            new(route.VueComponentPath, view.Kind, view.Content),
+        };
+        mapped.AddRange(artifacts.Where(artifact => artifact.Kind == GeneratedArtifactKind.VueClient
+                && artifact.RelativePath.EndsWith(".generated.ts", StringComparison.Ordinal))
+            .Select(artifact => new GeneratedArtifact(
+                string.IsNullOrEmpty(directory) ? Path.GetFileName(artifact.RelativePath)
+                    : directory + "/" + Path.GetFileName(artifact.RelativePath),
+                artifact.Kind, artifact.Content)));
+        var snapshot = await GenerationWorkspaceStore.CaptureAsync(
+            repositoryRoot, mapped, cancellationToken).ConfigureAwait(false);
+        var desired = mapped.ToDictionary(artifact => artifact.RelativePath, artifact => artifact.Content,
+            StringComparer.Ordinal);
+
+        // Vue 接入是增量批次，必须保留其他实体和生成器已经拥有的产物，禁止将它们误判为删除。
+        foreach (var previous in snapshot.PreviousManifest?.Artifacts ?? [])
+        {
+            if (desired.ContainsKey(previous.RelativePath)) continue;
+            if (!snapshot.ExistingFiles.TryGetValue(previous.RelativePath, out var content)
+                || !StringComparer.Ordinal.Equals(GenerationContentHash.Compute(content), previous.Sha256))
+            {
+                throw new GenerationWorkspaceConflictException(
+                    $"已有生成产物缺失或被人工修改：{previous.RelativePath}", previous.RelativePath);
+            }
+
+            desired.Add(previous.RelativePath, content);
+        }
+
+        var plan = GenerationWritePlanner.PlanFromDesiredContents(
+            desired, snapshot.ExistingFiles, snapshot.PreviousManifest);
+        if (!plan.CanApply)
+        {
+            var conflict = plan.Actions.First(action => action.Kind == GenerationWriteActionKind.Conflict);
+            throw new GenerationWorkspaceConflictException(
+                $"Vue 生成产物存在人工修改或所有权冲突：{conflict.RelativePath}", conflict.RelativePath);
+        }
+
+        // 复用排他锁、提交前快照复核与清单最后提交；现有工作区仍有逐文件提交中途失败的恢复缺口。
+        await GenerationWorkspaceStore.ApplyAsync(repositoryRoot, plan, cancellationToken).ConfigureAwait(false);
     }
 }
 
