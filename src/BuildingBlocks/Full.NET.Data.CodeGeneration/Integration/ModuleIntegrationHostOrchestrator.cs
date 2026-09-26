@@ -179,7 +179,7 @@ public static class ModuleIntegrationHostOrchestrator
                 $"Vue 生成产物存在人工修改或所有权冲突：{conflict.RelativePath}", conflict.RelativePath);
         }
 
-        // 复用排他锁、提交前快照复核与清单最后提交；现有工作区仍有逐文件提交中途失败的恢复缺口。
+        // 复用排他锁、快照复核与清单最后提交；失败时安全恢复，人工冲突保留证据等待审查。
         await GenerationWorkspaceStore.ApplyAsync(repositoryRoot, plan, cancellationToken).ConfigureAwait(false);
     }
 }

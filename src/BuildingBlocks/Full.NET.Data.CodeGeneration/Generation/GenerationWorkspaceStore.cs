@@ -7,7 +7,7 @@ namespace Full.NET.Data.CodeGeneration.Generation;
 /// <summary>
 /// 在真实工作区中捕获并应用生成计划，所有权清单始终最后提交。
 /// </summary>
-public static class GenerationWorkspaceStore
+public static partial class GenerationWorkspaceStore
 {
     /// <summary>
     /// 工作区根下生成清单文件的相对路径；清单记录所有受管产物的路径与摘要，且必须最后提交。
@@ -50,6 +50,7 @@ public static class GenerationWorkspaceStore
         var fullRoot = GenerationWorkspacePath.NormalizeRoot(workspaceRoot);
         RejectPendingManifestRecovery(fullRoot);
         RejectPendingDeleteRecovery(fullRoot);
+        RejectPendingWriteRecovery(fullRoot);
         var orderedArtifacts = ValidateArtifacts(artifacts);
         var previousManifest = await ReadManifestAsync(
             fullRoot,
@@ -85,6 +86,7 @@ public static class GenerationWorkspaceStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         var fullRoot = GenerationWorkspacePath.NormalizeRoot(workspaceRoot);
+        RejectPendingWriteRecovery(fullRoot);
         var manifest = await ReadManifestAsync(fullRoot, cancellationToken)
             .ConfigureAwait(false);
         return manifest ?? GenerationManifest.Create([]);
@@ -104,6 +106,7 @@ public static class GenerationWorkspaceStore
         var fullRoot = GenerationWorkspacePath.NormalizeRoot(workspaceRoot);
         RejectPendingManifestRecovery(fullRoot);
         RejectPendingDeleteRecovery(fullRoot);
+        RejectPendingWriteRecovery(fullRoot);
         var previousManifest = await ReadManifestAsync(
             fullRoot,
             cancellationToken);
@@ -164,12 +167,12 @@ public static class GenerationWorkspaceStore
     }
 
     /// <summary>
-    /// 在工作区锁内原子应用写盘计划；清单始终最后提交，删除声明保留 recovery 证据。
+    /// 在工作区锁内应用写盘计划；清单始终最后提交，写入与删除声明保留恢复证据。
     /// </summary>
     /// <remarks>
     /// 进入提交阶段后不再响应调用方取消，必须完成清单提交或按冲突恢复语义退出。
     /// 删除走同卷无覆盖 rename 声明空位并复验摘要，清单提交走无覆盖 claim 并校验上一版未被并发替换。
-    /// 失败时已声明删除会按原路径恢复；recovery 与阶段证据保留供人工审查，禁止自动物理删除。
+    /// 清单提交前失败时恢复本次写入与已声明删除；人工并发修改不覆盖，无法恢复的证据保留并阻断后续生成。
     /// </remarks>
     /// <param name="workspaceRoot">工作区根目录。</param>
     /// <param name="plan">已经通过冲突校验且 CanApply 为真的写盘计划。</param>
@@ -242,6 +245,7 @@ public static class GenerationWorkspaceStore
         await using var workspaceLock = OpenWorkspaceLock(fullRoot);
         RejectPendingManifestRecovery(fullRoot);
         RejectPendingDeleteRecovery(fullRoot);
+        RejectPendingWriteRecovery(fullRoot);
 
         await ValidatePlanStateAsync(
             fullRoot,
@@ -250,6 +254,7 @@ public static class GenerationWorkspaceStore
 
         var stagedFiles = new List<StagedFile>();
         var claimedDeletions = new List<ClaimedDeletion>();
+        var claimedWrites = new List<ClaimedWrite>();
         var manifestCommitted = false;
         Exception? operationException = null;
         try
@@ -341,7 +346,7 @@ public static class GenerationWorkspaceStore
                     var stagedFile = stagedFiles.Single(candidate =>
                         !candidate.IsManifest
                         && ReferenceEquals(candidate.Action, action));
-                    CommitArtifact(stagedFile);
+                    CommitArtifact(fullRoot, stagedFile, claimedWrites);
                 }
 
                 committedArtifactCount++;
@@ -352,6 +357,7 @@ public static class GenerationWorkspaceStore
             }
 
             ValidateClaimedDeletionsBeforeManifest(claimedDeletions);
+            ValidateClaimedWritesBeforeManifest(fullRoot, claimedWrites);
             await ValidateDesiredStateAsync(
                 fullRoot,
                 plan.Actions,
@@ -369,6 +375,8 @@ public static class GenerationWorkspaceStore
                 await beforeManifestCommit();
             }
 
+            ValidateClaimedWritesBeforeManifest(fullRoot, claimedWrites);
+
             if (committedArtifactCount == 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -383,20 +391,24 @@ public static class GenerationWorkspaceStore
                 beforeManifestRecoveryCleanup,
                 () => manifestCommitted = true);
             CommitDeletionTombstones(claimedDeletions);
+            CleanupCommittedWrites(fullRoot, claimedWrites);
         }
         catch (Exception exception)
         {
             operationException = exception;
             if (!manifestCommitted)
             {
-                var restoreException = RestoreClaimedDeletions(
-                    claimedDeletions);
+                var writeRestoreException = RestoreClaimedWrites(fullRoot, claimedWrites);
+                var deleteRestoreException = RestoreClaimedDeletions(claimedDeletions);
+                var restoreException = writeRestoreException is null ? deleteRestoreException
+                    : deleteRestoreException is null ? writeRestoreException
+                    : new AggregateException(writeRestoreException, deleteRestoreException);
                 if (restoreException is not null)
                 {
                     throw new GenerationWorkspaceConflictException(
-                        "生成提交失败，删除目标无法自动恢复；"
-                        + "recovery 文件已保留供人工审查。",
-                        DeleteRecoveryDirectoryRelativePath,
+                        "生成提交失败，部分产物无法自动恢复；"
+                        + "恢复文件已保留供人工审查。",
+                        writeRestoreException is null ? DeleteRecoveryDirectoryRelativePath : WriteRecoveryDirectoryRelativePath,
                         new AggregateException(
                             exception,
                             restoreException));
@@ -698,22 +710,6 @@ public static class GenerationWorkspaceStore
                     "提交生成清单前产物内容再次发生变化。");
             }
         }
-    }
-
-    private static void CommitArtifact(StagedFile stagedFile)
-    {
-        if (stagedFile.Action!.Kind == GenerationWriteActionKind.Create)
-        {
-            File.Move(
-                stagedFile.TemporaryPath,
-                stagedFile.TargetPath);
-            return;
-        }
-
-        File.Replace(
-            stagedFile.TemporaryPath,
-            stagedFile.TargetPath,
-            destinationBackupFileName: null);
     }
 
     private static async Task<ClaimedDeletion> ClaimDeleteAsync(
