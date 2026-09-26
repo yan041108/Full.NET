@@ -79,6 +79,8 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 
 生成的授权片段是 `Permissions`、`Navigation`、`Actions` 的集合元素，应分别接入应用拥有的授权贡献者；不能把片段直接追加到 C# 文件末尾。自动接入要求三个标准集合及完整生成块，部分标记、人工改动或结构歧义拒绝修改。CLI 目标尚未贯通授权贡献者的自动接入；目录注册、权限作用域与实际授权拒绝仍需 F02 全链路验证。
 
+`TenantRequired` Schema 的生成权限使用 `AuthorizationScope.Tenant`；`HostOnly`、`Global` 保留 `Host` 权限范围，全局数据访问不自动授予租户权限。升级前已接入的 Host 授权块与新租户片段不一致时会保持原文并拒绝自动改写，应先人工审查作用域并完成实际授权验收。
+
 ## 验证
 
 1. 运行迁移并启动 Host.Api
