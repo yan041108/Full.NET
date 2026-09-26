@@ -116,7 +116,9 @@ internal static class AuthorizationContributorIntegrationEditor
             return Failure(source, "授权生成块仅部分存在，拒绝自动补写以免覆盖人工接入。");
         }
         var desired = source;
-        foreach (var edit in edits.OrderByDescending(edit => edit.Position))
+        // 手写末项紧贴 ] 时，补逗号与生成块位置相同；逆序插入才能让逗号留在生成块之前。
+        foreach (var edit in edits.Select((edit, index) => (edit.Position, edit.Content, Index: index))
+                     .OrderByDescending(edit => edit.Position).ThenByDescending(edit => edit.Index))
         {
             desired = desired.Insert(edit.Position, edit.Content);
         }

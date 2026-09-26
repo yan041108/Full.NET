@@ -34,7 +34,9 @@ public sealed class ModuleIntegrationBackendApplyTests
     }
 
     [TestMethod]
-    public async Task Host_cli_compiles_full_chain_preserves_handwritten_authorization_and_repeats()
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task Host_cli_candidate_compilation_controls_authorization_commit(bool importGenerated)
     {
         using var fixture = ModuleApplyFixture.Create(compilable: true);
         const string contributor = "src/Modules/Acme.Modules.Catalog/CatalogAuthorizationContributor.cs";
@@ -63,12 +65,28 @@ public sealed class ModuleIntegrationBackendApplyTests
                 public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } = [];
             }
             """);
+        if (!importGenerated)
+        {
+            fixture.WriteRepositoryFile(contributor, fixture.ReadRepositoryFile(contributor)
+                .Replace("using Acme.Modules.Catalog.Generated;", string.Empty, StringComparison.Ordinal));
+        }
+        var originalContributor = fixture.ReadRepositoryFile(contributor);
         fixture.WriteModuleFile("CatalogModule.cs", ModuleApplyFixture.ModuleEntry.Replace("services.AddOptions();",
             "services.AddOptions();\nservices.AddScoped<Full.NET.Modules.Identity.Contracts.IAuthorizationCatalogContributor, CatalogAuthorizationContributor>();",
             StringComparison.Ordinal));
         var manualView = fixture.ReadRepositoryFile("ui/admin/src/views/CatalogProductsView.vue");
         var frozenLayui = fixture.ReadRepositoryFile("ui/admin-layui/js/core/route-controllers.js");
         var first = await RunApplyAsync(fixture, "apply-host-integration");
+        if (!importGenerated)
+        {
+            // 原 Contributor 可编译，只有待写入片段缺少命名空间；拒绝提交候选而保留前序阶段。
+            Assert.AreEqual(2, first.ExitCode);
+            StringAssert.Contains(first.Error, "CS0103");
+            Assert.AreEqual(string.Empty, first.Output);
+            Assert.AreEqual(originalContributor, fixture.ReadRepositoryFile(contributor));
+            Assert.IsTrue(File.Exists(Path.Combine(fixture.RepositoryRoot, view)));
+            return;
+        }
         Assert.AreEqual(0, first.ExitCode, first.Error);
         StringAssert.Contains(first.Output, "Applied HostIntegration");
         StringAssert.Contains(fixture.ReadRepositoryFile(contributor), "catalog.product permissions>");

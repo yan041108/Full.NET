@@ -110,6 +110,16 @@ public static class ModuleIntegrationHostOrchestrator
             }
         }
 
+        return await ApplyAuthorizationContributorAsync(repositoryRoot, schema, target, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    // 单独保留授权阶段，测试使用内部编译委托，不扩大公共 Host 契约。
+    internal static async Task<ModuleIntegrationHostApplyResult> ApplyAuthorizationContributorAsync(
+        string repositoryRoot, FullNetCrudSchema schema, ModuleIntegrationTarget target,
+        CancellationToken cancellationToken,
+        Func<string, string, CancellationToken, Task<ModuleIntegrationCompilationResult>>? validateCandidate = null)
+    {
         if (target.AuthorizationContributorPath is not null)
         {
             try
@@ -135,6 +145,17 @@ public static class ModuleIntegrationHostOrchestrator
 
                 if (edited.Changed)
                 {
+                    // 编译只替换临时投影中的贡献者，失败或取消时真实授权文件保持原文。
+                    var compilation = validateCandidate is null
+                        ? await ModuleIntegrationCompilationCommand.ValidateSourceCandidateAsync(
+                            root, schema, target, contributorFullPath, edited.DesiredContent, cancellationToken)
+                            .ConfigureAwait(false)
+                        : await validateCandidate(contributorFullPath, edited.DesiredContent, cancellationToken)
+                            .ConfigureAwait(false);
+                    if (!compilation.Succeeded)
+                    {
+                        return ModuleIntegrationHostApplyResult.Failure(compilation.Diagnostics);
+                    }
                     // 前置检查不能替代最终写入边界，重新拒绝期间出现的链接、别名或目录占用。
                     await CommitAuthorizationContributorAsync(root, target.AuthorizationContributorPath,
                             original, edited.DesiredContent, cancellationToken)
