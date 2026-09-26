@@ -1,0 +1,87 @@
+import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import test from 'node:test';
+import { verifyCreatedApp } from '../../scripts/templates/verify-created-app.mjs';
+
+function fixture() {
+  const root = mkdtempSync(join(tmpdir(), 'fullnet-created-app-check-'));
+  // 此夹具只满足结构校验，不替代真实创建和 .NET 构建。
+  const files = {
+    'framework-manifest.json': JSON.stringify({ schemaVersion: 1, frameworkVersion: '1.0.0', managedFiles: {} }),
+    'appsettings.json': JSON.stringify({ FullNet: { Modules: { Preset: 'minimal' } } }),
+    'fullnet-app.json': JSON.stringify({ ownerKey: 'acme', preset: 'minimal', databaseProvider: 'mysql' }),
+    'pnpm-lock.yaml': '',
+    'ui/admin/package.json': '{}',
+    'packages/client-contracts/package.json': '{}',
+    'packages/admin-i18n/package.json': '{}',
+    'packages/admin-form-designer/package.json': '{}',
+    'packages/design-tokens/package.json': '{}',
+    'src/Demo.Host.Api/Program.cs': '',
+    'src/Demo.Host.Api/Demo.Host.Api.csproj': '<Project />',
+    'src/Demo.Host.Api/appsettings.json': '{}',
+    'src/Demo.Composition/Demo.Composition.csproj': '<Project />',
+    'src/Demo.Composition/ApplicationModuleCatalog.cs': '',
+  };
+  for (const [path, content] of Object.entries(files)) {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), content);
+  }
+  return { root, files };
+}
+
+for (const name of ['Demo.Composition.csproj', 'ApplicationModuleCatalog.cs']) {
+  for (const replacement of ['missing', 'directory']) {
+    test(`created app rejects ${replacement} matching composition ${name}`, () => {
+      const { root } = fixture();
+      try {
+        const path = join(root, 'src/Demo.Composition', name);
+        rmSync(path);
+        if (replacement === 'directory') mkdirSync(path);
+        const result = verifyCreatedApp(root);
+        assert.equal(result.ok, false);
+        assert.ok(result.errors.some((error) => error.includes(name)), result.errors.join('; '));
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  }
+}
+
+test('another application composition cannot replace the API host matching project', () => {
+  const { root } = fixture();
+  try {
+    rmSync(join(root, 'src/Demo.Composition'), { recursive: true });
+    mkdirSync(join(root, 'src/Other.Composition'));
+    writeFileSync(join(root, 'src/Other.Composition/Other.Composition.csproj'), '<Project />');
+    writeFileSync(join(root, 'src/Other.Composition/ApplicationModuleCatalog.cs'), '');
+    assert.equal(verifyCreatedApp(root).ok, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('created app rejects a directory occupying a required API program', () => {
+  const { root } = fixture();
+  try {
+    rmSync(join(root, 'src/Demo.Host.Api/Program.cs'));
+    mkdirSync(join(root, 'src/Demo.Host.Api/Program.cs'));
+    assert.equal(verifyCreatedApp(root).ok, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('complete application structure passes without changing its files', () => {
+  const { root, files } = fixture();
+  try {
+    const result = verifyCreatedApp(root);
+    assert.equal(result.ok, true, result.errors.join('; '));
+    for (const [path, original] of Object.entries(files)) {
+      assert.equal(readFileSync(join(root, path), 'utf8'), original);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

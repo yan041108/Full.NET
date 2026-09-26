@@ -2,7 +2,7 @@
 /**
  * 校验由 fullnet-app 模板创建的应用目录结构。
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolvePresetModules, validateOwnerKey } from './preset-modules.mjs';
@@ -25,7 +25,7 @@ export function verifyCreatedApp(appRoot) {
 
   for (const relativeFile of REQUIRED_FILES) {
     const absolutePath = join(root, relativeFile);
-    if (!existsSync(absolutePath)) {
+    if (!isRegularFile(absolutePath)) {
       errors.push('Missing required file: ' + relativeFile);
     }
   }
@@ -40,8 +40,15 @@ export function verifyCreatedApp(appRoot) {
   } else {
     const hostRoot = join(sourceRoot, hosts[0].name);
     for (const hostFile of ['Program.cs', hosts[0].name + '.csproj', 'appsettings.json']) {
-      if (!existsSync(join(hostRoot, hostFile))) {
+      if (!isRegularFile(join(hostRoot, hostFile))) {
         errors.push('Missing required host file: ' + join('src', hosts[0].name, hostFile));
+      }
+    }
+    // 应用清单必须与唯一 API 宿主同名，其他应用的 Composition 不能补位。
+    const compositionName = hosts[0].name.slice(0, -'.Host.Api'.length) + '.Composition';
+    for (const compositionFile of [compositionName + '.csproj', 'ApplicationModuleCatalog.cs']) {
+      if (!isRegularFile(join(sourceRoot, compositionName, compositionFile))) {
+        errors.push('Missing required composition file: ' + join('src', compositionName, compositionFile));
       }
     }
   }
@@ -117,6 +124,14 @@ export function verifyCreatedApp(appRoot) {
     ok: errors.length === 0,
     errors,
   };
+}
+
+function isRegularFile(path) {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
 }
 
 function isMainModule() {

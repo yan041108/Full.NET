@@ -28,6 +28,8 @@ node artifacts/templates/fullnet-app-package/.fullnet-tools/create-app.mjs --out
 
 The creator uses an isolated `dotnet new` template hive and projects the selected modules into the generated Composition source and project references. Its manifest validates the managed framework bundle; it is not a signature for the outer template files. Direct `dotnet new fullnet-app` installation remains possible, but does not perform these checks or the Composition projection.
 
+Before publishing the created directory, the structure verifier requires the sole API host's matching application Composition project and `ApplicationModuleCatalog.cs`. Required application, host, and Composition paths must be files; directories cannot satisfy these checks. This verifies layout only; compilation and runtime acceptance remain separate gates.
+
 ## Layout
 
 - `framework/fullnet/` — managed framework source bundle and `framework-manifest.json`
