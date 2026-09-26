@@ -18,6 +18,8 @@ export {
 } from '@fullnet/client-contracts';
 
 export type GeneratedRequest = HttpClient;
+/** 创建时选择机构上下文；服务端仍校验当前用户的机构权限。 */
+export type CreateEnterpriseRequestInput = CreateEnterpriseRequestRequest & { organizationUnitId: string };
 export { http as enterpriseRequestsHttp } from './http';
 
 export const enterpriseRequestPermissions = {
@@ -34,8 +36,14 @@ export function createEnterpriseRequestsApi(
   return {
     list: (page = 1, pageSize = 20) =>
       enterpriseRequestListEnterpriseRequests(http, { page, pageSize }),
-    create: (input: CreateEnterpriseRequestRequest) =>
-      enterpriseRequestCreateEnterpriseRequest(http, { body: input }),
+    create: (input: CreateEnterpriseRequestInput) =>
+      enterpriseRequestCreateEnterpriseRequest(http, { body: {
+        requestNumber: input.requestNumber,
+        title: input.title,
+        status: input.status,
+        totalAmount: input.totalAmount,
+        applicantUserId: input.applicantUserId
+      } }, undefined, { headers: { 'X-FullNet-Organization-Unit-Id': input.organizationUnitId } }),
     update: (id: string, input: UpdateEnterpriseRequestRequest) =>
       enterpriseRequestUpdateEnterpriseRequest(
         http,

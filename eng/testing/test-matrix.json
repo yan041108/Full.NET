@@ -561,7 +561,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 472,
+        "minimum": 478,
         "timeout": "90m"
       },
       "infrastructure": {
@@ -582,7 +582,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1051,
+        "minimum": 1057,
         "timeout": "90m"
       }
     }

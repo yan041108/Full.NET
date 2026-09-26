@@ -108,6 +108,7 @@ function renderModel(name, schema) {
 
 function renderGuards(schemas, operations) {
   const schemaNames = Object.keys(schemas).sort(compareText);
+  const normalizedSchemas = new Set(schemaNames.filter(name => hasIntegerJsonEncoding(schemas[name], schemas)));
   const imports = schemaNames.length > 0
     ? `import type {\n${schemaNames.map(name => `  ${name}`).join(',\n')}\n} from './models.generated.js';\n\n`
     : '';
@@ -117,7 +118,8 @@ function renderGuards(schemas, operations) {
       name,
       schemas[name],
       toErrorKey(name),
-      `is${name}`
+      `is${name}`,
+      normalizedSchemas.has(name) ? `normalize${name}IntegerJson(value)` : null
     ),
     renderPredicate(`is${name}`, name, schemas[name])
   ]);
@@ -128,13 +130,35 @@ function renderGuards(schemas, operations) {
       responseReaderName(operation),
       schemaType(operation.response.schema),
       operation.response.schema,
-      toErrorKey(`${operation.operationId}Response`)
+      toErrorKey(`${operation.operationId}Response`),
+      null,
+      integerNormalizationExpression(operation.response.schema, 'value', normalizedSchemas)
     ));
   return generatedHeader('OpenAPI 运行时响应守卫')
     + imports
-    + [...schemaGuards, ...inlineReaders].join('\n\n')
+    + [...schemaGuards, ...inlineReaders, ...schemaNames.filter(name => normalizedSchemas.has(name)).map(name =>
+      `function normalize${name}IntegerJson(value: unknown): unknown {\n`
+      + `  return ${integerNormalizationExpression(schemas[name], 'value', normalizedSchemas)};\n}`)].join('\n\n')
     + '\n\n'
     + "const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\n"
+    + "// 服务端 Int64 可按 JSON 字符串输出；客户端仅在无精度损失时归一为既有 number 契约。\n"
+    + "function normalizeWireInteger(value: unknown): unknown {\n"
+    + "  if (typeof value !== 'string' || !/^-?(?:0|[1-9]\\d*)$/.test(value)) return value;\n"
+    + "  const number = Number(value);\n"
+    + "  return Number.isSafeInteger(number) ? number : value;\n"
+    + "}\n\n"
+    + "function normalizeIntegerIntersection(value: unknown, normalizers: ReadonlyArray<(value: unknown) => unknown>): unknown {\n"
+    + "  for (const normalize of normalizers) value = normalize(value);\n"
+    + "  return value;\n"
+    + "}\n\n"
+    + "function normalizeIntegerUnion(value: unknown, branches: ReadonlyArray<{ matches: (value: unknown) => boolean; normalize: (value: unknown) => unknown }>): unknown {\n"
+    + "  if (branches.some(branch => branch.matches(value))) return value;\n"
+    + "  for (const branch of branches) {\n"
+    + "    const candidate = branch.normalize(value);\n"
+    + "    if (branch.matches(candidate)) return candidate;\n"
+    + "  }\n"
+    + "  return value;\n"
+    + "}\n\n"
     + "function isRecord(value: unknown): value is Record<string, unknown> {\n"
     + "  return typeof value === 'object' && value !== null && !Array.isArray(value);\n"
     + '}\n\n'
@@ -152,17 +176,20 @@ function renderGuards(schemas, operations) {
     + '}\n';
 }
 
-function renderReader(functionName, returnType, schema, errorKey, predicateName = null) {
+function renderReader(functionName, returnType, schema, errorKey, predicateName = null, normalization = null) {
+  const normalizes = normalization !== null && normalization !== 'value';
+  const valueName = normalizes ? 'normalizedValue' : 'value';
   const condition = predicateName
-    ? `${predicateName}(value)`
-    : guardExpression(schema, 'value');
+    ? `${predicateName}(${valueName})`
+    : guardExpression(schema, valueName);
   return `export function ${functionName}(value: unknown): ${returnType} {\n`
+    + (normalizes ? `  const normalizedValue = ${normalization};\n` : '')
     + `  if (!(${condition})) {\n`
     + `    throw new Error('${errorKey}');\n`
     + '  }\n'
     + (predicateName
-      ? '  return value;\n'
-      : `  return value as ${returnType};\n`)
+      ? `  return ${valueName};\n`
+      : `  return ${valueName} as ${returnType};\n`)
     + '}';
 }
 
@@ -562,7 +589,7 @@ function guardExpression(schema, valueExpression) {
     return `typeof ${valueExpression} === 'string'`;
   }
   if (type === 'integer') {
-    return `typeof ${valueExpression} === 'number' && Number.isInteger(${valueExpression})`;
+    return `typeof ${valueExpression} === 'number' && Number.isSafeInteger(${valueExpression})`;
   }
   if (type === 'number') {
     return `typeof ${valueExpression} === 'number' && Number.isFinite(${valueExpression})`;
@@ -605,6 +632,55 @@ function effectiveTypes(schema) {
     return source.filter(type => type !== 'string');
   }
   return source;
+}
+
+// 只处理 Schema 明确声明的整数字符串，不转换金额、普通字符串或原始响应对象。
+function isIntegerJsonEncoding(schema) {
+  return Array.isArray(schema?.type) && schema.type.includes('integer') && schema.type.includes('string')
+    && typeof schema.pattern === 'string' && schema.pattern.includes('\\d');
+}
+
+function hasIntegerJsonEncoding(schema, schemas, ancestors = new Set()) {
+  if (isIntegerJsonEncoding(schema)) return true;
+  if (isReference(schema)) {
+    const name = referenceName(schema);
+    return !ancestors.has(name) && hasIntegerJsonEncoding(schemas[name], schemas, new Set([...ancestors, name]));
+  }
+  return [...Object.values(schema?.properties ?? {}), schema?.items,
+    ...(schema?.allOf ?? []), ...(schema?.oneOf ?? []), ...(schema?.anyOf ?? [])]
+    .some(child => child && hasIntegerJsonEncoding(child, schemas, ancestors));
+}
+
+function integerNormalizationExpression(schema, value, normalizedSchemas) {
+  if (isIntegerJsonEncoding(schema)) return `normalizeWireInteger(${value})`;
+  if (isReference(schema)) {
+    const name = referenceName(schema);
+    return normalizedSchemas.has(name) ? `normalize${name}IntegerJson(${value})` : value;
+  }
+  if (Array.isArray(schema.allOf)) {
+    const normalizers = schema.allOf.map(child => `(value: unknown) => ${integerNormalizationExpression(child, 'value', normalizedSchemas)}`);
+    return `normalizeIntegerIntersection(${value}, [${normalizers.join(', ')}])`;
+  }
+  const union = schema.oneOf ?? schema.anyOf;
+  if (Array.isArray(union)) {
+    const branches = union.map(child => `{ matches: (value: unknown) => ${guardExpression(child, 'value')}, `
+      + `normalize: (value: unknown) => ${integerNormalizationExpression(child, 'value', normalizedSchemas)} }`);
+    return `normalizeIntegerUnion(${value}, [${branches.join(', ')}])`;
+  }
+  if (schema.items) {
+    const item = `item${value.length}`;
+    const normalized = integerNormalizationExpression(schema.items, item, normalizedSchemas);
+    return normalized === item ? value : `(Array.isArray(${value}) ? ${value}.map((${item}: unknown) => ${normalized}) : ${value})`;
+  }
+  const properties = Object.entries(schema.properties ?? {}).sort(([left], [right]) => compareText(left, right))
+    .map(([key, child]) => {
+      const access = `${value}[${JSON.stringify(key)}]`;
+      const normalized = integerNormalizationExpression(child, access, normalizedSchemas);
+      // 可选字段缺失时继续缺失；计算属性名也避免 __proto__ 被解释为对象原型设置。
+      return normalized === access ? null
+        : `...(Object.hasOwn(${value}, ${JSON.stringify(key)}) ? { [${JSON.stringify(key)}]: ${normalized} } : {})`;
+    }).filter(Boolean);
+  return properties.length === 0 ? value : `(isRecord(${value}) ? { ...${value}, ${properties.join(', ')} } : ${value})`;
 }
 
 function isUnconstrainedJsonSchema(schema) {
