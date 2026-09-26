@@ -9,6 +9,16 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class IntegrationCommitBoundaryTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Host_failure_never_returns_empty_diagnostics(bool whitespace)
+    {
+        var failure = ModuleIntegrationHostApplyResult.Failure(whitespace ? [" "] : Array.Empty<string>());
+        Assert.IsFalse(failure.Succeeded);
+        StringAssert.Contains(string.Join("\n", failure.Diagnostics), "接入失败");
+    }
+
+    [TestMethod]
     [DataRow(false, "file")]
     [DataRow(false, "dangling")]
     [DataRow(false, "alias")]

@@ -11,6 +11,82 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class CodeGenerationCliTests
 {
     [TestMethod]
+    [DataRow("missing")]
+    [DataRow("null")]
+    [DataRow("")]
+    [DataRow(" ")]
+    public async Task Host_cli_requires_explicit_authorization_target(string value)
+    {
+        using var fixture = CliFixture.Create();
+        var target = JsonNode.Parse(ValidIntegrationTargetJson)!.AsObject();
+        if (value != "missing") target["authorizationContributorPath"] = value == "null" ? null : value;
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        File.WriteAllText(targetPath, target.ToJsonString());
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var code = await CodeGenerationCli.RunAsync(ModuleIntegrationArguments(fixture.SchemaPath,
+            fixture.WorkspacePath, targetPath, "apply-host-integration"), output, error);
+        Assert.AreEqual(64, code);
+        StringAssert.Contains(error.ToString(), "authorizationContributorPath");
+        Assert.AreEqual(string.Empty, output.ToString());
+    }
+
+    [TestMethod]
+    [DataRow("missing")]
+    [DataRow("composition-pending")]
+    [DataRow("authorization-pending")]
+    public async Task Host_cli_uses_shared_preflight_before_backend_reads(string kind)
+    {
+        using var fixture = CliFixture.Create();
+        var target = JsonNode.Parse(ValidIntegrationTargetJson)!.AsObject();
+        target["authorizationContributorPath"] = "authorization/CatalogAuthorizationContributor.cs";
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        File.WriteAllText(targetPath, target.ToJsonString());
+        if (kind != "missing")
+            fixture.WriteWorkspaceFile("authorization/CatalogAuthorizationContributor.cs", "human contributor\n");
+        if (kind == "composition-pending")
+            fixture.WriteWorkspaceFile(".fullnet/codegeneration-composition-recovery.pending", "pending review");
+        if (kind == "authorization-pending")
+            fixture.WriteWorkspaceFile("authorization/.fullnet-authorization-orphan.tmp", "pending review");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var code = await CodeGenerationCli.RunAsync(ModuleIntegrationArguments(fixture.SchemaPath,
+            fixture.WorkspacePath, targetPath, "apply-host-integration"), output, error);
+        Assert.AreEqual(2, code);
+        StringAssert.Contains(error.ToString(), kind == "missing" ? "AuthorizationContributor 文件不存在" : "待审查");
+        Assert.AreEqual(string.Empty, output.ToString());
+    }
+
+    [TestMethod]
+    [DataRow("plan-module-integration", false)]
+    [DataRow("validate-module-integration", false)]
+    [DataRow("apply-module-integration", false)]
+    [DataRow("apply-module-entry-integration", false)]
+    [DataRow("apply-composition-integration", false)]
+    [DataRow("apply-client-route-integration", false)]
+    [DataRow("plan-module-integration", true)]
+    [DataRow("validate-module-integration", true)]
+    [DataRow("apply-module-integration", true)]
+    [DataRow("apply-module-entry-integration", true)]
+    [DataRow("apply-composition-integration", true)]
+    [DataRow("apply-client-route-integration", true)]
+    public async Task Stage_cli_does_not_silently_ignore_authorization_target(string command, bool explicitNull)
+    {
+        using var fixture = CliFixture.Create();
+        var target = JsonNode.Parse(ValidIntegrationTargetJson)!.AsObject();
+        target["authorizationContributorPath"] = explicitNull ? null : "authorization/CatalogAuthorizationContributor.cs";
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        File.WriteAllText(targetPath, target.ToJsonString());
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var code = await CodeGenerationCli.RunAsync(ModuleIntegrationArguments(fixture.SchemaPath,
+            fixture.WorkspacePath, targetPath, command), output, error);
+        Assert.AreEqual(64, code);
+        Assert.AreEqual(string.Empty, output.ToString());
+        Assert.AreEqual(0, Directory.GetFiles(fixture.WorkspacePath, "*", SearchOption.AllDirectories).Length);
+    }
+
+    [TestMethod]
     public async Task Diagnose_minimal_workspace_emits_machine_readable_lines()
     {
         using var fixture = CliFixture.Create();

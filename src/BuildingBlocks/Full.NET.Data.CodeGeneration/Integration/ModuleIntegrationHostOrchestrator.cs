@@ -4,7 +4,7 @@ using Full.NET.Data.CodeGeneration.Schema;
 namespace Full.NET.Data.CodeGeneration.Integration;
 
 /// <summary>
-/// Host Apply 在检查点之后编排既有模块/Composition/Vue 接入命令，编译失败则零写入。
+/// Host Apply 在检查点之后编排既有接入命令；阶段失败时保留先前已提交的阶段。
 /// </summary>
 public static class ModuleIntegrationHostOrchestrator
 {
@@ -69,7 +69,9 @@ public static class ModuleIntegrationHostOrchestrator
         if (!entry.Applied)
         {
             return ModuleIntegrationHostApplyResult.Failure(
-                entry.Diagnostics);
+                entry.Diagnostics.Count > 0
+                    ? entry.Diagnostics
+                    : entry.Compilation?.Diagnostics ?? []);
         }
 
         var composition = await CompositionIntegrationApplyCommand
@@ -78,7 +80,9 @@ public static class ModuleIntegrationHostOrchestrator
         if (!composition.Applied)
         {
             return ModuleIntegrationHostApplyResult.Failure(
-                composition.Diagnostics);
+                composition.Diagnostics.Count > 0
+                    ? composition.Diagnostics
+                    : composition.Compilation?.Diagnostics ?? []);
         }
 
         if (target.ClientRoute is not null)
@@ -357,8 +361,11 @@ public sealed class ModuleIntegrationHostApplyResult
 
     /// <summary>构造一个接入链失败结果，必须至少包含一条诊断。</summary>
     public static ModuleIntegrationHostApplyResult Failure(
-        IEnumerable<string> diagnostics) =>
-        new(false, diagnostics.ToArray());
+        IEnumerable<string> diagnostics)
+    {
+        var messages = diagnostics.Where(message => !string.IsNullOrWhiteSpace(message)).ToArray();
+        return new(false, messages.Length > 0 ? messages : ["Host 接入失败，未提供有效诊断。"]);
+    }
 
     /// <summary>构造一个接入链失败结果，包含单条诊断。</summary>
     public static ModuleIntegrationHostApplyResult Failure(string diagnostic) =>

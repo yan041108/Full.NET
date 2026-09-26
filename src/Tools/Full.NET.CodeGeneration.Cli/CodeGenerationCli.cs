@@ -62,6 +62,10 @@ internal static class CodeGenerationCli
             --schema <json-file>
             --repository <existing-directory>
             --target <json-file>
+          fullnet-codegen apply-host-integration
+            --schema <json-file>
+            --repository <existing-directory>
+            --target <json-file-with-authorizationContributorPath>
           fullnet-codegen diagnose --workspace <existing-directory> [--profile <development|production>]
         """;
 
@@ -128,7 +132,17 @@ internal static class CodeGenerationCli
                     cancellationToken);
                 var target = await ModuleIntegrationTargetDocument.LoadAsync(
                     options.ModuleIntegration.TargetPath,
-                    cancellationToken);
+                    cancellationToken,
+                    allowHostAuthorization: options.ModuleIntegration.Mode == ModuleIntegrationCliMode.ApplyHost);
+                if (options.ModuleIntegration.Mode == ModuleIntegrationCliMode.ApplyHost)
+                {
+                    var result = await ModuleIntegrationHostOrchestrator.ApplyAsync(
+                        options.ModuleIntegration.RepositoryPath, integrationSchema, target, cancellationToken);
+                    foreach (var diagnostic in result.Diagnostics) await error.WriteLineAsync(diagnostic);
+                    if (!result.Succeeded) return ConflictExitCode;
+                    await output.WriteLineAsync($"Applied HostIntegration {target.ModuleProjectPath}");
+                    return SuccessExitCode;
+                }
                 if (options.ModuleIntegration.Mode
                     == ModuleIntegrationCliMode.ApplyClientRoutes)
                 {
@@ -522,6 +536,11 @@ internal static class CodeGenerationCli
             return ParseModuleIntegration(
                 args,
                 ModuleIntegrationCliMode.ValidateCompilation);
+        }
+
+        if (args.Count > 0 && string.Equals(args[0], "apply-host-integration", StringComparison.Ordinal))
+        {
+            return ParseModuleIntegration(args, ModuleIntegrationCliMode.ApplyHost);
         }
 
         if (args.Count > 0

@@ -95,7 +95,7 @@ internal sealed record ModuleIntegrationCliOptions(
     ModuleIntegrationCliMode Mode);
 
 /// <summary>
-/// 区分只读规划、临时编译验证、显式后端写盘与手写入口接线。
+/// 区分只读规划、编译验证、逐阶段接入与完整 Host 编排。
 /// </summary>
 internal enum ModuleIntegrationCliMode
 {
@@ -105,4 +105,5 @@ internal enum ModuleIntegrationCliMode
     ApplyModuleEntry = 4,
     ApplyComposition = 5,
     ApplyClientRoutes = 6,
+    ApplyHost = 7,
 }
