@@ -39,7 +39,9 @@ foreach (var profile in new[] { FullNetHostProfile.Api, FullNetHostProfile.Worke
     Reject([new RejectedModule("Duplicate", []), new RejectedModule("Duplicate", [])], profile);
     Reject([new RejectedModule("Missing", ["Workflow"])], profile);
     Reject([new RejectedModule("First", ["Second"]), new RejectedModule("Second", ["First"])], profile);
-    invalidGraphs += 3;
+    Reject([new RejectedModule("UnknownOptional", [], ["Ghost"])], profile);
+    Reject([new RejectedModule("RequiredOptional", ["Identity"], ["Identity"])], profile);
+    invalidGraphs += 5;
 }
 
 Console.WriteLine($"FULLNET_APPLICATION_COMPOSITION {{\"roles\":{roles},\"reservedNames\":{reservedNames},\"invalidGraphs\":{invalidGraphs}}}");
@@ -69,10 +71,12 @@ static void Require(bool condition, string message)
 }
 
 // 验收故障模块显式暴露是否被调用，防止把注册入口内的异常误当成依赖校验拒绝。
-internal sealed class RejectedModule(string name, IReadOnlyCollection<string> dependencies) : IFullNetModule
+internal sealed class RejectedModule(string name, IReadOnlyCollection<string> dependencies,
+    IReadOnlyCollection<string>? optionalDependencies = null) : IFullNetModule
 {
     public string Name => name;
     public IReadOnlyCollection<string> Dependencies => dependencies;
+    public IReadOnlyCollection<string> OptionalContractDependencies => optionalDependencies ?? [];
     public bool Called { get; private set; }
     public void AddServices(IServiceCollection services, IConfiguration configuration) => Called = true;
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration) => Called = true;

@@ -201,7 +201,22 @@ public static class FullNetModuleCatalog
             }
             registry.Add(module);
         }
-        return registry.GetOrderedModules();
+        var ordered = registry.GetOrderedModules();
+        var applicationNames = applications.Select(module => module.Name).ToHashSet(StringComparer.Ordinal);
+        // 可选契约不参与必需闭包；未安装官方实现仍是已知来源，应用来源须在静态清单中声明。
+        foreach (var module in applications)
+        {
+            foreach (var optionalDependency in module.OptionalContractDependencies)
+            {
+                if ((!FullNetModuleSelection.IsOfficialModuleName(optionalDependency)
+                        && !applicationNames.Contains(optionalDependency))
+                    || module.Dependencies.Contains(optionalDependency, StringComparer.Ordinal))
+                {
+                    throw new InvalidOperationException($"模块“{module.Name}”包含无效或重复的可选契约依赖“{optionalDependency}”。");
+                }
+            }
+        }
+        return ordered;
     }
 
     /// <summary>

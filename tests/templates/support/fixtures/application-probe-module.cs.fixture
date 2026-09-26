@@ -12,6 +12,8 @@ public sealed class ProbeModule : IFullNetModule
 {
     public string Name => "SampleCatalog";
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
+    // Minimal 未安装 Workflow，但已知官方契约来源允许缺席。
+    public IReadOnlyCollection<string> OptionalContractDependencies => ["Workflow"];
     public void AddServices(IServiceCollection services, IConfiguration configuration) =>
         services.AddSingleton("CompositionProbe:Api");
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration) =>

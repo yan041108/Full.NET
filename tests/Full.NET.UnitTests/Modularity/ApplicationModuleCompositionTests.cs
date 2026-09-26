@@ -67,10 +67,55 @@ public sealed class ApplicationModuleCompositionTests
     private static IConfiguration Configuration() => new ConfigurationBuilder()
         .AddInMemoryCollection(new Dictionary<string, string?> { ["FullNet:Modules:Preset"] = "minimal" }).Build();
 
-    private sealed class ProbeModule(string name, IReadOnlyCollection<string> dependencies, List<string> calls) : IFullNetModule
+    [TestMethod]
+    [DataRow(FullNetHostProfile.Api, "unknown")]
+    [DataRow(FullNetHostProfile.Worker, "unknown")]
+    [DataRow(FullNetHostProfile.Migrator, "unknown")]
+    [DataRow(FullNetHostProfile.Api, "required")]
+    [DataRow(FullNetHostProfile.Worker, "required")]
+    [DataRow(FullNetHostProfile.Migrator, "required")]
+    public void Invalid_application_optional_contract_is_rejected_before_registration(FullNetHostProfile profile, string kind)
+    {
+        var calls = new List<string>();
+        var module = new ProbeModule("Catalog", ["Identity"], calls,
+            kind == "unknown" ? ["Ghost"] : ["Identity"]);
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var original = services.ToArray();
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            services.AddFullNetApplicationModules(Configuration(), profile, [module]));
+        Assert.AreEqual(0, calls.Count);
+        CollectionAssert.AreEqual(original, services.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow(FullNetHostProfile.Api)]
+    [DataRow(FullNetHostProfile.Worker)]
+    [DataRow(FullNetHostProfile.Migrator)]
+    public void Known_optional_contracts_do_not_require_installation_or_create_required_cycles(FullNetHostProfile profile)
+    {
+        var calls = new List<string>();
+        var first = new ProbeModule("Catalog", ["Identity"], calls, ["Workflow", "Orders"]);
+        var second = new ProbeModule("Orders", ["Identity"], calls, ["Catalog"]);
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddFullNetApplicationModules(Configuration(), profile, [second, first]);
+        CollectionAssert.AreEqual(new[] { $"Catalog:{profile}", $"Orders:{profile}" }, calls);
+        if (profile == FullNetHostProfile.Api)
+        {
+            using var provider = services.BuildServiceProvider();
+            var catalog = provider.GetRequiredService<IFullNetModuleCatalog>();
+            Assert.IsNull(catalog.FindByKey("Workflow"));
+            CollectionAssert.AreEqual(new[] { "Identity" }, catalog.FindByKey("Catalog")!.Dependencies.ToArray());
+        }
+    }
+
+    private sealed class ProbeModule(string name, IReadOnlyCollection<string> dependencies, List<string> calls,
+        IReadOnlyCollection<string>? optionalDependencies = null) : IFullNetModule
     {
         public string Name => name;
         public IReadOnlyCollection<string> Dependencies => dependencies;
+        public IReadOnlyCollection<string> OptionalContractDependencies => optionalDependencies ?? [];
         public void AddServices(IServiceCollection services, IConfiguration configuration) => calls.Add($"{Name}:Api");
         public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration) => calls.Add($"{Name}:Worker");
         public void AddMigrationServices(IServiceCollection services, IConfiguration configuration) => calls.Add($"{Name}:Migrator");

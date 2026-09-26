@@ -56,6 +56,6 @@ export function verifyApplicationComposition(appRoot, {
   const resultLines = stdout.split(/\r?\n/u).filter((line) => line.startsWith('FULLNET_APPLICATION_COMPOSITION '));
   assert.equal(resultLines.length, 1, 'incomplete runtime result: expected one report');
   const result = JSON.parse(resultLines[0].slice('FULLNET_APPLICATION_COMPOSITION '.length));
-  assert.deepEqual(result, { roles: 3, reservedNames: 6, invalidGraphs: 9 }, 'incomplete runtime result');
+  assert.deepEqual(result, { roles: 3, reservedNames: 6, invalidGraphs: 15 }, 'incomplete runtime result');
   return result;
 }
