@@ -4,10 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // 仅在已创建的隔离 Demo 应用内接入验收模块；不修改受管框架或正式模板。
-export function verifyApplicationComposition(appRoot, {
-  run = spawnSync,
-  reportDirectory = join(process.cwd(), '.tmp/template-real-stack/application-composition'),
-} = {}) {
+export function prepareApplicationCompositionProbe(appRoot) {
   const compositionRoot = join(appRoot, 'src/Demo.Composition');
   const projectPath = join(compositionRoot, 'Demo.Composition.csproj');
   const catalogPath = join(compositionRoot, 'ApplicationModuleCatalog.cs');
@@ -20,7 +17,6 @@ export function verifyApplicationComposition(appRoot, {
   const probeRoot = join(appRoot, 'verification/CompositionProbe');
   mkdirSync(moduleRoot, { recursive: true });
   mkdirSync(probeRoot, { recursive: true });
-  mkdirSync(reportDirectory, { recursive: true });
   writeFileSync(join(moduleRoot, 'Demo.Modules.Probe.csproj'), `<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
@@ -37,7 +33,15 @@ export function verifyApplicationComposition(appRoot, {
   writeFileSync(join(probeRoot, 'Program.cs'), readFileSync(new URL('./fixtures/application-composition-program.cs.fixture', import.meta.url)));
   writeFileSync(projectPath, project.replace('</Project>', '  <ItemGroup><ProjectReference Include="../Demo.Modules.Probe/Demo.Modules.Probe.csproj" /></ItemGroup>\n</Project>'));
   writeFileSync(catalogPath, catalog.replace(emptyCatalog, 'private static IReadOnlyList<IFullNetModule> CreateModules() =>\n    [\n        new Demo.Modules.Probe.ProbeModule(),\n    ];'));
+  return probeRoot;
+}
 
+export function verifyApplicationComposition(appRoot, {
+  run = spawnSync,
+  reportDirectory = join(process.cwd(), '.tmp/template-real-stack/application-composition'),
+} = {}) {
+  const probeRoot = prepareApplicationCompositionProbe(appRoot);
+  mkdirSync(reportDirectory, { recursive: true });
   const execute = (stage, args, timeout) => {
     const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout });
     writeFileSync(join(reportDirectory, `${stage}.json`), JSON.stringify({

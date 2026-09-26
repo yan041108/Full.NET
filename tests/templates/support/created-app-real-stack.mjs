@@ -7,6 +7,8 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildAppTemplate } from '../../../scripts/templates/build-app-template.mjs';
 import { createApp } from '../../../scripts/templates/create-app.mjs';
+import { prepareApplicationCompositionProbe } from './application-composition-probe.mjs';
+import { verifyApplicationModuleEndpoint } from './application-module-http.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 const requireFromRealStack = createRequire(join(repoRoot, 'tests/e2e/admin-real-stack/package.json'));
@@ -226,6 +228,7 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
       assert.deepEqual(readFileSync(join(appRoot, path)), before, `diagnose changed ${path}`);
     }
 
+    prepareApplicationCompositionProbe(appRoot);
     const database = await startDatabaseContainer(databaseProviderKey);
     dbContainer = database.container;
     const redis = await startRedisContainer();
@@ -253,6 +256,7 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     apiProcess.stdout?.pipe(apiLogStream, { end: false });
     apiProcess.stderr?.pipe(apiLogStream, { end: false });
     await waitForApi(apiUrl, 180_000, apiLogPath);
+    await verifyApplicationModuleEndpoint(apiUrl, { logPath: join(logRoot, 'application-module-http.json') });
     await loginAndReadSettings(apiUrl);
   } finally {
     if (apiProcess && !apiProcess.killed) {
