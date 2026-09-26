@@ -44,6 +44,7 @@ public static class ModuleIntegrationHostOrchestrator
                 Path.Combine(root, target.CompositionCatalogPath));
             if (target.AuthorizationContributorPath is not null)
             {
+                RejectAuthorizationPending(root, target.AuthorizationContributorPath);
                 ResolveAuthorizationContributor(root, target.AuthorizationContributorPath);
             }
         }
@@ -150,6 +151,7 @@ public static class ModuleIntegrationHostOrchestrator
         CancellationToken cancellationToken, Func<Task>? afterStaging = null)
     {
         var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
+        RejectAuthorizationPending(root, relativePath);
         const string lockRelative = ".fullnet/codegeneration-authorization.lock";
         GenerationWorkspacePath.ResolveFile(root, lockRelative);
         GenerationWorkspacePath.EnsureParentDirectory(root, lockRelative);
@@ -166,6 +168,7 @@ public static class ModuleIntegrationHostOrchestrator
         }
 
         await using var heldLock = workspaceLock;
+        RejectAuthorizationPending(root, relativePath);
         var path = await ValidateAuthorizationOriginalAsync(root, relativePath, original, cancellationToken);
         var temporaryRelative = Path.GetRelativePath(root, Path.Combine(Path.GetDirectoryName(path)!,
             $".fullnet-authorization-{Guid.NewGuid():N}.tmp")).Replace(Path.DirectorySeparatorChar, '/');
@@ -232,6 +235,22 @@ public static class ModuleIntegrationHostOrchestrator
                         commitFailure is null ? cleanupFailure : new AggregateException(commitFailure, cleanupFailure));
                 }
             }
+        }
+    }
+
+    private static void RejectAuthorizationPending(string root, string relativePath)
+    {
+        var target = GenerationWorkspacePath.ResolveFile(root, relativePath);
+        var parent = Path.GetDirectoryName(target)!;
+        if (!Directory.Exists(parent)) return;
+        // 未完成暂存、漂移和清理失败都可能留下材料；只枚举目录项，不读取或跟随残留链接。
+        var pending = Directory.EnumerateFileSystemEntries(parent).FirstOrDefault(path =>
+            Path.GetFileName(path).StartsWith(".fullnet-authorization-", StringComparison.OrdinalIgnoreCase)
+            && Path.GetFileName(path).EndsWith(".tmp", StringComparison.OrdinalIgnoreCase));
+        if (pending is not null)
+        {
+            throw new GenerationWorkspaceConflictException("授权贡献者存在待审查的暂存材料，拒绝重新接入。",
+                Path.GetRelativePath(root, pending).Replace(Path.DirectorySeparatorChar, '/'));
         }
     }
 

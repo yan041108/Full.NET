@@ -9,6 +9,70 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class IntegrationCommitBoundaryTests
 {
     [TestMethod]
+    [DataRow(false, "file")]
+    [DataRow(false, "dangling")]
+    [DataRow(false, "alias")]
+    [DataRow(false, "directory")]
+    [DataRow(false, "invalid-utf8")]
+    [DataRow(false, "plain")]
+    [DataRow(true, "file")]
+    [DataRow(true, "dangling")]
+    [DataRow(true, "alias")]
+    [DataRow(true, "directory")]
+    [DataRow(true, "invalid-utf8")]
+    [DataRow(true, "plain")]
+    public async Task Authorization_pending_material_blocks_host_and_direct_commit(bool host, string kind)
+    {
+        using var fixture = new CommitFixture();
+        var parent = Path.GetDirectoryName(fixture.Entry)!;
+        var pending = Path.Combine(parent, ".fullnet-authorization-orphan.tmp");
+        File.WriteAllText(pending, "pending review");
+        if (kind == "invalid-utf8") File.WriteAllBytes(pending, [0xff, 0xfe, 0xff]);
+        else if (kind != "plain") fixture.Replace(pending, kind);
+        var outside = fixture.CaptureOutside();
+        var entries = Directory.GetFileSystemEntries(parent);
+        if (host)
+        {
+            var target = ModuleIntegrationTarget.Create("Catalog",
+                "src/Modules/Acme.Modules.Catalog/Acme.Modules.Catalog.csproj",
+                "src/Modules/Acme.Modules.Catalog/OtherModule.cs",
+                "src/Composition/Acme.Composition/Acme.Composition.csproj",
+                "src/Composition/Acme.Composition/ModuleCatalog.cs", "ui/admin/routes.ts", null,
+                authorizationContributorPath: "src/Modules/Acme.Modules.Catalog/CatalogModule.cs");
+            var result = await ModuleIntegrationHostOrchestrator.ApplyAsync(fixture.Repository,
+                FullNetCrudSchemaTests.CreateProductSchema(), target, CancellationToken.None);
+            Assert.IsFalse(result.Succeeded);
+            StringAssert.Contains(string.Join("\n", result.Diagnostics), "待审查");
+        }
+        else
+        {
+            var conflict = await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitAuthorization());
+            StringAssert.Contains(conflict.Message, "待审查");
+        }
+        CollectionAssert.AreEquivalent(outside, fixture.CaptureOutside());
+        CollectionAssert.AreEquivalent(entries, Directory.GetFileSystemEntries(parent));
+        Assert.AreEqual(CommitFixture.EntryContent, File.ReadAllText(fixture.Entry));
+    }
+
+    [TestMethod]
+    public async Task Authorization_drifted_material_blocks_actual_retry()
+    {
+        using var fixture = new CommitFixture();
+        string? staged = null;
+        await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitAuthorization(() =>
+        {
+            staged = fixture.TemporaryFiles().Single();
+            File.WriteAllText(staged, "human staging change\n");
+            return Task.CompletedTask;
+        }));
+        var conflict = await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitAuthorization());
+        StringAssert.Contains(conflict.Message, "待审查");
+        Assert.AreEqual(CommitFixture.EntryContent, File.ReadAllText(fixture.Entry));
+        Assert.IsNotNull(staged);
+        Assert.AreEqual("human staging change\n", File.ReadAllText(staged));
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public async Task Authorization_commit_preserves_concurrent_human_content(bool afterStaging)
