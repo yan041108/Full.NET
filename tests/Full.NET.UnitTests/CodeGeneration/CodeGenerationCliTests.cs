@@ -638,13 +638,37 @@ public sealed class CodeGenerationCliTests
     }
 
     [TestMethod]
-    [DataRow("root")]
-    [DataRow("parent")]
-    [DataRow("file")]
-    [DataRow("dangling")]
-    [DataRow("alias")]
-    [DataRow("directory")]
-    public async Task Plan_module_integration_rejects_unsafe_filesystem_targets_without_writes(string kind)
+    [DataRow("root", "plan-module-integration")]
+    [DataRow("parent", "plan-module-integration")]
+    [DataRow("file", "plan-module-integration")]
+    [DataRow("dangling", "plan-module-integration")]
+    [DataRow("alias", "plan-module-integration")]
+    [DataRow("directory", "plan-module-integration")]
+    [DataRow("root", "apply-module-integration")]
+    [DataRow("parent", "apply-module-integration")]
+    [DataRow("file", "apply-module-integration")]
+    [DataRow("dangling", "apply-module-integration")]
+    [DataRow("alias", "apply-module-integration")]
+    [DataRow("directory", "apply-module-integration")]
+    [DataRow("root", "apply-module-entry-integration")]
+    [DataRow("parent", "apply-module-entry-integration")]
+    [DataRow("file", "apply-module-entry-integration")]
+    [DataRow("dangling", "apply-module-entry-integration")]
+    [DataRow("alias", "apply-module-entry-integration")]
+    [DataRow("directory", "apply-module-entry-integration")]
+    [DataRow("root", "apply-composition-integration")]
+    [DataRow("parent", "apply-composition-integration")]
+    [DataRow("file", "apply-composition-integration")]
+    [DataRow("dangling", "apply-composition-integration")]
+    [DataRow("alias", "apply-composition-integration")]
+    [DataRow("directory", "apply-composition-integration")]
+    [DataRow("root", "validate-module-integration")]
+    [DataRow("parent", "validate-module-integration")]
+    [DataRow("file", "validate-module-integration")]
+    [DataRow("dangling", "validate-module-integration")]
+    [DataRow("alias", "validate-module-integration")]
+    [DataRow("directory", "validate-module-integration")]
+    public async Task Plan_module_integration_rejects_unsafe_filesystem_targets_without_writes(string kind, string command)
     {
         using var fixture = CliFixture.Create();
         const string project = "src/Modules/Acme.Modules.Catalog/Acme.Modules.Catalog.csproj";
@@ -691,7 +715,7 @@ public sealed class CodeGenerationCliTests
             using var output = new StringWriter();
             using var error = new StringWriter();
             var code = await CodeGenerationCli.RunAsync(
-                ModuleIntegrationArguments(fixture.SchemaPath, repository, targetPath), output, error);
+                ModuleIntegrationArguments(fixture.SchemaPath, repository, targetPath, command), output, error);
             Assert.AreEqual(2, code, error.ToString());
             Assert.AreEqual(string.Empty, output.ToString());
             StringAssert.Contains(error.ToString(), "工作区冲突");
@@ -703,6 +727,56 @@ public sealed class CodeGenerationCliTests
             if (directoryLink is not null) Directory.Delete(directoryLink);
         }
     }
+
+    [TestMethod]
+    [DataRow("apply-module-entry-integration", "src/Modules/Acme.Modules.Catalog/CatalogModule.cs", "file")]
+    [DataRow("apply-module-entry-integration", "src/Modules/Acme.Modules.Catalog/CatalogModule.cs", "dangling")]
+    [DataRow("apply-module-entry-integration", "src/Modules/Acme.Modules.Catalog/CatalogModule.cs", "alias")]
+    [DataRow("apply-module-entry-integration", "src/Modules/Acme.Modules.Catalog/CatalogModule.cs", "directory")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/Acme.Composition.csproj", "file")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/Acme.Composition.csproj", "dangling")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/Acme.Composition.csproj", "alias")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/Acme.Composition.csproj", "directory")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/ModuleCatalog.cs", "file")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/ModuleCatalog.cs", "dangling")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/ModuleCatalog.cs", "alias")]
+    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/ModuleCatalog.cs", "directory")]
+    public async Task Apply_integration_rejects_unsafe_handwritten_targets_before_prerequisite_reads(string command, string relativePath, string kind)
+    {
+        using var fixture = CliFixture.Create();
+        var repository = fixture.WorkspacePath;
+        var targetPath = Path.Combine(fixture.RootPath, "target.json");
+        File.WriteAllText(targetPath, ValidIntegrationTargetJson, new UTF8Encoding(false));
+        WriteRepositoryFile(repository, "src/Modules/Acme.Modules.Catalog/Acme.Modules.Catalog.csproj", "<Project />");
+        var outside = Path.Combine(fixture.RootPath, "protected.txt");
+        const string content = "仓库外手写内容";
+        File.WriteAllText(outside, content);
+        var destination = Path.Combine(repository, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        if (kind is "file" or "dangling")
+        {
+            File.CreateSymbolicLink(destination, kind == "file" ? outside : outside + ".missing");
+        }
+        else if (kind == "alias")
+        {
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName(destination)!, Path.GetFileName(destination).ToLowerInvariant()), content);
+        }
+        else
+        {
+            Directory.CreateDirectory(destination);
+        }
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var code = await CodeGenerationCli.RunAsync(
+            ModuleIntegrationArguments(fixture.SchemaPath, repository, targetPath, command), output, error);
+        Assert.AreEqual(2, code, error.ToString());
+        Assert.AreEqual(string.Empty, output.ToString());
+        StringAssert.Contains(error.ToString(), "工作区冲突");
+        Assert.AreEqual(content, File.ReadAllText(outside));
+        Assert.IsFalse(Directory.Exists(Path.Combine(repository, ".fullnet")));
+    }
+
 
     [TestMethod]
     public async Task Plan_module_integration_honors_cancellation_when_all_targets_are_missing()

@@ -67,11 +67,7 @@ public static class ModuleEntryIntegrationApplyCommand
         ArgumentNullException.ThrowIfNull(schema);
         ArgumentNullException.ThrowIfNull(target);
 
-        var root = Path.GetFullPath(repositoryRoot);
-        if (!Directory.Exists(root))
-        {
-            throw new DirectoryNotFoundException();
-        }
+        var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
 
         if (!MatchesModule(schema.RootNamespace, target.ModuleName))
         {
@@ -338,11 +334,7 @@ public static class ModuleEntryIntegrationApplyCommand
     private static string Resolve(
         string repositoryRoot,
         string relativePath) =>
-        Path.GetFullPath(Path.Combine(
-            repositoryRoot,
-            relativePath.Replace(
-                '/',
-                Path.DirectorySeparatorChar)));
+        GenerationWorkspacePath.ResolveFile(repositoryRoot, relativePath);
 
     private static bool IsWithin(
         string expectedParent,

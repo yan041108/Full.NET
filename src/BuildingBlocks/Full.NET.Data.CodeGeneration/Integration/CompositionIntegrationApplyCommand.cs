@@ -69,11 +69,7 @@ public static class CompositionIntegrationApplyCommand
         ModuleIntegrationTarget target,
         CancellationToken cancellationToken)
     {
-        var root = Path.GetFullPath(repositoryRoot);
-        if (!Directory.Exists(root))
-        {
-            throw new DirectoryNotFoundException();
-        }
+        var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
 
         if (!MatchesModule(schema.RootNamespace, target.ModuleName))
         {
@@ -456,11 +452,7 @@ public static class CompositionIntegrationApplyCommand
     private static string Resolve(
         string repositoryRoot,
         string relativePath) =>
-        Path.GetFullPath(Path.Combine(
-            repositoryRoot,
-            relativePath.Replace(
-                '/',
-                Path.DirectorySeparatorChar)));
+        GenerationWorkspacePath.ResolveFile(repositoryRoot, relativePath);
 
     private static bool MatchesModule(
         string rootNamespace,

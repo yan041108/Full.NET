@@ -87,6 +87,17 @@ internal static class GenerationWorkspacePath
         return fullPath;
     }
 
+    public static string ResolveFile(string fullRoot, string relativePath)
+    {
+        var path = Resolve(fullRoot, relativePath);
+        if (Directory.Exists(path))
+        {
+            throw Conflict(relativePath, "目标文件路径已被目录占用。");
+        }
+
+        return path;
+    }
+
     public static void EnsureParentDirectory(
         string fullRoot,
         string relativePath)
