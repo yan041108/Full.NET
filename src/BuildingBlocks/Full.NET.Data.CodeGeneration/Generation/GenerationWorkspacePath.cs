@@ -98,6 +98,13 @@ internal static class GenerationWorkspacePath
         return path;
     }
 
+    public static string RevalidateFile(string fullRoot, string fullPath)
+    {
+        // 异步编译后仍以原仓库为边界复核，不能把可能已替换的模块子目录重新当作可信根。
+        return ResolveFile(fullRoot, Path.GetRelativePath(fullRoot, fullPath)
+            .Replace(Path.DirectorySeparatorChar, '/'));
+    }
+
     public static void EnsureParentDirectory(
         string fullRoot,
         string relativePath)

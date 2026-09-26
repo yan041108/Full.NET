@@ -202,7 +202,7 @@ public static class CompositionIntegrationApplyCommand
             diagnostics: []);
     }
 
-    private static async Task CommitAsync(
+    internal static async Task CommitAsync(
         string repositoryRoot,
         string moduleRoot,
         string moduleEntryPath,
@@ -215,20 +215,20 @@ public static class CompositionIntegrationApplyCommand
         CompositionIntegrationEditResult catalogEdit,
         CancellationToken cancellationToken)
     {
-        var compositionLockPath = Path.Combine(
-            repositoryRoot,
-            CompositionLockRelativePath.Replace(
-                '/',
-                Path.DirectorySeparatorChar));
-        var moduleLockPath = Path.Combine(
-            moduleRoot,
-            ModuleWorkspaceLockRelativePath.Replace(
-                '/',
-                Path.DirectorySeparatorChar));
-        Directory.CreateDirectory(
-            Path.GetDirectoryName(compositionLockPath)!);
-        Directory.CreateDirectory(
-            Path.GetDirectoryName(moduleLockPath)!);
+        var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
+        GenerationWorkspacePath.RevalidateFile(root, moduleEntryPath);
+        GenerationWorkspacePath.RevalidateFile(root, compositionProjectPath);
+        GenerationWorkspacePath.RevalidateFile(root, compositionCatalogPath);
+        var moduleLockRelativePath = Path.GetRelativePath(root,
+            Path.Combine(moduleRoot, ModuleWorkspaceLockRelativePath))
+            .Replace(Path.DirectorySeparatorChar, '/');
+        // 两个锁均先检查再创建父目录，避免第二个锁路径不安全时已经打开或删除第一个锁。
+        GenerationWorkspacePath.ResolveFile(root, CompositionLockRelativePath);
+        GenerationWorkspacePath.ResolveFile(root, moduleLockRelativePath);
+        GenerationWorkspacePath.EnsureParentDirectory(root, CompositionLockRelativePath);
+        GenerationWorkspacePath.EnsureParentDirectory(root, moduleLockRelativePath);
+        var compositionLockPath = GenerationWorkspacePath.ResolveFile(root, CompositionLockRelativePath);
+        var moduleLockPath = GenerationWorkspacePath.ResolveFile(root, moduleLockRelativePath);
         await using var compositionLock = OpenLock(
             compositionLockPath,
             CompositionLockRelativePath);
@@ -249,16 +249,19 @@ public static class CompositionIntegrationApplyCommand
         }
 
         await EnsureUnchangedAsync(
+            root,
             moduleEntryPath,
             expectedModuleEntry,
             "候选编译后模块入口发生变化。",
             cancellationToken);
         await EnsureUnchangedAsync(
+            root,
             compositionProjectPath,
             originalProject,
             "候选编译后 Composition 项目发生变化。",
             cancellationToken);
         await EnsureUnchangedAsync(
+            root,
             compositionCatalogPath,
             originalCatalog,
             "候选编译后 Composition Catalog 发生变化。",
@@ -289,6 +292,8 @@ public static class CompositionIntegrationApplyCommand
                     cancellationToken)
                 : null;
             cancellationToken.ThrowIfCancellationRequested();
+            GenerationWorkspacePath.RevalidateFile(root, compositionProjectPath);
+            GenerationWorkspacePath.RevalidateFile(root, compositionCatalogPath);
             if (stagedProject is not null)
             {
                 File.Move(
@@ -301,6 +306,7 @@ public static class CompositionIntegrationApplyCommand
 
             if (stagedCatalog is not null)
             {
+                GenerationWorkspacePath.RevalidateFile(root, compositionCatalogPath);
                 File.Move(
                     stagedCatalog,
                     compositionCatalogPath,
@@ -316,6 +322,7 @@ public static class CompositionIntegrationApplyCommand
             {
                 try
                 {
+                    GenerationWorkspacePath.RevalidateFile(root, compositionProjectPath);
                     File.Move(
                         projectRecovery,
                         compositionProjectPath,
@@ -349,12 +356,14 @@ public static class CompositionIntegrationApplyCommand
     }
 
     private static async Task EnsureUnchangedAsync(
+        string repositoryRoot,
         string path,
         string expectedContent,
         string reason,
         CancellationToken cancellationToken)
     {
-        var current = await ReadStrictTextAsync(path, cancellationToken);
+        var current = await ReadStrictTextAsync(
+            GenerationWorkspacePath.RevalidateFile(repositoryRoot, path), cancellationToken);
         if (!StringComparer.Ordinal.Equals(current, expectedContent))
         {
             throw new GenerationWorkspaceConflictException(
