@@ -213,7 +213,8 @@ public static class CompositionIntegrationApplyCommand
         string compositionCatalogPath,
         string originalCatalog,
         CompositionIntegrationEditResult catalogEdit,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<Task>? afterProjectCommit = null)
     {
         var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
         GenerationWorkspacePath.RevalidateFile(root, moduleEntryPath);
@@ -302,11 +303,17 @@ public static class CompositionIntegrationApplyCommand
                     overwrite: true);
                 stagedProject = null;
                 projectCommitted = true;
+                if (afterProjectCommit is not null)
+                {
+                    await afterProjectCommit();
+                }
             }
 
             if (stagedCatalog is not null)
             {
-                GenerationWorkspacePath.RevalidateFile(root, compositionCatalogPath);
+                // 首次项目写入后可能已有人工修改，不能只复核路径再覆盖 Catalog。
+                await EnsureUnchangedAsync(root, compositionCatalogPath, originalCatalog,
+                    "项目提交后 Composition Catalog 发生变化，拒绝覆盖。", CancellationToken.None);
                 File.Move(
                     stagedCatalog,
                     compositionCatalogPath,
@@ -322,7 +329,11 @@ public static class CompositionIntegrationApplyCommand
             {
                 try
                 {
-                    GenerationWorkspacePath.RevalidateFile(root, compositionProjectPath);
+                    // 只回滚本次仍拥有的内容；人工修改、删除或恢复副本漂移均须保留现场。
+                    await EnsureUnchangedAsync(root, compositionProjectPath, projectEdit.DesiredContent,
+                        "项目提交后发生并发变化，拒绝回滚覆盖。", CancellationToken.None);
+                    await EnsureUnchangedAsync(root, projectRecovery, originalProject,
+                        "原项目恢复副本已漂移，拒绝用于回滚。", CancellationToken.None);
                     File.Move(
                         projectRecovery,
                         compositionProjectPath,
@@ -331,7 +342,8 @@ public static class CompositionIntegrationApplyCommand
                 }
                 catch (Exception recoveryException)
                     when (recoveryException is IOException
-                        or UnauthorizedAccessException)
+                        or UnauthorizedAccessException
+                        or DecoderFallbackException)
                 {
                     var preservedRecovery = projectRecovery;
                     projectRecovery = null;

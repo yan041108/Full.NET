@@ -128,6 +128,82 @@ public sealed class IntegrationCommitBoundaryTests
         Assert.AreEqual(mode == "entry", File.Exists(fixture.LockFor("composition")));
     }
 
+    [TestMethod]
+    [DataRow("failure")]
+    [DataRow("directory")]
+    public async Task Composition_catalog_failure_restores_owned_project(string kind)
+    {
+        using var fixture = new CommitFixture();
+        await Assert.ThrowsAsync<IOException>(() => fixture.CommitComposition(() =>
+        {
+            Assert.AreEqual("updated project\n", File.ReadAllText(fixture.Project));
+            if (kind == "failure") throw new IOException("注入首次项目提交后的故障");
+            fixture.Replace(fixture.Catalog, "directory");
+            return Task.CompletedTask;
+        }));
+        Assert.AreEqual(CommitFixture.ProjectContent, File.ReadAllText(fixture.Project));
+        if (kind == "failure") Assert.AreEqual(CommitFixture.CatalogContent, File.ReadAllText(fixture.Catalog));
+        else Assert.IsTrue(Directory.Exists(fixture.Catalog));
+        Assert.AreEqual(0, fixture.TemporaryFiles().Length);
+    }
+
+    [TestMethod]
+    [DataRow("human")]
+    [DataRow("deleted")]
+    [DataRow("invalid-utf8")]
+    [DataRow("link")]
+    [DataRow("recovery-drift")]
+    [DataRow("recovery-link")]
+    public async Task Composition_rollback_preserves_concurrent_project_and_recovery_material(string kind)
+    {
+        using var fixture = new CommitFixture();
+        string? recovery = null;
+        string[] outside = [];
+        await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitComposition(() =>
+        {
+            Assert.AreEqual("updated project\n", File.ReadAllText(fixture.Project));
+            recovery = fixture.TemporaryFiles().Single(path => File.ReadAllText(path) == CommitFixture.ProjectContent);
+            if (kind == "human") File.WriteAllText(fixture.Project, "人工新项目\n");
+            else if (kind == "deleted") File.Delete(fixture.Project);
+            else if (kind == "invalid-utf8") File.WriteAllBytes(fixture.Project, [0xFF]);
+            else if (kind == "link") fixture.Replace(fixture.Project, "file");
+            else if (kind == "recovery-drift") File.WriteAllText(recovery, "人工恢复资料\n");
+            else fixture.Replace(recovery, "file");
+            fixture.Replace(fixture.Catalog, "directory");
+            outside = fixture.CaptureOutside();
+            return Task.CompletedTask;
+        }));
+        CollectionAssert.AreEquivalent(outside, fixture.CaptureOutside());
+        Assert.IsNotNull(recovery);
+        Assert.IsTrue(File.Exists(recovery));
+        Assert.AreEqual(kind == "recovery-drift" ? "人工恢复资料\n" : CommitFixture.ProjectContent, File.ReadAllText(recovery));
+        if (kind == "human") Assert.AreEqual("人工新项目\n", File.ReadAllText(fixture.Project));
+        else if (kind == "deleted") Assert.IsFalse(File.Exists(fixture.Project));
+        else if (kind == "invalid-utf8") CollectionAssert.AreEqual(new byte[] { 0xFF }, File.ReadAllBytes(fixture.Project));
+        else
+        {
+            Assert.AreEqual("updated project\n", File.ReadAllText(fixture.Project));
+            if (kind == "link") Assert.IsNotNull(new FileInfo(fixture.Project).LinkTarget);
+        }
+        Assert.AreEqual(1, fixture.TemporaryFiles().Length);
+        Assert.IsTrue(Directory.Exists(fixture.Catalog));
+    }
+
+    [TestMethod]
+    public async Task Composition_commit_preserves_catalog_edited_after_project_move()
+    {
+        using var fixture = new CommitFixture();
+        await Assert.ThrowsExactlyAsync<GenerationWorkspaceConflictException>(() => fixture.CommitComposition(() =>
+        {
+            File.WriteAllText(fixture.Catalog, "人工 Catalog\n");
+            return Task.CompletedTask;
+        }));
+        Assert.AreEqual(CommitFixture.ProjectContent, File.ReadAllText(fixture.Project));
+        Assert.AreEqual("人工 Catalog\n", File.ReadAllText(fixture.Catalog));
+        Assert.AreEqual(0, fixture.TemporaryFiles().Length);
+    }
+
+
     private sealed class CommitFixture : IDisposable
     {
         public const string EntryContent = "original entry\n";
@@ -181,11 +257,11 @@ public sealed class IntegrationCommitBoundaryTests
         public Task CommitEntry() => ModuleEntryIntegrationApplyCommand.ApplyUnderWorkspaceLockAsync(
             Repository, Module, Entry, EntryContent, "updated entry\n", CancellationToken.None);
 
-        public Task CommitComposition() => CompositionIntegrationApplyCommand.CommitAsync(
+        public Task CommitComposition(Func<Task>? afterProjectCommit = null) => CompositionIntegrationApplyCommand.CommitAsync(
             Repository, Module, Entry, EntryContent, Project, ProjectContent,
             CompositionIntegrationEditResult.Success(ProjectContent, "updated project\n"),
             Catalog, CatalogContent, CompositionIntegrationEditResult.Success(CatalogContent, "updated catalog\n"),
-            CancellationToken.None);
+            CancellationToken.None, afterProjectCommit);
 
         public void Replace(string path, string kind)
         {
