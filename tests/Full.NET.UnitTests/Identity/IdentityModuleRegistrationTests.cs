@@ -59,6 +59,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -82,6 +83,27 @@ namespace Full.NET.UnitTests.Identity;
 [TestClass]
 public sealed class IdentityModuleRegistrationTests
 {
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Authentication_registers_request_context_once_and_preserves_host_override(bool hasOverride)
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().Build();
+        var hostAccessor = hasOverride ? Substitute.For<IHttpContextAccessor>() : null;
+        if (hostAccessor is not null) services.AddSingleton(hostAccessor);
+
+        services.AddIdentityAuthentication(configuration);
+        services.AddIdentityAuthentication(configuration);
+        using var provider = services.BuildServiceProvider();
+        var accessor = provider.GetRequiredService<IHttpContextAccessor>();
+
+        Assert.AreEqual(1, services.Count(descriptor => descriptor.ServiceType == typeof(IHttpContextAccessor)));
+        Assert.AreEqual(ServiceLifetime.Singleton,
+            services.Single(descriptor => descriptor.ServiceType == typeof(IHttpContextAccessor)).Lifetime);
+        if (hostAccessor is not null) Assert.AreSame(hostAccessor, accessor);
+    }
+
     private static readonly Type[] ModuleOwnedExternalServiceTypes =
     [
         typeof(IClock),
