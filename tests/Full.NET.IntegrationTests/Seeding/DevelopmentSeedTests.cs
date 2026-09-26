@@ -39,14 +39,21 @@ public sealed class DevelopmentSeedTests
     private const string BootstrapDisplayName = "种子管理员";
     private const string TenantProvisionedEventType = "fullnet.tenancy.tenant.provisioned";
 
-    private static readonly string[] DevelopmentContributors =
+    // 显式共享生产安全基线，Overlay 只能追加自身条目，不能遗漏新增 Baseline 或放宽精确集合断言。
+    private static readonly string[] BaselineContributors =
     [
         "identity.host_administrator",
         "identity.bootstrap_admin_tenant_membership",
-        "identity.development_admin_tenant_membership",
         "identity.host_navigation_catalog",
         "regions.administrative_baseline",
         "settings.host_user_profile_dictionaries",
+        "tenancy.entitlement_catalog_baseline",
+    ];
+
+    private static readonly string[] DevelopmentContributors =
+    [
+        .. BaselineContributors,
+        "identity.development_admin_tenant_membership",
         "tenancy.local_tenant",
     ];
 
@@ -201,6 +208,10 @@ public sealed class DevelopmentSeedTests
         var baseline = await orchestrator.RunAsync(SeedProfile.Baseline);
         Assert.IsTrue(baseline.IsSuccess, baseline.Error?.Code);
         Assert.AreEqual(1L, await CountAsync(productionOptions, "fn_seed_run"));
+        await AssertLatestRunContributorsAsync(
+            productionOptions,
+            BaselineContributors,
+            BaselineContributors);
 
         foreach (var profile in new[] { SeedProfile.Development, SeedProfile.Demo, SeedProfile.Test })
         {
@@ -245,19 +256,11 @@ public sealed class DevelopmentSeedTests
         await AssertLatestRunContributorsAsync(
             testOptions,
             [
-                "identity.host_administrator",
-                "identity.bootstrap_admin_tenant_membership",
-                "identity.host_navigation_catalog",
-                "regions.administrative_baseline",
-                "settings.host_user_profile_dictionaries",
+                .. BaselineContributors,
                 "testing.profile_contract_marker",
             ],
             [
-                "identity.host_administrator",
-                "identity.bootstrap_admin_tenant_membership",
-                "identity.host_navigation_catalog",
-                "regions.administrative_baseline",
-                "settings.host_user_profile_dictionaries",
+                .. BaselineContributors,
                 "testing.profile_contract_marker",
             ]);
         Assert.AreEqual(0L, await CountAsync(testOptions, "fn_tenancy_tenant"));
@@ -376,7 +379,8 @@ public sealed class DevelopmentSeedTests
 
         CollectionAssert.AreEquivalent(
             expectedContributors.ToArray(),
-            items.Select(item => item.Contributor).ToArray());
+            items.Select(item => item.Contributor).ToArray(),
+            $"实际播种贡献者：{string.Join(", ", items.Select(item => item.Contributor))}");
         foreach (var contributor in requiredSucceededContributors)
         {
             var item = items.Single(row => row.Contributor == contributor);
