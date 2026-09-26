@@ -210,6 +210,22 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
       throw new Error('expected preset-minimal migration inventory');
     }
 
+    const logRoot = join(repoRoot, '.tmp/template-real-stack', databaseProviderKey);
+    mkdirSync(logRoot, { recursive: true });
+    const diagnosticInputs = ['fullnet-app.json', 'framework-manifest.json', 'appsettings.json',
+      'src/Demo.Host.Api/appsettings.json'].map((path) => [path, readFileSync(join(appRoot, path))]);
+    // 必须运行分发应用自带的 CLI；原仓库的诊断成功不能证明应用路径和预设闭包正确。
+    const diagnosis = runDotnet(['run', '--project',
+      join(appRoot, 'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli'),
+      '-c', 'Release', '--', 'diagnose', '--workspace', appRoot, '--profile', 'development'],
+    appRoot, {}, 300_000, join(logRoot, 'diagnose.log'));
+    for (const code of ['DIAG_SDK_OK', 'DIAG_WORKSPACE_OK', 'DIAG_APP_PROFILE_OK', 'DIAG_MODULE_CLOSURE_OK']) {
+      assert.match(diagnosis.stdout, new RegExp(`${code} ok`));
+    }
+    for (const [path, before] of diagnosticInputs) {
+      assert.deepEqual(readFileSync(join(appRoot, path)), before, `diagnose changed ${path}`);
+    }
+
     const database = await startDatabaseContainer(databaseProviderKey);
     dbContainer = database.container;
     const redis = await startRedisContainer();
@@ -219,8 +235,6 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
 
     const migratorProject = join(appRoot, 'framework/fullnet/src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj');
     const hostProject = join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj');
-    const logRoot = join(repoRoot, '.tmp/template-real-stack', databaseProviderKey);
-    mkdirSync(logRoot, { recursive: true });
     runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
     runDotnet(['build', hostProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
     runDotnet([

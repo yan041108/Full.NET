@@ -1,11 +1,11 @@
 # 创建首个 CRUD 与环境诊断
 
-本教程面向从 Full.NET 应用模板创建的新项目，演示 **diagnose** 只读诊断与 **CRUD 生成器** 贯通数据库、后端、OpenAPI 与 Vue 管理端。
+本教程记录从 Full.NET 应用模板创建新项目后的只读诊断入口，以及 CRUD 生成与接入步骤。独立应用的完整生成 CRUD、OpenAPI、Vue、跨租户拒绝与再生成保护仍按总计划 F02 验收，不能把模板字典 CRUD 冒烟作为生成业务验收。
 
 ## 前置条件
 
 - 已安装 .NET 10 SDK（`dotnet --version` 可执行）
-- 应用根目录包含 `src/Composition`、`src/Hosts`、`src/Modules` 与 `Full.NET.slnx`
+- 独立应用根目录包含 `fullnet-app.json`、`framework-manifest.json`、`src/<name>.Host.Api` 与 `framework/fullnet/`；`src/Composition`、`src/Hosts`、`src/Modules` 是原框架仓库的布局
 - `appsettings.json` 已配置 `FullNet:Modules:Preset`（如 `minimal` 或 `platform`）
 
 ## 第一步：运行 diagnose
@@ -13,7 +13,10 @@
 在应用根目录执行：
 
 ```bash
-dotnet run --project src/Tools/Full.NET.CodeGeneration.Cli -- diagnose --workspace . --profile development
+pnpm run diagnose:development
+
+# 等价入口；以下命令均从独立应用根目录执行
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- diagnose --workspace . --profile development
 ```
 
 成功输出包含机器可读行，例如：
@@ -26,17 +29,19 @@ DIAG_MODULES_OK ok 已配置 FullNet:Modules 模块预设或启用列表。
 
 开发环境若尚未配置数据库连接，可能出现 `DIAG_CONNECTION_PLACEHOLDER warn ... hint=...`；按 hint 使用 user-secrets 或环境变量注入，**诊断不会输出连接字符串原文**。
 
-生产配置使用 `--profile production`；缺少连接或秘密占位符将报告 `error` 并以非零退出码结束。
+生产配置使用 `pnpm run diagnose:production` 或 `--profile production`；缺少连接或秘密占位符将报告 `error` 并以非零退出码结束。Profile 只接受 `development`、`production`，重复或未知参数拒绝执行。
+
+诊断按目标工作区的 `global.json` 解析 SDK，检查宿主 `appsettings.json`、独立应用清单、所选模块引用及配置占位符；不会执行初始化、迁移或数据库连接，也不证明配置中的地址可达。它不是完整 ASP.NET Core 配置加载器，不认证部署环境的全部覆盖来源。SDK 缺失导致 .NET CLI 本身无法启动时，先安装 .NET 10 SDK，再运行此入口。
 
 ## 第二步：准备 CRUD Schema
 
-示例主从单据见 `samples/enterprise-request/schema.json`（`master.detail` 场景：申请头 + 明细行）。字段、权限与 `dataScope` 须在 JSON 中显式声明。
+原框架仓库的示例主从单据见 [`samples/enterprise-request/schema.json`](../../samples/enterprise-request/schema.json)（`master.detail` 场景：申请头 + 明细行）。应用应准备自己的 `schema.json`，冻结项目 OwnerKey，并显式声明字段、精确权限与 `dataScope`；不能直接沿用原仓库的集成目标路径。
 
 ## 第三步：预览生成计划
 
 ```bash
-dotnet run --project src/Tools/Full.NET.CodeGeneration.Cli -- \
-  --schema samples/enterprise-request/schema.json \
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- \
+  --schema schema.json \
   --workspace .
 ```
 
@@ -47,23 +52,23 @@ dotnet run --project src/Tools/Full.NET.CodeGeneration.Cli -- \
 确认计划后追加 `--apply`：
 
 ```bash
-dotnet run --project src/Tools/Full.NET.CodeGeneration.Cli -- \
-  --schema samples/enterprise-request/schema.json \
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- \
+  --schema schema.json \
   --workspace . \
   --apply
 ```
 
-重复执行应报告 `Unchanged`，人工修改的业务文件不会被覆盖。
+相同输入重复执行应报告 `Unchanged`；未登记的人工文件应保留，人工修改的受管产物应报告冲突并拒绝覆盖。生成产物落盘不等于模块已接入宿主或可运行。
 
 ## 第五步：模块接入（可选）
 
-使用 `samples/enterprise-request/integration-target.json` 规划 Composition、模块入口与 Vue 路由接入：
+原仓库的 `samples/enterprise-request/integration-target.json` 是仓库布局示例，不适用于独立应用。准备应用自己的 `integration-target.json`，显式选择应用拥有的模块项目、入口与宿主接入位置；不得为了接入业务改写受管框架或恢复冻结 Layui 交付线。规划入口：
 
 ```bash
-dotnet run --project src/Tools/Full.NET.CodeGeneration.Cli -- plan-module-integration \
-  --schema samples/enterprise-request/schema.json \
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- plan-module-integration \
+  --schema schema.json \
   --repository . \
-  --target samples/enterprise-request/integration-target.json
+  --target integration-target.json
 ```
 
 按 `Missing`/`Ready` 项完成接线后再执行 `apply-module-integration` 等子命令。
@@ -71,14 +76,15 @@ dotnet run --project src/Tools/Full.NET.CodeGeneration.Cli -- plan-module-integr
 ## 验证
 
 1. 运行迁移并启动 Host.Api
-2. 使用 Host 管理员登录管理端，访问 `/enterprise-requests`
-3. 执行租户 CRUD 与跨租户拒绝用例
+2. 使用对应租户与精确权限的账号登录管理端，访问应用实际接入的生成页面
+3. 执行租户 CRUD、无权限及跨租户拒绝用例，再验证二次生成和人工修改保护；F02 完整验收尚未关闭
 
 ## 故障排查
 
 | 机器码 | 含义 | 处理 |
 | --- | --- | --- |
 | `DIAG_SDK_MISSING` | 未检测到 SDK | 安装 .NET 10 SDK |
+| `DIAG_APPSETTINGS_INVALID` | JSON 语法、结构或字段类型无效 | 修正配置类型，诊断不输出字段值 |
 | `DIAG_WORKSPACE_INCOMPLETE` | 目录结构不完整 | 确认在应用根目录运行 |
 | `DIAG_MODULES_MISSING` | 未配置模块预设 | 添加 `FullNet:Modules:Preset` |
 | `DIAG_CONNECTION_PLACEHOLDER` | 开发环境缺连接 | user-secrets 或环境变量 |

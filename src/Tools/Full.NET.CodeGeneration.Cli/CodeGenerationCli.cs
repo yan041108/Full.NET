@@ -579,7 +579,7 @@ internal static class CodeGenerationCli
     private static CliOptions ParseDiagnose(IReadOnlyList<string> args)
     {
         string? workspacePath = null;
-        var profile = "development";
+        string? profile = null;
         var showHelp = false;
         for (var index = 1; index < args.Count; index++)
         {
@@ -634,13 +634,18 @@ internal static class CodeGenerationCli
                 "diagnose 的 --workspace 必须指向已存在的目录。");
         }
 
+        if (profile is not null && profile is not ("development" or "production"))
+        {
+            throw new CliUsageException("diagnose 的 --profile 只接受 development 或 production。");
+        }
+
         return new CliOptions(
             SchemaPath: null,
             WorkspacePath: workspacePath,
             Apply: false,
             ShowHelp: false,
             DatabaseImport: null,
-            Diagnose: new DiagnoseCliOptions(workspacePath, profile));
+            Diagnose: new DiagnoseCliOptions(workspacePath, profile ?? "development"));
     }
 
     private static CliOptions ParseModuleIntegration(

@@ -30,14 +30,16 @@ internal static class DiagnoseCommand
         TextWriter error,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var findings = new List<DiagnoseFinding>();
-        await CheckDotNetSdkAsync(findings, cancellationToken).ConfigureAwait(false);
+        await CheckDotNetSdkAsync(options.WorkspacePath, findings, cancellationToken).ConfigureAwait(false);
         CheckWorkspaceStructure(options.WorkspacePath, findings);
         CheckAppsettings(options.WorkspacePath, options.Profile, findings);
         return await EmitAsync(findings, output, error).ConfigureAwait(false);
     }
 
     private static async Task CheckDotNetSdkAsync(
+        string workspacePath,
         List<DiagnoseFinding> findings,
         CancellationToken cancellationToken)
     {
@@ -47,6 +49,8 @@ internal static class DiagnoseCommand
             {
                 FileName = "dotnet",
                 Arguments = "--version",
+                // SDK 解析必须遵循目标应用的 global.json，不能使用 CLI 所在仓库的 SDK。
+                WorkingDirectory = Path.GetFullPath(workspacePath),
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -61,9 +65,11 @@ internal static class DiagnoseCommand
                 return;
             }
 
+            var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
             var version = (await process.StandardOutput.ReadToEndAsync(cancellationToken)
                 .ConfigureAwait(false)).Trim();
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            await standardError.ConfigureAwait(false);
             if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(version))
             {
                 findings.Add(DiagnoseFinding.Error(
@@ -76,6 +82,10 @@ internal static class DiagnoseCommand
             findings.Add(DiagnoseFinding.Ok(
                 "DIAG_SDK_OK",
                 $"检测到 .NET SDK {version}。"));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception)
         {
@@ -188,14 +198,25 @@ internal static class DiagnoseCommand
             return;
         }
 
-        CheckModulesSection(root, findings);
-        if (standaloneHost is not null)
+        try
         {
-            CheckStandaloneAppProfile(workspacePath, root, findings);
-            CheckStandaloneModuleClosure(workspacePath, findings);
+            CheckModulesSection(root, findings);
+            if (standaloneHost is not null)
+            {
+                CheckStandaloneAppProfile(workspacePath, root, findings);
+                CheckStandaloneModuleClosure(workspacePath, findings);
+            }
+            CheckConnectionPlaceholder(root, appsettingsPath, workspacePath, profile, findings);
+            CheckSecretPlaceholders(root, profile, findings);
         }
-        CheckConnectionPlaceholder(root, appsettingsPath, workspacePath, profile, findings);
-        CheckSecretPlaceholders(root, profile, findings);
+        catch (Exception exception) when (exception is InvalidOperationException or FormatException)
+        {
+            // 配置字段类型错误属于诊断结果；不要把含秘密的值或异常文本带入通用 CLI 输出。
+            findings.Add(DiagnoseFinding.Error(
+                "DIAG_APPSETTINGS_INVALID",
+                "appsettings.json 的配置结构或字段类型无效。",
+                "检查 FullNet:Modules、Database、ConnectionStrings 与秘密配置的对象、数组和字符串类型。"));
+        }
     }
 
     private static string? FindStandaloneHost(string workspacePath)
@@ -354,11 +375,12 @@ internal static class DiagnoseCommand
         List<DiagnoseFinding> findings)
     {
         var connectionName = root["Database"]?["ConnectionName"]?.GetValue<string>() ?? "fullnet";
-        var connectionStrings = root["ConnectionStrings"] as JsonObject;
+        var connectionStrings = root["ConnectionStrings"]?.AsObject();
         var hasInline = connectionStrings?[connectionName]?.GetValue<string>() is { Length: > 0 } inline
-            && !IsPlaceholder(inline);
+            && !string.IsNullOrWhiteSpace(inline) && !IsPlaceholder(inline);
         var envName = $"ConnectionStrings__{connectionName}";
-        var hasEnv = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(envName));
+        var environmentConnection = Environment.GetEnvironmentVariable(envName);
+        var hasEnv = !string.IsNullOrWhiteSpace(environmentConnection) && !IsPlaceholder(environmentConnection);
         var userSecretsId = TryReadUserSecretsId(appsettingsPath, workspacePath);
         var hasUserSecrets = userSecretsId is not null
             && File.Exists(Path.Combine(
@@ -441,13 +463,13 @@ internal static class DiagnoseCommand
             }
         }
 
-        return current switch
+        // 当前三个秘密配置的运行时契约均为字符串；错误类型不能被视为已配置。
+        if (current is not JsonValue value || !value.TryGetValue<string>(out var text))
         {
-            JsonValue value when value.TryGetValue<string>(out var text) =>
-                string.IsNullOrWhiteSpace(text) || IsPlaceholder(text),
-            JsonArray array => array.Count == 0,
-            _ => false,
-        };
+            throw new InvalidOperationException("Secret configuration must be a string.");
+        }
+
+        return string.IsNullOrWhiteSpace(text) || IsPlaceholder(text);
     }
 
     private static bool IsPlaceholder(string value) =>
