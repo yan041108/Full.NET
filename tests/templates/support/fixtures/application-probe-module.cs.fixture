@@ -1,0 +1,20 @@
+using Full.NET.Modularity.Modules;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Demo.Modules.Probe;
+
+/// <summary>独立应用验收模块；只记录角色入口，不访问数据库或提供业务 API。</summary>
+public sealed class ProbeModule : IFullNetModule
+{
+    public string Name => "SampleCatalog";
+    public IReadOnlyCollection<string> Dependencies => ["Identity"];
+    public void AddServices(IServiceCollection services, IConfiguration configuration) =>
+        services.AddSingleton("CompositionProbe:Api");
+    public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration) =>
+        services.AddSingleton("CompositionProbe:Worker");
+    public void AddMigrationServices(IServiceCollection services, IConfiguration configuration) =>
+        services.AddSingleton("CompositionProbe:Migrator");
+    public void MapEndpoints(IEndpointRouteBuilder endpoints) { }
+}

@@ -9,6 +9,7 @@ import { areBundleInputsClean } from '../../scripts/templates/build-source-bundl
 import { buildAppTemplate } from '../../scripts/templates/build-app-template.mjs';
 import { resolvePresetModules } from '../../scripts/templates/preset-modules.mjs';
 import { verifyCreatedApp } from '../../scripts/templates/verify-created-app.mjs';
+import { verifyApplicationComposition } from './support/application-composition-probe.mjs';
 
 const skipBundleIntegration = areBundleInputsClean()
   ? false
@@ -59,12 +60,15 @@ test('application template package includes framework sources and root manifest'
     assert.doesNotMatch(compositionProject, /Full\.NET\.Modules\.Payments\\|Full\.NET\.AI\.Providers/);
     assert.doesNotMatch(compositionCatalog, /new PaymentsModule\(\)|AddAiProviderServices/);
 
-    for (const [managedPath, digest] of Object.entries(generatedManifest.managedFiles)) {
-      const generatedPath = join(appRoot, 'framework/fullnet', managedPath);
-      assert.ok(existsSync(generatedPath), `framework path changed during instantiation: ${managedPath}`);
-      const actualHash = createHash('sha256').update(readFileSync(generatedPath)).digest('hex');
-      assert.equal(actualHash, digest, `framework content changed during instantiation: ${managedPath}`);
-    }
+    const verifyManagedFiles = () => {
+      for (const [managedPath, digest] of Object.entries(generatedManifest.managedFiles)) {
+        const generatedPath = join(appRoot, 'framework/fullnet', managedPath);
+        assert.ok(existsSync(generatedPath), `managed framework path missing: ${managedPath}`);
+        const actualHash = createHash('sha256').update(readFileSync(generatedPath)).digest('hex');
+        assert.equal(actualHash, digest, `managed framework content changed: ${managedPath}`);
+      }
+    };
+    verifyManagedFiles();
 
     const build = spawnSync('dotnet', [
       'build', join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj'), '-c', 'Release', '-v', 'quiet',
@@ -78,6 +82,8 @@ test('application template package includes framework sources and root manifest'
       assert.ok(['Identity', 'Tenancy', 'Settings', 'Organization'].includes(module),
         `unexpected implementation module in minimal build: ${module}`);
     }
+    verifyApplicationComposition(appRoot);
+    verifyManagedFiles();
     const pnpm = 'pnpm';
     const install = spawnSync(pnpm, [
       'install', '--filter', '@fullnet/admin...', '--frozen-lockfile', '--ignore-scripts',
