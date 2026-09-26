@@ -9,6 +9,61 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class IntegrationCommitBoundaryTests
 {
     [TestMethod]
+    [DataRow("file")]
+    [DataRow("dangling")]
+    [DataRow("parent")]
+    [DataRow("alias")]
+    [DataRow("directory")]
+    [DataRow("missing")]
+    public async Task Host_rejects_unsafe_authorization_target_before_backend_reads(string kind)
+    {
+        using var fixture = new CommitFixture();
+        const string relative = "authorization/CatalogAuthorizationContributor.cs";
+        var contributor = Path.Combine(fixture.Repository, relative);
+        var parent = Path.GetDirectoryName(contributor)!;
+        Directory.CreateDirectory(parent);
+        File.WriteAllText(contributor, "human contributor\n");
+        if (kind == "parent")
+        {
+            var outsideParent = Path.Combine(fixture.Outside, "authorization");
+            Directory.Move(parent, outsideParent);
+            Directory.CreateSymbolicLink(parent, outsideParent);
+        }
+        else if (kind == "missing") File.Delete(contributor);
+        else fixture.Replace(contributor, kind);
+        try
+        {
+            var outside = fixture.CaptureOutside();
+            var target = ModuleIntegrationTarget.Create("Catalog",
+                "src/Modules/Acme.Modules.Catalog/Acme.Modules.Catalog.csproj",
+                "src/Modules/Acme.Modules.Catalog/CatalogModule.cs",
+                "src/Composition/Acme.Composition/Acme.Composition.csproj",
+                "src/Composition/Acme.Composition/ModuleCatalog.cs",
+                "ui/admin/routes.ts", null, authorizationContributorPath: relative);
+            // 模块项目缺失，必须先返回授权目标冲突，而非进入后端前置检查。
+            var result = await ModuleIntegrationHostOrchestrator.ApplyAsync(fixture.Repository,
+                FullNetCrudSchemaTests.CreateProductSchema(), target, CancellationToken.None);
+            Assert.IsFalse(result.Succeeded);
+            StringAssert.Contains(string.Join("\n", result.Diagnostics), kind switch
+            {
+                "missing" => "AuthorizationContributor 文件不存在",
+                "directory" => "目录占用",
+                "alias" => "大小写",
+                _ => "链接",
+            });
+            CollectionAssert.AreEquivalent(outside, fixture.CaptureOutside());
+            Assert.AreEqual(CommitFixture.EntryContent, File.ReadAllText(fixture.Entry));
+            Assert.AreEqual(CommitFixture.ProjectContent, File.ReadAllText(fixture.Project));
+            Assert.AreEqual(CommitFixture.CatalogContent, File.ReadAllText(fixture.Catalog));
+            Assert.AreEqual(0, fixture.TemporaryFiles().Length);
+        }
+        finally
+        {
+            if (kind == "parent") Directory.Delete(parent);
+        }
+    }
+
+    [TestMethod]
     [DataRow("registration")]
     [DataRow("project")]
     [DataRow("catalog")]

@@ -42,6 +42,10 @@ public static class ModuleIntegrationHostOrchestrator
             CompositionIntegrationRecovery.RejectPending(root,
                 Path.Combine(root, target.CompositionProjectPath),
                 Path.Combine(root, target.CompositionCatalogPath));
+            if (target.AuthorizationContributorPath is not null)
+            {
+                ResolveAuthorizationContributor(root, target.AuthorizationContributorPath);
+            }
         }
         catch (GenerationWorkspaceConflictException exception)
         {
@@ -103,44 +107,57 @@ public static class ModuleIntegrationHostOrchestrator
 
         if (target.AuthorizationContributorPath is not null)
         {
-            var contributorFullPath = Path.Combine(
-                Path.GetFullPath(repositoryRoot),
-                target.AuthorizationContributorPath.Replace(
-                    '/',
-                    Path.DirectorySeparatorChar));
-            if (!File.Exists(contributorFullPath))
+            try
             {
-                return ModuleIntegrationHostApplyResult.Failure(
-                    "显式 AuthorizationContributor 文件不存在。");
-            }
+                var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
+                var contributorFullPath = ResolveAuthorizationContributor(root, target.AuthorizationContributorPath);
 
-            var original = await File.ReadAllTextAsync(
-                    contributorFullPath,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            var fragment = CrudAuthorizationContributorFragmentGenerator
-                .Generate(schema);
-            var edited = AuthorizationContributorIntegrationEditor.Edit(
-                original,
-                target.AuthorizationContributorPath,
-                fragment);
-            if (!edited.Succeeded)
-            {
-                return ModuleIntegrationHostApplyResult.Failure(
-                    edited.Diagnostics);
-            }
-
-            if (edited.Changed)
-            {
-                await File.WriteAllTextAsync(
+                var original = await File.ReadAllTextAsync(
                         contributorFullPath,
-                        edited.DesiredContent,
                         cancellationToken)
                     .ConfigureAwait(false);
+                var fragment = CrudAuthorizationContributorFragmentGenerator
+                    .Generate(schema);
+                var edited = AuthorizationContributorIntegrationEditor.Edit(
+                    original,
+                    target.AuthorizationContributorPath,
+                    fragment);
+                if (!edited.Succeeded)
+                {
+                    return ModuleIntegrationHostApplyResult.Failure(
+                        edited.Diagnostics);
+                }
+
+                if (edited.Changed)
+                {
+                    // 前置检查不能替代最终写入边界，重新拒绝期间出现的链接、别名或目录占用。
+                    ResolveAuthorizationContributor(root, target.AuthorizationContributorPath);
+                    await File.WriteAllTextAsync(
+                            contributorFullPath,
+                            edited.DesiredContent,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
+            catch (GenerationWorkspaceConflictException exception)
+            {
+                return ModuleIntegrationHostApplyResult.Failure(exception.Message);
             }
         }
 
         return ModuleIntegrationHostApplyResult.Success();
+    }
+
+    private static string ResolveAuthorizationContributor(string root, string relativePath)
+    {
+        var path = GenerationWorkspacePath.ResolveFile(root, relativePath);
+        if (!File.Exists(path))
+        {
+            throw new GenerationWorkspaceConflictException(
+                "显式 AuthorizationContributor 文件不存在。", relativePath);
+        }
+
+        return path;
     }
 
     private static async Task WriteVueViewAsync(
