@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
+import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -154,6 +155,30 @@ async function loginAndReadSettings(baseUrl) {
   if (!settingsResponse.ok) {
     throw new Error(`settings read failed: ${settingsResponse.status} ${await settingsResponse.text()}`);
   }
+  // 在独立应用内执行真实写入、乐观锁更新和删除，避免只读冒烟掩盖装配缺口。
+  const request = async (path, method, body, expectedStatus) => {
+    const response = await fetch(`${baseUrl}/api/v1/settings/dict-types${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', Origin: 'http://localhost' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const text = await response.text();
+    assert.equal(response.status, expectedStatus, `${method} ${path}: ${text}`);
+    return text ? JSON.parse(text) : null;
+  };
+  const created = await request('', 'POST', {
+    code: 'created_app_crud_probe', name: 'Created application CRUD probe', description: null, displayOrder: 1,
+  }, 201);
+  const read = await request(`/${created.id}`, 'GET', undefined, 200);
+  assert.equal(read.code, 'created_app_crud_probe');
+  const updated = await request(`/${created.id}`, 'PUT', {
+    name: 'Updated application CRUD probe', description: null, displayOrder: 2, version: read.version,
+  }, 200);
+  assert.equal(updated.name, 'Updated application CRUD probe');
+  const disabled = await request(`/${created.id}/disable`, 'POST', undefined, 200);
+  assert.equal(disabled.isActive, false);
+  await request(`/${created.id}/delete`, 'POST', { version: disabled.version }, 204);
+  await request(`/${created.id}`, 'GET', undefined, 404);
 }
 
 /**
@@ -199,7 +224,9 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
       '--seed', 'development',
     ], appRoot, env, 600_000);
 
-    const apiLogPath = join(workspace, 'api.log');
+    const logRoot = join(repoRoot, '.tmp/template-real-stack', databaseProviderKey);
+    mkdirSync(logRoot, { recursive: true });
+    const apiLogPath = join(logRoot, 'api.log');
     writeFileSync(apiLogPath, '');
     apiLogStream = createWriteStream(apiLogPath, { flags: 'a' });
     apiProcess = spawn('dotnet', ['run', '--project', hostProject, '-c', 'Release', '--no-build'], {

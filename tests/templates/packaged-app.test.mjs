@@ -24,6 +24,9 @@ test('application template package includes framework sources and root manifest'
     assert.ok(existsSync(join(templateRoot, 'src/FullNetAppNameToken.Host.Api/appsettings.json')));
     assert.ok(existsSync(join(templateRoot, '.fullnet-tools/create-app.mjs')));
     assert.ok(existsSync(join(templateRoot, '.fullnet-tools/project-preset-composition.mjs')));
+    const upgradeHelp = spawnSync(process.execPath, [join(templateRoot, '.fullnet-tools/upgrade-framework.mjs'), '--help'], { encoding: 'utf8' });
+    assert.equal(upgradeHelp.status, 0, upgradeHelp.stderr || upgradeHelp.stdout);
+    assert.match(upgradeHelp.stdout, /--dry-run\|--apply/);
     assert.ok(existsSync(join(templateRoot, 'ui/admin/package.json')));
     assert.ok(existsSync(join(templateRoot, 'packages/client-contracts/package.json')));
     assert.ok(existsSync(join(templateRoot, 'pnpm-lock.yaml')));

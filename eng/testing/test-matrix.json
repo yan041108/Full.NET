@@ -548,12 +548,12 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 159,
+        "minimum": 173,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 159,
+        "minimum": 173,
         "timeout": "60m"
       },
       "migrations": {
@@ -572,9 +572,14 @@
         "minimumPassedOnTestcontainers": 51,
         "timeout": "90m"
       },
+      "enterprise-sample": {
+        "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Api.EnterpriseRequestApi",
+        "minimum": 6,
+        "timeout": "15m"
+      },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1021,
+        "minimum": 1049,
         "timeout": "90m"
       }
     }
@@ -596,7 +601,8 @@
         "tests/templates/template-options.test.mjs",
         "tests/templates/migration-script-modules.test.mjs",
         "tests/templates/created-app-real-stack.test.mjs",
-        "tests/templates/source-bundle-upgrade.test.mjs"
+        "tests/templates/source-bundle-upgrade.test.mjs",
+        "tests/templates/framework-upgrade-safety.test.mjs"
       ]
     },
     "f02": {
@@ -658,7 +664,8 @@
     "f15": {
       "description": "Application upgrade drill",
       "tests": [
-        "tests/templates/source-bundle-upgrade.test.mjs"
+        "tests/templates/source-bundle-upgrade.test.mjs",
+        "tests/templates/framework-upgrade-safety.test.mjs"
       ]
     },
     "f16": {

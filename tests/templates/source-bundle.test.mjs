@@ -43,9 +43,14 @@ test('build-source-bundle writes manifest with sha256 managed files', { skip: sk
     assert.ok(existsSync(join(bundleRoot, 'pnpm-lock.yaml')));
     assert.equal(manifest.migrationInventory.selectionStatus, 'unscoped');
     assert.equal(manifest.migrationInventory.scripts.length, 240);
-    assert.equal(manifest.seedInventory.contributors.length, 6);
-    assert.equal(manifest.seedInventory.presets.minimal.length, 5);
-    assert.equal(manifest.seedInventory.presets.platform.length, 6);
+    const entitlementSeed = manifest.seedInventory.contributors.find((entry) => entry.name === 'TenancyEntitlementCatalogBaselineSeedContributor');
+    assert.ok(entitlementSeed, 'commercial feature catalog must be included in the source bundle');
+    assert.equal(entitlementSeed.module, 'Tenancy');
+    for (const [preset, modules] of Object.entries(manifest.presetModules)) {
+      const expectedSeeds = manifest.seedInventory.contributors
+        .filter((entry) => modules.includes(entry.module)).map((entry) => entry.path).sort();
+      assert.deepEqual(manifest.seedInventory.presets[preset], expectedSeeds, preset + ' seed closure');
+    }
     for (const script of manifest.migrationInventory.scripts) {
       for (const provider of ['SqlServer', 'MySql']) {
         const relative = `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/${provider}/${script.name}`;

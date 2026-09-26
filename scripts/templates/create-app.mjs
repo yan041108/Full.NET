@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRESET_MODULE_CLOSURE, resolvePresetModules, validateOwnerKey } from './preset-modules.mjs';
-import { buildMigrationInventory, buildSeedInventory } from './framework-manifest-utils.mjs';
+import { buildMigrationInventory, buildPresetMigrationInventory, buildSeedInventory } from './framework-manifest-utils.mjs';
 import { projectPresetComposition } from './project-preset-composition.mjs';
 import { verifyCreatedApp } from './verify-created-app.mjs';
 
@@ -29,7 +29,14 @@ function assertPackageIntegrity(root, verifyFrontendSkeleton = false) {
     throw new Error('Framework migration inventory is missing');
   }
   if (manifest.migrationInventory) {
-    const expectedInventory = buildMigrationInventory(manifest.managedFiles);
+    const fullInventory = buildMigrationInventory(manifest.managedFiles);
+    if (verifyFrontendSkeleton && manifest.projectedPreset) {
+      throw new Error('Template package must contain an unprojected framework');
+    }
+    // 分发包拥有全量脚本；创建后的应用只允许执行已冻结预设的双库闭包。
+    const expectedInventory = manifest.projectedPreset
+      ? buildPresetMigrationInventory(fullInventory, manifest.projectedPreset, resolvePresetModules(manifest.projectedPreset))
+      : fullInventory;
     if (JSON.stringify(manifest.migrationInventory) !== JSON.stringify(expectedInventory)) {
       throw new Error('Framework migration inventory does not match managed files');
     }
