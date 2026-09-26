@@ -46,6 +46,10 @@ test('build-source-bundle writes manifest with sha256 managed files', { skip: sk
     const entitlementSeed = manifest.seedInventory.contributors.find((entry) => entry.name === 'TenancyEntitlementCatalogBaselineSeedContributor');
     assert.ok(entitlementSeed, 'commercial feature catalog must be included in the source bundle');
     assert.equal(entitlementSeed.module, 'Tenancy');
+    const developmentMembershipSeed = manifest.seedInventory.contributors.find(
+      (entry) => entry.name === 'DevelopmentBootstrapAdminTenantMembershipSeedContributor');
+    assert.ok(developmentMembershipSeed, 'first development seed must include local admin membership');
+    assert.equal(developmentMembershipSeed.module, 'Identity');
     for (const [preset, modules] of Object.entries(manifest.presetModules)) {
       const expectedSeeds = manifest.seedInventory.contributors
         .filter((entry) => modules.includes(entry.module)).map((entry) => entry.path).sort();

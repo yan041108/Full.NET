@@ -98,7 +98,7 @@ describe('Vue Host 文件 API', () => {
   });
 
   it('拒绝畸形成功响应并透传取消信号', async () => {
-    requestMock.mockResolvedValueOnce({ ...sampleFile, sizeBytes: '12' });
+    requestMock.mockResolvedValueOnce({ ...sampleFile, sizeBytes: '12x' });
     const file = new File(['hello'], 'parity.txt', { type: 'text/plain' });
     const controller = new AbortController();
 

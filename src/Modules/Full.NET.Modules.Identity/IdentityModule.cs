@@ -106,6 +106,9 @@ public sealed class IdentityModule : IFullNetModule
             BootstrapAdminTenantMembershipSeedContributor>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IDataSeedContributor,
+            DevelopmentBootstrapAdminTenantMembershipSeedContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IDataSeedContributor,
             HostNavigationCatalogSeedContributor>());
     }
 

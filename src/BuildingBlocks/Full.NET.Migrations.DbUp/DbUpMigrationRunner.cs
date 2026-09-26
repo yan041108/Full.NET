@@ -122,8 +122,8 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
                 new MySqlPublishedMigrationCompatibilityPreprocessor());
         }
         var allowedScripts = FrameworkManifestMigrationScope.TryLoadAllowedScriptNames(_manifestOptions);
-        // 203 是跨可选模块的已发布修复；固定预设只恢复清单拥有的表，保留其完整失败关闭约束。
-        builder.WithPreprocessor(new PresetPublishedUuidCompatibilityPreprocessor(allowedScripts));
+        // 203/206/207 是跨可选模块的已发布修复；固定预设只变更清单拥有的表，保留完整失败关闭约束。
+        builder.WithPreprocessor(new PresetPublishedModuleCompatibilityPreprocessor(allowedScripts));
         var upgrader = builder
             .WithExecutionTimeout(TimeSpan.FromSeconds(options.CommandTimeoutSeconds))
             .WithScriptsEmbeddedInAssembly(

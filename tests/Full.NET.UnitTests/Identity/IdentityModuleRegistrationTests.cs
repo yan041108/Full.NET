@@ -345,6 +345,9 @@ public sealed class IdentityModuleRegistrationTests
             BootstrapAdminTenantMembershipSeedContributor>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
             IDataSeedContributor,
+            DevelopmentBootstrapAdminTenantMembershipSeedContributor>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
+            IDataSeedContributor,
             HostNavigationCatalogSeedContributor>(ServiceLifetime.Scoped),
 
         RegistrationExpectation.Self<

@@ -43,6 +43,7 @@ public sealed class DevelopmentSeedTests
     [
         "identity.host_administrator",
         "identity.bootstrap_admin_tenant_membership",
+        "identity.development_admin_tenant_membership",
         "identity.host_navigation_catalog",
         "regions.administrative_baseline",
         "settings.host_user_profile_dictionaries",
@@ -280,6 +281,10 @@ public sealed class DevelopmentSeedTests
             new { ScopeKey = "host", NormalizedUsername = BootstrapUsername.ToUpperInvariant() });
         Assert.IsNotNull(admin);
         Assert.AreEqual(BootstrapDisplayName, admin.DisplayName);
+
+        Assert.AreEqual(1L, await CountAsync(options, "fn_identity_tenant_member",
+            "UserId = @UserId AND MemberRole = 'Admin' AND Status = 'Active' AND TenantId IN (SELECT Id FROM fn_tenancy_tenant WHERE Identifier = 'local')",
+            new { UserId = admin.Id }), "第一次 Development 播种就必须完成本地管理员成员关系，重复运行也只能有一条。");
 
         var superAdminRoleCount = await query.QuerySingleOrDefaultAsync<long>(
             new SqlStatement(
