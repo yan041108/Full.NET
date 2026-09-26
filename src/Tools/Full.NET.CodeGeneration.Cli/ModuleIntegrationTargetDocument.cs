@@ -35,7 +35,8 @@ internal sealed class ModuleIntegrationTargetDocument
 
     public required string VueRouterPath { get; init; }
 
-    public required string LayuiRouterPath { get; init; }
+    // Vue 是默认交付线；省略冻结的 Layui 目标与内部接入模型的可选语义保持一致。
+    public string? LayuiRouterPath { get; init; }
 
     public ModuleClientRouteTargetDocument? ClientRoute { get; init; }
 
@@ -82,9 +83,9 @@ internal sealed class ModuleClientRouteTargetDocument
 
     public required string VueComponentPath { get; init; }
 
-    public required string LayuiControllerPath { get; init; }
+    public string? LayuiControllerPath { get; init; }
 
-    public required string LayuiControllerExport { get; init; }
+    public string? LayuiControllerExport { get; init; }
 
     public ModuleClientRouteTarget ToTarget() =>
         ModuleClientRouteTarget.Create(

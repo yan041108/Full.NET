@@ -151,9 +151,13 @@ internal static class CodeGenerationCli
                     await output.WriteLineAsync(
                         $"{(routeResult.VueChanged ? "Update" : "Unchanged")} "
                         + target.VueRouterPath);
-                    await output.WriteLineAsync(
-                        $"{(routeResult.LayuiChanged ? "Update" : "Unchanged")} "
-                        + target.LayuiRouterPath);
+                    if (target.LayuiRouterPath is not null
+                        && target.ClientRoute!.LayuiControllerPath is not null)
+                    {
+                        await output.WriteLineAsync(
+                            $"{(routeResult.LayuiChanged ? "Update" : "Unchanged")} "
+                            + target.LayuiRouterPath);
+                    }
                     await output.WriteLineAsync(
                         "Validated ClientRouteStructure "
                         + target.ClientRoute!.RoutePath);
