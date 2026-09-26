@@ -91,7 +91,7 @@ public sealed class FullNetModuleDescriptor
         FullNetModuleSourceClassification sourceClassification,
         FullNetModuleHealthCapability healthCapability)
     {
-        var normalizedKey = RequireSafeToken(moduleKey, nameof(moduleKey));
+        var normalizedKey = NormalizeModuleKey(moduleKey);
         var normalizedDisplayName = RequireSafeDisplayText(displayName, nameof(displayName));
         var normalizedVersion = RequireSafeToken(version, nameof(version));
 
@@ -179,6 +179,10 @@ public sealed class FullNetModuleDescriptor
 
         return normalized;
     }
+
+    // 描述符保留裁剪兼容；注册表复用此规则后须拒绝原始键发生变化，不能静默改名。
+    internal static string NormalizeModuleKey(string moduleKey) =>
+        RequireSafeToken(moduleKey, nameof(moduleKey));
 
     private static string RequireSafeToken(string value, string paramName)
     {

@@ -110,6 +110,38 @@ public sealed class ApplicationModuleCompositionTests
         }
     }
 
+    [TestMethod]
+    [DataRow(FullNetHostProfile.Api, "path")]
+    [DataRow(FullNetHostProfile.Worker, "path")]
+    [DataRow(FullNetHostProfile.Migrator, "path")]
+    [DataRow(FullNetHostProfile.Api, "backslash")]
+    [DataRow(FullNetHostProfile.Worker, "backslash")]
+    [DataRow(FullNetHostProfile.Migrator, "backslash")]
+    [DataRow(FullNetHostProfile.Api, "null")]
+    [DataRow(FullNetHostProfile.Worker, "null")]
+    [DataRow(FullNetHostProfile.Migrator, "null")]
+    [DataRow(FullNetHostProfile.Api, "whitespace")]
+    [DataRow(FullNetHostProfile.Worker, "whitespace")]
+    [DataRow(FullNetHostProfile.Migrator, "whitespace")]
+    public void Noncanonical_application_key_is_rejected_before_registration(FullNetHostProfile profile, string kind)
+    {
+        var key = kind switch
+        {
+            "path" => "../Catalog",
+            "backslash" => @"Catalog\Orders",
+            "null" => "Catalog\0Orders",
+            _ => " Identity ",
+        };
+        var calls = new List<string>();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var original = services.ToArray();
+        Assert.ThrowsExactly<InvalidOperationException>(() => services.AddFullNetApplicationModules(
+            Configuration(), profile, [new ProbeModule(key, [], calls)]));
+        Assert.AreEqual(0, calls.Count);
+        CollectionAssert.AreEqual(original, services.ToArray());
+    }
+
     private sealed class ProbeModule(string name, IReadOnlyCollection<string> dependencies, List<string> calls,
         IReadOnlyCollection<string>? optionalDependencies = null) : IFullNetModule
     {

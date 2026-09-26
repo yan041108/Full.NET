@@ -41,7 +41,11 @@ foreach (var profile in new[] { FullNetHostProfile.Api, FullNetHostProfile.Worke
     Reject([new RejectedModule("First", ["Second"]), new RejectedModule("Second", ["First"])], profile);
     Reject([new RejectedModule("UnknownOptional", [], ["Ghost"])], profile);
     Reject([new RejectedModule("RequiredOptional", ["Identity"], ["Identity"])], profile);
-    invalidGraphs += 5;
+    Reject([new RejectedModule("../Catalog", [])], profile);
+    Reject([new RejectedModule(@"Catalog\Orders", [])], profile);
+    Reject([new RejectedModule("Catalog\0Orders", [])], profile);
+    Reject([new RejectedModule(" Identity ", [])], profile);
+    invalidGraphs += 9;
 }
 
 Console.WriteLine($"FULLNET_APPLICATION_COMPOSITION {{\"roles\":{roles},\"reservedNames\":{reservedNames},\"invalidGraphs\":{invalidGraphs}}}");

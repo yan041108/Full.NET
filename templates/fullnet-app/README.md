@@ -48,4 +48,6 @@ Declare business modules in the application-owned `ApplicationModuleCatalog.Crea
 
 Application optional contract dependencies must name a known official contract source or a module in the explicit application list, and must not also be required dependencies. An uninstalled official source remains valid; optional contracts do not install modules or enter the required dependency graph. Invalid declarations are rejected before any module service registration for all three host profiles.
 
+A module instance's `Name` is its exact registry key. Path separators, NUL characters and leading or trailing whitespace are rejected before registration; the registry never trims or renames a module key.
+
 The manifest records paired SQL Server/MySQL migration scripts with `selectionStatus: unscoped` and records registered seed contributors for each preset. The migration list is an inventory, not permission to run the full migration set for a selected preset. Module ownership, historical prerequisites, and first-run database validation must be completed before enabling a generated-app migrator.

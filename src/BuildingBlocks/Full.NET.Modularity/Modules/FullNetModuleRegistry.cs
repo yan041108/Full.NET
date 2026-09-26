@@ -23,6 +23,12 @@ public sealed class FullNetModuleRegistry
                 $"Module key '{moduleKey}' must not be blank.");
         }
 
+        // 先保证目录快照与注册图使用同一个稳定键，不能等模块回调执行后才发现非法键。
+        if (!string.Equals(moduleKey, FullNetModuleDescriptor.NormalizeModuleKey(moduleKey), StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Module key '{moduleKey}' must not contain leading or trailing whitespace.");
+        }
+
         var dependencyKeys = module.Dependencies?.ToArray()
             ?? throw new InvalidOperationException(
                 $"Module key '{moduleKey}' must declare a dependency collection.");

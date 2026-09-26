@@ -9,6 +9,15 @@ namespace Full.NET.UnitTests.Modularity;
 public sealed class FullNetModuleRegistryDescriptorTests
 {
     [TestMethod]
+    public void Descriptor_preserves_whitespace_normalization_for_direct_consumers()
+    {
+        var descriptor = FullNetModuleDescriptor.Create(
+            " Catalog ", "Catalog", "1.0.0", [], ["Api"],
+            FullNetModuleSourceClassification.Application, FullNetModuleHealthCapability.None);
+        Assert.AreEqual("Catalog", descriptor.ModuleKey);
+    }
+
+    [TestMethod]
     public void Descriptor_rejects_unknown_host_profiles()
     {
         var exception = Assert.Throws<InvalidOperationException>(() =>

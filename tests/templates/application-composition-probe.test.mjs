@@ -44,10 +44,10 @@ test('application composition probe wires the owned project and executes its com
       reportDirectory: join(root, 'reports'),
       run(command, args, options) {
         calls.push({ command, args, options });
-        return { status: 0, stdout: 'FULLNET_APPLICATION_COMPOSITION {"roles":3,"reservedNames":6,"invalidGraphs":15}', stderr: '' };
+        return { status: 0, stdout: 'FULLNET_APPLICATION_COMPOSITION {"roles":3,"reservedNames":6,"invalidGraphs":27}', stderr: '' };
       },
     });
-    assert.deepEqual(result, { roles: 3, reservedNames: 6, invalidGraphs: 15 });
+    assert.deepEqual(result, { roles: 3, reservedNames: 6, invalidGraphs: 27 });
     assert.equal(calls.length, 2);
     assert.deepEqual(calls.map(({ command, args }) => [command, args[0]]), [['dotnet', 'build'], ['dotnet', 'exec']]);
     assert.ok(calls[1].args[1].endsWith('CompositionProbe.dll'));
