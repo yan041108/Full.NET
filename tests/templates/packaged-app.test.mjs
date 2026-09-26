@@ -5,11 +5,16 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { areBundleInputsClean } from '../../scripts/templates/build-source-bundle.mjs';
 import { buildAppTemplate } from '../../scripts/templates/build-app-template.mjs';
 import { resolvePresetModules } from '../../scripts/templates/preset-modules.mjs';
 import { verifyCreatedApp } from '../../scripts/templates/verify-created-app.mjs';
 
-test('application template package includes framework sources and root manifest', () => {
+const skipBundleIntegration = areBundleInputsClean()
+  ? false
+  : 'source bundle inputs have uncommitted changes';
+
+test('application template package includes framework sources and root manifest', { skip: skipBundleIntegration }, () => {
   const workspace = mkdtempSync(join(tmpdir(), 'fullnet-app-template-'));
   try {
     const { templateRoot } = buildAppTemplate({ output: join(workspace, 'package') });

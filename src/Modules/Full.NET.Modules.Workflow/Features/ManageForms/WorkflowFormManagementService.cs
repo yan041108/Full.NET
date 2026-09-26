@@ -9,6 +9,8 @@ using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Persistence;
 using Full.NET.Modules.Workflow.Serialization;
+using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Workflow.Features;
 
 namespace Full.NET.Modules.Workflow.Features.ManageForms;
 
@@ -19,7 +21,8 @@ internal sealed class WorkflowFormManagementService(
     ICommandTransaction transaction,
     ICurrentTenant currentTenant,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    ITenantFeatureEntitlementPort featureEntitlements)
 {
     private const int ComponentCatalogVersion = 1;
 
@@ -71,6 +74,12 @@ internal sealed class WorkflowFormManagementService(
         }
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
+        if (await TryDenyTenantMutationAsync<WorkflowFormResponse>(scope, cancellationToken).ConfigureAwait(false)
+            is { } createDenied)
+        {
+            return createDenied;
+        }
+
         var now = clock.UtcNow;
         var id = idGenerator.NewId();
         var draftJson = Serialize(request.Draft);
@@ -134,6 +143,12 @@ internal sealed class WorkflowFormManagementService(
         }
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
+        if (await TryDenyTenantMutationAsync<WorkflowFormResponse>(scope, cancellationToken).ConfigureAwait(false)
+            is { } statusDenied)
+        {
+            return statusDenied;
+        }
+
         var definition = await FindAsync(id, scope, cancellationToken).ConfigureAwait(false);
         if (definition is null)
         {
@@ -206,6 +221,11 @@ internal sealed class WorkflowFormManagementService(
         }
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
+        if (await TryDenyTenantMutationAsync<bool>(scope, cancellationToken).ConfigureAwait(false) is { } deleteDenied)
+        {
+            return deleteDenied;
+        }
+
         var version = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowFormVersionRecord>(
                 WorkflowSql.FindFormVersionById,
                 Parameters(("Id", versionId), ("TenantScopeKey", scope.TenantScopeKey)),
@@ -278,6 +298,12 @@ internal sealed class WorkflowFormManagementService(
         }
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
+        if (await TryDenyTenantMutationAsync<WorkflowFormResponse>(scope, cancellationToken).ConfigureAwait(false)
+            is { } draftDenied)
+        {
+            return draftDenied;
+        }
+
         var definition = await FindAsync(id, scope, cancellationToken).ConfigureAwait(false);
         if (definition is null)
         {
@@ -319,6 +345,12 @@ internal sealed class WorkflowFormManagementService(
         }
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
+        if (await TryDenyTenantMutationAsync<WorkflowFormVersionResponse>(scope, cancellationToken)
+                .ConfigureAwait(false) is { } publishDenied)
+        {
+            return publishDenied;
+        }
+
         var definition = await FindAsync(id, scope, cancellationToken).ConfigureAwait(false);
         if (definition is null)
         {
@@ -407,6 +439,19 @@ internal sealed class WorkflowFormManagementService(
             versionId, id, versionNumber, schema.SchemaVersion, schema.AdapterVersion,
             ComponentCatalogVersion, artifact.CanonicalJson, artifact.CanonicalJson,
             artifact.ContentHash, actorUserId, now));
+    }
+
+    private async Task<Result<T>?> TryDenyTenantMutationAsync<T>(
+        WorkflowManagementScope scope,
+        CancellationToken cancellationToken)
+    {
+        if (await WorkflowTenantFeatureEntitlementGate.TryGetDenialAsync(scope, featureEntitlements, cancellationToken)
+                .ConfigureAwait(false) is { } denial)
+        {
+            return WorkflowTenantFeatureEntitlementGate.Deny<T>(denial);
+        }
+
+        return null;
     }
 
     private Task<WorkflowFormDefinitionRecord?> FindAsync(

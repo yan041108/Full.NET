@@ -40,3 +40,12 @@ test('application-owned host starts the Full.NET API pipeline', () => {
   assert.match(project, /Full\.NET\.Composition\.csproj/);
   assert.doesNotMatch(project, /ProjectReference[^\n]*Full\.NET\.Host\.Api\.csproj/);
 });
+
+test('fullnet-app template exposes code-generation diagnose scripts', () => {
+  const packageJson = JSON.parse(readFileSync(join(TEMPLATE_ROOT, 'package.json'), 'utf8'));
+  assert.match(packageJson.scripts['diagnose:development'], /diagnose --workspace \. --profile development/u);
+  assert.match(packageJson.scripts['diagnose:production'], /diagnose --workspace \. --profile production/u);
+  assert.match(
+    packageJson.scripts['diagnose:development'],
+    /Full\.NET\.CodeGeneration\.Cli/u);
+});

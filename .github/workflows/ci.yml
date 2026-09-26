@@ -119,6 +119,33 @@ jobs:
             tests/e2e/uniapp-h5/test-results/**
           if-no-files-found: warn
 
+  template-created-app-real-stack:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install client dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify created application template real-stack (SqlServer + MySQL)
+        run: node --test tests/templates/created-app-real-stack.test.mjs
+
   real-stack-e2e:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest

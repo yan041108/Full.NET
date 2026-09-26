@@ -123,6 +123,9 @@ public sealed class TenantProvisioningTests
             1L,
             await CountAsync(databaseProvider, connectionString, "fn_tenancy_tenant"));
         Assert.AreEqual(
+            2L,
+            await CountAsync(databaseProvider, connectionString, "fn_tenancy_quota_metric"));
+        Assert.AreEqual(
             0L,
             await CountAsync(databaseProvider, connectionString, "fn_outbox_message"));
     }

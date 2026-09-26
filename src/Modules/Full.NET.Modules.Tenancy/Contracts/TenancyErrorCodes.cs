@@ -85,6 +85,9 @@ public static class TenancyErrorCodes
     /// <summary>Enforced 阶段缺少套餐或有效订阅绑定。</summary>
     public const string EntitlementCommercialBindingRequired = "tenancy.entitlements.commercial_binding_required";
 
+    /// <summary>Enforced 阶段租户未绑定所需功能权益。</summary>
+    public const string EntitlementFeatureNotGranted = "tenancy.entitlements.feature_not_granted";
+
     /// <summary>配额请求无效。</summary>
     public const string QuotaRequestInvalid = "tenancy.quota.request_invalid";
 
@@ -96,6 +99,9 @@ public static class TenancyErrorCodes
 
     /// <summary>配额已用尽。</summary>
     public const string QuotaExceeded = "tenancy.quota.exceeded";
+
+    /// <summary>用量基线对账尚不支持该指标。</summary>
+    public const string QuotaUsageBaselineUnsupportedMetric = "tenancy.quota.usage_baseline_unsupported_metric";
 
     /// <summary>订阅状态无效。</summary>
     public const string SubscriptionStatusInvalid = "tenancy.tenant_subscription.status_invalid";
@@ -139,10 +145,12 @@ public static class TenancyErrorCodes
         EntitlementBindingNotFound,
         EntitlementPhaseInvalid,
         EntitlementCommercialBindingRequired,
+        EntitlementFeatureNotGranted,
         QuotaRequestInvalid,
         QuotaMetricNotFound,
         QuotaReservationNotFound,
         QuotaExceeded,
+        QuotaUsageBaselineUnsupportedMetric,
         SubscriptionStatusInvalid,
         SubscriptionPeriodInvalid,
         SubscriptionNotFound,

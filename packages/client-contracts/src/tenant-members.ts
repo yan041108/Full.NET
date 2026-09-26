@@ -50,3 +50,39 @@ export interface CreateTenantInvitationRequest {
   memberRole: string;
   expiresInHours?: number;
 }
+
+export interface LeaveTenantMembershipRequest {
+  version: number;
+}
+
+export function isTenantMember(value: unknown): value is TenantMember {
+  return (
+    isRecord(value)
+    && isGuid(value.id)
+    && isGuid(value.tenantId)
+    && isGuid(value.userId)
+    && typeof value.username === 'string'
+    && typeof value.displayName === 'string'
+    && typeof value.memberRole === 'string'
+    && typeof value.status === 'string'
+    && isDate(value.createdAtUtc)
+    && isDate(value.updatedAtUtc)
+    && isInteger(value.version)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isGuid(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+function isDate(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && !Number.isNaN(Date.parse(value));
+}
+
+function isInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value);
+}

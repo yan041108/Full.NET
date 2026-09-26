@@ -732,4 +732,14 @@ public sealed class IdentityApiMySqlTests
 
         await InvitedRegistrationAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Mfa_recovery_codes_regenerate_and_consume_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await MfaRecoveryCodeAssertions.VerifyAsync(factory);
+    }
 }

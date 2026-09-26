@@ -73,6 +73,37 @@ internal static class TenantEntitlementSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement CountActiveFeatureBindings = new(
+        "tenancy.entitlements.count_active_feature_bindings",
+        """
+        SELECT COUNT(1)
+        FROM fn_tenancy_tenant_entitlement_binding AS binding
+        INNER JOIN fn_tenancy_entitlement_catalog AS catalog
+            ON catalog.Id = binding.EntitlementId
+        WHERE binding.TenantId = @TenantId
+          AND catalog.Code = @EntitlementCode
+          AND catalog.IsActive = 1
+          AND binding.EffectiveFromUtc <= @NowUtc
+          AND (binding.EffectiveToUtc IS NULL OR binding.EffectiveToUtc > @NowUtc)
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListTenantsWithoutActiveBinding = new(
+        "tenancy.entitlements.list_tenants_without_active_binding",
+        """
+        SELECT tenant.Id AS TenantId
+        FROM fn_tenancy_tenant AS tenant
+        WHERE tenant.LifecycleStatus = @LifecycleStatus
+          AND NOT EXISTS (
+              SELECT 1
+              FROM fn_tenancy_tenant_entitlement_binding AS binding
+              WHERE binding.TenantId = tenant.Id
+                AND binding.EffectiveFromUtc <= @NowUtc
+                AND (binding.EffectiveToUtc IS NULL OR binding.EffectiveToUtc > @NowUtc))
+        ORDER BY tenant.Id
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement GetEnforcementPhase = new(
         "tenancy.settings.get_enforcement_phase",
         """

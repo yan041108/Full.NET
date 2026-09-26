@@ -13,6 +13,7 @@ using Full.NET.Modules.Workflow.Persistence;
 using Full.NET.Modules.Workflow.Features;
 using Full.NET.Modules.Workflow.Features.FormAttachments;
 using Full.NET.Modules.Workflow.Serialization;
+using Full.NET.Modules.Tenancy.Contracts;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Workflow.Features.ManageInstances;
@@ -44,7 +45,8 @@ internal sealed class WorkflowInstanceManagementService(
     WorkflowNotificationOutboxPublisher notificationPublisher,
     WorkflowApprovalTransitionExecutor transitionExecutor,
     WorkflowParallelJoinCoordinator parallelJoinCoordinator,
-    WorkflowFormAttachmentCoordinator attachmentCoordinator)
+    WorkflowFormAttachmentCoordinator attachmentCoordinator,
+    ITenantFeatureEntitlementPort featureEntitlements)
 {
     /// <summary>按已发布版本启动实例，并在同一本地事务内建立首待办和起始抄送。</summary>
     /// <param name="actorUserId">发起人的稳定用户标识。</param>
@@ -62,6 +64,12 @@ internal sealed class WorkflowInstanceManagementService(
         }
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
+        if (await WorkflowTenantFeatureEntitlementGate.TryGetDenialAsync(scope, featureEntitlements, cancellationToken)
+                .ConfigureAwait(false) is { } denial)
+        {
+            return WorkflowTenantFeatureEntitlementGate.Deny<WorkflowInstanceResponse>(denial);
+        }
+
         var asset = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowRuntimeAssetRecord>(
             WorkflowSql.FindRuntimeAsset,
             Parameters(("DefinitionVersionId", request.DefinitionVersionId),

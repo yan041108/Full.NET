@@ -28,6 +28,7 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
     private readonly ILoggerFactory _loggerFactory;
     private readonly UuidBinaryContractOptions _contractOptions;
     private readonly PreV1NamingContractOptions _namingContractOptions;
+    private readonly FrameworkManifestMigrationOptions _manifestOptions;
 
     /// <summary>
     /// 初始化迁移器并使用默认关闭的 Contract 维护证据；适用于不需要执行破坏性 Contract 迁移的常规升级。
@@ -75,11 +76,27 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
         ILoggerFactory loggerFactory,
         IOptions<UuidBinaryContractOptions> contractOptions,
         IOptions<PreV1NamingContractOptions> namingContractOptions)
+        : this(
+            databaseOptions,
+            loggerFactory,
+            contractOptions,
+            namingContractOptions,
+            Options.Create(new FrameworkManifestMigrationOptions()))
+    {
+    }
+
+    public DbUpMigrationRunner(
+        IOptions<DatabaseOptions> databaseOptions,
+        ILoggerFactory loggerFactory,
+        IOptions<UuidBinaryContractOptions> contractOptions,
+        IOptions<PreV1NamingContractOptions> namingContractOptions,
+        IOptions<FrameworkManifestMigrationOptions> manifestOptions)
     {
         _databaseOptions = databaseOptions;
         _loggerFactory = loggerFactory;
         _contractOptions = contractOptions.Value;
         _namingContractOptions = namingContractOptions.Value;
+        _manifestOptions = manifestOptions.Value;
     }
 
     /// <summary>
@@ -104,11 +121,12 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
             builder.WithPreprocessor(
                 new MySqlPublishedMigrationCompatibilityPreprocessor());
         }
+        var allowedScripts = FrameworkManifestMigrationScope.TryLoadAllowedScriptNames(_manifestOptions);
         var upgrader = builder
             .WithExecutionTimeout(TimeSpan.FromSeconds(options.CommandTimeoutSeconds))
             .WithScriptsEmbeddedInAssembly(
                 MigrationAssembly.Value,
-                name => name.Contains(providerSegment, StringComparison.Ordinal))
+                name => IsEmbeddedScriptSelected(name, providerSegment, allowedScripts))
             .WithVariable("UuidContractMaintenanceMode", ToSqlBoolean(_contractOptions.MaintenanceMode))
             .WithVariable("UuidContractBackupVerified", ToSqlBoolean(_contractOptions.BackupVerified))
             .WithVariable("UuidContractLegacyWritersStopped", ToSqlBoolean(_contractOptions.LegacyWritersStopped))
@@ -231,5 +249,32 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
                     options.Provider,
                     "Unsupported database provider.");
         }
+    }
+
+    private static bool IsEmbeddedScriptSelected(
+        string embeddedResourceName,
+        string providerSegment,
+        HashSet<string>? allowedScriptNames)
+    {
+        if (!embeddedResourceName.Contains(providerSegment, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (allowedScriptNames is null)
+        {
+            return true;
+        }
+
+        foreach (var scriptName in allowedScriptNames)
+        {
+            if (embeddedResourceName.EndsWith('.' + scriptName, StringComparison.Ordinal)
+                || embeddedResourceName.EndsWith(scriptName, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -5,7 +5,9 @@
     "title": "ui/admin/src/api/tenant-members.ts"
   },
   "paths": {
-    "/api/v1/identity/tenant-members": {}
+    "/api/v1/identity/tenant-members": {},
+    "/api/v1/identity/tenant-members/me": {},
+    "/api/v1/identity/tenant-members/me/leave": {}
   },
   "components": {
     "schemas": {}

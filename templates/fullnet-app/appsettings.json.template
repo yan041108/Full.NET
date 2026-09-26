@@ -6,6 +6,9 @@
     "CommandTimeoutSeconds": 30
   },
   "FullNet": {
+    "FrameworkManifest": {
+      "RelativePath": "framework-manifest.json"
+    },
     "Modules": {
       "Preset": "minimal"
     }

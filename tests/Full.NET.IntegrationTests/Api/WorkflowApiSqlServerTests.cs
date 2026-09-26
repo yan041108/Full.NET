@@ -37,6 +37,19 @@ public sealed class WorkflowApiSqlServerTests
         await WorkflowRuntimeApiAssertions.VerifyTenantScopeAsync(factory);
     }
 
+    [TestMethod]
+    public async Task Enforced_feature_workflow_binding_gates_tenant_start_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            settingsOverrides: new Dictionary<string, string?>
+            {
+                ["Identity:SessionLoginPolicy"] = "AllowMultiple",
+            });
+        await WorkflowRuntimeApiAssertions.VerifyEnforcedTenantWorkflowStartRequiresFeatureBindingAsync(factory);
+    }
+
     /// <summary>验证 SQL Server Worker 会扫描并暂停无法自动修复的工作流实例。</summary>
     [TestMethod]
     public async Task Recovery_worker_scans_and_suspends_unrecoverable_instance_with_sql_server()

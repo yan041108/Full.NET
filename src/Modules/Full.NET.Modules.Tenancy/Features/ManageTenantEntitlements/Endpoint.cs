@@ -45,6 +45,22 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenancyTenantEntitlementPermissions.ManageCatalog));
 
+        catalog.MapPost("/backfill", async (
+            TenantEntitlementBackfillRequest request,
+            TenantEntitlementBackfillService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ReconcileAsync(request.DryRun, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("tenancyReconcileEntitlementBackfill")
+        .Produces<TenantEntitlementBackfillResponse>(StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            TenancyTenantEntitlementPermissions.ReconcileBackfill));
+
         var tenants = endpoints.MapGroup("/api/v1/tenancy/tenants")
             .WithTags("TenancyTenantEntitlements");
 

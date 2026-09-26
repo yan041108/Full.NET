@@ -106,6 +106,11 @@ export function assertArchiveEntryModes(treeOutput) {
 }
 
 function assertCommittedBundleInputs() {
+  assertCleanBundleInputStatus(readBundleInputStatus());
+}
+
+/** 供模板测试在脏工作区跳过需完整打包的用例；CI 干净提交仍必须跑绿。 */
+export function readBundleInputStatus() {
   const pathspecs = [...INCLUDE_ROOTS, ...INCLUDE_FILES].map(toPosixPath);
   const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=all', '--', ...pathspecs], {
     cwd: REPO_ROOT,
@@ -114,7 +119,11 @@ function assertCommittedBundleInputs() {
   if (result.status !== 0) {
     throw new Error('Unable to check source bundle inputs: ' + (result.stderr || 'unknown error'));
   }
-  assertCleanBundleInputStatus(result.stdout);
+  return result.stdout ?? '';
+}
+
+export function areBundleInputsClean() {
+  return readBundleInputStatus().trim().length === 0;
 }
 
 function toPosixPath(path) {

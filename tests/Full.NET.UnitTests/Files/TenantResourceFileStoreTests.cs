@@ -1,12 +1,14 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
+using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Features.TenantResourceFiles;
 using Full.NET.Modules.Files.Persistence;
 using Full.NET.Modules.Files.Storage;
+using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -112,7 +114,8 @@ public sealed class TenantResourceFileStoreTests
         var state = Substitute.For<IDataTransactionState>();
         var store = new TenantResourceFileStore(queries, Substitute.For<ICommandExecutor>(), tenant, state,
             new FileStorageProviderRegistry([storage], Options.Create(new FileStorageOptions { DefaultProviderKey = "test" })),
-            [owner], Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), Options.Create(new LocalFileStorageOptions()));
+            [owner], Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), Options.Create(new LocalFileStorageOptions()),
+            new NullTenantFileStorageQuotaPort(), CreateActiveTenants(true));
 
         var result = await store.OpenReadyContentAsync("reporting", resourceId, fileId);
         Assert.AreEqual(authorized, result.IsSuccess);
@@ -156,6 +159,114 @@ public sealed class TenantResourceFileStoreTests
         await storage.DidNotReceive().SaveAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    public async Task Upload_confirms_storage_quota_after_ready()
+    {
+        var tenant = new CurrentTenantAccessor();
+        var tenantA = new TenantContext(Guid.NewGuid(), "a", "A");
+        tenant.SetTenant(tenantA);
+        var queries = Substitute.For<IQueryExecutor>();
+        var commands = Substitute.For<ICommandExecutor>();
+        var storage = Substitute.For<IFileStorageProvider>();
+        storage.ProviderKey.Returns("test");
+        var quota = Substitute.For<ITenantFileStorageQuotaPort>();
+        quota.TryReserveAsync(tenantA.Id, Arg.Any<string>(), 3, Arg.Any<CancellationToken>())
+            .Returns(Result<bool>.Success(true));
+        quota.ConfirmAsync(tenantA.Id, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Result<bool>.Success(true));
+        commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(1);
+        storage.SaveAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        var fileId = Guid.NewGuid();
+        var ids = Substitute.For<IIdGenerator>();
+        ids.NewId().Returns(fileId);
+        var store = Create(queries, commands, tenant, Substitute.For<IDataTransactionState>(), storage, ids, quota);
+        using var input = new MemoryStream(new byte[] { 1, 2, 3 });
+        var upload = await store.UploadAsync(
+            "reporting",
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "report.xlsx",
+            "application/test",
+            input,
+            3);
+        Assert.IsTrue(upload.IsSuccess);
+        await quota.Received(1).TryReserveAsync(
+            tenantA.Id,
+            fileId.ToString("N"),
+            3,
+            Arg.Any<CancellationToken>());
+        await quota.Received(1).ConfirmAsync(
+            tenantA.Id,
+            fileId.ToString("N"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Upload_maps_tenancy_quota_failure_to_storage_quota_exceeded()
+    {
+        var tenant = new CurrentTenantAccessor();
+        var tenantA = new TenantContext(Guid.NewGuid(), "a", "A");
+        tenant.SetTenant(tenantA);
+        var quota = Substitute.For<ITenantFileStorageQuotaPort>();
+        quota.TryReserveAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            .Returns(Result<bool>.Failure(new Error(
+                "tenancy.quota.exceeded",
+                "Quota exceeded.",
+                ErrorType.Conflict)));
+        var storage = Substitute.For<IFileStorageProvider>();
+        storage.ProviderKey.Returns("test");
+        var store = Create(
+            Substitute.For<IQueryExecutor>(),
+            Substitute.For<ICommandExecutor>(),
+            tenant,
+            Substitute.For<IDataTransactionState>(),
+            storage,
+            Substitute.For<IIdGenerator>(),
+            quota);
+        using var input = new MemoryStream(new byte[] { 1 });
+        var upload = await store.UploadAsync(
+            "reporting",
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "report.xlsx",
+            "application/test",
+            input,
+            1);
+        Assert.IsFalse(upload.IsSuccess);
+        Assert.AreEqual(FilesErrorCodes.StorageQuotaExceeded, upload.Error!.Code);
+        await storage.DidNotReceive().SaveAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Upload_rejects_inactive_tenant()
+    {
+        var tenant = new CurrentTenantAccessor();
+        tenant.SetTenant(new TenantContext(Guid.NewGuid(), "a", "A"));
+        var storage = Substitute.For<IFileStorageProvider>();
+        storage.ProviderKey.Returns("test");
+        var store = Create(
+            Substitute.For<IQueryExecutor>(),
+            Substitute.For<ICommandExecutor>(),
+            tenant,
+            Substitute.For<IDataTransactionState>(),
+            storage,
+            Substitute.For<IIdGenerator>(),
+            tenantActive: false);
+        using var input = new MemoryStream(new byte[] { 1 });
+        var upload = await store.UploadAsync(
+            "reporting",
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "report.xlsx",
+            "application/test",
+            input,
+            1);
+        Assert.IsFalse(upload.IsSuccess);
+        Assert.AreEqual(FilesErrorCodes.TenantInactive, upload.Error!.Code);
+    }
+
     /// <summary>组装只使用受控内存替身的生产文件服务。</summary>
     /// <param name="queries">查询替身。</param>
     /// <param name="commands">写入替身。</param>
@@ -164,8 +275,18 @@ public sealed class TenantResourceFileStoreTests
     /// <param name="storage">对象存储替身。</param>
     /// <param name="ids">标识生成器。</param>
     private static TenantResourceFileStore Create(IQueryExecutor queries, ICommandExecutor commands,
-        CurrentTenantAccessor tenant, IDataTransactionState state, IFileStorageProvider storage, IIdGenerator ids) =>
+        CurrentTenantAccessor tenant, IDataTransactionState state, IFileStorageProvider storage, IIdGenerator ids,
+        ITenantFileStorageQuotaPort? quotaPort = null, bool tenantActive = true) =>
         new(queries, commands, tenant, state,
             new FileStorageProviderRegistry([storage], Options.Create(new FileStorageOptions { DefaultProviderKey = "test" })),
-            [], Substitute.For<IClock>(), ids, Options.Create(new LocalFileStorageOptions { MaxUploadBytes = 16 }));
+            [], Substitute.For<IClock>(), ids, Options.Create(new LocalFileStorageOptions { MaxUploadBytes = 16 }),
+            quotaPort ?? new NullTenantFileStorageQuotaPort(), CreateActiveTenants(tenantActive));
+
+    private static IIdentityActiveTenantDirectory CreateActiveTenants(bool active)
+    {
+        var directory = Substitute.For<IIdentityActiveTenantDirectory>();
+        directory.IsActiveTenantAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(active);
+        return directory;
+    }
 }

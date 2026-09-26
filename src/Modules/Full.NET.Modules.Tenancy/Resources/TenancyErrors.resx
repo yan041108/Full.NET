@@ -29,6 +29,7 @@
   <data name="tenancy.entitlements.binding_not_found" xml:space="preserve"><value>权益绑定不存在。</value></data>
   <data name="tenancy.entitlements.phase_invalid" xml:space="preserve"><value>权益强制执行阶段无效。</value></data>
   <data name="tenancy.entitlements.commercial_binding_required" xml:space="preserve"><value>Enforced 阶段需要有效的套餐或订阅绑定。</value></data>
+  <data name="tenancy.entitlements.feature_not_granted" xml:space="preserve"><value>当前租户未购买或未绑定该功能权益。</value></data>
   <data name="tenancy.quota.request_invalid" xml:space="preserve"><value>配额请求无效。</value></data>
   <data name="tenancy.quota.metric_not_found" xml:space="preserve"><value>配额指标不存在。</value></data>
   <data name="tenancy.quota.reservation_not_found" xml:space="preserve"><value>配额预留不存在。</value></data>

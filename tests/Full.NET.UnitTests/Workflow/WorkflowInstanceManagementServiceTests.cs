@@ -1,11 +1,13 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Hosting.Api;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Workflow;
 using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Domain;
@@ -266,6 +268,10 @@ public sealed class WorkflowInstanceManagementServiceTests
         var ccWriter = new WorkflowCcTransitionWriter(query, command, ids);
         var notificationPublisher = new WorkflowNotificationOutboxPublisher(
             outbox ?? Substitute.For<IOutboxWriter>());
+        var featureEntitlements = Substitute.For<ITenantFeatureEntitlementPort>();
+        featureEntitlements
+            .IsFeatureGrantedAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Result<bool>.Success(true));
         return new WorkflowInstanceManagementService(
             query,
             command,
@@ -281,7 +287,8 @@ public sealed class WorkflowInstanceManagementServiceTests
             WorkflowTodoManagementTestDependencies.CreateTransitionExecutor(
                 query, command, ids, outbox ?? Substitute.For<IOutboxWriter>()),
             WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, command, ids),
-            WorkflowTodoManagementTestDependencies.CreateAttachmentCoordinator());
+            WorkflowTodoManagementTestDependencies.CreateAttachmentCoordinator(),
+            featureEntitlements);
     }
 
     /// <summary>构造暂停/恢复路径需要的实例、回执和活动工作查询。</summary>

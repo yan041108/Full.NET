@@ -21,6 +21,11 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
   mkdirSync(templateRoot, { recursive: true });
   cpSync(TEMPLATE_ROOT, templateRoot, { recursive: true, force: false });
 
+  const templatePackageJson = join(TEMPLATE_ROOT, 'package.json');
+  if (existsSync(templatePackageJson)) {
+    copyFileSync(templatePackageJson, join(templateRoot, 'package.json'));
+  }
+
   const { bundleRoot } = buildSourceBundle({ output: join(templateRoot, 'framework', 'fullnet') });
   copyFileSync(join(bundleRoot, 'framework-manifest.json'), join(templateRoot, 'framework-manifest.json'));
   copyFileSync(join(bundleRoot, 'global.json'), join(templateRoot, 'global.json'));
@@ -44,7 +49,7 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
   rmSync(configTemplate);
   const toolRoot = join(templateRoot, '.fullnet-tools');
   mkdirSync(toolRoot);
-  for (const tool of ['create-app.mjs', 'framework-manifest-utils.mjs', 'preset-modules.mjs', 'project-preset-composition.mjs', 'verify-created-app.mjs']) {
+  for (const tool of ['create-app.mjs', 'framework-manifest-utils.mjs', 'migration-script-modules.mjs', 'preset-modules.mjs', 'project-preset-composition.mjs', 'verify-created-app.mjs', 'upgrade-framework.mjs']) {
     copyFileSync(join(SCRIPT_DIR, tool), join(toolRoot, tool));
   }
   return { templateRoot };

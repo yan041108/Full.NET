@@ -10,6 +10,7 @@ Full.NET 生成应用升级遵循 **Migrator → Worker → Api** 顺序，与 `
 
 ## 升级步骤
 
+0. **预览受管框架升级**（Full.NET 源码树）：`node scripts/templates/upgrade-framework.mjs --app <AppRoot> --package <NewTemplatePackage> --dry-run`（`--apply` 提交受管更新；冲突报告不会覆盖 `src/` 业务文件）
 1. **Migrator**：应用 SQL Server/MySQL 成对迁移
 2. **Worker**：滚动重启，等待 Outbox/Jobs 消费追平
 3. **Api**：滚动重启，验证健康检查与关键读取路径

@@ -5,9 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { createApp } from '../../scripts/templates/create-app.mjs';
+import { areBundleInputsClean } from '../../scripts/templates/build-source-bundle.mjs';
 import { buildAppTemplate } from '../../scripts/templates/build-app-template.mjs';
 import { buildMigrationInventory } from '../../scripts/templates/framework-manifest-utils.mjs';
 import { PRESET_MODULE_CLOSURE } from '../../scripts/templates/preset-modules.mjs';
+
+const skipBundleIntegration = areBundleInputsClean()
+  ? false
+  : 'source bundle inputs have uncommitted changes';
 
 test('create-app rejects invalid owner key before creating output', () => {
   const parent = mkdtempSync(join(tmpdir(), 'fullnet-create-app-'));
@@ -203,7 +208,7 @@ test('create-app removes staging after template installation fails', () => {
   }
 });
 
-test('create-app accepts the packaged Vue skeleton and writes the selected proxy port', () => {
+test('create-app accepts the packaged Vue skeleton and writes the selected proxy port', { skip: skipBundleIntegration }, () => {
   const parent = mkdtempSync(join(tmpdir(), 'fullnet-create-app-'));
   try {
     const { templateRoot } = buildAppTemplate({ output: join(parent, 'package') });

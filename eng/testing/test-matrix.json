@@ -594,6 +594,8 @@
         "tests/templates/project-preset-composition.test.mjs",
         "tests/templates/created-app.test.mjs",
         "tests/templates/template-options.test.mjs",
+        "tests/templates/migration-script-modules.test.mjs",
+        "tests/templates/created-app-real-stack.test.mjs",
         "tests/templates/source-bundle-upgrade.test.mjs"
       ]
     },

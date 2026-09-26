@@ -47,6 +47,47 @@ internal static class TenantQuotaSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement ListMetricsByMetricCode = new(
+        "tenancy.quota.list_metrics_by_metric_code",
+        """
+        SELECT Id, TenantId, MetricCode, PeriodKey, LimitValue, UsedValue, ReservedValue, Version
+        FROM fn_tenancy_quota_metric
+        WHERE MetricCode = @MetricCode
+          AND PeriodKey = @PeriodKey
+        ORDER BY TenantId, Id
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListActiveTenantsMissingQuotaMetric = new(
+        "tenancy.quota.list_active_tenants_missing_metric",
+        """
+        SELECT tenant.Id AS TenantId
+        FROM fn_tenancy_tenant AS tenant
+        WHERE tenant.LifecycleStatus = @LifecycleStatus
+          AND NOT EXISTS (
+              SELECT 1
+              FROM fn_tenancy_quota_metric AS metric
+              WHERE metric.TenantId = tenant.Id
+                AND metric.MetricCode = @MetricCode
+                AND metric.PeriodKey = @PeriodKey)
+        ORDER BY tenant.Id
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateMetricUsedValue = new(
+        "tenancy.quota.update_metric_used_value",
+        """
+        UPDATE fn_tenancy_quota_metric
+        SET UsedValue = @UsedValue,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @MetricId
+          AND ReservedValue = 0
+          AND UsedValue <> @UsedValue
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement InsertMetric = new(
         "tenancy.quota.insert_metric",
         """
@@ -54,7 +95,7 @@ internal static class TenantQuotaSql
             (Id, TenantId, MetricCode, PeriodKey, LimitValue, UsedValue, ReservedValue,
              CreatedAtUtc, UpdatedAtUtc, Version)
         VALUES
-            (@Id, @TenantId, @MetricCode, @PeriodKey, @LimitValue, 0, 0,
+            (@Id, @TenantId, @MetricCode, @PeriodKey, @LimitValue, @UsedValue, 0,
              @CreatedAtUtc, @UpdatedAtUtc, 1)
         """,
         SqlDataScope.HostOnly);
@@ -175,6 +216,8 @@ internal static class TenantQuotaSql
         """,
         SqlDataScope.HostOnly);
 }
+
+internal sealed record TenantQuotaMetricBackfillCandidate(Guid TenantId);
 
 internal sealed record TenantQuotaMetricRecord(
     Guid Id,

@@ -42,6 +42,19 @@ internal static class TenantSubscriptionSql
           AND Version = @Version
         ",
         SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ActivateFromPayment = new(
+        "tenancy.subscriptions.activate_from_payment",
+        @"
+        UPDATE fn_tenancy_tenant_subscription
+        SET Status = @Status,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @Id
+          AND TenantId = @TenantId
+          AND Version = @Version
+        ",
+        SqlDataScope.HostOnly);
 }
 
 internal sealed record TenantSubscriptionRecord(

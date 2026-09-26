@@ -21,6 +21,7 @@ internal sealed class TenantMemberProvisionService(
     ICommandTransaction transaction,
     ICurrentTenant currentTenant,
     ICurrentTenantContextWriter currentTenantWriter,
+    IIdentityActiveTenantDirectory activeTenants,
     ITenantMemberSeatQuotaPort seatQuotaPort,
     TenantMembershipQueryService queries,
     Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser> passwordHasher,
@@ -44,6 +45,16 @@ internal sealed class TenantMemberProvisionService(
                 IdentityErrorCodes.DataScopeTenantContextRequired,
                 "Tenant context is required.",
                 ErrorType.Validation));
+        }
+
+        var tenantActive = await TenantMembershipActiveTenantGuard.EnsureTenantActiveAsync(
+                tenantId,
+                activeTenants,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!tenantActive.IsSuccess)
+        {
+            return Result<TenantMemberResponse>.Failure(tenantActive.Error!);
         }
 
         var username = request.Username?.Trim() ?? string.Empty;

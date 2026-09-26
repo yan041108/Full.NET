@@ -90,10 +90,15 @@ export function verifyCreatedApp(appRoot) {
       if (![1, 2, 3].includes(manifest.schemaVersion)) {
         errors.push('framework-manifest.json has an unsupported schemaVersion');
       }
-      if (manifest.schemaVersion >= 2 && (manifest.migrationInventory?.selectionStatus !== 'unscoped'
-        || !Array.isArray(manifest.migrationInventory.scripts)
-        || manifest.migrationInventory.scripts.length === 0)) {
-        errors.push('framework-manifest.json must include the paired unscoped migration inventory');
+      if (manifest.schemaVersion >= 2) {
+        const status = manifest.migrationInventory?.selectionStatus;
+        const preset = profilePreset ?? manifest.projectedPreset;
+        const expectedStatus = preset ? `preset-${preset}` : 'unscoped';
+        if (status !== expectedStatus
+          || !Array.isArray(manifest.migrationInventory?.scripts)
+          || manifest.migrationInventory.scripts.length === 0) {
+          errors.push('framework-manifest.json must include a preset-scoped migration inventory for the application profile');
+        }
       }
       if (manifest.schemaVersion >= 3 && (!Array.isArray(manifest.seedInventory?.contributors)
         || manifest.seedInventory.contributors.length === 0

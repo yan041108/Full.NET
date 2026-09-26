@@ -3,8 +3,12 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
-import { assertArchiveEntryModes, assertCleanBundleInputStatus, assertManagedPath, buildSourceBundle } from '../../scripts/templates/build-source-bundle.mjs';
+import { assertArchiveEntryModes, assertCleanBundleInputStatus, assertManagedPath, areBundleInputsClean, buildSourceBundle } from '../../scripts/templates/build-source-bundle.mjs';
 import { buildMigrationInventory, buildSeedInventory } from '../../scripts/templates/framework-manifest-utils.mjs';
+
+const skipBundleIntegration = areBundleInputsClean()
+  ? false
+  : 'source bundle inputs have uncommitted changes';
 
 test('source bundle rejects a dirty source tree before assigning a commit', () => {
   assert.throws(() => assertCleanBundleInputStatus(' M src/Modules/Full.NET.Modules.Identity/IdentityModule.cs'), /uncommitted/);
@@ -18,7 +22,7 @@ test('source bundle rejects symlinks and submodules in committed inputs', () => 
   assert.doesNotThrow(() => assertArchiveEntryModes(`100644 blob ${digest}\tsrc/file.cs\0`));
 });
 
-test('build-source-bundle writes manifest with sha256 managed files', async () => {
+test('build-source-bundle writes manifest with sha256 managed files', { skip: skipBundleIntegration }, async () => {
   const output = mkdtempSync(join(tmpdir(), 'fullnet-bundle-'));
   try {
     const { bundleRoot, manifest } = buildSourceBundle({ output });
@@ -38,7 +42,7 @@ test('build-source-bundle writes manifest with sha256 managed files', async () =
     assert.ok(existsSync(join(bundleRoot, 'packages/design-tokens/package.json')));
     assert.ok(existsSync(join(bundleRoot, 'pnpm-lock.yaml')));
     assert.equal(manifest.migrationInventory.selectionStatus, 'unscoped');
-    assert.equal(manifest.migrationInventory.scripts.length, 239);
+    assert.equal(manifest.migrationInventory.scripts.length, 240);
     assert.equal(manifest.seedInventory.contributors.length, 6);
     assert.equal(manifest.seedInventory.presets.minimal.length, 5);
     assert.equal(manifest.seedInventory.presets.platform.length, 6);
@@ -92,7 +96,7 @@ test('build-source-bundle rejects bad managed paths', () => {
   assert.throws(() => assertManagedPath('src/obj/cache.txt'), /excluded path/);
 });
 
-test('build-source-bundle preserves an existing output directory', () => {
+test('build-source-bundle preserves an existing output directory', { skip: skipBundleIntegration }, () => {
   const output = mkdtempSync(join(tmpdir(), 'fullnet-bundle-owned-'));
   const marker = join(output, 'keep.txt');
   try {
@@ -104,7 +108,7 @@ test('build-source-bundle preserves an existing output directory', () => {
   }
 });
 
-test('build-source-bundle contains the API host and its project reference closure', () => {
+test('build-source-bundle contains the API host and its project reference closure', { skip: skipBundleIntegration }, () => {
   const output = mkdtempSync(join(tmpdir(), 'fullnet-bundle-closure-'));
   try {
     const { bundleRoot } = buildSourceBundle({ output });

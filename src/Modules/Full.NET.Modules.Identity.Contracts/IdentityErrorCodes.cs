@@ -100,6 +100,9 @@ public static class IdentityErrorCodes
     /// <summary>操作者尚未确认启用 TOTP。</summary>
     public const string MfaTotpNotEnrolled = "identity.mfa.not_enrolled";
 
+    /// <summary>MFA 恢复码无效、已消费或并发冲突。</summary>
+    public const string MfaRecoveryCodeInvalid = "identity.mfa.recovery_code_invalid";
+
     /// <summary>Host 用户名在作用域内已存在。</summary>
     public const string UsernameExists = "identity.users.username_exists";
 
@@ -393,6 +396,9 @@ public static class IdentityErrorCodes
     /// <summary>用户已是活动租户成员。</summary>
     public const string TenantMemberAlreadyActive = "identity.tenant_members.already_active";
 
+    /// <summary>目标租户已暂停或未激活，不能执行成员写操作。</summary>
+    public const string TenantMembershipTenantInactive = "identity.tenant_members.tenant_inactive";
+
     /// <summary>租户邀请无效、已过期或已撤销。</summary>
     public const string TenantInvitationInvalid = "identity.tenant_invitations.invalid";
 
@@ -591,6 +597,7 @@ public static class IdentityErrorCodes
         TenantMemberRoleInvalid,
         TenantOwnerProtected,
         TenantMemberAlreadyActive,
+        TenantMembershipTenantInactive,
         TenantInvitationInvalid,
         TenantInvitationNotFound,
         TenantSeatQuotaUnavailable,

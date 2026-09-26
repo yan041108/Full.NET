@@ -4,6 +4,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { buildPresetMigrationInventory } from './framework-manifest-utils.mjs';
 
 const COMPOSITION_ROOT = 'src/Composition/Full.NET.Composition';
 const CATALOG = `${COMPOSITION_ROOT}/FullNetModuleCatalog.cs`;
@@ -102,6 +103,10 @@ export function projectPresetComposition(appRoot, preset, modules) {
     manifest.managedFiles[relative] = createHash('sha256').update(content).digest('hex');
   }
   manifest.projectedPreset = preset;
+  if (!manifest.migrationInventory?.scripts?.length) {
+    throw new Error('Framework manifest migration inventory is missing');
+  }
+  manifest.migrationInventory = buildPresetMigrationInventory(manifest.migrationInventory, preset, modules);
   const encoded = JSON.stringify(manifest, null, 2) + '\n';
   writeFileSync(join(appRoot, 'framework-manifest.json'), encoded, 'utf8');
   writeFileSync(join(frameworkRoot, 'framework-manifest.json'), encoded, 'utf8');

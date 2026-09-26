@@ -38,6 +38,17 @@ internal static class TenantResourceFileSql
         ORDER BY CreatedAtUtc, Id
         """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    /// <summary>Host 运维对账：按显式 TenantId 汇总 ready 资源文件字节数。</summary>
+    public static readonly SqlStatement SumReadyBytesByTenantForHost = new(
+        "files.tenant_resource_file.sum_ready_bytes_by_tenant_host",
+        """
+        SELECT COALESCE(SUM(SizeBytes), 0)
+        FROM fn_files_tenant_resource_file
+        WHERE TenantId = @TenantId
+          AND StatusKey = 'ready'
+        """,
+        SqlDataScope.HostOnly);
+
     /// <summary>Worker 目录：陈旧 pending/ready 文件，具体操作必须在租户上下文中执行。</summary>
     public static readonly SqlStatement SelectStaleSqlServer = new(
         "files.tenant_resource_file.select_stale.sql_server",

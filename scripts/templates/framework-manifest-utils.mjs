@@ -1,6 +1,8 @@
 /**
  * framework-manifest.json 升级比较辅助函数（F15 将扩展完整升级流程）。
  */
+export { buildPresetMigrationInventory, inferMigrationModuleOwner } from './migration-script-modules.mjs';
+
 export function compareFrameworkVersions(left, right) {
   const parse = (value) => {
     const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(value);

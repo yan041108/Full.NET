@@ -17,6 +17,9 @@ public static class TenancyTenantQuotaPermissions
 
     /// <summary>修复历史预留缺失的 MetricId；Production 手工对账。</summary>
     public const string ReconcileMetricIds = "tenancy.tenant_quota.reconcile_metric_ids";
+
+    /// <summary>将席位等指标 UsedValue 对齐权威用量（活动成员数等）；切换限额模式前 dry-run/apply。</summary>
+    public const string ReconcileUsageBaseline = "tenancy.tenant_quota.reconcile_usage_baseline";
 }
 
 /// <summary>历史预留 MetricId 对账请求。</summary>
@@ -29,6 +32,20 @@ public sealed record ReconcileTenantQuotaMetricIdsResponse(
     int RepairedCount,
     int SkippedCount,
     bool DryRun);
+
+/// <summary>配额 UsedValue 用量基线对账请求。</summary>
+/// <param name="DryRun">为 true 时仅统计需修正的租户，不写库。</param>
+/// <param name="MetricCode">目标指标；默认 <see cref="TenantQuotaMetricCodes.IdentitySeats"/>。对账前会为活跃租户补建缺失指标行（默认 Limit）。</param>
+public sealed record ReconcileTenantQuotaUsageBaselineRequest(
+    bool DryRun = true,
+    string? MetricCode = null);
+
+/// <summary>配额 UsedValue 用量基线对账结果。</summary>
+public sealed record ReconcileTenantQuotaUsageBaselineResponse(
+    int CandidateCount,
+    int AppliedCount,
+    bool DryRun,
+    IReadOnlyList<Guid> TenantIds);
 
 /// <summary>租户配额指标编码常量；用于在预留、确认与释放流程中稳定引用指标。</summary>
 /// <remarks>
@@ -54,6 +71,9 @@ public static class TenantQuotaDefaults
 
     /// <summary>身份席位的默认上限；新租户未显式配置时使用。</summary>
     public const long IdentitySeatsLimit = 100;
+
+    /// <summary>文件存储字节的默认上限（1 GiB）；新租户未显式配置时使用。</summary>
+    public const long FilesStorageBytesLimit = 1_073_741_824;
 }
 
 /// <summary>配额预留状态常量；描述预留的生命周期阶段。</summary>

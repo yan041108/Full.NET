@@ -1,6 +1,7 @@
 #if FULLNET_AOT_COMPILE
 using System.Data.Common;
 using Full.NET.Data.Dapper;
+using Full.NET.Modules.Tenancy.Features.ManageTenantEntitlements;
 using Full.NET.Modules.Tenancy.Features.ManageHostTenantPackages;
 using Full.NET.Modules.Tenancy.Features.ManageHostTenants;
 using Full.NET.Modules.Tenancy.Features.ManageTenantEntitlements.Persistence;
@@ -29,6 +30,7 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
         registrar.Register<TenantSubscriptionRecord>(ReadTenantSubscriptionRecord);
         registrar.Register<TenantQuotaMetricRecord>(ReadTenantQuotaMetricRecord);
         registrar.Register<TenantQuotaReservationRecord>(ReadTenantQuotaReservationRecord);
+        registrar.Register<TenantEntitlementBackfillCandidate>(ReadTenantEntitlementBackfillCandidate);
     }
 
     private static TenantResolutionRecord ReadTenantResolutionRecord(DbDataReader reader) =>
@@ -158,5 +160,9 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 6),
             reader.GetInt32(7),
             reader.IsDBNull(8) ? null : reader.GetGuid(8));
+
+    private static TenantEntitlementBackfillCandidate ReadTenantEntitlementBackfillCandidate(
+        DbDataReader reader) =>
+        new(reader.GetGuid(0));
 }
 #endif

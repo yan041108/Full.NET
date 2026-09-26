@@ -1,9 +1,16 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
+using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Tenancy.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
 
@@ -157,6 +164,224 @@ internal static class TenantMembershipAssertions
             provisionPassword,
             cancellationToken);
         Assert.IsFalse(string.IsNullOrWhiteSpace(provisionedLoginToken));
+
+        await VerifyLeaveCurrentTenantAsync(
+            factory,
+            hostClient,
+            tenantClient,
+            acmeTenant.Id,
+            cancellationToken);
+
+        await VerifyOwnerCannotLeaveCurrentTenantAsync(
+            factory,
+            hostClient,
+            tenantClient,
+            acmeTenant.Id,
+            cancellationToken);
+
+        await VerifyRevokedInvitationCannotBeAcceptedAsync(
+            factory,
+            hostClient,
+            tenantClient,
+            acmeTenant.Id,
+            inviteTenantToken,
+            cancellationToken);
+    }
+
+    private static async Task VerifyLeaveCurrentTenantAsync(
+        FullNetApiFactory factory,
+        HttpClient hostClient,
+        HttpClient tenantClient,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var leaver = await factory.CreateHostIdentityAsync(
+            $"leaver-{Guid.NewGuid():N}",
+            [
+                "identity.tenant_members.leave_self",
+                "tenancy.tenants.switch",
+            ],
+            cancellationToken,
+            password: FullNetApiFactory.TestPassword);
+        await AddTenantMemberAsync(factory, tenantId, leaver.UserId, cancellationToken);
+
+        var tenantToken = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(
+            hostClient,
+            leaver.AccessToken,
+            tenantId,
+            cancellationToken);
+        using var meRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/tenant-members/me");
+        meRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tenantToken);
+        using var meResponse = await tenantClient.SendAsync(meRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, meResponse.StatusCode);
+        var member = await meResponse.Content.ReadFromJsonAsync<TenantMemberResponse>(cancellationToken);
+        Assert.IsNotNull(member);
+        Assert.AreEqual(leaver.UserId, member!.UserId);
+
+        using var leaveRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/identity/tenant-members/me/leave")
+        {
+            Content = JsonContent.Create(new LeaveTenantMembershipRequest(member.Version)),
+        };
+        leaveRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tenantToken);
+        using var leaveResponse = await tenantClient.SendAsync(leaveRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, leaveResponse.StatusCode);
+        var left = await leaveResponse.Content.ReadFromJsonAsync<TenantMemberResponse>(cancellationToken);
+        Assert.IsNotNull(left);
+        Assert.AreEqual(TenantMemberStatuses.Removed, left!.Status);
+    }
+
+    private static async Task VerifyOwnerCannotLeaveCurrentTenantAsync(
+        FullNetApiFactory factory,
+        HttpClient hostClient,
+        HttpClient tenantClient,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var owner = await factory.CreateHostIdentityAsync(
+            $"owner-{Guid.NewGuid():N}",
+            [
+                "identity.tenant_members.leave_self",
+                "tenancy.tenants.switch",
+            ],
+            cancellationToken,
+            password: FullNetApiFactory.TestPassword);
+        await AddTenantMemberAsync(
+            factory,
+            tenantId,
+            owner.UserId,
+            cancellationToken,
+            TenantMemberRoles.Owner);
+
+        var tenantToken = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(
+            hostClient,
+            owner.AccessToken,
+            tenantId,
+            cancellationToken);
+        using var meRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/tenant-members/me");
+        meRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tenantToken);
+        using var meResponse = await tenantClient.SendAsync(meRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, meResponse.StatusCode);
+        var member = await meResponse.Content.ReadFromJsonAsync<TenantMemberResponse>(cancellationToken);
+        Assert.IsNotNull(member);
+
+        using var leaveRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/identity/tenant-members/me/leave")
+        {
+            Content = JsonContent.Create(new LeaveTenantMembershipRequest(member!.Version)),
+        };
+        leaveRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tenantToken);
+        using var leaveResponse = await tenantClient.SendAsync(leaveRequest, cancellationToken);
+        Assert.IsFalse(leaveResponse.IsSuccessStatusCode);
+        using var problem = JsonDocument.Parse(
+            await leaveResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            IdentityErrorCodes.TenantOwnerProtected,
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyRevokedInvitationCannotBeAcceptedAsync(
+        FullNetApiFactory factory,
+        HttpClient hostClient,
+        HttpClient tenantClient,
+        Guid tenantId,
+        string inviteTenantToken,
+        CancellationToken cancellationToken)
+    {
+        var inviteEmail = $"revoke-{Guid.NewGuid():N}@example.com";
+        using var inviteRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/identity/tenant-members/invitations")
+        {
+            Content = JsonContent.Create(new CreateTenantInvitationRequest(
+                inviteEmail,
+                TenantMemberRoles.Member)),
+        };
+        inviteRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", inviteTenantToken);
+        using var inviteResponse = await tenantClient.SendAsync(inviteRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, inviteResponse.StatusCode);
+        var invitation = await inviteResponse.Content.ReadFromJsonAsync<CreateTenantInvitationResult>(
+            cancellationToken);
+        Assert.IsNotNull(invitation);
+
+        var revokeToken = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(
+            hostClient,
+            await factory.CreateHostAccessTokenAsync(
+                [
+                    "identity.tenant_members.revoke_invitation",
+                    "tenancy.tenants.switch",
+                ],
+                cancellationToken),
+            tenantId,
+            cancellationToken);
+        using var revokeRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/identity/tenant-members/invitations/{invitation!.Invitation.Id:D}/revoke");
+        revokeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", revokeToken);
+        using var revokeResponse = await tenantClient.SendAsync(revokeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, revokeResponse.StatusCode);
+
+        var inviteeUsername = $"revoke-target-{Guid.NewGuid():N}";
+        var invitee = await factory.CreateHostIdentityAsync(
+            inviteeUsername,
+            ["tenancy.tenants.switch"],
+            cancellationToken,
+            password: FullNetApiFactory.TestPassword);
+        await factory.EnsureHostUserProfileEmailAsync(
+            invitee.UserId,
+            inviteEmail,
+            "Revoke Target",
+            cancellationToken);
+        var inviteeToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            hostClient,
+            inviteeUsername,
+            FullNetApiFactory.TestPassword,
+            cancellationToken);
+        using var acceptRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/me/tenant-invitations/{invitation.Invitation.Id:D}/accept");
+        acceptRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", inviteeToken);
+        using var acceptResponse = await hostClient.SendAsync(acceptRequest, cancellationToken);
+        Assert.IsFalse(acceptResponse.IsSuccessStatusCode);
+    }
+
+    private static async Task AddTenantMemberAsync(
+        FullNetApiFactory factory,
+        Guid tenantId,
+        Guid userId,
+        CancellationToken cancellationToken,
+        string memberRole = TenantMemberRoles.Member)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetTenant(new TenantContext(tenantId, "acme", "Acme Corporation"));
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var command = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+            var rows = await command.ExecuteAsync(
+                TenantMembershipSql.InsertMember,
+                IdentitySqlParameters.Create(
+                    ("Id", Guid.CreateVersion7()),
+                    ("UserId", userId),
+                    ("MemberRole", memberRole),
+                    ("Status", TenantMemberStatuses.Active),
+                    ("CreatedAtUtc", now),
+                    ("UpdatedAtUtc", now),
+                    ("Version", 1)),
+                cancellationToken);
+            Assert.AreEqual(1, rows);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
     }
 
     private static async Task<long> ReadIdentitySeatsUsedAsync(

@@ -76,6 +76,7 @@
   <data name="identity.tenant_members.role_invalid" xml:space="preserve"><value>The tenant member role is invalid.</value></data>
   <data name="identity.tenant_members.owner_protected" xml:space="preserve"><value>The tenant owner is protected and cannot be changed this way.</value></data>
   <data name="identity.tenant_members.already_active" xml:space="preserve"><value>The user is already an active tenant member.</value></data>
+  <data name="identity.tenant_members.tenant_inactive" xml:space="preserve"><value>The tenant is suspended or inactive.</value></data>
   <data name="identity.tenant_members.seat_quota_unavailable" xml:space="preserve"><value>Tenant seat quota services are unavailable.</value></data>
   <data name="identity.tenant_invitations.invalid" xml:space="preserve"><value>The tenant invitation is invalid, expired, or revoked.</value></data>
   <data name="identity.tenant_invitations.not_found" xml:space="preserve"><value>The tenant invitation was not found.</value></data>

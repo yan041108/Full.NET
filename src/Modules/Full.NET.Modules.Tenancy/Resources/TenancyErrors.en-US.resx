@@ -29,6 +29,7 @@
   <data name="tenancy.entitlements.binding_not_found" xml:space="preserve"><value>The entitlement binding was not found.</value></data>
   <data name="tenancy.entitlements.phase_invalid" xml:space="preserve"><value>The entitlement enforcement phase is invalid.</value></data>
   <data name="tenancy.entitlements.commercial_binding_required" xml:space="preserve"><value>A valid package or subscription binding is required for enforced entitlements.</value></data>
+  <data name="tenancy.entitlements.feature_not_granted" xml:space="preserve"><value>The tenant is not entitled to this feature.</value></data>
   <data name="tenancy.quota.request_invalid" xml:space="preserve"><value>The quota request is invalid.</value></data>
   <data name="tenancy.quota.metric_not_found" xml:space="preserve"><value>The quota metric was not found.</value></data>
   <data name="tenancy.quota.reservation_not_found" xml:space="preserve"><value>The quota reservation was not found.</value></data>

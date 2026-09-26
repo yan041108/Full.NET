@@ -17,6 +17,9 @@ public static class TenancyTenantEntitlementPermissions
 
     /// <summary>切换权益执行阶段（Compatibility/Shadow/Enforced）；影响限流与拒绝行为。</summary>
     public const string ManageEnforcement = "tenancy.tenant_entitlements.manage_enforcement";
+
+    /// <summary>对未绑定权益的活跃租户执行兼容回填 dry-run/apply。</summary>
+    public const string ReconcileBackfill = "tenancy.tenant_entitlements.reconcile_backfill";
 }
 
 /// <summary>权益类型常量；区分功能开关与额度限制两类语义。</summary>
@@ -119,3 +122,13 @@ public sealed record TenantEntitlementEnforcementResponse(string Phase, int Vers
 /// <param name="Phase">目标执行阶段；取值见 <see cref="TenantEntitlementEnforcementPhases"/>。</param>
 /// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>
 public sealed record UpdateTenantEntitlementEnforcementRequest(string Phase, int Version);
+
+/// <summary>权益兼容回填结果。</summary>
+public sealed record TenantEntitlementBackfillResponse(
+    int MissingBindingCount,
+    int AppliedCount,
+    bool DryRun,
+    IReadOnlyList<Guid> TenantIds);
+
+/// <summary>权益兼容回填请求。</summary>
+public sealed record TenantEntitlementBackfillRequest(bool DryRun = true);

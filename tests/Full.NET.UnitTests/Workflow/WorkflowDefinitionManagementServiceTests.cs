@@ -10,6 +10,7 @@ using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Features.ManageDefinitions;
 using Full.NET.Modules.Workflow.Persistence;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Tenancy.Contracts;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.Workflow;
@@ -50,7 +51,8 @@ public sealed class WorkflowDefinitionManagementServiceTests
 
         var service = new WorkflowDefinitionManagementService(
             query, command, new ImmediateTransaction(), tenant, clock, ids, users, tenantUsers,
-            WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator());
+            WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator(),
+            CreatePermissiveFeatureEntitlements());
 
         var result = await service.PublishAsync(
             definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));
@@ -111,7 +113,8 @@ public sealed class WorkflowDefinitionManagementServiceTests
 
         var service = new WorkflowDefinitionManagementService(
             query, command, transaction, tenant, clock, ids, users, tenantUsers,
-            WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator());
+            WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator(),
+            CreatePermissiveFeatureEntitlements());
 
         var result = await service.PublishAsync(
             definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));
@@ -175,7 +178,8 @@ public sealed class WorkflowDefinitionManagementServiceTests
 
         var service = new WorkflowDefinitionManagementService(
             query, command, transaction, tenant, clock, ids, hostUsers, tenantUsers,
-            WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator());
+            WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator(),
+            CreatePermissiveFeatureEntitlements());
 
         var result = await service.PublishAsync(
             definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));
@@ -188,6 +192,56 @@ public sealed class WorkflowDefinitionManagementServiceTests
             Arg.Any<CancellationToken>());
         await hostUsers.DidNotReceiveWithAnyArgs().FindActiveHostUsersAsync(default!, default);
         Assert.AreEqual(0, command.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    public async Task Publish_denies_tenant_scope_when_feature_workflow_not_granted()
+    {
+        var tenantId = Guid.CreateVersion7();
+        var definitionId = Guid.CreateVersion7();
+        var actorId = Guid.CreateVersion7();
+        var formVersionId = Guid.CreateVersion7();
+        var tenant = Substitute.For<ICurrentTenant>();
+        tenant.IsHost.Returns(false);
+        tenant.IsAvailable.Returns(true);
+        tenant.Id.Returns(tenantId);
+        var query = Substitute.For<IQueryExecutor>();
+        var command = Substitute.For<ICommandExecutor>();
+        var featureEntitlements = Substitute.For<ITenantFeatureEntitlementPort>();
+        featureEntitlements
+            .IsFeatureGrantedAsync(tenantId, TenantEntitlementCatalogCodes.Workflow, Arg.Any<CancellationToken>())
+            .Returns(Result<bool>.Failure(new Error(
+                TenancyErrorCodes.EntitlementFeatureNotGranted,
+                "Feature not granted.",
+                ErrorType.Validation)));
+
+        var service = new WorkflowDefinitionManagementService(
+            query,
+            command,
+            new ImmediateTransaction(),
+            tenant,
+            Substitute.For<IClock>(),
+            Substitute.For<IIdGenerator>(),
+            Substitute.For<IHostUserBatchSelectionDirectory>(),
+            Substitute.For<ITenantUserSelectionDirectory>(),
+            WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator(),
+            featureEntitlements);
+
+        var result = await service.PublishAsync(
+            definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(TenancyErrorCodes.EntitlementFeatureNotGranted, result.Error!.Code);
+        await query.DidNotReceiveWithAnyArgs().QuerySingleOrDefaultAsync<WorkflowDefinitionRecord>(
+            default!, default!, default);
+    }
+
+    private static ITenantFeatureEntitlementPort CreatePermissiveFeatureEntitlements()
+    {
+        var port = Substitute.For<ITenantFeatureEntitlementPort>();
+        port.IsFeatureGrantedAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Result<bool>.Success(true));
+        return port;
     }
 
     private static WorkflowFormDefinitionRecord CreateActiveFormDefinition(

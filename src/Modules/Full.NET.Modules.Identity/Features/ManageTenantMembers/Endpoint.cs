@@ -36,6 +36,30 @@ internal static class Endpoint
         .Produces<PagedResult<TenantMemberResponse>>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityTenantMembershipPermissions.Read);
 
+        group.MapGet("/me", async (
+            TenantMembershipQueryService queries,
+            ICurrentSessionAuthorization sessions,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var actor = await sessions.AuthorizeAsync(
+                    IdentityTenantMembershipPermissions.LeaveSelf,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (actor is null)
+            {
+                return Results.Forbid();
+            }
+
+            var result = await queries.GetCurrentMemberAsync(actor.UserId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityGetCurrentTenantMember")
+        .Produces<TenantMemberResponse>(StatusCodes.Status200OK)
+        .RequireFullNetPermission(IdentityTenantMembershipPermissions.LeaveSelf);
+
         group.MapGet("/{memberId:guid}", async (
             Guid memberId,
             TenantMembershipQueryService queries,
@@ -158,5 +182,33 @@ internal static class Endpoint
         .WithName("identityRemoveTenantMember")
         .Produces<TenantMemberResponse>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityTenantMembershipPermissions.Remove);
+
+        group.MapPost("/me/leave", async (
+            LeaveTenantMembershipRequest request,
+            TenantMembershipManagementService service,
+            ICurrentSessionAuthorization sessions,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var actor = await sessions.AuthorizeAsync(
+                    IdentityTenantMembershipPermissions.LeaveSelf,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (actor is null)
+            {
+                return Results.Forbid();
+            }
+
+            var result = await service.LeaveCurrentTenantAsync(
+                    actor.UserId,
+                    request.Version,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityLeaveCurrentTenant")
+        .Produces<TenantMemberResponse>(StatusCodes.Status200OK)
+        .RequireFullNetPermission(IdentityTenantMembershipPermissions.LeaveSelf);
     }
 }
