@@ -35,6 +35,19 @@ public static class ModuleIntegrationHostOrchestrator
                 "禁止对官方 Full.NET.Modules.* 做隐式推断接入。");
         }
 
+        // 整链首步前先拒绝已有恢复现场，避免后端或入口先写入后才在 Composition 阶段阻断。
+        try
+        {
+            var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
+            CompositionIntegrationRecovery.RejectPending(root,
+                Path.Combine(root, target.CompositionProjectPath),
+                Path.Combine(root, target.CompositionCatalogPath));
+        }
+        catch (GenerationWorkspaceConflictException exception)
+        {
+            return ModuleIntegrationHostApplyResult.Failure(exception.Message);
+        }
+
         var backend = await ModuleIntegrationBackendApplyCommand
             .ApplyAsync(repositoryRoot, schema, target, cancellationToken)
             .ConfigureAwait(false);

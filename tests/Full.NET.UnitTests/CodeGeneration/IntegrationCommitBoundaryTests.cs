@@ -9,6 +9,36 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class IntegrationCommitBoundaryTests
 {
     [TestMethod]
+    [DataRow("registration")]
+    [DataRow("project")]
+    [DataRow("catalog")]
+    public async Task Host_blocks_pending_composition_before_backend_prerequisite_reads(string kind)
+    {
+        using var fixture = new CommitFixture(separateCatalog: true);
+        var pending = kind == "registration"
+            ? Path.Combine(fixture.Repository, CompositionIntegrationRecovery.MarkerRelativePath)
+            : Path.Combine(Path.GetDirectoryName(kind == "project" ? fixture.Project : fixture.Catalog)!,
+                ".fullnet-composition-orphan.tmp");
+        Directory.CreateDirectory(Path.GetDirectoryName(pending)!);
+        File.WriteAllText(pending, "pending review");
+        var before = Directory.GetFiles(fixture.Repository, "*", SearchOption.AllDirectories)
+            .ToDictionary(path => path, File.ReadAllText);
+        var target = ModuleIntegrationTarget.Create("Catalog",
+            "src/Modules/Acme.Modules.Catalog/Acme.Modules.Catalog.csproj",
+            "src/Modules/Acme.Modules.Catalog/CatalogModule.cs",
+            "src/Composition/Acme.Composition/Acme.Composition.csproj",
+            "catalog/ModuleCatalog.cs", "ui/admin/routes.ts", null);
+        // 模块项目故意缺失：恢复门禁必须优先失败，不能进入后端前置检查或构建。
+        var result = await ModuleIntegrationHostOrchestrator.ApplyAsync(fixture.Repository,
+            FullNetCrudSchemaTests.CreateProductSchema(), target, CancellationToken.None);
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(string.Join("\n", result.Diagnostics), "待审查");
+        CollectionAssert.AreEquivalent(before.Keys.ToArray(),
+            Directory.GetFiles(fixture.Repository, "*", SearchOption.AllDirectories));
+        foreach (var file in before) Assert.AreEqual(file.Value, File.ReadAllText(file.Key));
+    }
+
+    [TestMethod]
     [DataRow("file")]
     [DataRow("parent")]
     [DataRow("alias")]
