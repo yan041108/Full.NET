@@ -94,6 +94,12 @@ internal static class GenerationWorkspacePath
         GenerationArtifactPath.Validate(relativePath, nameof(relativePath));
 
         var parentSegments = relativePath.Split('/')[..^1];
+        if (parentSegments.Length == 0)
+        {
+            // 根目录可以作为文件的父目录；实际文件仍由 Resolve 校验，且根目录不得变成链接。
+            RejectReparsePoint(fullRoot, relativePath);
+            return;
+        }
         var currentPath = fullRoot;
         var currentRelativePath = string.Empty;
         foreach (var segment in parentSegments)
