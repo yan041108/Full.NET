@@ -8,11 +8,12 @@ import { isMainThread, parentPort, Worker, workerData } from 'node:worker_thread
 const operationIds = ['catalogListProducts', 'catalogCreateProduct', 'catalogGetProduct', 'catalogUpdateProduct', 'catalogDeleteProduct'];
 const fileNames = ['guards.generated.ts', 'index.generated.ts', 'models.generated.ts', 'operations.generated.ts'];
 
-// 匿名请求不注入凭据，严格核对服务端拒绝；不以此证明允许业务操作或页面行为。
-export async function verifyApplicationCrudClientRuntime(appRoot, baseUrl, { logPath }) {
+// 匿名不注入凭据，Host 凭据只在内存中传递；拒绝证据不证明允许业务操作或页面行为。
+export async function verifyApplicationCrudClientRuntime(appRoot, baseUrl, { logPath, hostAccessToken }) {
+  assert.ok(hostAccessToken === undefined || (typeof hostAccessToken === 'string' && hostAccessToken.trim()), 'valid Host credential required');
   // Worker 隔离 fetch 观测，避免修改并行验收或宿主线程的全局网络实现。
   return await new Promise((resolve, reject) => {
-    const worker = new Worker(new URL(import.meta.url), { workerData: { kind: 'client-runtime', appRoot, baseUrl, logPath } });
+    const worker = new Worker(new URL(import.meta.url), { workerData: { kind: 'client-runtime', appRoot, baseUrl, logPath, hostAccessToken } });
     let result;
     worker.on('message', (message) => { result = message; });
     worker.on('error', reject);
@@ -24,9 +25,13 @@ export async function verifyApplicationCrudClientRuntime(appRoot, baseUrl, { log
   });
 }
 
-async function runClientRuntime(appRoot, baseUrl, logPath) {
+async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken) {
   const emittedRoot = join(appRoot, 'verification/ClientGeneration/emitted');
-  const evidence = { completed: false, responses: [] };
+  const host = hostAccessToken !== undefined;
+  const expectedStatus = host ? 403 : 401;
+  const expectedCode = host ? 'authorization.permission_denied' : 'identity.session_not_active';
+  const redact = (text) => host ? text.replaceAll(hostAccessToken, '[REDACTED]') : text;
+  const evidence = { completed: false, subject: host ? 'host-admin' : 'anonymous', responses: [] };
   const originalFetch = globalThis.fetch;
   const transports = [];
   globalThis.fetch = async (...args) => {
@@ -38,6 +43,7 @@ async function runClientRuntime(appRoot, baseUrl, logPath) {
     const { createHttpClient } = await import(pathToFileURL(join(emittedRoot, 'packages/client-contracts/src/http.js')).href);
     const operations = await import(pathToFileURL(join(emittedRoot, 'verification/ClientGeneration/generated/operations.generated.js')).href);
     const http = createHttpClient(baseUrl);
+    if (host) http.configureAuthentication({ getAccessToken: () => hostAccessToken, refresh: async () => false });
     const productId = '01900000-0000-7000-8000-000000000001';
     const parameters = [{ page: 1, pageSize: 5 }, { body: { name: 'Denied application product' } },
       { productId }, { productId, body: { name: 'Denied update', version: '1' } }, { productId, body: { version: '1' } }];
@@ -54,23 +60,26 @@ async function runClientRuntime(appRoot, baseUrl, logPath) {
         entry.httpStatus = transports[index];
         entry.status = problem?.status;
         entry.code = problem?.code;
-        assert.equal(entry.httpStatus, 401, 'generated client HTTP status mismatch');
-        assert.equal(entry.status, 401, 'generated client anonymous status mismatch');
-        assert.equal(entry.code, 'identity.session_not_active', 'generated client authorization machine code mismatch');
+        assert.equal(entry.httpStatus, expectedStatus, 'generated client HTTP status mismatch');
+        assert.equal(entry.status, expectedStatus, 'generated client decoded status mismatch');
+        assert.equal(entry.code, expectedCode, 'generated client authorization machine code mismatch');
       }
-      assert.equal(rejected, true, 'generated client unexpectedly allowed anonymous operation');
+      assert.equal(rejected, true, 'generated client unexpectedly allowed denied operation');
     }
     evidence.completed = true;
-    return { requests: 5, anonymousDenied: 5 };
+    return host ? { requests: 5, hostDenied: 5 } : { requests: 5, anonymousDenied: 5 };
   } finally {
     globalThis.fetch = originalFetch;
-    writeFileSync(logPath, JSON.stringify(evidence, null, 2));
+    writeFileSync(logPath, redact(JSON.stringify(evidence, null, 2)));
   }
 }
 
 if (!isMainThread && workerData?.kind === 'client-runtime') {
-  try { parentPort.postMessage({ value: await runClientRuntime(workerData.appRoot, workerData.baseUrl, workerData.logPath) }); }
-  catch (error) { parentPort.postMessage({ error: error instanceof Error ? error.message : String(error) }); }
+  try { parentPort.postMessage({ value: await runClientRuntime(workerData.appRoot, workerData.baseUrl, workerData.logPath, workerData.hostAccessToken) }); }
+  catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    parentPort.postMessage({ error: workerData.hostAccessToken === undefined ? message : message.replaceAll(workerData.hostAccessToken, '[REDACTED]') });
+  }
 }
 
 // 只使用应用工具和业务契约；编译器由验收环境提供，不改写共享客户端基线。

@@ -27,6 +27,13 @@ async function fixture(action) {
   } finally { rmSync(appRoot, { recursive: true, force: true }); }
 }
 
+for (const hostAccessToken of ['', null, 17]) {
+  test(`invalid Host runtime credential is rejected: ${JSON.stringify(hostAccessToken)}`, async () => {
+    await assert.rejects(() => verifyApplicationCrudClientRuntime('unused', 'http://localhost',
+      { logPath: 'unused', hostAccessToken }), /valid Host credential required/u);
+  });
+}
+
 test('application business client generates and compiles all five operations without changing its inputs', () => fixture((appRoot) => {
   const result = verifyApplicationCrudClient(appRoot, { reportDirectory: join(appRoot, 'reports/client') });
   assert.deepEqual(result, { operations: 5, generatedFiles: 4, compiled: true, zeroDrift: true, inputsUnchanged: true });
@@ -34,27 +41,38 @@ test('application business client generates and compiles all five operations wit
   assert.deepEqual(report, result);
 }));
 
-for (const [validCode, status, bodyStatus = status] of [[true, 401], [false, 401], [true, 403], [true, 200], [true, 500, 401]]) {
-  test(`compiled business client validates anonymous HTTP rejection: ${validCode}/${status}/${bodyStatus}`, () => fixture(async (appRoot) => {
+for (const [validCode, status, bodyStatus = status, host = false] of [[true, 401], [false, 401], [true, 403], [true, 200], [true, 500, 401],
+  [true, 403, 403, true], [true, 500, 403, true], [false, 403, 403, true]]) {
+  test(`compiled business client validates HTTP rejection: ${validCode}/${status}/${bodyStatus}/${host}`, () => fixture(async (appRoot) => {
     verifyApplicationCrudClient(appRoot, { reportDirectory: join(appRoot, 'reports/client') });
     const received = [];
+    const hostAccessToken = 'secret-host-runtime-fixture';
+    const expectedStatus = host ? 403 : 401;
     const server = createServer((request, response) => {
       received.push({ method: request.method, url: request.url, authorization: request.headers.authorization });
       response.writeHead(status, { 'content-type': 'application/problem+json' });
-      response.end(JSON.stringify({ status: bodyStatus, code: validCode ? 'identity.session_not_active' : 'wrong.code' }));
+      response.end(JSON.stringify({ status: bodyStatus,
+        code: validCode ? (host ? 'authorization.permission_denied' : 'identity.session_not_active') : (host ? hostAccessToken : 'wrong.code') }));
     });
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     const logPath = join(appRoot, 'reports/client/runtime.json');
     try {
-      const run = () => verifyApplicationCrudClientRuntime(appRoot, `http://127.0.0.1:${server.address().port}`, { logPath });
-      if (validCode && status === 401) {
-        assert.deepEqual(await run(), { requests: 5, anonymousDenied: 5 });
+      const run = () => verifyApplicationCrudClientRuntime(appRoot, `http://127.0.0.1:${server.address().port}`,
+        { logPath, ...(host ? { hostAccessToken } : {}) });
+      if (validCode && status === expectedStatus) {
+        assert.deepEqual(await run(), host ? { requests: 5, hostDenied: 5 } : { requests: 5, anonymousDenied: 5 });
         assert.equal(received.length, 5);
-        assert.ok(received.every((request) => request.authorization === undefined));
+        assert.ok(received.every((request) => request.authorization === (host ? `Bearer ${hostAccessToken}` : undefined)));
         assert.deepEqual(received.map((request) => request.method), ['GET', 'POST', 'GET', 'PUT', 'POST']);
         assert.match(received[4].url, /\/delete$/u);
-      } else await assert.rejects(run, status === 401 ? /machine code/u : /status mismatch|unexpectedly allowed/u);
-      assert.equal(JSON.parse(readFileSync(logPath, 'utf8')).completed, validCode && status === 401);
+      } else await assert.rejects(run, (error) => {
+        assert.match(error.message, status === expectedStatus ? /machine code/u : /status mismatch|unexpectedly allowed/u);
+        assert.equal(error.message.includes(hostAccessToken), false, 'error leaked credential');
+        return true;
+      });
+      const reportText = readFileSync(logPath, 'utf8');
+      assert.equal(reportText.includes(hostAccessToken), false, 'report leaked credential');
+      assert.equal(JSON.parse(reportText).completed, validCode && status === expectedStatus);
     } finally { await new Promise((resolve) => server.close(resolve)); }
   }));
 }

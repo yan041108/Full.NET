@@ -188,3 +188,7 @@ ASP.NET 数字读取兼容：实际文档的分页参数及ProblemDetails.status
 生成客户端匿名运行验收：编译后的业务操作与应用自有共享 HTTP 实现从专用 `verification/ClientGeneration/emitted` 加载，登录前通过五个生成操作调用 API。每项必须抛出401及 `identity.session_not_active`，不注入凭据、不刷新或重试；`application-crud-client/runtime.json` 只记录操作名、状态及机器码，失败时保留completed=false。此验证只覆盖匿名拒绝链路，不覆盖成功CRUD、包解析、浏览器或Vue；新SHA双库结果需独立核对。
 
 运行验收在隔离 Worker 中观测真实 fetch 状态，每操作恰好一次响应，HTTP状态和解码后的ProblemDetails.status都必须为401。报告额外记录httpStatus；正文伪报401而HTTP返回403/500不得通过。观测不改变宿主线程fetch或生产共享HTTP实现。
+
+匿名运行远端证据：`006ca78f` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36331246301/job/108653465437)成功385/385、零失败/跳过。两库runtime.json均completed=true，五操作的httpStatus/status均401、code均identity.session_not_active。这证明生成操作经应用共享HTTP实现抵达真实API并被拒绝，不证明允许CRUD或Vue页面。
+
+Host拒绝增量：登录后、进入租户前，另用生成客户端执行五个操作，HTTP与正文状态均须403，code须authorization.permission_denied。Host凭据只在内存传到隔离Worker，重试关闭；host-runtime.json及错误消息脱敏，不能写入token。对应新SHA双库结果须独立核对，不能用本地测试服务器替代真实授权证明。

@@ -295,6 +295,8 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     verifyApplicationCrudClient(appRoot, { reportDirectory: join(logRoot, 'application-crud-client') });
     await verifyApplicationCrudClientRuntime(appRoot, apiUrl, { logPath: join(logRoot, 'application-crud-client/runtime.json') });
     let hostAccessToken = await loginAndReadSettings(apiUrl);
+    await verifyApplicationCrudClientRuntime(appRoot, apiUrl, { hostAccessToken,
+      logPath: join(logRoot, 'application-crud-client/host-runtime.json') });
     await verifyApplicationCrudHttpDenial(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-http-denial.json') });
     const readPermission = await verifyApplicationCrudReadPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-read-permission.json') });
     hostAccessToken = readPermission.hostAccessToken;
