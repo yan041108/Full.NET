@@ -46,8 +46,10 @@ export async function generateFullNetClient({
   inputPath = defaultInputPath,
   outputDirectory = defaultOutputDirectory,
   manifestPath = path.join(repositoryRoot, 'contracts', 'openapi', 'client-generation-manifest-v1.json'),
+  httpModuleSpecifier = '../http.js',
   check = false
 } = {}) {
+  validateHttpModuleSpecifier(httpModuleSpecifier);
   const document = JSON.parse(await readFile(inputPath, 'utf8'));
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   // 应用清单只能逐项声明公开操作，非法值不得静默退化为默认或扩大匿名边界。
@@ -65,7 +67,7 @@ export async function generateFullNetClient({
     throw new Error(`客户端 OpenAPI 未通过生成就绪门禁：\n${violations.join('\n')}`);
   }
 
-  const files = renderGeneratedFiles(document);
+  const files = renderGeneratedFiles(document, { httpModuleSpecifier });
   if (check) {
     await assertGeneratedFilesMatch(outputDirectory, files);
     return files;
@@ -77,14 +79,15 @@ export async function generateFullNetClient({
   return files;
 }
 
-export function renderGeneratedFiles(document) {
+export function renderGeneratedFiles(document, { httpModuleSpecifier = '../http.js' } = {}) {
+  validateHttpModuleSpecifier(httpModuleSpecifier);
   const schemas = document.components?.schemas ?? {};
   const operations = collectOperations(document);
   return {
     'guards.generated.ts': renderGuards(schemas, operations),
     'index.generated.ts': renderIndex(),
     'models.generated.ts': renderModels(schemas),
-    'operations.generated.ts': renderOperations(operations, schemas)
+    'operations.generated.ts': renderOperations(operations, schemas, httpModuleSpecifier)
   };
 }
 
@@ -201,7 +204,14 @@ function renderPredicate(functionName, returnType, schema) {
     + '}';
 }
 
-function renderOperations(operations, schemas) {
+function validateHttpModuleSpecifier(value) {
+  // 应用可复用共享 HTTP 契约；非法引用必须在创建目录前拒绝，避免留下半成品。
+  if (typeof value !== 'string' || !value || value !== value.trim() || /[\u0000-\u001f\u007f]/u.test(value)) {
+    throw new Error('httpModuleSpecifier 必须是非空且不含控制字符的模块引用。');
+  }
+}
+
+function renderOperations(operations, schemas, httpModuleSpecifier) {
   const schemaNames = Object.keys(schemas).sort(compareText);
   const modelImports = schemaNames.length > 0
     ? `import type {\n${schemaNames.map(name => `  ${name}`).join(',\n')}\n} from './models.generated.js';\n`
@@ -218,7 +228,7 @@ function renderOperations(operations, schemas) {
     renderOperation(operation, schemas)
   ].join('\n\n'));
   return generatedHeader('OpenAPI 低层 HttpClient Operation')
-    + "import type { HttpClient, RequestOptions } from '../http.js';\n"
+    + `import type { HttpClient, RequestOptions } from ${httpModuleSpecifier === '../http.js' ? "'../http.js'" : JSON.stringify(httpModuleSpecifier)};\n`
     + modelImports
     + guardImports
     + '\n'
@@ -786,6 +796,11 @@ function parseArguments(args) {
       const value = args[index + 1];
       if (!value || value.startsWith('--')) throw new Error('--manifest 缺少文件路径。');
       options.manifestPath = path.resolve(value);
+      index += 1;
+    } else if (argument === '--http-module') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('--')) throw new Error('--http-module 缺少模块引用。');
+      options.httpModuleSpecifier = value;
       index += 1;
     } else {
       throw new Error(`未知参数：${argument}`);

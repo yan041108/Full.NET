@@ -808,3 +808,9 @@ Vue接入前置客户端工具增量（基线4c171501b3d5ab9ff6d13a57bc8a149cb04
 客户端工具分发远端收口（证据提交43bf0718cc97ecb16c22cbe82bb919ec2c15bf0a；记录基线0f9ffda9bb808ca86b83560e2a5abfbd3c0081d0，快照f02-client-tools-ci-evidence-20260927）：主CI36315494268、API Native36315494256、Worker Native36315494218均终态success。独立应用双库作业108609299088成功374/374、零失败/跳过，实际完整模板创建的四份工具/契约副本字节与冻结源码一致；下载两库application-client-tools.json均status0、stdout为客户端OpenAPI生成产物零漂移、stderr为空。默认应用工具分发与运行闭包已有真实证据，分支筛选跳过项仍不算通过，不替代main完整Integration或生成应用Native认证。
 
 本轮仅同步上述证据及教程中过时的未分发说明；并行AI任务提交0f9ffda9保持，不纳入本切片验证结论。Vue业务契约接线/编译/页面使用、应用Worker和其他既有F02缺口仍待完成，F02及Capacity-not-verified保持，未合并/发布。
+
+应用业务客户端独立引用增量（基线f33219b2b5c62a965c15d0cd48b49cc336d73667，快照f02-client-http-module-20260927）：生成器固定../http.js使业务独立目录无法直接复用共享HTTP契约。增加httpModuleSpecifier及CLI --http-module，默认字节保持；自定义引用按JSON字符串输出，非字符串/空/前后空白/控制字符在创建输出目录前拒绝，CLI缺值拒绝。应用可显式使用@fullnet/client-contracts，把业务产物保留在应用目录，不覆盖共享官方操作。此切片只改变类型引用，不新增运行时适配、路由、权限或页面行为。
+
+新增8项有效RED全部失败、10旧项通过；实现后18/18，包含实际TypeScript编译四份业务生成文件并通过paths映射消费真实共享src/index.ts，及相同参数CLI --check。编译验证不等于安装应用包或Vue生产构建；仍需真实业务OpenAPI、应用适配器和页面接线验收。inner影响none，不执行本地.NET/容器/浏览器，F02与Capacity-not-verified保持。
+
+终检相关四组Node40/40、治理55/55零跳过，默认客户端check零漂移、语法及任务diff通过。独立只读复审18/18无阻断，确认默认引用字节保持、引用字符串隔离及写盘前校验；应用包解析与Vue构建不在本轮证明范围。新提交Actions仍需独立核对，未合并/发布。

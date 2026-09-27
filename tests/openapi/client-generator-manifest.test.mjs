@@ -58,3 +58,42 @@ for (const args of [['--manifest'], ['--manifest', '--check']]) {
     assert.match(result.stderr, /--manifest 缺少文件路径/u);
   });
 }
+
+test('application client operations compile against the real shared HTTP contract', async () => fixture(async (f) => {
+  await writeFile(f.inputPath, JSON.stringify(f.document));
+  await writeFile(f.manifestPath, JSON.stringify({ publicOperationIds: [] }));
+  await generateFullNetClient({ ...f, httpModuleSpecifier: '@fullnet/client-contracts' });
+  assert.match(await readFile(join(f.outputDirectory, 'operations.generated.ts'), 'utf8'), /from ["']@fullnet\/client-contracts["']/u);
+  const sharedIndex = fileURLToPath(new URL('../../packages/client-contracts/src/index.ts', import.meta.url));
+  const compiler = fileURLToPath(new URL('../../packages/client-contracts/node_modules/typescript/bin/tsc', import.meta.url));
+  const config = join(f.root, 'tsconfig.json');
+  await writeFile(config, JSON.stringify({ compilerOptions: {
+    strict: true, noEmit: true, target: 'ES2022', module: 'ESNext', moduleResolution: 'Bundler',
+    lib: ['ES2022', 'DOM'], skipLibCheck: true,
+    paths: { '@fullnet/client-contracts': [sharedIndex] }
+  }, include: ['generated/*.ts'] }));
+  const compiled = spawnSync(process.execPath, [compiler, '-p', config], { encoding: 'utf8', windowsHide: true });
+  assert.equal(compiled.status, 0, `${compiled.stdout}\n${compiled.stderr}`);
+  const cli = spawnSync(process.execPath, [fileURLToPath(new URL('../../scripts/openapi/generate-fullnet-client.mjs', import.meta.url)),
+    '--input', f.inputPath, '--manifest', f.manifestPath, '--output', f.outputDirectory,
+    '--http-module', '@fullnet/client-contracts', '--check'], { encoding: 'utf8', windowsHide: true });
+  assert.equal(cli.status, 0, cli.stderr);
+}));
+
+for (const httpModuleSpecifier of ['', ' spaced ', null, 17, 'bad\nmodule']) {
+  test(`invalid HTTP module is rejected before writes: ${JSON.stringify(httpModuleSpecifier)}`, async () => fixture(async (f) => {
+    await writeFile(f.inputPath, JSON.stringify(f.document));
+    await writeFile(f.manifestPath, JSON.stringify({ publicOperationIds: [] }));
+    await assert.rejects(() => generateFullNetClient({ ...f, httpModuleSpecifier }), /httpModuleSpecifier/u);
+    await assert.rejects(() => readdir(f.outputDirectory), { code: 'ENOENT' });
+  }));
+}
+
+for (const args of [['--http-module'], ['--http-module', '--check']]) {
+  test(`CLI refuses missing HTTP module: ${args.join(' ')}`, () => {
+    const result = spawnSync(process.execPath, [fileURLToPath(new URL('../../scripts/openapi/generate-fullnet-client.mjs', import.meta.url)), ...args],
+      { encoding: 'utf8', windowsHide: true });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /--http-module 缺少模块引用/u);
+  });
+}

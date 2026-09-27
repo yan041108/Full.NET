@@ -178,3 +178,5 @@ ASP.NET 数字读取兼容：实际文档的分页参数及ProblemDetails.status
 新模板将客户端生成脚本及校验器分发至 `.fullnet-tools/openapi/`，默认OpenAPI和公开操作清单位于应用 `contracts/openapi/`。在应用目录运行 `node .fullnet-tools/openapi/generate-fullnet-client.mjs --check` 检查其冻结客户端基线；需要业务输入时显式传 `--input`、`--manifest`、`--output`。这些文件来自同一固定源码包及摘要，初始化后应用拥有副本；旧应用需显式采用，框架源码升级不会自动覆盖应用工具/契约。工具可运行不等于业务客户端或Vue接入已验收。
 
 工具分发远端证据：`43bf0718` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36315494268/job/108609299088)成功374/374、零失败/跳过。实际模板创建核对四份工具/契约副本与冻结源码字节一致；SQL Server/MySQL 的 `application-client-tools.json` 均记录应用自带工具退出0、生成产物零漂移、stderr为空。此证据验证默认客户端基线，不覆盖业务客户端接线、Vue编译或页面使用，F02仍未关闭。
+
+业务客户端独立目录：生成业务契约时可追加 `--http-module @fullnet/client-contracts`，让操作文件从共享包导入 `HttpClient` 与 `RequestOptions` 类型；默认仍引用 `../http.js`，保持框架基线。使用 `--check` 时须带相同引用参数。业务生成目录应由应用单独拥有，保留共享包已有认证和基础操作；使用方仍须配置包解析并显式接入业务适配器。此选项仅改变类型引用，不自动注册路由或改变运行时请求、认证及租户上下文。
