@@ -12,6 +12,7 @@ export const MODULE_ARTIFACTS = [
 export function verifyApplicationCrudModule(appRoot, {
   run = spawnSync,
   reportDirectory = join(process.cwd(), '.tmp/template-real-stack/application-crud-module'),
+  removeTestSqlComment = false,
 } = {}) {
   const moduleDirectory = 'src/Demo.Modules.Catalog';
   const moduleProject = moduleDirectory + '/Demo.Modules.Catalog.csproj';
@@ -81,6 +82,11 @@ ${references.map((path) => `    <ProjectReference Include="../../framework/fulln
   assert.ok(conflict.split(/\r?\n/u).includes('Conflict ' + sqlPath), 'missing exact module SQL conflict');
   assert.deepEqual(capture(), customized, 'conflict changed module sources or manifest');
   assert.deepEqual(new Map(hostPaths.map((path) => [path, readFileSync(join(appRoot, path))])), hostSnapshot, 'module integration changed application host content');
+  if (removeTestSqlComment) {
+    // 模块由本验收从空目录创建；冲突保护通过后，只撤销本验收追加的注释，以便后续接线。
+    writeFileSync(join(moduleRoot, sqlPath), applied.get(sqlPath));
+    assert.deepEqual(capture(), applied, 'test comment cleanup changed unrelated module content');
+  }
   const result = { artifacts: MODULE_ARTIFACTS.length, moduleCompiled: true, conflictRejected: true };
   writeFileSync(join(reportDirectory, 'result.json'), JSON.stringify(result, null, 2));
   return result;

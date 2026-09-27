@@ -12,6 +12,7 @@ import { verifyCreatedApp } from '../../scripts/templates/verify-created-app.mjs
 import { verifyApplicationComposition } from './support/application-composition-probe.mjs';
 import { verifyApplicationCrudGeneration } from './support/application-crud-generation.mjs';
 import { verifyApplicationCrudModule } from './support/application-crud-module.mjs';
+import { verifyApplicationCrudHostWiring } from './support/application-crud-host-wiring.mjs';
 
 const skipBundleIntegration = areBundleInputsClean()
   ? false
@@ -86,7 +87,8 @@ test('application template package includes framework sources and root manifest'
     }
     verifyApplicationComposition(appRoot);
     verifyApplicationCrudGeneration(appRoot);
-    verifyApplicationCrudModule(appRoot);
+    verifyApplicationCrudModule(appRoot, { removeTestSqlComment: true });
+    verifyApplicationCrudHostWiring(appRoot);
     verifyManagedFiles();
     const pnpm = 'pnpm';
     const install = spawnSync(pnpm, [

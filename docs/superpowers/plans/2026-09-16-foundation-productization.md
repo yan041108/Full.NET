@@ -589,3 +589,8 @@ Host 授权目标静态路径增量执行计划（基线 `43772a39353303fb851f3f
 本增量快速证据：初始六项 Node 编排 RED 全失败，实现后六通过；追加项目改写、模块入口漂移、冲突覆盖、应用 Composition 改写、错误冲突路径和缺失编译标记六项拒绝回归，最终新套件 12 项、八组联合 82/82，治理 55/55，均零失败/跳过。语法/diff 检查和快照 inner 影响规划 none。未在本地运行应用候选/模块 .NET 编译；injected runner 成功不作为实际编译或业务运行证据。原根生成 SQL 人工修改继续保留，与模块自己的 Generated SQL 冲突分别验收。
 
 独立只读复审无阻断，新套件12/12无跳过；确认五个相对ProjectReference与现有真实Integration编译夹具一致，当前Schema不需要额外Organization或Dapper运行实现引用，根生成清单/人工SQL与模块产物保持分别保护。CatalogModule尚未消费生成注册桥，候选/实际模块编译也不证明Host/DI/权限/迁移运行。真实编译继续待新SHA Actions。
+
+独立应用生成模块宿主接线计划（基线 32482b150148c838bd9535a3be925773e72fee88）：保留开工测试矩阵状态，建立 f02-created-app-crud-host-wiring-20260927 快照。新增 application-crud-host-wiring.mjs，复用前增量应用CLI/schema/目标；apply-module-entry-integration 注入生成Add/Map桥、apply-composition-integration 引用应用模块并加入已有Probe的应用清单，随后实际Release构建API，再重复两阶段要求Unchanged和所有相关源码字节不变。严格CLI候选编译标记及目标路径，保护生成产物/模块清单/人工文件、API入口、Vue、根生成清单与根人工SQL。模块冲突负例结束后，仅可显式撤销本验收自己追加在新建模块Generated SQL上的测试注释，以继续接线；先验证冲突完整保护，不恢复未知人工内容，不改根人工SQL或框架。Node先建立失败回归；真实临时应用编译交Actions，独立复审后提交推送。本轮不接入授权贡献者、业务迁移或Vue，不验证HTTP/DI/精确权限，不关闭完整F02。
+本增量快速证据：宿主编排六项 RED 全失败；显式夹具清理一项 RED 失败。实现后十九项聚焦全部通过；追加报告成功未接线、丢失Probe、保护文件改写、API构建改写源码、两个重复阶段漂移及缺失候选编译标记共七项拒绝回归。九组Node联合96/96、治理55/55，均零失败/跳过；语法/diff检查与快照inner影响计划none。只运行注入runner，不声明独立应用候选/API编译通过；Native工作流针对框架宿主，亦不能替代生成应用Native发布。原模块冲突保护默认不清理，只有packaged验收显式选择撤销其新建模块SQL测试注释。
+
+独立只读复审无阻断，实际运行宿主与模块Node两组26/26、零失败/跳过；确认真实CLI重复接线只有Unchanged、没有候选编译标记，原Probe/项目引用保留，夹具清理仅撤销本次新建模块SQL测试注释且先完成冲突字节保护。另核对69c9c1d7的template-created-app-real-stack作业108519592619日志：application template package includes framework sources and root manifest实际成功，作业121/121、零失败/跳过，确认该基线包内CLI生成/再生成已在远端执行。该证据只绑定69c9c1d7，不替代后续模块候选编译或本轮API接线验收，也不代表整个主CI已成功；完整F02仍未关闭。

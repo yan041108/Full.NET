@@ -96,3 +96,18 @@ test('application generated module refuses an occupied module directory before r
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('explicit fixture cleanup removes only the SQL test comment after conflict protection', () => {
+  const root = workspace();
+  const calls = [];
+  try {
+    verifyApplicationCrudModule(root, { reportDirectory: join(root, 'evidence'),
+      removeTestSqlComment: true, run: runner(root, null, calls) });
+    assert.equal(readFileSync(join(root, 'src/Demo.Modules.Catalog/Generated/Product/ProductSql.g.cs'), 'utf8'),
+      'Generated/Product/ProductSql.g.cs\n');
+    assert.equal(readFileSync(join(root, 'backend/ProductSql.g.cs'), 'utf8'), 'human backend/ProductSql.g.cs');
+    assert.match(readFileSync(join(root, 'src/Demo.Modules.Catalog/Product.manual.cs'), 'utf8'), /人工模块文件/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

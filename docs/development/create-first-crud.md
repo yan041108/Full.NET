@@ -64,6 +64,8 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 
 模板验收还会通过 `apply-module-integration` 将后端产物接入应用自有模块，经过候选编译后实际构建模块项目，并验证重复接入及人工 SQL 修改保护。日志位于 `.tmp/template-real-stack/application-crud-module/`。该阶段只验证模块编译和写盘保护，尚未将生成注册桥、授权贡献者和模块接入 API，也不执行业务迁移。
 
+后续接线验收通过 CLI 将生成注册桥接入模块入口，将模块引用与实例加入应用自有 Composition，再构建 API 并重复接入检查 `Unchanged` 和源码字节。日志位于 `.tmp/template-real-stack/application-crud-host-wiring/`。为进入此阶段，冲突负例确认内容保留后会显式撤销验收自己追加的模块 SQL 测试注释；根目录的人工 SQL 与人工业务文件继续保留。API 编译仍不证明运行期 DI、授权、HTTP、业务双库或页面通过。
+
 ## 第五步：模块接入（可选）
 
 原仓库的 `samples/enterprise-request/integration-target.json` 是仓库布局示例，不适用于独立应用。准备应用自己的 `integration-target.json`，显式选择应用拥有的模块项目、入口与宿主接入位置；不得为了接入业务改写受管框架或恢复冻结 Layui 交付线。规划入口：
