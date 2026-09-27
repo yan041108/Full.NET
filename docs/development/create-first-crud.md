@@ -117,7 +117,9 @@ dotnet exec src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.C
 
 租户 CRUD 阶段复用真实可用租户目录，精确选择 Development `local`，通过上下文切换 API 取得新令牌；业务请求不提供 TenantId，不直接写库或构造 Claims。验收新增、按 ID 与列表读取、版本更新，以及旧版本更新/删除返回 409 后再次读取确认内容与版本未变，最后硬删除并确认 404 与列表移除；响应同时核对 UUID v7、服务端 TenantId、字符串 Version 和标准机器码。报告为各提供程序目录的 `application-crud-tenant-http.json`，省略签发响应正文并脱敏令牌。该主体是 Host 管理员经授权切入租户上下文；实际结果由对应提交的双库 Actions 确认，不能据此证明普通租户账号精确权限、无权限租户或跨租户数据隔离。
 
-双租户隔离阶段仅在内存续接最新会话，先经上下文 API 返回 Host，再通过租户开通 API 创建本次独立数据库中的第二租户。双方各创建一条产品，双向对对方 ID 的读取、更新、删除均要求 `catalog.products.not_found`／404，列表只含当前租户记录；切回后核对双方 Name、TenantId、Version 未变，最后分别删除自有记录并核验 404 与空列表。每次切换只使用新签发令牌，业务请求不传 TenantId。报告为 `application-crud-tenant-isolation.json`，不写入续接令牌或签发正文；双库实际行为以对应提交 Actions 为准。此阶段验证获授权 Host Actor 在不同有效租户上下文中的数据过滤，普通租户账号精确权限与无权限拒绝仍须独立验收。
+双租户隔离阶段仅在内存续接最新会话，先经上下文 API 返回 Host，再通过租户开通 API 创建本次独立数据库中的第二租户。双方各创建一条产品，双向对对方 ID 的读取、更新、删除均要求 `catalog.products.not_found`／404，列表只含当前租户记录；切回后核对双方 Name、TenantId、Version 未变，最后分别删除自有记录并核验 404 与空列表。每次切换只使用新签发令牌，业务请求不传 TenantId。报告为 `application-crud-tenant-isolation.json`，不写入续接令牌或签发正文；双库实际行为以对应提交 Actions 为准。此阶段验证获授权 Host Actor 在不同有效租户上下文中的数据过滤，普通账号权限仍由独立阶段验收。
+
+普通账号只读权限阶段通过公开 API 创建自定义角色和普通 Host 账号，分配租户上下文页面闭包 `tenancy.tenants.read`／`tenancy.tenants.switch`，产品仅授予 `catalog.products.read`。真实登录后携带服务端 CSRF Cookie 完成首次改密，核对 `/api/v1/me` 的非超级管理员标记及 Host/租户精确权限，再读取管理员创建的产品。列表和按 ID 读取应成功，创建、更新、删除应返回标准 403／`authorization.permission_denied`；管理员再次读取和列表核对原行未变且无新增行，然后清理产品并返回 Host。`application-crud-read-permission.json` 不记录密码、Cookie、签发正文或令牌；本地 Node 测试仅验证验收门禁，实际账号、会话与双库结果须检查对应提交 Actions。该阶段只覆盖普通 Host Actor 切入租户后的只读精确权限，完全无产品权限账号和各写权限独立正向仍待验收。
 
 1. 运行迁移并启动 Host.Api
 2. 使用对应租户与精确权限的账号登录管理端，访问应用实际接入的生成页面

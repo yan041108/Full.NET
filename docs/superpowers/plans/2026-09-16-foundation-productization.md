@@ -708,3 +708,11 @@ f52ffc35终态核对及夹具修复切片（快照f02-generated-recovery-fixture
 前序正向CRUD切片真实验收更新：5e309f9d独立应用作业108568230606成功，实际日志228/228、零失败/跳过，SqlServer/MySql真实栈均执行。下载fullnet-created-app-real-stack-reports，双库application-crud-tenant-http.json均completed=true，responses=13（2上下文+11业务）、2次409、read-deleted为404；脚本逐项检查Create/Read/List/Update版本1→2、冲突后保持、硬删除、列表移除、UUIDv7及服务端TenantId。Host管理员授权进入local的CRUD/乐观锁切片据此通过，不延伸为普通租户精确权限或本轮双租户隔离。
 
 本切片独立只读复审范围内无阻断：新租户允许不绑定套餐开通且有效，isolation-probe/.invalid输入合法，模块内Quota初始化无需新增业务journal或Files依赖；6次context切换使用最新Token，服务端ActiveTenantId/effectiveScope校验令旧上下文失效。生成读/列表/更新/删均有TenantId过滤，跨更新零行后的FindById也按租户过滤，跨删除先读不到即404，匹配双向6项及双方后续保持核验。调用方仅拆内存返回，不序列化凭据。复审独立Node26/26、零跳过，syntax/diff通过；未修改文件或运行.NET/容器。只提交本任务七文件，object-comments原状态保留；真实27请求/20业务/6跨拒绝待新SHA Actions，结论仍限获授权Host Actor有效租户上下文，F02未关闭，不合并发布。
+
+普通账号只读权限增量计划（基线72f60d8844076c9078bcc83f333c1323c08a8e4a，快照f02-created-app-read-permission-20260927）：在独立应用真实栈中通过公开API创建非系统、非超级管理员自定义角色与普通Host账号，角色仅包含tenancy.tenants.switch和catalog.products.read。真实登录、携带服务端CSRF Cookie完成强制首次改密，再切入local租户，使用/api/v1/me核对有效租户、非超级管理员和精确权限集合。管理员创建一条产品，普通账号列表/读取成功，创建/更新/删除均为403 authorization.permission_denied；管理员再读确认Id/TenantId/Name/Version不变并删除自己的夹具。管理员切回Host后仅内存移交最新令牌给既有验收，不写入报告。新helper与Node负例检验请求顺序、凭据隐藏、失败即停和数据保持，真实账号/会话/双库行为只由Actions认定。不会绕过首次改密、直接SQL播种或伪造Claims，不改变生产接口、公共契约或权限规则。本切片只证明只读精确权限，完全无产品权限及各写权限独立正向仍后续。按RED→实现→聚焦Node/治理/影响检查→独立只读复审→开发分支提交推送执行。
+
+本增量快速证据与复审修正：最小占位实现的15项RED全部失败，完整链实现后15/15。独立复审沿真实HostRoleManagementService和TenancyAuthorizationContributor定位父页面闭包缺失：switch必须同时具备tenancy.tenants.read，否则角色赋权返回identity.roles.action_requires_page。先修改预期权限建立有效RED（15失败/2通过），再补租户导航读取权限，保持catalog仅read；Host me精确read/switch两项，Tenant me精确三项。Node替身在赋权步骤直接校验该闭包，新增管理员列表确认403创建未新增行及回Host错误上下文负例，最终新17项/四组联合52项均通过、零跳过。治理55/55，语法/diff和inner影响none；无本地.NET/容器。真实账号与双库新切片仍待新SHA Actions。
+
+72f60d88远端独立应用作业108569632291（主CI36301418990）成功，日志241/241、零失败/跳过。下载sqlserver/mysql application-crud-tenant-isolation.json均completed=true，27响应、20业务请求、双向跨租户404共6、原行保持2及自有删除2；隔离真实证据已取得。两个企业样例和客户端作业成功，主构建、两组恢复及API/Worker Native仍运行，不报告整体通过。F02仍未关闭：普通账号只读新切片待新SHA，完全无产品权限账号、各写权限独立正向、应用Worker/OpenAPI/Vue及完整人工再生成仍后续；Capacity-not-verified保持。
+
+终检：独立只读复审确认父页面闭包已收口且无新增阻断，复跑四组Node52/52、零跳过；最终本地四组52/52、治理55/55、三脚本语法、任务diff均通过，inner影响none。仅验收脚本和直接相关文档共5文件，未改产品.NET/SQL/Schema/迁移或测试矩阵，未碰既有object-comments.json。普通只读真实22HTTP/9业务继续待新SHA Actions，未据此升级Verified。
