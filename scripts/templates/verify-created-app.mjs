@@ -22,6 +22,7 @@ const REQUIRED_FILES = [
 export function verifyCreatedApp(appRoot) {
   const root = resolve(appRoot);
   const errors = [];
+  const configurationFiles = ['appsettings.json'];
 
   for (const relativeFile of REQUIRED_FILES) {
     const absolutePath = join(root, relativeFile);
@@ -39,6 +40,7 @@ export function verifyCreatedApp(appRoot) {
     errors.push('Created app must contain exactly one application API host');
   } else {
     const hostRoot = join(sourceRoot, hosts[0].name);
+    configurationFiles.push('src/' + hosts[0].name + '/appsettings.json');
     for (const hostFile of ['Program.cs', hosts[0].name + '.csproj', 'appsettings.json']) {
       if (!isRegularFile(join(hostRoot, hostFile))) {
         errors.push('Missing required host file: ' + join('src', hosts[0].name, hostFile));
@@ -53,18 +55,18 @@ export function verifyCreatedApp(appRoot) {
     }
   }
 
-  const appsettingsPath = join(root, 'appsettings.json');
-  if (existsSync(appsettingsPath)) {
-    let config;
+  const configurationPresets = [];
+  for (const relativePath of configurationFiles) {
+    const configPath = join(root, relativePath);
+    if (!isRegularFile(configPath)) continue;
     try {
-      config = JSON.parse(readFileSync(appsettingsPath, 'utf8'));
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      if (!config?.FullNet?.Modules) {
+        errors.push(relativePath + ' must define FullNet:Modules');
+      }
+      configurationPresets.push({ relativePath, preset: config?.FullNet?.Modules?.Preset });
     } catch (error) {
-      errors.push('appsettings.json is not valid JSON: ' + (error instanceof Error ? error.message : String(error)));
-      config = null;
-    }
-
-    if (config && !config.FullNet?.Modules) {
-      errors.push('appsettings.json must define FullNet:Modules');
+      errors.push(relativePath + ' is not valid JSON: ' + (error instanceof Error ? error.message : String(error)));
     }
   }
 
@@ -81,6 +83,15 @@ export function verifyCreatedApp(appRoot) {
       }
     } catch (error) {
       errors.push('fullnet-app.json is invalid: ' + (error instanceof Error ? error.message : String(error)));
+    }
+  }
+
+  // 文件中的预设必须与应用冻结档案一致；环境覆盖由运行期诊断另行验证。
+  if (profilePreset !== undefined) {
+    for (const { relativePath, preset } of configurationPresets) {
+      if (preset !== profilePreset) {
+        errors.push(relativePath + ' module preset does not match fullnet-app.json');
+      }
     }
   }
 

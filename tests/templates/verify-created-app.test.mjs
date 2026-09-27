@@ -20,7 +20,7 @@ function fixture() {
     'packages/design-tokens/package.json': '{}',
     'src/Demo.Host.Api/Program.cs': '',
     'src/Demo.Host.Api/Demo.Host.Api.csproj': '<Project />',
-    'src/Demo.Host.Api/appsettings.json': '{}',
+    'src/Demo.Host.Api/appsettings.json': JSON.stringify({ FullNet: { Modules: { Preset: 'minimal' } } }),
     'src/Demo.Composition/Demo.Composition.csproj': '<Project />',
     'src/Demo.Composition/ApplicationModuleCatalog.cs': '',
   };
@@ -72,6 +72,51 @@ test('created app rejects a directory occupying a required API program', () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+for (const configPath of ['appsettings.json', 'src/Demo.Host.Api/appsettings.json']) {
+  for (const preset of ['platform', undefined]) {
+    test(`created app rejects ${preset ?? 'missing'} preset in ${configPath}`, () => {
+      const { root } = fixture();
+      try {
+        writeFileSync(join(root, configPath), JSON.stringify({ FullNet: { Modules: { Preset: preset } } }));
+        const result = verifyCreatedApp(root);
+        assert.equal(result.ok, false);
+        assert.ok(result.errors.some((error) => error.includes(configPath) && error.includes('preset')),
+          result.errors.join('; '));
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  }
+}
+
+for (const content of ['{', 'null', '[]']) {
+  test(`created app rejects invalid API configuration ${content}`, () => {
+    const { root } = fixture();
+    try {
+      writeFileSync(join(root, 'src/Demo.Host.Api/appsettings.json'), content);
+      assert.equal(verifyCreatedApp(root).ok, false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
+
+for (const preset of ['minimal', 'platform', 'saas', 'enterprise']) {
+  test(`matching ${preset} configuration passes for both application config files`, () => {
+    const { root } = fixture();
+    try {
+      writeFileSync(join(root, 'fullnet-app.json'), JSON.stringify({ ownerKey: 'acme', preset, databaseProvider: 'mysql' }));
+      for (const path of ['appsettings.json', 'src/Demo.Host.Api/appsettings.json']) {
+        writeFileSync(join(root, path), JSON.stringify({ FullNet: { Modules: { Preset: preset } } }));
+      }
+      const result = verifyCreatedApp(root);
+      assert.equal(result.ok, true, result.errors.join('; '));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
 
 test('complete application structure passes without changing its files', () => {
   const { root, files } = fixture();
