@@ -2,25 +2,31 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 
+export function verifyApplicationCrudCreatePermission(baseUrl, options) {
+  return verifyApplicationCrudAccountPermission(baseUrl, options, 'create');
+}
+
 export function verifyApplicationCrudNoPermission(baseUrl, options) {
-  return verifyApplicationCrudAccountPermission(baseUrl, options, false);
+  return verifyApplicationCrudAccountPermission(baseUrl, options, 'none');
 }
 
 // 用公开账号、角色和改密链验证普通演员；不把管理员成功作为精确权限成功。
 export function verifyApplicationCrudReadPermission(baseUrl, options) {
-  return verifyApplicationCrudAccountPermission(baseUrl, options, true);
+  return verifyApplicationCrudAccountPermission(baseUrl, options, 'read');
 }
 
-async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken, logPath, request = fetch }, canRead) {
+async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken, logPath, request = fetch }, mode) {
   assert.ok(typeof hostAccessToken === 'string' && hostAccessToken.trim(), 'Host token is required');
   const password = `Aa1!${randomBytes(20).toString('hex')}`;
   const newPassword = `Bb2!${randomBytes(20).toString('hex')}`;
   const secrets = [hostAccessToken, password, newPassword];
   const redact = (value) => secrets.reduce((text, secret) => text.replaceAll(secret, '[REDACTED]'), String(value));
   const evidence = { completed: false, responses: [] };
-  // 固定两个验收入口：租户页面闭包必须完整，产品只允许Read或完全无权限。
-  const permissions = [...(canRead ? ['catalog.products.read'] : []), 'tenancy.tenants.read', 'tenancy.tenants.switch'];
-  const username = canRead ? 'catalog-reader-probe' : 'catalog-unprivileged-probe';
+  const canRead = mode !== 'none';
+  const canCreate = mode === 'create';
+  // 固定三个验收入口；Create包含产品页面Read，调用者不能扩展授权集合。
+  const permissions = [...(canCreate ? ['catalog.products.create'] : []), ...(canRead ? ['catalog.products.read'] : []), 'tenancy.tenants.read', 'tenancy.tenants.switch'];
+  const username = canCreate ? 'catalog-creator-probe' : canRead ? 'catalog-reader-probe' : 'catalog-unprivileged-probe';
   const tokenFrom = (body) => {
     assert.ok(typeof body.accessToken === 'string' && body.accessToken.trim(), 'credential response missing token');
     secrets.push(body.accessToken);
@@ -45,10 +51,10 @@ async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken
         if (credential) throw new Error('invalid credential response JSON');
         throw error;
       }
-      if (status === 403) {
+      if (status === 403 || status === 404) {
         assert.match(entry.contentType ?? '', /^application\/problem\+json(?:;|$)/iu);
-        assert.equal(data.status, 403);
-        assert.equal(data.code, 'authorization.permission_denied');
+        assert.equal(data.status, status);
+        assert.equal(data.code, status === 403 ? 'authorization.permission_denied' : 'catalog.products.not_found');
       }
       return { data, response };
     } catch (error) {
@@ -65,7 +71,7 @@ async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken
     const tenantId = local[0].id;
     const scope = `tenant:${tenantId.replaceAll('-', '')}`;
     const role = await call('create-role', '/api/v1/identity/roles/', 'POST', hostAccessToken,
-      { code: canRead ? 'catalog-read-probe' : 'catalog-no-permission-probe', name: canRead ? 'Catalog read probe' : 'Catalog no permission probe' }, 201);
+      { code: canCreate ? 'catalog-create-probe' : canRead ? 'catalog-read-probe' : 'catalog-no-permission-probe', name: username }, 201);
     assert.equal(role.isSuperAdministrator, false);
     assert.equal(role.isSystem, false);
     const assigned = await call('assign-permissions', `/api/v1/identity/roles/${role.id}/permissions`, 'PUT', hostAccessToken, { permissionCodes: permissions, version: role.version });
@@ -108,8 +114,8 @@ async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken
     assert.equal(product.tenantId, tenantId);
     assert.equal(product.name, 'Read permission product');
     assert.equal(product.version, '1');
-    const checkProduct = (value) => {
-      for (const key of ['id', 'tenantId', 'name', 'version']) assert.equal(value[key], product[key], `product ${key} changed`);
+    const checkProduct = (value, expected = product) => {
+      for (const key of ['id', 'tenantId', 'name', 'version']) assert.equal(value[key], expected[key], `product ${key} changed`);
     };
     readerToken = await context('reader-enter-local', readerToken, tenantId);
     checkUser(await call('reader-tenant-identity', '/api/v1/me', 'GET', readerToken), true);
@@ -125,19 +131,40 @@ async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken
       await call('reader-list-denied', base + '/?page=1&pageSize=5', 'GET', readerToken, undefined, 403);
       await call('reader-read-denied', item, 'GET', readerToken, undefined, 403);
     }
-    await call('reader-create-denied', base + '/', 'POST', readerToken, { name: 'Forbidden create' }, 403);
+    let created;
+    if (canCreate) {
+      created = await call('ordinary-create', base + '/', 'POST', readerToken, { name: 'Ordinary account created product' }, 201);
+      assert.match(created.id, /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu, 'created Id must be UUID v7');
+      assert.notEqual(created.id, product.id, 'create overwrote existing product');
+      assert.equal(created.tenantId, tenantId);
+      assert.equal(created.name, 'Ordinary account created product');
+      assert.equal(created.version, '1');
+    } else {
+      await call('reader-create-denied', base + '/', 'POST', readerToken, { name: 'Forbidden create' }, 403);
+    }
     await call('reader-update-denied', item, 'PUT', readerToken, { name: 'Forbidden update', version: product.version }, 403);
     await call('reader-delete-denied', item + '/delete', 'POST', readerToken, { version: product.version }, 403);
     checkProduct(await call('admin-read-preserved', item, 'GET', adminTenantToken));
     const afterDenial = await call('admin-list-preserved', base + '/?page=1&pageSize=5', 'GET', adminTenantToken);
     assert.ok(Array.isArray(afterDenial.items));
-    assert.equal(afterDenial.items.length, 1, 'denied writes changed product rows');
-    checkProduct(afterDenial.items[0]);
+    const expectedRows = created ? [product, created] : [product];
+    assert.equal(afterDenial.items.length, expectedRows.length, 'writes changed unexpected product rows');
+    for (const expected of expectedRows) {
+      const matches = afterDenial.items.filter((row) => row.id === expected.id);
+      assert.equal(matches.length, 1, 'expected product not found exactly once');
+      checkProduct(matches[0], expected);
+    }
     checkProduct(await call('admin-delete', item + '/delete', 'POST', adminTenantToken, { version: product.version }));
+    if (created) {
+      const createdItem = base + '/' + created.id;
+      checkProduct(await call('admin-delete-created', createdItem + '/delete', 'POST', adminTenantToken, { version: created.version }), created);
+      await call('created-row-deleted', createdItem, 'GET', adminTenantToken, undefined, 404);
+    }
     const latestHostToken = await context('admin-return-host', adminTenantToken, null);
     evidence.completed = true;
-    evidence.result = { businessRequests: 9, readAllowed: canRead ? 2 : 0,
-      ...(canRead ? {} : { readDenied: 2 }), writeDenied: 3, rowPreserved: true };
+    evidence.result = { businessRequests: canCreate ? 11 : 9, readAllowed: canRead ? 2 : 0,
+      ...(canRead ? {} : { readDenied: 2 }), ...(canCreate ? { createAllowed: 1 } : {}),
+      writeDenied: canCreate ? 2 : 3, rowPreserved: true, ...(canCreate ? { createdRowDeleted: true } : {}) };
     // 最新Host会话仅在内存续接；凭据不属于验收结果。
     return { ...evidence.result, hostAccessToken: latestHostToken };
   } catch (error) {

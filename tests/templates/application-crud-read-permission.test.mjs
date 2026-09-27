@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission } from './support/application-crud-read-permission.mjs';
+import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission, verifyApplicationCrudCreatePermission } from './support/application-crud-read-permission.mjs';
 
 const tenantId = '01900000-0000-7000-8000-000000000010';
 const id = '01900000-0000-7000-8000-000000000011';
@@ -11,6 +11,7 @@ const roleId = '01900000-0000-7000-8000-000000000012';
 const userId = '01900000-0000-7000-8000-000000000013';
 const permissions = ['catalog.products.read', 'tenancy.tenants.read', 'tenancy.tenants.switch'];
 const product = { id, tenantId, name: 'Read permission product', version: '1' };
+const createdProduct = { id: '01900000-0000-7000-8000-000000000014', tenantId, name: 'Ordinary account created product', version: '1' };
 const tokens = ['secret-admin', 'secret-login', 'secret-password', 'secret-admin-tenant', 'secret-reader-tenant', 'secret-admin-host', 'secret-csrf'];
 const context = { tenantId, identifier: 'local', scope: `tenant:${tenantId.replaceAll('-', '')}` };
 const problem = { status: 403, code: 'authorization.permission_denied' };
@@ -32,24 +33,84 @@ async function fixture(action) {
   const root = mkdtempSync(join(tmpdir(), 'fullnet-read-permission-'));
   try { await action(join(root, 'result.json')); } finally { rmSync(root, { recursive: true, force: true }); }
 }
-function runner(calls, change, noProductPermission = false) {
+function runner(calls, change, noProductPermission = false, canCreate = false) {
   return async (url, options) => {
     const i = calls.length;
     calls.push({ url, options });
     // 替身遵守真实角色API的父页面闭包，不能固定200掩盖缺失tenancy.read。
-    const expectedPermissions = noProductPermission ? permissions.slice(1) : permissions;
+    const expectedPermissions = noProductPermission ? permissions.slice(1) : canCreate ? ['catalog.products.create', ...permissions] : permissions;
     if (i === 2) assert.deepEqual(JSON.parse(options.body).permissionCodes, expectedPermissions);
     const altered = change?.(i);
-    const denied = i >= (noProductPermission ? 13 : 15) && i <= 17;
+    const denied = i >= (noProductPermission ? 13 : canCreate ? 16 : 15) && i <= 17;
     let defaultBody = bodies[i];
     if (noProductPermission && [2, 12].includes(i)) defaultBody = { ...defaultBody, [i === 2 ? 'permissionCodes' : 'permissions']: expectedPermissions };
     if (noProductPermission && [13, 14].includes(i)) defaultBody = problem;
+    if (canCreate) {
+      if ([2, 12].includes(i)) defaultBody = { ...defaultBody, [i === 2 ? 'permissionCodes' : 'permissions']: expectedPermissions };
+      if ([15, 21].includes(i)) defaultBody = createdProduct;
+      if (i === 19) defaultBody = { items: [product, createdProduct] };
+      if (i === 22) defaultBody = { status: 404, code: 'catalog.products.not_found' };
+      if (i === 23) defaultBody = bodies[21];
+    }
     const data = altered?.body ?? defaultBody;
-    return new Response(altered?.raw ?? JSON.stringify(data), { status: altered?.status ?? (denied ? 403 : statusAt(i)), headers: {
-      'content-type': altered?.contentType ?? (denied ? 'application/problem+json' : 'application/json'),
+    const status = denied ? 403 : canCreate && i === 15 ? 201 : canCreate && i === 22 ? 404 : canCreate && i >= 21 ? 200 : statusAt(i);
+    return new Response(altered?.raw ?? JSON.stringify(data), { status: altered?.status ?? status, headers: {
+      'content-type': altered?.contentType ?? (denied || canCreate && i === 22 ? 'application/problem+json' : 'application/json'),
       ...(i === 6 ? { 'set-cookie': `fullnet-csrf=${tokens[6]}; Path=/; SameSite=Lax` } : {}),
     } });
   };
+}
+
+test('ordinary create account creates its own tenant row but cannot update or delete', async () => fixture(async (logPath) => {
+  const calls = [];
+  const result = await verifyApplicationCrudCreatePermission('http://example.test', { hostAccessToken: tokens[0], logPath, request: runner(calls, undefined, false, true) });
+  assert.deepEqual(result, { businessRequests: 11, readAllowed: 2, createAllowed: 1, writeDenied: 2, rowPreserved: true, createdRowDeleted: true, hostAccessToken: tokens[5] });
+  assert.equal(calls.length, 24);
+  assert.equal(JSON.parse(calls[1].options.body).code, 'catalog-create-probe');
+  assert.equal(JSON.parse(calls[3].options.body).username, 'catalog-creator-probe');
+  assert.deepEqual(JSON.parse(calls[2].options.body).permissionCodes, ['catalog.products.create', ...permissions]);
+  assert.equal(calls[15].options.headers.Authorization, `Bearer ${tokens[4]}`);
+  assert.deepEqual(JSON.parse(calls[15].options.body), { name: createdProduct.name });
+  assert.equal(calls[21].url, 'http://example.test/api/v1/catalog/products/' + createdProduct.id + '/delete');
+  assert.equal(calls[22].url, 'http://example.test/api/v1/catalog/products/' + createdProduct.id);
+  const text = readFileSync(logPath, 'utf8');
+  const evidence = JSON.parse(text);
+  assert.equal(evidence.completed, true);
+  assert.equal(evidence.responses.filter((entry) => entry.status === 403).length, 2);
+  assert.equal(Object.hasOwn(evidence.result, 'hostAccessToken'), false);
+  for (const token of tokens) assert.equal(text.includes(token), false);
+}));
+
+const createFailures = [
+  ['role-missing-create', 2, { body: bodies[2] }],
+  ['account-has-update', 12, { body: { ...bodies[12], permissions: ['catalog.products.create', ...permissions, 'catalog.products.update'] } }],
+  ['create-denied', 15, { status: 403, body: problem }],
+  ['created-wrong-tenant', 15, { body: { ...createdProduct, tenantId: roleId } }],
+  ['created-wrong-version', 15, { body: { ...createdProduct, version: 1 } }],
+  ['created-invalid-id', 15, { body: { ...createdProduct, id: 'invalid' } }],
+  ['created-overwrites-existing', 15, { body: { ...createdProduct, id } }],
+  ['update-allowed', 16, { status: 200, body: product }],
+  ['delete-allowed', 17, { status: 200, body: product }],
+  ['original-mutated', 18, { body: { ...product, version: '2' } }],
+  ['created-not-persisted', 19, { body: { items: [product] } }],
+  ['created-mutated', 19, { body: { items: [product, { ...createdProduct, name: 'Unexpected mutation' }] } }],
+  ['created-cleanup-wrong-row', 21, { body: product }],
+  ['deleted-row-still-readable', 22, { status: 200, body: createdProduct }],
+  ['deleted-wrong-code', 22, { body: { status: 404, code: 'other.not_found' } }],
+  ['wrong-host-return', 23, { body: { accessToken: tokens[5], context } }],
+];
+for (const [name, index, altered] of createFailures) {
+  test(`ordinary create permission rejects ${name} at the intended stage`, async () => fixture(async (logPath) => {
+    const calls = [];
+    await assert.rejects(() => verifyApplicationCrudCreatePermission('http://example.test', {
+      hostAccessToken: tokens[0], logPath, request: runner(calls, (i) => i === index ? altered : undefined, false, true),
+    }), (error) => tokens.every((token) => !error.message.includes(token)));
+    assert.equal(calls.length, index + 1, 'failure did not reach intended stage');
+    const text = readFileSync(logPath, 'utf8');
+    assert.equal(JSON.parse(text).completed, false);
+    assert.equal(JSON.parse(text).responses.length, calls.length);
+    for (const token of tokens) assert.equal(text.includes(token), false);
+  }));
 }
 
 test('authenticated tenant account without product permissions denies all five business routes', async () => fixture(async (logPath) => {

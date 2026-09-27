@@ -150,3 +150,5 @@ dotnet exec src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.C
 结果：`DIAG_WORKSPACE_OK`、`DIAG_SDK_OK`；连接串与 `FullNet:Modules` 为占位 warn（仓库根非应用模板，符合预期）。Enterprise Request 样例仅 Schema 测试通过（F09 骨架）。
 
 无产品权限普通账号阶段复用上述公开账号、角色、登录与CSRF首次改密链，使用独立角色和账号，只授予租户上下文页面闭包 `tenancy.tenants.read`／`tenancy.tenants.switch`，不授予任何 `catalog.products.*` 权限。Host与租户 `/api/v1/me` 均核对这两项精确集合、非超级管理员及改密完成；管理员预建产品后，该账号对列表、按ID读取、创建、更新、删除五个入口都应返回403／`authorization.permission_denied`。管理员再读和列表确认原行版本内容保持且没有新增，然后清理行并返回Host。各提供程序报告为 `application-crud-no-permission.json`，不保存凭据；真实账号与双库结果仍须对应SHA Actions报告确认，各写权限独立正向还须单独验收。
+
+普通账号创建权限阶段使用独立角色与账号，权限固定为产品页面闭包 `catalog.products.read`／`catalog.products.create` 和租户上下文 `tenancy.tenants.read`／`tenancy.tenants.switch`；仍通过真实登录、CSRF首次改密及 `/api/v1/me` 精确权限核验。它可列表/读取管理员预建行并创建新行201，新行必须是不同UUID v7、当前可信TenantId、预期Name和字符串Version1；更新与删除仍须403。管理员读取原行并核对列表恰含两条完整记录，再清理两行、核对普通创建行404，返回Host后仅内存续接新令牌。报告为 `application-crud-create-permission.json`，真实创建、拒绝与清理必须以对应SHA双库Actions为准；更新和删除权限独立正向仍需后续验收。
