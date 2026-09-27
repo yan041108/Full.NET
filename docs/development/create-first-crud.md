@@ -164,3 +164,5 @@ OpenAPI 接入阶段在独立应用真实 API 就绪后匿名读取 `/openapi/v1
 参数契约子集：同一真实文档门禁继续比较五操作的参数名称、query/path位置、必填性、基础标量类型与format，报告 `parameterShapes: 5`。路径ID必须保持必填UUID，分页保持可选int32，不能出现额外TenantId参数、缺失或重复参数。可选查询参数允许CLR可空schema与参数顺序差异；不由此放宽路径可空。此子集不验证分页默认值/范围、请求响应字段类型或完整错误契约，真实接入仍由对应SHA双库Actions证明。
 
 认证错误基础字段子集：五操作各401/403的ProblemDetails须声明type/title/status/detail/instance；status非空类型为integer/int32，其余为string。容忍标准字段可空或非必填、业务扩展字段，文档内字段schema引用仍须可解析；外部、缺失或循环引用拒绝。报告每状态的 `authenticationProblemFields`，不以字段存在代替类型检查，也不据此声称机器码扩展、404/409等完整错误集已认证。
+
+ASP.NET 数字读取兼容：实际文档的分页参数及ProblemDetails.status可以声明integer|string。门禁仅在类型恰为这两项、format为int32且pattern为 `^-?(?:0|[1-9]\d*)$` 时归一为整数；可空处理沿既有边界，路径UUID不适用。缺少整数约束、任意字符串/对象或int64仍拒绝。报告同时保留 `parameterDeclarations` 和 `authenticationProblemDeclarations` 原始schema声明，失败时可核对实际生成形态；规范化结果不等于改变运行时序列化。

@@ -4,6 +4,12 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const methods = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'];
 const productBase = '/api/v1/catalog/products';
 const normalize = (path) => path.replace(/\/+$/u, '');
+function numericTypes(schema, types) {
+  // ASP.NET 的整数读取兼容会生成 integer|string；仅接受有确定整数约束的 int32 表示。
+  if (types.length === 2 && types.includes('integer') && types.includes('string')
+    && schema.format === 'int32' && schema.pattern === '^-?(?:0|[1-9]\\d*)$') return ['integer'];
+  return types;
+}
 function operations(document) {
   const result = new Map();
   for (const [path, item] of Object.entries(document.paths ?? {})) {
@@ -62,6 +68,7 @@ function parameters(document, operation) {
     let types = Array.isArray(schema.type) ? [...schema.type] : [schema.type];
     // 可选查询参数的 CLR 可空表示与生成契约等价；路径参数不能因此变成可空。
     if (parameter.in === 'query' && !required) types = types.filter((type) => type !== 'null');
+    if (parameter.in === 'query') types = numericTypes(schema, types);
     assert.equal(types.length, 1, 'parameter must have one scalar type');
     assert.ok(['string', 'integer', 'number', 'boolean'].includes(types[0]), 'parameter scalar type missing');
     if (parameter.in === 'path') assert.equal(schema.nullable === true, false, 'nullable path parameter');
@@ -74,7 +81,8 @@ function problemFields(document, value) {
   // ProblemDetails 标准字段可空且可省略；核对非空基础类型，允许业务扩展字段。
   return ['type', 'title', 'status', 'detail', 'instance'].map((name) => {
     const field = resolveSchema(document, problem.properties?.[name]);
-    const types = (Array.isArray(field.type) ? field.type : [field.type]).filter((type) => type !== 'null');
+    let types = (Array.isArray(field.type) ? field.type : [field.type]).filter((type) => type !== 'null');
+    if (name === 'status') types = numericTypes(field, types);
     assert.deepEqual(types, [name === 'status' ? 'integer' : 'string'], 'invalid ProblemDetails field type: ' + name);
     assert.equal(field.format ?? null, name === 'status' ? 'int32' : null, 'invalid ProblemDetails field format: ' + name);
     return { name, type: types[0], format: field.format ?? null };
@@ -108,6 +116,7 @@ export async function verifyApplicationCrudOpenApi(baseUrl, { expectedPath, logP
       const comparison = { operation: key, operationId: actualOperation.operationId };
       evidence.comparisons.push(comparison);
       assert.equal(actualOperation.operationId, expectedOperation.operationId, key + ': operationId');
+      comparison.parameterDeclarations = actualOperation.parameters ?? [];
       comparison.parameters = parameters(actual, actualOperation);
       assert.deepEqual(comparison.parameters, parameters(expected, expectedOperation), key + ': parameters');
       const security = actualOperation.security;
@@ -121,9 +130,11 @@ export async function verifyApplicationCrudOpenApi(baseUrl, { expectedPath, logP
       comparison.successStatus = successes[0];
       comparison.authenticationProblems = [];
       comparison.authenticationProblemFields = {};
+      comparison.authenticationProblemDeclarations = {};
       for (const status of ['401', '403']) {
         assert.ok(expectedOperation.responses[status]?.content?.['application/problem+json'], 'generated authentication problem missing');
         const problem = actualOperation.responses?.[status]?.content?.['application/problem+json']?.schema;
+        comparison.authenticationProblemDeclarations[status] = resolveSchema(actual, problem).properties;
         comparison.authenticationProblemFields[status] = problemFields(actual, problem);
         assert.deepEqual(comparison.authenticationProblemFields[status], problemFields(expected,
           expectedOperation.responses[status].content['application/problem+json'].schema), key + ': ProblemDetails fields');

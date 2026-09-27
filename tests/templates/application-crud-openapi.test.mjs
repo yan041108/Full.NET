@@ -177,3 +177,44 @@ test('application OpenAPI rejects mutation of the generated input during accepta
   assert.equal(evidence.completed, false);
   assert.equal(evidence.comparisons.length, 5);
 }));
+
+for (const mode of ['query', 'problem-status']) {
+  test(`ASP.NET numeric schema from the canonical snapshot is accepted (${mode})`, async () => fixture(async (expectedPath, logPath) => {
+    const canonical = JSON.parse(readFileSync(new URL('../../contracts/openapi/fullnet-client-v1.openapi.json', import.meta.url), 'utf8'));
+    const runtime = document();
+    if (mode === 'query') {
+      const actualPage = canonical.paths['/api/v1/ai/agent-tool-calls'].get.parameters.find((parameter) => parameter.name === 'page');
+      for (const parameter of runtime.paths[base].get.parameters) parameter.schema = structuredClone(actualPage.schema);
+    } else runtime.components.schemas.ProblemDetails = structuredClone(canonical.components.schemas.ProblemDetails);
+    let calls = 0;
+    await verifyApplicationCrudOpenApi('http://example.test', { expectedPath, logPath, request: async () => {
+      calls++; return new Response(JSON.stringify(runtime), { headers: { 'content-type': 'application/json' } });
+    } });
+    assert.equal(calls, 1);
+    assert.equal(JSON.parse(readFileSync(logPath, 'utf8')).completed, true);
+  }));
+}
+
+for (const mode of ['query', 'problem-status']) {
+  for (const [name, change] of [
+    ['missing-pattern', (schema) => delete schema.pattern],
+    ['unbounded-pattern', (schema) => schema.pattern = '.*'],
+    ['wide-format', (schema) => schema.format = 'int64'],
+    ['extra-object-type', (schema) => schema.type.push('object')],
+  ]) {
+    test(`numeric string compatibility rejects ${mode} ${name}`, async () => fixture(async (expectedPath, logPath) => {
+      const canonical = JSON.parse(readFileSync(new URL('../../contracts/openapi/fullnet-client-v1.openapi.json', import.meta.url), 'utf8'));
+      const runtime = document();
+      const field = structuredClone(canonical.components.schemas.ProblemDetails.properties.status);
+      change(field);
+      if (mode === 'query') runtime.paths[base].get.parameters[0].schema = field;
+      else runtime.components.schemas.ProblemDetails.properties.status = field;
+      let calls = 0;
+      await assert.rejects(() => verifyApplicationCrudOpenApi('http://example.test', { expectedPath, logPath, request: async () => {
+        calls++; return new Response(JSON.stringify(runtime), { headers: { 'content-type': 'application/json' } });
+      } }));
+      assert.equal(calls, 1);
+      assert.equal(JSON.parse(readFileSync(logPath, 'utf8')).completed, false);
+    }));
+  }
+}
