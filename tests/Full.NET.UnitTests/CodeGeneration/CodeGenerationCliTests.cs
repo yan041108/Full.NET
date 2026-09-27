@@ -153,14 +153,15 @@ public sealed class CodeGenerationCliTests
         File.WriteAllText(Path.Combine(fixture.WorkspacePath, "framework-manifest.json"),
             """{"presetModules":{"minimal":["Identity"]}}""");
         File.WriteAllText(Path.Combine(fixture.WorkspacePath, "appsettings.json"),
-            """{"FullNet":{"Modules":{"Preset":"enterprise"}},"Database":{"Provider":"sqlserver"}}""");
+            """{"FullNet":{"Modules":{"Preset":"minimal"}},"Database":{"Provider":"mysql"}}""");
         File.WriteAllText(Path.Combine(host, "appsettings.json"),
             """{"FullNet":{"Modules":{"Preset":"minimal"}},"Database":{"Provider":"mysql"}}""");
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.WorkspacePath], output, error);
+        var exitCode = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.WorkspacePath], output, error);
 
+        Assert.AreEqual(0, exitCode);
         StringAssert.Contains(output.ToString(), "DIAG_WORKSPACE_OK");
         StringAssert.Contains(output.ToString(), "DIAG_APP_PROFILE_OK");
         StringAssert.Contains(output.ToString(), "DIAG_MODULE_CLOSURE_OK");
@@ -178,6 +179,9 @@ public sealed class CodeGenerationCliTests
         File.WriteAllText(Path.Combine(host, "Demo.Host.Api.csproj"), "<Project />");
         File.WriteAllText(Path.Combine(fixture.WorkspacePath, "fullnet-app.json"),
             """{"preset":"minimal","databaseProvider":"mysql"}""");
+        // 根基础配置保持匹配，仅让API漂移以定位冻结档案不一致，避免被文件缺失遮蔽。
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "appsettings.json"),
+            """{"FullNet":{"Modules":{"Preset":"minimal"}},"Database":{"Provider":"mysql"}}""");
         File.WriteAllText(Path.Combine(host, "appsettings.json"),
             """{"FullNet":{"Modules":{"Preset":"enterprise"}},"Database":{"Provider":"sqlserver"},"ConnectionStrings":{"app":"secret-value"}}""");
         using var output = new StringWriter();
@@ -187,6 +191,7 @@ public sealed class CodeGenerationCliTests
 
         Assert.AreEqual(1, exitCode);
         StringAssert.Contains(output.ToString(), "DIAG_APP_PROFILE_MISMATCH");
+        Assert.IsFalse(output.ToString().Contains("DIAG_APP_PROFILE_INVALID", StringComparison.Ordinal));
         Assert.IsFalse((output.ToString() + error).Contains("secret-value", StringComparison.Ordinal));
     }
 
@@ -211,12 +216,15 @@ public sealed class CodeGenerationCliTests
             """{"preset":"minimal","databaseProvider":"mysql"}""");
         File.WriteAllText(Path.Combine(fixture.WorkspacePath, "framework-manifest.json"),
             """{"presetModules":{"minimal":["Identity"]}}""");
+        File.WriteAllText(Path.Combine(fixture.WorkspacePath, "appsettings.json"),
+            """{"FullNet":{"Modules":{"Preset":"minimal"}},"Database":{"Provider":"mysql"}}""");
         using var output = new StringWriter();
         using var error = new StringWriter();
 
         var exitCode = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.WorkspacePath], output, error);
 
         Assert.AreEqual(1, exitCode);
+        StringAssert.Contains(output.ToString(), "DIAG_APP_PROFILE_OK");
         StringAssert.Contains(output.ToString(), "DIAG_MODULE_DEPENDENCY_MISSING");
     }
 

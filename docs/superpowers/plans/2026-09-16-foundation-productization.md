@@ -644,3 +644,7 @@ fdca383fbff6ad4dd514242d13a9e8226920324e提交后快速Node143/143、源码包8/
 快速结构检查：模板/校验Node50/50、治理55/55、命名33/33，零失败/跳过；helper语法检查通过。`pnpm test:integration:partitions` 发现1079项，无遗漏/重复，仅发现不是数据库执行；快照影响计划命中CodeGeneration及integration-matrix。基线5df8895a的API Native36290109857、Worker Native36290109839已成功，迁移恢复current作业108538438675成功；主CI仍运行。这些基线证据不能替代本轮新SHA的包内诊断、Linux读锁回归和受影响双库验收，完整F02与Capacity-not-verified不变。
 
 独立复审终检确认两项P2均收口、无新增阻断，核对读取/字段/profile/closure的脱敏异常边界、双诊断保留、文件字节保护、旧应用兼容及29项计数；复审未执行.NET/容器。最终治理重跑55/55、零跳过。仅提交本任务八个文件，保留开工object-comments状态，不合并或发布。
+
+340e3a7c41c0e57d0f366b74d88dd41412da5ab4提交后Node143/143、源码包8/8，零失败/跳过。远端独立应用作业108542657219成功194/194、零跳过，实际执行包内CLI诊断、Migrator配置字节保护、四预设API/Migrator构建及双库真实栈；两个企业样例成功。主构建108542657170编译及分片发现成功，全Unit3390为3388通过/2失败/0跳过：新27项含真实文件锁全部通过，两条旧CodeGenerationCliTests仍使用根配置漂移正例及缺根配置的API漂移负例，不符合已加强的基础JSON契约。
+
+旧夹具同步（基线340e3a7c，快照f02-diagnose-existing-fixtures-20260927）：本地原两项有效RED为2失败/0通过/0跳过，与Linux失败一致。正例根/API均匹配冻结清单并增强exit0断言；API漂移负例补匹配根，保留MISMATCH及凭据脱敏，并拒绝INVALID；缺模块引用负例也补匹配根并要求PROFILE_OK以隔离错误源。只修改测试与本记录，不改生产行为、计数、门禁或跳过策略。`pnpm test:dotnet:unit -- --selection code-generation-realtime` 扩大回归690/690、零失败/跳过，Release零警告/错误。独立复审无阻断；新SHA全量Unit仍需Actions确认，340e3a7c主构建失败不得报告为通过，F02仍未关闭。
