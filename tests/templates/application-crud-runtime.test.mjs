@@ -6,7 +6,8 @@ import test from 'node:test';
 import { verifyApplicationCrudRuntime } from './support/application-crud-runtime.mjs';
 
 const expected = { moduleRegistered: true, scopedServices: 2, protectedRoutes: 5, jsonRoundTrip: true,
-  authorizationPermissions: 4, authorizationNavigation: 1, authorizationActions: 3, authorizationPolicies: 4 };
+  authorizationPermissions: 4, authorizationNavigation: 1, authorizationActions: 3, authorizationPolicies: 4,
+  authorizationExecutions: 48, authorizationAllowed: 12, authorizationDenied: 36 };
 const marker = 'FULLNET_APPLICATION_CRUD_RUNTIME ';
 const source = 'src/Demo.Host.Api/Program.cs';
 function workspace() {
@@ -34,6 +35,9 @@ function runner(root, failure, calls) {
     if (failure === 'invalid-json') stdout = marker + '{bad}\n';
     if (failure === 'incomplete-report') stdout = marker + JSON.stringify({ ...expected, protectedRoutes: 0 }) + '\n';
     if (failure === 'old-report') stdout = marker + JSON.stringify({ moduleRegistered: true, scopedServices: 2, protectedRoutes: 5, jsonRoundTrip: true }) + '\n';
+    if (failure === 'policy-only-report') stdout = marker + JSON.stringify({ moduleRegistered: true, scopedServices: 2, protectedRoutes: 5, jsonRoundTrip: true,
+      authorizationPermissions: 4, authorizationNavigation: 1, authorizationActions: 3, authorizationPolicies: 4 }) + '\n';
+    if (failure === 'wrong-authorization-counts') stdout = marker + JSON.stringify({ ...expected, authorizationAllowed: 48, authorizationDenied: 0 }) + '\n';
     return { status: 0, stderr: '', stdout: stage === 'build' ? '' : stdout };
   };
 }
@@ -60,13 +64,15 @@ test('application CRUD runtime builds and executes an isolated probe without edi
     assert.match(program, /GetMetadata<.*IAuthorizeData/);
     assert.match(program, /JsonSerializer\.Deserialize<ProductResponse>/);
     assert.match(program, /GetRequiredService<IAuthorizationPolicyProvider>/);
+    assert.match(program, /GetRequiredService<IAuthorizationService>/);
+    assert.match(program, /authorizationService\.AuthorizeAsync\(/);
     assert.deepEqual(readFileSync(join(root, source)), original);
     assert.deepEqual(JSON.parse(readFileSync(join(root, 'evidence/result.json'), 'utf8')), expected);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 for (const failure of ['build', 'run', 'process-error', 'build-mutates', 'run-mutates',
-  'missing-report', 'duplicate-report', 'invalid-json', 'incomplete-report', 'old-report']) {
+  'missing-report', 'duplicate-report', 'invalid-json', 'incomplete-report', 'old-report', 'policy-only-report', 'wrong-authorization-counts']) {
   test(`application CRUD runtime rejects ${failure}`, () => {
     const root = workspace();
     const calls = [];

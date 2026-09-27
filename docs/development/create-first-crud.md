@@ -66,9 +66,11 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 
 后续接线验收通过 CLI 将生成注册桥接入模块入口，将模块引用与实例加入应用自有 Composition，再构建 API 并重复接入检查 `Unchanged` 和源码字节。日志位于 `.tmp/template-real-stack/application-crud-host-wiring/`。为进入此阶段，冲突负例确认内容保留后会显式撤销验收自己追加的模块 SQL 测试注释；根目录的人工 SQL 与人工业务文件继续保留。API 编译仍不证明运行期 DI、授权、HTTP、业务双库或页面通过。
 
-接线之后的运行探针复用当前应用启动装配代码，显式开启 DI 构建和作用域校验，检查两个生成服务的实例隔离、五条路由的精确权限元数据及 DTO 长整数 JSON 往返。日志位于 `.tmp/template-real-stack/application-crud-runtime/`。探针在应用自己的 `verification/CrudRuntimeProbe` 中构建，不修改 API 入口，不启动监听、后台服务或数据库；实际权限执行、HTTP、迁移与双库业务仍需后续验收，探针成功也不代表生产配置或 Native 发布通过。
+接线之后的运行探针复用当前应用启动装配代码，显式开启 DI 构建和作用域校验，检查两个生成服务的实例隔离、五条路由的精确权限元数据及 DTO 长整数 JSON 往返。日志位于 `.tmp/template-real-stack/application-crud-runtime/`。探针在应用自己的 `verification/CrudRuntimeProbe` 中构建，不修改 API 入口，不启动监听、后台服务或数据库；HTTP、迁移与双库业务仍需后续验收，探针成功也不代表生产配置或 Native 发布通过。
 
 授权目录验收在运行探针之前创建应用拥有的无状态贡献者，以 Singleton 注册，使用不带 `clientRoute` 的显式授权目标执行完整 Host CLI 接入。生成四项 Tenant 权限、一项页面导航和三项操作后，追加验收自己的人工注释并重复接入，检查人工权限、所有相关产物与 Vue 路由字节。日志位于 `.tmp/template-real-stack/application-crud-authorization/`。运行探针随后通过实际 `IAuthorizationPolicyProvider` 物化权威目录，检查生成、人工与官方策略，以及未知权限拒绝；策略解析成功仍不代表真实请求已完成授权。
+
+运行探针还通过实际 `IAuthorizationService` 执行四项生成策略：租户精确权限与租户超级管理员允许，缺权限、匿名、Host、Host超级管理员及缺失/非法作用域拒绝；四权限两两交叉，只允许同项权限。48次实际结果累计为12允许、36拒绝并进入报告，缺失执行结果的旧报告拒绝。这些主体由验收构造Claims，模拟认证后的授权输入，不替代JWT签名、会话、安全戳、HTTP中间件与跨租户数据隔离验证，亦未将构造主体用于应用请求。
 
 ## 第五步：模块接入（可选）
 

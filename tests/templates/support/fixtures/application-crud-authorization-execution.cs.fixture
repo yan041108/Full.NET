@@ -1,0 +1,57 @@
+// 只模拟认证后的Claims输入，通过实际DI授权服务执行生成策略；不证明JWT、会话或HTTP管道。
+var authorizationExecutions = 0;
+var authorizationAllowed = 0;
+var authorizationDenied = 0;
+var tenantScope = "tenant:018f8b81-2940-7a01-8000-000000000001";
+await using (var authorizationScope = app.Services.CreateAsyncScope())
+{
+    var authorizationService = authorizationScope.ServiceProvider.GetRequiredService<IAuthorizationService>();
+    async Task CheckAuthorizationAsync(string scenario, ClaimsPrincipal principal, string code, bool shouldSucceed)
+    {
+        var result = await authorizationService.AuthorizeAsync(principal, resource: null,
+            FullNetPermissionPolicies.For(code));
+        Require(result.Succeeded == shouldSucceed, "authorization result incorrect: " + scenario + "/" + code);
+        authorizationExecutions++;
+        if (result.Succeeded) authorizationAllowed++;
+        else authorizationDenied++;
+    }
+
+    foreach (var code in expectedPermissions)
+    {
+        await CheckAuthorizationAsync("tenant-exact", AuthorizationPrincipal(tenantScope, code), code, true);
+        await CheckAuthorizationAsync("tenant-missing", AuthorizationPrincipal(tenantScope), code, false);
+        // 即使权限与管理员标记齐全，未认证的Identity也必须被标准认证要求拒绝。
+        await CheckAuthorizationAsync("anonymous", AuthorizationPrincipal(tenantScope, code,
+            authenticated: false, superAdministrator: true), code, false);
+        await CheckAuthorizationAsync("host-exact", AuthorizationPrincipal("host", code), code, false);
+        await CheckAuthorizationAsync("host-super", AuthorizationPrincipal("host",
+            superAdministrator: true), code, false);
+        await CheckAuthorizationAsync("missing-scope", AuthorizationPrincipal(null, code), code, false);
+        await CheckAuthorizationAsync("invalid-scope", AuthorizationPrincipal("invalid", code), code, false);
+        await CheckAuthorizationAsync("tenant-super", AuthorizationPrincipal(tenantScope,
+            superAdministrator: true), code, true);
+    }
+
+    // 四项权限两两交叉执行，单项权限不能隐式授权其他读写操作。
+    foreach (var grantedPermission in expectedPermissions)
+    {
+        foreach (var requestedPermission in expectedPermissions)
+        {
+            await CheckAuthorizationAsync("permission-matrix", AuthorizationPrincipal(tenantScope, grantedPermission),
+                requestedPermission, string.Equals(grantedPermission, requestedPermission, StringComparison.Ordinal));
+        }
+    }
+}
+Require(authorizationExecutions == 48 && authorizationAllowed == 12 && authorizationDenied == 36,
+    "authorization execution matrix incomplete");
+
+// 仅为验收构造主体，不注册认证方案或替换应用授权实现；不能用于生产请求的身份建立。
+static ClaimsPrincipal AuthorizationPrincipal(string? scope, string? permission = null,
+    bool authenticated = true, bool superAdministrator = false)
+{
+    var claims = new List<Claim>();
+    if (scope is not null) claims.Add(new Claim(FullNetIdentityClaimTypes.Scope, scope));
+    if (permission is not null) claims.Add(new Claim(FullNetIdentityClaimTypes.Permission, permission));
+    if (superAdministrator) claims.Add(new Claim(FullNetIdentityClaimTypes.SuperAdministrator, "true"));
+    return new ClaimsPrincipal(new ClaimsIdentity(claims, authenticated ? "FullNetAuthorizationProbe" : null));
+}

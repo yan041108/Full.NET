@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// 复用应用当前启动装配，但不启动监听、后台服务或数据访问；只验收构建、作用域和路由元数据。
+// 复用应用当前启动装配及实际策略授权，但不启动监听、后台服务或数据访问，不认证JWT与会话。
 export function verifyApplicationCrudRuntime(appRoot, {
   run = spawnSync,
   reportDirectory = join(process.cwd(), '.tmp/template-real-stack/application-crud-runtime'),
@@ -43,11 +43,12 @@ export function verifyApplicationCrudRuntime(appRoot, {
 `);
   const setup = readFileSync(new URL('./fixtures/application-crud-runtime-setup.cs.fixture', import.meta.url), 'utf8');
   const authorizationChecks = readFileSync(new URL('./fixtures/application-crud-authorization-checks.cs.fixture', import.meta.url), 'utf8');
+  const authorizationExecutionChecks = readFileSync(new URL('./fixtures/application-crud-authorization-execution.cs.fixture', import.meta.url), 'utf8');
   const runtimeChecks = readFileSync(new URL('./fixtures/application-crud-runtime-checks.cs.fixture', import.meta.url), 'utf8');
   assert.equal(runtimeChecks.split('await app.DisposeAsync();').length - 1, 1, 'runtime authorization checks require one disposal anchor');
   const checks = runtimeChecks
-    .replace('await app.DisposeAsync();', authorizationChecks + '\nawait app.DisposeAsync();');
-  writeFileSync(join(probeRoot, 'Program.cs'), 'using Demo.Modules.Catalog.Generated;\nusing Microsoft.AspNetCore.Authorization;\nusing Microsoft.AspNetCore.Routing;\nusing Microsoft.Extensions.Options;\nusing System.Text.Json;\n'
+    .replace('await app.DisposeAsync();', authorizationChecks + '\n' + authorizationExecutionChecks + '\nawait app.DisposeAsync();');
+  writeFileSync(join(probeRoot, 'Program.cs'), 'using Demo.Modules.Catalog.Generated;\nusing Full.NET.Modules.Identity.Contracts;\nusing Microsoft.AspNetCore.Authorization;\nusing Microsoft.AspNetCore.Routing;\nusing Microsoft.Extensions.Options;\nusing System.Security.Claims;\nusing System.Text.Json;\n'
     + source.replace(builderAnchor, builderAnchor + '\n' + setup).replace(runAnchor, checks));
   mkdirSync(reportDirectory, { recursive: true });
   const execute = (stage, args, timeout) => {
@@ -67,7 +68,8 @@ export function verifyApplicationCrudRuntime(appRoot, {
   assert.equal(lines.length, 1, 'runtime acceptance requires one complete report');
   const result = JSON.parse(lines[0].slice(marker.length));
   assert.deepEqual(result, { moduleRegistered: true, scopedServices: 2, protectedRoutes: 5, jsonRoundTrip: true,
-    authorizationPermissions: 4, authorizationNavigation: 1, authorizationActions: 3, authorizationPolicies: 4 }, 'incomplete runtime result');
+    authorizationPermissions: 4, authorizationNavigation: 1, authorizationActions: 3, authorizationPolicies: 4,
+    authorizationExecutions: 48, authorizationAllowed: 12, authorizationDenied: 36 }, 'incomplete runtime result');
   writeFileSync(join(reportDirectory, 'result.json'), JSON.stringify(result, null, 2));
   return result;
 }
