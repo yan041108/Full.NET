@@ -105,6 +105,8 @@ dotnet exec src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.C
 
 新创建应用从应用根运行 `dotnet run --project src/<name>.Host.Migrator -- --seed baseline`，迁移成功后才执行显式播种；省略 `--seed` 只迁移。仅本地开发环境显式选择 Development 后才能使用 `--seed development`，Production仍只允许Baseline。API和Migrator消费同一应用Composition，但Migrator只注册模块的迁移/播种入口，不能装入API Profile。现阶段Runner仍只运行冻结预设的框架脚本；生成业务SQL草案须完成编号、所有权、恢复与双库评审后显式接入，不能放进受管框架目录。旧应用的源码升级不会自动创建该应用拥有的宿主，需按新模板显式采用；默认结构校验兼容旧应用，创建发布前则强制要求同名Migrator与一致配置。
 
+内容根声明 `fullnet-app.json` 时，Migrator 要求 `framework-manifest.json` 包含有效的预设迁移清单；文件缺失、清单不完整或 `unscoped` 会在解析数据库连接前停止，防止静默扩大为全部框架迁移。未声明应用的框架工作区保留原有非限定兼容行为。该检查依赖内容根中的应用声明，不替代发布目录的配置核验。
+
 1. 运行迁移并启动 Host.Api
 2. 使用对应租户与精确权限的账号登录管理端，访问应用实际接入的生成页面
 3. 执行租户 CRUD、无权限及跨租户拒绝用例，再验证二次生成和人工修改保护；F02 完整验收尚未关闭

@@ -52,6 +52,9 @@ jobs:
       - name: Verify SQL safety governance
         run: pnpm test:sql-safety
 
+      - name: Verify real-stack bootstrap helpers
+        run: pnpm test:e2e:provisioner
+
       - name: Setup Helm
         uses: azure/setup-helm@v4
         with:

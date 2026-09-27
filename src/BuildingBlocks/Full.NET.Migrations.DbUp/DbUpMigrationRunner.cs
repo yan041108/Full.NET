@@ -112,6 +112,8 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
 
         ValidateContractOptions(_contractOptions);
         ValidateNamingContractOptions(_namingContractOptions);
+        // 范围清单先于连接配置解析，避免配置错误掩盖应用范围缺失或触发数据库动作。
+        var allowedScripts = FrameworkManifestMigrationScope.TryLoadAllowedScriptNames(_manifestOptions);
         var options = _databaseOptions.Value;
         var (builder, providerSegment) = CreateBuilder(options);
         if (options.Provider == DatabaseProvider.MySql)
@@ -126,7 +128,6 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
             // 093 的旧分享表回填需在补列后编译；按全文摘要兼容执行，不改写已发布资源。
             builder.WithPreprocessor(new SqlServerPublishedMigrationCompatibilityPreprocessor());
         }
-        var allowedScripts = FrameworkManifestMigrationScope.TryLoadAllowedScriptNames(_manifestOptions);
         // 203/206/207 是跨可选模块的已发布修复；固定预设只变更清单拥有的表，保留完整失败关闭约束。
         builder.WithPreprocessor(new PresetPublishedModuleCompatibilityPreprocessor(allowedScripts));
         var upgrader = builder
