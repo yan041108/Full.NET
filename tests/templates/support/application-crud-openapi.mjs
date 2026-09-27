@@ -69,6 +69,18 @@ function parameters(document, operation) {
   }).sort((left, right) => (left.in + ':' + left.name).localeCompare(right.in + ':' + right.name));
 }
 
+function problemFields(document, value) {
+  const problem = resolveSchema(document, value);
+  // ProblemDetails 标准字段可空且可省略；核对非空基础类型，允许业务扩展字段。
+  return ['type', 'title', 'status', 'detail', 'instance'].map((name) => {
+    const field = resolveSchema(document, problem.properties?.[name]);
+    const types = (Array.isArray(field.type) ? field.type : [field.type]).filter((type) => type !== 'null');
+    assert.deepEqual(types, [name === 'status' ? 'integer' : 'string'], 'invalid ProblemDetails field type: ' + name);
+    assert.equal(field.format ?? null, name === 'status' ? 'int32' : null, 'invalid ProblemDetails field format: ' + name);
+    return { name, type: types[0], format: field.format ?? null };
+  });
+}
+
 // 对照只读生成契约与应用实际服务的文档，证明接入子集，不替代完整错误或类型契约。
 export async function verifyApplicationCrudOpenApi(baseUrl, { expectedPath, logPath, request = fetch }) {
   const original = readFileSync(expectedPath);
@@ -108,11 +120,13 @@ export async function verifyApplicationCrudOpenApi(baseUrl, { expectedPath, logP
       assert.equal(successes.length, 1, 'expected one generated success response');
       comparison.successStatus = successes[0];
       comparison.authenticationProblems = [];
+      comparison.authenticationProblemFields = {};
       for (const status of ['401', '403']) {
         assert.ok(expectedOperation.responses[status]?.content?.['application/problem+json'], 'generated authentication problem missing');
         const problem = actualOperation.responses?.[status]?.content?.['application/problem+json']?.schema;
-        const problemSchema = resolveSchema(actual, problem);
-        assert.ok(Object.hasOwn(problemSchema.properties ?? {}, 'status'), key + ': missing ProblemDetails status');
+        comparison.authenticationProblemFields[status] = problemFields(actual, problem);
+        assert.deepEqual(comparison.authenticationProblemFields[status], problemFields(expected,
+          expectedOperation.responses[status].content['application/problem+json'].schema), key + ': ProblemDetails fields');
         comparison.authenticationProblems.push(status);
       }
       const responseSchema = (operation) => operation.responses[successes[0]]?.content?.['application/json']?.schema;

@@ -21,7 +21,10 @@ function document() {
   list.parameters = ['page', 'pageSize'].map((name) => ({ name, in: 'query', required: false, schema: { type: 'integer', format: 'int32' } }));
   return { openapi: '3.1.0', components: { securitySchemes: { Bearer: { type: 'http', scheme: 'bearer' } }, schemas: {
     Product: schema(['id', 'tenantId', 'name', 'version', 'createdAtUtc', 'createdById']),
-    ProblemDetails: schema(['type', 'title', 'status', 'detail', 'instance']),
+    ProblemDetails: { ...schema(['type', 'title', 'status', 'detail', 'instance']), properties: {
+      ...schema(['type', 'title', 'detail', 'instance']).properties,
+      status: { type: ['null', 'integer'], format: 'int32' },
+    } },
     Page: { type: 'object', properties: { items: { type: 'array', items: ref('Product') } } },
     Create: schema(['name']), Update: schema(['name', 'version']), Delete: schema(['version']),
   } }, paths: {
@@ -71,7 +74,41 @@ test('optional query parameters accept nullable scalar schemas and different ord
   assert.equal(calls, 1);
   assert.equal(JSON.parse(readFileSync(logPath, 'utf8')).result.parameterShapes, 5);
 }));
+test('ProblemDetails accepts nullable standard fields and business extensions', async () => fixture(async (expectedPath, logPath) => {
+  const runtime = document();
+  for (const field of Object.values(runtime.components.schemas.ProblemDetails.properties)) {
+    field.type = Array.isArray(field.type) ? field.type.toReversed() : ['null', field.type];
+  }
+  runtime.components.schemas.ProblemDetails.properties.machineCode = { type: 'string' };
+  runtime.components.schemas.ProblemStatus = runtime.components.schemas.ProblemDetails.properties.status;
+  runtime.components.schemas.ProblemDetails.properties.status = ref('ProblemStatus');
+  let calls = 0;
+  await verifyApplicationCrudOpenApi('http://example.test', { expectedPath, logPath, request: async () => {
+    calls++; return new Response(JSON.stringify(runtime), { headers: { 'content-type': 'application/json' } });
+  } });
+  assert.equal(calls, 1);
+  const evidence = JSON.parse(readFileSync(logPath, 'utf8'));
+  assert.equal(evidence.completed, true);
+  for (const comparison of evidence.comparisons) {
+    assert.deepEqual(Object.keys(comparison.authenticationProblemFields).sort(), ['401', '403']);
+    for (const fields of Object.values(comparison.authenticationProblemFields)) {
+      assert.equal(fields.length, 5);
+      assert.deepEqual(fields.find((field) => field.name === 'status'), { name: 'status', type: 'integer', format: 'int32' });
+    }
+  }
+}));
 const cases = [
+  ['missing-problem-title', (d) => delete d.components.schemas.ProblemDetails.properties.title],
+  ['string-problem-status', (d) => d.components.schemas.ProblemDetails.properties.status.type = 'string'],
+  ['wide-problem-status', (d) => d.components.schemas.ProblemDetails.properties.status.format = 'int64'],
+  ['object-problem-detail', (d) => d.components.schemas.ProblemDetails.properties.detail.type = 'object'],
+  ['null-only-problem-instance', (d) => d.components.schemas.ProblemDetails.properties.instance.type = 'null'],
+  ['external-problem-field', (d) => d.components.schemas.ProblemDetails.properties.type = { $ref: 'https://example.test/String' }],
+  ['missing-problem-field-reference', (d) => d.components.schemas.ProblemDetails.properties.type = ref('Absent')],
+  ['cyclic-problem-field-reference', (d) => {
+    d.components.schemas.ProblemField = ref('ProblemField');
+    d.components.schemas.ProblemDetails.properties.type = ref('ProblemField');
+  }],
   ['missing-path-parameter', (d) => delete d.paths[base + '/{id}'].get.parameters],
   ['wrong-path-format', (d) => d.paths[base + '/{id}'].put.parameters[0].schema.format = 'int64'],
   ['optional-path-parameter', (d) => d.paths[base + '/{id}/delete'].post.parameters[0].required = false],

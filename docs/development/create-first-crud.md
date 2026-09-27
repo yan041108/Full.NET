@@ -162,3 +162,5 @@ OpenAPI 接入阶段在独立应用真实 API 就绪后匿名读取 `/openapi/v1
 认证错误元数据补齐：生成 Endpoint 的每个受保护操作现在显式声明401/403 `ProducesProblem`，与生成静态契约和既有真实HTTP拒绝保持一致；不改变运行授权或返回行为。OpenAPI门禁对五操作逐项要求这两状态具有 `application/problem+json` 与可解析ProblemDetails/status，报告 `authenticationProblems: 10`。404/409等完整操作错误集、机器码扩展schema及数字/字符串类型细节仍须后续，不把新增注解算作全部契约认证。
 
 参数契约子集：同一真实文档门禁继续比较五操作的参数名称、query/path位置、必填性、基础标量类型与format，报告 `parameterShapes: 5`。路径ID必须保持必填UUID，分页保持可选int32，不能出现额外TenantId参数、缺失或重复参数。可选查询参数允许CLR可空schema与参数顺序差异；不由此放宽路径可空。此子集不验证分页默认值/范围、请求响应字段类型或完整错误契约，真实接入仍由对应SHA双库Actions证明。
+
+认证错误基础字段子集：五操作各401/403的ProblemDetails须声明type/title/status/detail/instance；status非空类型为integer/int32，其余为string。容忍标准字段可空或非必填、业务扩展字段，文档内字段schema引用仍须可解析；外部、缺失或循环引用拒绝。报告每状态的 `authenticationProblemFields`，不以字段存在代替类型检查，也不据此声称机器码扩展、404/409等完整错误集已认证。
