@@ -115,6 +115,8 @@ dotnet exec src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.C
 
 真实栈还复用模块、Composition 与授权贡献者的 CLI 接线，将生成业务端点装入 API。对 `catalog/products` 的列表、详情、新增、更新、硬删除逐一发送匿名请求和真实 Host 引导管理员请求，分别要求 401 与 403，以及对应 ProblemDetails 机器码；404、重定向、500 或 Host 认证失效均不能计为权限拒绝成功。请求证据写入各提供程序目录的 `application-crud-http-denial.json`，不记录 Bearer 令牌，失败时保留已执行请求。本阶段只覆盖匿名和 Host 对租户业务的拒绝，不证明有权限租户 CRUD、无权限租户或跨租户数据隔离，实际结果仍以对应提交双库 Actions 为准。
 
+租户 CRUD 阶段复用真实可用租户目录，精确选择 Development `local`，通过上下文切换 API 取得新令牌；业务请求不提供 TenantId，不直接写库或构造 Claims。验收新增、按 ID 与列表读取、版本更新，以及旧版本更新/删除返回 409 后再次读取确认内容与版本未变，最后硬删除并确认 404 与列表移除；响应同时核对 UUID v7、服务端 TenantId、字符串 Version 和标准机器码。报告为各提供程序目录的 `application-crud-tenant-http.json`，省略签发响应正文并脱敏令牌。该主体是 Host 管理员经授权切入租户上下文；实际结果由对应提交的双库 Actions 确认，不能据此证明普通租户账号精确权限、无权限租户或跨租户数据隔离。
+
 1. 运行迁移并启动 Host.Api
 2. 使用对应租户与精确权限的账号登录管理端，访问应用实际接入的生成页面
 3. 执行租户 CRUD、无权限及跨租户拒绝用例，再验证二次生成和人工修改保护；F02 完整验收尚未关闭

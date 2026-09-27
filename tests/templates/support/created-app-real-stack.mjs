@@ -16,6 +16,7 @@ import { verifyApplicationCrudModule } from './application-crud-module.mjs';
 import { verifyApplicationCrudHostWiring } from './application-crud-host-wiring.mjs';
 import { verifyApplicationCrudAuthorization } from './application-crud-authorization.mjs';
 import { verifyApplicationCrudHttpDenial } from './application-crud-http-denial.mjs';
+import { verifyApplicationCrudTenantHttp } from './application-crud-tenant-http.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 const requireFromRealStack = createRequire(join(repoRoot, 'tests/e2e/admin-real-stack/package.json'));
@@ -280,6 +281,7 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     await verifyApplicationModuleEndpoint(apiUrl, { logPath: join(logRoot, 'application-module-http.json') });
     const hostAccessToken = await loginAndReadSettings(apiUrl);
     await verifyApplicationCrudHttpDenial(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-http-denial.json') });
+    await verifyApplicationCrudTenantHttp(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-tenant-http.json') });
   } finally {
     await cleanupCreatedApp({ apiProcess, apiLogStream, dbContainer, redisContainer, workspace });
   }
