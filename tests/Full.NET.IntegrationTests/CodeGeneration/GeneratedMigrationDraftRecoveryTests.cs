@@ -2,7 +2,7 @@ using System.Data.Common;
 using Dapper;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.CodeGeneration.Generation;
-using Full.NET.Data.CodeGeneration.Schema;
+using Full.NET.Tests.Shared.CodeGeneration;
 using Full.NET.Data.MySql;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
@@ -31,14 +31,7 @@ public sealed class GeneratedMigrationDraftRecoveryTests
 
     private static async Task AssertRecoveryAsync(DbConnection connection, bool sqlServer)
     {
-        var schema = FullNetCrudSchema.CreateProject(
-            ownerKey: "acme", moduleKey: "catalog", entityKey: "product",
-            databaseTableName: "acme_catalog_product", rootNamespace: "Acme.Modules.Catalog",
-            clrTypeName: "Product", apiResourceName: "products", permissionResourceName: "products",
-            isTenantScoped: true, hasVersion: false,
-            columns: [new("Id", "Id", "id", FullNetScalarType.Uuid),
-                new("TenantId", "TenantId", "tenantId", FullNetScalarType.Uuid),
-                new("Name", "Name", "name", FullNetScalarType.String, MaxLength: 128)]);
+        var schema = GeneratedMigrationRecoveryFixture.CreateSchema();
         var provider = sqlServer ? "SqlServer" : "MySql";
         var sql = CrudArtifactGenerator.Generate(schema).Single(artifact =>
             artifact.RelativePath == $"templates/migrations/{provider}/CreateProduct.sql.template").Content;
@@ -61,18 +54,21 @@ public sealed class GeneratedMigrationDraftRecoveryTests
         var id = Guid.CreateVersion7();
         var tenantId = Guid.CreateVersion7();
         await connection.ExecuteAsync(
-            "INSERT INTO acme_catalog_product (Id, TenantId, Name) VALUES (@Id, @TenantId, @Name)",
-            new { Id = id, TenantId = tenantId, Name = "preserved-recovery-row" });
+            "INSERT INTO acme_catalog_product (Id, TenantId, Name, IsActive) VALUES (@Id, @TenantId, @Name, @IsActive)",
+            new { Id = id, TenantId = tenantId, Name = "preserved-recovery-row", IsActive = true });
         await connection.ExecuteAsync(sql);
         await connection.ExecuteAsync(sql);
         CollectionAssert.AreEqual(new[] { "TenantId", "Id" }, await ReadIndexColumnsAsync(connection, sqlServer));
         Assert.AreEqual("preserved-recovery-row", await connection.QuerySingleAsync<string>(
             "SELECT Name FROM acme_catalog_product WHERE Id = @Id AND TenantId = @TenantId",
             new { Id = id, TenantId = tenantId }));
+        Assert.IsTrue(await connection.QuerySingleAsync<bool>(
+            "SELECT IsActive FROM acme_catalog_product WHERE Id = @Id AND TenantId = @TenantId",
+            new { Id = id, TenantId = tenantId }));
         var columnCount = await connection.ExecuteScalarAsync<int>(sqlServer
             ? "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'acme_catalog_product'"
             : "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'acme_catalog_product'");
-        Assert.AreEqual(3, columnCount);
+        Assert.AreEqual(4, columnCount);
     }
 
     private static async Task<string[]> ReadIndexColumnsAsync(DbConnection connection, bool sqlServer) =>
