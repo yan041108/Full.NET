@@ -12,7 +12,7 @@ const id = '01900000-0000-7000-8000-000000000011';
 const original = { id, tenantId, name: 'Application tenant CRUD probe', version: '1' };
 const updated = { ...original, name: 'Updated application tenant CRUD probe', version: '2' };
 const context = { tenantId, identifier: 'local', scope: `tenant:${tenantId.replaceAll('-', '')}` };
-const successResult = { businessRequests: 11, versionConflicts: 2, deleted: true };
+const successResult = { businessRequests: 11, versionConflicts: 2, deleted: true, tenantId, tenantAccessToken };
 function response(body, status = 200, problem = false) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': problem ? 'application/problem+json' : 'application/json' } });
 }

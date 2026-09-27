@@ -87,7 +87,8 @@ export async function verifyApplicationCrudTenantHttp(baseUrl, { hostAccessToken
     assert.equal(afterDelete.items.some((product) => product.id === created.id), false, 'deleted product remains in list');
     evidence.completed = true;
     evidence.tenantId = tenantId;
-    return { businessRequests: 11, versionConflicts: 2, deleted: true };
+    // 只在内存移交最新会话给下一验收阶段；最终报告不序列化此返回对象。
+    return { businessRequests: 11, versionConflicts: 2, deleted: true, tenantId, tenantAccessToken: tenantToken };
   } catch (error) {
     evidence.error = redact(error instanceof Error ? error.message : error);
     throw new Error(evidence.error);
