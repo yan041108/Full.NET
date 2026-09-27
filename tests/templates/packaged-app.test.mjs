@@ -10,6 +10,7 @@ import { buildAppTemplate } from '../../scripts/templates/build-app-template.mjs
 import { resolvePresetModules } from '../../scripts/templates/preset-modules.mjs';
 import { verifyCreatedApp } from '../../scripts/templates/verify-created-app.mjs';
 import { verifyApplicationComposition } from './support/application-composition-probe.mjs';
+import { verifyApplicationCrudGeneration } from './support/application-crud-generation.mjs';
 
 const skipBundleIntegration = areBundleInputsClean()
   ? false
@@ -83,6 +84,7 @@ test('application template package includes framework sources and root manifest'
         `unexpected implementation module in minimal build: ${module}`);
     }
     verifyApplicationComposition(appRoot);
+    verifyApplicationCrudGeneration(appRoot);
     verifyManagedFiles();
     const pnpm = 'pnpm';
     const install = spawnSync(pnpm, [
