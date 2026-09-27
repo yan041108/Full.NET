@@ -79,7 +79,7 @@ using (var document = JsonDocument.Parse(json))
 }
 Require(JsonSerializer.Deserialize<ProductResponse>(json, jsonOptions) == response, "generated JSON round trip failed");
 await app.DisposeAsync();
-Console.WriteLine("FULLNET_APPLICATION_CRUD_RUNTIME {\"moduleRegistered\":true,\"scopedServices\":2,\"protectedRoutes\":5,\"jsonRoundTrip\":true}");
+Console.WriteLine("FULLNET_APPLICATION_CRUD_RUNTIME {\"moduleRegistered\":true,\"scopedServices\":2,\"protectedRoutes\":5,\"jsonRoundTrip\":true,\"authorizationPermissions\":4,\"authorizationNavigation\":1,\"authorizationActions\":3,\"authorizationPolicies\":4}");
 
 static void Require(bool condition, string message)
 {

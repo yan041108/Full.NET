@@ -14,6 +14,7 @@ import { verifyApplicationCrudGeneration } from './support/application-crud-gene
 import { verifyApplicationCrudModule } from './support/application-crud-module.mjs';
 import { verifyApplicationCrudHostWiring } from './support/application-crud-host-wiring.mjs';
 import { verifyApplicationCrudRuntime } from './support/application-crud-runtime.mjs';
+import { verifyApplicationCrudAuthorization } from './support/application-crud-authorization.mjs';
 
 const skipBundleIntegration = areBundleInputsClean()
   ? false
@@ -90,6 +91,7 @@ test('application template package includes framework sources and root manifest'
     verifyApplicationCrudGeneration(appRoot);
     verifyApplicationCrudModule(appRoot, { removeTestSqlComment: true });
     verifyApplicationCrudHostWiring(appRoot);
+    verifyApplicationCrudAuthorization(appRoot);
     verifyApplicationCrudRuntime(appRoot);
     verifyManagedFiles();
     const pnpm = 'pnpm';

@@ -42,7 +42,11 @@ export function verifyApplicationCrudRuntime(appRoot, {
 </Project>
 `);
   const setup = readFileSync(new URL('./fixtures/application-crud-runtime-setup.cs.fixture', import.meta.url), 'utf8');
-  const checks = readFileSync(new URL('./fixtures/application-crud-runtime-checks.cs.fixture', import.meta.url), 'utf8');
+  const authorizationChecks = readFileSync(new URL('./fixtures/application-crud-authorization-checks.cs.fixture', import.meta.url), 'utf8');
+  const runtimeChecks = readFileSync(new URL('./fixtures/application-crud-runtime-checks.cs.fixture', import.meta.url), 'utf8');
+  assert.equal(runtimeChecks.split('await app.DisposeAsync();').length - 1, 1, 'runtime authorization checks require one disposal anchor');
+  const checks = runtimeChecks
+    .replace('await app.DisposeAsync();', authorizationChecks + '\nawait app.DisposeAsync();');
   writeFileSync(join(probeRoot, 'Program.cs'), 'using Demo.Modules.Catalog.Generated;\nusing Microsoft.AspNetCore.Authorization;\nusing Microsoft.AspNetCore.Routing;\nusing Microsoft.Extensions.Options;\nusing System.Text.Json;\n'
     + source.replace(builderAnchor, builderAnchor + '\n' + setup).replace(runAnchor, checks));
   mkdirSync(reportDirectory, { recursive: true });
@@ -62,7 +66,8 @@ export function verifyApplicationCrudRuntime(appRoot, {
   const lines = stdout.split(/\r?\n/u).filter((line) => line.startsWith(marker));
   assert.equal(lines.length, 1, 'runtime acceptance requires one complete report');
   const result = JSON.parse(lines[0].slice(marker.length));
-  assert.deepEqual(result, { moduleRegistered: true, scopedServices: 2, protectedRoutes: 5, jsonRoundTrip: true }, 'incomplete runtime result');
+  assert.deepEqual(result, { moduleRegistered: true, scopedServices: 2, protectedRoutes: 5, jsonRoundTrip: true,
+    authorizationPermissions: 4, authorizationNavigation: 1, authorizationActions: 3, authorizationPolicies: 4 }, 'incomplete runtime result');
   writeFileSync(join(reportDirectory, 'result.json'), JSON.stringify(result, null, 2));
   return result;
 }

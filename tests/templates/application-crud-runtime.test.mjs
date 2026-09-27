@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { verifyApplicationCrudRuntime } from './support/application-crud-runtime.mjs';
 
-const expected = { moduleRegistered: true, scopedServices: 2, protectedRoutes: 5, jsonRoundTrip: true };
+const expected = { moduleRegistered: true, scopedServices: 2, protectedRoutes: 5, jsonRoundTrip: true,
+  authorizationPermissions: 4, authorizationNavigation: 1, authorizationActions: 3, authorizationPolicies: 4 };
 const marker = 'FULLNET_APPLICATION_CRUD_RUNTIME ';
 const source = 'src/Demo.Host.Api/Program.cs';
 function workspace() {
@@ -32,6 +33,7 @@ function runner(root, failure, calls) {
     if (failure === 'duplicate-report') stdout += marker + JSON.stringify(expected) + '\n';
     if (failure === 'invalid-json') stdout = marker + '{bad}\n';
     if (failure === 'incomplete-report') stdout = marker + JSON.stringify({ ...expected, protectedRoutes: 0 }) + '\n';
+    if (failure === 'old-report') stdout = marker + JSON.stringify({ moduleRegistered: true, scopedServices: 2, protectedRoutes: 5, jsonRoundTrip: true }) + '\n';
     return { status: 0, stderr: '', stdout: stage === 'build' ? '' : stdout };
   };
 }
@@ -57,13 +59,14 @@ test('application CRUD runtime builds and executes an isolated probe without edi
     assert.match(program, /GetOrderedModules\(\)/);
     assert.match(program, /GetMetadata<.*IAuthorizeData/);
     assert.match(program, /JsonSerializer\.Deserialize<ProductResponse>/);
+    assert.match(program, /GetRequiredService<IAuthorizationPolicyProvider>/);
     assert.deepEqual(readFileSync(join(root, source)), original);
     assert.deepEqual(JSON.parse(readFileSync(join(root, 'evidence/result.json'), 'utf8')), expected);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 for (const failure of ['build', 'run', 'process-error', 'build-mutates', 'run-mutates',
-  'missing-report', 'duplicate-report', 'invalid-json', 'incomplete-report']) {
+  'missing-report', 'duplicate-report', 'invalid-json', 'incomplete-report', 'old-report']) {
   test(`application CRUD runtime rejects ${failure}`, () => {
     const root = workspace();
     const calls = [];

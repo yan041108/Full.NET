@@ -68,6 +68,8 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 
 接线之后的运行探针复用当前应用启动装配代码，显式开启 DI 构建和作用域校验，检查两个生成服务的实例隔离、五条路由的精确权限元数据及 DTO 长整数 JSON 往返。日志位于 `.tmp/template-real-stack/application-crud-runtime/`。探针在应用自己的 `verification/CrudRuntimeProbe` 中构建，不修改 API 入口，不启动监听、后台服务或数据库；实际权限执行、HTTP、迁移与双库业务仍需后续验收，探针成功也不代表生产配置或 Native 发布通过。
 
+授权目录验收在运行探针之前创建应用拥有的无状态贡献者，以 Singleton 注册，使用不带 `clientRoute` 的显式授权目标执行完整 Host CLI 接入。生成四项 Tenant 权限、一项页面导航和三项操作后，追加验收自己的人工注释并重复接入，检查人工权限、所有相关产物与 Vue 路由字节。日志位于 `.tmp/template-real-stack/application-crud-authorization/`。运行探针随后通过实际 `IAuthorizationPolicyProvider` 物化权威目录，检查生成、人工与官方策略，以及未知权限拒绝；策略解析成功仍不代表真实请求已完成授权。
+
 ## 第五步：模块接入（可选）
 
 原仓库的 `samples/enterprise-request/integration-target.json` 是仓库布局示例，不适用于独立应用。准备应用自己的 `integration-target.json`，显式选择应用拥有的模块项目、入口与宿主接入位置；不得为了接入业务改写受管框架或恢复冻结 Layui 交付线。规划入口：

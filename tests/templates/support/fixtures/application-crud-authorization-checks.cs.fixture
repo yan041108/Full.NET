@@ -1,0 +1,52 @@
+// 通过公开贡献者与实际策略Provider触发权威目录物化，不读取内部目录或宣称授权请求已执行。
+var contributors = app.Services.GetServices<Full.NET.Modules.Identity.Contracts.IAuthorizationCatalogContributor>().ToArray();
+Require(contributors.Count(contributor => contributor.Module.Key == "identity") == 1, "official authorization contributor lost or duplicated");
+var applicationContributors = contributors.Where(contributor => contributor.Module.Key == "catalog").ToArray();
+Require(applicationContributors.Length == 1, "application authorization contributor missing or duplicated");
+var applicationContributor = applicationContributors[0];
+var expectedPermissions = new[] { ProductPermissions.Read, ProductPermissions.Create, ProductPermissions.Update, ProductPermissions.Disable };
+Require(applicationContributor.Permissions.Count == 5, "application permission count incorrect");
+foreach (var code in expectedPermissions)
+{
+    var permissions = applicationContributor.Permissions.Where(permission => permission.Code == code).ToArray();
+    Require(permissions.Length == 1 && permissions[0].Scope == Full.NET.Modules.Identity.Contracts.AuthorizationScope.Tenant,
+        "generated permission missing, duplicated or outside tenant scope");
+}
+Require(applicationContributor.Permissions.Count(permission => permission.Code == "catalog.manual.read"
+    && permission.Scope == Full.NET.Modules.Identity.Contracts.AuthorizationScope.Tenant) == 1, "manual permission lost");
+Require(applicationContributor.Navigation.Count == 1, "generated navigation missing or duplicated");
+var navigation = applicationContributor.Navigation.Single();
+Require(navigation.Id == "products" && navigation.ParentId is null && navigation.RouteName == "products"
+    && navigation.Path == "/catalog/products" && navigation.ComponentKey == "products"
+    && navigation.RequiredPermission == ProductPermissions.Read, "generated navigation binding incorrect");
+var expectedActions = new Dictionary<string, string>
+{
+    ["create"] = ProductPermissions.Create,
+    ["update"] = ProductPermissions.Update,
+    ["disable"] = ProductPermissions.Disable,
+};
+Require(applicationContributor.Actions.Count == 3, "generated action count incorrect");
+foreach (var expected in expectedActions)
+{
+    var actions = applicationContributor.Actions.Where(action => action.ClientActionKey == expected.Key).ToArray();
+    Require(actions.Length == 1 && actions[0].Id == "catalog.products." + expected.Key
+        && actions[0].NavigationId == "products" && actions[0].PermissionCode == expected.Value,
+        "generated action binding incorrect");
+}
+
+var policyProvider = app.Services.GetRequiredService<IAuthorizationPolicyProvider>();
+Require(await policyProvider.GetPolicyAsync(Full.NET.Modules.Identity.Contracts.FullNetPermissionPolicies.For("identity.navigation.read")) is not null,
+    "official navigation permission policy lost");
+foreach (var code in expectedPermissions)
+{
+    var policy = await policyProvider.GetPolicyAsync(Full.NET.Modules.Identity.Contracts.FullNetPermissionPolicies.For(code));
+    Require(policy is not null && policy.Requirements.Count == 2
+        && policy.Requirements.Any(requirement => requirement is Microsoft.AspNetCore.Authorization.Infrastructure.DenyAnonymousAuthorizationRequirement)
+        && policy.Requirements.Count(requirement => requirement.GetType().FullName
+            == "Full.NET.Modules.Identity.Authorization.FullNetPermissionRequirement") == 1,
+        "generated permission missing from authoritative policy provider or authentication requirement lost");
+}
+Require(await policyProvider.GetPolicyAsync(Full.NET.Modules.Identity.Contracts.FullNetPermissionPolicies.For("catalog.manual.read")) is not null,
+    "manual permission policy lost");
+Require(await policyProvider.GetPolicyAsync(Full.NET.Modules.Identity.Contracts.FullNetPermissionPolicies.For("catalog.products.unknown")) is null,
+    "unknown application permission unexpectedly accepted");

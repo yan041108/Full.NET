@@ -1,0 +1,16 @@
+using Demo.Modules.Catalog.Generated;
+using Full.NET.Modules.Identity.Contracts;
+
+namespace Demo.Modules.Catalog;
+
+// 应用拥有的无状态贡献者；生成区块之外的人工权限与注释必须保留。
+public sealed class CatalogAuthorizationContributor : IAuthorizationCatalogContributor
+{
+    public AuthorizationModuleDefinition Module { get; } = new("catalog", "应用目录", 200);
+    public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
+    [
+        new PermissionDefinition("catalog.manual.read", "人工权限", AuthorizationScope.Tenant),
+    ];
+    public IReadOnlyCollection<NavigationDefinition> Navigation { get; } = [];
+    public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } = [];
+}
