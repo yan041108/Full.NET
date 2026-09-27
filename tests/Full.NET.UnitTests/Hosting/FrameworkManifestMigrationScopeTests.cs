@@ -79,6 +79,70 @@ public sealed class FrameworkManifestMigrationScopeTests
         Assert.IsFalse(failure.Message.Contains("credential-probe", StringComparison.Ordinal));
     }
 
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer, "999_Unknown.sql")]
+    [DataRow(DatabaseProvider.MySql, "999_Unknown.sql")]
+    [DataRow(DatabaseProvider.SqlServer, "Foundation.sql")]
+    [DataRow(DatabaseProvider.MySql, "Foundation.sql")]
+    [DataRow(DatabaseProvider.SqlServer, "001_foundation.sql")]
+    [DataRow(DatabaseProvider.MySql, "001_foundation.sql")]
+    [DataRow(DatabaseProvider.SqlServer, "../001_Foundation.sql")]
+    [DataRow(DatabaseProvider.MySql, "../001_Foundation.sql")]
+    public async Task Public_runner_rejects_unmatched_script_before_parsing_connection(DatabaseProvider provider, string name)
+    {
+        using var fixture = new ManifestFixture(JsonSerializer.Serialize(new { migrationInventory = new {
+            selectionStatus = "preset-minimal", scripts = new[] { new { name } } } }));
+        var before = fixture.ReadFiles();
+        using var logs = LoggerFactory.Create(_ => { });
+        var runner = new DbUpMigrationRunner(Options.Create(new DatabaseOptions
+            { Provider = provider, ConnectionString = "credential-probe" }), logs,
+            Options.Create(new UuidBinaryContractOptions()), Options.Create(new PreV1NamingContractOptions()),
+            Options.Create(fixture.Options));
+        var failure = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => runner.MigrateAsync());
+        StringAssert.Contains(failure.Message, "framework-manifest");
+        Assert.IsFalse(failure.Message.Contains("credential-probe", StringComparison.Ordinal));
+        AssertFilesUnchanged(before, fixture.ReadFiles());
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Explicit_scope_rejects_duplicate_names_instead_of_silently_deduplicating(bool standalone)
+    {
+        using var fixture = new ManifestFixture(JsonSerializer.Serialize(new { migrationInventory = new {
+            selectionStatus = "preset-minimal", scripts = new[] {
+                new { name = "001_Foundation.sql" }, new { name = "001_Foundation.sql" } } } }), standalone);
+        var before = fixture.ReadFiles();
+        Assert.ThrowsExactly<InvalidOperationException>(() => fixture.Load());
+        AssertFilesUnchanged(before, fixture.ReadFiles());
+    }
+
+    [TestMethod]
+    public void Scoped_subset_matches_actual_paired_resources_without_requiring_full_inventory()
+    {
+        FrameworkManifestMigrationScope.ValidateEmbeddedScriptNames(
+            new HashSet<string>(["001_Foundation.sql", "002_Identity.sql"], StringComparer.Ordinal),
+            typeof(DbUpMigrationRunner).Assembly.GetManifestResourceNames());
+    }
+
+    [TestMethod]
+    public void Legacy_unscoped_mode_does_not_require_a_scoped_resource_inventory()
+    {
+        FrameworkManifestMigrationScope.ValidateEmbeddedScriptNames(null, []);
+    }
+
+    [TestMethod]
+    [DataRow("SqlServer")]
+    [DataRow("MySql")]
+    public void Scoped_inventory_rejects_missing_provider_counterpart(string onlyProvider)
+    {
+        var failure = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            FrameworkManifestMigrationScope.ValidateEmbeddedScriptNames(
+                new HashSet<string>(["001_Foundation.sql"], StringComparer.Ordinal),
+                [$"Full.NET.Migrations.DbUp.Migrations.{onlyProvider}.001_Foundation.sql"]));
+        StringAssert.Contains(failure.Message, "paired embedded scripts");
+    }
+
     private static void AssertFilesUnchanged(Dictionary<string, byte[]> before, Dictionary<string, byte[]> after)
     {
         CollectionAssert.AreEquivalent(before.Keys.ToArray(), after.Keys.ToArray());

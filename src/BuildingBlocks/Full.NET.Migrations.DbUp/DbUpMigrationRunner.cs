@@ -114,6 +114,7 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
         ValidateNamingContractOptions(_namingContractOptions);
         // 范围清单先于连接配置解析，避免配置错误掩盖应用范围缺失或触发数据库动作。
         var allowedScripts = FrameworkManifestMigrationScope.TryLoadAllowedScriptNames(_manifestOptions);
+        FrameworkManifestMigrationScope.ValidateEmbeddedScriptNames(allowedScripts, MigrationAssembly.Value.GetManifestResourceNames());
         var options = _databaseOptions.Value;
         var (builder, providerSegment) = CreateBuilder(options);
         if (options.Provider == DatabaseProvider.MySql)
@@ -264,7 +265,8 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
         string providerSegment,
         HashSet<string>? allowedScriptNames)
     {
-        if (!embeddedResourceName.Contains(providerSegment, StringComparison.Ordinal))
+        var scriptName = FrameworkManifestMigrationScope.GetEmbeddedScriptName(embeddedResourceName, providerSegment);
+        if (scriptName is null)
         {
             return false;
         }
@@ -274,15 +276,7 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
             return true;
         }
 
-        foreach (var scriptName in allowedScriptNames)
-        {
-            if (embeddedResourceName.EndsWith('.' + scriptName, StringComparison.Ordinal)
-                || embeddedResourceName.EndsWith(scriptName, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        // 限定清单是完整文件名，禁止用截短后缀匹配另一脚本。
+        return allowedScriptNames.Contains(scriptName);
     }
 }

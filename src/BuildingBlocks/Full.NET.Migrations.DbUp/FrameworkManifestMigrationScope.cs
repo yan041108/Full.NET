@@ -83,7 +83,10 @@ internal static class FrameworkManifestMigrationScope
             {
                 throw new InvalidOperationException("framework-manifest preset migration inventory entry is invalid.");
             }
-            allowed.Add(name);
+            if (!allowed.Add(name))
+            {
+                throw new InvalidOperationException("framework-manifest preset migration inventory contains duplicate names.");
+            }
         }
 
         if (allowed.Count == 0)
@@ -93,6 +96,28 @@ internal static class FrameworkManifestMigrationScope
         }
 
         return allowed;
+    }
+
+    internal static void ValidateEmbeddedScriptNames(HashSet<string>? allowed, IEnumerable<string> resourceNames)
+    {
+        // 无限定清单的框架兼容模式保持不变；显式子集必须由真实双库资源承载。
+        if (allowed is null) return;
+        var resources = resourceNames.ToArray();
+        foreach (var segment in new[] { ".Migrations.SqlServer.", ".Migrations.MySql." })
+        {
+            var available = resources.Select(name => GetEmbeddedScriptName(name, segment))
+                .Where(name => name is not null).ToHashSet(StringComparer.Ordinal);
+            if (allowed.Any(name => !available.Contains(name)))
+            {
+                throw new InvalidOperationException("framework-manifest migration inventory does not match paired embedded scripts.");
+            }
+        }
+    }
+
+    internal static string? GetEmbeddedScriptName(string resourceName, string providerSegment)
+    {
+        var index = resourceName.IndexOf(providerSegment, StringComparison.Ordinal);
+        return index < 0 ? null : resourceName[(index + providerSegment.Length)..];
     }
 
     private static HashSet<string>? UnscopedOrRejectApplication(bool applicationDeclared)
