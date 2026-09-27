@@ -109,6 +109,10 @@ dotnet exec src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.C
 
 显式限定清单的脚本名必须唯一，并精确对应当前框架程序集中的 SQL Server/MySQL 成对资源；未知、截短、大小写漂移或带路径名称会在连接解析前拒绝。此校验允许有效子集，不验证 SQL 摘要、预设归属或数据库当前结构，也不是业务草案注册入口。
 
+应用可以在自有 Migrator 中显式替换 `IDatabaseMigrationRunner`：包装框架 `DbUpMigrationRunner`，先等待框架迁移成功，再运行已编号并经双库评审的业务脚本，返回合计执行数；任一阶段失败或取消时，既有工作流不得继续播种。业务脚本只嵌入应用 Migrator，使用含 owner/module 的稳定 journal 名称，不能进入 API、模块项目或受管框架迁移目录。默认模板不会自动采纳业务草稿。
+
+独立应用真实栈验收增加这一显式路径：先用应用包内 CLI 生成 `acme_catalog_product` 双库草稿，再将原文字节采纳为应用自有 `001_CreateProduct.sql` 并登记固定资源。首次运行要求业务脚本执行数为 1，重复迁移要求框架与业务均为 0；每个提供程序的采纳摘要和执行结果保存在 `.tmp/template-real-stack/<provider>/application-migration-*.json`，双库实际结果以对应提交的 Actions 为准。这一阶段验证迁移执行与记账，尚不证明生成业务 HTTP CRUD、跨租户拒绝、页面或完整 F02 验收通过。
+
 1. 运行迁移并启动 Host.Api
 2. 使用对应租户与精确权限的账号登录管理端，访问应用实际接入的生成页面
 3. 执行租户 CRUD、无权限及跨租户拒绝用例，再验证二次生成和人工修改保护；F02 完整验收尚未关闭

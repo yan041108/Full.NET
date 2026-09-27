@@ -10,6 +10,8 @@ import { createApp } from '../../../scripts/templates/create-app.mjs';
 import { prepareApplicationCompositionProbe } from './application-composition-probe.mjs';
 import { verifyApplicationModuleEndpoint } from './application-module-http.mjs';
 import { cleanupCreatedApp } from './created-app-cleanup.mjs';
+import { verifyApplicationCrudGeneration } from './application-crud-generation.mjs';
+import { prepareApplicationBusinessMigrations, verifyApplicationMigrationResult } from './application-business-migrations.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 const requireFromRealStack = createRequire(join(repoRoot, 'tests/e2e/admin-real-stack/package.json'));
@@ -231,6 +233,9 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     }
 
     prepareApplicationCompositionProbe(appRoot);
+    verifyApplicationCrudGeneration(appRoot, { reportDirectory: join(logRoot, 'application-crud') });
+    const adoption = prepareApplicationBusinessMigrations(appRoot);
+    writeFileSync(join(logRoot, 'application-migration-adoption.json'), JSON.stringify(adoption, null, 2));
     const database = await startDatabaseContainer(databaseProviderKey);
     dbContainer = database.container;
     const redis = await startRedisContainer();
@@ -242,10 +247,16 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     const hostProject = join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj');
     runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
     runDotnet(['build', hostProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
-    runDotnet([
+    const firstMigration = runDotnet([
       'run', '--project', migratorProject, '-c', 'Release', '--no-build', '--',
       '--seed', 'development',
     ], appRoot, env, 600_000, join(logRoot, 'migrator.log'));
+    const firstResult = verifyApplicationMigrationResult(firstMigration.stdout, true);
+    const repeatMigration = runDotnet([
+      'run', '--project', migratorProject, '-c', 'Release', '--no-build',
+    ], appRoot, env, 600_000, join(logRoot, 'migrator-repeat.log'));
+    const repeatResult = verifyApplicationMigrationResult(repeatMigration.stdout, false);
+    writeFileSync(join(logRoot, 'application-migration-results.json'), JSON.stringify({ first: firstResult, repeat: repeatResult }, null, 2));
 
     const apiLogPath = join(logRoot, 'api.log');
     writeFileSync(apiLogPath, '');

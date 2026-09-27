@@ -1,0 +1,66 @@
+using DbUp;
+using Full.NET.Data.Abstractions;
+using Full.NET.Data.MySql;
+using Full.NET.Migrations.DbUp;
+using Microsoft.Extensions.Options;
+
+namespace Demo.Host.Migrator;
+
+/// <summary>验收应用自有执行器，只在应用 Migrator 中显式登记这一对业务脚本。</summary>
+/// <remarks>先完成框架迁移，再执行当前提供程序脚本；失败或取消必须阻止后续播种。已记账脚本保持稳定名称。</remarks>
+internal sealed class ApplicationMigrationRunner(
+    IDatabaseMigrationRunner frameworkRunner,
+    IOptions<DatabaseOptions> databaseOptions,
+    string sqlServerScript,
+    string mySqlScript) : IDatabaseMigrationRunner
+{
+    public async Task<MigrationResult> MigrateAsync(CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sqlServerScript);
+        ArgumentException.ThrowIfNullOrWhiteSpace(mySqlScript);
+        cancellationToken.ThrowIfCancellationRequested();
+        var framework = await frameworkRunner.MigrateAsync(cancellationToken);
+        if (!framework.Successful)
+        {
+            throw new InvalidOperationException("框架迁移失败，不能执行应用迁移。");
+        }
+
+        // 框架阶段完成后再次检查令牌，不能因框架忽略取消而进入业务阶段。
+        cancellationToken.ThrowIfCancellationRequested();
+        var options = databaseOptions.Value;
+        var builder = options.Provider switch
+        {
+            DatabaseProvider.SqlServer => DeployChanges.To.SqlDatabase(options.ConnectionString),
+            DatabaseProvider.MySql => DeployChanges.To.MySqlDatabase(MySqlConnectionStringPolicy.Create(
+                options.ConnectionString, options.MySqlGuidStorageMode, allowUserVariables: true)),
+            _ => throw new ArgumentOutOfRangeException(nameof(options.Provider))
+        };
+        var script = options.Provider == DatabaseProvider.SqlServer ? sqlServerScript : mySqlScript;
+        // owner/module 与提供程序进入固定 journal 名称，避免与框架脚本碰撞；没有程序集扫描。
+        var application = builder
+            .WithScript($"acme.catalog.Migrations.{options.Provider}.001_CreateProduct.sql", script)
+            .WithExecutionTimeout(TimeSpan.FromSeconds(options.CommandTimeoutSeconds))
+            .LogToConsole()
+            .Build()
+            .PerformUpgrade();
+        if (!application.Successful)
+        {
+            throw new InvalidOperationException("应用迁移失败，不能继续播种。", application.Error);
+        }
+
+        // DbUp 同步执行不能中途取消；完成后的取消阻止播种，但不撤销已记账迁移。
+        cancellationToken.ThrowIfCancellationRequested();
+        var applicationCount = application.Scripts.Count();
+        Console.WriteLine(FormattableString.Invariant(
+            $"FULLNET_APPLICATION_MIGRATIONS {{\"frameworkScripts\":{framework.ExecutedScriptCount},\"applicationScripts\":{applicationCount}}}"));
+        return new MigrationResult(true, checked(framework.ExecutedScriptCount + applicationCount));
+    }
+
+    internal static string ReadScript(string name)
+    {
+        using var stream = typeof(ApplicationMigrationRunner).Assembly.GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException("缺少显式登记的应用迁移资源。");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+}
