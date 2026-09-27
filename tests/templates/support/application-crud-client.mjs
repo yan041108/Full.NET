@@ -2,10 +2,76 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { isMainThread, parentPort, Worker, workerData } from 'node:worker_threads';
 
 const operationIds = ['catalogListProducts', 'catalogCreateProduct', 'catalogGetProduct', 'catalogUpdateProduct', 'catalogDeleteProduct'];
 const fileNames = ['guards.generated.ts', 'index.generated.ts', 'models.generated.ts', 'operations.generated.ts'];
+
+// 匿名请求不注入凭据，严格核对服务端拒绝；不以此证明允许业务操作或页面行为。
+export async function verifyApplicationCrudClientRuntime(appRoot, baseUrl, { logPath }) {
+  // Worker 隔离 fetch 观测，避免修改并行验收或宿主线程的全局网络实现。
+  return await new Promise((resolve, reject) => {
+    const worker = new Worker(new URL(import.meta.url), { workerData: { kind: 'client-runtime', appRoot, baseUrl, logPath } });
+    let result;
+    worker.on('message', (message) => { result = message; });
+    worker.on('error', reject);
+    worker.on('exit', (code) => {
+      if (code !== 0 || !result) reject(new Error('generated client runtime worker failed'));
+      else if (result.error) reject(new Error(result.error));
+      else resolve(result.value);
+    });
+  });
+}
+
+async function runClientRuntime(appRoot, baseUrl, logPath) {
+  const emittedRoot = join(appRoot, 'verification/ClientGeneration/emitted');
+  const evidence = { completed: false, responses: [] };
+  const originalFetch = globalThis.fetch;
+  const transports = [];
+  globalThis.fetch = async (...args) => {
+    const response = await originalFetch(...args);
+    transports.push(response.status);
+    return response;
+  };
+  try {
+    const { createHttpClient } = await import(pathToFileURL(join(emittedRoot, 'packages/client-contracts/src/http.js')).href);
+    const operations = await import(pathToFileURL(join(emittedRoot, 'verification/ClientGeneration/generated/operations.generated.js')).href);
+    const http = createHttpClient(baseUrl);
+    const productId = '01900000-0000-7000-8000-000000000001';
+    const parameters = [{ page: 1, pageSize: 5 }, { body: { name: 'Denied application product' } },
+      { productId }, { productId, body: { name: 'Denied update', version: '1' } }, { productId, body: { version: '1' } }];
+    for (let index = 0; index < operationIds.length; index += 1) {
+      const operationId = operationIds[index];
+      const entry = { operationId };
+      evidence.responses.push(entry);
+      let rejected = false;
+      try {
+        await operations[operationId](http, parameters[index], AbortSignal.timeout(15_000), { retryUnauthorized: false });
+      } catch (problem) {
+        rejected = true;
+        assert.equal(transports.length, index + 1, 'generated client unexpected transport count');
+        entry.httpStatus = transports[index];
+        entry.status = problem?.status;
+        entry.code = problem?.code;
+        assert.equal(entry.httpStatus, 401, 'generated client HTTP status mismatch');
+        assert.equal(entry.status, 401, 'generated client anonymous status mismatch');
+        assert.equal(entry.code, 'identity.session_not_active', 'generated client authorization machine code mismatch');
+      }
+      assert.equal(rejected, true, 'generated client unexpectedly allowed anonymous operation');
+    }
+    evidence.completed = true;
+    return { requests: 5, anonymousDenied: 5 };
+  } finally {
+    globalThis.fetch = originalFetch;
+    writeFileSync(logPath, JSON.stringify(evidence, null, 2));
+  }
+}
+
+if (!isMainThread && workerData?.kind === 'client-runtime') {
+  try { parentPort.postMessage({ value: await runClientRuntime(workerData.appRoot, workerData.baseUrl, workerData.logPath) }); }
+  catch (error) { parentPort.postMessage({ error: error instanceof Error ? error.message : String(error) }); }
+}
 
 // 只使用应用工具和业务契约；编译器由验收环境提供，不改写共享客户端基线。
 export function verifyApplicationCrudClient(appRoot, {
@@ -43,10 +109,13 @@ export function verifyApplicationCrudClient(appRoot, {
   const operations = readFileSync(join(outputDirectory, 'operations.generated.ts'), 'utf8');
   for (const id of operationIds) assert.ok(operations.includes('export async function ' + id + '('), 'missing operation: ' + id);
   const configPath = join(verificationRoot, 'tsconfig.json');
-  writeFileSync(configPath, JSON.stringify({ compilerOptions: { strict: true, noEmit: true, target: 'ES2022',
+  const emittedRoot = join(verificationRoot, 'emitted');
+  writeFileSync(configPath, JSON.stringify({ compilerOptions: { strict: true, target: 'ES2022',
+    rootDir: appRoot, outDir: emittedRoot,
     module: 'ESNext', moduleResolution: 'Bundler', lib: ['ES2022', 'DOM'],
     paths: { '@fullnet/client-contracts': [join(sharedRoot, 'http.ts')] } }, include: ['generated/*.ts'] }));
   execute('compile', [compilerPath, '-p', configPath]);
+  writeFileSync(join(emittedRoot, 'package.json'), JSON.stringify({ type: 'module' }));
   execute('check', [...args, '--check']);
   for (const [name, bytes] of preserved) assert.ok(readFileSync(name).equals(bytes), 'client verification changed input: ' + name);
   const result = { operations: 5, generatedFiles: 4, compiled: true, zeroDrift: true, inputsUnchanged: true };

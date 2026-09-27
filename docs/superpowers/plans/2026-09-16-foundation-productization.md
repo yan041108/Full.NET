@@ -824,3 +824,11 @@ Vue接入前置客户端工具增量（基线4c171501b3d5ab9ff6d13a57bc8a149cb04
 业务客户端远端验收收口（证据提交badfad6477c36e66eba256771979312af473bdbc，快照f02-business-client-ci-evidence-20260927）：主CI36325119133、API Native36325119115、Worker Native36325119184均终态success。独立应用双库作业108636301949成功380/380、零失败/跳过。下载SQL Server/MySQL application-crud-client目录，两库result均operations5/generatedFiles4、compiled/zeroDrift/inputsUnchanged为true，generate/compile/check均status0；compile stdout/stderr为空，check报告产物零漂移。该SHA证明真实应用生成的hard.delete契约由应用自带工具生成并兼容自身共享HTTP类型，不再只依赖本地转换fixture。
 
 本轮仅同步该精确SHA的证据及教程，不新增生产行为。业务客户端运行时请求、应用包解析、Vue适配/路由/页面构建与使用、应用Worker及其他F02缺口仍待完成；分支跳过项不计通过，不能替代main完整Integration或生成应用Native认证。F02与Capacity-not-verified保持，未合并/发布。
+
+业务客户端匿名运行增量（基线8549e1746d83f7c5b8741cb16f4e104f2d5c122f，快照f02-business-client-runtime-20260927）：编译由noEmit改为专用emitted目录并保留应用路径，局部ESM声明；加载真实应用共享http.js和五个业务生成操作，使用createHttpClient，不注入凭据或刷新，以15秒信号及不重试参数调用实际API。每操作须抛出401及identity.session_not_active，报告仅操作名/状态/机器码，finally保存未完成失败证据；接在双库生成/编译后、登录前。仅扩展验收，不改生产HTTP实现、授权、业务/数据库行为。
+
+两项新运行测试有效RED2/2，实施后8/8；补403/200误允许负例后相关三组串行32/32、零失败/跳过。真实本地HTTP测试服务器确认五请求方法、删除路由及无Authorization，错机器码/错状态均拒绝。该fixture不是ASP.NET双库运行；新SHA实际API匿名拒绝链路仍待Actions。允许租户CRUD的生成客户端请求、应用包解析、Vue页面等仍未认证，F02及Capacity-not-verified保持，未合并/发布。
+
+复审修正transport假绿：共享ProblemDetails读取接受正文status，HTTP403/500搭配正文401可被旧验收误通过。新增HTTP500/body401混配回归先RED（Missing expected rejection）；运行迁入隔离Worker，只在Worker观测fetch响应，不污染宿主或其他请求。逐操作严格一响应且httpStatus与解码status都为401，finally恢复Worker fetch并保留失败报告；生产解码器未修改。
+
+终检相关三组串行33/33、治理55/55零跳过，syntax/diff通过、inner影响none。独立复审本组11/11，transport阻断关闭、Worker生命周期无新增阻断；实际API双库结果仍待新SHA。8549文档提交主CI36328023996/API Native36328024033/Worker Native36328023985均终态success，不作为本轮代码证明。

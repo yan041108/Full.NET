@@ -184,3 +184,7 @@ ASP.NET 数字读取兼容：实际文档的分页参数及ProblemDetails.status
 独立应用双库作业在服务端 OpenAPI 比较通过后，使用应用自带生成器消费商品生成契约，写入专用 `verification/ClientGeneration/generated`，生成并编译五个业务操作，再检查零漂移。TypeScript 编译通过 paths 映射应用自己的共享 `http.ts`，不改原业务契约、共享 HTTP 文件或四份官方客户端产物；报告位于 `application-crud-client/`。这是业务类型生成与共享 HTTP 契约兼容验证，不证明包解析、业务请求执行、Vue适配器、页面或生产构建；对应新SHA的远端结果需另行确认。
 
 业务客户端远端证据：`badfad64` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36325119133/job/108636301949)成功380/380、零失败/跳过。SQL Server/MySQL 的 `application-crud-client/result.json` 均记录五操作、四文件、compiled/zeroDrift/inputsUnchanged为true；各生成、编译、check进程均退出0。此证据使用应用实际生成的硬删除契约，关闭该类型生成与编译验收的待验证项，Vue接线及其他F02缺口仍保留。
+
+生成客户端匿名运行验收：编译后的业务操作与应用自有共享 HTTP 实现从专用 `verification/ClientGeneration/emitted` 加载，登录前通过五个生成操作调用 API。每项必须抛出401及 `identity.session_not_active`，不注入凭据、不刷新或重试；`application-crud-client/runtime.json` 只记录操作名、状态及机器码，失败时保留completed=false。此验证只覆盖匿名拒绝链路，不覆盖成功CRUD、包解析、浏览器或Vue；新SHA双库结果需独立核对。
+
+运行验收在隔离 Worker 中观测真实 fetch 状态，每操作恰好一次响应，HTTP状态和解码后的ProblemDetails.status都必须为401。报告额外记录httpStatus；正文伪报401而HTTP返回403/500不得通过。观测不改变宿主线程fetch或生产共享HTTP实现。

@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { verifyApplicationCrudClient } from './support/application-crud-client.mjs';
+import { createServer } from 'node:http';
+import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime } from './support/application-crud-client.mjs';
 
-function fixture(action) {
+async function fixture(action) {
   const appRoot = mkdtempSync(join(tmpdir(), 'fullnet-business-client-'));
   try {
     mkdirSync(join(appRoot, '.fullnet-tools/openapi'), { recursive: true });
@@ -22,7 +23,7 @@ function fixture(action) {
     delete document.paths['/api/v1/catalog/products/{productId}/disable'];
     writeFileSync(join(appRoot, 'contracts/openapi/products.generated.openapi.json'), JSON.stringify(document));
     cpSync(new URL('../../packages/client-contracts/src', import.meta.url), join(appRoot, 'packages/client-contracts/src'), { recursive: true });
-    return action(appRoot);
+    return await action(appRoot);
   } finally { rmSync(appRoot, { recursive: true, force: true }); }
 }
 
@@ -32,6 +33,31 @@ test('application business client generates and compiles all five operations wit
   const report = JSON.parse(readFileSync(join(appRoot, 'reports/client/result.json'), 'utf8'));
   assert.deepEqual(report, result);
 }));
+
+for (const [validCode, status, bodyStatus = status] of [[true, 401], [false, 401], [true, 403], [true, 200], [true, 500, 401]]) {
+  test(`compiled business client validates anonymous HTTP rejection: ${validCode}/${status}/${bodyStatus}`, () => fixture(async (appRoot) => {
+    verifyApplicationCrudClient(appRoot, { reportDirectory: join(appRoot, 'reports/client') });
+    const received = [];
+    const server = createServer((request, response) => {
+      received.push({ method: request.method, url: request.url, authorization: request.headers.authorization });
+      response.writeHead(status, { 'content-type': 'application/problem+json' });
+      response.end(JSON.stringify({ status: bodyStatus, code: validCode ? 'identity.session_not_active' : 'wrong.code' }));
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const logPath = join(appRoot, 'reports/client/runtime.json');
+    try {
+      const run = () => verifyApplicationCrudClientRuntime(appRoot, `http://127.0.0.1:${server.address().port}`, { logPath });
+      if (validCode && status === 401) {
+        assert.deepEqual(await run(), { requests: 5, anonymousDenied: 5 });
+        assert.equal(received.length, 5);
+        assert.ok(received.every((request) => request.authorization === undefined));
+        assert.deepEqual(received.map((request) => request.method), ['GET', 'POST', 'GET', 'PUT', 'POST']);
+        assert.match(received[4].url, /\/delete$/u);
+      } else await assert.rejects(run, status === 401 ? /machine code/u : /status mismatch|unexpectedly allowed/u);
+      assert.equal(JSON.parse(readFileSync(logPath, 'utf8')).completed, validCode && status === 401);
+    } finally { await new Promise((resolve) => server.close(resolve)); }
+  }));
+}
 
 test('application business client rejects a failed generator instead of reporting completion', () => fixture((appRoot) => {
   assert.throws(() => verifyApplicationCrudClient(appRoot, { reportDirectory: join(appRoot, 'reports/client'),
