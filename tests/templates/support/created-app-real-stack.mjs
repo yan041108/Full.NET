@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +9,7 @@ import { buildAppTemplate } from '../../../scripts/templates/build-app-template.
 import { createApp } from '../../../scripts/templates/create-app.mjs';
 import { prepareApplicationCompositionProbe } from './application-composition-probe.mjs';
 import { verifyApplicationModuleEndpoint } from './application-module-http.mjs';
+import { cleanupCreatedApp } from './created-app-cleanup.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 const requireFromRealStack = createRequire(join(repoRoot, 'tests/e2e/admin-real-stack/package.json'));
@@ -260,12 +261,6 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     await verifyApplicationModuleEndpoint(apiUrl, { logPath: join(logRoot, 'application-module-http.json') });
     await loginAndReadSettings(apiUrl);
   } finally {
-    if (apiProcess && !apiProcess.killed) {
-      apiProcess.kill('SIGTERM');
-    }
-    apiLogStream?.end();
-    await dbContainer?.stop().catch(() => {});
-    await redisContainer?.stop().catch(() => {});
-    rmSync(workspace, { recursive: true, force: true });
+    await cleanupCreatedApp({ apiProcess, apiLogStream, dbContainer, redisContainer, workspace });
   }
 }
