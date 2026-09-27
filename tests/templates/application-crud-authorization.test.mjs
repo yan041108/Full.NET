@@ -37,10 +37,12 @@ function runner(root, failure, calls) {
     if (failure === stage) return { status: 2, stdout: '', stderr: stage + ' failed' };
     if (failure === 'process-error') return { status: 0, error: new Error('failed process'), stdout: '' };
     if (stage === 'apply') {
-      let content = readFileSync(join(root, contributor), 'utf8') + '\n' + fragment;
+      // 范围负例仅改生成区块，保留人工权限，确保失败来自生成权限范围门禁。
+      const generated = failure === 'host-scope'
+        ? fragment.replaceAll('AuthorizationScope.Tenant', 'AuthorizationScope.Host') : fragment;
+      let content = readFileSync(join(root, contributor), 'utf8') + '\n' + generated;
       if (failure === 'lying') content = readFileSync(join(root, contributor), 'utf8');
       if (failure === 'manual-lost') content = content.replace('catalog.manual.read', 'catalog.lost.read');
-      if (failure === 'host-scope') content = content.replaceAll('AuthorizationScope.Tenant', 'AuthorizationScope.Host');
       if (failure === 'partial-block') content = content.replace('// </fullnet-generated catalog.product actions>', '');
       writeFileSync(join(root, contributor), content);
       if (failure === 'apply-mutates') writeFileSync(join(root, 'ui/admin/src/router/index.ts'), 'router lost');
@@ -72,7 +74,8 @@ for (const failure of ['apply', 'repeat', 'process-error', 'lying', 'manual-lost
     const root = workspace();
     const calls = [];
     try {
-      assert.throws(() => verifyApplicationCrudAuthorization(root, { reportDirectory: join(root, 'evidence'), run: runner(root, failure, calls) }));
+      assert.throws(() => verifyApplicationCrudAuthorization(root, { reportDirectory: join(root, 'evidence'), run: runner(root, failure, calls) }),
+        failure === 'host-scope' ? (error) => error.actual === 0 && error.expected === 4 : undefined);
       assert.ok(calls.length > 0);
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
