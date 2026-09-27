@@ -3,13 +3,13 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { verifyApplicationComposition } from './support/application-composition-probe.mjs';
+import { prepareApplicationCompositionProbe, verifyApplicationComposition } from './support/application-composition-probe.mjs';
 
 function workspace() {
   const root = mkdtempSync(join(tmpdir(), 'fullnet-composition-tooling-'));
   const composition = join(root, 'src/Demo.Composition');
   mkdirSync(composition, { recursive: true });
-  writeFileSync(join(composition, 'Demo.Composition.csproj'), '<Project><ItemGroup></ItemGroup></Project>');
+  writeFileSync(join(composition, 'Demo.Composition.csproj'), readFileSync(new URL('../../templates/fullnet-app/src/FullNetAppNameToken.Composition/FullNetAppNameToken.Composition.csproj', import.meta.url)));
   writeFileSync(join(composition, 'ApplicationModuleCatalog.cs'), 'private static IReadOnlyList<IFullNetModule> CreateModules() =>\r\n    [\r\n    ];');
   return root;
 }
@@ -59,3 +59,31 @@ test('application composition probe wires the owned project and executes its com
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('application probe keeps references in the existing group for later CLI integration', () => {
+  const root = workspace();
+  try {
+    prepareApplicationCompositionProbe(root);
+    const project = readFileSync(join(root, 'src/Demo.Composition/Demo.Composition.csproj'), 'utf8');
+    const referenceGroups = [...project.matchAll(/<ItemGroup>[\s\S]*?<\/ItemGroup>/gu)]
+      .filter((match) => match[0].includes('<ProjectReference'));
+    assert.equal(referenceGroups.length, 1, 'Composition CLI requires one reference group');
+    assert.match(referenceGroups[0][0], /Full\.NET\.Composition\.csproj/u);
+    assert.match(referenceGroups[0][0], /Demo\.Modules\.Probe\.csproj/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+for (const malformed of ['<Project></Project>', '<Project><ItemGroup><ProjectReference Include="first.csproj" /></ItemGroup><ItemGroup><ProjectReference Include="second.csproj" /></ItemGroup></Project>']) {
+  test(`application probe refuses a nonstandard reference group before changing the catalog: ${malformed}`, () => {
+    const root = workspace();
+    try {
+      const projectPath = join(root, 'src/Demo.Composition/Demo.Composition.csproj');
+      const catalogPath = join(root, 'src/Demo.Composition/ApplicationModuleCatalog.cs');
+      writeFileSync(projectPath, malformed);
+      const catalog = readFileSync(catalogPath);
+      assert.throws(() => prepareApplicationCompositionProbe(root), /one standard reference group/u);
+      assert.equal(readFileSync(projectPath, 'utf8'), malformed);
+      assert.deepEqual(readFileSync(catalogPath), catalog);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+}

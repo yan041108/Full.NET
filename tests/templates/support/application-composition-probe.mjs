@@ -13,6 +13,9 @@ export function prepareApplicationCompositionProbe(appRoot) {
   const emptyCatalog = /private static IReadOnlyList<IFullNetModule> CreateModules\(\) =>\s*\[\s*\];/gu;
   assert.equal([...catalog.matchAll(emptyCatalog)].length, 1, 'probe requires one empty application catalog');
   assert.equal((project.match(/<\/Project>/gu) ?? []).length, 1, 'probe requires one application project');
+  const referenceGroups = [...project.matchAll(/<ItemGroup>[\s\S]*?<\/ItemGroup>/gu)]
+    .filter((match) => /<ProjectReference\b/u.test(match[0]));
+  assert.equal(referenceGroups.length, 1, 'probe requires one standard reference group');
   const moduleRoot = join(appRoot, 'src/Demo.Modules.Probe');
   const probeRoot = join(appRoot, 'verification/CompositionProbe');
   mkdirSync(moduleRoot, { recursive: true });
@@ -31,7 +34,10 @@ export function prepareApplicationCompositionProbe(appRoot) {
 </Project>
 `);
   writeFileSync(join(probeRoot, 'Program.cs'), readFileSync(new URL('./fixtures/application-composition-program.cs.fixture', import.meta.url)));
-  writeFileSync(projectPath, project.replace('</Project>', '  <ItemGroup><ProjectReference Include="../Demo.Modules.Probe/Demo.Modules.Probe.csproj" /></ItemGroup>\n</Project>'));
+  // 后续Composition CLI要求引用集中在原标准组中，探针不能制造第二个引用组。
+  const referenceGroup = referenceGroups[0][0];
+  writeFileSync(projectPath, project.replace(referenceGroup, referenceGroup.replace('</ItemGroup>',
+    '  <ProjectReference Include="../Demo.Modules.Probe/Demo.Modules.Probe.csproj" />\n  </ItemGroup>')));
   writeFileSync(catalogPath, catalog.replace(emptyCatalog, 'private static IReadOnlyList<IFullNetModule> CreateModules() =>\n    [\n        new Demo.Modules.Probe.ProbeModule(),\n    ];'));
   return probeRoot;
 }

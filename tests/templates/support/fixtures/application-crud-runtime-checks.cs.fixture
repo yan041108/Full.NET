@@ -1,0 +1,87 @@
+// 检查真实应用组合根和生成服务，不能将目录或权限元数据视为授权执行。
+var modules = app.Services.GetRequiredService<FullNetModuleRegistry>().GetOrderedModules();
+var keys = modules.Select(module => module.Name).ToArray();
+Require(keys.Count(key => key == "Catalog") == 1, "generated module missing or duplicated");
+Require(keys.Count(key => key == "SampleCatalog") == 1, "existing probe missing or duplicated");
+Require(Array.IndexOf(keys, "Identity") >= 0
+    && Array.IndexOf(keys, "Identity") < Array.IndexOf(keys, "Catalog"), "generated dependency order incorrect");
+var catalog = app.Services.GetRequiredService<IFullNetModuleCatalog>();
+Require(catalog.FindByKey("Catalog")?.SourceClassification == FullNetModuleSourceClassification.Application,
+    "generated module source classification incorrect");
+Require(catalog.FindByKey("SampleCatalog")?.SourceClassification == FullNetModuleSourceClassification.Application,
+    "existing probe source classification incorrect");
+
+var generatedServices = builder.Services.Where(descriptor =>
+    descriptor.ServiceType.FullName is "Demo.Modules.Catalog.Generated.ProductQueryService"
+        or "Demo.Modules.Catalog.Generated.ProductManagementService").ToArray();
+Require(generatedServices.Length == 2
+    && generatedServices.Select(descriptor => descriptor.ServiceType).Distinct().Count() == 2
+    && generatedServices.All(descriptor => descriptor.Lifetime == ServiceLifetime.Scoped),
+    "generated services missing, duplicated or not scoped");
+await using (var firstScope = app.Services.CreateAsyncScope())
+await using (var secondScope = app.Services.CreateAsyncScope())
+{
+    foreach (var descriptor in generatedServices)
+    {
+        var first = firstScope.ServiceProvider.GetRequiredService(descriptor.ServiceType);
+        Require(ReferenceEquals(first, firstScope.ServiceProvider.GetRequiredService(descriptor.ServiceType)),
+            "generated service not reused within scope");
+        Require(!ReferenceEquals(first, secondScope.ServiceProvider.GetRequiredService(descriptor.ServiceType)),
+            "generated service leaked across scopes");
+        var rootRejected = false;
+        try { _ = app.Services.GetRequiredService(descriptor.ServiceType); }
+        catch (InvalidOperationException) { rootRejected = true; }
+        Require(rootRejected, "root provider accepted a scoped generated service");
+    }
+}
+
+var expectedRoutes = new Dictionary<string, (string Method, string Path, string Policy)>
+{
+    ["catalogListProducts"] = ("GET", "/api/v1/catalog/products", Full.NET.Modules.Identity.Contracts.FullNetPermissionPolicies.For(ProductPermissions.Read)),
+    ["catalogGetProduct"] = ("GET", "/api/v1/catalog/products/{productId:guid}", Full.NET.Modules.Identity.Contracts.FullNetPermissionPolicies.For(ProductPermissions.Read)),
+    ["catalogCreateProduct"] = ("POST", "/api/v1/catalog/products", Full.NET.Modules.Identity.Contracts.FullNetPermissionPolicies.For(ProductPermissions.Create)),
+    ["catalogUpdateProduct"] = ("PUT", "/api/v1/catalog/products/{productId:guid}", Full.NET.Modules.Identity.Contracts.FullNetPermissionPolicies.For(ProductPermissions.Update)),
+    ["catalogDeleteProduct"] = ("POST", "/api/v1/catalog/products/{productId:guid}/delete", Full.NET.Modules.Identity.Contracts.FullNetPermissionPolicies.For(ProductPermissions.Disable)),
+};
+var endpoints = ((IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints).OfType<RouteEndpoint>().ToArray();
+var generatedRoutes = endpoints.Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith(
+    "/api/v1/catalog/products", StringComparison.Ordinal) == true).ToArray();
+Require(generatedRoutes.Length == expectedRoutes.Count, "generated route count incorrect");
+foreach (var expected in expectedRoutes)
+{
+    var matching = generatedRoutes.Where(endpoint => endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == expected.Key).ToArray();
+    Require(matching.Length == 1, "generated route missing or duplicated: " + expected.Key);
+    var endpoint = matching[0];
+    Require(endpoint.RoutePattern.RawText?.TrimEnd('/') == expected.Value.Path, "generated route path incorrect");
+    Require(endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.SequenceEqual([expected.Value.Method]) == true,
+        "generated route method incorrect");
+    Require(endpoint.Metadata.GetMetadata<IAuthorizeData>()?.Policy == expected.Value.Policy
+        && endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>().Count == 1,
+        "generated route permission incorrect");
+    Require(endpoint.Metadata.GetMetadata<IAllowAnonymous>() is null, "generated route unexpectedly anonymous");
+}
+Require(endpoints.Count(endpoint => endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName
+    == "applicationCompositionProbe") == 1, "existing probe route missing or duplicated");
+
+// 使用宿主最终JsonOptions验证生成上下文与长整数契约，避免默认反射序列化掩盖注册遗漏。
+var jsonOptions = app.Services.GetRequiredService<IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>>().Value.SerializerOptions;
+var generatedResolvers = jsonOptions.TypeInfoResolverChain.Where(resolver => resolver.GetType().FullName
+    == "Demo.Modules.Catalog.Generated.ProductJsonSerializerContext").ToArray();
+Require(generatedResolvers.Length == 1 && generatedResolvers[0].GetTypeInfo(typeof(ProductResponse), jsonOptions) is not null,
+    "generated JSON source context missing or duplicated");
+var response = new ProductResponse(Guid.CreateVersion7(), Guid.CreateVersion7(), "运行验收", 9007199254740993L,
+    DateTimeOffset.UtcNow, Guid.CreateVersion7());
+var json = JsonSerializer.Serialize(response, jsonOptions);
+using (var document = JsonDocument.Parse(json))
+{
+    Require(document.RootElement.GetProperty("version").ValueKind == JsonValueKind.String
+        && document.RootElement.GetProperty("version").GetString() == "9007199254740993", "generated version lost precision");
+}
+Require(JsonSerializer.Deserialize<ProductResponse>(json, jsonOptions) == response, "generated JSON round trip failed");
+await app.DisposeAsync();
+Console.WriteLine("FULLNET_APPLICATION_CRUD_RUNTIME {\"moduleRegistered\":true,\"scopedServices\":2,\"protectedRoutes\":5,\"jsonRoundTrip\":true}");
+
+static void Require(bool condition, string message)
+{
+    if (!condition) throw new InvalidOperationException(message);
+}

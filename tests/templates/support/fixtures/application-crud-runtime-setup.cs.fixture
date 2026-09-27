@@ -1,0 +1,14 @@
+// 只验证启动装配与作用域，不启动宿主；该不可连接的配置不代表数据库可用或业务验收。
+builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+{
+    ["Database:Provider"] = "mysql",
+    ["Database:ConnectionString"] = "Server=127.0.0.1;Port=1;Database=fullnet_runtime_probe;User ID=probe;Password=fixture;",
+    ["Database:MySqlGuidStorageMode"] = "Binary16",
+    ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true",
+    ["DataProtection:KeyRingPath"] = Path.Combine(Environment.CurrentDirectory, "verification/CrudRuntimeProbe/keys"),
+});
+builder.Host.UseDefaultServiceProvider(options =>
+{
+    options.ValidateOnBuild = true;
+    options.ValidateScopes = true;
+});
