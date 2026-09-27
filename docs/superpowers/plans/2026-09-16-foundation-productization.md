@@ -584,3 +584,8 @@ Host 授权目标静态路径增量执行计划（基线 `43772a39353303fb851f3f
 本增量失败与快速证据：初始六项编排 RED 全失败；实现后五通过/一失败，定位为 Windows 路径分隔符断言，改为 join 构造精确项目路径后六通过。追加预览意外写盘、重复生成损坏人工文件、冲突后覆盖及错误冲突路径四项失败关闭回归，最终新套件 10/10；七组 Node 联合 70/70、治理 55/55，均零失败/跳过。随后补预览立即核对人工文件原文，受影响新套件再验 10/10。Node 语法检查/diff --check 与快照 inner 影响规划 none。仅为验证新 Schema 与产物路径，串行构建仓库 CLI Release --no-restore（零警告/错误）并在隔离临时工作区实际生成十四个产物；首调用因工作区不存在返回 64，建立目录后退出 0，不能把首调用计为成功。这是仓库 CLI 的夹具校验，未本地构建或运行新应用内部 CLI，也未执行业务模块或迁移模板。
 
 独立只读复审无阻断：确认当前 Schema/CLI 参数与十四路径一致、应用根 backend 不被 src 宿主自动编译、产物/清单/人工文件字节保护与前后受管框架摘要复核保留，既有 always artifact 包含新日志。本轮仅新增生成与保护门禁，不认证业务接入；真实独立应用 CLI 阶段等待新 SHA Actions。
+
+独立应用生成模块编译增量计划（基线 69c9c1d77ac757f4fccc3cb0b7a1331831b19a4f）：保留测试矩阵状态，建立 f02-created-app-crud-module-20260927 快照。新增 application-crud-module.mjs 与应用拥有的 CatalogModule 夹具，复用前增量 schema 和应用内部 CLI，显式目标指向 src/Demo.Modules.Catalog；项目仅相对引用应用包中已有 Abstractions/Data.Abstractions/Hosting/Modularity/Identity.Contracts。依次 apply-module-integration（候选编译）、实际模块 Release 构建、相同输入再接入、人工修改 Generated SQL 后冲突退出 2。检查六项后端产物、模块清单、项目/入口/人工文件字节；应用 API/Composition/Vue 和根生成清单保持原文。Node 注入 runner 先建立失败回归，仅证明编排；接到 packaged-app 在 CRUD 生成验收之后、受管框架摘要复核之前。真正独立应用内候选及模块编译只在 Actions，不在本地重跑重型临时应用构建；本轮不接入 API/授权/Vue、不启用业务迁移、不关闭完整 F02。快速验证、独立只读复审后提交推送并按新 SHA 核对。
+本增量快速证据：初始六项 Node 编排 RED 全失败，实现后六通过；追加项目改写、模块入口漂移、冲突覆盖、应用 Composition 改写、错误冲突路径和缺失编译标记六项拒绝回归，最终新套件 12 项、八组联合 82/82，治理 55/55，均零失败/跳过。语法/diff 检查和快照 inner 影响规划 none。未在本地运行应用候选/模块 .NET 编译；injected runner 成功不作为实际编译或业务运行证据。原根生成 SQL 人工修改继续保留，与模块自己的 Generated SQL 冲突分别验收。
+
+独立只读复审无阻断，新套件12/12无跳过；确认五个相对ProjectReference与现有真实Integration编译夹具一致，当前Schema不需要额外Organization或Dapper运行实现引用，根生成清单/人工SQL与模块产物保持分别保护。CatalogModule尚未消费生成注册桥，候选/实际模块编译也不证明Host/DI/权限/迁移运行。真实编译继续待新SHA Actions。

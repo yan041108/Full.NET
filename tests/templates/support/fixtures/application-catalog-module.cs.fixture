@@ -1,0 +1,22 @@
+using Full.NET.Modularity.Modules;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Demo.Modules.Catalog;
+
+// 应用自有模块入口；本阶段只验证后端产物编译，尚未接入生成注册桥或 API 宿主。
+public sealed class CatalogModule : IFullNetModule
+{
+    public string Name => "Catalog";
+    public IReadOnlyCollection<string> Dependencies => ["Identity"];
+
+    public void AddServices(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions();
+    }
+
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+    }
+}

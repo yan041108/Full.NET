@@ -62,6 +62,8 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 
 独立应用的模板验收会用应用包内的 CLI 检查租户 CRUD 预览不写入产物、生成后相同输入为 `Unchanged`、人工文件保留，以及修改受管 SQL 后返回冲突且保持产物与清单字节。每阶段日志保存在 `.tmp/template-real-stack/application-crud/` 并由 Actions 上传；这项生成与保护检查不代替下方的模块接入、业务双库运行、权限或页面验收。
 
+模板验收还会通过 `apply-module-integration` 将后端产物接入应用自有模块，经过候选编译后实际构建模块项目，并验证重复接入及人工 SQL 修改保护。日志位于 `.tmp/template-real-stack/application-crud-module/`。该阶段只验证模块编译和写盘保护，尚未将生成注册桥、授权贡献者和模块接入 API，也不执行业务迁移。
+
 ## 第五步：模块接入（可选）
 
 原仓库的 `samples/enterprise-request/integration-target.json` 是仓库布局示例，不适用于独立应用。准备应用自己的 `integration-target.json`，显式选择应用拥有的模块项目、入口与宿主接入位置；不得为了接入业务改写受管框架或恢复冻结 Layui 交付线。规划入口：
