@@ -15,6 +15,29 @@ public sealed class CrudArtifactGeneratorTests
         CrudArtifactGenerator.Generate(schema, includeLayuiClientArtifacts: true);
 
     [TestMethod]
+    [DataRow("legacy")]
+    [DataRow("lifecycle")]
+    [DataRow("organization")]
+    public void Generate_declares_authentication_problem_metadata_on_every_protected_operation(string mode)
+    {
+        var schema = mode switch
+        {
+            "legacy" => FullNetCrudSchemaTests.CreateProductSchema(),
+            "organization" => CreateExplicitLifecycleSchema(ownershipMode: FullNetCrudOwnershipMode.OrganizationUnit),
+            _ => CreateExplicitLifecycleSchema(),
+        };
+        var endpoint = Artifact(GenerateWithLayui(schema), "backend/ProductEndpoint.g.cs");
+        var operations = endpoint.Split(".WithName(", StringSplitOptions.None).Skip(1).ToArray();
+        Assert.AreEqual(5, operations.Length);
+        foreach (var operation in operations)
+        {
+            // 静态契约已有401/403，实际Endpoint元数据也必须逐操作声明。
+            StringAssert.Contains(operation, ".ProducesProblem(StatusCodes.Status401Unauthorized)");
+            StringAssert.Contains(operation, ".ProducesProblem(StatusCodes.Status403Forbidden)");
+        }
+    }
+
+    [TestMethod]
     public void Generate_emits_sorted_unique_cross_stack_artifacts()
     {
         var artifacts = GenerateWithLayui(

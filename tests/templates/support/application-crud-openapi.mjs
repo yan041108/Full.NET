@@ -79,6 +79,14 @@ export async function verifyApplicationCrudOpenApi(baseUrl, { expectedPath, logP
       assert.deepEqual(Object.keys(actualOperation.responses ?? {}).filter((status) => /^2\d\d$/u.test(status)).sort(), successes, key + ': success statuses');
       assert.equal(successes.length, 1, 'expected one generated success response');
       comparison.successStatus = successes[0];
+      comparison.authenticationProblems = [];
+      for (const status of ['401', '403']) {
+        assert.ok(expectedOperation.responses[status]?.content?.['application/problem+json'], 'generated authentication problem missing');
+        const problem = actualOperation.responses?.[status]?.content?.['application/problem+json']?.schema;
+        const problemSchema = resolveSchema(actual, problem);
+        assert.ok(Object.hasOwn(problemSchema.properties ?? {}, 'status'), key + ': missing ProblemDetails status');
+        comparison.authenticationProblems.push(status);
+      }
       const responseSchema = (operation) => operation.responses[successes[0]]?.content?.['application/json']?.schema;
       const isList = key === 'get ' + productBase;
       comparison.responseProperties = properties(actual, responseSchema(actualOperation), isList);
@@ -94,7 +102,7 @@ export async function verifyApplicationCrudOpenApi(baseUrl, { expectedPath, logP
     assert.equal(requestShapes, 3);
     assert.deepEqual(readFileSync(expectedPath), original, 'acceptance changed generated contract');
     evidence.completed = true;
-    evidence.result = { operations: 5, bearerProtected: 5, requestShapes, responseShapes: 5, generatedUnchanged: true };
+    evidence.result = { operations: 5, bearerProtected: 5, authenticationProblems: 10, requestShapes, responseShapes: 5, generatedUnchanged: true };
     return evidence.result;
   } catch (error) {
     evidence.error = error instanceof Error ? error.message : String(error);

@@ -158,3 +158,5 @@ dotnet exec src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.C
 普通账号删除权限阶段使用独立角色与账号，固定授予产品 `catalog.products.disable`／`catalog.products.read` 和租户上下文read/switch。当前hard.delete路由沿用既有Disable权限机器码；不新增delete权限。真实首次改密及me精确权限核验后，创建和更新403，当前Version1产品用不匹配Version2删除须409且再读保持原行；正确Version1删除200返回原行。普通账号与管理员分别核对GET404和空列表，确认实际消失，再返回Host。报告为 `application-crud-delete-permission.json`，无需管理员重复删除；固定五类权限入口仍须以对应SHA双库Actions证明，不把Node替身计为真实账号/数据库通过。
 
 OpenAPI 接入阶段在独立应用真实 API 就绪后匿名读取 `/openapi/v1.json`，对照只读生成文件 `contracts/openapi/products.generated.openapi.json`，逐项核对五个产品操作的路径（仅规范化尾斜杠）、operationId、成功状态和 Bearer 声明。三种写请求的字段集合不能暴露Id/TenantId/创建审计；五种成功响应的字段集合须与生成契约一致，列表比较items元素。只解析文档内components/schemas引用，拒绝缺失、外部及循环引用；报告 `application-crud-openapi.json` 保存实际比较和失败部分证据，生成文件字节保持。此阶段仅证明真实文档的路由、安全声明及字段接入，完整错误元数据、数字/字符串类型细节与Vue客户端仍须后续验收，不能仅凭Node替身认定双库文档服务通过。
+
+认证错误元数据补齐：生成 Endpoint 的每个受保护操作现在显式声明401/403 `ProducesProblem`，与生成静态契约和既有真实HTTP拒绝保持一致；不改变运行授权或返回行为。OpenAPI门禁对五操作逐项要求这两状态具有 `application/problem+json` 与可解析ProblemDetails/status，报告 `authenticationProblems: 10`。404/409等完整操作错误集、机器码扩展schema及数字/字符串类型细节仍须后续，不把新增注解算作全部契约认证。

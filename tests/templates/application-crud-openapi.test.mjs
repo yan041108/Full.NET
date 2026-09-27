@@ -10,11 +10,14 @@ const ref = (name) => ({ $ref: '#/components/schemas/' + name });
 const schema = (keys) => ({ type: 'object', properties: Object.fromEntries(keys.map((key) => [key, { type: 'string' }])) });
 function document() {
   const operation = (name, status, response, request) => ({ operationId: name, security: [{ Bearer: [] }],
-    responses: { [status]: { content: { 'application/json': { schema: ref(response) } } } },
+    responses: { [status]: { content: { 'application/json': { schema: ref(response) } } },
+      401: { content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      403: { content: { 'application/problem+json': { schema: ref('ProblemDetails') } } } },
     ...(request ? { requestBody: { content: { 'application/json': { schema: ref(request) } } } } : {}),
   });
   return { openapi: '3.1.0', components: { securitySchemes: { Bearer: { type: 'http', scheme: 'bearer' } }, schemas: {
     Product: schema(['id', 'tenantId', 'name', 'version', 'createdAtUtc', 'createdById']),
+    ProblemDetails: schema(['type', 'title', 'status', 'detail', 'instance']),
     Page: { type: 'object', properties: { items: { type: 'array', items: ref('Product') } } },
     Create: schema(['name']), Update: schema(['name', 'version']), Delete: schema(['version']),
   } }, paths: {
@@ -43,7 +46,7 @@ test('served application OpenAPI matches generated operations and field boundari
     assert.equal(options.headers?.Authorization, undefined);
     return new Response(JSON.stringify(runtime), { headers: { 'content-type': 'application/json' } });
   } });
-  assert.deepEqual(result, { operations: 5, bearerProtected: 5, requestShapes: 3, responseShapes: 5, generatedUnchanged: true });
+  assert.deepEqual(result, { operations: 5, bearerProtected: 5, authenticationProblems: 10, requestShapes: 3, responseShapes: 5, generatedUnchanged: true });
   assert.equal(calls, 1);
   assert.deepEqual(readFileSync(expectedPath), original);
   const evidence = JSON.parse(readFileSync(logPath, 'utf8'));
@@ -51,6 +54,10 @@ test('served application OpenAPI matches generated operations and field boundari
   assert.equal(evidence.comparisons.length, 5);
 }));
 const cases = [
+  ['missing-401', (d) => delete d.paths[base].get.responses['401']],
+  ['missing-403', (d) => delete d.paths[base].post.responses['403']],
+  ['wrong-problem-media', (d) => d.paths[base].get.responses['401'].content = { 'application/json': { schema: ref('ProblemDetails') } }],
+  ['missing-problem-schema', (d) => delete d.paths[base].get.responses['403'].content['application/problem+json'].schema],
   ['missing-route', (d) => delete d.paths[base + '/{id}'].put],
   ['extra-route', (d) => d.paths[base + '/disable'] = { post: d.paths[base + '/{id}/delete'].post }],
   ['wrong-operation-id', (d) => d.paths[base].post.operationId = 'unexpectedCreate'],

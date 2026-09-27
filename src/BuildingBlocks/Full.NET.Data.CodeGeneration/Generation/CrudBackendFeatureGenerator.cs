@@ -464,6 +464,8 @@ internal static class CrudBackendFeatureGenerator
                     .WithName("{{operationPrefix}}List{{resourceName}}")
                     .Produces<PagedResult<{{schema.ClrTypeName}}Response>>(
                         StatusCodes.Status200OK)
+                    .ProducesProblem(StatusCodes.Status401Unauthorized)
+                    .ProducesProblem(StatusCodes.Status403Forbidden)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Read));
 
@@ -482,6 +484,8 @@ internal static class CrudBackendFeatureGenerator
                     })
                     .WithName("{{operationPrefix}}Get{{schema.ClrTypeName}}")
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
+                    .ProducesProblem(StatusCodes.Status401Unauthorized)
+                    .ProducesProblem(StatusCodes.Status403Forbidden)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Read));
 
@@ -505,6 +509,8 @@ internal static class CrudBackendFeatureGenerator
                     })
                     .WithName("{{operationPrefix}}Create{{schema.ClrTypeName}}")
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status201Created)
+                    .ProducesProblem(StatusCodes.Status401Unauthorized)
+                    .ProducesProblem(StatusCodes.Status403Forbidden)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Write));
 
@@ -525,6 +531,8 @@ internal static class CrudBackendFeatureGenerator
                     })
                     .WithName("{{operationPrefix}}Update{{schema.ClrTypeName}}")
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
+                    .ProducesProblem(StatusCodes.Status401Unauthorized)
+                    .ProducesProblem(StatusCodes.Status403Forbidden)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Write));
 
@@ -539,6 +547,8 @@ internal static class CrudBackendFeatureGenerator
                     })
                     .WithName("{{operationPrefix}}Disable{{schema.ClrTypeName}}")
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
+                    .ProducesProblem(StatusCodes.Status401Unauthorized)
+                    .ProducesProblem(StatusCodes.Status403Forbidden)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Write));
                 }
@@ -1438,18 +1448,24 @@ internal static class CrudBackendFeatureGenerator
                     .WithName("{{operationPrefix}}List{{resourceName}}")
                     .Produces<PagedResult<{{schema.ClrTypeName}}Response>>(
                         StatusCodes.Status200OK)
+                    .ProducesProblem(StatusCodes.Status401Unauthorized)
+                    .ProducesProblem(StatusCodes.Status403Forbidden)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Read));
 
             {{IndentLines(getByIdEndpointHandler, 8)}}
                     .WithName("{{operationPrefix}}Get{{schema.ClrTypeName}}")
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
+                    .ProducesProblem(StatusCodes.Status401Unauthorized)
+                    .ProducesProblem(StatusCodes.Status403Forbidden)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Read));
 
             {{IndentLines(createEndpointHandler, 8)}}
                     .WithName("{{operationPrefix}}Create{{schema.ClrTypeName}}")
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status201Created)
+                    .ProducesProblem(StatusCodes.Status401Unauthorized)
+                    .ProducesProblem(StatusCodes.Status403Forbidden)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Create));
             {{updateEndpoint}}{{deleteEndpoint}}
@@ -1531,6 +1547,8 @@ internal static class CrudBackendFeatureGenerator
             })
             .WithName("{{OperationPrefix(schema)}}Update{{schema.ClrTypeName}}")
             .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .RequireAuthorization(FullNetPermissionPolicies.For(
                 {{schema.ClrTypeName}}Permissions.Update));
             """,
@@ -1570,6 +1588,8 @@ internal static class CrudBackendFeatureGenerator
             })
             .WithName("{{OperationPrefix(schema)}}Delete{{schema.ClrTypeName}}")
             .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .RequireAuthorization(FullNetPermissionPolicies.For(
                 {{schema.ClrTypeName}}Permissions.Disable));
             """,
