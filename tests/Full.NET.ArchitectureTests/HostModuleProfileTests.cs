@@ -81,6 +81,45 @@ public sealed class HostModuleProfileTests
             "Migrator Profile 只能通过最小迁移/Seed 注册入口装配模块，不能继续复用完整模块 AddServices。");
     }
 
+    [TestMethod]
+    public void Shared_migrator_bootstrap_has_no_composition_or_business_module_references()
+    {
+        var root = FindRepositoryRoot();
+        var project = XDocument.Load(Path.Combine(root,
+            "src/BuildingBlocks/Full.NET.Hosting.Migrator/Full.NET.Hosting.Migrator.csproj"));
+        var references = project.Descendants().Where(element => element.Name.LocalName == "ProjectReference")
+            .Select(element => element.Attribute("Include")?.Value ?? string.Empty).ToArray();
+        Assert.IsTrue(references.Length > 0);
+        Assert.IsTrue(references.All(reference => reference.StartsWith("..\\Full.NET.", StringComparison.Ordinal)
+            && !reference.Contains("Composition", StringComparison.Ordinal)
+            && !reference.Contains("Modules", StringComparison.Ordinal)
+            && !reference.Contains("Host.", StringComparison.Ordinal)), string.Join(",", references));
+        foreach (var program in new[] { "src/Hosts/Full.NET.Host.Migrator/Program.cs",
+            "templates/fullnet-app/src/FullNetAppNameToken.Host.Migrator/Program.cs" })
+        {
+            var source = File.ReadAllText(Path.Combine(root, program));
+            StringAssert.Contains(source, "FullNetMigratorHost.CreateBuilder(args)");
+            StringAssert.Contains(source, "FullNetMigratorHost.RunAsync(builder, args)");
+            StringAssert.Contains(source, "FullNetHostProfile.Migrator");
+        }
+    }
+
+    [TestMethod]
+    public void Runtime_host_projects_cannot_directly_consume_migrator_bootstrap()
+    {
+        var root = FindRepositoryRoot();
+        foreach (var projectPath in new[] { "src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj",
+            "src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj",
+            "templates/fullnet-app/src/FullNetAppNameToken.Host.Api/FullNetAppNameToken.Host.Api.csproj" })
+        {
+            var references = XDocument.Load(Path.Combine(root, projectPath)).Descendants()
+                .Where(element => element.Name.LocalName == "ProjectReference")
+                .Select(element => element.Attribute("Include")?.Value ?? string.Empty).ToArray();
+            Assert.IsFalse(references.Any(reference => reference.Contains("Full.NET.Hosting.Migrator", StringComparison.Ordinal)
+                || reference.Contains("Full.NET.Migrations.DbUp", StringComparison.Ordinal)), projectPath);
+        }
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

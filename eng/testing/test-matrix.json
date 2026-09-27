@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 3347,
+      "minimum": 3361,
       "timeout": "10m",
       "selections": {
         "async-lifecycle": {
@@ -50,7 +50,7 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 230,
+      "minimum": 232,
       "timeout": "10m",
       "selections": {
         "ai-agentic-boundaries": {

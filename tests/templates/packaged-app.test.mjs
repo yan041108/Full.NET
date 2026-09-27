@@ -47,6 +47,7 @@ test('application template package includes framework sources and root manifest'
     assert.equal(create.status, 0, create.stderr || create.stdout);
     assert.deepEqual(readdirSync(workspace).filter((entry) => entry.startsWith('.fullnet-create-')), []);
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj')));
+    assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj')));
     assert.ok(existsSync(join(appRoot, 'src/Demo.Composition/Demo.Composition.csproj')));
     assert.match(readFileSync(join(appRoot, 'src/Demo.Composition/ApplicationModuleCatalog.cs'), 'utf8'), /namespace Demo\.Composition;/u);
     assert.ok(existsSync(join(appRoot, 'ui/admin/src/App.vue')));
@@ -79,6 +80,10 @@ test('application template package includes framework sources and root manifest'
       'build', join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj'), '-c', 'Release', '-v', 'quiet',
     ], { cwd: appRoot, encoding: 'utf8', timeout: 300_000 });
     assert.equal(build.status, 0, build.stderr || build.stdout);
+    const migratorBuild = spawnSync('dotnet', [
+      'build', join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj'), '-c', 'Release', '-v', 'quiet',
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
+    assert.equal(migratorBuild.status, 0, migratorBuild.stderr || migratorBuild.stdout);
     const assets = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
     const implementationModules = Object.keys(assets.libraries)
       .map((name) => /^Full\.NET\.Modules\.([A-Za-z0-9]+)\//.exec(name)?.[1])
@@ -125,6 +130,10 @@ test('application template package includes framework sources and root manifest'
         'build', join(presetRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj'), '-c', 'Release', '-v', 'quiet',
       ], { cwd: presetRoot, encoding: 'utf8', timeout: 300_000 });
       assert.equal(presetBuild.status, 0, `${preset}: ${presetBuild.stderr || presetBuild.stdout}`);
+      const presetMigratorBuild = spawnSync('dotnet', [
+        'build', join(presetRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj'), '-c', 'Release', '-v', 'quiet',
+      ], { cwd: presetRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
+      assert.equal(presetMigratorBuild.status, 0, `${preset} migrator: ${presetMigratorBuild.stderr || presetMigratorBuild.stdout}`);
       const presetAssets = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
       const selected = resolvePresetModules(preset);
       for (const library of Object.keys(presetAssets.libraries)) {

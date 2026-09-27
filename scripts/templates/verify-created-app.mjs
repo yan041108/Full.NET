@@ -19,7 +19,7 @@ const REQUIRED_FILES = [
   'packages/design-tokens/package.json',
 ];
 
-export function verifyCreatedApp(appRoot) {
+export function verifyCreatedApp(appRoot, { requireMigrator = false } = {}) {
   const root = resolve(appRoot);
   const errors = [];
   const configurationFiles = ['appsettings.json'];
@@ -58,6 +58,17 @@ export function verifyCreatedApp(appRoot) {
     for (const compositionFile of [compositionName + '.csproj', 'ApplicationModuleCatalog.cs']) {
       if (!isRegularFile(join(sourceRoot, compositionName, compositionFile))) {
         errors.push('Missing required composition file: ' + join('src', compositionName, compositionFile));
+      }
+    }
+    // 新建应用必须拥有同名Migrator；默认保留旧应用结构校验，但已声明的宿主不能残缺。
+    const migratorName = hosts[0].name.slice(0, -'.Host.Api'.length) + '.Host.Migrator';
+    const migratorRoot = join(sourceRoot, migratorName);
+    if (requireMigrator || existsSync(migratorRoot)) {
+      configurationFiles.push('src/' + migratorName + '/appsettings.json');
+      for (const migratorFile of ['Program.cs', migratorName + '.csproj', 'appsettings.json']) {
+        if (!isRegularFile(join(migratorRoot, migratorFile))) {
+          errors.push('Missing required migrator file: ' + join('src', migratorName, migratorFile));
+        }
       }
     }
   }

@@ -46,6 +46,7 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
   const configTemplate = join(templateRoot, 'appsettings.json.template');
   copyFileSync(configTemplate, join(templateRoot, 'appsettings.json'));
   copyFileSync(configTemplate, join(templateRoot, 'src', 'FullNetAppNameToken.Host.Api', 'appsettings.json'));
+  copyFileSync(configTemplate, join(templateRoot, 'src', 'FullNetAppNameToken.Host.Migrator', 'appsettings.json'));
   rmSync(configTemplate);
   const toolRoot = join(templateRoot, '.fullnet-tools');
   mkdirSync(toolRoot);

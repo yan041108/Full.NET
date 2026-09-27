@@ -38,6 +38,7 @@ The verifier also parses the root and API host `appsettings.json` files and requ
 
 - `framework/fullnet/` — managed framework source bundle and `framework-manifest.json`
 - `src/FullNetAppNameToken.Host.Api/` — application-owned API host
+- `src/FullNetAppNameToken.Host.Migrator/` — application-owned one-shot migration and explicit seed host
 - `src/FullNetAppNameToken.Composition/` — application-owned static business module catalog; references the managed framework Composition
 - `ui/admin/` — application-owned Vue administration UI
 - `packages/` and `pnpm-lock.yaml` — local workspace dependencies and their locked third-party versions
@@ -50,10 +51,12 @@ Run `dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cl
 
 The generated Composition project references only selected module implementations. The framework source bundle still contains source for all modules, and transitive project reference closure, migrations, login, and dual-database acceptance remain separate gates.
 
-Declare business modules in the application-owned `ApplicationModuleCatalog.CreateModules()` and reference their projects from the application Composition project. The API calls this catalog; it combines the frozen official preset with the explicit application list, validates dependencies before registration, and labels business modules `Application` in the read-only catalog. Worker and Migrator consumers can reuse the same catalog with their respective profiles; this template currently supplies only the API host. For CLI integration, target this application-owned project and catalog, not files under `framework/fullnet/`. Application migrations and full generated-business acceptance still require their own verification.
+Declare business modules in the application-owned `ApplicationModuleCatalog.CreateModules()` and reference their projects from the application Composition project. API and Migrator call this catalog with their respective profiles; it combines the frozen official preset with the explicit application list and validates dependencies before registration. Migrator registers only migration and seed capabilities. Worker can reuse the same catalog, but its host is not supplied yet. For CLI integration, target this application-owned project and catalog, not files under `framework/fullnet/`. Application migrations and full generated-business acceptance still require their own verification.
+
+Run `dotnet run --project src/<name>.Host.Migrator -- --seed baseline` from the application root. Omit `--seed` to migrate only. Development overlay requires an explicitly selected Development environment; Production permits Baseline only. This host reuses `Full.NET.Hosting.Migrator` for lifecycle, cancellation, exit codes, and migration-before-seed ordering. It currently executes only the frozen framework migration inventory; generated business SQL drafts are not automatically registered. Existing applications must explicitly adopt the new application-owned host; framework source upgrades do not create or replace it.
 
 Application optional contract dependencies must name a known official contract source or a module in the explicit application list, and must not also be required dependencies. An uninstalled official source remains valid; optional contracts do not install modules or enter the required dependency graph. Invalid declarations are rejected before any module service registration for all three host profiles.
 
 A module instance's `Name` is its exact registry key. Path separators, NUL characters and leading or trailing whitespace are rejected before registration; the registry never trims or renames a module key.
 
-The manifest records paired SQL Server/MySQL migration scripts with `selectionStatus: unscoped` and records registered seed contributors for each preset. The migration list is an inventory, not permission to run the full migration set for a selected preset. Module ownership, historical prerequisites, and first-run database validation must be completed before enabling a generated-app migrator.
+The package manifest initially records paired SQL Server/MySQL scripts with `selectionStatus: unscoped`; creation freezes the selected preset inventory and its seed contributors. The application Migrator executes that selected framework inventory. Business scripts still require explicit ownership, numbering, recovery review, and dual-database verification before registration.

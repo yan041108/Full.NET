@@ -2,7 +2,7 @@ using Full.NET.Migrations.DbUp;
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Seeding.Dapper;
 
-namespace Full.NET.Host.Migrator;
+namespace Full.NET.Hosting.Migrator;
 
 /// <summary>
 /// 描述迁移成功后可选 Seed 阶段的非敏感执行摘要。
@@ -56,6 +56,7 @@ internal sealed class MigratorWorkflow(
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         SeedCommandLineOptions commandLine;
         try
         {
@@ -89,6 +90,8 @@ internal sealed class MigratorWorkflow(
             throw new MigratorWorkflowException(MigratorErrorCodes.MigrationFailed);
         }
 
+        // DbUp的同步执行或自定义Runner可能在取消后仍返回成功，播种写入前必须再次阻断。
+        cancellationToken.ThrowIfCancellationRequested();
         if (commandLine.Profile.HasValue)
         {
             var seed = await seedOrchestrator

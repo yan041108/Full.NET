@@ -10,7 +10,7 @@ function configuration(preset = 'minimal', provider = 'mysql') {
   return { Database: { Provider: provider }, FullNet: { Modules: { Preset: preset } } };
 }
 
-function fixture() {
+function fixture({ migrator = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'fullnet-created-app-check-'));
   // 此夹具只满足结构校验，不替代真实创建和 .NET 构建。
   const files = {
@@ -29,12 +29,71 @@ function fixture() {
     'src/Demo.Composition/Demo.Composition.csproj': '<Project />',
     'src/Demo.Composition/ApplicationModuleCatalog.cs': '',
   };
+  if (migrator) Object.assign(files, {
+    'src/Demo.Host.Migrator/Program.cs': '',
+    'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj': '<Project />',
+    'src/Demo.Host.Migrator/appsettings.json': JSON.stringify(configuration()),
+  });
   for (const [path, content] of Object.entries(files)) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), content);
   }
   return { root, files };
 }
+
+test('new app creation requires its own migrator while legacy validation remains available', () => {
+  const { root } = fixture();
+  try {
+    assert.equal(verifyCreatedApp(root).ok, true);
+    assert.equal(verifyCreatedApp(root, { requireMigrator: true }).ok, false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+for (const name of ['Program.cs', 'Demo.Host.Migrator.csproj', 'appsettings.json']) {
+  for (const replacement of ['missing', 'directory']) {
+    test(`created app rejects ${replacement} declared migrator ${name}`, () => {
+      const { root } = fixture({ migrator: true });
+      try {
+        const path = join(root, 'src/Demo.Host.Migrator', name);
+        rmSync(path);
+        if (replacement === 'directory') mkdirSync(path);
+        const result = verifyCreatedApp(root);
+        assert.equal(result.ok, false);
+        assert.ok(result.errors.some((error) => error.includes(name)), result.errors.join('; '));
+      } finally { rmSync(root, { recursive: true, force: true }); }
+    });
+  }
+}
+
+for (const drift of ['preset', 'provider', 'invalid-json']) {
+  test(`created app rejects migrator configuration ${drift}`, () => {
+    const { root } = fixture({ migrator: true });
+    try {
+      const config = configuration(drift === 'preset' ? 'platform' : 'minimal', drift === 'provider' ? 'sqlserver' : 'mysql');
+      writeFileSync(join(root, 'src/Demo.Host.Migrator/appsettings.json'), drift === 'invalid-json' ? '{' : JSON.stringify(config));
+      const result = verifyCreatedApp(root);
+      assert.equal(result.ok, false);
+      assert.ok(result.errors.some((error) => error.includes('src/Demo.Host.Migrator/appsettings.json')), result.errors.join('; '));
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+}
+
+test('another application migrator cannot replace the required matching host', () => {
+  const { root } = fixture();
+  try {
+    mkdirSync(join(root, 'src/Other.Host.Migrator'));
+    writeFileSync(join(root, 'src/Other.Host.Migrator/Other.Host.Migrator.csproj'), '<Project />');
+    assert.equal(verifyCreatedApp(root, { requireMigrator: true }).ok, false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('complete application migrator validates without rewriting its files', () => {
+  const { root, files } = fixture({ migrator: true });
+  try {
+    assert.equal(verifyCreatedApp(root, { requireMigrator: true }).ok, true);
+    for (const [path, content] of Object.entries(files)) assert.equal(readFileSync(join(root, path), 'utf8'), content);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
 
 for (const name of ['Demo.Composition.csproj', 'ApplicationModuleCatalog.cs']) {
   for (const replacement of ['missing', 'directory']) {

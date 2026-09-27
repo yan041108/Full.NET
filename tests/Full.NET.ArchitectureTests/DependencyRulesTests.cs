@@ -848,7 +848,7 @@ public sealed class DependencyRulesTests
             .ShouldNot()
             .HaveDependencyOn("Full.NET.Seeding.Dapper")
             .GetResult();
-        var migratorReferencesSeeding = ProductionAssemblies.HostMigrator
+        var migratorReferencesSeeding = ProductionAssemblies.MigratorHosting
             .GetReferencedAssemblies()
             .Any(reference => string.Equals(
                 reference.Name,
@@ -858,7 +858,9 @@ public sealed class DependencyRulesTests
         Assert.IsTrue(
             runtimeHostResult.IsSuccessful,
             $"运行时 Host Seed 基础设施依赖违规: {string.Join(", ", runtimeHostResult.FailingTypeNames ?? [])}");
-        Assert.IsTrue(migratorReferencesSeeding, "Migrator 必须显式引用 Seed Dapper 基础设施。");
+        Assert.IsTrue(migratorReferencesSeeding, "Migrator专用启动库必须显式引用Seed Dapper基础设施。");
+        Assert.IsTrue(ProductionAssemblies.HostMigrator.GetReferencedAssemblies().Any(reference =>
+            reference.Name == "Full.NET.Hosting.Migrator"), "框架Migrator必须消费共享生命周期。");
     }
 
     [TestMethod]
@@ -866,7 +868,7 @@ public sealed class DependencyRulesTests
     {
         var root = FindRepositoryRoot();
         const string migratorProject =
-            "src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj";
+            "src/BuildingBlocks/Full.NET.Hosting.Migrator/Full.NET.Hosting.Migrator.csproj";
         const string benchmarkProject =
             "benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj";
         var migrationConsumers = FindDirectMigrationConsumers(root);
@@ -889,20 +891,15 @@ public sealed class DependencyRulesTests
             string.Join(Environment.NewLine, unapprovedProductionConsumers));
         CollectionAssert.Contains(migrationConsumers, migratorProject);
 
-        var apiDependencyClosure = GetProjectDependencyClosure(
-            root,
-            "src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj");
-        var apiMigrationDependencies = apiDependencyClosure
-            .Where(path => string.Equals(
-                GetProjectNameFromReference(path),
-                "Full.NET.Migrations.DbUp",
-                StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-
-        Assert.HasCount(
-            0,
-            apiMigrationDependencies,
-            string.Join(Environment.NewLine, apiMigrationDependencies));
+        foreach (var runtimeProject in new[] { "src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj",
+            "src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj" })
+        {
+            var migrationDependencies = GetProjectDependencyClosure(root, runtimeProject)
+                .Where(path => new[] { "Full.NET.Migrations.DbUp", "Full.NET.Hosting.Migrator" }
+                    .Contains(GetProjectNameFromReference(path), StringComparer.OrdinalIgnoreCase)).ToArray();
+            Assert.HasCount(0, migrationDependencies, runtimeProject + ": "
+                + string.Join(Environment.NewLine, migrationDependencies));
+        }
 
         var apiSourceOffenders = Directory
             .EnumerateFiles(
@@ -1604,6 +1601,8 @@ internal static class ProductionAssemblies
 
     public static readonly Assembly HostMigrator = Assembly.Load("Full.NET.Host.Migrator");
 
+    public static readonly Assembly MigratorHosting = typeof(Full.NET.Hosting.Migrator.FullNetMigratorHost).Assembly;
+
     public static readonly Assembly HostWorker = Assembly.Load("Full.NET.Host.Worker");
 
     public static readonly Assembly[] All =
@@ -1634,6 +1633,7 @@ internal static class ProductionAssemblies
         .. BusinessModules,
         HostApi,
         HostMigrator,
+        MigratorHosting,
         HostWorker,
     ];
 }

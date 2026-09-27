@@ -236,7 +236,7 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     patchAppSettings(appRoot, database.databaseProvider, database.connectionString);
     const env = buildSharedEnv(database.connectionString, database.databaseProvider, redis.connectionString);
 
-    const migratorProject = join(appRoot, 'framework/fullnet/src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj');
+    const migratorProject = join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj');
     const hostProject = join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj');
     runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
     runDotnet(['build', hostProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
