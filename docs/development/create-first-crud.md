@@ -113,6 +113,8 @@ dotnet exec src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.C
 
 独立应用真实栈验收增加这一显式路径：先用应用包内 CLI 生成 `acme_catalog_product` 双库草稿，再将原文字节采纳为应用自有 `001_CreateProduct.sql` 并登记固定资源。首次运行要求业务脚本执行数为 1，重复迁移要求框架与业务均为 0；每个提供程序的采纳摘要和执行结果保存在 `.tmp/template-real-stack/<provider>/application-migration-*.json`，双库实际结果以对应提交的 Actions 为准。这一阶段验证迁移执行与记账，尚不证明生成业务 HTTP CRUD、跨租户拒绝、页面或完整 F02 验收通过。
 
+真实栈还复用模块、Composition 与授权贡献者的 CLI 接线，将生成业务端点装入 API。对 `catalog/products` 的列表、详情、新增、更新、硬删除逐一发送匿名请求和真实 Host 引导管理员请求，分别要求 401 与 403，以及对应 ProblemDetails 机器码；404、重定向、500 或 Host 认证失效均不能计为权限拒绝成功。请求证据写入各提供程序目录的 `application-crud-http-denial.json`，不记录 Bearer 令牌，失败时保留已执行请求。本阶段只覆盖匿名和 Host 对租户业务的拒绝，不证明有权限租户 CRUD、无权限租户或跨租户数据隔离，实际结果仍以对应提交双库 Actions 为准。
+
 1. 运行迁移并启动 Host.Api
 2. 使用对应租户与精确权限的账号登录管理端，访问应用实际接入的生成页面
 3. 执行租户 CRUD、无权限及跨租户拒绝用例，再验证二次生成和人工修改保护；F02 完整验收尚未关闭

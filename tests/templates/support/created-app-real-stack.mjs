@@ -12,6 +12,10 @@ import { verifyApplicationModuleEndpoint } from './application-module-http.mjs';
 import { cleanupCreatedApp } from './created-app-cleanup.mjs';
 import { verifyApplicationCrudGeneration } from './application-crud-generation.mjs';
 import { prepareApplicationBusinessMigrations, verifyApplicationMigrationResult } from './application-business-migrations.mjs';
+import { verifyApplicationCrudModule } from './application-crud-module.mjs';
+import { verifyApplicationCrudHostWiring } from './application-crud-host-wiring.mjs';
+import { verifyApplicationCrudAuthorization } from './application-crud-authorization.mjs';
+import { verifyApplicationCrudHttpDenial } from './application-crud-http-denial.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 const requireFromRealStack = createRequire(join(repoRoot, 'tests/e2e/admin-real-stack/package.json'));
@@ -186,6 +190,7 @@ async function loginAndReadSettings(baseUrl) {
   assert.equal(disabled.isActive, false);
   await request(`/${created.id}/delete`, 'POST', { version: disabled.version }, 204);
   await request(`/${created.id}`, 'GET', undefined, 404);
+  return accessToken;
 }
 
 /**
@@ -234,6 +239,9 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
 
     prepareApplicationCompositionProbe(appRoot);
     verifyApplicationCrudGeneration(appRoot, { reportDirectory: join(logRoot, 'application-crud') });
+    verifyApplicationCrudModule(appRoot, { reportDirectory: join(logRoot, 'application-crud-module'), removeTestSqlComment: true });
+    verifyApplicationCrudHostWiring(appRoot, { reportDirectory: join(logRoot, 'application-crud-host-wiring') });
+    verifyApplicationCrudAuthorization(appRoot, { reportDirectory: join(logRoot, 'application-crud-authorization') });
     const adoption = prepareApplicationBusinessMigrations(appRoot);
     writeFileSync(join(logRoot, 'application-migration-adoption.json'), JSON.stringify(adoption, null, 2));
     const database = await startDatabaseContainer(databaseProviderKey);
@@ -270,7 +278,8 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     apiProcess.stderr?.pipe(apiLogStream, { end: false });
     await waitForApi(apiUrl, 180_000, apiLogPath);
     await verifyApplicationModuleEndpoint(apiUrl, { logPath: join(logRoot, 'application-module-http.json') });
-    await loginAndReadSettings(apiUrl);
+    const hostAccessToken = await loginAndReadSettings(apiUrl);
+    await verifyApplicationCrudHttpDenial(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-http-denial.json') });
   } finally {
     await cleanupCreatedApp({ apiProcess, apiLogStream, dbContainer, redisContainer, workspace });
   }
