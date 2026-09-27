@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission, verifyApplicationCrudCreatePermission, verifyApplicationCrudUpdatePermission } from './support/application-crud-read-permission.mjs';
+import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission, verifyApplicationCrudCreatePermission, verifyApplicationCrudUpdatePermission, verifyApplicationCrudDeletePermission } from './support/application-crud-read-permission.mjs';
 
 const tenantId = '01900000-0000-7000-8000-000000000010';
 const id = '01900000-0000-7000-8000-000000000011';
@@ -34,12 +34,12 @@ async function fixture(action) {
   const root = mkdtempSync(join(tmpdir(), 'fullnet-read-permission-'));
   try { await action(join(root, 'result.json')); } finally { rmSync(root, { recursive: true, force: true }); }
 }
-function runner(calls, change, noProductPermission = false, canCreate = false, canUpdate = false) {
+function runner(calls, change, noProductPermission = false, canCreate = false, canUpdate = false, canDelete = false) {
   return async (url, options) => {
     const i = calls.length;
     calls.push({ url, options });
     // 替身遵守真实角色API的父页面闭包，不能固定200掩盖缺失tenancy.read。
-    const expectedPermissions = noProductPermission ? permissions.slice(1) : canCreate ? ['catalog.products.create', ...permissions] : canUpdate ? [permissions[0], 'catalog.products.update', ...permissions.slice(1)] : permissions;
+    const expectedPermissions = noProductPermission ? permissions.slice(1) : canCreate ? ['catalog.products.create', ...permissions] : canUpdate ? [permissions[0], 'catalog.products.update', ...permissions.slice(1)] : canDelete ? ['catalog.products.disable', ...permissions] : permissions;
     if (i === 2) assert.deepEqual(JSON.parse(options.body).permissionCodes, expectedPermissions);
     const altered = change?.(i);
     const denied = i >= (noProductPermission ? 13 : canCreate ? 16 : 15) && i <= 17;
@@ -61,13 +61,68 @@ function runner(calls, change, noProductPermission = false, canCreate = false, c
       if (i === 21) defaultBody = { items: [updatedProduct] };
       if (i === 23) defaultBody = bodies[21];
     }
+    if (canDelete) {
+      if ([2, 12].includes(i)) defaultBody = { ...defaultBody, [i === 2 ? 'permissionCodes' : 'permissions']: expectedPermissions };
+      if (i === 17) defaultBody = { status: 409, code: 'catalog.products.version_conflict' };
+      if ([18, 19].includes(i)) defaultBody = product;
+      if ([20, 22].includes(i)) defaultBody = { status: 404, code: 'catalog.products.not_found' };
+      if ([21, 23].includes(i)) defaultBody = { items: [] };
+      if (i === 24) defaultBody = bodies[21];
+    }
     const data = altered?.body ?? defaultBody;
-    const status = canUpdate && i >= 16 ? i === 17 ? 409 : i === 19 ? 403 : 200 : denied ? 403 : canCreate && i === 15 ? 201 : canCreate && i === 22 ? 404 : canCreate && i >= 21 ? 200 : statusAt(i);
+    const status = canDelete && i >= 17 ? i === 17 ? 409 : [20, 22].includes(i) ? 404 : 200 : canUpdate && i >= 16 ? i === 17 ? 409 : i === 19 ? 403 : 200 : denied ? 403 : canCreate && i === 15 ? 201 : canCreate && i === 22 ? 404 : canCreate && i >= 21 ? 200 : statusAt(i);
     return new Response(altered?.raw ?? JSON.stringify(data), { status: altered?.status ?? status, headers: {
       'content-type': altered?.contentType ?? ([403, 404, 409].includes(status) ? 'application/problem+json' : 'application/json'),
       ...(i === 6 ? { 'set-cookie': `fullnet-csrf=${tokens[6]}; Path=/; SameSite=Lax` } : {}),
     } });
   };
+}
+
+test('ordinary delete account rejects mismatched version then deletes without create or update permission', async () => fixture(async (logPath) => {
+  const calls = [];
+  const result = await verifyApplicationCrudDeletePermission('http://example.test', { hostAccessToken: tokens[0], logPath, request: runner(calls, undefined, false, false, false, true) });
+  assert.deepEqual(result, { businessRequests: 12, readAllowed: 2, deleteAllowed: 1, versionConflicts: 1, writeDenied: 2, rowPreserved: true, deleted: true, hostAccessToken: tokens[5] });
+  assert.equal(calls.length, 25);
+  assert.equal(JSON.parse(calls[1].options.body).code, 'catalog-delete-probe');
+  assert.equal(JSON.parse(calls[3].options.body).username, 'catalog-deleter-probe');
+  assert.deepEqual(JSON.parse(calls[2].options.body).permissionCodes, ['catalog.products.disable', ...permissions]);
+  assert.deepEqual(JSON.parse(calls[17].options.body), { version: '2' });
+  assert.deepEqual(JSON.parse(calls[19].options.body), { version: '1' });
+  for (const i of [17, 18, 19, 20, 21]) assert.equal(calls[i].options.headers.Authorization, `Bearer ${tokens[4]}`);
+  for (const i of [22, 23]) assert.equal(calls[i].options.headers.Authorization, `Bearer ${tokens[3]}`);
+  const text = readFileSync(logPath, 'utf8');
+  const evidence = JSON.parse(text);
+  assert.equal(evidence.completed, true);
+  assert.equal(evidence.responses.filter((entry) => entry.status === 404).length, 2);
+  assert.equal(Object.hasOwn(evidence.result, 'hostAccessToken'), false);
+  for (const token of tokens) assert.equal(text.includes(token), false);
+}));
+
+for (const [name, index, altered] of [
+  ['missing-disable-permission', 2, { body: bodies[2] }],
+  ['account-has-update', 12, { body: { ...bodies[12], permissions: ['catalog.products.disable', ...permissions, 'catalog.products.update'] } }],
+  ['create-allowed', 15, { status: 201, body: createdProduct }],
+  ['update-allowed', 16, { status: 200, body: updatedProduct }],
+  ['mismatched-delete-allowed', 17, { status: 200, body: product }],
+  ['conflict-changed-row', 18, { body: { ...product, version: '2' } }],
+  ['delete-denied', 19, { status: 403, body: problem }],
+  ['delete-returned-wrong-row', 19, { body: createdProduct }],
+  ['ordinary-read-leaks-deleted', 20, { status: 200, body: product }],
+  ['ordinary-list-retains-row', 21, { body: { items: [product] } }],
+  ['admin-read-still-present', 22, { status: 200, body: product }],
+  ['admin-list-still-present', 23, { body: { items: [product] } }],
+]) {
+  test(`ordinary delete permission rejects ${name} at the intended stage`, async () => fixture(async (logPath) => {
+    const calls = [];
+    await assert.rejects(() => verifyApplicationCrudDeletePermission('http://example.test', {
+      hostAccessToken: tokens[0], logPath, request: runner(calls, (i) => i === index ? altered : undefined, false, false, false, true),
+    }), (error) => tokens.every((token) => !error.message.includes(token)));
+    assert.equal(calls.length, index + 1, 'failure did not reach intended stage');
+    const text = readFileSync(logPath, 'utf8');
+    assert.equal(JSON.parse(text).completed, false);
+    assert.equal(JSON.parse(text).responses.length, calls.length);
+    for (const token of tokens) assert.equal(text.includes(token), false);
+  }));
 }
 
 test('ordinary update account changes version, rejects stale update and cannot create or delete', async () => fixture(async (logPath) => {

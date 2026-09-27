@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 
+export function verifyApplicationCrudDeletePermission(baseUrl, options) {
+  return verifyApplicationCrudAccountPermission(baseUrl, options, 'delete');
+}
+
 export function verifyApplicationCrudUpdatePermission(baseUrl, options) {
   return verifyApplicationCrudAccountPermission(baseUrl, options, 'update');
 }
@@ -29,9 +33,10 @@ async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken
   const canRead = mode !== 'none';
   const canCreate = mode === 'create';
   const canUpdate = mode === 'update';
+  const canDelete = mode === 'delete';
   // 写操作包含产品页面Read，调用者不能扩展固定入口的授权集合。
-  const permissions = [...(canCreate ? ['catalog.products.create'] : []), ...(canRead ? ['catalog.products.read'] : []), ...(canUpdate ? ['catalog.products.update'] : []), 'tenancy.tenants.read', 'tenancy.tenants.switch'];
-  const username = canUpdate ? 'catalog-updater-probe' : canCreate ? 'catalog-creator-probe' : canRead ? 'catalog-reader-probe' : 'catalog-unprivileged-probe';
+  const permissions = [...(canCreate ? ['catalog.products.create'] : []), ...(canDelete ? ['catalog.products.disable'] : []), ...(canRead ? ['catalog.products.read'] : []), ...(canUpdate ? ['catalog.products.update'] : []), 'tenancy.tenants.read', 'tenancy.tenants.switch'];
+  const username = canDelete ? 'catalog-deleter-probe' : canUpdate ? 'catalog-updater-probe' : canCreate ? 'catalog-creator-probe' : canRead ? 'catalog-reader-probe' : 'catalog-unprivileged-probe';
   const tokenFrom = (body) => {
     assert.ok(typeof body.accessToken === 'string' && body.accessToken.trim(), 'credential response missing token');
     secrets.push(body.accessToken);
@@ -76,7 +81,7 @@ async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken
     const tenantId = local[0].id;
     const scope = `tenant:${tenantId.replaceAll('-', '')}`;
     const role = await call('create-role', '/api/v1/identity/roles/', 'POST', hostAccessToken,
-      { code: canUpdate ? 'catalog-update-probe' : canCreate ? 'catalog-create-probe' : canRead ? 'catalog-read-probe' : 'catalog-no-permission-probe', name: username }, 201);
+      { code: canDelete ? 'catalog-delete-probe' : canUpdate ? 'catalog-update-probe' : canCreate ? 'catalog-create-probe' : canRead ? 'catalog-read-probe' : 'catalog-no-permission-probe', name: username }, 201);
     assert.equal(role.isSuperAdministrator, false);
     assert.equal(role.isSystem, false);
     const assigned = await call('assign-permissions', `/api/v1/identity/roles/${role.id}/permissions`, 'PUT', hostAccessToken, { permissionCodes: permissions, version: role.version });
@@ -156,29 +161,45 @@ async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken
     } else {
       await call('reader-update-denied', item, 'PUT', readerToken, { name: 'Forbidden update', version: product.version }, 403);
     }
-    await call('reader-delete-denied', item + '/delete', 'POST', readerToken, { version: currentProduct.version }, 403);
-    checkProduct(await call('admin-read-preserved', item, 'GET', adminTenantToken), currentProduct);
-    const afterDenial = await call('admin-list-preserved', base + '/?page=1&pageSize=5', 'GET', adminTenantToken);
-    assert.ok(Array.isArray(afterDenial.items));
-    const expectedRows = created ? [currentProduct, created] : [currentProduct];
-    assert.equal(afterDenial.items.length, expectedRows.length, 'writes changed unexpected product rows');
-    for (const expected of expectedRows) {
-      const matches = afterDenial.items.filter((row) => row.id === expected.id);
-      assert.equal(matches.length, 1, 'expected product not found exactly once');
-      checkProduct(matches[0], expected);
-    }
-    checkProduct(await call('admin-delete', item + '/delete', 'POST', adminTenantToken, { version: currentProduct.version }), currentProduct);
-    if (created) {
-      const createdItem = base + '/' + created.id;
-      checkProduct(await call('admin-delete-created', createdItem + '/delete', 'POST', adminTenantToken, { version: created.version }), created);
-      await call('created-row-deleted', createdItem, 'GET', adminTenantToken, undefined, 404);
-    }
+    if (canDelete) {
+      // 先证明不匹配版本不会删除，再由普通账号执行正确版本的硬删除。
+      await call('ordinary-mismatched-delete', item + '/delete', 'POST', readerToken, { version: '2' }, 409);
+      checkProduct(await call('ordinary-read-after-delete-conflict', item, 'GET', readerToken));
+      checkProduct(await call('ordinary-delete', item + '/delete', 'POST', readerToken, { version: product.version }));
+      await call('ordinary-read-deleted', item, 'GET', readerToken, undefined, 404);
+      const ordinaryList = await call('ordinary-list-deleted', base + '/?page=1&pageSize=5', 'GET', readerToken);
+      assert.ok(Array.isArray(ordinaryList.items));
+      assert.equal(ordinaryList.items.length, 0, 'deleted product remains visible to ordinary account');
+      await call('admin-read-deleted', item, 'GET', adminTenantToken, undefined, 404);
+      const adminList = await call('admin-list-deleted', base + '/?page=1&pageSize=5', 'GET', adminTenantToken);
+      assert.ok(Array.isArray(adminList.items));
+      assert.equal(adminList.items.length, 0, 'deleted product remains persisted');
+    } else {
+      await call('reader-delete-denied', item + '/delete', 'POST', readerToken, { version: currentProduct.version }, 403);
+      checkProduct(await call('admin-read-preserved', item, 'GET', adminTenantToken), currentProduct);
+      const afterDenial = await call('admin-list-preserved', base + '/?page=1&pageSize=5', 'GET', adminTenantToken);
+      assert.ok(Array.isArray(afterDenial.items));
+      const expectedRows = created ? [currentProduct, created] : [currentProduct];
+      assert.equal(afterDenial.items.length, expectedRows.length, 'writes changed unexpected product rows');
+      for (const expected of expectedRows) {
+        const matches = afterDenial.items.filter((row) => row.id === expected.id);
+        assert.equal(matches.length, 1, 'expected product not found exactly once');
+        checkProduct(matches[0], expected);
+      }
+      checkProduct(await call('admin-delete', item + '/delete', 'POST', adminTenantToken, { version: currentProduct.version }), currentProduct);
+      if (created) {
+        const createdItem = base + '/' + created.id;
+        checkProduct(await call('admin-delete-created', createdItem + '/delete', 'POST', adminTenantToken, { version: created.version }), created);
+        await call('created-row-deleted', createdItem, 'GET', adminTenantToken, undefined, 404);
+      }
+      }
     const latestHostToken = await context('admin-return-host', adminTenantToken, null);
     evidence.completed = true;
-    evidence.result = { businessRequests: canCreate || canUpdate ? 11 : 9, readAllowed: canRead ? 2 : 0,
+    evidence.result = { businessRequests: canDelete ? 12 : canCreate || canUpdate ? 11 : 9, readAllowed: canRead ? 2 : 0,
       ...(canRead ? {} : { readDenied: 2 }), ...(canCreate ? { createAllowed: 1 } : {}),
       ...(canUpdate ? { updateAllowed: 1, versionConflicts: 1 } : {}),
-      writeDenied: canCreate || canUpdate ? 2 : 3, rowPreserved: true, ...(canCreate ? { createdRowDeleted: true } : {}) };
+      ...(canDelete ? { deleteAllowed: 1, versionConflicts: 1 } : {}),
+      writeDenied: canCreate || canUpdate || canDelete ? 2 : 3, rowPreserved: true, ...(canCreate ? { createdRowDeleted: true } : {}), ...(canDelete ? { deleted: true } : {}) };
     // 最新Host会话仅在内存续接；凭据不属于验收结果。
     return { ...evidence.result, hostAccessToken: latestHostToken };
   } catch (error) {
