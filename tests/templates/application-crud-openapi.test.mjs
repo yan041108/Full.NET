@@ -15,15 +15,19 @@ function document() {
       403: { content: { 'application/problem+json': { schema: ref('ProblemDetails') } } } },
     ...(request ? { requestBody: { content: { 'application/json': { schema: ref(request) } } } } : {}),
   });
+  const pathParameter = { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } };
+  const item = (operations) => Object.fromEntries(Object.entries(operations).map(([method, value]) => [method, { ...value, parameters: [structuredClone(pathParameter)] }]));
+  const list = operation('catalogListProducts', '200', 'Page');
+  list.parameters = ['page', 'pageSize'].map((name) => ({ name, in: 'query', required: false, schema: { type: 'integer', format: 'int32' } }));
   return { openapi: '3.1.0', components: { securitySchemes: { Bearer: { type: 'http', scheme: 'bearer' } }, schemas: {
     Product: schema(['id', 'tenantId', 'name', 'version', 'createdAtUtc', 'createdById']),
     ProblemDetails: schema(['type', 'title', 'status', 'detail', 'instance']),
     Page: { type: 'object', properties: { items: { type: 'array', items: ref('Product') } } },
     Create: schema(['name']), Update: schema(['name', 'version']), Delete: schema(['version']),
   } }, paths: {
-    [base]: { get: operation('catalogListProducts', '200', 'Page'), post: operation('catalogCreateProduct', '201', 'Product', 'Create') },
-    [base + '/{id}']: { get: operation('catalogGetProduct', '200', 'Product'), put: operation('catalogUpdateProduct', '200', 'Product', 'Update') },
-    [base + '/{id}/delete']: { post: operation('catalogDeleteProduct', '200', 'Product', 'Delete') },
+    [base]: { get: list, post: operation('catalogCreateProduct', '201', 'Product', 'Create') },
+    [base + '/{id}']: item({ get: operation('catalogGetProduct', '200', 'Product'), put: operation('catalogUpdateProduct', '200', 'Product', 'Update') }),
+    [base + '/{id}/delete']: item({ post: operation('catalogDeleteProduct', '200', 'Product', 'Delete') }),
   } };
 }
 async function fixture(action) {
@@ -46,14 +50,41 @@ test('served application OpenAPI matches generated operations and field boundari
     assert.equal(options.headers?.Authorization, undefined);
     return new Response(JSON.stringify(runtime), { headers: { 'content-type': 'application/json' } });
   } });
-  assert.deepEqual(result, { operations: 5, bearerProtected: 5, authenticationProblems: 10, requestShapes: 3, responseShapes: 5, generatedUnchanged: true });
+  assert.deepEqual(result, { operations: 5, parameterShapes: 5, bearerProtected: 5, authenticationProblems: 10, requestShapes: 3, responseShapes: 5, generatedUnchanged: true });
   assert.equal(calls, 1);
   assert.deepEqual(readFileSync(expectedPath), original);
   const evidence = JSON.parse(readFileSync(logPath, 'utf8'));
   assert.equal(evidence.completed, true);
   assert.equal(evidence.comparisons.length, 5);
 }));
+test('optional query parameters accept nullable scalar schemas and different order', async () => fixture(async (expectedPath, logPath) => {
+  const runtime = document();
+  runtime.paths[base].get.parameters.reverse();
+  for (const parameter of runtime.paths[base].get.parameters) {
+    parameter.schema.type = ['null', 'integer'];
+    delete parameter.required;
+  }
+  let calls = 0;
+  await verifyApplicationCrudOpenApi('http://example.test', { expectedPath, logPath, request: async () => {
+    calls++; return new Response(JSON.stringify(runtime), { headers: { 'content-type': 'application/json' } });
+  } });
+  assert.equal(calls, 1);
+  assert.equal(JSON.parse(readFileSync(logPath, 'utf8')).result.parameterShapes, 5);
+}));
 const cases = [
+  ['missing-path-parameter', (d) => delete d.paths[base + '/{id}'].get.parameters],
+  ['wrong-path-format', (d) => d.paths[base + '/{id}'].put.parameters[0].schema.format = 'int64'],
+  ['optional-path-parameter', (d) => d.paths[base + '/{id}/delete'].post.parameters[0].required = false],
+  ['wrong-parameter-location', (d) => d.paths[base + '/{id}'].get.parameters[0].in = 'query'],
+  ['wrong-page-type', (d) => d.paths[base].get.parameters[0].schema.type = 'string'],
+  ['wrong-page-format', (d) => d.paths[base].get.parameters[1].schema.format = 'int64'],
+  ['required-page', (d) => d.paths[base].get.parameters[0].required = true],
+  ['missing-page-size', (d) => d.paths[base].get.parameters.pop()],
+  ['unexpected-tenant-parameter', (d) => d.paths[base].post.parameters = [{ name: 'tenantId', in: 'query', schema: { type: 'string' } }]],
+  ['duplicate-parameter', (d) => d.paths[base].get.parameters.push(structuredClone(d.paths[base].get.parameters[0]))],
+  ['nullable-path-parameter', (d) => d.paths[base + '/{id}'].get.parameters[0].schema.type = ['null', 'string']],
+  ['invalid-required-flag', (d) => d.paths[base].get.parameters[0].required = 'false'],
+  ['inherited-tenant-parameter', (d) => d.paths[base].parameters = [{ name: 'tenantId', in: 'query', schema: { type: 'string', format: 'uuid' } }]],
   ['missing-401', (d) => delete d.paths[base].get.responses['401']],
   ['missing-403', (d) => delete d.paths[base].post.responses['403']],
   ['wrong-problem-media', (d) => d.paths[base].get.responses['401'].content = { 'application/json': { schema: ref('ProblemDetails') } }],

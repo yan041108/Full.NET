@@ -9,6 +9,8 @@ function operations(document) {
   for (const [path, item] of Object.entries(document.paths ?? {})) {
     const normalized = normalize(path);
     if (normalized !== productBase && !normalized.startsWith(productBase + '/')) continue;
+    // 当前生成器使用操作内联参数；拒绝路径继承，避免额外租户参数被忽略后误报通过。
+    assert.ok(item.parameters === undefined || (Array.isArray(item.parameters) && item.parameters.length === 0), 'path-level parameters unsupported');
     for (const method of methods) {
       if (!Object.hasOwn(item, method)) continue;
       const key = method + ' ' + normalized;
@@ -43,6 +45,30 @@ function properties(document, value, list = false) {
   return Object.keys(resolved.properties).sort();
 }
 
+function parameters(document, operation) {
+  const values = operation.parameters ?? [];
+  assert.ok(Array.isArray(values), 'operation parameters must be an array');
+  const seen = new Set();
+  return values.map((parameter) => {
+    assert.ok(parameter && !parameter.$ref, 'parameter must be inline');
+    assert.ok(typeof parameter.name === 'string' && parameter.name.length > 0, 'parameter name missing');
+    assert.ok(['query', 'path'].includes(parameter.in), 'unexpected parameter location');
+    const key = parameter.in + ':' + parameter.name;
+    assert.equal(seen.has(key), false, 'duplicate parameter: ' + key);
+    seen.add(key);
+    assert.ok(parameter.required === undefined || typeof parameter.required === 'boolean', 'invalid parameter required flag');
+    const required = parameter.required === true;
+    const schema = resolveSchema(document, parameter.schema);
+    let types = Array.isArray(schema.type) ? [...schema.type] : [schema.type];
+    // 可选查询参数的 CLR 可空表示与生成契约等价；路径参数不能因此变成可空。
+    if (parameter.in === 'query' && !required) types = types.filter((type) => type !== 'null');
+    assert.equal(types.length, 1, 'parameter must have one scalar type');
+    assert.ok(['string', 'integer', 'number', 'boolean'].includes(types[0]), 'parameter scalar type missing');
+    if (parameter.in === 'path') assert.equal(schema.nullable === true, false, 'nullable path parameter');
+    return { name: parameter.name, in: parameter.in, required, type: types[0], format: schema.format ?? null };
+  }).sort((left, right) => (left.in + ':' + left.name).localeCompare(right.in + ':' + right.name));
+}
+
 // 对照只读生成契约与应用实际服务的文档，证明接入子集，不替代完整错误或类型契约。
 export async function verifyApplicationCrudOpenApi(baseUrl, { expectedPath, logPath, request = fetch }) {
   const original = readFileSync(expectedPath);
@@ -70,6 +96,8 @@ export async function verifyApplicationCrudOpenApi(baseUrl, { expectedPath, logP
       const comparison = { operation: key, operationId: actualOperation.operationId };
       evidence.comparisons.push(comparison);
       assert.equal(actualOperation.operationId, expectedOperation.operationId, key + ': operationId');
+      comparison.parameters = parameters(actual, actualOperation);
+      assert.deepEqual(comparison.parameters, parameters(expected, expectedOperation), key + ': parameters');
       const security = actualOperation.security;
       assert.ok(Array.isArray(security) && security.length > 0, key + ': missing security');
       assert.ok(security.every((requirement) => requirement && Object.keys(requirement).length > 0), key + ': anonymous security alternative');
@@ -102,7 +130,7 @@ export async function verifyApplicationCrudOpenApi(baseUrl, { expectedPath, logP
     assert.equal(requestShapes, 3);
     assert.deepEqual(readFileSync(expectedPath), original, 'acceptance changed generated contract');
     evidence.completed = true;
-    evidence.result = { operations: 5, bearerProtected: 5, authenticationProblems: 10, requestShapes, responseShapes: 5, generatedUnchanged: true };
+    evidence.result = { operations: 5, parameterShapes: 5, bearerProtected: 5, authenticationProblems: 10, requestShapes, responseShapes: 5, generatedUnchanged: true };
     return evidence.result;
   } catch (error) {
     evidence.error = error instanceof Error ? error.message : String(error);

@@ -160,3 +160,5 @@ dotnet exec src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.C
 OpenAPI 接入阶段在独立应用真实 API 就绪后匿名读取 `/openapi/v1.json`，对照只读生成文件 `contracts/openapi/products.generated.openapi.json`，逐项核对五个产品操作的路径（仅规范化尾斜杠）、operationId、成功状态和 Bearer 声明。三种写请求的字段集合不能暴露Id/TenantId/创建审计；五种成功响应的字段集合须与生成契约一致，列表比较items元素。只解析文档内components/schemas引用，拒绝缺失、外部及循环引用；报告 `application-crud-openapi.json` 保存实际比较和失败部分证据，生成文件字节保持。此阶段仅证明真实文档的路由、安全声明及字段接入，完整错误元数据、数字/字符串类型细节与Vue客户端仍须后续验收，不能仅凭Node替身认定双库文档服务通过。
 
 认证错误元数据补齐：生成 Endpoint 的每个受保护操作现在显式声明401/403 `ProducesProblem`，与生成静态契约和既有真实HTTP拒绝保持一致；不改变运行授权或返回行为。OpenAPI门禁对五操作逐项要求这两状态具有 `application/problem+json` 与可解析ProblemDetails/status，报告 `authenticationProblems: 10`。404/409等完整操作错误集、机器码扩展schema及数字/字符串类型细节仍须后续，不把新增注解算作全部契约认证。
+
+参数契约子集：同一真实文档门禁继续比较五操作的参数名称、query/path位置、必填性、基础标量类型与format，报告 `parameterShapes: 5`。路径ID必须保持必填UUID，分页保持可选int32，不能出现额外TenantId参数、缺失或重复参数。可选查询参数允许CLR可空schema与参数顺序差异；不由此放宽路径可空。此子集不验证分页默认值/范围、请求响应字段类型或完整错误契约，真实接入仍由对应SHA双库Actions证明。
