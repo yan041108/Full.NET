@@ -13,8 +13,9 @@ public sealed class TenantContextMutationBoundaryTests
     [
         "src/BuildingBlocks/Full.NET.Abstractions/Tenancy/CurrentTenantAccessor.cs",
         "src/BuildingBlocks/Full.NET.Abstractions/Tenancy/ICurrentTenantContextWriter.cs",
+        // 一次性迁移的固定Host作用域从旧宿主入口移至共享生命周期，仍只允许该精确文件。
+        "src/BuildingBlocks/Full.NET.Hosting.Migrator/FullNetMigratorHost.cs",
         "src/BuildingBlocks/Full.NET.Modularity/Messaging/IntegrationEventConsumerDispatcher.cs",
-        "src/Hosts/Full.NET.Host.Migrator/Program.cs",
         "src/Hosts/Full.NET.Host.Worker/OutboxProcessor.cs",
         "src/Hosts/Full.NET.Host.Worker/OutboxRetentionProcessor.cs",
         "src/Hosts/Full.NET.Host.Worker/Program.cs",
