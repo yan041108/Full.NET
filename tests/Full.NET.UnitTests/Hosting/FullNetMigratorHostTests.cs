@@ -153,12 +153,15 @@ public sealed class FullNetMigratorHostTests
     {
         // 使用真实宿主装配并替换写入端口；不可连接配置不证明数据库运行。
         var builder = FullNetMigratorHost.CreateBuilder(["--environment", "Development"]);
+        // 隔离后续模块配置绑定，避免依赖输出目录残留的Development签名配置。
+        builder.Configuration.Sources.Clear();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Database:Provider"] = "mysql",
             ["Database:ConnectionString"] = "Server=127.0.0.1;Port=1;Database=migrator_probe;User ID=probe;Password=fixture;",
             ["Database:MySqlGuidStorageMode"] = "Binary16",
             ["FullNet:Modules:Preset"] = "minimal",
+            ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true",
         });
         builder.Services.AddFullNetApplicationModules(builder.Configuration, FullNetHostProfile.Migrator);
         var migration = Substitute.For<IDatabaseMigrationRunner>();
