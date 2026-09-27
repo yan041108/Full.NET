@@ -814,3 +814,9 @@ Vue接入前置客户端工具增量（基线4c171501b3d5ab9ff6d13a57bc8a149cb04
 新增8项有效RED全部失败、10旧项通过；实现后18/18，包含实际TypeScript编译四份业务生成文件并通过paths映射消费真实共享src/index.ts，及相同参数CLI --check。编译验证不等于安装应用包或Vue生产构建；仍需真实业务OpenAPI、应用适配器和页面接线验收。inner影响none，不执行本地.NET/容器/浏览器，F02与Capacity-not-verified保持。
 
 终检相关四组Node40/40、治理55/55零跳过，默认客户端check零漂移、语法及任务diff通过。独立只读复审18/18无阻断，确认默认引用字节保持、引用字符串隔离及写盘前校验；应用包解析与Vue构建不在本轮证明范围。新提交Actions仍需独立核对，未合并/发布。
+
+业务客户端生成验收增量（基线bcdb22735fb624fc2d9f4c70207427f8622e1db1，快照f02-business-client-generation-20260927）：bcdb主CI36322214981/API Native36322215016/Worker Native36322214980均终态success。下一步在独立应用真实双库的服务端OpenAPI比较之后，使用应用工具消费商品生成契约，专用verification/ClientGeneration输出四份TS，声明无公开操作及共享HTTP类型引用，核对五固定业务操作；实际tsc strict/noEmit通过paths映射应用拥有的http.ts，再执行相同参数check，核对业务契约/共享HTTP/四份官方基线不变。每库保存generate/compile/check/result，未通过不能写完成结果；占用验证目录拒绝，不覆盖人工内容。
+
+初始三项有效RED3/3，实施后3/3，补编译失败、check失败及共享基线被改拒绝。本地fixture消费真实商品黄金契约、真实复制Node工具和真实共享源码并执行TypeScript编译；这不是新应用真实包解析或Vue构建，不证明业务操作运行时请求。新SHA双库实际调用仍待Actions，不本地.NET/容器/浏览器，F02及Capacity-not-verified保持，未合并/发布。
+
+复审纠正硬删除模式：旧黄金契约为catalogDisableProduct，独立应用schema明确hard.delete，实际应为catalogDeleteProduct。测试显式转换操作名与/disable至/delete路由，先RED operation set changed后修正固定集合；不把转换fixture称为真实现代生成证明。首次并行本地验证遇到进程资源错误，未计通过；停止本轮精确测试进程后串行相关三组28/28、零失败/跳过，含六项业务客户端验证，实际编译及漂移负例通过。共享字节比较使用Buffer.equals，避免失败诊断扩展整个大型基线。新SHA仍须双库验收实际契约。
