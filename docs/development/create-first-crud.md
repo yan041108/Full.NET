@@ -168,3 +168,5 @@ OpenAPI 接入阶段在独立应用真实 API 就绪后匿名读取 `/openapi/v1
 ASP.NET 数字读取兼容：实际文档的分页参数及ProblemDetails.status可以声明integer|string。门禁仅在类型恰为这两项、format为int32且pattern为 `^-?(?:0|[1-9]\d*)$` 时归一为整数；可空处理沿既有边界，路径UUID不适用。缺少整数约束、任意字符串/对象或int64仍拒绝。报告同时保留 `parameterDeclarations` 和 `authenticationProblemDeclarations` 原始schema声明，失败时可核对实际生成形态；规范化结果不等于改变运行时序列化。
 
 生成模块人工修改保护：独立应用对六个受管产物（模块注册、Contracts、SQL、Endpoint、Feature、Record）逐个追加测试注释并重新apply。每轮须退出2；注册桥在规划前失败，stdout为空且stderr含确切原因与路径；五实体产物的完整计划仅目标Conflict、其他Unchanged。所有生成文件、manifest、人工文件及宿主内容字节保持；验收通过后仅撤销本轮注释。报告列出conflictArtifacts和六轮独立CLI证据。此阶段验证覆盖保护，不替代真实业务人工扩展或Vue再生成的完整验收。
+
+远端证据：`e056a683` 的独立生成应用双库作业（[CI 36310169977](https://github.com/yan041108/Full.NET/actions/runs/36310169977/job/108594450730)）成功367/367、零失败/跳过。两库报告均完成五操作、五参数形态、十认证错误及基础字段、三请求与五响应字段比较；原始schema确认ASP.NET数字兼容约束，生成输入保持。此证据覆盖OpenAPI已实现子集，未覆盖后续六产物保护、完整业务错误或Vue，不据此关闭F02。
