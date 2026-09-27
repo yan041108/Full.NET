@@ -45,19 +45,21 @@ const httpMethods = new Set([
 export async function generateFullNetClient({
   inputPath = defaultInputPath,
   outputDirectory = defaultOutputDirectory,
+  manifestPath = path.join(repositoryRoot, 'contracts', 'openapi', 'client-generation-manifest-v1.json'),
   check = false
 } = {}) {
   const document = JSON.parse(await readFile(inputPath, 'utf8'));
-  const manifest = JSON.parse(await readFile(path.join(
-    repositoryRoot,
-    'contracts',
-    'openapi',
-    'client-generation-manifest-v1.json'
-  ), 'utf8'));
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  // 应用清单只能逐项声明公开操作，非法值不得静默退化为默认或扩大匿名边界。
+  const publicOperationIds = manifest?.publicOperationIds === undefined ? [] : manifest.publicOperationIds;
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)
+    || !Array.isArray(publicOperationIds)
+    || publicOperationIds.some((id) => typeof id !== 'string' || !id || id !== id.trim())
+    || new Set(publicOperationIds).size !== publicOperationIds.length) {
+    throw new Error('公开操作清单 publicOperationIds 必须是唯一非空操作名数组。');
+  }
   const violations = validateClientGenerationReadiness(document, {
-    publicOperationIds: Array.isArray(manifest.publicOperationIds)
-      ? manifest.publicOperationIds
-      : []
+    publicOperationIds
   });
   if (violations.length > 0) {
     throw new Error(`客户端 OpenAPI 未通过生成就绪门禁：\n${violations.join('\n')}`);
@@ -779,6 +781,11 @@ function parseArguments(args) {
       index += 1;
     } else if (argument === '--output') {
       options.outputDirectory = path.resolve(args[index + 1] ?? '');
+      index += 1;
+    } else if (argument === '--manifest') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('--')) throw new Error('--manifest 缺少文件路径。');
+      options.manifestPath = path.resolve(value);
       index += 1;
     } else {
       throw new Error(`未知参数：${argument}`);

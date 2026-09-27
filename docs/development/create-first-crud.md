@@ -172,3 +172,5 @@ ASP.NET 数字读取兼容：实际文档的分页参数及ProblemDetails.status
 远端证据：`e056a683` 的独立生成应用双库作业（[CI 36310169977](https://github.com/yan041108/Full.NET/actions/runs/36310169977/job/108594450730)）成功367/367、零失败/跳过。两库报告均完成五操作、五参数形态、十认证错误及基础字段、三请求与五响应字段比较；原始schema确认ASP.NET数字兼容约束，生成输入保持。此证据覆盖OpenAPI已实现子集，未覆盖后续六产物保护、完整业务错误或Vue，不据此关闭F02。
 
 六产物保护远端证据：`1b5dab04` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36310555699/job/108595520455)成功370/370、零失败/跳过。两库各六轮实际CLI冲突均退出2，包含桥的规划前诊断和五实体完整冲突计划；文件保持及测试注释清理完成，后续真实CRUD与OpenAPI子集继续通过。此证据不替代人工业务扩展及Vue完整再生成，F02仍未关闭。
+
+应用公开操作清单：仓库客户端生成工具可用 `node scripts/openapi/generate-fullnet-client.mjs --input <应用OpenAPI文件> --manifest <应用清单文件> --output <客户端产物目录>`；清单的publicOperationIds为唯一非空操作名数组，未列出的匿名操作拒绝生成。未指定manifest仍使用原仓库默认清单。此入口提供应用契约边界输入，并未将脚本分发到新应用，也未完成Vue接入/编译；不要用客户端生成成功替代页面验收。

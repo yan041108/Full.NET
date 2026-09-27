@@ -788,3 +788,9 @@ OpenAPI数字兼容双库实测收口（核对基线1b5dab0476317a56a68a460bca9a
 六产物再生成保护双库实测收口（基线898d1c0959ac711cfcb4e24dadbfb6dd959543de，快照f02-module-real-closeout-20260927）：1b5dab04独立应用作业108595520455（CI36310555699）成功370/370、零失败/跳过。下载SQL Server/MySQL application-crud-module/result.json均artifacts6/moduleCompiled=true/conflictRejected=true，conflictArtifacts含全部六个文件；两库共12轮CLI报告均退出2。桥轮stdout为空且stderr确切原因/路径匹配，五实体轮各一Conflict和五Unchanged；实际验收完整执行了逐轮生成/manifest/人工/宿主字节保持及仅测试注释撤销，随后迁移、API与OpenAPI/CRUD/五权限/隔离继续通过。此SHA已有同一应用两库模块保护和现有OpenAPI子集联合证据，仍不等于真实人工业务扩展或Vue的完整再生成。
 
 当前整体CI、API Native36310555740、Worker Native36310555769仍运行，不能报告该SHA整体通过。F02剩余包括独立应用Vue实际接入/编译/使用、应用Worker宿主、完整业务错误/字段类型及教程全链路/人工业务扩展；已核对当前host-wiring只构建API，Vue文件尚停留生成目录，不将仓库客户端E2E冒充新应用Vue验收。F02与Capacity-not-verified保持，未合并/发布。
+
+Vue接入前置客户端工具增量（基线4c171501b3d5ab9ff6d13a57bc8a149cb046160a，快照f02-client-generator-manifest-20260927）：核对发现当前真实应用仅生成Vue文件，未接入/编译；低层OpenAPI客户端生成器固定读取原仓库公开操作清单，独立应用无法指定自己的匿名操作边界。本轮仅为generateFullNetClient增加manifestPath与CLI --manifest，默认沿旧清单，指定时不隐式回退。清单省略publicOperationIds等价[]，显式非法null/非数组/非字符串/空或空白/重复名称失败，匿名操作必须逐项声明，所有验证在写盘前完成。后续仍需分发应用自有工具、生成业务客户端、Vue适配/路由/编译及真实页面验收；本轮不声称Vue接入或工具分发已完成。
+
+首5有效RED全失败（自有清单被忽略或非法清单未拒绝），修正后补非法空白/null、未列匿名及CLI无值负例至10新项。客户端generator/evaluation/readiness联合28/28零失败/跳过；默认node scripts/openapi/generate-fullnet-client.mjs --check零漂移，syntax/diff通过，inner影响none，无本地.NET/容器/浏览器。仅生成工具、回归和直接文档，不改变服务端授权/公共schema/生成产物或矩阵。4c171501主CI36311051617/API Native36311051620/Worker Native36311051632均终态success；898d1c09三工作流也终态success。当前SHA后续Actions仍需单独核对，不把历史成功算作本轮。F02及Capacity-not-verified保持，未合并/发布。
+
+终检独立只读复审新10/10零跳过、默认check零漂移、syntax/diff通过，无阻断；确认清单验证在写盘前、默认兼容、未声明匿名操作仍拒绝。联合28/28、治理55/55为本轮快速证据；应用工具分发及Vue实际接入未完成。
