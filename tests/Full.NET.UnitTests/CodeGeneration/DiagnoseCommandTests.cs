@@ -47,6 +47,8 @@ public sealed class DiagnoseCommandTests
     [DataRow("{\"ConnectionStrings\":\"credential-probe\"}")]
     [DataRow("{\"Cache\":{\"RedisConnectionString\":true}}")]
     [DataRow("{\"Realtime\":{\"RedisBackplaneConnectionString\":42}}")]
+    [DataRow("{\"credential-probe\":1,\"credential-probe\":2}")]
+    [DataRow("{\"Cache\":{\"credential-probe\":1,\"credential-probe\":2}}")]
     public async Task Invalid_configuration_shape_returns_redacted_machine_diagnostic(string configuration)
     {
         using var fixture = new DiagnoseWorkspace(configuration);

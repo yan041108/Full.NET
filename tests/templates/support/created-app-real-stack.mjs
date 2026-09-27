@@ -215,7 +215,8 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     const logRoot = join(repoRoot, '.tmp/template-real-stack', databaseProviderKey);
     mkdirSync(logRoot, { recursive: true });
     const diagnosticInputs = ['fullnet-app.json', 'framework-manifest.json', 'appsettings.json',
-      'src/Demo.Host.Api/appsettings.json'].map((path) => [path, readFileSync(join(appRoot, path))]);
+      'src/Demo.Host.Api/appsettings.json', 'src/Demo.Host.Migrator/appsettings.json']
+      .map((path) => [path, readFileSync(join(appRoot, path))]);
     // 必须运行分发应用自带的 CLI；原仓库的诊断成功不能证明应用路径和预设闭包正确。
     const diagnosis = runDotnet(['run', '--project',
       join(appRoot, 'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli'),

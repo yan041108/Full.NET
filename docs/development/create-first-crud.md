@@ -31,7 +31,7 @@ DIAG_MODULES_OK ok 已配置 FullNet:Modules 模块预设或启用列表。
 
 生产配置使用 `pnpm run diagnose:production` 或 `--profile production`；缺少连接或秘密占位符将报告 `error` 并以非零退出码结束。Profile 只接受 `development`、`production`，重复或未知参数拒绝执行。
 
-诊断按目标工作区的 `global.json` 解析 SDK，检查宿主 `appsettings.json`、独立应用清单、所选模块引用及配置占位符；不会执行初始化、迁移或数据库连接，也不证明配置中的地址可达。它不是完整 ASP.NET Core 配置加载器，不认证部署环境的全部覆盖来源。SDK 缺失导致 .NET CLI 本身无法启动时，先安装 .NET 10 SDK，再运行此入口。
+诊断按目标工作区的 `global.json` 解析 SDK，检查宿主 `appsettings.json`、独立应用清单、所选模块引用及配置占位符。独立应用的根、API及已声明同名Migrator的基础JSON，其模块预设和数据库Provider必须都与冻结档案一致；相关文件缺失、无效或字段类型错误会返回脱敏错误，不能由API/根配置回退掩盖。无Migrator的旧应用仍可诊断，不会自动创建宿主。诊断不会执行初始化、迁移或数据库连接，也不证明配置中的地址可达；它不是完整ASP.NET Core配置加载器，不认证部署环境的全部覆盖来源。SDK缺失导致.NET CLI本身无法启动时，先安装.NET 10 SDK，再运行此入口。
 
 ## 第二步：准备 CRUD Schema
 
