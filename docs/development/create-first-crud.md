@@ -173,6 +173,8 @@ ASP.NET 数字读取兼容：实际文档的分页参数及ProblemDetails.status
 
 六产物保护远端证据：`1b5dab04` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36310555699/job/108595520455)成功370/370、零失败/跳过。两库各六轮实际CLI冲突均退出2，包含桥的规划前诊断和五实体完整冲突计划；文件保持及测试注释清理完成，后续真实CRUD与OpenAPI子集继续通过。此证据不替代人工业务扩展及Vue完整再生成，F02仍未关闭。
 
-应用公开操作清单：仓库客户端生成工具可用 `node scripts/openapi/generate-fullnet-client.mjs --input <应用OpenAPI文件> --manifest <应用清单文件> --output <客户端产物目录>`；清单的publicOperationIds为唯一非空操作名数组，未列出的匿名操作拒绝生成。未指定manifest仍使用原仓库默认清单。此入口提供应用契约边界输入，并未将脚本分发到新应用，也未完成Vue接入/编译；不要用客户端生成成功替代页面验收。
+应用公开操作清单：仓库客户端生成工具可用 `node scripts/openapi/generate-fullnet-client.mjs --input <应用OpenAPI文件> --manifest <应用清单文件> --output <客户端产物目录>`；清单的publicOperationIds为唯一非空操作名数组，未列出的匿名操作拒绝生成。未指定manifest仍使用工具所在仓库或应用的默认清单。此入口提供应用契约边界输入；新模板分发路径见下文，Vue接入/编译仍待验收，不要用客户端生成成功替代页面验收。
 
 新模板将客户端生成脚本及校验器分发至 `.fullnet-tools/openapi/`，默认OpenAPI和公开操作清单位于应用 `contracts/openapi/`。在应用目录运行 `node .fullnet-tools/openapi/generate-fullnet-client.mjs --check` 检查其冻结客户端基线；需要业务输入时显式传 `--input`、`--manifest`、`--output`。这些文件来自同一固定源码包及摘要，初始化后应用拥有副本；旧应用需显式采用，框架源码升级不会自动覆盖应用工具/契约。工具可运行不等于业务客户端或Vue接入已验收。
+
+工具分发远端证据：`43bf0718` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36315494268/job/108609299088)成功374/374、零失败/跳过。实际模板创建核对四份工具/契约副本与冻结源码字节一致；SQL Server/MySQL 的 `application-client-tools.json` 均记录应用自带工具退出0、生成产物零漂移、stderr为空。此证据验证默认客户端基线，不覆盖业务客户端接线、Vue编译或页面使用，F02仍未关闭。
