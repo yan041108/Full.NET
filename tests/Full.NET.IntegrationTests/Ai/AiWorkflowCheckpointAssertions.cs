@@ -41,11 +41,12 @@ internal static class AiWorkflowCheckpointAssertions
             "awaiting_approval",
             null,
             new(Guid.CreateVersion7(), 1, AgentCheckpointCompatibility.CurrentCheckpointFormatVersion,
-                AgentFrameworkRuntime.FrameworkVersion, 1, payload, checksum),
+                AgentFrameworkRuntime.FrameworkVersion, AgentWorkflowRegistry.ChatRenameWorkflowVersion, payload, checksum),
             new(Guid.CreateVersion7(), 1, "run.awaiting_approval", 1, """{"reason":"tool_approval_required"}"""))).ConfigureAwait(false);
         Assert.IsTrue(committed);
         var latest = await store.FindLatestCheckpointAsync(runId).ConfigureAwait(false);
         Assert.IsNotNull(latest);
+        Assert.AreEqual(AgentWorkflowRegistry.ChatRenameWorkflowVersion, latest.DefinitionVersion);
         Assert.AreEqual(payload, latest!.PayloadProtected);
         Assert.AreEqual(checksum, latest.Checksum);
         var restored = AgentWorkflowState.FromJson(latest.PayloadProtected);
@@ -58,7 +59,7 @@ internal static class AiWorkflowCheckpointAssertions
     {
         Assert.IsFalse(AgentCheckpointCompatibility.TryValidateWorkflow(
             AgentWorkflowRegistry.ChatRenameWorkflowKey,
-            1,
+            AgentWorkflowRegistry.ChatRenameWorkflowVersion,
             99,
             AgentFrameworkRuntime.FrameworkVersion,
             out var error));
@@ -87,7 +88,7 @@ internal static class AiWorkflowCheckpointAssertions
                 "host-admin",
                 "host",
                 AgentWorkflowRegistry.ChatRenameWorkflowKey,
-                1,
+                AgentWorkflowRegistry.ChatRenameWorkflowVersion,
                 """{"modelConfigId":"00000000-0000-0000-0000-000000000001","prompt":"","inputTokenLimit":100,"outputTokenLimit":100}""",
                 DateTimeOffset.UtcNow.AddHours(1),
                 runId);

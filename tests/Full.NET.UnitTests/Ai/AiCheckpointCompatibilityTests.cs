@@ -60,7 +60,7 @@ public sealed class AiCheckpointCompatibilityTests
     {
         Assert.IsTrue(AgentCheckpointCompatibility.TryValidateWorkflow(
             AgentWorkflowRegistry.ChatRenameWorkflowKey,
-            1,
+            AgentWorkflowRegistry.ChatRenameWorkflowVersion,
             AgentCheckpointCompatibility.CurrentCheckpointFormatVersion,
             AgentFrameworkRuntime.FrameworkVersion,
             out var error));

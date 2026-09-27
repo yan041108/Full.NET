@@ -2,13 +2,25 @@
 
 > 执行约定：按任务逐项实施并记录实际验证证据。遵守根目录 AGENTS.md；不自动创建工作树、派生代理或切换独立执行流程，不自动提交或推送。
 
-**Goal:** 将现有 AI 管理与聊天模块演进为供应商中立、工具执行受控、可持久化恢复并支持 MCP/AG-UI 互操作的官方能力。
+**Goal:** 将现有 AI 管理与聊天模块演进为供应商中立、工具执行受控、可持久化恢复并支持 MCP/AG-UI 互操作的官方能力；下一阶段补齐带权限和引用的知识库问答、质量评估、版本治理与受控路由。
 
 **Architecture:** 保留 `Full.NET.Modules.Ai` 作为 AI 管理业务和 `fn_ai_*` 数据的唯一所有者；通过反向实现存储及策略 Port，为独立 AI、Agent 和协议适配项目提供能力。供应商和 Agent Framework 的具体类型不进入普通业务模块核心或 Full.NET 稳定公开契约。先修正已有行为，再按可独立验收的纵向切片迁移。
 
 **Tech Stack:** .NET 10、Microsoft.Extensions.AI、Microsoft Agent Framework、MCP C# SDK、AG-UI、Dapper、自有 SQL/事务执行器、SQL Server/MySQL、System.Text.Json 源生成、Vue 管理端、Microsoft Testing Platform。
 
 ## 0. 状态、授权与代码基线
+
+### 2026-09-27 当前摘要（替代下方历史状态中的未实施判断）
+
+- 本文继续作为 AI 主题唯一活动计划；不另建竞争计划。新增任务 R01–R12 见 §7.1；R01 已实现并通过本地单元验证，原生/双库切片门禁尚未关闭，R02–R12 保持 Planned。
+- 授权：当前用户要求“按你的建议完善我们的系统，你更新相关文档和安排开发计划”。本次交付为设计、计划和能力状态修订；不自动实施代码、提交、推送或派生代理。
+- 源码已具备 MAF 适配、统一模型 Provider、Embedding 调用、工具执行、预算、持久运行/审批和协议相关实现。旧摘要“T07–T15 尚未实施”已失效；历史证据留在原执行记录，未逐项重验的任务不批量改为 Verified。
+- 当前缺口：完整知识库入库/检索/引用闭环、系统化质量评估、Prompt 发布治理和业务路由；现有静态会话重命名工作流不代表完整多智能体平台。
+- R01 已修正 `NOT VALID` 子串误判和恢复路径跳过校验的问题，使用封闭 JSON 与写入前复核；此项不表示知识库或其他多智能体任务已经实施。
+- 设计权威：[专项设计 §3](../specs/2026-09-08-ai-agentic-web-security-runtime-design.md#3-知识库与受控协作增量设计2026-09-27)。保留模块化单体、双库、AOT 与工具安全基线；Qdrant 尚未选定。
+- 本次依据源码只读核对和用户提供的文章；未运行模型、双库、浏览器或原生性能实验。旧任务未关闭的真实门禁继续保留，不被新增任务覆盖。
+
+### 2026-09-08 初始基线与历史状态
 
 - 日期：2026-09-08。
 - 状态：实施中。T01 本地缺陷修复已落地；T02 已接入中立文本聊天和网关流式用量能力声明；T03 已实现聊天/连通性适配、连接时网络政策、请求内凭据引用和 Provider 写入保护。T00 原生验证、T02 双库验收、T03 长期凭据/轮换及部署验收仍未关闭；T04 已实现预检/传输分离与独立有界清理，本地验证通过、双库 HTTP 与原生运行验收待执行；T05 已实现统一只读工具执行器、当前会话权威授权与意图/回执审计，本地验证通过、双库验收待 CI；T06 已落地统一预算账本、价格快照、聊天接入和未知计量补录，本地验证与双库验收状态见执行记录；硬费用认证和 Agent/Embedding 实际消费者仍有后续门禁；T07–T15 尚未实施。
@@ -507,6 +519,165 @@ git branch --show-current
 | 提示注入与数据外发 | T03、T05、T08、T12 | 文本不改变服务端授权，白名单上下文与受限目标 |
 | AG-UI 与可替换预览适配 | T00、T10 | 标准事件、协议 DTO 隔离、重连不重跑 |
 | 双库、Native AOT、Vue、许可 | T00、各切片、T15 | 同场景双库/原生证据与逐页面验收，不以文档替代 |
+
+## 7.1 知识库与受控协作开发队列（2026-09-27）
+
+### 排期、依赖与完成定义
+
+以交付里程碑安排顺序，不预先承诺固定周数。每个任务由实施者负责功能和证据，涉及权限、数据与公共架构的切片关闭前进行独立审查；不因本文自动启动多代理。所有任务初始为 Planned；开始时登记基线和实际影响集，完成时记录精确提交/CI 与尚未验收项。
+
+| 里程碑 | 顺序 | 可交付结果 | 前置条件 |
+| --- | --- | --- | --- |
+| M1 安全与质量基线 | R01 → R02 → R03 | 严格工作流结果、可重复评估、明确检索 Provider 决策 | 复核旧 T00–T15 未关闭门禁；不重做已有能力 |
+| M2 知识库首个闭环 | R04 → R05 → R06 → R07 | 可导入、可查状态、按权限问答、可查看真实来源 | R03 决策完成；R02 评估集贯穿实现 |
+| M3 运营与质量完善 | R08 → R09 | 版本切换/删除恢复、受控 Prompt 发布、反馈和检索优化 | M2 闭环可用 |
+| M4 业务协作与验收 | R10 → R11 → R12 | 节点恢复、受控路由、全链路观测及原生/页面验收 | R01/R09；路由前节点恢复语义已明确 |
+
+开发优先：每项同步完成必要失败用例、类型/契约与安全验证；页面视觉、全链路容量和集中人工验收收敛到 R12。SQL/租户/授权/真实运行回归不延后。R03 的证据实验只决定选型，不代表正式能力已经 Verified。R05/R06 的新增解析、Embedding 与检索可达路径必须在各自切片关闭时验证受影响 AOT 分析和原生产物，按 §11 使用获授权的 Actions；不能等到 R12 才发现依赖不兼容。无原生证据时明确保留切片门禁未关闭状态。
+
+文件表中的新文件为拟新增责任位置，目录不要求预先建空文件；沿实际消费者决定最小 Port。以下 DTO 名称为内部设计名称，公开 API 与 Schema 在对应切片先定稿并生成客户端，不能跨任务各自定义同名不同义契约。
+
+### R01：严格校验工作流结果（P1，首先执行）
+
+**修改：** `src/AI/Full.NET.Agents/Workflows/AgentWorkflowRunner.cs`、`AgentWorkflowRegistry.cs`；`tests/Full.NET.UnitTests/Ai/AgentWorkflowRunnerTests.cs`。在 Workflows 目录新增 `AgentValidationResult.cs`，并接入该运行时已有源生成 JSON 上下文。
+
+**契约：** 校验节点只接受 `{"decision":"approved"}` 或 `{"decision":"rejected"}`；缺字段、未知枚举、重复字段、多余非 JSON 文本与解析失败均停止后续写工具。模型输出与程序的标题长度/空白规则独立校验；旧检查点按定义版本兼容或明确拒绝，不能静默改变其含义。
+
+- [x] 建立失败回归：自由文本、重复字段/额外字段、未知 decision、畸形 JSON 和恢复到写节点时的无效结果均不得调用 rename；原实现复现误放行后再修正。
+- [x] 更新 Prompt、源生成结果解析及定义版本；写入前复核结果与标题，保留人工审批，拒绝旧版恢复。
+- [x] 执行 `pnpm test:dotnet:unit -- --selection ai-runtime` 与同一 Release 产物的 `pnpm test:dotnet:unit -- --no-build --selection ai-module`，均通过，无跳过。
+
+R01 实施记录（2026-09-27）：任务基线 `4c171501b3d5ab9ff6d13a57bc8a149cb046160a`，快照 `ai-workflow-validation-r01`。稳定 DefinitionKey 不变，DefinitionVersion 从 1 升为 2；创建、请求摘要和检查点使用同一新版。旧运行返回 `ai.agent_run.definition_incompatible`，不自动迁移审批或重新执行工具。发布时关闭新派发、停止旧 Worker 后同步部署 API/Worker，再重新开放；禁止旧 Worker 与新版混跑。旧运行保留审计/账本，由操作者检查既有副作用后使用新的 ClientRequestId 创建新运行，不能自动重试旧写操作。反向回滚也须先停派发与新版 Worker，版本 2 的存量运行不得交给旧 Worker。
+
+本地治理与 Integration 分片检查通过；`pnpm test:aot:analyzers`、`pnpm test:aot:worker:analyzers` 均成功且零警告/错误。静态复核发现的双库检查点夹具版本已同步。实际双库 Integration、Linux Native 发布/原生运行仍待获授权的 Actions，不能标记整体 Verified；后续 R02–R12 未执行。
+
+### R02：建立质量评估基线（P1）
+
+**新增：** `tests/Full.NET.UnitTests/Ai/RagEvaluationScoringTests.cs`、`tests/ai-evaluation/rag-cases.json`、`tests/ai-evaluation/README.md`。实现时把离线评分器放入测试项目；真实模型运行独立配置，不进入默认联网单元测试。
+
+**输入/输出：** 样例包含 caseId、问题、文档版本/允许来源、预期证据片段和是否应拒答；结果记录数据/模型/Prompt/索引版本、候选及引用、回答、用量和耗时。安全样例单独计分，不能被平均分掩盖。
+
+- [ ] 建立覆盖中文术语、编号、表格、跨段落、冲突版本、无答案、跨租户/撤权、注入的合成语料；提交时排查敏感信息和许可。
+- [ ] 对 Recall@K、引用来源有效性、拒答与泄漏评分编写固定输入输出测试；语义支持情况由标注/受控评审单独记录，不能用“有引用”自动判定正确。
+- [ ] 记录初始基线与质量门槛；安全泄漏要求为零，候选必须使用相同冻结样例。R06 接入后生成首份端到端基线，未接通前明确标记未测。
+
+### R03：检索 Provider 与解析器选型证据（P1，基础设施决策门）
+
+**检查：** `Directory.Packages.props`、`src/AI/`、`rules/native-aot.md`、`rules/naming-conventions.md`、现有 Files Contract。证据形成后更新本专项 Spec；新增 ADR 文件编号在实施时从 `docs/architecture/adr/` 分配，名称使用 `ai-retrieval-provider` 主题。
+
+- [ ] 对照真实语料/数据规模，比较现有正式数据库可用检索能力与 Qdrant 候选的过滤、中文/编号检索、索引重建和运维要求；两种正式数据库必须提供同一业务语义。
+- [ ] 用锁定版本实验验证写入、带租户过滤检索、删除、超时、取消以及 Native AOT 原生调用；核对解析器格式范围、许可证和资源限制。
+- [ ] 记录权威源、派生索引恢复、凭据/网络边界、部署开关及失败回退；满足证据后形成明确选型决策。若需改变既有部署/架构授权，暂停该选型并向用户说明具体差异，R01/R02 可独立推进。
+- [ ] 选定前不添加生产依赖、不宣称 Qdrant 已支持；不以空实现完成后续检索任务。
+
+### R04：知识库目录、权限与文件引用（P1）
+
+**新增责任位置：** `src/Modules/Full.NET.Modules.Ai/Features/ManageKnowledgeBases/`、`Features/ManageKnowledgeDocuments/`、`Persistence/AiKnowledgeSql.cs`；双库迁移位于 `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/` 与 `MySql/`。测试位于 `tests/Full.NET.IntegrationTests/Ai/`，复用现有双库 fixture。
+
+**产出：** 知识库、文档版本、文档授权与导入任务的内部模型；文件关联只携带 Files 权威标识/版本，通过最小契约读文件与维护引用。知识库管理、导入、查询、问答、来源读取分别声明精确权限，权限码按 Naming Profile 定稿。
+
+**文件接入边界：** 检查 `src/Modules/Full.NET.Modules.Files.Contracts/HostFileReferenceClaimContracts.cs`、`ITenantResourceFileStore.cs` 与 `ITenantResourceFileOwner.cs`；Host 必须登记 Ai Claim 消费者及 Probe，租户采用资源所有权合同。首期只支持向授权知识库上传；不开放按任意 FileId 导入其他模块附件，后续共享必须由原数据所有者批准。
+
+- [ ] 先覆盖跨租户、无文档授权、文件不存在/已删除、重复导入、引用失败补偿、并发版本更新与迁移部分执行恢复。
+- [ ] 覆盖 Host Claim 提交前/后崩溃、Confirm 失败、租户资源归属不匹配和“有下载权但无共享权”；实现最小文档删除/撤权权威状态，立即禁止检索与来源读取，再由 R05 清理索引/释放引用。
+- [ ] 实现范围约束、UUID v7、参数化双库 SQL、乐观并发、标准 ProblemDetails 与源生成 DTO；文件关联不得跨模块 JOIN/事务。
+- [ ] 同步建立知识库数据分类与允许的 Embedding/生成 Provider 策略；默认拒绝未批准的数据出网，R05/R06 派发前必须执行该策略。R11 扩展重排、路由和遥测覆盖，不能把基本数据政策延后。
+- [ ] 定稿 OpenAPI 并生成共享客户端；相关测试、分片和矩阵同步，关闭时核对同场景双库证据。
+
+### R05：有界解析、分块与索引 Worker（P1，依赖 R03/R04）
+
+**新增责任位置：** `src/Modules/Full.NET.Modules.Ai/Knowledge/`、`Runtime/AiKnowledgeIndexWorker.cs`、`tests/Full.NET.UnitTests/Ai/AiKnowledgeChunkingTests.cs`；Provider 放入 R03 决策的适配边界，复用现有 Embedding 工厂与预算 Port。
+
+**输入/输出：** 消费已授权文档版本及内容摘要；生成包含片段 ID、页码/位置、分块版本、模型/维度和索引代次的记录。向量索引键由版本/代次/片段确定，状态由版本条件推进。
+
+- [ ] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。
+- [ ] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。
+- [ ] 验证 Worker 崩溃/重试、模型用量未知、索引不可用、部分写入与删除竞争；失败可定位并重试，不能将空索引标记 ready。
+- [ ] 交付 R07 所需的受授权失败重试端点、最小索引删除/文件释放任务和崩溃恢复；重复删除幂等，清理失败仍禁止访问。R08 只扩展批量重建、增量更新和代次切换，不承接首版必需的删除安全与重试。
+
+### R06：按权限检索、问答及可信引用（P1，依赖 R02/R05）
+
+**新增责任位置：** `src/Modules/Full.NET.Modules.Ai/Features/AskKnowledge/`、`Knowledge/AiKnowledgeRetrievalService.cs`、`tests/Full.NET.UnitTests/Ai/AiKnowledgeCitationTests.cs`；扩展 Ai 的序列化/OpenAPI 与双库 Integration。
+
+**产出：** 问答请求仅选择获准知识库；结果包含答案、拒答状态和服务端引用 ID。引用映射为文档版本/片段/页码，不接受模型生成任意 URL。沿现有聊天/模型执行边界接入，不在业务端点直连供应商。
+
+**历史与传输契约：** 为知识库派生答案/摘要记录完整候选来源依赖，历史显示/导出/再送模型时复核，依赖撤权则隐藏正文并剔除上下文；普通聊天历史保持原语义。首期生成有界缓冲，引用校验与派发前授权通过才返回，不复用 `AiChatCompletionStreamer` 的逐 Token `onDelta` 输出。记录授权判定点，不承诺召回已发送数据。
+
+- [ ] 覆盖租户/角色/组织/文档授权、先检索后撤权、伪造引用、无答案、注入文本、来源删除与旧索引命中。
+- [ ] 覆盖生成期间撤权、旧答案历史展示/导出、后续追问、摘要复用和未引用但参与生成的来源撤权；通过可控门闩确认派发前撤权不输出正文，拒绝时仍按实际/未知模型用量结算。
+- [ ] 实现服务端过滤、候选批量权威复核、有界上下文、引用允许集校验和独立来源授权；拒绝无证据回答及未经授权的工具动作。
+- [ ] 对 R02 冻结评估集生成基线；安全泄漏零容忍，未满足质量门槛保持未验收并记录失败样例。
+
+### R07：Vue 知识库与问答页面（P1，依赖 R04/R06）
+
+**新增：** `ui/admin/src/views/AiKnowledgeBasesView.vue`、`AiKnowledgeDocumentsView.vue` 及对应 `.test.ts`；扩展 `ui/admin/src/views/AiChatView.vue` 与共享生成客户端。路由/菜单按现有机制登记，禁止修改冻结 Layui。
+
+- [ ] 增加知识库/文档管理、导入状态、失败原因、重试、版本与来源预览；问答页展示可点击引用和明确拒答。
+- [ ] 覆盖无权限、索引未就绪、文档已撤权、模型/索引不可用、取消、空态及重复提交；前端隐藏不代替 API 授权。
+- [ ] 完成类型检查、受影响组件测试、规范语言资源；页面自动化/人工验收条目登记到 R12，不能提前标记 Verified。
+
+### R08：增量更新、删除与索引重建（P2，依赖 R05–R07）
+
+**修改：** R04/R05 新增目录、Ai 持久任务/事件入口；新增 `tests/Full.NET.IntegrationTests/Ai/AiKnowledgeIndexRecoveryTests.cs`，以双库测试方法覆盖相同场景。
+
+- [ ] 以本系统文件替换/文档更新事件建立幂等增量任务；业务可靠事件沿事务 Outbox，缓存失效沿既有直接删除/Backplane，不把缓存通知写入 Outbox。
+- [ ] 在 R04/R05 最小删除/恢复基础上扩展完整新代次校验后切换、旧代次批量清理、死信运维和索引对账/重建；撤权先由权威源生效，复用首版 tombstone 与重试机制。
+- [ ] 验证乱序、重复、更新与删除竞争、模型换维度、同维度换模型、切换中崩溃与回退；记录恢复操作和保留策略。
+- [ ] 后续格式切片增加 DOCX 并覆盖表格/位置与资源上限；扫描件 OCR、外部文件服务器连接器继续保持范围外，不在页面承诺支持。
+
+### R09：Prompt 发布、反馈与检索优化（P2，依赖 R02/R06/R08）
+
+**新增责任位置：** `src/Modules/Full.NET.Modules.Ai/Features/ManagePromptVersions/`、`Features/ManageAnswerFeedback/`；扩展 R02 评估语料及 R07 Vue 页面。新增持久化成对迁移，Prompt 版本不混入通用 Settings。
+
+- [ ] 实现不可变 Prompt 版本，绑定模型策略、语言、输入输出 Schema、工具允许集与检索策略；Run 固化版本，支持停用与回滚。
+- [ ] 反馈绑定真实回答/引用、可信用户范围与权限；反馈脱敏审核后才能进入评估集，禁止直接信任反馈指令。
+- [ ] 在同一评估集比较基础检索、关键词/向量融合和重排，记录质量、用量与耗时；仅启用有证据收益的策略，失败保留旧策略。
+
+### R10：节点恢复与审批一致性（P2，依赖 R01/R09）
+
+**修改：** `src/AI/Full.NET.Agents/Workflows/AgentWorkflowRunner.cs`、`src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs`；扩展 `tests/Full.NET.UnitTests/Ai/AiAgentRunCoordinatorTests.cs`、现有 `AiWorkflowCheckpoint*Tests.cs` 与 `AiApprovalRecovery*Tests.cs`。
+
+- [ ] 先复核既有租约/检查点/审批实现，复用已满足的能力；新增节点完成后崩溃、长模型调用、租约失效、取消和版本不兼容的回归用例。
+- [ ] 定义并持久化节点输入/输出摘要、定义/模型/Prompt 版本及 OperationId；已知完成不重跑，未知外部副作用进入对账，不能从 checkpoint 缺失推断未执行。
+- [ ] 审批恢复复核当前会话/权限、参数摘要、工具/策略版本及业务状态；全节点预算和 deadline 必须约束实际派发，未知用量不得计零。
+
+### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
+
+**修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。
+
+- [ ] 首个路由只允许“知识库问答”和“现有授权工具任务”；封闭意图枚举、独立工具允许集，未知意图澄清/拒绝，保留顺序执行和总预算。
+- [ ] 将数据分类策略应用于 Embedding、重排、生成及遥测；私有化模式故障不得切换公网 Provider，测试每个阶段的拒绝行为。
+- [ ] 关联 Run/Step/Trace 的阶段耗时、调用量、拒答、预算拒绝与错误；日志脱敏、指标低基数，不将文档正文或用户/租户 ID 放入 Metrics 标签。
+- [ ] 不增加专家群聊、任意动态插件或微服务拆分；出现真实业务收益证据后另修订本计划。
+
+### R12：原生闭包、运营恢复与集中验收（P2，依赖前述切片）
+
+**修改：** `tests/Full.NET.IntegrationTests/NativeAot/NativeApiAiE2ETests.cs` 及 Worker 原生探针；测试矩阵 `eng/testing/test-matrix.json`、现有受影响 CI、Vue 页面验收与 `docs/roadmap/capability-status.md`。
+
+- [ ] 汇总并补齐各切片的原生产物证据，覆盖真实 Embedding/索引写入、带权限检索、删除、解析、工具及审批恢复；同时覆盖确定性测试 Provider 与获准环境的选定真实 Provider，明确各自证明范围。此项不允许把 R05/R06 的 AOT 兼容检查延后。
+- [ ] 演练索引丢失重建、Provider 故障、文档撤权、任务重复派发、密钥/网络策略变化与应用回退；核对双库同语义。
+- [ ] 集中收敛页面自动化与人工验收；分别测量 API、Worker、向量库、模型服务的资源和延迟，不引用文章的百分比作为验收结果。
+- [ ] 按精确提交核对必要 CI 终态，更新能力矩阵和运维文档；存在失败、跳过或部署环境缺失时仅标明已实现/局部验证，保留 `Capacity-not-verified`。
+
+### 执行与验证入口
+
+本节不另设测试流程，遵守 [开发质量 §11](../../../rules/development-quality.md#11-测试与验证)。已有命令入口：
+
+```text
+pnpm test:dotnet:unit -- --selection ai-runtime
+pnpm test:dotnet:unit -- --selection ai-module
+pnpm test:dotnet:architecture -- --selection ai-agentic-boundaries
+pnpm test:integration:partitions
+pnpm test:governance
+pnpm test:aot:analyzers
+pnpm test:aot:worker:analyzers
+```
+
+按实际影响选择执行，不每项机械全跑。新增测试先接入矩阵且保持最低发现数；双库、真实浏览器、Linux Native 发布/运行按 §11 默认走获授权的 GitHub Actions。禁止未授权推送以取得证据；本地可完成部分与远端未验证项分别记录。
+
+停止条件：权限泄漏、错误租户、迁移不可恢复、重复业务写入、出网策略绕过或 AOT 静态闭包破坏立即修复；未经选型批准的新基础设施不得进入生产装配。页面差异可登记后继续功能建设，不能借此延后上述风险。
+
+**覆盖核对：** 格式/入库 R03–R05；权限/引用 R04/R06；评估 R02/R06/R09；生命周期 R08；工作流 R01/R10/R11；数据/预算/观测 R05/R10/R11；Vue R07；AOT/恢复/状态 R12。历史 T00–T15 的未关闭项在触及相关切片时复核，不由新增任务勾选自动关闭。
 
 ## 8. 参考来源
 

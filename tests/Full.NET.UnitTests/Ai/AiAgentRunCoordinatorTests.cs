@@ -154,7 +154,7 @@ public sealed class AiAgentRunCoordinatorTests
         using var session = JsonDocument.Parse("""{"messages":[]}""");
         runner.RunAsync(Arg.Any<IChatClient>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call => new AgentModelResult(
-                call.ArgAt<string>(1).Contains("session list", StringComparison.OrdinalIgnoreCase) ? "New Title" : "VALID",
+                call.ArgAt<string>(1).Contains("session list", StringComparison.OrdinalIgnoreCase) ? "New Title" : """{"decision":"approved"}""",
                 session.RootElement.Clone(),
                 2,
                 1));
@@ -358,7 +358,7 @@ public sealed class AiAgentRunCoordinatorTests
             StatusKey = "queued",
             BudgetJson = budgetJson,
             DefinitionKey = definitionKey,
-            DefinitionVersion = AiAgentRunManagementService.SingleTextDefinitionVersion,
+            DefinitionVersion = AiAgentRunManagementService.ResolveDefinitionVersion(definitionKey),
             Version = 2,
             LeaseEpoch = 1,
             LeaseExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(5),

@@ -39,4 +39,5 @@ internal sealed record WorkflowRenameSessionArguments(
 
 [JsonSerializable(typeof(AgentWorkflowState))]
 [JsonSerializable(typeof(WorkflowRenameSessionArguments))]
+[JsonSerializable(typeof(AgentValidationResult))]
 internal sealed partial class AgentWorkflowJsonContext : JsonSerializerContext;

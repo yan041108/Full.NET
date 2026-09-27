@@ -136,8 +136,12 @@ internal sealed class AiAgentRunCoordinator(
             AgentModelResult result;
             if (record.DefinitionKey == AgentWorkflowRegistry.ChatRenameWorkflowKey)
             {
-                var workflow = AgentWorkflowRegistry.Resolve(record.DefinitionKey, record.DefinitionVersion)
-                    ?? throw new InvalidOperationException("Unknown workflow definition.");
+                var workflow = AgentWorkflowRegistry.Resolve(record.DefinitionKey, record.DefinitionVersion);
+                if (workflow is null)
+                {
+                    await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.definition_incompatible", cancellationToken).ConfigureAwait(false);
+                    return true;
+                }
                 var workflowState = await LoadWorkflowStateAsync(store, record, cancellationToken).ConfigureAwait(false);
                 if (workflowState is null)
                 {

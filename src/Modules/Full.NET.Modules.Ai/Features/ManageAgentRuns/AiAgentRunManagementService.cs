@@ -120,7 +120,7 @@ internal sealed class AiAgentRunManagementService(
             binding.ActorScope,
             binding.EffectiveScope,
             request.DefinitionKey,
-            SingleTextDefinitionVersion,
+            ResolveDefinitionVersion(request.DefinitionKey),
             budgetJson,
             deadline,
             runId,
@@ -214,7 +214,7 @@ internal sealed class AiAgentRunManagementService(
 
     private static string? ValidateRequest(CreateAiAgentRunRequest request)
     {
-        var isWorkflow = AgentWorkflowRegistry.Resolve(request.DefinitionKey, SingleTextDefinitionVersion) is not null;
+        var isWorkflow = AgentWorkflowRegistry.Resolve(request.DefinitionKey, ResolveDefinitionVersion(request.DefinitionKey)) is not null;
         var isAgent = AgentDefinitionRegistry.Resolve(request.DefinitionKey, SingleTextDefinitionVersion) is not null;
         if (request.ClientRequestId == Guid.Empty || request.ModelConfigId == Guid.Empty
             || (!isWorkflow && !isAgent)
@@ -231,7 +231,12 @@ internal sealed class AiAgentRunManagementService(
 
     private static string ComputeRequestHash(CreateAiAgentRunRequest request, string scope) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
-            FormattableString.Invariant($"{scope}|{request.ClientRequestId:N}|{request.DefinitionKey}|{SingleTextDefinitionVersion}|{request.ModelConfigId:N}|{request.InputTokenLimit}|{request.OutputTokenLimit}|{request.Prompt.Length}:{request.Prompt}"))));
+            FormattableString.Invariant($"{scope}|{request.ClientRequestId:N}|{request.DefinitionKey}|{ResolveDefinitionVersion(request.DefinitionKey)}|{request.ModelConfigId:N}|{request.InputTokenLimit}|{request.OutputTokenLimit}|{request.Prompt.Length}:{request.Prompt}"))));
+
+    /// <summary>创建与摘要使用同一版本，防止新运行继续写入旧校验协议版本。</summary>
+    internal static int ResolveDefinitionVersion(string definitionKey) =>
+        definitionKey == ChatRenameWorkflowDefinitionKey
+            ? AgentWorkflowRegistry.ChatRenameWorkflowVersion : SingleTextDefinitionVersion;
 
     private string ResolveScope() => tenant.Id is { } id ? id.ToString("N") : tenant.IsHost ? "host"
         : throw new InvalidOperationException("Tenant scope is required for agent runs.");

@@ -13,10 +13,16 @@ public sealed class AgentWorkflowRunner
     {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
-        var definition = AgentWorkflowRegistry.Resolve(request.WorkflowKey, request.WorkflowVersion)
-            ?? throw new InvalidOperationException("Unknown workflow definition.");
+        var definition = AgentWorkflowRegistry.Resolve(request.WorkflowKey, request.WorkflowVersion);
+        if (definition is null)
+            return new(AgentWorkflowRunStatus.Failed, request.State, null, "ai.agent_run.definition_incompatible");
 
         var state = request.State;
+        if (state.NextNodeIndex < 0 || state.NextNodeIndex > definition.Nodes.Count)
+            return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.checkpoint_incompatible");
+        // 恢复到写入或结束位置仍需校验原始结果，不能把节点游标当作校验已通过的证据。
+        if (state.NextNodeIndex >= 3 && !CanRename(state))
+            return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.workflow_validation_failed");
         var approvalRequired = false;
         var reconciliationRequired = false;
 
@@ -29,6 +35,8 @@ public sealed class AgentWorkflowRunner
                 case AgentWorkflowNodeKind.ToolRead:
                 case AgentWorkflowNodeKind.ToolWrite:
                 {
+                    if (node.Kind == AgentWorkflowNodeKind.ToolWrite && !CanRename(state))
+                        return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.workflow_validation_failed");
                     var toolResult = await ExecuteToolNodeAsync(request, node, state, cancellationToken).ConfigureAwait(false);
                     if (toolResult.ApprovalRequired)
                     {
@@ -61,9 +69,9 @@ public sealed class AgentWorkflowRunner
                     state.OutputTokens = AddUsage(state.OutputTokens, modelResult.OutputTokens);
                     state.Outputs[node.Key] = modelResult.Text;
                     if (string.Equals(node.Key, "validate", StringComparison.Ordinal)
-                        && !IsValidationPassed(modelResult.Text))
+                        && !AgentValidationResult.IsApproved(modelResult.Text))
                     {
-                        state.NextNodeIndex = index + 1;
+                        state.NextNodeIndex = index;
                         return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.workflow_validation_failed");
                     }
 
@@ -131,10 +139,6 @@ public sealed class AgentWorkflowRunner
         if (string.Equals(node.ToolName, "ai.chat.sessions.rename", StringComparison.Ordinal))
         {
             var title = state.Outputs.TryGetValue("summarize", out var proposed) ? proposed.Trim() : string.Empty;
-            if (title.Length > 256)
-            {
-                title = title[..256];
-            }
 
             return JsonDocument.Parse(JsonSerializer.Serialize(
                 new WorkflowRenameSessionArguments(state.SessionId, title),
@@ -144,9 +148,13 @@ public sealed class AgentWorkflowRunner
         return JsonDocument.Parse("{}");
     }
 
-    private static bool IsValidationPassed(string text) =>
-        text.Contains("VALID", StringComparison.OrdinalIgnoreCase)
-        && !text.Contains("INVALID", StringComparison.OrdinalIgnoreCase);
+    // 标题规则由程序独立保证；不截断后再执行，避免实际参数偏离被校验/审批的内容。
+    private static bool CanRename(AgentWorkflowState state) =>
+        state.Outputs.TryGetValue("validate", out var validation)
+        && AgentValidationResult.IsApproved(validation)
+        && state.Outputs.TryGetValue("summarize", out var title)
+        && !string.IsNullOrWhiteSpace(title)
+        && title.Trim().Length <= 256;
 
     private static string Interpolate(string template, IReadOnlyDictionary<string, string> outputs)
     {

@@ -13,6 +13,43 @@ namespace Full.NET.UnitTests.Ai;
 public sealed class AgentWorkflowRunnerTests
 {
     [TestMethod]
+    [DataRow("NOT VALID")]
+    [DataRow("VALID but unsafe")]
+    [DataRow("VALID")]
+    [DataRow("")]
+    [DataRow("{\"decision\":\"rejected\"}")]
+    [DataRow("{\"decision\":\"approved\",\"decision\":\"rejected\"}")]
+    [DataRow("{\"decision\":\"rejected\",\"decision\":\"approved\"}")]
+    [DataRow("{\"decision\":\"approved\",\"extra\":true}")]
+    [DataRow("{\"decision\":\"APPROVED\"}")]
+    [DataRow("{\"decision\":true}")]
+    [DataRow("{}")]
+    [DataRow("null")]
+    [DataRow("{\"decision\":\"approved\"} trailing")]
+    public async Task Untrusted_validation_never_dispatches_write_async(string validation)
+    {
+        // 同时验证正常执行和恢复路径，防止检查点绕过校验节点。
+        foreach (var resume in new[] { false, true })
+        {
+            var state = AgentWorkflowState.Create(Guid.CreateVersion7());
+            if (resume)
+            {
+                state.NextNodeIndex = 3;
+                state.Outputs["summarize"] = "Title";
+                state.Outputs["validate"] = validation;
+            }
+            var executor = CreateExecutor("[]");
+            var result = await new AgentWorkflowRunner().RunAsync(new(
+                Guid.CreateVersion7(), AgentWorkflowRegistry.ChatRenameWorkflowKey, AgentWorkflowRegistry.ChatRenameWorkflowVersion,
+                state, Substitute.For<IChatClient>(), CreateModelRunner("Title", validation),
+                executor, CreateRegistry(), _ => Guid.CreateVersion7()));
+            Assert.AreEqual(AgentWorkflowRunStatus.Failed, result.Status);
+            await executor.DidNotReceive().ExecuteAsync(
+                Arg.Is<ToolInvocation>(x => x != null && x.ToolName == "ai.chat.sessions.rename"), Arg.Any<CancellationToken>());
+        }
+    }
+
+    [TestMethod]
     public async Task Happy_path_completes_all_nodes_async()
     {
         var sessionId = Guid.CreateVersion7();
@@ -20,14 +57,14 @@ public sealed class AgentWorkflowRunnerTests
         var executor = CreateExecutor(
             readOutput: """{"sessions":[{"id":"1","title":"old"}]}""",
             renameStatus: "succeeded");
-        var runner = CreateModelRunner("Proposed Title", "VALID");
+        var runner = CreateModelRunner("Proposed Title", """{"decision":"approved"}""");
         var registry = CreateRegistry();
         var state = AgentWorkflowState.Create(sessionId);
         var workflow = new AgentWorkflowRunner();
         var result = await workflow.RunAsync(new(
             runId,
             AgentWorkflowRegistry.ChatRenameWorkflowKey,
-            1,
+            AgentWorkflowRegistry.ChatRenameWorkflowVersion,
             state,
             Substitute.For<IChatClient>(),
             runner,
@@ -52,7 +89,7 @@ public sealed class AgentWorkflowRunnerTests
         var result = await workflow.RunAsync(new(
             Guid.CreateVersion7(),
             AgentWorkflowRegistry.ChatRenameWorkflowKey,
-            1,
+            AgentWorkflowRegistry.ChatRenameWorkflowVersion,
             AgentWorkflowState.Create(sessionId),
             Substitute.For<IChatClient>(),
             runner,
@@ -79,12 +116,12 @@ public sealed class AgentWorkflowRunnerTests
                 Arg.Is<ToolInvocation>(invocation => invocation != null && invocation.ToolName == "ai.chat.sessions.rename"),
                 Arg.Any<CancellationToken>())
             .Returns(new ToolExecutionResult("denied", null, "ai.tool.approval_required"));
-        var runner = CreateModelRunner("Rename Me", "VALID");
+        var runner = CreateModelRunner("Rename Me", """{"decision":"approved"}""");
         var workflow = new AgentWorkflowRunner();
         var result = await workflow.RunAsync(new(
             Guid.CreateVersion7(),
             AgentWorkflowRegistry.ChatRenameWorkflowKey,
-            1,
+            AgentWorkflowRegistry.ChatRenameWorkflowVersion,
             AgentWorkflowState.Create(sessionId),
             Substitute.For<IChatClient>(),
             runner,
@@ -112,14 +149,14 @@ public sealed class AgentWorkflowRunnerTests
             {
                 ["read_sessions"] = "[]",
                 ["summarize"] = "Done",
-                ["validate"] = "VALID",
+                ["validate"] = """{"decision":"approved"}""",
             },
         };
         var workflow = new AgentWorkflowRunner();
         var result = await workflow.RunAsync(new(
             Guid.CreateVersion7(),
             AgentWorkflowRegistry.ChatRenameWorkflowKey,
-            1,
+            AgentWorkflowRegistry.ChatRenameWorkflowVersion,
             state,
             Substitute.For<IChatClient>(),
             runner,
@@ -131,6 +168,45 @@ public sealed class AgentWorkflowRunnerTests
         await executor.Received(1).ExecuteAsync(
             Arg.Is<ToolInvocation>(invocation => invocation != null && invocation.ToolName == "ai.chat.sessions.rename"),
             Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Invalid_title_or_missing_validation_cannot_resume_write_async()
+    {
+        foreach (var title in new[] { "", " ", new string('x', 257), "Valid title" })
+        {
+            var state = AgentWorkflowState.Create(Guid.CreateVersion7());
+            state.NextNodeIndex = 3;
+            state.Outputs["summarize"] = title;
+            // 最后一个场景缺失校验结果，其余场景即使模型批准也不能通过业务规则。
+            if (title != "Valid title") state.Outputs["validate"] = """{"decision":"approved"}""";
+            var executor = CreateExecutor("[]");
+            var result = await new AgentWorkflowRunner().RunAsync(new(
+                Guid.CreateVersion7(), AgentWorkflowRegistry.ChatRenameWorkflowKey, AgentWorkflowRegistry.ChatRenameWorkflowVersion,
+                state, Substitute.For<IChatClient>(), CreateModelRunner(title, """{"decision":"approved"}"""),
+                executor, CreateRegistry(), _ => Guid.CreateVersion7()));
+            Assert.AreEqual(AgentWorkflowRunStatus.Failed, result.Status);
+            await executor.DidNotReceive().ExecuteAsync(Arg.Any<ToolInvocation>(), Arg.Any<CancellationToken>());
+        }
+    }
+
+    [TestMethod]
+    public async Task Legacy_definition_is_rejected_without_model_or_tool_execution_async()
+    {
+        var runner = CreateModelRunner("Title", "VALID");
+        var executor = CreateExecutor("[]");
+        var state = AgentWorkflowState.Create(Guid.CreateVersion7());
+        state.NextNodeIndex = 3;
+        state.Outputs["summarize"] = "Title";
+        state.Outputs["validate"] = "VALID";
+        var result = await new AgentWorkflowRunner().RunAsync(new(
+            Guid.CreateVersion7(), AgentWorkflowRegistry.ChatRenameWorkflowKey, 1,
+            state, Substitute.For<IChatClient>(), runner, executor, CreateRegistry(), _ => Guid.CreateVersion7()));
+        Assert.AreEqual("ai.agent_run.definition_incompatible", result.ErrorCode);
+        Assert.IsFalse(AgentCheckpointCompatibility.TryValidateWorkflow(
+            AgentWorkflowRegistry.ChatRenameWorkflowKey, 1, 1, AgentFrameworkRuntime.FrameworkVersion, out _));
+        await runner.DidNotReceive().RunAsync(Arg.Any<IChatClient>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await executor.DidNotReceive().ExecuteAsync(Arg.Any<ToolInvocation>(), Arg.Any<CancellationToken>());
     }
 
     private static IAgentModelRunner CreateModelRunner(string summarizeText, string validateText)
