@@ -45,6 +45,16 @@ test('application template package includes framework sources and root manifest'
       '--owner-key', 'acme', '--database', 'mysql', '--preset', 'minimal', '--http-port', '5500',
     ], { encoding: 'utf8', timeout: 150_000 });
     assert.equal(create.status, 0, create.stderr || create.stdout);
+    const clientTool = join(appRoot, '.fullnet-tools/openapi/generate-fullnet-client.mjs');
+    const clientCheck = spawnSync(process.execPath, [clientTool, '--check'], { cwd: tmpdir(), encoding: 'utf8', windowsHide: true });
+    assert.equal(clientCheck.status, 0, clientCheck.stderr || clientCheck.stdout);
+    for (const relative of ['scripts/openapi/generate-fullnet-client.mjs', 'scripts/openapi/validate-client-generation-readiness.mjs',
+      'contracts/openapi/fullnet-client-v1.openapi.json', 'contracts/openapi/client-generation-manifest-v1.json']) {
+      assert.match(manifest.managedFiles[relative], /^[0-9a-f]{64}$/u);
+      const applicationPath = relative.startsWith('scripts/openapi/') ? relative.replace('scripts/openapi/', '.fullnet-tools/openapi/') : relative;
+      assert.deepEqual(readFileSync(join(appRoot, applicationPath)), readFileSync(join(templateRoot, 'framework/fullnet', relative)),
+        'template replacements changed frozen client tool content: ' + relative);
+    }
     assert.deepEqual(readdirSync(workspace).filter((entry) => entry.startsWith('.fullnet-create-')), []);
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj')));
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj')));
@@ -53,7 +63,9 @@ test('application template package includes framework sources and root manifest'
     assert.ok(existsSync(join(appRoot, 'ui/admin/src/App.vue')));
     assert.match(readFileSync(join(appRoot, 'ui/admin/vite.config.ts'), 'utf8'), /http:\/\/localhost:5500/);
     assert.ok(existsSync(join(appRoot, 'packages/admin-form-designer/package.json')));
-    assert.equal(existsSync(join(appRoot, '.fullnet-tools')), false);
+    assert.equal(existsSync(join(appRoot, '.fullnet-tools/create-app.mjs')), false);
+    assert.equal(existsSync(join(appRoot, '.fullnet-tools/upgrade-framework.mjs')), false);
+    assert.deepEqual(readdirSync(join(appRoot, '.fullnet-tools')), ['openapi']);
     const verification = verifyCreatedApp(appRoot);
     assert.equal(verification.ok, true, verification.errors.join('; '));
     const appProfile = JSON.parse(readFileSync(join(appRoot, 'fullnet-app.json'), 'utf8'));

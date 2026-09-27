@@ -226,6 +226,13 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
 
     const logRoot = join(repoRoot, '.tmp/template-real-stack', databaseProviderKey);
     mkdirSync(logRoot, { recursive: true });
+    // 运行应用自带客户端工具；仅验证冻结基线零漂移，不冒充业务 Vue 接入或页面编译。
+    const clientCheck = spawnSync(process.execPath, [join(appRoot, '.fullnet-tools/openapi/generate-fullnet-client.mjs'), '--check'],
+      { cwd: workspace, encoding: 'utf8', timeout: 60_000, windowsHide: true });
+    writeFileSync(join(logRoot, 'application-client-tools.json'), JSON.stringify({ status: clientCheck.status,
+      error: clientCheck.error?.message, stdout: clientCheck.stdout, stderr: clientCheck.stderr }, null, 2));
+    assert.equal(clientCheck.error, undefined, 'application client tool process failed');
+    assert.equal(clientCheck.status, 0, 'application client baseline drift: ' + clientCheck.stderr);
     const diagnosticInputs = ['fullnet-app.json', 'framework-manifest.json', 'appsettings.json',
       'src/Demo.Host.Api/appsettings.json', 'src/Demo.Host.Migrator/appsettings.json']
       .map((path) => [path, readFileSync(join(appRoot, path))]);
