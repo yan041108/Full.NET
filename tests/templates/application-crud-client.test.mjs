@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime } from './support/application-crud-client.mjs';
+import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verifyApplicationCrudClientTenantRead } from './support/application-crud-client.mjs';
 
 async function fixture(action) {
   const appRoot = mkdtempSync(join(tmpdir(), 'fullnet-business-client-'));
@@ -32,6 +32,37 @@ for (const hostAccessToken of ['', null, 17]) {
     await assert.rejects(() => verifyApplicationCrudClientRuntime('unused', 'http://localhost',
       { logPath: 'unused', hostAccessToken }), /valid Host credential required/u);
   });
+}
+
+for (const [validShape, status] of [[true, 200], [false, 200], [true, 201]]) {
+  test(`generated client tenant list decodes successful HTTP: ${validShape}/${status}`, () => fixture(async (appRoot) => {
+    verifyApplicationCrudClient(appRoot, { reportDirectory: join(appRoot, 'reports/client') });
+    const token = 'secret-tenant-read-fixture';
+    const requests = [];
+    const server = createServer((request, response) => {
+      requests.push({ method: request.method, url: request.url, authorization: request.headers.authorization });
+      response.writeHead(status, { 'content-type': 'application/json' });
+      response.end(JSON.stringify(validShape ? { items: [], page: 1, pageSize: 5, total: 0 } : { items: 'invalid' }));
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const logPath = join(appRoot, 'reports/client/tenant-read.json');
+    try {
+      const run = () => verifyApplicationCrudClientTenantRead(appRoot, `http://127.0.0.1:${server.address().port}`,
+        { tenantAccessToken: token, logPath });
+      if (validShape && status === 200) {
+        assert.deepEqual(await run(), { requests: 1, readSucceeded: 1 });
+        assert.equal(requests.length, 1);
+        assert.equal(requests[0].authorization, `Bearer ${token}`);
+        assert.equal(requests[0].method, 'GET');
+        assert.match(requests[0].url, /^\/api\/v1\/catalog\/products\?/u);
+        assert.match(requests[0].url, /page=1/u);
+        assert.match(requests[0].url, /pageSize=5/u);
+      } else await assert.rejects(run);
+      const text = readFileSync(logPath, 'utf8');
+      assert.equal(text.includes(token), false);
+      assert.equal(JSON.parse(text).completed, validShape && status === 200);
+    } finally { await new Promise((resolve) => server.close(resolve)); }
+  }));
 }
 
 test('application business client generates and compiles all five operations without changing its inputs', () => fixture((appRoot) => {

@@ -192,3 +192,7 @@ ASP.NET 数字读取兼容：实际文档的分页参数及ProblemDetails.status
 匿名运行远端证据：`006ca78f` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36331246301/job/108653465437)成功385/385、零失败/跳过。两库runtime.json均completed=true，五操作的httpStatus/status均401、code均identity.session_not_active。这证明生成操作经应用共享HTTP实现抵达真实API并被拒绝，不证明允许CRUD或Vue页面。
 
 Host拒绝增量：登录后、进入租户前，另用生成客户端执行五个操作，HTTP与正文状态均须403，code须authorization.permission_denied。Host凭据只在内存传到隔离Worker，重试关闭；host-runtime.json及错误消息脱敏，不能写入token。对应新SHA双库结果须独立核对，不能用本地测试服务器替代真实授权证明。
+
+Host运行远端证据：`44ad7883` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36335535861/job/108665550676)成功391/391、零失败/跳过。两库host-runtime.json均completed=true、subject为host-admin，五操作实际HTTP/body403及authorization.permission_denied；未存凭据。该证据不代表成功业务请求。
+
+租户成功列表增量：在既有租户CRUD验收移交可信会话后，生成客户端调用列表操作，要求单次HTTP200、page=1/pageSize=5，并由生成的响应解析器校验分页契约。tenant-read.json仅记录操作、状态和条数，不写凭据/响应正文；失败保持completed=false。仅覆盖列表读取，不代表生成客户端完整CRUD、非空数据隔离或Vue，真实双库结果须按新SHA核对。

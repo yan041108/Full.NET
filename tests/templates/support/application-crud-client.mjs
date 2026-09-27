@@ -8,12 +8,21 @@ import { isMainThread, parentPort, Worker, workerData } from 'node:worker_thread
 const operationIds = ['catalogListProducts', 'catalogCreateProduct', 'catalogGetProduct', 'catalogUpdateProduct', 'catalogDeleteProduct'];
 const fileNames = ['guards.generated.ts', 'index.generated.ts', 'models.generated.ts', 'operations.generated.ts'];
 
+export async function verifyApplicationCrudClientTenantRead(appRoot, baseUrl, { logPath, tenantAccessToken }) {
+  assert.ok(typeof tenantAccessToken === 'string' && tenantAccessToken.trim(), 'valid tenant credential required');
+  return await runRuntimeWorker({ kind: 'client-runtime', appRoot, baseUrl, logPath, hostAccessToken: tenantAccessToken, tenantRead: true });
+}
+
 // 匿名不注入凭据，Host 凭据只在内存中传递；拒绝证据不证明允许业务操作或页面行为。
 export async function verifyApplicationCrudClientRuntime(appRoot, baseUrl, { logPath, hostAccessToken }) {
   assert.ok(hostAccessToken === undefined || (typeof hostAccessToken === 'string' && hostAccessToken.trim()), 'valid Host credential required');
+  return await runRuntimeWorker({ kind: 'client-runtime', appRoot, baseUrl, logPath, hostAccessToken });
+}
+
+async function runRuntimeWorker(data) {
   // Worker 隔离 fetch 观测，避免修改并行验收或宿主线程的全局网络实现。
   return await new Promise((resolve, reject) => {
-    const worker = new Worker(new URL(import.meta.url), { workerData: { kind: 'client-runtime', appRoot, baseUrl, logPath, hostAccessToken } });
+    const worker = new Worker(new URL(import.meta.url), { workerData: data });
     let result;
     worker.on('message', (message) => { result = message; });
     worker.on('error', reject);
@@ -25,13 +34,13 @@ export async function verifyApplicationCrudClientRuntime(appRoot, baseUrl, { log
   });
 }
 
-async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken) {
+async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken, tenantRead = false) {
   const emittedRoot = join(appRoot, 'verification/ClientGeneration/emitted');
   const host = hostAccessToken !== undefined;
   const expectedStatus = host ? 403 : 401;
   const expectedCode = host ? 'authorization.permission_denied' : 'identity.session_not_active';
   const redact = (text) => host ? text.replaceAll(hostAccessToken, '[REDACTED]') : text;
-  const evidence = { completed: false, subject: host ? 'host-admin' : 'anonymous', responses: [] };
+  const evidence = { completed: false, subject: tenantRead ? 'tenant-reader' : host ? 'host-admin' : 'anonymous', responses: [] };
   const originalFetch = globalThis.fetch;
   const transports = [];
   globalThis.fetch = async (...args) => {
@@ -44,6 +53,21 @@ async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken) {
     const operations = await import(pathToFileURL(join(emittedRoot, 'verification/ClientGeneration/generated/operations.generated.js')).href);
     const http = createHttpClient(baseUrl);
     if (host) http.configureAuthentication({ getAccessToken: () => hostAccessToken, refresh: async () => false });
+    if (tenantRead) {
+      const entry = { operationId: 'catalogListProducts' };
+      evidence.responses.push(entry);
+      let page;
+      try { page = await operations.catalogListProducts(http, { page: 1, pageSize: 5 }, AbortSignal.timeout(15_000), { retryUnauthorized: false }); }
+      finally { entry.httpStatus = transports[0]; }
+      assert.equal(transports.length, 1, 'generated tenant read unexpected transport count');
+      assert.equal(entry.httpStatus, 200, 'generated tenant read HTTP status mismatch');
+      assert.equal(page.page, 1, 'generated tenant read page mismatch');
+      assert.equal(page.pageSize, 5, 'generated tenant read page size mismatch');
+      assert.ok(Array.isArray(page.items), 'generated tenant read items mismatch');
+      entry.items = page.items.length;
+      evidence.completed = true;
+      return { requests: 1, readSucceeded: 1 };
+    }
     const productId = '01900000-0000-7000-8000-000000000001';
     const parameters = [{ page: 1, pageSize: 5 }, { body: { name: 'Denied application product' } },
       { productId }, { productId, body: { name: 'Denied update', version: '1' } }, { productId, body: { version: '1' } }];
@@ -75,7 +99,7 @@ async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken) {
 }
 
 if (!isMainThread && workerData?.kind === 'client-runtime') {
-  try { parentPort.postMessage({ value: await runClientRuntime(workerData.appRoot, workerData.baseUrl, workerData.logPath, workerData.hostAccessToken) }); }
+  try { parentPort.postMessage({ value: await runClientRuntime(workerData.appRoot, workerData.baseUrl, workerData.logPath, workerData.hostAccessToken, workerData.tenantRead) }); }
   catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     parentPort.postMessage({ error: workerData.hostAccessToken === undefined ? message : message.replaceAll(workerData.hostAccessToken, '[REDACTED]') });
