@@ -55,7 +55,7 @@ export function verifyCreatedApp(appRoot) {
     }
   }
 
-  const configurationPresets = [];
+  const configurations = [];
   for (const relativePath of configurationFiles) {
     const configPath = join(root, relativePath);
     if (!isRegularFile(configPath)) continue;
@@ -64,7 +64,7 @@ export function verifyCreatedApp(appRoot) {
       if (!config?.FullNet?.Modules) {
         errors.push(relativePath + ' must define FullNet:Modules');
       }
-      configurationPresets.push({ relativePath, preset: config?.FullNet?.Modules?.Preset });
+      configurations.push({ relativePath, preset: config?.FullNet?.Modules?.Preset, provider: config?.Database?.Provider });
     } catch (error) {
       errors.push(relativePath + ' is not valid JSON: ' + (error instanceof Error ? error.message : String(error)));
     }
@@ -72,13 +72,15 @@ export function verifyCreatedApp(appRoot) {
 
   const profilePath = join(root, 'fullnet-app.json');
   let profilePreset;
+  let profileProvider;
   if (existsSync(profilePath)) {
     try {
       const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
       profilePreset = profile.preset;
+      profileProvider = profile.databaseProvider;
       validateOwnerKey(profile.ownerKey);
       resolvePresetModules(profile.preset);
-      if (!['sqlserver', 'mysql'].includes(profile.databaseProvider)) {
+      if (!['sqlserver', 'mysql'].includes(profileProvider)) {
         errors.push('fullnet-app.json has an invalid databaseProvider');
       }
     } catch (error) {
@@ -86,12 +88,13 @@ export function verifyCreatedApp(appRoot) {
     }
   }
 
-  // 文件中的预设必须与应用冻结档案一致；环境覆盖由运行期诊断另行验证。
-  if (profilePreset !== undefined) {
-    for (const { relativePath, preset } of configurationPresets) {
-      if (preset !== profilePreset) {
-        errors.push(relativePath + ' module preset does not match fullnet-app.json');
-      }
+  // 文件中的预设和数据库必须与应用冻结档案一致；环境覆盖由运行期诊断另行验证。
+  for (const { relativePath, preset, provider } of configurations) {
+    if (profilePreset !== undefined && preset !== profilePreset) {
+      errors.push(relativePath + ' module preset does not match fullnet-app.json');
+    }
+    if (['sqlserver', 'mysql'].includes(profileProvider) && provider !== profileProvider) {
+      errors.push(relativePath + ' database provider does not match fullnet-app.json');
     }
   }
 

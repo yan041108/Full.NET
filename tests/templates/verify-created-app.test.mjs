@@ -5,12 +5,16 @@ import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { verifyCreatedApp } from '../../scripts/templates/verify-created-app.mjs';
 
+function configuration(preset = 'minimal', provider = 'mysql') {
+  return { Database: { Provider: provider }, FullNet: { Modules: { Preset: preset } } };
+}
+
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'fullnet-created-app-check-'));
   // 此夹具只满足结构校验，不替代真实创建和 .NET 构建。
   const files = {
     'framework-manifest.json': JSON.stringify({ schemaVersion: 1, frameworkVersion: '1.0.0', managedFiles: {} }),
-    'appsettings.json': JSON.stringify({ FullNet: { Modules: { Preset: 'minimal' } } }),
+    'appsettings.json': JSON.stringify(configuration()),
     'fullnet-app.json': JSON.stringify({ ownerKey: 'acme', preset: 'minimal', databaseProvider: 'mysql' }),
     'pnpm-lock.yaml': '',
     'ui/admin/package.json': '{}',
@@ -20,7 +24,7 @@ function fixture() {
     'packages/design-tokens/package.json': '{}',
     'src/Demo.Host.Api/Program.cs': '',
     'src/Demo.Host.Api/Demo.Host.Api.csproj': '<Project />',
-    'src/Demo.Host.Api/appsettings.json': JSON.stringify({ FullNet: { Modules: { Preset: 'minimal' } } }),
+    'src/Demo.Host.Api/appsettings.json': JSON.stringify(configuration()),
     'src/Demo.Composition/Demo.Composition.csproj': '<Project />',
     'src/Demo.Composition/ApplicationModuleCatalog.cs': '',
   };
@@ -78,7 +82,9 @@ for (const configPath of ['appsettings.json', 'src/Demo.Host.Api/appsettings.jso
     test(`created app rejects ${preset ?? 'missing'} preset in ${configPath}`, () => {
       const { root } = fixture();
       try {
-        writeFileSync(join(root, configPath), JSON.stringify({ FullNet: { Modules: { Preset: preset } } }));
+        const config = configuration();
+        config.FullNet.Modules.Preset = preset;
+        writeFileSync(join(root, configPath), JSON.stringify(config));
         const result = verifyCreatedApp(root);
         assert.equal(result.ok, false);
         assert.ok(result.errors.some((error) => error.includes(configPath) && error.includes('preset')),
@@ -108,10 +114,48 @@ for (const preset of ['minimal', 'platform', 'saas', 'enterprise']) {
     try {
       writeFileSync(join(root, 'fullnet-app.json'), JSON.stringify({ ownerKey: 'acme', preset, databaseProvider: 'mysql' }));
       for (const path of ['appsettings.json', 'src/Demo.Host.Api/appsettings.json']) {
-        writeFileSync(join(root, path), JSON.stringify({ FullNet: { Modules: { Preset: preset } } }));
+        writeFileSync(join(root, path), JSON.stringify(configuration(preset)));
       }
       const result = verifyCreatedApp(root);
       assert.equal(result.ok, true, result.errors.join('; '));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
+
+for (const configPath of ['appsettings.json', 'src/Demo.Host.Api/appsettings.json']) {
+  for (const provider of ['sqlserver', undefined, 'postgres']) {
+    test(`created app rejects ${provider ?? 'missing'} provider in ${configPath}`, () => {
+      const { root } = fixture();
+      try {
+        const config = configuration();
+        config.Database.Provider = provider;
+        writeFileSync(join(root, configPath), JSON.stringify(config));
+        const result = verifyCreatedApp(root);
+        assert.equal(result.ok, false);
+        assert.ok(result.errors.some((error) => error.includes(configPath) && error.includes('provider')),
+          result.errors.join('; '));
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  }
+}
+
+for (const provider of ['sqlserver', 'mysql']) {
+  test(`matching ${provider} configuration passes without changing the application`, () => {
+    const { root } = fixture();
+    try {
+      const files = {
+        'fullnet-app.json': JSON.stringify({ ownerKey: 'acme', preset: 'minimal', databaseProvider: provider }),
+        'appsettings.json': JSON.stringify(configuration('minimal', provider)),
+        'src/Demo.Host.Api/appsettings.json': JSON.stringify(configuration('minimal', provider)),
+      };
+      for (const [path, content] of Object.entries(files)) writeFileSync(join(root, path), content);
+      const result = verifyCreatedApp(root);
+      assert.equal(result.ok, true, result.errors.join('; '));
+      for (const [path, content] of Object.entries(files)) assert.equal(readFileSync(join(root, path), 'utf8'), content);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
