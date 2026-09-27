@@ -30,6 +30,8 @@ The creator uses an isolated `dotnet new` template hive and projects the selecte
 
 Before publishing the created directory, the structure verifier requires the sole API host's matching application Composition project and `ApplicationModuleCatalog.cs`. Required application, host, and Composition paths must be files; directories cannot satisfy these checks. This verifies layout only; compilation and runtime acceptance remain separate gates.
 
+If the existing `src` path cannot be read as a directory, verification returns a failed result with a source-directory diagnostic. The CLI prints the diagnostics and exits with code 1; verification does not repair or overwrite the path.
+
 The verifier also parses the root and API host `appsettings.json` files and requires their `FullNet:Modules:Preset` and `Database:Provider` values to match the frozen preset and database provider in `fullnet-app.json`. This checks the generated files; environment-specific overrides still require runtime diagnostics.
 
 ## Layout

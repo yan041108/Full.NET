@@ -32,10 +32,17 @@ export function verifyCreatedApp(appRoot) {
   }
 
   const sourceRoot = join(root, 'src');
-  const hosts = existsSync(sourceRoot)
-    ? readdirSync(sourceRoot, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name.endsWith('.Host.Api'))
-    : [];
+  let hosts = [];
+  if (existsSync(sourceRoot)) {
+    try {
+      hosts = readdirSync(sourceRoot, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && entry.name.endsWith('.Host.Api'));
+    } catch (error) {
+      // 损坏或不可读的源码目录作为校验结果返回，避免调用方收到未处理的文件系统异常。
+      errors.push('Cannot inspect application source directory src: '
+        + (error instanceof Error ? error.message : String(error)));
+    }
+  }
   if (hosts.length !== 1) {
     errors.push('Created app must contain exactly one application API host');
   } else {
