@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { verifyApplicationCrudReadPermission } from './support/application-crud-read-permission.mjs';
+import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission } from './support/application-crud-read-permission.mjs';
 
 const tenantId = '01900000-0000-7000-8000-000000000010';
 const id = '01900000-0000-7000-8000-000000000011';
@@ -32,19 +32,74 @@ async function fixture(action) {
   const root = mkdtempSync(join(tmpdir(), 'fullnet-read-permission-'));
   try { await action(join(root, 'result.json')); } finally { rmSync(root, { recursive: true, force: true }); }
 }
-function runner(calls, change) {
+function runner(calls, change, noProductPermission = false) {
   return async (url, options) => {
     const i = calls.length;
     calls.push({ url, options });
     // 替身遵守真实角色API的父页面闭包，不能固定200掩盖缺失tenancy.read。
-    if (i === 2) assert.deepEqual(JSON.parse(options.body).permissionCodes, permissions);
+    const expectedPermissions = noProductPermission ? permissions.slice(1) : permissions;
+    if (i === 2) assert.deepEqual(JSON.parse(options.body).permissionCodes, expectedPermissions);
     const altered = change?.(i);
-    const data = altered?.body ?? bodies[i];
-    return new Response(altered?.raw ?? JSON.stringify(data), { status: altered?.status ?? statusAt(i), headers: {
-      'content-type': altered?.contentType ?? (i >= 15 && i <= 17 ? 'application/problem+json' : 'application/json'),
+    const denied = i >= (noProductPermission ? 13 : 15) && i <= 17;
+    let defaultBody = bodies[i];
+    if (noProductPermission && [2, 12].includes(i)) defaultBody = { ...defaultBody, [i === 2 ? 'permissionCodes' : 'permissions']: expectedPermissions };
+    if (noProductPermission && [13, 14].includes(i)) defaultBody = problem;
+    const data = altered?.body ?? defaultBody;
+    return new Response(altered?.raw ?? JSON.stringify(data), { status: altered?.status ?? (denied ? 403 : statusAt(i)), headers: {
+      'content-type': altered?.contentType ?? (denied ? 'application/problem+json' : 'application/json'),
       ...(i === 6 ? { 'set-cookie': `fullnet-csrf=${tokens[6]}; Path=/; SameSite=Lax` } : {}),
     } });
   };
+}
+
+test('authenticated tenant account without product permissions denies all five business routes', async () => fixture(async (logPath) => {
+  const calls = [];
+  const result = await verifyApplicationCrudNoPermission('http://example.test', { hostAccessToken: tokens[0], logPath, request: runner(calls, undefined, true) });
+  assert.deepEqual(result, { businessRequests: 9, readAllowed: 0, readDenied: 2, writeDenied: 3, rowPreserved: true, hostAccessToken: tokens[5] });
+  assert.equal(calls.length, 22);
+  assert.equal(JSON.parse(calls[1].options.body).code, 'catalog-no-permission-probe');
+  assert.equal(JSON.parse(calls[3].options.body).username, 'catalog-unprivileged-probe');
+  assert.equal(JSON.parse(calls[6].options.body).username, 'catalog-unprivileged-probe');
+  assert.deepEqual(JSON.parse(calls[2].options.body).permissionCodes, permissions.slice(1));
+  assert.deepEqual(calls.slice(13, 18).map(({ url, options }) => [url.replace('http://example.test', ''), options.method]), [
+    ['/api/v1/catalog/products/?page=1&pageSize=5', 'GET'], ['/api/v1/catalog/products/' + id, 'GET'],
+    ['/api/v1/catalog/products/', 'POST'], ['/api/v1/catalog/products/' + id, 'PUT'], ['/api/v1/catalog/products/' + id + '/delete', 'POST'],
+  ]);
+  for (const i of [13, 14, 15, 16, 17]) assert.equal(calls[i].options.headers.Authorization, `Bearer ${tokens[4]}`);
+  const text = readFileSync(logPath, 'utf8');
+  const evidence = JSON.parse(text);
+  assert.equal(evidence.completed, true);
+  assert.equal(evidence.responses.filter((entry) => entry.status === 403).length, 5);
+  assert.equal(Object.hasOwn(evidence.result, 'hostAccessToken'), false);
+  for (const token of tokens) assert.equal(text.includes(token), false);
+}));
+
+const noPermissionFailures = [
+  ['role-grants-product-read', 2, { body: bodies[2] }],
+  ['account-has-product-read', 12, { body: bodies[12] }],
+  ['list-allowed', 13, { status: 200, body: { items: [product] } }],
+  ['read-allowed', 14, { status: 200, body: product }],
+  ['create-allowed', 15, { status: 201, body: product }],
+  ['update-allowed', 16, { status: 200, body: product }],
+  ['delete-allowed', 17, { status: 200, body: product }],
+  ['wrong-denial-code', 13, { body: { ...problem, code: 'other.denied' } }],
+  ['wrong-denial-type', 14, { contentType: 'application/json' }],
+  ['credential-json', 7, { raw: `invalid ${tokens[2]}` }],
+  ['row-mutated', 18, { body: { ...product, version: '2' } }],
+  ['denied-create-persisted', 19, { body: { items: [product, { ...product, id: roleId }] } }],
+];
+for (const [name, index, altered] of noPermissionFailures) {
+  test(`no product permission acceptance rejects ${name} at the intended stage`, async () => fixture(async (logPath) => {
+    const calls = [];
+    await assert.rejects(() => verifyApplicationCrudNoPermission('http://example.test', {
+      hostAccessToken: tokens[0], logPath, request: runner(calls, (i) => i === index ? altered : undefined, true),
+    }), (error) => tokens.every((token) => !error.message.includes(token)));
+    assert.equal(calls.length, index + 1, 'failure did not reach intended stage');
+    const text = readFileSync(logPath, 'utf8');
+    assert.equal(JSON.parse(text).completed, false);
+    assert.equal(JSON.parse(text).responses.length, calls.length);
+    for (const token of tokens) assert.equal(text.includes(token), false);
+  }));
 }
 test('ordinary read-only account uses real API setup, password change and exact tenant permissions', async () => fixture(async (logPath) => {
   const calls = [];

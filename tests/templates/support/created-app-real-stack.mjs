@@ -18,7 +18,7 @@ import { verifyApplicationCrudAuthorization } from './application-crud-authoriza
 import { verifyApplicationCrudHttpDenial } from './application-crud-http-denial.mjs';
 import { verifyApplicationCrudTenantHttp } from './application-crud-tenant-http.mjs';
 import { verifyApplicationCrudTenantIsolation } from './application-crud-tenant-isolation.mjs';
-import { verifyApplicationCrudReadPermission } from './application-crud-read-permission.mjs';
+import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission } from './application-crud-read-permission.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 const requireFromRealStack = createRequire(join(repoRoot, 'tests/e2e/admin-real-stack/package.json'));
@@ -285,6 +285,8 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     await verifyApplicationCrudHttpDenial(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-http-denial.json') });
     const readPermission = await verifyApplicationCrudReadPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-read-permission.json') });
     hostAccessToken = readPermission.hostAccessToken;
+    const noPermission = await verifyApplicationCrudNoPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-no-permission.json') });
+    hostAccessToken = noPermission.hostAccessToken;
     const tenantCrud = await verifyApplicationCrudTenantHttp(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-tenant-http.json') });
     await verifyApplicationCrudTenantIsolation(apiUrl, { localTenantId: tenantCrud.tenantId, initialAccessToken: tenantCrud.tenantAccessToken,
       logPath: join(logRoot, 'application-crud-tenant-isolation.json') });
