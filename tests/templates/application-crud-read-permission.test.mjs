@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission, verifyApplicationCrudCreatePermission } from './support/application-crud-read-permission.mjs';
+import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission, verifyApplicationCrudCreatePermission, verifyApplicationCrudUpdatePermission } from './support/application-crud-read-permission.mjs';
 
 const tenantId = '01900000-0000-7000-8000-000000000010';
 const id = '01900000-0000-7000-8000-000000000011';
@@ -12,6 +12,7 @@ const userId = '01900000-0000-7000-8000-000000000013';
 const permissions = ['catalog.products.read', 'tenancy.tenants.read', 'tenancy.tenants.switch'];
 const product = { id, tenantId, name: 'Read permission product', version: '1' };
 const createdProduct = { id: '01900000-0000-7000-8000-000000000014', tenantId, name: 'Ordinary account created product', version: '1' };
+const updatedProduct = { ...product, name: 'Ordinary account updated product', version: '2' };
 const tokens = ['secret-admin', 'secret-login', 'secret-password', 'secret-admin-tenant', 'secret-reader-tenant', 'secret-admin-host', 'secret-csrf'];
 const context = { tenantId, identifier: 'local', scope: `tenant:${tenantId.replaceAll('-', '')}` };
 const problem = { status: 403, code: 'authorization.permission_denied' };
@@ -33,12 +34,12 @@ async function fixture(action) {
   const root = mkdtempSync(join(tmpdir(), 'fullnet-read-permission-'));
   try { await action(join(root, 'result.json')); } finally { rmSync(root, { recursive: true, force: true }); }
 }
-function runner(calls, change, noProductPermission = false, canCreate = false) {
+function runner(calls, change, noProductPermission = false, canCreate = false, canUpdate = false) {
   return async (url, options) => {
     const i = calls.length;
     calls.push({ url, options });
     // 替身遵守真实角色API的父页面闭包，不能固定200掩盖缺失tenancy.read。
-    const expectedPermissions = noProductPermission ? permissions.slice(1) : canCreate ? ['catalog.products.create', ...permissions] : permissions;
+    const expectedPermissions = noProductPermission ? permissions.slice(1) : canCreate ? ['catalog.products.create', ...permissions] : canUpdate ? [permissions[0], 'catalog.products.update', ...permissions.slice(1)] : permissions;
     if (i === 2) assert.deepEqual(JSON.parse(options.body).permissionCodes, expectedPermissions);
     const altered = change?.(i);
     const denied = i >= (noProductPermission ? 13 : canCreate ? 16 : 15) && i <= 17;
@@ -52,13 +53,65 @@ function runner(calls, change, noProductPermission = false, canCreate = false) {
       if (i === 22) defaultBody = { status: 404, code: 'catalog.products.not_found' };
       if (i === 23) defaultBody = bodies[21];
     }
+    if (canUpdate) {
+      if ([2, 12].includes(i)) defaultBody = { ...defaultBody, [i === 2 ? 'permissionCodes' : 'permissions']: expectedPermissions };
+      if ([16, 18, 20, 22].includes(i)) defaultBody = updatedProduct;
+      if (i === 17) defaultBody = { status: 409, code: 'catalog.products.version_conflict' };
+      if (i === 19) defaultBody = problem;
+      if (i === 21) defaultBody = { items: [updatedProduct] };
+      if (i === 23) defaultBody = bodies[21];
+    }
     const data = altered?.body ?? defaultBody;
-    const status = denied ? 403 : canCreate && i === 15 ? 201 : canCreate && i === 22 ? 404 : canCreate && i >= 21 ? 200 : statusAt(i);
+    const status = canUpdate && i >= 16 ? i === 17 ? 409 : i === 19 ? 403 : 200 : denied ? 403 : canCreate && i === 15 ? 201 : canCreate && i === 22 ? 404 : canCreate && i >= 21 ? 200 : statusAt(i);
     return new Response(altered?.raw ?? JSON.stringify(data), { status: altered?.status ?? status, headers: {
-      'content-type': altered?.contentType ?? (denied || canCreate && i === 22 ? 'application/problem+json' : 'application/json'),
+      'content-type': altered?.contentType ?? ([403, 404, 409].includes(status) ? 'application/problem+json' : 'application/json'),
       ...(i === 6 ? { 'set-cookie': `fullnet-csrf=${tokens[6]}; Path=/; SameSite=Lax` } : {}),
     } });
   };
+}
+
+test('ordinary update account changes version, rejects stale update and cannot create or delete', async () => fixture(async (logPath) => {
+  const calls = [];
+  const result = await verifyApplicationCrudUpdatePermission('http://example.test', { hostAccessToken: tokens[0], logPath, request: runner(calls, undefined, false, false, true) });
+  assert.deepEqual(result, { businessRequests: 11, readAllowed: 2, updateAllowed: 1, versionConflicts: 1, writeDenied: 2, rowPreserved: true, hostAccessToken: tokens[5] });
+  assert.equal(calls.length, 24);
+  assert.equal(JSON.parse(calls[1].options.body).code, 'catalog-update-probe');
+  assert.equal(JSON.parse(calls[3].options.body).username, 'catalog-updater-probe');
+  assert.deepEqual(JSON.parse(calls[2].options.body).permissionCodes, [permissions[0], 'catalog.products.update', ...permissions.slice(1)]);
+  assert.deepEqual(JSON.parse(calls[16].options.body), { name: updatedProduct.name, version: '1' });
+  assert.equal(JSON.parse(calls[17].options.body).version, '1');
+  assert.equal(JSON.parse(calls[19].options.body).version, '2');
+  assert.equal(JSON.parse(calls[22].options.body).version, '2');
+  for (const i of [15, 16, 17, 18, 19]) assert.equal(calls[i].options.headers.Authorization, `Bearer ${tokens[4]}`);
+  const text = readFileSync(logPath, 'utf8');
+  assert.equal(JSON.parse(text).completed, true);
+  assert.equal(Object.hasOwn(JSON.parse(text).result, 'hostAccessToken'), false);
+  for (const token of tokens) assert.equal(text.includes(token), false);
+}));
+
+for (const [name, index, altered] of [
+  ['missing-update-permission', 2, { body: bodies[2] }],
+  ['update-wrong-version', 16, { body: { ...updatedProduct, version: '1' } }],
+  ['update-wrong-tenant', 16, { body: { ...updatedProduct, tenantId: roleId } }],
+  ['stale-update-allowed', 17, { status: 200, body: updatedProduct }],
+  ['wrong-conflict-code', 17, { body: { status: 409, code: 'other.conflict' } }],
+  ['conflict-changed-row', 18, { body: { ...updatedProduct, name: 'Unexpected stale overwrite' } }],
+  ['delete-allowed', 19, { status: 200, body: updatedProduct }],
+  ['update-not-persisted', 20, { body: product }],
+  ['list-retains-old-version', 21, { body: { items: [product] } }],
+  ['cleanup-returns-old-version', 22, { body: product }],
+]) {
+  test(`ordinary update permission rejects ${name} at the intended stage`, async () => fixture(async (logPath) => {
+    const calls = [];
+    await assert.rejects(() => verifyApplicationCrudUpdatePermission('http://example.test', {
+      hostAccessToken: tokens[0], logPath, request: runner(calls, (i) => i === index ? altered : undefined, false, false, true),
+    }), (error) => tokens.every((token) => !error.message.includes(token)));
+    assert.equal(calls.length, index + 1, 'failure did not reach intended stage');
+    const text = readFileSync(logPath, 'utf8');
+    assert.equal(JSON.parse(text).completed, false);
+    assert.equal(JSON.parse(text).responses.length, calls.length);
+    for (const token of tokens) assert.equal(text.includes(token), false);
+  }));
 }
 
 test('ordinary create account creates its own tenant row but cannot update or delete', async () => fixture(async (logPath) => {
