@@ -13,6 +13,14 @@ BEGIN
         CreatedAtUtc datetimeoffset(7) NOT NULL,
         CONSTRAINT PK_acme_catalog_product PRIMARY KEY NONCLUSTERED (Id)
     );
+END;
+-- 建表已完成但索引未完成时，未记账重跑仍需独立收敛。
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE object_id = OBJECT_ID(N'dbo.acme_catalog_product', N'U')
+      AND name = N'IX_acme_catalog_product_TenantId_Id'
+)
+BEGIN
     CREATE CLUSTERED INDEX IX_acme_catalog_product_TenantId_Id
         ON dbo.acme_catalog_product(TenantId, Id);
 END;

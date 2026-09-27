@@ -19,13 +19,18 @@ internal static class CrudMigrationTemplateGenerator
             ? "NONCLUSTERED"
             : "CLUSTERED";
         var tenantIndex = schema.IsTenantScoped
-            ? "\n"
-                + IndentLines(
-                    $$"""
+            ? "\n" + $$"""
+                -- 建表已完成但索引未完成时，未记账重跑仍需独立收敛。
+                IF NOT EXISTS (
+                    SELECT 1 FROM sys.indexes
+                    WHERE object_id = OBJECT_ID(N'dbo.{{schema.DatabaseTableName}}', N'U')
+                      AND name = N'{{TenantIndexName(schema)}}'
+                )
+                BEGIN
                     CREATE CLUSTERED INDEX {{TenantIndexName(schema)}}
                         ON dbo.{{schema.DatabaseTableName}}(TenantId, Id);
-                    """,
-                    4)
+                END;
+                """
             : string.Empty;
 
         return Normalize(
@@ -38,8 +43,8 @@ internal static class CrudMigrationTemplateGenerator
                 (
             {{IndentLines(RenderColumns(schema, DatabaseMetadataProvider.SqlServer), 8)}},
                     CONSTRAINT {{primaryKeyName}} PRIMARY KEY {{primaryKeyKind}} (Id)
-                );{{tenantIndex}}
-            END;
+                );
+            END;{{tenantIndex}}
             """");
     }
 

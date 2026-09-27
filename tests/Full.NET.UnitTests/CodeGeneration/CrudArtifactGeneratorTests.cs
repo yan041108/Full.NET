@@ -102,6 +102,20 @@ public sealed class CrudArtifactGeneratorTests
     }
 
     [TestMethod]
+    public void SqlServer_tenant_index_has_an_independent_recovery_guard_after_table_creation()
+    {
+        var sql = Artifact(GenerateWithLayui(FullNetCrudSchemaTests.CreateProductSchema()),
+            "templates/migrations/SqlServer/CreateProduct.sql.template");
+        var tableEnd = sql.IndexOf("END;", StringComparison.Ordinal);
+        var indexGuard = sql.IndexOf("IF NOT EXISTS", StringComparison.Ordinal);
+        Assert.IsTrue(tableEnd >= 0 && indexGuard > tableEnd,
+            "建表成功但索引未完成时，重跑必须独立探测并创建索引。");
+        StringAssert.Contains(sql, "FROM sys.indexes");
+        StringAssert.Contains(sql, "object_id = OBJECT_ID(N'dbo.acme_catalog_product', N'U')");
+        StringAssert.Contains(sql, "name = N'IX_acme_catalog_product_TenantId_Id'");
+    }
+
+    [TestMethod]
     public void Generate_integration_template_targets_both_providers_and_exact_shape()
     {
         var artifacts = GenerateWithLayui(
