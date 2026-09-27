@@ -182,3 +182,5 @@ ASP.NET 数字读取兼容：实际文档的分页参数及ProblemDetails.status
 业务客户端独立目录：生成业务契约时可追加 `--http-module @fullnet/client-contracts`，让操作文件从共享包导入 `HttpClient` 与 `RequestOptions` 类型；默认仍引用 `../http.js`，保持框架基线。使用 `--check` 时须带相同引用参数。业务生成目录应由应用单独拥有，保留共享包已有认证和基础操作；使用方仍须配置包解析并显式接入业务适配器。此选项仅改变类型引用，不自动注册路由或改变运行时请求、认证及租户上下文。
 
 独立应用双库作业在服务端 OpenAPI 比较通过后，使用应用自带生成器消费商品生成契约，写入专用 `verification/ClientGeneration/generated`，生成并编译五个业务操作，再检查零漂移。TypeScript 编译通过 paths 映射应用自己的共享 `http.ts`，不改原业务契约、共享 HTTP 文件或四份官方客户端产物；报告位于 `application-crud-client/`。这是业务类型生成与共享 HTTP 契约兼容验证，不证明包解析、业务请求执行、Vue适配器、页面或生产构建；对应新SHA的远端结果需另行确认。
+
+业务客户端远端证据：`badfad64` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36325119133/job/108636301949)成功380/380、零失败/跳过。SQL Server/MySQL 的 `application-crud-client/result.json` 均记录五操作、四文件、compiled/zeroDrift/inputsUnchanged为true；各生成、编译、check进程均退出0。此证据使用应用实际生成的硬删除契约，关闭该类型生成与编译验收的待验证项，Vue接线及其他F02缺口仍保留。
