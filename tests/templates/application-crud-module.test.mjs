@@ -22,7 +22,7 @@ function workspace() {
 // 注入执行器只证明编排，真实候选与模块编译由独立应用 Actions 验证。
 function runner(root, failure, calls) {
   return (command, args, options) => {
-    const stage = ['apply', 'build', 'repeat', 'conflict'][calls.length];
+    const stage = calls.length >= 3 ? 'conflict' : ['apply', 'build', 'repeat'][calls.length];
     calls.push({ stage, command, args, options });
     if (stage === failure) return { status: 1, stdout: '', stderr: stage + ' failed' };
     if (stage === 'build') return { status: 0, stdout: '', stderr: '' };
@@ -36,10 +36,14 @@ function runner(root, failure, calls) {
     }
     if (stage === 'repeat' && failure === 'repeat-mutates') writeFileSync(join(moduleRoot, 'CatalogModule.cs'), 'entry lost');
     if (stage === 'conflict') {
+      const editedPath = MODULE_ARTIFACTS.find((path) => readFileSync(join(moduleRoot, path), 'utf8').includes('人工修改'));
+      if (calls.length === 9 && failure === 'last-conflict-mutates') writeFileSync(join(moduleRoot, 'Product.manual.cs'), 'manual code lost');
       if (failure === 'conflict-mutates') writeFileSync(join(moduleRoot, 'Generated/Product/ProductSql.g.cs'), 'customization lost');
       if (failure === 'host-mutates') writeFileSync(join(root, 'src/Demo.Composition/ApplicationModuleCatalog.cs'), 'catalog lost');
-      return { status: failure === 'conflict-accepted' ? 0 : 2,
-        stdout: failure === 'wrong-conflict' ? 'Conflict Generated/Other.g.cs\n' : 'Conflict Generated/Product/ProductSql.g.cs\n', stderr: '' };
+      return { status: failure === 'conflict-accepted' || (calls.length === 9 && failure === 'last-conflict-accepted') ? 0 : 2,
+        stdout: editedPath === MODULE_ARTIFACTS[0] ? '' : failure === 'wrong-conflict' ? 'Conflict Generated/Other.g.cs\n'
+          : MODULE_ARTIFACTS.map((path) => `${path === editedPath ? 'Conflict' : 'Unchanged'} ${path}`).join('\n') + '\n',
+        stderr: editedPath === MODULE_ARTIFACTS[0] ? (failure === 'wrong-conflict' ? 'wrong path' : '工作区冲突：模块聚合注册桥缺失或被修改。 路径：' + editedPath + '\n') : '' };
     }
     return { status: 0, stdout: MODULE_ARTIFACTS.map((path) => `${stage === 'repeat' ? 'Unchanged' : 'Create'} ${path}`).join('\n')
       + (failure === 'missing-compilation-marker' ? '\n' : '\nValidated ModuleCompilation ' + moduleProject + '\n'), stderr: '' };
@@ -69,8 +73,9 @@ test('application generated module compiles and preserves module and host conten
   const calls = [];
   try {
     const result = verifyApplicationCrudModule(root, { reportDirectory: join(root, 'evidence'), run: runner(root, null, calls) });
-    assert.deepEqual(result, { artifacts: 6, moduleCompiled: true, conflictRejected: true });
-    assert.deepEqual(calls.map(({ command, args }) => [command, args[0]]), [['dotnet', 'exec'], ['dotnet', 'build'], ['dotnet', 'exec'], ['dotnet', 'exec']]);
+    assert.deepEqual(result, { artifacts: 6, moduleCompiled: true, conflictRejected: true,
+      conflictArtifacts: [...MODULE_ARTIFACTS.filter((path) => !path.endsWith('ProductSql.g.cs')), 'Generated/Product/ProductSql.g.cs'] });
+    assert.deepEqual(calls.map(({ command, args }) => [command, args[0]]), [['dotnet', 'exec'], ['dotnet', 'build'], ['dotnet', 'exec'], ...MODULE_ARTIFACTS.map(() => ['dotnet', 'exec'])]);
     assert.ok(calls[0].args.includes('apply-module-integration'));
     assert.ok(calls.every(({ options }) => options.cwd === root && options.windowsHide === true));
     const project = readFileSync(join(root, moduleProject), 'utf8');
@@ -111,3 +116,30 @@ test('explicit fixture cleanup removes only the SQL test comment after conflict 
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('manual edits in every generated module artifact are rejected without overwriting other files', () => {
+  const root = workspace();
+  const calls = [];
+  try {
+    const result = verifyApplicationCrudModule(root, { reportDirectory: join(root, 'evidence'),
+      removeTestSqlComment: true, run: runner(root, null, calls) });
+    assert.equal(calls.filter(({ stage }) => stage === 'conflict').length, MODULE_ARTIFACTS.length);
+    assert.deepEqual([...result.conflictArtifacts].sort(), [...MODULE_ARTIFACTS].sort());
+    for (const path of MODULE_ARTIFACTS) assert.equal(readFileSync(join(root, 'src/Demo.Modules.Catalog', path), 'utf8'), path + '\n');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+for (const failure of ['last-conflict-accepted', 'last-conflict-mutates']) {
+  test(`all-artifact conflict acceptance rejects ${failure} at the final command`, () => {
+    const root = workspace();
+    const calls = [];
+    try {
+      assert.throws(() => verifyApplicationCrudModule(root, { reportDirectory: join(root, 'evidence'),
+        removeTestSqlComment: true, run: runner(root, failure, calls) }));
+      assert.equal(calls.length, 9);
+      const evidence = JSON.parse(readFileSync(join(root, 'evidence/conflict-6.json'), 'utf8'));
+      assert.equal(evidence.status, failure === 'last-conflict-accepted' ? 0 : 2);
+      assert.ok(evidence.stdout.split('\n').includes('Conflict Generated/Product/ProductSql.g.cs'));
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+}

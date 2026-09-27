@@ -772,3 +772,11 @@ OpenAPI数字兼容CI故障修正（基线0cc374722137be43383621cad8c6b652a083fc
 远端其他结果：2b6237c5主CI36306870608及API Native36306870584/Worker Native36306870647已终态success；其双库独立应用334/334和authenticationProblems10证据保持。be77的API Native36307317700/Worker Native36307317680，0cc的API Native36307533918/Worker Native36307533926均success，但不能抵消对应主CI失败；分支筛选跳过项不计通过。F02及Capacity-not-verified保持，未合并/发布。
 
 终检：独立只读复审无阻断，复跑55/55、syntax/diff通过，核对数字兼容仅查询和ProblemDetails.status、路径混合类型仍拒绝；治理55/55，inner规划none。真实双库修复等待新SHA，不因本地回归通过标记故障关闭。
+
+模块全部产物再生成冲突增量计划与证据（基线e056a683a3559f52205b546924ee52485e802ab7，快照f02-module-conflict-all-artifacts-20260927）：现有独立应用只对生成SQL做人工修改冲突。扩展MODULE_ARTIFACTS六产物逐个修改，从相同应用原始内容开始，每轮实际apply-module-integration退出2，完整6行动作仅当前Conflict、其他Unchanged；核对全部生成、manifest、模块project/entry/manual和宿主基线保持，逐轮只撤销测试注释。SQL最后，默认不清理时保留旧SQL注释行为；真实栈显式清理，最终恢复全部原始字节。记录六轮CLI及conflictArtifacts，真实CLI六产物行为等待新SHA双库，不改生产生成器或扩大为任意人工业务/Vue完整再生成认证。
+
+有效RED新增成功断言为1失败/13旧通过，证明原门禁只执行1而非6冲突；实现后14/14，补末轮误允许/修改manual负例，最终本组16/16、四组54/54零跳过。另对照已下载真实2b6 mysql module/conflict.json发现CLI输出是其他5 Unchanged与目标Conflict，最初合成runner仅一行；将runner改真实形态后RED5失败/11通过，再修正为精确6行计划比较，最终四组54/54。无本地.NET/容器/浏览器，inner影响none；仅验收与直接文档，不改.NET/SQL/迁移/矩阵。数字兼容e056 CI36310169977/独立应用108594450730仍运行，不计通过；F02与Capacity-not-verified保持，未合并/发布。
+
+复审修正：聚合注册桥与五实体文件并非同一CLI冲突输出。桥漂移由ModuleIntegrationBackendWorkspace.EnsureUnchangedOwnedArtifact在规划前抛错，CLI stderr为确切“工作区冲突：模块聚合注册桥缺失或被修改。 路径：Generated/FullNetGeneratedModuleFeatures.g.cs”、stdout空、退出2；实体文件才返回5 Unchanged+目标Conflict。按真实桥空stdout建立RED5失败/11通过，分别校验桥诊断与实体完整计划后四组54/54。上述初版“每轮6行计划”仅适用于五实体，最终门禁不改变生产CLI。治理/语法/diff与复审后提交，六产物真实保护仍待新SHA。
+
+终检独立复审无阻断，四组54/54零跳过；治理55/55、syntax/diff通过，六轮字节保护与SQL默认保留行为保持。实际六轮CLI双库等待新SHA，未关闭F02。

@@ -48,13 +48,14 @@ ${references.map((path) => `    <ProjectReference Include="../../framework/fulln
     vueRouterPath: 'ui/admin/src/router/index.ts',
   }, null, 2));
   mkdirSync(reportDirectory, { recursive: true });
-  const execute = (stage, args, expectedStatus = 0) => {
+  const execute = (stage, args, expectedStatus = 0, expectedError) => {
     const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
     writeFileSync(join(reportDirectory, stage + '.json'), JSON.stringify({ args,
       status: result.status, signal: result.signal, error: result.error?.message, stdout: result.stdout, stderr: result.stderr,
     }, null, 2));
     assert.equal(result.error, undefined, stage + ' process failed');
     assert.equal(result.status, expectedStatus, `${stage} failed: ${result.stderr ?? ''}\n${result.stdout ?? ''}`);
+    if (expectedError !== undefined) assert.equal((result.stderr ?? '').trim(), expectedError, 'incorrect registry conflict diagnostic');
     return result.stdout ?? '';
   };
   const cli = join(appRoot, 'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.CodeGeneration.Cli.dll');
@@ -76,18 +77,25 @@ ${references.map((path) => `    <ProjectReference Include="../../framework/fulln
   expectActions(execute('repeat', args), 'Unchanged');
   assert.deepEqual(capture(), applied, 'repeat changed module sources or manifest');
   const sqlPath = 'Generated/Product/ProductSql.g.cs';
-  writeFileSync(join(moduleRoot, sqlPath), Buffer.concat([applied.get(sqlPath), Buffer.from('\n// 人工修改，禁止自动覆盖。\n')]));
-  const customized = capture();
-  const conflict = execute('conflict', args, 2);
-  assert.ok(conflict.split(/\r?\n/u).includes('Conflict ' + sqlPath), 'missing exact module SQL conflict');
-  assert.deepEqual(capture(), customized, 'conflict changed module sources or manifest');
-  assert.deepEqual(new Map(hostPaths.map((path) => [path, readFileSync(join(appRoot, path))])), hostSnapshot, 'module integration changed application host content');
-  if (removeTestSqlComment) {
-    // 模块由本验收从空目录创建；冲突保护通过后，只撤销本验收追加的注释，以便后续接线。
-    writeFileSync(join(moduleRoot, sqlPath), applied.get(sqlPath));
-    assert.deepEqual(capture(), applied, 'test comment cleanup changed unrelated module content');
+  const conflictArtifacts = [...MODULE_ARTIFACTS.filter((path) => path !== sqlPath), sqlPath];
+  for (const [index, path] of conflictArtifacts.entries()) {
+    writeFileSync(join(moduleRoot, path), Buffer.concat([applied.get(path), Buffer.from('\n// 人工修改，禁止自动覆盖。\n')]));
+    const customized = capture();
+    const isRegistry = path === MODULE_ARTIFACTS[0];
+    // 聚合桥漂移在规划前失败，实体产物漂移则返回完整冲突计划；两种真实契约分别验收。
+    const conflict = execute(index === 0 ? 'conflict' : 'conflict-' + (index + 1), args, 2,
+      isRegistry ? '工作区冲突：模块聚合注册桥缺失或被修改。 路径：' + path : undefined);
+    assert.deepEqual(conflict.split(/\r?\n/u).filter(Boolean).sort(), isRegistry ? [] : MODULE_ARTIFACTS.map((artifact) =>
+      `${artifact === path ? 'Conflict' : 'Unchanged'} ${artifact}`).sort(), 'incomplete single-artifact conflict plan');
+    assert.deepEqual(capture(), customized, 'conflict changed module sources or manifest');
+    assert.deepEqual(new Map(hostPaths.map((hostPath) => [hostPath, readFileSync(join(appRoot, hostPath))])), hostSnapshot, 'module integration changed application host content');
+    if (path !== sqlPath || removeTestSqlComment) {
+      // 模块由本验收从空目录创建；每轮通过后只撤销该轮测试注释，下一轮从原始内容开始。
+      writeFileSync(join(moduleRoot, path), applied.get(path));
+      assert.deepEqual(capture(), applied, 'test comment cleanup changed unrelated module content');
+    }
   }
-  const result = { artifacts: MODULE_ARTIFACTS.length, moduleCompiled: true, conflictRejected: true };
+  const result = { artifacts: MODULE_ARTIFACTS.length, moduleCompiled: true, conflictRejected: true, conflictArtifacts };
   writeFileSync(join(reportDirectory, 'result.json'), JSON.stringify(result, null, 2));
   return result;
 }

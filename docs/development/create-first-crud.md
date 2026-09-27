@@ -166,3 +166,5 @@ OpenAPI 接入阶段在独立应用真实 API 就绪后匿名读取 `/openapi/v1
 认证错误基础字段子集：五操作各401/403的ProblemDetails须声明type/title/status/detail/instance；status非空类型为integer/int32，其余为string。容忍标准字段可空或非必填、业务扩展字段，文档内字段schema引用仍须可解析；外部、缺失或循环引用拒绝。报告每状态的 `authenticationProblemFields`，不以字段存在代替类型检查，也不据此声称机器码扩展、404/409等完整错误集已认证。
 
 ASP.NET 数字读取兼容：实际文档的分页参数及ProblemDetails.status可以声明integer|string。门禁仅在类型恰为这两项、format为int32且pattern为 `^-?(?:0|[1-9]\d*)$` 时归一为整数；可空处理沿既有边界，路径UUID不适用。缺少整数约束、任意字符串/对象或int64仍拒绝。报告同时保留 `parameterDeclarations` 和 `authenticationProblemDeclarations` 原始schema声明，失败时可核对实际生成形态；规范化结果不等于改变运行时序列化。
+
+生成模块人工修改保护：独立应用对六个受管产物（模块注册、Contracts、SQL、Endpoint、Feature、Record）逐个追加测试注释并重新apply。每轮须退出2；注册桥在规划前失败，stdout为空且stderr含确切原因与路径；五实体产物的完整计划仅目标Conflict、其他Unchanged。所有生成文件、manifest、人工文件及宿主内容字节保持；验收通过后仅撤销本轮注释。报告列出conflictArtifacts和六轮独立CLI证据。此阶段验证覆盖保护，不替代真实业务人工扩展或Vue再生成的完整验收。
