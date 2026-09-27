@@ -18,6 +18,7 @@ import { verifyApplicationCrudAuthorization } from './application-crud-authoriza
 import { verifyApplicationCrudHttpDenial } from './application-crud-http-denial.mjs';
 import { verifyApplicationCrudTenantHttp } from './application-crud-tenant-http.mjs';
 import { verifyApplicationCrudTenantIsolation } from './application-crud-tenant-isolation.mjs';
+import { verifyApplicationCrudOpenApi } from './application-crud-openapi.mjs';
 import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission, verifyApplicationCrudCreatePermission, verifyApplicationCrudUpdatePermission, verifyApplicationCrudDeletePermission } from './application-crud-read-permission.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
@@ -281,6 +282,8 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     apiProcess.stderr?.pipe(apiLogStream, { end: false });
     await waitForApi(apiUrl, 180_000, apiLogPath);
     await verifyApplicationModuleEndpoint(apiUrl, { logPath: join(logRoot, 'application-module-http.json') });
+    await verifyApplicationCrudOpenApi(apiUrl, { expectedPath: join(appRoot, 'contracts/openapi/products.generated.openapi.json'),
+      logPath: join(logRoot, 'application-crud-openapi.json') });
     let hostAccessToken = await loginAndReadSettings(apiUrl);
     await verifyApplicationCrudHttpDenial(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-http-denial.json') });
     const readPermission = await verifyApplicationCrudReadPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-read-permission.json') });
