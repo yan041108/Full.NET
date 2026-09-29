@@ -203,7 +203,67 @@ test('rendered API manifest keeps Capacity-not-verified marker', () => {
   assert.match(rendered.stdout, /DatabaseCapacity__HostRole:\s*"Api"/);
   assert.match(rendered.stdout, /DatabaseCapacity__PermitLimit:\s*"38"/);
   assert.match(rendered.stdout, /DatabaseCapacity__QueueLimit:\s*"0"/);
+  assert.match(rendered.stdout, /fullnet\.io\/log-ingress:\s*legacy/);
+  assert.doesNotMatch(rendered.stdout, /FullNet__Logging__DeliveryMode:/);
+  assert.doesNotMatch(rendered.stdout, /FullNet__Logging__ExpectedDeliveryMode:/);
   assert.match(rendered.stdout, /kind:\s*Deployment/);
   assert.match(rendered.stdout, /component:\s*api/);
   assert.doesNotMatch(rendered.stdout, /kind:\s*StatefulSet/);
+});
+
+test('Collector ingress renders matching Pod route and application expectation', () => {
+  for (const role of ['api', 'worker']) {
+    const args = [
+      'template',
+      `fullnet-log-${role}-collector-check`,
+      chartDir,
+      '-f', path.join(chartDir, `ci/values-role-${role}.yaml`),
+      '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'),
+      '--set', 'logging.ingress=Collector',
+      '--set', 'production=false',
+    ];
+    const rendered = process.platform === 'win32'
+      ? spawnSync(['helm', ...args].map((part) => (/\s/.test(part) ? `"${part}"` : part)).join(' '), {
+        encoding: 'utf8', shell: true, cwd: repositoryRoot,
+      })
+      : spawnSync('helm', args, { encoding: 'utf8', cwd: repositoryRoot });
+    assert.equal(rendered.status, 0, rendered.stderr);
+    assert.match(rendered.stdout, /fullnet\.io\/log-ingress:\s*collector/);
+    assert.match(rendered.stdout, /FullNet__Logging__DeliveryMode:\s*"Collector"/);
+    assert.match(rendered.stdout, /FullNet__Logging__ExpectedDeliveryMode:\s*"Collector"/);
+  }
+});
+
+test('Collector ingress is rejected for production until collector routing is verified', () => {
+  const args = [
+    'template', 'fullnet-log-collector-production-check', chartDir,
+    '-f', path.join(chartDir, 'ci/values-role-api.yaml'),
+    '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'),
+    '--set', 'logging.ingress=Collector',
+  ];
+  const rendered = process.platform === 'win32'
+    ? spawnSync(['helm', ...args].map((part) => (/\s/.test(part) ? `"${part}"` : part)).join(' '), {
+      encoding: 'utf8', shell: true, cwd: repositoryRoot,
+    })
+    : spawnSync('helm', args, { encoding: 'utf8', cwd: repositoryRoot });
+  assert.notEqual(rendered.status, 0);
+  assert.match(rendered.stderr, /logging\.ingress=Collector.*verified collector route/);
+});
+
+test('unqualified Local and ApplicationKafka ingress are rejected by Helm', () => {
+  for (const ingress of ['Local', 'ApplicationKafka']) {
+    const args = [
+      'template', `fullnet-log-${ingress.toLowerCase()}-check`, chartDir,
+      '-f', path.join(chartDir, 'ci/values-role-api.yaml'),
+      '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'),
+      '--set', `logging.ingress=${ingress}`,
+    ];
+    const rendered = process.platform === 'win32'
+      ? spawnSync(['helm', ...args].map((part) => (/\s/.test(part) ? `"${part}"` : part)).join(' '), {
+        encoding: 'utf8', shell: true, cwd: repositoryRoot,
+      })
+      : spawnSync('helm', args, { encoding: 'utf8', cwd: repositoryRoot });
+    assert.notEqual(rendered.status, 0);
+    assert.match(rendered.stderr, /logging\.ingress/);
+  }
 });

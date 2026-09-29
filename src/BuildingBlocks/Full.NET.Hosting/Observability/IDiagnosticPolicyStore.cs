@@ -14,8 +14,10 @@ public interface IDiagnosticPolicyStore
 /// <summary>Hosting 默认安全实现：始终返回生产安全默认值，直到 Settings 替换注册。</summary>
 public sealed class DefaultDiagnosticPolicyStore : IDiagnosticPolicyStore
 {
-    public DiagnosticPolicySnapshot Current =>
+    private static readonly DiagnosticPolicySnapshot DefaultSnapshot =
         DiagnosticPolicySnapshot.CreateDefault(DateTimeOffset.UtcNow);
+
+    public DiagnosticPolicySnapshot Current => DefaultSnapshot;
 
     public ValueTask<DiagnosticPolicySnapshot> GetCurrentAsync(CancellationToken cancellationToken) =>
         ValueTask.FromResult(Current);

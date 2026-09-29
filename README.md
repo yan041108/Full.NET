@@ -24,6 +24,8 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 - Identity 安全会话与授权上下文底座：强密码引导、RSA JWT、登录锁定、Refresh Token 轮换/重用撤销、CSRF、CORS、审计、最小 RBAC、可信租户切换和权限导航。
 - API、Worker、Migrator 与 .NET Aspire AppHost 的完整本地编排。
 
+日志字段、请求/返回详情和可靠性边界见[日志模块说明](docs/operations/logging-module.md)。Collector 采集与 ApplicationKafka 有界后台直发已列为正式比较候选，按请求 P99、每实例字节吞吐、CPU/内存、丢弃及恢复验证后配置选择；Kafka/ES 独立可选，Restricted 只存 B1。见[架构决策](docs/architecture/adr/ADR-0012-configurable-log-delivery.md)和[开发计划 LG00—LG08](docs/superpowers/plans/2026-09-28-configurable-log-delivery.md)。当前仍为规划状态，不代表两路线、持久投递或生产容量已验证。
+
 ## 环境要求
 
 - .NET 10 SDK

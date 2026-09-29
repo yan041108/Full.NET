@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
-import { ElCard, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { ElButton, ElCard, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import type { AuditingOutboundCallLog, FullNetProblemDetails } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
-import {
-  useArtClientPagination,
-  useArtCrudTableLayout
-} from '../framework/art-design/composables/useArtCrudTableLayout';
+import AuditLogDetailDrawer, { type AuditLogDetailRecord } from './components/AuditLogDetailDrawer.vue';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { listAuditingOutboundCallLogs } from '../api/outbound-call-logs';
+import { listAuditingOutboundCallLogs, type AuditingOutboundCallLogFilters } from '../api/outbound-call-logs';
+import { resolveAuditLogSearchTimeRange } from './auditLogSearchTimeRange';
 
 defineOptions({ name: 'OutboundCallLogsView' });
 
@@ -17,6 +17,28 @@ const { t } = useAdminI18n();
 const items = ref<AuditingOutboundCallLog[]>([]);
 const loading = ref(false);
 const problem = ref<FullNetProblemDetails>();
+const detailOpen = ref(false);
+const selectedRecord = ref<AuditLogDetailRecord | null>(null);
+const page = ref(1);
+const pageSize = ref(20);
+const total = ref(0);
+const searchForm = ref<Record<string, string | undefined>>({});
+const activeFilters = ref<AuditingOutboundCallLogFilters>({});
+let loadController: AbortController | undefined;
+
+const searchItems = computed<ArtSearchBarItem[]>(() => [
+  { key: 'operationContains', label: t('outboundCallLogs.operationKey'), placeholder: t('outboundCallLogs.operationKey') },
+  { key: 'providerKey', label: t('outboundCallLogs.providerKey'), placeholder: t('outboundCallLogs.providerKey') },
+  {
+    key: 'succeeded', label: t('users.status'), type: 'select',
+    options: [
+      { label: t('outboundCallLogs.succeeded'), value: 'true' },
+      { label: t('outboundCallLogs.failed'), value: 'false' }
+    ]
+  },
+  { key: 'fromUtc', label: t('accessLogs.fromUtc'), placeholder: '2026-09-29T00:00:00Z' },
+  { key: 'toUtc', label: t('accessLogs.toUtc'), placeholder: '2026-09-29T23:59:59Z' }
+]);
 
 const {
   tableMainRef,
@@ -26,17 +48,16 @@ const {
   tableBorder,
   tableHeaderBackground,
   tableHeaderCellStyle,
-  updateTableHeight,
-  watchLoading
-} = useArtCrudTableLayout();
-
-const filteredItems = computed(() => items.value);
-const { page, pageSize, total, pagedItems, resetPage } = useArtClientPagination(filteredItems);
-
-watchLoading(loading);
+  syncTableLayout
+} = useArtPagedTableInCard(loading);
+watch([page, pageSize], () => void load(), { flush: 'post' });
 
 onMounted(() => {
   void load();
+});
+onBeforeUnmount(() => {
+  loadController?.abort();
+  loadController = undefined;
 });
 
 function rowIndex(index: number): number {
@@ -44,18 +65,96 @@ function rowIndex(index: number): number {
 }
 
 async function load(): Promise<void> {
+  loadController?.abort();
+  const controller = new AbortController();
+  loadController = controller;
   loading.value = true;
   problem.value = undefined;
   try {
-    const result = await listAuditingOutboundCallLogs();
+    const result = await listAuditingOutboundCallLogs(
+      page.value, pageSize.value, controller.signal, activeFilters.value);
+    if (loadController !== controller) return;
     items.value = result.items;
-    resetPage();
-    await nextTick(updateTableHeight);
+    total.value = result.total;
   } catch (error: unknown) {
-    problem.value = toProblem(error);
+    if (loadController === controller && !controller.signal.aborted) {
+      problem.value = toProblem(error);
+    }
   } finally {
-    loading.value = false;
+    if (loadController === controller) {
+      loading.value = false;
+      void syncTableLayout();
+    }
   }
+}
+
+function setPage(value: number): void {
+  page.value = value;
+}
+
+function setPageSize(value: number): void {
+  page.value = 1;
+  pageSize.value = value;
+}
+
+function applySearch(form: Record<string, string | undefined>): void {
+  const operationContains = form.operationContains?.trim();
+  const providerKey = form.providerKey?.trim();
+  const timeRange = resolveAuditLogSearchTimeRange(form, Boolean(operationContains));
+  if (!timeRange.valid) {
+    problem.value = {
+      status: 400,
+      code: 'client.auditing_outbound_call_log_time_range_invalid',
+      title: t('outboundCallLogs.invalidTimeRange')
+    };
+    return;
+  }
+  if (timeRange.defaulted) {
+    searchForm.value.fromUtc = timeRange.fromUtc;
+    searchForm.value.toUtc = timeRange.toUtc;
+  }
+  activeFilters.value = {
+    ...(operationContains ? { operationContains } : {}),
+    ...(providerKey ? { providerKey } : {}),
+    ...(form.succeeded === 'true' || form.succeeded === 'false'
+      ? { succeeded: form.succeeded === 'true' } : {}),
+    ...(timeRange.fromUtc ? { fromUtc: timeRange.fromUtc } : {}),
+    ...(timeRange.toUtc ? { toUtc: timeRange.toUtc } : {})
+  };
+  if (page.value === 1) void load();
+  else page.value = 1;
+}
+
+function resetSearch(): void {
+  activeFilters.value = {};
+  if (page.value === 1) void load();
+  else page.value = 1;
+}
+
+function openDetail(row: AuditingOutboundCallLog): void {
+  selectedRecord.value = {
+    id: row.id,
+    occurredAtUtc: row.occurredAtUtc,
+    traceId: row.traceId,
+    supportsDiff: false,
+    title: row.operationKey,
+    subtitle: row.providerKey,
+    fields: [
+      { label: t('outboundCallLogs.providerKey'), value: row.providerKey },
+      { label: t('outboundCallLogs.operationKey'), value: row.operationKey },
+      { label: t('outboundCallLogs.destinationHostCategory'), value: row.destinationHostCategory },
+      { label: t('outboundCallLogs.statusCode'), value: row.statusCode },
+      { label: t('outboundCallLogs.durationMs'), value: row.durationMs },
+      { label: t('outboundCallLogs.retryCount'), value: row.retryCount },
+      { label: t('outboundCallLogs.safeErrorCode'), value: row.safeErrorCode },
+      { label: t('outboundCallLogs.occurredAt'), value: row.occurredAtUtc },
+      { label: t('users.status'), value: t(row.succeeded ? 'outboundCallLogs.succeeded' : 'outboundCallLogs.failed') },
+      { label: t('auditAnalytics.userId'), value: row.userId },
+      { label: t('auditAnalytics.tenantId'), value: row.tenantId },
+      { label: 'TraceId', value: row.traceId }
+    ]
+  };
+  detailOpen.value = true;
 }
 
 function toProblem(error: unknown): FullNetProblemDetails {
@@ -78,6 +177,17 @@ function toProblem(error: unknown): FullNetProblemDetails {
       <span>{{ problem.title }}</span>
     </div>
 
+    <ArtSearchBar
+      v-model="searchForm"
+      :items="searchItems"
+      :default-visible-count="5"
+      :search-label="t('accessLogs.query')"
+      :reset-label="t('accessLogs.reset')"
+      :show-expand="false"
+      @search="applySearch"
+      @reset="resetSearch"
+    />
+
     <el-card shadow="never" class="art-table-card">
       <div ref="tableMainRef" class="art-crud-table-main">
         <ArtTableHeader
@@ -91,10 +201,10 @@ function toProblem(error: unknown): FullNetProblemDetails {
           @refresh="load"
         />
 
-        <div class="art-table" :class="{ 'is-empty': pagedItems.length === 0 }">
+        <div class="art-table" :class="{ 'is-empty': items.length === 0 }">
           <el-table
             v-loading="loading"
-            :data="pagedItems"
+            :data="items"
             :height="tableHeight"
             :size="tableSize"
             :stripe="tableZebra"
@@ -102,6 +212,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
             :header-cell-style="tableHeaderCellStyle"
             class="art-crud-data-table"
             :class="{ 'art-table--header-bg': tableHeaderBackground }"
+            @row-click="openDetail"
           >
             <el-table-column :label="t('users.columnIndex')" width="72" align="center">
               <template #default="{ $index }">{{ rowIndex($index) }}</template>
@@ -125,22 +236,32 @@ function toProblem(error: unknown): FullNetProblemDetails {
               </template>
             </el-table-column>
 
+            <!-- @vue-generic {AuditingOutboundCallLog} -->
+            <el-table-column :label="t('auditAnalytics.viewDetail')" width="120" align="center">
+              <template #default="{ row }">
+                <el-button link type="primary" @click.stop="openDetail(row)">
+                  {{ t('auditAnalytics.viewDetail') }}
+                </el-button>
+              </template>
+            </el-table-column>
+
             <template #empty>{{ t('outboundCallLogs.emptyDirectory') }}</template>
           </el-table>
-
-          <div class="art-table__pagination center custom-pagination">
-            <el-pagination
-              v-model:current-page="page"
-              v-model:page-size="pageSize"
-              :total="total"
-              background
-              layout="total, sizes, prev, pager, next, jumper"
-              :page-sizes="[10, 20, 50, 100]"
-            />
-          </div>
         </div>
+        <el-pagination
+          class="art-table-pagination"
+          :current-page="page"
+          :page-size="pageSize"
+          :total="total"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50, 100]"
+          @current-change="setPage"
+          @size-change="setPageSize"
+        />
       </div>
     </el-card>
+    <AuditLogDetailDrawer v-model="detailOpen" :record="selectedRecord" />
   </section>
 </template>
 

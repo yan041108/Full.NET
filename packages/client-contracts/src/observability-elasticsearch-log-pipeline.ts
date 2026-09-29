@@ -1,3 +1,14 @@
+export type LogDeliveryStatus =
+  | 'legacy-console'
+  | 'legacy-direct'
+  | 'disabled'
+  | 'external-collector'
+  | 'application-kafka';
+
+export type LogDeliveryConfirmationBoundary =
+  | 'configuration-only'
+  | 'sink-registered-only';
+
 export interface ElasticsearchLogPipelineHealth {
   adapterKind: string;
   isEnabled: boolean;
@@ -10,6 +21,8 @@ export interface ElasticsearchLogPipelineHealth {
   clusterName: string | null;
   numberOfNodes: number | null;
   probeErrorMessage: string | null;
+  deliveryStatus?: LogDeliveryStatus;
+  deliveryConfirmationBoundary?: LogDeliveryConfirmationBoundary;
 }
 
 export function isElasticsearchLogPipelineHealth(
@@ -27,7 +40,24 @@ export function isElasticsearchLogPipelineHealth(
     && typeof value.clusterStatus === 'string'
     && (value.clusterName === null || typeof value.clusterName === 'string')
     && (value.numberOfNodes === null || typeof value.numberOfNodes === 'number')
-    && (value.probeErrorMessage === null || typeof value.probeErrorMessage === 'string');
+    && (value.probeErrorMessage === null || typeof value.probeErrorMessage === 'string')
+    && ((value.deliveryStatus === undefined && value.deliveryConfirmationBoundary === undefined)
+      || (isLogDeliveryStatus(value.deliveryStatus)
+        && isLogDeliveryConfirmationBoundary(value.deliveryConfirmationBoundary)));
+}
+
+function isLogDeliveryStatus(value: unknown): value is LogDeliveryStatus {
+  return value === 'legacy-console'
+    || value === 'legacy-direct'
+    || value === 'disabled'
+    || value === 'external-collector'
+    || value === 'application-kafka';
+}
+
+function isLogDeliveryConfirmationBoundary(
+  value: unknown
+): value is LogDeliveryConfirmationBoundary {
+  return value === 'configuration-only' || value === 'sink-registered-only';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

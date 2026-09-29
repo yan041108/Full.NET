@@ -15,12 +15,23 @@ internal static class FullNetLoggingPipeline
         Action<LoggerAuditSinkConfiguration> configureGeneralSink,
         Action<LoggerAuditSinkConfiguration> configureHighPrioritySink,
         Action<LoggerSinkConfiguration>? configureGeneralWriteTo = null,
-        Action<LoggerSinkConfiguration>? configureHighPriorityWriteTo = null)
+        Action<LoggerSinkConfiguration>? configureHighPriorityWriteTo = null,
+        LoggingResourceMetadata? resource = null,
+        Action<LogEnvelope>? emitSnapshot = null,
+        bool emitLegacySink = true,
+        Action<HostLogSnapshot>? emitExternalSnapshot = null,
+        HttpOperationLogIngress? httpOperationIngress = null)
     {
+        resource ??= LoggingResourceMetadata.Create(applicationName, "Unknown");
         configuration
             .MinimumLevel.Information()
             .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+            // 对解构输入先限长、限深和限集合，避免普通业务对象在入队前扩成无界属性图。
+            .Destructure.ToMaximumDepth(4)
+            .Destructure.ToMaximumCollectionCount(16)
+            .Destructure.ToMaximumStringLength(2048)
             .Enrich.FromLogContext()
+            .Enrich.With(new LogEventMetadataEnricher(resource.Instance))
             .Enrich.WithProperty("Application", applicationName);
 
         var generalSink = CreateSink(configureGeneralSink, configureGeneralWriteTo);
@@ -34,7 +45,12 @@ internal static class FullNetLoggingPipeline
                     generalSink,
                     highPrioritySink,
                     options,
-                    monitors));
+                    monitors,
+                    emitSnapshot,
+                    emitLegacySink,
+                    emitExternalSnapshot,
+                    resource,
+                    httpOperationIngress));
         }
         catch
         {

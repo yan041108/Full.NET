@@ -15,13 +15,18 @@ import type {
   FullNetProblemDetails
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import type { OperationLogDetailsResponse } from '../../api/operation-logs';
 import { useAdminI18n } from '../../i18n/adminI18n';
 import { queryDomainChangeDiffs } from '../../api/auditing-analytics';
+import { getAuditingOperationLogDetails } from '../../api/operation-logs';
+import { usePermission } from '../../auth/permission';
 
 export interface AuditLogDetailRecord {
   id: string;
   occurredAtUtc: string;
   traceId?: string | null;
+  supportsDiff?: boolean;
+  supportsRestrictedDetails?: boolean;
   title: string;
   subtitle?: string | null;
   fields: Array<{ label: string; value: string | number | boolean | null | undefined }>;
@@ -37,10 +42,18 @@ const emit = defineEmits<{
 }>();
 
 const { locale, t } = useAdminI18n();
+const { can } = usePermission();
 const activeTab = ref('summary');
 const diffLoading = ref(false);
 const diffEntries = ref<AuditingDomainChangeDiffEntry[]>([]);
 const diffProblem = ref<FullNetProblemDetails>();
+const restrictedLoading = ref(false);
+const restrictedDetails = ref<OperationLogDetailsResponse>();
+const restrictedProblem = ref<FullNetProblemDetails>();
+const restrictedRecordId = ref<string>();
+const canReadRestricted = computed(() => props.record?.supportsRestrictedDetails === true
+  && can('auditing.operations.read')
+  && can('auditing.operations.details.read'));
 
 const open = computed({
   get: () => props.modelValue,
@@ -50,12 +63,37 @@ const open = computed({
 const hasTraceId = computed(() => Boolean(props.record?.traceId?.trim()));
 
 watch(
-  () => [props.modelValue, props.record?.traceId, activeTab.value] as const,
-  async ([visible, traceId, tab]) => {
-    if (!visible || tab !== 'diff' || !traceId?.trim()) {
+  () => [props.modelValue, props.record?.id, canReadRestricted.value, activeTab.value] as const,
+  ([visible, id, allowed, tab], _, onCleanup) => {
+    const authorizedId = visible && allowed ? id : undefined;
+    if (restrictedRecordId.value !== authorizedId) {
+      // 记录或权限边界变化时立即清除受限数据；同一记录切页签复用已校验响应。
+      restrictedRecordId.value = authorizedId;
+      restrictedDetails.value = undefined;
+    }
+    restrictedProblem.value = undefined;
+    restrictedLoading.value = false;
+    if (!authorizedId || (tab !== 'request' && tab !== 'response')
+      || restrictedDetails.value !== undefined) return;
+    const controller = new AbortController();
+    onCleanup(() => controller.abort());
+    void loadRestrictedDetails(authorizedId, controller);
+  }
+);
+
+watch(
+  () => [props.modelValue, props.record?.id, props.record?.traceId,
+    props.record?.supportsDiff, activeTab.value] as const,
+  ([visible, , traceId, supportsDiff, tab], _, onCleanup) => {
+    diffEntries.value = [];
+    diffProblem.value = undefined;
+    diffLoading.value = false;
+    if (!visible || supportsDiff === false || tab !== 'diff' || !traceId?.trim()) {
       return;
     }
-    await loadDiff(traceId.trim());
+    const controller = new AbortController();
+    onCleanup(() => controller.abort());
+    void loadDiff(traceId.trim(), controller);
   }
 );
 
@@ -70,23 +108,66 @@ watch(
   }
 );
 
-async function loadDiff(traceId: string): Promise<void> {
+async function loadDiff(traceId: string, controller: AbortController): Promise<void> {
   diffLoading.value = true;
-  diffProblem.value = undefined;
   try {
-    const result = await queryDomainChangeDiffs(traceId);
-    diffEntries.value = result.entries;
+    const result = await queryDomainChangeDiffs(traceId, controller.signal);
+    if (!controller.signal.aborted) diffEntries.value = result.entries;
   } catch (error: unknown) {
-    diffProblem.value = isFullNetProblemDetails(error)
-      ? error
-      : {
-          status: 500,
-          code: 'client.auditing_domain_change_diff_failed',
-          title: t('auditAnalytics.diffLoadFailed')
-        };
+    if (!controller.signal.aborted) {
+      diffProblem.value = isFullNetProblemDetails(error)
+        ? error
+        : {
+            status: 500,
+            code: 'client.auditing_domain_change_diff_failed',
+            title: t('auditAnalytics.diffLoadFailed')
+          };
+    }
   } finally {
-    diffLoading.value = false;
+    if (!controller.signal.aborted) diffLoading.value = false;
   }
+}
+
+async function loadRestrictedDetails(id: string, controller: AbortController): Promise<void> {
+  restrictedLoading.value = true;
+  try {
+    const result = await getAuditingOperationLogDetails(id, controller.signal);
+    if (!controller.signal.aborted) restrictedDetails.value = result;
+  } catch (error: unknown) {
+    if (!controller.signal.aborted) {
+      restrictedProblem.value = isFullNetProblemDetails(error)
+        ? error
+        : { status: 500, code: 'client.operation_log_details_failed',
+            title: t('auditAnalytics.restrictedLoadFailed') };
+    }
+  } finally {
+    if (!controller.signal.aborted) restrictedLoading.value = false;
+  }
+}
+
+function captureStateLabel(state: string | null | undefined): string {
+  switch (state) {
+    case 'captured': return t('auditAnalytics.captureCaptured');
+    case 'not_enabled': return t('auditAnalytics.captureNotEnabled');
+    case 'not_allowed': return t('auditAnalytics.captureNotAllowed');
+    case 'redacted': return t('auditAnalytics.captureRedacted');
+    case 'truncated': return t('auditAnalytics.captureTruncated');
+    case 'failed': return t('auditAnalytics.captureFailed');
+    case 'budget_exceeded': return t('auditAnalytics.captureBudgetExceeded');
+    default: return t('auditAnalytics.captureNotApplicable');
+  }
+}
+
+function restrictedSummary(tab: 'request' | 'response'): object | null | undefined {
+  return tab === 'request'
+    ? restrictedDetails.value?.context.requestSummary
+    : restrictedDetails.value?.context.responseSummary;
+}
+
+function restrictedState(tab: 'request' | 'response'): string | null | undefined {
+  return tab === 'request'
+    ? restrictedDetails.value?.context.requestCaptureState
+    : restrictedDetails.value?.context.responseCaptureState;
 }
 
 function formatDateTime(value: string): string {
@@ -141,7 +222,7 @@ function formatFieldValue(value: string | null | undefined): string {
       </p>
 
       <el-tabs v-model="activeTab">
-        <el-tab-pane :label="t('auditAnalytics.tabSummary')" name="summary">
+        <el-tab-pane :label="t(record.supportsRestrictedDetails ? 'auditAnalytics.tabMessage' : 'auditAnalytics.tabSummary')" name="summary">
           <el-descriptions :column="1" border>
             <el-descriptions-item
               v-for="field in record.fields"
@@ -153,7 +234,39 @@ function formatFieldValue(value: string | null | undefined): string {
           </el-descriptions>
         </el-tab-pane>
 
-        <el-tab-pane :label="t('auditAnalytics.tabDiff')" name="diff" :disabled="!hasTraceId">
+        <el-tab-pane v-if="canReadRestricted" :label="t('auditAnalytics.tabRequest')" name="request">
+          <div v-loading="restrictedLoading" class="audit-log-detail-drawer__restricted">
+            <div v-if="restrictedProblem" class="art-inline-alert" role="alert">
+              <strong translate="no">{{ restrictedProblem.code }}</strong>
+              <span>{{ restrictedProblem.status === 404 ? t('auditAnalytics.restrictedUnavailable') : restrictedProblem.title }}</span>
+            </div>
+            <template v-else-if="restrictedDetails">
+              <p>{{ captureStateLabel(restrictedState('request')) }}</p>
+              <el-descriptions :column="1" border>
+                <el-descriptions-item :label="t('auditAnalytics.clientIp')"><span translate="no">{{ restrictedDetails.context.clientIp ?? '—' }}</span></el-descriptions-item>
+                <el-descriptions-item :label="t('auditAnalytics.clientPort')"><span translate="no">{{ restrictedDetails.context.clientPort ?? '—' }}</span></el-descriptions-item>
+                <el-descriptions-item :label="t('auditAnalytics.serverIp')"><span translate="no">{{ restrictedDetails.context.serverIp ?? '—' }}</span></el-descriptions-item>
+                <el-descriptions-item :label="t('auditAnalytics.serverPort')"><span translate="no">{{ restrictedDetails.context.serverPort ?? '—' }}</span></el-descriptions-item>
+              </el-descriptions>
+              <pre v-if="restrictedSummary('request')" translate="no">{{ JSON.stringify(restrictedSummary('request'), null, 2) }}</pre>
+            </template>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane v-if="canReadRestricted" :label="t('auditAnalytics.tabResponse')" name="response">
+          <div v-loading="restrictedLoading" class="audit-log-detail-drawer__restricted">
+            <div v-if="restrictedProblem" class="art-inline-alert" role="alert">
+              <strong translate="no">{{ restrictedProblem.code }}</strong>
+              <span>{{ restrictedProblem.status === 404 ? t('auditAnalytics.restrictedUnavailable') : restrictedProblem.title }}</span>
+            </div>
+            <template v-else-if="restrictedDetails">
+              <p>{{ captureStateLabel(restrictedState('response')) }}</p>
+              <pre v-if="restrictedSummary('response')" translate="no">{{ JSON.stringify(restrictedSummary('response'), null, 2) }}</pre>
+            </template>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane v-if="record.supportsDiff !== false" :label="t('auditAnalytics.tabDiff')" name="diff" :disabled="!hasTraceId">
           <p v-if="!hasTraceId" class="audit-log-detail-drawer__hint">
             {{ t('auditAnalytics.diffTraceMissing') }}
           </p>
@@ -239,5 +352,10 @@ function formatFieldValue(value: string | null | undefined): string {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.audit-log-detail-drawer__restricted pre {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 </style>

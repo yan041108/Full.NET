@@ -251,7 +251,7 @@ internal sealed class DiagnosticPolicyManagementService(
             MapResponse(DiagnosticPolicySnapshot.CreateDefault(now), existing.Version + 1));
     }
 
-    private static Error? Validate(UpdateDiagnosticPolicyRequest request, DateTimeOffset utcNow)
+    internal static Error? Validate(UpdateDiagnosticPolicyRequest request, DateTimeOffset utcNow)
     {
         if (request.Rules is null)
         {
@@ -296,6 +296,21 @@ internal sealed class DiagnosticPolicyManagementService(
                 || (rule.MaxResponsePayloadBytesOverride is int mres && mres <= 0))
             {
                 return new Error("settings.diagnostic_policy.invalid_budget", "Capacity and byte budgets must be positive when set.", ErrorType.Validation);
+            }
+
+            if (rule.BestEffortCapacityOverride is not null
+                && (scopeKind is not (DiagnosticPolicyScopeKind.Category
+                    or DiagnosticPolicyScopeKind.DiagnosticGroup)
+                    || !string.Equals(
+                        rule.ScopeValue.Trim(),
+                        LogClassification.HttpOperation,
+                        StringComparison.Ordinal)))
+            {
+                // BestEffort 闸门是实例级计数，不能把定向规则误当作局部容量。
+                return new Error(
+                    "settings.diagnostic_policy.scoped_capacity",
+                    "BestEffortCapacityOverride requires the global http.operation category or group.",
+                    ErrorType.Validation);
             }
 
             if (scopeKind == DiagnosticPolicyScopeKind.Tenant)

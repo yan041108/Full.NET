@@ -40,6 +40,7 @@ var app = builder.Build();
 app.UseFullNetTrustedProxyForwarding();
 app.UseFullNetLocalization();
 app.UseFullNetRequestLogging();
+app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeExceptionHandler);
 app.UseExceptionHandler();
 app.UseCors(FullNetModuleCatalog.BrowserCorsPolicy);
 app.UseRateLimiter();
@@ -69,7 +70,7 @@ app.Run();
 /// <item><c>AddFullNetServiceDefaults</c>：基础观测与 ServiceDefaults；</item>
 /// <item>BuildingBlocks：DataProtection、Forwarding、OpenApi、RateLimiter、Dapper、MemoryPack、Kafka、Caching、SignalR；</item>
 /// <item><c>AddFullNetApplicationModules</c> 以 <see cref="FullNetHostProfile.Api"/> 装配模块并物化只读目录；</item>
-/// <item>四阶段中间件管道：BeforeAuthentication → Authentication → BeforeAuthorization → Authorization → BeforeEndpoints；</item>
+/// <item>审计外层收尾 → 异常映射 → BeforeAuthentication → Authentication → BeforeAuthorization → Authorization → BeforeEndpoints；</item>
 /// <item>Endpoints：OpenApi/Scalar、Health、Realtime Hub 与模块 Endpoint。</item>
 /// </list>
 /// </remarks>

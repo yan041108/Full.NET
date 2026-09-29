@@ -5,6 +5,7 @@ using Full.NET.Benchmarks.Caching;
 using Full.NET.Benchmarks.Data;
 using Full.NET.Benchmarks.Jobs;
 using Full.NET.Benchmarks.Kafka;
+using Full.NET.Benchmarks.Logging;
 using Full.NET.Benchmarks.MixedLoad;
 using Full.NET.Benchmarks.Outbox;
 
@@ -126,6 +127,7 @@ else
             typeof(SerializationBenchmarks),
             typeof(CacheAccessBoundaryBenchmarks),
             typeof(DapperAotCommandReuseBenchmarks),
+            typeof(LoggingHotPathBenchmarks),
         ])
         .Run(args);
 }

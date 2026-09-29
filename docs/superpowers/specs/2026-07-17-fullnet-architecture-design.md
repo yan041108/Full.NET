@@ -743,6 +743,8 @@ JSON 统一使用 System.Text.Json 的 Web 默认语义和 UTF-8 输出。每个
 
 Full.NET 使用 OpenTelemetry 标准关联 Log、Trace 和 Metrics，不绑定单一查询平台。业务代码只调用 `ILogger<T>`，高频固定模板使用 `[LoggerMessage]` 源生成；禁止业务模块直接调用 Serilog 静态 API、指定物理文件名、数据库表或具体 Sink。
 
+2026-09-28 文档决策补充及审查修订：[ADR-0012](../../architecture/adr/ADR-0012-configurable-log-delivery.md)确认可配置采集/传输/存储、受控详情、整事件预算与固定索引去重目标，实施按[LG00—LG08](../plans/2026-09-28-configurable-log-delivery.md)。本节描述目标契约；当前实现、缺口和截图字段来源以[日志模块说明](../../operations/logging-module.md)为准，不能据此宣称持久投递已经落地。
+
 ### 16.1 四维分类与逻辑流
 
 每条结构化日志同时具有以下四个维度：
@@ -762,10 +764,13 @@ Full.NET 使用 OpenTelemetry 标准关联 Log、Trace 和 Metrics，不绑定�
 
 - `TraceId/SpanId`、路由模板、Controller/Action/Endpoint、HTTP Method、规范化 URL/Host/Scheme；
 - 状态码、业务结果码、`ElapsedMs`、客户端取消/异常类型；
-- 可信代理解析后的客户端 IP、来源 URL（`Referer`，仅在存在且通过清洗时）、协议和受控 User-Agent 摘要；
-- 经 Endpoint 白名单和字段投影后的请求/响应摘要。
+- 可信代理解析后的客户端 IP 指纹；原 IP/端口和服务端地址作为 Restricted，仅在可用且有既有 B1 记录资格时写审计详情，不进入 B2/普通输出；来源 URL（`Origin/Referer`，仅在存在且去除 Query/Fragment/UserInfo 后）、协议和受控 User-Agent 摘要；
+- Endpoint 显示键、ClientKind/可信 ClientId、已解析 Culture 与有界 Accept-Language 摘要；可选线程号只表示捕获点，不是异步请求全生命周期线程；
+- 经 Endpoint 白名单和字段投影后的 Internal 请求/响应摘要；Restricted 请求/返回详情仅供 B1 审计存储。
 
 生产默认 `Enabled=true`、`CaptureMode=Summary`。成功请求使用确定性采样；错误、慢请求和安全事件进入独立 Priority 通道且不参加成功采样，但 Priority 仍是容量有界、可观测丢弃的运行日志，不构成不可丢承诺；要求持久证据的事件必须进入 B1/B0。`SanitizedPayload` 只能由 Endpoint 显式白名单启用，必须限制字段、长度、嵌套深度和集合数量；密码、Token、Cookie、Authorization、签名、完整证件号/银行卡号等 Secret 永不记录，nonce 只允许 HMAC 摘要。禁止复制 Furion Logging Monitor 那种每请求输出完整系统信息、全部 Header、请求体和响应体的大文本块作为生产默认。
+
+请求参数与返回内容由显式安全 DTO 投影提供，不通过替换响应流或全量读取 Body 实现。TryBeginCapture 先检查策略/目的地/预算，再调用投影工厂和有界源生成序列化；不接收预先生成的 JSON 字符串，无许可时工厂零执行。B1 资格和预算独立于 B2 成功采样。采集结果包含 CaptureState，区分关闭、不适用、未授权、截断、脱敏、失败和预算拒绝。截图中可用上下文尽量采集，缺失字段不推测；Minimal API 不伪造 Controller/Area，TraceIdentifier 不冒充 Activity.TraceId。系统/运行时资源启动时记录一次。字段表、UTF-8 预算与展示契约见模块说明 §4—§5。
 
 框架必须提供六档部署初始模板：`S [0,1K)`、`M [1K,5K)`、`L [5K,10K)`、`XL [10K,50K)`、`XXL [50K,100K)`、`Ultra >=100K`。Profile 只控制成功请求/Trace 的起始采样、Payload 捕获和事件/字节容量预算，不改变 B0/B1/B2 可靠性语义，也不得按瞬时在途数自动抖动切档。面向 1 万在途边界的生产初始参考为 `Enabled=true`、`CaptureMode=Summary`、`CapacityProfile=XL`，该档只是保守起始保护值，最终选择还必须结合经认证的事件/秒、字节/秒和日志后端预算，仍须由目标硬件校准。
 
@@ -783,12 +788,18 @@ Audit 不使用 Outbox。B0 与业务事务原子写；B1 批写器必须定义�
 
 ### 16.4 管道、压力状态与保留
 
-成熟生产参考管道为：
+目标生产参考管道如下；用户确认 Collector 与应用有界后台直发 ApplicationKafka 为正式比较候选，验证后可按配置选择。Local 无远程服务，CentralDirect 指 Collector 跳过 Kafka，CentralKafka 指 Collector 使用 Kafka；ApplicationKafka 省去同流文件采集。Kafka 与 ES 独立可选，不替代 B0/B1：
 
 ```text
-应用 JSON stdout
--> Fluent Bit DaemonSet（磁盘缓冲）
--> Loki（热查询）/ 对象存储（长期归档）
+应用 JSON stdout / 可选滚动文件
+-> Fluent Bit（有界、可恢复磁盘缓冲）
+-> Direct：Elasticsearch / 其他查询后端 / 对象存储
+   或 Kafka：日志专用 Topic -> 独立消费写入端 -> 查询后端 / 对象存储
+
+ApplicationKafka：有界日志快照 -> 可选静态适配/后台 Producer
+-> 日志专用 Topic -> 独立消费写入端 -> 查询后端 / 对象存储
+
+Restricted 请求/返回/IP 详情 -> 既有 B1 审计记录（精确授权、独立到期/清理）
 
 OTLP
 -> OpenTelemetry Collector
@@ -796,9 +807,23 @@ OTLP
 -> Grafana
 ```
 
-OpenSearch、Seq 或其他 APM 可以替换查询后端，应用侧字段和可靠性契约不随平台变化。应用日志管道、优先日志通道和 Audit 批写器都必须有界并暴露队列深度、字节数、丢弃数、批次耗时和失败数。压力状态固定为 `Normal -> Degraded -> Critical -> Recovering`，只允许逐级收缩 B2/Best Effort 的采样和 Payload；不得降级 B0/B1 语义，也不得默认在请求线程同步写网络或磁盘。
+Loki、OpenSearch、Seq 或其他 APM 可以替换查询后端，应用侧字段和可靠性契约不随平台变化。核心不强制引用日志 Kafka/ES 写入客户端；现有旧 ES Sink 按兼容迁移阶段退出核心，业务 Kafka 仍归 Messaging。关闭组件不连接、不探测、不要求其 Secret。应用日志管道、优先日志通道和 Audit 批写器都必须有界并暴露队列深度、字节数、丢弃数、批次耗时和失败数。压力状态固定为 `Normal -> Degraded -> Critical -> Recovering`，只允许逐级收缩 B2/Best Effort 的采样和 Payload；不得降级 B0/B1 语义，也不得默认在请求线程同步写网络或磁盘。
+
+计划配置 FullNet:Logging:DeliveryMode=Local/Collector/ApplicationKafka 与平台 ingress 保持一致；transport=Direct 只表示不经 Broker，直发只能配 Kafka。ApplicationKafka 必须具备经验证的可选静态适配和宿主构建；默认产物不强制引入日志客户端，开关关闭不等于依赖退出 native 发布闭包。应用只注入最小日志写凭据，同一事件仅一个集中入口，采集器排除直发流；切换受控发布、限时排空和同 ID 对账，不自动双写/故障切路。
+
+两路线同环境比较请求 P99、每实例事件/字节吞吐、应用+采集器或应用+SDK 的 CPU/托管及 native 内存、丢弃和故障恢复，再决定适用部署。后台直发省去文件读写/再解析，但承担客户端和未确认记录的崩溃窗口；Producer 内部消息/字节/在途预算及错误日志容量保护必须实证，不能以 ConcurrentQueue 入队速度或 Kafka 集群总吞吐认定无瓶颈。具体准入见模块说明 §3.1/§3.2。
+
+统一 ILogger 管道在事件构造阶段限制属性、深度、集合与字符串，入队前生成不保留原始业务对象/异常引用的受限 LogEnvelope；同时按条数和实际持有容量计费。整事件初始 UTF-8 上限 16384 字节，普通/优先独立计费预算 67108864/8388608 字节；在途与构造资源另受上界，计费上限不等于进程 RSS。HTTP Payload 配置不能替代该保护，具体约束见模块说明 §2.3。
+
+持久交付只能从经故障验证的持久边界起算：应用内存入队、标准输出成功或 Kafka 客户端入队均不构成端到端 ACK。采集器需验证检查点/chunk 释放与 Broker ACK 的实际关系。Kafka 消费者首选 Logstash；手动提交只表示队列接收，LG00 必须证明有界 PQ checkpoint/fsync 先于每分区连续 nextOffset 提交；最终 Bulk/隔离逐项确认。PQ 不复制数据，永久卷丢失有独立 RPO/受控回放预算。组件/插件默认丢弃、Bulk 部分失败、DLQ 满和 checkpointWrites=1 的性能成本都须实证；未通过只关闭相应入口/消费者/确认组合。emptyDir 不能覆盖 Pod 重建/节点丢失；未认证保持 Capacity-not-verified。
+
+Logstash/PQ 为当前准入基线；LG00 可独立评估 SinkConfirmed，只有具体消费者证明最终逐项写入/可靠隔离后推进连续 Offset，才允许省 PQ，不把 Logstash 改为 memory 当作等价。直发默认无应用 Spool，至少一次从已验证 Broker 确认开始；失效的入口/确认组合保持关闭，不外推另一条路线的证据。
+
+ES 本阶段采用固定 UTC 事件日期索引，关闭 data stream 和 ILM rollover；冻结事件时间/IndexRouteVersion，LogEventId 映射 document_id，以 index 动作写同一索引/ID。重放保留原始 ExpiresAtUtc，过期不写入、不重建过期索引。去重只覆盖该路由的保留窗口，不承诺全链 Exactly-Once；未来 rollover 必须另审跨索引去重。详见模块说明 §6。
 
 默认保留期：Diagnostic 3 天、普通 HTTP Operation/Access 14 天、Warning/Error 运行日志 30 天、Security 90 天、Trace 7 天、重要 HTTP Operation Audit 365 天、Exception Audit 90 天；Domain Audit 按模块法规与业务策略确定。Metrics 热数据默认 30 天，长期数据采用降采样。具体项目可因法规延长，但缩短 Audit 保留期必须经过安全与合规评审。
+
+上述为目标保留策略，当前开关/默认值见模块说明。B1 Operation 规划以可空、版本化 ContextJson/DetailsExpiresAtUtc 保存 Restricted 详情，只存审计库，SQL Server/MySQL 成对增量迁移，历史不猜测回填。详情按独立精确权限读取，到期立即不可见；独立 Worker 清理不受普通 Retention.Enabled=false 影响。清理检查点未知/过期或积压超预算时拒绝新详情，不影响摘要。旧列表/导出不自动增加敏感字段，本阶段不开放 Console/File/Kafka/ES/归档的 Restricted 导出；备份恢复先清理过期详情再开放读取。
 
 追踪链路覆盖：
 
@@ -942,7 +967,7 @@ H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 
 | 对象存储已确认文件 | 0 | 30 分钟 | 版本化/复制或等价耐久策略 |
 | Redis Cache/Backplane | 不承诺持久数据 RPO | 15 分钟 | 可重建；故障期间按缓存类别回退 |
 | Redis Realtime | 不保存离线业务事实 | 15 分钟 | 连接重建；离线事实由数据库/通知记录承担 |
-| 普通日志 | 以 Fluent Bit 磁盘 Spool 容量为丢失预算 | 60 分钟 | 查询后端恢复后续传 |
+| 普通日志 | Collector 按源文件/采集缓冲故障预算；ApplicationKafka 披露内存未确认缺口 | 60 分钟 | 按准入入口及确认边界恢复、保留余量和 ID 对账；不承诺零丢失 |
 | Audit 查询库 | 按 B0/B1 数据库策略 | 30 分钟 | 双库备份、恢复与保留验证 |
 
 受控 Production 只有在设计同步、多实例正确性、资源治理、Kubernetes 部署、双库、恢复和回滚门禁通过后，才可以保守流量上线并明确标记 `Capacity-not-verified`；这不授权宣传 10K 容量。正式 10K 声明必须完成第 20.5 节专用环境认证。

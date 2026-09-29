@@ -23,18 +23,21 @@ async function exists(relativePath) {
 }
 
 const requiredLogFields = [
-  'timestamp',
-  'level',
-  'message',
-  'application',
-  'instance',
-  'trace_id',
-  'span_id',
+  '@t',
+  '@mt',
+  'LogEventId',
+  'Instance',
   'log.class',
+];
+
+const optionalLogFields = [
+  '@l',
+  'Application',
+  'TraceId',
+  'SpanId',
   'log.stream',
   'reliability.class',
   'data.classification',
-  'DiagnosticGroup',
   'EventName',
 ];
 
@@ -96,10 +99,40 @@ test('Fluent Bit contract: buffers, TLS, split streams, no durable audit duplica
   assert.match(text, /Name\s+s3/);
   assert.match(text, /durableAuditViaFluentBit:\s*false/);
   assert.match(text, /recursiveSinkWriteback:\s*false/);
-  for (const field of requiredLogFields) {
-    assert.match(text, new RegExp(field.replace('.', '\\.')));
-  }
+  assert.match(text, /corruptChunkIsolation:\s*false/);
+  const required = text.match(/requiredLogFields:\s*\n((?:\s+- [^\n]+\n)+)/)?.[1] ?? '';
+  const optional = text.match(/optionalLogFields:\s*\n((?:\s+- [^\n]+\n)+)/)?.[1] ?? '';
+  for (const field of requiredLogFields) assert.match(required, new RegExp(field.replace('.', '\\.')));
+  for (const field of optionalLogFields) assert.match(optional, new RegExp(field.replace('.', '\\.')));
+  assert.doesNotMatch(required, /DiagnosticGroup|timestamp|trace_id|level/);
   assert.match(text, /Remove\s+DiagnosticGroup/);
+});
+
+test('Fluent Bit Collector candidate declares one Tail and a Pod label gate', async () => {
+  const source = await read('deploy/observability/fluent-bit-values.yaml');
+  assert.match(source, /Parsers_File\s+\/fluent-bit\/etc\/conf\/custom_parsers\.conf/);
+  const inputs = source.match(/  inputs: \|([\s\S]*?)\n  filters: \|/)?.[1];
+  const filters = source.match(/  filters: \|([\s\S]*?)\n  outputs: \|/)?.[1];
+  assert.ok(inputs);
+  assert.ok(filters);
+  assert.equal((inputs.match(/^    \[INPUT\]/gm) ?? []).length, 1);
+  assert.match(inputs, /Multiline\.Parser\s+docker,\s*cri/i);
+  assert.match(filters, /Name\s+kubernetes[\s\S]*Labels\s+On/i);
+  assert.match(filters, /Name\s+kubernetes[\s\S]*Merge_Log\s+Off/i);
+  assert.match(filters, /Rule\s+\$kubernetes\['labels'\]\['fullnet\.io\/log-ingress'\]\s+\^collector\$/);
+  assert.ok(filters.indexOf('Name                parser') > filters.indexOf("$kubernetes['labels']['fullnet.io/log-ingress']"));
+  assert.match(filters, /Name\s+rewrite_tag/);
+  assert.match(filters, /Name\s+grep[\s\S]*Match\s+fullnet\.raw[\s\S]*Regex\s+LogEventId/);
+});
+
+test('Fluent Bit rejects records missing the declared Compact JSON envelope fields', async () => {
+  const source = await read('deploy/observability/fluent-bit-values.yaml');
+  const grep = source.match(/\[FILTER\]\s+Name\s+grep\s+Match\s+fullnet\.raw([\s\S]*?)(?=\[FILTER\])/i)?.[1];
+  assert.ok(grep);
+  assert.match(grep, /Logical_Op\s+AND/i);
+  for (const field of requiredLogFields) {
+    assert.match(grep, new RegExp(`Regex\\s+${field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+`));
+  }
 });
 
 test('OTel Collector contract: memory_limiter, batch, retry, file_storage', async () => {

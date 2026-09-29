@@ -5,6 +5,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Modules.Auditing.Features.QueryHostAccessLogs;
 using Full.NET.Modules.Auditing.Features.QueryHostExceptionLogs;
 using Full.NET.Modules.Auditing.Features.QueryHostOperationLogs;
+using Full.NET.Modules.Auditing.Retention;
 
 namespace Full.NET.Modules.Auditing.Persistence;
 
@@ -16,11 +17,14 @@ internal sealed class AuditingDapperAotMaterializerContributor
     {
         registrar.Register<HostAccessLogQueryService.AccessLogRecord>(ReadAccessLog);
         registrar.Register<HostOperationLogQueryService.OperationLogRecord>(ReadOperationLog);
+        registrar.Register<HostOperationLogDetailsQueryService.DetailRow>(ReadOperationLogDetails);
         registrar.Register<HostExceptionLogQueryService.ExceptionLogRecord>(ReadExceptionLog);
         registrar.Register<OutboundCallLogRecord>(ReadOutboundCallLog);
         registrar.Register<HostDashboardAccessMetricsRecord>(ReadDashboardMetrics);
         registrar.Register<HostDashboardActivityRecord>(ReadDashboardActivity);
         registrar.Register<AuditLogTrendBucketRecord>(ReadTrendBucket);
+        registrar.Register<AuditDetailsCleanupCheckpointSqlServerRow>(ReadDetailsCheckpointSqlServer);
+        registrar.Register<AuditDetailsCleanupCheckpointMySqlRow>(ReadDetailsCheckpointMySql);
     }
 
     private static HostAccessLogQueryService.AccessLogRecord ReadAccessLog(DbDataReader reader) => new()
@@ -53,6 +57,14 @@ internal sealed class AuditingDapperAotMaterializerContributor
         TraceId = ReadNullableString(reader, "TraceId"),
         ClientIpFingerprint = ReadNullableString(reader, "ClientIpFingerprint"),
         PermissionCode = ReadNullableString(reader, "PermissionCode"),
+    };
+
+    private static HostOperationLogDetailsQueryService.DetailRow ReadOperationLogDetails(
+        DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"),
+        ContextJson = ReadString(reader, "ContextJson"),
+        DetailsExpiresAtUtc = ReadDateTimeOffset(reader, "DetailsExpiresAtUtc"),
     };
 
     private static HostExceptionLogQueryService.ExceptionLogRecord ReadExceptionLog(DbDataReader reader) => new()
@@ -107,6 +119,24 @@ internal sealed class AuditingDapperAotMaterializerContributor
         BucketStartUtc = ReadDateTimeOffset(reader, "BucketStartUtc"),
         EventCount = ReadInt64(reader, "EventCount"),
         ErrorCount = ReadInt64(reader, "ErrorCount"),
+    };
+
+    private static AuditDetailsCleanupCheckpointSqlServerRow ReadDetailsCheckpointSqlServer(
+        DbDataReader reader) => new()
+    {
+        LastSuccessfulCleanupAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(
+            reader, reader.GetOrdinal("LastSuccessfulCleanupAtUtc")),
+        OldestExpiredAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(
+            reader, reader.GetOrdinal("OldestExpiredAtUtc")),
+    };
+
+    private static AuditDetailsCleanupCheckpointMySqlRow ReadDetailsCheckpointMySql(
+        DbDataReader reader) => new()
+    {
+        LastSuccessfulCleanupAtUtc = reader.GetDateTime(
+            reader.GetOrdinal("LastSuccessfulCleanupAtUtc")),
+        OldestExpiredAtUtc = reader.IsDBNull(reader.GetOrdinal("OldestExpiredAtUtc"))
+            ? null : reader.GetDateTime(reader.GetOrdinal("OldestExpiredAtUtc")),
     };
 
     private static Guid ReadGuid(DbDataReader reader, string name) => reader.GetGuid(reader.GetOrdinal(name));

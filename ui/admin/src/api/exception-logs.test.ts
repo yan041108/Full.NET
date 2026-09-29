@@ -80,5 +80,19 @@ describe('exception-logs api', () => {
 
   });
 
+  it('forwards exception contains filters through the generated operation', async () => {
+    requestMock.mockResolvedValueOnce({ items: [], page: 1, pageSize: 20, total: 0 });
+    await listAuditingExceptionLogs(1, 20, undefined, {
+      exceptionTypeContains: 'InvalidOperation',
+      pathContains: '/api/orders',
+      fromUtc: '2026-09-28T00:00:00Z',
+      toUtc: '2026-09-29T00:00:00Z'
+    });
+    expect(requestMock).toHaveBeenCalledWith(
+      '/api/v1/auditing/exception-logs?page=1&pageSize=20&fromUtc=2026-09-28T00%3A00%3A00Z&toUtc=2026-09-29T00%3A00%3A00Z&exceptionTypeContains=InvalidOperation&pathContains=%2Fapi%2Forders',
+      { method: 'GET' }, undefined
+    );
+  });
+
 });
 

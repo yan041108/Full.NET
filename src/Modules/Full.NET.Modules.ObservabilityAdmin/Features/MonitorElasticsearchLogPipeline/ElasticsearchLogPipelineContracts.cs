@@ -15,6 +15,8 @@ namespace Full.NET.Modules.ObservabilityAdmin.Features.MonitorElasticsearchLogPi
 /// <param name="ClusterName">集群名称。</param>
 /// <param name="NumberOfNodes">节点数量。</param>
 /// <param name="ProbeErrorMessage">探测失败时的稳定摘要；不含凭据。</param>
+/// <param name="DeliveryStatus">应用启动时选择的入口状态机器码；不代表平台已完成投递。</param>
+/// <param name="DeliveryConfirmationBoundary">已证明的确认边界；当前仅到配置或 Sink 注册。</param>
 public sealed record ElasticsearchLogPipelineHealthResponse(
     string AdapterKind,
     bool IsEnabled,
@@ -26,4 +28,6 @@ public sealed record ElasticsearchLogPipelineHealthResponse(
     string ClusterStatus,
     string? ClusterName,
     int? NumberOfNodes,
-    string? ProbeErrorMessage);
+    string? ProbeErrorMessage,
+    string DeliveryStatus = "legacy-console",
+    string DeliveryConfirmationBoundary = "configuration-only");

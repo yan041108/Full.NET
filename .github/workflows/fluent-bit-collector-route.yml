@@ -1,0 +1,24 @@
+name: Fluent Bit Collector route
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/fluent-bit-collector-route.yml'
+      - 'deploy/observability/fluent-bit-values.yaml'
+      - 'eng/testing/fluent-bit-collector-route-smoke.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  route-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Verify Collector ingress and classification with fixed Fluent Bit image
+        run: node eng/testing/fluent-bit-collector-route-smoke.mjs

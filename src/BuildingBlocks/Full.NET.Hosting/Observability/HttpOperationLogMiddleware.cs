@@ -1,6 +1,6 @@
 using System.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -14,7 +14,8 @@ public sealed class HttpOperationLogMiddleware(
     RequestDelegate next,
     IOptionsMonitor<HttpOperationLogOptions> optionsMonitor,
     HttpOperationLogEmitter emitter,
-    ILogger<HttpOperationLogMiddleware> logger)
+    ILogger<HttpOperationLogMiddleware> logger,
+    HttpOperationLogIngress ingress)
 {
     public const string EventName = "HttpOperationCompleted";
     public const string DiagnosticGroup = "http.operation";
@@ -23,10 +24,23 @@ public sealed class HttpOperationLogMiddleware(
 
     public async Task InvokeAsync(HttpContext httpContext)
     {
-        var options = optionsMonitor.CurrentValue;
-        if (!options.Enabled
-            || options.CaptureMode == HttpOperationCaptureMode.Disabled
-            || !ShouldCapture(httpContext.Request.Path, options))
+        HttpOperationLogOptions options;
+        bool shouldCapture;
+        try
+        {
+            options = optionsMonitor.CurrentValue;
+            shouldCapture = options.Enabled
+                && options.CaptureMode != HttpOperationCaptureMode.Disabled
+                && ShouldCapture(httpContext.Request.Path, options);
+        }
+        catch (Exception)
+        {
+            // 日志热更新配置失效时直接跳过 B2，不阻断请求。
+            await next(httpContext).ConfigureAwait(false);
+            return;
+        }
+
+        if (!shouldCapture)
         {
             await next(httpContext).ConfigureAwait(false);
             return;
@@ -53,7 +67,16 @@ public sealed class HttpOperationLogMiddleware(
             catch (Exception emitException)
             {
                 // B2 fail-open：发射失败不得影响响应或掩盖原异常。
-                logger.LogDebug(emitException, "HttpOperationCompleted emit failed.");
+                try
+                {
+                    logger.LogDebug(
+                        "HttpOperationCompleted emit failed: {ExceptionType}",
+                        emitException.GetType().Name);
+                }
+                catch (Exception)
+                {
+                    // 诊断 provider 再次失败也不得破坏业务响应。
+                }
             }
         }
     }
@@ -65,17 +88,34 @@ public sealed class HttpOperationLogMiddleware(
         HttpOperationLogOptions options)
     {
         var statusCode = httpContext.Response.StatusCode;
-        var isError = unhandled is not null || statusCode >= 500;
+        var hasException = unhandled is not null
+            || httpContext.Features.Get<IExceptionHandlerFeature>()?.Error is not null;
+        var isError = hasException || statusCode >= 500;
+        var outcome = hasException
+            ? "Exception"
+            : statusCode >= 400
+                ? "HttpError"
+                : "HttpCompleted";
         var isSlow = elapsed >= options.SlowRequestThreshold;
+        var level = isError
+            ? LogLevel.Error
+            : isSlow
+                ? LogLevel.Warning
+                : LogLevel.Information;
+        if (!logger.IsEnabled(level))
+        {
+            return;
+        }
+
         var isPriority = (isError && options.AlwaysRecordErrors) || isSlow;
 
-        var routeKey = ResolveRouteKey(httpContext);
-        var traceId = Activity.Current?.TraceId.ToString()
-            ?? httpContext.TraceIdentifier;
-
+        var routeKey = HttpOperationMetadataBuilder.ResolveRouteTemplate(httpContext);
         if (!isPriority)
         {
-            if (!emitter.ShouldSampleSuccess(routeKey, traceId))
+            if (!HttpOperationLogSampleKey.ShouldSampleSuccess(
+                    httpContext,
+                    routeKey,
+                    emitter))
             {
                 HttpOperationLogTelemetry.RecordSkipped("success_sample");
                 return;
@@ -93,20 +133,13 @@ public sealed class HttpOperationLogMiddleware(
 
         try
         {
-            var method = httpContext.Request.Method;
-            if (method.Length > 16)
-            {
-                method = method[..16];
-            }
-
-            var rawUrl = httpContext.Request.Path.Value
-                + httpContext.Request.QueryString.Value;
-            var url = HttpOperationLogSanitizer.SanitizeUrl(rawUrl);
-            var sourceUrl = HttpOperationLogSanitizer.SanitizeSourceUrl(
-                httpContext.Request.Headers.Origin.FirstOrDefault()
-                ?? httpContext.Request.Headers.Referer.FirstOrDefault());
-            var clientIpFingerprint = HttpOperationLogSanitizer.FingerprintClientIp(
-                httpContext.Connection.RemoteIpAddress?.ToString());
+            var metadata = HttpOperationMetadataBuilder.Capture(
+                httpContext,
+                options.CaptureThreadId,
+                routeKey);
+            var method = metadata.HttpMethod;
+            // B2 摘要只输出路由模板；实际路径段和 Query 可能包含私密值。
+            var url = metadata.RouteTemplate;
 
             Guid? tenantId = null;
             if (httpContext.Items.TryGetValue(TenantItemKey, out var tenantValue)
@@ -116,28 +149,31 @@ public sealed class HttpOperationLogMiddleware(
             }
 
             string? payload = null;
+            string? responsePayload = null;
             if (options.CaptureMode == HttpOperationCaptureMode.SanitizedPayload
-                && options.PayloadRouteAllowList.Contains(routeKey, StringComparer.OrdinalIgnoreCase)
-                && options.MaxRequestPayloadBytes > 0
-                && httpContext.Items.TryGetValue(
-                    HttpOperationLogPayloadCapture.ItemKey,
-                    out var captured)
-                && captured is string rawPayload)
+                && options.PayloadRouteAllowList.Contains(
+                    HttpOperationMetadataBuilder.ResolveFullRouteTemplate(httpContext),
+                    StringComparer.OrdinalIgnoreCase))
             {
-                payload = HttpOperationLogSanitizer.ProjectJsonPayload(
-                    rawPayload,
-                    HttpOperationLogPayloadCapture.DefaultAllowedFields,
-                    options.MaxRequestPayloadBytes);
+                if (options.MaxRequestPayloadBytes > 0
+                    && HttpOperationPayloadProjection.TryReadB2Result(
+                        httpContext,
+                        out var approvedPayload))
+                {
+                    payload = approvedPayload;
+                }
+
+                if (options.MaxResponsePayloadBytes > 0
+                    && HttpOperationPayloadProjection.TryReadB2ResponseResult(
+                        httpContext,
+                        out var approvedResponsePayload))
+                {
+                    responsePayload = approvedResponsePayload;
+                }
             }
 
             var reliability = isPriority ? "Priority" : "BestEffort";
-            var level = isError
-                ? LogLevel.Error
-                : isSlow
-                    ? LogLevel.Warning
-                    : LogLevel.Information;
-
-            using (logger.BeginScope(new Dictionary<string, object?>
+            var fields = new Dictionary<string, object?>
             {
                 ["EventName"] = EventName,
                 ["log.class"] = LogClassification.HttpOperation,
@@ -146,28 +182,52 @@ public sealed class HttpOperationLogMiddleware(
                 ["data.classification"] = "Internal",
                 ["DiagnosticGroup"] = DiagnosticGroup,
                 ["http.method"] = method,
-                ["http.route"] = routeKey,
+                ["http.route"] = metadata.RouteTemplate,
                 ["url"] = url,
                 ["http.status_code"] = statusCode,
+                ["Outcome"] = outcome,
                 ["ElapsedMs"] = (int)Math.Min(int.MaxValue, Math.Round(elapsed.TotalMilliseconds)),
-                ["SourceUrl"] = sourceUrl,
-                ["TraceId"] = HttpOperationLogSanitizer.Truncate(traceId, 64),
-                ["ClientIpFingerprint"] = clientIpFingerprint,
+                ["SourceOriginFingerprint"] = metadata.SourceOriginFingerprint,
+                ["TraceId"] = metadata.TraceId,
+                ["SpanId"] = metadata.SpanId,
+                ["RequestId"] = metadata.RequestId,
+                ["ClientIpFingerprint"] = metadata.ClientIpFingerprint,
+                ["EndpointName"] = metadata.EndpointName,
+                ["EndpointDisplayName"] = metadata.EndpointDisplayName,
+                ["Controller"] = metadata.Controller,
+                ["Action"] = metadata.Action,
+                ["Area"] = metadata.Area,
+                ["Scheme"] = metadata.Scheme,
+                ["HttpProtocol"] = metadata.HttpProtocol,
+                ["UserAgentSummary"] = metadata.UserAgentSummary,
+                ["Culture"] = metadata.Culture,
+                ["AcceptLanguageSummary"] = metadata.AcceptLanguageSummary,
+                ["ClientIdFingerprint"] = metadata.ClientIdFingerprint,
+                ["CaptureThreadId"] = metadata.CaptureThreadId,
                 ["TenantId"] = tenantId,
                 ["RequestPayload"] = payload,
-            }))
+                ["ResponsePayload"] = responsePayload,
+            };
+            var admission = ingress.Emit(new HttpOperationLogRecord(fields), level switch
             {
-                logger.Log(
-                    level,
-                    "{EventName} {HttpMethod} {Route} -> {StatusCode} in {ElapsedMs} ms",
-                    EventName,
-                    method,
-                    routeKey,
-                    statusCode,
-                    (int)Math.Min(int.MaxValue, Math.Round(elapsed.TotalMilliseconds)));
-            }
+                LogLevel.Error => Serilog.Events.LogEventLevel.Error,
+                LogLevel.Warning => Serilog.Events.LogEventLevel.Warning,
+                _ => Serilog.Events.LogEventLevel.Information,
+            });
 
-            HttpOperationLogTelemetry.RecordEmitted(reliability);
+            if (admission is null)
+            {
+                HttpOperationLogTelemetry.RecordSkipped("missing_ingress");
+            }
+            else if (admission.Value)
+            {
+                HttpOperationLogTelemetry.RecordEmitted(reliability);
+            }
+            else
+            {
+                HttpOperationLogTelemetry.RecordDropped(
+                    isPriority ? "priority_queue" : "best_effort_queue");
+            }
         }
         finally
         {
@@ -182,7 +242,7 @@ public sealed class HttpOperationLogMiddleware(
         }
     }
 
-    private static bool ShouldCapture(PathString path, HttpOperationLogOptions options)
+    internal static bool ShouldCapture(PathString path, HttpOperationLogOptions options)
     {
         var value = path.Value ?? "/";
         foreach (var excluded in options.ExcludePathPrefixes)
@@ -208,26 +268,10 @@ public sealed class HttpOperationLogMiddleware(
 
         return false;
     }
-
-    private static string ResolveRouteKey(HttpContext httpContext)
-    {
-        var endpoint = httpContext.GetEndpoint();
-        if (endpoint is RouteEndpoint routeEndpoint)
-        {
-            var template = routeEndpoint.RoutePattern.RawText;
-            if (!string.IsNullOrWhiteSpace(template))
-            {
-                return HttpOperationLogSanitizer.Truncate(template, 256);
-            }
-        }
-
-        var path = httpContext.Request.Path.Value ?? "/";
-        return HttpOperationLogSanitizer.Truncate(path, 256);
-    }
 }
 
 /// <summary>
-/// SanitizedPayload 显式投影入口；默认不捕获请求体，由选定 Endpoint 写入 Items。
+/// 旧字符串入口已停用；保留方法签名供调用方安全迁移到两阶段静态投影。
 /// </summary>
 public static class HttpOperationLogPayloadCapture
 {
@@ -245,11 +289,7 @@ public static class HttpOperationLogPayloadCapture
     public static void CaptureRequestJson(HttpContext httpContext, string json)
     {
         ArgumentNullException.ThrowIfNull(httpContext);
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return;
-        }
-
-        httpContext.Items[ItemKey] = json;
+        // 无法在已构造的原始 JSON 前完成目的地许可和预算，因此一律不留存。
+        httpContext.Items.Remove(ItemKey);
     }
 }

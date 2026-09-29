@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -69,6 +70,8 @@ internal static class AuditingRetentionAssertions
                     traceId,
                     now.AddDays(-30),
                     cancellationToken));
+
+            await VerifyDetailsCleanupAsync(services, now, cancellationToken);
         }
         finally
         {
@@ -87,6 +90,166 @@ internal static class AuditingRetentionAssertions
             BatchSize = 1,
             MaxBatchesPerRun = maxBatchesPerRun,
         };
+
+    private static async Task VerifyDetailsCleanupAsync(
+        IServiceProvider services,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var command = services.GetRequiredService<ICommandExecutor>();
+        var query = services.GetRequiredService<IQueryExecutor>();
+        var traceId = $"details-retention-{Guid.NewGuid():N}";
+        await command.ExecuteAsync(
+            new SqlStatement(
+                "test.auditing.details_retention.insert_fixtures",
+                """
+                INSERT INTO fn_auditing_operation_log
+                    (Id, OccurredAtUtc, ActionKey, HttpMethod, RequestPath,
+                     StatusCode, DurationMs, Succeeded, UserId, TenantId,
+                     TraceId, ClientIpFingerprint, PermissionCode, ContextJson,
+                     DetailsExpiresAtUtc)
+                VALUES
+                    (@FirstId, @NowUtc, 'details.expired.first', 'POST',
+                     '/details/expired/first', 200, 1, 1, NULL, NULL,
+                     @TraceId, NULL, NULL, '{"v":1}', @ExpiredAtUtc),
+                    (@SecondId, @NowUtc, 'details.expired.second', 'POST',
+                     '/details/expired/second', 200, 1, 1, NULL, NULL,
+                     @TraceId, NULL, NULL, '{"v":1}', @ExpiredAtUtc),
+                    (@FreshId, @NowUtc, 'details.fresh', 'POST',
+                     '/details/fresh', 200, 1, 1, NULL, NULL,
+                     @TraceId, NULL, NULL, '{"v":1}', @FreshAtUtc)
+                """,
+                SqlDataScope.HostOnly),
+            new
+            {
+                FirstId = Guid.CreateVersion7(),
+                SecondId = Guid.CreateVersion7(),
+                FreshId = Guid.CreateVersion7(),
+                NowUtc = now,
+                TraceId = traceId,
+                ExpiredAtUtc = now.AddMinutes(-1),
+                FreshAtUtc = now.AddDays(1),
+            },
+            cancellationToken);
+
+        var runner = new AuditDetailsRetentionRunner(
+            query,
+            command,
+            services.GetRequiredService<ICommandTransaction>(),
+            services.GetRequiredService<IClock>(),
+            services.GetRequiredService<IOptions<DatabaseOptions>>());
+        var options = new AuditDetailsRetentionOptions
+        {
+            BatchSize = 1,
+            MaxBatchesPerRun = 1,
+        };
+        var first = await runner.RunOnceAsync(options, cancellationToken);
+        Assert.AreEqual(1, first.Cleared);
+        Assert.IsTrue(first.MayHaveMore);
+        var scopeFactory = services.GetRequiredService<IServiceScopeFactory>();
+        await Task.WhenAll(
+            RecordCheckpointInIndependentScopeAsync(scopeFactory, cancellationToken),
+            RecordCheckpointInIndependentScopeAsync(scopeFactory, cancellationToken));
+        var checkpointStore = new AuditDetailsCleanupCheckpointStore(
+            query,
+            command,
+            services.GetRequiredService<ICommandTransaction>(),
+            services.GetRequiredService<IClock>(),
+            services.GetRequiredService<IIdGenerator>(),
+            services.GetRequiredService<IOptions<DatabaseOptions>>());
+        var checkpoint = await checkpointStore.RecordSuccessfulPassAsync(cancellationToken);
+        Assert.IsNotNull(checkpoint.OldestExpiredAtUtc);
+        Assert.IsTrue(checkpoint.OldestExpiredAtUtc <= now);
+        var persistedBacklog = await checkpointStore.ReadAsync(cancellationToken);
+        Assert.IsNotNull(persistedBacklog);
+        Assert.IsNotNull(persistedBacklog.Value.OldestExpiredAtUtc);
+        var staleStore = new AuditDetailsCleanupCheckpointStore(
+            query,
+            command,
+            services.GetRequiredService<ICommandTransaction>(),
+            new FrozenClock(checkpoint.LastSuccessfulCleanupAtUtc.AddMinutes(-5)),
+            services.GetRequiredService<IIdGenerator>(),
+            services.GetRequiredService<IOptions<DatabaseOptions>>());
+        await staleStore.RecordSuccessfulPassAsync(cancellationToken);
+        var preservedBacklogRows = await query.QuerySingleOrDefaultAsync<long>(
+            new SqlStatement(
+                "test.auditing.details_retention.read_preserved_checkpoint",
+                """
+                SELECT COUNT(*) FROM fn_auditing_details_cleanup_state
+                WHERE StateKey = 1
+                  AND LastSuccessfulCleanupAtUtc >= @MinimumSuccessUtc
+                  AND OldestExpiredAtUtc IS NOT NULL
+                """,
+                SqlDataScope.HostOnly),
+            new { MinimumSuccessUtc = checkpoint.LastSuccessfulCleanupAtUtc.AddSeconds(-1) },
+            cancellationToken: cancellationToken);
+        Assert.AreEqual(1L, preservedBacklogRows);
+
+        var second = await runner.RunOnceAsync(options, cancellationToken);
+        Assert.AreEqual(1, second.Cleared);
+        var third = await runner.RunOnceAsync(options, cancellationToken);
+        Assert.AreEqual(0, third.Cleared);
+        Assert.IsFalse(third.MayHaveMore);
+        var caughtUp = await checkpointStore.RecordSuccessfulPassAsync(cancellationToken);
+        Assert.IsNull(caughtUp.OldestExpiredAtUtc);
+        var persistedCaughtUp = await checkpointStore.ReadAsync(cancellationToken);
+        Assert.IsNotNull(persistedCaughtUp);
+        Assert.IsNull(persistedCaughtUp.Value.OldestExpiredAtUtc);
+        var caughtUpRows = await query.QuerySingleOrDefaultAsync<long>(
+            new SqlStatement(
+                "test.auditing.details_retention.read_caught_up_checkpoint",
+                """
+                SELECT COUNT(*) FROM fn_auditing_details_cleanup_state
+                WHERE StateKey = 1 AND OldestExpiredAtUtc IS NULL
+                """,
+                SqlDataScope.HostOnly),
+            cancellationToken: cancellationToken);
+        Assert.AreEqual(1L, caughtUpRows);
+
+        var remaining = await query.QuerySingleOrDefaultAsync<long>(
+            new SqlStatement(
+                "test.auditing.details_retention.read_fixture_counts",
+                """
+                SELECT COUNT(*) FROM fn_auditing_operation_log
+                WHERE TraceId = @TraceId
+                  AND (
+                      (ActionKey LIKE 'details.expired.%'
+                       AND ContextJson IS NULL AND DetailsExpiresAtUtc IS NULL)
+                      OR (ActionKey = 'details.fresh'
+                          AND ContextJson IS NOT NULL
+                          AND DetailsExpiresAtUtc > @NowUtc)
+                  )
+                """,
+                SqlDataScope.HostOnly),
+            new { TraceId = traceId, NowUtc = now },
+            cancellationToken);
+        Assert.AreEqual(3L, remaining);
+    }
+
+    private static async Task RecordCheckpointInIndependentScopeAsync(
+        IServiceScopeFactory scopeFactory,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var tenant = services.GetRequiredService<ICurrentTenantContextWriter>();
+        tenant.SetHost();
+        try
+        {
+            var store = new AuditDetailsCleanupCheckpointStore(
+                services.GetRequiredService<IQueryExecutor>(),
+                services.GetRequiredService<ICommandExecutor>(),
+                services.GetRequiredService<ICommandTransaction>(),
+                services.GetRequiredService<IClock>(),
+                services.GetRequiredService<IIdGenerator>(),
+                services.GetRequiredService<IOptions<DatabaseOptions>>());
+            await store.RecordSuccessfulPassAsync(cancellationToken);
+        }
+        finally
+        {
+            tenant.Clear();
+        }
+    }
 
     private static async Task InsertFixturesAsync(
         ICommandExecutor command,
@@ -253,5 +416,10 @@ internal static class AuditingRetentionAssertions
         public long OldCount { get; set; }
 
         public long FreshCount { get; set; }
+    }
+
+    private sealed class FrozenClock(DateTimeOffset value) : IClock
+    {
+        public DateTimeOffset UtcNow => value;
     }
 }

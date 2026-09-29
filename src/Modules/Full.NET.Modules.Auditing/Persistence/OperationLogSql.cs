@@ -13,10 +13,12 @@ internal static class OperationLogSql
         """
         INSERT INTO fn_auditing_operation_log
             (Id, OccurredAtUtc, ActionKey, HttpMethod, RequestPath, StatusCode, DurationMs,
-             Succeeded, UserId, TenantId, TraceId, ClientIpFingerprint, PermissionCode)
+             Succeeded, UserId, TenantId, TraceId, ClientIpFingerprint, PermissionCode,
+             ContextJson, DetailsExpiresAtUtc)
         VALUES
             (@Id, @OccurredAtUtc, @ActionKey, @HttpMethod, @RequestPath, @StatusCode, @DurationMs,
-             @Succeeded, @UserId, @TenantId, @TraceId, @ClientIpFingerprint, @PermissionCode)
+             @Succeeded, @UserId, @TenantId, @TraceId, @ClientIpFingerprint, @PermissionCode,
+             @ContextJson, @DetailsExpiresAtUtc)
         """,
         SqlDataScope.Global);
 
@@ -109,6 +111,28 @@ internal static class OperationLogSql
                Succeeded, UserId, TenantId, TraceId, ClientIpFingerprint, PermissionCode
         FROM fn_auditing_operation_log
         WHERE Id = @OperationLogId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindDetailsSqlServer = new(
+        "auditing.operation_log.details.sql_server",
+        """
+        SELECT Id, ContextJson, DetailsExpiresAtUtc
+        FROM fn_auditing_operation_log
+        WHERE Id = @OperationLogId
+          AND ContextJson IS NOT NULL
+          AND DetailsExpiresAtUtc > @NowUtc
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindDetailsMySql = new(
+        "auditing.operation_log.details.my_sql",
+        """
+        SELECT Id, ContextJson, DetailsExpiresAtUtc
+        FROM fn_auditing_operation_log
+        WHERE Id = @OperationLogId
+          AND ContextJson IS NOT NULL
+          AND DetailsExpiresAtUtc > @NowUtc
         """,
         SqlDataScope.HostOnly);
 

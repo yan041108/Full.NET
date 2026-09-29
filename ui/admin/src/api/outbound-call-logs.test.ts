@@ -41,4 +41,19 @@ describe('outbound-call-logs api', () => {
       undefined
     );
   });
+
+  it('forwards outbound filters through the generated operation', async () => {
+    requestMock.mockResolvedValueOnce({ items: [], page: 1, pageSize: 20, total: 0 });
+    await listAuditingOutboundCallLogs(1, 20, undefined, {
+      providerKey: 'smtp',
+      operationContains: 'send',
+      succeeded: false,
+      fromUtc: '2026-09-28T00:00:00Z',
+      toUtc: '2026-09-29T00:00:00Z'
+    });
+    expect(requestMock).toHaveBeenCalledWith(
+      '/api/v1/auditing/outbound-call-logs?page=1&pageSize=20&fromUtc=2026-09-28T00%3A00%3A00Z&toUtc=2026-09-29T00%3A00%3A00Z&providerKey=smtp&succeeded=false&operationContains=send',
+      { method: 'GET' }, undefined
+    );
+  });
 });

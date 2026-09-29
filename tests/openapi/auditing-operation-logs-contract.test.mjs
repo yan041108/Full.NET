@@ -17,10 +17,34 @@ const endpointSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Auditing/Features/QueryHostOperationLogs/Endpoint.cs'
 );
+const clientManifestPath = path.join(
+  repositoryRoot,
+  'contracts/openapi/client-generation-manifest-v1.json'
+);
+const clientSnapshotPath = path.join(
+  repositoryRoot,
+  'contracts/openapi/fullnet-client-v1.openapi.json'
+);
 
 async function loadContract() {
   return JSON.parse(await readFile(contractPath, 'utf8'));
 }
+
+test('受限操作详情进入生成客户端且保留独立授权响应', async () => {
+  const manifest = JSON.parse(await readFile(clientManifestPath, 'utf8'));
+  const snapshot = JSON.parse(await readFile(clientSnapshotPath, 'utf8'));
+  const operationId = 'auditingGetHostOperationLogDetails';
+  assert.ok(manifest.entries.some(entry =>
+    entry.operationId === operationId
+    && entry.apiModule === 'ui/admin/src/api/operation-logs.ts'
+    && entry.status === 'generated'));
+
+  const operation = snapshot.paths['/api/v1/auditing/operation-logs/{operationLogId}/details']?.get;
+  assert.equal(operation?.operationId, operationId);
+  assert.ok(operation.responses['200']);
+  assert.ok(operation.responses['403']);
+  assert.ok(operation.responses['404']);
+});
 
 test('Host 操作日志 OpenAPI 夹具结构完整且路径唯一', async () => {
   const contract = await loadContract();
@@ -32,7 +56,13 @@ test('Host 操作日志 OpenAPI 夹具结构完整且路径唯一', async () => 
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^auditing\.operations\.read$/u);
+      assert.ok([
+        'auditing.operations.read',
+        'auditing.operations.details.read'
+      ].includes(operation.permission));
+      for (const permission of operation.additionalPermissions ?? []) {
+        assert.equal(permission, 'auditing.operations.read');
+      }
     }
   }
 });
@@ -43,7 +73,9 @@ test('Host 操作日志 OpenAPI 夹具与 C# 契约和端点源码一致', async
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
 
   assert.match(contractsSource, /record OperationLogResponse/u);
+  assert.match(contractsSource, /record OperationLogDetailsResponse/u);
   assert.match(contractsSource, /auditing\.operations\.read/u);
+  assert.match(contractsSource, /auditing\.operations\.details\.read/u);
   assert.match(
     endpointSource,
     /MapGroup\("\/api\/v1\/auditing\/operation-logs"\)/u
@@ -55,6 +87,9 @@ test('Host 操作日志 OpenAPI 夹具与 C# 契约和端点源码一致', async
     ['/api/v1/auditing/operation-logs', new Map([['GET', 'MapGet("/",']])],
     ['/api/v1/auditing/operation-logs/{operationLogId}', new Map([
       ['GET', 'MapGet("/{operationLogId:guid}",']
+    ])],
+    ['/api/v1/auditing/operation-logs/{operationLogId}/details', new Map([
+      ['GET', 'MapGet("/{operationLogId:guid}/details",']
     ])]
   ]);
 

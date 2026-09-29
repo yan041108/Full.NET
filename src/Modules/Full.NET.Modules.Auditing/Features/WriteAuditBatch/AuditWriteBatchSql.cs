@@ -22,11 +22,12 @@ internal static class AuditWriteBatchSql
         INSERT INTO fn_auditing_operation_log
             (Id, OccurredAtUtc, ActionKey, HttpMethod, RequestPath, StatusCode,
              DurationMs, Succeeded, UserId, TenantId, TraceId,
-             ClientIpFingerprint, PermissionCode)
+             ClientIpFingerprint, PermissionCode, ContextJson, DetailsExpiresAtUtc)
         VALUES
         (@o0_Id, @OccurredAtUtc, @o0_ActionKey, @o0_HttpMethod, @o0_RequestPath, @o0_StatusCode,
          @o0_DurationMs, @o0_Succeeded, @o0_UserId, @o0_TenantId, @o0_TraceId,
-         @o0_ClientIpFingerprint, @o0_PermissionCode)
+         @o0_ClientIpFingerprint, @o0_PermissionCode, @o0_ContextJson,
+         @o0_DetailsExpiresAtUtc)
         """,
         SqlDataScope.Global);
 
@@ -73,7 +74,7 @@ internal static class AuditWriteBatchSql
             INSERT INTO fn_auditing_operation_log
                 (Id, OccurredAtUtc, ActionKey, HttpMethod, RequestPath, StatusCode,
                  DurationMs, Succeeded, UserId, TenantId, TraceId,
-                 ClientIpFingerprint, PermissionCode)
+                 ClientIpFingerprint, PermissionCode, ContextJson, DetailsExpiresAtUtc)
             VALUES
             """);
         var parameters = new Dictionary<string, object?>(StringComparer.Ordinal);
@@ -110,7 +111,11 @@ internal static class AuditWriteBatchSql
                 .Append(prefix)
                 .Append("_ClientIpFingerprint, @")
                 .Append(prefix)
-                .Append("_PermissionCode)");
+                .Append("_PermissionCode, @")
+                .Append(prefix)
+                .Append("_ContextJson, @")
+                .Append(prefix)
+                .Append("_DetailsExpiresAtUtc)");
 
             var (id, model) = rows[i];
             parameters[prefix + "_Id"] = id;
@@ -125,6 +130,8 @@ internal static class AuditWriteBatchSql
             parameters[prefix + "_TraceId"] = model.TraceId;
             parameters[prefix + "_ClientIpFingerprint"] = model.ClientIpFingerprint;
             parameters[prefix + "_PermissionCode"] = model.PermissionCode;
+            parameters[prefix + "_ContextJson"] = model.Details?.ContextJson;
+            parameters[prefix + "_DetailsExpiresAtUtc"] = model.Details?.ExpiresAtUtc;
         }
 
         parameters["OccurredAtUtc"] = occurredAtUtc;

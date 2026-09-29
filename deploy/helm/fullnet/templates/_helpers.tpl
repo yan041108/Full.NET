@@ -64,6 +64,18 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{- define "fullnet.validate" -}}
 {{- $roleCount := include "fullnet.roleCount" . | int -}}
+{{- if eq .Values.logging.ingress "Local" -}}
+  {{- fail "logging.ingress=Local requires a verified collector exclusion route; this Chart does not provide it yet." -}}
+{{- end -}}
+{{- if eq .Values.logging.ingress "ApplicationKafka" -}}
+  {{- fail "logging.ingress=ApplicationKafka requires a qualified static application logging adapter; this build does not provide it yet." -}}
+{{- end -}}
+{{- if and .Values.production (eq .Values.logging.ingress "Collector") -}}
+  {{- fail "logging.ingress=Collector requires a verified collector route; the current Fluent Bit overlay still selects files by name." -}}
+{{- end -}}
+{{- if and (ne .Values.logging.ingress "Legacy") .Values.roles.migrator -}}
+  {{- fail "logging.ingress explicit mode is supported only for API or Worker releases." -}}
+{{- end -}}
 {{- if .Values.production -}}
   {{- if ne $roleCount 1 -}}
     {{- fail "production Full.NET releases must enable exactly one role (api|worker|migrator); use three independent releases." -}}

@@ -23,7 +23,7 @@ public sealed class HttpOperationLogOptions
     /// </summary>
     public double? SuccessSampleRate { get; set; }
 
-    /// <summary>5xx 与未处理异常是否进入 Priority 通道。</summary>
+    /// <summary>5xx 与异常（包括已映射为 4xx）是否进入 Priority 通道。</summary>
     public bool AlwaysRecordErrors { get; set; } = true;
 
     /// <summary>超过该阈值的成功请求进入 Priority，不参加成功采样。</summary>
@@ -38,8 +38,17 @@ public sealed class HttpOperationLogOptions
     /// <summary>SanitizedPayload 模式下请求摘要最大字节。</summary>
     public int MaxRequestPayloadBytes { get; set; } = 2_048;
 
-    /// <summary>SanitizedPayload 模式下响应摘要最大字节；默认 0 表示不捕获响应体。</summary>
+    /// <summary>SanitizedPayload 模式下响应投影最大字节；默认 0 表示不采集返回摘要。</summary>
     public int MaxResponsePayloadBytes { get; set; }
+
+    /// <summary>B2 投影每实例每秒最多接受的事件数；不包含 B1 详情。</summary>
+    public int CaptureMaxEventsPerSecond { get; set; } = 1_000;
+
+    /// <summary>B2 投影每实例每秒最多接受的 UTF-8 字节；不包含 B1 详情。</summary>
+    public int CaptureMaxBytesPerSecond { get; set; } = 2_097_152;
+
+    /// <summary>仅记录日志捕获点的托管线程号；异步请求没有单一生命周期线程。</summary>
+    public bool CaptureThreadId { get; set; }
 
     /// <summary>允许记录的路径前缀；空表示默认 /api。</summary>
     public string[] IncludePathPrefixes { get; set; } = ["/api"];
@@ -79,6 +88,27 @@ internal sealed class HttpOperationLogOptionsValidator : IValidateOptions<HttpOp
         {
             failures.Add(
                 $"{HttpOperationLogOptions.SectionName}:payload byte limits must be >= 0.");
+        }
+
+        if (options.MaxRequestPayloadBytes > 2_048
+            || options.MaxResponsePayloadBytes > 2_048)
+        {
+            failures.Add(
+                $"{HttpOperationLogOptions.SectionName}:payload byte limits must not exceed 2048 so projected JSON remains intact in the log envelope.");
+        }
+
+        if (options.CaptureMaxEventsPerSecond is < 1 or > 100_000)
+        {
+            failures.Add(
+                $"{HttpOperationLogOptions.SectionName}:CaptureMaxEventsPerSecond must be between 1 and 100000.");
+        }
+
+        if (options.CaptureMaxBytesPerSecond is < 1 or > 67_108_864
+            || options.MaxRequestPayloadBytes > options.CaptureMaxBytesPerSecond
+            || options.MaxResponsePayloadBytes > options.CaptureMaxBytesPerSecond)
+        {
+            failures.Add(
+                $"{HttpOperationLogOptions.SectionName}:CaptureMaxBytesPerSecond must be positive, no greater than 64 MiB, and hold one maximum request or response projection.");
         }
 
         return failures.Count == 0

@@ -5,6 +5,13 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/239_AuditingOperationLogContext.sql",
+      "reason": "239 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE 语句逐列恢复操作详情可空扩展；表列名不接受外部输入，由双库未记账半完成重放测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/238_IdentityMfaRecoveryCode.sql",
       "reason": "238 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句恢复 MFA 恢复码用户索引；索引与表名均为脚本常量，不接受外部输入，由双库半完成及未记账重跑测试覆盖。",
       "removalMilestone": "M1.0"

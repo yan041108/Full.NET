@@ -47,10 +47,9 @@ internal sealed class AuditWriteBatchWriter(
             CompleteAll(envelopes, succeeded: false, poisoned: false);
             throw;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             logger.LogWarning(
-                ex,
                 "B1 micro-batch of {Count} audit rows failed; isolating poison records.",
                 envelopes.Count);
             AuditMicroBatchTelemetry.RecordFailed("batch");
@@ -161,9 +160,9 @@ internal sealed class AuditWriteBatchWriter(
         int exceptionCount,
         int outboundCount)
     {
-        // Operation≈12、Exception≈10、Outbound≈13，外加共享 OccurredAtUtc。
+        // Operation≈14、Exception≈10、Outbound≈13，外加共享 OccurredAtUtc。
         var estimated =
-            (operationCount == 0 ? 0 : 1 + operationCount * 12)
+            (operationCount == 0 ? 0 : 1 + operationCount * 14)
             + (exceptionCount == 0 ? 0 : 1 + exceptionCount * 10)
             + outboundCount * 13;
         if (estimated > AuditWriteBatchSql.MaxSqlParameters)

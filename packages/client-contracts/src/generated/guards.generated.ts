@@ -309,6 +309,10 @@ import type {
   NotificationTemplateResponse,
   OcrIdCardTaskResponse,
   OcrProviderConfigResponse,
+  OperationLogDetailsContextV1,
+  OperationLogDetailsResponse,
+  OperationLogExportRequestSummaryV1,
+  OperationLogExportResponseSummaryV1,
   OperationLogResponse,
   OrganizationAssignableUserResponse,
   OrganizationPositionLevelResponse,
@@ -4142,6 +4146,54 @@ export function readOcrProviderConfigResponse(value: unknown): OcrProviderConfig
 
 function isOcrProviderConfigResponse(value: unknown): value is OcrProviderConfigResponse {
   return isRecord(value) && (typeof value["baseUrl"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasApiKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["name"] === 'string') && (typeof value["providerKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readOperationLogDetailsContextV1(value: unknown): OperationLogDetailsContextV1 {
+  const normalizedValue = normalizeOperationLogDetailsContextV1IntegerJson(value);
+  if (!(isOperationLogDetailsContextV1(normalizedValue))) {
+    throw new Error('client.invalid_operation_log_details_context_v1');
+  }
+  return normalizedValue;
+}
+
+function isOperationLogDetailsContextV1(value: unknown): value is OperationLogDetailsContextV1 {
+  return isRecord(value) && ((value["clientIp"] === null) || (typeof value["clientIp"] === 'string')) && ((value["clientPort"] === null) || (typeof value["clientPort"] === 'number' && Number.isSafeInteger(value["clientPort"]))) && (value["requestCaptureState"] === undefined || ((value["requestCaptureState"] === null) || (typeof value["requestCaptureState"] === 'string'))) && (value["requestSummary"] === undefined || ((value["requestSummary"] === null) || (isOperationLogExportRequestSummaryV1(value["requestSummary"])))) && (value["responseCaptureState"] === undefined || ((value["responseCaptureState"] === null) || (typeof value["responseCaptureState"] === 'string'))) && (value["responseSummary"] === undefined || ((value["responseSummary"] === null) || (isOperationLogExportResponseSummaryV1(value["responseSummary"])))) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && ((value["serverIp"] === null) || (typeof value["serverIp"] === 'string')) && ((value["serverPort"] === null) || (typeof value["serverPort"] === 'number' && Number.isSafeInteger(value["serverPort"])));
+}
+
+export function readOperationLogDetailsResponse(value: unknown): OperationLogDetailsResponse {
+  const normalizedValue = normalizeOperationLogDetailsResponseIntegerJson(value);
+  if (!(isOperationLogDetailsResponse(normalizedValue))) {
+    throw new Error('client.invalid_operation_log_details_response');
+  }
+  return normalizedValue;
+}
+
+function isOperationLogDetailsResponse(value: unknown): value is OperationLogDetailsResponse {
+  return isRecord(value) && (isOperationLogDetailsContextV1(value["context"])) && (typeof value["detailsExpiresAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"]));
+}
+
+export function readOperationLogExportRequestSummaryV1(value: unknown): OperationLogExportRequestSummaryV1 {
+  const normalizedValue = normalizeOperationLogExportRequestSummaryV1IntegerJson(value);
+  if (!(isOperationLogExportRequestSummaryV1(normalizedValue))) {
+    throw new Error('client.invalid_operation_log_export_request_summary_v1');
+  }
+  return normalizedValue;
+}
+
+function isOperationLogExportRequestSummaryV1(value: unknown): value is OperationLogExportRequestSummaryV1 {
+  return isRecord(value) && (typeof value["fromUtc"] === 'string') && ((value["statusCode"] === null) || (typeof value["statusCode"] === 'number' && Number.isSafeInteger(value["statusCode"]))) && ((value["succeeded"] === null) || (typeof value["succeeded"] === 'boolean')) && (typeof value["toUtc"] === 'string');
+}
+
+export function readOperationLogExportResponseSummaryV1(value: unknown): OperationLogExportResponseSummaryV1 {
+  const normalizedValue = normalizeOperationLogExportResponseSummaryV1IntegerJson(value);
+  if (!(isOperationLogExportResponseSummaryV1(normalizedValue))) {
+    throw new Error('client.invalid_operation_log_export_response_summary_v1');
+  }
+  return normalizedValue;
+}
+
+function isOperationLogExportResponseSummaryV1(value: unknown): value is OperationLogExportResponseSummaryV1 {
+  return isRecord(value) && (typeof value["includesSensitiveFields"] === 'boolean') && (typeof value["rowCount"] === 'number' && Number.isSafeInteger(value["rowCount"])) && (typeof value["truncated"] === 'boolean');
 }
 
 export function readOperationLogResponse(value: unknown): OperationLogResponse {
@@ -8519,6 +8571,22 @@ function normalizeOcrIdCardTaskResponseIntegerJson(value: unknown): unknown {
 
 function normalizeOcrProviderConfigResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeOperationLogDetailsContextV1IntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "clientPort") ? { ["clientPort"]: normalizeWireInteger(value["clientPort"]) } : {}), ...(Object.hasOwn(value, "requestSummary") ? { ["requestSummary"]: normalizeIntegerUnion(value["requestSummary"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isOperationLogExportRequestSummaryV1(value), normalize: (value: unknown) => normalizeOperationLogExportRequestSummaryV1IntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "responseSummary") ? { ["responseSummary"]: normalizeIntegerUnion(value["responseSummary"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isOperationLogExportResponseSummaryV1(value), normalize: (value: unknown) => normalizeOperationLogExportResponseSummaryV1IntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}), ...(Object.hasOwn(value, "serverPort") ? { ["serverPort"]: normalizeWireInteger(value["serverPort"]) } : {}) } : value);
+}
+
+function normalizeOperationLogDetailsResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "context") ? { ["context"]: normalizeOperationLogDetailsContextV1IntegerJson(value["context"]) } : {}) } : value);
+}
+
+function normalizeOperationLogExportRequestSummaryV1IntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "statusCode") ? { ["statusCode"]: normalizeWireInteger(value["statusCode"]) } : {}) } : value);
+}
+
+function normalizeOperationLogExportResponseSummaryV1IntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "rowCount") ? { ["rowCount"]: normalizeWireInteger(value["rowCount"]) } : {}) } : value);
 }
 
 function normalizeOperationLogResponseIntegerJson(value: unknown): unknown {

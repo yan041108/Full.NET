@@ -12,6 +12,7 @@ namespace Full.NET.Modules.ObservabilityAdmin.Features.MonitorElasticsearchLogPi
 internal sealed class ElasticsearchLogPipelineHealthService(
     IOptions<ElasticsearchLoggingOptions> options,
     IElasticsearchLogPipelineStatus pipelineStatus,
+    ILoggingDeliverySelection deliverySelection,
     IConfiguration configuration,
     IHttpClientFactory httpClientFactory)
 {
@@ -142,7 +143,7 @@ internal sealed class ElasticsearchLogPipelineHealthService(
         }
     }
 
-    private static ElasticsearchLogPipelineHealthResponse BuildResponse(
+    private ElasticsearchLogPipelineHealthResponse BuildResponse(
         ElasticsearchLoggingOptions value,
         IElasticsearchLogPipelineStatus pipelineStatus,
         IConfiguration configuration,
@@ -162,7 +163,20 @@ internal sealed class ElasticsearchLogPipelineHealthService(
             clusterStatus,
             clusterName,
             numberOfNodes,
-            probeError);
+            probeError,
+            deliverySelection.Mode switch
+            {
+                LoggingDeliveryMode.Local => "disabled",
+                LoggingDeliveryMode.Collector => "external-collector",
+                LoggingDeliveryMode.ApplicationKafka => "application-kafka",
+                _ when deliverySelection.LegacyElasticsearchEnabled => "legacy-direct",
+                _ => "legacy-console",
+            },
+            deliverySelection.Mode is null
+                && deliverySelection.LegacyElasticsearchEnabled
+                && pipelineStatus.IsSinkRegistered
+                ? "sink-registered-only"
+                : "configuration-only");
 
     private sealed record ClusterProbeResult(
         string ClusterStatus,

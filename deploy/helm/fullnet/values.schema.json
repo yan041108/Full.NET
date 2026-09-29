@@ -5,6 +5,7 @@
   "required": [
     "production",
     "roles",
+    "logging",
     "databaseConnectionBudget",
     "edgeProtection",
     "database",
@@ -17,6 +18,17 @@
   ],
   "properties": {
     "production": { "type": "boolean" },
+    "logging": {
+      "type": "object",
+      "required": ["ingress"],
+      "properties": {
+        "ingress": {
+          "type": "string",
+          "enum": ["Legacy", "Local", "Collector", "ApplicationKafka"]
+        }
+      },
+      "additionalProperties": false
+    },
     "roles": {
       "type": "object",
       "required": ["api", "worker", "migrator"],

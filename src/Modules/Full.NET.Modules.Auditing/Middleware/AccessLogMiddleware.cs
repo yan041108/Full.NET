@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Observability;
 using Full.NET.Modules.Auditing.Features.WriteAccessLogs;
 using Full.NET.Modules.Identity.Contracts;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
@@ -76,10 +77,7 @@ internal sealed class AccessLogMiddleware(RequestDelegate next)
         }
 
         // 路由模板避免把路径中的用户标识或其他动态片段写入日志。
-        var path = httpContext.GetEndpoint() is RouteEndpoint endpoint
-            ? endpoint.RoutePattern.RawText
-            : "/api/{unmatched}";
-        path = HttpOperationLogSanitizer.SanitizeUrl(path, 512);
+        var path = ResolveRouteTemplate(httpContext);
         var method = HttpOperationLogSanitizer.Truncate(httpContext.Request.Method, 16);
         var traceId = Activity.Current?.TraceId.ToString()
             ?? httpContext.TraceIdentifier;
@@ -100,5 +98,18 @@ internal sealed class AccessLogMiddleware(RequestDelegate next)
             HttpOperationLogSanitizer.Truncate(traceId, 64),
             string.IsNullOrWhiteSpace(fingerprint) ? null : fingerprint,
             authenticated);
+    }
+
+    internal static string ResolveRouteTemplate(HttpContext httpContext)
+    {
+        // 异常处理器会清空当前 Endpoint；外层 Access 必须取失败请求的原始路由。
+        var exceptionFeature = httpContext.Features.Get<IExceptionHandlerFeature>();
+        var originalEndpoint = exceptionFeature is null
+            ? httpContext.GetEndpoint()
+            : exceptionFeature.Endpoint;
+        var path = originalEndpoint is RouteEndpoint endpoint
+            ? endpoint.RoutePattern.RawText
+            : "/api/{unmatched}";
+        return HttpOperationLogSanitizer.SanitizeUrl(path, 512);
     }
 }

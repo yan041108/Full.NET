@@ -57,12 +57,18 @@ public sealed class AuditingModule : IFullNetModule
         services.AddOptions<AuditingQueryOptions>()
             .Bind(configuration.GetSection(AuditingQueryOptions.SectionName))
             .ValidateOnStart();
+        services.AddOptions<AuditDetailsCaptureOptions>()
+            .BindConfiguration(AuditDetailsCaptureOptions.SectionName)
+            .ValidateOnStart();
         services.AddOptions<AuditingRetentionOptions>()
             .Bind(configuration.GetSection(AuditingRetentionOptions.SectionName))
             .ValidateOnStart();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<AuditingQueryOptions>,
             AuditingQueryOptionsValidator>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<AuditDetailsCaptureOptions>,
+            AuditDetailsCaptureOptionsValidator>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<AuditingRetentionOptions>,
             AuditingRetentionOptionsValidator>());
@@ -86,6 +92,11 @@ public sealed class AuditingModule : IFullNetModule
             AuditingErrorResourceSource>());
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddScoped<IAuditDetailsCleanupCheckpointReader,
+            AuditDetailsCleanupCheckpointStore>();
+        services.TryAddSingleton<AuditDetailsCapturePolicyCache>();
+        services.TryAddSingleton<AuditOperationDetailsCapture>();
+        services.AddHostedService<AuditDetailsCapturePolicyRefreshService>();
         // 目录在模块注册阶段以实例形式立即构造，重复 ActionKey 会在宿主启动时直接抛出。
         services.TryAddSingleton(AuditReliabilityCatalog.CreateDefault());
         services.TryAddScoped<IAuditWriteCapturePolicy, CaptureAllAuditWritesPolicy>();
@@ -110,6 +121,7 @@ public sealed class AuditingModule : IFullNetModule
         services.TryAddSingleton<AuditingExportTimeRangePolicy>();
         services.TryAddScoped<Features.QueryHostAccessLogs.HostAccessLogQueryService>();
         services.TryAddScoped<Features.QueryHostOperationLogs.HostOperationLogQueryService>();
+        services.TryAddScoped<Features.QueryHostOperationLogs.HostOperationLogDetailsQueryService>();
         services.TryAddScoped<Features.QueryHostExceptionLogs.HostExceptionLogQueryService>();
         services.TryAddScoped<Features.QueryHostOutboundCallLogs.HostOutboundCallLogQueryService>();
         services.TryAddScoped<Features.QueryHostAuditLogTrends.HostAuditLogTrendQueryService>();
@@ -163,12 +175,22 @@ public sealed class AuditingModule : IFullNetModule
         services.AddOptions<AuditingRetentionOptions>()
             .Bind(configuration.GetSection(AuditingRetentionOptions.SectionName))
             .ValidateOnStart();
+        services.AddOptions<AuditDetailsRetentionOptions>()
+            .Bind(configuration.GetSection(AuditDetailsRetentionOptions.SectionName))
+            .ValidateOnStart();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<AuditingRetentionOptions>,
             AuditingRetentionOptionsValidator>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<AuditDetailsRetentionOptions>,
+            AuditDetailsRetentionOptionsValidator>());
         services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<AuditingRetentionRunner>();
+        services.TryAddScoped<AuditDetailsRetentionRunner>();
+        services.TryAddScoped<AuditDetailsCleanupCheckpointStore>();
         services.AddHostedService<AuditingRetentionHostedProcessor>();
+        services.AddHostedService<AuditDetailsRetentionHostedService>();
         services
             .AddOpenTelemetry()
             .WithMetrics(metrics =>
@@ -176,19 +198,19 @@ public sealed class AuditingModule : IFullNetModule
     }
 
     /// <summary>
-    /// Access 在认证前包裹请求以捕获 401/403；Exception 最靠近 Endpoint，
-    /// 业务异常重抛给外层 ExceptionHandler。
+    /// Access 与 B1 协调器位于异常映射外层，以取得最终 HTTP 状态；
+    /// Exception 最靠近 Endpoint，业务异常重抛给异常处理器。
     /// </summary>
     public void UseModuleMiddleware(IApplicationBuilder app, ModulePipelineStage stage)
     {
-        if (stage == ModulePipelineStage.BeforeAuthentication)
+        if (stage == ModulePipelineStage.BeforeExceptionHandler)
         {
             app.UseMiddleware<AccessLogMiddleware>();
+            app.UseMiddleware<AuditWriteCoordinatorMiddleware>();
         }
 
         if (stage == ModulePipelineStage.BeforeEndpoints)
         {
-            app.UseMiddleware<AuditWriteCoordinatorMiddleware>();
             app.UseMiddleware<OperationLogMiddleware>();
             app.UseMiddleware<ExceptionLogMiddleware>();
         }

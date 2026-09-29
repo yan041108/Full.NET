@@ -1523,6 +1523,12 @@
       "status": "generated"
     },
     {
+      "operationId": "auditingGetHostOperationLogDetails",
+      "apiModule": "ui/admin/src/api/operation-logs.ts",
+      "generatedGroup": "auditing-host-operation-logs",
+      "status": "generated"
+    },
+    {
       "operationId": "auditingListHostExceptionLogs",
       "apiModule": "ui/admin/src/api/exception-logs.ts",
       "generatedGroup": "auditing-host-exception-logs",

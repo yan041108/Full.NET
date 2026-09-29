@@ -12,12 +12,17 @@ internal sealed class HighPriorityLoggingHealthCheck(
         CancellationToken cancellationToken = default)
     {
         var snapshot = monitors.HighPriority.Snapshot;
-        if (snapshot.BufferSize > 0
+        var byteUsage = monitors.HighPriority.ByteUsage;
+        var countSaturated = snapshot.BufferSize > 0
             && (long)snapshot.Count * 100
-            >= (long)snapshot.BufferSize * DegradedPercent)
+            >= (long)snapshot.BufferSize * DegradedPercent;
+        var bytesSaturated = byteUsage.CapacityBytes > 0
+            && byteUsage.ReservedBytes
+            >= byteUsage.CapacityBytes - byteUsage.CapacityBytes / 10;
+        if (countSaturated || bytesSaturated)
         {
             return Task.FromResult(HealthCheckResult.Degraded(
-                "高优先级日志队列容量已达到降级阈值。"));
+                "高优先级日志队列条数或字节容量已达到降级阈值。"));
         }
 
         return Task.FromResult(HealthCheckResult.Healthy());

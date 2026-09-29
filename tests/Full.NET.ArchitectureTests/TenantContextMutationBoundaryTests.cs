@@ -29,6 +29,10 @@ public sealed class TenantContextMutationBoundaryTests
         // 独立清理作用域只接收已授权请求捕获的租户，结束时清除上下文，不用于新模型派发。
         "src/Modules/Full.NET.Modules.Ai/Streaming/AiChatCleanupScope.cs",
         "src/Modules/Full.NET.Modules.Ai/Streaming/AiChatGenerationLeaseMonitor.cs",
+        // API 详情资格刷新只在独立作用域读取 Auditing HostOnly 检查点，结束时清除上下文。
+        "src/Modules/Full.NET.Modules.Auditing/Retention/AuditDetailsCapturePolicyRefreshService.cs",
+        // 详情到期清理与普通保留任务一样，仅在 Worker 独立作用域执行 HostOnly SQL，结束时清除上下文。
+        "src/Modules/Full.NET.Modules.Auditing/Retention/AuditDetailsRetentionHostedService.cs",
         "src/Modules/Full.NET.Modules.Auditing/Retention/AuditingRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.CodeGeneration/Retention/CodeGenerationCheckpointRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.DataApproval/Execution/DataApprovalRequestApplicationRecoveryBatchProcessor.cs",

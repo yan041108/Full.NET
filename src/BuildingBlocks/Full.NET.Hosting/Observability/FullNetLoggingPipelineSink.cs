@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Serilog.Core;
 using Serilog.Debugging;
 using Serilog.Events;
+using Serilog.Parsing;
 
 namespace Full.NET.Hosting.Observability;
 
@@ -10,16 +11,26 @@ namespace Full.NET.Hosting.Observability;
 /// </summary>
 internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
 {
+    private static readonly MessageTemplate HttpTemplate =
+        new MessageTemplateParser().Parse("HttpOperationCompleted");
     private readonly FullNetBoundedAsyncSink _general;
     private readonly FullNetBoundedAsyncSink _highPriority;
     private readonly TimeSpan _shutdownFlushTimeout;
+    private readonly HttpOperationLogIngress? _httpOperationIngress;
+    private readonly Func<HttpOperationLogRecord, LogEventLevel, bool> _emitHttpOperation;
+    private readonly LoggingResourceMetadata? _resource;
     private int _disposed;
 
     public FullNetLoggingPipelineSink(
         ILogEventSink generalSink,
         ILogEventSink highPrioritySink,
         LoggingOptions options,
-        FullNetLoggingMonitors monitors)
+        FullNetLoggingMonitors monitors,
+        Action<LogEnvelope>? emitSnapshot = null,
+        bool emitLegacySink = true,
+        Action<HostLogSnapshot>? emitExternalSnapshot = null,
+        LoggingResourceMetadata? resource = null,
+        HttpOperationLogIngress? httpOperationIngress = null)
     {
         ArgumentNullException.ThrowIfNull(generalSink);
         ArgumentNullException.ThrowIfNull(highPrioritySink);
@@ -27,16 +38,60 @@ internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
         ArgumentNullException.ThrowIfNull(monitors);
 
         _shutdownFlushTimeout = options.ShutdownFlushTimeout;
+        _resource = resource;
+        _httpOperationIngress = httpOperationIngress;
+        _emitHttpOperation = EmitHttpOperation;
         _general = new FullNetBoundedAsyncSink(
             generalSink,
             options.AsyncBufferSize,
             "Full.NET logging general",
-            monitors.General);
+            monitors.General,
+            options.MaxEventBytes,
+            options.GeneralQueueMaxBytes,
+            emitSnapshot,
+            emitLegacySink,
+            emitExternalSnapshot,
+            highPriority: false);
         _highPriority = new FullNetBoundedAsyncSink(
             highPrioritySink,
             options.HighPriorityAsyncBufferSize,
             "Full.NET logging high priority",
-            monitors.HighPriority);
+            monitors.HighPriority,
+            options.MaxEventBytes,
+            options.HighPriorityQueueMaxBytes,
+            emitSnapshot,
+            emitLegacySink,
+            emitExternalSnapshot,
+            highPriority: true);
+        _httpOperationIngress?.Attach(_emitHttpOperation);
+    }
+
+    private bool EmitHttpOperation(HttpOperationLogRecord record, LogEventLevel level)
+    {
+        var properties = new List<LogEventProperty>
+        {
+            new("LogEventId", new ScalarValue(Guid.CreateVersion7().ToString("D"))),
+        };
+        if (_resource is not null)
+        {
+            properties.Add(new LogEventProperty("Instance", new ScalarValue(_resource.Instance)));
+            properties.Add(new LogEventProperty("Application", new ScalarValue(_resource.Application)));
+        }
+
+        var source = new LogEvent(
+            DateTimeOffset.UtcNow,
+            level,
+            null,
+            HttpTemplate,
+            properties);
+        if (record.IsPriority)
+        {
+            return _highPriority.TryEmitTrustedHttp(source, record);
+        }
+        else
+        {
+            return _general.TryEmitTrustedHttp(source, record);
+        }
     }
 
     public void Emit(LogEvent logEvent)
@@ -58,6 +113,8 @@ internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
         {
             return;
         }
+
+        _httpOperationIngress?.Detach(_emitHttpOperation);
 
         var stopwatch = Stopwatch.StartNew();
         _general.Complete();

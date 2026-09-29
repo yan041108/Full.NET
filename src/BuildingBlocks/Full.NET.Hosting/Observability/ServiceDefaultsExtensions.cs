@@ -7,12 +7,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Serilog;
-using Serilog.Formatting.Compact;
 
 namespace Full.NET.Hosting.Observability;
 
@@ -30,7 +30,7 @@ public static class ServiceDefaultsExtensions
     /// </summary>
     /// <param name="builder">宿主应用构建器；用于读取配置与写入 <see cref="IServiceCollection"/>。</param>
     /// <exception cref="OptionsValidationException">
-    /// LoggingOptions 存在缓冲配置非法（BlockWhenFull=true、缓冲区大小非正、刷新超时超限）时启动期抛出。
+    /// LoggingOptions 存在阻塞、条数/字节容量、单事件上限或刷新超时配置非法时启动期抛出。
     /// </exception>
     public static IHostApplicationBuilder AddFullNetServiceDefaults(
         this IHostApplicationBuilder builder)
@@ -39,6 +39,52 @@ public static class ServiceDefaultsExtensions
                 .GetSection(LoggingOptions.SectionName)
                 .Get<LoggingOptions>()
             ?? new LoggingOptions();
+        var elasticsearchOptions = builder.Configuration
+                .GetSection(ElasticsearchLoggingOptions.SectionName)
+                .Get<ElasticsearchLoggingOptions>()
+            ?? new ElasticsearchLoggingOptions();
+        if (loggingOptions.DeliveryMode is { } deliveryMode
+            && !Enum.IsDefined(deliveryMode))
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                ["DeliveryMode must be Local, Collector or ApplicationKafka."]);
+        }
+
+        if (loggingOptions.ExpectedDeliveryMode is { } expectedDeliveryMode
+            && !Enum.IsDefined(expectedDeliveryMode))
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                ["ExpectedDeliveryMode must be Local, Collector or ApplicationKafka."]);
+        }
+
+        if (loggingOptions.DeliveryMode.HasValue && elasticsearchOptions.Enabled)
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                ["DeliveryMode conflicts with the legacy Elasticsearch sink; disable Elasticsearch before selecting a delivery mode."]);
+        }
+
+        if (loggingOptions.DeliveryMode != loggingOptions.ExpectedDeliveryMode)
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                ["Explicit DeliveryMode requires the same ExpectedDeliveryMode injected by the deployment; neither value may be set alone."]);
+        }
+
+        if (loggingOptions.DeliveryMode == LoggingDeliveryMode.ApplicationKafka)
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                ["ApplicationKafka requires a qualified logging adapter; no adapter is registered in this build."]);
+        }
+
         if (loggingOptions.AsyncBufferSize <= 0)
         {
             throw new OptionsValidationException(
@@ -53,6 +99,31 @@ public static class ServiceDefaultsExtensions
                 LoggingOptions.SectionName,
                 typeof(LoggingOptions),
                 ["HighPriorityAsyncBufferSize must be greater than zero."]);
+        }
+
+        if (loggingOptions.MaxEventBytes is < 256 or > 65_536)
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                ["MaxEventBytes must be between 256 and 65536."]);
+        }
+
+        var minimumQueueBytes = (long)loggingOptions.MaxEventBytes + 128;
+        if (loggingOptions.GeneralQueueMaxBytes < minimumQueueBytes)
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                ["GeneralQueueMaxBytes must hold at least one maximum-sized event and its envelope."]);
+        }
+
+        if (loggingOptions.HighPriorityQueueMaxBytes < minimumQueueBytes)
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                ["HighPriorityQueueMaxBytes must hold at least one maximum-sized event and its envelope."]);
         }
 
         if (loggingOptions.BlockWhenFull)
@@ -74,6 +145,17 @@ public static class ServiceDefaultsExtensions
 
         var loggingMonitors = new FullNetLoggingMonitors();
         builder.Services.AddSingleton(loggingMonitors);
+        var httpOperationIngress = new HttpOperationLogIngress();
+        builder.Services.AddSingleton(httpOperationIngress);
+        builder.Services.AddSingleton<ILoggingDeliverySelection>(
+            new LoggingDeliverySelection(
+                loggingOptions.DeliveryMode,
+                elasticsearchOptions.Enabled));
+        var loggingResource = LoggingResourceMetadata.Create(
+            builder.Environment.ApplicationName,
+            builder.Environment.EnvironmentName);
+        builder.Services.AddSingleton(loggingResource);
+        builder.Services.AddHostedService<LoggingResourceAnnouncementService>();
         var elasticsearchRegistration = new ElasticsearchLogPipelineRegistration();
         builder.Services.AddSingleton(elasticsearchRegistration);
         builder.Services.AddSingleton<IElasticsearchLogPipelineStatus>(elasticsearchRegistration);
@@ -83,37 +165,62 @@ public static class ServiceDefaultsExtensions
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<ElasticsearchLoggingOptions>,
             ElasticsearchLoggingOptionsValidator>());
-        var elasticsearchOptions = builder.Configuration
-                .GetSection(ElasticsearchLoggingOptions.SectionName)
-                .Get<ElasticsearchLoggingOptions>()
-            ?? new ElasticsearchLoggingOptions();
-        elasticsearchRegistration.IsEnabled = elasticsearchOptions.Enabled;
-        builder.Services.AddSerilog((services, loggerConfiguration) =>
+        if (elasticsearchOptions.Enabled && !loggingOptions.DeliveryMode.HasValue)
         {
+            builder.Services.AddHostedService<LegacyElasticsearchLoggingWarningService>();
+        }
+        if (elasticsearchOptions.Enabled)
+        {
+            var minimumLegacyQueueBytes = LogEnvelope.MaxChargeBytes(
+                loggingOptions.MaxEventBytes,
+                retainLegacyEvent: true);
+            if (loggingOptions.GeneralQueueMaxBytes < minimumLegacyQueueBytes
+                || loggingOptions.HighPriorityQueueMaxBytes < minimumLegacyQueueBytes)
+            {
+                throw new OptionsValidationException(
+                    LoggingOptions.SectionName,
+                    typeof(LoggingOptions),
+                    ["Both queue byte budgets must hold one maximum-sized snapshot and its safe legacy event copy when Elasticsearch is enabled."]);
+            }
+        }
+
+        elasticsearchRegistration.IsEnabled = elasticsearchOptions.Enabled;
+        builder.Services.AddSerilog((_, loggerConfiguration) =>
+        {
+            var effectiveLoggingOptions = builder.Configuration
+                .GetSection(LoggingOptions.SectionName)
+                .Get<LoggingOptions>();
             var resolvedElasticsearchOptions = builder.Configuration
                     .GetSection(ElasticsearchLoggingOptions.SectionName)
                     .Get<ElasticsearchLoggingOptions>()
                 ?? new ElasticsearchLoggingOptions();
-            loggerConfiguration.ReadFrom.Services(services);
+            if (effectiveLoggingOptions?.DeliveryMode != loggingOptions.DeliveryMode
+                || effectiveLoggingOptions?.ExpectedDeliveryMode != loggingOptions.ExpectedDeliveryMode
+                || resolvedElasticsearchOptions.Enabled != elasticsearchOptions.Enabled)
+            {
+                throw new OptionsValidationException(
+                    LoggingOptions.SectionName,
+                    typeof(LoggingOptions),
+                    ["DeliveryMode, ExpectedDeliveryMode or legacy Elasticsearch Enabled changed after logging registration; restart with a stable delivery configuration."]);
+            }
+
             FullNetLoggingPipeline.Configure(
                 loggerConfiguration,
                 builder.Environment.ApplicationName,
                 loggingOptions,
                 loggingMonitors,
-                sink =>
-                {
-                    sink.Console(new CompactJsonFormatter());
-                },
-                sink =>
-                {
-                    sink.Console(new CompactJsonFormatter());
-                },
+                _ => { },
+                _ => { },
                 writeTo => ElasticsearchSerilogSinkConfigurator.AppendIfEnabled(
                     writeTo,
                     resolvedElasticsearchOptions),
                 writeTo => ElasticsearchSerilogSinkConfigurator.AppendIfEnabled(
                     writeTo,
-                    resolvedElasticsearchOptions));
+                    resolvedElasticsearchOptions),
+                loggingResource,
+                LogEnvelopeConsoleWriter.Emit,
+                resolvedElasticsearchOptions.Enabled,
+                httpOperationIngress: httpOperationIngress);
             if (resolvedElasticsearchOptions.Enabled)
             {
                 elasticsearchRegistration.IsSinkRegistered = true;
@@ -175,6 +282,13 @@ public static class ServiceDefaultsExtensions
             HttpOperationLogOptionsValidator>());
         builder.Services.TryAddSingleton<IDiagnosticPolicyStore, DefaultDiagnosticPolicyStore>();
         builder.Services.TryAddSingleton<HttpOperationLogEmitter>();
+        builder.Services.TryAddSingleton(_ => new HttpLogCaptureBudget(TimeProvider.System));
+        builder.Services.TryAddSingleton<HttpOperationPayloadProjection>(services =>
+            new HttpOperationPayloadProjection(
+                services.GetRequiredService<IOptionsMonitor<HttpOperationLogOptions>>(),
+                services.GetRequiredService<HttpLogCaptureBudget>(),
+                services.GetRequiredService<HttpOperationLogEmitter>(),
+                services.GetRequiredService<ILogger<HttpOperationLogMiddleware>>()));
 
         builder.Services.AddServiceDiscovery();
         builder.Services.ConfigureHttpClientDefaults(httpClient =>

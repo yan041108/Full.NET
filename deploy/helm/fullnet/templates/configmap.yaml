@@ -7,6 +7,10 @@ metadata:
     {{- include "fullnet.labels" . | nindent 4 }}
 data:
   Database__Provider: {{ .Values.database.provider | quote }}
+{{- if ne .Values.logging.ingress "Legacy" }}
+  FullNet__Logging__DeliveryMode: {{ .Values.logging.ingress | quote }}
+  FullNet__Logging__ExpectedDeliveryMode: {{ .Values.logging.ingress | quote }}
+{{- end }}
 {{- if .Values.roles.api }}
   DatabaseCapacity__Enabled: "true"
   DatabaseCapacity__HostRole: "Api"

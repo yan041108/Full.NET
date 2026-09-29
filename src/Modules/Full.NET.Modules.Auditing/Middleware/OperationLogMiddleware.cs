@@ -1,8 +1,10 @@
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 using Full.NET.Modules.Identity.Contracts;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 
 namespace Full.NET.Modules.Auditing.Middleware;
@@ -19,6 +21,8 @@ internal sealed class OperationLogMiddleware(RequestDelegate next)
     private const int MaxPathLength = 512;
     private const int MaxActionKeyLength = 256;
     private const int MaxPermissionLength = 128;
+    private const int MaxRequiredPermissions = 16;
+    private const string OpenAccessPermissionPrefix = "FullNet.OpenAccess:";
 
     private static readonly HashSet<string> MutationMethods = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -28,7 +32,10 @@ internal sealed class OperationLogMiddleware(RequestDelegate next)
         HttpMethods.Delete,
     };
 
-    public async Task InvokeAsync(HttpContext httpContext, OperationLogWriter writer)
+    public async Task InvokeAsync(
+        HttpContext httpContext,
+        OperationLogWriter writer,
+        AuditOperationDetailsCapture? detailsCapture = null)
     {
         if (!ShouldCapture(httpContext))
         {
@@ -37,14 +44,25 @@ internal sealed class OperationLogMiddleware(RequestDelegate next)
         }
 
         var stopwatch = Stopwatch.StartNew();
+        var unhandled = false;
         try
         {
             await next(httpContext).ConfigureAwait(false);
         }
+        catch (Exception)
+        {
+            unhandled = true;
+            throw;
+        }
         finally
         {
             stopwatch.Stop();
-            var model = BuildModel(httpContext, stopwatch.Elapsed);
+            var model = BuildModel(httpContext, stopwatch.Elapsed, unhandled);
+            if (detailsCapture?.TryCapture(httpContext) is { } details)
+            {
+                model = model with { Details = details };
+            }
+
             writer.Capture(model);
         }
     }
@@ -77,7 +95,10 @@ internal sealed class OperationLogMiddleware(RequestDelegate next)
         return true;
     }
 
-    private static OperationLogWriteModel BuildModel(HttpContext httpContext, TimeSpan elapsed)
+    private static OperationLogWriteModel BuildModel(
+        HttpContext httpContext,
+        TimeSpan elapsed,
+        bool unhandled)
     {
         Guid? userId = null;
         var subject = httpContext.User.FindFirst(FullNetIdentityClaimTypes.Subject)?.Value;
@@ -111,12 +132,10 @@ internal sealed class OperationLogMiddleware(RequestDelegate next)
             actionKey = actionKey[..MaxActionKeyLength];
         }
 
-        var permissionCode = httpContext.User
-            .FindFirst(FullNetIdentityClaimTypes.Permission)?.Value;
-        if (permissionCode is { Length: > MaxPermissionLength })
-        {
-            permissionCode = permissionCode[..MaxPermissionLength];
-        }
+        var requiredPermissions = ResolveRequiredPermissions(httpContext);
+        var permissionCode = requiredPermissions.Length == 1
+            ? requiredPermissions[0]
+            : null;
 
         var traceId = Activity.Current?.TraceId.ToString()
             ?? httpContext.TraceIdentifier;
@@ -136,12 +155,73 @@ internal sealed class OperationLogMiddleware(RequestDelegate next)
             path,
             statusCode,
             durationMs,
-            statusCode < StatusCodes.Status400BadRequest,
+            !unhandled && statusCode < StatusCodes.Status400BadRequest,
             userId,
             tenantId,
             string.IsNullOrWhiteSpace(traceId) ? null : traceId,
             FingerprintClientIp(httpContext),
-            string.IsNullOrWhiteSpace(permissionCode) ? null : permissionCode);
+            permissionCode)
+        {
+            RequiredPermissions = requiredPermissions,
+        };
+    }
+
+    private static ImmutableArray<string> ResolveRequiredPermissions(HttpContext httpContext)
+    {
+        var endpoint = httpContext.GetEndpoint();
+        if (endpoint is null || endpoint.Metadata.GetMetadata<IAllowAnonymous>() is not null)
+        {
+            return [];
+        }
+
+        var required = ImmutableArray.CreateBuilder<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var authorization in endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>())
+        {
+            if (authorization.Policy is not { } policy
+                || !TryReadRequiredPermission(policy, out var permissionCode))
+            {
+                continue;
+            }
+
+            if (permissionCode.Length > MaxPermissionLength)
+            {
+                return [];
+            }
+
+            if (!seen.Add(permissionCode))
+            {
+                continue;
+            }
+
+            if (required.Count == MaxRequiredPermissions)
+            {
+                // 授权要求超过诊断预算时不返回残缺集合，旧单值字段也必须留空。
+                return [];
+            }
+
+            required.Add(permissionCode);
+        }
+
+        return required.ToImmutable();
+    }
+
+    private static bool TryReadRequiredPermission(string policy, out string permissionCode)
+    {
+        if (FullNetPermissionPolicies.TryRead(policy, out permissionCode))
+        {
+            return true;
+        }
+
+        if (policy.StartsWith(OpenAccessPermissionPrefix, StringComparison.Ordinal)
+            && policy.Length > OpenAccessPermissionPrefix.Length)
+        {
+            permissionCode = policy[OpenAccessPermissionPrefix.Length..];
+            return true;
+        }
+
+        permissionCode = string.Empty;
+        return false;
     }
 
     private static string? FingerprintClientIp(HttpContext httpContext)

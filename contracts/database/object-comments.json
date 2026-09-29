@@ -381,6 +381,15 @@
         "UserId": "用户标识"
       }
     },
+    "fn_auditing_details_cleanup_state": {
+      "comment": "操作详情清理共享检查点",
+      "columns": {
+        "Id": "逻辑主键",
+        "LastSuccessfulCleanupAtUtc": "最近成功清理并检查积压的时间(UTC)",
+        "OldestExpiredAtUtc": "检查时最早未清理详情的到期时间(UTC)",
+        "StateKey": "唯一状态键；固定为1"
+      }
+    },
     "fn_auditing_exception_log": {
       "comment": "审计异常日志表",
       "columns": {
@@ -402,6 +411,8 @@
       "columns": {
         "ActionKey": "操作键",
         "ClientIpFingerprint": "客户端 IP 指纹",
+        "ContextJson": "版本化且受限的操作详情 JSON",
+        "DetailsExpiresAtUtc": "操作详情绝对到期时间(UTC)",
         "DurationMs": "耗时(毫秒)",
         "HttpMethod": "HTTP 方法",
         "Id": "逻辑主键",

@@ -12,10 +12,13 @@ public sealed class AuditMicroBatchOptions
     /// <summary>有界队列容量；满载后在入队超时内无法入队则 fail-open。</summary>
     public int Capacity { get; set; } = 4096;
 
+    /// <summary>队列、等待入队及正在写入的 B1 信封计费字节上限。</summary>
+    public long QueueMaxBytes { get; set; } = 67_108_864;
+
     /// <summary>单批最大行数（Operation/Exception/Outbound 合计）。</summary>
     public int MaxBatchRows { get; set; } = 64;
 
-    /// <summary>单批最大估算字节数。</summary>
+    /// <summary>单批最大计费字节数；单条超过上限时 fail-open 拒绝写入。</summary>
     public int MaxBatchBytes { get; set; } = 262_144;
 
     /// <summary>未满批时的最大等待时间。</summary>
@@ -49,6 +52,12 @@ internal sealed class AuditMicroBatchOptionsValidator : IValidateOptions<AuditMi
         {
             failures.Add(
                 $"{AuditMicroBatchOptions.SectionName}:MaxBatchBytes must be greater than zero.");
+        }
+
+        if (options.QueueMaxBytes < options.MaxBatchBytes)
+        {
+            failures.Add(
+                $"{AuditMicroBatchOptions.SectionName}:QueueMaxBytes must hold at least one full batch.");
         }
 
         if (options.MaxBatchDelay <= TimeSpan.Zero)

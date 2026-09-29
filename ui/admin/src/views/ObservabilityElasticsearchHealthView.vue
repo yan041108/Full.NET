@@ -23,6 +23,9 @@ const health = ref<ElasticsearchLogPipelineHealth | null>(null);
 const loading = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const canRead = computed(() => session.can('observability.elasticsearch.read'));
+const showLegacyDiagnostics = computed(() => !health.value?.deliveryStatus
+  || health.value.deliveryStatus === 'legacy-console'
+  || health.value.deliveryStatus === 'legacy-direct');
 
 function clusterTagType(status: string): 'success' | 'warning' | 'danger' | 'info' {
   switch (status) {
@@ -55,6 +58,20 @@ function clusterStatusLabel(status: string): string {
       return status;
   }
 }
+
+function deliveryStatusLabel(status: ElasticsearchLogPipelineHealth['deliveryStatus']): string {
+  return t(`observabilityElasticsearchHealth.deliveryStatus.${status ?? 'unknown'}`);
+}
+
+function confirmationBoundaryLabel(
+  boundary: ElasticsearchLogPipelineHealth['deliveryConfirmationBoundary']
+): string {
+  return t(`observabilityElasticsearchHealth.confirmationBoundary.${boundary ?? 'unknown'}`);
+}
+
+const pipelineNotice = computed(() => health.value?.isEnabled
+  ? health.value.pipelineNotice
+  : t('observabilityElasticsearchHealth.noEsPipelineNotice'));
 
 async function loadHealth(): Promise<void> {
   loading.value = true;
@@ -92,7 +109,7 @@ onMounted(() => {
       type="info"
       :closable="false"
       :title="t('observabilityElasticsearchHealth.pipelineNoticeTitle')"
-      :description="health.pipelineNotice"
+      :description="pipelineNotice"
       show-icon
       class="observability-elasticsearch-health-notice"
     />
@@ -106,45 +123,51 @@ onMounted(() => {
 
       <template v-if="health">
         <ElDescriptions :column="1" border>
-          <ElDescriptionsItem :label="t('observabilityElasticsearchHealth.adapterKind')">
+          <ElDescriptionsItem :label="t('observabilityElasticsearchHealth.deliveryStatus')">
+            {{ deliveryStatusLabel(health.deliveryStatus) }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem :label="t('observabilityElasticsearchHealth.confirmationBoundary')">
+            {{ confirmationBoundaryLabel(health.deliveryConfirmationBoundary) }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem v-if="showLegacyDiagnostics" :label="t('observabilityElasticsearchHealth.adapterKind')">
             {{ health.adapterKind }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem :label="t('observabilityElasticsearchHealth.isEnabled')">
+          <ElDescriptionsItem v-if="showLegacyDiagnostics" :label="t('observabilityElasticsearchHealth.isEnabled')">
             <ElTag :type="health.isEnabled ? 'success' : 'info'">
               {{ health.isEnabled ? t('observabilityElasticsearchHealth.yes') : t('observabilityElasticsearchHealth.no') }}
             </ElTag>
           </ElDescriptionsItem>
-          <ElDescriptionsItem :label="t('observabilityElasticsearchHealth.isSinkRegistered')">
+          <ElDescriptionsItem v-if="showLegacyDiagnostics" :label="t('observabilityElasticsearchHealth.isSinkRegistered')">
             <ElTag :type="health.isSinkRegistered ? 'success' : 'warning'">
               {{ health.isSinkRegistered ? t('observabilityElasticsearchHealth.yes') : t('observabilityElasticsearchHealth.no') }}
             </ElTag>
           </ElDescriptionsItem>
-          <ElDescriptionsItem :label="t('observabilityElasticsearchHealth.indexFormat')">
+          <ElDescriptionsItem v-if="showLegacyDiagnostics" :label="t('observabilityElasticsearchHealth.indexFormat')">
             {{ health.indexFormat }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem :label="t('observabilityElasticsearchHealth.nodeEndpoints')">
+          <ElDescriptionsItem v-if="showLegacyDiagnostics" :label="t('observabilityElasticsearchHealth.nodeEndpoints')">
             <span v-if="health.nodeEndpoints.length === 0">-</span>
             <ul v-else class="observability-elasticsearch-health-endpoints">
               <li v-for="endpoint in health.nodeEndpoints" :key="endpoint">{{ endpoint }}</li>
             </ul>
           </ElDescriptionsItem>
-          <ElDescriptionsItem :label="t('observabilityElasticsearchHealth.otlpConfigured')">
+          <ElDescriptionsItem v-if="showLegacyDiagnostics" :label="t('observabilityElasticsearchHealth.otlpConfigured')">
             <ElTag :type="health.openTelemetryOtlpEndpointConfigured ? 'warning' : 'success'">
               {{ health.openTelemetryOtlpEndpointConfigured ? t('observabilityElasticsearchHealth.yes') : t('observabilityElasticsearchHealth.no') }}
             </ElTag>
           </ElDescriptionsItem>
-          <ElDescriptionsItem :label="t('observabilityElasticsearchHealth.clusterStatus')">
+          <ElDescriptionsItem v-if="showLegacyDiagnostics" :label="t('observabilityElasticsearchHealth.clusterStatus')">
             <ElTag :type="clusterTagType(health.clusterStatus)">
               {{ clusterStatusLabel(health.clusterStatus) }}
             </ElTag>
           </ElDescriptionsItem>
-          <ElDescriptionsItem :label="t('observabilityElasticsearchHealth.clusterName')">
+          <ElDescriptionsItem v-if="showLegacyDiagnostics" :label="t('observabilityElasticsearchHealth.clusterName')">
             {{ health.clusterName ?? '-' }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem :label="t('observabilityElasticsearchHealth.numberOfNodes')">
+          <ElDescriptionsItem v-if="showLegacyDiagnostics" :label="t('observabilityElasticsearchHealth.numberOfNodes')">
             {{ health.numberOfNodes ?? '-' }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem :label="t('observabilityElasticsearchHealth.probeError')">
+          <ElDescriptionsItem v-if="showLegacyDiagnostics" :label="t('observabilityElasticsearchHealth.probeError')">
             {{ health.probeErrorMessage ?? '-' }}
           </ElDescriptionsItem>
         </ElDescriptions>

@@ -3507,6 +3507,75 @@
         ]
       }
     },
+    "/api/v1/auditing/operation-logs/{operationLogId}/details": {
+      "get": {
+        "operationId": "auditingGetHostOperationLogDetails",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operationLogId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationLogDetailsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "AuditingHostOperationLogs"
+        ]
+      }
+    },
     "/api/v1/auditing/outbound-call-logs": {
       "get": {
         "operationId": "auditingListHostOutboundCallLogs",
@@ -54199,6 +54268,167 @@
           "createdAtUtc",
           "updatedAtUtc",
           "version"
+        ],
+        "type": "object"
+      },
+      "OperationLogDetailsContextV1": {
+        "properties": {
+          "clientIp": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "clientPort": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "requestCaptureState": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requestSummary": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OperationLogExportRequestSummaryV1"
+              }
+            ]
+          },
+          "responseCaptureState": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "responseSummary": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OperationLogExportResponseSummaryV1"
+              }
+            ]
+          },
+          "schemaVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "serverIp": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "serverPort": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "clientIp",
+          "clientPort",
+          "serverIp",
+          "serverPort"
+        ],
+        "type": "object"
+      },
+      "OperationLogDetailsResponse": {
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/OperationLogDetailsContextV1"
+          },
+          "detailsExpiresAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "detailsExpiresAtUtc",
+          "context"
+        ],
+        "type": "object"
+      },
+      "OperationLogExportRequestSummaryV1": {
+        "properties": {
+          "fromUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "statusCode": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "succeeded": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "toUtc": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fromUtc",
+          "toUtc",
+          "statusCode",
+          "succeeded"
+        ],
+        "type": "object"
+      },
+      "OperationLogExportResponseSummaryV1": {
+        "properties": {
+          "includesSensitiveFields": {
+            "type": "boolean"
+          },
+          "rowCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rowCount",
+          "truncated",
+          "includesSensitiveFields"
         ],
         "type": "object"
       },

@@ -1,9 +1,96 @@
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Hosting.Observability;
+
+/// <summary>请求内固定一次采样键，防止投影许可与最终发射使用不同标识。</summary>
+internal static class HttpOperationLogSampleKey
+{
+    private static readonly object ItemKey = new();
+    private static readonly object DecisionItemKey = new();
+    private const string TenantItemKey = "FullNet.TenantId";
+
+    public static bool ShouldSampleSuccess(
+        HttpContext httpContext,
+        string routeKey,
+        HttpOperationLogEmitter emitter)
+    {
+        if (httpContext.Items.TryGetValue(DecisionItemKey, out var existing)
+            && existing is SampleDecision decision
+            && string.Equals(decision.RouteKey, routeKey, StringComparison.Ordinal)
+            && (decision.NextExpiryUtc is null
+                || decision.NextExpiryUtc > emitter.UtcNow))
+        {
+            return decision.Included;
+        }
+
+        var tenantId = httpContext.Items.TryGetValue(TenantItemKey, out var value)
+            && value is Guid id
+                ? id
+                : (Guid?)null;
+        var evaluated = emitter.EvaluateSuccessSample(
+            routeKey,
+            Resolve(httpContext),
+            ResolveLocallyStartedTraceId(),
+            tenantId);
+        httpContext.Items[DecisionItemKey] = new SampleDecision(
+            routeKey,
+            evaluated.Included,
+            evaluated.NextExpiryUtc);
+        return evaluated.Included;
+    }
+
+    public static string Resolve(HttpContext httpContext)
+    {
+        if (httpContext.Items.TryGetValue(ItemKey, out var existing)
+            && existing is string key)
+        {
+            return key;
+        }
+
+        var value = Activity.Current?.TraceId.ToString()
+            ?? HttpOperationLogSanitizer.Truncate(
+                HttpOperationLogSanitizer.StripControlChars(httpContext.TraceIdentifier),
+                64);
+        httpContext.Items[ItemKey] = value;
+        return value;
+    }
+
+    private static string? ResolveLocallyStartedTraceId()
+    {
+        var activity = Activity.Current;
+        if (activity is null)
+        {
+            return null;
+        }
+
+        // 入站 traceparent 可由客户端选择；兼容无 listener 时仅设置 ParentId 的回退路径。
+        for (var current = activity; current is not null; current = current.Parent)
+        {
+            if (current.HasRemoteParent
+                || (current.Parent is null
+                    && !string.IsNullOrEmpty(current.ParentId)))
+            {
+                return null;
+            }
+        }
+
+        return activity.TraceId.ToString();
+    }
+
+    private sealed record SampleDecision(
+        string RouteKey,
+        bool Included,
+        DateTimeOffset? NextExpiryUtc);
+}
+
+internal readonly record struct HttpOperationSampleDecision(
+    bool Included,
+    DateTimeOffset? NextExpiryUtc);
 
 /// <summary>
 /// B2 HTTP Operation 有界发射闸门：成功采样与 Priority/BestEffort 容量背压。
@@ -12,16 +99,21 @@ public sealed class HttpOperationLogEmitter
 {
     private readonly IOptionsMonitor<HttpOperationLogOptions> _options;
     private readonly IDiagnosticPolicyStore _diagnosticPolicyStore;
+    private readonly TimeProvider _timeProvider;
     private int _bestEffortInFlight;
     private int _priorityInFlight;
 
     public HttpOperationLogEmitter(
         IOptionsMonitor<HttpOperationLogOptions> options,
-        IDiagnosticPolicyStore diagnosticPolicyStore)
+        IDiagnosticPolicyStore diagnosticPolicyStore,
+        TimeProvider? timeProvider = null)
     {
         _options = options;
         _diagnosticPolicyStore = diagnosticPolicyStore;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
+
+    internal DateTimeOffset UtcNow => _timeProvider.GetUtcNow();
 
     public double ResolveSuccessSampleRate()
     {
@@ -42,7 +134,8 @@ public sealed class HttpOperationLogEmitter
         return snapshot.ResolveSuccessSampleRateOverride(
                    diagnosticGroup,
                    endpoint,
-                   traceId,
+                   // 调用方给出的 TraceId 没有远端来源证明，不用于放宽采样。
+                   traceId: null,
                    tenantId)
                ?? ResolveSuccessSampleRate();
     }
@@ -52,27 +145,45 @@ public sealed class HttpOperationLogEmitter
     /// </summary>
     public bool ShouldSampleSuccess(string routeKey, string? traceId)
     {
-        var rate = ResolveSuccessSampleRate();
+        return EvaluateSuccessSample(routeKey, traceId, null, null).Included;
+    }
+
+    internal HttpOperationSampleDecision EvaluateSuccessSample(
+        string routeKey,
+        string? sampleKey,
+        string? policyTraceId,
+        Guid? tenantId)
+    {
+        var policy = _diagnosticPolicyStore.Current.ResolveSuccessSamplePolicy(
+            LogClassification.HttpOperation,
+            routeKey,
+            policyTraceId,
+            tenantId,
+            UtcNow);
+        var rate = policy.Rate ?? ResolveSuccessSampleRate();
         if (rate >= 1.0)
         {
-            return true;
+            return new HttpOperationSampleDecision(true, policy.NextExpiryUtc);
         }
 
         if (rate <= 0)
         {
-            return false;
+            return new HttpOperationSampleDecision(false, policy.NextExpiryUtc);
         }
 
-        var material = routeKey + "\n" + (traceId ?? string.Empty);
+        var material = routeKey + "\n" + (sampleKey ?? string.Empty);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(material));
         var bucket = BitConverter.ToUInt32(hash, 0) / (double)uint.MaxValue;
-        return bucket < rate;
+        return new HttpOperationSampleDecision(
+            bucket < rate,
+            policy.NextExpiryUtc);
     }
 
     public bool TryEnterBestEffort()
     {
         var capacity = _diagnosticPolicyStore.Current.ResolveBestEffortCapacity(
-            _options.CurrentValue.BestEffortCapacity);
+            _options.CurrentValue.BestEffortCapacity,
+            UtcNow);
         while (true)
         {
             var current = Volatile.Read(ref _bestEffortInFlight);

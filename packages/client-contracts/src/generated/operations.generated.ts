@@ -310,6 +310,10 @@ import type {
   NotificationTemplateResponse,
   OcrIdCardTaskResponse,
   OcrProviderConfigResponse,
+  OperationLogDetailsContextV1,
+  OperationLogDetailsResponse,
+  OperationLogExportRequestSummaryV1,
+  OperationLogExportResponseSummaryV1,
   OperationLogResponse,
   OrganizationAssignableUserResponse,
   OrganizationPositionLevelResponse,
@@ -720,6 +724,7 @@ import {
   readObservabilityListServerInstancesResponse,
   readOcrIdCardTaskResponse,
   readOcrProviderConfigResponse,
+  readOperationLogDetailsResponse,
   readOrganizationPositionLevelResponse,
   readOrganizationPositionResponse,
   readOrganizationUnitResponse,
@@ -1646,6 +1651,24 @@ export async function aiUpsertTenantQuota(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiTenantQuotaResponse(value);
+}
+
+export interface AuditingGetHostOperationLogDetailsParameters {
+  readonly operationLogId: string;
+}
+
+export async function auditingGetHostOperationLogDetails(
+  http: HttpClient,
+  parameters: AuditingGetHostOperationLogDetailsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<OperationLogDetailsResponse> {
+  const path = `/api/v1/auditing/operation-logs/${encodeURIComponent(String(parameters.operationLogId))}/details`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readOperationLogDetailsResponse(value);
 }
 
 export interface AuditingListHostAccessLogsParameters {

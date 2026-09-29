@@ -29,6 +29,7 @@ internal static class DapperAotSqlExecution
             || scalarType == typeof(float)
             || scalarType == typeof(short)
             || scalarType == typeof(byte)
+            || scalarType == typeof(DateTime)
             || scalarType == typeof(DateTimeOffset);
     }
 

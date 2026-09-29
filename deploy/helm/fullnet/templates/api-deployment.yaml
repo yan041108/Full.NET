@@ -23,6 +23,7 @@ spec:
       labels:
         {{- include "fullnet.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: api
+        fullnet.io/log-ingress: {{ .Values.logging.ingress | lower }}
     spec:
       serviceAccountName: {{ include "fullnet.serviceAccountName" . }}
       securityContext:
