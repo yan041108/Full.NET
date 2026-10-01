@@ -105,4 +105,4 @@ Database__CommandTimeoutSeconds=1800       # 按已演练窗口调整
 
 ## 6. 完成记录
 
-窗口结束后记录：目标提交、数据库版本、开始/结束时间、停机时长、迁移耗时、23 列聚合核对结果、双库冒烟结果、RPO/RTO、异常与处置。只有发布计划要求的生产等价证据全部存在，能力矩阵才能按 `Designing` → `Implemented` → `Build-verified` → `Verified` 的门禁提升。
+窗口结束后记录：目标提交、数据库版本、开始/结束时间、停机时长、迁移耗时、23 列聚合核对结果、双库冒烟结果、RPO/RTO、异常与处置。只有发布计划要求的本地实际测试证据全部存在（执行位置按开发质量 §11，本地备份恢复与 RPO/RTO 演练可用于验收），能力矩阵才能按 `Designing` → `Implemented` → `Build-verified` → `Verified` 的门禁提升。

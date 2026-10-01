@@ -112,10 +112,10 @@ test('metrics and certification template require Incomplete when evidence missin
   assert.ok(template.includes('2K → 5K → 10K → Soak') || template.includes('2K -> 5K -> 10K -> Soak'));
 });
 
-test('k6 TestRun stays out of ordinary CI and marks Capacity-not-verified', async () => {
+test('k6 TestRun supports local Kubernetes and marks unmeasured capacity', async () => {
   const yaml = await read('deploy/load/k6-test-run.yaml');
   assert.ok(yaml.includes('Capacity-not-verified'));
-  assert.ok(yaml.includes('dedicated capacity'));
+  assert.ok(yaml.includes('local Kubernetes'));
   assert.ok(!yaml.toLowerCase().includes('github.com/actions'));
 
   const packageJson = JSON.parse(await read('package.json'));

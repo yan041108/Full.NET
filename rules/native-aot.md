@@ -60,7 +60,7 @@
    - `pnpm test:dotnet:architecture --selection api-native-aot`
 3. 修改发布闭包、第三方依赖、RID/native 文件或 linker 配置时，还必须运行 `pnpm test:aot:publish:linux`。
 4. 修改运行时路径时必须执行对应原生外部进程门禁：核心路径使用 `pnpm test:aot:native:e2e`；S3 使用 `pnpm test:aot:native:s3:e2e`；Kafka Replay 使用 `pnpm test:aot:native:kafka-replay:e2e`；组合 Provider 可使用 `pnpm test:aot:native:providers:e2e`。
-5. 非 Linux discovery skip 只证明测试可发现，不能证明原生运行通过。`Aot-published` 或 Provider 状态升级必须引用 fresh Linux CI run、提交 SHA、步骤结论和未验证边界。
+5. 非 Linux discovery skip 只证明测试可发现，不能证明原生运行通过。`Aot-published` 或 Provider 状态升级可引用本地 Linux/WSL/Linux 容器中的真实发布与原生运行结果，记录提交 SHA、命令、环境、步骤结论和未验证边界；CI 不是必要前置，执行位置按开发质量 §11。
 
 ## 9. 失败诊断顺序
 

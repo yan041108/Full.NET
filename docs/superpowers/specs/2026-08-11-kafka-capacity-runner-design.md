@@ -264,7 +264,7 @@ Ctrl+C、CancellationToken、Producer/Consumer 致命错误或 AdminClient 失�
 - Architecture、Naming、Governance、Performance Governance；
 - `git diff --check` 与工作区审查。
 
-本地不执行正式吞吐阶梯、Soak 或 N+1，也不产生 QPS 结论。Runner 合入后只把 F0–F3 计划中的“独立容量工具实现”标为完成；生产等价延迟/吞吐执行项继续未完成，直到专用环境 Verification 保存日期、Git 基线、Kafka/硬件拓扑、命令、原始工件、结论和未验证项。
+2026-09-30 起允许在本地执行吞吐阶梯、Soak 和 N+1 并据此验收，不再要求专用环境。Runner 实现通过不等于容量测试已运行；执行项保留未完成，直到 Verification 保存实际日期、Git 基线/差异、Kafka/硬件拓扑、命令、原始工件、结论与未验证项。QPS 结论限定实测环境，全部执行位置遵守开发质量 §11。
 
 ## 13. 运维示例
 

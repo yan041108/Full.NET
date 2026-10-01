@@ -80,7 +80,7 @@
 4. 管理端点必须执行权限策略，不得仅依赖前端隐藏菜单或路由。
 5. 日志、ProblemDetails、追踪和 AI 上下文禁止泄露密码、令牌、连接串、密钥、个人敏感信息或内部堆栈。
 6. 上传、导入、模板、表达式、反射和动态执行功能必须检查路径穿越、内容类型、大小限制、注入和资源耗尽。
-7. 依赖、镜像和工具版本必须可追踪；发现高危漏洞时必须评估影响并记录处置结果。Critical 漏洞不得通过例外放行；确需暂时接受 High 漏洞时，必须使用入库策略精确限制公告编号、包名、依赖路径、缓解措施和复核截止日，并由 CI 在官方数据源重新审计。禁止使用无期限、无路径边界或全局忽略参数绕过审计。
+7. 依赖、镜像和工具版本必须可追踪；发现高危漏洞时必须评估影响并记录处置结果。Critical 漏洞不得通过例外放行；确需暂时接受 High 漏洞时，必须使用入库策略精确限制公告编号、包名、依赖路径、缓解措施和复核截止日，并在本地基于官方数据源重新审计（CI 可选复核）。禁止使用无期限、无路径边界或全局忽略参数绕过审计。
 
 ### R-20260717-credentialed-cors：带凭据浏览器客户端必须验证精确 CORS 边界
 
@@ -279,6 +279,15 @@
 
 本节是测试执行策略的唯一权威来源；入口、Skill 和命令地图只链接本节，不复制执行步骤。命令实现和机器门槛由 [`eng/testing/test-matrix.json`](../eng/testing/test-matrix.json) 及测试脚本维护。
 
+### R-20260930-local-acceptance：全项目以本地测试通过作为验收依据
+
+- 状态与来源：强制；项目所有者于 2026-09-30 明确要求“本项目的验收标准都改成本地测试通过就可以”。
+- 适用范围：全部模块、客户端、基础设施、生产配置准入、发布候选、双库、Native AOT、性能容量与故障恢复；规定范围的测试在本地实际通过即可验收。可使用本地进程、Docker/Testcontainers、WSL/Linux 容器、kind Kubernetes 和本地浏览器。
+- 替代关系：本规则替代本仓库规则、ADR、Spec、活动 Plan、README 和项目 Skill 中要求 GitHub Actions 终态、专用生产等价环境或禁止本地重型测试的执行位置限制。历史 Verification 和已有 CI 结果保留原始事实；GitHub Actions 可继续用于自动回归，不再是项目验收的必要条件。
+- 测试范围：继续按影响集和测试矩阵验证功能、安全、租户、事务、双库、并发、恢复与资源预算。本地通过的是相关验收集；单个 smoke、编译成功或静态配置检查不能替代未覆盖的行为。失败、跳过、零发现或缺失依赖不能计为通过。
+- 证据与状态：记录源码 SHA/工作区差异、命令、环境、发现数、退出码和原始结果。本地完整证据可关闭相应 Verified/准入门禁；本地 Linux 目标的原生发布与运行可关闭 AOT 门禁。容量结果必须注明硬件、数据、Provider、模型和实测规模，未测的容量保持 `Capacity-not-verified`，不能由功能验收推导 10K、生产等价或 SLO 已实现。
+- 执行与授权：本地重型及全量验证按计划分批运行，不自动扩大每次修改的内循环。修改验收标准不自动触发提交、推送、部署或切流；这些行动按当前用户授权执行。
+
 1. 新行为和缺陷修复先建立能失败的测试或可复现实验；文档、纯机械和低风险配置变更使用直接结构检查，不为流程增加无信息量测试。
 2. 验证覆盖受影响的成功、失败、权限、租户、取消、并发、重复请求及依赖故障；架构和公共契约不能只依赖页面 E2E 偶然覆盖。数据行为在切片关闭时必须有 SQL Server 与 MySQL 同场景证据。
 3. 本地先运行受影响编译、静态检查、治理与无容器的 Unit/Architecture/Contract。涉及 .NET 构建产物时使用 Release 并确保产物来自当前源码；同一源码状态已构建时后续套件可用 `--no-build`，不重复构建。纯规则/文档改动不强制 .NET 构建；只读审查仅执行回答问题所需检查。
@@ -302,9 +311,9 @@
 | 阶段 | 时机 | 默认执行位置与门禁 |
 | --- | --- | --- |
 | `inner` | 代码迭代 | 本地快速验证，规划高风险影响集，默认不启动 Docker、真实浏览器或真实栈 |
-| `slice` | 纵向切片关闭，最长不超过两个工作日 | GitHub Actions 执行 affected 双库 Integration 与受影响客户端测试；页面验收按下方专门规则 |
-| `merge` | PR、合并候选或每日功能列车 | GitHub Actions 执行 slice 影响集并追加双库 Smoke；默认排除 messaging-heavy，Messaging 变化先在 slice 验证 |
-| `main` | 受保护分支 CI | 测试矩阵中的完整互斥分片与汇总门禁 |
+| `slice` | 纵向切片关闭，最长不超过两个工作日 | 本地执行 affected 双库 Integration 与受影响客户端测试；页面验收按下方专门规则 |
+| `merge` | PR、合并候选或每日功能列车 | 本地执行 slice 影响集并追加双库 Smoke；默认排除 messaging-heavy，Messaging 变化先在 slice 验证 |
+| `main` | 完整发布回归 | 按测试矩阵在本地分批运行完整互斥分片并汇总；CI 可执行同一集合 |
 
 代码、SQL、配置或脚本修改开始时记录 `git rev-parse HEAD`。工作区已脏或跨窗口时运行 `pnpm test:task:start -- <task-id>` 建立任务快照；干净单窗口任务使用任务基线。验证前用 `pnpm test:integration:affected:plan -- --snapshot <task-id> --phase <inner|slice|merge>` 审查影响集，干净任务将快照参数替换为 `--base <任务基线>`。只读任务不创建快照。
 
@@ -321,19 +330,17 @@
 
 - 状态与来源：强制；项目所有者要求缩短本地反馈，2026-09-07 授权合并重复规则。原标识保留。
 - 适用范围：本地开发与聚焦复现；不降低 main CI 或 Verified 门槛。
-- 执行：只有影响集不需环境重型依赖，或满足下一条的本地例外时，才执行 `pnpm test:inner`、`pnpm test:slice` 或 `pnpm test:integration:affected`。执行前使用 §11.1 的规划结果。
+- 执行：使用 `pnpm test:inner`、`pnpm test:slice` 或 `pnpm test:integration:affected` 按阶段执行；本地依赖按需启动，执行前使用 §11.1 的规划结果。
 - 边界：inner 不运行 `pnpm test:e2e:real`、完整 `pnpm test:e2e:admin`、`pnpm test:integration:full` 或 messaging-heavy；获准的本地 inner 聚焦与 Smoke 只强制 MySQL，过滤器附加 `FullyQualifiedName~MySql`。slice/merge 要求同场景双库，必要的重型诊断使用 `--include-heavy`。Identity/Tenancy/Outbox/CodeGeneration 过滤必须限定 API/模块命名空间，避免宽子串误选恢复或 CDC 测试。
 - 隔离：每个 API Integration 用例使用独立业务数据库，可从不含租户/管理员/导航业务数据的只读 schema 模板克隆，用例自行供给与引导。仅获准的本地复现可复用 Testcontainers；CI 必须销毁。可用 `FULLNET_TESTCONTAINERS_REUSE=0` 或 `FULLNET_API_SCHEMA_TEMPLATE=0` 关闭加速。
-- 例外：用户明确要求真实栈或完整浏览器时可执行，但不得称为 inner 证据；本地完整 Integration 与 messaging-heavy 全量仍禁止，完整集合只保留给 main CI。真实 CORS/Cookie/CSRF/Session 缺陷应验证真实边界，执行位置遵守下一条。
+- 完整验收：真实栈、完整浏览器、完整 Integration 与 messaging-heavy 允许在本地作为 slice/merge/main 验收执行，按资源预算分批；不要将完整矩阵称为快速 inner。真实 CORS/Cookie/CSRF/Session 缺陷应验证真实边界。
 - 验证：`pnpm test:integration:tooling` 覆盖选择器、Provider、过滤和分片行为；`pnpm test:governance` 检查命令、引用和 CI 接线。
 
-### R-20260903-github-actions-first-verification：环境重型验证默认由 GitHub Actions 执行
+### R-20260903-github-actions-first-verification：已被本地验收规则替代
 
-- 状态与来源：强制；项目所有者要求优先使用 GitHub Actions，2026-09-07 合并重复规则。原标识保留。
-- 执行：取得提交与推送授权后，Docker/Testcontainers、双库 Integration、Kafka/CDC/Capacity、真实浏览器和 Linux Native AOT publish/原生进程默认交给 GitHub Actions；本地重型测试仅用于定位 CI 失败、Actions 故障或额度不可用时补偿受影响验证，或用户明确要求。
-- 证据：发布候选、Verified 关闭与用户指定门禁必须按精确 commit SHA 核对必需工作流，等待终态并修复失败。不得降低发现数、删减双库、忽略退出码、把失败改为跳过或用 `continue-on-error` 绕过门禁。发布完整 Integration 证据来自目标 main 提交的全量门禁。
-- 未授权推送：继续完成可用本地快速验证，明确远端未验证项；不擅自提交或推送，也不为取得 CI 证据而机械阻塞已授权的本地修改。聚焦补偿不能宣称完整 CI 通过。
-- 验证：治理检查 CI 命令与汇总门禁，真实工作流终态证明执行结果；文档中出现关键词不构成通过证据。
+- 状态：2026-09-30 退役；保留标识供历史链接追踪，当前执行以 R-20260930-local-acceptance 为准。
+- Docker/Testcontainers、双库 Integration、Kafka/CDC/Capacity、真实浏览器和 Linux Native AOT 可直接在本地完成验收，无需为取得证据提交或推送。CI 结果只在实际运行后报告；本地结果注明本地来源。
+- 本地与 CI 均不得降低发现数、删减所需双库、忽略退出码、把失败改为跳过或以 `continue-on-error` 绕过行为门禁。
 
 ### R-20260905-feature-first-page-acceptance：功能建设优先，页面验收集中收敛
 

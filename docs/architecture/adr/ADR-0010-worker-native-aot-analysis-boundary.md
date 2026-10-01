@@ -1,6 +1,6 @@
 # ADR-0010：Worker Native AOT 分析边界
 
-- 状态：Phase 0 已实施；Phase 1/2/3/4/5/6/7 publish 与外部进程门禁已批准实施，本地 linux-x64 publish 已闭合，等待 Linux CI 双库原生进程证据
+- 状态：Phase 0 已实施；Phase 1/2/3/4/5/6/7 publish 与外部进程门禁已批准实施，本地 linux-x64 publish 已闭合；当前路径须对应双库原生进程证据，本地 Linux/WSL/容器实际通过即可，不要求 CI
 - 决策日期：2026-08-29
 - 适用范围：`Full.NET.Host.Worker` 的 Native AOT 静态分析闭包
 - 关联决策：[`ADR-0006`](ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)、[`ADR-0008`](ADR-0008-api-native-aot-runtime-boundary.md)、[`ADR-0009`](ADR-0009-host-api-native-aot-provider-runtime-boundary.md)

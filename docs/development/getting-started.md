@@ -2,6 +2,8 @@
 
 新加入的开发者请先阅读[人类阅读入口（Onboarding）](onboarding.md)，再按本文搭建环境。当前能力和未完成边界以[能力状态矩阵](../roadmap/capability-status.md)为准；AI 开发代理还必须遵守根目录 [`AGENTS.md`](../../AGENTS.md) 和 [`rules/`](../../rules/README.md)。
 
+项目验收以规定测试在本地实际通过为准；容器、kind、浏览器和 Linux 原生运行均可在本地完成，CI 和专用生产等价环境不再强制。范围、证据和状态遵守 [开发质量 §11](../../rules/development-quality.md#11-测试与验证)。
+
 ## 1. 前置环境
 
 - .NET 10 SDK；
@@ -61,7 +63,7 @@ pnpm test:integration:partitions
 pnpm test:integration:durations
 ```
 
-Integration 依赖按首次使用启动。单 Provider 聚焦测试不会无条件启动另一数据库和 Redis；数据库行为变更必须让受影响选择器命中 SQL Server 与 MySQL。完整 Integration 集合只由 `main` CI 的互斥分片执行，本地任务禁止以完整集合替代受影响验证。
+Integration 依赖按首次使用启动。单 Provider 聚焦测试不会无条件启动另一数据库和 Redis；数据库行为变更必须让受影响选择器命中 SQL Server 与 MySQL。完整 Integration 可在本地按矩阵分批验收，CI 为可选回归；普通修改仍优先受影响验证，避免无关全量重复运行。
 
 测试结束后等待数据库容器和 Ryuk 自然退出，并检查没有遗留的 SQL Server、MySQL、Testcontainers 或任务 Runner。环境缺失、发现数为零、命令未执行都不能表述为测试通过。
 

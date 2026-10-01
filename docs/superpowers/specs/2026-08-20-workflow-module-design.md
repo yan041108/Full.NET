@@ -223,7 +223,7 @@ VForm3 示例中的 `cssCode`、`functions`、生命周期事件和表单数据�
 - Dapper 参数与物化保持 AOT 静态闭包；Host.Api Linux 原生发布后执行双库 HTTP/JSON 真实进程 E2E。Worker AOT 状态按其独立路线如实标记。
 - 记录 Active 实例、Active Todo、推进吞吐/错误率/P95/P99、租约冲突、恢复次数、最老挂起时长；标签不得含用户、租户、业务 Id 或表单内容。
 - uni-app 首次实现记录 H5 minified/gzip/Brotli、初始/懒加载 Chunk、微信/支付宝主包与分包字节，以及 30/100 字段冷/热渲染指标；基线后再设相对预算。
-- 专用生产等价容量认证前保持 `Capacity-not-verified`，不承诺固定 QPS 或毫秒指标。
+- 对应规模容量实测前保持 `Capacity-not-verified`；本地实际通过即可验收，结论限定硬件与范围，不承诺未测 QPS 或毫秒指标。执行位置遵守开发质量 §11。
 
 ## 13. 分阶段交付与状态
 

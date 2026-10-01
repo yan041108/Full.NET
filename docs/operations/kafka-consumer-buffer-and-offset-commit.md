@@ -30,4 +30,4 @@
 
 `PeriodicWatermark` 只减少 Broker Commit 往返，不减少 Inbox/业务事务。启用前必须验证 Handler 成功后进程崩溃、Commit 失败、Rebalance revoke/lost、滚动发布、Broker 中断、关闭排空和重投去重；然后设置 `PeriodicOffsetCommitVerified=true`。异常时先回退 `OffsetCommitMode=PerMessage`，再把 `PartitionKeyConcurrencySlots=1`、分区水位恢复为 `1/0`。回退可能增加重复投递与 Commit 负载，但不得丢消息或越过失败 Offset。
 
-必须保存配置快照、Consumer Lag、Buffer 深度、Pause/Resume、Commit 失败/耗时、Inbox 重复命中、Rebalance 和回退耗时证据。缺少生产等价数据时，不得把本地测试吞吐声明为容量结论。
+必须保存配置快照、Consumer Lag、Buffer 深度、Pause/Resume、Commit 失败/耗时、Inbox 重复命中、Rebalance 和回退耗时证据。容量可根据本地实际测试验收，须注明硬件、数据、模型和规模；缺少对应规模数据时不得外推吞吐结论或声明生产等价。执行位置按开发质量 §11。
