@@ -1,6 +1,7 @@
 <Project Sdk="MSTest.Sdk">
   <ItemGroup>
     <Compile Include="../templates/support/fixtures/application-migration-runner.cs.fixture" Link="Hosting/ApplicationMigrationRunner.cs" />
+    <Compile Include="../ai-evaluation/probe/ProbeVectorSearch.cs" Link="Ai/Evaluation/ProbeVectorSearch.cs" />
     <Compile Include="../Shared/CodeGeneration/GeneratedMigrationRecoveryFixture.cs" Link="CodeGeneration/GeneratedMigrationRecoveryFixture.cs" />
   </ItemGroup>
   <!-- 直接验证原生读取源文件，避免为 JIT 业务模块开放 ADO.NET 依赖。 -->

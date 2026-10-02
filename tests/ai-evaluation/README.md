@@ -63,3 +63,5 @@ Remove-Item Env:FULLNET_AI_EVALUATION_REPORT
 ## 当前交付边界
 
 R02 交付冻结合成数据、测试项目内评分器、失败回归、参考结果与报告入口。首份真实端到端基线仍为 **未测**，由 R06 在同一语料上生成；检索 Provider/解析器选型属于 R03。没有开启生产 AI 功能，也没有关闭历史运行时的双库或原生门禁。
+
+R03 的独立原生选型实验另见 [RETRIEVAL-PROBE.md](RETRIEVAL-PROBE.md)，决策见 [ADR-0013](../../docs/architecture/adr/ADR-0013-ai-retrieval-provider.md)。其合成特征/过滤报告不提交为本评分器的真实模型端到端结果。

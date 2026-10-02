@@ -14,8 +14,9 @@
 
 - 当前用户明确要求“根据 AI 开发计划，进入开发交付”，随后要求“提交代码（以后每一项完成开发就提交）并继续下一项执行”；按任务完成验证后提交，再顺序推进，不自动推送或派生代理。
 - 本轮交付 R02：冻结中文合成语料、测试项目内离线评分器、人工参考结果、可重放报告入口及对应失败回归。R02 离线基线已本地验证；真实检索/模型端到端基线明确为未测，随 R06 接入。
+- R02 已提交 `4a748409af6fcddd23b441a182ee3e7e8fe2b47f`。随后交付 R03 独立选型实验及 [ADR-0013](../../architecture/adr/ADR-0013-ai-retrieval-provider.md)：首版采用双库存派生向量、SQL 先过滤、有界精确余弦；Qdrant 保留候选，PdfPig 0.1.16 作为 R05 文本 PDF 接入候选。没有新增生产依赖或功能开关。
 - 实施基线：分支 `codex/foundation-acceptance-20260926`，HEAD `a7a68776818731703f1ebc11bc529f2746df59e1`，任务快照 `ai-rag-evaluation-r02`。保留原有日志文档、code-wiki 与语言资源改动。
-- R01 既有双库/原生门禁未因离线评分关闭；R03–R12 仍待交付，知识库整体保持 Planned，Qdrant 仍未选定。当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
+- R01 既有双库/原生门禁未因离线评分关闭；R03 仅关闭选型实验门禁，R04–R12 待交付，知识库整体保持 Planned，Qdrant 未生产选用。当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
 
 ### 2026-09-27 当前摘要（替代下方历史状态中的未实施判断）
 
@@ -577,10 +578,16 @@ R02 实施记录（2026-10-02）：实现与契约见 [`tests/ai-evaluation/READ
 
 **检查：** `Directory.Packages.props`、`src/AI/`、`rules/native-aot.md`、`rules/naming-conventions.md`、现有 Files Contract。证据形成后更新本专项 Spec；新增 ADR 文件编号在实施时从 `docs/architecture/adr/` 分配，名称使用 `ai-retrieval-provider` 主题。
 
-- [ ] 对照真实语料/数据规模，比较现有正式数据库可用检索能力与 Qdrant 候选的过滤、中文/编号检索、索引重建和运维要求；两种正式数据库必须提供同一业务语义。
-- [ ] 用锁定版本实验验证写入、带租户过滤检索、删除、超时、取消以及 Native AOT 原生调用；核对解析器格式范围、许可证和资源限制。
-- [ ] 记录权威源、派生索引恢复、凭据/网络边界、部署开关及失败回退；满足证据后形成明确选型决策。若需改变既有部署/架构授权，暂停该选型并向用户说明具体差异，R01/R02 可独立推进。
-- [ ] 选定前不添加生产依赖、不宣称 Qdrant 已支持；不以空实现完成后续检索任务。
+- [x] 对照当前实际可用的 R02 冻结合成语料（12 问题/13 片段），比较双库可用路径与 Qdrant 的过滤、中文/编号探针、重建及运维成本；同一 SQL 预过滤和受控精确余弦在双库得到一致业务语义。没有生产语料/规模，实际模型与目标规模门禁由 R05/R06 关闭，不外推容量。
+- [x] 锁定 NuGet/镜像版本，完成写入、租户/来源过滤、删除、超时、取消及 Linux Native AOT 原生调用；核对文本 PDF/MD/TXT 范围、许可与预算。解析同步调用的硬内存/解压/时限隔离是 R05 正式接入门禁，不由文件/输出限制替代。
+- [x] 在 ADR-0013 记录权威源、派生恢复、Files 最小契约、凭据/网络边界、部署关闭及回退，选择保持现有数据库的有界首版路径；未扩大长期基础设施授权。
+- [x] 候选依赖仅在独立测试项目，未进入生产中央依赖/解决方案/宿主；未启用 Qdrant，未生成后续任务空实现。
+
+R03 实施记录（2026-10-02）：分支 `codex/foundation-acceptance-20260926`，基线 `4a748409af6fcddd23b441a182ee3e7e8fe2b47f`，任务快照 `ai-retrieval-provider-r03`。实现、复现及精确环境见 [R03 实验说明](../../../tests/ai-evaluation/RETRIEVAL-PROBE.md)。`node tests/ai-evaluation/run-retrieval-probe.mjs` 最终退出 0，独立原生程序 PDF/文本 11、SQL Server 22、MySQL 21、Qdrant 23 项观察全部通过；manifest 为 passed/resourcesRemoved，源码摘要前后相同。复用 ADR-0008 的四条已登记程序集级告警，不抑制新告警。报告明确真实 Embedding 为未测；小允许集的 Recall 不证明排名，另有 12 候选的合成编号 Top-1 一致性探针，不代表真实语义质量。
+
+验证：候选边界先观察 7 项 RED，再实现；`pnpm test:dotnet:unit -- --selection ai-retrieval-candidates` Release 构建零警告/错误，7/7 通过；同产物 `pnpm test:dotnet:unit -- --selection ai-module --no-build` 394/394 通过。`pnpm test:dotnet:architecture -- --filter 'FullyQualifiedName~AiDependencyBoundaryTests|FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol' --minimum-expected-tests 42` 79/79 通过。`pnpm test:governance` 57/57、`pnpm test:integration:tooling` 54/54；`pnpm test:integration:partitions` 验证 1106 项无遗漏/重复，均退出 0。实验依赖图漏洞审计未报告已知漏洞。正式能力、真实模型、公开权限/文件引用竞态、目标规模和 Host.Api/Worker 生产闭包均未因此验收。
+
+独立只读审查指出匿名数据卷清理及正文取消同步问题，修正后复核通过；同时补明确小候选 Recall 的限制与宽范围合成排序探针。审查核对最终 manifest 与源码摘要一致，不替代原生运行证据。`pnpm test:integration:affected:plan -- --snapshot ai-retrieval-provider-r03 --phase slice` 仅选择已通过的 integration-matrix 工具验证；无生产 SQL/可达路径变更，本次双库证据来自独立实验而非正式业务 Integration。提交前执行本任务 `git diff --check` 并核对分支/status；保留任务开始前的日志文档、code-wiki 和语言资源改动。
 
 ### R04：知识库目录、权限与文件引用（P1）
 
