@@ -4,6 +4,8 @@
 
 ## 1. 阅读入口与状态
 
+配置选型与日常使用请先读 [Code Wiki 日志指南](../../code-wiki/logging-guide.md)：覆盖四种入口、环境/Secret 要求、HTTP 与 B1 详情设置、故障和切换步骤；本文保留实现沿革与详细验证边界，历史计划示例不是当前 Chart 接口。
+
 本期日志开发已按本地标准完成收尾。真实浏览器验收覆盖三页签、按需读取、服务端分页、到期/历史数据、撤权后新会话与 API 403；SQL Server 4/4、MySQL 含访问/异常页面回归 8/8。实测修复了小视口分页遮住详情按钮的布局问题。最终范围、审查与回归见[收尾验收](../verification/2026-10-02-logging-module-closeout.md)。归档、旧兼容包迁移及扩大容量等后续扩展不阻断本期，未测规模保持 `Capacity-not-verified`。
 
 秘密跨出口专项已覆盖 Collector 与 ApplicationKafka 的少量真实诊断事件：来源、TLS Broker、HTTPS ES、最终 Offset/DLQ 与清理诊断逐项核对。实跑修复了凭据模板脱敏时丢失必填 Instance、导致 Collector 丢弃日志的问题；仅保留严格 UUID 实例标识。范围与原生验证见[秘密边界回归](../verification/2026-10-01-logging-secret-boundary.md)。

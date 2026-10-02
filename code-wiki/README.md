@@ -26,6 +26,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 | 文档 | 说明 |
 |------|------|
 | [基础设施层总览](./building-blocks.md) | 所有 BuildingBlocks 项目的职责、依赖和关键能力 |
+| [日志模块配置与模式指南](./logging-guide.md) | 四种入口、Kafka/ES 开关、环境要求、受限详情、性能边界与故障处置 |
 | [构建与测试指南](./build-and-test.md) | 环境要求、还原、构建、测试套件、集成测试分片、Native AOT 测试梯度 |
 | [宿主与部署](./hosts-and-deployment.md) | API/Worker/Migrator/AppHost 四宿主、Docker 镜像、Helm Chart、K8s 部署、Native AOT 编译与发布 |
 | [Dapper SQL 来源与门禁](./dapper-sql-sources.md) | 手写 SQL、Global 目录、CodeGeneration、SqlDataScope、SQL 安全门禁 |
