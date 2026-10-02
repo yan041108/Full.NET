@@ -1,20 +1,22 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-09-26（本轮仅同步创建/升级验收切片）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-10-02（本轮同步日志收尾与已批准的本地验收规则，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 > 2026-09-16 规划增补：已纳入[八项底座完善能力及七类收口重点](adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)，执行见[唯一总计划](../superpowers/plans/2026-09-16-foundation-productization.md)。本次未重新认证下表的实现状态；部分历史条目落后于专项记录，F00 将逐项核对。工作区其他改动不作为能力完成证据。
 
 ## 状态定义
 
+2026-09-30 项目所有者将全部验收改为本地测试实际通过即可；执行位置以 [开发质量 §11](../../rules/development-quality.md#11-测试与验证)为准。本表历史“待 CI/专用环境”代表所需测试未完成，可改在本地执行；本次不自动升级任何历史能力状态。
+
 - `Planned`：已有方向，但尚未形成可执行设计。
 - `Designing`：规格、ADR 或实施计划正在收敛。
 - `Implemented`：实现已经落盘，尚未完成规定的构建或契约验证。
 - `Build-verified`：已通过与当前能力相称的构建、单元、架构或双库验证。
-- `Production-verified`：已在生产等价环境完成容量、故障、恢复与运维验收。
+- `Production-verified`：已通过对应生产配置、故障、恢复与运维验收，本地证据即可；保留此历史状态名，但必须注明测试环境与容量范围，不表示已经在真实生产运行。
 - `Frozen`：只允许明确授权的安全修复、迁移或退役工作。
 - `Deferred`：经架构决策暂不进入当前版本。
 
-`Build-verified` 不等于 `Production-verified`。容量、备份恢复、滚动升级、外部依赖故障和真实流量行为仍须在生产等价环境单独认证。
+`Build-verified` 不等于 `Production-verified`。容量、备份恢复、滚动升级、外部依赖故障和真实流量行为须按对应范围实际测试，可在本地验收；功能通过不自动认证未测规模或故障域。
 
 ## 当前能力矩阵
 
@@ -35,6 +37,8 @@
 | HTTP 状态码、ProblemDetails 与兼容包络 | Build-verified | 标准 API 默认采用状态码与 ProblemDetails；Admin.NET 包络仅允许存在于兼容适配层。 |
 | System.Text.Json、OpenAPI 与 Vue 调用契约覆盖 | Build-verified | Architecture 测试按生产 Endpoint 元数据枚举 JSON 类型；Vue 生产 API 文件必须逐项映射 OpenAPI fixture 与共享 TypeScript 契约，新增漏项失败关闭。OpenAPI 驱动客户端生成三类试点已 `Pilot-passed`；**Vue 生产 API 全量迁移已收官**（现 230 条 `generated`，45 个 API 模块），见 [`openapi-client-generation-pilot-2026-08-21.md`](../verification/openapi-client-generation-pilot-2026-08-21.md) 与 [`openapi-client-generation-migration-complete-2026-08-23.md`](../verification/openapi-client-generation-migration-complete-2026-08-23.md)。完整公开 npm SDK 发布仍不属于当前完成门槛。 |
 | 结构化日志、OpenTelemetry 与低基数指标 | Build-verified | 指标、Trace、日志职责分离；生产采集、告警和保留策略仍需部署环境验收。 |
+| 可配置 B2 日志入口（2026-10-02） | Production-verified | Collector/ApplicationKafka 的生产入口配置按本地 Host/Helm、TLS/SASL/ACL、原生与恢复证据准入；默认 Legacy，不自动切流。独立 Kafka 消费、逐项 ES Bulk、可靠 DLQ 与连续 Offset 已有本地闭环，消费者部署维持显式实验开关。安全边界、P99 比较与本期收尾见[验收记录](../verification/2026-10-02-logging-module-closeout.md)；不外推生产最大容量，保留 `Capacity-not-verified`。 |
+| 操作日志受限详情与 Vue 日志页面（2026-10-02） | Build-verified | 本期开发收尾：双库 B1 详情授权/到期、受控请求/返回摘要，Vue 三页签、服务端分页、撤权后新会话/403、三页低视口布局已按[真实浏览器与回归](../verification/2026-10-02-logging-module-closeout.md)通过。大规模容量、旧兼容 ES 包迁移、归档及专用安全事件入口作为后续扩展，未执行部分不标已验证。 |
 | 可信代理与转发头边界 | Build-verified | 由主机配置、边界测试与运维基线共同约束。 |
 | Identity 会话、刷新令牌、MFA 与 TOTP | Build-verified | 单元、集成及生产配置真实栈 TOTP 浏览器链路已有验证记录；不等于生产环境认证。 |
 | Identity 用户管理与档案 | Build-verified | Host 用户列表、创建、编辑、启停、重置密码、JSON 兼容接口、固定结构 Excel 模板/导入/导出和批量启停已落地；工作簿限制为 1 MiB/1,000 行并拒绝公式、外部关系和未知表头。手机号、邮箱、工号及证件组合现由服务端规范化/校验，并以 Host 目录全局唯一索引关闭双库并发竞态；失败资料写入会回滚整个用户事务。生产真实栈浏览器与 Linux 原生进程尚未认证，完成前不升 `Verified`。见[资料权威校验](../verification/2026-08-30-identity-authoritative-profile-validation.md)与[Excel/日志切片](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)。 |
@@ -53,7 +57,7 @@
 | Document | Build-verified | 2026-08-16 核心切片已落地；2026-09-22：`pnpm test:governance`、`pnpm test:openapi`（含离线 OpenAPI/manifest 对账）与 admin-parity Document 路由 WCAG 2.2 A/AA（axe 0）在本机 fresh 通过。admin-real-stack 双库 E2E 与运行时 `openapi:client:snapshot --update` 仍依赖 Testcontainers/Docker 可用环境，未在本会话关闭，故暂不升 `Verified`。仍非 Production-verified。见 [`document-parity-2026-08-09.md`](../verification/document-parity-2026-08-09.md)、[`2026-09-22-document-verified-gates.md`](../verification/2026-09-22-document-verified-gates.md)。 |
 | API Key、签名请求与模块目录 | Build-verified | 凭据、签名、模块发现和精确授权均有契约与安全测试。 |
 | Notifications | Build-verified | 现有 Host 公告、站内信、未读/已读、SignalR 与 Host.Api 双库 Native AOT 范围保持 Build-verified。平台内核（强制/交易/普通/营销政策、Single/FanOut/Failover/Match 路由、投递状态机、独立权限码、成对迁移 104 的 14 张平台表）已为 **Build-verified**，见[内核验证](../verification/2026-08-31-notifications-platform-kernel.md)。Tenant Inbox 与权威未读数（成对迁移 105、受信 Scope、跨租户 404、Intent 幂等 Inbox、RecipientEndpoint 掩码隔离）已为 **Build-verified**，见[Tenant Inbox 验证](../verification/2026-08-31-notifications-tenant-inbox.md)。模板/Intent API（仅 inbox 渠道、版本冻结、幂等扇出）已为 **Build-verified**，见[Template/Intent 验证](../verification/2026-08-31-notifications-template-intent.md)。多 Profile/Binding 控制面（空目录、密钥不回显、Host 不共享、Intent 固定 BindingVersion）已为 **Build-verified**，见[Profile/Binding 验证](../verification/2026-08-31-notifications-profile-binding.md)。Delivery Worker（租约领取、事务外 Adapter、Attempt/Receipt、人工重试、Test Provider 幂等）已为 **Build-verified**，见[Delivery Worker 验证](../verification/2026-08-31-notifications-delivery-worker.md)。Vue 管理控制面（模板/Profile/Binding/Delivery 精确权限、空目录、密钥不回显、FanOut 明示、Unknown 非成功色）已为 **Build-verified**，见[Vue 控制面验证](../verification/2026-08-31-notifications-vue-control-plane.md)。当前用户邮箱端点登记/查询/删除 API 与 Vue 管理页已按[收件端点验证](../verification/2026-09-02-notifications-recipient-endpoint-management.md)达到 **Build-verified**：用户/作用域取自受信会话，Profile 版本与 Adapter 类型失败关闭，原值加密且只返回掩码，新登记固定为 `pending`。平台扩展 Task 1–8 已按[收口验证](../verification/2026-08-31-notifications-platform-closeout.md)关闭。首个生产 Adapter `email.smtp` 已按[SMTP 验证](../verification/2026-09-01-notifications-smtp-provider.md)达到 **Build-verified**：MailKit 4.17.0、显式 TLS、`env://` Secret、已验证邮箱端点、条件注册及双库 Worker 回归均已落地；用户提供的 QQ SMTP 465/SSL 实测已连接服务器但在认证阶段被拒，未产生服务器接受的邮件，因此外部认证仍为 **External-auth-not-verified**。短信/企微/公众号/钉钉仍为 Planned；邮件验证码、自动升级 `verified`、SMTP 管理运维、容量与送达回执仍待后续切片，容量 **Capacity-not-verified**。本机非 Linux 不把本切片新路径的 Native AOT 标为 `Aot-published`。既有 Host Inbox/Announcement 的 Linux 原生证据见 [`api-native-aot-notifications-2026-08-25.md`](../verification/api-native-aot-notifications-2026-08-25.md)。 |
-| Jobs | Build-verified | 调度、重试、容量证据与 Worker 运行边界持续硬化；完整 1/2/4/8 容量矩阵只在专用环境执行。Host.Api Native AOT 已在 SQL Server/MySQL 上通过定义、手动触发 ping、执行/计划/健康 HTTP JSON 外部进程验证，见 [`api-native-aot-settings-jobs-2026-08-25.md`](../verification/api-native-aot-settings-jobs-2026-08-25.md)；不外推 Worker 托管轮询或容量。 |
+| Jobs | Build-verified | 调度、重试、容量证据与 Worker 运行边界持续硬化；完整 1/2/4/8 容量矩阵可在本地按计划分批执行，以实际结果验收。Host.Api Native AOT 已在 SQL Server/MySQL 上通过定义、手动触发 ping、执行/计划/健康 HTTP JSON 外部进程验证，见 [`api-native-aot-settings-jobs-2026-08-25.md`](../verification/api-native-aot-settings-jobs-2026-08-25.md)；不外推 Worker 托管轮询或容量。 |
 | SerialNumbers | Build-verified | Host/租户规则、纯预览、UTC 周期重置、幂等原子分配、分页筛选、稳定排序、Vue 表单边界与精确权限已落地；双库 Integration 与 admin-real-stack 仍需 fresh 全绿后才能升 `Verified`。见 [`serial-numbers-verified-20260820.md`](../verification/serial-numbers-verified-20260820.md)。 |
 | Observability Admin 控制面 | Build-verified | 独立官方模块已交付固定日志根目录、顶层 `.log` 清单、稳定 SHA-256 文件 ID、有界尾读和流式下载；读/下载使用独立 Host 权限，Vue 不创建未授权下载入口，活动文件使用共享读取且客户端不能提交路径。实例/运行时硬件信息仍为 `Mapped`，Linux 原生进程 E2E 尚待 CI；见[本切片验证](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)。 |
 | 在线会话治理 | Build-verified | 会话状态、撤销与多实例协调已有基础能力。 |

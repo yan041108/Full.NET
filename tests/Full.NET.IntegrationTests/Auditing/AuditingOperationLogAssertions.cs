@@ -3,10 +3,13 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Auditing.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Settings.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Auditing;
 
@@ -24,9 +27,136 @@ internal static class AuditingOperationLogAssertions
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
         await VerifyWriteAndQueryAsync(client, cancellationToken);
+        await VerifyRestrictedDetailsAsync(factory, client, cancellationToken);
         await OpenApiAuditingOperationLogsContractAssertions.VerifyAsync(
             client,
             cancellationToken);
+    }
+
+    private static async Task VerifyRestrictedDetailsAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var validId = Guid.CreateVersion7();
+        var expiredId = Guid.CreateVersion7();
+        var invalidId = Guid.CreateVersion7();
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var tenant = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+            tenant.SetHost();
+            try
+            {
+                await scope.ServiceProvider.GetRequiredService<ICommandExecutor>().ExecuteAsync(
+                    new SqlStatement(
+                        "test.auditing.operation_details.insert_fixtures",
+                        """
+                        INSERT INTO fn_auditing_operation_log
+                            (Id, OccurredAtUtc, ActionKey, HttpMethod, RequestPath,
+                             StatusCode, DurationMs, Succeeded, UserId, TenantId,
+                             TraceId, ClientIpFingerprint, PermissionCode, ContextJson,
+                             DetailsExpiresAtUtc)
+                        VALUES
+                            (@ValidId, @NowUtc, 'details.valid', 'POST', '/details/valid',
+                             200, 1, 1, NULL, NULL, NULL, NULL, NULL,
+                             '{"schemaVersion":1,"clientIp":"203.0.113.7","clientPort":54321,"unapproved":"secret-marker"}', @FutureUtc),
+                            (@ExpiredId, @NowUtc, 'details.expired', 'POST', '/details/expired',
+                             200, 1, 1, NULL, NULL, NULL, NULL, NULL,
+                             '{"schemaVersion":1,"clientIp":"203.0.113.8"}', @PastUtc),
+                            (@InvalidId, @NowUtc, 'details.invalid', 'POST', '/details/invalid',
+                             200, 1, 1, NULL, NULL, NULL, NULL, NULL,
+                             '{"schemaVersion":2,"clientIp":"203.0.113.9"}', @FutureUtc)
+                        """,
+                        SqlDataScope.HostOnly),
+                    new
+                    {
+                        ValidId = validId,
+                        ExpiredId = expiredId,
+                        InvalidId = invalidId,
+                        NowUtc = now,
+                        FutureUtc = now.AddHours(1),
+                        PastUtc = now.AddMinutes(-1),
+                    },
+                    cancellationToken);
+            }
+            finally
+            {
+                tenant.Clear();
+            }
+        }
+
+        var detailsPath = $"/api/v1/auditing/operation-logs/{validId:D}/details";
+        using (var anonymous = await client.GetAsync(detailsPath, cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+        }
+
+        var readOnly = await factory.CreateHostAccessTokenAsync(
+            [OperationLogPermissions.Read], cancellationToken);
+        var detailsOnly = await factory.CreateHostAccessTokenAsync(
+            [OperationLogPermissions.ReadDetails], cancellationToken);
+        var both = await factory.CreateHostAccessTokenAsync(
+            [OperationLogPermissions.Read, OperationLogPermissions.ReadDetails],
+            cancellationToken);
+        await AssertDetailsStatusAsync(client, detailsPath, readOnly,
+            HttpStatusCode.Forbidden, cancellationToken);
+        await AssertDetailsStatusAsync(client, detailsPath, detailsOnly,
+            HttpStatusCode.Forbidden, cancellationToken);
+
+        using (var request = AuthorizedGet(detailsPath, both))
+        using (var response = await client.SendAsync(request, cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+            Assert.IsFalse(payload.Contains("secret-marker", StringComparison.Ordinal));
+            var details = JsonSerializer.Deserialize<OperationLogDetailsResponse>(payload,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            Assert.IsNotNull(details);
+            Assert.AreEqual(validId, details.Id);
+            Assert.AreEqual("203.0.113.7", details.Context.ClientIp);
+            Assert.AreEqual(54321, details.Context.ClientPort);
+        }
+
+        // 普通详情即使有读取权限，也不能携带受限上下文或原始 JSON。
+        using (var request = AuthorizedGet(
+            $"/api/v1/auditing/operation-logs/{validId:D}", readOnly))
+        using (var response = await client.SendAsync(request, cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+            Assert.IsFalse(payload.Contains("203.0.113.7", StringComparison.Ordinal));
+            Assert.IsFalse(payload.Contains("secret-marker", StringComparison.Ordinal));
+            Assert.IsFalse(payload.Contains("contextJson", StringComparison.OrdinalIgnoreCase));
+        }
+
+        foreach (var id in new[] { expiredId, invalidId, Guid.CreateVersion7() })
+        {
+            await AssertDetailsStatusAsync(client,
+                $"/api/v1/auditing/operation-logs/{id:D}/details",
+                both,
+                HttpStatusCode.NotFound,
+                cancellationToken);
+        }
+    }
+
+    private static HttpRequestMessage AuthorizedGet(string path, string token)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return request;
+    }
+
+    private static async Task AssertDetailsStatusAsync(
+        HttpClient client,
+        string path,
+        string token,
+        HttpStatusCode expected,
+        CancellationToken cancellationToken)
+    {
+        using var request = AuthorizedGet(path, token);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(expected, response.StatusCode);
     }
 
     private static async Task VerifyListRequiresReadPermissionAsync(

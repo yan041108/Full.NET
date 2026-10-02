@@ -58,14 +58,21 @@ config:
         Preserve_Key        Off
 
     [FILTER]
+        Name                modify
+        Match               fullnet.raw
+        Copy                @t _fullnet_required_timestamp
+        Copy                @mt _fullnet_required_message
+        Copy                log.class _fullnet_required_class
+
+    [FILTER]
         Name                grep
         Match               fullnet.raw
         Logical_Op          AND
-        Regex               @t ^.+$
-        Regex               @mt ^.+$
+        Regex               _fullnet_required_timestamp ^.+$
+        Regex               _fullnet_required_message ^.+$
         Regex               LogEventId ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$
         Regex               Instance ^.+$
-        Regex               log.class ^.+$
+        Regex               _fullnet_required_class ^.+$
 
     [FILTER]
         Name                modify
@@ -91,6 +98,9 @@ config:
         Match               fullnet.priority.*
         Remove              _fullnet_route_reliability
         Remove              _fullnet_route_level
+        Remove              _fullnet_required_timestamp
+        Remove              _fullnet_required_message
+        Remove              _fullnet_required_class
         Remove              kubernetes
         Remove              tenant_id
         Remove              user_id
@@ -101,6 +111,9 @@ config:
         Match               fullnet.b2.*
         Remove              _fullnet_route_reliability
         Remove              _fullnet_route_level
+        Remove              _fullnet_required_timestamp
+        Remove              _fullnet_required_message
+        Remove              _fullnet_required_class
         Remove              kubernetes
         Remove              tenant_id
         Remove              user_id
@@ -109,26 +122,37 @@ config:
   outputs: |
     [OUTPUT]
         Name                forward
+        Alias               fullnet_priority_forward
         Match               fullnet.priority.*
         Host                loki-priority.observability.svc
         Port                24224
-        Retry_Limit         5
+        Require_ack_response On
+        net.io_timeout      5s
+        Retry_Limit         False
         storage.total_limit_size 256MB
         tls                 On
         tls.verify          On
+        tls.verify_hostname On
+        tls.ca_file         /fluent-bit/tls/ca.crt
 
     [OUTPUT]
         Name                forward
+        Alias               fullnet_b2_forward
         Match               fullnet.b2.*
         Host                loki-besteffort.observability.svc
         Port                24224
+        Require_ack_response On
+        net.io_timeout      5s
         Retry_Limit         3
         storage.total_limit_size 512MB
         tls                 On
         tls.verify          On
+        tls.verify_hostname On
+        tls.ca_file         /fluent-bit/tls/ca.crt
 
     [OUTPUT]
         Name                s3
+        Alias               fullnet_b2_archive
         Match               fullnet.b2.*
         bucket              fullnet-log-archive
         region              us-east-1
@@ -147,11 +171,21 @@ config:
         Time_Keep   On
 
 extraVolumes:
+  # 平台须预置仅含接收端信任根的 Secret；轮换后滚动重启采集器以重新建立 TLS 连接。
+  - name: forward-ca
+    secret:
+      secretName: fullnet-forward-ca
+      items:
+        - key: ca.crt
+          path: ca.crt
   - name: fluent-bit-buffer
     emptyDir:
       sizeLimit: 2Gi
 
 extraVolumeMounts:
+  - name: forward-ca
+    mountPath: /fluent-bit/tls
+    readOnly: true
   - name: fluent-bit-buffer
     mountPath: /var/fluent-bit
 

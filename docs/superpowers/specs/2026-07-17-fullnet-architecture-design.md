@@ -126,7 +126,7 @@ Full.NET 1.0 不为未来假设支付微服务复杂度。局部模块只有同�
 2. 模块能够独占写入自己的数据，不访问其他模块内部表；
 3. 目标业务流程不依赖跨模块本地事务；
 4. Integration Event 或 RPC 契约已经版本化并具有兼容测试；
-5. Outbox、重试、死信、重放和可观测性已经在生产等价拓扑验证；
+5. Outbox、重试、死信、重放和可观测性已经在本地对应拓扑实际验证（执行位置按开发质量 §11）；
 6. ADR 证明独立部署收益高于新增运维、测试和故障处理成本。
 
 详细理由、备选方案和演进后果见 [`ADR-0002`](../../architecture/adr/ADR-0002-modular-monolith-evolution.md)。
@@ -556,7 +556,7 @@ Host 管理员管理平台和租户；Tenant 管理员管理当前租户。Tenan
 
 模块拥有自己的表，物理名统一为 `{owner_key}_{module_key}_{entity_key}` 的小写 snake_case。Full.NET 官方框架和官方模块的 OwnerKey 固定为 `fn`，具体项目在脚手架创建时冻结独立 OwnerKey（例如 `crm`）；项目扩展官方模块也必须使用项目 OwnerKey。`sys` 保留给数据库系统语义，禁止作为项目 OwnerKey；表名不得由租户或运行时配置动态拼接。
 
-默认主键为应用端生成的 UUID v7，C# 类型为 `Guid`，统一由 `IIdGenerator` 在写库前产生，因此父子记录、审计与 Outbox 可在同一事务中直接引用，不依赖数据库序列。SQL Server 持久化为 `uniqueidentifier`；MySQL 使用 RFC 9562 大端字节序的 `BINARY(16)`，只由 Full.NET 数据层统一转换，业务模块不得感知 `byte[]` 或自行交换字节。HTTP/JSON 始终使用规范 UUID 字符串。008/009 已完成 MySQL `char(36)` 的 expand→backfill→contract 迁移并具有双库恢复测试；尚未完成的是生产等价环境中的维护窗口、备份恢复和 RPO/RTO 演练，不能把构建验证表述为生产迁移认证。
+默认主键为应用端生成的 UUID v7，C# 类型为 `Guid`，统一由 `IIdGenerator` 在写库前产生，因此父子记录、审计与 Outbox 可在同一事务中直接引用，不依赖数据库序列。SQL Server 持久化为 `uniqueidentifier`；MySQL 使用 RFC 9562 大端字节序的 `BINARY(16)`，只由 Full.NET 数据层统一转换，业务模块不得感知 `byte[]` 或自行交换字节。HTTP/JSON 始终使用规范 UUID 字符串。008/009 已完成 MySQL `char(36)` 的 expand→backfill→contract 迁移并具有双库恢复测试；尚未完成的是维护窗口、备份恢复和 RPO/RTO 演练，本地完成这些实际测试即可验收，不能把构建验证表述为生产迁移认证。
 
 2026-09-07 审查修复补充：165–199 中 16 份已发布 MySQL 脚本的 UUID 文本类型发生回退。新库只对规范化换行后全文 SHA-256 精确匹配的历史内容作执行兼容，将 UUID 声明恢复为 `BINARY(16)`，原始嵌入脚本和记账名称保持不变。已有库由 203 前向迁移预检全部 68 列，在暂停 API/Worker 写入的维护窗口中按 `char(36) → varbinary(36) → BINARY(16)` 转换；非法文本失败关闭，16/36 字节中间态支持重跑，保留空值、索引和列说明，并恢复本模块文档外键。SQL Server 配对脚本仅验证 `uniqueidentifier`。双库升级、备份恢复与维护窗口验证未完成前，不得宣称迁移已通过生产认证。
 
@@ -815,9 +815,9 @@ Loki、OpenSearch、Seq 或其他 APM 可以替换查询后端，应用侧字段
 
 统一 ILogger 管道在事件构造阶段限制属性、深度、集合与字符串，入队前生成不保留原始业务对象/异常引用的受限 LogEnvelope；同时按条数和实际持有容量计费。整事件初始 UTF-8 上限 16384 字节，普通/优先独立计费预算 67108864/8388608 字节；在途与构造资源另受上界，计费上限不等于进程 RSS。HTTP Payload 配置不能替代该保护，具体约束见模块说明 §2.3。
 
-持久交付只能从经故障验证的持久边界起算：应用内存入队、标准输出成功或 Kafka 客户端入队均不构成端到端 ACK。采集器需验证检查点/chunk 释放与 Broker ACK 的实际关系。Kafka 消费者首选 Logstash；手动提交只表示队列接收，LG00 必须证明有界 PQ checkpoint/fsync 先于每分区连续 nextOffset 提交；最终 Bulk/隔离逐项确认。PQ 不复制数据，永久卷丢失有独立 RPO/受控回放预算。组件/插件默认丢弃、Bulk 部分失败、DLQ 满和 checkpointWrites=1 的性能成本都须实证；未通过只关闭相应入口/消费者/确认组合。emptyDir 不能覆盖 Pod 重建/节点丢失；未认证保持 Capacity-not-verified。
+持久交付只能从经故障验证的持久边界起算：应用内存入队、标准输出成功或 Kafka 客户端入队均不构成端到端 ACK。采集器需验证检查点/chunk 释放与 Broker ACK 的实际关系。原首选 Logstash Kafka 输入/PQ 因[官方说明的 Offset 提前提交风险](https://www.elastic.co/docs/reference/logstash/tips-best-practices)进入重新评估，不能作为可靠档基线；LG00 必须为重新选定的消费者证明安全持久接收或最终逐项写入/可靠隔离先于每分区连续 nextOffset 提交。PQ 不复制数据，永久卷丢失有独立 RPO/受控回放预算。组件/插件默认丢弃、Bulk 部分失败、DLQ 满和检查点性能成本都须实证；未通过只关闭相应入口/消费者/确认组合。emptyDir 不能覆盖 Pod 重建/节点丢失；未认证保持 Capacity-not-verified。
 
-Logstash/PQ 为当前准入基线；LG00 可独立评估 SinkConfirmed，只有具体消费者证明最终逐项写入/可靠隔离后推进连续 Offset，才允许省 PQ，不把 Logstash 改为 memory 当作等价。直发默认无应用 Spool，至少一次从已验证 Broker 确认开始；失效的入口/确认组合保持关闭，不外推另一条路线的证据。
+原 Logstash/PQ 准入基线已标记阻塞；LG00 独立评估能证明顺序的 PersistentQueue 或 SinkConfirmed 实现。SinkConfirmed 只有具体消费者证明最终逐项写入/可靠隔离后推进连续 Offset 才允许省 PQ，不把 Logstash 改为 memory 当作等价。直发默认无应用 Spool，至少一次从已验证 Broker 确认开始；失效的入口/确认组合保持关闭，不外推另一条路线的证据。
 
 ES 本阶段采用固定 UTC 事件日期索引，关闭 data stream 和 ILM rollover；冻结事件时间/IndexRouteVersion，LogEventId 映射 document_id，以 index 动作写同一索引/ID。重放保留原始 ExpiresAtUtc，过期不写入、不重建过期索引。去重只覆盖该路由的保留窗口，不承诺全链 Exactly-Once；未来 rollover 必须另审跨索引去重。详见模块说明 §6。
 
@@ -909,7 +909,7 @@ H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 
 
 轮询 Worker 在取得满批次时应立即继续领取，未满批次才进入 Poll 等待；并发必须有租约、顺序键、作用域和连接池预算。管理端以路由动态导入和依赖按需加载控制首包，发布验证同时记录 minified、gzip 与可用时的 Brotli，并以相对基线退化作为门禁。
 
-`1 万个同时在途动态请求` 只在 P4 专用硬件和生产等价 Kubernetes 拓扑认证：依次执行 2K、5K、10K 台阶，包含稳态、长时间 Soak、N+1 副本故障、依赖故障注入和 SQL Server/MySQL 分 Provider 认证，记录吞吐、错误率、P50/P95/P99、在途数、队列、连接池、数据库/Redis/GC/CPU/内存。只有该证据完整时才允许声明 10K 能力；设计同步、多实例正确性、资源治理和适用的 Kubernetes 生产门禁完成后，可以保守流量进入 `Capacity-not-verified`，不得把上线本身当作容量证明。详细执行规则见 [`rules/performance-engineering.md`](../../../rules/performance-engineering.md)，重复工作流使用项目 Skill `$fullnet-performance-hardening`。
+2026-09-30 项目所有者将全部验收修订为本地测试实际通过即可，替代原 P4 专用硬件/生产等价环境前置。`1 万个同时在途动态请求` 可在本地隔离 Kubernetes/容器环境验收：依次执行 2K、5K、10K、稳态、Soak、N+1 副本故障、依赖故障和 SQL Server/MySQL 分 Provider 测试，记录硬件、吞吐、错误率、P50/P95/P99、真实在途数、队列、连接池、数据库/Redis/GC/CPU/内存。只有对应规模证据完整时才允许声明该环境的 10K 能力；本地结果不自动证明独立物理故障域或真实生产 SLO。功能与配置准入按自身本地验收集完成，未测容量保持 `Capacity-not-verified`。执行位置与证据统一见 [开发质量 §11](../../../rules/development-quality.md#11-测试与验证)，性能规则见 [`rules/performance-engineering.md`](../../../rules/performance-engineering.md)。
 
 ## 21. 运行与部署
 
@@ -970,7 +970,7 @@ H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 
 | 普通日志 | Collector 按源文件/采集缓冲故障预算；ApplicationKafka 披露内存未确认缺口 | 60 分钟 | 按准入入口及确认边界恢复、保留余量和 ID 对账；不承诺零丢失 |
 | Audit 查询库 | 按 B0/B1 数据库策略 | 30 分钟 | 双库备份、恢复与保留验证 |
 
-受控 Production 只有在设计同步、多实例正确性、资源治理、Kubernetes 部署、双库、恢复和回滚门禁通过后，才可以保守流量上线并明确标记 `Capacity-not-verified`；这不授权宣传 10K 容量。正式 10K 声明必须完成第 20.5 节专用环境认证。
+受控 Production 配置准入以设计同步、多实例正确性、资源治理、Kubernetes 部署、双库、恢复和回滚场景的本地测试通过为准；实际部署依当前用户授权，未测容量标记 `Capacity-not-verified`。10K 声明须完成第 20.5 节对应规模的实际测试，本地即可，结论限定测试环境。
 
 ## 22. 参考项目映射与演进
 
@@ -1089,7 +1089,7 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 - 架构、集成、生成器和 E2E 测试通过；
 - 仓库满足 MIT 和第三方许可证发布要求。
 
-上述 1.0 验收不自动证明 1 万同时在途。只有第 20.5 节专用容量环境的 2K/5K/10K、Soak、N+1、故障注入和双 Provider 证据完成后，才能把容量状态从 `Capacity-not-verified` 提升为已认证。
+上述 1.0 本地验收不自动证明 1 万同时在途。第 20.5 节的 2K/5K/10K、Soak、N+1、故障与双 Provider 可在本地执行；只有对应规模证据完整后才能更新相应容量状态，并注明硬件和环境范围。
 
 1.0 验收不等于 Admin.NET 全量功能对标完成。长期对标完成标准是功能矩阵中所有适用项达到 `Verified`，或者经过设计评审明确记录为 `Not Applicable` 并给出替代方案。
 
@@ -1111,7 +1111,7 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 12. API、Worker、Migrator 必须保持运行角色分离；角色分离不等于业务服务拆分，AppHost 不承载业务能力。
 13. 局部模块拆分必须先满足第 4.1 节全部门禁并通过独立 ADR；禁止以“未来可能扩容”或“团队可能增长”代替可测量证据。
 14. Outbox 只承载重要业务 Integration Event；缓存失效、日志、Trace、Metrics、普通 HTTP Operation Log 和 Audit 不使用 Outbox。
-15. 开发阶段以万级在途为设计目标，但容量声明只能来自专用生产等价环境；没有证据时必须如实标记 `Capacity-not-verified`。
+15. 开发阶段以万级在途为设计目标，全部验收允许本地完成；容量声明来自对应规模的实际结果，未测规模如实标记 `Capacity-not-verified`。
 
 ## 27. 参考资料
 

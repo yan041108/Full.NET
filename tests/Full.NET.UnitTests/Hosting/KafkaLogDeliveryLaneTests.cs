@@ -1,6 +1,7 @@
 using Full.NET.Logging.Kafka;
 using Full.NET.Hosting.Observability;
 using Confluent.Kafka;
+using System.Diagnostics.Metrics;
 
 namespace Full.NET.UnitTests.Hosting;
 
@@ -90,6 +91,53 @@ public sealed class KafkaLogDeliveryLaneTests
         client.CompleteLastAgain(false);
         Assert.AreEqual(0, lane.ReservedMessages);
         Assert.AreEqual(1L, lane.FailedCount);
+    }
+
+    [TestMethod]
+    [DoNotParallelize]
+    public void Asynchronous_failure_and_shutdown_abandonment_emit_delivery_metrics()
+    {
+        long failed = 0;
+        long abandoned = 0;
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, activeListener) =>
+        {
+            if (instrument.Meter.Name == KafkaLogSnapshotExporter.MeterName
+                && instrument.Name == "fullnet_log_kafka_delivery_total")
+            {
+                activeListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((_, value, tags, _) =>
+        {
+            foreach (var tag in tags)
+            {
+                if (tag.Key != "outcome")
+                {
+                    continue;
+                }
+
+                if (string.Equals(tag.Value as string, "failed", StringComparison.Ordinal))
+                {
+                    Interlocked.Add(ref failed, value);
+                }
+                else if (string.Equals(tag.Value as string, "abandoned", StringComparison.Ordinal))
+                {
+                    Interlocked.Add(ref abandoned, value);
+                }
+            }
+        });
+        listener.Start();
+
+        var client = new FakeClient();
+        var lane = new KafkaLogDeliveryLane("logs-general", 2, 1_024, 1_000, client);
+        Assert.AreEqual(KafkaLogProduceResult.Accepted, lane.TryProduce([1], "id-1"));
+        client.CompleteNext(false);
+        Assert.AreEqual(KafkaLogProduceResult.Accepted, lane.TryProduce([2], "id-2"));
+        lane.Dispose();
+
+        Assert.AreEqual(1L, Interlocked.Read(ref failed));
+        Assert.AreEqual(1L, Interlocked.Read(ref abandoned));
     }
 
     [TestMethod]

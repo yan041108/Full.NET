@@ -25,21 +25,65 @@ groups:
         annotations:
           summary: Priority log queue drops detected
 
-      - alert: FullNetFluentBitSpoolHigh
-        expr: fluentbit_storage_chunks_up / fluentbit_storage_chunks_total > 0.8
+      - alert: FullNetFluentBitForwardQueueCapacityLow
+        expr: fluentbit_output_chunk_available_capacity_percent{name=~"fullnet_priority_forward|fullnet_b2_forward"} < 20
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: Fluent Bit spool occupancy high
+          summary: Fluent Bit Forward logical queue capacity low (not a pre-loss guarantee)
 
-      - alert: FullNetFluentBitDiskFull
-        expr: kubelet_volume_stats_available_bytes{persistentvolumeclaim=~".*fluent-bit.*"} == 0
+      - alert: FullNetNodeDiskPressure
+        expr: kube_node_status_condition{condition="DiskPressure",status="true"} == 1
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: Fluent Bit buffer volume full
+          summary: Kubernetes node reports DiskPressure
+
+      - alert: FullNetFluentBitTargetDown
+        expr: up{job="fluent-bit"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Fluent Bit metrics target unavailable
+
+      - alert: FullNetFluentBitDaemonSetUnavailable
+        expr: kube_daemonset_status_number_unavailable{daemonset="fullnet-fluent-bit"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Fluent Bit DaemonSet has unavailable Pods
+
+      - alert: FullNetFluentBitPriorityOutputDrop
+        expr: |
+          increase(fluentbit_output_dropped_records_total{name="fullnet_priority_forward"}[5m]) > 0
+          or increase(fluentbit_output_retries_failed_total{name="fullnet_priority_forward"}[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: Fluent Bit priority output discarded log records
+
+      - alert: FullNetFluentBitPriorityOutputRetryWithoutProgress
+        expr: |
+          increase(fluentbit_output_retries_total{name="fullnet_priority_forward"}[5m]) > 0
+          and increase(fluentbit_output_proc_records_total{name="fullnet_priority_forward"}[5m]) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Fluent Bit priority output retrying without delivery progress
+
+      - alert: FullNetFluentBitBestEffortOutputDrop
+        expr: |
+          increase(fluentbit_output_dropped_records_total{name=~"fullnet_b2_forward|fullnet_b2_archive"}[5m]) > 0
+          or increase(fluentbit_output_retries_failed_total{name=~"fullnet_b2_forward|fullnet_b2_archive"}[5m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: Fluent Bit best-effort output discarded log records
 
       - alert: FullNetAuditB1QueuePressure
         expr: fullnet_audit_microbatch_queue_depth > 3000
@@ -48,6 +92,47 @@ groups:
           severity: warning
         annotations:
           summary: Audit B1 micro-batch queue pressure
+
+      - alert: FullNetLogConsumerBacklog
+        expr: fullnet_log_consumer_lag_records > 1000 and fullnet_log_consumer_lag_known == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Log consumer committed-offset backlog elevated
+
+      - alert: FullNetLogConsumerLagUnknown
+        expr: fullnet_log_consumer_lag_known == 0 and fullnet_log_consumer_assigned_partitions > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Log consumer lag sample unavailable or stale
+
+      - alert: FullNetLogConsumerDeliveryFailure
+        expr: increase(fullnet_log_consumer_delivery_results_total{outcome=~"retry|error"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Log consumer downstream confirmation or offset failed
+
+      - alert: FullNetLogConsumerTargetDown
+        expr: up{job="fullnet-log-consumer"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Log consumer metrics target unavailable
+
+      - alert: FullNetLogConsumerRestarting
+        expr: |
+          increase(kube_pod_container_status_restarts_total{container="consumer"}[5m]) > 2
+          and on (namespace, pod) kube_pod_labels{label_app_kubernetes_io_name="fullnet-log-consumer"} == 1
+        labels:
+          severity: critical
+        annotations:
+          summary: Log consumer repeated restart may hide short-lived failures
 
       - alert: FullNetAuditB1WaitOrFailure
         expr: |

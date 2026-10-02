@@ -8,12 +8,13 @@ using Full.NET.Hosting.RateLimiting;
 using Full.NET.Hosting.Security;
 using Full.NET.Host.Api;
 using Full.NET.Localization;
+using Full.NET.Logging.Kafka;
 using Full.NET.Modularity.Modules;
 using Full.NET.Realtime.SignalR;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.AddFullNetServiceDefaults();
+builder.AddFullNetServiceDefaults(KafkaLogSnapshotExporter.Create);
 builder.Services.AddFullNetDataProtection(builder.Configuration, builder.Environment);
 builder.Services.AddFullNetTrustedProxyForwarding(builder.Configuration);
 builder.Services.AddFullNetOpenApi();

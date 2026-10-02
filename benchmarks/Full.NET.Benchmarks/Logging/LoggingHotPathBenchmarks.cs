@@ -14,6 +14,8 @@ namespace Full.NET.Benchmarks.Logging;
 public class LoggingHotPathBenchmarks
 {
     private const int EventsPerInvocation = 32;
+    private const string WindowsPathNote = @"C:\Users\alice\file.txt";
+    private const string EscapedKeyNote = "{\"pass\\u0077ord\":\"benchmark-value\"}";
     private IHost _host = null!;
     private ILogger<LoggingHotPathBenchmarks> _logger = null!;
     private FullNetLoggingMonitors _monitors = null!;
@@ -62,6 +64,24 @@ public class LoggingHotPathBenchmarks
         for (var index = 0; index < EventsPerInvocation; index++)
         {
             _logger.LogInformation("Log benchmark request {RequestId} completed in {ElapsedMs} ms", index, 12);
+        }
+    }
+
+    [Benchmark(OperationsPerInvoke = EventsPerInvocation)]
+    public void GeneralWindowsPath()
+    {
+        for (var index = 0; index < EventsPerInvocation; index++)
+        {
+            _logger.LogInformation("Log benchmark note {Note}", WindowsPathNote);
+        }
+    }
+
+    [Benchmark(OperationsPerInvoke = EventsPerInvocation)]
+    public void GeneralEscapedAssignment()
+    {
+        for (var index = 0; index < EventsPerInvocation; index++)
+        {
+            _logger.LogInformation("Log benchmark note {Note}", EscapedKeyNote);
         }
     }
 

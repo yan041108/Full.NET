@@ -20,7 +20,8 @@ internal static class FullNetLoggingPipeline
         Action<LogEnvelope>? emitSnapshot = null,
         bool emitLegacySink = true,
         Action<HostLogSnapshot>? emitExternalSnapshot = null,
-        HttpOperationLogIngress? httpOperationIngress = null)
+        HttpOperationLogIngress? httpOperationIngress = null,
+        IDisposable? externalExporter = null)
     {
         resource ??= LoggingResourceMetadata.Create(applicationName, "Unknown");
         configuration
@@ -50,7 +51,8 @@ internal static class FullNetLoggingPipeline
                     emitLegacySink,
                     emitExternalSnapshot,
                     resource,
-                    httpOperationIngress));
+                    httpOperationIngress,
+                    externalExporter));
         }
         catch
         {

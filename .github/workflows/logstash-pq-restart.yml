@@ -1,0 +1,26 @@
+name: Logstash PQ restart
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/logstash-pq-restart.yml'
+      - 'eng/testing/logstash-pq-restart-smoke.mjs'
+      - 'tests/deployment/logstash-pq-probe.yml'
+      - 'tests/deployment/logstash-pq-blocked.conf'
+      - 'tests/deployment/logstash-pq-replay.conf'
+
+permissions:
+  contents: read
+
+jobs:
+  pq-restart-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Verify Kafka offset and Logstash PQ recovery with fixed images
+        run: node eng/testing/logstash-pq-restart-smoke.mjs

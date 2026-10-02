@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { appendFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { appendFile, mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyCollectorRequestReplay } from './collector-request-replay-proof.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const image = 'cr.fluentbit.io/fluent/fluent-bit:4.1.1@sha256:2a5cb41f99b7c5f3386bb34d42ce3b19eb47fbef6d93b64c0bd4afe9e6ec389c';
+const metricsProbeImage = 'node:24.21.0-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1';
 const containerName = `fullnet-log-route-${process.pid}`;
 const ids = Object.freeze({
   info: '0199aabb-ccdd-7000-8000-000000000001',
@@ -23,6 +26,8 @@ const ids = Object.freeze({
   missingTimestamp: '0199aabb-ccdd-7000-8000-00000000000e',
   restartInfo: '0199aabb-ccdd-7000-8000-000000000007',
   restartError: '0199aabb-ccdd-7000-8000-000000000008',
+  crashRestartInfo: '0199aabb-ccdd-7000-8000-00000000000f',
+  crashRestartError: '0199aabb-ccdd-7000-8000-000000000010',
 });
 
 function containerFileName(podName) {
@@ -50,6 +55,7 @@ function collectorConfig(values) {
   assert.match(inputs, /Read_From_Head On/);
   const outputs = `[OUTPUT]
     Name file
+    Alias fullnet_priority_forward
     Match fullnet.priority.*
     Path /work/out
     File priority.jsonl
@@ -57,6 +63,7 @@ function collectorConfig(values) {
 
 [OUTPUT]
     Name file
+    Alias fullnet_b2_forward
     Match fullnet.b2.*
     Path /work/out
     File b2.jsonl
@@ -148,6 +155,7 @@ async function verify(directory) {
     assert.equal(Object.hasOwn(entry, 'kubernetes'), false);
     assert.equal(Object.hasOwn(entry, 'DiagnosticGroup'), false);
     assert.equal(Object.hasOwn(entry, 'log'), false);
+    assert.equal(Object.keys(entry).some((key) => key.startsWith('_fullnet_')), false);
   }
   assert.equal(Object.hasOwn(b2.find((entry) => entry.LogEventId === ids.info), '@l'), false);
   assert.equal(priority.find((entry) => entry.LogEventId === ids.priority)['reliability.class'], 'Priority');
@@ -160,6 +168,9 @@ async function verifyRestart(directory) {
   ]);
   assert.deepEqual(priority.map((entry) => entry.LogEventId), [ids.restartError]);
   assert.deepEqual(b2.map((entry) => entry.LogEventId), [ids.restartInfo]);
+  for (const entry of [...priority, ...b2]) {
+    assert.equal(Object.keys(entry).some((key) => key.startsWith('_fullnet_')), false);
+  }
 }
 
 async function appendRestartEvents(directory) {
@@ -172,9 +183,175 @@ async function appendRestartEvents(directory) {
   await Promise.all(['priority.jsonl', 'b2.jsonl'].map((name) => rm(path.join(directory, 'out', name))));
 }
 
-async function run(directory) {
-  const pulled = spawnSync('docker', ['pull', image], { encoding: 'utf8' });
-  assert.equal(pulled.status, 0, `${pulled.stdout ?? ''}\n${pulled.stderr ?? ''}`);
+async function verifyRequestReplay(directory, sourcePath) {
+  const sourceFile = path.resolve(sourcePath);
+  assert.ok((await stat(sourceFile)).size <= 8 * 1024 * 1024, 'Request replay input exceeds 8 MiB.');
+  // 解析与摘要绑定同一个已读取的快照，避免回放期间文件重写导致证据错配。
+  const sourceBytes = await readFile(sourceFile);
+  assert.ok(sourceBytes.length <= 8 * 1024 * 1024, 'Request replay input exceeds 8 MiB.');
+  const sourceSha256 = createHash('sha256').update(sourceBytes).digest('hex');
+  const source = sourceBytes.toString('utf8').trim().split(/\r?\n/).map(line => JSON.parse(line))
+    .filter(event => event['@mt'] === 'HttpOperationCompleted');
+  assert.equal(source.length, 5200, 'Run the sustained Projected fixture first.');
+  const isPriority = event => event['reliability.class'] === 'Priority' || ['Error', 'Fatal'].includes(event['@l']);
+  const expectedOutput = event => Object.fromEntries(Object.entries(event)
+    .filter(([key]) => !['DiagnosticGroup', 'kubernetes', 'tenant_id', 'user_id'].includes(key)));
+  const baseline = verifyCollectorRequestReplay(source, source.filter(isPriority).map(expectedOutput), source.filter(event => !isPriority(event)).map(expectedOutput));
+  assert.equal(baseline.priority, 520);
+  assert.equal(baseline.projections, 5200);
+  // 只清空本次随机临时夹具；保留可信 Pod 元数据，不由日志正文决定入口。
+  for (const file of await readdir(path.join(directory, 'containers')))
+    await writeFile(path.join(directory, 'containers', file), '');
+  const input = source.map(event => `${event['@t']} stdout F ${JSON.stringify(event)}\n`).join('');
+  await writeFile(path.join(directory, 'containers', containerFileName('fullnet-old')), input);
+  // 不同 ID 的 ApplicationKafka 镜像能独立识别误采集，不能被正确来源覆盖。
+  const mirrors = source.map(event => ({ ...event,
+    LogEventId: `${event.LogEventId.startsWith('0') ? 'f' : '0'}${event.LogEventId.slice(1)}`,
+    kubernetes: { labels: { 'fullnet.io/log-ingress': 'collector' } },
+  }));
+  const sourceIds = new Set(source.map(event => event.LogEventId));
+  assert.ok(mirrors.every(event => !sourceIds.has(event.LogEventId)));
+  await writeFile(path.join(directory, 'containers', containerFileName('fullnet-direct')),
+    mirrors.map(event => `${event['@t']} stdout F ${JSON.stringify(event)}\n`).join(''));
+  const started = performance.now();
+  await run(directory, 'graceful', 15000);
+  const remaining = spawnSync('docker', ['ps', '-aq', '--filter', `name=^/${containerName}$`], { encoding: 'utf8', timeout: 15000 });
+  assert.equal(remaining.status, 0, 'Cannot verify request replay container cleanup.');
+  assert.equal(remaining.stdout.trim(), '', 'Request replay container remains after cleanup.');
+  const [priority, bestEffort] = await Promise.all([
+    records(path.join(directory, 'out', 'priority.jsonl')),
+    records(path.join(directory, 'out', 'b2.jsonl')),
+  ]);
+  const evidenceDirectory = path.join(root, 'artifacts/collector-request-replay');
+  await mkdir(evidenceDirectory, { recursive: true });
+  await Promise.all(['priority.jsonl', 'b2.jsonl'].map(async name =>
+    writeFile(path.join(evidenceDirectory, name), await readFile(path.join(directory, 'out', name)))));
+  const proof = verifyCollectorRequestReplay(source, priority, bestEffort);
+  return { ...proof, sourceJsonBytes: Buffer.byteLength(source.map(event => JSON.stringify(event)).join('\n')),
+    sourceFile, sourceSha256,
+    elapsedMilliseconds: performance.now() - started,
+    applicationKafkaMirrorsRejected: mirrors.length,
+    scope: 'Real HTTP envelopes through pinned Fluent Bit CRI tail, Kubernetes metadata and production routing filters; file outputs replace Forward; finite preloaded replay, no Kafka/ES/ACK or sustained throughput claim' };
+}
+
+async function recordsOrEmpty(file) {
+  try {
+    return await records(file);
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
+async function appendCrashRestartEvents(directory) {
+  const oldPodFile = path.join(directory, 'containers', containerFileName('fullnet-old'));
+  const nextEvents = [
+    { '@t': '2026-09-29T00:00:09.0000000Z', '@mt': 'after crash restart', LogEventId: ids.crashRestartInfo },
+    { '@t': '2026-09-29T00:00:10.0000000Z', '@l': 'Error', '@mt': 'after crash restart failure', LogEventId: ids.crashRestartError },
+  ];
+  await appendFile(oldPodFile, nextEvents.map(cri).join(''));
+  await Promise.all(['priority.jsonl', 'b2.jsonl'].map((name) => rm(path.join(directory, 'out', name))));
+}
+
+async function verifyCrashRestart(directory) {
+  const [priority, b2] = await Promise.all([
+    records(path.join(directory, 'out', 'priority.jsonl')),
+    records(path.join(directory, 'out', 'b2.jsonl')),
+  ]);
+  assert.deepEqual(priority.map((entry) => entry.LogEventId), [ids.crashRestartError]);
+  assert.deepEqual(b2.map((entry) => entry.LogEventId), [ids.crashRestartInfo]);
+}
+
+async function verifyOutputFaultRecovery(directory, finiteRetryProbe = false) {
+  if (finiteRetryProbe) {
+    const helper = spawnSync('docker', ['image', 'inspect', metricsProbeImage], { stdio: 'ignore' });
+    if (helper.status !== 0) {
+      const pulled = spawnSync('docker', ['pull', metricsProbeImage], { encoding: 'utf8' });
+      assert.equal(pulled.status, 0, `${pulled.stdout ?? ''}\n${pulled.stderr ?? ''}`);
+    }
+  }
+  const original = await readFile(path.join(directory, 'fluent-bit.conf'), 'utf8');
+  // 故障探针保持候选配置的优先级无限重试和 B2 有限重试策略。
+  const priorityRetries = 'False';
+  const b2Retries = finiteRetryProbe ? '3' : 'False';
+  const unavailableOutputs = `[OUTPUT]
+    Name forward
+    Alias fullnet_priority_forward
+    Match fullnet.priority.*
+    Host 127.0.0.1
+    Port 24224
+    Require_ack_response On
+    Retry_Limit ${priorityRetries}
+    storage.total_limit_size 256MB
+
+[OUTPUT]
+    Name forward
+    Alias fullnet_b2_forward
+    Match fullnet.b2.*
+    Host 127.0.0.1
+    Port 24224
+    Require_ack_response On
+    Retry_Limit ${b2Retries}
+    storage.total_limit_size 256MB
+`;
+  await writeFile(path.join(directory, 'fluent-bit.conf'), original.replace(/\[OUTPUT\][\s\S]*$/, unavailableOutputs));
+  const faultRun = await run(directory, 'kill', finiteRetryProbe ? 130000 : 12000, finiteRetryProbe);
+  assert.match(faultRun.output, /no upstream connections available/);
+  assert.deepEqual(await readdir(path.join(directory, 'out')), []);
+  const sourceDirectory = path.join(directory, 'containers');
+  // 删除源日志以证明恢复来自本地缓冲，而非 Tail 从头重读。
+  await Promise.all((await readdir(sourceDirectory)).map((name) => rm(path.join(sourceDirectory, name))));
+  await writeFile(path.join(directory, 'fluent-bit.conf'), original);
+  await run(directory);
+  if (!finiteRetryProbe) {
+    await verify(directory);
+    return;
+  }
+  const [priority, b2] = await Promise.all([
+    recordsOrEmpty(path.join(directory, 'out', 'priority.jsonl')),
+    recordsOrEmpty(path.join(directory, 'out', 'b2.jsonl')),
+  ]);
+  const expected = [ids.info, ids.priority, ids.error, ids.priorityError, ids.docker];
+  const recovered = [...priority, ...b2].map((entry) => entry.LogEventId);
+  const outputMetrics = Object.fromEntries(
+    faultRun.metricsText.split(/\r?\n/)
+      .map((line) => line.match(/^fluentbit_output_(dropped_records_total|retries_failed_total)\{name="(fullnet_(?:priority|b2)_forward)"\}\s+(\d+(?:\.\d+)?)/))
+      .filter(Boolean)
+      .map((match) => [`${match[2]}.${match[1]}`, Number(match[3])]),
+  );
+  assert.ok(Object.hasOwn(outputMetrics, 'fullnet_priority_forward.dropped_records_total'));
+  assert.ok(Object.hasOwn(outputMetrics, 'fullnet_b2_forward.dropped_records_total'));
+  assert.ok(Object.hasOwn(outputMetrics, 'fullnet_priority_forward.retries_failed_total'));
+  assert.ok(Object.hasOwn(outputMetrics, 'fullnet_b2_forward.retries_failed_total'));
+  assert.equal(outputMetrics['fullnet_priority_forward.dropped_records_total'], 0);
+  assert.equal(priority.length, 3);
+  assert.equal(outputMetrics['fullnet_priority_forward.dropped_records_total'] + priority.length, 3);
+  assert.equal(outputMetrics['fullnet_b2_forward.dropped_records_total'] + b2.length, 2);
+  process.stdout.write(`${JSON.stringify({
+    retryLimit: { priority: 'False', bestEffort: 3 },
+    faultSeconds: 130,
+    recovered,
+    missing: expected.filter((id) => !recovered.includes(id)),
+    outputMetrics,
+  })}\n`);
+}
+
+function readCollectorMetrics() {
+  const helper = spawnSync('docker', [
+    'run', '--rm', '--network', `container:${containerName}`, '--entrypoint', 'node',
+    metricsProbeImage, '-e',
+    "fetch('http://127.0.0.1:2020/api/v1/metrics/prometheus').then(async response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); process.stdout.write(await response.text()); }).catch(error => { console.error(error); process.exitCode = 1; });",
+  ], { encoding: 'utf8', timeout: 15000 });
+  assert.equal(helper.status, 0, helper.stderr || helper.error?.message);
+  return helper.stdout;
+}
+
+async function run(directory, shutdown = 'graceful', durationMs = 12000, captureMetrics = false) {
+  const localImage = spawnSync('docker', ['image', 'inspect', image], { stdio: 'ignore' });
+  if (localImage.status !== 0) {
+    const pulled = spawnSync('docker', ['pull', image], { encoding: 'utf8' });
+    assert.equal(pulled.status, 0, `${pulled.stdout ?? ''}\n${pulled.stderr ?? ''}`);
+  }
   const args = [
     'run', '--rm', '--network', 'none', '--name', containerName,
     '--mount', `type=bind,source=${directory},target=/work`,
@@ -192,7 +369,8 @@ async function run(directory) {
     child.on('close', (code) => { exited = true; resolve(code); });
   });
   let timer;
-  let stopError;
+  let shutdownError;
+  let metricsText = '';
   try {
     let created = false;
     for (let attempt = 0; attempt < 100 && !exited; attempt++) {
@@ -206,17 +384,28 @@ async function run(directory) {
     assert.ok(created || exited, `Docker did not create ${containerName}: ${output}`);
     if (created) {
       timer = setTimeout(() => {
-        const stopped = spawnSync('docker', ['stop', '--time', '2', containerName], { encoding: 'utf8' });
+        if (captureMetrics) {
+          try {
+            metricsText = readCollectorMetrics();
+          } catch (error) {
+            shutdownError = error.message;
+          }
+        }
+        const command = shutdown === 'kill'
+          ? ['kill', '--signal=KILL', containerName]
+          : ['stop', '--time', '2', containerName];
+        const stopped = spawnSync('docker', command, { encoding: 'utf8' });
         if (stopped.status !== 0) {
-          stopError = stopped.stderr || stopped.stdout || 'docker stop failed';
+          shutdownError = stopped.stderr || stopped.stdout || `docker ${command[0]} failed`;
           spawnSync('docker', ['rm', '-f', containerName], { encoding: 'utf8' });
         }
-      }, 12000);
+      }, durationMs);
     }
     const exitCode = await closed;
     assert.equal(runError, undefined, runError?.message);
-    assert.equal(stopError, undefined, stopError);
-    assert.ok(exitCode === 0 || exitCode === 143, output);
+    assert.equal(shutdownError, undefined, shutdownError);
+    assert.ok(shutdown === 'kill' ? exitCode === 137 : exitCode === 0 || exitCode === 143, output);
+    return { output, metricsText };
   } finally {
     clearTimeout(timer);
     spawnSync('docker', ['rm', '-f', containerName], { encoding: 'utf8' });
@@ -224,26 +413,55 @@ async function run(directory) {
 }
 
 if (process.argv.includes('--help')) {
-  process.stdout.write('Usage: node eng/testing/fluent-bit-collector-route-smoke.mjs [--prepare-only|--print-config]\n');
-} else if (process.platform !== 'linux' && !process.argv.includes('--prepare-only') && !process.argv.includes('--print-config')) {
-  throw new Error('Fluent Bit Collector route smoke runs only on Linux CI.');
+  process.stdout.write('Usage: node eng/testing/fluent-bit-collector-route-smoke.mjs [--prepare-only|--print-config|--docker-desktop|--finite-retry-probe|--request-replay <Projected JSONL>]\n');
+} else if (process.platform !== 'linux' && !process.argv.includes('--docker-desktop')
+    && !process.argv.includes('--prepare-only') && !process.argv.includes('--print-config')) {
+  throw new Error('Fluent Bit Collector route smoke requires Linux CI or explicit --docker-desktop.');
 } else {
+  const replayIndex = process.argv.indexOf('--request-replay');
+  const reportPath = path.join(root, 'artifacts/collector-request-replay/result.json');
+  if (replayIndex >= 0) {
+    await rm(reportPath, { force: true });
+    assert.ok(process.argv[replayIndex + 1] && !process.argv[replayIndex + 1].startsWith('--'), 'Missing request replay input.');
+    assert.ok(!['--prepare-only', '--print-config', '--finite-retry-probe'].some(flag => process.argv.includes(flag)), 'Request replay cannot combine other modes.');
+  }
   const directory = await mkdtemp(path.join(os.tmpdir(), 'fullnet-fluent-bit-route-'));
+  let replayProof;
   try {
     await prepare(directory);
     if (process.argv.includes('--print-config')) {
       process.stdout.write(await readFile(path.join(directory, 'fluent-bit.conf'), 'utf8'));
     } else if (process.argv.includes('--prepare-only')) {
       process.stdout.write('Fluent Bit route fixture prepared.\n');
+    } else if (replayIndex >= 0) {
+      replayProof = await verifyRequestReplay(directory, process.argv[replayIndex + 1]);
+    } else if (process.argv.includes('--finite-retry-probe')) {
+      await verifyOutputFaultRecovery(directory, true);
     } else {
       await run(directory);
       await verify(directory);
       await appendRestartEvents(directory);
       await run(directory);
       await verifyRestart(directory);
+      await run(directory, 'kill');
+      await appendCrashRestartEvents(directory);
+      await run(directory);
+      await verifyCrashRestart(directory);
+      const faultDirectory = await mkdtemp(path.join(os.tmpdir(), 'fullnet-fluent-bit-output-fault-'));
+      try {
+        await prepare(faultDirectory);
+        await verifyOutputFaultRecovery(faultDirectory);
+      } finally {
+        await rm(faultDirectory, { recursive: true, force: true });
+      }
       process.stdout.write('Fluent Bit Collector route smoke passed.\n');
     }
   } finally {
     await rm(directory, { recursive: true, force: true });
+  }
+  if (replayProof) {
+    await mkdir(path.dirname(reportPath), { recursive: true });
+    await writeFile(reportPath, JSON.stringify({ passed: true, cleanupVerified: true, image, ...replayProof }, null, 2));
+    process.stdout.write(`Collector request replay verified: ${replayProof.total} events, ${replayProof.applicationKafkaMirrorsRejected} mirrors rejected.\n`);
   }
 }

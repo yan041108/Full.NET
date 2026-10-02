@@ -1,0 +1,180 @@
+{{- if .Values.enabled }}
+{{- if not .Values.experimental }}
+{{- fail "experimental=true is required; this chart does not certify production delivery." }}
+{{- end }}
+{{- $secret := required "configurationSecretName is required." .Values.configurationSecretName }}
+{{- $tag := required "image.tag is required." .Values.image.tag }}
+{{- if eq $tag "latest" }}
+{{- fail "image.tag must be a fixed release, not latest." }}
+{{- end }}
+{{- $name := .Release.Name | trunc 63 | trimSuffix "-" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: fullnet-log-consumer
+    app.kubernetes.io/instance: {{ $name }}
+spec:
+  # 单分区时新 Pod 可能永远等不到分区；先停旧实例，期间由 Kafka 保留未消费记录。
+  strategy:
+    type: Recreate
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fullnet-log-consumer
+        app.kubernetes.io/instance: {{ $name }}
+    spec:
+      automountServiceAccountToken: false
+      # ES/DLQ 请求各有 30 秒边界；留出取消、Close 和容器运行时的停机余量。
+      terminationGracePeriodSeconds: 90
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+        runAsGroup: 1654
+        fsGroup: 1654
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: consumer
+          image: {{ printf "%s:%s" .Values.image.repository $tag | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          ports:
+            - name: operations
+              containerPort: 8080
+          env:
+            - name: DOTNET_ENVIRONMENT
+              value: {{ .Values.environment | quote }}
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.environment | quote }}
+            - name: FULLNET_LOG_CONSUMER_EXPERIMENTAL
+              value: "true"
+            - name: FULLNET_LOG_CONSUMER_HEALTH_PORT
+              value: "8080"
+            - name: FULLNET_LOG_CONSUMER_BATCH_MAX_RECORDS
+              value: {{ .Values.batchMaxRecords | quote }}
+            {{- range $key, $name := dict "bootstrapServers" "BOOTSTRAP_SERVERS" "topics" "TOPICS" "groupId" "GROUP_ID" "dlqTopic" "DLQ_TOPIC" "routes" "ROUTES" "maxEventBytes" "MAX_EVENT_BYTES" "esUrl" "ES_URL" "esApiKey" "ES_API_KEY" "securityProtocol" "SECURITY_PROTOCOL" }}
+            - name: FULLNET_LOG_CONSUMER_{{ $name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret | quote }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- range $key, $name := dict "saslMechanism" "SASL_MECHANISM" "saslUsername" "SASL_USERNAME" "saslPassword" "SASL_PASSWORD" }}
+            - name: FULLNET_LOG_CONSUMER_{{ $name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret | quote }}
+                  key: {{ $key }}
+                  optional: true
+            {{- end }}
+            {{- if .Values.caSecretName }}
+            - name: FULLNET_LOG_CONSUMER_SSL_CA_LOCATION
+              value: /app/ca/kafka-ca.crt
+            - name: FULLNET_LOG_CONSUMER_ES_CA_PATH
+              value: /app/ca/es-ca.crt
+            - name: FULLNET_LOG_CONSUMER_ES_REVOCATION_MODE
+              value: Online
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: operations
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: operations
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: operations
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: temporary
+              mountPath: /tmp
+            {{- if .Values.caSecretName }}
+            - name: ca
+              mountPath: /app/ca
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: temporary
+          emptyDir:
+            sizeLimit: 16Mi
+        {{- if .Values.caSecretName }}
+        - name: ca
+          secret:
+            secretName: {{ .Values.caSecretName | quote }}
+            items:
+              - key: kafka-ca.crt
+                path: kafka-ca.crt
+              - key: es-ca.crt
+                path: es-ca.crt
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ $name }}
+  ports:
+    - name: operations
+      port: 8080
+      targetPort: operations
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-operations
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $name }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.monitoringNamespace | quote }}
+      ports:
+        - protocol: TCP
+          port: 8080
+{{- if .Values.podMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ $name }}
+  {{- with .Values.podMonitor.labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  jobLabel: app.kubernetes.io/name
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $name }}
+  podMetricsEndpoints:
+    - port: operations
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 5s
+{{- end }}
+{{- end }}

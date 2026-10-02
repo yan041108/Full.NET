@@ -1,0 +1,79 @@
+rule_files:
+  - ../../deploy/observability/prometheus-rules.yaml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'fullnet_log_consumer_lag_records{job="fullnet-log-consumer",instance="consumer-1"}'
+        values: '0 1500 1500 1500 1500 1500 1500 0'
+      - series: 'fullnet_log_consumer_lag_known{job="fullnet-log-consumer",instance="consumer-1"}'
+        values: '1 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: FullNetLogConsumerBacklog
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: FullNetLogConsumerBacklog
+        exp_alerts:
+          - exp_labels: {job: fullnet-log-consumer, instance: consumer-1, severity: warning}
+            exp_annotations: {summary: Log consumer committed-offset backlog elevated}
+      - eval_time: 7m
+        alertname: FullNetLogConsumerBacklog
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'fullnet_log_consumer_lag_records{job="fullnet-log-consumer",instance="consumer-2"}'
+        values: '9999 9999 9999 9999 9999 9999 9999 9999'
+      - series: 'fullnet_log_consumer_lag_known{job="fullnet-log-consumer",instance="consumer-2"}'
+        values: '0 0 0 0 0 0 0 1'
+      - series: 'fullnet_log_consumer_assigned_partitions{job="fullnet-log-consumer",instance="consumer-2"}'
+        values: '1 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: FullNetLogConsumerBacklog
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: FullNetLogConsumerLagUnknown
+        exp_alerts:
+          - exp_labels: {job: fullnet-log-consumer, instance: consumer-2, severity: warning}
+            exp_annotations: {summary: Log consumer lag sample unavailable or stale}
+      - eval_time: 7m
+        alertname: FullNetLogConsumerLagUnknown
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'fullnet_log_consumer_delivery_results_total{job="fullnet-log-consumer",instance="consumer-3",stage="es",outcome="error"}'
+        values: '0 1 2 3 4 5 5 5 5 5 5 5'
+      - series: 'fullnet_log_consumer_delivery_results_total{job="fullnet-log-consumer",instance="consumer-3",stage="dlq",outcome="retry"}'
+        values: '0 0 0 0 0 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: FullNetLogConsumerDeliveryFailure
+        exp_alerts:
+          - exp_labels: {job: fullnet-log-consumer, instance: consumer-3, stage: es, outcome: error, severity: critical}
+            exp_annotations: {summary: Log consumer downstream confirmation or offset failed}
+      - eval_time: 11m
+        alertname: FullNetLogConsumerDeliveryFailure
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'up{job="fullnet-log-consumer",instance="consumer-4"}'
+        values: '0 0 1'
+      - series: 'kube_pod_container_status_restarts_total{namespace="logs",pod="consumer-5",container="consumer"}'
+        values: '0 1 2 3 3 3'
+      - series: 'kube_pod_labels{namespace="logs",pod="consumer-5",label_app_kubernetes_io_name="fullnet-log-consumer"}'
+        values: '1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: FullNetLogConsumerTargetDown
+        exp_alerts:
+          - exp_labels: {job: fullnet-log-consumer, instance: consumer-4, severity: critical}
+            exp_annotations: {summary: Log consumer metrics target unavailable}
+      - eval_time: 2m
+        alertname: FullNetLogConsumerTargetDown
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: FullNetLogConsumerRestarting
+        exp_alerts:
+          - exp_labels: {namespace: logs, pod: consumer-5, container: consumer, severity: critical}
+            exp_annotations: {summary: Log consumer repeated restart may hide short-lived failures}

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <FullNetPublishMode>Jit</FullNetPublishMode>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Confluent.Kafka" />
+    <ProjectReference Include="..\..\Platform\Full.NET.LogConsumer\Full.NET.LogConsumer.csproj" />
+  </ItemGroup>
+</Project>

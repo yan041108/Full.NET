@@ -9,7 +9,15 @@ using Full.NET.Benchmarks.Logging;
 using Full.NET.Benchmarks.MixedLoad;
 using Full.NET.Benchmarks.Outbox;
 
-if (args.FirstOrDefault() is "outbox-capacity")
+if (args.FirstOrDefault() is "logging-route-case")
+{
+    await LoggingIsolatedRouteProbe.RunAsync(args.Skip(1).ToArray());
+}
+else if (args.FirstOrDefault() is "logging-request-latency")
+{
+    await LoggingRequestLatencyRunner.RunAsync(args.Skip(1).ToArray());
+}
+else if (args.FirstOrDefault() is "outbox-capacity")
 {
     var outboxArguments = args.Skip(1).ToArray();
     if (outboxArguments.Contains("--help", StringComparer.OrdinalIgnoreCase))

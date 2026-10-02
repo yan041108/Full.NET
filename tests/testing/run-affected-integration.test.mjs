@@ -32,6 +32,32 @@ test('纯文档和客户端改动不启动 Integration', () => {
   assert.deepEqual(selection.targets, []);
 });
 
+test('日志 Kafka 请求基准测试选择自身真实 Broker 分片', () => {
+  assert.deepEqual(classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Messaging/KafkaLogSecretBoundaryTests.cs'
+  ]).targets, [{ kind: 'shard', name: 'logging-secret-boundary' }]);
+  assert.deepEqual(classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Messaging/KafkaLogRouteComparisonTests.cs',
+    'tests/Full.NET.IntegrationTests/Messaging/LoggingRequestCaseProcess.cs'
+  ]).targets, [{ kind: 'shard', name: 'logging-route-comparison' }]);
+  assert.deepEqual(classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Messaging/KafkaLogRequestLatencyTests.cs',
+    'tests/Full.NET.IntegrationTests/Messaging/KafkaCollectorRequestReplayTests.cs'
+  ]).targets, [{ kind: 'shard', name: 'logging-request-kafka' }]);
+  assert.deepEqual(classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Messaging/LiveCollectorCriBridge.cs'
+  ]).targets.map(target => target.name).sort(), ['logging-request-kafka', 'logging-route-comparison']);
+  assert.deepEqual(classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Messaging/KafkaLogTlsFixture.cs'
+  ]).targets, [{ kind: 'shard', name: 'logging-kafka' }]);
+  for (const fixture of ['KafkaRequestElasticsearchFixture.cs', 'KafkaRequestConsumerProcess.cs', 'KafkaRequestCollectorFixture.cs']) {
+    const targets = classifyChangedPaths([`tests/Full.NET.IntegrationTests/Messaging/${fixture}`]).targets;
+    assert.deepEqual(targets.map(target => target.name).sort(), [
+      'logging-request-kafka', 'logging-route-comparison', 'logging-secret-boundary'
+    ]);
+  }
+});
+
 test('纯 benchmarks 改动不启动 Integration', () => {
   const selection = classifyChangedPaths([
     'benchmarks/Full.NET.Benchmarks/Kafka/KafkaCapacityRunner.cs'
@@ -103,6 +129,21 @@ test('Messaging 重测 Integration 路径选择 messaging-heavy 分片', () => {
   assert.deepEqual(selection.targets, [
     { kind: 'shard', name: 'messaging-heavy' }
   ]);
+});
+
+test('独立日志消费者及其集成用例选择日志 Kafka 分片', () => {
+  for (const path of [
+    'src/Hosts/Full.NET.Host.LogConsumer/Program.cs',
+    'src/Platform/Full.NET.LogConsumer/ElasticsearchLogDocumentSink.cs',
+    'tests/Full.NET.IntegrationTests/Messaging/KafkaLogConsumerElasticsearchReplayTests.cs'
+  ]) {
+    const selection = classifyChangedPaths([path]);
+    assert.deepEqual(selection.targets, [
+      { kind: 'shard', name: 'logging-kafka' }
+    ]);
+    assert.deepEqual(targetsForPhase(selection.targets, 'inner').map(target => target.name),
+      ['logging-kafka']);
+  }
 });
 
 test('宿主运行时 App_Data 不扩大 Integration 影响集', () => {

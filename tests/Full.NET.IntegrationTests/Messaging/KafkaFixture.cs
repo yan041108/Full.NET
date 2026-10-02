@@ -165,6 +165,12 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
         await _container.UnpauseAsync().ConfigureAwait(false);
     }
 
+    /// <summary>保留监听地址并暂停 Broker，以验证投递失败回调。</summary>
+    public Task PauseBrokerAsync() => _container.PauseAsync();
+
+    /// <summary>在同一监听地址恢复 Broker，以验证 Producer 后续投递。</summary>
+    public Task ResumeBrokerAsync() => _container.UnpauseAsync();
+
     public async ValueTask DisposeAsync()
     {
         await _container.DisposeAsync().ConfigureAwait(false);

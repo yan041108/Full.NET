@@ -1,0 +1,82 @@
+# 仅供 kind-fullnet-local 的功能验收；保留本地监控工具，任务消费者及 Secret 仍由测试清理。
+fullnameOverride: fullnet-log-monitor
+defaultRules:
+  create: false
+grafana:
+  enabled: false
+alertmanager:
+  enabled: false
+kubeStateMetrics:
+  enabled: false
+nodeExporter:
+  enabled: false
+kubeApiServer:
+  enabled: false
+kubelet:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+coreDns:
+  enabled: false
+kubeDns:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+prometheusOperator:
+  admissionWebhooks:
+    enabled: false
+  tls:
+    enabled: false
+  kubeletService:
+    enabled: false
+  serviceMonitor:
+    selfMonitor: false
+  prometheusInstanceNamespaces:
+    - fullnet-local-log-monitoring
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+prometheus:
+  serviceMonitor:
+    selfMonitor: false
+  prometheusSpec:
+    replicas: 1
+    retention: 1h
+    retentionSize: 128MB
+    scrapeInterval: 5s
+    evaluationInterval: 5s
+    # 显式双层选择器，不能用空对象意外抓取全库消费者或其他平台服务。
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector:
+      matchLabels:
+        fullnet.io/log-smoke: selected
+    podMonitorNamespaceSelector:
+      matchLabels:
+        fullnet.io/log-smoke: selected
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector:
+      matchLabels:
+        fullnet.io/log-smoke: disabled
+    ruleSelectorNilUsesHelmValues: false
+    ruleSelector:
+      matchLabels:
+        fullnet.io/log-smoke: disabled
+    scrapeConfigSelectorNilUsesHelmValues: false
+    scrapeConfigSelector:
+      matchLabels:
+        fullnet.io/log-smoke: disabled
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 384Mi

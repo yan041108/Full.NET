@@ -24,6 +24,7 @@ internal sealed class FullNetBoundedAsyncSink :
     private readonly LogQueueByteBudget _byteBudget;
     private readonly int _maxEventBytes;
     private readonly int _maxAdmissionCharge;
+    private readonly LogIndexRoutingPolicy? _routingPolicy;
     private readonly Thread _worker;
     private long _droppedMessagesCount;
     private long _oversizeCount;
@@ -41,7 +42,8 @@ internal sealed class FullNetBoundedAsyncSink :
         Action<LogEnvelope>? emitSnapshot = null,
         bool emitLegacySink = true,
         Action<HostLogSnapshot>? emitExternalSnapshot = null,
-        bool highPriority = false)
+        bool highPriority = false,
+        LogIndexRoutingPolicy? routingPolicy = null)
     {
         ArgumentNullException.ThrowIfNull(sink);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(bufferSize);
@@ -59,6 +61,7 @@ internal sealed class FullNetBoundedAsyncSink :
         _monitor = monitor;
         _maxEventBytes = maxEventBytes;
         _maxAdmissionCharge = maxAdmissionCharge;
+        _routingPolicy = routingPolicy;
         _byteBudget = new LogQueueByteBudget(queueMaxBytes);
         _queue = new BlockingCollection<LogEnvelope>(
             new ConcurrentQueue<LogEnvelope>(),
@@ -124,7 +127,8 @@ internal sealed class FullNetBoundedAsyncSink :
                         _maxEventBytes,
                         out envelope,
                         retainLegacyEvent: _emitLegacySink,
-                        trustedHttp: trustedHttp))
+                        trustedHttp: trustedHttp,
+                        routingPolicy: _routingPolicy))
                 {
                     Interlocked.Increment(ref _oversizeCount);
                     Interlocked.Increment(ref _droppedMessagesCount);

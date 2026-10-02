@@ -1,0 +1,28 @@
+# 默认不部署；实验开关不代表生产可靠消费门禁已通过。
+enabled: false
+experimental: false
+image:
+  repository: fullnet-log-consumer
+  # 必须固定发布标签或摘要，不接受 latest。
+  tag: ""
+  pullPolicy: IfNotPresent
+replicaCount: 1
+# 默认逐条；显式增加时只收集已经可用的消息，不等待凑批。
+batchMaxRecords: 1
+environment: Production
+# 必须先建立独立最小权限配置 Secret；不使用业务 Worker 的凭据。
+configurationSecretName: ""
+# 可选公钥 CA Secret，固定键 kafka-ca.crt/es-ca.crt；生产执行在线吊销检查。
+caSecretName: ""
+monitoringNamespace: monitoring
+# 依赖已安装的 Prometheus Operator CRD；默认不创建，标签按实际 Prometheus 选择器配置。
+podMonitor:
+  enabled: false
+  labels: {}
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

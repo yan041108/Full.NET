@@ -29,11 +29,13 @@ public static class ServiceDefaultsExtensions
     /// 标准 <see cref="IApiResultMapper"/> 以及 HttpClient 标准韧性策略（ServiceDiscovery + Polly）。
     /// </summary>
     /// <param name="builder">宿主应用构建器；用于读取配置与写入 <see cref="IServiceCollection"/>。</param>
+    /// <param name="createLogExporter">仅在显式选择 ApplicationKafka 后调用的静态出口工厂。</param>
     /// <exception cref="OptionsValidationException">
     /// LoggingOptions 存在阻塞、条数/字节容量、单事件上限或刷新超时配置非法时启动期抛出。
     /// </exception>
     public static IHostApplicationBuilder AddFullNetServiceDefaults(
-        this IHostApplicationBuilder builder)
+        this IHostApplicationBuilder builder,
+        Func<IConfiguration, IHostLogSnapshotExporter>? createLogExporter = null)
     {
         var loggingOptions = builder.Configuration
                 .GetSection(LoggingOptions.SectionName)
@@ -77,7 +79,17 @@ public static class ServiceDefaultsExtensions
                 ["Explicit DeliveryMode requires the same ExpectedDeliveryMode injected by the deployment; neither value may be set alone."]);
         }
 
-        if (loggingOptions.DeliveryMode == LoggingDeliveryMode.ApplicationKafka)
+        if (builder.Environment.IsProduction()
+            && loggingOptions.DeliveryMode is LoggingDeliveryMode.Local)
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                [$"DeliveryMode={loggingOptions.DeliveryMode} is not qualified for Production in this build."]);
+        }
+
+        if (loggingOptions.DeliveryMode == LoggingDeliveryMode.ApplicationKafka
+            && createLogExporter is null)
         {
             throw new OptionsValidationException(
                 LoggingOptions.SectionName,
@@ -169,6 +181,24 @@ public static class ServiceDefaultsExtensions
         {
             builder.Services.AddHostedService<LegacyElasticsearchLoggingWarningService>();
         }
+
+        if ((loggingOptions.IndexRouteVersion == 0) != (loggingOptions.IndexRetentionDays == 0)
+            || loggingOptions.IndexRouteVersion is < 0 or > 9999
+            || loggingOptions.IndexRetentionDays is < 0 or > 3650)
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                ["IndexRouteVersion (1..9999) and IndexRetentionDays (1..3650) must be configured together or both left at zero."]);
+        }
+        if (loggingOptions.DeliveryMode == LoggingDeliveryMode.ApplicationKafka
+            && loggingOptions.IndexRouteVersion == 0)
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                ["ApplicationKafka requires a frozen IndexRouteVersion and IndexRetentionDays policy."]);
+        }
         if (elasticsearchOptions.Enabled)
         {
             var minimumLegacyQueueBytes = LogEnvelope.MaxChargeBytes(
@@ -204,23 +234,42 @@ public static class ServiceDefaultsExtensions
                     ["DeliveryMode, ExpectedDeliveryMode or legacy Elasticsearch Enabled changed after logging registration; restart with a stable delivery configuration."]);
             }
 
-            FullNetLoggingPipeline.Configure(
-                loggerConfiguration,
-                builder.Environment.ApplicationName,
-                loggingOptions,
-                loggingMonitors,
-                _ => { },
-                _ => { },
-                writeTo => ElasticsearchSerilogSinkConfigurator.AppendIfEnabled(
-                    writeTo,
-                    resolvedElasticsearchOptions),
-                writeTo => ElasticsearchSerilogSinkConfigurator.AppendIfEnabled(
-                    writeTo,
-                    resolvedElasticsearchOptions),
-                loggingResource,
-                LogEnvelopeConsoleWriter.Emit,
-                resolvedElasticsearchOptions.Enabled,
-                httpOperationIngress: httpOperationIngress);
+            var exporter = loggingOptions.DeliveryMode == LoggingDeliveryMode.ApplicationKafka
+                ? createLogExporter!(builder.Configuration)
+                    ?? throw new OptionsValidationException(
+                        LoggingOptions.SectionName,
+                        typeof(LoggingOptions),
+                        ["ApplicationKafka exporter factory returned null."])
+                : null;
+            try
+            {
+                FullNetLoggingPipeline.Configure(
+                    loggerConfiguration,
+                    builder.Environment.ApplicationName,
+                    loggingOptions,
+                    loggingMonitors,
+                    _ => { },
+                    _ => { },
+                    writeTo => ElasticsearchSerilogSinkConfigurator.AppendIfEnabled(
+                        writeTo,
+                        resolvedElasticsearchOptions),
+                    writeTo => ElasticsearchSerilogSinkConfigurator.AppendIfEnabled(
+                        writeTo,
+                        resolvedElasticsearchOptions),
+                    loggingResource,
+                    loggingOptions.DeliveryMode == LoggingDeliveryMode.ApplicationKafka
+                        ? null
+                        : LogEnvelopeConsoleWriter.Emit,
+                    resolvedElasticsearchOptions.Enabled,
+                    emitExternalSnapshot: exporter is null ? null : exporter.Emit,
+                    httpOperationIngress: httpOperationIngress,
+                    externalExporter: exporter);
+            }
+            catch
+            {
+                exporter?.Dispose();
+                throw;
+            }
             if (resolvedElasticsearchOptions.Enabled)
             {
                 elasticsearchRegistration.IsSinkRegistered = true;
@@ -259,6 +308,7 @@ public static class ServiceDefaultsExtensions
         var openTelemetry = builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
                 .AddMeter(FullNetAsyncLogMonitor.MeterName)
+                .AddMeter("Full.NET.Logging.Kafka")
                 .AddMeter(HttpOperationLogTelemetry.MeterName)
                 .AddMeter(ResourceErrorMessageLocalizer.MeterName)
                 .AddAspNetCoreInstrumentation()

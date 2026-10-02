@@ -19,6 +19,7 @@ internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
     private readonly HttpOperationLogIngress? _httpOperationIngress;
     private readonly Func<HttpOperationLogRecord, LogEventLevel, bool> _emitHttpOperation;
     private readonly LoggingResourceMetadata? _resource;
+    private readonly IDisposable? _externalExporter;
     private int _disposed;
 
     public FullNetLoggingPipelineSink(
@@ -30,7 +31,8 @@ internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
         bool emitLegacySink = true,
         Action<HostLogSnapshot>? emitExternalSnapshot = null,
         LoggingResourceMetadata? resource = null,
-        HttpOperationLogIngress? httpOperationIngress = null)
+        HttpOperationLogIngress? httpOperationIngress = null,
+        IDisposable? externalExporter = null)
     {
         ArgumentNullException.ThrowIfNull(generalSink);
         ArgumentNullException.ThrowIfNull(highPrioritySink);
@@ -39,8 +41,10 @@ internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
 
         _shutdownFlushTimeout = options.ShutdownFlushTimeout;
         _resource = resource;
+        _externalExporter = externalExporter;
         _httpOperationIngress = httpOperationIngress;
         _emitHttpOperation = EmitHttpOperation;
+        var routingPolicy = LogIndexRoutingPolicy.FromOptions(options);
         _general = new FullNetBoundedAsyncSink(
             generalSink,
             options.AsyncBufferSize,
@@ -51,7 +55,8 @@ internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
             emitSnapshot,
             emitLegacySink,
             emitExternalSnapshot,
-            highPriority: false);
+            highPriority: false,
+            routingPolicy: routingPolicy);
         _highPriority = new FullNetBoundedAsyncSink(
             highPrioritySink,
             options.HighPriorityAsyncBufferSize,
@@ -62,7 +67,8 @@ internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
             emitSnapshot,
             emitLegacySink,
             emitExternalSnapshot,
-            highPriority: true);
+            highPriority: true,
+            routingPolicy: routingPolicy);
         _httpOperationIngress?.Attach(_emitHttpOperation);
     }
 
@@ -135,6 +141,9 @@ internal sealed class FullNetLoggingPipelineSink : ILogEventSink, IDisposable
                 + "Pending in-memory events were abandoned.",
                 _shutdownFlushTimeout);
         }
+
+        // 外部 Producer 在双通道排空预算结束后关闭；超时未完成的快照按既有停机丢弃语义处理。
+        _externalExporter?.Dispose();
     }
 
     private TimeSpan GetRemainingTime(TimeSpan elapsed)

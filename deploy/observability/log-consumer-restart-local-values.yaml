@@ -1,0 +1,38 @@
+# 叠加在 Operator 本地配置上；只读 Pod 状态，仅导出重启规则需要的两个指标和一个业务标签。
+kubeStateMetrics:
+  enabled: true
+kube-state-metrics:
+  collectors:
+    - pods
+  metricAllowlist:
+    - kube_pod_labels
+    - kube_pod_container_status_restarts_total
+  metricLabelsAllowlist:
+    - pods=[app.kubernetes.io/name]
+  prometheus:
+    monitor:
+      enabled: true
+      additionalLabels:
+        fullnet.io/log-smoke: selected
+      http:
+        interval: 5s
+        # 保留指标所属工作负载的 namespace，避免被抓取服务命名空间覆盖后无法精确关联。
+        honorLabels: true
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelector:
+      matchLabels:
+        fullnet.io/log-smoke: selected
+    serviceMonitorNamespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: fullnet-local-log-monitoring
+    ruleSelector:
+      matchLabels:
+        fullnet.io/log-smoke: selected

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Full.NET.Hosting.Observability;
+using Full.NET.LogConsumer;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
 using Serilog.Parsing;
@@ -10,6 +11,117 @@ namespace Full.NET.UnitTests.Hosting;
 public sealed class LogEnvelopeBudgetTests
 {
     private static readonly MessageTemplateParser Parser = new();
+
+    [TestMethod]
+    public void Sensitive_template_retains_valid_instance_identity_for_collector()
+    {
+        var instance = Guid.CreateVersion7().ToString("D");
+        var source = NewEvent("Authorization: {Value}", [
+            new LogEventProperty("Value", new ScalarValue("opaque-private-credential")),
+            new LogEventProperty("Instance", new ScalarValue(instance)),
+        ]);
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope, retainLegacyEvent: true));
+        using var json = JsonDocument.Parse(envelope!.Utf8Json);
+        Assert.AreEqual(instance, json.RootElement.GetProperty("Instance").GetString());
+        AssertEnvelopeOmits(envelope, "opaque-private-credential");
+    }
+
+    [TestMethod]
+    [DataRow("not-an-instance")]
+    [DataRow("token=private-instance-credential")]
+    public void Sensitive_template_rejects_unvalidated_instance_identity(string instance)
+    {
+        var source = NewEvent("Authorization: {Value}", [
+            new LogEventProperty("Value", new ScalarValue("opaque-private-credential")),
+            new LogEventProperty("Instance", new ScalarValue(instance)),
+        ]);
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope, retainLegacyEvent: true));
+        using var json = JsonDocument.Parse(envelope!.Utf8Json);
+        Assert.IsFalse(json.RootElement.TryGetProperty("Instance", out _));
+        AssertEnvelopeOmits(envelope, "opaque-private-credential", instance);
+    }
+
+    [TestMethod]
+    public void CallerCannotSupplyFrozenIndexRouteMetadata()
+    {
+        var source = NewEvent("ordinary", [
+            new LogEventProperty("OccurredAtUtc", new ScalarValue("2099-01-01T00:00:00Z")),
+            new LogEventProperty("ExpiresAtUtc", new ScalarValue("2099-12-31T00:00:00Z")),
+            new LogEventProperty("IndexRouteVersion", new ScalarValue(999)),
+        ]);
+
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope));
+        Assert.IsNotNull(envelope);
+        using var json = JsonDocument.Parse(envelope.Utf8Json);
+        Assert.IsFalse(json.RootElement.TryGetProperty("OccurredAtUtc", out _));
+        Assert.IsFalse(json.RootElement.TryGetProperty("ExpiresAtUtc", out _));
+        Assert.IsFalse(json.RootElement.TryGetProperty("IndexRouteVersion", out _));
+    }
+
+    [TestMethod]
+    public void ConfiguredRouteOverridesCallerAndFreezesEventUtcExpiry()
+    {
+        var occurred = new DateTimeOffset(2026, 9, 30, 23, 30, 0, TimeSpan.FromHours(8));
+        var source = new LogEvent(occurred, LogEventLevel.Information, null,
+            Parser.Parse("ordinary"), [
+                new LogEventProperty("OccurredAtUtc", new ScalarValue("2099-01-01T00:00:00Z")),
+                new LogEventProperty("ExpiresAtUtc", new ScalarValue("2099-12-31T00:00:00Z")),
+                new LogEventProperty("IndexRouteVersion", new ScalarValue(999)),
+            ]);
+
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope,
+            retainLegacyEvent: true,
+            routingPolicy: new LogIndexRoutingPolicy(2, 30)));
+        Assert.IsNotNull(envelope);
+        using var json = JsonDocument.Parse(envelope.Utf8Json);
+        var root = json.RootElement;
+        Assert.AreEqual(2, root.GetProperty("IndexRouteVersion").GetInt32());
+        Assert.AreEqual(new DateTimeOffset(2026, 9, 30, 15, 30, 0, TimeSpan.Zero),
+            root.GetProperty("OccurredAtUtc").GetDateTimeOffset());
+        Assert.AreEqual(new DateTimeOffset(2026, 10, 30, 15, 30, 0, TimeSpan.Zero),
+            root.GetProperty("ExpiresAtUtc").GetDateTimeOffset());
+        Assert.AreEqual(2, ((ScalarValue)envelope.LegacyEvent!.Properties["IndexRouteVersion"]).Value);
+    }
+
+    [TestMethod]
+    public void ProducerRouteSnapshotCanBeValidatedForFixedConsumerIndex()
+    {
+        const string eventId = "0199aa18-3e3b-7000-8000-5a8ab7a1f404";
+        var source = new LogEvent(
+            new DateTimeOffset(2026, 9, 30, 23, 30, 0, TimeSpan.FromHours(8)),
+            LogEventLevel.Information,
+            null,
+            Parser.Parse("ordinary"),
+            [
+                new LogEventProperty("LogEventId", new ScalarValue(eventId)),
+                new LogEventProperty("log.class", new ScalarValue(LogClassification.Diagnostic)),
+            ]);
+
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope,
+            routingPolicy: new LogIndexRoutingPolicy(2, 30)));
+        Assert.IsNotNull(envelope);
+        Assert.AreEqual(LogRecordValidationResult.Valid,
+            KafkaLogRecordParser.TryParse(eventId, envelope.Utf8Json, 4096, out var parsed));
+        Assert.IsNotNull(parsed);
+        Assert.IsTrue(parsed.TryGetIndexName(new Dictionary<int, int> { [2] = 30 },
+            new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero), out var indexName));
+        Assert.AreEqual("fn-logs-2-diagnostic-2026.09.30", indexName);
+    }
+
+    [TestMethod]
+    public void CallerSecurityClassificationCannotSelectSecurityIndex()
+    {
+        var source = NewEvent("ordinary", [
+            new LogEventProperty("log.class", new ScalarValue(LogClassification.Security)),
+        ]);
+
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(source, 4096, out var envelope,
+            routingPolicy: new LogIndexRoutingPolicy(2, 30)));
+        Assert.IsNotNull(envelope);
+        using var json = JsonDocument.Parse(envelope.Utf8Json);
+        Assert.AreEqual(LogClassification.Diagnostic,
+            json.RootElement.GetProperty("log.class").GetString());
+    }
 
     [TestMethod]
     public void Forged_http_class_cannot_promote_caller_fields_into_http_snapshot()
@@ -360,6 +472,36 @@ public sealed class LogEnvelopeBudgetTests
             source, 4096, out var envelope, retainLegacyEvent: true));
         Assert.IsNotNull(envelope);
         AssertEnvelopeOmits(envelope, "json-secret");
+    }
+
+    [TestMethod]
+    public void Unicode_escaped_json_credential_key_is_removed_from_generic_string()
+    {
+        var source = NewEvent(
+            "payload {Note}",
+            [new LogEventProperty("Note", new ScalarValue(
+                "{\"pass\\u0077ord\":\"escaped-json-secret\"}"))]);
+
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
+            source, 4096, out var envelope, retainLegacyEvent: true));
+        Assert.IsNotNull(envelope);
+        AssertEnvelopeOmits(envelope, "escaped-json-secret");
+    }
+
+    [TestMethod]
+    public void Windows_path_is_not_treated_as_unicode_escaped_assignment()
+    {
+        const string path = @"C:\Users\alice\file.txt";
+        var source = NewEvent(
+            "file {Path}",
+            [new LogEventProperty("Path", new ScalarValue(path))]);
+
+        Assert.IsTrue(LogEnvelopeBuilder.TryBuild(
+            source, 4096, out var envelope, retainLegacyEvent: true));
+        Assert.IsNotNull(envelope);
+        Assert.AreEqual(path, ((ScalarValue)envelope.LegacyEvent!.Properties["Path"]).Value);
+        using var json = JsonDocument.Parse(envelope.Utf8Json);
+        Assert.AreEqual(path, json.RootElement.GetProperty("Path").GetString());
     }
 
     [TestMethod]

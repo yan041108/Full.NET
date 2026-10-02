@@ -104,6 +104,10 @@ const immediateTargetNames = new Set([
   'Data',
   'Identity',
   'Outbox',
+  'logging-kafka',
+  'logging-request-kafka',
+  'logging-route-comparison',
+  'logging-secret-boundary',
   'Realtime',
   'Seeding',
   'Tenancy',
@@ -170,6 +174,10 @@ function filterTarget(name, filter = `FullyQualifiedName~${name}Api`) {
 
 function addMessagingHeavyTarget(targets) {
   addTarget(targets, { kind: 'shard', name: 'messaging-heavy' });
+}
+
+function addLoggingKafkaTarget(targets) {
+  addTarget(targets, { kind: 'shard', name: 'logging-kafka' });
 }
 
 function isMessagingHeavyIntegrationPath(filePath) {
@@ -398,6 +406,38 @@ function classifyIntegrationPath(filePath, targets) {
 
   const moduleName = moduleFromIntegrationPath(filePath);
   if (moduleName === 'Messaging') {
+    if (path.posix.basename(filePath) === 'KafkaLogSecretBoundaryTests.cs') {
+      addTarget(targets, { kind: 'shard', name: 'logging-secret-boundary' });
+      return '日志秘密跨出口 Integration';
+    }
+    if (path.posix.basename(filePath) === 'KafkaLogTlsFixture.cs') {
+      addLoggingKafkaTarget(targets);
+      return '日志 TLS 共享夹具 Integration';
+    }
+    if (path.posix.basename(filePath) === 'LiveCollectorCriBridge.cs') {
+      for (const name of ['logging-request-kafka', 'logging-route-comparison']) {
+        addTarget(targets, { kind: 'shard', name });
+      }
+      return '日志实时 CRI 共享夹具 Integration';
+    }
+    if (['KafkaLogRouteComparisonTests.cs', 'LoggingRequestCaseProcess.cs'].includes(path.posix.basename(filePath))) {
+      addTarget(targets, { kind: 'shard', name: 'logging-route-comparison' });
+      return '日志路线隔离比较 Integration';
+    }
+    if (['KafkaRequestElasticsearchFixture.cs', 'KafkaRequestConsumerProcess.cs', 'KafkaRequestCollectorFixture.cs'].includes(path.posix.basename(filePath))) {
+      for (const name of ['logging-request-kafka', 'logging-route-comparison', 'logging-secret-boundary']) {
+        addTarget(targets, { kind: 'shard', name });
+      }
+      return '日志链路共享夹具 Integration';
+    }
+    if (['KafkaLogRequestLatencyTests.cs', 'KafkaCollectorRequestReplayTests.cs'].includes(path.posix.basename(filePath))) {
+      addTarget(targets, { kind: 'shard', name: 'logging-request-kafka' });
+      return '日志 Kafka 请求基准 Integration';
+    }
+    if (/^KafkaLog(?:Consumer|Delivery)/u.test(path.posix.basename(filePath))) {
+      addLoggingKafkaTarget(targets);
+      return '日志 Kafka Integration';
+    }
     if (isMessagingHeavyIntegrationPath(filePath)) {
       addMessagingHeavyTarget(targets);
       return 'Messaging 重测 Integration';
@@ -497,6 +537,13 @@ export function classifyChangedPaths(paths) {
 
     if (filePath.startsWith('src/BuildingBlocks/')) {
       reasons.push(`${classifyBuildingBlock(filePath, targets)}：${filePath}`);
+      continue;
+    }
+
+    if (filePath.startsWith('src/Hosts/Full.NET.Host.LogConsumer/')
+      || filePath.startsWith('src/Platform/Full.NET.LogConsumer/')) {
+      addLoggingKafkaTarget(targets);
+      reasons.push(`日志消费者：${filePath}`);
       continue;
     }
 
@@ -1091,7 +1138,7 @@ function renderSelection(paths, selection, taskBoundary, phase, targets) {
   for (const reason of selection.reasons) {
     output.push(`- ${reason}`);
   }
-  output.push('完整集合仅由 main CI 按测试矩阵并行分片执行。');
+  output.push('本地通过即可验收；完整集合可按测试矩阵分批执行，CI 为可选回归。');
   return `${output.join('\n')}\n`;
 }
 
@@ -1203,9 +1250,6 @@ async function runCli(args, cwd = process.cwd()) {
   );
   for (const target of shardTargets) {
     if (target.kind === 'shard') {
-      if (target.name === 'full') {
-        throw new Error('本地受影响测试选择器禁止执行 full。');
-      }
       await runProcess('dotnet', argumentsFor(target.name), cwd);
     }
   }

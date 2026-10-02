@@ -284,11 +284,21 @@ function toProblem(error: unknown): FullNetProblemDetails {
 </template>
 
 <style scoped>
+.operation-logs-view {
+  /* 小视口保留可操作的表格区域，让整页滚动，避免分页覆盖数据行。 */
+  overflow-y: auto;
+}
+
+.operation-logs-view > :deep(.audit-log-trend-panel),
+.operation-logs-view > :deep(.art-search-bar) {
+  flex-shrink: 0;
+}
+
 .operation-logs-view :deep(.art-table-card) {
-  flex: 1;
+  flex: 1 0 360px;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-height: 360px;
 }
 
 .operation-logs-view :deep(.art-table-card .el-card__body) {

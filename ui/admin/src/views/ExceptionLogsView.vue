@@ -270,11 +270,21 @@ function toProblem(error: unknown): FullNetProblemDetails {
 </template>
 
 <style scoped>
+.exception-logs-view {
+  /* 趋势与筛选挤满小视口时整页滚动，表格仍保留可操作高度。 */
+  overflow-y: auto;
+}
+
+.exception-logs-view > :deep(.audit-log-trend-panel),
+.exception-logs-view > :deep(.art-search-bar) {
+  flex-shrink: 0;
+}
+
 .exception-logs-view :deep(.art-table-card) {
-  flex: 1;
+  flex: 1 0 360px;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-height: 360px;
 }
 
 .exception-logs-view :deep(.art-table-card .el-card__body) {

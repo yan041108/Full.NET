@@ -29,9 +29,13 @@ internal static class LogEnvelopeBuilder
         "SchemaVersion", "OccurredAtUtc", "ExpiresAtUtc", "IndexRouteVersion",
         "DataClassification", "EventId", "EventName", "SourceContext", "TenantId",
     };
+    private static readonly HashSet<string> FrozenRouteKeys = new(StringComparer.Ordinal)
+    {
+        "OccurredAtUtc", "ExpiresAtUtc", "IndexRouteVersion",
+    };
     private static readonly string[] RestrictedMetadataKeys =
     [
-        "LogEventId", "log.class", "log.stream", "reliability.class",
+        "LogEventId", "Instance", "log.class", "log.stream", "reliability.class",
         "TraceId", "SpanId", "http.status_code", "StatusCode",
     ];
     private static readonly HashSet<string> HttpOperationOptionalProperties = new(StringComparer.Ordinal)
@@ -58,7 +62,8 @@ internal static class LogEnvelopeBuilder
         int maxEventBytes,
         out LogEnvelope? envelope,
         bool retainLegacyEvent = false,
-        HttpOperationLogRecord? trustedHttp = null)
+        HttpOperationLogRecord? trustedHttp = null,
+        LogIndexRoutingPolicy? routingPolicy = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxEventBytes);
@@ -67,6 +72,11 @@ internal static class LogEnvelopeBuilder
             ? ResolveHttpOperationSource(source)
             : CreateTrustedHttpSource(source, trustedHttp);
         var safeEvent = CreateSafeEvent(source, essentialsOnly: false);
+        if (!TryFreezeRoute(safeEvent, routingPolicy))
+        {
+            envelope = null;
+            return false;
+        }
         if (TryFormat(safeEvent, maxEventBytes, retainLegacyEvent, out envelope))
         {
             return true;
@@ -74,7 +84,35 @@ internal static class LogEnvelopeBuilder
 
         // 大型诊断属性先整体移除；关联键和结果仍超限时才拒绝事件。
         safeEvent = CreateSafeEvent(source, essentialsOnly: true);
+        if (!TryFreezeRoute(safeEvent, routingPolicy))
+        {
+            envelope = null;
+            return false;
+        }
         return TryFormat(safeEvent, maxEventBytes, retainLegacyEvent, out envelope);
+    }
+
+    private static bool TryFreezeRoute(LogEvent safeEvent, LogIndexRoutingPolicy? policy)
+    {
+        if (policy is null)
+        {
+            return true;
+        }
+
+        var occurredAtUtc = safeEvent.Timestamp.ToUniversalTime();
+        if (occurredAtUtc > DateTimeOffset.MaxValue.AddDays(-policy.RetentionDays))
+        {
+            return false;
+        }
+
+        // 使用事件发生时间一次性计算；重试或重放不能延长保留期或改变路由版本。
+        safeEvent.AddOrUpdateProperty(new LogEventProperty(
+            "OccurredAtUtc", new ScalarValue(occurredAtUtc)));
+        safeEvent.AddOrUpdateProperty(new LogEventProperty(
+            "ExpiresAtUtc", new ScalarValue(occurredAtUtc.AddDays(policy.RetentionDays))));
+        safeEvent.AddOrUpdateProperty(new LogEventProperty(
+            "IndexRouteVersion", new ScalarValue(policy.Version)));
+        return true;
     }
 
     private static LogEvent ResolveHttpOperationSource(LogEvent source)
@@ -221,7 +259,11 @@ internal static class LogEnvelopeBuilder
                 && value is ScalarValue scalar
                 && IsValidatedMetadata(key, scalar.Value))
             {
-                properties.Add(new LogEventProperty(key, new ScalarValue(scalar.Value)));
+                // 普通 ILogger 的安全分类没有可信来源证明，不能进入独立安全索引。
+                properties.Add(new LogEventProperty(key, new ScalarValue(
+                    key == "log.class" && scalar.Value is LogClassification.Security
+                        ? LogClassification.Diagnostic
+                        : scalar.Value)));
             }
         }
     }
@@ -231,6 +273,10 @@ internal static class LogEnvelopeBuilder
         "LogEventId" => value is string eventId
             && eventId.Length == 36
             && Guid.TryParseExact(eventId, "D", out _),
+        // Collector 要求关联实例；仅保留固定 UUID，不能放行任意来源字符串。
+        "Instance" => value is string instance
+            && instance.Length == 36
+            && Guid.TryParseExact(instance, "D", out _),
         "log.class" => value is LogClassification.HttpOperation
             or LogClassification.Diagnostic or LogClassification.Security,
         "log.stream" => value is HttpOperationLogMiddleware.LogStream,
@@ -275,7 +321,8 @@ internal static class LogEnvelopeBuilder
                 break;
             }
 
-            if (key == "ExceptionType" && source.Exception is not null
+            if (FrozenRouteKeys.Contains(key)
+                || key == "ExceptionType" && source.Exception is not null
                 || !isHttpOperation && HttpOperationReservedProperties.Contains(key)
                 || !source.Properties.TryGetValue(key, out var value))
             {
@@ -284,7 +331,9 @@ internal static class LogEnvelopeBuilder
 
             properties.Add(new LogEventProperty(
                 key,
-                HttpOperationLogSanitizer.IsSensitiveKey(key)
+                key == "log.class" && value is ScalarValue { Value: LogClassification.Security }
+                    ? new ScalarValue(LogClassification.Diagnostic)
+                    : HttpOperationLogSanitizer.IsSensitiveKey(key)
                     ? new ScalarValue(HttpOperationLogSanitizer.Redacted)
                     : CopyValue(value, 0, ref remainingNodes)));
         }
@@ -567,6 +616,13 @@ internal static class LogEnvelopeBuilder
             return true;
         }
 
+        // JSON Unicode 转义可把 password 等已知键拆开；只识别合法转义，避免误删 Windows 路径。
+        if ((value.Contains(':') || value.Contains('='))
+            && HasJsonUnicodeEscape(value))
+        {
+            return true;
+        }
+
         for (var index = 0; index < value.Length; index++)
         {
             if (value[index] is not ('=' or ':'))
@@ -596,6 +652,35 @@ internal static class LogEnvelopeBuilder
                         value.AsSpan(start + 1, end - start))))
             {
                 // 赋值形态可以出现在 Query、连接串或 JSON 文本里；不保留无法定位终点的尾部。
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasJsonUnicodeEscape(string value)
+    {
+        for (var index = 0; index + 5 < value.Length; index++)
+        {
+            if (value[index] != '\\' || value[index + 1] != 'u')
+            {
+                continue;
+            }
+
+            var valid = true;
+            for (var offset = 2; offset < 6; offset++)
+            {
+                var digit = value[index + offset];
+                if (digit is not (>= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F'))
+                {
+                    valid = false;
+                    break;
+                }
+            }
+
+            if (valid)
+            {
                 return true;
             }
         }

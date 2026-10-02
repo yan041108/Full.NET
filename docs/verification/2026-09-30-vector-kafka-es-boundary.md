@@ -1,0 +1,9 @@
+# Vector Kafka → Elasticsearch 消费确认实验（2026-09-30）
+
+- 范围：基线提交 `c609759576c4bf54ff9e743161ecb829ca8d4d4a` 加当前工作区候选；Windows Docker Desktop。本实验只评价一个平台消费者候选，不是生产部署或容量认证。
+- 固定镜像：`apache/kafka:4.1.2@sha256:5cc2a2fd93fa2687b44015eee04fb2c3edd9e526bd64bf8bec5ff1e268772e0e`、`timberio/vector:0.58.0-debian@sha256:1c1ea358c617ea0b23003d5af87f7a678b30f8f7096437e680380c47fc13d2d9`、`node:24.21.0-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1`。Vector 源码仓库声明 MPL-2.0；未完成目标发行物的全部依赖/许可与漏洞审核。
+- 方法：`pnpm test:observability-vector-boundary:live` 启动单分区 Kafka、Vector Kafka Source → Elasticsearch Sink、假 ES Bulk 服务。固定配置开启 Sink 端到端 `acknowledgements.enabled=true`、`request_retry_partial=true`，单事件批、固定 `LogEventId` 与 `index` 动作。假 ES 对第一条反复返回 HTTP 200 + 单项 429，再切为单项 201；随后第二条永久返回 HTTP 200 + 单项 400，而第三条返回单项 201。每阶段读取 Broker Consumer Group 的已提交 Offset，并在假服务记录各事件的实际单项状态。
+- 结果：429 重试期间无已提交 Offset；第一条 201 后 Offset 为 1；第二条 400 时 Vector 日志明确记录 `Not retriable; dropping the request` 与 `Events dropped ... count=1`，Offset 暂留 1；第三条 201 后 Offset **推进到 3**，越过已丢弃的第二条。该结果在初次发现和加入事件级响应核对后的复测中重现。测试容器/网络已清理。
+- 结论：此固定版本和配置的 Vector Kafka → Elasticsearch 组合**不满足**本项目“逐项成功或可靠隔离后才推进连续 Offset”的可靠档准入条件。429 暂缓提交及端到端 ACK 配置不能消除永久 Bulk 单项失败后的缺口。当前只否定该具体组合；不能外推所有 Vector 版本、其他 Sink/隔离设计或全部 Kafka Connect 实现。生产 Kafka 消费组合与 Collector 门禁保持关闭。
+- 后续：LG00 若继续考虑 Vector，须有可验证的永久失败持久隔离或停止推进/重放机制，并重做部分 Bulk、重平衡和崩溃对账；不能靠增加重试次数或只看 HTTP 200 解除门禁。容量、真实 ES、TLS、凭据与多分区尚未验证。
+- 依据：[Vector Kafka Source](https://vector.dev/docs/reference/configuration/sources/kafka/)、[Elasticsearch Sink 部分失败与 ACK](https://vector.dev/docs/reference/configuration/sinks/elasticsearch/)、[端到端 ACK 设计](https://vector.dev/docs/architecture/end-to-end-acknowledgements/)、[Vector 许可证声明](https://github.com/vectordotdev/vector/blob/master/Cargo.toml)。官方组件标签是候选依据，以上具体失败以固定镜像实测为准。

@@ -1,0 +1,198 @@
+rule_files:
+  - ../../deploy/observability/prometheus-rules.yaml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'fluentbit_output_dropped_records_total{name="fullnet_priority_forward",instance="collector-1"}'
+        values: '0 0 0 3 3 3 3'
+      - series: 'fluentbit_output_retries_failed_total{name="fullnet_priority_forward",instance="collector-1"}'
+        values: '0 0 0 1 1 1 1'
+      - series: 'fluentbit_output_dropped_records_total{name="fullnet_b2_forward",instance="collector-1"}'
+        values: '0 0 0 0 2 2 2'
+      - series: 'fluentbit_output_retries_failed_total{name="fullnet_b2_forward",instance="collector-1"}'
+        values: '0 0 0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: FullNetFluentBitPriorityOutputDrop
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: FullNetFluentBitBestEffortOutputDrop
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: FullNetFluentBitPriorityOutputDrop
+        exp_alerts:
+          - exp_labels:
+              name: fullnet_priority_forward
+              instance: collector-1
+              severity: critical
+            exp_annotations:
+              summary: Fluent Bit priority output discarded log records
+      - eval_time: 4m
+        alertname: FullNetFluentBitBestEffortOutputDrop
+        exp_alerts:
+          - exp_labels:
+              name: fullnet_b2_forward
+              instance: collector-1
+              severity: warning
+            exp_annotations:
+              summary: Fluent Bit best-effort output discarded log records
+
+  - interval: 1m
+    input_series:
+      - series: 'fluentbit_output_retries_total{name="fullnet_priority_forward",instance="collector-2"}'
+        values: '0 1 2 3 4 5'
+      - series: 'fluentbit_output_dropped_records_total{name="fullnet_priority_forward",instance="collector-2"}'
+        values: '0 0 0 0 0 0'
+      - series: 'fluentbit_output_retries_failed_total{name="fullnet_priority_forward",instance="collector-2"}'
+        values: '0 0 0 0 0 0'
+      - series: 'fluentbit_output_proc_records_total{name="fullnet_priority_forward",instance="collector-2"}'
+        values: '0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: FullNetFluentBitPriorityOutputDrop
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: FullNetFluentBitPriorityOutputRetryWithoutProgress
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: FullNetFluentBitPriorityOutputRetryWithoutProgress
+        exp_alerts:
+          - exp_labels:
+              name: fullnet_priority_forward
+              instance: collector-2
+              severity: critical
+            exp_annotations:
+              summary: Fluent Bit priority output retrying without delivery progress
+
+  - interval: 1m
+    input_series:
+      - series: 'fluentbit_output_retries_total{name="fullnet_priority_forward",instance="collector-5"}'
+        values: '0 1 1 1 1 1'
+      - series: 'fluentbit_output_proc_records_total{name="fullnet_priority_forward",instance="collector-5"}'
+        values: '0 0 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: FullNetFluentBitPriorityOutputRetryWithoutProgress
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'fluentbit_output_retries_total{name="fullnet_priority_forward",instance="collector-6"}'
+        values: '0 1 2 3 4 4'
+      - series: 'fluentbit_output_proc_records_total{name="fullnet_priority_forward",instance="collector-6"}'
+        values: '0 0 0 0 1 1'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: FullNetFluentBitPriorityOutputRetryWithoutProgress
+        exp_alerts:
+          - exp_labels:
+              name: fullnet_priority_forward
+              instance: collector-6
+              severity: critical
+            exp_annotations:
+              summary: Fluent Bit priority output retrying without delivery progress
+      - eval_time: 4m
+        alertname: FullNetFluentBitPriorityOutputRetryWithoutProgress
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'fluentbit_output_dropped_records_total{name="fullnet_b2_archive",instance="collector-3"}'
+        values: '0 0 2 2 2 2'
+      - series: 'fluentbit_output_retries_failed_total{name="fullnet_b2_archive",instance="collector-3"}'
+        values: '0 0 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: FullNetFluentBitBestEffortOutputDrop
+        exp_alerts:
+          - exp_labels:
+              name: fullnet_b2_archive
+              instance: collector-3
+              severity: warning
+            exp_annotations:
+              summary: Fluent Bit best-effort output discarded log records
+
+  - interval: 1m
+    input_series:
+      - series: 'up{job="fluent-bit",instance="collector-4"}'
+        values: '1 0 0 1'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: FullNetFluentBitTargetDown
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: FullNetFluentBitTargetDown
+        exp_alerts:
+          - exp_labels:
+              job: fluent-bit
+              instance: collector-4
+              severity: critical
+            exp_annotations:
+              summary: Fluent Bit metrics target unavailable
+      - eval_time: 3m
+        alertname: FullNetFluentBitTargetDown
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'kube_daemonset_status_number_unavailable{daemonset="fullnet-fluent-bit",namespace="observability"}'
+        values: '0 1 1 0'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: FullNetFluentBitDaemonSetUnavailable
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: FullNetFluentBitDaemonSetUnavailable
+        exp_alerts:
+          - exp_labels:
+              daemonset: fullnet-fluent-bit
+              namespace: observability
+              severity: critical
+            exp_annotations:
+              summary: Fluent Bit DaemonSet has unavailable Pods
+      - eval_time: 3m
+        alertname: FullNetFluentBitDaemonSetUnavailable
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'fluentbit_output_chunk_available_capacity_percent{name="fullnet_priority_forward",instance="collector-7"}'
+        values: '100 15 15 15 15 15 15 90'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: FullNetFluentBitForwardQueueCapacityLow
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: FullNetFluentBitForwardQueueCapacityLow
+        exp_alerts:
+          - exp_labels:
+              name: fullnet_priority_forward
+              instance: collector-7
+              severity: warning
+            exp_annotations:
+              summary: Fluent Bit Forward logical queue capacity low (not a pre-loss guarantee)
+      - eval_time: 7m
+        alertname: FullNetFluentBitForwardQueueCapacityLow
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_status_condition{node="worker-1",condition="DiskPressure",status="true"}'
+        values: '0 1 1 0'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: FullNetNodeDiskPressure
+        exp_alerts:
+          - exp_labels:
+              node: worker-1
+              condition: DiskPressure
+              status: "true"
+              severity: critical
+            exp_annotations:
+              summary: Kubernetes node reports DiskPressure
+      - eval_time: 3m
+        alertname: FullNetNodeDiskPressure
+        exp_alerts: []

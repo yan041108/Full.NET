@@ -37,6 +37,7 @@ public sealed class KafkaLogDeliveryLane : IDisposable
     private readonly IKafkaLogProducerClient _client;
     private readonly KafkaLogProducerBudget _budget;
     private readonly string _topic;
+    private readonly bool _highPriority;
     private readonly int _maxMessageBytes;
     private readonly TimeSpan _flushTimeout;
     private long _nextId;
@@ -53,13 +54,15 @@ public sealed class KafkaLogDeliveryLane : IDisposable
         long maxPendingBytes,
         int maxMessageBytes,
         IKafkaLogProducerClient client,
-        int shutdownFlushTimeoutMs = 5_000)
+        int shutdownFlushTimeoutMs = 5_000,
+        bool highPriority = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(topic);
         ArgumentNullException.ThrowIfNull(client);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxMessageBytes);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(shutdownFlushTimeoutMs);
         _topic = topic;
+        _highPriority = highPriority;
         _client = client;
         _budget = new KafkaLogProducerBudget(maxPendingMessages, maxPendingBytes);
         _maxMessageBytes = maxMessageBytes;
@@ -82,7 +85,8 @@ public sealed class KafkaLogDeliveryLane : IDisposable
             options.MaxPendingBytes,
             options.MessageMaxBytes,
             client,
-            options.ShutdownFlushTimeoutMs);
+            options.ShutdownFlushTimeoutMs,
+            highPriority);
     }
 
     /// <summary>当前尚未得到投递终态的应用侧消息数。</summary>
@@ -189,6 +193,7 @@ public sealed class KafkaLogDeliveryLane : IDisposable
         {
             // Flush 失败不延长停机预算；剩余消息按未确认统计。
             Interlocked.Increment(ref _shutdownFailureCount);
+            KafkaLogDeliveryTelemetry.RecordShutdownFailure(_highPriority);
         }
         finally
         {
@@ -202,6 +207,7 @@ public sealed class KafkaLogDeliveryLane : IDisposable
                 {
                     // SDK 清理失败不阻止归还应用预约；错误只暴露为低基数计数。
                     Interlocked.Increment(ref _shutdownFailureCount);
+                    KafkaLogDeliveryTelemetry.RecordShutdownFailure(_highPriority);
                 }
             }
             finally
@@ -212,6 +218,7 @@ public sealed class KafkaLogDeliveryLane : IDisposable
                     {
                         reservation.Dispose();
                         Interlocked.Increment(ref _abandonedCount);
+                        KafkaLogDeliveryTelemetry.RecordDelivery(_highPriority, "abandoned");
                     }
                 }
             }
@@ -229,10 +236,12 @@ public sealed class KafkaLogDeliveryLane : IDisposable
         if (acknowledged)
         {
             Interlocked.Increment(ref _acknowledgedCount);
+            KafkaLogDeliveryTelemetry.RecordDelivery(_highPriority, "acknowledged");
         }
         else
         {
             Interlocked.Increment(ref _failedCount);
+            KafkaLogDeliveryTelemetry.RecordDelivery(_highPriority, "failed");
         }
     }
 }

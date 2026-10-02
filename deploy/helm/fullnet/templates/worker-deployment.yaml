@@ -39,6 +39,8 @@ spec:
             - configMapRef:
                 name: {{ include "fullnet.fullname" . }}-config
           env:
+{{- include "fullnet.loggingModeEnv" . | nindent 12 }}
+{{- include "fullnet.loggingKafkaEnv" . | nindent 12 }}
             - name: Database__ConnectionString
               valueFrom:
                 secretKeyRef:
@@ -108,6 +110,7 @@ spec:
             - name: DataProtection__KeyRingPath
               value: /var/fullnet/data-protection-keys
           volumeMounts:
+{{- include "fullnet.loggingKafkaCaMount" . | nindent 12 }}
             - name: data-protection
               mountPath: /var/fullnet/data-protection-keys
             - name: tmp
@@ -145,6 +148,7 @@ spec:
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}
       volumes:
+{{- include "fullnet.loggingKafkaCaVolume" . | nindent 8 }}
         - name: tmp
           emptyDir: {}
         - name: data-protection

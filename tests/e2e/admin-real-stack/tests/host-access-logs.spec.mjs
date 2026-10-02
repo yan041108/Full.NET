@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { randomBytes } from 'node:crypto';
 import {
   adminOrigin,
   clickMainNavLink,
@@ -17,7 +18,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('Host 管理员可加载访问日志且普通请求不重复落审计表', async ({
+test('Host 管理员可加载访问日志且单次请求只采集一条记录', async ({
   page,
   request
 }, testInfo) => {
@@ -32,29 +33,39 @@ test('Host 管理员可加载访问日志且普通请求不重复落审计表', 
     }
   });
   expect(baselineResponse.ok()).toBeTruthy();
-  const baselinePage = await baselineResponse.json();
-
-  // 普通 HTTP Access 摘要已合并到 B2 HttpOperationCompleted，不得再重复写入 Access Audit 表。
+  // Development 显式开启访问入库；用唯一 TraceId 对账单次请求，查询自身产生的记录不干扰断言。
+  const traceId = randomBytes(16).toString('hex');
+  const spanId = randomBytes(8).toString('hex');
   const enumResponse = await request.get(
     `${apiBaseUrl}/api/v1/settings/enum-catalogs?page=1&pageSize=1`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        Origin: origin
+        Origin: origin,
+        traceparent: `00-${traceId}-${spanId}-01`
       }
     }
   );
   expect(enumResponse.ok()).toBeTruthy();
 
-  const accessResponse = await request.get(accessLogsUrl, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Origin: origin
+  const capturedUrl = new URL(accessLogsUrl);
+  capturedUrl.searchParams.set('fromUtc', new Date(Date.now() - 3600000).toISOString());
+  capturedUrl.searchParams.set('toUtc', new Date(Date.now() + 60000).toISOString());
+  capturedUrl.searchParams.set('pathContains', '/api/v1/settings/enum-catalogs');
+  await expect.poll(async () => {
+    const response = await request.get(capturedUrl.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}`, Origin: origin }
+    });
+    expect(response.ok()).toBeTruthy();
+    const accessPage = await response.json();
+    const rows = accessPage.items.filter(row => row.traceId === traceId);
+    if (rows.length === 1) {
+      expect(rows[0].httpMethod).toBe('GET');
+      expect(rows[0].statusCode).toBe(200);
+      expect(rows[0].isAuthenticated).toBe(true);
     }
-  });
-  expect(accessResponse.ok()).toBeTruthy();
-  const accessPage = await accessResponse.json();
-  expect(accessPage.total).toBe(baselinePage.total);
+    return rows.length;
+  }, { timeout: 15000 }).toBe(1);
 
   await loginAsHostAdmin(page);
   await clickMainNavLink(page, /访问日志/);

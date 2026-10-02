@@ -17,7 +17,7 @@ const build = spawnSync('dotnet', ['build', gate.project, '-c', 'Release', '--no
 });
 if (build.status !== 0) process.exit(build.status ?? 1);
 
-if (process.platform !== 'linux') {
+if (process.platform !== 'linux' || gate.requiredTestTypes?.length) {
   const discovery = spawnSync('dotnet', [assembly, '--list-tests', 'json', '--no-ansi', '--filter', gate.filter], {
     cwd: repositoryRoot,
     encoding: 'utf8',
@@ -25,12 +25,20 @@ if (process.platform !== 'linux') {
     shell: false,
   });
   if (discovery.status !== 0) process.exit(discovery.status ?? 1);
-  const count = JSON.parse(discovery.stdout).tests?.length ?? 0;
+  const discovered = JSON.parse(discovery.stdout).tests ?? [];
+  const count = discovered.length;
   if (count < gate.minimum) {
     console.error(`Worker Native AOT E2E 发现数不足：${count} < ${gate.minimum}。`);
     process.exit(1);
   }
-  console.log(`Worker Native AOT E2E 非 Linux 发现门禁：${count} 项。`);
+  const discoveredTypes = new Set(discovered.map((item) => item.type?.typeName));
+  for (const requiredType of gate.requiredTestTypes ?? []) {
+    if (!discoveredTypes.has(requiredType)) {
+      console.error(`Worker Native AOT E2E 缺少必需用例：${requiredType}。`);
+      process.exit(1);
+    }
+  }
+  console.log(`Worker Native AOT E2E 发现门禁：${count} 项。`);
 }
 
 const resultsDirectory = path.join(repositoryRoot, 'artifacts/native-aot/worker/linux-x64/test-results');

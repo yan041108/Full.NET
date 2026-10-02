@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Text.Json;
 using Full.NET.Hosting.Observability;
+using Full.NET.Logging.Kafka;
+using Full.NET.LogConsumer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
@@ -360,7 +362,7 @@ public sealed class HighPriorityLoggingTests
             LogClassification.Diagnostic,
             ((ScalarValue)ordinary.Properties["log.class"]).Value);
         Assert.AreEqual(
-            LogClassification.Security,
+            LogClassification.Diagnostic,
             ((ScalarValue)security.Properties["log.class"]).Value);
         var ordinaryId = (string)((ScalarValue)ordinary.Properties["LogEventId"]).Value!;
         var securityId = (string)((ScalarValue)security.Properties["LogEventId"]).Value!;
@@ -1037,9 +1039,15 @@ public sealed class HighPriorityLoggingTests
     }
 
     [TestMethod]
-    public void Application_kafka_mode_rejects_missing_adapter_without_falling_back_to_console()
+    [DataRow("Development")]
+    [DataRow("Production")]
+    public void Application_kafka_mode_rejects_missing_adapter_without_falling_back_to_console(string environment)
     {
-        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
+        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(
+            new Microsoft.Extensions.Hosting.HostApplicationBuilderSettings
+            {
+                EnvironmentName = environment,
+            });
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             [$"{LoggingOptions.SectionName}:DeliveryMode"] = "ApplicationKafka",
@@ -1052,11 +1060,163 @@ public sealed class HighPriorityLoggingTests
     }
 
     [TestMethod]
+    public void IndexRouteConfigurationRequiresPairedBoundedValues()
+    {
+        foreach (var values in new[]
+        {
+            (Version: "2", Days: "0"),
+            (Version: "0", Days: "30"),
+            (Version: "10000", Days: "30"),
+            (Version: "2", Days: "3651"),
+        })
+        {
+            var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
+            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"{LoggingOptions.SectionName}:IndexRouteVersion"] = values.Version,
+                [$"{LoggingOptions.SectionName}:IndexRetentionDays"] = values.Days,
+            });
+
+            var error = Assert.ThrowsExactly<OptionsValidationException>(
+                () => builder.AddFullNetServiceDefaults());
+            StringAssert.Contains(error.Message, "IndexRouteVersion");
+        }
+    }
+
+    [TestMethod]
+    public void ApplicationKafkaRejectsUnrouteableSnapshotsWithoutFrozenPolicy()
+    {
+        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(
+            new Microsoft.Extensions.Hosting.HostApplicationBuilderSettings
+            {
+                EnvironmentName = Microsoft.Extensions.Hosting.Environments.Staging,
+            });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [$"{LoggingOptions.SectionName}:DeliveryMode"] = "ApplicationKafka",
+            [$"{LoggingOptions.SectionName}:ExpectedDeliveryMode"] = "ApplicationKafka",
+        });
+
+        var error = Assert.ThrowsExactly<OptionsValidationException>(
+            () => builder.AddFullNetServiceDefaults(_ => new RecordingHostLogExporter()));
+        StringAssert.Contains(error.Message, "IndexRouteVersion");
+    }
+
+    [TestMethod]
+    public void Application_kafka_mode_rejects_null_exporter_at_host_build()
+    {
+        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(
+            new Microsoft.Extensions.Hosting.HostApplicationBuilderSettings
+            {
+                EnvironmentName = Microsoft.Extensions.Hosting.Environments.Development,
+            });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [$"{LoggingOptions.SectionName}:DeliveryMode"] = "ApplicationKafka",
+            [$"{LoggingOptions.SectionName}:ExpectedDeliveryMode"] = "ApplicationKafka",
+            [$"{LoggingOptions.SectionName}:IndexRouteVersion"] = "2",
+            [$"{LoggingOptions.SectionName}:IndexRetentionDays"] = "30",
+        });
+        builder.AddFullNetServiceDefaults(_ => null!);
+
+        var error = Assert.ThrowsExactly<OptionsValidationException>(() => builder.Build());
+        StringAssert.Contains(error.Message, "exporter factory returned null");
+    }
+
+    [TestMethod]
+    [DoNotParallelize]
+    [DataRow("Development")]
+    [DataRow("Production")]
+    public async Task Application_kafka_mode_uses_selected_exporter_and_disposes_after_delivery(string environment)
+    {
+        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(
+            new Microsoft.Extensions.Hosting.HostApplicationBuilderSettings
+            {
+                EnvironmentName = environment,
+            });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [$"{LoggingOptions.SectionName}:DeliveryMode"] = "ApplicationKafka",
+            [$"{LoggingOptions.SectionName}:ExpectedDeliveryMode"] = "ApplicationKafka",
+            [$"{LoggingOptions.SectionName}:IndexRouteVersion"] = "2",
+            [$"{LoggingOptions.SectionName}:IndexRetentionDays"] = "30",
+        });
+        var exporter = new RecordingHostLogExporter();
+        builder.AddFullNetServiceDefaults(_ => exporter);
+
+        var previousOutput = Console.Out;
+        using var output = new StringWriter();
+        Console.SetOut(TextWriter.Synchronized(output));
+        try
+        {
+            using var host = builder.Build();
+            var logger = host.Services.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>()
+                .CreateLogger("KafkaHostWiringTest");
+            logger.LogInformation("kafka-general-marker");
+            logger.LogError("kafka-priority-marker");
+        }
+        finally
+        {
+            Console.SetOut(previousOutput);
+        }
+
+        await exporter.WaitForCountAsync(2);
+        Assert.IsTrue(exporter.DisposedAfterLastWrite);
+        Assert.AreEqual(2, exporter.Snapshots.Count);
+        Assert.AreEqual(1, exporter.Snapshots.Count(snapshot => snapshot.IsHighPriority));
+        foreach (var snapshot in exporter.Snapshots)
+        {
+            Assert.AreEqual(LogRecordValidationResult.Valid,
+                KafkaLogRecordParser.TryParse(snapshot.LogEventId, snapshot.Utf8Json, 16_384, out var parsed));
+            Assert.IsNotNull(parsed);
+            Assert.AreEqual(2, parsed.IndexRouteVersion);
+        }
+        Assert.IsFalse(output.ToString().Contains("kafka-general-marker", StringComparison.Ordinal));
+        Assert.IsFalse(output.ToString().Contains("kafka-priority-marker", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void Unselected_kafka_exporter_factory_is_never_called()
+    {
+        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
+        builder.AddFullNetServiceDefaults(_ => throw new AssertFailedException("unselected exporter created"));
+        using var host = builder.Build();
+        Assert.IsNotNull(host.Services.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>());
+    }
+
+    [TestMethod]
+    public void Selected_kafka_mode_rejects_missing_broker_and_topics_at_host_build()
+    {
+        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(
+            new Microsoft.Extensions.Hosting.HostApplicationBuilderSettings
+            {
+                EnvironmentName = Microsoft.Extensions.Hosting.Environments.Staging,
+            });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [$"{LoggingOptions.SectionName}:DeliveryMode"] = "ApplicationKafka",
+            [$"{LoggingOptions.SectionName}:ExpectedDeliveryMode"] = "ApplicationKafka",
+            [$"{LoggingOptions.SectionName}:IndexRouteVersion"] = "2",
+            [$"{LoggingOptions.SectionName}:IndexRetentionDays"] = "30",
+        });
+        builder.AddFullNetServiceDefaults(KafkaLogSnapshotExporter.Create);
+
+        var error = Assert.ThrowsExactly<OptionsValidationException>(() => builder.Build());
+        StringAssert.Contains(error.Message, "BootstrapServers");
+        StringAssert.Contains(error.Message, "GeneralTopic");
+        StringAssert.Contains(error.Message, "PriorityTopic");
+    }
+
+    [TestMethod]
     public void Explicit_local_and_collector_modes_keep_legacy_sink_disabled()
     {
         foreach (var mode in new[] { "Local", "Collector" })
         {
-            var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
+            var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(
+                new Microsoft.Extensions.Hosting.HostApplicationBuilderSettings
+                {
+                    EnvironmentName = Microsoft.Extensions.Hosting.Environments.Development,
+                });
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 [$"{LoggingOptions.SectionName}:DeliveryMode"] = mode,
@@ -1069,6 +1229,48 @@ public sealed class HighPriorityLoggingTests
                 .GetRequiredService<IElasticsearchLogPipelineStatus>().IsEnabled);
             Assert.IsFalse(host.Services
                 .GetRequiredService<IElasticsearchLogPipelineStatus>().IsSinkRegistered);
+        }
+    }
+
+    [TestMethod]
+    public void Production_host_accepts_collector_without_registering_legacy_elasticsearch_sink()
+    {
+        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(
+            new Microsoft.Extensions.Hosting.HostApplicationBuilderSettings
+            {
+                EnvironmentName = Microsoft.Extensions.Hosting.Environments.Production,
+            });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [$"{LoggingOptions.SectionName}:DeliveryMode"] = "Collector",
+            [$"{LoggingOptions.SectionName}:ExpectedDeliveryMode"] = "Collector",
+        });
+
+        builder.AddFullNetServiceDefaults();
+        using var host = builder.Build();
+        Assert.IsFalse(host.Services.GetRequiredService<IElasticsearchLogPipelineStatus>().IsEnabled);
+        Assert.IsFalse(host.Services.GetRequiredService<IElasticsearchLogPipelineStatus>().IsSinkRegistered);
+    }
+
+    [TestMethod]
+    public void Production_host_rejects_local_mode()
+    {
+        foreach (var mode in new[] { "Local" })
+        {
+            var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(
+                new Microsoft.Extensions.Hosting.HostApplicationBuilderSettings
+                {
+                    EnvironmentName = Microsoft.Extensions.Hosting.Environments.Production,
+                });
+            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"{LoggingOptions.SectionName}:DeliveryMode"] = mode,
+                [$"{LoggingOptions.SectionName}:ExpectedDeliveryMode"] = mode,
+            });
+
+            var error = Assert.ThrowsExactly<OptionsValidationException>(
+                () => builder.AddFullNetServiceDefaults());
+            StringAssert.Contains(error.Message, mode);
         }
     }
 
@@ -1382,6 +1584,34 @@ public sealed class HighPriorityLoggingTests
         public void Emit(LogEvent logEvent) { }
 
         public void Dispose() => throw new InvalidOperationException("simulated disposal failure");
+    }
+
+    private sealed class RecordingHostLogExporter : IHostLogSnapshotExporter
+    {
+        private int _disposed;
+        private int _writesAtDispose;
+
+        public ConcurrentQueue<HostLogSnapshot> Snapshots { get; } = new();
+
+        public bool DisposedAfterLastWrite => Volatile.Read(ref _disposed) != 0
+            && Volatile.Read(ref _writesAtDispose) == Snapshots.Count;
+
+        public void Emit(HostLogSnapshot snapshot) => Snapshots.Enqueue(snapshot);
+
+        public void Dispose()
+        {
+            Volatile.Write(ref _writesAtDispose, Snapshots.Count);
+            Volatile.Write(ref _disposed, 1);
+        }
+
+        public async Task WaitForCountAsync(int count)
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            while (Snapshots.Count < count)
+            {
+                await Task.Delay(10, timeout.Token);
+            }
+        }
     }
 
     private sealed record FakeInspector(

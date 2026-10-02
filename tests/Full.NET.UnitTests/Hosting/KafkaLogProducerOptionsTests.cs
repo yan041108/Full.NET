@@ -11,6 +11,7 @@ public sealed class KafkaLogProducerOptionsTests
     public void Valid_tls_configuration_builds_bounded_idempotent_producer()
     {
         var options = ValidOptions();
+        options.SslCaLocation = "/var/run/fullnet/logging/kafka-ca/ca.crt";
         var config = options.BuildProducerConfig();
 
         Assert.AreEqual(Acks.All, config.Acks);
@@ -23,6 +24,7 @@ public sealed class KafkaLogProducerOptionsTests
         Assert.AreEqual(10_000, config.QueueBufferingMaxMessages);
         Assert.AreEqual(65_536, config.QueueBufferingMaxKbytes);
         Assert.AreEqual(30_000, config.MessageTimeoutMs);
+        Assert.AreEqual(options.SslCaLocation, config.SslCaLocation);
     }
 
     [TestMethod]

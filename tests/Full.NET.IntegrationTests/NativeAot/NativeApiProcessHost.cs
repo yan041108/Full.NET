@@ -56,6 +56,8 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
 
     public string LogFilePath => _logFilePath;
 
+    public int? ExitCode => _process.HasExited ? _process.ExitCode : null;
+
     public static async Task<NativeApiProcessHost> StartAsync(
         NativeApiArtifact artifact,
         DatabaseProvider provider,

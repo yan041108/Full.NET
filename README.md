@@ -4,6 +4,8 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 
 项目最终以 MIT 许可证发布。所使用的第三方组件及其许可证见 [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES)。
 
+自 2026-09-30 起，全项目采用[本地测试实际通过即可验收](rules/development-quality.md#11-测试与验证)的标准，CI 与专用生产等价环境为可选补充。验收仍覆盖对应功能、安全、双库、原生运行与恢复场景；容量按实际测试范围报告，未执行项保持未验证。本文和历史计划中的“待 CI/专用环境”均按该规则选择执行位置，原有结果不自动升级。
+
 2026-09-16 已将面向管理系统、企业应用和中小型 SaaS 的完善工作纳入规划：项目创建/升级、企业成员生命周期、套餐权益/配额、账号恢复、订阅运营、开放集成、业务样板和发布恢复。新增能力当前为规划状态；已有 SSO、数据交付、Workflow、通知、权限、AI 与生产运行继续按专项收口。见[能力与优先级](docs/roadmap/adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)和[详细开发计划](docs/superpowers/plans/2026-09-16-foundation-productization.md)。
 
 ## 当前基础能力
@@ -24,7 +26,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 - Identity 安全会话与授权上下文底座：强密码引导、RSA JWT、登录锁定、Refresh Token 轮换/重用撤销、CSRF、CORS、审计、最小 RBAC、可信租户切换和权限导航。
 - API、Worker、Migrator 与 .NET Aspire AppHost 的完整本地编排。
 
-日志字段、请求/返回详情和可靠性边界见[日志模块说明](docs/operations/logging-module.md)。Collector 采集与 ApplicationKafka 有界后台直发已列为正式比较候选，按请求 P99、每实例字节吞吐、CPU/内存、丢弃及恢复验证后配置选择；Kafka/ES 独立可选，Restricted 只存 B1。见[架构决策](docs/architecture/adr/ADR-0012-configurable-log-delivery.md)和[开发计划 LG00—LG08](docs/superpowers/plans/2026-09-28-configurable-log-delivery.md)。当前仍为规划状态，不代表两路线、持久投递或生产容量已验证。
+日志字段、请求/返回详情和可靠性边界见[日志模块说明](docs/operations/logging-module.md)。Collector 采集与 ApplicationKafka 有界后台直发已列为正式比较候选，按请求 P99、每实例字节吞吐、CPU/内存、丢弃及恢复验证后配置选择；Kafka/ES 独立可选，Restricted 只存 B1。见[架构决策](docs/architecture/adr/ADR-0012-configurable-log-delivery.md)和[开发计划 LG00—LG08](docs/superpowers/plans/2026-09-28-configurable-log-delivery.md)。按本地验收开放 Collector/ApplicationKafka 的生产入口配置；可选下游持久确认与容量按各自实际测试范围验收，不由入口准入推导。
 
 ## 环境要求
 
@@ -67,7 +69,7 @@ dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 [`eng/testing/test-matrix.json`](eng/testing/test-matrix.json)。`main` CI 运行其中的
 全部互斥分片；本地任务不得运行完整集合。
 
-Integration 依赖按需启动：SQL Server 聚焦测试不会额外启动 MySQL/Redis，反之亦然。工作区已脏或任务跨窗口时先用 `test:task:start` 创建快照，再按 `inner`、`slice`、`merge` 阶段使用 `pnpm test:inner` / `pnpm test:slice` / `test:integration:affected` 自动选择验证范围；多个过滤目标会按 UID 去重并合并为一次进程。本地只运行受影响测试，完整集合只保留给 `main` CI 的互斥并行分片。inner 不要跑 `test:e2e:real` 或完整 `test:e2e:admin`。
+Integration 依赖按需启动：SQL Server 聚焦测试不会额外启动 MySQL/Redis，反之亦然。工作区已脏或任务跨窗口时先用 `test:task:start` 创建快照，再按 `inner`、`slice`、`merge` 阶段使用 `pnpm test:inner` / `pnpm test:slice` / `test:integration:affected` 自动选择验证范围；多个过滤目标会按 UID 去重并合并为一次进程。本地规定范围实际通过即可验收，完整集合允许按矩阵分批执行，CI 可选。普通 inner 保持快速，真实栈和完整浏览器用于本地最终验收。
 
 AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运行会要求输入宿主管理员账号和强密码，其中密码按 Secret Parameter 处理；Migrator 成功退出后，API 与 Worker 才会启动，本地 `localhost` 租户和宿主管理员均被幂等创建。Bootstrap 现在幂等创建受保护超级管理员角色，不再同步逐项权限；签名 Claim、当前作用域动态权限、逐请求 Session/SecurityStamp 校验、双库并发最后一名保护、远程授予/撤销 API、事务内可追责审计和 Vue/Layui 对等管理页已经实现。远程写操作只允许 Development/Testing 显式开启，Production 在 MFA/强认证 Provider 落地前无法开启；账号禁用/删除路径保护和真实后端浏览器 E2E 仍按[设计](docs/superpowers/specs/2026-07-18-super-administrator-design.md)与[计划](docs/superpowers/plans/2026-07-18-super-administrator.md)后续交付，因此当前不能标记为完整 `Verified`。
 

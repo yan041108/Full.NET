@@ -35,6 +35,12 @@ public sealed class LoggingOptions
     /// </summary>
     public int MaxEventBytes { get; set; } = 16_384;
 
+    /// <summary>显式索引路由版本；与 IndexRetentionDays 成对配置，零表示尚未启用索引路由。</summary>
+    public int IndexRouteVersion { get; set; }
+
+    /// <summary>自事件发生 UTC 时间起计算的固定保留天数；与 IndexRouteVersion 成对配置。</summary>
+    public int IndexRetentionDays { get; set; }
+
     /// <summary>
     /// 普通日志通道待消费和 Sink 在途快照共享的字节预算。
     /// </summary>
