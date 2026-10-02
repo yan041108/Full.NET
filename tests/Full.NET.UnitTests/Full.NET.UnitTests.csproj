@@ -83,6 +83,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="CodeGeneration\Fixtures\**\*.fragment.cs" />
+    <None Include="..\ai-evaluation\*.json" Link="Ai\Evaluation\Fixtures\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="CodeGeneration\Fixtures\**\*.fragment.cs" />
     <None Include="..\..\packages\client-contracts\src\fixtures\workflow-form-schema-v1.json"
           Link="Workflow\Fixtures\workflow-form-schema-v1.json"
