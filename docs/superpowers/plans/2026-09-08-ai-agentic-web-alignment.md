@@ -16,7 +16,7 @@
 - 本轮交付 R02：冻结中文合成语料、测试项目内离线评分器、人工参考结果、可重放报告入口及对应失败回归。R02 离线基线已本地验证；真实检索/模型端到端基线明确为未测，随 R06 接入。
 - R02 已提交 `4a748409af6fcddd23b441a182ee3e7e8fe2b47f`。随后交付 R03 独立选型实验及 [ADR-0013](../../architecture/adr/ADR-0013-ai-retrieval-provider.md)：首版采用双库存派生向量、SQL 先过滤、有界精确余弦；Qdrant 保留候选，PdfPig 0.1.16 作为 R05 文本 PDF 接入候选。没有新增生产依赖或功能开关。
 - 实施基线：分支 `codex/foundation-acceptance-20260926`，HEAD `a7a68776818731703f1ebc11bc529f2746df59e1`，任务快照 `ai-rag-evaluation-r02`。保留原有日志文档、code-wiki 与语言资源改动。
-- R01 既有双库/原生门禁未因离线评分关闭；R03 仅关闭选型实验门禁，R04–R12 待交付，知识库整体保持 Planned，Qdrant 未生产选用。当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
+- R04a 已交付私有目录及精确模型版本审批，按下方证据本地验收；R04b 及 R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
 
 ### 2026-09-27 当前摘要（替代下方历史状态中的未实施判断）
 
@@ -590,6 +590,22 @@ R03 实施记录（2026-10-02）：分支 `codex/foundation-acceptance-20260926`
 独立只读审查指出匿名数据卷清理及正文取消同步问题，修正后复核通过；同时补明确小候选 Recall 的限制与宽范围合成排序探针。审查核对最终 manifest 与源码摘要一致，不替代原生运行证据。`pnpm test:integration:affected:plan -- --snapshot ai-retrieval-provider-r03 --phase slice` 仅选择已通过的 integration-matrix 工具验证；无生产 SQL/可达路径变更，本次双库证据来自独立实验而非正式业务 Integration。提交前执行本任务 `git diff --check` 并核对分支/status；保留任务开始前的日志文档、code-wiki 和语言资源改动。
 
 ### R04：知识库目录、权限与文件引用（P1）
+
+**R04a 本地验收（2026-10-02）：** 实施基线 `37fef643c91f639927359dd41d6232f61b985baa`，任务快照 `ai-knowledge-management-r04`；保留原有日志文档、code-wiki 和语言资源改动。新增目录及模型配置依赖的 AOT 静态物化；原生模型创建先复现 500，再修复并通过双库原生产物验证。操作契约见[私有目录与审批指南](../../operations/ai-knowledge-bases.md)。
+
+- `pnpm test:dotnet:unit -- --filter FullyQualifiedName~Full.NET.UnitTests.Ai --minimum-expected-tests 406`：406/406；受影响 Architecture 过滤 AI、NativeAot、MemoryPack、SQL Scope 和模块数据访问：79/79。`pnpm test:aot:analyzers`：0 告警、0 错误。
+- `pnpm test:integration:affected -- --snapshot ai-knowledge-management-r04 --phase slice`：Windows 38 项通过、27 原生项跳过，原命令退出非零，不记为通过。使用矩阵原生过滤器在隔离 Linux SDK 容器运行正式 API/Worker 产物：25 项通过，2 个 Production Kafka 用例因副本位于 `/tmp` 触发 Key Ring 安全校验；移到 `/work/Full.NET` 后同两用例 2/2 通过。按测试身份核对最终影响集 65 项均有实际通过证据，无遗漏和跳过；保留原失败 TRX 与重试 TRX，未修改安全校验。
+- `pnpm test:aot:publish:linux` 及 `pnpm test:aot:publish:linux -- --host worker`：正式 linux-x64 链接成功，产物分别 133691920/86214280 字节，告警门禁分别接受已批准的 17/15 项。Linux SDK 10.0.400、Docker Desktop/WSL2；运行测试限制 2 个处理器，Docker 内存上限约 31.22 GiB。此为功能/原生运行验收，不代表容量或生产 SLO。
+- `pnpm test:sql-safety` 5/5、`pnpm test:naming` 33/33、`pnpm test:governance` 57/57、测试工具链 54/54；Integration 分片无遗漏/重复。全量 Architecture 为 231/232，既有 `auditing.operations.details.read` 命名检查失败，已对照基线确认，本切片未修改或宣称其通过。只读代码复核未发现剩余实现问题；本任务 diff 检查通过后提交。
+
+2026-10-02 按大任务规则拆为可独立验收的两个切片，R04 总体保持进行中：
+
+- [x] R04a：私有知识库目录及模型处理审批。新增 `AiKnowledgeContracts.cs`、`AiKnowledgePermissions.cs`、`Domain/AiKnowledgePolicy.cs`、`Features/ManageKnowledgeBases/` 与 `Persistence/AiKnowledgeSql.cs`；240 双库迁移保存所有者/可信租户、目录状态、分类、Embedding/生成模型配置及批准版本。创建只允许目录字段，模型批准初始为空；更新审批须独立精确权限。每个读取/写入均校验可信范围和所有者，版本不符 409，不返回跨资源信息。单元先测未知分类、缺少/漂移批准及严格 JSON；双库 HTTP 测精确权限、Host/租户/所有者隔离、乐观并发与默认拒绝，迁移测半完成与重复执行。运行受影响 Unit/Architecture、双库 Integration、命名/注释、AOT 分析和正式原生路径后提交。
+- [ ] R04b：文档/版本/成员与文档授权、上传、Host Claim/Probe、Tenant 资源所有权、导入任务及权威删除/撤权。复用已建目录，扩展受授权成员访问；不将 R04a 所有者私有目录描述为完整共享知识库。覆盖下方所有文件失败/恢复用例，生成客户端并完成双库及原生验收后关闭 R04。R05/R06 尚不派发，不能以预留接口冒充已实现检索或问答。
+
+R04b 执行顺序：先交付知识库成员授权与立即撤权（所有者写入、受授权成员读取，可信范围及精确端点权限独立生效）；再交付文档版本、文档级授权与文件生命周期；最后生成客户端并核对角色/组织范围及全部文件故障场景。每个独立切片验证后提交，R04b 总勾选须等待所有子项完成。
+
+- [ ] R04b1：新增 `fn_ai_knowledge_member` 及成对恢复迁移，公开有界成员读取/整量替换请求；成员仅由所有者管理，写入独立精确权限，按知识库 `Version` 防止覆盖。用户候选经 Identity 最小 Host/可信 Tenant 活动成员目录核对，不查询 Identity 表。目录读取使用本模块参数化 SQL 联合知识库/成员记录；成员只能读取启用目录，目录编辑和模型审批仍限定所有者。撤权直接提交权威成员状态，不等待缓存或索引失效。Unit 先覆盖未授权、禁用、租户和所有者边界；双库 HTTP 再覆盖授权后可读、撤销后立即不可读、跨租户候选拒绝、越权改成员及乐观并发。角色/组织与文档级授权留给后续 R04b 子项，不以此关闭全部共享授权。
 
 **新增责任位置：** `src/Modules/Full.NET.Modules.Ai/Features/ManageKnowledgeBases/`、`Features/ManageKnowledgeDocuments/`、`Persistence/AiKnowledgeSql.cs`；双库迁移位于 `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/` 与 `MySql/`。测试位于 `tests/Full.NET.IntegrationTests/Ai/`，复用现有双库 fixture。
 

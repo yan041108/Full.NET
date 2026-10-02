@@ -5,6 +5,13 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/240_AiKnowledgeBase.sql",
+      "reason": "240 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE 恢复知识库目录后置索引；表与索引名都是脚本常量，不接受外部输入，双库未记账半完成重放测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/239_AuditingOperationLogContext.sql",
       "reason": "239 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE 语句逐列恢复操作详情可空扩展；表列名不接受外部输入，由双库未记账半完成重放测试覆盖。",
       "removalMilestone": "M1.0"

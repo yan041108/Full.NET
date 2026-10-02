@@ -1,6 +1,25 @@
 {
   "schemaVersion": 1,
   "tables": {
+    "fn_ai_knowledge_base": {
+      "comment": "私有知识库目录及模型处理审批",
+      "columns": {
+        "Id": "逻辑主键",
+        "TenantId": "所属租户标识",
+        "OwnerUserId": "知识库所有者标识",
+        "Name": "知识库名称",
+        "Description": "知识库描述",
+        "IsEnabled": "是否启用",
+        "DataClassification": "数据分类机器码",
+        "EmbeddingModelConfigId": "获批向量模型配置标识",
+        "EmbeddingModelVersion": "获批向量模型配置版本",
+        "GenerationModelConfigId": "获批生成模型配置标识",
+        "GenerationModelVersion": "获批生成模型配置版本",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "目录与审批乐观并发版本号"
+      }
+    },
     "fn_auditing_details_cleanup_state": {
       "comment": "操作详情清理共享检查点",
       "columns": {

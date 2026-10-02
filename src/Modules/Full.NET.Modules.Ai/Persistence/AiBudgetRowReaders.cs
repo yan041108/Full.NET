@@ -17,8 +17,49 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiTenantQuotaRecord>(ReadQuota);
         registrar.Register<AiMcpRemoteToolRecord>(ReadMcpRemoteTool);
         registrar.Register<AiAgentApprovalRecord>(ReadAgentApproval);
+        registrar.Register<AiKnowledgeBaseRecord>(ReadKnowledgeBase);
+        registrar.Register<AiModelConfigRecord>(ReadModelConfig);
     }
 #endif
+
+    // 知识库授权复用模型配置查询；依赖行也必须进入静态物化闭包。
+    internal static AiModelConfigRecord ReadModelConfig(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")),
+        TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        Name = Text(reader, "Name"),
+        ProviderKey = Text(reader, "ProviderKey"),
+        EndpointBaseUrl = Text(reader, "EndpointBaseUrl"),
+        ModelId = Text(reader, "ModelId"),
+        ApiKeyProtected = Null(reader, "ApiKeyProtected") ? null : Text(reader, "ApiKeyProtected"),
+        OrganizationId = Null(reader, "OrganizationId") ? null : Text(reader, "OrganizationId"),
+        IsDefault = Convert.ToBoolean(reader.GetValue(reader.GetOrdinal("IsDefault")), CultureInfo.InvariantCulture),
+        IsEnabled = Convert.ToBoolean(reader.GetValue(reader.GetOrdinal("IsEnabled")), CultureInfo.InvariantCulture),
+        LastTestedAtUtc = Null(reader, "LastTestedAtUtc") ? null : Timestamp(reader, "LastTestedAtUtc"),
+        LastTestStatusKey = Null(reader, "LastTestStatusKey") ? null : Text(reader, "LastTestStatusKey"),
+        LastTestMessage = Null(reader, "LastTestMessage") ? null : Text(reader, "LastTestMessage"),
+        CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+        UpdatedAtUtc = Null(reader, "UpdatedAtUtc") ? null : Timestamp(reader, "UpdatedAtUtc"),
+        Version = checked((int)Integer(reader, "Version")),
+    };
+
+    internal static AiKnowledgeBaseRecord ReadKnowledgeBase(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")),
+        TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
+        Name = Text(reader, "Name"),
+        Description = Null(reader, "Description") ? null : Text(reader, "Description"),
+        IsEnabled = Convert.ToBoolean(reader.GetValue(reader.GetOrdinal("IsEnabled")), CultureInfo.InvariantCulture),
+        DataClassification = Text(reader, "DataClassification"),
+        EmbeddingModelConfigId = Null(reader, "EmbeddingModelConfigId") ? null : reader.GetGuid(reader.GetOrdinal("EmbeddingModelConfigId")),
+        EmbeddingModelVersion = Null(reader, "EmbeddingModelVersion") ? null : checked((int)Integer(reader, "EmbeddingModelVersion")),
+        GenerationModelConfigId = Null(reader, "GenerationModelConfigId") ? null : reader.GetGuid(reader.GetOrdinal("GenerationModelConfigId")),
+        GenerationModelVersion = Null(reader, "GenerationModelVersion") ? null : checked((int)Integer(reader, "GenerationModelVersion")),
+        CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+        UpdatedAtUtc = Null(reader, "UpdatedAtUtc") ? null : Timestamp(reader, "UpdatedAtUtc"),
+        Version = checked((int)Integer(reader, "Version")),
+    };
 
     internal static AiAgentApprovalRecord ReadAgentApproval(DbDataReader reader) => new()
     {

@@ -54,6 +54,14 @@ internal static class NativeApiE2EAssertions
         var token = await LoginAsync(client, host.LogFilePath, cancellationToken)
             .ConfigureAwait(false);
         await VerifyAiModuleNativeClosureAsync(client, token, cancellationToken).ConfigureAwait(false);
+        // 专用 AI 探针在末尾切租户，避免让共享 critical flow 的旧令牌失效。
+        var tenantToken = await EnterDevelopmentTenantAsync(client, token, cancellationToken).ConfigureAwait(false);
+        using var tenantCreate = AuthorizedJson(HttpMethod.Post, "/api/v1/ai/knowledge-bases", tenantToken, new CreateAiKnowledgeBaseRequest("原生租户目录", null));
+        using var tenantCreatedResponse = await client.SendAsync(tenantCreate, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(tenantCreatedResponse, HttpStatusCode.Created, "Create native tenant knowledge catalog", cancellationToken).ConfigureAwait(false);
+        var tenantBase = (await tenantCreatedResponse.Content.ReadFromJsonAsync<AiKnowledgeBaseResponse>(cancellationToken).ConfigureAwait(false))!;
+        await AssertPageContainsAsync<AiKnowledgeBaseResponse>(client, "/api/v1/ai/knowledge-bases", tenantToken,
+            item => item.Id == tenantBase.Id, cancellationToken).ConfigureAwait(false);
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         host.AssertNoFatalMarkersInLogs();
     }
@@ -1225,6 +1233,32 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         using var metadata = JsonDocument.Parse(await metadataResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         Assert.AreEqual("fullnet://ai/mcp", metadata.RootElement.GetProperty("resource").GetString());
+
+        // 原生产物实际执行目录写入、可空审批列物化及分页序列化，不以路由存在替代闭包验证。
+        using var create = AuthorizedJson(HttpMethod.Post, "/api/v1/ai/knowledge-bases", accessToken, new CreateAiKnowledgeBaseRequest("原生目录", null));
+        using var createdResponse = await client.SendAsync(create, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(createdResponse, HttpStatusCode.Created, "Create native knowledge catalog", cancellationToken).ConfigureAwait(false);
+        var created = (await createdResponse.Content.ReadFromJsonAsync<AiKnowledgeBaseResponse>(cancellationToken).ConfigureAwait(false))!;
+        Assert.IsNull(created.EmbeddingModelConfigId);
+        Assert.IsNull(created.GenerationModelVersion);
+        using var modelCreate = AuthorizedJson(HttpMethod.Post, "/api/v1/ai/model-configs", accessToken,
+            new CreateAiModelConfigRequest(null, "原生审批模型", "ollama", "https://provider.test", "model", null, null, false, true));
+        using var modelResponse = await client.SendAsync(modelCreate, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(modelResponse, HttpStatusCode.Created, "Create native approval model", cancellationToken).ConfigureAwait(false);
+        var model = (await modelResponse.Content.ReadFromJsonAsync<AiModelConfigResponse>(cancellationToken).ConfigureAwait(false))!;
+        using var update = AuthorizedJson(HttpMethod.Put, $"/api/v1/ai/knowledge-bases/{created.Id}/policy", accessToken,
+            new UpdateAiKnowledgePolicyRequest("restricted", model.Id, model.Version, model.Id, model.Version, created.Version));
+        using var updatedResponse = await client.SendAsync(update, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(updatedResponse, HttpStatusCode.OK, "Update native knowledge policy", cancellationToken).ConfigureAwait(false);
+        var updated = (await updatedResponse.Content.ReadFromJsonAsync<AiKnowledgeBaseResponse>(cancellationToken).ConfigureAwait(false))!;
+        Assert.AreEqual("restricted", updated.DataClassification);
+        Assert.AreEqual(created.Version + 1, updated.Version);
+        Assert.AreEqual(model.Id, updated.EmbeddingModelConfigId);
+        Assert.AreEqual(model.Version, updated.EmbeddingModelVersion);
+        Assert.AreEqual(model.Id, updated.GenerationModelConfigId);
+        Assert.AreEqual(model.Version, updated.GenerationModelVersion);
+        await AssertPageContainsAsync<AiKnowledgeBaseResponse>(client, "/api/v1/ai/knowledge-bases?page=1&pageSize=20", accessToken,
+            item => item.Id == created.Id, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task VerifyMessagingDeadLetterFlowAsync(

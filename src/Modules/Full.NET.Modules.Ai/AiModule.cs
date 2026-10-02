@@ -61,6 +61,7 @@ public sealed class AiModule : IFullNetModule
             IAuthorizationCatalogContributor,
             AiAuthorizationContributor>());
         services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, Resources.AiKnowledgeErrorResourceSource>());
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<AiModelBindingScope>();
         services.TryAddScoped<IProtectedModelCredentialStore>(provider => provider.GetRequiredService<AiModelBindingScope>());
@@ -77,6 +78,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<IAiOperationBudgetStore, AiOperationBudgetStore>();
         services.AddOpenTelemetry().WithMetrics(metrics => metrics.AddMeter(AiOperationBudgetStore.MeterName));
         services.TryAddScoped<AiModelConfigQueryService>();
+        services.TryAddScoped<Features.ManageKnowledgeBases.AiKnowledgeBaseService>();
         services.TryAddScoped<AiModelConfigManagementService>();
         services.TryAddScoped<AiModelConfigOperationsService>();
         services.TryAddScoped<AiEmbeddingTestService>();
@@ -118,6 +120,7 @@ public sealed class AiModule : IFullNetModule
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageModelConfigs.Endpoint.Map(endpoints);
+        Features.ManageKnowledgeBases.Endpoint.Map(endpoints);
         Features.TestEmbeddings.Endpoint.Map(endpoints);
         Features.ManageMcpRemoteConnections.Endpoint.Map(endpoints);
         Features.ManageTenantQuotas.Endpoint.Map(endpoints);
