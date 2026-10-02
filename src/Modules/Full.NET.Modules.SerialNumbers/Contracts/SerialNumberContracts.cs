@@ -306,6 +306,7 @@ public interface ISerialRuleChangeApprovalSource
     /// <summary>读取指定规则当前可审批变更的快照。</summary>
     /// <param name="ruleId">目标规则标识。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>成功时返回可审批变更快照；规则不存在或无可审批变更时 Result 失败。</returns>
     Task<Result<SerialRuleApprovalSnapshot>> GetSnapshotAsync(
         Guid ruleId,
         CancellationToken cancellationToken = default);
@@ -320,6 +321,7 @@ public interface ISerialRuleChangeApprovalApplier
     /// <param name="actorUserId">执行应用的用户标识。</param>
     /// <param name="idempotencyKey">稳定幂等键，用于重放保护。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>成功时返回更新后的规则响应；幂等重放返回首次应用结果。版本冲突或规则不存在时 Result 失败。</returns>
     Task<Result<SerialNumberRuleResponse>> ApplyApprovedUpdateAsync(
         Guid ruleId,
         string afterSnapshotJson,
@@ -337,6 +339,7 @@ public interface ISerialRuleDisableApprovalApplier
     /// <param name="actorUserId">执行应用的用户标识。</param>
     /// <param name="idempotencyKey">稳定幂等键，用于重放保护。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>成功时返回禁用后的规则响应；幂等重放返回首次应用结果。版本冲突或规则不存在时 Result 失败。</returns>
     Task<Result<SerialNumberRuleResponse>> ApplyApprovedDisableAsync(
         Guid ruleId,
         string afterSnapshotJson,

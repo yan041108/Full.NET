@@ -15,6 +15,7 @@ public interface ITenantResourceFileStore
     /// <param name="content">待上传流。</param>
     /// <param name="contentLength">声明长度，实际读取仍受上限约束。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>成功时为已创建的文件引用（含文件标识、字节数与内容摘要）；所有权持久化或对象上传失败时通过 Result.Error 返回错误，调用方须先判断 IsSuccess。</returns>
     Task<Result<TenantResourceFileReference>> UploadAsync(string ownerModuleKey, Guid resourceId,
         Guid actorUserId, string originalFileName, string contentType, Stream content, long contentLength,
         CancellationToken cancellationToken = default);
@@ -24,6 +25,7 @@ public interface ITenantResourceFileStore
     /// <param name="resourceId">已授权的资源标识。</param>
     /// <param name="fileId">文件引用。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>成功时为可读取的文件内容（流由调用方负责释放）；未就绪、越权或不存在时通过 Result.Error 返回错误。</returns>
     Task<Result<TenantResourceFileContent>> OpenReadyContentAsync(string ownerModuleKey, Guid resourceId,
         Guid fileId, CancellationToken cancellationToken = default);
 

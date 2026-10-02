@@ -16,6 +16,7 @@ public interface IApiResultMapper
     /// <typeparam name="T">成功承载的数据类型。</typeparam>
     /// <param name="result">应用层返回的结构化结果。</param>
     /// <param name="httpContext">当前请求上下文，用于写入 TraceId、Locale 等响应头。</param>
+    /// <returns>可直接写入 HTTP 响应的 <see cref="IResult"/>；成功时包含数据载荷，失败时包含问题详情或兼容信封。</returns>
     IResult Map<T>(Result<T> result, HttpContext httpContext);
 
     /// <summary>
@@ -23,5 +24,6 @@ public interface IApiResultMapper
     /// </summary>
     /// <param name="exception">管道中未处理的异常实例。</param>
     /// <param name="httpContext">当前请求上下文。</param>
+    /// <returns>代表服务器内部错误的 <see cref="IResult"/>；不得返回 <see langword="null"/>。</returns>
     IResult MapException(Exception exception, HttpContext httpContext);
 }

@@ -11,5 +11,9 @@ public interface ICacheJsonTypeInfoContributor
     /// <summary>
     /// 返回指定载荷的源生成元数据；不属于当前贡献者的类型返回 <see langword="null"/>。
     /// </summary>
+    /// <returns>
+    /// 当前贡献者为 <paramref name="type"/> 提供的源生成 <see cref="JsonTypeInfo"/>；
+    /// 若该类型不属于本贡献者负责的载荷集合，则返回 <see langword="null"/>，由缓存基础设施继续向下一贡献者查询。
+    /// </returns>
     JsonTypeInfo? GetTypeInfo(Type type);
 }

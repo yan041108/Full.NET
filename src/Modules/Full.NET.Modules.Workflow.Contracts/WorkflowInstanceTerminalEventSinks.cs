@@ -1,4 +1,4 @@
-﻿using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Messaging;
 
 namespace Full.NET.Modules.Workflow.Contracts;
 
@@ -6,6 +6,7 @@ namespace Full.NET.Modules.Workflow.Contracts;
 public interface IWorkflowInstanceCompletedSink
 {
     /// <summary>处理已反序列化的实例完成事件。</summary>
+    /// <returns>表示处理完成的 Task；处理失败时通过异常向上传播，由 Outbox 投递器决定重试或转入死信。</returns>
     Task HandleAsync(
         IntegrationEventContext context,
         WorkflowInstanceCompletedIntegrationEvent integrationEvent,
@@ -16,6 +17,7 @@ public interface IWorkflowInstanceCompletedSink
 public interface IWorkflowInstanceRejectedSink
 {
     /// <summary>处理已反序列化的实例驳回事件。</summary>
+    /// <returns>表示处理完成的 Task；处理失败时通过异常向上传播，由 Outbox 投递器决定重试或转入死信。</returns>
     Task HandleAsync(
         IntegrationEventContext context,
         WorkflowInstanceRejectedIntegrationEvent integrationEvent,
@@ -26,6 +28,7 @@ public interface IWorkflowInstanceRejectedSink
 public interface IWorkflowInstanceCancelledSink
 {
     /// <summary>处理已反序列化的实例取消事件。</summary>
+    /// <returns>表示处理完成的 Task；处理失败时通过异常向上传播，由 Outbox 投递器决定重试或转入死信。</returns>
     Task HandleAsync(
         IntegrationEventContext context,
         WorkflowInstanceCancelledIntegrationEvent integrationEvent,

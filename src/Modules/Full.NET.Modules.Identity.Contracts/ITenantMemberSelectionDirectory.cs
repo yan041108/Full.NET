@@ -12,12 +12,14 @@ namespace Full.NET.Modules.Identity.Contracts;
 public interface ITenantMemberSelectionDirectory
 {
     /// <summary>分页读取当前 Tenant 的活动成员（含关联的活动 Host 用户资料）。</summary>
+    /// <returns>当前 Tenant 内活动成员的分页结果；越界页返回空列表但不抛异常。</returns>
     Task<PagedResult<TenantUserDirectoryEntry>> ListActiveTenantMembersAsync(
         int page,
         int pageSize,
         CancellationToken cancellationToken = default);
 
     /// <summary>查找当前 Tenant 内指定用户是否仍为活动成员。</summary>
+    /// <returns>活动成员条目；用户非活动、不存在或不属于当前 Tenant 时返回 null。</returns>
     Task<TenantUserDirectoryEntry?> FindActiveTenantMemberAsync(
         Guid userId,
         CancellationToken cancellationToken = default);

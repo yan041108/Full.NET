@@ -11,5 +11,10 @@ public interface ITenantResourceFileOwner
     /// <param name="resourceId">资源标识。</param>
     /// <param name="fileId">待核对文件。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>
+    /// 若当前可信租户下由 <paramref name="resourceId"/> 标识的资源仍持久化引用 <paramref name="fileId"/>
+    /// 对应文件则为 <see langword="true"/>；否则为 <see langword="false"/>。实现必须查询真实资源表，
+    /// 不得直接信任调用方传入的声明。
+    /// </returns>
     Task<bool> IsReferencedAsync(Guid resourceId, Guid fileId, CancellationToken cancellationToken = default);
 }

@@ -6,6 +6,7 @@ namespace Full.NET.AI.Abstractions.Tools;
 public interface IToolAuthorizationPort
 {
     /// <summary>不信任工具参数或历史令牌中的权限快照。</summary>
+    /// <returns>可信主体快照；权限不足、主体不存在或校验失败时为 null。</returns>
     ValueTask<ToolActor?> AuthorizeAsync(string permissionCode, CancellationToken cancellationToken);
 }
 
@@ -22,6 +23,7 @@ public interface IToolAuditPort
 public interface IAgentApprovalPort
 {
     /// <summary>写工具在派发 Handler 前校验已批准且未消费的绑定，不在此处消费。</summary>
+    /// <returns>审批门禁结果；NotRequired 表示只读工具无需审批，Approved 表示可执行，Required 表示需先走人工审批，Denied 表示已拒绝。</returns>
     ValueTask<AgentApprovalExecutionStatus> ValidateForExecutionAsync(
         ToolInvocation invocation,
         string sideEffectKey,
@@ -42,7 +44,9 @@ public enum AgentApprovalExecutionStatus
 public interface IAgentToolHandler
 {
     /// <summary>校验固定 Schema，拒绝未知字段与越界数据。</summary>
+    /// <returns>true 表示参数符合固定 Schema；false 表示存在未知字段或越界数据。</returns>
     bool ValidateArguments(JsonElement arguments);
     /// <summary>在授权后的可信主体范围执行；写工具须在同事务内消费审批后再改状态。</summary>
+    /// <returns>工具执行结果的 JSON 元素；具体结构由 Handler 契约定义。</returns>
     ValueTask<JsonElement> ExecuteAsync(ToolInvocation invocation, ToolActor actor, CancellationToken cancellationToken);
 }

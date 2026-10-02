@@ -30,7 +30,10 @@ public sealed record PrintingTenantProfileBinding(
 /// <summary>跨模块租户档案绑定源；由 Tenancy 实现，Printing 只消费契约。</summary>
 public interface IPrintingTenantProfileBindingSource
 {
-    /// <summary>解析指定租户的档案绑定字段；不存在或非活动时返回 <see langword="null"/>。</summary>
+    /// <summary>解析指定租户的档案绑定字段。</summary>
+    /// <param name="tenantId">目标租户标识。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>租户档案绑定数据；租户不存在或非活动时为 <see langword="null"/>。</returns>
     Task<PrintingTenantProfileBinding?> ResolveAsync(
         Guid tenantId,
         CancellationToken cancellationToken = default);

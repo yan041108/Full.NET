@@ -26,6 +26,7 @@ public interface IIntegrationEventHandler
     /// <param name="context">包含稳定 MessageId、租户、追踪和事件时间的投递上下文。</param>
     /// <param name="payload">原始 MemoryPack 载荷。</param>
     /// <param name="cancellationToken">宿主退出或租约续期失败时触发的取消令牌。</param>
+    /// <returns>表示处理完成的 Task；至少一次投递下须由实现保证幂等，失败时通过异常触发重试或死信。</returns>
     Task HandleAsync(
         IntegrationEventContext context,
         ReadOnlyMemory<byte> payload,
@@ -37,6 +38,7 @@ public interface IIntegrationEventHandler
     /// </summary>
     /// <param name="payload">原始 MemoryPack 载荷。</param>
     /// <param name="cancellationToken">宿主退出或租约续期失败时触发的取消令牌。</param>
+    /// <returns>表示处理完成的 Task；至少一次投递下须由实现保证幂等，失败时通过异常触发重试或死信。</returns>
     Task HandleAsync(
         ReadOnlyMemory<byte> payload,
         CancellationToken cancellationToken);

@@ -161,6 +161,7 @@ public interface IStaticImportSchemaHandler
     string SchemaKey { get; }
 
     /// <summary>返回 Schema 元数据，供目录与模板端点投影。</summary>
+    /// <returns>当前处理器负责的 Schema 定义；不得返回 <see langword="null"/>。</returns>
     StaticImportSchemaDefinition GetDefinition();
 
     /// <summary>生成指定工作表的导入模板字节流。</summary>
@@ -187,6 +188,11 @@ public interface IStaticImportSchemaHandler
     /// <param name="batchSize">本批最多处理的 valid 行数。</param>
     /// <param name="context">执行上下文，含请求用户与能力标记。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步结果；成功时为本批逐行执行汇总，失败结果表示任务级错误（如流解析失败、上下文无效）。</returns>
+    /// <remarks>
+    /// 实现必须以 <paramref name="context"/> 中的 TaskId 与原始行号建立幂等，同一行重复执行不得产生重复实体。
+    /// 本方法只负责逐行业务写入，不负责任务状态流转与检查点持久化，由调度方在调用前后维护。
+    /// </remarks>
     Task<Result<StaticImportBatchExecutionResult>> ExecuteBatchAsync(
         Stream content,
         long contentLength,

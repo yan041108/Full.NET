@@ -24,6 +24,7 @@ public interface IOutboxStore
     /// <param name="lockId">当前批次共享的租约标识。</param>
     /// <param name="lease">从当前时刻开始计算的新租约持续时间。</param>
     /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
+    /// <exception cref="OutboxLeaseLostException">整个批次的租约已丢失，Worker 必须立即停止处理剩余消息。</exception>
     Task RenewLeaseAsync(
         IReadOnlyCollection<Guid> messageIds,
         Guid lockId,
@@ -36,6 +37,7 @@ public interface IOutboxStore
     /// <param name="id">消息标识。</param>
     /// <param name="lockId">当前租约标识。</param>
     /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
+    /// <exception cref="OutboxConcurrencyException">当前 Worker 不再持有该消息的租约，确认被拒绝。</exception>
     Task MarkProcessedAsync(
         Guid id,
         Guid lockId,
@@ -49,6 +51,7 @@ public interface IOutboxStore
     /// <param name="error">失败摘要；用于人工排障。</param>
     /// <param name="nextAttemptAt">下次允许重新领取的 UTC 时间。</param>
     /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
+    /// <exception cref="OutboxConcurrencyException">当前 Worker 不再持有该消息的租约，释放被拒绝。</exception>
     Task MarkFailedAsync(
         Guid id,
         Guid lockId,
@@ -68,6 +71,7 @@ public interface IOutboxStore
     /// <param name="deadLetterReasonCode">稳定原因码；用于查询、审计和运维文档。</param>
     /// <param name="deadLetteredAt">进入死信终态的 UTC 时间。</param>
     /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
+    /// <exception cref="OutboxConcurrencyException">当前 Worker 不再持有该消息的租约，死信标记被拒绝。</exception>
     Task MarkDeadLetterAsync(
         Guid id,
         Guid lockId,

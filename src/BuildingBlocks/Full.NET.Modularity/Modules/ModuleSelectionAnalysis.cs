@@ -99,11 +99,13 @@ public interface IFullNetModuleSelectionPreview
 {
     /// <summary>读取当前进程配置并分析启用集。</summary>
     /// <param name="configuration">宿主配置根。</param>
+    /// <returns>模块启用集分析结果；包含校验问题列表与各模块状态，永不为 null。</returns>
     ModuleSelectionAnalysis AnalyzeRuntime(IConfiguration configuration);
 
     /// <summary>分析候选预设或显式启用列表。</summary>
     /// <param name="preset">候选预设；与 <paramref name="enabled"/> 同时提供时以显式列表为准。</param>
     /// <param name="enabled">候选显式启用模块键。</param>
+    /// <returns>候选配置下的模块启用集分析结果；包含校验问题列表与各模块状态，永不为 null。</returns>
     ModuleSelectionAnalysis AnalyzeCandidate(
         string? preset,
         IReadOnlyList<string>? enabled);

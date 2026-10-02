@@ -9,5 +9,9 @@ namespace Full.NET.Data.Abstractions;
 public interface IDatabaseAdmissionPriorityScope
 {
     /// <summary>进入可嵌套的关键数据库操作范围。</summary>
+    /// <returns>
+    /// 表示关键范围生命周期的 <see cref="IDisposable"/>；调用方负责在关键操作结束时释放以归还高优先级连接配额。
+    /// 嵌套调用应支持多次进入并按逆序释放，未释放将持续占用部署时保留的配额。
+    /// </returns>
     IDisposable EnterCritical();
 }

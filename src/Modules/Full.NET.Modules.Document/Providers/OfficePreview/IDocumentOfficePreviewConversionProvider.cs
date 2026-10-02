@@ -12,6 +12,10 @@ public interface IDocumentOfficePreviewConversionProvider
     /// <param name="request">源文件元数据与可读流。</param>
     /// <param name="workingDirectory">本轮任务专用临时目录，不得写入目录外路径。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>
+    /// 转换结果：成功时包含 PDF 只读流与字节长度，流由调用方负责释放；
+    /// 失败时返回失败 <see cref="Result{T}"/>，由调用方决定降级或重试，实现不得抛出未捕获异常。
+    /// </returns>
     Task<Result<DocumentOfficePreviewConversionOutput>> ConvertAsync(
         DocumentOfficePreviewConversionInput request,
         string workingDirectory,

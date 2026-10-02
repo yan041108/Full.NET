@@ -14,6 +14,7 @@ public interface IFileStorageProvider
 
     /// <summary>打开对象的只读流。</summary>
     /// <summary>探测最终对象是否存在；不得把暂存对象或部分写入视为已发布。</summary>
+    /// <returns>true 表示最终对象已发布且可读；false 表示对象不存在或读取失败。</returns>
     async Task<bool> ExistsAsync(
         string storageKey,
         CancellationToken cancellationToken)
@@ -30,6 +31,12 @@ public interface IFileStorageProvider
         }
     }
 
+    /// <summary>
+    /// 打开对象的只读流；调用方负责释放流，流读取期间对象可能被并发删除。
+    /// </summary>
+    /// <param name="storageKey">由 Files 模块生成的稳定对象键。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>对象的只读流；对象不存在时抛出 <see cref="FileNotFoundException"/>。</returns>
     Task<Stream> OpenReadAsync(
         string storageKey,
         CancellationToken cancellationToken);

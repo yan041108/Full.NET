@@ -10,6 +10,7 @@ public interface IKafkaConnectAdminClient : IDisposable
     /// </summary>
     /// <param name="timeout">最大等待时间。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>true 表示 Connect REST 端点已可服务；false 表示在 timeout 内未就绪或发生非致命失败。</returns>
     Task<bool> WaitUntilReadyAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -29,6 +30,7 @@ public interface IKafkaConnectAdminClient : IDisposable
     /// <param name="connectorName">目标 Connector 名称。</param>
     /// <param name="timeout">最长等待窗口。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>true 表示所有 Task 均进入 RUNNING；false 表示超时或状态异常。</returns>
     Task<bool> WaitForConnectorHealthyAsync(
         string connectorName,
         TimeSpan timeout,
@@ -60,6 +62,7 @@ public interface IKafkaConnectAdminClient : IDisposable
     /// </summary>
     /// <param name="connectorName">目标 Connector 名称。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>true 表示 Connector 当前处于 PAUSED；false 表示运行中或不存在。</returns>
     Task<bool> IsConnectorPausedAsync(string connectorName, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -67,6 +70,7 @@ public interface IKafkaConnectAdminClient : IDisposable
     /// </summary>
     /// <param name="connectorName">目标 Connector 名称。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>已提交的源位点快照；Connector 不存在或尚未提交位点时为 null。</returns>
     Task<CdcDeliveryPosition?> TryReadConnectorPositionAsync(
         string connectorName,
         CancellationToken cancellationToken = default);
@@ -76,6 +80,7 @@ public interface IKafkaConnectAdminClient : IDisposable
     /// </summary>
     /// <param name="connectorName">目标 Connector 名称。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>Connector 状态 JSON 原始字符串；Connector 不存在时为 null。</returns>
     Task<string?> TryGetConnectorStatusAsync(
         string connectorName,
         CancellationToken cancellationToken = default);
