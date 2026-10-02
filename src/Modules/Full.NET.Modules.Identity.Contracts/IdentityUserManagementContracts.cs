@@ -191,6 +191,7 @@ public sealed record HostUserProfileWriteRequest(
 /// <param name="Version">账号快照的并发版本。</param>
 /// <param name="ProjectedFields">按当前访问者角色裁剪后的受限投影；无裁剪授权时为 <see langword="null"/>。</param>
 /// <param name="Profile">扩展档案详情；无授权读取时为 <see langword="null"/>。</param>
+/// <param name="RetiredAtUtc">账号停用/退休时间（UTC）；未停用为 <see langword="null"/>。</param>
 public sealed record HostUserResponse(
     Guid Id,
     string Username,
