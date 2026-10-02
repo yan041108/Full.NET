@@ -16,7 +16,7 @@
 - 本轮交付 R02：冻结中文合成语料、测试项目内离线评分器、人工参考结果、可重放报告入口及对应失败回归。R02 离线基线已本地验证；真实检索/模型端到端基线明确为未测，随 R06 接入。
 - R02 已提交 `4a748409af6fcddd23b441a182ee3e7e8fe2b47f`。随后交付 R03 独立选型实验及 [ADR-0013](../../architecture/adr/ADR-0013-ai-retrieval-provider.md)：首版采用双库存派生向量、SQL 先过滤、有界精确余弦；Qdrant 保留候选，PdfPig 0.1.16 作为 R05 文本 PDF 接入候选。没有新增生产依赖或功能开关。
 - 实施基线：分支 `codex/foundation-acceptance-20260926`，HEAD `a7a68776818731703f1ebc11bc529f2746df59e1`，任务快照 `ai-rag-evaluation-r02`。保留原有日志文档、code-wiki 与语言资源改动。
-- R04a 已交付私有目录及精确模型版本审批，按下方证据本地验收；R04b 及 R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
+- R04a 已交付私有目录及精确模型版本审批，R04b1 已交付明确用户成员与立即撤权，按下方证据本地验收；R04b 整体及 R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
 
 ### 2026-09-27 当前摘要（替代下方历史状态中的未实施判断）
 
@@ -605,7 +605,25 @@ R03 实施记录（2026-10-02）：分支 `codex/foundation-acceptance-20260926`
 
 R04b 执行顺序：先交付知识库成员授权与立即撤权（所有者写入、受授权成员读取，可信范围及精确端点权限独立生效）；再交付文档版本、文档级授权与文件生命周期；最后生成客户端并核对角色/组织范围及全部文件故障场景。每个独立切片验证后提交，R04b 总勾选须等待所有子项完成。
 
-- [ ] R04b1：新增 `fn_ai_knowledge_member` 及成对恢复迁移，公开有界成员读取/整量替换请求；成员仅由所有者管理，写入独立精确权限，按知识库 `Version` 防止覆盖。用户候选经 Identity 最小 Host/可信 Tenant 活动成员目录核对，不查询 Identity 表。目录读取使用本模块参数化 SQL 联合知识库/成员记录；成员只能读取启用目录，目录编辑和模型审批仍限定所有者。撤权直接提交权威成员状态，不等待缓存或索引失效。Unit 先覆盖未授权、禁用、租户和所有者边界；双库 HTTP 再覆盖授权后可读、撤销后立即不可读、跨租户候选拒绝、越权改成员及乐观并发。角色/组织与文档级授权留给后续 R04b 子项，不以此关闭全部共享授权。
+- [x] R04b1：新增 `fn_ai_knowledge_member` 及成对恢复迁移，公开有界成员读取/整量替换请求；成员仅由所有者管理，写入独立精确权限，按知识库 `Version` 防止覆盖。用户候选经 Identity 最小 Host/可信 Tenant 活动成员目录核对，不查询 Identity 表。目录读取使用本模块参数化 SQL 联合知识库/成员记录；成员只能读取启用目录，目录编辑和模型审批仍限定所有者。撤权直接提交权威成员状态，不等待缓存或索引失效。Unit 先覆盖名单上限、重复/空标识、所有者排除和版本边界；双库 HTTP 再覆盖权限、禁用与租户隔离、授权后可读、撤销后立即不可读、跨租户候选拒绝、越权改成员及乐观并发。角色/组织与文档级授权留给后续 R04b 子项，不以此关闭全部共享授权。
+
+**R04b1 本地验收（2026-10-02）：** 基线 `8d577621fe781b4e9189ff5031166a6e6894eae6`，快照 `ai-knowledge-members-r04b1`，分支 `codex/foundation-acceptance-20260926`。本切片只交付明确用户成员；角色/组织、文档授权与文件生命周期继续开放。
+
+- 成对新增 241 成员迁移；所有者整量替换最多 100 个唯一用户，共享知识库版本并在 AI 本地短事务中原子提交。候选经 Identity Host 批量目录或可信 Tenant 活动成员目录核对，跨模块读取在写事务外；成员读取启用目录，目录编辑、模型审批和成员管理仍限定所有者。撤权以本模块权威 SQL 立即生效，不依赖缓存或索引。
+- 最终 `pnpm test:dotnet:unit -- --filter 'FullyQualifiedName~Full.NET.UnitTests.Ai|FullyQualifiedName~Full.NET.UnitTests.Identity' --minimum-expected-tests 837`：837/837，零跳过。新增成员验证曾先复现失败；双库 HTTP 覆盖独立权限、禁用/未知候选与无部分写入、跨范围、并发版本、目录停用与空名单立即撤权，241 覆盖索引/注释恢复、重跑、授权保留及重复/悬空关系拒绝。
+- 最终 `pnpm test:dotnet:architecture -- --filter 'FullyQualifiedName~AiDependencyBoundaryTests|FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol|FullyQualifiedName~SqlStatement|FullyQualifiedName~ModuleDataAccess|FullyQualifiedName~IdentityOidcBoundaryTests' --minimum-expected-tests 86`：86/86，零跳过。`pnpm test:aot:analyzers`：退出 0，零警告/错误。未复跑全量 Architecture；前序记录的 Auditing 权限命名失败未由本任务修复，不宣称全量通过。
+- 真实原生 API 先在角色授权复现 500，补齐 `IdentityRolePermission` / `IdentityUserRole` 静态参数绑定；真实首次改密再复现 500，补齐共用的 `ConsumeRefreshSessionUpdate` 四字段绑定。测试通过现有 Cookie/CSRF 登录辅助履行首次改密；保留安全日志脱敏、强制改密和静态闭包规则。两轮失败各 4/10，原始 TRX 单独保留，没有改写为通过。
+- 最终 `pnpm test:aot:publish:linux` 与 `pnpm test:aot:publish:linux -- --host worker` 均退出 0；正式产物分别 133822032 / 86251944 字节，告警门禁接受既有 17 / 15 项。Linux SDK 10.0.400、Windows SDK 10.0.401、Docker 内存约 31.22 GiB，运行限制 2 个处理器；这里只验收功能与原生路径，不代表容量或生产 SLO。
+- 最终 `pnpm test:integration:affected -- --snapshot ai-knowledge-members-r04b1 --phase slice` 含 Ai、Identity、241 与完整原生过滤器，发现 232 个去重测试身份。Windows 205 项通过、27 项原生跳过，原命令退出非零，不记为通过；隔离 Linux SDK 容器直接运行最终正式产物，API 10/10、Worker 17/17 通过，零跳过。逐测试身份核对最终 232/232 实际通过，无遗漏，任务源码哈希未变化。`artifacts/native-aot/linux-x64/r04b1/after-final-fix/` 保存最终发布清单、源码哈希、TRX 与 `verification-summary.json`；原失败记录保留在父目录及 `after-fix/`。
+- `pnpm test:sql-safety` 5/5、`pnpm test:naming` 33/33、`pnpm test:governance` 57/57；测试工具链 54/54、Integration 分片 1114 项无遗漏/重复。只读安全与原生闭包审查未发现剩余确定问题；成员关系、首密登录和三处参数绑定均由真实原生链路验证。本任务 diff 检查后独立提交，保留既有无关改动；下一项为下方 R04b2。
+
+R04b2 下一项实施边界（复用本计划，不新增平行计划）：
+
+1. 先建立文档/版本与导入操作的失败用例：只有知识库所有者及独立上传权限可写，明确成员的目录读取资格不能授予文档/来源访问；跨范围、禁用目录、删除文件、重复请求与旧版本覆盖均拒绝。正文上传只从当前操作的流进入 Files，不提供按任意 FileId 导入其他模块附件的入口。首版状态只能表达待处理/失败，R05 前不能标记索引就绪。
+2. 在 `Features/ManageKnowledgeDocuments/`、`Persistence/` 及双库成对迁移持久化文档、不可变版本、最小文档授权和有界导入操作状态。所有 UUID 在应用端生成；版本变更、删除与撤权先写权威状态，事务只覆盖 AI 自有表。具体迁移编号在实现时取仓库下一空号；按实际新增测试更新矩阵，不预填发现数。
+3. Host 上传复用 `IHostFileUploadWriter`，给 Files 追加 Ai Claim 消费者及稳定版本幂等键，注册精确版本/文件 Probe。按 Claim → AI 提交 → Confirm 顺序执行；确认失败与未知提交保留待对账引用，已知回滚才补偿释放。Tenant 上传复用 `ITenantResourceFileStore` 的 Ai 模块键及服务端版本资源 ID，注册 `ITenantResourceFileOwner`，通过 `ListReadyAsync` 恢复已上传对象；禁止跨模块 JOIN、外部存储操作嵌套本地事务和按客户端声明确认引用。
+4. 双库 HTTP/恢复用例验证文档授权、并发版本与立即撤权；可控故障验证 Claim 前后中断、Confirm 失败、释放失败重试、资源归属不匹配、只有下载权而无共享权。删除/撤权后来源端点即刻不可读，后续 R05 清理/索引消费者必须复核权威状态。操作指南只更新真实实现，OpenAPI/共享客户端与角色/组织范围在 R04b 收尾验证。
+5. 每个可独立交付的切片依次运行 Unit、受影响 Architecture、双库 Integration、命名/注释/SQL 门禁及 AOT 分析、正式原生影响集；只读安全审查和新鲜 `git diff --check` 后提交。未完成文件故障场景、客户端和范围授权前保持 R04b 未勾选。
 
 **新增责任位置：** `src/Modules/Full.NET.Modules.Ai/Features/ManageKnowledgeBases/`、`Features/ManageKnowledgeDocuments/`、`Persistence/AiKnowledgeSql.cs`；双库迁移位于 `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/` 与 `MySql/`。测试位于 `tests/Full.NET.IntegrationTests/Ai/`，复用现有双库 fixture。
 

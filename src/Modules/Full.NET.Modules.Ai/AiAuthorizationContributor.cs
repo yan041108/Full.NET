@@ -11,10 +11,12 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
 
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
-        new(AiKnowledgePermissions.Read, "读取本人知识库", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiKnowledgePermissions.Read, "读取获授权知识库", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgePermissions.Create, "创建私有知识库", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgePermissions.Update, "更新本人知识库目录", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgePermissions.PolicyUpdate, "审批知识库模型处理", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiKnowledgePermissions.MembersRead, "读取知识库成员", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiKnowledgePermissions.MembersUpdate, "管理知识库成员", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiModelPermissions.Read, "读取 AI 模型配置", AuthorizationScope.Host),
         new(AiModelPermissions.Create, "创建 AI 模型配置", AuthorizationScope.Host),
         new(AiModelPermissions.Update, "更新 AI 模型配置", AuthorizationScope.Host),

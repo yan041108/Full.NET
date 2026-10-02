@@ -14,6 +14,17 @@ internal static class Endpoint
     internal static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/ai/knowledge-bases").WithTags("AiKnowledgeBases");
+        Common(group.MapGet("/{knowledgeBaseId:guid}/members", async (Guid knowledgeBaseId,
+            ManageKnowledgeMembers.AiKnowledgeMemberService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            TryOwner(context, out var owner) ? mapper.Map(await service.GetAsync(knowledgeBaseId, owner, token).ConfigureAwait(false), context) : Results.Unauthorized()),
+            "aiGetKnowledgeMembers", AiKnowledgePermissions.MembersRead)
+            .Produces<AiKnowledgeMembersResponse>(StatusCodes.Status200OK).ProducesProblem(StatusCodes.Status404NotFound);
+        Common(group.MapPut("/{knowledgeBaseId:guid}/members", async (Guid knowledgeBaseId, SetAiKnowledgeMembersRequest request,
+            ManageKnowledgeMembers.AiKnowledgeMemberService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            TryOwner(context, out var owner) ? mapper.Map(await service.SetAsync(knowledgeBaseId, owner, request, token).ConfigureAwait(false), context) : Results.Unauthorized()),
+            "aiSetKnowledgeMembers", AiKnowledgePermissions.MembersUpdate)
+            .Produces<AiKnowledgeMembersResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound).ProducesProblem(StatusCodes.Status409Conflict);
         Common(group.MapGet("/", async (int? page, int? pageSize, AiKnowledgeBaseService service,
             IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
             TryOwner(context, out var owner) ? mapper.Map(await service.ListAsync(owner, page ?? 1, pageSize ?? 20, token).ConfigureAwait(false), context) : Results.Unauthorized()),

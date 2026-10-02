@@ -3,6 +3,10 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <summary>知识库稳定错误码；业务不依赖译文。</summary>
 public static class AiKnowledgeErrorCodes
 {
+    /// <summary>成员集合或并发版本不符合输入约束。</summary>
+    public const string MembersInvalid = "ai.knowledge.members_invalid";
+    /// <summary>目标用户不存在、已停用或不属于当前租户。</summary>
+    public const string MemberUnavailable = "ai.knowledge.member_unavailable";
     /// <summary>错误资源匹配前缀。</summary>
     public const string Prefix = "ai.knowledge.";
     /// <summary>目录或审批输入不合法。</summary>

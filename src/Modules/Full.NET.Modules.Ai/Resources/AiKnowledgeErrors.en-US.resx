@@ -9,4 +9,6 @@
   <data name="ai.knowledge.not_found" xml:space="preserve"><value>The knowledge base was not found.</value></data>
   <data name="ai.knowledge.version_conflict" xml:space="preserve"><value>The knowledge base was modified by another request.</value></data>
   <data name="ai.knowledge.model_unavailable" xml:space="preserve"><value>The selected model configuration version is unavailable; review the processing approval.</value></data>
+  <data name="ai.knowledge.members_invalid" xml:space="preserve"><value>The knowledge base member request is invalid.</value></data>
+  <data name="ai.knowledge.member_unavailable" xml:space="preserve"><value>The member is unavailable in the current scope.</value></data>
 </root>

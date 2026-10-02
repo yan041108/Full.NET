@@ -1,6 +1,15 @@
 {
   "schemaVersion": 1,
   "tables": {
+    "fn_ai_knowledge_member": {
+      "comment": "知识库明确成员授权",
+      "columns": {
+        "Id": "逻辑主键",
+        "KnowledgeBaseId": "所属知识库标识",
+        "UserId": "获授权用户标识",
+        "CreatedAtUtc": "创建时间（UTC）"
+      }
+    },
     "fn_ai_knowledge_base": {
       "comment": "私有知识库目录及模型处理审批",
       "columns": {

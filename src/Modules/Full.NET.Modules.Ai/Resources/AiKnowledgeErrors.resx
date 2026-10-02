@@ -9,4 +9,6 @@
   <data name="ai.knowledge.not_found" xml:space="preserve"><value>未找到该知识库。</value></data>
   <data name="ai.knowledge.version_conflict" xml:space="preserve"><value>知识库已被其他操作更新，请刷新后重试。</value></data>
   <data name="ai.knowledge.model_unavailable" xml:space="preserve"><value>所选模型配置版本不可用，请重新确认处理审批。</value></data>
+  <data name="ai.knowledge.members_invalid" xml:space="preserve"><value>知识库成员配置请求无效。</value></data>
+  <data name="ai.knowledge.member_unavailable" xml:space="preserve"><value>目标用户已停用、不存在或不属于当前范围。</value></data>
 </root>

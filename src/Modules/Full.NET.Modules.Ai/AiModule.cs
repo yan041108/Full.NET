@@ -79,6 +79,7 @@ public sealed class AiModule : IFullNetModule
         services.AddOpenTelemetry().WithMetrics(metrics => metrics.AddMeter(AiOperationBudgetStore.MeterName));
         services.TryAddScoped<AiModelConfigQueryService>();
         services.TryAddScoped<Features.ManageKnowledgeBases.AiKnowledgeBaseService>();
+        services.TryAddScoped<Features.ManageKnowledgeMembers.AiKnowledgeMemberService>();
         services.TryAddScoped<AiModelConfigManagementService>();
         services.TryAddScoped<AiModelConfigOperationsService>();
         services.TryAddScoped<AiEmbeddingTestService>();

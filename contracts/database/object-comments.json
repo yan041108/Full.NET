@@ -254,6 +254,15 @@
         "Version": "目录与审批乐观并发版本号"
       }
     },
+    "fn_ai_knowledge_member": {
+      "comment": "知识库明确成员授权",
+      "columns": {
+        "CreatedAtUtc": "创建时间（UTC）",
+        "Id": "逻辑主键",
+        "KnowledgeBaseId": "所属知识库标识",
+        "UserId": "获授权用户标识"
+      }
+    },
     "fn_ai_mcp_remote_connection": {
       "comment": "人工智能mcp remote connection表",
       "columns": {

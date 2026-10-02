@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Ai.Features.ManageKnowledgeBases;
 
-/// <summary>私有目录与精确模型审批；所有读写都同时约束可信租户与用户。</summary>
+/// <summary>获授权目录与精确模型审批；写入限定所有者，明确成员只读启用目录。</summary>
 /// <param name="query">统一查询执行器。</param>
 /// <param name="command">统一命令执行器。</param>
 /// <param name="transaction">失败结果可回滚的短事务。</param>
@@ -43,7 +43,9 @@ internal sealed class AiKnowledgeBaseService(IQueryExecutor query, ICommandExecu
 
     internal async Task<Result<AiKnowledgeBaseResponse>> GetAsync(Guid id, Guid owner, CancellationToken token)
     {
-        var row = await FindAsync(id, owner, token).ConfigureAwait(false);
+        var row = await query.QuerySingleOrDefaultAsync<AiKnowledgeBaseRecord>(AiKnowledgeScope.IsTenant(tenant)
+                ? AiKnowledgeSql.ReadTenant : AiKnowledgeSql.ReadHost,
+            AiSqlParameters.Create(("Id", id), ("OwnerUserId", owner)), token).ConfigureAwait(false);
         return row is null ? NotFound() : Result<AiKnowledgeBaseResponse>.Success(Map(row));
     }
 
