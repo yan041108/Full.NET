@@ -77,12 +77,22 @@ public static class ImportExportTaskStatusKeys
 }
 
 /// <summary>静态导入工作表定义。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
+/// <param name="WorksheetKey">工作表稳定键；同一 Schema 内唯一。</param>
+/// <param name="DisplayName">工作表展示名，供前端模板下载入口显示。</param>
+/// <param name="HeaderColumns">表头列稳定顺序；行号与列序依赖此顺序。</param>
 public sealed record StaticImportWorksheetDefinition(
     string WorksheetKey,
     string DisplayName,
     IReadOnlyList<string> HeaderColumns);
 
 /// <summary>静态导入 Schema 元数据。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 SchemaKey 与 RequiredPermission 发布后不得改名或删除。</remarks>
+/// <param name="SchemaKey">Schema 稳定键，对应处理器注册键。</param>
+/// <param name="DisplayName">Schema 展示名。</param>
+/// <param name="ScopeKey">授权作用域键，决定租户上下文绑定方式。</param>
+/// <param name="RequiredPermission">执行此 Schema 所需的精确权限码。</param>
+/// <param name="Worksheets">Schema 包含的工作表定义集合。</param>
 public sealed record StaticImportSchemaDefinition(
     string SchemaKey,
     string DisplayName,
@@ -91,6 +101,9 @@ public sealed record StaticImportSchemaDefinition(
     IReadOnlyList<StaticImportWorksheetDefinition> Worksheets);
 
 /// <summary>静态导入预校验上下文。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
+/// <param name="RequestedByUserId">发起本次预校验的可信当前用户标识。</param>
+/// <param name="CapabilityFlags">调用方授予的能力标记，键名为稳定能力码。</param>
 public sealed record StaticImportPreviewContext(
     Guid RequestedByUserId,
     IReadOnlyDictionary<string, bool> CapabilityFlags)
@@ -100,6 +113,11 @@ public sealed record StaticImportPreviewContext(
 }
 
 /// <summary>单行预校验结果。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 ErrorCode 为稳定错误码前缀。</remarks>
+/// <param name="LineNumber">原始工作簿行号（从 1 开始）。</param>
+/// <param name="IsValid">本行是否通过预校验。</param>
+/// <param name="ErrorCode">失败时返回的稳定错误码；成功时为 <see langword="null"/>。</param>
+/// <param name="Message">失败时的可读说明；成功时为 <see langword="null"/>。</param>
 public sealed record StaticImportRowPreviewResult(
     int LineNumber,
     bool IsValid,
@@ -107,6 +125,11 @@ public sealed record StaticImportRowPreviewResult(
     string? Message);
 
 /// <summary>静态导入预校验汇总。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
+/// <param name="TotalRows">解析得到的总行数（不含表头）。</param>
+/// <param name="ValidRowCount">通过预校验的行数。</param>
+/// <param name="InvalidRowCount">未通过预校验的行数。</param>
+/// <param name="Rows">逐行预校验结果集合，顺序与原始行号一致。</param>
 public sealed record StaticImportPreviewResult(
     int TotalRows,
     int ValidRowCount,
@@ -141,9 +164,16 @@ public interface IStaticImportSchemaHandler
     StaticImportSchemaDefinition GetDefinition();
 
     /// <summary>生成指定工作表的导入模板字节流。</summary>
+    /// <param name="worksheetKey">Schema 内的工作表稳定键。</param>
+    /// <returns>模板字节流；格式由实现方决定，调用方不得假设编码。</returns>
     byte[] CreateTemplate(string worksheetKey);
 
     /// <summary>解析并预校验上传内容，不得产生跨模块写入副作用。</summary>
+    /// <param name="content">源工作簿只读流。</param>
+    /// <param name="contentLength">声明内容长度，用于解析前大小校验。</param>
+    /// <param name="context">预校验上下文，含请求用户与能力标记。</param>
+    /// <param name="cancellationToken">用于取消解析与校验操作的令牌。</param>
+    /// <returns>预校验汇总；失败时返回包含错误码的失败结果。</returns>
     Task<Result<StaticImportPreviewResult>> PreviewAsync(
         Stream content,
         long contentLength,
@@ -167,6 +197,30 @@ public interface IStaticImportSchemaHandler
 }
 
 /// <summary>导入任务列表项响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 StatusKey 与 ErrorCode 为稳定机器码。</remarks>
+/// <param name="Id">任务标识（UUID v7）。</param>
+/// <param name="TenantId">任务所属租户标识。</param>
+/// <param name="SchemaKey">Schema 稳定键，决定处理器路由。</param>
+/// <param name="SchemaDisplayName">Schema 展示名，便于列表显示。</param>
+/// <param name="WorksheetKey">工作表稳定键。</param>
+/// <param name="SourceFileId">源文件在文件域的标识。</param>
+/// <param name="SourceFileName">源文件名；可能为 <see langword="null"/>。</param>
+/// <param name="StatusKey">任务当前状态稳定键。</param>
+/// <param name="TotalRows">解析得到的总行数（不含表头）。</param>
+/// <param name="ValidRowCount">通过预校验的行数。</param>
+/// <param name="InvalidRowCount">未通过预校验的行数。</param>
+/// <param name="ErrorCode">任务级失败稳定错误码；无错误时为 <see langword="null"/>。</param>
+/// <param name="RequestedByUserId">发起任务的用户标识。</param>
+/// <param name="CreatedAtUtc">任务创建时间（UTC）。</param>
+/// <param name="PreviewCompletedAtUtc">预校验完成时间（UTC）；未完成时为 <see langword="null"/>。</param>
+/// <param name="ProcessedRowCount">执行阶段已处理的有效行数。</param>
+/// <param name="SucceededRowCount">执行阶段成功写入的行数。</param>
+/// <param name="ExecutionFailedRowCount">执行阶段失败的行数。</param>
+/// <param name="NextLineNumber">下次执行应继续的有效行检查点序号。</param>
+/// <param name="ExecutionStartedAtUtc">执行开始时间（UTC）；未开始时为 <see langword="null"/>。</param>
+/// <param name="ExecutionCompletedAtUtc">执行完成时间（UTC）；未完成时为 <see langword="null"/>。</param>
+/// <param name="HasErrorReceipt">是否存在可下载的错误回执。</param>
+/// <param name="Version">乐观并发版本号，用于 CAS 守卫。</param>
 public sealed record ImportExportTaskResponse(
     Guid Id,
     Guid TenantId,
@@ -193,6 +247,31 @@ public sealed record ImportExportTaskResponse(
     long Version);
 
 /// <summary>导入任务详情响应，包含行级预校验结果。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 StatusKey 与 ErrorCode 为稳定机器码；PreviewRows 顺序与原始行号一致。</remarks>
+/// <param name="Id">任务标识（UUID v7）。</param>
+/// <param name="TenantId">任务所属租户标识。</param>
+/// <param name="SchemaKey">Schema 稳定键，决定处理器路由。</param>
+/// <param name="SchemaDisplayName">Schema 展示名。</param>
+/// <param name="WorksheetKey">工作表稳定键。</param>
+/// <param name="SourceFileId">源文件在文件域的标识。</param>
+/// <param name="SourceFileName">源文件名；可能为 <see langword="null"/>。</param>
+/// <param name="StatusKey">任务当前状态稳定键。</param>
+/// <param name="TotalRows">解析得到的总行数（不含表头）。</param>
+/// <param name="ValidRowCount">通过预校验的行数。</param>
+/// <param name="InvalidRowCount">未通过预校验的行数。</param>
+/// <param name="ErrorCode">任务级失败稳定错误码；无错误时为 <see langword="null"/>。</param>
+/// <param name="RequestedByUserId">发起任务的用户标识。</param>
+/// <param name="CreatedAtUtc">任务创建时间（UTC）。</param>
+/// <param name="PreviewCompletedAtUtc">预校验完成时间（UTC）；未完成时为 <see langword="null"/>。</param>
+/// <param name="ProcessedRowCount">执行阶段已处理的有效行数。</param>
+/// <param name="SucceededRowCount">执行阶段成功写入的行数。</param>
+/// <param name="ExecutionFailedRowCount">执行阶段失败的行数。</param>
+/// <param name="NextLineNumber">下次执行应继续的有效行检查点序号。</param>
+/// <param name="ExecutionStartedAtUtc">执行开始时间（UTC）；未开始时为 <see langword="null"/>。</param>
+/// <param name="ExecutionCompletedAtUtc">执行完成时间（UTC）；未完成时为 <see langword="null"/>。</param>
+/// <param name="HasErrorReceipt">是否存在可下载的错误回执。</param>
+/// <param name="PreviewRows">预校验逐行结果集合，顺序与原始行号一致。</param>
+/// <param name="Version">乐观并发版本号，用于 CAS 守卫。</param>
 public sealed record ImportExportTaskDetailResponse(
     Guid Id,
     Guid TenantId,

@@ -48,6 +48,21 @@ public sealed record CreateReportingExportTaskRequest(
     IReadOnlyList<ReportingExecutionParameterValue> Parameters);
 
 /// <summary>报表导出任务摘要。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 FormatKey、StatusKey、ErrorCode 等稳定键发布后不可改名或删除。</remarks>
+/// <param name="Id">导出任务标识。</param>
+/// <param name="DefinitionId">目标报表定义标识。</param>
+/// <param name="DefinitionKey">目标报表定义稳定键；前端据此路由。</param>
+/// <param name="DefinitionName">目标报表定义名称（仅用于展示）。</param>
+/// <param name="VersionNumber">实际使用的发布版本号。</param>
+/// <param name="FormatKey">导出格式稳定键；当前仅支持 <see cref="ReportingExportFormatKeys.Excel"/>。</param>
+/// <param name="StatusKey">任务状态稳定键；取值见 <see cref="ReportingExportTaskStatusKeys"/>。</param>
+/// <param name="RowCount">导出行数；未生成或失败时为 0。</param>
+/// <param name="OutputFileName">成功后的输出文件名；未完成时为空。</param>
+/// <param name="ErrorCode">失败时返回的稳定错误码前缀；成功时为空。</param>
+/// <param name="ErrorMessage">失败时的可读说明；不包含敏感数据。</param>
+/// <param name="RequestedByUserId">发起人用户标识。</param>
+/// <param name="CreatedAtUtc">任务创建时间（UTC）。</param>
+/// <param name="CompletedAtUtc">任务完成时间（UTC）；未完成时为空。</param>
 public sealed record ReportingExportTaskResponse(
     Guid Id,
     Guid DefinitionId,
@@ -65,6 +80,23 @@ public sealed record ReportingExportTaskResponse(
     DateTimeOffset? CompletedAtUtc);
 
 /// <summary>报表导出任务详情。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 FormatKey、StatusKey、ErrorCode 等稳定键发布后不可改名或删除。</remarks>
+/// <param name="Id">导出任务标识。</param>
+/// <param name="DefinitionId">目标报表定义标识。</param>
+/// <param name="DefinitionKey">目标报表定义稳定键；前端据此路由。</param>
+/// <param name="DefinitionName">目标报表定义名称（仅用于展示）。</param>
+/// <param name="VersionNumber">实际使用的发布版本号。</param>
+/// <param name="FormatKey">导出格式稳定键；当前仅支持 <see cref="ReportingExportFormatKeys.Excel"/>。</param>
+/// <param name="StatusKey">任务状态稳定键；取值见 <see cref="ReportingExportTaskStatusKeys"/>。</param>
+/// <param name="RowCount">导出行数；未生成或失败时为 0。</param>
+/// <param name="OutputFileId">输出文件标识；用于下载端点鉴权，未完成时为空。</param>
+/// <param name="OutputFileName">成功后的输出文件名；未完成时为空。</param>
+/// <param name="ErrorCode">失败时返回的稳定错误码前缀；成功时为空。</param>
+/// <param name="ErrorMessage">失败时的可读说明；不包含敏感数据。</param>
+/// <param name="Parameters">受控执行参数集合；与创建请求顺序一致。</param>
+/// <param name="RequestedByUserId">发起人用户标识。</param>
+/// <param name="CreatedAtUtc">任务创建时间（UTC）。</param>
+/// <param name="CompletedAtUtc">任务完成时间（UTC）；未完成时为空。</param>
 public sealed record ReportingExportTaskDetailResponse(
     Guid Id,
     Guid DefinitionId,

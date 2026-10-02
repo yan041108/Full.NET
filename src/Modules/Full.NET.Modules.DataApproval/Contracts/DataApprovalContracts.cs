@@ -111,6 +111,14 @@ public sealed record UpdateDataApprovalScenarioBindingBody(
     long? Version);
 
 /// <summary>DataApproval 场景目录与绑定状态的稳定响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 ScenarioKey、ScopeKey、WorkflowDefinitionKey 等稳定键发布后不可改名或删除。</remarks>
+/// <param name="ScenarioKey">稳定场景键；决定审批路由与工作流绑定。</param>
+/// <param name="ScopeKey">场景作用域稳定键；决定适用范围。</param>
+/// <param name="IsRegistered">场景是否已在代码侧注册；false 表示绑定配置为孤儿。</param>
+/// <param name="IsEnabled">是否启用该场景；false 时提交请求将被拒绝。</param>
+/// <param name="WorkflowDefinitionKey">绑定的工作流定义稳定键；未绑定时为空。</param>
+/// <param name="WorkflowDefinitionVersionId">绑定的工作流定义版本标识；未绑定时为空。</param>
+/// <param name="Version">乐观并发版本；首次配置时为空，更新时必须一致。</param>
 public sealed record DataApprovalScenarioResponse(
     string ScenarioKey,
     string ScopeKey,
@@ -129,6 +137,30 @@ public sealed record CancelDataApprovalRequestBody(string IdempotencyKey);
 public sealed record RetryDataApprovalRequestBody(long Version);
 
 /// <summary>DataApproval 请求的稳定响应。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 ScenarioKey、StatusKey、RecoveryStatusKey、ApplicationStatusKey 及 LastFailureCode/LastApplicationFailureCode 等稳定键发布后不可改名或删除。</remarks>
+/// <param name="Id">审批请求标识。</param>
+/// <param name="ScenarioKey">稳定场景键；决定审批路由。</param>
+/// <param name="TargetEntityId">被变更实体标识。</param>
+/// <param name="StatusKey">审批状态稳定键；取值见 <see cref="DataApprovalStatusKeys"/>。</param>
+/// <param name="BeforeSnapshotJson">变更前快照 JSON；首次提交或未捕获时为空。</param>
+/// <param name="AfterSnapshotJson">提议或应用后的快照 JSON；用于人工与自动对账。</param>
+/// <param name="WorkflowInstanceId">关联工作流实例标识；尚未关联时为空。</param>
+/// <param name="WorkflowRevision">关联工作流修订号；用于幂等校验，未关联时为空。</param>
+/// <param name="WorkflowDefinitionVersionId">提交时绑定的工作流定义版本标识。</param>
+/// <param name="SubmittedByUserId">提交人用户标识。</param>
+/// <param name="SubmittedAtUtc">提交时间（UTC）。</param>
+/// <param name="ResolvedAtUtc">审批结论时间（UTC）；未结束时为空。</param>
+/// <param name="RecoveryStatusKey">工作流关联恢复状态稳定键；决定是否可重试关联。</param>
+/// <param name="LastFailureCode">最近一次恢复失败的稳定错误码；无失败时为空。</param>
+/// <param name="LastFailureMessage">最近一次恢复失败的可读说明；不包含敏感数据。</param>
+/// <param name="LastRecoveryAttemptAtUtc">最近一次恢复尝试时间（UTC）；从未尝试时为空。</param>
+/// <param name="RecoveryAttemptCount">恢复尝试累计次数；用于判断是否触发熔断。</param>
+/// <param name="ApplicationStatusKey">业务应用恢复状态稳定键；决定是否可重试应用。</param>
+/// <param name="LastApplicationFailureCode">最近一次应用失败的稳定错误码；无失败时为空。</param>
+/// <param name="LastApplicationFailureMessage">最近一次应用失败的可读说明；不包含敏感数据。</param>
+/// <param name="LastApplicationAttemptAtUtc">最近一次应用尝试时间（UTC）；从未尝试时为空。</param>
+/// <param name="ApplicationAttemptCount">应用尝试累计次数；用于判断是否触发熔断。</param>
+/// <param name="Version">乐观并发版本；用于更新与重试校验。</param>
 public sealed record DataApprovalRequestResponse(
     Guid Id,
     string ScenarioKey,
