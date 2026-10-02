@@ -130,6 +130,9 @@ public sealed class CdcDeliveryPosition
     /// <summary>
     /// 判断 <paramref name="connector"/> 位点是否已覆盖 <paramref name="producerFence"/>。
     /// </summary>
+    /// <param name="producerFence">数据库侧 producer fence 位点。</param>
+    /// <param name="connector">Connector 观测到的当前位点。</param>
+    /// <returns>Provider 相同且 connector 位点不早于 producerFence 时为 true。</returns>
     public static bool ConnectorCoversProducerFence(
         CdcDeliveryPosition producerFence,
         CdcDeliveryPosition connector)
@@ -155,6 +158,8 @@ public sealed class CdcDeliveryPosition
 }
 
 /// <summary>MySQL ROW Binlog 文件与偏移。</summary>
+/// <param name="File">Binlog 文件名，如 mysql-bin.000123。</param>
+/// <param name="Position">Binlog 文件内的字节偏移；非负整数。</param>
 public sealed record MySqlBinlogCoordinates(string File, long Position)
 {
     /// <summary>
@@ -211,6 +216,7 @@ public sealed record MySqlBinlogCoordinates(string File, long Position)
 }
 
 /// <summary>SQL Server CDC commit LSN。</summary>
+/// <param name="CommitLsn">三段式十六进制 LSN 字符串，格式为 AAAAAAAA:BBBBBBBB:CCCC。</param>
 public sealed record SqlServerCdcLsnCoordinates(string CommitLsn)
 {
     /// <summary>

@@ -9,6 +9,19 @@ namespace Full.NET.Agents.Workflows;
 /// <summary>显式工作流执行器；节点顺序静态，子步骤共用根 RunId 与独立 OperationId。</summary>
 public sealed class AgentWorkflowRunner
 {
+    /// <summary>
+    /// 从请求中的 NextNodeIndex 开始顺序执行工作流节点，直至完成、失败或需要人工审批/对账。
+    /// </summary>
+    /// <remarks>
+    /// 该方法非线程安全；同一 <see cref="AgentWorkflowRunRequest.State"/> 不可被并发调用。
+    /// 遇到 ToolRead/ToolWrite 节点返回审批或对账要求时，会把 NextNodeIndex 回退到当前节点并立即返回，
+    /// 以便调用方在外部完成审批后重入。
+    /// </remarks>
+    /// <param name="request">工作流执行请求；包含 RunId、状态、模型与工具执行器。</param>
+    /// <param name="cancellationToken">用于取消执行的令牌；节点之间会检查取消。</param>
+    /// <returns>执行结果，包含状态、更新后的状态、最终摘要文本与错误码。</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="request"/> 为 null。</exception>
+    /// <exception cref="InvalidOperationException">工作流定义不存在或遇到不支持的节点类型。</exception>
     public async Task<AgentWorkflowRunResult> RunAsync(AgentWorkflowRunRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -171,6 +184,16 @@ public sealed class AgentWorkflowRunner
 }
 
 /// <summary>工作流执行请求；OperationId 由调用方按节点键派生。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
+/// <param name="RunId">本次工作流运行的根标识；所有子步骤共用，用于跨节点追踪。</param>
+/// <param name="WorkflowKey">稳定工作流定义键；发布后不可改名。</param>
+/// <param name="WorkflowVersion">工作流定义版本；从 1 开始单调递增。</param>
+/// <param name="State">可变工作流状态；包含 NextNodeIndex、Outputs 与 token 用量。</param>
+/// <param name="Client">模型调用所用的 IChatClient；由调用方负责生命周期。</param>
+/// <param name="ModelRunner">模型文本节点执行器。</param>
+/// <param name="Executor">工具节点执行器。</param>
+/// <param name="Registry">工具注册表，用于按 ToolName 查找并校验工具可用性。</param>
+/// <param name="ResolveOperationId">按节点键派生 OperationId 的工厂；保证每次调用幂等。</param>
 public sealed record AgentWorkflowRunRequest(
     Guid RunId,
     string WorkflowKey,

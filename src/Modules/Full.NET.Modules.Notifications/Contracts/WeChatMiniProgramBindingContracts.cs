@@ -48,6 +48,17 @@ public sealed record RecordWeChatMiniProgramSubscriptionRequest(
     string StatusKey);
 
 /// <summary>微信小程序 OpenId 绑定响应；OpenId 只以掩码返回。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
+/// <param name="Id">绑定记录标识。</param>
+/// <param name="UserId">绑定归属的用户标识。</param>
+/// <param name="AppId">微信小程序 AppId。</param>
+/// <param name="ProviderProfileVersionId">已发布且启用的 im.wechat_miniprogram Profile 版本。</param>
+/// <param name="OpenIdMask">OpenId 掩码，仅用于展示；真实 OpenId 不对外返回。</param>
+/// <param name="VerificationStatusKey">绑定验证状态键，取值见 <see cref="WeChatMiniProgramBindingStatusKeys"/>。</param>
+/// <param name="RecipientEndpointId">关联的接收端点标识；未关联时为 <see langword="null"/>。</param>
+/// <param name="Subscriptions">该绑定下的订阅模板授权记录集合。</param>
+/// <param name="CreatedAtUtc">绑定创建时间（UTC）。</param>
+/// <param name="UpdatedAtUtc">绑定最近更新时间（UTC）；从未更新时为 <see langword="null"/>。</param>
 public sealed record WeChatMiniProgramBindingResponse(
     Guid Id,
     Guid UserId,
@@ -61,6 +72,10 @@ public sealed record WeChatMiniProgramBindingResponse(
     DateTimeOffset? UpdatedAtUtc);
 
 /// <summary>单条订阅模板授权记录。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
+/// <param name="TemplateId">微信订阅模板标识。</param>
+/// <param name="StatusKey">订阅授权状态键，取值见 <see cref="WeChatMiniProgramSubscriptionStatusKeys"/>。</param>
+/// <param name="AuthorizedAtUtc">授权结果登记时间（UTC）。</param>
 public sealed record WeChatMiniProgramSubscriptionResponse(
     string TemplateId,
     string StatusKey,

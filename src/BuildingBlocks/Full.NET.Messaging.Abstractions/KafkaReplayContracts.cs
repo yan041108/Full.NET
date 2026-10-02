@@ -185,6 +185,7 @@ public interface IKafkaReplayService
     /// </summary>
     /// <param name="request">范围重放请求契约。</param>
     /// <param name="cancellationToken">取消令牌；取消时返回已扫描部分的进度而非抛错。</param>
+    /// <returns>范围重放的汇总结果，包含扫描、处理、幂等跳过与拒绝计数。</returns>
     Task<KafkaReplayResult> ReplayAsync(
         KafkaReplayRequest request,
         CancellationToken cancellationToken);

@@ -33,6 +33,14 @@ public static class DiagnosticPolicyLimits
 }
 
 /// <summary>单条受控诊断规则；过期后不得继续放宽采样或容量。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
+/// <param name="ScopeKind">规则作用域种类；决定 ScopeValue 的语义。</param>
+/// <param name="ScopeValue">作用域匹配值；语义随 ScopeKind 变化（类别名、路由模板、TraceId、租户 Id 等）。</param>
+/// <param name="SuccessSampleRateOverride">成功请求采样率覆盖值（0-1）；null 表示沿用全局策略。</param>
+/// <param name="BestEffortCapacityOverride">尽力而为容量覆盖值；null 表示沿用全局策略。</param>
+/// <param name="MaxRequestPayloadBytesOverride">请求体最大字节数覆盖值；null 表示沿用全局策略。</param>
+/// <param name="MaxResponsePayloadBytesOverride">响应体最大字节数覆盖值；null 表示沿用全局策略。</param>
+/// <param name="ExpiresAtUtc">规则过期时间（UTC）；到期后必须停止放宽，不得自动续期。</param>
 public sealed record DiagnosticPolicyRule(
     DiagnosticPolicyScopeKind ScopeKind,
     string ScopeValue,
@@ -43,6 +51,10 @@ public sealed record DiagnosticPolicyRule(
     DateTimeOffset ExpiresAtUtc);
 
 /// <summary>持久化到配置项的版本化诊断策略文档。</summary>
+/// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
+/// <param name="Version">文档版本号；用于乐观并发，写入时须递增。</param>
+/// <param name="PressureState">当前日志压力状态；决定全局默认采样与容量策略。</param>
+/// <param name="Rules">当前生效的定向诊断规则集合；数量不得超过 MaxActiveRules。</param>
 public sealed record DiagnosticPolicyDocument(
     long Version,
     LoggingPressureState PressureState,

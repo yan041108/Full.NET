@@ -45,4 +45,6 @@ internal sealed class OrganizationUnitProjectionBackfillService(
 }
 
 /// <summary>单租户投影回填结果。</summary>
+/// <param name="TenantId">本次回填所属租户标识。</param>
+/// <param name="AppliedCount">实际应用的投影行数；用于回填进度与对账。</param>
 public sealed record OrganizationUnitProjectionBackfillResult(Guid TenantId, long AppliedCount);

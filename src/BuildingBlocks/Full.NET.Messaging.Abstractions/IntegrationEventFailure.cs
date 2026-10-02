@@ -105,14 +105,20 @@ public static class IntegrationEventFailureCodes
 /// <summary>
 /// 描述一次可分类、可遥测且不含敏感载荷的失败结果。
 /// </summary>
+/// <param name="Kind">失败分类，直接决定重试、DLQ 或丢弃处置。</param>
+/// <param name="Code">稳定原因码；由前缀 + 具体失败项构成，用于遥测聚合与 DLQ 检索。</param>
+/// <param name="Summary">面向运维的可读摘要；不含敏感载荷，可安全写入日志。</param>
 public sealed record IntegrationEventFailure(
     IntegrationEventFailureKind Kind,
     string Code,
     string Summary)
 {
     /// <summary>
-    /// 根据稳定原因码推断失败分类。
+    /// 根据稳定原因码前缀推断失败分类。
     /// </summary>
+    /// <param name="code">稳定原因码；必须以已知前缀开头。</param>
+    /// <returns>对应的失败分类。</returns>
+    /// <exception cref="ArgumentException">原因码前缀不属于已知分类时抛出。</exception>
     public static IntegrationEventFailureKind ResolveKind(string code)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
