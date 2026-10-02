@@ -16,7 +16,7 @@
 - 本轮交付 R02：冻结中文合成语料、测试项目内离线评分器、人工参考结果、可重放报告入口及对应失败回归。R02 离线基线已本地验证；真实检索/模型端到端基线明确为未测，随 R06 接入。
 - R02 已提交 `4a748409af6fcddd23b441a182ee3e7e8fe2b47f`。随后交付 R03 独立选型实验及 [ADR-0013](../../architecture/adr/ADR-0013-ai-retrieval-provider.md)：首版采用双库存派生向量、SQL 先过滤、有界精确余弦；Qdrant 保留候选，PdfPig 0.1.16 作为 R05 文本 PDF 接入候选。没有新增生产依赖或功能开关。
 - 实施基线：分支 `codex/foundation-acceptance-20260926`，HEAD `a7a68776818731703f1ebc11bc529f2746df59e1`，任务快照 `ai-rag-evaluation-r02`。保留原有日志文档、code-wiki 与语言资源改动。
-- R04a 已交付私有目录及精确模型版本审批，R04b1 已交付明确用户成员与立即撤权，按下方证据本地验收；R04b 整体及 R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
+- R04a 已交付私有目录及精确模型版本审批，R04b1 已交付明确用户成员与立即撤权，R04b2a 已交付文档草稿及明确用户文档授权，按下方证据本地验收；R04b 整体及 R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
 
 ### 2026-09-27 当前摘要（替代下方历史状态中的未实施判断）
 
@@ -609,6 +609,8 @@ R04b 执行顺序：先交付知识库成员授权与立即撤权（所有者写
 
 **R04b1 本地验收（2026-10-02）：** 基线 `8d577621fe781b4e9189ff5031166a6e6894eae6`，快照 `ai-knowledge-members-r04b1`，分支 `codex/foundation-acceptance-20260926`。本切片只交付明确用户成员；角色/组织、文档授权与文件生命周期继续开放。
 
+已提交 `b00fbf1cb163f1d915d7477cf7ab4e612a7ece96`（`feat(ai): add scoped knowledge members and immediate revocation`），未推送；随后沿本计划进入 R04b2a。
+
 - 成对新增 241 成员迁移；所有者整量替换最多 100 个唯一用户，共享知识库版本并在 AI 本地短事务中原子提交。候选经 Identity Host 批量目录或可信 Tenant 活动成员目录核对，跨模块读取在写事务外；成员读取启用目录，目录编辑、模型审批和成员管理仍限定所有者。撤权以本模块权威 SQL 立即生效，不依赖缓存或索引。
 - 最终 `pnpm test:dotnet:unit -- --filter 'FullyQualifiedName~Full.NET.UnitTests.Ai|FullyQualifiedName~Full.NET.UnitTests.Identity' --minimum-expected-tests 837`：837/837，零跳过。新增成员验证曾先复现失败；双库 HTTP 覆盖独立权限、禁用/未知候选与无部分写入、跨范围、并发版本、目录停用与空名单立即撤权，241 覆盖索引/注释恢复、重跑、授权保留及重复/悬空关系拒绝。
 - 最终 `pnpm test:dotnet:architecture -- --filter 'FullyQualifiedName~AiDependencyBoundaryTests|FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol|FullyQualifiedName~SqlStatement|FullyQualifiedName~ModuleDataAccess|FullyQualifiedName~IdentityOidcBoundaryTests' --minimum-expected-tests 86`：86/86，零跳过。`pnpm test:aot:analyzers`：退出 0，零警告/错误。未复跑全量 Architecture；前序记录的 Auditing 权限命名失败未由本任务修复，不宣称全量通过。
@@ -619,8 +621,20 @@ R04b 执行顺序：先交付知识库成员授权与立即撤权（所有者写
 
 R04b2 下一项实施边界（复用本计划，不新增平行计划）：
 
+- [x] R04b2a：先交付可独立使用的文档草稿目录与明确用户文档授权。新增 AI 自有文档/成员表及成对恢复迁移；所有者用独立创建、编辑、删除、成员管理权限维护草稿。读取同时核对启用知识库、可信范围、知识库成员和文档成员，标题及描述也受文档授权保护；软删除和空名单撤权立即禁止读取。整量授权名单仅允许当前知识库明确成员，文档 `Version` 防止覆盖；目录分页有界。不接受正文、任意 FileId、模型或索引状态输入，无文件版本时返回固定 `draft`。Unit、真实双库 HTTP、恢复及原生证据通过后单独提交；R04b2b 再接入下面的版本/上传/导入故障链路，R04b2 和 R04b 保持未完成。
+
+**R04b2a 本地验收（2026-10-02）：** 基线 `b00fbf1cb163f1d915d7477cf7ab4e612a7ece96`，快照 `ai-knowledge-documents-r04b2`，分支 `codex/foundation-acceptance-20260926`。范围仅为草稿元数据及明确用户文档授权，不包含内容版本、文件或索引。
+
+- 元数据及权限目录先建立失败 Unit，MySQL HTTP 创建入口先复现 404。双库首轮在列表处复现空 UUID 参数绑定 500；移除未使用参数并拒绝空路径标识后，双库 HTTP 与 242 恢复 4/4 通过。授权同时保护标题、描述、分页与详情，覆盖成员不足、精确权限、错误范围、无效名单整量回滚、并发版本、目录禁用、即时撤权、软删除及重复删除；租户切回后的断言使用新会话令牌。
+- `pnpm test:dotnet:unit -- --selection ai-module` 实际 413/413；`pnpm test:dotnet:architecture -- --filter 'FullyQualifiedName~AiDependencyBoundaryTests|FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol|FullyQualifiedName~SqlStatement|FullyQualifiedName~ModuleDataAccess' --minimum-expected-tests 81` 实际 81/81，`pnpm test:aot:analyzers` 零警告、零错误。全架构与全 Unit 未在本项重跑；不改变 Auditing 既有命名失败的基线状态。
+- `pnpm test:naming` 33/33、`pnpm test:sql-safety` 5/5；影响集工具检查 65/65，分片发现 1118 项无遗漏/重复，治理 57/57。`pnpm test:integration:affected -- --snapshot ai-knowledge-documents-r04b2 --phase slice` 在 Windows 发现 69 个 UID，实际 42 通过、27 原生跳过，MTP 原始退出码 9、包装器退出码 1，不能称该单次命令通过。
+- `pnpm test:aot:publish:linux` 与 `pnpm test:aot:publish:linux -- --host worker` 均退出 0，API/Worker 分别为 134233312/86373944 字节，分别通过 17/15 个已批准警告门禁。使用本次正式产物在隔离 Linux 环境新建测试程序集，API 10/10、Worker 17/17，均零失败、零跳过；按完整测试身份替换上述 Windows 跳过项后，精确影响集合并 69/69 通过。
+- 最终只读安全及 Native AOT 静态闭包复核未发现剩余确定问题。24 个本项代码/测试文件冻结摘要复核一致；本地证据位于忽略目录 `artifacts/native-aot/linux-x64/r04b2a/`，包含失败复现、TRX、正式发布清单及 `verification-summary.json`。环境为 Windows SDK 10.0.401、Docker Linux SDK 10.0.400、运行时 `DOTNET_PROCESSOR_COUNT=2`、Docker 内存 31.22 GiB；结论限功能和 AOT，不代表模型质量或容量验收。完成本项后按用户要求独立提交，下一项为 R04b2b，整体 R04b/RAG 保持未完成。
+
+- [ ] R04b2b：在已交付草稿及文档授权上接入上传、不可变文件版本与有界导入操作恢复。复用 Files 权威契约，覆盖以下失败与恢复链路；未实现解析或索引前不返回就绪状态。
+
 1. 先建立文档/版本与导入操作的失败用例：只有知识库所有者及独立上传权限可写，明确成员的目录读取资格不能授予文档/来源访问；跨范围、禁用目录、删除文件、重复请求与旧版本覆盖均拒绝。正文上传只从当前操作的流进入 Files，不提供按任意 FileId 导入其他模块附件的入口。首版状态只能表达待处理/失败，R05 前不能标记索引就绪。
-2. 在 `Features/ManageKnowledgeDocuments/`、`Persistence/` 及双库成对迁移持久化文档、不可变版本、最小文档授权和有界导入操作状态。所有 UUID 在应用端生成；版本变更、删除与撤权先写权威状态，事务只覆盖 AI 自有表。具体迁移编号在实现时取仓库下一空号；按实际新增测试更新矩阵，不预填发现数。
+2. 在 `Features/ManageKnowledgeDocuments/`、`Persistence/` 及双库成对迁移扩展既有草稿与文档授权，持久化不可变文件版本和有界导入操作状态。所有 UUID 在应用端生成；版本变更、删除与撤权先写权威状态，事务只覆盖 AI 自有表。具体迁移编号在实现时取仓库下一空号；按实际新增测试更新矩阵，不预填发现数。
 3. Host 上传复用 `IHostFileUploadWriter`，给 Files 追加 Ai Claim 消费者及稳定版本幂等键，注册精确版本/文件 Probe。按 Claim → AI 提交 → Confirm 顺序执行；确认失败与未知提交保留待对账引用，已知回滚才补偿释放。Tenant 上传复用 `ITenantResourceFileStore` 的 Ai 模块键及服务端版本资源 ID，注册 `ITenantResourceFileOwner`，通过 `ListReadyAsync` 恢复已上传对象；禁止跨模块 JOIN、外部存储操作嵌套本地事务和按客户端声明确认引用。
 4. 双库 HTTP/恢复用例验证文档授权、并发版本与立即撤权；可控故障验证 Claim 前后中断、Confirm 失败、释放失败重试、资源归属不匹配、只有下载权而无共享权。删除/撤权后来源端点即刻不可读，后续 R05 清理/索引消费者必须复核权威状态。操作指南只更新真实实现，OpenAPI/共享客户端与角色/组织范围在 R04b 收尾验证。
 5. 每个可独立交付的切片依次运行 Unit、受影响 Architecture、双库 Integration、命名/注释/SQL 门禁及 AOT 分析、正式原生影响集；只读安全审查和新鲜 `git diff --check` 后提交。未完成文件故障场景、客户端和范围授权前保持 R04b 未勾选。

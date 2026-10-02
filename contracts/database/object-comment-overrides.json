@@ -1,6 +1,28 @@
 {
   "schemaVersion": 1,
   "tables": {
+    "fn_ai_knowledge_document": {
+      "comment": "知识库文档草稿及权威删除状态",
+      "columns": {
+        "Id": "逻辑主键",
+        "KnowledgeBaseId": "所属知识库标识",
+        "Title": "受授权保护的文档标题",
+        "Description": "受授权保护的文档描述",
+        "IsDeleted": "权威删除状态",
+        "CreatedAtUtc": "创建时间（UTC）",
+        "UpdatedAtUtc": "更新时间（UTC）",
+        "Version": "文档元数据与授权并发版本"
+      }
+    },
+    "fn_ai_knowledge_document_member": {
+      "comment": "知识库文档独立明确用户授权",
+      "columns": {
+        "Id": "逻辑主键",
+        "DocumentId": "所属文档标识",
+        "UserId": "获授权用户标识",
+        "CreatedAtUtc": "创建时间（UTC）"
+      }
+    },
     "fn_ai_knowledge_member": {
       "comment": "知识库明确成员授权",
       "columns": {

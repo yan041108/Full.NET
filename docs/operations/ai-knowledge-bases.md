@@ -1,6 +1,6 @@
-# 知识库目录、用户成员与模型处理审批
+# 知识库目录、文档草稿、用户授权与模型处理审批
 
-R04a 提供私有目录及审批记录，R04b1 增加明确用户成员与立即撤权。当前不接收文件、不解析文档、不调用模型；角色/组织授权、文档授权与文件生命周期由后续 R04b 继续交付。R05/R06 的每次处理派发必须复核这里记录的审批及最新权威状态。
+R04a 提供私有目录及审批记录，R04b1 增加明确用户成员与立即撤权，R04b2a 提供文档草稿元数据及独立明确用户授权。当前不接收文件、不解析正文、不调用模型；不可变文件版本、导入任务、角色/组织授权与文件生命周期由后续 R04b 继续交付。R05/R06 的每次处理派发必须复核这里记录的审批及最新权威状态。
 
 ## 目录 API
 
@@ -38,9 +38,27 @@ Host 候选须为活动 Host 用户；Tenant 候选须为当前可信租户的�
 
 成员管理、目录编辑和审批始终仅限所有者，即使成员持有相应端点权限也不能写入。读取直接核对本模块权威表，不缓存授权；替换事务提交后，同一成员令牌的下一次读取立即得到新授权结果。禁用目录时成员读取返回 404，重新启用后当前名单恢复只读访问。后续文档/派发消费者还须独立复核文档授权，不能把目录成员资格视为文件访问授权。
 
+## 文档草稿与授权
+
+基础路径为 `/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents`。所有者只能维护启用知识库中的文档；文档标题、描述、列表数量和详情也受文档授权保护。读取必须同时具备 `ai.knowledge_bases.read` 与 `ai.knowledge_documents.read`，成员还须同时位于知识库和文档明确名单。知识库读取权、目录成员资格、模型批准都不能单独授予文档访问。
+
+| 操作 | 方法与相对路径 | 精确权限 | 请求字段 |
+| --- | --- | --- | --- |
+| 获授权草稿分页 | `GET /` | `ai.knowledge_documents.read`，另需知识库读取权 | `page`、`pageSize`，边界同知识库目录 |
+| 获授权草稿详情 | `GET /{documentId}` | `ai.knowledge_documents.read`，另需知识库读取权 | UUID 标识 |
+| 所有者创建草稿 | `POST /` | `ai.knowledge_documents.create` | `title`、可空 `description` |
+| 所有者编辑元数据 | `PUT /{documentId}` | `ai.knowledge_documents.update` | `title`、可空 `description`、文档 `version` |
+| 所有者软删除 | `DELETE /{documentId}` | `ai.knowledge_documents.delete` | JSON 正文中的文档 `version` |
+| 所有者读取文档授权 | `GET /{documentId}/members` | `ai.knowledge_documents.members_read` | UUID 标识 |
+| 所有者整量替换文档授权 | `PUT /{documentId}/members` | `ai.knowledge_documents.members_update` | `userIds`、文档 `version` |
+
+草稿标题须非空且最多 200 字符，描述最多 2000 字符；响应状态固定为 `draft`，不代表已上传、解析或索引就绪。未知 `fileId`、`tenantId`、`ownerUserId`、`status` 等字段返回 400。创建返回 201，成功软删除返回 204；重复删除、删除后的读取及跨范围访问统一返回 404。版本竞争返回 409 `ai.knowledge.document_version_conflict`。
+
+文档名单最多 100 个唯一非空 UUID，不包括所有者，且只能选择当前知识库明确成员。任一用户不属于名单返回 422 `ai.knowledge.document_member_unavailable`，整次替换的旧名单、版本及此前插入均回滚。文档元数据、授权和删除共用文档版本，独立于知识库版本。空名单撤销文档授权；目录撤权或禁用也立即拒绝文档读取。目录撤权不删除独立文档授权记录，重新授予目录成员资格后仍按当前文档名单判断。软删除同时写入墓碑并清理文档授权，无法通过重新授权打开已删除文档。权威查询每次联查本模块状态，不等待缓存、索引或文件清理。
+
 ## 双库与部署
 
-迁移 `240_AiKnowledgeBase.sql` 增加 `fn_ai_knowledge_base`，`241_AiKnowledgeMember.sql` 增加 `fn_ai_knowledge_member`；均有 SQL Server 与 MySQL 实现，不改写已有业务表。成员仅向本模块知识库建立外键，知识库/用户标识不向 Identit0y 或 Tenancy 表建立外键。SQL Server 主键显式采用 UUID v7 聚集键；MySQL 使用 Binary16 网络字节序。
+迁移 `240_AiKnowledgeBase.sql` 增加 `fn_ai_knowledge_base`，`241_AiKnowledgeMember.sql` 增加 `fn_ai_knowledge_member`，`242_AiKnowledgeDocument.sql` 增加 `fn_ai_knowledge_document` 与 `fn_ai_knowledge_document_member`；均有 SQL Server 与 MySQL 实现，不改写已有业务表。外键仅关联 AI 自有父记录，知识库/用户标识不向 Identity 或 Tenancy 表建立外键。SQL Server 主键显式采用 UUID v7 聚集键；MySQL 使用 Binary16 网络字节序。
 
 建表、后置索引与 SQL Server 注释支持未记账重放。暂停旧应用后可前滚迁移；如需应用回退，保留新增表即可，旧应用不读写该表，不需要删除目录数据。迁移不播种目录或默认审批。
 

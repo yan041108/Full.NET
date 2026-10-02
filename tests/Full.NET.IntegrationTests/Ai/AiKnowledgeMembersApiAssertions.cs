@@ -182,7 +182,7 @@ internal static class AiKnowledgeMembersApiAssertions
     }
 
     // 仅测试夹具通过 Identity 自有执行语句建立真实成员；AI 生产代码只使用最小目录 Port。
-    private static async Task AddTenantMemberAsync(FullNetApiFactory factory, Guid tenantId, Guid userId)
+    internal static async Task AddTenantMemberAsync(FullNetApiFactory factory, Guid tenantId, Guid userId)
     {
         await using var scope = factory.Services.CreateAsyncScope();
         var current = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();

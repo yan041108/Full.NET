@@ -80,6 +80,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<AiModelConfigQueryService>();
         services.TryAddScoped<Features.ManageKnowledgeBases.AiKnowledgeBaseService>();
         services.TryAddScoped<Features.ManageKnowledgeMembers.AiKnowledgeMemberService>();
+        services.TryAddScoped<Features.ManageKnowledgeDocuments.AiKnowledgeDocumentService>();
         services.TryAddScoped<AiModelConfigManagementService>();
         services.TryAddScoped<AiModelConfigOperationsService>();
         services.TryAddScoped<AiEmbeddingTestService>();
@@ -122,6 +123,7 @@ public sealed class AiModule : IFullNetModule
     {
         Features.ManageModelConfigs.Endpoint.Map(endpoints);
         Features.ManageKnowledgeBases.Endpoint.Map(endpoints);
+        Features.ManageKnowledgeDocuments.Endpoint.Map(endpoints);
         Features.TestEmbeddings.Endpoint.Map(endpoints);
         Features.ManageMcpRemoteConnections.Endpoint.Map(endpoints);
         Features.ManageTenantQuotas.Endpoint.Map(endpoints);

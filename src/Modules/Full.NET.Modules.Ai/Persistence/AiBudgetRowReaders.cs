@@ -18,6 +18,7 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiMcpRemoteToolRecord>(ReadMcpRemoteTool);
         registrar.Register<AiAgentApprovalRecord>(ReadAgentApproval);
         registrar.Register<AiKnowledgeBaseRecord>(ReadKnowledgeBase);
+        registrar.Register<AiKnowledgeDocumentRecord>(ReadKnowledgeDocument);
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
     }
 #endif
@@ -38,6 +39,18 @@ internal static class AiBudgetRowReaders
         LastTestedAtUtc = Null(reader, "LastTestedAtUtc") ? null : Timestamp(reader, "LastTestedAtUtc"),
         LastTestStatusKey = Null(reader, "LastTestStatusKey") ? null : Text(reader, "LastTestStatusKey"),
         LastTestMessage = Null(reader, "LastTestMessage") ? null : Text(reader, "LastTestMessage"),
+        CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+        UpdatedAtUtc = Null(reader, "UpdatedAtUtc") ? null : Timestamp(reader, "UpdatedAtUtc"),
+        Version = checked((int)Integer(reader, "Version")),
+    };
+
+    // 草稿目录的原生物化只读明确投影，不使用反射回退。
+    internal static AiKnowledgeDocumentRecord ReadKnowledgeDocument(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")),
+        KnowledgeBaseId = reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")),
+        Title = Text(reader, "Title"),
+        Description = Null(reader, "Description") ? null : Text(reader, "Description"),
         CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
         UpdatedAtUtc = Null(reader, "UpdatedAtUtc") ? null : Timestamp(reader, "UpdatedAtUtc"),
         Version = checked((int)Integer(reader, "Version")),

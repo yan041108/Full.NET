@@ -5,6 +5,13 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/242_AiKnowledgeDocument.sql",
+      "reason": "242 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE 恢复文档及授权后置索引；表和索引名均为脚本常量，不接受外部输入，由双库未记账重放测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/241_AiKnowledgeMember.sql",
       "reason": "241 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE 恢复成员授权后置索引；表和索引名均为脚本常量，不接受外部输入，由双库未记账重放测试覆盖。",
       "removalMilestone": "M1.0"

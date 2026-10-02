@@ -11,4 +11,8 @@
   <data name="ai.knowledge.model_unavailable" xml:space="preserve"><value>所选模型配置版本不可用，请重新确认处理审批。</value></data>
   <data name="ai.knowledge.members_invalid" xml:space="preserve"><value>知识库成员配置请求无效。</value></data>
   <data name="ai.knowledge.member_unavailable" xml:space="preserve"><value>目标用户已停用、不存在或不属于当前范围。</value></data>
+  <data name="ai.knowledge.document_not_found" xml:space="preserve"><value>文档或知识库不存在或不可访问。</value></data>
+  <data name="ai.knowledge.document_invalid" xml:space="preserve"><value>文档元数据或版本输入不合法。</value></data>
+  <data name="ai.knowledge.document_version_conflict" xml:space="preserve"><value>文档已被其他请求修改。</value></data>
+  <data name="ai.knowledge.document_member_unavailable" xml:space="preserve"><value>目标用户不是当前知识库的明确成员。</value></data>
 </root>
