@@ -54,6 +54,8 @@ public sealed class K3CloudModule : IFullNetModule
                 K3CloudJsonSerializerContext.Default));
     }
 
+    /// <summary>注册 K3Cloud 模块的连接配置与销售订单同步 HTTP 端点。</summary>
+    /// <param name="endpoints">端点路由构建器。</param>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageConnectionConfigs.Endpoint.Map(endpoints);

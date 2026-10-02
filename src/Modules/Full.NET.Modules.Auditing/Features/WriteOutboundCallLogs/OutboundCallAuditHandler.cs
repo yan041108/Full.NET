@@ -28,6 +28,11 @@ public sealed class OutboundCallAuditHandler
         _logger = logger;
     }
 
+    /// <summary>
+    /// 记录一次出站调用审计：先脱敏再写入 B1 微批，并等待批次结果；失败 fail-open，不写 Outbox。
+    /// </summary>
+    /// <param name="request">包含 ProviderKey、状态码、耗时、TraceId 等字段的出站调用审计请求。</param>
+    /// <param name="cancellationToken">用于取消写入的令牌。</param>
     public async Task RecordAsync(
         OutboundCallAuditRequest request,
         CancellationToken cancellationToken = default)

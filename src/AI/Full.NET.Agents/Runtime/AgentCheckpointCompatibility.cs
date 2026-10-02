@@ -12,6 +12,13 @@ public static class AgentCheckpointCompatibility
     /// <summary>当前 Checkpoint 序列化格式版本号；恢复时必须与此值相等，否则按不兼容处理并失败关闭。</summary>
     public const int CurrentCheckpointFormatVersion = 1;
 
+    /// <summary>校验 Agent Definition 与 Checkpoint 的兼容性：定义必须已注册、Checkpoint 格式版本必须等于当前版本、框架版本必须精确匹配。</summary>
+    /// <param name="definitionKey">Agent 定义稳定键。</param>
+    /// <param name="definitionVersion">Agent 定义版本号。</param>
+    /// <param name="checkpointFormatVersion">Checkpoint 序列化格式版本号。</param>
+    /// <param name="frameworkVersion">生成 Checkpoint 的 Agent 框架版本。</param>
+    /// <param name="errorCode">校验失败时输出的稳定错误码；成功时为空字符串。</param>
+    /// <returns>全部兼容返回 true；否则返回 false 并通过 errorCode 暴露失败原因。</returns>
     public static bool TryValidate(
         string definitionKey,
         int definitionVersion,
@@ -20,6 +27,13 @@ public static class AgentCheckpointCompatibility
         out string errorCode) =>
         TryValidateDefinition(definitionKey, definitionVersion, checkpointFormatVersion, frameworkVersion, out errorCode);
 
+    /// <summary>校验 Agent Workflow 与 Checkpoint 的兼容性：Workflow 必须已注册、Checkpoint 格式版本必须等于当前版本、框架版本必须精确匹配。</summary>
+    /// <param name="workflowKey">Workflow 稳定键。</param>
+    /// <param name="workflowVersion">Workflow 版本号。</param>
+    /// <param name="checkpointFormatVersion">Checkpoint 序列化格式版本号。</param>
+    /// <param name="frameworkVersion">生成 Checkpoint 的 Agent 框架版本。</param>
+    /// <param name="errorCode">校验失败时输出的稳定错误码；成功时为空字符串。</param>
+    /// <returns>全部兼容返回 true；否则返回 false 并通过 errorCode 暴露失败原因。</returns>
     public static bool TryValidateWorkflow(
         string workflowKey,
         int workflowVersion,

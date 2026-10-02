@@ -1,4 +1,4 @@
-﻿using Full.NET.Messaging.Abstractions;
+using Full.NET.Messaging.Abstractions;
 using Full.NET.Messaging.Kafka.Health;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +14,14 @@ namespace Full.NET.Messaging.Kafka;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// 注册 Kafka Provider 的全部 DI 服务、健康检查与 Consumer Worker；
+    /// 仅在 <see cref="KafkaMessagingOptions.Enabled"/> 为 true 时启动常驻消费。
+    /// </summary>
+    /// <param name="services">DI 服务集合。</param>
+    /// <param name="configuration">应用配置，用于绑定 Kafka 与 Connect 回滚选项。</param>
+    /// <param name="environmentName">当前环境名，用于校验 Kafka 选项是否与环境匹配。</param>
+    /// <returns>链式返回 <paramref name="services"/>。</returns>
     public static IServiceCollection AddFullNetKafkaMessaging(
         this IServiceCollection services,
         IConfiguration configuration,

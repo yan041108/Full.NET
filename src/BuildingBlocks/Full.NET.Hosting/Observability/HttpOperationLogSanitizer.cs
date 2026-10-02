@@ -96,6 +96,9 @@ public static partial class HttpOperationLogSanitizer
         return Truncate(cleaned, maxLength);
     }
 
+    /// <summary>
+    /// 对客户端 IP 做 SHA256 指纹化，输出小写十六进制字符串，避免明文 IP 进入 B2 日志。
+    /// </summary>
     public static string FingerprintClientIp(string? address)
     {
         if (string.IsNullOrWhiteSpace(address))
@@ -161,6 +164,9 @@ public static partial class HttpOperationLogSanitizer
         }
     }
 
+    /// <summary>
+    /// 判断键名是否命中敏感片段（password、token、secret、cookie、connectionstring 等），大小写不敏感。
+    /// </summary>
     public static bool IsSensitiveKey(string? key)
     {
         if (string.IsNullOrWhiteSpace(key))
@@ -174,6 +180,7 @@ public static partial class HttpOperationLogSanitizer
             || normalized.Contains(marker, StringComparison.Ordinal));
     }
 
+    /// <summary>按最大长度截断字符串；不超过长度时原样返回。</summary>
     public static string Truncate(string value, int maxLength)
     {
         if (value.Length <= maxLength)
@@ -184,6 +191,7 @@ public static partial class HttpOperationLogSanitizer
         return value[..maxLength];
     }
 
+    /// <summary>移除字符串中的 CR/LF 及其他控制字符，防止日志注入。</summary>
     public static string StripControlChars(string value) =>
         ControlCharRegex().Replace(value, string.Empty);
 

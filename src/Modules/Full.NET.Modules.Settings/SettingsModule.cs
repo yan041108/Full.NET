@@ -37,6 +37,10 @@ public sealed class SettingsModule : IFullNetModule
     /// <summary>获取 Settings 模块运行所需的模块依赖；Identity 提供授权目录与身份上下文。</summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
+    /// <summary>
+    /// 注册 Settings 模块的应用服务：系统参数配置、Host/Tenant 双作用域数据字典、枚举目录、
+    /// 网格偏好与诊断策略等领域服务，以及授权目录、错误资源、缓存 JSON 类型信息与 AOT 物化器。
+    /// </summary>
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -96,6 +100,9 @@ public sealed class SettingsModule : IFullNetModule
 #endif
     }
 
+    /// <summary>
+    /// 注册 Migrator 执行 Settings 种子数据所需的最小服务集合：时钟、ID 生成器与 Host 用户档案字典种子贡献者。
+    /// </summary>
     public void AddMigrationServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -107,6 +114,10 @@ public sealed class SettingsModule : IFullNetModule
             HostUserProfileDictionarySeedContributor>());
     }
 
+    /// <summary>
+    /// 映射 Settings 模块的 HTTP API 端点：Host/Tenant 字典类型与项、Host 配置项、
+    /// 枚举目录查询、用户网格偏好与诊断策略管理接口。
+    /// </summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageHostDictTypes.Endpoint.Map(endpoints);

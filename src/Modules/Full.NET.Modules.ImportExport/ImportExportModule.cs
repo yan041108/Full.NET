@@ -31,6 +31,9 @@ public sealed class ImportExportModule : IFullNetModule
         "Tenancy",
     ];
 
+    /// <summary>注册 ImportExport 模块的授权目录、配置校验、时钟、标识生成器以及静态 Schema 与导入任务服务。</summary>
+    /// <param name="services">服务集合。</param>
+    /// <param name="configuration">宿主配置。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
 #if FULLNET_AOT_COMPILE
@@ -81,6 +84,8 @@ public sealed class ImportExportModule : IFullNetModule
         services.AddHostedService<ImportExportTaskHostedProcessor>();
     }
 
+    /// <summary>注册 ImportExport 模块的静态 Schema 浏览与导入任务管理 HTTP 端点。</summary>
+    /// <param name="endpoints">端点路由构建器。</param>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.BrowseStaticSchemas.Endpoint.Map(endpoints);

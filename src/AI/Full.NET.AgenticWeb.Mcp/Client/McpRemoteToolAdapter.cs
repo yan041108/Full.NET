@@ -9,6 +9,9 @@ public sealed class McpRemoteToolAdapter(
     IMcpRemoteToolCatalog catalog,
     McpClientConnectionManager connections) : IRemoteAgentToolDefinitionSource
 {
+    /// <summary>拉取已批准的远端 MCP 能力并构造本地 AgentToolDefinition 列表；每个能力包装为 McpRemoteToolHandler 以便运行时统一调用。</summary>
+    /// <param name="cancellationToken">用于取消目录查询的令牌。</param>
+    /// <returns>可注册到本地工具注册表的远端工具定义集合。</returns>
     public async ValueTask<IReadOnlyList<AgentToolDefinition>> BuildDefinitionsAsync(CancellationToken cancellationToken)
     {
         var approved = await catalog.ListExecutableAsync(cancellationToken).ConfigureAwait(false);

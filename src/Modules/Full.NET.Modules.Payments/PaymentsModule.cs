@@ -74,6 +74,8 @@ public sealed class PaymentsModule : IFullNetModule
                 PaymentsJsonSerializerContext.Default));
     }
 
+    /// <summary>映射支付模块商户配置、订单、退款与微信回调通知的全部 HTTP 路由。</summary>
+    /// <param name="endpoints">宿主路由构建器。</param>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageMerchantConfigs.Endpoint.Map(endpoints);

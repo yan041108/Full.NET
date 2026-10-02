@@ -15,6 +15,7 @@ public sealed class HttpOperationLogEmitter
     private int _bestEffortInFlight;
     private int _priorityInFlight;
 
+    /// <summary>构造 HTTP Operation Log 发射闸门，注入配置监视器与诊断策略存储。</summary>
     public HttpOperationLogEmitter(
         IOptionsMonitor<HttpOperationLogOptions> options,
         IDiagnosticPolicyStore diagnosticPolicyStore)
@@ -23,6 +24,7 @@ public sealed class HttpOperationLogEmitter
         _diagnosticPolicyStore = diagnosticPolicyStore;
     }
 
+    /// <summary>解析成功请求采样率：优先取配置 SuccessSampleRate，否则按 CapacityProfile 推导默认值。</summary>
     public double ResolveSuccessSampleRate()
     {
         var options = _options.CurrentValue;
@@ -30,6 +32,10 @@ public sealed class HttpOperationLogEmitter
             ?? HttpOperationLogProfile.ResolveSuccessSampleRate(options.CapacityProfile);
     }
 
+    /// <summary>
+    /// 异步解析成功采样率：优先应用诊断策略存储中的按组/端点/Trace/租户覆盖，
+    /// 否则回退到配置默认采样率。
+    /// </summary>
     public async ValueTask<double> ResolveSuccessSampleRateAsync(
         string? diagnosticGroup,
         string? endpoint,
@@ -69,6 +75,7 @@ public sealed class HttpOperationLogEmitter
         return bucket < rate;
     }
 
+    /// <summary>尝试进入 BestEffort 发射通道；CAS 递增在途计数，超过容量时记录 dropped 指标并返回 false。</summary>
     public bool TryEnterBestEffort()
     {
         var capacity = _diagnosticPolicyStore.Current.ResolveBestEffortCapacity(
@@ -89,8 +96,10 @@ public sealed class HttpOperationLogEmitter
         }
     }
 
+    /// <summary>退出 BestEffort 发射通道，原子递减在途计数。</summary>
     public void ExitBestEffort() => Interlocked.Decrement(ref _bestEffortInFlight);
 
+    /// <summary>尝试进入 Priority 发射通道；CAS 递增在途计数，超过容量时记录 dropped 指标并返回 false。</summary>
     public bool TryEnterPriority()
     {
         var capacity = _options.CurrentValue.PriorityCapacity;
@@ -110,6 +119,7 @@ public sealed class HttpOperationLogEmitter
         }
     }
 
+    /// <summary>退出 Priority 发射通道，原子递减在途计数。</summary>
     public void ExitPriority() => Interlocked.Decrement(ref _priorityInFlight);
 }
 

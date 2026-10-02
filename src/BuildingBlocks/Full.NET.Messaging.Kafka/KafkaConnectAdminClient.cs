@@ -42,12 +42,14 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
 
+    /// <summary>使用外部注入的 HttpClient 构造 Connect REST 客户端，不接管其生命周期。</summary>
     public KafkaConnectAdminClient(HttpClient httpClient)
     {
         _httpClient = httpClient;
         _ownsHttpClient = false;
     }
 
+    /// <summary>基于 Connect REST 基地址构造 HttpClient 并接管其生命周期；默认 60 秒超时。</summary>
     public KafkaConnectAdminClient(Uri connectBaseUri, TimeSpan? timeout = null)
     {
         _httpClient = new HttpClient
@@ -58,6 +60,9 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         _ownsHttpClient = true;
     }
 
+    /// <summary>
+    /// 轮询 Connect REST 根端点（GET /）直至返回成功或超时，用于等待 Connect 集群就绪。
+    /// </summary>
     public async Task<bool> WaitUntilReadyAsync(
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -89,6 +94,10 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         return false;
     }
 
+    /// <summary>
+    /// 向 Connect REST 端点 POST /connectors 提交连接器注册；
+    /// 失败时抛出 InvalidOperationException，错误体不回显以避免泄露数据库口令。
+    /// </summary>
     public async Task RegisterConnectorAsync(
         string connectorName,
         IReadOnlyDictionary<string, string> config,
@@ -112,6 +121,10 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         }
     }
 
+    /// <summary>
+    /// 轮询连接器状态直至全部任务 RUNNING 或任一任务 FAILED/超时，
+    /// 用于等待 Debezium 连接器完成启动。
+    /// </summary>
     public async Task<bool> WaitForConnectorHealthyAsync(
         string connectorName,
         TimeSpan timeout,
@@ -139,6 +152,10 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         return false;
     }
 
+    /// <summary>
+    /// 向 Connect REST 端点 DELETE /connectors/{name} 删除连接器；
+    /// 404 视为已删除，其余失败抛出。
+    /// </summary>
     public async Task DeleteConnectorAsync(
         string connectorName,
         CancellationToken cancellationToken = default)
@@ -154,6 +171,7 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         response.EnsureSuccessStatusCode();
     }
 
+    /// <summary>向 Connect REST 端点 PUT /connectors/{name}/pause 暂停连接器及其任务。</summary>
     public async Task PauseConnectorAsync(string connectorName, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient
@@ -162,6 +180,7 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         response.EnsureSuccessStatusCode();
     }
 
+    /// <summary>向 Connect REST 端点 PUT /connectors/{name}/resume 恢复已暂停的连接器及其任务。</summary>
     public async Task ResumeConnectorAsync(string connectorName, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient
@@ -222,6 +241,10 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         return hasTasks;
     }
 
+    /// <summary>
+    /// 调用 GET /connectors/{name}/offsets 读取 CDC 位点，解析 MySQL binlog(file/pos)
+    /// 或 SQL Server commit_lsn 并返回 CdcDeliveryPosition；失败返回 null。
+    /// </summary>
     public async Task<CdcDeliveryPosition?> TryReadConnectorPositionAsync(
         string connectorName,
         CancellationToken cancellationToken = default)
@@ -272,6 +295,10 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         return null;
     }
 
+    /// <summary>
+    /// 调用 GET /connectors/{name}/status 获取连接器状态 JSON 原文；
+    /// 404 返回 null，其余失败抛出。
+    /// </summary>
     public async Task<string?> TryGetConnectorStatusAsync(
         string connectorName,
         CancellationToken cancellationToken = default)
@@ -288,6 +315,7 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>释放本实例创建的 HttpClient；外部注入的 HttpClient 不由本实例释放。</summary>
     public void Dispose()
     {
         if (_ownsHttpClient)

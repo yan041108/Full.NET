@@ -16,6 +16,10 @@ public sealed class LegacyIntegrationEventHandlerSubscriptionAdapter : IIntegrat
 
     private readonly IIntegrationEventHandler _handler;
 
+    /// <summary>
+    /// 用旧集成事件处理器构造订阅适配器。
+    /// </summary>
+    /// <param name="handler">被适配的旧 <see cref="IIntegrationEventHandler"/> 实例。</param>
     public LegacyIntegrationEventHandlerSubscriptionAdapter(IIntegrationEventHandler handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
@@ -43,6 +47,12 @@ public sealed class LegacyIntegrationEventHandlerSubscriptionAdapter : IIntegrat
     public IntegrationEventIdempotencyStrategy IdempotencyStrategy =>
         _handler.IdempotencyStrategy;
 
+    /// <summary>
+    /// 将事件上下文与载荷委托给被适配的旧 Handler 处理；路由与幂等策略仍由目录统一裁决。
+    /// </summary>
+    /// <param name="context">包含租户、追踪等信息的集成事件上下文。</param>
+    /// <param name="payload">事件原始载荷字节。</param>
+    /// <param name="cancellationToken">用于取消处理的令牌。</param>
     public Task HandleAsync(
         IntegrationEventContext context,
         ReadOnlyMemory<byte> payload,

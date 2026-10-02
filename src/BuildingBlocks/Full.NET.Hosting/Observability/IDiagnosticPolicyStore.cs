@@ -28,9 +28,16 @@ public sealed class DefaultDiagnosticPolicyStore : IDiagnosticPolicyStore
     public DiagnosticPolicySnapshot Current =>
         DiagnosticPolicySnapshot.CreateDefault(DateTimeOffset.UtcNow);
 
+    /// <summary>返回当前生产安全默认快照；不触发任何 IO 或刷新。</summary>
+    /// <param name="cancellationToken">取消令牌；当前实现忽略。</param>
+    /// <returns>当前进程持有的默认诊断策略快照。</returns>
     public ValueTask<DiagnosticPolicySnapshot> GetCurrentAsync(CancellationToken cancellationToken) =>
         ValueTask.FromResult(Current);
 
+    /// <summary>默认实现不执行刷新，直接返回已完成任务以满足接口契约。</summary>
+    /// <param name="minimumVersion">期望的最低策略版本号；当前实现忽略。</param>
+    /// <param name="cancellationToken">取消令牌；当前实现忽略。</param>
+    /// <returns>已完成的 ValueTask。</returns>
     public ValueTask RefreshAsync(long minimumVersion, CancellationToken cancellationToken) =>
         ValueTask.CompletedTask;
 }

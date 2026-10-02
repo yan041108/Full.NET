@@ -60,6 +60,8 @@ public sealed class OcrModule : IFullNetModule
                 OcrJsonSerializerContext.Default));
     }
 
+    /// <summary>映射 OCR 模块 Provider 配置与身份证识别任务的全部 HTTP 路由。</summary>
+    /// <param name="endpoints">宿主路由构建器。</param>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageProviderConfigs.Endpoint.Map(endpoints);

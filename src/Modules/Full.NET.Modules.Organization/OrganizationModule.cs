@@ -51,6 +51,11 @@ public sealed class OrganizationModule : IFullNetModule
     /// <summary>岗位静态导入扩展 ImportExport 合同；最小预设不含导入模块时组织主路径仍可运行。</summary>
     public IReadOnlyCollection<string> OptionalContractDependencies => ["ImportExport"];
 
+    /// <summary>
+    /// 注册 Organization 模块的应用服务：租户部门树、岗位、职级、用户隶属关系管理，
+    /// 组织单元投影目录、工作流单位负责人目录、数据范围 SQL 投影、岗位静态导入，
+    /// 以及授权目录、错误资源、本地化与 AOT 物化器。
+    /// </summary>
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -128,6 +133,10 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<IWorkflowUnitLeaderDirectory, TenantUnits.WorkflowUnitLeaderDirectory>();
     }
 
+    /// <summary>
+    /// 映射 Organization 模块的 HTTP API 端点：租户部门、用户部门隶属、岗位、职级、
+    /// 用户岗位以及 Host 用户管理引用接口。
+    /// </summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageTenantUnits.Endpoint.Map(endpoints);

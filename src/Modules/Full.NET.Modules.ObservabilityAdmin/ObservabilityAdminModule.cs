@@ -29,6 +29,10 @@ public sealed class ObservabilityAdminModule : IFullNetModule
     /// </summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
+    /// <summary>
+    /// 注册 ObservabilityAdmin 模块的应用服务：授权目录、错误资源、ObservabilityAdmin 选项校验、
+    /// 日志文件控制面、服务器运行时读取与监控服务、缓存策略控制面以及 Elasticsearch 日志管道健康检查。
+    /// </summary>
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -58,6 +62,10 @@ public sealed class ObservabilityAdminModule : IFullNetModule
                 ObservabilityAdminJsonSerializerContext.Default));
     }
 
+    /// <summary>
+    /// 映射 ObservabilityAdmin 模块的 HTTP API 端点：日志文件管理、服务器运行时监控、
+    /// 缓存策略管理以及 Elasticsearch 日志管道健康检查接口。
+    /// </summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageLogFiles.Endpoint.Map(endpoints);

@@ -233,6 +233,11 @@ public sealed class KafkaMessagingOptions
     /// </summary>
     public int ShutdownDrainSeconds { get; set; } = 30;
 
+    /// <summary>
+    /// 基于当前选项构建 Kafka ConsumerConfig：应用 Group 协议、静态成员标识、Poll 间隔、
+    /// 抓取字节上限、自动重置策略与安全凭据；Classic 协议下附加分区分配策略与会话超时。
+    /// </summary>
+    /// <param name="consumerGroupId">Consumer Group 标识；同时用于推导 ClientId。</param>
     public ConsumerConfig BuildConsumerConfig(string consumerGroupId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(consumerGroupId);
@@ -270,6 +275,10 @@ public sealed class KafkaMessagingOptions
         return config;
     }
 
+    /// <summary>
+    /// 基于当前选项构建 Kafka ProducerConfig：强制启用幂等、Acks=All，并应用消息大小、
+    /// 投递超时、批量聚合、本地队列缓冲、最大在途请求与安全凭据等设置。
+    /// </summary>
     public ProducerConfig BuildProducerConfig()
     {
         var config = new ProducerConfig
@@ -303,6 +312,9 @@ public sealed class KafkaMessagingOptions
         return config;
     }
 
+    /// <summary>
+    /// 输出配置的非敏感字段摘要；SaslPassword 一律以 *** 遮蔽，禁止进入日志或诊断快照。
+    /// </summary>
     public override string ToString() =>
         $"{SectionName} Enabled={Enabled}; BootstrapServers={BootstrapServers}; "
         + $"SecurityProtocol={SecurityProtocol}; SaslMechanism={SaslMechanism}; "

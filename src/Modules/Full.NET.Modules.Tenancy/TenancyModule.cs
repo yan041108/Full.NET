@@ -49,6 +49,11 @@ public sealed class TenancyModule : IFullNetModule
     /// <summary>租户品牌 Logo 走 Files 合同，打印桥接走 Printing 合同；二者均不阻断无对应模块的最小预设。</summary>
     public IReadOnlyCollection<string> OptionalContractDependencies => ["Files", "Printing"];
 
+    /// <summary>
+    /// 注册 Tenancy 模块的应用服务：租户解析与上下文、租户开通、租户生命周期/配额/订阅/权益管理、
+    /// 租户品牌、跨租户切换查询/命令处理器、租户目录投影与 Host 侧管理服务，以及授权目录、
+    /// 错误资源、缓存 JSON 类型信息与 AOT 物化器。
+    /// </summary>
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -135,6 +140,10 @@ public sealed class TenancyModule : IFullNetModule
 #endif
     }
 
+    /// <summary>
+    /// 注册 Migrator/Seed 阶段所需的 Tenancy 服务：租户上下文访问器、Tenancy 选项校验、
+    /// Saas 默认引导、租户开通命令与服务、租户缓存失效器及本地租户种子贡献者。
+    /// </summary>
     public void AddMigrationServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -173,6 +182,10 @@ public sealed class TenancyModule : IFullNetModule
             TenancyEntitlementCatalogBaselineSeedContributor>());
     }
 
+    /// <summary>
+    /// 映射 Tenancy 模块的 HTTP API 端点：当前租户查询、可用租户列表、跨租户切换、租户品牌、
+    /// Host 侧租户/套餐/生命周期/权益/订阅/配额管理以及配额对账接口。
+    /// </summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/tenancy").WithTags("Tenancy");

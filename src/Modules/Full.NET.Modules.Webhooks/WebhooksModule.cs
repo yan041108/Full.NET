@@ -31,6 +31,10 @@ public sealed class WebhooksModule : IFullNetModule
     /// </summary>
     public IReadOnlyCollection<string> OptionalContractDependencies => ["Workflow"];
 
+    /// <summary>
+    /// 注册 Webhooks 模块的应用服务：订阅查询与管理、事件入队、Workflow 完成事件处理器、
+    /// 授权目录、投递 HTTP 客户端与签名保护等，以及 AOT 物化器。
+    /// </summary>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
@@ -53,6 +57,9 @@ public sealed class WebhooksModule : IFullNetModule
 #endif
     }
 
+    /// <summary>
+    /// 注册 Webhooks 后台投递能力：投递工作选项、签名保护、批量处理器与 Webhook 投递 Hosted 后台服务。
+    /// </summary>
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
         AddDeliveryServices(services, configuration);
@@ -82,6 +89,9 @@ public sealed class WebhooksModule : IFullNetModule
         services.AddScoped<WebhookDeliveryBatchProcessor>();
     }
 
+    /// <summary>
+    /// 映射 Webhooks 模块的 HTTP API 端点：Webhook 订阅的查询与管理接口。
+    /// </summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints) =>
         Features.ManageWebhookSubscriptions.Endpoint.Map(endpoints);
 }

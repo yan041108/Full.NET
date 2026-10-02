@@ -13,6 +13,14 @@ public sealed class AgUiStreamService(IAgentRunAgUiReader reader)
     public const int DefaultBatchSize = 100;
     public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
 
+    /// <summary>按归属重放指定 Agent 运行的持久化事件到 SSE 响应；从 afterSequence 起流式输出，运行终止时发送终止边界，不触发工具或模型重跑。</summary>
+    /// <param name="runId">Agent 运行标识。</param>
+    /// <param name="scopeKey">租户或宿主演化出的作用域键。</param>
+    /// <param name="actorUserId">当前调用用户标识，用于校验事件归属。</param>
+    /// <param name="afterSequence">起始事件序号；0 或负数表示从运行开始重放。</param>
+    /// <param name="httpContext">用于写入 text/event-stream 响应的 HTTP 上下文。</param>
+    /// <param name="cancellationToken">调用方取消令牌。</param>
+    /// <returns>流是否成功建立并完成输出；失败时携带错误码与类型。</returns>
     public async Task<Result<bool>> StreamOwnedRunAsync(
         Guid runId,
         string scopeKey,

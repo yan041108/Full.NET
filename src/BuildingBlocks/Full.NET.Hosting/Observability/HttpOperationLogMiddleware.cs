@@ -24,6 +24,9 @@ public sealed class HttpOperationLogMiddleware(
     public const string LogStream = "http-operation";
     private const string TenantItemKey = "FullNet.TenantId";
 
+    /// <summary>处理请求管道：在满足捕获条件时记录耗时并在响应结束后按优先级/尽力而为发射 HttpOperationCompleted 日志，发射异常不影响请求结果。</summary>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <returns>表示异步管道处理的任务。</returns>
     public async Task InvokeAsync(HttpContext httpContext)
     {
         var options = optionsMonitor.CurrentValue;

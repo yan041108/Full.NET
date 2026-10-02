@@ -24,6 +24,9 @@ public sealed class CryptographyModule : IFullNetModule
     /// </summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
+    /// <summary>注册 Cryptography 模块的授权目录、错误资源、配置校验以及 SM2 签名/验签与密钥目录服务。</summary>
+    /// <param name="services">服务集合。</param>
+    /// <param name="configuration">宿主配置。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
@@ -49,6 +52,8 @@ public sealed class CryptographyModule : IFullNetModule
 #endif
     }
 
+    /// <summary>注册 Cryptography 模块的国密密钥管理与 SM2 签名/验签 HTTP 端点。</summary>
+    /// <param name="endpoints">端点路由构建器。</param>
     public void MapEndpoints(IEndpointRouteBuilder endpoints) =>
         Features.ManageGmKeys.Endpoint.Map(endpoints);
 }

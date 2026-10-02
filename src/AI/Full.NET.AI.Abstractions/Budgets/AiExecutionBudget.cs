@@ -58,6 +58,9 @@ public static class AiExecutionBudget
     /// <summary>单次操作允许的最大 Token 数（输入或输出）；超过此上限按非法用量拒绝，取值为 1,000,000,000。</summary>
     public const long MaximumTokens = 1_000_000_000;
 
+    /// <summary>校验 AI 操作用量的边界：输入/输出 Token 须在 [0, MaximumTokens]，缓存输入不得超过输入且不得在输入缺失时单独存在。</summary>
+    /// <param name="usage">待校验的操作用量。</param>
+    /// <exception cref="AiBudgetException">用量越界或组合非法，错误码为 ai.budget.invalid_usage。</exception>
     public static void ValidateUsage(AiOperationUsage usage)
     {
         if (usage.InputTokens is < 0 or > MaximumTokens || usage.OutputTokens is < 0 or > MaximumTokens
@@ -66,6 +69,11 @@ public static class AiExecutionBudget
             throw new AiBudgetException("ai.budget.invalid_usage");
     }
 
+    /// <summary>按价格快照计算 AI 操作费用；价格或用量缺失时返回 null，价格非法时抛出预算异常，结果向上舍入到 8 位小数。</summary>
+    /// <param name="price">模型价格快照；为 null 表示尚未计价。</param>
+    /// <param name="usage">本次操作的 Token 用量。</param>
+    /// <returns>按向上舍入得到的操作费用；无法计价时返回 null。</returns>
+    /// <exception cref="AiBudgetException">价格快照字段非法，错误码为 ai.budget.invalid_price。</exception>
     public static decimal? CalculateCost(AiModelPrice? price, AiOperationUsage usage)
     {
         ValidateUsage(usage);

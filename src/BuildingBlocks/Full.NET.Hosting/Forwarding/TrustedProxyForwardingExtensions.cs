@@ -11,6 +11,10 @@ namespace Full.NET.Hosting.Forwarding;
 /// </summary>
 public static class TrustedProxyForwardingExtensions
 {
+    /// <summary>为 IServiceCollection 注册可信代理选项、校验器与 ForwardedHeaders 配置器，但不挂载中间件。</summary>
+    /// <param name="services">服务集合。</param>
+    /// <param name="configuration">宿主配置，用于绑定可信代理选项。</param>
+    /// <returns>传入的服务集合，便于链式调用。</returns>
     public static IServiceCollection AddFullNetTrustedProxyForwarding(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -32,6 +36,9 @@ public static class TrustedProxyForwardingExtensions
         return services;
     }
 
+    /// <summary>在启用时为 IApplicationBuilder 挂载 ForwardedHeaders 中间件；禁用时直接返回以避免空 Known 集合被解释为信任所有来源。</summary>
+    /// <param name="application">应用构建器。</param>
+    /// <returns>传入的应用构建器，便于链式调用。</returns>
     public static IApplicationBuilder UseFullNetTrustedProxyForwarding(
         this IApplicationBuilder application)
     {

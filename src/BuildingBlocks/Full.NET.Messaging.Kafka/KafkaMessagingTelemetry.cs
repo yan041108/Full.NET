@@ -115,6 +115,10 @@ public static class KafkaMessagingTelemetry
             ObserveMySqlBinlogRetentionHours,
             unit: "h");
 
+    /// <summary>
+    /// 启动 Kafka 消费 Span，尝试从 traceParent 恢复父上下文；
+    /// 标签含 topic_code、consumer_code、partition 与 offset，不含敏感数据。
+    /// </summary>
     public static Activity? StartConsumeActivity(
         string topicCode,
         string consumerCode,
@@ -148,6 +152,7 @@ public static class KafkaMessagingTelemetry
         return activity;
     }
 
+    /// <summary>启动 Kafka Offset 提交 Span；标签含 consumer_code 与 commit.partition_count。</summary>
     public static Activity? StartCommitActivity(
         string consumerCode,
         int partitionCount)
@@ -167,6 +172,10 @@ public static class KafkaMessagingTelemetry
         return activity;
     }
 
+    /// <summary>
+    /// 更新 Consumer 运行时占位状态（inflight、buffer、分区分配/暂停、所有权撤销），
+    /// 供 ObservableGauge 采集；超出最大状态数时静默丢弃。
+    /// </summary>
     public static void UpdateConsumerState(
         string provider,
         string consumerCode,
@@ -275,6 +284,10 @@ public static class KafkaMessagingTelemetry
         }
     }
 
+    /// <summary>
+    /// 设置 Consumer 所有权撤销标记并记录转换事件（revoked/restored）；
+    /// 状态未建立时仍发出转换事件，避免所有权 Fence 发生在首次记录前漏计。
+    /// </summary>
     public static void SetOwnershipRevoked(string consumerCode, bool value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(consumerCode);
@@ -316,6 +329,10 @@ public static class KafkaMessagingTelemetry
         }
     }
 
+    /// <summary>
+    /// 以自增序号更新 Consumer 处理中状态（inflight、buffer），序号回退时忽略，
+    /// 保证热路径状态单调前进。
+    /// </summary>
     public static void UpdateProcessingState(
         string provider,
         string consumerCode,
@@ -372,6 +389,7 @@ public static class KafkaMessagingTelemetry
         }
     }
 
+    /// <summary>从占位字典移除 Consumer 状态，供 Worker 退出或 Rebalance 时清理。</summary>
     public static void RemoveConsumerState(string consumerCode)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(consumerCode);
@@ -385,6 +403,10 @@ public static class KafkaMessagingTelemetry
         }
     }
 
+    /// <summary>
+    /// 记录消费结果计数（result），并按结果派生 Inbox 重复、Retry 路由与 DLQ 发布计数；
+    /// 标签均为低基数稳定机器码。
+    /// </summary>
     public static void RecordConsume(
         string provider,
         string topicCode,
@@ -416,6 +438,9 @@ public static class KafkaMessagingTelemetry
         }
     }
 
+    /// <summary>
+    /// 记录分区流控结果计数；result=retry_scheduled 时额外累加未提交重试计数。
+    /// </summary>
     public static void RecordPartitionFlow(
         string provider,
         string topicCode,

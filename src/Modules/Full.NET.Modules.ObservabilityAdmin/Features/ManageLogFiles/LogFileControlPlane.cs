@@ -66,6 +66,10 @@ public sealed partial class LogFileControlPlane
                 : Path.Combine(environment.ContentRootPath, _options.LogRootPath));
     }
 
+    /// <summary>
+    /// 枚举日志根目录下的普通日志文件，按最后修改时间倒序返回受 MaximumListFiles 限制的摘要列表；
+    /// 每次调用都重新枚举顶层目录，不缓存文件名映射以抵御软链接逃逸。
+    /// </summary>
     public IReadOnlyList<LogFileSummary> List() =>
         EnumerateCandidates()
             .OrderByDescending(candidate => candidate.LastModifiedUtc)
@@ -78,6 +82,14 @@ public sealed partial class LogFileControlPlane
                 candidate.LastModifiedUtc))
             .ToArray();
 
+    /// <summary>
+    /// 按文件散列标识读取日志文件尾部内容；返回受行数/字节上限约束的尾部片段，
+    /// 标识无效或文件非安全普通文件时返回 <see langword="null"/>。
+    /// </summary>
+    /// <param name="id">由文件名 SHA-256 计算的 64 位十六进制标识。</param>
+    /// <param name="maximumLines">返回的最大行数；为空时使用 DefaultTailLines。</param>
+    /// <param name="maximumBytes">读取的最大字节数；为空时使用 DefaultTailBytes。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     public async Task<LogFileTail?> ReadTailAsync(
         string id,
         int? maximumLines,
@@ -137,6 +149,11 @@ public sealed partial class LogFileControlPlane
             snapshotLength > totalRead || lines.Length > lineLimit);
     }
 
+    /// <summary>
+    /// 按文件散列标识打开日志文件的只读下载流，返回包含文件名、大小与最后修改时间的下载句柄；
+    /// 调用方负责释放返回的流；标识无效或文件非安全普通文件时返回 <see langword="null"/>。
+    /// </summary>
+    /// <param name="id">由文件名 SHA-256 计算的 64 位十六进制标识。</param>
     public LogFileDownload? OpenDownload(string id)
     {
         var opened = ResolveAndOpen(id);

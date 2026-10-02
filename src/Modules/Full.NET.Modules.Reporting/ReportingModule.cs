@@ -85,6 +85,8 @@ public sealed class ReportingModule : IFullNetModule
                 ReportingJsonSerializerContext.Default));
     }
 
+    /// <summary>注册报表模块的数据源、分组、查询端口、定义、执行与导出任务 HTTP 端点。</summary>
+    /// <param name="endpoints">端点路由构建器。</param>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageDataSources.Endpoint.Map(endpoints);

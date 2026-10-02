@@ -29,6 +29,9 @@ public sealed class PrintingModule : IFullNetModule
         "Tenancy",
     ];
 
+    /// <summary>注册 Printing 模块的授权目录、时钟、标识生成器以及表单 Schema、模板与预览服务。</summary>
+    /// <param name="services">服务集合。</param>
+    /// <param name="configuration">宿主配置。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
@@ -47,6 +50,8 @@ public sealed class PrintingModule : IFullNetModule
                 PrintingJsonSerializerContext.Default));
     }
 
+    /// <summary>注册 Printing 模块的表单 Schema 浏览、模板管理与预览 HTTP 端点。</summary>
+    /// <param name="endpoints">端点路由构建器。</param>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.BrowseFormSchemas.Endpoint.Map(endpoints);

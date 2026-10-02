@@ -27,6 +27,9 @@ public sealed class GoViewModule : IFullNetModule
         "Tenancy",
     ];
 
+    /// <summary>注册 GoView 模块的授权目录、时钟、标识生成器以及大屏项目查询、管理与预览服务。</summary>
+    /// <param name="services">服务集合。</param>
+    /// <param name="configuration">宿主配置。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
@@ -43,6 +46,8 @@ public sealed class GoViewModule : IFullNetModule
                 GoViewJsonSerializerContext.Default));
     }
 
+    /// <summary>注册 GoView 模块的大屏项目管理与预览 HTTP 端点。</summary>
+    /// <param name="endpoints">端点路由构建器。</param>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageProjects.Endpoint.Map(endpoints);

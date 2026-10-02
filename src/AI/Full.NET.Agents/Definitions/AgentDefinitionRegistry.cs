@@ -29,6 +29,10 @@ public static class AgentDefinitionRegistry
                 AllowedToolNames: ["ai.tools.ping", "ai.models.list", "ai.chat.sessions.list"]),
         }.ToFrozenDictionary();
 
+    /// <summary>按定义键与版本查找已注册的 AgentDefinition；未命中时返回 <see langword="null"/>，不支持运行时动态注册。</summary>
+    /// <param name="key">代理定义键，使用本类声明的常量。</param>
+    /// <param name="version">定义版本号。</param>
+    /// <returns>匹配的 AgentDefinition，未找到时为 <see langword="null"/>。</returns>
     public static AgentDefinition? Resolve(string key, int version) =>
         Definitions.GetValueOrDefault((key, version));
 }

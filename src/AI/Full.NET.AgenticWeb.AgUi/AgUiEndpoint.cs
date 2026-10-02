@@ -11,6 +11,8 @@ namespace Full.NET.AgenticWeb.AgUi;
 /// <summary>标准 AG-UI 事件 SSE 端点；仅重放持久事件，不执行 Agent。</summary>
 public static class AgUiEndpoint
 {
+    /// <summary>注册 AG-UI 运行事件 SSE 端点；客户端按 runId 订阅已持久化事件流，受 AgentRun 读取权限保护。</summary>
+    /// <param name="endpoints">宿主路由构建器。</param>
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/ai/agent/runs")

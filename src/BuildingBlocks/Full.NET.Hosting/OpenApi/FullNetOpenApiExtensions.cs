@@ -31,6 +31,9 @@ public static class FullNetOpenApiExtensions
     /// <summary>Scalar API 文档 UI 挂载路径；与 OpenApiJsonPath 配对使用。</summary>
     public const string ScalarUiPath = "/scalar/v1";
 
+    /// <summary>为 IServiceCollection 注册 Full.NET OpenAPI 文档，并挂载文档元数据、操作安全与 Schema 转换器。</summary>
+    /// <param name="services">服务集合。</param>
+    /// <returns>传入的服务集合，便于链式调用。</returns>
     public static IServiceCollection AddFullNetOpenApi(this IServiceCollection services)
     {
         services.AddOpenApi(DocumentName, options =>
@@ -43,6 +46,9 @@ public static class FullNetOpenApiExtensions
         return services;
     }
 
+    /// <summary>为 IEndpointRouteBuilder 映射 OpenAPI JSON 端点路由。</summary>
+    /// <param name="endpoints">端点路由构建器。</param>
+    /// <returns>传入的端点路由构建器，便于链式调用。</returns>
     public static IEndpointRouteBuilder MapFullNetOpenApi(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapOpenApi();

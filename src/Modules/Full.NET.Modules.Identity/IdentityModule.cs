@@ -57,6 +57,10 @@ public sealed class IdentityModule : IFullNetModule
     /// <summary>用户头像与签名通过 Files 合同读写；Files 未启用时自助资料媒体能力不可用。</summary>
     public IReadOnlyCollection<string> OptionalContractDependencies => ["Files", "Notifications"];
 
+    /// <summary>
+    /// 注册 Identity 模块的 HTTP 宿主服务：迁移/选项校验、认证/OIDC、认证事件保留、
+    /// 授权、领域服务、HTTP 策略与机构单元投影；AOT 编译时注册 Dapper 物化器。
+    /// </summary>
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -76,6 +80,10 @@ public sealed class IdentityModule : IFullNetModule
 #endif
     }
 
+    /// <summary>
+    /// 注册 Migrator 最小闭包：Identity 与签名认证选项校验、时钟/ID 生成器、密码哈希、
+    /// 引导服务与宿主管理员/导航目录种子贡献者。
+    /// </summary>
     public void AddMigrationServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -123,6 +131,10 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddScoped<HostNavigationCatalogSyncService>();
     }
 
+    /// <summary>
+    /// 映射 Identity 模块全部 HTTP 端点：OIDC 授权/令牌/用户信息/会话、会话认证、自助资料、
+    /// 导航与授权树、宿主用户/角色/菜单/API Key、租户成员、LDAP/OAuth 等。
+    /// </summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         var configuration = endpoints.ServiceProvider.GetRequiredService<IConfiguration>();

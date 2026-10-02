@@ -37,6 +37,14 @@ public static class KafkaEnvelopeHeaderNames
 /// </summary>
 public sealed class KafkaEnvelopeReader
 {
+    /// <summary>
+    /// 从 Kafka <see cref="ConsumeResult{TKey,TValue}"/> 解析 <see cref="IntegrationEventEnvelope"/>；
+    /// 不向调用方暴露 broker offset，任何头或载荷校验失败均返回稳定错误码。
+    /// </summary>
+    /// <param name="consumeResult">Kafka 消费结果，包含消息头与载荷字节。</param>
+    /// <param name="envelope">解析成功时输出事件信封，失败为 <see langword="null"/>。</param>
+    /// <param name="failureCode">解析失败时输出稳定错误码，成功为 <see langword="null"/>。</param>
+    /// <returns>信封构造成功返回 <see langword="true"/>；否则返回 <see langword="false"/>。</returns>
     public bool TryRead(
         ConsumeResult<string, byte[]> consumeResult,
         out IntegrationEventEnvelope? envelope,

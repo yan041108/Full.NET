@@ -61,6 +61,9 @@ public sealed class AiModule : IFullNetModule
         "Tenancy",
     ];
 
+    /// <summary>注册 Ai 模块的模型配置、连通性测试、聊天会话、配额预算、Agent 运行、MCP 与 AgUI 等服务。</summary>
+    /// <param name="services">服务集合。</param>
+    /// <param name="configuration">宿主配置。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
@@ -121,6 +124,8 @@ public sealed class AiModule : IFullNetModule
                 AiJsonSerializerContext.Default));
     }
 
+    /// <summary>注册 Ai 模块的模型配置、嵌入测试、MCP 连接、租户配额、聊天会话、Agent 工具与运行、MCP 及审批/委派 HTTP 端点。</summary>
+    /// <param name="endpoints">端点路由构建器。</param>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageModelConfigs.Endpoint.Map(endpoints);
