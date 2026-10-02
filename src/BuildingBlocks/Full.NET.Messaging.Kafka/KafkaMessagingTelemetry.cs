@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Collections.Concurrent;
 
@@ -7,11 +7,16 @@ namespace Full.NET.Messaging.Kafka;
 /// <summary>
 /// Kafka Provider 与 CDC 平台侧低基数指标；禁止 MessageId、TenantId、原始 Topic、Payload、Secret、SQL 或异常文本标签。
 /// </summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加到末尾。</remarks>
 public static class KafkaMessagingTelemetry
 {
     private const int MaximumConsumerStates = 1_024;
     private const int MaximumConnectorStates = 256;
+
+    /// <summary>OpenTelemetry Meter 名称；供指标采集器按名称发现 Kafka 消息相关指标。</summary>
     public const string MeterName = "Full.NET.Messaging";
+
+    /// <summary>OpenTelemetry ActivitySource 名称；供链路追踪采集器发现 Kafka 消费与提交 Span。</summary>
     public const string ActivitySourceName = "Full.NET.Messaging.Kafka";
 
     /// <summary>允许出现在本 Meter 标签键中的白名单；用于契约测试。</summary>

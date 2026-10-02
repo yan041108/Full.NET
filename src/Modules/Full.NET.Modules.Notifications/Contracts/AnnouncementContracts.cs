@@ -6,31 +6,42 @@ namespace Full.NET.Modules.Notifications.Contracts;
 /// <remarks>
 /// 仅 <c>Draft</c> 可被更新；<c>Published</c> 可撤回为 <c>Retracted</c>；
 /// 状态推进由 CAS 守卫，重复 publish/retract 在版本匹配时幂等返回当前事实。
+/// 常量字符串发布后不可改名或删除；新增常量只能追加。
 /// </remarks>
 public static class AnnouncementStatuses
 {
+    /// <summary>草稿状态，可编辑；尚未对任何受众可见。</summary>
     public const string Draft = "draft";
 
+    /// <summary>已发布状态，对目标受众可见；可撤回为 <c>Retracted</c>。</summary>
     public const string Published = "published";
 
+    /// <summary>已撤回状态，不再对新受众展示；已读记录保留。</summary>
     public const string Retracted = "retracted";
 }
 
 /// <summary>Host 公告类型稳定机器码。</summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class AnnouncementKinds
 {
+    /// <summary>通知类型，偏轻量提示，通常无需正式公告流程。</summary>
     public const string Notice = "notice";
 
+    /// <summary>公告类型，用于正式发布需受众知晓的信息。</summary>
     public const string Announcement = "announcement";
 }
 
 /// <summary>Host 公告受众范围稳定机器码。</summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class AnnouncementAudienceKinds
 {
+    /// <summary>全体受众，对所有可见用户送达。</summary>
     public const string All = "all";
 
+    /// <summary>指定用户受众，仅对 TargetUserIds 中的用户送达。</summary>
     public const string Users = "users";
 
+    /// <summary>指定机构受众，对 TargetOrganizations 中机构单元下的用户送达。</summary>
     public const string Organizations = "organizations";
 }
 

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 /// <summary>
 /// 模块启用配置来源稳定机器码。
 /// </summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class ModuleSelectionSourceKinds
 {
     /// <summary>由 <c>FullNet:Modules:Preset</c> 解析。</summary>
@@ -17,22 +18,31 @@ public static class ModuleSelectionSourceKinds
 /// <summary>
 /// 模块启用校验问题稳定机器码。
 /// </summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class ModuleSelectionIssueCodes
 {
+    /// <summary>配置的预设名称未在已注册预设中找到；调用方应核对 FullNet:Modules:Preset 取值。</summary>
     public const string UnknownPreset = "modules.unknown_preset";
 
+    /// <summary>显式启用列表为空；调用方应提供至少一个模块键或改用预设。</summary>
     public const string EmptyEnabled = "modules.empty_enabled";
 
+    /// <summary>启用列表中存在空或仅空白字符的模块键；调用方应去除空白项。</summary>
     public const string BlankModuleName = "modules.blank_module_name";
 
+    /// <summary>启用列表中存在未在官方模块集中注册的模块键；调用方应校正模块键拼写。</summary>
     public const string UnknownModule = "modules.unknown_module";
 
+    /// <summary>启用列表中同一模块键出现多次；调用方应去重后重试。</summary>
     public const string DuplicateModule = "modules.duplicate_module";
 
+    /// <summary>启用集中缺少标识模块（Identity）；调用方必须先启用 Identity 模块。</summary>
     public const string MissingIdentity = "modules.missing_identity";
 
+    /// <summary>已启用模块的硬依赖未在启用集中；调用方应补充对应依赖模块。</summary>
     public const string MissingDependency = "modules.missing_dependency";
 
+    /// <summary>可选依赖声明指向不存在的模块；调用方应校正模块声明或移除该依赖。</summary>
     public const string InvalidOptionalDependency = "modules.invalid_optional_dependency";
 }
 

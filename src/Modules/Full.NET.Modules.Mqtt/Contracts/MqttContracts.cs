@@ -30,24 +30,34 @@ public static class MqttMessageStatuses
 }
 
 /// <summary>MQTT 模块稳定错误码。</summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class MqttErrorCodes
 {
+    /// <summary>MQTT 模块错误码统一前缀；所有稳定错误码均以此前缀开头。</summary>
     public const string Prefix = "mqtt.";
 
+    /// <summary>MQTT Broker 不可用；调用方应稍后重试或检查 Broker 部署状态。</summary>
     public const string BrokerUnavailable = "mqtt.broker.unavailable";
 
+    /// <summary>指定的 MQTT 客户端不存在；调用方应检查客户端标识。</summary>
     public const string ClientNotFound = "mqtt.client.not_found";
 
+    /// <summary>指定的 MQTT 消息记录不存在；调用方应检查消息标识。</summary>
     public const string MessageNotFound = "mqtt.message.not_found";
 
+    /// <summary>发布目标 topic 不在 ACL 允许前缀内；调用方应改用允许的 topic。</summary>
     public const string TopicForbidden = "mqtt.topic.forbidden";
 
+    /// <summary>消息载荷超过 Broker 最大字节限制；调用方应缩减载荷后重试。</summary>
     public const string PayloadTooLarge = "mqtt.payload.too_large";
 
+    /// <summary>发布频率超过每分钟限额；调用方应等待后重试。</summary>
     public const string PublishRateLimited = "mqtt.publish.rate_limited";
 
+    /// <summary>幂等键冲突；相同键已存在不同载荷，调用方应更换幂等键。</summary>
     public const string IdempotencyConflict = "mqtt.publish.idempotency_conflict";
 
+    /// <summary>发布请求校验失败；调用方应按契约修正 topic、载荷或 QoS 参数。</summary>
     public const string PublishValidationFailed = "mqtt.publish.validation_failed";
 }
 

@@ -16,8 +16,11 @@ public sealed class HttpOperationLogMiddleware(
     HttpOperationLogEmitter emitter,
     ILogger<HttpOperationLogMiddleware> logger)
 {
+    /// <summary>Http 操作日志事件名；写入日志与诊断作用域的 EventName 字段，发布后不可改名。</summary>
     public const string EventName = "HttpOperationCompleted";
+    /// <summary>Http 操作日志的诊断分组名；用于日志分类与过滤，发布后不可改名。</summary>
     public const string DiagnosticGroup = "http.operation";
+    /// <summary>Http 操作日志的日志流标识；用于日志分流与采集，发布后不可改名。</summary>
     public const string LogStream = "http-operation";
     private const string TenantItemKey = "FullNet.TenantId";
 
@@ -229,8 +232,12 @@ public sealed class HttpOperationLogMiddleware(
 /// <summary>
 /// SanitizedPayload 显式投影入口；默认不捕获请求体，由选定 Endpoint 写入 Items。
 /// </summary>
+/// <remarks>
+/// 常量字符串发布后不可改名或删除；新增常量只能追加。
+/// </remarks>
 public static class HttpOperationLogPayloadCapture
 {
+    /// <summary>HttpContext.Items 中存储捕获请求体 JSON 的键；由 Endpoint 写入、中间件读取，发布后不可改名。</summary>
     public const string ItemKey = "FullNet.HttpOperation.RequestPayload";
 
     public static readonly string[] DefaultAllowedFields =

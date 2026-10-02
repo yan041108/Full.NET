@@ -4,8 +4,12 @@ using System.Diagnostics.Metrics;
 namespace Full.NET.Caching.Fusion;
 
 /// <summary>记录缓存失效与跨节点恢复的低基数可靠性指标。</summary>
+/// <remarks>
+/// 常量字符串发布后不可改名或删除；新增常量只能追加。
+/// </remarks>
 public static class CacheReliabilityTelemetry
 {
+    /// <summary>缓存可靠性 Telemetry 的 Meter 名称；用于注册与发现指标，发布后不可改名。</summary>
     public const string MeterName = "Full.NET.Caching.Reliability";
 
     private static readonly Meter Meter = new(MeterName);

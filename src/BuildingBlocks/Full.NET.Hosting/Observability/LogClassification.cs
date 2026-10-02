@@ -3,12 +3,16 @@ namespace Full.NET.Hosting.Observability;
 /// <summary>
 /// 受治理日志分类常量；禁止由请求参数动态拼造。
 /// </summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加到末尾。</remarks>
 public static class LogClassification
 {
+    /// <summary>HTTP 操作日志分类；用于结构化日志中的分类字段，标识一次 HTTP 请求处理。</summary>
     public const string HttpOperation = "http.operation";
 
+    /// <summary>诊断日志分类；用于开发与排障场景的详细日志，生产环境可按需关闭。</summary>
     public const string Diagnostic = "diagnostic";
 
+    /// <summary>安全审计日志分类；用于认证、授权与敏感操作审计，默认全量保留。</summary>
     public const string Security = "security";
 }
 

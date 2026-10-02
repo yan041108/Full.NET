@@ -151,7 +151,9 @@ public static class CrudArtifactGenerator
 
             public static class {{schema.ClrTypeName}}Permissions
             {
+                /// <summary>允许读取实体列表与详情。</summary>
                 public const string Read = "{{schema.ReadPermission}}";
+                /// <summary>允许创建、更新与停用实体。</summary>
                 public const string Write = "{{schema.WritePermission}}";
             }
 
@@ -219,6 +221,7 @@ public static class CrudArtifactGenerator
 
             public static class {{schema.ClrTypeName}}Sql
             {
+                /// <summary>按主键查询单条实体，含租户过滤。</summary>
                 public const string FindById = """
                     SELECT
                         {{projection}}
@@ -226,11 +229,13 @@ public static class CrudArtifactGenerator
                     WHERE Id = @Id{{tenantFilter}};
                     """;
 
+                /// <summary>统计实体总数，含租户过滤。</summary>
                 public const string Count = """
                     SELECT COUNT(1)
                     FROM {{schema.DatabaseTableName}}{{countTenantFilter}};
                     """;
 
+                /// <summary>SQL Server 分页列表查询，按 Id 升序，含租户过滤。</summary>
                 public const string ListSqlServer = """
                     SELECT
                         {{projection}}
@@ -241,6 +246,7 @@ public static class CrudArtifactGenerator
                     FETCH NEXT @PageSize ROWS ONLY;
                     """;
 
+                /// <summary>MySQL 分页列表查询，按 Id 升序，含租户过滤。</summary>
                 public const string ListMySql = """
                     SELECT
                         {{projection}}
@@ -250,6 +256,7 @@ public static class CrudArtifactGenerator
                     LIMIT @PageSize OFFSET @Offset;
                     """;
 
+                /// <summary>插入实体记录。</summary>
                 public const string Insert = """
                     INSERT INTO {{schema.DatabaseTableName}} (
                         {{insertColumns}})
@@ -257,12 +264,14 @@ public static class CrudArtifactGenerator
                         {{insertParameters}});
                     """;
 
+                /// <summary>更新实体字段，含租户与乐观锁版本校验。</summary>
                 public const string Update = """
                     UPDATE {{schema.DatabaseTableName}}
                     SET {{updateAssignments}}
                     WHERE Id = @Id{{tenantFilter}}{{versionFilter}};
                     """;
 
+                /// <summary>停用实体（置 IsActive=0），含租户与版本校验。</summary>
                 public const string Disable = """
                     UPDATE {{schema.DatabaseTableName}}
                     SET {{disableAssignment}}
@@ -688,9 +697,13 @@ public static class CrudArtifactGenerator
 
             public static class {{schema.ClrTypeName}}Permissions
             {
+                /// <summary>允许读取实体列表与详情。</summary>
                 public const string Read = "{{schema.ReadPermission}}";
+                /// <summary>允许创建实体。</summary>
                 public const string Create = "{{schema.CreatePermission}}";
+                /// <summary>允许更新实体。</summary>
                 public const string Update = "{{schema.UpdatePermission}}";
+                /// <summary>允许停用或删除实体。</summary>
                 public const string Disable = "{{schema.DisablePermission}}";
             }
 
@@ -759,6 +772,7 @@ public static class CrudArtifactGenerator
 
             public static class {{schema.ClrTypeName}}Sql
             {
+                /// <summary>按主键查询单条实体，含租户与软删除过滤。</summary>
                 public const string FindById = """
                     SELECT
                         {{projection}}
@@ -766,11 +780,13 @@ public static class CrudArtifactGenerator
                     WHERE Id = @Id{{tenantPredicate}}{{deletedPredicate}};
                     """;
 
+                /// <summary>统计实体总数，含租户与软删除过滤。</summary>
                 public const string Count = """
                     SELECT COUNT(1)
                     FROM {{schema.DatabaseTableName}}{{countWhere}};
                     """;
 
+                /// <summary>SQL Server 分页列表查询，按 Id 升序，含租户与软删除过滤。</summary>
                 public const string ListSqlServer = """
                     SELECT
                         {{projection}}
@@ -781,6 +797,7 @@ public static class CrudArtifactGenerator
                     FETCH NEXT @PageSize ROWS ONLY;
                     """;
 
+                /// <summary>MySQL 分页列表查询，按 Id 升序，含租户与软删除过滤。</summary>
                 public const string ListMySql = """
                     SELECT
                         {{projection}}
@@ -790,6 +807,7 @@ public static class CrudArtifactGenerator
                     LIMIT @PageSize OFFSET @Offset;
                     """;
 
+                /// <summary>插入实体记录。</summary>
                 public const string Insert = """
                     INSERT INTO {{schema.DatabaseTableName}} (
                         {{insertColumns}})
@@ -838,6 +856,7 @@ public static class CrudArtifactGenerator
         return $$""""
 
 
+                /// <summary>更新实体字段，含租户、乐观锁版本与软删除过滤。</summary>
                 public const string Update = """
                     UPDATE {{schema.DatabaseTableName}}
                     SET {{string.Join(",\n            ", assignments)}}
@@ -865,6 +884,7 @@ public static class CrudArtifactGenerator
             return $$""""
 
 
+                /// <summary>硬删除实体，含租户与乐观锁版本校验。</summary>
                 public const string Delete = """
                     DELETE FROM {{schema.DatabaseTableName}}
                     WHERE Id = @Id{{tenantPredicate}}{{versionPredicate}};
@@ -887,6 +907,7 @@ public static class CrudArtifactGenerator
         return $$""""
 
 
+                /// <summary>软删除实体（置 IsDeleted=1），含租户、乐观锁版本与软删除过滤。</summary>
                 public const string Delete = """
                     UPDATE {{schema.DatabaseTableName}}
                     SET {{string.Join(",\n            ", assignments)}}

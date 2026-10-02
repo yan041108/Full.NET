@@ -5,12 +5,16 @@ namespace Full.NET.Modules.CodeGeneration.Contracts;
 /// <summary>
 /// 定义 Host 代码生成运行目录的读取与执行权限边界。
 /// </summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class CodeGenerationRunPermissions
 {
+    /// <summary>允许查询代码生成运行目录与摘要，不得执行或修改运行。</summary>
     public const string Read = "codegen.runs.read";
 
+    /// <summary>允许发起代码生成预览运行，不得写入工作区或模块。</summary>
     public const string Execute = "codegen.runs.execute";
 
+    /// <summary>允许将已审查预览 Apply 写入工作区并按请求接入模块。</summary>
     public const string Apply = "codegen.runs.apply";
 
     /// <summary>
@@ -18,88 +22,120 @@ public static class CodeGenerationRunPermissions
     /// </summary>
     public const string Rollback = "codegen.runs.rollback";
 
+    /// <summary>允许下载代码生成运行产物或清单。</summary>
     public const string Download = "codegen.runs.download";
 }
 
 /// <summary>
 /// 定义代码生成运行支持的稳定操作机器码。
 /// </summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class CodeGenerationRunOperationKinds
 {
+    /// <summary>预览操作：生成内存产物摘要，不写入工作区。</summary>
     public const string Preview = "preview";
 
+    /// <summary>应用操作：将预览产物写入工作区并按请求接入模块。</summary>
     public const string Apply = "apply";
 
+    /// <summary>回滚操作：逆向提交已 Apply 的运行产物。</summary>
     public const string Rollback = "rollback";
 }
 
 /// <summary>
 /// 定义代码生成运行的稳定结果机器码。
 /// </summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class CodeGenerationRunStatuses
 {
+    /// <summary>运行正在进行中，未产生最终结果。</summary>
     public const string Running = "running";
 
+    /// <summary>运行成功完成，产物可用。</summary>
     public const string Succeeded = "succeeded";
 
+    /// <summary>运行失败，ErrorCode 提供稳定失败原因。</summary>
     public const string Failed = "failed";
 }
 
 /// <summary>
 /// 定义代码生成运行对外返回的稳定错误码。
 /// </summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class CodeGenerationRunErrorCodes
 {
+    /// <summary>代码生成输入源无效；调用方应校验 Schema 或模板标识后重试。</summary>
     public const string InvalidSource = "codegen.run.invalid_source";
 
+    /// <summary>模板版本冲突；调用方应刷新模板版本后重试。</summary>
     public const string TemplateVersionConflict =
         "codegen.run.template_version_conflict";
 
+    /// <summary>代码生成执行失败；调用方应查看运行日志定位原因。</summary>
     public const string GenerationFailed = "codegen.run.generation_failed";
 
+    /// <summary>查询参数无效；调用方应按契约修正过滤条件。</summary>
     public const string InvalidQuery = "codegen.run.invalid_query";
 
+    /// <summary>指定的代码生成运行不存在；调用方应检查运行标识。</summary>
     public const string NotFound = "codegen.run.not_found";
 
+    /// <summary>Apply 操作被禁用；调用方应联系管理员启用。</summary>
     public const string ApplyDisabled = "codegen.run.apply_disabled";
 
+    /// <summary>Apply 绑定的预览无效；调用方应重新生成预览。</summary>
     public const string InvalidApplyPreview =
         "codegen.run.invalid_apply_preview";
 
+    /// <summary>Apply 绑定的预览已过期；调用方应重新生成预览。</summary>
     public const string StaleApplyPreview =
         "codegen.run.stale_apply_preview";
 
+    /// <summary>Apply 与当前工作区状态冲突；调用方应同步后重试。</summary>
     public const string ApplyConflict = "codegen.run.apply_conflict";
 
+    /// <summary>已有 Apply 运行正在进行；调用方应等待完成后重试。</summary>
     public const string ApplyBusy = "codegen.run.apply_busy";
 
+    /// <summary>Apply 执行失败；调用方应查看运行日志定位原因。</summary>
     public const string ApplyFailed = "codegen.run.apply_failed";
 
+    /// <summary>回滚操作被禁用；调用方应联系管理员启用。</summary>
     public const string RollbackDisabled = "codegen.run.rollback_disabled";
 
+    /// <summary>回滚目标 Apply 运行无效；调用方应检查 ApplyRunId。</summary>
     public const string InvalidRollbackApply =
         "codegen.run.invalid_rollback_apply";
 
+    /// <summary>该 Apply 已被回滚；调用方不应重复回滚。</summary>
     public const string RollbackAlreadyApplied =
         "codegen.run.rollback_already_applied";
 
+    /// <summary>回滚检查点缺失；调用方应确认 Apply 是否完整提交。</summary>
     public const string RollbackCheckpointMissing =
         "codegen.run.rollback_checkpoint_missing";
 
+    /// <summary>回滚与当前工作区状态冲突；调用方应同步后重试。</summary>
     public const string RollbackConflict = "codegen.run.rollback_conflict";
 
+    /// <summary>已有回滚运行正在进行；调用方应等待完成后重试。</summary>
     public const string RollbackBusy = "codegen.run.rollback_busy";
 
+    /// <summary>回滚执行失败；调用方应查看运行日志定位原因。</summary>
     public const string RollbackFailed = "codegen.run.rollback_failed";
 
+    /// <summary>链式回滚顺序或范围无效；调用方应按 LIFO 顺序提交。</summary>
     public const string InvalidRollbackChain =
         "codegen.run.invalid_rollback_chain";
 
+    /// <summary>下载目标运行无效或未完成；调用方应检查运行状态。</summary>
     public const string InvalidDownloadRun =
         "codegen.run.invalid_download_run";
 
+    /// <summary>Git 同步失败；调用方应检查仓库状态与凭据后重试。</summary>
     public const string GitSyncFailed = "codegen.run.git_sync_failed";
 
+    /// <summary>Git 发布失败；调用方应检查分支保护与权限后重试。</summary>
     public const string GitPublishFailed = "codegen.run.git_publish_failed";
 }
 

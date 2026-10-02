@@ -5,32 +5,42 @@ namespace Full.NET.Modules.CodeGeneration.Contracts;
 /// <summary>
 /// 定义 Host 只读数据库目录的权限边界。
 /// </summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class CodeGenerationCatalogPermissions
 {
+    /// <summary>允许读取当前进程数据库目录（表、视图与列元数据），不包含迁移草案生成。</summary>
     public const string Read = "codegen.catalog.read";
 }
 
 /// <summary>
 /// 定义 Host 数据库目录的稳定错误码。
 /// </summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class CodeGenerationCatalogErrorCodes
 {
+    /// <summary>请求的表名不符合目录校验规则（空值、非法字符或跨库访问）；调用方应校正表名后重试。</summary>
     public const string InvalidTable = "codegen.catalog.invalid_table";
 
+    /// <summary>指定的基础表在当前数据库中不存在；调用方应确认表名与连接的数据库。</summary>
     public const string TableNotFound = "codegen.catalog.table_not_found";
 
+    /// <summary>指定的目录对象（表或视图）不存在；调用方应确认对象名。</summary>
     public const string ObjectNotFound = "codegen.catalog.object_not_found";
 
+    /// <summary>不支持对视图生成迁移草案；调用方应改用基础表作为迁移草案来源。</summary>
     public const string ViewMigrationDraft = "codegen.catalog.view_migration_draft";
 }
 
 /// <summary>
 /// 目录对象种类稳定机器码。
 /// </summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class CodeGenerationCatalogObjectKinds
 {
+    /// <summary>基础表对象，可作为迁移草案与列配置的来源。</summary>
     public const string Table = "table";
 
+    /// <summary>视图对象，仅支持只读元数据查询，不可生成迁移草案。</summary>
     public const string View = "view";
 }
 

@@ -13,16 +13,22 @@ namespace Full.NET.Hosting.OpenApi;
 /// <summary>
 /// 统一 Host API 的 OpenAPI 文档元数据与安全方案，供 Scalar 与契约测试复用。
 /// </summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加到末尾。</remarks>
 public static class FullNetOpenApiExtensions
 {
+    /// <summary>OpenAPI 文档名称；用于 MapOpenApi 路由与文档选择器，发布后不可改名。</summary>
     public const string DocumentName = "v1";
 
+    /// <summary>OpenAPI 文档标题；展示在 Scalar 与生成的客户端契约中。</summary>
     public const string ApiTitle = "Full.NET API";
 
+    /// <summary>OpenAPI JSON 端点路由模板；{documentName} 占位符对应 DocumentName。</summary>
     public const string OpenApiRoutePattern = "/openapi/{documentName}.json";
 
+    /// <summary>默认 OpenAPI v1 文档的完整访问路径；供契约测试与外部工具引用。</summary>
     public const string OpenApiJsonPath = "/openapi/v1.json";
 
+    /// <summary>Scalar API 文档 UI 挂载路径；与 OpenApiJsonPath 配对使用。</summary>
     public const string ScalarUiPath = "/scalar/v1";
 
     public static IServiceCollection AddFullNetOpenApi(this IServiceCollection services)

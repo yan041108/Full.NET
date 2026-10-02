@@ -1,7 +1,8 @@
 namespace Full.NET.Modules.Cryptography.Contracts;
 
-/// <summary>国密控制面的稳定权限码。</summary>
-public static class CryptographyPermissions
+/// <summary>国密控制面的稳定权限码。</summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
+public static class CryptographyPermissions
 {
     /// <summary>允许查询国密密钥目录与部署状态。</summary>
     public const string KeysRead = "cryptography.keys.read";
@@ -13,8 +14,9 @@ public static class CryptographyPermissions
     public const string Sm2Verify = "cryptography.sm2.verify";
 }
 
-/// <summary>国密密钥状态机值。</summary>
-public static class CryptographyKeyStatuses
+/// <summary>国密密钥状态机值。</summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
+public static class CryptographyKeyStatuses
 {
     /// <summary>可用于签名与验签。</summary>
     public const string Active = "active";
@@ -23,22 +25,30 @@ public static class CryptographyKeyStatuses
     public const string Retired = "retired";
 }
 
-/// <summary>国密模块稳定错误码。</summary>
-public static class CryptographyErrorCodes
-{
-    public const string Prefix = "cryptography.";
-
-    public const string KeyNotFound = "cryptography.key.not_found";
-
-    public const string KeyRetired = "cryptography.key.retired";
-
-    public const string PrivateKeyNotConfigured = "cryptography.key.private_key_not_configured";
-
-    public const string SignValidationFailed = "cryptography.sm2.sign_validation_failed";
-
-    public const string VerifyValidationFailed = "cryptography.sm2.verify_validation_failed";
-
-    public const string SignatureInvalid = "cryptography.sm2.signature_invalid";
+/// <summary>国密模块稳定错误码。</summary>
+/// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
+public static class CryptographyErrorCodes
+{
+    /// <summary>国密错误码统一前缀，所有具体错误码均以该前缀开头。</summary>
+    public const string Prefix = "cryptography.";
+
+    /// <summary>请求的密钥键在密钥目录中不存在；调用方应核对 KeyKey 或先创建密钥记录。</summary>
+    public const string KeyNotFound = "cryptography.key.not_found";
+
+    /// <summary>目标密钥处于 Retired 状态，禁止执行新签名；调用方应改用 Active 状态的密钥。</summary>
+    public const string KeyRetired = "cryptography.key.retired";
+
+    /// <summary>目标密钥未配置私钥，无法执行签名；调用方应先完成私钥部署或改用其他密钥。</summary>
+    public const string PrivateKeyNotConfigured = "cryptography.key.private_key_not_configured";
+
+    /// <summary>SM2 签名请求参数校验失败（如 KeyKey 为空或原文缺失）；调用方应按错误信息补全参数。</summary>
+    public const string SignValidationFailed = "cryptography.sm2.sign_validation_failed";
+
+    /// <summary>SM2 验签请求参数校验失败（如签名格式非法）；调用方应按错误信息校正参数。</summary>
+    public const string VerifyValidationFailed = "cryptography.sm2.verify_validation_failed";
+
+    /// <summary>SM2 验签不通过，签名与原文或公钥不匹配；调用方不得将该结果视为有效签名。</summary>
+    public const string SignatureInvalid = "cryptography.sm2.signature_invalid";
 }
 
 /// <summary>国密部署状态响应。</summary>

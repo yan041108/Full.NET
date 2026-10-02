@@ -4,8 +4,12 @@ using Full.NET.Agents.Workflows;
 namespace Full.NET.Agents.Runtime;
 
 /// <summary>恢复前校验检查点版本；不兼容版本失败关闭，不自动迁移旧状态。</summary>
+/// <remarks>
+/// 常量字符串发布后不可改名或删除；新增常量只能追加。
+/// </remarks>
 public static class AgentCheckpointCompatibility
 {
+    /// <summary>当前 Checkpoint 序列化格式版本号；恢复时必须与此值相等，否则按不兼容处理并失败关闭。</summary>
     public const int CurrentCheckpointFormatVersion = 1;
 
     public static bool TryValidate(

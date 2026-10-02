@@ -3,6 +3,9 @@ namespace Full.NET.Modules.Notifications.Contracts;
 /// <summary>
 /// Notifications 模块稳定错误码集合，作为机器契约不可本地化。
 /// </summary>
+/// <remarks>
+/// 常量字符串发布后不可改名或删除；新增常量只能追加。
+/// </remarks>
 public static class NotificationsErrorCodes
 {
     /// <summary>Notifications 错误码前缀。</summary>
@@ -20,6 +23,7 @@ public static class NotificationsErrorCodes
     /// <summary>公告标题或正文长度校验失败。</summary>
     public const string AnnouncementValidationFailed = "notifications.announcement_validation_failed";
 
+    /// <summary>公告受众类型或目标列表校验失败（如受众为空、类型无效或目标越界）。</summary>
     public const string AnnouncementAudienceInvalid = "notifications.announcement_audience_invalid";
 
     /// <summary>当前用户不在公告受众范围内。</summary>

@@ -47,8 +47,12 @@ public sealed class AiBudgetException(string code) : Exception("AI operation bud
 }
 
 /// <summary>费用采用 decimal 和向上舍入，非法输入在任何持久化变更前拒绝。</summary>
+/// <remarks>
+/// 常量字符串发布后不可改名或删除；新增常量只能追加。
+/// </remarks>
 public static class AiExecutionBudget
 {
+    /// <summary>单次操作允许的最大 Token 数（输入或输出）；超过此上限按非法用量拒绝，取值为 1,000,000,000。</summary>
     public const long MaximumTokens = 1_000_000_000;
 
     public static void ValidateUsage(AiOperationUsage usage)

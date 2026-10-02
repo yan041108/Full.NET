@@ -24,6 +24,7 @@ public static class DocumentErrorCodes
     /// <summary>同一 Host 作用域下已存在相同标题的活跃文档。</summary>
     public const string TitleConflict = "document.host_document.title_conflict";
 
+    /// <summary>文档标签基础字段或格式校验失败（语义同 TagInvalid）。</summary>
     public const string InvalidTag = "document.host_tag.invalid";
 
     /// <summary>目标历史版本已是当前版本，无需重复回滚。</summary>

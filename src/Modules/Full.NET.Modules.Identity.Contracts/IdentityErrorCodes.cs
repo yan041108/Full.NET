@@ -3,6 +3,9 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <summary>
 /// 定义 Identity 模块对外返回的稳定错误码。
 /// </summary>
+/// <remarks>
+/// 常量字符串发布后不可改名或删除；新增常量只能追加。
+/// </remarks>
 public static class IdentityErrorCodes
 {
     /// <summary>
