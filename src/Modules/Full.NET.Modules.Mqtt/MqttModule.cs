@@ -17,10 +17,14 @@ namespace Full.NET.Modules.Mqtt;
 /// <summary>MQTT 控制面模块：提供受控发布、客户端目录与消息记录查询。</summary>
 public sealed class MqttModule : IFullNetModule
 {
-    /// <inheritdoc />
+    /// <summary>
+    /// Mqtt 模块的唯一稳定标识，固定为 "Mqtt"。
+    /// </summary>
     public string Name => "Mqtt";
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Mqtt 模块依赖 Identity 模块，需在其后加载。
+    /// </summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
     /// <inheritdoc />

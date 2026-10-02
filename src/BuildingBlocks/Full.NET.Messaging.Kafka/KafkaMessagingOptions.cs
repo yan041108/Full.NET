@@ -93,14 +93,29 @@ public sealed class KafkaMessagingOptions
     /// </summary>
     public bool CooperativeStickyMigrationCompleted { get; set; }
 
+    /// <summary>
+    /// Consumer 会话超时时间（毫秒）；默认 45000，必须小于 <see cref="MaxPollIntervalMilliseconds"/>。
+    /// </summary>
     public int SessionTimeoutMilliseconds { get; set; } = 45_000;
 
+    /// <summary>
+    /// 两次 Poll 之间允许的最大间隔（毫秒）；默认 300000，超时后 Consumer 会被踢出 Group。
+    /// </summary>
     public int MaxPollIntervalMilliseconds { get; set; } = 300_000;
 
+    /// <summary>
+    /// 处理器心跳间隔（毫秒）；默认 250，必须小于 <see cref="SessionTimeoutMilliseconds"/> 与 <see cref="MaxPollIntervalMilliseconds"/>。
+    /// </summary>
     public int HandlerHeartbeatMilliseconds { get; set; } = 250;
 
+    /// <summary>
+    /// 完成态轮询间隔（毫秒）；默认 5，取值范围为 1 到 <see cref="HandlerHeartbeatMilliseconds"/>。
+    /// </summary>
     public int CompletionPollMilliseconds { get; set; } = 5;
 
+    /// <summary>
+    /// Consumer 本地队列最大缓冲 KiB 数；默认 2048，取值范围 1 到 102400。
+    /// </summary>
     public int ConsumerQueueMaxMessagesKbytes { get; set; } = 2_048;
 
     /// <summary>
@@ -148,12 +163,24 @@ public sealed class KafkaMessagingOptions
     /// </summary>
     public bool PeriodicOffsetCommitVerified { get; set; }
 
+    /// <summary>
+    /// 未提交 Offset 重试退避时间（毫秒）；默认 1000，取值范围 100 到 60000。
+    /// </summary>
     public int UncommittedRetryBackoffMilliseconds { get; set; } = 1_000;
 
+    /// <summary>
+    /// 分区所有权被撤销后的退避时间（毫秒）；默认 30000，取值范围 1000 到 300000。
+    /// </summary>
     public int OwnershipRevokedBackoffMilliseconds { get; set; } = 30_000;
 
+    /// <summary>
+    /// 生产者单条消息投递超时（毫秒）；默认 120000，必须大于 1000。
+    /// </summary>
     public int DeliveryTimeoutMilliseconds { get; set; } = 120_000;
 
+    /// <summary>
+    /// 单条消息最大字节数；默认 1048576（1 MiB），取值范围由 <see cref="MinMessageMaxBytes"/> 与 <see cref="MaxMessageMaxBytes"/> 限定。
+    /// </summary>
     public int MessageMaxBytes { get; set; } = 1_048_576;
 
     /// <summary>
@@ -181,14 +208,29 @@ public sealed class KafkaMessagingOptions
     /// </summary>
     public int ProducerMaxInFlightRequests { get; set; } = 5;
 
+    /// <summary>
+    /// 重试退避阶段数组，元素按时间长度必须严格递增；默认 ["5s", "1m", "15m"]。
+    /// </summary>
     public string[] RetryStages { get; set; } = ["5s", "1m", "15m"];
 
+    /// <summary>
+    /// 是否启用 Offset 自动提交；必须保持 false，以保证至少一次与精确语义可控。
+    /// </summary>
     public bool EnableAutoCommit { get; set; }
 
+    /// <summary>
+    /// 生产者确认级别；必须为 "All"，要求 ISR 全部副本确认后才算成功。
+    /// </summary>
     public string Acks { get; set; } = "All";
 
+    /// <summary>
+    /// 是否启用生产者幂等；必须为 true，配合 MaxInFlight≤5 实现顺序与去重。
+    /// </summary>
     public bool EnableIdempotence { get; set; } = true;
 
+    /// <summary>
+    /// 关闭时等待在途消息排空的秒数；默认 30，超时后强制释放资源。
+    /// </summary>
     public int ShutdownDrainSeconds { get; set; } = 30;
 
     public ConsumerConfig BuildConsumerConfig(string consumerGroupId)

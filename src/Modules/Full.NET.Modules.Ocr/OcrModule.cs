@@ -19,8 +19,14 @@ namespace Full.NET.Modules.Ocr;
 /// <summary>提供 OCR Provider 配置与身份证识别上传、人工确认流程。</summary>
 public sealed class OcrModule : IFullNetModule
 {
+    /// <summary>
+    /// Ocr 模块的唯一稳定标识，固定为 "Ocr"。
+    /// </summary>
     public string Name => "Ocr";
 
+    /// <summary>
+    /// Ocr 模块依赖 Identity、Tenancy 与 Files 模块，需在其后加载。
+    /// </summary>
     public IReadOnlyCollection<string> Dependencies =>
     [
         "Identity",

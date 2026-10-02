@@ -24,11 +24,23 @@ public sealed class EventStreamOwnershipConcurrencyException : Exception
         ActualOwner = actualOwner;
     }
 
+    /// <summary>
+    /// 发生 CAS 冲突的事件消息类型全名；用于定位是哪条事件流的所有权切换失败。
+    /// </summary>
     public string MessageType { get; }
 
+    /// <summary>
+    /// 发生 CAS 冲突的事件 Schema 版本号。
+    /// </summary>
     public int SchemaVersion { get; }
 
+    /// <summary>
+    /// 期望的当前所有权归属；调用方在写入新所有权前读取到的值。
+    /// </summary>
     public EventDeliveryOwner ExpectedOwner { get; }
 
+    /// <summary>
+    /// 数据库中实际的当前所有权归属；与 <see cref="ExpectedOwner"/> 不一致表示已被另一事务抢先切流。
+    /// </summary>
     public EventDeliveryOwner ActualOwner { get; }
 }

@@ -19,8 +19,10 @@ namespace Full.NET.Modules.K3Cloud;
 /// <summary>提供金蝶 K3Cloud ValidateUser 连接测试与固定销售订单 Save/Submit 同步 API。</summary>
 public sealed class K3CloudModule : IFullNetModule
 {
+    /// <summary>获取 K3Cloud 模块在依赖图中的唯一稳定名称。</summary>
     public string Name => "K3Cloud";
 
+    /// <summary>获取 K3Cloud 模块运行所需的模块依赖；Identity 提供授权目录与身份上下文，Tenancy 提供租户上下文。</summary>
     public IReadOnlyCollection<string> Dependencies =>
     [
         "Identity",

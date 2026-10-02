@@ -16,10 +16,19 @@ namespace Full.NET.Modules.Webhooks;
 /// <summary>Webhook 订阅与投递模块。</summary>
 public sealed class WebhooksModule : IFullNetModule
 {
+    /// <summary>
+    /// Webhooks 模块的唯一稳定标识，固定为 "Webhooks"。
+    /// </summary>
     public string Name => "Webhooks";
 
+    /// <summary>
+    /// Webhooks 模块依赖 Identity 与 Tenancy 模块，需在其后加载。
+    /// </summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity", "Tenancy"];
 
+    /// <summary>
+    /// Webhooks 模块可选消费 Workflow 模块的事件契约，未启用时仍可独立运行。
+    /// </summary>
     public IReadOnlyCollection<string> OptionalContractDependencies => ["Workflow"];
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)

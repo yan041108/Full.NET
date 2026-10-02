@@ -31,8 +31,10 @@ namespace Full.NET.Modules.Settings;
 /// </summary>
 public sealed class SettingsModule : IFullNetModule
 {
+    /// <summary>获取 Settings 模块在依赖图中的唯一稳定名称。</summary>
     public string Name => "Settings";
 
+    /// <summary>获取 Settings 模块运行所需的模块依赖；Identity 提供授权目录与身份上下文。</summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
     public void AddServices(

@@ -10,6 +10,10 @@ public sealed class MessagingWorkerOptions
 {
     public const string SectionName = "Messaging:Worker";
 
+    /// <summary>
+    /// Worker 消息交付模式；默认 LegacyPolling，可选 ShadowCdc 与 HybridKafka。
+    /// 启动时由校验器与 Messaging:Kafka、Messaging:ShadowComparison 开关协同校验。
+    /// </summary>
     public MessagingWorkerMode Mode { get; set; } = MessagingWorkerMode.LegacyPolling;
 }
 

@@ -22,12 +22,24 @@ public sealed class LegacyIntegrationEventHandlerSubscriptionAdapter : IIntegrat
         _handler = handler;
     }
 
+    /// <summary>
+    /// 订阅使用的 ConsumerName；旧 Outbox 轮询 Worker 统一使用 <see cref="LegacyConsumerName"/>。
+    /// </summary>
     public string ConsumerName => LegacyConsumerName;
 
+    /// <summary>
+    /// 被适配旧 Handler 声明的事件类型稳定键；与信封 MessageType 匹配。
+    /// </summary>
     public string EventType => _handler.EventType;
 
+    /// <summary>
+    /// 被适配旧 Handler 声明的事件 Schema 版本号。
+    /// </summary>
     public int SchemaVersion => _handler.SchemaVersion;
 
+    /// <summary>
+    /// 被适配旧 Handler 的幂等策略；决定运行期如何去重与重试。
+    /// </summary>
     public IntegrationEventIdempotencyStrategy IdempotencyStrategy =>
         _handler.IdempotencyStrategy;
 

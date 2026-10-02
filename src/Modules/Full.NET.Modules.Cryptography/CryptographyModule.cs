@@ -14,8 +14,14 @@ namespace Full.NET.Modules.Cryptography;
 /// <summary>国密控制面模块：提供受控 SM2 签名/验签与密钥状态目录。</summary>
 public sealed class CryptographyModule : IFullNetModule
 {
+    /// <summary>
+    /// Cryptography 模块的唯一稳定标识，固定为 "Cryptography"。
+    /// </summary>
     public string Name => "Cryptography";
 
+    /// <summary>
+    /// Cryptography 模块依赖 Identity 模块，需在其后加载。
+    /// </summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)

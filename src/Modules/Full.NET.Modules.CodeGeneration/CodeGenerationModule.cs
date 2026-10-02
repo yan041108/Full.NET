@@ -23,8 +23,14 @@ namespace Full.NET.Modules.CodeGeneration;
 /// </summary>
 public sealed class CodeGenerationModule : IFullNetModule
 {
+    /// <summary>
+    /// CodeGeneration 模块的唯一稳定标识，固定为 "CodeGeneration"。
+    /// </summary>
     public string Name => "CodeGeneration";
 
+    /// <summary>
+    /// CodeGeneration 模块依赖 Identity 模块，需在其后加载。
+    /// </summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
     /// <summary>

@@ -43,6 +43,9 @@ public sealed record AiOperationReservation(Guid OperationId, bool IsNew, string
 /// <param name="code">稳定错误码；发布后不可改名或删除，调用方据此分支处理。</param>
 public sealed class AiBudgetException(string code) : Exception("AI operation budget rejected.")
 {
+    /// <summary>
+    /// 稳定错误码；发布后不可改名或删除，调用方据此分支处理预算拒绝原因。
+    /// </summary>
     public string Code { get; } = code;
 }
 

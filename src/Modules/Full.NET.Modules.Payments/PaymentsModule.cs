@@ -21,8 +21,10 @@ namespace Full.NET.Modules.Payments;
 /// <summary>提供支付商户配置、微信 Native 与支付宝 Page Pay 订单、回调与退款 API。</summary>
 public sealed class PaymentsModule : IFullNetModule
 {
+    /// <summary>获取 Payments 模块在依赖图中的唯一稳定名称。</summary>
     public string Name => "Payments";
 
+    /// <summary>获取 Payments 模块运行所需的模块依赖；Identity 提供授权目录与身份上下文，Tenancy 提供租户上下文。</summary>
     public IReadOnlyCollection<string> Dependencies =>
     [
         "Identity",

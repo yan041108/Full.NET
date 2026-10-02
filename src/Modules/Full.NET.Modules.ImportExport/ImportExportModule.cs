@@ -20,8 +20,10 @@ namespace Full.NET.Modules.ImportExport;
 /// <summary>提供静态 Schema 导入目录、模板下载、预校验与批量执行任务管理。</summary>
 public sealed class ImportExportModule : IFullNetModule
 {
+    /// <summary>获取 ImportExport 模块在依赖图中的唯一稳定名称。</summary>
     public string Name => "ImportExport";
 
+    /// <summary>获取 ImportExport 模块运行所需的模块依赖；Identity 提供授权目录与身份上下文，Files 提供文件存储能力，Tenancy 提供租户上下文。</summary>
     public IReadOnlyCollection<string> Dependencies =>
     [
         "Identity",

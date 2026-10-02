@@ -14,7 +14,10 @@ public sealed class AzureOpenAiModelClientFactory(
     IDataProtectionProvider dataProtection,
     IProtectedModelCredentialStore credentials) : IAiModelClientFactory, IAiModelConnectivityProbe
 {
-    /// <inheritdoc/>
+    /// <summary>
+    /// Azure OpenAI 提供程序的唯一静态键，固定为 azure_openai，
+    /// 用于匹配 ModelBinding 与 HTTP 客户端命名。
+    /// </summary>
     public string ProviderKey => "azure_openai";
 
     /// <inheritdoc/>

@@ -263,14 +263,29 @@ public sealed class IntegrationEventHandlerRegistryGenerator : IIncrementalGener
         int schemaVersion,
         Location? location)
     {
+        /// <summary>
+        /// 订阅处理器类型的完全限定名（含命名空间）；用于在生成的路由表中 typeof(...) 解析处理器。
+        /// </summary>
         public string TypeName { get; } = typeName;
 
+        /// <summary>
+        /// 消费者名稳定机器码；作为路由三元组的一部分，允许下划线与连字符，长度 1-128。
+        /// </summary>
         public string ConsumerName { get; } = consumerName;
 
+        /// <summary>
+        /// 事件消息类型稳定机器码；作为路由三元组的一部分，至少 4 段点分且最长 256 字符。
+        /// </summary>
         public string MessageType { get; } = messageType;
 
+        /// <summary>
+        /// 事件 Schema 版本号；作为路由三元组的一部分，必须大于等于 1。
+        /// </summary>
         public int SchemaVersion { get; } = schemaVersion;
 
+        /// <summary>
+        /// 订阅声明的源码位置；用于在编译期诊断时把错误定位到特性标注处。
+        /// </summary>
         public Location? Location { get; } = location;
     }
 

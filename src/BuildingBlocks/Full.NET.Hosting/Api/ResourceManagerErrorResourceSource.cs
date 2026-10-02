@@ -32,7 +32,7 @@ public class ResourceManagerErrorResourceSource : IErrorResourceSource
         _resourceManager = resourceManager;
     }
 
-    /// <inheritdoc />
+    /// <summary>获取该错误资源来源负责的稳定错误码前缀；构造时已校验必须以点号结尾。</summary>
     public string Prefix { get; }
 
     /// <inheritdoc />

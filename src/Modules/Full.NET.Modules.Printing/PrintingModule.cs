@@ -19,8 +19,10 @@ namespace Full.NET.Modules.Printing;
 /// <summary>提供固定表单 Schema、打印模板版本与浏览器预览绑定 API。</summary>
 public sealed class PrintingModule : IFullNetModule
 {
+    /// <summary>获取 Printing 模块在依赖图中的唯一稳定名称。</summary>
     public string Name => "Printing";
 
+    /// <summary>获取 Printing 模块运行所需的模块依赖；Identity 提供授权目录与身份上下文，Tenancy 提供租户上下文。</summary>
     public IReadOnlyCollection<string> Dependencies =>
     [
         "Identity",

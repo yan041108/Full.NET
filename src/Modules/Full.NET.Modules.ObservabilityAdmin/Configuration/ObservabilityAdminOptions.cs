@@ -5,18 +5,25 @@ namespace Full.NET.Modules.ObservabilityAdmin.Configuration;
 /// </summary>
 public sealed class ObservabilityAdminOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "FullNet:ObservabilityAdmin";
 
+    /// <summary>日志文件根目录；默认 "logs"，控制面仅允许读取该目录下的文件。</summary>
     public string LogRootPath { get; init; } = "logs";
 
+    /// <summary>列目录时返回的最大文件数；默认 100，防止目录枚举过载。</summary>
     public int MaximumListFiles { get; init; } = 100;
 
+    /// <summary>尾部读取的默认行数；默认 200。</summary>
     public int DefaultTailLines { get; init; } = 200;
 
+    /// <summary>尾部读取允许的最大行数；默认 5000。</summary>
     public int MaximumTailLines { get; init; } = 5_000;
 
+    /// <summary>尾部读取的默认字节数；默认 262144（256 KiB）。</summary>
     public int DefaultTailBytes { get; init; } = 256 * 1024;
 
+    /// <summary>尾部读取允许的最大字节数；默认 1048576（1 MiB）。</summary>
     public int MaximumTailBytes { get; init; } = 1024 * 1024;
 
     /// <summary>当前进程实例稳定标识；留空时按机器名与宿主角色自动生成。</summary>

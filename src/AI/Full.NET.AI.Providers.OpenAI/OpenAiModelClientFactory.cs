@@ -13,7 +13,10 @@ namespace Full.NET.AI.Providers.OpenAI;
 /// <param name="gatewayPolicy">可信宿主的网关能力快照。</param>
 public sealed class OpenAiModelClientFactory(IHttpClientFactory httpClientFactory, IDataProtectionProvider dataProtection, IProtectedModelCredentialStore credentials, OpenAiGatewayPolicy gatewayPolicy) : IAiModelClientFactory, IAiModelConnectivityProbe
 {
-    /// <inheritdoc/>
+    /// <summary>
+    /// OpenAI 兼容提供程序的唯一静态键，固定为 openai_compatible，
+    /// 用于匹配 ModelBinding 与 HTTP 客户端命名。
+    /// </summary>
     public string ProviderKey => "openai_compatible";
     /// <inheritdoc/>
     public async ValueTask<IChatClient> CreateChatClientAsync(ModelBinding binding, CancellationToken cancellationToken)

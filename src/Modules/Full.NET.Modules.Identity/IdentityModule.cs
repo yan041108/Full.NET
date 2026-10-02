@@ -48,6 +48,7 @@ public sealed class IdentityModule : IFullNetModule
     /// </summary>
     public const string BrowserCorsPolicy = "FullNET.Identity.BrowserClients";
 
+    /// <summary>模块名称，固定为 Identity，用于模块目录与依赖解析。</summary>
     public string Name => "Identity";
 
     /// <summary>Identity 是依赖图根模块，不声明硬依赖以免与 Files 头像引用形成环。</summary>

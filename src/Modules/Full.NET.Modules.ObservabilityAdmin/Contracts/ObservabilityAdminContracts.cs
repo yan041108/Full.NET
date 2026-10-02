@@ -60,6 +60,7 @@ public static class ObservabilityAdminErrorCodes
     /// <summary>缓存失效请求无效；调用方应按契约修正策略或键参数。</summary>
     public const string CacheInvalidationInvalid = "observability.cache_policies.invalidation_invalid";
 
+    /// <summary>获取 ObservabilityAdmin 模块所有稳定错误码的只读列表，用于校验或枚举。</summary>
     public static IReadOnlyList<string> All { get; } =
         Array.AsReadOnly([
             LogFileNotFound,

@@ -24,13 +24,19 @@ namespace Full.NET.Modules.DataApproval;
 /// </summary>
 public sealed class DataApprovalModule : IFullNetModule
 {
-    /// <inheritdoc />
+    /// <summary>
+    /// DataApproval 模块的唯一稳定标识，固定为 "DataApproval"。
+    /// </summary>
     public string Name => "DataApproval";
 
-    /// <inheritdoc />
+    /// <summary>
+    /// DataApproval 模块依赖 Identity 与 Workflow 模块，需在其后加载。
+    /// </summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity", "Workflow"];
 
-    /// <inheritdoc />
+    /// <summary>
+    /// DataApproval 模块可选消费 SerialNumbers 模块的契约，未启用时仍可独立运行。
+    /// </summary>
     public IReadOnlyCollection<string> OptionalContractDependencies => ["SerialNumbers"];
 
     /// <inheritdoc />

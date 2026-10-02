@@ -47,8 +47,14 @@ namespace Full.NET.Modules.Ai;
 /// <summary>提供 AI 模型配置、连通性测试与租户配额管理 API。</summary>
 public sealed class AiModule : IFullNetModule
 {
+    /// <summary>
+    /// Ai 模块的唯一稳定标识，固定为 "Ai"。
+    /// </summary>
     public string Name => "Ai";
 
+    /// <summary>
+    /// Ai 模块依赖 Identity 与 Tenancy 模块，需在其后加载。
+    /// </summary>
     public IReadOnlyCollection<string> Dependencies =>
     [
         "Identity",

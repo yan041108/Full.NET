@@ -19,8 +19,14 @@ namespace Full.NET.Modules.ObservabilityAdmin;
 /// <summary>提供 Host 运行日志的只读、有界且精确授权的管理控制面。</summary>
 public sealed class ObservabilityAdminModule : IFullNetModule
 {
+    /// <summary>
+    /// ObservabilityAdmin 模块的唯一稳定标识，固定为 "ObservabilityAdmin"。
+    /// </summary>
     public string Name => "ObservabilityAdmin";
 
+    /// <summary>
+    /// ObservabilityAdmin 模块依赖 Identity 模块，需在其后加载。
+    /// </summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
     public void AddServices(

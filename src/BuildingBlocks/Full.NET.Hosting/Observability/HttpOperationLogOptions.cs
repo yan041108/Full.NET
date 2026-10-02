@@ -12,6 +12,10 @@ public sealed class HttpOperationLogOptions
     /// <summary>总开关；false 等同于 CaptureMode=Disabled。</summary>
     public bool Enabled { get; set; } = true;
 
+    /// <summary>
+    /// HTTP Operation Log 捕获粒度；默认 Summary，可选 Disabled / Summary / SanitizedPayload，
+    /// 决定请求与响应的记录详细程度。
+    /// </summary>
     public HttpOperationCaptureMode CaptureMode { get; set; } = HttpOperationCaptureMode.Summary;
 
     /// <summary>部署选定的容量档；默认 XL 作为 10K 设计参考（Capacity-not-verified）。</summary>

@@ -57,6 +57,10 @@ public sealed record EventDeliveryRollbackReadiness(
     Guid? LastPublishedEventId,
     DateTimeOffset ObservedAtUtc)
 {
+    /// <summary>
+    /// 未装配 Broker/Connector 控制面适配器时的失败关闭占位状态；
+    /// 所有安全标志为 false，时间为 MinValue，调用方不得据此放行回退。
+    /// </summary>
     public static EventDeliveryRollbackReadiness Unavailable { get; } =
         new(
             RollbackGeneration: Guid.Empty,

@@ -12,7 +12,10 @@ namespace Full.NET.AI.Providers.Ollama;
 /// <param name="credentials">请求作用域内的授权凭据读取服务。</param>
 public sealed class OllamaModelClientFactory(IHttpClientFactory httpClientFactory, IDataProtectionProvider dataProtection, IProtectedModelCredentialStore credentials) : IAiModelClientFactory, IAiModelConnectivityProbe
 {
-    /// <inheritdoc/>
+    /// <summary>
+    /// Ollama 提供程序的唯一静态键，固定为 ollama，
+    /// 用于匹配 ModelBinding 与 HTTP 客户端命名。
+    /// </summary>
     public string ProviderKey => "ollama";
     /// <inheritdoc/>
     public async ValueTask<IChatClient> CreateChatClientAsync(ModelBinding binding, CancellationToken cancellationToken)

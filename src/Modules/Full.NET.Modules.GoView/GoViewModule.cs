@@ -17,8 +17,10 @@ namespace Full.NET.Modules.GoView;
 /// <summary>提供 GoView 大屏项目草稿保存、发布快照与只读预览 API。</summary>
 public sealed class GoViewModule : IFullNetModule
 {
+    /// <summary>获取 GoView 模块在依赖图中的唯一稳定名称。</summary>
     public string Name => "GoView";
 
+    /// <summary>获取 GoView 模块运行所需的模块依赖；Identity 提供授权目录与身份上下文，Tenancy 提供租户上下文。</summary>
     public IReadOnlyCollection<string> Dependencies =>
     [
         "Identity",

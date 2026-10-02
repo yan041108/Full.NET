@@ -34,8 +34,14 @@ namespace Full.NET.Modules.Organization;
 /// </summary>
 public sealed class OrganizationModule : IFullNetModule
 {
+    /// <summary>
+    /// Organization 模块的唯一稳定标识，固定为 "Organization"。
+    /// </summary>
     public string Name => "Organization";
 
+    /// <summary>
+    /// Organization 模块依赖 Identity 与 Tenancy 模块，需在其后加载。
+    /// </summary>
     public IReadOnlyCollection<string> Dependencies =>
     [
         "Identity",

@@ -40,8 +40,10 @@ namespace Full.NET.Modules.Tenancy;
 /// </summary>
 public sealed class TenancyModule : IFullNetModule
 {
+    /// <summary>获取 Tenancy 模块在依赖图中的唯一稳定名称。</summary>
     public string Name => "Tenancy";
 
+    /// <summary>获取 Tenancy 模块运行所需的模块依赖；Identity 提供用户与会话的底层基座。</summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
     /// <summary>租户品牌 Logo 走 Files 合同，打印桥接走 Printing 合同；二者均不阻断无对应模块的最小预设。</summary>

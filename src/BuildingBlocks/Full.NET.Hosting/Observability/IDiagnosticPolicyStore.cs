@@ -22,6 +22,9 @@ public interface IDiagnosticPolicyStore
 /// <summary>Hosting 默认安全实现：始终返回生产安全默认值，直到 Settings 替换注册。</summary>
 public sealed class DefaultDiagnosticPolicyStore : IDiagnosticPolicyStore
 {
+    /// <summary>
+    /// 始终返回生产安全的默认诊断策略快照，直至 Settings 替换注册该存储实现。
+    /// </summary>
     public DiagnosticPolicySnapshot Current =>
         DiagnosticPolicySnapshot.CreateDefault(DateTimeOffset.UtcNow);
 

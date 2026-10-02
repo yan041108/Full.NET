@@ -43,10 +43,14 @@ public sealed class LocaleNormalizer : ILocaleNormalizer
         _canonicalByInput = canonicalByInput;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// 无法识别请求语言时回退使用的规范语言标签，由启动配置的 DefaultLocale 决定。
+    /// </summary>
     public string DefaultLocale { get; }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// 当前服务端资源支持的规范语言标签集合，由启动配置的 SupportedLocales 决定。
+    /// </summary>
     public IReadOnlyList<string> SupportedLocales { get; }
 
     /// <inheritdoc />
