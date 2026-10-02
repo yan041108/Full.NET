@@ -7,6 +7,7 @@ namespace Full.NET.Caching.Fusion;
 public interface ICachePolicyRegistry
 {
     /// <summary>获取已注册策略；未知条目必须失败。</summary>
+    /// <param name="entryName">已注册的稳定缓存条目名。</param>
     /// <returns>已注册的缓存策略；entryName 未注册时抛出异常，避免静默降级。</returns>
     CacheEntryPolicy GetRequired(string entryName);
 
@@ -15,18 +16,22 @@ public interface ICachePolicyRegistry
     IReadOnlyList<CacheEntryPolicy> ListPolicies();
 
     /// <summary>解析访问路径；C0/N0 分别返回 AuthorityRead/Bypass。</summary>
+    /// <param name="entryName">已注册的稳定缓存条目名。</param>
     /// <returns>该条目对应的访问决策；C0/N0 分别返回 AuthorityRead/Bypass。</returns>
     CacheAccessDecision ResolveAccess(string entryName);
 
     /// <summary>
     /// 按策略生成 FusionCache 选项。C0/N0 必须抛错，避免调用方猜测绕过语义。
     /// </summary>
+    /// <param name="entryName">已注册的稳定缓存条目名。</param>
     /// <returns>按策略生成的 FusionCache 选项；C0/N0 条目抛出异常。</returns>
     FusionCacheEntryOptions CreateEntryOptions(string entryName);
 
     /// <summary>
     /// 按策略生成 HybridCache 选项，并显式区分正常与负缓存寿命。C0/N0 必须抛错。
     /// </summary>
+    /// <param name="entryName">已注册的稳定缓存条目名。</param>
+    /// <param name="lifetime">缓存寿命分类，区分正常缓存与负缓存；默认 Normal。</param>
     /// <returns>按策略生成的 HybridCache 选项，区分正常与负缓存寿命；C0/N0 条目抛出异常。</returns>
     HybridCacheEntryOptions CreateHybridEntryOptions(
         string entryName,
