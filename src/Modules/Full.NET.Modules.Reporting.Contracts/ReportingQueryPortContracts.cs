@@ -1,5 +1,6 @@
 namespace Full.NET.Modules.Reporting.Contracts;
 
+/// <remarks>数据类型键字符串值发布后不可改名或删除；新增键只能追加到本类末尾，避免破坏既有参数 Schema 与执行结果解析。</remarks>
 /// <summary>报表参数数据类型键。</summary>
 public static class ReportingParameterDataTypeKeys
 {

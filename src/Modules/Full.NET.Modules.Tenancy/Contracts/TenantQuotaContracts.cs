@@ -27,6 +27,13 @@ public static class TenancyTenantQuotaPermissions
 public sealed record ReconcileTenantQuotaMetricIdsRequest(bool DryRun = true);
 
 /// <summary>历史预留 MetricId 对账结果。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。DryRun=true 时 RepairedCount 始终为 0，调用方据此区分试运行与实际修复。
+/// </remarks>
+/// <param name="OutstandingCount">扫描发现的待修复条数。</param>
+/// <param name="RepairedCount">实际修复的条数；DryRun=true 时为 0。</param>
+/// <param name="SkippedCount">因校验失败或状态不兼容而跳过的条数。</param>
+/// <param name="DryRun">是否为试运行；true 时仅统计不写库。</param>
 public sealed record ReconcileTenantQuotaMetricIdsResponse(
     int OutstandingCount,
     int RepairedCount,
@@ -41,6 +48,13 @@ public sealed record ReconcileTenantQuotaUsageBaselineRequest(
     string? MetricCode = null);
 
 /// <summary>配额 UsedValue 用量基线对账结果。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。TenantIds 顺序由服务端决定，调用方不应假设按 Identifier 排序；DryRun=true 时 AppliedCount 始终为 0。
+/// </remarks>
+/// <param name="CandidateCount">扫描发现的候选租户数量。</param>
+/// <param name="AppliedCount">实际修正 UsedValue 的租户数量；DryRun=true 时为 0。</param>
+/// <param name="DryRun">是否为试运行；true 时仅统计不写库。</param>
+/// <param name="TenantIds">受影响的租户标识集合；DryRun=true 时为待修正样本，否则为已修正样本。</param>
 public sealed record ReconcileTenantQuotaUsageBaselineResponse(
     int CandidateCount,
     int AppliedCount,

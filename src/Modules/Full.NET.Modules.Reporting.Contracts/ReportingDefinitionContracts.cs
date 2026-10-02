@@ -34,6 +34,9 @@ public sealed record ReportingDefinitionResponse(
     DateTimeOffset? UpdatedAtUtc,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。版本快照一经发布不可变更，删除须走归档流程。
+/// </remarks>
 /// <summary>报表定义发布版本响应。</summary>
 /// <param name="Id">版本标识。</param>
 /// <param name="DefinitionId">所属定义标识。</param>

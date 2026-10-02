@@ -1,5 +1,6 @@
 namespace Full.NET.Modules.Reporting.Contracts;
 
+/// <remarks>提供程序键字符串值发布后不可改名或删除；新增键只能追加到本类末尾，避免破坏既有数据源配置与执行路由。</remarks>
 /// <summary>受支持的数据库提供程序键。</summary>
 public static class ReportingDataSourceProviderKeys
 {
@@ -10,6 +11,7 @@ public static class ReportingDataSourceProviderKeys
     public const string MySql = "mysql";
 }
 
+/// <remarks>状态键字符串值发布后不可改名或删除；新增键只能追加到本类末尾，避免破坏既有数据源监控与历史记录解析。</remarks>
 /// <summary>数据源连接测试状态键。</summary>
 public static class ReportingDataSourceTestStatusKeys
 {
@@ -150,6 +152,9 @@ public sealed record UpdateReportingDataSourceRequest(
     bool IsEnabled,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>报表数据源连接测试结果。</summary>
 /// <param name="Succeeded">是否成功。</param>
 /// <param name="Message">诊断消息；失败时包含原因摘要。</param>

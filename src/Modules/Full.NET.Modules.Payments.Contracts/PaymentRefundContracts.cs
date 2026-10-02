@@ -74,6 +74,9 @@ public sealed record PaymentRefundResponse(
     DateTimeOffset? CompletedAtUtc,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>创建支付退款请求。</summary>
 /// <param name="AmountMinor">退款金额（最小货币单位）；为空表示全额退款。</param>
 /// <param name="Reason">退款原因。</param>
@@ -81,6 +84,9 @@ public sealed record CreatePaymentRefundRequest(
     long? AmountMinor,
     string Reason);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。Code 与 Message 取值遵循微信支付协议，调用方须按微信文档解析。
+/// </remarks>
 /// <summary>微信支付通知受理响应（微信协议格式）。</summary>
 /// <param name="Code">结果码。</param>
 /// <param name="Message">结果描述。</param>

@@ -22,6 +22,9 @@ public sealed record ReportingGroupResponse(
     DateTimeOffset? UpdatedAtUtc,
     int Version);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>创建报表分组请求。</summary>
 /// <param name="ParentId">父分组标识。</param>
 /// <param name="Name">显示名称。</param>
@@ -33,6 +36,9 @@ public sealed record CreateReportingGroupRequest(
     int SortOrder,
     bool IsEnabled);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>更新报表分组请求。</summary>
 /// <param name="ParentId">父分组标识。</param>
 /// <param name="Name">显示名称。</param>

@@ -334,6 +334,13 @@ public static class HostDocumentShareBatchLimits
 }
 
 /// <summary>批量创建主机文档分享的请求契约；各文档共用同一有效期、口令与访问上限策略。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
+/// <param name="DocumentIds">目标文档标识集合；顺序决定结果回显顺序。</param>
+/// <param name="ValidDays">分享有效天数，从创建时刻起计算。</param>
+/// <param name="Password">可选访问口令；传入后匿名访问必须提交匹配口令。</param>
+/// <param name="MaxAccessCount">可选最大访问次数；到达后分享自动失效，null 表示不限制。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record BatchCreateHostDocumentSharesRequest(
     IReadOnlyList<Guid> DocumentIds,
@@ -342,6 +349,14 @@ public sealed record BatchCreateHostDocumentSharesRequest(
     int? MaxAccessCount = null);
 
 /// <summary>批量创建分享的单条结果。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
+/// <param name="DocumentId">本条结果对应的文档标识。</param>
+/// <param name="Succeeded">本条是否创建成功。</param>
+/// <param name="Share">成功时返回创建的分享投影；失败时为 null。</param>
+/// <param name="ErrorCode">失败时返回稳定错误码；成功时为 null。</param>
+/// <param name="Message">失败时的可读说明；成功时为 null。</param>
 public sealed record BatchCreateHostDocumentShareItem(
     Guid DocumentId,
     bool Succeeded,
@@ -350,6 +365,11 @@ public sealed record BatchCreateHostDocumentShareItem(
     string? Message);
 
 /// <summary>批量创建分享汇总响应。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
+/// <param name="SucceededCount">实际创建成功的分享数。</param>
+/// <param name="Results">逐条结果；顺序与请求集合一致。</param>
 public sealed record BatchCreateHostDocumentSharesResponse(
     int SucceededCount,
     IReadOnlyList<BatchCreateHostDocumentShareItem> Results);
@@ -465,6 +485,7 @@ public sealed record HostDocumentShareResponse(
 /// <remarks>
 /// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
 /// </remarks>
+/// <param name="Password">访问口令；与分享创建时设置的口令匹配才允许访问，null 表示无口令。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record AccessHostDocumentShareRequest(
     string? Password = null);
@@ -473,6 +494,15 @@ public sealed record AccessHostDocumentShareRequest(
 /// <remarks>
 /// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
 /// </remarks>
+/// <param name="ShareId">分享行标识。</param>
+/// <param name="DocumentId">所属文档标识。</param>
+/// <param name="ShareCode">对外使用的稳定分享码，URL 安全。</param>
+/// <param name="Title">文档标题，用于展示。</param>
+/// <param name="FileName">当前版本文件名，可空表示无有效版本。</param>
+/// <param name="MimeType">文件 MIME 类型，可空表示未识别。</param>
+/// <param name="FileSizeBytes">当前版本文件字节数。</param>
+/// <param name="HasPassword">是否设置了访问口令；true 时代码访问必须提交口令。</param>
+/// <param name="AccessCountRemaining">剩余访问次数；null/不限时由调用方按 MaxAccessCount 推导。</param>
 public sealed record HostDocumentShareAccessResponse(
     Guid ShareId,
     Guid DocumentId,
@@ -529,6 +559,13 @@ public sealed record HostDocumentStatisticsCategoryItem(
     long Count);
 
 /// <summary>Host 文档历史版本自动保留策略快照（有效值：数据库覆盖优先于 appsettings）。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
+/// <param name="MinimumRetainedVersionsPerItem">每个文档至少保留的历史版本数。</param>
+/// <param name="MaximumRetainedHistoryVersions">全模块保留的历史版本总数上限。</param>
+/// <param name="PollSeconds">清理 Worker 轮询周期（秒）。</param>
+/// <param name="BatchSize">单次清理批大小，控制单次事务影响。</param>
 public sealed record HostDocumentVersionRetentionSettingsResponse(
     int MinimumRetainedVersionsPerItem,
     int MaximumRetainedHistoryVersions,
@@ -536,6 +573,13 @@ public sealed record HostDocumentVersionRetentionSettingsResponse(
     int BatchSize);
 
 /// <summary>更新 Host 版本保留策略的请求契约；持久化后通过 Options 合并立即生效。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
+/// <param name="MinimumRetainedVersionsPerItem">每个文档至少保留的历史版本数。</param>
+/// <param name="MaximumRetainedHistoryVersions">全模块保留的历史版本总数上限。</param>
+/// <param name="PollSeconds">清理 Worker 轮询周期（秒）。</param>
+/// <param name="BatchSize">单次清理批大小，控制单次事务影响。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record UpdateHostDocumentVersionRetentionRequest(
     int MinimumRetainedVersionsPerItem,

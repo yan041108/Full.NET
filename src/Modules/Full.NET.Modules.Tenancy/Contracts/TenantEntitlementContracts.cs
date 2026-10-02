@@ -124,6 +124,13 @@ public sealed record TenantEntitlementEnforcementResponse(string Phase, int Vers
 public sealed record UpdateTenantEntitlementEnforcementRequest(string Phase, int Version);
 
 /// <summary>权益兼容回填结果。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。DryRun=true 时 TenantIds 仅包含待回填样本，AppliedCount 始终为 0。
+/// </remarks>
+/// <param name="MissingBindingCount">扫描发现的缺失权益绑定租户数量。</param>
+/// <param name="AppliedCount">实际写入的绑定数量；DryRun=true 时为 0。</param>
+/// <param name="DryRun">是否为试运行；true 时仅统计不写库。</param>
+/// <param name="TenantIds">受影响的租户标识集合；DryRun=true 时为待回填样本，否则为已回填样本。</param>
 public sealed record TenantEntitlementBackfillResponse(
     int MissingBindingCount,
     int AppliedCount,
@@ -131,4 +138,8 @@ public sealed record TenantEntitlementBackfillResponse(
     IReadOnlyList<Guid> TenantIds);
 
 /// <summary>权益兼容回填请求。</summary>
+/// <remarks>
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
+/// </remarks>
+/// <param name="DryRun">是否为试运行；true 时仅统计可回填条数不写库，默认 true。</param>
 public sealed record TenantEntitlementBackfillRequest(bool DryRun = true);

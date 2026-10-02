@@ -1,5 +1,6 @@
 namespace Full.NET.Modules.Settings.Contracts;
 
+/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加到本类末尾，避免破坏既有角色分配与策略缓存。</remarks>
 /// <summary>
 /// Host 枚举/常量元数据目录的权限与契约。
 /// </summary>
@@ -45,6 +46,9 @@ public sealed record EnumCatalogMemberDefinition(
     string Label,
     int DisplayOrder);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>枚举目录列表项。</summary>
 /// <param name="Key">稳定目录键。</param>
 /// <param name="DisplayName">展示名称。</param>
@@ -70,6 +74,9 @@ public sealed record EnumCatalogDetail(
     string? Description,
     IReadOnlyList<EnumCatalogMember> Members);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>枚举目录成员响应。</summary>
 /// <param name="Code">稳定机器码。</param>
 /// <param name="Label">中文展示标签。</param>
@@ -79,6 +86,7 @@ public sealed record EnumCatalogMember(
     string Label,
     int DisplayOrder);
 
+/// <remarks>动作字符串值发布后不可改名或删除；新增动作只能追加到本类末尾，避免破坏既有调用方解析。</remarks>
 /// <summary>枚举目录生成字典的逐行预览动作。</summary>
 public static class EnumCatalogDictGenerationItemActions
 {
@@ -95,6 +103,9 @@ public static class EnumCatalogDictGenerationItemActions
     public const string InvalidValue = "invalid_value";
 }
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>枚举目录生成 Host 字典的预览结果。</summary>
 /// <param name="CatalogKey">源枚举目录键。</param>
 /// <param name="DictTypeCode">目标字典类型编码，与目录键一致。</param>
@@ -112,6 +123,9 @@ public sealed record EnumCatalogDictGenerationPreview(
     IReadOnlyList<EnumCatalogDictGenerationItemPreview> Items,
     IReadOnlyList<EnumCatalogDictGenerationUnmanagedItem> UnmanagedItems);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>单个目录成员的字典生成预览。</summary>
 /// <param name="Value">目录成员机器码；映射为字典项值。</param>
 /// <param name="ProposedLabel">目录中声明的中文标签；用于新增或覆盖建议。</param>
@@ -125,6 +139,9 @@ public sealed record EnumCatalogDictGenerationItemPreview(
     int DisplayOrder,
     string Action);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>字典中存在但目录未登记的项。</summary>
 /// <param name="Value">字典项值；不属于任何目录成员。</param>
 /// <param name="Label">字典项当前中文标签。</param>
@@ -134,6 +151,9 @@ public sealed record EnumCatalogDictGenerationUnmanagedItem(
     string Label,
     bool IsActive);
 
+/// <remarks>
+/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// </remarks>
 /// <summary>枚举目录生成 Host 字典的执行结果。</summary>
 /// <param name="CatalogKey">源枚举目录键。</param>
 /// <param name="DictTypeCode">目标字典类型编码，与目录键一致。</param>
