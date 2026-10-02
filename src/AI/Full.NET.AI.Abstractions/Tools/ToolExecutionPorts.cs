@@ -32,11 +32,16 @@ public interface IAgentApprovalPort
 }
 
 /// <summary>审批门禁结果；Required 表示需先走人工审批 API。</summary>
+/// <remarks>枚举成员数值发布后不可调整；新增成员只能追加到末尾，以保持线格式兼容。</remarks>
 public enum AgentApprovalExecutionStatus
 {
+    /// <summary>只读工具无需审批，可直接执行；与 Approved 的边界在于不产生副作用。</summary>
     NotRequired,
+    /// <summary>写工具已存在未消费的有效审批绑定，可执行并在同事务内消费审批。</summary>
     Approved,
+    /// <summary>写工具需要人工审批但尚未获得有效绑定；调用方须先走人工审批 API，禁止直接执行。</summary>
     Required,
+    /// <summary>审批已被拒绝或绑定已失效；调用方不得重试执行，应返回拒绝结果。</summary>
     Denied,
 }
 

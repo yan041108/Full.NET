@@ -26,20 +26,38 @@ public enum HttpOperationCaptureMode
 }
 
 /// <summary>部署时选定的日志容量档位；禁止按瞬时并发自动切档。</summary>
+/// <remarks>枚举成员数值发布后不可调整；新增成员只能追加到末尾。</remarks>
 public enum LoggingCapacityProfile
 {
+    /// <summary>最小容量档位；适用于开发、单机演示或极低吞吐场景，日志采样与保留策略最激进。</summary>
     S = 0,
+
+    /// <summary>中小容量档位；适用于单实例或低并发生产环境，作为默认容量的下限候选。</summary>
     M = 1,
+
+    /// <summary>标准容量档位；适用于常规生产负载，是大多数部署的推荐默认档位。</summary>
     L = 2,
+
+    /// <summary>大容量档位；适用于高并发或多实例聚合场景，放宽采样与保留阈值。</summary>
     XL = 3,
+
+    /// <summary>超大容量档位；适用于核心链路或高基数日志场景，需配套更大的存储与索引预算。</summary>
     XXL = 4,
+
+    /// <summary>极限容量档位；仅用于经容量评审的超大规模场景，启用最高保留与最低采样策略。</summary>
     Ultra = 5,
 }
 
 /// <summary>运行期压力状态；只允许收缩 Best Effort，不得改变 Priority/B0/B1。</summary>
+/// <remarks>枚举成员数值发布后不可调整；新增成员只能追加到末尾。</remarks>
 public enum LoggingPressureState
 {
+    /// <summary>正常压力状态；日志管道吞吐与延迟在阈值内，按既定容量档位全量处理。</summary>
     Normal = 0,
+
+    /// <summary>降级压力状态；管道出现积压或延迟升高，仅收缩 Best Effort 类日志，Priority/B0/B1 不受影响。</summary>
     Degraded = 1,
+
+    /// <summary>紧急压力状态；管道濒临过载，在 Degraded 基础上进一步丢弃低优先级日志直至恢复 Normal。</summary>
     Critical = 2,
 }

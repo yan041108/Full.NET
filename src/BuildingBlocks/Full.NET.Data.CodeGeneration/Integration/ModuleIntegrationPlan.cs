@@ -5,26 +5,44 @@ namespace Full.NET.Data.CodeGeneration.Integration;
 /// <summary>
 /// 标识模块接入计划中的固定影响区域。
 /// </summary>
+/// <remarks>
+/// 枚举成员数值发布后不可调整；新增成员只能追加到末尾，以保持按 Area 排序的确定性。
+/// </remarks>
 public enum ModuleIntegrationArea
 {
+    /// <summary>后端代码生成产物（如实体、DTO、迁移脚本等）的输出目录。</summary>
     BackendArtifacts = 1,
+    /// <summary>模块自身的项目文件（.csproj）及程序集级配置。</summary>
     ModuleProject = 2,
+    /// <summary>模块的服务层注册与依赖注入配置。</summary>
     ModuleServices = 3,
+    /// <summary>模块对外暴露的 HTTP Endpoint 路由与控制器注册。</summary>
     ModuleEndpoints = 4,
+    /// <summary>宿主组合层（Composition）的项目文件及程序集引用。</summary>
     CompositionProject = 5,
+    /// <summary>组合层的模块目录（Catalog）注册，决定模块是否被加载。</summary>
     CompositionCatalog = 6,
+    /// <summary>前端 Vue 路由配置，影响 Vue 工作台的菜单与页面路由。</summary>
     VueRoute = 7,
+    /// <summary>前端 Layui 路由配置，影响 Layui 工作台的菜单与页面路由。</summary>
     LayuiRoute = 8,
 }
 
 /// <summary>
 /// 标识只读规划对一个影响区域的保守判定。
 /// </summary>
+/// <remarks>
+/// 枚举成员数值发布后不可调整；新增成员只能追加到末尾，以保持线格式兼容。
+/// </remarks>
 public enum ModuleIntegrationStatus
 {
+    /// <summary>影响区域已与目标状态对齐，无需任何改动；可静默跳过。</summary>
     Satisfied = 1,
+    /// <summary>存在可由 IntegrationEditor 自动安全处理的差异，应用后无需人工复核。</summary>
     ChangeRequired = 2,
+    /// <summary>规划器无法推断拓扑或存在歧义，必须由开发者人工确认后再应用。</summary>
     ManualReview = 3,
+    /// <summary>检测到冲突或依赖缺失，禁止继续应用，必须先修复根因。</summary>
     Blocked = 4,
 }
 
