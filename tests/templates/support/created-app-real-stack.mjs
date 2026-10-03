@@ -109,9 +109,9 @@ function runDotnet(args, cwd, env, timeoutMs = 300_000, logPath) {
   return result;
 }
 
-function runOutboxProbe(project, appRoot, env, command, messageId) {
+function runOutboxProbe(project, appRoot, env, command, ...argumentsForProbe) {
   const result = runDotnet(['run', '--project', project, '-c', 'Release', '--no-build', '--',
-    command, ...(messageId ? [messageId] : [])], appRoot, env, 45_000);
+    command, ...argumentsForProbe], appRoot, env, 60_000);
   const marker = result.stdout.split(/\r?\n/u).find(line => line.startsWith('OUTBOX_PROBE '));
   assert.ok(marker, `Outbox probe ${command} returned no state: ${result.stdout}`);
   return JSON.parse(marker.slice('OUTBOX_PROBE '.length));
@@ -289,7 +289,7 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     const workerProject = join(appRoot, 'src/Demo.Host.Worker/Demo.Host.Worker.csproj');
     const outboxProbeRoot = join(appRoot, 'tests/created-app-outbox-probe');
     mkdirSync(outboxProbeRoot, { recursive: true });
-    for (const file of ['CreatedAppOutboxProbe.csproj', 'Program.cs']) {
+    for (const file of ['CreatedAppOutboxProbe.csproj', 'Program.cs', 'BusinessOutboxProbe.cs']) {
       copyFileSync(join(repoRoot, 'tests/templates/support/created-app-outbox-probe', file), join(outboxProbeRoot, file));
     }
     const outboxProbeProject = join(outboxProbeRoot, 'CreatedAppOutboxProbe.csproj');
@@ -398,6 +398,37 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
         await verifyApplicationCrudClientProductList(appRoot, apiUrl,
           { tenantAccessToken, expectedProduct: product, logPath: join(logRoot, 'application-crud-client/product-list.json') });
       } });
+    const unitName = 'Generated application Worker projection probe';
+    const unitResponse = await fetch(`${apiUrl}/api/v1/organization/units/`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tenantCrud.tenantAccessToken}`, Origin: 'http://localhost', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parentId: null, code: `app-outbox-${Date.now().toString(36)}`, name: unitName, displayOrder: 10 }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    assert.equal(unitResponse.status, 201, unitResponse.status === 201
+      ? 'generated application organization write' : `generated application organization write: ${await unitResponse.text()}`);
+    const unit = await unitResponse.json();
+    assert.match(unit.id, /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu);
+    assert.equal(unit.name, unitName);
+    assert.equal(unit.version, 1);
+    const projectedUnit = runOutboxProbe(outboxProbeProject, appRoot, env, 'business-wait', tenantCrud.tenantId, unit.id);
+    writeFileSync(join(logRoot, 'worker-business-outbox.json'), JSON.stringify(projectedUnit, null, 2));
+    assert.equal(projectedUnit.TenantId, tenantCrud.tenantId);
+    assert.equal(projectedUnit.UnitId, unit.id);
+    assert.equal(projectedUnit.MessageType, 'fullnet.organization.unit.changed');
+    assert.equal(projectedUnit.SchemaVersion, 1);
+    assert.equal(projectedUnit.ContentType, 'application/x-memorypack');
+    assert.equal(projectedUnit.PayloadName, unitName);
+    assert.equal(projectedUnit.PayloadVersion, unit.version);
+    assert.equal(projectedUnit.Attempts, 1);
+    assert.equal(projectedUnit.IsProcessed, 1);
+    assert.equal(projectedUnit.IsDeadLettered, 0);
+    assert.equal(projectedUnit.DeadLetterReasonCode, null);
+    assert.equal(projectedUnit.IsLeaseReleased, 1);
+    assert.equal(projectedUnit.IsRetryCleared, 1);
+    assert.equal(projectedUnit.ProjectionName, unitName);
+    assert.equal(projectedUnit.ProjectionVersion, unit.version);
+    assert.equal(projectedUnit.ProjectionIsActive, 1);
     await verifyApplicationCrudClientTenantRead(appRoot, apiUrl, { tenantAccessToken: tenantCrud.tenantAccessToken,
       logPath: join(logRoot, 'application-crud-client/tenant-read.json') });
     await verifyApplicationCrudClientTenantWrites(appRoot, apiUrl, { tenantAccessToken: tenantCrud.tenantAccessToken,

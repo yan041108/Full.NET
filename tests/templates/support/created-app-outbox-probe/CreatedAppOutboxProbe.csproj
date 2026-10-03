@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj" />
     <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Serialization.MemoryPack/Full.NET.Serialization.MemoryPack.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/Modules/Full.NET.Modules.Identity.Contracts/Full.NET.Modules.Identity.Contracts.csproj" />
     <ProjectReference Include="../../framework/fullnet/src/Modules/Full.NET.Modules.Tenancy/Full.NET.Modules.Tenancy.csproj" />
   </ItemGroup>
 </Project>

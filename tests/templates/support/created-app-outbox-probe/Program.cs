@@ -26,9 +26,9 @@ const string stateSql = """
     WHERE Id = @Id
     """;
 
-if (args.Length is < 1 or > 2 || args[0] is not ("enqueue" or "state" or "wait"))
+if (args.Length is < 1 or > 3 || args[0] is not ("enqueue" or "state" or "wait" or "business-wait"))
 {
-    throw new ArgumentException("Expected enqueue, state <message-id>, or wait <message-id>.");
+    throw new ArgumentException("Expected enqueue, state <message-id>, wait <message-id>, or business-wait <tenant-id> <unit-id>.");
 }
 
 var provider = Environment.GetEnvironmentVariable("Database__Provider")
@@ -43,7 +43,19 @@ await using DbConnection connection = provider switch
     _ => throw new InvalidOperationException($"Unsupported provider '{provider}'."),
 };
 
-if (args[0] == "enqueue")
+if (args[0] == "business-wait")
+{
+    if (args.Length != 3 || !Guid.TryParse(args[1], out var tenantId)
+        || !Guid.TryParse(args[2], out var unitId))
+    {
+        throw new ArgumentException("business-wait requires valid tenant and unit IDs.");
+    }
+
+    await connection.OpenAsync();
+    var result = await BusinessOutboxProbe.WaitAsync(connection, tenantId, unitId);
+    Console.WriteLine("OUTBOX_PROBE " + JsonSerializer.Serialize(result));
+}
+else if (args[0] == "enqueue")
 {
     if (args.Length != 1) throw new ArgumentException("enqueue takes no message ID.");
     var id = Guid.CreateVersion7();
