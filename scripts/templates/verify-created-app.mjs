@@ -23,6 +23,15 @@ export function verifyCreatedApp(appRoot, { requireMigrator = false, requireWork
   const root = resolve(appRoot);
   const errors = [];
   const configurationFiles = ['appsettings.json'];
+  const profilePath = join(root, 'fullnet-app.json');
+  let profileDeclaresWorker = false;
+  if (existsSync(profilePath)) {
+    try {
+      profileDeclaresWorker = Object.hasOwn(JSON.parse(readFileSync(profilePath, 'utf8')), 'workerHttpPort');
+    } catch {
+      // 档案损坏由后续完整解析统一报告；不把它当作可跳过 Worker 的有效旧应用。
+    }
+  }
 
   for (const relativeFile of REQUIRED_FILES) {
     const absolutePath = join(root, relativeFile);
@@ -74,7 +83,7 @@ export function verifyCreatedApp(appRoot, { requireMigrator = false, requireWork
     // 旧应用仍可只含 API/Migrator；新建应用必须具备独立 Worker 宿主。
     const workerName = hosts[0].name.slice(0, -'.Host.Api'.length) + '.Host.Worker';
     const workerRoot = join(sourceRoot, workerName);
-    if (requireWorker || existsSync(workerRoot)) {
+    if (requireWorker || profileDeclaresWorker || existsSync(workerRoot)) {
       configurationFiles.push('src/' + workerName + '/appsettings.json');
       for (const workerFile of [workerName + '.csproj', 'ApplicationWorkerModuleCatalog.cs', 'appsettings.json']) {
         if (!isRegularFile(join(workerRoot, workerFile))) {
@@ -93,13 +102,13 @@ export function verifyCreatedApp(appRoot, { requireMigrator = false, requireWork
       if (!config?.FullNet?.Modules) {
         errors.push(relativePath + ' must define FullNet:Modules');
       }
-      configurations.push({ relativePath, preset: config?.FullNet?.Modules?.Preset, provider: config?.Database?.Provider });
+      configurations.push({ relativePath, preset: config?.FullNet?.Modules?.Preset,
+        provider: config?.Database?.Provider, healthUrl: config?.Kestrel?.Endpoints?.Http?.Url });
     } catch (error) {
       errors.push(relativePath + ' is not valid JSON: ' + (error instanceof Error ? error.message : String(error)));
     }
   }
 
-  const profilePath = join(root, 'fullnet-app.json');
   let profilePreset;
   let profileProvider;
   if (existsSync(profilePath)) {
@@ -107,6 +116,11 @@ export function verifyCreatedApp(appRoot, { requireMigrator = false, requireWork
       const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
       profilePreset = profile.preset;
       profileProvider = profile.databaseProvider;
+      if (Object.hasOwn(profile, 'workerHttpPort')
+        && (!Number.isInteger(profile.workerHttpPort)
+          || profile.workerHttpPort < 1 || profile.workerHttpPort > 65535)) {
+        errors.push('fullnet-app.json has an invalid workerHttpPort');
+      }
       validateOwnerKey(profile.ownerKey);
       resolvePresetModules(profile.preset);
       if (!['sqlserver', 'mysql'].includes(profileProvider)) {
@@ -124,6 +138,13 @@ export function verifyCreatedApp(appRoot, { requireMigrator = false, requireWork
     }
     if (['sqlserver', 'mysql'].includes(profileProvider) && provider !== profileProvider) {
       errors.push(relativePath + ' database provider does not match fullnet-app.json');
+    }
+  }
+  const apiConfiguration = configurations.find(({ relativePath }) => relativePath.endsWith('.Host.Api/appsettings.json'));
+  const workerConfiguration = configurations.find(({ relativePath }) => relativePath.endsWith('.Host.Worker/appsettings.json'));
+  if (apiConfiguration && workerConfiguration) {
+    if (apiConfiguration.healthUrl && apiConfiguration.healthUrl === workerConfiguration.healthUrl) {
+      errors.push('API and Worker health endpoints must use different URLs');
     }
   }
 

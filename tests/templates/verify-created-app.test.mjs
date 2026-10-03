@@ -62,6 +62,32 @@ test('new app creation requires its own worker while legacy validation remains a
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('created app profile keeps requiring worker after its directory is removed', () => {
+  const { root } = fixture();
+  try {
+    writeFileSync(join(root, 'fullnet-app.json'), JSON.stringify({
+      ownerKey: 'acme', preset: 'minimal', databaseProvider: 'mysql', workerHttpPort: 5181,
+    }));
+    const result = verifyCreatedApp(root);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((error) => error.includes('worker')),
+      result.errors.join('; '));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('created app rejects API and Worker binding the same health URL', () => {
+  const { root } = fixture({ worker: true });
+  try {
+    const shared = { ...configuration(), Kestrel: { Endpoints: { Http: { Url: 'http://localhost:5181' } } } };
+    writeFileSync(join(root, 'src/Demo.Host.Api/appsettings.json'), JSON.stringify(shared));
+    writeFileSync(join(root, 'src/Demo.Host.Worker/appsettings.json'), JSON.stringify(shared));
+    const result = verifyCreatedApp(root);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((error) => error.includes('health endpoints')),
+      result.errors.join('; '));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 for (const name of ['Demo.Host.Worker.csproj', 'ApplicationWorkerModuleCatalog.cs', 'appsettings.json']) {
   for (const replacement of ['missing', 'directory']) {
     test(`created app rejects ${replacement} declared worker ${name}`, () => {

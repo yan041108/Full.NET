@@ -156,6 +156,7 @@ export function createApp({ packageRoot, output, name, ownerKey, database = 'sql
   if (!Number.isInteger(Number(httpPort)) || Number(httpPort) < 1 || Number(httpPort) > 65535) {
     throw new Error('Invalid HTTP port');
   }
+  const workerHttpPort = Number(httpPort) === 65535 ? 65534 : Number(httpPort) + 1;
   if (!output) throw new Error('Missing application output directory');
   const appRoot = resolve(output);
   if (existsSync(appRoot)) {
@@ -173,6 +174,7 @@ export function createApp({ packageRoot, output, name, ownerKey, database = 'sql
     runDotnet([
       'new', 'fullnet-app', '--name', name, '--owner-key', ownerKey,
       '--database', database, '--preset', preset, '--http-port', String(httpPort),
+      '--worker-http-port', String(workerHttpPort),
       '--output', stagedRoot, '--debug:custom-hive', hive,
     ]);
     projectPresetComposition(stagedRoot, preset, modules);

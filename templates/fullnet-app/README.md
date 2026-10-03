@@ -17,6 +17,7 @@ node scripts/templates/build-app-template.mjs --output artifacts/templates/fulln
 | `database` | `sqlserver` or `mysql` | `sqlserver` |
 | `preset` | `minimal`, `platform`, `saas`, or `enterprise` runtime module preset | `minimal` |
 | `http-port` | Local HTTP port | `5180` |
+| `worker-http-port` | Worker health HTTP port, distinct from `http-port`; validated creator chooses the adjacent port automatically | `5181` |
 
 ## Create an app
 
@@ -26,7 +27,7 @@ Use the package's validated creator so invalid owner keys, modified or unlisted 
 node artifacts/templates/fullnet-app-package/.fullnet-tools/create-app.mjs --output Demo --name Demo --owner-key demo --database mysql --preset platform --http-port 5180
 ```
 
-The creator uses an isolated `dotnet new` template hive and projects the selected modules into the generated Composition source and project references. Its manifest validates the managed framework bundle; it is not a signature for the outer template files. Direct `dotnet new fullnet-app` installation remains possible, but does not perform these checks or the Composition projection.
+The creator uses an isolated `dotnet new` template hive and projects the selected modules into the generated Composition source and project references. It selects a Worker health port adjacent to the API port, using 65534 when the API uses 65535. Its manifest validates the managed framework bundle; it is not a signature for the outer template files. Direct `dotnet new fullnet-app` installation remains possible, but does not perform these checks or the Composition projection; provide distinct `--http-port` and `--worker-http-port` values when using it directly.
 
 Before publishing the created directory, the structure verifier requires the sole API host's matching application Composition project and `ApplicationModuleCatalog.cs`. Required application, host, and Composition paths must be files; directories cannot satisfy these checks. This verifies layout only; compilation and runtime acceptance remain separate gates.
 

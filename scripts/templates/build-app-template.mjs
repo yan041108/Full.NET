@@ -2,7 +2,7 @@
 /**
  * 将应用模板与固定提交的框架源码组装为可安装的 dotnet new 模板目录。
  */
-import { cpSync, copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { cpSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildSourceBundle } from './build-source-bundle.mjs';
@@ -48,7 +48,10 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
   copyFileSync(configTemplate, join(templateRoot, 'appsettings.json'));
   copyFileSync(configTemplate, join(templateRoot, 'src', 'FullNetAppNameToken.Host.Api', 'appsettings.json'));
   copyFileSync(configTemplate, join(templateRoot, 'src', 'FullNetAppNameToken.Host.Migrator', 'appsettings.json'));
-  copyFileSync(configTemplate, join(templateRoot, 'src', 'FullNetAppNameToken.Host.Worker', 'appsettings.json'));
+  const workerConfigPath = join(templateRoot, 'src', 'FullNetAppNameToken.Host.Worker', 'appsettings.json');
+  // Worker 健康端点使用独立端口，避免本地 API 与 Worker 同时启动时发生绑定冲突。
+  writeFileSync(workerConfigPath,
+    readFileSync(configTemplate, 'utf8').replace('http://localhost:5180', 'http://localhost:5181'));
   rmSync(configTemplate);
   const toolRoot = join(templateRoot, '.fullnet-tools');
   mkdirSync(toolRoot);

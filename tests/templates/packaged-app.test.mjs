@@ -59,6 +59,10 @@ test('application template package includes framework sources and root manifest'
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj')));
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj')));
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Worker/Demo.Host.Worker.csproj')));
+    const apiConfig = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Api/appsettings.json'), 'utf8'));
+    const workerConfig = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Worker/appsettings.json'), 'utf8'));
+    assert.equal(apiConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:5500');
+    assert.equal(workerConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:5501');
     assert.ok(existsSync(join(appRoot, 'src/Demo.Composition/Demo.Composition.csproj')));
     assert.match(readFileSync(join(appRoot, 'src/Demo.Composition/ApplicationModuleCatalog.cs'), 'utf8'), /namespace Demo\.Composition;/u);
     assert.ok(existsSync(join(appRoot, 'ui/admin/src/App.vue')));
@@ -141,8 +145,17 @@ test('application template package includes framework sources and root manifest'
       const generated = spawnSync(process.execPath, [
         createTool, '--package', templateRoot, '--output', presetRoot, '--name', 'Demo',
         '--owner-key', 'acme', '--database', 'sqlserver', '--preset', preset,
+        '--http-port', preset === 'platform' ? '5181' : preset === 'saas' ? '65535' : '5180',
       ], { encoding: 'utf8', timeout: 150_000 });
       assert.equal(generated.status, 0, `${preset}: ${generated.stderr || generated.stdout}`);
+      if (preset === 'platform') {
+        const platformWorkerConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Worker/appsettings.json'), 'utf8'));
+        assert.equal(platformWorkerConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:5182');
+      }
+      if (preset === 'saas') {
+        const saasWorkerConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Worker/appsettings.json'), 'utf8'));
+        assert.equal(saasWorkerConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:65534');
+      }
       const presetBuild = spawnSync('dotnet', [
         'build', join(presetRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj'), '-c', 'Release', '-v', 'quiet',
       ], { cwd: presetRoot, encoding: 'utf8', timeout: 300_000 });

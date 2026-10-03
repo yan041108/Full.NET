@@ -5,7 +5,7 @@
 ## 前置条件
 
 - 已安装 .NET 10 SDK（`dotnet --version` 可执行）
-- 独立应用根目录包含 `fullnet-app.json`、`framework-manifest.json`、`src/<name>.Host.Api`、`src/<name>.Host.Migrator` 与 `framework/fullnet/`；`src/Composition`、`src/Hosts`、`src/Modules` 是原框架仓库的布局
+- 独立应用根目录包含 `fullnet-app.json`、`framework-manifest.json`、`src/<name>.Host.Api`、`src/<name>.Host.Worker`、`src/<name>.Host.Migrator` 与 `framework/fullnet/`；`src/Composition`、`src/Hosts`、`src/Modules` 是原框架仓库的布局
 - `appsettings.json` 已配置 `FullNet:Modules:Preset`（如 `minimal` 或 `platform`）
 
 ## 第一步：运行 diagnose
@@ -103,7 +103,7 @@ dotnet exec src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.C
 
 ## 验证
 
-新创建应用从应用根运行 `dotnet run --project src/<name>.Host.Migrator -- --seed baseline`，迁移成功后才执行显式播种；省略 `--seed` 只迁移。仅本地开发环境显式选择 Development 后才能使用 `--seed development`，Production仍只允许Baseline。API和Migrator消费同一应用Composition，但Migrator只注册模块的迁移/播种入口，不能装入API Profile。现阶段Runner仍只运行冻结预设的框架脚本；生成业务SQL草案须完成编号、所有权、恢复与双库评审后显式接入，不能放进受管框架目录。旧应用的源码升级不会自动创建该应用拥有的宿主，需按新模板显式采用；默认结构校验兼容旧应用，创建发布前则强制要求同名Migrator与一致配置。
+新创建应用从应用根运行 `dotnet run --project src/<name>.Host.Migrator -- --seed baseline`，迁移成功后才执行显式播种；省略 `--seed` 只迁移。仅本地开发环境显式选择 Development 后才能使用 `--seed development`，Production仍只允许Baseline。API、Worker和Migrator消费同一应用Composition，分别装配各自Profile；Migrator只注册模块的迁移/播种入口，不能装入API Profile。Worker编译随应用分发的框架后台处理管线，默认健康检查端口与API分开；其运行时和Native AOT验收须单独执行。现阶段Runner仍只运行冻结预设的框架脚本；生成业务SQL草案须完成编号、所有权、恢复与双库评审后显式接入，不能放进受管框架目录。旧应用的源码升级不会自动创建该应用拥有的宿主，需按新模板显式采用；默认结构校验兼容旧应用，创建发布前则强制要求同名Worker、Migrator与一致配置。
 
 内容根声明 `fullnet-app.json` 时，Migrator 要求 `framework-manifest.json` 包含有效的预设迁移清单；文件缺失、清单不完整或 `unscoped` 会在解析数据库连接前停止，防止静默扩大为全部框架迁移。未声明应用的框架工作区保留原有非限定兼容行为。该检查依赖内容根中的应用声明，不替代发布目录的配置核验。
 
