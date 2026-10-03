@@ -90,10 +90,13 @@ internal static class CrudVueViewGenerator
         var submitRemove = removeAction.Length == 0
             ? $"async function removeRow(_row: {entity}Response): Promise<void> {{}}"
             : """
-              async function removeRow(row: EntityResponse): Promise<void> {
-                await remove(row);
+              async function removeRow(row: unknown): Promise<void> {
+                const item = items.value.find(candidate => candidate === row);
+                if (item) {
+                  await remove(item);
+                }
               }
-              """.Replace("EntityResponse", entity + "Response", StringComparison.Ordinal);
+              """;
 
         return Normalize(
             $$"""
@@ -151,9 +154,12 @@ internal static class CrudVueViewGenerator
               createOpen.value = true;
             }
 
-            function openEdit(row: {{entity}}Response): void {
-              editing.value = row;
-              Object.assign(editForm, row);
+            function openEdit(row: unknown): void {
+              // 表格插槽将行标为通用对象；只接受已由生成客户端校验并进入页面模型的同一对象。
+              const item = items.value.find(candidate => candidate === row);
+              if (!item) return;
+              editing.value = item;
+              Object.assign(editForm, item);
               editOpen.value = true;
             }
 
@@ -185,7 +191,7 @@ internal static class CrudVueViewGenerator
                   </el-button>
                 </div>
                 <el-table
-                  :data="items"
+                  :data="[...items]"
                   empty-text="暂无数据"
                   v-loading="loading"
                 >

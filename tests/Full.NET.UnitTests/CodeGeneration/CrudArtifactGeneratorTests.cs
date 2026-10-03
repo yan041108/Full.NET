@@ -755,6 +755,18 @@ public sealed class CrudArtifactGeneratorTests
     }
 
     [TestMethod]
+    public void Generate_vue_view_adapts_readonly_rows_to_element_plus_table_slots()
+    {
+        var artifacts = GenerateWithLayui(CreateHardDeleteSchema());
+        var vueView = Artifact(artifacts, "clients/vue/productsView.vue");
+
+        StringAssert.Contains(vueView, ":data=\"[...items]\"");
+        StringAssert.Contains(vueView, "function openEdit(row: unknown): void");
+        StringAssert.Contains(vueView, "const item = items.value.find(candidate => candidate === row);");
+        StringAssert.Contains(vueView, "async function removeRow(row: unknown): Promise<void>");
+    }
+
+    [TestMethod]
     public void Generate_explicit_hard_delete_uses_physical_delete_without_soft_delete_fields()
     {
         var artifacts = GenerateWithLayui(
