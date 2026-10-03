@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../framework/fullnet/src/Composition/Full.NET.Composition/Full.NET.Composition.csproj" />
+    <ProjectReference Include="../FullNetAppNameToken.Composition/FullNetAppNameToken.Composition.csproj" />
     <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Caching.Fusion/Full.NET.Caching.Fusion.csproj" />
     <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj" />
     <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Hosting/Full.NET.Hosting.csproj" />

@@ -4,7 +4,9 @@
   "type": "object",
   "required": [
     "production",
+    "dotnetEnvironment",
     "roles",
+    "logging",
     "databaseConnectionBudget",
     "edgeProtection",
     "database",
@@ -17,6 +19,32 @@
   ],
   "properties": {
     "production": { "type": "boolean" },
+    "dotnetEnvironment": {
+      "type": "string",
+      "enum": ["Production", "Staging", "Development"]
+    },
+    "logging": {
+      "type": "object",
+      "required": ["ingress"],
+      "properties": {
+        "ingress": {
+          "type": "string",
+          "enum": ["Legacy", "Local", "Collector", "ApplicationKafka"]
+        },
+        "indexRouteVersion": { "type": "integer", "minimum": 0, "maximum": 9999 },
+        "indexRetentionDays": { "type": "integer", "minimum": 0, "maximum": 3650 },
+        "kafka": {
+          "type": "object",
+          "required": ["configurationSecretName"],
+          "properties": {
+            "configurationSecretName": { "type": "string" },
+            "caSecretName": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "roles": {
       "type": "object",
       "required": ["api", "worker", "migrator"],

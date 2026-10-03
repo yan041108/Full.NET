@@ -235,6 +235,56 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_ai_knowledge_base": {
+      "comment": "私有知识库目录及模型处理审批",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DataClassification": "数据分类机器码",
+        "Description": "知识库描述",
+        "EmbeddingModelConfigId": "获批向量模型配置标识",
+        "EmbeddingModelVersion": "获批向量模型配置版本",
+        "GenerationModelConfigId": "获批生成模型配置标识",
+        "GenerationModelVersion": "获批生成模型配置版本",
+        "Id": "逻辑主键",
+        "IsEnabled": "是否启用",
+        "Name": "知识库名称",
+        "OwnerUserId": "知识库所有者标识",
+        "TenantId": "所属租户标识",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "目录与审批乐观并发版本号"
+      }
+    },
+    "fn_ai_knowledge_document": {
+      "comment": "知识库文档草稿及权威删除状态",
+      "columns": {
+        "CreatedAtUtc": "创建时间（UTC）",
+        "Description": "受授权保护的文档描述",
+        "Id": "逻辑主键",
+        "IsDeleted": "权威删除状态",
+        "KnowledgeBaseId": "所属知识库标识",
+        "Title": "受授权保护的文档标题",
+        "UpdatedAtUtc": "更新时间（UTC）",
+        "Version": "文档元数据与授权并发版本"
+      }
+    },
+    "fn_ai_knowledge_document_member": {
+      "comment": "知识库文档独立明确用户授权",
+      "columns": {
+        "CreatedAtUtc": "创建时间（UTC）",
+        "DocumentId": "所属文档标识",
+        "Id": "逻辑主键",
+        "UserId": "获授权用户标识"
+      }
+    },
+    "fn_ai_knowledge_member": {
+      "comment": "知识库明确成员授权",
+      "columns": {
+        "CreatedAtUtc": "创建时间（UTC）",
+        "Id": "逻辑主键",
+        "KnowledgeBaseId": "所属知识库标识",
+        "UserId": "获授权用户标识"
+      }
+    },
     "fn_ai_mcp_remote_connection": {
       "comment": "人工智能mcp remote connection表",
       "columns": {
@@ -381,6 +431,15 @@
         "UserId": "用户标识"
       }
     },
+    "fn_auditing_details_cleanup_state": {
+      "comment": "操作详情清理共享检查点",
+      "columns": {
+        "Id": "逻辑主键",
+        "LastSuccessfulCleanupAtUtc": "最近成功清理并检查积压的时间(UTC)",
+        "OldestExpiredAtUtc": "检查时最早未清理详情的到期时间(UTC)",
+        "StateKey": "唯一状态键；固定为1"
+      }
+    },
     "fn_auditing_exception_log": {
       "comment": "审计异常日志表",
       "columns": {
@@ -402,6 +461,8 @@
       "columns": {
         "ActionKey": "操作键",
         "ClientIpFingerprint": "客户端 IP 指纹",
+        "ContextJson": "版本化且受限的操作详情 JSON",
+        "DetailsExpiresAtUtc": "操作详情绝对到期时间(UTC)",
         "DurationMs": "耗时(毫秒)",
         "HttpMethod": "HTTP 方法",
         "Id": "逻辑主键",
@@ -1272,6 +1333,17 @@
         "TenantId": "租户标识；NULL 表示 Host 级",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Username": "用户名",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_identity_user_mfa_recovery_code": {
+      "comment": "身份认证 MFA 恢复码表",
+      "columns": {
+        "CodeHash": "恢复码 SHA-256 摘要；不保存明文",
+        "ConsumedAtUtc": "消费时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "UserId": "用户标识",
         "Version": "乐观并发版本号"
       }
     },

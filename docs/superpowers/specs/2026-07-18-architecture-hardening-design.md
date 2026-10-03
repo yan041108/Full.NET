@@ -28,7 +28,7 @@
 | Layui 现代化代价 | 部分接受，P1 | Layui 端已有 Vite/Vitest；不降低功能、权限和关键流程对等要求。允许交互机制不同，收敛 headless 规则，不共享 UI 组件 |
 | L5 业务数据翻译 | 部分接受，P2 | 需要给出可复制的模块翻译表参考结构；拒绝全局 EAV 和默认多语言列爆炸。首个真实消费者拥有自己的翻译表和索引 |
 | 数据库变更审查 | 接受，P0 | 现有规则缺少自动化 SQL 静态门禁和破坏性变更豁免流程，必须补齐 expand/migrate/contract 与数据责任人复核 |
-| 日志噪声与丢失 | 部分接受，P1 | 设计已区分普通日志和可靠审计；实现仍缺独立高优先级通道。拒绝默认在请求线程同步写远程/磁盘 |
+| 日志噪声与丢失 | 部分接受，P1 | 独立普通/高优先级有界通道已有实现；持久缓冲/重放与端到端验证仍按 ADR-0012 规划。拒绝默认在请求线程同步写远程/磁盘 |
 | `TenantId` / `TenantID` | 接受，P2 | 新增或触碰文档统一使用 `TenantId`；不为此制造大范围无价值改动 |
 | 测试命令改为 `dotnet test` | 不接受 | 当前使用 Microsoft.Testing.Platform 可执行测试宿主，直接运行 DLL 并带最小测试数门禁是有意设计，可防止零发现假成功 |
 | AI/Agent 内容过早 | 部分接受，P2 | 保留 M5+ 安全边界，但能力状态必须明确为 `Planned`，不得挤占近期底座硬化 |
@@ -143,13 +143,19 @@ Full.NET 官方模块使用 `fn`，项目业务模块使用脚手架阶段冻结
 - 无 `WHERE` 的 `UPDATE/DELETE`；
 - 未分批的大表回填和未说明锁影响的索引/约束变更。
 
-确有必要时必须提交机器可检查的临时豁免，包含数据库、脚本、风险、备份/验证、回滚或前滚策略、指定数据责任人、到期版本。开源协作不强制角色名称为 DBA，但破坏性变更必须有独立数据审查者；CI 静态扫描和双库集成测试仍是硬门禁。
+确有必要时必须提交机器可检查的临时豁免，包含数据库、脚本、风险、备份/验证、回滚或前滚策略、指定数据责任人、到期版本。开源协作不强制角色名称为 DBA，但破坏性变更必须有独立数据审查者；本地静态扫描和双库集成测试通过仍是验收要求，CI 可选。
 
 同一 SQL 门禁还必须加载 Naming Profile：拒绝 `sys` 项目 OwnerKey、运行时动态表前缀、非规范表/列/约束名、超过共同 64 字符上限的数据库对象和 SQL Server/MySQL 命名漂移。存量名称只能由精确、带退役里程碑的债务清单放行。
 
 ## 11. 日志与审计可靠性
 
-普通运行日志采用双通道：Debug/Information/常规 Warning 进入有界批量异步通道；Error/Critical 进入有独立容量、独立指标和本地短期 Spool/可靠 Sink 的高优先级通道。高优先级通道耗尽时触发健康降级和告警，不默认阻塞请求线程同步写网络或磁盘。
+普通运行日志采用双通道：Debug/Information/常规 Warning 进入有界批量异步通道；Error/Critical 进入有独立容量和独立指标的高优先级通道。高优先级通道耗尽时触发健康降级和告警，不默认阻塞请求线程同步写网络或磁盘。
+
+2026-09-28 目标按 [ADR-0012](../../architecture/adr/ADR-0012-configurable-log-delivery.md)扩展为 Collector 与 ApplicationKafka 两个正式候选，比较请求 P99、每实例字节吞吐、总 CPU/托管及 native 内存、丢弃及恢复后按配置选择。Collector 保留应用外磁盘缓冲；后台直发省去 stdout/文件采集，由可选静态适配提供，不在请求等待 ACK，默认无应用 Spool。当前内存通道不能跨重启恢复，emptyDir 不能保证 Pod/节点恢复；直发披露 Broker 未确认缺口。SDK 预算、native 准入与单入口切换按[活动计划](../plans/2026-09-28-configurable-log-delivery.md)，现状见[日志模块说明](../../operations/logging-module.md)，本次仅更新文档。
+
+原方案审查补齐：所有 ILogger 事件按条数/字节和对象规模限制；详情先许可后序列化且 Restricted 只存审计库，独立详情清理不随普通清理关闭；当时首选 Logstash 并要求验证 PQ/连续 Offset/Bulk/DLQ；ES 使用固定事件日期索引和冻结 ID/路由，去重不外推为跨 rollover 唯一。Logstash/PQ 首选关系已由下段新证据重新评估，历史局部通过证据不改写。
+
+原 Logstash/PQ 消费确认准入基线因[官方 Offset 限制](https://www.elastic.co/docs/reference/logstash/tips-best-practices)重新评估，现有组合的可靠档保持关闭。LG00 需为新选定实现证明安全持久接收或最终存储/可靠隔离后提交连续 Offset；不直接把 Logstash 内存队列视为替代。应用/平台配置一致且同一事件只走一个集中入口；默认产物不强制引入日志客户端，直发静态闭包须独立验证。ConcurrentQueue 入队成本和 Kafka 总吞吐不构成全链容量证据。
 
 Audit 不是日志等级，也不使用 Outbox。要求“无审计不成功”的 B0 Domain Audit 与业务状态在同一数据库事务直接写入；B1 重要 HTTP Operation/Exception Audit 通过有界跨请求微批直接写审计库并默认 fail-open + 告警；B2 普通 HTTP Operation/Access/诊断进入有界日志管道并可采样。三类记录拥有独立保留、查询和外部导出边界，详细语义以总体架构 Spec §16 与 ADR-0005 为准。
 

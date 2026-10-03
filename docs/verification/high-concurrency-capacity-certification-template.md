@@ -4,6 +4,7 @@
 - Incomplete rule: missing any checklist item ⇒ result = `Incomplete`
 - Order gate: 2K → 5K → 10K → Soak
 - Providers: certify SQL Server and MySQL separately; never cross-claim
+- Acceptance environment: local processes, isolated containers or kind Kubernetes are sufficient under the 2026-09-30 project decision. Record shared resources and limit conclusions to the tested hardware and scope.
 
 ## Run identity
 
@@ -62,4 +63,4 @@ Record any early stop for error rate, P99, recovery time, DB connection/lock/IO,
 | MySql | 2k | closed_loop | | |
 | MySql | 2k | open_loop | | |
 
-Only after dedicated-environment 10K + Soak evidence for both providers is approved may a separate task remove `Capacity-not-verified`.
+Only after the required 10K + Soak scenarios actually pass for both providers may a separate task update the corresponding capacity status. Local evidence is sufficient; an unexecuted profile or a smaller smoke does not establish 10K capacity.

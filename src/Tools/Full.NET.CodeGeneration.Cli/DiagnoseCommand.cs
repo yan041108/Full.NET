@@ -30,14 +30,16 @@ internal static class DiagnoseCommand
         TextWriter error,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var findings = new List<DiagnoseFinding>();
-        await CheckDotNetSdkAsync(findings, cancellationToken).ConfigureAwait(false);
+        await CheckDotNetSdkAsync(options.WorkspacePath, findings, cancellationToken).ConfigureAwait(false);
         CheckWorkspaceStructure(options.WorkspacePath, findings);
         CheckAppsettings(options.WorkspacePath, options.Profile, findings);
         return await EmitAsync(findings, output, error).ConfigureAwait(false);
     }
 
     private static async Task CheckDotNetSdkAsync(
+        string workspacePath,
         List<DiagnoseFinding> findings,
         CancellationToken cancellationToken)
     {
@@ -47,6 +49,8 @@ internal static class DiagnoseCommand
             {
                 FileName = "dotnet",
                 Arguments = "--version",
+                // SDK 解析必须遵循目标应用的 global.json，不能使用 CLI 所在仓库的 SDK。
+                WorkingDirectory = Path.GetFullPath(workspacePath),
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -61,9 +65,11 @@ internal static class DiagnoseCommand
                 return;
             }
 
+            var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
             var version = (await process.StandardOutput.ReadToEndAsync(cancellationToken)
                 .ConfigureAwait(false)).Trim();
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            await standardError.ConfigureAwait(false);
             if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(version))
             {
                 findings.Add(DiagnoseFinding.Error(
@@ -76,6 +82,10 @@ internal static class DiagnoseCommand
             findings.Add(DiagnoseFinding.Ok(
                 "DIAG_SDK_OK",
                 $"检测到 .NET SDK {version}。"));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception)
         {
@@ -148,6 +158,12 @@ internal static class DiagnoseCommand
         var standaloneHost = File.Exists(Path.Combine(workspacePath, "fullnet-app.json"))
             ? FindStandaloneHost(workspacePath)
             : null;
+        if (standaloneHost is not null)
+        {
+            // 冻结档案检查独立于连接配置回退，缺少API与根配置也必须明确失败。
+            CheckStandaloneAppProfile(workspacePath, standaloneHost, findings);
+            CheckStandaloneModuleClosure(workspacePath, findings);
+        }
         var candidates = new[]
         {
             standaloneHost is null ? null : Path.Combine(standaloneHost, "appsettings.json"),
@@ -170,12 +186,13 @@ internal static class DiagnoseCommand
         {
             root = JsonNode.Parse(File.ReadAllText(appsettingsPath));
         }
-        catch (JsonException)
+        catch (Exception exception) when (exception is JsonException or ArgumentException
+            or IOException or UnauthorizedAccessException)
         {
             findings.Add(DiagnoseFinding.Error(
                 "DIAG_APPSETTINGS_INVALID",
-                "appsettings.json 不是有效 JSON。",
-                "修复 JSON 语法后再运行 diagnose。"));
+                "appsettings.json 不可读取或不是有效 JSON。",
+                "检查文件读取权限并修复 JSON 格式后再运行 diagnose。"));
             return;
         }
 
@@ -188,14 +205,20 @@ internal static class DiagnoseCommand
             return;
         }
 
-        CheckModulesSection(root, findings);
-        if (standaloneHost is not null)
+        try
         {
-            CheckStandaloneAppProfile(workspacePath, root, findings);
-            CheckStandaloneModuleClosure(workspacePath, findings);
+            CheckModulesSection(root, findings);
+            CheckConnectionPlaceholder(root, appsettingsPath, workspacePath, profile, findings);
+            CheckSecretPlaceholders(root, profile, findings);
         }
-        CheckConnectionPlaceholder(root, appsettingsPath, workspacePath, profile, findings);
-        CheckSecretPlaceholders(root, profile, findings);
+        catch (Exception exception) when (exception is InvalidOperationException or FormatException or ArgumentException)
+        {
+            // 字段类型或重复属性错误属于诊断结果，不能回显含秘密的属性名、值或异常文本。
+            findings.Add(DiagnoseFinding.Error(
+                "DIAG_APPSETTINGS_INVALID",
+                "appsettings.json 的配置结构或字段类型无效。",
+                "检查 FullNet:Modules、Database、ConnectionStrings 与秘密配置的对象、数组和字符串类型。"));
+        }
     }
 
     private static string? FindStandaloneHost(string workspacePath)
@@ -215,7 +238,7 @@ internal static class DiagnoseCommand
 
     private static void CheckStandaloneAppProfile(
         string workspacePath,
-        JsonNode runtime,
+        string standaloneHost,
         List<DiagnoseFinding> findings)
     {
         try
@@ -228,28 +251,48 @@ internal static class DiagnoseCommand
                 throw new JsonException("Missing application profile fields.");
             }
 
-            var runtimePreset = runtime["FullNet"]?["Modules"]?["Preset"]?.GetValue<string>();
-            var runtimeProvider = runtime["Database"]?["Provider"]?.GetValue<string>();
-            if (!string.Equals(preset, runtimePreset, StringComparison.OrdinalIgnoreCase)
-                || !string.Equals(provider, runtimeProvider, StringComparison.OrdinalIgnoreCase))
+            var configurationPaths = new List<string>
             {
-                findings.Add(DiagnoseFinding.Error(
-                    "DIAG_APP_PROFILE_MISMATCH",
-                    "独立应用清单与 API 宿主的模块预设或数据库 Provider 不一致。",
-                    "核对 fullnet-app.json 与 src/<name>.Host.Api/appsettings.json；不要直接修改冻结的应用清单。"));
-                return;
+                Path.Combine(workspacePath, "appsettings.json"),
+                Path.Combine(standaloneHost, "appsettings.json"),
+            };
+            var apiName = Path.GetFileName(standaloneHost);
+            var migratorRoot = Path.Combine(Path.GetDirectoryName(standaloneHost)!,
+                apiName[..^".Host.Api".Length] + ".Host.Migrator");
+            // 旧应用可以没有Migrator，但目录或文件已占用该位置时不能静默忽略。
+            if (Directory.Exists(migratorRoot) || File.Exists(migratorRoot))
+            {
+                configurationPaths.Add(Path.Combine(migratorRoot, "appsettings.json"));
+            }
+
+            foreach (var path in configurationPaths)
+            {
+                var runtime = JsonNode.Parse(File.ReadAllText(path))
+                    ?? throw new JsonException("Empty application configuration.");
+                var runtimePreset = runtime["FullNet"]?["Modules"]?["Preset"]?.GetValue<string>();
+                var runtimeProvider = runtime["Database"]?["Provider"]?.GetValue<string>();
+                if (!string.Equals(preset, runtimePreset, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(provider, runtimeProvider, StringComparison.OrdinalIgnoreCase))
+                {
+                    findings.Add(DiagnoseFinding.Error(
+                        "DIAG_APP_PROFILE_MISMATCH",
+                        "独立应用清单与根配置、API 或 Migrator 的模块预设或数据库 Provider 不一致。",
+                        "核对根与同名宿主的基础 appsettings.json；不要直接修改冻结的应用清单。"));
+                    return;
+                }
             }
 
             findings.Add(DiagnoseFinding.Ok(
                 "DIAG_APP_PROFILE_OK",
-                "独立应用清单与 API 宿主配置一致。"));
+                "独立应用清单与根、API 及已声明 Migrator 的基础配置一致。"));
         }
-        catch (Exception exception) when (exception is JsonException or InvalidOperationException or FormatException)
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException or FormatException or ArgumentException
+            or IOException or UnauthorizedAccessException)
         {
             findings.Add(DiagnoseFinding.Error(
                 "DIAG_APP_PROFILE_INVALID",
-                "独立应用清单格式无效。",
-                "检查 fullnet-app.json 中的 preset 与 databaseProvider。"));
+                "独立应用清单或基础配置缺失、不可读取或格式无效。",
+                "检查 fullnet-app.json 以及根、API 和已声明 Migrator 的基础 appsettings.json。"));
         }
     }
 
@@ -309,7 +352,7 @@ internal static class DiagnoseCommand
             }
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException
-            or FormatException or IOException or System.Xml.XmlException)
+            or FormatException or ArgumentException or IOException or UnauthorizedAccessException or System.Xml.XmlException)
         {
             findings.Add(DiagnoseFinding.Error(
                 "DIAG_MODULE_CLOSURE_INVALID",
@@ -354,11 +397,12 @@ internal static class DiagnoseCommand
         List<DiagnoseFinding> findings)
     {
         var connectionName = root["Database"]?["ConnectionName"]?.GetValue<string>() ?? "fullnet";
-        var connectionStrings = root["ConnectionStrings"] as JsonObject;
+        var connectionStrings = root["ConnectionStrings"]?.AsObject();
         var hasInline = connectionStrings?[connectionName]?.GetValue<string>() is { Length: > 0 } inline
-            && !IsPlaceholder(inline);
+            && !string.IsNullOrWhiteSpace(inline) && !IsPlaceholder(inline);
         var envName = $"ConnectionStrings__{connectionName}";
-        var hasEnv = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(envName));
+        var environmentConnection = Environment.GetEnvironmentVariable(envName);
+        var hasEnv = !string.IsNullOrWhiteSpace(environmentConnection) && !IsPlaceholder(environmentConnection);
         var userSecretsId = TryReadUserSecretsId(appsettingsPath, workspacePath);
         var hasUserSecrets = userSecretsId is not null
             && File.Exists(Path.Combine(
@@ -441,13 +485,13 @@ internal static class DiagnoseCommand
             }
         }
 
-        return current switch
+        // 当前三个秘密配置的运行时契约均为字符串；错误类型不能被视为已配置。
+        if (current is not JsonValue value || !value.TryGetValue<string>(out var text))
         {
-            JsonValue value when value.TryGetValue<string>(out var text) =>
-                string.IsNullOrWhiteSpace(text) || IsPlaceholder(text),
-            JsonArray array => array.Count == 0,
-            _ => false,
-        };
+            throw new InvalidOperationException("Secret configuration must be a string.");
+        }
+
+        return string.IsNullOrWhiteSpace(text) || IsPlaceholder(text);
     }
 
     private static bool IsPlaceholder(string value) =>

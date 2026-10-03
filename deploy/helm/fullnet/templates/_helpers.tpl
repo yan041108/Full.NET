@@ -64,6 +64,30 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{- define "fullnet.validate" -}}
 {{- $roleCount := include "fullnet.roleCount" . | int -}}
+{{- if ne (gt (.Values.logging.indexRouteVersion | int) 0) (gt (.Values.logging.indexRetentionDays | int) 0) -}}
+  {{- fail "logging.indexRouteVersion and logging.indexRetentionDays must be configured together." -}}
+{{- end -}}
+{{- if not (or (eq .Values.dotnetEnvironment "Production") (eq .Values.dotnetEnvironment "Staging") (eq .Values.dotnetEnvironment "Development")) -}}
+  {{- fail "dotnetEnvironment must be Production, Staging or Development." -}}
+{{- end -}}
+{{- if and .Values.production (ne .Values.dotnetEnvironment "Production") -}}
+  {{- fail "dotnetEnvironment must be Production when production=true." -}}
+{{- end -}}
+{{- if and (not .Values.production) (ne .Values.logging.ingress "Legacy") (eq .Values.dotnetEnvironment "Production") -}}
+  {{- fail "dotnetEnvironment must be Staging or Development for non-production logging ingress." -}}
+{{- end -}}
+{{- if and .Values.production (eq .Values.logging.ingress "Local") -}}
+  {{- fail "logging.ingress=Local is disabled in production until collector exclusion is verified on the target platform." -}}
+{{- end -}}
+{{- if and (eq .Values.logging.ingress "ApplicationKafka") (not .Values.logging.kafka.configurationSecretName) -}}
+  {{- fail "logging.kafka.configurationSecretName is required for ApplicationKafka." -}}
+{{- end -}}
+{{- if and (eq .Values.logging.ingress "ApplicationKafka") (eq (.Values.logging.indexRouteVersion | int) 0) -}}
+  {{- fail "logging.ingress=ApplicationKafka requires logging.indexRouteVersion and logging.indexRetentionDays." -}}
+{{- end -}}
+{{- if and (ne .Values.logging.ingress "Legacy") .Values.roles.migrator -}}
+  {{- fail "logging.ingress explicit mode is supported only for API or Worker releases." -}}
+{{- end -}}
 {{- if .Values.production -}}
   {{- if ne $roleCount 1 -}}
     {{- fail "production Full.NET releases must enable exactly one role (api|worker|migrator); use three independent releases." -}}

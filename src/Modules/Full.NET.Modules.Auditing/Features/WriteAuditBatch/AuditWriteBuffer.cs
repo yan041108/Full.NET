@@ -68,6 +68,18 @@ internal sealed class AuditWriteBuffer
 
     public AuditWriteBatch Snapshot() => new(_operation, _exception);
 
+    public void CompleteOperation(int finalStatusCode)
+    {
+        if (_operation is { } operation)
+        {
+            _operation = operation with
+            {
+                StatusCode = finalStatusCode,
+                Succeeded = operation.Succeeded && finalStatusCode < 400,
+            };
+        }
+    }
+
     private static T CaptureOnce<T>(T? existing, T model, AuditWriteKinds kind)
         where T : class
     {

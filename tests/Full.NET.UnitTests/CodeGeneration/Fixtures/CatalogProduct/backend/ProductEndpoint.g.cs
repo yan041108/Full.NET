@@ -42,6 +42,8 @@ internal static class ProductEndpoint
         .WithName("catalogListProducts")
         .Produces<PagedResult<ProductResponse>>(
             StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ProductPermissions.Read));
 
@@ -60,6 +62,8 @@ internal static class ProductEndpoint
         })
         .WithName("catalogGetProduct")
         .Produces<ProductResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ProductPermissions.Read));
 
@@ -83,6 +87,8 @@ internal static class ProductEndpoint
         })
         .WithName("catalogCreateProduct")
         .Produces<ProductResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ProductPermissions.Write));
 
@@ -103,6 +109,8 @@ internal static class ProductEndpoint
         })
         .WithName("catalogUpdateProduct")
         .Produces<ProductResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ProductPermissions.Write));
 
@@ -122,6 +130,8 @@ internal static class ProductEndpoint
         })
         .WithName("catalogDisableProduct")
         .Produces<ProductResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ProductPermissions.Write));
     }

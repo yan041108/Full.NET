@@ -11,26 +11,14 @@ namespace Full.NET.Hosting.Observability;
 /// </summary>
 public static partial class HttpOperationLogSanitizer
 {
+    // 旧字符串捕获入口的过渡上限；LG03 两阶段投影接入前不得解析或留存无界原文。
+    internal const int MaxLegacyRawJsonBytes = 16_384;
+
     private static readonly string[] SensitiveKeyMarkers =
     [
-        "password",
-        "passwd",
-        "pwd",
-        "secret",
-        "token",
-        "access_token",
-        "refresh_token",
-        "authorization",
-        "cookie",
-        "set-cookie",
-        "connectionstring",
-        "connection_string",
-        "api_key",
-        "apikey",
-        "sign",
-        "signature",
-        "private_key",
-        "client_secret",
+        "password", "passwd", "pwd", "secret", "token", "authorization",
+        "cookie", "connectionstring", "apikey", "signature", "privatekey",
+        "nonce", "sessionid",
     ];
 
     public const string Redacted = "[REDACTED]";
@@ -78,22 +66,32 @@ public static partial class HttpOperationLogSanitizer
         return Truncate(rebuilt, maxLength);
     }
 
-    /// <summary>Referer/Origin 仅观测用途；默认去掉 Query 并截断。</summary>
+    /// <summary>Referer/Origin 仅保留 HTTP(S) 来源站点，不输出凭据、路径、Query 或 Fragment。</summary>
     public static string? SanitizeSourceUrl(string? sourceUrl, int maxLength = 256)
     {
-        if (string.IsNullOrWhiteSpace(sourceUrl))
+        const int MaxInputLength = 2048;
+        if (string.IsNullOrEmpty(sourceUrl)
+            || sourceUrl.Length > MaxInputLength
+            || maxLength <= 0)
         {
             return null;
         }
 
         var cleaned = StripControlChars(sourceUrl);
-        var queryIndex = cleaned.IndexOf('?');
-        if (queryIndex >= 0)
+        if (!Uri.TryCreate(cleaned, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+            || string.IsNullOrWhiteSpace(uri.IdnHost))
         {
-            cleaned = cleaned[..queryIndex];
+            return null;
         }
 
-        return Truncate(cleaned, maxLength);
+        var host = uri.HostNameType == UriHostNameType.IPv6
+            ? $"[{uri.IdnHost}]"
+            : uri.IdnHost;
+        var origin = uri.IsDefaultPort
+            ? $"{uri.Scheme}://{host}"
+            : $"{uri.Scheme}://{host}:{uri.Port}";
+        return origin.Length <= maxLength ? origin : null;
     }
 
     /// <summary>
@@ -110,6 +108,17 @@ public static partial class HttpOperationLogSanitizer
             SHA256.HashData(Encoding.UTF8.GetBytes(address)));
     }
 
+    internal static string? FingerprintUntrustedValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 256)
+        {
+            return null;
+        }
+
+        return Convert.ToHexStringLower(
+            SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+    }
+
     /// <summary>
     /// 按字段白名单投影 JSON；敏感键替换为 REDACTED，超深/超长截断。
     /// </summary>
@@ -119,7 +128,11 @@ public static partial class HttpOperationLogSanitizer
         int maxBytes,
         int maxDepth = 4)
     {
-        if (maxBytes <= 0 || string.IsNullOrWhiteSpace(rawJson) || allowedFields.Count == 0)
+        if (maxBytes <= 0
+            || string.IsNullOrWhiteSpace(rawJson)
+            || allowedFields.Count == 0
+            || rawJson.Length > MaxLegacyRawJsonBytes
+            || Encoding.UTF8.GetByteCount(rawJson) > MaxLegacyRawJsonBytes)
         {
             return null;
         }
@@ -153,7 +166,8 @@ public static partial class HttpOperationLogSanitizer
             var bytes = stream.ToArray();
             if (bytes.Length > maxBytes)
             {
-                return Encoding.UTF8.GetString(bytes.AsSpan(0, maxBytes)) + "…";
+                // 字节切片可能截断多字节字符或 JSON token，超限时整份投影拒绝。
+                return null;
             }
 
             return Encoding.UTF8.GetString(bytes);
@@ -169,15 +183,95 @@ public static partial class HttpOperationLogSanitizer
     /// </summary>
     public static bool IsSensitiveKey(string? key)
     {
-        if (string.IsNullOrWhiteSpace(key))
+        return key is not null && IsSensitiveKey(key.AsSpan());
+    }
+
+    internal static bool IsSensitiveKey(ReadOnlySpan<char> key)
+    {
+        key = key.Trim();
+        if (key.IsEmpty)
         {
             return false;
         }
 
-        var normalized = key.Trim().ToLowerInvariant();
-        return SensitiveKeyMarkers.Any(marker =>
-            normalized.Equals(marker, StringComparison.Ordinal)
-            || normalized.Contains(marker, StringComparison.Ordinal));
+        // 超长动态键不构成可接受的日志字段；避免为它分配无界规范化缓冲。
+        if (key.Length > 128)
+        {
+            return true;
+        }
+
+        Span<char> normalized = stackalloc char[128];
+        var length = 0;
+        foreach (var character in key)
+        {
+            if (char.IsLetterOrDigit(character))
+            {
+                normalized[length++] = char.ToLowerInvariant(character);
+            }
+        }
+
+        var name = normalized[..length];
+        if (HasSignSegment(key))
+        {
+            return true;
+        }
+
+        foreach (var marker in SensitiveKeyMarkers)
+        {
+            if (name.Contains(marker.AsSpan(), StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasSignSegment(ReadOnlySpan<char> key)
+    {
+        for (var index = 0; index <= key.Length - 4; index++)
+        {
+            if (!key.Slice(index, 4).Equals("sign", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var leftBoundary = index == 0
+                || !char.IsLetterOrDigit(key[index - 1])
+                || char.IsLower(key[index - 1]) && char.IsUpper(key[index]);
+            if (!leftBoundary)
+            {
+                continue;
+            }
+
+            var after = index + 4;
+            var suffix = key[after..];
+            if ((suffix.StartsWith("In", StringComparison.OrdinalIgnoreCase)
+                    && (suffix.Length == 2 || !char.IsLower(suffix[2])))
+                || (suffix.StartsWith("Out", StringComparison.OrdinalIgnoreCase)
+                    && (suffix.Length == 3 || !char.IsLower(suffix[3]))))
+            {
+                continue;
+            }
+
+            if (after == key.Length
+                || !char.IsLower(key[after]))
+            {
+                return true;
+            }
+
+            // SigningKey 是签名材料；DesignId/AssignmentId 中的字母片段不是字段标记。
+            if (key[after..].StartsWith("ing", StringComparison.OrdinalIgnoreCase))
+            {
+                var afterSigning = after + 3;
+                if (afterSigning == key.Length || !char.IsLower(key[afterSigning]))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>按最大长度截断字符串；不超过长度时原样返回。</summary>

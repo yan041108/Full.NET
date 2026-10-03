@@ -51,6 +51,41 @@ const scriptPath = path.join(
   'scripts/openapi/check-openapi-breaking-changes.mjs'
 );
 
+test('租户成员快照允许追加端点，但仍拒绝删除或改写既有端点', async () => {
+  const name = 'tenant-members-v1.json';
+  const baseline = { openapi: '3.1.0', paths: { '/members': { get: {
+    security: [{ Bearer: [] }], responses: { '200': { description: 'OK' } }
+  } } } };
+  const current = clone(baseline);
+  current.paths['/members/me'] = { get: {} };
+  assert.equal((await compareDirectories({ [name]: baseline }, { [name]: current })).status, 0);
+  for (const mutate of [
+    value => { delete value.paths['/members']; },
+    value => { value.paths['/members'].get.security = []; }
+  ]) {
+    const changed = clone(current);
+    mutate(changed);
+    assert.equal((await compareDirectories({ [name]: baseline }, { [name]: changed })).status, 1);
+  }
+});
+
+test('覆盖清单允许已有 API 增加消费者，但仍拒绝删除旧消费者或改写绑定', async () => {
+  const name = 'vue-client-coverage-v1.json';
+  const baseline = { schemaVersion: 1, consumerModules: [{ apiModule: 'members.ts', consumers: ['Members.vue'] }] };
+  const current = clone(baseline);
+  current.consumerModules[0].consumers.push('TenantContext.vue');
+  assert.equal((await compareDirectories({ [name]: baseline }, { [name]: current })).status, 0);
+  for (const mutate of [
+    value => { value.consumerModules[0].consumers = ['TenantContext.vue']; },
+    value => { value.consumerModules[0].apiModule = 'other.ts'; },
+    value => { value.consumerModules.push(clone(value.consumerModules[0])); }
+  ]) {
+    const changed = clone(current);
+    mutate(changed);
+    assert.equal((await compareDirectories({ [name]: baseline }, { [name]: changed })).status, 1);
+  }
+});
+
 const baselineContract = {
   id: 'sample-v1',
   version: 1,

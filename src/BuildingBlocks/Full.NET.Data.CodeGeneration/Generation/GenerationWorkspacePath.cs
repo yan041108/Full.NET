@@ -87,6 +87,24 @@ internal static class GenerationWorkspacePath
         return fullPath;
     }
 
+    public static string ResolveFile(string fullRoot, string relativePath)
+    {
+        var path = Resolve(fullRoot, relativePath);
+        if (Directory.Exists(path))
+        {
+            throw Conflict(relativePath, "目标文件路径已被目录占用。");
+        }
+
+        return path;
+    }
+
+    public static string RevalidateFile(string fullRoot, string fullPath)
+    {
+        // 异步编译后仍以原仓库为边界复核，不能把可能已替换的模块子目录重新当作可信根。
+        return ResolveFile(fullRoot, Path.GetRelativePath(fullRoot, fullPath)
+            .Replace(Path.DirectorySeparatorChar, '/'));
+    }
+
     public static void EnsureParentDirectory(
         string fullRoot,
         string relativePath)
@@ -94,6 +112,12 @@ internal static class GenerationWorkspacePath
         GenerationArtifactPath.Validate(relativePath, nameof(relativePath));
 
         var parentSegments = relativePath.Split('/')[..^1];
+        if (parentSegments.Length == 0)
+        {
+            // 根目录可以作为文件的父目录；实际文件仍由 Resolve 校验，且根目录不得变成链接。
+            RejectReparsePoint(fullRoot, relativePath);
+            return;
+        }
         var currentPath = fullRoot;
         var currentRelativePath = string.Empty;
         foreach (var segment in parentSegments)

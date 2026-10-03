@@ -1,0 +1,31 @@
+# 仅供 LG00 固定镜像故障实验，不是生产消费者配置。
+sources:
+  kafka_logs:
+    type: kafka
+    bootstrap_servers: kafka:9092
+    group_id: fullnet-vector-es-probe
+    topics:
+      - fullnet-logs-probe
+    auto_offset_reset: earliest
+    decoding:
+      codec: json
+sinks:
+  elasticsearch:
+    type: elasticsearch
+    inputs:
+      - kafka_logs
+    endpoints:
+      - http://fake-es:9200
+    api_version: v8
+    healthcheck:
+      enabled: false
+    acknowledgements:
+      enabled: true
+    request_retry_partial: true
+    id_key: LogEventId
+    bulk:
+      action: index
+      index: fullnet-logs-probe
+    batch:
+      max_events: 1
+      timeout_secs: 1

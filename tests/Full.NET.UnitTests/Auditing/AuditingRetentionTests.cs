@@ -5,6 +5,7 @@ using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Auditing.Retention;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Auditing;
@@ -47,6 +48,35 @@ public sealed class AuditingRetentionTests
     }
 
     [TestMethod]
+    public void Details_retention_options_remain_active_when_summary_retention_is_disabled()
+    {
+        var services = new ServiceCollection();
+        new AuditingModule().AddBackgroundServices(
+            services,
+            new ConfigurationBuilder().AddInMemoryCollection().Build());
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(IHostedService)
+            && descriptor.ImplementationType == typeof(AuditDetailsRetentionHostedService)));
+
+        using var defaults = CreateProvider(new Dictionary<string, string?>());
+        Assert.IsFalse(defaults.GetRequiredService<IOptions<AuditingRetentionOptions>>().Value.Enabled);
+        var details = defaults.GetRequiredService<IOptions<AuditDetailsRetentionOptions>>().Value;
+        Assert.AreEqual(200, details.BatchSize);
+        Assert.AreEqual(15, details.MaxBatchesPerRun);
+        Assert.AreEqual(60, details.PollSeconds);
+
+        using var invalid = CreateProvider(new Dictionary<string, string?>
+        {
+            ["Auditing:DetailsRetention:BatchSize"] = "0",
+            ["Auditing:DetailsRetention:MaxBatchesPerRun"] = "101",
+            ["Auditing:DetailsRetention:PollSeconds"] = "59",
+        });
+        var exception = Assert.ThrowsExactly<OptionsValidationException>(
+            invalid.GetRequiredService<IStartupValidator>().Validate);
+        Assert.AreEqual(3, exception.Failures.Count());
+    }
+
+    [TestMethod]
     public async Task Disabled_retention_does_not_touch_the_database()
     {
         var query = new RecordingQueryExecutor();
@@ -67,6 +97,82 @@ public sealed class AuditingRetentionTests
         Assert.AreEqual(0, query.Statements.Count);
         Assert.AreEqual(0, command.Statements.Count);
         Assert.AreEqual(0, transaction.ExecutionCount);
+    }
+
+    [TestMethod]
+    public async Task SqlServer_details_cleanup_clears_expired_context_even_when_summary_retention_is_disabled()
+    {
+        var query = new RecordingQueryExecutor();
+        var command = new RecordingCommandExecutor(
+            new Dictionary<string, Queue<int>>(StringComparer.Ordinal)
+            {
+                ["auditing.details.clear_expired.sql_server"] = new Queue<int>([2, 1]),
+            });
+        var runner = new AuditDetailsRetentionRunner(
+            query, command, new RecordingTransaction(), new FixedClock(),
+            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+
+        var result = await runner.RunOnceAsync(
+            new AuditDetailsRetentionOptions { BatchSize = 2, MaxBatchesPerRun = 3 },
+            CancellationToken.None);
+
+        Assert.AreEqual(3, result.Cleared);
+        Assert.AreEqual(2, result.BatchesExecuted);
+        Assert.AreEqual(2, command.Statements.Count);
+        Assert.IsTrue(command.Statements.All(statement =>
+            statement.Text.Contains("ContextJson = NULL", StringComparison.Ordinal)
+            && statement.Text.Contains("DetailsExpiresAtUtc = NULL", StringComparison.Ordinal)
+            && statement.Text.Contains("DetailsExpiresAtUtc <= @NowUtc", StringComparison.Ordinal)));
+        Assert.IsFalse(result.MayHaveMore);
+    }
+
+    [TestMethod]
+    public async Task Details_cleanup_retries_immediately_after_bounded_full_batch()
+    {
+        var command = new RecordingCommandExecutor(
+            new Dictionary<string, Queue<int>>(StringComparer.Ordinal)
+            {
+                ["auditing.details.clear_expired.sql_server"] = new Queue<int>([2]),
+            });
+        var runner = new AuditDetailsRetentionRunner(
+            new RecordingQueryExecutor(), command, new RecordingTransaction(), new FixedClock(),
+            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+
+        var result = await runner.RunOnceAsync(
+            new AuditDetailsRetentionOptions { BatchSize = 2, MaxBatchesPerRun = 1 },
+            CancellationToken.None);
+
+        Assert.AreEqual(2, result.Cleared);
+        Assert.IsTrue(result.MayHaveMore);
+    }
+
+    [TestMethod]
+    public async Task MySql_details_cleanup_claims_expired_ids_then_clears_both_columns()
+    {
+        var id = Guid.CreateVersion7();
+        var query = new RecordingQueryExecutor(
+            new Dictionary<string, Queue<IReadOnlyList<Guid>>>(StringComparer.Ordinal)
+            {
+                ["auditing.details.select_expired_ids.my_sql"] =
+                    new Queue<IReadOnlyList<Guid>>([[id]]),
+            });
+        var command = new RecordingCommandExecutor();
+        var transaction = new RecordingTransaction();
+        var runner = new AuditDetailsRetentionRunner(
+            query, command, transaction, new FixedClock(),
+            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.MySql }));
+
+        var result = await runner.RunOnceAsync(
+            new AuditDetailsRetentionOptions { BatchSize = 2, MaxBatchesPerRun = 3 },
+            CancellationToken.None);
+
+        Assert.AreEqual(1, result.Cleared);
+        Assert.AreEqual(1, result.BatchesExecuted);
+        Assert.AreEqual(1, transaction.ExecutionCount);
+        Assert.AreEqual("auditing.details.clear_claimed.my_sql", command.Statements.Single().Name);
+        Assert.IsTrue(command.Statements.Single().Text.Contains("ContextJson = NULL", StringComparison.Ordinal));
+        Assert.IsTrue(command.Statements.Single().Text.Contains("DetailsExpiresAtUtc = NULL", StringComparison.Ordinal));
+        CollectionAssert.AreEqual(new[] { id }, ReadIds(command.Parameters.Single()));
     }
 
     [TestMethod]

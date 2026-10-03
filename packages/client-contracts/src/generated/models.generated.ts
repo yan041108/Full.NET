@@ -2695,6 +2695,37 @@ export interface OcrProviderConfigResponse {
   readonly version: number;
 }
 
+export interface OperationLogDetailsContextV1 {
+  readonly clientIp: null | string;
+  readonly clientPort: null | number;
+  readonly requestCaptureState?: null | string;
+  readonly requestSummary?: null | OperationLogExportRequestSummaryV1;
+  readonly responseCaptureState?: null | string;
+  readonly responseSummary?: null | OperationLogExportResponseSummaryV1;
+  readonly schemaVersion: number;
+  readonly serverIp: null | string;
+  readonly serverPort: null | number;
+}
+
+export interface OperationLogDetailsResponse {
+  readonly context: OperationLogDetailsContextV1;
+  readonly detailsExpiresAtUtc: string;
+  readonly id: string;
+}
+
+export interface OperationLogExportRequestSummaryV1 {
+  readonly fromUtc: string;
+  readonly statusCode: null | number;
+  readonly succeeded: null | boolean;
+  readonly toUtc: string;
+}
+
+export interface OperationLogExportResponseSummaryV1 {
+  readonly includesSensitiveFields: boolean;
+  readonly rowCount: number;
+  readonly truncated: boolean;
+}
+
 export interface OperationLogResponse {
   readonly actionKey: string;
   readonly clientIpFingerprint: null | string;

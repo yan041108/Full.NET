@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <FullNetPublishMode>Jit</FullNetPublishMode>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FullNetAppNameToken.Composition\FullNetAppNameToken.Composition.csproj" />
+    <ProjectReference Include="..\..\framework\fullnet\src\BuildingBlocks\Full.NET.Hosting.Migrator\Full.NET.Hosting.Migrator.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -278,6 +278,7 @@ function compareStableSettings(fileName, baseline, current, changes) {
       !isDeepStrictEqual(baselineValue, current[fieldName])
       && !isAdditiveCoverageManifestChange(
         fileName,
+        fieldName,
         baselineValue,
         current[fieldName]
       )
@@ -304,13 +305,36 @@ function compareStableSettings(fileName, baseline, current, changes) {
   }
 }
 
-function isAdditiveCoverageManifestChange(fileName, baselineValue, currentValue) {
+function isAdditiveCoverageManifestChange(fileName, fieldName, baselineValue, currentValue) {
   if (
     fileName !== 'vue-client-coverage-v1.json'
     || !Array.isArray(baselineValue)
     || !Array.isArray(currentValue)
   ) {
     return false;
+  }
+
+  if (fieldName === 'consumerModules') {
+    const currentModules = new Map();
+    for (const entry of currentValue) {
+      if (typeof entry?.apiModule !== 'string' || currentModules.has(entry.apiModule)
+        || !Array.isArray(entry.consumers)
+        || entry.consumers.some(consumer => typeof consumer !== 'string')
+        || new Set(entry.consumers).size !== entry.consumers.length) {
+        return false;
+      }
+      currentModules.set(entry.apiModule, entry);
+    }
+
+    // 仅允许同一 API 保留全部旧消费者后追加页面，不放过删除、重绑定或重复条目。
+    return baselineValue.every(entry => {
+      const candidate = currentModules.get(entry?.apiModule);
+      if (!candidate || !Array.isArray(entry.consumers)) return false;
+      const { consumers: baselineConsumers, ...baselineBinding } = entry;
+      const { consumers: currentConsumers, ...currentBinding } = candidate;
+      return isDeepStrictEqual(baselineBinding, currentBinding)
+        && baselineConsumers.every(consumer => currentConsumers.includes(consumer));
+    });
   }
 
   // 覆盖清单允许随新增 API 追加绑定，但既有绑定不得删除或静默改写。
@@ -369,6 +393,7 @@ function isAllowedClientOpenApiSnapshotChange(
   if (
     fileName !== 'fullnet-client-v1.openapi.json'
     && fileName !== 'identity-me-v1.json'
+    && fileName !== 'tenant-members-v1.json'
   ) {
     return false;
   }

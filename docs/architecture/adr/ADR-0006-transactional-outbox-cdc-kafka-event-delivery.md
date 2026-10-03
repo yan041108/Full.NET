@@ -144,7 +144,7 @@ API 只写 Outbox，因此短时 Broker 故障不阻塞请求；但 Outbox、事
 4. 单一发布所有权、排空和回退演练通过；
 5. CDC/Connector/Broker/Consumer Lag、存储、保留和告警已接入；
 6. 依赖漏洞、生产 Connector 构建来源、镜像签名/SBOM/摘要、Apache-2.0/MIT 许可及 Notice 复核通过；测试用 Quay 镜像不得直接提升为生产镜像；
-7. 能力矩阵只在相应证据完成后从 `Designing` 更新为 `Build-verified`，生产等价恢复和负载认证后才可标记 `Production-verified`。
+7. 能力矩阵只在相应证据完成后从 `Designing` 更新为 `Build-verified`；生产配置的恢复和负载场景可在本地实际通过后标记 `Production-verified`，记录环境与实测范围。执行位置以开发质量 §11 的全项目本地验收规则为准，不要求 CI 或专用生产等价环境，切流所需的双库、影子核对、单一所有权和回退行为仍必须验证。
 
 ## 参考资料
 

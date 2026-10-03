@@ -38,6 +38,10 @@ the complete license texts.
   https://github.com/dotnet/SqlClient
 - MySqlConnector — MIT
   https://github.com/mysql-net/MySqlConnector
+- PdfPig 0.1.16 — Apache-2.0 (isolated R03 evaluation only; not a production dependency)
+  https://github.com/UglyToad/PdfPig/blob/v0.1.16/LICENSE
+- Qdrant 1.19.1 — Apache-2.0 (isolated R03 container evaluation only; not shipped or enabled)
+  https://github.com/qdrant/qdrant/blob/v1.19.1/LICENSE
 - Testcontainers for .NET — MIT
   https://github.com/testcontainers/testcontainers-dotnet
 - OpenIddict 7.7.0 (OpenIddict.Abstractions / OpenIddict.Core / OpenIddict.Server / OpenIddict.Server.AspNetCore) — Apache-2.0

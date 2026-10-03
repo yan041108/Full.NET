@@ -203,7 +203,237 @@ test('rendered API manifest keeps Capacity-not-verified marker', () => {
   assert.match(rendered.stdout, /DatabaseCapacity__HostRole:\s*"Api"/);
   assert.match(rendered.stdout, /DatabaseCapacity__PermitLimit:\s*"38"/);
   assert.match(rendered.stdout, /DatabaseCapacity__QueueLimit:\s*"0"/);
+  assert.match(rendered.stdout, /fullnet\.io\/log-ingress:\s*legacy/);
+  assert.match(rendered.stdout, /DOTNET_ENVIRONMENT:\s*"Production"/);
+  assert.match(rendered.stdout, /ASPNETCORE_ENVIRONMENT:\s*"Production"/);
+  assert.doesNotMatch(rendered.stdout, /- name: FullNet__Logging__DeliveryMode/);
+  assert.doesNotMatch(rendered.stdout, /- name: FullNet__Logging__ExpectedDeliveryMode/);
   assert.match(rendered.stdout, /kind:\s*Deployment/);
   assert.match(rendered.stdout, /component:\s*api/);
   assert.doesNotMatch(rendered.stdout, /kind:\s*StatefulSet/);
+});
+
+test('Collector ingress renders matching Pod route and application expectation', () => {
+  for (const role of ['api', 'worker']) {
+    const args = [
+      'template',
+      `fullnet-log-${role}-collector-check`,
+      chartDir,
+      '-f', path.join(chartDir, `ci/values-role-${role}.yaml`),
+      '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'),
+      '--set', 'logging.ingress=Collector',
+      '--set', 'production=false',
+      '--set', 'dotnetEnvironment=Staging',
+    ];
+    const rendered = process.platform === 'win32'
+      ? spawnSync(['helm', ...args].map((part) => (/\s/.test(part) ? `"${part}"` : part)).join(' '), {
+        encoding: 'utf8', shell: true, cwd: repositoryRoot,
+      })
+      : spawnSync('helm', args, { encoding: 'utf8', cwd: repositoryRoot });
+    assert.equal(rendered.status, 0, rendered.stderr);
+    assert.match(rendered.stdout, /fullnet\.io\/log-ingress:\s*collector/);
+    assert.match(rendered.stdout, /- name: FullNet__Logging__DeliveryMode\s+value: "Collector"/);
+    assert.match(rendered.stdout, /- name: FullNet__Logging__ExpectedDeliveryMode\s+value: "Collector"/);
+    assert.match(rendered.stdout, /DOTNET_ENVIRONMENT:\s*"Staging"/);
+    assert.match(rendered.stdout, /ASPNETCORE_ENVIRONMENT:\s*"Staging"/);
+  }
+});
+
+test('logging index route metadata is opt-in and requires a paired retention policy', () => {
+  const base = [
+    'template', 'fullnet-log-index-route-check', chartDir,
+    '-f', path.join(chartDir, 'ci/values-role-api.yaml'),
+    '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'),
+    '--set', 'production=false',
+    '--set', 'dotnetEnvironment=Staging',
+    '--set', 'logging.ingress=Collector',
+  ];
+  const render = (extra) => {
+    const args = [...base, ...extra];
+    return process.platform === 'win32'
+      ? spawnSync(['helm', ...args].map((part) => (/\s/.test(part) ? `"${part}"` : part)).join(' '), {
+          encoding: 'utf8', shell: true, cwd: repositoryRoot,
+        })
+      : spawnSync('helm', args, { encoding: 'utf8', cwd: repositoryRoot });
+  };
+
+  const disabled = render([]);
+  assert.equal(disabled.status, 0, disabled.stderr);
+  assert.doesNotMatch(disabled.stdout, /FullNet__Logging__IndexRouteVersion/);
+
+  const enabled = render(['--set', 'logging.indexRouteVersion=2', '--set', 'logging.indexRetentionDays=30']);
+  assert.equal(enabled.status, 0, enabled.stderr);
+  assert.match(enabled.stdout, /- name: FullNet__Logging__IndexRouteVersion\s+value: "2"/);
+  assert.match(enabled.stdout, /- name: FullNet__Logging__IndexRetentionDays\s+value: "30"/);
+
+  const unpaired = render(['--set', 'logging.indexRouteVersion=2']);
+  assert.notEqual(unpaired.status, 0);
+  assert.match(unpaired.stderr, /must be configured together/);
+});
+
+test('production Collector renders matching route and keeps capacity unverified', () => {
+  for (const role of ['api', 'worker']) {
+    const args = [
+      'template', `fullnet-log-collector-${role}-production-check`, chartDir,
+      '-f', path.join(chartDir, `ci/values-role-${role}.yaml`),
+      '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'),
+      '--set', 'logging.ingress=Collector',
+    ];
+    const rendered = process.platform === 'win32'
+      ? spawnSync(['helm', ...args].map((part) => (/\s/.test(part) ? `"${part}"` : part)).join(' '), {
+        encoding: 'utf8', shell: true, cwd: repositoryRoot,
+      })
+      : spawnSync('helm', args, { encoding: 'utf8', cwd: repositoryRoot });
+    assert.equal(rendered.status, 0, rendered.stderr);
+    assert.match(rendered.stdout, /fullnet\.io\/log-ingress: collector/);
+    assert.match(rendered.stdout, /- name: FullNet__Logging__DeliveryMode\s+value: "Collector"/);
+    assert.match(rendered.stdout, /- name: FullNet__Logging__ExpectedDeliveryMode\s+value: "Collector"/);
+    assert.match(rendered.stdout, /DOTNET_ENVIRONMENT: "Production"/);
+    assert.match(rendered.stdout, /Capacity-not-verified/);
+    assert.doesNotMatch(rendered.stdout, /FullNet__Logging__Kafka__BootstrapServers/);
+  }
+});
+
+test('non-production Local ingress renders matching Pod route and application expectation', () => {
+  for (const role of ['api', 'worker']) {
+    const args = [
+      'template', `fullnet-log-${role}-local-check`, chartDir,
+      '-f', path.join(chartDir, `ci/values-role-${role}.yaml`),
+      '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'),
+      '--set', 'logging.ingress=Local',
+      '--set', 'logging.kafka.caSecretName=log-broker-ca',
+      '--set', 'production=false',
+      '--set', 'dotnetEnvironment=Staging',
+    ];
+    const rendered = process.platform === 'win32'
+      ? spawnSync(['helm', ...args].map((part) => (/\s/.test(part) ? `"${part}"` : part)).join(' '), {
+        encoding: 'utf8', shell: true, cwd: repositoryRoot,
+      })
+      : spawnSync('helm', args, { encoding: 'utf8', cwd: repositoryRoot });
+    assert.equal(rendered.status, 0, rendered.stderr);
+    assert.match(rendered.stdout, /fullnet\.io\/log-ingress:\s*local/);
+    assert.match(rendered.stdout, /- name: FullNet__Logging__DeliveryMode\s+value: "Local"/);
+    assert.match(rendered.stdout, /- name: FullNet__Logging__ExpectedDeliveryMode\s+value: "Local"/);
+    assert.match(rendered.stdout, /DOTNET_ENVIRONMENT:\s*"Staging"/);
+    assert.match(rendered.stdout, /ASPNETCORE_ENVIRONMENT:\s*"Staging"/);
+    assert.doesNotMatch(rendered.stdout, /FullNet__Logging__Kafka__/);
+    assert.doesNotMatch(rendered.stdout, /kafka-log-ca|log-broker-ca/);
+  }
+});
+
+test('explicit logging ingress requires a non-production .NET environment in preview', () => {
+  for (const ingress of ['Local', 'Collector']) {
+    const args = [
+      'template', `fullnet-log-${ingress.toLowerCase()}-environment-check`, chartDir,
+      '-f', path.join(chartDir, 'ci/values-role-api.yaml'),
+      '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'),
+      '--set', `logging.ingress=${ingress}`,
+      '--set', 'production=false',
+    ];
+    const rendered = process.platform === 'win32'
+      ? spawnSync(['helm', ...args].map((part) => (/\s/.test(part) ? `"${part}"` : part)).join(' '), {
+        encoding: 'utf8', shell: true, cwd: repositoryRoot,
+      })
+      : spawnSync('helm', args, { encoding: 'utf8', cwd: repositoryRoot });
+    assert.notEqual(rendered.status, 0);
+    assert.match(rendered.stderr, /dotnetEnvironment must be Staging or Development for non-production logging ingress/);
+  }
+});
+
+test('production chart cannot run with a non-production .NET environment', () => {
+  for (const environment of ['Staging', 'Development']) {
+    const args = [
+      'template', `fullnet-${environment.toLowerCase()}-production-check`, chartDir,
+      '-f', path.join(chartDir, 'ci/values-role-api.yaml'),
+      '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'),
+      '--set', `dotnetEnvironment=${environment}`,
+    ];
+    const rendered = process.platform === 'win32'
+      ? spawnSync(['helm', ...args].map((part) => (/\s/.test(part) ? `"${part}"` : part)).join(' '), {
+        encoding: 'utf8', shell: true, cwd: repositoryRoot,
+      })
+      : spawnSync('helm', args, { encoding: 'utf8', cwd: repositoryRoot });
+    assert.notEqual(rendered.status, 0);
+    assert.match(rendered.stderr, /dotnetEnvironment must be Production when production=true/);
+  }
+});
+
+test('ApplicationKafka requires dedicated Secrets and frozen routes in Staging and Production', () => {
+  for (const environment of ['Staging', 'Production']) {
+    for (const role of ['api', 'worker']) {
+      const args = [
+        'template', `fullnet-log-${role}-kafka-check`, chartDir,
+        '-f', path.join(chartDir, `ci/values-role-${role}.yaml`),
+        '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'),
+        '--set', `production=${environment === 'Production'}`,
+        '--set', `dotnetEnvironment=${environment}`,
+        '--set', 'logging.ingress=ApplicationKafka',
+      ];
+      const render = (extra = []) => process.platform === 'win32'
+        ? spawnSync(['helm', ...args, ...extra].map((part) => (/\s/.test(part) ? `"${part}"` : part)).join(' '), {
+          encoding: 'utf8', shell: true, cwd: repositoryRoot,
+        })
+        : spawnSync('helm', [...args, ...extra], { encoding: 'utf8', cwd: repositoryRoot });
+      const missing = render();
+      assert.notEqual(missing.status, 0);
+      assert.match(missing.stderr, /logging\.kafka\.configurationSecretName/);
+
+      const missingRoute = render(['--set', 'logging.kafka.configurationSecretName=log-producer-config']);
+      assert.notEqual(missingRoute.status, 0);
+      assert.match(missingRoute.stderr, /requires logging.indexRouteVersion/);
+
+      const rendered = render([
+        '--set', 'logging.kafka.configurationSecretName=log-producer-config',
+        '--set', 'logging.indexRouteVersion=2',
+        '--set', 'logging.indexRetentionDays=30',
+      ]);
+      assert.equal(rendered.status, 0, rendered.stderr);
+      assert.match(rendered.stdout, /fullnet\.io\/log-ingress:\s*applicationkafka/);
+      assert.match(rendered.stdout, new RegExp(`DOTNET_ENVIRONMENT:\\s*"${environment}"`));
+      assert.match(rendered.stdout, /Capacity-not-verified/);
+      assert.match(rendered.stdout, /- name: FullNet__Logging__DeliveryMode\s+value: "ApplicationKafka"/);
+      const configMapDocument = rendered.stdout.split(/^---\s*$/m)
+        .find((document) => /kind: ConfigMap/.test(document));
+      const deploymentDocument = rendered.stdout.split(/^---\s*$/m)
+        .find((document) => /kind: Deployment/.test(document));
+      assert.ok(configMapDocument);
+      assert.ok(deploymentDocument);
+      assert.doesNotMatch(configMapDocument, /FullNet__Logging__(?:Expected)?DeliveryMode/);
+      assert.match(deploymentDocument, /- name: FullNet__Logging__DeliveryMode\s+value: "ApplicationKafka"/);
+      assert.match(deploymentDocument, /- name: FullNet__Logging__ExpectedDeliveryMode\s+value: "ApplicationKafka"/);
+      assert.match(rendered.stdout, /- name: FullNet__Logging__Kafka__BootstrapServers\s+valueFrom:\s+secretKeyRef:\s+name: "log-producer-config"\s+key: bootstrapServers/);
+      assert.match(rendered.stdout, /- name: FullNet__Logging__Kafka__GeneralTopic\s+valueFrom:\s+secretKeyRef:\s+name: "log-producer-config"\s+key: generalTopic/);
+      assert.doesNotMatch(rendered.stdout, /- secretRef:\s*\n\s*name: "log-producer-config"/);
+      assert.doesNotMatch(deploymentDocument, /FullNet__Logging__Kafka__SslCaLocation|kafka-log-ca/);
+
+      const withPrivateCa = render([
+        '--set', 'logging.kafka.configurationSecretName=log-producer-config',
+        '--set', 'logging.kafka.caSecretName=log-broker-ca',
+        '--set', 'logging.indexRouteVersion=2',
+        '--set', 'logging.indexRetentionDays=30',
+      ]);
+      assert.equal(withPrivateCa.status, 0, withPrivateCa.stderr);
+      assert.match(withPrivateCa.stdout, /- name: FullNet__Logging__Kafka__SslCaLocation\s+value: "\/var\/run\/fullnet\/logging\/kafka-ca\/ca\.crt"/);
+      assert.match(withPrivateCa.stdout, /- name: kafka-log-ca\s+mountPath: \/var\/run\/fullnet\/logging\/kafka-ca\s+readOnly: true/);
+      assert.match(withPrivateCa.stdout, /- name: kafka-log-ca\s+secret:\s+secretName: "log-broker-ca"\s+items:\s+- key: ca\.crt\s+path: ca\.crt/);
+    }
+  }
+});
+
+test('production Local ingress remains rejected by Helm', () => {
+  for (const ingress of ['Local']) {
+    const args = [
+      'template', `fullnet-log-${ingress.toLowerCase()}-check`, chartDir,
+      '-f', path.join(chartDir, 'ci/values-role-api.yaml'),
+      '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'),
+      '--set', `logging.ingress=${ingress}`,
+    ];
+    const rendered = process.platform === 'win32'
+      ? spawnSync(['helm', ...args].map((part) => (/\s/.test(part) ? `"${part}"` : part)).join(' '), {
+        encoding: 'utf8', shell: true, cwd: repositoryRoot,
+      })
+      : spawnSync('helm', args, { encoding: 'utf8', cwd: repositoryRoot });
+    assert.notEqual(rendered.status, 0);
+    assert.match(rendered.stderr, /logging\.ingress=Local is disabled in production until collector exclusion is verified/);
+  }
 });

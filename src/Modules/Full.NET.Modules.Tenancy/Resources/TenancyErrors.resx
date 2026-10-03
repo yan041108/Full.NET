@@ -38,4 +38,5 @@
   <data name="tenancy.tenant_subscription.period_invalid" xml:space="preserve"><value>订阅周期无效。</value></data>
   <data name="tenancy.tenant_subscription.not_found" xml:space="preserve"><value>订阅不存在。</value></data>
   <data name="tenancy.tenant_subscription.version_conflict" xml:space="preserve"><value>订阅记录已被其他操作更新，请刷新后重试。</value></data>
+  <data name="tenancy.quota.usage_baseline_unsupported_metric" xml:space="preserve"><value>该配额指标不支持从权威资源重建用量基线。</value></data>
 </root>

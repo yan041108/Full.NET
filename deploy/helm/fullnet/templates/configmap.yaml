@@ -6,6 +6,8 @@ metadata:
   labels:
     {{- include "fullnet.labels" . | nindent 4 }}
 data:
+  DOTNET_ENVIRONMENT: {{ .Values.dotnetEnvironment | quote }}
+  ASPNETCORE_ENVIRONMENT: {{ .Values.dotnetEnvironment | quote }}
   Database__Provider: {{ .Values.database.provider | quote }}
 {{- if .Values.roles.api }}
   DatabaseCapacity__Enabled: "true"

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\Full.NET.Caching.Fusion\Full.NET.Caching.Fusion.csproj" />
+    <ProjectReference Include="..\Full.NET.Data.Dapper\Full.NET.Data.Dapper.csproj" />
+    <ProjectReference Include="..\Full.NET.Hosting\Full.NET.Hosting.csproj" />
+    <ProjectReference Include="..\Full.NET.Migrations.DbUp\Full.NET.Migrations.DbUp.csproj" />
+    <ProjectReference Include="..\Full.NET.Seeding.Dapper\Full.NET.Seeding.Dapper.csproj" />
+    <ProjectReference Include="..\Full.NET.Serialization.MemoryPack\Full.NET.Serialization.MemoryPack.csproj" />
+  </ItemGroup>
+</Project>

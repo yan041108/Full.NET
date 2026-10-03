@@ -1,15 +1,19 @@
 # 日志高优先级通道与降级处置
 
+本页描述当前应用双通道的故障处理。字段和平台现状见[日志模块说明](logging-module.md)；Collector 与 ApplicationKafka 后台直发为 [ADR-0012](../architecture/adr/ADR-0012-configurable-log-delivery.md)中的待实现、待比较目标，按[LG00—LG08](../superpowers/plans/2026-09-28-configurable-log-delivery.md)验证后配置选择。本页当前指标/配置不因此自动适用于未来 Producer；直发需独立 SDK 预算/确认/恢复监控，不默认故障双写到采集器。
+
 ## 当前边界
 
 Full.NET 的三个官方宿主统一通过 `AddFullNetServiceDefaults()` 建立两条互不共享容量的 Serilog 异步通道：
 
-| 通道 | 等级 | 默认容量 | 队列满时行为 |
+| 通道 | 等级 | 默认条数/字节容量 | 队列满时行为 |
 | --- | --- | ---: | --- |
-| `general` | `Information`、`Warning` | 10000 | 丢弃新增事件并累计指标 |
-| `high_priority` | `Error`、`Critical` | 1000 | 丢弃新增事件并累计指标 |
+| `general` | `Information`、`Warning` | 10000 条 / 64 MiB | 丢弃新增事件并累计指标 |
+| `high_priority` | `Error`、`Critical` | 1000 条 / 8 MiB | 丢弃新增事件并累计指标 |
 
 两条通道都固定为非阻塞。`FullNet:Logging:BlockWhenFull=true` 会在启动时被拒绝，避免慢 Sink 或平台故障把请求线程拖入同步等待。`Debug/Verbose` 仍受全局最小等级限制，不进入这两条生产通道。
+
+每次调用先按单事件最大费用非阻塞预留，快照完成后退还差额；未取得预算时不会继续构造快照。旧 Elasticsearch Sink 启用时还需容纳安全事件拷贝，启动校验会要求每条通道至少能保留一条此类最大封套。字节指标是保守队列/在途费用，不代表进程 RSS。
 
 ```json
 {
@@ -17,6 +21,9 @@ Full.NET 的三个官方宿主统一通过 `AddFullNetServiceDefaults()` 建立�
     "Logging": {
       "AsyncBufferSize": 10000,
       "HighPriorityAsyncBufferSize": 1000,
+      "MaxEventBytes": 16384,
+      "GeneralQueueMaxBytes": 67108864,
+      "HighPriorityQueueMaxBytes": 8388608,
       "BlockWhenFull": false,
       "ShutdownFlushTimeout": "00:00:05"
     }
@@ -31,15 +38,17 @@ Meter `Full.NET.Logging` 暴露：
 - `fullnet.logging.queue.depth{channel}`
 - `fullnet.logging.queue.capacity{channel}`
 - `fullnet.logging.events.dropped{channel}`
+- `fullnet.logging.queue.bytes{channel}` / `fullnet.logging.queue.bytes.capacity{channel}`
+- `fullnet.logging.events.oversize{channel}` / `fullnet.logging.events.byte_budget_dropped{channel}`
 
 `channel` 只允许 `general` 与 `high_priority`。禁止加入租户、用户、路径、异常消息或其他高基数值。
 
-`high_priority_logging` 作为 `ready` 健康检查注册。当前高优先级深度达到容量的 90% 时返回 `Degraded`；普通通道过载不会驱逐实例。累计丢弃值不直接让实例永久降级，必须由监控平台按时间窗口计算增量。
+`high_priority_logging` 作为 `ready` 健康检查注册。当前高优先级条数或已预留字节达到相应容量的 90% 时返回 `Degraded`；普通通道过载不会驱逐实例。累计丢弃值不直接让实例永久降级，必须由监控平台按时间窗口计算增量。
 
 建议告警：
 
 1. `high_priority` 的 `events.dropped` 在任意 5 分钟窗口增量大于 0：立即告警。
-2. `high_priority` 的 `queue.depth / queue.capacity` 连续 5 分钟大于等于 0.8：高优先级告警。
+2. `high_priority` 的条数或字节占用率连续 5 分钟大于等于 0.8：高优先级告警。
 3. `general` 的丢弃持续增长：容量或日志等级治理告警，不应自动扩容掩盖无界日志。
 4. `high_priority_logging` 连续 `Degraded`：检查 Sink 消费速度与平台采集状态。
 
@@ -53,22 +62,26 @@ Meter `Full.NET.Logging` 暴露：
 
 `ShutdownFlushTimeout` 是普通与高优先级通道共享的总退出预算，默认 5 秒，只允许大于 0 且不超过 30 秒。宿主释放 Logger 时会同时停止两条通道接收新事件，让两个后台 Worker 并行排空；等待阶段优先确认高优先级 Worker，再把同一截止时间内的剩余时间交给普通 Worker，因此最坏等待不会变成“两条通道各等待一次超时”。
 
-到期后，Full.NET 只放弃尚未进入 Sink 的内存队列事件并累计丢弃数。已经进入阻塞 Sink 的单条事件无法安全中止，只能留在后台线程等待 Sink 自行返回；后台线程不会阻止进程退出。操作系统调度可能带来少量超时误差，配置值不是投递成功保证。
+到期后，Full.NET 只放弃尚未进入 Sink 的内存队列事件、释放对应快照字节预算并累计丢弃数。已经进入阻塞 Sink 的单条事件无法安全中止，其字节预算继续保留到 Sink 返回；后台线程不会阻止进程退出。操作系统调度可能带来少量超时误差，配置值不是投递成功保证。
 
 正常退出且 Sink 在预算内可用时，两条队列会完整排空并释放内部 Sink。强制终止、进程崩溃、节点掉电或超过预算时仍可能丢失日志，因此该机制不能替代持久化审计、磁盘 Spool 或外部投递确认。
 
 ## 审计边界
 
-日志队列不是审计存储。认证审计、租户/超级管理员安全操作、Seed 执行记录和可靠业务事件继续由数据库事务或 Outbox 持久化。不得因为高优先级队列独立而把这些记录改成 `ILogger` 调用；日志队列满不得改变业务事务和审计写入结果。
+日志队列不是审计存储。B0 领域审计与业务状态同事务直接写库；B1 重要 HTTP 审计通过有界微批直接写审计库并等待写入尝试，默认 fail-open + 告警；认证审计、租户/超级管理员安全操作和 Seed 执行记录沿各自持久化边界。日志与 Audit 不使用 Outbox，只有可靠业务 Integration Event 使用事务 Outbox。不得因为高优先级队列独立而把这些记录改成 `ILogger` 调用；日志队列满不得改变业务事务和既定审计写入语义。
 
 ## 降级处置
 
 1. 先比较两个通道的深度与丢弃增量，判断是普通日志洪峰还是高优先级 Sink 受阻。
-2. 检查容器标准输出采集器、宿主磁盘/管道和 OpenTelemetry Collector 状态；不要在请求线程临时切换到同步网络写入。
+2. 检查容器标准输出采集器、宿主磁盘/管道和实际日志目的地；当前 OTel 示例仅承载 Trace/Metrics，不能以 Collector 正常判定日志链正常。不要在请求线程临时切换到同步网络写入。
 3. 若只有普通通道丢弃，先降低噪声来源的日志等级或修复重复日志；不要扩大高优先级容量代替治理。
 4. 若高优先级通道丢弃，保留 TraceId 和受保护的服务端诊断，按事故处理；敏感异常、Token、Cookie、连接串和 SQL 不得写入临时日志。
 5. 恢复后确认高优先级深度回落、丢弃增量归零，并记录故障窗口。
 
 ## 尚未完成
 
-当前 Console Sink 依赖部署平台采集标准输出，不提供 Full.NET 自有的磁盘 Spool、跨重启重放或外部 Sink 投递确认。Task 8B1 已验证正常退出完整排空，以及两个 Sink 同时阻塞时共享一个有界退出预算；事件级异常隔离已保证单次 Sink 失败不会永久终止 Worker，但失败事件仍会丢失。尚未完成的 Task 8B 必须在引入持久能力前明确容量、保留、加密、磁盘满策略和至少一次重复投递语义，并完成连续平台不可用、磁盘满与跨重启故障注入。
+当前 Console Sink 依赖部署平台采集标准输出，不提供 Full.NET 自有的磁盘 Spool、跨重启重放或外部 Sink 投递确认。Task 8B1 已验证正常退出完整排空，以及两个 Sink 同时阻塞时共享一个有界退出预算；事件级异常隔离已保证单次 Sink 失败不会永久终止 Worker，但失败事件仍会丢失。
+
+Fluent Bit 部署示例已有 filesystem 缓冲，但使用 emptyDir，且解析/字段筛选仍需真实样本验证；配置存在不代表可跨 Pod 重建恢复。活动计划 LG05/LG06/LG08 接管历史 Task 8B 未完成部分，实施可选组件、持久存储、发送 ACK/检查点验证、消费确认/去重、满盘与重启故障矩阵。历史局部通过证据保持不变，不据此上调当前容量或端到端交付状态。
+
+LG00 原 Logstash/PQ 准入实验已取得单事件重启恢复的局部证据，但[官方 Offset 限制](https://www.elastic.co/docs/reference/logstash/tips-best-practices)使该组合无法满足可靠档安全落盘先于提交的要求，现转为重新评估消费者。LG02 已接入应用内条数/字节双预算、预留后构造和快照，尚未完成真实 P99/RSS、构造临时分配及旧 Sink 安全事件拷贝的实测内存验收。LG03/LG04 的先许可后投影与数据库独立详情清理、LG06 固定事件日期索引去重仍未实施。当前字节指标不能解释为进程内存上限，也不能把审计 API 的详情权限解释为普通 stdout/平台副本的权限；目标方案禁止这些出口携带 Restricted 详情。

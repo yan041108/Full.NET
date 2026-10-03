@@ -89,7 +89,10 @@ public sealed class SettingsModule : IFullNetModule
         services.TryAddScoped<DiagnosticPolicyCacheInvalidator>();
         services.TryAddScoped<DiagnosticPolicyManagementService>();
         services.RemoveAll<IDiagnosticPolicyStore>();
-        services.AddSingleton<IDiagnosticPolicyStore, DiagnosticPolicyStore>();
+        services.TryAddSingleton<DiagnosticPolicyStore>();
+        services.AddSingleton<IDiagnosticPolicyStore>(provider =>
+            provider.GetRequiredService<DiagnosticPolicyStore>());
+        services.AddHostedService<DiagnosticPolicyRefreshService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

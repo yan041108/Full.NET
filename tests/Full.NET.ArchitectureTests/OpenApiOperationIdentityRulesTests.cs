@@ -570,6 +570,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/auditing/access-logs/cursor", "auditingListHostAccessLogsByCursor", AuditingHostAccessLogsTag),
         new("GET", "/api/v1/auditing/access-logs/trends", "auditingQueryHostAccessLogTrends", AuditingHostAccessLogsTag),
         new("GET", "/api/v1/auditing/operation-logs", "auditingListHostOperationLogs", AuditingHostOperationLogsTag),
+        new("GET", "/api/v1/auditing/operation-logs/{operationLogId}/details", "auditingGetHostOperationLogDetails", AuditingHostOperationLogsTag),
         new("GET", "/api/v1/auditing/operation-logs/trends", "auditingQueryHostOperationLogTrends", AuditingHostOperationLogsTag),
         new("GET", "/api/v1/auditing/exception-logs", "auditingListHostExceptionLogs", AuditingHostExceptionLogsTag),
         new("GET", "/api/v1/auditing/exception-logs/trends", "auditingQueryHostExceptionLogTrends", AuditingHostExceptionLogsTag),

@@ -2,11 +2,11 @@
 new PermissionDefinition(
     ProductPermissions.Read,
     "读取 Product",
-    AuthorizationScope.Host),
+    AuthorizationScope.Tenant),
 new PermissionDefinition(
     ProductPermissions.Write,
     "写入 Product",
-    AuthorizationScope.Host),
+    AuthorizationScope.Tenant),
 // </fullnet-generated catalog.product permissions>
 
 // <fullnet-generated catalog.product navigation>

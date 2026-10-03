@@ -35,13 +35,17 @@ internal sealed class ModuleIntegrationTargetDocument
 
     public required string VueRouterPath { get; init; }
 
-    public required string LayuiRouterPath { get; init; }
+    // Vue 是默认交付线；省略冻结的 Layui 目标与内部接入模型的可选语义保持一致。
+    public string? LayuiRouterPath { get; init; }
 
     public ModuleClientRouteTargetDocument? ClientRoute { get; init; }
 
+    public string? AuthorizationContributorPath { get; init; }
+
     public static async Task<ModuleIntegrationTarget> LoadAsync(
         string path,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool allowHostAuthorization = false)
     {
         var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
         if (bytes.Length >= 3
@@ -53,12 +57,23 @@ internal sealed class ModuleIntegrationTargetDocument
                 "模块接入目标 JSON 不得包含 UTF-8 BOM。");
         }
 
+        var json = StrictUtf8.GetString(bytes);
         var document = JsonSerializer.Deserialize<
             ModuleIntegrationTargetDocument>(
-                StrictUtf8.GetString(bytes),
+                json,
                 JsonOptions)
             ?? throw new JsonException(
                 "模块接入目标 JSON 不能为空。");
+        using var parsed = JsonDocument.Parse(json);
+        // 即使显式传入 null，也不能在不执行授权的旧命令中静默丢弃这个字段。
+        if (!allowHostAuthorization && parsed.RootElement.TryGetProperty("authorizationContributorPath", out _))
+        {
+            throw new JsonException("authorizationContributorPath 仅适用于 apply-host-integration。");
+        }
+        if (allowHostAuthorization && string.IsNullOrWhiteSpace(document.AuthorizationContributorPath))
+        {
+            throw new JsonException("apply-host-integration 必须显式提供非空 authorizationContributorPath。");
+        }
         return ModuleIntegrationTarget.Create(
             document.ModuleName,
             document.ModuleProjectPath,
@@ -67,7 +82,8 @@ internal sealed class ModuleIntegrationTargetDocument
             document.CompositionCatalogPath,
             document.VueRouterPath,
             document.LayuiRouterPath,
-            document.ClientRoute?.ToTarget());
+            document.ClientRoute?.ToTarget(),
+            document.AuthorizationContributorPath);
     }
 }
 
@@ -82,9 +98,9 @@ internal sealed class ModuleClientRouteTargetDocument
 
     public required string VueComponentPath { get; init; }
 
-    public required string LayuiControllerPath { get; init; }
+    public string? LayuiControllerPath { get; init; }
 
-    public required string LayuiControllerExport { get; init; }
+    public string? LayuiControllerExport { get; init; }
 
     public ModuleClientRouteTarget ToTarget() =>
         ModuleClientRouteTarget.Create(

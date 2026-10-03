@@ -69,7 +69,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
         string? filesRootPath = null,
         bool enableFilesUploadReconciliation = false,
         bool enableFilesCleanup = false,
-        bool enableFilesReferenceClaimReconciliation = false)
+        bool enableFilesReferenceClaimReconciliation = false,
+        IReadOnlyDictionary<string, string?>? additionalSettings = null)
     {
         var port = GetFreeTcpPort();
         var baseAddress = new Uri($"http://127.0.0.1:{port}/");
@@ -102,7 +103,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             filesRootPath,
             enableFilesUploadReconciliation,
             enableFilesCleanup,
-            enableFilesReferenceClaimReconciliation))
+            enableFilesReferenceClaimReconciliation,
+            additionalSettings))
         {
             startInfo.Environment[pair.Key] = pair.Value;
         }
@@ -248,7 +250,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
         string? filesRootPath,
         bool enableFilesUploadReconciliation,
         bool enableFilesCleanup,
-        bool enableFilesReferenceClaimReconciliation)
+        bool enableFilesReferenceClaimReconciliation,
+        IReadOnlyDictionary<string, string?>? additionalSettings)
     {
         var environment = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -306,6 +309,17 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             environment["Files__ReferenceClaimReconciliation__MaxBatchesPerRun"] = "1";
             environment["Files__ReferenceClaimReconciliation__MinimumAgeSeconds"] = "30";
             environment["Files__ReferenceClaimReconciliation__ReleaseGraceSeconds"] = "60";
+        }
+
+        if (additionalSettings is not null)
+        {
+            foreach (var setting in additionalSettings)
+            {
+                if (setting.Value is not null)
+                {
+                    environment[setting.Key.Replace(":", "__", StringComparison.Ordinal)] = setting.Value;
+                }
+            }
         }
 
         return environment;

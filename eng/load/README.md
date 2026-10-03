@@ -1,10 +1,10 @@
 # Full.NET Capacity Certification Harness
 
-Dedicated-cluster k6 harness for high-concurrency certification. **Do not** run these profiles against a developer laptop or shared CI as an automatic capacity gate.
+k6 harness for local capacity acceptance, including local Kubernetes. A dedicated cluster and CI are optional. Define resource limits and stop conditions before starting a run; do not run against unrelated workloads.
 
 ## Rules
 
-- Keep `Capacity-not-verified` until a dedicated production-equivalent environment completes certification.
+- Keep `Capacity-not-verified` until the required capacity scenarios actually pass. Local results are sufficient for acceptance; record hardware and tested scope and do not label them production-equivalent.
 - Never treat k6 VU count as actual in-flight requests. Always record `actual active requests`.
 - Run both closed-loop (stability) and open-loop (arrival / queueing / coordinated omission) models.
 - Execution order gate: **2K → 5K → 10K → Soak**.
@@ -36,7 +36,7 @@ pnpm test:load-profiles
 
 This validates profile contracts. It does **not** start a load run against local Aspire/AppHost.
 
-## Dedicated cluster run (manual)
+## Local or dedicated cluster run (manual)
 
 ```bash
 export FULLNET_BASE_URL=https://api.example
@@ -50,15 +50,15 @@ Kubernetes Job template: `deploy/load/k6-test-run.yaml`.
 
 Certification evidence template: `docs/verification/high-concurrency-capacity-certification-template.md`.
 
-## 专用环境认证 checklist（未执行）
+## 本地容量验收 checklist（未执行）
 
-下列项必须在**专用生产等价环境**完成并归档后，方可讨论移除 `Capacity-not-verified`；Scope B/C Kafka 集成测试、本地 k6 profile 校验 **不等于** 本清单完成。
+下列项可在本地进程、隔离容器或 kind 集群完成并归档，不要求专用生产等价环境；Scope B/C Kafka 集成测试、本地 k6 profile 校验仍不等于完成容量实测。全部验收遵守 [开发质量 §11](../../rules/development-quality.md#11-测试与验证)。
 
 - [ ] Data Protection Key Ring 多实例共享与轮换演练
 - [ ] 全局限流 / 租户限流与 Files 多实例一致性
 - [ ] 1 / 2 / 4 / 8 实例模块化单体矩阵（读重、混合写、缓存恢复、审计、Outbox/Jobs 积压）
 - [ ] SQL Server 与 MySQL 分别完成 2K→5K→10K→Soak 门禁
 - [ ] 滚动升级、连接耗尽、Broker/DB 故障注入与恢复对账
-- [ ] 运维 Runbook 与告警阈值在专用环境实测
+- [ ] 运维 Runbook 与告警阈值在本地验收环境实测
 
 当前状态：**未执行**；所有对外表述保持 `Capacity-not-verified`。

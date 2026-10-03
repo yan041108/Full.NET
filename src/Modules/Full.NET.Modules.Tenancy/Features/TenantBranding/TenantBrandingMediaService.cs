@@ -16,12 +16,12 @@ internal sealed class TenantBrandingMediaService(
     ICommandTransaction transaction,
     IClock clock,
     ICurrentTenantContextWriter currentTenantWriter,
-    IHostFileUploadWriter hostFileUploadWriter,
-    IHostFileReferenceClaimService hostFileReferenceClaimService,
-    IHostFileDescriptorReader hostFileDescriptorReader,
-    IHostFileContentReader hostFileContentReader,
     TenantBrandingService brandingService,
-    TenantCacheInvalidator cacheInvalidator)
+    TenantCacheInvalidator cacheInvalidator,
+    IHostFileUploadWriter? hostFileUploadWriter = null,
+    IHostFileReferenceClaimService? hostFileReferenceClaimService = null,
+    IHostFileDescriptorReader? hostFileDescriptorReader = null,
+    IHostFileContentReader? hostFileContentReader = null)
 {
     /// <summary>Host 作用域上传并绑定租户 Logo。</summary>
     public Task<Result<TenantBrandingResponse>> UploadLogoByTenantIdAsync(
@@ -105,6 +105,12 @@ internal sealed class TenantBrandingMediaService(
         long contentLength,
         CancellationToken cancellationToken)
     {
+        // Files 为可选模块；依赖不完整时先拒绝，不能先上传或修改租户品牌数据。
+        if (hostFileUploadWriter is null || hostFileReferenceClaimService is null || hostFileDescriptorReader is null)
+        {
+            return LogoInvalid<TenantBrandingResponse>();
+        }
+
         if (!TenantBrandingPolicy.IsAllowedLogoContentType(contentType)
             || contentLength <= 0
             || contentLength > TenantBrandingPolicy.LogoMaxBytes)
@@ -221,6 +227,12 @@ internal sealed class TenantBrandingMediaService(
         bool useCurrentTenantScope,
         CancellationToken cancellationToken)
     {
+        // 未装配引用释放能力时保留 Logo 绑定，避免出现无法补偿的孤立文件引用。
+        if (hostFileReferenceClaimService is null)
+        {
+            return LogoInvalid<TenantBrandingResponse>();
+        }
+
         var branding = await LoadBrandingRecordAsync(
                 tenantId,
                 useCurrentTenantScope,
@@ -256,6 +268,11 @@ internal sealed class TenantBrandingMediaService(
         bool useCurrentTenantScope,
         CancellationToken cancellationToken)
     {
+        if (hostFileContentReader is null)
+        {
+            return LogoNotFound<HostFileContent>();
+        }
+
         var branding = await LoadBrandingRecordAsync(
                 tenantId,
                 useCurrentTenantScope,
@@ -349,7 +366,7 @@ internal sealed class TenantBrandingMediaService(
             useCurrentTenantScope,
             async () =>
             {
-                _ = await hostFileReferenceClaimService
+                _ = await hostFileReferenceClaimService!
                     .ReleaseAsync(idempotencyKey, cancellationToken)
                     .ConfigureAwait(false);
             });

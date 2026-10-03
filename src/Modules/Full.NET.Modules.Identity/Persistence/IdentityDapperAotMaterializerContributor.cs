@@ -91,12 +91,17 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         DapperAotParameterRegistry.Register<LoginSuccessUpdate>(BindLoginSuccessUpdate);
         DapperAotParameterRegistry.Register<AuthAuditEvent>(BindAuthAuditEvent);
         DapperAotParameterRegistry.Register<RefreshSession>(BindRefreshSession);
+        // 首次改密和刷新令牌共用消费记录，必须显式绑定版本比较与替代会话参数。
+        DapperAotParameterRegistry.Register<ConsumeRefreshSessionUpdate>(BindConsumeRefreshSessionUpdate);
         DapperAotParameterRegistry.Register<Features.ChangeSessionContext.RefreshSessionContextUpdate>(
             BindRefreshSessionContextUpdate);
         DapperAotParameterRegistry.Register<Features.ChangeSessionContext.OidcApplicationSessionContextUpdate>(
             BindOidcApplicationSessionContextUpdate);
         DapperAotParameterRegistry.Register<IdentityUserRecord>(BindIdentityUserRecord);
         DapperAotParameterRegistry.Register<InsertIdentityRole>(BindInsertIdentityRole);
+        // 行物化不等于命令参数绑定；角色授权及用户角色关联也必须有静态参数闭包。
+        DapperAotParameterRegistry.Register<IdentityRolePermission>(BindIdentityRolePermission);
+        DapperAotParameterRegistry.Register<IdentityUserRole>(BindIdentityUserRole);
         DapperAotParameterRegistry.Register<InsertIdentityNavigation>(BindInsertIdentityNavigation);
         DapperAotParameterRegistry.Register<RegistrationWayRecord>(BindRegistrationWayRecord);
         DapperAotParameterRegistry.Register<LdapConnectionRecord>(BindLdapConnectionRecord);
@@ -1167,6 +1172,32 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         parameters.Add("DataScopeKind", role.DataScopeKind);
         parameters.Add("CreatedAtUtc", role.CreatedAtUtc);
         parameters.Add("Version", role.Version);
+        return parameters;
+    }
+
+    private static DynamicParameters BindIdentityRolePermission(IdentityRolePermission permission)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("RoleId", permission.RoleId);
+        parameters.Add("PermissionCode", permission.PermissionCode);
+        return parameters;
+    }
+
+    private static DynamicParameters BindConsumeRefreshSessionUpdate(ConsumeRefreshSessionUpdate update)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("Id", update.Id);
+        parameters.Add("ConsumedAtUtc", update.ConsumedAtUtc);
+        parameters.Add("ReplacedById", update.ReplacedById);
+        parameters.Add("Version", update.Version);
+        return parameters;
+    }
+
+    private static DynamicParameters BindIdentityUserRole(IdentityUserRole relation)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("UserId", relation.UserId);
+        parameters.Add("RoleId", relation.RoleId);
         return parameters;
     }
 

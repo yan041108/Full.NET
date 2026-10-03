@@ -56,7 +56,12 @@ function projectSelection(source, selected) {
     const name = /"([A-Za-z0-9]+)"/.exec(line)?.[1];
     return !name || selected.has(name);
   }).join('\n');
-  return source.slice(0, listStart) + projected + source.slice(end);
+  const contractMarker = 'private static readonly IReadOnlyList<string> ContractModuleNames = OfficialModuleNames;';
+  if (source.split(contractMarker).length !== 2) throw new Error('Cannot locate official contract module names');
+  // 可选契约生产者允许缺席，但可启用实现必须保持预设的静态闭包。
+  const withContractNames = source.replace(contractMarker,
+    'private static readonly IReadOnlyList<string> ContractModuleNames =' + original + '    ];');
+  return withContractNames.slice(0, listStart) + projected + withContractNames.slice(end);
 }
 
 function projectProject(source, selected) {

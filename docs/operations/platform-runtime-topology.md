@@ -41,7 +41,9 @@ flowchart TB
 ## 请求链（Api）
 
 ```text
-TrustedProxy → Localization → RequestLogging → ExceptionHandler
+TrustedProxy → Localization → RequestLogging
+  → ModuleMiddleware(BeforeExceptionHandler：Access、AuditWriteCoordinator)
+  → ExceptionHandler
   → CORS → RateLimit → ModuleMiddleware(BeforeAuthentication)
   → Authentication → ModuleMiddleware(BeforeAuthorization)
   → Authorization → ModuleMiddleware(BeforeEndpoints)
@@ -65,6 +67,16 @@ Tenancy 解析在 Identity 认证前后由模块中间件与 `ICurrentTenant` �
 1. 模块手写 `*Sql.cs`（默认）
 2. [`global-sql-statements.json`](../../contracts/architecture/global-sql-statements.json)（Global 语句）
 3. CodeGeneration `*Sql.g.cs`（CRUD 导入）
+
+## 日志平台边界（2026-09-28 补充）
+
+三个宿主共享 Hosting 的 ILogger/Serilog 有界普通/高优先级输出；B0/B1 审计保留各自数据库写入语义。当前应用没有持久日志队列；日志 Kafka 尚未接入，业务 Messaging Kafka 不承载普通日志。详细现状见[日志模块说明](logging-module.md)。
+
+目标入口正式比较两条路线：Collector 为快照 → Console/文件 → 采集缓冲 → Direct 或日志 Kafka；ApplicationKafka 为快照 → 可选静态适配/后台 Producer → 日志 Kafka，省去同流采集。Kafka 后仍有独立消费写入端；原 Logstash/PQ 可靠档基线因 Offset 可能领先安全落盘而准入阻塞，LG00 重新评估能证明持久接收或最终逐项写入/可靠隔离后提交连续 Offset 的实现。
+
+DeliveryMode 与平台 ingress/transport 一致；准入后按配置选择，直发须具备构建能力，仅注入最小 Producer 写凭据，采集器排除同流，不默认双写/自动切路。比较请求 P99、每实例字节吞吐、总 CPU/内存、丢弃和恢复，不能凭队列或集群微基准选型。默认产物不强制引入日志客户端；运行时关闭不等于 native 包退出发布闭包。
+
+Restricted 请求/返回/IP 详情仍仅存 B1，由独立 Worker 清理。关闭组件不连接，Broker/ES/消费者不放进应用 Chart，不复用业务 Outbox/Inbox。ES 固定事件日期索引，ACK/Bulk/恢复按组合准入；直发默认无 Spool，未确认崩溃缺口须披露。这是 [ADR-0012](../architecture/adr/ADR-0012-configurable-log-delivery.md)规划，实施见[开发计划](../superpowers/plans/2026-09-28-configurable-log-delivery.md)，不改写其他拓扑的历史证据。
 
 ## 相关文档
 

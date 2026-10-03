@@ -34,6 +34,7 @@ public sealed class WorkflowModuleArchitectureTests
                 "Full.NET.Modules.Files.Contracts",
                 "Full.NET.Modules.Identity.Contracts",
                 "Full.NET.Modules.Organization.Contracts",
+                "Full.NET.Modules.Tenancy.Contracts",
                 "Full.NET.Modules.Workflow.Contracts",
             },
             references);

@@ -112,6 +112,9 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
 
         ValidateContractOptions(_contractOptions);
         ValidateNamingContractOptions(_namingContractOptions);
+        // 范围清单先于连接配置解析，避免配置错误掩盖应用范围缺失或触发数据库动作。
+        var allowedScripts = FrameworkManifestMigrationScope.TryLoadAllowedScriptNames(_manifestOptions);
+        FrameworkManifestMigrationScope.ValidateEmbeddedScriptNames(allowedScripts, MigrationAssembly.Value.GetManifestResourceNames());
         var options = _databaseOptions.Value;
         var (builder, providerSegment) = CreateBuilder(options);
         if (options.Provider == DatabaseProvider.MySql)
@@ -121,7 +124,13 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
             builder.WithPreprocessor(
                 new MySqlPublishedMigrationCompatibilityPreprocessor());
         }
-        var allowedScripts = FrameworkManifestMigrationScope.TryLoadAllowedScriptNames(_manifestOptions);
+        else if (options.Provider == DatabaseProvider.SqlServer)
+        {
+            // 093 的旧分享表回填需在补列后编译；按全文摘要兼容执行，不改写已发布资源。
+            builder.WithPreprocessor(new SqlServerPublishedMigrationCompatibilityPreprocessor());
+        }
+        // 203/206/207 是跨可选模块的已发布修复；固定预设只变更清单拥有的表，保留完整失败关闭约束。
+        builder.WithPreprocessor(new PresetPublishedModuleCompatibilityPreprocessor(allowedScripts));
         var upgrader = builder
             .WithExecutionTimeout(TimeSpan.FromSeconds(options.CommandTimeoutSeconds))
             .WithScriptsEmbeddedInAssembly(
@@ -256,7 +265,8 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
         string providerSegment,
         HashSet<string>? allowedScriptNames)
     {
-        if (!embeddedResourceName.Contains(providerSegment, StringComparison.Ordinal))
+        var scriptName = FrameworkManifestMigrationScope.GetEmbeddedScriptName(embeddedResourceName, providerSegment);
+        if (scriptName is null)
         {
             return false;
         }
@@ -266,15 +276,7 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
             return true;
         }
 
-        foreach (var scriptName in allowedScriptNames)
-        {
-            if (embeddedResourceName.EndsWith('.' + scriptName, StringComparison.Ordinal)
-                || embeddedResourceName.EndsWith(scriptName, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        // 限定清单是完整文件名，禁止用截短后缀匹配另一脚本。
+        return allowedScriptNames.Contains(scriptName);
     }
 }

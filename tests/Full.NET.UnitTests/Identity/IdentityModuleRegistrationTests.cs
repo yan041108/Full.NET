@@ -59,6 +59,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -82,6 +83,27 @@ namespace Full.NET.UnitTests.Identity;
 [TestClass]
 public sealed class IdentityModuleRegistrationTests
 {
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Authentication_registers_request_context_once_and_preserves_host_override(bool hasOverride)
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().Build();
+        var hostAccessor = hasOverride ? Substitute.For<IHttpContextAccessor>() : null;
+        if (hostAccessor is not null) services.AddSingleton(hostAccessor);
+
+        services.AddIdentityAuthentication(configuration);
+        services.AddIdentityAuthentication(configuration);
+        using var provider = services.BuildServiceProvider();
+        var accessor = provider.GetRequiredService<IHttpContextAccessor>();
+
+        Assert.AreEqual(1, services.Count(descriptor => descriptor.ServiceType == typeof(IHttpContextAccessor)));
+        Assert.AreEqual(ServiceLifetime.Singleton,
+            services.Single(descriptor => descriptor.ServiceType == typeof(IHttpContextAccessor)).Lifetime);
+        if (hostAccessor is not null) Assert.AreSame(hostAccessor, accessor);
+    }
+
     private static readonly Type[] ModuleOwnedExternalServiceTypes =
     [
         typeof(IClock),
@@ -345,6 +367,9 @@ public sealed class IdentityModuleRegistrationTests
             BootstrapAdminTenantMembershipSeedContributor>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
             IDataSeedContributor,
+            DevelopmentBootstrapAdminTenantMembershipSeedContributor>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
+            IDataSeedContributor,
             HostNavigationCatalogSeedContributor>(ServiceLifetime.Scoped),
 
         RegistrationExpectation.Self<
@@ -505,6 +530,7 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMembershipQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMembershipManagementService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.ManageMfaRecoveryCodes.MfaRecoveryCodeService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMemberProvisionService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.AcceptTenantInvitation.AcceptTenantInvitationService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageMyTenantInvitations.MyTenantInvitationQueryService>(ServiceLifetime.Scoped),
@@ -552,6 +578,7 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<
             ITenantMemberSelectionDirectory,
             TenantMemberSelectionDirectory>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<ITenantActiveMemberCountPort, TenantActiveMemberCountPort>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostTenantUserSelectionDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Factory<IHostTenantUserSelectionDirectory>(
             ServiceLifetime.Scoped),

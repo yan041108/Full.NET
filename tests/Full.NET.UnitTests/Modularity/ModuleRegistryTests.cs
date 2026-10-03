@@ -65,6 +65,26 @@ public sealed class ModuleRegistryTests
     }
 
     [TestMethod]
+    [DataRow("path")]
+    [DataRow("backslash")]
+    [DataRow("null")]
+    [DataRow("whitespace")]
+    public void Registry_rejects_noncanonical_keys_without_retaining_registration(string kind)
+    {
+        var key = kind switch
+        {
+            "path" => "../Catalog",
+            "backslash" => @"Catalog\Orders",
+            "null" => "Catalog\0Orders",
+            _ => " Catalog ",
+        };
+        var registry = new FullNetModuleRegistry();
+        registry.Add(new NamedModule("existing"));
+        Assert.ThrowsExactly<InvalidOperationException>(() => registry.Add(new NamedModule(key)));
+        CollectionAssert.AreEqual(new[] { "existing" }, registry.GetOrderedModules().Select(module => module.Name).ToArray());
+    }
+
+    [TestMethod]
     public void Registry_rejects_unknown_dependency_keys()
     {
         var registry = new FullNetModuleRegistry();

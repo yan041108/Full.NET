@@ -1,5 +1,5 @@
 using Full.NET.Abstractions.Results;
-using Full.NET.Host.Migrator;
+using Full.NET.Hosting.Migrator;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Seeding.Abstractions;
 using NSubstitute;

@@ -32,6 +32,25 @@
           "responseSchema": "OperationLogResponse"
         }
       ]
+    },
+    {
+      "path": "/api/v1/auditing/operation-logs/{operationLogId}/details",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.operations.details.read",
+          "additionalPermissions": [
+            "auditing.operations.read"
+          ],
+          "successStatus": 200,
+          "responseSchema": "OperationLogDetailsResponse",
+          "errorStatuses": [
+            401,
+            403,
+            404
+          ]
+        }
+      ]
     }
   ],
   "schemas": {
@@ -50,6 +69,41 @@
         "traceId",
         "clientIpFingerprint",
         "permissionCode"
+      ]
+    },
+    "OperationLogDetailsResponse": {
+      "properties": [
+        "id",
+        "detailsExpiresAtUtc",
+        "context"
+      ]
+    },
+    "OperationLogDetailsContextV1": {
+      "properties": [
+        "schemaVersion",
+        "clientIp",
+        "clientPort",
+        "serverIp",
+        "serverPort",
+        "requestCaptureState",
+        "requestSummary",
+        "responseCaptureState",
+        "responseSummary"
+      ]
+    },
+    "OperationLogExportRequestSummaryV1": {
+      "properties": [
+        "fromUtc",
+        "toUtc",
+        "statusCode",
+        "succeeded"
+      ]
+    },
+    "OperationLogExportResponseSummaryV1": {
+      "properties": [
+        "rowCount",
+        "truncated",
+        "includesSensitiveFields"
       ]
     }
   }

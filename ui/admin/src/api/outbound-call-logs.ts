@@ -6,11 +6,17 @@ import {
 
   type AuditingOutboundCallLog,
 
-  type AuditingOutboundCallLogPage
+  type AuditingOutboundCallLogPage,
+  type AuditingListHostOutboundCallLogsParameters
 
 } from '@fullnet/client-contracts';
 
 import { http } from './http';
+
+export type AuditingOutboundCallLogFilters = Pick<
+  AuditingListHostOutboundCallLogsParameters,
+  'fromUtc' | 'toUtc' | 'providerKey' | 'succeeded' | 'operationContains'
+>;
 
 
 
@@ -21,7 +27,9 @@ export async function listAuditingOutboundCallLogs(
 
   pageSize = 20,
 
-  signal?: AbortSignal
+  signal?: AbortSignal,
+
+  filters: AuditingOutboundCallLogFilters = {}
 
 ): Promise<AuditingOutboundCallLogPage> {
 
@@ -29,7 +37,7 @@ export async function listAuditingOutboundCallLogs(
 
     http,
 
-    { page, pageSize },
+    { page, pageSize, ...filters },
 
     signal
 

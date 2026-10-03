@@ -24,7 +24,7 @@ public sealed class AiMultiAgentBudgetTests
     [TestMethod]
     public void Workflow_registry_exposes_chat_rename_example()
     {
-        var definition = AgentWorkflowRegistry.Resolve(AgentWorkflowRegistry.ChatRenameWorkflowKey, 1);
+        var definition = AgentWorkflowRegistry.Resolve(AgentWorkflowRegistry.ChatRenameWorkflowKey, AgentWorkflowRegistry.ChatRenameWorkflowVersion);
         Assert.IsNotNull(definition);
         Assert.AreEqual(4, definition.Nodes.Count);
         Assert.AreEqual("rename", definition.Nodes[^1].Key);

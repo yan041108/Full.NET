@@ -31,30 +31,33 @@ internal static class FrameworkManifestMigrationScope
             : Path.GetFullPath(options.ContentRoot);
         var manifestPath = Path.GetFullPath(
             Path.Combine(contentRoot, options.RelativePath ?? "framework-manifest.json"));
+        var applicationPath = Path.Combine(contentRoot, "fullnet-app.json");
+        // 应用内容根声明了冻结预设，残缺清单不能静默扩大为全量框架迁移。
+        var applicationDeclared = File.Exists(applicationPath) || Directory.Exists(applicationPath);
         if (!File.Exists(manifestPath))
         {
-            return null;
+            return UnscopedOrRejectApplication(applicationDeclared);
         }
 
         using var document = JsonDocument.Parse(File.ReadAllText(manifestPath));
         if (!document.RootElement.TryGetProperty("migrationInventory", out var inventory))
         {
-            return null;
+            return UnscopedOrRejectApplication(applicationDeclared);
         }
 
         if (!inventory.TryGetProperty("selectionStatus", out var statusElement))
         {
-            return null;
+            return UnscopedOrRejectApplication(applicationDeclared);
         }
 
         var status = statusElement.GetString();
         if (string.IsNullOrWhiteSpace(status)
             || string.Equals(status, "unscoped", StringComparison.Ordinal))
         {
-            return null;
+            return UnscopedOrRejectApplication(applicationDeclared);
         }
 
-        if (!status.StartsWith("preset-", StringComparison.Ordinal))
+        if (!status.StartsWith("preset-", StringComparison.Ordinal) || status.Length == "preset-".Length)
         {
             throw new InvalidOperationException(
                 "framework-manifest migrationInventory.selectionStatus is invalid.");
@@ -70,15 +73,19 @@ internal static class FrameworkManifestMigrationScope
         var allowed = new HashSet<string>(StringComparer.Ordinal);
         foreach (var script in scriptsElement.EnumerateArray())
         {
-            if (!script.TryGetProperty("name", out var nameElement))
+            if (script.ValueKind != JsonValueKind.Object || !script.TryGetProperty("name", out var nameElement))
             {
-                continue;
+                throw new InvalidOperationException("framework-manifest preset migration inventory entry is invalid.");
             }
 
             var name = nameElement.GetString();
-            if (!string.IsNullOrWhiteSpace(name))
+            if (string.IsNullOrWhiteSpace(name))
             {
-                allowed.Add(name);
+                throw new InvalidOperationException("framework-manifest preset migration inventory entry is invalid.");
+            }
+            if (!allowed.Add(name))
+            {
+                throw new InvalidOperationException("framework-manifest preset migration inventory contains duplicate names.");
             }
         }
 
@@ -89,5 +96,36 @@ internal static class FrameworkManifestMigrationScope
         }
 
         return allowed;
+    }
+
+    internal static void ValidateEmbeddedScriptNames(HashSet<string>? allowed, IEnumerable<string> resourceNames)
+    {
+        // 无限定清单的框架兼容模式保持不变；显式子集必须由真实双库资源承载。
+        if (allowed is null) return;
+        var resources = resourceNames.ToArray();
+        foreach (var segment in new[] { ".Migrations.SqlServer.", ".Migrations.MySql." })
+        {
+            var available = resources.Select(name => GetEmbeddedScriptName(name, segment))
+                .Where(name => name is not null).ToHashSet(StringComparer.Ordinal);
+            if (allowed.Any(name => !available.Contains(name)))
+            {
+                throw new InvalidOperationException("framework-manifest migration inventory does not match paired embedded scripts.");
+            }
+        }
+    }
+
+    internal static string? GetEmbeddedScriptName(string resourceName, string providerSegment)
+    {
+        var index = resourceName.IndexOf(providerSegment, StringComparison.Ordinal);
+        return index < 0 ? null : resourceName[(index + providerSegment.Length)..];
+    }
+
+    private static HashSet<string>? UnscopedOrRejectApplication(bool applicationDeclared)
+    {
+        if (applicationDeclared)
+        {
+            throw new InvalidOperationException("framework-manifest application migration inventory is missing or unscoped.");
+        }
+        return null;
     }
 }

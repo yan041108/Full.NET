@@ -18,7 +18,7 @@ description: Use when analyzing or changing Full.NET request latency, throughput
 3. 记录基线提交、Release 配置和原始结果位置；BenchmarkDotNet 必须保留运行环境。
 4. 先写会失败的预算、回归测试或可复现实验，再改实现。
 5. 缺少真实 SQL Server/MySQL 环境时停止数据库性能结论，只报告静态风险与未验证项。
-6. 开发阶段不要求达到 1 万同时在途；开发门禁验证高并发设计、正确性、资源上限和轻量回归。固定容量只能在专用容量环境认证，认证前标记 `Capacity-not-verified`，不得承诺固定 QPS。
+6. 开发阶段不要求达到 1 万同时在途；本地测试可完成性能与容量验收，无需专用容量环境。按实际硬件、数据和规模报告结果，未测规模保持 `Capacity-not-verified`，不得承诺固定 QPS；执行位置遵守开发质量 §11。
 
 ## 2. 定位请求链
 

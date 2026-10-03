@@ -37,8 +37,21 @@ test('application-owned host starts the Full.NET API pipeline', () => {
   assert.match(program, /WebApplication\.CreateBuilder\(args\)/);
   assert.match(program, /app\.MapFullNetModules\(\)/);
   assert.match(program, /app\.Run\(\)/);
-  assert.match(project, /Full\.NET\.Composition\.csproj/);
+  assert.match(project, /FullNetAppNameToken\.Composition\.csproj/);
   assert.doesNotMatch(project, /ProjectReference[^\n]*Full\.NET\.Host\.Api\.csproj/);
+});
+
+test('application-owned migrator consumes the shared lifecycle and its application composition', () => {
+  const root = join(TEMPLATE_ROOT, 'src/FullNetAppNameToken.Host.Migrator');
+  const program = readFileSync(join(root, 'Program.cs'), 'utf8');
+  const project = readFileSync(join(root, 'FullNetAppNameToken.Host.Migrator.csproj'), 'utf8');
+  assert.match(program, /FullNetMigratorHost\.CreateBuilder\(args\)/u);
+  assert.match(program, /AddApplicationModules\(builder\.Configuration, FullNetHostProfile\.Migrator\)/u);
+  assert.match(program, /FullNetMigratorHost\.RunAsync\(builder, args\)/u);
+  assert.doesNotMatch(program, /WebApplication|FullNetHostProfile\.Api|app\.Run/u);
+  assert.match(project, /FullNetAppNameToken\.Composition\.csproj/u);
+  assert.match(project, /Full\.NET\.Hosting\.Migrator\.csproj/u);
+  assert.doesNotMatch(project, /Full\.NET\.Host\.(?:Api|Migrator)\.csproj/u);
 });
 
 test('fullnet-app template exposes code-generation diagnose scripts', () => {
@@ -48,4 +61,14 @@ test('fullnet-app template exposes code-generation diagnose scripts', () => {
   assert.match(
     packageJson.scripts['diagnose:development'],
     /Full\.NET\.CodeGeneration\.Cli/u);
+});
+
+test('application-owned composition is the host entry and offers a standard module integration target', () => {
+  const root = join(TEMPLATE_ROOT, 'src/FullNetAppNameToken.Composition');
+  assert.ok(existsSync(join(root, 'FullNetAppNameToken.Composition.csproj')));
+  const catalog = readFileSync(join(root, 'ApplicationModuleCatalog.cs'), 'utf8');
+  const host = readFileSync(join(TEMPLATE_ROOT, 'src/FullNetAppNameToken.Host.Api/Program.cs'), 'utf8');
+  assert.match(catalog, /private static IReadOnlyList<IFullNetModule> CreateModules\(\) =>/u);
+  assert.match(catalog, /AddFullNetApplicationModules\(configuration, profile, CreateModules\(\)\)/u);
+  assert.match(host, /AddApplicationModules\(builder\.Configuration, FullNetHostProfile\.Api\)/u);
 });

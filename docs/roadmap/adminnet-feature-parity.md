@@ -185,6 +185,7 @@ AI 对标不止复制模型配置和聊天页面。Full.NET 的验收范围还�
 | AG-UI | Build-verified | 协议映射与持久事件单元/集成切片 | 标准客户端重连、Native AOT 可达路径 |
 | Embedding | Build-verified | OpenAI/Ollama/Azure 适配、测试端点、预算 | 生产模型验收、双库费用结算 |
 | Azure OpenAI Provider | Build-verified | Chat/Embedding/连通性切片 | 真实 Azure 部署验收、密钥轮换演练 |
+| 知识库检索/解析选型 | 决策完成；正式能力 Planned | R03 独立原生实验比较双库与 Qdrant；首版选用 SQL 有界精确检索，文本 PDF 候选 PdfPig 0.1.16，见 [ADR-0013](../architecture/adr/ADR-0013-ai-retrieval-provider.md) | R04–R06 正式授权/入库/检索、真实模型与宿主 AOT；Qdrant 未生产启用；Capacity-not-verified |
 
 Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR JSON Hub Protocol、连接鉴权、租户分组和 Redis Backplane；M3 的 Notifications 再消费该抽象实现公告、站内信、未读数和多渠道通知。业务模块不得直接持有 `IHubContext`。
 

@@ -46,7 +46,7 @@ public sealed class TenantQuotaUsageBaselineServiceTests
             });
         members.CountActiveMembersAsync(tenantId, Arg.Any<CancellationToken>()).Returns(3);
 
-        var service = new TenantQuotaUsageBaselineService(queries, commands, members, storage, clock, Substitute.For<IIdGenerator>());
+        var service = new TenantQuotaUsageBaselineService(queries, commands, members, clock, Substitute.For<IIdGenerator>(), storage);
         var result = await service.ReconcileAsync(
             new ReconcileTenantQuotaUsageBaselineRequest(DryRun: true));
 
@@ -98,7 +98,7 @@ public sealed class TenantQuotaUsageBaselineServiceTests
                 Arg.Any<CancellationToken>())
             .Returns(1);
 
-        var service = new TenantQuotaUsageBaselineService(queries, commands, members, storage, clock, Substitute.For<IIdGenerator>());
+        var service = new TenantQuotaUsageBaselineService(queries, commands, members, clock, Substitute.For<IIdGenerator>(), storage);
         var result = await service.ReconcileAsync(
             new ReconcileTenantQuotaUsageBaselineRequest(DryRun: false));
 
@@ -140,7 +140,7 @@ public sealed class TenantQuotaUsageBaselineServiceTests
                     1),
             });
 
-        var service = new TenantQuotaUsageBaselineService(queries, commands, members, storage, clock, Substitute.For<IIdGenerator>());
+        var service = new TenantQuotaUsageBaselineService(queries, commands, members, clock, Substitute.For<IIdGenerator>(), storage);
         var result = await service.ReconcileAsync(
             new ReconcileTenantQuotaUsageBaselineRequest(DryRun: true));
 
@@ -182,7 +182,7 @@ public sealed class TenantQuotaUsageBaselineServiceTests
             });
         storage.SumReadyStorageBytesAsync(tenantId, Arg.Any<CancellationToken>()).Returns(4096);
 
-        var service = new TenantQuotaUsageBaselineService(queries, commands, members, storage, clock, Substitute.For<IIdGenerator>());
+        var service = new TenantQuotaUsageBaselineService(queries, commands, members, clock, Substitute.For<IIdGenerator>(), storage);
         var result = await service.ReconcileAsync(
             new ReconcileTenantQuotaUsageBaselineRequest(
                 DryRun: true,
@@ -203,9 +203,9 @@ public sealed class TenantQuotaUsageBaselineServiceTests
             Substitute.For<IQueryExecutor>(),
             Substitute.For<ICommandExecutor>(),
             Substitute.For<ITenantActiveMemberCountPort>(),
-            Substitute.For<ITenantResourceFileStorageUsagePort>(),
             Substitute.For<IClock>(),
-            Substitute.For<IIdGenerator>());
+            Substitute.For<IIdGenerator>(),
+            Substitute.For<ITenantResourceFileStorageUsagePort>());
 
         var result = await service.ReconcileAsync(
             new ReconcileTenantQuotaUsageBaselineRequest(
@@ -249,7 +249,7 @@ public sealed class TenantQuotaUsageBaselineServiceTests
                 Arg.Any<CancellationToken>())
             .Returns(1);
 
-        var service = new TenantQuotaUsageBaselineService(queries, commands, members, storage, clock, ids);
+        var service = new TenantQuotaUsageBaselineService(queries, commands, members, clock, ids, storage);
         var result = await service.ReconcileAsync(
             new ReconcileTenantQuotaUsageBaselineRequest(
                 DryRun: false,

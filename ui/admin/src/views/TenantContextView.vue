@@ -270,7 +270,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
       >
         {{ t('tenant.returnHost') }}
       </el-button>
-      <PermissionGate permission="identity.tenant_members.leave_self">
+      <PermissionGate code="identity.tenant_members.leave_self">
         <el-button
           v-if="canLeaveTenant"
           type="danger"

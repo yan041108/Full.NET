@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- 选型实验独立锁定候选包，不进入生产中央依赖、解决方案或宿主闭包。 -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+    <IsAotCompatible>true</IsAotCompatible>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <!-- 复用 ADR-0008 已批准的程序集级告警边界；脚本仍拒绝未登记告警。 -->
+    <IlcTreatWarningsAsErrors Condition="'$(PublishAot)' == 'true'">false</IlcTreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
+    <PackageReference Include="MySqlConnector" Version="2.6.1" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
+    <RuntimeHostConfigurationOption Include="Microsoft.Data.SqlClient.EnableReflectionBasedAuthenticationProviderDiscovery" Value="false" Trim="true" />
+  </ItemGroup>
+</Project>

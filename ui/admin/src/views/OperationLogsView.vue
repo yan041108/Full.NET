@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ElButton, ElCard, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import type { AuditingOperationLog, FullNetProblemDetails } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import AuditLogDetailDrawer, {
   type AuditLogDetailRecord
@@ -10,12 +11,10 @@ import AuditLogDetailDrawer, {
 import AuditLogExportDialog from './components/AuditLogExportDialog.vue';
 import AuditLogTrendPanel from './components/AuditLogTrendPanel.vue';
 import PermissionGate from '../components/PermissionGate.vue';
-import {
-  useArtClientPagination,
-  useArtCrudTableLayout
-} from '../framework/art-design/composables/useArtCrudTableLayout';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { listAuditingOperationLogs } from '../api/operation-logs';
+import { listAuditingOperationLogs, type AuditingOperationLogFilters } from '../api/operation-logs';
+import { resolveAuditLogSearchTimeRange } from './auditLogSearchTimeRange';
 
 defineOptions({ name: 'OperationLogsView' });
 
@@ -26,6 +25,29 @@ const problem = ref<FullNetProblemDetails>();
 const detailOpen = ref(false);
 const selectedRecord = ref<AuditLogDetailRecord | null>(null);
 const exportOpen = ref(false);
+const page = ref(1);
+const pageSize = ref(20);
+const total = ref(0);
+const searchForm = ref<Record<string, string | undefined>>({});
+const activeFilters = ref<AuditingOperationLogFilters>({});
+let loadController: AbortController | undefined;
+
+const searchItems = computed<ArtSearchBarItem[]>(() => [
+  { key: 'pathContains', label: t('accessLogs.pathContains'), placeholder: t('accessLogs.pathContains') },
+  {
+    key: 'httpMethod', label: t('accessLogs.httpMethod'), type: 'select',
+    options: ['POST', 'PUT', 'PATCH', 'DELETE'].map(value => ({ label: value, value }))
+  },
+  {
+    key: 'succeeded', label: t('users.status'), type: 'select',
+    options: [
+      { label: t('operationLogs.succeeded'), value: 'true' },
+      { label: t('operationLogs.failed'), value: 'false' }
+    ]
+  },
+  { key: 'fromUtc', label: t('accessLogs.fromUtc'), placeholder: '2026-09-29T00:00:00Z' },
+  { key: 'toUtc', label: t('accessLogs.toUtc'), placeholder: '2026-09-29T23:59:59Z' }
+]);
 
 const {
   tableMainRef,
@@ -35,17 +57,16 @@ const {
   tableBorder,
   tableHeaderBackground,
   tableHeaderCellStyle,
-  updateTableHeight,
-  watchLoading
-} = useArtCrudTableLayout();
-
-const filteredItems = computed(() => items.value);
-const { page, pageSize, total, pagedItems, resetPage } = useArtClientPagination(filteredItems);
-
-watchLoading(loading);
+  syncTableLayout
+} = useArtPagedTableInCard(loading);
+watch([page, pageSize], () => void load(), { flush: 'post' });
 
 onMounted(() => {
   void load();
+});
+onBeforeUnmount(() => {
+  loadController?.abort();
+  loadController = undefined;
 });
 
 function rowIndex(index: number): number {
@@ -53,18 +74,69 @@ function rowIndex(index: number): number {
 }
 
 async function load(): Promise<void> {
+  loadController?.abort();
+  const controller = new AbortController();
+  loadController = controller;
   loading.value = true;
   problem.value = undefined;
   try {
-    const result = await listAuditingOperationLogs();
+    const result = await listAuditingOperationLogs(
+      page.value, pageSize.value, controller.signal, activeFilters.value);
+    if (loadController !== controller) return;
     items.value = result.items;
-    resetPage();
-    await nextTick(updateTableHeight);
+    total.value = result.total;
   } catch (error: unknown) {
-    problem.value = toProblem(error);
+    if (loadController === controller && !controller.signal.aborted) {
+      problem.value = toProblem(error);
+    }
   } finally {
-    loading.value = false;
+    if (loadController === controller) {
+      loading.value = false;
+      void syncTableLayout();
+    }
   }
+}
+
+function setPage(value: number): void {
+  page.value = value;
+}
+
+function setPageSize(value: number): void {
+  page.value = 1;
+  pageSize.value = value;
+}
+
+function applySearch(form: Record<string, string | undefined>): void {
+  const pathContains = form.pathContains?.trim();
+  const timeRange = resolveAuditLogSearchTimeRange(form, Boolean(pathContains));
+  if (!timeRange.valid) {
+    problem.value = {
+      status: 400,
+      code: 'client.auditing_operation_log_time_range_invalid',
+      title: t('operationLogs.invalidTimeRange')
+    };
+    return;
+  }
+  if (timeRange.defaulted) {
+    searchForm.value.fromUtc = timeRange.fromUtc;
+    searchForm.value.toUtc = timeRange.toUtc;
+  }
+  activeFilters.value = {
+    ...(pathContains ? { pathContains } : {}),
+    ...(form.httpMethod ? { httpMethod: form.httpMethod } : {}),
+    ...(form.succeeded === 'true' || form.succeeded === 'false'
+      ? { succeeded: form.succeeded === 'true' } : {}),
+    ...(timeRange.fromUtc ? { fromUtc: timeRange.fromUtc } : {}),
+    ...(timeRange.toUtc ? { toUtc: timeRange.toUtc } : {})
+  };
+  if (page.value === 1) void load();
+  else page.value = 1;
+}
+
+function resetSearch(): void {
+  activeFilters.value = {};
+  if (page.value === 1) void load();
+  else page.value = 1;
 }
 
 function openDetail(row: AuditingOperationLog): void {
@@ -72,6 +144,7 @@ function openDetail(row: AuditingOperationLog): void {
     id: row.id,
     occurredAtUtc: row.occurredAtUtc,
     traceId: row.traceId,
+    supportsRestrictedDetails: true,
     title: row.actionKey,
     subtitle: `${row.httpMethod} ${row.requestPath}`,
     fields: [
@@ -82,6 +155,10 @@ function openDetail(row: AuditingOperationLog): void {
       { label: t('operationLogs.durationMs'), value: row.durationMs },
       { label: t('operationLogs.occurredAt'), value: row.occurredAtUtc },
       { label: t('users.status'), value: t(row.succeeded ? 'operationLogs.succeeded' : 'operationLogs.failed') },
+      { label: t('auditAnalytics.userId'), value: row.userId },
+      { label: t('auditAnalytics.tenantId'), value: row.tenantId },
+      { label: t('auditAnalytics.clientIpFingerprint'), value: row.clientIpFingerprint },
+      { label: t('auditAnalytics.permissionCode'), value: row.permissionCode },
       { label: 'TraceId', value: row.traceId }
     ]
   };
@@ -110,6 +187,17 @@ function toProblem(error: unknown): FullNetProblemDetails {
       <span>{{ problem.title }}</span>
     </div>
 
+    <ArtSearchBar
+      v-model="searchForm"
+      :items="searchItems"
+      :default-visible-count="5"
+      :search-label="t('accessLogs.query')"
+      :reset-label="t('accessLogs.reset')"
+      :show-expand="false"
+      @search="applySearch"
+      @reset="resetSearch"
+    />
+
     <el-card shadow="never" class="art-table-card">
       <div ref="tableMainRef" class="art-crud-table-main">
         <ArtTableHeader
@@ -131,10 +219,10 @@ function toProblem(error: unknown): FullNetProblemDetails {
           </template>
         </ArtTableHeader>
 
-        <div class="art-table" :class="{ 'is-empty': pagedItems.length === 0 }">
+        <div class="art-table" :class="{ 'is-empty': items.length === 0 }">
           <el-table
             v-loading="loading"
-            :data="pagedItems"
+            :data="items"
             :height="tableHeight"
             :size="tableSize"
             :stripe="tableZebra"
@@ -175,18 +263,18 @@ function toProblem(error: unknown): FullNetProblemDetails {
 
             <template #empty>{{ t('operationLogs.emptyDirectory') }}</template>
           </el-table>
-
-          <div class="art-table__pagination center custom-pagination">
-            <el-pagination
-              v-model:current-page="page"
-              v-model:page-size="pageSize"
-              :total="total"
-              background
-              layout="total, sizes, prev, pager, next, jumper"
-              :page-sizes="[10, 20, 50, 100]"
-            />
-          </div>
         </div>
+        <el-pagination
+          class="art-table-pagination"
+          :current-page="page"
+          :page-size="pageSize"
+          :total="total"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50, 100]"
+          @current-change="setPage"
+          @size-change="setPageSize"
+        />
       </div>
     </el-card>
 
@@ -196,11 +284,21 @@ function toProblem(error: unknown): FullNetProblemDetails {
 </template>
 
 <style scoped>
+.operation-logs-view {
+  /* 小视口保留可操作的表格区域，让整页滚动，避免分页覆盖数据行。 */
+  overflow-y: auto;
+}
+
+.operation-logs-view > :deep(.audit-log-trend-panel),
+.operation-logs-view > :deep(.art-search-bar) {
+  flex-shrink: 0;
+}
+
 .operation-logs-view :deep(.art-table-card) {
-  flex: 1;
+  flex: 1 0 360px;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-height: 360px;
 }
 
 .operation-logs-view :deep(.art-table-card .el-card__body) {

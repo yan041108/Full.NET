@@ -3,6 +3,9 @@
 
 production: true
 
+# 与 Host 实际环境保持一致；非生产日志入口预览显式设置为 Staging 或 Development。
+dotnetEnvironment: Production
+
 roles:
   api: false
   worker: false
@@ -106,6 +109,19 @@ edgeProtection:
 # 应用内每实例限流（纵深防御）；扩到 maxReplicas 后总和不得超过全局额度。
 applicationRateLimiting:
   globalApiPermitLimitPerMinutePerReplica: 100
+
+logging:
+  # Legacy 保留现有行为；Collector 仅发布本地路由标识，采集链仍须单独验证。
+  # Collector/ApplicationKafka 本地测试准入后允许生产 API/Worker；Local 仍仅供非生产预览。
+  ingress: Legacy # Legacy | Local | Collector | ApplicationKafka
+  # 显式成对设置后冻结事件日期索引路由；零值保留未启用状态。
+  indexRouteVersion: 0
+  indexRetentionDays: 0
+  kafka:
+    # 仅 ApplicationKafka 使用；配置 Secret 按固定键注入，值不进入 Chart。
+    configurationSecretName: ""
+    # 私有 CA 时引用独立 Secret 的 ca.crt；空值使用镜像内系统信任根。
+    caSecretName: ""
 
 api:
   replicaCount: 3

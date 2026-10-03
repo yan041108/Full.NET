@@ -1,7 +1,7 @@
 namespace Full.NET.Hosting.Observability;
 
 /// <summary>
-/// 运行时不可变诊断策略快照。过期规则在物化时剔除；加载失败必须回退安全默认值。
+/// 运行时不可变诊断策略快照。物化及热路径计算均忽略过期规则；加载失败必须回退安全默认值。
 /// </summary>
 /// <param name="Version">策略快照版本号；用于变更检测与缓存失效。</param>
 /// <param name="PressureState">当前日志压力状态，决定采样与容量收缩策略。</param>
@@ -32,13 +32,25 @@ public sealed record DiagnosticPolicySnapshot(
     /// 在 Degraded/Critical 下只收缩 Best Effort 容量；Priority/B0/B1 不得被本路径削弱。
     /// </summary>
     /// <param name="configuredCapacity">配置的 Best Effort 初始容量。</param>
+    /// <param name="utcNow">判断规则是否过期的 UTC 时间；未指定时使用当前 UTC 时间。</param>
     /// <returns>经规则覆盖与压力状态收缩后的最终容量，最小为 1。</returns>
-    public int ResolveBestEffortCapacity(int configuredCapacity)
+    public int ResolveBestEffortCapacity(
+        int configuredCapacity,
+        DateTimeOffset? utcNow = null)
     {
         var capacity = configuredCapacity;
+        var now = utcNow ?? DateTimeOffset.UtcNow;
         foreach (var rule in ActiveRules)
         {
-            if (rule.BestEffortCapacityOverride is int overrideCapacity and > 0)
+            // 容量闸门是实例级共享计数，只接受全局 HTTP 类别/组规则。
+            if (rule.ExpiresAtUtc > now
+                && rule.ScopeKind is DiagnosticPolicyScopeKind.Category
+                    or DiagnosticPolicyScopeKind.DiagnosticGroup
+                && string.Equals(
+                    rule.ScopeValue,
+                    LogClassification.HttpOperation,
+                    StringComparison.Ordinal)
+                && rule.BestEffortCapacityOverride is int overrideCapacity and > 0)
             {
                 capacity = Math.Min(capacity, overrideCapacity);
             }
@@ -65,11 +77,26 @@ public sealed record DiagnosticPolicySnapshot(
         string? endpoint,
         string? traceId,
         Guid? tenantId)
+        => ResolveSuccessSamplePolicy(
+            diagnosticGroup,
+            endpoint,
+            traceId,
+            tenantId,
+            DateTimeOffset.UtcNow).Rate;
+
+    internal (double? Rate, DateTimeOffset? NextExpiryUtc) ResolveSuccessSamplePolicy(
+        string? diagnosticGroup,
+        string? endpoint,
+        string? traceId,
+        Guid? tenantId,
+        DateTimeOffset utcNow)
     {
         double? rate = null;
+        DateTimeOffset? nextExpiryUtc = null;
         foreach (var rule in ActiveRules)
         {
-            if (!Matches(rule, diagnosticGroup, endpoint, traceId, tenantId))
+            if (rule.ExpiresAtUtc <= utcNow
+                || !Matches(rule, diagnosticGroup, endpoint, traceId, tenantId))
             {
                 continue;
             }
@@ -77,10 +104,15 @@ public sealed record DiagnosticPolicySnapshot(
             if (rule.SuccessSampleRateOverride is double sample)
             {
                 rate = rate is null ? sample : Math.Max(rate.Value, sample);
+                nextExpiryUtc = nextExpiryUtc is null
+                    ? rule.ExpiresAtUtc
+                    : (rule.ExpiresAtUtc < nextExpiryUtc.Value
+                        ? rule.ExpiresAtUtc
+                        : nextExpiryUtc);
             }
         }
 
-        return rate;
+        return (rate, nextExpiryUtc);
     }
 
     private static bool Matches(
@@ -92,8 +124,7 @@ public sealed record DiagnosticPolicySnapshot(
         rule.ScopeKind switch
         {
             DiagnosticPolicyScopeKind.Category =>
-                string.Equals(rule.ScopeValue, LogClassification.Diagnostic, StringComparison.Ordinal)
-                || string.Equals(rule.ScopeValue, LogClassification.HttpOperation, StringComparison.Ordinal),
+                string.Equals(rule.ScopeValue, diagnosticGroup, StringComparison.Ordinal),
             DiagnosticPolicyScopeKind.DiagnosticGroup =>
                 string.Equals(rule.ScopeValue, diagnosticGroup, StringComparison.Ordinal),
             DiagnosticPolicyScopeKind.Endpoint =>

@@ -4,6 +4,7 @@ import { promisify } from 'node:util';
 import { pathToFileURL } from 'node:url';
 
 import { shards } from './run-integration-shard.mjs';
+import { targetsForExecutionGroup, verifyFocusedDiscovery } from './run-affected-integration.mjs';
 
 const execFileAsync = promisify(execFile);
 const assembly = path.join(
@@ -88,6 +89,17 @@ async function runCli() {
   }
 
   verifyPartitionSets(fullTests, partitions);
+  // PR 的两个迁移恢复作业必须形成原迁移集合的互斥完整分区，并各自包含正式双库用例。
+  const migrationGroups = {};
+  for (const group of ['migrations-legacy', 'migrations-current']) {
+    const [target] = targetsForExecutionGroup([{ kind: 'shard', name: 'migrations' }], group);
+    migrationGroups[group] = await discover(target.filter);
+    verifyFocusedDiscovery(migrationGroups[group], { phase: 'merge' });
+  }
+  verifyPartitionSets(partitions.migrations, migrationGroups);
+  for (const [name, tests] of Object.entries(migrationGroups)) {
+    process.stdout.write(`${name}: ${tests.length}\n`);
+  }
   process.stdout.write(
     `PASS Integration 分片：${partitionNames
       .map(name => `${name}=${partitions[name].length}`)

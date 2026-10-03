@@ -21,6 +21,10 @@ internal sealed class AuditingAuthorizationContributor
             "查询操作日志",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            OperationLogPermissions.ReadDetails,
+            "查询操作日志受限详情",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             ExceptionLogPermissions.Read,
             "查询异常日志",
             AuthorizationScope.Host),

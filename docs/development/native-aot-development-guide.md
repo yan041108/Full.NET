@@ -230,7 +230,7 @@ pnpm test:aot:native:kafka-replay:e2e
 pnpm test:aot:native:providers:e2e
 ```
 
-本地非 Linux 的测试发现与 skip 不能升级状态。关闭 `Aot-published` 或 `Native-provider-verified:*` 时必须引用 fresh Linux CI run、提交 SHA、成功步骤和明确未验证项。最低发现数、超时和产物阈值只读取 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json)。
+本地非 Linux 的测试发现与 skip 不能升级状态。关闭 `Aot-published` 或 `Native-provider-verified:*` 可使用本地 Linux、WSL 或 Linux 容器中的真实发布和原生运行结果，记录源码 SHA/差异、命令、环境、成功步骤和未验证项；CI 不是必需。最低发现数、超时和产物阈值只读取 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json)，验收遵守[开发质量 §11](../../rules/development-quality.md#11-测试与验证)。
 
 ## 10. 故障定位顺序
 

@@ -16,6 +16,18 @@ public sealed class AiAuthorizationContributorTests
         CollectionAssert.AreEquivalent(
             new[]
             {
+                AiKnowledgePermissions.Read,
+                AiKnowledgePermissions.Create,
+                AiKnowledgePermissions.Update,
+                AiKnowledgePermissions.PolicyUpdate,
+                AiKnowledgePermissions.MembersRead,
+                AiKnowledgePermissions.MembersUpdate,
+                AiKnowledgeDocumentPermissions.Read,
+                AiKnowledgeDocumentPermissions.Create,
+                AiKnowledgeDocumentPermissions.Update,
+                AiKnowledgeDocumentPermissions.Delete,
+                AiKnowledgeDocumentPermissions.MembersRead,
+                AiKnowledgeDocumentPermissions.MembersUpdate,
                 AiModelPermissions.Read,
                 AiModelPermissions.Create,
                 AiModelPermissions.Update,
@@ -57,6 +69,18 @@ public sealed class AiAuthorizationContributorTests
 
         foreach (var code in new[]
                  {
+                     AiKnowledgePermissions.Read,
+                     AiKnowledgePermissions.Create,
+                     AiKnowledgePermissions.Update,
+                     AiKnowledgePermissions.PolicyUpdate,
+                     AiKnowledgePermissions.MembersRead,
+                     AiKnowledgePermissions.MembersUpdate,
+                     AiKnowledgeDocumentPermissions.Read,
+                     AiKnowledgeDocumentPermissions.Create,
+                     AiKnowledgeDocumentPermissions.Update,
+                     AiKnowledgeDocumentPermissions.Delete,
+                     AiKnowledgeDocumentPermissions.MembersRead,
+                     AiKnowledgeDocumentPermissions.MembersUpdate,
                      AiAgentToolPermissions.CatalogRead,
                      AiAgentRunPermissions.Read,
                      AiAgentRunPermissions.Create,

@@ -7,10 +7,21 @@ CREATE TABLE IF NOT EXISTS fn_identity_user_mfa_recovery_code
     ConsumedAtUtc DATETIME(6) NULL COMMENT '消费时间(UTC)',
     CreatedAtUtc DATETIME(6) NOT NULL COMMENT '创建时间(UTC)',
     Version INT NOT NULL DEFAULT 1 COMMENT '乐观并发版本号',
-    PRIMARY KEY (Id),
+    CONSTRAINT PK_fn_identity_user_mfa_recovery_code PRIMARY KEY (Id),
     CONSTRAINT FK_fn_identity_user_mfa_recovery_code_UserId
         FOREIGN KEY (UserId) REFERENCES fn_identity_user(Id)
 ) COMMENT='身份认证 MFA 恢复码表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE INDEX IX_fn_identity_user_mfa_recovery_code_UserId
-    ON fn_identity_user_mfa_recovery_code(UserId);
+-- 建表可能已隐式提交；独立探测索引，允许未记账或半完成迁移安全重跑。
+SET @IndexExists = (
+    SELECT COUNT(*) FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = 'fn_identity_user_mfa_recovery_code'
+      AND index_name = 'IX_fn_identity_user_mfa_recovery_code_UserId'
+);
+SET @CreateIndex = IF(@IndexExists = 0,
+    'CREATE INDEX IX_fn_identity_user_mfa_recovery_code_UserId ON fn_identity_user_mfa_recovery_code(UserId)',
+    'SELECT 1');
+PREPARE CreateRecoveryCodeIndex FROM @CreateIndex;
+EXECUTE CreateRecoveryCodeIndex;
+DEALLOCATE PREPARE CreateRecoveryCodeIndex;

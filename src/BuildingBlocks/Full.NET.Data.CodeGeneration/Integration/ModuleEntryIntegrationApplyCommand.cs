@@ -67,11 +67,7 @@ public static class ModuleEntryIntegrationApplyCommand
         ArgumentNullException.ThrowIfNull(schema);
         ArgumentNullException.ThrowIfNull(target);
 
-        var root = Path.GetFullPath(repositoryRoot);
-        if (!Directory.Exists(root))
-        {
-            throw new DirectoryNotFoundException();
-        }
+        var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
 
         if (!MatchesModule(schema.RootNamespace, target.ModuleName))
         {
@@ -154,6 +150,7 @@ public static class ModuleEntryIntegrationApplyCommand
         }
 
         await ApplyUnderWorkspaceLockAsync(
+            root,
             moduleRoot,
             moduleEntryFullPath,
             originalContent,
@@ -166,21 +163,25 @@ public static class ModuleEntryIntegrationApplyCommand
             diagnostics: []);
     }
 
-    private static async Task ApplyUnderWorkspaceLockAsync(
+    internal static async Task ApplyUnderWorkspaceLockAsync(
+        string repositoryRoot,
         string moduleRoot,
         string moduleEntryFullPath,
         string originalContent,
         string desiredContent,
         CancellationToken cancellationToken)
     {
-        var lockPath = Path.Combine(
-            moduleRoot,
-            WorkspaceLockRelativePath.Replace(
-                '/',
-                Path.DirectorySeparatorChar));
-        Directory.CreateDirectory(Path.GetDirectoryName(lockPath)!);
+        var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
+        moduleEntryFullPath = GenerationWorkspacePath.RevalidateFile(root, moduleEntryFullPath);
+        var lockRelativePath = Path.GetRelativePath(root,
+            Path.Combine(moduleRoot, WorkspaceLockRelativePath))
+            .Replace(Path.DirectorySeparatorChar, '/');
+        GenerationWorkspacePath.ResolveFile(root, lockRelativePath);
+        GenerationWorkspacePath.EnsureParentDirectory(root, lockRelativePath);
+        var lockPath = GenerationWorkspacePath.ResolveFile(root, lockRelativePath);
         await using var workspaceLock = OpenWorkspaceLock(lockPath);
 
+        GenerationWorkspacePath.RevalidateFile(root, moduleEntryFullPath);
         var registryFailure = await ValidateRegistryOwnershipAsync(
             moduleRoot,
             cancellationToken);
@@ -205,6 +206,7 @@ public static class ModuleEntryIntegrationApplyCommand
 
         cancellationToken.ThrowIfCancellationRequested();
         await ReplaceTextAsync(
+            root,
             moduleEntryFullPath,
             desiredContent,
             cancellationToken);
@@ -275,6 +277,7 @@ public static class ModuleEntryIntegrationApplyCommand
     }
 
     private static async Task ReplaceTextAsync(
+        string repositoryRoot,
         string targetPath,
         string content,
         CancellationToken cancellationToken)
@@ -302,6 +305,7 @@ public static class ModuleEntryIntegrationApplyCommand
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+            GenerationWorkspacePath.RevalidateFile(repositoryRoot, targetPath);
             File.Move(
                 temporaryPath,
                 targetPath,
@@ -338,11 +342,7 @@ public static class ModuleEntryIntegrationApplyCommand
     private static string Resolve(
         string repositoryRoot,
         string relativePath) =>
-        Path.GetFullPath(Path.Combine(
-            repositoryRoot,
-            relativePath.Replace(
-                '/',
-                Path.DirectorySeparatorChar)));
+        GenerationWorkspacePath.ResolveFile(repositoryRoot, relativePath);
 
     private static bool IsWithin(
         string expectedParent,

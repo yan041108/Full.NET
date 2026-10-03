@@ -69,11 +69,9 @@ public static class CompositionIntegrationApplyCommand
         ModuleIntegrationTarget target,
         CancellationToken cancellationToken)
     {
-        var root = Path.GetFullPath(repositoryRoot);
-        if (!Directory.Exists(root))
-        {
-            throw new DirectoryNotFoundException();
-        }
+        var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
+        CompositionIntegrationRecovery.RejectPending(root,
+            Path.Combine(root, target.CompositionProjectPath), Path.Combine(root, target.CompositionCatalogPath));
 
         if (!MatchesModule(schema.RootNamespace, target.ModuleName))
         {
@@ -206,7 +204,7 @@ public static class CompositionIntegrationApplyCommand
             diagnostics: []);
     }
 
-    private static async Task CommitAsync(
+    internal static async Task CommitAsync(
         string repositoryRoot,
         string moduleRoot,
         string moduleEntryPath,
@@ -217,28 +215,32 @@ public static class CompositionIntegrationApplyCommand
         string compositionCatalogPath,
         string originalCatalog,
         CompositionIntegrationEditResult catalogEdit,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<Task>? afterProjectCommit = null,
+        Func<Task>? beforeRecoveryRegistration = null)
     {
-        var compositionLockPath = Path.Combine(
-            repositoryRoot,
-            CompositionLockRelativePath.Replace(
-                '/',
-                Path.DirectorySeparatorChar));
-        var moduleLockPath = Path.Combine(
-            moduleRoot,
-            ModuleWorkspaceLockRelativePath.Replace(
-                '/',
-                Path.DirectorySeparatorChar));
-        Directory.CreateDirectory(
-            Path.GetDirectoryName(compositionLockPath)!);
-        Directory.CreateDirectory(
-            Path.GetDirectoryName(moduleLockPath)!);
+        var root = GenerationWorkspacePath.NormalizeRoot(repositoryRoot);
+        CompositionIntegrationRecovery.RejectPending(root, compositionProjectPath, compositionCatalogPath);
+        GenerationWorkspacePath.RevalidateFile(root, moduleEntryPath);
+        GenerationWorkspacePath.RevalidateFile(root, compositionProjectPath);
+        GenerationWorkspacePath.RevalidateFile(root, compositionCatalogPath);
+        var moduleLockRelativePath = Path.GetRelativePath(root,
+            Path.Combine(moduleRoot, ModuleWorkspaceLockRelativePath))
+            .Replace(Path.DirectorySeparatorChar, '/');
+        // 两个锁均先检查再创建父目录，避免第二个锁路径不安全时已经打开或删除第一个锁。
+        GenerationWorkspacePath.ResolveFile(root, CompositionLockRelativePath);
+        GenerationWorkspacePath.ResolveFile(root, moduleLockRelativePath);
+        GenerationWorkspacePath.EnsureParentDirectory(root, CompositionLockRelativePath);
+        GenerationWorkspacePath.EnsureParentDirectory(root, moduleLockRelativePath);
+        var compositionLockPath = GenerationWorkspacePath.ResolveFile(root, CompositionLockRelativePath);
+        var moduleLockPath = GenerationWorkspacePath.ResolveFile(root, moduleLockRelativePath);
         await using var compositionLock = OpenLock(
             compositionLockPath,
             CompositionLockRelativePath);
         await using var moduleLock = OpenLock(
             moduleLockPath,
             ModuleWorkspaceLockRelativePath);
+        CompositionIntegrationRecovery.RejectPending(root, compositionProjectPath, compositionCatalogPath);
 
         var registryFailure =
             await ModuleEntryIntegrationApplyCommand
@@ -253,16 +255,19 @@ public static class CompositionIntegrationApplyCommand
         }
 
         await EnsureUnchangedAsync(
+            root,
             moduleEntryPath,
             expectedModuleEntry,
             "候选编译后模块入口发生变化。",
             cancellationToken);
         await EnsureUnchangedAsync(
+            root,
             compositionProjectPath,
             originalProject,
             "候选编译后 Composition 项目发生变化。",
             cancellationToken);
         await EnsureUnchangedAsync(
+            root,
             compositionCatalogPath,
             originalCatalog,
             "候选编译后 Composition Catalog 发生变化。",
@@ -293,6 +298,8 @@ public static class CompositionIntegrationApplyCommand
                     cancellationToken)
                 : null;
             cancellationToken.ThrowIfCancellationRequested();
+            GenerationWorkspacePath.RevalidateFile(root, compositionProjectPath);
+            GenerationWorkspacePath.RevalidateFile(root, compositionCatalogPath);
             if (stagedProject is not null)
             {
                 File.Move(
@@ -301,10 +308,17 @@ public static class CompositionIntegrationApplyCommand
                     overwrite: true);
                 stagedProject = null;
                 projectCommitted = true;
+                if (afterProjectCommit is not null)
+                {
+                    await afterProjectCommit();
+                }
             }
 
             if (stagedCatalog is not null)
             {
+                // 首次项目写入后可能已有人工修改，不能只复核路径再覆盖 Catalog。
+                await EnsureUnchangedAsync(root, compositionCatalogPath, originalCatalog,
+                    "项目提交后 Composition Catalog 发生变化，拒绝覆盖。", CancellationToken.None);
                 File.Move(
                     stagedCatalog,
                     compositionCatalogPath,
@@ -315,11 +329,15 @@ public static class CompositionIntegrationApplyCommand
         catch (Exception commitException)
         {
             if (projectCommitted
-                && projectRecovery is not null
-                && File.Exists(projectRecovery))
+                && projectRecovery is not null)
             {
                 try
                 {
+                    // 只回滚本次仍拥有的内容；人工修改、删除或恢复副本漂移均须保留现场。
+                    await EnsureUnchangedAsync(root, compositionProjectPath, projectEdit.DesiredContent,
+                        "项目提交后发生并发变化，拒绝回滚覆盖。", CancellationToken.None);
+                    await EnsureUnchangedAsync(root, projectRecovery, originalProject,
+                        "原项目恢复副本已漂移，拒绝用于回滚。", CancellationToken.None);
                     File.Move(
                         projectRecovery,
                         compositionProjectPath,
@@ -328,13 +346,34 @@ public static class CompositionIntegrationApplyCommand
                 }
                 catch (Exception recoveryException)
                     when (recoveryException is IOException
-                        or UnauthorizedAccessException)
+                        or UnauthorizedAccessException
+                        or DecoderFallbackException)
                 {
-                    var preservedRecovery = projectRecovery;
+                    var preservedRecovery = projectRecovery!;
                     projectRecovery = null;
+                    try
+                    {
+                        if (beforeRecoveryRegistration is not null)
+                        {
+                            await beforeRecoveryRegistration();
+                        }
+                        await CompositionIntegrationRecovery.RegisterAsync(root,
+                            compositionProjectPath, compositionCatalogPath, preservedRecovery,
+                            originalProject, originalCatalog);
+                    }
+                    catch (Exception registrationException)
+                        when (registrationException is IOException or UnauthorizedAccessException)
+                    {
+                        // 登记失败时仍保留已暂存的 Catalog；即使旧项目副本被外部删除，也有材料阻断重试。
+                        stagedCatalog = null;
+                        throw new GenerationWorkspaceConflictException(
+                            "Composition 回滚及恢复登记失败；材料已保留，必须人工审查。",
+                            CompositionIntegrationRecovery.MarkerRelativePath,
+                            new AggregateException(commitException, recoveryException, registrationException));
+                    }
                     throw new GenerationWorkspaceConflictException(
                         "Composition Catalog 提交失败且项目回滚失败；"
-                        + "原项目恢复副本已保留，必须人工审查。",
+                        + "恢复现场已登记，必须人工审查。",
                         Path.GetFileName(preservedRecovery),
                         new AggregateException(
                             commitException,
@@ -353,12 +392,14 @@ public static class CompositionIntegrationApplyCommand
     }
 
     private static async Task EnsureUnchangedAsync(
+        string repositoryRoot,
         string path,
         string expectedContent,
         string reason,
         CancellationToken cancellationToken)
     {
-        var current = await ReadStrictTextAsync(path, cancellationToken);
+        var current = await ReadStrictTextAsync(
+            GenerationWorkspacePath.RevalidateFile(repositoryRoot, path), cancellationToken);
         if (!StringComparer.Ordinal.Equals(current, expectedContent))
         {
             throw new GenerationWorkspaceConflictException(
@@ -456,11 +497,7 @@ public static class CompositionIntegrationApplyCommand
     private static string Resolve(
         string repositoryRoot,
         string relativePath) =>
-        Path.GetFullPath(Path.Combine(
-            repositoryRoot,
-            relativePath.Replace(
-                '/',
-                Path.DirectorySeparatorChar)));
+        GenerationWorkspacePath.ResolveFile(repositoryRoot, relativePath);
 
     private static bool MatchesModule(
         string rootNamespace,

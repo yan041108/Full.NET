@@ -35,9 +35,16 @@ internal sealed class BootstrapAdminTenantMembershipSeedContributor(
     public IReadOnlyCollection<string> Dependencies { get; } =
         ["identity.host_administrator"];
 
-    public async Task<SeedContributionResult> SeedAsync(
+    public Task<SeedContributionResult> SeedAsync(
         SeedContext context,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) => SeedCoreAsync(context, null, cancellationToken);
+
+    /// <summary>Development Overlay 只补齐可信目录中的 local 成员，复用基线的幂等写入及上下文恢复。</summary>
+    internal Task<SeedContributionResult> SeedLocalTenantAsync(SeedContext context, CancellationToken cancellationToken) =>
+        SeedCoreAsync(context, "local", cancellationToken);
+
+    private async Task<SeedContributionResult> SeedCoreAsync(
+        SeedContext context, string? tenantIdentifier, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
 
@@ -74,6 +81,8 @@ internal sealed class BootstrapAdminTenantMembershipSeedContributor(
             var skipped = 0;
             foreach (var tenant in tenants)
             {
+                if (tenantIdentifier is not null && !string.Equals(tenant.Identifier, tenantIdentifier, StringComparison.Ordinal))
+                    continue;
                 currentTenant.SetTenant(new TenantContext(
                     tenant.Id,
                     tenant.Identifier,
@@ -165,5 +174,5 @@ internal sealed class BootstrapAdminTenantMembershipSeedContributor(
         currentTenant.Clear();
     }
 
-    private sealed record ActiveTenantSeedRow(Guid Id, string Identifier, string Name);
+    internal sealed record ActiveTenantSeedRow(Guid Id, string Identifier, string Name);
 }

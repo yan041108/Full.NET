@@ -21,7 +21,7 @@ for (const file of required) {
     errors.push(`${file}: must not treat VU as actual in-flight`);
   }
   if (profile.capacityStatus !== 'Capacity-not-verified') {
-    errors.push(`${file}: capacityStatus must remain Capacity-not-verified until dedicated certification`);
+    errors.push(`${file}: unexecuted profiles must retain Capacity-not-verified; local acceptance requires actual run evidence`);
   }
   if (!Array.isArray(profile.executionOrderGate) || profile.executionOrderGate.join(',') !== order.join(',')) {
     errors.push(`${file}: executionOrderGate must be 2k->5k->10k->soak`);

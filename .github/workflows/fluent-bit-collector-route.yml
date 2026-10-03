@@ -1,0 +1,53 @@
+name: Fluent Bit Collector route
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/fluent-bit-collector-route.yml'
+      - 'deploy/observability/fluent-bit-values.yaml'
+      - 'deploy/observability/prometheus-rules.yaml'
+      - 'eng/testing/fluent-bit-collector-route-smoke.mjs'
+      - 'eng/testing/prometheus-log-alerts-test.mjs'
+      - 'eng/testing/fluent-bit-prometheus-alert-smoke.mjs'
+      - 'eng/testing/fluent-bit-forward-ack-smoke.mjs'
+      - 'eng/testing/fluent-bit-forward-tls-smoke.mjs'
+      - 'eng/testing/fluent-bit-enospc-characterization.mjs'
+      - 'eng/testing/fluent-bit-queue-overflow-characterization.mjs'
+      - 'tests/deployment/fluent-bit-output-alerts.promtest.yaml'
+      - 'tests/deployment/fluent-bit-prometheus-scrape.yml'
+      - 'tests/deployment/fluent-bit-enospc-probe.conf'
+      - 'tests/deployment/fluent-bit-queue-overflow-probe.conf'
+
+permissions:
+  contents: read
+
+jobs:
+  route-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Verify Collector ingress and classification with fixed Fluent Bit image
+        run: node eng/testing/fluent-bit-collector-route-smoke.mjs
+
+      - name: Verify Forward ACK and missing-ACK behavior with fixed images
+        run: node eng/testing/fluent-bit-forward-ack-smoke.mjs
+
+      - name: Verify Forward TLS ACK and untrusted CA rejection with fixed images
+        run: node eng/testing/fluent-bit-forward-tls-smoke.mjs
+
+      - name: Characterize ENOSPC and unresolved Collector loss visibility
+        run: node eng/testing/fluent-bit-enospc-characterization.mjs
+
+      - name: Characterize Forward queue overflow and capacity alert boundary
+        run: node eng/testing/fluent-bit-queue-overflow-characterization.mjs
+
+      - name: Verify Fluent Bit output loss alerts with fixed Prometheus image
+        run: node eng/testing/prometheus-log-alerts-test.mjs
+
+      - name: Verify live Prometheus scrape and output-loss alerts
+        run: node eng/testing/fluent-bit-prometheus-alert-smoke.mjs

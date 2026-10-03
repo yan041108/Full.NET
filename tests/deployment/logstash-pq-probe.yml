@@ -1,0 +1,9 @@
+node.name: fullnet-log-pq-probe
+path.data: /usr/share/logstash/data
+queue.type: persisted
+queue.max_bytes: 64mb
+queue.page_capacity: 1mb
+queue.checkpoint.writes: 1
+dead_letter_queue.enable: true
+pipeline.workers: 1
+log.level: warn

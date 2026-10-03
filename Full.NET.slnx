@@ -22,7 +22,9 @@
     <Project Path="src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Data.MySql/Full.NET.Data.MySql.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Hosting/Full.NET.Hosting.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Hosting.Migrator/Full.NET.Hosting.Migrator.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Localization/Full.NET.Localization.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Logging.Kafka/Full.NET.Logging.Kafka.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Messaging.Abstractions/Full.NET.Messaging.Abstractions.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Messaging.Kafka/Full.NET.Messaging.Kafka.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Migrations.DbUp/Full.NET.Migrations.DbUp.csproj" />
@@ -43,11 +45,15 @@
   <Folder Name="/src/Hosts/">
     <Project Path="src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj" />
     <Project Path="src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj" />
+    <Project Path="src/Hosts/Full.NET.Host.LogConsumer/Full.NET.Host.LogConsumer.csproj" />
     <Project Path="src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj" />
     <Project Path="src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj" />
   </Folder>
   <Folder Name="/src/Generators/">
     <Project Path="src/Generators/Full.NET.Messaging.Generators/Full.NET.Messaging.Generators.csproj" />
+  </Folder>
+  <Folder Name="/src/Platform/">
+    <Project Path="src/Platform/Full.NET.LogConsumer/Full.NET.LogConsumer.csproj" />
   </Folder>
   <Folder Name="/src/Tools/">
     <Project Path="src/Tools/Full.NET.CodeGeneration.Cli/Full.NET.CodeGeneration.Cli.csproj" />

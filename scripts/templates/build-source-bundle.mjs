@@ -51,6 +51,10 @@ const INCLUDE_FILES = [
   'package.json',
   'pnpm-lock.yaml',
   'pnpm-workspace.yaml',
+  'scripts/openapi/generate-fullnet-client.mjs',
+  'scripts/openapi/validate-client-generation-readiness.mjs',
+  'contracts/openapi/fullnet-client-v1.openapi.json',
+  'contracts/openapi/client-generation-manifest-v1.json',
 ];
 
 const EXCLUDED_DIR_NAMES = new Set(['bin', 'obj', '.vs', 'node_modules']);

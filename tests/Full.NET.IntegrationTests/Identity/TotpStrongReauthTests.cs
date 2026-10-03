@@ -46,6 +46,16 @@ namespace Full.NET.IntegrationTests.Identity;
 public sealed class TotpStrongReauthTests
 {
     [TestMethod]
+    public void Partial_fixture_service_graph_is_valid_without_opening_database()
+    {
+        using var services = BuildProductionServices(new DatabaseOptions
+        {
+            Provider = DatabaseProvider.SqlServer,
+            ConnectionString = "Server=localhost;Database=fullnet;User ID=sa;Password=unused;TrustServerCertificate=true",
+        });
+    }
+
+    [TestMethod]
     public async Task SqlServer_totp_enrollment_enables_production_grant()
     {
         await VerifyAsync(
@@ -220,6 +230,7 @@ public sealed class TotpStrongReauthTests
         services.AddSingleton<IHostFileReferenceClaimService, NoOpHostFileReferenceClaimService>();
         services.AddSingleton<IHostFileDescriptorReader, NoOpHostFileDescriptorReader>();
         services.AddSingleton<IHostFileContentReader, NoOpHostFileContentReader>();
+        services.AddSingleton<ITenantResourceFileStorageUsagePort, UnsupportedStorageUsagePort>();
         services.AddSingleton<IRealtimePublisher, NoOpRealtimePublisher>();
         services.AddSingleton<IFullNetModuleSelectionPreview, EmptyModuleSelectionPreview>();
         services.AddFullNetModule<IdentityModule>(configuration);
@@ -231,6 +242,13 @@ public sealed class TotpStrongReauthTests
             ValidateOnBuild = true,
             ValidateScopes = true,
         });
+    }
+
+    /// <summary>该夹具不启用 Files 对账；意外调用时失败，避免把未知用量伪报为零。</summary>
+    private sealed class UnsupportedStorageUsagePort : ITenantResourceFileStorageUsagePort
+    {
+        public Task<long> SumReadyStorageBytesAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException("The TOTP fixture does not reconcile file storage usage.");
     }
 
     private static ClaimsPrincipal CreatePrincipal(Guid userId) => new(

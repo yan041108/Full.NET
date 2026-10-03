@@ -14,6 +14,7 @@ internal static class ConfigEntrySql
         """
         SELECT COUNT(1)
         FROM fn_settings_config_entry
+        WHERE ConfigKey <> @ReservedConfigKey
         """,
         SqlDataScope.HostOnly);
 
@@ -33,6 +34,7 @@ internal static class ConfigEntrySql
                UpdatedAtUtc,
                Version
         FROM fn_settings_config_entry
+        WHERE ConfigKey <> @ReservedConfigKey
         ORDER BY DisplayOrder, DisplayName, ConfigKey, Id
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
@@ -54,6 +56,7 @@ internal static class ConfigEntrySql
                UpdatedAtUtc,
                Version
         FROM fn_settings_config_entry
+        WHERE ConfigKey <> @ReservedConfigKey
         ORDER BY DisplayOrder, DisplayName, ConfigKey, Id
         LIMIT @PageSize OFFSET @Offset
         """,
@@ -76,6 +79,7 @@ internal static class ConfigEntrySql
                UpdatedAtUtc,
                Version
         FROM fn_settings_config_entry
+        WHERE ConfigKey <> @ReservedConfigKey
         ORDER BY GroupName, DisplayOrder, DisplayName, ConfigKey, Id
         """,
         SqlDataScope.HostOnly);
@@ -235,6 +239,7 @@ internal static class ConfigEntrySql
         FROM fn_settings_config_entry
         WHERE GroupName IS NOT NULL
           AND GroupName <> ''
+          AND ConfigKey <> @ReservedConfigKey
         ORDER BY GroupName
         """,
         SqlDataScope.HostOnly);

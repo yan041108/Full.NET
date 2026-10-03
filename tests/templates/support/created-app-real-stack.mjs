@@ -1,11 +1,26 @@
 import { spawn, spawnSync } from 'node:child_process';
+import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildAppTemplate } from '../../../scripts/templates/build-app-template.mjs';
 import { createApp } from '../../../scripts/templates/create-app.mjs';
+import { prepareApplicationCompositionProbe } from './application-composition-probe.mjs';
+import { verifyApplicationModuleEndpoint } from './application-module-http.mjs';
+import { cleanupCreatedApp } from './created-app-cleanup.mjs';
+import { verifyApplicationCrudGeneration } from './application-crud-generation.mjs';
+import { prepareApplicationBusinessMigrations, verifyApplicationMigrationResult } from './application-business-migrations.mjs';
+import { verifyApplicationCrudModule } from './application-crud-module.mjs';
+import { verifyApplicationCrudHostWiring } from './application-crud-host-wiring.mjs';
+import { verifyApplicationCrudAuthorization } from './application-crud-authorization.mjs';
+import { verifyApplicationCrudHttpDenial } from './application-crud-http-denial.mjs';
+import { verifyApplicationCrudTenantHttp } from './application-crud-tenant-http.mjs';
+import { verifyApplicationCrudTenantIsolation } from './application-crud-tenant-isolation.mjs';
+import { verifyApplicationCrudOpenApi } from './application-crud-openapi.mjs';
+import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verifyApplicationCrudClientTenantRead } from './application-crud-client.mjs';
+import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission, verifyApplicationCrudCreatePermission, verifyApplicationCrudUpdatePermission, verifyApplicationCrudDeletePermission } from './application-crud-read-permission.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 const requireFromRealStack = createRequire(join(repoRoot, 'tests/e2e/admin-real-stack/package.json'));
@@ -72,7 +87,7 @@ async function startRedisContainer() {
   };
 }
 
-function runDotnet(args, cwd, env, timeoutMs = 300_000) {
+function runDotnet(args, cwd, env, timeoutMs = 300_000, logPath) {
   const result = spawnSync('dotnet', args, {
     cwd,
     encoding: 'utf8',
@@ -80,8 +95,10 @@ function runDotnet(args, cwd, env, timeoutMs = 300_000) {
     env: { ...process.env, ...env },
     windowsHide: true,
   });
+  if (logPath) writeFileSync(logPath, `${result.stdout ?? ''}\n${result.stderr ?? ''}`);
   if (result.status !== 0) {
-    throw new Error(`dotnet ${args.join(' ')} failed: ${result.stderr || result.stdout || result.error?.message}`);
+    // Migrator 的稳定错误码写 stderr，详细原因写 stdout；两者都必须保留供远端定位。
+    throw new Error(`dotnet ${args.join(' ')} failed: ${result.stderr ?? ''}\n${(result.stdout ?? '').slice(-16000)}\n${result.error?.message ?? ''}`);
   }
   return result;
 }
@@ -154,6 +171,31 @@ async function loginAndReadSettings(baseUrl) {
   if (!settingsResponse.ok) {
     throw new Error(`settings read failed: ${settingsResponse.status} ${await settingsResponse.text()}`);
   }
+  // 在独立应用内执行真实写入、乐观锁更新和删除，避免只读冒烟掩盖装配缺口。
+  const request = async (path, method, body, expectedStatus) => {
+    const response = await fetch(`${baseUrl}/api/v1/settings/dict-types${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', Origin: 'http://localhost' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const text = await response.text();
+    assert.equal(response.status, expectedStatus, `${method} ${path}: ${text}`);
+    return text ? JSON.parse(text) : null;
+  };
+  const created = await request('', 'POST', {
+    code: 'created_app_crud_probe', name: 'Created application CRUD probe', description: null, displayOrder: 1,
+  }, 201);
+  const read = await request(`/${created.id}`, 'GET', undefined, 200);
+  assert.equal(read.code, 'created_app_crud_probe');
+  const updated = await request(`/${created.id}`, 'PUT', {
+    name: 'Updated application CRUD probe', description: null, displayOrder: 2, version: read.version,
+  }, 200);
+  assert.equal(updated.name, 'Updated application CRUD probe');
+  const disabled = await request(`/${created.id}/disable`, 'POST', undefined, 200);
+  assert.equal(disabled.isActive, false);
+  await request(`/${created.id}/delete`, 'POST', { version: disabled.version }, 204);
+  await request(`/${created.id}`, 'GET', undefined, 404);
+  return accessToken;
 }
 
 /**
@@ -183,6 +225,37 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
       throw new Error('expected preset-minimal migration inventory');
     }
 
+    const logRoot = join(repoRoot, '.tmp/template-real-stack', databaseProviderKey);
+    mkdirSync(logRoot, { recursive: true });
+    // 运行应用自带客户端工具；仅验证冻结基线零漂移，不冒充业务 Vue 接入或页面编译。
+    const clientCheck = spawnSync(process.execPath, [join(appRoot, '.fullnet-tools/openapi/generate-fullnet-client.mjs'), '--check'],
+      { cwd: workspace, encoding: 'utf8', timeout: 60_000, windowsHide: true });
+    writeFileSync(join(logRoot, 'application-client-tools.json'), JSON.stringify({ status: clientCheck.status,
+      error: clientCheck.error?.message, stdout: clientCheck.stdout, stderr: clientCheck.stderr }, null, 2));
+    assert.equal(clientCheck.error, undefined, 'application client tool process failed');
+    assert.equal(clientCheck.status, 0, 'application client baseline drift: ' + clientCheck.stderr);
+    const diagnosticInputs = ['fullnet-app.json', 'framework-manifest.json', 'appsettings.json',
+      'src/Demo.Host.Api/appsettings.json', 'src/Demo.Host.Migrator/appsettings.json']
+      .map((path) => [path, readFileSync(join(appRoot, path))]);
+    // 必须运行分发应用自带的 CLI；原仓库的诊断成功不能证明应用路径和预设闭包正确。
+    const diagnosis = runDotnet(['run', '--project',
+      join(appRoot, 'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli'),
+      '-c', 'Release', '--', 'diagnose', '--workspace', appRoot, '--profile', 'development'],
+    appRoot, {}, 300_000, join(logRoot, 'diagnose.log'));
+    for (const code of ['DIAG_SDK_OK', 'DIAG_WORKSPACE_OK', 'DIAG_APP_PROFILE_OK', 'DIAG_MODULE_CLOSURE_OK']) {
+      assert.match(diagnosis.stdout, new RegExp(`${code} ok`));
+    }
+    for (const [path, before] of diagnosticInputs) {
+      assert.deepEqual(readFileSync(join(appRoot, path)), before, `diagnose changed ${path}`);
+    }
+
+    prepareApplicationCompositionProbe(appRoot);
+    verifyApplicationCrudGeneration(appRoot, { reportDirectory: join(logRoot, 'application-crud') });
+    verifyApplicationCrudModule(appRoot, { reportDirectory: join(logRoot, 'application-crud-module'), removeTestSqlComment: true });
+    verifyApplicationCrudHostWiring(appRoot, { reportDirectory: join(logRoot, 'application-crud-host-wiring') });
+    verifyApplicationCrudAuthorization(appRoot, { reportDirectory: join(logRoot, 'application-crud-authorization') });
+    const adoption = prepareApplicationBusinessMigrations(appRoot);
+    writeFileSync(join(logRoot, 'application-migration-adoption.json'), JSON.stringify(adoption, null, 2));
     const database = await startDatabaseContainer(databaseProviderKey);
     dbContainer = database.container;
     const redis = await startRedisContainer();
@@ -190,16 +263,22 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     patchAppSettings(appRoot, database.databaseProvider, database.connectionString);
     const env = buildSharedEnv(database.connectionString, database.databaseProvider, redis.connectionString);
 
-    const migratorProject = join(appRoot, 'framework/fullnet/src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj');
+    const migratorProject = join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj');
     const hostProject = join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj');
     runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
     runDotnet(['build', hostProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
-    runDotnet([
+    const firstMigration = runDotnet([
       'run', '--project', migratorProject, '-c', 'Release', '--no-build', '--',
       '--seed', 'development',
-    ], appRoot, env, 600_000);
+    ], appRoot, env, 600_000, join(logRoot, 'migrator.log'));
+    const firstResult = verifyApplicationMigrationResult(firstMigration.stdout, true);
+    const repeatMigration = runDotnet([
+      'run', '--project', migratorProject, '-c', 'Release', '--no-build',
+    ], appRoot, env, 600_000, join(logRoot, 'migrator-repeat.log'));
+    const repeatResult = verifyApplicationMigrationResult(repeatMigration.stdout, false);
+    writeFileSync(join(logRoot, 'application-migration-results.json'), JSON.stringify({ first: firstResult, repeat: repeatResult }, null, 2));
 
-    const apiLogPath = join(workspace, 'api.log');
+    const apiLogPath = join(logRoot, 'api.log');
     writeFileSync(apiLogPath, '');
     apiLogStream = createWriteStream(apiLogPath, { flags: 'a' });
     apiProcess = spawn('dotnet', ['run', '--project', hostProject, '-c', 'Release', '--no-build'], {
@@ -210,14 +289,31 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     apiProcess.stdout?.pipe(apiLogStream, { end: false });
     apiProcess.stderr?.pipe(apiLogStream, { end: false });
     await waitForApi(apiUrl, 180_000, apiLogPath);
-    await loginAndReadSettings(apiUrl);
+    await verifyApplicationModuleEndpoint(apiUrl, { logPath: join(logRoot, 'application-module-http.json') });
+    await verifyApplicationCrudOpenApi(apiUrl, { expectedPath: join(appRoot, 'contracts/openapi/products.generated.openapi.json'),
+      logPath: join(logRoot, 'application-crud-openapi.json') });
+    verifyApplicationCrudClient(appRoot, { reportDirectory: join(logRoot, 'application-crud-client') });
+    await verifyApplicationCrudClientRuntime(appRoot, apiUrl, { logPath: join(logRoot, 'application-crud-client/runtime.json') });
+    let hostAccessToken = await loginAndReadSettings(apiUrl);
+    await verifyApplicationCrudClientRuntime(appRoot, apiUrl, { hostAccessToken,
+      logPath: join(logRoot, 'application-crud-client/host-runtime.json') });
+    await verifyApplicationCrudHttpDenial(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-http-denial.json') });
+    const readPermission = await verifyApplicationCrudReadPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-read-permission.json') });
+    hostAccessToken = readPermission.hostAccessToken;
+    const noPermission = await verifyApplicationCrudNoPermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-no-permission.json') });
+    hostAccessToken = noPermission.hostAccessToken;
+    const createPermission = await verifyApplicationCrudCreatePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-create-permission.json') });
+    hostAccessToken = createPermission.hostAccessToken;
+    const updatePermission = await verifyApplicationCrudUpdatePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-update-permission.json') });
+    hostAccessToken = updatePermission.hostAccessToken;
+    const deletePermission = await verifyApplicationCrudDeletePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-delete-permission.json') });
+    hostAccessToken = deletePermission.hostAccessToken;
+    const tenantCrud = await verifyApplicationCrudTenantHttp(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-tenant-http.json') });
+    await verifyApplicationCrudClientTenantRead(appRoot, apiUrl, { tenantAccessToken: tenantCrud.tenantAccessToken,
+      logPath: join(logRoot, 'application-crud-client/tenant-read.json') });
+    await verifyApplicationCrudTenantIsolation(apiUrl, { localTenantId: tenantCrud.tenantId, initialAccessToken: tenantCrud.tenantAccessToken,
+      logPath: join(logRoot, 'application-crud-tenant-isolation.json') });
   } finally {
-    if (apiProcess && !apiProcess.killed) {
-      apiProcess.kill('SIGTERM');
-    }
-    apiLogStream?.end();
-    await dbContainer?.stop().catch(() => {});
-    await redisContainer?.stop().catch(() => {});
-    rmSync(workspace, { recursive: true, force: true });
+    await cleanupCreatedApp({ apiProcess, apiLogStream, dbContainer, redisContainer, workspace });
   }
 }

@@ -7,7 +7,9 @@ namespace Acme.Modules.Catalog.Generated;
 
 public static class ProductPermissions
 {
+    /// <summary>允许读取实体列表与详情。</summary>
     public const string Read = "catalog.products.read";
+    /// <summary>允许创建、更新与停用实体。</summary>
     public const string Write = "catalog.products.write";
 }
 

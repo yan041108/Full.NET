@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>FullNetAppNameToken.Composition</RootNamespace>
+    <AssemblyName>FullNetAppNameToken.Composition</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../framework/fullnet/src/Composition/Full.NET.Composition/Full.NET.Composition.csproj" />
+  </ItemGroup>
+</Project>

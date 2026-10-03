@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 
@@ -57,6 +58,8 @@ internal static class MfaRecoveryCodeAssertions
         };
         reuseRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         using var reuseResponse = await client.SendAsync(reuseRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, reuseResponse.StatusCode);
+        Assert.AreEqual(HttpStatusCode.BadRequest, reuseResponse.StatusCode);
+        using var problem = JsonDocument.Parse(await reuseResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(IdentityErrorCodes.MfaRecoveryCodeInvalid, problem.RootElement.GetProperty("code").GetString());
     }
 }

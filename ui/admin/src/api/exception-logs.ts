@@ -6,11 +6,17 @@ import {
 
   type AuditingExceptionLog,
 
-  type AuditingExceptionLogPage
+  type AuditingExceptionLogPage,
+  type AuditingListHostExceptionLogsParameters
 
 } from '@fullnet/client-contracts';
 
 import { http } from './http';
+
+export type AuditingExceptionLogFilters = Pick<
+  AuditingListHostExceptionLogsParameters,
+  'fromUtc' | 'toUtc' | 'exceptionTypeContains' | 'pathContains'
+>;
 
 
 
@@ -21,7 +27,9 @@ export async function listAuditingExceptionLogs(
 
   pageSize = 20,
 
-  signal?: AbortSignal
+  signal?: AbortSignal,
+
+  filters: AuditingExceptionLogFilters = {}
 
 ): Promise<AuditingExceptionLogPage> {
 
@@ -29,7 +37,7 @@ export async function listAuditingExceptionLogs(
 
     http,
 
-    { page, pageSize },
+    { page, pageSize, ...filters },
 
     signal
 

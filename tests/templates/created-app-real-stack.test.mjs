@@ -16,7 +16,11 @@ function realStackSkipReason() {
 }
 
 for (const database of ['sqlserver', 'mysql']) {
-  test(`created minimal application real-stack (${database})`, { timeout: 900_000, skip: realStackSkipReason() }, async () => {
+  const skip = realStackSkipReason();
+  if ((process.env.CI === 'true' || process.env.CI === '1') && skip) {
+    throw new Error('Required created-app real-stack verification cannot be skipped in CI: ' + skip);
+  }
+  test(`created minimal application real-stack (${database})`, { timeout: 900_000, skip }, async () => {
     await verifyCreatedAppRealStack(database);
   });
 }

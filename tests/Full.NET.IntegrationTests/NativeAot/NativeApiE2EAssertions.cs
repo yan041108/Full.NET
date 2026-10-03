@@ -54,6 +54,38 @@ internal static class NativeApiE2EAssertions
         var token = await LoginAsync(client, host.LogFilePath, cancellationToken)
             .ConfigureAwait(false);
         await VerifyAiModuleNativeClosureAsync(client, token, cancellationToken).ConfigureAwait(false);
+        // 专用 AI 探针在末尾切租户，避免让共享 critical flow 的旧令牌失效。
+        var tenantToken = await EnterDevelopmentTenantAsync(client, token, cancellationToken).ConfigureAwait(false);
+        using var tenantCreate = AuthorizedJson(HttpMethod.Post, "/api/v1/ai/knowledge-bases", tenantToken, new CreateAiKnowledgeBaseRequest("原生租户目录", null));
+        using var tenantCreatedResponse = await client.SendAsync(tenantCreate, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(tenantCreatedResponse, HttpStatusCode.Created, "Create native tenant knowledge catalog", cancellationToken).ConfigureAwait(false);
+        var tenantBase = (await tenantCreatedResponse.Content.ReadFromJsonAsync<AiKnowledgeBaseResponse>(cancellationToken).ConfigureAwait(false))!;
+        await AssertPageContainsAsync<AiKnowledgeBaseResponse>(client, "/api/v1/ai/knowledge-bases", tenantToken,
+            item => item.Id == tenantBase.Id, cancellationToken).ConfigureAwait(false);
+        // 原生 Tenant 目录 Port 必须物化真实活动成员；空名单无法证明依赖闭包。
+        var tenantMember = await PostAndReadAsync<ProvisionTenantMemberRequest, TenantMemberResponse>(client,
+            "/api/v1/identity/tenant-members/provision", tenantToken,
+            new ProvisionTenantMemberRequest($"naot-kb-tenant-{Guid.NewGuid():N}", "原生成员", AdminPassword, TenantMemberRoles.Member, null),
+            HttpStatusCode.OK, cancellationToken).ConfigureAwait(false);
+        using var tenantGrant = AuthorizedJson(HttpMethod.Put, $"/api/v1/ai/knowledge-bases/{tenantBase.Id}/members", tenantToken,
+            new SetAiKnowledgeMembersRequest([tenantMember.UserId], tenantBase.Version));
+        using var tenantGranted = await client.SendAsync(tenantGrant, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(tenantGranted, HttpStatusCode.OK, "Grant native tenant knowledge member", cancellationToken).ConfigureAwait(false);
+        var tenantMembers = (await tenantGranted.Content.ReadFromJsonAsync<AiKnowledgeMembersResponse>(cancellationToken).ConfigureAwait(false))!;
+        CollectionAssert.AreEqual(new[] { tenantMember.UserId }, tenantMembers.UserIds.ToArray());
+        var tenantDocPath = $"/api/v1/ai/knowledge-bases/{tenantBase.Id}/documents";
+        var tenantDocument = await PostAndReadAsync<CreateAiKnowledgeDocumentRequest, AiKnowledgeDocumentResponse>(client, tenantDocPath, tenantToken,
+            new CreateAiKnowledgeDocumentRequest("原生租户草稿", null), HttpStatusCode.Created, cancellationToken).ConfigureAwait(false);
+        using var tenantDocGrant = AuthorizedJson(HttpMethod.Put, tenantDocPath + $"/{tenantDocument.Id}/members", tenantToken,
+            new SetAiKnowledgeDocumentMembersRequest([tenantMember.UserId], tenantDocument.Version));
+        using var tenantDocGranted = await client.SendAsync(tenantDocGrant, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(tenantDocGranted, HttpStatusCode.OK, "Grant native tenant document access", cancellationToken).ConfigureAwait(false);
+        await AssertPageContainsAsync<AiKnowledgeDocumentResponse>(client, tenantDocPath, tenantToken,
+            item => item.Id == tenantDocument.Id && item.Status == "draft", cancellationToken).ConfigureAwait(false);
+        using var tenantRevoke = AuthorizedJson(HttpMethod.Put, $"/api/v1/ai/knowledge-bases/{tenantBase.Id}/members", tenantToken,
+            new SetAiKnowledgeMembersRequest([], tenantMembers.Version));
+        using var tenantRevoked = await client.SendAsync(tenantRevoke, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(tenantRevoked, HttpStatusCode.OK, "Revoke native tenant knowledge member", cancellationToken).ConfigureAwait(false);
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         host.AssertNoFatalMarkersInLogs();
     }
@@ -1225,6 +1257,133 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         using var metadata = JsonDocument.Parse(await metadataResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         Assert.AreEqual("fullnet://ai/mcp", metadata.RootElement.GetProperty("resource").GetString());
+
+        // 原生产物实际执行目录写入、可空审批列物化及分页序列化，不以路由存在替代闭包验证。
+        using var create = AuthorizedJson(HttpMethod.Post, "/api/v1/ai/knowledge-bases", accessToken, new CreateAiKnowledgeBaseRequest("原生目录", null));
+        using var createdResponse = await client.SendAsync(create, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(createdResponse, HttpStatusCode.Created, "Create native knowledge catalog", cancellationToken).ConfigureAwait(false);
+        var created = (await createdResponse.Content.ReadFromJsonAsync<AiKnowledgeBaseResponse>(cancellationToken).ConfigureAwait(false))!;
+        Assert.IsNull(created.EmbeddingModelConfigId);
+        Assert.IsNull(created.GenerationModelVersion);
+        using var modelCreate = AuthorizedJson(HttpMethod.Post, "/api/v1/ai/model-configs", accessToken,
+            new CreateAiModelConfigRequest(null, "原生审批模型", "ollama", "https://provider.test", "model", null, null, false, true));
+        using var modelResponse = await client.SendAsync(modelCreate, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(modelResponse, HttpStatusCode.Created, "Create native approval model", cancellationToken).ConfigureAwait(false);
+        var model = (await modelResponse.Content.ReadFromJsonAsync<AiModelConfigResponse>(cancellationToken).ConfigureAwait(false))!;
+        using var update = AuthorizedJson(HttpMethod.Put, $"/api/v1/ai/knowledge-bases/{created.Id}/policy", accessToken,
+            new UpdateAiKnowledgePolicyRequest("restricted", model.Id, model.Version, model.Id, model.Version, created.Version));
+        using var updatedResponse = await client.SendAsync(update, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(updatedResponse, HttpStatusCode.OK, "Update native knowledge policy", cancellationToken).ConfigureAwait(false);
+        var updated = (await updatedResponse.Content.ReadFromJsonAsync<AiKnowledgeBaseResponse>(cancellationToken).ConfigureAwait(false))!;
+        Assert.AreEqual("restricted", updated.DataClassification);
+        Assert.AreEqual(created.Version + 1, updated.Version);
+        Assert.AreEqual(model.Id, updated.EmbeddingModelConfigId);
+        Assert.AreEqual(model.Version, updated.EmbeddingModelVersion);
+        Assert.AreEqual(model.Id, updated.GenerationModelConfigId);
+        Assert.AreEqual(model.Version, updated.GenerationModelVersion);
+        await AssertPageContainsAsync<AiKnowledgeBaseResponse>(client, "/api/v1/ai/knowledge-bases?page=1&pageSize=20", accessToken,
+            item => item.Id == created.Id, cancellationToken).ConfigureAwait(false);
+        await VerifyKnowledgeMemberNativeAsync(client, accessToken, updated, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>原生实例真实授予只读权限和成员资格，撤权后复用同一令牌立即得到 404。</summary>
+    private static async Task VerifyKnowledgeMemberNativeAsync(HttpClient client, string ownerToken,
+        AiKnowledgeBaseResponse knowledgeBase, CancellationToken token)
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var user = await PostAndReadAsync<CreateHostUserRequest, HostUserResponse>(client, "/api/v1/identity/users", ownerToken,
+            new CreateHostUserRequest($"naot-kb-{suffix}", "原生只读成员", AdminPassword), HttpStatusCode.Created, token).ConfigureAwait(false);
+        var role = await PostAndReadAsync<CreateHostRoleRequest, HostRoleResponse>(client, "/api/v1/identity/roles", ownerToken,
+            new CreateHostRoleRequest($"naot-kb-{suffix}", "原生知识库只读"), HttpStatusCode.Created, token).ConfigureAwait(false);
+        using var permissions = AuthorizedJson(HttpMethod.Put, $"/api/v1/identity/roles/{role.Id}/permissions", ownerToken,
+            new ReplaceHostRolePermissionsRequest([AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read], role.Version));
+        using var assignedPermissions = await client.SendAsync(permissions, token).ConfigureAwait(false);
+        await AssertStatusAsync(assignedPermissions, HttpStatusCode.OK, "Assign native knowledge read permission", token).ConfigureAwait(false);
+        using var rolesGet = Authorized(HttpMethod.Get, $"/api/v1/identity/users/{user.Id}/roles", ownerToken);
+        using var rolesResponse = await client.SendAsync(rolesGet, token).ConfigureAwait(false);
+        await AssertStatusAsync(rolesResponse, HttpStatusCode.OK, "Read native member roles", token).ConfigureAwait(false);
+        var roles = (await rolesResponse.Content.ReadFromJsonAsync<HostUserRolesResponse>(token).ConfigureAwait(false))!;
+        using var rolesSet = AuthorizedJson(HttpMethod.Put, $"/api/v1/identity/users/{user.Id}/roles", ownerToken,
+            new ReplaceHostUserRolesRequest([role.Id], roles.Version));
+        using var rolesAssigned = await client.SendAsync(rolesSet, token).ConfigureAwait(false);
+        await AssertStatusAsync(rolesAssigned, HttpStatusCode.OK, "Assign native member role", token).ConfigureAwait(false);
+        var path = $"/api/v1/ai/knowledge-bases/{knowledgeBase.Id}";
+        using var grant = AuthorizedJson(HttpMethod.Put, path + "/members", ownerToken,
+            new SetAiKnowledgeMembersRequest([user.Id], knowledgeBase.Version));
+        using var granted = await client.SendAsync(grant, token).ConfigureAwait(false);
+        await AssertStatusAsync(granted, HttpStatusCode.OK, "Grant native host knowledge member", token).ConfigureAwait(false);
+        var members = (await granted.Content.ReadFromJsonAsync<AiKnowledgeMembersResponse>(token).ConfigureAwait(false))!;
+        CollectionAssert.AreEqual(new[] { user.Id }, members.UserIds.ToArray());
+        // API 创建的账户必须先完成首次改密；复用含 Cookie/CSRF 校验的真实登录流程。
+        var memberToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            client, user.Username, AdminPassword, token).ConfigureAwait(false);
+        using var read = Authorized(HttpMethod.Get, path, memberToken);
+        using var readable = await client.SendAsync(read, token).ConfigureAwait(false);
+        await AssertStatusAsync(readable, HttpStatusCode.OK, "Read native granted knowledge catalog", token).ConfigureAwait(false);
+        var document = await VerifyKnowledgeDocumentNativeAsync(client, ownerToken, memberToken, user.Id, path, token).ConfigureAwait(false);
+        using var revoke = AuthorizedJson(HttpMethod.Put, path + "/members", ownerToken,
+            new SetAiKnowledgeMembersRequest([], members.Version));
+        using var revoked = await client.SendAsync(revoke, token).ConfigureAwait(false);
+        await AssertStatusAsync(revoked, HttpStatusCode.OK, "Revoke native host knowledge member", token).ConfigureAwait(false);
+        using var denied = Authorized(HttpMethod.Get, path, memberToken);
+        using var unreadable = await client.SendAsync(denied, token).ConfigureAwait(false);
+        await AssertStatusAsync(unreadable, HttpStatusCode.NotFound, "Immediately deny revoked native member", token).ConfigureAwait(false);
+        using var documentDenied = Authorized(HttpMethod.Get, path + $"/documents/{document.Id}", memberToken);
+        using var documentUnreadable = await client.SendAsync(documentDenied, token).ConfigureAwait(false);
+        await AssertStatusAsync(documentUnreadable, HttpStatusCode.NotFound, "Immediately deny native document after knowledge revoke", token).ConfigureAwait(false);
+        using var documentDelete = AuthorizedJson(HttpMethod.Delete, path + $"/documents/{document.Id}", ownerToken,
+            new DeleteAiKnowledgeDocumentRequest(document.Version));
+        using var documentDeleted = await client.SendAsync(documentDelete, token).ConfigureAwait(false);
+        await AssertStatusAsync(documentDeleted, HttpStatusCode.NoContent, "Delete native document authority", token).ConfigureAwait(false);
+        using var deletedRead = Authorized(HttpMethod.Get, path + $"/documents/{document.Id}", ownerToken);
+        using var deletedResponse = await client.SendAsync(deletedRead, token).ConfigureAwait(false);
+        await AssertStatusAsync(deletedResponse, HttpStatusCode.NotFound, "Deny native deleted document metadata", token).ConfigureAwait(false);
+    }
+
+    // 文件链路尚未接入；原生探针验证草稿、两层授权、分页、版本更新和独立撤权。
+    private static async Task<AiKnowledgeDocumentResponse> VerifyKnowledgeDocumentNativeAsync(HttpClient client,
+        string ownerToken, string memberToken, Guid userId, string basePath, CancellationToken token)
+    {
+        var path = basePath + "/documents";
+        var document = await PostAndReadAsync<CreateAiKnowledgeDocumentRequest, AiKnowledgeDocumentResponse>(client, path, ownerToken,
+            new CreateAiKnowledgeDocumentRequest("原生文档草稿", "受保护的元数据"), HttpStatusCode.Created, token).ConfigureAwait(false);
+        Assert.AreEqual("draft", document.Status);
+        var docPath = path + $"/{document.Id}";
+        using var denied = Authorized(HttpMethod.Get, docPath, memberToken);
+        using var deniedResponse = await client.SendAsync(denied, token).ConfigureAwait(false);
+        await AssertStatusAsync(deniedResponse, HttpStatusCode.NotFound, "Knowledge membership does not grant native document metadata", token).ConfigureAwait(false);
+        using var grant = AuthorizedJson(HttpMethod.Put, docPath + "/members", ownerToken,
+            new SetAiKnowledgeDocumentMembersRequest([userId], document.Version));
+        using var granted = await client.SendAsync(grant, token).ConfigureAwait(false);
+        await AssertStatusAsync(granted, HttpStatusCode.OK, "Grant native document access", token).ConfigureAwait(false);
+        var members = (await granted.Content.ReadFromJsonAsync<AiKnowledgeDocumentMembersResponse>(token).ConfigureAwait(false))!;
+        CollectionAssert.AreEqual(new[] { userId }, members.UserIds.ToArray());
+        using var update = AuthorizedJson(HttpMethod.Put, docPath, ownerToken,
+            new UpdateAiKnowledgeDocumentRequest("原生更新标题", null, members.Version));
+        using var updated = await client.SendAsync(update, token).ConfigureAwait(false);
+        await AssertStatusAsync(updated, HttpStatusCode.OK, "Update native document metadata", token).ConfigureAwait(false);
+        document = (await updated.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>(token).ConfigureAwait(false))!;
+        await AssertPageContainsAsync<AiKnowledgeDocumentResponse>(client, path, memberToken,
+            item => item.Id == document.Id && item.Title == "原生更新标题", token).ConfigureAwait(false);
+        using var membersRead = Authorized(HttpMethod.Get, docPath + "/members", ownerToken);
+        using var membersResponse = await client.SendAsync(membersRead, token).ConfigureAwait(false);
+        await AssertStatusAsync(membersResponse, HttpStatusCode.OK, "Read native document members", token).ConfigureAwait(false);
+        using var revoke = AuthorizedJson(HttpMethod.Put, docPath + "/members", ownerToken,
+            new SetAiKnowledgeDocumentMembersRequest([], document.Version));
+        using var revoked = await client.SendAsync(revoke, token).ConfigureAwait(false);
+        await AssertStatusAsync(revoked, HttpStatusCode.OK, "Revoke native document access", token).ConfigureAwait(false);
+        members = (await revoked.Content.ReadFromJsonAsync<AiKnowledgeDocumentMembersResponse>(token).ConfigureAwait(false))!;
+        using var unreadable = Authorized(HttpMethod.Get, docPath, memberToken);
+        using var unreadableResponse = await client.SendAsync(unreadable, token).ConfigureAwait(false);
+        await AssertStatusAsync(unreadableResponse, HttpStatusCode.NotFound, "Immediately deny native revoked document", token).ConfigureAwait(false);
+        using var regrant = AuthorizedJson(HttpMethod.Put, docPath + "/members", ownerToken,
+            new SetAiKnowledgeDocumentMembersRequest([userId], members.Version));
+        using var regranted = await client.SendAsync(regrant, token).ConfigureAwait(false);
+        await AssertStatusAsync(regranted, HttpStatusCode.OK, "Restore explicit native document access", token).ConfigureAwait(false);
+        using var current = Authorized(HttpMethod.Get, docPath, ownerToken);
+        using var currentResponse = await client.SendAsync(current, token).ConfigureAwait(false);
+        await AssertStatusAsync(currentResponse, HttpStatusCode.OK, "Read native document authority", token).ConfigureAwait(false);
+        return (await currentResponse.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>(token).ConfigureAwait(false))!;
     }
 
     private static async Task VerifyMessagingDeadLetterFlowAsync(

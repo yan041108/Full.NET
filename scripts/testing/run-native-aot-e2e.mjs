@@ -41,7 +41,7 @@ if (build.status !== 0) {
   process.exit(build.status ?? 1);
 }
 
-if (process.platform !== 'linux') {
+if (process.platform !== 'linux' || nativeGate.requiredTestTypes?.length) {
   const discovery = spawnSync(
     'dotnet',
     [
@@ -71,7 +71,16 @@ if (process.platform !== 'linux') {
     );
     process.exit(1);
   }
-  console.log(`Native AOT E2E 非 Linux 发现门禁：${discoveredTests} 项。`);
+  const discoveredTypes = new Set(
+    discoveryPayload.tests.map((item) => item.type?.typeName)
+  );
+  for (const requiredType of nativeGate.requiredTestTypes ?? []) {
+    if (!discoveredTypes.has(requiredType)) {
+      console.error(`Native AOT E2E 缺少必需用例：${requiredType}。`);
+      process.exit(1);
+    }
+  }
+  console.log(`Native AOT E2E 发现门禁：${discoveredTests} 项。`);
 }
 
 const executionPolicyArgs = process.platform === 'linux'

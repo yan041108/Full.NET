@@ -9,6 +9,12 @@ import { areBundleInputsClean } from '../../scripts/templates/build-source-bundl
 import { buildAppTemplate } from '../../scripts/templates/build-app-template.mjs';
 import { resolvePresetModules } from '../../scripts/templates/preset-modules.mjs';
 import { verifyCreatedApp } from '../../scripts/templates/verify-created-app.mjs';
+import { verifyApplicationComposition } from './support/application-composition-probe.mjs';
+import { verifyApplicationCrudGeneration } from './support/application-crud-generation.mjs';
+import { verifyApplicationCrudModule } from './support/application-crud-module.mjs';
+import { verifyApplicationCrudHostWiring } from './support/application-crud-host-wiring.mjs';
+import { verifyApplicationCrudRuntime } from './support/application-crud-runtime.mjs';
+import { verifyApplicationCrudAuthorization } from './support/application-crud-authorization.mjs';
 
 const skipBundleIntegration = areBundleInputsClean()
   ? false
@@ -24,6 +30,9 @@ test('application template package includes framework sources and root manifest'
     assert.ok(existsSync(join(templateRoot, 'src/FullNetAppNameToken.Host.Api/appsettings.json')));
     assert.ok(existsSync(join(templateRoot, '.fullnet-tools/create-app.mjs')));
     assert.ok(existsSync(join(templateRoot, '.fullnet-tools/project-preset-composition.mjs')));
+    const upgradeHelp = spawnSync(process.execPath, [join(templateRoot, '.fullnet-tools/upgrade-framework.mjs'), '--help'], { encoding: 'utf8' });
+    assert.equal(upgradeHelp.status, 0, upgradeHelp.stderr || upgradeHelp.stdout);
+    assert.match(upgradeHelp.stdout, /--dry-run\|--apply/);
     assert.ok(existsSync(join(templateRoot, 'ui/admin/package.json')));
     assert.ok(existsSync(join(templateRoot, 'packages/client-contracts/package.json')));
     assert.ok(existsSync(join(templateRoot, 'pnpm-lock.yaml')));
@@ -36,12 +45,27 @@ test('application template package includes framework sources and root manifest'
       '--owner-key', 'acme', '--database', 'mysql', '--preset', 'minimal', '--http-port', '5500',
     ], { encoding: 'utf8', timeout: 150_000 });
     assert.equal(create.status, 0, create.stderr || create.stdout);
+    const clientTool = join(appRoot, '.fullnet-tools/openapi/generate-fullnet-client.mjs');
+    const clientCheck = spawnSync(process.execPath, [clientTool, '--check'], { cwd: tmpdir(), encoding: 'utf8', windowsHide: true });
+    assert.equal(clientCheck.status, 0, clientCheck.stderr || clientCheck.stdout);
+    for (const relative of ['scripts/openapi/generate-fullnet-client.mjs', 'scripts/openapi/validate-client-generation-readiness.mjs',
+      'contracts/openapi/fullnet-client-v1.openapi.json', 'contracts/openapi/client-generation-manifest-v1.json']) {
+      assert.match(manifest.managedFiles[relative], /^[0-9a-f]{64}$/u);
+      const applicationPath = relative.startsWith('scripts/openapi/') ? relative.replace('scripts/openapi/', '.fullnet-tools/openapi/') : relative;
+      assert.deepEqual(readFileSync(join(appRoot, applicationPath)), readFileSync(join(templateRoot, 'framework/fullnet', relative)),
+        'template replacements changed frozen client tool content: ' + relative);
+    }
     assert.deepEqual(readdirSync(workspace).filter((entry) => entry.startsWith('.fullnet-create-')), []);
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj')));
+    assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj')));
+    assert.ok(existsSync(join(appRoot, 'src/Demo.Composition/Demo.Composition.csproj')));
+    assert.match(readFileSync(join(appRoot, 'src/Demo.Composition/ApplicationModuleCatalog.cs'), 'utf8'), /namespace Demo\.Composition;/u);
     assert.ok(existsSync(join(appRoot, 'ui/admin/src/App.vue')));
     assert.match(readFileSync(join(appRoot, 'ui/admin/vite.config.ts'), 'utf8'), /http:\/\/localhost:5500/);
     assert.ok(existsSync(join(appRoot, 'packages/admin-form-designer/package.json')));
-    assert.equal(existsSync(join(appRoot, '.fullnet-tools')), false);
+    assert.equal(existsSync(join(appRoot, '.fullnet-tools/create-app.mjs')), false);
+    assert.equal(existsSync(join(appRoot, '.fullnet-tools/upgrade-framework.mjs')), false);
+    assert.deepEqual(readdirSync(join(appRoot, '.fullnet-tools')), ['openapi']);
     const verification = verifyCreatedApp(appRoot);
     assert.equal(verification.ok, true, verification.errors.join('; '));
     const appProfile = JSON.parse(readFileSync(join(appRoot, 'fullnet-app.json'), 'utf8'));
@@ -54,17 +78,24 @@ test('application template package includes framework sources and root manifest'
     assert.doesNotMatch(compositionProject, /Full\.NET\.Modules\.Payments\\|Full\.NET\.AI\.Providers/);
     assert.doesNotMatch(compositionCatalog, /new PaymentsModule\(\)|AddAiProviderServices/);
 
-    for (const [managedPath, digest] of Object.entries(generatedManifest.managedFiles)) {
-      const generatedPath = join(appRoot, 'framework/fullnet', managedPath);
-      assert.ok(existsSync(generatedPath), `framework path changed during instantiation: ${managedPath}`);
-      const actualHash = createHash('sha256').update(readFileSync(generatedPath)).digest('hex');
-      assert.equal(actualHash, digest, `framework content changed during instantiation: ${managedPath}`);
-    }
+    const verifyManagedFiles = () => {
+      for (const [managedPath, digest] of Object.entries(generatedManifest.managedFiles)) {
+        const generatedPath = join(appRoot, 'framework/fullnet', managedPath);
+        assert.ok(existsSync(generatedPath), `managed framework path missing: ${managedPath}`);
+        const actualHash = createHash('sha256').update(readFileSync(generatedPath)).digest('hex');
+        assert.equal(actualHash, digest, `managed framework content changed: ${managedPath}`);
+      }
+    };
+    verifyManagedFiles();
 
     const build = spawnSync('dotnet', [
       'build', join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj'), '-c', 'Release', '-v', 'quiet',
     ], { cwd: appRoot, encoding: 'utf8', timeout: 300_000 });
     assert.equal(build.status, 0, build.stderr || build.stdout);
+    const migratorBuild = spawnSync('dotnet', [
+      'build', join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj'), '-c', 'Release', '-v', 'quiet',
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
+    assert.equal(migratorBuild.status, 0, migratorBuild.stderr || migratorBuild.stdout);
     const assets = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
     const implementationModules = Object.keys(assets.libraries)
       .map((name) => /^Full\.NET\.Modules\.([A-Za-z0-9]+)\//.exec(name)?.[1])
@@ -73,6 +104,13 @@ test('application template package includes framework sources and root manifest'
       assert.ok(['Identity', 'Tenancy', 'Settings', 'Organization'].includes(module),
         `unexpected implementation module in minimal build: ${module}`);
     }
+    verifyApplicationComposition(appRoot);
+    verifyApplicationCrudGeneration(appRoot);
+    verifyApplicationCrudModule(appRoot, { removeTestSqlComment: true });
+    verifyApplicationCrudHostWiring(appRoot);
+    verifyApplicationCrudAuthorization(appRoot);
+    verifyApplicationCrudRuntime(appRoot);
+    verifyManagedFiles();
     const pnpm = 'pnpm';
     const install = spawnSync(pnpm, [
       'install', '--filter', '@fullnet/admin...', '--frozen-lockfile', '--ignore-scripts',
@@ -104,6 +142,10 @@ test('application template package includes framework sources and root manifest'
         'build', join(presetRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj'), '-c', 'Release', '-v', 'quiet',
       ], { cwd: presetRoot, encoding: 'utf8', timeout: 300_000 });
       assert.equal(presetBuild.status, 0, `${preset}: ${presetBuild.stderr || presetBuild.stdout}`);
+      const presetMigratorBuild = spawnSync('dotnet', [
+        'build', join(presetRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj'), '-c', 'Release', '-v', 'quiet',
+      ], { cwd: presetRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
+      assert.equal(presetMigratorBuild.status, 0, `${preset} migrator: ${presetMigratorBuild.stderr || presetMigratorBuild.stdout}`);
       const presetAssets = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
       const selected = resolvePresetModules(preset);
       for (const library of Object.keys(presetAssets.libraries)) {

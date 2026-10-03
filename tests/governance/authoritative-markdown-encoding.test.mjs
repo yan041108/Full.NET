@@ -82,6 +82,7 @@ test('validateMarkdownBuffer allows inline code and URL query strings', () => {
 test('repository authoritative Markdown scan has zero encoding violations', async () => {
   const files = await collectAuthoritativeMarkdownFiles(repositoryRoot);
   assert.ok(files.length > 0, 'authoritative Markdown inventory must be non-empty');
+  assert.ok(files.includes('README.md'), 'repository README must be covered by the encoding gate');
   const violations = await validateAuthoritativeMarkdown(repositoryRoot);
   assert.deepEqual(
     violations,
@@ -111,6 +112,7 @@ test('temporary fixture tree is scanned without path allowlists', async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fullnet-md-integrity-'));
   await seedAuthoritativeMarkdownRoots(tempRoot);
   await writeFile(path.join(tempRoot, 'AGENTS.md'), '# 代理入口\n', 'utf8');
+  await writeFile(path.join(tempRoot, 'README.md'), '# 项目说明\n', 'utf8');
   await writeFile(path.join(tempRoot, 'rules', 'broken.md'), '# 损坏\n\n????\n', 'utf8');
 
   const violations = await validateAuthoritativeMarkdown(tempRoot);

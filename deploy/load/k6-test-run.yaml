@@ -1,5 +1,5 @@
-# Manual k6 TestRun for dedicated capacity clusters only.
-# Do not schedule this against developer machines or shared CI as an automatic gate.
+# Manual k6 TestRun for local Kubernetes acceptance or an optional dedicated cluster.
+# Define resource and stop budgets before running; actual results determine acceptance.
 apiVersion: k6.io/v1alpha1
 kind: TestRun
 metadata:

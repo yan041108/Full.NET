@@ -1,0 +1,14 @@
+// <fullnet-generated catalog.product permissions>
+new PermissionDefinition(ProductPermissions.Read, "读取", AuthorizationScope.Tenant),
+new PermissionDefinition(ProductPermissions.Create, "创建", AuthorizationScope.Tenant),
+new PermissionDefinition(ProductPermissions.Update, "更新", AuthorizationScope.Tenant),
+new PermissionDefinition(ProductPermissions.Disable, "停用", AuthorizationScope.Tenant),
+// </fullnet-generated catalog.product permissions>
+// <fullnet-generated catalog.product navigation>
+new NavigationDefinition("products", null, "products", "/catalog/products", "products", "Product", "Product", "collection", 80, ProductPermissions.Read),
+// </fullnet-generated catalog.product navigation>
+// <fullnet-generated catalog.product actions>
+new AuthorizationActionDefinition("catalog.products.create", "products", ProductPermissions.Create, "创建", "create", 10),
+new AuthorizationActionDefinition("catalog.products.update", "products", ProductPermissions.Update, "更新", "update", 20),
+new AuthorizationActionDefinition("catalog.products.disable", "products", ProductPermissions.Disable, "停用", "disable", 30),
+// </fullnet-generated catalog.product actions>

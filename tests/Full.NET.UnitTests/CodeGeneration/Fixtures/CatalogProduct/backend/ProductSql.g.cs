@@ -4,6 +4,7 @@ namespace Acme.Modules.Catalog.Generated;
 
 public static class ProductSql
 {
+    /// <summary>按主键查询单条实体，含租户过滤。</summary>
     public const string FindById = """
         SELECT
             Id,
@@ -18,12 +19,14 @@ public static class ProductSql
             AND TenantId = @TenantId;
         """;
 
+    /// <summary>统计实体总数，含租户过滤。</summary>
     public const string Count = """
         SELECT COUNT(1)
         FROM acme_catalog_product
         WHERE TenantId = @TenantId;
         """;
 
+    /// <summary>SQL Server 分页列表查询，按 Id 升序，含租户过滤。</summary>
     public const string ListSqlServer = """
         SELECT
             Id,
@@ -41,6 +44,7 @@ public static class ProductSql
         FETCH NEXT @PageSize ROWS ONLY;
         """;
 
+    /// <summary>MySQL 分页列表查询，按 Id 升序，含租户过滤。</summary>
     public const string ListMySql = """
         SELECT
             Id,
@@ -57,6 +61,7 @@ public static class ProductSql
         LIMIT @PageSize OFFSET @Offset;
         """;
 
+    /// <summary>插入实体记录。</summary>
     public const string Insert = """
         INSERT INTO acme_catalog_product (
             Id, TenantId, Name, Description, IsActive, Version, CreatedAtUtc)
@@ -64,6 +69,7 @@ public static class ProductSql
             @Id, @TenantId, @Name, @Description, @IsActive, @Version, @CreatedAtUtc);
         """;
 
+    /// <summary>更新实体字段，含租户与乐观锁版本校验。</summary>
     public const string Update = """
         UPDATE acme_catalog_product
         SET Name = @Name,
@@ -75,6 +81,7 @@ public static class ProductSql
             AND Version = @Version;
         """;
 
+    /// <summary>停用实体（置 IsActive=0），含租户与版本校验。</summary>
     public const string Disable = """
         UPDATE acme_catalog_product
         SET IsActive = 0,

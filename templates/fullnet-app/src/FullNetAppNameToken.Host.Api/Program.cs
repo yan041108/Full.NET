@@ -1,5 +1,6 @@
 using Full.NET.Caching.Fusion;
 using Full.NET.Composition;
+using FullNetAppNameToken.Composition;
 using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Forwarding;
 using Full.NET.Hosting.Observability;
@@ -26,7 +27,7 @@ builder.Services.AddFullNetMemoryPack();
 builder.Services.AddFullNetKafkaReplayOperations(builder.Configuration);
 builder.Services.AddFullNetCaching(builder.Configuration, builder.Environment.EnvironmentName);
 builder.Services.AddFullNetRealtimeSignalR(builder.Configuration, builder.Environment.EnvironmentName);
-builder.Services.AddFullNetApplicationModules(builder.Configuration, FullNetHostProfile.Api);
+builder.Services.AddApplicationModules(builder.Configuration, FullNetHostProfile.Api);
 
 var app = builder.Build();
 app.UseFullNetTrustedProxyForwarding();

@@ -3,6 +3,48 @@
   "preV1NameMap": "contracts/naming/pre-v1-name-map.json",
   "items": [
     {
+      "kind": "permission",
+      "value": "auditing.operations.details.read",
+      "file": "src/Modules/Full.NET.Modules.Auditing/AuditingAuthorizationContributor.cs",
+      "reason": "日志分支已在 OpenAPI、Vue 详情抽屉及双权限授权测试中冻结四段详情权限码；合并保留该机器契约及独立详情鉴权，不扩展三段权限命名规则。兼容边界与退出条件见 ADR-0012 合并兼容记录。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/242_AiKnowledgeDocument.sql",
+      "reason": "242 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE 恢复文档及授权后置索引；表和索引名均为脚本常量，不接受外部输入，由双库未记账重放测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/241_AiKnowledgeMember.sql",
+      "reason": "241 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE 恢复成员授权后置索引；表和索引名均为脚本常量，不接受外部输入，由双库未记账重放测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/240_AiKnowledgeBase.sql",
+      "reason": "240 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE 恢复知识库目录后置索引；表与索引名都是脚本常量，不接受外部输入，双库未记账半完成重放测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/239_AuditingOperationLogContext.sql",
+      "reason": "239 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE 语句逐列恢复操作详情可空扩展；表列名不接受外部输入，由双库未记账半完成重放测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/238_IdentityMfaRecoveryCode.sql",
+      "reason": "238 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句恢复 MFA 恢复码用户索引；索引与表名均为脚本常量，不接受外部输入，由双库半完成及未记账重跑测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/114_WorkflowCountersign.sql",

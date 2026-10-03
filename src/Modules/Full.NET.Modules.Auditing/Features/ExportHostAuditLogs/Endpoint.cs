@@ -1,5 +1,6 @@
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Auditing.Contracts;
+using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -54,6 +55,7 @@ internal static class Endpoint
         endpoints.MapPost(route, async (
             AuditLogExportRequest request,
             HostAuditLogExportService exportService,
+            AuditOperationDetailsCapture detailsCapture,
             IAuthorizationService authorizationService,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -76,6 +78,13 @@ internal static class Endpoint
             }
 
             var exportResult = result.Value!;
+            if (operationName == "auditingExportHostOperationLogs")
+            {
+                // 仅操作日志导出登记固定字段摘要；文件名、筛选文本和文件内容均不投影。
+                detailsCapture.TryCaptureExportSummary(
+                    httpContext, () => request, () => exportResult.Metadata);
+            }
+
             httpContext.Response.Headers["X-FullNet-Export-Row-Count"] =
                 exportResult.Metadata.RowCount.ToString();
             httpContext.Response.Headers["X-FullNet-Export-Truncated"] =

@@ -1,4 +1,9 @@
 <Project Sdk="MSTest.Sdk">
+  <ItemGroup>
+    <Compile Include="../templates/support/fixtures/application-migration-runner.cs.fixture" Link="Hosting/ApplicationMigrationRunner.cs" />
+    <Compile Include="../ai-evaluation/probe/ProbeVectorSearch.cs" Link="Ai/Evaluation/ProbeVectorSearch.cs" />
+    <Compile Include="../Shared/CodeGeneration/GeneratedMigrationRecoveryFixture.cs" Link="CodeGeneration/GeneratedMigrationRecoveryFixture.cs" />
+  </ItemGroup>
   <!-- 直接验证原生读取源文件，避免为 JIT 业务模块开放 ADO.NET 依赖。 -->
   <PropertyGroup>
     <DefineConstants>$(DefineConstants);FULLNET_AI_ROW_READER_TESTS</DefineConstants>
@@ -21,6 +26,8 @@
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.CodeGeneration\Full.NET.Data.CodeGeneration.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Hosting\Full.NET.Hosting.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Localization\Full.NET.Localization.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Logging.Kafka\Full.NET.Logging.Kafka.csproj" />
+    <ProjectReference Include="..\..\src\Platform\Full.NET.LogConsumer\Full.NET.LogConsumer.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Messaging.Abstractions\Full.NET.Messaging.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Messaging.Kafka\Full.NET.Messaging.Kafka.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
@@ -77,6 +84,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="CodeGeneration\Fixtures\**\*.fragment.cs" />
+    <None Include="..\ai-evaluation\*.json" Link="Ai\Evaluation\Fixtures\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="CodeGeneration\Fixtures\**\*.fragment.cs" />
     <None Include="..\..\packages\client-contracts\src\fixtures\workflow-form-schema-v1.json"
           Link="Workflow\Fixtures\workflow-form-schema-v1.json"

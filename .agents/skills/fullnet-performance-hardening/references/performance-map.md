@@ -35,7 +35,7 @@ Artifact paths:
 
 ### 开发反馈与容量认证
 
-开发阶段不要求达到 1 万同时在途，只验证高并发设计、正确性、资源上限与轻量回归；缺少专用容量环境时结论必须为 `Capacity-not-verified`。正式容量认证才按 2K、5K、10K 台阶执行生产等价 Kubernetes 拓扑、长时间 Soak、N+1、依赖故障注入和 SQL Server/MySQL 分 Provider 场景，并保留原始结果。缩小的本机 Benchmark/TestServer 数据只能用于回归，禁止据此承诺固定 QPS。
+开发阶段不要求达到 1 万同时在途。本地容量验收允许使用隔离容器和 kind Kubernetes；按所需规模执行 2K、5K、10K、Soak、N+1、依赖故障及 SQL Server/MySQL 分 Provider 场景，并保留原始结果。专用容量环境是可选的补充验证。未完成对应规模测试时保持 `Capacity-not-verified`，不得承诺固定 QPS；缩小矩阵只证明实际范围，同机容器节点不证明独立物理故障域。全部执行位置与验收策略见 [测试与验证](../../../../rules/development-quality.md#11-测试与验证)。
 
 Audit 和日志场景必须先固定语义：B0 Domain Audit 与业务状态在同一数据库事务；B1 重要 HTTP Operation/Exception Audit 通过有界跨请求微批直接写入审计库并默认 fail-open；B2 普通 HTTP Operation Log/Access/诊断进入有界日志管道。Audit 不使用 Outbox，缓存失效也禁止使用 Outbox。
 

@@ -12,6 +12,18 @@ const sources = {
   project: readFileSync(resolve(root, 'Full.NET.Composition.csproj'), 'utf8'),
 };
 
+test('minimal projection reserves uninstalled official keys through the complete contract list', () => {
+  const result = projectCompositionSource(sources, resolvePresetModules('minimal'));
+  const available = result.selection.split('OfficialModuleNames =')[1].split('];')[0];
+  const reserved = result.selection.split('ContractModuleNames =')[1].split('];')[0];
+  for (const name of ['Workflow', 'Payments']) {
+    assert.doesNotMatch(available, new RegExp(`"${name}"`, 'u'));
+    assert.match(reserved, new RegExp(`"${name}"`, 'u'));
+  }
+  assert.match(result.catalog, /FullNetModuleSelection\.IsOfficialModuleName\(module\.Name\)/u);
+  assert.match(result.selection, /bool IsOfficialModuleName\(string name\)\s*=>\s*ContractModuleNames\.Contains\(name, StringComparer\.Ordinal\)/u);
+});
+
 test('minimal projection excludes unselected module implementation references', () => {
   const result = projectCompositionSource(sources, resolvePresetModules('minimal'));
   for (const module of ['Identity', 'Tenancy', 'Settings', 'Organization']) {

@@ -15,7 +15,7 @@
 - 按 [规则索引](rules/README.md) 读取受影响章节。认证、租户、事务、持久化与公共契约变化必须覆盖相应安全、数据或契约规则；影响 Host.Api 可达路径、依赖或 AOT 配置时读取 Native AOT 规则。范围不确定时先沿调用链确认。
 - 新增或扩展模块、CRUD、Endpoint、Command/Query、Dapper 持久化或双库迁移时使用 [fullnet-module-delivery](.agents/skills/fullnet-module-delivery/SKILL.md)；性能分析与优化时使用 [fullnet-performance-hardening](.agents/skills/fullnet-performance-hardening/SKILL.md)。只读咨询或局部文字调整不因提到模块名称就触发完整交付流程。
 - 行为变化先建立失败测试或可复现实验；文字和机械变更用直接相关的结构检查。注释使用中文，解释意图和约束，覆盖范围见 [注释规则](rules/code-comments.md)。
-- 构建、测试、影响集、GitHub Actions 与能力状态统一按 [测试与验证](rules/development-quality.md#11-测试与验证) 执行（含 R-20260903-github-actions-first-verification）。入口和 Skill 不另设测试流程；未执行、失败或跳过不能报告为通过。
+- 全项目验收以规定范围的本地测试实际通过为准，CI 与专用生产等价环境不再是强制前置；构建、测试、影响集与能力状态统一按 [测试与验证](rules/development-quality.md#11-测试与验证) 执行（R-20260930-local-acceptance）。入口和 Skill 不另设测试流程；未执行、失败或跳过不能报告为通过。
 - 修改任务交付前检查本任务 `git diff --check`、`git status` 和分支，报告实际变更、验证与未验证项。只同步真实受影响文档；无演进证据时无需输出规则或 Skill 状态。
 
 ## Full.NET 不可隐式改变的基线
@@ -32,7 +32,7 @@
 - Host.Api Native AOT 可达路径保持静态闭包；源生成、DI、Dapper、native binding 和发布状态遵守 [Native AOT 规则](rules/native-aot.md)。
 - 重要可靠业务事件通过事务 Outbox 发布；缓存、日志、Trace、Metrics 和 Audit 不使用 Outbox。CDC/Kafka 仅按已批准阶段建设，保持至少一次、Inbox 幂等、单一发布所有权及切流回退门禁。见 [事件规则](rules/development-quality.md#6-并发重试幂等与-outbox)与 [ADR-0006](docs/architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)。
 - 缓存统一 FusionCache 与 `.AsHybridCache()`，多实例失效使用直接 L1/L2 删除、Redis Backplane 及 TTL/版本/权威源兜底，强一致类别禁用 L1。见 [缓存规则](rules/development-quality.md#8-缓存实时通信和基础设施)。
-- 生产参考为 Kubernetes + Helm 多实例模块化单体，月度可用性 SLO 99.9%；开发设计目标为 1 万同时在途，生产等价认证前保持 `Capacity-not-verified`。见 [ADR-0005](docs/architecture/adr/ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md)。
+- 生产参考为 Kubernetes + Helm 多实例模块化单体，月度可用性 SLO 99.9%；开发设计目标为 1 万同时在途，未完成相应容量实测前保持 `Capacity-not-verified`，本地测试可作为验收证据，结论注明硬件与范围。见 [ADR-0005](docs/architecture/adr/ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md)。
 - Admin.NET 仅作功能参考，不隐式改变架构或发布许可；框架采用 MIT，第三方及 Admin.NET.Pro 代码和资源须符合再分发授权。见 [许可规则](rules/development-quality.md#122-一般文档依赖与发布要求)。
 - Vue `ui/admin` 是后台唯一持续交付线；Layui `ui/admin-layui` 冻结，仅允许明确授权的安全修复、迁移或退役。见 [客户端规则](rules/client-frontend.md)。
 - 多语言使用规范 BCP 47 与稳定机器码，业务不依赖译文；种子数据分生产安全 Baseline 与环境 Overlay，Production 仅允许 Baseline，API/Worker 不播种。见 [多语言规则](rules/development-quality.md#r-20260717-full-stack-localization-boundary多语言必须覆盖协议组件库和服务端生成文本)与 [种子规则](rules/development-quality.md#r-20260717-seed-data-boundary生产-baseline环境-overlay-与场景测试数据必须分层)。

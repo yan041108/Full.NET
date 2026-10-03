@@ -17,6 +17,7 @@ import { GenericContainer, Wait } from 'testcontainers';
 import { createOidcStackEnv } from './oidc-stack-env.mjs';
 import { provisionViewer } from './provision-viewer.mjs';
 import { waitForApi } from './wait-for-api.mjs';
+import { stopLoggedProcess } from './stop-logged-process.mjs';
 
 const repoRoot = path.resolve(fileURLToPath(new URL('../../../..', import.meta.url)));
 const statePath = path.join(repoRoot, 'tests/e2e/admin-real-stack/.stack-state.json');
@@ -473,14 +474,11 @@ export async function teardownStack() {
     return;
   }
 
-  if (activeStack.apiProcess && !activeStack.apiProcess.killed) {
-    activeStack.apiProcess.kill();
-  }
-  if (activeStack.workerProcess && !activeStack.workerProcess.killed) {
-    activeStack.workerProcess.kill();
-  }
-  activeStack.workerLogStream?.end();
-  activeStack.apiLogStream?.end();
+  // 两个进程均完成停机和日志排空后再销毁依赖；单个失败也不能跳过另一个的清理。
+  const stopped = await Promise.allSettled([
+    stopLoggedProcess(activeStack.apiProcess, activeStack.apiLogStream),
+    stopLoggedProcess(activeStack.workerProcess, activeStack.workerLogStream)
+  ]);
 
   await activeStack.container.stop();
   if (activeStack.redisContainer) {
@@ -505,6 +503,8 @@ export async function teardownStack() {
     });
   }
   activeStack = undefined;
+  const failures = stopped.filter(result => result.status === 'rejected').map(result => result.reason);
+  if (failures.length) throw new AggregateError(failures, 'Real-stack process shutdown failed');
 }
 
 function runDotnet(args, env) {

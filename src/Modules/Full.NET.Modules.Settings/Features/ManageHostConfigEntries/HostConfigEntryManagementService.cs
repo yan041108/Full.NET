@@ -87,6 +87,11 @@ internal sealed partial class HostConfigEntryManagementService(
                 "Configuration key must be 3-128 lowercase letters, numbers, dots, underscores, or hyphens.");
         }
 
+        if (ReservedHostConfigKeys.IsReserved(configKey))
+        {
+            return ValidationFailure("Configuration key is reserved for a dedicated management API.");
+        }
+
         var displayName = request.DisplayName?.Trim() ?? string.Empty;
         if (displayName.Length is < 1 or > 128)
         {
@@ -184,6 +189,11 @@ internal sealed partial class HostConfigEntryManagementService(
             return NotFound<ConfigEntryResponse>();
         }
 
+        if (ReservedHostConfigKeys.IsReserved(existing.ConfigKey))
+        {
+            return NotFound<ConfigEntryResponse>();
+        }
+
         if (!TryNormalizeValue(
                 existing.ValueKind,
                 request.Value,
@@ -228,6 +238,11 @@ internal sealed partial class HostConfigEntryManagementService(
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
+        {
+            return NotFound<ConfigEntryResponse>();
+        }
+
+        if (ReservedHostConfigKeys.IsReserved(existing.ConfigKey))
         {
             return NotFound<ConfigEntryResponse>();
         }
@@ -291,6 +306,11 @@ internal sealed partial class HostConfigEntryManagementService(
             return NotFound<bool>();
         }
 
+        if (ReservedHostConfigKeys.IsReserved(existing.ConfigKey))
+        {
+            return NotFound<bool>();
+        }
+
         // 配置项仍启用时拒绝删除，必须先禁用以避免误删活跃数据。
         if (existing.IsActive)
         {
@@ -342,6 +362,11 @@ internal sealed partial class HostConfigEntryManagementService(
                 return NotFound<bool>();
             }
 
+            if (ReservedHostConfigKeys.IsReserved(existing.ConfigKey))
+            {
+                return NotFound<bool>();
+            }
+
             if (existing.IsActive)
             {
                 return NotDisabled<bool>();
@@ -382,6 +407,11 @@ internal sealed partial class HostConfigEntryManagementService(
                     ValidationErrorCodes.Failed,
                     "Configuration key must not be empty.",
                     ErrorType.Validation));
+            }
+
+            if (ReservedHostConfigKeys.IsReserved(configKey))
+            {
+                return NotFound<bool>();
             }
 
             var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(

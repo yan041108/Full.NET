@@ -454,7 +454,8 @@ public static class ModuleEntryIntegrationEditor
             ? "\r\n"
             : "\n";
 
-    private static IReadOnlyList<SourceToken> Tokenize(string source)
+    /// <summary>复用轻量词法边界；授权编辑可保留行注释以核对真实生成标记。</summary>
+    internal static IReadOnlyList<SourceToken> Tokenize(string source, bool includeLineComments = false)
     {
         var tokens = new List<SourceToken>();
         for (var index = 0; index < source.Length;)
@@ -469,7 +470,12 @@ public static class ModuleEntryIntegrationEditor
                 && source[index] == '/'
                 && source[index + 1] == '/')
             {
+                var start = index;
                 index = SkipLineComment(source, index + 2);
+                if (includeLineComments)
+                {
+                    tokens.Add(new SourceToken(source[start..index].TrimEnd('\r'), start, index, SourceTokenKind.LineComment));
+                }
                 continue;
             }
 
@@ -625,15 +631,18 @@ public static class ModuleEntryIntegrationEditor
         int Position,
         string Content);
 
-    private sealed record SourceToken(
+    /// <summary>源码词法单元及其字符范围，用于不重写手工文本的定点插入。</summary>
+    internal sealed record SourceToken(
         string Text,
         int Start,
         int End,
         SourceTokenKind Kind);
 
-    private enum SourceTokenKind
+    /// <summary>区分代码单元与按需保留的行注释，防止字面量伪装生成标记。</summary>
+    internal enum SourceTokenKind
     {
         Identifier = 1,
         Punctuation = 2,
+        LineComment = 3,
     }
 }

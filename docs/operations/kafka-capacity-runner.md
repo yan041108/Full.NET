@@ -261,4 +261,4 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
 - `payload_corrupted`、`consume_tracking_failed`、丢失、重复或乱序：按正确性事故处理，禁止只重跑到绿色后覆盖原始工件。
 - 报告或 checkpoint 写入失败：视为没有形成可信完成证据；修复受保护目录的空间、权限和原子替换条件后再续跑。
 
-仓库中的真实 Kafka 缩小测试使用 `apache/kafka:4.1.2`，覆盖低速/吞吐正确性、旁路 Group Offset 不变、TopicId 替换删除保护与取消证据。若本机 Docker 不可用，只能记录为环境阻断；编译或单元通过不能替代真实 Kafka 和专用生产等价环境认证。
+仓库中的真实 Kafka 缩小测试使用 `apache/kafka:4.1.2`，覆盖低速/吞吐正确性、旁路 Group Offset 不变、TopicId 替换删除保护与取消证据。2026-09-30 起规定场景在本地实际通过即可验收，不再要求专用生产等价环境；若 Docker 不可用仍记录环境阻断，编译或单元通过不能代替所需真实 Kafka 行为。缩小测试只证明实际规模。

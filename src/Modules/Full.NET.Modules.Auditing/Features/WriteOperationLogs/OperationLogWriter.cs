@@ -1,6 +1,12 @@
+using System.Collections.Immutable;
 using Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 
 namespace Full.NET.Modules.Auditing.Features.WriteOperationLogs;
+
+/// <summary>仅供 B1 审计库保存的版本化详情及首次捕获时确定的绝对过期时间。</summary>
+internal sealed record AuditOperationDetails(
+    string ContextJson,
+    DateTimeOffset ExpiresAtUtc);
 
 /// <summary>
 /// 操作日志写入载荷；仅汇总写操作元数据，不含 Body。
@@ -16,7 +22,12 @@ internal sealed record OperationLogWriteModel(
     Guid? TenantId,
     string? TraceId,
     string? ClientIpFingerprint,
-    string? PermissionCode);
+    string? PermissionCode)
+{
+    public ImmutableArray<string> RequiredPermissions { get; init; } = [];
+
+    public AuditOperationDetails? Details { get; init; }
+}
 
 /// <summary>
 /// 将操作审计摘要写入请求作用域的固定槽位，由外层协调 Middleware 统一同步提交。

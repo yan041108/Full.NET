@@ -2,7 +2,7 @@ import { computed, readonly, ref } from 'vue';
 import {
   createEnterpriseRequestsApi,
   enterpriseRequestPermissions,
-  type CreateEnterpriseRequestRequest,
+  type CreateEnterpriseRequestInput,
   type GeneratedRequest,
   type EnterpriseRequestResponse,
   type UpdateEnterpriseRequestRequest
@@ -72,7 +72,7 @@ export function useEnterpriseRequestPage(
   }
 
   async function create(
-    input: CreateEnterpriseRequestRequest
+    input: CreateEnterpriseRequestInput
   ): Promise<boolean> {
     if (!canCreate.value || changing.value) return false;
     changing.value = true;

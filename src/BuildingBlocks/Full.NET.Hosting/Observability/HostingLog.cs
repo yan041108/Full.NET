@@ -7,9 +7,9 @@ internal static partial class HostingLog
     [LoggerMessage(
         EventId = 1000,
         Level = LogLevel.Error,
-        Message = "Unhandled exception for {RequestPath}")]
+        Message = "Unhandled {ExceptionType} for {RequestPath}")]
     public static partial void UnhandledException(
         ILogger logger,
-        Exception exception,
+        string exceptionType,
         string requestPath);
 }

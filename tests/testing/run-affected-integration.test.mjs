@@ -32,6 +32,32 @@ test('纯文档和客户端改动不启动 Integration', () => {
   assert.deepEqual(selection.targets, []);
 });
 
+test('日志 Kafka 请求基准测试选择自身真实 Broker 分片', () => {
+  assert.deepEqual(classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Messaging/KafkaLogSecretBoundaryTests.cs'
+  ]).targets, [{ kind: 'shard', name: 'logging-secret-boundary' }]);
+  assert.deepEqual(classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Messaging/KafkaLogRouteComparisonTests.cs',
+    'tests/Full.NET.IntegrationTests/Messaging/LoggingRequestCaseProcess.cs'
+  ]).targets, [{ kind: 'shard', name: 'logging-route-comparison' }]);
+  assert.deepEqual(classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Messaging/KafkaLogRequestLatencyTests.cs',
+    'tests/Full.NET.IntegrationTests/Messaging/KafkaCollectorRequestReplayTests.cs'
+  ]).targets, [{ kind: 'shard', name: 'logging-request-kafka' }]);
+  assert.deepEqual(classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Messaging/LiveCollectorCriBridge.cs'
+  ]).targets.map(target => target.name).sort(), ['logging-request-kafka', 'logging-route-comparison']);
+  assert.deepEqual(classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Messaging/KafkaLogTlsFixture.cs'
+  ]).targets, [{ kind: 'shard', name: 'logging-kafka' }]);
+  for (const fixture of ['KafkaRequestElasticsearchFixture.cs', 'KafkaRequestConsumerProcess.cs', 'KafkaRequestCollectorFixture.cs']) {
+    const targets = classifyChangedPaths([`tests/Full.NET.IntegrationTests/Messaging/${fixture}`]).targets;
+    assert.deepEqual(targets.map(target => target.name).sort(), [
+      'logging-request-kafka', 'logging-route-comparison', 'logging-secret-boundary'
+    ]);
+  }
+});
+
 test('纯 benchmarks 改动不启动 Integration', () => {
   const selection = classifyChangedPaths([
     'benchmarks/Full.NET.Benchmarks/Kafka/KafkaCapacityRunner.cs'
@@ -103,6 +129,21 @@ test('Messaging 重测 Integration 路径选择 messaging-heavy 分片', () => {
   assert.deepEqual(selection.targets, [
     { kind: 'shard', name: 'messaging-heavy' }
   ]);
+});
+
+test('独立日志消费者及其集成用例选择日志 Kafka 分片', () => {
+  for (const path of [
+    'src/Hosts/Full.NET.Host.LogConsumer/Program.cs',
+    'src/Platform/Full.NET.LogConsumer/ElasticsearchLogDocumentSink.cs',
+    'tests/Full.NET.IntegrationTests/Messaging/KafkaLogConsumerElasticsearchReplayTests.cs'
+  ]) {
+    const selection = classifyChangedPaths([path]);
+    assert.deepEqual(selection.targets, [
+      { kind: 'shard', name: 'logging-kafka' }
+    ]);
+    assert.deepEqual(targetsForPhase(selection.targets, 'inner').map(target => target.name),
+      ['logging-kafka']);
+  }
 });
 
 test('宿主运行时 App_Data 不扩大 Integration 影响集', () => {
@@ -673,6 +714,52 @@ test('聚焦发现必须同时包含 SQL Server 与 MySQL', () => {
   assert.throws(() => verifyFocusedDiscovery([mySql]), /SQL Server/);
 });
 
+test('CI 执行分组保留全部模块、工具门禁和双库迁移目标且没有重叠', () => {
+  const split = affectedIntegration.targetsForExecutionGroup;
+  assert.equal(typeof split, 'function');
+  const targets = [
+    { kind: 'tooling', name: 'integration-matrix' },
+    { kind: 'filter', name: 'Identity', filter: 'identity' },
+    { kind: 'filter', name: 'smoke', filter: 'smoke' },
+    { kind: 'shard', name: 'migrations' }
+  ];
+  assert.deepEqual(split(targets, 'all'), targets);
+  assert.deepEqual(split(targets, 'modules'), targets.slice(0, 3));
+  const legacy = split(targets, 'migrations-legacy');
+  const current = split(targets, 'migrations-current');
+  assert.equal(legacy.length, 1);
+  assert.equal(current.length, 1);
+  assert.equal(legacy[0].kind, 'filter');
+  assert.equal(current[0].kind, 'filter');
+  assert.equal(legacy[0].filter, 'FullyQualifiedName~Full.NET.IntegrationTests.Migrations.Migration0');
+  assert.equal(current[0].filter,
+    'FullyQualifiedName~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations.Migration0');
+  assert.throws(() => split(targets, 'unknown'), /执行分组/);
+});
+
+test('登记过的精确恢复集只进入所属迁移分组，不混入模块分组', () => {
+  const split = affectedIntegration.targetsForExecutionGroup;
+  assert.equal(typeof split, 'function');
+  const legacy = { kind: 'filter', name: 'migration-093', filter: 'legacy' };
+  const current = { kind: 'filter', name: 'migration-238', filter: 'current' };
+  assert.deepEqual(split([legacy, current], 'modules'), []);
+  assert.deepEqual(split([legacy, current], 'migrations-legacy'), [legacy]);
+  assert.deepEqual(split([legacy, current], 'migrations-current'), [current]);
+});
+
+test('CI 执行分组参数必须显式有效，未提供时保持原完整执行', () => {
+  assert.equal(parseArguments(['--base', 'abc123', '--execution-group', 'modules']).executionGroup, 'modules');
+  assert.equal(parseArguments(['--base', 'abc123']).executionGroup, 'all');
+  assert.throws(() => parseArguments(['--base', 'abc123', '--execution-group', 'unknown']), /执行分组/);
+  assert.throws(() => parseArguments(['--base', 'abc123', '--execution-group']), /执行分组/);
+});
+
+test('pnpm 参数分隔符不改变受影响集成验证的基线和阶段', () => {
+  assert.deepEqual(parseArguments(['--', '--base', 'abc123', '--phase', 'merge']),
+    parseArguments(['--base', 'abc123', '--phase', 'merge']));
+  assert.throws(() => parseArguments(['--', '--unknown']), /未知参数/);
+});
+
 test('命令参数要求显式任务基线并支持只规划模式', () => {
   assert.deepEqual(
     parseArguments(['--base', 'abc123', '--plan']),
@@ -681,7 +768,8 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       phase: 'slice',
       planOnly: true,
       snapshotId: null,
-      includeHeavy: false
+      includeHeavy: false,
+      executionGroup: 'all'
     }
   );
   assert.deepEqual(
@@ -691,7 +779,8 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       phase: 'inner',
       planOnly: false,
       snapshotId: 'task-123',
-      includeHeavy: false
+      includeHeavy: false,
+      executionGroup: 'all'
     }
   );
   assert.deepEqual(
@@ -701,7 +790,8 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       phase: 'merge',
       planOnly: false,
       snapshotId: null,
-      includeHeavy: true
+      includeHeavy: true,
+      executionGroup: 'all'
     }
   );
   assert.throws(() => parseArguments([]), /--base/);

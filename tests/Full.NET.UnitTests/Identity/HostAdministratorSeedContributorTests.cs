@@ -169,7 +169,7 @@ public sealed class HostAdministratorSeedContributorTests
         var descriptors = services
             .Where(descriptor => descriptor.ServiceType == typeof(IDataSeedContributor))
             .ToArray();
-        Assert.HasCount(3, descriptors);
+        Assert.HasCount(4, descriptors);
         Assert.IsTrue(
             descriptors.All(descriptor => descriptor.Lifetime == ServiceLifetime.Scoped));
         CollectionAssert.AreEquivalent(
@@ -177,6 +177,7 @@ public sealed class HostAdministratorSeedContributorTests
             {
                 typeof(HostAdministratorSeedContributor),
                 typeof(BootstrapAdminTenantMembershipSeedContributor),
+                typeof(DevelopmentBootstrapAdminTenantMembershipSeedContributor),
                 typeof(HostNavigationCatalogSeedContributor),
             },
             descriptors.Select(descriptor => descriptor.ImplementationType).ToArray());

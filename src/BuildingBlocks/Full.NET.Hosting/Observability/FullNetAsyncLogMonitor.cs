@@ -12,6 +12,17 @@ public readonly record struct AsyncLogBufferSnapshot(
     long DroppedMessagesCount);
 
 /// <summary>
+/// 供日志监控器读取字节预算和过大事件计数的内部视图。
+/// </summary>
+internal interface ILogByteBudgetInspector
+{
+    long ReservedBytes { get; }
+    long ByteCapacity { get; }
+    long OversizeCount { get; }
+    long ByteBudgetDroppedCount { get; }
+}
+
+/// <summary>
 /// 观测单条固定日志通道的队列状态，并暴露低基数 OpenTelemetry 指标。
 /// </summary>
 public sealed class FullNetAsyncLogMonitor : IAsyncLogEventSinkMonitor, IDisposable
@@ -47,6 +58,18 @@ public sealed class FullNetAsyncLogMonitor : IAsyncLogEventSinkMonitor, IDisposa
         _meter.CreateObservableGauge<long>(
             "fullnet.logging.events.dropped",
             () => Observe(Snapshot.DroppedMessagesCount));
+        _meter.CreateObservableGauge<long>(
+            "fullnet.logging.queue.bytes",
+            () => Observe((Volatile.Read(ref _inspector) as ILogByteBudgetInspector)?.ReservedBytes ?? 0));
+        _meter.CreateObservableGauge<long>(
+            "fullnet.logging.queue.bytes.capacity",
+            () => Observe((Volatile.Read(ref _inspector) as ILogByteBudgetInspector)?.ByteCapacity ?? 0));
+        _meter.CreateObservableGauge<long>(
+            "fullnet.logging.events.oversize",
+            () => Observe((Volatile.Read(ref _inspector) as ILogByteBudgetInspector)?.OversizeCount ?? 0));
+        _meter.CreateObservableGauge<long>(
+            "fullnet.logging.events.byte_budget_dropped",
+            () => Observe((Volatile.Read(ref _inspector) as ILogByteBudgetInspector)?.ByteBudgetDroppedCount ?? 0));
     }
 
     /// <summary>
@@ -63,6 +86,17 @@ public sealed class FullNetAsyncLogMonitor : IAsyncLogEventSinkMonitor, IDisposa
                     inspector.Count,
                     inspector.BufferSize,
                     inspector.DroppedMessagesCount);
+        }
+    }
+
+    internal (long ReservedBytes, long CapacityBytes) ByteUsage
+    {
+        get
+        {
+            var inspector = Volatile.Read(ref _inspector) as ILogByteBudgetInspector;
+            return inspector is null
+                ? default
+                : (inspector.ReservedBytes, inspector.ByteCapacity);
         }
     }
 

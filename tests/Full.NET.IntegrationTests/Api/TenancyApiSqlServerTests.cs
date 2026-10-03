@@ -211,7 +211,11 @@ public sealed class TenancyApiSqlServerTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            new Dictionary<string, string?>
+            {
+                ["Tenancy:Commercial:RequirePackageOrSubscriptionOnReactivate"] = "true",
+            });
 
         await TenantEntitlementAssertions.VerifyEnforcedUnboundTenantHasEmptyBindingsAndBlocksReactivateAsync(
             factory);

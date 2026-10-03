@@ -5,10 +5,19 @@ using Full.NET.Benchmarks.Caching;
 using Full.NET.Benchmarks.Data;
 using Full.NET.Benchmarks.Jobs;
 using Full.NET.Benchmarks.Kafka;
+using Full.NET.Benchmarks.Logging;
 using Full.NET.Benchmarks.MixedLoad;
 using Full.NET.Benchmarks.Outbox;
 
-if (args.FirstOrDefault() is "outbox-capacity")
+if (args.FirstOrDefault() is "logging-route-case")
+{
+    await LoggingIsolatedRouteProbe.RunAsync(args.Skip(1).ToArray());
+}
+else if (args.FirstOrDefault() is "logging-request-latency")
+{
+    await LoggingRequestLatencyRunner.RunAsync(args.Skip(1).ToArray());
+}
+else if (args.FirstOrDefault() is "outbox-capacity")
 {
     var outboxArguments = args.Skip(1).ToArray();
     if (outboxArguments.Contains("--help", StringComparer.OrdinalIgnoreCase))
@@ -126,6 +135,7 @@ else
             typeof(SerializationBenchmarks),
             typeof(CacheAccessBoundaryBenchmarks),
             typeof(DapperAotCommandReuseBenchmarks),
+            typeof(LoggingHotPathBenchmarks),
         ])
         .Run(args);
 }

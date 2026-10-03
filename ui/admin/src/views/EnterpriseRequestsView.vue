@@ -30,23 +30,16 @@ const createForm = reactive({
   organizationUnitId: '',
   requestNumber: '',
   title: '',
-  status: '',
+  status: 'Draft',
   totalAmount: 0,
-  applicantUserId: '',
-  createdById: '',
-  updatedById: null,
-  deletedById: null
+  applicantUserId: ''
 });
 const editForm = reactive({
-  organizationUnitId: '',
   requestNumber: '',
   title: '',
   status: '',
   totalAmount: 0,
-  applicantUserId: '',
-  createdById: '',
-  updatedById: null,
-  deletedById: null
+  applicantUserId: ''
 });
 
 const {
@@ -83,7 +76,10 @@ function openCreate(): void {
 
 function openEdit(row: EnterpriseRequestResponse): void {
   editing.value = row;
-  Object.assign(editForm, row);
+  Object.assign(editForm, {
+    requestNumber: row.requestNumber, title: row.title, status: row.status,
+    totalAmount: row.totalAmount, applicantUserId: row.applicantUserId
+  });
   editOpen.value = true;
 }
 
@@ -196,15 +192,6 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
       <el-form-item label="ApplicantUserId">
         <el-input v-model="createForm.applicantUserId" />
       </el-form-item>
-      <el-form-item label="CreatedById">
-        <el-input v-model="createForm.createdById" />
-      </el-form-item>
-      <el-form-item label="UpdatedById">
-        <el-input v-model="createForm.updatedById" />
-      </el-form-item>
-      <el-form-item label="DeletedById">
-        <el-input v-model="createForm.deletedById" />
-      </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="createOpen = false">取消</el-button>
@@ -213,9 +200,6 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
     </el-dialog>
     <el-dialog v-model="editOpen" title="编辑">
       <el-form label-width="120px">
-      <el-form-item label="OrganizationUnitId">
-        <el-input v-model="editForm.organizationUnitId" />
-      </el-form-item>
       <el-form-item label="RequestNumber">
         <el-input v-model="editForm.requestNumber" />
       </el-form-item>
@@ -230,15 +214,6 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
       </el-form-item>
       <el-form-item label="ApplicantUserId">
         <el-input v-model="editForm.applicantUserId" />
-      </el-form-item>
-      <el-form-item label="CreatedById">
-        <el-input v-model="editForm.createdById" />
-      </el-form-item>
-      <el-form-item label="UpdatedById">
-        <el-input v-model="editForm.updatedById" />
-      </el-form-item>
-      <el-form-item label="DeletedById">
-        <el-input v-model="editForm.deletedById" />
       </el-form-item>
       </el-form>
       <template #footer>

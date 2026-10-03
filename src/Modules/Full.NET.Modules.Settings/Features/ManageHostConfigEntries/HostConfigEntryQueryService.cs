@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
+using Full.NET.Hosting.Observability;
 using Full.NET.Modules.Settings.Contracts;
 using Full.NET.Modules.Settings.Persistence;
 using Microsoft.Extensions.Options;
@@ -21,6 +22,7 @@ internal sealed class HostConfigEntryQueryService(
         var offset = (page - 1) * pageSize;
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 ConfigEntrySql.CountHostConfigEntries,
+                SettingsSqlParameters.Create(("ReservedConfigKey", DiagnosticPolicyLimits.ConfigKey)),
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         var statement = databaseOptions.Value.Provider switch
@@ -34,7 +36,8 @@ internal sealed class HostConfigEntryQueryService(
                 statement,
                 SettingsSqlParameters.Create(
                     ("Offset", offset),
-                    ("PageSize", pageSize)
+                    ("PageSize", pageSize),
+                    ("ReservedConfigKey", DiagnosticPolicyLimits.ConfigKey)
                 ),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -52,7 +55,7 @@ internal sealed class HostConfigEntryQueryService(
                 SettingsSqlParameters.Create(("ConfigEntryId", configEntryId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (record is null)
+        if (record is null || ReservedHostConfigKeys.IsReserved(record.ConfigKey))
         {
             return NotFound();
         }
@@ -65,7 +68,7 @@ internal sealed class HostConfigEntryQueryService(
         CancellationToken cancellationToken = default)
     {
         var normalizedKey = configKey?.Trim().ToLowerInvariant() ?? string.Empty;
-        if (normalizedKey.Length == 0)
+        if (normalizedKey.Length == 0 || ReservedHostConfigKeys.IsReserved(normalizedKey))
         {
             return NotFound();
         }
@@ -75,7 +78,7 @@ internal sealed class HostConfigEntryQueryService(
                 SettingsSqlParameters.Create(("ConfigKey", normalizedKey)),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (record is null)
+        if (record is null || ReservedHostConfigKeys.IsReserved(record.ConfigKey))
         {
             return NotFound();
         }
@@ -92,6 +95,7 @@ internal sealed class HostConfigEntryQueryService(
     {
         var rows = await queryExecutor.QueryAsync<ConfigEntryRecord>(
                 ConfigEntrySql.ListAllHostConfigEntries,
+                SettingsSqlParameters.Create(("ReservedConfigKey", DiagnosticPolicyLimits.ConfigKey)),
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -106,6 +110,7 @@ internal sealed class HostConfigEntryQueryService(
     {
         var groups = await queryExecutor.QueryAsync<string>(
                 ConfigEntrySql.ListGroups,
+                SettingsSqlParameters.Create(("ReservedConfigKey", DiagnosticPolicyLimits.ConfigKey)),
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         return Result<IReadOnlyList<string>>.Success(groups.ToArray());

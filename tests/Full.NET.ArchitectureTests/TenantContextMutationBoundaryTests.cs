@@ -13,8 +13,9 @@ public sealed class TenantContextMutationBoundaryTests
     [
         "src/BuildingBlocks/Full.NET.Abstractions/Tenancy/CurrentTenantAccessor.cs",
         "src/BuildingBlocks/Full.NET.Abstractions/Tenancy/ICurrentTenantContextWriter.cs",
+        // 一次性迁移的固定Host作用域从旧宿主入口移至共享生命周期，仍只允许该精确文件。
+        "src/BuildingBlocks/Full.NET.Hosting.Migrator/FullNetMigratorHost.cs",
         "src/BuildingBlocks/Full.NET.Modularity/Messaging/IntegrationEventConsumerDispatcher.cs",
-        "src/Hosts/Full.NET.Host.Migrator/Program.cs",
         "src/Hosts/Full.NET.Host.Worker/OutboxProcessor.cs",
         "src/Hosts/Full.NET.Host.Worker/OutboxRetentionProcessor.cs",
         "src/Hosts/Full.NET.Host.Worker/Program.cs",
@@ -28,6 +29,10 @@ public sealed class TenantContextMutationBoundaryTests
         // 独立清理作用域只接收已授权请求捕获的租户，结束时清除上下文，不用于新模型派发。
         "src/Modules/Full.NET.Modules.Ai/Streaming/AiChatCleanupScope.cs",
         "src/Modules/Full.NET.Modules.Ai/Streaming/AiChatGenerationLeaseMonitor.cs",
+        // API 详情资格刷新只在独立作用域读取 Auditing HostOnly 检查点，结束时清除上下文。
+        "src/Modules/Full.NET.Modules.Auditing/Retention/AuditDetailsCapturePolicyRefreshService.cs",
+        // 详情到期清理与普通保留任务一样，仅在 Worker 独立作用域执行 HostOnly SQL，结束时清除上下文。
+        "src/Modules/Full.NET.Modules.Auditing/Retention/AuditDetailsRetentionHostedService.cs",
         "src/Modules/Full.NET.Modules.Auditing/Retention/AuditingRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.CodeGeneration/Retention/CodeGenerationCheckpointRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.DataApproval/Execution/DataApprovalRequestApplicationRecoveryBatchProcessor.cs",
@@ -36,6 +41,9 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Document/PreviewTasks/DocumentPreviewTaskHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Document/Retention/DocumentVersionRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Files/Cleanup/DeletedHostFileBlobCleanupHostedProcessor.cs",
+        // 上传从可信租户上下文捕获租户后临时调用 Host 配额端口，结束或异常均恢复原作用域。
+        "src/Modules/Full.NET.Modules.Files/Features/FilesHostExecutionScope.cs",
+        "src/Modules/Full.NET.Modules.Files/Features/TenantResourceFiles/TenantResourceFileStore.cs",
         "src/Modules/Full.NET.Modules.Files/Reconciliation/PendingHostFileReconciliationHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Files/Reconciliation/PendingHostFileReferenceClaimReconciliationHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Files/Reconciliation/PendingTenantResourceFileReconciliationRunner.cs",
@@ -57,6 +65,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Identity/Security/FullNetJwtBearerEvents.cs",
         // 种子数据在 Host 作用域写入成员关系，租户来自已授权种子上下文而非请求参数。
         "src/Modules/Full.NET.Modules.Identity/Seeding/BootstrapAdminTenantMembershipSeedContributor.cs",
+        // 开发 Overlay 仅把可信依赖交给既有种子实现；租户来自 local 目录并由其 finally 恢复。
+        "src/Modules/Full.NET.Modules.Identity/Seeding/DevelopmentBootstrapAdminTenantMembershipSeedContributor.cs",
         "src/Modules/Full.NET.Modules.ImportExport/ImportTasks/ImportExportTaskRunner.cs",
         "src/Modules/Full.NET.Modules.Jobs/Execution/JobExecutionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Jobs/Execution/JobExecutionRunner.cs",
@@ -69,6 +79,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/HostUserManagementTenantScope.cs",
         "src/Modules/Full.NET.Modules.Reporting/Features/ManageExportTasks/ReportingExportTaskRunner.cs",
         "src/Modules/Full.NET.Modules.Settings/Features/ManageDiagnosticPolicy/DiagnosticPolicyStore.cs",
+        // 权益只读 Port 临时进入 Host 目录读取阶段与绑定，租户来自调用方可信作用域，结束后恢复。
+        "src/Modules/Full.NET.Modules.Tenancy/Features/ManageTenantEntitlements/TenantFeatureEntitlementPort.cs",
         "src/Modules/Full.NET.Modules.Tenancy/Features/TenancyHostExecutionScope.cs",
         "src/Modules/Full.NET.Modules.Tenancy/Features/TenantBranding/TenantBrandingMediaService.cs",
         "src/Modules/Full.NET.Modules.Tenancy/TenancyModule.cs",

@@ -6,6 +6,7 @@ import { cpSync, copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildSourceBundle } from './build-source-bundle.mjs';
+import { copyApplicationClientTools } from './application-client-tools.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, '..', '..');
@@ -46,12 +47,14 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
   const configTemplate = join(templateRoot, 'appsettings.json.template');
   copyFileSync(configTemplate, join(templateRoot, 'appsettings.json'));
   copyFileSync(configTemplate, join(templateRoot, 'src', 'FullNetAppNameToken.Host.Api', 'appsettings.json'));
+  copyFileSync(configTemplate, join(templateRoot, 'src', 'FullNetAppNameToken.Host.Migrator', 'appsettings.json'));
   rmSync(configTemplate);
   const toolRoot = join(templateRoot, '.fullnet-tools');
   mkdirSync(toolRoot);
-  for (const tool of ['create-app.mjs', 'framework-manifest-utils.mjs', 'migration-script-modules.mjs', 'preset-modules.mjs', 'project-preset-composition.mjs', 'verify-created-app.mjs', 'upgrade-framework.mjs']) {
+  for (const tool of ['create-app.mjs', 'framework-manifest-utils.mjs', 'migration-script-modules.mjs', 'preset-modules.mjs', 'project-preset-composition.mjs', 'verify-created-app.mjs', 'upgrade-framework.mjs', 'framework-upgrade-integrity.mjs', 'framework-upgrade-store.mjs']) {
     copyFileSync(join(SCRIPT_DIR, tool), join(toolRoot, tool));
   }
+  copyApplicationClientTools(bundleRoot, templateRoot);
   return { templateRoot };
 }
 

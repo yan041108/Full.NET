@@ -1,3 +1,4 @@
+using System.Text;
 using Full.NET.Modules.Auditing.Features.WriteExceptionLogs;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 using Full.NET.Modules.Auditing.Persistence;
@@ -20,6 +21,8 @@ internal readonly record struct AuditWriteResult(bool Succeeded, bool Poisoned =
 /// </summary>
 internal sealed class AuditWriteEnvelope
 {
+    private int _queueBudgetReleased;
+
     private AuditWriteEnvelope(
         AuditMicroBatchKind kind,
         OperationLogWriteModel? operation,
@@ -48,15 +51,43 @@ internal sealed class AuditWriteEnvelope
 
     public TaskCompletionSource<AuditWriteResult> Completion { get; }
 
+    public void ReleaseQueueBudgetOnce(AuditQueueByteBudget budget)
+    {
+        if (Interlocked.Exchange(ref _queueBudgetReleased, 1) == 0)
+        {
+            budget.Release(EstimatedBytes);
+        }
+    }
+
     public static AuditWriteEnvelope ForOperation(OperationLogWriteModel model)
     {
         ArgumentNullException.ThrowIfNull(model);
+        if (model.Details is { } details
+            && (string.IsNullOrWhiteSpace(details.ContextJson)
+                || details.ContextJson.Length > 8192
+                || Encoding.UTF8.GetByteCount(details.ContextJson) > 8192
+                || details.ExpiresAtUtc.Offset != TimeSpan.Zero))
+        {
+            // 详情无效时只降级为摘要，不能让旁路数据阻断 B1 原有记录。
+            model = model with { Details = null };
+        }
+
         return new AuditWriteEnvelope(
             AuditMicroBatchKind.Operation,
             model,
             exception: null,
             outbound: null,
-            Estimate(model.ActionKey, model.RequestPath, model.TraceId, model.PermissionCode));
+            Estimate(
+                model.ActionKey,
+                model.HttpMethod,
+                model.RequestPath,
+                model.TraceId,
+                model.ClientIpFingerprint,
+                model.PermissionCode,
+                model.RequiredPermissions.IsDefaultOrEmpty
+                    ? null
+                    : string.Join('|', model.RequiredPermissions),
+                model.Details?.ContextJson));
     }
 
     public static AuditWriteEnvelope ForException(ExceptionLogWriteModel model)
@@ -67,7 +98,14 @@ internal sealed class AuditWriteEnvelope
             operation: null,
             model,
             outbound: null,
-            Estimate(model.ExceptionType, model.Message, model.StackTrace, model.RequestPath));
+            Estimate(
+                model.ExceptionType,
+                model.Message,
+                model.StackTrace,
+                model.HttpMethod,
+                model.RequestPath,
+                model.TraceId,
+                model.ClientIpFingerprint));
     }
 
     public static AuditWriteEnvelope ForOutbound(OutboundCallLogRecord model)
@@ -88,13 +126,27 @@ internal sealed class AuditWriteEnvelope
 
     private static int Estimate(params string?[] parts)
     {
-        // 粗估载荷字节，用于 MaxBatchBytes 背压；不追求精确 UTF-8 计数。
-        var total = 64;
+        // 字符数不能代表 UTF-8 字节；固定费用覆盖行对象和数值字段的基础开销。
+        long total = 128;
         foreach (var part in parts)
         {
-            total += part?.Length * 2 ?? 0;
+            if (part is null)
+            {
+                continue;
+            }
+
+            if (part.Length >= (int.MaxValue - total) / 2)
+            {
+                return int.MaxValue;
+            }
+
+            total += Math.Max(part.Length * 2, Encoding.UTF8.GetByteCount(part));
+            if (total >= int.MaxValue)
+            {
+                return int.MaxValue;
+            }
         }
 
-        return total;
+        return (int)total;
     }
 }

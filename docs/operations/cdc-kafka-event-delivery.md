@@ -62,7 +62,7 @@
 
 ## 生产门禁（未验证项）
 
-下列项在专用生产等价环境认证前必须标记 **Capacity-not-verified**：
+下列项可在本地隔离环境实际通过后验收，不再要求专用生产等价环境；未测规模继续标记 **Capacity-not-verified**，记录环境和范围：
 
 - 双库 CDC 影子 Soak 与 lag SLO
 - Kafka N+1 与 retention/recovery 演练

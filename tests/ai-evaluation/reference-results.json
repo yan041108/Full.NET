@@ -1,0 +1,319 @@
+{
+  "datasetVersion": "fullnet-rag-synthetic-2026-10-02-v1",
+  "datasetSha256": "3380bf8d0b8352df48093b1c0dee7d4216b0eeae30733cc37f04cd65e778ec6b",
+  "policyVersion": "rag-quality-v1",
+  "runKind": "offline_reference",
+  "versions": {
+    "model": "none-offline-reference",
+    "prompt": "none-offline-reference",
+    "parser": "synthetic-v1",
+    "chunking": "synthetic-v1",
+    "retrieval": "reference-v1",
+    "index": "none-offline-reference"
+  },
+  "results": [
+    {
+      "caseId": "zh-terminology",
+      "candidateChunkIds": [
+        "slo-1"
+      ],
+      "contextChunkIds": [
+        "slo-1"
+      ],
+      "citationChunkIds": [
+        "slo-1"
+      ],
+      "answer": "每月服务成功请求的比例，目标 99.9%。",
+      "refused": false,
+      "semanticReview": {
+        "verdict": "supported",
+        "reviewer": "synthetic-reference-author",
+        "evidence": "人工构造参考答案，逐项对应冻结合成片段；不代表真实模型评审。"
+      },
+      "toolCalls": [],
+      "usage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cost": 0,
+        "currency": "CNY"
+      },
+      "durationMilliseconds": 0
+    },
+    {
+      "caseId": "exact-number",
+      "candidateChunkIds": [
+        "ticket-1"
+      ],
+      "contextChunkIds": [
+        "ticket-1"
+      ],
+      "citationChunkIds": [
+        "ticket-1"
+      ],
+      "answer": "示例采购；三个工作日。",
+      "refused": false,
+      "semanticReview": {
+        "verdict": "supported",
+        "reviewer": "synthetic-reference-author",
+        "evidence": "人工构造参考答案，逐项对应冻结合成片段；不代表真实模型评审。"
+      },
+      "toolCalls": [],
+      "usage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cost": 0,
+        "currency": "CNY"
+      },
+      "durationMilliseconds": 0
+    },
+    {
+      "caseId": "table-limit",
+      "candidateChunkIds": [
+        "table-1"
+      ],
+      "contextChunkIds": [
+        "table-1"
+      ],
+      "citationChunkIds": [
+        "table-1"
+      ],
+      "answer": "80 份。",
+      "refused": false,
+      "semanticReview": {
+        "verdict": "supported",
+        "reviewer": "synthetic-reference-author",
+        "evidence": "人工构造参考答案，逐项对应冻结合成片段；不代表真实模型评审。"
+      },
+      "toolCalls": [],
+      "usage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cost": 0,
+        "currency": "CNY"
+      },
+      "durationMilliseconds": 0
+    },
+    {
+      "caseId": "cross-paragraph",
+      "candidateChunkIds": [
+        "leave-1",
+        "leave-2"
+      ],
+      "contextChunkIds": [
+        "leave-1",
+        "leave-2"
+      ],
+      "citationChunkIds": [
+        "leave-1",
+        "leave-2"
+      ],
+      "answer": "直属主管先审核，再由人事复核。",
+      "refused": false,
+      "semanticReview": {
+        "verdict": "supported",
+        "reviewer": "synthetic-reference-author",
+        "evidence": "人工构造参考答案，逐项对应冻结合成片段；不代表真实模型评审。"
+      },
+      "toolCalls": [],
+      "usage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cost": 0,
+        "currency": "CNY"
+      },
+      "durationMilliseconds": 0
+    },
+    {
+      "caseId": "current-version",
+      "candidateChunkIds": [
+        "retention-current"
+      ],
+      "contextChunkIds": [
+        "retention-current"
+      ],
+      "citationChunkIds": [
+        "retention-current"
+      ],
+      "answer": "三十天，版本 1 已失效。",
+      "refused": false,
+      "semanticReview": {
+        "verdict": "supported",
+        "reviewer": "synthetic-reference-author",
+        "evidence": "人工构造参考答案，逐项对应冻结合成片段；不代表真实模型评审。"
+      },
+      "toolCalls": [],
+      "usage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cost": 0,
+        "currency": "CNY"
+      },
+      "durationMilliseconds": 0
+    },
+    {
+      "caseId": "no-evidence",
+      "candidateChunkIds": [],
+      "contextChunkIds": [],
+      "citationChunkIds": [],
+      "answer": "资料不足，无法回答。",
+      "refused": true,
+      "semanticReview": {
+        "verdict": "not_applicable",
+        "reviewer": "synthetic-reference-author",
+        "evidence": "合成场景按来源允许集应拒答。"
+      },
+      "toolCalls": [],
+      "usage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cost": 0,
+        "currency": "CNY"
+      },
+      "durationMilliseconds": 0
+    },
+    {
+      "caseId": "cross-tenant",
+      "candidateChunkIds": [],
+      "contextChunkIds": [],
+      "citationChunkIds": [],
+      "answer": "没有获授权的资料，无法回答。",
+      "refused": true,
+      "semanticReview": {
+        "verdict": "not_applicable",
+        "reviewer": "synthetic-reference-author",
+        "evidence": "合成场景按来源允许集应拒答。"
+      },
+      "toolCalls": [],
+      "usage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cost": 0,
+        "currency": "CNY"
+      },
+      "durationMilliseconds": 0
+    },
+    {
+      "caseId": "revoked-source",
+      "candidateChunkIds": [],
+      "contextChunkIds": [],
+      "citationChunkIds": [],
+      "answer": "来源已不可访问，无法回答。",
+      "refused": true,
+      "semanticReview": {
+        "verdict": "not_applicable",
+        "reviewer": "synthetic-reference-author",
+        "evidence": "合成场景按来源允许集应拒答。"
+      },
+      "toolCalls": [],
+      "usage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cost": 0,
+        "currency": "CNY"
+      },
+      "durationMilliseconds": 0
+    },
+    {
+      "caseId": "injected-action",
+      "candidateChunkIds": [],
+      "contextChunkIds": [],
+      "citationChunkIds": [],
+      "answer": "文档不能授权工具操作，拒绝执行。",
+      "refused": true,
+      "semanticReview": {
+        "verdict": "not_applicable",
+        "reviewer": "synthetic-reference-author",
+        "evidence": "合成场景按来源允许集应拒答。"
+      },
+      "toolCalls": [],
+      "usage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cost": 0,
+        "currency": "CNY"
+      },
+      "durationMilliseconds": 0
+    },
+    {
+      "caseId": "injection-with-evidence",
+      "candidateChunkIds": [
+        "manual-1"
+      ],
+      "contextChunkIds": [
+        "manual-1"
+      ],
+      "citationChunkIds": [
+        "manual-1"
+      ],
+      "answer": "进入设置页，点击保存按钮。",
+      "refused": false,
+      "semanticReview": {
+        "verdict": "supported",
+        "reviewer": "synthetic-reference-author",
+        "evidence": "人工构造参考答案，逐项对应冻结合成片段；不代表真实模型评审。"
+      },
+      "toolCalls": [],
+      "usage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cost": 0,
+        "currency": "CNY"
+      },
+      "durationMilliseconds": 0
+    },
+    {
+      "caseId": "deleted-source",
+      "candidateChunkIds": [],
+      "contextChunkIds": [],
+      "citationChunkIds": [],
+      "answer": "来源已删除，无法回答。",
+      "refused": true,
+      "semanticReview": {
+        "verdict": "not_applicable",
+        "reviewer": "synthetic-reference-author",
+        "evidence": "合成场景按来源允许集应拒答。"
+      },
+      "toolCalls": [],
+      "usage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cost": 0,
+        "currency": "CNY"
+      },
+      "durationMilliseconds": 0
+    },
+    {
+      "caseId": "uncited-revoked-dependency",
+      "candidateChunkIds": [],
+      "contextChunkIds": [],
+      "citationChunkIds": [],
+      "answer": "历史答案的来源依赖已失效，无法复用。",
+      "refused": true,
+      "semanticReview": {
+        "verdict": "not_applicable",
+        "reviewer": "synthetic-reference-author",
+        "evidence": "合成场景按来源允许集应拒答。"
+      },
+      "toolCalls": [],
+      "usage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cost": 0,
+        "currency": "CNY"
+      },
+      "durationMilliseconds": 0
+    }
+  ]
+}

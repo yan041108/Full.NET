@@ -7,6 +7,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Observability;
 using Full.NET.Hosting.Security;
+using Full.NET.Logging.Kafka;
 using Full.NET.Host.Worker;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Messaging.Kafka;
@@ -39,7 +40,7 @@ if (commandLine.VersionRetirement is not null)
     builder.Logging.SetMinimumLevel(LogLevel.Warning);
 }
 
-builder.AddFullNetServiceDefaults();
+builder.AddFullNetServiceDefaults(KafkaLogSnapshotExporter.Create);
 builder.Services.AddFullNetDataProtection(builder.Configuration, builder.Environment);
 builder.Services.AddFullNetDapper(
     builder.Configuration,

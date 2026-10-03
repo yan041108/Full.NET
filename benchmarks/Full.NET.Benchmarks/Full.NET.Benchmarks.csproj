@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Logging.Kafka\Full.NET.Logging.Kafka.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Caching.Abstractions\Full.NET.Caching.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Caching.Fusion\Full.NET.Caching.Fusion.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />

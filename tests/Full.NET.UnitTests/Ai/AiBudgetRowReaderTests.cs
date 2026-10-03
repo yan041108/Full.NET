@@ -8,6 +8,63 @@ namespace Full.NET.UnitTests.Ai;
 public sealed class AiBudgetRowReaderTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Model_config_maps_host_nulls_and_populated_tenant_columns(bool populated)
+    {
+        using var table = new DataTable();
+        foreach (var name in new[] { "Id", "TenantId" }) table.Columns.Add(name, typeof(Guid));
+        foreach (var name in new[] { "Name", "ProviderKey", "EndpointBaseUrl", "ModelId", "ApiKeyProtected",
+                     "OrganizationId", "LastTestStatusKey", "LastTestMessage" }) table.Columns.Add(name, typeof(string));
+        foreach (var name in new[] { "IsDefault", "IsEnabled" }) table.Columns.Add(name, typeof(byte));
+        foreach (var name in new[] { "CreatedAtUtc", "UpdatedAtUtc", "LastTestedAtUtc" }) table.Columns.Add(name, typeof(DateTime));
+        table.Columns.Add("Version", typeof(int));
+        var row = table.NewRow();
+        var id = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        var now = new DateTime(2026, 10, 2, 0, 0, 0, DateTimeKind.Unspecified);
+        row["Id"] = id;
+        row["Name"] = "模型";
+        row["ProviderKey"] = "ollama";
+        row["EndpointBaseUrl"] = "https://model.example";
+        row["ModelId"] = "model-v1";
+        row["IsDefault"] = (byte)0;
+        row["IsEnabled"] = (byte)1;
+        row["CreatedAtUtc"] = now;
+        row["Version"] = 3;
+        if (populated)
+        {
+            row["TenantId"] = tenantId;
+            row["ApiKeyProtected"] = "protected";
+            row["OrganizationId"] = "org";
+            row["LastTestedAtUtc"] = now;
+            row["LastTestStatusKey"] = "succeeded";
+            row["LastTestMessage"] = "摘要";
+            row["UpdatedAtUtc"] = now;
+        }
+        table.Rows.Add(row);
+        using var reader = table.CreateDataReader();
+        Assert.IsTrue(reader.Read());
+        var model = AiBudgetRowReaders.ReadModelConfig(reader);
+        Assert.AreEqual(id, model.Id);
+        Assert.AreEqual("模型", model.Name);
+        Assert.AreEqual("ollama", model.ProviderKey);
+        Assert.AreEqual("https://model.example", model.EndpointBaseUrl);
+        Assert.AreEqual("model-v1", model.ModelId);
+        Assert.IsFalse(model.IsDefault);
+        Assert.IsTrue(model.IsEnabled);
+        Assert.AreEqual(3, model.Version);
+        Assert.AreEqual(new DateTimeOffset(now, TimeSpan.Zero), model.CreatedAtUtc);
+        Assert.AreEqual(populated ? tenantId : (Guid?)null, model.TenantId);
+        Assert.AreEqual(populated ? "protected" : null, model.ApiKeyProtected);
+        Assert.AreEqual(populated ? "org" : null, model.OrganizationId);
+        Assert.AreEqual(populated ? "succeeded" : null, model.LastTestStatusKey);
+        Assert.AreEqual(populated ? "摘要" : null, model.LastTestMessage);
+        Assert.AreEqual(populated ? model.CreatedAtUtc : (DateTimeOffset?)null, model.LastTestedAtUtc);
+        Assert.AreEqual(populated ? model.CreatedAtUtc : (DateTimeOffset?)null, model.UpdatedAtUtc);
+    }
+
+    [TestMethod]
     public void Totals_convert_database_decimal_aggregates_without_truncation()
     {
         using var table = new DataTable();

@@ -120,14 +120,25 @@ test('统一构建后的快速套件必须显式跳过重复构建', async () =>
   }
 });
 
-test('本地受影响测试选择器不得调用 full', async () => {
+test('本地验收允许显式完整测试，受影响选择仍按矩阵执行', async () => {
   const selector = await read(
     'scripts/testing/run-affected-integration.mjs'
   );
 
-  assert.doesNotMatch(selector, /argumentsFor\(['"]full['"]\)/);
   assert.doesNotMatch(selector, /完整 199|199 项/);
-  assert.match(selector, /本地受影响测试选择器禁止执行 full/);
+  assert.doesNotMatch(selector, /本地受影响测试选择器禁止执行 full|完整集合仅由 main CI/);
+  assert.match(selector, /argumentsFor\(target\.name\)/);
+});
+
+test('所有验收以本地真实通过为准，执行位置不能替代测试范围', async () => {
+  const rules = await read('rules/development-quality.md');
+  assert.match(rules, /R-20260930-local-acceptance/);
+  assert.match(rules, /本地实际通过即可验收/);
+  assert.doesNotMatch(rules, /本地完整 Integration 与 messaging-heavy 全量仍禁止|完整集合只保留给 main CI/);
+  const aotRules = await read('rules/native-aot.md');
+  assert.doesNotMatch(aotRules, /必须引用 fresh Linux CI run/);
+  const performanceRules = await read('rules/performance-engineering.md');
+  assert.doesNotMatch(performanceRules, /只在专用容量环境执行|只能由夜间或手动 CI/);
 });
 
 test('main Integration 门禁必须从测试矩阵读取分片并汇总结果', async () => {

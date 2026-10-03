@@ -2,7 +2,7 @@
 /**
  * 校验由 fullnet-app 模板创建的应用目录结构。
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolvePresetModules, validateOwnerKey } from './preset-modules.mjs';
@@ -19,61 +19,100 @@ const REQUIRED_FILES = [
   'packages/design-tokens/package.json',
 ];
 
-export function verifyCreatedApp(appRoot) {
+export function verifyCreatedApp(appRoot, { requireMigrator = false } = {}) {
   const root = resolve(appRoot);
   const errors = [];
+  const configurationFiles = ['appsettings.json'];
 
   for (const relativeFile of REQUIRED_FILES) {
     const absolutePath = join(root, relativeFile);
-    if (!existsSync(absolutePath)) {
+    if (!isRegularFile(absolutePath)) {
       errors.push('Missing required file: ' + relativeFile);
     }
   }
 
   const sourceRoot = join(root, 'src');
-  const hosts = existsSync(sourceRoot)
-    ? readdirSync(sourceRoot, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name.endsWith('.Host.Api'))
-    : [];
+  let hosts = [];
+  if (existsSync(sourceRoot)) {
+    try {
+      hosts = readdirSync(sourceRoot, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && entry.name.endsWith('.Host.Api'));
+    } catch (error) {
+      // 损坏或不可读的源码目录作为校验结果返回，避免调用方收到未处理的文件系统异常。
+      errors.push('Cannot inspect application source directory src: '
+        + (error instanceof Error ? error.message : String(error)));
+    }
+  }
   if (hosts.length !== 1) {
     errors.push('Created app must contain exactly one application API host');
   } else {
     const hostRoot = join(sourceRoot, hosts[0].name);
+    configurationFiles.push('src/' + hosts[0].name + '/appsettings.json');
     for (const hostFile of ['Program.cs', hosts[0].name + '.csproj', 'appsettings.json']) {
-      if (!existsSync(join(hostRoot, hostFile))) {
+      if (!isRegularFile(join(hostRoot, hostFile))) {
         errors.push('Missing required host file: ' + join('src', hosts[0].name, hostFile));
+      }
+    }
+    // 应用清单必须与唯一 API 宿主同名，其他应用的 Composition 不能补位。
+    const compositionName = hosts[0].name.slice(0, -'.Host.Api'.length) + '.Composition';
+    for (const compositionFile of [compositionName + '.csproj', 'ApplicationModuleCatalog.cs']) {
+      if (!isRegularFile(join(sourceRoot, compositionName, compositionFile))) {
+        errors.push('Missing required composition file: ' + join('src', compositionName, compositionFile));
+      }
+    }
+    // 新建应用必须拥有同名Migrator；默认保留旧应用结构校验，但已声明的宿主不能残缺。
+    const migratorName = hosts[0].name.slice(0, -'.Host.Api'.length) + '.Host.Migrator';
+    const migratorRoot = join(sourceRoot, migratorName);
+    if (requireMigrator || existsSync(migratorRoot)) {
+      configurationFiles.push('src/' + migratorName + '/appsettings.json');
+      for (const migratorFile of ['Program.cs', migratorName + '.csproj', 'appsettings.json']) {
+        if (!isRegularFile(join(migratorRoot, migratorFile))) {
+          errors.push('Missing required migrator file: ' + join('src', migratorName, migratorFile));
+        }
       }
     }
   }
 
-  const appsettingsPath = join(root, 'appsettings.json');
-  if (existsSync(appsettingsPath)) {
-    let config;
+  const configurations = [];
+  for (const relativePath of configurationFiles) {
+    const configPath = join(root, relativePath);
+    if (!isRegularFile(configPath)) continue;
     try {
-      config = JSON.parse(readFileSync(appsettingsPath, 'utf8'));
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      if (!config?.FullNet?.Modules) {
+        errors.push(relativePath + ' must define FullNet:Modules');
+      }
+      configurations.push({ relativePath, preset: config?.FullNet?.Modules?.Preset, provider: config?.Database?.Provider });
     } catch (error) {
-      errors.push('appsettings.json is not valid JSON: ' + (error instanceof Error ? error.message : String(error)));
-      config = null;
-    }
-
-    if (config && !config.FullNet?.Modules) {
-      errors.push('appsettings.json must define FullNet:Modules');
+      errors.push(relativePath + ' is not valid JSON: ' + (error instanceof Error ? error.message : String(error)));
     }
   }
 
   const profilePath = join(root, 'fullnet-app.json');
   let profilePreset;
+  let profileProvider;
   if (existsSync(profilePath)) {
     try {
       const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
       profilePreset = profile.preset;
+      profileProvider = profile.databaseProvider;
       validateOwnerKey(profile.ownerKey);
       resolvePresetModules(profile.preset);
-      if (!['sqlserver', 'mysql'].includes(profile.databaseProvider)) {
+      if (!['sqlserver', 'mysql'].includes(profileProvider)) {
         errors.push('fullnet-app.json has an invalid databaseProvider');
       }
     } catch (error) {
       errors.push('fullnet-app.json is invalid: ' + (error instanceof Error ? error.message : String(error)));
+    }
+  }
+
+  // 文件中的预设和数据库必须与应用冻结档案一致；环境覆盖由运行期诊断另行验证。
+  for (const { relativePath, preset, provider } of configurations) {
+    if (profilePreset !== undefined && preset !== profilePreset) {
+      errors.push(relativePath + ' module preset does not match fullnet-app.json');
+    }
+    if (['sqlserver', 'mysql'].includes(profileProvider) && provider !== profileProvider) {
+      errors.push(relativePath + ' database provider does not match fullnet-app.json');
     }
   }
 
@@ -117,6 +156,14 @@ export function verifyCreatedApp(appRoot) {
     ok: errors.length === 0,
     errors,
   };
+}
+
+function isRegularFile(path) {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
 }
 
 function isMainModule() {

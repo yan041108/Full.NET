@@ -11,6 +11,7 @@ const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 
 export const authoritativeMarkdownRoots = [
   'AGENTS.md',
+  'README.md',
   'rules',
   '.agents/skills',
   'docs/architecture',

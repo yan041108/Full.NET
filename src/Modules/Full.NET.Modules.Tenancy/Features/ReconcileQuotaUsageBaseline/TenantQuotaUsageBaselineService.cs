@@ -15,9 +15,9 @@ internal sealed class TenantQuotaUsageBaselineService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ITenantActiveMemberCountPort activeMemberCount,
-    ITenantResourceFileStorageUsagePort storageUsage,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    ITenantResourceFileStorageUsagePort? storageUsage = null)
 {
     public async Task<Result<ReconcileTenantQuotaUsageBaselineResponse>> ReconcileAsync(
         ReconcileTenantQuotaUsageBaselineRequest request,
@@ -26,7 +26,10 @@ internal sealed class TenantQuotaUsageBaselineService(
         var metricCode = string.IsNullOrWhiteSpace(request.MetricCode)
             ? TenantQuotaMetricCodes.IdentitySeats
             : request.MetricCode.Trim();
-        if (!IsSupportedMetric(metricCode))
+        // Files 为可选模块；缺少权威用量端口时拒绝对账，不能以零用量覆盖存量配额。
+        if (!IsSupportedMetric(metricCode)
+            || (string.Equals(metricCode, TenantQuotaMetricCodes.FilesStorageBytes, StringComparison.Ordinal)
+                && storageUsage is null))
         {
             return Result<ReconcileTenantQuotaUsageBaselineResponse>.Failure(new Error(
                 TenancyErrorCodes.QuotaUsageBaselineUnsupportedMetric,
@@ -139,7 +142,7 @@ internal sealed class TenantQuotaUsageBaselineService(
         CancellationToken cancellationToken) =>
         string.Equals(metricCode, TenantQuotaMetricCodes.IdentitySeats, StringComparison.Ordinal)
             ? activeMemberCount.CountActiveMembersAsync(tenantId, cancellationToken)
-            : storageUsage.SumReadyStorageBytesAsync(tenantId, cancellationToken);
+            : storageUsage!.SumReadyStorageBytesAsync(tenantId, cancellationToken);
 
     private static long ResolveDefaultLimit(string metricCode) =>
         string.Equals(metricCode, TenantQuotaMetricCodes.FilesStorageBytes, StringComparison.Ordinal)
