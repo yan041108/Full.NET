@@ -253,6 +253,12 @@ export interface AiKnowledgeRoleCandidateResponse {
   readonly name: string;
 }
 
+export interface AiKnowledgeRoleGrantsResponse {
+  readonly resourceId: string;
+  readonly roleIds: Array<string>;
+  readonly version: number;
+}
+
 export interface AiKnowledgeVersionResponse {
   readonly contentHash: string;
   readonly contentType: string;
@@ -4085,6 +4091,11 @@ export interface SetAiKnowledgeDocumentMembersRequest {
 
 export interface SetAiKnowledgeMembersRequest {
   readonly userIds: Array<string>;
+  readonly version: number;
+}
+
+export interface SetAiKnowledgeRoleGrantsRequest {
+  readonly roleIds: Array<string>;
   readonly version: number;
 }
 

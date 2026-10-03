@@ -26,6 +26,7 @@ import type {
   AiKnowledgeImportResponse,
   AiKnowledgeMembersResponse,
   AiKnowledgeRoleCandidateResponse,
+  AiKnowledgeRoleGrantsResponse,
   AiKnowledgeVersionResponse,
   AiMcpRemoteConnectionListItem,
   AiMcpRemoteConnectionResponse,
@@ -482,6 +483,7 @@ import type {
   ServerRuntimeSnapshot,
   SetAiKnowledgeDocumentMembersRequest,
   SetAiKnowledgeMembersRequest,
+  SetAiKnowledgeRoleGrantsRequest,
   SetHostDocumentPermissionsRequest,
   SetNotificationProviderProfileEnabledRequest,
   SetPersonalScheduleStatusRequest,
@@ -614,6 +616,7 @@ import {
   readAiKnowledgeDocumentResponse,
   readAiKnowledgeImportResponse,
   readAiKnowledgeMembersResponse,
+  readAiKnowledgeRoleGrantsResponse,
   readAiListAgentDelegationsResponse,
   readAiListAgentToolsResponse,
   readAiListMcpRemoteConnectionsResponse,
@@ -1417,6 +1420,25 @@ export async function aiGetKnowledgeDocumentMembers(
   return readAiKnowledgeDocumentMembersResponse(value);
 }
 
+export interface AiGetKnowledgeDocumentRolesParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+}
+
+export async function aiGetKnowledgeDocumentRoles(
+  http: HttpClient,
+  parameters: AiGetKnowledgeDocumentRolesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeRoleGrantsResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/roles`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeRoleGrantsResponse(value);
+}
+
 export interface AiGetKnowledgeImportParameters {
   readonly knowledgeBaseId: string;
   readonly documentId: string;
@@ -1453,6 +1475,24 @@ export async function aiGetKnowledgeMembers(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeMembersResponse(value);
+}
+
+export interface AiGetKnowledgeRolesParameters {
+  readonly knowledgeBaseId: string;
+}
+
+export async function aiGetKnowledgeRoles(
+  http: HttpClient,
+  parameters: AiGetKnowledgeRolesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeRoleGrantsResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/roles`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeRoleGrantsResponse(value);
 }
 
 export interface AiGetMcpRemoteConnectionParameters {
@@ -1934,6 +1974,30 @@ export async function aiSetKnowledgeDocumentMembers(
   return readAiKnowledgeDocumentMembersResponse(value);
 }
 
+export interface AiSetKnowledgeDocumentRolesParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly body: SetAiKnowledgeRoleGrantsRequest;
+}
+
+export async function aiSetKnowledgeDocumentRoles(
+  http: HttpClient,
+  parameters: AiSetKnowledgeDocumentRolesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeRoleGrantsResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/roles`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeRoleGrantsResponse(value);
+}
+
 export interface AiSetKnowledgeMembersParameters {
   readonly knowledgeBaseId: string;
   readonly body: SetAiKnowledgeMembersRequest;
@@ -1955,6 +2019,29 @@ export async function aiSetKnowledgeMembers(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeMembersResponse(value);
+}
+
+export interface AiSetKnowledgeRolesParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: SetAiKnowledgeRoleGrantsRequest;
+}
+
+export async function aiSetKnowledgeRoles(
+  http: HttpClient,
+  parameters: AiSetKnowledgeRolesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeRoleGrantsResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/roles`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeRoleGrantsResponse(value);
 }
 
 export interface AiTestModelConfigParameters {

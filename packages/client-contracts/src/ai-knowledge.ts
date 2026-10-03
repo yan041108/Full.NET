@@ -21,7 +21,11 @@ export {
   aiRetryKnowledgeImport,
   aiCleanupKnowledgeImports,
   aiListKnowledgeRoleCandidates,
-  aiListKnowledgeDocumentRoleCandidates
+  aiListKnowledgeDocumentRoleCandidates,
+  aiGetKnowledgeRoles,
+  aiSetKnowledgeRoles,
+  aiGetKnowledgeDocumentRoles,
+  aiSetKnowledgeDocumentRoles
 } from './generated/operations.generated.js';
 
 export type {
@@ -43,7 +47,9 @@ export type {
   CreateAiKnowledgeDocumentRequest,
   UpdateAiKnowledgeDocumentRequest,
   DeleteAiKnowledgeDocumentRequest,
-  SetAiKnowledgeDocumentMembersRequest
+  SetAiKnowledgeDocumentMembersRequest,
+  AiKnowledgeRoleGrantsResponse,
+  SetAiKnowledgeRoleGrantsRequest
 } from './generated/models.generated.js';
 
 export {
@@ -53,7 +59,8 @@ export {
   readAiKnowledgeDocumentMembersResponse,
   readAiKnowledgeVersionResponse,
   readAiKnowledgeImportResponse,
-  readAiKnowledgeRoleCandidateResponse
+  readAiKnowledgeRoleCandidateResponse,
+  readAiKnowledgeRoleGrantsResponse
 } from './generated/guards.generated.js';
 
 export type {
@@ -78,5 +85,9 @@ export type {
   AiRetryKnowledgeImportParameters,
   AiCleanupKnowledgeImportsParameters,
   AiListKnowledgeRoleCandidatesParameters,
-  AiListKnowledgeDocumentRoleCandidatesParameters
+  AiListKnowledgeDocumentRoleCandidatesParameters,
+  AiGetKnowledgeRolesParameters,
+  AiSetKnowledgeRolesParameters,
+  AiGetKnowledgeDocumentRolesParameters,
+  AiSetKnowledgeDocumentRolesParameters
 } from './generated/operations.generated.js';

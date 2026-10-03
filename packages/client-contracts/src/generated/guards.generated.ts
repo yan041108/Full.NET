@@ -25,6 +25,7 @@ import type {
   AiKnowledgeImportResponse,
   AiKnowledgeMembersResponse,
   AiKnowledgeRoleCandidateResponse,
+  AiKnowledgeRoleGrantsResponse,
   AiKnowledgeVersionResponse,
   AiMcpRemoteConnectionListItem,
   AiMcpRemoteConnectionResponse,
@@ -481,6 +482,7 @@ import type {
   ServerRuntimeSnapshot,
   SetAiKnowledgeDocumentMembersRequest,
   SetAiKnowledgeMembersRequest,
+  SetAiKnowledgeRoleGrantsRequest,
   SetHostDocumentPermissionsRequest,
   SetNotificationProviderProfileEnabledRequest,
   SetPersonalScheduleStatusRequest,
@@ -864,6 +866,18 @@ export function readAiKnowledgeRoleCandidateResponse(value: unknown): AiKnowledg
 
 function isAiKnowledgeRoleCandidateResponse(value: unknown): value is AiKnowledgeRoleCandidateResponse {
   return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string');
+}
+
+export function readAiKnowledgeRoleGrantsResponse(value: unknown): AiKnowledgeRoleGrantsResponse {
+  const normalizedValue = normalizeAiKnowledgeRoleGrantsResponseIntegerJson(value);
+  if (!(isAiKnowledgeRoleGrantsResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_role_grants_response');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeRoleGrantsResponse(value: unknown): value is AiKnowledgeRoleGrantsResponse {
+  return isRecord(value) && (typeof value["resourceId"] === 'string' && guidPattern.test(value["resourceId"])) && (Array.isArray(value["roleIds"]) && value["roleIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readAiKnowledgeVersionResponse(value: unknown): AiKnowledgeVersionResponse {
@@ -6204,6 +6218,18 @@ function isSetAiKnowledgeMembersRequest(value: unknown): value is SetAiKnowledge
   return isRecord(value) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readSetAiKnowledgeRoleGrantsRequest(value: unknown): SetAiKnowledgeRoleGrantsRequest {
+  const normalizedValue = normalizeSetAiKnowledgeRoleGrantsRequestIntegerJson(value);
+  if (!(isSetAiKnowledgeRoleGrantsRequest(normalizedValue))) {
+    throw new Error('client.invalid_set_ai_knowledge_role_grants_request');
+  }
+  return normalizedValue;
+}
+
+function isSetAiKnowledgeRoleGrantsRequest(value: unknown): value is SetAiKnowledgeRoleGrantsRequest {
+  return isRecord(value) && (Array.isArray(value["roleIds"]) && value["roleIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readSetHostDocumentPermissionsRequest(value: unknown): SetHostDocumentPermissionsRequest {
   if (!(isSetHostDocumentPermissionsRequest(value))) {
     throw new Error('client.invalid_set_host_document_permissions_request');
@@ -8116,6 +8142,10 @@ function normalizeAiKnowledgeMembersResponseIntegerJson(value: unknown): unknown
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeAiKnowledgeRoleGrantsResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeAiKnowledgeVersionResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sizeBytes") ? { ["sizeBytes"]: normalizeWireInteger(value["sizeBytes"]) } : {}), ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
 }
@@ -9401,6 +9431,10 @@ function normalizeSetAiKnowledgeDocumentMembersRequestIntegerJson(value: unknown
 }
 
 function normalizeSetAiKnowledgeMembersRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeSetAiKnowledgeRoleGrantsRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 

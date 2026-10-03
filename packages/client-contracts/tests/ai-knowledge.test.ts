@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createHttpClient } from '../src/http';
 import {
   aiUploadKnowledgeVersion, aiDownloadKnowledgeSource, aiDeleteKnowledgeDocument,
-  aiRetryKnowledgeImport, aiListKnowledgeVersions, aiListKnowledgeRoleCandidates, aiListKnowledgeDocumentRoleCandidates
+  aiRetryKnowledgeImport, aiListKnowledgeVersions, aiListKnowledgeRoleCandidates, aiListKnowledgeDocumentRoleCandidates,
+  aiGetKnowledgeRoles, aiSetKnowledgeRoles, aiGetKnowledgeDocumentRoles, aiSetKnowledgeDocumentRoles
 } from '../src/ai-knowledge';
 
 const id = '00000000-0000-0000-0000-000000000001';
@@ -18,6 +19,64 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 afterEach(() => vi.unstubAllGlobals());
 
 describe('知识库共享生成客户端', () => {
+  it('四个角色授予操作使用各自资源路径并传递版本、认证、语言与取消', async () => {
+    const granted = { resourceId: id, roleIds: [id], version: 4 };
+    const fetchMock = vi.fn().mockImplementation(async () => json({ ...granted, version: '4' }));
+    vi.stubGlobal('fetch', fetchMock);
+    const http = createHttpClient();
+    http.configureRequestLocale(() => 'zh-CN');
+    http.configureAuthentication({ getAccessToken: () => 'access', refresh: async () => false });
+    const signal = new AbortController().signal;
+    const body = { roleIds: [id], version: 3 };
+    expect(await aiGetKnowledgeRoles(http, { knowledgeBaseId: id }, signal)).toEqual(granted);
+    expect(await aiSetKnowledgeRoles(http, { knowledgeBaseId: id, body }, signal)).toEqual(granted);
+    expect(await aiGetKnowledgeDocumentRoles(http, resource, signal)).toEqual(granted);
+    expect(await aiSetKnowledgeDocumentRoles(http, { ...resource, body }, signal)).toEqual(granted);
+    for (const [index, [url, request]] of fetchMock.mock.calls.entries()) {
+      expect(url).toBe(`/api/v1/ai/knowledge-bases/${id}${index >= 2 ? `/documents/${id}` : ''}/roles`);
+      expect(request.method).toBe(index % 2 === 0 ? 'GET' : 'PUT');
+      expect(request.body === undefined ? undefined : JSON.parse(request.body)).toEqual(index % 2 === 0 ? undefined : body);
+      expect(request.signal).toBe(signal);
+      expect(new Headers(request.headers).get('authorization')).toBe('Bearer access');
+      expect(new Headers(request.headers).get('accept-language')).toBe('zh-CN');
+    }
+  });
+
+  it('角色授予刷新只重试一次且保留清空角色的原始并发版本', async () => {
+    const granted = { resourceId: id, roleIds: [], version: 4 };
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(null, { status: 401 })).mockResolvedValueOnce(json(granted));
+    vi.stubGlobal('fetch', fetchMock);
+    const http = createHttpClient();
+    let token = 'old';
+    const refresh = vi.fn(async () => { token = 'new'; return true; });
+    http.configureAuthentication({ getAccessToken: () => token, refresh });
+    expect(await aiSetKnowledgeDocumentRoles(http, { ...resource, body: { roleIds: [], version: 3 } })).toEqual(granted);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [, request] of fetchMock.mock.calls) expect(JSON.parse(request.body)).toEqual({ roleIds: [], version: 3 });
+    expect(new Headers(fetchMock.mock.calls[1][1].headers).get('authorization')).toBe('Bearer new');
+  });
+
+  it.each([
+    { status: 403, code: 'authorization.permission_denied' },
+    { status: 409, code: 'ai.knowledge.version_conflict' }
+  ])('角色授予保留 $status 的 ProblemDetails', async ({ status, code }) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ status, code, title: '拒绝' }, status)));
+    await expect(aiSetKnowledgeRoles(createHttpClient(), { knowledgeBaseId: id, body: { roleIds: [], version: 3 } }))
+      .rejects.toMatchObject({ status, code });
+  });
+
+  it.each([
+    { resourceId: 'invalid', roleIds: [id], version: 4 },
+    { resourceId: id, roleIds: ['invalid'], version: 4 },
+    { resourceId: id, roleIds: null, version: 4 },
+    { resourceId: id, roleIds: [id], version: 4.5 },
+    { resourceId: id, roleIds: [id], version: '9007199254740993' }
+  ])('角色授予拒绝损坏的资源、角色集合或并发版本 %j', async granted => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(granted)));
+    await expect(aiGetKnowledgeRoles(createHttpClient(), { knowledgeBaseId: id })).rejects.toThrow(/invalid_ai_knowledge_role_grants_response/);
+  });
+
   it('两个角色候选操作传递分页、认证、语言与取消且只返回最小角色投影', async () => {
     const page = { items: [{ id, code: 'reader', name: '阅读角色' }], page: 2, pageSize: 10, total: '21' };
     const fetchMock = vi.fn().mockImplementation(async () => json(page));
