@@ -257,6 +257,26 @@ const noPermissionFailures = [
   ['row-mutated', 18, { body: { ...product, version: '2' } }],
   ['denied-create-persisted', 19, { body: { items: [product, { ...product, id: roleId }] } }],
 ];
+
+test('ordinary browser check receives the active account before business requests without logging credentials', async () => fixture(async (logPath) => {
+  const calls = [];
+  const observed = [];
+  await verifyApplicationCrudReadPermission('http://example.test', {
+    hostAccessToken: tokens[0], logPath, request: runner(calls),
+    onTenantAccount: async (account) => {
+      observed.push(account);
+      assert.equal(calls.length, 13);
+      assert.equal(account.mode, 'read');
+      assert.equal(account.username, 'catalog-reader-probe');
+      assert.match(account.password, /^Bb2!/u);
+      assert.equal(account.tenantId, tenantId);
+    },
+  });
+  assert.equal(observed.length, 1);
+  const report = readFileSync(logPath, 'utf8');
+  assert.equal(report.includes(observed[0].password), false);
+  assert.equal(report.includes(observed[0].username), false);
+}));
 for (const [name, index, altered] of noPermissionFailures) {
   test(`no product permission acceptance rejects ${name} at the intended stage`, async () => fixture(async (logPath) => {
     const calls = [];

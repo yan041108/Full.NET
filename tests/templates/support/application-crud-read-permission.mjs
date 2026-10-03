@@ -23,7 +23,7 @@ export function verifyApplicationCrudReadPermission(baseUrl, options) {
   return verifyApplicationCrudAccountPermission(baseUrl, options, 'read');
 }
 
-async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken, logPath, request = fetch }, mode) {
+async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken, logPath, request = fetch, onTenantAccount }, mode) {
   assert.ok(typeof hostAccessToken === 'string' && hostAccessToken.trim(), 'Host token is required');
   const password = `Aa1!${randomBytes(20).toString('hex')}`;
   const newPassword = `Bb2!${randomBytes(20).toString('hex')}`;
@@ -129,6 +129,10 @@ async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken
     };
     readerToken = await context('reader-enter-local', readerToken, tenantId);
     checkUser(await call('reader-tenant-identity', '/api/v1/me', 'GET', readerToken), true);
+    if (onTenantAccount) {
+      await onTenantAccount({ mode, username, password: newPassword, tenantId,
+        tenantName: local[0].name ?? 'Full.NET Local' });
+    }
     const item = base + '/' + product.id;
     if (canRead) {
       const listed = await call('reader-list', base + '/?page=1&pageSize=5', 'GET', readerToken);
