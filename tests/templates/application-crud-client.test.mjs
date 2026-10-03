@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verifyApplicationCrudClientTenantRead, verifyApplicationCrudClientProductRead, verifyApplicationCrudClientProductList } from './support/application-crud-client.mjs';
+import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verifyApplicationCrudClientTenantRead, verifyApplicationCrudClientProductRead, verifyApplicationCrudClientProductList, verifyApplicationCrudClientTenantWrites } from './support/application-crud-client.mjs';
 
 async function fixture(action) {
   const appRoot = mkdtempSync(join(tmpdir(), 'fullnet-business-client-'));
@@ -123,6 +123,52 @@ for (const scenario of ['valid', 'missing', 'wrong-tenant', 'duplicate', 'wrong-
       } else await assert.rejects(run);
       const reportText = readFileSync(logPath, 'utf8');
       assert.equal(reportText.includes(token), false);
+      assert.equal(JSON.parse(reportText).completed, scenario === 'valid');
+    } finally { await new Promise((resolve) => server.close(resolve)); }
+  }));
+}
+
+for (const scenario of ['valid', 'wrong-tenant', 'wrong-version', 'wrong-delete-status']) {
+  test(`generated client completes tenant product writes: ${scenario}`, () => fixture(async (appRoot) => {
+    verifyApplicationCrudClient(appRoot, { reportDirectory: join(appRoot, 'reports/client') });
+    const tenantId = '01900000-0000-7000-8000-000000000010';
+    const id = '01900000-0000-7000-8000-000000000011';
+    const token = 'secret-product-write-fixture';
+    const received = [];
+    const product = (name, version) => ({ id, tenantId: scenario === 'wrong-tenant' ? id : tenantId, name, version,
+      displayName: name, description: null, isActive: true, createdAtUtc: '2026-10-03T00:00:00Z' });
+    const server = createServer(async (request, response) => {
+      let body = '';
+      for await (const chunk of request) body += chunk;
+      received.push({ method: request.method, url: request.url, authorization: request.headers.authorization,
+        body: body ? JSON.parse(body) : undefined });
+      const index = received.length - 1;
+      response.writeHead(index === 3 && scenario === 'wrong-delete-status' ? 204 : [201, 200, 200, 200][index],
+        { 'content-type': 'application/json' });
+      response.end(JSON.stringify(index === 0 ? product('Generated client tenant write probe', '1')
+        : index === 1 ? product('Generated client tenant write probe', '1')
+          : product('Updated generated client tenant write probe', scenario === 'wrong-version' ? '1' : '2')));
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const logPath = join(appRoot, 'reports/client/tenant-writes.json');
+    try {
+      const run = () => verifyApplicationCrudClientTenantWrites(appRoot, `http://127.0.0.1:${server.address().port}`,
+        { tenantAccessToken: token, expectedTenantId: tenantId, logPath });
+      if (scenario === 'valid') {
+        assert.deepEqual(await run(), { requests: 4, productWritten: 1, productDeleted: 1 });
+        assert.deepEqual(received.map(({ method, url }) => [method, url]), [
+          ['POST', '/api/v1/catalog/products'], ['GET', `/api/v1/catalog/products/${id}`],
+          ['PUT', `/api/v1/catalog/products/${id}`], ['POST', `/api/v1/catalog/products/${id}/delete`],
+        ]);
+        assert.deepEqual(received.map(({ body }) => body), [
+          { name: 'Generated client tenant write probe' }, undefined,
+          { name: 'Updated generated client tenant write probe', version: '1' }, { version: '2' },
+        ]);
+        assert.ok(received.every(({ authorization }) => authorization === `Bearer ${token}`));
+      } else await assert.rejects(run);
+      const reportText = readFileSync(logPath, 'utf8');
+      assert.equal(reportText.includes(token), false);
+      assert.equal(reportText.includes(id), false);
       assert.equal(JSON.parse(reportText).completed, scenario === 'valid');
     } finally { await new Promise((resolve) => server.close(resolve)); }
   }));
