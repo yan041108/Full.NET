@@ -126,6 +126,8 @@ function buildSharedEnv(connectionString, databaseProvider, redisConnectionStrin
     PreV1NamingContract__DestructiveDdlApprovalId: 'created-app-real-stack-011',
     Identity__Bootstrap__Username: 'admin',
     Identity__Bootstrap__Password: adminPassword,
+    // 五种普通账号各走一次 API 改密前登录和一次浏览器登录，保持有界限流并容纳该验收流量。
+    Identity__LoginRateLimitPermitLimitPerMinute: '20',
     Identity__AllowedOrigins__0: 'http://localhost',
     Identity__AllowedOrigins__1: 'http://127.0.0.1',
     Identity__AllowedOrigins__2: 'http://localhost:25183',
