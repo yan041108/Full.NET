@@ -88,6 +88,21 @@ test('created app rejects API and Worker binding the same health URL', () => {
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('created app rejects Worker health port drifting from its frozen profile', () => {
+  const { root } = fixture({ worker: true });
+  try {
+    writeFileSync(join(root, 'fullnet-app.json'), JSON.stringify({
+      ownerKey: 'acme', preset: 'minimal', databaseProvider: 'mysql', workerHttpPort: 5181,
+    }));
+    const config = { ...configuration(), Kestrel: { Endpoints: { Http: { Url: 'http://localhost:5182' } } } };
+    writeFileSync(join(root, 'src/Demo.Host.Worker/appsettings.json'), JSON.stringify(config));
+    const result = verifyCreatedApp(root);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((error) => error.includes('workerHttpPort')),
+      result.errors.join('; '));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 for (const name of ['Demo.Host.Worker.csproj', 'ApplicationWorkerModuleCatalog.cs', 'appsettings.json']) {
   for (const replacement of ['missing', 'directory']) {
     test(`created app rejects ${replacement} declared worker ${name}`, () => {

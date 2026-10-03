@@ -107,6 +107,16 @@ public sealed class StandaloneDiagnoseConfigurationTests
     }
 
     [TestMethod]
+    public async Task Worker_health_port_drift_rejects_frozen_profile()
+    {
+        using var fixture = new StandaloneWorkspace();
+        fixture.Write("src/Demo.Host.Worker/appsettings.json", Configuration(workerPort: 5182));
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_MISMATCH error");
+    }
+
+    [TestMethod]
     public async Task Missing_both_api_and_root_configurations_returns_error_instead_of_warning_only()
     {
         using var fixture = new StandaloneWorkspace();
@@ -176,11 +186,12 @@ public sealed class StandaloneDiagnoseConfigurationTests
         return (exitCode, allOutput);
     }
 
-    private static string Configuration(string provider = "mysql", string preset = "minimal") =>
+    private static string Configuration(string provider = "mysql", string preset = "minimal", int workerPort = 5181) =>
         JsonSerializer.Serialize(new
         {
             Database = new { Provider = provider, ConnectionName = "app" },
             FullNet = new { Modules = new { Preset = preset } },
+            Kestrel = new { Endpoints = new { Http = new { Url = $"http://localhost:{workerPort}" } } },
             ConnectionStrings = new { app = "Server=example.invalid;Password=credential-probe" },
         });
 

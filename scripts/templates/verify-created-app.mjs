@@ -111,6 +111,7 @@ export function verifyCreatedApp(appRoot, { requireMigrator = false, requireWork
 
   let profilePreset;
   let profileProvider;
+  let profileWorkerPort;
   if (existsSync(profilePath)) {
     try {
       const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
@@ -120,6 +121,8 @@ export function verifyCreatedApp(appRoot, { requireMigrator = false, requireWork
         && (!Number.isInteger(profile.workerHttpPort)
           || profile.workerHttpPort < 1 || profile.workerHttpPort > 65535)) {
         errors.push('fullnet-app.json has an invalid workerHttpPort');
+      } else if (Object.hasOwn(profile, 'workerHttpPort')) {
+        profileWorkerPort = profile.workerHttpPort;
       }
       validateOwnerKey(profile.ownerKey);
       resolvePresetModules(profile.preset);
@@ -145,6 +148,15 @@ export function verifyCreatedApp(appRoot, { requireMigrator = false, requireWork
   if (apiConfiguration && workerConfiguration) {
     if (apiConfiguration.healthUrl && apiConfiguration.healthUrl === workerConfiguration.healthUrl) {
       errors.push('API and Worker health endpoints must use different URLs');
+    }
+  }
+  if (profileWorkerPort !== undefined && workerConfiguration) {
+    try {
+      if (Number(new URL(workerConfiguration.healthUrl).port) !== profileWorkerPort) {
+        errors.push('Worker health endpoint port does not match fullnet-app.json workerHttpPort');
+      }
+    } catch {
+      errors.push('Worker health endpoint port does not match fullnet-app.json workerHttpPort');
     }
   }
 

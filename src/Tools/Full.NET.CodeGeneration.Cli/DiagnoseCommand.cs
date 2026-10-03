@@ -250,6 +250,14 @@ internal static class DiagnoseCommand
             {
                 throw new JsonException("Missing application profile fields.");
             }
+            var workerPort = app is JsonObject workerProfile && workerProfile.ContainsKey("workerHttpPort")
+                ? workerProfile["workerHttpPort"]?.GetValue<int>()
+                    ?? throw new JsonException("Invalid Worker health port.")
+                : (int?)null;
+            if (workerPort is < 1 or > 65535)
+            {
+                throw new JsonException("Invalid Worker health port.");
+            }
 
             var configurationPaths = new List<string>
             {
@@ -287,6 +295,21 @@ internal static class DiagnoseCommand
                         "独立应用清单与根配置、API、Worker 或 Migrator 的模块预设或数据库 Provider 不一致。",
                         "核对根与同名宿主的基础 appsettings.json；不要直接修改冻结的应用清单。"));
                     return;
+                }
+                if (workerPort is int expectedPort
+                    && path.EndsWith(".Host.Worker" + Path.DirectorySeparatorChar + "appsettings.json",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    var endpoint = runtime["Kestrel"]?["Endpoints"]?["Http"]?["Url"]?.GetValue<string>();
+                    if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var workerUri)
+                        || workerUri.Port != expectedPort)
+                    {
+                        findings.Add(DiagnoseFinding.Error(
+                            "DIAG_APP_PROFILE_MISMATCH",
+                            "Worker 健康端口与独立应用清单不一致。",
+                            "核对同名 Worker 的基础 appsettings.json 与 fullnet-app.json。"));
+                        return;
+                    }
                 }
             }
 

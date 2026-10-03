@@ -149,11 +149,15 @@ test('application template package includes framework sources and root manifest'
       ], { encoding: 'utf8', timeout: 150_000 });
       assert.equal(generated.status, 0, `${preset}: ${generated.stderr || generated.stdout}`);
       if (preset === 'platform') {
+        const platformApiConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Api/appsettings.json'), 'utf8'));
         const platformWorkerConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Worker/appsettings.json'), 'utf8'));
+        assert.equal(platformApiConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:5181');
         assert.equal(platformWorkerConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:5182');
       }
       if (preset === 'saas') {
+        const saasApiConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Api/appsettings.json'), 'utf8'));
         const saasWorkerConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Worker/appsettings.json'), 'utf8'));
+        assert.equal(saasApiConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:65535');
         assert.equal(saasWorkerConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:65534');
       }
       const presetBuild = spawnSync('dotnet', [
