@@ -16,8 +16,8 @@ Require(applicationContributor.Permissions.Count(permission => permission.Code =
     && permission.Scope == Full.NET.Modules.Identity.Contracts.AuthorizationScope.Tenant) == 1, "manual permission lost");
 Require(applicationContributor.Navigation.Count == 1, "generated navigation missing or duplicated");
 var navigation = applicationContributor.Navigation.Single();
-Require(navigation.Id == "products" && navigation.ParentId is null && navigation.RouteName == "products"
-    && navigation.Path == "/catalog/products" && navigation.ComponentKey == "products"
+Require(navigation.Id == "m7-catalog-products" && navigation.ParentId is null && navigation.RouteName == "m7-catalog-products"
+    && navigation.Path == "/catalog/products" && navigation.ComponentKey == "m7-catalog-products"
     && navigation.RequiredPermission == ProductPermissions.Read, "generated navigation binding incorrect");
 var expectedActions = new Dictionary<string, string>
 {
@@ -30,7 +30,7 @@ foreach (var expected in expectedActions)
 {
     var actions = applicationContributor.Actions.Where(action => action.ClientActionKey == expected.Key).ToArray();
     Require(actions.Length == 1 && actions[0].Id == "catalog.products." + expected.Key
-        && actions[0].NavigationId == "products" && actions[0].PermissionCode == expected.Value,
+        && actions[0].NavigationId == "m7-catalog-products" && actions[0].PermissionCode == expected.Value,
         "generated action binding incorrect");
 }
 
