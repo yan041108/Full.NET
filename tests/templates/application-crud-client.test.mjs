@@ -128,7 +128,8 @@ for (const scenario of ['valid', 'missing', 'wrong-tenant', 'duplicate', 'wrong-
   }));
 }
 
-for (const scenario of ['valid', 'wrong-tenant', 'wrong-version', 'wrong-delete-status']) {
+for (const scenario of ['valid', 'wrong-tenant', 'wrong-version', 'wrong-delete-status',
+  'stale-update-allowed', 'stale-delete-allowed', 'conflict-changed-row', 'deleted-readable', 'deleted-listed']) {
   test(`generated client completes tenant product writes: ${scenario}`, () => fixture(async (appRoot) => {
     verifyApplicationCrudClient(appRoot, { reportDirectory: join(appRoot, 'reports/client') });
     const tenantId = '01900000-0000-7000-8000-000000000010';
@@ -143,11 +144,19 @@ for (const scenario of ['valid', 'wrong-tenant', 'wrong-version', 'wrong-delete-
       received.push({ method: request.method, url: request.url, authorization: request.headers.authorization,
         body: body ? JSON.parse(body) : undefined });
       const index = received.length - 1;
-      response.writeHead(index === 3 && scenario === 'wrong-delete-status' ? 204 : [201, 200, 200, 200][index],
-        { 'content-type': 'application/json' });
-      response.end(JSON.stringify(index === 0 ? product('Generated client tenant write probe', '1')
-        : index === 1 ? product('Generated client tenant write probe', '1')
-          : product('Updated generated client tenant write probe', scenario === 'wrong-version' ? '1' : '2')));
+      const conflict = index === 3 || index === 5;
+      const missing = index === 8;
+      const status = index === 0 ? 201 : conflict ? (scenario === (index === 3 ? 'stale-update-allowed' : 'stale-delete-allowed') ? 200 : 409)
+        : missing ? (scenario === 'deleted-readable' ? 200 : 404)
+          : index === 7 && scenario === 'wrong-delete-status' ? 204 : 200;
+      response.writeHead(status, { 'content-type': status === 409 || status === 404 ? 'application/problem+json' : 'application/json' });
+      response.end(JSON.stringify(status === 409 || status === 404
+        ? { status, code: status === 409 ? 'catalog.products.version_conflict' : 'catalog.products.not_found' }
+        : index === 9 ? { items: scenario === 'deleted-listed' ? [product('Updated generated client tenant write probe', '2')] : [],
+          page: 1, pageSize: 5, total: scenario === 'deleted-listed' ? 1 : 0 }
+          : index === 0 || index === 1 ? product('Generated client tenant write probe', '1')
+            : product(scenario === 'conflict-changed-row' && index === 4 ? 'Unexpected conflict mutation' : 'Updated generated client tenant write probe',
+              scenario === 'wrong-version' && index === 2 ? '1' : '2')));
     });
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     const logPath = join(appRoot, 'reports/client/tenant-writes.json');
@@ -155,14 +164,19 @@ for (const scenario of ['valid', 'wrong-tenant', 'wrong-version', 'wrong-delete-
       const run = () => verifyApplicationCrudClientTenantWrites(appRoot, `http://127.0.0.1:${server.address().port}`,
         { tenantAccessToken: token, expectedTenantId: tenantId, logPath });
       if (scenario === 'valid') {
-        assert.deepEqual(await run(), { requests: 4, productWritten: 1, productDeleted: 1 });
+        assert.deepEqual(await run(), { requests: 10, versionConflicts: 2, productWritten: 1, productDeleted: 1 });
         assert.deepEqual(received.map(({ method, url }) => [method, url]), [
           ['POST', '/api/v1/catalog/products'], ['GET', `/api/v1/catalog/products/${id}`],
-          ['PUT', `/api/v1/catalog/products/${id}`], ['POST', `/api/v1/catalog/products/${id}/delete`],
+          ['PUT', `/api/v1/catalog/products/${id}`], ['PUT', `/api/v1/catalog/products/${id}`],
+          ['GET', `/api/v1/catalog/products/${id}`], ['POST', `/api/v1/catalog/products/${id}/delete`],
+          ['GET', `/api/v1/catalog/products/${id}`], ['POST', `/api/v1/catalog/products/${id}/delete`],
+          ['GET', `/api/v1/catalog/products/${id}`], ['GET', '/api/v1/catalog/products?page=1&pageSize=5'],
         ]);
         assert.deepEqual(received.map(({ body }) => body), [
           { name: 'Generated client tenant write probe' }, undefined,
-          { name: 'Updated generated client tenant write probe', version: '1' }, { version: '2' },
+          { name: 'Updated generated client tenant write probe', version: '1' },
+          { name: 'Stale generated client update must be rejected', version: '1' }, undefined,
+          { version: '1' }, undefined, { version: '2' }, undefined, undefined,
         ]);
         assert.ok(received.every(({ authorization }) => authorization === `Bearer ${token}`));
       } else await assert.rejects(run);

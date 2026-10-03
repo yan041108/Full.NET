@@ -100,6 +100,22 @@ async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken, tena
           assert.equal(entry.httpStatus, expectedHttpStatus, 'generated write HTTP status mismatch');
         }
       };
+      const expectProblem = async (operationId, parameters, expectedHttpStatus, expectedMachineCode) => {
+        const entry = { operationId };
+        evidence.responses.push(entry);
+        const before = transports.length;
+        let problem;
+        try {
+          await operations[operationId](http, parameters, AbortSignal.timeout(15_000), { retryUnauthorized: false });
+        } catch (error) { problem = error; }
+        entry.httpStatus = transports[before];
+        entry.status = problem?.status;
+        entry.code = problem?.code;
+        assert.equal(transports.length, before + 1, 'generated write rejection unexpected transport count');
+        assert.equal(entry.httpStatus, expectedHttpStatus, 'generated write rejection HTTP status mismatch');
+        assert.equal(entry.status, expectedHttpStatus, 'generated write rejection decoded status mismatch');
+        assert.equal(entry.code, expectedMachineCode, 'generated write rejection machine code mismatch');
+      };
       const created = await execute('catalogCreateProduct', { body: { name: originalName } }, 201);
       assert.match(created.id, /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu,
         'generated write product UUID v7 mismatch');
@@ -107,10 +123,24 @@ async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken, tena
       check(await execute('catalogGetProduct', { productId: created.id }, 200), created.id, originalName, '1');
       check(await execute('catalogUpdateProduct', { productId: created.id,
         body: { name: updatedName, version: '1' } }, 200), created.id, updatedName, '2');
+      await expectProblem('catalogUpdateProduct', { productId: created.id,
+        body: { name: 'Stale generated client update must be rejected', version: '1' } },
+      409, 'catalog.products.version_conflict');
+      check(await execute('catalogGetProduct', { productId: created.id }, 200), created.id, updatedName, '2');
+      await expectProblem('catalogDeleteProduct', { productId: created.id, body: { version: '1' } },
+        409, 'catalog.products.version_conflict');
+      check(await execute('catalogGetProduct', { productId: created.id }, 200), created.id, updatedName, '2');
       check(await execute('catalogDeleteProduct', { productId: created.id,
         body: { version: '2' } }, 200), created.id, updatedName, '2');
+      await expectProblem('catalogGetProduct', { productId: created.id }, 404, 'catalog.products.not_found');
+      const page = await execute('catalogListProducts', { page: 1, pageSize: 5 }, 200);
+      assert.equal(page.page, 1, 'generated write post-delete page mismatch');
+      assert.equal(page.pageSize, 5, 'generated write post-delete page size mismatch');
+      assert.ok(Array.isArray(page.items), 'generated write post-delete items mismatch');
+      assert.equal(page.items.some((item) => item.id === created.id), false, 'generated write deleted product remains listed');
+      evidence.responses.at(-1).items = page.items.length;
       evidence.completed = true;
-      return { requests: 4, productWritten: 1, productDeleted: 1 };
+      return { requests: 10, versionConflicts: 2, productWritten: 1, productDeleted: 1 };
     }
     if (productRead) {
       const entry = { operationId: 'catalogGetProduct' };
