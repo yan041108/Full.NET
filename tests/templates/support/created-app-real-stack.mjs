@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { copyFileSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -107,6 +107,14 @@ function runDotnet(args, cwd, env, timeoutMs = 300_000, logPath) {
     throw new Error(`dotnet ${args.join(' ')} failed: ${result.stderr ?? ''}\n${(result.stdout ?? '').slice(-16000)}\n${result.error?.message ?? ''}`);
   }
   return result;
+}
+
+function runOutboxProbe(project, appRoot, env, command, messageId) {
+  const result = runDotnet(['run', '--project', project, '-c', 'Release', '--no-build', '--',
+    command, ...(messageId ? [messageId] : [])], appRoot, env, 45_000);
+  const marker = result.stdout.split(/\r?\n/u).find(line => line.startsWith('OUTBOX_PROBE '));
+  assert.ok(marker, `Outbox probe ${command} returned no state: ${result.stdout}`);
+  return JSON.parse(marker.slice('OUTBOX_PROBE '.length));
 }
 
 function buildSharedEnv(connectionString, databaseProvider, redisConnectionString) {
@@ -279,9 +287,16 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     const migratorProject = join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj');
     const hostProject = join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj');
     const workerProject = join(appRoot, 'src/Demo.Host.Worker/Demo.Host.Worker.csproj');
+    const outboxProbeRoot = join(appRoot, 'tests/created-app-outbox-probe');
+    mkdirSync(outboxProbeRoot, { recursive: true });
+    for (const file of ['CreatedAppOutboxProbe.csproj', 'Program.cs']) {
+      copyFileSync(join(repoRoot, 'tests/templates/support/created-app-outbox-probe', file), join(outboxProbeRoot, file));
+    }
+    const outboxProbeProject = join(outboxProbeRoot, 'CreatedAppOutboxProbe.csproj');
     runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
     runDotnet(['build', hostProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
     runDotnet(['build', workerProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
+    runDotnet(['build', outboxProbeProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
     const firstMigration = runDotnet([
       'run', '--project', migratorProject, '-c', 'Release', '--no-build', '--',
       '--seed', 'development',
@@ -314,6 +329,12 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     assert.equal(retirementReport.pendingCount, 0);
     assert.equal(retirementReport.deadLetterCount, 0);
 
+    const outboxMessage = runOutboxProbe(outboxProbeProject, appRoot, env, 'enqueue');
+    const pendingOutbox = runOutboxProbe(outboxProbeProject, appRoot, env, 'state', outboxMessage.id);
+    assert.equal(pendingOutbox.Attempts, 0);
+    assert.equal(pendingOutbox.IsProcessed, 0);
+    assert.equal(pendingOutbox.IsDeadLettered, 0);
+
     const workerLogPath = join(logRoot, 'worker.log');
     writeFileSync(workerLogPath, '');
     workerLogStream = createWriteStream(workerLogPath, { flags: 'a' });
@@ -327,6 +348,14 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     await waitForApi(workerUrl, 180_000, workerLogPath);
     const workerReady = await fetch(`${workerUrl}/health/ready`);
     assert.equal(workerReady.status, 200, `generated Worker readiness: ${await workerReady.text()}`);
+    const deliveredOutbox = runOutboxProbe(outboxProbeProject, appRoot, env, 'wait', outboxMessage.id);
+    writeFileSync(join(logRoot, 'worker-outbox-delivery.json'), JSON.stringify({ pendingOutbox, deliveredOutbox }, null, 2));
+    assert.equal(deliveredOutbox.Attempts, 1);
+    assert.equal(deliveredOutbox.IsProcessed, 1);
+    assert.equal(deliveredOutbox.IsDeadLettered, 0);
+    assert.equal(deliveredOutbox.DeadLetterReasonCode, null);
+    assert.equal(deliveredOutbox.IsLeaseReleased, 1);
+    assert.equal(deliveredOutbox.IsRetryCleared, 1);
 
     const apiLogPath = join(logRoot, 'api.log');
     writeFileSync(apiLogPath, '');
