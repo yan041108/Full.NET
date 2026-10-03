@@ -19,6 +19,8 @@ namespace Full.NET.Data.Dapper;
 /// 必须显式声明 <see cref="SqlTenantBinding.CurrentTenantId"/>；
 /// SQL 文本必须在 WHERE、JOIN ON 中把租户身份列与完整参数令牌 <c>@TenantId</c>
 /// 做等值比较，或在 INSERT VALUES 中写入该参数，防止注释、字符串、投影或无约束 SET 绕过检查。
+/// 普通表的身份列只能是 <c>TenantId</c>；根表 <c>fn_tenancy_tenant</c> 的 <c>Id</c> 例外
+/// 仅限无别名、JOIN、子查询或额外语句的单表 SELECT/UPDATE，且第一个 WHERE 条件必须为租户等式。
 /// 违反时抛出 <see cref="TenantContextMissingException"/> 或 <see cref="TenantScopeViolationException"/>。</description>
 /// </item>
 /// <item>
