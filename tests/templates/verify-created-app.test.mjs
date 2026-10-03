@@ -10,7 +10,7 @@ function configuration(preset = 'minimal', provider = 'mysql') {
   return { Database: { Provider: provider }, FullNet: { Modules: { Preset: preset } } };
 }
 
-function fixture({ migrator = false } = {}) {
+function fixture({ migrator = false, worker = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'fullnet-created-app-check-'));
   // 此夹具只满足结构校验，不替代真实创建和 .NET 构建。
   const files = {
@@ -34,6 +34,11 @@ function fixture({ migrator = false } = {}) {
     'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj': '<Project />',
     'src/Demo.Host.Migrator/appsettings.json': JSON.stringify(configuration()),
   });
+  if (worker) Object.assign(files, {
+    'src/Demo.Host.Worker/Demo.Host.Worker.csproj': '<Project />',
+    'src/Demo.Host.Worker/ApplicationWorkerModuleCatalog.cs': '',
+    'src/Demo.Host.Worker/appsettings.json': JSON.stringify(configuration()),
+  });
   for (const [path, content] of Object.entries(files)) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), content);
@@ -46,6 +51,82 @@ test('new app creation requires its own migrator while legacy validation remains
   try {
     assert.equal(verifyCreatedApp(root).ok, true);
     assert.equal(verifyCreatedApp(root, { requireMigrator: true }).ok, false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('new app creation requires its own worker while legacy validation remains available', () => {
+  const { root } = fixture();
+  try {
+    assert.equal(verifyCreatedApp(root).ok, true);
+    assert.equal(verifyCreatedApp(root, { requireWorker: true }).ok, false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('created app profile keeps requiring worker after its directory is removed', () => {
+  const { root } = fixture();
+  try {
+    writeFileSync(join(root, 'fullnet-app.json'), JSON.stringify({
+      ownerKey: 'acme', preset: 'minimal', databaseProvider: 'mysql', workerHttpPort: 5181,
+    }));
+    const result = verifyCreatedApp(root);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((error) => error.includes('worker')),
+      result.errors.join('; '));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('created app rejects API and Worker binding the same health URL', () => {
+  const { root } = fixture({ worker: true });
+  try {
+    const shared = { ...configuration(), Kestrel: { Endpoints: { Http: { Url: 'http://localhost:5181' } } } };
+    writeFileSync(join(root, 'src/Demo.Host.Api/appsettings.json'), JSON.stringify(shared));
+    writeFileSync(join(root, 'src/Demo.Host.Worker/appsettings.json'), JSON.stringify(shared));
+    const result = verifyCreatedApp(root);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((error) => error.includes('health endpoints')),
+      result.errors.join('; '));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('created app rejects Worker health port drifting from its frozen profile', () => {
+  const { root } = fixture({ worker: true });
+  try {
+    writeFileSync(join(root, 'fullnet-app.json'), JSON.stringify({
+      ownerKey: 'acme', preset: 'minimal', databaseProvider: 'mysql', workerHttpPort: 5181,
+    }));
+    const config = { ...configuration(), Kestrel: { Endpoints: { Http: { Url: 'http://localhost:5182' } } } };
+    writeFileSync(join(root, 'src/Demo.Host.Worker/appsettings.json'), JSON.stringify(config));
+    const result = verifyCreatedApp(root);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((error) => error.includes('workerHttpPort')),
+      result.errors.join('; '));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+for (const name of ['Demo.Host.Worker.csproj', 'ApplicationWorkerModuleCatalog.cs', 'appsettings.json']) {
+  for (const replacement of ['missing', 'directory']) {
+    test(`created app rejects ${replacement} declared worker ${name}`, () => {
+      const { root } = fixture({ worker: true });
+      try {
+        const path = join(root, 'src/Demo.Host.Worker', name);
+        rmSync(path);
+        if (replacement === 'directory') mkdirSync(path);
+        const result = verifyCreatedApp(root);
+        assert.equal(result.ok, false);
+        assert.ok(result.errors.some((error) => error.includes(name)), result.errors.join('; '));
+      } finally { rmSync(root, { recursive: true, force: true }); }
+    });
+  }
+}
+
+test('created app rejects worker configuration drift', () => {
+  const { root } = fixture({ worker: true });
+  try {
+    writeFileSync(join(root, 'src/Demo.Host.Worker/appsettings.json'), JSON.stringify(configuration('platform')));
+    const result = verifyCreatedApp(root);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((error) => error.includes('src/Demo.Host.Worker/appsettings.json')),
+      result.errors.join('; '));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

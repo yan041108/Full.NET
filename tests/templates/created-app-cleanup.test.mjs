@@ -54,3 +54,26 @@ test('created app shutdown failure still cleans dependencies and workspace and i
   assert.deepEqual(value.events, ['db', 'redis']);
   assert.equal(existsSync(value.workspace), false);
 });
+
+test('created app cleanup stops its worker before database dependencies', async t => {
+  const value = fixture(t);
+  const workerProcess = new EventEmitter();
+  Object.assign(workerProcess, { killed: false, exitCode: null, signalCode: null,
+    stdout: new PassThrough(), stderr: new PassThrough() });
+  const workerLogStream = new Writable({ write(chunk, encoding, done) { done(); } });
+  workerProcess.stdout.pipe(workerLogStream, { end: false });
+  workerProcess.stderr.pipe(workerLogStream, { end: false });
+  workerProcess.kill = () => {
+    value.events.push('worker-stop');
+    setImmediate(() => {
+      workerProcess.stdout.end();
+      workerProcess.stderr.end();
+      workerProcess.exitCode = 0;
+      workerProcess.emit('close', 0, null);
+    });
+    return true;
+  };
+  t.after(() => { workerProcess.stdout.destroy(); workerProcess.stderr.destroy(); });
+  await cleanupCreatedApp({ ...value, workerProcess, workerLogStream });
+  assert.deepEqual(value.events, ['worker-stop', 'db', 'redis']);
+});

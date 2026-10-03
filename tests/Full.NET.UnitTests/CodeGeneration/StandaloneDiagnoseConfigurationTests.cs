@@ -12,7 +12,7 @@ public sealed class StandaloneDiagnoseConfigurationTests
     [DataRow(true)]
     public async Task Matching_configuration_is_readonly_and_legacy_application_does_not_require_migrator(bool migrator)
     {
-        using var fixture = new StandaloneWorkspace(migrator);
+        using var fixture = new StandaloneWorkspace(migrator, worker: false);
         var result = await DiagnoseAsync(fixture);
         Assert.AreEqual(0, result.ExitCode);
         StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_OK ok");
@@ -26,6 +26,8 @@ public sealed class StandaloneDiagnoseConfigurationTests
     [DataRow("src/Demo.Host.Api/appsettings.json", "preset")]
     [DataRow("src/Demo.Host.Migrator/appsettings.json", "provider")]
     [DataRow("src/Demo.Host.Migrator/appsettings.json", "preset")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "provider")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "preset")]
     public async Task Any_declared_base_configuration_drift_rejects_frozen_profile(string path, string field)
     {
         using var fixture = new StandaloneWorkspace();
@@ -41,9 +43,11 @@ public sealed class StandaloneDiagnoseConfigurationTests
     [DataRow("appsettings.json", "{credential-probe")]
     [DataRow("src/Demo.Host.Api/appsettings.json", "{credential-probe")]
     [DataRow("src/Demo.Host.Migrator/appsettings.json", "{credential-probe")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "{credential-probe")]
     [DataRow("appsettings.json", "{\"FullNet\":\"credential-probe\"}")]
     [DataRow("src/Demo.Host.Api/appsettings.json", "{\"FullNet\":\"credential-probe\"}")]
     [DataRow("src/Demo.Host.Migrator/appsettings.json", "{\"FullNet\":\"credential-probe\"}")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "{\"FullNet\":\"credential-probe\"}")]
     public async Task Invalid_base_json_or_shape_returns_redacted_diagnostic(string path, string content)
     {
         using var fixture = new StandaloneWorkspace();
@@ -58,6 +62,7 @@ public sealed class StandaloneDiagnoseConfigurationTests
     [DataRow("appsettings.json")]
     [DataRow("src/Demo.Host.Api/appsettings.json")]
     [DataRow("src/Demo.Host.Migrator/appsettings.json")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json")]
     public async Task Missing_declared_configuration_is_not_hidden_by_api_or_root_fallback(string path)
     {
         using var fixture = new StandaloneWorkspace();
@@ -89,6 +94,26 @@ public sealed class StandaloneDiagnoseConfigurationTests
         var result = await DiagnoseAsync(fixture);
         Assert.AreEqual(1, result.ExitCode);
         StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_INVALID error");
+    }
+
+    [TestMethod]
+    public async Task Worker_declared_by_application_profile_cannot_disappear_silently()
+    {
+        using var fixture = new StandaloneWorkspace();
+        Directory.Delete(fixture.PathFor("src/Demo.Host.Worker"), recursive: true);
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_INVALID error");
+    }
+
+    [TestMethod]
+    public async Task Worker_health_port_drift_rejects_frozen_profile()
+    {
+        using var fixture = new StandaloneWorkspace();
+        fixture.Write("src/Demo.Host.Worker/appsettings.json", Configuration(workerPort: 5182));
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_MISMATCH error");
     }
 
     [TestMethod]
@@ -133,6 +158,7 @@ public sealed class StandaloneDiagnoseConfigurationTests
     [DataRow("appsettings.json", "DIAG_APP_PROFILE_INVALID")]
     [DataRow("src/Demo.Host.Api/appsettings.json", "DIAG_APP_PROFILE_INVALID")]
     [DataRow("src/Demo.Host.Migrator/appsettings.json", "DIAG_APP_PROFILE_INVALID")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "DIAG_APP_PROFILE_INVALID")]
     [DataRow("fullnet-app.json", "DIAG_APP_PROFILE_INVALID")]
     [DataRow("framework-manifest.json", "DIAG_MODULE_CLOSURE_INVALID")]
     public async Task Duplicate_json_properties_return_redacted_machine_diagnostic(string path, string code)
@@ -160,11 +186,12 @@ public sealed class StandaloneDiagnoseConfigurationTests
         return (exitCode, allOutput);
     }
 
-    private static string Configuration(string provider = "mysql", string preset = "minimal") =>
+    private static string Configuration(string provider = "mysql", string preset = "minimal", int workerPort = 5181) =>
         JsonSerializer.Serialize(new
         {
             Database = new { Provider = provider, ConnectionName = "app" },
             FullNet = new { Modules = new { Preset = preset } },
+            Kestrel = new { Endpoints = new { Http = new { Url = $"http://localhost:{workerPort}" } } },
             ConnectionStrings = new { app = "Server=example.invalid;Password=credential-probe" },
         });
 
@@ -173,10 +200,12 @@ public sealed class StandaloneDiagnoseConfigurationTests
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "fullnet-standalone-diagnose-" + Guid.NewGuid().ToString("N"));
         public string PathFor(string path) => Path.Combine(Root, path);
 
-        public StandaloneWorkspace(bool migrator = true)
+        public StandaloneWorkspace(bool migrator = true, bool worker = true)
         {
             // 仅构造诊断读取所需布局；不编译项目，不启动宿主或连接数据库。
-            Write("fullnet-app.json", """{"preset":"minimal","databaseProvider":"mysql"}""");
+            Write("fullnet-app.json", worker
+                ? """{"preset":"minimal","databaseProvider":"mysql","workerHttpPort":5181}"""
+                : """{"preset":"minimal","databaseProvider":"mysql"}""");
             Write("framework-manifest.json", """{"presetModules":{"minimal":["Identity"]}}""");
             Write("appsettings.json", Configuration());
             Write("src/Demo.Host.Api/Demo.Host.Api.csproj", "<Project />");
@@ -188,6 +217,11 @@ public sealed class StandaloneDiagnoseConfigurationTests
             {
                 Write("src/Demo.Host.Migrator/Demo.Host.Migrator.csproj", "<Project />");
                 Write("src/Demo.Host.Migrator/appsettings.json", Configuration());
+            }
+            if (worker)
+            {
+                Write("src/Demo.Host.Worker/Demo.Host.Worker.csproj", "<Project />");
+                Write("src/Demo.Host.Worker/appsettings.json", Configuration());
             }
         }
 

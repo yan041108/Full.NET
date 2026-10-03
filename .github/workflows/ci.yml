@@ -146,6 +146,9 @@ jobs:
       - name: Install client dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install browser for generated application acceptance
+        run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
+
       - name: Verify created application template real-stack (SqlServer + MySQL)
         run: pnpm test:templates
 

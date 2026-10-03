@@ -15,6 +15,7 @@ import { verifyApplicationCrudModule } from './support/application-crud-module.m
 import { verifyApplicationCrudHostWiring } from './support/application-crud-host-wiring.mjs';
 import { verifyApplicationCrudRuntime } from './support/application-crud-runtime.mjs';
 import { verifyApplicationCrudAuthorization } from './support/application-crud-authorization.mjs';
+import { verifyApplicationCrudSchemaSourceUpgrade } from './support/application-crud-schema-source-upgrade.mjs';
 
 const skipBundleIntegration = areBundleInputsClean()
   ? false
@@ -58,6 +59,11 @@ test('application template package includes framework sources and root manifest'
     assert.deepEqual(readdirSync(workspace).filter((entry) => entry.startsWith('.fullnet-create-')), []);
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj')));
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj')));
+    assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Worker/Demo.Host.Worker.csproj')));
+    const apiConfig = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Api/appsettings.json'), 'utf8'));
+    const workerConfig = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Worker/appsettings.json'), 'utf8'));
+    assert.equal(apiConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:5500');
+    assert.equal(workerConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:5501');
     assert.ok(existsSync(join(appRoot, 'src/Demo.Composition/Demo.Composition.csproj')));
     assert.match(readFileSync(join(appRoot, 'src/Demo.Composition/ApplicationModuleCatalog.cs'), 'utf8'), /namespace Demo\.Composition;/u);
     assert.ok(existsSync(join(appRoot, 'ui/admin/src/App.vue')));
@@ -96,6 +102,10 @@ test('application template package includes framework sources and root manifest'
       'build', join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj'), '-c', 'Release', '-v', 'quiet',
     ], { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
     assert.equal(migratorBuild.status, 0, migratorBuild.stderr || migratorBuild.stdout);
+    const workerBuild = spawnSync('dotnet', [
+      'build', join(appRoot, 'src/Demo.Host.Worker/Demo.Host.Worker.csproj'), '-c', 'Release', '-v', 'quiet',
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
+    assert.equal(workerBuild.status, 0, workerBuild.stderr || workerBuild.stdout);
     const assets = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
     const implementationModules = Object.keys(assets.libraries)
       .map((name) => /^Full\.NET\.Modules\.([A-Za-z0-9]+)\//.exec(name)?.[1])
@@ -121,6 +131,8 @@ test('application template package includes framework sources and root manifest'
     ], { cwd: appRoot, encoding: 'utf8', timeout: 180_000, shell: process.platform === 'win32' });
     assert.equal(frontendBuild.status, 0, frontendBuild.stderr || frontendBuild.stdout || frontendBuild.error?.message);
 
+    verifyApplicationCrudSchemaSourceUpgrade(appRoot);
+
     const repeat = spawnSync(process.execPath, [
       createTool, '--package', templateRoot, '--output', appRoot, '--name', 'Second',
       '--owner-key', 'acme', '--database', 'mysql', '--preset', 'minimal',
@@ -136,8 +148,21 @@ test('application template package includes framework sources and root manifest'
       const generated = spawnSync(process.execPath, [
         createTool, '--package', templateRoot, '--output', presetRoot, '--name', 'Demo',
         '--owner-key', 'acme', '--database', 'sqlserver', '--preset', preset,
+        '--http-port', preset === 'platform' ? '5181' : preset === 'saas' ? '65535' : '5180',
       ], { encoding: 'utf8', timeout: 150_000 });
       assert.equal(generated.status, 0, `${preset}: ${generated.stderr || generated.stdout}`);
+      if (preset === 'platform') {
+        const platformApiConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Api/appsettings.json'), 'utf8'));
+        const platformWorkerConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Worker/appsettings.json'), 'utf8'));
+        assert.equal(platformApiConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:5181');
+        assert.equal(platformWorkerConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:5182');
+      }
+      if (preset === 'saas') {
+        const saasApiConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Api/appsettings.json'), 'utf8'));
+        const saasWorkerConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Worker/appsettings.json'), 'utf8'));
+        assert.equal(saasApiConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:65535');
+        assert.equal(saasWorkerConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:65534');
+      }
       const presetBuild = spawnSync('dotnet', [
         'build', join(presetRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj'), '-c', 'Release', '-v', 'quiet',
       ], { cwd: presetRoot, encoding: 'utf8', timeout: 300_000 });
@@ -146,6 +171,10 @@ test('application template package includes framework sources and root manifest'
         'build', join(presetRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj'), '-c', 'Release', '-v', 'quiet',
       ], { cwd: presetRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
       assert.equal(presetMigratorBuild.status, 0, `${preset} migrator: ${presetMigratorBuild.stderr || presetMigratorBuild.stdout}`);
+      const presetWorkerBuild = spawnSync('dotnet', [
+        'build', join(presetRoot, 'src/Demo.Host.Worker/Demo.Host.Worker.csproj'), '-c', 'Release', '-v', 'quiet',
+      ], { cwd: presetRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
+      assert.equal(presetWorkerBuild.status, 0, `${preset} worker: ${presetWorkerBuild.stderr || presetWorkerBuild.stdout}`);
       const presetAssets = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
       const selected = resolvePresetModules(preset);
       for (const library of Object.keys(presetAssets.libraries)) {

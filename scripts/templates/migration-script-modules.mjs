@@ -142,6 +142,7 @@ export function inferMigrationModuleOwner(scriptName) {
   if (stem.startsWith('Calendar')) return 'Calendar';
   if (stem.startsWith('Regions')) return 'Regions';
   if (stem.startsWith('Platform')) return 'Platform';
+  if (stem.startsWith('Ai')) return 'Ai';
   if (stem.startsWith('Host')) return 'Identity';
   throw new Error('Unable to infer migration module owner for script: ' + scriptName);
 }

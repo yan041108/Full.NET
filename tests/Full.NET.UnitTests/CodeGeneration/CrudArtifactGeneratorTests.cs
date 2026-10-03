@@ -755,6 +755,52 @@ public sealed class CrudArtifactGeneratorTests
     }
 
     [TestMethod]
+    public void Generate_vue_view_adapts_readonly_rows_to_element_plus_table_slots()
+    {
+        var artifacts = GenerateWithLayui(CreateHardDeleteSchema());
+        var vueView = Artifact(artifacts, "clients/vue/productsView.vue");
+
+        StringAssert.Contains(vueView, ":data=\"[...items]\"");
+        StringAssert.Contains(vueView, "function openEdit(row: unknown): void");
+        StringAssert.Contains(vueView, "const item = items.value.find(candidate => candidate === row);");
+        StringAssert.Contains(vueView, "function openDelete(row: unknown): void");
+        StringAssert.Contains(vueView, "async function confirmDelete(): Promise<void>");
+    }
+
+    [TestMethod]
+    public void Generate_explicit_navigation_uses_unique_vue_route_identity()
+    {
+        var artifacts = GenerateWithLayui(CreateHardDeleteSchema());
+        var navigation = Artifact(artifacts, "backend/ProductAuthorizationContributor.fragment.cs");
+
+        StringAssert.Contains(navigation, "new NavigationDefinition(\n    \"m7-catalog-products\",\n    null,\n    \"m7-catalog-products\",\n    \"/catalog/products\",\n    \"m7-catalog-products\",");
+        foreach (var action in new[] { "create", "update", "disable" })
+        {
+            StringAssert.Contains(navigation,
+                $"\"catalog.products.{action}\",\n    \"m7-catalog-products\",");
+        }
+    }
+
+    [TestMethod]
+    public void Generate_explicit_navigation_distinguishes_module_and_resource_boundaries()
+    {
+        var reference = CreateHardDeleteSchema();
+        FullNetCrudSchema Schema(string moduleKey, string resource) =>
+            FullNetCrudSchema.CreateProject(
+                ownerKey: "acme", moduleKey, entityKey: "product",
+                databaseTableName: $"acme_{moduleKey}_product",
+                rootNamespace: "Acme.Modules.Catalog", clrTypeName: "Product",
+                apiResourceName: resource, permissionResourceName: "products",
+                reference.DataScope, reference.EntityCapabilities,
+                FullNetCrudScene.Single, [], reference.Columns);
+
+        var first = CrudAuthorizationContributorFragmentGenerator.Generate(Schema("a_b", "c"));
+        var second = CrudAuthorizationContributorFragmentGenerator.Generate(Schema("a", "b-c"));
+        StringAssert.Contains(first, "new NavigationDefinition(\n    \"m3-a-b-c\",");
+        StringAssert.Contains(second, "new NavigationDefinition(\n    \"m1-a-b-c\",");
+    }
+
+    [TestMethod]
     public void Generate_explicit_hard_delete_uses_physical_delete_without_soft_delete_fields()
     {
         var artifacts = GenerateWithLayui(
@@ -766,6 +812,33 @@ public sealed class CrudArtifactGeneratorTests
         Assert.IsFalse(sql.Contains("IsDeleted", StringComparison.Ordinal));
         Assert.IsFalse(sql.Contains("DeletedAtUtc", StringComparison.Ordinal));
         Assert.IsFalse(sql.Contains("DeletedById", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("legacy")]
+    [DataRow("hard-delete")]
+    public void Generate_vue_requires_confirmation_before_destructive_action(string mode)
+    {
+        var schema = mode == "legacy"
+            ? FullNetCrudSchemaTests.CreateProductSchema()
+            : CreateHardDeleteSchema();
+        var view = Artifact(GenerateWithLayui(schema), "clients/vue/productsView.vue");
+
+        StringAssert.Contains(view, "const deleteOpen = ref(false);");
+        StringAssert.Contains(view, "@click=\"openDelete(row)\"");
+        StringAssert.Contains(view, "<el-dialog v-model=\"deleteOpen\" title=\"确认删除\"");
+        StringAssert.Contains(view, "--el-color-danger: #b42318");
+        StringAssert.Contains(view, "@click=\"confirmDelete\"");
+        if (mode == "hard-delete")
+        {
+            StringAssert.Contains(view, "确定删除该条记录吗？此操作无法撤销。");
+        }
+        else
+        {
+            StringAssert.Contains(view, "确定删除该条记录吗？</p>");
+            Assert.IsFalse(view.Contains("此操作无法撤销", StringComparison.Ordinal));
+        }
+        Assert.IsFalse(view.Contains("@click=\"removeRow(row)\"", StringComparison.Ordinal));
     }
 
     [TestMethod]

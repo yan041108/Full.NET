@@ -5,7 +5,7 @@
 ## 前置条件
 
 - 已安装 .NET 10 SDK（`dotnet --version` 可执行）
-- 独立应用根目录包含 `fullnet-app.json`、`framework-manifest.json`、`src/<name>.Host.Api`、`src/<name>.Host.Migrator` 与 `framework/fullnet/`；`src/Composition`、`src/Hosts`、`src/Modules` 是原框架仓库的布局
+- 独立应用根目录包含 `fullnet-app.json`、`framework-manifest.json`、`src/<name>.Host.Api`、`src/<name>.Host.Worker`、`src/<name>.Host.Migrator` 与 `framework/fullnet/`；`src/Composition`、`src/Hosts`、`src/Modules` 是原框架仓库的布局
 - `appsettings.json` 已配置 `FullNet:Modules:Preset`（如 `minimal` 或 `platform`）
 
 ## 第一步：运行 diagnose
@@ -103,7 +103,7 @@ dotnet exec src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.C
 
 ## 验证
 
-新创建应用从应用根运行 `dotnet run --project src/<name>.Host.Migrator -- --seed baseline`，迁移成功后才执行显式播种；省略 `--seed` 只迁移。仅本地开发环境显式选择 Development 后才能使用 `--seed development`，Production仍只允许Baseline。API和Migrator消费同一应用Composition，但Migrator只注册模块的迁移/播种入口，不能装入API Profile。现阶段Runner仍只运行冻结预设的框架脚本；生成业务SQL草案须完成编号、所有权、恢复与双库评审后显式接入，不能放进受管框架目录。旧应用的源码升级不会自动创建该应用拥有的宿主，需按新模板显式采用；默认结构校验兼容旧应用，创建发布前则强制要求同名Migrator与一致配置。
+新创建应用从应用根运行 `dotnet run --project src/<name>.Host.Migrator -- --seed baseline`，迁移成功后才执行显式播种；省略 `--seed` 只迁移。仅本地开发环境显式选择 Development 后才能使用 `--seed development`，Production仍只允许Baseline。API、Worker和Migrator消费同一应用Composition，分别装配各自Profile；Migrator只注册模块的迁移/播种入口，不能装入API Profile。Worker编译随应用分发的框架后台处理管线，默认健康检查端口与API分开；其运行时和Native AOT验收须单独执行。现阶段Runner仍只运行冻结预设的框架脚本；生成业务SQL草案须完成编号、所有权、恢复与双库评审后显式接入，不能放进受管框架目录。旧应用的源码升级不会自动创建该应用拥有的宿主，需按新模板显式采用；默认结构校验兼容旧应用，创建发布前则强制要求同名Worker、Migrator与一致配置。
 
 内容根声明 `fullnet-app.json` 时，Migrator 要求 `framework-manifest.json` 包含有效的预设迁移清单；文件缺失、清单不完整或 `unscoped` 会在解析数据库连接前停止，防止静默扩大为全部框架迁移。未声明应用的框架工作区保留原有非限定兼容行为。该检查依赖内容根中的应用声明，不替代发布目录的配置核验。
 
@@ -196,3 +196,29 @@ Host拒绝增量：登录后、进入租户前，另用生成客户端执行五�
 Host运行远端证据：`44ad7883` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36335535861/job/108665550676)成功391/391、零失败/跳过。两库host-runtime.json均completed=true、subject为host-admin，五操作实际HTTP/body403及authorization.permission_denied；未存凭据。该证据不代表成功业务请求。
 
 租户成功列表增量：在既有租户CRUD验收移交可信会话后，生成客户端调用列表操作，要求单次HTTP200、page=1/pageSize=5，并由生成的响应解析器校验分页契约。tenant-read.json仅记录操作、状态和条数，不写凭据/响应正文；失败保持completed=false。仅覆盖列表读取，不代表生成客户端完整CRUD、非空数据隔离或Vue，真实双库结果须按新SHA核对。
+
+列表远端证据：`32fc0330` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36338997482/job/108675258575)成功394/394、零失败/跳过；两库tenant-read.json均completed=true、单次HTTP200、items=0。此作业只证明空列表的生成客户端读取；同SHA主CI的Workflow Todo SQL Server测试遭deadlock失败，不将整条CI计为通过。
+
+非空商品读取增量：独立应用在既有租户CRUD实际创建并核对商品后、更新前，以同一内存租户会话运行生成的 `catalogGetProduct`。必须单次HTTP200，由生成响应解析器接收，再匹配商品Id、TenantId、Name、Version；失败时停止后续更新/删除并保留未完成报告。`product-read.json`仅记录操作和HTTP状态，不写令牌或响应正文。这覆盖一个非空商品的生成客户端读取，不代表完整客户端CRUD或Vue页面。
+
+独立应用 Vue 构建增量：将应用生成的四份 OpenAPI 客户端文件原样放入应用自有 `packages/client-contracts/src/application-generated/catalog-product/`，在该应用的包入口仅显式导出商品操作与模型；生成的 Vue 页面、页面模型和薄适配器原样放入应用管理端。使用 Vue-only 显式目标运行 `apply-client-route-integration`，复跑必须报告 `Unchanged`，随后在应用内执行冻结锁文件安装与 Vue 生产构建，并核对生成输入与应用文件未被构建改写。`application-crud-vue/result.json` 记录文件数、路由重复接入和构建状态。这一门禁验证独立应用的接线与编译，不等于真实浏览器交互、动态导航可达、普通账号按钮权限或页面可访问性验收；F02 仍未关闭。
+
+独立应用导航契约增量：显式能力生成的服务端导航 Id、RouteName、ComponentKey 和所属操作目录统一使用可区分模块/资源边界的长度前缀机器码（本样例为 `m7-catalog-products`），旧版能力保留原标识。应用采纳 Vue 页面前须按目录字段检查本地白名单的组件键、路由名和路径未被占用，再登记同一键、路由名与路径；产物在应用内编译后执行白名单正反例，确认匹配项可接受、路由名偏离时失败关闭。服务端生成片段、Vue 路由与本地白名单三处必须一致。该门禁本身只验证静态与运行时导航契约；后续真实浏览器证据见下文，不能仅据导航契约关闭 F02。
+
+真实浏览器增量：`09756949` 的[独立生成应用双库 CI](https://github.com/yan041108/Full.NET/actions/runs/37121124794)成功，模板测试 423/423、零失败/跳过。SQL Server/MySQL 各使用五种普通账号，在应用自己的 Vue 登录页进入并切换租户；无商品读取权限时菜单和直达路由失败关闭，其他账号仅显示被授予的操作按钮。创建、编辑、删除账号又分别在浏览器实际提交表单或点击删除，返回 HTTP 201/200/200，页面行随之变化；管理员 API 读回持久化结果或确认删除，并清理独立测试商品。`application-crud-browser/{read,none,create,update,delete}.json` 与相应权限报告均完成，不记录令牌。此证据覆盖该样例的浏览器交互与精确权限，未覆盖页面可访问性、应用 Worker、完整 Vue 再生成或容量实测，F02 继续保持未关闭。
+
+生成页无障碍与删除确认增量：`ebeaa38b` 的[独立生成应用双库 CI](https://github.com/yan041108/Full.NET/actions/runs/37125818016)成功，模板测试 423/423、零失败/跳过。SQL Server/MySQL 各五份浏览器报告均 `completed: true`；商品列表及创建、编辑、删除弹窗的 axe WCAG 2/2.1 A/AA 自动审计零违规。删除按钮通过键盘 Enter 打开确认框，Escape 取消后商品仍可见且未发送删除请求；再次打开并确认后恰好发送一次删除请求，HTTP 200 且页面行消失。生成器区分硬删除与旧版停用提示，硬删除明确说明不可撤销；删除确认按钮使用满足本次审计的高对比度危险色。此证据只覆盖代表性生成 CRUD 页的自动审计与键盘/删除请求路径，不等于全站无障碍或辅助技术人工验收；应用 Worker、完整 Vue 再生成与容量实测仍待验证，F02 不据此关闭。
+
+采纳后的 Vue 再生成保护增量：`596532d9` 的[独立生成应用双库 CI](https://github.com/yan041108/Full.NET/actions/runs/37127859802)成功，模板测试 424/424、零失败/跳过。早期 SQL 冲突检查先验证拒绝覆盖，再撤销仅由验收加入的注释，使后续再生成从干净受管源开始。两库的 `application-crud-vue/regenerate.json` 均以状态 0 报告全部 14 个生成产物 `Unchanged`；已采纳 Vue 页中的人工扩展及应用文件字节保持。随后人为改动生成源 `clients/vue/productsView.vue`，两库 `vue-conflict.json` 均以状态 2 精确报告该文件 `Conflict`，未改写应用页或其他产物；源文件在检查后恢复，Vue 构建和浏览器验收继续通过。此证据覆盖同输入再生成及人工文件保护，不覆盖 schema 变更后的有意升级、应用 Worker 或容量实测，F02 仍未关闭。
+
+应用自有业务代码再生成保护增量：独立生成应用完成 Catalog 模块首次接入后，在未受管的 `Product.manual.cs` 增加可编译业务策略，再执行 `apply-module-integration`。SQL Server/MySQL 本地真实栈 2/2 通过；两库的 `application-crud-module/manual-repeat.json` 均报告六个受管模块产物 `Unchanged`，`manual-build.json` 的 Release 构建退出码为 0，人工业务文件及宿主文件字节保持。聚焦测试 17/17 通过，其中故意改写人工文件的注入执行器会被验收拒绝。此证据覆盖同一 Schema 的模块重复接入，不覆盖 Schema 有意升级后的业务迁移或自动合并人工修改；F02 仍未关闭。
+
+Schema 有意变更的源码升级增量：独立打包应用在既有 Product Schema 增加可空 `Description` 后，重跑应用自带 CLI，14 个受管源产物中 10 个 `Update`、4 个 `Unchanged`，SQL Server/MySQL 建表草案、后端契约与 OpenAPI 均含新字段；再次执行全部 `Unchanged`。模块接入更新 4 个产物，重复执行六个全部 `Unchanged`；人工业务文件、模块入口、授权贡献者、Composition 与 Vue 路由字节保持，API Release 构建通过。验收报告位于 `.tmp/template-real-stack/application-crud-schema-source-upgrade/`，明确 `databaseMigrationApplied=false`。这项单独验收只证明源码可受控升级；既有表的实际迁移及 HTTP 结果见下段。
+
+既有业务表升级增量：独立生成应用在旧版 API 下先持久化一条商品，停机后升级受管源码，应用再显式采纳成对的 `002_AddProductDescription.sql`；已部署的 `001_CreateProduct.sql` 与人工业务文件保持原字节。SQL Server 2022 CU14 与 MySQL 8.0 本地真实栈各曾通过 1/1：`002` 首次执行 1 项、正常复跑 0 项；测试库精确撤销其 DbUp journal 行后，保留新增列重跑执行 1 项，再次复跑 0 项。升级验收还要求 SQL Server 模拟“列已添加、元数据注释未添加”的部分完成状态，并在重跑后检查注释恢复；这一新增断言的通过状态须按当前源码的新鲜运行结果判定。重启 API 并重新取得同一租户会话后，旧商品读回 `description=null`，可更新描述；携带描述的新建请求和省略描述的旧请求均返回 201。两库报告位于 `.tmp/template-real-stack/<provider>/application-crud-live-upgrade/`，`result.json` 标记 `databaseMigrationApplied=true`。生成器仍只产出建表草案，不会自动改写已采用的 `001` 或自动发布增量迁移；本次 `002` 是该样例经评审显式采纳的脚本，不代表任意 Schema 差异都能自动迁移。F02 仍需按其余未覆盖能力继续验收。
+
+应用 Worker 运行增量：独立应用真实栈用例现于迁移后构建并启动应用自有 Worker，先执行 Tenancy 事件版本的空 Outbox 扫描，要求返回 `outbox.version_retirement.safe` 且待处理、死信数量均为零；常驻进程须通过 `/health/live` 和 `/health/ready`，持续运行到 API、客户端和浏览器验收结束，并检查关键后台故障日志。本地 SQL Server 2022 CU14 与 MySQL 8.0 均完成该流程；由于本机 Docker Hub 拉取令牌失败，本地 Redis 使用缓存的 8.6 镜像，CI 仍固定使用 MySQL 8.4 与 Redis 7.4。此证据覆盖双库启动、数据库查询及后台进程稳定性，不覆盖非空 Outbox 事件交付、应用自有 Native AOT 或容量实测，F02 仍未关闭。
+
+应用 Worker 非空 Outbox 增量：双库真实栈在 Worker 启动前写入一条合法 `fullnet.tenancy.tenant.changed` MemoryPack 消息，并按消息 ID 确认初始 `Attempts=0`、未处理、非死信；应用自有 Worker 启动后，同一消息首次领取即写入已处理、非死信终态，租约及下次重试字段清空。测试探针只存在于验收工作区，使用生成应用分发的框架程序集生成载荷；SQL Server 与 MySQL 本地用例均通过。此证据只覆盖 Minimal 预设的该条合法事件路由及成功终态，不外推到其他 Handler、失败重试、Kafka、应用自有 Native AOT 或容量实测，F02 仍未关闭。
+
+应用业务 Outbox 到投影增量：`66bcb227` 的[独立生成应用双库 CI](https://github.com/yan041108/Full.NET/actions/runs/37150305798)成功，模板测试 437/437、零失败/跳过。SQL Server/MySQL 各用真实租户令牌通过 Organization API 创建单位，核对业务事务写出的 `fullnet.organization.unit.changed` MemoryPack 消息，并在应用自有 Worker 运行后按消息 ID 确认首次处理、非死信、租约与重试字段清空；Identity 的同租户同单位投影名称、版本和启用状态与 API 创建结果一致。两库的 `worker-business-outbox.json` 均记录这一终态，不包含令牌。本地 Docker Engine 恢复后，使用 SQL Server 2022 CU14、MySQL 8.0 与缓存的 Redis 8.6 镜像重跑，双库真实栈 2/2 通过；此前一次数据库超时不能计为通过，但复跑未重现。不据此成功路径外推失败重试、其他事件路由、应用自有 Native AOT 或容量实测，F02 仍未关闭。

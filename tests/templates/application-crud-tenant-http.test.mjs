@@ -84,3 +84,25 @@ for (const failure of ['no-local', 'wrong-context', 'missing-token', 'credential
     assert.equal(evidence.includes(tenantAccessToken), false);
   }));
 }
+
+test('tenant CRUD invokes a generated-client read after validating the created product', async () => fixture(async (logPath) => {
+  const calls = [];
+  const observed = [];
+  const result = await verifyApplicationCrudTenantHttp('http://example.test', {
+    hostAccessToken, logPath, request: runner(calls),
+    onCreatedProduct: async (value) => observed.push({ ...value, atRequest: calls.length }),
+  });
+  assert.deepEqual(result, successResult);
+  assert.deepEqual(observed, [{ tenantAccessToken, product: original, atRequest: 3 }]);
+  assert.equal(readFileSync(logPath, 'utf8').includes(tenantAccessToken), false);
+}));
+
+test('tenant CRUD stops before later mutations when the generated-client read fails', async () => fixture(async (logPath) => {
+  const calls = [];
+  await assert.rejects(() => verifyApplicationCrudTenantHttp('http://example.test', {
+    hostAccessToken, logPath, request: runner(calls),
+    onCreatedProduct: async () => { throw new Error('generated read failed'); },
+  }), /generated read failed/u);
+  assert.equal(calls.length, 3);
+  assert.equal(JSON.parse(readFileSync(logPath, 'utf8')).completed, false);
+}));

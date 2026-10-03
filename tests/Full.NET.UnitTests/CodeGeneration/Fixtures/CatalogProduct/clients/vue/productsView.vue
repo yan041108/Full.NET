@@ -24,7 +24,9 @@ const session = useSessionStore();
 const problem = ref<FullNetProblemDetails>();
 const createOpen = ref(false);
 const editOpen = ref(false);
+const deleteOpen = ref(false);
 const editing = ref<ProductResponse>();
+const deleting = ref<ProductResponse>();
 const createForm = reactive({
   displayName: '',
   description: null,
@@ -65,10 +67,21 @@ function openCreate(): void {
   createOpen.value = true;
 }
 
-function openEdit(row: ProductResponse): void {
-  editing.value = row;
-  Object.assign(editForm, row);
+function openEdit(row: unknown): void {
+  // 表格插槽将行标为通用对象；只接受已由生成客户端校验并进入页面模型的同一对象。
+  const item = items.value.find(candidate => candidate === row);
+  if (!item) return;
+  editing.value = item;
+  Object.assign(editForm, item);
   editOpen.value = true;
+}
+
+function openDelete(row: unknown): void {
+  // 先展示确认弹窗；表格按钮不得直接执行不可撤销的删除请求。
+  const item = items.value.find(candidate => candidate === row);
+  if (!item) return;
+  deleting.value = item;
+  deleteOpen.value = true;
 }
 
 async function submitCreate(): Promise<void> {
@@ -88,8 +101,13 @@ async function submitEdit(): Promise<void> {
   }
 }
 
-async function removeRow(row: ProductResponse): Promise<void> {
-  await remove(row);
+async function confirmDelete(): Promise<void> {
+  if (!deleting.value) return;
+  const succeeded = await remove(deleting.value);
+  if (succeeded) {
+    deleteOpen.value = false;
+    deleting.value = undefined;
+  }
 }
 </script>
 
@@ -109,7 +127,7 @@ async function removeRow(row: ProductResponse): Promise<void> {
       </el-button>
     </div>
     <el-table
-      :data="items"
+      :data="[...items]"
       empty-text="暂无数据"
       v-loading="loading"
     >
@@ -131,7 +149,7 @@ async function removeRow(row: ProductResponse): Promise<void> {
             v-if="canWrite"
             link
             type="danger"
-            @click="removeRow(row)"
+            @click="openDelete(row)"
           >
             删除
           </el-button>
@@ -177,6 +195,13 @@ async function removeRow(row: ProductResponse): Promise<void> {
       <template #footer>
         <el-button @click="editOpen = false">取消</el-button>
         <el-button type="primary" @click="submitEdit">保存</el-button>
+      </template>
+    </el-dialog>
+    <el-dialog v-model="deleteOpen" title="确认删除" style="--el-color-danger: #b42318; --el-color-danger-light-3: #b42318; --el-color-danger-dark-2: #991b1b" @close="deleting = undefined">
+      <p>确定删除该条记录吗？</p>
+      <template #footer>
+        <el-button @click="deleteOpen = false">取消</el-button>
+        <el-button type="danger" @click="confirmDelete">确认删除</el-button>
       </template>
     </el-dialog>
   </section>
