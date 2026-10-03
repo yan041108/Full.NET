@@ -65,9 +65,12 @@ function openCreate(): void {
   createOpen.value = true;
 }
 
-function openEdit(row: ProductResponse): void {
-  editing.value = row;
-  Object.assign(editForm, row);
+function openEdit(row: unknown): void {
+  // 表格插槽将行标为通用对象；只接受已由生成客户端校验并进入页面模型的同一对象。
+  const item = items.value.find(candidate => candidate === row);
+  if (!item) return;
+  editing.value = item;
+  Object.assign(editForm, item);
   editOpen.value = true;
 }
 
@@ -88,8 +91,11 @@ async function submitEdit(): Promise<void> {
   }
 }
 
-async function removeRow(row: ProductResponse): Promise<void> {
-  await remove(row);
+async function removeRow(row: unknown): Promise<void> {
+  const item = items.value.find(candidate => candidate === row);
+  if (item) {
+    await remove(item);
+  }
 }
 </script>
 
@@ -109,7 +115,7 @@ async function removeRow(row: ProductResponse): Promise<void> {
       </el-button>
     </div>
     <el-table
-      :data="items"
+      :data="[...items]"
       empty-text="暂无数据"
       v-loading="loading"
     >

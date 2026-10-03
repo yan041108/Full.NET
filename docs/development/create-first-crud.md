@@ -200,3 +200,5 @@ Host运行远端证据：`44ad7883` 的[独立应用双库作业](https://github
 列表远端证据：`32fc0330` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36338997482/job/108675258575)成功394/394、零失败/跳过；两库tenant-read.json均completed=true、单次HTTP200、items=0。此作业只证明空列表的生成客户端读取；同SHA主CI的Workflow Todo SQL Server测试遭deadlock失败，不将整条CI计为通过。
 
 非空商品读取增量：独立应用在既有租户CRUD实际创建并核对商品后、更新前，以同一内存租户会话运行生成的 `catalogGetProduct`。必须单次HTTP200，由生成响应解析器接收，再匹配商品Id、TenantId、Name、Version；失败时停止后续更新/删除并保留未完成报告。`product-read.json`仅记录操作和HTTP状态，不写令牌或响应正文。这覆盖一个非空商品的生成客户端读取，不代表完整客户端CRUD或Vue页面。
+
+独立应用 Vue 构建增量：将应用生成的四份 OpenAPI 客户端文件原样放入应用自有 `packages/client-contracts/src/application-generated/catalog-product/`，在该应用的包入口仅显式导出商品操作与模型；生成的 Vue 页面、页面模型和薄适配器原样放入应用管理端。使用 Vue-only 显式目标运行 `apply-client-route-integration`，复跑必须报告 `Unchanged`，随后在应用内执行冻结锁文件安装与 Vue 生产构建，并核对生成输入与应用文件未被构建改写。`application-crud-vue/result.json` 记录文件数、路由重复接入和构建状态。这一门禁验证独立应用的接线与编译，不等于真实浏览器交互、动态导航可达、普通账号按钮权限或页面可访问性验收；F02 仍未关闭。
