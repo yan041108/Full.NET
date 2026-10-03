@@ -590,6 +590,8 @@ public sealed class DependencyRulesTests
             Path.Combine("src", "Hosts", "Full.NET.Host.Worker", "Full.NET.Host.Worker.csproj"),
             // 独立应用 API 模板沿用相同受控 Kafka 重放注册，生成物由模板验收验证。
             Path.Combine("templates", "fullnet-app", "src", "FullNetAppNameToken.Host.Api", "FullNetAppNameToken.Host.Api.csproj"),
+            // 独立应用 Worker 复用官方后台管线，仅在 Worker Profile 启用 Kafka 消费。
+            Path.Combine("templates", "fullnet-app", "src", "FullNetAppNameToken.Host.Worker", "FullNetAppNameToken.Host.Worker.csproj"),
             // Benchmarks 只承载显式执行的独立容量工具，不进入 API/Worker 生产依赖图。
             Path.Combine("benchmarks", "Full.NET.Benchmarks", "Full.NET.Benchmarks.csproj"),
             Path.Combine("tests", "Full.NET.UnitTests", "Full.NET.UnitTests.csproj"),
