@@ -253,6 +253,11 @@ function renderOperationParameters(operation) {
     fields.push(
       `  readonly body${operation.request.required ? '' : '?'}: ${schemaType(operation.request.schema)};`
     );
+  } else if (operation.request.kind === 'binary') {
+    fields.push(`  readonly body${operation.request.required ? '' : '?'}: Blob;`);
+    if (operation.request.mediaTypes.length > 1) {
+      fields.push(`  readonly contentType: ${operation.request.mediaTypes.map(type => JSON.stringify(type)).join(' | ')};`);
+    }
   } else if (operation.request.kind === 'multipart') {
     const required = new Set(operation.request.schema.required ?? []);
     for (const [name, schema] of Object.entries(operation.request.schema.properties ?? {})
@@ -325,6 +330,19 @@ function renderPath(operation) {
 
 function renderRequestInitialization(operation, schemas) {
   const method = operation.method.toUpperCase();
+  if (operation.request.kind === 'binary') {
+    // 原始文件正文不得经过 JSON 或 multipart 编码，重试仍复用可重读的 Blob。
+    const mediaType = operation.request.mediaTypes.length > 1
+      ? 'parameters.contentType' : JSON.stringify(operation.request.mediaTypes[0]);
+    const headers = `{ 'content-type': ${mediaType} }`;
+    return [
+      '  const init: RequestInit = {',
+      `    method: '${method}',`,
+      `    headers: ${operation.request.required ? headers : `parameters.body === undefined ? undefined : ${headers}`},`,
+      '    body: parameters.body',
+      '  };'
+    ];
+  }
   if (operation.request.kind === 'multipart') {
     const lines = ['  const body = new FormData();'];
     const required = new Set(operation.request.schema.required ?? []);
@@ -411,7 +429,7 @@ function collectOperations(document) {
           required: parameter.required === true,
           schema: parameter.schema
         })),
-        request: describeRequest(operation.requestBody),
+        request: describeRequest(operation.requestBody, document.components?.schemas ?? {}),
         response
       });
     }
@@ -419,7 +437,7 @@ function collectOperations(document) {
   return operations.sort((left, right) => compareText(left.operationId, right.operationId));
 }
 
-function describeRequest(requestBody) {
+function describeRequest(requestBody, schemas) {
   if (!requestBody) {
     return { kind: 'none' };
   }
@@ -437,6 +455,10 @@ function describeRequest(requestBody) {
       required: requestBody.required === true,
       schema: content['multipart/form-data'].schema
     };
+  }
+  const mediaTypes = Object.keys(content).sort(compareText);
+  if (mediaTypes.length > 0 && mediaTypes.every(type => isBinarySchema(content[type].schema, schemas))) {
+    return { kind: 'binary', required: requestBody.required === true, mediaTypes };
   }
   throw new Error('客户端生成器遇到不支持的 requestBody media type。');
 }
