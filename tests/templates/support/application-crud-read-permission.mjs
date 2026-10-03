@@ -131,8 +131,12 @@ async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken
     readerToken = await context('reader-enter-local', readerToken, tenantId);
     checkUser(await call('reader-tenant-identity', '/api/v1/me', 'GET', readerToken), true);
     if (onTenantAccount) {
-      await onTenantAccount({ mode, username, password: newPassword, tenantId,
+      const browserTenantToken = await onTenantAccount({ mode, username, password: newPassword, tenantId,
         tenantName: local[0].name ?? 'Full.NET Local' });
+      assert.ok(typeof browserTenantToken === 'string' && browserTenantToken.trim(),
+        'browser check did not return an active tenant token');
+      secrets.push(browserTenantToken);
+      readerToken = browserTenantToken;
     }
     const item = base + '/' + product.id;
     if (canRead) {

@@ -261,6 +261,7 @@ const noPermissionFailures = [
 test('ordinary browser check receives the active account before business requests without logging credentials', async () => fixture(async (logPath) => {
   const calls = [];
   const observed = [];
+  const browserTenantToken = 'secret-browser-tenant';
   await verifyApplicationCrudReadPermission('http://example.test', {
     hostAccessToken: tokens[0], logPath, request: runner(calls),
     onTenantAccount: async (account) => {
@@ -270,12 +271,15 @@ test('ordinary browser check receives the active account before business request
       assert.equal(account.username, 'catalog-reader-probe');
       assert.match(account.password, /^Bb2!/u);
       assert.equal(account.tenantId, tenantId);
+      return browserTenantToken;
     },
   });
   assert.equal(observed.length, 1);
+  assert.equal(calls[13].options.headers.Authorization, `Bearer ${browserTenantToken}`);
   const report = readFileSync(logPath, 'utf8');
   assert.equal(report.includes(observed[0].password), false);
   assert.equal(report.includes(observed[0].username), false);
+  assert.equal(report.includes(browserTenantToken), false);
 }));
 for (const [name, index, altered] of noPermissionFailures) {
   test(`no product permission acceptance rejects ${name} at the intended stage`, async () => fixture(async (logPath) => {

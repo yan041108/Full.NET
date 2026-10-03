@@ -50,6 +50,13 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
       const context = await browser.newContext();
       try {
         const page = await context.newPage();
+        let tenantSwitchStarted = false;
+        let activeAccessToken;
+        page.on('request', request => {
+          if (!tenantSwitchStarted || new URL(request.url()).pathname !== '/api/v1/navigation') return;
+          const authorization = request.headers().authorization;
+          if (authorization?.startsWith('Bearer ')) activeAccessToken = authorization.slice('Bearer '.length);
+        });
         page.on('response', response => {
           const path = new URL(response.url()).pathname;
           if (['/api/v1/auth/login', '/api/v1/me', '/api/v1/navigation', '/api/v1/tenancy/context'].includes(path)) {
@@ -68,6 +75,7 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
         await page.goto(origin + '/#/tenant-context');
         const tenantRow = page.locator('.tenant-context-view .el-table__row').filter({ hasText: tenantName });
         await expect(tenantRow).toBeVisible({ timeout: 15_000 });
+        tenantSwitchStarted = true;
         await tenantRow.getByRole('button', { name: '进入租户' }).click();
         await expect(page.getByTestId('shell-current-context')).toHaveText(tenantName, { timeout: 20_000 });
         evidence.tenantContext = true;
@@ -101,8 +109,9 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
           await expect.poll(() => new URL(page.url()).hash).not.toBe('#/catalog/products');
           await expect(page.locator('.generated-crud-view')).toHaveCount(0);
         }
+        assert.ok(activeAccessToken, 'browser navigation did not use a tenant access token');
         evidence.completed = true;
-        return evidence;
+        return activeAccessToken;
       } finally {
         await context.close();
         writeFileSync(join(reportDirectory, mode + '.json'), JSON.stringify(evidence, null, 2));
