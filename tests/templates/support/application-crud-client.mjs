@@ -8,6 +8,15 @@ import { isMainThread, parentPort, Worker, workerData } from 'node:worker_thread
 const operationIds = ['catalogListProducts', 'catalogCreateProduct', 'catalogGetProduct', 'catalogUpdateProduct', 'catalogDeleteProduct'];
 const fileNames = ['guards.generated.ts', 'index.generated.ts', 'models.generated.ts', 'operations.generated.ts'];
 
+export async function verifyApplicationCrudClientProductRead(appRoot, baseUrl, { tenantAccessToken, expectedProduct, logPath }) {
+  assert.ok(typeof tenantAccessToken === 'string' && tenantAccessToken.trim(), 'valid tenant credential required');
+  for (const key of ['id', 'tenantId', 'name', 'version']) {
+    assert.ok(typeof expectedProduct?.[key] === 'string' && expectedProduct[key], 'expected product field missing: ' + key);
+  }
+  return await runRuntimeWorker({ kind: 'client-runtime', appRoot, baseUrl, logPath,
+    hostAccessToken: tenantAccessToken, productRead: expectedProduct });
+}
+
 export async function verifyApplicationCrudClientTenantRead(appRoot, baseUrl, { logPath, tenantAccessToken }) {
   assert.ok(typeof tenantAccessToken === 'string' && tenantAccessToken.trim(), 'valid tenant credential required');
   return await runRuntimeWorker({ kind: 'client-runtime', appRoot, baseUrl, logPath, hostAccessToken: tenantAccessToken, tenantRead: true });
@@ -34,13 +43,13 @@ async function runRuntimeWorker(data) {
   });
 }
 
-async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken, tenantRead = false) {
+async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken, tenantRead = false, productRead) {
   const emittedRoot = join(appRoot, 'verification/ClientGeneration/emitted');
   const host = hostAccessToken !== undefined;
   const expectedStatus = host ? 403 : 401;
   const expectedCode = host ? 'authorization.permission_denied' : 'identity.session_not_active';
   const redact = (text) => host ? text.replaceAll(hostAccessToken, '[REDACTED]') : text;
-  const evidence = { completed: false, subject: tenantRead ? 'tenant-reader' : host ? 'host-admin' : 'anonymous', responses: [] };
+  const evidence = { completed: false, subject: productRead ? 'tenant-product-reader' : tenantRead ? 'tenant-reader' : host ? 'host-admin' : 'anonymous', responses: [] };
   const originalFetch = globalThis.fetch;
   const transports = [];
   globalThis.fetch = async (...args) => {
@@ -53,6 +62,21 @@ async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken, tena
     const operations = await import(pathToFileURL(join(emittedRoot, 'verification/ClientGeneration/generated/operations.generated.js')).href);
     const http = createHttpClient(baseUrl);
     if (host) http.configureAuthentication({ getAccessToken: () => hostAccessToken, refresh: async () => false });
+    if (productRead) {
+      const entry = { operationId: 'catalogGetProduct' };
+      evidence.responses.push(entry);
+      let value;
+      try { value = await operations.catalogGetProduct(http, { productId: productRead.id }, AbortSignal.timeout(15_000), { retryUnauthorized: false }); }
+      finally { entry.httpStatus = transports[0]; }
+      assert.equal(transports.length, 1, 'generated product read unexpected transport count');
+      assert.equal(entry.httpStatus, 200, 'generated product read HTTP status mismatch');
+      assert.equal(value.id, productRead.id, 'generated product id mismatch');
+      assert.equal(value.tenantId, productRead.tenantId, 'generated product tenant mismatch');
+      assert.equal(value.name, productRead.name, 'generated product name mismatch');
+      assert.equal(value.version, productRead.version, 'generated product version mismatch');
+      evidence.completed = true;
+      return { requests: 1, productRead: 1 };
+    }
     if (tenantRead) {
       const entry = { operationId: 'catalogListProducts' };
       evidence.responses.push(entry);
@@ -99,7 +123,7 @@ async function runClientRuntime(appRoot, baseUrl, logPath, hostAccessToken, tena
 }
 
 if (!isMainThread && workerData?.kind === 'client-runtime') {
-  try { parentPort.postMessage({ value: await runClientRuntime(workerData.appRoot, workerData.baseUrl, workerData.logPath, workerData.hostAccessToken, workerData.tenantRead) }); }
+  try { parentPort.postMessage({ value: await runClientRuntime(workerData.appRoot, workerData.baseUrl, workerData.logPath, workerData.hostAccessToken, workerData.tenantRead, workerData.productRead) }); }
   catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     parentPort.postMessage({ error: workerData.hostAccessToken === undefined ? message : message.replaceAll(workerData.hostAccessToken, '[REDACTED]') });

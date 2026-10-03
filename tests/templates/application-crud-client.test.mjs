@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verifyApplicationCrudClientTenantRead } from './support/application-crud-client.mjs';
+import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verifyApplicationCrudClientTenantRead, verifyApplicationCrudClientProductRead } from './support/application-crud-client.mjs';
 
 async function fixture(action) {
   const appRoot = mkdtempSync(join(tmpdir(), 'fullnet-business-client-'));
@@ -61,6 +61,37 @@ for (const [validShape, status] of [[true, 200], [false, 200], [true, 201]]) {
       const text = readFileSync(logPath, 'utf8');
       assert.equal(text.includes(token), false);
       assert.equal(JSON.parse(text).completed, validShape && status === 200);
+    } finally { await new Promise((resolve) => server.close(resolve)); }
+  }));
+}
+
+for (const wrongTenant of [false, true]) {
+  test(`generated client reads a nonempty product with tenant identity: ${wrongTenant}`, () => fixture(async (appRoot) => {
+    verifyApplicationCrudClient(appRoot, { reportDirectory: join(appRoot, 'reports/client') });
+    const tenantId = '01900000-0000-7000-8000-000000000010';
+    const id = '01900000-0000-7000-8000-000000000011';
+    const expectedProduct = { id, tenantId, name: 'Application tenant CRUD probe', version: '1' };
+    const token = 'secret-product-read-fixture';
+    const requests = [];
+    const server = createServer((request, response) => {
+      requests.push({ url: request.url, method: request.method, authorization: request.headers.authorization });
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify({ ...expectedProduct, tenantId: wrongTenant ? id : tenantId,
+        displayName: expectedProduct.name, description: null, isActive: true, createdAtUtc: '2026-10-03T00:00:00Z' }));
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const logPath = join(appRoot, 'reports/client/product-read.json');
+    try {
+      const run = () => verifyApplicationCrudClientProductRead(appRoot, `http://127.0.0.1:${server.address().port}`,
+        { tenantAccessToken: token, expectedProduct, logPath });
+      if (wrongTenant) await assert.rejects(run, /tenant mismatch/u);
+      else {
+        assert.deepEqual(await run(), { requests: 1, productRead: 1 });
+        assert.deepEqual(requests, [{ url: `/api/v1/catalog/products/${id}`, method: 'GET', authorization: `Bearer ${token}` }]);
+      }
+      const reportText = readFileSync(logPath, 'utf8');
+      assert.equal(reportText.includes(token), false);
+      assert.equal(JSON.parse(reportText).completed, !wrongTenant);
     } finally { await new Promise((resolve) => server.close(resolve)); }
   }));
 }

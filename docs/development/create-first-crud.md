@@ -196,3 +196,7 @@ Host拒绝增量：登录后、进入租户前，另用生成客户端执行五�
 Host运行远端证据：`44ad7883` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36335535861/job/108665550676)成功391/391、零失败/跳过。两库host-runtime.json均completed=true、subject为host-admin，五操作实际HTTP/body403及authorization.permission_denied；未存凭据。该证据不代表成功业务请求。
 
 租户成功列表增量：在既有租户CRUD验收移交可信会话后，生成客户端调用列表操作，要求单次HTTP200、page=1/pageSize=5，并由生成的响应解析器校验分页契约。tenant-read.json仅记录操作、状态和条数，不写凭据/响应正文；失败保持completed=false。仅覆盖列表读取，不代表生成客户端完整CRUD、非空数据隔离或Vue，真实双库结果须按新SHA核对。
+
+列表远端证据：`32fc0330` 的[独立应用双库作业](https://github.com/yan041108/Full.NET/actions/runs/36338997482/job/108675258575)成功394/394、零失败/跳过；两库tenant-read.json均completed=true、单次HTTP200、items=0。此作业只证明空列表的生成客户端读取；同SHA主CI的Workflow Todo SQL Server测试遭deadlock失败，不将整条CI计为通过。
+
+非空商品读取增量：独立应用在既有租户CRUD实际创建并核对商品后、更新前，以同一内存租户会话运行生成的 `catalogGetProduct`。必须单次HTTP200，由生成响应解析器接收，再匹配商品Id、TenantId、Name、Version；失败时停止后续更新/删除并保留未完成报告。`product-read.json`仅记录操作和HTTP状态，不写令牌或响应正文。这覆盖一个非空商品的生成客户端读取，不代表完整客户端CRUD或Vue页面。

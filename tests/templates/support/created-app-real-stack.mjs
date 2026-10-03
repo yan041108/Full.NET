@@ -19,7 +19,7 @@ import { verifyApplicationCrudHttpDenial } from './application-crud-http-denial.
 import { verifyApplicationCrudTenantHttp } from './application-crud-tenant-http.mjs';
 import { verifyApplicationCrudTenantIsolation } from './application-crud-tenant-isolation.mjs';
 import { verifyApplicationCrudOpenApi } from './application-crud-openapi.mjs';
-import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verifyApplicationCrudClientTenantRead } from './application-crud-client.mjs';
+import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verifyApplicationCrudClientTenantRead, verifyApplicationCrudClientProductRead } from './application-crud-client.mjs';
 import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission, verifyApplicationCrudCreatePermission, verifyApplicationCrudUpdatePermission, verifyApplicationCrudDeletePermission } from './application-crud-read-permission.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
@@ -308,7 +308,10 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     hostAccessToken = updatePermission.hostAccessToken;
     const deletePermission = await verifyApplicationCrudDeletePermission(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-delete-permission.json') });
     hostAccessToken = deletePermission.hostAccessToken;
-    const tenantCrud = await verifyApplicationCrudTenantHttp(apiUrl, { hostAccessToken, logPath: join(logRoot, 'application-crud-tenant-http.json') });
+    const tenantCrud = await verifyApplicationCrudTenantHttp(apiUrl, { hostAccessToken,
+      logPath: join(logRoot, 'application-crud-tenant-http.json'),
+      onCreatedProduct: ({ tenantAccessToken, product }) => verifyApplicationCrudClientProductRead(appRoot, apiUrl,
+        { tenantAccessToken, expectedProduct: product, logPath: join(logRoot, 'application-crud-client/product-read.json') }) });
     await verifyApplicationCrudClientTenantRead(appRoot, apiUrl, { tenantAccessToken: tenantCrud.tenantAccessToken,
       logPath: join(logRoot, 'application-crud-client/tenant-read.json') });
     await verifyApplicationCrudTenantIsolation(apiUrl, { localTenantId: tenantCrud.tenantId, initialAccessToken: tenantCrud.tenantAccessToken,
