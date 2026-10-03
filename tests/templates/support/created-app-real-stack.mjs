@@ -302,7 +302,7 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     };
     const retirement = runDotnet([
       'run', '--project', workerProject, '-c', 'Release', '--no-build', '--',
-      '--outbox-version-retirement-message-type', 'fullnet.notifications.announcement.published',
+      '--outbox-version-retirement-message-type', 'fullnet.tenancy.tenant.changed',
       '--outbox-version-retirement-schema-version', '1',
     ], appRoot, workerEnv, 180_000, join(logRoot, 'worker-retirement.log'));
     const retirementReport = retirement.stdout.split(/\r?\n/u)
