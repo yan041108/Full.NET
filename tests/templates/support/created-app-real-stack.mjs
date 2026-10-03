@@ -11,7 +11,9 @@ import { prepareApplicationCompositionProbe } from './application-composition-pr
 import { verifyApplicationModuleEndpoint } from './application-module-http.mjs';
 import { cleanupCreatedApp } from './created-app-cleanup.mjs';
 import { verifyApplicationCrudGeneration } from './application-crud-generation.mjs';
-import { prepareApplicationBusinessMigrations, verifyApplicationMigrationResult } from './application-business-migrations.mjs';
+import { prepareApplicationBusinessMigrations, prepareApplicationBusinessSchemaUpgrade, verifyApplicationMigrationResult } from './application-business-migrations.mjs';
+import { verifyApplicationCrudSchemaSourceUpgrade } from './application-crud-schema-source-upgrade.mjs';
+import { createPreUpgradeProduct, renewTenantSession, verifyUpgradedProductHttp } from './application-crud-live-upgrade.mjs';
 import { verifyApplicationCrudModule } from './application-crud-module.mjs';
 import { verifyApplicationCrudHostWiring } from './application-crud-host-wiring.mjs';
 import { verifyApplicationCrudAuthorization } from './application-crud-authorization.mjs';
@@ -289,7 +291,7 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     const workerProject = join(appRoot, 'src/Demo.Host.Worker/Demo.Host.Worker.csproj');
     const outboxProbeRoot = join(appRoot, 'tests/created-app-outbox-probe');
     mkdirSync(outboxProbeRoot, { recursive: true });
-    for (const file of ['CreatedAppOutboxProbe.csproj', 'Program.cs', 'BusinessOutboxProbe.cs']) {
+    for (const file of ['CreatedAppOutboxProbe.csproj', 'Program.cs', 'BusinessOutboxProbe.cs', 'SchemaUpgradeProbe.cs']) {
       copyFileSync(join(repoRoot, 'tests/templates/support/created-app-outbox-probe', file), join(outboxProbeRoot, file));
     }
     const outboxProbeProject = join(outboxProbeRoot, 'CreatedAppOutboxProbe.csproj');
@@ -453,6 +455,55 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
       try { entry = JSON.parse(line); } catch { continue; }
       assert.ok(!['Error', 'Fatal'].includes(entry?.['@l']), `generated Worker logged ${entry['@l']}: ${entry['@mt']}`);
     }
+
+    const legacyProduct = await createPreUpgradeProduct(apiUrl, tenantCrud.tenantAccessToken,
+      tenantCrud.tenantId, join(logRoot, 'application-crud-live-upgrade/legacy-create.json'));
+    await stopLoggedProcess(apiProcess, apiLogStream);
+    apiProcess = undefined;
+    apiLogStream = undefined;
+    const sourceUpgrade = verifyApplicationCrudSchemaSourceUpgrade(appRoot,
+      { reportDirectory: join(logRoot, 'application-crud-live-upgrade/source') });
+    const upgradedAdoption = prepareApplicationBusinessSchemaUpgrade(appRoot);
+    assert.equal(upgradedAdoption.scriptsPerProvider, 2);
+    runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env,
+      300_000, join(logRoot, 'application-crud-live-upgrade/migrator-build.log'));
+    const migrationArgs = ['run', '--project', migratorProject, '-c', 'Release', '--no-build'];
+    const upgradeMigration = runDotnet(migrationArgs, appRoot, env, 600_000,
+      join(logRoot, 'application-crud-live-upgrade/migrator-upgrade.log'));
+    const upgraded = verifyApplicationMigrationResult(upgradeMigration.stdout, false, 1);
+    const upgradeRepeat = runDotnet(migrationArgs, appRoot, env, 600_000,
+      join(logRoot, 'application-crud-live-upgrade/migrator-repeat.log'));
+    const repeated = verifyApplicationMigrationResult(upgradeRepeat.stdout, false);
+    const unaccounted = runOutboxProbe(outboxProbeProject, appRoot, env, 'schema-upgrade-unaccount');
+    assert.equal(unaccounted.removed, 1);
+    assert.equal(unaccounted.commentRemoved, databaseProviderKey === 'sqlserver' ? 1 : 0,
+      'recovery probe did not prepare the provider-specific partial DDL state');
+    const recoveryMigration = runDotnet(migrationArgs, appRoot, env, 600_000,
+      join(logRoot, 'application-crud-live-upgrade/migrator-recovery.log'));
+    const recovered = verifyApplicationMigrationResult(recoveryMigration.stdout, false, 1);
+    const restoredComment = runOutboxProbe(outboxProbeProject, appRoot, env, 'schema-upgrade-comment-state');
+    assert.equal(restoredComment.present, 1, 'recovery did not restore the Description metadata comment');
+    const recoveryRepeat = runDotnet(migrationArgs, appRoot, env, 600_000,
+      join(logRoot, 'application-crud-live-upgrade/migrator-recovery-repeat.log'));
+    const recoveryRepeated = verifyApplicationMigrationResult(recoveryRepeat.stdout, false);
+    const upgradedApiLogPath = join(logRoot, 'application-crud-live-upgrade/api.log');
+    apiLogStream = createWriteStream(upgradedApiLogPath, { flags: 'a' });
+    apiProcess = spawn('dotnet', ['run', '--project', hostProject, '-c', 'Release', '--no-build'], {
+      cwd: appRoot, env: { ...process.env, ...env, ASPNETCORE_URLS: apiUrl }, stdio: 'pipe',
+    });
+    apiProcess.stdout?.pipe(apiLogStream, { end: false });
+    apiProcess.stderr?.pipe(apiLogStream, { end: false });
+    await waitForApi(apiUrl, 180_000, upgradedApiLogPath);
+    await verifyApplicationCrudOpenApi(apiUrl, { expectedPath: join(appRoot, 'contracts/openapi/products.generated.openapi.json'),
+      logPath: join(logRoot, 'application-crud-live-upgrade/openapi.json') });
+    const upgradedTenantToken = await renewTenantSession(apiUrl, adminPassword, tenantCrud.tenantId);
+    const http = await verifyUpgradedProductHttp(apiUrl, upgradedTenantToken,
+      tenantCrud.tenantId, legacyProduct, join(logRoot, 'application-crud-live-upgrade/http.json'));
+    writeFileSync(join(logRoot, 'application-crud-live-upgrade/result.json'), JSON.stringify({
+      sourceUpdated: sourceUpgrade.sourceUpdated, moduleUpdated: sourceUpgrade.moduleUpdated,
+      databaseMigrationApplied: true, upgraded, repeated, unaccounted, recovered,
+      restoredComment, recoveryRepeated, ...http,
+    }, null, 2));
   } finally {
     try {
       await browserRuntime?.close();

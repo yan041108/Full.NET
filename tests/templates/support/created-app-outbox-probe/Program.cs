@@ -26,9 +26,9 @@ const string stateSql = """
     WHERE Id = @Id
     """;
 
-if (args.Length is < 1 or > 3 || args[0] is not ("enqueue" or "state" or "wait" or "business-wait"))
+if (args.Length is < 1 or > 3 || args[0] is not ("enqueue" or "state" or "wait" or "business-wait" or "schema-upgrade-unaccount" or "schema-upgrade-comment-state"))
 {
-    throw new ArgumentException("Expected enqueue, state <message-id>, wait <message-id>, or business-wait <tenant-id> <unit-id>.");
+    throw new ArgumentException("Expected enqueue, state <message-id>, wait <message-id>, business-wait <tenant-id> <unit-id>, schema-upgrade-unaccount, or schema-upgrade-comment-state.");
 }
 
 var provider = Environment.GetEnvironmentVariable("Database__Provider")
@@ -43,7 +43,21 @@ await using DbConnection connection = provider switch
     _ => throw new InvalidOperationException($"Unsupported provider '{provider}'."),
 };
 
-if (args[0] == "business-wait")
+if (args[0] == "schema-upgrade-unaccount")
+{
+    if (args.Length != 1) throw new ArgumentException("schema-upgrade-unaccount takes no arguments.");
+    await connection.OpenAsync();
+    var recovery = await SchemaUpgradeProbe.UnaccountAsync(connection, provider);
+    Console.WriteLine("OUTBOX_PROBE " + JsonSerializer.Serialize(new { removed = recovery.Removed, commentRemoved = recovery.CommentRemoved }));
+}
+else if (args[0] == "schema-upgrade-comment-state")
+{
+    if (args.Length != 1) throw new ArgumentException("schema-upgrade-comment-state takes no arguments.");
+    await connection.OpenAsync();
+    var present = await SchemaUpgradeProbe.ReadCommentAsync(connection, provider);
+    Console.WriteLine("OUTBOX_PROBE " + JsonSerializer.Serialize(new { present }));
+}
+else if (args[0] == "business-wait")
 {
     if (args.Length != 3 || !Guid.TryParse(args[1], out var tenantId)
         || !Guid.TryParse(args[2], out var unitId))
