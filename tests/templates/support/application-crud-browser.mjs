@@ -46,10 +46,16 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
     async verify({ mode, username, password, tenantName }) {
       assert.ok(['read', 'none', 'create', 'update', 'delete'].includes(mode), 'unknown browser permission mode');
       const evidence = { mode, completed: false, login: false, tenantContext: false, navigation: false,
-        buttons: { create: false, update: false, delete: false } };
+        buttons: { create: false, update: false, delete: false }, authResponses: [] };
       const context = await browser.newContext();
       try {
         const page = await context.newPage();
+        page.on('response', response => {
+          const path = new URL(response.url()).pathname;
+          if (['/api/v1/auth/login', '/api/v1/me', '/api/v1/navigation', '/api/v1/tenancy/context'].includes(path)) {
+            evidence.authResponses.push({ path, status: response.status() });
+          }
+        });
         await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
         await page.goto(origin);
         await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible();

@@ -35,7 +35,8 @@ async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken
   const canUpdate = mode === 'update';
   const canDelete = mode === 'delete';
   // 写操作包含产品页面Read，调用者不能扩展固定入口的授权集合。
-  const permissions = [...(canCreate ? ['catalog.products.create'] : []), ...(canDelete ? ['catalog.products.disable'] : []), ...(canRead ? ['catalog.products.read'] : []), ...(canUpdate ? ['catalog.products.update'] : []), 'tenancy.tenants.read', 'tenancy.tenants.switch'];
+  const permissions = [...(canCreate ? ['catalog.products.create'] : []), ...(canDelete ? ['catalog.products.disable'] : []), ...(canRead ? ['catalog.products.read'] : []), ...(canUpdate ? ['catalog.products.update'] : []),
+    'identity.navigation.read', 'tenancy.tenants.read', 'tenancy.tenants.switch'];
   const username = canDelete ? 'catalog-deleter-probe' : canUpdate ? 'catalog-updater-probe' : canCreate ? 'catalog-creator-probe' : canRead ? 'catalog-reader-probe' : 'catalog-unprivileged-probe';
   const tokenFrom = (body) => {
     assert.ok(typeof body.accessToken === 'string' && body.accessToken.trim(), 'credential response missing token');
@@ -108,7 +109,7 @@ async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken
       assert.equal(me.passwordChangeRequired, false);
       assert.equal(me.tenantId, inTenant ? tenantId : null);
       assert.equal(me.scope, inTenant ? scope : 'host');
-      assert.deepEqual([...me.permissions].sort(), inTenant ? permissions : ['tenancy.tenants.read', 'tenancy.tenants.switch']);
+      assert.deepEqual([...me.permissions].sort(), inTenant ? permissions : ['identity.navigation.read', 'tenancy.tenants.read', 'tenancy.tenants.switch']);
     };
     checkUser(await call('reader-host-identity', '/api/v1/me', 'GET', readerToken), false);
     const context = async (stage, token, id) => {

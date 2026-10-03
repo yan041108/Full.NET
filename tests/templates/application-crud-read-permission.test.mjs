@@ -9,7 +9,7 @@ const tenantId = '01900000-0000-7000-8000-000000000010';
 const id = '01900000-0000-7000-8000-000000000011';
 const roleId = '01900000-0000-7000-8000-000000000012';
 const userId = '01900000-0000-7000-8000-000000000013';
-const permissions = ['catalog.products.read', 'tenancy.tenants.read', 'tenancy.tenants.switch'];
+const permissions = ['catalog.products.read', 'identity.navigation.read', 'tenancy.tenants.read', 'tenancy.tenants.switch'];
 const product = { id, tenantId, name: 'Read permission product', version: '1' };
 const createdProduct = { id: '01900000-0000-7000-8000-000000000014', tenantId, name: 'Ordinary account created product', version: '1' };
 const updatedProduct = { ...product, name: 'Ordinary account updated product', version: '2' };
@@ -22,7 +22,7 @@ const bodies = [
   { id: roleId, version: 2, permissionCodes: permissions, isSuperAdministrator: false },
   { id: userId, version: 1 }, { userId, roleIds: [], version: 1 }, { userId, roleIds: [roleId], version: 2 },
   { accessToken: tokens[1] }, { accessToken: tokens[2] },
-  { id: userId, scope: 'host', tenantId: null, isSuperAdministrator: false, passwordChangeRequired: false, permissions: ['tenancy.tenants.read', 'tenancy.tenants.switch'] },
+  { id: userId, scope: 'host', tenantId: null, isSuperAdministrator: false, passwordChangeRequired: false, permissions: ['identity.navigation.read', 'tenancy.tenants.read', 'tenancy.tenants.switch'] },
   { accessToken: tokens[3], context }, product,
   { accessToken: tokens[4], context },
   { id: userId, tenantId, scope: context.scope, isSuperAdministrator: false, passwordChangeRequired: false, permissions },
