@@ -23,6 +23,7 @@ import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verify
 import { verifyApplicationCrudVue } from './application-crud-vue.mjs';
 import { startApplicationCrudBrowser } from './application-crud-browser.mjs';
 import { verifyApplicationCrudReadPermission, verifyApplicationCrudNoPermission, verifyApplicationCrudCreatePermission, verifyApplicationCrudUpdatePermission, verifyApplicationCrudDeletePermission } from './application-crud-read-permission.mjs';
+import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 const requireFromRealStack = createRequire(join(repoRoot, 'tests/e2e/admin-real-stack/package.json'));
@@ -375,10 +376,22 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     await verifyApplicationCrudTenantIsolation(apiUrl, { localTenantId: tenantCrud.tenantId, initialAccessToken: tenantCrud.tenantAccessToken,
       logPath: join(logRoot, 'application-crud-tenant-isolation.json') });
     assert.equal(workerProcess.exitCode, null, 'generated Worker exited during application acceptance');
+    assert.equal(workerProcess.signalCode, null, 'generated Worker received an exit signal during application acceptance');
+    const finalWorkerReady = await fetch(`${workerUrl}/health/ready`);
+    assert.equal(finalWorkerReady.status, 200, `generated Worker final readiness: ${await finalWorkerReady.text()}`);
+    await stopLoggedProcess(workerProcess, workerLogStream);
+    workerProcess = undefined;
+    workerLogStream = undefined;
     const workerOutput = readFileSync(workerLogPath, 'utf8');
     for (const marker of ['Unhandled exception', 'Outbox polling iteration failed',
-      'Outbox backlog sampling failed', 'Outbox retention iteration failed', 'Failed Outbox message']) {
+      'Outbox backlog sampling failed', 'Outbox retention iteration failed',
+      'Failed Outbox message', 'Dead-lettered Outbox message']) {
       assert.ok(!workerOutput.includes(marker), `generated Worker logged ${marker}`);
+    }
+    for (const line of workerOutput.split(/\r?\n/u)) {
+      let entry;
+      try { entry = JSON.parse(line); } catch { continue; }
+      assert.ok(!['Error', 'Fatal'].includes(entry?.['@l']), `generated Worker logged ${entry['@l']}: ${entry['@mt']}`);
     }
   } finally {
     try {
