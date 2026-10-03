@@ -55,7 +55,7 @@ if (typeof evaluateAuditReport === 'function') {
     assert.equal(policy.minimumSeverity, 'high');
     assert.deepEqual(
       policy.exceptions.map(exception => exception.advisory),
-      ['GHSA-fx2h-pf6j-xcff', 'GHSA-mh99-v99m-4gvg']
+      ['GHSA-fx2h-pf6j-xcff', 'GHSA-mh99-v99m-4gvg', 'GHSA-vfj7-8cjw-p6xm']
     );
     assert.equal(policy.exceptions[0].package, 'vite');
     assert.equal(policy.exceptions[0].upstreamPeerEvidence.vite, '5.2.8');
@@ -72,6 +72,13 @@ if (typeof evaluateAuditReport === 'function') {
     assert.equal(policy.exceptions[1].expiresOn, '2026-09-26');
     assert.equal(policy.exceptions[1].owner, 'client-platform');
     assert.equal(policy.exceptions[1].mitigations.length, 3);
+    assert.equal(policy.exceptions[2].package, 'braces');
+    assert.deepEqual(policy.exceptions[2].allowedPaths, [
+      'clients__uniapp>@dcloudio/uni-cli-shared>chokidar>braces'
+    ]);
+    assert.equal(policy.exceptions[2].reviewBy, '2026-10-10');
+    assert.equal(policy.exceptions[2].expiresOn, '2026-10-18');
+    assert.equal(policy.exceptions[2].owner, 'client-platform');
   });
 
   test('accepts only the reviewed Vite advisory on exact uni-app toolchain paths', () => {
@@ -125,6 +132,23 @@ if (typeof evaluateAuditReport === 'function') {
       () => evaluateAuditReport(createReport([advisory]), policy),
       /does not expose non-empty findings paths/u
     );
+  });
+
+  test('accepts the time-limited braces finding only on the reviewed uni-app watcher path', () => {
+    const braces = createAdvisory({
+      ghsa: 'GHSA-vfj7-8cjw-p6xm',
+      packageName: 'braces',
+      paths: policy.exceptions[2].allowedPaths
+    });
+    assert.deepEqual(
+      evaluateAuditReport(createReport([braces]), policy, new Date('2026-10-03T00:00:00Z')).acceptedExceptions,
+      [{ advisory: braces.github_advisory_id, package: 'braces', paths: policy.exceptions[2].allowedPaths }]
+    );
+    assert.throws(() => evaluateAuditReport(createReport([createAdvisory({
+      ghsa: braces.github_advisory_id,
+      packageName: 'braces',
+      paths: ['ui__admin>chokidar>braces']
+    })]), policy, new Date('2026-10-03T00:00:00Z')), /outside the reviewed uni-app toolchain/u);
   });
 
   test('retries two npm audit transport timeouts and still fails closed after the limit', async () => {

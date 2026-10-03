@@ -15,6 +15,15 @@ test('inferMigrationModuleOwner resolves every published script', () => {
   }
 });
 
+test('AI knowledge migrations retain AI ownership and stay outside preset inventories', () => {
+  assert.equal(inferMigrationModuleOwner('240_AiKnowledgeBase.sql'), 'Ai');
+  assert.equal(inferMigrationModuleOwner('241_AiKnowledgeMember.sql'), 'Ai');
+  assert.equal(inferMigrationModuleOwner('242_AiKnowledgeDocument.sql'), 'Ai');
+  const full = { scripts: [{ name: '001_Foundation.sql' }, { name: '240_AiKnowledgeBase.sql' }] };
+  const minimal = buildPresetMigrationInventory(full, 'minimal', resolvePresetModules('minimal'));
+  assert.deepEqual(minimal.scripts, [{ name: '001_Foundation.sql' }]);
+});
+
 test('preset-minimal migration inventory is smaller than unscoped inventory', () => {
   const managedFiles = Object.fromEntries(
     readdirSync(MIGRATIONS)

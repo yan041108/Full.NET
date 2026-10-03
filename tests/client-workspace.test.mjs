@@ -84,8 +84,9 @@ assert.deepEqual(packageDefinition.pnpm.overrides, {
   browserslist: '4.28.8',
   nanoid: '3.3.18',
   'express@4.20.0>path-to-regexp': '0.1.13',
-  undici: '7.29.0',
-  'brace-expansion': '2.1.4'
+  undici: '7.29.1',
+  'brace-expansion': '2.1.6',
+  '@grpc/grpc-js': '1.14.5'
 });
 assert.deepEqual(packageDefinition.pnpm.peerDependencyRules, {
   allowedVersions: {
