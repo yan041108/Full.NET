@@ -41,7 +41,7 @@
         },
         "code-generation-realtime": {
           "filter": "FullyQualifiedName~CodeGeneration|FullyQualifiedName~Realtime",
-          "minimum": 642
+          "minimum": 650
         },
         "identity-oidc": {
           "filter": "FullyQualifiedName~IdentityOidcOptionsTests|FullyQualifiedName~IdentityOidcSessionTests|FullyQualifiedName~IdentityOidcPrincipalTests|FullyQualifiedName~IdentityOidcPkceHelperTests|FullyQualifiedName~IdentityOidcInteractionTests|FullyQualifiedName~IdentityOidcStoreSerializationTests|FullyQualifiedName~IdentityOidcCenterLoginServiceTests|FullyQualifiedName~IdentityOidcLogoutTests",
