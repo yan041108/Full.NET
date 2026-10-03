@@ -106,10 +106,31 @@
       "name": "TenancyHostTenantPackages"
     },
     {
+      "name": "OrganizationTenantUnits"
+    },
+    {
+      "name": "OrganizationTenantUserUnits"
+    },
+    {
+      "name": "OrganizationTenantPositions"
+    },
+    {
+      "name": "OrganizationTenantPositionLevels"
+    },
+    {
+      "name": "OrganizationTenantUserPositions"
+    },
+    {
+      "name": "OrganizationHostUserManagement"
+    },
+    {
       "name": "AiKnowledgeBases"
     },
     {
       "name": "AiKnowledgeRoleCandidates"
+    },
+    {
+      "name": "AiKnowledgeOrganizationCandidates"
     },
     {
       "name": "AiKnowledgeRoleGrants"
@@ -152,24 +173,6 @@
     },
     {
       "name": "CodeGenerationRuns"
-    },
-    {
-      "name": "OrganizationTenantUnits"
-    },
-    {
-      "name": "OrganizationTenantUserUnits"
-    },
-    {
-      "name": "OrganizationTenantPositions"
-    },
-    {
-      "name": "OrganizationTenantPositionLevels"
-    },
-    {
-      "name": "OrganizationTenantUserPositions"
-    },
-    {
-      "name": "OrganizationHostUserManagement"
     },
     {
       "name": "NotificationsHostAnnouncements"
@@ -3451,6 +3454,118 @@
         ]
       }
     },
+    "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/organization-candidates": {
+      "get": {
+        "operationId": "aiListKnowledgeDocumentOrganizationCandidates",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "knowledgeBaseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultOfAiKnowledgeOrganizationCandidateResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "AiKnowledgeOrganizationCandidates"
+        ]
+      }
+    },
     "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/role-candidates": {
       "get": {
         "operationId": "aiListKnowledgeDocumentRoleCandidates",
@@ -4385,6 +4500,109 @@
         ],
         "tags": [
           "AiKnowledgeBases"
+        ]
+      }
+    },
+    "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/organization-candidates": {
+      "get": {
+        "operationId": "aiListKnowledgeOrganizationCandidates",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "knowledgeBaseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultOfAiKnowledgeOrganizationCandidateResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "AiKnowledgeOrganizationCandidates"
         ]
       }
     },
@@ -45411,6 +45629,26 @@
         ],
         "type": "object"
       },
+      "AiKnowledgeOrganizationCandidateResponse": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name"
+        ],
+        "type": "object"
+      },
       "AiKnowledgeRoleCandidateResponse": {
         "properties": {
           "code": {
@@ -58467,6 +58705,47 @@
           "items": {
             "items": {
               "$ref": "#/components/schemas/AiKnowledgeDocumentResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
+      "PagedResultOfAiKnowledgeOrganizationCandidateResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AiKnowledgeOrganizationCandidateResponse"
             },
             "type": "array"
           },

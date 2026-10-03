@@ -24,6 +24,7 @@ import type {
   AiKnowledgeDocumentResponse,
   AiKnowledgeImportResponse,
   AiKnowledgeMembersResponse,
+  AiKnowledgeOrganizationCandidateResponse,
   AiKnowledgeRoleCandidateResponse,
   AiKnowledgeRoleGrantsResponse,
   AiKnowledgeVersionResponse,
@@ -338,6 +339,7 @@ import type {
   PagedResultOfAiChatSessionListItem,
   PagedResultOfAiKnowledgeBaseResponse,
   PagedResultOfAiKnowledgeDocumentResponse,
+  PagedResultOfAiKnowledgeOrganizationCandidateResponse,
   PagedResultOfAiKnowledgeRoleCandidateResponse,
   PagedResultOfAiKnowledgeVersionResponse,
   PagedResultOfAiModelConfigListItem,
@@ -855,6 +857,17 @@ export function readAiKnowledgeMembersResponse(value: unknown): AiKnowledgeMembe
 
 function isAiKnowledgeMembersResponse(value: unknown): value is AiKnowledgeMembersResponse {
   return isRecord(value) && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeOrganizationCandidateResponse(value: unknown): AiKnowledgeOrganizationCandidateResponse {
+  if (!(isAiKnowledgeOrganizationCandidateResponse(value))) {
+    throw new Error('client.invalid_ai_knowledge_organization_candidate_response');
+  }
+  return value;
+}
+
+function isAiKnowledgeOrganizationCandidateResponse(value: unknown): value is AiKnowledgeOrganizationCandidateResponse {
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string');
 }
 
 export function readAiKnowledgeRoleCandidateResponse(value: unknown): AiKnowledgeRoleCandidateResponse {
@@ -4510,6 +4523,18 @@ export function readPagedResultOfAiKnowledgeDocumentResponse(value: unknown): Pa
 
 function isPagedResultOfAiKnowledgeDocumentResponse(value: unknown): value is PagedResultOfAiKnowledgeDocumentResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeDocumentResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfAiKnowledgeOrganizationCandidateResponse(value: unknown): PagedResultOfAiKnowledgeOrganizationCandidateResponse {
+  const normalizedValue = normalizePagedResultOfAiKnowledgeOrganizationCandidateResponseIntegerJson(value);
+  if (!(isPagedResultOfAiKnowledgeOrganizationCandidateResponse(normalizedValue))) {
+    throw new Error('client.invalid_paged_result_of_ai_knowledge_organization_candidate_response');
+  }
+  return normalizedValue;
+}
+
+function isPagedResultOfAiKnowledgeOrganizationCandidateResponse(value: unknown): value is PagedResultOfAiKnowledgeOrganizationCandidateResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeOrganizationCandidateResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfAiKnowledgeRoleCandidateResponse(value: unknown): PagedResultOfAiKnowledgeRoleCandidateResponse {
@@ -8944,6 +8969,10 @@ function normalizePagedResultOfAiKnowledgeBaseResponseIntegerJson(value: unknown
 
 function normalizePagedResultOfAiKnowledgeDocumentResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeDocumentResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfAiKnowledgeOrganizationCandidateResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
 function normalizePagedResultOfAiKnowledgeRoleCandidateResponseIntegerJson(value: unknown): unknown {

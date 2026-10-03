@@ -25,6 +25,7 @@ import type {
   AiKnowledgeDocumentResponse,
   AiKnowledgeImportResponse,
   AiKnowledgeMembersResponse,
+  AiKnowledgeOrganizationCandidateResponse,
   AiKnowledgeRoleCandidateResponse,
   AiKnowledgeRoleGrantsResponse,
   AiKnowledgeVersionResponse,
@@ -339,6 +340,7 @@ import type {
   PagedResultOfAiChatSessionListItem,
   PagedResultOfAiKnowledgeBaseResponse,
   PagedResultOfAiKnowledgeDocumentResponse,
+  PagedResultOfAiKnowledgeOrganizationCandidateResponse,
   PagedResultOfAiKnowledgeRoleCandidateResponse,
   PagedResultOfAiKnowledgeVersionResponse,
   PagedResultOfAiModelConfigListItem,
@@ -764,6 +766,7 @@ import {
   readPagedResultOfAiChatSessionListItem,
   readPagedResultOfAiKnowledgeBaseResponse,
   readPagedResultOfAiKnowledgeDocumentResponse,
+  readPagedResultOfAiKnowledgeOrganizationCandidateResponse,
   readPagedResultOfAiKnowledgeRoleCandidateResponse,
   readPagedResultOfAiKnowledgeVersionResponse,
   readPagedResultOfAiModelConfigListItem,
@@ -1675,6 +1678,34 @@ export async function aiListKnowledgeBases(
   return readPagedResultOfAiKnowledgeBaseResponse(value);
 }
 
+export interface AiListKnowledgeDocumentOrganizationCandidatesParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function aiListKnowledgeDocumentOrganizationCandidates(
+  http: HttpClient,
+  parameters: AiListKnowledgeDocumentOrganizationCandidatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiKnowledgeOrganizationCandidateResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/organization-candidates` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/organization-candidates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiKnowledgeOrganizationCandidateResponse(value);
+}
+
 export interface AiListKnowledgeDocumentRoleCandidatesParameters {
   readonly knowledgeBaseId: string;
   readonly documentId: string;
@@ -1728,6 +1759,33 @@ export async function aiListKnowledgeDocuments(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfAiKnowledgeDocumentResponse(value);
+}
+
+export interface AiListKnowledgeOrganizationCandidatesParameters {
+  readonly knowledgeBaseId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function aiListKnowledgeOrganizationCandidates(
+  http: HttpClient,
+  parameters: AiListKnowledgeOrganizationCandidatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiKnowledgeOrganizationCandidateResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/organization-candidates` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/organization-candidates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiKnowledgeOrganizationCandidateResponse(value);
 }
 
 export interface AiListKnowledgeRoleCandidatesParameters {

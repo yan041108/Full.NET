@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createHttpClient } from '../src/http';
 import {
   aiUploadKnowledgeVersion, aiDownloadKnowledgeSource, aiDeleteKnowledgeDocument,
-  aiRetryKnowledgeImport, aiListKnowledgeVersions, aiListKnowledgeRoleCandidates, aiListKnowledgeDocumentRoleCandidates,
+  aiRetryKnowledgeImport, aiListKnowledgeVersions, aiListKnowledgeOrganizationCandidates, aiListKnowledgeDocumentOrganizationCandidates, aiListKnowledgeRoleCandidates, aiListKnowledgeDocumentRoleCandidates,
   aiGetKnowledgeRoles, aiSetKnowledgeRoles, aiGetKnowledgeDocumentRoles, aiSetKnowledgeDocumentRoles
 } from '../src/ai-knowledge';
 
@@ -175,4 +175,58 @@ describe('知识库共享生成客户端', () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ version: 3 });
     await expect(aiRetryKnowledgeImport(http, { ...resource, operationId: id })).rejects.toThrow(/invalid_ai_knowledge_import_response/);
   });
+  it('两条组织候选操作携带分页、身份、语言与取消，只返回最小机构投影', async () => {
+    const page = { items: [{ id, code: 'department', name: '研发部' }], page: 2, pageSize: 10, total: '21' };
+    const fetchMock = vi.fn().mockImplementation(async () => json(page));
+    vi.stubGlobal('fetch', fetchMock);
+    const http = createHttpClient();
+    http.configureRequestLocale(() => 'zh-CN');
+    http.configureAuthentication({ getAccessToken: () => 'access', refresh: async () => false });
+    const signal = new AbortController().signal;
+    expect(await aiListKnowledgeOrganizationCandidates(http, { knowledgeBaseId: id, page: 2, pageSize: 10 }, signal)).toEqual({ ...page, total: 21 });
+    expect(await aiListKnowledgeDocumentOrganizationCandidates(http, { ...resource, page: 2, pageSize: 10 }, signal)).toEqual({ ...page, total: 21 });
+    for (const [index, [url, request]] of fetchMock.mock.calls.entries()) {
+      const parsed = new URL(url, 'https://example.test');
+      expect(parsed.pathname).toBe(`/api/v1/ai/knowledge-bases/${id}${index === 1 ? `/documents/${id}` : ''}/organization-candidates`);
+      expect([...parsed.searchParams.entries()]).toEqual([['page', '2'], ['pageSize', '10']]);
+      expect(request.signal).toBe(signal);
+      expect(new Headers(request.headers).get('authorization')).toBe('Bearer access');
+      expect(new Headers(request.headers).get('accept-language')).toBe('zh-CN');
+      expect(request.body).toBeUndefined();
+    }
+  });
+
+  it('Host 空候选接受整数字符串分页元数据', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ items: [], page: 1, pageSize: 20, total: '0' })));
+    expect(await aiListKnowledgeOrganizationCandidates(createHttpClient(), { knowledgeBaseId: id }))
+      .toEqual({ items: [], page: 1, pageSize: 20, total: 0 });
+  });
+
+  it('组织候选拒绝损坏的机构 UUID', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ items: [{ id: 'invalid', code: 'department', name: '研发部' }], page: 1, pageSize: 20, total: 1 })));
+    await expect(aiListKnowledgeDocumentOrganizationCandidates(createHttpClient(), resource))
+      .rejects.toThrow(/invalid_paged_result_of_ai_knowledge_organization_candidate_response/);
+  });
+
+  it.each([400, 403, 404])('组织候选保留 %s ProblemDetails', async status => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ status, code: 'authorization.permission_denied', title: '拒绝' }, status)));
+    await expect(aiListKnowledgeOrganizationCandidates(createHttpClient(), { knowledgeBaseId: id }))
+      .rejects.toMatchObject({ status, code: 'authorization.permission_denied' });
+  });
+
+  it('组织候选的 401 刷新只重试一次并保留分页和取消', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(json({ items: [], page: 3, pageSize: 7, total: 0 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const http = createHttpClient();
+    let token = 'old';
+    http.configureAuthentication({ getAccessToken: () => token, refresh: async () => { token = 'new'; return true; } });
+    const signal = new AbortController().signal;
+    await aiListKnowledgeDocumentOrganizationCandidates(http, { ...resource, page: 3, pageSize: 7 }, signal);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][0]).toBe(fetchMock.mock.calls[1][0]);
+    expect(fetchMock.mock.calls[1][1].signal).toBe(signal);
+    expect(new Headers(fetchMock.mock.calls[1][1].headers).get('authorization')).toBe('Bearer new');
+  });
+
 });

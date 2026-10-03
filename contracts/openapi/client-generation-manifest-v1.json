@@ -3537,6 +3537,18 @@
       "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
       "generatedGroup": "ai-knowledge",
       "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeOrganizationCandidates",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeDocumentOrganizationCandidates",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
     }
   ]
 }

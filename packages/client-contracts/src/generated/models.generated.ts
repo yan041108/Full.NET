@@ -247,6 +247,12 @@ export interface AiKnowledgeMembersResponse {
   readonly version: number;
 }
 
+export interface AiKnowledgeOrganizationCandidateResponse {
+  readonly code: string;
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface AiKnowledgeRoleCandidateResponse {
   readonly code: string;
   readonly id: string;
@@ -2957,6 +2963,13 @@ export interface PagedResultOfAiKnowledgeBaseResponse {
 
 export interface PagedResultOfAiKnowledgeDocumentResponse {
   readonly items: Array<AiKnowledgeDocumentResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfAiKnowledgeOrganizationCandidateResponse {
+  readonly items: Array<AiKnowledgeOrganizationCandidateResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;

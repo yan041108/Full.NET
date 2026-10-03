@@ -10,10 +10,11 @@ const operationIds = [
   'aiSetKnowledgeDocumentMembers', 'aiUploadKnowledgeVersion', 'aiListKnowledgeVersions',
   'aiDownloadKnowledgeSource', 'aiGetKnowledgeImport', 'aiRetryKnowledgeImport', 'aiCleanupKnowledgeImports',
   'aiListKnowledgeRoleCandidates', 'aiListKnowledgeDocumentRoleCandidates',
+  'aiListKnowledgeOrganizationCandidates', 'aiListKnowledgeDocumentOrganizationCandidates',
   'aiGetKnowledgeRoles', 'aiSetKnowledgeRoles', 'aiGetKnowledgeDocumentRoles', 'aiSetKnowledgeDocumentRoles'
 ];
 
-test('知识库 26 个受保护 Operation 从标准快照进入共享生成客户端', async () => {
+test('知识库 28 个受保护 Operation 从标准快照进入共享生成客户端', async () => {
   const manifest = JSON.parse(await readFile(new URL('../../contracts/openapi/client-generation-manifest-v1.json', import.meta.url), 'utf8'));
   const entries = manifest.entries.filter(entry => entry.generatedGroup === 'ai-knowledge');
   assert.deepEqual(entries.map(entry => entry.operationId).sort(), [...operationIds].sort());
@@ -21,7 +22,7 @@ test('知识库 26 个受保护 Operation 从标准快照进入共享生成客�
   const snapshot = JSON.parse(await readFile(new URL('../../contracts/openapi/fullnet-client-v1.openapi.json', import.meta.url), 'utf8'));
   const operations = new Map(Object.values(snapshot.paths).flatMap(item => Object.values(item))
     .filter(item => operationIds.includes(item.operationId)).map(item => [item.operationId, item]));
-  assert.equal(operations.size, 26);
+  assert.equal(operations.size, 28);
   for (const id of operationIds) {
     const operation = operations.get(id);
     assert.equal(operation.tags.length, 1);
@@ -36,7 +37,7 @@ test('知识库 26 个受保护 Operation 从标准快照进入共享生成客�
   assert.ok(upload.responses['202'].content['application/json']);
   assert.ok(operations.get('aiDownloadKnowledgeSource').responses['200'].content['application/octet-stream']);
   assert.equal(operations.get('aiDeleteKnowledgeDocument').responses['204'].content, undefined);
-  for (const id of ['aiListKnowledgeRoleCandidates', 'aiListKnowledgeDocumentRoleCandidates']) {
+  for (const id of ['aiListKnowledgeRoleCandidates', 'aiListKnowledgeDocumentRoleCandidates', 'aiListKnowledgeOrganizationCandidates', 'aiListKnowledgeDocumentOrganizationCandidates']) {
     assert.ok(operations.get(id).responses['200'].content['application/json']);
     assert.ok(operations.get(id).responses['400'] && operations.get(id).responses['404']);
     assert.equal(operations.get(id).requestBody, undefined);

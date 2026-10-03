@@ -1,6 +1,6 @@
 # 知识库目录、文件版本、用户与角色授权及模型处理审批
 
-R04a 提供私有目录及审批记录，R04b1 增加明确用户成员与立即撤权，R04b2a 提供文档草稿元数据及独立明确用户授权，R04b2b 接入上传、不可变来源版本及持久化导入恢复，R04b2c 提供共享生成客户端，R04b3a 增加角色授权候选查询，R04b3b 接入角色授予及两层权威读取，R04b3c 补齐角色授予共享客户端，R04b3d 提供当前租户活动机构候选目录。当前不解析正文、不调用模型；组织授予与成员读取由后续 R04b 继续交付。R05/R06 的每次处理派发必须复核这里记录的审批及最新权威状态。
+R04a 提供私有目录及审批记录，R04b1 增加明确用户成员与立即撤权，R04b2a 提供文档草稿元数据及独立明确用户授权，R04b2b 接入上传、不可变来源版本及持久化导入恢复，R04b2c 提供共享生成客户端，R04b3a 增加角色授权候选查询，R04b3b 接入角色授予及两层权威读取，R04b3c 补齐角色授予共享客户端，R04b3d 提供当前租户活动机构候选目录及两个候选共享客户端。当前不解析正文、不调用模型；组织授予与成员读取由后续 R04b 继续交付。R05/R06 的每次处理派发必须复核这里记录的审批及最新权威状态。
 
 ## 目录 API
 
@@ -44,7 +44,7 @@ Host 候选须为活动 Host 用户；Tenant 候选须为当前可信租户的�
 
 候选仅包含当前可信租户的活动机构，返回 `id`、`code`、`name` 与分页元数据，按编码、标识稳定排序。`pageSize` 为 1..100，最大偏移 100000；Host 资源返回空候选，查询字符串 `tenantId` 不能切换范围。机构禁用立即从候选消失，子机构按自己的活动状态独立列举。知识库所有者可为已禁用目录查询候选，文档候选只允许启用知识库内未删除的文档。查询不修改资源版本，也不授予组织成员读取资格。
 
-组织授予、活动机构成员读取与来源下载二次复核仍待下一切片实现；这两条后端 Operation 的共享生成客户端随后独立交付。
+组织授予、活动机构成员读取与来源下载二次复核仍待下一切片实现。共享客户端已导出 `aiListKnowledgeOrganizationCandidates` 与 `aiListKnowledgeDocumentOrganizationCandidates`，候选读取不改变资源授予。
 
 ## 文档草稿与授权
 
@@ -121,7 +121,7 @@ PUT 正文为 `roleIds` 与对应资源的 `version`：最多 100 个唯一非�
 
 ## 共享客户端
 
-`@fullnet/client-contracts` 的 `ai-knowledge` 入口导出知识库、文档、成员、文件版本、导入恢复、角色候选及角色授予的 26 个生成 Operation、参数类型、DTO 与响应读取器；根入口也导出同一组 API。协议来自 SQL Server/MySQL 真实 Host 的一致 OpenAPI 快照，不维护第二套手写路径或 DTO。
+`@fullnet/client-contracts` 的 `ai-knowledge` 入口导出知识库、文档、成员、文件版本、导入恢复、角色候选、角色授予及组织候选的 28 个生成 Operation、参数类型、DTO 与响应读取器；根入口也导出同一组 API。协议来自 SQL Server/MySQL 真实 Host 的一致 OpenAPI 快照，不维护第二套手写路径或 DTO。
 
 上传 Operation 为 `aiUploadKnowledgeVersion(http, parameters, signal?)`：`parameters` 包含 `knowledgeBaseId`、`documentId`、`version`、`requestKey`、`fileName`、`contentType` 和原始 `Blob` 正文 `body`。`contentType` 必须显式选择 `application/pdf`、`text/markdown` 或 `text/plain`，不能传 JSON 或 FormData。重放同一 `requestKey` 时保留首次的版本、文件元数据及字节，不重新生成键或更换文件。
 
