@@ -47,7 +47,8 @@ export function shouldSkipRealStack() {
 
 async function startDatabaseContainer(provider) {
   if (provider === 'mysql') {
-    const container = await new GenericContainer('mysql:8.4')
+    const mysqlImage = process.env.CI ? 'mysql:8.4' : process.env.FULLNET_TEMPLATE_TEST_MYSQL_IMAGE ?? 'mysql:8.4';
+    const container = await new GenericContainer(mysqlImage)
       .withEnvironment({
         MYSQL_ROOT_PASSWORD: mysqlPassword,
         MYSQL_DATABASE: 'fullnet_app',
@@ -79,7 +80,9 @@ async function startDatabaseContainer(provider) {
 }
 
 async function startRedisContainer() {
-  const container = await new GenericContainer('redis:7.4-alpine')
+  // 本地 Docker Hub 不可用时可使用已有镜像；CI 始终验证固定版本。
+  const redisImage = process.env.CI ? 'redis:7.4-alpine' : process.env.FULLNET_TEMPLATE_TEST_REDIS_IMAGE ?? 'redis:7.4-alpine';
+  const container = await new GenericContainer(redisImage)
     .withExposedPorts(6379)
     .withWaitStrategy(Wait.forListeningPorts())
     .start();
@@ -212,6 +215,8 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
   let redisContainer;
   let apiProcess;
   let apiLogStream;
+  let workerProcess;
+  let workerLogStream;
   let browserRuntime;
   try {
     const { templateRoot } = buildAppTemplate({ output: join(workspace, 'package') });
@@ -271,8 +276,10 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
 
     const migratorProject = join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj');
     const hostProject = join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj');
+    const workerProject = join(appRoot, 'src/Demo.Host.Worker/Demo.Host.Worker.csproj');
     runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
     runDotnet(['build', hostProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
+    runDotnet(['build', workerProject, '-c', 'Release', '-v', 'quiet'], appRoot, env);
     const firstMigration = runDotnet([
       'run', '--project', migratorProject, '-c', 'Release', '--no-build', '--',
       '--seed', 'development',
@@ -283,6 +290,41 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     ], appRoot, env, 600_000, join(logRoot, 'migrator-repeat.log'));
     const repeatResult = verifyApplicationMigrationResult(repeatMigration.stdout, false);
     writeFileSync(join(logRoot, 'application-migration-results.json'), JSON.stringify({ first: firstResult, repeat: repeatResult }, null, 2));
+
+    const workerUrl = `http://127.0.0.1:${JSON.parse(readFileSync(join(appRoot, 'fullnet-app.json'), 'utf8')).workerHttpPort}`;
+    const workerEnv = {
+      ...env,
+      ASPNETCORE_URLS: workerUrl,
+      Kestrel__Endpoints__Http__Url: workerUrl,
+      Messaging__Worker__Mode: 'LegacyPolling',
+      OutboxWorker__PollMilliseconds: '100',
+      OutboxWorker__MaximumIdlePollMilliseconds: '100',
+    };
+    const retirement = runDotnet([
+      'run', '--project', workerProject, '-c', 'Release', '--no-build', '--',
+      '--outbox-version-retirement-message-type', 'fullnet.notifications.announcement.published',
+      '--outbox-version-retirement-schema-version', '1',
+    ], appRoot, workerEnv, 180_000, join(logRoot, 'worker-retirement.log'));
+    const retirementReport = retirement.stdout.split(/\r?\n/u)
+      .map(line => { try { return JSON.parse(line); } catch { return null; } })
+      .find(value => value?.code === 'outbox.version_retirement.safe');
+    assert.ok(retirementReport, 'generated Worker did not query the migrated outbox: ' + retirement.stdout);
+    assert.equal(retirementReport.pendingCount, 0);
+    assert.equal(retirementReport.deadLetterCount, 0);
+
+    const workerLogPath = join(logRoot, 'worker.log');
+    writeFileSync(workerLogPath, '');
+    workerLogStream = createWriteStream(workerLogPath, { flags: 'a' });
+    workerProcess = spawn('dotnet', ['run', '--project', workerProject, '-c', 'Release', '--no-build'], {
+      cwd: appRoot,
+      env: { ...process.env, ...workerEnv },
+      stdio: 'pipe',
+    });
+    workerProcess.stdout?.pipe(workerLogStream, { end: false });
+    workerProcess.stderr?.pipe(workerLogStream, { end: false });
+    await waitForApi(workerUrl, 180_000, workerLogPath);
+    const workerReady = await fetch(`${workerUrl}/health/ready`);
+    assert.equal(workerReady.status, 200, `generated Worker readiness: ${await workerReady.text()}`);
 
     const apiLogPath = join(logRoot, 'api.log');
     writeFileSync(apiLogPath, '');
@@ -335,7 +377,8 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     try {
       await browserRuntime?.close();
     } finally {
-      await cleanupCreatedApp({ apiProcess, apiLogStream, dbContainer, redisContainer, workspace });
+      await cleanupCreatedApp({ apiProcess, apiLogStream, workerProcess, workerLogStream,
+        dbContainer, redisContainer, workspace });
     }
   }
 }
