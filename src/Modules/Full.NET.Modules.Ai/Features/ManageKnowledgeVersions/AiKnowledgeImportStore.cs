@@ -112,7 +112,7 @@ internal sealed class AiKnowledgeImportStore(IQueryExecutor query, ICommandExecu
                 return await OwnedDocumentAsync((Guid)parameters["KnowledgeBaseId"]!, (Guid)parameters["DocumentId"]!, (Guid)parameters["OwnerUserId"]!, false, ct).ConfigureAwait(false) is null
                     ? NotFound<bool>() : Conflict<bool>();
             // 文档行已由版本更新持有写锁，文件序号在同一事务内串行分配。
-            var count = await query.QuerySingleOrDefaultAsync<long>(IsTenant ? AiKnowledgeVersionSql.CountTenant : AiKnowledgeVersionSql.CountHost, parameters, ct).ConfigureAwait(false);
+            var count = await query.QuerySingleOrDefaultAsync<long>(IsTenant ? AiKnowledgeVersionSql.CountOwnedTenant : AiKnowledgeVersionSql.CountOwnedHost, parameters, ct).ConfigureAwait(false);
             parameters["VersionNumber"] = checked((int)count + 1);
             parameters["Now"] = clock.UtcNow;
             if (await command.ExecuteAsync(IsTenant ? AiKnowledgeVersionSql.InsertTenant : AiKnowledgeVersionSql.InsertHost, parameters, ct).ConfigureAwait(false) != 1)

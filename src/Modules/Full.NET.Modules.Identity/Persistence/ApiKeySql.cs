@@ -5,6 +5,11 @@ namespace Full.NET.Modules.Identity.Persistence;
 /// <summary>Host API Key 管理、认证与只读查询 SQL。</summary>
 internal static class ApiKeySql
 {
+    private const string CurrentAuthorization = "SELECT apiKey.Id AS ApiKeyId, apiKey.UserId, identityUser.Username, identityUser.DisplayName, apiKey.KeyPrefix, apiKey.KeyHash, identityUser.ScopeKey, identityUser.TenantId, apiKey.PermissionsJson, apiKey.ExpiresAtUtc, apiKey.IsActive, apiKey.LastUsedAtUtc, identityUser.SecurityStamp, identityUser.IsActive AS UserIsActive, identityUser.LockoutEndUtc AS UserLockoutEndUtc FROM fn_identity_api_key AS apiKey INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = apiKey.UserId WHERE apiKey.Id = @ApiKeyId AND apiKey.UserId = @UserId AND ";
+    // 复核在可信范围建立之后执行，不使用初次认证的 Global 入口，也不访问消费方表。
+    internal static readonly SqlStatement AuthorizeCurrentHost = new("identity.api_key.authorize_current_host", CurrentAuthorization + "identityUser.ScopeKey = 'host' AND identityUser.TenantId IS NULL", SqlDataScope.HostOnly);
+    internal static readonly SqlStatement AuthorizeCurrentTenant = new("identity.api_key.authorize_current_tenant", CurrentAuthorization + "identityUser.ScopeKey = @TenantScopeKey AND identityUser.TenantId = @TenantId", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement Insert = new(
         "identity.insert_api_key",
         """

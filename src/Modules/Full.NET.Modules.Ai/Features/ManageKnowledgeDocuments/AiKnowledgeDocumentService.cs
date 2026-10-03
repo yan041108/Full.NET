@@ -19,8 +19,9 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeDocuments;
 /// <param name="database">成对分页 SQL 的提供程序。</param>
 /// <param name="clock">UTC 时钟。</param>
 /// <param name="ids">应用端 UUID v7 生成器。</param>
+/// <param name="access">事务外取得的权威角色读取上下文。</param>
 internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandExecutor command,
-    ICommandTransaction transaction, ICurrentTenant tenant, IOptions<DatabaseOptions> database, IClock clock, IIdGenerator ids)
+    ICommandTransaction transaction, ICurrentTenant tenant, IOptions<DatabaseOptions> database, IClock clock, IIdGenerator ids, AiKnowledgeReadAccess access)
 {
     private bool IsTenant => AiKnowledgeScope.IsTenant(tenant);
 
@@ -29,9 +30,11 @@ internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandE
     {
         if (knowledgeBaseId == Guid.Empty) return NotFound<PagedResult<AiKnowledgeDocumentResponse>>();
         // 仅传入本次 SQL 使用的参数，UUID 类型处理器不接受空标识占位。
-        var parameters = new Dictionary<string, object?>(StringComparer.Ordinal) { ["KnowledgeBaseId"] = knowledgeBaseId, ["OwnerUserId"] = actor };
-        var parent = await query.QuerySingleOrDefaultAsync<AiKnowledgeBaseRecord>(IsTenant ? AiKnowledgeSql.ReadTenant : AiKnowledgeSql.ReadHost,
-            AiSqlParameters.Create(("Id", knowledgeBaseId), ("OwnerUserId", actor)), token).ConfigureAwait(false);
+        var parameters = await access.ParametersAsync(actor, token).ConfigureAwait(false);
+        parameters.Add("KnowledgeBaseId", knowledgeBaseId);
+        parameters.Add("Id", knowledgeBaseId);
+        var parent = await query.QuerySingleOrDefaultAsync<AiKnowledgeBaseRecord>(AiKnowledgeSql.ReadFor(database.Value.Provider, IsTenant),
+            parameters, token).ConfigureAwait(false);
         if (parent is not { IsEnabled: true }) return NotFound<PagedResult<AiKnowledgeDocumentResponse>>();
         var offset = ((long)page - 1) * pageSize;
         if (page < 1 || pageSize is < 1 or > 100 || offset > 100_000)
@@ -44,7 +47,7 @@ internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandE
             DatabaseProvider.MySql => IsTenant ? AiKnowledgeDocumentSql.ListMySqlTenant : AiKnowledgeDocumentSql.ListMySqlHost,
             _ => throw new InvalidOperationException("Unsupported knowledge database provider."),
         };
-        var count = await query.QuerySingleOrDefaultAsync<long>(IsTenant ? AiKnowledgeDocumentSql.CountTenant : AiKnowledgeDocumentSql.CountHost, parameters, token).ConfigureAwait(false);
+        var count = await query.QuerySingleOrDefaultAsync<long>(AiKnowledgeDocumentSql.CountFor(database.Value.Provider, IsTenant), parameters, token).ConfigureAwait(false);
         var rows = await query.QueryAsync<AiKnowledgeDocumentRecord>(list, parameters, token).ConfigureAwait(false);
         return Result<PagedResult<AiKnowledgeDocumentResponse>>.Success(new(rows.Select(Map).ToArray(), page, pageSize, count));
     }
@@ -52,8 +55,11 @@ internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandE
     internal async Task<Result<AiKnowledgeDocumentResponse>> GetAsync(Guid knowledgeBaseId, Guid id, Guid actor, CancellationToken token)
     {
         if (knowledgeBaseId == Guid.Empty || id == Guid.Empty) return NotFound<AiKnowledgeDocumentResponse>();
-        var row = await query.QuerySingleOrDefaultAsync<AiKnowledgeDocumentRecord>(IsTenant ? AiKnowledgeDocumentSql.ReadTenant : AiKnowledgeDocumentSql.ReadHost,
-            Parameters(knowledgeBaseId, id, actor), token).ConfigureAwait(false);
+        var parameters = await access.ParametersAsync(actor, token).ConfigureAwait(false);
+        parameters.Add("KnowledgeBaseId", knowledgeBaseId);
+        parameters.Add("DocumentId", id);
+        var row = await query.QuerySingleOrDefaultAsync<AiKnowledgeDocumentRecord>(AiKnowledgeDocumentSql.ReadFor(database.Value.Provider, IsTenant),
+            parameters, token).ConfigureAwait(false);
         return row is null ? NotFound<AiKnowledgeDocumentResponse>() : Result<AiKnowledgeDocumentResponse>.Success(Map(row));
     }
 
@@ -68,7 +74,7 @@ internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandE
         parameters.Add("Description", request.Description?.Trim());
         parameters.Add("CreatedAtUtc", clock.UtcNow);
         var changed = await command.ExecuteAsync(IsTenant ? AiKnowledgeDocumentSql.InsertTenant : AiKnowledgeDocumentSql.InsertHost, parameters, ct).ConfigureAwait(false);
-        return changed == 1 ? await GetAsync(knowledgeBaseId, id, actor, ct).ConfigureAwait(false) : NotFound<AiKnowledgeDocumentResponse>();
+        return changed == 1 ? await OwnedResponseAsync(knowledgeBaseId, id, actor, ct).ConfigureAwait(false) : NotFound<AiKnowledgeDocumentResponse>();
     }, token);
 
     internal Task<Result<AiKnowledgeDocumentResponse>> UpdateAsync(Guid knowledgeBaseId, Guid id, Guid actor,
@@ -81,7 +87,7 @@ internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandE
         parameters.Add("Title", request.Title.Trim());
         parameters.Add("Description", request.Description?.Trim());
         var changed = await command.ExecuteAsync(IsTenant ? AiKnowledgeDocumentSql.UpdateTenant : AiKnowledgeDocumentSql.UpdateHost, parameters, ct).ConfigureAwait(false);
-        return changed == 1 ? await GetAsync(knowledgeBaseId, id, actor, ct).ConfigureAwait(false)
+        return changed == 1 ? await OwnedResponseAsync(knowledgeBaseId, id, actor, ct).ConfigureAwait(false)
             : await WriteFailureAsync<AiKnowledgeDocumentResponse>(knowledgeBaseId, id, actor, ct).ConfigureAwait(false);
     }, token);
 
@@ -95,6 +101,7 @@ internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandE
             if (changed != 1) return await WriteFailureAsync<bool>(knowledgeBaseId, id, actor, ct).ConfigureAwait(false);
             // 先在同一事务写入拒读墓碑，再清理授权；不依赖未来缓存、文件或索引清理。
             await command.ExecuteAsync(IsTenant ? AiKnowledgeDocumentSql.DeleteMembersTenant : AiKnowledgeDocumentSql.DeleteMembersHost, parameters, ct).ConfigureAwait(false);
+            await command.ExecuteAsync(IsTenant ? AiKnowledgeRoleGrantSql.CleanupDocTenant : AiKnowledgeRoleGrantSql.CleanupDocHost, parameters, ct).ConfigureAwait(false);
             // 墓碑和文件补偿意图同事务提交；外部 Files 释放由提交后的有界协调器完成。
             parameters["Now"] = clock.UtcNow;
             await command.ExecuteAsync(IsTenant ? AiKnowledgeImportSql.CleanupTenant : AiKnowledgeImportSql.CleanupHost, parameters, ct).ConfigureAwait(false);
@@ -138,6 +145,11 @@ internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandE
         knowledgeBaseId == Guid.Empty || id == Guid.Empty ? Task.FromResult<AiKnowledgeDocumentRecord?>(null)
         : query.QuerySingleOrDefaultAsync<AiKnowledgeDocumentRecord>(IsTenant ? AiKnowledgeDocumentSql.FindTenant : AiKnowledgeDocumentSql.FindHost,
             Parameters(knowledgeBaseId, id, actor), token);
+    private async Task<Result<AiKnowledgeDocumentResponse>> OwnedResponseAsync(Guid knowledgeBaseId, Guid id, Guid actor, CancellationToken token)
+    {
+        var row = await FindOwnedAsync(knowledgeBaseId, id, actor, token).ConfigureAwait(false);
+        return row is null ? NotFound<AiKnowledgeDocumentResponse>() : Result<AiKnowledgeDocumentResponse>.Success(Map(row));
+    }
     private async Task<Result<T>> WriteFailureAsync<T>(Guid knowledgeBaseId, Guid id, Guid actor, CancellationToken token) =>
         await FindOwnedAsync(knowledgeBaseId, id, actor, token).ConfigureAwait(false) is null ? NotFound<T>()
             : Failure<T>(AiKnowledgeErrorCodes.DocumentVersionConflict, "The document was modified by another request.", ErrorType.Conflict);

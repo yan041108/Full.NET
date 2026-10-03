@@ -276,6 +276,15 @@
         "UserId": "获授权用户标识"
       }
     },
+    "fn_ai_knowledge_document_role": {
+      "comment": "人工智能knowledge document role表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DocumentId": "文档标识",
+        "Id": "逻辑主键",
+        "RoleId": "角色标识"
+      }
+    },
     "fn_ai_knowledge_import": {
       "comment": "知识库持久化导入及文件补偿日志",
       "columns": {
@@ -305,6 +314,15 @@
         "Id": "逻辑主键",
         "KnowledgeBaseId": "所属知识库标识",
         "UserId": "获授权用户标识"
+      }
+    },
+    "fn_ai_knowledge_role": {
+      "comment": "人工智能knowledge role表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "KnowledgeBaseId": "Knowledge Base标识",
+        "RoleId": "角色标识"
       }
     },
     "fn_ai_knowledge_version": {

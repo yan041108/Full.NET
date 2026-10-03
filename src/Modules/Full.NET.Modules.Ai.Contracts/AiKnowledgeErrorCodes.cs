@@ -27,6 +27,10 @@ public static class AiKnowledgeErrorCodes
     public const string MemberUnavailable = "ai.knowledge.member_unavailable";
     /// <summary>错误资源匹配前缀。</summary>
     public const string Prefix = "ai.knowledge.";
+    /// <summary>角色授予集合或并发版本不合法。</summary>
+    public const string RoleGrantsInvalid = Prefix + "role_grants_invalid";
+    /// <summary>角色已禁用、不存在或不属于可信当前范围。</summary>
+    public const string RoleUnavailable = Prefix + "role_unavailable";
     /// <summary>目录或审批输入不合法。</summary>
     public const string InputInvalid = Prefix + "input_invalid";
     /// <summary>分页超出边界。</summary>

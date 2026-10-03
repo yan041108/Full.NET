@@ -99,6 +99,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         DapperAotParameterRegistry.Register<Features.ChangeSessionContext.OidcApplicationSessionContextUpdate>(
             BindOidcApplicationSessionContextUpdate);
         DapperAotParameterRegistry.Register<IdentityUserRecord>(BindIdentityUserRecord);
+        // 密钥创建与轮换共用持久化投影，原生执行器不能反射展开其参数。
+        DapperAotParameterRegistry.Register<ApiKeyRecord>(BindApiKeyRecord);
         DapperAotParameterRegistry.Register<InsertIdentityRole>(BindInsertIdentityRole);
         // 行物化不等于命令参数绑定；角色授权及用户角色关联也必须有静态参数闭包。
         DapperAotParameterRegistry.Register<IdentityRolePermission>(BindIdentityRolePermission);
@@ -1137,6 +1139,25 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         parameters.Add("Version", update.Version);
         parameters.Add("NowUtc", update.NowUtc);
         parameters.Add("UpdatedAtUtc", update.UpdatedAtUtc);
+        return parameters;
+    }
+
+    private static DynamicParameters BindApiKeyRecord(ApiKeyRecord record)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("Id", record.Id);
+        parameters.Add("UserId", record.UserId);
+        parameters.Add("DisplayName", record.DisplayName);
+        parameters.Add("KeyPrefix", record.KeyPrefix);
+        parameters.Add("KeyHash", record.KeyHash);
+        parameters.Add("PermissionsJson", record.PermissionsJson);
+        parameters.Add("ExpiresAtUtc", record.ExpiresAtUtc);
+        parameters.Add("IsActive", record.IsActive);
+        parameters.Add("LastUsedAtUtc", record.LastUsedAtUtc);
+        parameters.Add("DisabledAtUtc", record.DisabledAtUtc);
+        parameters.Add("CreatedAtUtc", record.CreatedAtUtc);
+        parameters.Add("UpdatedAtUtc", record.UpdatedAtUtc);
+        parameters.Add("Version", record.Version);
         return parameters;
     }
 

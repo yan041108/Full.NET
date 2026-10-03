@@ -20,13 +20,15 @@ internal static class Endpoint
                 ? mapper.Map(await service.ListAsync(knowledgeBaseId, actor, page ?? 1, pageSize ?? 20, token).ConfigureAwait(false), context) : Results.Unauthorized()),
             "aiListKnowledgeDocuments", AiKnowledgeDocumentPermissions.Read)
             .RequireAuthorization(FullNetPermissionPolicies.For(AiKnowledgePermissions.Read))
-            .Produces<PagedResult<AiKnowledgeDocumentResponse>>(StatusCodes.Status200OK);
+            .Produces<PagedResult<AiKnowledgeDocumentResponse>>(StatusCodes.Status200OK)
+            .AddEndpointFilter(new AiKnowledgeReadPermissionFilter([AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read]));
         Common(group.MapGet("/{documentId:guid}", async (Guid knowledgeBaseId, Guid documentId, AiKnowledgeDocumentService service,
             IApiResultMapper mapper, HttpContext context, CancellationToken token) => TryActor(context, out var actor)
                 ? mapper.Map(await service.GetAsync(knowledgeBaseId, documentId, actor, token).ConfigureAwait(false), context) : Results.Unauthorized()),
             "aiGetKnowledgeDocument", AiKnowledgeDocumentPermissions.Read)
             .RequireAuthorization(FullNetPermissionPolicies.For(AiKnowledgePermissions.Read))
-            .Produces<AiKnowledgeDocumentResponse>(StatusCodes.Status200OK);
+            .Produces<AiKnowledgeDocumentResponse>(StatusCodes.Status200OK)
+            .AddEndpointFilter(new AiKnowledgeReadPermissionFilter([AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read]));
         Common(group.MapPost("/", async (Guid knowledgeBaseId, CreateAiKnowledgeDocumentRequest request, AiKnowledgeDocumentService service,
             IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
         {

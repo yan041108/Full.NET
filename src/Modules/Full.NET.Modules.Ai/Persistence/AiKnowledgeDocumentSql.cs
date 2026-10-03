@@ -10,7 +10,8 @@ internal static class AiKnowledgeDocumentSql
     private const string Host = "knowledge.TenantId IS NULL";
     private const string Tenant = "knowledge.TenantId = @TenantId";
     private const string Owner = "knowledge.OwnerUserId = @OwnerUserId";
-    private const string Access = "(knowledge.OwnerUserId = @OwnerUserId OR (EXISTS (SELECT 1 FROM fn_ai_knowledge_member AS baseMember WHERE baseMember.KnowledgeBaseId = knowledge.Id AND baseMember.UserId = @OwnerUserId) AND EXISTS (SELECT 1 FROM fn_ai_knowledge_document_member AS docMember WHERE docMember.DocumentId = document.Id AND docMember.UserId = @OwnerUserId)))";
+    private const string Access = AiKnowledgeReadSql.Layers;
+    private const string MySqlAccess = AiKnowledgeReadSql.LayersMySql;
     private const string Read = "SELECT " + Columns + Join + "document.Id = @DocumentId AND ";
     private const string List = "SELECT " + Columns + Join;
     private const string Count = "SELECT COUNT(*)" + Join;
@@ -27,13 +28,17 @@ internal static class AiKnowledgeDocumentSql
     internal static readonly SqlStatement FindHost = new("ai.knowledge_document.find_host", Read + Host + " AND " + Owner, SqlDataScope.HostOnly);
     internal static readonly SqlStatement FindTenant = new("ai.knowledge_document.find_tenant", Read + Tenant + " AND " + Owner, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement ReadHost = new("ai.knowledge_document.read_host", Read + Host + " AND " + Access, SqlDataScope.HostOnly);
+    internal static readonly SqlStatement ReadMySqlHost = new("ai.knowledge_document.read_mysql_host", Read + Host + " AND " + MySqlAccess, SqlDataScope.HostOnly);
     internal static readonly SqlStatement ReadTenant = new("ai.knowledge_document.read_tenant", Read + Tenant + " AND " + Access, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement ReadMySqlTenant = new("ai.knowledge_document.read_mysql_tenant", Read + Tenant + " AND " + MySqlAccess, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement CountHost = new("ai.knowledge_document.count_host", Count + Host + " AND " + Access, SqlDataScope.HostOnly);
+    internal static readonly SqlStatement CountMySqlHost = new("ai.knowledge_document.count_mysql_host", Count + Host + " AND " + MySqlAccess, SqlDataScope.HostOnly);
     internal static readonly SqlStatement CountTenant = new("ai.knowledge_document.count_tenant", Count + Tenant + " AND " + Access, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement CountMySqlTenant = new("ai.knowledge_document.count_mysql_tenant", Count + Tenant + " AND " + MySqlAccess, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement ListSqlServerHost = new("ai.knowledge_document.list_sqlserver_host", List + Host + " AND " + Access + " ORDER BY document.CreatedAtUtc DESC, document.Id DESC OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY", SqlDataScope.HostOnly);
     internal static readonly SqlStatement ListSqlServerTenant = new("ai.knowledge_document.list_sqlserver_tenant", List + Tenant + " AND " + Access + " ORDER BY document.CreatedAtUtc DESC, document.Id DESC OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
-    internal static readonly SqlStatement ListMySqlHost = new("ai.knowledge_document.list_mysql_host", List + Host + " AND " + Access + " ORDER BY document.CreatedAtUtc DESC, document.Id DESC LIMIT @PageSize OFFSET @Offset", SqlDataScope.HostOnly);
-    internal static readonly SqlStatement ListMySqlTenant = new("ai.knowledge_document.list_mysql_tenant", List + Tenant + " AND " + Access + " ORDER BY document.CreatedAtUtc DESC, document.Id DESC LIMIT @PageSize OFFSET @Offset", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement ListMySqlHost = new("ai.knowledge_document.list_mysql_host", List + Host + " AND " + MySqlAccess + " ORDER BY document.CreatedAtUtc DESC, document.Id DESC LIMIT @PageSize OFFSET @Offset", SqlDataScope.HostOnly);
+    internal static readonly SqlStatement ListMySqlTenant = new("ai.knowledge_document.list_mysql_tenant", List + Tenant + " AND " + MySqlAccess + " ORDER BY document.CreatedAtUtc DESC, document.Id DESC LIMIT @PageSize OFFSET @Offset", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement InsertHost = new("ai.knowledge_document.insert_host", Insert + Host, SqlDataScope.HostOnly);
     internal static readonly SqlStatement InsertTenant = new("ai.knowledge_document.insert_tenant", Insert + Tenant, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement UpdateHost = new("ai.knowledge_document.update_host", Update + Host + ")", SqlDataScope.HostOnly);
@@ -48,4 +53,8 @@ internal static class AiKnowledgeDocumentSql
     internal static readonly SqlStatement DeleteMembersTenant = new("ai.knowledge_document.delete_members_tenant", DeleteMembers + Tenant + ")", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement InsertMemberHost = new("ai.knowledge_document.insert_member_host", InsertMember + Host, SqlDataScope.HostOnly);
     internal static readonly SqlStatement InsertMemberTenant = new("ai.knowledge_document.insert_member_tenant", InsertMember + Tenant, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static SqlStatement ReadFor(DatabaseProvider provider, bool tenant) => provider == DatabaseProvider.MySql
+        ? tenant ? ReadMySqlTenant : ReadMySqlHost : tenant ? ReadTenant : ReadHost;
+    internal static SqlStatement CountFor(DatabaseProvider provider, bool tenant) => provider == DatabaseProvider.MySql
+        ? tenant ? CountMySqlTenant : CountMySqlHost : tenant ? CountTenant : CountHost;
 }

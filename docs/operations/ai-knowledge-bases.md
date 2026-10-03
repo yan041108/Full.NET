@@ -1,6 +1,6 @@
-# 知识库目录、文件版本、用户授权与模型处理审批
+# 知识库目录、文件版本、用户与角色授权及模型处理审批
 
-R04a 提供私有目录及审批记录，R04b1 增加明确用户成员与立即撤权，R04b2a 提供文档草稿元数据及独立明确用户授权，R04b2b 接入上传、不可变来源版本及持久化导入恢复，R04b2c 提供共享生成客户端，R04b3a 增加角色授权候选查询。当前不解析正文、不调用模型；角色实际授予、组织范围及双层范围授权由后续 R04b 继续交付。R05/R06 的每次处理派发必须复核这里记录的审批及最新权威状态。
+R04a 提供私有目录及审批记录，R04b1 增加明确用户成员与立即撤权，R04b2a 提供文档草稿元数据及独立明确用户授权，R04b2b 接入上传、不可变来源版本及持久化导入恢复，R04b2c 提供共享生成客户端，R04b3a 增加角色授权候选查询，R04b3b 接入角色授予及两层权威读取。当前不解析正文、不调用模型；组织范围由后续 R04b 继续交付。R05/R06 的每次处理派发必须复核这里记录的审批及最新权威状态。
 
 ## 目录 API
 
@@ -40,7 +40,7 @@ Host 候选须为活动 Host 用户；Tenant 候选须为当前可信租户的�
 
 ## 文档草稿与授权
 
-基础路径为 `/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents`。所有者只能维护启用知识库中的文档；文档标题、描述、列表数量和详情也受文档授权保护。读取必须同时具备 `ai.knowledge_bases.read` 与 `ai.knowledge_documents.read`，成员还须同时位于知识库和文档明确名单。知识库读取权、目录成员资格、模型批准都不能单独授予文档访问。
+基础路径为 `/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents`。所有者只能维护启用知识库中的文档；文档标题、描述、列表数量和详情也受文档授权保护。读取必须同时具备 `ai.knowledge_bases.read` 与 `ai.knowledge_documents.read`，每层还须分别满足所有权、明确用户或权威活动角色授予中的一种。知识库读取权、目录成员资格、模型批准都不能单独授予文档访问。
 
 | 操作 | 方法与相对路径 | 精确权限 | 请求字段 |
 | --- | --- | --- | --- |
@@ -54,7 +54,7 @@ Host 候选须为活动 Host 用户；Tenant 候选须为当前可信租户的�
 
 草稿标题须非空且最多 200 字符，描述最多 2000 字符；响应状态固定为 `draft`，不代表已上传、解析或索引就绪。未知 `fileId`、`tenantId`、`ownerUserId`、`status` 等字段返回 400。创建返回 201，成功软删除返回 204；重复删除、删除后的读取及跨范围访问统一返回 404。版本竞争返回 409 `ai.knowledge.document_version_conflict`。
 
-文档名单最多 100 个唯一非空 UUID，不包括所有者，且只能选择当前知识库明确成员。任一用户不属于名单返回 422 `ai.knowledge.document_member_unavailable`，整次替换的旧名单、版本及此前插入均回滚。文档元数据、授权和删除共用文档版本，独立于知识库版本。空名单撤销文档授权；目录撤权或禁用也立即拒绝文档读取。目录撤权不删除独立文档授权记录，重新授予目录成员资格后仍按当前文档名单判断。软删除同时写入墓碑并清理文档授权，无法通过重新授权打开已删除文档。权威查询每次联查本模块状态，不等待缓存、索引或文件清理。
+文档名单最多 100 个唯一非空 UUID，不包括所有者，且只能选择当前知识库明确成员。任一用户不属于名单返回 422 `ai.knowledge.document_member_unavailable`，整次替换的旧名单、版本及此前插入均回滚。文档元数据、授权和删除共用文档版本，独立于知识库版本。空名单只撤销文档明确用户授予，已有角色授予仍可满足该层。撤销目录明确用户后，仍须按该层全部当前授予判断；所有可用路径都被撤销或目录禁用时才拒绝文档读取。目录撤权不删除独立文档授权记录，重新授予目录读取资格后仍按文档当前用户或角色授予判断。软删除同时写入墓碑并清理文档用户与角色授权，无法通过重新授权打开已删除文档。权威查询每次联查本模块状态，不等待缓存、索引或文件清理。
 
 ## 不可变来源版本与导入恢复
 
@@ -88,7 +88,28 @@ Tenant 文件只有配额确认后才成为 ready。未知确认保留 pending�
 
 两个权限独立，只允许当前资源所有者的有效交互会话调用；成员不能枚举候选，API Key 不支持这项操作。每次请求在 Endpoint 策略之后再次从权威源核对会话、账号、租户和精确权限；会话仍有效但权限已撤销时，旧令牌返回 403 `authorization.permission_denied`，会话同时失效时由认证管线返回 401。所有权不匹配、跨范围或资源不存在返回 404；禁用知识库仍允许其所有者查询知识库候选，文档候选要求目录启用且文档未删除。
 
-候选来自 Identity 最小只读目录，只包含当前可信 Host/租户范围的活动普通角色 `id`、`code`、`name`，排除超级管理员角色，不携带角色成员和权限明细。`page` 从 1 开始，`pageSize` 为 1..100，偏移不超过 100000；按编码和标识固定排序，总数与列表使用相同过滤。请求中的租户参数不能切换范围。候选查询不会修改资源版本或授予访问，现有明确用户成员 API 保持原语义，角色范围的实际授予及两层读取判断仍待后续切片。
+候选来自 Identity 最小只读目录，只包含当前可信 Host/租户范围的活动普通角色 `id`、`code`、`name`，排除超级管理员角色，不携带角色成员和权限明细。`page` 从 1 开始，`pageSize` 为 1..100，偏移不超过 100000；按编码和标识固定排序，总数与列表使用相同过滤。请求中的租户参数不能切换范围。候选查询不会修改资源版本或授予访问。
+
+## 角色授予与权威读取
+
+以下路径基于 `/api/v1/ai/knowledge-bases`。
+
+| 操作 | 方法与相对路径 | 精确权限 |
+| --- | --- | --- |
+| 所有者读取知识库角色 | `GET /{knowledgeBaseId}/roles` | `ai.knowledge_bases.roles_read` |
+| 所有者替换知识库角色 | `PUT /{knowledgeBaseId}/roles` | `ai.knowledge_bases.roles_update` |
+| 所有者读取文档角色 | `GET /{knowledgeBaseId}/documents/{documentId}/roles` | `ai.knowledge_documents.roles_read` |
+| 所有者替换文档角色 | `PUT /{knowledgeBaseId}/documents/{documentId}/roles` | `ai.knowledge_documents.roles_update` |
+
+维护入口只接受所有者的有效交互会话，每次核对权威精确权限；API Key 不具备维护资格。知识库角色维护允许禁用目录，文档角色维护要求目录启用且文档未删除。非所有者、跨范围和不存在资源统一返回 404。
+
+PUT 正文为 `roleIds` 与对应资源的 `version`：最多 100 个唯一非空 UUID，空集合撤销全部角色授予；版本必须为正数。未知字段在 JSON 绑定时拒绝并返回 400；版本不为正、重复、空 UUID 或超限返回 400 `ai.knowledge.role_grants_invalid`。非活动普通角色、其他范围角色或不存在角色返回 422 `ai.knowledge.role_unavailable`。响应含 `resourceId`、排序后的 `roleIds` 和当前 `version`；GET 保留已禁用角色标识供所有者撤销，不表示该角色仍可读取。
+
+角色替换与对应目录或文档共用版本，并在 AI 本地事务中原子执行；版本竞争返回 409，插入失败回滚旧名单和版本。角色接口只替换角色，旧 `members` 接口只替换明确用户，互不清空。Identity 候选校验及用户活动角色读取均通过最小 Port 在 AI 事务之外完成，AI SQL 只访问自身表。
+
+每次读取从权威源取得当前主体在可信范围中的完整活动普通角色集合，不使用 JWT 角色声明或授权缓存。账号、角色、关系与租户活动成员资格均须有效。知识库层与文档层独立判断，再同时满足两层；两层可以分别匹配明确用户与角色，也可以匹配不同角色。分页总数与列表使用相同过滤。角色禁用、关系移除或租户成员停用后，同一旧令牌的下一次读取立即失去对应角色资格。
+
+读取入口还核对当前会话或 API Key 的权威精确权限；API Key 禁用、到期、账号状态、安全戳或权限变更均会拒绝后续读取。来源流打开后再次核对凭据、精确权限、角色及两层资源状态，拒绝时关闭已打开的流。当前 AI 入口未开放 Signature 认证，组织及父子机构推导仍未实现。
 
 ## 共享客户端
 
@@ -100,8 +121,8 @@ Tenant 文件只有配额确认后才成为 ready。未知确认保留 pending�
 
 ## 双库与部署
 
-迁移 `240_AiKnowledgeBase.sql` 增加 `fn_ai_knowledge_base`，`241_AiKnowledgeMember.sql` 增加 `fn_ai_knowledge_member`，`242_AiKnowledgeDocument.sql` 增加 `fn_ai_knowledge_document` 与 `fn_ai_knowledge_document_member`，`243_AiKnowledgeFileVersion.sql` 增加 `fn_ai_knowledge_version` 与 `fn_ai_knowledge_import`；均有 SQL Server 与 MySQL 实现，不改写已有业务表。外键仅关联 AI 自有父记录，不向 Files、Identity 或 Tenancy 表建立外键。SQL Server 主键显式采用 UUID v7 聚集键；MySQL 使用 Binary16 网络字节序。
+迁移 `240_AiKnowledgeBase.sql` 增加 `fn_ai_knowledge_base`，`241_AiKnowledgeMember.sql` 增加 `fn_ai_knowledge_member`，`242_AiKnowledgeDocument.sql` 增加 `fn_ai_knowledge_document` 与 `fn_ai_knowledge_document_member`，`243_AiKnowledgeFileVersion.sql` 增加 `fn_ai_knowledge_version` 与 `fn_ai_knowledge_import`，`244_AiKnowledgeRoleGrant.sql` 增加知识库及文档角色授予表；均有 SQL Server 与 MySQL 实现，不改写已有业务表。外键仅关联 AI 自有父记录，不向 Files、Identity 或 Tenancy 表建立外键。SQL Server 主键显式采用 UUID v7 聚集键；MySQL 使用 Binary16 网络字节序。
 
 建表、后置索引与 SQL Server 注释支持未记账重放。暂停旧应用后可前滚迁移；如需应用回退，保留新增表即可，旧应用不读写该表，不需要删除目录数据。迁移不播种目录或默认审批。
 
-验收证据与任务状态统一记录在[活动开发计划 R04](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。当前 API 无 Vue 页面入口；角色/组织范围授权及页面按后续切片交付，整体 R04/RAG 和容量状态不能由这些切片验收推导。
+验收证据与任务状态统一记录在[活动开发计划 R04](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。当前 API 无 Vue 页面入口；新增四个角色授予 Operation 的共享客户端、组织范围授权及页面按后续切片交付，整体 R04/RAG 和容量状态不能由这些切片验收推导。

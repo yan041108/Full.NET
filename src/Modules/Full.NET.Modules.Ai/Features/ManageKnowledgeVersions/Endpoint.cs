@@ -32,7 +32,7 @@ internal static class Endpoint
         Read(Common(group.MapGet("/versions", async (Guid knowledgeBaseId, Guid documentId, int? page, int? pageSize,
             AiKnowledgeVersionReader reader, IApiResultMapper mapper, HttpContext context, CancellationToken token) => TryActor(context, out var actor)
                 ? mapper.Map(await reader.ListAsync(knowledgeBaseId, documentId, actor, page ?? 1, pageSize ?? 20, token).ConfigureAwait(false), context) : Results.Unauthorized()),
-            "aiListKnowledgeVersions", AiKnowledgeDocumentPermissions.VersionsRead)).Produces<PagedResult<AiKnowledgeVersionResponse>>(StatusCodes.Status200OK);
+            "aiListKnowledgeVersions", AiKnowledgeDocumentPermissions.VersionsRead), AiKnowledgeDocumentPermissions.VersionsRead).Produces<PagedResult<AiKnowledgeVersionResponse>>(StatusCodes.Status200OK);
         Read(Common(group.MapGet("/versions/{versionId:guid}/source", async (Guid knowledgeBaseId, Guid documentId, Guid versionId,
             AiKnowledgeVersionReader reader, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
         {
@@ -43,7 +43,7 @@ internal static class Endpoint
             context.Response.Headers["X-Content-Type-Options"] = "nosniff";
             // 下载始终为附件，不把上传内容作为可执行页面或嵌入式 PDF 呈现。
             return Results.File(opened.Value!.Content, "application/octet-stream", opened.Value.FileName, enableRangeProcessing: false);
-        }), "aiDownloadKnowledgeSource", AiKnowledgeDocumentPermissions.SourceRead)).Produces<Stream>(StatusCodes.Status200OK, contentType: "application/octet-stream");
+        }), "aiDownloadKnowledgeSource", AiKnowledgeDocumentPermissions.SourceRead), AiKnowledgeDocumentPermissions.SourceRead).Produces<Stream>(StatusCodes.Status200OK, contentType: "application/octet-stream");
         Common(group.MapGet("/imports/{operationId:guid}", async (Guid knowledgeBaseId, Guid documentId, Guid operationId,
             AiKnowledgeImportCoordinator service, IApiResultMapper mapper, HttpContext context, CancellationToken token) => TryActor(context, out var actor)
                 ? mapper.Map(await service.GetAsync(knowledgeBaseId, documentId, operationId, actor, token).ConfigureAwait(false), context) : Results.Unauthorized()),
@@ -61,8 +61,9 @@ internal static class Endpoint
     private static RouteHandlerBuilder Common(RouteHandlerBuilder route, string name, string permission) => route.WithName(name)
         .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409).ProducesProblem(422)
         .RequireAuthorization(FullNetPermissionPolicies.For(permission));
-    private static RouteHandlerBuilder Read(RouteHandlerBuilder route) => route
+    private static RouteHandlerBuilder Read(RouteHandlerBuilder route, string permission) => route
         .RequireAuthorization(FullNetPermissionPolicies.For(AiKnowledgePermissions.Read))
-        .RequireAuthorization(FullNetPermissionPolicies.For(AiKnowledgeDocumentPermissions.Read));
+        .RequireAuthorization(FullNetPermissionPolicies.For(AiKnowledgeDocumentPermissions.Read))
+        .AddEndpointFilter(new AiKnowledgeReadPermissionFilter([AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, permission]));
     private static bool TryActor(HttpContext context, out Guid actor) => Guid.TryParse(context.User.FindFirst("sub")?.Value, out actor) && actor != Guid.Empty;
 }

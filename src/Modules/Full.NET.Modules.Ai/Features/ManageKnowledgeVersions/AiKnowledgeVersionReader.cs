@@ -10,24 +10,26 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeVersions;
 
 /// <summary>每次来源读取都重新核对文档授权；不缓存正文或返回可绕过授权的存储 URL。</summary>
 internal sealed class AiKnowledgeVersionReader(AiKnowledgeImportStore store, IQueryExecutor query,
-    AiKnowledgeDocumentService documents, IHostFileReferenceReader references, IHostFileContentReader hostFiles,
+    AiKnowledgeReadAccess access, AiKnowledgePermissionGuard permissions, IHostFileReferenceReader references, IHostFileContentReader hostFiles,
     ITenantResourceFileStore tenantFiles)
 {
     internal async Task<Result<PagedResult<AiKnowledgeVersionResponse>>> ListAsync(Guid knowledgeBaseId, Guid documentId,
         Guid actor, int page, int pageSize, CancellationToken token)
     {
-        if (!(await documents.GetAsync(knowledgeBaseId, documentId, actor, token).ConfigureAwait(false)).IsSuccess)
+        if (knowledgeBaseId == Guid.Empty || documentId == Guid.Empty) return NotFound<PagedResult<AiKnowledgeVersionResponse>>();
+        var parameters = await ReadParametersAsync(knowledgeBaseId, documentId, actor, token).ConfigureAwait(false);
+        if (await query.QuerySingleOrDefaultAsync<AiKnowledgeDocumentRecord>(AiKnowledgeDocumentSql.ReadFor(store.Provider, store.IsTenant),
+            parameters, token).ConfigureAwait(false) is null)
             return NotFound<PagedResult<AiKnowledgeVersionResponse>>();
         var offset = ((long)page - 1) * pageSize;
         if (page < 1 || pageSize is < 1 or > 100 || offset > 100_000)
             return Failure<PagedResult<AiKnowledgeVersionResponse>>(AiKnowledgeErrorCodes.PageInvalid, "Invalid bounded page.", ErrorType.Validation);
-        var parameters = store.Parameters(knowledgeBaseId, documentId, actor);
         parameters.Add("PageSize", pageSize);
         parameters.Add("Offset", offset);
         var sql = store.Provider == DatabaseProvider.SqlServer
             ? store.IsTenant ? AiKnowledgeVersionSql.ListSqlServerTenant : AiKnowledgeVersionSql.ListSqlServerHost
             : store.IsTenant ? AiKnowledgeVersionSql.ListMySqlTenant : AiKnowledgeVersionSql.ListMySqlHost;
-        var count = await query.QuerySingleOrDefaultAsync<long>(store.IsTenant ? AiKnowledgeVersionSql.CountTenant : AiKnowledgeVersionSql.CountHost, parameters, token).ConfigureAwait(false);
+        var count = await query.QuerySingleOrDefaultAsync<long>(AiKnowledgeVersionSql.CountFor(store.Provider, store.IsTenant), parameters, token).ConfigureAwait(false);
         var rows = await query.QueryAsync<AiKnowledgeVersionRecord>(sql, parameters, token).ConfigureAwait(false);
         return Result<PagedResult<AiKnowledgeVersionResponse>>.Success(new(rows.Select(Map).ToArray(), page, pageSize, count));
     }
@@ -36,9 +38,9 @@ internal sealed class AiKnowledgeVersionReader(AiKnowledgeImportStore store, IQu
         Guid actor, CancellationToken token)
     {
         if (knowledgeBaseId == Guid.Empty || documentId == Guid.Empty || versionId == Guid.Empty) return NotFound<AiKnowledgeSourceContent>();
-        var parameters = store.Parameters(knowledgeBaseId, documentId, actor);
+        var parameters = await ReadParametersAsync(knowledgeBaseId, documentId, actor, token).ConfigureAwait(false);
         parameters.Add("VersionId", versionId);
-        var statement = store.IsTenant ? AiKnowledgeVersionSql.ReadTenant : AiKnowledgeVersionSql.ReadHost;
+        var statement = AiKnowledgeVersionSql.ReadFor(store.Provider, store.IsTenant);
         var row = await query.QuerySingleOrDefaultAsync<AiKnowledgeVersionRecord>(statement, parameters, token).ConfigureAwait(false);
         if (row is null) return NotFound<AiKnowledgeSourceContent>();
         if (store.IsTenant)
@@ -48,7 +50,7 @@ internal sealed class AiKnowledgeVersionReader(AiKnowledgeImportStore store, IQu
             // 存储打开后再次复核权威授权，取消或授权失败时也必须释放流。
             try
             {
-                if (await query.QuerySingleOrDefaultAsync<AiKnowledgeVersionRecord>(statement, parameters, token).ConfigureAwait(false) is null)
+                if (!await RevalidateAsync(knowledgeBaseId, documentId, versionId, actor, statement, token).ConfigureAwait(false))
                 { await opened.Value!.Content.DisposeAsync().ConfigureAwait(false); return NotFound<AiKnowledgeSourceContent>(); }
                 return Result<AiKnowledgeSourceContent>.Success(new(opened.Value!.Content, row.OriginalFileName));
             }
@@ -60,7 +62,7 @@ internal sealed class AiKnowledgeVersionReader(AiKnowledgeImportStore store, IQu
         if (!content.IsSuccess) return Unavailable();
         try
         {
-            if (await query.QuerySingleOrDefaultAsync<AiKnowledgeVersionRecord>(statement, parameters, token).ConfigureAwait(false) is null)
+            if (!await RevalidateAsync(knowledgeBaseId, documentId, versionId, actor, statement, token).ConfigureAwait(false))
             { await content.Value!.Content.DisposeAsync().ConfigureAwait(false); return NotFound<AiKnowledgeSourceContent>(); }
             return Result<AiKnowledgeSourceContent>.Success(new(content.Value!.Content, row.OriginalFileName));
         }
@@ -69,6 +71,21 @@ internal sealed class AiKnowledgeVersionReader(AiKnowledgeImportStore store, IQu
 
     private static AiKnowledgeVersionResponse Map(AiKnowledgeVersionRecord row) => new(row.Id, row.DocumentId,
         row.VersionNumber, row.OriginalFileName, row.ContentType, row.ContentHash, row.SizeBytes, "pending_processing", row.CreatedAtUtc);
+    private async Task<Dictionary<string, object?>> ReadParametersAsync(Guid knowledgeBaseId, Guid documentId, Guid actor, CancellationToken token)
+    {
+        var parameters = await access.ParametersAsync(actor, token).ConfigureAwait(false);
+        parameters.Add("KnowledgeBaseId", knowledgeBaseId);
+        parameters.Add("DocumentId", documentId);
+        return parameters;
+    }
+    private async Task<bool> RevalidateAsync(Guid knowledgeBaseId, Guid documentId, Guid versionId, Guid actor, SqlStatement statement, CancellationToken token)
+    {
+        if (!await permissions.IsAuthorizedAsync([AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.SourceRead], actor, token).ConfigureAwait(false)) return false;
+        // 存储打开期间可能撤销角色关系，必须重新取得 Identity 权威角色，不能复用初次参数。
+        var parameters = await ReadParametersAsync(knowledgeBaseId, documentId, actor, token).ConfigureAwait(false);
+        parameters.Add("VersionId", versionId);
+        return await query.QuerySingleOrDefaultAsync<AiKnowledgeVersionRecord>(statement, parameters, token).ConfigureAwait(false) is not null;
+    }
     private static Result<AiKnowledgeSourceContent> Unavailable() => Failure<AiKnowledgeSourceContent>(
         "ai.knowledge.source_unavailable", "The source file is unavailable.", ErrorType.NotFound);
 }

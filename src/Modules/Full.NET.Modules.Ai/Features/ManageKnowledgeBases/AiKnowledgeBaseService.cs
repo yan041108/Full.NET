@@ -19,8 +19,9 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeBases;
 /// <param name="database">双库分页选项。</param>
 /// <param name="clock">UTC 时钟。</param>
 /// <param name="ids">应用端 UUID v7 生成器。</param>
+/// <param name="access">事务外取得的权威角色读取上下文。</param>
 internal sealed class AiKnowledgeBaseService(IQueryExecutor query, ICommandExecutor command,
-    ICommandTransaction transaction, ICurrentTenant tenant, IOptions<DatabaseOptions> database, IClock clock, IIdGenerator ids)
+    ICommandTransaction transaction, ICurrentTenant tenant, IOptions<DatabaseOptions> database, IClock clock, IIdGenerator ids, AiKnowledgeReadAccess access)
 {
     internal async Task<Result<PagedResult<AiKnowledgeBaseResponse>>> ListAsync(Guid owner, int page, int pageSize, CancellationToken token)
     {
@@ -29,23 +30,27 @@ internal sealed class AiKnowledgeBaseService(IQueryExecutor query, ICommandExecu
         var offset = ((long)page - 1) * pageSize;
         if (page < 1 || pageSize is < 1 or > 100 || offset > 100_000)
             return Failure<PagedResult<AiKnowledgeBaseResponse>>(AiKnowledgeErrorCodes.PageInvalid, "Page size must be 1..100 and offset must not exceed 100000.", ErrorType.Validation);
-        var parameters = AiSqlParameters.Create(("OwnerUserId", owner), ("Offset", offset), ("PageSize", pageSize));
+        var parameters = await access.ParametersAsync(owner, token).ConfigureAwait(false);
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
         var list = database.Value.Provider switch
         {
             DatabaseProvider.SqlServer => isTenant ? AiKnowledgeSql.ListSqlServerTenant : AiKnowledgeSql.ListSqlServerHost,
             DatabaseProvider.MySql => isTenant ? AiKnowledgeSql.ListMySqlTenant : AiKnowledgeSql.ListMySqlHost,
             _ => throw new InvalidOperationException("Unsupported knowledge database provider."),
         };
-        var total = await query.QuerySingleOrDefaultAsync<long>(isTenant ? AiKnowledgeSql.CountTenant : AiKnowledgeSql.CountHost, parameters, token).ConfigureAwait(false);
+        var total = await query.QuerySingleOrDefaultAsync<long>(AiKnowledgeSql.CountFor(database.Value.Provider, isTenant), parameters, token).ConfigureAwait(false);
         var rows = await query.QueryAsync<AiKnowledgeBaseRecord>(list, parameters, token).ConfigureAwait(false);
         return Result<PagedResult<AiKnowledgeBaseResponse>>.Success(new(rows.Select(Map).ToArray(), page, pageSize, total));
     }
 
     internal async Task<Result<AiKnowledgeBaseResponse>> GetAsync(Guid id, Guid owner, CancellationToken token)
     {
-        var row = await query.QuerySingleOrDefaultAsync<AiKnowledgeBaseRecord>(AiKnowledgeScope.IsTenant(tenant)
-                ? AiKnowledgeSql.ReadTenant : AiKnowledgeSql.ReadHost,
-            AiSqlParameters.Create(("Id", id), ("OwnerUserId", owner)), token).ConfigureAwait(false);
+        if (id == Guid.Empty) return NotFound();
+        var parameters = await access.ParametersAsync(owner, token).ConfigureAwait(false);
+        parameters.Add("Id", id);
+        var row = await query.QuerySingleOrDefaultAsync<AiKnowledgeBaseRecord>(AiKnowledgeSql.ReadFor(database.Value.Provider, AiKnowledgeScope.IsTenant(tenant)),
+            parameters, token).ConfigureAwait(false);
         return row is null ? NotFound() : Result<AiKnowledgeBaseResponse>.Success(Map(row));
     }
 
@@ -58,7 +63,7 @@ internal sealed class AiKnowledgeBaseService(IQueryExecutor query, ICommandExecu
             await command.ExecuteAsync(isTenant ? AiKnowledgeSql.InsertTenant : AiKnowledgeSql.InsertHost,
                 AiSqlParameters.Create(("Id", id), ("OwnerUserId", owner), ("Name", request.Name.Trim()),
                     ("Description", request.Description?.Trim()), ("CreatedAtUtc", clock.UtcNow)), ct).ConfigureAwait(false);
-            return await GetAsync(id, owner, ct).ConfigureAwait(false);
+            return await OwnedResponseAsync(id, owner, ct).ConfigureAwait(false);
         }, token);
 
     internal Task<Result<AiKnowledgeBaseResponse>> UpdateAsync(Guid id, Guid owner, UpdateAiKnowledgeBaseRequest request, CancellationToken token) =>
@@ -72,7 +77,7 @@ internal sealed class AiKnowledgeBaseService(IQueryExecutor query, ICommandExecu
                 ("Name", request.Name.Trim()), ("Description", request.Description?.Trim()),
                 ("IsEnabled", request.IsEnabled), ("UpdatedAtUtc", clock.UtcNow));
             var affected = await command.ExecuteAsync(AiKnowledgeScope.IsTenant(tenant) ? AiKnowledgeSql.UpdateTenant : AiKnowledgeSql.UpdateHost, parameters, ct).ConfigureAwait(false);
-            return affected == 1 ? await GetAsync(id, owner, ct).ConfigureAwait(false) : Conflict();
+            return affected == 1 ? await OwnedResponseAsync(id, owner, ct).ConfigureAwait(false) : Conflict();
         }, token);
 
     internal Task<Result<AiKnowledgeBaseResponse>> UpdatePolicyAsync(Guid id, Guid owner, UpdateAiKnowledgePolicyRequest request, CancellationToken token) =>
@@ -90,12 +95,19 @@ internal sealed class AiKnowledgeBaseService(IQueryExecutor query, ICommandExecu
                 ("EmbeddingModelVersion", request.EmbeddingModelVersion), ("GenerationModelConfigId", request.GenerationModelConfigId),
                 ("GenerationModelVersion", request.GenerationModelVersion), ("UpdatedAtUtc", clock.UtcNow));
             var affected = await command.ExecuteAsync(AiKnowledgeScope.IsTenant(tenant) ? AiKnowledgeSql.PolicyTenant : AiKnowledgeSql.PolicyHost, parameters, ct).ConfigureAwait(false);
-            return affected == 1 ? await GetAsync(id, owner, ct).ConfigureAwait(false) : Conflict();
+            return affected == 1 ? await OwnedResponseAsync(id, owner, ct).ConfigureAwait(false) : Conflict();
         }, token);
 
     private Task<AiKnowledgeBaseRecord?> FindAsync(Guid id, Guid owner, CancellationToken token) =>
         query.QuerySingleOrDefaultAsync<AiKnowledgeBaseRecord>(AiKnowledgeScope.IsTenant(tenant) ? AiKnowledgeSql.FindTenant : AiKnowledgeSql.FindHost,
             AiSqlParameters.Create(("Id", id), ("OwnerUserId", owner)), token);
+
+    private async Task<Result<AiKnowledgeBaseResponse>> OwnedResponseAsync(Guid id, Guid owner, CancellationToken token)
+    {
+        // 写事务返回 AI 自有所有者投影，不能经一般读取路径调用 Identity。
+        var row = await FindAsync(id, owner, token).ConfigureAwait(false);
+        return row is null ? NotFound() : Result<AiKnowledgeBaseResponse>.Success(Map(row));
+    }
 
     private async Task<bool> IsAvailableModelAsync(Guid? id, int? version, CancellationToken token)
     {

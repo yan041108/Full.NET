@@ -27,4 +27,8 @@ public static class AiKnowledgeDocumentPermissions
     public const string MembersUpdate = "ai.knowledge_documents.members_update";
     /// <summary>所有者读取启用目录内文档的活动普通角色候选。</summary>
     public const string RoleCandidatesRead = "ai.knowledge_documents.role_candidates_read";
+    /// <summary>所有者读取文档角色授予。</summary>
+    public const string RolesRead = "ai.knowledge_documents.roles_read";
+    /// <summary>所有者替换文档角色授予。</summary>
+    public const string RolesUpdate = "ai.knowledge_documents.roles_update";
 }

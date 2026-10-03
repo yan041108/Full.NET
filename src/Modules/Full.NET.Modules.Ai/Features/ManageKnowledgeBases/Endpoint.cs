@@ -29,12 +29,14 @@ internal static class Endpoint
             IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
             TryOwner(context, out var owner) ? mapper.Map(await service.ListAsync(owner, page ?? 1, pageSize ?? 20, token).ConfigureAwait(false), context) : Results.Unauthorized()),
             "aiListKnowledgeBases", AiKnowledgePermissions.Read)
-            .Produces<PagedResult<AiKnowledgeBaseResponse>>(StatusCodes.Status200OK);
+            .Produces<PagedResult<AiKnowledgeBaseResponse>>(StatusCodes.Status200OK)
+            .AddEndpointFilter(new AiKnowledgeReadPermissionFilter([AiKnowledgePermissions.Read]));
         Common(group.MapGet("/{knowledgeBaseId:guid}", async (Guid knowledgeBaseId, AiKnowledgeBaseService service,
             IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
             TryOwner(context, out var owner) ? mapper.Map(await service.GetAsync(knowledgeBaseId, owner, token).ConfigureAwait(false), context) : Results.Unauthorized()),
             "aiGetKnowledgeBase", AiKnowledgePermissions.Read)
-            .Produces<AiKnowledgeBaseResponse>(StatusCodes.Status200OK).ProducesProblem(StatusCodes.Status404NotFound);
+            .Produces<AiKnowledgeBaseResponse>(StatusCodes.Status200OK).ProducesProblem(StatusCodes.Status404NotFound)
+            .AddEndpointFilter(new AiKnowledgeReadPermissionFilter([AiKnowledgePermissions.Read]));
         Common(group.MapPost("/", async (CreateAiKnowledgeBaseRequest request, AiKnowledgeBaseService service,
             IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
         {

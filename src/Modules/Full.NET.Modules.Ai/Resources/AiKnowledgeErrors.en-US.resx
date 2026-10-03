@@ -20,4 +20,6 @@
   <data name="ai.knowledge.import_conflict" xml:space="preserve"><value>The retry key belongs to a different request.</value></data>
   <data name="ai.knowledge.upload_required" xml:space="preserve"><value>Upload the original file again with the same retry key.</value></data>
   <data name="ai.knowledge.source_unavailable" xml:space="preserve"><value>The source file is unavailable.</value></data>
+  <data name="ai.knowledge.role_grants_invalid" xml:space="preserve"><value>The role grant collection or version is invalid.</value></data>
+  <data name="ai.knowledge.role_unavailable" xml:space="preserve"><value>A role is inactive, missing, or outside the current scope.</value></data>
 </root>

@@ -14,6 +14,41 @@ namespace Full.NET.Modules.Identity.Roles;
 internal sealed class ActiveRoleDirectory(IQueryExecutor query, IOptions<DatabaseOptions> database, ICurrentTenant tenant) : IActiveRoleDirectory
 {
     /// <inheritdoc/>
+    public async Task<IReadOnlyDictionary<Guid, ActiveRoleDirectoryEntry>> FindActiveRolesAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(roleIds);
+        if (roleIds.Count > 100 || roleIds.Contains(Guid.Empty) || roleIds.Distinct().Count() != roleIds.Count)
+            throw new ArgumentOutOfRangeException(nameof(roleIds));
+        var parameters = ScopeParameters();
+        if (roleIds.Count == 0) return new Dictionary<Guid, ActiveRoleDirectoryEntry>();
+        parameters.Add("RoleIds", roleIds.ToArray());
+        var rows = await query.QueryAsync<ActiveRoleDirectoryRow>(tenant.IsHost ? ActiveRoleDirectorySql.FindHost : ActiveRoleDirectorySql.FindTenant,
+            parameters, cancellationToken).ConfigureAwait(false);
+        return rows.ToDictionary(row => row.Id, row => new ActiveRoleDirectoryEntry(row.Id, row.Code, row.Name));
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<Guid>> ListActiveRoleIdsForUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var parameters = ScopeParameters();
+        if (userId == Guid.Empty) return [];
+        parameters.Add("UserId", userId);
+        return await query.QueryAsync<Guid>(tenant.IsHost ? ActiveRoleDirectorySql.UserRolesHost : ActiveRoleDirectorySql.UserRolesTenant,
+            parameters, cancellationToken).ConfigureAwait(false);
+    }
+
+    private Dictionary<string, object?> ScopeParameters()
+    {
+        var parameters = IdentitySqlParameters.Create();
+        if (!tenant.IsHost)
+        {
+            if (!tenant.IsAvailable || tenant.Id is not { } tenantId || tenantId == Guid.Empty)
+                throw new TenantContextMissingException("identity.tenant_context_required");
+            parameters.Add("TenantScopeKey", $"tenant:{tenantId:N}");
+        }
+        return parameters;
+    }
+    /// <inheritdoc/>
     public async Task<PagedResult<ActiveRoleDirectoryEntry>> ListActiveRolesAsync(int page, int pageSize, CancellationToken cancellationToken = default)
     {
         var offset = ((long)page - 1) * pageSize;

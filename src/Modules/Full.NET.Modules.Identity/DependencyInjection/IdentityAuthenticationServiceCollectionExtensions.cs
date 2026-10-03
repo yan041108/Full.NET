@@ -33,6 +33,7 @@ internal static class IdentityAuthenticationServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.TryAddScoped<AccessSessionValidator>();
         services.TryAddScoped<Full.NET.Modules.Identity.Contracts.ICurrentSessionAuthorization, CurrentSessionAuthorization>();
+        services.TryAddScoped<Full.NET.Modules.Identity.Contracts.ICurrentApiKeyAuthorization, CurrentApiKeyAuthorization>();
         services.TryAddScoped<Full.NET.Modules.Identity.Contracts.IBackgroundSessionBindingValidator, BackgroundSessionBindingValidator>();
         services.TryAddScoped<Full.NET.Modules.Identity.Contracts.IBackgroundSessionAuthorization, BackgroundSessionAuthorization>();
         services.TryAddScoped<FullNetJwtBearerEvents>();
