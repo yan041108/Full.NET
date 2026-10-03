@@ -20,6 +20,12 @@ import type {
   AiChatMessageResponse,
   AiChatSessionListItem,
   AiChatSessionResponse,
+  AiKnowledgeBaseResponse,
+  AiKnowledgeDocumentMembersResponse,
+  AiKnowledgeDocumentResponse,
+  AiKnowledgeImportResponse,
+  AiKnowledgeMembersResponse,
+  AiKnowledgeVersionResponse,
   AiMcpRemoteConnectionListItem,
   AiMcpRemoteConnectionResponse,
   AiMcpRemoteDiscoveredToolItem,
@@ -107,6 +113,8 @@ import type {
   CreateAiAgentRunRequest,
   CreateAiAgentRunResponse,
   CreateAiChatSessionRequest,
+  CreateAiKnowledgeBaseRequest,
+  CreateAiKnowledgeDocumentRequest,
   CreateAiMcpRemoteConnectionRequest,
   CreateAiModelConfigRequest,
   CreateCodeGenerationTemplateRequest,
@@ -161,6 +169,7 @@ import type {
   DataApprovalScenarioResponse,
   DecideAiAgentApprovalRequest,
   DeleteAdministrativeRegionRequest,
+  DeleteAiKnowledgeDocumentRequest,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
   DeleteDictItemRequest,
@@ -326,6 +335,9 @@ import type {
   PagedResultOfAdministrativeRegionResponse,
   PagedResultOfAiAgentToolCallListItem,
   PagedResultOfAiChatSessionListItem,
+  PagedResultOfAiKnowledgeBaseResponse,
+  PagedResultOfAiKnowledgeDocumentResponse,
+  PagedResultOfAiKnowledgeVersionResponse,
   PagedResultOfAiModelConfigListItem,
   PagedResultOfAiTenantQuotaListItem,
   PagedResultOfCodeGenerationRunResponse,
@@ -466,6 +478,8 @@ import type {
   ServerInstanceCatalogEntry,
   ServerRuntimeMetric,
   ServerRuntimeSnapshot,
+  SetAiKnowledgeDocumentMembersRequest,
+  SetAiKnowledgeMembersRequest,
   SetHostDocumentPermissionsRequest,
   SetNotificationProviderProfileEnabledRequest,
   SetPersonalScheduleStatusRequest,
@@ -496,6 +510,9 @@ import type {
   TotpEnrollmentStatusResponse,
   UpdateAdministrativeRegionRequest,
   UpdateAiChatSessionRequest,
+  UpdateAiKnowledgeBaseRequest,
+  UpdateAiKnowledgeDocumentRequest,
+  UpdateAiKnowledgePolicyRequest,
   UpdateAiMcpRemoteConnectionRequest,
   UpdateAiModelConfigRequest,
   UpdateAiTenantQuotaRequest,
@@ -587,8 +604,14 @@ import {
   readAiCancelAgentRunResponse,
   readAiCancelChatGenerationResponse,
   readAiChatSessionResponse,
+  readAiCleanupKnowledgeImportsResponse,
   readAiDeleteChatSessionResponse,
   readAiDiscoverMcpRemoteToolsResponse,
+  readAiKnowledgeBaseResponse,
+  readAiKnowledgeDocumentMembersResponse,
+  readAiKnowledgeDocumentResponse,
+  readAiKnowledgeImportResponse,
+  readAiKnowledgeMembersResponse,
   readAiListAgentDelegationsResponse,
   readAiListAgentToolsResponse,
   readAiListMcpRemoteConnectionsResponse,
@@ -734,6 +757,9 @@ import {
   readPagedResultOfAdministrativeRegionResponse,
   readPagedResultOfAiAgentToolCallListItem,
   readPagedResultOfAiChatSessionListItem,
+  readPagedResultOfAiKnowledgeBaseResponse,
+  readPagedResultOfAiKnowledgeDocumentResponse,
+  readPagedResultOfAiKnowledgeVersionResponse,
   readPagedResultOfAiModelConfigListItem,
   readPagedResultOfAiTenantQuotaListItem,
   readPagedResultOfCodeGenerationRunResponse,
@@ -940,6 +966,25 @@ export async function aiCancelChatGeneration(
   return readAiCancelChatGenerationResponse(value);
 }
 
+export interface AiCleanupKnowledgeImportsParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+}
+
+export async function aiCleanupKnowledgeImports(
+  http: HttpClient,
+  parameters: AiCleanupKnowledgeImportsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<number> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/imports/cleanup`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiCleanupKnowledgeImportsResponse(value);
+}
+
 export interface AiCreateAgentApprovalParameters {
   readonly body: CreateAiAgentApprovalRequest;
 }
@@ -1028,6 +1073,51 @@ export async function aiCreateChatSession(
   return readAiChatSessionResponse(value);
 }
 
+export interface AiCreateKnowledgeBaseParameters {
+  readonly body: CreateAiKnowledgeBaseRequest;
+}
+
+export async function aiCreateKnowledgeBase(
+  http: HttpClient,
+  parameters: AiCreateKnowledgeBaseParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeBaseResponse> {
+  const path = `/api/v1/ai/knowledge-bases`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeBaseResponse(value);
+}
+
+export interface AiCreateKnowledgeDocumentParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: CreateAiKnowledgeDocumentRequest;
+}
+
+export async function aiCreateKnowledgeDocument(
+  http: HttpClient,
+  parameters: AiCreateKnowledgeDocumentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeDocumentResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeDocumentResponse(value);
+}
+
 export interface AiCreateMcpRemoteConnectionParameters {
   readonly body: CreateAiMcpRemoteConnectionRequest;
 }
@@ -1113,6 +1203,31 @@ export async function aiDeleteChatSession(
   return readAiDeleteChatSessionResponse(value);
 }
 
+export interface AiDeleteKnowledgeDocumentParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly body: DeleteAiKnowledgeDocumentRequest;
+}
+
+export async function aiDeleteKnowledgeDocument(
+  http: HttpClient,
+  parameters: AiDeleteKnowledgeDocumentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<void> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}`;
+  const init: RequestInit = {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
+}
+
 export interface AiDisableModelConfigParameters {
   readonly modelConfigId: string;
 }
@@ -1147,6 +1262,28 @@ export async function aiDiscoverMcpRemoteTools(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiDiscoverMcpRemoteToolsResponse(value);
+}
+
+export interface AiDownloadKnowledgeSourceParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly versionId: string;
+}
+
+export async function aiDownloadKnowledgeSource(
+  http: HttpClient,
+  parameters: AiDownloadKnowledgeSourceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/source`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
 }
 
 export interface AiGetAgentApprovalParameters {
@@ -1219,6 +1356,100 @@ export async function aiGetChatSession(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiChatSessionResponse(value);
+}
+
+export interface AiGetKnowledgeBaseParameters {
+  readonly knowledgeBaseId: string;
+}
+
+export async function aiGetKnowledgeBase(
+  http: HttpClient,
+  parameters: AiGetKnowledgeBaseParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeBaseResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeBaseResponse(value);
+}
+
+export interface AiGetKnowledgeDocumentParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+}
+
+export async function aiGetKnowledgeDocument(
+  http: HttpClient,
+  parameters: AiGetKnowledgeDocumentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeDocumentResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeDocumentResponse(value);
+}
+
+export interface AiGetKnowledgeDocumentMembersParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+}
+
+export async function aiGetKnowledgeDocumentMembers(
+  http: HttpClient,
+  parameters: AiGetKnowledgeDocumentMembersParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeDocumentMembersResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/members`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeDocumentMembersResponse(value);
+}
+
+export interface AiGetKnowledgeImportParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly operationId: string;
+}
+
+export async function aiGetKnowledgeImport(
+  http: HttpClient,
+  parameters: AiGetKnowledgeImportParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeImportResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/imports/${encodeURIComponent(String(parameters.operationId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeImportResponse(value);
+}
+
+export interface AiGetKnowledgeMembersParameters {
+  readonly knowledgeBaseId: string;
+}
+
+export async function aiGetKnowledgeMembers(
+  http: HttpClient,
+  parameters: AiGetKnowledgeMembersParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeMembersResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/members`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeMembersResponse(value);
 }
 
 export interface AiGetMcpRemoteConnectionParameters {
@@ -1375,6 +1606,87 @@ export async function aiListChatSessions(
   return readPagedResultOfAiChatSessionListItem(value);
 }
 
+export interface AiListKnowledgeBasesParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function aiListKnowledgeBases(
+  http: HttpClient,
+  parameters: AiListKnowledgeBasesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiKnowledgeBaseResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases` : `/api/v1/ai/knowledge-bases?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiKnowledgeBaseResponse(value);
+}
+
+export interface AiListKnowledgeDocumentsParameters {
+  readonly knowledgeBaseId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function aiListKnowledgeDocuments(
+  http: HttpClient,
+  parameters: AiListKnowledgeDocumentsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiKnowledgeDocumentResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiKnowledgeDocumentResponse(value);
+}
+
+export interface AiListKnowledgeVersionsParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function aiListKnowledgeVersions(
+  http: HttpClient,
+  parameters: AiListKnowledgeVersionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiKnowledgeVersionResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiKnowledgeVersionResponse(value);
+}
+
 export interface AiListMcpRemoteConnectionsParameters {
 
 }
@@ -1497,6 +1809,26 @@ export async function aiResumeAgentRun(
   return readAiResumeAgentRunResponse(value);
 }
 
+export interface AiRetryKnowledgeImportParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly operationId: string;
+}
+
+export async function aiRetryKnowledgeImport(
+  http: HttpClient,
+  parameters: AiRetryKnowledgeImportParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeImportResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/imports/${encodeURIComponent(String(parameters.operationId))}/retry`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeImportResponse(value);
+}
+
 export interface AiRevokeAgentDelegationParameters {
   readonly delegationId: string;
   readonly body: RevokeAiAgentDelegationRequest;
@@ -1518,6 +1850,53 @@ export async function aiRevokeAgentDelegation(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiAgentDelegationResponse(value);
+}
+
+export interface AiSetKnowledgeDocumentMembersParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly body: SetAiKnowledgeDocumentMembersRequest;
+}
+
+export async function aiSetKnowledgeDocumentMembers(
+  http: HttpClient,
+  parameters: AiSetKnowledgeDocumentMembersParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeDocumentMembersResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/members`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeDocumentMembersResponse(value);
+}
+
+export interface AiSetKnowledgeMembersParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: SetAiKnowledgeMembersRequest;
+}
+
+export async function aiSetKnowledgeMembers(
+  http: HttpClient,
+  parameters: AiSetKnowledgeMembersParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeMembersResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/members`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeMembersResponse(value);
 }
 
 export interface AiTestModelConfigParameters {
@@ -1584,6 +1963,76 @@ export async function aiUpdateChatSession(
   return readAiChatSessionResponse(value);
 }
 
+export interface AiUpdateKnowledgeBaseParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: UpdateAiKnowledgeBaseRequest;
+}
+
+export async function aiUpdateKnowledgeBase(
+  http: HttpClient,
+  parameters: AiUpdateKnowledgeBaseParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeBaseResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeBaseResponse(value);
+}
+
+export interface AiUpdateKnowledgeDocumentParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly body: UpdateAiKnowledgeDocumentRequest;
+}
+
+export async function aiUpdateKnowledgeDocument(
+  http: HttpClient,
+  parameters: AiUpdateKnowledgeDocumentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeDocumentResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeDocumentResponse(value);
+}
+
+export interface AiUpdateKnowledgePolicyParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: UpdateAiKnowledgePolicyRequest;
+}
+
+export async function aiUpdateKnowledgePolicy(
+  http: HttpClient,
+  parameters: AiUpdateKnowledgePolicyParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeBaseResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/policy`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeBaseResponse(value);
+}
+
 export interface AiUpdateMcpRemoteConnectionParameters {
   readonly connectionId: string;
   readonly body: UpdateAiMcpRemoteConnectionRequest;
@@ -1628,6 +2077,38 @@ export async function aiUpdateModelConfig(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiModelConfigResponse(value);
+}
+
+export interface AiUploadKnowledgeVersionParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly version: number;
+  readonly requestKey: string;
+  readonly fileName: string;
+  readonly body: Blob;
+  readonly contentType: "application/pdf" | "text/markdown" | "text/plain";
+}
+
+export async function aiUploadKnowledgeVersion(
+  http: HttpClient,
+  parameters: AiUploadKnowledgeVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeImportResponse> {
+  const query = new URLSearchParams();
+  query.set('version', String(parameters.version));
+  query.set('requestKey', String(parameters.requestKey));
+  query.set('fileName', String(parameters.fileName));
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions?${query.toString()}`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': parameters.contentType },
+    body: parameters.body
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeImportResponse(value);
 }
 
 export interface AiUpsertTenantQuotaParameters {

@@ -79,10 +79,18 @@ Tenant 文件只有配额确认后才成为 ready。未知确认保留 pending�
 
 来源下载每次同时核对可信范围、启用知识库及知识库/文档授权，打开 Files 流后再次复核。响应为附件 `application/octet-stream`，设置 `no-store` 和 `nosniff`，不返回文件存储键、公共 URL 或任意 FileId。目录禁用、目录/文档撤权及软删除立即拒绝下一次来源读取。删除先在 AI 本地事务中写墓碑、清除授权并登记清理，再尝试有界文件清理；失败不恢复读取，所有者可继续查询和重试已删除文档的操作。
 
+## 共享客户端
+
+`@fullnet/client-contracts` 的 `ai-knowledge` 入口导出知识库、文档、成员、文件版本及导入恢复的 20 个生成 Operation、参数类型、DTO 与响应读取器；根入口也导出同一组 API。协议来自 SQL Server/MySQL 真实 Host 的一致 OpenAPI 快照，不维护第二套手写路径或 DTO。
+
+上传 Operation 为 `aiUploadKnowledgeVersion(http, parameters, signal?)`：`parameters` 包含 `knowledgeBaseId`、`documentId`、`version`、`requestKey`、`fileName`、`contentType` 和原始 `Blob` 正文 `body`。`contentType` 必须显式选择 `application/pdf`、`text/markdown` 或 `text/plain`，不能传 JSON 或 FormData。重放同一 `requestKey` 时保留首次的版本、文件元数据及字节，不重新生成键或更换文件。
+
+`aiDownloadKnowledgeSource` 使用统一认证 Blob 客户端；`aiDeleteKnowledgeDocument` 接受 204 空响应。JSON 结果经过生成响应守卫，拒绝损坏 DTO 和整数精度丢失。Access Token、Cookie、语言、并发刷新、ProblemDetails 与取消继续由 `createHttpClient` 处理，Operation 不复制认证或租户状态。
+
 ## 双库与部署
 
 迁移 `240_AiKnowledgeBase.sql` 增加 `fn_ai_knowledge_base`，`241_AiKnowledgeMember.sql` 增加 `fn_ai_knowledge_member`，`242_AiKnowledgeDocument.sql` 增加 `fn_ai_knowledge_document` 与 `fn_ai_knowledge_document_member`，`243_AiKnowledgeFileVersion.sql` 增加 `fn_ai_knowledge_version` 与 `fn_ai_knowledge_import`；均有 SQL Server 与 MySQL 实现，不改写已有业务表。外键仅关联 AI 自有父记录，不向 Files、Identity 或 Tenancy 表建立外键。SQL Server 主键显式采用 UUID v7 聚集键；MySQL 使用 Binary16 网络字节序。
 
 建表、后置索引与 SQL Server 注释支持未记账重放。暂停旧应用后可前滚迁移；如需应用回退，保留新增表即可，旧应用不读写该表，不需要删除目录数据。迁移不播种目录或默认审批。
 
-验收证据与任务状态统一记录在[活动开发计划 R04](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。当前 API 无 Vue 页面入口；生成客户端、范围授权及页面按后续切片交付，整体 R04/RAG 和容量状态不能由这些切片验收推导。
+验收证据与任务状态统一记录在[活动开发计划 R04](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。当前 API 无 Vue 页面入口；角色/组织范围授权及页面按后续切片交付，整体 R04/RAG 和容量状态不能由这些切片验收推导。

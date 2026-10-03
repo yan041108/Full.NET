@@ -3381,6 +3381,126 @@
       "apiModule": "ui/admin/src/api/workflow-forms.ts",
       "generatedGroup": "workflow-forms",
       "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeMembers",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiSetKnowledgeMembers",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeBases",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeBase",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCreateKnowledgeBase",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiUpdateKnowledgeBase",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiUpdateKnowledgePolicy",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeDocuments",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeDocument",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCreateKnowledgeDocument",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiUpdateKnowledgeDocument",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiDeleteKnowledgeDocument",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeDocumentMembers",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiSetKnowledgeDocumentMembers",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiUploadKnowledgeVersion",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeVersions",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiDownloadKnowledgeSource",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeImport",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiRetryKnowledgeImport",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCleanupKnowledgeImports",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
     }
   ]
 }

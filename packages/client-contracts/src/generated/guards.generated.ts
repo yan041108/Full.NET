@@ -19,6 +19,12 @@ import type {
   AiChatMessageResponse,
   AiChatSessionListItem,
   AiChatSessionResponse,
+  AiKnowledgeBaseResponse,
+  AiKnowledgeDocumentMembersResponse,
+  AiKnowledgeDocumentResponse,
+  AiKnowledgeImportResponse,
+  AiKnowledgeMembersResponse,
+  AiKnowledgeVersionResponse,
   AiMcpRemoteConnectionListItem,
   AiMcpRemoteConnectionResponse,
   AiMcpRemoteDiscoveredToolItem,
@@ -106,6 +112,8 @@ import type {
   CreateAiAgentRunRequest,
   CreateAiAgentRunResponse,
   CreateAiChatSessionRequest,
+  CreateAiKnowledgeBaseRequest,
+  CreateAiKnowledgeDocumentRequest,
   CreateAiMcpRemoteConnectionRequest,
   CreateAiModelConfigRequest,
   CreateCodeGenerationTemplateRequest,
@@ -160,6 +168,7 @@ import type {
   DataApprovalScenarioResponse,
   DecideAiAgentApprovalRequest,
   DeleteAdministrativeRegionRequest,
+  DeleteAiKnowledgeDocumentRequest,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
   DeleteDictItemRequest,
@@ -325,6 +334,9 @@ import type {
   PagedResultOfAdministrativeRegionResponse,
   PagedResultOfAiAgentToolCallListItem,
   PagedResultOfAiChatSessionListItem,
+  PagedResultOfAiKnowledgeBaseResponse,
+  PagedResultOfAiKnowledgeDocumentResponse,
+  PagedResultOfAiKnowledgeVersionResponse,
   PagedResultOfAiModelConfigListItem,
   PagedResultOfAiTenantQuotaListItem,
   PagedResultOfCodeGenerationRunResponse,
@@ -465,6 +477,8 @@ import type {
   ServerInstanceCatalogEntry,
   ServerRuntimeMetric,
   ServerRuntimeSnapshot,
+  SetAiKnowledgeDocumentMembersRequest,
+  SetAiKnowledgeMembersRequest,
   SetHostDocumentPermissionsRequest,
   SetNotificationProviderProfileEnabledRequest,
   SetPersonalScheduleStatusRequest,
@@ -495,6 +509,9 @@ import type {
   TotpEnrollmentStatusResponse,
   UpdateAdministrativeRegionRequest,
   UpdateAiChatSessionRequest,
+  UpdateAiKnowledgeBaseRequest,
+  UpdateAiKnowledgeDocumentRequest,
+  UpdateAiKnowledgePolicyRequest,
   UpdateAiMcpRemoteConnectionRequest,
   UpdateAiModelConfigRequest,
   UpdateAiTenantQuotaRequest,
@@ -775,6 +792,77 @@ export function readAiChatSessionResponse(value: unknown): AiChatSessionResponse
 
 function isAiChatSessionResponse(value: unknown): value is AiChatSessionResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isGenerating"] === 'boolean') && (Array.isArray(value["messages"]) && value["messages"].every(item17 => isAiChatMessageResponse(item17))) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["modelName"] === 'string') && (typeof value["ownerUserId"] === 'string' && guidPattern.test(value["ownerUserId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeBaseResponse(value: unknown): AiKnowledgeBaseResponse {
+  const normalizedValue = normalizeAiKnowledgeBaseResponseIntegerJson(value);
+  if (!(isAiKnowledgeBaseResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_base_response');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeBaseResponse(value: unknown): value is AiKnowledgeBaseResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["dataClassification"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["embeddingModelConfigId"] === null) || (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"]))) && ((value["embeddingModelVersion"] === null) || (typeof value["embeddingModelVersion"] === 'number' && Number.isSafeInteger(value["embeddingModelVersion"]))) && ((value["generationModelConfigId"] === null) || (typeof value["generationModelConfigId"] === 'string' && guidPattern.test(value["generationModelConfigId"]))) && ((value["generationModelVersion"] === null) || (typeof value["generationModelVersion"] === 'number' && Number.isSafeInteger(value["generationModelVersion"]))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeDocumentMembersResponse(value: unknown): AiKnowledgeDocumentMembersResponse {
+  const normalizedValue = normalizeAiKnowledgeDocumentMembersResponseIntegerJson(value);
+  if (!(isAiKnowledgeDocumentMembersResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_document_members_response');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeDocumentMembersResponse(value: unknown): value is AiKnowledgeDocumentMembersResponse {
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeDocumentResponse(value: unknown): AiKnowledgeDocumentResponse {
+  const normalizedValue = normalizeAiKnowledgeDocumentResponseIntegerJson(value);
+  if (!(isAiKnowledgeDocumentResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_document_response');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeDocumentResponse(value: unknown): value is AiKnowledgeDocumentResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeImportResponse(value: unknown): AiKnowledgeImportResponse {
+  if (!(isAiKnowledgeImportResponse(value))) {
+    throw new Error('client.invalid_ai_knowledge_import_response');
+  }
+  return value;
+}
+
+function isAiKnowledgeImportResponse(value: unknown): value is AiKnowledgeImportResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["failureCode"] === null) || (typeof value["failureCode"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["state"] === 'string') && (typeof value["updatedAtUtc"] === 'string') && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readAiKnowledgeMembersResponse(value: unknown): AiKnowledgeMembersResponse {
+  const normalizedValue = normalizeAiKnowledgeMembersResponseIntegerJson(value);
+  if (!(isAiKnowledgeMembersResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_members_response');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeMembersResponse(value: unknown): value is AiKnowledgeMembersResponse {
+  return isRecord(value) && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeVersionResponse(value: unknown): AiKnowledgeVersionResponse {
+  const normalizedValue = normalizeAiKnowledgeVersionResponseIntegerJson(value);
+  if (!(isAiKnowledgeVersionResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_version_response');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeVersionResponse(value: unknown): value is AiKnowledgeVersionResponse {
+  return isRecord(value) && (typeof value["contentHash"] === 'string') && (typeof value["contentType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["originalFileName"] === 'string') && (typeof value["processingStatus"] === 'string') && (typeof value["sizeBytes"] === 'number' && Number.isSafeInteger(value["sizeBytes"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readAiMcpRemoteConnectionListItem(value: unknown): AiMcpRemoteConnectionListItem {
@@ -1781,6 +1869,28 @@ function isCreateAiChatSessionRequest(value: unknown): value is CreateAiChatSess
   return isRecord(value) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && ((value["title"] === null) || (typeof value["title"] === 'string'));
 }
 
+export function readCreateAiKnowledgeBaseRequest(value: unknown): CreateAiKnowledgeBaseRequest {
+  if (!(isCreateAiKnowledgeBaseRequest(value))) {
+    throw new Error('client.invalid_create_ai_knowledge_base_request');
+  }
+  return value;
+}
+
+function isCreateAiKnowledgeBaseRequest(value: unknown): value is CreateAiKnowledgeBaseRequest {
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["name"] === 'string');
+}
+
+export function readCreateAiKnowledgeDocumentRequest(value: unknown): CreateAiKnowledgeDocumentRequest {
+  if (!(isCreateAiKnowledgeDocumentRequest(value))) {
+    throw new Error('client.invalid_create_ai_knowledge_document_request');
+  }
+  return value;
+}
+
+function isCreateAiKnowledgeDocumentRequest(value: unknown): value is CreateAiKnowledgeDocumentRequest {
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["title"] === 'string');
+}
+
 export function readCreateAiMcpRemoteConnectionRequest(value: unknown): CreateAiMcpRemoteConnectionRequest {
   if (!(isCreateAiMcpRemoteConnectionRequest(value))) {
     throw new Error('client.invalid_create_ai_mcp_remote_connection_request');
@@ -2402,6 +2512,18 @@ export function readDeleteAdministrativeRegionRequest(value: unknown): DeleteAdm
 }
 
 function isDeleteAdministrativeRegionRequest(value: unknown): value is DeleteAdministrativeRegionRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readDeleteAiKnowledgeDocumentRequest(value: unknown): DeleteAiKnowledgeDocumentRequest {
+  const normalizedValue = normalizeDeleteAiKnowledgeDocumentRequestIntegerJson(value);
+  if (!(isDeleteAiKnowledgeDocumentRequest(normalizedValue))) {
+    throw new Error('client.invalid_delete_ai_knowledge_document_request');
+  }
+  return normalizedValue;
+}
+
+function isDeleteAiKnowledgeDocumentRequest(value: unknown): value is DeleteAiKnowledgeDocumentRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
@@ -4339,6 +4461,42 @@ function isPagedResultOfAiChatSessionListItem(value: unknown): value is PagedRes
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiChatSessionListItem(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
+export function readPagedResultOfAiKnowledgeBaseResponse(value: unknown): PagedResultOfAiKnowledgeBaseResponse {
+  const normalizedValue = normalizePagedResultOfAiKnowledgeBaseResponseIntegerJson(value);
+  if (!(isPagedResultOfAiKnowledgeBaseResponse(normalizedValue))) {
+    throw new Error('client.invalid_paged_result_of_ai_knowledge_base_response');
+  }
+  return normalizedValue;
+}
+
+function isPagedResultOfAiKnowledgeBaseResponse(value: unknown): value is PagedResultOfAiKnowledgeBaseResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeBaseResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfAiKnowledgeDocumentResponse(value: unknown): PagedResultOfAiKnowledgeDocumentResponse {
+  const normalizedValue = normalizePagedResultOfAiKnowledgeDocumentResponseIntegerJson(value);
+  if (!(isPagedResultOfAiKnowledgeDocumentResponse(normalizedValue))) {
+    throw new Error('client.invalid_paged_result_of_ai_knowledge_document_response');
+  }
+  return normalizedValue;
+}
+
+function isPagedResultOfAiKnowledgeDocumentResponse(value: unknown): value is PagedResultOfAiKnowledgeDocumentResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeDocumentResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfAiKnowledgeVersionResponse(value: unknown): PagedResultOfAiKnowledgeVersionResponse {
+  const normalizedValue = normalizePagedResultOfAiKnowledgeVersionResponseIntegerJson(value);
+  if (!(isPagedResultOfAiKnowledgeVersionResponse(normalizedValue))) {
+    throw new Error('client.invalid_paged_result_of_ai_knowledge_version_response');
+  }
+  return normalizedValue;
+}
+
+function isPagedResultOfAiKnowledgeVersionResponse(value: unknown): value is PagedResultOfAiKnowledgeVersionResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeVersionResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
 export function readPagedResultOfAiModelConfigListItem(value: unknown): PagedResultOfAiModelConfigListItem {
   const normalizedValue = normalizePagedResultOfAiModelConfigListItemIntegerJson(value);
   if (!(isPagedResultOfAiModelConfigListItem(normalizedValue))) {
@@ -5997,6 +6155,30 @@ function isServerRuntimeSnapshot(value: unknown): value is ServerRuntimeSnapshot
   return isRecord(value) && (typeof value["applicationVersion"] === 'string') && (typeof value["capturedAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["frameworkDescription"] === 'string') && (typeof value["hostRole"] === 'string') && (typeof value["instanceKey"] === 'string') && (typeof value["machineName"] === 'string') && (Array.isArray(value["metrics"]) && value["metrics"].every(item16 => isServerRuntimeMetric(item16))) && (typeof value["operatingSystemDescription"] === 'string') && (typeof value["processArchitecture"] === 'string') && (typeof value["processId"] === 'number' && Number.isSafeInteger(value["processId"])) && (typeof value["processStartedAtUtc"] === 'string') && (typeof value["uptimeSeconds"] === 'number' && Number.isSafeInteger(value["uptimeSeconds"]));
 }
 
+export function readSetAiKnowledgeDocumentMembersRequest(value: unknown): SetAiKnowledgeDocumentMembersRequest {
+  const normalizedValue = normalizeSetAiKnowledgeDocumentMembersRequestIntegerJson(value);
+  if (!(isSetAiKnowledgeDocumentMembersRequest(normalizedValue))) {
+    throw new Error('client.invalid_set_ai_knowledge_document_members_request');
+  }
+  return normalizedValue;
+}
+
+function isSetAiKnowledgeDocumentMembersRequest(value: unknown): value is SetAiKnowledgeDocumentMembersRequest {
+  return isRecord(value) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readSetAiKnowledgeMembersRequest(value: unknown): SetAiKnowledgeMembersRequest {
+  const normalizedValue = normalizeSetAiKnowledgeMembersRequestIntegerJson(value);
+  if (!(isSetAiKnowledgeMembersRequest(normalizedValue))) {
+    throw new Error('client.invalid_set_ai_knowledge_members_request');
+  }
+  return normalizedValue;
+}
+
+function isSetAiKnowledgeMembersRequest(value: unknown): value is SetAiKnowledgeMembersRequest {
+  return isRecord(value) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readSetHostDocumentPermissionsRequest(value: unknown): SetHostDocumentPermissionsRequest {
   if (!(isSetHostDocumentPermissionsRequest(value))) {
     throw new Error('client.invalid_set_host_document_permissions_request');
@@ -6338,6 +6520,42 @@ export function readUpdateAiChatSessionRequest(value: unknown): UpdateAiChatSess
 
 function isUpdateAiChatSessionRequest(value: unknown): value is UpdateAiChatSessionRequest {
   return isRecord(value) && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readUpdateAiKnowledgeBaseRequest(value: unknown): UpdateAiKnowledgeBaseRequest {
+  const normalizedValue = normalizeUpdateAiKnowledgeBaseRequestIntegerJson(value);
+  if (!(isUpdateAiKnowledgeBaseRequest(normalizedValue))) {
+    throw new Error('client.invalid_update_ai_knowledge_base_request');
+  }
+  return normalizedValue;
+}
+
+function isUpdateAiKnowledgeBaseRequest(value: unknown): value is UpdateAiKnowledgeBaseRequest {
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readUpdateAiKnowledgeDocumentRequest(value: unknown): UpdateAiKnowledgeDocumentRequest {
+  const normalizedValue = normalizeUpdateAiKnowledgeDocumentRequestIntegerJson(value);
+  if (!(isUpdateAiKnowledgeDocumentRequest(normalizedValue))) {
+    throw new Error('client.invalid_update_ai_knowledge_document_request');
+  }
+  return normalizedValue;
+}
+
+function isUpdateAiKnowledgeDocumentRequest(value: unknown): value is UpdateAiKnowledgeDocumentRequest {
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readUpdateAiKnowledgePolicyRequest(value: unknown): UpdateAiKnowledgePolicyRequest {
+  const normalizedValue = normalizeUpdateAiKnowledgePolicyRequestIntegerJson(value);
+  if (!(isUpdateAiKnowledgePolicyRequest(normalizedValue))) {
+    throw new Error('client.invalid_update_ai_knowledge_policy_request');
+  }
+  return normalizedValue;
+}
+
+function isUpdateAiKnowledgePolicyRequest(value: unknown): value is UpdateAiKnowledgePolicyRequest {
+  return isRecord(value) && (typeof value["dataClassification"] === 'string') && ((value["embeddingModelConfigId"] === null) || (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"]))) && ((value["embeddingModelVersion"] === null) || (typeof value["embeddingModelVersion"] === 'number' && Number.isSafeInteger(value["embeddingModelVersion"]))) && ((value["generationModelConfigId"] === null) || (typeof value["generationModelConfigId"] === 'string' && guidPattern.test(value["generationModelConfigId"]))) && ((value["generationModelVersion"] === null) || (typeof value["generationModelVersion"] === 'number' && Number.isSafeInteger(value["generationModelVersion"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateAiMcpRemoteConnectionRequest(value: unknown): UpdateAiMcpRemoteConnectionRequest {
@@ -7290,6 +7508,14 @@ export function readAiCancelChatGenerationResponse(value: unknown): boolean {
   return value as boolean;
 }
 
+export function readAiCleanupKnowledgeImportsResponse(value: unknown): number {
+  const normalizedValue = normalizeWireInteger(value);
+  if (!(typeof normalizedValue === 'number' && Number.isSafeInteger(normalizedValue))) {
+    throw new Error('client.invalid_ai_cleanup_knowledge_imports_response');
+  }
+  return normalizedValue as number;
+}
+
 export function readAiDeleteChatSessionResponse(value: unknown): boolean {
   if (!(typeof value === 'boolean')) {
     throw new Error('client.invalid_ai_delete_chat_session_response');
@@ -7849,6 +8075,26 @@ function normalizeAiChatSessionResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "messages") ? { ["messages"]: (Array.isArray(value["messages"]) ? value["messages"].map((item17: unknown) => normalizeAiChatMessageResponseIntegerJson(item17)) : value["messages"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeAiKnowledgeBaseResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "embeddingModelVersion") ? { ["embeddingModelVersion"]: normalizeWireInteger(value["embeddingModelVersion"]) } : {}), ...(Object.hasOwn(value, "generationModelVersion") ? { ["generationModelVersion"]: normalizeWireInteger(value["generationModelVersion"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeDocumentMembersResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeDocumentResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeMembersResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeVersionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sizeBytes") ? { ["sizeBytes"]: normalizeWireInteger(value["sizeBytes"]) } : {}), ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
+}
+
 function normalizeAiMcpRemoteConnectionListItemIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -8154,6 +8400,10 @@ function normalizeDecideAiAgentApprovalRequestIntegerJson(value: unknown): unkno
 }
 
 function normalizeDeleteAdministrativeRegionRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeDeleteAiKnowledgeDocumentRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
@@ -8633,6 +8883,18 @@ function normalizePagedResultOfAiChatSessionListItemIntegerJson(value: unknown):
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiChatSessionListItemIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
+function normalizePagedResultOfAiKnowledgeBaseResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeBaseResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfAiKnowledgeDocumentResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeDocumentResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfAiKnowledgeVersionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeVersionResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
 function normalizePagedResultOfAiModelConfigListItemIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiModelConfigListItemIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
@@ -9105,6 +9367,14 @@ function normalizeServerRuntimeSnapshotIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "metrics") ? { ["metrics"]: (Array.isArray(value["metrics"]) ? value["metrics"].map((item16: unknown) => normalizeServerRuntimeMetricIntegerJson(item16)) : value["metrics"]) } : {}), ...(Object.hasOwn(value, "processId") ? { ["processId"]: normalizeWireInteger(value["processId"]) } : {}), ...(Object.hasOwn(value, "uptimeSeconds") ? { ["uptimeSeconds"]: normalizeWireInteger(value["uptimeSeconds"]) } : {}) } : value);
 }
 
+function normalizeSetAiKnowledgeDocumentMembersRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeSetAiKnowledgeMembersRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeSetNotificationProviderProfileEnabledRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -9155,6 +9425,18 @@ function normalizeUpdateAdministrativeRegionRequestIntegerJson(value: unknown): 
 
 function normalizeUpdateAiChatSessionRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeUpdateAiKnowledgeBaseRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeUpdateAiKnowledgeDocumentRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeUpdateAiKnowledgePolicyRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "embeddingModelVersion") ? { ["embeddingModelVersion"]: normalizeWireInteger(value["embeddingModelVersion"]) } : {}), ...(Object.hasOwn(value, "generationModelVersion") ? { ["generationModelVersion"]: normalizeWireInteger(value["generationModelVersion"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeUpdateAiMcpRemoteConnectionRequestIntegerJson(value: unknown): unknown {

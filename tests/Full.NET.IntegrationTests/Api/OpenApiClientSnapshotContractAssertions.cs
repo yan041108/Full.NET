@@ -23,6 +23,7 @@ internal static class OpenApiClientSnapshotContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         var rawDocument = await response.Content.ReadAsStringAsync(cancellationToken);
         AssertOmittablePropertiesAreOptional(rawDocument);
+        AssertKnowledgeFileContract(rawDocument);
 
         var exportPath = Environment.GetEnvironmentVariable(ExportPathEnvironmentVariable);
         if (!string.IsNullOrWhiteSpace(exportPath))
@@ -78,6 +79,39 @@ internal static class OpenApiClientSnapshotContractAssertions
         {
             Directory.Delete(temporaryDirectory, recursive: true);
         }
+    }
+
+    /// <summary>上传必须表达原始二进制流，来源下载和删除不得伪装成 JSON 成功响应。</summary>
+    private static void AssertKnowledgeFileContract(string rawDocument)
+    {
+        using var document = JsonDocument.Parse(rawDocument);
+        var root = document.RootElement;
+        var paths = root.GetProperty("paths");
+        const string route = "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}";
+        var upload = paths.GetProperty(route + "/versions").GetProperty("post");
+        Assert.AreEqual("aiUploadKnowledgeVersion", upload.GetProperty("operationId").GetString());
+        var body = upload.GetProperty("requestBody");
+        Assert.IsTrue(body.GetProperty("required").GetBoolean());
+        var content = body.GetProperty("content");
+        CollectionAssert.AreEquivalent(new[] { "application/pdf", "text/markdown", "text/plain" },
+            content.EnumerateObject().Select(item => item.Name).ToArray());
+        foreach (var item in content.EnumerateObject())
+        {
+            var schema = item.Value.GetProperty("schema");
+            if (schema.TryGetProperty("$ref", out var reference))
+                schema = root.GetProperty("components").GetProperty("schemas").GetProperty(reference.GetString()!.Split('/')[^1]);
+            Assert.AreEqual("string", schema.GetProperty("type").GetString());
+            Assert.AreEqual("binary", schema.GetProperty("format").GetString());
+        }
+        Assert.IsTrue(upload.GetProperty("security").GetArrayLength() > 0);
+        CollectionAssert.AreEquivalent(new[] { "knowledgeBaseId", "documentId", "version", "requestKey", "fileName" },
+            upload.GetProperty("parameters").EnumerateArray().Select(item => item.GetProperty("name").GetString()).ToArray());
+        Assert.IsTrue(upload.GetProperty("parameters").EnumerateArray().All(item => item.GetProperty("required").GetBoolean()));
+        Assert.IsTrue(upload.GetProperty("responses").GetProperty("202").GetProperty("content").TryGetProperty("application/json", out _));
+        var source = paths.GetProperty(route + "/versions/{versionId}/source").GetProperty("get");
+        Assert.IsTrue(source.GetProperty("responses").GetProperty("200").GetProperty("content").TryGetProperty("application/octet-stream", out _));
+        var deleted = paths.GetProperty(route).GetProperty("delete").GetProperty("responses").GetProperty("204");
+        Assert.IsFalse(deleted.TryGetProperty("content", out _));
     }
 
     /// <summary>

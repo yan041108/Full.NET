@@ -199,6 +199,66 @@ export interface AiChatSessionResponse {
   readonly version: number;
 }
 
+export interface AiKnowledgeBaseResponse {
+  readonly createdAtUtc: string;
+  readonly dataClassification: string;
+  readonly description: null | string;
+  readonly embeddingModelConfigId: null | string;
+  readonly embeddingModelVersion: null | number;
+  readonly generationModelConfigId: null | string;
+  readonly generationModelVersion: null | number;
+  readonly id: string;
+  readonly isEnabled: boolean;
+  readonly name: string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
+export interface AiKnowledgeDocumentMembersResponse {
+  readonly documentId: string;
+  readonly userIds: Array<string>;
+  readonly version: number;
+}
+
+export interface AiKnowledgeDocumentResponse {
+  readonly createdAtUtc: string;
+  readonly description: null | string;
+  readonly id: string;
+  readonly knowledgeBaseId: string;
+  readonly status: string;
+  readonly title: string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
+export interface AiKnowledgeImportResponse {
+  readonly createdAtUtc: string;
+  readonly documentId: string;
+  readonly failureCode: null | string;
+  readonly id: string;
+  readonly state: string;
+  readonly updatedAtUtc: string;
+  readonly versionId: string;
+}
+
+export interface AiKnowledgeMembersResponse {
+  readonly knowledgeBaseId: string;
+  readonly userIds: Array<string>;
+  readonly version: number;
+}
+
+export interface AiKnowledgeVersionResponse {
+  readonly contentHash: string;
+  readonly contentType: string;
+  readonly createdAtUtc: string;
+  readonly documentId: string;
+  readonly id: string;
+  readonly originalFileName: string;
+  readonly processingStatus: string;
+  readonly sizeBytes: number;
+  readonly versionNumber: number;
+}
+
 export interface AiMcpRemoteConnectionListItem {
   readonly connectionKey: string;
   readonly createdAtUtc: string;
@@ -865,6 +925,16 @@ export interface CreateAiChatSessionRequest {
   readonly title: null | string;
 }
 
+export interface CreateAiKnowledgeBaseRequest {
+  readonly description: null | string;
+  readonly name: string;
+}
+
+export interface CreateAiKnowledgeDocumentRequest {
+  readonly description: null | string;
+  readonly title: string;
+}
+
 export interface CreateAiMcpRemoteConnectionRequest {
   readonly connectionKey: string;
   readonly displayName: string;
@@ -1324,6 +1394,10 @@ export interface DecideAiAgentApprovalRequest {
 }
 
 export interface DeleteAdministrativeRegionRequest {
+  readonly version: number;
+}
+
+export interface DeleteAiKnowledgeDocumentRequest {
   readonly version: number;
 }
 
@@ -2862,6 +2936,27 @@ export interface PagedResultOfAiChatSessionListItem {
   readonly total: number;
 }
 
+export interface PagedResultOfAiKnowledgeBaseResponse {
+  readonly items: Array<AiKnowledgeBaseResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfAiKnowledgeDocumentResponse {
+  readonly items: Array<AiKnowledgeDocumentResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfAiKnowledgeVersionResponse {
+  readonly items: Array<AiKnowledgeVersionResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfAiModelConfigListItem {
   readonly items: Array<AiModelConfigListItem>;
   readonly page: number;
@@ -3970,6 +4065,16 @@ export interface ServerRuntimeSnapshot {
   readonly uptimeSeconds: number;
 }
 
+export interface SetAiKnowledgeDocumentMembersRequest {
+  readonly userIds: Array<string>;
+  readonly version: number;
+}
+
+export interface SetAiKnowledgeMembersRequest {
+  readonly userIds: Array<string>;
+  readonly version: number;
+}
+
 export interface SetHostDocumentPermissionsRequest {
   readonly documentId: string;
   readonly permissions: Array<HostDocumentPermissionEntry>;
@@ -4172,6 +4277,28 @@ export interface UpdateAdministrativeRegionRequest {
 
 export interface UpdateAiChatSessionRequest {
   readonly title: string;
+  readonly version: number;
+}
+
+export interface UpdateAiKnowledgeBaseRequest {
+  readonly description: null | string;
+  readonly isEnabled: boolean;
+  readonly name: string;
+  readonly version: number;
+}
+
+export interface UpdateAiKnowledgeDocumentRequest {
+  readonly description: null | string;
+  readonly title: string;
+  readonly version: number;
+}
+
+export interface UpdateAiKnowledgePolicyRequest {
+  readonly dataClassification: string;
+  readonly embeddingModelConfigId: null | string;
+  readonly embeddingModelVersion: null | number;
+  readonly generationModelConfigId: null | string;
+  readonly generationModelVersion: null | number;
   readonly version: number;
 }
 

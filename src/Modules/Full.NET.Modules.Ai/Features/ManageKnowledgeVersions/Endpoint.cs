@@ -25,7 +25,10 @@ internal static class Endpoint
                 type, context.Request.Body, context.Request.ContentLength, token).ConfigureAwait(false);
             return result.IsSuccess ? Results.Accepted($"/api/v1/ai/knowledge-bases/{knowledgeBaseId:D}/documents/{documentId:D}/imports/{result.Value!.Id:D}", result.Value)
                 : mapper.Map(result, context);
-        }), "aiUploadKnowledgeVersion", AiKnowledgeDocumentPermissions.Upload).Produces<AiKnowledgeImportResponse>(StatusCodes.Status202Accepted);
+        }), "aiUploadKnowledgeVersion", AiKnowledgeDocumentPermissions.Upload)
+            // 正文由协调器有界读取；OpenAPI 必须声明原始流，不能让客户端误用 JSON 或 multipart。
+            .Accepts<Stream>("application/pdf", "text/markdown", "text/plain")
+            .Produces<AiKnowledgeImportResponse>(StatusCodes.Status202Accepted);
         Read(Common(group.MapGet("/versions", async (Guid knowledgeBaseId, Guid documentId, int? page, int? pageSize,
             AiKnowledgeVersionReader reader, IApiResultMapper mapper, HttpContext context, CancellationToken token) => TryActor(context, out var actor)
                 ? mapper.Map(await reader.ListAsync(knowledgeBaseId, documentId, actor, page ?? 1, pageSize ?? 20, token).ConfigureAwait(false), context) : Results.Unauthorized()),
@@ -40,7 +43,7 @@ internal static class Endpoint
             context.Response.Headers["X-Content-Type-Options"] = "nosniff";
             // 下载始终为附件，不把上传内容作为可执行页面或嵌入式 PDF 呈现。
             return Results.File(opened.Value!.Content, "application/octet-stream", opened.Value.FileName, enableRangeProcessing: false);
-        }), "aiDownloadKnowledgeSource", AiKnowledgeDocumentPermissions.SourceRead)).Produces(StatusCodes.Status200OK, contentType: "application/octet-stream");
+        }), "aiDownloadKnowledgeSource", AiKnowledgeDocumentPermissions.SourceRead)).Produces<Stream>(StatusCodes.Status200OK, contentType: "application/octet-stream");
         Common(group.MapGet("/imports/{operationId:guid}", async (Guid knowledgeBaseId, Guid documentId, Guid operationId,
             AiKnowledgeImportCoordinator service, IApiResultMapper mapper, HttpContext context, CancellationToken token) => TryActor(context, out var actor)
                 ? mapper.Map(await service.GetAsync(knowledgeBaseId, documentId, operationId, actor, token).ConfigureAwait(false), context) : Results.Unauthorized()),
