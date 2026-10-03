@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { CRUD_ARTIFACTS } from './application-crud-generation.mjs';
 
 const generatedNames = ['guards.generated.ts', 'index.generated.ts', 'models.generated.ts', 'operations.generated.ts'];
 const vueSources = new Map([
@@ -87,6 +88,53 @@ export function prepareApplicationCrudVue(appRoot) {
   return { clientFiles: 4, vueFiles: 3, routePath: '/catalog/products', navigationRegistered: true };
 }
 
+// 应用拥有已采纳的页面；重跑生成器只能更新自己持有的源文件。
+export function verifyApplicationCrudVueRegeneration(appRoot, {
+  reportDirectory = join(process.cwd(), '.tmp/template-real-stack/application-crud-vue'), run = spawnSync,
+} = {}) {
+  mkdirSync(reportDirectory, { recursive: true });
+  const adoptedPath = 'ui/admin/src/views/CatalogProductsView.vue';
+  const generatedPath = 'clients/vue/productsView.vue';
+  const originalAdopted = readFileSync(join(appRoot, adoptedPath), 'utf8');
+  const scriptAnchor = '<script setup lang="ts">';
+  assert.ok(originalAdopted.includes(scriptAnchor), 'adopted Vue page has no safe manual extension point');
+  writeFileSync(join(appRoot, adoptedPath), originalAdopted.replace(scriptAnchor,
+    scriptAnchor + '\n// 人工业务扩展，重新生成时必须保留。'));
+  const protectedPaths = [...CRUD_ARTIFACTS, '.fullnet/codegeneration-manifest.json', adoptedPath,
+    'ui/admin/src/views/products-page.generated.ts', 'ui/admin/src/views/products.generated.ts',
+    'packages/client-contracts/src/index.ts', navigationCatalogPath, 'ui/admin/src/router/index.ts'];
+  const capture = () => new Map(protectedPaths.map(path => [path, readFileSync(join(appRoot, path))]));
+  const customized = capture();
+  const cli = join(appRoot, 'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.CodeGeneration.Cli.dll');
+  const args = ['exec', cli, '--schema', join(appRoot, 'verification/CrudGeneration/schema.json'),
+    '--workspace', appRoot, '--apply'];
+  const execute = (stage, expectedStatus) => {
+    const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
+    writeFileSync(join(reportDirectory, stage + '.json'), JSON.stringify({
+      args, status: result.status, signal: result.signal, error: result.error?.message,
+      stdout: result.stdout, stderr: result.stderr,
+    }, null, 2));
+    assert.equal(result.error, undefined, stage + ' process failed');
+    assert.equal(result.status, expectedStatus, stage + ' returned an unexpected status');
+    return result.stdout ?? '';
+  };
+  const repeat = execute('regenerate', 0).split(/\r?\n/u).filter(Boolean).sort();
+  assert.deepEqual(repeat, CRUD_ARTIFACTS.map(path => 'Unchanged ' + path).sort(),
+    'repeat generation changed its owned source plan');
+  assert.deepEqual(capture(), customized, 'repeat generation changed generated or adopted content');
+  const generated = customized.get(generatedPath);
+  writeFileSync(join(appRoot, generatedPath), Buffer.concat([generated,
+    Buffer.from('\n<!-- 人工修改生成源，必须拒绝覆盖。 -->\n')]));
+  const conflicted = capture();
+  const conflict = execute('vue-conflict', 2);
+  assert.ok(conflict.split(/\r?\n/u).includes('Conflict ' + generatedPath),
+    'missing exact Vue source conflict');
+  assert.deepEqual(capture(), conflicted, 'conflict changed generated or adopted content');
+  writeFileSync(join(appRoot, generatedPath), generated);
+  assert.deepEqual(capture(), customized, 'Vue source restoration changed application content');
+  return { repeatUnchanged: true, manualPreserved: true, conflictRejected: true };
+}
+
 export function verifyApplicationCrudVue(appRoot, {
   reportDirectory = join(process.cwd(), '.tmp/template-real-stack/application-crud-vue'), run = spawnSync,
 } = {}) {
@@ -100,7 +148,6 @@ export function verifyApplicationCrudVue(appRoot, {
     ...generatedNames.map((name) => join(appRoot, clientRoot, name)),
     ...[...vueSources.values()].map((path) => join(appRoot, path))];
   const snapshot = () => new Map(protectedPaths.map((path) => [path, readFileSync(path)]));
-  const installed = snapshot();
   const execute = (stage, command, args, options = {}) => {
     const result = run(command, args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000,
       windowsHide: true, shell: process.platform === 'win32' && command === 'pnpm', ...options });
@@ -122,6 +169,8 @@ export function verifyApplicationCrudVue(appRoot, {
   const contributor = readFileSync(join(appRoot, 'src/Demo.Modules.Catalog/CatalogAuthorizationContributor.cs'), 'utf8');
   assert.match(contributor, /new NavigationDefinition\(\s*"m7-catalog-products",\s*null,\s*"m7-catalog-products",\s*"\/catalog\/products",\s*"m7-catalog-products"/u,
     'generated server navigation must match the Vue route and local catalog');
+  const regeneration = verifyApplicationCrudVueRegeneration(appRoot, { reportDirectory, run });
+  const installed = snapshot();
   execute('install', 'pnpm', ['install', '--frozen-lockfile']);
   execute('navigation-build', 'pnpm', ['--filter', '@fullnet/client-contracts', 'build']);
   const navigationProbe = `import { createAdminNavigationCatalog } from './packages/client-contracts/dist/navigation-catalog.js';
@@ -133,7 +182,8 @@ if (catalog.isSupportedNavigationTree([{ ...node, routeName: 'other' }])) proces
   execute('build', 'pnpm', ['--filter', '@fullnet/admin', 'build']);
   assert.deepEqual(snapshot(), installed, 'Vue build changed adopted application sources');
   assert.deepEqual(readFileSync(router), routed, 'Vue build changed the route');
-  const result = { ...adopted, routeIntegrated: true, repeatUnchanged: true, vueBuilt: true, sourcesPreserved: true };
+  const result = { ...adopted, routeIntegrated: true, repeatUnchanged: true, regeneration,
+    vueBuilt: true, sourcesPreserved: true };
   writeFileSync(join(reportDirectory, 'result.json'), JSON.stringify(result, null, 2));
   return result;
 }

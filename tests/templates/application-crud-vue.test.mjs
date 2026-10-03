@@ -3,7 +3,10 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { prepareApplicationCrudVue } from './support/application-crud-vue.mjs';
+import * as crudVue from './support/application-crud-vue.mjs';
+import { CRUD_ARTIFACTS } from './support/application-crud-generation.mjs';
+
+const { prepareApplicationCrudVue } = crudVue;
 
 function fixture(action) {
   const appRoot = mkdtempSync(join(tmpdir(), 'fullnet-business-vue-'));
@@ -80,4 +83,31 @@ test('application Vue adoption accepts the shipped navigation catalog shape', ()
     readFileSync(new URL('../../packages/client-contracts/src/navigation-catalog.ts', import.meta.url)));
   const result = prepareApplicationCrudVue(appRoot);
   assert.equal(result.navigationRegistered, true);
+}));
+
+test('application Vue regeneration preserves adopted edits and rejects generated source drift', () => fixture(({ appRoot, put }) => {
+  put('clients/vue/productsView.vue', '<script setup lang="ts">\n</script>\n<template><div>Product</div></template>\n');
+  prepareApplicationCrudVue(appRoot);
+  for (const path of CRUD_ARTIFACTS) {
+    if (!existsSync(join(appRoot, path))) put(path, `// generated ${path}\n`);
+  }
+  put('.fullnet/codegeneration-manifest.json', '{}');
+  const source = readFileSync(join(appRoot, 'clients/vue/productsView.vue'));
+  const calls = [];
+  const run = (command, args, options) => {
+    calls.push({ command, args, options });
+    return calls.length === 1
+      ? { status: 0, stdout: CRUD_ARTIFACTS.map(path => `Unchanged ${path}`).join('\n'), stderr: '' }
+      : { status: 2, stdout: 'Conflict clients/vue/productsView.vue\n', stderr: '' };
+  };
+  const result = crudVue.verifyApplicationCrudVueRegeneration(appRoot,
+    { reportDirectory: join(appRoot, 'evidence'), run });
+  assert.deepEqual(result, { repeatUnchanged: true, manualPreserved: true, conflictRejected: true });
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every(({ command, args, options }) => command === 'dotnet'
+    && args[0] === 'exec' && args.includes('--apply') && options.cwd === appRoot));
+  assert.deepEqual(readFileSync(join(appRoot, 'clients/vue/productsView.vue')), source);
+  assert.match(readFileSync(join(appRoot, 'ui/admin/src/views/CatalogProductsView.vue'), 'utf8'), /人工业务扩展/u);
+  assert.equal(JSON.parse(readFileSync(join(appRoot, 'evidence/regenerate.json'), 'utf8')).status, 0);
+  assert.equal(JSON.parse(readFileSync(join(appRoot, 'evidence/vue-conflict.json'), 'utf8')).status, 2);
 }));
