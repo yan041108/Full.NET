@@ -46,6 +46,17 @@ public interface ITenantResourceFileStore
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>所属模块删除资源后的有界补偿能力，不扩大现有文件读写接口。</summary>
+public interface ITenantResourceFileCleanup
+{
+    /// <summary>有界释放所属资源的文件，包括尚未就绪及待重试删除的意图，每次最多处理 25 个。</summary>
+    /// <param name="ownerModuleKey">受信所属模块键。</param>
+    /// <param name="resourceId">已授权且不再持有文件的资源标识。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>当前资源已无剩余意图时返回 true，否则调用方须再次恢复。</returns>
+    Task<bool> ReleaseOwnedAsync(string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default);
+}
+
 /// <summary>租户资源文件的不透明引用，不暴露存储位置。</summary>
 /// <param name="FileId">文件标识。</param>
 /// <param name="SizeBytes">实际上传字节数。</param>

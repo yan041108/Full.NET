@@ -3,6 +3,16 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <summary>文档管理精确权限；目录读取权不自动授予文档读取。</summary>
 public static class AiKnowledgeDocumentPermissions
 {
+    /// <summary>上传本人文档的不可变文件版本。</summary>
+    public const string Upload = "ai.knowledge_documents.upload";
+    /// <summary>读取获授权文档的文件版本元数据。</summary>
+    public const string VersionsRead = "ai.knowledge_documents.versions_read";
+    /// <summary>下载获授权文档的精确版本来源。</summary>
+    public const string SourceRead = "ai.knowledge_documents.source_read";
+    /// <summary>所有者读取持久化导入操作。</summary>
+    public const string ImportsRead = "ai.knowledge_documents.imports_read";
+    /// <summary>所有者恢复导入或重试文件释放。</summary>
+    public const string ImportsRetry = "ai.knowledge_documents.imports_retry";
     /// <summary>读取获授权文档元数据，另须知识库读取权及本地成员授权。</summary>
     public const string Read = "ai.knowledge_documents.read";
     /// <summary>所有者创建文档草稿。</summary>

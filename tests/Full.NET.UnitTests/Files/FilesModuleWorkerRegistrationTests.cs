@@ -3,6 +3,9 @@ using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Features.HostFileReferenceClaims;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Full.NET.Composition;
+using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Tenancy.Features.ReserveTenantQuota;
 
 namespace Full.NET.UnitTests.Files;
 
@@ -10,6 +13,19 @@ namespace Full.NET.UnitTests.Files;
 [TestClass]
 public sealed class FilesModuleWorkerRegistrationTests
 {
+    /// <summary>正式 Worker 必须使用真实配额确认，不能回退为总是成功的 Null 实现。</summary>
+    [TestMethod]
+    public void Worker_profile_uses_authoritative_tenant_storage_quota()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddFullNetApplicationModules(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["FullNet:Modules:Preset"] = "full",
+        }).Build(), FullNetHostProfile.Worker, []);
+        Assert.AreEqual(typeof(TenantFileStorageQuotaPort), services.Last(item => item.ServiceType == typeof(ITenantFileStorageQuotaPort)).ImplementationType);
+        Assert.IsTrue(services.Any(item => item.ServiceType == typeof(ITenantQuotaReservationService)));
+    }
     [TestMethod]
     public void AddBackgroundServices_registers_host_file_reference_claim_ports()
     {

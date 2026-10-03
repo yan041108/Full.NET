@@ -228,6 +228,11 @@ public sealed class TenancyModule : IFullNetModule
             IIntegrationEventHandler,
             TenantChangedCacheInvalidationHandler>());
         services.TryAddScoped<TenantCacheInvalidator>();
+        // 文件恢复在 Worker 使用原操作键确认配额，不能回退到 Files 的空端口。
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddScoped<ITenantQuotaReservationService, Features.ReserveTenantQuota.TenantQuotaReservationService>();
+        services.Replace(ServiceDescriptor.Scoped<ITenantFileStorageQuotaPort, Features.ReserveTenantQuota.TenantFileStorageQuotaPort>());
     }
 
     /// <summary>

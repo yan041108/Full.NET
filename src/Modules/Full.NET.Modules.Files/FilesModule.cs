@@ -130,6 +130,7 @@ public sealed class FilesModule : IFullNetModule
         services.TryAddScoped<ITenantFileStorageQuotaPort, Features.TenantResourceFiles.NullTenantFileStorageQuotaPort>();
         services.AddScoped<ITenantResourceFileStorageUsagePort, Features.TenantResourceFiles.TenantResourceFileStorageUsagePort>();
         services.TryAddScoped<ITenantResourceFileStore, Features.TenantResourceFiles.TenantResourceFileStore>();
+        services.TryAddScoped<ITenantResourceFileCleanup, Features.TenantResourceFiles.TenantResourceFileStore>();
     }
 
     /// <summary>跨模块文件引用契约；Worker 后台模块（Notifications/Document 等）依赖，须与 API AddServices 保持一致。</summary>

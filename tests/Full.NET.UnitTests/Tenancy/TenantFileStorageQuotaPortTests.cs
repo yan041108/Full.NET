@@ -8,6 +8,40 @@ namespace Full.NET.UnitTests.Tenancy;
 [TestClass]
 public sealed class TenantFileStorageQuotaPortTests
 {
+    /// <summary>相同机器码的 CAS 冲突仍是未知结果，不能让 Worker 撤销并发赢家的文件。</summary>
+    [TestMethod]
+    public async Task Confirm_conflict_is_not_authoritative_rejection()
+    {
+        var quota = Substitute.For<ITenantQuotaReservationService>();
+        quota.ConfirmAsync(Arg.Any<Guid>(), Arg.Any<ConfirmTenantQuotaRequest>(), Arg.Any<CancellationToken>())
+            .Returns(Result<TenantQuotaMetricResponse>.Failure(new Error(TenancyErrorCodes.QuotaReservationNotFound, "Concurrent confirmation", ErrorType.Conflict)));
+        var result = await new TenantFileStorageQuotaPort(quota).ConfirmAsync(Guid.NewGuid(), "operation");
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(ErrorType.Conflict, result.Error!.Type);
+    }
+
+    /// <summary>已确认或缺失的预留无法释放，属于确定终态，不能无限阻塞物理清理。</summary>
+    [TestMethod]
+    public async Task Release_terminal_reservation_returns_false()
+    {
+        var quota = Substitute.For<ITenantQuotaReservationService>();
+        quota.ReleaseAsync(Arg.Any<Guid>(), Arg.Any<ReleaseTenantQuotaRequest>(), Arg.Any<CancellationToken>())
+            .Returns(Result<TenantQuotaMetricResponse>.Failure(new Error(TenancyErrorCodes.QuotaReservationNotFound, "Already confirmed", ErrorType.NotFound)));
+        var result = await new TenantFileStorageQuotaPort(quota).ReleaseAsync(Guid.NewGuid(), "operation");
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsFalse(result.Value);
+    }
+    /// <summary>缺失或过期预留属于明确拒绝；Files 必须区分此结果和暂时失败。</summary>
+    [TestMethod]
+    public async Task Confirm_missing_reservation_returns_false_instead_of_transient_failure()
+    {
+        var quota = Substitute.For<ITenantQuotaReservationService>();
+        quota.ConfirmAsync(Arg.Any<Guid>(), Arg.Any<ConfirmTenantQuotaRequest>(), Arg.Any<CancellationToken>())
+            .Returns(Result<TenantQuotaMetricResponse>.Failure(new Error(TenancyErrorCodes.QuotaReservationNotFound, "Expired", ErrorType.NotFound)));
+        var result = await new TenantFileStorageQuotaPort(quota).ConfirmAsync(Guid.NewGuid(), "operation");
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsFalse(result.Value);
+    }
     [TestMethod]
     public async Task TryReserveAsync_delegates_to_files_storage_bytes_metric()
     {

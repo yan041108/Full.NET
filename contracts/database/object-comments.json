@@ -276,6 +276,28 @@
         "UserId": "获授权用户标识"
       }
     },
+    "fn_ai_knowledge_import": {
+      "comment": "知识库持久化导入及文件补偿日志",
+      "columns": {
+        "ActorUserId": "授权上传主体",
+        "ContentHash": "重试匹配内容摘要",
+        "ContentType": "经校验的内容类型",
+        "CreatedAtUtc": "创建时间（UTC）",
+        "DocumentId": "所属文档标识",
+        "ExpectedDocumentVersion": "请求预期文档并发版本",
+        "FailureCode": "稳定失败码",
+        "FileId": "已上传待绑定文件",
+        "Id": "逻辑主键",
+        "LeaseExpiresAtUtc": "租约过期时间（UTC）",
+        "LeaseToken": "有界执行租约令牌",
+        "OriginalFileName": "安全来源文件名",
+        "RequestKey": "文档内稳定重试键",
+        "SizeBytes": "重试匹配实际字节数",
+        "StateKey": "持久化导入阶段",
+        "UpdatedAtUtc": "更新时间（UTC）",
+        "VersionId": "预先生成的版本标识"
+      }
+    },
     "fn_ai_knowledge_member": {
       "comment": "知识库明确成员授权",
       "columns": {
@@ -283,6 +305,21 @@
         "Id": "逻辑主键",
         "KnowledgeBaseId": "所属知识库标识",
         "UserId": "获授权用户标识"
+      }
+    },
+    "fn_ai_knowledge_version": {
+      "comment": "知识库不可变文件版本",
+      "columns": {
+        "ContentHash": "实际内容 SHA-256",
+        "ContentType": "经校验的内容类型",
+        "CreatedAtUtc": "创建时间（UTC）",
+        "DocumentId": "所属文档标识",
+        "FileId": "Files 权威引用标识",
+        "Id": "逻辑主键",
+        "OriginalFileName": "安全来源文件名",
+        "SizeBytes": "实际内容字节数",
+        "UploadedByUserId": "上传主体标识",
+        "VersionNumber": "文档内连续文件版本号"
       }
     },
     "fn_ai_mcp_remote_connection": {

@@ -375,6 +375,43 @@
         "Version": "乐观并发版本号",
         "MetricId": "实际配额记录标识；NULL 表示历史归属待对账"
       }
+    },
+    "fn_ai_knowledge_version": {
+      "comment": "知识库不可变文件版本",
+      "columns": {
+        "Id": "逻辑主键",
+        "DocumentId": "所属文档标识",
+        "FileId": "Files 权威引用标识",
+        "VersionNumber": "文档内连续文件版本号",
+        "OriginalFileName": "安全来源文件名",
+        "ContentType": "经校验的内容类型",
+        "ContentHash": "实际内容 SHA-256",
+        "SizeBytes": "实际内容字节数",
+        "UploadedByUserId": "上传主体标识",
+        "CreatedAtUtc": "创建时间（UTC）"
+      }
+    },
+    "fn_ai_knowledge_import": {
+      "comment": "知识库持久化导入及文件补偿日志",
+      "columns": {
+        "Id": "逻辑主键",
+        "DocumentId": "所属文档标识",
+        "VersionId": "预先生成的版本标识",
+        "RequestKey": "文档内稳定重试键",
+        "ExpectedDocumentVersion": "请求预期文档并发版本",
+        "OriginalFileName": "安全来源文件名",
+        "ContentType": "经校验的内容类型",
+        "ContentHash": "重试匹配内容摘要",
+        "SizeBytes": "重试匹配实际字节数",
+        "ActorUserId": "授权上传主体",
+        "FileId": "已上传待绑定文件",
+        "StateKey": "持久化导入阶段",
+        "FailureCode": "稳定失败码",
+        "LeaseToken": "有界执行租约令牌",
+        "LeaseExpiresAtUtc": "租约过期时间（UTC）",
+        "CreatedAtUtc": "创建时间（UTC）",
+        "UpdatedAtUtc": "更新时间（UTC）"
+      }
     }
   }
 }

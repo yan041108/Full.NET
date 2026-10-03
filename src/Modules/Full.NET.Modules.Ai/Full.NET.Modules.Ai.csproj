@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Ai.Contracts\Full.NET.Modules.Ai.Contracts.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\Full.NET.Modules.Files.Contracts\Full.NET.Modules.Files.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

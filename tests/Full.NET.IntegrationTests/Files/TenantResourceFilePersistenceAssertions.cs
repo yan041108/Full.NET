@@ -70,10 +70,10 @@ internal static class TenantResourceFilePersistenceAssertions
         Assert.AreEqual(1, await first.ExecuteAsync(
             TenantResourceFileSql.MarkReady.Text,
             new { TenantId = tenantB, Id = fileB, OwnerModuleKey = "import_export", ResourceId = resourceB }).ConfigureAwait(false));
-        var ready = (await first.QueryAsync<TenantResourceFileReadyRecord>(
+        // 本用例只验证生产 SQL 的所属资源谓词；标识投影避免原始 Dapper 绕过生产 UTC 行读取器。
+        var ready = (await first.QueryAsync<Guid>(
             TenantResourceFileSql.ListReady.Text,
             new { TenantId = tenantA, OwnerModuleKey = "import_export", ResourceId = resourceA }).ConfigureAwait(false))
-            .Select(row => row.Id)
             .ToList();
         CollectionAssert.AreEquivalent(new[] { fileA }, ready);
     }

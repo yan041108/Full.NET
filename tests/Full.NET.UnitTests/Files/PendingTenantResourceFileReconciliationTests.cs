@@ -1,10 +1,12 @@
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
+using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Persistence;
 using Full.NET.Modules.Files.Reconciliation;
 using Full.NET.Modules.Files.Storage;
+using Full.NET.Modules.Files.Features.TenantResourceFiles;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -128,13 +130,66 @@ public sealed class PendingTenantResourceFileReconciliationTests
         Assert.IsFalse(store.Files.ContainsKey(file.Id));
     }
 
+    /// <summary>对象存在仍不足以恢复读取资格，配额确认拒绝和未知结果均必须保留 pending。</summary>
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Pending_blob_without_confirmed_quota_is_not_promoted(bool unknown)
+    {
+        var tenantId = Guid.NewGuid();
+        var file = NewRecord(tenantId, "pending", "local", "keep");
+        var store = new FileStore([file]);
+        var quota = Substitute.For<ITenantFileStorageQuotaPort>();
+        quota.ConfirmAsync(tenantId, file.Id.ToString("N"), Arg.Any<CancellationToken>()).Returns(_ => unknown
+            ? Task.FromException<Result<bool>>(new IOException("Response lost"))
+            : Task.FromResult(Result<bool>.Success(false)));
+        var result = await CreateRunner(store, tenantId, _ => true, quota: quota).RunOnceAsync(EnabledOptions(), CancellationToken.None);
+        Assert.AreEqual(0, result.Promoted);
+        Assert.AreEqual(unknown ? "pending" : "released", store.Files[file.Id].StatusKey);
+    }
+
+    /// <summary>旧 pending 快照不能用明确拒绝覆盖并发已发布状态。</summary>
+    [TestMethod]
+    public async Task Stale_pending_rejection_preserves_concurrent_ready_winner()
+    {
+        var tenantId = Guid.NewGuid();
+        var file = NewRecord(tenantId, "pending", "local", "keep");
+        var store = new FileStore([file]);
+        var quota = Substitute.For<ITenantFileStorageQuotaPort>();
+        quota.ConfirmAsync(tenantId, file.Id.ToString("N"), Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            store.Files[file.Id].StatusKey = "ready";
+            return Result<bool>.Success(false);
+        });
+        await CreateRunner(store, tenantId, _ => true, quota: quota).RunOnceAsync(EnabledOptions(), CancellationToken.None);
+        Assert.AreEqual("ready", store.Files[file.Id].StatusKey);
+    }
+
+    /// <summary>Worker 也须保留配额释放失败的墓碑，下一轮成功才 purge。</summary>
+    [TestMethod]
+    public async Task Released_cleanup_retains_metadata_when_quota_release_fails()
+    {
+        var tenantId = Guid.NewGuid();
+        var file = NewRecord(tenantId, "released", "local", "keep");
+        var store = new FileStore([file]);
+        var quota = Substitute.For<ITenantFileStorageQuotaPort>();
+        quota.ReleaseAsync(tenantId, file.Id.ToString("N"), Arg.Any<CancellationToken>()).Returns(
+            Result<bool>.Failure(new Error("quota.transient", "Retry", ErrorType.Conflict)), Result<bool>.Success(true));
+        var runner = CreateRunner(store, tenantId, _ => true, quota: quota);
+        Assert.AreEqual(0, (await runner.RunOnceAsync(EnabledOptions(), CancellationToken.None)).Released);
+        Assert.AreEqual("released", store.Files[file.Id].StatusKey);
+        Assert.AreEqual(1, (await runner.RunOnceAsync(EnabledOptions(), CancellationToken.None)).Released);
+        Assert.IsFalse(store.Files.ContainsKey(file.Id));
+    }
+
     private static PendingTenantResourceFileReconciliationRunner CreateRunner(
         FileStore store,
         Guid tenantId,
         Func<string, bool> exists,
         ITenantResourceFileOwner? owner = null,
         IFileStorageProvider? localStorage = null,
-        TenantResourceFileReconciliationCursor? cursor = null)
+        TenantResourceFileReconciliationCursor? cursor = null,
+        ITenantFileStorageQuotaPort? quota = null)
     {
         var resolver = Substitute.For<IActiveTenantContextResolver>();
         resolver.ResolveActiveByIdAsync(tenantId, Arg.Any<CancellationToken>())
@@ -160,7 +215,7 @@ public sealed class PendingTenantResourceFileReconciliationTests
             resolver,
             new CurrentTenantAccessor(),
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
-            clock, cursor);
+            clock, quota ?? new NullTenantFileStorageQuotaPort(), cursor);
     }
 
     private static TenantResourceFileReconciliationRecord NewRecord(
@@ -256,7 +311,8 @@ public sealed class PendingTenantResourceFileReconciliationTests
                 return Task.FromResult(1);
             }
 
-            if (statement.Name == TenantResourceFileSql.Release.Name)
+            if (statement.Name == TenantResourceFileSql.ReleasePending.Name && file.StatusKey == "pending"
+                || statement.Name == TenantResourceFileSql.Release.Name)
             {
                 file.StatusKey = "released";
                 return Task.FromResult(1);

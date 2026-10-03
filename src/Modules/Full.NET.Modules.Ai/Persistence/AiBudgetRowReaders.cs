@@ -19,6 +19,8 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiAgentApprovalRecord>(ReadAgentApproval);
         registrar.Register<AiKnowledgeBaseRecord>(ReadKnowledgeBase);
         registrar.Register<AiKnowledgeDocumentRecord>(ReadKnowledgeDocument);
+        registrar.Register<AiKnowledgeImportRecord>(ReadKnowledgeImport);
+        registrar.Register<AiKnowledgeVersionRecord>(ReadKnowledgeVersion);
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
     }
 #endif
@@ -42,6 +44,42 @@ internal static class AiBudgetRowReaders
         CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
         UpdatedAtUtc = Null(reader, "UpdatedAtUtc") ? null : Timestamp(reader, "UpdatedAtUtc"),
         Version = checked((int)Integer(reader, "Version")),
+    };
+
+    // 文件版本及恢复日志使用固定投影，原生路径禁止反射物化。
+    internal static AiKnowledgeVersionRecord ReadKnowledgeVersion(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")),
+        DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
+        FileId = reader.GetGuid(reader.GetOrdinal("FileId")),
+        VersionNumber = checked((int)Integer(reader, "VersionNumber")),
+        OriginalFileName = Text(reader, "OriginalFileName"),
+        ContentType = Text(reader, "ContentType"),
+        ContentHash = Text(reader, "ContentHash"),
+        SizeBytes = Integer(reader, "SizeBytes"),
+        UploadedByUserId = reader.GetGuid(reader.GetOrdinal("UploadedByUserId")),
+        CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+    };
+
+    internal static AiKnowledgeImportRecord ReadKnowledgeImport(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")),
+        DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
+        VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")),
+        RequestKey = reader.GetGuid(reader.GetOrdinal("RequestKey")),
+        ExpectedDocumentVersion = checked((int)Integer(reader, "ExpectedDocumentVersion")),
+        OriginalFileName = Text(reader, "OriginalFileName"),
+        ContentType = Text(reader, "ContentType"),
+        ContentHash = Text(reader, "ContentHash"),
+        SizeBytes = Integer(reader, "SizeBytes"),
+        ActorUserId = reader.GetGuid(reader.GetOrdinal("ActorUserId")),
+        FileId = Null(reader, "FileId") ? null : reader.GetGuid(reader.GetOrdinal("FileId")),
+        StateKey = Text(reader, "StateKey"),
+        FailureCode = Null(reader, "FailureCode") ? null : Text(reader, "FailureCode"),
+        LeaseToken = Null(reader, "LeaseToken") ? null : reader.GetGuid(reader.GetOrdinal("LeaseToken")),
+        LeaseExpiresAtUtc = Null(reader, "LeaseExpiresAtUtc") ? null : Timestamp(reader, "LeaseExpiresAtUtc"),
+        CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+        UpdatedAtUtc = Timestamp(reader, "UpdatedAtUtc"),
     };
 
     // 草稿目录的原生物化只读明确投影，不使用反射回退。

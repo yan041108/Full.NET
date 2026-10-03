@@ -631,7 +631,24 @@ R04b2 下一项实施边界（复用本计划，不新增平行计划）：
 - `pnpm test:aot:publish:linux` 与 `pnpm test:aot:publish:linux -- --host worker` 均退出 0，API/Worker 分别为 134233312/86373944 字节，分别通过 17/15 个已批准警告门禁。使用本次正式产物在隔离 Linux 环境新建测试程序集，API 10/10、Worker 17/17，均零失败、零跳过；按完整测试身份替换上述 Windows 跳过项后，精确影响集合并 69/69 通过。
 - 最终只读安全及 Native AOT 静态闭包复核未发现剩余确定问题。24 个本项代码/测试文件冻结摘要复核一致；本地证据位于忽略目录 `artifacts/native-aot/linux-x64/r04b2a/`，包含失败复现、TRX、正式发布清单及 `verification-summary.json`。环境为 Windows SDK 10.0.401、Docker Linux SDK 10.0.400、运行时 `DOTNET_PROCESSOR_COUNT=2`、Docker 内存 31.22 GiB；结论限功能和 AOT，不代表模型质量或容量验收。完成本项后按用户要求独立提交，下一项为 R04b2b，整体 R04b/RAG 保持未完成。
 
-- [ ] R04b2b：在已交付草稿及文档授权上接入上传、不可变文件版本与有界导入操作恢复。复用 Files 权威契约，覆盖以下失败与恢复链路；未实现解析或索引前不返回就绪状态。
+- [x] R04b2b：在已交付草稿及文档授权上接入上传、不可变文件版本与有界导入操作恢复。复用 Files 权威契约，覆盖以下失败与恢复链路；未实现解析或索引前不返回就绪状态。
+
+R04b2b 当前实施契约（2026-10-03）：在 `main` 基线 `79da3f96b21cb50b1370d1a4e551df12c066c88a` 上执行，快照 `ai-knowledge-file-versions-r04b2b`。保持既有草稿 API，追加版本上传、版本分页、受授权来源下载及所有者导入查询/重试。上传为当前请求的有界原始流，最多 8 MiB，仅允许匹配扩展名的 PDF、UTF-8 Markdown/纯文本；请求只能提供文件名、当前文档版本和重试键，不能提供 FileId、范围或处理状态。
+
+- 在 `Features/ManageKnowledgeVersions/` 实现上传协调、恢复及来源授权；`Persistence/AiKnowledgeVersionSql.cs` 与 `AiKnowledgeImportSql.cs` 只访问 AI 自有表。243 成对迁移新增不可变文件版本和持久化导入操作；版本标识由服务端 UUID v7 预先生成，操作保存内容摘要、大小、预期文档版本、阶段及有界租约，同一文档重试键的不同内容/元数据返回 409。
+- 消费 Files 的 `IHostFileUploadWriter`、`IHostFileReferenceClaimService`、`IHostFileContentReader`、`ITenantResourceFileStore`，新增 Ai Claim 消费者/稳定版本键。API 与 Worker 最小后台入口注册精确文件引用 Probe 和 Tenant Owner，只有真实持久化版本或未终止导入意图可保留文件；Probe 不把禁用目录误当成文件引用已消失。
+- 首轮 RED 为双库真实 HTTP 上传入口缺失；随后用双库 HTTP、迁移重放与可控文件故障验证重复上传、租约竞争、未知提交不释放、确认失败后重试、已知回滚补偿及释放失败恢复。文档删除先在同一 AI 事务标记清理，再在事务外释放；来源读取每次复核目录/文档授权，下载强制附件响应。未实现 R05 解析/索引时版本只能报告 `pending_processing`。
+- 验证命令沿用本计划 R04 与测试矩阵；先运行聚焦 RED/Green，再选择快照影响集、AI Unit、相关 Architecture、命名/SQL/AOT 门禁和本次正式 Linux 原生产物。通过安全审查、摘要复核与 Git 检查后在 `main` 独立提交，不推送。
+
+R04b2b 本地验收记录（2026-10-03）：
+
+- 双库文件版本 HTTP/故障恢复和 243 迁移恢复聚焦 8/8 通过。Host 未知提交保留引用、确认失败恢复及删除竞争均已覆盖；Tenant 上传确认未知结果通过真实 Worker 恢复，文件字节额度只记一次。Files 发布顺序改为先确认额度再晋升，独立清理契约保留失败意图；Worker 注册真实额度 Port，确认冲突不再误判为不存在。
+- `pnpm test:integration:affected -- --snapshot ai-knowledge-file-versions-r04b2b --phase slice` 选择 132 个精确身份，Windows 原始结果为 104 成功、1 失败、27 原生跳过。既有 Files 列表测试使用原始 Dapper 构造时间类型失败，改为同一生产 SQL 的 Guid 投影后双库 2/2 通过；27 个精确原生身份由本次 Linux API 10/10、Worker 17/17 全部补齐。保留原始失败/跳过日志，按身份合并为 132/132，没有缩小选择范围。
+- 最终完整 Unit 在 Windows 为 3894 成功、0 失败、1 个 Linux FIFO 跳过；最低发现门槛因此退出 9。Linux 同一 FIFO 身份 1/1 通过，合并 3895/3895。最终受影响 Architecture 87/87，通过；此前全量 Architecture 在十分钟超时前发现 SQL 声明工厂不符合静态门禁，已改为直接静态声明并复跑相关 87 项，不宣称全量 232 项通过。
+- `pnpm test:sql-safety` 5/5、`pnpm test:naming` 33/33；Integration tooling 65/65，分区精确发现 1126 项。API/Worker AOT 分析退出 0、零警告/错误。正式 Linux API publish 134772512 字节、17 条已允许警告；Worker publish 86515384 字节、15 条已允许警告，均退出 0。本次原生测试所用二进制与正式产物 SHA256 一致。
+- 独立只读复核无剩余确定阻断问题；52 个本任务代码/契约/测试文件摘要未变化。忽略目录 `artifacts/native-aot/linux-x64/r04b2b/` 保存原始日志、TRX、发布清单、二进制摘要及精确身份汇总。环境：i7-12700H（14 核/20 线程），Windows SDK 10.0.401、Docker Linux SDK 10.0.400，运行时处理器上限 2、Docker 内存 31.22 GiB；功能及原生闭包证据不代表模型质量或容量验收。
+
+- [ ] R04b2c：下一独立切片为知识库、文档及文件版本 HTTP 的 OpenAPI/共享客户端契约。从真实双库导出快照；上传须表达原始二进制请求体、来源读取须表达二进制响应；生成客户端覆盖授权目录、成员、版本和导入恢复入口，保持服务端可信范围与精确权限。先建立契约失败验证，再生成并验证客户端与破坏性变更检查。角色/组织授权、解析、索引、问答及 Vue 页面仍待后续 R04/R05/R06；R04b 整体保持未完成。
 
 1. 先建立文档/版本与导入操作的失败用例：只有知识库所有者及独立上传权限可写，明确成员的目录读取资格不能授予文档/来源访问；跨范围、禁用目录、删除文件、重复请求与旧版本覆盖均拒绝。正文上传只从当前操作的流进入 Files，不提供按任意 FileId 导入其他模块附件的入口。首版状态只能表达待处理/失败，R05 前不能标记索引就绪。
 2. 在 `Features/ManageKnowledgeDocuments/`、`Persistence/` 及双库成对迁移扩展既有草稿与文档授权，持久化不可变文件版本和有界导入操作状态。所有 UUID 在应用端生成；版本变更、删除与撤权先写权威状态，事务只覆盖 AI 自有表。具体迁移编号在实现时取仓库下一空号；按实际新增测试更新矩阵，不预填发现数。

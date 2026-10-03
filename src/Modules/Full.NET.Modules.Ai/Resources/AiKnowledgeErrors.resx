@@ -15,4 +15,9 @@
   <data name="ai.knowledge.document_invalid" xml:space="preserve"><value>文档元数据或版本输入不合法。</value></data>
   <data name="ai.knowledge.document_version_conflict" xml:space="preserve"><value>文档已被其他请求修改。</value></data>
   <data name="ai.knowledge.document_member_unavailable" xml:space="preserve"><value>目标用户不是当前知识库的明确成员。</value></data>
+  <data name="ai.knowledge.upload_invalid" xml:space="preserve"><value>来源文件、名称或大小不符合上传限制。</value></data>
+  <data name="ai.knowledge.import_busy" xml:space="preserve"><value>导入正在处理，请稍后重试。</value></data>
+  <data name="ai.knowledge.import_conflict" xml:space="preserve"><value>重试键已用于不同的请求。</value></data>
+  <data name="ai.knowledge.upload_required" xml:space="preserve"><value>请使用同一重试键重新上传原文件。</value></data>
+  <data name="ai.knowledge.source_unavailable" xml:space="preserve"><value>来源文件暂不可用。</value></data>
 </root>

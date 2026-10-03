@@ -1,6 +1,6 @@
-# 知识库目录、文档草稿、用户授权与模型处理审批
+# 知识库目录、文件版本、用户授权与模型处理审批
 
-R04a 提供私有目录及审批记录，R04b1 增加明确用户成员与立即撤权，R04b2a 提供文档草稿元数据及独立明确用户授权。当前不接收文件、不解析正文、不调用模型；不可变文件版本、导入任务、角色/组织授权与文件生命周期由后续 R04b 继续交付。R05/R06 的每次处理派发必须复核这里记录的审批及最新权威状态。
+R04a 提供私有目录及审批记录，R04b1 增加明确用户成员与立即撤权，R04b2a 提供文档草稿元数据及独立明确用户授权，R04b2b 接入上传、不可变来源版本及持久化导入恢复。当前不解析正文、不调用模型；角色/组织授权与生成客户端由后续 R04b 继续交付。R05/R06 的每次处理派发必须复核这里记录的审批及最新权威状态。
 
 ## 目录 API
 
@@ -56,10 +56,33 @@ Host 候选须为活动 Host 用户；Tenant 候选须为当前可信租户的�
 
 文档名单最多 100 个唯一非空 UUID，不包括所有者，且只能选择当前知识库明确成员。任一用户不属于名单返回 422 `ai.knowledge.document_member_unavailable`，整次替换的旧名单、版本及此前插入均回滚。文档元数据、授权和删除共用文档版本，独立于知识库版本。空名单撤销文档授权；目录撤权或禁用也立即拒绝文档读取。目录撤权不删除独立文档授权记录，重新授予目录成员资格后仍按当前文档名单判断。软删除同时写入墓碑并清理文档授权，无法通过重新授权打开已删除文档。权威查询每次联查本模块状态，不等待缓存、索引或文件清理。
 
+## 不可变来源版本与导入恢复
+
+以下相对路径基于 `/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}`。上传、导入查询及恢复均限文档所有者；持有目录或来源下载权的成员不能上传或管理导入操作。
+
+| 操作 | 方法与相对路径 | 精确权限 | 输入 |
+| --- | --- | --- | --- |
+| 上传新版本 | `POST /versions` | `ai.knowledge_documents.upload` | 查询字段 `version`、`requestKey`、`fileName`；正文为文件原始流 |
+| 获授权版本分页 | `GET /versions` | `ai.knowledge_documents.versions_read`，另需知识库和文档读取权 | `page`、`pageSize`，边界同草稿目录 |
+| 获授权来源下载 | `GET /versions/{versionId}/source` | `ai.knowledge_documents.source_read`，另需知识库和文档读取权 | 服务端版本 UUID |
+| 所有者查询导入 | `GET /imports/{operationId}` | `ai.knowledge_documents.imports_read` | 服务端操作 UUID |
+| 所有者恢复导入 | `POST /imports/{operationId}/retry` | `ai.knowledge_documents.imports_retry` | 无正文 |
+| 所有者重试文档清理 | `POST /imports/cleanup` | `ai.knowledge_documents.imports_retry` | 无正文；每次最多 25 个操作 |
+
+每个文件最多 8 MiB，按实际读取字节检查，不信任声明长度。仅接收 `.txt`/`text/plain`、`.md`/`text/markdown`、`.pdf`/`application/pdf`；文本必须为严格 UTF-8，PDF 必须有 `%PDF-` 文件头，文件名不得包含路径、控制字符或冒号。格式检查不等于正文解析。空文件、未知上传字段及不匹配的格式返回 400；请求不能指定 FileId、租户、所有者或处理状态。
+
+上传返回 202 和导入操作 Location。同一文档的非空 `requestKey` 绑定首次内容摘要、大小、文件名、类型及预期文档 `version`，完全相同的重放复用操作；不同内容或元数据返回 409。上传前独立登记操作和服务端版本 UUID；文件发布、AI 版本提交及引用确认分别执行，不借用跨模块事务。成功的版本提交递增一次文档版本；历史版本只插入不覆盖，按版本号倒序分页。版本状态固定为 `pending_processing`，草稿元数据仍为 `draft`，均不表示解析或索引就绪。
+
+导入阶段为 `awaiting_upload`、`file_uploaded`、`pending_confirmation`、`completed`、`cleanup_pending`、`failed`；每次推进使用五分钟有界租约及令牌 CAS。Host 通过 Files Claim → AI 本地提交 → Confirm 维护稳定版本引用；确认失败或 AI 提交结果未知时保留恢复凭据，不释放可能已提交的引用。Tenant 采用 Ai 模块和服务端版本资源所有权；响应丢失后仅从该资源的 ready 文件核对名称、类型、实际摘要和大小，复用原文件。
+
+Tenant 文件只有配额确认后才成为 ready。未知确认保留 pending，Worker 用原文件操作键幂等确认；CAS 冲突不会当作确定拒绝。尚未绑定 FileId 的有效上传意图也受 Ai Owner 保护。清理先撤销读取资格，存储删除或配额释放失败保留墓碑；清理端口每次最多处理 25 个所属文件，剩余项保留 `cleanup_pending`。超时旧上传晚到时独立复核权威状态，仅补偿已经撤销或缺失的对象。
+
+来源下载每次同时核对可信范围、启用知识库及知识库/文档授权，打开 Files 流后再次复核。响应为附件 `application/octet-stream`，设置 `no-store` 和 `nosniff`，不返回文件存储键、公共 URL 或任意 FileId。目录禁用、目录/文档撤权及软删除立即拒绝下一次来源读取。删除先在 AI 本地事务中写墓碑、清除授权并登记清理，再尝试有界文件清理；失败不恢复读取，所有者可继续查询和重试已删除文档的操作。
+
 ## 双库与部署
 
-迁移 `240_AiKnowledgeBase.sql` 增加 `fn_ai_knowledge_base`，`241_AiKnowledgeMember.sql` 增加 `fn_ai_knowledge_member`，`242_AiKnowledgeDocument.sql` 增加 `fn_ai_knowledge_document` 与 `fn_ai_knowledge_document_member`；均有 SQL Server 与 MySQL 实现，不改写已有业务表。外键仅关联 AI 自有父记录，知识库/用户标识不向 Identity 或 Tenancy 表建立外键。SQL Server 主键显式采用 UUID v7 聚集键；MySQL 使用 Binary16 网络字节序。
+迁移 `240_AiKnowledgeBase.sql` 增加 `fn_ai_knowledge_base`，`241_AiKnowledgeMember.sql` 增加 `fn_ai_knowledge_member`，`242_AiKnowledgeDocument.sql` 增加 `fn_ai_knowledge_document` 与 `fn_ai_knowledge_document_member`，`243_AiKnowledgeFileVersion.sql` 增加 `fn_ai_knowledge_version` 与 `fn_ai_knowledge_import`；均有 SQL Server 与 MySQL 实现，不改写已有业务表。外键仅关联 AI 自有父记录，不向 Files、Identity 或 Tenancy 表建立外键。SQL Server 主键显式采用 UUID v7 聚集键；MySQL 使用 Binary16 网络字节序。
 
 建表、后置索引与 SQL Server 注释支持未记账重放。暂停旧应用后可前滚迁移；如需应用回退，保留新增表即可，旧应用不读写该表，不需要删除目录数据。迁移不播种目录或默认审批。
 
-验收证据与任务状态统一记录在[活动开发计划 R04](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。当前 API 无 Vue 页面入口；生成客户端、文档上传与页面按后续切片交付，整体 R04/RAG 和容量状态不能由这些切片验收推导。
+验收证据与任务状态统一记录在[活动开发计划 R04](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。当前 API 无 Vue 页面入口；生成客户端、范围授权及页面按后续切片交付，整体 R04/RAG 和容量状态不能由这些切片验收推导。

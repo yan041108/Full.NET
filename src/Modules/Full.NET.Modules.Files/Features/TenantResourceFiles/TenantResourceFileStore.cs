@@ -25,11 +25,12 @@ namespace Full.NET.Modules.Files.Features.TenantResourceFiles;
 /// <param name="options">上传预算。</param>
 /// <param name="storageQuotaPort">租户文件存储配额端口；由 Tenancy 在 SaaS 组合中替换默认空实现。</param>
 /// <param name="activeTenants">活动租户目录；暂停租户拒绝上传。</param>
+/// <param name="database">成对有界清理查询的数据库提供程序。</param>
 internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandExecutor commands,
     ICurrentTenantContextWriter tenant, IDataTransactionState transactionState, FileStorageProviderRegistry providers,
     IEnumerable<ITenantResourceFileOwner> resourceOwners, IClock clock, IIdGenerator ids,
     IOptions<LocalFileStorageOptions> options, ITenantFileStorageQuotaPort storageQuotaPort,
-    IIdentityActiveTenantDirectory activeTenants) : ITenantResourceFileStore
+    IIdentityActiveTenantDirectory activeTenants, IOptions<DatabaseOptions> database) : ITenantResourceFileStore, ITenantResourceFileCleanup
 {
     /// <inheritdoc />
     public async Task<Result<TenantResourceFileReference>> UploadAsync(string ownerModuleKey, Guid resourceId,
@@ -91,6 +92,8 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         {
             return MapQuotaFailure<TenantResourceFileReference>(reserveResult.Error!);
         }
+        if (!reserveResult.Value)
+            return Failure<TenantResourceFileReference>(FilesErrorCodes.StorageQuotaExceeded, ErrorType.Conflict);
 
         var provider = providers.DefaultProvider;
         var storageKey = $"tenant-resources/{tenantId:N}/{fileId:N}";
@@ -115,43 +118,74 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         }
         catch
         {
+            await DeleteRevokedObjectAsync(ownerModuleKey, resourceId, fileId, provider, storageKey).ConfigureAwait(false);
             await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
             throw;
         }
 
-        if (await commands.ExecuteAsync(TenantResourceFileSql.MarkReady,
-            Parameters(ownerModuleKey, resourceId, fileId), cancellationToken).ConfigureAwait(false) != 1)
+        var published = false;
+        try
         {
-            await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
-            var current = await queries.QuerySingleOrDefaultAsync<TenantResourceFileRecord>(TenantResourceFileSql.FindOwned,
-                Parameters(ownerModuleKey, resourceId, fileId), cancellationToken).ConfigureAwait(false);
-            if (current?.StatusKey == "released")
+            // 对象存在不代表配额已计量。未知确认结果保持 pending，由 Worker 使用原操作键幂等确认。
+            var confirmResult = await FilesHostExecutionScope.RunAsync(
+                    tenant,
+                    () => storageQuotaPort.ConfirmAsync(tenantId, operationId, cancellationToken))
+                .ConfigureAwait(false);
+            if (!confirmResult.IsSuccess)
+                return MapQuotaFailure<TenantResourceFileReference>(confirmResult.Error!);
+            if (!confirmResult.Value)
             {
-                await provider.DeleteAsync(storageKey, cancellationToken).ConfigureAwait(false);
+                // 只撤销 pending，避免旧确认结果覆盖并发赢家；清理已完成时自行删除晚到对象。
+                await commands.ExecuteAsync(TenantResourceFileSql.ReleasePending,
+                    Parameters(ownerModuleKey, resourceId, fileId), cancellationToken).ConfigureAwait(false);
+                await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
+                return Failure<TenantResourceFileReference>(FilesErrorCodes.StorageQuotaExceeded, ErrorType.Conflict);
             }
 
-            return Failure<TenantResourceFileReference>(FilesErrorCodes.RevisionConflict, ErrorType.Conflict);
-        }
+            if (await commands.ExecuteAsync(TenantResourceFileSql.MarkReady,
+                Parameters(ownerModuleKey, resourceId, fileId), cancellationToken).ConfigureAwait(false) != 1)
+            {
+                await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
+                return Failure<TenantResourceFileReference>(FilesErrorCodes.RevisionConflict, ErrorType.Conflict);
+            }
 
-        var confirmResult = await FilesHostExecutionScope.RunAsync(
-                tenant,
-                () => storageQuotaPort.ConfirmAsync(tenantId, operationId, cancellationToken))
-            .ConfigureAwait(false);
-        if (!confirmResult.IsSuccess)
+            published = true;
+            return Result<TenantResourceFileReference>.Success(new(fileId, buffered.Length, digest));
+        }
+        finally
         {
-            await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
-            return MapQuotaFailure<TenantResourceFileReference>(confirmResult.Error!);
+            // 响应失败、异常或取消都可能晚于租约清理；独立短令牌只删除权威已撤销的对象。
+            if (!published)
+                await DeleteRevokedObjectAsync(ownerModuleKey, resourceId, fileId, provider, storageKey).ConfigureAwait(false);
         }
-
-        return Result<TenantResourceFileReference>.Success(new(fileId, buffered.Length, digest));
     }
 
-    private async Task ReleaseQuotaReservationAsync(
+    /// <summary>旧上传退出时补偿已撤销对象，保留 pending/ready 的并发赢家及原始失败信息。</summary>
+    /// <param name="ownerModuleKey">所属模块。</param>
+    /// <param name="resourceId">所属资源。</param>
+    /// <param name="fileId">本次上传标识。</param>
+    /// <param name="provider">已选定存储。</param>
+    /// <param name="storageKey">本次独立对象键。</param>
+    private async Task DeleteRevokedObjectAsync(string ownerModuleKey, Guid resourceId, Guid fileId,
+        IFileStorageProvider provider, string storageKey)
+    {
+        using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        try
+        {
+            var current = await queries.QuerySingleOrDefaultAsync<TenantResourceFileRecord>(TenantResourceFileSql.FindOwned,
+                Parameters(ownerModuleKey, resourceId, fileId), cleanup.Token).ConfigureAwait(false);
+            if (current is null || current.StatusKey == "released")
+                await provider.DeleteAsync(storageKey, cleanup.Token).ConfigureAwait(false);
+        }
+        catch (Exception) { }
+    }
+
+    private async Task<Result<bool>> ReleaseQuotaReservationAsync(
         Guid tenantId,
         string operationId,
         CancellationToken cancellationToken)
     {
-        await FilesHostExecutionScope.RunAsync(
+        return await FilesHostExecutionScope.RunAsync(
                 tenant,
                 () => storageQuotaPort.ReleaseAsync(tenantId, operationId, cancellationToken))
             .ConfigureAwait(false);
@@ -219,6 +253,30 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         }
         await commands.ExecuteAsync(TenantResourceFileSql.Release, parameters, cancellationToken).ConfigureAwait(false);
         await providers.Resolve(record.ProviderKey).DeleteAsync(record.StorageKey, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> ReleaseOwnedAsync(string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default)
+    {
+        var tenantId = RequireScope(ownerModuleKey, resourceId);
+        RequireNoTransaction();
+        var parameters = new Dictionary<string, object?> { ["OwnerModuleKey"] = ownerModuleKey, ["ResourceId"] = resourceId, ["PageSize"] = 25 };
+        var statement = database.Value.Provider switch
+        {
+            DatabaseProvider.SqlServer => TenantResourceFileSql.ListOwnedSqlServer,
+            DatabaseProvider.MySql => TenantResourceFileSql.ListOwnedMySql,
+            _ => throw new NotSupportedException("Unsupported resource file database provider."),
+        };
+        var files = await queries.QueryAsync<TenantResourceFileReadyRecord>(statement, parameters, cancellationToken).ConfigureAwait(false);
+        foreach (var file in files)
+        {
+            // pending 也必须先撤销发布资格；已释放的墓碑允许再次物理删除。
+            await ReleaseAsync(ownerModuleKey, resourceId, file.Id, cancellationToken).ConfigureAwait(false);
+            var release = await ReleaseQuotaReservationAsync(tenantId, file.Id.ToString("N"), cancellationToken).ConfigureAwait(false);
+            if (!release.IsSuccess) return false;
+            await commands.ExecuteAsync(TenantResourceFileSql.PurgeReleased, Parameters(ownerModuleKey, resourceId, file.Id), cancellationToken).ConfigureAwait(false);
+        }
+        return await queries.QuerySingleOrDefaultAsync<long>(TenantResourceFileSql.CountOwned, parameters, cancellationToken).ConfigureAwait(false) == 0;
     }
 
     /// <summary>调用方只能提供所属资源键，租户必须来自当前已验证上下文。</summary>

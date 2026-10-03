@@ -3,6 +3,16 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <summary>知识库稳定错误码；业务不依赖译文。</summary>
 public static class AiKnowledgeErrorCodes
 {
+    /// <summary>来源文件名、内容类型、实际内容或大小不符合上传边界。</summary>
+    public const string UploadInvalid = Prefix + "upload_invalid";
+    /// <summary>当前导入已被有界租约持有。</summary>
+    public const string ImportBusy = Prefix + "import_busy";
+    /// <summary>稳定重试键已用于不同的上传请求。</summary>
+    public const string ImportConflict = Prefix + "import_conflict";
+    /// <summary>持久化导入尚缺来源文件，须以原重试键重传。</summary>
+    public const string UploadRequired = Prefix + "upload_required";
+    /// <summary>权威来源文件不存在或元数据不匹配。</summary>
+    public const string SourceUnavailable = Prefix + "source_unavailable";
     /// <summary>文档不存在、已删除、目录禁用或当前主体未获授权。</summary>
     public const string DocumentNotFound = Prefix + "document_not_found";
     /// <summary>文档元数据或版本输入不符合边界。</summary>

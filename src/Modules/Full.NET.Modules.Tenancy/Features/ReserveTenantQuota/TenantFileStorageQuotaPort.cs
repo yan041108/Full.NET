@@ -66,6 +66,10 @@ internal sealed class TenantFileStorageQuotaPort(
                 },
                 cancellationToken)
             .ConfigureAwait(false);
+        // 契约中的 false 表示确定缺失或过期；临时数据库错误仍保持失败结果。
+        if (!result.IsSuccess && result.Error!.Code == TenancyErrorCodes.QuotaReservationNotFound
+            && result.Error.Type == ErrorType.NotFound)
+            return Result<bool>.Success(false);
         return result.IsSuccess
             ? Result<bool>.Success(true)
             : Result<bool>.Failure(result.Error!);
@@ -84,6 +88,10 @@ internal sealed class TenantFileStorageQuotaPort(
                 },
                 cancellationToken)
             .ConfigureAwait(false);
+        // 已确认、已过期或缺失是权威终态；CAS 冲突和暂时失败仍须保留补偿凭据。
+        if (!result.IsSuccess && result.Error!.Code == TenancyErrorCodes.QuotaReservationNotFound
+            && result.Error.Type == ErrorType.NotFound)
+            return Result<bool>.Success(false);
         return result.IsSuccess
             ? Result<bool>.Success(true)
             : Result<bool>.Failure(result.Error!);

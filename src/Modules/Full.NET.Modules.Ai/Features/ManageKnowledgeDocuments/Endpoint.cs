@@ -41,10 +41,18 @@ internal static class Endpoint
             "aiUpdateKnowledgeDocument", AiKnowledgeDocumentPermissions.Update)
             .Produces<AiKnowledgeDocumentResponse>(StatusCodes.Status200OK);
         Common(group.MapDelete("/{documentId:guid}", async (Guid knowledgeBaseId, Guid documentId, [FromBody] DeleteAiKnowledgeDocumentRequest request,
-            AiKnowledgeDocumentService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            AiKnowledgeDocumentService service, Features.ManageKnowledgeVersions.AiKnowledgeImportCoordinator imports,
+            IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
         {
             if (!TryActor(context, out var actor)) return Results.Unauthorized();
             var result = await service.DeleteAsync(knowledgeBaseId, documentId, actor, request.Version, token).ConfigureAwait(false);
+            if (result.IsSuccess)
+            {
+                // 删除已经提交；清理取消或存储失败不能撤销拒读墓碑，所有者可再次触发恢复。
+                using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                try { _ = await imports.CleanupDocumentAsync(knowledgeBaseId, documentId, actor, cleanup.Token).ConfigureAwait(false); }
+                catch (Exception) { }
+            }
             return result.IsSuccess ? Results.NoContent() : mapper.Map(result, context);
         }), "aiDeleteKnowledgeDocument", AiKnowledgeDocumentPermissions.Delete)
             .Produces(StatusCodes.Status204NoContent);

@@ -5,6 +5,18 @@ namespace Full.NET.Modules.Files.Persistence;
 /// <summary>租户资源文件独立元数据；所有访问均绑定可信租户和精确所属资源。</summary>
 internal static class TenantResourceFileSql
 {
+    /// <summary>清理仅扫描当前租户和所属资源，覆盖 pending 与可重试墓碑。</summary>
+    public static readonly SqlStatement ListOwnedSqlServer = new("files.tenant_resource_file.list_owned.sqlserver",
+        "SELECT Id, OriginalFileName, CreatedAtUtc FROM fn_files_tenant_resource_file WHERE TenantId=@TenantId AND OwnerModuleKey=@OwnerModuleKey AND ResourceId=@ResourceId ORDER BY CreatedAtUtc, Id OFFSET 0 ROWS FETCH NEXT @PageSize ROWS ONLY",
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    /// <summary>MySQL 同样按固定所有权有界扫描所有恢复状态。</summary>
+    public static readonly SqlStatement ListOwnedMySql = new("files.tenant_resource_file.list_owned.mysql",
+        "SELECT Id, OriginalFileName, CreatedAtUtc FROM fn_files_tenant_resource_file WHERE TenantId=@TenantId AND OwnerModuleKey=@OwnerModuleKey AND ResourceId=@ResourceId ORDER BY CreatedAtUtc, Id LIMIT @PageSize",
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    /// <summary>释放后检查是否仍有尚未完成的所属资源意图。</summary>
+    public static readonly SqlStatement CountOwned = new("files.tenant_resource_file.count_owned",
+        "SELECT COUNT(*) FROM fn_files_tenant_resource_file WHERE TenantId=@TenantId AND OwnerModuleKey=@OwnerModuleKey AND ResourceId=@ResourceId",
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     /// <summary>只在资源所属模块已确认当前租户真实引用后读取存量 Host 对象；不提供按 UUID 的公共回退接口。</summary>
     public static readonly SqlStatement FindAuthorizedLegacyReference = new("files.tenant_resource_file.authorized_legacy_reference", """
         SELECT Id, OriginalFileName, ContentType, SizeBytes, COALESCE(ContentHash, '') AS ContentHash,
@@ -104,6 +116,12 @@ internal static class TenantResourceFileSql
     public static readonly SqlStatement Release = new("files.tenant_resource_file.release", """
         UPDATE fn_files_tenant_resource_file SET StatusKey = 'released'
         WHERE TenantId = @TenantId AND Id = @Id AND OwnerModuleKey = @OwnerModuleKey AND ResourceId = @ResourceId
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    /// <summary>旧 pending 扫描或上传只撤销尚未发布的意图，不能覆盖并发已确认的 ready。</summary>
+    public static readonly SqlStatement ReleasePending = new("files.tenant_resource_file.release_pending", """
+        UPDATE fn_files_tenant_resource_file SET StatusKey = 'released'
+        WHERE TenantId = @TenantId AND Id = @Id AND OwnerModuleKey = @OwnerModuleKey AND ResourceId = @ResourceId
+          AND StatusKey = 'pending'
         """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     /// <summary>物理删除成功后移除释放墓碑，失败时必须保留供下轮重试。</summary>
     public static readonly SqlStatement PurgeReleased = new("files.tenant_resource_file.purge_released", """

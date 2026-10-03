@@ -5,6 +5,8 @@ using Full.NET.Abstractions.Results;
 /// <summary>引用 claim 的稳定消费者模块键。</summary>
 public static class HostFileReferenceClaimConsumerModules
 {
+    /// <summary>AI 知识库不可变文件版本与持久化导入意图。</summary>
+    public const string Ai = "ai";
     /// <summary>Document 模块消费者；用于文档版本关联文件的 claim 生命周期。</summary>
     public const string Document = "document";
 
@@ -39,6 +41,9 @@ public static class HostFileReferenceClaimStates
 /// </summary>
 public static class HostFileReferenceClaimIdempotencyKeys
 {
+    /// <summary>同一知识库版本始终使用相同引用键，客户端不能指定文件引用。</summary>
+    /// <param name="versionId">服务端生成的版本标识。</param>
+    public static string AiKnowledgeVersion(Guid versionId) => $"ai-knowledge-version:{versionId:D}";
     /// <summary>
     /// 为 Document 模块的某个版本生成稳定幂等键；同一 versionId 多次调用返回值相同。
     /// </summary>

@@ -36,6 +36,8 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         services.AddSingleton<IIntegrationEventSerializer,
             MemoryPackIntegrationEventSerializer>();
         services.AddSingleton(Substitute.For<IQueryExecutor>());
+        services.AddSingleton(Substitute.For<ICommandExecutor>());
+        services.AddSingleton(Substitute.For<ICommandTransaction>());
 
         new TenancyModule().AddBackgroundServices(
             services,

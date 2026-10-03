@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text;
 using Dapper;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
@@ -80,6 +81,7 @@ internal static class NativeApiE2EAssertions
             new SetAiKnowledgeDocumentMembersRequest([tenantMember.UserId], tenantDocument.Version));
         using var tenantDocGranted = await client.SendAsync(tenantDocGrant, cancellationToken).ConfigureAwait(false);
         await AssertStatusAsync(tenantDocGranted, HttpStatusCode.OK, "Grant native tenant document access", cancellationToken).ConfigureAwait(false);
+        await VerifyKnowledgeFileNativeAsync(client, tenantToken, tenantDocPath + $"/{tenantDocument.Id}", tenantDocument.Version + 1, cancellationToken).ConfigureAwait(false);
         await AssertPageContainsAsync<AiKnowledgeDocumentResponse>(client, tenantDocPath, tenantToken,
             item => item.Id == tenantDocument.Id && item.Status == "draft", cancellationToken).ConfigureAwait(false);
         using var tenantRevoke = AuthorizedJson(HttpMethod.Put, $"/api/v1/ai/knowledge-bases/{tenantBase.Id}/members", tenantToken,
@@ -1296,7 +1298,8 @@ internal static class NativeApiE2EAssertions
         var role = await PostAndReadAsync<CreateHostRoleRequest, HostRoleResponse>(client, "/api/v1/identity/roles", ownerToken,
             new CreateHostRoleRequest($"naot-kb-{suffix}", "原生知识库只读"), HttpStatusCode.Created, token).ConfigureAwait(false);
         using var permissions = AuthorizedJson(HttpMethod.Put, $"/api/v1/identity/roles/{role.Id}/permissions", ownerToken,
-            new ReplaceHostRolePermissionsRequest([AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read], role.Version));
+            new ReplaceHostRolePermissionsRequest([AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
+                AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.VersionsRead], role.Version));
         using var assignedPermissions = await client.SendAsync(permissions, token).ConfigureAwait(false);
         await AssertStatusAsync(assignedPermissions, HttpStatusCode.OK, "Assign native knowledge read permission", token).ConfigureAwait(false);
         using var rolesGet = Authorized(HttpMethod.Get, $"/api/v1/identity/users/{user.Id}/roles", ownerToken);
@@ -1340,7 +1343,7 @@ internal static class NativeApiE2EAssertions
         await AssertStatusAsync(deletedResponse, HttpStatusCode.NotFound, "Deny native deleted document metadata", token).ConfigureAwait(false);
     }
 
-    // 文件链路尚未接入；原生探针验证草稿、两层授权、分页、版本更新和独立撤权。
+    // 原生探针执行文件版本、双层授权、分页、版本更新和独立撤权。
     private static async Task<AiKnowledgeDocumentResponse> VerifyKnowledgeDocumentNativeAsync(HttpClient client,
         string ownerToken, string memberToken, Guid userId, string basePath, CancellationToken token)
     {
@@ -1358,8 +1361,12 @@ internal static class NativeApiE2EAssertions
         await AssertStatusAsync(granted, HttpStatusCode.OK, "Grant native document access", token).ConfigureAwait(false);
         var members = (await granted.Content.ReadFromJsonAsync<AiKnowledgeDocumentMembersResponse>(token).ConfigureAwait(false))!;
         CollectionAssert.AreEqual(new[] { userId }, members.UserIds.ToArray());
+        var imported = await VerifyKnowledgeFileNativeAsync(client, ownerToken, docPath, members.Version, token).ConfigureAwait(false);
+        using var memberSource = Authorized(HttpMethod.Get, docPath + $"/versions/{imported.VersionId}/source", memberToken);
+        using var memberSourceResponse = await client.SendAsync(memberSource, token).ConfigureAwait(false);
+        await AssertStatusAsync(memberSourceResponse, HttpStatusCode.OK, "Read native explicitly authorized source", token).ConfigureAwait(false);
         using var update = AuthorizedJson(HttpMethod.Put, docPath, ownerToken,
-            new UpdateAiKnowledgeDocumentRequest("原生更新标题", null, members.Version));
+            new UpdateAiKnowledgeDocumentRequest("原生更新标题", null, members.Version + 1));
         using var updated = await client.SendAsync(update, token).ConfigureAwait(false);
         await AssertStatusAsync(updated, HttpStatusCode.OK, "Update native document metadata", token).ConfigureAwait(false);
         document = (await updated.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>(token).ConfigureAwait(false))!;
@@ -1376,6 +1383,9 @@ internal static class NativeApiE2EAssertions
         using var unreadable = Authorized(HttpMethod.Get, docPath, memberToken);
         using var unreadableResponse = await client.SendAsync(unreadable, token).ConfigureAwait(false);
         await AssertStatusAsync(unreadableResponse, HttpStatusCode.NotFound, "Immediately deny native revoked document", token).ConfigureAwait(false);
+        using var revokedSource = Authorized(HttpMethod.Get, docPath + $"/versions/{imported.VersionId}/source", memberToken);
+        using var revokedSourceResponse = await client.SendAsync(revokedSource, token).ConfigureAwait(false);
+        await AssertStatusAsync(revokedSourceResponse, HttpStatusCode.NotFound, "Immediately deny native revoked source", token).ConfigureAwait(false);
         using var regrant = AuthorizedJson(HttpMethod.Put, docPath + "/members", ownerToken,
             new SetAiKnowledgeDocumentMembersRequest([userId], members.Version));
         using var regranted = await client.SendAsync(regrant, token).ConfigureAwait(false);
@@ -1384,6 +1394,30 @@ internal static class NativeApiE2EAssertions
         using var currentResponse = await client.SendAsync(current, token).ConfigureAwait(false);
         await AssertStatusAsync(currentResponse, HttpStatusCode.OK, "Read native document authority", token).ConfigureAwait(false);
         return (await currentResponse.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>(token).ConfigureAwait(false))!;
+    }
+
+    private static async Task<AiKnowledgeImportResponse> VerifyKnowledgeFileNativeAsync(HttpClient client, string accessToken,
+        string docPath, int documentVersion, CancellationToken token)
+    {
+        var requestKey = Guid.NewGuid();
+        using var upload = Authorized(HttpMethod.Post, docPath + $"/versions?version={documentVersion}&requestKey={requestKey}&fileName=native.txt", accessToken);
+        upload.Content = new StringContent("原生来源正文", Encoding.UTF8, "text/plain");
+        using var uploaded = await client.SendAsync(upload, token).ConfigureAwait(false);
+        await AssertStatusAsync(uploaded, HttpStatusCode.Accepted, "Upload native knowledge source", token).ConfigureAwait(false);
+        var operation = (await uploaded.Content.ReadFromJsonAsync<AiKnowledgeImportResponse>(token).ConfigureAwait(false))!;
+        Assert.AreEqual("completed", operation.State);
+        await AssertPageContainsAsync<AiKnowledgeVersionResponse>(client, docPath + "/versions", accessToken,
+            item => item.Id == operation.VersionId && item.ProcessingStatus == "pending_processing", token).ConfigureAwait(false);
+        using var retry = Authorized(HttpMethod.Post, docPath + $"/imports/{operation.Id}/retry", accessToken);
+        using var retried = await client.SendAsync(retry, token).ConfigureAwait(false);
+        await AssertStatusAsync(retried, HttpStatusCode.OK, "Read native durable import recovery", token).ConfigureAwait(false);
+        Assert.AreEqual(operation.Id, (await retried.Content.ReadFromJsonAsync<AiKnowledgeImportResponse>(token).ConfigureAwait(false))!.Id);
+        using var source = Authorized(HttpMethod.Get, docPath + $"/versions/{operation.VersionId}/source", accessToken);
+        using var downloaded = await client.SendAsync(source, token).ConfigureAwait(false);
+        await AssertStatusAsync(downloaded, HttpStatusCode.OK, "Download native knowledge source", token).ConfigureAwait(false);
+        Assert.AreEqual("原生来源正文", await downloaded.Content.ReadAsStringAsync(token).ConfigureAwait(false));
+        Assert.IsTrue(downloaded.Headers.CacheControl!.NoStore);
+        return operation;
     }
 
     private static async Task VerifyMessagingDeadLetterFlowAsync(

@@ -53,12 +53,13 @@ public sealed class AiModule : IFullNetModule
     public string Name => "Ai";
 
     /// <summary>
-    /// Ai 模块依赖 Identity 与 Tenancy 模块，需在其后加载。
+    /// Ai 模块依赖 Identity、Tenancy 与 Files，文件版本仅经权威契约访问。
     /// </summary>
     public IReadOnlyCollection<string> Dependencies =>
     [
         "Identity",
         "Tenancy",
+        "Files",
     ];
 
     /// <summary>注册 Ai 模块的模型配置、连通性测试、聊天会话、配额预算、Agent 运行、MCP 与 AgUI 等服务。</summary>
@@ -90,6 +91,10 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Features.ManageKnowledgeBases.AiKnowledgeBaseService>();
         services.TryAddScoped<Features.ManageKnowledgeMembers.AiKnowledgeMemberService>();
         services.TryAddScoped<Features.ManageKnowledgeDocuments.AiKnowledgeDocumentService>();
+        services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportStore>();
+        services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportCoordinator>();
+        services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeVersionReader>();
+        RegisterKnowledgeFileReferences(services);
         services.TryAddScoped<AiModelConfigManagementService>();
         services.TryAddScoped<AiModelConfigOperationsService>();
         services.TryAddScoped<AiEmbeddingTestService>();
@@ -135,6 +140,7 @@ public sealed class AiModule : IFullNetModule
         Features.ManageModelConfigs.Endpoint.Map(endpoints);
         Features.ManageKnowledgeBases.Endpoint.Map(endpoints);
         Features.ManageKnowledgeDocuments.Endpoint.Map(endpoints);
+        Features.ManageKnowledgeVersions.Endpoint.Map(endpoints);
         Features.TestEmbeddings.Endpoint.Map(endpoints);
         Features.ManageMcpRemoteConnections.Endpoint.Map(endpoints);
         Features.ManageTenantQuotas.Endpoint.Map(endpoints);
@@ -150,6 +156,7 @@ public sealed class AiModule : IFullNetModule
     /// <summary>只在 Worker 注册领取循环；Provider 由 Composition 在 Worker Profile 装配。</summary>
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+        RegisterKnowledgeFileReferences(services);
         services.AddOptions<AiAgentRuntimeOptions>().BindConfiguration(AiAgentRuntimeOptions.SectionName);
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
@@ -174,6 +181,15 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<AiAgentRunCoordinator>();
         services.TryAddSingleton<IAgentModelRunner>(_ => AgentFrameworkRuntime.CreateRunner());
         services.AddHostedService<AiAgentRunHostedProcessor>();
+    }
+
+    private static void RegisterKnowledgeFileReferences(IServiceCollection services)
+    {
+        // Worker 只注册持久化引用探测，不引入上传、HTTP 或文档管理服务。
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<Full.NET.Modules.Files.Contracts.IHostFileReferenceClaimProbe,
+            Features.ManageKnowledgeVersions.AiKnowledgeFileReferenceProbe>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<Full.NET.Modules.Files.Contracts.ITenantResourceFileOwner,
+            Features.ManageKnowledgeVersions.AiKnowledgeFileReferenceProbe>());
     }
 
     private static void RegisterAgentToolExecution(IServiceCollection services, bool forWorker)

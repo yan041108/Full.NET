@@ -4,6 +4,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Persistence;
 using Full.NET.Modules.Files.Storage;
+using Full.NET.Modules.Files.Features;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Files.Reconciliation;
@@ -28,7 +29,7 @@ internal sealed record PendingTenantResourceFileReconciliationResult(
         new(0, 0, 0, 0, 0, 0);
 }
 
-/// <summary>对账陈旧 pending/ready 租户资源文件；pending 按对象存在性提升或删除，ready 仅在所属模块确认不再引用后释放。</summary>
+/// <summary>pending 仅在对象存在且配额确认后发布；ready 仅在所属模块确认不再引用后释放。</summary>
 /// <param name="queryExecutor">查询执行器。</param>
 /// <param name="commandExecutor">命令执行器。</param>
 /// <param name="storageProviders">对象存储。</param>
@@ -37,6 +38,7 @@ internal sealed record PendingTenantResourceFileReconciliationResult(
 /// <param name="currentTenant">租户上下文写入器。</param>
 /// <param name="databaseOptions">数据库提供程序。</param>
 /// <param name="clock">时钟。</param>
+/// <param name="storageQuotaPort">以原文件操作键确认计量，禁止仅凭对象存在恢复可读状态。</param>
 /// <param name="cursor">Worker 跨轮共享游标；直接调用未提供时仅在本实例内保留。</param>
 internal sealed class PendingTenantResourceFileReconciliationRunner(
     IQueryExecutor queryExecutor,
@@ -47,6 +49,7 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
     ICurrentTenantContextWriter currentTenant,
     IOptions<DatabaseOptions> databaseOptions,
     IClock clock,
+    ITenantFileStorageQuotaPort storageQuotaPort,
     TenantResourceFileReconciliationCursor? cursor = null)
 {
     private readonly TenantResourceFileReconciliationCursor _cursor = cursor ?? new();
@@ -163,6 +166,9 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
                         }
 
                         // 只有对象删除成功才移除墓碑；异常/崩溃后 released 仍会被后续扫描重试。
+                        var quotaRelease = await FilesHostExecutionScope.RunAsync(currentTenant,
+                            () => storageQuotaPort.ReleaseAsync(record.TenantId, record.Id.ToString("N"), cancellationToken)).ConfigureAwait(false);
+                        if (!quotaRelease.IsSuccess) { skipped++; continue; }
                         await commandExecutor.ExecuteAsync(TenantResourceFileSql.PurgeReleased,
                             parameters, cancellationToken).ConfigureAwait(false);
                         released++;
@@ -200,7 +206,7 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
             scanned, promoted, purged, released, skipped, batches);
     }
 
-    /// <summary>pending：对象存在则提升，不存在则删除元数据；探测失败必须保留。</summary>
+    /// <summary>pending：对象存在且原配额操作确认才提升；缺失对象释放预留，未知结果保留。</summary>
     /// <param name="record">扫描行。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     private async Task<PendingOutcome> ReconcilePendingAsync(
@@ -223,6 +229,24 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
             return PendingOutcome.Skipped;
         }
 
+        if (exists)
+        {
+            var confirmed = await FilesHostExecutionScope.RunAsync(currentTenant,
+                () => storageQuotaPort.ConfirmAsync(record.TenantId, record.Id.ToString("N"), cancellationToken)).ConfigureAwait(false);
+            if (!confirmed.IsSuccess) return PendingOutcome.Skipped;
+            if (!confirmed.Value)
+            {
+                // 已知缺失/过期不能继续重试发布；墓碑由下一轮物理删除，未知错误则保留 pending。
+                await commandExecutor.ExecuteAsync(TenantResourceFileSql.ReleasePending, OwnedParameters(record), cancellationToken).ConfigureAwait(false);
+                return PendingOutcome.Skipped;
+            }
+        }
+        else
+        {
+            var released = await FilesHostExecutionScope.RunAsync(currentTenant,
+                () => storageQuotaPort.ReleaseAsync(record.TenantId, record.Id.ToString("N"), cancellationToken)).ConfigureAwait(false);
+            if (!released.IsSuccess) return PendingOutcome.Skipped;
+        }
         var statement = exists ? TenantResourceFileSql.PromotePending : TenantResourceFileSql.PurgePending;
         var affected = await commandExecutor.ExecuteAsync(
                 statement,
