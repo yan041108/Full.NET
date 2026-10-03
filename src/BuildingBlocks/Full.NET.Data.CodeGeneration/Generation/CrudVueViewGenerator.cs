@@ -57,6 +57,10 @@ internal static class CrudVueViewGenerator
             || schema.UsesLegacyEntityCapabilities
             ? "remove"
             : string.Empty;
+        var deleteWarning = !schema.UsesLegacyEntityCapabilities
+            && schema.EntityCapabilities.DeleteMode == FullNetCrudDeleteMode.HardDelete
+            ? "确定删除该条记录吗？此操作无法撤销。"
+            : "确定删除该条记录吗？";
         var returned = string.Join(
             ",\n  ",
             new[]
@@ -255,7 +259,7 @@ internal static class CrudVueViewGenerator
                   </template>
                 </el-dialog>
                 <el-dialog v-model="deleteOpen" title="确认删除" @close="deleting = undefined">
-                  <p>确定删除该条记录吗？此操作无法撤销。</p>
+                  <p>{{deleteWarning}}</p>
                   <template #footer>
                     <el-button @click="deleteOpen = false">取消</el-button>
                     <el-button type="danger" @click="confirmDelete">确认删除</el-button>

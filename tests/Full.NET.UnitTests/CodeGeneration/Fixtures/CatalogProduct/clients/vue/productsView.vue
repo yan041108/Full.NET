@@ -198,7 +198,7 @@ async function confirmDelete(): Promise<void> {
       </template>
     </el-dialog>
     <el-dialog v-model="deleteOpen" title="确认删除" @close="deleting = undefined">
-      <p>确定删除该条记录吗？此操作无法撤销。</p>
+      <p>确定删除该条记录吗？</p>
       <template #footer>
         <el-button @click="deleteOpen = false">取消</el-button>
         <el-button type="danger" @click="confirmDelete">确认删除</el-button>

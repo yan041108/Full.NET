@@ -14,10 +14,12 @@ const origin = 'http://localhost:25183';
 async function auditAccessibility(page, selector, evidence, surface) {
   const result = await new AxeBuilder({ page }).include(selector)
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
-  const violations = result.violations.map(({ id, impact, nodes }) => ({ id, impact, count: nodes.length }));
+  const violations = result.violations.map(({ id, impact, nodes }) => ({
+    id, impact, count: nodes.length, targets: nodes.map(node => node.target),
+  }));
   evidence.accessibility.push({ surface, violations });
   assert.equal(violations.length, 0,
-    `${surface} accessibility violations: ${violations.map(value => value.id).join(', ')}`);
+    `${surface} accessibility violations: ${violations.map(value => `${value.id} (${value.targets.map(String).join('; ')})`).join(', ')}`);
 }
 
 async function waitForVue(process, timeoutMs = 60_000) {
@@ -64,7 +66,11 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
         const page = await context.newPage();
         let tenantSwitchStarted = false;
         let activeAccessToken;
+        let deleteRequests = 0;
         page.on('request', request => {
+          if (new URL(request.url()).pathname.endsWith('/delete') && request.method() === 'POST') {
+            deleteRequests += 1;
+          }
           if (!tenantSwitchStarted || new URL(request.url()).pathname !== '/api/v1/navigation') return;
           const authorization = request.headers().authorization;
           if (authorization?.startsWith('Bearer ')) activeAccessToken = authorization.slice('Bearer '.length);
@@ -166,11 +172,14 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
             await expect(dialog).toBeVisible();
             await dialog.evaluate(element => element.setAttribute('data-fullnet-audit-dialog', 'delete'));
             await auditAccessibility(page, '[data-fullnet-audit-dialog="delete"]', evidence, 'delete-dialog');
+            assert.equal(deleteRequests, 0, 'opening delete confirmation sent a delete request');
             await page.keyboard.press('Escape');
             await expect(dialog).not.toBeVisible();
             await expect(target).toBeVisible();
+            assert.equal(deleteRequests, 0, 'cancelling delete confirmation sent a delete request');
             await deleteButton.click();
             await expect(dialog).toBeVisible();
+            assert.equal(deleteRequests, 0, 'reopening delete confirmation sent a delete request');
             const confirmButton = dialog.getByRole('button', { name: '确认删除' });
             await confirmButton.focus();
             const [response] = await Promise.all([
@@ -179,8 +188,9 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
               page.keyboard.press('Enter'),
             ]);
             assert.equal(response.status(), 200, 'browser delete did not return HTTP 200');
+            assert.equal(deleteRequests, 1, 'delete confirmation must send exactly one delete request');
             await expect(target).toHaveCount(0);
-            evidence.action = { type: 'delete', status: response.status(), rowVisible: false };
+            evidence.action = { type: 'delete', status: response.status(), requests: deleteRequests, rowVisible: false };
           }
         } else {
           await page.goto(origin + '/#/catalog/products');

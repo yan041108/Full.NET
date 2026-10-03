@@ -828,6 +828,15 @@ public sealed class CrudArtifactGeneratorTests
         StringAssert.Contains(view, "@click=\"openDelete(row)\"");
         StringAssert.Contains(view, "<el-dialog v-model=\"deleteOpen\" title=\"确认删除\"");
         StringAssert.Contains(view, "@click=\"confirmDelete\"");
+        if (mode == "hard-delete")
+        {
+            StringAssert.Contains(view, "确定删除该条记录吗？此操作无法撤销。");
+        }
+        else
+        {
+            StringAssert.Contains(view, "确定删除该条记录吗？</p>");
+            Assert.IsFalse(view.Contains("此操作无法撤销", StringComparison.Ordinal));
+        }
         Assert.IsFalse(view.Contains("@click=\"removeRow(row)\"", StringComparison.Ordinal));
     }
 
