@@ -12,6 +12,14 @@ const AxeBuilder = requireFromParity('@axe-core/playwright');
 const origin = 'http://localhost:25183';
 
 async function auditAccessibility(page, selector, evidence, surface) {
+  // 弹窗刚变为可见时仍可能处在淡入过渡；在稳定画面上测量对比度。
+  await page.locator(selector).evaluate(async element => {
+    const animatedRoot = element.closest('.el-overlay') ?? element;
+    const finiteAnimations = animatedRoot.getAnimations({ subtree: true })
+      .filter(animation => animation.playState === 'running'
+        && animation.effect?.getTiming().iterations !== Infinity);
+    await Promise.all(finiteAnimations.map(animation => animation.finished.catch(() => {})));
+  });
   const result = await new AxeBuilder({ page }).include(selector)
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
   const violations = result.violations.map(({ id, impact, nodes }) => ({
