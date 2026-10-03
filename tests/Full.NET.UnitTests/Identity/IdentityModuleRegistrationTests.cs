@@ -376,6 +376,7 @@ public sealed class IdentityModuleRegistrationTests
             IdentityAuthenticationRegistrationMarker>(ServiceLifetime.Singleton),
         RegistrationExpectation.Self<AccessSessionValidator>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<ICurrentSessionAuthorization, CurrentSessionAuthorization>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<ICurrentApiKeyAuthorization, CurrentApiKeyAuthorization>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<IBackgroundSessionBindingValidator, BackgroundSessionBindingValidator>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<IBackgroundSessionAuthorization, BackgroundSessionAuthorization>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<FullNetJwtBearerEvents>(ServiceLifetime.Scoped),
@@ -585,6 +586,7 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<
             IWorkflowRoleMemberDirectory,
             WorkflowRoleMemberDirectory>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IActiveRoleDirectory, Full.NET.Modules.Identity.Roles.ActiveRoleDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostNavigationDefinitionLoader>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
