@@ -15,6 +15,7 @@ import { verifyApplicationCrudModule } from './support/application-crud-module.m
 import { verifyApplicationCrudHostWiring } from './support/application-crud-host-wiring.mjs';
 import { verifyApplicationCrudRuntime } from './support/application-crud-runtime.mjs';
 import { verifyApplicationCrudAuthorization } from './support/application-crud-authorization.mjs';
+import { verifyApplicationCrudSchemaSourceUpgrade } from './support/application-crud-schema-source-upgrade.mjs';
 
 const skipBundleIntegration = areBundleInputsClean()
   ? false
@@ -129,6 +130,8 @@ test('application template package includes framework sources and root manifest'
       '--filter', '@fullnet/admin', 'build',
     ], { cwd: appRoot, encoding: 'utf8', timeout: 180_000, shell: process.platform === 'win32' });
     assert.equal(frontendBuild.status, 0, frontendBuild.stderr || frontendBuild.stdout || frontendBuild.error?.message);
+
+    verifyApplicationCrudSchemaSourceUpgrade(appRoot);
 
     const repeat = spawnSync(process.execPath, [
       createTool, '--package', templateRoot, '--output', appRoot, '--name', 'Second',

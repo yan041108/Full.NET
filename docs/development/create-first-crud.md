@@ -213,6 +213,8 @@ Host运行远端证据：`44ad7883` 的[独立应用双库作业](https://github
 
 应用自有业务代码再生成保护增量：独立生成应用完成 Catalog 模块首次接入后，在未受管的 `Product.manual.cs` 增加可编译业务策略，再执行 `apply-module-integration`。SQL Server/MySQL 本地真实栈 2/2 通过；两库的 `application-crud-module/manual-repeat.json` 均报告六个受管模块产物 `Unchanged`，`manual-build.json` 的 Release 构建退出码为 0，人工业务文件及宿主文件字节保持。聚焦测试 17/17 通过，其中故意改写人工文件的注入执行器会被验收拒绝。此证据覆盖同一 Schema 的模块重复接入，不覆盖 Schema 有意升级后的业务迁移或自动合并人工修改；F02 仍未关闭。
 
+Schema 有意变更的源码升级增量：独立打包应用在既有 Product Schema 增加可空 `Description` 后，重跑应用自带 CLI，14 个受管源产物中 10 个 `Update`、4 个 `Unchanged`，SQL Server/MySQL 建表草案、后端契约与 OpenAPI 均含新字段；再次执行全部 `Unchanged`。模块接入更新 4 个产物，重复执行六个全部 `Unchanged`；人工业务文件、模块入口、授权贡献者、Composition 与 Vue 路由字节保持，API Release 构建通过。验收报告位于 `.tmp/template-real-stack/application-crud-schema-source-upgrade/`，明确 `databaseMigrationApplied=false`。这只证明源码可受控升级，既有业务表的双库增量迁移、存量数据兼容和更新后 HTTP 行为仍需单独验收；F02 不据此关闭。
+
 应用 Worker 运行增量：独立应用真实栈用例现于迁移后构建并启动应用自有 Worker，先执行 Tenancy 事件版本的空 Outbox 扫描，要求返回 `outbox.version_retirement.safe` 且待处理、死信数量均为零；常驻进程须通过 `/health/live` 和 `/health/ready`，持续运行到 API、客户端和浏览器验收结束，并检查关键后台故障日志。本地 SQL Server 2022 CU14 与 MySQL 8.0 均完成该流程；由于本机 Docker Hub 拉取令牌失败，本地 Redis 使用缓存的 8.6 镜像，CI 仍固定使用 MySQL 8.4 与 Redis 7.4。此证据覆盖双库启动、数据库查询及后台进程稳定性，不覆盖非空 Outbox 事件交付、应用自有 Native AOT 或容量实测，F02 仍未关闭。
 
 应用 Worker 非空 Outbox 增量：双库真实栈在 Worker 启动前写入一条合法 `fullnet.tenancy.tenant.changed` MemoryPack 消息，并按消息 ID 确认初始 `Attempts=0`、未处理、非死信；应用自有 Worker 启动后，同一消息首次领取即写入已处理、非死信终态，租约及下次重试字段清空。测试探针只存在于验收工作区，使用生成应用分发的框架程序集生成载荷；SQL Server 与 MySQL 本地用例均通过。此证据只覆盖 Minimal 预设的该条合法事件路由及成功终态，不外推到其他 Handler、失败重试、Kafka、应用自有 Native AOT 或容量实测，F02 仍未关闭。
