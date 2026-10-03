@@ -28,10 +28,9 @@ async function waitForVue(process, timeoutMs = 60_000) {
 export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirectory) {
   mkdirSync(reportDirectory, { recursive: true });
   const logStream = createWriteStream(join(reportDirectory, 'vite.log'), { flags: 'a' });
-  const command = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-  const viteProcess = spawn(command,
-    ['--filter', '@fullnet/admin', 'exec', 'vite', '--host', 'localhost', '--port', '25183', '--strictPort', '--logLevel', 'error'],
-    { cwd: appRoot, env: { ...process.env, VITE_API_PROXY_TARGET: apiUrl, VITE_STRICT_CSP: '1' }, stdio: 'pipe' });
+  const viteProcess = spawn(process.execPath,
+    [join(appRoot, 'ui/admin/node_modules/vite/bin/vite.js'), '--host', 'localhost', '--port', '25183', '--strictPort', '--logLevel', 'error'],
+    { cwd: join(appRoot, 'ui/admin'), env: { ...process.env, VITE_API_PROXY_TARGET: apiUrl, VITE_STRICT_CSP: '1' }, stdio: 'pipe' });
   viteProcess.stdout?.pipe(logStream, { end: false });
   viteProcess.stderr?.pipe(logStream, { end: false });
   let browser;
