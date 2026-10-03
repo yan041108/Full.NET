@@ -95,7 +95,24 @@ ${references.map((path) => `    <ProjectReference Include="../../framework/fulln
       assert.deepEqual(capture(), applied, 'test comment cleanup changed unrelated module content');
     }
   }
-  const result = { artifacts: MODULE_ARTIFACTS.length, moduleCompiled: true, conflictRejected: true, conflictArtifacts };
+  const manualPath = 'Product.manual.cs';
+  writeFileSync(join(moduleRoot, manualPath), `${applied.get(manualPath).toString('utf8')}
+namespace Demo.Modules.Catalog;
+
+internal static class ProductBusinessPolicy
+{
+    public static bool CanPublish(string name) => !string.IsNullOrWhiteSpace(name);
+}
+`);
+  const customizedManual = capture();
+  expectActions(execute('manual-repeat', args), 'Unchanged');
+  assert.deepEqual(capture(), customizedManual, 'repeat integration changed developer-owned business code');
+  execute('manual-build', ['build', join(appRoot, moduleProject), '-c', 'Release', '-v', 'quiet']);
+  assert.deepEqual(capture(), customizedManual, 'module build changed developer-owned business code');
+  assert.deepEqual(new Map(hostPaths.map((hostPath) => [hostPath, readFileSync(join(appRoot, hostPath))])),
+    hostSnapshot, 'manual business regeneration changed application host content');
+  const result = { artifacts: MODULE_ARTIFACTS.length, moduleCompiled: true, conflictRejected: true,
+    conflictArtifacts, manualExtensionPreserved: true };
   writeFileSync(join(reportDirectory, 'result.json'), JSON.stringify(result, null, 2));
   return result;
 }

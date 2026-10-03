@@ -211,6 +211,8 @@ Host运行远端证据：`44ad7883` 的[独立应用双库作业](https://github
 
 采纳后的 Vue 再生成保护增量：`596532d9` 的[独立生成应用双库 CI](https://github.com/yan041108/Full.NET/actions/runs/37127859802)成功，模板测试 424/424、零失败/跳过。早期 SQL 冲突检查先验证拒绝覆盖，再撤销仅由验收加入的注释，使后续再生成从干净受管源开始。两库的 `application-crud-vue/regenerate.json` 均以状态 0 报告全部 14 个生成产物 `Unchanged`；已采纳 Vue 页中的人工扩展及应用文件字节保持。随后人为改动生成源 `clients/vue/productsView.vue`，两库 `vue-conflict.json` 均以状态 2 精确报告该文件 `Conflict`，未改写应用页或其他产物；源文件在检查后恢复，Vue 构建和浏览器验收继续通过。此证据覆盖同输入再生成及人工文件保护，不覆盖 schema 变更后的有意升级、应用 Worker 或容量实测，F02 仍未关闭。
 
+应用自有业务代码再生成保护增量：独立生成应用完成 Catalog 模块首次接入后，在未受管的 `Product.manual.cs` 增加可编译业务策略，再执行 `apply-module-integration`。SQL Server/MySQL 本地真实栈 2/2 通过；两库的 `application-crud-module/manual-repeat.json` 均报告六个受管模块产物 `Unchanged`，`manual-build.json` 的 Release 构建退出码为 0，人工业务文件及宿主文件字节保持。聚焦测试 17/17 通过，其中故意改写人工文件的注入执行器会被验收拒绝。此证据覆盖同一 Schema 的模块重复接入，不覆盖 Schema 有意升级后的业务迁移或自动合并人工修改；F02 仍未关闭。
+
 应用 Worker 运行增量：独立应用真实栈用例现于迁移后构建并启动应用自有 Worker，先执行 Tenancy 事件版本的空 Outbox 扫描，要求返回 `outbox.version_retirement.safe` 且待处理、死信数量均为零；常驻进程须通过 `/health/live` 和 `/health/ready`，持续运行到 API、客户端和浏览器验收结束，并检查关键后台故障日志。本地 SQL Server 2022 CU14 与 MySQL 8.0 均完成该流程；由于本机 Docker Hub 拉取令牌失败，本地 Redis 使用缓存的 8.6 镜像，CI 仍固定使用 MySQL 8.4 与 Redis 7.4。此证据覆盖双库启动、数据库查询及后台进程稳定性，不覆盖非空 Outbox 事件交付、应用自有 Native AOT 或容量实测，F02 仍未关闭。
 
 应用 Worker 非空 Outbox 增量：双库真实栈在 Worker 启动前写入一条合法 `fullnet.tenancy.tenant.changed` MemoryPack 消息，并按消息 ID 确认初始 `Attempts=0`、未处理、非死信；应用自有 Worker 启动后，同一消息首次领取即写入已处理、非死信终态，租约及下次重试字段清空。测试探针只存在于验收工作区，使用生成应用分发的框架程序集生成载荷；SQL Server 与 MySQL 本地用例均通过。此证据只覆盖 Minimal 预设的该条合法事件路由及成功终态，不外推到其他 Handler、失败重试、Kafka、应用自有 Native AOT 或容量实测，F02 仍未关闭。
