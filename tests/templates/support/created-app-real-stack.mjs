@@ -374,6 +374,12 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
       expectedTenantId: tenantCrud.tenantId, logPath: join(logRoot, 'application-crud-client/tenant-writes.json') });
     await verifyApplicationCrudTenantIsolation(apiUrl, { localTenantId: tenantCrud.tenantId, initialAccessToken: tenantCrud.tenantAccessToken,
       logPath: join(logRoot, 'application-crud-tenant-isolation.json') });
+    assert.equal(workerProcess.exitCode, null, 'generated Worker exited during application acceptance');
+    const workerOutput = readFileSync(workerLogPath, 'utf8');
+    for (const marker of ['Unhandled exception', 'Outbox polling iteration failed',
+      'Outbox backlog sampling failed', 'Outbox retention iteration failed', 'Failed Outbox message']) {
+      assert.ok(!workerOutput.includes(marker), `generated Worker logged ${marker}`);
+    }
   } finally {
     try {
       await browserRuntime?.close();
