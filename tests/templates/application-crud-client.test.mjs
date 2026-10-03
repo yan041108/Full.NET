@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verifyApplicationCrudClientTenantRead, verifyApplicationCrudClientProductRead } from './support/application-crud-client.mjs';
+import { verifyApplicationCrudClient, verifyApplicationCrudClientRuntime, verifyApplicationCrudClientTenantRead, verifyApplicationCrudClientProductRead, verifyApplicationCrudClientProductList } from './support/application-crud-client.mjs';
 
 async function fixture(action) {
   const appRoot = mkdtempSync(join(tmpdir(), 'fullnet-business-client-'));
@@ -92,6 +92,38 @@ for (const wrongTenant of [false, true]) {
       const reportText = readFileSync(logPath, 'utf8');
       assert.equal(reportText.includes(token), false);
       assert.equal(JSON.parse(reportText).completed, !wrongTenant);
+    } finally { await new Promise((resolve) => server.close(resolve)); }
+  }));
+}
+
+for (const scenario of ['valid', 'missing', 'wrong-tenant', 'duplicate', 'wrong-status']) {
+  test(`generated client lists the newly created product exactly once: ${scenario}`, () => fixture(async (appRoot) => {
+    verifyApplicationCrudClient(appRoot, { reportDirectory: join(appRoot, 'reports/client') });
+    const tenantId = '01900000-0000-7000-8000-000000000010';
+    const id = '01900000-0000-7000-8000-000000000011';
+    const expectedProduct = { id, tenantId, name: 'Application tenant CRUD probe', version: '1' };
+    const token = 'secret-product-list-fixture';
+    const received = [];
+    const server = createServer((request, response) => {
+      received.push({ url: request.url, method: request.method, authorization: request.headers.authorization });
+      const product = { ...expectedProduct, tenantId: scenario === 'wrong-tenant' ? id : tenantId,
+        displayName: expectedProduct.name, description: null, isActive: true, createdAtUtc: '2026-10-03T00:00:00Z' };
+      const items = scenario === 'missing' ? [] : scenario === 'duplicate' ? [product, product] : [product];
+      response.writeHead(scenario === 'wrong-status' ? 201 : 200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify({ items, page: 1, pageSize: 5, total: items.length }));
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const logPath = join(appRoot, 'reports/client/product-list.json');
+    try {
+      const run = () => verifyApplicationCrudClientProductList(appRoot, `http://127.0.0.1:${server.address().port}`,
+        { tenantAccessToken: token, expectedProduct, logPath });
+      if (scenario === 'valid') {
+        assert.deepEqual(await run(), { requests: 1, productListed: 1 });
+        assert.deepEqual(received, [{ url: '/api/v1/catalog/products?page=1&pageSize=5', method: 'GET', authorization: `Bearer ${token}` }]);
+      } else await assert.rejects(run);
+      const reportText = readFileSync(logPath, 'utf8');
+      assert.equal(reportText.includes(token), false);
+      assert.equal(JSON.parse(reportText).completed, scenario === 'valid');
     } finally { await new Promise((resolve) => server.close(resolve)); }
   }));
 }
