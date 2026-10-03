@@ -1,0 +1,48 @@
+{
+  "id": "ai-knowledge-organization-candidates-v1",
+  "version": 1,
+  "description": "所有者当前可信租户组织候选；Host 返回空候选，候选不授予读取权。",
+  "paths": [
+    {
+      "path": "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/organization-candidates",
+      "operations": [
+        {
+          "method": "GET",
+          "operationId": "aiListKnowledgeOrganizationCandidates",
+          "permission": "ai.knowledge_bases.organization_candidates_read",
+          "successStatus": 200,
+          "responseSchema": "AiKnowledgeOrganizationCandidateResponsePage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/organization-candidates",
+      "operations": [
+        {
+          "method": "GET",
+          "operationId": "aiListKnowledgeDocumentOrganizationCandidates",
+          "permission": "ai.knowledge_documents.organization_candidates_read",
+          "successStatus": 200,
+          "responseSchema": "AiKnowledgeOrganizationCandidateResponsePage"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "AiKnowledgeOrganizationCandidateResponse": {
+      "properties": [
+        "id",
+        "code",
+        "name"
+      ]
+    },
+    "AiKnowledgeOrganizationCandidateResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

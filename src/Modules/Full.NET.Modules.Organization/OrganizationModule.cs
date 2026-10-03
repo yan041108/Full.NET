@@ -82,6 +82,7 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<TenantPositionLevelQueryService>();
         services.TryAddScoped<TenantPositionLevelManagementService>();
         services.TryAddScoped<TenantUnits.TenantOrganizationUnitDirectory>();
+        services.TryAddScoped<ICurrentTenantOrganizationUnitDirectory, TenantUnits.CurrentTenantOrganizationUnitDirectory>();
         services.TryAddScoped<TenantUnits.OrganizationUnitProjectionCatalog>();
         services.TryAddScoped<IIdentityOrganizationUnitProjectionSource>(provider =>
             provider.GetRequiredService<TenantUnits.OrganizationUnitProjectionCatalog>());

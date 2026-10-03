@@ -25,6 +25,8 @@ public static class AiKnowledgeDocumentPermissions
     public const string MembersRead = "ai.knowledge_documents.members_read";
     /// <summary>所有者授予或撤销独立文档授权。</summary>
     public const string MembersUpdate = "ai.knowledge_documents.members_update";
+    /// <summary>所有者读取当前可信租户的活动机构候选，Host 返回空集合。</summary>
+    public const string OrganizationCandidatesRead = "ai.knowledge_documents.organization_candidates_read";
     /// <summary>所有者读取启用目录内文档的活动普通角色候选。</summary>
     public const string RoleCandidatesRead = "ai.knowledge_documents.role_candidates_read";
     /// <summary>所有者读取文档角色授予。</summary>

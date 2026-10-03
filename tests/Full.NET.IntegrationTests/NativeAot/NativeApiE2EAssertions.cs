@@ -65,6 +65,13 @@ internal static class NativeApiE2EAssertions
         using var tenantContextResponse = await client.SendAsync(tenantContextGet, cancellationToken).ConfigureAwait(false);
         await AssertStatusAsync(tenantContextResponse, HttpStatusCode.OK, "Read native trusted tenant", cancellationToken).ConfigureAwait(false);
         var trustedTenant = (await tenantContextResponse.Content.ReadFromJsonAsync<TenantSummary>(cancellationToken).ConfigureAwait(false))!;
+        // 原生机构目录必须物化非空投影，不能以 Host 空候选替代 Tenant SQL 验证。
+        var organizationCandidate = await PostAndReadAsync<CreateOrganizationUnitRequest, OrganizationUnitResponse>(client,
+            "/api/v1/organization/units", tenantToken, new CreateOrganizationUnitRequest(null, $"aot-candidate-{Guid.NewGuid():N}", "原生机构候选", 0),
+            HttpStatusCode.Created, cancellationToken).ConfigureAwait(false);
+        await AssertPageContainsAsync<AiKnowledgeOrganizationCandidateResponse>(client,
+            $"/api/v1/ai/knowledge-bases/{tenantBase.Id}/organization-candidates", tenantToken,
+            unit => unit.Id == organizationCandidate.Id, cancellationToken).ConfigureAwait(false);
         var candidateRoleId = await NativeAiRoleCandidateSeed.InsertAsync(provider, connectionString, trustedTenant.Id, cancellationToken).ConfigureAwait(false);
         using var tenantActorRequest = Authorized(HttpMethod.Get, "/api/v1/me", tenantToken);
         using var tenantActorResponse = await client.SendAsync(tenantActorRequest, cancellationToken).ConfigureAwait(false);
@@ -89,6 +96,8 @@ internal static class NativeApiE2EAssertions
         var tenantDocPath = $"/api/v1/ai/knowledge-bases/{tenantBase.Id}/documents";
         var tenantDocument = await PostAndReadAsync<CreateAiKnowledgeDocumentRequest, AiKnowledgeDocumentResponse>(client, tenantDocPath, tenantToken,
             new CreateAiKnowledgeDocumentRequest("原生租户草稿", null), HttpStatusCode.Created, cancellationToken).ConfigureAwait(false);
+        await AssertPageContainsAsync<AiKnowledgeOrganizationCandidateResponse>(client, tenantDocPath + $"/{tenantDocument.Id}/organization-candidates", tenantToken,
+            unit => unit.Id == organizationCandidate.Id, cancellationToken).ConfigureAwait(false);
         await AssertPageContainsAsync<AiKnowledgeRoleCandidateResponse>(client, tenantDocPath + $"/{tenantDocument.Id}/role-candidates", tenantToken,
             role => role.Id == candidateRoleId, cancellationToken).ConfigureAwait(false);
         using var tenantDocGrant = AuthorizedJson(HttpMethod.Put, tenantDocPath + $"/{tenantDocument.Id}/members", tenantToken,

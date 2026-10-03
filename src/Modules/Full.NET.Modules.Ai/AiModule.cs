@@ -53,13 +53,14 @@ public sealed class AiModule : IFullNetModule
     public string Name => "Ai";
 
     /// <summary>
-    /// Ai 模块依赖 Identity、Tenancy 与 Files，文件版本仅经权威契约访问。
+    /// Ai 模块依赖 Identity、Tenancy、Files 与 Organization，文件版本仅经权威契约访问。
     /// </summary>
     public IReadOnlyCollection<string> Dependencies =>
     [
         "Identity",
         "Tenancy",
         "Files",
+        "Organization",
     ];
 
     /// <summary>注册 Ai 模块的模型配置、连通性测试、聊天会话、配额预算、Agent 运行、MCP 与 AgUI 等服务。</summary>
@@ -90,6 +91,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<AiModelConfigQueryService>();
         services.TryAddScoped<Features.ManageKnowledgeBases.AiKnowledgeBaseService>();
         services.TryAddScoped<Features.ManageKnowledgeRoleCandidates.AiKnowledgeRoleCandidateService>();
+        services.TryAddScoped<Features.ManageKnowledgeOrganizationCandidates.AiKnowledgeOrganizationCandidateService>();
         services.TryAddScoped<Features.AiKnowledgeReadAccess>();
         services.TryAddScoped<Features.AiKnowledgePermissionGuard>();
         services.TryAddScoped<Features.ManageKnowledgeRoles.AiKnowledgeRoleGrantService>();
@@ -144,6 +146,7 @@ public sealed class AiModule : IFullNetModule
         Features.ManageModelConfigs.Endpoint.Map(endpoints);
         Features.ManageKnowledgeBases.Endpoint.Map(endpoints);
         Features.ManageKnowledgeRoleCandidates.Endpoint.Map(endpoints);
+        Features.ManageKnowledgeOrganizationCandidates.Endpoint.Map(endpoints);
         Features.ManageKnowledgeRoles.Endpoint.Map(endpoints);
         Features.ManageKnowledgeDocuments.Endpoint.Map(endpoints);
         Features.ManageKnowledgeVersions.Endpoint.Map(endpoints);
