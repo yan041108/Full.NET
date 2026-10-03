@@ -197,7 +197,7 @@ async function confirmDelete(): Promise<void> {
         <el-button type="primary" @click="submitEdit">保存</el-button>
       </template>
     </el-dialog>
-    <el-dialog v-model="deleteOpen" title="确认删除" @close="deleting = undefined">
+    <el-dialog v-model="deleteOpen" title="确认删除" style="--el-color-danger: #b42318; --el-color-danger-light-3: #b42318; --el-color-danger-dark-2: #991b1b" @close="deleting = undefined">
       <p>确定删除该条记录吗？</p>
       <template #footer>
         <el-button @click="deleteOpen = false">取消</el-button>

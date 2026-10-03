@@ -827,6 +827,7 @@ public sealed class CrudArtifactGeneratorTests
         StringAssert.Contains(view, "const deleteOpen = ref(false);");
         StringAssert.Contains(view, "@click=\"openDelete(row)\"");
         StringAssert.Contains(view, "<el-dialog v-model=\"deleteOpen\" title=\"确认删除\"");
+        StringAssert.Contains(view, "--el-color-danger: #b42318");
         StringAssert.Contains(view, "@click=\"confirmDelete\"");
         if (mode == "hard-delete")
         {
