@@ -162,30 +162,6 @@
       }
     },
     "migrationSelections": {
-      "244": {
-        "filter": "FullyQualifiedName~Migration244AiKnowledgeRoleGrantRecoveryTests.MySql_|FullyQualifiedName~Migration244AiKnowledgeRoleGrantRecoveryTests.SqlServer_"
-      },
-      "243": {
-        "filter": "FullyQualifiedName~Migration243AiKnowledgeVersionRecoveryTests.MySql_|FullyQualifiedName~Migration243AiKnowledgeVersionRecoveryTests.SqlServer_"
-      },
-      "242": {
-        "filter": "FullyQualifiedName~Migration242AiKnowledgeDocumentRecoveryTests.MySql_|FullyQualifiedName~Migration242AiKnowledgeDocumentRecoveryTests.SqlServer_"
-      },
-      "241": {
-        "filter": "FullyQualifiedName~Migration241AiKnowledgeMemberRecoveryTests.MySql_|FullyQualifiedName~Migration241AiKnowledgeMemberRecoveryTests.SqlServer_"
-      },
-      "240": {
-        "filter": "FullyQualifiedName~Migration240AiKnowledgeBaseRecoveryTests.MySql_|FullyQualifiedName~Migration240AiKnowledgeBaseRecoveryTests.SqlServer_"
-      },
-      "239": {
-        "filter": "FullyQualifiedName~Migration239AuditingOperationLogContextRecoveryTests.MySql_|FullyQualifiedName~Migration239AuditingOperationLogContextRecoveryTests.SqlServer_"
-      },
-      "238": {
-        "filter": "FullyQualifiedName~Migration238MfaRecoveryCodeRecoveryTests.MySql_|FullyQualifiedName~Migration238MfaRecoveryCodeRecoveryTests.SqlServer_"
-      },
-      "229": {
-        "filter": "FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.MySql_|FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.SqlServer_"
-      },
       "101": {
         "filter": "FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.MySql_|FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.SqlServer_"
       },
@@ -368,6 +344,33 @@
       },
       "217": {
         "filter": "FullyQualifiedName~Migration217IdentityOidcSessionTests.MySql_|FullyQualifiedName~Migration217IdentityOidcSessionTests.SqlServer_"
+      },
+      "229": {
+        "filter": "FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.MySql_|FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.SqlServer_"
+      },
+      "238": {
+        "filter": "FullyQualifiedName~Migration238MfaRecoveryCodeRecoveryTests.MySql_|FullyQualifiedName~Migration238MfaRecoveryCodeRecoveryTests.SqlServer_"
+      },
+      "239": {
+        "filter": "FullyQualifiedName~Migration239AuditingOperationLogContextRecoveryTests.MySql_|FullyQualifiedName~Migration239AuditingOperationLogContextRecoveryTests.SqlServer_"
+      },
+      "240": {
+        "filter": "FullyQualifiedName~Migration240AiKnowledgeBaseRecoveryTests.MySql_|FullyQualifiedName~Migration240AiKnowledgeBaseRecoveryTests.SqlServer_"
+      },
+      "241": {
+        "filter": "FullyQualifiedName~Migration241AiKnowledgeMemberRecoveryTests.MySql_|FullyQualifiedName~Migration241AiKnowledgeMemberRecoveryTests.SqlServer_"
+      },
+      "242": {
+        "filter": "FullyQualifiedName~Migration242AiKnowledgeDocumentRecoveryTests.MySql_|FullyQualifiedName~Migration242AiKnowledgeDocumentRecoveryTests.SqlServer_"
+      },
+      "243": {
+        "filter": "FullyQualifiedName~Migration243AiKnowledgeVersionRecoveryTests.MySql_|FullyQualifiedName~Migration243AiKnowledgeVersionRecoveryTests.SqlServer_"
+      },
+      "244": {
+        "filter": "FullyQualifiedName~Migration244AiKnowledgeRoleGrantRecoveryTests.MySql_|FullyQualifiedName~Migration244AiKnowledgeRoleGrantRecoveryTests.SqlServer_"
+      },
+      "245": {
+        "filter": "FullyQualifiedName~Migration245AiKnowledgeOrganizationGrantRecoveryTests.MySql_|FullyQualifiedName~Migration245AiKnowledgeOrganizationGrantRecoveryTests.SqlServer_"
       },
       "008": {
         "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryExpandMigrationTests|FullyQualifiedName~UuidBinaryPartialRecoveryTests"
@@ -589,17 +592,17 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 182,
+        "minimum": 183,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 182,
+        "minimum": 183,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 506,
+        "minimum": 508,
         "timeout": "120m"
       },
       "infrastructure": {
@@ -632,7 +635,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1134,
+        "minimum": 1138,
         "timeout": "90m"
       },
       "logging-route-comparison": {

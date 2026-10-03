@@ -1,0 +1,25 @@
+{
+  "id": "ai-knowledge-organization-grants-v1",
+  "version": 1,
+  "description": "所有者维护明确机构授予；当前租户活动机构与活动隶属同时复核，知识库和文档两层独立匹配。",
+  "paths": [
+    {
+      "path": "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/organizations",
+      "operations": [
+        { "method": "GET", "operationId": "aiGetKnowledgeOrganizations", "permission": "ai.knowledge_bases.organizations_read", "successStatus": 200, "responseSchema": "AiKnowledgeOrganizationGrantsResponse" },
+        { "method": "PUT", "operationId": "aiSetKnowledgeOrganizations", "permission": "ai.knowledge_bases.organizations_update", "successStatus": 200, "requestSchema": "SetAiKnowledgeOrganizationGrantsRequest", "responseSchema": "AiKnowledgeOrganizationGrantsResponse" }
+      ]
+    },
+    {
+      "path": "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/organizations",
+      "operations": [
+        { "method": "GET", "operationId": "aiGetKnowledgeDocumentOrganizations", "permission": "ai.knowledge_documents.organizations_read", "successStatus": 200, "responseSchema": "AiKnowledgeOrganizationGrantsResponse" },
+        { "method": "PUT", "operationId": "aiSetKnowledgeDocumentOrganizations", "permission": "ai.knowledge_documents.organizations_update", "successStatus": 200, "requestSchema": "SetAiKnowledgeOrganizationGrantsRequest", "responseSchema": "AiKnowledgeOrganizationGrantsResponse" }
+      ]
+    }
+  ],
+  "schemas": {
+    "AiKnowledgeOrganizationGrantsResponse": { "properties": [ "resourceId", "organizationUnitIds", "version" ] },
+    "SetAiKnowledgeOrganizationGrantsRequest": { "properties": [ "organizationUnitIds", "version" ] }
+  }
+}

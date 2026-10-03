@@ -23,6 +23,8 @@ public sealed class CurrentTenantOrganizationUnitDirectoryTests
         var query = Substitute.For<IQueryExecutor>();
         var directory = new CurrentTenantOrganizationUnitDirectory(query, Options.Create(new DatabaseOptions()), tenant);
         await Assert.ThrowsAsync<TenantContextMissingException>(() => directory.ListActiveUnitsAsync(1, 20));
+        await Assert.ThrowsAsync<TenantContextMissingException>(() => directory.FindActiveUnitsAsync([]));
+        await Assert.ThrowsAsync<TenantContextMissingException>(() => directory.ListActiveUnitIdsForUserAsync(Guid.CreateVersion7()));
         Assert.IsFalse(query.ReceivedCalls().Any());
     }
 }

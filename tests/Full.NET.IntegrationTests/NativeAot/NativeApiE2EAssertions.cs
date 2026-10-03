@@ -122,6 +122,26 @@ internal static class NativeApiE2EAssertions
             new SetAiKnowledgeMembersRequest([], tenantMembers.Version + 1));
         using var tenantRevoked = await client.SendAsync(tenantRevoke, cancellationToken).ConfigureAwait(false);
         await AssertStatusAsync(tenantRevoked, HttpStatusCode.OK, "Revoke native tenant knowledge member", cancellationToken).ConfigureAwait(false);
+        // 原生路径必须绑定非空机构集合，并实际读取当前主体的活动机构隶属。
+        await PostAndReadAsync<CreateOrganizationUserUnitRequest, OrganizationUserUnitResponse>(client,
+            "/api/v1/organization/user-units", tenantToken,
+            new CreateOrganizationUserUnitRequest(tenantActor.Id, organizationCandidate.Id, false),
+            HttpStatusCode.Created, cancellationToken).ConfigureAwait(false);
+        foreach (var resource in new[] { $"/api/v1/ai/knowledge-bases/{tenantBase.Id}", tenantDocPath + $"/{tenantDocument.Id}" })
+        {
+            using var readOrganizations = Authorized(HttpMethod.Get, resource + "/organizations", tenantToken);
+            using var organizationsResponse = await client.SendAsync(readOrganizations, cancellationToken).ConfigureAwait(false);
+            await AssertStatusAsync(organizationsResponse, HttpStatusCode.OK, "Read native organization grants", cancellationToken).ConfigureAwait(false);
+            var current = (await organizationsResponse.Content.ReadFromJsonAsync<AiKnowledgeOrganizationGrantsResponse>(cancellationToken).ConfigureAwait(false))!;
+            using var setOrganizations = AuthorizedJson(HttpMethod.Put, resource + "/organizations", tenantToken,
+                new SetAiKnowledgeOrganizationGrantsRequest([organizationCandidate.Id], current.Version));
+            using var updated = await client.SendAsync(setOrganizations, cancellationToken).ConfigureAwait(false);
+            await AssertStatusAsync(updated, HttpStatusCode.OK, "Set native organization grants", cancellationToken).ConfigureAwait(false);
+            var grants = (await updated.Content.ReadFromJsonAsync<AiKnowledgeOrganizationGrantsResponse>(cancellationToken).ConfigureAwait(false))!;
+            CollectionAssert.AreEqual(new[] { organizationCandidate.Id }, grants.OrganizationUnitIds.ToArray());
+        }
+        await AssertPageContainsAsync<AiKnowledgeDocumentResponse>(client, tenantDocPath, tenantToken,
+            item => item.Id == tenantDocument.Id, cancellationToken).ConfigureAwait(false);
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         host.AssertNoFatalMarkersInLogs();
     }

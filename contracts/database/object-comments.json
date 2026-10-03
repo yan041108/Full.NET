@@ -276,6 +276,15 @@
         "UserId": "获授权用户标识"
       }
     },
+    "fn_ai_knowledge_document_org": {
+      "comment": "人工智能knowledge document org表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DocumentId": "文档标识",
+        "Id": "逻辑主键",
+        "OrganizationUnitId": "机构单元标识"
+      }
+    },
     "fn_ai_knowledge_document_role": {
       "comment": "人工智能knowledge document role表",
       "columns": {
@@ -314,6 +323,15 @@
         "Id": "逻辑主键",
         "KnowledgeBaseId": "所属知识库标识",
         "UserId": "获授权用户标识"
+      }
+    },
+    "fn_ai_knowledge_org": {
+      "comment": "人工智能knowledge org表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "KnowledgeBaseId": "Knowledge Base标识",
+        "OrganizationUnitId": "机构单元标识"
       }
     },
     "fn_ai_knowledge_role": {

@@ -81,7 +81,7 @@ internal sealed class AiKnowledgeVersionReader(AiKnowledgeImportStore store, IQu
     private async Task<bool> RevalidateAsync(Guid knowledgeBaseId, Guid documentId, Guid versionId, Guid actor, SqlStatement statement, CancellationToken token)
     {
         if (!await permissions.IsAuthorizedAsync([AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.SourceRead], actor, token).ConfigureAwait(false)) return false;
-        // 存储打开期间可能撤销角色关系，必须重新取得 Identity 权威角色，不能复用初次参数。
+        // 存储打开期间可能撤销角色或机构隶属，必须重新取得权威关系，不能复用初次参数。
         var parameters = await ReadParametersAsync(knowledgeBaseId, documentId, actor, token).ConfigureAwait(false);
         parameters.Add("VersionId", versionId);
         return await query.QuerySingleOrDefaultAsync<AiKnowledgeVersionRecord>(statement, parameters, token).ConfigureAwait(false) is not null;

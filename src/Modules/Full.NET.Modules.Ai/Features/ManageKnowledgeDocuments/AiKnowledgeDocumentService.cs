@@ -102,6 +102,7 @@ internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandE
             // 先在同一事务写入拒读墓碑，再清理授权；不依赖未来缓存、文件或索引清理。
             await command.ExecuteAsync(IsTenant ? AiKnowledgeDocumentSql.DeleteMembersTenant : AiKnowledgeDocumentSql.DeleteMembersHost, parameters, ct).ConfigureAwait(false);
             await command.ExecuteAsync(IsTenant ? AiKnowledgeRoleGrantSql.CleanupDocTenant : AiKnowledgeRoleGrantSql.CleanupDocHost, parameters, ct).ConfigureAwait(false);
+            await command.ExecuteAsync(IsTenant ? AiKnowledgeOrganizationGrantSql.CleanupDocTenant : AiKnowledgeOrganizationGrantSql.CleanupDocHost, parameters, ct).ConfigureAwait(false);
             // 墓碑和文件补偿意图同事务提交；外部 Files 释放由提交后的有界协调器完成。
             parameters["Now"] = clock.UtcNow;
             await command.ExecuteAsync(IsTenant ? AiKnowledgeImportSql.CleanupTenant : AiKnowledgeImportSql.CleanupHost, parameters, ct).ConfigureAwait(false);

@@ -33,4 +33,8 @@ public static class AiKnowledgeDocumentPermissions
     public const string RolesRead = "ai.knowledge_documents.roles_read";
     /// <summary>所有者替换文档角色授予。</summary>
     public const string RolesUpdate = "ai.knowledge_documents.roles_update";
+    /// <summary>所有者读取资源的明确机构授予。</summary>
+    public const string OrganizationsRead = "ai.knowledge_documents.organizations_read";
+    /// <summary>所有者替换资源的明确机构授予，保留用户与角色授予。</summary>
+    public const string OrganizationsUpdate = "ai.knowledge_documents.organizations_update";
 }

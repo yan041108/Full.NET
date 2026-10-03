@@ -7,6 +7,17 @@ internal static class CurrentTenantOrganizationUnitDirectorySql
 {
     private const string Filter = " WHERE TenantId = @TenantId AND IsActive = 1";
     private const string List = "SELECT Id, Code, Name FROM fn_organization_unit";
+    internal static readonly SqlStatement Find = new("organization.current_tenant_unit_directory.find",
+        List + Filter + " AND Id IN @UnitIds", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement UserUnits = new("organization.current_tenant_unit_directory.user_units",
+        """
+        SELECT DISTINCT unit.Id
+        FROM fn_organization_user_unit AS membership
+        INNER JOIN fn_organization_unit AS unit ON unit.Id = membership.UnitId
+        WHERE membership.TenantId = @TenantId AND unit.TenantId = @TenantId
+          AND membership.UserId = @UserId AND membership.IsActive = 1 AND unit.IsActive = 1
+        ORDER BY unit.Id
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement Count = new("organization.current_tenant_unit_directory.count",
         "SELECT COUNT(*) FROM fn_organization_unit" + Filter, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement ListSqlServer = new("organization.current_tenant_unit_directory.list_sqlserver",

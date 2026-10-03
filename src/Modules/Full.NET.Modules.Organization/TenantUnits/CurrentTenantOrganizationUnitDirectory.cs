@@ -15,6 +15,35 @@ internal sealed class CurrentTenantOrganizationUnitDirectory(IQueryExecutor quer
     : ICurrentTenantOrganizationUnitDirectory
 {
     /// <inheritdoc/>
+    public async Task<IReadOnlyDictionary<Guid, TenantOrganizationUnitDirectoryEntry>> FindActiveUnitsAsync(
+        IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(unitIds);
+        if (unitIds.Count > 100 || unitIds.Contains(Guid.Empty) || unitIds.Distinct().Count() != unitIds.Count)
+            throw new ArgumentOutOfRangeException(nameof(unitIds));
+        RequireTenant();
+        if (unitIds.Count == 0) return new Dictionary<Guid, TenantOrganizationUnitDirectoryEntry>();
+        var rows = await query.QueryAsync<CurrentTenantOrganizationUnitDirectoryRow>(CurrentTenantOrganizationUnitDirectorySql.Find,
+            OrganizationSqlParameters.Create(("UnitIds", unitIds.ToArray())), cancellationToken).ConfigureAwait(false);
+        return rows.ToDictionary(row => row.Id, row => new TenantOrganizationUnitDirectoryEntry(row.Id, row.Code, row.Name));
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<Guid>> ListActiveUnitIdsForUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        RequireTenant();
+        if (userId == Guid.Empty) return [];
+        return await query.QueryAsync<Guid>(CurrentTenantOrganizationUnitDirectorySql.UserUnits,
+            OrganizationSqlParameters.Create(("UserId", userId)), cancellationToken).ConfigureAwait(false);
+    }
+
+    private void RequireTenant()
+    {
+        if (tenant.IsHost || !tenant.IsAvailable || tenant.Id is not { } tenantId || tenantId == Guid.Empty)
+            throw new TenantContextMissingException("organization.tenant_context_required");
+    }
+
+    /// <inheritdoc/>
     public async Task<PagedResult<TenantOrganizationUnitDirectoryEntry>> ListActiveUnitsAsync(int page, int pageSize,
         CancellationToken cancellationToken = default)
     {
@@ -22,8 +51,7 @@ internal sealed class CurrentTenantOrganizationUnitDirectory(IQueryExecutor quer
         if (page < 1 || pageSize is < 1 or > 100 || offset > 100_000)
             throw new ArgumentOutOfRangeException(nameof(page));
         // 此 Port 只有租户目录；Host 及不完整上下文均不能降级为跨租户目录。
-        if (tenant.IsHost || !tenant.IsAvailable || tenant.Id is not { } tenantId || tenantId == Guid.Empty)
-            throw new TenantContextMissingException("organization.tenant_context_required");
+        RequireTenant();
         var parameters = OrganizationSqlParameters.Create(("Offset", offset), ("PageSize", pageSize));
         var statement = database.Value.Provider switch
         {

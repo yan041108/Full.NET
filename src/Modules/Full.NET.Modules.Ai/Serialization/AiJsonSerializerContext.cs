@@ -26,6 +26,8 @@ namespace Full.NET.Modules.Ai.Serialization;
 [JsonSerializable(typeof(AiKnowledgeOrganizationCandidateResponse))]
 [JsonSerializable(typeof(PagedResult<AiKnowledgeOrganizationCandidateResponse>))]
 [JsonSerializable(typeof(AiKnowledgeRoleCandidateResponse))]
+[JsonSerializable(typeof(SetAiKnowledgeOrganizationGrantsRequest))]
+[JsonSerializable(typeof(AiKnowledgeOrganizationGrantsResponse))]
 [JsonSerializable(typeof(SetAiKnowledgeRoleGrantsRequest))]
 [JsonSerializable(typeof(AiKnowledgeRoleGrantsResponse))]
 [JsonSerializable(typeof(Guid[]))]

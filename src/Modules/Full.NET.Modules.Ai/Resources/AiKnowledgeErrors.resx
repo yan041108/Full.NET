@@ -20,6 +20,8 @@
   <data name="ai.knowledge.import_conflict" xml:space="preserve"><value>重试键已用于不同的请求。</value></data>
   <data name="ai.knowledge.upload_required" xml:space="preserve"><value>请使用同一重试键重新上传原文件。</value></data>
   <data name="ai.knowledge.source_unavailable" xml:space="preserve"><value>来源文件暂不可用。</value></data>
+  <data name="ai.knowledge.organization_grants_invalid" xml:space="preserve"><value>机构授予集合或并发版本无效。</value></data>
+  <data name="ai.knowledge.organization_unavailable" xml:space="preserve"><value>机构不存在、已停用或不属于当前租户；Host 资源不支持机构授予。</value></data>
   <data name="ai.knowledge.role_grants_invalid" xml:space="preserve"><value>角色授予集合或并发版本无效。</value></data>
   <data name="ai.knowledge.role_unavailable" xml:space="preserve"><value>角色不存在、已停用或不属于当前范围。</value></data>
 </root>

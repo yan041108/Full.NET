@@ -31,6 +31,10 @@ public static class AiKnowledgeErrorCodes
     public const string RoleGrantsInvalid = Prefix + "role_grants_invalid";
     /// <summary>角色已禁用、不存在或不属于可信当前范围。</summary>
     public const string RoleUnavailable = Prefix + "role_unavailable";
+    /// <summary>机构授予集合或并发版本不合法。</summary>
+    public const string OrganizationGrantsInvalid = Prefix + "organization_grants_invalid";
+    /// <summary>机构已禁用、不存在、不属于当前租户或 Host 不支持机构授予。</summary>
+    public const string OrganizationUnavailable = Prefix + "organization_unavailable";
     /// <summary>目录或审批输入不合法。</summary>
     public const string InputInvalid = Prefix + "input_invalid";
     /// <summary>分页超出边界。</summary>

@@ -94,6 +94,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Features.ManageKnowledgeOrganizationCandidates.AiKnowledgeOrganizationCandidateService>();
         services.TryAddScoped<Features.AiKnowledgeReadAccess>();
         services.TryAddScoped<Features.AiKnowledgePermissionGuard>();
+        services.TryAddScoped<Features.ManageKnowledgeOrganizations.AiKnowledgeOrganizationGrantService>();
         services.TryAddScoped<Features.ManageKnowledgeRoles.AiKnowledgeRoleGrantService>();
         services.TryAddScoped<Features.ManageKnowledgeMembers.AiKnowledgeMemberService>();
         services.TryAddScoped<Features.ManageKnowledgeDocuments.AiKnowledgeDocumentService>();
@@ -147,6 +148,7 @@ public sealed class AiModule : IFullNetModule
         Features.ManageKnowledgeBases.Endpoint.Map(endpoints);
         Features.ManageKnowledgeRoleCandidates.Endpoint.Map(endpoints);
         Features.ManageKnowledgeOrganizationCandidates.Endpoint.Map(endpoints);
+        Features.ManageKnowledgeOrganizations.Endpoint.Map(endpoints);
         Features.ManageKnowledgeRoles.Endpoint.Map(endpoints);
         Features.ManageKnowledgeDocuments.Endpoint.Map(endpoints);
         Features.ManageKnowledgeVersions.Endpoint.Map(endpoints);
