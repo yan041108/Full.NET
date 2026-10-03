@@ -3501,6 +3501,18 @@
       "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
       "generatedGroup": "ai-knowledge",
       "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeRoleCandidates",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeDocumentRoleCandidates",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
     }
   ]
 }

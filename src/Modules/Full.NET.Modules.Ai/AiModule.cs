@@ -89,6 +89,7 @@ public sealed class AiModule : IFullNetModule
         services.AddOpenTelemetry().WithMetrics(metrics => metrics.AddMeter(AiOperationBudgetStore.MeterName));
         services.TryAddScoped<AiModelConfigQueryService>();
         services.TryAddScoped<Features.ManageKnowledgeBases.AiKnowledgeBaseService>();
+        services.TryAddScoped<Features.ManageKnowledgeRoleCandidates.AiKnowledgeRoleCandidateService>();
         services.TryAddScoped<Features.ManageKnowledgeMembers.AiKnowledgeMemberService>();
         services.TryAddScoped<Features.ManageKnowledgeDocuments.AiKnowledgeDocumentService>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportStore>();
@@ -139,6 +140,7 @@ public sealed class AiModule : IFullNetModule
     {
         Features.ManageModelConfigs.Endpoint.Map(endpoints);
         Features.ManageKnowledgeBases.Endpoint.Map(endpoints);
+        Features.ManageKnowledgeRoleCandidates.Endpoint.Map(endpoints);
         Features.ManageKnowledgeDocuments.Endpoint.Map(endpoints);
         Features.ManageKnowledgeVersions.Endpoint.Map(endpoints);
         Features.TestEmbeddings.Endpoint.Map(endpoints);

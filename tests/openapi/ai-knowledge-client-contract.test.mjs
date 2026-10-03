@@ -8,10 +8,11 @@ const operationIds = [
   'aiListKnowledgeDocuments', 'aiGetKnowledgeDocument', 'aiCreateKnowledgeDocument',
   'aiUpdateKnowledgeDocument', 'aiDeleteKnowledgeDocument', 'aiGetKnowledgeDocumentMembers',
   'aiSetKnowledgeDocumentMembers', 'aiUploadKnowledgeVersion', 'aiListKnowledgeVersions',
-  'aiDownloadKnowledgeSource', 'aiGetKnowledgeImport', 'aiRetryKnowledgeImport', 'aiCleanupKnowledgeImports'
+  'aiDownloadKnowledgeSource', 'aiGetKnowledgeImport', 'aiRetryKnowledgeImport', 'aiCleanupKnowledgeImports',
+  'aiListKnowledgeRoleCandidates', 'aiListKnowledgeDocumentRoleCandidates'
 ];
 
-test('知识库 20 个受保护 Operation 从标准快照进入共享生成客户端', async () => {
+test('知识库 22 个受保护 Operation 从标准快照进入共享生成客户端', async () => {
   const manifest = JSON.parse(await readFile(new URL('../../contracts/openapi/client-generation-manifest-v1.json', import.meta.url), 'utf8'));
   const entries = manifest.entries.filter(entry => entry.generatedGroup === 'ai-knowledge');
   assert.deepEqual(entries.map(entry => entry.operationId).sort(), [...operationIds].sort());
@@ -19,7 +20,7 @@ test('知识库 20 个受保护 Operation 从标准快照进入共享生成客�
   const snapshot = JSON.parse(await readFile(new URL('../../contracts/openapi/fullnet-client-v1.openapi.json', import.meta.url), 'utf8'));
   const operations = new Map(Object.values(snapshot.paths).flatMap(item => Object.values(item))
     .filter(item => operationIds.includes(item.operationId)).map(item => [item.operationId, item]));
-  assert.equal(operations.size, 20);
+  assert.equal(operations.size, 22);
   for (const id of operationIds) {
     const operation = operations.get(id);
     assert.equal(operation.tags.length, 1);
@@ -34,6 +35,11 @@ test('知识库 20 个受保护 Operation 从标准快照进入共享生成客�
   assert.ok(upload.responses['202'].content['application/json']);
   assert.ok(operations.get('aiDownloadKnowledgeSource').responses['200'].content['application/octet-stream']);
   assert.equal(operations.get('aiDeleteKnowledgeDocument').responses['204'].content, undefined);
+  for (const id of ['aiListKnowledgeRoleCandidates', 'aiListKnowledgeDocumentRoleCandidates']) {
+    assert.ok(operations.get(id).responses['200'].content['application/json']);
+    assert.ok(operations.get(id).responses['400'] && operations.get(id).responses['404']);
+    assert.equal(operations.get(id).requestBody, undefined);
+  }
   for (const name of ['AiKnowledgeVersionResponse', 'AiKnowledgeImportResponse']) {
     const properties = snapshot.components.schemas[name].properties;
     assert.ok(!('fileId' in properties) && !('storagePath' in properties) && !('tenantId' in properties));

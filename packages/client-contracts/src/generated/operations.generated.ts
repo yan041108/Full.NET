@@ -25,6 +25,7 @@ import type {
   AiKnowledgeDocumentResponse,
   AiKnowledgeImportResponse,
   AiKnowledgeMembersResponse,
+  AiKnowledgeRoleCandidateResponse,
   AiKnowledgeVersionResponse,
   AiMcpRemoteConnectionListItem,
   AiMcpRemoteConnectionResponse,
@@ -337,6 +338,7 @@ import type {
   PagedResultOfAiChatSessionListItem,
   PagedResultOfAiKnowledgeBaseResponse,
   PagedResultOfAiKnowledgeDocumentResponse,
+  PagedResultOfAiKnowledgeRoleCandidateResponse,
   PagedResultOfAiKnowledgeVersionResponse,
   PagedResultOfAiModelConfigListItem,
   PagedResultOfAiTenantQuotaListItem,
@@ -759,6 +761,7 @@ import {
   readPagedResultOfAiChatSessionListItem,
   readPagedResultOfAiKnowledgeBaseResponse,
   readPagedResultOfAiKnowledgeDocumentResponse,
+  readPagedResultOfAiKnowledgeRoleCandidateResponse,
   readPagedResultOfAiKnowledgeVersionResponse,
   readPagedResultOfAiModelConfigListItem,
   readPagedResultOfAiTenantQuotaListItem,
@@ -1632,6 +1635,34 @@ export async function aiListKnowledgeBases(
   return readPagedResultOfAiKnowledgeBaseResponse(value);
 }
 
+export interface AiListKnowledgeDocumentRoleCandidatesParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function aiListKnowledgeDocumentRoleCandidates(
+  http: HttpClient,
+  parameters: AiListKnowledgeDocumentRoleCandidatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiKnowledgeRoleCandidateResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/role-candidates` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/role-candidates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiKnowledgeRoleCandidateResponse(value);
+}
+
 export interface AiListKnowledgeDocumentsParameters {
   readonly knowledgeBaseId: string;
   readonly page?: number;
@@ -1657,6 +1688,33 @@ export async function aiListKnowledgeDocuments(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfAiKnowledgeDocumentResponse(value);
+}
+
+export interface AiListKnowledgeRoleCandidatesParameters {
+  readonly knowledgeBaseId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function aiListKnowledgeRoleCandidates(
+  http: HttpClient,
+  parameters: AiListKnowledgeRoleCandidatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiKnowledgeRoleCandidateResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/role-candidates` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/role-candidates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiKnowledgeRoleCandidateResponse(value);
 }
 
 export interface AiListKnowledgeVersionsParameters {

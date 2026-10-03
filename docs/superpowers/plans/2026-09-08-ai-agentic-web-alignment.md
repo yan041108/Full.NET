@@ -663,6 +663,23 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
 - 本地原始日志、TRX 与源码摘要保留在忽略目录 `artifacts/ai-knowledge-client-contract/` 及同前缀日志；环境沿用 R04b2b。本项完成后在 `main` 独立提交，不推送；后续角色/组织 Port、授权及客户端增量仍须独立验收。
 
 - [ ] R04b3：下一任务补齐角色/组织范围授权，继续在 `main` 分项交付。以下实施顺序以现有源码和已批准双层授权设计为依据，不宣称已经实现：
+  - [x] R04b3a：所有者的权威角色候选目录（基线 `dca199b8`，快照 `ai-knowledge-role-candidates-r04b3a`）。新增 `Identity.Contracts/IActiveRoleDirectory.cs`、Identity `Roles/ActiveRoleDirectory.cs` 与 `Persistence/ActiveRoleDirectorySql.cs`，AI `Features/ManageKnowledgeRoleCandidates/` 服务/Endpoint 作为真实消费者。Identity 仅查询自己拥有的活动普通角色；Host 使用 HostOnly，Tenant 使用 TenantRequired/CurrentTenantId，不使用 Workflow Port、JWT 角色声明或跨模块 SQL。
+    - API：知识库及其文档分别增加 `GET .../role-candidates`，使用 `ai.knowledge_bases.role_candidates_read` 与 `ai.knowledge_documents.role_candidates_read` 独立权限；响应只含角色 Id/Code/Name 和分页。先查当前范围资源所有权，再调用目录；成员和陌生人均返回 404。禁用知识库仍允许所有者读取知识库候选；文档候选沿用启用目录和未删除文档的维护边界。
+    - 分页：page ≥ 1、pageSize 1..100、offset ≤ 100000，排序 Code/Id。不接受请求 TenantId，不创建授权缓存、迁移或角色授予。新增 JSON 源生成与静态行物化闭包。
+    - 权限每次通过 `ICurrentSessionAuthorization` 核对活动会话和权威精确权限，再使用返回的当前用户标识核对资源所有权。初始 JWT 策略只作入口门禁；数据库撤销权限后旧令牌不得继续读取。仅支持交互会话，API Key 不具备所有者维护资格。
+    - RED：`tests/Full.NET.IntegrationTests/Ai/AiKnowledgeRoleCandidatesApiSqlServerTests.cs` / `AiKnowledgeRoleCandidatesApiMySqlTests.cs` 复用真实 API 夹具，验证缺失路由；随后验证普通活动/禁用/超级管理员角色、Host/租户隔离、所有权/精确权限、分页边界、禁用及已删除资源、目录禁用和权限撤销立即生效。Unit 无法证明真实 SQL 过滤及授权管线，故使用双库 HTTP；不属于 messaging-heavy。
+    - 验收：affected slice 双库集、AI Unit、受影响 Architecture/Native AOT 分析及原生路径、命名/SQL safety/分片/治理。通过后仅提交本切片；后续 R04b3b 才接入角色授予及双层读取授权，组织范围仍待实现。R04b3 与 RAG 保持未完成。
+    - 已取得的新鲜证据：双库专用 HTTP 2/2、真实 OpenAPI 导出各 1/1 且规范化内容一致；`pnpm test:dotnet:unit -- --no-build --selection ai-module` 429/429，受影响 Architecture 91/91，均零跳过。Architecture 覆盖原生闭包、受控协议、AI 依赖、Identity 契约消费者、模块表/事务边界、数据作用域、Global SQL 目录及 Operation 标识，没有宣称完整 Unit 或 Architecture 全集通过。
+    - 契约与客户端：`node --test --test-concurrency=1 tests/openapi/*.test.mjs` 206/206，`pnpm --filter @fullnet/client-contracts exec vitest run --maxWorkers=1` 200/200；共享包 TypeScript 与 Vue 生产构建通过。标准快照离线检查、生成零漂移及相对基线的 94 个契约兼容检查通过；本项新增两个 Operation，知识库共享客户端合计 22 个，标准快照合计 583 个。
+    - 本地静态门禁：命名 33/33、SQL safety 5/5、affected 工具 65/65、治理 57/57；全量分片发现 1128 个集成身份，无遗漏或重复。API AOT 分析构建零警告/错误；正式 `pnpm test:aot:publish:linux` 和 `pnpm test:aot:worker:publish:linux` 均成功，产物分别为 134944752/86561672 bytes，17/15 条第三方许可警告符合既有白名单。正式产物的 API 10/10、Worker 17/17 原生影响集全部通过且零跳过；Worker 未另行执行独立分析构建。
+    - `pnpm test:integration:affected -- --snapshot ai-knowledge-role-candidates-r04b3a --phase slice` 发现 AI、Identity、强认证及 Native AOT 合计 240 个唯一测试身份。Windows 合并执行因内存耗尽中断，没有产生新鲜 TRX，排除旧的 15:14 结果；后续并行 Windows 批次也出现内存/栈异常，失败日志保留。保留真实完成的 SQL Server 40/40 与 AI/强认证 51/51，其余 JIT 在隔离 Linux SDK 容器串行完成 SQL Server 41/41、MySQL 40/40 和 41/41。合并这些新鲜 TRX 与正式原生 API 10/10、Worker 17/17，按原始发现的完整 FQN 集逐一核对，最终 240/240（JIT 213、Native 27）通过，零跳过、遗漏、重复或范围外身份；冻结源码/契约摘要不变。修正运行器后未缩小影响集，也未把环境失败计为通过。
+    - 失败与修正记录：RED 首先证明缺失路由 404；随后旧 JWT 在权限撤销后仍返回 200，新增每请求权威权限核对后双库用例通过。原生夹具通过角色管理 API 撤权会同时使会话失效，正确返回 401；为单独证明权限核对，改为测试侧只删除两个权限关系、保留会话与安全戳，旧令牌在两个候选 Endpoint 均精确返回 403。曾出现 Linux Migrator 缓存文件失去执行位、测试辅助镜像无 python3 等运行器问题，修正仅限忽略目录脚本/缓存，未放宽生产授权或断言。
+    - 环境与证据位置：本地 Windows i7-12700H（14 核/20 线程）、约 64 GiB 内存，Docker VM 31.22 GiB，Windows/Linux SDK 10.0.401/10.0.400；资源受压的长批次使用单 CPU、两个测试 worker 和 1 GiB GC 限制。原始日志、TRX、冻结源码/契约摘要及正式发布 manifest 留在忽略目录 `artifacts/ai-knowledge-role-candidates/`；这些证据只认证所述功能范围，不认证模型质量、容量或生产 SLO。
+  - [ ] R04b3b：角色授予与双层读取授权。已沿现有知识库列表/读取、文档列表/读取、版本列表及来源打开后的二次复核梳理影响链；下一实施项按下列边界推进，组织仍独立留待后续切片。
+    - Identity 扩展当前最小角色 Port：单次批量验证最多 100 个授予角色，并按可信 Host/Tenant 范围读取当前用户的权威活动普通角色关系；不枚举角色的全部用户，不读取 JWT 角色声明。活动账号、租户成员、角色及作用域必须同时有效。失败或取消不得回退到声明或缓存。
+    - AI 保存知识库/文档各自拥有的角色授予，SQL Server/MySQL 成对迁移及恢复测试；角色标识不建立跨模块外键。独立 GET/PUT 角色授予接口与精确权限，写入复用对应资源 Version，旧明确用户名单接口只替换用户授予，不能清空角色授予。
+    - 一次权威角色读取服务当前操作的 AI 本地 SQL 过滤，知识库与文档分别判断所有者、明确用户或活动角色匹配，最终仍同时满足两层。总数与列表使用相同过滤，不能先分页再逐条跨模块查询；角色读取及授予校验必须位于 AI 本地事务之外。下载打开后的复核重新读取权威状态。
+    - RED 先覆盖仅知识库角色/仅文档角色拒读、两层匹配可读、明确用户与角色交叉匹配、角色禁用/移除后旧令牌立即拒读、Host/Tenant 角色混用拒绝、旧用户名单更新保留角色授予、并发版本和失败原子回滚。通过双库恢复、实际影响集与原生闭包后独立提交，再生成共享客户端。
   1. 先建立权威读取边界。Identity 当前角色目录是 Workflow 专用契约，新增真实 Ai 消费所需的通用最小活动角色/成员关系 Port；不得依赖 JWT 中旧角色声明或扫描 Workflow 办理人全量用户。Organization 既有成员 Port 使用 Global SQL，且只检查成员隶属活动状态；新知识库读取需按可信当前租户同时核对活动机构和活动隶属，不把跨租户列表直接当作授权。
   2. 在 AI 自有表保存有界角色/机构授予，成对迁移及恢复测试；不向 Identity/Organization 建外键，不跨模块 JOIN。新增独立范围读取/修改 Endpoint 与精确权限，保持现有明确用户成员 API 的兼容语义，避免旧客户端的用户名单更新清空新范围。知识库与文档版本继续提供并发保护，所有者/租户只能来自可信上下文。
   3. 每层授权为所有者、明确用户、权威活动角色或当前租户活动机构的匹配；读取仍需同时满足知识库和文档两层。机构首切片只匹配明确机构，不能从父机构推导未授予的子机构。禁用目录、删除文档、角色禁用/移除、机构禁用/成员调离及端点权限撤销均需拒读；来源流打开后继续再次复核。

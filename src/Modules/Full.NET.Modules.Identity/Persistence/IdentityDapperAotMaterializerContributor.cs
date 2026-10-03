@@ -36,6 +36,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<HostUserLockoutEndUtcRow>(ReadHostUserLockoutEndUtcRow);
         registrar.Register<HostUserProfileRecord>(ReadHostUserProfileRecord);
         registrar.Register<HostRoleListRow>(ReadHostRoleListRow);
+        registrar.Register<ActiveRoleDirectoryRow>(ReadActiveRoleDirectoryRow);
         registrar.Register<IdentityRoleRecord>(ReadIdentityRoleRecord);
         registrar.Register<IdentityRolePermission>(ReadIdentityRolePermission);
         registrar.Register<IdentityUserRoleDataScopeRow>(ReadIdentityUserRoleDataScopeRow);
@@ -297,6 +298,10 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             UpdatedAtUtc = ReadNullableDateTimeOffsetByName(reader, "UpdatedAtUtc"),
             Version = ReadInt32ByName(reader, "Version"),
         };
+
+    // 候选投影在原生程序中按固定列名物化，UUID 复用双提供程序显式转换。
+    private static ActiveRoleDirectoryRow ReadActiveRoleDirectoryRow(DbDataReader reader) =>
+        new(ReadGuidByName(reader, "Id"), ReadStringByName(reader, "Code"), ReadStringByName(reader, "Name"));
 
     private static IdentityRoleRecord ReadIdentityRoleRecord(DbDataReader reader) =>
         new(

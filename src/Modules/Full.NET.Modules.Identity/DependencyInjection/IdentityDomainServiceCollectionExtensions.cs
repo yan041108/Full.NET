@@ -147,6 +147,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<IHostTenantUserSelectionDirectory>(provider =>
             provider.GetRequiredService<HostUsers.HostTenantUserSelectionDirectory>());
         services.TryAddScoped<IWorkflowRoleMemberDirectory, Workflow.WorkflowRoleMemberDirectory>();
+        services.TryAddScoped<IActiveRoleDirectory, Roles.ActiveRoleDirectory>();
         services.TryAddScoped<HostNavigationDefinitionLoader>();
         services.AddFullNetFluentValidation<LoginCommand, LoginSessionResult>();
         services.AddFullNetFluentValidation<

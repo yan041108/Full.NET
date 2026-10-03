@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createHttpClient } from '../src/http';
 import {
   aiUploadKnowledgeVersion, aiDownloadKnowledgeSource, aiDeleteKnowledgeDocument,
-  aiRetryKnowledgeImport, aiListKnowledgeVersions
+  aiRetryKnowledgeImport, aiListKnowledgeVersions, aiListKnowledgeRoleCandidates, aiListKnowledgeDocumentRoleCandidates
 } from '../src/ai-knowledge';
 
 const id = '00000000-0000-0000-0000-000000000001';
@@ -18,6 +18,36 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 afterEach(() => vi.unstubAllGlobals());
 
 describe('知识库共享生成客户端', () => {
+  it('两个角色候选操作传递分页、认证、语言与取消且只返回最小角色投影', async () => {
+    const page = { items: [{ id, code: 'reader', name: '阅读角色' }], page: 2, pageSize: 10, total: '21' };
+    const fetchMock = vi.fn().mockImplementation(async () => json(page));
+    vi.stubGlobal('fetch', fetchMock);
+    const http = createHttpClient();
+    http.configureRequestLocale(() => 'zh-CN');
+    http.configureAuthentication({ getAccessToken: () => 'access', refresh: async () => false });
+    const signal = new AbortController().signal;
+    expect(await aiListKnowledgeRoleCandidates(http, { knowledgeBaseId: id, page: 2, pageSize: 10 }, signal)).toEqual({ ...page, total: 21 });
+    expect(await aiListKnowledgeDocumentRoleCandidates(http, { ...resource, page: 2, pageSize: 10 }, signal)).toEqual({ ...page, total: 21 });
+    for (const [index, [url, request]] of fetchMock.mock.calls.entries()) {
+      const parsed = new URL(url, 'https://example.test');
+      expect(parsed.pathname).toBe(`/api/v1/ai/knowledge-bases/${id}${index === 1 ? `/documents/${id}` : ''}/role-candidates`);
+      expect([...parsed.searchParams.entries()]).toEqual([['page', '2'], ['pageSize', '10']]);
+      expect(request.signal).toBe(signal);
+      expect(new Headers(request.headers).get('authorization')).toBe('Bearer access');
+      expect(new Headers(request.headers).get('accept-language')).toBe('zh-CN');
+      expect(request.body).toBeUndefined();
+    }
+  });
+
+  it('角色候选拒绝损坏 UUID 并传播权威撤权 ProblemDetails', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(json({ items: [{ id: 'invalid', code: 'role', name: '角色' }], page: 1, pageSize: 20, total: '1' }))
+      .mockResolvedValueOnce(json({ status: 403, code: 'authorization.permission_denied', title: 'Forbidden' }, 403));
+    vi.stubGlobal('fetch', fetchMock);
+    const http = createHttpClient();
+    await expect(aiListKnowledgeRoleCandidates(http, { knowledgeBaseId: id })).rejects.toThrow(/invalid_paged_result_of_ai_knowledge_role_candidate_response/);
+    await expect(aiListKnowledgeDocumentRoleCandidates(http, resource)).rejects.toMatchObject({ status: 403, code: 'authorization.permission_denied' });
+  });
+
   it('文件版本分页读取整数线编码并拒绝精度丢失和损坏行', async () => {
     const version = {
       id, documentId: id, versionNumber: 1, originalFileName: '来源.txt', contentType: 'text/plain',

@@ -1,6 +1,6 @@
 # 知识库目录、文件版本、用户授权与模型处理审批
 
-R04a 提供私有目录及审批记录，R04b1 增加明确用户成员与立即撤权，R04b2a 提供文档草稿元数据及独立明确用户授权，R04b2b 接入上传、不可变来源版本及持久化导入恢复。当前不解析正文、不调用模型；角色/组织授权与生成客户端由后续 R04b 继续交付。R05/R06 的每次处理派发必须复核这里记录的审批及最新权威状态。
+R04a 提供私有目录及审批记录，R04b1 增加明确用户成员与立即撤权，R04b2a 提供文档草稿元数据及独立明确用户授权，R04b2b 接入上传、不可变来源版本及持久化导入恢复，R04b2c 提供共享生成客户端，R04b3a 增加角色授权候选查询。当前不解析正文、不调用模型；角色实际授予、组织范围及双层范围授权由后续 R04b 继续交付。R05/R06 的每次处理派发必须复核这里记录的审批及最新权威状态。
 
 ## 目录 API
 
@@ -79,9 +79,20 @@ Tenant 文件只有配额确认后才成为 ready。未知确认保留 pending�
 
 来源下载每次同时核对可信范围、启用知识库及知识库/文档授权，打开 Files 流后再次复核。响应为附件 `application/octet-stream`，设置 `no-store` 和 `nosniff`，不返回文件存储键、公共 URL 或任意 FileId。目录禁用、目录/文档撤权及软删除立即拒绝下一次来源读取。删除先在 AI 本地事务中写墓碑、清除授权并登记清理，再尝试有界文件清理；失败不恢复读取，所有者可继续查询和重试已删除文档的操作。
 
+## 角色授权候选
+
+| 操作 | 路径 | 精确权限 |
+| --- | --- | --- |
+| 知识库角色候选 | `GET /api/v1/ai/knowledge-bases/{knowledgeBaseId}/role-candidates` | `ai.knowledge_bases.role_candidates_read` |
+| 文档角色候选 | `GET /api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/role-candidates` | `ai.knowledge_documents.role_candidates_read` |
+
+两个权限独立，只允许当前资源所有者的有效交互会话调用；成员不能枚举候选，API Key 不支持这项操作。每次请求在 Endpoint 策略之后再次从权威源核对会话、账号、租户和精确权限；会话仍有效但权限已撤销时，旧令牌返回 403 `authorization.permission_denied`，会话同时失效时由认证管线返回 401。所有权不匹配、跨范围或资源不存在返回 404；禁用知识库仍允许其所有者查询知识库候选，文档候选要求目录启用且文档未删除。
+
+候选来自 Identity 最小只读目录，只包含当前可信 Host/租户范围的活动普通角色 `id`、`code`、`name`，排除超级管理员角色，不携带角色成员和权限明细。`page` 从 1 开始，`pageSize` 为 1..100，偏移不超过 100000；按编码和标识固定排序，总数与列表使用相同过滤。请求中的租户参数不能切换范围。候选查询不会修改资源版本或授予访问，现有明确用户成员 API 保持原语义，角色范围的实际授予及两层读取判断仍待后续切片。
+
 ## 共享客户端
 
-`@fullnet/client-contracts` 的 `ai-knowledge` 入口导出知识库、文档、成员、文件版本及导入恢复的 20 个生成 Operation、参数类型、DTO 与响应读取器；根入口也导出同一组 API。协议来自 SQL Server/MySQL 真实 Host 的一致 OpenAPI 快照，不维护第二套手写路径或 DTO。
+`@fullnet/client-contracts` 的 `ai-knowledge` 入口导出知识库、文档、成员、文件版本、导入恢复及角色候选的 22 个生成 Operation、参数类型、DTO 与响应读取器；根入口也导出同一组 API。协议来自 SQL Server/MySQL 真实 Host 的一致 OpenAPI 快照，不维护第二套手写路径或 DTO。
 
 上传 Operation 为 `aiUploadKnowledgeVersion(http, parameters, signal?)`：`parameters` 包含 `knowledgeBaseId`、`documentId`、`version`、`requestKey`、`fileName`、`contentType` 和原始 `Blob` 正文 `body`。`contentType` 必须显式选择 `application/pdf`、`text/markdown` 或 `text/plain`，不能传 JSON 或 FormData。重放同一 `requestKey` 时保留首次的版本、文件元数据及字节，不重新生成键或更换文件。
 

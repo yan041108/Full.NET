@@ -15,4 +15,6 @@ public static class AiKnowledgePermissions
     public const string MembersRead = "ai.knowledge_bases.members_read";
     /// <summary>所有者授予或撤销明确成员。</summary>
     public const string MembersUpdate = "ai.knowledge_bases.members_update";
+    /// <summary>所有者读取当前可信范围的活动普通角色候选。</summary>
+    public const string RoleCandidatesRead = "ai.knowledge_bases.role_candidates_read";
 }
