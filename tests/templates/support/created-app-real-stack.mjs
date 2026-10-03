@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -210,7 +210,8 @@ async function loginAndReadSettings(baseUrl) {
  * @param {'sqlserver'|'mysql'} databaseProviderKey
  */
 export async function verifyCreatedAppRealStack(databaseProviderKey) {
-  const workspace = mkdtempSync(join(tmpdir(), 'fullnet-created-app-rs-'));
+  // Windows 的 TEMP 可能是 8.3 短路径，Vite 以长路径校验文件允许列表。
+  const workspace = mkdtempSync(join(realpathSync.native(tmpdir()), 'fullnet-created-app-rs-'));
   let dbContainer;
   let redisContainer;
   let apiProcess;
