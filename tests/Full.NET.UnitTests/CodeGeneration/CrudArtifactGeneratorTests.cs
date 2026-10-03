@@ -767,6 +767,39 @@ public sealed class CrudArtifactGeneratorTests
     }
 
     [TestMethod]
+    public void Generate_explicit_navigation_uses_unique_vue_route_identity()
+    {
+        var artifacts = GenerateWithLayui(CreateHardDeleteSchema());
+        var navigation = Artifact(artifacts, "backend/ProductAuthorizationContributor.fragment.cs");
+
+        StringAssert.Contains(navigation, "new NavigationDefinition(\n    \"m7-catalog-products\",\n    null,\n    \"m7-catalog-products\",\n    \"/catalog/products\",\n    \"m7-catalog-products\",");
+        foreach (var action in new[] { "create", "update", "disable" })
+        {
+            StringAssert.Contains(navigation,
+                $"\"catalog.products.{action}\",\n    \"m7-catalog-products\",");
+        }
+    }
+
+    [TestMethod]
+    public void Generate_explicit_navigation_distinguishes_module_and_resource_boundaries()
+    {
+        var reference = CreateHardDeleteSchema();
+        FullNetCrudSchema Schema(string moduleKey, string resource) =>
+            FullNetCrudSchema.CreateProject(
+                ownerKey: "acme", moduleKey, entityKey: "product",
+                databaseTableName: $"acme_{moduleKey}_product",
+                rootNamespace: "Acme.Modules.Catalog", clrTypeName: "Product",
+                apiResourceName: resource, permissionResourceName: "products",
+                reference.DataScope, reference.EntityCapabilities,
+                FullNetCrudScene.Single, [], reference.Columns);
+
+        var first = CrudAuthorizationContributorFragmentGenerator.Generate(Schema("a_b", "c"));
+        var second = CrudAuthorizationContributorFragmentGenerator.Generate(Schema("a", "b-c"));
+        StringAssert.Contains(first, "new NavigationDefinition(\n    \"m3-a-b-c\",");
+        StringAssert.Contains(second, "new NavigationDefinition(\n    \"m1-a-b-c\",");
+    }
+
+    [TestMethod]
     public void Generate_explicit_hard_delete_uses_physical_delete_without_soft_delete_fields()
     {
         var artifacts = GenerateWithLayui(

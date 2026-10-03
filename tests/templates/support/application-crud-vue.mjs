@@ -10,6 +10,9 @@ const vueSources = new Map([
   ['clients/vue/productsView.vue', 'ui/admin/src/views/CatalogProductsView.vue'],
 ]);
 const clientRoot = 'packages/client-contracts/src/application-generated/catalog-product';
+const navigationCatalogPath = 'packages/client-contracts/src/navigation-catalog.ts';
+const navigationKey = 'm7-catalog-products';
+const navigationEntry = `  { componentKey: '${navigationKey}', routeName: '${navigationKey}', path: '/catalog/products' },\n`;
 const operationExport = `export {
   catalogCreateProduct,
   catalogDeleteProduct,
@@ -28,13 +31,14 @@ const modelExport = `export type {
 // 独立应用拥有客户端包与管理端骨架；业务生成文件只写入应用专属路径。
 export function prepareApplicationCrudVue(appRoot) {
   const clientIndex = join(appRoot, 'packages/client-contracts/src/index.ts');
+  const navigationCatalog = join(appRoot, navigationCatalogPath);
   const moduleTarget = join(appRoot, 'verification/CrudGeneration/module-target.json');
   const vueTarget = join(appRoot, 'verification/CrudGeneration/vue-target.json');
   const sources = [
     ...generatedNames.map((name) => [`verification/ClientGeneration/generated/${name}`, `${clientRoot}/${name}`]),
     ...vueSources,
   ];
-  for (const path of [clientIndex, moduleTarget, join(appRoot, 'ui/admin/src/router/index.ts'),
+  for (const path of [clientIndex, navigationCatalog, moduleTarget, join(appRoot, 'ui/admin/src/router/index.ts'),
     ...sources.map(([source]) => join(appRoot, source))]) {
     assert.equal(existsSync(path), true, 'application Vue source missing: ' + path);
   }
@@ -42,17 +46,45 @@ export function prepareApplicationCrudVue(appRoot) {
     assert.equal(existsSync(path), false, 'Vue adoption requires an unused application path: ' + path);
   }
   const originalIndex = readFileSync(clientIndex, 'utf8');
+  const originalNavigation = readFileSync(navigationCatalog, 'utf8');
   assert.equal(originalIndex.includes('catalogCreateProduct'), false, 'application client product operation already exported');
+  // 按目录项的实际字段检查三种碰撞；动态值或特殊转义无法安全判定时拒绝采纳。
+  const catalogStart = originalNavigation.indexOf('= [', originalNavigation.indexOf('export const ADMIN_NAVIGATION_CATALOG'));
+  assert.ok(catalogStart >= 0, 'application navigation catalog declaration changed');
+  assert.equal(originalNavigation.split('] as const;').length - 1, 1, 'application navigation catalog anchor changed');
+  const navigationAnchor = originalNavigation.indexOf('] as const;');
+  const catalogBody = originalNavigation.slice(catalogStart + 3, navigationAnchor);
+  const entries = [...catalogBody.matchAll(/\{([^{}]*)\}/gu)];
+  assert.ok(entries.length > 0, 'application navigation catalog is empty');
+  assert.equal(catalogBody.replace(/\{[^{}]*\}/gu, '').replace(/[\s,]/gu, ''), '',
+    'navigation catalog entry must use static fields');
+  const fieldPattern = /\b(componentKey|routeName|path)\s*:\s*(['"])([^'"\\]*)\2/gu;
+  const values = entries.flatMap(([, body]) => {
+    const fields = [...body.matchAll(fieldPattern)];
+    assert.deepEqual(fields.map(([, name]) => name).sort(), ['componentKey', 'path', 'routeName'],
+      'navigation catalog entry must use static fields');
+    assert.equal(body.replace(fieldPattern, '').replace(/[\s,]/gu, ''), '',
+      'navigation catalog entry must use static fields');
+    return fields.map(([, , , value]) => value);
+  });
+  assert.equal(values.some(value => value === navigationKey || value === '/catalog/products'),
+    false, 'navigation key is already occupied');
+  const precedingEntry = originalNavigation.slice(0, navigationAnchor).lastIndexOf('}');
+  assert.ok(precedingEntry >= 0 && /^\s*$/u.test(originalNavigation.slice(precedingEntry + 1, navigationAnchor)),
+    'application navigation catalog closing entry changed');
   const target = JSON.parse(readFileSync(moduleTarget, 'utf8'));
   assert.equal(Object.hasOwn(target, 'clientRoute'), false, 'module target already contains a client route');
   for (const [, destination] of sources) mkdirSync(join(appRoot, destination, '..'), { recursive: true });
   for (const [source, destination] of sources) copyFileSync(join(appRoot, source), join(appRoot, destination));
   writeFileSync(clientIndex, originalIndex + (originalIndex.endsWith('\n') ? '\n' : '\n\n') + operationExport + '\n' + modelExport);
+  writeFileSync(navigationCatalog, originalNavigation.slice(0, precedingEntry) + '},'
+    + originalNavigation.slice(precedingEntry + 1, navigationAnchor) + navigationEntry
+    + originalNavigation.slice(navigationAnchor));
   writeFileSync(vueTarget, JSON.stringify({ ...target, clientRoute: {
-    routePath: '/catalog/products', vueRouteName: 'catalog-products',
+    routePath: '/catalog/products', vueRouteName: navigationKey,
     vueComponentPath: 'ui/admin/src/views/CatalogProductsView.vue',
   } }, null, 2));
-  return { clientFiles: 4, vueFiles: 3, routePath: '/catalog/products' };
+  return { clientFiles: 4, vueFiles: 3, routePath: '/catalog/products', navigationRegistered: true };
 }
 
 export function verifyApplicationCrudVue(appRoot, {
@@ -63,7 +95,7 @@ export function verifyApplicationCrudVue(appRoot, {
   const router = join(appRoot, 'ui/admin/src/router/index.ts');
   const index = join(appRoot, 'packages/client-contracts/src/index.ts');
   const target = join(appRoot, 'verification/CrudGeneration/vue-target.json');
-  const protectedPaths = [index, target,
+  const protectedPaths = [index, target, join(appRoot, navigationCatalogPath),
     ...generatedNames.map((name) => join(appRoot, 'verification/ClientGeneration/generated', name)),
     ...generatedNames.map((name) => join(appRoot, clientRoot, name)),
     ...[...vueSources.values()].map((path) => join(appRoot, path))];
@@ -83,11 +115,21 @@ export function verifyApplicationCrudVue(appRoot, {
     join(appRoot, 'verification/CrudGeneration/schema.json'), '--repository', appRoot, '--target', target];
   assert.match(execute('route', 'dotnet', routeArgs), /Update ui\/admin\/src\/router\/index\.ts/u);
   const routed = readFileSync(router);
-  assert.match(routed.toString('utf8'), /name: 'catalog-products'/u);
+  assert.match(routed.toString('utf8'), /name: 'm7-catalog-products'/u);
   assert.match(routed.toString('utf8'), /path: '\/catalog\/products'/u);
   assert.match(execute('route-repeat', 'dotnet', routeArgs), /Unchanged ui\/admin\/src\/router\/index\.ts/u);
   assert.deepEqual(readFileSync(router), routed, 'repeat route integration changed the router');
+  const contributor = readFileSync(join(appRoot, 'src/Demo.Modules.Catalog/CatalogAuthorizationContributor.cs'), 'utf8');
+  assert.match(contributor, /new NavigationDefinition\(\s*"m7-catalog-products",\s*null,\s*"m7-catalog-products",\s*"\/catalog\/products",\s*"m7-catalog-products"/u,
+    'generated server navigation must match the Vue route and local catalog');
   execute('install', 'pnpm', ['install', '--frozen-lockfile']);
+  execute('navigation-build', 'pnpm', ['--filter', '@fullnet/client-contracts', 'build']);
+  const navigationProbe = `import { createAdminNavigationCatalog } from './packages/client-contracts/dist/navigation-catalog.js';
+const catalog = createAdminNavigationCatalog();
+const node = { componentKey: 'm7-catalog-products', routeName: 'm7-catalog-products', path: '/catalog/products', children: [] };
+if (!catalog.isSupportedNavigationTree([node])) process.exit(1);
+if (catalog.isSupportedNavigationTree([{ ...node, routeName: 'other' }])) process.exit(2);`;
+  execute('navigation-contract', 'node', ['--input-type=module', '-e', navigationProbe]);
   execute('build', 'pnpm', ['--filter', '@fullnet/admin', 'build']);
   assert.deepEqual(snapshot(), installed, 'Vue build changed adopted application sources');
   assert.deepEqual(readFileSync(router), routed, 'Vue build changed the route');
