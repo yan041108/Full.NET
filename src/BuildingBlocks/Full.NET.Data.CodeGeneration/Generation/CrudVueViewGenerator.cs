@@ -88,12 +88,14 @@ internal static class CrudVueViewGenerator
               }
               """;
         var submitRemove = removeAction.Length == 0
-            ? $"async function removeRow(_row: {entity}Response): Promise<void> {{}}"
+            ? "async function confirmDelete(): Promise<void> {}"
             : """
-              async function removeRow(row: unknown): Promise<void> {
-                const item = items.value.find(candidate => candidate === row);
-                if (item) {
-                  await remove(item);
+              async function confirmDelete(): Promise<void> {
+                if (!deleting.value) return;
+                const succeeded = await remove(deleting.value);
+                if (succeeded) {
+                  deleteOpen.value = false;
+                  deleting.value = undefined;
                 }
               }
               """;
@@ -126,7 +128,9 @@ internal static class CrudVueViewGenerator
             const problem = ref<FullNetProblemDetails>();
             const createOpen = ref(false);
             const editOpen = ref(false);
+            const deleteOpen = ref(false);
             const editing = ref<{{entity}}Response>();
+            const deleting = ref<{{entity}}Response>();
             const createForm = reactive({
               {{createDefaults}}
             });
@@ -161,6 +165,14 @@ internal static class CrudVueViewGenerator
               editing.value = item;
               Object.assign(editForm, item);
               editOpen.value = true;
+            }
+
+            function openDelete(row: unknown): void {
+              // 先展示确认弹窗；表格按钮不得直接执行不可撤销的删除请求。
+              const item = items.value.find(candidate => candidate === row);
+              if (!item) return;
+              deleting.value = item;
+              deleteOpen.value = true;
             }
 
             async function submitCreate(): Promise<void> {
@@ -210,7 +222,7 @@ internal static class CrudVueViewGenerator
                         v-if="{{canRemoveExpr}}"
                         link
                         type="danger"
-                        @click="removeRow(row)"
+                        @click="openDelete(row)"
                       >
                         删除
                       </el-button>
@@ -240,6 +252,13 @@ internal static class CrudVueViewGenerator
                   <template #footer>
                     <el-button @click="editOpen = false">取消</el-button>
                     <el-button type="primary" @click="submitEdit">保存</el-button>
+                  </template>
+                </el-dialog>
+                <el-dialog v-model="deleteOpen" title="确认删除" @close="deleting = undefined">
+                  <p>确定删除该条记录吗？此操作无法撤销。</p>
+                  <template #footer>
+                    <el-button @click="deleteOpen = false">取消</el-button>
+                    <el-button type="danger" @click="confirmDelete">确认删除</el-button>
                   </template>
                 </el-dialog>
               </section>

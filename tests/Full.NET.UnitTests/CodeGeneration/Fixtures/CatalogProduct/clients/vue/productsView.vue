@@ -24,7 +24,9 @@ const session = useSessionStore();
 const problem = ref<FullNetProblemDetails>();
 const createOpen = ref(false);
 const editOpen = ref(false);
+const deleteOpen = ref(false);
 const editing = ref<ProductResponse>();
+const deleting = ref<ProductResponse>();
 const createForm = reactive({
   displayName: '',
   description: null,
@@ -74,6 +76,14 @@ function openEdit(row: unknown): void {
   editOpen.value = true;
 }
 
+function openDelete(row: unknown): void {
+  // 先展示确认弹窗；表格按钮不得直接执行不可撤销的删除请求。
+  const item = items.value.find(candidate => candidate === row);
+  if (!item) return;
+  deleting.value = item;
+  deleteOpen.value = true;
+}
+
 async function submitCreate(): Promise<void> {
   const succeeded = await create({ ...createForm });
   if (succeeded) {
@@ -91,10 +101,12 @@ async function submitEdit(): Promise<void> {
   }
 }
 
-async function removeRow(row: unknown): Promise<void> {
-  const item = items.value.find(candidate => candidate === row);
-  if (item) {
-    await remove(item);
+async function confirmDelete(): Promise<void> {
+  if (!deleting.value) return;
+  const succeeded = await remove(deleting.value);
+  if (succeeded) {
+    deleteOpen.value = false;
+    deleting.value = undefined;
   }
 }
 </script>
@@ -137,7 +149,7 @@ async function removeRow(row: unknown): Promise<void> {
             v-if="canWrite"
             link
             type="danger"
-            @click="removeRow(row)"
+            @click="openDelete(row)"
           >
             删除
           </el-button>
@@ -183,6 +195,13 @@ async function removeRow(row: unknown): Promise<void> {
       <template #footer>
         <el-button @click="editOpen = false">取消</el-button>
         <el-button type="primary" @click="submitEdit">保存</el-button>
+      </template>
+    </el-dialog>
+    <el-dialog v-model="deleteOpen" title="确认删除" @close="deleting = undefined">
+      <p>确定删除该条记录吗？此操作无法撤销。</p>
+      <template #footer>
+        <el-button @click="deleteOpen = false">取消</el-button>
+        <el-button type="danger" @click="confirmDelete">确认删除</el-button>
       </template>
     </el-dialog>
   </section>

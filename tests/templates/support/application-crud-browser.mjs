@@ -6,8 +6,19 @@ import { join } from 'node:path';
 import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 
 const requireFromE2e = createRequire(new URL('../../e2e/admin-real-stack/package.json', import.meta.url));
+const requireFromParity = createRequire(new URL('../../e2e/admin-parity/package.json', import.meta.url));
 const { chromium, expect } = requireFromE2e('@playwright/test');
+const AxeBuilder = requireFromParity('@axe-core/playwright');
 const origin = 'http://localhost:25183';
+
+async function auditAccessibility(page, selector, evidence, surface) {
+  const result = await new AxeBuilder({ page }).include(selector)
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  const violations = result.violations.map(({ id, impact, nodes }) => ({ id, impact, count: nodes.length }));
+  evidence.accessibility.push({ surface, violations });
+  assert.equal(violations.length, 0,
+    `${surface} accessibility violations: ${violations.map(value => value.id).join(', ')}`);
+}
 
 async function waitForVue(process, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs;
@@ -47,7 +58,7 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
       assert.ok(['read', 'none', 'create', 'update', 'delete'].includes(mode), 'unknown browser permission mode');
       if (mode === 'update' || mode === 'delete') assert.ok(actionTargetName, 'browser action target is required');
       const evidence = { mode, completed: false, login: false, tenantContext: false, navigation: false,
-        buttons: { create: false, update: false, delete: false }, action: null, authResponses: [] };
+        buttons: { create: false, update: false, delete: false }, action: null, accessibility: [], authResponses: [] };
       const context = await browser.newContext();
       try {
         const page = await context.newPage();
@@ -100,6 +111,7 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
           await expect(view).toBeVisible();
           await expect(view.locator('.el-table__row').filter({ hasText: 'Read permission product' }))
             .toBeVisible({ timeout: 20_000 });
+          if (mode === 'read') await auditAccessibility(page, '.generated-crud-view', evidence, 'product-list');
           const originalRow = view.locator('.el-table__row').filter({ hasText: 'Read permission product' });
           for (const [action, label] of [['create', '创建'], ['update', '编辑'], ['delete', '删除']]) {
             const visible = mode === action;
@@ -108,9 +120,13 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
             evidence.buttons[action] = visible;
           }
           if (mode === 'create') {
-            await view.getByRole('button', { name: '创建', exact: true }).click();
+            const createButton = view.getByRole('button', { name: '创建', exact: true });
+            await createButton.focus();
+            await page.keyboard.press('Enter');
             const dialog = page.getByRole('dialog', { name: '创建' });
             await expect(dialog).toBeVisible();
+            await dialog.evaluate(element => element.setAttribute('data-fullnet-audit-dialog', 'create'));
+            await auditAccessibility(page, '[data-fullnet-audit-dialog="create"]', evidence, 'create-dialog');
             await dialog.locator('.el-form-item').filter({ hasText: 'Name' }).locator('input').fill('Browser created product');
             const [response] = await Promise.all([
               page.waitForResponse(value => new URL(value.url()).pathname.replace(/\/$/u, '') === '/api/v1/catalog/products'
@@ -127,6 +143,8 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
             await target.getByRole('button', { name: '编辑' }).click();
             const dialog = page.getByRole('dialog', { name: '编辑' });
             await expect(dialog).toBeVisible();
+            await dialog.evaluate(element => element.setAttribute('data-fullnet-audit-dialog', 'update'));
+            await auditAccessibility(page, '[data-fullnet-audit-dialog="update"]', evidence, 'update-dialog');
             await dialog.locator('.el-form-item').filter({ hasText: 'Name' }).locator('input').fill('Browser updated product');
             const [response] = await Promise.all([
               page.waitForResponse(value => new URL(value.url()).pathname.startsWith('/api/v1/catalog/products/')
@@ -141,10 +159,24 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
           } else if (mode === 'delete') {
             const target = view.locator('.el-table__row').filter({ hasText: actionTargetName });
             await expect(target).toBeVisible();
+            const deleteButton = target.getByRole('button', { name: '删除' });
+            await deleteButton.focus();
+            await page.keyboard.press('Enter');
+            const dialog = page.getByRole('dialog', { name: '确认删除' });
+            await expect(dialog).toBeVisible();
+            await dialog.evaluate(element => element.setAttribute('data-fullnet-audit-dialog', 'delete'));
+            await auditAccessibility(page, '[data-fullnet-audit-dialog="delete"]', evidence, 'delete-dialog');
+            await page.keyboard.press('Escape');
+            await expect(dialog).not.toBeVisible();
+            await expect(target).toBeVisible();
+            await deleteButton.click();
+            await expect(dialog).toBeVisible();
+            const confirmButton = dialog.getByRole('button', { name: '确认删除' });
+            await confirmButton.focus();
             const [response] = await Promise.all([
               page.waitForResponse(value => new URL(value.url()).pathname.endsWith('/delete')
                 && value.request().method() === 'POST'),
-              target.getByRole('button', { name: '删除' }).click(),
+              page.keyboard.press('Enter'),
             ]);
             assert.equal(response.status(), 200, 'browser delete did not return HTTP 200');
             await expect(target).toHaveCount(0);

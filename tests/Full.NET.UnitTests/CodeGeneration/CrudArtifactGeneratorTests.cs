@@ -763,7 +763,8 @@ public sealed class CrudArtifactGeneratorTests
         StringAssert.Contains(vueView, ":data=\"[...items]\"");
         StringAssert.Contains(vueView, "function openEdit(row: unknown): void");
         StringAssert.Contains(vueView, "const item = items.value.find(candidate => candidate === row);");
-        StringAssert.Contains(vueView, "async function removeRow(row: unknown): Promise<void>");
+        StringAssert.Contains(vueView, "function openDelete(row: unknown): void");
+        StringAssert.Contains(vueView, "async function confirmDelete(): Promise<void>");
     }
 
     [TestMethod]
@@ -811,6 +812,23 @@ public sealed class CrudArtifactGeneratorTests
         Assert.IsFalse(sql.Contains("IsDeleted", StringComparison.Ordinal));
         Assert.IsFalse(sql.Contains("DeletedAtUtc", StringComparison.Ordinal));
         Assert.IsFalse(sql.Contains("DeletedById", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("legacy")]
+    [DataRow("hard-delete")]
+    public void Generate_vue_requires_confirmation_before_destructive_action(string mode)
+    {
+        var schema = mode == "legacy"
+            ? FullNetCrudSchemaTests.CreateProductSchema()
+            : CreateHardDeleteSchema();
+        var view = Artifact(GenerateWithLayui(schema), "clients/vue/productsView.vue");
+
+        StringAssert.Contains(view, "const deleteOpen = ref(false);");
+        StringAssert.Contains(view, "@click=\"openDelete(row)\"");
+        StringAssert.Contains(view, "<el-dialog v-model=\"deleteOpen\" title=\"确认删除\"");
+        StringAssert.Contains(view, "@click=\"confirmDelete\"");
+        Assert.IsFalse(view.Contains("@click=\"removeRow(row)\"", StringComparison.Ordinal));
     }
 
     [TestMethod]
