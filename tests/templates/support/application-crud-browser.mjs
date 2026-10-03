@@ -43,10 +43,11 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
   }
 
   return {
-    async verify({ mode, username, password, tenantName }) {
+    async verify({ mode, username, password, tenantName, actionTargetName }) {
       assert.ok(['read', 'none', 'create', 'update', 'delete'].includes(mode), 'unknown browser permission mode');
+      if (mode === 'update' || mode === 'delete') assert.ok(actionTargetName, 'browser action target is required');
       const evidence = { mode, completed: false, login: false, tenantContext: false, navigation: false,
-        buttons: { create: false, update: false, delete: false }, authResponses: [] };
+        buttons: { create: false, update: false, delete: false }, action: null, authResponses: [] };
       const context = await browser.newContext();
       try {
         const page = await context.newPage();
@@ -99,10 +100,55 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
           await expect(view).toBeVisible();
           await expect(view.locator('.el-table__row').filter({ hasText: 'Read permission product' }))
             .toBeVisible({ timeout: 20_000 });
+          const originalRow = view.locator('.el-table__row').filter({ hasText: 'Read permission product' });
           for (const [action, label] of [['create', '创建'], ['update', '编辑'], ['delete', '删除']]) {
             const visible = mode === action;
-            await expect(view.getByRole('button', { name: label, exact: true })).toHaveCount(visible ? 1 : 0);
+            const owner = action === 'create' ? view.locator('.generated-crud-view__toolbar') : originalRow;
+            await expect(owner.getByRole('button', { name: label, exact: true })).toHaveCount(visible ? 1 : 0);
             evidence.buttons[action] = visible;
+          }
+          if (mode === 'create') {
+            await view.getByRole('button', { name: '创建', exact: true }).click();
+            const dialog = page.getByRole('dialog', { name: '创建' });
+            await expect(dialog).toBeVisible();
+            await dialog.locator('.el-form-item').filter({ hasText: 'Name' }).locator('input').fill('Browser created product');
+            const [response] = await Promise.all([
+              page.waitForResponse(value => new URL(value.url()).pathname.replace(/\/$/u, '') === '/api/v1/catalog/products'
+                && value.request().method() === 'POST'),
+              dialog.getByRole('button', { name: '保存' }).click(),
+            ]);
+            assert.equal(response.status(), 201, 'browser create did not return HTTP 201');
+            await expect(dialog).not.toBeVisible();
+            await expect(view.locator('.el-table__row').filter({ hasText: 'Browser created product' })).toBeVisible();
+            evidence.action = { type: 'create', status: response.status(), rowVisible: true };
+          } else if (mode === 'update') {
+            const target = view.locator('.el-table__row').filter({ hasText: actionTargetName });
+            await expect(target).toBeVisible();
+            await target.getByRole('button', { name: '编辑' }).click();
+            const dialog = page.getByRole('dialog', { name: '编辑' });
+            await expect(dialog).toBeVisible();
+            await dialog.locator('.el-form-item').filter({ hasText: 'Name' }).locator('input').fill('Browser updated product');
+            const [response] = await Promise.all([
+              page.waitForResponse(value => new URL(value.url()).pathname.startsWith('/api/v1/catalog/products/')
+                && value.request().method() === 'PUT'),
+              dialog.getByRole('button', { name: '保存' }).click(),
+            ]);
+            assert.equal(response.status(), 200, 'browser update did not return HTTP 200');
+            await expect(dialog).not.toBeVisible();
+            await expect(view.locator('.el-table__row').filter({ hasText: 'Browser updated product' })).toBeVisible();
+            await expect(target).toHaveCount(0);
+            evidence.action = { type: 'update', status: response.status(), rowVisible: true };
+          } else if (mode === 'delete') {
+            const target = view.locator('.el-table__row').filter({ hasText: actionTargetName });
+            await expect(target).toBeVisible();
+            const [response] = await Promise.all([
+              page.waitForResponse(value => new URL(value.url()).pathname.endsWith('/delete')
+                && value.request().method() === 'POST'),
+              target.getByRole('button', { name: '删除' }).click(),
+            ]);
+            assert.equal(response.status(), 200, 'browser delete did not return HTTP 200');
+            await expect(target).toHaveCount(0);
+            evidence.action = { type: 'delete', status: response.status(), rowVisible: false };
           }
         } else {
           await page.goto(origin + '/#/catalog/products');

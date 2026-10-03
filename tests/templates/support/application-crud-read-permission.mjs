@@ -131,12 +131,31 @@ async function verifyApplicationCrudAccountPermission(baseUrl, { hostAccessToken
     readerToken = await context('reader-enter-local', readerToken, tenantId);
     checkUser(await call('reader-tenant-identity', '/api/v1/me', 'GET', readerToken), true);
     if (onTenantAccount) {
+      const actionTargetName = mode === 'update' ? 'Browser update target' : mode === 'delete' ? 'Browser delete target' : undefined;
+      const browserProduct = actionTargetName
+        ? await call('admin-browser-seed', base + '/', 'POST', adminTenantToken, { name: actionTargetName }, 201)
+        : undefined;
       const browserTenantToken = await onTenantAccount({ mode, username, password: newPassword, tenantId,
-        tenantName: local[0].name ?? 'Full.NET Local' });
+        tenantName: local[0].name ?? 'Full.NET Local', actionTargetName });
       assert.ok(typeof browserTenantToken === 'string' && browserTenantToken.trim(),
         'browser check did not return an active tenant token');
       secrets.push(browserTenantToken);
       readerToken = browserTenantToken;
+      if (mode === 'create') {
+        const rows = await call('admin-browser-created-list', base + '/?page=1&pageSize=20', 'GET', adminTenantToken);
+        const matches = rows.items.filter((value) => value.name === 'Browser created product');
+        assert.equal(matches.length, 1, 'browser create did not persist exactly one product');
+        assert.equal(matches[0].tenantId, tenantId);
+        await call('admin-browser-created-cleanup', base + '/' + matches[0].id + '/delete', 'POST', adminTenantToken,
+          { version: matches[0].version });
+      } else if (mode === 'update') {
+        const changed = await call('admin-browser-updated-read', base + '/' + browserProduct.id, 'GET', adminTenantToken);
+        checkProduct(changed, { ...browserProduct, name: 'Browser updated product', version: '2' });
+        await call('admin-browser-updated-cleanup', base + '/' + browserProduct.id + '/delete', 'POST', adminTenantToken,
+          { version: changed.version });
+      } else if (mode === 'delete') {
+        await call('admin-browser-deleted-read', base + '/' + browserProduct.id, 'GET', adminTenantToken, undefined, 404);
+      }
     }
     const item = base + '/' + product.id;
     if (canRead) {

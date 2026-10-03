@@ -281,6 +281,53 @@ test('ordinary browser check receives the active account before business request
   assert.equal(report.includes(observed[0].username), false);
   assert.equal(report.includes(browserTenantToken), false);
 }));
+
+for (const [mode, verify] of [
+  ['create', verifyApplicationCrudCreatePermission],
+  ['update', verifyApplicationCrudUpdatePermission],
+  ['delete', verifyApplicationCrudDeletePermission],
+]) {
+  test(`browser ${mode} action is checked through administrator persistence without changing the permission probe`, async () => fixture(async (logPath) => {
+    const calls = [];
+    const browserCalls = [];
+    const browserId = '01900000-0000-7000-8000-000000000015';
+    const targetName = `Browser ${mode} target`;
+    const browserRow = { id: browserId, tenantId, name: mode === 'create' ? 'Browser created product' : targetName, version: '1' };
+    const baseRequest = runner(calls, undefined, false, mode === 'create', mode === 'update', mode === 'delete');
+    const reply = (body, status = 200) => new Response(JSON.stringify(body), { status,
+      headers: { 'content-type': status === 404 ? 'application/problem+json' : 'application/json' } });
+    const request = (url, options) => {
+      const path = new URL(url).pathname;
+      const body = options.body ? JSON.parse(options.body) : undefined;
+      if (mode !== 'create' && path.endsWith('/catalog/products/') && body?.name === targetName) {
+        browserCalls.push('seed');
+        return reply(browserRow, 201);
+      }
+      if (mode === 'create' && path.endsWith('/catalog/products/') && url.includes('pageSize=20')) {
+        browserCalls.push('list-created');
+        return reply({ items: [product, browserRow] });
+      }
+      if (path.includes(browserId)) {
+        browserCalls.push(options.method === 'GET' ? 'read' : 'cleanup');
+        if (mode === 'delete') return reply({ status: 404, code: 'catalog.products.not_found' }, 404);
+        if (mode === 'update' && options.method === 'GET') return reply({ ...browserRow, name: 'Browser updated product', version: '2' });
+        return reply(browserRow);
+      }
+      return baseRequest(url, options);
+    };
+    const result = await verify('http://example.test', { hostAccessToken: tokens[0], logPath, request,
+      onTenantAccount: async (account) => {
+        assert.equal(account.mode, mode);
+        assert.equal(account.actionTargetName, mode === 'create' ? undefined : targetName);
+        return 'secret-browser-tenant';
+      } });
+    assert.equal(result.hostAccessToken, tokens[5]);
+    assert.deepEqual(browserCalls, mode === 'create' ? ['list-created', 'cleanup']
+      : mode === 'update' ? ['seed', 'read', 'cleanup'] : ['seed', 'read']);
+    assert.equal(JSON.parse(readFileSync(logPath, 'utf8')).completed, true);
+    assert.equal(readFileSync(logPath, 'utf8').includes('secret-browser-tenant'), false);
+  }));
+}
 for (const [name, index, altered] of noPermissionFailures) {
   test(`no product permission acceptance rejects ${name} at the intended stage`, async () => fixture(async (logPath) => {
     const calls = [];
