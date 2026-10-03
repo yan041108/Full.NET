@@ -178,7 +178,7 @@ export function createApp({ packageRoot, output, name, ownerKey, database = 'sql
     projectPresetComposition(stagedRoot, preset, modules);
     projectFrontendProxy(stagedRoot, httpPort);
     assertPackageIntegrity(stagedRoot);
-    const verification = verifyCreatedApp(stagedRoot, { requireMigrator: true });
+    const verification = verifyCreatedApp(stagedRoot, { requireMigrator: true, requireWorker: true });
     if (!verification.ok) throw new Error('Created application is invalid: ' + verification.errors.join('; '));
     if (existsSync(appRoot)) throw new Error('Application output directory already exists: ' + appRoot);
     renameSync(stagedRoot, appRoot);

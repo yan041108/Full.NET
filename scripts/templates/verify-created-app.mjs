@@ -19,7 +19,7 @@ const REQUIRED_FILES = [
   'packages/design-tokens/package.json',
 ];
 
-export function verifyCreatedApp(appRoot, { requireMigrator = false } = {}) {
+export function verifyCreatedApp(appRoot, { requireMigrator = false, requireWorker = false } = {}) {
   const root = resolve(appRoot);
   const errors = [];
   const configurationFiles = ['appsettings.json'];
@@ -68,6 +68,17 @@ export function verifyCreatedApp(appRoot, { requireMigrator = false } = {}) {
       for (const migratorFile of ['Program.cs', migratorName + '.csproj', 'appsettings.json']) {
         if (!isRegularFile(join(migratorRoot, migratorFile))) {
           errors.push('Missing required migrator file: ' + join('src', migratorName, migratorFile));
+        }
+      }
+    }
+    // 旧应用仍可只含 API/Migrator；新建应用必须具备独立 Worker 宿主。
+    const workerName = hosts[0].name.slice(0, -'.Host.Api'.length) + '.Host.Worker';
+    const workerRoot = join(sourceRoot, workerName);
+    if (requireWorker || existsSync(workerRoot)) {
+      configurationFiles.push('src/' + workerName + '/appsettings.json');
+      for (const workerFile of [workerName + '.csproj', 'ApplicationWorkerModuleCatalog.cs', 'appsettings.json']) {
+        if (!isRegularFile(join(workerRoot, workerFile))) {
+          errors.push('Missing required worker file: ' + join('src', workerName, workerFile));
         }
       }
     }
