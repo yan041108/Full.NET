@@ -25,6 +25,7 @@ import type {
   AiKnowledgeImportResponse,
   AiKnowledgeMembersResponse,
   AiKnowledgeOrganizationCandidateResponse,
+  AiKnowledgeOrganizationGrantsResponse,
   AiKnowledgeRoleCandidateResponse,
   AiKnowledgeRoleGrantsResponse,
   AiKnowledgeVersionResponse,
@@ -484,6 +485,7 @@ import type {
   ServerRuntimeSnapshot,
   SetAiKnowledgeDocumentMembersRequest,
   SetAiKnowledgeMembersRequest,
+  SetAiKnowledgeOrganizationGrantsRequest,
   SetAiKnowledgeRoleGrantsRequest,
   SetHostDocumentPermissionsRequest,
   SetNotificationProviderProfileEnabledRequest,
@@ -868,6 +870,18 @@ export function readAiKnowledgeOrganizationCandidateResponse(value: unknown): Ai
 
 function isAiKnowledgeOrganizationCandidateResponse(value: unknown): value is AiKnowledgeOrganizationCandidateResponse {
   return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string');
+}
+
+export function readAiKnowledgeOrganizationGrantsResponse(value: unknown): AiKnowledgeOrganizationGrantsResponse {
+  const normalizedValue = normalizeAiKnowledgeOrganizationGrantsResponseIntegerJson(value);
+  if (!(isAiKnowledgeOrganizationGrantsResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_organization_grants_response');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeOrganizationGrantsResponse(value: unknown): value is AiKnowledgeOrganizationGrantsResponse {
+  return isRecord(value) && (Array.isArray(value["organizationUnitIds"]) && value["organizationUnitIds"].every(item28 => typeof item28 === 'string' && guidPattern.test(item28))) && (typeof value["resourceId"] === 'string' && guidPattern.test(value["resourceId"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readAiKnowledgeRoleCandidateResponse(value: unknown): AiKnowledgeRoleCandidateResponse {
@@ -6243,6 +6257,18 @@ function isSetAiKnowledgeMembersRequest(value: unknown): value is SetAiKnowledge
   return isRecord(value) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readSetAiKnowledgeOrganizationGrantsRequest(value: unknown): SetAiKnowledgeOrganizationGrantsRequest {
+  const normalizedValue = normalizeSetAiKnowledgeOrganizationGrantsRequestIntegerJson(value);
+  if (!(isSetAiKnowledgeOrganizationGrantsRequest(normalizedValue))) {
+    throw new Error('client.invalid_set_ai_knowledge_organization_grants_request');
+  }
+  return normalizedValue;
+}
+
+function isSetAiKnowledgeOrganizationGrantsRequest(value: unknown): value is SetAiKnowledgeOrganizationGrantsRequest {
+  return isRecord(value) && (Array.isArray(value["organizationUnitIds"]) && value["organizationUnitIds"].every(item28 => typeof item28 === 'string' && guidPattern.test(item28))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readSetAiKnowledgeRoleGrantsRequest(value: unknown): SetAiKnowledgeRoleGrantsRequest {
   const normalizedValue = normalizeSetAiKnowledgeRoleGrantsRequestIntegerJson(value);
   if (!(isSetAiKnowledgeRoleGrantsRequest(normalizedValue))) {
@@ -8167,6 +8193,10 @@ function normalizeAiKnowledgeMembersResponseIntegerJson(value: unknown): unknown
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeAiKnowledgeOrganizationGrantsResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeAiKnowledgeRoleGrantsResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -9460,6 +9490,10 @@ function normalizeSetAiKnowledgeDocumentMembersRequestIntegerJson(value: unknown
 }
 
 function normalizeSetAiKnowledgeMembersRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeSetAiKnowledgeOrganizationGrantsRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 

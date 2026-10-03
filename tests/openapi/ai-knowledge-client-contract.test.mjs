@@ -11,10 +11,11 @@ const operationIds = [
   'aiDownloadKnowledgeSource', 'aiGetKnowledgeImport', 'aiRetryKnowledgeImport', 'aiCleanupKnowledgeImports',
   'aiListKnowledgeRoleCandidates', 'aiListKnowledgeDocumentRoleCandidates',
   'aiListKnowledgeOrganizationCandidates', 'aiListKnowledgeDocumentOrganizationCandidates',
-  'aiGetKnowledgeRoles', 'aiSetKnowledgeRoles', 'aiGetKnowledgeDocumentRoles', 'aiSetKnowledgeDocumentRoles'
+  'aiGetKnowledgeRoles', 'aiSetKnowledgeRoles', 'aiGetKnowledgeDocumentRoles', 'aiSetKnowledgeDocumentRoles',
+  'aiGetKnowledgeOrganizations', 'aiSetKnowledgeOrganizations', 'aiGetKnowledgeDocumentOrganizations', 'aiSetKnowledgeDocumentOrganizations'
 ];
 
-test('知识库 28 个受保护 Operation 从标准快照进入共享生成客户端', async () => {
+test('知识库 32 个受保护 Operation 从标准快照进入共享生成客户端', async () => {
   const manifest = JSON.parse(await readFile(new URL('../../contracts/openapi/client-generation-manifest-v1.json', import.meta.url), 'utf8'));
   const entries = manifest.entries.filter(entry => entry.generatedGroup === 'ai-knowledge');
   assert.deepEqual(entries.map(entry => entry.operationId).sort(), [...operationIds].sort());
@@ -22,7 +23,7 @@ test('知识库 28 个受保护 Operation 从标准快照进入共享生成客�
   const snapshot = JSON.parse(await readFile(new URL('../../contracts/openapi/fullnet-client-v1.openapi.json', import.meta.url), 'utf8'));
   const operations = new Map(Object.values(snapshot.paths).flatMap(item => Object.values(item))
     .filter(item => operationIds.includes(item.operationId)).map(item => [item.operationId, item]));
-  assert.equal(operations.size, 28);
+  assert.equal(operations.size, 32);
   for (const id of operationIds) {
     const operation = operations.get(id);
     assert.equal(operation.tags.length, 1);
@@ -71,4 +72,29 @@ test('知识库 28 个受保护 Operation 从标准快照进入共享生成客�
   }
   assert.equal(response.properties.resourceId.format, 'uuid');
   assert.equal(request.additionalProperties, false);
+  for (const id of ['aiGetKnowledgeOrganizations', 'aiSetKnowledgeOrganizations', 'aiGetKnowledgeDocumentOrganizations', 'aiSetKnowledgeDocumentOrganizations']) {
+    const operation = operations.get(id);
+    assert.deepEqual(operation.tags, ['AiKnowledgeOrganizationGrants']);
+    assert.equal(operation.responses['200'].content['application/json'].schema.$ref,
+      '#/components/schemas/AiKnowledgeOrganizationGrantsResponse');
+    for (const status of ['400', '404', '409', '422']) assert.ok(operation.responses[status]);
+    assert.ok(operation.parameters.every(parameter => parameter.in === 'path' && parameter.required));
+    if (id.startsWith('aiSet')) {
+      assert.equal(operation.requestBody.required, true);
+      assert.equal(operation.requestBody.content['application/json'].schema.$ref,
+        '#/components/schemas/SetAiKnowledgeOrganizationGrantsRequest');
+    } else assert.equal(operation.requestBody, undefined);
+  }
+  const organizationRequest = snapshot.components.schemas.SetAiKnowledgeOrganizationGrantsRequest;
+  const organizationResponse = snapshot.components.schemas.AiKnowledgeOrganizationGrantsResponse;
+  assert.deepEqual(Object.keys(organizationRequest.properties).sort(), ['organizationUnitIds', 'version']);
+  assert.deepEqual(Object.keys(organizationResponse.properties).sort(), ['organizationUnitIds', 'resourceId', 'version']);
+  for (const schema of [organizationRequest, organizationResponse]) {
+    assert.equal(schema.properties.organizationUnitIds.type, 'array');
+    assert.equal(schema.properties.organizationUnitIds.items.format, 'uuid');
+    assert.equal(schema.properties.version.format, 'int32');
+    assert.deepEqual([...schema.required].sort(), Object.keys(schema.properties).sort());
+  }
+  assert.equal(organizationResponse.properties.resourceId.format, 'uuid');
+  assert.equal(organizationRequest.additionalProperties, false);
 });

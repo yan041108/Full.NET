@@ -253,6 +253,12 @@ export interface AiKnowledgeOrganizationCandidateResponse {
   readonly name: string;
 }
 
+export interface AiKnowledgeOrganizationGrantsResponse {
+  readonly organizationUnitIds: Array<string>;
+  readonly resourceId: string;
+  readonly version: number;
+}
+
 export interface AiKnowledgeRoleCandidateResponse {
   readonly code: string;
   readonly id: string;
@@ -4104,6 +4110,11 @@ export interface SetAiKnowledgeDocumentMembersRequest {
 
 export interface SetAiKnowledgeMembersRequest {
   readonly userIds: Array<string>;
+  readonly version: number;
+}
+
+export interface SetAiKnowledgeOrganizationGrantsRequest {
+  readonly organizationUnitIds: Array<string>;
   readonly version: number;
 }
 

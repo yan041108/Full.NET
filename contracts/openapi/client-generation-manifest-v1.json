@@ -3549,6 +3549,30 @@
       "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
       "generatedGroup": "ai-knowledge",
       "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeOrganizations",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiSetKnowledgeOrganizations",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeDocumentOrganizations",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiSetKnowledgeDocumentOrganizations",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
     }
   ]
 }

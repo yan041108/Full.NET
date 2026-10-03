@@ -142,13 +142,15 @@ PUT 正文为 `roleIds` 与对应资源的 `version`：最多 100 个唯一非�
 
 ## 共享客户端
 
-`@fullnet/client-contracts` 的 `ai-knowledge` 入口导出知识库、文档、成员、文件版本、导入恢复、角色候选、角色授予及组织候选的 28 个生成 Operation、参数类型、DTO 与响应读取器；根入口也导出同一组 API。协议来自 SQL Server/MySQL 真实 Host 的一致 OpenAPI 快照，不维护第二套手写路径或 DTO。
+`@fullnet/client-contracts` 的 `ai-knowledge` 入口导出知识库、文档、成员、文件版本、导入恢复、角色候选、角色授予、组织候选及组织授予的 32 个生成 Operation、参数类型、DTO 与响应读取器；根入口也导出同一组 API。协议来自 SQL Server/MySQL 真实 Host 的一致 OpenAPI 快照，不维护第二套手写路径或 DTO。
 
 上传 Operation 为 `aiUploadKnowledgeVersion(http, parameters, signal?)`：`parameters` 包含 `knowledgeBaseId`、`documentId`、`version`、`requestKey`、`fileName`、`contentType` 和原始 `Blob` 正文 `body`。`contentType` 必须显式选择 `application/pdf`、`text/markdown` 或 `text/plain`，不能传 JSON 或 FormData。重放同一 `requestKey` 时保留首次的版本、文件元数据及字节，不重新生成键或更换文件。
 
 `aiDownloadKnowledgeSource` 使用统一认证 Blob 客户端；`aiDeleteKnowledgeDocument` 接受 204 空响应。JSON 结果经过生成响应守卫，拒绝损坏 DTO 和整数精度丢失。Access Token、Cookie、语言、并发刷新、ProblemDetails 与取消继续由 `createHttpClient` 处理，Operation 不复制认证或租户状态。
 
 `aiGetKnowledgeRoles` / `aiSetKnowledgeRoles` 维护知识库角色，`aiGetKnowledgeDocumentRoles` / `aiSetKnowledgeDocumentRoles` 维护文档角色。PUT 接受 `roleIds` 与当前资源 `version`，401 刷新只重试一次并保留原始正文及版本；409 继续作为 ProblemDetails 交给调用方重新读取和处理，不能自动覆盖并发修改。响应校验 UUID、角色集合及整数版本，兼容服务端整数字符串线编码。
+
+`aiGetKnowledgeOrganizations` / `aiSetKnowledgeOrganizations` 维护知识库机构，`aiGetKnowledgeDocumentOrganizations` / `aiSetKnowledgeDocumentOrganizations` 维护文档机构。PUT 正文包含 `organizationUnitIds` 和当前资源 `version`；Host 使用空名单，401 刷新保留原始名单与版本并只重试一次。403/409 保留 ProblemDetails，由调用方处理权限或重新读取版本；生成响应守卫校验资源 UUID、机构集合及整数版本。语言和取消信号沿用统一 HTTP 客户端。
 
 ## 双库与部署
 
@@ -158,4 +160,4 @@ PUT 正文为 `roleIds` 与对应资源的 `version`：最多 100 个唯一非�
 
 迁移 `245_AiKnowledgeOrganizationGrant.sql` 增加 AI 自有知识库及文档机构授予表，只有 AI 父资源外键，不向 Organization 建外键；同样成对实现、支持恢复重放且不播种默认授权。
 
-验收证据与任务状态统一记录在[活动开发计划 R04](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。当前 API 无 Vue 页面入口；共享机构授予客户端及页面按后续切片交付，整体 R04/RAG 和容量状态不能由这些切片验收推导。
+验收证据与任务状态统一记录在[活动开发计划 R04](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。共享机构授予客户端已交付，Vue 页面入口仍待后续切片；整体 R04/RAG 和容量状态不能由这些切片验收推导。

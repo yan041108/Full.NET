@@ -27,7 +27,11 @@ export {
   aiGetKnowledgeRoles,
   aiSetKnowledgeRoles,
   aiGetKnowledgeDocumentRoles,
-  aiSetKnowledgeDocumentRoles
+  aiSetKnowledgeDocumentRoles,
+  aiGetKnowledgeOrganizations,
+  aiSetKnowledgeOrganizations,
+  aiGetKnowledgeDocumentOrganizations,
+  aiSetKnowledgeDocumentOrganizations
 } from './generated/operations.generated.js';
 
 export type {
@@ -53,7 +57,9 @@ export type {
   DeleteAiKnowledgeDocumentRequest,
   SetAiKnowledgeDocumentMembersRequest,
   AiKnowledgeRoleGrantsResponse,
-  SetAiKnowledgeRoleGrantsRequest
+  SetAiKnowledgeRoleGrantsRequest,
+  AiKnowledgeOrganizationGrantsResponse,
+  SetAiKnowledgeOrganizationGrantsRequest
 } from './generated/models.generated.js';
 
 export {
@@ -65,7 +71,8 @@ export {
   readAiKnowledgeImportResponse,
   readAiKnowledgeOrganizationCandidateResponse,
   readAiKnowledgeRoleCandidateResponse,
-  readAiKnowledgeRoleGrantsResponse
+  readAiKnowledgeRoleGrantsResponse,
+  readAiKnowledgeOrganizationGrantsResponse
 } from './generated/guards.generated.js';
 
 export type {
@@ -96,5 +103,9 @@ export type {
   AiGetKnowledgeRolesParameters,
   AiSetKnowledgeRolesParameters,
   AiGetKnowledgeDocumentRolesParameters,
-  AiSetKnowledgeDocumentRolesParameters
+  AiSetKnowledgeDocumentRolesParameters,
+  AiGetKnowledgeOrganizationsParameters,
+  AiSetKnowledgeOrganizationsParameters,
+  AiGetKnowledgeDocumentOrganizationsParameters,
+  AiSetKnowledgeDocumentOrganizationsParameters
 } from './generated/operations.generated.js';

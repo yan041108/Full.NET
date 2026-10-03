@@ -662,7 +662,7 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
 - `node --test tests/openapi/*.test.mjs` 206/206；共享客户端 198/198，包含原始 Blob 认证刷新重放、语言/取消、撤权错误、来源 Blob、204、导入响应拒绝和分页整数精度保护。共享包 TypeScript 及 Vue 生产构建通过；标准快照离线检查、生成零漂移和相对 `fdfab534` 的 94 个契约兼容检查通过。治理 57/57。
 - 本地原始日志、TRX 与源码摘要保留在忽略目录 `artifacts/ai-knowledge-client-contract/` 及同前缀日志；环境沿用 R04b2b。本项完成后在 `main` 独立提交，不推送；后续角色/组织 Port、授权及客户端增量仍须独立验收。
 
-- [ ] R04b3：下一任务补齐角色/组织范围授权，继续在 `main` 分项交付。以下实施顺序以现有源码和已批准双层授权设计为依据，不宣称已经实现：
+- [x] R04b3：角色/组织范围授权及共享生成客户端已在 `main` 分项交付，包含最小权威目录、独立授予维护和知识库/文档两层读取；各子项的实际验证范围如下。R04b 收尾与完整 RAG 仍未完成：
   - [x] R04b3a：所有者的权威角色候选目录（基线 `dca199b8`，快照 `ai-knowledge-role-candidates-r04b3a`）。新增 `Identity.Contracts/IActiveRoleDirectory.cs`、Identity `Roles/ActiveRoleDirectory.cs` 与 `Persistence/ActiveRoleDirectorySql.cs`，AI `Features/ManageKnowledgeRoleCandidates/` 服务/Endpoint 作为真实消费者。Identity 仅查询自己拥有的活动普通角色；Host 使用 HostOnly，Tenant 使用 TenantRequired/CurrentTenantId，不使用 Workflow Port、JWT 角色声明或跨模块 SQL。
     - API：知识库及其文档分别增加 `GET .../role-candidates`，使用 `ai.knowledge_bases.role_candidates_read` 与 `ai.knowledge_documents.role_candidates_read` 独立权限；响应只含角色 Id/Code/Name 和分页。先查当前范围资源所有权，再调用目录；成员和陌生人均返回 404。禁用知识库仍允许所有者读取知识库候选；文档候选沿用启用目录和未删除文档的维护边界。
     - 分页：page ≥ 1、pageSize 1..100、offset ≤ 100000，排序 Code/Id。不接受请求 TenantId，不创建授权缓存、迁移或角色授予。新增 JSON 源生成与静态行物化闭包。
@@ -725,9 +725,9 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
     - 正式全项目 Release `linux-x64`、SelfContained、`FullNetPublishMode=NativeAot` API/Worker 发布均退出 0，产物 135655664/86670952 bytes，17/15 条第三方告警均通过既有清单。API SHA256 `3e811788bdef61d178f55a75624116027dd2beb79b02cea6320dab048eb89796`；Worker SHA256 `25dd18b6e7464c12bbed71dd6f34e840005b010a70050f5f073196a13027386a`。原生双库探针真实建立活动机构和成员关系，非空替换/读取知识库及文档机构授予，并由目录读取覆盖完整机构 JSON 参数；非所有者授权、二次复核失败/取消的细分场景来自 JIT 双库，不扩大原生证据范围。
     - 本地硬件为 i7-12700H（14 核/20 线程）、64 GB Windows，Windows/Linux SDK 10.0.401/10.0.400。编译 SDK 容器 4 CPU/12 GB、swap 总上限 16 GB、GC 上限 10 GB、HeapCount 1；原生测试 SDK 容器 2 CPU/3500 MB、进程 GC 上限 1.5 GB，复用数据库实例但每项创建隔离业务库。WSL 临时 16 GB/swap 8 GB；验证后已恢复原 16 GB/swap 4 GB 运行预算及 .wslconfig 不存在状态，五个原容器均 Running、无启动错误，控制平面仍映射 127.0.0.1:61490。临时构建卷核对任务标签后已删除。恢复时 Docker CLI 启动遇到自身 config.json 重命名拒绝访问；只停止本任务的挂起启动进程，重新启动 Desktop 后恢复，未修改配置内容或 ACL。本项未执行容量或真实模型实验，R04b/RAG 与 Capacity-not-verified 继续保持开放。
     - 环境失败原始记录保留：Docker 500/no route to host；3 GB、4.5 GB、7 GB 编译器堆先后在对象写入阶段耗尽；32 GB 默认 WSL 下 Windows Event 2004 记录 vmmem 约 28 GB、dmsvc 约 25 GB导致还原中断。重启 WSL/WinNAT 恢复端口冲突，20 GB WSL 下宿主提交内存余量约 3 GB，主动停止后收紧至 16 GB，最终完整发布与运行通过。中断/失败没有改写为通过，未停止或调整原有 Windows 数据库服务，临时构建卷清理前核对任务标签。
-  - [ ] R04b3e-client：后端验收并提交后，独立交付四个机构授予生成 Operation，知识库薄入口和根入口由 28 扩展至 32 个操作。
-    - 先建立缺失导出的失败验证，覆盖知识库/文档 GET/PUT、Host 空名单、完整名单与 Version 保留、权限/冲突 ProblemDetails、认证单次刷新、取消/语言和损坏响应守卫；不手写第二套路径或 DTO。
-    - 使用 R04b3e 当前程序集的真实双库 OpenAPI，核对一致规范化协议，更新精确 manifest 后运行仓库生成器；完整共享包/OpenAPI、TypeScript/Vue 构建、离线快照、生成零漂移与契约兼容检查通过后在 main 独立提交。
+  - [x] R04b3e-client：独立交付四个机构授予生成 Operation，知识库薄入口和根入口由 28 扩展至 32 个操作；后端提交 `23a3a5b3`。
+    - RED：缺失导出导致新增 10 个用例失败，既有 22 个知识库用例通过。生成后覆盖知识库/文档 GET/PUT（使用不同父资源及文档标识）、Host 空名单、完整名单与 Version 保留、403/409 ProblemDetails、401 单次刷新保留正文、取消/语言和损坏响应守卫。路径、DTO 和响应守卫均来自仓库生成器。
+    - 使用 R04b3e 当前程序集的真实双库 OpenAPI，一致规范化快照及精确 manifest 共 593 个 Operation。完整共享包 Vitest 226/226、OpenAPI 208/208，均零失败和跳过；共享包 TypeScript 及 Vue 生产构建通过。离线快照、生成零漂移及相对后端 `23a3a5b3` 的 96/96 契约兼容检查通过；9 个客户端代码/契约/测试文件哈希核对一致，客户端快照影响集为空。本项未再修改 .NET/SQL，沿用后端 95/95 及正式原生发布证据。治理 57/57，日志在 `artifacts/ai-knowledge-organization-grants/client-*.log`。
   1. 先建立权威读取边界。Identity 当前角色目录是 Workflow 专用契约，新增真实 Ai 消费所需的通用最小活动角色/成员关系 Port；不得依赖 JWT 中旧角色声明或扫描 Workflow 办理人全量用户。Organization 既有成员 Port 使用 Global SQL，且只检查成员隶属活动状态；新知识库读取需按可信当前租户同时核对活动机构和活动隶属，不把跨租户列表直接当作授权。
   2. 在 AI 自有表保存有界角色/机构授予，成对迁移及恢复测试；不向 Identity/Organization 建外键，不跨模块 JOIN。新增独立范围读取/修改 Endpoint 与精确权限，保持现有明确用户成员 API 的兼容语义，避免旧客户端的用户名单更新清空新范围。知识库与文档版本继续提供并发保护，所有者/租户只能来自可信上下文。
   3. 每层授权为所有者、明确用户、权威活动角色或当前租户活动机构的匹配；读取仍需同时满足知识库和文档两层。机构首切片只匹配明确机构，不能从父机构推导未授予的子机构。禁用目录、删除文档、角色禁用/移除、机构禁用/成员调离及端点权限撤销均需拒读；来源流打开后继续再次复核。

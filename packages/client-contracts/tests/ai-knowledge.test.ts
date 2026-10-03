@@ -3,6 +3,7 @@ import { createHttpClient } from '../src/http';
 import {
   aiUploadKnowledgeVersion, aiDownloadKnowledgeSource, aiDeleteKnowledgeDocument,
   aiRetryKnowledgeImport, aiListKnowledgeVersions, aiListKnowledgeOrganizationCandidates, aiListKnowledgeDocumentOrganizationCandidates, aiListKnowledgeRoleCandidates, aiListKnowledgeDocumentRoleCandidates,
+  aiGetKnowledgeOrganizations, aiSetKnowledgeOrganizations, aiGetKnowledgeDocumentOrganizations, aiSetKnowledgeDocumentOrganizations,
   aiGetKnowledgeRoles, aiSetKnowledgeRoles, aiGetKnowledgeDocumentRoles, aiSetKnowledgeDocumentRoles
 } from '../src/ai-knowledge';
 
@@ -19,6 +20,76 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 afterEach(() => vi.unstubAllGlobals());
 
 describe('知识库共享生成客户端', () => {
+  it('四个机构授予操作使用各自资源路径并传递版本、认证、语言与取消', async () => {
+    const documentId = '00000000-0000-0000-0000-000000000002';
+    const documentResource = { knowledgeBaseId: id, documentId };
+    const granted = { resourceId: id, organizationUnitIds: [id], version: 4 };
+    const documentGranted = { ...granted, resourceId: documentId };
+    const fetchMock = vi.fn().mockImplementation(async (url: string) =>
+      json({ ...(url.includes('/documents/') ? documentGranted : granted), version: '4' }));
+    vi.stubGlobal('fetch', fetchMock);
+    const http = createHttpClient();
+    http.configureRequestLocale(() => 'zh-CN');
+    http.configureAuthentication({ getAccessToken: () => 'access', refresh: async () => false });
+    const signal = new AbortController().signal;
+    const body = { organizationUnitIds: [id], version: 3 };
+    expect(await aiGetKnowledgeOrganizations(http, { knowledgeBaseId: id }, signal)).toEqual(granted);
+    expect(await aiSetKnowledgeOrganizations(http, { knowledgeBaseId: id, body }, signal)).toEqual(granted);
+    expect(await aiGetKnowledgeDocumentOrganizations(http, documentResource, signal)).toEqual(documentGranted);
+    expect(await aiSetKnowledgeDocumentOrganizations(http, { ...documentResource, body }, signal)).toEqual(documentGranted);
+    for (const [index, [url, request]] of fetchMock.mock.calls.entries()) {
+      expect(url).toBe(`/api/v1/ai/knowledge-bases/${id}${index >= 2 ? `/documents/${documentId}` : ''}/organizations`);
+      expect(request.method).toBe(index % 2 === 0 ? 'GET' : 'PUT');
+      expect(request.body === undefined ? undefined : JSON.parse(request.body)).toEqual(index % 2 === 0 ? undefined : body);
+      expect(request.signal).toBe(signal);
+      expect(new Headers(request.headers).get('authorization')).toBe('Bearer access');
+      expect(new Headers(request.headers).get('accept-language')).toBe('zh-CN');
+    }
+  });
+
+  it('机构授予刷新只重试一次且保留清空机构的原始并发版本', async () => {
+    const granted = { resourceId: id, organizationUnitIds: [], version: 4 };
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(null, { status: 401 })).mockResolvedValueOnce(json(granted));
+    vi.stubGlobal('fetch', fetchMock);
+    const http = createHttpClient();
+    let token = 'old';
+    const refresh = vi.fn(async () => { token = 'new'; return true; });
+    http.configureAuthentication({ getAccessToken: () => token, refresh });
+    expect(await aiSetKnowledgeDocumentOrganizations(http, { ...resource, body: { organizationUnitIds: [], version: 3 } })).toEqual(granted);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [, request] of fetchMock.mock.calls) expect(JSON.parse(request.body)).toEqual({ organizationUnitIds: [], version: 3 });
+    expect(new Headers(fetchMock.mock.calls[1][1].headers).get('authorization')).toBe('Bearer new');
+  });
+
+  it.each([
+    { status: 403, code: 'authorization.permission_denied' },
+    { status: 409, code: 'ai.knowledge.version_conflict' }
+  ])('机构授予保留 $status 的 ProblemDetails', async ({ status, code }) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ status, code, title: '拒绝' }, status)));
+    await expect(aiSetKnowledgeOrganizations(createHttpClient(), { knowledgeBaseId: id, body: { organizationUnitIds: [], version: 3 } }))
+      .rejects.toMatchObject({ status, code });
+  });
+
+  it.each([
+    { resourceId: 'invalid', organizationUnitIds: [id], version: 4 },
+    { resourceId: id, organizationUnitIds: ['invalid'], version: 4 },
+    { resourceId: id, organizationUnitIds: null, version: 4 },
+    { resourceId: id, organizationUnitIds: [id], version: 4.5 },
+    { resourceId: id, organizationUnitIds: [id], version: '9007199254740993' }
+  ])('机构授予拒绝损坏的资源、机构集合或并发版本 %j', async granted => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(granted)));
+    await expect(aiGetKnowledgeOrganizations(createHttpClient(), { knowledgeBaseId: id })).rejects.toThrow(/invalid_ai_knowledge_organization_grants_response/);
+  });
+
+  it('Host 空机构授予读取保持资源标识与版本', async () => {
+    const granted = { resourceId: id, organizationUnitIds: [], version: 1 };
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => json(granted)));
+    expect(await aiGetKnowledgeOrganizations(createHttpClient(), { knowledgeBaseId: id })).toEqual(granted);
+    expect(await aiGetKnowledgeDocumentOrganizations(createHttpClient(), resource)).toEqual(granted);
+  });
+
+
   it('四个角色授予操作使用各自资源路径并传递版本、认证、语言与取消', async () => {
     const granted = { resourceId: id, roleIds: [id], version: 4 };
     const fetchMock = vi.fn().mockImplementation(async () => json({ ...granted, version: '4' }));
