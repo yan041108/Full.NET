@@ -148,6 +148,18 @@ function projectFrontendProxy(appRoot, httpPort) {
   writeFileSync(examplePath, example.replaceAll('http://localhost:5149', `http://localhost:${httpPort}`), 'utf8');
 }
 
+function projectApplicationDiagnostics(appRoot) {
+  const packagePath = join(appRoot, 'package.json');
+  const applicationPackage = JSON.parse(readFileSync(packagePath, 'utf8'));
+  applicationPackage.scripts ??= {};
+  // 包内骨架必须先通过冻结摘要校验；仅在应用暂存目录叠加其自有诊断入口。
+  for (const profile of ['development', 'production']) {
+    applicationPackage.scripts[`diagnose:${profile}`] =
+      `dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- diagnose --workspace . --profile ${profile}`;
+  }
+  writeFileSync(packagePath, JSON.stringify(applicationPackage, null, 2) + '\n');
+}
+
 export function createApp({ packageRoot, output, name, ownerKey, database = 'sqlserver', preset = 'minimal', httpPort = 5180 }) {
   validateOwnerKey(ownerKey);
   const modules = resolvePresetModules(preset);
@@ -179,6 +191,7 @@ export function createApp({ packageRoot, output, name, ownerKey, database = 'sql
     ]);
     projectPresetComposition(stagedRoot, preset, modules);
     projectFrontendProxy(stagedRoot, httpPort);
+    projectApplicationDiagnostics(stagedRoot);
     assertPackageIntegrity(stagedRoot);
     const verification = verifyCreatedApp(stagedRoot, { requireMigrator: true, requireWorker: true });
     if (!verification.ok) throw new Error('Created application is invalid: ' + verification.errors.join('; '));
