@@ -121,6 +121,11 @@ public sealed class DiagnoseModulePresetTests
     [DataRow("{\"FullNet:Modules:Enabled\":{}}")]
     [DataRow("{\"FullNet:Modules:Enabled:first\":\"Identity\"}")]
     [DataRow("{\"FullNet:Modules:Enabled:0\":null}")]
+    [DataRow("{\"FullNet:Modules:Enabled\":\"module-credential-probe\"}")]
+    [DataRow("{\"FullNet:Modules:Enabled\":\" \"}")]
+    [DataRow("{\"FullNet:Modules:Enabled\":false}")]
+    [DataRow("{\"FullNet:Modules:Enabled\":42}")]
+    [DataRow("{\"FullNet:Modules:Enabled\":\"\"}")]
     public async Task Explicit_enabled_selection_determines_whether_preset_applies(string enabled)
     {
         var config = "{\"FullNet:Modules:Preset\":\"module-credential-probe\"," + enabled[1..];

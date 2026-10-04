@@ -18,8 +18,9 @@ internal static partial class DiagnoseCommand
         var hasEnabledChildren = ReadRuntimeConfigurationPaths(root, profileSettings, workspacePath, profile)
             .Any(path => path.StartsWith(enabledPath + ":", StringComparison.OrdinalIgnoreCase));
         _ = TryReadDatabaseValue(root, profileSettings, workspacePath, profile, enabledPath, out var enabled);
-        // 显式数组（包括空数组）覆盖预设，空父节点不删除已有子键；本切片不认证列表合法性。
-        if (hasEnabledChildren || enabled is not null) return;
+        // 子键或空字符串数组标记可绑定列表；非空标量不能绑定数组，仍由预设选择模块。
+        // 空父节点不删除已有子键；本切片不认证显式列表合法性。
+        if (hasEnabledChildren || enabled == string.Empty) return;
 
         var hasPreset = TryReadDatabaseValue(root, profileSettings, workspacePath, profile,
             "FullNet:Modules:Preset", out var preset);
