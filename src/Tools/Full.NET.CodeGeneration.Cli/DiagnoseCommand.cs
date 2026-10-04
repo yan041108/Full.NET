@@ -209,7 +209,7 @@ internal static class DiagnoseCommand
         {
             CheckModulesSection(root, findings);
             CheckConnectionPlaceholder(root, appsettingsPath, workspacePath, profile, findings);
-            CheckSecretPlaceholders(root, profile, findings);
+            CheckSecretPlaceholders(root, workspacePath, profile, findings);
         }
         catch (Exception exception) when (exception is InvalidOperationException or FormatException or ArgumentException)
         {
@@ -429,18 +429,19 @@ internal static class DiagnoseCommand
     {
         var connectionName = root["Database"]?["ConnectionName"]?.GetValue<string>() ?? "fullnet";
         var connectionStrings = root["ConnectionStrings"]?.AsObject();
-        var hasInline = connectionStrings?[connectionName]?.GetValue<string>() is { Length: > 0 } inline
-            && !string.IsNullOrWhiteSpace(inline) && !IsPlaceholder(inline);
+        var inline = connectionStrings?[connectionName]?.GetValue<string>();
         var envName = $"ConnectionStrings__{connectionName}";
         var environmentConnection = Environment.GetEnvironmentVariable(envName);
-        var hasEnv = !string.IsNullOrWhiteSpace(environmentConnection) && !IsPlaceholder(environmentConnection);
         // 默认 WebApplicationBuilder 仅在 Development 载入 User Secrets，生产诊断不能据此放行。
         var userSecretsId = string.Equals(profile, "development", StringComparison.OrdinalIgnoreCase)
             ? TryReadUserSecretsId(workspacePath) : null;
+        string? userSecret = null;
         var hasUserSecrets = userSecretsId is not null
-            && HasConfiguredUserSecret(userSecretsId, connectionName);
+            && TryReadUserSecret(userSecretsId, $"ConnectionStrings:{connectionName}", out userSecret);
+        // 环境变量即使是占位符也会覆盖 JSON；不能由较低优先级的有效值掩盖。
+        var effectiveConnection = environmentConnection ?? (hasUserSecrets ? userSecret : inline);
 
-        if (hasInline || hasEnv || hasUserSecrets)
+        if (!string.IsNullOrWhiteSpace(effectiveConnection) && !IsPlaceholder(effectiveConnection))
         {
             findings.Add(DiagnoseFinding.Ok(
                 "DIAG_CONNECTION_CONFIGURED",
@@ -466,8 +467,9 @@ internal static class DiagnoseCommand
             hint));
     }
 
-    private static bool HasConfiguredUserSecret(string userSecretsId, string connectionName)
+    private static bool TryReadUserSecret(string userSecretsId, string configurationPath, out string? text)
     {
+        text = null;
         try
         {
             var path = OperatingSystem.IsWindows()
@@ -480,21 +482,27 @@ internal static class DiagnoseCommand
                 return false;
             }
 
-            // User Secrets 允许扁平与嵌套 JSON；文件存在本身不能证明目标连接已经配置。
+            // User Secrets 允许扁平与嵌套 JSON；文件存在本身不能证明目标键已经配置。
             var secrets = JsonNode.Parse(File.ReadAllText(path)) as JsonObject;
-            var hasFlat = TryGetConfigurationValue(secrets, $"ConnectionStrings:{connectionName}", out var flat);
-            TryGetConfigurationValue(secrets, "ConnectionStrings", out var section);
-            var hasNested = TryGetConfigurationValue(section as JsonObject, connectionName, out var nested);
+            var hasFlat = TryGetConfigurationValue(secrets, configurationPath, out var flat);
+            JsonNode? nested = secrets;
+            var hasNested = true;
+            foreach (var segment in configurationPath.Split(':'))
+            {
+                if (!TryGetConfigurationValue(nested as JsonObject, segment, out nested))
+                {
+                    hasNested = false;
+                    break;
+                }
+            }
             if (hasFlat && hasNested)
             {
                 // 扁平键和嵌套键会展平为同一配置键，不能任选一个掩盖冲突。
                 return false;
             }
             var value = hasFlat ? flat : nested;
-            return value is JsonValue jsonValue
-                && jsonValue.TryGetValue<string>(out var connection)
-                && !string.IsNullOrWhiteSpace(connection)
-                && !IsPlaceholder(connection);
+            return (hasFlat || hasNested) && value is JsonValue jsonValue
+                && jsonValue.TryGetValue<string>(out text);
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException
             or FormatException or IOException or UnauthorizedAccessException)
@@ -529,12 +537,36 @@ internal static class DiagnoseCommand
 
     private static void CheckSecretPlaceholders(
         JsonNode root,
+        string workspacePath,
         string profile,
         List<DiagnoseFinding> findings)
     {
         var placeholders = new List<string>();
+        var userSecretsId = string.Equals(profile, "development", StringComparison.OrdinalIgnoreCase)
+            ? TryReadUserSecretsId(workspacePath) : null;
         foreach (var path in SecretPlaceholderPaths)
         {
+            // 默认配置优先级为环境变量、Development User Secrets、JSON；只报告最终生效的占位值。
+            var environmentValue = Environment.GetEnvironmentVariable(
+                path.Replace(":", "__", StringComparison.Ordinal));
+            if (environmentValue is not null)
+            {
+                if (string.IsNullOrWhiteSpace(environmentValue) || IsPlaceholder(environmentValue))
+                {
+                    placeholders.Add(path);
+                }
+                continue;
+            }
+
+            if (userSecretsId is not null && TryReadUserSecret(userSecretsId, path, out var userSecret))
+            {
+                if (string.IsNullOrWhiteSpace(userSecret) || IsPlaceholder(userSecret))
+                {
+                    placeholders.Add(path);
+                }
+                continue;
+            }
+
             if (IsEmptyPlaceholder(root, path))
             {
                 placeholders.Add(path);
@@ -545,24 +577,23 @@ internal static class DiagnoseCommand
         {
             findings.Add(DiagnoseFinding.Ok(
                 "DIAG_SECRETS_OK",
-                "常见秘密占位符已填写或非空。"));
+                "已配置的常见秘密键无空值或占位符。"));
             return;
         }
 
-        var hint = "通过 user-secrets 或部署密钥注入；诊断不会输出秘密值。";
         if (string.Equals(profile, "production", StringComparison.OrdinalIgnoreCase))
         {
             findings.Add(DiagnoseFinding.Error(
                 "DIAG_SECRETS_PLACEHOLDER",
                 $"生产环境仍有 {placeholders.Count} 个秘密占位符。",
-                hint));
+                "通过部署密钥或环境变量注入；诊断不会输出秘密值。"));
             return;
         }
 
         findings.Add(DiagnoseFinding.Warn(
             "DIAG_SECRETS_PLACEHOLDER",
             $"开发环境有 {placeholders.Count} 个秘密仍为空占位符。",
-            hint));
+            "通过 user-secrets 或环境变量注入；诊断不会输出秘密值。"));
     }
 
     private static bool IsEmptyPlaceholder(JsonNode root, string colonPath)

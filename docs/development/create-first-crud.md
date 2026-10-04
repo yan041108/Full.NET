@@ -136,7 +136,9 @@ SQL Server 租户草案在建表后独立探测并创建租户聚集索引，使
 | `DIAG_WORKSPACE_INCOMPLETE` | 目录结构不完整 | 确认在应用根目录运行 |
 | `DIAG_MODULES_MISSING` | 未配置模块预设 | 添加 `FullNet:Modules:Preset` |
 | `DIAG_CONNECTION_PLACEHOLDER` | 开发环境缺连接 | user-secrets 或环境变量 |
-| `DIAG_SECRETS_PLACEHOLDER` | 秘密仍为占位符 | 注入 Redis/加密密钥，勿提交仓库 |
+| `DIAG_SECRETS_PLACEHOLDER` | 已配置的 Redis/SM2 秘密键最终仍为空或占位符 | Development 可用 User Secrets 或环境变量覆盖；Production 使用部署密钥或环境变量，勿提交仓库 |
+
+`diagnose` 检查数据库连接及这三个常见秘密键时，按环境变量、Development User Secrets、`appsettings.json` 的顺序取值；Production 不读取 User Secrets。较高优先级的占位值会覆盖较低优先级的有效值。未出现的可选秘密键不算占位符；`DIAG_SECRETS_OK` 不代表全部运行时依赖已配置，仍需执行生成应用和真实栈验收。诊断只输出机器码、数量与配置键说明，不输出秘密值。
 
 ## 实走记录（2026-09-17，企业预设收口）
 

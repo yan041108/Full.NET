@@ -106,6 +106,23 @@ test('application template package includes framework sources and root manifest'
       'build', join(appRoot, 'src/Demo.Host.Worker/Demo.Host.Worker.csproj'), '-c', 'Release', '-v', 'quiet',
     ], { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
     assert.equal(workerBuild.status, 0, workerBuild.stderr || workerBuild.stdout);
+    const diagnosticCli = join(appRoot, 'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli');
+    const configuredDiagnosis = spawnSync('dotnet', [
+      'run', '--project', diagnosticCli, '-c', 'Release', '--',
+      'diagnose', '--workspace', appRoot, '--profile', 'production',
+    ], {
+      cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true,
+      env: {
+        ...process.env,
+        [`ConnectionStrings__${apiConfig.Database.ConnectionName}`]: 'Server=example.invalid;Password=credential-probe',
+        Cache__RedisConnectionString: 'cache.example.invalid:6379,password=credential-probe',
+        Realtime__RedisBackplaneConnectionString: 'realtime.example.invalid:6379,password=credential-probe',
+        'FullNet__Cryptography__Sm2PrivateKeys__host-integration-signing': 'credential-probe',
+      },
+    });
+    assert.equal(configuredDiagnosis.status, 0, configuredDiagnosis.stderr || configuredDiagnosis.stdout);
+    assert.match(configuredDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
+    assert.doesNotMatch(configuredDiagnosis.stdout + configuredDiagnosis.stderr, /credential-probe/u);
     const assets = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
     const implementationModules = Object.keys(assets.libraries)
       .map((name) => /^Full\.NET\.Modules\.([A-Za-z0-9]+)\//.exec(name)?.[1])
