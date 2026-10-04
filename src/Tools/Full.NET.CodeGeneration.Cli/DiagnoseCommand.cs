@@ -12,6 +12,7 @@ namespace Full.NET.CodeGeneration.Cli;
 /// </summary>
 internal static partial class DiagnoseCommand
 {
+    private static readonly TimeSpan SdkProbeTimeout = TimeSpan.FromSeconds(30);
     private static readonly string[] RequiredWorkspaceMarkers =
     [
         "src/Composition",
@@ -75,17 +76,7 @@ internal static partial class DiagnoseCommand
                 return;
             }
 
-            var (exitCode, version) = await ReadSdkProbeAsync(process, cancellationToken).ConfigureAwait(false);
-            if (exitCode != 0 || string.IsNullOrWhiteSpace(version))
-            {
-                findings.Add(DiagnoseFinding.Error(
-                    "DIAG_SDK_MISSING",
-                    ".NET SDK 不可用。",
-                    "安装 .NET 10 SDK 并确保 dotnet 在 PATH 中。"));
-                return;
-            }
-
-            findings.Add(DiagnoseSdkVersion(version));
+            findings.Add(await DiagnoseSdkProbeAsync(process, cancellationToken).ConfigureAwait(false));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -100,24 +91,46 @@ internal static partial class DiagnoseCommand
         }
     }
 
-    internal static async Task<(int ExitCode, string Version)> ReadSdkProbeAsync(
+    internal static async Task<DiagnoseFinding> DiagnoseSdkProbeAsync(
         Process process,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TimeSpan? timeout = null)
     {
         try
         {
-            var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
-            var version = (await process.StandardOutput.ReadToEndAsync(cancellationToken)
-                .ConfigureAwait(false)).Trim();
-            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-            await standardError.ConfigureAwait(false);
-            return (process.ExitCode, version);
+            var (exitCode, version) = await ReadSdkProbeAsync(process, cancellationToken, timeout).ConfigureAwait(false);
+            return exitCode != 0 || string.IsNullOrWhiteSpace(version)
+                ? DiagnoseFinding.Error("DIAG_SDK_MISSING", ".NET SDK 不可用。",
+                    "安装 .NET 10 SDK 并确保 dotnet 在 PATH 中。")
+                : DiagnoseSdkVersion(version);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (TimeoutException)
         {
+            return DiagnoseFinding.Error("code_generation.sdk.probe_timeout", ".NET SDK 探测未在等待上限内完成。",
+                "在目标工作区运行 dotnet --version，排查 SDK 启动卡住的问题；诊断不会输出原始进程内容。");
+        }
+    }
+
+    internal static async Task<(int ExitCode, string Version)> ReadSdkProbeAsync(
+        Process process,
+        CancellationToken cancellationToken,
+        TimeSpan? timeout = null)
+    {
+        using var probeCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var probe = ReadSdkProbeOutputAsync(process, probeCancellation.Token);
+        try
+        {
+            // 上限覆盖进程退出及两个输出管道；部分输出不能延长探测等待。
+            return await probe.WaitAsync(timeout ?? SdkProbeTimeout, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is TimeoutException
+            || exception is OperationCanceledException && cancellationToken.IsCancellationRequested)
+        {
+            // 父进程可能已退出但子进程仍持有输出管道；收尾读取也须结束等待。
+            probeCancellation.Cancel();
             try
             {
-                // Process.Dispose 不会停止子进程；取消时须先回收本次探测拥有的进程树。
+                // Process.Dispose 不会停止子进程；取消或超时须先回收本次探测拥有的进程树。
                 if (!process.HasExited)
                 {
                     process.Kill(entireProcessTree: true);
@@ -126,11 +139,32 @@ internal static partial class DiagnoseCommand
             }
             catch (InvalidOperationException)
             {
-                // 进程可能在取消与终止之间自行退出，此时保持原始取消结果。
+                // 进程可能在终止前自行退出，此时继续保留已经确定的取消或超时结果。
             }
 
+            try
+            {
+                await probe.ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // 关闭管道时的后续读取失败已被观察，不能替换既有结果或回显进程内容。
+            }
+
+            // 清理期间取消也优先于超时，异常继续携带调用方的原始令牌。
+            cancellationToken.ThrowIfCancellationRequested();
             throw;
         }
+    }
+
+    private static async Task<(int ExitCode, string Version)> ReadSdkProbeOutputAsync(
+        Process process,
+        CancellationToken cancellationToken)
+    {
+        var standardOutput = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
+        await Task.WhenAll(standardOutput, standardError, process.WaitForExitAsync(cancellationToken)).ConfigureAwait(false);
+        return (process.ExitCode, (await standardOutput.ConfigureAwait(false)).Trim());
     }
 
     internal static DiagnoseFinding DiagnoseSdkVersion(string version)

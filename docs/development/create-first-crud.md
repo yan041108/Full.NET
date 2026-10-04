@@ -113,7 +113,7 @@ dotnet exec src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.C
 
 命名连接环境变量还支持默认配置提供程序的 `MYSQLCONNSTR_`、`SQLCONNSTR_`、`SQLAZURECONNSTR_`、`CUSTOMCONNSTR_` 前缀，不区分大小写并规范化名称中的 `__`。其值优先于环境 JSON、Development User Secrets 和基础 JSON；占位值不会恢复低优先级凭据。同一路径存在多个环境别名时，任一占位值都保持拒绝放行，不依赖宿主枚举顺序。非空 `Database:ConnectionString` 仍优先于命名连接，自动产生的 `ProviderName` 元数据不改变 `Database:Provider`；配置存在不证明连接字符串语法、地址或数据库可用。
 
-通过 CLI 调用接口传入取消令牌时，SDK 探测取消会先终止本次启动的探测进程树、等待进程退出，再保留原始取消结果；不会把取消转为 SDK 不可用。此边界由真实受控进程回归验证，不等同于终端信号处理或 SDK 探测超时策略。
+SDK 探测在进程启动后对退出与标准输出/错误读取设置 30 秒等待上限；即使已有部分输出，也不会延长等待。超时取消管道读取，终止仍存活的本次探测进程树并等待退出，再返回固定脱敏错误码 `code_generation.sdk.probe_timeout`；清理耗时另计，不表示整条 diagnose 命令保证 30 秒内结束。父进程已退出但子进程仍持有管道时，也会取消读取；此路径不保证回收已脱离父进程的子进程。通过 CLI 调用接口传入的取消令牌优先于超时，清理后保留调用方的取消结果与令牌，不会转为 SDK 不可用。上述边界由真实受控进程回归验证，不等同于终端信号处理。
 
 模块配置声明提示（`DIAG_MODULES_*`）只读取所选 API 的基础配置，支持扁平键、嵌套键与大小写变体。有效非空 Preset 或 Enabled 子键可产生 `DIAG_MODULES_OK`；空集合覆盖 Preset 后不会保留旧提示，而空父节点不会清除此前声明的 Enabled 子键。保留原有嵌套字段类型检查；该提示不验证模块名称、预设成员或依赖闭包，也不代表模块绑定、环境覆盖或宿主启动已通过。
 
