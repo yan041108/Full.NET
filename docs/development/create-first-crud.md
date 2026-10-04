@@ -1,6 +1,6 @@
 # 创建首个 CRUD 与环境诊断
 
-本教程提供 Minimal 独立应用的只读诊断与最小租户 CRUD 示例。代表性生成 CRUD 的数据库、OpenAPI、Vue、精确权限、跨租户拒绝、再生成及升级恢复已完成本地双库验收，见[总计划 F02](../superpowers/plans/2026-09-16-foundation-productization.md#f02环境诊断与生成一个真实-crud)。完整诊断覆盖与教程全部接入步骤的逐步实走仍待收口；下面的生成步骤不等于业务已经上线。
+本教程提供 Minimal 独立应用的只读诊断与最小租户 CRUD 示例。代表性生成 CRUD 的数据库、OpenAPI、Vue、精确权限、跨租户拒绝、再生成及升级恢复已完成本地双库验收，见[总计划 F02](../superpowers/plans/2026-09-16-foundation-productization.md#f02环境诊断与生成一个真实-crud)。Demo/acme 七步教程已在同一保留的独立应用逐步实走，运行与分段验收边界见第七步；完整配置诊断仍待收口，教程通过不表示业务已经上线。
 
 ## 前置条件
 
@@ -122,7 +122,7 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 
 最后一条命令应返回退出码 2，并精确报告 `Conflict backend/ProductSql.g.cs`；修改后的 SQL、人工文件与生成清单均应保持，其他产物也不能被部分更新。只有确认备份属于本次演练、期间未再修改 SQL，才能用 `Copy-Item backend/ProductSql.before-conflict.txt backend/ProductSql.g.cs` 撤销本次测试注释，再继续接入；业务修改应保留并人工评审，不应删除生成清单绕过冲突。
 
-2026-10-04 已用修复提交 `0957ee6232cd4ccebf3f90847d77955675baa4d3` 创建新的 SQL Server / Minimal 应用，保存本文 Schema 后执行上述入口。开发诊断返回 0，并报告连接与三个常见秘密占位；生产诊断对同一占位配置返回 1。预览、生成、重复生成分别返回 0；14 个产物符合预期，人工文件保持，SQL 冲突返回 2，配置与受管框架摘要保持。六条 CLI 命令合计 40.214 秒，不含组包、创建、下载、宿主接入、迁移或启动耗时；它不是完整教程或冷启动时长承诺。原始结果位于 `.tmp/f02-tutorial-walk-0957ee62/results/`。第五步以后的应用接线、业务迁移和运行教程仍须独立实走，不因先前自动化样例通过而勾选全部教程完成。
+2026-10-04 已用修复提交 `0957ee6232cd4ccebf3f90847d77955675baa4d3` 创建新的 SQL Server / Minimal 应用，保存本文 Schema 后执行上述入口。开发诊断返回 0，并报告连接与三个常见秘密占位；生产诊断对同一占位配置返回 1。预览、生成、重复生成分别返回 0；14 个产物符合预期，人工文件保持，SQL 冲突返回 2，配置与受管框架摘要保持。六条 CLI 命令合计 40.214 秒，不含组包、创建、下载、宿主接入、迁移或启动耗时；它不是完整教程或冷启动时长承诺。原始结果位于 `.tmp/f02-tutorial-walk-0957ee62/results/`。此六命令证据只覆盖前四步，后续接线、迁移和运行实走记录另见第五至第七步。
 
 独立应用的模板验收会用应用包内的 CLI 检查租户 CRUD 预览不写入产物、生成后相同输入为 `Unchanged`、人工文件保留，以及修改受管 SQL 后返回冲突且保持产物与清单字节。每阶段日志保存在 `.tmp/template-real-stack/application-crud/` 并由 Actions 上传；这项生成与保护检查不代替下方的模块接入、业务双库运行、权限或页面验收。
 
@@ -574,6 +574,105 @@ try {
 2026-10-05 已直接采纳本文代码块，在保留的 `0957ee62` 独立应用完成此步。两份业务 SQL 与草稿原字节一致；再次采纳按预期退出 1、文件保持，Migrator Release 编译 0 警告/0 错误。Windows x64、Node 24.12.0、.NET SDK 10.0.401、运行时 10.0.12、`DOTNET_PROCESSOR_COUNT=2`，串行使用 SQL Server 2022 CU14 与 MySQL 8.4 自有临时容器；完整双库实走退出 0，共 26 次迁移/结构/恢复进程核对，两个不存在数据库的失败路径各按预期退出 1，其余退出 0。首次各执行框架 99/业务 1，重复各 0/0；六列与两个索引、空业务表及零管理员行符合预期。撤销一条业务记账后，SQL Server 补回缺失索引、MySQL 保持完整原子 DDL，各只执行业务 1；样本名称与版本 7 保持，恢复后复跑均 0/0。成功和失败路径的 15 项进程配置均恢复原值；失败未改写原数据库。采纳后的应用源码、配置、草稿和全部受管框架摘要保持，仅清理本次自有容器。总耗时 156.387 秒（SQL Server 65.692 秒、MySQL 87.677 秒，含容器启动/清理，不含采纳、编译和先前失败），原始结果保留 `.tmp/f02-tutorial-migration-0957ee62-run3/`，采纳材料保留 `.tmp/f02-tutorial-migration-0957ee62/`。
 
 失败事实另行保留：未提供开发签名时宿主 Options 校验失败；只启用开发临时密钥而缺维护配置时，两库均在 009 门禁退出 1、已记账 8 条框架脚本，业务表与管理员行仍为零，不能当作空库迁移完成。首轮结构探针被 SQL Server 系统元数据排序规则冲突阻断，第二轮被 MySQL DISTINCT 查询的排序列限制阻断；修正验收查询后才取得上述完整新结果，没有修改业务 SQL 或数据库默认配置。本步未执行 Development 播种，未启动 API 监听、Worker 或浏览器，未将静态 OpenAPI 与运行 API 比较；完整教程、诊断覆盖及 F02 整项仍待收口。
+
+## 第七步：开发播种与启动 API
+
+本步仍只使用本次自有可销毁数据库。通过进程环境提供 `Identity__Bootstrap__Username` 与 `Identity__Bootstrap__Password`，密码满足 Identity 强密码规则；不要复制固定演示密码或打印登录响应。应用根显式执行以下命令，Development 会先执行 Baseline，再执行自己的 Overlay；API/Worker 不播种：
+
+```powershell
+./run-local-tutorial-migration.ps1 -Provider SqlServer -Seed development
+./run-local-tutorial-migration.ps1 -Provider SqlServer -Seed development
+```
+
+MySQL 演练将 Provider 改为 MySql。重复播种必须核对实际账号和 local 租户，而非只查看退出码；不能覆盖用户改密。若播种失败，保留固定机器码并定位，不继续当作初始化成功。
+
+```bash
+dotnet build src/Demo.Host.Api/Demo.Host.Api.csproj -c Release -v quiet
+```
+
+应用不会自动读取受管框架的 Development 配置。以下内容保存为应用根 `start-local-tutorial-api.ps1`；先通过当前进程的 `ConnectionStrings__app` 与 `Cache__RedisConnectionString` 提供本次数据库和 Redis 连接。它将配置仅传给新 API 进程，并立即恢复调用进程的原值；不向 API 提供迁移维护标识或 Bootstrap 密码。示例通过普通 HTTP 开发地址运行，不能用作生产配置：
+
+```powershell
+param(
+  [ValidateSet('SqlServer', 'MySql')][string]$Provider = 'SqlServer',
+  [ValidateRange(1024, 65535)][int]$Port = 25182,
+  [string]$VueOrigin = 'http://localhost:25183',
+  [Parameter(Mandatory)][string]$StdoutPath,
+  [Parameter(Mandatory)][string]$StderrPath
+)
+$localConnection = [Environment]::GetEnvironmentVariable('ConnectionStrings__app', 'Process')
+$localRedis = [Environment]::GetEnvironmentVariable('Cache__RedisConnectionString', 'Process')
+if ([string]::IsNullOrWhiteSpace($localConnection) -or [string]::IsNullOrWhiteSpace($localRedis)) {
+  throw '先通过进程环境提供本次测试数据库和 Redis 连接。'
+}
+$apiDll = (Resolve-Path -LiteralPath 'src/Demo.Host.Api/bin/Release/net10.0/Demo.Host.Api.dll').Path
+if ((Test-Path -LiteralPath $StdoutPath) -or (Test-Path -LiteralPath $StderrPath)) {
+  throw '日志目标已存在，先审查；不要覆盖已有验收材料。'
+}
+$settings = @{
+  DOTNET_ENVIRONMENT = 'Development'
+  ASPNETCORE_ENVIRONMENT = 'Development'
+  Database__Provider = $Provider
+  Database__ConnectionString = $localConnection
+  Database__MySqlGuidStorageMode = 'Binary16'
+  Identity__AllowDevelopmentEphemeralSigningKey = 'true'
+  Identity__RequireSecureCookies = 'false'
+  Identity__AllowedOrigins__0 = 'http://localhost'
+  Identity__AllowedOrigins__1 = 'http://127.0.0.1'
+  Identity__AllowedOrigins__2 = $VueOrigin
+  Identity__LoginRateLimitPermitLimitPerMinute = '20'
+  Identity__Bootstrap__Password = $null
+  UuidBinaryContract__MaintenanceMode = $null
+  UuidBinaryContract__BackupVerified = $null
+  UuidBinaryContract__LegacyWritersStopped = $null
+  UuidBinaryContract__DestructiveDdlApprovalId = $null
+  PreV1NamingContract__MaintenanceMode = $null
+  PreV1NamingContract__BackupVerified = $null
+  PreV1NamingContract__LegacyWritersStopped = $null
+  PreV1NamingContract__LegacyOutboxDrained = $null
+  PreV1NamingContract__DestructiveDdlApprovalId = $null
+  Tenancy__HostDomains__0 = 'localhost'
+  Tenancy__HostDomains__1 = '127.0.0.1'
+  Cache__RedisConnectionString = $localRedis
+  Realtime__RedisBackplaneConnectionString = $localRedis
+  Realtime__AllowSharedRedisInDevelopment = 'true'
+  Kestrel__Endpoints__Http__Url = "http://127.0.0.1:$Port"
+  FullNet__FrameworkManifest__ContentRoot = '.'
+}
+$previous = @{}
+foreach ($setting in $settings.GetEnumerator()) {
+  $previous[$setting.Key] = [Environment]::GetEnvironmentVariable($setting.Key, 'Process')
+}
+try {
+  foreach ($setting in $settings.GetEnumerator()) {
+    [Environment]::SetEnvironmentVariable($setting.Key, $setting.Value, 'Process')
+  }
+  $apiProcess = Start-Process -FilePath 'dotnet' -ArgumentList ('"' + $apiDll + '"') -WorkingDirectory (Get-Location).Path -WindowStyle Hidden -PassThru -RedirectStandardOutput $StdoutPath -RedirectStandardError $StderrPath
+} finally {
+  foreach ($setting in $previous.GetEnumerator()) {
+    [Environment]::SetEnvironmentVariable($setting.Key, $setting.Value, 'Process')
+  }
+}
+$apiProcess
+```
+
+确认 25182 与 25183 端口没有被占用后，调用 `$tutorialApi = ./start-local-tutorial-api.ps1 -Provider SqlServer -StdoutPath "$PWD/tutorial-api.stdout.log" -StderrPath "$PWD/tutorial-api.stderr.log"` 并保存返回的进程对象；MySQL 将 Provider 改为 MySql。等待该 API 的 `/health/live`、`/health/ready` 实际返回 200，再核对 `/openapi/v1.json` 的五条商品操作与生成契约；没有 readiness 或真实登录，不能把进程已创建算作启动验收。演练结束仅停止自己保存的 API 进程，并检查端口释放；运行日志保存前应核对脱敏，不记录凭据。
+
+Vue 使用同一 API 代理和精确 Origin，从应用根另开终端运行：
+
+```powershell
+$env:VITE_API_PROXY_TARGET = 'http://127.0.0.1:25182'
+$env:VITE_STRICT_CSP = '1'
+node ./ui/admin/node_modules/vite/bin/vite.js --host localhost --port 25183 --strictPort --logLevel error
+```
+
+浏览器从 Vue 登录页进入、选择 local 租户并通过商品菜单进入页面；租户标签和首页跳转均已完成后再点击菜单。超级管理员不能代替普通账号的逐操作权限验收；读取、无权限、创建、更新和删除账号分别验证菜单、直达路由、按钮与服务端拒绝，再核对持久化结果和跨租户不泄露。真实账号与浏览器结果单独记录，不能从静态导航或构建结果推断。
+
+2026-10-05 已在同一 `0957ee62` 应用直接执行第七步的开发播种与启动脚本，API Release 构建退出 0、0 警告/0 错误，35.70 秒。Windows x64、Node 24.12.0、.NET SDK 10.0.401/运行时 10.0.12、DOTNET_PROCESSOR_COUNT=2，串行 SQL Server 2022 CU14、MySQL 8.4 与 Redis 7.4：完整双库运行退出 0，307.201 秒（SQL Server 119.143 秒、MySQL 151.797 秒，合计另含端口释放与文件摘要核对；不含 API 编译及先前失败）。两库 Development 首次播种包含 Baseline 与 Overlay，重复仍只有一名引导管理员及一个 local 租户；改用不同 Bootstrap 密码复跑后，原密码登录 200、新配置密码登录 401，证明未重置已有管理员密码。API 调用进程的 28 项配置恢复原值；缺连接、已有日志两项独立拒绝均退出 1，原配置与日志保持。live/ready 均 200，运行 OpenAPI 的五操作、五参数形态、十认证错误形态、三请求及五响应形态与生成子集一致。
+
+每库五类普通账号均通过 Vue 登录和租户切换、菜单/直达路由及精确按钮权限；创建、更新、删除在真实浏览器提交后返回 201/200/200并由管理员 API 核对持久化，删除确认的键盘取消不发请求、确认恰好发一次。生成列表及操作弹窗的 axe WCAG 2/2.1 A/AA 自动审计零违规，不等于全站或辅助技术人工验收。匿名和 Host 管理员的十条业务拒绝、真实租户 CRUD 的 11 条业务请求及两次版本冲突通过；跨租户 20 条业务请求中六次外租户访问返回未找到，两个租户各自数据保持并清理。十份浏览器报告 completed=true，源代码、配置、人工扩展和框架摘要保持；只清理本次 API、Vue、浏览器及容器，端口释放通过。原始结果 `.tmp/f02-tutorial-runtime-0957ee62-run2/`。
+
+首轮失败保留 `.tmp/f02-tutorial-runtime-0957ee62/`：API 已监听且 PowerShell 调用进程已退出，验证器仍等待后台进程继承的输出管道关闭；停止本次 API 后调用才返回，后续 readiness 失败，未计为通过。验证器改用独立文件接收启动调用输出后，才取得上述完整新结果，没有修改 API 或绕过健康检查。结合前四步、后端、Vue 和迁移的同一冻结应用分段证据，关闭 F02 的教程子项；摘要 `.tmp/f02-tutorial-composite-0957ee62.json`。各阶段使用独立临时数据库，不是单次从空目录连续全量重跑，也不能累加局部计时作为冷启动或开发耗时承诺。MySQL 实走只覆盖同一 SQL Server 档案应用的迁移/API进程，不认证新 MySQL 模板档案。本轮未启动此教程应用 Worker、未发布其 Native AOT 或验证容量；完整配置诊断仍待收口，F02 整项保持未关闭。
 
 ## 验证
 
