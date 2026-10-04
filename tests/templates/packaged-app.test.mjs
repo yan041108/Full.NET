@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -123,6 +123,52 @@ test('application template package includes framework sources and root manifest'
     assert.equal(configuredDiagnosis.status, 0, configuredDiagnosis.stderr || configuredDiagnosis.stdout);
     assert.match(configuredDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
     assert.doesNotMatch(configuredDiagnosis.stdout + configuredDiagnosis.stderr, /credential-probe/u);
+    const productionSettings = join(appRoot, 'src/Demo.Host.Api/appsettings.Production.json');
+    const rootProductionSettings = join(appRoot, 'appsettings.Production.json');
+    const diagnosisEnvironment = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
+      !['database:connectionname', `connectionstrings:${apiConfig.Database.ConnectionName}`,
+        'cache:redisconnectionstring', 'realtime:redisbackplaneconnectionstring',
+        'fullnet:cryptography:sm2privatekeys:host-integration-signing']
+        .includes(key.replaceAll('__', ':').toLowerCase())));
+    const runProfileDiagnosis = (overrides = {}) => spawnSync('dotnet', [
+      'run', '--project', diagnosticCli, '-c', 'Release', '--no-build', '--',
+      'diagnose', '--workspace', appRoot, '--profile', 'production',
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true,
+      env: { ...diagnosisEnvironment, ...overrides } });
+    try {
+      writeFileSync(rootProductionSettings, '{invalid-json-credential-probe');
+      writeFileSync(productionSettings, JSON.stringify({
+        ConnectionStrings: { [apiConfig.Database.ConnectionName]: 'Server=example.invalid;Password=credential-probe' },
+        Cache: { RedisConnectionString: 'cache.example.invalid:6379,password=credential-probe' },
+        Realtime: { RedisBackplaneConnectionString: 'realtime.example.invalid:6379,password=credential-probe' },
+        FullNet: { Cryptography: { Sm2PrivateKeys: { 'host-integration-signing': 'credential-probe' } } },
+      }));
+      const profileBefore = readFileSync(productionSettings);
+      const profileDiagnosis = runProfileDiagnosis();
+      assert.equal(profileDiagnosis.status, 0, profileDiagnosis.stderr || profileDiagnosis.stdout);
+      assert.match(profileDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+      assert.match(profileDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
+      assert.doesNotMatch(profileDiagnosis.stdout + profileDiagnosis.stderr, /credential-probe/u);
+      assert.deepEqual(readFileSync(productionSettings), profileBefore);
+      writeFileSync(productionSettings, JSON.stringify({
+        ConnectionStrings: { [apiConfig.Database.ConnectionName]: '<your-connection>' },
+        Cache: { RedisConnectionString: null },
+      }));
+      const missingDiagnosis = runProfileDiagnosis();
+      assert.equal(missingDiagnosis.status, 1, missingDiagnosis.stderr || missingDiagnosis.stdout);
+      assert.match(missingDiagnosis.stdout, /DIAG_CONNECTION_MISSING error/u);
+      assert.match(missingDiagnosis.stdout, /DIAG_SECRETS_PLACEHOLDER error/u);
+      assert.doesNotMatch(missingDiagnosis.stdout + missingDiagnosis.stderr, /credential-probe/u);
+      const misplacedCredentialDiagnosis = runProfileDiagnosis({
+        Database__ConnectionName: 'Server=example.invalid;Password=credential-probe',
+      });
+      assert.equal(misplacedCredentialDiagnosis.status, 1);
+      assert.match(misplacedCredentialDiagnosis.stdout, /DIAG_CONNECTION_MISSING error/u);
+      assert.doesNotMatch(misplacedCredentialDiagnosis.stdout + misplacedCredentialDiagnosis.stderr, /credential-probe/u);
+    } finally {
+      rmSync(productionSettings, { force: true });
+      rmSync(rootProductionSettings, { force: true });
+    }
     const assets = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
     const implementationModules = Object.keys(assets.libraries)
       .map((name) => /^Full\.NET\.Modules\.([A-Za-z0-9]+)\//.exec(name)?.[1])

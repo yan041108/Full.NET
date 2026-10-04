@@ -139,7 +139,7 @@ SQL Server 租户草案在建表后独立探测并创建租户聚集索引，使
 | `DIAG_USER_SECRETS_INVALID` | Development 的 API User Secrets 文件不可读取、JSON 无效或配置键重复 | 修复本机秘密文件；诊断不输出其内容 |
 | `DIAG_SECRETS_PLACEHOLDER` | 已配置的 Redis/SM2 秘密键最终仍为空或占位符 | Development 可用 User Secrets 或环境变量覆盖；Production 使用部署密钥或环境变量，勿提交仓库 |
 
-`diagnose` 检查数据库连接及这三个常见秘密键时，按环境变量、Development User Secrets、`appsettings.json` 的顺序取值；Production 不读取 User Secrets。环境配置键按运行时语义不区分大小写；较高优先级的占位值或显式 `null` 不会被较低优先级的有效值掩盖。未出现的可选秘密键不算占位符；`DIAG_SECRETS_OK` 不代表全部运行时依赖已配置，仍需执行生成应用和真实栈验收。诊断只输出机器码、数量与配置键说明，不输出秘密值。
+`diagnose` 检查数据库连接及这三个常见秘密键时，按环境变量、Development User Secrets、所选环境 JSON、`appsettings.json` 的顺序取值；Production 不读取 User Secrets。环境 JSON 取自所选 API 基础配置所在目录的 `appsettings.Development.json` 或 `appsettings.Production.json`，文件可缺省；只读所选环境，文件无效或重复配置键即报 `DIAG_APPSETTINGS_INVALID`，有效环境变量也不能掩盖文件错误。连接名 `Database:ConnectionName` 使用相同覆盖顺序。冻结应用预设检查仍核对基础配置。环境配置键按运行时语义不区分大小写；较高优先级的占位值或显式 `null` 不会被较低优先级的有效值掩盖。未出现的可选秘密键不算占位符；`DIAG_SECRETS_OK` 不代表全部运行时依赖已配置，仍需执行生成应用和真实栈验收。诊断只输出机器码、数量与固定配置路径说明，不回显连接名或秘密值；连接提示中的 `<name>` 取自 `Database:ConnectionName`。
 
 ## 实走记录（2026-09-17，企业预设收口）
 

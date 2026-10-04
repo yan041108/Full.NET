@@ -229,6 +229,8 @@ flowchart LR
 
 作用域增量补充验证：`pnpm test:aot:analyzers` 0 警告/0 错误，`pnpm test:dotnet:architecture -- --selection api-native-aot` 73 项通过、无跳过；`pnpm test:integration:partitions` 发现 1075 项，无遗漏或重复，不作为完整 Integration 通过。影响集按基线 `34ab3bcc` 规划为 CodeGeneration 与 integration-matrix，重型双库及 Native 运行门禁交由新提交的 GitHub Actions，未取得终态前不升级 Verified。
 
+2026-10-04 诊断环境文件增量（基线 `11941c21`）：数据库连接名、连接字符串和三个常见秘密键加入所选 API 配置目录的 `appsettings.Development.json` / `appsettings.Production.json` 覆盖；优先级为环境变量、Development User Secrets、环境 JSON、基础 JSON。显式空值或空集合叶键阻止基础凭据回退，父级空对象不删除较低优先级的子键；环境文件的 JSON、重复扁平键错误独立失败且不回显内容。首轮诊断 61 项中 11 失败，修复并扩展边界、处理独立复核发现的连接名大小写、空属性路径与连接名误填凭据回显问题后，73 项通过（复核新增 5 项均先失败）；Windows 全量 Unit 3920 通过、1 项 Linux FIFO 回归跳过，无失败。本地受影响 CodeGeneration MySQL Integration 13 项、治理 57 项与测试工具链 54 项通过，Release 构建 0 警告/0 错误；Integration 分片发现 1118 项无遗漏或重复，仅为发现证据。独立生成应用验收补充 API 同目录环境文件、错误根目录文件不误读、占位符拒绝、只读及脱敏断言。冻结预设检查保持基础配置；SDK 兼容矩阵与完整运行时配置诊断仍待收口，F02 不关闭。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。

@@ -207,6 +207,7 @@ internal static class DiagnoseCommand
 
         try
         {
+            using var profileSettings = ReadProfileSettings(appsettingsPath, profile);
             if (string.Equals(profile, "development", StringComparison.OrdinalIgnoreCase)
                 && TryReadUserSecretsId(workspacePath) is { } userSecretsId
                 && !IsValidUserSecretsFile(userSecretsId))
@@ -217,17 +218,68 @@ internal static class DiagnoseCommand
                     "修复秘密文件的 JSON 语法与重复配置键；诊断不会输出秘密值。"));
             }
             CheckModulesSection(root, findings);
-            CheckConnectionPlaceholder(root, appsettingsPath, workspacePath, profile, findings);
-            CheckSecretPlaceholders(root, workspacePath, profile, findings);
+            CheckConnectionPlaceholder(root, profileSettings, workspacePath, profile, findings);
+            CheckSecretPlaceholders(root, profileSettings, workspacePath, profile, findings);
         }
-        catch (Exception exception) when (exception is InvalidOperationException or FormatException or ArgumentException)
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException or FormatException
+            or ArgumentException or IOException or UnauthorizedAccessException)
         {
             // 字段类型或重复属性错误属于诊断结果，不能回显含秘密的属性名、值或异常文本。
             findings.Add(DiagnoseFinding.Error(
                 "DIAG_APPSETTINGS_INVALID",
-                "appsettings.json 的配置结构或字段类型无效。",
-                "检查 FullNet:Modules、Database、ConnectionStrings 与秘密配置的对象、数组和字符串类型。"));
+                "基础或所选环境 appsettings 配置不可读取、结构或字段类型无效。",
+                "检查对应 JSON 文件的读取权限、语法、重复键及配置字段类型；诊断不会输出秘密值。"));
         }
+    }
+
+    private static JsonDocument? ReadProfileSettings(string appsettingsPath, string profile)
+    {
+        // CLI 的小写 profile 映射到默认宿主的规范环境名；Linux 文件名区分大小写。
+        var environmentName = string.Equals(profile, "development", StringComparison.OrdinalIgnoreCase)
+            ? "Development" : "Production";
+        var path = Path.Combine(Path.GetDirectoryName(appsettingsPath)!, $"appsettings.{environmentName}.json");
+        if (!File.Exists(path) && !Directory.Exists(path))
+        {
+            return null;
+        }
+
+        var document = JsonDocument.Parse(File.ReadAllText(path), ConfigurationJsonOptions);
+        if (document.RootElement.ValueKind != JsonValueKind.Object
+            || !HasUniqueConfigurationPaths(document.RootElement, null,
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase)))
+        {
+            document.Dispose();
+            throw new JsonException("Invalid environment configuration.");
+        }
+        return document;
+    }
+
+    private static bool TryReadConfigurationOverride(
+        JsonDocument? profileSettings, string workspacePath, string profile, string path, out string? text,
+        bool requireValidUserSecrets = false)
+    {
+        text = GetEnvironmentConfigurationValue(path);
+        if (text is not null)
+        {
+            return true;
+        }
+
+        // 默认宿主按环境变量、Development User Secrets、环境 JSON、基础 JSON 的顺序取值。
+        if (string.Equals(profile, "development", StringComparison.OrdinalIgnoreCase)
+            && TryReadUserSecretsId(workspacePath) is { } id
+            && (!requireValidUserSecrets || IsValidUserSecretsFile(id))
+            && TryReadUserSecret(id, path, out text))
+        {
+            return true;
+        }
+        if (profileSettings is null)
+        {
+            return false;
+        }
+
+        var found = false;
+        VisitConfigurationValue(profileSettings.RootElement, null, path, ref found, ref text);
+        return found;
     }
 
     private static string? FindStandaloneHost(string workspacePath)
@@ -431,30 +483,34 @@ internal static class DiagnoseCommand
 
     private static void CheckConnectionPlaceholder(
         JsonNode root,
-        string appsettingsPath,
+        JsonDocument? profileSettings,
         string workspacePath,
         string profile,
         List<DiagnoseFinding> findings)
     {
-        var connectionName = root["Database"]?["ConnectionName"]?.GetValue<string>() ?? "fullnet";
+        var connectionName = TryReadConfigurationOverride(profileSettings, workspacePath, profile,
+            // 无效秘密文件已有独立错误；保留连接名用于说明缺失连接，而凭据仍失败关闭。
+            "Database:ConnectionName", out var overrideName, requireValidUserSecrets: true)
+            ? overrideName : root["Database"]?["ConnectionName"]?.GetValue<string>() ?? "fullnet";
+        if (string.IsNullOrWhiteSpace(connectionName))
+        {
+            throw new InvalidOperationException("Connection name is empty.");
+        }
         var connectionStrings = root["ConnectionStrings"]?.AsObject();
-        var inline = connectionStrings?[connectionName]?.GetValue<string>();
-        var envName = $"ConnectionStrings__{connectionName}";
-        var environmentConnection = GetEnvironmentConfigurationValue($"ConnectionStrings:{connectionName}");
+        var inline = connectionStrings?.FirstOrDefault(pair =>
+            string.Equals(pair.Key, connectionName, StringComparison.OrdinalIgnoreCase)).Value?.GetValue<string>();
         // 默认 WebApplicationBuilder 仅在 Development 载入 User Secrets，生产诊断不能据此放行。
         var userSecretsId = string.Equals(profile, "development", StringComparison.OrdinalIgnoreCase)
             ? TryReadUserSecretsId(workspacePath) : null;
-        string? userSecret = null;
-        var hasUserSecrets = userSecretsId is not null
-            && TryReadUserSecret(userSecretsId, $"ConnectionStrings:{connectionName}", out userSecret);
-        // 环境变量即使是占位符也会覆盖 JSON；不能由较低优先级的有效值掩盖。
-        var effectiveConnection = environmentConnection ?? (hasUserSecrets ? userSecret : inline);
+        // 显式 null 或空集合也是覆盖值，不能恢复基础文件中的凭据。
+        var effectiveConnection = TryReadConfigurationOverride(profileSettings, workspacePath, profile,
+            $"ConnectionStrings:{connectionName}", out var overrideConnection) ? overrideConnection : inline;
 
         if (!string.IsNullOrWhiteSpace(effectiveConnection) && !IsPlaceholder(effectiveConnection))
         {
             findings.Add(DiagnoseFinding.Ok(
                 "DIAG_CONNECTION_CONFIGURED",
-                $"数据库连接名 {connectionName} 已通过配置或环境提供。"));
+                "所选数据库连接已通过配置或环境提供。"));
             return;
         }
 
@@ -462,17 +518,18 @@ internal static class DiagnoseCommand
         {
             findings.Add(DiagnoseFinding.Error(
                 "DIAG_CONNECTION_MISSING",
-                $"生产配置缺少 ConnectionStrings:{connectionName}。",
-                $"通过密钥管理或环境变量 {envName} 注入连接字符串；不要在仓库中提交凭据。"));
+                "生产配置缺少所选数据库连接。",
+                "核对 Database:ConnectionName，通过密钥管理或环境变量 ConnectionStrings__<name> 注入对应连接字符串；不要在仓库中提交凭据。"));
             return;
         }
 
+        // 连接名也可能被错误地填写为凭据；提示固定配置路径，不回显任何来源的字段值。
         var hint = userSecretsId is null
-            ? $"设置环境变量 {envName}；如需 user-secrets，先在 API 项目初始化后保存对应连接键。"
-            : $"使用 dotnet user-secrets set \"ConnectionStrings:{connectionName}\" \"<your-connection>\" 或设置环境变量 {envName}。";
+            ? "核对 Database:ConnectionName，设置环境变量 ConnectionStrings__<name>；如需 user-secrets，先在 API 项目初始化后保存对应连接键。"
+            : "核对 Database:ConnectionName，使用 dotnet user-secrets set \"ConnectionStrings:<name>\" \"<your-connection>\" 或设置环境变量 ConnectionStrings__<name>。";
         findings.Add(DiagnoseFinding.Warn(
             "DIAG_CONNECTION_PLACEHOLDER",
-            $"开发环境尚未配置 ConnectionStrings:{connectionName}。",
+            "开发环境尚未配置所选数据库连接。",
             hint));
     }
 
@@ -488,18 +545,18 @@ internal static class DiagnoseCommand
             }
 
             // 按 JSON 配置提供程序的展平顺序读取，允许无关键被空集合覆盖。
-            using var document = JsonDocument.Parse(File.ReadAllText(path), UserSecretsJsonOptions);
+            using var document = JsonDocument.Parse(File.ReadAllText(path), ConfigurationJsonOptions);
             if (document.RootElement.ValueKind != JsonValueKind.Object)
             {
                 return true;
             }
-            if (!HasUniqueConfigurationPaths(document.RootElement, string.Empty,
+            if (!HasUniqueConfigurationPaths(document.RootElement, null,
                     new HashSet<string>(StringComparer.OrdinalIgnoreCase)))
             {
                 return true;
             }
             var found = false;
-            VisitUserSecret(document.RootElement, string.Empty, configurationPath, ref found, ref text);
+            VisitConfigurationValue(document.RootElement, null, configurationPath, ref found, ref text);
             return found;
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException
@@ -510,19 +567,20 @@ internal static class DiagnoseCommand
         }
     }
 
-    private static void VisitUserSecret(
-        JsonElement element, string path, string requestedPath, ref bool found, ref string? text)
+    private static void VisitConfigurationValue(
+        JsonElement element, string? path, string requestedPath, ref bool found, ref string? text)
     {
         if (element.ValueKind == JsonValueKind.Object)
         {
             var properties = element.EnumerateObject().ToArray();
             if (properties.Length == 0)
             {
-                ApplyUserSecretValue(path, requestedPath, null, ref found, ref text);
+                ApplyConfigurationValue(path, requestedPath, null, ref found, ref text);
             }
             foreach (var property in properties)
             {
-                VisitUserSecret(property.Value, path.Length == 0 ? property.Name : $"{path}:{property.Name}",
+                // 根路径用 null 区分合法空属性名；空名子项必须保留冒号，不能映射到根配置键。
+                VisitConfigurationValue(property.Value, path is null ? property.Name : $"{path}:{property.Name}",
                     requestedPath, ref found, ref text);
             }
             return;
@@ -533,21 +591,21 @@ internal static class DiagnoseCommand
             var items = element.EnumerateArray().ToArray();
             if (items.Length == 0)
             {
-                ApplyUserSecretValue(path, requestedPath, string.Empty, ref found, ref text);
+                ApplyConfigurationValue(path, requestedPath, string.Empty, ref found, ref text);
             }
             for (var index = 0; index < items.Length; index++)
             {
-                VisitUserSecret(items[index], $"{path}:{index}", requestedPath, ref found, ref text);
+                VisitConfigurationValue(items[index], $"{path}:{index}", requestedPath, ref found, ref text);
             }
             return;
         }
 
-        ApplyUserSecretValue(path, requestedPath,
+        ApplyConfigurationValue(path, requestedPath,
             element.ValueKind == JsonValueKind.String ? element.GetString() : null, ref found, ref text);
     }
 
-    private static void ApplyUserSecretValue(
-        string path, string requestedPath, string? value, ref bool found, ref string? text)
+    private static void ApplyConfigurationValue(
+        string? path, string requestedPath, string? value, ref bool found, ref string? text)
     {
         if (string.Equals(path, requestedPath, StringComparison.OrdinalIgnoreCase))
         {
@@ -556,7 +614,7 @@ internal static class DiagnoseCommand
         }
     }
 
-    private static readonly JsonDocumentOptions UserSecretsJsonOptions = new()
+    private static readonly JsonDocumentOptions ConfigurationJsonOptions = new()
     {
         AllowTrailingCommas = true,
         CommentHandling = JsonCommentHandling.Skip,
@@ -578,9 +636,9 @@ internal static class DiagnoseCommand
 
         try
         {
-            using var document = JsonDocument.Parse(File.ReadAllText(path), UserSecretsJsonOptions);
+            using var document = JsonDocument.Parse(File.ReadAllText(path), ConfigurationJsonOptions);
             return document.RootElement.ValueKind == JsonValueKind.Object
-                && HasUniqueConfigurationPaths(document.RootElement, string.Empty,
+                && HasUniqueConfigurationPaths(document.RootElement, null,
                     new HashSet<string>(StringComparer.OrdinalIgnoreCase));
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
@@ -590,7 +648,7 @@ internal static class DiagnoseCommand
     }
 
     private static bool HasUniqueConfigurationPaths(
-        JsonElement element, string path, HashSet<string> paths)
+        JsonElement element, string? path, HashSet<string> paths)
     {
         if (element.ValueKind == JsonValueKind.Object)
         {
@@ -598,12 +656,15 @@ internal static class DiagnoseCommand
             if (properties.Length == 0)
             {
                 // JSON provider 的空对象会写入并覆盖当前路径；仅后续标量遇到同路径才拒绝。
-                _ = paths.Add(path);
+                if (path is not null)
+                {
+                    _ = paths.Add(path);
+                }
                 return true;
             }
             foreach (var property in properties)
             {
-                var childPath = path.Length == 0 ? property.Name : $"{path}:{property.Name}";
+                var childPath = path is null ? property.Name : $"{path}:{property.Name}";
                 if (!HasUniqueConfigurationPaths(property.Value, childPath, paths))
                 {
                     return false;
@@ -617,7 +678,10 @@ internal static class DiagnoseCommand
             var items = element.EnumerateArray().ToArray();
             if (items.Length == 0)
             {
-                _ = paths.Add(path);
+                if (path is not null)
+                {
+                    _ = paths.Add(path);
+                }
                 return true;
             }
             for (var index = 0; index < items.Length; index++)
@@ -631,7 +695,7 @@ internal static class DiagnoseCommand
         }
 
         // JSON 配置提供程序按不区分大小写的扁平路径读取，扁平键与嵌套键冲突也会阻止启动。
-        return paths.Add(path);
+        return path is null || paths.Add(path);
     }
 
     private static string? GetEnvironmentConfigurationValue(string configurationPath)
@@ -658,29 +722,17 @@ internal static class DiagnoseCommand
 
     private static void CheckSecretPlaceholders(
         JsonNode root,
+        JsonDocument? profileSettings,
         string workspacePath,
         string profile,
         List<DiagnoseFinding> findings)
     {
         var placeholders = new List<string>();
-        var userSecretsId = string.Equals(profile, "development", StringComparison.OrdinalIgnoreCase)
-            ? TryReadUserSecretsId(workspacePath) : null;
         foreach (var path in SecretPlaceholderPaths)
         {
-            // 默认配置优先级为环境变量、Development User Secrets、JSON；只报告最终生效的占位值。
-            var environmentValue = GetEnvironmentConfigurationValue(path);
-            if (environmentValue is not null)
+            if (TryReadConfigurationOverride(profileSettings, workspacePath, profile, path, out var effectiveValue))
             {
-                if (string.IsNullOrWhiteSpace(environmentValue) || IsPlaceholder(environmentValue))
-                {
-                    placeholders.Add(path);
-                }
-                continue;
-            }
-
-            if (userSecretsId is not null && TryReadUserSecret(userSecretsId, path, out var userSecret))
-            {
-                if (string.IsNullOrWhiteSpace(userSecret) || IsPlaceholder(userSecret))
+                if (string.IsNullOrWhiteSpace(effectiveValue) || IsPlaceholder(effectiveValue))
                 {
                     placeholders.Add(path);
                 }
