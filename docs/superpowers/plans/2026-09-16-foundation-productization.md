@@ -321,6 +321,16 @@ Windows x64、Node 24.12.0、pnpm 10.26.0、.NET SDK 10.0.401/运行时 10.0.12�
 
 Issuer/加密配置 ok 仅表示格式与长度符合现有 Validator，不认证地址可达性、密钥强度/共享、客户端注册、实际 PEM 或完整协议启动。仅收口本轮配置前提切片，F02 前两项与整项仍待办；本轮未重跑完整打包、全量 Unit/Integration、生成应用 Worker 运行/Native AOT 或容量，Capacity-not-verified 保持，未合并/发布。
 
+2026-10-05 OIDC 客户端诊断增量（基线 `60a3ac87f338f025e2da0ebed815dcb9715bf0c4`，快照 `f02-oidc-clients-diagnose-20261005`，行为源码 `f9468aa6db59e0b7a92a92e58cc5f896398daa46`）：已启用 OIDC 的 CLI 原来只检查签名、Issuer 与可选加密配置，遗漏宿主已有的客户端注册前提。新增 `DIAG_OIDC_CLIENTS_INVALID` / `DIAG_OIDC_CLIENTS_CONFIGURED`，只读检查客户端非空标识、Ordinal 唯一性、必填授权回调与可选退出回调；使用现有 HTTP(S)、无通配符/用户凭据/片段、Ordinal URI 比较和尾斜线去重规则，仍允许查询参数。四层来源逐叶覆盖、空父节点保留低层子键、关闭 OIDC 与生产忽略开发秘密保持；输出不回显 ClientId、URI 或 ClientSecret，不联系地址，不改变认证运行时或依赖。
+
+真实配置 Binder 与 `IdentityOidcOptionsValidator` 对照的首轮 RED 为 167 项中 35 失败/132 通过，失败均为缺失客户端诊断，修复后 167/167。追加 24 条来源、空父/叶覆盖、关闭边界、null/标量/对象数组与可选布尔绑定回归后，59 项中 2 失败/57 通过，定位到字符串数组忽略不可构造对象、可选布尔转换失败会使整个客户端被忽略；修正后回归均纳入最终通过集。本轮新增 59 项，该类最终 191 项；`pnpm test:dotnet:unit -- --selection code-generation-realtime` 1404/1404、零失败/跳过、退出 0，Release 构建 0 警告/0 错误，构建 13.73 秒、测试 178.420 秒，日志 `.tmp/f02-oidc-clients-{red,green,boundaries,unit}.log`。矩阵登记新增测试并将 CodeGeneration/Realtime 下限收口为当前实际发现数，不外推全量 Unit。
+
+两份全新 Minimal SQL Server/MySQL 应用冻结上述行为提交，以实际随包 `pnpm run diagnose:<profile>` 各执行 14 场景，共 28 次符合预期退出码，运行器退出 0、545.942 秒。覆盖缺客户端、完整环境配置、空/重复 ClientId、Ordinal 大小写、通配符/凭据/片段、尾斜线重复、HTTP 查询参数、退出回调、关闭 OIDC，以及 API 同目录环境 JSON 扁平/大小写配置和空标识覆盖。每次诊断前后源码/配置摘要一致，全部受管框架摘要保持，输出地址、标识与秘密脱敏；结果 `.tmp/f02-oidc-clients-apps-f9468aa6/result.json`、运行器 `.tmp/f02-oidc-clients-created-apps.mjs`、日志 `.tmp/f02-oidc-clients-created-apps.log`。仅验证声明的双 Provider 应用及 CLI，没有连接其数据库或启动协议宿主。
+
+`FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-oidc-clients-diagnose-20261005` 按完整影响集执行 CodeGeneration 与 integration-matrix：SQL Server 2022 CU14/MySQL 8.0.46 新临时容器，独立 TEMP/TMP；41/41、零失败/跳过、退出 0，Release 构建 0 警告/0 错误，构建 109.06 秒、测试 495.180 秒。独立读取复制 TRX 确认 total/executed/passed 均 41，failed/notExecuted 为 0，日志与 TRX `.tmp/f02-oidc-clients-integration.*`。分片发现 1118 项无遗漏或重复，仅计发现核对；`pnpm test:integration:tooling` 54/54、治理 57/57 均零失败/跳过、退出 0。最终记录变更再经治理与 diff 检查后交付，没有缩小双库影响集。
+
+远端基线 `60a3ac87` 的主 CI `37230951674` 与 Worker Native `37230951691` 在本轮读取时均终态 success，API Native `37230951673` 仍 in_progress，不把基线结果外推为本轮提交。客户端诊断仅认证已覆盖的配置前提，不认证客户端秘密、其他选项、地址可达性、真实 PEM、完整协议或多实例共享；完整运行时模块选择与依赖诊断仍待收口，F02 前两项及整项保持待办，既有 CRUD/教程子项保持。本轮没有重跑完整打包、全量 Unit/Integration、应用 Worker 运行、Native AOT 或容量验证，`Capacity-not-verified` 保持；未合并、未发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
