@@ -1,6 +1,11 @@
 using System.Text;
 using System.Text.Json;
 using Full.NET.CodeGeneration.Cli;
+using Full.NET.Data.Abstractions;
+using Full.NET.Data.Dapper;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
@@ -862,6 +867,127 @@ public sealed class DiagnoseCommandTests
         Assert.AreEqual("DIAG_SDK_INCOMPATIBLE", finding.Code);
         Assert.AreEqual("error", finding.Severity);
         Assert.IsFalse((finding.Message + finding.Hint).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("\"credential-probe\"", false)]
+    [DataRow("2", false)]
+    [DataRow("-1", false)]
+    [DataRow("true", false)]
+    [DataRow("\"\"", false)]
+    [DataRow("\"SqlServer\"", true)]
+    [DataRow("\"mysql\"", true)]
+    [DataRow("0", true)]
+    [DataRow("1", true)]
+    [DataRow("null", true)]
+    [DataRow("\"1\"", true)]
+    [DataRow("\" SqlServer \"", true)]
+    [DataRow("\"SqlServer, MySql\"", true)]
+    [DataRow("2147483648", false)]
+    [DataRow("1.0", false)]
+    [DataRow("[]", false)]
+    [DataRow("{}", true)]
+    public async Task Provider_diagnosis_agrees_with_runtime_binding_and_validation(string value, bool valid)
+    {
+        var configuration = "{\"Database\":{\"Provider\":" + value
+            + "},\"ConnectionStrings\":{\"fullnet\":\"Server=example.invalid\"}}";
+        var runtimeConfiguration = new ConfigurationBuilder()
+            .AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration))).Build();
+        var services = new ServiceCollection();
+        services.AddFullNetDapper(runtimeConfiguration, "Development");
+        using var runtime = services.BuildServiceProvider();
+        var runtimeValid = true;
+        try
+        {
+            _ = runtime.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or OptionsValidationException)
+        {
+            runtimeValid = false;
+        }
+        Assert.AreEqual(valid, runtimeValid, "真实 Dapper Options 绑定与校验前提不符。");
+
+        using var fixture = new DiagnoseWorkspace(configuration);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var before = File.ReadAllBytes(fixture.Settings);
+        var result = await CodeGenerationCli.RunAsync(
+            ["diagnose", "--workspace", fixture.Root], output, error);
+
+        Assert.AreEqual(valid ? 0 : 1, result);
+        Assert.AreEqual(!valid, output.ToString().Contains("DIAG_DATABASE_PROVIDER_INVALID error", StringComparison.Ordinal));
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+        CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Settings));
+    }
+
+    [TestMethod]
+    [DataRow("profile", "development", true)]
+    [DataRow("profile", "production", true)]
+    [DataRow("secrets", "development", true)]
+    [DataRow("secrets", "production", false)]
+    [DataRow("environment", "development", true)]
+    [DataRow("environment", "production", true)]
+    public async Task Invalid_provider_uses_the_selected_runtime_configuration_source(
+        string source, string profile, bool effective)
+    {
+        using var fixture = new DiagnoseWorkspace("""{"Database":{"Provider":"SqlServer"}}""");
+        const string invalid = "credential-probe";
+        if (source == "profile")
+        {
+            File.WriteAllText(Path.Combine(fixture.Root, $"appsettings.{(profile == "development" ? "Development" : "Production")}.json"),
+                """{"dAtAbAsE:pRoViDeR":"credential-probe"}""");
+        }
+        if (source == "secrets")
+        {
+            fixture.AddStandaloneUserSecrets("""{"Database:Provider":"credential-probe"}""", "App.Host.Api");
+        }
+        var original = Environment.GetEnvironmentVariable("Database__Provider");
+        try
+        {
+            Environment.SetEnvironmentVariable("Database__Provider", source == "environment" ? invalid : null);
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            await CodeGenerationCli.RunAsync(
+                ["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
+            Assert.AreEqual(effective, output.ToString().Contains("DIAG_DATABASE_PROVIDER_INVALID error", StringComparison.Ordinal));
+            Assert.IsFalse((output.ToString() + error).Contains(invalid, StringComparison.Ordinal));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("Database__Provider", original);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("profile")]
+    [DataRow("secrets")]
+    [DataRow("environment")]
+    public async Task Valid_provider_override_masks_invalid_lower_priority_value(string source)
+    {
+        using var fixture = new DiagnoseWorkspace("""{"Database":{"Provider":"credential-probe"}}""");
+        File.WriteAllText(Path.Combine(fixture.Root, "appsettings.Development.json"),
+            source == "profile" ? """{"Database:Provider":1}""" : """{"Database:Provider":"credential-probe"}""");
+        if (source is "secrets" or "environment")
+        {
+            fixture.AddStandaloneUserSecrets(source == "secrets"
+                ? """{"Database:Provider":0}""" : """{"Database:Provider":"credential-probe"}""", "App.Host.Api");
+        }
+        var original = Environment.GetEnvironmentVariable("Database__Provider");
+        try
+        {
+            Environment.SetEnvironmentVariable("Database__Provider", source == "environment" ? "MySql" : null);
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var result = await CodeGenerationCli.RunAsync(
+                ["diagnose", "--workspace", fixture.Root], output, error);
+            Assert.AreEqual(0, result);
+            Assert.IsFalse(output.ToString().Contains("DIAG_DATABASE_PROVIDER_INVALID", StringComparison.Ordinal));
+            Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("Database__Provider", original);
+        }
     }
 
     private sealed class DiagnoseWorkspace : IDisposable

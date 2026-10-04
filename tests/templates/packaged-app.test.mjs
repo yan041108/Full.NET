@@ -127,7 +127,7 @@ test('application template package includes framework sources and root manifest'
     const productionSettings = join(appRoot, 'src/Demo.Host.Api/appsettings.Production.json');
     const rootProductionSettings = join(appRoot, 'appsettings.Production.json');
     const diagnosisEnvironment = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
-      !['database:connectionname', `connectionstrings:${apiConfig.Database.ConnectionName}`,
+      !['database:provider', 'database:connectionname', `connectionstrings:${apiConfig.Database.ConnectionName}`,
         'cache:redisconnectionstring', 'realtime:redisbackplaneconnectionstring',
         'fullnet:cryptography:sm2privatekeys:host-integration-signing']
         .includes(key.replaceAll('__', ':').toLowerCase())));
@@ -150,6 +150,17 @@ test('application template package includes framework sources and root manifest'
       assert.match(profileDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
       assert.match(profileDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
       assert.doesNotMatch(profileDiagnosis.stdout + profileDiagnosis.stderr, /credential-probe/u);
+      assert.deepEqual(readFileSync(productionSettings), profileBefore);
+      const invalidProviderDiagnosis = runProfileDiagnosis({ Database__Provider: 'credential-probe' });
+      assert.equal(invalidProviderDiagnosis.status, 1);
+      assert.match(invalidProviderDiagnosis.stdout, /DIAG_DATABASE_PROVIDER_INVALID error/u);
+      assert.doesNotMatch(invalidProviderDiagnosis.stdout + invalidProviderDiagnosis.stderr, /credential-probe/u);
+      const undefinedProviderDiagnosis = runProfileDiagnosis({ Database__Provider: '2' });
+      assert.equal(undefinedProviderDiagnosis.status, 1);
+      assert.match(undefinedProviderDiagnosis.stdout, /DIAG_DATABASE_PROVIDER_INVALID error/u);
+      const numericProviderDiagnosis = runProfileDiagnosis({ Database__Provider: '1' });
+      assert.equal(numericProviderDiagnosis.status, 0, numericProviderDiagnosis.stderr || numericProviderDiagnosis.stdout);
+      assert.doesNotMatch(numericProviderDiagnosis.stdout, /DIAG_DATABASE_PROVIDER_INVALID/u);
       assert.deepEqual(readFileSync(productionSettings), profileBefore);
       writeFileSync(productionSettings, JSON.stringify({
         ConnectionStrings: { [apiConfig.Database.ConnectionName]: '<your-connection>' },

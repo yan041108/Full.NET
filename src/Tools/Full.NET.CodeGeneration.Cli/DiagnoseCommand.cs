@@ -238,6 +238,7 @@ internal static partial class DiagnoseCommand
                     "修复秘密文件的 JSON 语法与重复配置键；诊断不会输出秘密值。"));
             }
             CheckModulesSection(root, findings);
+            CheckDatabaseProvider(root, profileSettings, workspacePath, profile, findings);
             CheckConnectionPlaceholder(root, profileSettings, workspacePath, profile, findings);
             CheckSecretPlaceholders(root, profileSettings, workspacePath, profile, findings);
         }
@@ -276,7 +277,7 @@ internal static partial class DiagnoseCommand
 
     private static bool TryReadConfigurationOverride(
         JsonDocument? profileSettings, string workspacePath, string profile, string path, out string? text,
-        bool requireValidUserSecrets = false)
+        bool requireValidUserSecrets = false, bool includeScalarValues = false)
     {
         text = GetEnvironmentConfigurationValue(path);
         if (text is not null)
@@ -288,7 +289,7 @@ internal static partial class DiagnoseCommand
         if (string.Equals(profile, "development", StringComparison.OrdinalIgnoreCase)
             && TryReadUserSecretsId(workspacePath) is { } id
             && (!requireValidUserSecrets || IsValidUserSecretsFile(id))
-            && TryReadUserSecret(id, path, out text))
+            && TryReadUserSecret(id, path, out text, includeScalarValues))
         {
             return true;
         }
@@ -298,7 +299,7 @@ internal static partial class DiagnoseCommand
         }
 
         var found = false;
-        VisitConfigurationValue(profileSettings.RootElement, null, path, ref found, ref text);
+        VisitConfigurationValue(profileSettings.RootElement, null, path, ref found, ref text, includeScalarValues);
         return found;
     }
 
@@ -501,6 +502,39 @@ internal static partial class DiagnoseCommand
             "设置 FullNet:Modules:Preset=minimal 或显式 Enabled 数组。"));
     }
 
+    private static void CheckDatabaseProvider(
+        JsonNode root, JsonDocument? profileSettings, string workspacePath, string profile,
+        List<DiagnoseFinding> findings)
+    {
+        const string path = "Database:Provider";
+        if (!TryReadConfigurationOverride(profileSettings, workspacePath, profile, path, out var value,
+                requireValidUserSecrets: true, includeScalarValues: true))
+        {
+            using var baseSettings = JsonDocument.Parse(root.ToJsonString());
+            var found = false;
+            VisitConfigurationValue(baseSettings.RootElement, null, path, ref found, ref value,
+                includeScalarValues: true);
+        }
+
+        // 缺省或 null 保留运行时 SqlServer 默认值；显式空字符串仍会使枚举绑定失败。
+        if (value is null || (Enum.TryParse<DiagnosticDatabaseProvider>(value, true, out var provider)
+            && Enum.IsDefined(provider)))
+        {
+            return;
+        }
+        findings.Add(DiagnoseFinding.Error(
+            "DIAG_DATABASE_PROVIDER_INVALID",
+            "Database:Provider 不能绑定为受支持的数据库提供程序。",
+            "核对最终生效的 Database:Provider，使用 SqlServer 或 MySql；诊断不会输出配置值。"));
+    }
+
+    // 工具不引入运行时数据依赖；枚举值与真实 Dapper Options 的一致性由回归测试约束。
+    private enum DiagnosticDatabaseProvider
+    {
+        SqlServer = 0,
+        MySql = 1,
+    }
+
     private static void CheckConnectionPlaceholder(
         JsonNode root,
         JsonDocument? profileSettings,
@@ -553,7 +587,8 @@ internal static partial class DiagnoseCommand
             hint));
     }
 
-    private static bool TryReadUserSecret(string userSecretsId, string configurationPath, out string? text)
+    private static bool TryReadUserSecret(
+        string userSecretsId, string configurationPath, out string? text, bool includeScalarValues = false)
     {
         text = null;
         try
@@ -576,7 +611,7 @@ internal static partial class DiagnoseCommand
                 return true;
             }
             var found = false;
-            VisitConfigurationValue(document.RootElement, null, configurationPath, ref found, ref text);
+            VisitConfigurationValue(document.RootElement, null, configurationPath, ref found, ref text, includeScalarValues);
             return found;
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException
@@ -588,7 +623,8 @@ internal static partial class DiagnoseCommand
     }
 
     private static void VisitConfigurationValue(
-        JsonElement element, string? path, string requestedPath, ref bool found, ref string? text)
+        JsonElement element, string? path, string requestedPath, ref bool found, ref string? text,
+        bool includeScalarValues = false)
     {
         if (element.ValueKind == JsonValueKind.Object)
         {
@@ -601,7 +637,7 @@ internal static partial class DiagnoseCommand
             {
                 // 根路径用 null 区分合法空属性名；空名子项必须保留冒号，不能映射到根配置键。
                 VisitConfigurationValue(property.Value, path is null ? property.Name : $"{path}:{property.Name}",
-                    requestedPath, ref found, ref text);
+                    requestedPath, ref found, ref text, includeScalarValues);
             }
             return;
         }
@@ -615,13 +651,15 @@ internal static partial class DiagnoseCommand
             }
             for (var index = 0; index < items.Length; index++)
             {
-                VisitConfigurationValue(items[index], $"{path}:{index}", requestedPath, ref found, ref text);
+                VisitConfigurationValue(items[index], $"{path}:{index}", requestedPath, ref found, ref text, includeScalarValues);
             }
             return;
         }
 
         ApplyConfigurationValue(path, requestedPath,
-            element.ValueKind == JsonValueKind.String ? element.GetString() : null, ref found, ref text);
+            element.ValueKind == JsonValueKind.String ? element.GetString()
+                : includeScalarValues && element.ValueKind is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False
+                    ? element.GetRawText() : null, ref found, ref text);
     }
 
     private static void ApplyConfigurationValue(
