@@ -127,7 +127,7 @@ test('application template package includes framework sources and root manifest'
     const productionSettings = join(appRoot, 'src/Demo.Host.Api/appsettings.Production.json');
     const rootProductionSettings = join(appRoot, 'appsettings.Production.json');
     const diagnosisEnvironment = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
-      !['database:provider', 'database:commandtimeoutseconds', 'database:mysqlguidstoragemode', 'database:connectionname', `connectionstrings:${apiConfig.Database.ConnectionName}`,
+      !['database:provider', 'database:commandtimeoutseconds', 'database:mysqlguidstoragemode', 'database:connectionname', 'database:connectionstring', `connectionstrings:${apiConfig.Database.ConnectionName}`,
         'cache:redisconnectionstring', 'realtime:redisbackplaneconnectionstring',
         'fullnet:cryptography:sm2privatekeys:host-integration-signing']
         .includes(key.replaceAll('__', ':').toLowerCase())));
@@ -151,6 +151,44 @@ test('application template package includes framework sources and root manifest'
       assert.match(profileDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
       assert.doesNotMatch(profileDiagnosis.stdout + profileDiagnosis.stderr, /credential-probe/u);
       assert.deepEqual(readFileSync(productionSettings), profileBefore);
+      const directProfile = { ...JSON.parse(profileBefore.toString('utf8')),
+        Database: { ConnectionString: 'Server=direct.invalid;Password=credential-probe', ConnectionName: null },
+        ConnectionStrings: { [apiConfig.Database.ConnectionName]: 'CHANGEME' },
+      };
+      writeFileSync(productionSettings, JSON.stringify(directProfile));
+      const directBefore = readFileSync(productionSettings);
+      const directDiagnosis = runProfileDiagnosis();
+      assert.equal(directDiagnosis.status, 0, directDiagnosis.stderr || directDiagnosis.stdout);
+      assert.match(directDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+      assert.doesNotMatch(directDiagnosis.stdout + directDiagnosis.stderr, /credential-probe/u);
+      assert.deepEqual(readFileSync(productionSettings), directBefore);
+      writeFileSync(productionSettings, JSON.stringify({ ...directProfile,
+        Database: { ConnectionString: 'CHANGEME', ConnectionName: apiConfig.Database.ConnectionName },
+        ConnectionStrings: { [apiConfig.Database.ConnectionName]: 'Server=named.invalid;Password=credential-probe' },
+      }));
+      const placeholderBefore = readFileSync(productionSettings);
+      const directPlaceholderDiagnosis = runProfileDiagnosis();
+      assert.equal(directPlaceholderDiagnosis.status, 1);
+      assert.match(directPlaceholderDiagnosis.stdout, /DIAG_CONNECTION_MISSING error/u);
+      const directEnvironmentDiagnosis = runProfileDiagnosis({
+        Database__ConnectionString: 'Server=environment.invalid;Password=credential-probe',
+      });
+      assert.equal(directEnvironmentDiagnosis.status, 0, directEnvironmentDiagnosis.stderr || directEnvironmentDiagnosis.stdout);
+      assert.match(directEnvironmentDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+      assert.doesNotMatch(directEnvironmentDiagnosis.stdout + directEnvironmentDiagnosis.stderr, /credential-probe/u);
+      const blankDirectDiagnosis = runProfileDiagnosis({ Database__ConnectionString: ' ' });
+      assert.equal(blankDirectDiagnosis.status, 0, blankDirectDiagnosis.stderr || blankDirectDiagnosis.stdout);
+      assert.match(blankDirectDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+      assert.deepEqual(readFileSync(productionSettings), placeholderBefore);
+      writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(placeholderBefore.toString('utf8')),
+        Database: { ConnectionString: null, ConnectionName: apiConfig.Database.ConnectionName },
+      }));
+      const nullDirectBefore = readFileSync(productionSettings);
+      const nullDirectDiagnosis = runProfileDiagnosis();
+      assert.equal(nullDirectDiagnosis.status, 0, nullDirectDiagnosis.stderr || nullDirectDiagnosis.stdout);
+      assert.match(nullDirectDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+      assert.deepEqual(readFileSync(productionSettings), nullDirectBefore);
+      writeFileSync(productionSettings, profileBefore);
       const invalidProviderDiagnosis = runProfileDiagnosis({ Database__Provider: 'credential-probe' });
       assert.equal(invalidProviderDiagnosis.status, 1);
       assert.match(invalidProviderDiagnosis.stdout, /DIAG_DATABASE_PROVIDER_INVALID error/u);

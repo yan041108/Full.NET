@@ -27,11 +27,11 @@ DIAG_WORKSPACE_OK ok 工作区结构符合 Full.NET 应用布局。
 DIAG_MODULES_OK ok 已配置 FullNet:Modules 模块预设或启用列表。
 ```
 
-开发环境若尚未配置数据库连接，可能出现 `DIAG_CONNECTION_PLACEHOLDER warn ... hint=...`；可按 hint 设置环境变量。若使用 user-secrets，须先在应用 API 项目初始化 `UserSecretsId`，并写入目标 `ConnectionStrings:<name>`；仅有 `secrets.json` 文件或其他连接键不算已配置。默认宿主只在 Development 载入 User Secrets，Production 必须通过部署密钥或环境变量提供连接。诊断只读取目标键的非空、非占位字符串，**不会输出连接字符串原文**。
+开发环境若尚未配置数据库连接，可能出现 `DIAG_CONNECTION_PLACEHOLDER warn ... hint=...`；可按 hint 设置环境变量。数据库连接先取最终生效的 `Database:ConnectionString`，仅当其为 null、空串或空白时，才回退到 `Database:ConnectionName` 指向的 `ConnectionStrings:<name>`；非空直配中的占位符不能被命名连接掩盖。若使用 user-secrets，须先在应用 API 项目初始化 `UserSecretsId`，并写入直配键或目标命名连接键；仅有 `secrets.json` 文件或其他连接键不算已配置。默认宿主只在 Development 载入 User Secrets，Production 必须通过部署密钥或环境变量提供连接。诊断检查最终所选连接是否非空、非占位，**不会输出连接字符串原文**。
 
 生产配置使用 `pnpm run diagnose:production` 或 `--profile production`；缺少连接或秘密占位符将报告 `error` 并以非零退出码结束。Profile 只接受 `development`、`production`，重复或未知参数拒绝执行。
 
-诊断按目标工作区的 `global.json` 解析 SDK，按当前分发基线接受 10.0.100 及更高的 10.0 SDK 功能带；SDK 选择及预览版准入由 .NET 自身解析，其他主/次版本不自动认证为兼容。版本格式无效时输出脱敏错误，合法后缀也只标注预览状态，不回显任意后缀内容。该检查不替代真实构建、工作负载或 Native AOT 工具链验收。诊断检查宿主 `appsettings.json`、独立应用清单、所选模块引用及配置占位符。独立应用的根、API及已声明同名Migrator的基础JSON，其模块预设和数据库Provider必须都与冻结档案一致；相关文件缺失、无效或字段类型错误会返回脱敏错误，不能由API/根配置回退掩盖。无Migrator的旧应用仍可诊断，不会自动创建宿主。User Secrets 仅在 API 项目具有有效 `UserSecretsId` 时检查目标连接键，支持扁平与嵌套 JSON；不可读取或无效的秘密文件按未配置处理。诊断不会执行初始化、迁移或数据库连接，也不证明配置中的地址可达；它不是完整ASP.NET Core配置加载器，不认证部署环境的全部覆盖来源。SDK缺失导致.NET CLI本身无法启动时，先安装.NET 10 SDK，再运行此入口。
+诊断按目标工作区的 `global.json` 解析 SDK，按当前分发基线接受 10.0.100 及更高的 10.0 SDK 功能带；SDK 选择及预览版准入由 .NET 自身解析，其他主/次版本不自动认证为兼容。版本格式无效时输出脱敏错误，合法后缀也只标注预览状态，不回显任意后缀内容。该检查不替代真实构建、工作负载或 Native AOT 工具链验收。诊断检查宿主 `appsettings.json`、独立应用清单、所选模块引用及配置占位符。独立应用的根、API及已声明同名Migrator的基础JSON，其模块预设和数据库Provider必须都与冻结档案一致；相关文件缺失、无效或字段类型错误会返回脱敏错误，不能由API/根配置回退掩盖。无Migrator的旧应用仍可诊断，不会自动创建宿主。User Secrets 仅在 API 项目具有有效 `UserSecretsId` 时检查直配或目标命名连接键，支持扁平与嵌套 JSON；不可读取或无效的秘密文件按未配置处理。诊断不会执行初始化、迁移或数据库连接，也不证明配置中的地址可达；它不是完整ASP.NET Core配置加载器，不认证部署环境的全部覆盖来源。SDK缺失导致.NET CLI本身无法启动时，先安装.NET 10 SDK，再运行此入口。
 
 ## 第二步：准备 CRUD Schema
 

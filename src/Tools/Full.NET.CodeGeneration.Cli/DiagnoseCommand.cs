@@ -614,23 +614,29 @@ internal static partial class DiagnoseCommand
         string profile,
         List<DiagnoseFinding> findings)
     {
-        var connectionName = TryReadConfigurationOverride(profileSettings, workspacePath, profile,
-            // 无效秘密文件已有独立错误；保留连接名用于说明缺失连接，而凭据仍失败关闭。
-            "Database:ConnectionName", out var overrideName, requireValidUserSecrets: true)
-            ? overrideName : root["Database"]?["ConnectionName"]?.GetValue<string>() ?? "fullnet";
-        if (string.IsNullOrWhiteSpace(connectionName))
+        _ = TryReadDatabaseValue(root, profileSettings, workspacePath, profile,
+            "Database:ConnectionString", out var effectiveConnection);
+        // 与 Dapper PostConfigure 一致：非空直配优先，即使是占位符也不能用命名连接掩盖。
+        if (string.IsNullOrWhiteSpace(effectiveConnection))
         {
-            throw new InvalidOperationException("Connection name is empty.");
+            var connectionName = TryReadConfigurationOverride(profileSettings, workspacePath, profile,
+                // 无效秘密文件已有独立错误；保留连接名用于说明缺失连接，而凭据仍失败关闭。
+                "Database:ConnectionName", out var overrideName, requireValidUserSecrets: true)
+                ? overrideName : root["Database"]?["ConnectionName"]?.GetValue<string>() ?? "fullnet";
+            if (string.IsNullOrWhiteSpace(connectionName))
+            {
+                throw new InvalidOperationException("Connection name is empty.");
+            }
+            var connectionStrings = root["ConnectionStrings"]?.AsObject();
+            var namedConnection = connectionStrings?.FirstOrDefault(pair =>
+                string.Equals(pair.Key, connectionName, StringComparison.OrdinalIgnoreCase)).Value?.GetValue<string>();
+            // 显式 null 或空集合也是覆盖值，不能恢复基础文件中的命名凭据。
+            effectiveConnection = TryReadConfigurationOverride(profileSettings, workspacePath, profile,
+                $"ConnectionStrings:{connectionName}", out var overrideConnection) ? overrideConnection : namedConnection;
         }
-        var connectionStrings = root["ConnectionStrings"]?.AsObject();
-        var inline = connectionStrings?.FirstOrDefault(pair =>
-            string.Equals(pair.Key, connectionName, StringComparison.OrdinalIgnoreCase)).Value?.GetValue<string>();
         // 默认 WebApplicationBuilder 仅在 Development 载入 User Secrets，生产诊断不能据此放行。
         var userSecretsId = string.Equals(profile, "development", StringComparison.OrdinalIgnoreCase)
             ? TryReadUserSecretsId(workspacePath) : null;
-        // 显式 null 或空集合也是覆盖值，不能恢复基础文件中的凭据。
-        var effectiveConnection = TryReadConfigurationOverride(profileSettings, workspacePath, profile,
-            $"ConnectionStrings:{connectionName}", out var overrideConnection) ? overrideConnection : inline;
 
         if (!string.IsNullOrWhiteSpace(effectiveConnection) && !IsPlaceholder(effectiveConnection))
         {
@@ -645,14 +651,14 @@ internal static partial class DiagnoseCommand
             findings.Add(DiagnoseFinding.Error(
                 "DIAG_CONNECTION_MISSING",
                 "生产配置缺少所选数据库连接。",
-                "核对 Database:ConnectionName，通过密钥管理或环境变量 ConnectionStrings__<name> 注入对应连接字符串；不要在仓库中提交凭据。"));
+                "通过密钥管理或环境变量 Database__ConnectionString 提供直配；直配为空时核对 Database:ConnectionName 并注入 ConnectionStrings__<name>；不要在仓库中提交凭据。"));
             return;
         }
 
         // 连接名也可能被错误地填写为凭据；提示固定配置路径，不回显任何来源的字段值。
         var hint = userSecretsId is null
-            ? "核对 Database:ConnectionName，设置环境变量 ConnectionStrings__<name>；如需 user-secrets，先在 API 项目初始化后保存对应连接键。"
-            : "核对 Database:ConnectionName，使用 dotnet user-secrets set \"ConnectionStrings:<name>\" \"<your-connection>\" 或设置环境变量 ConnectionStrings__<name>。";
+            ? "设置环境变量 Database__ConnectionString；直配为空时核对 Database:ConnectionName 并设置 ConnectionStrings__<name>；如需 user-secrets，先在 API 项目初始化后保存对应连接键。"
+            : "使用 user-secrets 或环境变量提供 Database:ConnectionString；直配为空时核对 Database:ConnectionName 并提供 ConnectionStrings:<name>。";
         findings.Add(DiagnoseFinding.Warn(
             "DIAG_CONNECTION_PLACEHOLDER",
             "开发环境尚未配置所选数据库连接。",

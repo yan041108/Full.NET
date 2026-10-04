@@ -237,6 +237,8 @@ flowchart LR
 
 2026-10-04 数据库超时与 Guid 模式诊断增量（基线 `a23d194c`）：对照真实 Dapper Options 绑定及启动校验，补齐 `CommandTimeoutSeconds` 正整数门禁、`MySqlGuidStorageMode` 枚举值与 Production 准入，新增 `DIAG_DATABASE_TIMEOUT_INVALID`、`DIAG_DATABASE_GUID_STORAGE_INVALID`。三项数据库标量配置共享环境变量、Development User Secrets、所选环境 JSON、基础 JSON 覆盖；Production 两库均需显式非 null 模式，MySQL 需 Binary16，SQL Server 显式 LegacyChar36 保持既有允许行为。运行时对照确认超时显式 null/空对象绑定为 0，只有缺省保留 30 秒；保留整数转换支持的三种十六进制前缀。校正此预期后新增 47 项中 26 项先失败；实施后新增测试全部通过，原有 5 项正常生产样例补齐显式模式，未放宽断言。最终 CodeGeneration/Realtime 854 项通过、无跳过，Release 构建 0 警告/0 错误；受影响 MySQL Integration 13 项、治理 57 项、工具链 54 项和命名 33 项通过，分片发现 1118 项无遗漏或重复，仅为发现证据。独立生成应用加入零超时、生产 MySQL 旧模式及环境 JSON 空值拒绝、合法十六进制超时与两库模式接受、配置只读断言。数据库运行时、默认值与迁移不变；连接串直配、非空集合结构和完整运行时配置诊断仍待收口，F02 不关闭。
 
+2026-10-04 数据库连接直配诊断增量（基线 `96f4858b`）：对照真实 Dapper Options 的 PostConfigure，修正 CLI 忽略 `Database:ConnectionString` 的取值差异。直配先按环境变量、Development User Secrets、所选环境 JSON、基础 JSON 取最终值；只有 null、空串或空白才回退到命名连接，非空占位直配不能被有效命名连接掩盖。有效直配不再要求未使用的连接名；Production 仍忽略开发秘密，无效秘密文件保持独立错误。新增 34 项回归中 11 项先失败，修复后全部通过；最终 CodeGeneration/Realtime 888 项通过、无跳过，Release 构建 0 警告/0 错误，工具链 54 项、命名 33 项通过。独立生成应用加入 API 环境文件直配、未使用的空连接名、占位直配拒绝、环境直配覆盖及空白/null 回退、只读和脱敏断言。仅修改诊断，不改变数据库运行时或迁移；非空集合结构和完整运行时配置诊断仍待收口，F02 不关闭。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。

@@ -1137,6 +1137,169 @@ public sealed class DiagnoseCommandTests
         Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
     }
 
+    [TestMethod]
+    [DataRow("\"Server=direct.invalid;Password=credential-probe\"", false, true)]
+    [DataRow("\"Server=direct.invalid;Password=credential-probe\"", true, true)]
+    [DataRow("\"<your-connection>\"", true, false)]
+    [DataRow("\"CHANGEME\"", true, false)]
+    [DataRow("\"YOUR_CONNECTION_STRING\"", true, false)]
+    [DataRow("\" \"", true, true)]
+    [DataRow("\"\"", true, true)]
+    [DataRow("null", true, true)]
+    [DataRow("{}", true, true)]
+    [DataRow("[]", true, true)]
+    [DataRow("missing", true, true)]
+    [DataRow("\" \"", false, false)]
+    [DataRow("\"\"", false, false)]
+    [DataRow("null", false, false)]
+    [DataRow("{}", false, false)]
+    [DataRow("[]", false, false)]
+    public async Task Direct_connection_matches_runtime_selection_and_placeholder_boundary(
+        string value, bool hasNamedConnection, bool configured)
+    {
+        var direct = value == "missing" ? string.Empty : ",\"ConnectionString\":" + value;
+        var configuration = "{\"Database\":{\"MySqlGuidStorageMode\":\"Binary16\"" + direct + "}"
+            + (hasNamedConnection ? ",\"ConnectionStrings\":{\"fullnet\":\"Server=named.invalid;Password=credential-probe\"}" : string.Empty) + "}";
+        var hasDirect = value.StartsWith("\"Server=", StringComparison.Ordinal)
+            || value is "\"<your-connection>\"" or "\"CHANGEME\"" or "\"YOUR_CONNECTION_STRING\"";
+        Assert.AreEqual(hasDirect || hasNamedConnection, RuntimeDatabaseOptionsAreValid(configuration, "Production"));
+        if (hasDirect || hasNamedConnection)
+        {
+            Assert.AreEqual(hasDirect ? JsonSerializer.Deserialize<string>(value)
+                : "Server=named.invalid;Password=credential-probe", ReadRuntimeDatabaseConnection(configuration));
+        }
+        using var fixture = new DiagnoseWorkspace(configuration);
+        var before = File.ReadAllBytes(fixture.Settings);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var result = await CodeGenerationCli.RunAsync(
+            ["diagnose", "--workspace", fixture.Root, "--profile", "production"], output, error);
+        Assert.AreEqual(configured ? 0 : 1, result, output.ToString());
+        StringAssert.Contains(output.ToString(), configured ? "DIAG_CONNECTION_CONFIGURED ok" : "DIAG_CONNECTION_MISSING error");
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+        CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Settings));
+    }
+
+    [TestMethod]
+    [DataRow("profile", "configured")]
+    [DataRow("profile", "placeholder")]
+    [DataRow("profile", "null")]
+    [DataRow("profile", "blank")]
+    [DataRow("secrets", "configured")]
+    [DataRow("secrets", "placeholder")]
+    [DataRow("secrets", "null")]
+    [DataRow("secrets", "blank")]
+    [DataRow("environment", "configured")]
+    [DataRow("environment", "placeholder")]
+    [DataRow("environment", "null")]
+    [DataRow("environment", "blank")]
+    public async Task Direct_connection_respects_source_priority_and_empty_value_fallback(string source, string kind)
+    {
+        const string configuration = """
+            {"Database":{"ConnectionString":"Server=base.invalid;Password=credential-probe","MySqlGuidStorageMode":"Binary16"},
+             "ConnectionStrings":{"fullnet":"Server=named.invalid;Password=credential-probe"}}
+            """;
+        var value = kind == "configured" ? "Server=override.invalid;Password=credential-probe"
+            : kind == "placeholder" ? "CHANGEME" : kind == "blank" ? " " : null;
+        var overlay = JsonSerializer.Serialize(new Dictionary<string, string?> { ["database:connectionstring"] = value });
+        using var fixture = new DiagnoseWorkspace(configuration);
+        var profilePath = Path.Combine(fixture.Root, "appsettings.Development.json");
+        // 给高层来源设置相反的低层值，证明逐键覆盖先于直配/命名连接的选择。
+        var lower = """{"Database:ConnectionString":"CHANGEME"}""";
+        File.WriteAllText(profilePath, source == "profile" ? overlay : lower);
+        if (source == "secrets") fixture.AddStandaloneUserSecrets(overlay, "App.Host.Api");
+        if (source == "environment") fixture.AddStandaloneUserSecrets(lower, "App.Host.Api");
+        var key = "Database__ConnectionString";
+        var original = Environment.GetEnvironmentVariable(key);
+        var before = File.ReadAllBytes(fixture.Settings);
+        var profileBefore = File.ReadAllBytes(profilePath);
+        try
+        {
+            Environment.SetEnvironmentVariable(key, source == "environment" ? value ?? string.Empty : null);
+            Assert.AreEqual(kind is "null" or "blank" ? "Server=named.invalid;Password=credential-probe" : value,
+                ReadRuntimeDatabaseConnection(configuration, overlay));
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root], output, error);
+            Assert.AreEqual(0, result, output.ToString());
+            StringAssert.Contains(output.ToString(), kind == "placeholder"
+                ? "DIAG_CONNECTION_PLACEHOLDER warn" : "DIAG_CONNECTION_CONFIGURED ok");
+            Assert.AreEqual(kind != "placeholder", output.ToString().Contains("DIAG_CONNECTION_CONFIGURED ok", StringComparison.Ordinal));
+            Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Settings));
+            CollectionAssert.AreEqual(profileBefore, File.ReadAllBytes(profilePath));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(key, original);
+        }
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task Direct_connection_production_ignores_development_secrets(bool configuredBase)
+    {
+        using var fixture = new DiagnoseWorkspace(JsonSerializer.Serialize(new
+        {
+            Database = new { ConnectionString = configuredBase ? "Server=base.invalid;Password=credential-probe" : "CHANGEME", MySqlGuidStorageMode = "Binary16" },
+            ConnectionStrings = new { fullnet = "Server=named.invalid" },
+        }));
+        fixture.AddStandaloneUserSecrets(JsonSerializer.Serialize(new Dictionary<string, string>
+        {
+            ["Database:ConnectionString"] = configuredBase ? "CHANGEME" : "Server=secret.invalid;Password=credential-probe",
+        }), "App.Host.Api");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var result = await CodeGenerationCli.RunAsync(
+            ["diagnose", "--workspace", fixture.Root, "--profile", "production"], output, error);
+        Assert.AreEqual(configuredBase ? 0 : 1, result, output.ToString());
+        StringAssert.Contains(output.ToString(), configuredBase ? "DIAG_CONNECTION_CONFIGURED ok" : "DIAG_CONNECTION_MISSING error");
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("null")]
+    [DataRow("\"\"")]
+    [DataRow("\"credential-probe\"")]
+    public async Task Direct_connection_does_not_require_unused_connection_name(string connectionName)
+    {
+        var configuration = "{\"Database\":{\"ConnectionString\":\"Server=direct.invalid;Password=credential-probe\","
+            + "\"MySqlGuidStorageMode\":\"Binary16\",\"ConnectionName\":" + connectionName + "}}";
+        Assert.AreEqual("Server=direct.invalid;Password=credential-probe", ReadRuntimeDatabaseConnection(configuration));
+        using var fixture = new DiagnoseWorkspace(configuration);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var result = await CodeGenerationCli.RunAsync(
+            ["diagnose", "--workspace", fixture.Root, "--profile", "production"], output, error);
+        Assert.AreEqual(0, result, output.ToString());
+        StringAssert.Contains(output.ToString(), "DIAG_CONNECTION_CONFIGURED ok");
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task Direct_connection_invalid_development_secrets_remains_error()
+    {
+        using var fixture = new DiagnoseWorkspace("""{"Database":{"ConnectionString":"Server=direct.invalid;Password=credential-probe"}}""");
+        fixture.AddStandaloneUserSecrets("{invalid-credential-probe", "App.Host.Api");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root], output, error);
+        Assert.AreEqual(1, result, output.ToString());
+        StringAssert.Contains(output.ToString(), "DIAG_USER_SECRETS_INVALID error");
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    private static string ReadRuntimeDatabaseConnection(string configuration, string? overlay = null)
+    {
+        var builder = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration)));
+        if (overlay is not null) builder.AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(overlay)));
+        var services = new ServiceCollection();
+        services.AddFullNetDapper(builder.Build(), "Production");
+        using var runtime = services.BuildServiceProvider();
+        return runtime.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString;
+    }
+
     private static bool RuntimeDatabaseOptionsAreValid(string configuration, string environment)
     {
         var runtimeConfiguration = new ConfigurationBuilder()
