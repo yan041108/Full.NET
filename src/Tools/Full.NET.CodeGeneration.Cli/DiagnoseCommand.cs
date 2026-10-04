@@ -26,6 +26,14 @@ internal static partial class DiagnoseCommand
         "FullNet:Cryptography:Sm2PrivateKeys:host-integration-signing",
     ];
 
+    private static readonly (string Prefix, string? ProviderName)[] ConnectionEnvironmentPrefixes =
+    [
+        ("MYSQLCONNSTR_", "MySql.Data.MySqlClient"),
+        ("SQLCONNSTR_", "System.Data.SqlClient"),
+        ("SQLAZURECONNSTR_", "System.Data.SqlClient"),
+        ("CUSTOMCONNSTR_", null),
+    ];
+
     public static async Task<int> RunAsync(
         DiagnoseCliOptions options,
         TextWriter output,
@@ -945,13 +953,26 @@ internal static partial class DiagnoseCommand
         string? selected = null;
         foreach (System.Collections.DictionaryEntry entry in Environment.GetEnvironmentVariables())
         {
-            var key = entry.Key?.ToString()?.Replace("__", ":", StringComparison.Ordinal);
+            if (entry.Key?.ToString() is not { } rawKey) continue;
+            var key = rawKey.Replace("__", ":", StringComparison.Ordinal);
+            var value = entry.Value?.ToString();
+            // 默认环境提供程序先识别连接前缀，再规范化名称；元数据不改变 Database:Provider。
+            foreach (var (prefix, providerName) in ConnectionEnvironmentPrefixes)
+            {
+                if (!rawKey.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+                key = "ConnectionStrings:" + rawKey[prefix.Length..].Replace("__", ":", StringComparison.Ordinal);
+                if (providerName is not null && string.Equals(configurationPath, key + "_ProviderName", StringComparison.OrdinalIgnoreCase))
+                {
+                    key += "_ProviderName";
+                    value = providerName;
+                }
+                break;
+            }
             if (!string.Equals(key, configurationPath, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            var value = entry.Value?.ToString();
             // Linux 可以同时存在仅大小写不同的变量；任一占位值都不能被另一个变量掩盖。
             if (string.IsNullOrWhiteSpace(value) || IsPlaceholder(value))
             {

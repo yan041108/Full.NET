@@ -227,6 +227,122 @@ public sealed class DiagnoseCommandTests
     }
 
     [TestMethod]
+    [DataRow("MYSQLCONNSTR_", "development", false, "named")]
+    [DataRow("SQLCONNSTR_", "development", false, "named")]
+    [DataRow("SQLAZURECONNSTR_", "development", false, "named")]
+    [DataRow("CUSTOMCONNSTR_", "development", false, "named")]
+    [DataRow("MYSQLCONNSTR_", "production", false, "named")]
+    [DataRow("SQLCONNSTR_", "production", false, "named")]
+    [DataRow("SQLAZURECONNSTR_", "production", false, "named")]
+    [DataRow("CUSTOMCONNSTR_", "production", false, "named")]
+    [DataRow("MYSQLCONNSTR_", "development", true, "named")]
+    [DataRow("SQLCONNSTR_", "development", true, "named")]
+    [DataRow("SQLAZURECONNSTR_", "development", true, "named")]
+    [DataRow("CUSTOMCONNSTR_", "development", true, "named")]
+    [DataRow("MYSQLCONNSTR_", "production", true, "named")]
+    [DataRow("SQLCONNSTR_", "production", true, "named")]
+    [DataRow("SQLAZURECONNSTR_", "production", true, "named")]
+    [DataRow("CUSTOMCONNSTR_", "production", true, "named")]
+    [DataRow("mysqlconnstr_", "production", false, "nested")]
+    [DataRow("sQlCoNnStR_", "production", false, "nested")]
+    [DataRow("sqlazureconnstr_", "production", false, "nested")]
+    [DataRow("customconnstr_", "production", false, "nested")]
+    [DataRow("MYSQLCONNSTR_", "production", true, "direct")]
+    [DataRow("SQLCONNSTR_", "production", true, "direct")]
+    [DataRow("SQLAZURECONNSTR_", "production", true, "direct")]
+    [DataRow("CUSTOMCONNSTR_", "production", true, "direct")]
+    [DataRow("MYSQLCONNSTR_", "production", false, "metadata")]
+    [DataRow("SQLCONNSTR_", "production", false, "metadata")]
+    [DataRow("SQLAZURECONNSTR_", "production", false, "metadata")]
+    [DataRow("CUSTOMCONNSTR_", "production", false, "metadata")]
+    [DataRow("MYSQLCONNSTR_", "production", true, "aliases")]
+    [DataRow("SQLCONNSTR_", "production", true, "aliases")]
+    [DataRow("SQLAZURECONNSTR_", "production", true, "aliases")]
+    [DataRow("CUSTOMCONNSTR_", "production", true, "aliases")]
+    public async Task Special_connection_environment_prefixes_match_runtime_provider(
+        string prefix, string profile, bool placeholder, string mode)
+    {
+        var connectionName = $"diagnose_{Guid.NewGuid():N}" + (mode == "nested" ? ":primary" : string.Empty);
+        var environmentKey = prefix + connectionName.Replace(":", "__", StringComparison.Ordinal);
+        if (mode == "metadata") connectionName += "_ProviderName";
+        var aliasKey = "ConnectionStrings__" + connectionName.Replace(":", "__", StringComparison.Ordinal);
+        const string validConnection = "Server=example.invalid;Password=credential-probe";
+        const string directConnection = "Server=direct.invalid;Password=credential-probe";
+        var environmentConnection = placeholder ? "CHANGEME" : validConnection;
+        var lowerConnection = placeholder ? validConnection : "CHANGEME";
+        var direct = mode == "direct";
+        var configuration = JsonSerializer.Serialize(new
+        {
+            Database = new { ConnectionName = connectionName, MySqlGuidStorageMode = "Binary16",
+                ConnectionString = direct ? directConnection : null },
+            ConnectionStrings = new Dictionary<string, string> { [connectionName] = lowerConnection },
+        });
+        var overlay = JsonSerializer.Serialize(new
+        {
+            ConnectionStrings = new Dictionary<string, string> { [connectionName] = lowerConnection },
+        });
+        using var fixture = new DiagnoseWorkspace(configuration);
+        var profileName = profile == "development" ? "Development" : "Production";
+        File.WriteAllText(Path.Combine(fixture.Root, $"appsettings.{profileName}.json"), overlay, new UTF8Encoding(false));
+        if (profile == "development") fixture.AddStandaloneUserSecrets(overlay, "App.Host.Api");
+        var beforeFiles = Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories)
+            .ToDictionary(path => path, File.ReadAllBytes);
+        var originalEnvironment = Environment.GetEnvironmentVariable(environmentKey);
+        var originalAlias = Environment.GetEnvironmentVariable(aliasKey);
+        try
+        {
+            Environment.SetEnvironmentVariable(environmentKey, environmentConnection);
+            if (mode == "aliases") Environment.SetEnvironmentVariable(aliasKey, validConnection);
+            // 使用真实提供程序和 Dapper 绑定作对照，不能用诊断自己的映射证明映射正确。
+            var builder = new ConfigurationBuilder()
+                .AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration)))
+                .AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(overlay)));
+            if (profile == "development") builder.AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(overlay)));
+            var runtimeConfiguration = builder.AddEnvironmentVariables().Build();
+            var expectedConnection = mode == "metadata" ? prefix switch
+            {
+                "MYSQLCONNSTR_" => "MySql.Data.MySqlClient",
+                "CUSTOMCONNSTR_" => lowerConnection,
+                _ => "System.Data.SqlClient",
+            } : environmentConnection;
+            var runtimeConnection = runtimeConfiguration.GetConnectionString(connectionName);
+            if (mode == "aliases")
+            {
+                // 同路径多别名的宿主枚举顺序不固定；诊断保持任一占位值都拒绝的既有保护。
+                CollectionAssert.Contains(new[] { environmentConnection, validConnection }, runtimeConnection);
+            }
+            else
+            {
+                Assert.AreEqual(expectedConnection, runtimeConnection);
+            }
+            var services = new ServiceCollection();
+            services.AddFullNetDapper(runtimeConfiguration, profileName);
+            using var runtime = services.BuildServiceProvider();
+            Assert.AreEqual(direct ? directConnection : runtimeConnection,
+                runtime.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString);
+
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var result = await CodeGenerationCli.RunAsync(
+                ["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
+            var configured = direct || (!placeholder && expectedConnection != "CHANGEME");
+            Assert.AreEqual(!configured && profile == "production" ? 1 : 0, result, output.ToString());
+            StringAssert.Contains(output.ToString(), configured ? "DIAG_CONNECTION_CONFIGURED ok"
+                : profile == "production" ? "DIAG_CONNECTION_MISSING error" : "DIAG_CONNECTION_PLACEHOLDER warn");
+            Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.OrdinalIgnoreCase));
+            Assert.IsFalse((output.ToString() + error).Contains(connectionName, StringComparison.OrdinalIgnoreCase));
+            CollectionAssert.AreEquivalent(beforeFiles.Keys.ToArray(),
+                Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories));
+            foreach (var (path, bytes) in beforeFiles) CollectionAssert.AreEqual(bytes, File.ReadAllBytes(path));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(environmentKey, originalEnvironment);
+            if (mode == "aliases") Environment.SetEnvironmentVariable(aliasKey, originalAlias);
+        }
+    }
+
+    [TestMethod]
     [DataRow("{\"ConnectionStrings:other\":\"Password=credential-probe\"}", false)]
     [DataRow("{\"ConnectionStrings:fullnet\":\"<your-connection>\"}", false)]
     [DataRow("{\"ConnectionStrings\":{\"fullnet\":42}}", false)]

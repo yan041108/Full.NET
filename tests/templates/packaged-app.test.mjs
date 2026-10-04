@@ -107,13 +107,24 @@ test('application template package includes framework sources and root manifest'
     ], { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
     assert.equal(workerBuild.status, 0, workerBuild.stderr || workerBuild.stdout);
     const diagnosticCli = join(appRoot, 'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli');
+    const connectionEnvironmentPrefixes = ['MYSQLCONNSTR_', 'SQLCONNSTR_', 'SQLAZURECONNSTR_', 'CUSTOMCONNSTR_'];
+    const diagnosticConfigurationPaths = new Set([
+      'database:provider', 'database:commandtimeoutseconds', 'database:mysqlguidstoragemode', 'database:connectionname', 'database:connectionstring', `connectionstrings:${apiConfig.Database.ConnectionName}`,
+      'cache:redisconnectionstring', 'realtime:redisbackplaneconnectionstring',
+      'fullnet:cryptography:sm2privatekeys:host-integration-signing',
+    ].map(key => key.toLowerCase()));
+    const diagnosisEnvironment = Object.fromEntries(Object.entries(process.env).filter(([key]) => {
+      const prefix = connectionEnvironmentPrefixes.find(value => key.toUpperCase().startsWith(value));
+      const path = prefix ? `ConnectionStrings:${key.slice(prefix.length)}` : key;
+      return !diagnosticConfigurationPaths.has(path.replaceAll('__', ':').toLowerCase());
+    }));
     const configuredDiagnosis = spawnSync('dotnet', [
       'run', '--project', diagnosticCli, '-c', 'Release', '--',
       'diagnose', '--workspace', appRoot, '--profile', 'production',
     ], {
       cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true,
       env: {
-        ...process.env,
+        ...diagnosisEnvironment,
         [`ConnectionStrings__${apiConfig.Database.ConnectionName}`]: 'Server=example.invalid;Password=credential-probe',
         Cache__RedisConnectionString: 'cache.example.invalid:6379,password=credential-probe',
         Realtime__RedisBackplaneConnectionString: 'realtime.example.invalid:6379,password=credential-probe',
@@ -126,11 +137,6 @@ test('application template package includes framework sources and root manifest'
     assert.doesNotMatch(configuredDiagnosis.stdout + configuredDiagnosis.stderr, /credential-probe/u);
     const productionSettings = join(appRoot, 'src/Demo.Host.Api/appsettings.Production.json');
     const rootProductionSettings = join(appRoot, 'appsettings.Production.json');
-    const diagnosisEnvironment = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
-      !['database:provider', 'database:commandtimeoutseconds', 'database:mysqlguidstoragemode', 'database:connectionname', 'database:connectionstring', `connectionstrings:${apiConfig.Database.ConnectionName}`,
-        'cache:redisconnectionstring', 'realtime:redisbackplaneconnectionstring',
-        'fullnet:cryptography:sm2privatekeys:host-integration-signing']
-        .includes(key.replaceAll('__', ':').toLowerCase())));
     const runProfileDiagnosis = (overrides = {}) => spawnSync('dotnet', [
       'run', '--project', diagnosticCli, '-c', 'Release', '--no-build', '--',
       'diagnose', '--workspace', appRoot, '--profile', 'production',
@@ -151,6 +157,41 @@ test('application template package includes framework sources and root manifest'
       assert.match(profileDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
       assert.doesNotMatch(profileDiagnosis.stdout + profileDiagnosis.stderr, /credential-probe/u);
       assert.deepEqual(readFileSync(productionSettings), profileBefore);
+      try {
+        for (const prefix of connectionEnvironmentPrefixes) {
+          const environmentKey = prefix + apiConfig.Database.ConnectionName.replaceAll(':', '__');
+          writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(profileBefore.toString('utf8')),
+            ConnectionStrings: { [apiConfig.Database.ConnectionName]: 'CHANGEME' },
+          }));
+          const prefixBefore = readFileSync(productionSettings);
+          const prefixDiagnosis = runProfileDiagnosis({ [environmentKey]: 'Server=environment.invalid;Password=credential-probe' });
+          assert.equal(prefixDiagnosis.status, 0, prefixDiagnosis.stderr || prefixDiagnosis.stdout);
+          assert.match(prefixDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+          assert.doesNotMatch(prefixDiagnosis.stdout + prefixDiagnosis.stderr, /credential-probe/u);
+          assert.deepEqual(readFileSync(productionSettings), prefixBefore);
+
+          writeFileSync(productionSettings, profileBefore);
+          const placeholderDiagnosis = runProfileDiagnosis({ [environmentKey]: 'CHANGEME' });
+          assert.equal(placeholderDiagnosis.status, 1);
+          assert.match(placeholderDiagnosis.stdout, /DIAG_CONNECTION_MISSING error/u);
+          assert.doesNotMatch(placeholderDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED/u);
+          const aliasDiagnosis = runProfileDiagnosis({ [environmentKey]: 'CHANGEME',
+            [`ConnectionStrings__${apiConfig.Database.ConnectionName}`]: 'Server=alias.invalid;Password=credential-probe',
+          });
+          assert.equal(aliasDiagnosis.status, 1);
+          assert.match(aliasDiagnosis.stdout, /DIAG_CONNECTION_MISSING error/u);
+          assert.doesNotMatch(aliasDiagnosis.stdout + aliasDiagnosis.stderr, /credential-probe/u);
+          const directDiagnosis = runProfileDiagnosis({ [environmentKey]: 'CHANGEME',
+            Database__ConnectionString: 'Server=direct.invalid;Password=credential-probe',
+          });
+          assert.equal(directDiagnosis.status, 0, directDiagnosis.stderr || directDiagnosis.stdout);
+          assert.match(directDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+          assert.doesNotMatch(directDiagnosis.stdout + directDiagnosis.stderr, /credential-probe/u);
+          assert.deepEqual(readFileSync(productionSettings), profileBefore);
+        }
+      } finally {
+        writeFileSync(productionSettings, profileBefore);
+      }
       for (const relativePath of ['appsettings.json', 'src/Demo.Host.Api/appsettings.json',
         'src/Demo.Host.Migrator/appsettings.json', 'src/Demo.Host.Worker/appsettings.json']) {
         const settingsPath = join(appRoot, relativePath);
