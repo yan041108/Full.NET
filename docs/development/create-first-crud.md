@@ -64,6 +64,8 @@ OIDC 默认关闭，诊断报告 `DIAG_OIDC_DISABLED ok`；关闭后不要求其
 
 基础配置允许分段声明同名对象，只要展开后的标量路径不冲突；例如分别声明 `Database:Provider` 与 `Database:CommandTimeoutSeconds` 的两个 `Database` 对象。诊断保留所有片段及声明顺序，不会因对象名重复误拒绝合法配置。重复标量路径、扁平/嵌套冲突及数组索引冲突仍会失败；合法空集合覆盖与原有字段类型约束继续生效，冻结清单的 JSON 规则不因此放宽。
 
+启用 OIDC 后，Issuer 必须是无用户凭据的 HTTP(S) 绝对地址；缺失或格式错误在 Development/Production 均报告 `DIAG_OIDC_ISSUER_INVALID error`，通过仅报告 `DIAG_OIDC_ISSUER_CONFIGURED ok`，不会访问或回显地址。可选的 `EncryptionKeyBase64` 保留现有空值语义；非空时须为解码后恰好 32 字节的 Base64，否则报告 `DIAG_OIDC_ENCRYPTION_INVALID error`，通过为 `DIAG_OIDC_ENCRYPTION_CONFIGURED ok`。这些结果仅表示配置格式通过，不认证密钥强度、多实例一致性、客户端注册、真实 PEM 或完整协议启动。关闭 OIDC 时不检查这两项；来源覆盖、生产忽略开发秘密、只读与脱敏边界保持。
+
 ## 第二步：准备 CRUD Schema
 
 原框架仓库的示例主从单据见 [`samples/enterprise-request/schema.json`](../../samples/enterprise-request/schema.json)（`master.detail` 场景：申请头 + 明细行）。应用应准备自己的 `schema.json`，冻结项目 OwnerKey，并显式声明字段、精确权限与 `dataScope`；不能直接沿用原仓库的集成目标路径。

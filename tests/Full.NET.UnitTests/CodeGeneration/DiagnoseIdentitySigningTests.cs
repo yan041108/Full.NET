@@ -319,6 +319,142 @@ public sealed class DiagnoseIdentitySigningTests
             + (valid ? "_SIGNING_CONFIGURED ok" : "_SIGNING_REQUIRED error"));
     }
 
+    [TestMethod]
+    [DataRow("null", "development", false)]
+    [DataRow("\"\"", "production", false)]
+    [DataRow("\" \"", "development", false)]
+    [DataRow("false", "production", false)]
+    [DataRow("42", "development", false)]
+    [DataRow("\"/issuer-signing-probe\"", "production", false)]
+    [DataRow("\"file:///issuer-signing-probe\"", "development", false)]
+    [DataRow("\"https://user:private-signing-probe@issuer.example.invalid\"", "production", false)]
+    [DataRow("\"https://issuer.example.invalid\"", "production", true)]
+    [DataRow("\"http://localhost:5180\"", "development", true)]
+    public async Task Oidc_issuer_preflight_matches_runtime_validator(string issuerJson, string profile, bool valid)
+    {
+        using var fixture = new Workspace(ReadyOidcIdentity("{\"Issuer\":" + issuerJson + "}"));
+        Assert.AreEqual(valid, RuntimeOidcValid(fixture.Configuration, profile));
+        await AssertDiagnostic(fixture, profile, valid ? "DIAG_OIDC_ISSUER_CONFIGURED ok" : "DIAG_OIDC_ISSUER_INVALID error");
+    }
+
+    [TestMethod]
+    [DataRow("null", "development", true)]
+    [DataRow("\"\"", "production", true)]
+    [DataRow("\" \"", "development", true)]
+    [DataRow("false", "production", false)]
+    [DataRow("42", "development", false)]
+    [DataRow("\"encryption-signing-probe\"", "production", false)]
+    [DataRow("\"====\"", "development", false)]
+    public async Task Oidc_optional_encryption_preflight_matches_runtime_validator(string keyJson, string profile, bool valid)
+    {
+        using var fixture = new Workspace(ReadyOidcIdentity("{\"EncryptionKeyBase64\":" + keyJson + "}"));
+        Assert.AreEqual(valid, RuntimeOidcValid(fixture.Configuration, profile));
+        await AssertDiagnostic(fixture, profile, valid ? "DIAG_OIDC_ISSUER_CONFIGURED ok" : "DIAG_OIDC_ENCRYPTION_INVALID error");
+    }
+
+    [TestMethod]
+    [DataRow(31, false, "development", false)]
+    [DataRow(32, false, "production", true)]
+    [DataRow(32, true, "development", true)]
+    [DataRow(33, false, "production", false)]
+    public async Task Oidc_encryption_preflight_requires_exactly_256_bits(int bytes, bool whitespace, string profile, bool valid)
+    {
+        var key = SyntheticEncryptionKey(bytes);
+        if (whitespace) key = key[..12] + "\r\n " + key[12..];
+        using var fixture = new Workspace(ReadyOidcIdentity(new JsonObject { ["EncryptionKeyBase64"] = key }.ToJsonString()));
+        Assert.AreEqual(valid, RuntimeOidcValid(fixture.Configuration, profile));
+        await AssertDiagnostic(fixture, profile, valid ? "DIAG_OIDC_ENCRYPTION_CONFIGURED ok" : "DIAG_OIDC_ENCRYPTION_INVALID error", secret: key);
+    }
+
+    [TestMethod]
+    [DataRow("Issuer", "base", "development")]
+    [DataRow("Issuer", "profile", "development")]
+    [DataRow("Issuer", "secrets", "development")]
+    [DataRow("Issuer", "environment", "development")]
+    [DataRow("Issuer", "base", "production")]
+    [DataRow("Issuer", "profile", "production")]
+    [DataRow("Issuer", "environment", "production")]
+    [DataRow("EncryptionKeyBase64", "base", "development")]
+    [DataRow("EncryptionKeyBase64", "profile", "development")]
+    [DataRow("EncryptionKeyBase64", "secrets", "development")]
+    [DataRow("EncryptionKeyBase64", "environment", "development")]
+    [DataRow("EncryptionKeyBase64", "base", "production")]
+    [DataRow("EncryptionKeyBase64", "profile", "production")]
+    [DataRow("EncryptionKeyBase64", "environment", "production")]
+    public async Task Oidc_non_signing_fields_follow_all_supported_sources(string field, string source, string profile)
+    {
+        var valid = field == "Issuer" ? "https://issuer.example.invalid" : SyntheticEncryptionKey(32);
+        using var fixture = new Workspace(ReadyOidcIdentity(new JsonObject { [field] = source == "base" ? valid : "invalid-signing-probe" }.ToJsonString()));
+        var path = ("Identity:Oidc:" + field).ToUpperInvariant();
+        var overlay = new JsonObject { [path] = valid }.ToJsonString();
+        Assert.IsTrue(RuntimeOidcValid(fixture.Configuration, profile, source == "base" ? null : overlay));
+        if (source == "profile") fixture.WriteProfile(profile, overlay);
+        if (source == "secrets") fixture.WriteSecrets(overlay);
+        if (source == "environment") Environment.SetEnvironmentVariable(path.Replace(":", "__"), valid);
+        await AssertDiagnostic(fixture, profile, field == "Issuer" ? "DIAG_OIDC_ISSUER_CONFIGURED ok" : "DIAG_OIDC_ENCRYPTION_CONFIGURED ok");
+    }
+
+    [TestMethod]
+    [DataRow("Issuer", "profile")]
+    [DataRow("Issuer", "secrets")]
+    [DataRow("Issuer", "environment")]
+    [DataRow("EncryptionKeyBase64", "profile")]
+    [DataRow("EncryptionKeyBase64", "secrets")]
+    [DataRow("EncryptionKeyBase64", "environment")]
+    public async Task Oidc_non_signing_empty_override_blocks_lower_layer_value(string field, string source)
+    {
+        var valid = field == "Issuer" ? "https://issuer.example.invalid" : SyntheticEncryptionKey(32);
+        using var fixture = new Workspace(ReadyOidcIdentity(new JsonObject { [field] = valid }.ToJsonString()));
+        var path = "Identity:Oidc:" + field;
+        var overlay = new JsonObject { [path] = "" }.ToJsonString();
+        Assert.AreEqual(field != "Issuer", RuntimeOidcValid(fixture.Configuration, "development", overlay));
+        if (source == "profile") fixture.WriteProfile("development", overlay);
+        if (source == "secrets") fixture.WriteSecrets(overlay);
+        if (source == "environment") Environment.SetEnvironmentVariable(path.Replace(":", "__"), "");
+        await AssertDiagnostic(fixture, "development",
+            field == "Issuer" ? "DIAG_OIDC_ISSUER_INVALID error" : "DIAG_OIDC_ISSUER_CONFIGURED ok",
+            field == "Issuer" ? null : "DIAG_OIDC_ENCRYPTION_");
+    }
+
+    [TestMethod]
+    [DataRow("Issuer", "development")]
+    [DataRow("Issuer", "production")]
+    [DataRow("EncryptionKeyBase64", "development")]
+    [DataRow("EncryptionKeyBase64", "production")]
+    public async Task Disabled_oidc_does_not_require_issuer_or_encryption(string field, string profile)
+    {
+        using var fixture = new Workspace(ReadyOidcIdentity(new JsonObject
+        {
+            ["Enable"] = false,
+            [field] = "invalid-signing-probe"
+        }.ToJsonString()));
+        Assert.IsTrue(RuntimeOidcValid(fixture.Configuration, profile));
+        await AssertDiagnostic(fixture, profile, "DIAG_OIDC_DISABLED ok", "DIAG_OIDC_ISSUER_");
+        await AssertDiagnostic(fixture, profile, "DIAG_OIDC_DISABLED ok", "DIAG_OIDC_ENCRYPTION_");
+    }
+
+    [TestMethod]
+    [DataRow("Issuer")]
+    [DataRow("EncryptionKeyBase64")]
+    public async Task Oidc_non_signing_production_ignores_development_secrets(string field)
+    {
+        var valid = field == "Issuer" ? "https://issuer.example.invalid" : SyntheticEncryptionKey(32);
+        using var fixture = new Workspace(ReadyOidcIdentity(new JsonObject { [field] = valid }.ToJsonString()));
+        fixture.WriteSecrets(new JsonObject { ["Identity:Oidc:" + field] = "invalid-signing-probe" }.ToJsonString());
+        Assert.IsTrue(RuntimeOidcValid(fixture.Configuration, "production"));
+        await AssertDiagnostic(fixture, "production", field == "Issuer" ? "DIAG_OIDC_ISSUER_CONFIGURED ok" : "DIAG_OIDC_ENCRYPTION_CONFIGURED ok");
+    }
+
+    private static string SyntheticEncryptionKey(int bytes) =>
+        Convert.ToBase64String(Encoding.UTF8.GetBytes("encryption-signing-probe".PadRight(bytes, 'x')));
+
+    private static string ReadyOidcIdentity(string fragment)
+    {
+        var identity = JsonNode.Parse(OidcIdentity("""{"ActiveSigningKeyId":"oidc-signing-probe","SigningKeys":{"oidc-signing-probe":{"PublicKeyPem":"public-signing-probe","PrivateKeyPem":"private-signing-probe"}}}"""))!.AsObject();
+        foreach (var entry in JsonNode.Parse(fragment)!.AsObject()) identity["Oidc"]![entry.Key] = entry.Value?.DeepClone();
+        return identity.ToJsonString();
+    }
+
     private static string OidcIdentity(string fragment)
     {
         var oidc = JsonNode.Parse("""{"Enable":true,"Issuer":"https://issuer.example.invalid","Clients":[{"ClientId":"client-signing-probe","RedirectUris":["https://client.example.invalid/callback"]}]}""")!.AsObject();
@@ -356,7 +492,7 @@ public sealed class DiagnoseIdentitySigningTests
         catch (InvalidOperationException) { return false; }
     }
 
-    private static async Task AssertDiagnostic(Workspace fixture, string profile, string finding)
+    private static async Task AssertDiagnostic(Workspace fixture, string profile, string finding, string? absentFinding = null, string? secret = null)
     {
         var before = Directory.EnumerateFiles(fixture.Root, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
         using var output = new StringWriter();
@@ -364,8 +500,12 @@ public sealed class DiagnoseIdentitySigningTests
         var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
         var text = output.ToString() + error;
         StringAssert.Contains(text, finding);
+        if (absentFinding is not null) Assert.IsFalse(text.Contains(absentFinding, StringComparison.Ordinal));
+        if (secret is not null) Assert.IsFalse(text.Contains(secret, StringComparison.Ordinal));
         Assert.AreEqual(finding.EndsWith(" error", StringComparison.Ordinal) ? 1 : 0, result);
         Assert.IsFalse(text.Contains("signing-probe", StringComparison.Ordinal));
+        foreach (var bytes in new[] { 31, 32, 33 })
+            Assert.IsFalse(text.Contains(SyntheticEncryptionKey(bytes), StringComparison.Ordinal));
         Assert.AreEqual(before.Count, Directory.EnumerateFiles(fixture.Root, "*", SearchOption.AllDirectories).Count());
         foreach (var entry in before) CollectionAssert.AreEqual(entry.Value, File.ReadAllBytes(entry.Key));
     }
