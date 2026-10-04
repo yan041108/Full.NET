@@ -311,6 +311,16 @@ Windows x64、Node 24.12.0、pnpm 10.26.0、.NET SDK 10.0.401/运行时 10.0.12�
 
 仅收口本轮 OIDC 签名前提与标量一致性切片；完整运行时配置与只读诊断前两项继续待办，F02 整项未关闭。生成应用 Worker 运行、Native AOT、全量 Unit/Integration 与容量未据此通过，Capacity-not-verified 保持，未合并/发布。
 
+2026-10-05 OIDC Issuer/加密配置诊断（基线 `b860a6986de72a0926e363901db99298c877102a`，快照 `f02-oidc-options-diagnose-20261005`，行为提交 `f495e28e19e3c9747f67011ffb89aa0a539d7e71`）：以真实 `IdentityOidcOptionsValidator` 对照，签名配置齐全时无效 Issuer 或非空错误加密配置仍被 CLI 放行。启用 OIDC 后，补齐无用户凭据的 HTTP(S) 绝对地址检查，以及可选 `EncryptionKeyBase64` 的 Base64 格式和恰好 32 字节长度检查；缺失/无效 Issuer、非空无效加密配置在两 Profile 均 error。空加密配置和关闭 OIDC 的既有语义保留，不增加必填策略。检查不访问 Issuer、不生成/回显密钥，解码使用固定大小缓冲区并在结束时清除；未改变 Identity 运行时、注册客户端、授权或数据库。
+
+首轮有效 RED：签名类共 106 项中新增 21 项诊断断言失败、旧 85 项通过，真实配置绑定与 Validator 对照全部符合预期；修复后 106/106。再扩展 26 项四层配置来源、空值遮蔽较低层、关闭边界与生产忽略开发秘密，共新增 47 项、该类 132 项。最终 Windows x64、Node 24.12.0、pnpm 10.26.0、.NET SDK 10.0.401/运行时 10.0.12、DOTNET_PROCESSOR_COUNT=2，`pnpm test:dotnet:unit -- --selection code-generation-realtime` 1345/1345、零失败/跳过、退出 0，Release 构建 27.79 秒、0 警告/0 错误，测试 193.062 秒；覆盖 null/空白/string/bool/number、URI 协议及 userinfo、31/32/33 字节、Base64 内部空白、来源覆盖、只读与明文/编码秘密脱敏。原始日志 `.tmp/f02-oidc-options-red.log`、`.tmp/f02-oidc-options-green.log` 和 `.tmp/f02-oidc-options-unit.log`。
+
+同一行为提交冻结包各新建 SQL Server/MySQL Minimal 档案，`node --throw-deprecation .tmp/f02-oidc-options-created-apps.mjs` 退出 0、402.737 秒，两份随包 CLI 各 10 次、共 20 次退出码符合预期：合法地址与可选空加密、开发缺 Issuer、生产地址含凭据、不支持协议、Base64 格式/长度错误、32 字节正确配置、关闭边界，以及 API 环境 JSON 配置和空 Issuer 覆盖。每次诊断源码/配置摘要不变，受管框架摘要保持，输出无合成凭据或编码密钥；结果 `.tmp/f02-oidc-options-apps-f495e28e/result.json`。未连接数据库、启动 API、验证真实 PEM 或完整协议密码学；旧教程应用继续冻结 `0957ee62`，未替换受管框架。
+
+影响集为完整 CodeGeneration 41 项，独立 TEMP/TMP、新 SQL Server 2022 CU14/MySQL 8.0.46 临时容器执行 `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-oidc-options-diagnose-20261005`，41/41、零失败/跳过、退出 0，独立 TRX 确认 41 executed/passed、0 failed/notExecuted；Release 构建 69.64 秒、0 警告/0 错误，测试 502.933 秒。日志/TRX 为 `.tmp/f02-oidc-options-integration.*`；未缩小影响集。治理 57/57、零失败/跳过、退出 0，交付前核对任务 diff、分支与工作区。上一 SHA `b860a698` 的 ci（37228691781，包括先前失败的 template-created-app-real-stack）与 Worker Native 工作流已成功，API Native 最后核对仍在运行，不能外推为新 SHA 结果。
+
+Issuer/加密配置 ok 仅表示格式与长度符合现有 Validator，不认证地址可达性、密钥强度/共享、客户端注册、实际 PEM 或完整协议启动。仅收口本轮配置前提切片，F02 前两项与整项仍待办；本轮未重跑完整打包、全量 Unit/Integration、生成应用 Worker 运行/Native AOT 或容量，Capacity-not-verified 保持，未合并/发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
