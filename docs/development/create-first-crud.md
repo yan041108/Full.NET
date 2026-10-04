@@ -134,6 +134,8 @@ SQL Server 租户草案在建表后独立探测并创建租户聚集索引，使
 | `DIAG_SDK_MISSING` | SDK 命令不可用或目标工作区未能解析 SDK | 安装 .NET 10 SDK，核对目标工作区的 `global.json` |
 | `DIAG_SDK_INCOMPATIBLE` | 所选 SDK 不符合当前 10.0.100+ 的 .NET 10.0 基线，或版本输出格式无效 | 核对目标工作区及父目录的 `global.json`；升级选择的 SDK |
 | `DIAG_DATABASE_PROVIDER_INVALID` | 最终生效的数据库 Provider 名称或数字值无效，无法通过宿主枚举绑定或校验 | 核对 `Database:Provider`，使用 `SqlServer` 或 `MySql` |
+| `DIAG_DATABASE_TIMEOUT_INVALID` | 显式命令超时不能绑定为正整数（含零、负值、空值和溢出） | 设置 `Database:CommandTimeoutSeconds` 为正整数秒数，缺省为 30 秒 |
+| `DIAG_DATABASE_GUID_STORAGE_INVALID` | Guid 模式值无效、Production 未显式配置，或生产 MySQL 使用旧字符模式 | 显式设置 `Database:MySqlGuidStorageMode`；生产 MySQL 必须为 `Binary16` |
 | `DIAG_APPSETTINGS_INVALID` | JSON 语法、结构或字段类型无效 | 修正配置类型，诊断不输出字段值 |
 | `DIAG_WORKSPACE_INCOMPLETE` | 目录结构不完整 | 确认在应用根目录运行 |
 | `DIAG_MODULES_MISSING` | 未配置模块预设 | 添加 `FullNet:Modules:Preset` |
@@ -141,7 +143,7 @@ SQL Server 租户草案在建表后独立探测并创建租户聚集索引，使
 | `DIAG_USER_SECRETS_INVALID` | Development 的 API User Secrets 文件不可读取、JSON 无效或配置键重复 | 修复本机秘密文件；诊断不输出其内容 |
 | `DIAG_SECRETS_PLACEHOLDER` | 已配置的 Redis/SM2 秘密键最终仍为空或占位符 | Development 可用 User Secrets 或环境变量覆盖；Production 使用部署密钥或环境变量，勿提交仓库 |
 
-`diagnose` 检查数据库连接及这三个常见秘密键时，按环境变量、Development User Secrets、所选环境 JSON、`appsettings.json` 的顺序取值；Production 不读取 User Secrets。环境 JSON 取自所选 API 基础配置所在目录的 `appsettings.Development.json` 或 `appsettings.Production.json`，文件可缺省；只读所选环境，文件无效或重复配置键即报 `DIAG_APPSETTINGS_INVALID`，有效环境变量也不能掩盖文件错误。连接名 `Database:ConnectionName` 与 Provider 值 `Database:Provider` 使用相同覆盖顺序。Provider 检查对照宿主枚举绑定：名称不区分大小写，数字 `0/1` 分别对应 SQL Server/MySQL；缺省或 `null` 保留 SQL Server 默认值，显式空字符串和未定义值报错。该检查覆盖标量值和空集合叶键，不替代完整 Options 绑定（含非空集合结构、Guid 存储模式、超时等）的真实启动验收。冻结应用预设检查仍核对基础配置。环境配置键按运行时语义不区分大小写；较高优先级的占位值或显式 `null` 不会被较低优先级的有效值掩盖。未出现的可选秘密键不算占位符；`DIAG_SECRETS_OK` 不代表全部运行时依赖已配置，仍需执行生成应用和真实栈验收。诊断只输出机器码、数量与固定配置路径说明，不回显连接名或秘密值；连接提示中的 `<name>` 取自 `Database:ConnectionName`。
+`diagnose` 检查数据库连接及这三个常见秘密键时，按环境变量、Development User Secrets、所选环境 JSON、`appsettings.json` 的顺序取值；Production 不读取 User Secrets。环境 JSON 取自所选 API 基础配置所在目录的 `appsettings.Development.json` 或 `appsettings.Production.json`，文件可缺省；只读所选环境，文件无效或重复配置键即报 `DIAG_APPSETTINGS_INVALID`，有效环境变量也不能掩盖文件错误。连接名 `Database:ConnectionName` 与 Provider 值 `Database:Provider` 使用相同覆盖顺序。Provider 检查对照宿主枚举绑定：名称不区分大小写，数字 `0/1` 分别对应 SQL Server/MySQL；缺省或 `null` 保留 SQL Server 默认值，显式空字符串和未定义值报错。该检查覆盖标量值和空集合叶键，不替代完整 Options 绑定（含非空集合结构及其他启动配置）的真实启动验收。命令超时和 Guid 存储模式也采用相同覆盖顺序：超时缺省为 30 秒，显式 `null` 或空对象按运行时绑定为 0 并拒绝，合法正整数及运行时支持的十六进制前缀保留兼容。Guid 模式允许名称或数字 `0/1`（`LegacyChar36/Binary16`）；Production 两库均须显式填写非 null 值，MySQL 必须使用 `Binary16`。Development 缺省 Guid 模式保留旧模式供迁移窗口使用，诊断不会修改配置或迁移数据。冻结应用预设检查仍核对基础配置。环境配置键按运行时语义不区分大小写；较高优先级的占位值或显式 `null` 不会被较低优先级的有效值掩盖。未出现的可选秘密键不算占位符；`DIAG_SECRETS_OK` 不代表全部运行时依赖已配置，仍需执行生成应用和真实栈验收。诊断只输出机器码、数量与固定配置路径说明，不回显连接名或秘密值；连接提示中的 `<name>` 取自 `Database:ConnectionName`。
 
 ## 实走记录（2026-09-17，企业预设收口）
 

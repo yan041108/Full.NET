@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -239,6 +240,7 @@ internal static partial class DiagnoseCommand
             }
             CheckModulesSection(root, findings);
             CheckDatabaseProvider(root, profileSettings, workspacePath, profile, findings);
+            CheckDatabaseOptions(root, profileSettings, workspacePath, profile, findings);
             CheckConnectionPlaceholder(root, profileSettings, workspacePath, profile, findings);
             CheckSecretPlaceholders(root, profileSettings, workspacePath, profile, findings);
         }
@@ -506,15 +508,7 @@ internal static partial class DiagnoseCommand
         JsonNode root, JsonDocument? profileSettings, string workspacePath, string profile,
         List<DiagnoseFinding> findings)
     {
-        const string path = "Database:Provider";
-        if (!TryReadConfigurationOverride(profileSettings, workspacePath, profile, path, out var value,
-                requireValidUserSecrets: true, includeScalarValues: true))
-        {
-            using var baseSettings = JsonDocument.Parse(root.ToJsonString());
-            var found = false;
-            VisitConfigurationValue(baseSettings.RootElement, null, path, ref found, ref value,
-                includeScalarValues: true);
-        }
+        _ = TryReadDatabaseValue(root, profileSettings, workspacePath, profile, "Database:Provider", out var value);
 
         // 缺省或 null 保留运行时 SqlServer 默认值；显式空字符串仍会使枚举绑定失败。
         if (value is null || (Enum.TryParse<DiagnosticDatabaseProvider>(value, true, out var provider)
@@ -533,6 +527,84 @@ internal static partial class DiagnoseCommand
     {
         SqlServer = 0,
         MySql = 1,
+    }
+
+    private static bool TryReadDatabaseValue(
+        JsonNode root, JsonDocument? profileSettings, string workspacePath, string profile,
+        string path, out string? value)
+    {
+        if (TryReadConfigurationOverride(profileSettings, workspacePath, profile, path, out value,
+                requireValidUserSecrets: true, includeScalarValues: true))
+        {
+            return true;
+        }
+        using var baseSettings = JsonDocument.Parse(root.ToJsonString());
+        var found = false;
+        VisitConfigurationValue(baseSettings.RootElement, null, path, ref found, ref value,
+            includeScalarValues: true);
+        return found;
+    }
+
+    private static void CheckDatabaseOptions(
+        JsonNode root, JsonDocument? profileSettings, string workspacePath, string profile,
+        List<DiagnoseFinding> findings)
+    {
+        var hasTimeout = TryReadDatabaseValue(root, profileSettings, workspacePath, profile,
+            "Database:CommandTimeoutSeconds", out var timeout);
+        // 缺省保留 30 秒；显式 null 绑定为 0，不能回退到低优先级的正值。
+        if (hasTimeout && !IsPositiveDatabaseTimeout(timeout))
+        {
+            findings.Add(DiagnoseFinding.Error(
+                "DIAG_DATABASE_TIMEOUT_INVALID",
+                "Database:CommandTimeoutSeconds 不能绑定为正整数。",
+                "将最终生效的 Database:CommandTimeoutSeconds 设置为正整数秒数；诊断不会输出配置值。"));
+        }
+
+        _ = TryReadDatabaseValue(root, profileSettings, workspacePath, profile,
+            "Database:MySqlGuidStorageMode", out var storage);
+        _ = TryReadDatabaseValue(root, profileSettings, workspacePath, profile,
+            "Database:Provider", out var providerValue);
+        var provider = DiagnosticDatabaseProvider.SqlServer;
+        if (providerValue is not null) _ = Enum.TryParse(providerValue, true, out provider);
+        var mode = DiagnosticGuidStorageMode.LegacyChar36;
+        var validMode = storage is null || (Enum.TryParse(storage, true, out mode) && Enum.IsDefined(mode));
+        var production = string.Equals(profile, "production", StringComparison.OrdinalIgnoreCase);
+        // 复用宿主既有准入：Production 两库均需显式模式，MySQL 还必须使用 Binary16。
+        if (!validMode || (production && (storage is null
+            || (provider == DiagnosticDatabaseProvider.MySql && mode != DiagnosticGuidStorageMode.Binary16))))
+        {
+            findings.Add(DiagnoseFinding.Error(
+                "DIAG_DATABASE_GUID_STORAGE_INVALID",
+                "Database:MySqlGuidStorageMode 不符合所选环境的启动要求。",
+                "使用 LegacyChar36 或 Binary16；Production 必须显式配置，MySQL 必须使用 Binary16。诊断不会输出配置值。"));
+        }
+    }
+
+    private static bool IsPositiveDatabaseTimeout(string? value)
+    {
+        if (value is null) return false;
+        value = value.Trim();
+        try
+        {
+            // Int32 配置转换支持十进制及这三种十六进制前缀，不能比运行时更窄。
+            var timeout = value.StartsWith('#') ? Convert.ToInt32(value[1..], 16)
+                : value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+                    || value.StartsWith("&h", StringComparison.OrdinalIgnoreCase)
+                    ? Convert.ToInt32(value[2..], 16)
+                    : int.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+            return timeout > 0;
+        }
+        catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    // 与运行时存储枚举的名称和值保持一致，真实 Options 对照测试约束此工具边界。
+    private enum DiagnosticGuidStorageMode
+    {
+        LegacyChar36 = 0,
+        Binary16 = 1,
     }
 
     private static void CheckConnectionPlaceholder(

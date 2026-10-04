@@ -142,7 +142,7 @@ public sealed class DiagnoseCommandTests
         var environmentName = $"ConnectionStrings__{connectionName}";
         const string connection = "Server=example.invalid;Database=probe;Password=credential-probe";
         using var fixture = new DiagnoseWorkspace(JsonSerializer.Serialize(
-            new { Database = new { ConnectionName = connectionName } }));
+            new { Database = new { ConnectionName = connectionName, MySqlGuidStorageMode = "Binary16" } }));
         using var output = new StringWriter();
         using var error = new StringWriter();
         var beforeFiles = Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories)
@@ -244,7 +244,7 @@ public sealed class DiagnoseCommandTests
         var connectionName = $"diagnose_{Guid.NewGuid():N}";
         using var fixture = new DiagnoseWorkspace(JsonSerializer.Serialize(new
         {
-            Database = new { ConnectionName = connectionName },
+            Database = new { ConnectionName = connectionName, MySqlGuidStorageMode = "Binary16" },
             ConnectionStrings = new Dictionary<string, string> { [connectionName] = connection },
         }));
         using var output = new StringWriter();
@@ -267,7 +267,8 @@ public sealed class DiagnoseCommandTests
             ["FullNet__Cryptography__Sm2PrivateKeys__host-integration-signing"] = "credential-probe",
         };
         using var fixture = new DiagnoseWorkspace("""
-            {"ConnectionStrings":{"fullnet":"Server=example.invalid;Password=credential-probe"},
+            {"Database":{"MySqlGuidStorageMode":"Binary16"},
+             "ConnectionStrings":{"fullnet":"Server=example.invalid;Password=credential-probe"},
              "Cache":{"RedisConnectionString":""},
              "Realtime":{"RedisBackplaneConnectionString":""},
              "FullNet":{"Cryptography":{"Sm2PrivateKeys":{"host-integration-signing":""}}}}
@@ -519,6 +520,7 @@ public sealed class DiagnoseCommandTests
             """);
         File.WriteAllText(Path.Combine(fixture.Root, $"appsettings.{fileProfile}.json"), """
             { // JSON 配置提供程序允许注释与尾逗号，并按不区分大小写的扁平路径读取。
+              "database:MySqlGuidStorageMode":1,
               "connectionstrings:FULLNET":"Server=example.invalid;Password=credential-probe",
               "cache:redisconnectionstring":"cache.example.invalid:6379,password=credential-probe",
             }
@@ -593,7 +595,7 @@ public sealed class DiagnoseCommandTests
     [DataRow("production", true)]
     public async Task Only_selected_profile_is_loaded_and_development_secrets_override_it(string profile, bool environmentOverride)
     {
-        using var fixture = new DiagnoseWorkspace();
+        using var fixture = new DiagnoseWorkspace("""{"Database":{"MySqlGuidStorageMode":"Binary16"}}""");
         fixture.AddStandaloneUserSecrets("""
             {"ConnectionStrings:fullnet":"Server=example.invalid;Password=credential-probe",
              "Cache:RedisConnectionString":"cache.example.invalid:6379,password=credential-probe"}
@@ -987,6 +989,169 @@ public sealed class DiagnoseCommandTests
         finally
         {
             Environment.SetEnvironmentVariable("Database__Provider", original);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("0", false)]
+    [DataRow("-1", false)]
+    [DataRow("2147483648", false)]
+    [DataRow("1.0", false)]
+    [DataRow("true", false)]
+    [DataRow("\"credential-probe\"", false)]
+    [DataRow("\"\"", false)]
+    [DataRow("[]", false)]
+    [DataRow("null", false)]
+    [DataRow("{}", false)]
+    [DataRow("missing", true)]
+    [DataRow("1", true)]
+    [DataRow("2147483647", true)]
+    [DataRow("\" +30 \"", true)]
+    [DataRow("\"0x1\"", true)]
+    [DataRow("\"#1\"", true)]
+    [DataRow("\"&h1\"", true)]
+    [DataRow("\"0xffffffff\"", false)]
+    public async Task Database_options_timeout_matches_runtime_binding_and_positive_constraint(string value, bool valid)
+    {
+        var timeout = value == "missing" ? string.Empty : "\"CommandTimeoutSeconds\":" + value;
+        var configuration = "{\"Database\":{" + timeout
+            + "},\"ConnectionStrings\":{\"fullnet\":\"Server=example.invalid\"}}";
+        Assert.AreEqual(valid, RuntimeDatabaseOptionsAreValid(configuration, "Development"));
+        using var fixture = new DiagnoseWorkspace(configuration);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root], output, error);
+        Assert.AreEqual(valid ? 0 : 1, result, output.ToString());
+        Assert.AreEqual(!valid, output.ToString().Contains("DIAG_DATABASE_TIMEOUT_INVALID error", StringComparison.Ordinal));
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("development", "MySql", "missing", true)]
+    [DataRow("development", "MySql", "null", true)]
+    [DataRow("development", "MySql", "0", true)]
+    [DataRow("development", "MySql", "\"binary16\"", true)]
+    [DataRow("development", "MySql", "2", false)]
+    [DataRow("development", "MySql", "\"credential-probe\"", false)]
+    [DataRow("development", "MySql", "\"\"", false)]
+    [DataRow("production", "MySql", "missing", false)]
+    [DataRow("production", "MySql", "null", false)]
+    [DataRow("production", "MySql", "0", false)]
+    [DataRow("production", "MySql", "1", true)]
+    [DataRow("production", "MySql", "\"Binary16\"", true)]
+    [DataRow("production", "SqlServer", "missing", false)]
+    [DataRow("production", "SqlServer", "null", false)]
+    [DataRow("production", "SqlServer", "0", true)]
+    [DataRow("production", "SqlServer", "\"\"", false)]
+    public async Task Database_options_guid_storage_matches_runtime_environment_gate(
+        string profile, string provider, string value, bool valid)
+    {
+        var mode = value == "missing" ? string.Empty : ",\"MySqlGuidStorageMode\":" + value;
+        var configuration = "{\"Database\":{\"Provider\":\"" + provider + "\"" + mode
+            + "},\"ConnectionStrings\":{\"fullnet\":\"Server=example.invalid\"}}";
+        Assert.AreEqual(valid, RuntimeDatabaseOptionsAreValid(configuration,
+            profile == "production" ? "Production" : "Development"));
+        using var fixture = new DiagnoseWorkspace(configuration);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var result = await CodeGenerationCli.RunAsync(
+            ["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
+        Assert.AreEqual(valid ? 0 : 1, result, output.ToString());
+        Assert.AreEqual(!valid, output.ToString().Contains("DIAG_DATABASE_GUID_STORAGE_INVALID error", StringComparison.Ordinal));
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("CommandTimeoutSeconds", "profile", true)]
+    [DataRow("CommandTimeoutSeconds", "profile", false)]
+    [DataRow("CommandTimeoutSeconds", "secrets", true)]
+    [DataRow("CommandTimeoutSeconds", "secrets", false)]
+    [DataRow("CommandTimeoutSeconds", "environment", true)]
+    [DataRow("CommandTimeoutSeconds", "environment", false)]
+    [DataRow("MySqlGuidStorageMode", "profile", true)]
+    [DataRow("MySqlGuidStorageMode", "profile", false)]
+    [DataRow("MySqlGuidStorageMode", "secrets", true)]
+    [DataRow("MySqlGuidStorageMode", "secrets", false)]
+    [DataRow("MySqlGuidStorageMode", "environment", true)]
+    [DataRow("MySqlGuidStorageMode", "environment", false)]
+    public async Task Database_options_respect_configuration_priority_and_redact_values(
+        string field, string source, bool validOverride)
+    {
+        var baseline = new Dictionary<string, object?>
+        {
+            ["Provider"] = "MySql", ["CommandTimeoutSeconds"] = 30, ["MySqlGuidStorageMode"] = "Binary16",
+        };
+        baseline[field] = validOverride ? "credential-probe" : baseline[field];
+        using var fixture = new DiagnoseWorkspace(JsonSerializer.Serialize(new
+        {
+            Database = baseline, ConnectionStrings = new { fullnet = "Server=example.invalid" },
+        }));
+        // 高优先级 null 超时必须拒绝，不能恢复基础 30 秒；合法数字应覆盖低层错误值。
+        object? overrideValue = validOverride ? 1 : field == "CommandTimeoutSeconds" ? null : "credential-probe";
+        var configurationOverride = JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            [$"database:{field}"] = overrideValue,
+        });
+        var profile = source == "secrets" ? "development" : "production";
+        var profilePath = Path.Combine(fixture.Root, $"appsettings.{(profile == "production" ? "Production" : "Development")}.json");
+        if (source == "profile") File.WriteAllText(profilePath, configurationOverride);
+        if (source == "secrets") fixture.AddStandaloneUserSecrets(configurationOverride, "App.Host.Api");
+        var key = "Database__" + field;
+        var original = Environment.GetEnvironmentVariable(key);
+        var before = File.ReadAllBytes(fixture.Settings);
+        try
+        {
+            Environment.SetEnvironmentVariable(key, source == "environment"
+                ? validOverride ? "1" : "credential-probe" : null);
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var result = await CodeGenerationCli.RunAsync(
+                ["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
+            Assert.AreEqual(validOverride ? 0 : 1, result, output.ToString());
+            StringAssert.Contains(output.ToString(), validOverride ? "DIAG_CONNECTION_CONFIGURED ok"
+                : field == "CommandTimeoutSeconds" ? "DIAG_DATABASE_TIMEOUT_INVALID error" : "DIAG_DATABASE_GUID_STORAGE_INVALID error");
+            Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Settings));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(key, original);
+        }
+    }
+
+    [TestMethod]
+    public async Task Database_options_production_ignores_development_user_secrets()
+    {
+        using var fixture = new DiagnoseWorkspace("""
+            {"Database":{"Provider":"MySql","MySqlGuidStorageMode":"Binary16","CommandTimeoutSeconds":30},
+             "ConnectionStrings":{"fullnet":"Server=example.invalid"}}
+            """);
+        fixture.AddStandaloneUserSecrets("""{"Database:MySqlGuidStorageMode":"credential-probe","Database:CommandTimeoutSeconds":0}""", "App.Host.Api");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var result = await CodeGenerationCli.RunAsync(
+            ["diagnose", "--workspace", fixture.Root, "--profile", "production"], output, error);
+        Assert.AreEqual(0, result, output.ToString());
+        Assert.IsFalse(output.ToString().Contains("DIAG_DATABASE_GUID_STORAGE_INVALID", StringComparison.Ordinal));
+        Assert.IsFalse(output.ToString().Contains("DIAG_DATABASE_TIMEOUT_INVALID", StringComparison.Ordinal));
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    private static bool RuntimeDatabaseOptionsAreValid(string configuration, string environment)
+    {
+        var runtimeConfiguration = new ConfigurationBuilder()
+            .AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration))).Build();
+        var services = new ServiceCollection();
+        services.AddFullNetDapper(runtimeConfiguration, environment);
+        using var runtime = services.BuildServiceProvider();
+        try
+        {
+            _ = runtime.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+            return true;
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or OptionsValidationException)
+        {
+            return false;
         }
     }
 

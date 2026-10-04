@@ -127,7 +127,7 @@ test('application template package includes framework sources and root manifest'
     const productionSettings = join(appRoot, 'src/Demo.Host.Api/appsettings.Production.json');
     const rootProductionSettings = join(appRoot, 'appsettings.Production.json');
     const diagnosisEnvironment = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
-      !['database:provider', 'database:connectionname', `connectionstrings:${apiConfig.Database.ConnectionName}`,
+      !['database:provider', 'database:commandtimeoutseconds', 'database:mysqlguidstoragemode', 'database:connectionname', `connectionstrings:${apiConfig.Database.ConnectionName}`,
         'cache:redisconnectionstring', 'realtime:redisbackplaneconnectionstring',
         'fullnet:cryptography:sm2privatekeys:host-integration-signing']
         .includes(key.replaceAll('__', ':').toLowerCase())));
@@ -158,6 +158,28 @@ test('application template package includes framework sources and root manifest'
       const undefinedProviderDiagnosis = runProfileDiagnosis({ Database__Provider: '2' });
       assert.equal(undefinedProviderDiagnosis.status, 1);
       assert.match(undefinedProviderDiagnosis.stdout, /DIAG_DATABASE_PROVIDER_INVALID error/u);
+      const invalidTimeoutDiagnosis = runProfileDiagnosis({ Database__CommandTimeoutSeconds: '0' });
+      assert.equal(invalidTimeoutDiagnosis.status, 1);
+      assert.match(invalidTimeoutDiagnosis.stdout, /DIAG_DATABASE_TIMEOUT_INVALID error/u);
+      const legacyGuidDiagnosis = runProfileDiagnosis({ Database__MySqlGuidStorageMode: '0' });
+      assert.equal(legacyGuidDiagnosis.status, 1);
+      assert.match(legacyGuidDiagnosis.stdout, /DIAG_DATABASE_GUID_STORAGE_INVALID error/u);
+      const validOptionsDiagnosis = runProfileDiagnosis({
+        Database__CommandTimeoutSeconds: '0x1', Database__MySqlGuidStorageMode: '1',
+      });
+      assert.equal(validOptionsDiagnosis.status, 0, validOptionsDiagnosis.stderr || validOptionsDiagnosis.stdout);
+      const sqlServerLegacyDiagnosis = runProfileDiagnosis({ Database__Provider: '0', Database__MySqlGuidStorageMode: '0' });
+      assert.equal(sqlServerLegacyDiagnosis.status, 0, sqlServerLegacyDiagnosis.stderr || sqlServerLegacyDiagnosis.stdout);
+      writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(profileBefore.toString('utf8')),
+        Database: { CommandTimeoutSeconds: null, MySqlGuidStorageMode: null },
+      }));
+      const nullOptionsBefore = readFileSync(productionSettings);
+      const nullOptionsDiagnosis = runProfileDiagnosis();
+      assert.equal(nullOptionsDiagnosis.status, 1);
+      assert.match(nullOptionsDiagnosis.stdout, /DIAG_DATABASE_TIMEOUT_INVALID error/u);
+      assert.match(nullOptionsDiagnosis.stdout, /DIAG_DATABASE_GUID_STORAGE_INVALID error/u);
+      assert.deepEqual(readFileSync(productionSettings), nullOptionsBefore);
+      writeFileSync(productionSettings, profileBefore);
       const numericProviderDiagnosis = runProfileDiagnosis({ Database__Provider: '1' });
       assert.equal(numericProviderDiagnosis.status, 0, numericProviderDiagnosis.stderr || numericProviderDiagnosis.stdout);
       assert.doesNotMatch(numericProviderDiagnosis.stdout, /DIAG_DATABASE_PROVIDER_INVALID/u);

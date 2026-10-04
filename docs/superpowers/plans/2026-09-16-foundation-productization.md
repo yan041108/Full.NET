@@ -235,6 +235,8 @@ flowchart LR
 
 2026-10-04 数据库 Provider 诊断增量（基线 `359a7bf4`）：以真实 `AddFullNetDapper` 的 Options 绑定和校验对照 CLI，复现无效名称、未定义数字、布尔值与空字符串导致宿主拒绝但诊断退出 0 的缺口。新增 `DIAG_DATABASE_PROVIDER_INVALID`，按环境变量、Development User Secrets、所选环境 JSON、基础 JSON 取最终标量值；名称忽略大小写，数字 `0/1` 与运行时一致，缺省或 `null` 保留 SqlServer 默认值。工具不新增运行时数据依赖，不回显字段值；非空集合结构、Guid 存储模式、超时与完整 Options 启动验证仍保留待办。首轮诊断 114 项中 10 失败，修复后 114 项通过，再补 7 项数字字符串、枚举组合、空集合和数字边界；CodeGeneration/Realtime 最终 807 项通过、无跳过，Release 构建 0 警告/0 错误。本地受影响 MySQL Integration 13 项、治理 57 项、测试工具链 54 项与命名检查 33 项通过；分片发现 1118 项无遗漏或重复，仅为发现证据。独立生成应用新增错误 Provider 名称与未定义数字拒绝、合法数字接受、只读和脱敏断言；F02 不关闭。
 
+2026-10-04 数据库超时与 Guid 模式诊断增量（基线 `a23d194c`）：对照真实 Dapper Options 绑定及启动校验，补齐 `CommandTimeoutSeconds` 正整数门禁、`MySqlGuidStorageMode` 枚举值与 Production 准入，新增 `DIAG_DATABASE_TIMEOUT_INVALID`、`DIAG_DATABASE_GUID_STORAGE_INVALID`。三项数据库标量配置共享环境变量、Development User Secrets、所选环境 JSON、基础 JSON 覆盖；Production 两库均需显式非 null 模式，MySQL 需 Binary16，SQL Server 显式 LegacyChar36 保持既有允许行为。运行时对照确认超时显式 null/空对象绑定为 0，只有缺省保留 30 秒；保留整数转换支持的三种十六进制前缀。校正此预期后新增 47 项中 26 项先失败；实施后新增测试全部通过，原有 5 项正常生产样例补齐显式模式，未放宽断言。最终 CodeGeneration/Realtime 854 项通过、无跳过，Release 构建 0 警告/0 错误；受影响 MySQL Integration 13 项、治理 57 项、工具链 54 项和命名 33 项通过，分片发现 1118 项无遗漏或重复，仅为发现证据。独立生成应用加入零超时、生产 MySQL 旧模式及环境 JSON 空值拒绝、合法十六进制超时与两库模式接受、配置只读断言。数据库运行时、默认值与迁移不变；连接串直配、非空集合结构和完整运行时配置诊断仍待收口，F02 不关闭。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
