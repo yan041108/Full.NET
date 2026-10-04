@@ -5,6 +5,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Knowledge/Tokenizers/cl100k_base.tiktoken.deflate" LogicalName="Full.NET.Modules.Ai.Knowledge.Tokenizers.cl100k_base.tiktoken.deflate" />
+    <EmbeddedResource Include="Knowledge/Tokenizers/cl100k_base.NOTICE.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../AI/Full.NET.Agents/Full.NET.Agents.csproj" />
     <ProjectReference Include="../../AI/Full.NET.AgenticWeb.AgUi/Full.NET.AgenticWeb.AgUi.csproj" />
     <ProjectReference Include="../../AI/Full.NET.AgenticWeb.Mcp/Full.NET.AgenticWeb.Mcp.csproj" />
