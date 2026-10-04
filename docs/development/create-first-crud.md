@@ -113,6 +113,8 @@ dotnet exec src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.C
 
 模块配置声明提示（`DIAG_MODULES_*`）只读取所选 API 的基础配置，支持扁平键、嵌套键与大小写变体。有效非空 Preset 或 Enabled 子键可产生 `DIAG_MODULES_OK`；空集合覆盖 Preset 后不会保留旧提示，而空父节点不会清除此前声明的 Enabled 子键。保留原有嵌套字段类型检查；该提示不验证模块名称、预设成员或依赖闭包，也不代表模块绑定、环境覆盖或宿主启动已通过。
 
+模块与 Composition 接入编译失败时，仍保留已有编译诊断的路径替换、去重及数量上限。若底层构建没有可公开的编译诊断，CLI 在固定失败说明后附加数字 `构建进程退出码`，不回显原始 SDK/进程输出；CLI 本身仍返回 2。退出码帮助定位失败来源，不说明具体根因，也不会触发自动重试或绕过候选编译。独立打包应用用缺失 SDK 对照真实构建退出码，验证两条接入命令在编译失败时保留应用源码与人工文件，并在验收后恢复 SDK 配置。
+
 ## 验证
 
 新创建应用从应用根运行 `dotnet run --project src/<name>.Host.Migrator -- --seed baseline`，迁移成功后才执行显式播种；省略 `--seed` 只迁移。仅本地开发环境显式选择 Development 后才能使用 `--seed development`，Production仍只允许Baseline。API、Worker和Migrator消费同一应用Composition，分别装配各自Profile；Migrator只注册模块的迁移/播种入口，不能装入API Profile。Worker编译随应用分发的框架后台处理管线，默认健康检查端口与API分开；其运行时和Native AOT验收须单独执行。现阶段Runner仍只运行冻结预设的框架脚本；生成业务SQL草案须完成编号、所有权、恢复与双库评审后显式接入，不能放进受管框架目录。旧应用的源码升级不会自动创建该应用拥有的宿主，需按新模板显式采用；默认结构校验兼容旧应用，创建发布前则强制要求同名Worker、Migrator与一致配置。

@@ -546,7 +546,7 @@ test('application template package includes framework sources and root manifest'
     verifyApplicationComposition(appRoot);
     verifyApplicationCrudGeneration(appRoot);
     verifyApplicationCrudModule(appRoot, { removeTestSqlComment: true });
-    verifyApplicationCrudHostWiring(appRoot);
+    verifyApplicationCrudHostWiring(appRoot, { verifyMissingSdk: true });
     verifyApplicationCrudAuthorization(appRoot);
     verifyApplicationCrudRuntime(appRoot);
     verifyManagedFiles();

@@ -8,6 +8,7 @@ import { MODULE_ARTIFACTS } from './application-crud-module.mjs';
 export function verifyApplicationCrudHostWiring(appRoot, {
   run = spawnSync,
   reportDirectory = join(process.cwd(), '.tmp/template-real-stack/application-crud-host-wiring'),
+  verifyMissingSdk = false,
 } = {}) {
   const moduleDirectory = 'src/Demo.Modules.Catalog';
   const moduleProject = moduleDirectory + '/Demo.Modules.Catalog.csproj';
@@ -44,6 +45,49 @@ export function verifyApplicationCrudHostWiring(appRoot, {
   const entryContent = readFileSync(join(appRoot, entry), 'utf8');
   assert.match(entryContent, /services\.AddFullNetGeneratedModuleFeatures\(\);/u);
   assert.match(entryContent, /endpoints\.MapFullNetGeneratedModuleFeatures\(\);/u);
+  if (verifyMissingSdk) {
+    // 用缺失 SDK 触发真实构建进程失败，不能只在结果转换函数中验证退出码。
+    const integrationProtectedPaths = ['global.json',
+      'verification/CrudGeneration/schema.json', 'verification/CrudGeneration/module-target.json',
+      'src/Demo.Modules.Catalog/Demo.Modules.Catalog.csproj', 'src/Demo.Modules.Catalog/CatalogModule.cs',
+      'src/Demo.Modules.Catalog/Product.manual.cs', 'src/Demo.Modules.Catalog/.fullnet/codegeneration-manifest.json',
+      'src/Demo.Composition/Demo.Composition.csproj', 'src/Demo.Composition/ApplicationModuleCatalog.cs',
+      ...['FullNetGeneratedModuleFeatures.g.cs', ...['Contracts', 'Sql', 'Endpoint', 'Feature', 'Record']
+        .map((name) => `Product/Product${name}.g.cs`)].map((path) => 'src/Demo.Modules.Catalog/Generated/' + path)];
+    const integrationBefore = new Map(integrationProtectedPaths.map((path) => [path, readFileSync(join(appRoot, path))]));
+    try {
+      writeFileSync(join(appRoot, 'global.json'), JSON.stringify({ sdk: { version: '99.0.100', rollForward: 'disable' } }));
+      const unavailableSdk = readFileSync(join(appRoot, 'global.json'));
+      const failedBuild = run('dotnet', ['build', 'src/Demo.Modules.Catalog/Demo.Modules.Catalog.csproj', '-c', 'Release'],
+        { cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true });
+      assert.equal(failedBuild.error, undefined);
+      assert.equal(failedBuild.signal, null);
+      assert.ok(Number.isInteger(failedBuild.status) && failedBuild.status !== 0, 'missing SDK must fail real build');
+      // Windows 的 Node 状态可能为无符号 DWORD，.NET ExitCode 以有符号 Int32 保存同一位模式。
+      const diagnosticExitCode = failedBuild.status | 0;
+      for (const command of ['apply-module-integration', 'apply-composition-integration']) {
+        const failedIntegration = run('dotnet', ['exec', join(appRoot,
+          'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.CodeGeneration.Cli.dll'),
+        command, '--schema', join(appRoot, 'verification/CrudGeneration/schema.json'), '--repository', appRoot,
+        '--target', join(appRoot, 'verification/CrudGeneration/module-target.json')],
+        { cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true });
+        assert.equal(failedIntegration.error, undefined);
+        assert.equal(failedIntegration.status, 2);
+        assert.ok(failedIntegration.stderr.includes(`构建进程退出码：${diagnosticExitCode}`), failedIntegration.stderr);
+        assert.doesNotMatch(failedIntegration.stdout + failedIntegration.stderr, /credential-probe|99\.0\.100/u);
+        assert.ok(!failedIntegration.stderr.includes(appRoot), 'SDK output must not leak the application path');
+        for (const [path, bytes] of integrationBefore) {
+          assert.deepEqual(readFileSync(join(appRoot, path)), path === 'global.json' ? unavailableSdk : bytes);
+        }
+        writeFileSync(join(reportDirectory, command + '-sdk-failure.json'), JSON.stringify({
+          buildExitCode: failedBuild.status, diagnosticExitCode, cliExitCode: failedIntegration.status,
+          diagnostic: failedIntegration.stderr, inputsUnchanged: true,
+        }, null, 2));
+      }
+    } finally {
+      writeFileSync(join(appRoot, 'global.json'), integrationBefore.get('global.json'));
+    }
+  }
   expectLines(execute('composition', args('apply-composition-integration')),
     ['Update ' + compositionProject, 'Update ' + catalog, 'Validated CompositionCompilation ' + compositionProject]);
   const catalogContent = readFileSync(join(appRoot, catalog), 'utf8');
