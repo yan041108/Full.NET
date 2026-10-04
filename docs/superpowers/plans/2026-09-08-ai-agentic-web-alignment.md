@@ -921,6 +921,22 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0；每测试进程 2 GiB GC Heap 限额。未注册 Worker、调用 Files/Provider、保存向量/索引或 ready，未执行完整 Host/Worker Native 发布/运行。下一切片接入真实 Provider 前的输入来源/执行者/数据去向与最终复核、已知或未知计量回执；人工对账后的重新执行策略仍待交付。完整 RAG 保持 Planned，容量保持 Capacity-not-verified。
 
 
+- [x] R05f2c：受会话绑定的文本批次 Embedding 执行（内部执行消费者，未注册 Worker/HTTP，结果不代表索引 ready）。
+  - [x] 新增 Knowledge/AiKnowledgeIndexEmbeddingService.cs：ExecuteTextBatchAsync 接受任务/有效租约、批次序号和可信 SessionBindingSnapshot，不接受正文或模型配置；复核所有者、可信范围及 Identity 后台会话的知识库/文档读取、来源读取和上传精确权限；通过 IDataTransactionState 在读取及外部 I/O 前拒绝外层事务。
+  - [x] 复用 Files 窄读取契约，Host 同时核对就绪引用摘要/大小，Tenant 固定 ai/版本/文件绑定；打开流前后复核，负责释放流。仅 TXT/Markdown，摘要及字节数校验后用实际获批模型的固定词表、默认有界策略生成完整分块，再按 16 条/32000 字符确定批次；不接业务 PDF 进程，不裁剪正文。
+  - [x] 复用 R05f2b 稳定 OperationId/预算 Port；只接受新预留及精确源/完整请求指纹。授权、分类/精确批准和目的地在凭据签发及 GenerateAsync 前复核；等待工厂期间失效不得派发。调用前失败按零结算，进入调用后无回执则保留 unknown，已知用量先保存到局部事实再校验向量/返回权限，结算隔离调用取消并传播失败。
+  - [x] 复制并校验返回向量的计数、官方模型维度、有限/非零值；响应后及独立结算等待后再次复核取消、会话/租约/来源/模型，拒绝时不交付临时向量，但保留已提交的模型操作用量事实，不重写或再次结算。整个执行使用有界取消，不重试或切换 Provider。返回只包含来源/模型/分块与操作身份及临时向量，不改变任务或文档 ready。
+  - [x] 先建 Unit RED/GREEN，覆盖 Host/Tenant、授权与来源拒绝、批准/工厂期间撤权、重复不派发、取消前后及异常/畸形计量/向量、过期响应拒绝与清理失败。真实双库使用生产 SQL 执行器/账本与受控 Files/会话/模型边界验证 ID 复用及已知/未知/零结算；按矩阵影响集、AOT/架构、只读安全审查及 main 提交。真实云模型计费、持久会话任务绑定、Worker 调度、PDF 接入、结果落库、索引 ready 和人工对账重执行仍属后续。
+
+  R05f2c 本地证据（2026-10-04，仅内部文本批次执行消费者）：
+  - 基线 main/d13d3307dcd818b34ae5cbc697eb600d7369ee78，任务快照 ai-knowledge-index-execution-r05f2c。未实现类型桩的 Unit RED 36/36 失败、零通过/跳过、退出 2，2.376s；生产双库入口 RED 2/2 因未实现失败、零跳过、退出 2，2m 13.510s。类型桩未使用参数、Integration 误引未安装的替身包及一次不支持的 CLI 并行参数属于编译/命令错误，不计为行为 RED；分别修正类型桩、使用手写受控 Port、沿用程序集规定的两个 Worker，未新增依赖。最终专项 Unit 41/41、退出 0，3s 474ms；双库专项 2/2、退出 0，2m 05s 193ms，均零失败/跳过。
+  - 每库 Host/Tenant 覆盖 known/lost/zero/revoked/unmetered/ambient/settled_revoked/settled_expired 八类场景；真实生产 Dapper 执行器、批次身份和预算账本验证确定零、已知 7 Token、未知用量保守计费、租约接替与重复不派发，外层真实命令事务在查询/Files/模型 I/O 前拒绝。Files、后台会话授权及模型使用受控契约边界，并未访问真实云计费。Unit 另覆盖来源摘要/大小/MIME、四项权限、工厂等待后撤权、取消、畸形向量/计量、向量复制和结算失败传播。只读补审发现 P2：返回候选在 finally 结算等待期间可能丢失取消/权威。异步结算门闩的 5 项 RED 均失败、退出 2、零通过/跳过，1.156s；最终在独立结算后追加取消与权威复核，保留已提交操作计量、不重写或再次结算，5 项纳入最终 GREEN。先前 765 项 Unit 与被停止的首轮双库影响集不作为修改后验收，最终产物重新构建/冻结并完整重跑。补审确认 P2 已修复、无未修复 Critical/Important 或新 findings；审查未运行测试。
+  - node scripts/testing/run-api-aot-analyzers.mjs 退出 0，零警告/错误、00:01:49.58，恢复 JIT 还原图。最终 Integration/Unit/Architecture Release 构建分别 00:01:05.37/00:00:24.95/00:00:14.39，均零警告/错误、退出 0。node artifacts/r05f2c/run-unit.mjs 复用官方 ai-module 过滤/最低数/时限：770/770、1m 16s 029ms、零失败/跳过、退出 0；完整 Unit 发现 4239，并未执行全量。官方 architecture --selection ai-agentic-boundaries --no-build 7/7、16s 017ms，api-native-aot 73/73、9s 620ms；完整 Architecture 发现 233，并未执行全量。
+  - node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-index-execution-r05f2c --phase slice 退出 0：工具链/反馈契约 65/65、治理 57/57；1152 项分片发现无遗漏/重复。完整 AI 影响集双库合并 58/58、零失败/跳过，21m 21s 829ms，保留两个 Worker 和规定 30 分钟时限；平台仅截断 1 项超限捕获文本字段，完整测试身份及通过结果均已核对。另独立工具链 54/54、命名 33/33、SQL 安全 5/5、治理 57/57 通过，最终文档同步后复核治理。
+  - node artifacts/r05f2c/verify.mjs 退出 0：958 项源码/矩阵/运行输入未变；770 项 Unit 与 58 项双库结果的 UID/FQN 与发现清单精确一致，生成输出 rag-evaluation-report.json 单独排除。源码项目/Unit/Integration AI DLL SHA-256 同为 D9EB97AD8EA42D45866E7C72FCD6F72400811D288F44022B8D8B08926D98260E。原始 RED/GREEN、构建/最终日志、TRX、发现/冻结清单及审查/验收记录保留于忽略目录 artifacts/r05f2c/、同前缀日志及正式 TestResults。
+  - Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0；每测试进程 2 GiB GC Heap 限额。执行器只处理完整 SHA-256/字节数校验后的 TXT/Markdown，以实际精确获批模型分块并调用 Embedding 契约；25 秒取消令牌覆盖来源读取/解析/模型及交付门禁，独立结算不受调用取消控制；16 条/32000 字符确定批次，不重试/切换模型。未注册 HTTP/Worker，未持久任务会话绑定或保存向量/索引，未接业务 PDF 或改变 pending_processing/ready。未执行本切片完整 Host/Worker Native 发布/运行，亦未验证真实 Files/Identity 联动或付费云计量。持久会话任务绑定、索引持久化/切换、Worker 调度及人工对账后重执行仍需后续交付；完整 RAG 保持 Planned，容量保持 Capacity-not-verified。
+
+
 - [ ] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。
 - [ ] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。
 - [ ] 验证 Worker 崩溃/重试、模型用量未知、索引不可用、部分写入与删除竞争；失败可定位并重试，不能将空索引标记 ready。
