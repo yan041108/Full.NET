@@ -1,0 +1,2 @@
+# 固定上游许可包含历史行尾空格；保留原始字节，只对此文件关闭行尾空格检查。
+src/Tools/Full.NET.Ai.PdfParser/licenses/PdfPig.LICENSE.txt -text whitespace=-blank-at-eol

@@ -52,6 +52,9 @@ the complete license texts.
   https://github.com/openiddict/openiddict-core
 - NetArchTest — MIT
   https://github.com/BenMorris/NetArchTest
+- PdfPig 0.1.16 (independent PDF parser only) — Apache-2.0 and bundled component notices
+  https://github.com/UglyToad/PdfPig/tree/a7bb35662bbbf405efddad50aedc9bcdcf515afc
+  Complete upstream license and PDFBox/FontBox/Adobe terms: src/Tools/Full.NET.Ai.PdfParser/licenses/PdfPig.LICENSE.txt
 - Scalar — MIT
   https://github.com/scalar/scalar
 - BenchmarkDotNet — MIT

@@ -17,6 +17,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\benchmarks\Full.NET.Benchmarks\Full.NET.Benchmarks.csproj" />
+    <ProjectReference Include="..\..\src\Tools\Full.NET.Ai.PdfParser\Full.NET.Ai.PdfParser.csproj" />
     <ProjectReference Include="..\..\src\Composition\Full.NET.Composition\Full.NET.Composition.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Caching.Fusion\Full.NET.Caching.Fusion.csproj" />

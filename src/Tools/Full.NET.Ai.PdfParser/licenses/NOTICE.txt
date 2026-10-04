@@ -1,0 +1,14 @@
+Full.NET independent PDF parser
+Full.NET original wrapper and bounded decoders: MIT (Full.NET.LICENSE.txt).
+
+PdfPig 0.1.16, by UglyToad and contributors, is redistributed as an
+unmodified NuGet assembly linked into the Native AOT executable.
+Source commit: a7bb35662bbbf405efddad50aedc9bcdcf515afc
+https://github.com/UglyToad/PdfPig/tree/a7bb35662bbbf405efddad50aedc9bcdcf515afc
+The complete upstream LICENSE is retained as PdfPig.LICENSE.txt, including
+the separate PDFBox, FontBox and Adobe component notices and terms.
+The upstream commit does not have a root NOTICE file.
+
+The runtime image is the unmodified Microsoft .NET runtime-deps Ubuntu base;
+its operating-system copyright/license files remain in the image.
+Synthetic evaluation PDFs are Full.NET original fixtures without copied fonts.
