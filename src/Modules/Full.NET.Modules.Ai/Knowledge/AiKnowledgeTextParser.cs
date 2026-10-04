@@ -7,11 +7,14 @@ namespace Full.NET.Modules.Ai.Knowledge;
 /// <summary>内部文本解析失败分类，尚未作为 HTTP 或持久化协议发布。</summary>
 internal enum AiKnowledgeTextParseFailure { None, UnsupportedFormat, SourceMismatch, InputTooLarge, InvalidText, EmptyText, OutputTooLarge }
 
-/// <summary>原始 UTF-8 字节摘要及去首个 BOM 的文本；位置使用该文本的 UTF-16 偏移，不改变换行或 Unicode。</summary>
-internal sealed record AiKnowledgeParsedText(string Text, string ContentHash, int SizeBytes)
+/// <summary>来源原始字节摘要及解析文本；UTF-8 去首个 BOM，PDF 适配保留页内文本，位置均使用 UTF-16。</summary>
+internal sealed record AiKnowledgeParsedText(string Text, string ContentHash, int SizeBytes, AiKnowledgeTextSource Source = AiKnowledgeTextSource.Utf8)
 {
-    internal string ParserVersion => "utf8-text-v1";
+    internal string ParserVersion => Source switch { AiKnowledgeTextSource.Utf8 => "utf8-text-v1", AiKnowledgeTextSource.PdfPage => AiKnowledgeParsedPdf.ParserVersion, _ => "" };
 }
+
+/// <summary>固定的内部来源适配类别，不接受解析输出提供的任意版本名称。</summary>
+internal enum AiKnowledgeTextSource { Utf8, PdfPage }
 
 /// <summary>成功结果才持有正文；强类型失败不包含正文、路径或底层异常。</summary>
 internal sealed class AiKnowledgeTextParseResult

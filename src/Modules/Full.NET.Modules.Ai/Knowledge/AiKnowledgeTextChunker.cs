@@ -108,7 +108,8 @@ internal static class AiKnowledgeTextChunker
 
     private static bool ValidDocument(AiKnowledgeParsedText document, CancellationToken token)
     {
-        if (string.IsNullOrWhiteSpace(document.Text) || document.Text.Length > AiKnowledgeTextParser.MaxOutputCharacters
+        if (document.Source is not (AiKnowledgeTextSource.Utf8 or AiKnowledgeTextSource.PdfPage)
+            || string.IsNullOrWhiteSpace(document.Text) || document.Text.Length > AiKnowledgeTextParser.MaxOutputCharacters
             || document.Text.Contains('\0') || document.ContentHash is null || document.ContentHash.Length != 64
             || !document.ContentHash.All(char.IsAsciiHexDigit) || document.SizeBytes <= 0 || document.SizeBytes > AiKnowledgeFilePolicy.MaxBytes)
             return false;

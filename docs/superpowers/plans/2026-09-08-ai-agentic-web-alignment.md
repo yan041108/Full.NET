@@ -16,7 +16,7 @@
 - 本轮交付 R02：冻结中文合成语料、测试项目内离线评分器、人工参考结果、可重放报告入口及对应失败回归。R02 离线基线已本地验证；真实检索/模型端到端基线明确为未测，随 R06 接入。
 - R02 已提交 `4a748409af6fcddd23b441a182ee3e7e8fe2b47f`。随后交付 R03 独立选型实验及 [ADR-0013](../../architecture/adr/ADR-0013-ai-retrieval-provider.md)：首版采用双库存派生向量、SQL 先过滤、有界精确余弦；Qdrant 保留候选，PdfPig 0.1.16 作为 R05 文本 PDF 接入候选。没有新增生产依赖或功能开关。
 - 实施基线：分支 `codex/foundation-acceptance-20260926`，HEAD `a7a68776818731703f1ebc11bc529f2746df59e1`，任务快照 `ai-rag-evaluation-r02`。保留原有日志文档、code-wiki 与语言资源改动。
-- R04 的目录、模型版本审批、用户/角色/机构两层授权、文件版本与导入恢复已按 R04a、R04b1–R04b6 分项本地验收，并于 2026-10-04 完成收尾核对。R05a 有界 TXT/Markdown 解析基础、R05b 有界 Token 分块核心、R05c 标题/段落/表格上下文分块基础与 R05d 固定真实词表/精确模型配置绑定已完成内部切片本地验收。R05d 追加 Linux 发布尝试因内存不足/资源压力未完成，未验证新分块器的原生运行；后续继续 PDF 隔离解析与索引 Worker。R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
+- R04 的目录、模型版本审批、用户/角色/机构两层授权、文件版本与导入恢复已按 R04a、R04b1–R04b6 分项本地验收，并于 2026-10-04 完成收尾核对。R05a 有界 TXT/Markdown 解析基础、R05b 有界 Token 分块核心、R05c 标题/段落/表格上下文分块基础、R05d 固定真实词表/精确模型配置绑定与 R05e1 PDF 分页输出验收/页内模型分块已完成内部切片本地验收。R05d 追加 Linux 发布尝试因内存不足/资源压力未完成，未验证新分块器的原生运行；R05e1 未接入真实解析进程，后续继续 PDF 隔离执行器与索引 Worker。R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
 
 ### 2026-09-27 当前摘要（替代下方历史状态中的未实施判断）
 
@@ -843,6 +843,21 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - 6 GB 重试仍在 ELF 对象的重定位生成阶段抛出 `System.OutOfMemoryException`，退出 1，没有成功发布清单；原有服务保持运行。保留日志及该入口副本后，只将本轮临时 SDK 容器的内存/总内存提高为 10 GB，仍为 2 CPU、`DOTNET_PROCESSOR_COUNT=2`；未更改发布属性、告警允许清单、产物阈值或 WSL 配置。10 GB 重试期间 WSL swap 再度耗尽，内存压力 some/full 达到 95%/85%，Docker 状态查询返回 500；确认单一本轮 ILC 的 PID、命令及容器 cgroup 后仅终止该编译进程，ILC 退出 143、入口退出 1。没有成功发布清单或新分块器原生运行证据，所有发布失败日志保留；不升级任何 Native AOT 能力状态，后续生产消费者接入仍需对应原生产物验证。
   - 最后暂存差异检查发现许可通知末尾一个多余空行，仅移除该换行；`node artifacts/r05d/verify-final.mjs` 确认许可正文逐字未变，另 16 项冻结的源码、词表、测试、矩阵与 JIT 程序集摘要仍一致。单元/双库与发布尝试中的嵌入许可包含该额外换行，未重建或将这次机械差异伪称为行为重测；按文字/机械变更使用直接结构检查。暂存词表与工作区固定压缩字节逐一一致、SHA-256 相同，`git diff --cached --check` 通过。
   - 本地 i7-12700H（14 核/20 线程）、64 GB Windows、SDK 10.0.401；Linux SDK 容器 10.0.400，WSL 为 16 GB 内存/4 GB swap。Unit/Architecture/Integration 使用 `DOTNET_PROCESSOR_COUNT=2`。未修改 WSL/Docker 配置或主动重启引擎，未停止原有 Worker/控制面服务；测试数据库首次引擎失稳后已启动恢复，原有五个容器保持存在。R05d 未接入 API/Worker 运行路径，仍不表示真实模型账本、生产解析/索引/ready、RAG 或容量已验证。
+
+- [x] R05e1：PDF 分页输出验收与获批模型分块（基线 `30c0d58a`，快照 `ai-knowledge-pdf-pages-r05e1`）。依据 ADR-0013，先完成隔离解析输出的消费边界；不引入 PdfPig 依赖、运行进程或启用 PDF 导入。
+  - 文件：新增 `Knowledge/AiKnowledgePdfOutputReader.cs`、`Knowledge/AiKnowledgePdfModelChunker.cs`、`tests/Full.NET.UnitTests/Ai/AiKnowledgePdfPagesTests.cs`；扩展 `AiKnowledgeParsedText` 的固定来源枚举及 Token 分块验证，更新矩阵真实发现数。
+  - [x] RED：缺失入口断言后建立行为失败，覆盖严格 JSON、重复/未知属性、版本/摘要、连续页码、空白页、非法 Unicode/NUL、输入/输出/页数预算和取消；可信来源大小/摘要作为独立参数，不从解析输出选择文件、租户或模型。
+  - [x] GREEN：`ReadAsync(Stream, string expectedContentHash, int sourceSizeBytes, CancellationToken)` 按固定线格式版本 1 和 `pdfpig-0.1.16-content-order-v1` 接收完整 JSON；逐页保留原始 Unicode/换行，原始来源最大 5 MiB（收紧 8 MiB 上传边界）、最大 128 页、总 2 Mi UTF-16 字符，线字节预算覆盖最坏 JSON 转义。来源凭据、URL 和任意版本不可进入结果；失败无部分页。
+  - [x] GREEN：`Chunk(AiKnowledgeBaseRecord, AiModelConfigRecord, AiKnowledgeParsedPdf, AiKnowledgeChunkOptions, CancellationToken)` 复用 R05d 精确配置批准与真实词表，页内偏移以 UTF-16 表达，页码从 1、全局块序号从 0；禁止跨页重叠，Token/块数/字符预算按整份 PDF 计算，失败无部分块。
+  - [x] 验证：先运行聚焦 RED/GREEN，再完整 Ai Unit、Ai/AOT Architecture、分析器、治理、命名、分片发现及选择器完整双库影响集；只读审查后在 main 提交。
+  - 开放门禁：该接收器不证明解析进程身份、摘要正确计算或来源授权；后续执行器必须向沙箱传入已授权字节并复核输出。真实 PdfPig 进程仍须禁网、无凭据、文件签名复核、硬内存/解压/时间预算、取消强杀及恶意压缩/损坏/原生产物实验；验证前 PDF 导入、Worker/索引/ready、RAG 和容量均不得升级。
+
+  R05e1 本地证据（2026-10-04，仅内部消费/分块切片）：
+  - 缺失入口 RED 为 1 项失败；44 项类型桩行为测试为 31 失败、13 通过、退出 1，通过项仅命中统一拒绝桩。编译阶段的内部枚举公开参数和 `long` 上限关系模式错误已核对修正，不计为行为 RED。首次 GREEN 为 42/44：来源错误复用了 8 MiB 上传限制，以及取消断言错误排除了 `TaskCanceledException`。独立收紧 PDF 来源为 5 MiB，并接纳合法取消子类；补齐边界、碎片读、转义重复字段、JSON 文本内非法 UTF-8 和伪造记录后，最终 `AiKnowledgePdfPagesTests` 48/48、零失败/跳过、退出 0，2.204s。
+  - `pnpm test:aot:analyzers` 退出 0；随后恢复最终 JIT 图的 Integration Release 构建、Unit/Architecture 的 `-p:BuildProjectReferences=false` Release 构建均零警告/错误、退出 0。`node artifacts/r05e1/run-unit.mjs` 保留官方 `ai-module` 选择、最低发现数与时限，仅增加正式 TRX，646/646、零失败/跳过、退出 0，1m 23.708s。`node artifacts/r05e1/verify-unit.mjs` 核对全部 UID/FQN 与最终 JSON 发现相符，完整知识解析/分块子集 217 项包含新增分页 48 项。最终 Unit 发现 4115 项；未执行全量 Unit。
+  - `pnpm test:dotnet:architecture -- --selection ai-agentic-boundaries --no-build` 6/6，`--selection api-native-aot --no-build` 73/73，均零失败/跳过、退出 0。`pnpm test:integration:tooling` 54/54、`pnpm test:governance` 57/57、`pnpm test:naming` 33/33 均通过；`pnpm test:integration:partitions` 发现 1138 项，无遗漏/重复，属于发现而非全量执行。最终计划同步后再运行治理，核对暂存差异及冻结摘要。
+  - `pnpm test:integration:affected:plan -- --snapshot ai-knowledge-pdf-pages-r05e1 --phase slice` 选择完整 Ai 与 integration-matrix；`node artifacts/r05e1/run-affected.mjs` 复用官方过滤器与预算，冻结 SQL Server/MySQL 各 27 个身份，54/54、零失败/跳过、退出 0，23m 54.365s。`node artifacts/r05e1/verify.mjs` 核对正式 TRX 的全部 UID/FQN 及 20 项源码/测试/矩阵/最终 JIT 输入摘要；生产、Unit、Integration 的 Ai DLL 副本 SHA-256 均为 `074A97CF24D78FED208BF229E87F256FDB8C7B0C0A39339744971E30320A4925`。平台仅截断 1 项超限捕获文本字段，身份及通过结果完整。原始构建、行为 RED/GREEN、最终日志、TRX、冻结摘要与验收清单保存在忽略目录 `artifacts/r05e1/` 及同前缀日志。
+  - 最终只读审查无确认 P1/P2；审查未运行测试。固定解析器标识只是接收条件，不证明真实 PdfPig 已执行；摘要由权威来源独立传入，输出声明不代替来源授权或进程身份。本轮没有解析库、进程、HTTP、SQL、DI、模型调用或索引状态推进；未执行本切片 Linux Native 发布/运行。PDF 隔离、Worker/Embedding 账本、ready 与完整 RAG 仍开放，容量保持 `Capacity-not-verified`。本地 i7-12700H（14 核/20 线程）、64 GB Windows、SDK 10.0.401、`DOTNET_PROCESSOR_COUNT=2`，双库使用既有本地 Docker 容器；原有五个容器保持运行。
 
 - [ ] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。
 - [ ] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。
