@@ -264,6 +264,107 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 
 2026-10-05 实走：续用前四步从源码 `0957ee6232cd4ccebf3f90847d77955675baa4d3` 冻结创建的 SQL Server / Minimal 应用，直接取本文 XML、C#、JSON 和命令完成本步。六条命令及一次人工注释后的额外重复接入全部退出 0，实走与文件核对合计 128.338 秒；模块与 API 的 Release 编译均为 0 警告、0 错误。规划不写盘，生成六产物，Catalog 单次引用/注册，贡献者四项 Tenant 权限、一项导航、三项操作，人工权限和注释、配置、原草稿及全部框架摘要保持。初次规划对照暴露教程原有 `Missing/Ready` 说明错误，现按实际状态更正。结果留存 `.tmp/f02-tutorial-host-0957ee62-run3/`；这是后端接线与编译证据，该应用尚未启动数据库、API 监听、Worker 或浏览器，完整教程仍未验收。
 
+### 接入业务客户端与 Vue 页面
+
+继续使用已完成后端接入的同一个 Demo。本节采纳的是应用拥有的客户端与管理端文件；`framework/fullnet/` 不参与修改，后台交付仍只接 Vue。
+
+在应用的 `contracts/openapi/catalog-product.client-manifest.json` 保存以下内容。五个产品操作都受保护，所以不登记任何公开操作：
+
+```json
+{ "publicOperationIds": [] }
+```
+
+确认 `packages/client-contracts/src/application-generated/catalog-product/` 尚不存在，然后从根目录执行：
+
+```bash
+node .fullnet-tools/openapi/generate-fullnet-client.mjs --input contracts/openapi/products.generated.openapi.json --manifest contracts/openapi/catalog-product.client-manifest.json --output packages/client-contracts/src/application-generated/catalog-product --http-module @fullnet/client-contracts
+node .fullnet-tools/openapi/generate-fullnet-client.mjs --input contracts/openapi/products.generated.openapi.json --manifest contracts/openapi/catalog-product.client-manifest.json --output packages/client-contracts/src/application-generated/catalog-product --http-module @fullnet/client-contracts --check
+```
+
+应生成四个 TypeScript 文件并通过零漂移检查。业务产物与原 `src/generated/` 基线分开；`--http-module` 使业务操作复用共享 HTTP 类型。这里消费的是 CRUD 生成的静态 OpenAPI，尚未与正在运行的 API 文档比较。客户端生成器的重新生成会写入指定目录，不提供人工合并；这些文件保持生成器所有，人工扩展放在其他文件，`--check` 只核对且不写盘。
+
+在 `packages/client-contracts/src/index.ts` 末尾**仅追加一次**以下导出，保留现有认证、租户与 HTTP 导出：
+
+```typescript
+export {
+  catalogCreateProduct,
+  catalogDeleteProduct,
+  catalogGetProduct,
+  catalogListProducts,
+  catalogUpdateProduct
+} from './application-generated/catalog-product/operations.generated.js';
+
+export type {
+  CreateProductRequest,
+  DeleteProductRequest,
+  PagedResultOfProductResponse,
+  ProductResponse,
+  UpdateProductRequest
+} from './application-generated/catalog-product/models.generated.js';
+```
+
+把已生成的三个 Vue 文件采纳到页面目录。下面是 PowerShell 命令，先核对全部目标不存在，避免覆盖已有页面：
+
+```powershell
+$vueTargets = @(
+  'ui/admin/src/views/products-page.generated.ts',
+  'ui/admin/src/views/products.generated.ts',
+  'ui/admin/src/views/CatalogProductsView.vue'
+)
+foreach ($vueTarget in $vueTargets) {
+  if (Test-Path -LiteralPath $vueTarget) { throw "页面目标已存在，先审查：$vueTarget" }
+}
+Copy-Item -LiteralPath clients/vue/products-page.generated.ts -Destination ui/admin/src/views/products-page.generated.ts
+Copy-Item -LiteralPath clients/vue/products.generated.ts -Destination ui/admin/src/views/products.generated.ts
+Copy-Item -LiteralPath clients/vue/productsView.vue -Destination ui/admin/src/views/CatalogProductsView.vue
+```
+
+在 `packages/client-contracts/src/navigation-catalog.ts` 的 `ADMIN_NAVIGATION_CATALOG` 数组末尾加入下面一项，并给前一项补逗号。先核对 componentKey、routeName 与 path 均未被其他项占用；保留其他导航及失败关闭校验，不增加公开路由或手写权限白名单：
+
+```typescript
+  {
+    componentKey: 'm7-catalog-products',
+    routeName: 'm7-catalog-products',
+    path: '/catalog/products'
+  }
+```
+
+该三元组必须与后端贡献者生成的导航一致；本地目录只登记可信组件，不授予权限。在应用根另存 `vue-target.json`，从逐阶段目标扩展 `clientRoute`，不带完整 Host 专用的 `authorizationContributorPath`：
+
+```json
+{
+  "moduleName": "Catalog",
+  "moduleProjectPath": "src/Demo.Modules.Catalog/Demo.Modules.Catalog.csproj",
+  "moduleEntryPointPath": "src/Demo.Modules.Catalog/CatalogModule.cs",
+  "compositionProjectPath": "src/Demo.Composition/Demo.Composition.csproj",
+  "compositionCatalogPath": "src/Demo.Composition/ApplicationModuleCatalog.cs",
+  "vueRouterPath": "ui/admin/src/router/index.ts",
+  "clientRoute": {
+    "routePath": "/catalog/products",
+    "vueRouteName": "m7-catalog-products",
+    "vueComponentPath": "ui/admin/src/views/CatalogProductsView.vue"
+  }
+}
+```
+
+执行路由接入及重复检查，再安装冻结依赖、编译共享包和 Vue：
+
+```bash
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- apply-client-route-integration --schema schema.json --repository . --target vue-target.json
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- apply-client-route-integration --schema schema.json --repository . --target vue-target.json
+pnpm install --frozen-lockfile
+pnpm --filter @fullnet/client-contracts build
+pnpm --filter @fullnet/admin build
+```
+
+首次路由应报告 `Update ui/admin/src/router/index.ts`，重复应报告 `Unchanged` 且内容保持。Vue 构建包含类型检查；页面继续使用应用已有 HTTP、Session 和路由守卫，前端按钮隐藏不能替代服务端精确授权。本节至多证明接线与生产构建，数据库迁移、实际登录、租户切换及普通账号页面/操作仍须运行验收，不能标为教程全链路 `Verified`。
+
+采纳的 `CatalogProductsView.vue` 不属于根 CRUD 生成清单，可在 `<script setup lang="ts">` 后追加人工注释，再执行第四步的 `--apply` 并比较页面、路由、客户端导出与导航文件，确认全部保持。对生成源 `clients/vue/productsView.vue` 的人工修改则应触发退出 2、精确 `Conflict`，并保持清单及所有产物；只撤销本次验证注释后再构建。该保护不表示生成器会自动同步或合并已采纳页面。
+
+相关随包测试可从应用根执行 `pnpm --filter @fullnet/client-contracts test tests/navigation-catalog.test.ts --maxWorkers=2` 和 `pnpm --filter @fullnet/admin test src/navigation/catalog.test.ts src/router/index.auth-guard.test.ts --maxWorkers=2`；它们检查导航与守卫，仍不替代真实账号、数据库或浏览器验收。
+
+2026-10-05 实走：续用源码 `0957ee62` 的同一独立应用，直接采纳本文 JSON、导出、导航项与 PowerShell 脚本，七条生成/接入/依赖/构建命令全部退出 0。包含额外保护复核的 13 次进程均符合预期：已有页面采纳拒绝退出 1，生成 Vue 源冲突退出 2，其余退出 0，实走与文件核对共 69.813 秒。四份客户端、五操作、三 Vue 文件接入完成；共享包编译、Vue 类型检查与生产构建、客户端零漂移检查通过。正确导航三元组接受，三个字段分别改错均拒绝；重复路由与 14 产物再生成保持，人工页面注释及后端、配置、锁文件和受管框架摘要不变。随后上述随包测试分别 3/3 与 8/8、零失败/跳过、退出 0，耗时分别 1.04 秒与 33.70 秒，单独计时。结果留存 `.tmp/f02-tutorial-vue-0957ee62/`；安装沿用既有脚本审批策略，未更改锁文件或审批依赖脚本。该应用仍未启动数据库、API 监听或浏览器，教程显式业务迁移与运行继续待办。
+
 ### 接入目标与命令边界
 
 原仓库的 `samples/enterprise-request/integration-target.json` 是仓库布局示例，不适用于独立应用。准备应用自己的 `integration-target.json`，显式选择应用拥有的模块项目、入口与宿主接入位置；不得为了接入业务改写受管框架或恢复冻结 Layui 交付线。规划入口：

@@ -4,7 +4,7 @@
 2. 诊断：`pnpm run diagnose:development`（应用根目录）。
 3. 配置 `ConnectionStrings:app`。仅在本地开发时显式设置 Migrator 的 `DOTNET_ENVIRONMENT=Development`（PowerShell：`$env:DOTNET_ENVIRONMENT='Development'`；Bash：`export DOTNET_ENVIRONMENT=Development`），再从应用根运行 `dotnet run --project src/<name>.Host.Migrator -- --seed development`。省略 `--seed` 只迁移；默认 Production 环境拒绝 Development Overlay，生产仍只允许 Baseline。旧应用需显式采用新模板的应用Migrator，源码升级不会覆盖或创建应用拥有的入口。
 4. 使用 [`Full.NET.CodeGeneration.Cli`](../../src/Tools/Full.NET.CodeGeneration.Cli/) 在应用工作区生成租户 CRUD（表名遵循 `{owner}_*` 命名，见 [`samples/enterprise-request`](../../samples/enterprise-request)）。模板 API、Worker 与 Migrator 通过 `src/<name>.Composition/ApplicationModuleCatalog.cs` 按各自 Profile 装配应用模块；接入目标使用该应用自有项目和标准 `CreateModules()` 清单，不修改 `framework/fullnet/` 的受管官方目录。Worker 编译随应用分发的框架后台处理管线，并使用应用目录注册业务后台能力；Minimal 预设已纳入双库启动、健康检查、空 Outbox 版本扫描及一条合法 Tenancy 事件的首次领取与成功终态验收。其他事件路由、失败重试、应用自有 Native AOT 尚待验证。Runner 当前只执行预设框架迁移，生成业务迁移仍待显式接入及双库恢复验收。
-5. 二次生成应保留未登记的人工文件；人工修改的受管 Handler/SQL 应触发冲突并拒绝覆盖，不能把自动保留误解为自动合并。代表性生成 CRUD 已完成本地双库验收并关闭总计划 F02 的相应子项；教程[第五步](create-first-crud.md#第五步模块接入可选)已给出应用自有模块、授权贡献者和完整后端接入目标，并实走模块/API 编译与重复接入保护。F02 完整诊断、教程的 Vue、业务迁移和运行实走仍待收口，不能以编译通过替代运行验收。
+5. 二次生成应保留未登记的人工文件；人工修改的受管 Handler/SQL 应触发冲突并拒绝覆盖，不能把自动保留误解为自动合并。代表性生成 CRUD 已完成本地双库验收并关闭总计划 F02 的相应子项；教程[第五步](create-first-crud.md#第五步模块接入可选)已实走模块/API 编译、业务客户端、Vue 路由/导航/生产构建及重复生成保护。F02 完整诊断、教程业务迁移和运行实走仍待收口，不能以编译或导航测试通过替代真实账号与页面验收。
 
 原框架仓库的快速验证使用矩阵包装器与最低发现门禁；模板真实双库验收可在本地执行，入口与范围见[本地真实链路验收](create-first-crud.md#本地真实链路验收)，GitHub Actions 继续提供回归证据。独立应用不含原仓库全部测试项目，不能在应用目录照抄 `tests/Full.NET.UnitTests` 命令。
 
