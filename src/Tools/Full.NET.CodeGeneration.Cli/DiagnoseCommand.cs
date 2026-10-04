@@ -515,7 +515,8 @@ internal static partial class DiagnoseCommand
                 .Where(include => !string.IsNullOrWhiteSpace(include))
                 .Select(include => Path.GetFullPath(Path.Combine(
                     compositionRoot, include!.Replace('\\', Path.DirectorySeparatorChar))))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                // Linux 的大小写不同路径可指向不同项目，不能用 Windows 的比较规则认证引用。
+                .ToHashSet(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
             foreach (var entry in selected)
             {
                 var module = entry?.GetValue<string>();

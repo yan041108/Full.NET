@@ -10,6 +10,36 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class StandaloneDiagnoseConfigurationTests
 {
     [TestMethod]
+    [DataRow("../../Modules/Full.NET.Modules.Identity/Full.NET.Modules.Identity.csproj", false, false)]
+    [DataRow("..\\..\\Modules\\Full.NET.Modules.Identity\\Full.NET.Modules.Identity.csproj", false, false)]
+    [DataRow("../../modules/Full.NET.Modules.Identity/Full.NET.Modules.Identity.csproj", true, false)]
+    [DataRow("../../Modules/Full.NET.Modules.Identity/Full.NET.Modules.identity.csproj", true, false)]
+    [DataRow("../../Modules/Full.NET.Modules.Identity/Full.NET.Modules.identity.csproj", true, true)]
+    public async Task Module_reference_paths_preserve_platform_case_semantics(string include, bool changedCase, bool aliasExists)
+    {
+        using var fixture = new StandaloneWorkspace();
+        const string composition = "framework/fullnet/src/Composition/Full.NET.Composition";
+        const string canonical = "framework/fullnet/src/Modules/Full.NET.Modules.Identity/Full.NET.Modules.Identity.csproj";
+        var referencedPath = Path.GetFullPath(Path.Combine(fixture.PathFor(composition),
+            include.Replace('\\', Path.DirectorySeparatorChar)));
+        if (aliasExists && !OperatingSystem.IsWindows())
+        {
+            // Linux 同时存在大小写不同的文件时，引用另一个文件仍不能证明所选模块已接入。
+            File.WriteAllText(referencedPath, "<Project><PropertyGroup><Probe>other-project</Probe></PropertyGroup></Project>");
+            Assert.AreNotEqual(File.ReadAllText(fixture.PathFor(canonical)), File.ReadAllText(referencedPath));
+        }
+        var expected = !changedCase || OperatingSystem.IsWindows();
+        Assert.IsTrue(File.Exists(fixture.PathFor(canonical)));
+        Assert.AreEqual(expected || aliasExists, File.Exists(referencedPath), "先核对实际引用路径的文件存在性。");
+        fixture.Write(composition + "/Full.NET.Composition.csproj",
+            $"<Project><ItemGroup><ProjectReference Include=\"{include}\" /></ItemGroup></Project>");
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(expected ? 0 : 1, result.ExitCode, result.Output);
+        StringAssert.Contains(result.Output, expected ? "DIAG_MODULE_CLOSURE_OK ok" : "DIAG_MODULE_DEPENDENCY_MISSING error");
+        Assert.AreEqual(expected, result.Output.Contains("DIAG_MODULE_CLOSURE_OK ok", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public async Task Matching_configuration_is_readonly_and_legacy_application_does_not_require_migrator(bool migrator)

@@ -576,6 +576,34 @@ test('application template package includes framework sources and root manifest'
     } finally {
       writeFileSync(applicationSdkProfile, applicationSdkBefore);
     }
+    const moduleReferenceFile = join(appRoot, 'framework/fullnet/src/Composition/Full.NET.Composition/Full.NET.Composition.csproj');
+    const moduleReferenceBefore = readFileSync(moduleReferenceFile);
+    const moduleReferenceText = moduleReferenceBefore.toString('utf8');
+    const identityReference = moduleReferenceText.match(/Include="([^"\r\n]*Modules[/\\]Full\.NET\.Modules\.Identity[/\\]Full\.NET\.Modules\.Identity\.csproj)"/u);
+    assert.ok(identityReference, 'frozen minimal composition must reference Identity');
+    const closureSettings = [applicationSdkProfile, join(appRoot, 'appsettings.json'),
+      join(appRoot, 'src/Demo.Host.Api/appsettings.json')].map(path => [path, readFileSync(path)]);
+    try {
+      for (const include of [identityReference[1],
+        identityReference[1].replace(/Modules([/\\])/u, 'modules$1'),
+        identityReference[1].replace(/Full\.NET\.Modules\.Identity\.csproj$/u, 'Full.NET.Modules.identity.csproj')]) {
+        const expected = include === identityReference[1] || process.platform === 'win32';
+        const candidate = Buffer.from(moduleReferenceText.replace(identityReference[0], `Include="${include}"`));
+        writeFileSync(moduleReferenceFile, candidate);
+        const diagnosis = diagnoseSdk();
+        assert.equal(diagnosis.error, undefined);
+        assert.equal(diagnosis.status, expected ? 0 : 1, diagnosis.stderr || diagnosis.stdout);
+        assert.match(diagnosis.stdout, expected ? /DIAG_MODULE_CLOSURE_OK ok/u : /DIAG_MODULE_DEPENDENCY_MISSING error/u);
+        assert.equal(diagnosis.stdout.includes('DIAG_MODULE_CLOSURE_OK ok'), expected);
+        assert.doesNotMatch(diagnosis.stdout + diagnosis.stderr, /credential-probe/u);
+        assert.deepEqual(readFileSync(moduleReferenceFile), candidate, 'diagnose rewrote the tested module reference');
+        for (const [path, bytes] of closureSettings) assert.deepEqual(readFileSync(path), bytes, 'diagnose rewrote application configuration');
+      }
+    } finally {
+      // 仅撤销验收持有的引用变体，后续接入和构建继续使用原冻结产物。
+      writeFileSync(moduleReferenceFile, moduleReferenceBefore);
+    }
+    verifyManagedFiles();
     const assets = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
     const implementationModules = Object.keys(assets.libraries)
       .map((name) => /^Full\.NET\.Modules\.([A-Za-z0-9]+)\//.exec(name)?.[1])
