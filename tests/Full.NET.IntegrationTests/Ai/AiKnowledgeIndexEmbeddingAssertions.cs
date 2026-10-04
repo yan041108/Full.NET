@@ -62,6 +62,9 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                 if (scenario is "known" or "unmetered")
                 {
                     Assert.IsNotNull(result); Assert.AreEqual(1536, result.Chunks[0].Vector.Length);
+                    Assert.IsNotNull(result.Plan); Assert.AreEqual(1, result.Plan.BatchCount); Assert.AreEqual(result.Chunks.Count, result.Plan.ChunkCount);
+                    Assert.AreEqual(AiKnowledgeIndexTextPlan.FormatKey, result.Plan.FormatKey);
+                    Assert.AreEqual(64, result.Plan.PlanHash.Length); Assert.AreEqual(64, result.BatchSourceHash.Length);
                     await AiKnowledgeIndexVectorAssertions.VerifyAsync(db, session, result,
                         batch => Use((tasks, _, services) => VectorStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, batch, CancellationToken.None)),
                         () => Use((tasks, execution, services) => new AiKnowledgeIndexPersistenceService(execution, VectorStore(services, tasks))

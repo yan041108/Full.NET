@@ -54,6 +54,8 @@ public sealed class AiKnowledgeIndexEmbeddingTests
         using var f = new Fixture(tenant);
         var result = await f.Execute();
         Assert.IsNotNull(result); Assert.AreEqual(f.OperationId, result.OperationId); Assert.HasCount(1, result.Chunks);
+        Assert.IsNotNull(result.Plan); Assert.AreEqual(1, result.Plan.BatchCount); Assert.AreEqual(1, result.Plan.ChunkCount);
+        Assert.AreEqual(64, result.Plan.PlanHash.Length); Assert.AreEqual(64, result.BatchSourceHash.Length);
         Assert.AreEqual(f.Text, result.Chunks[0].Source.EmbeddingText); Assert.AreEqual(1536, result.Chunks[0].Vector.Length);
         Assert.AreEqual(f.Source.FileId, result.Source.FileId); Assert.AreEqual(1, f.Generator.Calls);
         Assert.IsTrue(f.OpenedStream!.Disposed); Assert.IsTrue(f.Generator.Disposed);
@@ -67,6 +69,17 @@ public sealed class AiKnowledgeIndexEmbeddingTests
         Assert.AreEqual(1f, result.Chunks[0].Vector.Span[0]);
         if (tenant) await f.TenantFiles.Received(1).OpenReadyContentAsync("ai", f.Binding.VersionId, f.Source.FileId, Arg.Any<CancellationToken>());
         else await f.HostFiles.Received(1).OpenReadyContentAsync(f.Source.FileId, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Last_batch_reports_whole_generation_instead_of_only_its_own_chunk_count()
+    {
+        using var f = new Fixture(false, string.Concat(Enumerable.Repeat("a ", 12000)));
+        var result = await f.Execute(ordinal: 1); Assert.IsNotNull(result); Assert.IsNotNull(result.Plan);
+        Assert.AreEqual(2, result.Plan.BatchCount); Assert.IsTrue(result.Plan.ChunkCount > 16);
+        Assert.AreEqual(result.Plan.ChunkCount - 16, result.Chunks.Count); Assert.AreEqual(16, result.Chunks[0].Source.Sequence);
+        Assert.AreEqual(1, f.Generator.Calls); Assert.AreEqual(64, result.BatchSourceHash.Length);
+        await f.Budget.Received(1).SettleAsync(f.OperationId, new(7, 0), "succeeded", CancellationToken.None);
     }
 
     [TestMethod] [DataRow("owner")] [DataRow("tenant")] [DataRow("session")]

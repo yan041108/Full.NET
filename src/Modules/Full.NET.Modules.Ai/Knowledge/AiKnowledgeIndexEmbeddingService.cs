@@ -17,7 +17,12 @@ namespace Full.NET.Modules.Ai.Knowledge;
 internal sealed record AiKnowledgeEmbeddedChunk(AiKnowledgeStructuredChunk Source, ReadOnlyMemory<float> Vector);
 /// <summary>只返回已复核的一个批次；不含凭据，也不改变文档或任务状态。</summary>
 internal sealed record AiKnowledgeIndexEmbeddingBatch(Guid OperationId, int BatchOrdinal, AiKnowledgeIndexDispatchRecord Source,
-    string ParserVersion, string TokenizerVersion, string ChunkingVersion, AiKnowledgeChunkOptions Options, IReadOnlyList<AiKnowledgeEmbeddedChunk> Chunks);
+    string ParserVersion, string TokenizerVersion, string ChunkingVersion, AiKnowledgeChunkOptions Options, IReadOnlyList<AiKnowledgeEmbeddedChunk> Chunks)
+{
+    // 仅供整代次消费者识别预期集合；当前向量载荷 v1 不保存这些临时规划字段。
+    internal AiKnowledgeIndexTextPlanSummary? Plan { get; init; }
+    internal string BatchSourceHash { get; init; } = "";
+}
 
 /// <summary>受会话绑定的内部文本执行器；来源来自 Files，模型来自精确批准，不接受调用方正文。</summary>
 internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICurrentTenant tenant, IDataTransactionState transactions, AiKnowledgeIndexTaskStore tasks,
@@ -60,8 +65,10 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
             if (!result.IsSuccess) return null;
             chunks = result.Output!;
         }
-        var selected = SelectBatch(chunks.Chunks.Chunks, batchOrdinal, bounded);
-        if (selected is null || !await StillCurrentAsync(state, binding, taskId, leaseToken, session, bounded).ConfigureAwait(false)) return null;
+        var plan = AiKnowledgeIndexTextPlan.Create(chunks, bounded);
+        if (plan is null || batchOrdinal >= plan.Batches.Count
+            || !await StillCurrentAsync(state, binding, taskId, leaseToken, session, bounded).ConfigureAwait(false)) return null;
+        var planned = plan.Batches[batchOrdinal]; var selected = planned.Chunks;
         var inputs = selected.Select(chunk => chunk.EmbeddingText).ToArray();
         var admitted = await admission.ReserveAsync(binding, taskId, leaseToken, batchOrdinal, inputs, bounded).ConfigureAwait(false);
         if (admitted?.Source is null) return null;
@@ -97,7 +104,8 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
             { outcome = "cancelled"; return null; }
             outcome = "succeeded";
             completed = new(admitted.Request.OperationId, batchOrdinal, state.Source, chunks.Chunks.ParserVersion,
-                chunks.Chunks.TokenizerVersion, chunks.Chunks.ChunkingVersion, chunks.Chunks.Options, vectors);
+                chunks.Chunks.TokenizerVersion, chunks.Chunks.ChunkingVersion, chunks.Chunks.Options, vectors)
+            { Plan = plan.Summary, BatchSourceHash = planned.SourceHash };
         }
         catch (OperationCanceledException) { outcome = "cancelled"; throw; }
         finally
@@ -179,21 +187,6 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
         }
         if (contentType == state.Source.ContentType) return stream;
         await stream.DisposeAsync().ConfigureAwait(false); return null;
-    }
-
-    private static IReadOnlyList<AiKnowledgeStructuredChunk>? SelectBatch(IReadOnlyList<AiKnowledgeStructuredChunk> chunks, int ordinal, CancellationToken token)
-    {
-        var batches = new List<IReadOnlyList<AiKnowledgeStructuredChunk>>(); var batch = new List<AiKnowledgeStructuredChunk>(); var characters = 0;
-        foreach (var chunk in chunks)
-        {
-            token.ThrowIfCancellationRequested();
-            if (AiEmbeddingContentPolicy.ValidateInputs([chunk.EmbeddingText]) is not null) return null;
-            if (batch.Count == AiEmbeddingContentPolicy.MaxBatchSize || characters + chunk.EmbeddingText.Length > AiEmbeddingContentPolicy.MaxTotalCharacters)
-            { batches.Add(Array.AsReadOnly(batch.ToArray())); batch.Clear(); characters = 0; }
-            batch.Add(chunk); characters += chunk.EmbeddingText.Length;
-        }
-        if (batch.Count > 0) batches.Add(Array.AsReadOnly(batch.ToArray()));
-        return ordinal < batches.Count ? batches[ordinal] : null;
     }
 
     private static IReadOnlyList<AiKnowledgeEmbeddedChunk> CopyVectors(GeneratedEmbeddings<Embedding<float>> generated,

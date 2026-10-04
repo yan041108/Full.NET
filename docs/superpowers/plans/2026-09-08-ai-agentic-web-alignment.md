@@ -966,6 +966,23 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - node artifacts/r05f2e/verify.mjs 核对 982 项源码/矩阵/运行输入未变；Unit 与双库结果 UID/FQN 和发现清单精确一致，单独排除生成输出 rag-evaluation-report.json。源码项目/Unit/Integration AI DLL SHA-256 同为 E8665B485835FC8C6D4FA8D2B72EC6D4E0DFDAC3FAF4EBC40A1946DCA172C5F2。RED/GREEN、构建/最终日志、TRX、发现/冻结/验收清单保留于忽略目录 artifacts/r05f2e/、同前缀日志及正式 TestResults。
   - Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0，每测试进程 2 GiB GC Heap 限额，FULLNET_TESTCONTAINERS_REUSE=0 创建新容器。仅 TXT/Markdown；新路径的 Files/授权/模型为受控契约，真实 Identity Host refresh 证据沿用 R05f2d，未扩展到 Tenant/OIDC 真实登录。没有注册 DI/HTTP/Worker，没有实现整代次完整性、索引切换/ready、业务 PDF、检索/引用、真实云计量或本切片完整 Host/Worker Native 发布运行。完整 RAG 保持 Planned，容量保持 Capacity-not-verified；后续继续完整代次与后台调度交付。
 
+- [x] R05f2f：整份文本的确定批次计划（整代次校验的输入边界，不推进 ready）。
+  - [x] 新增 Knowledge/AiKnowledgeIndexTextPlan.cs 和对应 Unit。Create(AiKnowledgeModelChunks, CancellationToken) 只消费已有获批模型分块结果；先验证最多 2048 个连续零起始片段及全部格式/输入/上下文上限，再冻结集合。按现有 16 条/32000 UTF-16 字符规则覆盖全部片段，拒绝空计划或畸形末批，不返回部分结果。
+  - [x] 固定 knowledge-text-plan-v1 摘要格式；绑定来源摘要/格式、知识库与模型配置/版本/可信租户、解析器/词表/分块参数，以及全部批次顺序、原始/Embedding 文本、位置/结构/上下文和 Token 数。摘要不是授权、外发或费用证明，不作为新的持久协议。
+  - [x] 替换 AiKnowledgeIndexEmbeddingService 私有 SelectBatch，真实执行器按完整计划选批，返回不含正文的完整计划摘要及本批次摘要。已有完整请求指纹和预算账本保持原义，未引入第二次模型调用；VectorCodec v1/249 表不静默演进，摘要当前仅随内部临时结果交付，持久 Manifest、整代次校验/激活和 Worker 后续实现。
+  - [x] 先建立失败验证，覆盖数量/字符双重边界、全部片段一次覆盖、冻结/确定性、摘要漂移、取消和真实消费者。运行完整 AI Unit、相关架构/AOT、选择器规定双库影响集，核对身份/输入与文档后提交 main。
+
+  R05f2f 本地证据（2026-10-05，完整文本计划的内部输入边界）：
+  - 基线 main/a46e074a0524ba89744e83a059cd8f1a7d4e7773，任务快照 ai-knowledge-text-plan-r05f2f。knowledge-text-plan-v1 覆盖全部连续零起始片段；先限制最多 2048 个片段、每个上下文最多 8 条，再复制成只读集合。按完整 EmbeddingText 的 16 条/32000 UTF-16 字符上限分批，严格 UTF-8 拒绝孤立代理项，任何末批无效时整份计划失败。
+  - 固定摘要绑定 KB/版本、可信 tenant、精确模型配置/版本/模型名、来源格式与摘要、解析器/词表/分块版本及参数，和有序批次的全部原始/Embedding 文本、位置、结构、上下文与 Token 数。整数采用小端、字符串采用 int32 字节长度与严格 UTF-8，流式 SHA-256 不累积整份文档编码。独立 Node 参考给出固定 batch SHA-256 9C1B429C96ED088AF2481975BBB41887164862CEB533409FEE695CD2C174E9B8、plan SHA-256 9D183C962553ED990847F06BC9F9843BC01E8A4672F7941B68D17A6421C2E964，Unit 比对实际编码。
+  - 计划桩 RED 45/45 失败、18s 031ms；真实消费者 RED 3/3 失败、4s 368ms；固定摘要参考 RED 1/1 失败、929ms，均零通过/跳过。最终计划与消费者专项 95/95、零失败/跳过、1s 788ms。新增 49 个计划用例和 1 个真实消费者用例，共 50 个；编译、脚本转义与补丁上下文错误不计行为 RED。
+  - 真实 Embedding 执行器按完整计划选批；最后一批仍返回整份文档的总批次/片段/Token 摘要，保持一次模型调用及既有预算预留/已知/未知结算。生产双库账本断言核对返回摘要，Files/授权/外部模型保持受控契约。既有完整请求指纹、VectorCodec v1、249 表与原子写入恢复不变。独立只读审查未发现 Critical/Important 或确定 Minor，审查不代替执行。
+  - node scripts/testing/run-api-aot-analyzers.mjs 退出 0、零警告/错误，00:01:31.14，随后恢复 JIT 还原图。Integration/Unit/Architecture Release 最终构建分别 00:07:26.54/00:01:00.62/00:00:24.53，均退出 0、零警告/错误。node artifacts/r05f2f/run-unit.mjs 使用官方 ai-module 过滤/最低数/时限，923/923、零失败/跳过，59s 559ms；完整 Unit 发现 4392，未执行全量。官方 architecture --selection ai-agentic-boundaries --no-build 7/7、15s 788ms，api-native-aot 73/73、5s 458ms；完整 Architecture 发现 233，未执行全量。
+  - node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-text-plan-r05f2f --phase slice 退出 0：工具链/反馈契约 65/65、治理 57/57，1160 项分片发现无遗漏/重复。规定完整 Ai 影响集双库合并 60/60、零失败/跳过，19m 40s 620ms，两个 Worker、官方组合时限 30 分钟。单一 Ai 目标的正式结果为 Full.NET.IntegrationTests-affected-ai.trx，全部 UID/FQN 与冻结发现集合一致；平台截断 1 项超长捕获文本字段，不影响完整身份与通过结果，截断文本不作为完整运行日志。
+  - node artifacts/r05f2f/verify.mjs 核对 984 项源码/矩阵/运行输入未变；Unit 与双库结果全部身份精确一致，单独排除生成输出 rag-evaluation-report.json。源码项目/Unit/Integration AI DLL SHA-256 同为 0B98EFB867F892862D93AAEBC63B81276041F1EAC897633969E88D9E6DD9407D。命名 node --test tests/naming/*.test.mjs tests/database/uuid-storage-contract.test.mjs 33/33、SQL 安全 node --test tests/sql/*.test.mjs 5/5，零失败/跳过。RED/GREEN、构建/最终日志、TRX、发现/冻结/验收清单保留于忽略目录 artifacts/r05f2f/、同前缀日志及正式 TestResults；文档同步后复核治理与 diff。
+  - Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0，每测试进程 2 GiB GC Heap 限额，FULLNET_TESTCONTAINERS_REUSE=0 创建新容器。摘要当前只随内部临时结果交付，不是授权、外发、费用或向量已存证明；未建立持久 Manifest、整代次数据库完整性证明、激活/ready 或 Worker。仅 TXT/Markdown，未接业务 PDF、真实云计量、检索/引用或本轮完整 Host/Worker Native 发布运行；Tenant/OIDC 真实登录范围未扩展。完整 RAG 保持 Planned，容量保持 Capacity-not-verified，后续继续持久完整计划与整代次校验/切换。
+
+
 - [ ] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。
 - [ ] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。
 - [ ] 验证 Worker 崩溃/重试、模型用量未知、索引不可用、部分写入与删除竞争；失败可定位并重试，不能将空索引标记 ready。
