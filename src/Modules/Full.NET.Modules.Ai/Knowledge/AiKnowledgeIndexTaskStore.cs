@@ -19,6 +19,22 @@ internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandEx
 {
     private bool IsTenant => AiKnowledgeScope.IsTenant(tenant);
 
+    /// <summary>在下一次外部文件读取或模型派发前，读取仍持有有效租约的精确来源和模型绑定。</summary>
+    /// <returns>权威条件失效、绑定不符或读取期间到期时返回空；取消及基础设施故障传播。</returns>
+    /// <remarks>快照只证明 SQL 判定点，不可缓存为长期授权。读取文件、解析或预算等待后必须重新复核；消费者仍须校验执行者授权、数据去向及预算。</remarks>
+    internal async Task<AiKnowledgeIndexDispatchRecord?> ReadDispatchAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
+    {
+        var parameters = HeldParameters(binding, taskId, leaseToken, token);
+        var row = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(
+            IsTenant ? AiKnowledgeIndexTaskSql.DispatchTenant : AiKnowledgeIndexTaskSql.DispatchHost, parameters, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        // SQL 使用读取开始时的时钟；等待期间失效的租约不能继续下一步，也不接受另一个代次的返回值。
+        return row is not null && row.TaskId == taskId && row.DocumentId == binding.DocumentId
+            && row.VersionId == binding.VersionId && row.DocumentVersion == binding.DocumentVersion
+            && row.KnowledgeBaseVersion == binding.KnowledgeBaseVersion && row.LeaseToken == leaseToken
+            && row.LeaseExpiresAtUtc > clock.UtcNow ? row : null;
+    }
+
     internal async Task<AiKnowledgeIndexTaskRecord?> EnqueueAsync(AiKnowledgeIndexTaskBinding binding, CancellationToken token)
     {
         var parameters = Parameters(binding, token);

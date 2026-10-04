@@ -4,10 +4,15 @@ using Dapper;
 using DbUp;
 using DbUp.Helpers;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.Dapper;
 using Full.NET.Data.MySql;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modules.Ai;
+using Full.NET.Modules.Ai.Persistence;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
@@ -23,6 +28,82 @@ public sealed class Migration246AiKnowledgeIndexTaskRecoveryTests
     public Task SqlServer_fences_index_leases_and_authority_changes() => LeasesAsync(true);
     [TestMethod]
     public Task MySql_fences_index_leases_and_authority_changes() => LeasesAsync(false);
+
+    [TestMethod]
+    public Task SqlServer_rechecks_dispatch_source_model_and_lease() => DispatchAsync(true);
+    [TestMethod]
+    public Task MySql_rechecks_dispatch_source_model_and_lease() => DispatchAsync(false);
+
+    private static async Task DispatchAsync(bool sqlServer)
+    {
+        // 本用例验证强类型 UTC 快照，需与生产执行器一样注册 Guid/UTC Handler，不能用裸 Dapper 的本地时区转换。
+        _ = new ServiceCollection().AddFullNetDapper(new ConfigurationBuilder().Build(), Environments.Development);
+        var connectionString = await DatabaseAsync(sqlServer);
+        Replay(sqlServer, connectionString);
+        await using var first = Connection(sqlServer, connectionString);
+        await using var second = Connection(sqlServer, connectionString);
+        await first.OpenAsync(); await second.OpenAsync();
+        foreach (var tenant in new[] { false, true })
+        {
+            var p = await SeedAsync(first, tenant);
+            Assert.AreEqual(1, await first.ExecuteAsync(Sql("Enqueue", tenant), p));
+            Assert.IsNull(await second.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Sql("Dispatch", tenant), p));
+            Assert.AreEqual(1, await first.ExecuteAsync(Sql("Acquire", tenant), p));
+            var healthy = await second.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Sql("Dispatch", tenant), p);
+            Assert.IsNotNull(healthy);
+            Assert.AreEqual(p["TaskId"], healthy.TaskId); Assert.AreEqual(p["DocumentId"], healthy.DocumentId);
+            Assert.AreEqual(p["VersionId"], healthy.VersionId); Assert.AreEqual(p["FileId"], healthy.FileId);
+            Assert.AreEqual(p["ModelConfigId"], healthy.ModelConfigId); Assert.AreEqual(1, healthy.ModelConfigVersion);
+            Assert.AreEqual(p["DocumentVersion"], healthy.DocumentVersion); Assert.AreEqual(p["KnowledgeBaseVersion"], healthy.KnowledgeBaseVersion);
+            Assert.AreEqual(p["LeaseToken"], healthy.LeaseToken); Assert.AreEqual(new DateTimeOffset((DateTime)p["LeaseExpiresAtUtc"]!, TimeSpan.Zero), healthy.LeaseExpiresAtUtc);
+            Assert.AreEqual("abcdef", healthy.ContentHash); Assert.AreEqual("text/plain", healthy.ContentType); Assert.AreEqual(10L, healthy.SizeBytes);
+            // 每个拒绝条件都从健康租约独立验证，避免前一个撤权掩盖漏掉的过滤。
+            foreach (var key in new[] { "TaskId", "DocumentId", "KnowledgeBaseId", "VersionId", "OwnerUserId", "LeaseToken" })
+                Assert.IsNull(await second.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Sql("Dispatch", tenant), Copy(p, key, Guid.CreateVersion7())), key);
+            foreach (var key in new[] { "DocumentVersion", "KnowledgeBaseVersion" })
+                Assert.IsNull(await second.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Sql("Dispatch", tenant), Copy(p, key, 2)), key);
+            Assert.IsNull(await second.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Sql("Dispatch", !tenant), p));
+            if (tenant)
+                Assert.IsNull(await second.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Sql("Dispatch", true), Copy(p, "TenantId", Guid.CreateVersion7())));
+            var expired = Copy(p, "Now", p["LeaseExpiresAtUtc"]);
+            Assert.IsNull(await second.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Sql("Dispatch", tenant), expired));
+            var replacement = Copy(expired, "LeaseToken", Guid.CreateVersion7());
+            replacement["LeaseExpiresAtUtc"] = ((DateTime)expired["Now"]!).AddSeconds(30);
+            Assert.AreEqual(1, await second.ExecuteAsync(Sql("Acquire", tenant), replacement));
+            Assert.IsNull(await first.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Sql("Dispatch", tenant), expired));
+            Assert.IsNotNull(await first.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Sql("Dispatch", tenant), replacement));
+            Assert.AreEqual(1, await second.ExecuteAsync(Sql("Cancel", tenant), replacement));
+            Assert.IsNull(await first.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Sql("Dispatch", tenant), replacement));
+
+            foreach (var mutation in new[]
+            {
+                "UPDATE fn_ai_knowledge_base SET IsEnabled=0 WHERE Id=@KnowledgeBaseId",
+                "UPDATE fn_ai_knowledge_base SET Version=Version+1 WHERE Id=@KnowledgeBaseId",
+                "UPDATE fn_ai_knowledge_base SET EmbeddingModelVersion=2 WHERE Id=@KnowledgeBaseId",
+                "UPDATE fn_ai_knowledge_base SET EmbeddingModelConfigId=@LeaseToken WHERE Id=@KnowledgeBaseId",
+                "UPDATE fn_ai_model_config SET IsEnabled=0 WHERE Id=@ModelConfigId",
+                "UPDATE fn_ai_model_config SET Version=Version+1 WHERE Id=@ModelConfigId",
+                "UPDATE fn_ai_model_config SET TenantId=@OtherTenantId WHERE Id=@ModelConfigId",
+                "UPDATE fn_ai_knowledge_document SET Version=Version+1 WHERE Id=@DocumentId",
+                "UPDATE fn_ai_knowledge_document SET IsDeleted=1 WHERE Id=@DocumentId",
+                "UPDATE fn_ai_knowledge_import SET StateKey='cleanup_pending' WHERE VersionId=@VersionId",
+                "INSERT INTO fn_ai_knowledge_version (Id,DocumentId,FileId,VersionNumber,OriginalFileName,ContentType,ContentHash,SizeBytes,UploadedByUserId,CreatedAtUtc) VALUES (@LeaseToken,@DocumentId,@FileId,2,'new.txt','text/plain','newhash',10,@OwnerUserId,@Now)",
+            })
+            {
+                var scenario = await SeedAsync(first, tenant);
+                Assert.AreEqual(1, await first.ExecuteAsync(Sql("Enqueue", tenant), scenario));
+                Assert.AreEqual(1, await first.ExecuteAsync(Sql("Acquire", tenant), scenario));
+                Assert.IsNotNull(await second.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Sql("Dispatch", tenant), scenario), mutation);
+                await first.ExecuteAsync(mutation, scenario);
+                Assert.IsNull(await second.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Sql("Dispatch", tenant), scenario), mutation);
+            }
+        }
+        var hostModel = await SeedAsync(first, tenant: true);
+        await first.ExecuteAsync("UPDATE fn_ai_model_config SET TenantId=NULL WHERE Id=@ModelConfigId", hostModel);
+        Assert.AreEqual(1, await first.ExecuteAsync(Sql("Enqueue", true), hostModel));
+        Assert.AreEqual(1, await first.ExecuteAsync(Sql("Acquire", true), hostModel));
+        Assert.IsNotNull(await second.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Sql("Dispatch", true), hostModel));
+    }
 
     private static async Task RecoveryAsync(bool sqlServer)
     {

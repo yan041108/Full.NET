@@ -22,9 +22,28 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeImportRecord>(ReadKnowledgeImport);
         registrar.Register<AiKnowledgeVersionRecord>(ReadKnowledgeVersion);
         registrar.Register<AiKnowledgeIndexTaskRecord>(ReadKnowledgeIndexTask);
+        registrar.Register<AiKnowledgeIndexDispatchRecord>(ReadKnowledgeIndexDispatch);
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
     }
 #endif
+
+    // 派发快照来自有效租约，固定来源元数据与模型版本，不物化正文或凭据。
+    internal static AiKnowledgeIndexDispatchRecord ReadKnowledgeIndexDispatch(DbDataReader reader) => new()
+    {
+        TaskId = reader.GetGuid(reader.GetOrdinal("TaskId")),
+        DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
+        VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")),
+        DocumentVersion = checked((int)Integer(reader, "DocumentVersion")),
+        KnowledgeBaseVersion = checked((int)Integer(reader, "KnowledgeBaseVersion")),
+        ModelConfigId = reader.GetGuid(reader.GetOrdinal("ModelConfigId")),
+        ModelConfigVersion = checked((int)Integer(reader, "ModelConfigVersion")),
+        LeaseToken = reader.GetGuid(reader.GetOrdinal("LeaseToken")),
+        LeaseExpiresAtUtc = Timestamp(reader, "LeaseExpiresAtUtc"),
+        FileId = reader.GetGuid(reader.GetOrdinal("FileId")),
+        ContentHash = Text(reader, "ContentHash"),
+        ContentType = Text(reader, "ContentType"),
+        SizeBytes = Integer(reader, "SizeBytes"),
+    };
 
     // 任务记录不包含原文或凭据；固定列物化覆盖可空租约和终止状态。
     internal static AiKnowledgeIndexTaskRecord ReadKnowledgeIndexTask(DbDataReader reader) => new()

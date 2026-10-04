@@ -24,6 +24,9 @@ internal static class AiKnowledgeIndexTaskSql
     private const string Columns = "task.Id, task.DocumentId, task.VersionId, task.DocumentVersion, task.KnowledgeBaseVersion, task.ModelConfigId, task.ModelConfigVersion, task.StateKey, task.AttemptCount, task.FailureCode, task.LeaseToken, task.LeaseExpiresAtUtc, task.CreatedAtUtc, task.UpdatedAtUtc";
     private const string Read = "SELECT " + Columns + " FROM fn_ai_knowledge_index_task AS task INNER JOIN fn_ai_knowledge_document AS document ON document.Id = task.DocumentId INNER JOIN fn_ai_knowledge_base AS knowledge ON knowledge.Id = document.KnowledgeBaseId WHERE " + Owner;
 
+    // 单次判定同时复核租约、来源和批准；只读 AI 自有元数据，不调用 Files 或模型，不返回凭据。
+    private const string Dispatch = "SELECT fn_ai_knowledge_index_task.Id AS TaskId, fn_ai_knowledge_index_task.DocumentId, fn_ai_knowledge_index_task.VersionId, fn_ai_knowledge_index_task.DocumentVersion, fn_ai_knowledge_index_task.KnowledgeBaseVersion, fn_ai_knowledge_index_task.ModelConfigId, fn_ai_knowledge_index_task.ModelConfigVersion, fn_ai_knowledge_index_task.LeaseToken, fn_ai_knowledge_index_task.LeaseExpiresAtUtc, version.FileId, version.ContentHash, version.ContentType, version.SizeBytes FROM fn_ai_knowledge_index_task INNER JOIN fn_ai_knowledge_version AS version ON version.Id = fn_ai_knowledge_index_task.VersionId WHERE fn_ai_knowledge_index_task.Id = @TaskId AND fn_ai_knowledge_index_task.StateKey = 'running' AND fn_ai_knowledge_index_task.LeaseToken = @LeaseToken AND fn_ai_knowledge_index_task.LeaseExpiresAtUtc > @Now" + OwnerExists;
+
     internal static readonly SqlStatement EnqueueHost = new("ai.knowledge_index_task.enqueue_host", Enqueue + Host + " AND " + Source, SqlDataScope.HostOnly);
     internal static readonly SqlStatement EnqueueTenant = new("ai.knowledge_index_task.enqueue_tenant", Enqueue + Tenant + " AND " + Source, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement AcquireHost = new("ai.knowledge_index_task.acquire_host", Acquire + Host + Live + ")", SqlDataScope.HostOnly);
@@ -40,4 +43,6 @@ internal static class AiKnowledgeIndexTaskSql
     internal static readonly SqlStatement FindTenant = new("ai.knowledge_index_task.find_tenant", Read + Tenant + " AND task.Id = @TaskId", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement FindBindingHost = new("ai.knowledge_index_task.binding_host", Read + Host + " AND task.VersionId = @VersionId AND task.DocumentVersion = @DocumentVersion AND task.KnowledgeBaseVersion = @KnowledgeBaseVersion", SqlDataScope.HostOnly);
     internal static readonly SqlStatement FindBindingTenant = new("ai.knowledge_index_task.binding_tenant", Read + Tenant + " AND task.VersionId = @VersionId AND task.DocumentVersion = @DocumentVersion AND task.KnowledgeBaseVersion = @KnowledgeBaseVersion", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement DispatchHost = new("ai.knowledge_index_task.dispatch_host", Dispatch + Host + Live + ")", SqlDataScope.HostOnly);
+    internal static readonly SqlStatement DispatchTenant = new("ai.knowledge_index_task.dispatch_tenant", Dispatch + Tenant + Live + ")", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }
