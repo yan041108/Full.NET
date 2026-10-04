@@ -13,6 +13,20 @@ namespace Full.NET.UnitTests.CodeGeneration;
 [DoNotParallelize]
 public sealed class DiagnoseCommandTests
 {
+    private string? originalTokenEndpoints;
+
+    [TestInitialize]
+    public void Scope_existing_configuration_tests_to_their_database_and_secret_checks()
+    {
+        // 本类测试数据库与通用秘密，签名准入由独立真实 Options 对照集覆盖。
+        originalTokenEndpoints = Environment.GetEnvironmentVariable("Identity__EnableTokenEndpoints");
+        Environment.SetEnvironmentVariable("Identity__EnableTokenEndpoints", "false");
+    }
+
+    [TestCleanup]
+    public void Restore_token_endpoint_configuration() =>
+        Environment.SetEnvironmentVariable("Identity__EnableTokenEndpoints", originalTokenEndpoints);
+
     [TestMethod]
     public async Task Unknown_profile_is_rejected_without_development_fallback()
     {

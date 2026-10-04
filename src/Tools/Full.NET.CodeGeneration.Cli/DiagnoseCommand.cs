@@ -308,6 +308,7 @@ internal static partial class DiagnoseCommand
             CheckDatabaseOptions(root, profileSettings, workspacePath, profile, findings);
             CheckConnectionPlaceholder(root, profileSettings, workspacePath, profile, findings);
             CheckSecretPlaceholders(root, profileSettings, workspacePath, profile, findings);
+            CheckIdentitySigning(root, profileSettings, workspacePath, profile, findings);
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException or FormatException
             or ArgumentException or IOException or UnauthorizedAccessException)

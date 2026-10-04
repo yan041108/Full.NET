@@ -52,6 +52,10 @@ JSON 中的非空对象或数组展平为子键，不会自动覆盖较低优先
 
 三个常见秘密键的基础值也按展平路径读取，支持扁平/嵌套键及大小写变体。未声明键不强制存在；显式 null、空白或空集合覆盖视为占位，非空子键不抹除同路径标量。保留已有基础秘密字段类型校验，非文本秘密不能据此计为有效凭据。此检查不验证 Redis 可达性或 SM2 密钥格式。
 
+Identity 是合法模块组合的必需模块，未声明该节时仍按默认启用令牌端点检查签名配置。缺少匹配的 `ActiveKeyId` 或同名 `SigningKeys` 的 `PublicKeyPem`、`PrivateKeyPem`，以及模板占位值，会报告 `DIAG_IDENTITY_SIGNING_REQUIRED`：Development 为 warning，Production 为 error。KeyId 必须与合并后的字典键名大小写精确一致；诊断不回显 KeyId 或密钥。显式关闭 `EnableTokenEndpoints` 时不要求签发用的活动密钥；其显式 JSON null 或空对象按 .NET 10 绑定为 false，缺键才保留默认 true。
+
+仅 Development 可显式启用 `Identity:AllowDevelopmentEphemeralSigningKey=true`；诊断报告 `DIAG_IDENTITY_EPHEMERAL_SIGNING warn`，提醒重启会使令牌失效。Production 启用该开关始终为 error，即使关闭了令牌端点。两个开关不能绑定为布尔值时报告 `DIAG_IDENTITY_SIGNING_OPTIONS_INVALID error`。签名配置按环境变量、Development User Secrets、所选环境 JSON、基础 JSON 的优先级逐叶读取，空父节点不会抹除低层子键；Production 不读取 Development User Secrets。`DIAG_IDENTITY_SIGNING_CONFIGURED ok` 只表示活动密钥配置项齐全，未验证 PEM 格式、密钥配对或密码学有效性，也不代替整个 Identity Options 或宿主启动验证。
+
 独立应用的冻结档案检查也按展平路径读取各基础文件中的 `FullNet:Modules:Preset`、`Database:Provider` 和 Worker 的 `Kestrel:Endpoints:Http:Url`，支持扁平键和大小写变体。空集合覆盖不能保留旧预设或旧端口；非空子键不抹除同路径标量。该检查仍核对基础文件与应用清单的一致性，不用环境覆盖修复基础档案漂移，也不替代完整宿主启动验证。
 
 基础配置允许分段声明同名对象，只要展开后的标量路径不冲突；例如分别声明 `Database:Provider` 与 `Database:CommandTimeoutSeconds` 的两个 `Database` 对象。诊断保留所有片段及声明顺序，不会因对象名重复误拒绝合法配置。重复标量路径、扁平/嵌套冲突及数组索引冲突仍会失败；合法空集合覆盖与原有字段类型约束继续生效，冻结清单的 JSON 规则不因此放宽。
