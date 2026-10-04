@@ -1809,6 +1809,94 @@ public sealed class DiagnoseCommandTests
         }
     }
 
+    [TestMethod]
+    [DataRow("root")]
+    [DataRow("nested")]
+    [DataRow("modules")]
+    [DataRow("database")]
+    [DataRow("connections")]
+    [DataRow("nested-connections")]
+    [DataRow("secrets")]
+    [DataRow("empty-object")]
+    [DataRow("empty-array")]
+    [DataRow("empty-then-object")]
+    [DataRow("secret-parent-empty")]
+    [DataRow("connection-parent-empty")]
+    [DataRow("case-split")]
+    [DataRow("repeated-empty")]
+    public async Task Repeated_json_sections_with_disjoint_paths_match_real_configuration(string shape)
+    {
+        var configuration = RepeatedSectionConfiguration(shape);
+        Assert.IsTrue(RuntimeDatabaseOptionsAreValid(configuration, "Production"));
+        StringAssert.Contains(ReadRuntimeDatabaseConnection(configuration), "Password=credential-probe");
+        using var fixture = new DiagnoseWorkspace(configuration);
+        foreach (var profile in new[] { "development", "production" })
+            await AssertSecretDiagnosisAsync(fixture, profile, 0);
+    }
+
+    [TestMethod]
+    [DataRow("fullnet-type")]
+    [DataRow("cache-type")]
+    [DataRow("connections-type")]
+    [DataRow("enabled-type")]
+    [DataRow("preset-type")]
+    [DataRow("secret-type")]
+    public async Task Repeated_json_sections_preserve_existing_nested_type_guards(string shape)
+    {
+        var configuration = RepeatedSectionConfiguration(shape);
+        // 配置提供程序可装载这些标量与子键，但诊断必须保留已有字段类型约束。
+        _ = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration))).Build();
+        using var fixture = new DiagnoseWorkspace(configuration);
+        var before = File.ReadAllBytes(fixture.Settings);
+        foreach (var profile in new[] { "development", "production" })
+        {
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
+            Assert.AreEqual(1, result, output.ToString());
+            StringAssert.Contains(output.ToString(), "DIAG_APPSETTINGS_INVALID error");
+            Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Settings));
+        }
+    }
+
+    private static string RepeatedSectionConfiguration(string shape)
+    {
+        var database = "\"Database\":{\"Provider\":\"MySql\",\"MySqlGuidStorageMode\":\"Binary16\",\"ConnectionName\":\"fullnet\"}";
+        var connection = "\"ConnectionStrings\":{\"fullnet\":\"Server=example.invalid;Password=credential-probe\"}";
+        var modules = "\"FullNet\":{\"Modules\":{\"Preset\":\"minimal\"}}";
+        var fragment = shape switch
+        {
+            "root" => "\"Probe\":{\"One\":1},\"Probe\":{\"Two\":2}",
+            "nested" => "\"Probe\":{\"Child\":{\"One\":1},\"Child\":{\"Two\":2}}",
+            "modules" => "\"FullNet\":{\"Modules\":{\"Enabled\":[\"Identity\"]}}",
+            "secrets" => "\"Cache\":{\"Probe\":1},\"Cache\":{\"RedisConnectionString\":\"credential-probe\"},\"Realtime\":{\"Probe\":1},\"Realtime\":{\"RedisBackplaneConnectionString\":\"credential-probe\"},\"FullNet\":{\"Cryptography\":{\"Sm2PrivateKeys\":{\"host-integration-signing\":\"credential-probe\"}}}",
+            "empty-object" => "\"Probe\":{\"One\":1},\"Probe\":{}",
+            "empty-array" => "\"Probe\":[1],\"Probe\":[]",
+            "empty-then-object" => "\"Probe\":{},\"Probe\":{\"One\":1}",
+            "secret-parent-empty" => "\"Cache\":{\"RedisConnectionString\":\"credential-probe\"},\"Cache\":{}",
+            "connection-parent-empty" => "\"ConnectionStrings\":{}",
+            "case-split" => "\"Probe\":{\"One\":1},\"PROBE\":{\"Two\":2},\"Probe\":{\"Three\":3}",
+            "repeated-empty" => "\"Probe\":{},\"Probe\":{},\"Probe\":[]",
+            "fullnet-type" => "\"FullNet\":\"credential-probe\"",
+            "cache-type" => "\"Cache\":true,\"Cache\":{\"RedisConnectionString\":\"credential-probe\"}",
+            "connections-type" => "\"ConnectionStrings\":42",
+            "enabled-type" => "\"FullNet\":{\"Modules\":{\"Enabled\":42}}",
+            "preset-type" => "\"FullNet\":{\"Modules\":{\"Preset\":true}},\"FullNet\":{\"Probe\":1}",
+            "secret-type" => "\"Cache\":{\"RedisConnectionString\":true},\"Cache\":{\"Probe\":1}",
+            _ => "\"Probe\":{\"One\":1}",
+        };
+        if (shape == "database") database = "\"Database\":{\"Provider\":\"MySql\"},\"Database\":{\"MySqlGuidStorageMode\":\"Binary16\"},\"Database\":{\"ConnectionName\":\"fullnet\"}";
+        if (shape == "connections") fragment = "\"ConnectionStrings\":{\"other\":\"credential-probe\"}";
+        if (shape == "nested-connections")
+        {
+            database = "\"Database\":{\"Provider\":\"MySql\",\"MySqlGuidStorageMode\":\"Binary16\",\"ConnectionName\":\"primary:target\"}";
+            connection = "\"ConnectionStrings\":{\"primary\":{\"target\":\"Server=example.invalid;Password=credential-probe\"},\"primary\":{\"other\":\"credential-probe\"}}";
+        }
+        if (shape == "preset-type") modules = "\"FullNet\":{\"OtherProbe\":0}";
+        return "{" + database + "," + connection + "," + modules + "," + fragment + "}";
+    }
+
     private static readonly string[] DiagnosticSecretPaths =
     [
         "Cache:RedisConnectionString", "Realtime:RedisBackplaneConnectionString",

@@ -202,11 +202,10 @@ internal static partial class DiagnoseCommand
             return;
         }
 
-        JsonNode? root;
+        JsonDocument settings;
         try
         {
-            using var settings = ReadConfigurationDocument(appsettingsPath);
-            root = JsonNode.Parse(settings.RootElement.GetRawText(), documentOptions: ConfigurationJsonOptions);
+            settings = ReadConfigurationDocument(appsettingsPath);
         }
         catch (Exception exception) when (exception is JsonException or ArgumentException
             or IOException or UnauthorizedAccessException)
@@ -218,15 +217,9 @@ internal static partial class DiagnoseCommand
             return;
         }
 
-        if (root is null)
-        {
-            findings.Add(DiagnoseFinding.Error(
-                "DIAG_APPSETTINGS_INVALID",
-                "appsettings.json 为空。",
-                "填充 Database 与 FullNet:Modules 配置。"));
-            return;
-        }
-
+        // 保留原始对象声明及顺序；JsonNode 的唯一属性字典无法表示合法的分段对象配置。
+        using var baseSettings = settings;
+        var root = baseSettings.RootElement;
         try
         {
             using var profileSettings = ReadProfileSettings(appsettingsPath, profile);
@@ -375,7 +368,7 @@ internal static partial class DiagnoseCommand
             foreach (var path in configurationPaths)
             {
                 using var settings = ReadConfigurationDocument(path);
-                var runtime = JsonNode.Parse(settings.RootElement.GetRawText(), documentOptions: ConfigurationJsonOptions)!;
+                var runtime = settings.RootElement;
                 var runtimePreset = ReadStandaloneConfigurationValue(runtime, "FullNet:Modules:Preset");
                 var runtimeProvider = ReadStandaloneConfigurationValue(runtime, "Database:Provider");
                 if (!string.Equals(preset, runtimePreset, StringComparison.OrdinalIgnoreCase)
@@ -418,16 +411,10 @@ internal static partial class DiagnoseCommand
         }
     }
 
-    private static string? ReadStandaloneConfigurationValue(JsonNode root, string path)
+    private static string? ReadStandaloneConfigurationValue(JsonElement root, string path)
     {
         // 保留原有嵌套字段的字符串类型检查，再以宿主展平语义读取大小写别名和空集合覆盖。
-        JsonNode? current = root;
-        foreach (var segment in path.Split(':'))
-        {
-            current = current?[segment];
-            if (current is null) break;
-        }
-        _ = current?.GetValue<string>();
+        foreach (var current in ReadNestedConfigurationValues(root, path)) _ = current.GetString();
         _ = TryReadBaseConfigurationValue(root, path, out var value);
         return value;
     }
@@ -497,10 +484,13 @@ internal static partial class DiagnoseCommand
         }
     }
 
-    private static void CheckModulesSection(JsonNode root, List<DiagnoseFinding> findings)
+    private static void CheckModulesSection(JsonElement root, List<DiagnoseFinding> findings)
     {
-        var modules = root["FullNet"]?["Modules"];
-        if (modules is null)
+        var modules = ReadNestedConfigurationValues(root, "FullNet:Modules")
+            .Where(value => value.ValueKind != JsonValueKind.Null).ToArray();
+        // 分段对象须逐个保留类型约束，不能因另一个有效片段而掩盖错误结构。
+        foreach (var section in modules) _ = section.EnumerateObject();
+        if (modules.Length == 0)
         {
             findings.Add(DiagnoseFinding.Warn(
                 "DIAG_MODULES_MISSING",
@@ -509,9 +499,11 @@ internal static partial class DiagnoseCommand
             return;
         }
 
-        var preset = modules["Preset"]?.GetValue<string>();
-        var enabled = modules["Enabled"]?.AsArray();
-        if (!string.IsNullOrWhiteSpace(preset) || enabled is { Count: > 0 })
+        var preset = ReadNestedConfigurationValues(root, "FullNet:Modules:Preset")
+            .Select(value => value.GetString()).LastOrDefault();
+        var enabledCount = ReadNestedConfigurationValues(root, "FullNet:Modules:Enabled")
+            .Select(value => value.ValueKind == JsonValueKind.Null ? 0 : value.GetArrayLength()).LastOrDefault();
+        if (!string.IsNullOrWhiteSpace(preset) || enabledCount > 0)
         {
             findings.Add(DiagnoseFinding.Ok(
                 "DIAG_MODULES_OK",
@@ -526,7 +518,7 @@ internal static partial class DiagnoseCommand
     }
 
     private static void CheckDatabaseProvider(
-        JsonNode root, JsonDocument? profileSettings, string workspacePath, string profile,
+        JsonElement root, JsonDocument? profileSettings, string workspacePath, string profile,
         List<DiagnoseFinding> findings)
     {
         _ = TryReadDatabaseValue(root, profileSettings, workspacePath, profile, "Database:Provider", out var value);
@@ -551,7 +543,7 @@ internal static partial class DiagnoseCommand
     }
 
     private static bool TryReadDatabaseValue(
-        JsonNode root, JsonDocument? profileSettings, string workspacePath, string profile,
+        JsonElement root, JsonDocument? profileSettings, string workspacePath, string profile,
         string path, out string? value)
     {
         if (TryReadConfigurationOverride(profileSettings, workspacePath, profile, path, out value,
@@ -563,17 +555,38 @@ internal static partial class DiagnoseCommand
     }
 
     private static bool TryReadBaseConfigurationValue(
-        JsonNode root, string path, out string? value, bool includeScalarValues = false)
+        JsonElement root, string path, out string? value, bool includeScalarValues = false)
     {
-        using var baseSettings = JsonDocument.Parse(root.ToJsonString());
         var found = false;
         value = null;
-        VisitConfigurationValue(baseSettings.RootElement, null, path, ref found, ref value, includeScalarValues);
+        VisitConfigurationValue(root, null, path, ref found, ref value, includeScalarValues);
         return found;
     }
 
+    // 仅对原有精确嵌套路径执行字段类型检查；实际配置取值仍走展平、大小写不敏感的读取。
+    private static IEnumerable<JsonElement> ReadNestedConfigurationValues(JsonElement root, string path) =>
+        ReadNestedConfigurationValues(root, path.Split(':'), 0);
+
+    private static IEnumerable<JsonElement> ReadNestedConfigurationValues(
+        JsonElement element, string[] segments, int index)
+    {
+        if (index == segments.Length)
+        {
+            yield return element;
+            yield break;
+        }
+        if (element.ValueKind == JsonValueKind.Null) yield break;
+        // 遍历每个同名对象而非只取最后一个；非对象中间节点继续按原有结构约束失败。
+        foreach (var property in element.EnumerateObject())
+        {
+            if (!property.NameEquals(segments[index])) continue;
+            foreach (var value in ReadNestedConfigurationValues(property.Value, segments, index + 1))
+                yield return value;
+        }
+    }
+
     private static void CheckDatabaseOptions(
-        JsonNode root, JsonDocument? profileSettings, string workspacePath, string profile,
+        JsonElement root, JsonDocument? profileSettings, string workspacePath, string profile,
         List<DiagnoseFinding> findings)
     {
         var hasTimeout = TryReadDatabaseValue(root, profileSettings, workspacePath, profile,
@@ -635,7 +648,7 @@ internal static partial class DiagnoseCommand
     }
 
     private static void CheckConnectionPlaceholder(
-        JsonNode root,
+        JsonElement root,
         JsonDocument? profileSettings,
         string workspacePath,
         string profile,
@@ -654,10 +667,14 @@ internal static partial class DiagnoseCommand
             {
                 throw new InvalidOperationException("Connection name is empty.");
             }
-            var connectionStrings = root["ConnectionStrings"]?.AsObject();
             // 保留已有基础凭据字段类型检查；实际取值按宿主的展平路径处理扁平键与大小写。
-            _ = connectionStrings?.FirstOrDefault(pair =>
-                string.Equals(pair.Key, connectionName, StringComparison.OrdinalIgnoreCase)).Value?.GetValue<string>();
+            foreach (var connectionStrings in ReadNestedConfigurationValues(root, "ConnectionStrings"))
+            {
+                if (connectionStrings.ValueKind == JsonValueKind.Null) continue;
+                foreach (var pair in connectionStrings.EnumerateObject())
+                    if (string.Equals(pair.Name, connectionName, StringComparison.OrdinalIgnoreCase))
+                        _ = pair.Value.GetString();
+            }
             // 显式 null 或空集合也是覆盖值，不能恢复基础文件中的命名凭据。
             if (!TryReadConfigurationOverride(profileSettings, workspacePath, profile,
                     $"ConnectionStrings:{connectionName}", out effectiveConnection))
@@ -888,7 +905,7 @@ internal static partial class DiagnoseCommand
     }
 
     private static void CheckSecretPlaceholders(
-        JsonNode root,
+        JsonElement root,
         JsonDocument? profileSettings,
         string workspacePath,
         string profile,
@@ -935,23 +952,10 @@ internal static partial class DiagnoseCommand
             "通过 user-secrets 或环境变量注入；诊断不会输出秘密值。"));
     }
 
-    private static bool IsEmptyPlaceholder(JsonNode root, string colonPath)
+    private static bool IsEmptyPlaceholder(JsonElement root, string colonPath)
     {
-        JsonNode? current = root;
-        foreach (var segment in colonPath.Split(':'))
-        {
-            current = current?[segment];
-            if (current is null)
-            {
-                break;
-            }
-        }
-
         // 当前三个秘密配置的运行时契约均为字符串；错误类型不能被视为已配置。
-        if (current is not null && (current is not JsonValue value || !value.TryGetValue<string>(out _)))
-        {
-            throw new InvalidOperationException("Secret configuration must be a string.");
-        }
+        foreach (var current in ReadNestedConfigurationValues(root, colonPath)) _ = current.GetString();
 
         // 未声明键不强制存在；显式 null 和空集合按展平覆盖结果诊断，不能被层级查找漏掉。
         return TryReadBaseConfigurationValue(root, colonPath, out var text)

@@ -376,6 +376,44 @@ public sealed class StandaloneDiagnoseConfigurationTests
         StringAssert.Contains(result.Output, valid ? "DIAG_APP_PROFILE_OK ok" : "DIAG_APP_PROFILE_MISMATCH error");
     }
 
+    [TestMethod]
+    [DataRow("appsettings.json", "root")]
+    [DataRow("appsettings.json", "modules")]
+    [DataRow("appsettings.json", "database")]
+    [DataRow("appsettings.json", "endpoint")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "root")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "modules")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "database")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "endpoint")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "root")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "modules")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "database")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "endpoint")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "root")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "modules")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "database")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "endpoint")]
+    public async Task Repeated_json_sections_in_declared_hosts_preserve_all_disjoint_values(string path, string shape)
+    {
+        using var fixture = new StandaloneWorkspace();
+        var fragment = shape switch
+        {
+            "modules" => "\"FullNet\":{\"Modules\":{\"Enabled\":[\"Identity\"]}}",
+            "database" => "\"Database\":{\"MySqlGuidStorageMode\":\"Binary16\"}",
+            "endpoint" => "\"Kestrel\":{\"Endpoints\":{\"Http\":{\"Probe\":\"credential-probe\"}}}",
+            _ => "\"Probe\":{\"One\":1},\"Probe\":{\"Two\":2}",
+        };
+        var content = Configuration()[..^1] + "," + fragment + "}";
+        var runtime = RuntimeConfiguration(content);
+        Assert.AreEqual("mysql", runtime[FrozenProfilePaths[1]]);
+        Assert.AreEqual("minimal", runtime[FrozenProfilePaths[0]]);
+        Assert.AreEqual("http://localhost:5181", runtime[FrozenProfilePaths[2]]);
+        fixture.Write(path, content);
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(0, result.ExitCode, result.Output);
+        StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_OK ok");
+    }
+
     private static readonly string[] FrozenProfilePaths =
         ["FullNet:Modules:Preset", "Database:Provider", "Kestrel:Endpoints:Http:Url"];
 

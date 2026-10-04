@@ -41,6 +41,8 @@ JSON 中的非空对象或数组展平为子键，不会自动覆盖较低优先
 
 独立应用的冻结档案检查也按展平路径读取各基础文件中的 `FullNet:Modules:Preset`、`Database:Provider` 和 Worker 的 `Kestrel:Endpoints:Http:Url`，支持扁平键和大小写变体。空集合覆盖不能保留旧预设或旧端口；非空子键不抹除同路径标量。该检查仍核对基础文件与应用清单的一致性，不用环境覆盖修复基础档案漂移，也不替代完整宿主启动验证。
 
+基础配置允许分段声明同名对象，只要展开后的标量路径不冲突；例如分别声明 `Database:Provider` 与 `Database:CommandTimeoutSeconds` 的两个 `Database` 对象。诊断保留所有片段及声明顺序，不会因对象名重复误拒绝合法配置。重复标量路径、扁平/嵌套冲突及数组索引冲突仍会失败；合法空集合覆盖与原有字段类型约束继续生效，冻结清单的 JSON 规则不因此放宽。
+
 ## 第二步：准备 CRUD Schema
 
 原框架仓库的示例主从单据见 [`samples/enterprise-request/schema.json`](../../samples/enterprise-request/schema.json)（`master.detail` 场景：申请头 + 明细行）。应用应准备自己的 `schema.json`，冻结项目 OwnerKey，并显式声明字段、精确权限与 `dataScope`；不能直接沿用原仓库的集成目标路径。

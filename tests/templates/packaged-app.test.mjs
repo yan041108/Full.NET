@@ -164,6 +164,21 @@ test('application template package includes framework sources and root manifest'
           assert.match(tolerantDiagnosis.stdout, /DIAG_APP_PROFILE_OK ok/u);
           assert.doesNotMatch(tolerantDiagnosis.stdout + tolerantDiagnosis.stderr, /credential-probe/u);
           assert.deepEqual(readFileSync(settingsPath), tolerantBefore);
+          // 同名对象声明不同子键不构成路径冲突；冻结诊断必须保留所有片段。
+          for (const fragment of ['"Probe":{"One":1},"Probe":{"Two":2}',
+            '"FullNet":{"Modules":{"Probe":"credential-probe"}}',
+            '"Database":{"Probe":"credential-probe"}',
+            '"Kestrel":{"Endpoints":{"Http":{"Probe":"credential-probe"}}}',
+            '"Probe":{},"Probe":[]']) {
+            writeFileSync(settingsPath, `${originalJson.slice(0, -1)},${fragment}}`);
+            const repeatedBefore = readFileSync(settingsPath);
+            const repeatedDiagnosis = runProfileDiagnosis();
+            assert.equal(repeatedDiagnosis.status, 0, repeatedDiagnosis.stderr || repeatedDiagnosis.stdout);
+            assert.match(repeatedDiagnosis.stdout, /DIAG_APP_PROFILE_OK ok/u);
+            assert.doesNotMatch(repeatedDiagnosis.stdout + repeatedDiagnosis.stderr, /credential-probe/iu);
+            assert.deepEqual(readFileSync(settingsPath), repeatedBefore);
+            assert.deepEqual(readFileSync(productionSettings), profileBefore);
+          }
           const baseProfile = JSON.parse(originalJson);
           const frozenValues = [
             ['FullNet:Modules:Preset', baseProfile.FullNet.Modules.Preset],
