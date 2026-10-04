@@ -16,7 +16,7 @@
 - 本轮交付 R02：冻结中文合成语料、测试项目内离线评分器、人工参考结果、可重放报告入口及对应失败回归。R02 离线基线已本地验证；真实检索/模型端到端基线明确为未测，随 R06 接入。
 - R02 已提交 `4a748409af6fcddd23b441a182ee3e7e8fe2b47f`。随后交付 R03 独立选型实验及 [ADR-0013](../../architecture/adr/ADR-0013-ai-retrieval-provider.md)：首版采用双库存派生向量、SQL 先过滤、有界精确余弦；Qdrant 保留候选，PdfPig 0.1.16 作为 R05 文本 PDF 接入候选。没有新增生产依赖或功能开关。
 - 实施基线：分支 `codex/foundation-acceptance-20260926`，HEAD `a7a68776818731703f1ebc11bc529f2746df59e1`，任务快照 `ai-rag-evaluation-r02`。保留原有日志文档、code-wiki 与语言资源改动。
-- R04 的目录、模型版本审批、用户/角色/机构两层授权、文件版本与导入恢复已按 R04a、R04b1–R04b6 分项本地验收，并于 2026-10-04 完成收尾核对。下一项 R05 建设解析、分块与索引；R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
+- R04 的目录、模型版本审批、用户/角色/机构两层授权、文件版本与导入恢复已按 R04a、R04b1–R04b6 分项本地验收，并于 2026-10-04 完成收尾核对。R05a 有界 TXT/Markdown 解析基础已本地验收；后续继续 Token 预算分块、PDF 隔离解析与索引 Worker。R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
 
 ### 2026-09-27 当前摘要（替代下方历史状态中的未实施判断）
 
@@ -784,6 +784,19 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
 **新增责任位置：** `src/Modules/Full.NET.Modules.Ai/Knowledge/`、`Runtime/AiKnowledgeIndexWorker.cs`、`tests/Full.NET.UnitTests/Ai/AiKnowledgeChunkingTests.cs`；Provider 放入 R03 决策的适配边界，复用现有 Embedding 工厂与预算 Port。
 
 **输入/输出：** 消费已授权文档版本及内容摘要；生成包含片段 ID、页码/位置、分块版本、模型/维度和索引代次的记录。向量索引键由版本/代次/片段确定，状态由版本条件推进。
+
+- [x] R05a：交付有界 TXT/Markdown 解析基础，基线 `42bee22e`、快照 `ai-knowledge-text-parser-r05a`。新增 `Knowledge/AiKnowledgeTextParser.cs` 和 `tests/Full.NET.UnitTests/Ai/AiKnowledgeTextParserTests.cs`，不新增公开 API、DI 注册、迁移、模型调用或第三方依赖。此基础供后续 R05 的分块与 Worker 使用，本项不能把现有 `pending_processing` 推进为 ready。
+  - [x] 先用 Unit 证明解析能力缺失，再建立实际流、摘要绑定、严格 UTF-8、中文/emoji、BOM、标题/表格/代码原文及稳定 UTF-16 位置的断言。输入上限沿用 R04 的 8 MiB；解析输出最多 2 Mi UTF-16 单元，超限拒绝且不截断。
+  - [x] 实现 `ParseAsync(Stream, originalFileName, contentType, expectedContentHash, CancellationToken)`；复核安全名称及匹配 TXT/MD 类型、真实字节摘要，拒绝空白、非法 UTF-8、NUL、输入/输出超限及摘要漂移，使用内部强类型失败分类。只移除文件开头 UTF-8 BOM，其余文本及换行不改写；不执行脚本、Markdown、外链或文件名路径。
+  - [x] 流归调用者所有；循环有界读取并传播取消、I/O 异常，不把基础设施异常当作空文档。PDF 直接拒绝，由后续独立进程解析切片实现 ADR-0013 的强制终止、网络/凭据隔离及预算验证；不以 Task.Run 超时冒充 PDF 硬限制。
+  - [x] 根据实际新增 Unit 身份维护矩阵，运行 Release、聚焦/完整 Ai Unit、受影响 Architecture/AOT 分析、选择器完整 Ai slice、治理与分片核对；交付只声明内部解析基础验证范围，保留 R05/RAG 与容量开放，最终 diff/status 后在 main 独立提交。
+
+  R05a 本地证据（2026-10-04）：
+  - RED 先证实内部解析器缺失（1 项失败），再用只有类型和拒绝结果的桩运行真实行为断言：33 项中 23 失败、10 通过，退出码 2；实现后同一 33 项全部通过。最终 `dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --filter 'FullyQualifiedName~AiKnowledgeTextParserTests' --minimum-expected-tests 33 --timeout 2m --no-ansi --progress off --report-trx --report-trx-filename text-parser-focused-final.trx --results-directory artifacts/r05a/focused-final` 为 33/33、零失败/跳过、退出码 0。
+  - `pnpm test:aot:analyzers` 通过，零警告/错误；随后完整 JIT 图 `dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj -c Release --nologo` 通过，Unit/Architecture 的 Release 构建复用已恢复的依赖，均零警告/错误。`pnpm test:dotnet:unit -- --selection ai-module --no-build` 462/462、`pnpm test:dotnet:architecture -- --no-build` 232/232，均零失败/跳过、退出码 0。Unit 实际发现 3931 项，新增 33 个解析身份已对应维护矩阵；此为全量发现，不代表运行了全量 Unit。
+  - `pnpm test:integration:affected:plan -- --snapshot ai-knowledge-text-parser-r05a --phase slice` 选择完整 Ai 与 integration-matrix。`node artifacts/r05a/run-affected.mjs` 通过仓库选择器合并完整 Ai 过滤器，54/54、零失败/跳过、退出码 0，23m 00s；`node artifacts/r05a/verify.mjs` 核对正式 TRX 的全部 UID/FQN 与冻结集合一致，解析器/测试/矩阵及最终程序集摘要一致，Unit/Integration 的 Ai 模块副本与生产 DLL 摘要相同。TRX 有 1 项超长捕获文本被平台按字段上限截断，不影响身份和通过结果；原始日志、TRX、摘要与验收清单保存在忽略目录 `artifacts/r05a/` 及同前缀日志。
+  - `pnpm test:integration:tooling` 54/54、`pnpm test:governance` 57/57、`pnpm test:naming` 33/33，均零失败/跳过、退出码 0；`pnpm test:integration:partitions` 实际发现 1138 项，无遗漏或重复，此为发现而非全量 Integration 执行。只读安全审查未发现 P1/P2；本项新类型仅由 Unit 消费，未改 Host.Api/Worker 的运行时注册和可达路径。
+  - 本地 i7-12700H（14 核/20 线程）、64 GB Windows、SDK 10.0.401、两个测试 worker，原有五个容器保持运行。尚未接入 Worker 或执行新解析器的正式 Linux Native AOT 运行，本项 AOT 证据仅为分析器与架构检查；PDF 进程隔离、模型 Token 预算、分块/Embedding/索引及 ready 推进仍待后续 R05。无新增第三方分发资源；完整 RAG 与 `Capacity-not-verified` 保持开放。
 
 - [ ] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。
 - [ ] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。
