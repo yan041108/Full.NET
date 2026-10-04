@@ -58,6 +58,10 @@ Identity 是合法模块组合的必需模块，未声明该节时仍按默认�
 
 独立应用的冻结档案检查也按展平路径读取各基础文件中的 `FullNet:Modules:Preset`、`Database:Provider` 和 Worker 的 `Kestrel:Endpoints:Http:Url`，支持扁平键和大小写变体。空集合覆盖不能保留旧预设或旧端口；非空子键不抹除同路径标量。该检查仍核对基础文件与应用清单的一致性，不用环境覆盖修复基础档案漂移，也不替代完整宿主启动验证。
 
+OIDC 默认关闭，诊断报告 `DIAG_OIDC_DISABLED ok`；关闭后不要求其独立签名配置。启用 `Identity:Oidc:Enable` 后，必须配置 `ActiveSigningKeyId` 及同名 `SigningKeys` 的公私钥，JWT 密钥或 JWT 临时签名开关不能替代。缺失、占位值或 KeyId 大小写不匹配报告 `DIAG_OIDC_SIGNING_REQUIRED`，Development 为 warning、Production 为 error；开发显式启用 OIDC 临时签名报告 `DIAG_OIDC_EPHEMERAL_SIGNING warn`，已启用的生产 OIDC 使用临时签名为 error。不能绑定的布尔开关报告 `DIAG_OIDC_SIGNING_OPTIONS_INVALID error`，不会因关闭 OIDC 而掩盖绑定错误。覆盖顺序与 KeyId 拼写合并遵循前述签名配置边界，Production 不读取开发秘密。`DIAG_OIDC_SIGNING_CONFIGURED ok` 仅表示 OIDC 活动签名配置齐全，不认证 PEM、Issuer、客户端、加密配置或完整协议启动。
+
+签名字典的 JSON null、空对象与空条目按实际配置绑定处理，不直接套用手工构造 Options 的 null 校验：已初始化字典保留，空条目被跳过；空父节点也不会删除较低层已有子键。只有活动签名配置确实缺失时才报告所需密钥，避免把合法关闭/开发配置误报为结构错误。JSON 标量文本转换也与配置提供程序一致，例如布尔值绑定到字符串为 `True` / `False`，随后仍按 KeyId 的精确拼写匹配；应用配置应使用明确的字符串 KeyId。
+
 基础配置允许分段声明同名对象，只要展开后的标量路径不冲突；例如分别声明 `Database:Provider` 与 `Database:CommandTimeoutSeconds` 的两个 `Database` 对象。诊断保留所有片段及声明顺序，不会因对象名重复误拒绝合法配置。重复标量路径、扁平/嵌套冲突及数组索引冲突仍会失败；合法空集合覆盖与原有字段类型约束继续生效，冻结清单的 JSON 规则不因此放宽。
 
 ## 第二步：准备 CRUD Schema

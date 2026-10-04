@@ -87,7 +87,8 @@ internal static partial class DiagnoseCommand
     }
 
     private static IEnumerable<string> ReadIdentitySigningKeyNames(
-        JsonElement root, JsonDocument? profileSettings, string workspacePath, string profile)
+        JsonElement root, JsonDocument? profileSettings, string workspacePath, string profile,
+        string sectionPath = "Identity")
     {
         // 宿主 GetChildren 以高优先级提供程序的键名拼写合并重复子键；值仍逐叶覆盖，空父节点不删除子键。
         var paths = new List<string>();
@@ -106,8 +107,9 @@ internal static partial class DiagnoseCommand
         if (profileSettings is not null)
             paths.AddRange(EnumerateConfigurationLeaves(profileSettings.RootElement, null).Select(leaf => leaf.Path));
         paths.AddRange(EnumerateConfigurationLeaves(root, null).Select(leaf => leaf.Path));
-        return paths.Where(path => path.StartsWith("Identity:SigningKeys:", StringComparison.OrdinalIgnoreCase))
-            .Select(path => path["Identity:SigningKeys:".Length..].Split(':')[0])
+        var prefix = sectionPath + ":SigningKeys:";
+        return paths.Where(path => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .Select(path => path[prefix.Length..].Split(':')[0])
             .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 }

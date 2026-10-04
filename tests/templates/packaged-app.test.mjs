@@ -117,8 +117,15 @@ test('application template package includes framework sources and root manifest'
     const diagnosisEnvironment = Object.fromEntries(Object.entries(process.env).filter(([key]) => {
       const prefix = connectionEnvironmentPrefixes.find(value => key.toUpperCase().startsWith(value));
       const path = prefix ? `ConnectionStrings:${key.slice(prefix.length)}` : key;
-      return !diagnosticConfigurationPaths.has(path.replaceAll('__', ':').toLowerCase());
+      const normalizedPath = path.replaceAll('__', ':').toLowerCase();
+      return !diagnosticConfigurationPaths.has(normalizedPath) && !normalizedPath.startsWith('identity:');
     }));
+    // 此矩阵聚焦连接与常见秘密；显式关闭签发，避免无关签名缺失掩盖待验证的诊断项。
+    Object.assign(diagnosisEnvironment, {
+      Identity__EnableTokenEndpoints: 'false',
+      Identity__AllowDevelopmentEphemeralSigningKey: 'false',
+      Identity__Oidc__Enable: 'false',
+    });
     const configuredDiagnosis = spawnSync('dotnet', [
       'run', '--project', diagnosticCli, '-c', 'Release', '--',
       'diagnose', '--workspace', appRoot, '--profile', 'production',
@@ -134,6 +141,8 @@ test('application template package includes framework sources and root manifest'
     });
     assert.equal(configuredDiagnosis.status, 0, configuredDiagnosis.stderr || configuredDiagnosis.stdout);
     assert.match(configuredDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
+    assert.match(configuredDiagnosis.stdout, /DIAG_IDENTITY_TOKEN_ENDPOINTS_DISABLED ok/u);
+    assert.match(configuredDiagnosis.stdout, /DIAG_OIDC_DISABLED ok/u);
     assert.match(configuredDiagnosis.stdout, /DIAG_SDK_OK ok 检测到 \.NET SDK 10\.0\./u);
     assert.doesNotMatch(configuredDiagnosis.stdout + configuredDiagnosis.stderr, /credential-probe/u);
     const productionSettings = join(appRoot, 'src/Demo.Host.Api/appsettings.Production.json');
@@ -156,7 +165,16 @@ test('application template package includes framework sources and root manifest'
       assert.equal(profileDiagnosis.status, 0, profileDiagnosis.stderr || profileDiagnosis.stdout);
       assert.match(profileDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
       assert.match(profileDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
+      assert.match(profileDiagnosis.stdout, /DIAG_IDENTITY_TOKEN_ENDPOINTS_DISABLED ok/u);
+      assert.match(profileDiagnosis.stdout, /DIAG_OIDC_DISABLED ok/u);
       assert.doesNotMatch(profileDiagnosis.stdout + profileDiagnosis.stderr, /credential-probe/u);
+      assert.deepEqual(readFileSync(productionSettings), profileBefore);
+      // 关闭只是本矩阵的前提；重新启用后缺失活动签名仍必须被随包 CLI 拒绝。
+      const missingSigningDiagnosis = runProfileDiagnosis({ Identity__EnableTokenEndpoints: 'true' });
+      assert.equal(missingSigningDiagnosis.status, 1, missingSigningDiagnosis.stderr || missingSigningDiagnosis.stdout);
+      assert.match(missingSigningDiagnosis.stdout, /DIAG_IDENTITY_SIGNING_REQUIRED error/u);
+      assert.match(missingSigningDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+      assert.doesNotMatch(missingSigningDiagnosis.stdout + missingSigningDiagnosis.stderr, /credential-probe/u);
       assert.deepEqual(readFileSync(productionSettings), profileBefore);
       try {
         for (const prefix of connectionEnvironmentPrefixes) {

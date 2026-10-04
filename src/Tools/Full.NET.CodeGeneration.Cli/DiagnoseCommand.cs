@@ -309,6 +309,7 @@ internal static partial class DiagnoseCommand
             CheckConnectionPlaceholder(root, profileSettings, workspacePath, profile, findings);
             CheckSecretPlaceholders(root, profileSettings, workspacePath, profile, findings);
             CheckIdentitySigning(root, profileSettings, workspacePath, profile, findings);
+            CheckOidcSigning(root, profileSettings, workspacePath, profile, findings);
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException or FormatException
             or ArgumentException or IOException or UnauthorizedAccessException)
@@ -884,10 +885,11 @@ internal static partial class DiagnoseCommand
             return;
         }
 
+        // 与 JSON 配置提供程序一致：布尔标量转成 True/False，不能用小写原文误判区分大小写的 KeyId。
         ApplyConfigurationValue(path, requestedPath,
             element.ValueKind == JsonValueKind.String ? element.GetString()
                 : includeScalarValues && element.ValueKind is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False
-                    ? element.GetRawText() : null, ref found, ref text);
+                    ? element.ToString() : null, ref found, ref text);
     }
 
     private static void ApplyConfigurationValue(
