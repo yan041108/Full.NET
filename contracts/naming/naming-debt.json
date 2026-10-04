@@ -2591,6 +2591,13 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/248_AiKnowledgeIndexSession.sql",
       "reason": "248 只根据 INFORMATION_SCHEMA 索引存在性选择固定 CREATE UNIQUE INDEX 或 SELECT 1；表、索引和列为脚本常量，不接受业务输入。双库恢复覆盖缺失唯一索引、注释与未记账重复重放，保留原会话绑定。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/251_AiKnowledgeActivation.sql",
+      "reason": "251 的固定临时存储过程仅依据 INFORMATION_SCHEMA 恢复生命周期约束和唯一指针索引；过程、表、列与约束均为脚本常量，不接受外部输入。静态扫描器尚不解析 CREATE/DROP PROCEDURE，双库恢复集覆盖逐阶段未记账重放。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

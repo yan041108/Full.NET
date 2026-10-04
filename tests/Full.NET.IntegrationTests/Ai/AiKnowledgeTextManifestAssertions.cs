@@ -44,7 +44,9 @@ internal static class AiKnowledgeTextManifestAssertions
         Assert.AreEqual(1, await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_text_manifest WHERE Id=@TaskId", p));
         Assert.IsTrue(await persist(plan));
         var read = session.TenantId.HasValue ? AiKnowledgeIndexTextManifestSql.FindTenant.Text : AiKnowledgeIndexTextManifestSql.FindHost.Text;
-        var insert = session.TenantId.HasValue ? AiKnowledgeIndexTextManifestSql.InsertTenant.Text : AiKnowledgeIndexTextManifestSql.InsertHost.Text;
+        var sqlServer = db is Microsoft.Data.SqlClient.SqlConnection;
+        var insert = sqlServer ? (session.TenantId.HasValue ? AiKnowledgeIndexTextManifestSql.InsertSqlServerTenant.Text : AiKnowledgeIndexTextManifestSql.InsertSqlServerHost.Text)
+            : (session.TenantId.HasValue ? AiKnowledgeIndexTextManifestSql.InsertTenant.Text : AiKnowledgeIndexTextManifestSql.InsertHost.Text);
         Assert.IsNotNull(await db.QuerySingleOrDefaultAsync(read, p));
         foreach (var key in new[] { "LeaseToken", "OwnerUserId", "SessionId", "FileId", "VersionId", "KnowledgeBaseId", "DocumentId" })
             await Denied(new Dictionary<string, object?>(p) { [key] = Guid.CreateVersion7() });
@@ -58,7 +60,7 @@ internal static class AiKnowledgeTextManifestAssertions
         {
             await Denied(new Dictionary<string, object?>(p) { ["TenantId"] = Guid.CreateVersion7() });
             Assert.IsNull(await db.QuerySingleOrDefaultAsync(AiKnowledgeIndexTextManifestSql.FindHost.Text, p));
-            Assert.AreEqual(0, await db.ExecuteAsync(AiKnowledgeIndexTextManifestSql.InsertHost.Text, p));
+            Assert.AreEqual(0, await db.ExecuteAsync(sqlServer ? AiKnowledgeIndexTextManifestSql.InsertSqlServerHost.Text : AiKnowledgeIndexTextManifestSql.InsertHost.Text, p));
         }
         Assert.IsFalse(await persist(other));
         CollectionAssert.AreEqual(bytes, await db.QuerySingleAsync<byte[]>("SELECT Payload FROM fn_ai_knowledge_text_manifest WHERE Id=@TaskId", p));

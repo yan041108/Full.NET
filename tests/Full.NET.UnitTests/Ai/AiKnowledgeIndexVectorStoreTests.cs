@@ -145,6 +145,16 @@ public sealed class AiKnowledgeIndexVectorStoreTests
     }
 
     [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Whole_generation_proof_freezes_all_validated_receipts_and_original_authority(bool tenant)
+    {
+        var f = new Fixture(tenant); var manifest = f.WholePlan();
+        var proof = await f.Store.ReadWholePlanProofAsync(f.Binding, f.TaskId, f.Lease, manifest, default);
+        Assert.IsNotNull(proof); Assert.AreEqual(f.Source, proof.Source); Assert.AreEqual(2, proof.Receipts.Count);
+        var first = proof.Receipts[0]; f.Rows!.Clear(); Assert.AreEqual(first, proof.Receipts[0]);
+        Assert.AreEqual(2, proof.Receipts.Count); Assert.AreEqual(0, f.Writes);
+    }
+
+    [TestMethod] [DataRow(false)] [DataRow(true)]
     public async Task Whole_generation_checks_every_batch_and_two_bounded_receipt_snapshots(bool tenant)
     {
         var f = new Fixture(tenant); var manifest = f.WholePlan();

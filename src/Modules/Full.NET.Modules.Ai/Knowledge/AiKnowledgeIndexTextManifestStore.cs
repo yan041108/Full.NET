@@ -6,13 +6,14 @@ using Full.NET.Modules.Identity.Contracts;
 using System.Security.Cryptography;
 using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Persistence;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Ai.Knowledge;
 
 /// <summary>冻结完整预期集合；本地事务不调用其他模块，恢复必须复核原会话和有效来源。</summary>
 internal sealed class AiKnowledgeIndexTextManifestStore(IQueryExecutor query, ICommandExecutor command, ICommandTransaction transaction,
     IDataTransactionState transactions, ICurrentTenant tenant, IClock clock, AiKnowledgeIndexTaskStore tasks,
-    AiKnowledgeIndexSessionService sessions, IBackgroundSessionAuthorization authorization)
+    AiKnowledgeIndexSessionService sessions, IBackgroundSessionAuthorization authorization, IOptions<DatabaseOptions>? database = null)
 {
     private static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
         AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload];
@@ -32,7 +33,10 @@ internal sealed class AiKnowledgeIndexTextManifestStore(IQueryExecutor query, IC
             {
                 cancellation.ThrowIfCancellationRequested(); parameters["Now"] = clock.UtcNow;
                 if (state.Source.LeaseExpiresAtUtc <= clock.UtcNow) return false;
-                var count = await command.ExecuteAsync(tasks.IsTenant ? AiKnowledgeIndexTextManifestSql.InsertTenant : AiKnowledgeIndexTextManifestSql.InsertHost,
+                var statement = database?.Value.Provider == DatabaseProvider.MySql
+                    ? (tasks.IsTenant ? AiKnowledgeIndexTextManifestSql.InsertTenant : AiKnowledgeIndexTextManifestSql.InsertHost)
+                    : (tasks.IsTenant ? AiKnowledgeIndexTextManifestSql.InsertSqlServerTenant : AiKnowledgeIndexTextManifestSql.InsertSqlServerHost);
+                var count = await command.ExecuteAsync(statement,
                     parameters, cancellation).ConfigureAwait(false);
                 // 在回调内观察等待后的取消和租约失效；仅返回 false 不会回滚已插入行。
                 cancellation.ThrowIfCancellationRequested();
@@ -51,9 +55,14 @@ internal sealed class AiKnowledgeIndexTextManifestStore(IQueryExecutor query, IC
 
     /// <summary>只读取仍具当前原会话授权的完整清单；清单存在不证明向量齐全。</summary>
     internal async Task<AiKnowledgeIndexTextManifest?> ReadAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
+        => (await ReadSnapshotAsync(binding, taskId, leaseToken, token).ConfigureAwait(false))?.Manifest;
+
+    /// <summary>读取有当前原会话授权的原始清单摘要；用于完整代次提交前后比对。</summary>
+    internal async Task<AiKnowledgeIndexTextManifestSnapshot?> ReadSnapshotAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
     {
         NoTransaction(); _ = tasks.HeldParameters(binding, taskId, leaseToken, token);
-        return (await ReadRowAsync(binding, taskId, leaseToken, null, null, token).ConfigureAwait(false))?.Manifest;
+        var row = await ReadRowAsync(binding, taskId, leaseToken, null, null, token).ConfigureAwait(false);
+        return row is not null ? new(row.Value.Manifest, row.Value.Row.PayloadHash) : null;
     }
 
     private async Task<(AiKnowledgeIndexTextManifestRecord Row, AiKnowledgeIndexTextManifest Manifest)?> ReadRowAsync(

@@ -1,11 +1,13 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Ai.Persistence;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Ai.Knowledge;
 
 /// <summary>持久化批次操作身份，唯一冲突不得改变既有请求或降级其他数据库错误。</summary>
-internal sealed class AiKnowledgeIndexBatchStore(IQueryExecutor query, ICommandExecutor command, AiKnowledgeIndexTaskStore tasks, IIdGenerator ids)
+internal sealed class AiKnowledgeIndexBatchStore(IQueryExecutor query, ICommandExecutor command, AiKnowledgeIndexTaskStore tasks, IIdGenerator ids,
+    IOptions<DatabaseOptions>? database = null)
 {
     /// <summary>有效租约下建立或复用精确批次身份；批准失效或指纹冲突返回空，不覆盖已有行。</summary>
     internal async Task<AiKnowledgeIndexBatchRecord?> PrepareAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken,
@@ -19,7 +21,10 @@ internal sealed class AiKnowledgeIndexBatchStore(IQueryExecutor query, ICommandE
         parameters["RequestHash"] = requestHash; parameters["InputCount"] = inputCount;
         try
         {
-            if (await command.ExecuteAsync(tasks.IsTenant ? AiKnowledgeIndexBatchSql.PrepareTenant : AiKnowledgeIndexBatchSql.PrepareHost, parameters, token).ConfigureAwait(false) != 1)
+            var sql = database?.Value.Provider == DatabaseProvider.MySql
+                ? (tasks.IsTenant ? AiKnowledgeIndexBatchSql.PrepareTenant : AiKnowledgeIndexBatchSql.PrepareHost)
+                : (tasks.IsTenant ? AiKnowledgeIndexBatchSql.PrepareSqlServerTenant : AiKnowledgeIndexBatchSql.PrepareSqlServerHost);
+            if (await command.ExecuteAsync(sql, parameters, token).ConfigureAwait(false) != 1)
                 return null;
         }
         catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)

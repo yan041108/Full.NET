@@ -7,6 +7,23 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiBudgetRowReaderTests
 {
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public void Activation_pointer_maps_original_lease_and_frozen_receipt_json(bool mysql)
+    {
+        using var table = new DataTable(); var now = DateTime.UtcNow;
+        var names = new[] { "Id", "DocumentId", "IndexTaskId", "VersionId", "LeaseToken" };
+        foreach (var name in names) table.Columns.Add(name, typeof(Guid));
+        foreach (var name in new[] { "PlanHash", "ManifestHash", "ReceiptHash", "ReceiptJson" }) table.Columns.Add(name, typeof(string));
+        table.Columns.Add("ActivatedAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
+        var ids = names.Select(_ => Guid.CreateVersion7()).ToArray();
+        table.Rows.Add(ids[0], ids[1], ids[2], ids[3], ids[4], "plan", "manifest", "receipt", "[]", mysql ? (object)now : new DateTimeOffset(now));
+        using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read()); var row = AiBudgetRowReaders.ReadKnowledgeActivation(reader);
+        Assert.AreEqual(ids[0], row.Id); Assert.AreEqual(ids[1], row.DocumentId); Assert.AreEqual(ids[2], row.IndexTaskId);
+        Assert.AreEqual(ids[3], row.VersionId); Assert.AreEqual(ids[4], row.LeaseToken); Assert.AreEqual("[]", row.ReceiptJson);
+        Assert.AreEqual("plan", row.PlanHash); Assert.AreEqual("manifest", row.ManifestHash); Assert.AreEqual("receipt", row.ReceiptHash);
+        Assert.AreEqual(new DateTimeOffset(now), row.ActivatedAtUtc);
+    }
+
     [TestMethod]
     public void Vector_receipt_maps_exact_operation_ordinal_and_hashes_without_payload()
     {

@@ -12,8 +12,10 @@ internal static class AiKnowledgeIndexTextManifestSql
         + " INNER JOIN fn_ai_knowledge_text_manifest AS manifest ON manifest.Id=fn_ai_knowledge_index_task.Id" + Held;
     private const string Host = " AND binding.TenantId IS NULL" + AiKnowledgeIndexTaskSql.OwnerExists + AiKnowledgeIndexTaskSql.Host + AiKnowledgeIndexTaskSql.Live + ")";
     private const string Tenant = " AND binding.TenantId=@TenantId" + AiKnowledgeIndexTaskSql.OwnerExists + AiKnowledgeIndexTaskSql.Tenant + AiKnowledgeIndexTaskSql.Live + ")";
-    internal static readonly SqlStatement InsertHost = new("ai.knowledge_text_manifest.insert_host", Insert + Host, SqlDataScope.HostOnly);
-    internal static readonly SqlStatement InsertTenant = new("ai.knowledge_text_manifest.insert_tenant", Insert + Tenant, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement InsertHost = new("ai.knowledge_text_manifest.insert_host", Insert + Host + " FOR SHARE", SqlDataScope.HostOnly);
+    internal static readonly SqlStatement InsertTenant = new("ai.knowledge_text_manifest.insert_tenant", Insert + Tenant + " FOR SHARE", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement InsertSqlServerHost = new("ai.knowledge_text_manifest.insert_sqlserver_host", Insert.Replace("FROM fn_ai_knowledge_index_task INNER", "FROM fn_ai_knowledge_index_task WITH(UPDLOCK,HOLDLOCK) INNER") + Host, SqlDataScope.HostOnly);
+    internal static readonly SqlStatement InsertSqlServerTenant = new("ai.knowledge_text_manifest.insert_sqlserver_tenant", Insert.Replace("FROM fn_ai_knowledge_index_task INNER", "FROM fn_ai_knowledge_index_task WITH(UPDLOCK,HOLDLOCK) INNER") + Tenant, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement FindHost = new("ai.knowledge_text_manifest.find_host", Read + Host, SqlDataScope.HostOnly);
     internal static readonly SqlStatement FindTenant = new("ai.knowledge_text_manifest.find_tenant", Read + Tenant, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

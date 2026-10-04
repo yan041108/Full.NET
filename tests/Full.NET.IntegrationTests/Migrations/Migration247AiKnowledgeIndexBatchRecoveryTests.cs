@@ -43,7 +43,8 @@ public sealed class Migration247AiKnowledgeIndexBatchRecoveryTests
             Assert.AreEqual(1, await db.ExecuteAsync((tenant ? AiKnowledgeIndexTaskSql.EnqueueTenant : AiKnowledgeIndexTaskSql.EnqueueHost).Text, p));
             Assert.AreEqual(1, await db.ExecuteAsync((tenant ? AiKnowledgeIndexTaskSql.AcquireTenant : AiKnowledgeIndexTaskSql.AcquireHost).Text, p));
             p["OperationId"] = Guid.CreateVersion7(); p["BatchOrdinal"] = 0; p["RequestHash"] = new string('A', 64); p["InputCount"] = 2;
-            var prepare = (tenant ? AiKnowledgeIndexBatchSql.PrepareTenant : AiKnowledgeIndexBatchSql.PrepareHost).Text;
+            var prepare = (sqlServer ? (tenant ? AiKnowledgeIndexBatchSql.PrepareSqlServerTenant : AiKnowledgeIndexBatchSql.PrepareSqlServerHost)
+                : (tenant ? AiKnowledgeIndexBatchSql.PrepareTenant : AiKnowledgeIndexBatchSql.PrepareHost)).Text;
             var find = (tenant ? AiKnowledgeIndexBatchSql.FindTenant : AiKnowledgeIndexBatchSql.FindHost).Text;
             Assert.AreEqual(1, await db.ExecuteAsync(prepare, p));
             Assert.IsNotNull(await db.QuerySingleOrDefaultAsync(find, p));

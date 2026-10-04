@@ -24,7 +24,7 @@ namespace Full.NET.IntegrationTests.Ai;
 /// <summary>生产双库 SQL/账本配合受控会话、Files 和模型边界；不访问云模型或伪造原生验收。</summary>
 internal static class AiKnowledgeIndexEmbeddingAssertions
 {
-    internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock, bool wholeGeneration = false)
+    internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock, bool wholeGeneration = false, bool activateGeneration = false)
     {
         await factory.InitializeAsync();
         await using var db = AiOperationBudgetAssertions.Connection(factory);
@@ -37,6 +37,7 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
             var hash = Convert.ToHexString(SHA256.HashData(bytes));
             // 直接创建 AI 自有来源夹具；原始摘要覆盖整个字节流，随后经生产 Files 契约消费者读取。
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_version SET ContentHash=@Hash, SizeBytes=@Size WHERE Id=@Id", new { Hash = hash, Size = bytes.Length, Id = p["VersionId"] });
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_import SET ContentHash=@Hash, SizeBytes=@Size WHERE VersionId=@Id", new { Hash = hash, Size = bytes.Length, Id = p["VersionId"] });
             var binding = new AiKnowledgeIndexTaskBinding((Guid)p["KnowledgeBaseId"]!, (Guid)p["DocumentId"]!, (Guid)p["VersionId"]!, 1, 1, (Guid)p["OwnerUserId"]!);
             var session = new SessionBindingSnapshot(binding.OwnerUserId, (Guid?)p["TenantId"], Guid.CreateVersion7(), "stamp", tenant ? "tenant" : "host", tenant ? "tenant" : "host");
             var authorization = new ControlledAuthorization(session);
@@ -57,16 +58,40 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
             };
             if (wholeGeneration)
             {
-                await AiKnowledgeIndexGenerationAssertions.VerifyAsync(db, binding, session, task.Id,
-                    ordinal => Use((tasks, execution, services) => execution.ExecuteTextBatchAsync(binding, task.Id, held.LeaseToken.Value, ordinal, default,
-                        (plan, token) => { wholePlan = plan; return ManifestStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, plan, token); })),
-                    batch => Use((tasks, _, services) => VectorStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, batch, default)),
-                    plan => Use((tasks, _, services) => ManifestStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, plan, default)),
-                    () => wholePlan!, () => provider.Calls,
-                    afterReceipt => Use((tasks, execution, services) => new AiKnowledgeIndexPersistenceService(execution,
-                        VectorStore(services, tasks, query: new AiKnowledgeIndexGenerationAssertions.ReceiptQuery(services.GetRequiredService<IQueryExecutor>(), afterReceipt)),
-                        ManifestStore(services, tasks)).IsTextGenerationStoredAsync(binding, task.Id, held.LeaseToken.Value, default)),
-                    clock, held.LeaseExpiresAtUtc!.Value);
+                Guid? previousPointer = null;
+                for (var generation = 0; generation < (activateGeneration ? 2 : 1); generation++)
+                {
+                    await AiKnowledgeIndexGenerationAssertions.VerifyAsync(db, binding, session, task.Id,
+                        ordinal => Use((tasks, execution, services) => execution.ExecuteTextBatchAsync(binding, task.Id, held.LeaseToken.Value, ordinal, default,
+                            (plan, token) => { wholePlan = plan; return ManifestStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, plan, token); })),
+                        batch => Use((tasks, _, services) => VectorStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, batch, default)),
+                        plan => Use((tasks, _, services) => ManifestStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, plan, default)),
+                        () => wholePlan!, () => provider.Calls,
+                        afterReceipt => Use((tasks, execution, services) => new AiKnowledgeIndexPersistenceService(execution,
+                            VectorStore(services, tasks, query: new AiKnowledgeIndexGenerationAssertions.ReceiptQuery(services.GetRequiredService<IQueryExecutor>(), afterReceipt)),
+                            ManifestStore(services, tasks)).IsTextGenerationStoredAsync(binding, task.Id, held.LeaseToken.Value, default)),
+                        clock, held.LeaseExpiresAtUtc!.Value);
+                    if (activateGeneration)
+                        await AiKnowledgeIndexActivationAssertions.VerifyAsync(db, binding, task.Id, held.LeaseToken.Value,
+                            (lease, hook) => Use((tasks, execution, services) => new AiKnowledgeIndexPersistenceService(execution,
+                                VectorStore(services, tasks), ManifestStore(services, tasks), new(
+                                    services.GetRequiredService<IQueryExecutor>(), hook is null ? services.GetRequiredService<ICommandExecutor>()
+                                        : new AiKnowledgeIndexActivationAssertions.CommandHook(services.GetRequiredService<ICommandExecutor>(), hook),
+                                    services.GetRequiredService<ICommandTransaction>(), services.GetRequiredService<IDataTransactionState>(),
+                                    services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(), services.GetRequiredService<IIdGenerator>(),
+                                    tasks, authorization, services.GetRequiredService<IOptions<DatabaseOptions>>()))
+                                .ActivateTextGenerationAsync(binding, task.Id, lease, default)), () => provider.Calls, authorization,
+                            clock, held.LeaseExpiresAtUtc.Value, previousPointer);
+                    if (activateGeneration && generation == 0)
+                    {
+                        previousPointer = await db.QuerySingleAsync<Guid>("SELECT Id FROM fn_ai_knowledge_active_generation WHERE DocumentId=@Id", new { Id = binding.DocumentId });
+                        binding = binding with { DocumentVersion = binding.DocumentVersion + 1 };
+                        var nextId = await Use((tasks, _, services) => SessionService(services, tasks).EnqueueAsync(binding, session, default)); Assert.IsNotNull(nextId);
+                        task = await Use((tasks, _, _) => tasks.FindAsync(binding, nextId.Value, default)); Assert.IsNotNull(task);
+                        held = await Use((tasks, _, _) => tasks.AcquireAsync(binding, task.Id, default)); Assert.IsNotNull(held); Assert.IsNotNull(held.LeaseToken);
+                        wholePlan = null; provider.Calls = 0;
+                    }
+                }
                 continue;
             }
             if (scenario == "ambient")
@@ -132,7 +157,7 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
             AiKnowledgeIndexTextManifestStore ManifestStore(IServiceProvider services, AiKnowledgeIndexTaskStore tasks, ICommandExecutor? command = null) => new(
                 services.GetRequiredService<IQueryExecutor>(), command ?? services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
                 services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(),
-                tasks, SessionService(services, tasks), authorization);
+                tasks, SessionService(services, tasks), authorization, services.GetRequiredService<IOptions<DatabaseOptions>>());
             AiKnowledgeIndexSessionService SessionService(IServiceProvider services, AiKnowledgeIndexTaskStore tasks) => new(
                 services.GetRequiredService<IQueryExecutor>(), services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
                 services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(),
@@ -157,7 +182,7 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                         if (scenario == "settled_revoked") await db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET Version=2 WHERE Id=@DocumentId", p);
                         else clock.UtcNow = clock.UtcNow.AddSeconds(30);
                     });
-                var admission = new AiKnowledgeIndexBudgetService(query, tasks, new(query, command, tasks, ids), budget);
+                var admission = new AiKnowledgeIndexBudgetService(query, tasks, new(query, command, tasks, ids, services.GetRequiredService<IOptions<DatabaseOptions>>()), budget);
                 var execution = new AiKnowledgeIndexEmbeddingService(query, services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IDataTransactionState>(), tasks, SessionService(services, tasks), admission, budget, authorization, files, files, files, [provider], services.GetRequiredService<AiModelBindingScope>());
                 return await action(tasks, execution, services);
             }
@@ -188,12 +213,13 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
         public async Task SettleAsync(Guid operationId, AiOperationUsage usage, string outcome, CancellationToken cancellationToken = default)
         { await inner.SettleAsync(operationId, usage, outcome, cancellationToken); await afterSettlement(); }
     }
-    private sealed class ControlledAuthorization(SessionBindingSnapshot expected) : IBackgroundSessionAuthorization
+    internal sealed class ControlledAuthorization(SessionBindingSnapshot expected) : IBackgroundSessionAuthorization
     {
+        internal bool Denied;
         public Task<AuthorizedSessionActor?> AuthorizeAsync(SessionBindingSnapshot binding, string permissionCode, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested(); Assert.AreEqual(expected, binding);
-            return Task.FromResult<AuthorizedSessionActor?>(new(binding.UserId, binding.TenantId, binding.SessionId));
+            return Task.FromResult<AuthorizedSessionActor?>(Denied ? null : new(binding.UserId, binding.TenantId, binding.SessionId));
         }
     }
     private sealed class ControlledFiles(Guid expectedFile, Guid expectedVersion, byte[] bytes, string hash) : IHostFileReferenceReader, IHostFileContentReader, ITenantResourceFileStore

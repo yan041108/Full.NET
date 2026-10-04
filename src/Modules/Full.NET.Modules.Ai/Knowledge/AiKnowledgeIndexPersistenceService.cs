@@ -2,8 +2,25 @@ namespace Full.NET.Modules.Ai.Knowledge;
 
 /// <summary>内部文本批次消费者：完整持久批次恢复不再收费，未持久操作也不能免费重发。</summary>
 internal sealed class AiKnowledgeIndexPersistenceService(AiKnowledgeIndexEmbeddingService execution, AiKnowledgeIndexVectorStore vectors,
-    AiKnowledgeIndexTextManifestStore manifests)
+    AiKnowledgeIndexTextManifestStore manifests, AiKnowledgeIndexActivationStore? activations = null)
 {
+    /// <summary>内部完成态和活动指针一起提交；不派发模型，不能据此升级公开 ready 能力。</summary>
+    internal async Task<bool> ActivateTextGenerationAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
+    {
+        if (activations is null) throw new InvalidOperationException("Generation activation store is required.");
+        using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token); bounded.CancelAfter(TimeSpan.FromSeconds(25));
+        if (await activations.IsActiveAsync(binding, taskId, leaseToken, bounded.Token).ConfigureAwait(false)) return true;
+        var snapshot = await manifests.ReadSnapshotAsync(binding, taskId, leaseToken, bounded.Token).ConfigureAwait(false);
+        if (snapshot is null) return false;
+        var proof = await vectors.ReadWholePlanProofAsync(binding, taskId, leaseToken, snapshot.Manifest, bounded.Token).ConfigureAwait(false);
+        if (proof is null) return false;
+        var current = await manifests.ReadSnapshotAsync(binding, taskId, leaseToken, bounded.Token).ConfigureAwait(false);
+        bounded.Token.ThrowIfCancellationRequested();
+        if (current is null || current.PayloadHash != snapshot.PayloadHash || current.Manifest.Identity != snapshot.Manifest.Identity
+            || current.Manifest.Summary != snapshot.Manifest.Summary || !current.Manifest.Batches.SequenceEqual(snapshot.Manifest.Batches)) return false;
+        return await activations.ActivateAsync(binding, taskId, leaseToken, proof, snapshot, bounded.Token).ConfigureAwait(false);
+    }
+
     /// <summary>只读取完整代次当前状态，不派发模型、不重建缺失数据，也不写入 ready。</summary>
     /// <remarks>结果不能缓存为激活授权；未来切换仍须在本地事务内原子复核来源与全部派生数据。</remarks>
     internal async Task<bool> IsTextGenerationStoredAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)

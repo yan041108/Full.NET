@@ -28,9 +28,19 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeIndexVectorRecord>(ReadKnowledgeIndexVector);
         registrar.Register<AiKnowledgeIndexTextManifestRecord>(ReadKnowledgeTextManifest);
         registrar.Register<AiKnowledgeIndexVectorReceiptRecord>(ReadKnowledgeVectorReceipt);
+        registrar.Register<AiKnowledgeIndexActivationRecord>(ReadKnowledgeActivation);
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
     }
 #endif
+
+    // 完成指针包含原始有界 JSON 与摘要，不读取文档正文、向量或身份令牌。
+    internal static AiKnowledgeIndexActivationRecord ReadKnowledgeActivation(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
+        IndexTaskId = reader.GetGuid(reader.GetOrdinal("IndexTaskId")), VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")),
+        PlanHash = Text(reader, "PlanHash"), ManifestHash = Text(reader, "ManifestHash"), ReceiptHash = Text(reader, "ReceiptHash"),
+        ReceiptJson = Text(reader, "ReceiptJson"), LeaseToken = reader.GetGuid(reader.GetOrdinal("LeaseToken")), ActivatedAtUtc = Timestamp(reader, "ActivatedAtUtc"),
+    };
 
     // 轻量回执仅物化稳定身份和摘要，不把整代次正文/向量带入集合复核。
     internal static AiKnowledgeIndexVectorReceiptRecord ReadKnowledgeVectorReceipt(DbDataReader reader) => new()

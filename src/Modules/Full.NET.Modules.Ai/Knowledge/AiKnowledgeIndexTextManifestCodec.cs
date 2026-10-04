@@ -9,6 +9,8 @@ internal sealed record AiKnowledgeIndexTextManifestBatch(int Ordinal, int FirstS
 /// <summary>清单只冻结预期集合，不证明向量齐全或允许 ready。</summary>
 internal sealed record AiKnowledgeIndexTextManifest(AiKnowledgeIndexTextPlanIdentity Identity,
     AiKnowledgeIndexTextPlanSummary Summary, IReadOnlyList<AiKnowledgeIndexTextManifestBatch> Batches);
+/// <summary>携带实际持久字节的摘要；提交不能用重新编码结果替代原清单。</summary>
+internal sealed record AiKnowledgeIndexTextManifestSnapshot(AiKnowledgeIndexTextManifest Manifest, string PayloadHash);
 
 /// <summary>固定有界二进制清单；不静默演进既有向量载荷格式。</summary>
 internal static class AiKnowledgeIndexTextManifestCodec

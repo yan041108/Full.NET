@@ -9,6 +9,7 @@ using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Modules.Ai.Knowledge;
 using Full.NET.Modules.Ai.Persistence;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Ai;
 
@@ -71,7 +72,7 @@ internal static class AiKnowledgeIndexBudgetAssertions
                 var query = services.GetRequiredService<IQueryExecutor>();
                 var ids = services.GetRequiredService<IIdGenerator>();
                 var tasks = Tasks(services);
-                return new(query, tasks, new(query, services.GetRequiredService<ICommandExecutor>(), tasks, ids), services.GetRequiredService<IAiOperationBudgetStore>());
+                return new(query, tasks, new(query, services.GetRequiredService<ICommandExecutor>(), tasks, ids, services.GetRequiredService<IOptions<DatabaseOptions>>()), services.GetRequiredService<IAiOperationBudgetStore>());
             }
             async Task<T> Use<T>(Func<AiKnowledgeIndexTaskStore, IAiOperationBudgetStore, IServiceProvider, Task<T>> action)
             {

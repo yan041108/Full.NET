@@ -235,6 +235,21 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_ai_knowledge_active_generation": {
+      "comment": "人工智能knowledge active generation表",
+      "columns": {
+        "ActivatedAtUtc": "Activated At(UTC)",
+        "DocumentId": "文档标识",
+        "Id": "逻辑主键",
+        "IndexTaskId": "Index Task标识",
+        "LeaseToken": "Lease Token",
+        "ManifestHash": "Manifest Hash",
+        "PlanHash": "Plan Hash",
+        "ReceiptHash": "Receipt Hash",
+        "ReceiptJson": "Receipt(JSON)",
+        "VersionId": "版本标识"
+      }
+    },
     "fn_ai_knowledge_base": {
       "comment": "私有知识库目录及模型处理审批",
       "columns": {

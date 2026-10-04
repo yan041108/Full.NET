@@ -97,29 +97,34 @@ internal sealed class AiKnowledgeIndexVectorStore(IQueryExecutor query, ICommand
 
     /// <summary>核对完整期望集合及全部载荷；只证明最终 SQL 读取判定点，不授予可缓存的激活资格。</summary>
     internal async Task<bool> MatchesWholePlanAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken,
+        AiKnowledgeIndexTextManifest manifest, CancellationToken token) =>
+        await ReadWholePlanProofAsync(binding, taskId, leaseToken, manifest, token).ConfigureAwait(false) is not null;
+
+    /// <summary>冻结已逐批验证的来源、会话及回执；消费者提交前仍须在持锁事务中复核。</summary>
+    internal async Task<AiKnowledgeIndexGenerationProof?> ReadWholePlanProofAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken,
         AiKnowledgeIndexTextManifest manifest, CancellationToken token)
     {
         NoTransaction(); _ = tasks.HeldParameters(binding, taskId, leaseToken, token); ArgumentNullException.ThrowIfNull(manifest);
-        if (manifest.Batches.Count is < 1 or > 2048 || manifest.Summary.BatchCount != manifest.Batches.Count) return false;
+        if (manifest.Batches.Count is < 1 or > 2048 || manifest.Summary.BatchCount != manifest.Batches.Count) return null;
         var state = await CurrentAsync(binding, taskId, leaseToken, null, null, token).ConfigureAwait(false);
-        if (state is null || !MatchesIdentity(manifest.Identity, binding, state)) return false;
+        if (state is null || !MatchesIdentity(manifest.Identity, binding, state)) return null;
         var before = await ReadReceiptsAsync(binding, state, manifest.Batches.Count, token).ConfigureAwait(false);
-        if (before is null || before.Count != manifest.Batches.Count) return false;
+        if (before is null || before.Count != manifest.Batches.Count) return null;
         for (var ordinal = 0; ordinal < before.Count; ordinal++)
         {
             token.ThrowIfCancellationRequested();
-            if (before[ordinal].BatchOrdinal != ordinal || before[ordinal].Id == Guid.Empty) return false;
+            if (before[ordinal].BatchOrdinal != ordinal || before[ordinal].Id == Guid.Empty) return null;
             // 每次只物化一批，不累积整份文档的向量；损坏派生数据拒绝，基础设施与取消继续传播。
             try
             {
                 var row = await ReadAsync(binding, taskId, leaseToken, ordinal, state.Source, state.Session, token).ConfigureAwait(false);
-                if (row is null || Receipt(row) != before[ordinal] || !MatchesBatch(manifest, ordinal, row, token)) return false;
+                if (row is null || Receipt(row) != before[ordinal] || !MatchesBatch(manifest, ordinal, row, token)) return null;
             }
-            catch (InvalidDataException) { return false; }
+            catch (InvalidDataException) { return null; }
         }
         // 复核已检查批次的载荷与账本指纹，防止检查末批时首批被删除或替换；回执不含正文。
         var after = await ReadReceiptsAsync(binding, state, manifest.Batches.Count, token).ConfigureAwait(false);
-        return after is not null && before.SequenceEqual(after);
+        return after is not null && before.SequenceEqual(after) ? new(state.Source, state.Session, after) : null;
     }
 
     private async Task<IReadOnlyList<AiKnowledgeIndexVectorReceiptRecord>?> ReadReceiptsAsync(AiKnowledgeIndexTaskBinding binding,
