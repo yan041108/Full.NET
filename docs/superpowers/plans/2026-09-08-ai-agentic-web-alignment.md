@@ -16,7 +16,7 @@
 - 本轮交付 R02：冻结中文合成语料、测试项目内离线评分器、人工参考结果、可重放报告入口及对应失败回归。R02 离线基线已本地验证；真实检索/模型端到端基线明确为未测，随 R06 接入。
 - R02 已提交 `4a748409af6fcddd23b441a182ee3e7e8fe2b47f`。随后交付 R03 独立选型实验及 [ADR-0013](../../architecture/adr/ADR-0013-ai-retrieval-provider.md)：首版采用双库存派生向量、SQL 先过滤、有界精确余弦；Qdrant 保留候选，PdfPig 0.1.16 作为 R05 文本 PDF 接入候选。没有新增生产依赖或功能开关。
 - 实施基线：分支 `codex/foundation-acceptance-20260926`，HEAD `a7a68776818731703f1ebc11bc529f2746df59e1`，任务快照 `ai-rag-evaluation-r02`。保留原有日志文档、code-wiki 与语言资源改动。
-- R04 的目录、模型版本审批、用户/角色/机构两层授权、文件版本与导入恢复已按 R04a、R04b1–R04b6 分项本地验收，并于 2026-10-04 完成收尾核对。R05a 有界 TXT/Markdown 解析基础已本地验收；后续继续 Token 预算分块、PDF 隔离解析与索引 Worker。R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
+- R04 的目录、模型版本审批、用户/角色/机构两层授权、文件版本与导入恢复已按 R04a、R04b1–R04b6 分项本地验收，并于 2026-10-04 完成收尾核对。R05a 有界 TXT/Markdown 解析基础与 R05b 有界 Token 分块核心已本地验收；后续继续真实模型词表绑定、标题/段落/表格语义策略、PDF 隔离解析与索引 Worker。R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
 
 ### 2026-09-27 当前摘要（替代下方历史状态中的未实施判断）
 
@@ -797,6 +797,19 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - `pnpm test:integration:affected:plan -- --snapshot ai-knowledge-text-parser-r05a --phase slice` 选择完整 Ai 与 integration-matrix。`node artifacts/r05a/run-affected.mjs` 通过仓库选择器合并完整 Ai 过滤器，54/54、零失败/跳过、退出码 0，23m 00s；`node artifacts/r05a/verify.mjs` 核对正式 TRX 的全部 UID/FQN 与冻结集合一致，解析器/测试/矩阵及最终程序集摘要一致，Unit/Integration 的 Ai 模块副本与生产 DLL 摘要相同。TRX 有 1 项超长捕获文本被平台按字段上限截断，不影响身份和通过结果；原始日志、TRX、摘要与验收清单保存在忽略目录 `artifacts/r05a/` 及同前缀日志。
   - `pnpm test:integration:tooling` 54/54、`pnpm test:governance` 57/57、`pnpm test:naming` 33/33，均零失败/跳过、退出码 0；`pnpm test:integration:partitions` 实际发现 1138 项，无遗漏或重复，此为发现而非全量 Integration 执行。只读安全审查未发现 P1/P2；本项新类型仅由 Unit 消费，未改 Host.Api/Worker 的运行时注册和可达路径。
   - 本地 i7-12700H（14 核/20 线程）、64 GB Windows、SDK 10.0.401、两个测试 worker，原有五个容器保持运行。尚未接入 Worker 或执行新解析器的正式 Linux Native AOT 运行，本项 AOT 证据仅为分析器与架构检查；PDF 进程隔离、模型 Token 预算、分块/Embedding/索引及 ready 推进仍待后续 R05。无新增第三方分发资源；完整 RAG 与 `Capacity-not-verified` 保持开放。
+
+- [x] R05b：有界 Token 分块核心，基线 `8943215f`、快照 `ai-knowledge-token-chunking-r05b`。新增 `Knowledge/AiKnowledgeTextChunker.cs` 与 `tests/Full.NET.UnitTests/Ai/AiKnowledgeChunkingTests.cs`，复用现有依赖树中的 `Microsoft.ML.Tokenizers 2.0.0`，不引入词表资源、模型默认映射、第三方版本或生产入口。内部方法显式接受已核准的 `TiktokenTokenizer` 及其版本，后续 Worker 必须绑定真实模型/词表并完成匹配验收；不能用字符数替代 Token 或把夹具词表用于生产。
+  - [x] 用真实 BPE 夹具先建立失败行为断言，再实现 `Chunk(AiKnowledgeParsedText, TiktokenTokenizer, tokenizerVersion, AiKnowledgeChunkOptions, CancellationToken)`。每块记录原文 UTF-16 区间、精确正文 Token 数、序号；集合绑定来源摘要、解析/Tokenizer/分块版本和预算策略。结果仅供模块内部，失败不返回部分分块。
+  - [x] 约束每块 1–4096 Token、重叠 0–256 且不超过每块预算的四分之一、最多 4096 块及最多 4 Mi 总 Token；单次 Tokenizer 输入最多 32768 UTF-16 单元，正文累计最多 6 Mi UTF-16 单元。优先窗口内后半段的换行边界，保护 surrogate pair 与 CRLF，逐块重新计数；整窗索引失效时最多实测 128 个完整前缀，不根据首字符计数推断更长前缀计数，搜索预算耗尽单独失败。拒绝无合法有界前缀、块数/总 Token/总正文超限；重叠只取不超过预算的原文后缀，保证覆盖和前进。
+  - [x] 保留中文、emoji、组合字符、Markdown 标题/表格/代码和原始换行；取消在 Tokenizer 调用前后及迭代间传播。Tokenization 不归一化原文，拒绝带 Normalizer 或特殊控制 Token 映射的 Tokenizer，正文不得解释为控制 Token。Tokenizer 不响应调用中取消的事实不能被报告为可强制终止；可信词表与有界窗口是此基础的调用约束。
+  - [x] 运行 RED/GREEN、完整 Ai Unit、Ai/AOT 架构与分析器、选择器完整 Ai slice、工具/治理及矩阵发现核对，按实际身份维护矩阵。正式模型词表匹配、标题/段落结构策略和长表格表头续接、PDF 隔离及 Worker/索引/ready 均保持开放；核对 diff/status 后在 main 独立提交。
+
+  R05b 本地证据（2026-10-04）：
+  - RED 先证明分块器缺失（1 项失败），类型桩上的 41 个行为身份为 33 失败、8 通过，退出码 2；初版实现 41/41 通过。只读审查再发现 BPE 整窗索引可跨 UTF-8 字节，且独立前缀 Token 数不单调；`aé` 回归 RED 为 1 项失败，`éaéb` 与超出 128 次完整前缀探测的回归 RED 为 2 项失败，均退出码 2。按有界逐前缀实测修正后，最终 `dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --filter 'FullyQualifiedName~AiKnowledgeChunkingTests' --minimum-expected-tests 44 --timeout 3m --no-ansi --progress off --report-trx --report-trx-filename token-chunker-focused-final.trx --results-directory artifacts/r05b/focused-final` 为 44/44、零失败/跳过、退出码 0；搜索未覆盖完整窗口时明确返回 `BoundarySearchLimitExceeded`，不误报无合法分块。
+  - `pnpm test:aot:analyzers` 通过，零警告/错误；随后 `dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj -c Release --nologo` 恢复并构建完整 JIT 图，Unit/Architecture 用 `dotnet build <project> -c Release --nologo -p:BuildProjectReferences=false` 复用已恢复依赖，三项均零警告/错误、退出码 0。`pnpm test:dotnet:unit -- --selection ai-module --no-build` 506/506；`pnpm test:dotnet:architecture -- --selection ai-agentic-boundaries --no-build` 6/6，`pnpm test:dotnet:architecture -- --selection api-native-aot --no-build` 实际 73/73，均零失败/跳过、退出码 0。未运行全量 Architecture 或全量 Unit；Unit JSON 实际发现 3975 项，其中 Ai 506、新增分块 44，矩阵按实际身份增加 44，不把发现当作执行通过。
+  - `pnpm test:integration:tooling` 54/54、`pnpm test:governance` 57/57、`pnpm test:naming` 33/33，均零失败/跳过、退出码 0；`pnpm test:integration:partitions` 实际发现 1138 项，无遗漏或重复，属于发现核对而非全量 Integration 执行。
+  - `pnpm test:integration:affected:plan -- --snapshot ai-knowledge-token-chunking-r05b --phase slice` 选择完整 Ai 与 integration-matrix；`node artifacts/r05b/run-affected.mjs` 使用仓库选择器发现并冻结完整 Ai 的 54 个 UID/FQN，54/54、零失败/跳过、退出码 0，21m 45s。`node artifacts/r05b/verify.mjs` 核对正式 TRX 全部身份和七个源码/测试/矩阵/最终 JIT 程序集摘要一致；聚焦正式 TRX 的 44 个身份也与当前发现集合一致，Unit/Integration 的 Ai 模块副本与生产 DLL 摘要相同。平台按字段上限截断了 1 项超长捕获文本，身份和通过结果完整；日志、TRX、冻结摘要及验收清单在忽略目录 `artifacts/r05b/` 及同前缀日志。只读审查的三个 BPE 边界问题均由可失败回归关闭，最终未剩余已确认 P1/P2；审查自身只读，执行证据来自本地命令。
+  - 本地 i7-12700H（14 核/20 线程）、64 GB Windows、SDK 10.0.401、`DOTNET_PROCESSOR_COUNT=2`，原有五个容器保持运行。词表由测试自行构造字节与合并项，无外部词表下载/复制或依赖版本变化；夹具不证明真实 Embedding 模型匹配。本项尚无生产调用者或运行时注册，未执行新分块器的 Linux Native AOT 运行，AOT 证据限于分析器及架构检查。正式模型/词表映射、标题/段落/表格语义策略、PDF 独立进程与 Worker/Embedding/索引/ready 仍开放，完整 RAG 保持 Planned、容量保持 `Capacity-not-verified`。
 
 - [ ] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。
 - [ ] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。
