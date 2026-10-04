@@ -273,6 +273,8 @@ flowchart LR
 
 最终在 Windows x64、Node 24.12.0、.NET 10.0.401、SQL Server 2022 CU14、MySQL 8.4 与 Redis 7.4 上设置 `FULLNET_RUN_TEMPLATE_REAL_STACK=1`、`DOTNET_PROCESSOR_COUNT=2`，执行 `node --throw-deprecation --test --test-concurrency=1 --test-reporter=tap tests/templates/created-app-real-stack.test.mjs`，2/2 通过、零失败、零跳过、退出 0，总耗时 1267051.2854 ms；SQL Server 715501.3215 ms、MySQL 549625.2024 ms。两份冻结清单确认同一源码；每库五类普通账号浏览器报告均为本次新结果且 completed=true，贯通生成 CRUD、精确权限、跨租户拒绝、运行时 OpenAPI 与 Vue。模块人工扩展、六受管产物冲突拒绝及 Vue 再生成保护通过；真实数据库升级、重复迁移、部分 DDL 状态恢复、旧数据保留和新旧请求兼容通过。每库留存 77 份本次 JSON 报告，完整日志及冻结清单位于 `.tmp/f02-browser-route-race-docker-restored*`；测试自有进程、容器和临时应用已清理。同一源码的主 CI、API Native AOT 与 Worker Native AOT 均成功，CI 作为补充回归证据。依本地验收规则关闭上述生成 CRUD 子项；诊断完整覆盖及教程逐步实走仍待收口，F02 整项、历史未定位编译故障和 Capacity-not-verified 保持待办。此次计时仅为该双库功能验收，不是容量或产品开发耗时承诺。
 
+2026-10-04 教程入口实走增量（基线 `70d8a163`，修复 `0957ee6232cd4ccebf3f90847d77955675baa4d3`）：新建应用实际执行教程的 `pnpm run diagnose:development` 返回 `ERR_PNPM_NO_SCRIPT`；模板虽声明脚本，组包复制冻结工作区 `package.json` 时覆盖了声明。不能直接改写包内前端骨架，否则创建器摘要门禁正确拒绝。现于包完整性验证后、应用发布前，在应用暂存目录叠加两个固定诊断入口；包、受管框架、工作区配置及锁文件保持，已有应用须显式采纳自有脚本。真实组包与验证创建器回归先因新应用缺入口失败，修复后相关四组 25/25、零跳过；另有根脚本篡改拒绝用例，不放宽摘要检查。新冻结 SQL Server / Minimal 应用实走开发与生产诊断、预览、生成、重复和冲突六条 CLI：退出码依次 0/1/0/0/0/2，14 产物、人工文件、配置与框架摘要均符合预期，合计 40.214 秒，仅为六条命令范围。教程补齐可复制的应用创建参数与 Schema，并统一独立应用 CLI 路径；完整诊断、第五步后的接入/迁移/运行教程、F02 整项及 Capacity-not-verified 继续待办。原始新应用及结果保留 `.tmp/f02-tutorial-walk-0957ee62/`，首次失败与回归日志保留 `.tmp/f02-tutorial-*.log`。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。

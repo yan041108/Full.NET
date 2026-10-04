@@ -1,12 +1,25 @@
 # 创建首个 CRUD 与环境诊断
 
-本教程记录从 Full.NET 应用模板创建新项目后的只读诊断入口，以及 CRUD 生成与接入步骤。独立应用的完整生成 CRUD、OpenAPI、Vue、跨租户拒绝与再生成保护仍按总计划 F02 验收，不能把模板字典 CRUD 冒烟作为生成业务验收。
+本教程提供 Minimal 独立应用的只读诊断与最小租户 CRUD 示例。代表性生成 CRUD 的数据库、OpenAPI、Vue、精确权限、跨租户拒绝、再生成及升级恢复已完成本地双库验收，见[总计划 F02](../superpowers/plans/2026-09-16-foundation-productization.md#f02环境诊断与生成一个真实-crud)。完整诊断覆盖与教程全部接入步骤的逐步实走仍待收口；下面的生成步骤不等于业务已经上线。
 
 ## 前置条件
 
 - 已安装 .NET 10 SDK（`dotnet --version` 可执行）
+- 已安装 Node.js 24 与模板 `packageManager` 指定的 pnpm 10.26.0，创建器和诊断脚本需要这两个入口可执行
 - 独立应用根目录包含 `fullnet-app.json`、`framework-manifest.json`、`src/<name>.Host.Api`、`src/<name>.Host.Worker`、`src/<name>.Host.Migrator` 与 `framework/fullnet/`；`src/Composition`、`src/Hosts`、`src/Modules` 是原框架仓库的布局
 - `appsettings.json` 已配置 `FullNet:Modules:Preset`（如 `minimal` 或 `platform`）
+
+## 从空目录创建示例应用
+
+先在原 Full.NET 仓库根目录执行以下命令。输出目录必须不存在，包目录必须为空；再次演练请选用新的目录，不覆盖已有应用。
+
+```bash
+node scripts/templates/build-app-template.mjs --output artifacts/first-crud/package
+node artifacts/first-crud/package/.fullnet-tools/create-app.mjs --output artifacts/first-crud/Demo --name Demo --owner-key acme --database sqlserver --preset minimal --http-port 5198
+cd artifacts/first-crud/Demo
+```
+
+后续命令全部从新应用根目录执行。此例固定应用名 `Demo` 与 OwnerKey `acme`，下方 Schema 与接入路径使用同一组名称；MySQL 示例把创建参数改为 `--database mysql`。使用验证过的创建器后，应用 `package.json` 包含两个 diagnose 脚本；它们使用随应用分发的 CLI，不依赖原仓库的工作目录。已有应用不会因框架源码升级自动获得应用自有脚本，可使用下方等价 CLI 命令，并显式采纳这两个入口。
 
 ## 第一步：运行 diagnose
 
@@ -47,28 +60,69 @@ JSON 中的非空对象或数组展平为子键，不会自动覆盖较低优先
 
 原框架仓库的示例主从单据见 [`samples/enterprise-request/schema.json`](../../samples/enterprise-request/schema.json)（`master.detail` 场景：申请头 + 明细行）。应用应准备自己的 `schema.json`，冻结项目 OwnerKey，并显式声明字段、精确权限与 `dataScope`；不能直接沿用原仓库的集成目标路径。
 
+为上述 `Demo` 示例，在应用根保存以下内容为 `schema.json`。产品使用租户上下文、应用端 UUID v7、版本并发检查与服务端创建审计；`TenantId` 和审计字段不是客户端可写字段。硬删除是此样例的显式策略，业务项目应先确定自己的删除语义。
+
+```json
+{
+  "ownerKey": "acme",
+  "moduleKey": "catalog",
+  "entityKey": "product",
+  "databaseTableName": "acme_catalog_product",
+  "rootNamespace": "Demo.Modules.Catalog",
+  "clrTypeName": "Product",
+  "apiResourceName": "products",
+  "permissionResourceName": "products",
+  "dataScope": "tenant.required",
+  "entityCapabilities": {
+    "deleteMode": "hard.delete",
+    "hasCreatedAudit": true,
+    "hasUpdatedAudit": false,
+    "hasDeletedAudit": false,
+    "hasVersion": true,
+    "ownershipMode": "none"
+  },
+  "columns": [
+    { "databaseName": "Id", "clrPropertyName": "Id", "jsonPropertyName": "id", "scalarType": "Uuid" },
+    { "databaseName": "TenantId", "clrPropertyName": "TenantId", "jsonPropertyName": "tenantId", "scalarType": "Uuid" },
+    { "databaseName": "Name", "clrPropertyName": "Name", "jsonPropertyName": "name", "scalarType": "String", "maxLength": 200 },
+    { "databaseName": "Version", "clrPropertyName": "Version", "jsonPropertyName": "version", "scalarType": "Int64" },
+    { "databaseName": "CreatedAtUtc", "clrPropertyName": "CreatedAtUtc", "jsonPropertyName": "createdAtUtc", "scalarType": "DateTimeUtc" },
+    { "databaseName": "CreatedById", "clrPropertyName": "CreatedById", "jsonPropertyName": "createdById", "scalarType": "Uuid" }
+  ]
+}
+```
+
 ## 第三步：预览生成计划
 
 ```bash
-dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- \
-  --schema schema.json \
-  --workspace .
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- --schema schema.json --workspace .
 ```
 
-输出 `Create`/`Update`/`Unchanged` 行，默认不写盘。
+输出 `Create`/`Update`/`Unchanged` 行，默认不写盘。空应用中的上述 Schema 应产生 14 个 `Create`，包含后端、Vue、OpenAPI 与两库迁移草案；此时不应出现 `backend/`、`clients/` 或 `.fullnet/codegeneration-manifest.json`。
 
 ## 第四步：应用生成
 
 确认计划后追加 `--apply`：
 
 ```bash
-dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- \
-  --schema schema.json \
-  --workspace . \
-  --apply
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- --schema schema.json --workspace . --apply
 ```
 
 相同输入重复执行应报告 `Unchanged`；未登记的人工文件应保留，人工修改的受管产物应报告冲突并拒绝覆盖。生成产物落盘不等于模块已接入宿主或可运行。
+
+可以在新应用中用下面的 PowerShell 步骤验证保护边界。第一遍生成后再添加人工文件，重复生成应仍报告 14 个 `Unchanged`，且人工文件内容保持。
+
+```powershell
+'// 人工业务扩展，重复生成必须保留。' | Set-Content -Encoding utf8 backend/Product.manual.cs
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- --schema schema.json --workspace . --apply
+Copy-Item backend/ProductSql.g.cs backend/ProductSql.before-conflict.txt
+Add-Content backend/ProductSql.g.cs '// 人工修改，必须拒绝覆盖。'
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- --schema schema.json --workspace . --apply
+```
+
+最后一条命令应返回退出码 2，并精确报告 `Conflict backend/ProductSql.g.cs`；修改后的 SQL、人工文件与生成清单均应保持，其他产物也不能被部分更新。只有确认备份属于本次演练、期间未再修改 SQL，才能用 `Copy-Item backend/ProductSql.before-conflict.txt backend/ProductSql.g.cs` 撤销本次测试注释，再继续接入；业务修改应保留并人工评审，不应删除生成清单绕过冲突。
+
+2026-10-04 已用修复提交 `0957ee6232cd4ccebf3f90847d77955675baa4d3` 创建新的 SQL Server / Minimal 应用，保存本文 Schema 后执行上述入口。开发诊断返回 0，并报告连接与三个常见秘密占位；生产诊断对同一占位配置返回 1。预览、生成、重复生成分别返回 0；14 个产物符合预期，人工文件保持，SQL 冲突返回 2，配置与受管框架摘要保持。六条 CLI 命令合计 40.214 秒，不含组包、创建、下载、宿主接入、迁移或启动耗时；它不是完整教程或冷启动时长承诺。原始结果位于 `.tmp/f02-tutorial-walk-0957ee62/results/`。第五步以后的应用接线、业务迁移和运行教程仍须独立实走，不因先前自动化样例通过而勾选全部教程完成。
 
 独立应用的模板验收会用应用包内的 CLI 检查租户 CRUD 预览不写入产物、生成后相同输入为 `Unchanged`、人工文件保留，以及修改受管 SQL 后返回冲突且保持产物与清单字节。每阶段日志保存在 `.tmp/template-real-stack/application-crud/` 并由 Actions 上传；这项生成与保护检查不代替下方的模块接入、业务双库运行、权限或页面验收。
 
@@ -104,10 +158,10 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 完整编排入口 `apply-host-integration` 依次执行后端、模块入口、Composition、可选 Vue 与授权贡献者接入。目标 JSON 必须额外显式提供 `authorizationContributorPath`（应用拥有的现有 C# 文件相对路径）；Contributor 的接口实现、DI 注册与所需 using 由应用声明。该字段仅用于完整编排命令，其他逐阶段命令仍拒绝它，包括显式 `null`，避免忽略授权目标。
 
 ```bash
-dotnet exec src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.CodeGeneration.Cli.dll apply-host-integration --schema <schema.json> --repository <应用根目录> --target <host-target.json>
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- apply-host-integration --schema schema.json --repository . --target host-target.json
 ```
 
-上例 CLI 路径适用于仓库布局；独立模板应用使用其自带 CLI 路径。命令成功报告 `Applied HostIntegration`，输入无效返回 64，前置或受控冲突返回 2。共享编排分阶段提交，后续失败不代表前序步骤未写入，也不是全链事务；已有恢复/授权暂存材料先拒绝接入，需要人工审查。授权候选写入前复用隔离模块编译，只在临时投影中替换 Contributor；编译失败或取消时不提交授权文件，编译期间人工漂移仍由提交复核拒绝。应用 Migrator、实际权限注册/无权限及跨租户拒绝仍需 F02 完整运行验收；不得用命令退出 0 替代。
+上例从独立应用根目录执行，要求先准备有效的 `host-target.json`、模块项目和贡献者；它不是只靠前四步即可运行的完整接入示例。命令成功报告 `Applied HostIntegration`，输入无效返回 64，前置或受控冲突返回 2。共享编排分阶段提交，后续失败不代表前序步骤未写入，也不是全链事务；已有恢复/授权暂存材料先拒绝接入，需要人工审查。授权候选写入前复用隔离模块编译，只在临时投影中替换 Contributor；编译失败或取消时不提交授权文件，编译期间人工漂移仍由提交复核拒绝。代表性应用的完整运行验收见本地双库入口；当前应用仍须执行自己的 Migrator、实际权限及跨租户拒绝验证，不得用命令退出 0 替代。
 
 `TenantRequired` Schema 的生成权限使用 `AuthorizationScope.Tenant`；`HostOnly`、`Global` 保留 `Host` 权限范围，全局数据访问不自动授予租户权限。升级前已接入的 Host 授权块与新租户片段不一致时会保持原文并拒绝自动改写，应先人工审查作用域并完成实际授权验收。
 
