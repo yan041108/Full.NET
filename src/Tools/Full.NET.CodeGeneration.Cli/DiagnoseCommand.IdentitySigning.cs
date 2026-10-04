@@ -90,6 +90,16 @@ internal static partial class DiagnoseCommand
         JsonElement root, JsonDocument? profileSettings, string workspacePath, string profile,
         string sectionPath = "Identity")
     {
+        var prefix = sectionPath + ":SigningKeys:";
+        return ReadIdentityConfigurationPaths(root, profileSettings, workspacePath, profile)
+            .Where(path => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .Select(path => path[prefix.Length..].Split(':')[0])
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IReadOnlyList<string> ReadIdentityConfigurationPaths(
+        JsonElement root, JsonDocument? profileSettings, string workspacePath, string profile)
+    {
         // 宿主 GetChildren 以高优先级提供程序的键名拼写合并重复子键；值仍逐叶覆盖，空父节点不删除子键。
         var paths = new List<string>();
         foreach (System.Collections.DictionaryEntry entry in Environment.GetEnvironmentVariables())
@@ -107,9 +117,6 @@ internal static partial class DiagnoseCommand
         if (profileSettings is not null)
             paths.AddRange(EnumerateConfigurationLeaves(profileSettings.RootElement, null).Select(leaf => leaf.Path));
         paths.AddRange(EnumerateConfigurationLeaves(root, null).Select(leaf => leaf.Path));
-        var prefix = sectionPath + ":SigningKeys:";
-        return paths.Where(path => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            .Select(path => path[prefix.Length..].Split(':')[0])
-            .Distinct(StringComparer.OrdinalIgnoreCase);
+        return paths;
     }
 }

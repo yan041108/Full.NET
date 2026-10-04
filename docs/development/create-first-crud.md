@@ -66,6 +66,8 @@ OIDC 默认关闭，诊断报告 `DIAG_OIDC_DISABLED ok`；关闭后不要求其
 
 启用 OIDC 后，Issuer 必须是无用户凭据的 HTTP(S) 绝对地址；缺失或格式错误在 Development/Production 均报告 `DIAG_OIDC_ISSUER_INVALID error`，通过仅报告 `DIAG_OIDC_ISSUER_CONFIGURED ok`，不会访问或回显地址。可选的 `EncryptionKeyBase64` 保留现有空值语义；非空时须为解码后恰好 32 字节的 Base64，否则报告 `DIAG_OIDC_ENCRYPTION_INVALID error`，通过为 `DIAG_OIDC_ENCRYPTION_CONFIGURED ok`。这些结果仅表示配置格式通过，不认证密钥强度、多实例一致性、客户端注册、真实 PEM 或完整协议启动。关闭 OIDC 时不检查这两项；来源覆盖、生产忽略开发秘密、只读与脱敏边界保持。
 
+启用 OIDC 后还检查固定客户端注册：没有可绑定的客户端、ClientId 为空或按 Ordinal 重复、RedirectUris 缺失，或回调地址含通配符、用户凭据、片段及去掉尾斜线后重复，均报告 `DIAG_OIDC_CLIENTS_INVALID error`，Development/Production 一致。通过报告 `DIAG_OIDC_CLIENTS_CONFIGURED ok`；HTTP(S) 绝对回调的查询参数仍按现有宿主规则允许，PostLogoutRedirectUris 可为空。配置按前述四层来源逐叶合并；空父节点不删除低层子键，数组中的不可绑定项按 .NET Binder 行为处理。关闭 OIDC 不检查客户端；诊断不回显 ClientId、回调地址或 ClientSecret，不认证客户端秘密、其他选项、地址可达性或完整协议启动。
+
 ## 第二步：准备 CRUD Schema
 
 原框架仓库的示例主从单据见 [`samples/enterprise-request/schema.json`](../../samples/enterprise-request/schema.json)（`master.detail` 场景：申请头 + 明细行）。应用应准备自己的 `schema.json`，冻结项目 OwnerKey，并显式声明字段、精确权限与 `dataScope`；不能直接沿用原仓库的集成目标路径。

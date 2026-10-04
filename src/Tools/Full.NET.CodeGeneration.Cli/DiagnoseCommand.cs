@@ -311,6 +311,7 @@ internal static partial class DiagnoseCommand
             CheckIdentitySigning(root, profileSettings, workspacePath, profile, findings);
             CheckOidcSigning(root, profileSettings, workspacePath, profile, findings);
             CheckOidcIssuerAndEncryption(root, profileSettings, workspacePath, profile, findings);
+            CheckOidcClients(root, profileSettings, workspacePath, profile, findings);
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException or FormatException
             or ArgumentException or IOException or UnauthorizedAccessException)

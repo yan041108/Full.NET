@@ -445,6 +445,176 @@ public sealed class DiagnoseIdentitySigningTests
         await AssertDiagnostic(fixture, "production", field == "Issuer" ? "DIAG_OIDC_ISSUER_CONFIGURED ok" : "DIAG_OIDC_ENCRYPTION_CONFIGURED ok");
     }
 
+    [TestMethod]
+    [DataRow("null")]
+    [DataRow("[]")]
+    [DataRow("{}")]
+    [DataRow("false")]
+    [DataRow("42")]
+    [DataRow("\"client-signing-probe\"")]
+    [DataRow("[null]")]
+    [DataRow("[{}]")]
+    [DataRow("[\"client-signing-probe\"]")]
+    [DataRow("[{\"ClientId\":\"client-signing-probe\"}]")]
+    [DataRow("[{\"RedirectUris\":[\"https://client.example.invalid/callback\"]}]")]
+    [DataRow("[{\"ClientId\":\"client-signing-probe\",\"RedirectUris\":[\"https://client.example.invalid/callback\"]}]")]
+    [DataRow("[null,{\"ClientId\":\"client-signing-probe\",\"RedirectUris\":[\"https://client.example.invalid/callback\"]}]")]
+    [DataRow("[\"unused-signing-probe\",{\"ClientId\":\"client-signing-probe\",\"RedirectUris\":[\"https://client.example.invalid/callback\"]}]")]
+    public async Task Oidc_client_collection_diagnosis_matches_real_binding_and_validation(string clients)
+    {
+        using var fixture = new Workspace(ReadyOidcIdentity("{\"Clients\":" + clients + "}"));
+        // 集合中的 null、标量由真实 Binder 决定是否保留；不把 JSON 形状猜测当作宿主行为。
+        var valid = RuntimeOidcValid(fixture.Configuration, "production");
+        await AssertDiagnostic(fixture, "production", valid ? "DIAG_OIDC_CLIENTS_CONFIGURED ok" : "DIAG_OIDC_CLIENTS_INVALID error");
+    }
+
+    [TestMethod]
+    [DataRow("RedirectUris", "null", false)]
+    [DataRow("RedirectUris", "[]", false)]
+    [DataRow("RedirectUris", "[null]", false)]
+    [DataRow("RedirectUris", "[\"/callback-signing-probe\"]", false)]
+    [DataRow("RedirectUris", "[\"file:///callback-signing-probe\"]", false)]
+    [DataRow("RedirectUris", "[\"https://*.example.invalid/callback-signing-probe\"]", false)]
+    [DataRow("RedirectUris", "[\"https://user:private-signing-probe@client.example.invalid/callback\"]", false)]
+    [DataRow("RedirectUris", "[\"https://client.example.invalid/callback#fragment-signing-probe\"]", false)]
+    [DataRow("RedirectUris", "[\"https://client.example.invalid/callback\",\"https://client.example.invalid/callback/\"]", false)]
+    [DataRow("RedirectUris", "[\"http://localhost:25212/callback?code=signing-probe\"]", true)]
+    [DataRow("PostLogoutRedirectUris", "null", true)]
+    [DataRow("PostLogoutRedirectUris", "[]", true)]
+    [DataRow("PostLogoutRedirectUris", "[\"https://client.example.invalid/logout\"]", true)]
+    [DataRow("PostLogoutRedirectUris", "[\"https://client.example.invalid/logout#fragment-signing-probe\"]", false)]
+    [DataRow("PostLogoutRedirectUris", "[\"https://client.example.invalid/logout\",\"https://client.example.invalid/logout/\"]", false)]
+    [DataRow("ClientId", "null", false)]
+    [DataRow("ClientId", "\" \"", false)]
+    [DataRow("ClientId", "42", true)]
+    [DataRow("ClientId", "false", true)]
+    public async Task Oidc_client_fields_follow_existing_uri_policy(string field, string value, bool expected)
+    {
+        var client = JsonNode.Parse("""{"ClientId":"client-signing-probe","ClientSecret":"private-signing-probe","RedirectUris":["https://client.example.invalid/callback"]}""")!.AsObject();
+        client[field] = JsonNode.Parse(value);
+        using var fixture = new Workspace(ReadyOidcIdentity(new JsonObject { ["Clients"] = new JsonArray(client) }.ToJsonString()));
+        Assert.AreEqual(expected, RuntimeOidcValid(fixture.Configuration, "development"));
+        await AssertDiagnostic(fixture, "development", expected ? "DIAG_OIDC_CLIENTS_CONFIGURED ok" : "DIAG_OIDC_CLIENTS_INVALID error");
+    }
+
+    [TestMethod]
+    [DataRow("client-signing-probe", false)]
+    [DataRow("CLIENT-SIGNING-PROBE", true)]
+    public async Task Oidc_client_ids_keep_ordinal_uniqueness(string secondId, bool expected)
+    {
+        var client = JsonNode.Parse("""{"ClientId":"client-signing-probe","RedirectUris":["https://client.example.invalid/callback"]}""")!.AsObject();
+        var other = client.DeepClone();
+        other["ClientId"] = secondId;
+        using var fixture = new Workspace(ReadyOidcIdentity(new JsonObject { ["Clients"] = new JsonArray(client, other) }.ToJsonString()));
+        Assert.AreEqual(expected, RuntimeOidcValid(fixture.Configuration, "production"));
+        await AssertDiagnostic(fixture, "production", expected ? "DIAG_OIDC_CLIENTS_CONFIGURED ok" : "DIAG_OIDC_CLIENTS_INVALID error");
+    }
+
+    [TestMethod]
+    [DataRow("base", "development")]
+    [DataRow("profile", "development")]
+    [DataRow("secrets", "development")]
+    [DataRow("environment", "development")]
+    [DataRow("base", "production")]
+    [DataRow("profile", "production")]
+    [DataRow("environment", "production")]
+    public async Task Oidc_clients_follow_host_configuration_sources(string source, string profile)
+    {
+        using var fixture = new Workspace(ReadyOidcIdentity(source == "base" ? "{}" : "{\"Clients\":[]}"));
+        const string overlay = """{"identity:oidc:clients:0:clientid":"client-signing-probe","IDENTITY:OIDC:CLIENTS:0:REDIRECTURIS:0":"https://client.example.invalid/callback"}""";
+        Assert.IsTrue(RuntimeOidcValid(fixture.Configuration, profile, source == "base" ? null : overlay));
+        if (source == "profile") fixture.WriteProfile(profile, overlay);
+        if (source == "secrets") fixture.WriteSecrets(overlay);
+        if (source == "environment")
+            foreach (var entry in JsonSerializer.Deserialize<Dictionary<string, string>>(overlay)!)
+                Environment.SetEnvironmentVariable(entry.Key.Replace(":", "__"), entry.Value);
+        await AssertDiagnostic(fixture, profile, "DIAG_OIDC_CLIENTS_CONFIGURED ok");
+    }
+
+    [TestMethod]
+    [DataRow("ClientId", "\"\"")]
+    [DataRow("ClientId", "null")]
+    [DataRow("entry", "null")]
+    [DataRow("entry", "{}")]
+    [DataRow("collection", "null")]
+    [DataRow("collection", "[]")]
+    public async Task Oidc_client_empty_parent_and_leaf_overrides_match_binder(string field, string value)
+    {
+        using var fixture = new Workspace(ReadyOidcIdentity("{}"));
+        var path = "Identity:Oidc:Clients" + (field == "collection" ? "" : field == "entry" ? ":0" : ":0:" + field);
+        var overlay = new JsonObject { [path] = JsonNode.Parse(value) }.ToJsonString();
+        var valid = RuntimeOidcValid(fixture.Configuration, "development", overlay);
+        fixture.WriteProfile("development", overlay);
+        await AssertDiagnostic(fixture, "development", valid ? "DIAG_OIDC_CLIENTS_CONFIGURED ok" : "DIAG_OIDC_CLIENTS_INVALID error");
+    }
+
+    [TestMethod]
+    [DataRow("profile")]
+    [DataRow("secrets")]
+    [DataRow("environment")]
+    public async Task Oidc_client_invalid_leaf_override_is_not_hidden(string source)
+    {
+        using var fixture = new Workspace(ReadyOidcIdentity("{}"));
+        const string overlay = """{"Identity:Oidc:Clients:0:ClientId":""}""";
+        Assert.IsFalse(RuntimeOidcValid(fixture.Configuration, "development", overlay));
+        if (source == "profile") fixture.WriteProfile("development", overlay);
+        if (source == "secrets") fixture.WriteSecrets(overlay);
+        if (source == "environment")
+        {
+            fixture.WriteSecrets("""{"Identity:Oidc:Clients:0:ClientId":"other-signing-probe"}""");
+            Environment.SetEnvironmentVariable("Identity__Oidc__Clients__0__ClientId", "");
+        }
+        await AssertDiagnostic(fixture, "development", "DIAG_OIDC_CLIENTS_INVALID error");
+    }
+
+    [TestMethod]
+    [DataRow("development")]
+    [DataRow("production")]
+    public async Task Disabled_oidc_does_not_require_clients(string profile)
+    {
+        using var fixture = new Workspace(ReadyOidcIdentity("""{"Enable":false,"Clients":null}"""));
+        Assert.IsTrue(RuntimeOidcValid(fixture.Configuration, profile));
+        await AssertDiagnostic(fixture, profile, "DIAG_OIDC_DISABLED ok", "DIAG_OIDC_CLIENTS_");
+    }
+
+    [TestMethod]
+    public async Task Oidc_clients_production_ignores_development_secrets()
+    {
+        using var fixture = new Workspace(ReadyOidcIdentity("{}"));
+        fixture.WriteSecrets("""{"Identity:Oidc:Clients:0:ClientId":""}""");
+        Assert.IsTrue(RuntimeOidcValid(fixture.Configuration, "production"));
+        await AssertDiagnostic(fixture, "production", "DIAG_OIDC_CLIENTS_CONFIGURED ok");
+    }
+
+    [TestMethod]
+    [DataRow("RedirectUris")]
+    [DataRow("PostLogoutRedirectUris")]
+    public async Task Oidc_uri_array_unbindable_object_items_match_binder(string field)
+    {
+        var client = JsonNode.Parse("""{"ClientId":"client-signing-probe","RedirectUris":["https://client.example.invalid/callback"]}""")!.AsObject();
+        client[field] = JsonNode.Parse("""[{"Other":"invalid-signing-probe"}]""");
+        using var fixture = new Workspace(ReadyOidcIdentity(new JsonObject { ["Clients"] = new JsonArray(client) }.ToJsonString()));
+        var valid = RuntimeOidcValid(fixture.Configuration, "production");
+        await AssertDiagnostic(fixture, "production", valid ? "DIAG_OIDC_CLIENTS_CONFIGURED ok" : "DIAG_OIDC_CLIENTS_INVALID error");
+    }
+
+    [TestMethod]
+    [DataRow("false", false)]
+    [DataRow("\"invalid-signing-probe\"", false)]
+    [DataRow("\"invalid-signing-probe\"", true)]
+    public async Task Oidc_client_unbindable_optional_boolean_follows_array_binding(string value, bool additionalClient)
+    {
+        var client = JsonNode.Parse("""{"ClientId":"client-signing-probe","RedirectUris":["https://client.example.invalid/callback"]}""")!.AsObject();
+        var other = client.DeepClone();
+        other["ClientId"] = "other-signing-probe";
+        client["IsFirstParty"] = JsonNode.Parse(value);
+        var clients = new JsonArray(client);
+        if (additionalClient) clients.Add(other);
+        using var fixture = new Workspace(ReadyOidcIdentity(new JsonObject { ["Clients"] = clients }.ToJsonString()));
+        var valid = RuntimeOidcValid(fixture.Configuration, "production");
+        await AssertDiagnostic(fixture, "production", valid ? "DIAG_OIDC_CLIENTS_CONFIGURED ok" : "DIAG_OIDC_CLIENTS_INVALID error");
+    }
+
     private static string SyntheticEncryptionKey(int bytes) =>
         Convert.ToBase64String(Encoding.UTF8.GetBytes("encryption-signing-probe".PadRight(bytes, 'x')));
 
