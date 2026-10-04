@@ -289,6 +289,14 @@ flowchart LR
 
 同一源码 `0957ee62` 的保留应用已完成前四步、后端/Vue 接线与人工再生成保护、双库迁移恢复及本轮运行；逐阶段实际命令与范围见教程，组合证据 `.tmp/f02-tutorial-composite-0957ee62.json`。依此关闭教程子项；不是同一临时数据库或单次从空目录连续全量重跑，不承诺固定分钟数。MySQL 仅为同一 SQL Server 档案应用的进程覆盖实走；此前生成 CRUD 子项的独立双库档案验收保持。完整配置诊断的两项仍待办，F02 整项未关闭；教程应用 Worker、Native AOT、完整 Unit/Integration、容量未据此通过，Capacity-not-verified 保持，未合并/发布。
 
+2026-10-05 Identity 签名配置诊断（基线 `805b49c730cfa290df8015c307910e39383180b2`，快照 `f02-identity-signing-diagnose-20261005`，行为提交 `00086ce936aae47765777300e4355526fcf785b0`）：对照真实 `IdentityOptionsValidator` 发现 CLI 未检查活动签名配置，独立应用可在 Development 诊断退出 0 后因缺签名密钥无法启动。补齐缺失/占位活动 KeyId、公私钥、KeyId 精确大小写、Development 临时密钥提示与 Production 禁用；两个开关不能绑定为布尔值时明确报错。仍只读、不生成密钥、不回显 KeyId 或凭据，不引入 Identity 运行时依赖；配置项齐全不认证 PEM 格式、密钥配对或完整 Identity Options。
+
+新回归先以正确最低发现门槛得到 27/27 有效 RED；首轮门槛误填 28 的结果另保留，不计通过。扩展至 36 项后，显式 JSON null/空对象布尔绑定两项 RED、其余 34 通过；区分缺键与显式 null 后收口。最终 Windows x64、Node 24.12.0、pnpm 10.26.0、.NET SDK 10.0.401/运行时 10.0.12、DOTNET_PROCESSOR_COUNT=2，`pnpm test:dotnet:unit -- --selection code-generation-realtime` 1249/1249、零失败/跳过、退出 0，Release 构建 31.59 秒、0 警告/0 错误，测试 137.808 秒。覆盖基础/环境 JSON、Development User Secrets 与环境变量、空父节点不抹除子键、生产不读取开发秘密、拼写覆盖、只读与脱敏；已有数据库诊断测试显式关闭无关令牌端点，签名准入由独立真实 Options 对照集覆盖。
+
+影响集选择 CodeGeneration，未缩小范围。首轮复用历史 SQL Server 容器恢复大量历史测试库时 OOMKilled=true、exit137，随后握手失败；停止已失效的自有测试进程，保留失败日志，不计通过。改用 `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-identity-signing-diagnose-20261005`，新 SQL Server 2022 CU14/MySQL 8.0.46 临时容器完整运行 CodeGeneration 41/41、零失败/跳过、退出 0；Release 构建 12.08 秒、0 警告/0 错误，测试 547.121 秒。新容器由测试生命周期清理；未删除历史数据库或修改运行时/SQL。日志及独立保存的 TRX 为 `.tmp/f02-identity-signing-integration-fresh.log`、`.tmp/f02-identity-signing-integration-fresh.trx`，首轮 `.tmp/f02-identity-signing-integration.log`。
+
+从行为提交冻结源码包，各新建 SQL Server 与 MySQL 独立档案应用。`node --throw-deprecation .tmp/f02-signing-created-apps.mjs` 完整退出 0、233.989 秒，两应用各七次随包 `pnpm run diagnose:<profile>` 的预期退出码均通过：开发缺密钥 warning/临时密钥 warning、生产缺密钥 error/临时密钥即使关闭令牌端点仍 error、合成完整配置 ok/空私钥 error/关闭端点 ok。两份档案 Provider 已核对，源码/配置及受管框架摘要保持，输出无合成 KeyId/凭据；未连接数据库、启动 API 或以合成 PEM 认证密码学有效性。结果 `.tmp/f02-signing-apps-00086ce9/result.json`，原七步教程应用继续冻结 `0957ee62`，未替换其受管框架。治理 57/57、零失败/跳过、退出 0；完成前核对任务 diff、分支及干净提交工作区。仅关闭本轮签名配置前提切片，F02 前两项与整项继续待办；未报告全量 Unit/Integration、生成应用 Worker/Native AOT 或容量通过，Capacity-not-verified 保持，未合并/发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
