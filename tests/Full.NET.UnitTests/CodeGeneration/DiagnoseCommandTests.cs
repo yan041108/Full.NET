@@ -72,6 +72,63 @@ public sealed class DiagnoseCommandTests
     }
 
     [TestMethod]
+    [DataRow("// credential-probe comment\n\"Probe\":1", true)]
+    [DataRow("\"Probe\":[1,2,],", true)]
+    [DataRow("/* credential-probe comment */\"Probe\":{\"Value\":1,},", true)]
+    [DataRow("\"credential-probe\":1,\"CREDENTIAL-PROBE\":2", false)]
+    [DataRow("\"Probe\":{\"credential-probe\":1,\"CREDENTIAL-PROBE\":2}", false)]
+    [DataRow("\"Probe:credential-probe\":1,\"probe\":{\"CREDENTIAL-PROBE\":2}", false)]
+    [DataRow("\"Probe\":[1],\"probe:0\":\"credential-probe\"", false)]
+    [DataRow("\"Probe\":{\"Value\":1},\"probe\":{\"value\":\"credential-probe\"}", false)]
+    [DataRow("\"credential-probe\":{},\"CREDENTIAL-PROBE\":1", false)]
+    [DataRow("\"credential-probe\":[],\"CREDENTIAL-PROBE\":1", false)]
+    [DataRow("\"credential-probe\":1,\"CREDENTIAL-PROBE\":{}", true)]
+    [DataRow("\"credential-probe\":1,\"CREDENTIAL-PROBE\":[]", true)]
+    [DataRow("\"Probe\":{\"One\":1},\"probe\":{\"Two\":2}", true)]
+    [DataRow("\"Probe\":{\"\":1},\"probe:\":\"credential-probe\"", false)]
+    public async Task Base_json_matches_configuration_loader_syntax_and_path_validation(string fragment, bool valid)
+    {
+        var configuration = """
+            {"Database":{"Provider":"MySql","MySqlGuidStorageMode":"Binary16"},
+            "ConnectionStrings":{"fullnet":"Server=example.invalid;Password=credential-probe"},
+            """ + fragment + "}";
+        // 先由实际 JSON 配置提供程序判定语法和路径冲突；高优先级有效值不能修复坏文件。
+        if (valid)
+        {
+            Assert.IsTrue(RuntimeDatabaseOptionsAreValid(configuration, "Production"));
+        }
+        else
+        {
+            Assert.ThrowsExactly<FormatException>(() => new ConfigurationBuilder()
+                .AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration))).Build());
+        }
+        using var fixture = new DiagnoseWorkspace(configuration);
+        var before = File.ReadAllBytes(fixture.Settings);
+        var environmentName = "Database__ConnectionString";
+        var originalEnvironment = Environment.GetEnvironmentVariable(environmentName);
+        try
+        {
+            Environment.SetEnvironmentVariable(environmentName, "Server=override.invalid;Password=credential-probe");
+            foreach (var profile in new[] { "development", "production" })
+            {
+                using var output = new StringWriter();
+                using var error = new StringWriter();
+                var result = await CodeGenerationCli.RunAsync(
+                    ["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
+                Assert.AreEqual(valid ? 0 : 1, result, output.ToString());
+                StringAssert.Contains(output.ToString(), valid
+                    ? "DIAG_CONNECTION_CONFIGURED ok" : "DIAG_APPSETTINGS_INVALID error");
+                Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.OrdinalIgnoreCase));
+                CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Settings));
+            }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(environmentName, originalEnvironment);
+        }
+    }
+
+    [TestMethod]
     public async Task Sdk_probe_respects_target_workspace_global_json()
     {
         using var fixture = new DiagnoseWorkspace();

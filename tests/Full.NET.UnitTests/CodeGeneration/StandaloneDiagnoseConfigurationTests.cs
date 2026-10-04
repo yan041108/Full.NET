@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Full.NET.CodeGeneration.Cli;
+using Microsoft.Extensions.Configuration;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
@@ -166,6 +167,74 @@ public sealed class StandaloneDiagnoseConfigurationTests
         using var fixture = new StandaloneWorkspace();
         var json = File.ReadAllText(fixture.PathFor(path));
         fixture.Write(path, json[..^1] + ",\"credential-probe\":1,\"credential-probe\":2}");
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.Output, code + " error");
+    }
+
+    [TestMethod]
+    [DataRow("appsettings.json", false)]
+    [DataRow("appsettings.json", true)]
+    [DataRow("src/Demo.Host.Api/appsettings.json", false)]
+    [DataRow("src/Demo.Host.Api/appsettings.json", true)]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", false)]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", true)]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", false)]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", true)]
+    public async Task Base_json_comments_and_trailing_commas_match_host_loader(string path, bool trailingComma)
+    {
+        using var fixture = new StandaloneWorkspace();
+        var json = Configuration();
+        var content = trailingComma ? json[..^1] + ",}" : "// credential-probe comment\n" + json;
+        var configuration = new ConfigurationBuilder()
+            .AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(content))).Build();
+        Assert.AreEqual("mysql", configuration["Database:Provider"]);
+        fixture.Write(path, content);
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(0, result.ExitCode, result.Output);
+        StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_OK ok");
+    }
+
+    [TestMethod]
+    [DataRow("appsettings.json", "case")]
+    [DataRow("appsettings.json", "flat")]
+    [DataRow("appsettings.json", "array")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "case")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "flat")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "array")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "case")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "flat")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "array")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "case")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "flat")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "array")]
+    public async Task Base_json_duplicate_configuration_paths_reject_frozen_profile(string path, string shape)
+    {
+        using var fixture = new StandaloneWorkspace();
+        var fragment = shape switch
+        {
+            "case" => "\"credential-probe\":1,\"CREDENTIAL-PROBE\":2",
+            "flat" => "\"Probe\":{\"Value\":1},\"probe:value\":\"credential-probe\"",
+            _ => "\"Probe\":[1],\"probe:0\":\"credential-probe\"",
+        };
+        var json = Configuration();
+        var content = json[..^1] + "," + fragment + "}";
+        Assert.ThrowsExactly<FormatException>(() => new ConfigurationBuilder()
+            .AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(content))).Build());
+        fixture.Write(path, content);
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(1, result.ExitCode, result.Output);
+        StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_INVALID error");
+        Assert.IsFalse(result.Output.Contains("DIAG_APP_PROFILE_OK", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("fullnet-app.json", "DIAG_APP_PROFILE_INVALID")]
+    [DataRow("framework-manifest.json", "DIAG_MODULE_CLOSURE_INVALID")]
+    public async Task Base_json_tolerance_does_not_relax_frozen_manifest_json(string path, string code)
+    {
+        using var fixture = new StandaloneWorkspace();
+        fixture.Write(path, "// credential-probe comment\n" + File.ReadAllText(fixture.PathFor(path)));
         var result = await DiagnoseAsync(fixture);
         Assert.AreEqual(1, result.ExitCode);
         StringAssert.Contains(result.Output, code + " error");

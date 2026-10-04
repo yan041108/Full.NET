@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 3881,
+      "minimum": 3917,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -41,7 +41,7 @@
         },
         "code-generation-realtime": {
           "filter": "FullyQualifiedName~CodeGeneration|FullyQualifiedName~Realtime",
-          "minimum": 873
+          "minimum": 909
         },
         "identity-oidc": {
           "filter": "FullyQualifiedName~IdentityOidcOptionsTests|FullyQualifiedName~IdentityOidcSessionTests|FullyQualifiedName~IdentityOidcPrincipalTests|FullyQualifiedName~IdentityOidcPkceHelperTests|FullyQualifiedName~IdentityOidcInteractionTests|FullyQualifiedName~IdentityOidcStoreSerializationTests|FullyQualifiedName~IdentityOidcCenterLoginServiceTests|FullyQualifiedName~IdentityOidcLogoutTests",

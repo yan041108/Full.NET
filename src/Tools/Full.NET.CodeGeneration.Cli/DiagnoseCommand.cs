@@ -205,7 +205,8 @@ internal static partial class DiagnoseCommand
         JsonNode? root;
         try
         {
-            root = JsonNode.Parse(File.ReadAllText(appsettingsPath));
+            using var settings = ReadConfigurationDocument(appsettingsPath);
+            root = JsonNode.Parse(settings.RootElement.GetRawText(), documentOptions: ConfigurationJsonOptions);
         }
         catch (Exception exception) when (exception is JsonException or ArgumentException
             or IOException or UnauthorizedAccessException)
@@ -266,13 +267,19 @@ internal static partial class DiagnoseCommand
             return null;
         }
 
+        return ReadConfigurationDocument(path);
+    }
+
+    private static JsonDocument ReadConfigurationDocument(string path)
+    {
+        // 宿主配置允许注释和尾逗号，但必须在覆盖取值前拒绝不区分大小写的重复展平路径。
         var document = JsonDocument.Parse(File.ReadAllText(path), ConfigurationJsonOptions);
         if (document.RootElement.ValueKind != JsonValueKind.Object
             || !HasUniqueConfigurationPaths(document.RootElement, null,
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase)))
         {
             document.Dispose();
-            throw new JsonException("Invalid environment configuration.");
+            throw new JsonException("Invalid application configuration.");
         }
         return document;
     }
@@ -367,8 +374,8 @@ internal static partial class DiagnoseCommand
 
             foreach (var path in configurationPaths)
             {
-                var runtime = JsonNode.Parse(File.ReadAllText(path))
-                    ?? throw new JsonException("Empty application configuration.");
+                using var settings = ReadConfigurationDocument(path);
+                var runtime = JsonNode.Parse(settings.RootElement.GetRawText(), documentOptions: ConfigurationJsonOptions)!;
                 var runtimePreset = runtime["FullNet"]?["Modules"]?["Preset"]?.GetValue<string>();
                 var runtimeProvider = runtime["Database"]?["Provider"]?.GetValue<string>();
                 if (!string.Equals(preset, runtimePreset, StringComparison.OrdinalIgnoreCase)

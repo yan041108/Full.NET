@@ -151,6 +151,37 @@ test('application template package includes framework sources and root manifest'
       assert.match(profileDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
       assert.doesNotMatch(profileDiagnosis.stdout + profileDiagnosis.stderr, /credential-probe/u);
       assert.deepEqual(readFileSync(productionSettings), profileBefore);
+      for (const relativePath of ['appsettings.json', 'src/Demo.Host.Api/appsettings.json',
+        'src/Demo.Host.Migrator/appsettings.json', 'src/Demo.Host.Worker/appsettings.json']) {
+        const settingsPath = join(appRoot, relativePath);
+        const originalSettings = readFileSync(settingsPath);
+        const originalJson = originalSettings.toString('utf8').trimEnd();
+        try {
+          writeFileSync(settingsPath, `// credential-probe comment\n${originalJson.slice(0, -1)},}`);
+          const tolerantBefore = readFileSync(settingsPath);
+          const tolerantDiagnosis = runProfileDiagnosis();
+          assert.equal(tolerantDiagnosis.status, 0, tolerantDiagnosis.stderr || tolerantDiagnosis.stdout);
+          assert.match(tolerantDiagnosis.stdout, /DIAG_APP_PROFILE_OK ok/u);
+          assert.doesNotMatch(tolerantDiagnosis.stdout + tolerantDiagnosis.stderr, /credential-probe/u);
+          assert.deepEqual(readFileSync(settingsPath), tolerantBefore);
+          // 即使有效环境变量可覆盖数据库值，宿主也必须先成功加载每个基础配置文件。
+          for (const duplicate of ['"credential-probe":1,"CREDENTIAL-PROBE":2',
+            '"Probe":{"Value":1},"probe:value":"credential-probe"']) {
+            writeFileSync(settingsPath, `${originalJson.slice(0, -1)},${duplicate}}`);
+            const duplicateBefore = readFileSync(settingsPath);
+            const duplicateDiagnosis = runProfileDiagnosis({
+              Database__ConnectionString: 'Server=override.invalid;Password=credential-probe',
+            });
+            assert.equal(duplicateDiagnosis.status, 1);
+            assert.match(duplicateDiagnosis.stdout, /DIAG_APP_PROFILE_INVALID error/u);
+            assert.doesNotMatch(duplicateDiagnosis.stdout, /DIAG_APP_PROFILE_OK/u);
+            assert.doesNotMatch(duplicateDiagnosis.stdout + duplicateDiagnosis.stderr, /credential-probe/iu);
+            assert.deepEqual(readFileSync(settingsPath), duplicateBefore);
+          }
+        } finally {
+          writeFileSync(settingsPath, originalSettings);
+        }
+      }
       const diagnosticBaseSettings = join(appRoot, 'src/Demo.Host.Api/appsettings.json');
       const diagnosticBaseBefore = readFileSync(diagnosticBaseSettings);
       try {
