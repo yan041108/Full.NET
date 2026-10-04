@@ -160,13 +160,14 @@ public sealed class DiagnoseCommandTests
     }
 
     [TestMethod]
-    [DataRow("{\"ConnectionStrings:other\":\"Password=credential-probe\"}")]
-    [DataRow("{\"ConnectionStrings:fullnet\":\"<your-connection>\"}")]
-    [DataRow("{\"ConnectionStrings\":{\"fullnet\":42}}")]
-    [DataRow("{\"ConnectionStrings:fullnet\":\"Password=credential-probe\",\"connectionstrings:FULLNET\":\"Password=other\"}")]
-    [DataRow("{\"ConnectionStrings:fullnet\":\"Password=credential-probe\",\"ConnectionStrings\":{\"fullnet\":\"<your-connection>\"}}")]
-    [DataRow("{invalid-json")]
-    public async Task Development_user_secrets_without_usable_target_connection_stay_unconfigured(string secrets)
+    [DataRow("{\"ConnectionStrings:other\":\"Password=credential-probe\"}", false)]
+    [DataRow("{\"ConnectionStrings:fullnet\":\"<your-connection>\"}", false)]
+    [DataRow("{\"ConnectionStrings\":{\"fullnet\":42}}", false)]
+    [DataRow("{\"ConnectionStrings:fullnet\":\"Password=credential-probe\",\"connectionstrings:FULLNET\":\"Password=other\"}", true)]
+    [DataRow("{\"ConnectionStrings:fullnet\":\"Password=credential-probe\",\"ConnectionStrings\":{\"fullnet\":\"<your-connection>\"}}", true)]
+    [DataRow("{invalid-json", true)]
+    public async Task Development_user_secrets_without_usable_target_connection_stay_unconfigured(
+        string secrets, bool invalidFile)
     {
         using var fixture = new DiagnoseWorkspace("{\"Database\":{\"ConnectionName\":\"fullnet\"}}");
         fixture.AddStandaloneUserSecrets(secrets, "App.Host.Api");
@@ -176,8 +177,12 @@ public sealed class DiagnoseCommandTests
         var result = await CodeGenerationCli.RunAsync(
             ["diagnose", "--workspace", fixture.Root, "--profile", "development"], output, error);
 
-        Assert.AreEqual(0, result);
+        Assert.AreEqual(invalidFile ? 1 : 0, result);
         StringAssert.Contains(output.ToString(), "DIAG_CONNECTION_PLACEHOLDER warn");
+        if (invalidFile)
+        {
+            StringAssert.Contains(output.ToString(), "DIAG_USER_SECRETS_INVALID error");
+        }
         Assert.IsFalse(output.ToString().Contains("DIAG_CONNECTION_CONFIGURED", StringComparison.Ordinal));
         Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
     }
@@ -364,6 +369,133 @@ public sealed class DiagnoseCommandTests
         {
             Environment.SetEnvironmentVariable(key, original);
         }
+    }
+
+    [TestMethod]
+    [DataRow("{\"ConnectionStrings:fullnet\":null}")]
+    [DataRow("{invalid-json")]
+    public async Task Development_unusable_user_secrets_do_not_restore_json_connection(string secrets)
+    {
+        using var fixture = new DiagnoseWorkspace("""
+            {"ConnectionStrings":{"fullnet":"Server=example.invalid;Password=credential-probe"}}
+            """);
+        fixture.AddStandaloneUserSecrets(secrets);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        await CodeGenerationCli.RunAsync(
+            ["diagnose", "--workspace", fixture.Root, "--profile", "development"], output, error);
+
+        StringAssert.Contains(output.ToString(), "DIAG_CONNECTION_PLACEHOLDER warn");
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task Development_null_user_secret_does_not_restore_json_secret()
+    {
+        using var fixture = new DiagnoseWorkspace("""
+            {"ConnectionStrings":{"fullnet":"Server=example.invalid;Password=credential-probe"},
+             "Cache":{"RedisConnectionString":"cache.example.invalid:6379,password=credential-probe"}}
+            """);
+        fixture.AddStandaloneUserSecrets("""{"Cache:RedisConnectionString":null}""");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        await CodeGenerationCli.RunAsync(
+            ["diagnose", "--workspace", fixture.Root, "--profile", "development"], output, error);
+
+        StringAssert.Contains(output.ToString(), "DIAG_SECRETS_PLACEHOLDER warn");
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("connectionstrings__fullnet", "DIAG_CONNECTION_MISSING error")]
+    [DataRow("cache__redisconnectionstring", "DIAG_SECRETS_PLACEHOLDER error")]
+    public async Task Production_lowercase_environment_keys_override_json_on_linux(
+        string key, string expectedFinding)
+    {
+        using var fixture = new DiagnoseWorkspace("""
+            {"ConnectionStrings":{"fullnet":"Server=example.invalid;Password=credential-probe"},
+             "Cache":{"RedisConnectionString":"cache.example.invalid:6379,password=credential-probe"}}
+            """);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var original = Environment.GetEnvironmentVariable(key);
+        try
+        {
+            Environment.SetEnvironmentVariable(key, "<your-value>");
+            await CodeGenerationCli.RunAsync(
+                ["diagnose", "--workspace", fixture.Root, "--profile", "production"], output, error);
+
+            StringAssert.Contains(output.ToString(), expectedFinding);
+            Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(key, original);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("{invalid-json")]
+    [DataRow("{\"Cache:RedisConnectionString\":\"cache.example.invalid\",\"cache:redisconnectionstring\":\"other.example.invalid\"}")]
+    public async Task Development_invalid_user_secrets_file_is_error_even_with_environment_overrides(
+        string secrets)
+    {
+        using var fixture = new DiagnoseWorkspace("{} ");
+        fixture.AddStandaloneUserSecrets(secrets);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var overrides = new Dictionary<string, string>
+        {
+            ["ConnectionStrings__fullnet"] = "Server=example.invalid;Password=credential-probe",
+            ["Cache__RedisConnectionString"] = "cache.example.invalid:6379,password=credential-probe",
+            ["Realtime__RedisBackplaneConnectionString"] = "realtime.example.invalid:6379,password=credential-probe",
+            ["FullNet__Cryptography__Sm2PrivateKeys__host-integration-signing"] = "credential-probe",
+        };
+        var original = overrides.Keys.ToDictionary(key => key, Environment.GetEnvironmentVariable);
+        try
+        {
+            foreach (var (key, value) in overrides)
+            {
+                Environment.SetEnvironmentVariable(key, value);
+            }
+            var result = await CodeGenerationCli.RunAsync(
+                ["diagnose", "--workspace", fixture.Root, "--profile", "development"], output, error);
+
+            Assert.AreEqual(1, result);
+            StringAssert.Contains(output.ToString(), "DIAG_USER_SECRETS_INVALID error");
+            Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+            Assert.IsFalse((output.ToString() + error).Contains("other.example.invalid", StringComparison.Ordinal));
+        }
+        finally
+        {
+            foreach (var (key, value) in original)
+            {
+                Environment.SetEnvironmentVariable(key, value);
+            }
+        }
+    }
+
+    [TestMethod]
+    [DataRow("{\"Extra\":\"value\",\"Extra\":{}}")]
+    [DataRow("{\"Extra\":\"value\",\"Extra\":[]}")]
+    public async Task Development_user_secrets_empty_collection_can_replace_prior_scalar(string secrets)
+    {
+        using var fixture = new DiagnoseWorkspace("""
+            {"ConnectionStrings":{"fullnet":"Server=example.invalid;Password=credential-probe"}}
+            """);
+        fixture.AddStandaloneUserSecrets(secrets);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var result = await CodeGenerationCli.RunAsync(
+            ["diagnose", "--workspace", fixture.Root, "--profile", "development"], output, error);
+
+        Assert.AreEqual(0, result, output.ToString());
+        Assert.IsFalse(output.ToString().Contains("DIAG_USER_SECRETS_INVALID", StringComparison.Ordinal));
+        StringAssert.Contains(output.ToString(), "DIAG_CONNECTION_CONFIGURED ok");
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
     }
 
     private sealed class DiagnoseWorkspace : IDisposable

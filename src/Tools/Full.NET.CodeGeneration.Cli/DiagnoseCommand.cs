@@ -207,6 +207,15 @@ internal static class DiagnoseCommand
 
         try
         {
+            if (string.Equals(profile, "development", StringComparison.OrdinalIgnoreCase)
+                && TryReadUserSecretsId(workspacePath) is { } userSecretsId
+                && !IsValidUserSecretsFile(userSecretsId))
+            {
+                findings.Add(DiagnoseFinding.Error(
+                    "DIAG_USER_SECRETS_INVALID",
+                    "API 项目的 User Secrets 文件不可读取或配置结构无效。",
+                    "修复秘密文件的 JSON 语法与重复配置键；诊断不会输出秘密值。"));
+            }
             CheckModulesSection(root, findings);
             CheckConnectionPlaceholder(root, appsettingsPath, workspacePath, profile, findings);
             CheckSecretPlaceholders(root, workspacePath, profile, findings);
@@ -431,7 +440,7 @@ internal static class DiagnoseCommand
         var connectionStrings = root["ConnectionStrings"]?.AsObject();
         var inline = connectionStrings?[connectionName]?.GetValue<string>();
         var envName = $"ConnectionStrings__{connectionName}";
-        var environmentConnection = Environment.GetEnvironmentVariable(envName);
+        var environmentConnection = GetEnvironmentConfigurationValue($"ConnectionStrings:{connectionName}");
         // 默认 WebApplicationBuilder 仅在 Development 载入 User Secrets，生产诊断不能据此放行。
         var userSecretsId = string.Equals(profile, "development", StringComparison.OrdinalIgnoreCase)
             ? TryReadUserSecretsId(workspacePath) : null;
@@ -472,67 +481,179 @@ internal static class DiagnoseCommand
         text = null;
         try
         {
-            var path = OperatingSystem.IsWindows()
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "Microsoft", "UserSecrets", userSecretsId, "secrets.json")
-                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    ".microsoft", "usersecrets", userSecretsId, "secrets.json");
+            var path = GetUserSecretsPath(userSecretsId);
             if (!File.Exists(path))
             {
                 return false;
             }
 
-            // User Secrets 允许扁平与嵌套 JSON；文件存在本身不能证明目标键已经配置。
-            var secrets = JsonNode.Parse(File.ReadAllText(path)) as JsonObject;
-            var hasFlat = TryGetConfigurationValue(secrets, configurationPath, out var flat);
-            JsonNode? nested = secrets;
-            var hasNested = true;
-            foreach (var segment in configurationPath.Split(':'))
+            // 按 JSON 配置提供程序的展平顺序读取，允许无关键被空集合覆盖。
+            using var document = JsonDocument.Parse(File.ReadAllText(path), UserSecretsJsonOptions);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
             {
-                if (!TryGetConfigurationValue(nested as JsonObject, segment, out nested))
-                {
-                    hasNested = false;
-                    break;
-                }
+                return true;
             }
-            if (hasFlat && hasNested)
+            if (!HasUniqueConfigurationPaths(document.RootElement, string.Empty,
+                    new HashSet<string>(StringComparer.OrdinalIgnoreCase)))
             {
-                // 扁平键和嵌套键会展平为同一配置键，不能任选一个掩盖冲突。
-                return false;
+                return true;
             }
-            var value = hasFlat ? flat : nested;
-            return (hasFlat || hasNested) && value is JsonValue jsonValue
-                && jsonValue.TryGetValue<string>(out text);
+            var found = false;
+            VisitUserSecret(document.RootElement, string.Empty, configurationPath, ref found, ref text);
+            return found;
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException
-            or FormatException or IOException or UnauthorizedAccessException)
+            or FormatException or ArgumentException or IOException or UnauthorizedAccessException)
         {
             // 秘密文件不可读取或无效时失败关闭，且不把内容或解析异常写入诊断输出。
+            return true;
+        }
+    }
+
+    private static void VisitUserSecret(
+        JsonElement element, string path, string requestedPath, ref bool found, ref string? text)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            var properties = element.EnumerateObject().ToArray();
+            if (properties.Length == 0)
+            {
+                ApplyUserSecretValue(path, requestedPath, null, ref found, ref text);
+            }
+            foreach (var property in properties)
+            {
+                VisitUserSecret(property.Value, path.Length == 0 ? property.Name : $"{path}:{property.Name}",
+                    requestedPath, ref found, ref text);
+            }
+            return;
+        }
+
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            var items = element.EnumerateArray().ToArray();
+            if (items.Length == 0)
+            {
+                ApplyUserSecretValue(path, requestedPath, string.Empty, ref found, ref text);
+            }
+            for (var index = 0; index < items.Length; index++)
+            {
+                VisitUserSecret(items[index], $"{path}:{index}", requestedPath, ref found, ref text);
+            }
+            return;
+        }
+
+        ApplyUserSecretValue(path, requestedPath,
+            element.ValueKind == JsonValueKind.String ? element.GetString() : null, ref found, ref text);
+    }
+
+    private static void ApplyUserSecretValue(
+        string path, string requestedPath, string? value, ref bool found, ref string? text)
+    {
+        if (string.Equals(path, requestedPath, StringComparison.OrdinalIgnoreCase))
+        {
+            found = true;
+            text = value;
+        }
+    }
+
+    private static readonly JsonDocumentOptions UserSecretsJsonOptions = new()
+    {
+        AllowTrailingCommas = true,
+        CommentHandling = JsonCommentHandling.Skip,
+    };
+
+    private static string GetUserSecretsPath(string userSecretsId) => OperatingSystem.IsWindows()
+        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Microsoft", "UserSecrets", userSecretsId, "secrets.json")
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".microsoft", "usersecrets", userSecretsId, "secrets.json");
+
+    private static bool IsValidUserSecretsFile(string userSecretsId)
+    {
+        var path = GetUserSecretsPath(userSecretsId);
+        if (!File.Exists(path))
+        {
+            return true;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path), UserSecretsJsonOptions);
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                && HasUniqueConfigurationPaths(document.RootElement, string.Empty,
+                    new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        }
+        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+        {
             return false;
         }
     }
 
-    private static bool TryGetConfigurationValue(JsonObject? source, string key, out JsonNode? value)
+    private static bool HasUniqueConfigurationPaths(
+        JsonElement element, string path, HashSet<string> paths)
     {
-        value = null;
-        if (source is null)
+        if (element.ValueKind == JsonValueKind.Object)
         {
-            return false;
+            var properties = element.EnumerateObject().ToArray();
+            if (properties.Length == 0)
+            {
+                // JSON provider 的空对象会写入并覆盖当前路径；仅后续标量遇到同路径才拒绝。
+                _ = paths.Add(path);
+                return true;
+            }
+            foreach (var property in properties)
+            {
+                var childPath = path.Length == 0 ? property.Name : $"{path}:{property.Name}";
+                if (!HasUniqueConfigurationPaths(property.Value, childPath, paths))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
-        // ASP.NET 配置键不区分大小写；同名但大小写不同的重复键不应由诊断任意选取。
-        var matches = source.Where(entry => string.Equals(entry.Key, key, StringComparison.OrdinalIgnoreCase))
-            .Take(2).ToArray();
-        if (matches.Length > 1)
+        if (element.ValueKind == JsonValueKind.Array)
         {
-            throw new InvalidOperationException("Duplicate configuration key.");
+            var items = element.EnumerateArray().ToArray();
+            if (items.Length == 0)
+            {
+                _ = paths.Add(path);
+                return true;
+            }
+            for (var index = 0; index < items.Length; index++)
+            {
+                if (!HasUniqueConfigurationPaths(items[index], $"{path}:{index}", paths))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
-        if (matches.Length == 0)
+
+        // JSON 配置提供程序按不区分大小写的扁平路径读取，扁平键与嵌套键冲突也会阻止启动。
+        return paths.Add(path);
+    }
+
+    private static string? GetEnvironmentConfigurationValue(string configurationPath)
+    {
+        string? selected = null;
+        foreach (System.Collections.DictionaryEntry entry in Environment.GetEnvironmentVariables())
         {
-            return false;
+            var key = entry.Key?.ToString()?.Replace("__", ":", StringComparison.Ordinal);
+            if (!string.Equals(key, configurationPath, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var value = entry.Value?.ToString();
+            // Linux 可以同时存在仅大小写不同的变量；任一占位值都不能被另一个变量掩盖。
+            if (string.IsNullOrWhiteSpace(value) || IsPlaceholder(value))
+            {
+                return value;
+            }
+            selected ??= value;
         }
-        value = matches[0].Value;
-        return true;
+        return selected;
     }
 
     private static void CheckSecretPlaceholders(
@@ -547,8 +668,7 @@ internal static class DiagnoseCommand
         foreach (var path in SecretPlaceholderPaths)
         {
             // 默认配置优先级为环境变量、Development User Secrets、JSON；只报告最终生效的占位值。
-            var environmentValue = Environment.GetEnvironmentVariable(
-                path.Replace(":", "__", StringComparison.Ordinal));
+            var environmentValue = GetEnvironmentConfigurationValue(path);
             if (environmentValue is not null)
             {
                 if (string.IsNullOrWhiteSpace(environmentValue) || IsPlaceholder(environmentValue))
