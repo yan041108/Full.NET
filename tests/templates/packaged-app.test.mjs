@@ -210,6 +210,10 @@ test('application template package includes framework sources and root manifest'
             const flattenedDiagnosis = runProfileDiagnosis();
             assert.equal(flattenedDiagnosis.status, 0, flattenedDiagnosis.stderr || flattenedDiagnosis.stdout);
             assert.match(flattenedDiagnosis.stdout, /DIAG_APP_PROFILE_OK ok/u);
+            if (relativePath.includes('.Host.Api/')) {
+              assert.match(flattenedDiagnosis.stdout, /DIAG_MODULES_OK ok/u);
+              assert.doesNotMatch(flattenedDiagnosis.stdout, /DIAG_MODULES_(?:MISSING|INCOMPLETE)/u);
+            }
             assert.doesNotMatch(flattenedDiagnosis.stdout + flattenedDiagnosis.stderr, /credential-probe/iu);
             assert.deepEqual(readFileSync(settingsPath), flattenedBefore);
             assert.deepEqual(readFileSync(productionSettings), profileBefore);
@@ -224,6 +228,10 @@ test('application template package includes framework sources and root manifest'
             assert.equal(clearedDiagnosis.status, 1);
             assert.match(clearedDiagnosis.stdout, /DIAG_APP_PROFILE_MISMATCH error/u);
             assert.doesNotMatch(clearedDiagnosis.stdout, /DIAG_APP_PROFILE_OK/u);
+            if (relativePath.includes('.Host.Api/') && path === 'FullNet:Modules:Preset') {
+              assert.match(clearedDiagnosis.stdout, /DIAG_MODULES_INCOMPLETE warn/u);
+              assert.doesNotMatch(clearedDiagnosis.stdout, /DIAG_MODULES_OK/u);
+            }
             assert.doesNotMatch(clearedDiagnosis.stdout + clearedDiagnosis.stderr, /credential-probe/iu);
             assert.deepEqual(readFileSync(settingsPath), clearedBefore);
             assert.deepEqual(readFileSync(productionSettings), profileBefore);

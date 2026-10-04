@@ -1897,6 +1897,60 @@ public sealed class DiagnoseCommandTests
         return "{" + database + "," + connection + "," + modules + "," + fragment + "}";
     }
 
+    [TestMethod]
+    [DataRow("{}", "MISSING")]
+    [DataRow("""{"FullNet":{"Modules":null}}""", "MISSING")]
+    [DataRow("""{"FullNet:Modules":null}""", "MISSING")]
+    [DataRow("""{"":{"FullNet":{"Modules":{"Preset":"minimal"}}}}""", "MISSING")]
+    [DataRow("""{"FullNet":{"Modules":{}}}""", "INCOMPLETE")]
+    [DataRow("""{"FullNet:Modules":{}}""", "INCOMPLETE")]
+    [DataRow("""{"fullnet":{"modules":{}}}""", "INCOMPLETE")]
+    [DataRow("""{"FullNet":{"Modules":{"Probe":1}}}""", "INCOMPLETE")]
+    [DataRow("""{"FullNet:Modules:Probe":1}""", "INCOMPLETE")]
+    [DataRow("""{"FullNet":{"Modules":{"Enabled":[]}}}""", "INCOMPLETE")]
+    [DataRow("""{"FullNet":{"Modules":{"Enabled":null}}}""", "INCOMPLETE")]
+    [DataRow("""{"FullNet:Modules:Preset":" "}""", "INCOMPLETE")]
+    [DataRow("""{"FullNet:Modules:Preset":null}""", "INCOMPLETE")]
+    [DataRow("""{"FullNet":{"Modules":{"Preset":"minimal"}}}""", "OK")]
+    [DataRow("""{"FullNet:Modules:Preset":"minimal"}""", "OK")]
+    [DataRow("""{"FULLNET:MODULES:PRESET":"minimal"}""", "OK")]
+    [DataRow("""{"fullnet":{"modules":{"preset":"minimal"}}}""", "OK")]
+    [DataRow("""{"FullNet:Modules:Enabled:0":"Identity"}""", "OK")]
+    [DataRow("""{"FULLNET:MODULES:ENABLED:0":"Identity"}""", "OK")]
+    [DataRow("""{"FullNet:Modules:Enabled":{"first":"Identity"}}""", "OK")]
+    [DataRow("""{"FullNet":{"Modules":{"Preset":"minimal"}},"FULLNET:MODULES:PRESET":{}}""", "INCOMPLETE")]
+    [DataRow("""{"FullNet":{"Modules":{"Preset":"minimal"}},"FULLNET:MODULES:PRESET":[]}""", "INCOMPLETE")]
+    [DataRow("""{"FullNet":{"Modules":{"Preset":"minimal"}},"FULLNET:MODULES:PRESET":{"Probe":1}}""", "OK")]
+    [DataRow("""{"FullNet":{"Modules":{"Enabled":["Identity"]}},"FullNet":{"Modules":{"Enabled":[]}}}""", "OK")]
+    [DataRow("""{"FullNet":{"Modules":{"Enabled":["Identity"]}},"FullNet":{"Modules":{"Enabled":null}}}""", "OK")]
+    [DataRow("""{"FullNet":{"Modules":{"Enabled":["Identity"]}},"FullNet:Modules:Enabled":{}}""", "OK")]
+    [DataRow("""{"fullnet":{"modules":{"enabled":["Identity"]}}}""", "OK")]
+    public async Task Module_configuration_presence_matches_real_provider_paths(string moduleJson, string expected)
+    {
+        var baseline = JsonSerializer.Serialize(DiagnosticSecretSettings());
+        var configuration = moduleJson == "{}" ? baseline : baseline[..^1] + "," + moduleJson[1..];
+        var runtime = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration))).Build();
+        // 空父节点不会删除已有子键；此处仅核对声明提示，不验证模块名称与依赖闭包。
+        var configured = !string.IsNullOrWhiteSpace(runtime["FullNet:Modules:Preset"])
+            || runtime.GetSection("FullNet:Modules:Enabled").GetChildren().Any();
+        Assert.AreEqual(expected == "OK", configured);
+        using var fixture = new DiagnoseWorkspace(configuration);
+        var before = Directory.EnumerateFiles(fixture.Root, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
+        foreach (var profile in new[] { "development", "production" })
+        {
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
+            Assert.AreEqual(0, result, output.ToString());
+            foreach (var code in new[] { "MISSING", "INCOMPLETE", "OK" })
+                Assert.AreEqual(code == expected, output.ToString().Contains("DIAG_MODULES_" + code + " ", StringComparison.Ordinal), output.ToString());
+            StringAssert.Contains(output.ToString(), "DIAG_MODULES_" + expected + (expected == "OK" ? " ok" : " warn"));
+            Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+            CollectionAssert.AreEquivalent(before.Keys.ToArray(), Directory.EnumerateFiles(fixture.Root, "*", SearchOption.AllDirectories).ToArray());
+            foreach (var (path, bytes) in before) CollectionAssert.AreEqual(bytes, File.ReadAllBytes(path));
+        }
+    }
+
     private static readonly string[] DiagnosticSecretPaths =
     [
         "Cache:RedisConnectionString", "Realtime:RedisBackplaneConnectionString",

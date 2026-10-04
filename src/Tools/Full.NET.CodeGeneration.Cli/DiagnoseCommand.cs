@@ -490,7 +490,15 @@ internal static partial class DiagnoseCommand
             .Where(value => value.ValueKind != JsonValueKind.Null).ToArray();
         // 分段对象须逐个保留类型约束，不能因另一个有效片段而掩盖错误结构。
         foreach (var section in modules) _ = section.EnumerateObject();
-        if (modules.Length == 0)
+        foreach (var value in ReadNestedConfigurationValues(root, "FullNet:Modules:Preset")) _ = value.GetString();
+        foreach (var value in ReadNestedConfigurationValues(root, "FullNet:Modules:Enabled"))
+            if (value.ValueKind != JsonValueKind.Null) _ = value.GetArrayLength();
+
+        var leaves = EnumerateConfigurationLeaves(root, null).ToArray();
+        var moduleRoot = leaves.LastOrDefault(leaf => leaf.Path.Equals("FullNet:Modules", StringComparison.OrdinalIgnoreCase));
+        var declared = leaves.Any(leaf => leaf.Path.StartsWith("FullNet:Modules:", StringComparison.OrdinalIgnoreCase))
+            || moduleRoot.Value.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined);
+        if (!declared)
         {
             findings.Add(DiagnoseFinding.Warn(
                 "DIAG_MODULES_MISSING",
@@ -499,11 +507,10 @@ internal static partial class DiagnoseCommand
             return;
         }
 
-        var preset = ReadNestedConfigurationValues(root, "FullNet:Modules:Preset")
-            .Select(value => value.GetString()).LastOrDefault();
-        var enabledCount = ReadNestedConfigurationValues(root, "FullNet:Modules:Enabled")
-            .Select(value => value.ValueKind == JsonValueKind.Null ? 0 : value.GetArrayLength()).LastOrDefault();
-        if (!string.IsNullOrWhiteSpace(preset) || enabledCount > 0)
+        _ = TryReadBaseConfigurationValue(root, "FullNet:Modules:Preset", out var preset);
+        // 声明提示只看生效标量与子键；空父节点不会清除配置提供程序已有的数组子键。
+        var hasEnabledChildren = leaves.Any(leaf => leaf.Path.StartsWith("FullNet:Modules:Enabled:", StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(preset) || hasEnabledChildren)
         {
             findings.Add(DiagnoseFinding.Ok(
                 "DIAG_MODULES_OK",
@@ -561,6 +568,28 @@ internal static partial class DiagnoseCommand
         value = null;
         VisitConfigurationValue(root, null, path, ref found, ref value, includeScalarValues);
         return found;
+    }
+
+    // 展平叶键保留冒号属性名、大小写别名和分段对象；空集合仍是父路径的显式声明。
+    private static IEnumerable<(string Path, JsonElement Value)> EnumerateConfigurationLeaves(JsonElement element, string? path)
+    {
+        if (element.ValueKind == JsonValueKind.Object && element.EnumerateObject().Any())
+        {
+            foreach (var property in element.EnumerateObject())
+                foreach (var leaf in EnumerateConfigurationLeaves(property.Value, path is null ? property.Name : path + ":" + property.Name))
+                    yield return leaf;
+        }
+        else if (element.ValueKind == JsonValueKind.Array && element.GetArrayLength() > 0)
+        {
+            var index = 0;
+            foreach (var item in element.EnumerateArray())
+                foreach (var leaf in EnumerateConfigurationLeaves(item, path + ":" + index++))
+                    yield return leaf;
+        }
+        else if (path is not null)
+        {
+            yield return (path, element);
+        }
     }
 
     // 仅对原有精确嵌套路径执行字段类型检查；实际配置取值仍走展平、大小写不敏感的读取。
