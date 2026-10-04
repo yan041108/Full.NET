@@ -1290,6 +1290,155 @@ public sealed class DiagnoseCommandTests
         Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
     }
 
+    [TestMethod]
+    [DataRow("Provider", false, "development")]
+    [DataRow("Provider", true, "development")]
+    [DataRow("CommandTimeoutSeconds", false, "development")]
+    [DataRow("CommandTimeoutSeconds", true, "development")]
+    [DataRow("MySqlGuidStorageMode", false, "development")]
+    [DataRow("MySqlGuidStorageMode", true, "development")]
+    [DataRow("ConnectionString", false, "development")]
+    [DataRow("ConnectionString", true, "development")]
+    [DataRow("ConnectionName", false, "development")]
+    [DataRow("ConnectionName", true, "development")]
+    [DataRow("Provider", false, "production")]
+    [DataRow("Provider", true, "production")]
+    [DataRow("CommandTimeoutSeconds", false, "production")]
+    [DataRow("CommandTimeoutSeconds", true, "production")]
+    [DataRow("MySqlGuidStorageMode", false, "production")]
+    [DataRow("MySqlGuidStorageMode", true, "production")]
+    [DataRow("ConnectionString", false, "production")]
+    [DataRow("ConnectionString", true, "production")]
+    [DataRow("ConnectionName", false, "production")]
+    [DataRow("ConnectionName", true, "production")]
+    public async Task Database_structure_matches_real_options_binding(string field, bool array, string profile)
+    {
+        var database = new Dictionary<string, object?>
+        {
+            ["Provider"] = "MySql", ["CommandTimeoutSeconds"] = 30,
+            ["MySqlGuidStorageMode"] = "Binary16", ["ConnectionName"] = "fullnet",
+        };
+        database[field] = array ? new[] { "credential-probe" } : new Dictionary<string, string> { ["Probe"] = "credential-probe" };
+        var configuration = JsonSerializer.Serialize(new
+        {
+            Database = database, ConnectionStrings = new { fullnet = "Server=named.invalid;Password=credential-probe" },
+        });
+        var runtimeValid = RuntimeDatabaseOptionsAreValid(configuration, profile == "production" ? "Production" : "Development");
+        using var fixture = new DiagnoseWorkspace(configuration);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var before = File.ReadAllBytes(fixture.Settings);
+        var result = await CodeGenerationCli.RunAsync(
+            ["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
+        Assert.AreEqual(runtimeValid ? 0 : 1, result, $"真实 Options 是否有效：{runtimeValid}；{output}");
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+        CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Settings));
+    }
+
+    [TestMethod]
+    [DataRow("CommandTimeoutSeconds", "base", "child", false)]
+    [DataRow("CommandTimeoutSeconds", "profile", "child", false)]
+    [DataRow("CommandTimeoutSeconds", "secrets", "child", false)]
+    [DataRow("CommandTimeoutSeconds", "environment", "child", false)]
+    [DataRow("CommandTimeoutSeconds", "base", "null", false)]
+    [DataRow("CommandTimeoutSeconds", "profile", "null", false)]
+    [DataRow("CommandTimeoutSeconds", "secrets", "null", false)]
+    [DataRow("CommandTimeoutSeconds", "base", "scalar", true)]
+    [DataRow("CommandTimeoutSeconds", "profile", "scalar", true)]
+    [DataRow("CommandTimeoutSeconds", "secrets", "scalar", true)]
+    [DataRow("CommandTimeoutSeconds", "environment", "scalar", true)]
+    [DataRow("ConnectionName", "base", "child", false)]
+    [DataRow("ConnectionName", "profile", "child", false)]
+    [DataRow("ConnectionName", "secrets", "child", false)]
+    [DataRow("ConnectionName", "environment", "child", false)]
+    [DataRow("ConnectionName", "base", "null", false)]
+    [DataRow("ConnectionName", "profile", "null", false)]
+    [DataRow("ConnectionName", "secrets", "null", false)]
+    [DataRow("ConnectionName", "base", "scalar", true)]
+    [DataRow("ConnectionName", "profile", "scalar", true)]
+    [DataRow("ConnectionName", "secrets", "scalar", true)]
+    [DataRow("ConnectionName", "environment", "scalar", true)]
+    public async Task Database_structure_null_and_children_follow_merged_binding(
+        string field, string source, string shape, bool valid)
+    {
+        var database = new Dictionary<string, object?>
+        {
+            ["Provider"] = "MySql", ["CommandTimeoutSeconds"] = 30,
+            ["MySqlGuidStorageMode"] = "Binary16", ["ConnectionName"] = "fullnet",
+        };
+        database[field] = null;
+        var root = new Dictionary<string, object?>
+        {
+            ["Database"] = database,
+            ["ConnectionStrings"] = new { fullnet = "Server=named.invalid;Password=credential-probe" },
+        };
+        var configurationOverride = new Dictionary<string, object?>();
+        if (shape == "child") configurationOverride[$"database:{field}:Probe"] = "credential-probe";
+        if (shape == "scalar") configurationOverride[$"database:{field}"] = field == "ConnectionName" ? "fullnet" : 1;
+        if (source == "base")
+        {
+            if (shape == "scalar") database[field] = configurationOverride.Values.Single();
+            else foreach (var entry in configurationOverride) root[entry.Key] = entry.Value;
+        }
+        var configuration = JsonSerializer.Serialize(root);
+        var overlay = JsonSerializer.Serialize(configurationOverride);
+        var builder = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration)));
+        if (source != "base") builder.AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(overlay)));
+        var services = new ServiceCollection();
+        services.AddFullNetDapper(builder.Build(), "Development");
+        using (var runtime = services.BuildServiceProvider())
+        {
+            if (valid)
+            {
+                var options = runtime.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+                Assert.AreEqual("fullnet", options.ConnectionName);
+                Assert.AreEqual(shape == "scalar" && field == "CommandTimeoutSeconds" ? 1 : 30, options.CommandTimeoutSeconds);
+            }
+            else
+            {
+                Assert.ThrowsExactly<OptionsValidationException>(() => { _ = runtime.GetRequiredService<IOptions<DatabaseOptions>>().Value; });
+            }
+        }
+        using var fixture = new DiagnoseWorkspace(configuration);
+        var profilePath = Path.Combine(fixture.Root, "appsettings.Development.json");
+        if (source == "profile") File.WriteAllText(profilePath, overlay);
+        if (source == "secrets") fixture.AddStandaloneUserSecrets(overlay, "App.Host.Api");
+        var key = "Database__" + field + (shape == "child" ? "__Probe" : string.Empty);
+        var original = Environment.GetEnvironmentVariable(key);
+        var before = File.ReadAllBytes(fixture.Settings);
+        try
+        {
+            Environment.SetEnvironmentVariable(key, source == "environment" ? configurationOverride.Values.Single()?.ToString() : null);
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root], output, error);
+            Assert.AreEqual(valid ? 0 : 1, result, output.ToString());
+            Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Settings));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(key, original);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("42", "42")]
+    [DataRow("true", "True")]
+    public async Task Database_structure_connection_name_scalar_conversion_matches_runtime(string value, string name)
+    {
+        var configuration = "{\"Database\":{\"ConnectionName\":" + value
+            + "},\"ConnectionStrings\":{" + JsonSerializer.Serialize(name) + ":\"Server=named.invalid;Password=credential-probe\"}}";
+        Assert.IsTrue(RuntimeDatabaseOptionsAreValid(configuration, "Development"));
+        using var fixture = new DiagnoseWorkspace(configuration);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root], output, error);
+        Assert.AreEqual(0, result, output.ToString());
+        StringAssert.Contains(output.ToString(), "DIAG_CONNECTION_CONFIGURED ok");
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
     private static string ReadRuntimeDatabaseConnection(string configuration, string? overlay = null)
     {
         var builder = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration)));

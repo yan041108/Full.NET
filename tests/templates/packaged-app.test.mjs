@@ -151,6 +151,64 @@ test('application template package includes framework sources and root manifest'
       assert.match(profileDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
       assert.doesNotMatch(profileDiagnosis.stdout + profileDiagnosis.stderr, /credential-probe/u);
       assert.deepEqual(readFileSync(productionSettings), profileBefore);
+      const diagnosticBaseSettings = join(appRoot, 'src/Demo.Host.Api/appsettings.json');
+      const diagnosticBaseBefore = readFileSync(diagnosticBaseSettings);
+      try {
+        writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(profileBefore.toString('utf8')),
+          Database: {
+            Provider: { Probe: 'credential-probe' }, CommandTimeoutSeconds: ['credential-probe'],
+            MySqlGuidStorageMode: { Probe: 'credential-probe' }, ConnectionName: ['credential-probe'],
+            ConnectionString: { Probe: 'credential-probe' },
+          },
+        }));
+        const childProfileBefore = readFileSync(productionSettings);
+        const childProfileDiagnosis = runProfileDiagnosis();
+        assert.equal(childProfileDiagnosis.status, 0, childProfileDiagnosis.stderr || childProfileDiagnosis.stdout);
+        assert.match(childProfileDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+        assert.doesNotMatch(childProfileDiagnosis.stdout + childProfileDiagnosis.stderr, /credential-probe/u);
+        assert.deepEqual(readFileSync(productionSettings), childProfileBefore);
+        writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(profileBefore.toString('utf8')),
+          ConnectionStrings: { fullnet: 'Server=named.invalid;Password=credential-probe' },
+        }));
+        writeFileSync(diagnosticBaseSettings, JSON.stringify({ ...apiConfig,
+          Database: { ...apiConfig.Database, ConnectionName: { Probe: 'credential-probe' } },
+        }));
+        const childBaseBefore = readFileSync(diagnosticBaseSettings);
+        const childBaseDiagnosis = runProfileDiagnosis();
+        assert.equal(childBaseDiagnosis.status, 0, childBaseDiagnosis.stderr || childBaseDiagnosis.stdout);
+        assert.match(childBaseDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+        assert.doesNotMatch(childBaseDiagnosis.stdout + childBaseDiagnosis.stderr, /credential-probe/u);
+        assert.deepEqual(readFileSync(diagnosticBaseSettings), childBaseBefore);
+        writeFileSync(diagnosticBaseSettings, JSON.stringify({ ...apiConfig,
+          Database: { ...apiConfig.Database, ConnectionName: null },
+        }));
+        const nullNameBefore = readFileSync(diagnosticBaseSettings);
+        const nullNameDiagnosis = runProfileDiagnosis();
+        assert.equal(nullNameDiagnosis.status, 1);
+        assert.match(nullNameDiagnosis.stdout, /DIAG_APPSETTINGS_INVALID error/u);
+        const nullNameWithChildDiagnosis = runProfileDiagnosis({ Database__ConnectionName__Probe: 'credential-probe' });
+        assert.equal(nullNameWithChildDiagnosis.status, 1);
+        assert.match(nullNameWithChildDiagnosis.stdout, /DIAG_APPSETTINGS_INVALID error/u);
+        assert.doesNotMatch(nullNameWithChildDiagnosis.stdout + nullNameWithChildDiagnosis.stderr, /credential-probe/u);
+        const restoredNameDiagnosis = runProfileDiagnosis({ Database__ConnectionName: 'fullnet' });
+        assert.equal(restoredNameDiagnosis.status, 0, restoredNameDiagnosis.stderr || restoredNameDiagnosis.stdout);
+        assert.deepEqual(readFileSync(diagnosticBaseSettings), nullNameBefore);
+        writeFileSync(diagnosticBaseSettings, JSON.stringify({ ...apiConfig,
+          Database: { ...apiConfig.Database, ConnectionName: 42 },
+        }));
+        writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(profileBefore.toString('utf8')),
+          ConnectionStrings: { 42: 'Server=named.invalid;Password=credential-probe' },
+        }));
+        const numericNameBefore = readFileSync(diagnosticBaseSettings);
+        const numericNameDiagnosis = runProfileDiagnosis();
+        assert.equal(numericNameDiagnosis.status, 0, numericNameDiagnosis.stderr || numericNameDiagnosis.stdout);
+        assert.match(numericNameDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+        assert.doesNotMatch(numericNameDiagnosis.stdout + numericNameDiagnosis.stderr, /credential-probe/u);
+        assert.deepEqual(readFileSync(diagnosticBaseSettings), numericNameBefore);
+      } finally {
+        writeFileSync(diagnosticBaseSettings, diagnosticBaseBefore);
+        writeFileSync(productionSettings, profileBefore);
+      }
       const directProfile = { ...JSON.parse(profileBefore.toString('utf8')),
         Database: { ConnectionString: 'Server=direct.invalid;Password=credential-probe', ConnectionName: null },
         ConnectionStrings: { [apiConfig.Database.ConnectionName]: 'CHANGEME' },

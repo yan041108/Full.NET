@@ -619,10 +619,10 @@ internal static partial class DiagnoseCommand
         // 与 Dapper PostConfigure 一致：非空直配优先，即使是占位符也不能用命名连接掩盖。
         if (string.IsNullOrWhiteSpace(effectiveConnection))
         {
-            var connectionName = TryReadConfigurationOverride(profileSettings, workspacePath, profile,
-                // 无效秘密文件已有独立错误；保留连接名用于说明缺失连接，而凭据仍失败关闭。
-                "Database:ConnectionName", out var overrideName, requireValidUserSecrets: true)
-                ? overrideName : root["Database"]?["ConnectionName"]?.GetValue<string>() ?? "fullnet";
+            var hasConnectionName = TryReadDatabaseValue(root, profileSettings, workspacePath, profile,
+                "Database:ConnectionName", out var connectionName);
+            // 只有未出现标量键才保留宿主默认名；子键不覆盖标量，显式 null 不能回退为 fullnet。
+            if (!hasConnectionName) connectionName = "fullnet";
             if (string.IsNullOrWhiteSpace(connectionName))
             {
                 throw new InvalidOperationException("Connection name is empty.");
