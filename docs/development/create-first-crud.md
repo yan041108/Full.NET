@@ -404,9 +404,180 @@ SDK 探测在进程启动后对退出与标准输出/错误读取设置 30 秒�
 
 模块与 Composition 接入编译失败时，仍保留已有编译诊断的路径替换、去重及数量上限。若底层构建没有可公开的编译诊断，CLI 在固定失败说明后附加数字 `构建进程退出码`，不回显原始 SDK/进程输出；CLI 本身仍返回 2。退出码帮助定位失败来源，不说明具体根因，也不会触发自动重试或绕过候选编译。独立打包应用用缺失 SDK 对照真实构建退出码，验证两条接入命令在编译失败时保留应用源码与人工文件，并在验收后恢复 SDK 配置。
 
+## 第六步：显式接入业务迁移
+
+默认 Migrator 只执行冻结预设的框架迁移，不会自动采纳根目录的业务草稿。此例只采纳 `acme_catalog_product` 的成对建表脚本；先核对 Schema 的 owner/module/entity、六列、UUID v7 的物理类型及 TenantId/Id 索引。SQL Server 将建表和索引分别按结构探测收敛，MySQL 将表与索引放在同一 CREATE 的原子 DDL 中；`IF NOT EXISTS` 不负责修复任意已有错误表。
+
+下面的 PowerShell 命令先检查两个源和目标，再按原字节复制到应用自有 Migrator，不能放进受管框架：
+
+```powershell
+$migrationCopies = @{
+  'templates/migrations/SqlServer/CreateProduct.sql.template' = 'src/Demo.Host.Migrator/Migrations/SqlServer/001_CreateProduct.sql'
+  'templates/migrations/MySql/CreateProduct.sql.template' = 'src/Demo.Host.Migrator/Migrations/MySql/001_CreateProduct.sql'
+}
+foreach ($migrationCopy in $migrationCopies.GetEnumerator()) {
+  if (!(Test-Path -LiteralPath $migrationCopy.Key -PathType Leaf)) { throw "缺少迁移源：$($migrationCopy.Key)" }
+  if (Test-Path -LiteralPath $migrationCopy.Value) { throw "迁移目标已存在，先审查：$($migrationCopy.Value)" }
+}
+foreach ($migrationCopy in $migrationCopies.GetEnumerator()) {
+  New-Item -ItemType Directory -Path (Split-Path -Parent $migrationCopy.Value) -Force | Out-Null
+  Copy-Item -LiteralPath $migrationCopy.Key -Destination $migrationCopy.Value
+}
+```
+
+在 `src/Demo.Host.Migrator/Demo.Host.Migrator.csproj` 的 `</Project>` 前追加一个 ItemGroup，使用固定资源名，不扫描程序集：
+
+```xml
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations/SqlServer/001_CreateProduct.sql" LogicalName="acme.catalog.Migrations.SqlServer.001_CreateProduct.sql" />
+    <EmbeddedResource Include="Migrations/MySql/001_CreateProduct.sql" LogicalName="acme.catalog.Migrations.MySql.001_CreateProduct.sql" />
+  </ItemGroup>
+```
+
+同目录保存 `ApplicationMigrationRunner.cs`：
+
+```csharp
+using DbUp;
+using Full.NET.Data.Abstractions;
+using Full.NET.Data.MySql;
+using Full.NET.Migrations.DbUp;
+using Microsoft.Extensions.Options;
+
+namespace Demo.Host.Migrator;
+
+/// <summary>先执行冻结框架迁移，再执行应用明确登记的业务脚本。</summary>
+/// <remarks>只供应用 Migrator 使用；失败或取消阻止后续播种，已记账脚本保持固定名称和内容。</remarks>
+internal sealed class ApplicationMigrationRunner(
+    DbUpMigrationRunner frameworkRunner,
+    IOptions<DatabaseOptions> databaseOptions,
+    string sqlServerScript,
+    string mySqlScript) : IDatabaseMigrationRunner
+{
+    public async Task<MigrationResult> MigrateAsync(CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sqlServerScript);
+        ArgumentException.ThrowIfNullOrWhiteSpace(mySqlScript);
+        cancellationToken.ThrowIfCancellationRequested();
+        var framework = await frameworkRunner.MigrateAsync(cancellationToken);
+        if (!framework.Successful)
+            throw new InvalidOperationException("框架迁移失败，不能执行应用迁移。");
+
+        // 框架阶段完成后再次检查取消，不能进入业务阶段或后续播种。
+        cancellationToken.ThrowIfCancellationRequested();
+        var options = databaseOptions.Value;
+        var builder = options.Provider switch
+        {
+            DatabaseProvider.SqlServer => DeployChanges.To.SqlDatabase(options.ConnectionString),
+            DatabaseProvider.MySql => DeployChanges.To.MySqlDatabase(
+                MySqlConnectionStringPolicy.Create(options.ConnectionString, options.MySqlGuidStorageMode, true)),
+            _ => throw new ArgumentOutOfRangeException(nameof(options.Provider))
+        };
+        var script = options.Provider == DatabaseProvider.SqlServer ? sqlServerScript : mySqlScript;
+        var application = builder
+            .WithScript($"acme.catalog.Migrations.{options.Provider}.001_CreateProduct.sql", script)
+            .WithExecutionTimeout(TimeSpan.FromSeconds(options.CommandTimeoutSeconds))
+            .LogToConsole()
+            .Build()
+            .PerformUpgrade();
+        if (!application.Successful)
+            throw new InvalidOperationException("应用迁移失败，不能继续播种。", application.Error);
+
+        // DbUp 同步执行不能中途取消；完成后取消阻止播种，不撤销已提交和记账的 DDL。
+        cancellationToken.ThrowIfCancellationRequested();
+        var count = application.Scripts.Count();
+        Console.WriteLine(FormattableString.Invariant(
+            $"FULLNET_APPLICATION_MIGRATIONS {{\"frameworkScripts\":{framework.ExecutedScriptCount},\"applicationScripts\":{count}}}"));
+        return new MigrationResult(true, checked(framework.ExecutedScriptCount + count));
+    }
+
+    internal static string ReadScript(string name)
+    {
+        using var stream = typeof(ApplicationMigrationRunner).Assembly.GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException("缺少显式登记的应用迁移资源。");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+}
+```
+
+在 Migrator 的 `Program.cs` 添加 `using Microsoft.Extensions.DependencyInjection;`，再在既有 `AddApplicationModules(..., FullNetHostProfile.Migrator);` **之后、RunAsync 之前**插入以下注册；保留 API/Worker 角色分离：
+
+```csharp
+builder.Services.AddSingleton<Full.NET.Migrations.DbUp.DbUpMigrationRunner>();
+builder.Services.AddSingleton<Full.NET.Migrations.DbUp.IDatabaseMigrationRunner>(services =>
+    new Demo.Host.Migrator.ApplicationMigrationRunner(
+        services.GetRequiredService<Full.NET.Migrations.DbUp.DbUpMigrationRunner>(),
+        services.GetRequiredService<Microsoft.Extensions.Options.IOptions<Full.NET.Data.Abstractions.DatabaseOptions>>(),
+        Demo.Host.Migrator.ApplicationMigrationRunner.ReadScript("acme.catalog.Migrations.SqlServer.001_CreateProduct.sql"),
+        Demo.Host.Migrator.ApplicationMigrationRunner.ReadScript("acme.catalog.Migrations.MySql.001_CreateProduct.sql")));
+```
+
+先编译：
+
+```bash
+dotnet build src/Demo.Host.Migrator/Demo.Host.Migrator.csproj -c Release
+```
+
+### 仅在可销毁空库实走
+
+把测试连接通过当前进程的 `ConnectionStrings__app` 提供，确认指向本次自有可销毁空库；不要写入教程、Git 或日志。该冻结预设包含 009 UUID Contract 与 011 Naming Contract，默认维护门禁关闭；仅配置连接会先被 Identity 签名选项阻断，开发临时密钥启用后仍会被维护门禁阻断，不能把这些退出 1 算作迁移通过。
+
+将下面内容保存为应用根 `run-local-tutorial-migration.ps1`。它只为这次空库演练给 Migrator 提供进程级配置，结束后恢复原值，不将维护批准或临时密钥配置写进应用、API 或 Worker。维护标识与布尔值只描述本次隔离验收，不代表生产备份/维护窗口已验证；有数据的环境必须执行自己的备份恢复、停写和迁移批准流程。
+
+```powershell
+param(
+  [ValidateSet('SqlServer', 'MySql')][string]$Provider = 'SqlServer',
+  [ValidateSet('none', 'baseline', 'development')][string]$Seed = 'none'
+)
+$localConnection = [Environment]::GetEnvironmentVariable('ConnectionStrings__app', 'Process')
+if ([string]::IsNullOrWhiteSpace($localConnection)) { throw '先通过进程环境提供本次可销毁空库连接。' }
+$settings = @{
+  DOTNET_ENVIRONMENT = 'Development'
+  Database__Provider = $Provider
+  Database__ConnectionString = $localConnection
+  Database__MySqlGuidStorageMode = 'Binary16'
+  Identity__AllowDevelopmentEphemeralSigningKey = 'true'
+  FullNet__FrameworkManifest__ContentRoot = '.'
+  UuidBinaryContract__MaintenanceMode = 'true'
+  UuidBinaryContract__BackupVerified = 'true'
+  UuidBinaryContract__LegacyWritersStopped = 'true'
+  UuidBinaryContract__DestructiveDdlApprovalId = 'tutorial-disposable-009'
+  PreV1NamingContract__MaintenanceMode = 'true'
+  PreV1NamingContract__BackupVerified = 'true'
+  PreV1NamingContract__LegacyWritersStopped = 'true'
+  PreV1NamingContract__LegacyOutboxDrained = 'true'
+  PreV1NamingContract__DestructiveDdlApprovalId = 'tutorial-disposable-011'
+}
+$previous = @{}
+foreach ($setting in $settings.GetEnumerator()) {
+  $previous[$setting.Key] = [Environment]::GetEnvironmentVariable($setting.Key, 'Process')
+}
+try {
+  foreach ($setting in $settings.GetEnumerator()) {
+    [Environment]::SetEnvironmentVariable($setting.Key, $setting.Value, 'Process')
+  }
+  $migratorArgs = @('run', '--project', 'src/Demo.Host.Migrator', '-c', 'Release', '--no-build')
+  if ($Seed -ne 'none') { $migratorArgs += @('--', '--seed', $Seed) }
+  & dotnet @migratorArgs
+  if ($LASTEXITCODE -ne 0) { throw '迁移或播种失败，保留结果并定位；不要继续启动业务。' }
+} finally {
+  foreach ($setting in $previous.GetEnumerator()) {
+    [Environment]::SetEnvironmentVariable($setting.Key, $setting.Value, 'Process')
+  }
+}
+```
+
+在应用根执行 `./run-local-tutorial-migration.ps1 -Provider SqlServer`，再重复同一命令。首次结果标记应为 frameworkScripts 大于 0、applicationScripts 为 1，重复两项均为 0；实际表还须核对六列、主键与 TenantId/Id 索引。MySQL 的独立空库使用 MySql 参数；上面的 Provider 只覆盖本次迁移进程，不修改冻结档案，正式应用各宿主配置仍须与其声明的 Provider 保持一致。
+
+仅零脚本重复不证明恢复：本次验收还会在自有临时库撤销该业务脚本的一条记账，SQL Server 保留表/样本行并移除未完成的索引，MySQL 保留完整原子 DDL；再迁移应补齐或保持结构、只记账一次且保留样本。恢复操作只供隔离验收，不在部署或本地运行脚本中自动执行。此步默认不播种，后续账号/页面演练须通过受控配置提供 `Identity__Bootstrap__Username` 与满足强密码规则的 `Identity__Bootstrap__Password`，再显式选择 `-Seed development`；Production 仍只允许 Baseline，不能使用上述本地维护配置。
+
+2026-10-05 已直接采纳本文代码块，在保留的 `0957ee62` 独立应用完成此步。两份业务 SQL 与草稿原字节一致；再次采纳按预期退出 1、文件保持，Migrator Release 编译 0 警告/0 错误。Windows x64、Node 24.12.0、.NET SDK 10.0.401、运行时 10.0.12、`DOTNET_PROCESSOR_COUNT=2`，串行使用 SQL Server 2022 CU14 与 MySQL 8.4 自有临时容器；完整双库实走退出 0，共 26 次迁移/结构/恢复进程核对，两个不存在数据库的失败路径各按预期退出 1，其余退出 0。首次各执行框架 99/业务 1，重复各 0/0；六列与两个索引、空业务表及零管理员行符合预期。撤销一条业务记账后，SQL Server 补回缺失索引、MySQL 保持完整原子 DDL，各只执行业务 1；样本名称与版本 7 保持，恢复后复跑均 0/0。成功和失败路径的 15 项进程配置均恢复原值；失败未改写原数据库。采纳后的应用源码、配置、草稿和全部受管框架摘要保持，仅清理本次自有容器。总耗时 156.387 秒（SQL Server 65.692 秒、MySQL 87.677 秒，含容器启动/清理，不含采纳、编译和先前失败），原始结果保留 `.tmp/f02-tutorial-migration-0957ee62-run3/`，采纳材料保留 `.tmp/f02-tutorial-migration-0957ee62/`。
+
+失败事实另行保留：未提供开发签名时宿主 Options 校验失败；只启用开发临时密钥而缺维护配置时，两库均在 009 门禁退出 1、已记账 8 条框架脚本，业务表与管理员行仍为零，不能当作空库迁移完成。首轮结构探针被 SQL Server 系统元数据排序规则冲突阻断，第二轮被 MySQL DISTINCT 查询的排序列限制阻断；修正验收查询后才取得上述完整新结果，没有修改业务 SQL 或数据库默认配置。本步未执行 Development 播种，未启动 API 监听、Worker 或浏览器，未将静态 OpenAPI 与运行 API 比较；完整教程、诊断覆盖及 F02 整项仍待收口。
+
 ## 验证
 
-新创建应用从应用根运行 `dotnet run --project src/<name>.Host.Migrator -- --seed baseline`，迁移成功后才执行显式播种；省略 `--seed` 只迁移。仅本地开发环境显式选择 Development 后才能使用 `--seed development`，Production仍只允许Baseline。API、Worker和Migrator消费同一应用Composition，分别装配各自Profile；Migrator只注册模块的迁移/播种入口，不能装入API Profile。Worker编译随应用分发的框架后台处理管线，默认健康检查端口与API分开；其运行时和Native AOT验收须单独执行。现阶段Runner仍只运行冻结预设的框架脚本；生成业务SQL草案须完成编号、所有权、恢复与双库评审后显式接入，不能放进受管框架目录。旧应用的源码升级不会自动创建该应用拥有的宿主，需按新模板显式采用；默认结构校验兼容旧应用，创建发布前则强制要求同名Worker、Migrator与一致配置。
+新创建应用在签名、数据库及框架维护前提已满足后，从应用根运行 `dotnet run --project src/<name>.Host.Migrator -- --seed baseline`，迁移成功后才执行显式播种；省略 `--seed` 只迁移。仅本地开发环境显式选择 Development 后才能使用 `--seed development`，Production仍只允许Baseline；此 Demo 的隔离空库演练使用第六步脚本。API、Worker和Migrator消费同一应用Composition，分别装配各自Profile；Migrator只注册模块的迁移/播种入口，不能装入API Profile。Worker编译随应用分发的框架后台处理管线，默认健康检查端口与API分开；其运行时和Native AOT验收须单独执行。默认Runner只运行冻结预设的框架脚本；第六步的应用自有包装器显式追加业务脚本。生成业务SQL草案须完成编号、所有权、恢复与双库评审后显式接入，不能放进受管框架目录。旧应用的源码升级不会自动创建该应用拥有的宿主，需按新模板显式采用；默认结构校验兼容旧应用，创建发布前则强制要求同名Worker、Migrator与一致配置。
 
 内容根声明 `fullnet-app.json` 时，Migrator 要求 `framework-manifest.json` 包含有效的预设迁移清单；文件缺失、清单不完整或 `unscoped` 会在解析数据库连接前停止，防止静默扩大为全部框架迁移。未声明应用的框架工作区保留原有非限定兼容行为。该检查依赖内容根中的应用声明，不替代发布目录的配置核验。
 
