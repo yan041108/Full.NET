@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace Full.NET.CodeGeneration.Cli;
@@ -8,7 +9,7 @@ namespace Full.NET.CodeGeneration.Cli;
 /// <summary>
 /// 只读环境诊断：检查 SDK、工作区结构、模块配置与秘密占位符，不输出凭据原文。
 /// </summary>
-internal static class DiagnoseCommand
+internal static partial class DiagnoseCommand
 {
     private static readonly string[] RequiredWorkspaceMarkers =
     [
@@ -79,9 +80,7 @@ internal static class DiagnoseCommand
                 return;
             }
 
-            findings.Add(DiagnoseFinding.Ok(
-                "DIAG_SDK_OK",
-                $"检测到 .NET SDK {version}。"));
+            findings.Add(DiagnoseSdkVersion(version));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -95,6 +94,27 @@ internal static class DiagnoseCommand
                 "安装 .NET 10 SDK 并确保 dotnet 在 PATH 中。"));
         }
     }
+
+    internal static DiagnoseFinding DiagnoseSdkVersion(string version)
+    {
+        var match = SdkVersionPattern().Match(version);
+        // 当前源码目标 net10.0，分发包使用 10.0.100 + latestFeature；不把其他基线自动认证为兼容。
+        if (!match.Success || !Version.TryParse(match.Groups["version"].Value, out var parsed)
+            || parsed.Major != 10 || parsed.Minor != 0 || parsed.Build < 100)
+        {
+            return DiagnoseFinding.Error(
+                "DIAG_SDK_INCOMPATIBLE",
+                "目标工作区选择的 SDK 不符合当前 .NET 10.0 SDK 基线，或返回的版本格式无效。",
+                "安装 .NET 10 SDK，核对目标工作区及父目录的 global.json，再运行 dotnet --version；当前基线为 10.0.100 或更高的 10.0 SDK 功能带。");
+        }
+
+        // 仅回显已解析的数字版本；即使版本后缀被错误填入凭据，也不能带入诊断输出。
+        var preview = match.Groups["prerelease"].Success ? "（预览版）" : string.Empty;
+        return DiagnoseFinding.Ok("DIAG_SDK_OK", $"检测到 .NET SDK {parsed}{preview}。");
+    }
+
+    [GeneratedRegex(@"\A(?<version>(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))(?:-(?<prerelease>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\z", RegexOptions.CultureInvariant)]
+    private static partial Regex SdkVersionPattern();
 
     private static void CheckWorkspaceStructure(
         string workspacePath,
@@ -871,7 +891,7 @@ internal static class DiagnoseCommand
         return 0;
     }
 
-    private sealed record DiagnoseFinding(string Code, string Severity, string Message, string? Hint)
+    internal sealed record DiagnoseFinding(string Code, string Severity, string Message, string? Hint)
     {
         public static DiagnoseFinding Ok(string code, string message) =>
             new(code, "ok", message, null);

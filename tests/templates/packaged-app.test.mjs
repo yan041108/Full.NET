@@ -122,6 +122,7 @@ test('application template package includes framework sources and root manifest'
     });
     assert.equal(configuredDiagnosis.status, 0, configuredDiagnosis.stderr || configuredDiagnosis.stdout);
     assert.match(configuredDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
+    assert.match(configuredDiagnosis.stdout, /DIAG_SDK_OK ok 检测到 \.NET SDK 10\.0\./u);
     assert.doesNotMatch(configuredDiagnosis.stdout + configuredDiagnosis.stderr, /credential-probe/u);
     const productionSettings = join(appRoot, 'src/Demo.Host.Api/appsettings.Production.json');
     const rootProductionSettings = join(appRoot, 'appsettings.Production.json');
@@ -168,6 +169,35 @@ test('application template package includes framework sources and root manifest'
     } finally {
       rmSync(productionSettings, { force: true });
       rmSync(rootProductionSettings, { force: true });
+    }
+    const applicationSdkProfile = join(appRoot, 'global.json');
+    const applicationSdkBefore = readFileSync(applicationSdkProfile);
+    const diagnosticAssembly = join(diagnosticCli, 'bin/Release/net10.0/Full.NET.CodeGeneration.Cli.dll');
+    const installedSdks = spawnSync('dotnet', ['--list-sdks'], {
+      cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true,
+    });
+    assert.equal(installedSdks.status, 0, installedSdks.stderr || installedSdks.stdout);
+    const olderSdk = installedSdks.stdout.match(/^([1-9]\.0\.\d+)\s/gmu)?.at(-1)?.trim();
+    const diagnoseSdk = () => spawnSync('dotnet', [
+      'exec', diagnosticAssembly, 'diagnose', '--workspace', appRoot, '--profile', 'development',
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true, env: diagnosisEnvironment });
+    try {
+      writeFileSync(applicationSdkProfile, JSON.stringify({ sdk: { version: '99.0.100', rollForward: 'disable' } }));
+      const missingSdkDiagnosis = diagnoseSdk();
+      assert.equal(missingSdkDiagnosis.status, 1);
+      assert.match(missingSdkDiagnosis.stdout, /DIAG_SDK_MISSING error/u);
+      assert.doesNotMatch(missingSdkDiagnosis.stdout, /DIAG_SDK_OK/u);
+      if (olderSdk) {
+        writeFileSync(applicationSdkProfile, JSON.stringify({ sdk: { version: olderSdk, rollForward: 'disable' } }));
+        const olderSdkBefore = readFileSync(applicationSdkProfile);
+        const incompatibleSdkDiagnosis = diagnoseSdk();
+        assert.equal(incompatibleSdkDiagnosis.status, 1);
+        assert.match(incompatibleSdkDiagnosis.stdout, /DIAG_SDK_INCOMPATIBLE error/u);
+        assert.doesNotMatch(incompatibleSdkDiagnosis.stdout, /DIAG_SDK_OK/u);
+        assert.deepEqual(readFileSync(applicationSdkProfile), olderSdkBefore);
+      }
+    } finally {
+      writeFileSync(applicationSdkProfile, applicationSdkBefore);
     }
     const assets = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
     const implementationModules = Object.keys(assets.libraries)

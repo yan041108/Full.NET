@@ -140,7 +140,8 @@ public sealed class DiagnoseCommandTests
             new { Database = new { ConnectionName = connectionName } }));
         using var output = new StringWriter();
         using var error = new StringWriter();
-        var before = File.ReadAllBytes(fixture.Settings);
+        var beforeFiles = Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories)
+            .ToDictionary(path => path, File.ReadAllBytes);
         try
         {
             Environment.SetEnvironmentVariable(environmentName, connection);
@@ -150,8 +151,12 @@ public sealed class DiagnoseCommandTests
             Assert.AreEqual(0, result);
             StringAssert.Contains(output.ToString(), "DIAG_CONNECTION_CONFIGURED ok");
             Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
-            CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Settings));
-            Assert.AreEqual(1, Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories).Length);
+            CollectionAssert.AreEquivalent(beforeFiles.Keys.ToArray(),
+                Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories));
+            foreach (var (path, bytes) in beforeFiles)
+            {
+                CollectionAssert.AreEqual(bytes, File.ReadAllBytes(path));
+            }
         }
         finally
         {
@@ -807,6 +812,58 @@ public sealed class DiagnoseCommandTests
         }
     }
 
+    [TestMethod]
+    [DataRow("10.0.100")]
+    [DataRow("10.0.401")]
+    [DataRow("10.0.999")]
+    [DataRow("10.0.100-preview.7.25380.108")]
+    [DataRow("10.0.100-rc.2.25502.107")]
+    [DataRow("10.0.401+build.123")]
+    [DataRow("10.0.100-credential-probe")]
+    public void Supported_sdk_feature_bands_and_prereleases_are_recognized(string version)
+    {
+        var finding = DiagnoseCommand.DiagnoseSdkVersion(version);
+
+        Assert.AreEqual("DIAG_SDK_OK", finding.Code);
+        Assert.AreEqual("ok", finding.Severity);
+        Assert.IsFalse(finding.Message.Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("8.0.408")]
+    [DataRow("9.0.307")]
+    [DataRow("11.0.100")]
+    [DataRow("10.1.100")]
+    [DataRow("10.0.99")]
+    public void Sdk_outside_current_framework_baseline_is_not_reported_as_compatible(string version)
+    {
+        var finding = DiagnoseCommand.DiagnoseSdkVersion(version);
+
+        Assert.AreEqual("DIAG_SDK_INCOMPATIBLE", finding.Code);
+        Assert.AreEqual("error", finding.Severity);
+        StringAssert.Contains(finding.Hint!, "global.json");
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("credential-probe")]
+    [DataRow("10")]
+    [DataRow("10.0")]
+    [DataRow("10.0.401.1")]
+    [DataRow("10.0.401-credential-probe;Password=credential-probe")]
+    [DataRow("10.0.401\ncredential-probe")]
+    [DataRow("999999999999999999999.0.100")]
+    [DataRow("10.0.401-")]
+    [DataRow("10.0.401-preview..1")]
+    public void Invalid_sdk_probe_output_fails_without_echoing_process_output(string version)
+    {
+        var finding = DiagnoseCommand.DiagnoseSdkVersion(version);
+
+        Assert.AreEqual("DIAG_SDK_INCOMPATIBLE", finding.Code);
+        Assert.AreEqual("error", finding.Severity);
+        Assert.IsFalse((finding.Message + finding.Hint).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
     private sealed class DiagnoseWorkspace : IDisposable
     {
         public string Root { get; } = Path.Combine(Path.GetTempPath(), $"fullnet-diagnose-{Guid.NewGuid():N}");
@@ -817,6 +874,10 @@ public sealed class DiagnoseCommandTests
         {
             Directory.CreateDirectory(Root);
             File.WriteAllText(Settings, configuration, new UTF8Encoding(false));
+            // 正常配置场景固定当前应用基线，避免机器额外安装未来 SDK 后改变测试前提。
+            File.WriteAllText(Path.Combine(Root, "global.json"),
+                """{"sdk":{"version":"10.0.100","rollForward":"latestFeature","allowPrerelease":true}}""",
+                new UTF8Encoding(false));
         }
 
         public void AddStandaloneUserSecrets(string secrets, string hostName = "Demo.Host.Api")
