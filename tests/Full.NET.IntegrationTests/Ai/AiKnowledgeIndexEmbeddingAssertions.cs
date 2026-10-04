@@ -17,6 +17,7 @@ using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Ai;
 
@@ -58,7 +59,17 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
             else
             {
                 var result = await Execute(held.LeaseToken.Value);
-                if (scenario is "known" or "unmetered") { Assert.IsNotNull(result); Assert.AreEqual(1536, result.Chunks[0].Vector.Length); }
+                if (scenario is "known" or "unmetered")
+                {
+                    Assert.IsNotNull(result); Assert.AreEqual(1536, result.Chunks[0].Vector.Length);
+                    await AiKnowledgeIndexVectorAssertions.VerifyAsync(db, session, result,
+                        batch => Use((tasks, _, services) => VectorStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, batch, CancellationToken.None)),
+                        () => Use((tasks, execution, services) => new AiKnowledgeIndexPersistenceService(execution, VectorStore(services, tasks))
+                            .ExecuteTextBatchAsync(binding, task.Id, held.LeaseToken.Value, 0, CancellationToken.None)),
+                        batch => Use((tasks, _, services) => VectorStore(services, tasks, new ExpireAfterVectorInsert(services.GetRequiredService<ICommandExecutor>(),
+                            () => clock.UtcNow = batch.Source.LeaseExpiresAtUtc)).PersistAsync(binding, task.Id, held.LeaseToken.Value, batch, CancellationToken.None)));
+                    Assert.AreEqual(1, provider.Calls);
+                }
                 else Assert.IsNull(result);
             }
             var operation = await db.QuerySingleAsync<Guid>("SELECT Id FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id AND BatchOrdinal=0", new { Id = task.Id });
@@ -86,6 +97,10 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                 services.GetRequiredService<IQueryExecutor>(), services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
                 services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(),
                 services.GetRequiredService<IIdGenerator>(), tasks, authorization);
+            AiKnowledgeIndexVectorStore VectorStore(IServiceProvider services, AiKnowledgeIndexTaskStore tasks, ICommandExecutor? command = null) => new(
+                services.GetRequiredService<IQueryExecutor>(), command ?? services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
+                services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(),
+                tasks, SessionService(services, tasks), authorization, services.GetRequiredService<IOptions<DatabaseOptions>>());
 
             async Task<T> Use<T>(Func<AiKnowledgeIndexTaskStore, AiKnowledgeIndexEmbeddingService, IServiceProvider, Task<T>> action)
             {
@@ -106,6 +121,16 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                 var execution = new AiKnowledgeIndexEmbeddingService(query, services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IDataTransactionState>(), tasks, SessionService(services, tasks), admission, budget, authorization, files, files, files, [provider], services.GetRequiredService<AiModelBindingScope>());
                 return await action(tasks, execution, services);
             }
+        }
+    }
+    private sealed class ExpireAfterVectorInsert(ICommandExecutor inner, Action expire) : ICommandExecutor
+    {
+        public async Task<int> ExecuteAsync(SqlStatement statement, object? parameters, CancellationToken token)
+        {
+            var count = await inner.ExecuteAsync(statement, parameters, token);
+            if (statement.Name.StartsWith("ai.knowledge_index_vector.insert", StringComparison.Ordinal))
+            { Assert.AreEqual(1, count); expire(); }
+            return count;
         }
     }
     private sealed class SettlementHookBudget(IAiOperationBudgetStore inner, Func<Task> afterSettlement) : IAiOperationBudgetStore

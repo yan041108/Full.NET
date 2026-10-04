@@ -25,9 +25,21 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeIndexDispatchRecord>(ReadKnowledgeIndexDispatch);
         registrar.Register<AiKnowledgeIndexBatchRecord>(ReadKnowledgeIndexBatch);
         registrar.Register<AiKnowledgeIndexSessionRecord>(ReadKnowledgeIndexSession);
+        registrar.Register<AiKnowledgeIndexVectorRecord>(ReadKnowledgeIndexVector);
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
     }
 #endif
+
+    // 载荷按静态字节数组读取，模型/任务字段只由固定关联查询投影。
+    internal static AiKnowledgeIndexVectorRecord ReadKnowledgeIndexVector(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), IndexTaskId = reader.GetGuid(reader.GetOrdinal("IndexTaskId")),
+        BatchOrdinal = checked((int)Integer(reader, "BatchOrdinal")), RequestHash = Text(reader, "RequestHash"), InputCount = checked((int)Integer(reader, "InputCount")),
+        ModelConfigId = reader.GetGuid(reader.GetOrdinal("ModelConfigId")), ModelConfigVersion = checked((int)Integer(reader, "ModelConfigVersion")),
+        ProviderKey = Text(reader, "ProviderKey"), ModelId = Text(reader, "ModelId"), Dimensions = checked((int)Integer(reader, "Dimensions")),
+        FormatKey = Text(reader, "FormatKey"), DistanceKey = Text(reader, "DistanceKey"), PayloadHash = Text(reader, "PayloadHash"),
+        Payload = reader.GetFieldValue<byte[]>(reader.GetOrdinal("Payload")), CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+    };
 
     // 原会话在恢复时保持冻结；可空租约只由关联任务投影，不物化令牌。
     internal static AiKnowledgeIndexSessionRecord ReadKnowledgeIndexSession(DbDataReader reader) => new()

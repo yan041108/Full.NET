@@ -7,6 +7,26 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiBudgetRowReaderTests
 {
+    [TestMethod]
+    public void Index_vector_maps_exact_bytes_and_space_metadata()
+    {
+        using var table = new DataTable();
+        foreach (var name in new[] { "Id", "IndexTaskId", "ModelConfigId" }) table.Columns.Add(name, typeof(Guid));
+        foreach (var name in new[] { "BatchOrdinal", "InputCount", "ModelConfigVersion", "Dimensions" }) table.Columns.Add(name, typeof(int));
+        foreach (var name in new[] { "RequestHash", "ProviderKey", "ModelId", "FormatKey", "DistanceKey", "PayloadHash" }) table.Columns.Add(name, typeof(string));
+        table.Columns.Add("Payload", typeof(byte[])); table.Columns.Add("CreatedAtUtc", typeof(DateTime));
+        var id = Guid.CreateVersion7(); var task = Guid.CreateVersion7(); var model = Guid.CreateVersion7(); byte[] bytes = [1, 2, 3];
+        var now = new DateTime(2026, 10, 5, 0, 0, 0, DateTimeKind.Unspecified);
+        table.Rows.Add(id, task, model, 2, 16, 7, 1536, "request", "provider", "model", "format", "cosine", "payloadhash", bytes, now);
+        using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read()); var row = AiBudgetRowReaders.ReadKnowledgeIndexVector(reader);
+        Assert.AreEqual(id, row.Id); Assert.AreEqual(task, row.IndexTaskId); Assert.AreEqual(model, row.ModelConfigId);
+        Assert.AreEqual(2, row.BatchOrdinal); Assert.AreEqual(16, row.InputCount); Assert.AreEqual(7, row.ModelConfigVersion);
+        Assert.AreEqual(1536, row.Dimensions); Assert.AreEqual("request", row.RequestHash); Assert.AreEqual("provider", row.ProviderKey);
+        Assert.AreEqual("model", row.ModelId); Assert.AreEqual("format", row.FormatKey); Assert.AreEqual("cosine", row.DistanceKey);
+        Assert.AreEqual("payloadhash", row.PayloadHash); CollectionAssert.AreEqual(bytes, row.Payload);
+        Assert.AreEqual(new DateTimeOffset(now, TimeSpan.Zero), row.CreatedAtUtc);
+    }
+
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public void Index_session_maps_frozen_identity_and_nullable_lease(bool tenant)
     {

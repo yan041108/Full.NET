@@ -214,7 +214,7 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
         return Array.AsReadOnly(output);
     }
 
-    private static bool SameSource(AiKnowledgeIndexDispatchRecord expected, AiKnowledgeIndexDispatchRecord current) =>
+    internal static bool SameSource(AiKnowledgeIndexDispatchRecord expected, AiKnowledgeIndexDispatchRecord current) =>
         expected.TaskId == current.TaskId && expected.VersionId == current.VersionId && expected.DocumentId == current.DocumentId
         && expected.DocumentVersion == current.DocumentVersion && expected.KnowledgeBaseVersion == current.KnowledgeBaseVersion
         && expected.LeaseToken == current.LeaseToken && expected.FileId == current.FileId && expected.ContentHash == current.ContentHash

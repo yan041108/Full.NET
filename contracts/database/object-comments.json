@@ -361,6 +361,20 @@
         "VersionId": "不可变来源文件版本标识"
       }
     },
+    "fn_ai_knowledge_index_vector": {
+      "comment": "人工智能knowledge index vector表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Dimensions": "Dimensions",
+        "DistanceKey": "Distance Key",
+        "FormatKey": "格式键",
+        "Id": "逻辑主键",
+        "ModelId": "模型标识",
+        "Payload": "消息正文",
+        "PayloadHash": "载荷哈希",
+        "ProviderKey": "存储提供程序键"
+      }
+    },
     "fn_ai_knowledge_member": {
       "comment": "知识库明确成员授权",
       "columns": {
