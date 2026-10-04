@@ -91,13 +91,13 @@ internal static partial class DiagnoseCommand
         string sectionPath = "Identity")
     {
         var prefix = sectionPath + ":SigningKeys:";
-        return ReadIdentityConfigurationPaths(root, profileSettings, workspacePath, profile)
+        return ReadRuntimeConfigurationPaths(root, profileSettings, workspacePath, profile)
             .Where(path => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             .Select(path => path[prefix.Length..].Split(':')[0])
             .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static IReadOnlyList<string> ReadIdentityConfigurationPaths(
+    private static IReadOnlyList<string> ReadRuntimeConfigurationPaths(
         JsonElement root, JsonDocument? profileSettings, string workspacePath, string profile)
     {
         // 宿主 GetChildren 以高优先级提供程序的键名拼写合并重复子键；值仍逐叶覆盖，空父节点不删除子键。

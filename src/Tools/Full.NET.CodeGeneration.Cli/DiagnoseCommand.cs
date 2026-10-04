@@ -304,6 +304,7 @@ internal static partial class DiagnoseCommand
                     "修复秘密文件的 JSON 语法与重复配置键；诊断不会输出秘密值。"));
             }
             CheckModulesSection(root, findings);
+            CheckModulePreset(root, profileSettings, workspacePath, profile, findings);
             CheckDatabaseProvider(root, profileSettings, workspacePath, profile, findings);
             CheckDatabaseOptions(root, profileSettings, workspacePath, profile, findings);
             CheckConnectionPlaceholder(root, profileSettings, workspacePath, profile, findings);

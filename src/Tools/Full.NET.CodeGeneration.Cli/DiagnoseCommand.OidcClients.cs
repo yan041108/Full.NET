@@ -17,7 +17,7 @@ internal static partial class DiagnoseCommand
 
         if (!bool.TryParse(Read("Identity:Oidc:Enable"), out var enabled) || !enabled) return;
 
-        var paths = ReadIdentityConfigurationPaths(root, profileSettings, workspacePath, profile);
+        var paths = ReadRuntimeConfigurationPaths(root, profileSettings, workspacePath, profile);
         string[] Children(string path)
         {
             var prefix = path + ":";
