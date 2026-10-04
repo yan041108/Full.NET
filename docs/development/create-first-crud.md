@@ -138,6 +138,134 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 
 ## 第五步：模块接入（可选）
 
+### 创建应用自有 Catalog 模块
+
+下面接着前四步的 `Demo` 应用执行，命令的工作目录始终是应用根目录。创建 `src/Demo.Modules.Catalog/`，将以下内容保存为该目录中的 `Demo.Modules.Catalog.csproj`。应用根的 `Directory.Build.props` 已导入冻结框架的编译基线；模块只引用所需边界，Identity 使用 Contracts 项目。
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Abstractions/Full.NET.Abstractions.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Data.Abstractions/Full.NET.Data.Abstractions.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Hosting/Full.NET.Hosting.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Modularity/Full.NET.Modularity.csproj" />
+    <ProjectReference Include="../../framework/fullnet/src/Modules/Full.NET.Modules.Identity.Contracts/Full.NET.Modules.Identity.Contracts.csproj" />
+  </ItemGroup>
+</Project>
+```
+
+同目录保存 `CatalogModule.cs`：
+
+```csharp
+using Full.NET.Modularity.Modules;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Demo.Modules.Catalog;
+
+/// <summary>应用自有目录模块；生成业务入口由显式接入命令装配。</summary>
+public sealed class CatalogModule : IFullNetModule
+{
+    public string Name => "Catalog";
+    public IReadOnlyCollection<string> Dependencies => ["Identity"];
+
+    public void AddServices(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions();
+    }
+
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+    }
+}
+```
+
+在应用根保存 `integration-target.json`：
+
+```json
+{
+  "moduleName": "Catalog",
+  "moduleProjectPath": "src/Demo.Modules.Catalog/Demo.Modules.Catalog.csproj",
+  "moduleEntryPointPath": "src/Demo.Modules.Catalog/CatalogModule.cs",
+  "compositionProjectPath": "src/Demo.Composition/Demo.Composition.csproj",
+  "compositionCatalogPath": "src/Demo.Composition/ApplicationModuleCatalog.cs",
+  "vueRouterPath": "ui/admin/src/router/index.ts"
+}
+```
+
+规划命令只报告接线缺口，不写文件；此时后端生成和宿主接线显示 `ChangeRequired`，已有模块项目显示 `Satisfied`，未声明客户端路由显示 `ManualReview`。然后生成模块内的六个产物并编译：
+
+```bash
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- plan-module-integration --schema schema.json --repository . --target integration-target.json
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- apply-module-integration --schema schema.json --repository . --target integration-target.json
+dotnet build src/Demo.Modules.Catalog/Demo.Modules.Catalog.csproj -c Release
+```
+
+`apply-module-integration` 应报告六项 `Create` 和模块候选编译通过；产物位于模块的 `Generated/`，原来根目录的 `backend/` 草稿保持。此命令尚未接入 Composition、授权贡献者或页面。
+
+### 接入授权贡献者与组合根
+
+模块生成完成后，在同目录保存 `CatalogAuthorizationContributor.cs`。三个标准集合供 CLI 接入，保留一项人工权限用于确认再生成不会覆盖应用扩展：
+
+```csharp
+using Demo.Modules.Catalog.Generated;
+using Full.NET.Modules.Identity.Contracts;
+
+namespace Demo.Modules.Catalog;
+
+/// <summary>目录模块的静态授权目录，不持有请求或租户上下文。</summary>
+public sealed class CatalogAuthorizationContributor : IAuthorizationCatalogContributor
+{
+    public AuthorizationModuleDefinition Module { get; } = new("catalog", "应用目录", 200);
+
+    public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
+    [
+        new PermissionDefinition("catalog.manual.read", "人工权限", AuthorizationScope.Tenant),
+    ];
+
+    public IReadOnlyCollection<NavigationDefinition> Navigation { get; } = [];
+    public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } = [];
+}
+```
+
+在 `CatalogModule.AddServices` 的 `services.AddOptions();` 后添加：
+
+```csharp
+services.AddSingleton<Full.NET.Modules.Identity.Contracts.IAuthorizationCatalogContributor, CatalogAuthorizationContributor>();
+```
+
+另存应用根的 `host-target.json`；逐阶段目标和完整编排目标必须分开，因为只有完整编排接受 `authorizationContributorPath`：
+
+```json
+{
+  "moduleName": "Catalog",
+  "moduleProjectPath": "src/Demo.Modules.Catalog/Demo.Modules.Catalog.csproj",
+  "moduleEntryPointPath": "src/Demo.Modules.Catalog/CatalogModule.cs",
+  "compositionProjectPath": "src/Demo.Composition/Demo.Composition.csproj",
+  "compositionCatalogPath": "src/Demo.Composition/ApplicationModuleCatalog.cs",
+  "vueRouterPath": "ui/admin/src/router/index.ts",
+  "authorizationContributorPath": "src/Demo.Modules.Catalog/CatalogAuthorizationContributor.cs"
+}
+```
+
+执行完整后端接入、API 编译，再重复接入：
+
+```bash
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- apply-host-integration --schema schema.json --repository . --target host-target.json
+dotnet build src/Demo.Host.Api/Demo.Host.Api.csproj -c Release
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- apply-host-integration --schema schema.json --repository . --target host-target.json
+```
+
+两次编排都应报告 `Applied HostIntegration`；检查重复执行前后文件内容保持，不能仅凭同一成功消息认定无漂移。Composition 应只引用并注册一次 Catalog，模块入口应注册生成服务并映射生成端点。贡献者保留人工权限，增加四项 Tenant 权限、一项导航和三项操作；硬删除仍沿用稳定的 `catalog.products.disable` 权限。API、Worker、Migrator 继续各用自己的 Host Profile。
+
+此目标未声明 `clientRoute`，所以本步只接后端。API 编译不证明 HTTP 权限、数据库可用、Vue 页面或 Native AOT 通过；业务 SQL 草稿还必须按后文显式接入应用 Migrator，不能直接启动 API 后将缺表错误计为教程成功。
+
+2026-10-05 实走：续用前四步从源码 `0957ee6232cd4ccebf3f90847d77955675baa4d3` 冻结创建的 SQL Server / Minimal 应用，直接取本文 XML、C#、JSON 和命令完成本步。六条命令及一次人工注释后的额外重复接入全部退出 0，实走与文件核对合计 128.338 秒；模块与 API 的 Release 编译均为 0 警告、0 错误。规划不写盘，生成六产物，Catalog 单次引用/注册，贡献者四项 Tenant 权限、一项导航、三项操作，人工权限和注释、配置、原草稿及全部框架摘要保持。初次规划对照暴露教程原有 `Missing/Ready` 说明错误，现按实际状态更正。结果留存 `.tmp/f02-tutorial-host-0957ee62-run3/`；这是后端接线与编译证据，该应用尚未启动数据库、API 监听、Worker 或浏览器，完整教程仍未验收。
+
+### 接入目标与命令边界
+
 原仓库的 `samples/enterprise-request/integration-target.json` 是仓库布局示例，不适用于独立应用。准备应用自己的 `integration-target.json`，显式选择应用拥有的模块项目、入口与宿主接入位置；不得为了接入业务改写受管框架或恢复冻结 Layui 交付线。规划入口：
 
 ```bash
@@ -147,7 +275,7 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
   --target integration-target.json
 ```
 
-按 `Missing`/`Ready` 项完成接线后再执行 `apply-module-integration` 等子命令。
+按 `ChangeRequired` 项完成对应接线；`Satisfied` 表示已满足，`ManualReview` 须人工复核，`Blocked` 须先解除阻断，再执行相应接入子命令。
 
 只交付 Vue 的目标 JSON 可以省略 `layuiRouterPath`，`clientRoute` 可以只提供 `routePath`、`vueRouteName`、`vueComponentPath`。如显式提供存量 Layui 控制器，`layuiControllerPath` 与 `layuiControllerExport` 必须成对；此兼容读取能力不授权恢复 Layui 开发。未知字段、非法路径或不完整配对仍拒绝。
 
@@ -161,7 +289,7 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- apply-host-integration --schema schema.json --repository . --target host-target.json
 ```
 
-上例从独立应用根目录执行，要求先准备有效的 `host-target.json`、模块项目和贡献者；它不是只靠前四步即可运行的完整接入示例。命令成功报告 `Applied HostIntegration`，输入无效返回 64，前置或受控冲突返回 2。共享编排分阶段提交，后续失败不代表前序步骤未写入，也不是全链事务；已有恢复/授权暂存材料先拒绝接入，需要人工审查。授权候选写入前复用隔离模块编译，只在临时投影中替换 Contributor；编译失败或取消时不提交授权文件，编译期间人工漂移仍由提交复核拒绝。代表性应用的完整运行验收见本地双库入口；当前应用仍须执行自己的 Migrator、实际权限及跨租户拒绝验证，不得用命令退出 0 替代。
+上例从独立应用根目录执行；前面的 Catalog 示例已给出有效的 `host-target.json`、模块项目和贡献者，其他应用须按自己的名称与布局调整。命令成功报告 `Applied HostIntegration`，输入无效返回 64，前置或受控冲突返回 2。共享编排分阶段提交，后续失败不代表前序步骤未写入，也不是全链事务；已有恢复/授权暂存材料先拒绝接入，需要人工审查。授权候选写入前复用隔离模块编译，只在临时投影中替换 Contributor；编译失败或取消时不提交授权文件，编译期间人工漂移仍由提交复核拒绝。代表性应用的完整运行验收见本地双库入口；当前应用仍须执行自己的 Migrator、实际权限及跨租户拒绝验证，不得用命令退出 0 替代。
 
 `TenantRequired` Schema 的生成权限使用 `AuthorizationScope.Tenant`；`HostOnly`、`Global` 保留 `Host` 权限范围，全局数据访问不自动授予租户权限。升级前已接入的 Host 授权块与新租户片段不一致时会保持原文并拒绝自动改写，应先人工审查作用域并完成实际授权验收。
 
