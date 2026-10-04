@@ -11,6 +11,12 @@ const { chromium, expect } = requireFromE2e('@playwright/test');
 const AxeBuilder = requireFromParity('@axe-core/playwright');
 const origin = 'http://localhost:25183';
 
+export async function waitForApplicationTenantLanding(page, tenantName, timeout = 20_000) {
+  await expect(page.getByTestId('shell-current-context')).toHaveText(tenantName, { timeout });
+  // 会话先发布新上下文，切换页随后跳转首页；等待落地后才能点击产品菜单，避免被迟到的跳转覆盖。
+  await expect(page).toHaveURL(origin + '/#/', { timeout });
+}
+
 async function auditAccessibility(page, selector, evidence, surface) {
   // 弹窗刚变为可见时仍可能处在淡入过渡；在稳定画面上测量对比度。
   await page.locator(selector).evaluate(async element => {
@@ -103,7 +109,7 @@ export async function startApplicationCrudBrowser(appRoot, apiUrl, reportDirecto
         await expect(tenantRow).toBeVisible({ timeout: 15_000 });
         tenantSwitchStarted = true;
         await tenantRow.getByRole('button', { name: '进入租户' }).click();
-        await expect(page.getByTestId('shell-current-context')).toHaveText(tenantName, { timeout: 20_000 });
+        await waitForApplicationTenantLanding(page, tenantName);
         evidence.tenantContext = true;
 
         const navigation = page.getByRole('navigation', { name: '主导航' }).first();
