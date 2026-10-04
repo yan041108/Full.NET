@@ -733,6 +733,14 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   3. 每层授权为所有者、明确用户、权威活动角色或当前租户活动机构的匹配；读取仍需同时满足知识库和文档两层。机构首切片只匹配明确机构，不能从父机构推导未授予的子机构。禁用目录、删除文档、角色禁用/移除、机构禁用/成员调离及端点权限撤销均需拒读；来源流打开后继续再次复核。
   4. 行为修改前建立 RED：双库覆盖 Host/租户角色隔离、无独立权限、旧角色令牌、组织跨租户/禁用/调离、未授予子机构、单层可见但另一层拒绝及读取/下载之间撤权。按真实影响集验证 Unit、Architecture、双库 HTTP/恢复、AOT 分析与原生路径，独立只读安全复核后提交；再同步生成客户端。本任务完成前 R04b 和 RAG 保持未关闭。
 
+- [x] R04b4：补齐 Host Claim 前后中断的同场景双库验收。基线 `211e2322`，快照 `ai-knowledge-claim-interruption-r04b4`；只扩展 `AiKnowledgeImportFaults.cs` 的真实端口故障注入及现有双库恢复用例，不新增生产抽象或改变文件契约。
+  - [x] 在调用 Claim 前、真实 Pending 提交后各注入一次 IOException，检查 HTTP 失败、AI 版本尚未发布、文档版本未推进，且没有补偿释放；直接向真实 Files 服务查询开放 Claim 证明中断时状态。
+  - [x] 重放原始上传键与内容，核对同一 FileId/版本标识/幂等键，Pending Claim 复用同一 ClaimId 后确认 Active；来源恢复可读，完成后重复上传不再调用 Claim，AI 只保存一个版本。
+  - [x] 用例运行前审查快照 slice 影响集，聚焦双库恢复再完成所选集合；本项只有测试变化，生产源码/依赖未变化且正式原生产物指纹一致，复用 R04b3e 的正式发布与原生证据。治理及 diff/status 核对后在 main 独立提交。不能以本项通过推导尚未核对的文件所有权/共享权限场景或完整 RAG 完成。
+  - 新鲜验收（2026-10-04）：`dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj --configuration Release --no-restore --nologo -m:1 -p:UseSharedCompilation=false` 退出 0，零警告/错误，6m47s。聚焦两个双库恢复用例 2/2、零跳过，2m04s；既有用例中追加场景，没有增删 MTP 测试身份或修改矩阵门槛。
+  - `pnpm test:integration:affected:plan -- --snapshot ai-knowledge-claim-interruption-r04b4 --phase slice` 精确选择 Ai；`node artifacts/r04b4/run-affected.mjs` 使用仓库选择器、发现器及标准聚焦参数执行完整集合，54/54、零失败/跳过、退出 0，17m42s。正式 TRX 与发现的 UID/FQN 逐项匹配，无遗漏、额外或重复身份；测试源码与程序集哈希前后一致，API/Worker 正式原生产物仍匹配 R04b3e SHA256。汇总及原始日志在忽略目录 `artifacts/r04b4/` 与 `artifacts/r04b4-*.log`。一个用例的捕获文本超过 TRX 字段上限被截断，测试身份与 Passed 结果完整，未声称所有捕获文本无截断。
+  - `node --test tests/governance/*.test.mjs` 57/57、零跳过；本地环境沿用 R04b3e，Windows SDK 10.0.401、两个测试 worker、原有五个容器保持运行。本项验证可控异常与新 HTTP 作用域恢复，finally 仍释放租约，未执行杀进程/断电实验；未重跑全量 Unit/Architecture 或相同生产源码的原生发布。下一项继续核对 AI 来源入口的底层文件缺失/删除与租户资源归属错配，R04b/RAG 与 Capacity-not-verified 保持开放。
+
 1. 先建立文档/版本与导入操作的失败用例：只有知识库所有者及独立上传权限可写，明确成员的目录读取资格不能授予文档/来源访问；跨范围、禁用目录、删除文件、重复请求与旧版本覆盖均拒绝。正文上传只从当前操作的流进入 Files，不提供按任意 FileId 导入其他模块附件的入口。首版状态只能表达待处理/失败，R05 前不能标记索引就绪。
 2. 在 `Features/ManageKnowledgeDocuments/`、`Persistence/` 及双库成对迁移扩展既有草稿与文档授权，持久化不可变文件版本和有界导入操作状态。所有 UUID 在应用端生成；版本变更、删除与撤权先写权威状态，事务只覆盖 AI 自有表。具体迁移编号在实现时取仓库下一空号；按实际新增测试更新矩阵，不预填发现数。
 3. Host 上传复用 `IHostFileUploadWriter`，给 Files 追加 Ai Claim 消费者及稳定版本幂等键，注册精确版本/文件 Probe。按 Claim → AI 提交 → Confirm 顺序执行；确认失败与未知提交保留待对账引用，已知回滚才补偿释放。Tenant 上传复用 `ITenantResourceFileStore` 的 Ai 模块键及服务端版本资源 ID，注册 `ITenantResourceFileOwner`，通过 `ListReadyAsync` 恢复已上传对象；禁止跨模块 JOIN、外部存储操作嵌套本地事务和按客户端声明确认引用。
@@ -747,9 +755,9 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
 
 - [ ] 先覆盖跨租户、无文档授权、文件不存在/已删除、重复导入、引用失败补偿、并发版本更新与迁移部分执行恢复。
 - [ ] 覆盖 Host Claim 提交前/后崩溃、Confirm 失败、租户资源归属不匹配和“有下载权但无共享权”；实现最小文档删除/撤权权威状态，立即禁止检索与来源读取，再由 R05 清理索引/释放引用。
-- [ ] 实现范围约束、UUID v7、参数化双库 SQL、乐观并发、标准 ProblemDetails 与源生成 DTO；文件关联不得跨模块 JOIN/事务。
-- [ ] 同步建立知识库数据分类与允许的 Embedding/生成 Provider 策略；默认拒绝未批准的数据出网，R05/R06 派发前必须执行该策略。R11 扩展重排、路由和遥测覆盖，不能把基本数据政策延后。
-- [ ] 定稿 OpenAPI 并生成共享客户端；相关测试、分片和矩阵同步，关闭时核对同场景双库证据。
+- [x] 实现范围约束、UUID v7、参数化双库 SQL、乐观并发、标准 ProblemDetails 与源生成 DTO；文件关联不得跨模块 JOIN/事务。对应 R04a、R04b1/R04b2b 与 R04b3 的分项双库/原生证据。
+- [x] R04a 已建立知识库数据分类与批准的 Embedding/生成模型配置及版本，默认批准为空；双库验证未知分类、缺失/漂移批准和不可用模型拒绝。实际派发尚未实现，R05/R06 必须重新核对此策略与最新权威状态，R11 继续扩展重排、路由和遥测覆盖。
+- [x] OpenAPI 与共享生成客户端由 R04b2c、R04b3c/d-client/e-client 分项交付；知识库入口包含 32 个 Operation，真实双库协议一致、生成产物无漂移，各项实际测试及矩阵证据见上文。底层文件异常和整体关闭条件仍由前两项核对。
 
 ### R05：有界解析、分块与索引 Worker（P1，依赖 R03/R04）
 

@@ -22,6 +22,12 @@ internal sealed class AiKnowledgeImportFaults
     internal bool ReleaseFails;
     internal bool LosePublicationResult;
     internal bool PublicationWritten;
+    internal bool InterruptBeforeClaim;
+    internal bool InterruptAfterClaim;
+    internal bool? OpenClaimAtInterruption;
+    internal List<HostFileReferenceClaimRequest> ClaimRequests { get; } = [];
+    internal List<HostFileReferenceClaimResult> ClaimResults { get; } = [];
+    internal HostFileReferenceClaimResult? ConfirmedClaim;
     internal TaskCompletionSource<bool>? ConfirmEntered;
     internal TaskCompletionSource<bool>? ConfirmContinue;
     internal int Releases;
@@ -47,7 +53,8 @@ internal sealed class AiKnowledgeImportFaults
         var owner = await factory.CreateHostIdentityAsync($"import-fault-{Guid.NewGuid():N}",
             [AiKnowledgePermissions.Create, AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Create,
              AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.VersionsRead,
-             AiKnowledgeDocumentPermissions.ImportsRead, AiKnowledgeDocumentPermissions.ImportsRetry, AiKnowledgeDocumentPermissions.Delete]);
+             AiKnowledgeDocumentPermissions.ImportsRead, AiKnowledgeDocumentPermissions.ImportsRetry,
+             AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Delete]);
         using var client = factory.CreateClientForHost("localhost");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
         using var createdBase = await client.PostAsJsonAsync("/api/v1/ai/knowledge-bases", new CreateAiKnowledgeBaseRequest("恢复故障", null));
@@ -68,6 +75,58 @@ internal sealed class AiKnowledgeImportFaults
             return (await response.Content.ReadFromJsonAsync<AiKnowledgeImportResponse>())!;
         }
         async Task<long> Versions(string path) => (await client.GetFromJsonAsync<PagedResult<AiKnowledgeVersionResponse>>(path + "/versions"))!.Total;
+
+        // 分别在 Files Claim 调用前和真实 Pending 提交后中断；新请求只续跑既有日志。
+        foreach (var afterClaim in new[] { false, true })
+        {
+            var interruptedPath = await NewDocument();
+            var interruptedKey = Guid.NewGuid();
+            var releasesBeforeInterruption = faults.Releases;
+            faults.ClaimRequests.Clear();
+            faults.ClaimResults.Clear();
+            faults.ConfirmedClaim = null;
+            faults.OpenClaimAtInterruption = null;
+            faults.InterruptBeforeClaim = !afterClaim;
+            faults.InterruptAfterClaim = afterClaim;
+            using var interrupted = await Upload(interruptedPath, interruptedKey);
+            Assert.AreEqual(HttpStatusCode.InternalServerError, interrupted.StatusCode);
+            Assert.AreEqual(afterClaim, faults.OpenClaimAtInterruption);
+            Assert.AreEqual(releasesBeforeInterruption, faults.Releases);
+            Assert.AreEqual(0L, await Versions(interruptedPath));
+            Assert.AreEqual(1, (await client.GetFromJsonAsync<AiKnowledgeDocumentResponse>(interruptedPath))!.Version);
+            Assert.AreEqual(1, faults.ClaimRequests.Count);
+            Assert.AreEqual(afterClaim ? 1 : 0, faults.ClaimResults.Count);
+            var originalClaim = faults.ClaimRequests.Single();
+            if (afterClaim) Assert.AreEqual(HostFileReferenceClaimStates.Pending, faults.ClaimResults.Single().State);
+            using var unpublishedSource = await client.GetAsync(interruptedPath + $"/versions/{originalClaim.ConsumerReferenceId}/source");
+            Assert.AreEqual(HttpStatusCode.NotFound, unpublishedSource.StatusCode);
+
+            // 原始重试键和内容复用同一文件、版本及 Claim，不把未知结果改成补偿。
+            using var resumed = await Upload(interruptedPath, interruptedKey);
+            Assert.AreEqual(HttpStatusCode.Accepted, resumed.StatusCode, await resumed.Content.ReadAsStringAsync());
+            var resumedOperation = (await resumed.Content.ReadFromJsonAsync<AiKnowledgeImportResponse>())!;
+            Assert.AreEqual("completed", resumedOperation.State);
+            Assert.AreEqual(originalClaim.ConsumerReferenceId, resumedOperation.VersionId);
+            Assert.AreEqual(2, faults.ClaimRequests.Count);
+            Assert.AreEqual(originalClaim, faults.ClaimRequests[1]);
+            Assert.AreEqual(afterClaim ? 2 : 1, faults.ClaimResults.Count);
+            Assert.IsTrue(faults.ClaimResults.All(item => item.ClaimId == faults.ClaimResults[0].ClaimId));
+            Assert.IsNotNull(faults.ConfirmedClaim);
+            Assert.AreEqual(faults.ClaimResults[0].ClaimId, faults.ConfirmedClaim.ClaimId);
+            Assert.AreEqual(originalClaim.FileId, faults.ConfirmedClaim.FileReference.FileId);
+            Assert.AreEqual(HostFileReferenceClaimStates.Active, faults.ConfirmedClaim.State);
+            Assert.AreEqual(releasesBeforeInterruption, faults.Releases);
+            Assert.AreEqual(1L, await Versions(interruptedPath));
+            Assert.AreEqual(2, (await client.GetFromJsonAsync<AiKnowledgeDocumentResponse>(interruptedPath))!.Version);
+            using var readable = await client.GetAsync(interruptedPath + $"/versions/{resumedOperation.VersionId}/source");
+            Assert.AreEqual(HttpStatusCode.OK, readable.StatusCode, await readable.Content.ReadAsStringAsync());
+            Assert.AreEqual("真实文件", await readable.Content.ReadAsStringAsync());
+            using var completedReplay = await Upload(interruptedPath, interruptedKey);
+            Assert.AreEqual(HttpStatusCode.Accepted, completedReplay.StatusCode);
+            Assert.AreEqual(resumedOperation.Id, (await completedReplay.Content.ReadFromJsonAsync<AiKnowledgeImportResponse>())!.Id);
+            Assert.AreEqual(2, faults.ClaimRequests.Count);
+            Assert.AreEqual(1L, await Versions(interruptedPath));
+        }
 
         // Confirm 已知失败保留权威提交，新 HTTP 作用域重试不得创建第二个版本。
         var confirmPath = await NewDocument();
@@ -164,13 +223,34 @@ internal sealed class AiKnowledgeImportFaults
     }
     private sealed class Claims(IHostFileReferenceClaimService inner, AiKnowledgeImportFaults faults) : IHostFileReferenceClaimService
     {
-        public Task<Result<HostFileReferenceClaimResult>> ClaimAsync(HostFileReferenceClaimRequest request, CancellationToken cancellationToken = default) => faults.ClaimFails
-            ? Task.FromResult(Result<HostFileReferenceClaimResult>.Failure(new Error("files.test.claim_denied", "Injected denial", ErrorType.Conflict))) : inner.ClaimAsync(request, cancellationToken);
+        public async Task<Result<HostFileReferenceClaimResult>> ClaimAsync(HostFileReferenceClaimRequest request, CancellationToken cancellationToken = default)
+        {
+            faults.ClaimRequests.Add(request);
+            if (faults.InterruptBeforeClaim)
+            {
+                faults.InterruptBeforeClaim = false;
+                faults.OpenClaimAtInterruption = await inner.HasOpenClaimsAsync(request.FileId, cancellationToken);
+                throw new IOException("Injected interruption before Files claim");
+            }
+            if (faults.ClaimFails)
+                return Result<HostFileReferenceClaimResult>.Failure(new Error("files.test.claim_denied", "Injected denial", ErrorType.Conflict));
+            var result = await inner.ClaimAsync(request, cancellationToken);
+            if (result.IsSuccess) faults.ClaimResults.Add(result.Value!);
+            if (faults.InterruptAfterClaim && result.IsSuccess)
+            {
+                faults.InterruptAfterClaim = false;
+                faults.OpenClaimAtInterruption = await inner.HasOpenClaimsAsync(request.FileId, cancellationToken);
+                throw new IOException("Injected response loss after Files claim commit");
+            }
+            return result;
+        }
         public async Task<Result<HostFileReferenceClaimResult>> ConfirmAsync(string idempotencyKey, CancellationToken cancellationToken = default)
         {
             if (faults.ConfirmFails) return Result<HostFileReferenceClaimResult>.Failure(new Error("files.test.confirm_unavailable", "Injected failure", ErrorType.Conflict));
             if (faults.ConfirmEntered is { } entered) { entered.TrySetResult(true); await faults.ConfirmContinue!.Task.WaitAsync(cancellationToken); }
-            return await inner.ConfirmAsync(idempotencyKey, cancellationToken);
+            var result = await inner.ConfirmAsync(idempotencyKey, cancellationToken);
+            if (result.IsSuccess) faults.ConfirmedClaim = result.Value!;
+            return result;
         }
         public Task<Result<bool>> ReleaseAsync(string idempotencyKey, CancellationToken cancellationToken = default)
         {
