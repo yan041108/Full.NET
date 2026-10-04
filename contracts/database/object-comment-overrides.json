@@ -23,6 +23,25 @@
         "CreatedAtUtc": "创建时间（UTC）"
       }
     },
+    "fn_ai_knowledge_index_task": {
+      "comment": "知识库索引任务及有界执行租约",
+      "columns": {
+        "Id": "逻辑主键及索引任务代次",
+        "DocumentId": "所属文档标识",
+        "VersionId": "不可变来源文件版本标识",
+        "DocumentVersion": "预期文档并发版本",
+        "KnowledgeBaseVersion": "预期目录与授权版本",
+        "ModelConfigId": "获批向量模型配置标识",
+        "ModelConfigVersion": "获批精确模型配置版本",
+        "StateKey": "持久化索引阶段",
+        "AttemptCount": "当前人工重试周期内领取次数",
+        "FailureCode": "稳定失败码",
+        "LeaseToken": "当前执行者租约令牌",
+        "LeaseExpiresAtUtc": "租约过期时间（UTC）",
+        "CreatedAtUtc": "创建时间（UTC）",
+        "UpdatedAtUtc": "更新时间（UTC）"
+      }
+    },
     "fn_ai_knowledge_member": {
       "comment": "知识库明确成员授权",
       "columns": {

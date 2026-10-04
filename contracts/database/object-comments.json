@@ -316,6 +316,25 @@
         "VersionId": "预先生成的版本标识"
       }
     },
+    "fn_ai_knowledge_index_task": {
+      "comment": "知识库索引任务及有界执行租约",
+      "columns": {
+        "AttemptCount": "当前人工重试周期内领取次数",
+        "CreatedAtUtc": "创建时间（UTC）",
+        "DocumentId": "所属文档标识",
+        "DocumentVersion": "预期文档并发版本",
+        "FailureCode": "稳定失败码",
+        "Id": "逻辑主键及索引任务代次",
+        "KnowledgeBaseVersion": "预期目录与授权版本",
+        "LeaseExpiresAtUtc": "租约过期时间（UTC）",
+        "LeaseToken": "当前执行者租约令牌",
+        "ModelConfigId": "获批向量模型配置标识",
+        "ModelConfigVersion": "获批精确模型配置版本",
+        "StateKey": "持久化索引阶段",
+        "UpdatedAtUtc": "更新时间（UTC）",
+        "VersionId": "不可变来源文件版本标识"
+      }
+    },
     "fn_ai_knowledge_member": {
       "comment": "知识库明确成员授权",
       "columns": {

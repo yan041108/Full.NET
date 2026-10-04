@@ -21,9 +21,29 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeDocumentRecord>(ReadKnowledgeDocument);
         registrar.Register<AiKnowledgeImportRecord>(ReadKnowledgeImport);
         registrar.Register<AiKnowledgeVersionRecord>(ReadKnowledgeVersion);
+        registrar.Register<AiKnowledgeIndexTaskRecord>(ReadKnowledgeIndexTask);
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
     }
 #endif
+
+    // 任务记录不包含原文或凭据；固定列物化覆盖可空租约和终止状态。
+    internal static AiKnowledgeIndexTaskRecord ReadKnowledgeIndexTask(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")),
+        DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
+        VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")),
+        DocumentVersion = checked((int)Integer(reader, "DocumentVersion")),
+        KnowledgeBaseVersion = checked((int)Integer(reader, "KnowledgeBaseVersion")),
+        ModelConfigId = reader.GetGuid(reader.GetOrdinal("ModelConfigId")),
+        ModelConfigVersion = checked((int)Integer(reader, "ModelConfigVersion")),
+        StateKey = Text(reader, "StateKey"),
+        AttemptCount = checked((int)Integer(reader, "AttemptCount")),
+        FailureCode = Null(reader, "FailureCode") ? null : Text(reader, "FailureCode"),
+        LeaseToken = Null(reader, "LeaseToken") ? null : reader.GetGuid(reader.GetOrdinal("LeaseToken")),
+        LeaseExpiresAtUtc = Null(reader, "LeaseExpiresAtUtc") ? null : Timestamp(reader, "LeaseExpiresAtUtc"),
+        CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+        UpdatedAtUtc = Timestamp(reader, "UpdatedAtUtc"),
+    };
 
     // 知识库授权复用模型配置查询；依赖行也必须进入静态物化闭包。
     internal static AiModelConfigRecord ReadModelConfig(DbDataReader reader) => new()

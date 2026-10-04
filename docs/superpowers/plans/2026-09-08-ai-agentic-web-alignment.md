@@ -16,7 +16,7 @@
 - 本轮交付 R02：冻结中文合成语料、测试项目内离线评分器、人工参考结果、可重放报告入口及对应失败回归。R02 离线基线已本地验证；真实检索/模型端到端基线明确为未测，随 R06 接入。
 - R02 已提交 `4a748409af6fcddd23b441a182ee3e7e8fe2b47f`。随后交付 R03 独立选型实验及 [ADR-0013](../../architecture/adr/ADR-0013-ai-retrieval-provider.md)：首版采用双库存派生向量、SQL 先过滤、有界精确余弦；Qdrant 保留候选，PdfPig 0.1.16 作为 R05 文本 PDF 接入候选。没有新增生产依赖或功能开关。
 - 实施基线：分支 `codex/foundation-acceptance-20260926`，HEAD `a7a68776818731703f1ebc11bc529f2746df59e1`，任务快照 `ai-rag-evaluation-r02`。保留原有日志文档、code-wiki 与语言资源改动。
-- R04 的目录、模型版本审批、用户/角色/机构两层授权、文件版本与导入恢复已按 R04a、R04b1–R04b6 分项本地验收，并于 2026-10-04 完成收尾核对。R05a 有界 TXT/Markdown 解析基础、R05b 有界 Token 分块核心、R05c 标题/段落/表格上下文分块基础、R05d 固定真实词表/精确模型配置绑定与 R05e1 PDF 分页输出验收/页内模型分块已完成内部切片本地验收。R05e2 真实 PDF 独立工具、本地 Docker 硬隔离与 Linux Native AOT 发布/运行已验收，尚未接入业务导入或 Worker。R05d 的完整 Host Linux 发布尝试因内存不足/资源压力未完成，分块器原生运行仍未验证；后续继续索引 Worker、派发前权威复核和预算账本。R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
+- R04 的目录、模型版本审批、用户/角色/机构两层授权、文件版本与导入恢复已按 R04a、R04b1–R04b6 分项本地验收，并于 2026-10-04 完成收尾核对。R05a 有界 TXT/Markdown 解析基础、R05b 有界 Token 分块核心、R05c 标题/段落/表格上下文分块基础、R05d 固定真实词表/精确模型配置绑定与 R05e1 PDF 分页输出验收/页内模型分块已完成内部切片本地验收。R05e2 真实 PDF 独立工具、本地 Docker 硬隔离与 Linux Native AOT 发布/运行已验收，尚未接入业务导入或 Worker。R05d 的完整 Host Linux 发布尝试因内存不足/资源压力未完成，分块器原生运行仍未验证；R05f1 索引任务持久化、双库恢复和代次/租约隔离已完成内部切片本地验收；后续继续 Worker 执行、派发前权威复核、预算账本及索引写入。R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
 
 ### 2026-09-27 当前摘要（替代下方历史状态中的未实施判断）
 
@@ -876,6 +876,21 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - `node scripts/testing/run-api-aot-analyzers.mjs` 退出 0；恢复最终 JIT 的 Integration Release 构建、独立工具及 Unit/Architecture 构建均零警告/错误。`node artifacts/r05e2/run-unit.mjs` 复用官方 Ai 选择/最低数/时限，682/682、零失败/跳过、退出 0，1m 19.525s；Unit 总发现 4151、Architecture 总发现 233，不声称全量执行。官方 Architecture 的 `ai-agentic-boundaries` 7/7、`api-native-aot` 73/73；命名 33/33，均通过。
   - `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-sandbox-r05e2 --phase slice` 选择 integration-matrix 与双库 Smoke；工具链及反馈契约 65/65、治理 57/57、分片发现 1138 项无遗漏/重复，完整 Smoke 8/8、零失败/跳过、退出 0，5m 13.742s。`node artifacts/r05e2/verify.mjs` 核对 Ai 与 Smoke 正式 TRX 的全部 UID/FQN、34 项未变输入，并明确保留 1 项 README 追加控制故障测试说明的纯文档前后摘要。正式和 Unit 中工具 DLL 摘要同为 `25315a1eb225e37f0570661b2f5e3ba3a457a039422b300001525ac13c3d2659`；原生清单另保留最终 24 项源码/许可/锁文件摘要。原始日志、TRX、冻结输入与验收清单在忽略目录 `artifacts/r05e2/`、同前缀日志及 `artifacts/ai-evaluation/r05e2/`。
   - 本地 i7-12700H（14 核/20 线程）、64 GB Windows、SDK 10.0.401，Linux SDK 10.0.400；受测独立工具预算为 512 MiB/2 CPU/32 PID/30s。未验证完整分块器/Host 原生运行、真实 Worker 接入、模型/来源派发前复核、Embedding 账本、索引与 ready、Kubernetes 部署或容量；完整 RAG 保持 Planned，容量保持 `Capacity-not-verified`。
+
+- [x] R05f1：持久化索引任务与租约边界（本次切片，仅内部持久化，不注册 Worker 或宣布 ready）。
+  - [x] 新增成对 `246_AiKnowledgeIndexTask.sql`：AI 自有任务以 UUID v7 为代次，唯一绑定来源版本、文档版本及知识库授权版本；保存精确模型配置/版本、有限尝试次数、租约及失败机器码。只允许 queued/running/failed/cancelled，不提供空索引 ready。
+  - [x] `Persistence/AiKnowledgeIndexTaskSql.cs` 与 `Knowledge/AiKnowledgeIndexTaskStore.cs` 经既有执行器访问 AI 表；Host/可信租户分离。入队、领取、续租和失败写回均复核未删除、启用、版本、最新已确认文件及获批模型；取消允许在删除/禁用后终止工作。外部 Files/模型调用不进入事务。
+  - [x] 真实双连接 RED/GREEN 验证唯一入队、争抢、到期接替、旧 token 隔离、取消、重试上限、来源/批准失效和跨租户拒绝；冻结迁移允许集合，验证缺索引/注释的未记账恢复与已有行保留。
+  - [x] 命名/SQL/治理、矩阵发现、Ai Unit/Architecture、AOT 分析及选择器的对应双库恢复与 Ai 影响集；只读安全审查后在 main 提交。本切片不证明真实后台调度、Embedding 预算/索引写入、业务 PDF 或 RAG 已可用。
+
+  R05f1 本地证据（2026-10-04，仅内部持久化边界）：
+  - 实施基线 `main`、`4a4fef308fa0b10b4a2a8597136959604c4170f1`，任务快照 `ai-knowledge-index-lease-r05f1`。迁移缺失 RED 为 4/4 失败，存储桩 RED 为 10/10 失败；补充错误来源版本领取回归后，双库 RED 为 2 失败/2 通过，再通过静态 SQL 显式绑定请求 VersionId/DocumentVersion/KnowledgeBaseVersion 修正。生产入口未注册该内部存储。
+  - 每库以 11 种独立权威失效分别验证领取、续租/失败和重试，共 33 个独立数据集；包含健康续租对照、禁用/删除、来源版本/导入状态、批准模型/版本/租户失效。另覆盖双连接争抢、到期接替、三次尝试上限、旧 token、取消后拒绝写回、Host 模型获批供租户使用、跨租户/所有者拒绝和缺注释/索引恢复。最终聚焦双库 4/4、零失败/跳过、退出 0，16.894s；只读审查修正续租断言缺乏有效对照后，复审无确认 P1/P2。SQL Server 到期边界夹具按整秒固定参数，避免 DateTime 测试绑定精度造成假失败；生产仍使用 IClock 的 DateTimeOffset。
+  - `node artifacts/r05f1/run-unit.mjs` 复用官方选择、最低数和时限：Ai Unit 694/694、零失败/跳过、退出 0，1m 04.174s。`node scripts/testing/run-dotnet-test-suite.mjs architecture --selection ai-agentic-boundaries --no-build` 7/7；同入口 `api-native-aot` 73/73，均零失败/跳过。Unit 总发现 4163、Architecture 233；不声明全量执行。
+  - `dotnet build src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj --configuration Release --nologo -p:FullNetAotAnalysis=true -clp:ErrorsOnly -m:4 -nr:false` 退出 0、零警告/错误，2m 33.98s；随后恢复 JIT，Integration/Unit/Architecture Release 构建均退出 0、零警告/错误。命名 33/33、SQL 安全 5/5、治理 57/57 均通过。
+  - `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-index-lease-r05f1 --phase slice` 最终退出 0：工具链/反馈契约 65/65、治理 57/57、集成分片发现 1142 项无遗漏/重复；Ai 与 migration-246 合并影响集 58/58、零失败/跳过，21m 10.510s，完整执行规定的 30 分钟门槛及两个 Worker。先前临时目录 EBUSY、夹具精度失败和资源不足的运行不计作通过。
+  - `node artifacts/r05f1/verify.mjs` 退出 0，核对 940 项最终源码/矩阵/运行输入未变及正式 Ai 694、双库 58 项的全部 UID/FQN；另核对精度夹具修正前后的 Unit 输入未变。`rag-evaluation-report.json` 是测试生成输出，明确排除在运行输入之外。AI 模块、Unit 与 Integration 的模块 DLL SHA-256 同为 `863B7B9E4928B1B48ACEE69E0B433031C4C218833BD25EC01103C3B07FEDEDF7`。日志、发现清单、TRX 和验收摘要保留在忽略目录 `artifacts/r05f1/`、同前缀日志及正式 TestResults。
+  - 本地 Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0。Windows 提交内存压力期间测试进程单独设置 `DOTNET_GCHeapHardLimit=0x80000000`（2 GiB）；未修改测试选择、最低数、并行数、时限或既有服务。未执行完整 Host/Worker Native 发布或新业务原生运行。下一项接入 Worker 执行：来源/模型派发前复核、稳定预算 OperationId、未知用量保留预留，再实现有代次约束的索引写入；完整 RAG 保持 Planned，容量保持 `Capacity-not-verified`。
 
 - [ ] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。
 - [ ] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。
