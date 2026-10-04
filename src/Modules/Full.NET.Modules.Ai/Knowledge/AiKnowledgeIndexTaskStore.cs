@@ -17,7 +17,7 @@ internal enum AiKnowledgeIndexFailure { ParsingFailed, ModelUnavailable, IndexUn
 internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandExecutor command,
     ICurrentTenant tenant, IClock clock, IIdGenerator ids)
 {
-    private bool IsTenant => AiKnowledgeScope.IsTenant(tenant);
+    internal bool IsTenant => AiKnowledgeScope.IsTenant(tenant);
 
     /// <summary>在下一次外部文件读取或模型派发前，读取仍持有有效租约的精确来源和模型绑定。</summary>
     /// <returns>权威条件失效、绑定不符或读取期间到期时返回空；取消及基础设施故障传播。</returns>
@@ -127,7 +127,7 @@ internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandEx
         return parameters;
     }
 
-    private Dictionary<string, object?> HeldParameters(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
+    internal Dictionary<string, object?> HeldParameters(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
     {
         var parameters = TaskParameters(binding, taskId, token);
         if (leaseToken == Guid.Empty) throw new ArgumentException("A lease token is required.", nameof(leaseToken));

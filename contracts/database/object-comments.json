@@ -316,6 +316,17 @@
         "VersionId": "预先生成的版本标识"
       }
     },
+    "fn_ai_knowledge_index_batch": {
+      "comment": "知识库索引批次与稳定预算操作身份",
+      "columns": {
+        "BatchOrdinal": "任务内零起始批次号",
+        "CreatedAtUtc": "创建时间（UTC）",
+        "Id": "逻辑主键及预算操作标识",
+        "IndexTaskId": "所属索引任务代次",
+        "InputCount": "批次输入数量",
+        "RequestHash": "完整预算请求指纹"
+      }
+    },
     "fn_ai_knowledge_index_task": {
       "comment": "知识库索引任务及有界执行租约",
       "columns": {

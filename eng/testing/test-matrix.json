@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 4180,
+      "minimum": 4198,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -21,7 +21,7 @@
         },
         "ai-module": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
-          "minimum": 711
+          "minimum": 729
         },
         "ai-evaluation": {
           "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests",
@@ -375,6 +375,9 @@
       "246": {
         "filter": "FullyQualifiedName~Migration246AiKnowledgeIndexTaskRecoveryTests.MySql_|FullyQualifiedName~Migration246AiKnowledgeIndexTaskRecoveryTests.SqlServer_"
       },
+      "247": {
+        "filter": "FullyQualifiedName~Migration247AiKnowledgeIndexBatchRecoveryTests.MySql_|FullyQualifiedName~Migration247AiKnowledgeIndexBatchRecoveryTests.SqlServer_"
+      },
       "008": {
         "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryExpandMigrationTests|FullyQualifiedName~UuidBinaryPartialRecoveryTests"
       },
@@ -595,17 +598,17 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 183,
+        "minimum": 184,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 183,
+        "minimum": 184,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 514,
+        "minimum": 518,
         "timeout": "120m"
       },
       "infrastructure": {
@@ -638,7 +641,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1144,
+        "minimum": 1150,
         "timeout": "90m"
       },
       "logging-route-comparison": {

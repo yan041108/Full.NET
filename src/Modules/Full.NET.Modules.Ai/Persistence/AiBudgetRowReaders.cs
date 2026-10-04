@@ -23,9 +23,21 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeVersionRecord>(ReadKnowledgeVersion);
         registrar.Register<AiKnowledgeIndexTaskRecord>(ReadKnowledgeIndexTask);
         registrar.Register<AiKnowledgeIndexDispatchRecord>(ReadKnowledgeIndexDispatch);
+        registrar.Register<AiKnowledgeIndexBatchRecord>(ReadKnowledgeIndexBatch);
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
     }
 #endif
+
+    // 批次请求摘要和操作 ID 在租约接替后保持不变，不读取正文或凭据。
+    internal static AiKnowledgeIndexBatchRecord ReadKnowledgeIndexBatch(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")),
+        IndexTaskId = reader.GetGuid(reader.GetOrdinal("IndexTaskId")),
+        BatchOrdinal = checked((int)Integer(reader, "BatchOrdinal")),
+        RequestHash = Text(reader, "RequestHash"),
+        InputCount = checked((int)Integer(reader, "InputCount")),
+        CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+    };
 
     // 派发快照来自有效租约，固定来源元数据与模型版本，不物化正文或凭据。
     internal static AiKnowledgeIndexDispatchRecord ReadKnowledgeIndexDispatch(DbDataReader reader) => new()

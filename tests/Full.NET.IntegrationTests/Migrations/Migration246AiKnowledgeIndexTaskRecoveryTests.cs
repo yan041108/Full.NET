@@ -248,7 +248,7 @@ public sealed class Migration246AiKnowledgeIndexTaskRecoveryTests
         return copy;
     }
 
-    private static async Task<Dictionary<string, object?>> SeedAsync(DbConnection connection, bool tenant = false)
+    internal static async Task<Dictionary<string, object?>> SeedAsync(DbConnection connection, bool tenant = false)
     {
         var now = DateTime.UtcNow;
         // 夹具统一到整秒，避免 SQL Server 的 DateTime 参数舍入掩盖精确到期断言；生产封装使用 DateTimeOffset。
@@ -276,8 +276,8 @@ public sealed class Migration246AiKnowledgeIndexTaskRecoveryTests
     private static string Sql(string operation, bool tenant) => ((SqlStatement)typeof(AiModule).Assembly
         .GetType("Full.NET.Modules.Ai.Persistence.AiKnowledgeIndexTaskSql", true)!
         .GetField(operation + (tenant ? "Tenant" : "Host"), BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!).Text;
-    private static Task<string> DatabaseAsync(bool sqlServer) => sqlServer ? SharedDatabaseFixture.CreateSqlServerDatabaseAsync() : SharedDatabaseFixture.CreateMySqlDatabaseAsync();
-    private static DbConnection Connection(bool sqlServer, string connectionString) => sqlServer ? new SqlConnection(connectionString) : ReviewFixMigrationRecoverySupport.MySqlConnection(connectionString);
+    internal static Task<string> DatabaseAsync(bool sqlServer) => sqlServer ? SharedDatabaseFixture.CreateSqlServerDatabaseAsync() : SharedDatabaseFixture.CreateMySqlDatabaseAsync();
+    internal static DbConnection Connection(bool sqlServer, string connectionString) => sqlServer ? new SqlConnection(connectionString) : ReviewFixMigrationRecoverySupport.MySqlConnection(connectionString);
 
     private static void Replay(bool sqlServer, string connectionString)
     {

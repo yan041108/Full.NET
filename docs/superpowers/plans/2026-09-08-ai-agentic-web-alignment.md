@@ -907,6 +907,20 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - `node artifacts/r05f2a/verify.mjs` 退出 0：942 项源码/矩阵/运行输入未变，正式 Unit 711 和双库 60 项全部 UID/FQN 与发现清单一致；测试生成的 `rag-evaluation-report.json` 明确排除为输出。源码项目、Unit 和 Integration 的 AI 模块 DLL SHA-256 同为 `9C256BD655378507D7A251571B19E0F79B311199ABC853DFBD1AFD3DE90DBD77`。原始 RED/GREEN、最终日志、发现清单、TRX 与验收摘要保留在忽略目录 `artifacts/r05f2a/`、同前缀日志及正式 TestResults。
   - 本地 Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0；测试进程沿用单独的 2 GiB GC Heap 限额，不修改选择/最低数/并行数/时限或服务配置。未新增 Worker DI/轮询、实际文件/模型派发、预算预留/结算、索引写入或 ready，也未执行完整 Host/Worker Native 发布/运行。下一项持久化稳定批次 OperationId 并接入 Embedding 账本：重复操作不得自动再次派发，未知用量保留预留，模型调用前再次使用本项边界；完整 RAG 仍为 Planned，容量仍为 `Capacity-not-verified`。
 
+- [x] R05f2b：稳定批次操作标识与预算准入（仅内部账本消费者，不进行模型调用或启用 Worker）。
+  - [x] 成对新增 `247_AiKnowledgeIndexBatch.sql`：AI 自有批次以 UUID v7 主键作为 OperationId，唯一绑定 IndexTaskId/BatchOrdinal，保存完整预算请求指纹与输入数量；不保存正文/凭据/向量。SQL Server 表/列注释可独立恢复，MySQL 原子建表，重复未记账执行保留原行。
+  - [x] `AiKnowledgeIndexBatchStore` 经既有执行器及 Host/可信租户静态 SQL 建立/读取批次；写入和唯一冲突恢复均复用有效租约及当前来源/批准门禁，相同指纹复用 ID，不同输入/模型绑定拒绝。批次号 0–4095、输入数量 1–16，固定 SHA-256 指纹。
+  - [x] `AiKnowledgeIndexBudgetService` 先读取权威快照和当前真实模型，冻结有界输入并构造既有 Embedding 请求，持久化操作 ID 后调用统一预算 Port，再复核派发前权威。重复预留只返回对账信息、不返回可执行来源；新预留后撤权/取消/到期，以明确未调用的零用量取消隔离结算，未知预留/既有 unknown 不自动结算或再次派发。消费者须在无外层长事务的作用域接入，仍负责输入来源、执行者/数据去向授权及真实调用后的独立用量结算。
+  - [x] Unit RED/GREEN、AOT 静态物化及真实双库覆盖争抢/恢复/跨范围/旧 token/指纹冲突，生产账本新预留、重复、未知用量与重新领取；按矩阵完成影响集、审查和 main 提交。Worker 调度、真实 Provider 执行、批次结果持久化、索引写入/ready 及人工对账后重新执行策略保持后续范围。
+  R05f2b 本地证据（2026-10-04，仅内部批次身份与预算准入）：
+  - 基线 main/b494811c6afd4b08132a0bda34c0fd6a70160200，任务快照 ai-knowledge-index-budget-r05f2b。18 项 Unit RED 均因未实现失败；双库恢复 RED 2/2 因缺少 247 失败。实现后新增 Unit 18/18 通过。新增 Integration 首轮 5 通过/1 失败：MySQL 用联合唯一索引支撑外键，夹具直接删索引被拒绝；夹具先保留普通外键支撑索引后，247 恢复/门禁 4/4、零跳过、退出 0，11.586s，不修改生产约束。
+  - 每库 Host/Tenant 健康对照覆盖 11 种权威失效、所有者/租户/token/精确到期隔离；生产执行器和账本覆盖同批次并发唯一 ID/一次新预留、批准 Host 模型供租户使用、unknown 计量保留、租约接替复用、旧 token 拒绝、不同指纹拒绝与下一批次独立预留。没有模型调用。只读预算/安全审查无确认 Critical/Important；消费者禁止外层长事务的约束已写入代码，未来 I/O 仍需输入来源、执行者、去向和最终权威复核。
+  - node artifacts/r05f2b/run-unit.mjs 复用官方 AI 选择/最低数/时限：729/729、零失败/跳过、退出 0，1m 03.915s；Unit 总发现 4198，并未执行全量。官方 architecture --selection ai-agentic-boundaries --no-build 7/7、11.572s，api-native-aot 73/73、5.222s；总发现 233。node scripts/testing/run-api-aot-analyzers.mjs 退出 0，零警告/错误、1m 12.99s，恢复 JIT 还原图；最终 Release Integration/Unit/Architecture 构建 50.69s/12.82s/7.94s，均退出 0、零警告/错误。
+  - node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-index-budget-r05f2b --phase slice 退出 0：工具链/反馈契约 65/65、治理 57/57；1150 项分片发现无遗漏/重复；AI 与 migration-246/247 合并 66/66、零失败/跳过，19m 07s 110ms，保留两个 Worker 和规定 30 分钟时限。另命名 33/33、SQL 安全 5/5 通过，成对迁移注释目录及固定 MySQL 索引恢复债务已同步。
+  - node artifacts/r05f2b/verify.mjs 退出 0：953 项源码/矩阵/运行输入未变，729 项 Unit 与 66 项双库结果的 UID/FQN 均与发现清单精确一致；生成输出 rag-evaluation-report.json 单独排除。源码项目/Unit/Integration AI DLL SHA-256 同为 7F5820D72B0249BE7830E41A6D83A3D0DC2100AD069E2B0BF1B30517C6DC0907。原始日志/TRX、发现清单和验收摘要保留于忽略目录 artifacts/r05f2b/、同前缀日志及正式 TestResults。
+  - Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0；每测试进程 2 GiB GC Heap 限额。未注册 Worker、调用 Files/Provider、保存向量/索引或 ready，未执行完整 Host/Worker Native 发布/运行。下一切片接入真实 Provider 前的输入来源/执行者/数据去向与最终复核、已知或未知计量回执；人工对账后的重新执行策略仍待交付。完整 RAG 保持 Planned，容量保持 Capacity-not-verified。
+
+
 - [ ] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。
 - [ ] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。
 - [ ] 验证 Worker 崩溃/重试、模型用量未知、索引不可用、部分写入与删除竞争；失败可定位并重试，不能将空索引标记 ready。
