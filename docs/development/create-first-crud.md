@@ -147,6 +147,19 @@ SDK 探测在进程启动后对退出与标准输出/错误读取设置 30 秒�
 
 SQL Server 租户草案在建表后独立探测并创建租户聚集索引，使“表已创建、索引未完成、迁移未记账”的重跑可以补齐索引。MySQL 草案的索引仍在单条原子建表语句内，不修复外部删除索引的状态。两份草案均不修复任意错误的既有表结构，正式迁移仍需双库恢复评审与显式接入。
 
+## 本地真实链路验收
+
+在原框架仓库根目录执行下面的用例，而不是在新应用目录执行。先按锁文件安装仓库依赖，并确认 .NET 10 SDK、Docker Linux Engine 与 Playwright Chromium 可用；测试会创建临时独立应用和专用数据库容器。
+
+```powershell
+$env:FULLNET_RUN_TEMPLATE_REAL_STACK = '1'
+node --throw-deprecation --test --test-concurrency=1 tests/templates/created-app-real-stack.test.mjs
+```
+
+该入口依次验证 SQL Server 与 MySQL 的迁移、API/Worker、OpenAPI 客户端、Vue 浏览器 CRUD、普通账号精确权限、双租户拒绝、人工内容保护及已有业务数据升级恢复。报告位于 `.tmp/template-real-stack/<provider>/`；先核对本次源码 SHA、报告时间与终态，不能读取旧报告补齐未执行阶段。关闭该子项要求两库用例均通过且零跳过；OOM、超时、失败或只通过其中一库都不能计为双库成功。它不覆盖任意业务 Schema、应用自有 Native AOT 或容量实测。
+
+验收遵循[开发质量 §11](../../rules/development-quality.md#11-测试与验证)：规定范围的本地实际通过即可验收，GitHub Actions 继续提供回归证据。文中各历史增量的 Actions 记录保留原事实，不构成当前本地验收的额外前置。
+
 ## 故障排查
 
 | 机器码 | 含义 | 处理 |
