@@ -17,6 +17,7 @@ namespace Full.NET.IntegrationTests.Ai;
 /// <summary>只在真实端口外注入响应故障，数据库提交和 Files 状态机仍使用生产实现。</summary>
 internal sealed class AiKnowledgeImportFaults
 {
+    private readonly AiKnowledgeAbandonedImportLease _abandonedLease = new();
     internal bool ConfirmFails;
     internal bool ClaimFails;
     internal bool ReleaseFails;
@@ -42,6 +43,7 @@ internal sealed class AiKnowledgeImportFaults
         services.AddScoped<ICommandTransaction>(provider => new Transactions((ICommandTransaction)Resolve(provider, transaction), this));
         services.RemoveAll<IHostFileReferenceClaimService>();
         services.AddScoped<IHostFileReferenceClaimService>(provider => new Claims(ActivatorUtilities.CreateInstance<HostFileReferenceClaimService>(provider), this));
+        _abandonedLease.Configure(services);
     }
 
     private static object Resolve(IServiceProvider provider, ServiceDescriptor descriptor) => descriptor.ImplementationInstance
@@ -193,6 +195,7 @@ internal sealed class AiKnowledgeImportFaults
         Assert.AreEqual("cleanup_pending", racedOperation.State);
         faults.ConfirmEntered = null;
         Assert.AreEqual("failed", (await Retry(racePath, racedOperation.Id)).State);
+        await faults._abandonedLease.VerifyAsync(factory, faults);
     }
 
     private sealed class Commands(ICommandExecutor inner, AiKnowledgeImportFaults faults) : ICommandExecutor

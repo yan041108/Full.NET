@@ -104,6 +104,8 @@ PUT 正文为 `organizationUnitIds` 与资源 `version`，最多 100 个唯一�
 
 导入阶段为 `awaiting_upload`、`file_uploaded`、`pending_confirmation`、`completed`、`cleanup_pending`、`failed`；每次推进使用五分钟有界租约及令牌 CAS。Host 通过 Files Claim → AI 本地提交 → Confirm 维护稳定版本引用；确认失败或 AI 提交结果未知时保留恢复凭据，不释放可能已提交的引用。Tenant 采用 Ai 模块和服务端版本资源所有权；响应丢失后仅从该资源的 ready 文件核对名称、类型、实际摘要和大小，复用原文件。
 
+请求中断且租约清理失败时，遗留租约仍在到期前阻止原上传重放及导入重试，返回 409 `ai.knowledge.import_busy`。到期后用同一操作重试，或保留原 `requestKey`、版本、文件名及字节重放上传；并发请求只有一个能领取新租约，旧令牌不能写入状态或清除新租约。恢复继续使用日志中的同一文件和版本，不能通过换键重复上传来绕过竞争。租约清理失败不会触发文件补偿释放，也不会覆盖主要结果。
+
 Host 在 Claim 前中断或 Pending 已提交但响应丢失时，保留 `file_uploaded` 日志且不发布 AI 版本。重放原始请求键、内容和元数据后继续使用同一文件、版本标识和 Claim 幂等键；已存在的 Pending Claim 经确认转为 Active。此时来源才可读取，完成后重复请求不再创建 Claim 或版本。
 
 Tenant 文件只有配额确认后才成为 ready。未知确认保留 pending，Worker 用原文件操作键幂等确认；CAS 冲突不会当作确定拒绝。尚未绑定 FileId 的有效上传意图也受 Ai Owner 保护。清理先撤销读取资格，存储删除或配额释放失败保留墓碑；清理端口每次最多处理 25 个所属文件，剩余项保留 `cleanup_pending`。超时旧上传晚到时独立复核权威状态，仅补偿已经撤销或缺失的对象。
@@ -164,4 +166,4 @@ PUT 正文为 `roleIds` 与对应资源的 `version`：最多 100 个唯一非�
 
 迁移 `245_AiKnowledgeOrganizationGrant.sql` 增加 AI 自有知识库及文档机构授予表，只有 AI 父资源外键，不向 Organization 建外键；同样成对实现、支持恢复重放且不播种默认授权。
 
-验收证据与任务状态统一记录在[活动开发计划 R04](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。共享机构授予客户端已交付，Vue 页面入口仍待后续切片；整体 R04/RAG 和容量状态不能由这些切片验收推导。
+验收证据与任务状态统一记录在[活动开发计划 R04](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。R04 的目录、授权、文件引用与导入恢复已完成收尾验收，共享生成客户端已交付；解析、索引、问答及 Vue 页面入口仍待 R05–R07。完整知识库/RAG、模型质量与容量状态不能由 R04 验收推导。

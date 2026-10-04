@@ -16,7 +16,7 @@
 - 本轮交付 R02：冻结中文合成语料、测试项目内离线评分器、人工参考结果、可重放报告入口及对应失败回归。R02 离线基线已本地验证；真实检索/模型端到端基线明确为未测，随 R06 接入。
 - R02 已提交 `4a748409af6fcddd23b441a182ee3e7e8fe2b47f`。随后交付 R03 独立选型实验及 [ADR-0013](../../architecture/adr/ADR-0013-ai-retrieval-provider.md)：首版采用双库存派生向量、SQL 先过滤、有界精确余弦；Qdrant 保留候选，PdfPig 0.1.16 作为 R05 文本 PDF 接入候选。没有新增生产依赖或功能开关。
 - 实施基线：分支 `codex/foundation-acceptance-20260926`，HEAD `a7a68776818731703f1ebc11bc529f2746df59e1`，任务快照 `ai-rag-evaluation-r02`。保留原有日志文档、code-wiki 与语言资源改动。
-- R04a 已交付私有目录及精确模型版本审批，R04b1 已交付明确用户成员与立即撤权，R04b2a 已交付文档草稿及明确用户文档授权，按下方证据本地验收；R04b 整体及 R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
+- R04 的目录、模型版本审批、用户/角色/机构两层授权、文件版本与导入恢复已按 R04a、R04b1–R04b6 分项本地验收，并于 2026-10-04 完成收尾核对。下一项 R05 建设解析、分块与索引；R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
 
 ### 2026-09-27 当前摘要（替代下方历史状态中的未实施判断）
 
@@ -601,7 +601,7 @@ R03 实施记录（2026-10-02）：分支 `codex/foundation-acceptance-20260926`
 2026-10-02 按大任务规则拆为可独立验收的两个切片，R04 总体保持进行中：
 
 - [x] R04a：私有知识库目录及模型处理审批。新增 `AiKnowledgeContracts.cs`、`AiKnowledgePermissions.cs`、`Domain/AiKnowledgePolicy.cs`、`Features/ManageKnowledgeBases/` 与 `Persistence/AiKnowledgeSql.cs`；240 双库迁移保存所有者/可信租户、目录状态、分类、Embedding/生成模型配置及批准版本。创建只允许目录字段，模型批准初始为空；更新审批须独立精确权限。每个读取/写入均校验可信范围和所有者，版本不符 409，不返回跨资源信息。单元先测未知分类、缺少/漂移批准及严格 JSON；双库 HTTP 测精确权限、Host/租户/所有者隔离、乐观并发与默认拒绝，迁移测半完成与重复执行。运行受影响 Unit/Architecture、双库 Integration、命名/注释、AOT 分析和正式原生路径后提交。
-- [ ] R04b：文档/版本/成员与文档授权、上传、Host Claim/Probe、Tenant 资源所有权、导入任务及权威删除/撤权。复用已建目录，扩展受授权成员访问；不将 R04a 所有者私有目录描述为完整共享知识库。覆盖下方所有文件失败/恢复用例，生成客户端并完成双库及原生验收后关闭 R04。R05/R06 尚不派发，不能以预留接口冒充已实现检索或问答。
+- [x] R04b：文档/版本/成员与文档授权、上传、Host Claim/Probe、Tenant 资源所有权、导入任务及权威删除/撤权。已复用既有目录交付授权成员访问、角色/机构范围及共享生成客户端；文件失败/恢复、双库与原生证据和收尾核对见 R04b1–R04b6。R04 的目录、权限与文件引用范围于 2026-10-04 关闭；解析、检索索引及问答仍未实现，不能以文件生命周期完成或预留接口冒充完整 RAG。
 
 R04b 执行顺序：先交付知识库成员授权与立即撤权（所有者写入、受授权成员读取，可信范围及精确端点权限独立生效）；再交付文档版本、文档级授权与文件生命周期；最后生成客户端并核对角色/组织范围及全部文件故障场景。每个独立切片验证后提交，R04b 总勾选须等待所有子项完成。
 
@@ -662,7 +662,7 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
 - `node --test tests/openapi/*.test.mjs` 206/206；共享客户端 198/198，包含原始 Blob 认证刷新重放、语言/取消、撤权错误、来源 Blob、204、导入响应拒绝和分页整数精度保护。共享包 TypeScript 及 Vue 生产构建通过；标准快照离线检查、生成零漂移和相对 `fdfab534` 的 94 个契约兼容检查通过。治理 57/57。
 - 本地原始日志、TRX 与源码摘要保留在忽略目录 `artifacts/ai-knowledge-client-contract/` 及同前缀日志；环境沿用 R04b2b。本项完成后在 `main` 独立提交，不推送；后续角色/组织 Port、授权及客户端增量仍须独立验收。
 
-- [x] R04b3：角色/组织范围授权及共享生成客户端已在 `main` 分项交付，包含最小权威目录、独立授予维护和知识库/文档两层读取；各子项的实际验证范围如下。R04b 收尾与完整 RAG 仍未完成：
+- [x] R04b3：角色/组织范围授权及共享生成客户端已在 `main` 分项交付，包含最小权威目录、独立授予维护和知识库/文档两层读取；各子项的实际验证范围如下，R04b 收尾见 R04b4–R04b6，完整 RAG 仍未完成：
   - [x] R04b3a：所有者的权威角色候选目录（基线 `dca199b8`，快照 `ai-knowledge-role-candidates-r04b3a`）。新增 `Identity.Contracts/IActiveRoleDirectory.cs`、Identity `Roles/ActiveRoleDirectory.cs` 与 `Persistence/ActiveRoleDirectorySql.cs`，AI `Features/ManageKnowledgeRoleCandidates/` 服务/Endpoint 作为真实消费者。Identity 仅查询自己拥有的活动普通角色；Host 使用 HostOnly，Tenant 使用 TenantRequired/CurrentTenantId，不使用 Workflow Port、JWT 角色声明或跨模块 SQL。
     - API：知识库及其文档分别增加 `GET .../role-candidates`，使用 `ai.knowledge_bases.role_candidates_read` 与 `ai.knowledge_documents.role_candidates_read` 独立权限；响应只含角色 Id/Code/Name 和分页。先查当前范围资源所有权，再调用目录；成员和陌生人均返回 404。禁用知识库仍允许所有者读取知识库候选；文档候选沿用启用目录和未删除文档的维护边界。
     - 分页：page ≥ 1、pageSize 1..100、offset ≤ 100000，排序 Code/Id。不接受请求 TenantId，不创建授权缓存、迁移或角色授予。新增 JSON 源生成与静态行物化闭包。
@@ -751,6 +751,16 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - `node --test tests/governance/*.test.mjs` 57/57、零失败/跳过；本地 i7-12700H（14 核/20 线程）、64 GB、Windows SDK 10.0.401，两个测试 worker，原有五个容器保持运行。未重跑全量 Unit/Architecture 或无变化生产源码的 Native publish/E2E；本项不认证模型质量、完整 RAG 或容量，Capacity-not-verified 保持。
   - 收尾核对发现：R04b4 的可控中断会在 finally 成功释放导入租约，既有租约物化用例也不能证明遗留租约接管。下一项 R04b6 在隔离双库夹具中保留已提交租约，验证到期前拒绝并发、到期后唯一接管及同一文件/版本恢复；不以本项推导进程终止实验已完成，R04b 继续保持开放。
 
+- [x] R04b6：遗留导入租约到期后的唯一接管与恢复。基线 `dd7fec55`，快照 `ai-knowledge-abandoned-lease-r04b6`；复用 `AiKnowledgeImportFaults.cs` 的两个双库恢复测试，新建 `AiKnowledgeAbandonedImportLease.cs` 负责租约故障和断言，不新增 MTP 身份、生产接口、迁移或 SQL。
+  - [x] 复用真实 ICommandExecutor，仅在隔离夹具中让一次租约清理失败；Host 在 Claim 调用前、Pending 提交后中断，Tenant 在 FileId 已保存后丢失响应。查询真实导入日志确认 FileId、版本、租约及五分钟到期时间已持久化，AI 版本尚未发布，不释放文件。
+  - [x] 到期前的新 HTTP retry 和原上传重放返回 409 `ai.knowledge.import_busy`，原文件、版本及租约不变。推进夹具 IClock 六分钟后暂停已成功领取租约的请求，另一个请求仍返回 409；旧 LeaseToken 的状态写入和租约释放均影响零行，不能覆盖接管者。
+  - [x] 放行接管者后完成同一操作、文件与版本，来源正文恢复，重复请求不创建第二个版本；Tenant 仍只有同一 ready 文件。finally 释放测试等待门并恢复时钟，故障只作用于本次目标操作。此验证模拟遗留持久化状态，不执行真实杀进程或断电。
+  - [x] 使用 Release 当前测试程序集先运行双库恢复聚焦，审查 selector 的完整 Ai slice 并逐项核对正式 TRX UID/FQN 与冻结摘要；测试及文档变化复用未变化生产依赖和正式原生产物证据，最终治理、diff/status 通过后在 main 独立提交。按已批准 R04 文件要求完成关闭条件核对。
+  - 新鲜验收（2026-10-04）：`DOTNET_PROCESSOR_COUNT=2`，`dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj --configuration Release --no-restore --nologo -m:1 -p:BuildProjectReferences=false -p:UseSharedCompilation=false` 最终退出 0、零警告/错误，1m28s。只重建变化的测试程序集，复用未变化生产依赖。首轮聚焦 2 项均因新夹具提前切换 Tenant 导致旧 Host 会话失效而返回 401；按真实会话绑定将切换移到 Tenant 场景开始处，未修改生产认证。原始失败 TRX 保留，不将其作为生产缺陷 RED；最终同一聚焦 2/2、零失败/跳过、退出 0，2m42s，覆盖三类中断的六个 Provider/场景组合。
+  - `pnpm test:integration:affected:plan -- --snapshot ai-knowledge-abandoned-lease-r04b6 --phase slice` 核对四个变更文件，只选择 Ai。`node artifacts/r04b6/run-affected.mjs` 使用仓库选择器、发现器与标准参数运行完整 AI slice，54/54、零失败/跳过、退出 0，22m13s。`node artifacts/r04b6/verify.mjs` 核对正式 TRX 的全部 UID/FQN 精确匹配、无遗漏/重复/额外身份，两份测试源码和程序集摘要保持冻结，API/Worker 正式原生产物继续匹配 R04b3e SHA256。
+  - 只读审查未发现确定的 P1/P2：真实 acquire 返回 1 后才等待，遗留租约故障限定目标文档，旧令牌不能破坏接管者；既有文件依赖拒读、授权下载者拒写、任意 FileId 拒绝、Confirm/未知提交/补偿/删除及撤权证据覆盖已批准 R04 范围。`node --test tests/governance/*.test.mjs` 57/57、零失败/跳过。原始日志、正式 TRX、冻结清单、审查摘要及 `acceptance.json` 位于忽略目录 `artifacts/r04b6/` 和 `artifacts/r04b6-*.log`；一个用例的捕获文本达到 TRX 字段上限而截断，身份及 Passed 结果完整。
+  - 本地 i7-12700H（14 核/20 线程）、64 GB Windows、SDK 10.0.401、两个测试 worker，原有五个容器保持运行；从 R04b3e 提交到本项生产源码及依赖无变化，复用对应正式 Native publish/E2E、迁移及客户端证据，未重跑全量 Unit/Architecture 或正式原生发布。至此关闭 R04 的目录、权限、文件引用与导入恢复范围，下一项进入 R05；完整 RAG、模型质量、杀进程/断电与容量仍不能由本项推导，Capacity-not-verified 保持。
+
 1. 先建立文档/版本与导入操作的失败用例：只有知识库所有者及独立上传权限可写，明确成员的目录读取资格不能授予文档/来源访问；跨范围、禁用目录、删除文件、重复请求与旧版本覆盖均拒绝。正文上传只从当前操作的流进入 Files，不提供按任意 FileId 导入其他模块附件的入口。首版状态只能表达待处理/失败，R05 前不能标记索引就绪。
 2. 在 `Features/ManageKnowledgeDocuments/`、`Persistence/` 及双库成对迁移扩展既有草稿与文档授权，持久化不可变文件版本和有界导入操作状态。所有 UUID 在应用端生成；版本变更、删除与撤权先写权威状态，事务只覆盖 AI 自有表。具体迁移编号在实现时取仓库下一空号；按实际新增测试更新矩阵，不预填发现数。
 3. Host 上传复用 `IHostFileUploadWriter`，给 Files 追加 Ai Claim 消费者及稳定版本幂等键，注册精确版本/文件 Probe。按 Claim → AI 提交 → Confirm 顺序执行；确认失败与未知提交保留待对账引用，已知回滚才补偿释放。Tenant 上传复用 `ITenantResourceFileStore` 的 Ai 模块键及服务端版本资源 ID，注册 `ITenantResourceFileOwner`，通过 `ListReadyAsync` 恢复已上传对象；禁止跨模块 JOIN、外部存储操作嵌套本地事务和按客户端声明确认引用。
@@ -764,7 +774,7 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
 **文件接入边界：** 检查 `src/Modules/Full.NET.Modules.Files.Contracts/HostFileReferenceClaimContracts.cs`、`ITenantResourceFileStore.cs` 与 `ITenantResourceFileOwner.cs`；Host 必须登记 Ai Claim 消费者及 Probe，租户采用资源所有权合同。首期只支持向授权知识库上传；不开放按任意 FileId 导入其他模块附件，后续共享必须由原数据所有者批准。
 
 - [x] 先覆盖跨租户、无文档授权、文件不存在/已删除、重复导入、引用失败补偿、并发版本更新与迁移部分执行恢复。对应 R04b1/R04b2a/b 的授权、导入及 240–243 恢复，R04b3 的角色/组织 CAS 及 244–245 恢复，R04b4 的 Claim 中断恢复，R04b5 的文件依赖故障；各项双库证据见上文，不代表全部导入崩溃恢复边界已关闭。
-- [ ] 覆盖 Host Claim 提交前/后崩溃、Confirm 失败、租户资源归属不匹配和“有下载权但无共享权”；实现最小文档删除/撤权权威状态，立即禁止检索与来源读取，再由 R05 清理索引/释放引用。
+- [x] 覆盖 Host Claim 提交前/后崩溃、Confirm 失败、租户资源归属不匹配和“有下载权但无共享权”；实现最小文档删除/撤权权威状态，立即禁止检索与来源读取，再由 R05 清理索引/释放引用。对应 R04b2b、R04b3、R04b4–R04b6：可控中断及遗留租约模拟覆盖持久化恢复，未执行真实杀进程/断电；授权下载者不能写入，任意 FileId 导入仍拒绝。当前尚无索引或检索实现，R05 派发与检索必须重新检查删除/撤权权威状态，不能从本项推导已经完成索引清理。
 - [x] 实现范围约束、UUID v7、参数化双库 SQL、乐观并发、标准 ProblemDetails 与源生成 DTO；文件关联不得跨模块 JOIN/事务。对应 R04a、R04b1/R04b2b 与 R04b3 的分项双库/原生证据。
 - [x] R04a 已建立知识库数据分类与批准的 Embedding/生成模型配置及版本，默认批准为空；双库验证未知分类、缺失/漂移批准和不可用模型拒绝。实际派发尚未实现，R05/R06 必须重新核对此策略与最新权威状态，R11 继续扩展重排、路由和遥测覆盖。
 - [x] OpenAPI 与共享生成客户端由 R04b2c、R04b3c/d-client/e-client 分项交付；知识库入口包含 32 个 Operation，真实双库协议一致、生成产物无漂移，各项实际测试及矩阵证据见上文。底层文件异常和整体关闭条件仍由前两项核对。
