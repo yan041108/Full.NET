@@ -545,10 +545,16 @@ internal static partial class DiagnoseCommand
         {
             return true;
         }
+        return TryReadBaseConfigurationValue(root, path, out value, includeScalarValues: true);
+    }
+
+    private static bool TryReadBaseConfigurationValue(
+        JsonNode root, string path, out string? value, bool includeScalarValues = false)
+    {
         using var baseSettings = JsonDocument.Parse(root.ToJsonString());
         var found = false;
-        VisitConfigurationValue(baseSettings.RootElement, null, path, ref found, ref value,
-            includeScalarValues: true);
+        value = null;
+        VisitConfigurationValue(baseSettings.RootElement, null, path, ref found, ref value, includeScalarValues);
         return found;
     }
 
@@ -635,11 +641,15 @@ internal static partial class DiagnoseCommand
                 throw new InvalidOperationException("Connection name is empty.");
             }
             var connectionStrings = root["ConnectionStrings"]?.AsObject();
-            var namedConnection = connectionStrings?.FirstOrDefault(pair =>
+            // 保留已有基础凭据字段类型检查；实际取值按宿主的展平路径处理扁平键与大小写。
+            _ = connectionStrings?.FirstOrDefault(pair =>
                 string.Equals(pair.Key, connectionName, StringComparison.OrdinalIgnoreCase)).Value?.GetValue<string>();
             // 显式 null 或空集合也是覆盖值，不能恢复基础文件中的命名凭据。
-            effectiveConnection = TryReadConfigurationOverride(profileSettings, workspacePath, profile,
-                $"ConnectionStrings:{connectionName}", out var overrideConnection) ? overrideConnection : namedConnection;
+            if (!TryReadConfigurationOverride(profileSettings, workspacePath, profile,
+                    $"ConnectionStrings:{connectionName}", out effectiveConnection))
+            {
+                _ = TryReadBaseConfigurationValue(root, $"ConnectionStrings:{connectionName}", out effectiveConnection);
+            }
         }
         // 默认 WebApplicationBuilder 仅在 Development 载入 User Secrets，生产诊断不能据此放行。
         var userSecretsId = string.Equals(profile, "development", StringComparison.OrdinalIgnoreCase)

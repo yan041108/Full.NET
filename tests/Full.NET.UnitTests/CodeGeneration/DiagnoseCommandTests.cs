@@ -1496,6 +1496,177 @@ public sealed class DiagnoseCommandTests
         Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
     }
 
+    [TestMethod]
+    [DataRow("nested", true)]
+    [DataRow("lowercase", true)]
+    [DataRow("flat", true)]
+    [DataRow("flat-case", true)]
+    [DataRow("colon-key", true)]
+    [DataRow("nested-colon", true)]
+    [DataRow("array", true)]
+    [DataRow("empty-leaf", true)]
+    [DataRow("empty-root", false)]
+    [DataRow("other", false)]
+    [DataRow("empty-object-overwrite", false)]
+    [DataRow("empty-array-overwrite", false)]
+    [DataRow("children-below", true)]
+    public async Task Base_named_connection_layout_matches_runtime_configuration(string layout, bool configured)
+    {
+        const string credential = "Server=named.invalid;Password=credential-probe";
+        var name = "diagnose_" + Guid.NewGuid().ToString("N");
+        var connectionName = layout is "colon-key" or "nested-colon" ? name + ":read"
+            : layout == "array" ? name + ":0" : layout == "empty-leaf" ? name + ":" : name;
+        object namedValue = layout switch
+        {
+            "nested-colon" => new Dictionary<string, object> { [name] = new { read = credential } },
+            "array" => new Dictionary<string, object> { [name] = new[] { credential } },
+            "empty-leaf" => new Dictionary<string, object> { [name] = new Dictionary<string, string> { [""] = credential } },
+            "other" => new Dictionary<string, string> { [name + "_other"] = credential },
+            _ => new Dictionary<string, string> { [connectionName] = credential },
+        };
+        var settings = new Dictionary<string, object>
+        {
+            ["Database"] = new { Provider = "MySql", MySqlGuidStorageMode = "Binary16", ConnectionName = connectionName },
+        };
+        if (layout is "flat" or "flat-case")
+        {
+            settings[layout == "flat-case" ? ("connectionstrings:" + connectionName).ToUpperInvariant()
+                : "ConnectionStrings:" + connectionName] = credential;
+        }
+        else if (layout == "empty-root")
+        {
+            settings[""] = new { ConnectionStrings = namedValue };
+        }
+        else
+        {
+            settings[layout == "lowercase" ? "connectionstrings" : "ConnectionStrings"] = namedValue;
+        }
+        if (layout is "empty-object-overwrite" or "empty-array-overwrite" or "children-below")
+        {
+            settings["connectionstrings:" + connectionName] = layout == "empty-array-overwrite" ? Array.Empty<string>()
+                : layout == "empty-object-overwrite" ? new Dictionary<string, string>() : new { Probe = credential };
+        }
+        var configuration = JsonSerializer.Serialize(settings);
+        Assert.AreEqual(configured, RuntimeDatabaseOptionsAreValid(configuration, "Production"));
+        if (configured) Assert.AreEqual(credential, ReadRuntimeDatabaseConnection(configuration));
+        using var fixture = new DiagnoseWorkspace(configuration);
+        var before = File.ReadAllBytes(fixture.Settings);
+        foreach (var profile in new[] { "development", "production" })
+        {
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var result = await CodeGenerationCli.RunAsync(
+                ["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
+            Assert.AreEqual(configured || profile == "development" ? 0 : 1, result, output.ToString());
+            StringAssert.Contains(output.ToString(), configured ? "DIAG_CONNECTION_CONFIGURED ok"
+                : profile == "production" ? "DIAG_CONNECTION_MISSING error" : "DIAG_CONNECTION_PLACEHOLDER warn");
+            Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Settings));
+        }
+    }
+
+    [TestMethod]
+    [DataRow("profile", "null")]
+    [DataRow("profile", "blank")]
+    [DataRow("profile", "placeholder")]
+    [DataRow("profile", "valid")]
+    [DataRow("secrets", "null")]
+    [DataRow("secrets", "blank")]
+    [DataRow("secrets", "placeholder")]
+    [DataRow("secrets", "valid")]
+    [DataRow("environment", "null")]
+    [DataRow("environment", "blank")]
+    [DataRow("environment", "placeholder")]
+    [DataRow("environment", "valid")]
+    public async Task Base_named_connection_overrides_preserve_precedence_and_explicit_empty(string source, string shape)
+    {
+        var name = "diagnose_" + Guid.NewGuid().ToString("N");
+        const string baseCredential = "Server=base.invalid;Password=credential-probe";
+        var configuration = JsonSerializer.Serialize(new Dictionary<string, object>
+        {
+            ["Database"] = new { Provider = "MySql", MySqlGuidStorageMode = "Binary16", ConnectionName = name },
+            ["connectionstrings:" + name.ToUpperInvariant()] = baseCredential,
+        });
+        var value = shape switch
+        {
+            "null" => null, "blank" => " ", "placeholder" => "CHANGEME",
+            _ => "Server=override.invalid;Password=credential-probe",
+        };
+        var overlay = JsonSerializer.Serialize(new Dictionary<string, string?> { ["ConnectionStrings:" + name] = value });
+        using var fixture = new DiagnoseWorkspace(configuration);
+        var paths = new List<string> { fixture.Settings };
+        if (source == "profile")
+        {
+            foreach (var environment in new[] { "Development", "Production" })
+            {
+                var path = Path.Combine(fixture.Root, $"appsettings.{environment}.json");
+                File.WriteAllText(path, overlay, new UTF8Encoding(false));
+                paths.Add(path);
+            }
+        }
+        if (source == "secrets") fixture.AddStandaloneUserSecrets(overlay, "App.Host.Api");
+        var before = paths.ToDictionary(path => path, File.ReadAllBytes);
+        var key = "ConnectionStrings__" + name;
+        var originalEnvironment = Environment.GetEnvironmentVariable(key);
+        try
+        {
+            if (source == "environment") Environment.SetEnvironmentVariable(key, value);
+            foreach (var profile in new[] { "development", "production" })
+            {
+                var usesBase = (source == "secrets" && profile == "production")
+                    || (source == "environment" && value is null);
+                var configured = usesBase || shape == "valid";
+                // null 环境变量表示移除；JSON null 是显式覆盖，Production 不加载开发秘密。
+                if (configured) Assert.AreEqual(usesBase ? baseCredential : value,
+                    ReadRuntimeDatabaseConnection(configuration, usesBase ? null : overlay));
+                using var output = new StringWriter();
+                using var error = new StringWriter();
+                var result = await CodeGenerationCli.RunAsync(
+                    ["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
+                Assert.AreEqual(configured || profile == "development" ? 0 : 1, result, output.ToString());
+                StringAssert.Contains(output.ToString(), configured ? "DIAG_CONNECTION_CONFIGURED ok"
+                    : profile == "production" ? "DIAG_CONNECTION_MISSING error" : "DIAG_CONNECTION_PLACEHOLDER warn");
+                Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+                foreach (var path in paths) CollectionAssert.AreEqual(before[path], File.ReadAllBytes(path));
+            }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(key, originalEnvironment);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("flat", false)]
+    [DataRow("flat", true)]
+    [DataRow("nested", false)]
+    [DataRow("nested", true)]
+    public async Task Base_named_connection_nontext_values_do_not_count_as_credentials(string layout, bool boolean)
+    {
+        var name = "diagnose_" + Guid.NewGuid().ToString("N");
+        object value = boolean ? true : 42;
+        var configuration = JsonSerializer.Serialize(new Dictionary<string, object>
+        {
+            ["Database"] = new { MySqlGuidStorageMode = "Binary16", ConnectionName = name },
+            [layout == "flat" ? "ConnectionStrings:" + name : "ConnectionStrings"] = layout == "flat" ? value
+                : new Dictionary<string, object> { [name] = value },
+        });
+        using var fixture = new DiagnoseWorkspace(configuration);
+        var before = File.ReadAllBytes(fixture.Settings);
+        foreach (var profile in new[] { "development", "production" })
+        {
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var result = await CodeGenerationCli.RunAsync(
+                ["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
+            Assert.AreEqual(layout == "nested" || profile == "production" ? 1 : 0, result);
+            Assert.IsFalse(output.ToString().Contains("DIAG_CONNECTION_CONFIGURED", StringComparison.Ordinal));
+            StringAssert.Contains(output.ToString(), layout == "nested" ? "DIAG_APPSETTINGS_INVALID error"
+                : profile == "production" ? "DIAG_CONNECTION_MISSING error" : "DIAG_CONNECTION_PLACEHOLDER warn");
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Settings));
+        }
+    }
+
     private static string ReadRuntimeDatabaseConnection(string configuration, string? overlay = null)
     {
         var builder = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration)));

@@ -185,6 +185,58 @@ test('application template package includes framework sources and root manifest'
       const diagnosticBaseSettings = join(appRoot, 'src/Demo.Host.Api/appsettings.json');
       const diagnosticBaseBefore = readFileSync(diagnosticBaseSettings);
       try {
+        const namedProfile = JSON.parse(profileBefore.toString('utf8'));
+        delete namedProfile.ConnectionStrings;
+        writeFileSync(productionSettings, JSON.stringify(namedProfile));
+        const baseName = apiConfig.Database.ConnectionName;
+        for (const layout of ['flat', 'lowercase', 'nested-colon', 'empty-overwrite']) {
+          const namedBase = { ...apiConfig };
+          delete namedBase.ConnectionStrings;
+          const credential = 'Server=base.invalid;Password=credential-probe';
+          if (layout === 'flat') namedBase[`connectionstrings:${baseName.toUpperCase()}`] = credential;
+          if (layout === 'lowercase') namedBase.connectionstrings = { [baseName.toUpperCase()]: credential };
+          if (layout === 'nested-colon') {
+            namedBase.Database = { ...apiConfig.Database, ConnectionName: `${baseName}:read` };
+            namedBase.ConnectionStrings = { [baseName]: { read: credential } };
+          }
+          if (layout === 'empty-overwrite') {
+            namedBase.ConnectionStrings = { [baseName]: credential };
+            namedBase[`connectionstrings:${baseName}`] = {};
+          }
+          writeFileSync(diagnosticBaseSettings, JSON.stringify(namedBase));
+          const namedBaseBefore = readFileSync(diagnosticBaseSettings);
+          const namedDiagnosis = runProfileDiagnosis();
+          assert.equal(namedDiagnosis.status, layout === 'empty-overwrite' ? 1 : 0,
+            namedDiagnosis.stderr || namedDiagnosis.stdout);
+          assert.match(namedDiagnosis.stdout, layout === 'empty-overwrite'
+            ? /DIAG_CONNECTION_MISSING error/u : /DIAG_CONNECTION_CONFIGURED ok/u);
+          assert.doesNotMatch(namedDiagnosis.stdout + namedDiagnosis.stderr, /credential-probe/u);
+          assert.deepEqual(readFileSync(diagnosticBaseSettings), namedBaseBefore);
+          if (layout === 'empty-overwrite') {
+            const overriddenNameDiagnosis = runProfileDiagnosis({ [`ConnectionStrings__${baseName}`]: credential });
+            assert.equal(overriddenNameDiagnosis.status, 0,
+              overriddenNameDiagnosis.stderr || overriddenNameDiagnosis.stdout);
+            assert.match(overriddenNameDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+            assert.doesNotMatch(overriddenNameDiagnosis.stdout + overriddenNameDiagnosis.stderr, /credential-probe/u);
+            assert.deepEqual(readFileSync(diagnosticBaseSettings), namedBaseBefore);
+          }
+        }
+        writeFileSync(diagnosticBaseSettings, JSON.stringify({ ...apiConfig,
+          ConnectionStrings: undefined, [`connectionstrings:${baseName}`]: 'Server=base.invalid;Password=credential-probe',
+        }));
+        writeFileSync(productionSettings, JSON.stringify({ ...namedProfile,
+          [`ConnectionStrings:${baseName}`]: null,
+        }));
+        const nullNamedBaseBefore = readFileSync(diagnosticBaseSettings);
+        const nullNamedProfileBefore = readFileSync(productionSettings);
+        const nullNamedDiagnosis = runProfileDiagnosis();
+        assert.equal(nullNamedDiagnosis.status, 1);
+        assert.match(nullNamedDiagnosis.stdout, /DIAG_CONNECTION_MISSING error/u);
+        assert.doesNotMatch(nullNamedDiagnosis.stdout + nullNamedDiagnosis.stderr, /credential-probe/u);
+        assert.deepEqual(readFileSync(diagnosticBaseSettings), nullNamedBaseBefore);
+        assert.deepEqual(readFileSync(productionSettings), nullNamedProfileBefore);
+        writeFileSync(diagnosticBaseSettings, diagnosticBaseBefore);
+        writeFileSync(productionSettings, profileBefore);
         writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(profileBefore.toString('utf8')),
           Database: {
             Provider: { Probe: 'credential-probe' }, CommandTimeoutSeconds: ['credential-probe'],
