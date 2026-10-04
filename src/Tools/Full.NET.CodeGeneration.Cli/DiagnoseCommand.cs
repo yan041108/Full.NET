@@ -67,12 +67,8 @@ internal static partial class DiagnoseCommand
                 return;
             }
 
-            var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
-            var version = (await process.StandardOutput.ReadToEndAsync(cancellationToken)
-                .ConfigureAwait(false)).Trim();
-            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-            await standardError.ConfigureAwait(false);
-            if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(version))
+            var (exitCode, version) = await ReadSdkProbeAsync(process, cancellationToken).ConfigureAwait(false);
+            if (exitCode != 0 || string.IsNullOrWhiteSpace(version))
             {
                 findings.Add(DiagnoseFinding.Error(
                     "DIAG_SDK_MISSING",
@@ -93,6 +89,39 @@ internal static partial class DiagnoseCommand
                 "DIAG_SDK_MISSING",
                 ".NET SDK 不可用。",
                 "安装 .NET 10 SDK 并确保 dotnet 在 PATH 中。"));
+        }
+    }
+
+    internal static async Task<(int ExitCode, string Version)> ReadSdkProbeAsync(
+        Process process,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
+            var version = (await process.StandardOutput.ReadToEndAsync(cancellationToken)
+                .ConfigureAwait(false)).Trim();
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            await standardError.ConfigureAwait(false);
+            return (process.ExitCode, version);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                // Process.Dispose 不会停止子进程；取消时须先回收本次探测拥有的进程树。
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                    await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // 进程可能在取消与终止之间自行退出，此时保持原始取消结果。
+            }
+
+            throw;
         }
     }
 
