@@ -271,6 +271,24 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     for (const [path, before] of diagnosticInputs) {
       assert.deepEqual(readFileSync(join(appRoot, path)), before, `diagnose changed ${path}`);
     }
+    const diagnosticCli = join(appRoot,
+      'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.CodeGeneration.Cli.dll');
+    // 分发应用未初始化 User Secrets 时，生产诊断必须报告缺连接，且不能改写应用文件。
+    const productionDiagnosis = spawnSync('dotnet', [diagnosticCli, 'diagnose', '--workspace', appRoot,
+      '--profile', 'production'], {
+      cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true,
+      env: { ...process.env, ConnectionStrings__app: '<your-connection>' },
+    });
+    assert.equal(productionDiagnosis.error, undefined, 'production diagnose process failed');
+    assert.equal(productionDiagnosis.status, 1, productionDiagnosis.stderr || productionDiagnosis.stdout);
+    assert.match(productionDiagnosis.stdout, /DIAG_CONNECTION_MISSING error/u);
+    assert.doesNotMatch(productionDiagnosis.stdout + productionDiagnosis.stderr, /<your-connection>/u);
+    for (const [path, before] of diagnosticInputs) {
+      assert.deepEqual(readFileSync(join(appRoot, path)), before, `production diagnose changed ${path}`);
+    }
+    writeFileSync(join(logRoot, 'diagnose-production.json'), JSON.stringify({
+      status: productionDiagnosis.status, connectionMissing: true, inputsUnchanged: true,
+    }, null, 2));
 
     prepareApplicationCompositionProbe(appRoot);
     verifyApplicationCrudGeneration(appRoot, { reportDirectory: join(logRoot, 'application-crud') });

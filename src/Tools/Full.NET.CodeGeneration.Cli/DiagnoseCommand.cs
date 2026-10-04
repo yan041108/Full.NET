@@ -434,14 +434,11 @@ internal static class DiagnoseCommand
         var envName = $"ConnectionStrings__{connectionName}";
         var environmentConnection = Environment.GetEnvironmentVariable(envName);
         var hasEnv = !string.IsNullOrWhiteSpace(environmentConnection) && !IsPlaceholder(environmentConnection);
-        var userSecretsId = TryReadUserSecretsId(appsettingsPath, workspacePath);
+        // 默认 WebApplicationBuilder 仅在 Development 载入 User Secrets，生产诊断不能据此放行。
+        var userSecretsId = string.Equals(profile, "development", StringComparison.OrdinalIgnoreCase)
+            ? TryReadUserSecretsId(workspacePath) : null;
         var hasUserSecrets = userSecretsId is not null
-            && File.Exists(Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Microsoft",
-                "UserSecrets",
-                userSecretsId,
-                "secrets.json"));
+            && HasConfiguredUserSecret(userSecretsId, connectionName);
 
         if (hasInline || hasEnv || hasUserSecrets)
         {
@@ -460,10 +457,74 @@ internal static class DiagnoseCommand
             return;
         }
 
+        var hint = userSecretsId is null
+            ? $"设置环境变量 {envName}；如需 user-secrets，先在 API 项目初始化后保存对应连接键。"
+            : $"使用 dotnet user-secrets set \"ConnectionStrings:{connectionName}\" \"<your-connection>\" 或设置环境变量 {envName}。";
         findings.Add(DiagnoseFinding.Warn(
             "DIAG_CONNECTION_PLACEHOLDER",
             $"开发环境尚未配置 ConnectionStrings:{connectionName}。",
-            $"使用 dotnet user-secrets set \"ConnectionStrings:{connectionName}\" \"<your-connection>\" 或设置环境变量 {envName}。"));
+            hint));
+    }
+
+    private static bool HasConfiguredUserSecret(string userSecretsId, string connectionName)
+    {
+        try
+        {
+            var path = OperatingSystem.IsWindows()
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "Microsoft", "UserSecrets", userSecretsId, "secrets.json")
+                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    ".microsoft", "usersecrets", userSecretsId, "secrets.json");
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            // User Secrets 允许扁平与嵌套 JSON；文件存在本身不能证明目标连接已经配置。
+            var secrets = JsonNode.Parse(File.ReadAllText(path)) as JsonObject;
+            var hasFlat = TryGetConfigurationValue(secrets, $"ConnectionStrings:{connectionName}", out var flat);
+            TryGetConfigurationValue(secrets, "ConnectionStrings", out var section);
+            var hasNested = TryGetConfigurationValue(section as JsonObject, connectionName, out var nested);
+            if (hasFlat && hasNested)
+            {
+                // 扁平键和嵌套键会展平为同一配置键，不能任选一个掩盖冲突。
+                return false;
+            }
+            var value = hasFlat ? flat : nested;
+            return value is JsonValue jsonValue
+                && jsonValue.TryGetValue<string>(out var connection)
+                && !string.IsNullOrWhiteSpace(connection)
+                && !IsPlaceholder(connection);
+        }
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException
+            or FormatException or IOException or UnauthorizedAccessException)
+        {
+            // 秘密文件不可读取或无效时失败关闭，且不把内容或解析异常写入诊断输出。
+            return false;
+        }
+    }
+
+    private static bool TryGetConfigurationValue(JsonObject? source, string key, out JsonNode? value)
+    {
+        value = null;
+        if (source is null)
+        {
+            return false;
+        }
+
+        // ASP.NET 配置键不区分大小写；同名但大小写不同的重复键不应由诊断任意选取。
+        var matches = source.Where(entry => string.Equals(entry.Key, key, StringComparison.OrdinalIgnoreCase))
+            .Take(2).ToArray();
+        if (matches.Length > 1)
+        {
+            throw new InvalidOperationException("Duplicate configuration key.");
+        }
+        if (matches.Length == 0)
+        {
+            return false;
+        }
+        value = matches[0].Value;
+        return true;
     }
 
     private static void CheckSecretPlaceholders(
@@ -530,36 +591,43 @@ internal static class DiagnoseCommand
         || value.Contains("CHANGEME", StringComparison.OrdinalIgnoreCase)
         || value.Contains("<your-", StringComparison.OrdinalIgnoreCase);
 
-    private static string? TryReadUserSecretsId(string appsettingsPath, string workspacePath)
+    private static string? TryReadUserSecretsId(string workspacePath)
     {
+        var standaloneHost = FindStandaloneHost(workspacePath);
         var projectCandidates = new[]
         {
-            Path.Combine(Path.GetDirectoryName(appsettingsPath)!, "..", "..", "Full.NET.Host.Api.csproj"),
+            standaloneHost is null ? null : Path.Combine(standaloneHost,
+                Path.GetFileName(standaloneHost) + ".csproj"),
             Path.Combine(workspacePath, "src/App.Host.Api/App.Host.Api.csproj"),
             Path.Combine(workspacePath, "src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj"),
         };
         foreach (var candidate in projectCandidates)
         {
+            if (candidate is null)
+            {
+                continue;
+            }
             var path = Path.GetFullPath(candidate);
             if (!File.Exists(path))
             {
                 continue;
             }
 
-            foreach (var line in File.ReadLines(path))
+            try
             {
-                const string marker = "<UserSecretsId>";
-                var start = line.IndexOf(marker, StringComparison.Ordinal);
-                if (start < 0)
+                var id = XDocument.Load(path).Descendants()
+                    .FirstOrDefault(element => element.Name.LocalName == "UserSecretsId")?.Value.Trim();
+                // 项目文件可能由外部应用提供；ID 只能映射到 UserSecrets 下的单个目录。
+                if (!string.IsNullOrWhiteSpace(id) && !id.Contains("..", StringComparison.Ordinal)
+                    && id.All(character => char.IsLetterOrDigit(character) || character is '-' or '_' or '.'))
                 {
-                    continue;
+                    return id;
                 }
-
-                var end = line.IndexOf("</UserSecretsId>", StringComparison.Ordinal);
-                if (end > start)
-                {
-                    return line[(start + marker.Length)..end].Trim();
-                }
+            }
+            catch (Exception exception) when (exception is System.Xml.XmlException or IOException
+                or UnauthorizedAccessException)
+            {
+                return null;
             }
         }
 

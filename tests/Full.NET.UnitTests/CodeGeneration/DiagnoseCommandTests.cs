@@ -159,6 +159,66 @@ public sealed class DiagnoseCommandTests
     }
 
     [TestMethod]
+    [DataRow("{\"ConnectionStrings:other\":\"Password=credential-probe\"}")]
+    [DataRow("{\"ConnectionStrings:fullnet\":\"<your-connection>\"}")]
+    [DataRow("{\"ConnectionStrings\":{\"fullnet\":42}}")]
+    [DataRow("{\"ConnectionStrings:fullnet\":\"Password=credential-probe\",\"connectionstrings:FULLNET\":\"Password=other\"}")]
+    [DataRow("{\"ConnectionStrings:fullnet\":\"Password=credential-probe\",\"ConnectionStrings\":{\"fullnet\":\"<your-connection>\"}}")]
+    [DataRow("{invalid-json")]
+    public async Task Development_user_secrets_without_usable_target_connection_stay_unconfigured(string secrets)
+    {
+        using var fixture = new DiagnoseWorkspace("{\"Database\":{\"ConnectionName\":\"fullnet\"}}");
+        fixture.AddStandaloneUserSecrets(secrets, "App.Host.Api");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var result = await CodeGenerationCli.RunAsync(
+            ["diagnose", "--workspace", fixture.Root, "--profile", "development"], output, error);
+
+        Assert.AreEqual(0, result);
+        StringAssert.Contains(output.ToString(), "DIAG_CONNECTION_PLACEHOLDER warn");
+        Assert.IsFalse(output.ToString().Contains("DIAG_CONNECTION_CONFIGURED", StringComparison.Ordinal));
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("{\"ConnectionStrings:fullnet\":\"Server=example.invalid;Password=credential-probe\"}")]
+    [DataRow("{\"ConnectionStrings\":{\"fullnet\":\"Server=example.invalid;Password=credential-probe\"}}")]
+    [DataRow("{\"connectionstrings:FULLNET\":\"Server=example.invalid;Password=credential-probe\"}")]
+    [DataRow("{\"connectionStrings\":{\"FullNet\":\"Server=example.invalid;Password=credential-probe\"}}")]
+    public async Task Development_user_secrets_target_connection_is_read_from_standalone_api_project(string secrets)
+    {
+        using var fixture = new DiagnoseWorkspace("{\"Database\":{\"ConnectionName\":\"fullnet\"}}");
+        fixture.AddStandaloneUserSecrets(secrets);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var result = await CodeGenerationCli.RunAsync(
+            ["diagnose", "--workspace", fixture.Root, "--profile", "development"], output, error);
+
+        Assert.AreEqual(0, result);
+        StringAssert.Contains(output.ToString(), "DIAG_CONNECTION_CONFIGURED ok");
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task Production_does_not_count_development_user_secrets_as_runtime_connection()
+    {
+        using var fixture = new DiagnoseWorkspace("{\"Database\":{\"ConnectionName\":\"fullnet\"}}");
+        fixture.AddStandaloneUserSecrets("{\"ConnectionStrings:fullnet\":\"Server=example.invalid;Password=credential-probe\"}");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var result = await CodeGenerationCli.RunAsync(
+            ["diagnose", "--workspace", fixture.Root, "--profile", "production"], output, error);
+
+        Assert.AreEqual(1, result);
+        StringAssert.Contains(output.ToString(), "DIAG_CONNECTION_MISSING error");
+        Assert.IsFalse(output.ToString().Contains("DIAG_CONNECTION_CONFIGURED", StringComparison.Ordinal));
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     [DataRow(" ", 1, "DIAG_CONNECTION_MISSING error")]
     [DataRow("<your-connection>", 1, "DIAG_CONNECTION_MISSING error")]
     [DataRow("Server=example.invalid;Password=credential-probe", 0, "DIAG_CONNECTION_CONFIGURED ok")]
@@ -185,6 +245,7 @@ public sealed class DiagnoseCommandTests
     {
         public string Root { get; } = Path.Combine(Path.GetTempPath(), $"fullnet-diagnose-{Guid.NewGuid():N}");
         public string Settings => Path.Combine(Root, "appsettings.json");
+        private string? userSecretsDirectory;
 
         public DiagnoseWorkspace(string configuration = "{}")
         {
@@ -192,6 +253,30 @@ public sealed class DiagnoseCommandTests
             File.WriteAllText(Settings, configuration, new UTF8Encoding(false));
         }
 
-        public void Dispose() => Directory.Delete(Root, recursive: true);
+        public void AddStandaloneUserSecrets(string secrets, string hostName = "Demo.Host.Api")
+        {
+            var id = $"fullnet-diagnose-{Guid.NewGuid():N}";
+            var hostDirectory = Path.Combine(Root, "src", hostName);
+            Directory.CreateDirectory(hostDirectory);
+            File.WriteAllText(Path.Combine(hostDirectory, hostName + ".csproj"),
+                $"<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><UserSecretsId>{id}</UserSecretsId></PropertyGroup></Project>",
+                new UTF8Encoding(false));
+            userSecretsDirectory = OperatingSystem.IsWindows()
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "Microsoft", "UserSecrets", id)
+                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    ".microsoft", "usersecrets", id);
+            Directory.CreateDirectory(userSecretsDirectory);
+            File.WriteAllText(Path.Combine(userSecretsDirectory, "secrets.json"), secrets, new UTF8Encoding(false));
+        }
+
+        public void Dispose()
+        {
+            Directory.Delete(Root, recursive: true);
+            if (userSecretsDirectory is not null)
+            {
+                Directory.Delete(userSecretsDirectory, recursive: true);
+            }
+        }
     }
 }
