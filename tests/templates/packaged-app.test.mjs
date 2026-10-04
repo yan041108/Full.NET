@@ -237,6 +237,58 @@ test('application template package includes framework sources and root manifest'
         assert.deepEqual(readFileSync(productionSettings), nullNamedProfileBefore);
         writeFileSync(diagnosticBaseSettings, diagnosticBaseBefore);
         writeFileSync(productionSettings, profileBefore);
+        const secretPaths = ['Cache:RedisConnectionString', 'Realtime:RedisBackplaneConnectionString',
+          'FullNet:Cryptography:Sm2PrivateKeys:host-integration-signing'];
+        const removeSecret = (settings, path) => {
+          const segments = path.split(':');
+          let parent = settings;
+          for (const segment of segments.slice(0, -1)) parent = parent?.[segment];
+          if (parent && typeof parent === 'object') delete parent[segments.at(-1)];
+        };
+        const setSecret = (settings, path, value) => {
+          const segments = path.split(':');
+          let parent = settings;
+          for (const segment of segments.slice(0, -1)) {
+            parent[segment] ??= {};
+            parent = parent[segment];
+          }
+          parent[segments.at(-1)] = value;
+        };
+        const secretProfile = JSON.parse(profileBefore.toString('utf8'));
+        for (const path of secretPaths) removeSecret(secretProfile, path);
+        writeFileSync(productionSettings, JSON.stringify(secretProfile));
+        const secretProfileBefore = readFileSync(productionSettings);
+        for (const shape of ['placeholder', 'valid', 'null', 'empty-overwrite']) {
+          const secretBase = structuredClone(apiConfig);
+          for (const path of secretPaths) {
+            if (shape === 'empty-overwrite') setSecret(secretBase, path, 'credential-probe');
+            else removeSecret(secretBase, path);
+            secretBase[path.toUpperCase()] = shape === 'null' ? null : shape === 'empty-overwrite' ? {}
+              : shape === 'valid' ? 'credential-probe' : 'CHANGEME';
+          }
+          writeFileSync(diagnosticBaseSettings, JSON.stringify(secretBase));
+          const secretBaseBefore = readFileSync(diagnosticBaseSettings);
+          const secretDiagnosis = runProfileDiagnosis();
+          assert.equal(secretDiagnosis.status, shape === 'valid' ? 0 : 1,
+            secretDiagnosis.stderr || secretDiagnosis.stdout);
+          assert.match(secretDiagnosis.stdout, shape === 'valid' ? /DIAG_SECRETS_OK ok/u
+            : /DIAG_SECRETS_PLACEHOLDER error.*有 3 个秘密/u);
+          assert.doesNotMatch(secretDiagnosis.stdout + secretDiagnosis.stderr, /credential-probe/u);
+          assert.deepEqual(readFileSync(diagnosticBaseSettings), secretBaseBefore);
+          assert.deepEqual(readFileSync(productionSettings), secretProfileBefore);
+          if (shape === 'null') {
+            const repairedSecretDiagnosis = runProfileDiagnosis(Object.fromEntries(secretPaths.map(path =>
+              [path.replaceAll(':', '__'), 'credential-probe'])));
+            assert.equal(repairedSecretDiagnosis.status, 0,
+              repairedSecretDiagnosis.stderr || repairedSecretDiagnosis.stdout);
+            assert.match(repairedSecretDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
+            assert.doesNotMatch(repairedSecretDiagnosis.stdout + repairedSecretDiagnosis.stderr, /credential-probe/u);
+            assert.deepEqual(readFileSync(diagnosticBaseSettings), secretBaseBefore);
+            assert.deepEqual(readFileSync(productionSettings), secretProfileBefore);
+          }
+        }
+        writeFileSync(diagnosticBaseSettings, diagnosticBaseBefore);
+        writeFileSync(productionSettings, profileBefore);
         writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(profileBefore.toString('utf8')),
           Database: {
             Provider: { Probe: 'credential-probe' }, CommandTimeoutSeconds: ['credential-probe'],

@@ -1667,6 +1667,187 @@ public sealed class DiagnoseCommandTests
         }
     }
 
+    [TestMethod]
+    [DataRow("nested")]
+    [DataRow("flat")]
+    [DataRow("lowercase")]
+    [DataRow("flat-case")]
+    [DataRow("nested-null")]
+    [DataRow("flat-null")]
+    [DataRow("flat-blank")]
+    [DataRow("empty-object-overwrite")]
+    [DataRow("empty-array-overwrite")]
+    [DataRow("children-below")]
+    [DataRow("empty-root")]
+    [DataRow("valid-flat")]
+    [DataRow("valid-lowercase")]
+    public async Task Base_secret_paths_match_real_configuration_values(string layout)
+    {
+        var settings = DiagnosticSecretSettings();
+        foreach (var path in DiagnosticSecretPaths)
+        {
+            object? value = layout is "nested-null" or "flat-null" ? null
+                : layout == "flat-blank" ? " " : layout.StartsWith("valid-", StringComparison.Ordinal)
+                    || layout is "empty-object-overwrite" or "empty-array-overwrite" ? "credential-probe" : "CHANGEME";
+            if (layout is "flat" or "flat-null" or "flat-blank" or "valid-flat" or "flat-case")
+            {
+                settings[layout == "flat-case" ? path.ToUpperInvariant() : path] = value;
+            }
+            else if (layout == "empty-root")
+            {
+                if (!settings.TryGetValue("", out var decoy)) settings[""] = decoy = new Dictionary<string, object?>();
+                AddNestedSecret((Dictionary<string, object?>)decoy!, path, value);
+            }
+            else
+            {
+                AddNestedSecret(settings, layout is "lowercase" or "valid-lowercase" ? path.ToLowerInvariant() : path, value);
+            }
+            if (layout is "empty-object-overwrite" or "empty-array-overwrite" or "children-below")
+            {
+                settings[path.ToUpperInvariant()] = layout == "empty-array-overwrite" ? Array.Empty<string>()
+                    : layout == "empty-object-overwrite" ? new Dictionary<string, string>() : new { Probe = "credential-probe" };
+            }
+        }
+        var configuration = JsonSerializer.Serialize(settings);
+        var runtime = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration))).Build();
+        var runtimeCount = 0;
+        foreach (var path in DiagnosticSecretPaths)
+        {
+            // 实际提供程序区分未声明路径与显式 null；非空子键不覆盖同路径标量。
+            var present = runtime.Providers.Single().TryGet(path, out var value);
+            if (present && (string.IsNullOrWhiteSpace(value) || value == "CHANGEME")) runtimeCount++;
+        }
+        Assert.AreEqual(layout is "empty-root" or "valid-flat" or "valid-lowercase" ? 0 : 3, runtimeCount);
+        using var fixture = new DiagnoseWorkspace(configuration);
+        foreach (var profile in new[] { "development", "production" })
+            await AssertSecretDiagnosisAsync(fixture, profile, runtimeCount);
+    }
+
+    [TestMethod]
+    [DataRow("profile", "null")]
+    [DataRow("profile", "blank")]
+    [DataRow("profile", "placeholder")]
+    [DataRow("profile", "valid")]
+    [DataRow("secrets", "null")]
+    [DataRow("secrets", "blank")]
+    [DataRow("secrets", "placeholder")]
+    [DataRow("secrets", "valid")]
+    [DataRow("environment", "null")]
+    [DataRow("environment", "blank")]
+    [DataRow("environment", "placeholder")]
+    [DataRow("environment", "valid")]
+    public async Task Base_secret_paths_preserve_override_precedence_and_explicit_empty(string source, string shape)
+    {
+        var settings = DiagnosticSecretSettings();
+        foreach (var path in DiagnosticSecretPaths) settings[path.ToUpperInvariant()] = "CHANGEME";
+        var configuration = JsonSerializer.Serialize(settings);
+        var value = shape switch { "null" => null, "blank" => " ", "placeholder" => "CHANGEME", _ => "credential-probe" };
+        var overlay = JsonSerializer.Serialize(DiagnosticSecretPaths.ToDictionary(path => path, _ => value));
+        using var fixture = new DiagnoseWorkspace(configuration);
+        if (source == "profile")
+        {
+            foreach (var environment in new[] { "Development", "Production" })
+                File.WriteAllText(Path.Combine(fixture.Root, $"appsettings.{environment}.json"), overlay, new UTF8Encoding(false));
+        }
+        if (source == "secrets") fixture.AddStandaloneUserSecrets(overlay, "App.Host.Api");
+        var originals = DiagnosticSecretPaths.ToDictionary(path => path.Replace(":", "__", StringComparison.Ordinal),
+            Environment.GetEnvironmentVariable);
+        try
+        {
+            if (source == "environment")
+                foreach (var key in originals.Keys) Environment.SetEnvironmentVariable(key, value);
+            foreach (var profile in new[] { "development", "production" })
+            {
+                var usesBase = (source == "secrets" && profile == "production") || (source == "environment" && value is null);
+                var builder = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration)));
+                if (!usesBase) builder.AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(overlay)));
+                var runtime = builder.Build();
+                foreach (var path in DiagnosticSecretPaths) Assert.AreEqual(usesBase ? "CHANGEME" : value, runtime[path]);
+                await AssertSecretDiagnosisAsync(fixture, profile, usesBase || shape != "valid" ? 3 : 0);
+            }
+        }
+        finally
+        {
+            foreach (var (key, original) in originals) Environment.SetEnvironmentVariable(key, original);
+        }
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Base_secret_paths_flat_nontext_values_are_not_credentials(bool boolean)
+    {
+        var settings = DiagnosticSecretSettings();
+        foreach (var path in DiagnosticSecretPaths) settings[path] = boolean ? true : 42;
+        using var fixture = new DiagnoseWorkspace(JsonSerializer.Serialize(settings));
+        // JSON 非文本值保持秘密字段的失败关闭策略，不能因框架可转字符串便计为有效凭据。
+        foreach (var profile in new[] { "development", "production" }) await AssertSecretDiagnosisAsync(fixture, profile, 3);
+    }
+
+    [TestMethod]
+    [DataRow("Cache:RedisConnectionString", false)]
+    [DataRow("Cache:RedisConnectionString", true)]
+    [DataRow("Realtime:RedisBackplaneConnectionString", false)]
+    [DataRow("Realtime:RedisBackplaneConnectionString", true)]
+    [DataRow("FullNet:Cryptography:Sm2PrivateKeys:host-integration-signing", false)]
+    [DataRow("FullNet:Cryptography:Sm2PrivateKeys:host-integration-signing", true)]
+    public async Task Base_secret_paths_preserve_existing_nested_type_validation(string path, bool boolean)
+    {
+        var settings = DiagnosticSecretSettings();
+        AddNestedSecret(settings, path, boolean ? true : 42);
+        using var fixture = new DiagnoseWorkspace(JsonSerializer.Serialize(settings));
+        var before = File.ReadAllBytes(fixture.Settings);
+        foreach (var profile in new[] { "development", "production" })
+        {
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
+            Assert.AreEqual(1, result);
+            StringAssert.Contains(output.ToString(), "DIAG_APPSETTINGS_INVALID error");
+            Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Settings));
+        }
+    }
+
+    private static readonly string[] DiagnosticSecretPaths =
+    [
+        "Cache:RedisConnectionString", "Realtime:RedisBackplaneConnectionString",
+        "FullNet:Cryptography:Sm2PrivateKeys:host-integration-signing",
+    ];
+
+    private static Dictionary<string, object?> DiagnosticSecretSettings() => new()
+    {
+        ["Database"] = new { Provider = "MySql", MySqlGuidStorageMode = "Binary16", ConnectionString = "Server=example.invalid;Password=credential-probe" },
+    };
+
+    private static void AddNestedSecret(Dictionary<string, object?> settings, string path, object? value)
+    {
+        var segments = path.Split(':');
+        for (var index = 0; index < segments.Length - 1; index++)
+        {
+            if (!settings.TryGetValue(segments[index], out var child))
+                settings[segments[index]] = child = new Dictionary<string, object?>();
+            settings = (Dictionary<string, object?>)child!;
+        }
+        settings[segments[^1]] = value;
+    }
+
+    private static async Task AssertSecretDiagnosisAsync(DiagnoseWorkspace fixture, string profile, int placeholders)
+    {
+        var before = Directory.EnumerateFiles(fixture.Root, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
+        Assert.AreEqual(profile == "production" && placeholders > 0 ? 1 : 0, result, output.ToString());
+        StringAssert.Contains(output.ToString(), placeholders == 0 ? "DIAG_SECRETS_OK ok"
+            : profile == "production" ? "DIAG_SECRETS_PLACEHOLDER error" : "DIAG_SECRETS_PLACEHOLDER warn");
+        if (placeholders > 0) StringAssert.Contains(output.ToString(), $"有 {placeholders} 个秘密");
+        Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.Ordinal));
+        var after = Directory.EnumerateFiles(fixture.Root, "*", SearchOption.AllDirectories).ToArray();
+        CollectionAssert.AreEquivalent(before.Keys.ToArray(), after);
+        foreach (var path in before.Keys) CollectionAssert.AreEqual(before[path], File.ReadAllBytes(path));
+    }
+
     private static string ReadRuntimeDatabaseConnection(string configuration, string? overlay = null)
     {
         var builder = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration)));

@@ -929,17 +929,19 @@ internal static partial class DiagnoseCommand
             current = current?[segment];
             if (current is null)
             {
-                return false;
+                break;
             }
         }
 
         // 当前三个秘密配置的运行时契约均为字符串；错误类型不能被视为已配置。
-        if (current is not JsonValue value || !value.TryGetValue<string>(out var text))
+        if (current is not null && (current is not JsonValue value || !value.TryGetValue<string>(out _)))
         {
             throw new InvalidOperationException("Secret configuration must be a string.");
         }
 
-        return string.IsNullOrWhiteSpace(text) || IsPlaceholder(text);
+        // 未声明键不强制存在；显式 null 和空集合按展平覆盖结果诊断，不能被层级查找漏掉。
+        return TryReadBaseConfigurationValue(root, colonPath, out var text)
+            && (string.IsNullOrWhiteSpace(text) || IsPlaceholder(text));
     }
 
     private static bool IsPlaceholder(string value) =>
