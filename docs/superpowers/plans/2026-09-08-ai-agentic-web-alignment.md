@@ -741,6 +741,16 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - `pnpm test:integration:affected:plan -- --snapshot ai-knowledge-claim-interruption-r04b4 --phase slice` 精确选择 Ai；`node artifacts/r04b4/run-affected.mjs` 使用仓库选择器、发现器及标准聚焦参数执行完整集合，54/54、零失败/跳过、退出 0，17m42s。正式 TRX 与发现的 UID/FQN 逐项匹配，无遗漏、额外或重复身份；测试源码与程序集哈希前后一致，API/Worker 正式原生产物仍匹配 R04b3e SHA256。汇总及原始日志在忽略目录 `artifacts/r04b4/` 与 `artifacts/r04b4-*.log`。一个用例的捕获文本超过 TRX 字段上限被截断，测试身份与 Passed 结果完整，未声称所有捕获文本无截断。
   - `node --test tests/governance/*.test.mjs` 57/57、零跳过；本地环境沿用 R04b3e，Windows SDK 10.0.401、两个测试 worker、原有五个容器保持运行。本项验证可控异常与新 HTTP 作用域恢复，finally 仍释放租约，未执行杀进程/断电实验；未重跑全量 Unit/Architecture 或相同生产源码的原生发布。下一项继续核对 AI 来源入口的底层文件缺失/删除与租户资源归属错配，R04b/RAG 与 Capacity-not-verified 保持开放。
 
+- [x] R04b5：AI 来源入口的文件依赖与租户资源归属边界。基线 `16a16fff`，快照 `ai-knowledge-source-boundaries-r04b5`；在两个既有双库来源用例中调用 `AiKnowledgeSourcePersistenceAssertions.cs`，不新增 MTP 测试身份或修改生产契约。
+  - [x] 在隔离数据库中模拟不存在的文件引用、Host 软删除、Tenant released 状态，以及 Tenant 的 ResourceId/OwnerModuleKey 错配；每次真实 HTTP 返回 `source_unavailable` 404，finally 恢复后重新读取原始正文。
+  - [x] 核对 Local Provider 与测试工厂临时根目录后，模拟 ready 元数据对应的实际对象丢失；HTTP 返回统一脱敏的 unexpected 500 ProblemDetails，不包含正文、对象路径或内部异常，finally 按原键恢复相同字节。此项不把存储异常改写成资源不存在。
+  - [x] 单元替身不能证明双库作用域、Files 元数据与真实对象读取的共同约束，复用现有双库 HTTP fixture；本项不属于 messaging-heavy。聚焦两个来源用例后运行选择器完整 AI slice，核对 UID/FQN 与源码/程序集指纹，再运行治理、diff/status，在 main 独立提交。
+  - 新鲜验收（2026-10-04）：`DOTNET_PROCESSOR_COUNT=2`，`dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj --configuration Release --no-restore --nologo -m:1 -p:BuildProjectReferences=false -p:UseSharedCompilation=false` 退出 0，零警告/错误，43.48s；本项只改测试及文档，复用 R04b4 已构建且未变化的生产依赖，重新编译当前测试程序集。首次聚焦因新夹具 SQL 拼接缺少空格生成 `ANDknowledge`，双库分别报 102/1064、2 项失败；仅修正两处拼接分隔后，最终聚焦 2/2、零跳过、退出 0，2m05s。此失败是测试夹具错误，不作为生产缺陷 RED 证据，原始失败日志保留。
+  - `pnpm test:integration:affected:plan -- --snapshot ai-knowledge-source-boundaries-r04b5 --phase slice` 核对四个变更文件，只选择 Ai。`node artifacts/r04b5/run-affected.mjs` 使用仓库选择器、发现器及标准聚焦参数执行完整 AI slice，54/54、零失败/跳过、退出 0，21m35s；每个 Provider 验证 Host 三类、Tenant 五类来源依赖故障，共 16 个场景，仍为两个既有 MTP 用例。
+  - `node artifacts/r04b5/verify.mjs` 核对正式 TRX 的全部 UID/FQN，与发现集合精确一致，无遗漏、重复或额外身份；两份测试源码及程序集摘要保持冻结，API/Worker 原生产物仍匹配 R04b3e SHA256。一个用例的捕获文本达到 TRX 字段上限后截断，身份及 Passed 结果完整。原始构建、失败/成功聚焦、正式 TRX、冻结清单与 `acceptance.json` 保留在忽略目录 `artifacts/r04b5/`、`artifacts/r04b5-*.log`。
+  - `node --test tests/governance/*.test.mjs` 57/57、零失败/跳过；本地 i7-12700H（14 核/20 线程）、64 GB、Windows SDK 10.0.401，两个测试 worker，原有五个容器保持运行。未重跑全量 Unit/Architecture 或无变化生产源码的 Native publish/E2E；本项不认证模型质量、完整 RAG 或容量，Capacity-not-verified 保持。
+  - 收尾核对发现：R04b4 的可控中断会在 finally 成功释放导入租约，既有租约物化用例也不能证明遗留租约接管。下一项 R04b6 在隔离双库夹具中保留已提交租约，验证到期前拒绝并发、到期后唯一接管及同一文件/版本恢复；不以本项推导进程终止实验已完成，R04b 继续保持开放。
+
 1. 先建立文档/版本与导入操作的失败用例：只有知识库所有者及独立上传权限可写，明确成员的目录读取资格不能授予文档/来源访问；跨范围、禁用目录、删除文件、重复请求与旧版本覆盖均拒绝。正文上传只从当前操作的流进入 Files，不提供按任意 FileId 导入其他模块附件的入口。首版状态只能表达待处理/失败，R05 前不能标记索引就绪。
 2. 在 `Features/ManageKnowledgeDocuments/`、`Persistence/` 及双库成对迁移扩展既有草稿与文档授权，持久化不可变文件版本和有界导入操作状态。所有 UUID 在应用端生成；版本变更、删除与撤权先写权威状态，事务只覆盖 AI 自有表。具体迁移编号在实现时取仓库下一空号；按实际新增测试更新矩阵，不预填发现数。
 3. Host 上传复用 `IHostFileUploadWriter`，给 Files 追加 Ai Claim 消费者及稳定版本幂等键，注册精确版本/文件 Probe。按 Claim → AI 提交 → Confirm 顺序执行；确认失败与未知提交保留待对账引用，已知回滚才补偿释放。Tenant 上传复用 `ITenantResourceFileStore` 的 Ai 模块键及服务端版本资源 ID，注册 `ITenantResourceFileOwner`，通过 `ListReadyAsync` 恢复已上传对象；禁止跨模块 JOIN、外部存储操作嵌套本地事务和按客户端声明确认引用。
@@ -753,7 +763,7 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
 
 **文件接入边界：** 检查 `src/Modules/Full.NET.Modules.Files.Contracts/HostFileReferenceClaimContracts.cs`、`ITenantResourceFileStore.cs` 与 `ITenantResourceFileOwner.cs`；Host 必须登记 Ai Claim 消费者及 Probe，租户采用资源所有权合同。首期只支持向授权知识库上传；不开放按任意 FileId 导入其他模块附件，后续共享必须由原数据所有者批准。
 
-- [ ] 先覆盖跨租户、无文档授权、文件不存在/已删除、重复导入、引用失败补偿、并发版本更新与迁移部分执行恢复。
+- [x] 先覆盖跨租户、无文档授权、文件不存在/已删除、重复导入、引用失败补偿、并发版本更新与迁移部分执行恢复。对应 R04b1/R04b2a/b 的授权、导入及 240–243 恢复，R04b3 的角色/组织 CAS 及 244–245 恢复，R04b4 的 Claim 中断恢复，R04b5 的文件依赖故障；各项双库证据见上文，不代表全部导入崩溃恢复边界已关闭。
 - [ ] 覆盖 Host Claim 提交前/后崩溃、Confirm 失败、租户资源归属不匹配和“有下载权但无共享权”；实现最小文档删除/撤权权威状态，立即禁止检索与来源读取，再由 R05 清理索引/释放引用。
 - [x] 实现范围约束、UUID v7、参数化双库 SQL、乐观并发、标准 ProblemDetails 与源生成 DTO；文件关联不得跨模块 JOIN/事务。对应 R04a、R04b1/R04b2b 与 R04b3 的分项双库/原生证据。
 - [x] R04a 已建立知识库数据分类与批准的 Embedding/生成模型配置及版本，默认批准为空；双库验证未知分类、缺失/漂移批准和不可用模型拒绝。实际派发尚未实现，R05/R06 必须重新核对此策略与最新权威状态，R11 继续扩展重排、路由和遥测覆盖。

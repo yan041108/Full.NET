@@ -81,6 +81,8 @@ internal static class AiKnowledgeFileVersionsApiAssertions
         async Task Expect(HttpClient requester, string target, HttpStatusCode status)
         { using var response = await requester.GetAsync(target); Assert.AreEqual(status, response.StatusCode, await response.Content.ReadAsStringAsync()); }
         var sourcePath = path + $"/versions/{versionId}/source";
+        await AiKnowledgeSourcePersistenceAssertions.VerifyAsync(factory, client, catalog.Id, versionId,
+            sourcePath, "只有授权成员可读取正文");
         await Expect(reader, sourcePath, HttpStatusCode.NotFound);
         using var grantBase = await client.PutAsJsonAsync($"/api/v1/ai/knowledge-bases/{catalog.Id}/members", new SetAiKnowledgeMembersRequest([member.UserId], 1));
         Assert.AreEqual(HttpStatusCode.OK, grantBase.StatusCode);
@@ -119,6 +121,8 @@ internal static class AiKnowledgeFileVersionsApiAssertions
         Assert.AreEqual("completed", tenantOperation.State);
         var tenantSourcePath = tenantPath + $"/versions/{tenantOperation.VersionId}/source";
         await Expect(tenantClient, tenantSourcePath, HttpStatusCode.OK);
+        await AiKnowledgeSourcePersistenceAssertions.VerifyAsync(factory, tenantClient, tenantBase.Id,
+            tenantOperation.VersionId, tenantSourcePath, "%PDF-1.7\n样本", tenant.Id);
         using var back = await tenantClient.PutAsJsonAsync("/api/v1/tenancy/context", new ChangeTenantContextRequest(null));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (await back.Content.ReadFromJsonAsync<TenantContextTokenResponse>())!.AccessToken);
         await Expect(client, tenantSourcePath, HttpStatusCode.NotFound);
