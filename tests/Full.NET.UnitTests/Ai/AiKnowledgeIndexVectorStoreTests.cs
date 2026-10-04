@@ -144,6 +144,87 @@ public sealed class AiKnowledgeIndexVectorStoreTests
         Assert.AreEqual(0, f.Writes);
     }
 
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Whole_generation_checks_every_batch_and_two_bounded_receipt_snapshots(bool tenant)
+    {
+        var f = new Fixture(tenant); var manifest = f.WholePlan();
+        Assert.AreEqual(2, manifest.Batches.Count);
+        Assert.IsTrue(await f.Store.MatchesWholePlanAsync(f.Binding, f.TaskId, f.Lease, manifest, default));
+        Assert.AreEqual(2, f.Reads); Assert.AreEqual(2, f.ReceiptReads); Assert.AreEqual(0, f.Writes);
+    }
+
+    [TestMethod] [DataRow("missing")] [DataRow("extra")] [DataRow("payload")] [DataRow("content")]
+    [DataRow("changed")] [DataRow("receipt_id")] [DataRow("receipt_ordinal")] [DataRow("receipt_input")]
+    public async Task Whole_generation_rejects_partial_extra_corrupt_or_changed_batch_sets(string fault)
+    {
+        var f = new Fixture(false); var manifest = f.WholePlan(); var last = f.Rows![1];
+        if (fault == "missing") f.Rows.Remove(1);
+        if (fault == "extra") f.Rows[2] = last with { Id = Guid.CreateVersion7(), BatchOrdinal = 2 };
+        if (fault == "payload")
+        {
+            byte[] bad = new byte[8]; f.Rows[1] = last with { Payload = bad, PayloadHash = Convert.ToHexString(SHA256.HashData(bad)) };
+        }
+        if (fault == "content")
+        {
+            var decoded = AiKnowledgeIndexVectorCodec.Decode(last.Payload, default); var chunks = decoded.Chunks.ToArray();
+            chunks[0] = chunks[0] with { Source = chunks[0].Source with { Offset = chunks[0].Source.Offset + 1 } };
+            var bytes = AiKnowledgeIndexVectorCodec.Encode(f.Batch with { Chunks = chunks }, 1536, default);
+            f.Rows[1] = last with { Payload = bytes, PayloadHash = Convert.ToHexString(SHA256.HashData(bytes)) };
+        }
+        if (fault == "changed") f.AfterRead = () => { if (f.Reads == 2) f.Rows[0] = f.Rows[0] with { PayloadHash = new string('F', 64) }; };
+        f.ReceiptFault = fault;
+        Assert.IsFalse(await f.Store.MatchesWholePlanAsync(f.Binding, f.TaskId, f.Lease, manifest, default));
+        Assert.AreEqual(0, f.Writes);
+    }
+
+    [TestMethod] [DataRow("provider")] [DataRow("model_id")] [DataRow("dimensions")] [DataRow("format")] [DataRow("distance")]
+    public async Task Whole_generation_rejects_metadata_changes_after_first_payload_validation(string fault)
+    {
+        var f = new Fixture(false); var manifest = f.WholePlan();
+        f.AfterRead = () =>
+        {
+            if (f.Reads != 2) return;
+            var row = f.Rows![0];
+            f.Rows[0] = fault switch
+            {
+                "provider" => row with { ProviderKey = "other" }, "model_id" => row with { ModelId = "other" },
+                "dimensions" => row with { Dimensions = 3072 }, "format" => row with { FormatKey = "future" },
+                _ => row with { DistanceKey = "dot" },
+            };
+        };
+        Assert.IsFalse(await f.Store.MatchesWholePlanAsync(f.Binding, f.TaskId, f.Lease, manifest, default));
+        Assert.AreEqual(0, f.Writes);
+    }
+
+    [TestMethod] [DataRow("source")] [DataRow("session")] [DataRow("model")] [DataRow("permission")]
+    [DataRow("expiry")] [DataRow("cancellation")] [DataRow("database")]
+    public async Task Final_receipt_wait_cannot_deliver_previous_generation_authority(string fault)
+    {
+        var f = new Fixture(false); var manifest = f.WholePlan(); using var cancel = new CancellationTokenSource();
+        f.AfterReceipts = () =>
+        {
+            if (f.ReceiptReads != 2) return;
+            if (fault == "source") f.SourceDenied = true; else if (fault == "session") f.SessionDenied = true;
+            else if (fault == "model") f.ModelDenied = true; else if (fault == "permission") f.Denied = true;
+            else if (fault == "expiry") f.Clock.UtcNow.Returns(f.Now.AddSeconds(30));
+            else if (fault == "cancellation") cancel.Cancel(); else throw new IOException("database unavailable");
+        };
+        if (fault == "cancellation") await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => f.Store.MatchesWholePlanAsync(f.Binding, f.TaskId, f.Lease, manifest, cancel.Token));
+        else if (fault == "database") await Assert.ThrowsExactlyAsync<IOException>(() => f.Store.MatchesWholePlanAsync(f.Binding, f.TaskId, f.Lease, manifest, default));
+        else Assert.IsFalse(await f.Store.MatchesWholePlanAsync(f.Binding, f.TaskId, f.Lease, manifest, default));
+        Assert.AreEqual(0, f.Writes);
+    }
+
+    [TestMethod]
+    public async Task Whole_generation_rejects_ambient_transaction_and_initial_cancellation()
+    {
+        var f = new Fixture(false); var manifest = f.WholePlan(); f.State.HasTransaction.Returns(true);
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => f.Store.MatchesWholePlanAsync(f.Binding, f.TaskId, f.Lease, manifest, default));
+        f.State.HasTransaction.Returns(false); using var cancel = new CancellationTokenSource(); cancel.Cancel();
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => f.Store.MatchesWholePlanAsync(f.Binding, f.TaskId, f.Lease, manifest, cancel.Token));
+        Assert.AreEqual(0, f.Reads); Assert.AreEqual(0, f.ReceiptReads); Assert.AreEqual(0, f.Writes);
+    }
+
     private sealed class Fixture
     {
         internal readonly IQueryExecutor Query = Substitute.For<IQueryExecutor>();
@@ -160,7 +241,10 @@ public sealed class AiKnowledgeIndexVectorStoreTests
         internal bool Denied, SessionDenied, SourceDenied, ModelDenied, Unique;
         internal int Writes, Commits, Rollbacks, AuthCalls, WriteCount = 1;
         internal Exception? Failure;
-        internal Action? AfterModel, AfterRead, AfterCommit, AfterWrite;
+        internal Action? AfterModel, AfterRead, AfterCommit, AfterWrite, AfterReceipts;
+        internal Dictionary<int, AiKnowledgeIndexVectorRecord>? Rows;
+        internal int Reads, ReceiptReads;
+        internal string? ReceiptFault;
         private readonly AiModelConfigRecord model;
         internal Fixture(bool scoped)
         {
@@ -178,7 +262,8 @@ public sealed class AiKnowledgeIndexVectorStoreTests
             { Id = session.SessionId, IndexTaskId = TaskId, ActorUserId = session.UserId, TenantId = tenantId, SessionId = session.SessionId, SessionKind = session.SessionKind,
                 SecurityStamp = session.SecurityStamp, ActorScope = session.ActorScope, EffectiveScope = session.EffectiveScope, LeaseExpiresAtUtc = Now.AddSeconds(30) });
             Query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { AfterModel?.Invoke(); return ModelDenied ? null : model; });
-            Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexVectorRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { var saved = Row; AfterRead?.Invoke(); return saved; });
+            Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexVectorRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
+            { var saved = Rows is null ? Row : Rows.GetValueOrDefault(ReadSqlParameter<int>(call[1], "BatchOrdinal")); Reads++; AfterRead?.Invoke(); return saved; });
             auth.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ =>
             { Assert.IsFalse(State.HasTransaction); AuthCalls++; return Denied ? null : new AuthorizedSessionActor(session.UserId, session.TenantId, session.SessionId); });
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
@@ -188,13 +273,46 @@ public sealed class AiKnowledgeIndexVectorStoreTests
                     PayloadHash = ReadSqlParameter<string>(call[1], "PayloadHash"), RequestHash = ReadSqlParameter<string>(call[1], "RequestHash") };
                 AfterWrite?.Invoke(); return WriteCount; });
             var sessions = new AiKnowledgeIndexSessionService(Query, command, new Transaction(this), State, tenant, Clock, ids, tasks, auth);
-            Store = new(Query, command, new Transaction(this), State, tenant, Clock, tasks, sessions, auth, Options.Create(new DatabaseOptions()));
+            Store = new(new ReceiptQuery(this), command, new Transaction(this), State, tenant, Clock, tasks, sessions, auth, Options.Create(new DatabaseOptions()));
+        }
+        // 手写集合读边界，避免动态代理要求生产内部行类型对代理程序集可见。
+        private sealed class ReceiptQuery(Fixture fixture) : IQueryExecutor
+        {
+            public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement sql, object? parameters = null, CancellationToken cancellationToken = default) => fixture.Query.QuerySingleOrDefaultAsync<T>(sql, parameters, cancellationToken);
+            public Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement sql, object? parameters = null, CancellationToken cancellationToken = default)
+            {
+                Assert.AreEqual(typeof(AiKnowledgeIndexVectorReceiptRecord), typeof(T));
+                fixture.ReceiptReads++;
+                var receipts = fixture.Rows!.Values.OrderBy(row => row.BatchOrdinal).Select(row => new AiKnowledgeIndexVectorReceiptRecord
+                { Id = row.Id, BatchOrdinal = row.BatchOrdinal, RequestHash = row.RequestHash, InputCount = row.InputCount, PayloadHash = row.PayloadHash,
+                    ProviderKey = row.ProviderKey, ModelId = row.ModelId, Dimensions = row.Dimensions, FormatKey = row.FormatKey, DistanceKey = row.DistanceKey }).ToArray();
+                if (fixture.ReceiptFault == "receipt_id") receipts[0] = receipts[0] with { Id = Guid.CreateVersion7() };
+                if (fixture.ReceiptFault == "receipt_ordinal") receipts[0] = receipts[0] with { BatchOrdinal = 1 };
+                if (fixture.ReceiptFault == "receipt_input") receipts[0] = receipts[0] with { InputCount = 15 };
+                fixture.AfterReceipts?.Invoke(); return Task.FromResult((IReadOnlyList<T>)(object)receipts);
+            }
         }
         internal Task<bool> Write(CancellationToken token = default) => Store.PersistAsync(Binding, TaskId, Lease, Batch, token);
         internal Task<bool> Read() => Store.IsStoredAsync(Binding, TaskId, Lease, 0, default);
-        internal AiKnowledgeIndexVectorRecord NewRow() => new() { Id = Batch.OperationId, IndexTaskId = TaskId, BatchOrdinal = 0,
+        internal AiKnowledgeIndexTextManifest WholePlan()
+        {
+            var sample = Batch.Chunks[0]; var source = AiKnowledgeIndexTextPlanTests.Source() with
+            { KnowledgeBaseId = Binding.KnowledgeBaseId, ModelConfigId = model.Id, TenantId = model.TenantId,
+                Chunks = AiKnowledgeIndexTextPlanTests.Source().Chunks with { ContentHash = Source.ContentHash,
+                    Chunks = Enumerable.Range(0, 17).Select(i => sample.Source with { Sequence = i, Offset = i * sample.Source.Length }).ToArray() } };
+            var plan = AiKnowledgeIndexTextPlan.Create(source, default); Assert.IsNotNull(plan); Rows = [];
+            foreach (var batch in plan.Batches)
+            {
+                Batch = Batch with { OperationId = Guid.CreateVersion7(), BatchOrdinal = batch.Ordinal,
+                    Chunks = batch.Chunks.Select(chunk => new AiKnowledgeEmbeddedChunk(chunk, sample.Vector.ToArray())).ToArray() };
+                var bytes = AiKnowledgeIndexVectorCodec.Encode(Batch, 1536, default);
+                Rows[batch.Ordinal] = NewRow() with { Payload = bytes, PayloadHash = Convert.ToHexString(SHA256.HashData(bytes)) };
+            }
+            return AiKnowledgeIndexTextManifestCodec.Decode(AiKnowledgeIndexTextManifestCodec.Encode(plan, default), default);
+        }
+        internal AiKnowledgeIndexVectorRecord NewRow() => new() { Id = Batch.OperationId, IndexTaskId = TaskId, BatchOrdinal = Batch.BatchOrdinal,
             ModelConfigId = model.Id, ModelConfigVersion = 1, ProviderKey = model.ProviderKey, ModelId = model.ModelId, Dimensions = 1536,
-            FormatKey = AiKnowledgeIndexVectorCodec.FormatKey, DistanceKey = "cosine", Payload = OriginalPayload.ToArray(), InputCount = 1,
+            FormatKey = AiKnowledgeIndexVectorCodec.FormatKey, DistanceKey = "cosine", Payload = OriginalPayload.ToArray(), InputCount = Batch.Chunks.Count,
             PayloadHash = Convert.ToHexString(SHA256.HashData(OriginalPayload)),
             RequestHash = AiOperationBudgetStore.Fingerprint(AiEmbeddingBudgetRequest.Create(Batch.OperationId, model, Batch.Chunks.Select(item => item.Source.EmbeddingText).ToArray())) };
         internal AiKnowledgeIndexDispatchRecord NewSource(string? fault = null) => new() { TaskId = fault == "task" ? Guid.CreateVersion7() : TaskId,

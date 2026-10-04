@@ -24,16 +24,16 @@ namespace Full.NET.IntegrationTests.Ai;
 /// <summary>生产双库 SQL/账本配合受控会话、Files 和模型边界；不访问云模型或伪造原生验收。</summary>
 internal static class AiKnowledgeIndexEmbeddingAssertions
 {
-    internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock)
+    internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock, bool wholeGeneration = false)
     {
         await factory.InitializeAsync();
         await using var db = AiOperationBudgetAssertions.Connection(factory);
         foreach (var tenant in new[] { false, true })
-        foreach (var scenario in new[] { "known", "lost", "zero", "revoked", "unmetered", "ambient", "settled_revoked", "settled_expired" })
+        foreach (var scenario in wholeGeneration ? new[] { "known", "unmetered" } : new[] { "known", "lost", "zero", "revoked", "unmetered", "ambient", "settled_revoked", "settled_expired" })
         {
             var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db, tenant);
             clock.UtcNow = new DateTimeOffset((DateTime)p["Now"]!, TimeSpan.Zero);
-            var bytes = Encoding.UTF8.GetBytes("双库执行来源 exact source");
+            var bytes = Encoding.UTF8.GetBytes(wholeGeneration ? string.Concat(Enumerable.Repeat("a ", 12000)) : "双库执行来源 exact source");
             var hash = Convert.ToHexString(SHA256.HashData(bytes));
             // 直接创建 AI 自有来源夹具；原始摘要覆盖整个字节流，随后经生产 Files 契约消费者读取。
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_version SET ContentHash=@Hash, SizeBytes=@Size WHERE Id=@Id", new { Hash = hash, Size = bytes.Length, Id = p["VersionId"] });
@@ -55,6 +55,20 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                 Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_text_manifest WHERE Id=@Id", new { Id = task.Id }));
                 if (generate is not null) await generate();
             };
+            if (wholeGeneration)
+            {
+                await AiKnowledgeIndexGenerationAssertions.VerifyAsync(db, binding, session, task.Id,
+                    ordinal => Use((tasks, execution, services) => execution.ExecuteTextBatchAsync(binding, task.Id, held.LeaseToken.Value, ordinal, default,
+                        (plan, token) => { wholePlan = plan; return ManifestStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, plan, token); })),
+                    batch => Use((tasks, _, services) => VectorStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, batch, default)),
+                    plan => Use((tasks, _, services) => ManifestStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, plan, default)),
+                    () => wholePlan!, () => provider.Calls,
+                    afterReceipt => Use((tasks, execution, services) => new AiKnowledgeIndexPersistenceService(execution,
+                        VectorStore(services, tasks, query: new AiKnowledgeIndexGenerationAssertions.ReceiptQuery(services.GetRequiredService<IQueryExecutor>(), afterReceipt)),
+                        ManifestStore(services, tasks)).IsTextGenerationStoredAsync(binding, task.Id, held.LeaseToken.Value, default)),
+                    clock, held.LeaseExpiresAtUtc!.Value);
+                continue;
+            }
             if (scenario == "ambient")
             {
                 await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => Execute(held.LeaseToken.Value));
@@ -123,8 +137,8 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                 services.GetRequiredService<IQueryExecutor>(), services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
                 services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(),
                 services.GetRequiredService<IIdGenerator>(), tasks, authorization);
-            AiKnowledgeIndexVectorStore VectorStore(IServiceProvider services, AiKnowledgeIndexTaskStore tasks, ICommandExecutor? command = null) => new(
-                services.GetRequiredService<IQueryExecutor>(), command ?? services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
+            AiKnowledgeIndexVectorStore VectorStore(IServiceProvider services, AiKnowledgeIndexTaskStore tasks, ICommandExecutor? command = null, IQueryExecutor? query = null) => new(
+                query ?? services.GetRequiredService<IQueryExecutor>(), command ?? services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
                 services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(),
                 tasks, SessionService(services, tasks), authorization, services.GetRequiredService<IOptions<DatabaseOptions>>());
 

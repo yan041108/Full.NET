@@ -11,6 +11,15 @@ namespace Full.NET.IntegrationTests.Ai;
 public sealed class AiKnowledgeIndexEmbeddingApiSqlServerTests
 {
     [TestMethod]
+    public async Task Whole_text_generation_rejects_partial_and_changed_batches_async()
+    {
+        var clock = new AiOperationBudgetAssertions.TestClock();
+        using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer, await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            configureTestServices: services => { services.RemoveAll<IClock>(); services.AddSingleton<IClock>(clock); });
+        await AiKnowledgeIndexEmbeddingAssertions.VerifyAsync(factory, clock, wholeGeneration: true);
+    }
+
+    [TestMethod]
     public async Task Text_execution_preserves_budget_and_dispatch_boundaries_async()
     {
         var clock = new AiOperationBudgetAssertions.TestClock();

@@ -21,4 +21,18 @@ internal static class AiKnowledgeIndexVectorSql
     internal static readonly SqlStatement InsertSqlServerTenant = new("ai.knowledge_index_vector.insert_sqlserver_tenant", Insert.Replace("ledger.RequestHash=batch.RequestHash", SqlServerHash) + Tenant, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement FindSqlServerHost = new("ai.knowledge_index_vector.find_sqlserver_host", Read.Replace("ledger.RequestHash=batch.RequestHash", SqlServerHash) + Host, SqlDataScope.HostOnly);
     internal static readonly SqlStatement FindSqlServerTenant = new("ai.knowledge_index_vector.find_sqlserver_tenant", Read.Replace("ledger.RequestHash=batch.RequestHash", SqlServerHash) + Tenant, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    // 读取上限加一；原始批次数也必须相等，未保存或未结算的额外批次不能被关联过滤隐藏。
+    // 在最终数据库读取点复算载荷摘要；仅改字节而保留旧摘要也必须拒绝，结果不返回载荷。
+    private const string MySqlPayloadHash = "CAST(vector.PayloadHash AS BINARY)=CAST(UPPER(SHA2(vector.Payload,256)) AS BINARY)";
+    private const string SqlServerPayloadHash = "vector.PayloadHash COLLATE Latin1_General_100_BIN2=CONVERT(varchar(64),HASHBYTES('SHA2_256',vector.Payload),2)";
+    private static readonly string Receipts = "SELECT batch.Id,batch.BatchOrdinal,batch.RequestHash,batch.InputCount,vector.PayloadHash,vector.ProviderKey,vector.ModelId,vector.Dimensions,vector.FormatKey,vector.DistanceKey" + Joins
+        + " INNER JOIN fn_ai_knowledge_index_vector AS vector ON vector.Id=batch.Id" + Held.Replace(" AND batch.BatchOrdinal=@BatchOrdinal", string.Empty)
+        + " AND vector.ProviderKey=ledger.ProviderKey AND vector.ModelId=ledger.ModelId"
+        + " AND " + MySqlPayloadHash
+        + " AND (SELECT COUNT(*) FROM fn_ai_knowledge_index_batch AS all_batches WHERE all_batches.IndexTaskId=fn_ai_knowledge_index_task.Id)=@ExpectedBatchCount";
+    internal static readonly SqlStatement ReceiptsHost = new("ai.knowledge_index_vector.receipts_host", Receipts + Host + " ORDER BY batch.BatchOrdinal LIMIT 2049", SqlDataScope.HostOnly);
+    internal static readonly SqlStatement ReceiptsTenant = new("ai.knowledge_index_vector.receipts_tenant", Receipts + Tenant + " ORDER BY batch.BatchOrdinal LIMIT 2049", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement ReceiptsSqlServerHost = new("ai.knowledge_index_vector.receipts_sqlserver_host", Receipts.Replace("SELECT batch.Id,", "SELECT TOP (2049) batch.Id,").Replace("ledger.RequestHash=batch.RequestHash", SqlServerHash).Replace(MySqlPayloadHash, SqlServerPayloadHash) + Host + " ORDER BY batch.BatchOrdinal", SqlDataScope.HostOnly);
+    internal static readonly SqlStatement ReceiptsSqlServerTenant = new("ai.knowledge_index_vector.receipts_sqlserver_tenant", Receipts.Replace("SELECT batch.Id,", "SELECT TOP (2049) batch.Id,").Replace("ledger.RequestHash=batch.RequestHash", SqlServerHash).Replace(MySqlPayloadHash, SqlServerPayloadHash) + Tenant + " ORDER BY batch.BatchOrdinal", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

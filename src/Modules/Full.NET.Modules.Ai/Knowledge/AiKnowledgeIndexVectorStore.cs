@@ -80,19 +80,71 @@ internal sealed class AiKnowledgeIndexVectorStore(IQueryExecutor query, ICommand
         NoTransaction(); _ = tasks.HeldParameters(binding, taskId, leaseToken, token); ArgumentNullException.ThrowIfNull(manifest);
         if (ordinal < 0 || ordinal >= manifest.Batches.Count) return false;
         var state = await CurrentAsync(binding, taskId, leaseToken, null, null, token).ConfigureAwait(false); var identity = manifest.Identity;
-        if (state is null || identity.KnowledgeBaseId != binding.KnowledgeBaseId || identity.KnowledgeBaseVersion != state.Source.KnowledgeBaseVersion
-            || identity.TenantId != tenant.Id || identity.ModelConfigId != state.Model.Id || identity.ModelConfigVersion != state.Model.Version
-            || identity.ProviderKey != state.Model.ProviderKey || identity.ModelId != state.Model.ModelId || identity.ContentHash != state.Source.ContentHash
-            || (identity.Format == AiKnowledgeTextFormat.PlainText ? state.Source.ContentType != "text/plain" : state.Source.ContentType != "text/markdown")) return false;
+        if (state is null || !MatchesIdentity(identity, binding, state)) return false;
         var row = await ReadAsync(binding, taskId, leaseToken, ordinal, state.Source, state.Session, token).ConfigureAwait(false);
-        if (row is null) return false;
+        return row is not null && MatchesBatch(manifest, ordinal, row, token);
+    }
+
+    private static bool MatchesBatch(AiKnowledgeIndexTextManifest manifest, int ordinal, AiKnowledgeIndexVectorRecord row, CancellationToken token)
+    {
         var payload = AiKnowledgeIndexVectorCodec.Decode(row.Payload, token); var expected = manifest.Batches[ordinal];
         var chunks = payload.Chunks.Select(chunk => chunk.Source).ToArray();
         if (expected.Ordinal != ordinal || chunks.Length != expected.ChunkCount || chunks[0].Sequence != expected.FirstSequence
             || chunks.Sum(chunk => (long)chunk.TokenCount) != expected.TokenCount) return false;
         token.ThrowIfCancellationRequested();
-        return AiKnowledgeIndexTextPlan.ComputeBatchHash(identity, ordinal, chunks, token) == expected.SourceHash;
+        return AiKnowledgeIndexTextPlan.ComputeBatchHash(manifest.Identity, ordinal, chunks, token) == expected.SourceHash;
     }
+
+    /// <summary>核对完整期望集合及全部载荷；只证明最终 SQL 读取判定点，不授予可缓存的激活资格。</summary>
+    internal async Task<bool> MatchesWholePlanAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken,
+        AiKnowledgeIndexTextManifest manifest, CancellationToken token)
+    {
+        NoTransaction(); _ = tasks.HeldParameters(binding, taskId, leaseToken, token); ArgumentNullException.ThrowIfNull(manifest);
+        if (manifest.Batches.Count is < 1 or > 2048 || manifest.Summary.BatchCount != manifest.Batches.Count) return false;
+        var state = await CurrentAsync(binding, taskId, leaseToken, null, null, token).ConfigureAwait(false);
+        if (state is null || !MatchesIdentity(manifest.Identity, binding, state)) return false;
+        var before = await ReadReceiptsAsync(binding, state, manifest.Batches.Count, token).ConfigureAwait(false);
+        if (before is null || before.Count != manifest.Batches.Count) return false;
+        for (var ordinal = 0; ordinal < before.Count; ordinal++)
+        {
+            token.ThrowIfCancellationRequested();
+            if (before[ordinal].BatchOrdinal != ordinal || before[ordinal].Id == Guid.Empty) return false;
+            // 每次只物化一批，不累积整份文档的向量；损坏派生数据拒绝，基础设施与取消继续传播。
+            try
+            {
+                var row = await ReadAsync(binding, taskId, leaseToken, ordinal, state.Source, state.Session, token).ConfigureAwait(false);
+                if (row is null || Receipt(row) != before[ordinal] || !MatchesBatch(manifest, ordinal, row, token)) return false;
+            }
+            catch (InvalidDataException) { return false; }
+        }
+        // 复核已检查批次的载荷与账本指纹，防止检查末批时首批被删除或替换；回执不含正文。
+        var after = await ReadReceiptsAsync(binding, state, manifest.Batches.Count, token).ConfigureAwait(false);
+        return after is not null && before.SequenceEqual(after);
+    }
+
+    private async Task<IReadOnlyList<AiKnowledgeIndexVectorReceiptRecord>?> ReadReceiptsAsync(AiKnowledgeIndexTaskBinding binding,
+        State expected, int count, CancellationToken token)
+    {
+        var state = await CurrentAsync(binding, expected.Source.TaskId, expected.Source.LeaseToken, expected.Source, expected.Session, token).ConfigureAwait(false);
+        if (state is null) return null;
+        var p = Parameters(binding, state, 0, token); p["ExpectedBatchCount"] = count;
+        var rows = await query.QueryAsync<AiKnowledgeIndexVectorReceiptRecord>(ReceiptStatement, p, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested(); NoTransaction();
+        if (rows.Count > 2048) return null;
+        // 冻结执行器返回的集合；最后一次等待也必须复核原会话、来源和有效租约。
+        var frozen = rows.ToArray();
+        return await CurrentAsync(binding, expected.Source.TaskId, expected.Source.LeaseToken, expected.Source, expected.Session, token).ConfigureAwait(false) is not null
+            ? Array.AsReadOnly(frozen) : null;
+    }
+
+    private static AiKnowledgeIndexVectorReceiptRecord Receipt(AiKnowledgeIndexVectorRecord row) => new()
+    { Id = row.Id, BatchOrdinal = row.BatchOrdinal, RequestHash = row.RequestHash, InputCount = row.InputCount, PayloadHash = row.PayloadHash,
+        ProviderKey = row.ProviderKey, ModelId = row.ModelId, Dimensions = row.Dimensions, FormatKey = row.FormatKey, DistanceKey = row.DistanceKey };
+    private bool MatchesIdentity(AiKnowledgeIndexTextPlanIdentity identity, AiKnowledgeIndexTaskBinding binding, State state) =>
+        identity.KnowledgeBaseId == binding.KnowledgeBaseId && identity.KnowledgeBaseVersion == state.Source.KnowledgeBaseVersion
+        && identity.TenantId == tenant.Id && identity.ModelConfigId == state.Model.Id && identity.ModelConfigVersion == state.Model.Version
+        && identity.ProviderKey == state.Model.ProviderKey && identity.ModelId == state.Model.ModelId && identity.ContentHash == state.Source.ContentHash
+        && (identity.Format == AiKnowledgeTextFormat.PlainText ? state.Source.ContentType == "text/plain" : state.Source.ContentType == "text/markdown");
 
     private async Task<AiKnowledgeIndexVectorRecord?> ReadAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken,
         int ordinal, AiKnowledgeIndexDispatchRecord? expectedSource, SessionBindingSnapshot? expectedSession, CancellationToken token)
@@ -159,6 +211,9 @@ internal sealed class AiKnowledgeIndexVectorStore(IQueryExecutor query, ICommand
     private SqlStatement ReadStatement => database.Value.Provider == DatabaseProvider.MySql
         ? (tasks.IsTenant ? AiKnowledgeIndexVectorSql.FindTenant : AiKnowledgeIndexVectorSql.FindHost)
         : (tasks.IsTenant ? AiKnowledgeIndexVectorSql.FindSqlServerTenant : AiKnowledgeIndexVectorSql.FindSqlServerHost);
+    private SqlStatement ReceiptStatement => database.Value.Provider == DatabaseProvider.MySql
+        ? (tasks.IsTenant ? AiKnowledgeIndexVectorSql.ReceiptsTenant : AiKnowledgeIndexVectorSql.ReceiptsHost)
+        : (tasks.IsTenant ? AiKnowledgeIndexVectorSql.ReceiptsSqlServerTenant : AiKnowledgeIndexVectorSql.ReceiptsSqlServerHost);
     private sealed record State(AiKnowledgeIndexDispatchRecord Source, SessionBindingSnapshot Session, AiModelConfigRecord Model);
     private sealed class LeaseExpiredDuringWriteException : Exception;
 }

@@ -7,6 +7,23 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiBudgetRowReaderTests
 {
+    [TestMethod]
+    public void Vector_receipt_maps_exact_operation_ordinal_and_hashes_without_payload()
+    {
+        using var table = new DataTable(); var id = Guid.CreateVersion7();
+        table.Columns.Add("Id", typeof(Guid)); table.Columns.Add("BatchOrdinal", typeof(int)); table.Columns.Add("InputCount", typeof(int));
+        table.Columns.Add("RequestHash", typeof(string)); table.Columns.Add("PayloadHash", typeof(string));
+        foreach (var name in new[] { "ProviderKey", "ModelId", "FormatKey", "DistanceKey" }) table.Columns.Add(name, typeof(string));
+        table.Columns.Add("Dimensions", typeof(int));
+        table.Rows.Add(id, 2, 16, "request", "payload", "provider", "model", "format", "cosine", 1536);
+        using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
+        var row = AiBudgetRowReaders.ReadKnowledgeVectorReceipt(reader);
+        Assert.AreEqual(id, row.Id); Assert.AreEqual(2, row.BatchOrdinal); Assert.AreEqual(16, row.InputCount);
+        Assert.AreEqual("request", row.RequestHash); Assert.AreEqual("payload", row.PayloadHash);
+        Assert.AreEqual("provider", row.ProviderKey); Assert.AreEqual("model", row.ModelId); Assert.AreEqual(1536, row.Dimensions);
+        Assert.AreEqual("format", row.FormatKey); Assert.AreEqual("cosine", row.DistanceKey);
+    }
+
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public void Text_manifest_maps_exact_payload_and_provider_time_shape(bool mysql)
     {

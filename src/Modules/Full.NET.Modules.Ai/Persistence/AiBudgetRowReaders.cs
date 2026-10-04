@@ -27,9 +27,19 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeIndexSessionRecord>(ReadKnowledgeIndexSession);
         registrar.Register<AiKnowledgeIndexVectorRecord>(ReadKnowledgeIndexVector);
         registrar.Register<AiKnowledgeIndexTextManifestRecord>(ReadKnowledgeTextManifest);
+        registrar.Register<AiKnowledgeIndexVectorReceiptRecord>(ReadKnowledgeVectorReceipt);
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
     }
 #endif
+
+    // 轻量回执仅物化稳定身份和摘要，不把整代次正文/向量带入集合复核。
+    internal static AiKnowledgeIndexVectorReceiptRecord ReadKnowledgeVectorReceipt(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), BatchOrdinal = checked((int)Integer(reader, "BatchOrdinal")),
+        RequestHash = Text(reader, "RequestHash"), InputCount = checked((int)Integer(reader, "InputCount")), PayloadHash = Text(reader, "PayloadHash"),
+        ProviderKey = Text(reader, "ProviderKey"), ModelId = Text(reader, "ModelId"), Dimensions = checked((int)Integer(reader, "Dimensions")),
+        FormatKey = Text(reader, "FormatKey"), DistanceKey = Text(reader, "DistanceKey"),
+    };
 
     // 载荷和时间按静态路径读取，保持 SQL Server/MySQL 的物理类型差异显式可测。
     internal static AiKnowledgeIndexTextManifestRecord ReadKnowledgeTextManifest(DbDataReader reader) => new()

@@ -1001,6 +1001,18 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0，每测试进程 2 GiB GC Heap 限额，FULLNET_TESTCONTAINERS_REUSE=0 创建新容器。仅 TXT/Markdown 内部边界，未注册 DI/HTTP/Worker，未建立整代次数据库完整性证明、激活/ready、业务 PDF、云计量或检索/引用，本轮不宣称完整 Host/Worker Native 发布运行；Tenant/OIDC 真实登录范围未扩展。完整 RAG 保持 Planned，容量保持 Capacity-not-verified，后续继续整代次完整性校验与激活。
 
 
+- [x] R05f3a：整份文本代次的当前完整性校验（激活前边界）。
+  - [x] 持久消费者读取可信完整清单，逐批验证已结算向量的完整输入、模型空间与来源；缺批、额外批次或损坏载荷均拒绝，不派发模型、不改变费用。
+  - [x] 以双库有界轻量回执在校验前后复核完整批次集合；最终 SQL 读取绑定原会话、可信作用域、来源、批准和有效租约，拒绝校验期间的载荷/账本/集合漂移。逐批读取完整载荷，不累积整代次向量。
+  - [x] 新增静态行读取和可失败 Unit，双库实际多批次执行覆盖部分写入、全部写入、额外批次、损坏及等待后失效；完整 AI、相关架构/AOT和规定影响集通过后提交 main。
+  - [x] 返回值仅证明最终读取判定点，不是可缓存的激活授权；任务完成、活动指针、ready、DI/HTTP/Worker 后续由原子切换切片实现。
+
+  - RED：整代次边界有效 Unit 19 项中 17 失败、2 通过；静态回执的行读取 20 项中仅新映射 1 项失败。消费者临时仅检查首批时，SQL Server/MySQL 两项均在“首批齐全不能代表整代次齐全”断言失败（2m 17s 770ms）。审查新增的五类首批后模型空间漂移 Unit 5/5 失败。早期动态代理夹具失败、一次专项最低数误填，以及审查双库 RED/GREEN 两次容器 OOM、历史库恢复导致的 Windows 提交内存不足/Unit 构建中断均排除出行为验收证据。
+  - 修复与审查：逐批核对完整来源/上下文请求摘要、模型空间和已结算载荷；两次回执精确检查完整批次集合，原始总批次数守卫拒绝未付费/未保存的额外批次。回执比较包含 ProviderKey、ModelId、Dimensions、FormatKey、DistanceKey；SQL Server HASHBYTES 与 MySQL SHA2 在最终读取点复算实际载荷，拒绝只改字节而保留旧摘要。静态行读取与真实双库首批后篡改维度/字节回归已补齐；独立只读复审确认原 P2 已关闭，无剩余确定问题。总校验限时 25 秒、有界 2048 批次、逐批加载，不积累整代次向量，无外层事务或模型调用/收费副作用。
+  - GREEN：新鲜专项 Unit 158/158；全新容器双库多批次方法 2/2（2m 21s 115ms），覆盖 Host/租户与已知/未知计量、缺批/额外未保存批次、完整输入偏移、损坏载荷/清单、等待后向量缺失/到期及首批读取后的维度/字节篡改。正式完整 Ai Unit 996/996、AI 边界 Architecture 7/7、Native AOT Architecture 73/73；Release Integration/Unit/Architecture 与 API AOT 分析均退出 0、零警告/错误。全量 Unit/Integration 仅发现数核对为 4465/1164，未宣称全量执行。
+  - 规定影响集：node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-generation-check-r05f3a --phase slice 退出 0，完整 Ai 双库 62/62、零失败/跳过、19m 49s 123ms；工具链 65/65、治理 57/57、1164 项分片发现无遗漏/重复。正式 Full.NET.IntegrationTests-affected-ai.trx 与冻结发现的全部 UID/FQN 一致；996 个代码/矩阵/运行输入摘要复核未变。平台截断 1 项超长捕获文本字段，测试身份与结果保持完整，截断区域不作为完整运行日志。pnpm test:naming 33/33、pnpm test:sql-safety 5/5 与最终 git diff --check 通过。实际日志、发现清单和验收摘要位于忽略目录 artifacts/r05f3a/ 及同名前缀日志。
+  - 环境与边界：Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401，Docker VM 31.22 GiB，SQL Server 2022 CU14/MySQL 8.0，两个测试 Worker、每进程 2 GiB GC Heap 限额，正式双库 FULLNET_TESTCONTAINERS_REUSE=0。历史复用数据库启动恢复反复 OOM；临时提高上限后触发 Windows 提交内存不足，已停止两库并恢复 RAM 4 GiB/1 GiB、交换上限设为 Docker 默认两倍，数据保留，原运行状态未恢复。原三个 Worker/控制平面容器继续运行，正式双库验收使用全新容器，未引用复用库中断结果。仅 TXT/Markdown 内部当前读取证明；任务仍 running，未注册 DI/HTTP/Worker，未建立完成态、活动指针或 ready；本轮未执行完整 Host/Worker Native 发布运行或容量测试。完整 RAG 保持 Planned，Capacity-not-verified 保持，下一项继续原子激活边界。
+
 - [ ] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。
 - [ ] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。
 - [ ] 验证 Worker 崩溃/重试、模型用量未知、索引不可用、部分写入与删除竞争；失败可定位并重试，不能将空索引标记 ready。
