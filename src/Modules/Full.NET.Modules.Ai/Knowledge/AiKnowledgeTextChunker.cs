@@ -19,7 +19,7 @@ internal sealed record AiKnowledgeTextChunks(string ContentHash, string ParserVe
 }
 
 /// <summary>内部失败分类；失败不得留下可被误用的部分分块。</summary>
-internal enum AiKnowledgeChunkFailure { None, InvalidOptions, InvalidDocument, InvalidTokenProfile, TokenBudgetTooSmall, TooManyChunks, TotalTokenBudgetExceeded, OutputTooLarge, BoundarySearchLimitExceeded }
+internal enum AiKnowledgeChunkFailure { None, InvalidOptions, InvalidDocument, InvalidTokenProfile, TokenBudgetTooSmall, TooManyChunks, TotalTokenBudgetExceeded, OutputTooLarge, BoundarySearchLimitExceeded, UnsupportedFormat, StructureLimitExceeded, ContextTooLarge }
 
 /// <summary>只有完整成功的分块集合才可供后续索引使用。</summary>
 internal sealed record AiKnowledgeChunkResult(AiKnowledgeTextChunks? Output, AiKnowledgeChunkFailure Failure)
@@ -44,21 +44,8 @@ internal static class AiKnowledgeTextChunker
     internal static AiKnowledgeChunkResult Chunk(AiKnowledgeParsedText document, TiktokenTokenizer tokenizer,
         string tokenizerVersion, AiKnowledgeChunkOptions options, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        ArgumentNullException.ThrowIfNull(document);
-        ArgumentNullException.ThrowIfNull(tokenizer);
-        ArgumentNullException.ThrowIfNull(options);
-        if (options.MaxTokens is < 1 or > 4096 || options.OverlapTokens is < 0 or > 256
-            || options.OverlapTokens > options.MaxTokens / 4 || options.MaxChunks is < 1 or > 4096
-            || options.MaxTotalTokens is < 1 or > 4194304)
-            return AiKnowledgeChunkResult.Rejected(AiKnowledgeChunkFailure.InvalidOptions);
-        // 词表只来自可信调用者，且必须按普通正文处理；不能让归一化破坏位置或让文档触发控制 Token。
-        if (string.IsNullOrEmpty(tokenizerVersion) || tokenizerVersion.Length > 128
-            || tokenizerVersion.Any(value => !char.IsAsciiLetterOrDigit(value) && value is not ('.' or '-' or '_' or ':' or '/'))
-            || tokenizer.Normalizer is not null || tokenizer.SpecialTokens is { Count: > 0 })
-            return AiKnowledgeChunkResult.Rejected(AiKnowledgeChunkFailure.InvalidTokenProfile);
-        if (!ValidDocument(document, cancellationToken))
-            return AiKnowledgeChunkResult.Rejected(AiKnowledgeChunkFailure.InvalidDocument);
+        var validation = Validate(document, tokenizer, tokenizerVersion, options, cancellationToken);
+        if (validation != AiKnowledgeChunkFailure.None) return AiKnowledgeChunkResult.Rejected(validation);
 
         var text = document.Text;
         var chunks = new List<AiKnowledgeTextChunk>();
@@ -71,7 +58,8 @@ internal static class AiKnowledgeTextChunker
             cancellationToken.ThrowIfCancellationRequested();
             if (chunks.Count >= options.MaxChunks)
                 return AiKnowledgeChunkResult.Rejected(AiKnowledgeChunkFailure.TooManyChunks);
-            var end = ChunkEnd(text, offset, tokenizer, options.MaxTokens, cancellationToken, out var tokenCount, out var boundaryFailure);
+            var end = FindChunkEnd(text, offset, text.Length, ReadOnlySpan<char>.Empty, false,
+                tokenizer, options.MaxTokens, cancellationToken, out var tokenCount, out var boundaryFailure);
             // 重叠可能占满短窗口；丢弃该次重叠后重算，禁止重复输出或漏掉新字符。
             if (end <= coveredEnd)
             {
@@ -98,6 +86,26 @@ internal static class AiKnowledgeTextChunker
             Array.AsReadOnly(chunks.ToArray())), AiKnowledgeChunkFailure.None);
     }
 
+    /// <summary>内部两个分块入口共用的输入与可信词表约束；仅完整有效来源才能进入位置扫描。</summary>
+    internal static AiKnowledgeChunkFailure Validate(AiKnowledgeParsedText document, TiktokenTokenizer tokenizer,
+        string tokenizerVersion, AiKnowledgeChunkOptions options, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(tokenizer);
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.MaxTokens is < 1 or > 4096 || options.OverlapTokens is < 0 or > 256
+            || options.OverlapTokens > options.MaxTokens / 4 || options.MaxChunks is < 1 or > 4096
+            || options.MaxTotalTokens is < 1 or > 4194304)
+            return AiKnowledgeChunkFailure.InvalidOptions;
+        // 词表只来自可信调用者，且必须按普通正文处理；不能让归一化破坏位置或让文档触发控制 Token。
+        if (string.IsNullOrEmpty(tokenizerVersion) || tokenizerVersion.Length > 128
+            || tokenizerVersion.Any(value => !char.IsAsciiLetterOrDigit(value) && value is not ('.' or '-' or '_' or ':' or '/'))
+            || tokenizer.Normalizer is not null || tokenizer.SpecialTokens is { Count: > 0 })
+            return AiKnowledgeChunkFailure.InvalidTokenProfile;
+        return ValidDocument(document, token) ? AiKnowledgeChunkFailure.None : AiKnowledgeChunkFailure.InvalidDocument;
+    }
+
     private static bool ValidDocument(AiKnowledgeParsedText document, CancellationToken token)
     {
         if (string.IsNullOrWhiteSpace(document.Text) || document.Text.Length > AiKnowledgeTextParser.MaxOutputCharacters
@@ -115,43 +123,65 @@ internal static class AiKnowledgeTextChunker
         return true;
     }
 
-    private static int ChunkEnd(string text, int offset, TiktokenTokenizer tokenizer, int budget, CancellationToken token,
+    /// <summary>限制原文区间与完整上下文窗口；前缀不得独立扣除 Token，必须与正文一起重新编码。</summary>
+    /// <remarks>调用者先验证来源，limit 必须位于完整 UTF-16/CRLF 边界，prefix 须有界且来自来源区间。</remarks>
+    internal static int FindChunkEnd(string text, int offset, int limit, ReadOnlySpan<char> prefix, bool wholeLines,
+        TiktokenTokenizer tokenizer, int budget, CancellationToken token,
         out int count, out AiKnowledgeChunkFailure failure)
     {
         count = 0;
         failure = AiKnowledgeChunkFailure.TokenBudgetTooSmall;
-        var windowEnd = FloorBoundary(text, Math.Min(text.Length, offset + MaxWindowCharacters));
-        token.ThrowIfCancellationRequested();
-        var relative = tokenizer.GetIndexByTokenCount(text.AsSpan(offset, windowEnd - offset), budget, out _, out _, considerNormalization: false);
-        token.ThrowIfCancellationRequested();
-        if (relative < 0 || relative > windowEnd - offset) { failure = AiKnowledgeChunkFailure.InvalidTokenProfile; return offset; }
-        var end = FloorBoundary(text, offset + relative);
-        if (end < text.Length) end = PreferredLineEnd(text, offset, end);
-        // 前缀索引、换行及 Unicode 修边都会改变 BPE 合并；逐块重算，不能假定计数随字符长度单调。
-        for (var attempt = 0; end > offset && attempt < 128; attempt++)
+        var windowEnd = FloorBoundary(text, Math.Min(limit, offset + MaxWindowCharacters - prefix.Length));
+        char[]? buffer = null;
+        try
         {
+            // 只在存在上下文时租用一个有界合成窗口；多次候选计数复用它，不反复分配完整文本。
+            if (!prefix.IsEmpty)
+            {
+                buffer = ArrayPool<char>.Shared.Rent(prefix.Length + windowEnd - offset);
+                prefix.CopyTo(buffer);
+                text.AsSpan(offset, windowEnd - offset).CopyTo(buffer.AsSpan(prefix.Length));
+            }
+            var input = buffer is null ? text.AsSpan(offset, windowEnd - offset) : buffer.AsSpan(0, prefix.Length + windowEnd - offset);
             token.ThrowIfCancellationRequested();
-            count = tokenizer.CountTokens(text.AsSpan(offset, end - offset), considerNormalization: false);
+            var index = tokenizer.GetIndexByTokenCount(input, budget, out _, out _, considerNormalization: false);
             token.ThrowIfCancellationRequested();
-            if (count <= budget) { failure = AiKnowledgeChunkFailure.None; return end; }
-            end = FloorBoundary(text, end - 1);
+            if (index < 0 || index > input.Length) { failure = AiKnowledgeChunkFailure.InvalidTokenProfile; return offset; }
+            var relative = Math.Max(0, index - prefix.Length);
+            var end = FloorBoundary(text, offset + relative);
+            if (end < limit) end = PreferredLineEnd(text, offset, end, wholeLines);
+            // 前缀索引、换行及 Unicode 修边都会改变 BPE 合并；逐块重算，不能假定计数随字符长度单调。
+            for (var attempt = 0; end > offset && attempt < 128; attempt++)
+            {
+                token.ThrowIfCancellationRequested();
+                count = tokenizer.CountTokens(input[..(prefix.Length + end - offset)], considerNormalization: false);
+                token.ThrowIfCancellationRequested();
+                if (count <= budget) { failure = AiKnowledgeChunkFailure.None; return end; }
+                end = FloorBoundary(text, end - 1);
+            }
+            // SDK 整窗 Token 可跨字节边界，首单位超限也不能推导更长前缀超限；只探测有界完整前缀并逐个实测。
+            var candidate = offset;
+            for (var attempt = 0; candidate < windowEnd && attempt < 128; attempt++)
+            {
+                candidate = CeilingBoundary(text, candidate + 1);
+                token.ThrowIfCancellationRequested();
+                count = tokenizer.CountTokens(input[..(prefix.Length + candidate - offset)], considerNormalization: false);
+                token.ThrowIfCancellationRequested();
+                if (count <= budget) { failure = AiKnowledgeChunkFailure.None; return candidate; }
+            }
+            // 搜索预算耗尽属于算法资源限制，不得误报实际不存在合法分块，也不返回已有部分输出。
+            if (candidate < windowEnd) failure = AiKnowledgeChunkFailure.BoundarySearchLimitExceeded;
+            return offset;
         }
-        // SDK 整窗 Token 可跨字节边界，首单位超限也不能推导更长前缀超限；只探测有界完整前缀并逐个实测。
-        var candidate = offset;
-        for (var attempt = 0; candidate < windowEnd && attempt < 128; attempt++)
+        finally
         {
-            candidate = CeilingBoundary(text, candidate + 1);
-            token.ThrowIfCancellationRequested();
-            count = tokenizer.CountTokens(text.AsSpan(offset, candidate - offset), considerNormalization: false);
-            token.ThrowIfCancellationRequested();
-            if (count <= budget) { failure = AiKnowledgeChunkFailure.None; return candidate; }
+            // 来源可能敏感，归还缓存时清空实际租用数组；池只控制临时分配，不能缓存文档。
+            if (buffer is not null) ArrayPool<char>.Shared.Return(buffer, clearArray: true);
         }
-        // 搜索预算耗尽属于算法资源限制，不得误报实际不存在合法分块，也不返回已有部分输出。
-        if (candidate < windowEnd) failure = AiKnowledgeChunkFailure.BoundarySearchLimitExceeded;
-        return offset;
     }
 
-    private static int OverlapStart(string text, int start, int end, TiktokenTokenizer tokenizer, int budget, CancellationToken token)
+    /// <summary>仅对原文正文取有界重叠；结构上下文由调用方另行计入完整窗口与总预算。</summary>
+    internal static int OverlapStart(string text, int start, int end, TiktokenTokenizer tokenizer, int budget, CancellationToken token)
     {
         if (budget == 0) return end;
         token.ThrowIfCancellationRequested();
@@ -171,9 +201,9 @@ internal static class AiKnowledgeTextChunker
         return end;
     }
 
-    private static int PreferredLineEnd(string text, int start, int end)
+    private static int PreferredLineEnd(string text, int start, int end, bool wholeLines)
     {
-        for (var position = end - 1; position >= start + (end - start) / 2; position--)
+        for (var position = end - 1; position >= (wholeLines ? start : start + (end - start) / 2); position--)
             if (text[position] == '\n' || (text[position] == '\r' && (position + 1 == text.Length || text[position + 1] != '\n')))
                 return position + 1;
         return end;

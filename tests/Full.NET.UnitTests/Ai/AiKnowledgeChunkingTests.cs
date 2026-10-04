@@ -271,7 +271,7 @@ public sealed class AiKnowledgeChunkingTests
         return new(text, Hash(bytes), bytes.Length);
     }
 
-    private static TiktokenTokenizer Fixture(Normalizer? normalizer = null, IReadOnlyDictionary<string, int>? special = null, PreTokenizer? preTokenizer = null, int crossingMerge = 0)
+    internal static TiktokenTokenizer Fixture(Normalizer? normalizer = null, IReadOnlyDictionary<string, int>? special = null, PreTokenizer? preTokenizer = null, int crossingMerge = 0)
     {
         // 自建字节词表及少量合并，既能验证多字节字符，也能证明 Token 数不同于字符数；不下载或复制生产词表。
         var vocabulary = new StringBuilder();
@@ -297,7 +297,7 @@ public sealed class AiKnowledgeChunkingTests
     }
 
     // 观察真实 SDK 收到的窗口，在调用中触发取消或失败，但不替代 BPE 计数算法。
-    private sealed class ProbePreTokenizer(Action<int> observe) : PreTokenizer
+    internal sealed class ProbePreTokenizer(Action<int> observe) : PreTokenizer
     {
         public override IEnumerable<(int Offset, int Length)> PreTokenize(string text) => Observe(text.Length);
         public override IEnumerable<(int Offset, int Length)> PreTokenize(ReadOnlySpan<char> text) => Observe(text.Length);
