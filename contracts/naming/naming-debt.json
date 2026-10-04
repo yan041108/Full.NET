@@ -2584,6 +2584,13 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/247_AiKnowledgeIndexBatch.sql",
       "reason": "247 只根据 INFORMATION_SCHEMA 索引存在性选择固定 CREATE UNIQUE INDEX 或 SELECT 1；表、索引、列为脚本常量，不接受外部输入。双库恢复测试覆盖唯一索引缺失、注释缺失与未记账重复重放。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/248_AiKnowledgeIndexSession.sql",
+      "reason": "248 只根据 INFORMATION_SCHEMA 索引存在性选择固定 CREATE UNIQUE INDEX 或 SELECT 1；表、索引和列为脚本常量，不接受业务输入。双库恢复覆盖缺失唯一索引、注释与未记账重复重放，保留原会话绑定。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

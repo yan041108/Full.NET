@@ -119,7 +119,7 @@ internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandEx
         };
     }
 
-    private Dictionary<string, object?> TaskParameters(AiKnowledgeIndexTaskBinding binding, Guid taskId, CancellationToken token)
+    internal Dictionary<string, object?> TaskParameters(AiKnowledgeIndexTaskBinding binding, Guid taskId, CancellationToken token)
     {
         var parameters = Parameters(binding, token);
         if (taskId == Guid.Empty) throw new ArgumentException("An index task ID is required.", nameof(taskId));

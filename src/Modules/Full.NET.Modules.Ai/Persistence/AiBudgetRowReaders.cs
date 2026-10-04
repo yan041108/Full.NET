@@ -24,9 +24,22 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeIndexTaskRecord>(ReadKnowledgeIndexTask);
         registrar.Register<AiKnowledgeIndexDispatchRecord>(ReadKnowledgeIndexDispatch);
         registrar.Register<AiKnowledgeIndexBatchRecord>(ReadKnowledgeIndexBatch);
+        registrar.Register<AiKnowledgeIndexSessionRecord>(ReadKnowledgeIndexSession);
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
     }
 #endif
+
+    // 原会话在恢复时保持冻结；可空租约只由关联任务投影，不物化令牌。
+    internal static AiKnowledgeIndexSessionRecord ReadKnowledgeIndexSession(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), IndexTaskId = reader.GetGuid(reader.GetOrdinal("IndexTaskId")),
+        ActorUserId = reader.GetGuid(reader.GetOrdinal("ActorUserId")),
+        TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        SessionId = reader.GetGuid(reader.GetOrdinal("SessionId")), SessionKind = Text(reader, "SessionKind"),
+        SecurityStamp = Text(reader, "SecurityStamp"), ActorScope = Text(reader, "ActorScope"), EffectiveScope = Text(reader, "EffectiveScope"),
+        CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+        LeaseExpiresAtUtc = Null(reader, "LeaseExpiresAtUtc") ? null : Timestamp(reader, "LeaseExpiresAtUtc"),
+    };
 
     // 批次请求摘要和操作 ID 在租约接替后保持不变，不读取正文或凭据。
     internal static AiKnowledgeIndexBatchRecord ReadKnowledgeIndexBatch(DbDataReader reader) => new()

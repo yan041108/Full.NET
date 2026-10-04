@@ -937,6 +937,20 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0；每测试进程 2 GiB GC Heap 限额。执行器只处理完整 SHA-256/字节数校验后的 TXT/Markdown，以实际精确获批模型分块并调用 Embedding 契约；25 秒取消令牌覆盖来源读取/解析/模型及交付门禁，独立结算不受调用取消控制；16 条/32000 字符确定批次，不重试/切换模型。未注册 HTTP/Worker，未持久任务会话绑定或保存向量/索引，未接业务 PDF 或改变 pending_processing/ready。未执行本切片完整 Host/Worker Native 发布/运行，亦未验证真实 Files/Identity 联动或付费云计量。持久会话任务绑定、索引持久化/切换、Worker 调度及人工对账后重执行仍需后续交付；完整 RAG 保持 Planned，容量保持 Capacity-not-verified。
 
 
+- [x] R05f2d：持久索引任务的不可替换会话绑定（内部恢复路径，不启用 Worker/HTTP 或向量落库）。
+  - [x] 成对迁移 248 创建 AI 自有一对一会话表；冻结执行者、可信租户、会话种类/标识、安全戳及 Actor/Effective scope，不保存令牌，不引用 Identity 表。任务与绑定在短 AI 本地事务中原子创建；授权 Port 在事务外调用，部分写入异常回滚。
+  - [x] 同一来源/批准的重复创建只复用完全相同绑定；不同登录、旧无绑定任务均拒绝接管。恢复执行从持久绑定读取，不接受调用方 SessionBindingSnapshot；每个异步门禁复核有效租约、当前资源及原会话。
+  - [x] 先建立失败验证，覆盖双库恢复/唯一约束、原子回滚、重复/竞争、旧任务拒绝、租户/所有者隔离、撤权/到期及静态物化。执行完整规定影响集、AOT/架构与只读审查后提交 main；向量写入/ready、Worker 和真实云计费留在后续。
+
+  R05f2d 本地证据（2026-10-04 至 2026-10-05，仅持久会话绑定与内部恢复消费者）：
+  - 基线 main/9c907ada2a3f4d44277d3e3bc61342020e5dae81，任务快照 ai-knowledge-index-session-r05f2d。未实现绑定桩的 Unit RED 31/31 失败、零通过/跳过，13s 898ms；缺失迁移 248 的双库 RED 2/2 失败，11s 814ms；旧调用方会话恢复路径的 RED 3/3 失败，1s 289ms。最终会话/文本执行/静态物化专项 Unit 82/82、零失败/跳过、退出 0，2s 408ms。编译错误、错误权限字面量与环境失败不计为行为 RED。
+  - 双库使用生产 Dapper、真实 AI 命令事务及 Identity 后台授权 Port，验证同一绑定竞争只生成一笔记录、旧无绑定任务拒绝、第二笔写入异常回滚后仍可正常创建、撤销与新登录不能接管，以及安全戳变化和会话到期后拒绝。新登录辅助会清除首次密码状态并旋转安全戳，故原会话回滚/撤销用例在该登录之前执行，并断言授权有效作为前置条件；SQL Server 精确到期夹具显式使用 DbType.DateTime2，同时断言实际存储到期值，避免参数精度引起误判。最终真实会话专项双库 2/2、零失败/跳过、退出 0，2m 17s 401ms；此前夹具失败及被停止的影响集不作为验收。
+  - 只读审查发现 P2：末次绑定查询等待后需要再次授权原会话。真实异步门闩 RED 1/1 失败，1s 344ms；修正后纳入 82 项专项与 811 项完整 AI Unit，撤销时拒绝交付并保留既有一次已知用量结算。最终只读补审确认生产修复与夹具前置条件，无未修复 Critical/Important 或新 findings；审查未代替测试。
+  - node scripts/testing/run-api-aot-analyzers.mjs 退出 0、零警告/错误，00:03:23.06，恢复 JIT 还原图。Integration/Unit/Architecture Release 构建分别 00:06:22.57/00:00:38.21/00:00:29.83，夹具最终 Integration 重建 00:00:33.95，均零警告/错误、退出 0。node artifacts/r05f2d/run-unit.mjs 复用官方 ai-module 过滤/最低数/时限：811/811、1m 00s 468ms、零失败/跳过、退出 0；完整 Unit 发现 4280，并未执行全量。官方 architecture --selection ai-agentic-boundaries --no-build 7/7、11s 022ms，api-native-aot 73/73、5s 263ms；完整 Architecture 发现 233，并未执行全量。
+  - node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-index-session-r05f2d --phase slice 退出 0：工具链/反馈契约 65/65、治理 57/57；1158 项分片发现无遗漏/重复。AI 与 migration-248 规定影响集双库合并 64/64、零失败/跳过，19m 28s 814ms，两个 Worker、官方组合时限 32 分钟；平台截断 1 项超限捕获文本字段，完整测试身份及通过结果均已核对。另独立工具链 54/54、命名 33/33、SQL 安全 5/5、治理 57/57 通过；文档同步后复核治理与 diff。
+  - node artifacts/r05f2d/verify.mjs 退出 0：971 项源码/矩阵/运行输入未变；811 项 Unit 与 64 项双库结果 UID/FQN 和发现清单精确一致，单独排除生成输出 rag-evaluation-report.json。源码项目/Unit/Integration AI DLL SHA-256 同为 226650E383E99B7D6D6CB68D447B67A2C272CA3D6517F998C17238F3E2412017。RED/GREEN、构建/最终日志、TRX、发现/冻结/验收清单保留于忽略目录 artifacts/r05f2d/、同前缀日志及正式 TestResults。
+  - Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0，每测试进程 2 GiB GC Heap 限额。旧共享数据库容器恢复曾失败，临时限额已恢复原值；最终使用 FULLNET_TESTCONTAINERS_REUSE=0 的新容器，未删除旧共享数据。绑定服务未注册 DI/HTTP/Worker；真实 Identity 验证限 Host refresh 会话，Tenant/OIDC 形状与隔离使用 Unit/双库 SQL 边界，尚未执行其真实端到端登录链路。Files/Embedding 仍为受控契约，仅 TXT/Markdown；未接业务 PDF、向量写入/索引切换或 pending_processing/ready 转换，未验证付费云计量、完整 Host/Worker Native 发布运行或容量。后续交付向量持久化、后台调度与失败恢复；完整 RAG 保持 Planned，容量保持 Capacity-not-verified。
+
 - [ ] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。
 - [ ] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。
 - [ ] 验证 Worker 崩溃/重试、模型用量未知、索引不可用、部分写入与删除竞争；失败可定位并重试，不能将空索引标记 ready。

@@ -327,6 +327,21 @@
         "RequestHash": "完整预算请求指纹"
       }
     },
+    "fn_ai_knowledge_index_session": {
+      "comment": "人工智能knowledge index session表",
+      "columns": {
+        "ActorScope": "Actor Scope",
+        "ActorUserId": "操作者用户标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "EffectiveScope": "Effective Scope",
+        "Id": "逻辑主键",
+        "IndexTaskId": "Index Task标识",
+        "SecurityStamp": "安全戳",
+        "SessionId": "会话标识",
+        "SessionKind": "Session Kind",
+        "TenantId": "租户标识；NULL 表示 Host 级"
+      }
+    },
     "fn_ai_knowledge_index_task": {
       "comment": "知识库索引任务及有界执行租约",
       "columns": {

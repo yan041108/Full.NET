@@ -21,7 +21,7 @@ internal sealed record AiKnowledgeIndexEmbeddingBatch(Guid OperationId, int Batc
 
 /// <summary>受会话绑定的内部文本执行器；来源来自 Files，模型来自精确批准，不接受调用方正文。</summary>
 internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICurrentTenant tenant, IDataTransactionState transactions, AiKnowledgeIndexTaskStore tasks,
-    AiKnowledgeIndexBudgetService admission, IAiOperationBudgetStore budget, IBackgroundSessionAuthorization authorization,
+    AiKnowledgeIndexSessionService sessions, AiKnowledgeIndexBudgetService admission, IAiOperationBudgetStore budget, IBackgroundSessionAuthorization authorization,
     IHostFileReferenceReader references, IHostFileContentReader hostFiles, ITenantResourceFileStore tenantFiles,
     IEnumerable<IAiModelClientFactory> factories, AiModelBindingScope bindings)
 {
@@ -30,16 +30,18 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
         AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload];
 
     /// <summary>只派发新预留的精确文本批次；拒绝或失效返回空，取消及基础设施故障传播。</summary>
-    /// <remarks>可信会话须由上游冻结；无外层事务。消费者仍须在写索引前复核，任务会话持久化与 Worker 轮询不由本类负责。</remarks>
+    /// <remarks>恢复身份只从任务原绑定读取；无外层事务。消费者仍须在写索引前复核，Worker 轮询不由本类负责。</remarks>
     internal async Task<AiKnowledgeIndexEmbeddingBatch?> ExecuteTextBatchAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId,
-        Guid leaseToken, int batchOrdinal, SessionBindingSnapshot session, CancellationToken token)
+        Guid leaseToken, int batchOrdinal, CancellationToken token)
     {
-        NoTransaction(); ArgumentNullException.ThrowIfNull(session);
+        NoTransaction();
         _ = tasks.HeldParameters(binding, taskId, leaseToken, token);
         if (batchOrdinal is < 0 or > 4095) throw new ArgumentOutOfRangeException(nameof(batchOrdinal));
         // 整个文件读取、分块和模型调用有界；不续租、不重试或换模型，超时也不能免费重发。
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
         deadline.CancelAfter(TimeSpan.FromSeconds(25)); var bounded = deadline.Token;
+        var session = await sessions.ReadHeldAsync(binding, taskId, leaseToken, bounded).ConfigureAwait(false);
+        if (session is null) return null;
         var state = await CurrentAsync(binding, taskId, leaseToken, session, bounded).ConfigureAwait(false);
         if (state is null || state.Source.SizeBytes is <= 0 or > AiKnowledgeFilePolicy.MaxBytes
             || state.Source.ContentType is not ("text/plain" or "text/markdown")) return null;
@@ -112,6 +114,7 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
     private async Task<State?> CurrentAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, SessionBindingSnapshot session, CancellationToken token)
     {
         NoTransaction();
+        if (await sessions.ReadHeldAsync(binding, taskId, leaseToken, token).ConfigureAwait(false) != session) return null;
         if (!await AuthorizedAsync(binding, session, token).ConfigureAwait(false)) return null;
         var source = await tasks.ReadDispatchAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
         if (source is null) return null;
@@ -125,10 +128,12 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
             || model.Id != source.ModelConfigId || model.Version != source.ModelConfigVersion || model.TenantId == Guid.Empty
             || (model.TenantId.HasValue && model.TenantId != tenant.Id)
             || !AiKnowledgePolicy.Allows(knowledge.IsEnabled, knowledge.EmbeddingModelConfigId, knowledge.EmbeddingModelVersion, model.Id, model.Version)) return null;
-        // 跨模块授权等待后再复核租约和当前批准；不能复用查询开始时仍有效的时间。
+        // 绑定读取也会等待；其后再授权原会话，不能交付等待前的权限结果。
+        if (await sessions.ReadHeldAsync(binding, taskId, leaseToken, token).ConfigureAwait(false) != session) return null;
         if (!await AuthorizedAsync(binding, session, token).ConfigureAwait(false)) return null;
-        var latest = await tasks.ReadDispatchAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
-        return latest is not null && SameSource(source, latest) ? new(latest, knowledge, model) : null;
+        // 跨模块授权等待后以 AI 权威查询结束复核；不声称两模块存在分布式原子快照。
+        var final = await tasks.ReadDispatchAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
+        return final is not null && SameSource(source, final) ? new(final, knowledge, model) : null;
     }
 
     private async Task<bool> AuthorizedAsync(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, CancellationToken token)

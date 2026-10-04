@@ -3,6 +3,7 @@ using System.Text;
 using Full.NET.AI.Abstractions.Budgets;
 using Full.NET.AI.Abstractions.Models;
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
@@ -22,6 +23,24 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiKnowledgeIndexEmbeddingTests
 {
+    [TestMethod]
+    public async Task Legacy_task_without_persisted_session_never_dispatches()
+    {
+        using var f = new Fixture(false) { NoSession = true };
+        Assert.IsNull(await f.Execute()); Assert.IsNull(f.OpenedStream); Assert.AreEqual(0, f.Factory.Calls);
+        Assert.IsFalse(f.Budget.ReceivedCalls().Any());
+    }
+
+    [TestMethod] [DataRow("factory")] [DataRow("response")]
+    public async Task Persisted_session_changed_during_wait_cannot_deliver(string wait)
+    {
+        using var f = new Fixture(false);
+        if (wait == "factory") f.Factory.BeforeCreate = () => f.StoredSession = f.Session with { SessionId = Guid.CreateVersion7() };
+        else f.Generator.BeforeReturn = _ => f.StoredSession = f.Session with { SecurityStamp = "changed" };
+        Assert.IsNull(await f.Execute()); Assert.AreEqual(wait == "factory" ? 0 : 1, f.Generator.Calls);
+        await f.Budget.Received(1).SettleAsync(f.OperationId, wait == "factory" ? new(0, 0) : new(7, 0), "cancelled", CancellationToken.None);
+    }
+
     [TestMethod]
     public async Task Ambient_transaction_is_rejected_before_query_or_file_io()
     {
@@ -231,6 +250,20 @@ public sealed class AiKnowledgeIndexEmbeddingTests
         Assert.AreEqual(1, f.Generator.Calls);
     }
 
+    [TestMethod]
+    public async Task Session_revoked_during_final_binding_read_cannot_deliver_settled_vectors()
+    {
+        using var f = new Fixture(false); var settled = false; var reads = 0;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        f.Budget.SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ => { settled = true; return Task.CompletedTask; });
+        f.BeforeSessionRead = async () => { if (settled && ++reads == 2) { entered.SetResult(); await release.Task; } };
+        var running = f.Execute(); await entered.Task.WaitAsync(TimeSpan.FromSeconds(10)); f.Denied = true; release.SetResult();
+        Assert.IsNull(await running);
+        await f.Budget.Received(1).SettleAsync(f.OperationId, new(7, 0), "succeeded", CancellationToken.None);
+        Assert.AreEqual(1, f.Generator.Calls);
+    }
+
     private sealed class Fixture : IDisposable
     {
         internal readonly string Text;
@@ -253,7 +286,9 @@ public sealed class AiKnowledgeIndexEmbeddingTests
         internal readonly TestFactory Factory;
         internal TestStream? OpenedStream;
         internal Action? AfterOpen;
-        internal bool Denied, SourceDenied, Duplicate;
+        internal Func<Task>? BeforeSessionRead;
+        internal bool Denied, SourceDenied, Duplicate, NoSession;
+        internal SessionBindingSnapshot? StoredSession;
         internal string Status = "reserved";
         internal string Classification = "internal";
         private readonly AiModelBindingScope modelScope = new();
@@ -269,13 +304,23 @@ public sealed class AiKnowledgeIndexEmbeddingTests
             Guid? tenantId = tenantScope ? Guid.CreateVersion7() : null;
             if (tenantId is { } id) tenant.SetTenant(new TenantContext(id, "test", "测试")); else tenant.SetHost();
             Session = new(Binding.OwnerUserId, tenantId, Guid.CreateVersion7(), "stamp", tenantScope ? "tenant" : "host", tenantScope ? "tenant" : "host");
+            StoredSession = Session;
             Source = NewSource(); Model = NewModel(); Factory = new(Generator);
             Clock.UtcNow.Returns(now);
             var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(OperationId);
             var tasks = new AiKnowledgeIndexTaskStore(Query, Command, tenant, Clock, ids);
             var batches = new AiKnowledgeIndexBatchStore(Query, Command, tasks, ids);
-            service = new(Query, tenant, Transactions, tasks, new(Query, tasks, batches, Budget), Budget, Authorization, References, HostFiles, TenantFiles, [Factory], modelScope);
+            var sessions = new AiKnowledgeIndexSessionService(Query, Command, Substitute.For<ICommandTransaction>(), Transactions, tenant, Clock, ids, tasks, Authorization);
+            service = new(Query, tenant, Transactions, tasks, sessions, new(Query, tasks, batches, Budget), Budget, Authorization, References, HostFiles, TenantFiles, [Factory], modelScope);
             Authorization.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ => Denied ? null : new AuthorizedSessionActor(Session.UserId, Session.TenantId, Session.SessionId));
+            Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexSessionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(async _ =>
+            {
+                if (BeforeSessionRead is not null) await BeforeSessionRead();
+                return NoSession ? null : new AiKnowledgeIndexSessionRecord { Id = OperationId, IndexTaskId = TaskId, ActorUserId = StoredSession!.UserId,
+                    TenantId = StoredSession.TenantId, SessionId = StoredSession.SessionId, SessionKind = StoredSession.SessionKind,
+                    SecurityStamp = StoredSession.SecurityStamp, ActorScope = StoredSession.ActorScope, EffectiveScope = StoredSession.EffectiveScope,
+                    LeaseExpiresAtUtc = Source.LeaseExpiresAtUtc };
+            });
             Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => SourceDenied ? null : Source);
             Query.QuerySingleOrDefaultAsync<AiKnowledgeBaseRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => new AiKnowledgeBaseRecord { Id = Binding.KnowledgeBaseId, Version = 1, OwnerUserId = Binding.OwnerUserId, TenantId = tenantId, IsEnabled = true, DataClassification = Classification, EmbeddingModelConfigId = ModelId, EmbeddingModelVersion = 1 });
             Query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Model);
@@ -288,7 +333,12 @@ public sealed class AiKnowledgeIndexEmbeddingTests
         }
         internal AiKnowledgeIndexDispatchRecord NewSource(string? hash = null, int? size = null, string? type = null) => new() { TaskId = TaskId, DocumentId = Binding.DocumentId, VersionId = Binding.VersionId, DocumentVersion = 1, KnowledgeBaseVersion = 1, LeaseToken = Lease, LeaseExpiresAtUtc = now.AddSeconds(30), ModelConfigId = ModelId, ModelConfigVersion = 1, FileId = FileId, ContentHash = hash ?? Convert.ToHexString(SHA256.HashData(Bytes)), ContentType = type ?? "text/plain", SizeBytes = size ?? Bytes.Length };
         internal AiModelConfigRecord NewModel(int version = 1) => new() { Id = ModelId, Version = version, ProviderKey = "openai_compatible", ModelId = "text-embedding-3-small", EndpointBaseUrl = "https://api.openai.com/v1", IsEnabled = true, ApiKeyProtected = "protected" };
-        internal Task<AiKnowledgeIndexEmbeddingBatch?> Execute(SessionBindingSnapshot? session = null, CancellationToken token = default, int ordinal = 0) => service.ExecuteTextBatchAsync(Binding, TaskId, Lease, ordinal, session ?? Session, token);
+        internal Task<AiKnowledgeIndexEmbeddingBatch?> Execute(SessionBindingSnapshot? session = null, CancellationToken token = default, int ordinal = 0)
+        {
+            // 测试改变存储行，不再向生产恢复 API 传入新的会话身份。
+            if (session is not null) StoredSession = session;
+            return service.ExecuteTextBatchAsync(Binding, TaskId, Lease, ordinal, token);
+        }
         public void Dispose() => modelScope.Dispose();
     }
     private sealed class TestStream(byte[] bytes) : MemoryStream(bytes, writable: false)

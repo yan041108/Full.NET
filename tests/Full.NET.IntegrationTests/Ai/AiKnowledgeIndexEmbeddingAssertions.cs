@@ -45,7 +45,7 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
             if (scenario == "zero") provider.Create = () => db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET IsEnabled=0 WHERE Id=@KnowledgeBaseId", p);
             if (scenario == "revoked") provider.Generate = () => db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET Version=2 WHERE Id=@DocumentId", p);
             if (scenario == "unmetered") provider.InputTokens = null;
-            var task = await Use((tasks, _, _) => tasks.EnqueueAsync(binding, CancellationToken.None)); Assert.IsNotNull(task);
+            var task = await Use(async (tasks, _, services) => { var id = await SessionService(services, tasks).EnqueueAsync(binding, session, CancellationToken.None); return id is { } value ? await tasks.FindAsync(binding, value, CancellationToken.None) : null; }); Assert.IsNotNull(task);
             var held = await Use((tasks, _, _) => tasks.AcquireAsync(binding, task.Id, CancellationToken.None)); Assert.IsNotNull(held); Assert.IsNotNull(held.LeaseToken);
             if (scenario == "ambient")
             {
@@ -80,8 +80,13 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
             Assert.AreEqual(charged, await db.QuerySingleAsync<long>("SELECT ChargedTokens FROM fn_ai_operation_budget WHERE Id=@Id", new { Id = operation }));
 
             Task<AiKnowledgeIndexEmbeddingBatch?> Execute(Guid lease) => Use((_, execution, services) => scenario == "ambient"
-                ? services.GetRequiredService<ICommandTransaction>().ExecuteAsync(token => execution.ExecuteTextBatchAsync(binding, task.Id, lease, 0, session, token), CancellationToken.None)
-                : execution.ExecuteTextBatchAsync(binding, task.Id, lease, 0, session, CancellationToken.None));
+                ? services.GetRequiredService<ICommandTransaction>().ExecuteAsync(token => execution.ExecuteTextBatchAsync(binding, task.Id, lease, 0, token), CancellationToken.None)
+                : execution.ExecuteTextBatchAsync(binding, task.Id, lease, 0, CancellationToken.None));
+            AiKnowledgeIndexSessionService SessionService(IServiceProvider services, AiKnowledgeIndexTaskStore tasks) => new(
+                services.GetRequiredService<IQueryExecutor>(), services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
+                services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(),
+                services.GetRequiredService<IIdGenerator>(), tasks, authorization);
+
             async Task<T> Use<T>(Func<AiKnowledgeIndexTaskStore, AiKnowledgeIndexEmbeddingService, IServiceProvider, Task<T>> action)
             {
                 await using var scope = factory.Services.CreateAsyncScope(); var services = scope.ServiceProvider;
@@ -98,7 +103,7 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                         else clock.UtcNow = clock.UtcNow.AddSeconds(30);
                     });
                 var admission = new AiKnowledgeIndexBudgetService(query, tasks, new(query, command, tasks, ids), budget);
-                var execution = new AiKnowledgeIndexEmbeddingService(query, services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IDataTransactionState>(), tasks, admission, budget, authorization, files, files, files, [provider], services.GetRequiredService<AiModelBindingScope>());
+                var execution = new AiKnowledgeIndexEmbeddingService(query, services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IDataTransactionState>(), tasks, SessionService(services, tasks), admission, budget, authorization, files, files, files, [provider], services.GetRequiredService<AiModelBindingScope>());
                 return await action(tasks, execution, services);
             }
         }
