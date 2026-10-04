@@ -164,6 +164,55 @@ test('application template package includes framework sources and root manifest'
           assert.match(tolerantDiagnosis.stdout, /DIAG_APP_PROFILE_OK ok/u);
           assert.doesNotMatch(tolerantDiagnosis.stdout + tolerantDiagnosis.stderr, /credential-probe/u);
           assert.deepEqual(readFileSync(settingsPath), tolerantBefore);
+          const baseProfile = JSON.parse(originalJson);
+          const frozenValues = [
+            ['FullNet:Modules:Preset', baseProfile.FullNet.Modules.Preset],
+            ['Database:Provider', baseProfile.Database.Provider],
+          ];
+          if (relativePath.includes('.Host.Worker/')) {
+            frozenValues.push(['Kestrel:Endpoints:Http:Url', baseProfile.Kestrel.Endpoints.Http.Url]);
+          }
+          const profileParent = (settings, path) => {
+            const parts = path.split(':');
+            let parent = settings;
+            for (const part of parts.slice(0, -1)) parent = parent[part] ??= {};
+            return [parent, parts.at(-1)];
+          };
+          for (const layout of ['flat', 'flat-case', 'nested-case']) {
+            const flattenedProfile = structuredClone(baseProfile);
+            for (const [path, value] of frozenValues) {
+              const [parent, leaf] = profileParent(flattenedProfile, path);
+              delete parent[leaf];
+              if (layout === 'nested-case') {
+                const [caseParent, caseLeaf] = profileParent(flattenedProfile, path.toLowerCase());
+                caseParent[caseLeaf] = value;
+              } else {
+                flattenedProfile[layout === 'flat-case' ? path.toUpperCase() : path] = value;
+              }
+            }
+            writeFileSync(settingsPath, JSON.stringify(flattenedProfile));
+            const flattenedBefore = readFileSync(settingsPath);
+            const flattenedDiagnosis = runProfileDiagnosis();
+            assert.equal(flattenedDiagnosis.status, 0, flattenedDiagnosis.stderr || flattenedDiagnosis.stdout);
+            assert.match(flattenedDiagnosis.stdout, /DIAG_APP_PROFILE_OK ok/u);
+            assert.doesNotMatch(flattenedDiagnosis.stdout + flattenedDiagnosis.stderr, /credential-probe/iu);
+            assert.deepEqual(readFileSync(settingsPath), flattenedBefore);
+            assert.deepEqual(readFileSync(productionSettings), profileBefore);
+          }
+          // 环境凭据不能掩盖基础预设或 Worker 端口被空集合覆盖后的漂移。
+          for (const [path] of frozenValues) {
+            const clearedProfile = structuredClone(baseProfile);
+            clearedProfile[path.toUpperCase()] = {};
+            writeFileSync(settingsPath, JSON.stringify(clearedProfile));
+            const clearedBefore = readFileSync(settingsPath);
+            const clearedDiagnosis = runProfileDiagnosis();
+            assert.equal(clearedDiagnosis.status, 1);
+            assert.match(clearedDiagnosis.stdout, /DIAG_APP_PROFILE_MISMATCH error/u);
+            assert.doesNotMatch(clearedDiagnosis.stdout, /DIAG_APP_PROFILE_OK/u);
+            assert.doesNotMatch(clearedDiagnosis.stdout + clearedDiagnosis.stderr, /credential-probe/iu);
+            assert.deepEqual(readFileSync(settingsPath), clearedBefore);
+            assert.deepEqual(readFileSync(productionSettings), profileBefore);
+          }
           // 即使有效环境变量可覆盖数据库值，宿主也必须先成功加载每个基础配置文件。
           for (const duplicate of ['"credential-probe":1,"CREDENTIAL-PROBE":2',
             '"Probe":{"Value":1},"probe:value":"credential-probe"']) {

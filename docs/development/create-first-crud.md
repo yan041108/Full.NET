@@ -39,6 +39,8 @@ JSON 中的非空对象或数组展平为子键，不会自动覆盖较低优先
 
 三个常见秘密键的基础值也按展平路径读取，支持扁平/嵌套键及大小写变体。未声明键不强制存在；显式 null、空白或空集合覆盖视为占位，非空子键不抹除同路径标量。保留已有基础秘密字段类型校验，非文本秘密不能据此计为有效凭据。此检查不验证 Redis 可达性或 SM2 密钥格式。
 
+独立应用的冻结档案检查也按展平路径读取各基础文件中的 `FullNet:Modules:Preset`、`Database:Provider` 和 Worker 的 `Kestrel:Endpoints:Http:Url`，支持扁平键和大小写变体。空集合覆盖不能保留旧预设或旧端口；非空子键不抹除同路径标量。该检查仍核对基础文件与应用清单的一致性，不用环境覆盖修复基础档案漂移，也不替代完整宿主启动验证。
+
 ## 第二步：准备 CRUD Schema
 
 原框架仓库的示例主从单据见 [`samples/enterprise-request/schema.json`](../../samples/enterprise-request/schema.json)（`master.detail` 场景：申请头 + 明细行）。应用应准备自己的 `schema.json`，冻结项目 OwnerKey，并显式声明字段、精确权限与 `dataScope`；不能直接沿用原仓库的集成目标路径。

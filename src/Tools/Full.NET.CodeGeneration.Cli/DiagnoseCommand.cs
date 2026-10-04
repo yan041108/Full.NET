@@ -376,8 +376,8 @@ internal static partial class DiagnoseCommand
             {
                 using var settings = ReadConfigurationDocument(path);
                 var runtime = JsonNode.Parse(settings.RootElement.GetRawText(), documentOptions: ConfigurationJsonOptions)!;
-                var runtimePreset = runtime["FullNet"]?["Modules"]?["Preset"]?.GetValue<string>();
-                var runtimeProvider = runtime["Database"]?["Provider"]?.GetValue<string>();
+                var runtimePreset = ReadStandaloneConfigurationValue(runtime, "FullNet:Modules:Preset");
+                var runtimeProvider = ReadStandaloneConfigurationValue(runtime, "Database:Provider");
                 if (!string.Equals(preset, runtimePreset, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(provider, runtimeProvider, StringComparison.OrdinalIgnoreCase))
                 {
@@ -391,7 +391,7 @@ internal static partial class DiagnoseCommand
                     && path.EndsWith(".Host.Worker" + Path.DirectorySeparatorChar + "appsettings.json",
                         StringComparison.OrdinalIgnoreCase))
                 {
-                    var endpoint = runtime["Kestrel"]?["Endpoints"]?["Http"]?["Url"]?.GetValue<string>();
+                    var endpoint = ReadStandaloneConfigurationValue(runtime, "Kestrel:Endpoints:Http:Url");
                     if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var workerUri)
                         || workerUri.Port != expectedPort)
                     {
@@ -416,6 +416,20 @@ internal static partial class DiagnoseCommand
                 "独立应用清单或基础配置缺失、不可读取或格式无效。",
                 "检查 fullnet-app.json 以及根、API 和已声明 Worker/Migrator 的基础 appsettings.json。"));
         }
+    }
+
+    private static string? ReadStandaloneConfigurationValue(JsonNode root, string path)
+    {
+        // 保留原有嵌套字段的字符串类型检查，再以宿主展平语义读取大小写别名和空集合覆盖。
+        JsonNode? current = root;
+        foreach (var segment in path.Split(':'))
+        {
+            current = current?[segment];
+            if (current is null) break;
+        }
+        _ = current?.GetValue<string>();
+        _ = TryReadBaseConfigurationValue(root, path, out var value);
+        return value;
     }
 
     private static void CheckStandaloneModuleClosure(
