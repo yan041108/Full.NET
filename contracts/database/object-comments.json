@@ -402,6 +402,16 @@
         "RoleId": "角色标识"
       }
     },
+    "fn_ai_knowledge_text_manifest": {
+      "comment": "人工智能knowledge text manifest表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "FormatKey": "格式键",
+        "Id": "逻辑主键",
+        "Payload": "消息正文",
+        "PayloadHash": "载荷哈希"
+      }
+    },
     "fn_ai_knowledge_version": {
       "comment": "知识库不可变文件版本",
       "columns": {

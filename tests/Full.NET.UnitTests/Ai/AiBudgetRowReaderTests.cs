@@ -7,6 +7,18 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiBudgetRowReaderTests
 {
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public void Text_manifest_maps_exact_payload_and_provider_time_shape(bool mysql)
+    {
+        using var table = new DataTable(); var now = DateTime.UtcNow; var id = Guid.CreateVersion7(); byte[] bytes = [1, 2, 3];
+        table.Columns.Add("Id", typeof(Guid)); foreach (var name in new[] { "FormatKey", "PayloadHash" }) table.Columns.Add(name, typeof(string));
+        table.Columns.Add("Payload", typeof(byte[])); table.Columns.Add("CreatedAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
+        table.Rows.Add(id, "format", "hash", bytes, mysql ? (object)now : new DateTimeOffset(now));
+        using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read()); var row = AiBudgetRowReaders.ReadKnowledgeTextManifest(reader);
+        Assert.AreEqual(id, row.Id); Assert.AreEqual("format", row.FormatKey); Assert.AreEqual("hash", row.PayloadHash);
+        CollectionAssert.AreEqual(bytes, row.Payload); Assert.AreEqual(new DateTimeOffset(now), row.CreatedAtUtc);
+    }
+
     [TestMethod]
     public void Index_vector_maps_exact_bytes_and_space_metadata()
     {

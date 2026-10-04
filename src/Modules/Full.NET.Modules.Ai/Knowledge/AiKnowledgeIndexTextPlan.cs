@@ -15,9 +15,10 @@ internal sealed class AiKnowledgeIndexTextPlan
     internal const string FormatKey = "knowledge-text-plan-v1";
     private static readonly Encoding Utf8 = new UTF8Encoding(false, true);
     internal AiKnowledgeIndexTextPlanSummary Summary { get; }
+    internal AiKnowledgeIndexTextPlanIdentity Identity { get; }
     internal IReadOnlyList<AiKnowledgeIndexTextBatch> Batches { get; }
-    private AiKnowledgeIndexTextPlan(AiKnowledgeIndexTextPlanSummary summary, IReadOnlyList<AiKnowledgeIndexTextBatch> batches)
-    { Summary = summary; Batches = batches; }
+    private AiKnowledgeIndexTextPlan(AiKnowledgeIndexTextPlanIdentity identity, AiKnowledgeIndexTextPlanSummary summary, IReadOnlyList<AiKnowledgeIndexTextBatch> batches)
+    { Identity = identity; Summary = summary; Batches = batches; }
 
     /// <summary>消费可信解析和获批分块结果；全部输入有效后才交付完整、不可变的计划。</summary>
     /// <remarks>摘要只说明规划内容，不证明来源授权、模型调用或数据库完整性。</remarks>
@@ -73,7 +74,7 @@ internal sealed class AiKnowledgeIndexTextPlan
                 foreach (var batch in batches) { token.ThrowIfCancellationRequested(); Text(writer, batch.SourceHash); }
             });
             token.ThrowIfCancellationRequested();
-            return new(new(FormatKey, planHash, batches.Count, chunks.Length, tokens), Array.AsReadOnly(batches.ToArray()));
+            return new(IdentityFrom(source), new(FormatKey, planHash, batches.Count, chunks.Length, tokens), Array.AsReadOnly(batches.ToArray()));
         }
         catch (EncoderFallbackException) { return null; }
     }
@@ -82,17 +83,35 @@ internal sealed class AiKnowledgeIndexTextPlan
         item.Offset >= 0 && item.Length > 0 && (long)item.Offset + item.Length <= AiKnowledgeTextParser.MaxOutputCharacters
         && (item.Kind == AiKnowledgeContextKind.Heading ? item.Level is >= 1 and <= 6 : item.Kind == AiKnowledgeContextKind.TableHeader && item.Level == 0));
 
-    private static void Header(BinaryWriter writer, AiKnowledgeModelChunks source)
+    private static AiKnowledgeIndexTextPlanIdentity IdentityFrom(AiKnowledgeModelChunks source) => new(source.KnowledgeBaseId, source.KnowledgeBaseVersion,
+        source.TenantId, source.ModelConfigId, source.ModelConfigVersion, source.ProviderKey, source.ModelId, source.Chunks.ContentHash, source.Chunks.Format);
+    private static void Header(BinaryWriter writer, AiKnowledgeModelChunks source) => WriteHeader(writer, IdentityFrom(source));
+
+    /// <summary>复用既有 v1 摘要头，不改变字段顺序；所有计划仅接受固定解析/词表/分块参数。</summary>
+    internal static void WriteHeader(BinaryWriter writer, AiKnowledgeIndexTextPlanIdentity source)
     {
         // 字段顺序固定；整数为小端，字符串为 int32 UTF-8 字节长度加原字节，Guid 使用规范 N 形状。
         Text(writer, FormatKey); Text(writer, source.KnowledgeBaseId.ToString("N")); writer.Write(source.KnowledgeBaseVersion);
         Text(writer, source.TenantId?.ToString("N") ?? "host"); Text(writer, source.ModelConfigId.ToString("N")); writer.Write(source.ModelConfigVersion);
-        Text(writer, source.ProviderKey); Text(writer, source.ModelId); Text(writer, source.Chunks.ContentHash);
-        Text(writer, source.Chunks.ParserVersion); Text(writer, source.Chunks.TokenizerVersion); Text(writer, source.Chunks.ChunkingVersion);
-        writer.Write((int)source.Chunks.Format);
-        writer.Write(source.Chunks.Options.MaxTokens); writer.Write(source.Chunks.Options.OverlapTokens);
-        writer.Write(source.Chunks.Options.MaxChunks); writer.Write(source.Chunks.Options.MaxTotalTokens);
+        Text(writer, source.ProviderKey); Text(writer, source.ModelId); Text(writer, source.ContentHash);
+        Text(writer, "utf8-text-v1"); Text(writer, AiKnowledgeCl100kTokenizer.Version); Text(writer, "structure-window-v1");
+        writer.Write((int)source.Format); var options = new AiKnowledgeChunkOptions();
+        writer.Write(options.MaxTokens); writer.Write(options.OverlapTokens);
+        writer.Write(options.MaxChunks); writer.Write(options.MaxTotalTokens);
     }
+
+    /// <summary>从已存片段复算批次摘要；相同维度和片段数不能代替完整输入一致。</summary>
+    internal static string ComputeBatchHash(AiKnowledgeIndexTextPlanIdentity identity, int ordinal, IReadOnlyList<AiKnowledgeStructuredChunk> chunks, CancellationToken token) => Digest(writer =>
+    {
+        WriteHeader(writer, identity); writer.Write(ordinal); writer.Write(chunks.Count);
+        foreach (var chunk in chunks) { token.ThrowIfCancellationRequested(); WriteChunk(writer, chunk); }
+    });
+    internal static string ComputePlanHash(AiKnowledgeIndexTextPlanIdentity identity, AiKnowledgeIndexTextPlanSummary summary,
+        IReadOnlyList<AiKnowledgeIndexTextManifestBatch> batches, CancellationToken token) => Digest(writer =>
+    {
+        WriteHeader(writer, identity); writer.Write(summary.BatchCount); writer.Write(summary.ChunkCount); writer.Write(summary.TokenCount);
+        foreach (var batch in batches) { token.ThrowIfCancellationRequested(); Text(writer, batch.SourceHash); }
+    });
     private static void WriteChunk(BinaryWriter writer, AiKnowledgeStructuredChunk chunk)
     {
         writer.Write(chunk.Sequence); writer.Write(chunk.Offset); writer.Write(chunk.Length); writer.Write(chunk.TokenCount); writer.Write((int)chunk.Kind);

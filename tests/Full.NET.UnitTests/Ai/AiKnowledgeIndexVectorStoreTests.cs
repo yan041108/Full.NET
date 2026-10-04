@@ -128,6 +128,22 @@ public sealed class AiKnowledgeIndexVectorStoreTests
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => f.Store.IsStoredAsync(f.Binding, f.TaskId, f.Lease, 0, cancel.Token));
     }
 
+    [TestMethod] [DataRow("same")] [DataRow("text")] [DataRow("offset")] [DataRow("tokens")]
+    [DataRow("context")] [DataRow("model")] [DataRow("knowledge")]
+    public async Task Stored_vector_must_match_complete_plan_batch_instead_of_only_existing(string fault)
+    {
+        var f = new Fixture(false); f.Row = f.NewRow(); var chunk = f.Batch.Chunks[0].Source;
+        chunk = fault switch { "text" => chunk with { Text = "改变😀", EmbeddingText = "标题\n改变😀" }, "offset" => chunk with { Offset = chunk.Offset + 1 },
+            "tokens" => chunk with { TokenCount = chunk.TokenCount + 1 }, "context" => chunk with { Context = [] }, _ => chunk };
+        var input = AiKnowledgeIndexTextPlanTests.Source() with { KnowledgeBaseId = fault == "knowledge" ? Guid.CreateVersion7() : f.Binding.KnowledgeBaseId,
+            ModelConfigId = f.Source.ModelConfigId, ModelConfigVersion = fault == "model" ? 2 : 1,
+            Chunks = AiKnowledgeIndexTextPlanTests.Source().Chunks with { ContentHash = f.Source.ContentHash, Chunks = [chunk] } };
+        var plan = AiKnowledgeIndexTextPlan.Create(input, default); Assert.IsNotNull(plan);
+        var manifest = AiKnowledgeIndexTextManifestCodec.Decode(AiKnowledgeIndexTextManifestCodec.Encode(plan, default), default);
+        Assert.AreEqual(fault == "same", await f.Store.MatchesPlanAsync(f.Binding, f.TaskId, f.Lease, manifest, 0, default));
+        Assert.AreEqual(0, f.Writes);
+    }
+
     private sealed class Fixture
     {
         internal readonly IQueryExecutor Query = Substitute.For<IQueryExecutor>();

@@ -46,8 +46,15 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
             if (scenario == "zero") provider.Create = () => db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET IsEnabled=0 WHERE Id=@KnowledgeBaseId", p);
             if (scenario == "revoked") provider.Generate = () => db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET Version=2 WHERE Id=@DocumentId", p);
             if (scenario == "unmetered") provider.InputTokens = null;
+            AiKnowledgeIndexTextPlan? wholePlan = null;
             var task = await Use(async (tasks, _, services) => { var id = await SessionService(services, tasks).EnqueueAsync(binding, session, CancellationToken.None); return id is { } value ? await tasks.FindAsync(binding, value, CancellationToken.None) : null; }); Assert.IsNotNull(task);
             var held = await Use((tasks, _, _) => tasks.AcquireAsync(binding, task.Id, CancellationToken.None)); Assert.IsNotNull(held); Assert.IsNotNull(held.LeaseToken);
+            var generate = provider.Generate;
+            provider.Generate = async () =>
+            {
+                Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_text_manifest WHERE Id=@Id", new { Id = task.Id }));
+                if (generate is not null) await generate();
+            };
             if (scenario == "ambient")
             {
                 await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => Execute(held.LeaseToken.Value));
@@ -65,12 +72,23 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                     Assert.IsNotNull(result.Plan); Assert.AreEqual(1, result.Plan.BatchCount); Assert.AreEqual(result.Chunks.Count, result.Plan.ChunkCount);
                     Assert.AreEqual(AiKnowledgeIndexTextPlan.FormatKey, result.Plan.FormatKey);
                     Assert.AreEqual(64, result.Plan.PlanHash.Length); Assert.AreEqual(64, result.BatchSourceHash.Length);
+                    Assert.IsNotNull(wholePlan); var beforeExpiry = clock.UtcNow;
+                    await AiKnowledgeTextManifestAssertions.VerifyAsync(db, binding, session, result, wholePlan,
+                        plan => Use((tasks, _, services) => ManifestStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, plan, CancellationToken.None)),
+                        plan => Use((tasks, _, services) => ManifestStore(services, tasks, new ExpireAfterManifestInsert(services.GetRequiredService<ICommandExecutor>(),
+                            () => clock.UtcNow = result.Source.LeaseExpiresAtUtc)).PersistAsync(binding, task.Id, held.LeaseToken.Value, plan, CancellationToken.None)),
+                        () => clock.UtcNow = beforeExpiry);
                     await AiKnowledgeIndexVectorAssertions.VerifyAsync(db, session, result,
                         batch => Use((tasks, _, services) => VectorStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, batch, CancellationToken.None)),
-                        () => Use((tasks, execution, services) => new AiKnowledgeIndexPersistenceService(execution, VectorStore(services, tasks))
+                        () => Use((tasks, execution, services) => new AiKnowledgeIndexPersistenceService(execution, VectorStore(services, tasks), ManifestStore(services, tasks))
                             .ExecuteTextBatchAsync(binding, task.Id, held.LeaseToken.Value, 0, CancellationToken.None)),
                         batch => Use((tasks, _, services) => VectorStore(services, tasks, new ExpireAfterVectorInsert(services.GetRequiredService<ICommandExecutor>(),
-                            () => clock.UtcNow = batch.Source.LeaseExpiresAtUtc)).PersistAsync(binding, task.Id, held.LeaseToken.Value, batch, CancellationToken.None)));
+                            () => clock.UtcNow = batch.Source.LeaseExpiresAtUtc)).PersistAsync(binding, task.Id, held.LeaseToken.Value, batch, CancellationToken.None)),
+                        () => AiKnowledgeTextManifestAssertions.VerifyMissingManifestRecoveryAsync(db, result, wholePlan,
+                            () => Use((tasks, execution, services) => new AiKnowledgeIndexPersistenceService(execution, VectorStore(services, tasks), ManifestStore(services, tasks))
+                                .ExecuteTextBatchAsync(binding, task.Id, held.LeaseToken.Value, 0, CancellationToken.None)),
+                            batch => Use((tasks, _, services) => VectorStore(services, tasks).PersistAsync(binding, task.Id, held.LeaseToken.Value, batch, CancellationToken.None)),
+                            () => files.Opens, fail => files.ThrowOnOpen = fail, () => provider.Calls));
                     Assert.AreEqual(1, provider.Calls);
                 }
                 else Assert.IsNull(result);
@@ -93,9 +111,14 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
             Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id", new { Id = task.Id }));
             Assert.AreEqual(charged, await db.QuerySingleAsync<long>("SELECT ChargedTokens FROM fn_ai_operation_budget WHERE Id=@Id", new { Id = operation }));
 
-            Task<AiKnowledgeIndexEmbeddingBatch?> Execute(Guid lease) => Use((_, execution, services) => scenario == "ambient"
+            Task<AiKnowledgeIndexEmbeddingBatch?> Execute(Guid lease) => Use((tasks, execution, services) => scenario == "ambient"
                 ? services.GetRequiredService<ICommandTransaction>().ExecuteAsync(token => execution.ExecuteTextBatchAsync(binding, task.Id, lease, 0, token), CancellationToken.None)
-                : execution.ExecuteTextBatchAsync(binding, task.Id, lease, 0, CancellationToken.None));
+                : execution.ExecuteTextBatchAsync(binding, task.Id, lease, 0, CancellationToken.None, (plan, token) =>
+                    { wholePlan = plan; return ManifestStore(services, tasks).PersistAsync(binding, task.Id, lease, plan, token); }));
+            AiKnowledgeIndexTextManifestStore ManifestStore(IServiceProvider services, AiKnowledgeIndexTaskStore tasks, ICommandExecutor? command = null) => new(
+                services.GetRequiredService<IQueryExecutor>(), command ?? services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
+                services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(),
+                tasks, SessionService(services, tasks), authorization);
             AiKnowledgeIndexSessionService SessionService(IServiceProvider services, AiKnowledgeIndexTaskStore tasks) => new(
                 services.GetRequiredService<IQueryExecutor>(), services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
                 services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(),
@@ -126,6 +149,15 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
             }
         }
     }
+    private sealed class ExpireAfterManifestInsert(ICommandExecutor inner, Action expire) : ICommandExecutor
+    {
+        public async Task<int> ExecuteAsync(SqlStatement statement, object? parameters, CancellationToken token)
+        {
+            var count = await inner.ExecuteAsync(statement, parameters, token);
+            if (statement.Name.StartsWith("ai.knowledge_text_manifest.insert", StringComparison.Ordinal)) { Assert.AreEqual(1, count); expire(); }
+            return count;
+        }
+    }
     private sealed class ExpireAfterVectorInsert(ICommandExecutor inner, Action expire) : ICommandExecutor
     {
         public async Task<int> ExecuteAsync(SqlStatement statement, object? parameters, CancellationToken token)
@@ -152,12 +184,13 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
     }
     private sealed class ControlledFiles(Guid expectedFile, Guid expectedVersion, byte[] bytes, string hash) : IHostFileReferenceReader, IHostFileContentReader, ITenantResourceFileStore
     {
+        internal int Opens; internal bool ThrowOnOpen;
         public Task<HostFileReference?> GetReadyReferenceAsync(Guid fileId, CancellationToken cancellationToken = default)
         { Assert.AreEqual(expectedFile, fileId); return Task.FromResult<HostFileReference?>(new(fileId, bytes.Length, hash)); }
         public Task<Result<HostFileContent>> OpenReadyContentAsync(Guid fileId, CancellationToken cancellationToken = default)
-        { Assert.AreEqual(expectedFile, fileId); return Task.FromResult(Result<HostFileContent>.Success(new(new MemoryStream(bytes, false), "text/plain", "source.txt"))); }
+        { Opens++; if (ThrowOnOpen) throw new IOException("trusted file unavailable"); Assert.AreEqual(expectedFile, fileId); return Task.FromResult(Result<HostFileContent>.Success(new(new MemoryStream(bytes, false), "text/plain", "source.txt"))); }
         public Task<Result<TenantResourceFileContent>> OpenReadyContentAsync(string ownerModuleKey, Guid resourceId, Guid fileId, CancellationToken cancellationToken = default)
-        { Assert.AreEqual("ai", ownerModuleKey); Assert.AreEqual(expectedVersion, resourceId); Assert.AreEqual(expectedFile, fileId); return Task.FromResult(Result<TenantResourceFileContent>.Success(new(new MemoryStream(bytes, false), "text/plain", "source.txt"))); }
+        { Opens++; if (ThrowOnOpen) throw new IOException("trusted file unavailable"); Assert.AreEqual("ai", ownerModuleKey); Assert.AreEqual(expectedVersion, resourceId); Assert.AreEqual(expectedFile, fileId); return Task.FromResult(Result<TenantResourceFileContent>.Success(new(new MemoryStream(bytes, false), "text/plain", "source.txt"))); }
         public Task<Result<TenantResourceFileReference>> UploadAsync(string ownerModuleKey, Guid resourceId, Guid actorUserId, string originalFileName, string contentType, Stream content, long contentLength, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task ReleaseAsync(string ownerModuleKey, Guid resourceId, Guid fileId, CancellationToken cancellationToken = default) => throw new NotSupportedException();

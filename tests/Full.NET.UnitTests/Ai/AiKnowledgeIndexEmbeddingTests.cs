@@ -277,6 +277,42 @@ public sealed class AiKnowledgeIndexEmbeddingTests
         Assert.AreEqual(1, f.Generator.Calls);
     }
 
+    [TestMethod]
+    public async Task Plan_refusal_prevents_budget_reservation_and_model_dispatch()
+    {
+        using var f = new Fixture(false); var called = false;
+        Assert.IsNull(await f.Execute(beforeDispatch: (plan, _) => { called = true; Assert.AreEqual(1, plan.Summary.ChunkCount); return Task.FromResult(false); }));
+        Assert.IsTrue(called); Assert.AreEqual(0, f.Generator.Calls);
+        await f.Budget.DidNotReceive().ReserveAsync(Arg.Any<AiOperationRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Plan_storage_failure_propagates_before_any_charge()
+    {
+        using var f = new Fixture(false);
+        await Assert.ThrowsExactlyAsync<IOException>(() => f.Execute(beforeDispatch: (_, _) => throw new IOException("plan unavailable")));
+        Assert.AreEqual(0, f.Generator.Calls);
+        await f.Budget.DidNotReceive().ReserveAsync(Arg.Any<AiOperationRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Plan_storage_wait_cannot_reuse_previous_authority()
+    {
+        using var f = new Fixture(false);
+        Assert.IsNull(await f.Execute(beforeDispatch: (_, _) => { f.SourceDenied = true; return Task.FromResult(true); }));
+        Assert.AreEqual(0, f.Generator.Calls);
+        await f.Budget.DidNotReceive().ReserveAsync(Arg.Any<AiOperationRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Complete_plan_is_delivered_to_storage_before_last_batch_dispatch()
+    {
+        using var f = new Fixture(false, string.Concat(Enumerable.Repeat("a ", 12000))); AiKnowledgeIndexTextPlan? seen = null;
+        var result = await f.Execute(ordinal: 1, beforeDispatch: (plan, _) => { seen = plan; return Task.FromResult(true); });
+        Assert.IsNotNull(result); Assert.IsNotNull(seen); Assert.AreEqual(2, seen.Summary.BatchCount);
+        Assert.AreEqual(seen.Summary, result.Plan); Assert.AreEqual(1, f.Generator.Calls);
+    }
+
     private sealed class Fixture : IDisposable
     {
         internal readonly string Text;
@@ -346,11 +382,12 @@ public sealed class AiKnowledgeIndexEmbeddingTests
         }
         internal AiKnowledgeIndexDispatchRecord NewSource(string? hash = null, int? size = null, string? type = null) => new() { TaskId = TaskId, DocumentId = Binding.DocumentId, VersionId = Binding.VersionId, DocumentVersion = 1, KnowledgeBaseVersion = 1, LeaseToken = Lease, LeaseExpiresAtUtc = now.AddSeconds(30), ModelConfigId = ModelId, ModelConfigVersion = 1, FileId = FileId, ContentHash = hash ?? Convert.ToHexString(SHA256.HashData(Bytes)), ContentType = type ?? "text/plain", SizeBytes = size ?? Bytes.Length };
         internal AiModelConfigRecord NewModel(int version = 1) => new() { Id = ModelId, Version = version, ProviderKey = "openai_compatible", ModelId = "text-embedding-3-small", EndpointBaseUrl = "https://api.openai.com/v1", IsEnabled = true, ApiKeyProtected = "protected" };
-        internal Task<AiKnowledgeIndexEmbeddingBatch?> Execute(SessionBindingSnapshot? session = null, CancellationToken token = default, int ordinal = 0)
+        internal Task<AiKnowledgeIndexEmbeddingBatch?> Execute(SessionBindingSnapshot? session = null, CancellationToken token = default, int ordinal = 0,
+            Func<AiKnowledgeIndexTextPlan, CancellationToken, Task<bool>>? beforeDispatch = null)
         {
             // 测试改变存储行，不再向生产恢复 API 传入新的会话身份。
             if (session is not null) StoredSession = session;
-            return service.ExecuteTextBatchAsync(Binding, TaskId, Lease, ordinal, token);
+            return service.ExecuteTextBatchAsync(Binding, TaskId, Lease, ordinal, token, beforeDispatch);
         }
         public void Dispose() => modelScope.Dispose();
     }

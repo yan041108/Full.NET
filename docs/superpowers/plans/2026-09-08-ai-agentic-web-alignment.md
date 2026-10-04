@@ -983,6 +983,24 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0，每测试进程 2 GiB GC Heap 限额，FULLNET_TESTCONTAINERS_REUSE=0 创建新容器。摘要当前只随内部临时结果交付，不是授权、外发、费用或向量已存证明；未建立持久 Manifest、整代次数据库完整性证明、激活/ready 或 Worker。仅 TXT/Markdown，未接业务 PDF、真实云计量、检索/引用或本轮完整 Host/Worker Native 发布运行；Tenant/OIDC 真实登录范围未扩展。完整 RAG 保持 Planned，容量保持 Capacity-not-verified，后续继续持久完整计划与整代次校验/切换。
 
 
+- [x] R05f2g：持久化完整文本计划及批次归属（内部边界，不推进 ready）。
+  - [x] 固定不含正文/凭据的有界 knowledge-text-manifest-v1 清单，保存来源身份、完整计划摘要及每批顺序/首片段/片段数/Token 数/内容摘要；解码校验完整摘要、连续覆盖和总量，不演进 VectorCodec v1。
+  - [x] 成对迁移 250 建立任务主键关联的不可替换清单；通过 AI Dapper/短事务写入与恢复，绑定可信作用域、来源、精确获批模型和原会话，等待后到期/取消在事务内回滚。并发仅复用完全相同载荷，旧任务不自动回填。
+  - [x] 持久消费者在预算预留前冻结清单；恢复必须核对向量原文/Embedding 输入/位置/结构/上下文与清单批次摘要，同一付费操作不再次调用模型，清单存在不代表向量齐全。暂不注册 DI/HTTP/Worker、不切换代次/ready。
+  - [x] 先运行编解码/Store 失败验证和缺失迁移双库恢复失败验证，再验证真实消费者、静态行读取、完整 AI Unit、双库影响集/250 恢复、架构/AOT、命名/SQL 安全及治理；更新证据后提交 main。
+
+  R05f2g 本地证据（2026-10-05，完整文本清单与批次归属的内部边界）：
+  - 基线 main/7d9c9abc31ce952de5701186ea3725ef4cf3dc1c，任务快照 ai-knowledge-text-manifest-r05f2g。knowledge-text-manifest-v1 固定严格 UTF-8/小端编码，最多 128 KiB；保存来源身份、完整计划摘要及有序批次的首片段/数量/Token/内容摘要，不保存正文、向量或凭据。解码先限制字节与批次数，再校验连续覆盖、总量与整份摘要，返回只读集合。旧 knowledge-text-plan-v1 的独立固定 batch/plan 摘要仍由 Unit 比对，VectorCodec v1 不演进。
+  - 双库迁移 250 建立 fn_ai_knowledge_text_manifest，一任务一清单，以任务 UUID 为主键和同模块外键；SQL Server 元数据说明独立可重放，MySQL InnoDB 原子创建。没有自动旧任务回填。生产 Dapper Store 通过无外层事务的短事务写入，SQL 同时绑定当前 KB/文档版本、获批模型、来源文件/摘要/类型/大小、可信 Host/Tenant、有效租约和不可替换原会话；等待后取消或到期由事务回滚，唯一竞争只复用完全相同载荷，其他故障传播。
+  - 持久消费者在预算预留前保存完整清单；已存向量必须精确匹配批次原文/Embedding 输入、位置、结构、上下文与 Token 内容摘要。清单缺失时只能可信 Files 重读并复核已有向量后恢复；文件不可读、批次来源偏移不符、已付费但向量缺失均不得再次调用模型或改变收费。清单存在不证明向量齐全，单批次成功不证明整个代次完成。
+  - 编解码/Store 桩 RED 31 项中 12 失败/19 通过、22s 793ms；缺失迁移双库 RED 2/2 失败、36s 764ms；预算前回调与静态读取桩 RED 6/6 失败、3s 411ms；仅使用旧 IsStored 的批次归属 RED 7 项中 6 失败/1 通过、5s 967ms，均零跳过。最终内部专项 184/184、零失败/跳过、27s 483ms；真实双库执行/250 重放专项补齐后 4/4、零失败/跳过、2m 53s 947ms。新增 Unit 49、Integration 2，编译/命令失败不计行为 RED。
+  - 双库专项从不存在行竞争首次同载荷/不同载荷清单，证明同载荷复用与不同载荷一胜一拒绝、胜者不可替换；直接 SQL 负例检查原会话/租户/来源/版本/租约，真实 INSERT 后推进时钟证明回滚。已知和未知计量、Host 和 Tenant 都覆盖缺失清单恢复，核对 Files 重读、无第二次模型调用及 ChargedTokens 不变。独立只读审查提出的两处验证缺口已补齐；最终复核未发现 Critical/Important 或确定 Minor，审查不代替实际测试。
+  - node scripts/testing/run-api-aot-analyzers.mjs 退出 0、零警告/错误，00:01:45.43，随后恢复 JIT 图。Integration/Unit/Architecture Release 最终构建分别 00:06:08.84/00:00:54.56/00:00:36.82，均退出 0、零警告/错误。node artifacts/r05f2g/run-unit.mjs 使用官方 ai-module 过滤/最低数/时限，972/972、零失败/跳过、1m 01s 503ms；完整 Unit 发现 4441，未执行全量。官方 architecture --selection ai-agentic-boundaries --no-build 7/7、18s 479ms，api-native-aot 73/73、5s 374ms；完整 Architecture 发现 233，未执行全量。
+  - node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-text-manifest-r05f2g --phase slice 退出 0：工具链/反馈契约 65/65、治理 57/57，1162 项分片发现无遗漏/重复。规定完整 Ai 影响集与迁移 250 合并去重后双库 62/62、零失败/跳过、21m 00s 665ms；两个 Worker、官方组合时限 31 分钟。正式结果 Full.NET.IntegrationTests-affected-combined.trx 的全部 UID/FQN 与冻结发现集合一致；平台截断 1 项超长捕获文本字段，不影响完整身份与通过结果，截断文本不作为完整运行日志。
+  - node artifacts/r05f2g/verify.mjs 核对 994 项源码/矩阵/运行输入未变；Unit 与双库结果身份精确一致，单独排除生成输出 rag-evaluation-report.json。源码项目/Unit/Integration AI DLL SHA-256 同为 CF4FADBE591E420633F7F29C802DF9C611FD5C20882A56FEAF63F3357A95D111。命名 node --test tests/naming/*.test.mjs tests/database/uuid-storage-contract.test.mjs 33/33、SQL 安全 node --test tests/sql/*.test.mjs 5/5，零失败/跳过；SQL 注释校验退出 0。RED/GREEN、最终构建与运行日志、TRX、发现/冻结/验收清单保留于忽略目录 artifacts/r05f2g/、同前缀日志和正式 TestResults；文档同步后复核治理与 diff。
+  - Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0，每测试进程 2 GiB GC Heap 限额，FULLNET_TESTCONTAINERS_REUSE=0 创建新容器。仅 TXT/Markdown 内部边界，未注册 DI/HTTP/Worker，未建立整代次数据库完整性证明、激活/ready、业务 PDF、云计量或检索/引用，本轮不宣称完整 Host/Worker Native 发布运行；Tenant/OIDC 真实登录范围未扩展。完整 RAG 保持 Planned，容量保持 Capacity-not-verified，后续继续整代次完整性校验与激活。
+
+
 - [ ] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。
 - [ ] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。
 - [ ] 验证 Worker 崩溃/重试、模型用量未知、索引不可用、部分写入与删除竞争；失败可定位并重试，不能将空索引标记 ready。

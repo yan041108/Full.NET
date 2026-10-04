@@ -26,9 +26,17 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeIndexBatchRecord>(ReadKnowledgeIndexBatch);
         registrar.Register<AiKnowledgeIndexSessionRecord>(ReadKnowledgeIndexSession);
         registrar.Register<AiKnowledgeIndexVectorRecord>(ReadKnowledgeIndexVector);
+        registrar.Register<AiKnowledgeIndexTextManifestRecord>(ReadKnowledgeTextManifest);
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
     }
 #endif
+
+    // 载荷和时间按静态路径读取，保持 SQL Server/MySQL 的物理类型差异显式可测。
+    internal static AiKnowledgeIndexTextManifestRecord ReadKnowledgeTextManifest(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), FormatKey = Text(reader, "FormatKey"), PayloadHash = Text(reader, "PayloadHash"),
+        Payload = reader.GetFieldValue<byte[]>(reader.GetOrdinal("Payload")), CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+    };
 
     // 载荷按静态字节数组读取，模型/任务字段只由固定关联查询投影。
     internal static AiKnowledgeIndexVectorRecord ReadKnowledgeIndexVector(DbDataReader reader) => new()

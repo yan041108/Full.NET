@@ -37,7 +37,8 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
     /// <summary>只派发新预留的精确文本批次；拒绝或失效返回空，取消及基础设施故障传播。</summary>
     /// <remarks>恢复身份只从任务原绑定读取；无外层事务。消费者仍须在写索引前复核，Worker 轮询不由本类负责。</remarks>
     internal async Task<AiKnowledgeIndexEmbeddingBatch?> ExecuteTextBatchAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId,
-        Guid leaseToken, int batchOrdinal, CancellationToken token)
+        Guid leaseToken, int batchOrdinal, CancellationToken token,
+        Func<AiKnowledgeIndexTextPlan, CancellationToken, Task<bool>>? beforeDispatch = null)
     {
         NoTransaction();
         _ = tasks.HeldParameters(binding, taskId, leaseToken, token);
@@ -68,6 +69,9 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
         var plan = AiKnowledgeIndexTextPlan.Create(chunks, bounded);
         if (plan is null || batchOrdinal >= plan.Batches.Count
             || !await StillCurrentAsync(state, binding, taskId, leaseToken, session, bounded).ConfigureAwait(false)) return null;
+        // 持久消费者先冻结整份清单，再取得付费操作；回调等待后必须重新核对权威。
+        if (beforeDispatch is not null && (!await beforeDispatch(plan, bounded).ConfigureAwait(false)
+            || !await StillCurrentAsync(state, binding, taskId, leaseToken, session, bounded).ConfigureAwait(false))) return null;
         var planned = plan.Batches[batchOrdinal]; var selected = planned.Chunks;
         var inputs = selected.Select(chunk => chunk.EmbeddingText).ToArray();
         var admitted = await admission.ReserveAsync(binding, taskId, leaseToken, batchOrdinal, inputs, bounded).ConfigureAwait(false);

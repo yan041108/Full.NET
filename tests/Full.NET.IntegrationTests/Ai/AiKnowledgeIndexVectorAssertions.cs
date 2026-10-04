@@ -12,7 +12,7 @@ internal static class AiKnowledgeIndexVectorAssertions
 {
     internal static async Task VerifyAsync(DbConnection db, SessionBindingSnapshot session, AiKnowledgeIndexEmbeddingBatch batch,
         Func<AiKnowledgeIndexEmbeddingBatch, Task<bool>> persist, Func<Task<bool>> resume,
-        Func<AiKnowledgeIndexEmbeddingBatch, Task<bool>> expireAfterWrite)
+        Func<AiKnowledgeIndexEmbeddingBatch, Task<bool>> expireAfterWrite, Func<Task> verifyMissingManifestRecovery)
     {
         var raced = await Task.WhenAll(persist(batch), persist(batch)); Assert.IsTrue(raced.All(value => value));
         var payload = AiKnowledgeIndexVectorCodec.Encode(batch, 1536, default);
@@ -22,6 +22,7 @@ internal static class AiKnowledgeIndexVectorAssertions
         var wrong = changed[0].Vector.ToArray(); wrong[0] = 99; changed[0] = changed[0] with { Vector = wrong };
         Assert.IsFalse(await persist(batch with { Chunks = changed }));
         CollectionAssert.AreEqual(payload, await db.QuerySingleAsync<byte[]>("SELECT Payload FROM fn_ai_knowledge_index_vector WHERE Id=@Id", new { Id = batch.OperationId }));
+        await verifyMissingManifestRecovery();
         // 已收费却缺失派生数据不能成为免费重发依据；内存中的原完整回执仍可再次持久保存。
         Assert.AreEqual(1, await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_vector WHERE Id=@Id", new { Id = batch.OperationId }));
         Assert.IsFalse(await resume()); Assert.IsTrue(await persist(batch)); Assert.IsTrue(await resume());
