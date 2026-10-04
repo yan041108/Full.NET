@@ -297,6 +297,20 @@ flowchart LR
 
 从行为提交冻结源码包，各新建 SQL Server 与 MySQL 独立档案应用。`node --throw-deprecation .tmp/f02-signing-created-apps.mjs` 完整退出 0、233.989 秒，两应用各七次随包 `pnpm run diagnose:<profile>` 的预期退出码均通过：开发缺密钥 warning/临时密钥 warning、生产缺密钥 error/临时密钥即使关闭令牌端点仍 error、合成完整配置 ok/空私钥 error/关闭端点 ok。两份档案 Provider 已核对，源码/配置及受管框架摘要保持，输出无合成 KeyId/凭据；未连接数据库、启动 API 或以合成 PEM 认证密码学有效性。结果 `.tmp/f02-signing-apps-00086ce9/result.json`，原七步教程应用继续冻结 `0957ee62`，未替换其受管框架。治理 57/57、零失败/跳过、退出 0；完成前核对任务 diff、分支及干净提交工作区。仅关闭本轮签名配置前提切片，F02 前两项与整项继续待办；未报告全量 Unit/Integration、生成应用 Worker/Native AOT 或容量通过，Capacity-not-verified 保持，未合并/发布。
 
+2026-10-05 OIDC 签名前提与标量绑定诊断（基线 `79ed168cc8f4b5feba64a1b4ae9a57f2c9fac93a`，快照 `f02-identity-signing-structure-20261005`，行为提交 `71a5897198ca98a23c5811c4a8cedd3ebc89744d`）：OIDC 默认关闭，启用后使用独立活动签名配置，JWT 密钥与临时签名不能替代；补齐开发缺失 warning、生产缺失 error、独立临时签名准入、KeyId 精确拼写、公私钥完整性及布尔绑定错误诊断。仍只读、不生成或回显密钥，不认证 PEM、Issuer、客户端、加密选项或完整 OIDC 启动；没有改变 Identity 运行时、授权或数据库行为。
+
+先前把 JSON 空签名字典/空条目等同于手工构造 Options=null 的假设被真实 ConfigurationBuilder 与 Validator 否定，纠正预期后保留 16 个绑定对照；这轮初始 12 个失败不计为产品缺陷 RED。OIDC 有效 RED 为 65 项中 13 失败/52 通过，失败均为缺少诊断项。继续核对标量 KeyId 时另建 8 项：真实配置提供程序把 JSON 布尔值转换为 `True/False`，CLI 使用小写原文，导致大小写敏感匹配与运行时相反；真实绑定断言通过、8 项诊断断言全部失败。将标量文本转换改为与配置提供程序一致后 8/8 通过。最终该签名测试类共 85 项，涵盖四层来源、拼写覆盖、生产忽略开发秘密、关闭边界、null 集合、只读与脱敏。
+
+Windows x64、Node 24.12.0、pnpm 10.26.0、.NET SDK 10.0.401/运行时 10.0.12、DOTNET_PROCESSOR_COUNT=2：`pnpm test:dotnet:unit -- --selection code-generation-realtime` 1298/1298、零失败/跳过、退出 0，Release 构建 14.95 秒、0 警告/0 错误，测试 189.067 秒；日志 `.tmp/f02-oidc-signing-unit-final.log`。不替代全量 Unit。
+
+上一 SHA `79ed168c` 的 ci/template-created-app-real-stack 为 456 项中 455 通过/1 失败，失败在模板打包用例预期 Production 诊断返回 0，却只配置数据库与常见秘密、遗漏签名准入；同 SHA 的 API/Worker Native 工作流成功。本地以已冻结应用复现签发启用且缺密钥退出 1、关闭签发退出 0。打包测试现清除继承的 Identity 环境覆盖，显式关闭此连接/秘密矩阵无关的 JWT/OIDC；另验证重新启用 JWT 后缺密钥仍退出 1，不放宽产品检查。行为提交冻结包执行 `node --throw-deprecation --test --test-concurrency=1 --test-reporter=tap tests/templates/packaged-app.test.mjs`，完整用例 1/1、零失败/跳过、退出 0，总计 935.756 秒，包含 Minimal 诊断、CRUD/客户端/Vue 接线与构建、其他三个预设 API/Worker/Migrator 构建。失败原始日志 `.tmp/f02-79ed-ci-failed.log`，本地打包日志 `.tmp/f02-oidc-packaged-app.log`；不把本地 1 项外推为当前 SHA 全部 Actions 已通过。
+
+从同一行为提交各新建 SQL Server/MySQL 独立 Minimal 档案应用，`node --throw-deprecation .tmp/f02-oidc-created-apps.mjs` 退出 0、547.902 秒。每份随包 CLI 11 次，共 22 次预期退出码通过：开发/生产缺签名、JWT 临时签名不能替代、开发/生产 OIDC 临时签名、合成完整配置、活动 KeyId 大小写、关闭 OIDC、非法布尔开关，以及环境 JSON 的布尔 KeyId 正反例。每次诊断源码/配置摘要不变，受管框架摘要保持，输出无合成 KeyId/凭据；结果 `.tmp/f02-oidc-apps-71a58971/result.json`。未连接数据库、启动 API 或认证合成 PEM 的密码学有效性，旧七步教程应用继续冻结 `0957ee62`。
+
+最终标量修正后的双库影响集仍为完整 CodeGeneration 41 项。与模板编译并行的一轮 37 通过/4 失败，失败全部在 `ModuleIntegrationCompilationTests` 扫描全局临时目录 `fullnet-codegen-module-build-*` 的清理断言，受到另一进程创建/删除目录影响；编译与其余断言通过。失败日志/TRX 保留 `.tmp/f02-oidc-signing-integration-concurrent.*`，不计通过。改用本进程独立 TEMP/TMP 目录、`FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-identity-signing-structure-20261005`，新 SQL Server 2022 CU14/MySQL 8.0.46 临时容器完整 41/41、零失败/跳过、退出 0，TRX 同样确认 41 executed/passed、0 failed/notExecuted；Release 构建 69.79 秒、0 警告/0 错误，测试 550.272 秒。日志/独立 TRX 为 `.tmp/f02-oidc-signing-integration-isolated.*`；未删改目录断言、未缩小影响集。治理 57/57、零失败/跳过、退出 0；交付前核对任务 diff、分支与工作区。
+
+仅收口本轮 OIDC 签名前提与标量一致性切片；完整运行时配置与只读诊断前两项继续待办，F02 整项未关闭。生成应用 Worker 运行、Native AOT、全量 Unit/Integration 与容量未据此通过，Capacity-not-verified 保持，未合并/发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
