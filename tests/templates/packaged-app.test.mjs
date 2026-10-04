@@ -16,6 +16,7 @@ import { verifyApplicationCrudHostWiring } from './support/application-crud-host
 import { verifyApplicationCrudRuntime } from './support/application-crud-runtime.mjs';
 import { verifyApplicationCrudAuthorization } from './support/application-crud-authorization.mjs';
 import { verifyApplicationCrudSchemaSourceUpgrade } from './support/application-crud-schema-source-upgrade.mjs';
+import { runPnpm } from './support/pnpm-process.mjs';
 
 const skipBundleIntegration = areBundleInputsClean()
   ? false
@@ -619,14 +620,13 @@ test('application template package includes framework sources and root manifest'
     verifyApplicationCrudAuthorization(appRoot);
     verifyApplicationCrudRuntime(appRoot);
     verifyManagedFiles();
-    const pnpm = 'pnpm';
-    const install = spawnSync(pnpm, [
+    const install = runPnpm([
       'install', '--filter', '@fullnet/admin...', '--frozen-lockfile', '--ignore-scripts',
-    ], { cwd: appRoot, encoding: 'utf8', timeout: 180_000, shell: process.platform === 'win32' });
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 180_000, windowsHide: true });
     assert.equal(install.status, 0, install.stderr || install.stdout || install.error?.message);
-    const frontendBuild = spawnSync(pnpm, [
+    const frontendBuild = runPnpm([
       '--filter', '@fullnet/admin', 'build',
-    ], { cwd: appRoot, encoding: 'utf8', timeout: 180_000, shell: process.platform === 'win32' });
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 180_000, windowsHide: true });
     assert.equal(frontendBuild.status, 0, frontendBuild.stderr || frontendBuild.stdout || frontendBuild.error?.message);
 
     verifyApplicationCrudSchemaSourceUpgrade(appRoot);

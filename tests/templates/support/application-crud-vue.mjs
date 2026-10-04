@@ -3,6 +3,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { CRUD_ARTIFACTS } from './application-crud-generation.mjs';
+import { runPnpm } from './pnpm-process.mjs';
 
 const generatedNames = ['guards.generated.ts', 'index.generated.ts', 'models.generated.ts', 'operations.generated.ts'];
 const vueSources = new Map([
@@ -149,8 +150,10 @@ export function verifyApplicationCrudVue(appRoot, {
     ...[...vueSources.values()].map((path) => join(appRoot, path))];
   const snapshot = () => new Map(protectedPaths.map((path) => [path, readFileSync(path)]));
   const execute = (stage, command, args, options = {}) => {
-    const result = run(command, args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000,
-      windowsHide: true, shell: process.platform === 'win32' && command === 'pnpm', ...options });
+    const processOptions = { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true, ...options };
+    const result = command === 'pnpm'
+      ? runPnpm(args, processOptions, run)
+      : run(command, args, { ...processOptions, shell: false });
     writeFileSync(join(reportDirectory, stage + '.json'), JSON.stringify({ status: result.status,
       error: result.error?.message, stdout: result.stdout, stderr: result.stderr }, null, 2));
     assert.equal(result.error, undefined, stage + ' process failed');
