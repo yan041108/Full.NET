@@ -167,7 +167,28 @@ public sealed class AiModule : IFullNetModule
     /// <summary>只在 Worker 注册领取循环；Provider 由 Composition 在 Worker Profile 装配。</summary>
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+        // 后台原会话授权也按目录过滤精确权限，不能依赖 API 入口补齐 AI 权限定义。
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationCatalogContributor, AiAuthorizationContributor>());
         RegisterKnowledgeFileReferences(services);
+#if FULLNET_AOT_COMPILE
+        Persistence.AiBudgetRowReaders.Register();
+#endif
+        services.AddOptions<Knowledge.AiKnowledgeIndexWorkerOptions>()
+            .BindConfiguration(Knowledge.AiKnowledgeIndexWorkerOptions.SectionName)
+            .Validate(options => options.BatchSize is >= 1 and <= 32, "BatchSize must be between 1 and 32.")
+            .Validate(options => options.PollMilliseconds is >= 250 and <= 60000, "PollMilliseconds must be between 250 and 60000.")
+            .ValidateOnStart();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexTaskStore>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexSessionService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexBatchStore>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexBudgetService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexEmbeddingService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexVectorStore>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexTextManifestStore>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexActivationStore>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexPersistenceService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexWorkerCoordinator>();
+        services.AddHostedService<Knowledge.AiKnowledgeIndexHostedProcessor>();
         services.AddOptions<AiAgentRuntimeOptions>().BindConfiguration(AiAgentRuntimeOptions.SectionName);
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();

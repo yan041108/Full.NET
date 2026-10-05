@@ -11,6 +11,16 @@ namespace Full.NET.IntegrationTests.Ai;
 public sealed class AiKnowledgeIndexEmbeddingApiMySqlTests
 {
     [TestMethod]
+    public async Task Worker_scans_and_executes_text_with_original_scopes_async()
+    {
+        var clock = new AiOperationBudgetAssertions.TestClock();
+        var controls = new AiKnowledgeIndexWorkerAssertions.Controls();
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            configureTestServices: services => { services.RemoveAll<IClock>(); services.AddSingleton<IClock>(clock); controls.Register(services); });
+        await AiKnowledgeIndexEmbeddingAssertions.VerifyAsync(factory, clock, wholeGeneration: true, worker: controls);
+    }
+
+    [TestMethod]
     public async Task Complete_text_execution_renews_lease_and_resumes_paid_batches_async()
     {
         var clock = new AiOperationBudgetAssertions.TestClock();

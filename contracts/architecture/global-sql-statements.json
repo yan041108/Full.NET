@@ -2,6 +2,22 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "statementName": "ai.knowledge_index_worker.scan.sqlserver",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiKnowledgeIndexWorkerSql.ScanSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeIndexWorkerSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Worker 只扫描 AI 自有有界任务元数据；冻结会话与所有者/租户匹配后建立独立作用域，领取和外部派发仍重验当前来源、原会话、精确权限与预算。",
+      "requiredSqlFragments": ["TOP (@BatchSize)", "binding.ActorUserId = knowledge.OwnerUserId", "binding.TenantId = knowledge.TenantId", "binding.TenantId IS NULL AND knowledge.TenantId IS NULL", "AttemptCount < 3", "LeaseExpiresAtUtc <= @Now", "ORDER BY fn_ai_knowledge_index_task.CreatedAtUtc, fn_ai_knowledge_index_task.Id"]
+    },
+    {
+      "statementName": "ai.knowledge_index_worker.scan.mysql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiKnowledgeIndexWorkerSql.ScanMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeIndexWorkerSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Worker 只扫描 AI 自有有界任务元数据；冻结会话与所有者/租户匹配后建立独立作用域，领取和外部派发仍重验当前来源、原会话、精确权限与预算。",
+      "requiredSqlFragments": ["LIMIT @BatchSize", "binding.ActorUserId = knowledge.OwnerUserId", "binding.TenantId = knowledge.TenantId", "binding.TenantId IS NULL AND knowledge.TenantId IS NULL", "AttemptCount < 3", "LeaseExpiresAtUtc <= @Now", "ORDER BY fn_ai_knowledge_index_task.CreatedAtUtc, fn_ai_knowledge_index_task.Id"]
+    },
+    {
       "statementName": "identity.mfa_recovery_codes.consume",
       "declaration": "Full.NET.Modules.Identity.Features.ManageMfaRecoveryCodes.Persistence.MfaRecoveryCodeSql.Consume",
       "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageMfaRecoveryCodes/Persistence/MfaRecoveryCodeSql.cs",

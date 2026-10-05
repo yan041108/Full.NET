@@ -158,6 +158,20 @@ PUT 正文为 `roleIds` 与对应资源的 `version`：最多 100 个唯一非�
 
 `aiGetKnowledgeOrganizations` / `aiSetKnowledgeOrganizations` 维护知识库机构，`aiGetKnowledgeDocumentOrganizations` / `aiSetKnowledgeDocumentOrganizations` 维护文档机构。PUT 正文包含 `organizationUnitIds` 和当前资源 `version`；Host 使用空名单，401 刷新保留原始名单与版本并只重试一次。403/409 保留 ProblemDetails，由调用方处理权限或重新读取版本；生成响应守卫校验资源 UUID、机构集合及整数版本。语言和取消信号沿用统一 HTTP 客户端。
 
+## 知识文本 Worker 的内部消费边界
+
+Worker Profile 注册文本索引消费者；API Profile 不启动索引轮询。配置节为 `FullNet:Ai:KnowledgeIndexWorker`：
+
+| 配置 | 默认值 | 约束 |
+| --- | --- | --- |
+| `Enabled` | `false` | 显式开启才扫描 TXT/Markdown 队列 |
+| `BatchSize` | `4` | 每轮候选 1–32 个，按创建时间和主键排序 |
+| `PollMilliseconds` | `1000` | 未满批轮询间隔 250–60000 毫秒 |
+
+仅消费已经原子冻结原会话、所有者和租户匹配且来源/模型批准仍有效的任务；旧无会话任务不会补造身份或自动接管。每个候选在独立租户作用域竞争原有租约，再由完整文本消费者重验原会话、精确权限、Files 来源与预算。权限目录同时在 Worker 注册，普通用户的精确权限不会因后台入口而被过滤。
+
+执行拒绝或阶段故障使用当前租约保护的 `ai.knowledge.index_unavailable`，原收费和未知用量记录保留。宿主关闭取消保留运行租约供到期恢复；已有持久向量不再收费，已付费而向量缺失的操作也不能免费重发。此接入仍是内部消费边界，原会话 API 入队、公开索引 ready、真实外部联动与检索问答尚待后续切片；`pending_processing` 不因启用配置变成 ready。
+
 ## 双库与部署
 
 迁移 `240_AiKnowledgeBase.sql` 增加 `fn_ai_knowledge_base`，`241_AiKnowledgeMember.sql` 增加 `fn_ai_knowledge_member`，`242_AiKnowledgeDocument.sql` 增加 `fn_ai_knowledge_document` 与 `fn_ai_knowledge_document_member`，`243_AiKnowledgeFileVersion.sql` 增加 `fn_ai_knowledge_version` 与 `fn_ai_knowledge_import`，`244_AiKnowledgeRoleGrant.sql` 增加知识库及文档角色授予表；均有 SQL Server 与 MySQL 实现，不改写已有业务表。外键仅关联 AI 自有父记录，不向 Files、Identity 或 Tenancy 表建立外键。SQL Server 主键显式采用 UUID v7 聚集键；MySQL 使用 Binary16 网络字节序。

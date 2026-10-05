@@ -24,12 +24,13 @@ namespace Full.NET.IntegrationTests.Ai;
 /// <summary>生产双库 SQL/账本配合受控会话、Files 和模型边界；不访问云模型或伪造原生验收。</summary>
 internal static class AiKnowledgeIndexEmbeddingAssertions
 {
-    internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock, bool wholeGeneration = false, bool activateGeneration = false, bool executeGeneration = false)
+    internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock, bool wholeGeneration = false, bool activateGeneration = false, bool executeGeneration = false,
+        AiKnowledgeIndexWorkerAssertions.Controls? worker = null)
     {
         await factory.InitializeAsync();
         await using var db = AiOperationBudgetAssertions.Connection(factory);
         foreach (var tenant in new[] { false, true })
-        foreach (var scenario in wholeGeneration ? new[] { "known", "unmetered" } : new[] { "known", "lost", "zero", "revoked", "unmetered", "ambient", "settled_revoked", "settled_expired" })
+        foreach (var scenario in worker is not null ? new[] { "known", "unmetered", "denied", "lost", "shutdown" } : wholeGeneration ? new[] { "known", "unmetered" } : new[] { "known", "lost", "zero", "revoked", "unmetered", "ambient", "settled_revoked", "settled_expired" })
         {
             var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db, tenant);
             clock.UtcNow = new DateTimeOffset((DateTime)p["Now"]!, TimeSpan.Zero);
@@ -43,20 +44,41 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
             var authorization = new ControlledAuthorization(session);
             var files = new ControlledFiles((Guid)p["FileId"]!, binding.VersionId, bytes, hash);
             var provider = new ControlledFactory();
+            if (worker is not null) { worker.Authorization = authorization; worker.Files = files; worker.Model = provider; }
             if (scenario == "lost") provider.Generate = () => throw new IOException("lost response");
             if (scenario == "zero") provider.Create = () => db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET IsEnabled=0 WHERE Id=@KnowledgeBaseId", p);
             if (scenario == "revoked") provider.Generate = () => db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET Version=2 WHERE Id=@DocumentId", p);
             if (scenario == "unmetered") provider.InputTokens = null;
             AiKnowledgeIndexTextPlan? wholePlan = null;
             var task = await Use(async (tasks, _, services) => { var id = await SessionService(services, tasks).EnqueueAsync(binding, session, CancellationToken.None); return id is { } value ? await tasks.FindAsync(binding, value, CancellationToken.None) : null; }); Assert.IsNotNull(task);
-            var held = await Use((tasks, _, _) => tasks.AcquireAsync(binding, task.Id, CancellationToken.None)); Assert.IsNotNull(held); Assert.IsNotNull(held.LeaseToken);
             var generate = provider.Generate;
             provider.Generate = async () =>
             {
                 Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_text_manifest WHERE Id=@Id", new { Id = task.Id }));
                 if (generate is not null) await generate();
-                if (executeGeneration) clock.UtcNow = clock.UtcNow.AddSeconds(20);
+                if (executeGeneration || worker is not null) clock.UtcNow = clock.UtcNow.AddSeconds(20);
+                worker?.OnGenerate?.Invoke();
             };
+            if (worker is not null)
+            {
+                var legacySource = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db, false);
+                var legacyBinding = new AiKnowledgeIndexTaskBinding((Guid)legacySource["KnowledgeBaseId"]!, (Guid)legacySource["DocumentId"]!,
+                    (Guid)legacySource["VersionId"]!, 1, 1, (Guid)legacySource["OwnerUserId"]!);
+                await using (var legacyScope = factory.Services.CreateAsyncScope())
+                {
+                    legacyScope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>().SetHost();
+                    Assert.IsNotNull(await legacyScope.ServiceProvider.GetRequiredService<AiKnowledgeIndexTaskStore>().EnqueueAsync(legacyBinding, default));
+                }
+                await AiKnowledgeIndexWorkerAssertions.VerifyAsync(db, binding, task.Id, async token =>
+                {
+                    await using var scope = factory.Services.CreateAsyncScope(); var context = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>(); context.SetHost();
+                    var count = await scope.ServiceProvider.GetRequiredService<AiKnowledgeIndexWorkerCoordinator>().ProcessPendingAsync(token);
+                    Assert.IsTrue(scope.ServiceProvider.GetRequiredService<ICurrentTenant>().IsHost); return count;
+                }, worker, clock, scenario);
+                Assert.AreEqual(0L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_index_task WHERE DocumentId=@Id AND (StateKey<>'queued' OR AttemptCount<>0)", new { Id = legacyBinding.DocumentId }));
+                continue;
+            }
+            var held = await Use((tasks, _, _) => tasks.AcquireAsync(binding, task.Id, CancellationToken.None)); Assert.IsNotNull(held); Assert.IsNotNull(held.LeaseToken);
             if (executeGeneration)
             {
                 if (scenario == "known")
@@ -246,13 +268,14 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
     internal sealed class ControlledAuthorization(SessionBindingSnapshot expected) : IBackgroundSessionAuthorization
     {
         internal bool Denied;
+        internal Guid? ExpectedTenantId => expected.TenantId;
         public Task<AuthorizedSessionActor?> AuthorizeAsync(SessionBindingSnapshot binding, string permissionCode, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested(); Assert.AreEqual(expected, binding);
             return Task.FromResult<AuthorizedSessionActor?>(Denied ? null : new(binding.UserId, binding.TenantId, binding.SessionId));
         }
     }
-    private sealed class ControlledFiles(Guid expectedFile, Guid expectedVersion, byte[] bytes, string hash) : IHostFileReferenceReader, IHostFileContentReader, ITenantResourceFileStore
+    internal sealed class ControlledFiles(Guid expectedFile, Guid expectedVersion, byte[] bytes, string hash) : IHostFileReferenceReader, IHostFileContentReader, ITenantResourceFileStore
     {
         internal int Opens; internal bool ThrowOnOpen;
         public Task<HostFileReference?> GetReadyReferenceAsync(Guid fileId, CancellationToken cancellationToken = default)
@@ -265,7 +288,7 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
         public Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task ReleaseAsync(string ownerModuleKey, Guid resourceId, Guid fileId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
-    private sealed class ControlledFactory : IAiModelClientFactory, IEmbeddingGenerator<string, Embedding<float>>
+    internal sealed class ControlledFactory : IAiModelClientFactory, IEmbeddingGenerator<string, Embedding<float>>
     {
         public string ProviderKey => "openai_compatible";
         internal int Calls; internal long? InputTokens = 7; internal Func<Task>? Create, Generate;

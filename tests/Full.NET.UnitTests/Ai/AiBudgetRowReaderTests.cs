@@ -8,6 +8,22 @@ namespace Full.NET.UnitTests.Ai;
 public sealed class AiBudgetRowReaderTests
 {
     [TestMethod] [DataRow(false)] [DataRow(true)]
+    public void Worker_projection_maps_original_scope_and_bounded_metadata(bool tenant)
+    {
+        using var table = new DataTable();
+        var names = new[] { "TaskId", "TenantId", "KnowledgeBaseId", "DocumentId", "VersionId", "OwnerUserId" };
+        foreach (var name in names) table.Columns.Add(name, typeof(Guid));
+        table.Columns.Add("DocumentVersion", typeof(long)); table.Columns.Add("KnowledgeBaseVersion", typeof(decimal));
+        var ids = names.Select(_ => Guid.CreateVersion7()).ToArray();
+        table.Rows.Add(ids[0], tenant ? (object)ids[1] : DBNull.Value, ids[2], ids[3], ids[4], ids[5], 2L, 3m);
+        using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
+        var row = AiBudgetRowReaders.ReadKnowledgeWorker(reader);
+        Assert.AreEqual(ids[0], row.TaskId); Assert.AreEqual(tenant ? ids[1] : (Guid?)null, row.TenantId);
+        Assert.AreEqual(ids[2], row.KnowledgeBaseId); Assert.AreEqual(ids[3], row.DocumentId); Assert.AreEqual(ids[4], row.VersionId);
+        Assert.AreEqual(ids[5], row.OwnerUserId); Assert.AreEqual(2, row.DocumentVersion); Assert.AreEqual(3, row.KnowledgeBaseVersion);
+    }
+
+    [TestMethod] [DataRow(false)] [DataRow(true)]
     public void Activation_pointer_maps_original_lease_and_frozen_receipt_json(bool mysql)
     {
         using var table = new DataTable(); var now = DateTime.UtcNow;

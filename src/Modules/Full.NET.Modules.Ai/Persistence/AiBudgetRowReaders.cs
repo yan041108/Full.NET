@@ -22,6 +22,7 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeImportRecord>(ReadKnowledgeImport);
         registrar.Register<AiKnowledgeVersionRecord>(ReadKnowledgeVersion);
         registrar.Register<AiKnowledgeIndexTaskRecord>(ReadKnowledgeIndexTask);
+        registrar.Register<AiKnowledgeIndexWorkerRecord>(ReadKnowledgeWorker);
         registrar.Register<AiKnowledgeIndexDispatchRecord>(ReadKnowledgeIndexDispatch);
         registrar.Register<AiKnowledgeIndexBatchRecord>(ReadKnowledgeIndexBatch);
         registrar.Register<AiKnowledgeIndexSessionRecord>(ReadKnowledgeIndexSession);
@@ -32,6 +33,15 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
     }
 #endif
+
+    // 后台入口只恢复作用域和来源标识，不读取会话密钥、正文或模型凭据。
+    internal static AiKnowledgeIndexWorkerRecord ReadKnowledgeWorker(DbDataReader reader) => new()
+    {
+        TaskId = reader.GetGuid(reader.GetOrdinal("TaskId")), TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        KnowledgeBaseId = reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")), DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
+        VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")), OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
+        DocumentVersion = checked((int)Integer(reader, "DocumentVersion")), KnowledgeBaseVersion = checked((int)Integer(reader, "KnowledgeBaseVersion")),
+    };
 
     // 完成指针包含原始有界 JSON 与摘要，不读取文档正文、向量或身份令牌。
     internal static AiKnowledgeIndexActivationRecord ReadKnowledgeActivation(DbDataReader reader) => new()
