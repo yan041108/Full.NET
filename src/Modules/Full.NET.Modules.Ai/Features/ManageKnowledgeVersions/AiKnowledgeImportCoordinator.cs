@@ -9,7 +9,8 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeVersions;
 
 /// <summary>日志、上传、Claim、AI 提交和 Confirm 分段执行；任何外部操作都不借用 AI 事务。</summary>
 internal sealed class AiKnowledgeImportCoordinator(AiKnowledgeImportStore store, IHostFileUploadWriter hostUploads,
-    IHostFileReferenceClaimService claims, ITenantResourceFileStore tenantFiles, ITenantResourceFileCleanup tenantCleanup)
+    IHostFileReferenceClaimService claims, ITenantResourceFileStore tenantFiles, ITenantResourceFileCleanup tenantCleanup,
+    Knowledge.AiKnowledgeIndexCleanupStore indexes)
 {
     internal async Task<Result<AiKnowledgeImportResponse>> UploadAsync(Guid knowledgeBaseId, Guid documentId, Guid actor,
         int version, Guid requestKey, string name, string type, Stream content, long? declaredBytes, CancellationToken token)
@@ -51,6 +52,8 @@ internal sealed class AiKnowledgeImportCoordinator(AiKnowledgeImportStore store,
     {
         if (await store.OwnedDocumentAsync(knowledgeBaseId, documentId, actor, true, token).ConfigureAwait(false) is null)
             return NotFound<int>();
+        // 已删除文档先有界清理索引；事务结束后再进入可独立恢复的 Files 释放。
+        await indexes.CleanupDocumentAsync(knowledgeBaseId, documentId, actor, token).ConfigureAwait(false);
         var rows = await store.CleanupRowsAsync(store.Parameters(knowledgeBaseId, documentId, actor), token).ConfigureAwait(false);
         var completed = 0;
         foreach (var row in rows)

@@ -1040,6 +1040,24 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - 规定影响集：node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-generation-execution-r05f4a --phase slice 退出 0，Ai 双 Provider 66/66，零失败/跳过（22m 26s 140ms），无新增 SQL/迁移。正式 TRX 与冻结发现的全部 UID/FQN 一致；939 个代码/矩阵/运行输入摘要未变，生产/Unit/Integration 三处 AI 程序集 SHA256 一致。pnpm test:integration:tooling 54/54、正式入口工具集 65/65、test:governance 57/57、test:naming 33/33、test:sql-safety 5/5，1172 项分片无遗漏/重复；git diff --check 通过。平台截断 1 项超长捕获文本字段，测试身份和结果完整，截断区域不作为完整运行日志。证据位于忽略目录 artifacts/r05f4a/ 及同名前缀日志。
   - 环境与未验证项：Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401、Docker SQL Server 2022 CU14/MySQL 8.0，FULLNET_TESTCONTAINERS_REUSE=0。首次构建因 Windows 提交内存接近上限失败，降低本任务并发/内存后专项构建通过；512 MiB 不足以编译 Integration，768 MiB 单节点重跑通过。AOT 后 JIT 还原首次因 NuGet 漏洞服务索引不可达失败，HTTP 200 后保留审计重试成功；失败命令不计入验收。最终环境内存余量恢复，构建单节点、2 GiB GC 限额、DOTNET_PROCESSOR_COUNT=2；历史复用测试数据库保持停止且数据保留。只完成内部持租约消费者，尚未接入 Hosted 轮询领取/生产 DI、公开 ready、真实后台/云计量链路、检索、完整 Host/Worker Native 发布运行或容量实测。完整 RAG 保持 Planned，Capacity-not-verified 保持，下一项继续 Worker 领取与宿主接入。
 
+- [x] R05f4f：删除后的派生索引有界清理与手动恢复（main，基线 26dd7afa；快照 ai-knowledge-index-cleanup-r05f4f）。
+  - 交付边界：复用文档 DELETE 提交后的清理和 POST imports/cleanup；每次最多处理 25 个存在派生数据或可运行状态的索引任务。后台扫描、重复 DELETE 响应语义留待下一切片；本项重复清理幂等。不新增端点、权限、迁移或跨模块 SQL。
+  - 数据归属与一致性：AI 墓碑先提交，读路径立即拒绝；新 Knowledge/AiKnowledgeIndexCleanupStore 与 Persistence/AiKnowledgeIndexCleanupSql 仅处理 AI 表。每个任务独立短事务，锁定查询核对已删除且当前所有者/可信租户的任务，撤销 queued/running 租约，再删除活动指针、向量和清单；保留任务、原会话、批次和预算账本。持有相同任务锁的旧写入先完成或被取消状态拒绝，不能复活清理后的载荷。异常回滚当前任务，已完成任务不重做。
+  - 跨模块边界：ManageKnowledgeVersions/AiKnowledgeImportCoordinator 在 AI 清理事务全部退出后，继续既有 Files Contract 释放；复用持久 cleanup_pending 意图、五分钟租约及幂等版本键，释放失败或响应丢失可在新请求恢复。最终一致，无跨模块本地事务；不创建远程适配或新事件。
+  - [x] RED：新增 AiKnowledgeIndexCleanupApiAssertions 和双库包装，真实生产代次生成后 DELETE，断言派生数据为零、账本不变；旧实现将因派生数据残留失败。真实 SQL/锁与 Files 边界无法由 Unit 证明，复用 FullNetApiFactory 和现有生产生成夹具，非 messaging-heavy。
+  - [x] GREEN：实现成对静态 SQL、Scoped 注册及协调器接线；扩展覆盖 Host/Tenant、非所有者/跨范围/缺少权限、存活文档不清理、有界多次恢复、事务中断回滚、文件释放失败、残留租约、并发清理和旧 Worker 拒绝写入。现有 imports/cleanup 的整数仍只表示文件补偿完成数。
+  - [x] 验证与提交：完整 AI Unit、规定 affected slice 双库集、相关架构、API AOT 分析、矩阵/命名/治理检查；只读安全审查。按实际结果更新本计划、能力状态与运维说明，逐项提交 main；完整 Native、云模型及容量仍不由本项推导。
+
+  R05f4f 本地证据（2026-10-06，删除索引清理与手动恢复）：
+  - 基线 main / 26dd7afa63c00f7a4cf613a9d5229512402465b8，快照 ai-knowledge-index-cleanup-r05f4f。有效 RED：真实 MySQL 生产索引生成后 DELETE 返回 204，派生数据预期 0、实际残留 3 类，1/1 失败；原始日志及 TRX 保留在 artifacts/r05f4f/red。首轮与事务交叠补充版 MySQL 各 1/1 通过，后续数据库锁等待观测纳入最终双库验收。
+  - 实现：复用 DELETE 提交后及 imports/cleanup 的所有者恢复流程，每次最多 25 个索引任务；任务锁与现有写入锁互斥，撤销可运行租约后清除活动指针、向量、文本清单。仅 AI 短事务，终态任务/会话/批次/费用凭据保留；Files 释放继续使用既有持久意图和版本幂等键，事务外执行。没有新端点、权限或迁移；后台扫描与重复 DELETE 幂等语义仍属下一切片。
+  - 最终双库专项 2/2（2m 42s 636ms），验证 Host/Tenant、逐入口权限/非所有者/同一所有者跨范围、存活文档不清理、禁用目录恢复、删除中断回滚及写入后取消回滚、外层事务拒绝、Files 失败后新请求恢复、有效/遗留过期导入租约、25 项上限及两请求同时读到同一候选后的竞争。实际生产生成链路创建已知/未知用量账本，清理前后完整费用与会话/批次不变；Files/模型使用受控边界，未调用真实云模型。
+  - 并发证据：捕获生产执行器实际向量 SQL/参数，模拟持久运行态，分别在旧写入已持锁和清理已持锁时启动竞争。SQL Server dm_exec_requests 与 MySQL performance_schema.data_lock_waits 按隔离数据库确认真实锁等待后放行；旧写入先提交会被清除，清理先提交则旧 SQL 影响零行，最终无载荷且账本不变。该验证是受控持久态及事务竞争，不代表真实杀进程/断电实验。
+  - 独立只读复核未发现 Critical/Important；补充候选双读屏障、真实锁等待观测、异常收尾、禁用目录及同一所有者反向范围对照后复核通过。最终 AI Unit 1196/1196（34s 021ms）、规定 AI 双库影响集 76/76（27m 03s 381ms），零失败/跳过；AI Architecture 7/7、AOT Architecture 73/73、SQL 目录/Worker/Host Profile 11/11。API/Worker AOT 分析与最终 Release 构建零警告/错误。
+  - 命令入口：pwsh -NoLogo -NoProfile -File artifacts/r05f4f/preflight.ps1；pwsh -NoLogo -NoProfile -File artifacts/r05f4f/finish.ps1。最终官方入口为 node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-index-cleanup-r05f4f --phase slice；1119 个源码/矩阵/运行输入摘要保持不变，生产/Unit/Integration AI 程序集和 Worker 项目依赖闭包一致，TRX 与发现 UID/FQN 精确匹配。
+  - 全 Unit/Integration 仅核对发现数 4665/1237；主分片 1182 项无遗漏或重复，未宣称全项目全量执行。test:naming、test:sql-safety、test:governance、test:integration:tooling、test:integration:partitions 与本任务 git diff --check 通过。原始证据位于忽略目录 artifacts/r05f4f/ 与同名前缀日志。最终 TRX 的 3 项捕获文本字段触发长度截断，测试身份和结果完整；截断字段不能作为完整过程日志证据。
+  - 环境沿用 Windows i7-12700H、64 GB、SDK 10.0.401、Docker SQL Server 2022 CU14/MySQL 8.0，禁用 Testcontainers 复用；单节点构建、2 GiB GC 上限、2 个处理器。完整 Host/Worker Native 发布运行、真实云模型/外部联动与容量未验证；清理后台自动恢复、PDF Worker、检索问答及 Vue 等后续能力保持开放。R05 未整体完成，完整 RAG 保持 Planned、Capacity-not-verified。
+
 - [x] R05f4e：原会话失败任务 HTTP 重试（依据当前继续开发授权，在 main 执行）。
   - [x] 在 `Features/ManageKnowledgeIndexing/Endpoint.cs` 与新 `AiKnowledgeIndexRetryService.cs` 实现 POST 精确版本 `/index/{taskId}/retry`；无请求体和查询参数，复用原会话 HTTP 绑定与 TaskId/VersionId 响应。新增 `AiKnowledgeDocumentPermissions.IndexRetry` 精确权限，叠加原入队五权限，202 仅确认已接受恢复。
   - [x] 服务器读取当前所有者、来源和模型批准；以既有静态会话投影核对完整原会话，旧无绑定任务/新登录/不同任务拒绝 409。新增 `Persistence/AiKnowledgeIndexRetrySql.cs` 双库条件更新，只有 failed 或第三次运行租约到期可回 queued；原会话行、当前来源及批准在同一 SQL 判定，不重置活动租约、完成态或取消态。重复 queued 请求返回 409。

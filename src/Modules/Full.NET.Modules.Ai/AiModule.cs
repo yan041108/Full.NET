@@ -100,6 +100,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Features.ManageKnowledgeDocuments.AiKnowledgeDocumentService>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportStore>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportCoordinator>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexCleanupStore>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeVersionReader>();
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexEnqueueService>();
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexRetryService>();
