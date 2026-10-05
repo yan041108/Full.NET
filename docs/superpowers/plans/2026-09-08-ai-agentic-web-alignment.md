@@ -1040,6 +1040,22 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - 规定影响集：node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-generation-execution-r05f4a --phase slice 退出 0，Ai 双 Provider 66/66，零失败/跳过（22m 26s 140ms），无新增 SQL/迁移。正式 TRX 与冻结发现的全部 UID/FQN 一致；939 个代码/矩阵/运行输入摘要未变，生产/Unit/Integration 三处 AI 程序集 SHA256 一致。pnpm test:integration:tooling 54/54、正式入口工具集 65/65、test:governance 57/57、test:naming 33/33、test:sql-safety 5/5，1172 项分片无遗漏/重复；git diff --check 通过。平台截断 1 项超长捕获文本字段，测试身份和结果完整，截断区域不作为完整运行日志。证据位于忽略目录 artifacts/r05f4a/ 及同名前缀日志。
   - 环境与未验证项：Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401、Docker SQL Server 2022 CU14/MySQL 8.0，FULLNET_TESTCONTAINERS_REUSE=0。首次构建因 Windows 提交内存接近上限失败，降低本任务并发/内存后专项构建通过；512 MiB 不足以编译 Integration，768 MiB 单节点重跑通过。AOT 后 JIT 还原首次因 NuGet 漏洞服务索引不可达失败，HTTP 200 后保留审计重试成功；失败命令不计入验收。最终环境内存余量恢复，构建单节点、2 GiB GC 限额、DOTNET_PROCESSOR_COUNT=2；历史复用测试数据库保持停止且数据保留。只完成内部持租约消费者，尚未接入 Hosted 轮询领取/生产 DI、公开 ready、真实后台/云计量链路、检索、完整 Host/Worker Native 发布运行或容量实测。完整 RAG 保持 Planned，Capacity-not-verified 保持，下一项继续 Worker 领取与宿主接入。
 
+- [x] R05f4e：原会话失败任务 HTTP 重试（依据当前继续开发授权，在 main 执行）。
+  - [x] 在 `Features/ManageKnowledgeIndexing/Endpoint.cs` 与新 `AiKnowledgeIndexRetryService.cs` 实现 POST 精确版本 `/index/{taskId}/retry`；无请求体和查询参数，复用原会话 HTTP 绑定与 TaskId/VersionId 响应。新增 `AiKnowledgeDocumentPermissions.IndexRetry` 精确权限，叠加原入队五权限，202 仅确认已接受恢复。
+  - [x] 服务器读取当前所有者、来源和模型批准；以既有静态会话投影核对完整原会话，旧无绑定任务/新登录/不同任务拒绝 409。新增 `Persistence/AiKnowledgeIndexRetrySql.cs` 双库条件更新，只有 failed 或第三次运行租约到期可回 queued；原会话行、当前来源及批准在同一 SQL 判定，不重置活动租约、完成态或取消态。重复 queued 请求返回 409。
+  - [x] 重试只改任务状态/尝试/租约/安全失败码；清单、向量、批次、预算和原会话保持不变，Worker 沿既有消费与计费保护执行。权限 Port 在事务外，等待后复核取消/可信范围/来源，基础设施异常传播；HTTP 不读取 Files 或调用模型。
+  - [x] 先运行真实 MySQL POST 缺失入口 RED，再添加 Unit 原会话/逐权限/等待后变化/失败传播及双库 HTTP 恢复状态、重放、活动租约、跨范围、删除/批准变化、账本保留断言。复用现有 API、身份、迁移夹具；实际 SQL 条件更新与授权需要双库，非 messaging-heavy。
+  - [x] 使用任务快照 `ai-knowledge-index-retry-r05f4e` 执行规定 affected slice、完整 AI Unit、相关 Architecture 和 API/Worker AOT 分析；独立安全复核后同步运维与能力文档，核对 diff 并提交。派生索引删除、客户端/Vue 以及完整 Native/真实云模型仍分别待交付或验证。
+
+  R05f4e 本地证据（2026-10-06，原会话失败索引重试）：
+  - 基线 main / 9d98fb89fe00daed1974d1d981b4cfd7216811b3，快照 ai-knowledge-index-retry-r05f4e。有效 RED：真实 MySQL 原会话 POST 预期 202、实际 404（1/1 失败）。首轮专项 Unit 42/42；首轮 MySQL 因测试新登录后继续使用已撤销旧令牌，预期 409/实际 401，沿既有单会话策略定位并修正夹具、显式保留旧 token 401 断言，生产认证未放宽，此项不计业务 RED。
+  - 实现：精确任务 POST retry，独立 index_retry 加原五权限；原会话逐字段匹配、服务器当前来源/模型批准及单 SQL 恢复条件，已排队/活动租约/完成/取消均拒绝，不重绑会话或模型、不触碰收费/批次/清单/向量。所有权限 Port 在 AI 事务外，等待后复核范围/取消/权限/来源；202 只确认接受恢复。
+  - 双库专项 2/2（2m 49s 042ms），覆盖 Host/Tenant、逐权限、不同任务/新登录、并发只恢复一次、旧租约拒绝写回、已知/未知用量完整付费批次复用、已付费载荷缺失不免费补发、过期耗尽尝试、来源删除/批准漂移及格式拒绝。最终影响集额外包含缺失原会话行的独立健康对照。真实 Identity、AI SQL、预算和持久化链路，Files/模型受控；未使用真实云模型。
+  - 独立只读安全复核未发现 Critical/Important，补齐两项测试建议：新增 SQL 并发恢复与旧 token 保护、缺失绑定独立对照；审查不替代执行。最终完整 AI Unit 1196/1196（35s 873ms），规定 Ai 双库影响集 74/74（24m 49s 178ms），零失败/跳过。AI Architecture 7/7、AOT Architecture 73/73、SQL 目录/Worker/Host Profile 11/11；API/Worker AOT 分析、最终 Release 构建及 Worker JIT 重建均零警告/错误。
+  - 命令入口：pwsh -NoLogo -NoProfile -File artifacts/r05f4e/preflight.ps1；pwsh -NoLogo -NoProfile -File artifacts/r05f4e/close.ps1。后者运行完整 AI Unit、架构选择以及 node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-index-retry-r05f4e --phase slice，各入口退出 0。1122 个源码/矩阵/运行输入摘要未变，生产/Unit/Integration AI 程序集及 Worker 项目依赖闭包一致；TRX 与发现 UID/FQN 精确匹配。
+  - 发现与门禁：全 Unit 4665、Integration 裸发现 1235，仅核对发现数；主分片 1180 项无遗漏/重复，不宣称全项目测试全部执行。正式入口工具集 65/65，test:integration:tooling 54/54、test:naming 33/33、test:sql-safety 5/5、test:governance 57/57、test:integration:partitions 与 git diff --check 通过；未新增迁移。TRX 对 3 项结果中的超长捕获文本字段作截断，用例身份与结果完整，截断区域不作为完整日志证据。原始证据保留在忽略目录 artifacts/r05f4e/ 及同名前缀日志。
+  - 环境与边界：Windows i7-12700H、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0，FULLNET_TESTCONTAINERS_REUSE=0，单节点构建、2 GiB GC 上限、2 个处理器。完整 Host/Worker Native 发布运行、真实云模型/外部联动、容量尚未执行；派生索引清理、PDF Worker、共享索引客户端/Vue 与检索问答仍待后续交付。完整 RAG 保持 Planned、Capacity-not-verified，R05 未整体完成。
+
 - [x] R05f4d：公开索引状态与当前 ready 证明。
   - [x] 新增 `AiKnowledgeIndexStatusResponse` 与 `ai.knowledge_documents.index_read`，在 `Features/ManageKnowledgeIndexing` 增加 GET 精确版本 `/index`（OperationId `aiGetKnowledgeIndexStatus`），响应仅 versionId/taskId/state/failureCode；无请求体或查询覆盖，不返回执行会话、租约或正文。原版本列表 pending_processing 契约保持兼容。
   - [x] 新增 `Persistence/AiKnowledgeIndexStatusRecord.cs` 与 `AiKnowledgeIndexStatusSql.cs`：服务器读取当前范围、完整两层资源授权、最新任务及来源/模型状态。未入队为 pending_processing，排队/运行映射 queued/processing，失败仅返回稳定通用机器码；删除墓碑仅所有者可见，文件清理或派生索引未清除时为 deleting，全部清理后为 deleted。只读查询不新增迁移。

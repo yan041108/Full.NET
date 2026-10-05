@@ -182,7 +182,7 @@ internal static class AiKnowledgeIndexStatusApiAssertions
         await Expect(client, Path(tenantRow!), HttpStatusCode.NotFound);
     }
 
-    private static AiKnowledgeIndexPersistenceService Generation(IServiceProvider services, AiKnowledgeIndexTaskStore tasks,
+    internal static AiKnowledgeIndexPersistenceService Generation(IServiceProvider services, AiKnowledgeIndexTaskStore tasks,
         AiKnowledgeIndexEmbeddingAssertions.ControlledFiles files, AiKnowledgeIndexEmbeddingAssertions.ControlledFactory provider)
     {
         var query = services.GetRequiredService<IQueryExecutor>(); var command = services.GetRequiredService<ICommandExecutor>();

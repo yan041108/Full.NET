@@ -178,6 +178,16 @@ PUT 正文为 `roleIds` 与对应资源的 `version`：最多 100 个唯一非�
 
 删除后仅所有者能读取精确版本墓碑：仍有文件清理待办或派生指针/清单/向量时为 `deleting`，这些内容清理完后为 `deleted`。任务与收费审计历史可以保留。该入口不执行清理，后台派生索引清理仍待后续交付；既有版本列表的 `pending_processing` 字段保持兼容。
 
+## 原会话失败索引重试
+
+`POST /api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/versions/{versionId}/index/{taskId}/retry` 的 OperationId 为 `aiRetryKnowledgeIndex`，不接受请求体或查询字段。调用者必须是原任务冻结的 Refresh/OIDC 会话，具备入队的五项权限及独立的 `ai.knowledge_documents.index_retry`；普通角色须显式授予该权限。新登录即使属于同一所有者，也不能接管旧任务。API Key、签名身份与旧无会话任务不能恢复。
+
+只接受仍为最新文本来源、当前所有者与模型批准有效的任务；`failed` 或第三次运行租约已经到期可恢复为 `queued`，重置尝试计数、失败码和租约。排队中、活动租约、尚可自动恢复的低于三次过期运行、完成或取消状态返回 409 `ai.knowledge.index_conflict`；请求重复到达时不会重置已排队或运行的任务。权限不足返回 403，不可见或失效来源返回 404，未启用的 PDF 格式返回 422。
+
+202 只含 `taskId`、`versionId`，确认本次恢复已接受；Worker 可能已经领取，不保证响应时仍排队。响应前撤权或来源变化仍拒绝成功响应，已提交的恢复不回滚；调用方应重新读取状态，不能无条件循环重试 409。
+
+恢复保留原会话、模型绑定、清单、向量、批次与预算账本。已存完整付费批次由 Worker 复用；已付费但向量丢失、未知用量或其他不可安全恢复状态不会因人工重试获得免费模型调用。原会话到期/撤销后不能借新登录恢复，应等待后续明确代次重建能力；本端点不承诺修复所有失败原因，也不执行派生索引删除。
+
 ## 知识文本 Worker 的内部消费边界
 
 Worker Profile 注册文本索引消费者；API Profile 不启动索引轮询。配置节为 `FullNet:Ai:KnowledgeIndexWorker`：
@@ -200,4 +210,4 @@ Worker Profile 注册文本索引消费者；API Profile 不启动索引轮询�
 
 迁移 `245_AiKnowledgeOrganizationGrant.sql` 增加 AI 自有知识库及文档机构授予表，只有 AI 父资源外键，不向 Organization 建外键；同样成对实现、支持恢复重放且不播种默认授权。
 
-验收证据与任务状态统一记录在[活动开发计划 R04/R05](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。R04 的目录、授权、文件引用与导入恢复已完成收尾验收，共享生成客户端已交付；R05 已接入文本 Worker、原会话 HTTP 入队及公开索引状态，分项验收见活动计划；检索问答及 Vue 页面入口仍待后续切片，完整原生运行和容量尚未验证。完整知识库/RAG、模型质量与容量状态不能由这些局部验收推导。
+验收证据与任务状态统一记录在[活动开发计划 R04/R05](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。R04 的目录、授权、文件引用与导入恢复已完成收尾验收，共享生成客户端已交付；R05 已接入文本 Worker、原会话 HTTP 入队、公开索引状态及原会话失败重试，分项验收见活动计划；检索问答及 Vue 页面入口仍待后续切片，完整原生运行和容量尚未验证。完整知识库/RAG、模型质量与容量状态不能由这些局部验收推导。
