@@ -413,6 +413,16 @@ Windows x64、12th Gen Intel(R) Core(TM) i7-12700H（14 核/20 逻辑处理器�
 
 读取精确基线 `5748b29d` 主 CI `37318231692` 与 Worker Native `37318231667` 均终态 success，上一轮静态解析的架构修复得到远端确认；状态证据 `.tmp/f02-identity-security-baseline-actions.json`。基线结果不外推到本轮源码。本轮收口上述三个安全开关的绑定及 Production 远程管理配置前提，其他 Identity Options、Provider、运行配置、应用自有模块图与完整 F02 仍待办；F02 前两项及整项不勾选，既有 CRUD/教程子项保持。没有重跑全量 Unit/Integration/Architecture、完整打包、应用 Worker、Native AOT、完整登录/远程授权/TOTP 或容量验收，Capacity-not-verified 保持；未合并、未发布。
 
+2026-10-05 Identity 来源集合绑定检查（基线 `af33a8845cd173fd13753967ff6ee579ae03d761`，快照 `f02-identity-origins-diagnose-20261005`，回归及分发源码冻结 `9ec6f759b78e29be049ad92e5fb0133572699d15`）：沿 IdentityOptionsValidator 的 AllowedOrigins 非 null 条件检查配置与后续 CORS、AllowedOriginValidator、OAuthReturnUrlValidator。真实 Configuration Binder 对照推翻“JSON null/空对象会令初始化数组为 null”的初始假设：本轮全部形状保留有效集合，空父节点保留低层子项；CORS 会过滤空白项，来源校验忽略不能规范化的项。没有复现生产缺陷，因此没有增加错误诊断、URL 准入、CORS 策略或生产行为变化。最初探索运行 23 项失败均因期待未实现的拟议机器码，并非宿主校验失败；保留探索日志 `red.log`，不计为缺陷 RED 或修复证据。
+
+保留 23 项真实 Binder/IdentityOptionsValidator 与实际 CLI 的不误拒绝回归：缺省、JSON null/空对象/空数组、空/非空标量、布尔/数字、null 数组项、正常字符串项、命名子键及对象数组项，环境 JSON/Development User Secrets/环境变量覆盖，空父节点保留低层集合及环境子键补充空节点、Production 开发秘密不误报。原有 DIAG_IDENTITY_TOKEN_ENDPOINTS_DISABLED 及退出 0 保持；数组形状与保留/补充子项另核对实际绑定内容，输出不回显标识/秘密，每次配置字节保持。最终 `pnpm test:dotnet:unit -- --filter FullyQualifiedName~Identity_origins_ --minimum-expected-tests 23` 23/23、零失败/跳过，Release 00:00:53.31、零警告/错误，测试 5s 041ms。本轮只有该回归文件及对应矩阵最低发现数变化，未改 CLI 或任何生产源码。
+
+Windows x64、12th Gen Intel(R) Core(TM) i7-12700H（14 核/20 逻辑处理器、约 63.75 GiB 内存）、SDK 10.0.401、Node v24.12.0/pnpm 10.26.0；DOTNET_PROCESSOR_COUNT=1、Unit Workers=1。`pnpm test:dotnet:unit -- --selection code-generation-realtime --no-build` 1864/1864、零失败/跳过、测试 5m 23s 293ms。矩阵按实际新增 23 项同步；`pnpm test:slice -- --snapshot f02-identity-origins-diagnose-20261005` 规划并执行 integration-matrix，工具链 65/65、治理 57/57，零失败/跳过；1118 项只为分片发现核对、无遗漏重复，不计双库业务执行。本轮未要求或执行双库业务集、Docker、完整 Unit/Integration/Architecture、Native AOT 或真实 CORS/登录/授权；既有双库 41 项保留上一轮证据，不作为本轮执行。
+
+冻结同一回归提交的源码包各新建 Minimal SQL Server/MySQL 独立应用，实际随包 `pnpm run diagnose:<profile>` 各 10 场景、共 20 次预期退出 0，运行器退出 0、156.850 秒。覆盖开发/生产默认、null/空对象/空数组集合、标量、null 与对象数组项、命名子键和环境子项补充；SDK/档案/官方静态依赖正常，源码/配置每次 SHA256 保持、全部受管文件摘要最终一致，输出脱敏；结果 `.tmp/ao-9ec6f759/result.json`。只运行 CLI，没有连接应用数据库、启动 API/Worker、请求来源地址或验收实际 CORS。其他运行配置与完整 F02 仍待办，前两项及整项不勾选，既有 CRUD/教程子项保持；Capacity-not-verified 保持，未合并、未发布。日志 `.tmp/f02-identity-origins-{final-green,unit,slice}.log`、`machine.json`。
+
+读取精确基线 Actions：api-native-aot-linux `37323461103` in_progress；ci `37323461068` completed / success；worker-native-aot-linux `37323461041` completed / success；证据 `.tmp/f02-identity-origins-baseline-actions.json`，仅对应基线提交，不外推为当前源码的 CI 结论。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
