@@ -470,13 +470,12 @@ internal static partial class DiagnoseCommand
                         StringComparison.OrdinalIgnoreCase))
                 {
                     var endpoint = ReadStandaloneConfigurationValue(runtime, "Kestrel:Endpoints:Http:Url");
-                    if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var workerUri)
-                        || workerUri.Port != expectedPort)
+                    if (!MatchesWorkerHealthEndpoint(endpoint, expectedPort))
                     {
                         findings.Add(DiagnoseFinding.Error(
                             "DIAG_APP_PROFILE_MISMATCH",
-                            "Worker 健康端口与独立应用清单不一致。",
-                            "核对同名 Worker 的基础 appsettings.json 与 fullnet-app.json。"));
+                            "Worker 健康监听地址无效或端口与独立应用清单不一致。",
+                            "核对同名 Worker 的基础 appsettings.json 与 fullnet-app.json；监听地址须使用 HTTP/HTTPS、根路径及声明端口，支持 * 与 + 通配主机。"));
                         return;
                     }
                 }

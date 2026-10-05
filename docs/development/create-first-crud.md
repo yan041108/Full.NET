@@ -48,6 +48,8 @@ JSON 中的非空对象或数组展平为子键，不会自动覆盖较低优先
 
 诊断按目标工作区的 `global.json` 解析 SDK，按当前分发基线接受 10.0.100 及更高的 10.0 SDK 功能带；SDK 选择及预览版准入由 .NET 自身解析，其他主/次版本不自动认证为兼容。版本格式无效时输出脱敏错误，合法后缀也只标注预览状态，不回显任意后缀内容。该检查不替代真实构建、工作负载或 Native AOT 工具链验收。诊断检查宿主 `appsettings.json`、独立应用清单、所选模块引用及配置占位符。基础与所选环境 appsettings JSON 均允许宿主支持的注释和尾逗号；配置根须为对象，标量展平路径按不区分大小写检查冲突，包括扁平/嵌套键与数组索引。高优先级有效值不能掩盖坏配置文件。独立应用的根、API及已声明同名Worker/Migrator的基础JSON，其模块预设和数据库Provider必须都与冻结档案一致；相关文件缺失、无效或字段类型错误会返回脱敏错误，不能由API/根配置回退掩盖。无Migrator的旧应用仍可诊断，不会自动创建宿主。User Secrets 仅在 API 项目具有有效 `UserSecretsId` 时检查直配或目标命名连接键，支持扁平与嵌套 JSON；不可读取或无效的秘密文件按未配置处理。诊断不会执行初始化、迁移或数据库连接，也不证明配置中的地址可达；它不是完整ASP.NET Core配置加载器，不认证部署环境的全部覆盖来源。
 
+独立应用声明 Worker 健康端口后，同名 Worker 的基础 `Kestrel:Endpoints:Http:Url` 还须为 HTTP/HTTPS 监听地址并匹配该端口。支持 `*` / `+` 通配主机、IPv4/IPv6、大小写方案及末尾根斜线；拒绝非 HTTP 方案、非根路径（包括被 URI 规范化的 `/./`）与查询/片段，避免把普通 URI 解析误当作监听配置通过。失败输出固定脱敏 `DIAG_APP_PROFILE_MISMATCH error`，不回显地址。此检查仅覆盖基础档案约束，不认证 TLS 证书、端口可用性、网络可达性或 Worker 环境覆盖后的完整启动。
+
 新创建应用的 `pnpm run diagnose:development` / `pnpm run diagnose:production` 先通过应用自带的 Node 入口探测目标工作区 SDK。找不到 `dotnet` 或无法选择 SDK 时输出固定 `DIAG_SDK_MISSING`；不兼容版本输出 `DIAG_SDK_INCOMPATIBLE`，均退出 1，不输出原始 SDK 错误或版本后缀，也不安装 SDK。SDK 可用后继续运行现有 .NET CLI，保留其诊断和退出码；前置成功不表示应用配置通过。探测等待上限为 30 秒，不保证整条命令或进程清理在该时间内完成，Node 前置检查也不承诺回收派生进程树。已有应用的旧脚本和手工诊断脚本不会自动替换；直接运行 `dotnet run ... diagnose` 仍须先具备可启动的 SDK。
 
 基础命名连接按宿主展平路径读取，支持扁平/嵌套键、不区分大小写的路径及合法子路径；显式空值覆盖不恢复基础凭据，非空子键不抹除同路径标量。命名凭据仍按文本判断，不把数字/布尔值计为已配置。诊断保持已有基础凭据字段类型校验；最终连接非空且非占位时，按最终 `Database:Provider` 执行离线解析，失败在 Development/Production 均报告 `DIAG_CONNECTION_INVALID error` 并退出 1。SQL Server 按真实工厂构造并立即释放未打开的 SqlConnection，MySQL 使用真实工厂策略中的 MySqlConnectionStringBuilder；保留两种驱动的重复键、别名和转义语义，不以手工分割替代解析。仅检查实际选中的连接，不检查未使用的命名连接；不会打开连接、访问数据库或输出驱动异常。成功不证明地址可达、认证、UUID 映射策略、连接池容量或完整宿主启动通过。

@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Full.NET.CodeGeneration.Cli;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
@@ -390,6 +391,30 @@ public sealed class StandaloneDiagnoseConfigurationTests
     [DataRow("nested-case", "http://localhost:5182", false)]
     [DataRow("nested-case", "credential-probe", false)]
     [DataRow("nested-case", null, false)]
+    [DataRow("flat", "ftp://localhost:5181", false)]
+    [DataRow("flat", "http://localhost:5181/credential-probe", false)]
+    [DataRow("flat", "http://localhost:5181/./", false)]
+    [DataRow("flat", "http://localhost:5181/?credential-probe", false)]
+    [DataRow("flat", "http://localhost:5181?credential-probe", false)]
+    [DataRow("flat", "http://+:5181", true)]
+    [DataRow("flat", "http://*:5181", true)]
+    [DataRow("flat", "HTTPS://[::1]:5181/", true)]
+    [DataRow("flat-case", "ftp://localhost:5181", false)]
+    [DataRow("flat-case", "http://localhost:5181/credential-probe", false)]
+    [DataRow("flat-case", "http://localhost:5181/./", false)]
+    [DataRow("flat-case", "http://localhost:5181/?credential-probe", false)]
+    [DataRow("flat-case", "http://localhost:5181?credential-probe", false)]
+    [DataRow("flat-case", "http://+:5181", true)]
+    [DataRow("flat-case", "http://*:5181", true)]
+    [DataRow("flat-case", "HTTPS://[::1]:5181/", true)]
+    [DataRow("nested-case", "ftp://localhost:5181", false)]
+    [DataRow("nested-case", "http://localhost:5181/credential-probe", false)]
+    [DataRow("nested-case", "http://localhost:5181/./", false)]
+    [DataRow("nested-case", "http://localhost:5181/?credential-probe", false)]
+    [DataRow("nested-case", "http://localhost:5181?credential-probe", false)]
+    [DataRow("nested-case", "http://+:5181", true)]
+    [DataRow("nested-case", "http://*:5181", true)]
+    [DataRow("nested-case", "HTTPS://[::1]:5181/", true)]
     public async Task Frozen_profile_worker_port_uses_flattened_endpoint(string layout, string? endpoint, bool valid)
     {
         using var fixture = new StandaloneWorkspace();
@@ -400,6 +425,15 @@ public sealed class StandaloneDiagnoseConfigurationTests
         else root[layout == "flat-case" ? key.ToUpperInvariant() : key] = JsonValue.Create(endpoint);
         var content = root.ToJsonString();
         Assert.AreEqual(endpoint, RuntimeConfiguration(content)[key]);
+        if (endpoint is not null && endpoint != "credential-probe")
+        {
+            // 使用真实监听解析器对照；URI 会误判通配主机并规范化宿主不支持的路径。
+            var binding = BindingAddress.Parse(endpoint);
+            var runtimeMatches = (binding.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase)
+                || binding.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+                && string.IsNullOrEmpty(binding.PathBase) && binding.Port == 5181;
+            Assert.AreEqual(valid, runtimeMatches);
+        }
         fixture.Write("src/Demo.Host.Worker/appsettings.json", content);
         var result = await DiagnoseAsync(fixture);
         Assert.AreEqual(valid ? 0 : 1, result.ExitCode, result.Output);
