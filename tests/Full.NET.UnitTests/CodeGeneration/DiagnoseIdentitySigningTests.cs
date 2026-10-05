@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Full.NET.CodeGeneration.Cli;
 using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using NSubstitute;
@@ -735,6 +736,190 @@ public sealed class DiagnoseIdentitySigningTests
         Assert.IsTrue(RuntimeValid(fixture.Configuration, "production"));
         await AssertDiagnostic(fixture, "production", NumericFinding(true));
     }
+
+    [TestMethod]
+    [DataRow("Issuer", "null", false)]
+    [DataRow("Issuer", "\"\"", false)]
+    [DataRow("Issuer", "\" \"", false)]
+    [DataRow("Issuer", "{}", false)]
+    [DataRow("Issuer", "[]", false)]
+    [DataRow("Issuer", "\"identity-signing-probe\"", true)]
+    [DataRow("Issuer", "42", true)]
+    [DataRow("Issuer", "false", true)]
+    [DataRow("Issuer", "[1]", true)]
+    [DataRow("Issuer", "{\"child\":1}", true)]
+    [DataRow("Audience", "null", false)]
+    [DataRow("Audience", "\"\"", false)]
+    [DataRow("Audience", "\" \"", false)]
+    [DataRow("Audience", "{}", false)]
+    [DataRow("Audience", "[]", false)]
+    [DataRow("Audience", "\"identity-signing-probe\"", true)]
+    [DataRow("Audience", "42", true)]
+    [DataRow("Audience", "false", true)]
+    [DataRow("Audience", "[1]", true)]
+    [DataRow("Audience", "{\"child\":1}", true)]
+    [DataRow("ClientId", "null", false)]
+    [DataRow("ClientId", "\"\"", false)]
+    [DataRow("ClientId", "\" \"", false)]
+    [DataRow("ClientId", "{}", false)]
+    [DataRow("ClientId", "[]", false)]
+    [DataRow("ClientId", "\"identity-signing-probe\"", true)]
+    [DataRow("ClientId", "42", true)]
+    [DataRow("ClientId", "false", true)]
+    [DataRow("ClientId", "[1]", true)]
+    [DataRow("ClientId", "{\"child\":1}", true)]
+    public async Task Identity_protocol_identifiers_follow_runtime_string_binding(string field, string value, bool valid)
+    {
+        using var fixture = new Workspace(new JsonObject { ["EnableTokenEndpoints"] = false, [field] = JsonNode.Parse(value) }.ToJsonString());
+        Assert.AreEqual(valid, RuntimeValid(fixture.Configuration, "production"));
+        await AssertDiagnostic(fixture, "production", ProtocolFinding(field, valid));
+    }
+
+    [TestMethod]
+    [DataRow("\"" + nameof(IdentitySessionLoginPolicy.AllowMultiple) + "\"", true)]
+    [DataRow("\"" + nameof(IdentitySessionLoginPolicy.SingleSession) + "\"", true)]
+    [DataRow("\"" + nameof(IdentitySessionLoginPolicy.SingleSessionPerClient) + "\"", true)]
+    [DataRow("\" singlesessionperclient \"", true)]
+    [DataRow("0", true)]
+    [DataRow("1", true)]
+    [DataRow("2", true)]
+    [DataRow("\"2\"", true)]
+    [DataRow("3", false)]
+    [DataRow("-1", false)]
+    [DataRow("2147483648", false)]
+    [DataRow("\"2147483648\"", false)]
+    [DataRow("\"session-signing-probe\"", false)]
+    [DataRow("false", false)]
+    [DataRow("\"\"", false)]
+    [DataRow("null", true)]
+    [DataRow("{}", true)]
+    [DataRow("[]", false)]
+    [DataRow("[1]", true)]
+    [DataRow("{\"child\":1}", true)]
+    [DataRow("\"#2\"", false)]
+    [DataRow("\"0x2\"", false)]
+    [DataRow("\"SingleSession, SingleSessionPerClient\"", false)]
+    [DataRow("\"AllowMultiple, SingleSession\"", true)]
+    [DataRow("1.0", false)]
+    [DataRow("\"1.5\"", false)]
+    [DataRow("\" 2 \"", true)]
+    [DataRow("\"-1\"", false)]
+    [DataRow("true", false)]
+    [DataRow("\" \"", false)]
+    public async Task Identity_protocol_session_policy_matches_actual_binder_and_validator(string value, bool valid)
+    {
+        using var fixture = new Workspace("{\"EnableTokenEndpoints\":false,\"SessionLoginPolicy\":" + value + "}");
+        Assert.AreEqual(valid, RuntimeValid(fixture.Configuration, "development"));
+        await AssertDiagnostic(fixture, "development", ProtocolFinding("SessionLoginPolicy", valid));
+    }
+
+    [TestMethod]
+    [DataRow("Issuer", "base", "development")]
+    [DataRow("Issuer", "profile", "development")]
+    [DataRow("Issuer", "secrets", "development")]
+    [DataRow("Issuer", "environment", "development")]
+    [DataRow("Issuer", "base", "production")]
+    [DataRow("Issuer", "profile", "production")]
+    [DataRow("Issuer", "environment", "production")]
+    [DataRow("Audience", "base", "development")]
+    [DataRow("Audience", "profile", "development")]
+    [DataRow("Audience", "secrets", "development")]
+    [DataRow("Audience", "environment", "development")]
+    [DataRow("Audience", "base", "production")]
+    [DataRow("Audience", "profile", "production")]
+    [DataRow("Audience", "environment", "production")]
+    [DataRow("ClientId", "base", "development")]
+    [DataRow("ClientId", "profile", "development")]
+    [DataRow("ClientId", "secrets", "development")]
+    [DataRow("ClientId", "environment", "development")]
+    [DataRow("ClientId", "base", "production")]
+    [DataRow("ClientId", "profile", "production")]
+    [DataRow("ClientId", "environment", "production")]
+    [DataRow("SessionLoginPolicy", "base", "development")]
+    [DataRow("SessionLoginPolicy", "profile", "development")]
+    [DataRow("SessionLoginPolicy", "secrets", "development")]
+    [DataRow("SessionLoginPolicy", "environment", "development")]
+    [DataRow("SessionLoginPolicy", "base", "production")]
+    [DataRow("SessionLoginPolicy", "profile", "production")]
+    [DataRow("SessionLoginPolicy", "environment", "production")]
+    public async Task Identity_protocol_invalid_final_leaf_is_not_hidden(string field, string source, string profile)
+    {
+        var invalid = field == "SessionLoginPolicy" ? "3" : "";
+        using var fixture = new Workspace(new JsonObject {
+            ["EnableTokenEndpoints"] = false, [field] = source == "base" ? invalid : ProtocolValue(field),
+        }.ToJsonString());
+        var overlay = new JsonObject { ["identity:" + field.ToLowerInvariant()] = invalid }.ToJsonString();
+        Assert.IsFalse(RuntimeValid(fixture.Configuration, profile, source == "base" ? null : overlay));
+        if (source == "profile") fixture.WriteProfile(profile, overlay);
+        if (source == "secrets") fixture.WriteSecrets(overlay);
+        if (source == "environment")
+        {
+            fixture.WriteProfile(profile, new JsonObject { ["Identity:" + field] = ProtocolValue(field) }.ToJsonString());
+            if (profile == "development") fixture.WriteSecrets(new JsonObject { ["Identity:" + field] = ProtocolValue(field) }.ToJsonString());
+            Environment.SetEnvironmentVariable("identity__" + field.ToLowerInvariant(), invalid);
+        }
+        await AssertDiagnostic(fixture, profile, ProtocolFinding(field, false));
+    }
+
+    [TestMethod]
+    [DataRow("Issuer", "profile")]
+    [DataRow("Issuer", "secrets")]
+    [DataRow("Issuer", "environment")]
+    [DataRow("SessionLoginPolicy", "profile")]
+    [DataRow("SessionLoginPolicy", "secrets")]
+    [DataRow("SessionLoginPolicy", "environment")]
+    public async Task Identity_protocol_valid_overlay_repairs_lower_invalid_leaf(string field, string source)
+    {
+        using var fixture = new Workspace(new JsonObject { ["EnableTokenEndpoints"] = false, [field] = "" }.ToJsonString());
+        var overlay = new JsonObject { ["Identity:" + field] = ProtocolValue(field) }.ToJsonString();
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "development", overlay));
+        if (source == "profile") fixture.WriteProfile("development", overlay);
+        if (source == "secrets") fixture.WriteSecrets(overlay);
+        if (source == "environment")
+        {
+            fixture.WriteSecrets(new JsonObject { ["Identity:" + field] = "" }.ToJsonString());
+            Environment.SetEnvironmentVariable("Identity__" + field, ProtocolValue(field));
+        }
+        await AssertDiagnostic(fixture, "development", ProtocolFinding(field, true));
+    }
+
+    [TestMethod]
+    [DataRow("Issuer")]
+    [DataRow("SessionLoginPolicy")]
+    public async Task Identity_protocol_production_ignores_development_user_secrets(string field)
+    {
+        using var fixture = new Workspace(new JsonObject { ["EnableTokenEndpoints"] = false, [field] = ProtocolValue(field) }.ToJsonString());
+        fixture.WriteSecrets(new JsonObject { ["Identity:" + field] = "" }.ToJsonString());
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "production"));
+        await AssertDiagnostic(fixture, "production", ProtocolFinding(field, true));
+    }
+
+    [TestMethod]
+    [DataRow("null")]
+    [DataRow("{}")]
+    [DataRow("[]")]
+    public async Task Identity_protocol_empty_parent_preserves_lower_identifier(string value)
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"Issuer":""}""");
+        var overlay = "{\"Identity\":" + value + "}";
+        Assert.IsFalse(RuntimeValid(fixture.Configuration, "development", overlay));
+        fixture.WriteProfile("development", overlay);
+        await AssertDiagnostic(fixture, "development", ProtocolFinding("Issuer", false));
+    }
+
+    [TestMethod]
+    public async Task Identity_protocol_missing_fields_keep_runtime_defaults()
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false}""");
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "production"));
+        await AssertDiagnostic(fixture, "production", ProtocolFinding("Issuer", true));
+        await AssertDiagnostic(fixture, "production", ProtocolFinding("SessionLoginPolicy", true));
+    }
+
+    private static string ProtocolValue(string field) => field == "SessionLoginPolicy" ? "SingleSessionPerClient" : "identity-signing-probe";
+    private static string ProtocolFinding(string field, bool valid) =>
+        "DIAG_IDENTITY_" + (field == "SessionLoginPolicy" ? "SESSION_POLICY" : "IDENTIFIERS")
+        + (valid ? "_CONFIGURED ok" : "_INVALID error");
 
     private static string NumericFinding(bool valid) => valid
         ? "DIAG_IDENTITY_NUMERIC_OPTIONS_CONFIGURED ok" : "DIAG_IDENTITY_NUMERIC_OPTIONS_INVALID error";

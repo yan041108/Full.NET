@@ -59,7 +59,8 @@ internal static partial class DiagnoseCommand
         var relative = name == "EnterpriseRequest"
             ? "samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/EnterpriseRequestModule.cs"
             : "src/Modules/Full.NET.Modules." + name + "/" + name + "Module.cs";
-        var root = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(workspacePath, "framework/fullnet", relative))).GetRoot();
+        // 只读取文件语法根节点；不调用编译或程序集加载入口。
+        var root = SyntaxFactory.ParseCompilationUnit(File.ReadAllText(Path.Combine(workspacePath, "framework/fullnet", relative)));
         if (root.GetDiagnostics().Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))
             throw new ModuleDeclarationUnreadableException();
         var classes = root.DescendantNodes().OfType<ClassDeclarationSyntax>()
