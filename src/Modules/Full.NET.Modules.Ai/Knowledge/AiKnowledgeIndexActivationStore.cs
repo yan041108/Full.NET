@@ -24,6 +24,19 @@ internal sealed class AiKnowledgeIndexActivationStore(IQueryExecutor query, ICom
 
     /// <summary>原租约重试仍须当前授权与完整持久回执，不缓存成功结果。</summary>
     internal async Task<bool> IsActiveAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
+        => await VerifyActiveAsync(binding, taskId, leaseToken, null, null, token).ConfigureAwait(false);
+
+    /// <summary>读取者已独立授权；证明使用原历史绑定，不要求原写入会话仍在线。</summary>
+    internal Task<bool> IsReadyForReadAsync(AiKnowledgeIndexStatusRecord expected, Dictionary<string, object?> readParameters, CancellationToken token)
+    {
+        if (expected.TaskId is not { } taskId || expected.ActiveTaskId != taskId || expected.ActiveLeaseToken is not { } lease || lease == Guid.Empty)
+            return Task.FromResult(false);
+        return VerifyActiveAsync(new(expected.KnowledgeBaseId, expected.DocumentId, expected.VersionId, expected.DocumentVersion,
+            expected.KnowledgeBaseVersion, expected.OwnerUserId), taskId, lease, expected, readParameters, token);
+    }
+
+    private async Task<bool> VerifyActiveAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken,
+        AiKnowledgeIndexStatusRecord? expected, Dictionary<string, object?>? readParameters, CancellationToken token)
     {
         NoTransaction(); var p = tasks.HeldParameters(binding, taskId, leaseToken, token);
         var pointer = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexActivationRecord>(Choose(AiKnowledgeIndexActivationSql.PointerHost,
@@ -45,7 +58,8 @@ internal sealed class AiKnowledgeIndexActivationStore(IQueryExecutor query, ICom
         if (manifestRow is null || manifestRow.PayloadHash != pointer.ManifestHash) return false;
         var manifest = DecodeManifest(manifestRow, token);
         if (manifest is null || manifest.Summary.PlanHash != pointer.PlanHash || !ValidManifest(binding, manifest)
-            || receipts!.Length != manifest.Batches.Count || !await Authorized(binding, session, token).ConfigureAwait(false)) return false;
+            || receipts!.Length != manifest.Batches.Count
+            || (expected is null && !await Authorized(binding, session, token).ConfigureAwait(false))) return false;
         Fill(p, session, manifest, receipts);
         p["Completed"] = 1;
         return await transaction.ExecuteAsync(async cancellation =>
@@ -55,7 +69,13 @@ internal sealed class AiKnowledgeIndexActivationStore(IQueryExecutor query, ICom
             var current = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexActivationRecord>(Choose(AiKnowledgeIndexActivationSql.PointerHost,
                 AiKnowledgeIndexActivationSql.PointerTenant), p, cancellation).ConfigureAwait(false);
             cancellation.ThrowIfCancellationRequested();
-            return current == pointer;
+            if (current != pointer) return false;
+            // 同一短事务最后复核读取者的资源可见性与版本快照；事务内不调用 Identity/Organization。
+            if (expected is null) return true;
+            var visible = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexStatusRecord>(
+                AiKnowledgeIndexStatusSql.For(database.Value.Provider, tasks.IsTenant), readParameters, cancellation).ConfigureAwait(false);
+            cancellation.ThrowIfCancellationRequested();
+            return visible == expected;
         }, token).ConfigureAwait(false);
     }
 

@@ -16,6 +16,30 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiKnowledgeIndexActivationTests
 {
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Public_read_proof_survives_writer_logout_but_original_retry_still_denies(bool tenant)
+    {
+        var f = new Fixture(tenant); Assert.IsTrue(await f.Activate()); f.Denied = true;
+        Assert.IsFalse(await f.Store.IsActiveAsync(f.Binding, f.TaskId, f.Lease, default));
+        var calls = f.Authorizations;
+        Assert.IsTrue(await f.Store.IsReadyForReadAsync(f.Status, [], default));
+        Assert.AreEqual(calls, f.Authorizations); Assert.AreEqual(2, f.Writes);
+    }
+
+    [TestMethod] [DataRow("visibility")] [DataRow("metadata")] [DataRow("receipt")] [DataRow("manifest")]
+    public async Task Public_read_rechecks_reader_snapshot_and_complete_proof_in_transaction(string fault)
+    {
+        var f = new Fixture(false); Assert.IsTrue(await f.Activate()); var expected = f.Status;
+        f.AtAuthority = () =>
+        {
+            if (fault == "visibility") f.ReadDenied = true;
+            else if (fault == "metadata") f.Status = f.Status with { KnowledgeBaseVersion = 2 };
+            else if (fault == "receipt") f.Receipts = [];
+            else f.ManifestRow = f.ManifestRow with { Payload = new byte[8] };
+        };
+        Assert.IsFalse(await f.Store.IsReadyForReadAsync(expected, [], default)); Assert.AreEqual(2, f.Writes);
+    }
+
     [TestMethod]
     public async Task Index_permission_revocation_stops_activation()
     {
@@ -109,6 +133,8 @@ public sealed class AiKnowledgeIndexActivationTests
         internal AiKnowledgeIndexVectorReceiptRecord[] Receipts;
         internal AiKnowledgeIndexBatchRecord[] Batches;
         internal AiKnowledgeIndexActivationRecord? Pointer;
+        internal AiKnowledgeIndexStatusRecord Status;
+        internal bool ReadDenied;
         internal bool Completed, Denied, SourceDenied;
         internal string? DeniedPermission;
         internal int Writes, Begins, Rollbacks, Authorizations, InsertCount = 1;
@@ -120,6 +146,8 @@ public sealed class AiKnowledgeIndexActivationTests
             if (tenantId is { } id) tenant.SetTenant(new(id, "test", "测试")); else tenant.SetHost();
             var chunks = AiKnowledgeIndexTextPlanTests.Source() with { TenantId = tenantId };
             Binding = new(chunks.KnowledgeBaseId, Guid.CreateVersion7(), Guid.CreateVersion7(), 1, 1, Guid.CreateVersion7());
+            Status = new() { KnowledgeBaseId = Binding.KnowledgeBaseId, DocumentId = Binding.DocumentId, VersionId = Binding.VersionId,
+                OwnerUserId = Binding.OwnerUserId, DocumentVersion = 1, KnowledgeBaseVersion = 1, TaskId = TaskId, ActiveTaskId = TaskId, ActiveLeaseToken = Lease };
             var plan = AiKnowledgeIndexTextPlan.Create(chunks, default)!; var bytes = AiKnowledgeIndexTextManifestCodec.Encode(plan, default);
             var hash = Convert.ToHexString(SHA256.HashData(bytes));
             Manifest = new(AiKnowledgeIndexTextManifestCodec.Decode(bytes, default), hash);
@@ -136,6 +164,8 @@ public sealed class AiKnowledgeIndexActivationTests
             Clock.UtcNow.Returns(Now); var query = Substitute.For<IQueryExecutor>(); var command = Substitute.For<ICommandExecutor>();
             var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(Guid.CreateVersion7());
             query.QuerySingleOrDefaultAsync<AiKnowledgeIndexActivationRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Pointer);
+            query.QuerySingleOrDefaultAsync<AiKnowledgeIndexStatusRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                .Returns(_ => { Assert.IsTrue(Transactions.HasTransaction); return ReadDenied ? null : Status; });
             query.QuerySingleOrDefaultAsync<AiKnowledgeIndexSessionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => SessionRow);
             query.QuerySingleOrDefaultAsync<AiKnowledgeIndexTextManifestRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => ManifestRow);
             query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { AtAuthority?.Invoke(); return SourceDenied ? null : source; });

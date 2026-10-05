@@ -31,6 +31,7 @@ public sealed class AiAuthorizationContributorTests
                 AiKnowledgeDocumentPermissions.Read,
                 AiKnowledgeDocumentPermissions.Upload,
                 "ai.knowledge_documents.index_enqueue",
+                "ai.knowledge_documents.index_read",
                 AiKnowledgeDocumentPermissions.VersionsRead,
                 AiKnowledgeDocumentPermissions.SourceRead,
                 AiKnowledgeDocumentPermissions.ImportsRead,

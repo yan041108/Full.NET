@@ -3,6 +3,8 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <summary>文档管理精确权限；目录读取权不自动授予文档读取。</summary>
 public static class AiKnowledgeDocumentPermissions
 {
+    /// <summary>读取获授权文档的当前索引状态，不授予上传或派发权限。</summary>
+    public const string IndexRead = "ai.knowledge_documents.index_read";
     /// <summary>所有者使用原交互会话启动已获批准的文本索引。</summary>
     public const string IndexEnqueue = "ai.knowledge_documents.index_enqueue";
     /// <summary>上传本人文档的不可变文件版本。</summary>

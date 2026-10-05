@@ -26,6 +26,7 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
         new(AiKnowledgeDocumentPermissions.Read, "读取获授权知识库文档", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.Upload, "上传本人文档文件版本", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.IndexEnqueue, "启动本人文档文本索引", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiKnowledgeDocumentPermissions.IndexRead, "读取文档索引状态", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.VersionsRead, "读取获授权文档版本", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.SourceRead, "下载获授权文档来源", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeDocumentPermissions.ImportsRead, "读取本人文档导入操作", AuthorizationScope.Host | AuthorizationScope.Tenant),

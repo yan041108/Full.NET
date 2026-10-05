@@ -1,0 +1,16 @@
+using Full.NET.Data.Abstractions;
+using Full.NET.IntegrationTests.Api;
+
+namespace Full.NET.IntegrationTests.Ai;
+
+/// <summary>SQL Server 当前授权和真实索引完整性读取。</summary>
+[TestClass]
+public sealed class AiKnowledgeIndexStatusApiSqlServerTests
+{
+    [TestMethod]
+    public async Task Http_status_preserves_read_authority_and_current_completeness_async()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer, await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await AiKnowledgeIndexStatusApiAssertions.VerifyAsync(factory);
+    }
+}

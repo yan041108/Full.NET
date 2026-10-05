@@ -23,6 +23,7 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeVersionRecord>(ReadKnowledgeVersion);
         registrar.Register<AiKnowledgeIndexTaskRecord>(ReadKnowledgeIndexTask);
         registrar.Register<AiKnowledgeIndexEnqueueRecord>(ReadKnowledgeIndexEnqueue);
+        registrar.Register<AiKnowledgeIndexStatusRecord>(ReadKnowledgeIndexStatus);
         registrar.Register<AiKnowledgeIndexWorkerRecord>(ReadKnowledgeWorker);
         registrar.Register<AiKnowledgeIndexDispatchRecord>(ReadKnowledgeIndexDispatch);
         registrar.Register<AiKnowledgeIndexBatchRecord>(ReadKnowledgeIndexBatch);
@@ -34,6 +35,26 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
     }
 #endif
+
+    // LEFT JOIN 的任务、模型和指针允许为空；不同数据库的 CASE 整数类型显式归一。
+    internal static AiKnowledgeIndexStatusRecord ReadKnowledgeIndexStatus(DbDataReader reader) => new()
+    {
+        KnowledgeBaseId = reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")), DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
+        VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")), OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
+        DocumentVersion = checked((int)Integer(reader, "DocumentVersion")), KnowledgeBaseVersion = checked((int)Integer(reader, "KnowledgeBaseVersion")),
+        IsDeleted = checked((int)Integer(reader, "IsDeleted")), CleanupPending = checked((int)Integer(reader, "CleanupPending")),
+        HasDerivedData = checked((int)Integer(reader, "HasDerivedData")), IsCurrent = checked((int)Integer(reader, "IsCurrent")),
+        TaskId = Null(reader, "TaskId") ? null : reader.GetGuid(reader.GetOrdinal("TaskId")), StateKey = Null(reader, "StateKey") ? null : Text(reader, "StateKey"),
+        ActiveTaskId = Null(reader, "ActiveTaskId") ? null : reader.GetGuid(reader.GetOrdinal("ActiveTaskId")),
+        ActiveLeaseToken = Null(reader, "ActiveLeaseToken") ? null : reader.GetGuid(reader.GetOrdinal("ActiveLeaseToken")),
+        ActiveReceiptHash = Null(reader, "ActiveReceiptHash") ? null : Text(reader, "ActiveReceiptHash"),
+        ActiveManifestHash = Null(reader, "ActiveManifestHash") ? null : Text(reader, "ActiveManifestHash"),
+        ActivePlanHash = Null(reader, "ActivePlanHash") ? null : Text(reader, "ActivePlanHash"),
+        FileId = reader.GetGuid(reader.GetOrdinal("FileId")), ContentHash = Text(reader, "ContentHash"), ContentType = Text(reader, "ContentType"), SizeBytes = Integer(reader, "SizeBytes"),
+        ModelConfigId = Null(reader, "ModelConfigId") ? null : reader.GetGuid(reader.GetOrdinal("ModelConfigId")),
+        ModelConfigVersion = Null(reader, "ModelConfigVersion") ? null : checked((int)Integer(reader, "ModelConfigVersion")),
+        ProviderKey = Null(reader, "ProviderKey") ? null : Text(reader, "ProviderKey"), ModelId = Null(reader, "ModelId") ? null : Text(reader, "ModelId"),
+    };
 
     // 入队从权威行推导来源及批准版本，不读取正文或冻结身份秘密。
     internal static AiKnowledgeIndexEnqueueRecord ReadKnowledgeIndexEnqueue(DbDataReader reader) => new()

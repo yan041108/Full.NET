@@ -164,9 +164,19 @@ PUT 正文为 `roleIds` 与对应资源的 `version`：最多 100 个唯一非�
 
 调用者须同时具备 `ai.knowledge_bases.read`、`ai.knowledge_documents.read`、`ai.knowledge_documents.source_read`、`ai.knowledge_documents.upload` 和独立的 `ai.knowledge_documents.index_enqueue` 权限。部署升级时，普通角色须显式授予新增权限；超级管理员仍受原会话、租户隔离和资源所有权约束。后台续租、模型派发、清单/向量持久化及激活也复核该权限，撤销后停止下一阶段。
 
-仅接受当前最新、导入完成且模型批准仍有效的 TXT/Markdown 版本。202 响应只含 `taskId`、`versionId`，证明任务与原会话的稳定绑定；重放保留已有任务和实际收费，不重置状态、不发放免费重试，也不证明 queued 或 ready。新登录不能替换原绑定，旧无绑定任务返回冲突；公开状态读取和共享 TypeScript/Vue 入队入口留待后续切片。
+仅接受当前最新、导入完成且模型批准仍有效的 TXT/Markdown 版本。202 响应只含 `taskId`、`versionId`，证明任务与原会话的稳定绑定；重放保留已有任务和实际收费，不重置状态、不发放免费重试，也不证明 queued 或 ready。新登录不能替换原绑定，旧无绑定任务返回冲突；状态查询见下节，共享 TypeScript/Vue 入队入口留待后续切片。
 
 字段错误返回 400 `ai.knowledge.input_invalid`，权限拒绝返回 403；非所有者、跨范围或失效来源统一返回 404。原绑定或等待后权威状态冲突返回 409 `ai.knowledge.index_conflict`，PDF 等不支持的索引格式返回 422 `ai.knowledge.index_format_unsupported`。错误使用 ProblemDetails 与稳定机器码，标题支持 `zh-CN`/`en-US`。API 只注册最小入队依赖，轮询仍由 Worker 的显式配置控制。
+
+## 索引状态与当前完整性
+
+`GET /api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/versions/{versionId}/index` 的 OperationId 为 `aiGetKnowledgeIndexStatus`，不接受请求体或查询字段。调用者须同时具备 `ai.knowledge_bases.read`、`ai.knowledge_documents.read` 与独立的 `ai.knowledge_documents.index_read`；普通角色须显式授予新增权限。所有者可以读取，其他当前主体须同时满足知识库和文档两层用户、活动角色或活动机构授权。跨范围或不可见资源返回 404，精确权限失效返回 403。
+
+响应仅含 `versionId`、可空 `taskId`、`state` 和可空 `failureCode`。未入队为 `pending_processing`，任务排队/运行对应 `queued`/`processing`；失效来源、失败任务或不完整证明返回 `failed`，失败码统一为 `ai.knowledge.index_unavailable`，不返回内部异常、会话、租约、正文或向量。证明期间资源发生变化时返回 409 `ai.knowledge.index_conflict`，调用方可重新读取。
+
+`ready` 每次复核当前来源、模型批准、活动指针、完整清单和批次回执，并在数据库中重新计算实际向量载荷摘要。创建任务的原会话离线或失去写入权限，不撤销其他当前读者对完整索引的读取资格；原写入重试仍要求原会话授权。读取不调用 Files 或模型、不修改任务或收费；返回值只表示本次判断，不可作为后续检索的授权缓存。
+
+删除后仅所有者能读取精确版本墓碑：仍有文件清理待办或派生指针/清单/向量时为 `deleting`，这些内容清理完后为 `deleted`。任务与收费审计历史可以保留。该入口不执行清理，后台派生索引清理仍待后续交付；既有版本列表的 `pending_processing` 字段保持兼容。
 
 ## 知识文本 Worker 的内部消费边界
 
@@ -180,7 +190,7 @@ Worker Profile 注册文本索引消费者；API Profile 不启动索引轮询�
 
 仅消费已经原子冻结原会话、所有者和租户匹配且来源/模型批准仍有效的任务；旧无会话任务不会补造身份或自动接管。每个候选在独立租户作用域竞争原有租约，再由完整文本消费者重验原会话、精确权限、Files 来源与预算。权限目录同时在 Worker 注册，普通用户的精确权限不会因后台入口而被过滤。
 
-执行拒绝或阶段故障使用当前租约保护的 `ai.knowledge.index_unavailable`，原收费和未知用量记录保留。宿主关闭取消保留运行租约供到期恢复；已有持久向量不再收费，已付费而向量缺失的操作也不能免费重发。原会话 API 入队见上文，公开索引 ready、真实外部联动与检索问答尚待后续切片；`pending_processing` 不因启用配置变成 ready。
+执行拒绝或阶段故障使用当前租约保护的 `ai.knowledge.index_unavailable`，原收费和未知用量记录保留。宿主关闭取消保留运行租约供到期恢复；已有持久向量不再收费，已付费而向量缺失的操作也不能免费重发。原会话 API 入队与当前 ready 查询见上文，真实外部联动与检索问答尚待后续切片；`pending_processing` 不因启用配置变成 ready。
 
 ## 双库与部署
 
@@ -190,4 +200,4 @@ Worker Profile 注册文本索引消费者；API Profile 不启动索引轮询�
 
 迁移 `245_AiKnowledgeOrganizationGrant.sql` 增加 AI 自有知识库及文档机构授予表，只有 AI 父资源外键，不向 Organization 建外键；同样成对实现、支持恢复重放且不播种默认授权。
 
-验收证据与任务状态统一记录在[活动开发计划 R04/R05](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。R04 的目录、授权、文件引用与导入恢复已完成收尾验收，共享生成客户端已交付；R05 已接入文本 Worker 内部消费和原会话 HTTP 入队。公开索引状态、检索问答及 Vue 页面入口仍待后续切片，完整原生运行和容量尚未验证。完整知识库/RAG、模型质量与容量状态不能由这些局部验收推导。
+验收证据与任务状态统一记录在[活动开发计划 R04/R05](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。R04 的目录、授权、文件引用与导入恢复已完成收尾验收，共享生成客户端已交付；R05 已接入文本 Worker、原会话 HTTP 入队及公开索引状态，分项验收见活动计划；检索问答及 Vue 页面入口仍待后续切片，完整原生运行和容量尚未验证。完整知识库/RAG、模型质量与容量状态不能由这些局部验收推导。
