@@ -916,6 +916,210 @@ public sealed class DiagnoseIdentitySigningTests
         await AssertDiagnostic(fixture, "production", ProtocolFinding("SessionLoginPolicy", true));
     }
 
+    [TestMethod]
+    [DataRow("RequireSecureCookies", "true", true)]
+    [DataRow("RequireSecureCookies", "false", true)]
+    [DataRow("RequireSecureCookies", "\" TrUe \"", true)]
+    [DataRow("RequireSecureCookies", "\"false\"", true)]
+    [DataRow("RequireSecureCookies", "null", true)]
+    [DataRow("RequireSecureCookies", "{}", true)]
+    [DataRow("RequireSecureCookies", "[]", false)]
+    [DataRow("RequireSecureCookies", "[true]", true)]
+    [DataRow("RequireSecureCookies", "{\"child\":true}", true)]
+    [DataRow("RequireSecureCookies", "\"\"", false)]
+    [DataRow("RequireSecureCookies", "\" \"", false)]
+    [DataRow("RequireSecureCookies", "\"boolean-signing-probe\"", false)]
+    [DataRow("RequireSecureCookies", "1", false)]
+    [DataRow("RequireSecureCookies", "1.0", false)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "true", true)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "false", true)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "\" TrUe \"", true)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "\"false\"", true)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "null", true)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "{}", true)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "[]", false)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "[true]", true)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "{\"child\":true}", true)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "\"\"", false)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "\" \"", false)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "\"boolean-signing-probe\"", false)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "1", false)]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "1.0", false)]
+    [DataRow("EnableTotpStrongReauthentication", "true", true)]
+    [DataRow("EnableTotpStrongReauthentication", "false", true)]
+    [DataRow("EnableTotpStrongReauthentication", "\" TrUe \"", true)]
+    [DataRow("EnableTotpStrongReauthentication", "\"false\"", true)]
+    [DataRow("EnableTotpStrongReauthentication", "null", true)]
+    [DataRow("EnableTotpStrongReauthentication", "{}", true)]
+    [DataRow("EnableTotpStrongReauthentication", "[]", false)]
+    [DataRow("EnableTotpStrongReauthentication", "[true]", true)]
+    [DataRow("EnableTotpStrongReauthentication", "{\"child\":true}", true)]
+    [DataRow("EnableTotpStrongReauthentication", "\"\"", false)]
+    [DataRow("EnableTotpStrongReauthentication", "\" \"", false)]
+    [DataRow("EnableTotpStrongReauthentication", "\"boolean-signing-probe\"", false)]
+    [DataRow("EnableTotpStrongReauthentication", "1", false)]
+    [DataRow("EnableTotpStrongReauthentication", "1.0", false)]
+    public async Task Identity_security_flags_match_real_boolean_binding(string field, string value, bool valid)
+    {
+        using var fixture = new Workspace(new JsonObject { ["EnableTokenEndpoints"] = false, [field] = JsonNode.Parse(value) }.ToJsonString());
+        Assert.AreEqual(valid, RuntimeValid(fixture.Configuration, "development"));
+        await AssertDiagnostic(fixture, "development", SecurityFinding(valid));
+    }
+
+    [TestMethod]
+    [DataRow("production", "false", "false", true)]
+    [DataRow("production", "false", "true", true)]
+    [DataRow("production", "true", "false", false)]
+    [DataRow("production", "true", "true", true)]
+    [DataRow("development", "false", "false", true)]
+    [DataRow("development", "false", "true", true)]
+    [DataRow("development", "true", "false", true)]
+    [DataRow("development", "true", "true", true)]
+    [DataRow("production", "null", "false", true)]
+    [DataRow("production", "{}", "false", true)]
+    [DataRow("production", "true", "null", false)]
+    [DataRow("production", "true", "{}", false)]
+    public async Task Identity_security_remote_admin_follows_runtime_profile_guard(string profile, string remote, string totp, bool valid)
+    {
+        using var fixture = new Workspace(new JsonObject {
+            ["EnableTokenEndpoints"] = false, ["EnableRemoteSuperAdministratorManagement"] = JsonNode.Parse(remote),
+            ["EnableTotpStrongReauthentication"] = JsonNode.Parse(totp),
+        }.ToJsonString());
+        Assert.AreEqual(valid, RuntimeValid(fixture.Configuration, profile));
+        await AssertDiagnostic(fixture, profile, SecurityGuardFinding(valid));
+    }
+
+    [TestMethod]
+    [DataRow("RequireSecureCookies", "base", "development")]
+    [DataRow("RequireSecureCookies", "profile", "development")]
+    [DataRow("RequireSecureCookies", "secrets", "development")]
+    [DataRow("RequireSecureCookies", "environment", "development")]
+    [DataRow("RequireSecureCookies", "base", "production")]
+    [DataRow("RequireSecureCookies", "profile", "production")]
+    [DataRow("RequireSecureCookies", "environment", "production")]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "base", "development")]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "profile", "development")]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "secrets", "development")]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "environment", "development")]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "base", "production")]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "profile", "production")]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "environment", "production")]
+    [DataRow("EnableTotpStrongReauthentication", "base", "development")]
+    [DataRow("EnableTotpStrongReauthentication", "profile", "development")]
+    [DataRow("EnableTotpStrongReauthentication", "secrets", "development")]
+    [DataRow("EnableTotpStrongReauthentication", "environment", "development")]
+    [DataRow("EnableTotpStrongReauthentication", "base", "production")]
+    [DataRow("EnableTotpStrongReauthentication", "profile", "production")]
+    [DataRow("EnableTotpStrongReauthentication", "environment", "production")]
+    public async Task Identity_security_invalid_boolean_final_leaf_is_not_hidden(string field, string source, string profile)
+    {
+        const string invalid = "boolean-signing-probe";
+        using var fixture = new Workspace(new JsonObject {
+            ["EnableTokenEndpoints"] = false, [field] = source == "base" ? JsonValue.Create(invalid) : JsonValue.Create(false),
+        }.ToJsonString());
+        var overlay = new JsonObject { ["identity:" + field.ToLowerInvariant()] = invalid }.ToJsonString();
+        Assert.IsFalse(RuntimeValid(fixture.Configuration, profile, source == "base" ? null : overlay));
+        if (source == "profile") fixture.WriteProfile(profile, overlay);
+        if (source == "secrets") fixture.WriteSecrets(overlay);
+        if (source == "environment")
+        {
+            fixture.WriteProfile(profile, new JsonObject { ["Identity:" + field] = false }.ToJsonString());
+            if (profile == "development") fixture.WriteSecrets(new JsonObject { ["Identity:" + field] = false }.ToJsonString());
+            Environment.SetEnvironmentVariable("identity__" + field.ToLowerInvariant(), invalid);
+        }
+        await AssertDiagnostic(fixture, profile, SecurityFinding(false));
+    }
+
+    [TestMethod]
+    [DataRow("RequireSecureCookies", "profile")]
+    [DataRow("RequireSecureCookies", "secrets")]
+    [DataRow("RequireSecureCookies", "environment")]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "profile")]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "secrets")]
+    [DataRow("EnableRemoteSuperAdministratorManagement", "environment")]
+    [DataRow("EnableTotpStrongReauthentication", "profile")]
+    [DataRow("EnableTotpStrongReauthentication", "secrets")]
+    [DataRow("EnableTotpStrongReauthentication", "environment")]
+    public async Task Identity_security_valid_overlay_repairs_invalid_boolean(string field, string source)
+    {
+        using var fixture = new Workspace(new JsonObject { ["EnableTokenEndpoints"] = false, [field] = "boolean-signing-probe" }.ToJsonString());
+        var overlay = new JsonObject { ["Identity:" + field] = true }.ToJsonString();
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "development", overlay));
+        if (source == "profile") fixture.WriteProfile("development", overlay);
+        if (source == "secrets") fixture.WriteSecrets(overlay);
+        if (source == "environment")
+        {
+            fixture.WriteSecrets(new JsonObject { ["Identity:" + field] = "boolean-signing-probe" }.ToJsonString());
+            Environment.SetEnvironmentVariable("Identity__" + field, "true");
+        }
+        await AssertDiagnostic(fixture, "development", SecurityFinding(true));
+    }
+
+    [TestMethod]
+    [DataRow("RequireSecureCookies")]
+    [DataRow("EnableRemoteSuperAdministratorManagement")]
+    [DataRow("EnableTotpStrongReauthentication")]
+    public async Task Identity_security_production_ignores_development_secrets(string field)
+    {
+        using var fixture = new Workspace(new JsonObject { ["EnableTokenEndpoints"] = false, [field] = false }.ToJsonString());
+        fixture.WriteSecrets(new JsonObject { ["Identity:" + field] = "boolean-signing-probe" }.ToJsonString());
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "production"));
+        await AssertDiagnostic(fixture, "production", SecurityFinding(true));
+    }
+
+    [TestMethod]
+    [DataRow("EnableRemoteSuperAdministratorManagement", true, false, "profile")]
+    [DataRow("EnableRemoteSuperAdministratorManagement", false, true, "profile")]
+    [DataRow("EnableTotpStrongReauthentication", false, false, "profile")]
+    [DataRow("EnableTotpStrongReauthentication", true, true, "profile")]
+    [DataRow("EnableRemoteSuperAdministratorManagement", true, false, "environment")]
+    [DataRow("EnableRemoteSuperAdministratorManagement", false, true, "environment")]
+    [DataRow("EnableTotpStrongReauthentication", false, false, "environment")]
+    [DataRow("EnableTotpStrongReauthentication", true, true, "environment")]
+    public async Task Identity_security_remote_admin_guard_uses_final_leaves(string field, bool value, bool valid, string source)
+    {
+        var identity = new JsonObject {
+            ["EnableTokenEndpoints"] = false, ["EnableRemoteSuperAdministratorManagement"] = true,
+            ["EnableTotpStrongReauthentication"] = false, [field] = !value,
+        };
+        using var fixture = new Workspace(identity.ToJsonString());
+        var overlay = new JsonObject { ["Identity:" + field] = value }.ToJsonString();
+        Assert.AreEqual(valid, RuntimeValid(fixture.Configuration, "production", overlay));
+        if (source == "profile") fixture.WriteProfile("production", overlay);
+        else
+        {
+            fixture.WriteProfile("production", new JsonObject { ["Identity:" + field] = !value }.ToJsonString());
+            Environment.SetEnvironmentVariable("Identity__" + field, value.ToString());
+        }
+        await AssertDiagnostic(fixture, "production", SecurityGuardFinding(valid));
+    }
+
+    [TestMethod]
+    [DataRow("null")]
+    [DataRow("{}")]
+    [DataRow("[]")]
+    public async Task Identity_security_empty_parent_keeps_remote_admin_leaves(string parent)
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"EnableRemoteSuperAdministratorManagement":true}""");
+        var overlay = "{\"Identity\":" + parent + "}";
+        Assert.IsFalse(RuntimeValid(fixture.Configuration, "production", overlay));
+        fixture.WriteProfile("production", overlay);
+        await AssertDiagnostic(fixture, "production", SecurityGuardFinding(false));
+    }
+
+    [TestMethod]
+    public async Task Identity_security_missing_flags_keep_runtime_defaults()
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false}""");
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "production"));
+        await AssertDiagnostic(fixture, "production", SecurityFinding(true));
+    }
+
+    private static string SecurityFinding(bool valid) => valid
+        ? "DIAG_IDENTITY_SECURITY_OPTIONS_CONFIGURED ok" : "DIAG_IDENTITY_SECURITY_OPTIONS_INVALID error";
+    private static string SecurityGuardFinding(bool valid) => valid
+        ? SecurityFinding(true) : "DIAG_IDENTITY_REMOTE_ADMIN_REAUTH_REQUIRED error";
+
     private static string ProtocolValue(string field) => field == "SessionLoginPolicy" ? "SingleSessionPerClient" : "identity-signing-probe";
     private static string ProtocolFinding(string field, bool valid) =>
         "DIAG_IDENTITY_" + (field == "SessionLoginPolicy" ? "SESSION_POLICY" : "IDENTIFIERS")

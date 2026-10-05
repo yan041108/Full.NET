@@ -316,6 +316,7 @@ internal static partial class DiagnoseCommand
             CheckSecretPlaceholders(root, profileSettings, workspacePath, profile, findings);
             CheckIdentityNumericOptions(root, profileSettings, workspacePath, profile, findings);
             CheckIdentityProtocolOptions(root, profileSettings, workspacePath, profile, findings);
+            CheckIdentitySecurityOptions(root, profileSettings, workspacePath, profile, findings);
             CheckIdentitySigning(root, profileSettings, workspacePath, profile, findings);
             CheckOidcSigning(root, profileSettings, workspacePath, profile, findings);
             CheckOidcIssuerAndEncryption(root, profileSettings, workspacePath, profile, findings);
