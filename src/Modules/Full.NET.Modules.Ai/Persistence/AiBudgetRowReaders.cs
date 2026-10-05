@@ -25,6 +25,7 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeIndexEnqueueRecord>(ReadKnowledgeIndexEnqueue);
         registrar.Register<AiKnowledgeIndexStatusRecord>(ReadKnowledgeIndexStatus);
         registrar.Register<AiKnowledgeIndexWorkerRecord>(ReadKnowledgeWorker);
+        registrar.Register<AiKnowledgeCleanupRecord>(ReadKnowledgeCleanup);
         registrar.Register<AiKnowledgeIndexDispatchRecord>(ReadKnowledgeIndexDispatch);
         registrar.Register<AiKnowledgeIndexBatchRecord>(ReadKnowledgeIndexBatch);
         registrar.Register<AiKnowledgeIndexSessionRecord>(ReadKnowledgeIndexSession);
@@ -64,6 +65,15 @@ internal static class AiBudgetRowReaders
         DocumentVersion = checked((int)Integer(reader, "DocumentVersion")), KnowledgeBaseVersion = checked((int)Integer(reader, "KnowledgeBaseVersion")),
         ModelConfigId = reader.GetGuid(reader.GetOrdinal("ModelConfigId")), ModelConfigVersion = checked((int)Integer(reader, "ModelConfigVersion")),
         ContentType = Text(reader, "ContentType"),
+    };
+
+    // 清理不依赖会话；时间及 Kind 显式兼容两库的物理返回类型。
+    internal static AiKnowledgeCleanupRecord ReadKnowledgeCleanup(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), Kind = checked((int)Integer(reader, "Kind")), CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+        TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        KnowledgeBaseId = reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")), DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
+        OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
     };
 
     // 后台入口只恢复作用域和来源标识，不读取会话密钥、正文或模型凭据。

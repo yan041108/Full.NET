@@ -1040,6 +1040,25 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - 规定影响集：node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-generation-execution-r05f4a --phase slice 退出 0，Ai 双 Provider 66/66，零失败/跳过（22m 26s 140ms），无新增 SQL/迁移。正式 TRX 与冻结发现的全部 UID/FQN 一致；939 个代码/矩阵/运行输入摘要未变，生产/Unit/Integration 三处 AI 程序集 SHA256 一致。pnpm test:integration:tooling 54/54、正式入口工具集 65/65、test:governance 57/57、test:naming 33/33、test:sql-safety 5/5，1172 项分片无遗漏/重复；git diff --check 通过。平台截断 1 项超长捕获文本字段，测试身份和结果完整，截断区域不作为完整运行日志。证据位于忽略目录 artifacts/r05f4a/ 及同名前缀日志。
   - 环境与未验证项：Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401、Docker SQL Server 2022 CU14/MySQL 8.0，FULLNET_TESTCONTAINERS_REUSE=0。首次构建因 Windows 提交内存接近上限失败，降低本任务并发/内存后专项构建通过；512 MiB 不足以编译 Integration，768 MiB 单节点重跑通过。AOT 后 JIT 还原首次因 NuGet 漏洞服务索引不可达失败，HTTP 200 后保留审计重试成功；失败命令不计入验收。最终环境内存余量恢复，构建单节点、2 GiB GC 限额、DOTNET_PROCESSOR_COUNT=2；历史复用测试数据库保持停止且数据保留。只完成内部持租约消费者，尚未接入 Hosted 轮询领取/生产 DI、公开 ready、真实后台/云计量链路、检索、完整 Host/Worker Native 发布运行或容量实测。完整 RAG 保持 Planned，Capacity-not-verified 保持，下一项继续 Worker 领取与宿主接入。
 
+- [x] R05f4g：Worker 自动恢复已删除文档的索引与文件清理（main，基线 91cdbd9d；快照 ai-knowledge-cleanup-worker-r05f4g）。
+  - 范围：新增独立、默认关闭的 `FullNet:Ai:KnowledgeCleanupWorker`；不依赖索引生成开关、模型调用、原会话或目录启用状态。重复 DELETE 的 HTTP/CAS 语义另项处理。
+  - 扫描：`Persistence/AiKnowledgeCleanupWorkerSql.cs` 成对静态 Global SQL 仅读取 AI 自有墓碑下的任务和待补偿导入标识；按 CreatedAtUtc/Kind/Id 有界 keyset 扫描。进程内 Singleton 游标跨 Scoped 保留并互斥，失败也推进，末尾回绕，重启从头可安全重放；每轮固定等待，避免租约竞争或持续故障忙循环。
+  - 执行：`Knowledge/AiKnowledgeCleanupWorkerCoordinator.cs` 每项创建独立可信租户作用域，索引调用拆出的单任务清理短事务，导入调用既有 RetryAsync 和 Files 最小 Contract；无跨模块 SQL/事务，不新建迁移/端点/权限。仅完成已持久化的删除意图，文件副作用用既有五分钟租约和稳定版本键，保留账本/会话/批次。
+  - [x] RED：Unit 证明 Worker 缺失 Scoped 清理依赖；补充扫描边界、游标公平性、取消、独立范围、Hosted 停止及静态 AOT 行读取测试。
+  - [x] GREEN：在 AiModule.AddBackgroundServices 显式注册选项、游标、协调器、Hosted 和既有清理依赖；API 不启动循环。Global SQL 目录登记精确授权边界。
+  - 真实 Worker 诊断发现租户 Files 服务无法解析 `IIdentityActiveTenantDirectory`：该既有端口只在 Tenancy API 注册。将 `ActiveTenantDirectory` 与该端口移入已由 API 复用的 AddBackgroundServices，保留 API 的活动读取别名；补充 Files Worker 装配断言，并将 Tenancy 双库影响集纳入交付。
+  - [x] 双库：复用 FullNetApiFactory/现有生产索引生成夹具，验证墓碑提交后无需 HTTP 重试的恢复、Host/Tenant/禁用目录、活动导入租约、失败后推进/回绕、新作用域重启、并发与审计保留。真实扫描/事务/租约需要 SQL Server/MySQL，Unit 无法替代；非 messaging-heavy。
+  - [x] 交付：只读安全审查、AI Unit、规定 affected 双库集、相关架构和 AOT 分析；更新矩阵/能力/运维，记录新鲜证据并提交 main。完整 Native、真实云模型和容量单独保留未验证。
+
+  R05f4g 本地证据（2026-10-06，删除清理 Worker）：
+  - 基线 main / 91cdbd9dfd94db9d9e08ddcc46e29d7c3e264da8，快照 ai-knowledge-cleanup-worker-r05f4g。有效 RED：仅 Worker 注册缺少 AiKnowledgeIndexCleanupStore，Unit 1/1 失败；首轮真实 MySQL 又暴露 Files 租户存储无法解析 IIdentityActiveTenantDirectory。直接在 Worker 启动前解析 ImportCoordinator 得到精确 DI 异常，随后把 Tenancy 既有活动目录注册移入 API 复用的后台入口，没有修改租户判断 SQL。修正后 MySQL 1/1 通过，失败日志不计入验收。
+  - 实现：独立默认关闭的 KnowledgeCleanupWorker，双库固定 Global SQL 仅扫描 AI 墓碑下的任务/导入最小标识；CreatedAtUtc/Kind/Id keyset 游标跨轮保存、失败推进、末尾回绕。每项独立可信租户作用域、30 秒取消预算、每轮固定等待；索引逐任务短事务，文件补偿继续原租约和幂等键，保留会话/批次/收费，不调用模型，不要求目录启用或原会话存活。重复 DELETE 响应语义单独待办。
+  - 双库新用例覆盖 Host/Tenant、存活资源不处理、墓碑提交后没有 HTTP 清理调用、索引事务故障回滚、Files 故障后游标推进和回绕、有效/过期导入租约、父作用域不污染、禁用目录及无会话历史任务。实际 Worker Profile 使用真实 Files Port 完成缺失文件的幂等补偿；两个实际 Hosted 实例处理同时间的跨批历史任务。生产生成链路的已知/未知费用、会话和批次保持不变；模型与前段 Files 故障使用受控边界，未做真实杀进程/断电或云模型实验。
+  - 独立只读安全审查及 Tenancy 注册修正的追加复核均无 Critical/Important。最终 AI Unit 1215/1215（33s878ms），Tenancy 与 Files Worker Unit 136/136（1s594ms），规定 AI＋Tenancy 双库影响集 124/124（40m44s972ms），零失败/跳过；AI 架构 7/7、AOT 架构 73/73、全局 SQL/Worker/Host 架构 11/11，API/Worker AOT 分析及最终 Release 构建零警告/错误。集成 TRX 有 3 项的捕获文本超过单字段上限而截断，结果标识及通过状态完整，不把截断文本作为完整诊断日志。
+  - 命令：pwsh -NoLogo -NoProfile -File artifacts/r05f4g/preflight.ps1；pwsh -NoLogo -NoProfile -File artifacts/r05f4g/close.ps1；后者调用 node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-cleanup-worker-r05f4g --phase slice，正式选择器保留扩大后的 Tenancy 集。1127 个源码/矩阵/运行输入摘要未变，AI/Tenancy 生产与测试程序集一致，Worker 项目依赖闭包一致；TRX 与发现 UID/FQN 精确匹配。原始结果保留在忽略目录 artifacts/r05f4g/ 与同名前缀日志。
+  - 全 Unit/Integration 只核对发现数及主分片覆盖，未宣称全项目全量执行；命名、SQL 安全、治理、Integration tooling、主分片与本任务 diff 检查通过。环境 Windows i7-12700H、64 GB、SDK 10.0.401、Docker SQL Server 2022 CU14/MySQL 8.0，Testcontainers 复用关闭；单节点构建、2 GiB GC、2 个处理器。
+  - 限制：持续新增积压超过吞吐时，旧失败项回绕重试延迟无上界；未验证容量或清理 SLA。完整 Native 发布运行、真实云模型/外部联动、PDF Worker、检索问答及 Vue 等后续能力保持未验证或待开发，完整 RAG 仍 Planned，Capacity-not-verified，R05 未整体完成。
+
 - [x] R05f4f：删除后的派生索引有界清理与手动恢复（main，基线 26dd7afa；快照 ai-knowledge-index-cleanup-r05f4f）。
   - 交付边界：复用文档 DELETE 提交后的清理和 POST imports/cleanup；每次最多处理 25 个存在派生数据或可运行状态的索引任务。后台扫描、重复 DELETE 响应语义留待下一切片；本项重复清理幂等。不新增端点、权限、迁移或跨模块 SQL。
   - 数据归属与一致性：AI 墓碑先提交，读路径立即拒绝；新 Knowledge/AiKnowledgeIndexCleanupStore 与 Persistence/AiKnowledgeIndexCleanupSql 仅处理 AI 表。每个任务独立短事务，锁定查询核对已删除且当前所有者/可信租户的任务，撤销 queued/running 租约，再删除活动指针、向量和清单；保留任务、原会话、批次和预算账本。持有相同任务锁的旧写入先完成或被取消状态拒绝，不能复活清理后的载荷。异常回滚当前任务，已完成任务不重做。

@@ -197,6 +197,17 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Knowledge.AiKnowledgeIndexPersistenceService>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexWorkerCoordinator>();
         services.AddHostedService<Knowledge.AiKnowledgeIndexHostedProcessor>();
+        services.AddOptions<Knowledge.AiKnowledgeCleanupWorkerOptions>()
+            .BindConfiguration(Knowledge.AiKnowledgeCleanupWorkerOptions.SectionName)
+            .Validate(options => options.BatchSize is >= 1 and <= 32, "BatchSize must be between 1 and 32.")
+            .Validate(options => options.PollMilliseconds is >= 250 and <= 60000, "PollMilliseconds must be between 250 and 60000.")
+            .ValidateOnStart();
+        services.TryAddSingleton<Knowledge.AiKnowledgeCleanupCursor>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCleanupWorkerCoordinator>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexCleanupStore>();
+        services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportStore>();
+        services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportCoordinator>();
+        services.AddHostedService<Knowledge.AiKnowledgeCleanupHostedProcessor>();
         services.AddOptions<AiAgentRuntimeOptions>().BindConfiguration(AiAgentRuntimeOptions.SectionName);
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();

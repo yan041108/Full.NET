@@ -180,7 +180,7 @@ PUT 正文为 `roleIds` 与对应资源的 `version`：最多 100 个唯一非�
 
 `ready` 每次复核当前来源、模型批准、活动指针、完整清单和批次回执，并在数据库中重新计算实际向量载荷摘要。创建任务的原会话离线或失去写入权限，不撤销其他当前读者对完整索引的读取资格；原写入重试仍要求原会话授权。读取不调用 Files 或模型、不修改任务或收费；返回值只表示本次判断，不可作为后续检索的授权缓存。
 
-删除后仅所有者能读取精确版本墓碑：仍有文件清理待办或派生指针/清单/向量时为 `deleting`，这些内容清理完后为 `deleted`。任务与收费审计历史可以保留。该入口不执行清理，后台派生索引清理仍待后续交付；既有版本列表的 `pending_processing` 字段保持兼容。
+删除后仅所有者能读取精确版本墓碑：仍有文件清理待办或派生指针/清单/向量时为 `deleting`，这些内容清理完后为 `deleted`。任务与收费审计历史可以保留。该入口不执行清理，自动恢复由下述独立 Worker 承担；既有版本列表的 `pending_processing` 字段保持兼容。
 
 ## 原会话失败索引重试
 
@@ -206,6 +206,20 @@ Worker Profile 注册文本索引消费者；API Profile 不启动索引轮询�
 
 执行拒绝或阶段故障使用当前租约保护的 `ai.knowledge.index_unavailable`，原收费和未知用量记录保留。宿主关闭取消保留运行租约供到期恢复；已有持久向量不再收费，已付费而向量缺失的操作也不能免费重发。原会话 API 入队与当前 ready 查询见上文，真实外部联动与检索问答尚待后续切片；`pending_processing` 不因启用配置变成 ready。
 
+## 删除清理 Worker
+
+Worker Profile 通过 `FullNet:Ai:KnowledgeCleanupWorker` 自动恢复已提交删除意图，API 不启动该循环。此开关独立于 `KnowledgeIndexWorker`，不会派发模型请求，也不要求原登录会话仍有效；禁用知识库仍可完成删除清理。
+
+| 配置 | 默认值 | 约束 |
+| --- | --- | --- |
+| `Enabled` | `false` | 显式开启自动删除恢复 |
+| `BatchSize` | `4` | 每轮 1–32 个索引任务或文件补偿操作 |
+| `PollMilliseconds` | `1000` | 每轮结束均等待 250–60000 毫秒 |
+
+扫描只读取 AI 自有墓碑及最小操作标识，按创建时间、操作类型和主键分页。每项在独立可信租户作用域重新校验所有权，使用 30 秒取消预算；失败仍推进游标，扫描末尾回绕重试，重启从头扫描不会丢失持久意图。并发实例通过既有任务锁与导入租约协调；持续故障没有自动成功或清理完成承诺，应结合 `deleting` 状态与只含操作标识、类型的日志定位。若新增积压持续超过处理吞吐，回绕和旧失败项重试可能延后，本切片未验证容量或承诺清理时限。
+
+索引清理取消排队／运行任务并删除活动指针、向量和文本清单，保留任务、会话、批次及收费凭据。文件释放沿既有 `cleanup_pending`、五分钟租约和版本幂等键执行，始终在 AI 事务外；有效导入租约不会抢占，到期后再恢复。两类操作各自收敛，文档在墓碑提交时已不可读取。手动 `imports/cleanup` 仍可使用，其返回整数只计完成的文件补偿。重复 DELETE 的版本冲突／不存在响应语义保持现有契约。
+
 ## 双库与部署
 
 迁移 `240_AiKnowledgeBase.sql` 增加 `fn_ai_knowledge_base`，`241_AiKnowledgeMember.sql` 增加 `fn_ai_knowledge_member`，`242_AiKnowledgeDocument.sql` 增加 `fn_ai_knowledge_document` 与 `fn_ai_knowledge_document_member`，`243_AiKnowledgeFileVersion.sql` 增加 `fn_ai_knowledge_version` 与 `fn_ai_knowledge_import`，`244_AiKnowledgeRoleGrant.sql` 增加知识库及文档角色授予表；均有 SQL Server 与 MySQL 实现，不改写已有业务表。外键仅关联 AI 自有父记录，不向 Files、Identity 或 Tenancy 表建立外键。SQL Server 主键显式采用 UUID v7 聚集键；MySQL 使用 Binary16 网络字节序。
@@ -214,4 +228,4 @@ Worker Profile 注册文本索引消费者；API Profile 不启动索引轮询�
 
 迁移 `245_AiKnowledgeOrganizationGrant.sql` 增加 AI 自有知识库及文档机构授予表，只有 AI 父资源外键，不向 Organization 建外键；同样成对实现、支持恢复重放且不播种默认授权。
 
-验收证据与任务状态统一记录在[活动开发计划 R04/R05](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。R04 的目录、授权、文件引用与导入恢复已完成收尾验收，共享生成客户端已交付；R05 已接入文本 Worker、原会话 HTTP 入队、公开索引状态及原会话失败重试及删除后的有界索引清理，分项验收见活动计划；检索问答及 Vue 页面入口仍待后续切片，完整原生运行和容量尚未验证。完整知识库/RAG、模型质量与容量状态不能由这些局部验收推导。
+验收证据与任务状态统一记录在[活动开发计划 R04/R05](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。R04 的目录、授权、文件引用与导入恢复已完成收尾验收，共享生成客户端已交付；R05 已接入文本 Worker、原会话 HTTP 入队、公开索引状态及原会话失败重试、删除后的有界索引清理及自动恢复，分项验收见活动计划；检索问答及 Vue 页面入口仍待后续切片，完整原生运行和容量尚未验证。完整知识库/RAG、模型质量与容量状态不能由这些局部验收推导。

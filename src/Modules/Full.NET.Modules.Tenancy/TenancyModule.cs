@@ -94,9 +94,6 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<Features.ManageHostTenants.TenantHostPackageBinder>();
         services.AddScoped<Features.ManageHostTenants.HostTenantManagementService>();
         services.AddScoped<Features.ManageHostTenants.HostTenantDirectoryQueryService>();
-        services.TryAddScoped<Directories.ActiveTenantDirectory>();
-        services.TryAddScoped<IIdentityActiveTenantDirectory>(provider =>
-            provider.GetRequiredService<Directories.ActiveTenantDirectory>());
         services.TryAddScoped<ITenantActivityReadPort>(provider =>
             provider.GetRequiredService<Directories.ActiveTenantDirectory>());
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageQueryService>();
@@ -218,6 +215,10 @@ public sealed class TenancyModule : IFullNetModule
 #endif
         AddTenantContextAccessor(services);
         AddTenancyOptionsOnce(services, configuration);
+        // Worker 文件恢复也会解析租户文件服务；活动目录不能只由 API 入口提供。
+        services.TryAddScoped<Directories.ActiveTenantDirectory>();
+        services.TryAddScoped<IIdentityActiveTenantDirectory>(provider =>
+            provider.GetRequiredService<Directories.ActiveTenantDirectory>());
         services.AddScoped<ITenantResolver, TenantResolver>();
         services.AddScoped<IActiveTenantContextResolver>(provider =>
             (TenantResolver)provider.GetRequiredService<ITenantResolver>());

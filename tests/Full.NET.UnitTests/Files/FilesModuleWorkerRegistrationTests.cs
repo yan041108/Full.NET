@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Full.NET.Composition;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Features.ReserveTenantQuota;
+using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.UnitTests.Files;
 
@@ -25,6 +26,7 @@ public sealed class FilesModuleWorkerRegistrationTests
         }).Build(), FullNetHostProfile.Worker, []);
         Assert.AreEqual(typeof(TenantFileStorageQuotaPort), services.Last(item => item.ServiceType == typeof(ITenantFileStorageQuotaPort)).ImplementationType);
         Assert.IsTrue(services.Any(item => item.ServiceType == typeof(ITenantQuotaReservationService)));
+        Assert.IsTrue(services.Any(item => item.ServiceType == typeof(IIdentityActiveTenantDirectory) && item.Lifetime == ServiceLifetime.Scoped));
     }
     [TestMethod]
     public void AddBackgroundServices_registers_host_file_reference_claim_ports()

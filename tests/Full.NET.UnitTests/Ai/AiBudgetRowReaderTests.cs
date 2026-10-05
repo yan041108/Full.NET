@@ -8,6 +8,18 @@ namespace Full.NET.UnitTests.Ai;
 public sealed class AiBudgetRowReaderTests
 {
     [TestMethod] [DataRow(false, false)] [DataRow(true, false)] [DataRow(false, true)] [DataRow(true, true)]
+    public void Cleanup_projection_maps_provider_time_kind_and_nullable_scope(bool mysql, bool tenant)
+    {
+        using var table = new DataTable(); var id = Guid.CreateVersion7(); var now = DateTime.UtcNow;
+        foreach (var name in new[] { "Id", "KnowledgeBaseId", "DocumentId", "OwnerUserId", "TenantId" }) table.Columns.Add(name, typeof(Guid));
+        table.Columns.Add("Kind", mysql ? typeof(long) : typeof(int)); table.Columns.Add("CreatedAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
+        table.Rows.Add(id, id, id, id, tenant ? (object)id : DBNull.Value, 1, mysql ? (object)now : new DateTimeOffset(now));
+        using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read()); var row = AiBudgetRowReaders.ReadKnowledgeCleanup(reader);
+        Assert.AreEqual(id, row.Id); Assert.AreEqual(id, row.KnowledgeBaseId); Assert.AreEqual(id, row.DocumentId); Assert.AreEqual(id, row.OwnerUserId);
+        Assert.AreEqual(tenant ? id : (Guid?)null, row.TenantId); Assert.AreEqual(1, row.Kind); Assert.AreEqual(new DateTimeOffset(now), row.CreatedAtUtc);
+    }
+
+    [TestMethod] [DataRow(false, false)] [DataRow(true, false)] [DataRow(false, true)] [DataRow(true, true)]
     public void Index_status_maps_optional_joins_and_provider_integer_flags(bool mysql, bool absent)
     {
         using var table = new DataTable(); var id = Guid.CreateVersion7();
