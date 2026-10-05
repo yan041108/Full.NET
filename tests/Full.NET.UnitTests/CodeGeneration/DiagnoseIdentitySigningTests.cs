@@ -1120,6 +1120,103 @@ public sealed class DiagnoseIdentitySigningTests
     private static string SecurityGuardFinding(bool valid) => valid
         ? SecurityFinding(true) : "DIAG_IDENTITY_REMOTE_ADMIN_REAUTH_REQUIRED error";
 
+    [TestMethod]
+    [DataRow("null")]
+    [DataRow("{}")]
+    [DataRow("[]")]
+    [DataRow("\"\"")]
+    [DataRow("\"origin-signing-probe\"")]
+    [DataRow("true")]
+    [DataRow("42")]
+    [DataRow("[null]")]
+    [DataRow("[\"origin-signing-probe\"]")]
+    [DataRow("{\"named\":\"origin-signing-probe\"}")]
+    [DataRow("[{\"child\":\"origin-signing-probe\"}]")]
+    public async Task Identity_origins_shapes_follow_real_array_binding(string raw)
+    {
+        using var fixture = new Workspace("{\"EnableTokenEndpoints\":false,\"AllowedOrigins\":" + raw + "}");
+        // 真实 Binder 保留初始化数组；不能把手工 Options 的 null 校验直接套到 JSON 节。
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "production"));
+        string[] expected = raw switch
+        {
+            "[null]" => [null!],
+            "[\"origin-signing-probe\"]" or "{\"named\":\"origin-signing-probe\"}" => ["origin-signing-probe"],
+            _ => [],
+        };
+        AssertBoundOrigins(fixture.Configuration, null, expected);
+        await AssertDiagnostic(fixture, "production", "DIAG_IDENTITY_TOKEN_ENDPOINTS_DISABLED ok");
+    }
+
+    [TestMethod]
+    [DataRow("profile", "development", "null")]
+    [DataRow("profile", "production", "{}")]
+    [DataRow("secrets", "development", "null")]
+    [DataRow("secrets", "development", "{}")]
+    [DataRow("profile", "production", "[]")]
+    [DataRow("environment", "production", "\"\"")]
+    public async Task Identity_origins_final_layer_matches_real_binding(string source, string profile, string raw)
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"AllowedOrigins":[]}""");
+        var overlay = "{\"Identity:AllowedOrigins\":" + raw + "}";
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, profile, overlay));
+        if (source == "profile") fixture.WriteProfile(profile, overlay);
+        if (source == "secrets") fixture.WriteSecrets(overlay);
+        if (source == "environment") Environment.SetEnvironmentVariable("Identity__AllowedOrigins", "");
+        await AssertDiagnostic(fixture, profile, "DIAG_IDENTITY_TOKEN_ENDPOINTS_DISABLED ok");
+    }
+
+    [TestMethod]
+    [DataRow("null")]
+    [DataRow("{}")]
+    [DataRow("[]")]
+    public async Task Identity_origins_empty_parent_retains_lower_array_children(string raw)
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"AllowedOrigins":["origin-signing-probe"]}""");
+        var overlay = "{\"Identity:AllowedOrigins\":" + raw + "}";
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "production", overlay));
+        AssertBoundOrigins(fixture.Configuration, overlay, ["origin-signing-probe"]);
+        fixture.WriteProfile("production", overlay);
+        await AssertDiagnostic(fixture, "production", "DIAG_IDENTITY_TOKEN_ENDPOINTS_DISABLED ok");
+    }
+
+    [TestMethod]
+    public async Task Identity_origins_higher_child_repairs_lower_null()
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"AllowedOrigins":null}""");
+        const string overlay = """{"Identity:AllowedOrigins:0":"origin-signing-probe"}""";
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "production", overlay));
+        AssertBoundOrigins(fixture.Configuration, overlay, ["origin-signing-probe"]);
+        fixture.WriteProfile("production", """{"Identity:AllowedOrigins":null}""");
+        Environment.SetEnvironmentVariable("Identity__AllowedOrigins__0", "origin-signing-probe");
+        await AssertDiagnostic(fixture, "production", "DIAG_IDENTITY_TOKEN_ENDPOINTS_DISABLED ok");
+    }
+
+    [TestMethod]
+    public async Task Identity_origins_production_ignores_development_secrets()
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false}""");
+        fixture.WriteSecrets("""{"Identity:AllowedOrigins":null}""");
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "production"));
+        await AssertDiagnostic(fixture, "production", "DIAG_IDENTITY_TOKEN_ENDPOINTS_DISABLED ok");
+    }
+
+    [TestMethod]
+    public async Task Identity_origins_missing_collection_keeps_initialized_default()
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false}""");
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "production"));
+        await AssertDiagnostic(fixture, "production", "DIAG_IDENTITY_TOKEN_ENDPOINTS_DISABLED ok");
+    }
+
+    private static void AssertBoundOrigins(string configuration, string? overlay, string[] expected)
+    {
+        var builder = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration)));
+        if (overlay is not null) builder.AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(overlay)));
+        var options = new IdentityOptions();
+        builder.Build().GetSection("Identity").Bind(options);
+        CollectionAssert.AreEqual(expected, options.AllowedOrigins);
+    }
+
     private static string ProtocolValue(string field) => field == "SessionLoginPolicy" ? "SingleSessionPerClient" : "identity-signing-probe";
     private static string ProtocolFinding(string field, bool valid) =>
         "DIAG_IDENTITY_" + (field == "SessionLoginPolicy" ? "SESSION_POLICY" : "IDENTIFIERS")
