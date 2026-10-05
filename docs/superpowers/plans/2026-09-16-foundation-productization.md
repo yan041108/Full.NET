@@ -527,6 +527,20 @@ Windows x64、i7-12700H（14 核/20 逻辑处理器、约 63.75 GiB 内存）、
 
 F02及诊断前两项保持待办。静态预算通过不证明10K容量、生产SLO、完整生成CRUD/浏览器、全量Unit/Integration或API/Worker本地Native AOT；Capacity-not-verified保持。行为冻结后仅补总计划，精确交付HEAD的Actions状态在PR记录；PR仍Draft，未合并、未发布。
 
+2026-10-06 缓存静态配置诊断收口（基线 `b5aa25e2a895f568a38ab534c4774a05a805638b`，快照 `f02-cache-configuration-diagnose-20261006`，行为源码冻结 `759ec386f5c8bb6b1b3bee9b69ab1799c8867692`）：真实缓存注册会拒绝非法 TTL、抖动、Redis 参数、条目策略及部分共用配置，而原 diagnose 只检查 Redis 秘密占位符，可能返回成功。本轮对已声明 Cache 使用既有逐叶有效配置合并，并直接调用现有 AddFullNetCaching 注册校验；不构建 ServiceProvider，不解析缓存、连接或 Backplane，不启动 HostedService。固定脱敏机器码 `code_generation.cache.configuration.configured` / `code_generation.cache.configuration.invalid`，非法配置退出1；未声明 Cache 保持既有范围，无效秘密来源保留原专属错误。数据库预算的同算法内存配置抽为私有帮助方法，原52项回归保留。新增现有 Caching.Fusion 项目引用，无新增包版本，CLI runtimeconfig 仍仅 Microsoft.NETCore.App；未修改运行时缓存策略、SQL、迁移、Host.Api AOT路径或业务授权。
+
+新增34项真实注册对照覆盖 Development/Production、缺省与合法 TTL/零抖动、非正或非法 TTL/负值或非法抖动、Redis 参数格式、相同连接与开发显式共用开关、未知条目策略；环境JSON/User Secrets/环境变量可修复或破坏，Production忽略开发秘密，原JSON字段类型错误保持归属。每次检查退出码、脱敏探针及源配置字节只读。首次夹具 CS1674 为构建失败，没有执行用例，不计RED或通过；修复后实际RED34项为21失败/13通过、零跳过；实现后缓存及预算组合86/86、37s 690ms。首次完整套件2200项为17失败/2183通过：旧通用秘密样例配置相同 Cache/Realtime 连接，真实缓存注册也拒绝。保留全部秘密计数、覆盖优先级、类型、脱敏与只读断言，只增加独立真实注册对照以确定总退出码和缓存错误；聚焦原诊断+缓存+预算487/487、2m 46s 110ms，重建零警告/错误。
+
+`pnpm test:dotnet:unit -- --no-build --selection code-generation-realtime`完整2200/2200、7m 47s 187ms；`pnpm test:dotnet:architecture`完整232/232、6m 18s 613ms，零失败/跳过，架构重建零警告/错误。最小发现数仅按新增34项更新（Unit5022、CodeGeneration2200），未变更筛选器或降低门禁。
+
+从冻结源码新建 Minimal SQL Server/MySQL 独立应用，实际随包执行 `pnpm run diagnose:development` / `diagnose:production`，每库12次、合计24次、267.621秒。覆盖合法缓存、零TTL、非法Redis参数、开发可共用但Production拒绝、未知策略、零抖动；同时启用合法数据库预算，轮换直配/命名连接及SQLCONNSTR/MYSQLCONNSTR。所有退出码、缓存机器码、预算通过、SDK/冻结档案/模块闭合符合预期；无连接串/缓存探针，源配置及受管manifest摘要不变，两应用CLI runtimeconfig均仅Microsoft.NETCore.App。入口 `node .tmp/f02-cache-configuration-created-apps.mjs 759ec386f5c8bb6b1b3bee9b69ab1799c8867692`，证据 `.tmp/cc-759ec386/result.json`及原始进程结果。
+
+按快照规划并运行 `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-cache-configuration-diagnose-20261006`，完整影响 CodeGeneration + integration-matrix 双库41/41、9m 44s 407ms，零失败/跳过；TRX start不早于本轮启动，total/executed/passed=41、failed/notExecuted=0。工具链65/65、治理57/57；1118仅分片发现核对。独立TEMP/TMP、新容器Reuse=0、CPU1、Docker 29.6.2、NuGet HTTP 200；Microsoft Windows NT 10.0.19045.0 / 12th Gen Intel(R) Core(TM) i7-12700H / 63.75GiB / SDK10.0.401 / Nodev24.12.0 / pnpm10.26.0，重型验证串行。证据 `.tmp/f02-cache-configuration-{red-compile,red,green,full-unit-red,legacy-green,full-unit,architecture,created-apps,integration}.log`、machine/plan-final、integration environment/TRX/counters。
+
+上一交付 b5aa25e2 的精确HEAD Actions读取时：ci `37380659131` completed / success；worker-native-aot-linux `37380659159` completed / success；api-native-aot-linux `37380659140` completed / success。主CI、API AOT与Worker AOT均已终态success；无失败工作流需要修复，未改工作流或重跑。当前交付精确HEAD状态随后写入PR。
+
+F02及诊断前两项保持待办，Capacity-not-verified保持。既有 Redis 共用校验仅比较连接字符串，静态通过不证明物理隔离、Redis可用性、缓存行为或失效传播；本轮未重验全量Unit/Integration、完整生成CRUD/浏览器、API/Worker本地Native AOT、吞吐/10K容量或生产SLO。行为冻结后仅补总计划，PR仍Draft，未合并、未发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
