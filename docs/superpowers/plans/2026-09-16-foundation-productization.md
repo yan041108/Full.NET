@@ -457,6 +457,18 @@ Windows x64、12th Gen Intel(R) Core(TM) i7-12700H（14 核/20 逻辑处理器�
 
 Windows x64、.NET SDK 10.0.401、Node v24.12.0/pnpm 10.26.0；测试进程明确设置 DOTNET_PROCESSOR_COUNT=1，重型构建串行。`pnpm test:governance` 57/57，零失败/跳过；`pnpm test:slice -- --snapshot f02-sdk-package-regression-20261005` 影响集为 none，没有执行数据库 Integration 或分片发现。证据保留 `.tmp/f02-sdk-package-regression-{red,green,governance,slice,environment}` 日志/JSON。F02、Capacity-not-verified 与 Draft 状态保持，未合并、未发布。
 
+2026-10-06 开发签名回退诊断增量（基线 `c5aa3307dbe0cd9509b07db63052a2f5b630b1a7`，快照 `f02-signing-fallback-diagnose-20261006`，行为及分发源码冻结 `abba85e7e2fbbc4d844a3e5fd351bd8abe354f80`）：沿现有 JWT/OIDC 签名诊断进入实际 RsaSigningKeyRing / IdentityOidcSigningKeyRing 消费者，发现 CLI 见开发临时签名开关就提前报告 EPHEMERAL，而真实密钥环仅在合并后的 SigningKeys.Count=0 时回退；有条目时仍使用持久环并可能构造失败。先以实际 Binder/Options/密钥环完成两种实现各 10 个形状的 20 项只读实验：空/null 父节点 count=0 并使用临时密钥；null/空/未知字段条目 count=1 且失败；完整/仅活动私钥正常使用持久密钥；错误大小写或缺少活动项失败。密钥仅实验进程生成、不输出。纠正现有测试注释与教程“空条目被跳过”的错误解释，保留历史 Options-only 结果的真实边界。日志 `.tmp/f02-signing-fallback-probe.log`。
+
+新增 54 项真实 Binder、Options validator 与两种 RSA 密钥环对照回归，全部运行时断言成立：有效 RED 50 项失败均为原 CLI 缺少 SIGNING_REQUIRED / CONFIGURED 结果，4 项空父节点控制通过；Green 54/54、零失败/跳过，Release 00:01:00.76、零警告/错误，测试 14s 498ms。覆盖 13 个基础形状、活动项精确大小写、profile/Development User Secrets/环境逐叶覆盖及修复、JSON null/空对象与空环境父节点保留低层配置、私钥叶值清空、活动仅私钥、非活动公钥/私钥/空项。JWT 非活动项必须有公钥；OIDC 非活动项优先非空私钥，否则用公钥。未改变宿主签名、认证、DI、密码学、依赖或数据库行为；仅修正私有只读 CLI 的开发回退分支，沿用既有机器码、占位值拒绝与脱敏。Production 禁止临时签名和 OIDC 关闭语义保持；未启用回退的既有签名检查未扩展。日志 `.tmp/f02-signing-fallback-{red,green}.log`。
+
+Windows x64、i7-12700H（14 核/20 逻辑处理器、约 63.75 GiB 内存）、SDK 10.0.401、Node 24.12.0/pnpm 10.26.0；DOTNET_PROCESSOR_COUNT=1、Unit Workers=1、Integration 原有 Workers=2，重型验证串行。`pnpm test:dotnet:unit -- --selection code-generation-realtime --no-build` 1958/1958、零失败/跳过，测试 4m 59s 095ms；动态 C#/ApplicationPart 原架构源码门禁聚焦 1/1、零失败/跳过，未重跑完整 Architecture。矩阵最低数量只同步新增 54 项（4775 / 1958）；教程同步实际绑定与回退边界，治理 57/57、零失败/跳过。日志 `.tmp/f02-signing-fallback-{unit,architecture,governance}.log`。
+
+同一冻结提交源码包各新建 Minimal SQL Server/MySQL 独立应用，实际随包 `pnpm run diagnose:<profile>` 各 28 场景、共 56 次预期退出码，运行器退出 0、418.483 秒。覆盖 JWT/OIDC 的空/null 环、null/空条目、公钥缺私钥、活动仅私钥与完整环、错误大小写、两种非活动字段差异、profile 修复、环境清空私钥、空 profile 父节点保留低层条目及 Production 禁止临时签名。每次 SDK/档案/静态依赖正常，源码/配置 SHA256 不变，全部受管摘要最终一致，无 KeyId/私钥/探针值泄漏；结果 `.tmp/sf-abba85e7/result.json`。应用只执行 CLI，没有连接其数据库、启动 API/Worker 或签发真实令牌；实际密钥环构造对照来自 Unit，不外推为完整宿主、认证协议或 PEM 有效性验收。
+
+应用结束后串行执行 `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-signing-fallback-diagnose-20261006`：完整 CodeGeneration + integration-matrix 影响集 41/41、零失败/跳过、退出 0，Release 00:03:03.38、零警告/错误，测试 9m 12s 566ms。新 SQL Server 2022 CU14/MySQL 8.0 临时容器与独立短 TEMP/TMP，Docker 29.6.2、NuGet HTTP 200；沿用进程级 .NET Docker 管道地址 npipe://./pipe/dockerDesktopLinuxEngine，未改全局设置。复制的本轮 TRX 起始时间不早于进程，total/executed/passed=41、failed/notExecuted=0；工具链 65/65、治理 57/57、零失败/跳过，1118 项仅分片发现核对。证据 `.tmp/f02-signing-fallback-integration.log` / `.trx`、`integration-environment.json`、`integration-counters.json`。
+
+精确基线 Actions 三项已完成成功：ci `37338300918`；worker-native-aot-linux `37338300996`；api-native-aot-linux `37338300949`，证据 `.tmp/f02-signing-fallback-baseline-actions.json`，不外推为本轮 CI 结论。本轮只收口开启开发回退时已有签名条目的配置前提；CONFIGURED 不导入 PEM、不验证配对或强度，不等于完整 Options、启动、登录或令牌协议通过。完整 F02 及前两项保持待办，未重跑全量 Unit/Integration/Architecture、完整打包、应用 Worker、Native AOT、登录/TOTP/授权/容量验收；Capacity-not-verified 保持，未合并、未发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
