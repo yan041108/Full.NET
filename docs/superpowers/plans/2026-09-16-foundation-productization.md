@@ -363,6 +363,18 @@ Docker 可用性复核：恢复依赖后的中间一轮因本机 Docker Desktop 
 
 本轮关闭的是冻结档案与运行模块选择的安装范围一致性；成功文本明确不认证依赖图、编译或宿主启动，Identity + Organization 安装范围有效也不等同于依赖闭包有效。模块依赖 DAG、其他运行配置前提与完整 F02 仍待办，前两项及整项不勾选，既有 CRUD/教程子项保持；本轮没有重跑全量 Unit/Integration、完整打包、应用 Worker、Native AOT 或容量验证，`Capacity-not-verified` 保持，未合并、未发布。
 
+2026-10-05 官方模块静态依赖诊断增量（基线 `60b32beff25995a59bbda36d707c8b859de6afff`，快照 `f02-module-dependencies-diagnose-20261005`，行为代码 `151f93aaae72b3c3bde5da45726c108f36799931`，分发源码冻结 `44a974795070c0509e91e9aeaf203c0c8be045f4`）：已安装的 Identity + Organization 缺少 Tenancy，真实模块选择会拒绝，但保留的 `24fc987e` Minimal 应用旧诊断仍退出 0；另三个闭合/可选生产者缺席控制也退出 0，源码/配置摘要保持、输出脱敏，证据 `.tmp/f02-module-dependencies-repro-result.json`。新增 `DIAG_RUNTIME_MODULE_DEPENDENCIES_CLOSED` / `DIAG_RUNTIME_MODULE_DEPENDENCIES_INVALID` / `DIAG_RUNTIME_MODULE_DEPENDENCIES_UNVERIFIED`。名称与安装范围成功后，只读解析所选官方模块源码中的固定 Name、Dependencies、OptionalContractDependencies，检查稳定键、必需依赖无重复且启用、可选官方契约与必需集不重叠，以及静态图无循环；可选生产者可未启用。禁用模块不参与当前图。动态表达式、条件元数据、部分类、语法错误或缺/不可读源码给出 warn，退出 0 但不生成图闭合成功，明确不计图认证；不加载/执行模块代码，不改变宿主装配或公共 API。
+
+CLI 使用中央已有 Roslyn 5.0.0 语法读取器，未添加 Composition 生产依赖；NuGet 官方包页及本地 nuspec 核对维护来源、目标框架、依赖和 MIT 许可，THIRD-PARTY-NOTICES 补充 Roslyn。CSharp/Common 两个 net9.0 核心 DLL 合计 9,898,608 字节（仅核心库，非总分发体积）。`dotnet list src/Tools/Full.NET.CodeGeneration.Cli/Full.NET.CodeGeneration.Cli.csproj package --vulnerable --include-transitive --format json --no-restore` 成功，结构化清单核对 27 个直接/传递包、无漏洞条目；API 运行依赖清单不含 Roslyn。证据 `.tmp/f02-module-dependencies-package-{audit,inventory,review}.json`；没有外推当前 Native AOT 发布通过。官方生产声明含方法体 AOT 条件，解析仅拒绝影响元数据的条件位置。
+
+新增 57 项回归：全部 30 个官方模块的实际源码与真实组合根模块实例、名称/依赖解析及注册图对照；另覆盖缺失必需依赖、空/未知/大小写/重复键、名称不一致、自环/双节点环、可选非法/重叠、动态/展开/访问器/缺字段/缺源码/语法/条件/部分类、禁用模块和前置错误控制。首轮夹具缺冻结 Preset 触发已有档案错误，修正后 RED 55 失败/2 错误控制通过、零跳过；首轮实现 49 通过/8 失败，八项为断言误写 warning，实际协议是 warn，修正断言后 57/57。失败轮分别保留 `fixture-initial.log`、`warn-assertion-initial.log`，不计通过；生产判定未因此放宽。相同生产源码执行 `pnpm test:dotnet:unit -- --selection code-generation-realtime --no-build`：1583/1583、零失败/跳过、退出 0，Windows x64、i7-12700H（14 核/20 逻辑处理器，约 63.75 GiB 内存）、.NET SDK 10.0.401/运行时 10.0.12、Node 24.12.0、pnpm 10.26.0，DOTNET_PROCESSOR_COUNT=1、Unit Workers=1，聚焦 Release 构建零警告/错误、00:00:41.55，完整 Unit 测试 4m 37s 226ms。提交检查补清理测试文件 EOF 空行，分发冻结提交与行为提交仅差这一个空行，生产源码不变；最终任务 diff 检查通过。治理 57/57、工具链含反馈治理 65/65、命名/UUID 门禁 33/33，均零失败/跳过、退出 0，矩阵只登记真实新增项。
+
+两份全新 Minimal SQL Server/MySQL 应用冻结分发源码，真实随包 `pnpm run diagnose:<profile>` 各 15 场景、共 30 次退出码符合预期，运行器退出 0、250.724 秒。覆盖默认集/Full、Identity/Tenancy 可选生产者缺席、Organization 缺 Tenancy 与完整集、Settings、显式覆盖错误预设、文件缺依赖、环境补充/覆盖成缺依赖、未安装/未知前置控制，以及临时动态声明 warn 和源码循环 error。每次 SDK 正常，诊断前后源码/配置摘要保持且输出脱敏，受控源码负例执行后恢复原始字节并核对所有受管框架摘要。结果 `.tmp/dg-44a97479/result.json`。另引用各应用投影后的真实 Composition，调用实际模块选择和 FullNetModuleRegistry，各 10 项、共 20 项对照通过；默认/显式 Full、Minimal 精确为四模块，闭合集与可选生产者缺席成功，缺 Tenancy 及 Payments 失败；应用源码/配置保持，结果 `runtime-probe-result.json`。探针仅执行模块选择与图排序，没有服务注册、DI、数据库连接或宿主启动。
+
+应用和探针结束后串行执行 `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-module-dependencies-diagnose-20261005`：完整 CodeGeneration + integration-matrix 影响集 41/41、零失败/跳过、退出 0，SQL Server 2022 CU14/MySQL 8.0.46 新临时容器、独立短 TEMP/TMP，处理器计数 1、Integration 原有 Workers=2 与编译类不可并行标记保持。开始前 Docker 引擎 29.6.2、NuGet 索引 HTTP 200；Release 构建零警告/错误、00:02:33.74，测试 8m 40s 070ms。独立复制本轮 TRX，时间不早于本次进程，并核对 total/executed/passed 均 41、failed/notExecuted 为 0；日志/TRX/counters `.tmp/f02-module-dependencies-integration.*`、`integration-counters.json`。1118 项仅计分片发现无遗漏/重复，不计完整 Integration 执行。
+
+本轮关闭的是已安装官方启用集的固定源码静态依赖图；未认证动态声明、应用自有模块及其组合图、源码编译/DI/宿主启动，也不把 warn 当作闭合成功。其他运行配置前提与完整 F02 仍待办，前两项及整项不勾选，既有 CRUD/教程子项保持。本轮未重跑全量 Unit/Integration、完整打包、应用 Worker、Native AOT 或容量验证，Capacity-not-verified 保持，未合并、未发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
