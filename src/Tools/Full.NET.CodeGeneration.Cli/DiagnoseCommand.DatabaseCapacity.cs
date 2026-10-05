@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -28,26 +27,8 @@ internal static partial class DiagnoseCommand
 
         try
         {
-            // 复用诊断已验证的逐叶合并；特殊连接环境前缀须先映射为命名连接路径。
-            var effective = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-            foreach (var rawPath in paths)
-            {
-                var path = rawPath;
-                foreach (var prefix in ConnectionEnvironmentPrefixes)
-                    if (path.StartsWith(prefix.Prefix, StringComparison.OrdinalIgnoreCase))
-                    {
-                        path = "ConnectionStrings:" + path[prefix.Prefix.Length..];
-                        break;
-                    }
-                if (!new[] { "Database", "DatabaseCapacity", "ConnectionStrings" }.Any(section =>
-                    string.Equals(path, section, StringComparison.OrdinalIgnoreCase)
-                    || path.StartsWith(section + ":", StringComparison.OrdinalIgnoreCase)))
-                    continue;
-                if (TryReadIdentitySigningValue(root, profileSettings, workspacePath, profile, path, out var value))
-                    effective.TryAdd(path, value);
-            }
-            var builder = new ConfigurationBuilder().AddInMemoryCollection(effective);
-            var configuration = builder.Build();
+            var configuration = CreateDiagnosticConfiguration(root, profileSettings, workspacePath, profile,
+                paths, "Database", "DatabaseCapacity", "ConnectionStrings");
             using var configurationLifetime = configuration as IDisposable;
 
             // 只解析现有 Options 校验；不解析连接工厂、会话或宿主服务，不打开数据库连接。
@@ -68,7 +49,7 @@ internal static partial class DiagnoseCommand
             // Options 或驱动异常可能含配置值；仅返回固定路径提示，不输出异常或预算数值。
             findings.Add(DiagnoseFinding.Error("code_generation.database_capacity.invalid",
                 "数据库连接预算配置不能绑定或不符合现有静态约束。",
-                "核对 DatabaseCapacity 的开关、宿主角色和数值；启用时连接池须开启，ExpectedMaxPoolSize 须匹配实际连接串及角色池上限，许可证与保留量、各角色副本连接总量不能超预算。诊断不输出配置值，不打开连接。"));
+                "核对 DatabaseCapacity 的开关、宿主角色和数值；启用时连接池须开启，ExpectedMaxPoolSize 须匹配实际连接串及角色池上限，并发许可与保留量、各角色副本连接总量不能超预算。诊断不输出配置值，不打开连接。"));
         }
     }
 }

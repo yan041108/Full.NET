@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Full.NET.CodeGeneration.Cli;
+using Full.NET.Caching.Fusion;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Microsoft.Extensions.Configuration;
@@ -1855,7 +1856,7 @@ public sealed class DiagnoseCommandTests
         Assert.AreEqual(layout is "empty-root" or "valid-flat" or "valid-lowercase" ? 0 : 3, runtimeCount);
         using var fixture = new DiagnoseWorkspace(configuration);
         foreach (var profile in new[] { "development", "production" })
-            await AssertSecretDiagnosisAsync(fixture, profile, runtimeCount);
+            await AssertSecretDiagnosisAsync(fixture, profile, runtimeCount, runtime);
     }
 
     [TestMethod]
@@ -1898,7 +1899,7 @@ public sealed class DiagnoseCommandTests
                 if (!usesBase) builder.AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(overlay)));
                 var runtime = builder.Build();
                 foreach (var path in DiagnosticSecretPaths) Assert.AreEqual(usesBase ? "CHANGEME" : value, runtime[path]);
-                await AssertSecretDiagnosisAsync(fixture, profile, usesBase || shape != "valid" ? 3 : 0);
+                await AssertSecretDiagnosisAsync(fixture, profile, usesBase || shape != "valid" ? 3 : 0, runtime);
             }
         }
         finally
@@ -1914,9 +1915,11 @@ public sealed class DiagnoseCommandTests
     {
         var settings = DiagnosticSecretSettings();
         foreach (var path in DiagnosticSecretPaths) settings[path] = boolean ? true : 42;
-        using var fixture = new DiagnoseWorkspace(JsonSerializer.Serialize(settings));
+        var configuration = JsonSerializer.Serialize(settings);
+        var runtime = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration))).Build();
+        using var fixture = new DiagnoseWorkspace(configuration);
         // JSON 非文本值保持秘密字段的失败关闭策略，不能因框架可转字符串便计为有效凭据。
-        foreach (var profile in new[] { "development", "production" }) await AssertSecretDiagnosisAsync(fixture, profile, 3);
+        foreach (var profile in new[] { "development", "production" }) await AssertSecretDiagnosisAsync(fixture, profile, 3, runtime);
     }
 
     [TestMethod]
@@ -1966,7 +1969,8 @@ public sealed class DiagnoseCommandTests
         StringAssert.Contains(ReadRuntimeDatabaseConnection(configuration), "Password=credential-probe");
         using var fixture = new DiagnoseWorkspace(configuration);
         foreach (var profile in new[] { "development", "production" })
-            await AssertSecretDiagnosisAsync(fixture, profile, 0);
+            await AssertSecretDiagnosisAsync(fixture, profile, 0,
+                new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration))).Build());
     }
 
     [TestMethod]
@@ -2116,13 +2120,25 @@ public sealed class DiagnoseCommandTests
         settings[segments[^1]] = value;
     }
 
-    private static async Task AssertSecretDiagnosisAsync(DiagnoseWorkspace fixture, string profile, int placeholders)
+    private static async Task AssertSecretDiagnosisAsync(DiagnoseWorkspace fixture, string profile, int placeholders, IConfiguration runtime)
     {
         var before = Directory.EnumerateFiles(fixture.Root, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
         using var output = new StringWriter();
         using var error = new StringWriter();
         var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
-        Assert.AreEqual(profile == "production" && placeholders > 0 ? 1 : 0, result, output.ToString());
+        // 通用秘密断言保持不变；整体退出码还须服从真实缓存注册的共享连接约束。
+        var cacheInvalid = false;
+        try
+        {
+            _ = new ServiceCollection().AddFullNetCaching(runtime, profile == "production" ? "Production" : "Development");
+        }
+        catch (Exception exception) when (exception is OptionsValidationException or InvalidOperationException
+            or ArgumentException or FormatException or OverflowException)
+        {
+            cacheInvalid = true;
+        }
+        Assert.AreEqual((profile == "production" && placeholders > 0) || cacheInvalid ? 1 : 0, result, output.ToString());
+        Assert.AreEqual(cacheInvalid, output.ToString().Contains("code_generation.cache.configuration.invalid error", StringComparison.Ordinal));
         StringAssert.Contains(output.ToString(), placeholders == 0 ? "DIAG_SECRETS_OK ok"
             : profile == "production" ? "DIAG_SECRETS_PLACEHOLDER error" : "DIAG_SECRETS_PLACEHOLDER warn");
         if (placeholders > 0) StringAssert.Contains(output.ToString(), $"有 {placeholders} 个秘密");

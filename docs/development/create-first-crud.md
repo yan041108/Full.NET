@@ -76,6 +76,8 @@ OIDC 默认关闭，诊断报告 `DIAG_OIDC_DISABLED ok`；关闭后不要求其
 
 数据库前置配置和所选连接离线校验通过后，诊断对已声明的 DatabaseCapacity 复用现有 Dapper Options 绑定与校验，沿用逐叶合并和特殊连接环境前缀规则，以环境变量、Development User Secrets、所选环境 JSON、基础 JSON 的优先级检查连接预算。无法绑定或启用时违反角色、池参数、并发许可与保留量或集群连接总预算，报告 `code_generation.database_capacity.invalid error` 并退出 1；静态预算通过报告 `code_generation.database_capacity.configured ok`，已声明但未启用报告 `code_generation.database_capacity.disabled ok`；未声明预算时保持原有诊断范围。禁用只跳过预算范围约束，非法字段类型仍不能通过绑定。数据库前置条件错误不再误报为预算失败；诊断不解析连接工厂或会话，不打开连接，不输出配置值或驱动/Options 异常。静态预算通过不代表吞吐、10K 容量、生产 SLO 或完整宿主启动已验证，Capacity-not-verified 保持。
 
+对已声明的 Cache 配置，诊断复用现有 AddFullNetCaching 启动注册校验，检查绑定、默认 TTL、抖动、条目策略、Redis 参数及既有 Realtime 共用规则；报 code_generation.cache.configuration.configured 或 code_generation.cache.configuration.invalid，失败退出 1。沿用有效配置叶合并，不解析缓存、Backplane 或连接实例，不启动 HostedService，不回显条目名、参数或异常。未声明 Cache 保持既有诊断范围；配置通过不认证 Redis 可用性、物理隔离、失效传播、缓存正确性、吞吐或完整宿主启动。
+
 ## 第二步：准备 CRUD Schema
 
 原框架仓库的示例主从单据见 [`samples/enterprise-request/schema.json`](../../samples/enterprise-request/schema.json)（`master.detail` 场景：申请头 + 明细行）。应用应准备自己的 `schema.json`，冻结项目 OwnerKey，并显式声明字段、精确权限与 `dataScope`；不能直接沿用原仓库的集成目标路径。
