@@ -877,6 +877,19 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-sandbox-r05e2 --phase slice` 选择 integration-matrix 与双库 Smoke；工具链及反馈契约 65/65、治理 57/57、分片发现 1138 项无遗漏/重复，完整 Smoke 8/8、零失败/跳过、退出 0，5m 13.742s。`node artifacts/r05e2/verify.mjs` 核对 Ai 与 Smoke 正式 TRX 的全部 UID/FQN、34 项未变输入，并明确保留 1 项 README 追加控制故障测试说明的纯文档前后摘要。正式和 Unit 中工具 DLL 摘要同为 `25315a1eb225e37f0570661b2f5e3ba3a457a039422b300001525ac13c3d2659`；原生清单另保留最终 24 项源码/许可/锁文件摘要。原始日志、TRX、冻结输入与验收清单在忽略目录 `artifacts/r05e2/`、同前缀日志及 `artifacts/ai-evaluation/r05e2/`。
   - 本地 i7-12700H（14 核/20 线程）、64 GB Windows、SDK 10.0.401，Linux SDK 10.0.400；受测独立工具预算为 512 MiB/2 CPU/32 PID/30s。未验证完整分块器/Host 原生运行、真实 Worker 接入、模型/来源派发前复核、Embedding 账本、索引与 ready、Kubernetes 部署或容量；完整 RAG 保持 Planned，容量保持 `Capacity-not-verified`。
 
+- [x] R05e3：独立 PDF 控制器的受限子进程协议（基线 `fd02da28a031b5a49489ad6d48485a9e4d5366b7`，快照 `ai-knowledge-pdf-cli-r05e3`）。
+  - 文件：新增 `scripts/ai/pdf-sandbox-cli.mjs`、固定输出辅助进程 `pdf-sandbox-publish.mjs`、`tests/ai-evaluation/pdf-sandbox/cli.test.mjs`、`cli-transport.test.mjs`、`cli-process-publication.test.mjs`、`cli-publication-death.test.mjs`、`run-cli-native.mjs`；更新既有驱动的 watchdog/kill 竞态、生命周期回归及同目录 README。复用既有 `runPdfSandbox`，不复制 Docker 所有权与清理控制器。
+  - 接口：CLI 只接受不可变 `--image-id`、权威 `--content-hash`、`--size-bytes`、可缩短的 `--timeout-ms` 和仅用于跟踪的可选 `--run-id`；stdin 为授权后的原始字节，stdout 成功时为原有 v1 PDF 输出。读取也纳入最长 30s，严格限制 5 MiB，并在启动容器前比较实际摘要、大小。错误只输出固定机器码，退出 2；成功必须确认停止、清理、策略、完整输入和 exit=0。
+  - 步骤：先执行 CLI 拒绝/有界读取 RED；实现严格参数与有界传输；补模拟成功、清理失败、信号取消及输出门禁；通过真实原生镜像运行中文分页、扫描件拒绝、运行中取消、超时及输出洪泛，并复核本次资源清理；运行影响集规划、相关测试和治理，完成只读安全审查后在 main 提交。
+  - 消费约束：后续 Worker 必须以参数数组和管道启动可信 Node/脚本，以 EOF、exit=0、无 stderr 加 `AiKnowledgePdfOutputReader` 复核摘要/分页后消费；控制器失败/死亡时停止接受并关闭管道，不能只等 EOF 或把杀掉控制器等同于停止容器。本切片交付本地进程协议及其实际验收消费者，不注册生产 Worker、不挂载 Docker socket；分页持久清单、业务来源/会话复核与 PDF 入队仍在后续切片，完整 RAG 保持 Planned。
+
+  R05e3 本地证据（2026-10-06，仅本地子进程协议）：
+  - CLI 首轮 RED 5/5 失败；其后补来源完整性、取消原因、终端关闭错误、最终取消及 watchdog/kill 竞态回归。只读审查和真实未读管道实验发现同步 stdout 阻塞计时器，以及异步文件写入虽可触发计时器仍阻塞 `process.exit`；最终将写入交给固定、空环境的辅助进程，由控制器按剩余预算强杀并等待其退出。未把失败实验计为通过，保留原始失败清单和最小进程复现于 `artifacts/ai-evaluation/r05e3/`。
+  - `node --test tests/ai-evaluation/pdf-sandbox/*.test.mjs` 最终 30/30 通过，零失败/跳过、退出 0；真实进程覆盖受阻输出、取消、完整交付、空结果及控制器死亡后先关闭继承管道、辅助写入进程随之退出。复审未发现剩余确认 P1/P2。
+  - `node tests/ai-evaluation/pdf-sandbox/run-cli-native.mjs` 11 项观测全部通过、退出 0；复用源码、原生二进制摘要与不可变镜像均未变的 R05e2 构建，重新验证中文/压缩页、扫描/坏文件拒绝、实际隔离、超时/取消、输出洪泛、控制器死亡后的解析器 watchdog。真实未读 stdout 实验先确认容器清理，再以 20s 剩余预算观测控制进程退出 2（20154 ms，含启动开销），错误仅固定超时码。本次容器均已清理，原有三个运行容器保持运行；运行时输入摘要与验收期间冻结清单一致。
+  - `node tests/ai-evaluation/pdf-sandbox/run-native.mjs` 原隔离驱动 23 项观测重新通过、退出 0，覆盖解压预算、损坏流、128/129 页、重复关联 ID、真实 OOM、强杀、洪泛及 watchdog。新旧控制路径的运行时代码摘要均复核一致；原驱动运行后仅追加 README 的控制器死亡消费说明，不以该纯文档差异宣称运行证据失效或扩大验收。完整清单分别在 `artifacts/ai-evaluation/r05e3/acceptance.json` 与 `artifacts/ai-evaluation/r05e2/acceptance.json`，旧验收另保留到本次证据目录。
+  - `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-cli-r05e3 --phase slice --plan` 判定无 Integration 影响；此次只改脚本、测试和说明，未修改 .NET/SQL/宿主闭包，不重跑双库或 Host AOT，不声称这些未执行套件通过。`pnpm test:governance` 57/57、`pnpm test:naming` 33/33、语法及 diff 检查均通过、退出 0。本机 Windows、Node 24.12.0，解析器运行于 Docker Linux Native AOT；未验证 Linux Node 控制器、生产 Worker、Kubernetes 调度、PDF 分页持久清单或容量。
+
 - [x] R05f1：持久化索引任务与租约边界（本次切片，仅内部持久化，不注册 Worker 或宣布 ready）。
   - [x] 新增成对 `246_AiKnowledgeIndexTask.sql`：AI 自有任务以 UUID v7 为代次，唯一绑定来源版本、文档版本及知识库授权版本；保存精确模型配置/版本、有限尝试次数、租约及失败机器码。只允许 queued/running/failed/cancelled，不提供空索引 ready。
   - [x] `Persistence/AiKnowledgeIndexTaskSql.cs` 与 `Knowledge/AiKnowledgeIndexTaskStore.cs` 经既有执行器访问 AI 表；Host/可信租户分离。入队、领取、续租和失败写回均复核未删除、启用、版本、最新已确认文件及获批模型；取消允许在删除/禁用后终止工作。外部 Files/模型调用不进入事务。

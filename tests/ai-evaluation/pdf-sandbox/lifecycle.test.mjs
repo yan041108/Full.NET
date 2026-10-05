@@ -35,6 +35,14 @@ fakeExec[promisify.custom] = async (_command, args) => {
     return { stdout: JSON.stringify([state.container]) };
   }
   if (args[0] === 'kill') {
+    if (state.watchdogBeforeKill || state.falseStoppedResponse) {
+      if (state.watchdogBeforeKill) {
+        state.container.State = { Running: false, ExitCode: 137, OOMKilled: false };
+        state.child?.kill();
+      }
+      state.watchdogBeforeKill = false; state.falseStoppedResponse = false;
+      throw Object.assign(new Error('already stopped'), { code: 1, stderr: `container ${id} is not running` });
+    }
     if (state.failKillOnce) { state.failKillOnce = false; throw new Error('daemon refused kill'); }
     state.container.State = { Running: false, ExitCode: 137, OOMKilled: false };
     state.child?.kill();
@@ -113,4 +121,18 @@ test('lost create response recovers only internally owned identity and stays fai
   assert.equal(result.cleaned, true);
   assert.equal(simulation.container, undefined);
   assert.equal(simulation.commands.some(args => args[0] === 'kill'), false);
+});
+
+test('watchdog termination between inspect and kill still confirms the owned stopped container', async () => {
+  simulation = { commands: [], controller: new AbortController(), abortAfterStart: true, watchdogBeforeKill: true };
+  const result = await runPdfSandbox({ imageId, input: Buffer.from('hang\n'), signal: simulation.controller.signal });
+  assert.equal(result.code, 'fn_ai_pdf_sandbox_cancelled'); assert.equal(result.output, undefined);
+  assert.equal(result.stopped, true); assert.equal(result.cleaned, true); assert.equal(result.exitCode, 137);
+});
+
+test('a not-running response alone cannot prove an owned running container stopped', async () => {
+  simulation = { commands: [], controller: new AbortController(), abortAfterStart: true, falseStoppedResponse: true };
+  const result = await runPdfSandbox({ imageId, input: Buffer.from('hang\n'), signal: simulation.controller.signal });
+  assert.equal(result.code, 'fn_ai_pdf_sandbox_stop_unconfirmed'); assert.equal(result.output, undefined);
+  assert.equal(result.cleaned, true);
 });

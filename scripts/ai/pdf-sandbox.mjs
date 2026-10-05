@@ -13,12 +13,13 @@ const environmentKeys = new Set(['PATH', 'APP_UID', 'ASPNETCORE_HTTP_PORTS', 'DO
 const failure = code => new Error(`fn_ai_pdf_sandbox_${code}`);
 
 // Docker 控制客户端可使用宿主已有连接配置；没有任何 -e、挂载或凭据进入解析容器。
-async function control(args, { missingAllowed = false } = {}) {
+async function control(args, { missingAllowed = false, stoppedAllowed = false } = {}) {
   try {
     const result = await execute('docker', args, { windowsHide: true, timeout: 10000, maxBuffer: 65536 });
     return result.stdout;
   } catch (error) {
     if (missingAllowed && error.code === 1 && /No such (object|container)/i.test(error.stderr ?? '')) return null;
+    if (stoppedAllowed && error.code === 1 && /container\b[^\r\n]*\bis not running\b/i.test(error.stderr ?? '')) return null;
     throw failure('control_failed');
   }
 }
@@ -69,7 +70,8 @@ export async function runPdfSandbox({ imageId, input, signal, timeoutMs = 30000,
 
   async function forceStop() {
     const container = await inspectOwned();
-    if (container.State.Running) await control(['kill', '--signal', 'KILL', containerId]);
+    // watchdog 可在 inspect 与 kill 之间先终止；仅识别已停止响应，随后仍复验归属及真实状态。
+    if (container.State.Running) await control(['kill', '--signal', 'KILL', containerId], { stoppedAllowed: true });
     const stopped = await inspectOwned();
     if (stopped.State.Running) throw failure('stop_unconfirmed');
     return stopped;
