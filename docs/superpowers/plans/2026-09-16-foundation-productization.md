@@ -423,6 +423,18 @@ Windows x64、12th Gen Intel(R) Core(TM) i7-12700H（14 核/20 逻辑处理器�
 
 读取精确基线 Actions：api-native-aot-linux `37323461103` in_progress；ci `37323461068` completed / success；worker-native-aot-linux `37323461041` completed / success；证据 `.tmp/f02-identity-origins-baseline-actions.json`，仅对应基线提交，不外推为当前源码的 CI 结论。
 
+2026-10-05 Identity CORS 凭据诊断增量（基线 `a64734b217ba128e42a69b3b32c8e637acaec8a2`，快照 `f02-identity-cors-diagnose-20261005`，行为及分发源码冻结 `f8e0d28faaf3542b0089a348254cf7d20d81ab9b`）：上一轮只覆盖来源集合的形状与绑定，本轮沿实际 IdentityCorsOptionsConfigurator 深入策略构建，复现 AllowedOrigins 数组包含单独 `*` 时 IdentityOptionsValidator 仍允许，但固定 AllowCredentials 的真实 CORS 构建器抛出 InvalidOperationException。旧 `9ec6f759` SQL Server 生成应用实际随包生产诊断三次：默认、单独星号子项与普通来源控制均退出 0；SDK/档案/静态依赖正常、配置和源码摘要保持、输出脱敏，证据 `.tmp/f02-identity-cors-repro-result.json`。新增 DIAG_IDENTITY_CORS_CREDENTIALS_INVALID / CONFIGURED，按最终直接子项值检查凭据与任意来源冲突；缺陷场景改为退出 1，不更改宿主 CORS、认证、来源策略、数据库、DI 或依赖。
+
+40 项回归均对照真实 Binder、IdentityOptionsValidator 与 IdentityCorsOptionsConfigurator：有效 RED 40 失败均因缺少机器码，18 项策略构建失败和 22 项合法控制的运行时预期全部成立；Green 40/40、零失败/跳过，Release 00:00:47.96、零警告/错误，测试 8s 858ms。覆盖 Development/Production、四层逐叶覆盖与高层修复、命名子键、单独星号与正常来源、空父节点保留低层星号、空子项覆盖、对象项忽略与对象子节点保留低层叶值、Production 忽略开发秘密；单独标量星号、带空白星号、子域星号按实际策略构建控制允许，不人为 trim 或添加 URL 规则。成功代码仅证明未发现这一冲突，不认证实际 CORS 请求、来源匹配、完整 Options/启动。所有诊断不回显来源值。日志 `.tmp/f02-identity-cors-{red,green}.log`。
+
+Windows x64、12th Gen Intel(R) Core(TM) i7-12700H（14 核/20 逻辑处理器、约 63.75 GiB 内存）、SDK 10.0.401、Node v24.12.0/pnpm 10.26.0；DOTNET_PROCESSOR_COUNT=1、Unit Workers=1、Integration 原有 Workers=2，重型验证串行。`pnpm test:dotnet:unit -- --selection code-generation-realtime --no-build` 1904/1904、零失败/跳过、测试 4m 38s 099ms；动态 C#/ApplicationPart 原架构源码门禁聚焦 1/1，约束新私有 CLI 文件，未重跑完整 Architecture。矩阵只同步实际新增 40 项；治理 57/57，零失败/跳过。日志 `.tmp/f02-identity-cors-{unit,architecture,governance}.log`、`machine.json`。
+
+同一冻结提交源码包各新建 Minimal SQL Server/MySQL 独立应用，实际随包 `pnpm run diagnose:<profile>` 各 16 场景、共 32 次预期退出码，运行器退出 0、217.001 秒。覆盖开发/生产默认与星号拒绝、普通来源、环境 JSON/命名子键、环境修复、null/空对象/空数组父节点保留星号、标量星号、null 和对象数组项、空白与子域星号控制；SDK/档案/官方静态依赖正常，每次源码/配置 SHA256 保持、全部受管摘要最终一致、输出脱敏；结果 `.tmp/cc-f8e0d28f/result.json`。仅 CLI 调用，没有连接应用数据库、启动 API/Worker 或执行真实 CORS 请求；实际策略构建对照来自 Unit，不外推为完整宿主验收。
+
+应用结束后串行执行 `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-identity-cors-diagnose-20261005`：完整 CodeGeneration + integration-matrix 影响集 41/41、零失败/跳过、退出 0，Release 00:02:37.18、零警告/错误，测试 9m 23s 542ms。新 SQL Server 2022 CU14/MySQL 8.0 临时容器与独立短 TEMP/TMP；Docker 29.6.2、NuGet HTTP 200 前置正常，沿用进程级 .NET 管道地址 npipe://./pipe/dockerDesktopLinuxEngine，未改全局 Docker。独立复制 TRX 起始时间不早于本轮进程，total/executed/passed=41、failed/notExecuted=0，日志/TRX/counters `.tmp/f02-identity-cors-integration.*`、`integration-counters.json`。工具链 65/65、治理 57/57，零失败/跳过；1118 项仅分片发现核对，不计全量执行。
+
+读取精确基线 Actions：ci `37327077549` completed / success；worker-native-aot-linux `37327077477` completed / success；api-native-aot-linux `37327077737` completed / success，状态证据 `.tmp/f02-identity-cors-baseline-actions.json`，不外推为当前源码 CI 结论。本轮只收口固定官方 CORS 凭据策略中的单独星号配置冲突；其他运行配置、Provider、应用自有模块图及完整 F02 仍待办，前两项及整项不勾选，既有 CRUD/教程子项保持。未重跑全量 Unit/Integration/Architecture、完整打包、应用 Worker、Native AOT、完整登录/TOTP/授权/真实 CORS 或容量验收，Capacity-not-verified 保持，未合并、未发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
