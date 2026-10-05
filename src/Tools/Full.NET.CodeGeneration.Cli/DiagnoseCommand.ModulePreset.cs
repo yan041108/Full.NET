@@ -19,7 +19,9 @@ internal static partial class DiagnoseCommand
         "Mqtt", "Webhooks", "Cryptography", "Payments", "GoView", "K3Cloud", "Ocr", "EnterpriseRequest",
     ];
 
-    private static void CheckModulePreset(
+    private sealed record DiagnosticModuleSelection(string? Preset, IReadOnlySet<string>? Enabled);
+
+    private static DiagnosticModuleSelection? CheckModulePreset(
         JsonElement root, JsonDocument? profileSettings, string workspacePath, string profile,
         List<DiagnoseFinding> findings)
     {
@@ -45,24 +47,27 @@ internal static partial class DiagnoseCommand
                     || !DiagnosticModuleNames.Contains(name, StringComparer.Ordinal) || !names.Add(name))
                     valid = false;
             }
-            findings.Add(valid && names.Contains("Identity")
+            valid &= names.Contains("Identity");
+            findings.Add(valid
                 ? DiagnoseFinding.Ok("DIAG_MODULE_ENABLED_CONFIGURED",
                     "最终生效的 Enabled 列表名称有效、无重复且包含 Identity；未认证模块实现可用性、依赖闭包或宿主启动。")
                 : DiagnoseFinding.Error("DIAG_MODULE_ENABLED_INVALID",
                     "最终生效的 Enabled 列表为空、名称无效、有重复项或缺少 Identity。",
                     "核对 FullNet:Modules:Enabled，使用非空、区分大小写的官方稳定模块键且不得重复，必须包含 Identity；名称不忽略空白。列表覆盖 Preset，子键按配置来源合并；诊断不会回显名称或配置值。"));
-            return;
+            return valid ? new DiagnosticModuleSelection(null, names) : null;
         }
 
         var hasPreset = TryReadDatabaseValue(root, profileSettings, workspacePath, profile,
             "FullNet:Modules:Preset", out var preset);
         // 只有缺键才保留 Options 的 Full 默认值；显式 null、空集合或空白均不能恢复默认名。
         if (!hasPreset) preset = "Full";
-        findings.Add(DiagnosticModulePresets.Contains(preset, StringComparer.OrdinalIgnoreCase)
+        var validPreset = DiagnosticModulePresets.Contains(preset, StringComparer.OrdinalIgnoreCase);
+        findings.Add(validPreset
             ? DiagnoseFinding.Ok("DIAG_MODULE_PRESET_CONFIGURED",
                 "最终生效的模块预设名称有效；未认证预设成员、模块依赖或宿主启动。")
             : DiagnoseFinding.Error("DIAG_MODULE_PRESET_INVALID",
                 "最终生效的模块预设名称无效。",
                 "核对 FullNet:Modules:Preset，使用 Full、Minimal、Platform、Content、Saas 或 Enterprise；名称忽略大小写但不忽略空白。显式 Enabled 列表覆盖预设，诊断不会回显配置值。"));
+        return validPreset ? new DiagnosticModuleSelection(preset, null) : null;
     }
 }
