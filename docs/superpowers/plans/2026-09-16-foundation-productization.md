@@ -401,6 +401,18 @@ Windows x64、12th Gen Intel(R) Core(TM) i7-12700H（14 核/20 逻辑处理器�
 
 本轮只收口上述两组 Identity 配置准入和实际 CI 架构失败；其他 Identity Options、运行配置、应用自有模块图与完整 F02 仍待办，F02 前两项及整项不勾选，既有 CRUD/教程子项保持。没有重跑全量 Unit/Integration、完整打包、应用 Worker、Native AOT 或容量验收，Capacity-not-verified 保持；未合并、未发布。
 
+2026-10-05 Identity 安全开关诊断增量（基线 `5748b29de7fb3b2c886a022a55dc9e9a6f17a449`，快照 `f02-identity-security-diagnose-20261005`，行为及分发源码冻结 `9eda9da9dc9c568a8840cbc4f44216401b747dc2`）：宿主绑定 RequireSecureCookies、EnableRemoteSuperAdministratorManagement、EnableTotpStrongReauthentication 三个布尔属性，并要求 Production 开启远程超管管理时同时开启 TOTP；关闭 JWT/OIDC 端点也不能跳过。CLI 原先没有这两组准入，保留的 `698fc68e` SQL Server 独立应用生产诊断五次：默认控制、三个非法布尔值及远程管理 true/TOTP false 均退出 0；SDK/档案/官方静态依赖正常，源码/配置摘要保持、输出脱敏，结果 `.tmp/f02-identity-security-repro-result.json`。新增 DIAG_IDENTITY_SECURITY_OPTIONS_INVALID / CONFIGURED、DIAG_IDENTITY_REMOTE_ADMIN_REAUTH_REQUIRED，仅检查当前环境最终叶值；不改变认证、超管授权、TOTP Provider、Cookie、数据库或宿主注册，不增加依赖。
+
+新增 99 项与真实 Configuration Binder、IdentityOptionsValidator 对照：有效 RED 99 失败均为缺少诊断机器码，运行时预期全部成立；实现后 99/99、零失败/跳过。覆盖三项开关的 true/false、大小写与空白、null/空对象/空数组、非空复合节点、数字/小数/空/未知字符串，四层配置逐叶覆盖、合法高层修复和 Production 忽略开发秘密；开发/生产完整开关组合、null 远程管理与 null TOTP、较高层启闭远程管理/TOTP 及空父节点保留低层叶值。RequireSecureCookies=false 仅按宿主现有绑定规则准入，没有发明新的 Cookie 策略；成功代码不认证实际 Cookie、TOTP、授权或完整 Options/启动。所有输出不回显配置值。日志 `.tmp/f02-identity-security-{red,green}.log`。
+
+Windows x64、12th Gen Intel(R) Core(TM) i7-12700H（14 核/20 逻辑处理器、约 63.75 GiB 内存）、.NET SDK 10.0.401、Node v24.12.0/pnpm 10.26.0，DOTNET_PROCESSOR_COUNT=1、Unit Workers=1、Integration 原有 Workers=2：`pnpm test:dotnet:unit -- --selection code-generation-realtime --no-build` 1841/1841、零失败/跳过、测试 7m 26s 098ms；相同最终源码聚焦 Release 构建 00:01:10.58、零警告/错误。`pnpm test:dotnet:architecture -- --no-build --filter FullyQualifiedName~Production_source_rejects_runtime_dynamic_csharp_and_application_part_mutation --minimum-expected-tests 1` 1/1，约束新增工具源码；没有重跑完整 Architecture。治理 57/57、工具链及两组反馈 66/66、命名/UUID 33/33，均零失败/跳过、退出 0；矩阵只登记实际新增 99 项。日志 `.tmp/f02-identity-security-{unit,architecture,governance,tooling,naming}.log`，机器证据 `machine.json`。
+
+相同提交源码包各新建 Minimal SQL Server/MySQL 独立应用，以实际随包 `pnpm run diagnose:<profile>` 各执行 20 场景、共 40 次预期退出码通过，运行器退出 0、276.719 秒。覆盖开发/生产默认、三种非法布尔值、生产远程管理缺 TOTP 拒绝/开发允许、同时开启 TOTP 的配置控制、关闭远程管理、Cookie false 的绑定控制、大小写/空白、环境 JSON 错误、高层环境修复、null 远程管理允许/null TOTP 触发约束、空数组布尔拒绝、非空复合子节点和空父节点保留叶值、输出脱敏。每次 SDK/档案/官方静态依赖正常、源码/配置摘要保持，全部受管框架摘要最终一致，结果 `.tmp/sc-9eda9da9/result.json`。只执行 CLI，没有连接应用数据库、注册 Provider/DI 或启动宿主；真实配置对照来自 Unit，不外推为 TOTP 真实运行或远程授权验收。
+
+应用结束后串行执行 `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-identity-security-diagnose-20261005`：完整 CodeGeneration + integration-matrix 影响集 41/41、零失败/跳过、退出 0，Release 构建 00:01:43.34、零警告/错误，测试 10m 41s 514ms。新 SQL Server 2022 CU14/MySQL 8.0 临时容器、独立短 TEMP/TMP；Docker 29.6.2、NuGet 索引 HTTP 200 前置可达，沿用进程级 .NET 客户端管道地址 npipe://./pipe/dockerDesktopLinuxEngine，未修改全局 Docker。独立复制 TRX 起始时间不早于本轮进程，total/executed/passed=41、failed/notExecuted=0；日志/TRX/counters `.tmp/f02-identity-security-integration.*`、`integration-counters.json`。1118 项只计分片发现核对，不计全量执行。
+
+读取精确基线 `5748b29d` 主 CI `37318231692` 与 Worker Native `37318231667` 均终态 success，上一轮静态解析的架构修复得到远端确认；状态证据 `.tmp/f02-identity-security-baseline-actions.json`。基线结果不外推到本轮源码。本轮收口上述三个安全开关的绑定及 Production 远程管理配置前提，其他 Identity Options、Provider、运行配置、应用自有模块图与完整 F02 仍待办；F02 前两项及整项不勾选，既有 CRUD/教程子项保持。没有重跑全量 Unit/Integration/Architecture、完整打包、应用 Worker、Native AOT、完整登录/远程授权/TOTP 或容量验收，Capacity-not-verified 保持；未合并、未发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
