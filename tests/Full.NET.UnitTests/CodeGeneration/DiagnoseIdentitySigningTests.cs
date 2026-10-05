@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -5,6 +6,9 @@ using Full.NET.CodeGeneration.Cli;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.DependencyInjection;
+using Full.NET.Modules.Identity.Security;
+using Full.NET.Modules.Identity.Oidc;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Configuration;
@@ -179,13 +183,13 @@ public sealed class DiagnoseIdentitySigningTests
         if (mode == "configured" && keys is not ("null" or "{}"))
             keys = keys[..^1] + ""","signing-probe":{"PublicKeyPem":"public-signing-probe","PrivateKeyPem":"private-signing-probe"}}""";
         using var fixture = new Workspace("{" + prefix + ",\"SigningKeys\":" + keys + "}");
-        // 手工 Options 的 null 集合校验不能直接用于 JSON；绑定器保留已初始化字典并跳过空条目。
+        // JSON 空父级保留初始化字典；空条目会绑定为默认密钥选项，不能视为无密钥临时回退。
         var missingActiveKey = mode == "configured" && keys is "null" or "{}";
         Assert.AreEqual(!missingActiveKey, RuntimeValid(fixture.Configuration, profile));
         var finding = mode switch
         {
             "disabled" => "DIAG_IDENTITY_TOKEN_ENDPOINTS_DISABLED ok",
-            "ephemeral" => "DIAG_IDENTITY_EPHEMERAL_SIGNING warn",
+            "ephemeral" => keys is "null" or "{}" ? "DIAG_IDENTITY_EPHEMERAL_SIGNING warn" : "DIAG_IDENTITY_SIGNING_REQUIRED error",
             _ => missingActiveKey ? "DIAG_IDENTITY_SIGNING_REQUIRED error" : "DIAG_IDENTITY_SIGNING_CONFIGURED ok",
         };
         await AssertDiagnostic(fixture, profile, finding);
@@ -1370,6 +1374,191 @@ public sealed class DiagnoseIdentitySigningTests
 
     private static string CorsFinding(bool valid) => valid
         ? "DIAG_IDENTITY_CORS_CREDENTIALS_CONFIGURED ok" : "DIAG_IDENTITY_CORS_CREDENTIALS_INVALID error";
+
+
+    [TestMethod]
+    [DataRow(false, "empty", true)]
+    [DataRow(true, "empty", true)]
+    [DataRow(false, "null-parent", true)]
+    [DataRow(true, "null-parent", true)]
+    [DataRow(false, "null-entry", false)]
+    [DataRow(true, "null-entry", false)]
+    [DataRow(false, "empty-entry", false)]
+    [DataRow(true, "empty-entry", false)]
+    [DataRow(false, "unknown-property", false)]
+    [DataRow(true, "unknown-property", false)]
+    [DataRow(false, "public-only", false)]
+    [DataRow(true, "public-only", false)]
+    [DataRow(false, "private-only", true)]
+    [DataRow(true, "private-only", true)]
+    [DataRow(false, "complete", true)]
+    [DataRow(true, "complete", true)]
+    [DataRow(false, "wrong-case", false)]
+    [DataRow(true, "wrong-case", false)]
+    [DataRow(false, "missing-active", false)]
+    [DataRow(true, "missing-active", false)]
+    [DataRow(false, "inactive-public-only", true)]
+    [DataRow(true, "inactive-public-only", true)]
+    [DataRow(false, "inactive-private-only", false)]
+    [DataRow(true, "inactive-private-only", true)]
+    [DataRow(false, "inactive-empty", false)]
+    [DataRow(true, "inactive-empty", false)]
+    public async Task Development_signing_fallback_uses_actual_bound_ring(bool oidc, string shape, bool valid)
+    {
+        using var fixture = new Workspace(DevelopmentFallbackIdentity(oidc, shape));
+        var count = shape is "empty" or "null-parent" ? 0 : shape.StartsWith("inactive-", StringComparison.Ordinal) ? 2 : 1;
+        AssertRuntimeDevelopmentRing(fixture.Configuration, null, oidc, count, valid);
+        await AssertDiagnostic(fixture, "development", DevelopmentFallbackFinding(oidc, count, valid),
+            count > 0 ? DevelopmentEphemeralCode(oidc) : null, DevelopmentProbePem.Value.Private);
+    }
+
+    [TestMethod]
+    [DataRow(false, "profile", false)]
+    [DataRow(false, "profile", true)]
+    [DataRow(true, "profile", false)]
+    [DataRow(true, "profile", true)]
+    [DataRow(false, "secrets", false)]
+    [DataRow(false, "secrets", true)]
+    [DataRow(true, "secrets", false)]
+    [DataRow(true, "secrets", true)]
+    [DataRow(false, "environment", false)]
+    [DataRow(false, "environment", true)]
+    [DataRow(true, "environment", false)]
+    [DataRow(true, "environment", true)]
+    public async Task Development_signing_fallback_active_id_follows_layer(bool oidc, string layer, bool valid)
+    {
+        using var fixture = new Workspace(DevelopmentFallbackIdentity(oidc, valid ? "wrong-case" : "complete"));
+        var path = oidc ? "Identity:Oidc:ActiveSigningKeyId" : "Identity:ActiveKeyId";
+        var overlay = WriteDevelopmentFallbackOverlay(fixture, layer, path, JsonValue.Create(valid ? "signing-probe" : "SIGNING-PROBE"));
+        AssertRuntimeDevelopmentRing(fixture.Configuration, overlay, oidc, 1, valid);
+        await AssertDiagnostic(fixture, "development", DevelopmentFallbackFinding(oidc, 1, valid),
+            DevelopmentEphemeralCode(oidc), DevelopmentProbePem.Value.Private);
+    }
+
+    [TestMethod]
+    [DataRow(false, "profile", "null")]
+    [DataRow(false, "profile", "{}")]
+    [DataRow(true, "profile", "null")]
+    [DataRow(true, "profile", "{}")]
+    [DataRow(false, "secrets", "null")]
+    [DataRow(false, "secrets", "{}")]
+    [DataRow(true, "secrets", "null")]
+    [DataRow(true, "secrets", "{}")]
+    public async Task Development_signing_fallback_empty_parent_keeps_bound_keys(bool oidc, string layer, string parent)
+    {
+        using var fixture = new Workspace(DevelopmentFallbackIdentity(oidc, "complete"));
+        var path = oidc ? "Identity:Oidc:SigningKeys" : "Identity:SigningKeys";
+        var overlay = WriteDevelopmentFallbackOverlay(fixture, layer, path, JsonNode.Parse(parent));
+        AssertRuntimeDevelopmentRing(fixture.Configuration, overlay, oidc, 1, true);
+        await AssertDiagnostic(fixture, "development", DevelopmentFallbackFinding(oidc, 1, true),
+            DevelopmentEphemeralCode(oidc), DevelopmentProbePem.Value.Private);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Development_signing_fallback_empty_environment_parent_keeps_bound_keys(bool oidc)
+    {
+        using var fixture = new Workspace(DevelopmentFallbackIdentity(oidc, "complete"));
+        var path = oidc ? "Identity:Oidc:SigningKeys" : "Identity:SigningKeys";
+        var overlay = WriteDevelopmentFallbackOverlay(fixture, "environment", path, JsonValue.Create(""));
+        AssertRuntimeDevelopmentRing(fixture.Configuration, overlay, oidc, 1, true);
+        await AssertDiagnostic(fixture, "development", DevelopmentFallbackFinding(oidc, 1, true),
+            DevelopmentEphemeralCode(oidc), DevelopmentProbePem.Value.Private);
+    }
+
+    [TestMethod]
+    [DataRow(false, "profile")]
+    [DataRow(true, "profile")]
+    [DataRow(false, "secrets")]
+    [DataRow(true, "secrets")]
+    [DataRow(false, "environment")]
+    [DataRow(true, "environment")]
+    public async Task Development_signing_fallback_cleared_private_leaf_cannot_use_ephemeral(bool oidc, string layer)
+    {
+        using var fixture = new Workspace(DevelopmentFallbackIdentity(oidc, "complete"));
+        var path = (oidc ? "Identity:Oidc" : "Identity") + ":SigningKeys:signing-probe:PrivateKeyPem";
+        var overlay = WriteDevelopmentFallbackOverlay(fixture, layer, path, JsonValue.Create(""));
+        AssertRuntimeDevelopmentRing(fixture.Configuration, overlay, oidc, 1, false);
+        await AssertDiagnostic(fixture, "development", DevelopmentFallbackFinding(oidc, 1, false),
+            DevelopmentEphemeralCode(oidc), DevelopmentProbePem.Value.Private);
+    }
+
+    private static readonly Lazy<(string Public, string Private)> DevelopmentProbePem = new(() =>
+    {
+        // 探针密钥只在测试内生成和导入，不进入仓库、输出或生产诊断路径。
+        using var rsa = RSA.Create(2048);
+        return (rsa.ExportRSAPublicKeyPem(), rsa.ExportRSAPrivateKeyPem());
+    });
+
+    private static string DevelopmentFallbackIdentity(bool oidc, string shape)
+    {
+        var keys = new JsonObject();
+        if (shape is not ("empty" or "null-parent"))
+        {
+            JsonNode? entry = shape == "null-entry" ? null : shape == "empty-entry" ? new JsonObject()
+                : shape == "unknown-property" ? new JsonObject { ["Unknown"] = "signing-probe" }
+                : shape == "public-only" ? new JsonObject { ["PublicKeyPem"] = DevelopmentProbePem.Value.Public }
+                : shape == "private-only" ? new JsonObject { ["PrivateKeyPem"] = DevelopmentProbePem.Value.Private }
+                : new JsonObject { ["PublicKeyPem"] = DevelopmentProbePem.Value.Public, ["PrivateKeyPem"] = DevelopmentProbePem.Value.Private };
+            keys["signing-probe"] = entry;
+        }
+        if (shape.StartsWith("inactive-", StringComparison.Ordinal))
+            keys["inactive-signing-probe"] = shape == "inactive-public-only"
+                ? new JsonObject { ["PublicKeyPem"] = DevelopmentProbePem.Value.Public }
+                : shape == "inactive-private-only" ? new JsonObject { ["PrivateKeyPem"] = DevelopmentProbePem.Value.Private } : new JsonObject();
+        var settings = new JsonObject
+        {
+            ["AllowDevelopmentEphemeralSigningKey"] = true,
+            [oidc ? "ActiveSigningKeyId" : "ActiveKeyId"] = shape == "missing-active" ? "" : shape == "wrong-case" ? "SIGNING-PROBE" : "signing-probe",
+            ["SigningKeys"] = shape == "null-parent" ? null : keys,
+        };
+        return oidc ? OidcIdentity(settings.ToJsonString()) : settings.ToJsonString();
+    }
+
+    private static string WriteDevelopmentFallbackOverlay(Workspace fixture, string layer, string path, JsonNode? value)
+    {
+        var overlay = new JsonObject { [path] = value?.DeepClone() }.ToJsonString();
+        if (layer == "profile") fixture.WriteProfile("development", overlay);
+        if (layer == "secrets") fixture.WriteSecrets(overlay);
+        if (layer == "environment") Environment.SetEnvironmentVariable(path.Replace(":", "__"), value?.GetValue<string>());
+        return overlay;
+    }
+
+    private static void AssertRuntimeDevelopmentRing(string configuration, string? overlay, bool oidc, int count, bool valid)
+    {
+        var builder = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration)));
+        if (overlay is not null) builder.AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(overlay)));
+        var config = builder.Build();
+        var host = Substitute.For<IHostEnvironment>(); host.EnvironmentName.Returns(Environments.Development);
+        try
+        {
+            if (oidc)
+            {
+                var options = new IdentityOidcOptions(); config.GetSection("Identity:Oidc").Bind(options);
+                Assert.AreEqual(count, options.SigningKeys.Count);
+                Assert.IsTrue(new IdentityOidcOptionsValidator(host).Validate(null, options).Succeeded);
+                using var ring = new IdentityOidcSigningKeyRing(Options.Create(options), NullLogger<IdentityOidcSigningKeyRing>.Instance);
+                Assert.IsTrue(valid); Assert.AreEqual(count == 0, ring.UsesEphemeralDevelopmentKey);
+            }
+            else
+            {
+                var options = new IdentityOptions(); config.GetSection("Identity").Bind(options);
+                Assert.AreEqual(count, options.SigningKeys.Count);
+                Assert.IsTrue(new IdentityOptionsValidator(host).Validate(null, options).Succeeded);
+                using var ring = new RsaSigningKeyRing(Options.Create(options), NullLogger<RsaSigningKeyRing>.Instance);
+                Assert.IsTrue(valid); Assert.AreEqual(count == 0, ring.SigningCredentials.Key.KeyId!.StartsWith("dev-", StringComparison.Ordinal));
+            }
+        }
+        catch (ArgumentException) { Assert.IsFalse(valid); }
+        catch (InvalidOperationException) { Assert.IsFalse(valid); }
+        catch (CryptographicException) { Assert.IsFalse(valid); }
+    }
+
+    private static string DevelopmentEphemeralCode(bool oidc) => oidc ? "DIAG_OIDC_EPHEMERAL_SIGNING" : "DIAG_IDENTITY_EPHEMERAL_SIGNING";
+    private static string DevelopmentFallbackFinding(bool oidc, int count, bool valid) => count == 0
+        ? DevelopmentEphemeralCode(oidc) + " warn"
+        : (oidc ? "DIAG_OIDC_SIGNING_" : "DIAG_IDENTITY_SIGNING_") + (valid ? "CONFIGURED ok" : "REQUIRED error");
 
     private static void AssertBoundOrigins(string configuration, string? overlay, string[] expected)
     {

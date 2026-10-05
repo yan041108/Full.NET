@@ -36,6 +36,14 @@ internal static partial class DiagnoseCommand
         // 即使关闭签发端点，Production 也不能配置开发临时密钥；与宿主校验顺序一致。
         if (ephemeralEnabled)
         {
+            var configuredKeys = ReadIdentitySigningKeyNames(root, profileSettings, workspacePath, profile).ToArray();
+            if (!production && configuredKeys.Length > 0)
+            {
+                CheckDevelopmentConfiguredSigningKeys(root, profileSettings, workspacePath, profile,
+                    false, configuredKeys, findings);
+                return;
+            }
+
             findings.Add(production
                 ? DiagnoseFinding.Error("DIAG_IDENTITY_EPHEMERAL_SIGNING",
                     "Production 禁止启用开发临时签名密钥。",

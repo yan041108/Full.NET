@@ -37,6 +37,14 @@ internal static partial class DiagnoseCommand
         var production = string.Equals(profile, "production", StringComparison.OrdinalIgnoreCase);
         if (ephemeral is not null && bool.Parse(ephemeral))
         {
+            var configuredKeys = ReadIdentitySigningKeyNames(root, profileSettings, workspacePath, profile, "Identity:Oidc").ToArray();
+            if (!production && configuredKeys.Length > 0)
+            {
+                CheckDevelopmentConfiguredSigningKeys(root, profileSettings, workspacePath, profile,
+                    true, configuredKeys, findings);
+                return;
+            }
+
             findings.Add(production
                 ? DiagnoseFinding.Error("DIAG_OIDC_EPHEMERAL_SIGNING",
                     "Production 已启用的 OIDC 禁止使用开发临时签名密钥。",
