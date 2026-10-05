@@ -515,6 +515,18 @@ Windows x64、i7-12700H（14 核/20 逻辑处理器、约 63.75 GiB 内存）、
 
 上轮交付 `375cb1a3` 的 Worker Actions `37370518588` attempt1再次未获取 hosted runner：job `111966215008` runner_id=0、steps为空，原始jobs/annotations已保存；没有编译或测试，不计为代码失败或CI通过。同一提交主CI `37370518586` 终态failure：14个作业中2个实际success，6个未获取runner且零步骤，6个依赖作业skipped；逐项注释确认6项均为同类runner调度问题，不把整个CI判为通过，也不声称所有作业未执行。此前同类重跑也失败，未重复重跑或削弱工作流。本轮按本地实际结果验收，后续CI只报告精确交付HEAD的读取状态。F02及诊断前两项保持待办，未重跑全量Unit/Integration/Architecture、完整生成CRUD/浏览器、Worker/API Native AOT或容量；Capacity-not-verified保持，PR仍Draft，未合并、未发布。
 
+2026-10-06 数据库连接预算诊断与架构门禁收口（基线 `006e071428de36a21c34cec873f7e175eede92c1`，快照 `f02-database-budget-diagnose-20261006`，行为源码冻结 `4b0db492c259ad39df670e3d0a0ed87025ce09a3`）：真实 Dapper 宿主已校验 DatabaseCapacity，而 diagnose 对启用预算的绑定错误、连接池不匹配或集群超预算仍能返回成功。CLI 对已声明预算沿用有效配置逐叶合并及特殊连接环境前缀，再通过现有 AddFullNetDapper / IOptions<DatabaseCapacityOptions> 绑定与校验；仅解析 Options，不解析连接工厂、会话或打开连接。未声明预算保持原有诊断范围；数据库前置配置错误保留原专属结果，不误报为预算失败。新增稳定机器码 `code_generation.database_capacity.configured` / `disabled` / `invalid`，错误固定脱敏，不回显配置或异常。CLI 新增现有 Data.Dapper 项目引用，未增加全局包版本或 ASP.NET 共享运行时要求，runtimeconfig 仍仅 Microsoft.NETCore.App；未修改运行时预算策略、SQL、迁移、宿主或业务授权。
+
+新增52项用真实 Options 作为对照，覆盖 SQL Server/MySQL 开关/角色/数值绑定、队列/等待界限、池启用和实际/角色上限匹配、许可及保留量溢出、集群副本总量、禁用范围值通过但非法字段类型仍失败；环境JSON/User Secrets/环境变量可修复或破坏预算，Production忽略Development秘密，直配/命名连接及数据库前置错误归属。每次诊断检查退出码、机器码、无敏感探针与源配置字节只读。首次测试夹具CS0819与首次实现缺JSON配置扩展CS1061均为构建失败，没有执行行为用例，日志分别保留，不计为RED或通过。修复夹具后实际聚焦RED52项为32失败/20通过、零跳过；实现后 `pnpm test:dotnet:unit -- --filter FullyQualifiedName~DiagnoseDatabaseCapacityTests --minimum-expected-tests 52` 52/52、12s 237ms，Release零警告/错误。配置绑定使用现有叶合并及内存配置，不扩大共享依赖。矩阵仅按新增52项更新，`pnpm test:dotnet:unit -- --no-build --selection code-generation-realtime` 完整2166/2166、6m 20s 544ms，零失败/跳过。
+
+上一交付006e0714的Worker Native AOT `37374298801`和API Native AOT `37374298870`均已终态success。主CI `37374298778`实际执行Architecture232项，230通过/2失败：CLI复用策略但未登记为MySQL消费方、诊断冲突GuidFormat测试未登记负例。本地原样聚焦先RED2/2，随后只登记精确CLI/夹具路径，并在既有门禁增加诊断入口必须复用策略且不得创建/打开MySQL连接的断言；不修改扫描逻辑、生产扫描范围或最小发现数。`pnpm test:dotnet:architecture` 重建并执行完整232/232、8m 35s 802ms，零失败/跳过、零警告/错误。另两迁移作业 `111978850653` / `111978850675` runner_id=0、steps为空，逐项注释确认未获得hosted runner；属于调度未执行，与架构代码失败分开，不计为通过，未削弱工作流或重复重跑。
+
+从冻结源码新建Minimal SQL Server/MySQL应用，实际执行随包 `pnpm run diagnose:development` / `diagnose:production`，每库12次、合计24次、251.679秒，预期退出码及新预算机器码一致。覆盖API/Worker合法预算、禁用范围值、池不匹配、集群超预算、禁用非法类型；轮换直配/命名连接，合法Worker使用SQLCONNSTR/MYSQLCONNSTR特殊前缀。SDK、冻结档案、模块闭合正常，输出无连接串/预算探针；源配置摘要及受管框架manifest摘要保持。入口 `node .tmp/f02-database-budget-created-apps.mjs 4b0db492c259ad39df670e3d0a0ed87025ce09a3`；证据 `.tmp/db-4b0db492/result.json` 与各场景原始进程结果。该证据仅证明随包离线诊断，不证明数据库连接可用、吞吐或完整宿主启动。
+
+按快照规划并运行 `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-database-budget-diagnose-20261006`，完整影响 CodeGeneration + integration-matrix 双库41/41、9m 56s 450ms，零失败/跳过；源码 `4b0db492c259ad39df670e3d0a0ed87025ce09a3`、Docker 29.6.2、NuGet HTTP 200、CPU1、独立TEMP/TMP、Reuse=0。TRX start不早于本轮启动，total/executed/passed=41、failed/notExecuted=0；工具链65/65、治理57/57，1118仅分片发现核对。Windows x64 / i7-12700H /63.75GiB /SDK10.0.401 /Node24.12.0 /pnpm10.26.0，重型验收串行。证据 `.tmp/f02-database-budget-{red-compile,red,green-compile,green,full-unit,architecture-red,architecture,created-apps,integration}.log`、machine/任务规划、integration environment/TRX/counters。
+
+F02及诊断前两项保持待办。静态预算通过不证明10K容量、生产SLO、完整生成CRUD/浏览器、全量Unit/Integration或API/Worker本地Native AOT；Capacity-not-verified保持。行为冻结后仅补总计划，精确交付HEAD的Actions状态在PR记录；PR仍Draft，未合并、未发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
