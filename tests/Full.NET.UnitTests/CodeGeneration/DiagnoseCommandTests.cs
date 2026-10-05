@@ -340,8 +340,12 @@ public sealed class DiagnoseCommandTests
             var result = await CodeGenerationCli.RunAsync(
                 ["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
             var configured = direct || (!placeholder && expectedConnection != "CHANGEME");
-            Assert.AreEqual(!configured && profile == "production" ? 1 : 0, result, output.ToString());
-            StringAssert.Contains(output.ToString(), configured ? "DIAG_CONNECTION_CONFIGURED ok"
+            // ProviderName 元数据可绑定为文本，但误选它作为连接串时真实工厂无法解析。
+            var invalidMetadata = mode == "metadata" && prefix != "CUSTOMCONNSTR_";
+            if (invalidMetadata)
+                Assert.ThrowsExactly<ArgumentException>(() => runtime.GetRequiredService<IDbConnectionFactory>().Create());
+            Assert.AreEqual(invalidMetadata || (!configured && profile == "production") ? 1 : 0, result, output.ToString());
+            StringAssert.Contains(output.ToString(), invalidMetadata ? "DIAG_CONNECTION_INVALID error" : configured ? "DIAG_CONNECTION_CONFIGURED ok"
                 : profile == "production" ? "DIAG_CONNECTION_MISSING error" : "DIAG_CONNECTION_PLACEHOLDER warn");
             Assert.IsFalse((output.ToString() + error).Contains("credential-probe", StringComparison.OrdinalIgnoreCase));
             Assert.IsFalse((output.ToString() + error).Contains(connectionName, StringComparison.OrdinalIgnoreCase));
@@ -803,7 +807,8 @@ public sealed class DiagnoseCommandTests
             {
                 foreach (var key in keys)
                 {
-                    Environment.SetEnvironmentVariable(key, "credential-probe");
+                    Environment.SetEnvironmentVariable(key, key == "ConnectionStrings__fullnet"
+                        ? "Server=example.invalid;Password=credential-probe" : "credential-probe");
                 }
             }
             var result = await CodeGenerationCli.RunAsync(
@@ -827,7 +832,7 @@ public sealed class DiagnoseCommandTests
     public async Task Profile_can_select_a_different_connection_name()
     {
         using var fixture = new DiagnoseWorkspace("""
-            {"Database":{"ConnectionName":"fullnet"},"ConnectionStrings":{"fullnet":"credential-probe"}}
+            {"Database":{"ConnectionName":"fullnet"},"ConnectionStrings":{"fullnet":"Server=example.invalid;Password=credential-probe"}}
             """);
         File.WriteAllText(Path.Combine(fixture.Root, "appsettings.Production.json"), """
             {"Database":{"ConnectionName":"production"},"ConnectionStrings":{"production":"CHANGEME"}}
@@ -850,7 +855,7 @@ public sealed class DiagnoseCommandTests
     public async Task Profile_parent_value_does_not_erase_lower_priority_child_key(string configuration)
     {
         using var fixture = new DiagnoseWorkspace("""
-            {"ConnectionStrings":{"fullnet":"credential-probe"},"Cache":{"RedisConnectionString":"credential-probe"}}
+            {"ConnectionStrings":{"fullnet":"Server=example.invalid;Password=credential-probe"},"Cache":{"RedisConnectionString":"credential-probe"}}
             """);
         File.WriteAllText(Path.Combine(fixture.Root, "appsettings.Production.json"), configuration);
         using var output = new StringWriter();
@@ -870,7 +875,7 @@ public sealed class DiagnoseCommandTests
         var hostPath = Path.Combine(fixture.Root, "src", "Hosts", "Full.NET.Host.Api");
         Directory.CreateDirectory(hostPath);
         File.WriteAllText(Path.Combine(hostPath, "appsettings.json"), """
-            {"ConnectionStrings":{"fullnet":"credential-probe"}}
+            {"ConnectionStrings":{"fullnet":"Server=example.invalid;Password=credential-probe"}}
             """);
         File.WriteAllText(Path.Combine(hostPath, "appsettings.Production.json"), """
             {"ConnectionStrings":{"fullnet":"CHANGEME"}}
@@ -893,7 +898,7 @@ public sealed class DiagnoseCommandTests
         using var fixture = new DiagnoseWorkspace();
         var fileProfile = profile == "development" ? "Development" : "Production";
         File.WriteAllText(Path.Combine(fixture.Root, $"appsettings.{fileProfile}.json"), """
-            {"ConnectionStrings:fullnet":"credential-probe","Cache:RedisConnectionString":"credential-probe"}
+            {"ConnectionStrings:fullnet":"Server=example.invalid;Password=credential-probe","Cache:RedisConnectionString":"credential-probe"}
             """);
         using var output = new StringWriter();
         using var error = new StringWriter();
@@ -925,7 +930,7 @@ public sealed class DiagnoseCommandTests
     public async Task Production_user_secrets_cannot_mask_profile_placeholders()
     {
         using var fixture = new DiagnoseWorkspace();
-        fixture.AddStandaloneUserSecrets("""{"ConnectionStrings:fullnet":"credential-probe"}""");
+        fixture.AddStandaloneUserSecrets("""{"ConnectionStrings:fullnet":"Server=example.invalid;Password=credential-probe"}""");
         File.WriteAllText(Path.Combine(fixture.Root, "appsettings.Production.json"), """
             {"ConnectionStrings:fullnet":"CHANGEME"}
             """);
@@ -942,7 +947,7 @@ public sealed class DiagnoseCommandTests
     [TestMethod]
     public async Task Profile_selected_connection_name_resolves_base_key_without_case_sensitivity()
     {
-        using var fixture = new DiagnoseWorkspace("""{"ConnectionStrings":{"fullnet":"credential-probe"}}""");
+        using var fixture = new DiagnoseWorkspace("""{"ConnectionStrings":{"fullnet":"Server=example.invalid;Password=credential-probe"}}""");
         File.WriteAllText(Path.Combine(fixture.Root, "appsettings.Production.json"), """
             {"Database":{"ConnectionName":"FULLNET"}}
             """);
@@ -963,7 +968,7 @@ public sealed class DiagnoseCommandTests
         using var fixture = new DiagnoseWorkspace("""{"ConnectionStrings":{"fullnet":"CHANGEME"}}""");
         var normal = hasNormalKey ? ",\"ConnectionStrings:fullnet\":\"CHANGEME\"" : string.Empty;
         File.WriteAllText(Path.Combine(fixture.Root, "appsettings.Production.json"),
-            "{\"\":{\"ConnectionStrings\":{\"fullnet\":\"credential-probe\"}}" + normal + "}");
+            "{\"\":{\"ConnectionStrings\":{\"fullnet\":\"Server=example.invalid;Password=credential-probe\"}}" + normal + "}");
         using var output = new StringWriter();
         using var error = new StringWriter();
 

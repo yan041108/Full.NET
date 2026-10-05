@@ -50,7 +50,7 @@ JSON 中的非空对象或数组展平为子键，不会自动覆盖较低优先
 
 新创建应用的 `pnpm run diagnose:development` / `pnpm run diagnose:production` 先通过应用自带的 Node 入口探测目标工作区 SDK。找不到 `dotnet` 或无法选择 SDK 时输出固定 `DIAG_SDK_MISSING`；不兼容版本输出 `DIAG_SDK_INCOMPATIBLE`，均退出 1，不输出原始 SDK 错误或版本后缀，也不安装 SDK。SDK 可用后继续运行现有 .NET CLI，保留其诊断和退出码；前置成功不表示应用配置通过。探测等待上限为 30 秒，不保证整条命令或进程清理在该时间内完成，Node 前置检查也不承诺回收派生进程树。已有应用的旧脚本和手工诊断脚本不会自动替换；直接运行 `dotnet run ... diagnose` 仍须先具备可启动的 SDK。
 
-基础命名连接按宿主展平路径读取，支持扁平/嵌套键、不区分大小写的路径及合法子路径；显式空值覆盖不恢复基础凭据，非空子键不抹除同路径标量。命名凭据仍按文本判断，不把数字/布尔值计为已配置。诊断保持已有基础凭据字段类型校验，不认证任意配置结构或连接串语法。
+基础命名连接按宿主展平路径读取，支持扁平/嵌套键、不区分大小写的路径及合法子路径；显式空值覆盖不恢复基础凭据，非空子键不抹除同路径标量。命名凭据仍按文本判断，不把数字/布尔值计为已配置。诊断保持已有基础凭据字段类型校验；最终连接非空且非占位时，按最终 `Database:Provider` 执行离线解析，失败在 Development/Production 均报告 `DIAG_CONNECTION_INVALID error` 并退出 1。SQL Server 按真实工厂构造并立即释放未打开的 SqlConnection，MySQL 使用真实工厂策略中的 MySqlConnectionStringBuilder；保留两种驱动的重复键、别名和转义语义，不以手工分割替代解析。仅检查实际选中的连接，不检查未使用的命名连接；不会打开连接、访问数据库或输出驱动异常。成功不证明地址可达、认证、UUID 映射策略、连接池容量或完整宿主启动通过。
 
 三个常见秘密键的基础值也按展平路径读取，支持扁平/嵌套键及大小写变体。未声明键不强制存在；显式 null、空白或空集合覆盖视为占位，非空子键不抹除同路径标量。保留已有基础秘密字段类型校验，非文本秘密不能据此计为有效凭据。此检查不验证 Redis 可达性或 SM2 密钥格式。
 
@@ -410,7 +410,7 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 
 `TenantRequired` Schema 的生成权限使用 `AuthorizationScope.Tenant`；`HostOnly`、`Global` 保留 `Host` 权限范围，全局数据访问不自动授予租户权限。升级前已接入的 Host 授权块与新租户片段不一致时会保持原文并拒绝自动改写，应先人工审查作用域并完成实际授权验收。
 
-命名连接环境变量还支持默认配置提供程序的 `MYSQLCONNSTR_`、`SQLCONNSTR_`、`SQLAZURECONNSTR_`、`CUSTOMCONNSTR_` 前缀，不区分大小写并规范化名称中的 `__`。其值优先于环境 JSON、Development User Secrets 和基础 JSON；占位值不会恢复低优先级凭据。同一路径存在多个环境别名时，任一占位值都保持拒绝放行，不依赖宿主枚举顺序。非空 `Database:ConnectionString` 仍优先于命名连接，自动产生的 `ProviderName` 元数据不改变 `Database:Provider`；配置存在不证明连接字符串语法、地址或数据库可用。
+命名连接环境变量还支持默认配置提供程序的 `MYSQLCONNSTR_`、`SQLCONNSTR_`、`SQLAZURECONNSTR_`、`CUSTOMCONNSTR_` 前缀，不区分大小写并规范化名称中的 `__`。其值优先于环境 JSON、Development User Secrets 和基础 JSON；占位值不会恢复低优先级凭据。同一路径存在多个环境别名时，任一占位值都保持拒绝放行，不依赖宿主枚举顺序。非空 `Database:ConnectionString` 仍优先于命名连接，自动产生的 `ProviderName` 元数据不改变 `Database:Provider`；最终选中的非占位连接仍须通过所选 Provider 的离线解析，成功不证明地址、认证或数据库可用。
 
 SDK 探测在进程启动后对退出与标准输出/错误读取设置 30 秒等待上限；即使已有部分输出，也不会延长等待。超时取消管道读取，终止仍存活的本次探测进程树并等待退出，再返回固定脱敏错误码 `code_generation.sdk.probe_timeout`；清理耗时另计，不表示整条 diagnose 命令保证 30 秒内结束。父进程已退出但子进程仍持有管道时，也会取消读取；此路径不保证回收已脱离父进程的子进程。通过 CLI 调用接口传入的取消令牌优先于超时，清理后保留调用方的取消结果与令牌，不会转为 SDK 不可用。上述边界由真实受控进程回归验证，不等同于终端信号处理。
 
@@ -744,6 +744,7 @@ node --throw-deprecation --test --test-concurrency=1 tests/templates/created-app
 | `DIAG_WORKSPACE_INCOMPLETE` | 目录结构不完整 | 确认在应用根目录运行 |
 | `DIAG_MODULES_MISSING` | 未配置模块预设 | 添加 `FullNet:Modules:Preset` |
 | `DIAG_CONNECTION_PLACEHOLDER` | 开发环境缺连接 | user-secrets 或环境变量 |
+| `DIAG_CONNECTION_INVALID` | 所选 Provider 无法离线解析最终连接串 | 核对有效直配或命名连接的键名、引号和值类型；不输出原文或驱动异常 |
 | `DIAG_USER_SECRETS_INVALID` | Development 的 API User Secrets 文件不可读取、JSON 无效或配置键重复 | 修复本机秘密文件；诊断不输出其内容 |
 | `DIAG_SECRETS_PLACEHOLDER` | 已配置的 Redis/SM2 秘密键最终仍为空或占位符 | Development 可用 User Secrets 或环境变量覆盖；Production 使用部署密钥或环境变量，勿提交仓库 |
 
