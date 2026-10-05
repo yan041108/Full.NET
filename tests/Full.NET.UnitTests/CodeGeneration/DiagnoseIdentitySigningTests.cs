@@ -4,6 +4,9 @@ using System.Text.Json.Nodes;
 using Full.NET.CodeGeneration.Cli;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.DependencyInjection;
+using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using NSubstitute;
@@ -1207,6 +1210,166 @@ public sealed class DiagnoseIdentitySigningTests
         Assert.IsTrue(RuntimeValid(fixture.Configuration, "production"));
         await AssertDiagnostic(fixture, "production", "DIAG_IDENTITY_TOKEN_ENDPOINTS_DISABLED ok");
     }
+
+    [TestMethod]
+    [DataRow("null", true)]
+    [DataRow("{}", true)]
+    [DataRow("[]", true)]
+    [DataRow("\"*\"", true)]
+    [DataRow("true", true)]
+    [DataRow("42", true)]
+    [DataRow("[null]", true)]
+    [DataRow("[\"*\"]", false)]
+    [DataRow("[\" * \"]", true)]
+    [DataRow("[\"https://*.example.invalid\"]", true)]
+    [DataRow("[\"https://admin-signing-probe.example.invalid\"]", true)]
+    [DataRow("[\"*\",null]", false)]
+    [DataRow("{\"named\":\"*\"}", false)]
+    [DataRow("[{\"child\":\"*\"}]", true)]
+    [DataRow("[{\"child\":\"*\"},\"*\"]", false)]
+    [DataRow("[\"\",\" \"]", true)]
+    public async Task Identity_cors_shapes_follow_actual_credential_policy(string raw, bool valid)
+    {
+        using var fixture = new Workspace("{\"EnableTokenEndpoints\":false,\"AllowedOrigins\":" + raw + "}");
+        // Options 只检查集合不为 null；真正的凭据策略还由 CORS 构建器校验。
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "production"));
+        Assert.AreEqual(valid, RuntimeCorsValid(fixture.Configuration));
+        await AssertDiagnostic(fixture, "production", CorsFinding(valid));
+    }
+
+    [TestMethod]
+    [DataRow("profile", "development")]
+    [DataRow("profile", "production")]
+    [DataRow("secrets", "development")]
+    [DataRow("environment", "development")]
+    [DataRow("environment", "production")]
+    public async Task Identity_cors_final_source_wildcard_is_rejected(string source, string profile)
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"AllowedOrigins":["https://admin-signing-probe.example.invalid"]}""");
+        const string overlay = """{"Identity:AllowedOrigins:0":"*"}""";
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, profile, overlay));
+        Assert.IsFalse(RuntimeCorsValid(fixture.Configuration, overlay));
+        WriteCorsOverlay(fixture, source, profile, overlay, "*");
+        await AssertDiagnostic(fixture, profile, CorsFinding(false));
+    }
+
+    [TestMethod]
+    [DataRow("profile", "development")]
+    [DataRow("profile", "production")]
+    [DataRow("secrets", "development")]
+    [DataRow("environment", "development")]
+    [DataRow("environment", "production")]
+    public async Task Identity_cors_higher_leaf_repairs_lower_wildcard(string source, string profile)
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"AllowedOrigins":["*"]}""");
+        const string origin = "https://admin-signing-probe.example.invalid";
+        var overlay = new JsonObject { ["Identity:AllowedOrigins:0"] = origin }.ToJsonString();
+        Assert.IsTrue(RuntimeCorsValid(fixture.Configuration, overlay));
+        WriteCorsOverlay(fixture, source, profile, overlay, origin);
+        await AssertDiagnostic(fixture, profile, CorsFinding(true));
+    }
+
+    [TestMethod]
+    [DataRow("null")]
+    [DataRow("{}")]
+    [DataRow("[]")]
+    public async Task Identity_cors_empty_collection_parent_keeps_lower_wildcard(string raw)
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"AllowedOrigins":["*"]}""");
+        var overlay = "{\"Identity:AllowedOrigins\":" + raw + "}";
+        Assert.IsFalse(RuntimeCorsValid(fixture.Configuration, overlay));
+        fixture.WriteProfile("production", overlay);
+        await AssertDiagnostic(fixture, "production", CorsFinding(false));
+    }
+
+    [TestMethod]
+    [DataRow("null")]
+    [DataRow("{}")]
+    [DataRow("[]")]
+    public async Task Identity_cors_empty_identity_parent_keeps_lower_wildcard(string raw)
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"AllowedOrigins":["*"]}""");
+        var overlay = "{\"Identity\":" + raw + "}";
+        Assert.IsFalse(RuntimeCorsValid(fixture.Configuration, overlay));
+        fixture.WriteProfile("production", overlay);
+        await AssertDiagnostic(fixture, "production", CorsFinding(false));
+    }
+
+    [TestMethod]
+    [DataRow("null")]
+    [DataRow("{}")]
+    [DataRow("[]")]
+    public async Task Identity_cors_empty_item_overrides_wildcard_without_erasing_collection(string raw)
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"AllowedOrigins":["*"]}""");
+        var overlay = "{\"Identity:AllowedOrigins:0\":" + raw + "}";
+        Assert.IsTrue(RuntimeCorsValid(fixture.Configuration, overlay));
+        fixture.WriteProfile("production", overlay);
+        await AssertDiagnostic(fixture, "production", CorsFinding(true));
+    }
+
+    [TestMethod]
+    public async Task Identity_cors_child_only_object_does_not_replace_lower_wildcard_leaf()
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"AllowedOrigins":["*"]}""");
+        const string overlay = """{"Identity:AllowedOrigins:0":{"child":"origin-signing-probe"}}""";
+        Assert.IsFalse(RuntimeCorsValid(fixture.Configuration, overlay));
+        fixture.WriteProfile("production", overlay);
+        await AssertDiagnostic(fixture, "production", CorsFinding(false));
+    }
+
+    [TestMethod]
+    public async Task Identity_cors_empty_environment_parent_keeps_lower_wildcard()
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"AllowedOrigins":["*"]}""");
+        Assert.IsFalse(RuntimeCorsValid(fixture.Configuration, """{"Identity:AllowedOrigins":""}"""));
+        Environment.SetEnvironmentVariable("Identity__AllowedOrigins", "");
+        await AssertDiagnostic(fixture, "production", CorsFinding(false));
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task Identity_cors_production_ignores_development_secret_wildcard_changes(bool lowerWildcard)
+    {
+        var origins = lowerWildcard ? "[\"*\"]" : "[]";
+        using var fixture = new Workspace("{\"EnableTokenEndpoints\":false,\"AllowedOrigins\":" + origins + "}");
+        fixture.WriteSecrets(new JsonObject { ["Identity:AllowedOrigins:0"] = lowerWildcard ? "origin-signing-probe" : "*" }.ToJsonString());
+        Assert.AreEqual(!lowerWildcard, RuntimeCorsValid(fixture.Configuration));
+        await AssertDiagnostic(fixture, "production", CorsFinding(!lowerWildcard));
+    }
+
+    [TestMethod]
+    public async Task Identity_cors_missing_origins_keeps_default_policy()
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false}""");
+        Assert.IsTrue(RuntimeCorsValid(fixture.Configuration));
+        await AssertDiagnostic(fixture, "production", CorsFinding(true));
+    }
+
+    private static void WriteCorsOverlay(Workspace fixture, string source, string profile, string overlay, string value)
+    {
+        if (source == "profile") fixture.WriteProfile(profile, overlay);
+        if (source == "secrets") fixture.WriteSecrets(overlay);
+        if (source == "environment") Environment.SetEnvironmentVariable("Identity__AllowedOrigins__0", value);
+    }
+
+    private static bool RuntimeCorsValid(string configuration, string? overlay = null)
+    {
+        var builder = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration)));
+        if (overlay is not null) builder.AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(overlay)));
+        var options = new IdentityOptions();
+        builder.Build().GetSection("Identity").Bind(options);
+        try
+        {
+            new IdentityCorsOptionsConfigurator(Options.Create(options)).Configure(new CorsOptions());
+            return true;
+        }
+        catch (InvalidOperationException) { return false; }
+    }
+
+    private static string CorsFinding(bool valid) => valid
+        ? "DIAG_IDENTITY_CORS_CREDENTIALS_CONFIGURED ok" : "DIAG_IDENTITY_CORS_CREDENTIALS_INVALID error";
 
     private static void AssertBoundOrigins(string configuration, string? overlay, string[] expected)
     {
