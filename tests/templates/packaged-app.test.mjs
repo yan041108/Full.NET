@@ -389,6 +389,11 @@ test('application template package includes framework sources and root manifest'
           }
           parent[segments.at(-1)] = value;
         };
+        // 秘密正例也必须满足缓存启动约束；生产 Cache 与 Realtime 使用不同的虚构地址。
+        const secretValue = (path) => path === 'Cache:RedisConnectionString'
+          ? 'cache.example.invalid:6379,password=credential-probe'
+          : path === 'Realtime:RedisBackplaneConnectionString'
+            ? 'realtime.example.invalid:6379,password=credential-probe' : 'credential-probe';
         const secretProfile = JSON.parse(profileBefore.toString('utf8'));
         for (const path of secretPaths) removeSecret(secretProfile, path);
         writeFileSync(productionSettings, JSON.stringify(secretProfile));
@@ -396,10 +401,10 @@ test('application template package includes framework sources and root manifest'
         for (const shape of ['placeholder', 'valid', 'null', 'empty-overwrite']) {
           const secretBase = structuredClone(apiConfig);
           for (const path of secretPaths) {
-            if (shape === 'empty-overwrite') setSecret(secretBase, path, 'credential-probe');
+            if (shape === 'empty-overwrite') setSecret(secretBase, path, secretValue(path));
             else removeSecret(secretBase, path);
             secretBase[path.toUpperCase()] = shape === 'null' ? null : shape === 'empty-overwrite' ? {}
-              : shape === 'valid' ? 'credential-probe' : 'CHANGEME';
+              : shape === 'valid' ? secretValue(path) : 'CHANGEME';
           }
           writeFileSync(diagnosticBaseSettings, JSON.stringify(secretBase));
           const secretBaseBefore = readFileSync(diagnosticBaseSettings);
@@ -408,15 +413,17 @@ test('application template package includes framework sources and root manifest'
             secretDiagnosis.stderr || secretDiagnosis.stdout);
           assert.match(secretDiagnosis.stdout, shape === 'valid' ? /DIAG_SECRETS_OK ok/u
             : /DIAG_SECRETS_PLACEHOLDER error.*有 3 个秘密/u);
+          if (shape === 'valid') assert.match(secretDiagnosis.stdout, /code_generation.cache.configuration.configured ok/u);
           assert.doesNotMatch(secretDiagnosis.stdout + secretDiagnosis.stderr, /credential-probe/u);
           assert.deepEqual(readFileSync(diagnosticBaseSettings), secretBaseBefore);
           assert.deepEqual(readFileSync(productionSettings), secretProfileBefore);
           if (shape === 'null') {
             const repairedSecretDiagnosis = runProfileDiagnosis(Object.fromEntries(secretPaths.map(path =>
-              [path.replaceAll(':', '__'), 'credential-probe'])));
+              [path.replaceAll(':', '__'), secretValue(path)])));
             assert.equal(repairedSecretDiagnosis.status, 0,
               repairedSecretDiagnosis.stderr || repairedSecretDiagnosis.stdout);
             assert.match(repairedSecretDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
+            assert.match(repairedSecretDiagnosis.stdout, /code_generation.cache.configuration.configured ok/u);
             assert.doesNotMatch(repairedSecretDiagnosis.stdout + repairedSecretDiagnosis.stderr, /credential-probe/u);
             assert.deepEqual(readFileSync(diagnosticBaseSettings), secretBaseBefore);
             assert.deepEqual(readFileSync(productionSettings), secretProfileBefore);

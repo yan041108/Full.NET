@@ -78,6 +78,8 @@ OIDC 默认关闭，诊断报告 `DIAG_OIDC_DISABLED ok`；关闭后不要求其
 
 对已声明的 Cache 配置，诊断复用现有 AddFullNetCaching 启动注册校验，检查绑定、默认 TTL、抖动、条目策略、Redis 参数及既有 Realtime 共用规则；报 code_generation.cache.configuration.configured 或 code_generation.cache.configuration.invalid，失败退出 1。沿用有效配置叶合并，不解析缓存、Backplane 或连接实例，不启动 HostedService，不回显条目名、参数或异常。未声明 Cache 保持既有诊断范围；配置通过不认证 Redis 可用性、物理隔离、失效传播、缓存正确性、吞吐或完整宿主启动。
 
+对已声明的 Realtime 配置，诊断按现有 API 注册规则检查字段绑定，以及启用时的 Hub 路径、传输与会话亲和组合。返回 `code_generation.realtime.transport.configured` / `disabled` / `invalid`，非法配置退出 1；关闭只跳过路径和组合约束，非法字段类型仍失败。跳过协商须使用 WebSocketsOnly，只有该组合允许关闭亲和；数值和名称组合绑定保持宿主现有语义，不另行收紧。沿用环境变量、Development User Secrets、所选环境 JSON、基础 JSON 的叶合并优先级。CLI 不引用 SignalR 运行时、不构建宿主或打开连接；该结果不验证 Redis、物理隔离、Worker Backplane 要求、Ingress 亲和部署、Hub 授权或实际通信。错误固定脱敏，不输出路径值或异常。
+
 ## 第二步：准备 CRUD Schema
 
 原框架仓库的示例主从单据见 [`samples/enterprise-request/schema.json`](../../samples/enterprise-request/schema.json)（`master.detail` 场景：申请头 + 明细行）。应用应准备自己的 `schema.json`，冻结项目 OwnerKey，并显式声明字段、精确权限与 `dataScope`；不能直接沿用原仓库的集成目标路径。
