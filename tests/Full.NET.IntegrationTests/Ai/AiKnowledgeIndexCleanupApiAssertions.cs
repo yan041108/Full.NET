@@ -73,6 +73,11 @@ internal static class AiKnowledgeIndexCleanupApiAssertions
             var document = $"/api/v1/ai/knowledge-bases/{binding.KnowledgeBaseId}/documents/{binding.DocumentId}";
             var cleanup = document + "/imports/cleanup";
             if (!scoped) hostCleanup = cleanup; else { tenantCleanup = cleanup; await Expect(client, hostCleanup!, HttpStatusCode.NotFound); }
+            if (scoped)
+            {
+                using var crossScope = await AiKnowledgeDeleteReplayAssertions.Delete(client, hostCleanup!.Replace("/imports/cleanup", "", StringComparison.Ordinal), 1);
+                Assert.AreEqual(HttpStatusCode.NotFound, crossScope.StatusCode);
+            }
             await Expect(scoped ? tenantOther : other, cleanup, HttpStatusCode.NotFound);
             using var anonymous = factory.CreateClientForHost(scoped ? "acme.localhost" : "localhost");
             await Expect(anonymous, cleanup, HttpStatusCode.Unauthorized);
@@ -93,6 +98,9 @@ internal static class AiKnowledgeIndexCleanupApiAssertions
             Assert.AreEqual(3, await Derived(), "事务中断必须回滚当前任务的所有派生删除");
             Assert.AreEqual(releases, faults.Releases, "AI 事务失败不得进入 Files");
             await State("deleting");
+            await Replay();
+            Assert.AreEqual(3, await Derived(), "重放可以确认墓碑，但不能把清理故障报告为已完成");
+            Assert.AreEqual(audit, await Audit());
             await Expect(client, cleanup, HttpStatusCode.InternalServerError);
             Assert.AreEqual(3, await Derived());
             faults.InterruptCleanup = false;
@@ -112,7 +120,7 @@ internal static class AiKnowledgeIndexCleanupApiAssertions
             Assert.AreEqual(releases, faults.Releases);
             faults.FailFiles = true;
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET IsEnabled=0 WHERE Id=@KnowledgeBaseId", row);
-            await Expect(client, cleanup, HttpStatusCode.OK);
+            await Replay();
             Assert.AreEqual(0, await Derived(), "删除后的派生索引必须清理");
             Assert.AreEqual(audit, await Audit());
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET IsEnabled=1 WHERE Id=@KnowledgeBaseId", row);
@@ -127,10 +135,11 @@ internal static class AiKnowledgeIndexCleanupApiAssertions
             // 模拟清理进程退出后留下的有效导入租约；到期前不抢占，过期后新请求恢复。
             faults.FailFiles = false; releases = faults.Releases;
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_import SET LeaseToken=@Lease,LeaseExpiresAtUtc=@Until WHERE DocumentId=@DocumentId", new { Lease = Guid.CreateVersion7(), Until = DateTime.UtcNow.AddMinutes(5), DocumentId = binding.DocumentId });
-            await Expect(client, cleanup, HttpStatusCode.OK); Assert.AreEqual(releases, faults.Releases); await State("deleting");
+            await Replay(); Assert.AreEqual(releases, faults.Releases); await State("deleting");
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_import SET LeaseExpiresAtUtc=@Until WHERE DocumentId=@DocumentId", new { Until = DateTime.UtcNow.AddMinutes(-1), DocumentId = binding.DocumentId });
-            await Expect(client, cleanup, HttpStatusCode.OK); await State("deleted");
+            await Replay(); await State("deleted");
             Assert.AreEqual(releases + 1, faults.Releases);
+            await Replay(); Assert.AreEqual(releases + 1, faults.Releases);
             await Expect(client, cleanup, HttpStatusCode.OK); Assert.AreEqual(releases + 1, faults.Releases);
             Assert.AreEqual(audit, await Audit());
 
@@ -155,6 +164,12 @@ internal static class AiKnowledgeIndexCleanupApiAssertions
             await AiKnowledgeIndexCleanupRaceAssertions.VerifyAsync(factory, client, owner.UserId, scoped ? tenant.Id : null, faults);
 
             async Task<int> Remaining() => await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_task WHERE DocumentId=@DocumentId AND StateKey='running'", row);
+            async Task Replay()
+            {
+                using var response = await AiKnowledgeDeleteReplayAssertions.Delete(client, document, 1);
+                Assert.AreEqual(HttpStatusCode.NoContent, response.StatusCode, await response.Content.ReadAsStringAsync());
+                Assert.AreEqual(2, await db.QuerySingleAsync<int>("SELECT Version FROM fn_ai_knowledge_document WHERE Id=@DocumentId", row));
+            }
             async Task State(string expected)
             {
                 using var response = await client.GetAsync(path); Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
@@ -175,6 +190,8 @@ internal static class AiKnowledgeIndexCleanupApiAssertions
         host.DefaultRequestHeaders.Authorization = null;
         host.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await IntegrationTestAuthHelper.LoginAsHostUserAsync(host, owner.Username));
         await Expect(host, tenantCleanup!, HttpStatusCode.NotFound);
+        using var crossTenantReplay = await AiKnowledgeDeleteReplayAssertions.Delete(host, tenantCleanup!.Replace("/imports/cleanup", "", StringComparison.Ordinal), 1);
+        Assert.AreEqual(HttpStatusCode.NotFound, crossTenantReplay.StatusCode);
     }
 
     private static async Task Expect(HttpClient client, string path, HttpStatusCode status)

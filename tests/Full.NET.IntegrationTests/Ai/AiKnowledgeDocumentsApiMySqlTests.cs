@@ -10,7 +10,8 @@ public sealed class AiKnowledgeDocumentsApiMySqlTests
     [TestMethod]
     public async Task MySql_document_metadata_requires_independent_access_and_immediate_revocation()
     {
-        using var factory = new FullNetApiFactory(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
-        await AiKnowledgeDocumentsApiAssertions.VerifyAsync(factory);
+        var gate = new AiKnowledgeDeleteReplayAssertions.Gate();
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync(), configureTestServices: gate.Configure);
+        await AiKnowledgeDocumentsApiAssertions.VerifyAsync(factory, gate);
     }
 }

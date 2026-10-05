@@ -94,11 +94,12 @@ internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandE
     internal Task<Result<bool>> DeleteAsync(Guid knowledgeBaseId, Guid id, Guid actor, int version, CancellationToken token) =>
         transaction.ExecuteResultAsync(async ct =>
         {
-            if (await FindOwnedAsync(knowledgeBaseId, id, actor, ct).ConfigureAwait(false) is null) return NotFound<bool>();
+            if (await FindOwnedAsync(knowledgeBaseId, id, actor, ct).ConfigureAwait(false) is null)
+                return await DeleteFailureAsync(knowledgeBaseId, id, actor, version, ct).ConfigureAwait(false);
             if (version < 1) return Invalid<bool>("Version must be positive.");
             var parameters = WriteParameters(knowledgeBaseId, id, actor, version);
             var changed = await command.ExecuteAsync(IsTenant ? AiKnowledgeDocumentSql.DeleteTenant : AiKnowledgeDocumentSql.DeleteHost, parameters, ct).ConfigureAwait(false);
-            if (changed != 1) return await WriteFailureAsync<bool>(knowledgeBaseId, id, actor, ct).ConfigureAwait(false);
+            if (changed != 1) return await DeleteFailureAsync(knowledgeBaseId, id, actor, version, ct).ConfigureAwait(false);
             // 先在同一事务写入拒读墓碑，再清理授权；不依赖未来缓存、文件或索引清理。
             await command.ExecuteAsync(IsTenant ? AiKnowledgeDocumentSql.DeleteMembersTenant : AiKnowledgeDocumentSql.DeleteMembersHost, parameters, ct).ConfigureAwait(false);
             await command.ExecuteAsync(IsTenant ? AiKnowledgeRoleGrantSql.CleanupDocTenant : AiKnowledgeRoleGrantSql.CleanupDocHost, parameters, ct).ConfigureAwait(false);
@@ -146,6 +147,18 @@ internal sealed class AiKnowledgeDocumentService(IQueryExecutor query, ICommandE
         knowledgeBaseId == Guid.Empty || id == Guid.Empty ? Task.FromResult<AiKnowledgeDocumentRecord?>(null)
         : query.QuerySingleOrDefaultAsync<AiKnowledgeDocumentRecord>(IsTenant ? AiKnowledgeDocumentSql.FindTenant : AiKnowledgeDocumentSql.FindHost,
             Parameters(knowledgeBaseId, id, actor), token);
+    private async Task<Result<bool>> DeleteFailureAsync(Guid knowledgeBaseId, Guid id, Guid actor, int version, CancellationToken token)
+    {
+        if (knowledgeBaseId == Guid.Empty || id == Guid.Empty) return NotFound<bool>();
+        var deletedVersion = await query.QuerySingleOrDefaultAsync<int>(IsTenant
+            ? AiKnowledgeDocumentSql.DeletedVersionTenant : AiKnowledgeDocumentSql.DeletedVersionHost,
+            Parameters(knowledgeBaseId, id, actor), token).ConfigureAwait(false);
+        if (deletedVersion == 0) return await WriteFailureAsync<bool>(knowledgeBaseId, id, actor, token).ConfigureAwait(false);
+        if (version < 1) return Invalid<bool>("Version must be positive.");
+        // ReadCommitted 下在 CAS 等待结束后读取已提交墓碑；仅原版本可重放，不重写版本或清理租约。
+        return deletedVersion == (long)version + 1 ? Result<bool>.Success(true)
+            : Failure<bool>(AiKnowledgeErrorCodes.DocumentVersionConflict, "The document was modified by another request.", ErrorType.Conflict);
+    }
     private async Task<Result<AiKnowledgeDocumentResponse>> OwnedResponseAsync(Guid knowledgeBaseId, Guid id, Guid actor, CancellationToken token)
     {
         var row = await FindOwnedAsync(knowledgeBaseId, id, actor, token).ConfigureAwait(false);

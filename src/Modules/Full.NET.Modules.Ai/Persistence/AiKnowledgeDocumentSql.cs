@@ -13,6 +13,8 @@ internal static class AiKnowledgeDocumentSql
     private const string Access = AiKnowledgeReadSql.Layers;
     private const string MySqlAccess = AiKnowledgeReadSql.LayersMySql;
     private const string Read = "SELECT " + Columns + Join + "document.Id = @DocumentId AND ";
+    // 墓碑只证明既有删除；目录停用不撤销收据，所有者与可信范围仍逐次核对。
+    private const string DeletedVersion = "SELECT document.Version FROM fn_ai_knowledge_document AS document INNER JOIN fn_ai_knowledge_base AS knowledge ON knowledge.Id=document.KnowledgeBaseId WHERE document.Id=@DocumentId AND document.KnowledgeBaseId=@KnowledgeBaseId AND document.IsDeleted=1 AND " + Owner + " AND ";
     private const string List = "SELECT " + Columns + Join;
     private const string Count = "SELECT COUNT(*)" + Join;
     private const string Insert = "INSERT INTO fn_ai_knowledge_document (Id, KnowledgeBaseId, Title, Description, IsDeleted, CreatedAtUtc, Version) SELECT @DocumentId, knowledge.Id, @Title, @Description, 0, @CreatedAtUtc, 1 FROM fn_ai_knowledge_base AS knowledge WHERE knowledge.Id = @KnowledgeBaseId AND knowledge.IsEnabled = 1 AND " + Owner + " AND ";
@@ -27,6 +29,8 @@ internal static class AiKnowledgeDocumentSql
 
     internal static readonly SqlStatement FindHost = new("ai.knowledge_document.find_host", Read + Host + " AND " + Owner, SqlDataScope.HostOnly);
     internal static readonly SqlStatement FindTenant = new("ai.knowledge_document.find_tenant", Read + Tenant + " AND " + Owner, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement DeletedVersionHost = new("ai.knowledge_document.deleted_version_host", DeletedVersion + Host, SqlDataScope.HostOnly);
+    internal static readonly SqlStatement DeletedVersionTenant = new("ai.knowledge_document.deleted_version_tenant", DeletedVersion + Tenant, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement ReadHost = new("ai.knowledge_document.read_host", Read + Host + " AND " + Access, SqlDataScope.HostOnly);
     internal static readonly SqlStatement ReadMySqlHost = new("ai.knowledge_document.read_mysql_host", Read + Host + " AND " + MySqlAccess, SqlDataScope.HostOnly);
     internal static readonly SqlStatement ReadTenant = new("ai.knowledge_document.read_tenant", Read + Tenant + " AND " + Access, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);

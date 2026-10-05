@@ -14,7 +14,7 @@ namespace Full.NET.IntegrationTests.Ai;
 /// <summary>真实授权管线和双库验证标题保密、权威撤权、软删除、范围与版本竞争。</summary>
 internal static class AiKnowledgeDocumentsApiAssertions
 {
-    internal static async Task VerifyAsync(FullNetApiFactory factory)
+    internal static async Task VerifyAsync(FullNetApiFactory factory, AiKnowledgeDeleteReplayAssertions.Gate gate)
     {
         await factory.InitializeAsync();
         string[] permissions = [AiKnowledgePermissions.Read, AiKnowledgePermissions.Create, AiKnowledgePermissions.Update,
@@ -188,6 +188,7 @@ internal static class AiKnowledgeDocumentsApiAssertions
         using var tenantRevoke = await tenantClient.PutAsJsonAsync(tenantDocPath + "/members", new SetAiKnowledgeDocumentMembersRequest([], 2));
         Assert.AreEqual(HttpStatusCode.OK, tenantRevoke.StatusCode);
         await ExpectAsync(tenantReader, tenantDocPath, HttpStatusCode.NotFound);
+        await AiKnowledgeDeleteReplayAssertions.VerifyAsync(factory, tenantClient, tenantReader, $"/api/v1/ai/knowledge-bases/{tenantBase.Id}", gate);
         // 切范围使旧令牌失效；先取得新的 Host 会话令牌，再验证同一所有者的跨租户拒绝。
         using var ownerBack = await tenantClient.PutAsJsonAsync("/api/v1/tenancy/context", new ChangeTenantContextRequest(null));
         Assert.AreEqual(HttpStatusCode.OK, ownerBack.StatusCode);
@@ -207,9 +208,12 @@ internal static class AiKnowledgeDocumentsApiAssertions
         await ProblemAsync(deletedGrant, HttpStatusCode.NotFound, AiKnowledgeErrorCodes.DocumentNotFound);
         Assert.AreEqual(1L, (await client.GetFromJsonAsync<PagedResult<AiKnowledgeDocumentResponse>>(path))!.Total);
         using var repeatDelete = await DeleteAsync(client, docPath, 5);
-        await ProblemAsync(repeatDelete, HttpStatusCode.NotFound, AiKnowledgeErrorCodes.DocumentNotFound);
+        Assert.AreEqual(HttpStatusCode.NoContent, repeatDelete.StatusCode, await repeatDelete.Content.ReadAsStringAsync());
+        await AiKnowledgeDeleteReplayAssertions.VerifyAsync(factory, client, reader, basePath, gate);
         var limited = await factory.CreateHostIdentityAsync($"doc-limited-{Guid.NewGuid():N}", [AiKnowledgePermissions.Create]);
         reader.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", limited.AccessToken);
+        using var deniedReplay = await DeleteAsync(reader, docPath, 5);
+        Assert.AreEqual(HttpStatusCode.Forbidden, deniedReplay.StatusCode);
         using var limitedBaseCreate = await reader.PostAsJsonAsync("/api/v1/ai/knowledge-bases", new CreateAiKnowledgeBaseRequest("限权所有者", null));
         var limitedBase = (await limitedBaseCreate.Content.ReadFromJsonAsync<AiKnowledgeBaseResponse>())!;
         using var deniedCreate = await reader.PostAsJsonAsync($"/api/v1/ai/knowledge-bases/{limitedBase.Id}/documents", new CreateAiKnowledgeDocumentRequest("缺少独立创建权", null));

@@ -1040,6 +1040,23 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - 规定影响集：node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-generation-execution-r05f4a --phase slice 退出 0，Ai 双 Provider 66/66，零失败/跳过（22m 26s 140ms），无新增 SQL/迁移。正式 TRX 与冻结发现的全部 UID/FQN 一致；939 个代码/矩阵/运行输入摘要未变，生产/Unit/Integration 三处 AI 程序集 SHA256 一致。pnpm test:integration:tooling 54/54、正式入口工具集 65/65、test:governance 57/57、test:naming 33/33、test:sql-safety 5/5，1172 项分片无遗漏/重复；git diff --check 通过。平台截断 1 项超长捕获文本字段，测试身份和结果完整，截断区域不作为完整运行日志。证据位于忽略目录 artifacts/r05f4a/ 及同名前缀日志。
   - 环境与未验证项：Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401、Docker SQL Server 2022 CU14/MySQL 8.0，FULLNET_TESTCONTAINERS_REUSE=0。首次构建因 Windows 提交内存接近上限失败，降低本任务并发/内存后专项构建通过；512 MiB 不足以编译 Integration，768 MiB 单节点重跑通过。AOT 后 JIT 还原首次因 NuGet 漏洞服务索引不可达失败，HTTP 200 后保留审计重试成功；失败命令不计入验收。最终环境内存余量恢复，构建单节点、2 GiB GC 限额、DOTNET_PROCESSOR_COUNT=2；历史复用测试数据库保持停止且数据保留。只完成内部持租约消费者，尚未接入 Hosted 轮询领取/生产 DI、公开 ready、真实后台/云计量链路、检索、完整 Host/Worker Native 发布运行或容量实测。完整 RAG 保持 Planned，Capacity-not-verified 保持，下一项继续 Worker 领取与宿主接入。
 
+- [x] R05f4h：文档 DELETE 的同版本重放（main，基线 0031b976；快照 ai-knowledge-delete-replay-r05f4h）。
+  - 契约：当前可信范围内的当前所有者重放原删除版本返回 204；墓碑版本必须等于请求版本加一，其他正版本返回既有 409，非法版本 400，不可见资源 404，独立删除权限继续由 Endpoint 验证。目录禁用不阻止确认既有墓碑；存活文档仍使用原启用目录和 CAS 条件。
+  - [x] RED：修改 AiKnowledgeDocumentsApiAssertions 的重复删除预期，由现有双库包装运行；真实事务竞争、租户隔离和 SQL 无法仅靠 Unit 证明，不新增 fixture 或 messaging-heavy 用例。
+  - [x] GREEN：AiKnowledgeDocumentSql 增加仅 AI 表的最小墓碑版本读取，AiKnowledgeDocumentService 在资源不可见或 CAS 未命中后确认删除收据；不重复版本递增或补偿意图写入。Endpoint 复用提交后的有界清理，文件副作用保持事务外、最终一致。
+  - [x] 回归：双库 Host/Tenant 的顺序与并发重放、错误版本、权限/所有权/范围拒绝、禁用目录、更新竞争及残留清理恢复。只增加断言，不改变既有测试发现数量。
+  - [x] 验证与提交：完整 AI Unit、正式 affected slice 双库集、相关 Architecture 与 API AOT 分析；审查 SQL/授权及最终证据，更新运维与能力状态，提交 main。完整 Native、云模型与容量不由此推导。
+
+  R05f4h 本地证据（2026-10-06，同版本 DELETE 重放）：
+  - 基线 main / 0031b976a7c62b97843b7a0359b735a47d84ebe4，快照 ai-knowledge-delete-replay-r05f4h。RED 使用旧生产实现与新增重放断言，真实 MySQL 1/1 因 expected NoContent / actual NotFound 失败；修正后的首轮文档/清理双库聚焦集 4/4，通过后补齐审查要求的更新竞争及版本上界测试，最终影响集重新覆盖全部最新源码。
+  - 仅新增 Host/Tenant 墓碑版本标量 SQL 与删除失败分支的权威确认；ReadCommitted 事务内核对当前所有者/范围，原请求版本加一必须精确匹配，使用 long 运算避免上界溢出。没有新表、迁移、端点、权限、DTO 或测试发现数量变化；存活文档维持既有启用目录与 CAS。
+  - 双库 Host/Tenant 覆盖顺序重放、确定性 DELETE/DELETE 同读后竞争、PUT 先提交后 DELETE 返回 409 且保留更新、MaxValue-1 删除及重放、错误/非法版本、错误父目录、不存在/非所有者/跨范围和权限拒绝。重放前后墓碑版本/时间不变，禁用目录仍可确认删除。生产索引清理链路覆盖 SQL 失败、Files 失败、有效租约不抢占与到期恢复；原会话、批次、费用、模型调用均保持，Files 故障为受控边界。
+  - 独立只读审查提出的竞争测试缺口与测试失败清理建议均已修正，追加复核无 Critical/Important。最终 AI Unit 1215/1215（35s408ms）、规定 AI 双库影响集 78/78（26m30s068ms），零失败/跳过；AI 架构 7/7、AOT 架构 73/73，API AOT 分析与 Release 构建零警告/错误。
+  - 命令：pwsh -NoLogo -NoProfile -File artifacts/r05f4h/final.ps1（含 preflight.ps1、完整 AI Unit、ai-agentic-boundaries / api-native-aot 架构和 node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-delete-replay-r05f4h --phase slice）；另执行 pnpm test:naming、pnpm test:sql-safety、pnpm test:governance、pnpm test:integration:partitions、git diff --check。全 Unit 4684 与 Integration 裸发现 1239 仅作发现核对；规定主分片 1184 项无遗漏或重复，矩阵数量未变，未宣称执行全项目全量集。
+  - 1117 个源码/矩阵/运行输入摘要未变，生产与测试 AI 程序集一致，Worker JIT 依赖闭包一致；TRX 与发现 UID/FQN 精确匹配。集成 TRX 有 3 项捕获文本因单字段上限截断，结果状态和标识完整，截断文本不作为完整诊断日志。原始结果在忽略目录 artifacts/r05f4h/ 与同名前缀日志。
+  - 临时验收脚本首次在数据库测试通过后读取了上一切片的 affected-combined.trx（124 项），身份核对失败并退出 1。核对正式工具的按目标命名规则及文件时间后，修正为本次 affected-ai.trx（78 项），单独运行 node artifacts/r05f4h/verify.mjs 退出 0，确认全部标识和输入摘要一致；测试源码/产物未变，无需重复执行已通过的数据库测试。该脚本故障不计为测试通过，也不改写正式工具或门槛。
+  - 环境 Windows i7-12700H、64 GB、SDK 10.0.401，Docker SQL Server 2022 CU14/MySQL 8.0；Testcontainers 复用关闭、2 GiB GC 限额、2 个处理器、单节点构建。完整 Host/Worker Native 发布运行、真实外部模型/云计量、容量、PDF 业务导入及检索问答仍未完成；完整 RAG 保持 Planned、Capacity-not-verified，R05 未整体完成。
+
 - [x] R05f4g：Worker 自动恢复已删除文档的索引与文件清理（main，基线 91cdbd9d；快照 ai-knowledge-cleanup-worker-r05f4g）。
   - 范围：新增独立、默认关闭的 `FullNet:Ai:KnowledgeCleanupWorker`；不依赖索引生成开关、模型调用、原会话或目录启用状态。重复 DELETE 的 HTTP/CAS 语义另项处理。
   - 扫描：`Persistence/AiKnowledgeCleanupWorkerSql.cs` 成对静态 Global SQL 仅读取 AI 自有墓碑下的任务和待补偿导入标识；按 CreatedAtUtc/Kind/Id 有界 keyset 扫描。进程内 Singleton 游标跨 Scoped 保留并互斥，失败也推进，末尾回绕，重启从头可安全重放；每轮固定等待，避免租约竞争或持续故障忙循环。
