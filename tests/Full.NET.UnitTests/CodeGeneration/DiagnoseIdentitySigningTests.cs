@@ -615,6 +615,130 @@ public sealed class DiagnoseIdentitySigningTests
         await AssertDiagnostic(fixture, "production", valid ? "DIAG_OIDC_CLIENTS_CONFIGURED ok" : "DIAG_OIDC_CLIENTS_INVALID error");
     }
 
+    [TestMethod]
+    [DataRow("AccessTokenMinutes", "1", true)]
+    [DataRow("AccessTokenMinutes", "60", true)]
+    [DataRow("AccessTokenMinutes", "0", false)]
+    [DataRow("AccessTokenMinutes", "61", false)]
+    [DataRow("RefreshTokenDays", "1", true)]
+    [DataRow("RefreshTokenDays", "90", true)]
+    [DataRow("RefreshTokenDays", "0", false)]
+    [DataRow("RefreshTokenDays", "91", false)]
+    [DataRow("LockoutThreshold", "1", true)]
+    [DataRow("LockoutThreshold", "20", true)]
+    [DataRow("LockoutThreshold", "0", false)]
+    [DataRow("LockoutThreshold", "21", false)]
+    [DataRow("LockoutMinutes", "1", true)]
+    [DataRow("LockoutMinutes", "1440", true)]
+    [DataRow("LockoutMinutes", "0", false)]
+    [DataRow("LockoutMinutes", "1441", false)]
+    [DataRow("LoginRateLimitPermitLimitPerMinute", "1", true)]
+    [DataRow("LoginRateLimitPermitLimitPerMinute", "2147483647", true)]
+    [DataRow("LoginRateLimitPermitLimitPerMinute", "0", false)]
+    [DataRow("SessionMutationRateLimitPermitLimitPerMinute", "1", true)]
+    [DataRow("SessionMutationRateLimitPermitLimitPerMinute", "2147483647", true)]
+    [DataRow("SessionMutationRateLimitPermitLimitPerMinute", "0", false)]
+    [DataRow("PasswordExpirationDays", "0", true)]
+    [DataRow("PasswordExpirationDays", "2147483647", true)]
+    [DataRow("PasswordExpirationDays", "-1", false)]
+    public async Task Numeric_identity_limits_match_real_options_even_with_token_endpoints_disabled(
+        string field, string value, bool valid)
+    {
+        using var fixture = new Workspace(new JsonObject {
+            ["EnableTokenEndpoints"] = false, [field] = JsonNode.Parse(value),
+        }.ToJsonString());
+        Assert.AreEqual(valid, RuntimeValid(fixture.Configuration, "production"));
+        await AssertDiagnostic(fixture, "production", NumericFinding(valid));
+    }
+
+    [TestMethod]
+    [DataRow("\"numeric-signing-probe\"", false)]
+    [DataRow("\"\"", false)]
+    [DataRow("false", false)]
+    [DataRow("null", false)]
+    [DataRow("{}", false)]
+    [DataRow("[]", false)]
+    [DataRow("\"2147483648\"", false)]
+    [DataRow("\"1.5\"", false)]
+    [DataRow("1.0", false)]
+    [DataRow("\"0x3c\"", true)]
+    [DataRow("\"&h3c\"", true)]
+    [DataRow("\"#3c\"", true)]
+    [DataRow("\"  +60  \"", true)]
+    [DataRow("[1]", true)]
+    [DataRow("{\"child\":1}", true)]
+    public async Task Numeric_identity_conversion_matches_configuration_binder(string value, bool valid)
+    {
+        using var fixture = new Workspace("{\"EnableTokenEndpoints\":false,\"AccessTokenMinutes\":" + value + "}");
+        Assert.AreEqual(valid, RuntimeValid(fixture.Configuration, "development"));
+        await AssertDiagnostic(fixture, "development", NumericFinding(valid));
+    }
+
+    [TestMethod]
+    [DataRow("base", "development", true)]
+    [DataRow("profile", "development", true)]
+    [DataRow("secrets", "development", true)]
+    [DataRow("environment", "development", true)]
+    [DataRow("base", "production", true)]
+    [DataRow("profile", "production", true)]
+    [DataRow("environment", "production", true)]
+    [DataRow("base", "development", false)]
+    [DataRow("profile", "development", false)]
+    [DataRow("secrets", "development", false)]
+    [DataRow("environment", "development", false)]
+    [DataRow("base", "production", false)]
+    [DataRow("profile", "production", false)]
+    [DataRow("environment", "production", false)]
+    public async Task Numeric_identity_limits_use_the_final_host_configuration_leaf(string source, string profile, bool valid)
+    {
+        var value = valid ? "60" : "0";
+        using var fixture = new Workspace("{\"EnableTokenEndpoints\":false,\"AccessTokenMinutes\":" + (source == "base" ? value : "61") + "}");
+        var overlay = "{\"identity:accesstokenminutes\":\"" + value + "\"}";
+        Assert.AreEqual(valid, RuntimeValid(fixture.Configuration, profile, source == "base" ? null : overlay));
+        if (source == "profile") fixture.WriteProfile(profile, overlay);
+        if (source == "secrets") fixture.WriteSecrets(overlay);
+        if (source == "environment")
+        {
+            fixture.WriteProfile(profile, """{"Identity:AccessTokenMinutes":62}""");
+            if (profile == "development") fixture.WriteSecrets("""{"Identity:AccessTokenMinutes":63}""");
+            Environment.SetEnvironmentVariable("identity__accesstokenminutes", value);
+        }
+        await AssertDiagnostic(fixture, profile, NumericFinding(valid));
+    }
+
+    [TestMethod]
+    [DataRow("null")]
+    [DataRow("{}")]
+    [DataRow("[]")]
+    public async Task Empty_identity_parent_does_not_remove_the_lower_numeric_leaf(string value)
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"LockoutThreshold":21}""");
+        var overlay = "{\"Identity\":" + value + "}";
+        Assert.IsFalse(RuntimeValid(fixture.Configuration, "development", overlay));
+        fixture.WriteProfile("development", overlay);
+        await AssertDiagnostic(fixture, "development", NumericFinding(false));
+    }
+
+    [TestMethod]
+    public async Task Missing_numeric_identity_options_keep_runtime_defaults()
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false}""");
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "production"));
+        await AssertDiagnostic(fixture, "production", NumericFinding(true));
+    }
+
+    [TestMethod]
+    public async Task Production_numeric_identity_options_ignore_development_user_secrets()
+    {
+        using var fixture = new Workspace("""{"EnableTokenEndpoints":false,"AccessTokenMinutes":60}""");
+        fixture.WriteSecrets("""{"Identity:AccessTokenMinutes":61}""");
+        Assert.IsTrue(RuntimeValid(fixture.Configuration, "production"));
+        await AssertDiagnostic(fixture, "production", NumericFinding(true));
+    }
+
+    private static string NumericFinding(bool valid) => valid
+        ? "DIAG_IDENTITY_NUMERIC_OPTIONS_CONFIGURED ok" : "DIAG_IDENTITY_NUMERIC_OPTIONS_INVALID error";
+
     private static string SyntheticEncryptionKey(int bytes) =>
         Convert.ToBase64String(Encoding.UTF8.GetBytes("encryption-signing-probe".PadRight(bytes, 'x')));
 
@@ -669,6 +793,7 @@ public sealed class DiagnoseIdentitySigningTests
         using var error = new StringWriter();
         var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
         var text = output.ToString() + error;
+        StringAssert.Contains(text, "DIAG_SDK_OK ok");
         StringAssert.Contains(text, finding);
         if (absentFinding is not null) Assert.IsFalse(text.Contains(absentFinding, StringComparison.Ordinal));
         if (secret is not null) Assert.IsFalse(text.Contains(secret, StringComparison.Ordinal));

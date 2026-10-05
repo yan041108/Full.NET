@@ -314,6 +314,7 @@ internal static partial class DiagnoseCommand
             CheckDatabaseOptions(root, profileSettings, workspacePath, profile, findings);
             CheckConnectionPlaceholder(root, profileSettings, workspacePath, profile, findings);
             CheckSecretPlaceholders(root, profileSettings, workspacePath, profile, findings);
+            CheckIdentityNumericOptions(root, profileSettings, workspacePath, profile, findings);
             CheckIdentitySigning(root, profileSettings, workspacePath, profile, findings);
             CheckOidcSigning(root, profileSettings, workspacePath, profile, findings);
             CheckOidcIssuerAndEncryption(root, profileSettings, workspacePath, profile, findings);
@@ -731,19 +732,22 @@ internal static partial class DiagnoseCommand
         }
     }
 
-    private static bool IsPositiveDatabaseTimeout(string? value)
+    private static bool IsPositiveDatabaseTimeout(string? value) =>
+        value is not null && TryParseConfigurationInt32(value, out var timeout) && timeout > 0;
+
+    private static bool TryParseConfigurationInt32(string value, out int number)
     {
-        if (value is null) return false;
+        number = 0;
         value = value.Trim();
         try
         {
             // Int32 配置转换支持十进制及这三种十六进制前缀，不能比运行时更窄。
-            var timeout = value.StartsWith('#') ? Convert.ToInt32(value[1..], 16)
+            number = value.StartsWith('#') ? Convert.ToInt32(value[1..], 16)
                 : value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
                     || value.StartsWith("&h", StringComparison.OrdinalIgnoreCase)
                     ? Convert.ToInt32(value[2..], 16)
                     : int.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
-            return timeout > 0;
+            return true;
         }
         catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
         {
