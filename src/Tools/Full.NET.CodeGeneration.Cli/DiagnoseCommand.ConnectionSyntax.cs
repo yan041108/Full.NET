@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Full.NET.Data.Abstractions;
+using Full.NET.Data.MySql;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
 
@@ -6,7 +8,7 @@ namespace Full.NET.CodeGeneration.Cli;
 
 internal static partial class DiagnoseCommand
 {
-    private static bool HasValidConnectionSyntax(
+    private static bool HasValidConnectionConfiguration(
         JsonElement root, JsonDocument? profileSettings, string workspacePath, string profile,
         string connectionString)
     {
@@ -25,8 +27,19 @@ internal static partial class DiagnoseCommand
             }
             else
             {
-                // MySQL 工厂先经过此驱动解析器；不打开连接，也不在此扩展 UUID 或连接池准入。
-                _ = new MySqlConnectionStringBuilder(connectionString);
+                _ = TryReadDatabaseValue(root, profileSettings, workspacePath, profile,
+                    "Database:MySqlGuidStorageMode", out var storageValue);
+                var mode = MySqlGuidStorageMode.LegacyChar36;
+                if (storageValue is not null && (!Enum.TryParse(storageValue, true, out mode) || !Enum.IsDefined(mode)))
+                {
+                    // 无效存储模式由独立选项诊断负责，仍保留连接串语法检查。
+                    _ = new MySqlConnectionStringBuilder(connectionString);
+                }
+                else
+                {
+                    // 复用真实工厂的 UUID 策略；只验证，不保存规范化结果，也不打开连接。
+                    _ = MySqlConnectionStringPolicy.Create(connectionString, mode, allowUserVariables: false);
+                }
             }
             return true;
         }

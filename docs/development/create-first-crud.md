@@ -52,7 +52,7 @@ JSON 中的非空对象或数组展平为子键，不会自动覆盖较低优先
 
 新创建应用的 `pnpm run diagnose:development` / `pnpm run diagnose:production` 先通过应用自带的 Node 入口探测目标工作区 SDK。找不到 `dotnet` 或无法选择 SDK 时输出固定 `DIAG_SDK_MISSING`；不兼容版本输出 `DIAG_SDK_INCOMPATIBLE`，均退出 1，不输出原始 SDK 错误或版本后缀，也不安装 SDK。SDK 可用后继续运行现有 .NET CLI，保留其诊断和退出码；前置成功不表示应用配置通过。探测等待上限为 30 秒，不保证整条命令或进程清理在该时间内完成，Node 前置检查也不承诺回收派生进程树。已有应用的旧脚本和手工诊断脚本不会自动替换；直接运行 `dotnet run ... diagnose` 仍须先具备可启动的 SDK。
 
-基础命名连接按宿主展平路径读取，支持扁平/嵌套键、不区分大小写的路径及合法子路径；显式空值覆盖不恢复基础凭据，非空子键不抹除同路径标量。命名凭据仍按文本判断，不把数字/布尔值计为已配置。诊断保持已有基础凭据字段类型校验；最终连接非空且非占位时，按最终 `Database:Provider` 执行离线解析，失败在 Development/Production 均报告 `DIAG_CONNECTION_INVALID error` 并退出 1。SQL Server 按真实工厂构造并立即释放未打开的 SqlConnection，MySQL 使用真实工厂策略中的 MySqlConnectionStringBuilder；保留两种驱动的重复键、别名和转义语义，不以手工分割替代解析。仅检查实际选中的连接，不检查未使用的命名连接；不会打开连接、访问数据库或输出驱动异常。成功不证明地址可达、认证、UUID 映射策略、连接池容量或完整宿主启动通过。
+基础命名连接按宿主展平路径读取，支持扁平/嵌套键、不区分大小写的路径及合法子路径；显式空值覆盖不恢复基础凭据，非空子键不抹除同路径标量。命名凭据仍按文本判断，不把数字/布尔值计为已配置。诊断保持已有基础凭据字段类型校验；最终连接非空且非占位时，按最终 `Database:Provider` 执行离线解析，失败在 Development/Production 均报告 `DIAG_CONNECTION_INVALID error` 并退出 1。SQL Server 按真实工厂构造并立即释放未打开的 SqlConnection，MySQL 复用真实工厂的 MySqlConnectionStringPolicy，按最终 MySqlGuidStorageMode 拒绝冲突 GuidFormat 及显式 Old Guids；保留两种驱动的重复键、别名和转义语义，不以手工分割替代解析。仅检查实际选中的连接，不检查未使用的命名连接；不会打开连接、访问数据库或输出驱动异常。成功不证明地址可达、认证、数据库实际 UUID 列类型、连接池容量或完整宿主启动通过。
 
 三个常见秘密键的基础值也按展平路径读取，支持扁平/嵌套键及大小写变体。未声明键不强制存在；显式 null、空白或空集合覆盖视为占位，非空子键不抹除同路径标量。保留已有基础秘密字段类型校验，非文本秘密不能据此计为有效凭据。此检查不验证 Redis 可达性或 SM2 密钥格式。
 
@@ -746,7 +746,7 @@ node --throw-deprecation --test --test-concurrency=1 tests/templates/created-app
 | `DIAG_WORKSPACE_INCOMPLETE` | 目录结构不完整 | 确认在应用根目录运行 |
 | `DIAG_MODULES_MISSING` | 未配置模块预设 | 添加 `FullNet:Modules:Preset` |
 | `DIAG_CONNECTION_PLACEHOLDER` | 开发环境缺连接 | user-secrets 或环境变量 |
-| `DIAG_CONNECTION_INVALID` | 所选 Provider 无法离线解析最终连接串 | 核对有效直配或命名连接的键名、引号和值类型；不输出原文或驱动异常 |
+| `DIAG_CONNECTION_INVALID` | 所选 Provider 无法离线解析最终连接串，或 MySQL UUID 选项与最终存储模式冲突 | 核对有效直配或命名连接的键名、引号和值类型；MySQL 同时核对 GuidFormat、Old Guids 与存储模式；不输出原文或驱动异常 |
 | `DIAG_USER_SECRETS_INVALID` | Development 的 API User Secrets 文件不可读取、JSON 无效或配置键重复 | 修复本机秘密文件；诊断不输出其内容 |
 | `DIAG_SECRETS_PLACEHOLDER` | 已配置的 Redis/SM2 秘密键最终仍为空或占位符 | Development 可用 User Secrets 或环境变量覆盖；Production 使用部署密钥或环境变量，勿提交仓库 |
 

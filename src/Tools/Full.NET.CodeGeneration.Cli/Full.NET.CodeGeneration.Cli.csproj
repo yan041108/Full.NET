@@ -8,6 +8,9 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Data.CodeGeneration\Full.NET.Data.CodeGeneration.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Data.MySql\Full.NET.Data.MySql.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="MySqlConnector" />

@@ -203,6 +203,92 @@ public sealed class DiagnoseConnectionSyntaxTests
         await AssertDiagnostic(fixture, profile, true);
     }
 
+    [TestMethod]
+    [DataRow("development", "LegacyChar36", "omitted")]
+    [DataRow("development", "LegacyChar36", "Default")]
+    [DataRow("development", "LegacyChar36", "Binary16")]
+    [DataRow("development", "LegacyChar36", "Char36")]
+    [DataRow("development", "LegacyChar36", "Char32")]
+    [DataRow("development", "LegacyChar36", "TimeSwapBinary16")]
+    [DataRow("development", "LegacyChar36", "LittleEndianBinary16")]
+    [DataRow("development", "LegacyChar36", "None")]
+    [DataRow("development", "LegacyChar36", "old-false")]
+    [DataRow("development", "LegacyChar36", "old-true")]
+    [DataRow("development", "Binary16", "omitted")]
+    [DataRow("development", "Binary16", "Default")]
+    [DataRow("development", "Binary16", "Binary16")]
+    [DataRow("development", "Binary16", "Char36")]
+    [DataRow("development", "Binary16", "Char32")]
+    [DataRow("development", "Binary16", "TimeSwapBinary16")]
+    [DataRow("development", "Binary16", "LittleEndianBinary16")]
+    [DataRow("development", "Binary16", "None")]
+    [DataRow("development", "Binary16", "old-false")]
+    [DataRow("development", "Binary16", "old-true")]
+    [DataRow("production", "Binary16", "omitted")]
+    [DataRow("production", "Binary16", "Default")]
+    [DataRow("production", "Binary16", "Binary16")]
+    [DataRow("production", "Binary16", "Char36")]
+    [DataRow("production", "Binary16", "Char32")]
+    [DataRow("production", "Binary16", "TimeSwapBinary16")]
+    [DataRow("production", "Binary16", "LittleEndianBinary16")]
+    [DataRow("production", "Binary16", "None")]
+    [DataRow("production", "Binary16", "old-false")]
+    [DataRow("production", "Binary16", "old-true")]
+    public async Task Selected_mysql_guid_options_match_actual_unopened_factory(string profile, string mode, string shape)
+    {
+        var valid = shape == "omitted" || shape == (mode == "LegacyChar36" ? "Default" : "Binary16");
+        var option = shape switch
+        {
+            "omitted" => "",
+            "old-false" => ";Old Guids=false",
+            "old-true" => ";oldguids=true",
+            _ => ";gUiD fOrMaT=" + shape,
+        };
+        var settings = JsonNode.Parse(Configuration("MySql", Connection("MySql", "normal") + option))!.AsObject();
+        settings["Database"]!["MySqlGuidStorageMode"] = mode;
+        using var fixture = new Workspace(settings.ToJsonString());
+        Assert.AreEqual(valid, RuntimeConnectionValid(fixture.Configuration, null, profile), "先核对真实工厂的 UUID 策略，连接保持未打开。");
+        await AssertDiagnostic(fixture, profile, valid);
+    }
+
+    [TestMethod]
+    [DataRow(false, "profile", "LegacyChar36")]
+    [DataRow(false, "profile", "Binary16")]
+    [DataRow(false, "secrets", "LegacyChar36")]
+    [DataRow(false, "secrets", "Binary16")]
+    [DataRow(false, "environment", "LegacyChar36")]
+    [DataRow(false, "environment", "Binary16")]
+    [DataRow(true, "profile", "LegacyChar36")]
+    [DataRow(true, "profile", "Binary16")]
+    [DataRow(true, "secrets", "LegacyChar36")]
+    [DataRow(true, "secrets", "Binary16")]
+    [DataRow(true, "environment", "LegacyChar36")]
+    [DataRow(true, "environment", "Binary16")]
+    public async Task Mysql_guid_policy_uses_effective_storage_mode(bool named, string layer, string mode)
+    {
+        var settings = JsonNode.Parse(Configuration("MySql", Connection("MySql", "normal") + ";GuidFormat=Binary16", named))!.AsObject();
+        settings["Database"]!["MySqlGuidStorageMode"] = mode == "Binary16" ? "LegacyChar36" : "Binary16";
+        using var fixture = new Workspace(settings.ToJsonString());
+        var overlay = new JsonObject { ["dAtAbAsE:MySqlGuidStorageMode"] = mode }.ToJsonString();
+        if (layer == "profile") fixture.WriteProfile(overlay);
+        if (layer == "secrets") fixture.WriteSecrets(overlay);
+        if (layer == "environment") Environment.SetEnvironmentVariable("Database__MySqlGuidStorageMode", mode);
+        var valid = mode == "Binary16";
+        Assert.AreEqual(valid, RuntimeConnectionValid(fixture.Configuration, layer == "environment" ? null : overlay, "development"));
+        await AssertDiagnostic(fixture, "development", valid);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Production_mysql_guid_policy_ignores_development_secret_repair(bool named)
+    {
+        using var fixture = new Workspace(Configuration("MySql", Connection("MySql", "normal") + ";GuidFormat=Default", named));
+        fixture.WriteSecrets(new JsonObject { ["Database:MySqlGuidStorageMode"] = "LegacyChar36" }.ToJsonString());
+        Assert.IsFalse(RuntimeConnectionValid(fixture.Configuration, null, "production"));
+        await AssertDiagnostic(fixture, "production", false);
+    }
+
     private static string Connection(string provider, string shape) => shape switch
     {
         "normal" => "Server=example.invalid;Password=connection-probe",

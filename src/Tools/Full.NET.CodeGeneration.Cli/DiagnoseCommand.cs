@@ -805,17 +805,17 @@ internal static partial class DiagnoseCommand
 
         if (!string.IsNullOrWhiteSpace(effectiveConnection) && !IsPlaceholder(effectiveConnection))
         {
-            if (!HasValidConnectionSyntax(root, profileSettings, workspacePath, profile, effectiveConnection))
+            if (!HasValidConnectionConfiguration(root, profileSettings, workspacePath, profile, effectiveConnection))
             {
                 findings.Add(DiagnoseFinding.Error(
                     "DIAG_CONNECTION_INVALID",
-                    "所选数据库连接串不能按最终数据库提供程序解析。",
-                    "按 Database:Provider 修正最终连接串的键名、引号或值类型；检查有效直配或命名连接。诊断不会输出连接串或驱动异常，也不会打开连接。"));
+                    "所选数据库连接串与最终数据库配置不兼容。",
+                    "按 Database:Provider 修正有效直配或命名连接的键名、引号或值类型；MySQL 还须与 Database:MySqlGuidStorageMode 匹配，移除冲突 GuidFormat 或 Old Guids。诊断不会输出连接串或驱动异常，也不会打开连接。"));
                 return;
             }
             findings.Add(DiagnoseFinding.Ok(
                 "DIAG_CONNECTION_CONFIGURED",
-                "所选数据库连接配置已提供；受支持 Provider 的离线解析已通过，未验证地址、认证或数据库可用性。"));
+                "所选数据库连接配置已提供；受支持 Provider 的离线校验已通过，未验证地址、认证或数据库可用性。"));
             return;
         }
 
