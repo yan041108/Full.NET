@@ -2065,12 +2065,9 @@ public sealed class DiagnoseCommandTests
             || runtime.GetSection("FullNet:Modules:Enabled").GetChildren().Any();
         Assert.AreEqual(expected == "OK", configured);
         var selection = runtime.GetSection("FullNet:Modules").Get<Full.NET.Composition.FullNetModuleSelectionOptions>() ?? new();
-        var presetInvalid = false;
-        if (selection.Enabled is null)
-        {
-            try { _ = Full.NET.Composition.FullNetModuleSelection.ResolveEnabledNames(runtime); }
-            catch (InvalidOperationException) { presetInvalid = true; }
-        }
+        var selectionInvalid = false;
+        try { _ = Full.NET.Composition.FullNetModuleSelection.ResolveEnabledNames(runtime); }
+        catch (InvalidOperationException) { selectionInvalid = true; }
         using var fixture = new DiagnoseWorkspace(configuration);
         var before = Directory.EnumerateFiles(fixture.Root, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
         foreach (var profile in new[] { "development", "production" })
@@ -2078,9 +2075,10 @@ public sealed class DiagnoseCommandTests
             using var output = new StringWriter();
             using var error = new StringWriter();
             var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
-            // 声明提示保持原语义；不适用显式列表时，新增预设错误独立决定失败退出状态。
-            Assert.AreEqual(presetInvalid ? 1 : 0, result, output.ToString());
-            if (presetInvalid) StringAssert.Contains(output.ToString(), "DIAG_MODULE_PRESET_INVALID error");
+            // 声明提示保持原语义；实际选择列表或预设的合法性独立决定失败退出状态。
+            Assert.AreEqual(selectionInvalid ? 1 : 0, result, output.ToString());
+            if (selectionInvalid) StringAssert.Contains(output.ToString(), selection.Enabled is null
+                ? "DIAG_MODULE_PRESET_INVALID error" : "DIAG_MODULE_ENABLED_INVALID error");
             foreach (var code in new[] { "MISSING", "INCOMPLETE", "OK" })
                 Assert.AreEqual(code == expected, output.ToString().Contains("DIAG_MODULES_" + code + " ", StringComparison.Ordinal), output.ToString());
             StringAssert.Contains(output.ToString(), "DIAG_MODULES_" + expected + (expected == "OK" ? " ok" : " warn"));

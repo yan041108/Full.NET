@@ -141,13 +141,13 @@ public sealed class DiagnoseModulePresetTests
     {
         using var fixture = new Workspace("""{"FullNet:Modules:Preset":"module-credential-probe"}""");
         const string overlay = """{"FULLNET:MODULES:ENABLED:0":"Identity","FullNet:Modules:Enabled:1":"Tenancy","FullNet:Modules:Enabled:2":"Settings","FullNet:Modules:Enabled:3":"Organization"}""";
-        Assert.IsNull(ExpectedFinding(fixture.Configuration, overlay));
+        Assert.AreEqual("DIAG_MODULE_ENABLED_CONFIGURED ok", ExpectedFinding(fixture.Configuration, overlay));
         if (source == "profile") fixture.WriteProfile("development", overlay);
         if (source == "secrets") fixture.WriteSecrets(overlay);
         if (source == "environment")
             foreach (var entry in JsonSerializer.Deserialize<Dictionary<string, string>>(overlay)!)
                 Environment.SetEnvironmentVariable(entry.Key.Replace(":", "__"), entry.Value);
-        await AssertDiagnostic(fixture, "development", null);
+        await AssertDiagnostic(fixture, "development", "DIAG_MODULE_ENABLED_CONFIGURED ok");
     }
 
     [TestMethod]
@@ -158,9 +158,9 @@ public sealed class DiagnoseModulePresetTests
     {
         using var fixture = new Workspace("""{"FullNet:Modules:Preset":"module-credential-probe","FullNet:Modules:Enabled":["Identity","Tenancy","Settings","Organization"]}""");
         var overlay = "{\"FullNet:Modules:Enabled\":" + marker + "}";
-        Assert.IsNull(ExpectedFinding(fixture.Configuration, overlay));
+        Assert.AreEqual("DIAG_MODULE_ENABLED_CONFIGURED ok", ExpectedFinding(fixture.Configuration, overlay));
         fixture.WriteProfile("development", overlay);
-        await AssertDiagnostic(fixture, "development", null);
+        await AssertDiagnostic(fixture, "development", "DIAG_MODULE_ENABLED_CONFIGURED ok");
     }
 
     [TestMethod]
@@ -179,20 +179,92 @@ public sealed class DiagnoseModulePresetTests
         }
     }
 
-    private static string? ExpectedFinding(string configuration, string? overlay = null)
+    [TestMethod]
+    [DataRow("[]")]
+    [DataRow("[null]")]
+    [DataRow("[\"\"]")]
+    [DataRow("[\" \" ,\"Identity\"]")]
+    [DataRow("[\"Identity\",\"module-credential-probe\"]")]
+    [DataRow("[\"Identity\",\"Identity\"]")]
+    [DataRow("[\"Identity\",\"Tenancy\",\"Tenancy\"]")]
+    [DataRow("[\"identity\"]")]
+    [DataRow("[\"Identity\",\"TENANCY\"]")]
+    [DataRow("[\" Identity\"]")]
+    [DataRow("[\"Identity \"]")]
+    [DataRow("[\"Tenancy\",\"Settings\"]")]
+    [DataRow("[\"Identity\"]")]
+    [DataRow("[\"Organization\",\"Identity\",\"Tenancy\",\"Settings\"]")]
+    [DataRow("[\"Identity\",false]")]
+    [DataRow("[\"Identity\",42]")]
+    [DataRow("[\"Identity\",{}]")]
+    [DataRow("[\"Identity\",[]]")]
+    [DataRow("[\"Identity\",{\"Probe\":\"module-credential-probe\"}]")]
+    [DataRow("[{\"Probe\":\"module-credential-probe\"}]")]
+    [DataRow("{\"named\":\"Identity\",\"other\":\"Tenancy\"}")]
+    [DataRow("{\"10\":\"Tenancy\",\"2\":\"Identity\"}")]
+    [DataRow("{\"first\":\"Identity\",\"duplicate\":\"Identity\"}")]
+    [DataRow("{\"0\":\"Identity\",\"1\":null}")]
+    public async Task Enabled_name_diagnosis_matches_real_binding_and_resolution(string enabled)
+    {
+        // 使用路径键绕过工作区结构提示，直接比较宿主 Binder 的数组语义。
+        using var fixture = new Workspace("{\"FullNet:Modules:Preset\":\"module-credential-probe\",\"FullNet:Modules:Enabled\":" + enabled + "}");
+        await AssertDiagnostic(fixture, "production", ExpectedFinding(fixture.Configuration));
+    }
+
+    [TestMethod]
+    public async Task Every_official_module_name_remains_accepted_without_certifying_dependencies()
+    {
+        foreach (var name in FullNetModuleSelection.OfficialModuleNames)
+        {
+            var names = name == "Identity" ? new[] { name } : new[] { "Identity", name };
+            using var fixture = new Workspace(JsonSerializer.Serialize(new Dictionary<string, object> { ["FullNet:Modules:Enabled"] = names }));
+            Assert.AreEqual("DIAG_MODULE_ENABLED_CONFIGURED ok", ExpectedFinding(fixture.Configuration));
+            await AssertDiagnostic(fixture, "production", "DIAG_MODULE_ENABLED_CONFIGURED ok");
+        }
+    }
+
+    [TestMethod]
+    [DataRow("profile", true)]
+    [DataRow("profile", false)]
+    [DataRow("secrets", true)]
+    [DataRow("secrets", false)]
+    [DataRow("environment", true)]
+    [DataRow("environment", false)]
+    public async Task Enabled_children_merge_with_lower_sources_instead_of_replacing_the_array(string source, bool valid)
+    {
+        using var fixture = new Workspace("{\"FullNet:Modules:Enabled:0\":\"Identity\",\"FullNet:Modules:Enabled:1\":\"module-credential-probe\"}");
+        var overlay = JsonSerializer.Serialize(new Dictionary<string, string> { ["FULLNET:MODULES:ENABLED:1"] = valid ? "Tenancy" : "Identity" });
+        var expected = ExpectedFinding(fixture.Configuration, overlay);
+        if (source == "profile") fixture.WriteProfile("development", overlay);
+        if (source == "secrets") fixture.WriteSecrets(overlay);
+        if (source == "environment") Environment.SetEnvironmentVariable("FULLNET__MODULES__ENABLED__1", valid ? "Tenancy" : "Identity");
+        await AssertDiagnostic(fixture, "development", expected);
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task Production_ignores_development_enabled_secrets(bool valid)
+    {
+        using var fixture = new Workspace("{\"FullNet:Modules:Enabled\":[\"Identity\",\"" + (valid ? "Tenancy" : "module-credential-probe") + "\"]}");
+        fixture.WriteSecrets("{\"FullNet:Modules:Enabled:1\":\"" + (valid ? "module-credential-probe" : "Tenancy") + "\"}");
+        await AssertDiagnostic(fixture, "production", ExpectedFinding(fixture.Configuration));
+    }
+
+    private static string ExpectedFinding(string configuration, string? overlay = null)
     {
         var builder = new ConfigurationBuilder().AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configuration)));
         if (overlay is not null) builder.AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(overlay)));
         var runtime = builder.Build();
         var options = runtime.GetSection("FullNet:Modules").Get<FullNetModuleSelectionOptions>() ?? new();
-        // 本切片只校验真正使用的预设；显式列表的名称、空集和依赖问题不冒充预设错误。
-        if (options.Enabled is not null) return null;
+        // 真实名称解析是独立判定器；列表合法不代表实现已安装或依赖闭包成立。
+        var prefix = options.Enabled is null ? "DIAG_MODULE_PRESET_" : "DIAG_MODULE_ENABLED_";
         try
         {
             _ = FullNetModuleSelection.ResolveEnabledNames(runtime);
-            return "DIAG_MODULE_PRESET_CONFIGURED ok";
+            return prefix + "CONFIGURED ok";
         }
-        catch (InvalidOperationException) { return "DIAG_MODULE_PRESET_INVALID error"; }
+        catch (InvalidOperationException) { return prefix + "INVALID error"; }
     }
 
     private static async Task AssertDiagnostic(Workspace fixture, string profile, string? finding)
@@ -204,6 +276,8 @@ public sealed class DiagnoseModulePresetTests
         var text = output.ToString() + error;
         if (finding is not null) StringAssert.Contains(text, finding);
         else Assert.IsFalse(text.Contains("DIAG_MODULE_PRESET_", StringComparison.Ordinal), text);
+        if (finding?.StartsWith("DIAG_MODULE_ENABLED_", StringComparison.Ordinal) == true)
+            Assert.IsFalse(text.Contains("DIAG_MODULE_PRESET_", StringComparison.Ordinal), text);
         Assert.AreEqual(finding?.EndsWith(" error", StringComparison.Ordinal) == true ? 1 : 0, result, text);
         Assert.IsFalse(text.Contains("credential-probe", StringComparison.Ordinal));
         CollectionAssert.AreEquivalent(before.Keys.ToArray(), Directory.EnumerateFiles(fixture.Root, "*", SearchOption.AllDirectories).ToArray());
