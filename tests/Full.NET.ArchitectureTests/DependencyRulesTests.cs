@@ -697,6 +697,8 @@ public sealed class DependencyRulesTests
             Path.Combine("src", "BuildingBlocks", "Full.NET.Migrations.DbUp", "Full.NET.Migrations.DbUp.csproj"),
             Path.Combine("src", "BuildingBlocks", "Full.NET.Seeding.Dapper", "Full.NET.Seeding.Dapper.csproj"),
             Path.Combine("src", "Hosts", "Full.NET.Host.Migrator", "Full.NET.Host.Migrator.csproj"),
+            // CLI 仅在离线诊断中复用策略；下方锁定该入口不得创建或打开 MySQL 连接。
+            Path.Combine("src", "Tools", "Full.NET.CodeGeneration.Cli", "Full.NET.CodeGeneration.Cli.csproj"),
             Path.Combine("tests", "Full.NET.UnitTests", "Full.NET.UnitTests.csproj"),
             Path.Combine("tests", "Full.NET.IntegrationTests", "Full.NET.IntegrationTests.csproj"),
             Path.Combine("tests", "Full.NET.ArchitectureTests", "Full.NET.ArchitectureTests.csproj"),
@@ -736,6 +738,13 @@ public sealed class DependencyRulesTests
             root,
             Path.Combine("src", "BuildingBlocks", "Full.NET.Migrations.DbUp", "DbUpMigrationRunner.cs"),
             "allowUserVariables: true");
+        var diagnosisPath = Path.Combine("src", "Tools", "Full.NET.CodeGeneration.Cli", "DiagnoseCommand.ConnectionSyntax.cs");
+        AssertPolicyConsumer(root, diagnosisPath, "allowUserVariables: false");
+        var diagnosis = File.ReadAllText(Path.Combine(root, diagnosisPath));
+        Assert.IsFalse(
+            System.Text.RegularExpressions.Regex.IsMatch(
+                diagnosis, @"new\s+MySqlConnection\s*\(|\.Open(?:Async)?\s*\("),
+            "诊断策略消费方不能创建或打开 MySQL 连接。");
     }
 
     [TestMethod]
@@ -745,6 +754,8 @@ public sealed class DependencyRulesTests
         var allowedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             Path.Combine("tests", "Full.NET.UnitTests", "Data", "MySqlConnectionStringPolicyTests.cs"),
+            // 该夹具以真实未打开工厂对照诊断拒绝冲突 GuidFormat；不豁免生产源码。
+            Path.Combine("tests", "Full.NET.UnitTests", "CodeGeneration", "DiagnoseConnectionSyntaxTests.cs"),
             Path.Combine("tests", "Full.NET.IntegrationTests", "Data", "GuidBinaryRoundTripTests.cs"),
         };
         var sourceFiles = EnumerateRepositoryFiles(root, "*.*")

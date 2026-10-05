@@ -74,6 +74,8 @@ OIDC 默认关闭，诊断报告 `DIAG_OIDC_DISABLED ok`；关闭后不要求其
 
 模块声明提示与预设取值检查分开：`DIAG_MODULES_OK` 仍仅表示基础配置有声明；未采用显式 Enabled 列表时，诊断按四层来源读取最终 `FullNet:Modules:Preset`，缺键保留宿主默认 Full，名称忽略大小写但不忽略空白。未知、空白、显式 null 或空集合覆盖后的无效预设，在两种 Profile 均报告 `DIAG_MODULE_PRESET_INVALID error`；通过为 `DIAG_MODULE_PRESET_CONFIGURED ok`，不回显配置值。Enabled 的非空标量不能绑定为列表，仍检查 Preset；数组子键或空字符串数组标记可以绑定列表。显式 Enabled（含空数组）覆盖 Preset，空父节点不删除低层数组子键，本检查不认证列表名称、空集、依赖 DAG、预设成员或宿主启动；这些仍需对应运行验证。
 
+数据库前置配置和所选连接离线校验通过后，诊断对已声明的 DatabaseCapacity 复用现有 Dapper Options 绑定与校验，沿用逐叶合并和特殊连接环境前缀规则，以环境变量、Development User Secrets、所选环境 JSON、基础 JSON 的优先级检查连接预算。无法绑定或启用时违反角色、池参数、并发许可与保留量或集群连接总预算，报告 `code_generation.database_capacity.invalid error` 并退出 1；静态预算通过报告 `code_generation.database_capacity.configured ok`，已声明但未启用报告 `code_generation.database_capacity.disabled ok`；未声明预算时保持原有诊断范围。禁用只跳过预算范围约束，非法字段类型仍不能通过绑定。数据库前置条件错误不再误报为预算失败；诊断不解析连接工厂或会话，不打开连接，不输出配置值或驱动/Options 异常。静态预算通过不代表吞吐、10K 容量、生产 SLO 或完整宿主启动已验证，Capacity-not-verified 保持。
+
 ## 第二步：准备 CRUD Schema
 
 原框架仓库的示例主从单据见 [`samples/enterprise-request/schema.json`](../../samples/enterprise-request/schema.json)（`master.detail` 场景：申请头 + 明细行）。应用应准备自己的 `schema.json`，冻结项目 OwnerKey，并显式声明字段、精确权限与 `dataScope`；不能直接沿用原仓库的集成目标路径。

@@ -313,6 +313,7 @@ internal static partial class DiagnoseCommand
             CheckDatabaseProvider(root, profileSettings, workspacePath, profile, findings);
             CheckDatabaseOptions(root, profileSettings, workspacePath, profile, findings);
             CheckConnectionPlaceholder(root, profileSettings, workspacePath, profile, findings);
+            CheckDatabaseCapacity(root, profileSettings, workspacePath, profile, findings);
             CheckSecretPlaceholders(root, profileSettings, workspacePath, profile, findings);
             CheckIdentityNumericOptions(root, profileSettings, workspacePath, profile, findings);
             CheckIdentityProtocolOptions(root, profileSettings, workspacePath, profile, findings);
