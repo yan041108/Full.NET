@@ -387,6 +387,20 @@ Windows x64、i7-12700H（14 核/20 逻辑处理器、约 63.75 GiB 内存）、
 
 初次前置探测的旧 docker_engine 管道不可达，未开始构建或测试；当前 desktop-linux 引擎可用。随后把 Docker CLI 的四斜线地址直接传给 .NET 客户端，完整 41 项得到 15 通过/26 失败、零跳过，数据库用例失败均在 Docker.DotNet.Enhanced.NPipe 4.3.3 初始化。对照[固定版本客户端源码](https://github.com/testcontainers/Docker.DotNet/blob/1e4015a84fa48cbcfe9002ecc4e2cf14177edc2d/src/Docker.DotNet.NPipe/DockerHandlerFactory.cs)及本机 Uri.Segments，客户端要求三个段，CLI 地址实际四段；仅在测试进程改用 DOCKER_HOST=npipe://./pipe/dockerDesktopLinuxEngine 后完整重跑，没有修改全局 Docker 或产品/测试判定。失败日志/TRX/环境 `.tmp/f02-identity-numeric-integration-uri-failed.*`、前置证据 `docker-preflight.json` 保留，不计通过。本轮仅收口 Identity 七项数值配置前提；其他 Identity Options、运行配置、应用自有模块组合图及完整 F02 仍待办，前两项与整项不勾选，已有 CRUD/教程子项保持。未重跑全量 Unit/Integration、完整打包、应用 Worker、Native AOT 或容量验收，Capacity-not-verified 保持，未合并、未发布。
 
+2026-10-05 Identity 标识与会话策略诊断增量（基线 `2b43c536eb55718c0049eb635d9be120950afb89`，快照 `f02-identity-protocol-diagnose-20261005`，行为及分发源码冻结 `698fc68ee990e946dc7df759fbcc718b78b3e4b6`）：真实 Identity Options 无条件要求 Issuer、Audience、ClientId 非空及 SessionLoginPolicy 为已定义枚举，关闭 JWT/OIDC 端点仍须满足；旧 CLI 没有这两组准入。在保留的 `e1f8a2de` SQL Server 独立应用实际执行五次生产诊断，默认控制及三个空/空白标识、策略 3 全部退出 0；SDK/档案/官方静态依赖正常，源码/配置摘要保持、输出脱敏。复现 `.tmp/f02-identity-protocol-repro-result.json`。新增 DIAG_IDENTITY_IDENTIFIERS_INVALID / CONFIGURED、DIAG_IDENTITY_SESSION_POLICY_INVALID / CONFIGURED，只读取最终叶值，不改变认证、会话、数据库、公共契约或宿主装配，不增加依赖；JWT Issuer 不套用 OIDC 的 URL 要求，所有配置值不回显。
+
+100 项新增测试与真实 Configuration Binder、IdentityOptionsValidator 及公共 IdentitySessionLoginPolicy 对照，覆盖字符串/数字/布尔、null/空对象/空数组、非空复合节点、缺键默认、名称大小写/空白/数字/溢出/名称组合、四层配置逐叶覆盖和 Production 忽略开发秘密。首次 RED 中 99 项为缺少诊断，1 项是测试误认为空数组可绑定枚举；首次 Green 为 99 通过/1 失败。空数组实际被 JSON Provider 转为空字符串，枚举绑定失败；只修正测试预期，未放宽实现，暂时撤回新增实现得到有效 RED 100 失败且全为缺少机器码，再恢复后 100/100、零失败/跳过。原始失败日志保留 `.tmp/f02-identity-protocol-{red-initial,green-initial}.log`，不计通过；有效 RED/Green 留存 `{red,green}.log`。null/空对象只按最终校验是否通过对照，不认证实际选中的策略值。
+
+远端基线主 CI `37311388352` 的 Architecture 231 通过/1 失败，触发原动态 C# 禁令的唯一源码是此前静态依赖诊断中的 CSharpSyntaxTree。读取远端日志并在本地复现单项失败后，将仅需要语法根节点的读取改为 SyntaxFactory.ParseCompilationUnit；没有修改架构禁令或添加豁免，不构建 Compilation、不生成/加载程序集、不执行被诊断源码。完整模块声明与配置回归在最终源码重跑；远端原失败日志 `.tmp/f02-identity-protocol-baseline-ci-failed.log`、本地 RED `architecture-red.log` 保留，当前远端是否通过以推送后的精确 HEAD 为准。
+
+Windows x64、12th Gen Intel(R) Core(TM) i7-12700H（14 核/20 逻辑处理器、约 63.75 GiB 内存）、.NET SDK 10.0.401、Node v24.12.0/pnpm 10.26.0；DOTNET_PROCESSOR_COUNT=1、Unit Workers=1、Integration 原有 Workers=2：`pnpm test:dotnet:unit -- --selection code-generation-realtime` 最终源码 1742/1742、零失败/跳过，Release 构建 00:00:20.54、零警告/错误，测试 5m 04s 549ms；`pnpm test:dotnet:architecture -- --no-build` 232/232、零失败/跳过，测试 6m 37s 444ms。治理 57/57、工具链及两组反馈检查 66/66、命名/UUID 33/33，均退出 0；矩阵只登记新增 100 项。日志 `.tmp/f02-identity-protocol-{unit,architecture,governance,tooling,naming}.log`，机器记录 `machine.json`。
+
+相同提交源码包各新建 Minimal SQL Server/MySQL 独立应用，实际随包 `pnpm run diagnose:<profile>` 各 20 场景、共 40 次预期退出码通过，运行器退出 0、272.621 秒。覆盖开发/生产默认、三个非法标识、数字/未知会话策略、非 URL JWT 标识、数字/布尔标识、合法数字/混合大小写/名称组合与非法组合、环境 JSON 错误及高层环境修复、null 标识拒绝/null 策略允许、空数组策略拒绝、复合子节点和空父节点不删除叶值、输出脱敏；每次 SDK/档案/官方静态依赖正常、源码/配置摘要保持，全部受管摘要最终一致。结果 `.tmp/ip-698fc68e/result.json`。只运行 CLI，没有连接应用数据库、注册 DI 或启动宿主，不将局部 Options 对照外推为完整 Identity 启动认证。
+
+应用结束后串行执行 `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-identity-protocol-diagnose-20261005`：完整 CodeGeneration + integration-matrix 影响集 41/41、零失败/跳过、退出 0，Release 构建 00:02:11.41、零警告/错误，测试 8m 58s 944ms。新 SQL Server 2022 CU14/MySQL 8.0 临时容器、独立短 TEMP/TMP；Docker 29.6.2、NuGet 索引 HTTP 200 前置可达，沿用已定位的进程级 .NET 客户端管道地址 npipe://./pipe/dockerDesktopLinuxEngine，不改全局 Docker。独立复制 TRX 的开始时间不早于本轮进程，total/executed/passed=41、failed/notExecuted=0，日志/TRX/counters `.tmp/f02-identity-protocol-integration.*`、`integration-counters.json`；1118 项只计分片发现核对，不计全量执行。
+
+本轮只收口上述两组 Identity 配置准入和实际 CI 架构失败；其他 Identity Options、运行配置、应用自有模块图与完整 F02 仍待办，F02 前两项及整项不勾选，既有 CRUD/教程子项保持。没有重跑全量 Unit/Integration、完整打包、应用 Worker、Native AOT 或容量验收，Capacity-not-verified 保持；未合并、未发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
