@@ -72,7 +72,10 @@ test('application template package includes framework sources and root manifest'
     assert.ok(existsSync(join(appRoot, 'packages/admin-form-designer/package.json')));
     assert.equal(existsSync(join(appRoot, '.fullnet-tools/create-app.mjs')), false);
     assert.equal(existsSync(join(appRoot, '.fullnet-tools/upgrade-framework.mjs')), false);
-    assert.deepEqual(readdirSync(join(appRoot, '.fullnet-tools')), ['openapi']);
+    assert.deepEqual(readdirSync(join(appRoot, '.fullnet-tools')).sort(), ['diagnose-app.mjs', 'openapi']);
+    assert.deepEqual(readFileSync(join(appRoot, '.fullnet-tools/diagnose-app.mjs')),
+      readFileSync(new URL('../../scripts/templates/diagnose-app.mjs', import.meta.url)),
+      'diagnostic entry must remain byte-identical after template projection');
     const verification = verifyCreatedApp(appRoot);
     assert.equal(verification.ok, true, verification.errors.join('; '));
     const appProfile = JSON.parse(readFileSync(join(appRoot, 'fullnet-app.json'), 'utf8'));

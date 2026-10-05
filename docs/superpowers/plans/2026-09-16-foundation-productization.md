@@ -447,6 +447,16 @@ Windows x64、12th Gen Intel(R) Core(TM) i7-12700H（14 核/20 逻辑处理器�
 
 此增量关闭新应用诊断的 SDK 启动前报告缺口；Node 探测等待上限为 30 秒，清理和完整 CLI 耗时另计，不承诺派生进程树回收。教程同步真实入口、旧应用/直接 .NET 命令前提和错误处理；总计划前两项及完整 F02 不勾选，其他运行配置与应用自有模块图仍有边界。Capacity-not-verified、Draft PR、另行约定合并/发布保持。
 
+2026-10-06 SDK 入口完整打包回归（基线与冻结框架源码 `fcba01c1`，快照 `f02-sdk-package-regression-20261005`）：继续核对发现 `packaged-app.test.mjs` 的完整打包用例仍把应用 `.fullnet-tools` 目录固定断言为仅有 openapi。上一轮 SDK 入口专项 1 项与双库 24 次调用通过，但未执行这条完整用例；本次真实打包先失败 1 项，实际目录含已授权新增的 diagnose-app.mjs，属于验收清单未同步，不能沿用上一轮专项通过作为完整模板通过。
+
+目录清单现精确允许 diagnose-app.mjs 与 openapi，保留创建/升级工具缺席断言，并追加诊断入口与仓库原始脚本逐字节一致的断言。清单仅纳入已授权的新入口，其他根级工具仍不得随应用交付；模板与运行时实现保持。新用例使用已提交的框架源码与本次测试差异，修改不在分发源码输入内。
+
+完整命令 `node --test --test-concurrency=1 --test-name-pattern="application template package includes framework sources and root manifest" tests/templates/packaged-app.test.mjs` 复验 1/1，零失败/跳过，耗时 924.214 秒。这是一条包含后续全部断言的真实打包用例：Minimal MySQL 应用 API/Migrator/Worker Release 构建、开发/生产与 SDK/连接/秘密/静态模块闭包诊断、生成 CRUD 的模块/宿主/权限接入、运行时装配和策略授权、OpenAPI/Vue 生成与前端构建、Schema 来源升级、已有输出拒绝，以及 platform/saas/enterprise 的三个宿主 Release 构建和实施模块资产清单均走完。它不启动业务数据库、API 监听或真实浏览器，不等同于双库业务 CRUD/Worker 运行或全量模板套件。
+
+运行时探针在本次生成的应用实际执行 48 次策略授权（12 允许/36 拒绝），注册模块、两个 scoped 服务、五条受保护路由、JSON round-trip 与四条权限策略均符合断言。构建/运行/结果文件核对晚于本次启动时间且指向本次应用路径后，单独保存 `.tmp/f02-sdk-package-regression-runtime/` 与 freshness.json；不把旧的共享报告文件计为新证据。这仍不认证真实 JWT、会话或数据库权限链。
+
+Windows x64、.NET SDK 10.0.401、Node v24.12.0/pnpm 10.26.0；测试进程明确设置 DOTNET_PROCESSOR_COUNT=1，重型构建串行。`pnpm test:governance` 57/57，零失败/跳过；`pnpm test:slice -- --snapshot f02-sdk-package-regression-20261005` 影响集为 none，没有执行数据库 Integration 或分片发现。证据保留 `.tmp/f02-sdk-package-regression-{red,green,governance,slice,environment}` 日志/JSON。F02、Capacity-not-verified 与 Draft 状态保持，未合并、未发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
