@@ -1040,6 +1040,22 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - 规定影响集：node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-generation-execution-r05f4a --phase slice 退出 0，Ai 双 Provider 66/66，零失败/跳过（22m 26s 140ms），无新增 SQL/迁移。正式 TRX 与冻结发现的全部 UID/FQN 一致；939 个代码/矩阵/运行输入摘要未变，生产/Unit/Integration 三处 AI 程序集 SHA256 一致。pnpm test:integration:tooling 54/54、正式入口工具集 65/65、test:governance 57/57、test:naming 33/33、test:sql-safety 5/5，1172 项分片无遗漏/重复；git diff --check 通过。平台截断 1 项超长捕获文本字段，测试身份和结果完整，截断区域不作为完整运行日志。证据位于忽略目录 artifacts/r05f4a/ 及同名前缀日志。
   - 环境与未验证项：Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401、Docker SQL Server 2022 CU14/MySQL 8.0，FULLNET_TESTCONTAINERS_REUSE=0。首次构建因 Windows 提交内存接近上限失败，降低本任务并发/内存后专项构建通过；512 MiB 不足以编译 Integration，768 MiB 单节点重跑通过。AOT 后 JIT 还原首次因 NuGet 漏洞服务索引不可达失败，HTTP 200 后保留审计重试成功；失败命令不计入验收。最终环境内存余量恢复，构建单节点、2 GiB GC 限额、DOTNET_PROCESSOR_COUNT=2；历史复用测试数据库保持停止且数据保留。只完成内部持租约消费者，尚未接入 Hosted 轮询领取/生产 DI、公开 ready、真实后台/云计量链路、检索、完整 Host/Worker Native 发布运行或容量实测。完整 RAG 保持 Planned，Capacity-not-verified 保持，下一项继续 Worker 领取与宿主接入。
 
+- [x] R05f4c：原会话 HTTP 索引入队（独立于公开状态读取交付）。
+  - [x] 在 `Features/ManageKnowledgeIndexing` 新增 Endpoint 与服务：POST 精确版本 `/index`，不接受请求体或查询字段，冻结已认证 Refresh/OIDC 原会话；API Key/签名身份不得入队。响应仅含 TaskId/VersionId，202 不证明 queued/ready。
+  - [x] 服务使用独立 `ai.knowledge_documents.index_enqueue` 权限及知识库、文档、来源、上传四项权威权限；服务器查询当前所有者、文档/知识库版本、最新已完成导入及精确模型批准。仅 TXT/Markdown，与 Worker 已启用格式一致；调用已有原子 SessionService，不改变原绑定或重置任务。
+  - [x] 后台原会话创建/续租、模型派发、清单/向量持久化与激活也核对新增入队权限；撤销后停止下一阶段。普通角色须显式授予该独立权限；超级管理员仍受原会话、租户隔离和资源所有权约束。Unit 逐边界先验证遗漏能失败，再与真实会话双库回归关闭。
+  - [x] `Persistence` 新增 Host/Tenant 作用域查询与静态行物化，模块 API 注册最小入队依赖，JSON 上下文登记仅标识响应。所有 Identity Port 均在 AI 事务外，SQL/授权等待后复核取消、作用域及来源版本。
+  - [x] Unit 覆盖可信身份、逐权限拒绝、来源/作用域漂移、事务、取消、异常和重放；真实 HTTP 双库验证普通所有者 Host/Tenant、原会话幂等、新登录不可接管、越权/跨租户、旧版本/删除/撤权及请求字段拒绝。复用现有数据库与身份夹具，不能仅用替身证明策略与真实 SQL，不属于 messaging-heavy。
+  - [x] 运行规定 AI 影响集、AOT 分析与架构检查，同步测试矩阵及受影响运维/能力文档，检查 diff 与基线后在 main 提交。公开 queued/processing/ready/failed/deleting/deleted 的读取与完整性证明保留下一独立切片，原 pending_processing 契约不变。
+
+  R05f4c 本地证据（2026-10-05，原会话 HTTP 索引入队）：
+  - RED：独立权限目录 1/1、真实所有者 POST 1/1（应为 202，原实现 404）、五个后台边界遗漏权限 5 项失败，以及畸形 OIDC 会话回落 2/2 均先取得可失败验证。只读审查指出最终授权等待中的来源变化窗口；TCS 阻塞最后一项授权并更新知识库版本，回归 1/1 在旧顺序下错误成功，修正为最终授权后再读来源。零发现、夹具/内部泛型代理失败均不计有效 RED。
+  - 实现与复核：服务器读取最新完成导入、所有者与精确模型批准；202 仅 TaskId/VersionId。原子创建复用现有任务与不可替换会话，不重置终态或收费；最终授权后查询来源，不把等待前快照作为成功证明。畸形 OIDC 原会话不能回落 Refresh，API Key/签名拒绝。五项精确权限贯穿创建、续租、派发、持久化及激活；普通角色升级须授予新增权限。独立只读复核确认竞争窗口修正，无剩余 Critical/Important，审查不替代测试。
+  - GREEN：入队与后台阶段回归 49/49，真实 HTTP 双库专项 2/2（2m 41s 367ms），零失败/跳过，覆盖普通所有者 Host/Tenant、同绑定重放、新登录不能接管、越权/跨范围、无权限/字段拒绝、旧来源/删除/审批或导入失效、PDF 422、旧无绑定任务 409，以及真实续租后撤销新增权限即停止。Tenant 切换会撤销原 Host 会话，夹具明确验证旧 token 401，并用新鲜 Host/Tenant 会话验证跨范围 404；未放宽生产认证。
+  - 最终验收：完整 AI Unit 1120/1120（1m 18s 594ms）、AI Architecture 7/7、AOT Architecture 73/73、SQL 目录/Worker/Host Profile 11/11，零失败/跳过。API 与 Worker AOT 分析，以及 Integration/Unit/Architecture 和 Worker JIT 重建均零警告/错误，保留依赖漏洞审计。node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-index-api-r05f4c --phase slice 退出 0，规定 Ai 双库影响集 70/70（25m 42s 175ms），正式工具集 65/65；未新增迁移。全 Unit 4589 与 Integration 裸发现 1231 只作发现核对，规定主分片 1176 项无遗漏/重复，不宣称全项目全部执行。
+  - 证据闭合：1142 个代码/矩阵/运行输入摘要未变，AI 生产/Unit/Integration 三份程序集一致，Worker 74 个项目依赖与最终 JIT Integration 闭包一致；正式 TRX 与冻结发现的全部 UID/FQN 精确匹配，零跳过。pnpm test:integration:partitions、test:integration:tooling 54/54、test:governance 57/57、test:naming 33/33、test:sql-safety 5/5 及 git diff --check 通过。平台截断 1 项超长捕获文本字段，测试身份和结果完整，截断区域不作为完整运行日志。证据位于忽略目录 artifacts/r05f4c/ 及同名前缀日志。
+  - 环境与未验证项：基线 d422f166e1fd60676fafd53189b8e3000a344466，Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401、Docker SQL Server 2022 CU14/MySQL 8.0，FULLNET_TESTCONTAINERS_REUSE=0，构建单节点、2 GiB GC 限额、DOTNET_PROCESSOR_COUNT=2。源文件不在最终构建中变更；早期增量编译零发现已强制重建纠正，不计通过。历史复用数据库保持停止且数据保留。公开索引状态/ready、共享入队客户端/Vue、完整 Worker 进程/真实外部联动及云计量、检索、完整 Host/Worker Native 发布运行和容量实测仍未完成。完整 RAG 保持 Planned、Capacity-not-verified 保持；下一独立切片接入公开状态与当前完整性证明。
+
 - [x] R05f4b：显式启用的知识文本 Worker 队列领取与宿主接入。
   - [x] 在 `Persistence/AiKnowledgeIndexWorkerSql.cs` 与 `AiKnowledgeIndexWorkerRecord.cs` 增加双库有界稳定扫描，只读 AI 自有最小代次/租户/所有者元数据。排除无原会话、失效来源/批准、非文本、活动租约、终止态及耗尽尝试；Global 语句进入精确目录。每个候选经独立可信租户作用域和既有条件更新领取，扫描不是派发授权。
   - [x] 新增 `Knowledge/AiKnowledgeIndexWorkerOptions.cs`、`AiKnowledgeIndexWorkerCoordinator.cs`、`AiKnowledgeIndexHostedProcessor.cs`，默认关闭，单轮上限 1–32、轮询 250–60000 ms；原会话/权限与预算继续由真实整代次消费者复核，禁止长事务、共享 DbSession 心跳及免费重发。拒绝/阶段异常只用受当前租约保护的 index_unavailable 终止，不猜测用量；关闭取消保留租约恢复，旧令牌不写新状态，日志不包含正文/凭据。

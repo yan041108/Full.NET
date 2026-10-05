@@ -22,7 +22,7 @@ internal static class AiKnowledgeIndexSessionAssertions
     {
         await factory.InitializeAsync(); await using var db = AiOperationBudgetAssertions.Connection(factory);
         var identity = await factory.CreateHostIdentityAsync($"index-session-{Guid.NewGuid():N}",
-            [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload],
+            [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.IndexEnqueue],
             password: FullNetApiFactory.TestPassword);
         var session = Snapshot(identity.AccessToken);
         var p = await Seed(); var binding = Binding(p);

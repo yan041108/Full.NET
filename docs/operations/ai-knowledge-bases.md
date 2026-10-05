@@ -1,6 +1,6 @@
 # 知识库目录、文件版本、用户与角色授权及模型处理审批
 
-R04a 提供私有目录及审批记录，R04b1 增加明确用户成员与立即撤权，R04b2a 提供文档草稿元数据及独立明确用户授权，R04b2b 接入上传、不可变来源版本及持久化导入恢复，R04b2c 提供共享生成客户端，R04b3a 增加角色授权候选查询，R04b3b 接入角色授予及两层权威读取，R04b3c 补齐角色授予共享客户端，R04b3d 提供当前租户活动机构候选目录及两个候选共享客户端，R04b3e 接入机构授予与权威成员读取。当前不解析正文、不调用模型。R05/R06 的每次处理派发必须复核这里记录的审批及最新权威状态。
+R04a 提供私有目录及审批记录，R04b1 增加明确用户成员与立即撤权，R04b2a 提供文档草稿元数据及独立明确用户授权，R04b2b 接入上传、不可变来源版本及持久化导入恢复，R04b2c 提供共享生成客户端，R04b3a 增加角色授权候选查询，R04b3b 接入角色授予及两层权威读取，R04b3c 补齐角色授予共享客户端，R04b3d 提供当前租户活动机构候选目录及两个候选共享客户端，R04b3e 接入机构授予与权威成员读取。管理与入队 API 不解析正文、不调用模型；R05 文本 Worker 的消费边界见下文。R05/R06 的每次处理派发必须复核这里记录的审批及最新权威状态。
 
 ## 目录 API
 
@@ -158,6 +158,16 @@ PUT 正文为 `roleIds` 与对应资源的 `version`：最多 100 个唯一非�
 
 `aiGetKnowledgeOrganizations` / `aiSetKnowledgeOrganizations` 维护知识库机构，`aiGetKnowledgeDocumentOrganizations` / `aiSetKnowledgeDocumentOrganizations` 维护文档机构。PUT 正文包含 `organizationUnitIds` 和当前资源 `version`；Host 使用空名单，401 刷新保留原始名单与版本并只重试一次。403/409 保留 ProblemDetails，由调用方处理权限或重新读取版本；生成响应守卫校验资源 UUID、机构集合及整数版本。语言和取消信号沿用统一 HTTP 客户端。
 
+## 原会话索引入队
+
+`POST /api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/versions/{versionId}/index` 的 OperationId 为 `aiEnqueueKnowledgeIndex`，不接受请求体或查询字段。只允许可信范围内的 Refresh/OIDC 原会话，API Key 与签名身份不能入队；所有者、租户、来源版本和模型批准均由服务端读取。
+
+调用者须同时具备 `ai.knowledge_bases.read`、`ai.knowledge_documents.read`、`ai.knowledge_documents.source_read`、`ai.knowledge_documents.upload` 和独立的 `ai.knowledge_documents.index_enqueue` 权限。部署升级时，普通角色须显式授予新增权限；超级管理员仍受原会话、租户隔离和资源所有权约束。后台续租、模型派发、清单/向量持久化及激活也复核该权限，撤销后停止下一阶段。
+
+仅接受当前最新、导入完成且模型批准仍有效的 TXT/Markdown 版本。202 响应只含 `taskId`、`versionId`，证明任务与原会话的稳定绑定；重放保留已有任务和实际收费，不重置状态、不发放免费重试，也不证明 queued 或 ready。新登录不能替换原绑定，旧无绑定任务返回冲突；公开状态读取和共享 TypeScript/Vue 入队入口留待后续切片。
+
+字段错误返回 400 `ai.knowledge.input_invalid`，权限拒绝返回 403；非所有者、跨范围或失效来源统一返回 404。原绑定或等待后权威状态冲突返回 409 `ai.knowledge.index_conflict`，PDF 等不支持的索引格式返回 422 `ai.knowledge.index_format_unsupported`。错误使用 ProblemDetails 与稳定机器码，标题支持 `zh-CN`/`en-US`。API 只注册最小入队依赖，轮询仍由 Worker 的显式配置控制。
+
 ## 知识文本 Worker 的内部消费边界
 
 Worker Profile 注册文本索引消费者；API Profile 不启动索引轮询。配置节为 `FullNet:Ai:KnowledgeIndexWorker`：
@@ -170,7 +180,7 @@ Worker Profile 注册文本索引消费者；API Profile 不启动索引轮询�
 
 仅消费已经原子冻结原会话、所有者和租户匹配且来源/模型批准仍有效的任务；旧无会话任务不会补造身份或自动接管。每个候选在独立租户作用域竞争原有租约，再由完整文本消费者重验原会话、精确权限、Files 来源与预算。权限目录同时在 Worker 注册，普通用户的精确权限不会因后台入口而被过滤。
 
-执行拒绝或阶段故障使用当前租约保护的 `ai.knowledge.index_unavailable`，原收费和未知用量记录保留。宿主关闭取消保留运行租约供到期恢复；已有持久向量不再收费，已付费而向量缺失的操作也不能免费重发。此接入仍是内部消费边界，原会话 API 入队、公开索引 ready、真实外部联动与检索问答尚待后续切片；`pending_processing` 不因启用配置变成 ready。
+执行拒绝或阶段故障使用当前租约保护的 `ai.knowledge.index_unavailable`，原收费和未知用量记录保留。宿主关闭取消保留运行租约供到期恢复；已有持久向量不再收费，已付费而向量缺失的操作也不能免费重发。原会话 API 入队见上文，公开索引 ready、真实外部联动与检索问答尚待后续切片；`pending_processing` 不因启用配置变成 ready。
 
 ## 双库与部署
 
@@ -180,4 +190,4 @@ Worker Profile 注册文本索引消费者；API Profile 不启动索引轮询�
 
 迁移 `245_AiKnowledgeOrganizationGrant.sql` 增加 AI 自有知识库及文档机构授予表，只有 AI 父资源外键，不向 Organization 建外键；同样成对实现、支持恢复重放且不播种默认授权。
 
-验收证据与任务状态统一记录在[活动开发计划 R04](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。R04 的目录、授权、文件引用与导入恢复已完成收尾验收，共享生成客户端已交付；解析、索引、问答及 Vue 页面入口仍待 R05–R07。完整知识库/RAG、模型质量与容量状态不能由 R04 验收推导。
+验收证据与任务状态统一记录在[活动开发计划 R04/R05](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。R04 的目录、授权、文件引用与导入恢复已完成收尾验收，共享生成客户端已交付；R05 已接入文本 Worker 内部消费和原会话 HTTP 入队。公开索引状态、检索问答及 Vue 页面入口仍待后续切片，完整原生运行和容量尚未验证。完整知识库/RAG、模型质量与容量状态不能由这些局部验收推导。

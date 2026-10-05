@@ -16,6 +16,12 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiKnowledgeIndexTextManifestStoreTests
 {
+    [TestMethod]
+    public async Task Index_permission_revocation_stops_manifest_write()
+    {
+        var f = new Fixture(false) { DeniedPermission = "ai.knowledge_documents.index_enqueue" };
+        Assert.IsFalse(await f.Write()); Assert.AreEqual(0, f.Writes);
+    }
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public async Task Whole_plan_is_saved_once_and_read_with_current_authority(bool tenant)
     {
@@ -115,6 +121,7 @@ public sealed class AiKnowledgeIndexTextManifestStoreTests
         internal AiKnowledgeIndexTextPlan Plan;
         internal AiKnowledgeIndexTextManifestRecord? Row;
         internal bool Denied, SessionDenied, SourceDenied, ModelDenied, Unique;
+        internal string? DeniedPermission;
         internal int Writes, Commits, Rollbacks, AuthCalls, WriteCount = 1;
         internal Exception? Failure;
         internal Action? AfterModel, AfterRead, AfterWrite;
@@ -138,8 +145,8 @@ public sealed class AiKnowledgeIndexTextManifestStoreTests
                 SecurityStamp = session.SecurityStamp, ActorScope = session.ActorScope, EffectiveScope = session.EffectiveScope, LeaseExpiresAtUtc = Now.AddSeconds(30) });
             Query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { AfterModel?.Invoke(); return ModelDenied ? null : model; });
             Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexTextManifestRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { var saved = Row; AfterRead?.Invoke(); return saved; });
-            auth.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ =>
-            { Assert.IsFalse(State.HasTransaction); AuthCalls++; return Denied ? null : new AuthorizedSessionActor(session.UserId, tenantId, session.SessionId); });
+            auth.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
+            { Assert.IsFalse(State.HasTransaction); AuthCalls++; return Denied || call.ArgAt<string>(1) == DeniedPermission ? null : new AuthorizedSessionActor(session.UserId, tenantId, session.SessionId); });
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             { Assert.IsTrue(State.HasTransaction); Writes++; if (Failure is not null) throw Failure;
                 if (Unique) throw new DataCommandException(DataCommandFailureKind.UniqueConstraint, new IOException());

@@ -30,7 +30,7 @@ public sealed class AiKnowledgeIndexWorkerTests
         module.AddBackgroundServices(services, new ConfigurationBuilder().Build());
         using var provider = services.BuildServiceProvider();
         var contributors = provider.GetServices<IAuthorizationCatalogContributor>().ToArray();
-        var required = new[] { AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload };
+        var required = new[] { AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.IndexEnqueue };
         var query = new WorkerQuery { Grants = required.Append("ai.knowledge.unknown").Select(code => new IdentityAuthorizationRow(code, false)).ToArray() };
         var reader = new PermissionSnapshotReader(query, AuthorizationCatalog.Create(contributors));
         var snapshot = await reader.ReadAsync(Guid.CreateVersion7(), tenant ? "tenant" : "host", tenant ? Guid.CreateVersion7() : null, default);

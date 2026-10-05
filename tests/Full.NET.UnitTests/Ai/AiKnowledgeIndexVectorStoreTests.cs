@@ -18,6 +18,12 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiKnowledgeIndexVectorStoreTests
 {
+    [TestMethod]
+    public async Task Index_permission_revocation_stops_vector_write()
+    {
+        var f = new Fixture(false) { DeniedPermission = "ai.knowledge_documents.index_enqueue" };
+        Assert.IsFalse(await f.Write()); Assert.AreEqual(0, f.Writes);
+    }
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public async Task Valid_batch_is_frozen_and_written_in_one_short_transaction(bool tenant)
     {
@@ -249,6 +255,7 @@ public sealed class AiKnowledgeIndexVectorStoreTests
         internal AiKnowledgeIndexEmbeddingBatch Batch;
         internal AiKnowledgeIndexVectorRecord? Row;
         internal bool Denied, SessionDenied, SourceDenied, ModelDenied, Unique;
+        internal string? DeniedPermission;
         internal int Writes, Commits, Rollbacks, AuthCalls, WriteCount = 1;
         internal Exception? Failure;
         internal Action? AfterModel, AfterRead, AfterCommit, AfterWrite, AfterReceipts;
@@ -274,8 +281,8 @@ public sealed class AiKnowledgeIndexVectorStoreTests
             Query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { AfterModel?.Invoke(); return ModelDenied ? null : model; });
             Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexVectorRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             { var saved = Rows is null ? Row : Rows.GetValueOrDefault(ReadSqlParameter<int>(call[1], "BatchOrdinal")); Reads++; AfterRead?.Invoke(); return saved; });
-            auth.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ =>
-            { Assert.IsFalse(State.HasTransaction); AuthCalls++; return Denied ? null : new AuthorizedSessionActor(session.UserId, session.TenantId, session.SessionId); });
+            auth.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
+            { Assert.IsFalse(State.HasTransaction); AuthCalls++; return Denied || call.ArgAt<string>(1) == DeniedPermission ? null : new AuthorizedSessionActor(session.UserId, session.TenantId, session.SessionId); });
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             { Assert.IsTrue(State.HasTransaction); Writes++; if (Failure is not null) throw Failure;
                 if (Unique) throw new DataCommandException(DataCommandFailureKind.UniqueConstraint, new IOException());

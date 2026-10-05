@@ -8,6 +8,21 @@ namespace Full.NET.UnitTests.Ai;
 public sealed class AiBudgetRowReaderTests
 {
     [TestMethod] [DataRow(false)] [DataRow(true)]
+    public void Enqueue_projection_maps_authoritative_source_and_model_versions(bool mysql)
+    {
+        using var table = new DataTable();
+        var names = new[] { "KnowledgeBaseId", "DocumentId", "VersionId", "OwnerUserId", "ModelConfigId" };
+        foreach (var name in names) table.Columns.Add(name, typeof(Guid));
+        foreach (var name in new[] { "DocumentVersion", "KnowledgeBaseVersion", "ModelConfigVersion" }) table.Columns.Add(name, mysql ? typeof(long) : typeof(decimal));
+        table.Columns.Add("ContentType", typeof(string)); var ids = names.Select(_ => Guid.CreateVersion7()).ToArray();
+        table.Rows.Add(ids[0], ids[1], ids[2], ids[3], ids[4], 3, 4, 5, "text/markdown");
+        using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read()); var row = AiBudgetRowReaders.ReadKnowledgeIndexEnqueue(reader);
+        Assert.AreEqual(ids[0], row.KnowledgeBaseId); Assert.AreEqual(ids[1], row.DocumentId); Assert.AreEqual(ids[2], row.VersionId);
+        Assert.AreEqual(ids[3], row.OwnerUserId); Assert.AreEqual(ids[4], row.ModelConfigId); Assert.AreEqual(3, row.DocumentVersion);
+        Assert.AreEqual(4, row.KnowledgeBaseVersion); Assert.AreEqual(5, row.ModelConfigVersion); Assert.AreEqual("text/markdown", row.ContentType);
+    }
+
+    [TestMethod] [DataRow(false)] [DataRow(true)]
     public void Worker_projection_maps_original_scope_and_bounded_metadata(bool tenant)
     {
         using var table = new DataTable();

@@ -15,7 +15,7 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
     IBackgroundSessionAuthorization authorization)
 {
     private static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
-        AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload];
+        AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.IndexEnqueue];
 
     /// <summary>只复用完全相同的冻结会话；无绑定的旧任务及其他登录均拒绝接管。</summary>
     internal async Task<Guid?> EnqueueAsync(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, CancellationToken token)

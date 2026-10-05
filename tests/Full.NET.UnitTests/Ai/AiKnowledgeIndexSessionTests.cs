@@ -41,6 +41,7 @@ public sealed class AiKnowledgeIndexSessionTests
 
     [TestMethod] [DataRow("ai.knowledge_bases.read")] [DataRow("ai.knowledge_documents.read")]
     [DataRow("ai.knowledge_documents.source_read")] [DataRow("ai.knowledge_documents.upload")]
+    [DataRow("ai.knowledge_documents.index_enqueue")]
     public async Task Each_required_permission_denies_creation(string permission)
     {
         var f = new Fixture(false) { DeniedPermission = permission };

@@ -20,7 +20,7 @@ internal sealed class AiKnowledgeIndexActivationStore(IQueryExecutor query, ICom
 {
     internal const int MaxReceiptBytes = 1048576;
     private static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
-        AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload];
+        AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.IndexEnqueue];
 
     /// <summary>原租约重试仍须当前授权与完整持久回执，不缓存成功结果。</summary>
     internal async Task<bool> IsActiveAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)

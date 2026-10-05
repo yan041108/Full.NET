@@ -101,6 +101,9 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportStore>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportCoordinator>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeVersionReader>();
+        services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexEnqueueService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexTaskStore>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexSessionService>();
         RegisterKnowledgeFileReferences(services);
         services.TryAddScoped<AiModelConfigManagementService>();
         services.TryAddScoped<AiModelConfigOperationsService>();
@@ -152,6 +155,7 @@ public sealed class AiModule : IFullNetModule
         Features.ManageKnowledgeRoles.Endpoint.Map(endpoints);
         Features.ManageKnowledgeDocuments.Endpoint.Map(endpoints);
         Features.ManageKnowledgeVersions.Endpoint.Map(endpoints);
+        Features.ManageKnowledgeIndexing.Endpoint.Map(endpoints);
         Features.TestEmbeddings.Endpoint.Map(endpoints);
         Features.ManageMcpRemoteConnections.Endpoint.Map(endpoints);
         Features.ManageTenantQuotas.Endpoint.Map(endpoints);

@@ -16,6 +16,12 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiKnowledgeIndexActivationTests
 {
+    [TestMethod]
+    public async Task Index_permission_revocation_stops_activation()
+    {
+        var f = new Fixture(false) { DeniedPermission = "ai.knowledge_documents.index_enqueue" };
+        Assert.IsFalse(await f.Activate()); Assert.AreEqual(0, f.Writes);
+    }
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public async Task Completion_and_pointer_commit_together_and_original_retry_does_not_write(bool tenant)
     {
@@ -104,6 +110,7 @@ public sealed class AiKnowledgeIndexActivationTests
         internal AiKnowledgeIndexBatchRecord[] Batches;
         internal AiKnowledgeIndexActivationRecord? Pointer;
         internal bool Completed, Denied, SourceDenied;
+        internal string? DeniedPermission;
         internal int Writes, Begins, Rollbacks, Authorizations, InsertCount = 1;
         internal Action? AtAuthority, AtInsert;
 
@@ -133,8 +140,8 @@ public sealed class AiKnowledgeIndexActivationTests
             query.QuerySingleOrDefaultAsync<AiKnowledgeIndexTextManifestRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => ManifestRow);
             query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { AtAuthority?.Invoke(); return SourceDenied ? null : source; });
             var auth = Substitute.For<IBackgroundSessionAuthorization>();
-            auth.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ =>
-            { Assert.IsFalse(Transactions.HasTransaction); Authorizations++; return Denied ? null : new AuthorizedSessionActor(session.UserId, tenantId, session.SessionId); });
+            auth.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
+            { Assert.IsFalse(Transactions.HasTransaction); Authorizations++; return Denied || call.ArgAt<string>(1) == DeniedPermission ? null : new AuthorizedSessionActor(session.UserId, tenantId, session.SessionId); });
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
                 Assert.IsTrue(Transactions.HasTransaction); Writes++; var sql = (SqlStatement)call[0]!; var p = (Dictionary<string, object?>)call[1]!;

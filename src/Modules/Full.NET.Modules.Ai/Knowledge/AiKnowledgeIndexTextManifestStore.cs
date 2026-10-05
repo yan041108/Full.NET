@@ -16,7 +16,7 @@ internal sealed class AiKnowledgeIndexTextManifestStore(IQueryExecutor query, IC
     AiKnowledgeIndexSessionService sessions, IBackgroundSessionAuthorization authorization, IOptions<DatabaseOptions>? database = null)
 {
     private static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
-        AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload];
+        AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.IndexEnqueue];
 
     /// <summary>一个任务一次完整写入；唯一竞争只复用同载荷，绝不 UPDATE 或覆盖原清单。</summary>
     internal async Task<bool> PersistAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, AiKnowledgeIndexTextPlan plan, CancellationToken token)

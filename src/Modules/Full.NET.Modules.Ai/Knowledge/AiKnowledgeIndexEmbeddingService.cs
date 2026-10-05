@@ -32,7 +32,7 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
 {
     private static readonly AiKnowledgeChunkOptions ChunkOptions = new();
     private static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
-        AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload];
+        AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.IndexEnqueue];
 
     /// <summary>只派发新预留的精确文本批次；拒绝或失效返回空，取消及基础设施故障传播。</summary>
     /// <remarks>恢复身份只从任务原绑定读取；无外层事务。消费者仍须在写索引前复核，Worker 轮询不由本类负责。</remarks>

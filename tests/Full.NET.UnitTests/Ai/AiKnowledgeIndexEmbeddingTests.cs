@@ -24,6 +24,12 @@ namespace Full.NET.UnitTests.Ai;
 public sealed class AiKnowledgeIndexEmbeddingTests
 {
     [TestMethod]
+    public async Task Index_permission_revocation_stops_background_dispatch()
+    {
+        using var f = new Fixture(false) { DeniedPermission = "ai.knowledge_documents.index_enqueue" };
+        Assert.IsNull(await f.Execute()); Assert.IsNull(f.OpenedStream); Assert.IsFalse(f.Budget.ReceivedCalls().Any());
+    }
+    [TestMethod]
     public async Task Legacy_task_without_persisted_session_never_dispatches()
     {
         using var f = new Fixture(false) { NoSession = true };
@@ -337,6 +343,7 @@ public sealed class AiKnowledgeIndexEmbeddingTests
         internal Action? AfterOpen;
         internal Func<Task>? BeforeSessionRead;
         internal bool Denied, SourceDenied, Duplicate, NoSession;
+        internal string? DeniedPermission;
         internal SessionBindingSnapshot? StoredSession;
         internal string Status = "reserved";
         internal string Classification = "internal";
@@ -361,7 +368,7 @@ public sealed class AiKnowledgeIndexEmbeddingTests
             var batches = new AiKnowledgeIndexBatchStore(Query, Command, tasks, ids);
             var sessions = new AiKnowledgeIndexSessionService(Query, Command, Substitute.For<ICommandTransaction>(), Transactions, tenant, Clock, ids, tasks, Authorization);
             service = new(Query, tenant, Transactions, tasks, sessions, new(Query, tasks, batches, Budget), Budget, Authorization, References, HostFiles, TenantFiles, [Factory], modelScope);
-            Authorization.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ => Denied ? null : new AuthorizedSessionActor(Session.UserId, Session.TenantId, Session.SessionId));
+            Authorization.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call => Denied || call.ArgAt<string>(1) == DeniedPermission ? null : new AuthorizedSessionActor(Session.UserId, Session.TenantId, Session.SessionId));
             Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexSessionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(async _ =>
             {
                 if (BeforeSessionRead is not null) await BeforeSessionRead();

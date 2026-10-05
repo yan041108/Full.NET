@@ -3,6 +3,10 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <summary>知识库稳定错误码；业务不依赖译文。</summary>
 public static class AiKnowledgeErrorCodes
 {
+    /// <summary>来源格式尚未接入有界索引 Worker。</summary>
+    public const string IndexFormatUnsupported = Prefix + "index_format_unsupported";
+    /// <summary>当前来源或原会话绑定冲突，不能接管或隐式重试。</summary>
+    public const string IndexConflict = Prefix + "index_conflict";
     /// <summary>来源文件名、内容类型、实际内容或大小不符合上传边界。</summary>
     public const string UploadInvalid = Prefix + "upload_invalid";
     /// <summary>当前导入已被有界租约持有。</summary>

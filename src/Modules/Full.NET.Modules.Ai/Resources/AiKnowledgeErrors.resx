@@ -24,4 +24,6 @@
   <data name="ai.knowledge.organization_unavailable" xml:space="preserve"><value>机构不存在、已停用或不属于当前租户；Host 资源不支持机构授予。</value></data>
   <data name="ai.knowledge.role_grants_invalid" xml:space="preserve"><value>角色授予集合或并发版本无效。</value></data>
   <data name="ai.knowledge.role_unavailable" xml:space="preserve"><value>角色不存在、已停用或不属于当前范围。</value></data>
+  <data name="ai.knowledge.index_format_unsupported" xml:space="preserve"><value>当前仅支持 TXT 和 Markdown 文本索引。</value></data>
+  <data name="ai.knowledge.index_conflict" xml:space="preserve"><value>来源或原会话绑定已变化，不能接管或自动重试索引。</value></data>
 </root>
