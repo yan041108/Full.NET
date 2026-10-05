@@ -1027,6 +1027,19 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
   - 规定影响集：node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-activation-r05f3b --phase slice 退出 0，Ai 64 项与迁移 247/251 各 4 项合并去重共 72/72，零失败/跳过（23m 20s 187ms）。正式 combined TRX 与冻结发现的全部 UID/FQN 一致；961 个代码/矩阵/运行输入摘要未变，三处 AI 程序集 SHA256 一致。pnpm test:integration:tooling 54/54、正式入口工具集 65/65、test:governance 57/57、test:naming 33/33、test:sql-safety 5/5，1170 项分片无遗漏/重复；最终 git diff --check 通过。平台截断 1 项超长捕获文本字段，测试身份和结果完整，截断区域不作为完整运行日志。证据位于忽略目录 artifacts/r05f3b/ 及同名前缀日志。
   - 环境与未验证项：Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401、Docker SQL Server 2022 CU14/MySQL 8.0；双库两个测试 Worker、每进程 2 GiB GC 限额，FULLNET_TESTCONTAINERS_REUSE=0。首轮 API AOT 脚本并行构建及同时运行的分片发现因 Windows 提交内存不足中断，排除出验收，单节点 AOT 与分片重跑通过；历史复用数据库仍停止，数据保留。仅完成 TXT/Markdown 内部原子激活，未注册 DI/HTTP/Worker，公开 pending_processing 不变，未执行完整 Host/Worker Native 发布运行、真实后台/云计量联动或容量测试。完整 RAG 保持 Planned，Capacity-not-verified 保持，下一项继续后台执行与公开状态接入。
 
+- [x] R05f4a：持租约的整份文本执行消费者（后台执行前置）。
+  - [x] 扩展 `Knowledge/AiKnowledgeIndexSessionService.cs` 的 `RenewHeldAsync`，只使用任务原会话，续租前后复核全部精确权限、可信作用域、原来源及当前有效租约；剩余时间超过单阶段 25 秒时复用当前租约，续租拒绝或等待后失效不进入下一阶段。Unit 在 `AiKnowledgeIndexSessionTests` 覆盖足够租约、实际续租、原身份/来源漂移、撤权、取消与外层事务。
+  - [x] 在 `Knowledge/AiKnowledgeIndexPersistenceService.cs` 添加 `ExecuteTextGenerationAsync`，总派发限时 15 分钟，已进入计费的操作继续独立结算；先识别原 token 的已完成重试，否则捕获原会话，冻结首批产生的完整清单，按既定 ordinal 顺序调用实际持久批次消费者。每阶段续租并精确重验原清单摘要，部分已存批次恢复不重收费；任何拒绝停止，最后调用新鲜原子激活边界，不缓存完整性布尔结果。
+  - [x] 扩展现有 `AiKnowledgeIndexEmbeddingAssertions` 与双库包装，每次模型阶段推进测试时钟 20 秒，令多批次总执行超过初始 30 秒租约；覆盖 Host/Tenant、已知/未知计量、从零执行、首批恢复、续租零行、错误 token、撤权、取消及完成重试。Unit 不证明真实续租 SQL 和完整账本/指针，双库复用现有独立数据库夹具，不进入 messaging-heavy。
+  - [x] 新行为先取得有效 RED，再实现；完整 AI Unit、规定 Ai 双库影响集、相关 Architecture/AOT 分析、分片/命名/SQL/治理验收后提交 main。只增加内部实际消费者，不新增 SQL/迁移或公共 DTO；Hosted 轮询领取、生产 DI、公开 ready 与检索仍随后接入。
+
+  R05f4a 本地证据（2026-10-05，持租约完整文本消费者的内部边界）：
+  - RED：续租门禁专项 Unit 16 项中 12 失败、4 通过，失败对应缺失续租、等待后复核及异常传播；完整执行入口双库 2/2 在已取消 token 应抛异常但未抛处失败。构建均零警告/错误。初次 GREEN 的 SQL Server 断言把 DateTimeOffset 读成 DateTime，引发夹具类型转换异常，改为数据库内比较租期后重跑；此异常不作为业务 RED。
+  - 实现与审查：原会话与全部精确权限在阶段门禁前后复核，续租确认失败、原身份/来源漂移、等待后过期或取消均停止。保留足够 25 秒的原租约，临界租约使用既有双库 SQL 延长；不并发共享 DbSession 心跳，不把 Identity/Files/模型调用放入本地事务。完整消费者固定清单 PayloadHash/身份/摘要/批次，依 ordinal 使用实际持久消费者，已存付费批次不再收费，最后重新进入原子激活。15 分钟限制新派发，已计费操作继续独立结算；已完成原 token 恢复仍重验最新授权且不再续租、读取正文或调用模型。独立只读审查未发现可确认缺陷，审查不替代运行验收。
+  - GREEN：续租门禁 16/16、双库完整执行专项 2/2（2m 28s 431ms），零失败/跳过。每次模型阶段推进测试时钟 20 秒，真实多批执行超过初始 30 秒租约；覆盖 Host/Tenant、已知/未知用量、从零执行、首批恢复、实际续租写入确认零行、错误 token、撤权、取消以及完成重试，核对完整账本、任务完成和租约清理。最终完整 AI Unit 1036/1036、AI Architecture 7/7、AOT Architecture 73/73，零失败/跳过；最终三个 Release 构建与 API AOT 单节点分析零警告/错误。全 Unit/Integration 仅核对发现数 4505/1172，不宣称全项目测试全部执行。
+  - 规定影响集：node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-generation-execution-r05f4a --phase slice 退出 0，Ai 双 Provider 66/66，零失败/跳过（22m 26s 140ms），无新增 SQL/迁移。正式 TRX 与冻结发现的全部 UID/FQN 一致；939 个代码/矩阵/运行输入摘要未变，生产/Unit/Integration 三处 AI 程序集 SHA256 一致。pnpm test:integration:tooling 54/54、正式入口工具集 65/65、test:governance 57/57、test:naming 33/33、test:sql-safety 5/5，1172 项分片无遗漏/重复；git diff --check 通过。平台截断 1 项超长捕获文本字段，测试身份和结果完整，截断区域不作为完整运行日志。证据位于忽略目录 artifacts/r05f4a/ 及同名前缀日志。
+  - 环境与未验证项：Windows i7-12700H（14 核/20 线程）、64 GB、SDK 10.0.401、Docker SQL Server 2022 CU14/MySQL 8.0，FULLNET_TESTCONTAINERS_REUSE=0。首次构建因 Windows 提交内存接近上限失败，降低本任务并发/内存后专项构建通过；512 MiB 不足以编译 Integration，768 MiB 单节点重跑通过。AOT 后 JIT 还原首次因 NuGet 漏洞服务索引不可达失败，HTTP 200 后保留审计重试成功；失败命令不计入验收。最终环境内存余量恢复，构建单节点、2 GiB GC 限额、DOTNET_PROCESSOR_COUNT=2；历史复用测试数据库保持停止且数据保留。只完成内部持租约消费者，尚未接入 Hosted 轮询领取/生产 DI、公开 ready、真实后台/云计量链路、检索、完整 Host/Worker Native 发布运行或容量实测。完整 RAG 保持 Planned，Capacity-not-verified 保持，下一项继续 Worker 领取与宿主接入。
+
 - [ ] 建立文本 PDF、Markdown、纯文本、超长段落、表格、空文档、扫描 PDF/不支持格式及解析上限的失败用例。
 - [ ] 实现 Token 预算分块、有限重叠、Worker 租约与取消、预算预留/结算、幂等索引写入；旧代次不得覆盖新版本或删除状态。
 - [ ] 验证 Worker 崩溃/重试、模型用量未知、索引不可用、部分写入与删除竞争；失败可定位并重试，不能将空索引标记 ready。

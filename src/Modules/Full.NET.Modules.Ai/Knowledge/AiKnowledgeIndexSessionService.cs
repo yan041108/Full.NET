@@ -64,6 +64,27 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
         var session = Snapshot(row); return Valid(binding, session) ? session : null;
     }
 
+    /// <summary>整代次消费者的阶段门禁；续租只绑定原会话，授权不进入事务。</summary>
+    internal async Task<bool> RenewHeldAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, SessionBindingSnapshot original, CancellationToken token)
+    {
+        NoTransaction(); ArgumentNullException.ThrowIfNull(original);
+        if (await ReadHeldAsync(binding, taskId, leaseToken, token).ConfigureAwait(false) != original
+            || !await AuthorizedAsync(binding, original, token).ConfigureAwait(false)) return false;
+        var source = await tasks.ReadDispatchAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
+        if (source is null) return false;
+        // 每个派发阶段最多 25 秒；充足租约不重复写入，临界租约必须先成功续租。
+        if (source.LeaseExpiresAtUtc <= clock.UtcNow.AddSeconds(25)
+            && !await tasks.RenewAsync(binding, taskId, leaseToken, token).ConfigureAwait(false)) return false;
+        token.ThrowIfCancellationRequested(); NoTransaction();
+        if (await ReadHeldAsync(binding, taskId, leaseToken, token).ConfigureAwait(false) != original
+            || !await AuthorizedAsync(binding, original, token).ConfigureAwait(false)) return false;
+        var current = await tasks.ReadDispatchAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested(); NoTransaction();
+        // 等待期间会话、来源和剩余时间都可能变化；续租成功不是下一阶段的永久授权。
+        return current is not null && AiKnowledgeIndexEmbeddingService.SameSource(source, current)
+            && current.LeaseExpiresAtUtc > clock.UtcNow.AddSeconds(25);
+    }
+
     private async Task<bool> AuthorizedAsync(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, CancellationToken token)
     {
         foreach (var permission in Permissions)

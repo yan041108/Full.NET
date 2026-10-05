@@ -121,6 +121,67 @@ public sealed class AiKnowledgeIndexSessionTests
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => f.Service.ReadHeldAsync(f.Binding, f.TaskId, f.Lease, cancel.Token));
     }
 
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Generation_phase_keeps_sufficient_lease_after_original_authorization(bool scoped)
+    {
+        var f = new Fixture(scoped); f.Row = f.NewRow(); f.Source = f.NewSource(f.Row.LeaseExpiresAtUtc!.Value);
+        Assert.IsTrue(await f.Service.RenewHeldAsync(f.Binding, f.TaskId, f.Lease, f.Session, default));
+        Assert.AreEqual(0, f.RenewWrites); Assert.IsTrue(f.PermissionCalls >= 4);
+    }
+
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Generation_phase_renews_short_lease_and_rechecks_identity(bool scoped)
+    {
+        var f = new Fixture(scoped); f.Row = f.NewRow(); f.Source = f.NewSource(f.Row.LeaseExpiresAtUtc!.Value);
+        f.Clock.UtcNow.Returns(f.Row.LeaseExpiresAtUtc.Value.AddSeconds(-10));
+        Assert.IsTrue(await f.Service.RenewHeldAsync(f.Binding, f.TaskId, f.Lease, f.Session, default));
+        Assert.AreEqual(1, f.RenewWrites); Assert.IsTrue(f.PermissionCalls >= 8);
+        Assert.AreEqual(f.Clock.UtcNow.AddSeconds(30), f.Source.LeaseExpiresAtUtc);
+    }
+
+    [TestMethod] [DataRow("permission")] [DataRow("identity")] [DataRow("source")] [DataRow("expired")]
+    public async Task Generation_phase_refuses_before_extending_untrusted_lease(string fault)
+    {
+        var f = new Fixture(false); f.Row = f.NewRow(); f.Source = f.NewSource(f.Row.LeaseExpiresAtUtc!.Value);
+        f.Clock.UtcNow.Returns(f.Row.LeaseExpiresAtUtc.Value.AddSeconds(-10));
+        if (fault == "permission") f.DeniedPermission = "ai.knowledge_bases.read";
+        else if (fault == "identity") f.Row = f.Row with { SecurityStamp = "changed" };
+        else if (fault == "source") f.Source = null;
+        else f.Clock.UtcNow.Returns(f.Row.LeaseExpiresAtUtc.Value);
+        Assert.IsFalse(await f.Service.RenewHeldAsync(f.Binding, f.TaskId, f.Lease, f.Session, default));
+        Assert.AreEqual(0, f.RenewWrites);
+    }
+
+    [TestMethod] [DataRow("zero")] [DataRow("permission")] [DataRow("identity")] [DataRow("expiry")]
+    [DataRow("source")] [DataRow("cancelled")] [DataRow("database")]
+    public async Task Generation_phase_cannot_continue_after_renewal_wait_loses_authority(string fault)
+    {
+        var f = new Fixture(false); f.Row = f.NewRow(); f.Source = f.NewSource(f.Row.LeaseExpiresAtUtc!.Value);
+        f.Clock.UtcNow.Returns(f.Row.LeaseExpiresAtUtc.Value.AddSeconds(-10)); using var cancel = new CancellationTokenSource();
+        f.AtRenew = () =>
+        {
+            if (fault == "zero") f.RenewCount = 0;
+            else if (fault == "permission") f.DeniedPermission = "ai.knowledge_bases.read";
+            else if (fault == "identity") f.Row = f.Row with { SessionId = Guid.CreateVersion7() };
+            else if (fault == "expiry") f.Clock.UtcNow.Returns(f.Source!.LeaseExpiresAtUtc);
+            else if (fault == "source") f.Source = f.NewSource(f.Source!.LeaseExpiresAtUtc, Guid.CreateVersion7());
+            else if (fault == "cancelled") cancel.Cancel();
+            else throw new IOException("renewal unavailable");
+        };
+        if (fault == "cancelled") await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => f.Service.RenewHeldAsync(f.Binding, f.TaskId, f.Lease, f.Session, cancel.Token));
+        else if (fault == "database") await Assert.ThrowsExactlyAsync<IOException>(() => f.Service.RenewHeldAsync(f.Binding, f.TaskId, f.Lease, f.Session, cancel.Token));
+        else Assert.IsFalse(await f.Service.RenewHeldAsync(f.Binding, f.TaskId, f.Lease, f.Session, cancel.Token));
+        Assert.AreEqual(1, f.RenewWrites);
+    }
+
+    [TestMethod]
+    public async Task Generation_phase_rejects_ambient_transaction_before_any_authorization()
+    {
+        var f = new Fixture(false); f.State.HasTransaction.Returns(true);
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => f.Service.RenewHeldAsync(f.Binding, f.TaskId, f.Lease, f.Session, default));
+        Assert.AreEqual(0, f.RenewWrites); Assert.AreEqual(0, f.PermissionCalls);
+    }
+
     private sealed class Fixture
     {
         internal readonly IQueryExecutor Query = Substitute.For<IQueryExecutor>();
@@ -131,6 +192,9 @@ public sealed class AiKnowledgeIndexSessionTests
         internal readonly SessionBindingSnapshot Session;
         internal readonly AiKnowledgeIndexSessionService Service;
         internal AiKnowledgeIndexSessionRecord? Row;
+        internal AiKnowledgeIndexDispatchRecord? Source;
+        internal int RenewWrites, RenewCount = 1;
+        internal Action? AtRenew;
         internal string? DeniedPermission;
         internal int Writes, Commits, Rollbacks, PermissionCalls, TaskWrite = 1, SessionWrite = 1;
         internal bool UniqueRace, InfrastructureFailure;
@@ -149,8 +213,15 @@ public sealed class AiKnowledgeIndexSessionTests
                 return (string)call[1]! == DeniedPermission ? null : new AuthorizedSessionActor(Session.UserId, Session.TenantId, Session.SessionId);
             });
             Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexSessionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Row);
+            Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Source);
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
+                if (((SqlStatement)call[0]!).Name.Contains(".renew_", StringComparison.Ordinal))
+                {
+                    Assert.IsFalse(State.HasTransaction); RenewWrites++;
+                    var expiry = (DateTimeOffset)((Dictionary<string, object?>)call[1]!)["LeaseExpiresAtUtc"]!;
+                    Row = Row! with { LeaseExpiresAtUtc = expiry }; Source = NewSource(expiry, Source!.FileId); AtRenew?.Invoke(); return RenewCount;
+                }
                 Assert.IsTrue(State.HasTransaction); Writes++;
                 if (((SqlStatement)call[0]!).Name.Contains("index_task", StringComparison.Ordinal))
                 {
@@ -165,6 +236,12 @@ public sealed class AiKnowledgeIndexSessionTests
         internal AiKnowledgeIndexSessionRecord NewRow() => new() { Id = Guid.CreateVersion7(), IndexTaskId = TaskId, ActorUserId = Session.UserId,
             TenantId = Session.TenantId, SessionId = Session.SessionId, SessionKind = Session.SessionKind, SecurityStamp = Session.SecurityStamp,
             ActorScope = Session.ActorScope, EffectiveScope = Session.EffectiveScope, CreatedAtUtc = now, LeaseExpiresAtUtc = now.AddSeconds(30) };
+        internal AiKnowledgeIndexDispatchRecord NewSource(DateTimeOffset expiry, Guid? file = null) => new()
+        {
+            TaskId = TaskId, DocumentId = Binding.DocumentId, VersionId = Binding.VersionId, DocumentVersion = 1, KnowledgeBaseVersion = 1,
+            ModelConfigId = Binding.KnowledgeBaseId, ModelConfigVersion = 1, LeaseToken = Lease, LeaseExpiresAtUtc = expiry,
+            FileId = file ?? Binding.DocumentId, ContentHash = new string('A', 64), SizeBytes = 10, ContentType = "text/plain"
+        };
         private sealed class Transaction(Fixture fixture) : ICommandTransaction
         {
             public async Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken)

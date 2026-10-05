@@ -2,8 +2,68 @@ namespace Full.NET.Modules.Ai.Knowledge;
 
 /// <summary>内部文本批次消费者：完整持久批次恢复不再收费，未持久操作也不能免费重发。</summary>
 internal sealed class AiKnowledgeIndexPersistenceService(AiKnowledgeIndexEmbeddingService execution, AiKnowledgeIndexVectorStore vectors,
-    AiKnowledgeIndexTextManifestStore manifests, AiKnowledgeIndexActivationStore? activations = null)
+    AiKnowledgeIndexTextManifestStore manifests, AiKnowledgeIndexActivationStore? activations = null, AiKnowledgeIndexSessionService? sessions = null)
 {
+    /// <summary>按完整清单执行全部文本批次；续租不替代原会话和来源授权。</summary>
+    internal async Task<bool> ExecuteTextGenerationAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
+    {
+        if (sessions is null || activations is null) throw new InvalidOperationException("Generation session and activation stores are required.");
+        token.ThrowIfCancellationRequested();
+        using var dispatch = CancellationTokenSource.CreateLinkedTokenSource(token);
+        // 总时限阻止新派发；已计费操作仍使用原执行器的独立结算边界。
+        dispatch.CancelAfter(TimeSpan.FromMinutes(15));
+        Full.NET.Modules.Identity.Contracts.SessionBindingSnapshot? original;
+        using (var phase = Phase(dispatch.Token))
+        {
+            // 已完成任务没有运行租约，只能通过原完成令牌和最新授权恢复结果。
+            if (await activations.IsActiveAsync(binding, taskId, leaseToken, phase.Token).ConfigureAwait(false)) return true;
+            original = await sessions.ReadHeldAsync(binding, taskId, leaseToken, phase.Token).ConfigureAwait(false);
+            if (original is null) return false;
+        }
+        AiKnowledgeIndexTextManifestSnapshot? frozen;
+        var next = 0;
+        using (var phase = Phase(dispatch.Token))
+        {
+            if (!await sessions.RenewHeldAsync(binding, taskId, leaseToken, original, phase.Token).ConfigureAwait(false)) return false;
+            frozen = await manifests.ReadSnapshotAsync(binding, taskId, leaseToken, phase.Token).ConfigureAwait(false);
+            if (frozen is null)
+            {
+                // 首批先完整冻结清单再预留预算；缺失或损坏清单不能越过原消费者的校验。
+                if (!await ExecuteTextBatchAsync(binding, taskId, leaseToken, 0, phase.Token).ConfigureAwait(false)) return false;
+                frozen = await manifests.ReadSnapshotAsync(binding, taskId, leaseToken, phase.Token).ConfigureAwait(false);
+                if (frozen is null) return false;
+                next = 1;
+            }
+            phase.Token.ThrowIfCancellationRequested();
+        }
+        for (; next < frozen.Manifest.Batches.Count; next++)
+        {
+            using var phase = Phase(dispatch.Token);
+            if (!await sessions.RenewHeldAsync(binding, taskId, leaseToken, original, phase.Token).ConfigureAwait(false)) return false;
+            var current = await manifests.ReadSnapshotAsync(binding, taskId, leaseToken, phase.Token).ConfigureAwait(false);
+            if (!SameManifest(frozen, current)
+                || !await ExecuteTextBatchAsync(binding, taskId, leaseToken, next, phase.Token).ConfigureAwait(false)) return false;
+            phase.Token.ThrowIfCancellationRequested();
+        }
+        using (var phase = Phase(dispatch.Token))
+        {
+            if (!await sessions.RenewHeldAsync(binding, taskId, leaseToken, original, phase.Token).ConfigureAwait(false)) return false;
+            var current = await manifests.ReadSnapshotAsync(binding, taskId, leaseToken, phase.Token).ConfigureAwait(false);
+            return SameManifest(frozen, current)
+                && await ActivateTextGenerationAsync(binding, taskId, leaseToken, phase.Token).ConfigureAwait(false);
+        }
+    }
+
+    private static CancellationTokenSource Phase(CancellationToken token)
+    {
+        var bounded = CancellationTokenSource.CreateLinkedTokenSource(token);
+        bounded.CancelAfter(TimeSpan.FromSeconds(25)); return bounded;
+    }
+
+    private static bool SameManifest(AiKnowledgeIndexTextManifestSnapshot frozen, AiKnowledgeIndexTextManifestSnapshot? current)
+        => current is not null && current.PayloadHash == frozen.PayloadHash && current.Manifest.Identity == frozen.Manifest.Identity
+            && current.Manifest.Summary == frozen.Manifest.Summary && current.Manifest.Batches.SequenceEqual(frozen.Manifest.Batches);
+
     /// <summary>内部完成态和活动指针一起提交；不派发模型，不能据此升级公开 ready 能力。</summary>
     internal async Task<bool> ActivateTextGenerationAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
     {

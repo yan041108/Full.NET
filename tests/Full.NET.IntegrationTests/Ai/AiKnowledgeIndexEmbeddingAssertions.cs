@@ -24,7 +24,7 @@ namespace Full.NET.IntegrationTests.Ai;
 /// <summary>生产双库 SQL/账本配合受控会话、Files 和模型边界；不访问云模型或伪造原生验收。</summary>
 internal static class AiKnowledgeIndexEmbeddingAssertions
 {
-    internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock, bool wholeGeneration = false, bool activateGeneration = false)
+    internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock, bool wholeGeneration = false, bool activateGeneration = false, bool executeGeneration = false)
     {
         await factory.InitializeAsync();
         await using var db = AiOperationBudgetAssertions.Connection(factory);
@@ -55,7 +55,37 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
             {
                 Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_text_manifest WHERE Id=@Id", new { Id = task.Id }));
                 if (generate is not null) await generate();
+                if (executeGeneration) clock.UtcNow = clock.UtcNow.AddSeconds(20);
             };
+            if (executeGeneration)
+            {
+                if (scenario == "known")
+                    Assert.IsTrue(await Use((tasks, execution, services) => new AiKnowledgeIndexPersistenceService(execution,
+                        VectorStore(services, tasks), ManifestStore(services, tasks)).ExecuteTextBatchAsync(binding, task.Id, held.LeaseToken.Value, 0, default)));
+                await AiKnowledgeIndexTextGenerationAssertions.VerifyAsync(db, binding, task.Id, held.LeaseToken.Value,
+                    (hook, token) => Use((tasks, execution, services) =>
+                    {
+                        var query = services.GetRequiredService<IQueryExecutor>();
+                        var command = hook is null ? services.GetRequiredService<ICommandExecutor>() : new AiKnowledgeIndexActivationAssertions.CommandHook(services.GetRequiredService<ICommandExecutor>(), hook);
+                        var heldTasks = new AiKnowledgeIndexTaskStore(query, command, services.GetRequiredService<ICurrentTenant>(), clock, services.GetRequiredService<IIdGenerator>());
+                        var sessions = new AiKnowledgeIndexSessionService(query, command, services.GetRequiredService<ICommandTransaction>(),
+                            services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), clock,
+                            services.GetRequiredService<IIdGenerator>(), heldTasks, authorization);
+                        return new AiKnowledgeIndexPersistenceService(execution, VectorStore(services, heldTasks), ManifestStore(services, heldTasks),
+                            new(query, command, services.GetRequiredService<ICommandTransaction>(), services.GetRequiredService<IDataTransactionState>(),
+                                services.GetRequiredService<ICurrentTenant>(), clock, services.GetRequiredService<IIdGenerator>(), heldTasks, authorization,
+                                services.GetRequiredService<IOptions<DatabaseOptions>>()), sessions)
+                            .ExecuteTextGenerationAsync(binding, task.Id, held.LeaseToken.Value, token);
+                    }),
+                    lease => Use((tasks, execution, services) => new AiKnowledgeIndexPersistenceService(execution,
+                        VectorStore(services, tasks), ManifestStore(services, tasks), new(services.GetRequiredService<IQueryExecutor>(),
+                            services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
+                            services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), clock,
+                            services.GetRequiredService<IIdGenerator>(), tasks, authorization, services.GetRequiredService<IOptions<DatabaseOptions>>()),
+                        SessionService(services, tasks)).ExecuteTextGenerationAsync(binding, task.Id, lease, default)),
+                    () => provider.Calls, () => files.Opens, authorization, clock, held.LeaseExpiresAtUtc!.Value, scenario == "known");
+                continue;
+            }
             if (wholeGeneration)
             {
                 Guid? previousPointer = null;
