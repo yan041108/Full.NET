@@ -493,6 +493,18 @@ Windows x64、i7-12700H（14 核/20 逻辑处理器、约 63.75 GiB 内存）、
 
 读取时上轮连接诊断交付 `57402085` 的三个 Actions 均 completed/success：worker-native-aot-linux `37351468412`；ci `37351468588`；api-native-aot-linux `37351468224`。该源码尚无 Jobs 修复，表明停机竞态在这次 CI 未触发，不替代确定性 RED 或当前原生证据。本轮证明 Jobs 停机取消边界与当前 Worker 原生双库 E2E；未重跑全量 Unit/Integration/Architecture、生成应用 Worker、Host.Api Native AOT、完整浏览器/登录/TOTP 或容量验收。F02 及前两项保持待办，Capacity-not-verified 保持，PR 仍 Draft，未合并、未发布；CI 仅报告精确交付 HEAD 的真实读取状态。
 
+2026-10-06 Worker 健康地址诊断收口（基线 `53f3fc64b907af97edd9885ecef982518e2be37b`，快照 `f02-worker-endpoint-diagnose-20261006`，行为源码冻结 `0c7362d58c118a58b7269fb04735e1bef31d35a9`）：同名 Worker 的基础健康地址先前只用普通 Uri 与档案端口比较；会拒绝 Kestrel 支持的 `+` / `*` 通配监听，同时接受 FTP、非根路径及被 Uri 规范化的 `/./`。先运行独立最小 Kestrel 的 11 种地址对照，确认 HTTP、通配、根斜线和方案大小写成功启动，FTP/非根路径在启动时抛 InvalidOperationException；没有斜线的查询/片段使实际绑定解析退回 80，探针因该端口的 SocketException 失败，不将这两项当作协议拒绝证据。
+
+新增 24 项回归，按三种展平/大小写布局覆盖五种错误与三个合法控制，以公共 BindingAddress 解析结果核对端口/方案/PathBase，保持源文件逐字节与脱敏断言。RED 36 项中 21 失败/15 成功，零跳过；首轮辅助编辑因 CRLF 匹配失败未接入调用点，已保留其仍为 21/15 的失败结果。修正编辑后 Green 36/36、7s 501ms，Release 零警告/错误；完整 `pnpm test:dotnet:unit -- --no-build --selection code-generation-realtime` 为 2070/2070、5m 40s 099ms，零失败/跳过；动态 C# / ApplicationPart 源码架构聚焦 1/1、656ms。矩阵仅增加实际 24 项。
+
+最小修复仅在 CLI 中验证 HTTP/HTTPS、原始根路径及档案端口；通配主机映射到只用于 Uri 解析的本地主机文本，不做真实监听或 DNS。查询/片段拒绝，输出仍为固定脱敏 DIAG_APP_PROFILE_MISMATCH 并说明修复指引；普通 Uri 的规范化不能消除原始非根路径。CLI runtimeconfig 仍仅依赖 Microsoft.NETCore.App，未增加 ASP.NET 运行框架、包或运行宿主依赖。只检查已声明 Worker 的基础配置；TLS 证书、端口占用、网络可达性及环境覆盖后完整宿主启动仍未认证，未改变 Worker、API、SQL、租约、权限或事务代码。
+
+从冻结源码新建 Minimal SQL Server/MySQL 应用，实际执行各 16 次随包 `pnpm run diagnose:development` / `diagnose:production`，总计 32 次、224.399 秒，预期退出码全部一致；SDK、选中连接离线解析与静态模块依赖闭合均正常，输出未泄露地址探针或连接凭据，配置与源文件摘要前后保持，受管框架逐项匹配 manifest。包含嵌套、扁平及大小写路径；HTTPS IPv6 控制只证明离线档案检查，不代替 TLS 启动。入口 `node .tmp/f02-worker-endpoint-created-apps.mjs 0c7362d58c118a58b7269fb04735e1bef31d35a9`；证据 `.tmp/ep-0c7362d5/result.json` 及各场景原始进程结果。
+
+按任务快照规划并运行 `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-worker-endpoint-diagnose-20261006`，完整 CodeGeneration + integration-matrix 影响集双库 41/41、10m 14s 260ms，零失败/跳过；源码 0c7362d58c118a58b7269fb04735e1bef31d35a9、Docker 29.6.2、NuGet HTTP 200、CPU 1、独立 TEMP/TMP、Reuse=0，新容器。TRX start 不早于本轮启动，total/executed/passed=41、failed/notExecuted=0；工具链 65/65、治理 57/57，1118 仅分片发现核对。沿用 Windows x64 / i7-12700H / 约 63.75 GiB / SDK 10.0.401 / Node 24.12.0 / pnpm 10.26.0，重型验证串行。证据 `.tmp/f02-worker-endpoint-{runtime-probe,red,green-before,green,unit,architecture,created-apps,integration}.log`、integration environment/TRX/counters 与任务规划记录。
+
+上轮交付 `53f3fc64` 的 Worker Actions `37366256418` attempt 1 为基础设施失败：job runner_id=0、steps 为空，检查注释为 hosted runner 多次未获取；没有执行编译或测试。已用 `gh run rerun 37366256418` 重跑同一提交 attempt 2，随后再次因相同 hosted runner 调度问题失败，job `111958948154` 仍 runner_id=0、零步骤；两次均未执行编译或测试，原始 jobs/annotations 已保留，未因此宣称代码或 CI 通过。当前门禁只依据本地真实通过；后续 CI 仅报告精确交付 HEAD 的读取状态。F02 及诊断前两项保持待办，未重跑全量 Unit/Integration/Architecture、应用 Worker/Native AOT、完整浏览器或容量；Capacity-not-verified 保持，PR 仍 Draft，未合并、未发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
