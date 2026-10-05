@@ -253,4 +253,3 @@ public sealed class StandaloneModuleDependencyTests
         public void Dispose() => Directory.Delete(Root, recursive: true);
     }
 }
-
