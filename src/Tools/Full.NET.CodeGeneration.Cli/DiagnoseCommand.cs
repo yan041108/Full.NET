@@ -306,7 +306,10 @@ internal static partial class DiagnoseCommand
             CheckModulesSection(root, findings);
             var moduleSelection = CheckModulePreset(root, profileSettings, workspacePath, profile, findings);
             if (standaloneHost is not null && moduleSelection is not null)
-                CheckStandaloneModuleAvailability(workspacePath, moduleSelection, findings);
+            {
+                var selected = CheckStandaloneModuleAvailability(workspacePath, moduleSelection, findings);
+                if (selected is not null) CheckStandaloneModuleDependencies(workspacePath, selected, findings);
+            }
             CheckDatabaseProvider(root, profileSettings, workspacePath, profile, findings);
             CheckDatabaseOptions(root, profileSettings, workspacePath, profile, findings);
             CheckConnectionPlaceholder(root, profileSettings, workspacePath, profile, findings);

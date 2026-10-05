@@ -8,6 +8,8 @@ the complete license texts.
 
 - .NET, ASP.NET Core, Microsoft.Extensions, MSTest and .NET Aspire — MIT
   https://github.com/dotnet
+- Roslyn (Microsoft.CodeAnalysis.CSharp / Microsoft.CodeAnalysis.Common) 5.0.0 — MIT
+  https://github.com/dotnet/roslyn
 - Microsoft.Extensions.AI.Abstractions 10.9.0 — MIT
   https://github.com/dotnet/extensions
 - Microsoft Agent Framework (Microsoft.Agents.AI / Microsoft.Agents.AI.Abstractions) 1.20.0 — MIT

@@ -5,11 +5,11 @@ namespace Full.NET.CodeGeneration.Cli;
 
 internal static partial class DiagnoseCommand
 {
-    private static void CheckStandaloneModuleAvailability(
+    private static IReadOnlySet<string>? CheckStandaloneModuleAvailability(
         string workspacePath, DiagnosticModuleSelection selection, List<DiagnoseFinding> findings)
     {
         // 缺少项目或引用时由既有闭包检查报告，不能再认证运行选择可用。
-        if (!findings.Any(finding => finding.Code == "DIAG_MODULE_CLOSURE_OK")) return;
+        if (!findings.Any(finding => finding.Code == "DIAG_MODULE_CLOSURE_OK")) return null;
         try
         {
             var app = JsonNode.Parse(File.ReadAllText(Path.Combine(workspacePath, "fullnet-app.json")));
@@ -33,12 +33,14 @@ internal static partial class DiagnoseCommand
             else
                 requested = ReadDiagnosticPresetMembers(presets, selection.Preset!);
 
-            findings.Add(requested.All(installed.Contains)
+            var available = requested.All(installed.Contains);
+            findings.Add(available
                 ? DiagnoseFinding.Ok("DIAG_RUNTIME_MODULES_AVAILABLE",
                     "依据冻结档案，最终模块选择处于安装范围内，预设项目与 Composition 引用齐全；未认证依赖图、编译或宿主启动。")
                 : DiagnoseFinding.Error("DIAG_RUNTIME_MODULES_UNAVAILABLE",
                     "最终模块选择超出独立应用冻结的安装范围。",
                     "核对 FullNet:Modules:Preset/Enabled 与应用冻结预设；使用已安装模块，或通过已验证的模板升级安装范围。新增项目引用不能代替框架投影；诊断不会回显模块名或配置值。"));
+            return available ? requested : null;
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException or FormatException
             or ArgumentException or IOException or UnauthorizedAccessException)
@@ -46,6 +48,7 @@ internal static partial class DiagnoseCommand
             findings.Add(DiagnoseFinding.Error("DIAG_RUNTIME_MODULES_METADATA_INVALID",
                 "无法根据冻结档案确定最终模块选择的安装范围。",
                 "检查 fullnet-app.json 与 framework-manifest.json 的预设成员；使用有效的官方模块键、无重复项且包含 Identity。诊断不会输出档案值或异常文本。"));
+            return null;
         }
     }
 
