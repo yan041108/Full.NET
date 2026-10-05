@@ -505,6 +505,16 @@ Windows x64、i7-12700H（14 核/20 逻辑处理器、约 63.75 GiB 内存）、
 
 上轮交付 `53f3fc64` 的 Worker Actions `37366256418` attempt 1 为基础设施失败：job runner_id=0、steps 为空，检查注释为 hosted runner 多次未获取；没有执行编译或测试。已用 `gh run rerun 37366256418` 重跑同一提交 attempt 2，随后再次因相同 hosted runner 调度问题失败，job `111958948154` 仍 runner_id=0、零步骤；两次均未执行编译或测试，原始 jobs/annotations 已保留，未因此宣称代码或 CI 通过。当前门禁只依据本地真实通过；后续 CI 仅报告精确交付 HEAD 的读取状态。F02 及诊断前两项保持待办，未重跑全量 Unit/Integration/Architecture、应用 Worker/Native AOT、完整浏览器或容量；Capacity-not-verified 保持，PR 仍 Draft，未合并、未发布。
 
+2026-10-06 MySQL UUID 连接选项诊断收口（基线 `375cb1a3ae50b6d10059f2c41eb92cb64c86ed1b`，快照 `f02-mysql-guid-diagnose-20261006`，行为源码冻结 `620954be3ef58da6ca4b9550d4552bdadcab1de9`）：对照真实未打开的 Dapper 连接工厂，确认仅用驱动 Builder 解析会将冲突 GuidFormat 或显式 Old Guids 放行，但底座的 MySqlConnectionStringPolicy 会拒绝。CLI 新增对现有 Full.NET.Data.MySql 的项目引用并直接复用策略，按最终生效的 MySqlGuidStorageMode 校验，保留独立枚举配置诊断、SQL Server 解析语义、未使用命名连接忽略及固定脱敏 `DIAG_CONNECTION_INVALID`；不复制策略、不保存规范化结果、不打开连接。教程同步区分连接选项通过与数据库实际 UUID 列类型、认证和宿主启动。未修改数据库策略、SQL、迁移、Worker/API 或授权；CLI runtimeconfig 仍只要求 Microsoft.NETCore.App。
+
+新增 44 项回归包含 Development LegacyChar36/Binary16、Production Binary16、GuidFormat 合法和冲突选项、Old Guids 两种布尔值/别名、直配/命名连接、环境 JSON/User Secrets/环境变量的最终模式覆盖，以及 Production 忽略 Development Secrets。每项先由真实未打开工厂核对，再核验 CLI 退出码、机器码、脱敏和文件字节只读。首次聚焦命令误将 88+44 的发现数填写为 134，实际 132、32 失败/100 通过，最低数门禁也报错；原始日志保留，不计为通过。使用正确132重新执行 `pnpm test:dotnet:unit -- --no-build --filter FullyQualifiedName~DiagnoseConnectionSyntaxTests --minimum-expected-tests 132`，仍 RED 32/100、零跳过；实施后重建并执行同一聚焦，132/132、30s 630ms，Release 零警告/错误。正式矩阵仅按新增44上调；`pnpm test:dotnet:unit -- --no-build --selection code-generation-realtime` 全集 2114/2114、6m 01s 768ms，动态 C# / ApplicationPart 源架构聚焦 1/1，均零失败/跳过。
+
+从冻结源码新建 Minimal SQL Server/MySQL 应用，实际执行随包 `pnpm run diagnose:development` / `diagnose:production`，SQL Server8次、MySQL24次，总计32次、271.143秒；所有预期退出码一致。两库均有正常控制及非法选项拒绝，MySQL覆盖格式冲突、Old Guids、未定义格式和敏感值探针，轮换直配/命名连接与模式名称/数字。SDK、冻结档案与静态模块闭合正常；输出脱敏，源配置摘要前后保持，受管框架逐项匹配 manifest。入口 `node .tmp/f02-mysql-guid-created-apps.mjs 620954be3ef58da6ca4b9550d4552bdadcab1de9`；证据 `.tmp/mg-620954be/result.json` 与每个场景原始进程结果。该验收只证明随包离线诊断，不代表真实数据库认证或完整宿主启动。
+
+按任务快照规划并运行 `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-mysql-guid-diagnose-20261006`，完整 CodeGeneration + integration-matrix 影响集双库41/41、9m 12s 333ms，零失败/跳过；源码 `620954be3ef58da6ca4b9550d4552bdadcab1de9`、Docker 29.6.2、NuGet HTTP 200、CPU1、独立 TEMP/TMP、Reuse=0。TRX start 不早于本轮启动，total/executed/passed=41、failed/notExecuted=0；工具链65/65、治理57/57，1118仅分片发现核对。Windows x64 / i7-12700H /63.75GiB /SDK10.0.401 /Node24.12.0 /pnpm10.26.0，重型验证串行。证据 `.tmp/f02-mysql-guid-{red-initial-minimum,red,green,unit,architecture,created-apps,integration}.log`、integration environment/TRX/counters 及任务规划。
+
+上轮交付 `375cb1a3` 的 Worker Actions `37370518588` attempt1再次未获取 hosted runner：job `111966215008` runner_id=0、steps为空，原始jobs/annotations已保存；没有编译或测试，不计为代码失败或CI通过。同一提交主CI `37370518586` 终态failure：14个作业中2个实际success，6个未获取runner且零步骤，6个依赖作业skipped；逐项注释确认6项均为同类runner调度问题，不把整个CI判为通过，也不声称所有作业未执行。此前同类重跑也失败，未重复重跑或削弱工作流。本轮按本地实际结果验收，后续CI只报告精确交付HEAD的读取状态。F02及诊断前两项保持待办，未重跑全量Unit/Integration/Architecture、完整生成CRUD/浏览器、Worker/API Native AOT或容量；Capacity-not-verified保持，PR仍Draft，未合并、未发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
