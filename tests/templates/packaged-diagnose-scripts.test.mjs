@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { buildAppTemplate } from '../../scripts/templates/build-app-template.mjs';
 import { areBundleInputsClean } from '../../scripts/templates/build-source-bundle.mjs';
+import { runPnpm } from './support/pnpm-process.mjs';
 
 const skip = areBundleInputsClean() ? false : 'source bundle inputs have uncommitted changes';
 test('validated application preserves diagnostic scripts and frozen workspace settings', { skip }, () => {
@@ -40,6 +41,28 @@ test('validated application preserves diagnostic scripts and frozen workspace se
       '--preset', 'minimal', '--http-port', '5198'], { encoding: 'utf8', timeout: 150_000, windowsHide: true });
     assert.equal(created.status, 0, created.stderr || created.stdout);
     check(appRoot);
+    assert.deepEqual(readFileSync(join(appRoot, '.fullnet-tools/diagnose-app.mjs')),
+      readFileSync(new URL('../../scripts/templates/diagnose-app.mjs', import.meta.url)),
+      'application entry must be copied without template token replacement');
+    const sdkPath = join(appRoot, 'global.json');
+    const sdkBefore = readFileSync(sdkPath);
+    try {
+      const unavailable = Buffer.from(JSON.stringify({ sdk: { version: '99.0.100', rollForward: 'disable' } }));
+      writeFileSync(sdkPath, unavailable);
+      for (const profile of ['development', 'production']) {
+        const diagnosis = runPnpm(['run', 'diagnose:' + profile], {
+          cwd: appRoot, encoding: 'utf8', windowsHide: true, timeout: 60_000,
+        });
+        assert.equal(diagnosis.error, undefined);
+        assert.equal(diagnosis.status, 1);
+        assert.match(diagnosis.stdout, /DIAG_SDK_MISSING error/u);
+        assert.doesNotMatch(diagnosis.stdout + diagnosis.stderr, /99\.0\.100/u);
+        assert.deepEqual(readFileSync(sdkPath), unavailable);
+      }
+    } finally {
+      // 仅恢复验收持有的 SDK 变体，不初始化或重写应用配置。
+      writeFileSync(sdkPath, sdkBefore);
+    }
     assert.deepEqual(readFileSync(frozenPath), frozenBytes, 'packaging changed managed framework configuration');
   } finally {
     // 夹具只清理本次创建的临时包和应用，不触碰调用方工作区。

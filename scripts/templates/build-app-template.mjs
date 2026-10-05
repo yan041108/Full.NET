@@ -55,7 +55,7 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
   rmSync(configTemplate);
   const toolRoot = join(templateRoot, '.fullnet-tools');
   mkdirSync(toolRoot);
-  for (const tool of ['create-app.mjs', 'framework-manifest-utils.mjs', 'migration-script-modules.mjs', 'preset-modules.mjs', 'project-preset-composition.mjs', 'verify-created-app.mjs', 'upgrade-framework.mjs', 'framework-upgrade-integrity.mjs', 'framework-upgrade-store.mjs']) {
+  for (const tool of ['create-app.mjs', 'diagnose-app.mjs', 'framework-manifest-utils.mjs', 'migration-script-modules.mjs', 'preset-modules.mjs', 'project-preset-composition.mjs', 'verify-created-app.mjs', 'upgrade-framework.mjs', 'framework-upgrade-integrity.mjs', 'framework-upgrade-store.mjs']) {
     copyFileSync(join(SCRIPT_DIR, tool), join(toolRoot, tool));
   }
   copyApplicationClientTools(bundleRoot, templateRoot);

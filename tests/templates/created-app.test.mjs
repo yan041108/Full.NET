@@ -70,11 +70,8 @@ test('application-owned worker runs the framework processing pipeline with appli
 
 test('fullnet-app template exposes code-generation diagnose scripts', () => {
   const packageJson = JSON.parse(readFileSync(join(TEMPLATE_ROOT, 'package.json'), 'utf8'));
-  assert.match(packageJson.scripts['diagnose:development'], /diagnose --workspace \. --profile development/u);
-  assert.match(packageJson.scripts['diagnose:production'], /diagnose --workspace \. --profile production/u);
-  assert.match(
-    packageJson.scripts['diagnose:development'],
-    /Full\.NET\.CodeGeneration\.Cli/u);
+  assert.equal(packageJson.scripts['diagnose:development'], 'node .fullnet-tools/diagnose-app.mjs --profile development');
+  assert.equal(packageJson.scripts['diagnose:production'], 'node .fullnet-tools/diagnose-app.mjs --profile production');
 });
 
 test('application-owned composition is the host entry and offers a standard module integration target', () => {

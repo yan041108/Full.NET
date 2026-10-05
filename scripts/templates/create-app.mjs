@@ -155,7 +155,7 @@ function projectApplicationDiagnostics(appRoot) {
   // 包内骨架必须先通过冻结摘要校验；仅在应用暂存目录叠加其自有诊断入口。
   for (const profile of ['development', 'production']) {
     applicationPackage.scripts[`diagnose:${profile}`] =
-      `dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- diagnose --workspace . --profile ${profile}`;
+      `node .fullnet-tools/diagnose-app.mjs --profile ${profile}`;
   }
   writeFileSync(packagePath, JSON.stringify(applicationPackage, null, 2) + '\n');
 }

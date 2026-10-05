@@ -667,7 +667,11 @@
     },
     "f02": {
       "description": "Diagnostics and generated CRUD sample",
-      "filter": "FullyQualifiedName~CodeGeneration"
+      "filter": "FullyQualifiedName~CodeGeneration",
+      "tests": [
+        "tests/templates/diagnose-app.test.mjs",
+        "tests/templates/packaged-diagnose-scripts.test.mjs"
+      ]
     },
     "f03": {
       "description": "Account verification challenges",
