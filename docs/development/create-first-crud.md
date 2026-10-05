@@ -735,6 +735,8 @@ node --throw-deprecation --test --test-concurrency=1 tests/templates/created-app
 | --- | --- | --- |
 | `DIAG_SDK_MISSING` | SDK 命令不可用或目标工作区未能解析 SDK | 安装 .NET 10 SDK，核对目标工作区的 `global.json` |
 | `DIAG_SDK_INCOMPATIBLE` | 所选 SDK 不符合当前 10.0.100+ 的 .NET 10.0 基线，或版本输出格式无效 | 核对目标工作区及父目录的 `global.json`；升级选择的 SDK |
+| `code_generation.sdk.probe_timeout` | SDK 探测超过等待上限 | 在目标工作区排查 `dotnet --version`；该结果不表示整个命令或派生进程树已在 30 秒内结束 |
+| `code_generation.diagnose.start_failed` | Node 入口已通过 SDK 检查，但 .NET 诊断进程未能正常启动或结束 | 检查 CLI 构建依赖、进程启动限制或终止信号；前置 SDK 检查不代表应用通过 |
 | `DIAG_DATABASE_PROVIDER_INVALID` | 最终生效的数据库 Provider 名称或数字值无效，无法通过宿主枚举绑定或校验 | 核对 `Database:Provider`，使用 `SqlServer` 或 `MySql` |
 | `DIAG_DATABASE_TIMEOUT_INVALID` | 显式命令超时不能绑定为正整数（含零、负值、空值和溢出） | 设置 `Database:CommandTimeoutSeconds` 为正整数秒数，缺省为 30 秒 |
 | `DIAG_DATABASE_GUID_STORAGE_INVALID` | Guid 模式值无效、Production 未显式配置，或生产 MySQL 使用旧字符模式 | 显式设置 `Database:MySqlGuidStorageMode`；生产 MySQL 必须为 `Binary16` |

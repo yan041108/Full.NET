@@ -435,6 +435,18 @@ Windows x64、12th Gen Intel(R) Core(TM) i7-12700H（14 核/20 逻辑处理器�
 
 读取精确基线 Actions：ci `37327077549` completed / success；worker-native-aot-linux `37327077477` completed / success；api-native-aot-linux `37327077737` completed / success，状态证据 `.tmp/f02-identity-cors-baseline-actions.json`，不外推为当前源码 CI 结论。本轮只收口固定官方 CORS 凭据策略中的单独星号配置冲突；其他运行配置、Provider、应用自有模块图及完整 F02 仍待办，前两项及整项不勾选，既有 CRUD/教程子项保持。未重跑全量 Unit/Integration/Architecture、完整打包、应用 Worker、Native AOT、完整登录/TOTP/授权/真实 CORS 或容量验收，Capacity-not-verified 保持，未合并、未发布。
 
+2026-10-05 SDK 启动前入口增量（基线 `5e036b6b`，行为与分发源码冻结 `69e53f27`，快照 `f02-diagnose-sdk-entry-20261005`）：在此前真实 SQL Server 独立应用中直接执行 `pnpm run diagnose:development`，目标工作区缺少 99.0.100 时退出 2147516571，选择已安装 9.0.307 时退出 1，两者均未进入 CLR 诊断、没有稳定 SDK 机器码。先前通过已构建程序集的 `dotnet exec ... diagnose` 只能认证 CLI 已启动后的 SDK 检查，不能证明新应用脚本可报告启动前失败。复现后恢复应用 SDK 文件，未安装或移除机器上的 SDK。
+
+新建应用的两个诊断脚本改为应用自带 Node 前置入口；仍由目标工作区的 `dotnet --version` 决定实际 SDK 选择与预览准入，按现有 CLI 的 10.0.100+、主次版本与 Int32/版本格式边界检查。缺失、不可解析或版本不兼容时分别输出固定脱敏错误、退出 1，不回显原始进程输出、路径或版本后缀；参数非法退出 64。SDK 可用后继续运行原 .NET CLI，保留配置拒绝和退出码，不将前置成功当成应用配置通过。模板增加精确 copyOnly 来源，确保只把该入口原字节复制进应用；包内冻结工作区、升级/创建工具排除与手工脚本保护保持。已有应用脚本不会自动替换。
+
+新增入口首批 27 项因入口尚不存在而失败；补充 9 项进程边界测试先失败后通过，最终入口 36/36。20 个版本格式/基线控制、两个 Profile 的真实无命令/缺选定 SDK、非法参数，以及受控超时、缓冲区失败、进程失败/信号与 CLI 退出传递均有回归。进程结果替身仅用于不能在 CI 卸载 SDK 或等待真实卡死的边界，不冒充真实进程树回收。相关 Node 集合 56/56、最终入口清理调整后复验 36/36，真实冻结包诊断入口测试 1/1，均零失败/跳过；脚本语法检查通过。
+
+冻结源码重新生成 Minimal SQL Server/MySQL 应用，各执行 12 场景共 24 次调用（20 次实际 pnpm 脚本、4 次实际 Node 无 PATH 入口）：正常开发/生产各退出 0；缺选定 SDK、真实旧版 SDK、含秘密探针的坏 global.json、找不到 dotnet 各退出 1；SDK 可用后的真实 CLI CORS 拒绝仍退出 1。输出脱敏、每次执行前后全部源码/配置 SHA256 一致，最终受管框架摘要一致；两份随包 CLI Release 构建均退出 0、0 警告/0 错误。总耗时 154.911 秒，Windows x64、.NET 10.0.401/旧版 9.0.307、Node 24.12.0、pnpm 10.26.0、DOTNET_PROCESSOR_COUNT=1，重型验证串行；此处没有启动 API、数据库或迁移。
+
+`pnpm test:slice -- --snapshot f02-diagnose-sdk-entry-20261005` 按最终矩阵执行 integration-matrix：工具链 65/65、治理 57/57，零失败/跳过；Release 生成 0 警告/0 错误，1118 项仅计分片发现，无遗漏/重复，没有执行数据库 Integration。未重跑全量 Unit/Integration/Architecture、完整模板真实栈或 Native AOT；认证、CORS 运行时、SQL 与依赖未改变。证据保留 `.tmp/f02-diagnose-sdk-entry-{repro,red,process-red,green,final-entry,packaged,slice}` 日志/JSON 与 `.tmp/se-69e53f27/result.json`、逐场景结果和两份 Release 构建输出。
+
+此增量关闭新应用诊断的 SDK 启动前报告缺口；Node 探测等待上限为 30 秒，清理和完整 CLI 耗时另计，不承诺派生进程树回收。教程同步真实入口、旧应用/直接 .NET 命令前提和错误处理；总计划前两项及完整 F02 不勾选，其他运行配置与应用自有模块图仍有边界。Capacity-not-verified、Draft PR、另行约定合并/发布保持。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
