@@ -375,6 +375,18 @@ CLI 使用中央已有 Roslyn 5.0.0 语法读取器，未添加 Composition 生�
 
 本轮关闭的是已安装官方启用集的固定源码静态依赖图；未认证动态声明、应用自有模块及其组合图、源码编译/DI/宿主启动，也不把 warn 当作闭合成功。其他运行配置前提与完整 F02 仍待办，前两项及整项不勾选，既有 CRUD/教程子项保持。本轮未重跑全量 Unit/Integration、完整打包、应用 Worker、Native AOT 或容量验证，Capacity-not-verified 保持，未合并、未发布。
 
+2026-10-05 Identity 数值配置诊断增量（基线 `47c9443a91635404a1cc3fdc9d174d057406874a`，快照 `f02-identity-numeric-diagnose-20261005`，行为及分发源码冻结 `e1f8a2decd4a69cd1fac3a41bb5c522a923e89fa`）：真实 `IdentityOptionsValidator` 无条件校验令牌有效期、锁定、限流与密码到期天数，关闭令牌端点仍会拒绝越界值；CLI 原先未检查这七项数值配置，保留的 `44a97479` SQL Server 独立应用在 AccessTokenMinutes=61/60 时均退出 0。复现两次 SDK、档案及官方静态依赖检查正常、文件摘要保持、输出脱敏，证据 `.tmp/f02-identity-numeric-repro-result.json`。新增 `DIAG_IDENTITY_NUMERIC_OPTIONS_INVALID` / `DIAG_IDENTITY_NUMERIC_OPTIONS_CONFIGURED`，只读按最终叶值检查 AccessTokenMinutes 1–60、RefreshTokenDays 1–90、LockoutThreshold 1–20、LockoutMinutes 1–1440、两个每分钟限流至少 1、PasswordExpirationDays 至少 0；不改变认证、授权、数据库或宿主装配。
+
+59 项真实配置 Binder/Validator 对照先得到有效 RED 59 失败，失败全部为 CLI 缺少预期机器码，运行时预期均成立；实现后 59/59、零失败/跳过。覆盖七项边界、Int32 最大值/溢出、空白与三种十六进制前缀、布尔/小数/空字符串、null/空对象/空数组、非空复合节点、缺键默认值、四层配置逐叶覆盖和 Production 忽略开发秘密。显式 null/空节点得到零值，缺键保留 Options 默认值；非空对象/数组只形成子键，不覆盖整数叶节点。共用既有数据库超时的整数转换，数据库超时仍独立要求正值，完整受影响 Unit 同时约束既有行为。所有诊断输出不回显输入值，不导入或生成密钥，没有新增运行依赖。
+
+Windows x64、i7-12700H（14 核/20 逻辑处理器、约 63.75 GiB 内存）、.NET SDK 10.0.401/运行时 10.0.12、Node v24.12.0/pnpm 10.26.0、DOTNET_PROCESSOR_COUNT=1、Unit Workers=1：`pnpm test:dotnet:unit -- --selection code-generation-realtime --no-build` 1642/1642、零失败/跳过、退出 0，测试 4m 34s 947ms；聚焦 Release 构建 00:00:40.91、零警告/错误。治理 57/57、工具链与两组反馈检查 66/66、命名/UUID 33/33，均零失败/跳过、退出 0；矩阵只增加实际发现的 59 项。日志 `.tmp/f02-identity-numeric-{red,green,unit,governance,tooling,naming}.log`，环境 `.tmp/f02-identity-numeric-machine.json`。
+
+相同提交冻结源码包各新建 Minimal SQL Server/MySQL 独立应用，运行真实随包 `pnpm run diagnose:<profile>` 各 17 场景、共 34 次预期退出码通过，运行器退出 0、239.089 秒。覆盖开发/生产默认值、七项非法边界、全部合法边界、十六进制、环境 JSON 错误、环境变量修复较低层错误、null 令牌时长拒绝/null 密码天数允许、空父节点不删除叶值、非法文本脱敏。每次 SDK/档案/官方静态依赖闭包正常，源码/配置摘要保持，受管框架摘要最终一致；结果 `.tmp/in-e1f8a2de/result.json`。仅执行诊断，没有数据库连接、服务注册、DI 或宿主启动，真实 Options 对照来自 Unit，不把该工具结果外推为完整 Identity 或认证运行通过。
+
+应用结束后串行执行 `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-identity-numeric-diagnose-20261005`：完整 CodeGeneration + integration-matrix 影响集 41/41、零失败/跳过、退出 0，新 SQL Server 2022 CU14/MySQL 8.0.46 临时容器、独立短 TEMP/TMP，Integration 原有 Workers=2 保持。开始前 Docker 引擎 29.6.2、NuGet 索引 HTTP 200；Release 构建 00:00:11.82、零警告/错误，测试 7m 52s 653ms。独立 TRX 时间不早于本轮进程，total/executed/passed 均 41、failed/notExecuted 为 0；日志/TRX/counters `.tmp/f02-identity-numeric-integration.*`、`integration-counters.json`。1118 项只计分片发现核对，没有计为全量执行。
+
+初次前置探测的旧 docker_engine 管道不可达，未开始构建或测试；当前 desktop-linux 引擎可用。随后把 Docker CLI 的四斜线地址直接传给 .NET 客户端，完整 41 项得到 15 通过/26 失败、零跳过，数据库用例失败均在 Docker.DotNet.Enhanced.NPipe 4.3.3 初始化。对照[固定版本客户端源码](https://github.com/testcontainers/Docker.DotNet/blob/1e4015a84fa48cbcfe9002ecc4e2cf14177edc2d/src/Docker.DotNet.NPipe/DockerHandlerFactory.cs)及本机 Uri.Segments，客户端要求三个段，CLI 地址实际四段；仅在测试进程改用 DOCKER_HOST=npipe://./pipe/dockerDesktopLinuxEngine 后完整重跑，没有修改全局 Docker 或产品/测试判定。失败日志/TRX/环境 `.tmp/f02-identity-numeric-integration-uri-failed.*`、前置证据 `docker-preflight.json` 保留，不计通过。本轮仅收口 Identity 七项数值配置前提；其他 Identity Options、运行配置、应用自有模块组合图及完整 F02 仍待办，前两项与整项不勾选，已有 CRUD/教程子项保持。未重跑全量 Unit/Integration、完整打包、应用 Worker、Native AOT 或容量验收，Capacity-not-verified 保持，未合并、未发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
