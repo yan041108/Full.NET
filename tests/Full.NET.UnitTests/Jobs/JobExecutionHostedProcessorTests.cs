@@ -137,12 +137,20 @@ public sealed class JobExecutionHostedProcessorTests
     }
 
     [TestMethod]
-    public async Task ProcessOnceAsync_BacklogFailureIsThrottledAndDoesNotBlockAcquisition()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ProcessOnceAsync_BacklogFailureIsThrottledAndDoesNotBlockAcquisition(
+        bool unrelatedCancellation)
     {
         var currentTenant = new CurrentTenantAccessor();
+        // 异常自带另一个已取消令牌不能冒充当前 Worker 的停机信号。
+        Exception failure = unrelatedCancellation
+            ? new OperationCanceledException(new CancellationToken(true))
+            : new InvalidOperationException("Backlog sampling failed.");
+        var logger = new JobProcessorRecordingLogger();
         var queryExecutor = new BatchSizeRecordingQueryExecutor(
             currentTenant,
-            new InvalidOperationException("Backlog sampling failed."));
+            failure);
         var clock = new FixedClock(
             new DateTimeOffset(2026, 7, 30, 0, 0, 0, TimeSpan.Zero));
         var databaseOptions = Options.Create(
@@ -193,7 +201,7 @@ public sealed class JobExecutionHostedProcessorTests
             provider.GetRequiredService<IServiceScopeFactory>(),
             clock,
             Options.Create(options),
-            NullLogger<JobExecutionHostedProcessor>.Instance);
+            logger);
 
         await processor.ProcessOnceAsync(CancellationToken.None);
         await processor.ProcessOnceAsync(CancellationToken.None);
@@ -201,6 +209,11 @@ public sealed class JobExecutionHostedProcessorTests
         Assert.AreEqual(1, queryExecutor.BacklogReadCount);
         Assert.AreEqual(2, queryExecutor.AcquisitionCount);
         Assert.IsFalse(currentTenant.IsAvailable);
+        Assert.AreEqual(1, logger.Entries.Count, "运行故障必须保留告警并按采样周期节流。");
+        var entry = logger.Entries.Single();
+        Assert.AreEqual(Microsoft.Extensions.Logging.LogLevel.Warning, entry.Level);
+        Assert.AreEqual(4002, entry.EventId.Id);
+        Assert.AreSame(failure, entry.Exception);
     }
 
     private sealed class BatchSizeRecordingQueryExecutor(
