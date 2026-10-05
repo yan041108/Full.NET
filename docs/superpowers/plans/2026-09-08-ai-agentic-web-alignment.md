@@ -1492,3 +1492,14 @@ pnpm test:aot:worker:analyzers
 - 2026-09-14（续 27）：续 26 基础上补充：`HostFileSqlTestParameters` 修复 MySQL `@FolderId` 空值参数；E2E `real-stack-auth.mjs`/`provision-viewer.mjs` 自动清除 `MustChangePassword`；ImportExport error-receipt OpenAPI 契约对齐 xlsx MIME。`api-mysql` shard 本地执行中。
 - 2026-09-14（续 26）：主 `ci` integration 门禁本地收口（HEAD `f2bf4c1f` 工作区未提交）：Identity OpenAccess/OnlineSession/HostUserDirectory、Workflow CC/并行 tally SQL、Files MySQL folder soft-delete 与 file-reference claim Host 上下文、`IntegrationTestAuthHelper` 统一 Host 登录；`filesPreviewHostFileContent` OpenAPI 补 `application/octet-stream` 并更新 `fullnet-client-v1.openapi.json`；`HostFolderTreeNodeArray` 契约映射与 `fn_reporting_export_task.RowCount` 注释登记。本地 `pnpm test:naming` **31/31**、`pnpm test:integration:smoke` **8/8**、`pnpm test:dotnet:architecture` **225/225**、`Host_file_management_follows_contract_with_mysql` **1/1**、`openapi:client:snapshot --check` 通过。
 - 未执行/未关闭：主 `ci` 全矩阵复验（含 integration-shard 全量）、Vue 集中 a11y/移动端人工验收。T15 Linux Native API/Worker E2E 主路径已绿，整体未关闭。
+
+### 2026-10-06：R05e4 PDF 完整计划与清单（本地切片验收完成）
+
+- 消费 R05e1 已验收的分页分块，新增独立 knowledge-pdf-plan-v1 / knowledge-pdf-manifest-v1，保持文本 v1 字节与摘要兼容。来源、租户、知识库/模型精确版本、解析器/词表/默认参数、页码、页内 UTF-16 位置与完整批次元数据共同进入 SHA-256；摘要不授予外发、持久化或 ready 资格。
+- 先建立失败测试，再实现有界完整冻结、16 条/32000 字符批次与严格清单解码。页号从 1 连续递增，同页块位置和覆盖终点前进，跨页位置重置；128 页、2048 块、全局字符/token 预算失败时不交付部分计划。清单不包含正文，限制 128 KiB、严格 UTF-8、固定版本、连续集合、精确 EOF 与根摘要。
+- 验证真实分页分块到清单消费、位置和身份摘要隔离、恶意长度/截断/篡改、取消与不可变性；按官方影响集、AI 单元、架构和 AOT 分析门禁执行后提交。PDF 页感知持久化、向量载荷、Worker 与公开 PDF 入队留待后续切片；完整 RAG 保持 Planned、容量保持 Capacity-not-verified。
+
+- 交付 `AiKnowledgeIndexPdfPlan.cs` / `AiKnowledgeIndexPdfManifestCodec.cs`；没有修改文本 v1、SQL、宿主注册或公开 MIME 门禁。基线 `728186b5df1b4718d143b8bbb2e9b27886cd394f`，任务快照 `ai-knowledge-pdf-plan-r05e4`；Windows x64 本地 .NET SDK 10.0.401、Release、测试进程限制 2 个处理器。
+- 失败验证：有效分页输入在规划入口占位实现下返回 null，单项断言失败；实现后 PDF 聚焦 67/67，通过独立 Node 小端参考摘要、真实 C# 分页读取/模型分块消费、正确重算摘要但非法的元数据、边界与跨格式拒绝测试。最终 `node artifacts/r05e4/run-unit.mjs` 按官方矩阵参数执行 AI 单元 1282/1282；全 Unit 实际发现 4751，仅报告 AI 执行范围，发现数已同步唯一测试矩阵。
+- `pwsh -File artifacts/r05e4/final.ps1` 退出 0：Host.Api `-p:FullNetAotAnalysis=true` 分析、Integration/Unit/Architecture/Worker 最终 JIT 构建均零警告/错误；架构 `ai-agentic-boundaries` 7/7、`api-native-aot` 73/73。`run-affected-integration.mjs --snapshot ai-knowledge-pdf-plan-r05e4 --phase slice` 执行正式 Ai / integration-matrix 影响集，SQL Server/MySQL AI 78/78、零失败/跳过。没有在此切片重新发布或运行 Linux 原生宿主。
+- `pnpm test:governance` 57/57、`pnpm test:naming` 33/33、`pnpm test:integration:partitions` 无遗漏/重复；只读审查无阻断问题。`artifacts/r05e4/acceptance.json` 按完整 UID/FQN 核对 AI 单元与双库结果、1114 个源码/矩阵/运行输入 SHA-256 无变化，Worker 74 个项目依赖与 Integration JIT 闭包一致。TRX 对 3 项成功用例的诊断文本按既有上限截断，用例身份和结果集合完整；保留原始日志与结果，不把诊断限幅报告为失败或跳过。
