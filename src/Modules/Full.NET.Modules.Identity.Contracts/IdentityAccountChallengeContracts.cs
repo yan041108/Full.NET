@@ -67,7 +67,7 @@ public sealed record VerifyRegistrationInvitationResponse(
 /// <summary>发送注册邮箱挑战请求；服务端据此向邮箱投递验证码。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="Email">挑战目标邮箱。</param>
-/// <param name="Purpose">挑战用途；不同用途产生不同挑战，禁止复用。</param>
+/// <param name="Purpose">仅允许注册邮箱验证或邀请邮箱验证；密码恢复使用独立入口，挑战禁止跨用途复用。</param>
 /// <param name="InvitationId">关联邀请标识；Purpose 为 InvitationEmailVerification 时必填。</param>
 /// <param name="InvitationToken">关联邀请 Token；Purpose 为 InvitationEmailVerification 时必填。</param>
 public sealed record SendRegistrationEmailChallengeRequest(

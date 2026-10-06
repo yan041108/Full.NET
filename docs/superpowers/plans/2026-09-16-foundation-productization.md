@@ -631,6 +631,29 @@ F02及诊断前两项保持待办，Capacity-not-verified保持。静态Realtime
 本轮投递仍使用受控 Port 替身；真实邮件渠道、失败/未知送达状态、完整账号绑定与匿名入口无枚举等条件继续按F03/C04推进。未执行全量Unit/Integration、全套独立生成应用或本地Linux原生运行，未升级Aot-published/Provider状态；Capacity-not-verified保持。
 
 验收期间独立客户端安全修复先提交 `3a57dbf6b2846e2512fc551472aeeda067a04001`，只包含根依赖、锁文件、契约、许可证及报告，上述10项Identity源码摘要未变。该安全提交的[常规CI](https://github.com/yan041108/Full.NET/actions/runs/37410157639)、[API Linux Native](https://github.com/yan041108/Full.NET/actions/runs/37410157635)、[Worker Linux Native](https://github.com/yan041108/Full.NET/actions/runs/37410157670)三条均已完成并成功；Identity随后独立提交，不能将前一安全提交的远端结果当成其后新SHA通过。
+
+**2026-10-06 F03 注册匿名入口用途边界（局部完成，F03 六项保持未关闭）。**
+
+基线 `86593b863344bab32f539c216c5493ba888a9a35`，快照 `f03-registration-challenge-purpose-20261006`。调用链核对发现注册邮件挑战直接使用请求Purpose，只对注册/邀请用途执行政策分支，PasswordRecovery及未定义byte值可绕过。真实双库RED2/2失败、零跳过：InvitationOnly / purpose=2的注册HTTP请求返回200，预期400；日志/TRX保留，未修改生产源码前完成复现。
+
+注册Endpoint现于读取政策之前显式限定RegistrationEmailVerification / InvitationEmailVerification，其余返回既有400 / validation.failed。合法注册继续按原政策，合法邀请继续校验凭据和目标邮箱；密码恢复仍走独立入口，受信AccountChallengeService保持三用途能力。契约仅同步Purpose中文XML说明；无schema、迁移、路由、DTO线格式或新错误码变化。
+
+双库聚焦新增拒绝和既有Invited_registration_follows_contract完整4/4通过、零失败/跳过，Release零警告/错误。每库新增回归验证两政策×PasswordRecovery/0/4/255×有无邀请参数共16次拒绝，逐次核对投递次数、同邮箱记录总数及三用途既有完整record保持；保留合法Open成功、InvitationOnly拒绝开放挑战、缺邀请凭据拒绝，并由原真实邀请注册回归验证有效邀请和最终注册成功。每个新夹具共20次HTTP请求，原30/min限流保持；投递Port受控替身，不称真实SMTP验收。
+
+`pnpm test:dotnet:unit -- --filter FullyQualifiedName~Full.NET.UnitTests.Identity. --minimum-expected-tests 444`实际444/444；`pnpm test:dotnet:architecture -- --selection api-native-aot`实际73/73，均零失败/跳过。`pnpm test:aot:analyzers`退出0；`pnpm test:aot:native:e2e`在Windows发现27项全部跳过、成功0，不计原生运行通过。
+
+`pnpm test:slice -- --snapshot f03-registration-challenge-purpose-20261006`原样执行选择器命中的Identity与integration-matrix：真实双库171/171，零失败/跳过，测试用时1h 04m 35s 614ms；工具链65/65、治理57/57；互斥分片发现1124项无遗漏/重复，发现数不算全量Integration执行。矩阵仅按实际每库新增1项调整，不减少筛选集或降低门槛；Unit没有新增。
+
+首次完整slice因工具连接中断而未取得终态，恢复核对确认原进程已停止，仅有107条通过中间记录，不计完整验收通过。原日志、进度和结果流保存在`.tmp/f03-purpose-interrupted/`；随后保持原171项选择、DOTNET_PROCESSOR_COUNT=1和Workers=2完整重跑，以新鲜TRX和实际退出码作为最终证据。前四项已完成验证期间源码摘要保持一致。
+
+按requesting-code-review执行独立只读安全复审，无Critical/Important/Minor阻断；复审不计为构建/测试证据。源码6项逐文件摘要、命令/时间/退出码、日志摘要与新鲜TRX在`.tmp/f03-purpose-source.json`、`.tmp/f03-purpose-verify.json`、`.tmp/f03-purpose-evidence.json`及`.tmp/f03-purpose-identity.trx`。Windows x64 / i7-12700H /63.75GiB /SDK10.0.401 /Node24.12.0 /pnpm10.26.0 /Docker29.6.2；DOTNET_PROCESSOR_COUNT=1、Integration Workers=2、容器复用关闭，.NET/模板/容器验证串行。
+
+前序提交`86593b863344bab32f539c216c5493ba888a9a35`的[常规CI](https://github.com/yan041108/Full.NET/actions/runs/37413929439)、[API Linux Native](https://github.com/yan041108/Full.NET/actions/runs/37413929464)、[Worker Linux Native](https://github.com/yan041108/Full.NET/actions/runs/37413929484)三条均已终态success；精确SHA与终态读取保存在`.tmp/f03-purpose-prior-actions.json`。这些结果不算本轮随后新提交的CI或原生运行通过。
+
+验收等待期间另作只读调用链核对：RecoverAccount.RequestHandler对未知/非活动账号及投递失败返回Guid.Empty与当前时间，对成功创建返回真实ChallengeId与15分钟窗口，响应形态不同。该观察没有执行新的行为测试或修改恢复路径，下一切片须先以实际HTTP对照复现，再修复响应差异；本轮用途拒绝不算匿名恢复无枚举通过。
+
+F03完整账号绑定、匿名账号无枚举、失败/未知送达状态及真实邮件渠道等剩余条件保持待办；没有执行全量Unit/Integration、当前源码独立生成应用全链路或本地Linux原生运行，不升级Aot-published/Provider状态。Capacity-not-verified保持；PR继续Draft，未合并、未发布。
+
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。

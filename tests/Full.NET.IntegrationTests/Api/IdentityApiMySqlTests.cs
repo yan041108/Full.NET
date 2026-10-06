@@ -732,6 +732,15 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Registration_challenge_rejects_other_purposes_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await RegistrationChallengePurposeAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Account_recovery_follows_contract_with_mysql()
     {
         using var factory = new FullNetApiFactory(

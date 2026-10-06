@@ -583,12 +583,12 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 178,
+        "minimum": 179,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 178,
+        "minimum": 179,
         "timeout": "60m"
       },
       "migrations": {
@@ -626,7 +626,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1122,
+        "minimum": 1124,
         "timeout": "90m"
       },
       "logging-route-comparison": {
