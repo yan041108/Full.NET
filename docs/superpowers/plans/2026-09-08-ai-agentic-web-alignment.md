@@ -1550,3 +1550,20 @@ pnpm test:aot:worker:analyzers
 - `pwsh -File artifacts/r05e7a/final.ps1` 退出 0；其中 `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-vector-schema-r05e7a --phase slice` 正式 Ai / integration-matrix / migration-253 影响集 84/84，零失败/跳过，33m 11s 447ms；包含 AI 80 项和 253 双库恢复 4 项。`artifacts/r05e7a/acceptance.json` 核对完整 UID/FQN 与 354 个任务源码、矩阵和 Integration 运行输入 SHA-256，均未变化。原始 TRX 对两项成功用例的诊断文本按既有字段上限截断，用例身份和结果完整。
 - `pnpm test:naming` 33/33、`pnpm test:sql-safety` 5/5、`pnpm test:governance` 57/57；正式影响集内工具链 65/65。`pnpm test:integration:partitions` 合计 1192 项无遗漏/重复（API 双库各 195，迁移 536，基础设施 186，消息 80；迁移旧段 250、当前段 286）。
 - Windows x64、.NET SDK 10.0.401、Docker SQL Server/MySQL；最终测试进程限制 2 个处理器、GC 堆 2 GiB，容器不复用。本次验收为数据库格式和恢复范围，没有新增运行时写入、模型调用、结算或 Worker 接入；未重跑独立 Unit/AOT/容量套件，未重新发布 Linux 原生宿主。下一项 R05e7b 继续 PDF 向量持久化与操作结算绑定；完整 RAG 保持 Planned，容量保持 Capacity-not-verified。
+
+### 2026-10-06：R05e7b PDF 向量持久化与操作结算绑定（本地切片验收完成）
+
+- 基线 main `653505fcb9a88be3589b318a27a5176da8705e25`，快照 `ai-knowledge-pdf-vector-store-r05e7b`。使用 fullnet-module-delivery、writing-plans、test-driven-development；沿用 253 双库格式，不新增迁移或表。
+- 私有 `AiKnowledgeIndexPdfVectorStore` 提供 `PersistAsync(binding, taskId, leaseToken, operationId, plan, ordinal, vectors, token)`、`ReadSnapshotAsync(binding, taskId, leaseToken, ordinal, token)` / `IsStoredAsync`；恢复回执包含操作标识与已核对的 PDF 批次。复用现有向量/清单行静态物化器，参数使用字典；不增加 DI、公开入队、Worker、模型调用或 ready 路径。
+- [x] RED：Host/Tenant 合法完整清单、已结算匹配操作的持久化/恢复必须先失败；观察能力缺失断言，不将编译错误计为 RED。
+- [x] 实现：首次等待前冻结分页向量；从数据库捕获完整 PDF 清单原字节并校验实际 SHA、来源和批准模型；写入原子且不可覆盖。原会话五项权限在本地事务外授权，所有等待后复核租约、来源和绑定；插入后的取消/到期在事务内抛出回滚。
+- [x] 双库 SQL：在既有任务/批次/租约/原会话/已结算成功账本守卫上追加完整 PDF 清单原始 SHA 和实际字节摘要、精确格式；账本结算时间非空。恢复最后 SQL 再核对当前账本及原载荷，单批结果不授予整代次 ready。
+- [x] 验证：匹配与不匹配计划/批次/模型/维度/租户；缺失/损坏/旧格式清单或向量；五项权限、异步等待撤权/源漂移；并发同载荷幂等、异载荷拒绝；基础设施错误传播、取消与过期回滚、清理不遗留；真实双库直接生产 Statement 的守卫（Unit 无法证明真实 SQL/事务）。更新矩阵后运行正式 affected slice、Unit/Architecture、命名/SQL安全/治理/分片和只读审查。
+- [x] 本地验收后 main 单独提交。完整 RAG 保持 Planned，容量保持 Capacity-not-verified；后续再建设 PDF 批次派发及完整代次证明。
+- 初始 RED：占位持久化返回 false，Host/Tenant 合法保存 2/2 失败；首次聚焦 Unit 47/47。只读审查发现末次向量 SQL 等待的撤权窗口，追加回归得到权限/会话/来源/模型 4/5 失败（到期已拒绝），追加末次读取后的原会话授权、模型与来源复核后聚焦 Unit 52/52；审查复核无剩余阻断。
+- SQL Server 的 string 参数默认 Unicode，格式参数字节长度使用固定 varchar 转换；列格式仍按二进制精确比较和 25/29 字节限制。SQL Server/MySQL 聚焦测试 2/2，通过生产批次/预算预留结算与向量事务验证 Host/Tenant、两种维度、最后单块页、同载荷竞争、账本/清单拒绝、到期回滚及清理保留账本。合成分页与受控原会话授权不代表真实 PDF 文件解析、HTTP 登录或云模型调用。
+- 恢复的账本/清单证据只对应最后一次向量 SQL 判定点，之后复核原会话与来源；不能把跨模块的分步验证当作原子授权快照或后续 ready 资格。正式本地影响集验收完成。
+- `pwsh -File artifacts/r05e7b/final.ps1` 退出 0：Host.Api `FullNetAotAnalysis=true` 构建通过，零警告/错误；恢复默认 JIT 后顺序构建 Integration、Unit、Architecture 与 Worker，全部通过。正式 AI Unit 1451/1451（37s 801ms）、AI 边界架构 7/7、Native AOT 架构 73/73；Ai/Tenancy 三处程序集副本及 Worker 的 74 项 JIT 项目依赖一致。
+- `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-vector-store-r05e7b --phase slice` 正式 Ai / integration-matrix 影响集 82/82，零失败/跳过，33m 16s 600ms；本切片没有新迁移，不追加迁移恢复选择器。`artifacts/r05e7b/acceptance.json` 核对全部 UID/FQN 与 1117 个任务源码、矩阵和运行输入 SHA-256，均未变化。两项成功用例的诊断文本按既有 TRX 字段上限截断，用例身份和结果完整。
+- 唯一矩阵按实际发现同步 Unit 4920、AI Unit 1451、正式 Integration 分片 1194：SQL Server/MySQL API 各 196，迁移 536，基础设施 186，消息 80；无遗漏/重复。正式影响集内工具链 65/65、治理 57/57；命名与 SQL 安全分别 33/33、5/5。
+- Windows x64、i7-12700H、64 GB、.NET SDK 10.0.401、Docker SQL Server/MySQL；测试进程限制 2 个处理器、GC 堆 2 GiB，容器不复用。本次没有真实云模型调用、公开 PDF 入队/Worker 接入、Linux 原生宿主重新发布/运行或容量实测。下一切片为 PDF 批次派发及完整代次证明；完整 RAG 仍 Planned，容量仍 Capacity-not-verified。

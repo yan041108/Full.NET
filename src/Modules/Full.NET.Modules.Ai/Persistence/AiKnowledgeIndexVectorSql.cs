@@ -22,6 +22,27 @@ internal static class AiKnowledgeIndexVectorSql
     internal static readonly SqlStatement FindSqlServerHost = new("ai.knowledge_index_vector.find_sqlserver_host", Read.Replace("ledger.RequestHash=batch.RequestHash", SqlServerHash) + Host, SqlDataScope.HostOnly);
     internal static readonly SqlStatement FindSqlServerTenant = new("ai.knowledge_index_vector.find_sqlserver_tenant", Read.Replace("ledger.RequestHash=batch.RequestHash", SqlServerHash) + Tenant, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    // PDF 必须绑定完整清单的实际原字节和已结算操作；不能只信任应用先前读取的摘要。
+    private const string PdfManifestHash = "CAST(manifest.PayloadHash AS BINARY)=CAST(@PdfManifestHash AS BINARY) AND CAST(manifest.PayloadHash AS BINARY)=CAST(UPPER(SHA2(manifest.Payload,256)) AS BINARY)";
+    private const string PdfManifestSqlServerHash = "manifest.PayloadHash COLLATE Latin1_General_100_BIN2=@PdfManifestHash AND manifest.PayloadHash COLLATE Latin1_General_100_BIN2=CONVERT(varchar(64),HASHBYTES('SHA2_256',manifest.Payload),2)";
+    private const string PdfHeld = " AND ledger.SettledAtUtc IS NOT NULL AND EXISTS (SELECT 1 FROM fn_ai_knowledge_text_manifest AS manifest WHERE manifest.Id=fn_ai_knowledge_index_task.Id AND CAST(manifest.FormatKey AS BINARY)=CAST('knowledge-pdf-manifest-v1' AS BINARY) AND OCTET_LENGTH(manifest.FormatKey)=25 AND OCTET_LENGTH(manifest.Payload) BETWEEN 8 AND 131072 AND " + PdfManifestHash + ")";
+    private const string PdfInsert = Insert + PdfHeld + " AND CAST(@FormatKey AS BINARY)=CAST('knowledge-pdf-vector-batch-v1' AS BINARY) AND OCTET_LENGTH(@FormatKey)=29";
+    private const string PdfRead = Read + PdfHeld + " AND CAST(vector.FormatKey AS BINARY)=CAST('knowledge-pdf-vector-batch-v1' AS BINARY) AND OCTET_LENGTH(vector.FormatKey)=29";
+    private static string PdfSqlServer(string sql) => sql.Replace("ledger.RequestHash=batch.RequestHash", SqlServerHash)
+        .Replace(PdfManifestHash, PdfManifestSqlServerHash).Replace("OCTET_LENGTH(", "DATALENGTH(")
+        .Replace("DATALENGTH(@FormatKey)", "DATALENGTH(CONVERT(varchar(64),@FormatKey))")
+        .Replace("CAST(manifest.FormatKey AS BINARY)=CAST('knowledge-pdf-manifest-v1' AS BINARY)", "manifest.FormatKey COLLATE Latin1_General_100_BIN2='knowledge-pdf-manifest-v1'")
+        .Replace("CAST(@FormatKey AS BINARY)=CAST('knowledge-pdf-vector-batch-v1' AS BINARY)", "@FormatKey COLLATE Latin1_General_100_BIN2='knowledge-pdf-vector-batch-v1'")
+        .Replace("CAST(vector.FormatKey AS BINARY)=CAST('knowledge-pdf-vector-batch-v1' AS BINARY)", "vector.FormatKey COLLATE Latin1_General_100_BIN2='knowledge-pdf-vector-batch-v1'");
+    internal static readonly SqlStatement InsertPdfHost = new("ai.knowledge_index_pdf_vector.insert_host", PdfInsert + Host + " FOR SHARE", SqlDataScope.HostOnly);
+    internal static readonly SqlStatement InsertPdfTenant = new("ai.knowledge_index_pdf_vector.insert_tenant", PdfInsert + Tenant + " FOR SHARE", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement InsertPdfSqlServerHost = new("ai.knowledge_index_pdf_vector.insert_sqlserver_host", PdfSqlServer(PdfInsert).Replace("INNER JOIN fn_ai_knowledge_index_task ON", "INNER JOIN fn_ai_knowledge_index_task WITH(UPDLOCK,HOLDLOCK) ON") + Host, SqlDataScope.HostOnly);
+    internal static readonly SqlStatement InsertPdfSqlServerTenant = new("ai.knowledge_index_pdf_vector.insert_sqlserver_tenant", PdfSqlServer(PdfInsert).Replace("INNER JOIN fn_ai_knowledge_index_task ON", "INNER JOIN fn_ai_knowledge_index_task WITH(UPDLOCK,HOLDLOCK) ON") + Tenant, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement FindPdfHost = new("ai.knowledge_index_pdf_vector.find_host", PdfRead + Host, SqlDataScope.HostOnly);
+    internal static readonly SqlStatement FindPdfTenant = new("ai.knowledge_index_pdf_vector.find_tenant", PdfRead + Tenant, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement FindPdfSqlServerHost = new("ai.knowledge_index_pdf_vector.find_sqlserver_host", PdfSqlServer(PdfRead) + Host, SqlDataScope.HostOnly);
+    internal static readonly SqlStatement FindPdfSqlServerTenant = new("ai.knowledge_index_pdf_vector.find_sqlserver_tenant", PdfSqlServer(PdfRead) + Tenant, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     // 读取上限加一；原始批次数也必须相等，未保存或未结算的额外批次不能被关联过滤隐藏。
     // 在最终数据库读取点复算载荷摘要；仅改字节而保留旧摘要也必须拒绝，结果不返回载荷。
     private const string MySqlPayloadHash = "CAST(vector.PayloadHash AS BINARY)=CAST(UPPER(SHA2(vector.Payload,256)) AS BINARY)";
