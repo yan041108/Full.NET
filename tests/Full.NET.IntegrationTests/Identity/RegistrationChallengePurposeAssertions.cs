@@ -44,7 +44,7 @@ internal static class RegistrationChallengePurposeAssertions
                 IdentityAccountChallengePurpose.InvitationEmailVerification,
             })
             {
-                var created = await challenges.CreateAndDeliverAsync(purpose, email, recoveryUserId: RecoveryUserId);
+                var created = await challenges.CreateAndDeliverAsync(purpose, email, recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
                 Assert.IsTrue(created.IsSuccess);
                 existing.Add((await ReadAsync(created.Value!.ChallengeId))!);
             }

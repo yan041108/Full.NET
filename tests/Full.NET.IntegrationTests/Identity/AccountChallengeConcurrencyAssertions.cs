@@ -41,9 +41,9 @@ internal static class AccountChallengeConcurrencyAssertions
                 "同一版本快照上的并发错误凭据必须逐次计数，并在上限处停止。");
             Assert.AreEqual(1 + exhausted.MaxAttempts, exhausted.Version);
             Assert.IsNull(exhausted.ConsumedAtUtc);
-            var blocked = await service.ConsumeAsync(intent.ChallengeId, purpose, intent.NormalizedEmail, intent.Credential, recoveryUserId: RecoveryUserId);
+            var blocked = await service.ConsumeAsync(intent.ChallengeId, purpose, intent.NormalizedEmail, intent.Credential, recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
             Assert.AreEqual(IdentityErrorCodes.AccountChallengeAttemptsExceeded, blocked.Error?.Code);
-            var overflow = await service.ConsumeAsync(intent.ChallengeId, purpose, intent.NormalizedEmail, "incorrect-code", recoveryUserId: RecoveryUserId);
+            var overflow = await service.ConsumeAsync(intent.ChallengeId, purpose, intent.NormalizedEmail, "incorrect-code", recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
             Assert.AreEqual(IdentityErrorCodes.AccountChallengeAttemptsExceeded, overflow.Error?.Code);
             Assert.AreEqual(exhausted.AttemptCount, (await ReadAsync(intent)).AttemptCount);
 
@@ -54,7 +54,7 @@ internal static class AccountChallengeConcurrencyAssertions
             Assert.IsNotNull(consumed.ConsumedAtUtc);
             Assert.AreEqual(0, consumed.AttemptCount);
             Assert.AreEqual(2, consumed.Version);
-            Assert.IsFalse((await service.ConsumeAsync(intent.ChallengeId, purpose, intent.NormalizedEmail, intent.Credential, recoveryUserId: RecoveryUserId)).IsSuccess);
+            Assert.IsFalse((await service.ConsumeAsync(intent.ChallengeId, purpose, intent.NormalizedEmail, intent.Credential, recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp")).IsSuccess);
 
             // 正确请求已读到活跃快照，但写入前其他请求耗尽次数，旧快照也不能绕过上限。
             intent = await CreateAsync();
@@ -70,7 +70,7 @@ internal static class AccountChallengeConcurrencyAssertions
             intent = await CreateAsync();
             await VerifyDelayedAsync(intent, "incorrect-code", async () =>
             {
-                Assert.IsTrue((await service.ConsumeAsync(intent.ChallengeId, purpose, intent.NormalizedEmail, intent.Credential, recoveryUserId: RecoveryUserId)).IsSuccess);
+                Assert.IsTrue((await service.ConsumeAsync(intent.ChallengeId, purpose, intent.NormalizedEmail, intent.Credential, recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp")).IsSuccess);
             });
             consumed = await ReadAsync(intent);
             Assert.IsNotNull(consumed.ConsumedAtUtc);
@@ -79,7 +79,7 @@ internal static class AccountChallengeConcurrencyAssertions
 
             async Task<IdentityChallengeDeliveryIntent> CreateAsync()
             {
-                var created = await service.CreateAndDeliverAsync(purpose, $"race-{Guid.NewGuid():N}@example.test", recoveryUserId: RecoveryUserId);
+                var created = await service.CreateAndDeliverAsync(purpose, $"race-{Guid.NewGuid():N}@example.test", recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
                 Assert.IsTrue(created.IsSuccess);
                 Assert.IsNotNull(delivery.LastIntent);
                 Assert.AreEqual(created.Value!.ChallengeId, delivery.LastIntent.ChallengeId);
@@ -99,7 +99,7 @@ internal static class AccountChallengeConcurrencyAssertions
                 await using var delayedScope = scopedFactory.Services.CreateAsyncScope();
                 var gate = new ReadGate(1);
                 var pending = CreateConsumer(delayedScope.ServiceProvider, gate)
-                    .ConsumeAsync(current.ChallengeId, purpose, current.NormalizedEmail, credential, recoveryUserId: RecoveryUserId);
+                    .ConsumeAsync(current.ChallengeId, purpose, current.NormalizedEmail, credential, recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
                 Result<bool>? result = null;
                 try
                 {
@@ -123,7 +123,7 @@ internal static class AccountChallengeConcurrencyAssertions
         var gate = new ReadGate(count);
         // 每个请求都使用独立连接；等所有真实数据库读取完成后才允许写入，避免串行执行掩盖丢失更新。
         var pending = Task.WhenAll(scopes.Select(scope => CreateConsumer(scope.ServiceProvider, gate)
-            .ConsumeAsync(intent.ChallengeId, intent.Purpose, intent.NormalizedEmail, credential, recoveryUserId: RecoveryUserId)));
+            .ConsumeAsync(intent.ChallengeId, intent.Purpose, intent.NormalizedEmail, credential, recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp")));
         try
         {
             await gate.Ready.Task.WaitAsync(TimeSpan.FromSeconds(30));

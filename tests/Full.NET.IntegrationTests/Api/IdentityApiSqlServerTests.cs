@@ -750,6 +750,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Password_recovery_credentials_follow_account_lifecycle_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await PasswordRecoveryLifecycleAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Concurrent_password_recovery_preserves_committed_account_state_with_sql_server()
     {
         using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer,

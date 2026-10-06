@@ -94,6 +94,50 @@ public sealed class PasswordRecoveryAccountBindingTests
         Assert.AreEqual(7, version);
     }
 
+    [TestMethod]
+    [DataRow("password-changed")]
+    [DataRow("security-stamp-rotated")]
+    [DataRow("disabled-and-reenabled")]
+    [DataRow("legacy-user-only")]
+    public async Task Recovery_credential_does_not_outlive_authoritative_security_state(string scenario)
+    {
+        var fixture = new Fixture();
+        await fixture.CreateAsync();
+        if (scenario == "legacy-user-only")
+        {
+            var payload = $"password-recovery:v1:{fixture.Intent!.ChallengeId:N}:{fixture.CurrentUser.Id:N}:{fixture.Intent.Credential.Trim()}";
+            fixture.Challenge = fixture.Challenge! with { CredentialHash = Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(payload))).ToLowerInvariant() };
+        }
+        else
+        {
+            if (scenario == "disabled-and-reenabled") fixture.CurrentUser.IsActive = false;
+            fixture.CurrentUser.SecurityStamp = "changed-security-stamp";
+            fixture.CurrentUser.IsActive = true;
+            fixture.CurrentUser.Version++;
+        }
+        var result = await fixture.Confirm.HandleAsync(new ConfirmCommand(new ConfirmPasswordRecoveryRequest(
+            fixture.Intent!.ChallengeId, fixture.Intent.Credential, "FullNet!2026Recovered")), CancellationToken.None);
+        Assert.IsFalse(result.IsSuccess, "账号安全状态变更或旧摘要不能继续授权恢复。");
+        Assert.AreEqual(IdentityErrorCodes.AccountChallengeInvalid, result.Error!.Code);
+        Assert.AreEqual(0, fixture.PasswordResetUsers.Count);
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow(" ")]
+    [DataRow(null)]
+    public async Task Missing_authoritative_security_stamp_creates_only_an_accepted_placeholder(string? stamp)
+    {
+        var fixture = new Fixture();
+        fixture.CurrentUser.SecurityStamp = stamp!;
+        var result = await fixture.Request.HandleAsync(new RequestCommand(
+            new RequestPasswordRecoveryRequest("owner@example.test")), CancellationToken.None);
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNull(fixture.Challenge);
+        Assert.IsNull(fixture.Intent);
+    }
+
     private sealed class Fixture
     {
         private readonly DateTimeOffset now = new(2026, 10, 6, 0, 0, 0, TimeSpan.Zero);

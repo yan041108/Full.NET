@@ -1,3 +1,4 @@
+using System.Net.Mail;
 using System.Security.Cryptography;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
@@ -28,11 +29,12 @@ internal sealed partial class AccountChallengeService(
         IdentityAccountChallengePurpose purpose,
         string email,
         CancellationToken cancellationToken = default,
-        Guid? recoveryUserId = null)
+        Guid? recoveryUserId = null,
+        string? recoverySecurityStamp = null)
     {
         // 恢复目标必须来自 Identity 的权威账号读取；缺失绑定时不创建任何真实凭据。
         if (purpose == IdentityAccountChallengePurpose.PasswordRecovery
-            && recoveryUserId.GetValueOrDefault() == Guid.Empty)
+            && (recoveryUserId.GetValueOrDefault() == Guid.Empty || string.IsNullOrWhiteSpace(recoverySecurityStamp)))
         {
             return Result<AccountChallengeAcceptedResponse>.Failure(InvalidChallenge());
         }
@@ -65,7 +67,7 @@ internal sealed partial class AccountChallengeService(
                             ("Purpose", (byte)purpose),
                             ("NormalizedEmail", normalizedEmail),
                             ("CredentialHash", purpose == IdentityAccountChallengePurpose.PasswordRecovery
-                                ? AccountChallengeCredentialHasher.HashPasswordRecovery(challengeId, recoveryUserId!.Value, code)
+                                ? AccountChallengeCredentialHasher.HashPasswordRecovery(challengeId, recoveryUserId!.Value, recoverySecurityStamp!, code)
                                 : AccountChallengeCredentialHasher.Hash(challengeId, code)),
                             ("ExpiresAtUtc", expiresAtUtc),
                             ("MaxAttempts", DefaultMaxAttempts),
@@ -157,9 +159,10 @@ internal sealed partial class AccountChallengeService(
         string email,
         string credential,
         CancellationToken cancellationToken = default,
-        Guid? recoveryUserId = null)
+        Guid? recoveryUserId = null,
+        string? recoverySecurityStamp = null)
     {
-        var validated = await ValidateCredentialAsync(challengeId, purpose, email, credential, cancellationToken, recoveryUserId)
+        var validated = await ValidateCredentialAsync(challengeId, purpose, email, credential, cancellationToken, recoveryUserId, recoverySecurityStamp)
             .ConfigureAwait(false);
         if (!validated.IsSuccess)
         {
@@ -188,6 +191,7 @@ internal sealed partial class AccountChallengeService(
     /// <param name="credential">本次提交的一次性凭据，仅用于摘要比较。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <param name="recoveryUserId">恢复用途必须提供权威账号标识；其他用途沿用原摘要。</param>
+    /// <param name="recoverySecurityStamp">恢复用途提供同次权威读取的安全戳，不能信任请求正文。</param>
     /// <returns>校验结果；成功不代表挑战已消费。</returns>
     public async Task<Result<bool>> ValidateAsync(
         Guid challengeId,
@@ -195,9 +199,10 @@ internal sealed partial class AccountChallengeService(
         string email,
         string credential,
         CancellationToken cancellationToken = default,
-        Guid? recoveryUserId = null)
+        Guid? recoveryUserId = null,
+        string? recoverySecurityStamp = null)
     {
-        var validated = await ValidateCredentialAsync(challengeId, purpose, email, credential, cancellationToken, recoveryUserId)
+        var validated = await ValidateCredentialAsync(challengeId, purpose, email, credential, cancellationToken, recoveryUserId, recoverySecurityStamp)
             .ConfigureAwait(false);
         return validated.IsSuccess ? Result<bool>.Success(true) : Result<bool>.Failure(validated.Error!);
     }
@@ -208,10 +213,11 @@ internal sealed partial class AccountChallengeService(
         string email,
         string credential,
         CancellationToken cancellationToken,
-        Guid? recoveryUserId)
+        Guid? recoveryUserId,
+        string? recoverySecurityStamp)
     {
         if (purpose == IdentityAccountChallengePurpose.PasswordRecovery
-            && recoveryUserId.GetValueOrDefault() == Guid.Empty)
+            && (recoveryUserId.GetValueOrDefault() == Guid.Empty || string.IsNullOrWhiteSpace(recoverySecurityStamp)))
         {
             return Result<AccountChallengeRecord>.Failure(InvalidChallenge());
         }
@@ -244,9 +250,9 @@ internal sealed partial class AccountChallengeService(
             return Result<AccountChallengeRecord>.Failure(AttemptsExceeded());
         }
 
-        // 不回退旧恢复摘要：旧格式无法证明原账号归属，必须重新申请；注册摘要保持兼容。
+        // 不回退旧恢复摘要：旧格式缺少账号或安全戳绑定，必须重新申请；注册摘要保持兼容。
         var credentialHash = purpose == IdentityAccountChallengePurpose.PasswordRecovery
-            ? AccountChallengeCredentialHasher.HashPasswordRecovery(challengeId, recoveryUserId!.Value, credential)
+            ? AccountChallengeCredentialHasher.HashPasswordRecovery(challengeId, recoveryUserId!.Value, recoverySecurityStamp!, credential)
             : AccountChallengeCredentialHasher.Hash(challengeId, credential);
         if (!string.Equals(record.CredentialHash, credentialHash, StringComparison.Ordinal))
         {
@@ -263,13 +269,16 @@ internal sealed partial class AccountChallengeService(
 
     internal static string? NormalizeEmail(string? email)
     {
-        if (string.IsNullOrWhiteSpace(email))
+        if (string.IsNullOrWhiteSpace(email) || email.Any(char.IsControl))
         {
             return null;
         }
 
         var normalized = email.Trim().ToLowerInvariant();
-        return normalized.Contains('@', StringComparison.Ordinal) ? normalized : null;
+        // 保持已有大小写规范化，只接受裸的单个地址；拒绝显示名、注释及批量收件人。
+        return MailAddress.TryCreate(normalized, out var address)
+            && string.Equals(address.Address, normalized, StringComparison.Ordinal)
+            ? normalized : null;
     }
 
     private static string GenerateCode()

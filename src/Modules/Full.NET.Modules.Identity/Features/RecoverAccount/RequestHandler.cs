@@ -35,7 +35,8 @@ internal sealed class RequestHandler(
                 IdentityAccountChallengePurpose.PasswordRecovery,
             normalizedEmail,
             cancellationToken,
-            recoveryUserId: user.Id)
+            recoveryUserId: user.Id,
+                recoverySecurityStamp: user.SecurityStamp)
             .ConfigureAwait(false);
         return created.IsSuccess
             ? created

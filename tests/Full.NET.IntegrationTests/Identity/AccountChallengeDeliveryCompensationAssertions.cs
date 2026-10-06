@@ -40,7 +40,7 @@ internal static class AccountChallengeDeliveryCompensationAssertions
                 gate.ObserveCallerCancellation = !outcome.StartsWith("canceled-", StringComparison.Ordinal);
                 using var cancellation = new CancellationTokenSource();
                 // 旧请求提交后暂停外部投递，新请求在独立作用域提交并成功投递，再释放旧失败。
-                var pending = firstService.CreateAndDeliverAsync(purpose, email.ToUpperInvariant(), cancellation.Token, RecoveryUserId);
+                var pending = firstService.CreateAndDeliverAsync(purpose, email.ToUpperInvariant(), cancellation.Token, RecoveryUserId, "trusted-test-stamp");
                 Result<AccountChallengeAcceptedResponse>? failed = null;
                 var cancellationExpected = outcome.Contains("cancel", StringComparison.Ordinal);
                 Exception? cancellationError = null;
@@ -49,7 +49,7 @@ internal static class AccountChallengeDeliveryCompensationAssertions
                 try
                 {
                     oldIntent = await gate.Sent.Task.WaitAsync(TimeSpan.FromSeconds(30));
-                    var replacement = await secondService.CreateAndDeliverAsync(purpose, email, recoveryUserId: RecoveryUserId);
+                    var replacement = await secondService.CreateAndDeliverAsync(purpose, email, recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
                     Assert.IsTrue(replacement.IsSuccess);
                     newIntent = delivery.LastIntent;
                     Assert.IsNotNull(newIntent);
@@ -85,16 +85,16 @@ internal static class AccountChallengeDeliveryCompensationAssertions
                 Assert.AreEqual(1, current.Version);
                 Assert.AreNotEqual(newIntent.Credential, current.CredentialHash);
 
-                var old = await firstService.ConsumeAsync(oldIntent!.ChallengeId, purpose, email, oldIntent.Credential, recoveryUserId: RecoveryUserId);
+                var old = await firstService.ConsumeAsync(oldIntent!.ChallengeId, purpose, email, oldIntent.Credential, recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
                 Assert.IsFalse(old.IsSuccess);
                 var wrongPurpose = purpose == IdentityAccountChallengePurpose.PasswordRecovery
                     ? IdentityAccountChallengePurpose.RegistrationEmailVerification
                     : IdentityAccountChallengePurpose.PasswordRecovery;
-                var wrong = await secondService.ConsumeAsync(newIntent.ChallengeId, wrongPurpose, email, newIntent.Credential, recoveryUserId: RecoveryUserId);
+                var wrong = await secondService.ConsumeAsync(newIntent.ChallengeId, wrongPurpose, email, newIntent.Credential, recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
                 Assert.IsFalse(wrong.IsSuccess);
-                var accepted = await secondService.ConsumeAsync(newIntent.ChallengeId, purpose, email, newIntent.Credential, recoveryUserId: RecoveryUserId);
+                var accepted = await secondService.ConsumeAsync(newIntent.ChallengeId, purpose, email, newIntent.Credential, recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
                 Assert.IsTrue(accepted.IsSuccess, "成功重发的新挑战应可消费一次。");
-                var replay = await secondService.ConsumeAsync(newIntent.ChallengeId, purpose, email, newIntent.Credential, recoveryUserId: RecoveryUserId);
+                var replay = await secondService.ConsumeAsync(newIntent.ChallengeId, purpose, email, newIntent.Credential, recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
                 Assert.IsFalse(replay.IsSuccess);
 
                 // 无重发时失败挑战仍活跃，验证补偿实际更新一行，而非仅验证迟到失败的零行路径。
@@ -102,7 +102,7 @@ internal static class AccountChallengeDeliveryCompensationAssertions
                 standaloneGate.ObserveCallerCancellation = gate.ObserveCallerCancellation;
                 using var standaloneCancellation = new CancellationTokenSource();
                 var standaloneEmail = $"failed-{Guid.NewGuid():N}@example.test";
-                var standalone = firstService.CreateAndDeliverAsync(purpose, standaloneEmail, standaloneCancellation.Token, RecoveryUserId);
+                var standalone = firstService.CreateAndDeliverAsync(purpose, standaloneEmail, standaloneCancellation.Token, RecoveryUserId, "trusted-test-stamp");
                 IdentityChallengeDeliveryIntent? failedIntent = null;
                 Exception? standaloneCancellationError = null;
                 try
@@ -135,7 +135,7 @@ internal static class AccountChallengeDeliveryCompensationAssertions
                 Assert.IsNotNull(compensated);
                 Assert.IsNotNull(compensated.ConsumedAtUtc);
                 Assert.AreEqual(2, compensated.Version);
-                var rejected = await firstService.ConsumeAsync(failedIntent.ChallengeId, purpose, standaloneEmail, failedIntent.Credential, recoveryUserId: RecoveryUserId);
+                var rejected = await firstService.ConsumeAsync(failedIntent.ChallengeId, purpose, standaloneEmail, failedIntent.Credential, recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
                 Assert.IsFalse(rejected.IsSuccess);
             }
         }

@@ -69,7 +69,8 @@ internal sealed class ConfirmHandler(
                 challenge.NormalizedEmail,
                 command.Request.ChallengeCode,
                 cancellationToken,
-                recoveryUserId: user.Id)
+                recoveryUserId: user.Id,
+                recoverySecurityStamp: user.SecurityStamp)
             .ConfigureAwait(false);
         if (!consumed.IsSuccess)
         {

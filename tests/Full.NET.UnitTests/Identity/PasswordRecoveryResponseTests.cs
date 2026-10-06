@@ -75,6 +75,7 @@ public sealed class PasswordRecoveryResponseTests
             {
                 Id = Guid.CreateVersion7(),
                 IsActive = scenario != "inactive",
+                SecurityStamp = "trusted-test-stamp",
             };
             query.QuerySingleOrDefaultAsync<IdentityUserRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(user));

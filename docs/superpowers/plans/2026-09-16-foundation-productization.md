@@ -750,6 +750,20 @@ Windows x64 / i7-12700H /63.75GiB /SDK10.0.401 /Node24.12.0 /pnpm10.26.0 /Docker
 
 父提交8b11ea11f8ff7f4487146c818c2c38121cfee2c8的三项Actions于2026-10-06T18:05:15.744Z核对均completed/success：[worker-native-aot-linux](https://github.com/yan041108/Full.NET/actions/runs/37503877419)、[api-native-aot-linux](https://github.com/yan041108/Full.NET/actions/runs/37503877329)、[ci](https://github.com/yan041108/Full.NET/actions/runs/37503877360)。证据只属于父提交；本轮按推送后的自身SHA单独读取。
 
+**2026-10-07 F03 账号挑战生命周期批量收口（局部完成，六项里程碑条件继续待办）。**
+
+基线f79fdc86b95baf39907091137dfb9bbc235502bd，快照f03-account-lifecycle-batch-20261007。按同一能力链一次实现三项：改密/安全戳轮换后旧恢复码失效，禁用再启用不复活旧码，挑战只接受规范化的单个邮箱地址。恢复摘要升级v2，同时绑定ChallengeId、权威UserId及带长度前缀的签发安全戳；Request/Confirm使用同次权威账号读取，不接受客户端提供绑定。缺失安全戳不创建真实凭据，匿名请求保持占位受理；旧无绑定或仅账号绑定的恢复码均须重新申请，不回退。原版本CAS继续保护读取后的并发变更。注册/邀请摘要保持原格式；没有迁移、公开DTO字段、错误码或依赖变化。
+
+邮箱先拒绝控制字符，再以MailAddress.TryCreate解析并精确比较裸Address，拒绝显示名、注释及多收件人；保留合法地址的小写和外部空格规范化。新增19项Unit：有效基线RED实际17失败/2合法控制通过、零跳过，生产源码摘要与基线一致。首次新测试缺命名空间引用的编译失败另行保留，不计为RED。完整Identity首轮509通过/10失败，原因是旧取消夹具的位置参数遗漏可信安全戳；补齐全部命名/位置调用后，生产实现未改变，完整519/519、零失败/跳过、Release零警告/错误。
+
+双库各新增一个批量入口，每个通过真实管理员重置、自助改密、禁用/启用三个业务接口，验证旧码返回既有无效错误、账号安全状态不变、未成功消费、错误次数持久化、新码消费一次与重放拒绝。自助改密直接登录并显式附加Origin、Cookie及CSRF，避免登录辅助暗中改密；独立只读复审发现并关闭该夹具问题，未改文件或执行测试。原并发验收同时核对回滚及旧戳凭据不能因重新读取复活，重新申请才可继续。
+
+实际批量验收：pnpm test:dotnet:unit -- --filter FullyQualifiedName~Full.NET.UnitTests.Identity. --minimum-expected-tests 519 为519/519；pnpm test:dotnet:architecture -- --selection api-native-aot 为73/73；pnpm test:aot:analyzers 零警告/错误。pnpm test:slice -- --snapshot f03-account-lifecycle-batch-20261007 按原Identity及integration-matrix选择179唯一UID，但Docker/WSL引擎崩溃使其终态exit1，原始180记录128通过/52失败（51唯一失败及1重复清理失败）。日志报ERROR_NETNAME_DELETED，正常启动/重启卡在退出阶段；仅在引擎stopped且Quit RPC已确认时按已核实路径、PID与创建时间清理故障Desktop进程，引擎恢复running，项目进程未停止。冻结16源码及Integration/Identity/Host.Api程序集摘要保持；直接运行同一DLL，补验原51唯一失败UID实际51/51、exit0、零失败/跳过。128原有效通过与51补验通过按UID恰好覆盖原179，无遗漏/重复，不声称单次完整slice全绿。工具65/65、治理57/57。1132仅完整互斥Integration分片发现，不称全量执行。矩阵只增加实际19个Unit及2个Integration，四处最低发现数对应增加，未改选择器、超时或降低门槛。未重复运行定向Integration或Windows全跳过的Native套件，不将省略项当作通过。
+
+冻结16项源码/测试/矩阵摘要、实际命令/退出码、日志摘要与新鲜TRX按UID和启动时间核对，见.tmp/f03-lifecycle-source.json、-red-verified.json、-unit-verified.json、-verify.json、-evidence.json、-identity-docker-failed.trx、-retry-accepted.trx、-retry-manifest.json、-review.json；red-bootstrap-failed、unit-fixture-failed及slice-docker-failed原记录/日志摘要与明确归档路径均保留。Windows x64/i7-12700H/63.75GiB/SDK10.0.401/Node24.12.0/pnpm10.26.0/Docker29.6.2；本批有效RED及Green采用进程级DOTNET_PROCESSOR_COUNT=2、Unit/Architecture/Integration Workers=2，套件串行、容器复用关闭，未改全局配置。首轮仅编译失败使用原单核预算，不作为行为证据。
+
+本批解决凭据随账号安全状态变化失效及单收件人输入边界；持久化失败/未知送达与对账、受控真实SMTP和完整耗时防枚举仍待办。没有执行当前独立生成应用全链路、全量Unit/Integration或本地Linux原生运行；F03六项、F04、AOT/Provider整体结论与Capacity-not-verified保持。PR仍Draft，未合并、未发布。父提交f79fdc86的主CI37522878797、API Native37522878657、Worker Native37522878646均终态success（.tmp/f03-lifecycle-parent-actions.json）；本轮推送后按自身精确SHA读取，不相互替代。
+
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。

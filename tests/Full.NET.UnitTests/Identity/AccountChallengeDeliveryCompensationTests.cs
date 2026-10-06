@@ -26,11 +26,11 @@ public sealed class AccountChallengeDeliveryCompensationTests
         IdentityAccountChallengePurpose purpose)
     {
         var fixture = new Fixture();
-        var first = fixture.Service.CreateAndDeliverAsync(purpose, " User@Example.test ", recoveryUserId: RecoveryUserId);
+        var first = fixture.Service.CreateAndDeliverAsync(purpose, " User@Example.test ", recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
         await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
         try
         {
-            var second = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId);
+            var second = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
             Assert.IsTrue(second.IsSuccess);
             Assert.AreNotEqual(fixture.Intents[0].ChallengeId, second.Value!.ChallengeId);
         }
@@ -58,7 +58,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
     {
         var fixture = new Fixture { CompensationAffectedRows = affectedRows };
         fixture.FirstDelivery.SetResult(Failure());
-        var result = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId);
+        var result = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(IdentityErrorCodes.AccountChallengeDeliveryFailed, result.Error!.Code);
         AssertFailedRequestScope(fixture);
@@ -74,7 +74,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
     {
         var fixture = new Fixture();
         fixture.FirstDelivery.SetResult(Result<bool>.Success(true));
-        var result = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId);
+        var result = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(fixture.Intents[0].ChallengeId, result.Value!.ChallengeId);
         Assert.AreEqual(2, fixture.Writes.Count);
@@ -100,7 +100,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
             ? new OperationCanceledException("sensitive-delivery-detail")
             : new IOException("sensitive-delivery-detail"));
 
-        var result = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId);
+        var result = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(IdentityErrorCodes.AccountChallengeDeliveryFailed, result.Error!.Code);
         Assert.IsFalse(result.Error.Message.Contains("sensitive-delivery-detail", StringComparison.Ordinal));
@@ -128,11 +128,11 @@ public sealed class AccountChallengeDeliveryCompensationTests
         IdentityAccountChallengePurpose purpose)
     {
         var fixture = new Fixture();
-        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId);
+        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
         await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
         try
         {
-            var replacement = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId);
+            var replacement = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
             Assert.IsTrue(replacement.IsSuccess);
             Assert.AreEqual(fixture.Intents[1].ChallengeId, replacement.Value!.ChallengeId);
         }
@@ -154,7 +154,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
     {
         var fixture = new Fixture();
         using var cancellation = new CancellationTokenSource();
-        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId);
+        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId, "trusted-test-stamp");
         await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();
         fixture.FirstDelivery.SetException(new OperationCanceledException(cancellation.Token));
@@ -178,7 +178,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
     {
         var fixture = new Fixture();
         using var cancellation = new CancellationTokenSource();
-        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId);
+        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId, "trusted-test-stamp");
         await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();
         fixture.FirstDelivery.SetResult(failedResult ? Failure() : Result<bool>.Success(false));
@@ -198,7 +198,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
     {
         var fixture = new Fixture();
         using var cancellation = new CancellationTokenSource();
-        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId);
+        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId, "trusted-test-stamp");
         await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();
         fixture.FirstDelivery.SetResult(Result<bool>.Success(true));
@@ -215,7 +215,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
     {
         var fixture = new Fixture { CompensationException = new IOException("sensitive-compensation-detail") };
         using var cancellation = new CancellationTokenSource();
-        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId);
+        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId, "trusted-test-stamp");
         await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();
         var original = new OperationCanceledException("sensitive-delivery-detail", cancellation.Token);
@@ -231,7 +231,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
         var fixture = new Fixture { StallCompensation = true };
         using var cancellation = new CancellationTokenSource();
         var pending = fixture.Service.CreateAndDeliverAsync(IdentityAccountChallengePurpose.PasswordRecovery,
-            "user@example.test", cancellation.Token, RecoveryUserId);
+            "user@example.test", cancellation.Token, RecoveryUserId, "trusted-test-stamp");
         await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();
         var original = new OperationCanceledException(cancellation.Token);
@@ -251,12 +251,12 @@ public sealed class AccountChallengeDeliveryCompensationTests
     {
         var fixture = new Fixture();
         using var cancellation = new CancellationTokenSource();
-        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId);
+        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId, "trusted-test-stamp");
         await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
         try
         {
             Assert.IsTrue((await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test",
-                recoveryUserId: RecoveryUserId)).IsSuccess);
+                recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp")).IsSuccess);
         }
         finally
         {
@@ -280,7 +280,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.Service.CreateAndDeliverAsync(
-            purpose, "user@example.test", cancellation.Token, RecoveryUserId));
+            purpose, "user@example.test", cancellation.Token, RecoveryUserId, "trusted-test-stamp"));
         Assert.AreEqual(0, fixture.Writes.Count);
         Assert.AreEqual(0, fixture.Intents.Count);
         Assert.AreEqual(0, fixture.Logger.Messages.Count);
@@ -293,7 +293,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
         var fixture = new Fixture { CompensationException = original };
         fixture.FirstDelivery.SetResult(Failure());
         Assert.AreSame(original, await Assert.ThrowsExactlyAsync<IOException>(() => fixture.Service.CreateAndDeliverAsync(
-            IdentityAccountChallengePurpose.PasswordRecovery, "user@example.test", recoveryUserId: RecoveryUserId)));
+            IdentityAccountChallengePurpose.PasswordRecovery, "user@example.test", recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp")));
         AssertCleanupDiagnostic(fixture, IdentityAccountChallengePurpose.PasswordRecovery);
     }
 
@@ -312,7 +312,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
     {
         var fixture = new Fixture { CompensationException = new IOException("sensitive-compensation-detail") };
         using var cancellation = new CancellationTokenSource();
-        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId);
+        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId, "trusted-test-stamp");
         await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();
         fixture.FirstDelivery.SetResult(Failure());
@@ -331,7 +331,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
     {
         var fixture = new Fixture();
         using var cancellation = new CancellationTokenSource();
-        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId);
+        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId, "trusted-test-stamp");
         await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();
         fixture.FirstDelivery.SetException(new IOException("sensitive-delivery-detail"));

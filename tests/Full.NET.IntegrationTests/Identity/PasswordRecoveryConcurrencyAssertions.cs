@@ -87,14 +87,21 @@ internal static class PasswordRecoveryConcurrencyAssertions
             Assert.AreEqual(0, auditCount, "回滚事务不能留下改密成功审计。");
         }
 
-        // 新请求重新读取权威版本；被回滚的凭据仍可按既有规则消费一次，并拒绝重放。
+        // 并发改密也更换安全戳，旧凭据不能因重新读取而复活；重新申请后仍可一次消费。
         using var retried = await client.PostAsJsonAsync("/api/v1/auth/recover-password/confirm", confirm.Request);
-        Assert.AreEqual(HttpStatusCode.NoContent, retried.StatusCode);
+        Assert.AreEqual(HttpStatusCode.BadRequest, retried.StatusCode);
+        using var renewed = await client.PostAsJsonAsync("/api/v1/auth/recover-password", new RequestPasswordRecoveryRequest(email));
+        Assert.AreEqual(HttpStatusCode.OK, renewed.StatusCode);
+        var fresh = delivery.LastIntent!;
+        Assert.AreNotEqual(intent.ChallengeId, fresh.ChallengeId);
+        var freshRequest = new ConfirmPasswordRecoveryRequest(fresh.ChallengeId, fresh.Credential, "FullNet!2026Recovered");
+        using var confirmed = await client.PostAsJsonAsync("/api/v1/auth/recover-password/confirm", freshRequest);
+        Assert.AreEqual(HttpStatusCode.NoContent, confirmed.StatusCode);
         after = await ReadUserAsync();
         Assert.AreNotEqual(changed.PasswordHash, after.PasswordHash);
         Assert.AreNotEqual(changed.SecurityStamp, after.SecurityStamp);
         Assert.AreEqual(changed.Version + 1, after.Version);
-        using var replay = await client.PostAsJsonAsync("/api/v1/auth/recover-password/confirm", confirm.Request);
+        using var replay = await client.PostAsJsonAsync("/api/v1/auth/recover-password/confirm", freshRequest);
         Assert.AreEqual(HttpStatusCode.BadRequest, replay.StatusCode);
 
         async Task<IdentityUserRecord> ReadUserAsync()
