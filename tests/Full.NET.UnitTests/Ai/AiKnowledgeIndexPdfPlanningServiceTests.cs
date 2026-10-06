@@ -21,7 +21,7 @@ namespace Full.NET.UnitTests.Ai;
 
 /// <summary>使用真实来源读取和子进程桥，等待期间的旧授权不能交付完整规划。</summary>
 [TestClass]
-public sealed class AiKnowledgeIndexPdfPlanningServiceTests
+public sealed partial class AiKnowledgeIndexPdfPlanningServiceTests
 {
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public async Task Owned_files_source_produces_a_complete_page_plan_and_closes_stream(bool scoped)
@@ -540,7 +540,7 @@ public sealed class AiKnowledgeIndexPdfPlanningServiceTests
         internal Func<CancellationToken, Task>? BeforeModelAsync, BeforeAuthorizeAsync, BeforeReferenceAsync;
         internal TaskCompletionSource<Result<HostFileContent>>? OpenGate;
 
-        internal Fixture(bool scoped, bool hold = false, bool malformed = false, int workTimeout = 25000)
+        internal Fixture(bool scoped, bool hold = false, bool malformed = false, int workTimeout = 25000, int pageCount = 2)
         {
             Factory = new(Generator);
             TenantId = scoped ? Guid.CreateVersion7() : null; var tenant = Tenant;
@@ -595,6 +595,9 @@ public sealed class AiKnowledgeIndexPdfPlanningServiceTests
             Assert.IsNotNull(node, "测试依赖真实 Node 子进程，不允许跳过");
             var script = Path.Combine(Folder, "cli.mjs");
             File.WriteAllText(script, Script.Replace("HOLD", hold ? "true" : "false", StringComparison.Ordinal).Replace("MALFORMED", malformed ? "true" : "false", StringComparison.Ordinal), new UTF8Encoding(false));
+            if (pageCount > 2) File.WriteAllText(script, File.ReadAllText(script).Replace(
+                "pages:[{pageNumber:1,text:'第一页完整内容 hello PDF'},{pageNumber:2,text:'第二页独立内容 world PDF'}]",
+                "pages:Array.from({length:" + pageCount + "},(_,i)=>({pageNumber:i+1,text:'分页完整内容 hello PDF'}))", StringComparison.Ordinal), new UTF8Encoding(false));
             Service = new(Query, tenant, State, tasks, sessions, auth, references, host, files,
                 new(node, script, "sha256:" + new string('a', 64), 10000), workTimeout);
         }

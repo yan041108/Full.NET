@@ -1645,3 +1645,19 @@ pnpm test:aot:worker:analyzers
 - `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-planning-r05e8b2b --phase slice` 最终退出 0，正式双库 AI 82/82（34m 08s 447ms），零失败/跳过。两项成功用例的超长诊断文本按 TRX 字段上限截断，用例身份与结果完整。`verify.mjs` 核对 1122 项最终输入未变、AI Unit 1673 与 Integration 82 的精确 UID/FQN；原始发现、控制台、TRX、SHA 与中止记录均保留。
 - 命名 33/33、SQL 安全 5/5；正式影响集工具链 65/65、治理 57/57，Integration 分片 1194 项无遗漏/重复。Windows x64、i7-12700H、约 64 GB、SDK 10.0.401；Linux SDK 10.0.400、Docker 29.6.2、SQL Server 2022-CU14 / MySQL 8.0。测试进程 2 个处理器、GC 堆 2 GiB，容器不复用；原生测试 SDK 容器各限 2 CPU/8 GiB。
 - 收尾：整批 main 提交。后续集中推进 PDF 完整代次执行与激活，再接入公开 PDF 入队及 Worker；本批不宣告公开 PDF ready 或完整 RAG Verified，容量保持 Capacity-not-verified。
+
+### 2026-10-07：PDF 完整代次执行、原子激活与完成恢复（本地批量验收完成）
+
+- 用户继续要求批量推进；main 基线 `330c05538d88689377515985e09118db86b6ffaf`，任务快照 `ai-knowledge-pdf-generation-r05e8e`。同批交付完整代次执行、原子激活、原完成租约恢复及不合作权威端口的取消边界，不为每项重复全量验收。
+- [x] 完整消费者从原冻结会话续租，冻结数据库完整 PDF 清单，按序执行所有批次并复核清单；总派发期限 15 分钟、单阶段 25 秒。完整已存批次直接恢复，缺失操作沿既有预留、派发、结算及持久化路径处理，不免费重发。
+- [x] 新私有 PDF Activation Store 在 AI 自有短事务内重查权威来源、原会话、实际清单及每批实际向量 SHA/编码、完整模型目的地与请求指纹、成功已结算账本和原始批次数；逐批读取而不累计整代次向量。任务完成与活动指针一起提交，第二次写入失败、到期或取消须回滚任务完成态。
+- [x] 完成任务仅允许原指针租约恢复；重新验证五项精确权限、当前来源/分类/模型地址/组织、实际载荷与已结算账本，不重新调用模型或收费。恢复证据不代替公开 ready 或后续读取授权。
+- [x] 只读审查发现权限 Port 忽略取消时直接等待没有上限，已补独立 IO 令牌、同步阻塞隔离、工作等待与最多 5 秒迟到清理；未确认清理即拒绝，迟到异常被观察。仅包裹权威读取及原会话续租，不放弃计费操作、向量写入或激活写事务；复审无剩余 P1/P2。
+- 行为 RED：初始组合 39 项中 21 项按缺失能力失败、18 项通过；不合作异步授权 3 项复现超出取消边界。同步阻塞的旧实现导致两次自有运行中止，保留中止状态，不计为通过。编译错误不计行为 RED。修复后组合 39/39、聚焦 170/170；取消回归允许已确认取消和未确认清理两种受控拒绝，超过外部 8 秒边界仍失败。
+- Host/Tenant 的受控 17 页、两批执行组合实际调用规划、预算、付费消费者、持久化与激活；验证两次预留/成功结算、完成重放零新收费及第二批撤权/取消/非法向量时保留已付首批而不激活。解析进程输出和供应商受控，不表示真实云模型调用。
+- 最终默认 Unit 构建零警告/错误（1m 49s）；`node artifacts/r05e8e/run-ai-local.mjs` 使用官方完整 AI 选择、4 个 Worker，1723/1723、零失败/跳过（54s 373ms）。首次 AI 回归 1720 通过/3 失败保留原日志；收敛构建竞争并修正取消测试对受控异常类型的过窄断言后重跑完整集合。实际发现 Unit 5192、AI 1723，矩阵仅同步两个数量。
+- AI 架构 `ai-agentic-boundaries` 7/7、Native AOT 架构 `api-native-aot` 73/73；命名 33/33、SQL 安全 5/5、治理 57/57、工具链独立检查 54/54。Integration 分片 1194 项无遗漏/重复；正式影响集前置工具链 65/65、治理 57/57 通过。
+- [x] `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-generation-r05e8e --phase slice` 保持 SQL Server/MySQL 完整 82 项选择。首次误用可复用容器，遇到共享模板数据库冲突及 SQL Server 容器消失，停止本任务运行，未计通过；改为 `FULLNET_TESTCONTAINERS_REUSE=0` 独立容器重跑，最终退出 0，82/82、零失败/跳过（36m 40s 971ms）。真实双库追加原子回滚、完整消费者恢复、完成原租约恢复、撤权及实际载荷/同版本模型/结算证据漂移拒绝，费用账本不变。
+- `node artifacts/r05e8e/verify-acceptance.mjs` 核对 Integration 全部 82 UID/FQN 和结果、AI 最终 1723 项通过摘要、Unit 实际发现数量，以及 4255 项最终源码/矩阵冻结输入；正式、Unit、Integration 三处 AI DLL SHA 一致。原始失败/中止与最终成功日志、发现记录、TRX、验收清单保留于忽略目录 `artifacts/r05e8e/`。没有改动现有文本激活 SQL、行物化器、DI 或 Worker/Host 可达路径，复用上批未变闭包的原生发布/运行证据，本批未重新发布或运行 Native 宿主，不能外推私有 PDF 服务为已公开 Native 能力。
+- Windows x64、i7-12700H、约 64 GB、.NET SDK 10.0.401；双库测试 2 个处理器、GC 堆 2 GiB、容器不复用。后续集中接入 PDF 公开入队、Worker 分流及状态读取；完整 RAG 仍 Planned，容量仍 Capacity-not-verified。
+- 收尾：交付记录更新后再运行治理检查，最终差异检查通过，在 main 合并提交本批功能。
