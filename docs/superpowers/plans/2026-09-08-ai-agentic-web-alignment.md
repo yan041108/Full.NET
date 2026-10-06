@@ -1614,3 +1614,34 @@ pnpm test:aot:worker:analyzers
 - `pnpm test:naming` 33/33、`pnpm test:governance` 57/57、`pnpm test:integration:tooling` 54/54 通过；正式 affected 的工具链 65/65、治理 57/57 通过。`pnpm test:integration:partitions` 确认 1194 项无遗漏/重复，测试矩阵按实际 Unit 发现更新。Windows x64、i7-12700H、约 64 GB，SDK 10.0.401、Docker 29.6.2，SQL Server 2022-CU14 / MySQL 8.0；测试进程 2 个处理器、GC 堆 2 GiB、容器不复用。
 - 后续 R05e8b2b 接入来源权威复核与解析规划；付费派发须先冻结全清单、取得新预留，并在客户端创建、模型返回及结算等待后复核，保持未知用量与禁止免费重发。
 - 收尾：main 单独提交本切片。R05e8b2 的授权接入、全清单与付费批次派发尚未交付；完整 RAG 仍 Planned，容量仍 Capacity-not-verified。
+
+### R05e8b2b：来源权威复核与 PDF 完整解析规划（随下方批次完成）
+
+- 目标：将 R05e8b2a 的独占有界来源读取与 R05e8b1 隔离解析连接到现有 PDF 逐页分块、整份规划；不接入付费操作、Worker、公共 PDF 入队或 ready。
+- 新增 `AiKnowledgeIndexPdfPlanningService.cs` 与对应 Unit：使用当前可信租户、原冻结会话、五项精确权限、有效租约、知识库批准版本和完整模型指纹。Host 使用就绪引用及内容端口，Tenant 使用 `ai`/版本归属内容端口。
+- [x] 有效 RED：Host/Tenant 成功路径 2/2 失败于空结果；复核回归中同版本模型地址、组织与分类漂移及取消回调阻塞/抛错 7/7 失败；不合作模型查询、授权与引用端口 3/3 超出调用边界。编译错误不计为 RED。新增规划 Unit 81 项。
+- [x] 一个总计不超过 25 秒的工作期限覆盖权威读取、Files、字节校验、隔离解析和本地规划；外部端口使用私有取消令牌，异步取消回调和迟到资源独立等待最多 5 秒，未确认清理即失败。未移交的流由入口释放，移交后由 SourceReader 独占负责，字节缓存始终清零释放。每次等待后复核，返回完整计划不代表长期授权。
+- 派发读取最后一次同时绑定来源、知识库分类与完整模型目的地，覆盖版本号未变时的配置漂移；不投影凭据。共享 Dispatch 与 SQL Server/MySQL、Host/Tenant 四个 Activation 查询均补齐静态行读取字段。新增 6 项从实际 SQL SELECT 投影构造原生行读取输入的回归；有效 RED 为 4 项 Activation 缺列失败，Dispatch 2 项通过，最终规划/派发聚焦 104/104。
+- 双库现有索引集成正向场景直接读取生产派发查询，核对新增字段及同版本组织变更，再恢复种子值。只读复核最终没有剩余 Critical/Important/Minor；没有改动文本付费服务的来源比较语义，也没有扩大内部类型的动态代理可见性。
+- `pwsh -File artifacts/r05e8b2b/final.ps1` 的 Host.Api AOT 分析 17m 22s、默认 Integration 构建 13m 02s、Unit 构建 2m 08s、Architecture 构建 48s 与 Worker 构建 16s 均零警告/错误。AI Unit 1634/1634（1m 33s 527ms）、AI 架构 7/7、Native AOT 架构 73/73；Ai/Tenancy 三处副本及 Worker 74 项项目依赖一致。唯一矩阵仅按实际发现同步 Unit 5103、AI Unit 1634，未调整键顺序。
+- 官方 Linux Native AOT 发布生成 Host.Api 137502496 字节，33m 49s；17 项既有允许警告通过官方警告门禁，不将此报告为零警告发布。Windows 构建与 Linux 容器产物目录隔离。首次 Linux 测试容器因一次性源码清单漏掉企业示例而编译失败，不计通过；补齐构建输入后重跑。
+- `pwsh -File artifacts/r05e8b2b/native-probe.ps1` 真实 Files 受控来源→原会话/来源复核→既有 Native PDF 解析镜像→完整计划 3/3：非压缩/压缩两页中文 PDF、取消与来源流释放。探针夹具未初始化字段引起的编译错误先修正，不计通过。解析器/探针 Native 源码及二进制 SHA 与既有验收一致；本次未重建它们。正式 AI DLL SHA 与探针副本完全一致，未修改正式构建输入。
+- 批量统一验收见下方；复用本段未变可达路径的 AOT 分析/发布证据，不重复为每个私有辅助类发布宿主。
+- 本段保留批量推进前的规划切片证据；用户随后授权扩展为下方 b/c/d 同批实现、统一验收与提交。
+
+### 2026-10-07：R05e8b2b/c/d PDF 规划、付费派发与单批持久化（本地切片验收完成）
+
+- 用户要求加快推进、一次实现多个功能并统一测试；将规划、清单冻结、付费批次派发和单批持久化作为同批交付，完成前统一回归和提交。main 基线仍为 `8b7e2059555df7add10c8a8658339139dff97e91`，保留已有快照和验证日志，保护无关文件。
+- [x] 在规划入口增加不重新读取正文的当前模型复核，绑定原会话、来源、分类和完整目的地；Host/Tenant 正向 RED 2 项失败，拒绝场景 5 项通过，实现后 7/7。
+- [x] 内部 PDF 执行器先冻结完整清单再取得新预算预留；客户端创建、模型返回和结算等待后复核。进入可能计费调用前确定零用量，进入后异常保留未知用量；不自动重试或换模型。
+- [x] 连接已批准的 PDF 单批向量存储，完整已存批次恢复不收费；缺失或未知操作禁止免费重发。7 项恢复/落库 RED 全部因占位能力失败；实现后使用真实清单与向量 Store 组合验证。双库现有 PDF 场景追加新消费者直接恢复与账本费用不变断言。保持全量证明与公共 ready 的后续边界。
+- [x] 开发期间仅执行聚焦测试；统一核对完整 AI Unit、实际影响双库及已有 Native 可达路径证据，在 main 提交整批。先前正式双库影响集受运行时限中止，71 项通过但不计完整验收；重跑保持官方选择和预算。
+- 私有 `AiKnowledgeIndexPdfEmbeddingService` / `AiKnowledgeIndexPdfPersistenceService` 不增加 DI、公开 PDF 入队、Worker 或 ready。每次只派发一个批次，先持久完整 PDF 清单，再使用稳定操作 ID 新预留预算；向量需成功结算后才能进入既有短事务，最后重读原载荷的操作与计划摘要。
+- Provider 工厂、生成和释放共用独立 IO 生命周期；工作等待 25 秒、有界迟到清理 5 秒，无法确认清理即拒绝交付。结算使用独立 5 秒等待，不把迟到任务当作已停止。只读审查发现无界等待和计量闭包竞态，修正为锁保护的零/未知/已知收费回执，结算前冻结，迟到工作不能改写回执或开始计费。工厂/生成/释放超时回归有效 RED 为 2 失败/1 通过，最终复审无剩余 P1/P2。
+- 聚焦 120/120，完整 AI Unit 1673/1673（1m 37s 550ms），AI 架构 7/7、Native AOT 架构 73/73；默认 Integration、Architecture 与 Worker 构建均零警告/错误。实际发现 Unit 5142、AI 1673，唯一矩阵仅修改数量。Ai/Tenancy 三处 DLL 及 Worker 74 项 JIT 依赖一致，冻结 1122 项最终源码、矩阵和运行输入。
+- 最终 AI DLL `15FDC1A8DE47639DF0768D4E4978EC8493FD2011084E1BC5EB16A945CDDE09C0` 的真实受控 Files→来源/原会话复核→原生 PDF 隔离镜像→完整计划探针 3/3。一次性探针生成器提取新增嵌套测试类后的可见性编译错误已修正，未计为行为 RED 或通过。未访问云模型；完整 RAG 仍 Planned，容量仍 Capacity-not-verified。
+- Native 可达范围：共享静态派发/激活投影与现有宿主闭包；三个新增 PDF 私有服务只互相引用，未注册或接入宿主。四项投影源码与 Linux 验收克隆逐项 SHA 一致。官方 Worker 原生发布 88656200 字节，13m 20s，15 项允许警告通过既有门禁；API 发布的 17 项允许警告同上。不将私有 PDF 派发的 JIT 证明外推为已公开的 Native 能力。
+- 原生运行最终精确集合 27 项：API 10/10（27m 37s）、Worker SQL Server 8/8（13m 38s），另 Worker MySQL/Kafka 9/9 来自原中止运行的完整结果记录。为避免重复 SQL Server 运行，中止首次 Worker 全集；控制台为 Aborted、10 成功/0 失败/0 跳过，没有最终 TRX，保留原状态。按已安装 TRX 扩展 2.3.2 对应官方提交 `c3fdb81b8a5584664d82f4bcec6577f6d918b5fe` 的长度前缀序列化格式，严格校验原二进制日志完整帧、Passed 状态及 UID/FQN，取其中 9 项 MySQL/Kafka，SQL Server 使用独立完整 TRX。汇总精确覆盖原 27 UID，所有已选结果均通过，原生二进制 SHA 与正式发布一致；不生成或伪造中止运行的全绿 TRX。
+- `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-planning-r05e8b2b --phase slice` 最终退出 0，正式双库 AI 82/82（34m 08s 447ms），零失败/跳过。两项成功用例的超长诊断文本按 TRX 字段上限截断，用例身份与结果完整。`verify.mjs` 核对 1122 项最终输入未变、AI Unit 1673 与 Integration 82 的精确 UID/FQN；原始发现、控制台、TRX、SHA 与中止记录均保留。
+- 命名 33/33、SQL 安全 5/5；正式影响集工具链 65/65、治理 57/57，Integration 分片 1194 项无遗漏/重复。Windows x64、i7-12700H、约 64 GB、SDK 10.0.401；Linux SDK 10.0.400、Docker 29.6.2、SQL Server 2022-CU14 / MySQL 8.0。测试进程 2 个处理器、GC 堆 2 GiB，容器不复用；原生测试 SDK 容器各限 2 CPU/8 GiB。
+- 收尾：整批 main 提交。后续集中推进 PDF 完整代次执行与激活，再接入公开 PDF 入队及 Worker；本批不宣告公开 PDF ready 或完整 RAG Verified，容量保持 Capacity-not-verified。

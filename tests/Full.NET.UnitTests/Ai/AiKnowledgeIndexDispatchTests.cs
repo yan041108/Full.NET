@@ -102,11 +102,14 @@ public sealed class AiKnowledgeIndexDispatchTests
         foreach (var column in new[] { "TaskId", "DocumentId", "VersionId", "ModelConfigId", "LeaseToken", "FileId" }) table.Columns.Add(column, typeof(Guid));
         foreach (var column in new[] { "DocumentVersion", "KnowledgeBaseVersion", "ModelConfigVersion" }) table.Columns.Add(column, typeof(int));
         table.Columns.Add("ContentHash", typeof(string)); table.Columns.Add("ContentType", typeof(string));
+        foreach (var column in new[] { "DataClassification", "ModelProviderKey", "ModelId", "ModelEndpointBaseUrl", "ModelOrganizationId" }) table.Columns.Add(column, typeof(string));
         table.Columns.Add("SizeBytes", typeof(long)); table.Columns.Add("LeaseExpiresAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
         var data = table.NewRow();
         foreach (var column in new[] { "TaskId", "DocumentId", "VersionId", "ModelConfigId", "LeaseToken", "FileId" }) data[column] = Guid.CreateVersion7();
         data["DocumentVersion"] = 9; data["KnowledgeBaseVersion"] = 6; data["ModelConfigVersion"] = 3;
         data["ContentHash"] = "trusted-hash"; data["ContentType"] = "text/plain"; data["SizeBytes"] = 123L;
+        data["DataClassification"] = "internal"; data["ModelProviderKey"] = "openai_compatible"; data["ModelId"] = "text-embedding-3-small";
+        data["ModelEndpointBaseUrl"] = "https://api.openai.com/v1"; data["ModelOrganizationId"] = mysql ? DBNull.Value : "organization";
         data["LeaseExpiresAtUtc"] = mysql ? Now.UtcDateTime : (object)Now; table.Rows.Add(data);
         using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
         var row = AiBudgetRowReaders.ReadKnowledgeIndexDispatch(reader);
@@ -116,6 +119,46 @@ public sealed class AiKnowledgeIndexDispatchTests
         Assert.AreEqual(9, row.DocumentVersion); Assert.AreEqual(6, row.KnowledgeBaseVersion); Assert.AreEqual(3, row.ModelConfigVersion);
         Assert.AreEqual("trusted-hash", row.ContentHash); Assert.AreEqual("text/plain", row.ContentType);
         Assert.AreEqual(123L, row.SizeBytes); Assert.AreEqual(Now, row.LeaseExpiresAtUtc);
+        Assert.AreEqual("internal", row.DataClassification); Assert.AreEqual("openai_compatible", row.ModelProviderKey);
+        Assert.AreEqual("text-embedding-3-small", row.ModelId); Assert.AreEqual("https://api.openai.com/v1", row.ModelEndpointBaseUrl);
+        Assert.AreEqual(mysql ? null : "organization", row.ModelOrganizationId);
+    }
+
+    [TestMethod] [DataRow("dispatch-host")] [DataRow("dispatch-tenant")]
+    [DataRow("sqlserver-host")] [DataRow("sqlserver-tenant")] [DataRow("mysql-host")] [DataRow("mysql-tenant")]
+    public void Every_dispatch_and_activation_projection_satisfies_the_native_reader(string shape)
+    {
+        var statement = shape switch
+        {
+            "dispatch-host" => AiKnowledgeIndexTaskSql.DispatchHost, "dispatch-tenant" => AiKnowledgeIndexTaskSql.DispatchTenant,
+            "sqlserver-host" => AiKnowledgeIndexActivationSql.AuthoritySqlServerHost, "sqlserver-tenant" => AiKnowledgeIndexActivationSql.AuthoritySqlServerTenant,
+            "mysql-host" => AiKnowledgeIndexActivationSql.AuthorityMySqlHost, _ => AiKnowledgeIndexActivationSql.AuthorityMySqlTenant
+        };
+        // 从生产 SELECT 的实际列形状构造行，避免手工补列让原生读取回归被 JIT 默认值掩盖。
+        var head = statement.Text[..statement.Text.IndexOf(" FROM ", StringComparison.Ordinal)]["SELECT ".Length..];
+        var columns = new List<string>(); var start = 0; var depth = 0;
+        for (var index = 0; index <= head.Length; index++)
+        {
+            if (index < head.Length && head[index] == '(') depth++;
+            if (index < head.Length && head[index] == ')') depth--;
+            if (index < head.Length && (head[index] != ',' || depth != 0)) continue;
+            columns.Add(System.Text.RegularExpressions.Regex.Match(head[start..index].Trim(), @"[A-Za-z_][A-Za-z_0-9]*$").Value); start = index + 1;
+        }
+        var values = new Dictionary<string, object>
+        {
+            ["TaskId"] = Guid.CreateVersion7(), ["DocumentId"] = Guid.CreateVersion7(), ["VersionId"] = Guid.CreateVersion7(),
+            ["ModelConfigId"] = Guid.CreateVersion7(), ["LeaseToken"] = Guid.CreateVersion7(), ["FileId"] = Guid.CreateVersion7(),
+            ["DocumentVersion"] = 1, ["KnowledgeBaseVersion"] = 1, ["ModelConfigVersion"] = 1,
+            ["ContentHash"] = "hash", ["ContentType"] = "application/pdf", ["SizeBytes"] = 123L, ["LeaseExpiresAtUtc"] = Now,
+            ["DataClassification"] = "internal", ["ModelProviderKey"] = "openai_compatible", ["ModelId"] = "text-embedding-3-small",
+            ["ModelEndpointBaseUrl"] = "https://api.openai.com/v1", ["ModelOrganizationId"] = DBNull.Value
+        };
+        using var table = new DataTable(); foreach (var column in columns) table.Columns.Add(column, typeof(object));
+        var data = table.NewRow(); foreach (var column in columns) data[column] = values[column]; table.Rows.Add(data);
+        using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
+        var row = AiBudgetRowReaders.ReadKnowledgeIndexDispatch(reader);
+        Assert.AreEqual("internal", row.DataClassification); Assert.AreEqual("https://api.openai.com/v1", row.ModelEndpointBaseUrl);
+        Assert.AreEqual("openai_compatible", row.ModelProviderKey); Assert.AreEqual("text-embedding-3-small", row.ModelId); Assert.IsNull(row.ModelOrganizationId);
     }
 
     private static AiKnowledgeIndexDispatchRecord Snapshot(AiKnowledgeIndexTaskBinding binding, Guid task, Guid lease, string invalid = "") => new()

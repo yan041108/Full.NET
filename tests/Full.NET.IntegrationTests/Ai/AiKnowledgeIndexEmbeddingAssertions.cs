@@ -79,6 +79,18 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                 continue;
             }
             var held = await Use((tasks, _, _) => tasks.AcquireAsync(binding, task.Id, CancellationToken.None)); Assert.IsNotNull(held); Assert.IsNotNull(held.LeaseToken);
+            if (scenario == "known")
+            {
+                // 双库真实物化验证：最终来源判定同时携带分类/模型目的地，不用另一笔模型读取补齐。
+                var projection = await Use((tasks, _, _) => tasks.ReadDispatchAsync(binding, task.Id, held.LeaseToken.Value, default));
+                Assert.IsNotNull(projection); Assert.AreEqual("internal", projection.DataClassification);
+                Assert.AreEqual("openai_compatible", projection.ModelProviderKey); Assert.AreEqual("text-embedding-3-small", projection.ModelId);
+                Assert.AreEqual("https://api.openai.com/v1", projection.ModelEndpointBaseUrl); Assert.IsNull(projection.ModelOrganizationId);
+                await db.ExecuteAsync("UPDATE fn_ai_model_config SET OrganizationId='projection-test' WHERE Id=@ModelConfigId", p);
+                projection = await Use((tasks, _, _) => tasks.ReadDispatchAsync(binding, task.Id, held.LeaseToken.Value, default));
+                Assert.IsNotNull(projection); Assert.AreEqual("projection-test", projection.ModelOrganizationId);
+                await db.ExecuteAsync("UPDATE fn_ai_model_config SET OrganizationId=NULL WHERE Id=@ModelConfigId", p);
+            }
             if (executeGeneration)
             {
                 if (scenario == "known")

@@ -77,6 +77,10 @@ internal static class AiKnowledgeIndexPdfVectorAssertions
                 var raced = await Task.WhenAll(Write(), Write()); Assert.IsTrue(raced.All(value => value));
                 CollectionAssert.AreEqual(original, await db.QuerySingleAsync<byte[]>("SELECT Payload FROM fn_ai_knowledge_index_vector WHERE Id=@Id", new { Id = batch.Id }));
                 var restored = await Read(); Assert.IsNotNull(restored); Assert.AreEqual(batch.Id, restored.OperationId);
+                // 已落库恢复必须直接使用当前完整原载荷；没有执行器仍可恢复，不产生第二次模型派发。
+                Assert.IsTrue(await Use(a => new AiKnowledgeIndexPdfPersistenceService(null!, a.Vectors)
+                    .ExecuteBatchAsync(binding, taskId, lease, ordinal, default)));
+                Assert.AreEqual(chargesBefore, await db.QuerySingleAsync<long>("SELECT ChargedTokens FROM fn_ai_operation_budget WHERE Id=@Id", new { Id = batch.Id }));
                 Assert.AreEqual(ordinal + 1, restored.Snapshot.Payload.Chunks[0].Source.PageNumber); Assert.AreEqual(vectors.Length, restored.Snapshot.Payload.Chunks.Count);
                 Assert.AreEqual(int.MinValue, BitConverter.SingleToInt32Bits(restored.Snapshot.Payload.Chunks[0].Vector.Span[1]));
                 var altered = vectors.ToArray(); var changed = altered[0].ToArray(); changed[0] = 2; altered[0] = changed;

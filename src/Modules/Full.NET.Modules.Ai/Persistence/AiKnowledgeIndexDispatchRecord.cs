@@ -16,4 +16,10 @@ internal sealed class AiKnowledgeIndexDispatchRecord
     public string ContentHash { get; init; } = string.Empty;
     public string ContentType { get; init; } = string.Empty;
     public long SizeBytes { get; init; }
+    // 同一 AI 判定点投影分类和实际模型绑定，避免后续独立查询留下末尾漂移窗口；不含凭据。
+    public string DataClassification { get; init; } = string.Empty;
+    public string ModelProviderKey { get; init; } = string.Empty;
+    public string ModelId { get; init; } = string.Empty;
+    public string ModelEndpointBaseUrl { get; init; } = string.Empty;
+    public string? ModelOrganizationId { get; init; }
 }

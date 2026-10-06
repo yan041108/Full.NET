@@ -144,7 +144,7 @@ internal static class AiBudgetRowReaders
         CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
     };
 
-    // 派发快照来自有效租约，固定来源元数据与模型版本，不物化正文或凭据。
+    // 派发与激活共享固定投影；同次读取绑定来源、分类和模型目的地，不物化正文或凭据。
     internal static AiKnowledgeIndexDispatchRecord ReadKnowledgeIndexDispatch(DbDataReader reader) => new()
     {
         TaskId = reader.GetGuid(reader.GetOrdinal("TaskId")),
@@ -160,6 +160,10 @@ internal static class AiBudgetRowReaders
         ContentHash = Text(reader, "ContentHash"),
         ContentType = Text(reader, "ContentType"),
         SizeBytes = Integer(reader, "SizeBytes"),
+        DataClassification = Text(reader, "DataClassification"),
+        ModelProviderKey = Text(reader, "ModelProviderKey"), ModelId = Text(reader, "ModelId"),
+        ModelEndpointBaseUrl = Text(reader, "ModelEndpointBaseUrl"),
+        ModelOrganizationId = Null(reader, "ModelOrganizationId") ? null : Text(reader, "ModelOrganizationId"),
     };
 
     // 任务记录不包含原文或凭据；固定列物化覆盖可空租约和终止状态。
