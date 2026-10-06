@@ -5,6 +5,13 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/253_AiKnowledgePdfVector.sql",
+      "reason": "253 仅根据 INFORMATION_SCHEMA 选择固定字面量 DDL 或 SELECT 1，逐阶段恢复向量格式约束与注释；对象名称均为常量且无外部输入，双库恢复覆盖新旧守卫并存、非法历史行失败关闭、禁用约束和未记账重放。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/252_AiKnowledgePdfManifest.sql",
       "reason": "252 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE 恢复清单格式约束及注释；表、列与约束均为脚本常量，无外部输入，双库未记账重放与禁用约束恢复测试覆盖。",
       "removalMilestone": "M1.0"

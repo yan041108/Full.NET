@@ -1534,3 +1534,19 @@ pnpm test:aot:worker:analyzers
 - `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-manifest-r05e6 --phase slice` 执行正式 Ai / integration-matrix / migration-252 影响集，SQL Server/MySQL 82/82，零失败/跳过，36m 32s 222ms；包含 AI 80 项与 252 恢复 2 项，新增持久化/恢复 4 项在最终严格约束实现下均通过。`artifacts/r05e6/acceptance.json` 逐项核对完整 UID/FQN，1122 个源码/矩阵/运行输入 SHA-256 未变化，Worker 74 个项目依赖与 Integration 最终 JIT 闭包一致。
 - `pnpm test:naming` 33/33、`pnpm test:sql-safety` 5/5、`pnpm test:governance` 57/57；`pnpm test:integration:partitions` 合计 1188 项无遗漏/重复（API 双库各 195，迁移 532，基础设施 186，消息 80；迁移旧段 250、当前段 282）。TRX 对 3 项成功用例的诊断文本按既有字段上限截断，用例身份和结果完整；保留原始日志与结果，不计为失败或跳过。
 - Windows x64、i7-12700H、64 GB、.NET SDK 10.0.401、Docker 双提供程序；测试进程限制 2 个处理器、GC 堆 2 GiB，容器不复用。本次没有重新发布或运行 Linux 原生宿主、调用真实云模型或执行容量实测。下一切片为 PDF 向量持久化与操作结算绑定；完整 RAG 保持 Planned，容量保持 Capacity-not-verified。
+
+### 2026-10-06：R05e7a PDF 向量格式双库扩展（本地切片验收完成）
+
+- 基线 main `1d0c8a700995460d04c0abc56e2de4b0d79d9b27`，任务快照 `ai-knowledge-pdf-vector-schema-r05e7a`；保护任务前两项无关未跟踪文件。本切片只交付后续 PDF vector store 的数据库前置，不接入运行时、模型调用、结算或 ready。
+- 文件职责：新增双库 `253_AiKnowledgePdfVector.sql` 扩展既有向量表；新增 `Migration253AiKnowledgePdfVectorRecoveryTests.cs` 覆盖真实 DDL/中断恢复；更新对象注释来源、生成目录、精确 MySQL dynamic_sql 登记及测试矩阵。沿用批次主键/外键，不建新表，不重写旧载荷。
+- [x] RED：先运行新双库恢复用例；无 253 脚本时，精确脚本数断言及非法历史行拒绝断言必须失败。
+- [x] GREEN：先新增并验证 Formats 守卫，再移除旧 Bounds；文本/PDF 格式精确字节长度分别 25/29，维度白名单 1536/3072、cosine 精确 6 字节、载荷 8..524288。固定 INFORMATION_SCHEMA 字面量 DDL，不接受外部输入。
+- [x] 验证：半完成新旧守卫并存、未记账重放、丢失/禁用约束、丢失注释；保留文本/PDF 原字节及摘要；拒绝未知/大小写/尾空格格式、越界维度/载荷、重复及孤儿行。合法旧文本允许应用回退读取；非法历史行失败关闭且旧守卫不删除，由人工显式修复后前滚重放，不自动收缩含 PDF 的表。
+- [x] 验收：Release Integration 构建、正式 affected slice（注册 migration-253，自动追加 Ai）、naming/sql-safety/governance/partitions；核对最终发现 UID/FQN 和结果、退出码及跳过信息；审查后 main 提交。
+- 后续 R05e7b：私有 PDF vector store 复用现有已结算账本/原会话/任务 SQL，绑定已持久化完整 PDF 清单；本切片不能证明该运行时行为。完整 RAG 仍 Planned，容量仍 Capacity-not-verified。
+
+- RED 证据：补齐测试命名空间引用后 Release 构建零警告/错误；目标脚本尚不存在时运行 `dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter FullyQualifiedName~Migration253AiKnowledgePdfVectorRecoveryTests --no-ansi --progress off`，四项均按脚本数量为 0 / 非法历史行未被迁移拒绝的预期失败，退出 2、零跳过。首次缺少命名空间的编译错误未计为 RED。
+- GREEN 证据：最终双库脚本及恢复用例 Release 构建零警告/错误；聚焦 4/4 通过、零失败/跳过（33s 261ms），覆盖新增及启用新守卫两阶段的非法历史行失败关闭。只读代码审查无阻塞问题；MySQL 新约束存在时 MODIFY Payload 恢复注释由真实用例通过验证。
+- `pwsh -File artifacts/r05e7a/final.ps1` 退出 0；其中 `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-vector-schema-r05e7a --phase slice` 正式 Ai / integration-matrix / migration-253 影响集 84/84，零失败/跳过，33m 11s 447ms；包含 AI 80 项和 253 双库恢复 4 项。`artifacts/r05e7a/acceptance.json` 核对完整 UID/FQN 与 354 个任务源码、矩阵和 Integration 运行输入 SHA-256，均未变化。原始 TRX 对两项成功用例的诊断文本按既有字段上限截断，用例身份和结果完整。
+- `pnpm test:naming` 33/33、`pnpm test:sql-safety` 5/5、`pnpm test:governance` 57/57；正式影响集内工具链 65/65。`pnpm test:integration:partitions` 合计 1192 项无遗漏/重复（API 双库各 195，迁移 536，基础设施 186，消息 80；迁移旧段 250、当前段 286）。
+- Windows x64、.NET SDK 10.0.401、Docker SQL Server/MySQL；最终测试进程限制 2 个处理器、GC 堆 2 GiB，容器不复用。本次验收为数据库格式和恢复范围，没有新增运行时写入、模型调用、结算或 Worker 接入；未重跑独立 Unit/AOT/容量套件，未重新发布 Linux 原生宿主。下一项 R05e7b 继续 PDF 向量持久化与操作结算绑定；完整 RAG 保持 Planned，容量保持 Capacity-not-verified。

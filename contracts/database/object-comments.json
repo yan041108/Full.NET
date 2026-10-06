@@ -377,7 +377,7 @@
       }
     },
     "fn_ai_knowledge_index_vector": {
-      "comment": "人工智能knowledge index vector表",
+      "comment": "知识库已结算文本或PDF向量批次派生数据",
       "columns": {
         "CreatedAtUtc": "创建时间(UTC)",
         "Dimensions": "Dimensions",
@@ -385,7 +385,7 @@
         "FormatKey": "格式键",
         "Id": "逻辑主键",
         "ModelId": "模型标识",
-        "Payload": "消息正文",
+        "Payload": "完整有界文本或PDF分页片段与小端向量载荷",
         "PayloadHash": "载荷哈希",
         "ProviderKey": "存储提供程序键"
       }

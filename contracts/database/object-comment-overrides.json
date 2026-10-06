@@ -443,6 +443,12 @@
         "CreatedAtUtc": "创建时间（UTC）"
       }
     },
+    "fn_ai_knowledge_index_vector": {
+      "comment": "知识库已结算文本或PDF向量批次派生数据",
+      "columns": {
+        "Payload": "完整有界文本或PDF分页片段与小端向量载荷"
+      }
+    },
     "fn_ai_knowledge_text_manifest": {
       "comment": "知识库索引任务不可替换的完整文本或PDF计划",
       "columns": {

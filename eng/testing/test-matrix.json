@@ -596,6 +596,9 @@
       },
       "252": {
         "filter": "FullyQualifiedName~Migration252AiKnowledgePdfManifestRecoveryTests.MySql_|FullyQualifiedName~Migration252AiKnowledgePdfManifestRecoveryTests.SqlServer_"
+      },
+      "253": {
+        "filter": "FullyQualifiedName~Migration253AiKnowledgePdfVectorRecoveryTests.MySql_|FullyQualifiedName~Migration253AiKnowledgePdfVectorRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -623,7 +626,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 532,
+        "minimum": 536,
         "timeout": "120m"
       },
       "infrastructure": {
@@ -656,7 +659,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1188,
+        "minimum": 1192,
         "timeout": "90m"
       },
       "logging-route-comparison": {
