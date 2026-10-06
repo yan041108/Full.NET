@@ -10,7 +10,7 @@ const maxOutput = 2 * 1024 * 1024 * 6 + 128 * 96 + 512;
 const failure = code => new Error(`fn_ai_pdf_sandbox_${code}`);
 
 function argumentsOf(args) {
-  const allowed = new Set(['--image-id', '--content-hash', '--size-bytes', '--timeout-ms', '--run-id']);
+  const allowed = new Set(['--image-id', '--content-hash', '--size-bytes', '--timeout-ms', '--run-id', '--input-mode']);
   const values = new Map();
   for (let index = 0; index < args.length; index += 2) {
     if (!allowed.has(args[index]) || values.has(args[index]) || typeof args[index + 1] !== 'string') throw failure('invalid_input');
@@ -21,29 +21,53 @@ function argumentsOf(args) {
   const size = values.get('--size-bytes');
   const timeout = values.get('--timeout-ms') ?? '30000';
   const runId = values.get('--run-id');
+  const inputMode = values.get('--input-mode') ?? 'eof-v1';
   if (!/^sha256:[0-9a-f]{64}$/.test(imageId ?? '') || !/^[0-9a-f]{64}$/.test(contentHash ?? '')
       || !/^[1-9][0-9]{0,6}$/.test(size ?? '') || Number(size) > maxInput
       || !/^[1-9][0-9]{0,4}$/.test(timeout) || Number(timeout) > 30000
-      || (runId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(runId))) throw failure('invalid_input');
-  return { imageId, contentHash, sizeBytes: Number(size), timeoutMs: Number(timeout), runId };
+      || (runId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(runId))
+      || !['eof-v1', 'framed-v1'].includes(inputMode)) throw failure('invalid_input');
+  return { imageId, contentHash, sizeBytes: Number(size), timeoutMs: Number(timeout), runId, inputMode };
 }
 
-function readInput(input, signal, abortCode) {
+/** 帧模式以权威长度结束正文；管道必须保持打开到输出交付完成，EOF、错误或多余字节均表示取消。 */
+function monitorFramedInput(input, sizeBytes, cancel) {
+  let length = 0;
+  const onData = bytes => {
+    if (!Buffer.isBuffer(bytes)) { cancel(); return; }
+    length += bytes.length;
+    if (length > sizeBytes) cancel();
+  };
+  input.on('data', onData); input.on('end', cancel); input.on('error', cancel); input.on('close', cancel);
+  return () => {
+    input.removeListener('data', onData); input.removeListener('end', cancel);
+    input.removeListener('error', cancel); input.removeListener('close', cancel);
+  };
+}
+
+function readInput(input, signal, abortCode, exactSize) {
   return new Promise((resolve, reject) => {
-    const chunks = []; let length = 0;
+    const chunks = []; let length = 0, finished = false;
     const finish = (error, bytes) => {
-      input.pause();
+      if (finished) return;
+      finished = true;
+      if (error || exactSize === undefined) input.pause();
       input.removeListener('data', onData); input.removeListener('end', onEnd);
       input.removeListener('error', onError); input.removeListener('close', onClose);
       signal.removeEventListener('abort', onAbort);
       if (error) reject(error); else resolve(bytes);
     };
     const onData = bytes => {
+      if (finished) return;
       // 只接受原始 Buffer；先检查累计大小，再保留分片，避免先收集无限 stdin。
       if (!Buffer.isBuffer(bytes)) { finish(failure('invalid_input')); return; }
       length += bytes.length;
       if (length > maxInput) finish(failure('input_limit'));
-      else chunks.push(bytes);
+      else if (exactSize !== undefined && length > exactSize) finish(failure('cancelled'));
+      else {
+        chunks.push(bytes);
+        if (length === exactSize) finish(null, Buffer.concat(chunks, length));
+      }
     };
     const onEnd = () => finish(null, Buffer.concat(chunks, length));
     const onError = () => finish(failure('transport_failed'));
@@ -57,7 +81,7 @@ function readInput(input, signal, abortCode) {
 
 /** 本地进程传输边界：调用方提供权威来源指纹；成功结果仍须由业务 PDF 输出读取器校验。 */
 export async function executePdfSandboxCli(args, input, { signal, runSandbox = runPdfSandbox } = {}) {
-  let timer, onCancel;
+  let timer, onCancel, stopMonitoring;
   const controller = new AbortController(); let abortCode = 'cancelled';
   try {
     const options = argumentsOf(args);
@@ -65,11 +89,13 @@ export async function executePdfSandboxCli(args, input, { signal, runSandbox = r
     onCancel = () => controller.abort();
     signal?.addEventListener('abort', onCancel, { once: true });
     if (signal?.aborted) controller.abort();
+    if (options.inputMode === 'framed-v1') stopMonitoring = monitorFramedInput(input, options.sizeBytes, onCancel);
     timer = setTimeout(() => {
       // 停止与清理可能继续等待；先发生的取消原因不能被后来的预算到期覆盖。
       if (!controller.signal.aborted) { abortCode = 'timeout'; controller.abort(); }
     }, options.timeoutMs);
-    const bytes = await readInput(input, controller.signal, () => abortCode);
+    const bytes = await readInput(input, controller.signal, () => abortCode,
+      options.inputMode === 'framed-v1' ? options.sizeBytes : undefined);
     if (bytes.length !== options.sizeBytes || createHash('sha256').update(bytes).digest('hex') !== options.contentHash)
       throw failure('source_mismatch');
     if (controller.signal.aborted || performance.now() >= deadline) throw failure(controller.signal.aborted ? abortCode : 'timeout');
@@ -91,6 +117,7 @@ export async function executePdfSandboxCli(args, input, { signal, runSandbox = r
     return { code: /^fn_ai_pdf_[a-z_]+$/.test(error.message ?? '') ? error.message : 'fn_ai_pdf_sandbox_transport_failed' };
   } finally {
     clearTimeout(timer);
+    stopMonitoring?.();
     if (onCancel) signal?.removeEventListener('abort', onCancel);
   }
 }
@@ -158,9 +185,13 @@ export function publishPdfSandboxProcess(bytes, { signal, timeoutMs }) {
 
 async function main() {
   const controller = new AbortController();
+  let stopMonitoring;
   const cancel = () => controller.abort();
   process.on('SIGINT', cancel); process.on('SIGTERM', cancel);
   try {
+    const options = argumentsOf(process.argv.slice(2));
+    // 主进程继续监测到辅助写入进程退出，避免解析成功后关闭 stdin 却仍交付正文。
+    if (options.inputMode === 'framed-v1') stopMonitoring = monitorFramedInput(process.stdin, options.sizeBytes, cancel);
     const result = await executePdfSandboxCli(process.argv.slice(2), process.stdin, { signal: controller.signal });
     if (result.code !== 'ok' || controller.signal.aborted) {
       process.stderr.write(`${result.code === 'ok' ? 'fn_ai_pdf_sandbox_cancelled' : result.code}\n`);
@@ -177,10 +208,11 @@ async function main() {
       }
       process.exitCode = code === 'ok' ? 0 : 2;
     }
-  } catch {
-    process.stderr.write('fn_ai_pdf_sandbox_transport_failed\n');
+  } catch (error) {
+    process.stderr.write(`${/^fn_ai_pdf_[a-z_]+$/.test(error.message ?? '') ? error.message : 'fn_ai_pdf_sandbox_transport_failed'}\n`);
     process.exitCode = 2;
   } finally {
+    stopMonitoring?.();
     process.stdin.destroy();
     process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel);
   }

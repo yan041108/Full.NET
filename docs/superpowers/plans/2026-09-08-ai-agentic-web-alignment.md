@@ -1586,3 +1586,17 @@ pnpm test:aot:worker:analyzers
 - 首次续跑的正式影响集因 Docker 服务停止而在容器初始化前失败 82/82，不计为通过；恢复已有 Docker Desktop/服务并确认 1116 项冻结输入未变后，`pwsh -File artifacts/r05e8a/resume-integration.ps1` 退出 0。其生产命令 `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-dispatch-r05e8a --phase slice` 正式 Ai / integration-matrix 影响集 82/82，零失败/跳过，25m 46s 010ms；完整 PDF 证明直接覆盖真实双库生产查询，未增加迁移恢复选择器。
 - `artifacts/r05e8a/acceptance.json` 核对完整 UID/FQN 与 1116 项任务源码、矩阵及运行输入 SHA-256，全部一致。两项成功用例诊断文本按既有 TRX 字段上限截断，用例身份和结果完整。唯一矩阵按实际发现同步 Unit 4959、AI Unit 1490；正式 Integration 分片 1194：API 双库各 196、迁移 536、基础设施 186、消息 80，无遗漏/重复。工具链 65/65、治理 57/57；命名 33/33、SQL 安全 5/5。
 - Windows x64、i7-12700H、约 64 GB、.NET SDK 10.0.401、Docker 29.6.2；SQL Server `2022-CU14-ubuntu-22.04`、MySQL 8.0。测试进程限制 2 个处理器、GC 堆 2 GiB，容器不复用。合成分页和受控原会话授权不能证明真实 PDF 解析、HTTP 登录或云模型派发；本次没有 Linux 原生宿主重新发布/运行、公开 PDF 入队/Worker/ready 接入或容量实测。后续 R05e8b 建设 .NET 隔离 PDF 解析接入与内部批次派发；完整 RAG 仍 Planned，容量仍 Capacity-not-verified。
+
+### 2026-10-06：R05e8b1 .NET 隔离 PDF 解析桥接（本地切片验收完成）
+
+- main 基线 `74532ac4973fa37aeae346a348a922065cdcc277`，快照 `ai-knowledge-pdf-parser-bridge-r05e8b1`。先交付可独立审查的进程桥接，批次派发后续 R05e8b2 实施；无 DI、公开入队、Worker 或 ready 扩展。
+- 在既有 CLI 增加显式 `framed-v1` stdin 模式：按可信来源长度读取原始 PDF 后保留管道；EOF、关闭或额外字节通知取消，持续覆盖解析与输出交付。原 EOF 模式保持兼容；取消须等待已有 Docker 控制器确认停止与清理，不能只杀控制客户端。
+- 私有 .NET parser 接受调用者已授权取得的有界原始字节与可信 SHA/长度；首次等待前复制并校验实际原字节，固定可信 Node/CLI 路径及不可变 image ID，无 shell/请求路径，清除宿主模型凭据环境。进程输入、输出、错误与等待共同受限；完整 EOF、退出 0、零 stderr 与 PDF 输出读取器验收齐全后才返回全部页。审查发现任意 Stream 可忽略取消，因此本切片不承担来源读取；后续派发入口须在自己的可中止文件边界有界取得字节并复核授权。
+- [x] RED：framed-v1 能力缺失导致合法帧/取消等用例失败；.NET 正向用例失败于返回空，编译错误未计为 RED。首次 .NET 聚焦中两项输出越界用例暴露清理重新抛出 InvalidDataException，修复异常收敛和必执行清零；Windows 背压先关闭已拒绝输出管道再通知 EOF。只读安全复核无剩余 Critical/Important/Minor。
+- [x] 实现：跨平台 stdin 关闭取消；.NET 无外层事务、首次等待前冻结实际来源、固定参数、环境白名单、有界输出与整体截止，独立有界等待控制器清理。失败不返回部分正文，不把 SHA 声明、完整 JSON 或 stdout EOF 单独作为成功；完整输出但进程未退出、调用者缓冲变更和等待后事务变化均覆盖。
+- [x] 聚焦与原生：.NET 桥接 26/26，`node --test` 隔离脚本套件 37/37。`run-framed-native.mjs` 使用显式不可变 parser/probe 镜像完成 6 项真实解析/运行取消/输出背压取消/超时及归属资源删除验证；另用内部友元探针完成 .NET → CLI → 原生镜像两种合成中文 PDF 与截止取消共 3 项，探针 AI 程序集与最终 JIT SHA-256 一致。既有 native 源码、原生产物和镜像身份核对后复用，没有重新发布宿主。
+- [x] 构建与范围：`artifacts/r05e8b1/final.ps1` 的 Host.Api `FullNetAotAnalysis=true` 构建零警告/错误（14m 20s），默认 JIT Integration、Unit、Architecture 和 Worker 均零警告/错误；最终 AI Unit 1516/1516、AI 架构 7/7、Native AOT 架构 73/73。Ai/Tenancy 三处副本及 Worker 74 项依赖一致；矩阵按实际发现同步 Unit 4985、AI Unit 1516。
+- [x] 双库证据：正式命令 `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-parser-bridge-r05e8b1 --phase slice` 首轮 81/82、失败 1、跳过 0（34m 27s）。失败为既有 MySQL 清理用例的文本整代次返回 false，该路径未引用本次私有解析器；失败日志/TRX 完整保留，不计首轮为通过。使用同一冻结输入，`focus-failure.ps1` 独立复跑对应 SQL Server/MySQL 场景 2/2、零失败/跳过（3m 58s），未复现、未修改或宣告修复该路径。按 §11.5 复用未变输入的成功证据，`verify-final-scope.mjs` 校验 1116 项输入 SHA 和完整 UID/FQN，正式影响集 82 项各自最后一次实际结果均 Passed；`acceptance.json` 同时保留首轮失败、复跑来源与最终结果，未伪造单轮全绿报告。
+- [x] 治理：命名 33/33、SQL 安全 5/5、治理 57/57；正式影响集工具链 65/65、治理 57/57，Integration 分片 1194 项无遗漏/重复。Windows x64、i7-12700H、约 64 GB、SDK 10.0.401、Docker 29.6.2；SQL Server 2022-CU14、MySQL 8.0，测试进程 2 个处理器/GC 堆 2 GiB、容器不复用。未复现的首轮失败不外推为已定位或修复。
+- 暂存结构检查发现测试空白行尾随空格，机械清理后重新构建 Unit（1m 19s，零警告/错误）并重跑 AI Unit 1516/1516（45s 918ms）。`whitespace-input-transition.json` 验证仅测试空白行及 Unit 程序集改变，生产与 Integration 输入全部不变；重新冻结后再次核对完整 UID/FQN。暂存 diff 检查通过。
+- 收尾：main 单独提交本切片；下一项 R05e8b2 为内部 PDF 批次派发。完整 RAG 仍 Planned，容量仍 Capacity-not-verified；没有公开 PDF 入队、Worker、ready、云模型派发或容量实测，调用者仍须有界取得来源并复核原会话和来源。
