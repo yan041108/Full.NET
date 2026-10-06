@@ -33,8 +33,9 @@ internal sealed class RequestHandler(
 
         var created = await challengeService.CreateAndDeliverAsync(
                 IdentityAccountChallengePurpose.PasswordRecovery,
-                normalizedEmail,
-                cancellationToken)
+            normalizedEmail,
+            cancellationToken,
+            recoveryUserId: user.Id)
             .ConfigureAwait(false);
         return created.IsSuccess
             ? created

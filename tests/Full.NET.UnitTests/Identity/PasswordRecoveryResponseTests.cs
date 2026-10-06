@@ -68,7 +68,11 @@ public sealed class PasswordRecoveryResponseTests
         public Fixture(string scenario)
         {
             var query = Substitute.For<IQueryExecutor>();
-            var user = scenario == "unknown" ? null : new IdentityUserRecord { IsActive = scenario != "inactive" };
+            var user = scenario == "unknown" ? null : new IdentityUserRecord
+            {
+                Id = Guid.CreateVersion7(),
+                IsActive = scenario != "inactive",
+            };
             query.QuerySingleOrDefaultAsync<IdentityUserRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(user));
             var command = Substitute.For<ICommandExecutor>();

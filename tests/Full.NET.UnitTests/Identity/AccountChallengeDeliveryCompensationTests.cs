@@ -13,6 +13,9 @@ namespace Full.NET.UnitTests.Identity;
 [TestClass]
 public sealed class AccountChallengeDeliveryCompensationTests
 {
+    // 纯挑战夹具提供稳定恢复账号；注册和邀请用途仍使用原摘要。
+    private static readonly Guid RecoveryUserId = Guid.Parse("018f5f40-0000-7000-8000-000000000123");
+
     [TestMethod]
     [DataRow(IdentityAccountChallengePurpose.RegistrationEmailVerification)]
     [DataRow(IdentityAccountChallengePurpose.PasswordRecovery)]
@@ -21,11 +24,11 @@ public sealed class AccountChallengeDeliveryCompensationTests
         IdentityAccountChallengePurpose purpose)
     {
         var fixture = new Fixture();
-        var first = fixture.Service.CreateAndDeliverAsync(purpose, " User@Example.test ");
+        var first = fixture.Service.CreateAndDeliverAsync(purpose, " User@Example.test ", recoveryUserId: RecoveryUserId);
         await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
         try
         {
-            var second = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test");
+            var second = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId);
             Assert.IsTrue(second.IsSuccess);
             Assert.AreNotEqual(fixture.Intents[0].ChallengeId, second.Value!.ChallengeId);
         }
@@ -53,7 +56,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
     {
         var fixture = new Fixture { CompensationAffectedRows = affectedRows };
         fixture.FirstDelivery.SetResult(Failure());
-        var result = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test");
+        var result = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId);
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(IdentityErrorCodes.AccountChallengeDeliveryFailed, result.Error!.Code);
         AssertFailedRequestScope(fixture);
@@ -69,7 +72,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
     {
         var fixture = new Fixture();
         fixture.FirstDelivery.SetResult(Result<bool>.Success(true));
-        var result = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test");
+        var result = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId);
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(fixture.Intents[0].ChallengeId, result.Value!.ChallengeId);
         Assert.AreEqual(2, fixture.Writes.Count);

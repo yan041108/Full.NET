@@ -750,6 +750,15 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Recovery_challenge_remains_bound_to_original_account_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await PasswordRecoveryAccountBindingAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Account_recovery_follows_contract_with_mysql()
     {
         using var factory = new FullNetApiFactory(

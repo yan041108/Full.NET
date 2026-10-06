@@ -11,6 +11,9 @@ namespace Full.NET.IntegrationTests.Identity;
 
 internal static class AccountChallengeDeliveryCompensationAssertions
 {
+    // 纯挑战夹具提供稳定恢复账号；注册和邀请用途仍使用原摘要。
+    private static readonly Guid RecoveryUserId = Guid.Parse("018f5f40-0000-7000-8000-000000000123");
+
     public static async Task VerifyAsync(FullNetApiFactory factory)
     {
         var delivery = new DelayedFailureDeliveryPort();
@@ -32,14 +35,14 @@ internal static class AccountChallengeDeliveryCompensationAssertions
             var query = secondScope.ServiceProvider.GetRequiredService<IQueryExecutor>();
             var gate = delivery.PauseNext();
             // 旧请求提交后暂停外部投递，新请求在独立作用域提交并成功投递，再释放旧失败。
-            var pending = firstService.CreateAndDeliverAsync(purpose, email.ToUpperInvariant());
+            var pending = firstService.CreateAndDeliverAsync(purpose, email.ToUpperInvariant(), recoveryUserId: RecoveryUserId);
             Result<AccountChallengeAcceptedResponse>? failed = null;
             IdentityChallengeDeliveryIntent? oldIntent = null;
             IdentityChallengeDeliveryIntent? newIntent = null;
             try
             {
                 oldIntent = await gate.Sent.Task.WaitAsync(TimeSpan.FromSeconds(30));
-                var replacement = await secondService.CreateAndDeliverAsync(purpose, email);
+                var replacement = await secondService.CreateAndDeliverAsync(purpose, email, recoveryUserId: RecoveryUserId);
                 Assert.IsTrue(replacement.IsSuccess);
                 newIntent = delivery.LastIntent;
                 Assert.IsNotNull(newIntent);
@@ -62,22 +65,22 @@ internal static class AccountChallengeDeliveryCompensationAssertions
             Assert.AreEqual(1, current.Version);
             Assert.AreNotEqual(newIntent.Credential, current.CredentialHash);
 
-            var old = await firstService.ConsumeAsync(oldIntent!.ChallengeId, purpose, email, oldIntent.Credential);
+            var old = await firstService.ConsumeAsync(oldIntent!.ChallengeId, purpose, email, oldIntent.Credential, recoveryUserId: RecoveryUserId);
             Assert.IsFalse(old.IsSuccess);
             var wrongPurpose = purpose == IdentityAccountChallengePurpose.PasswordRecovery
                 ? IdentityAccountChallengePurpose.RegistrationEmailVerification
                 : IdentityAccountChallengePurpose.PasswordRecovery;
-            var wrong = await secondService.ConsumeAsync(newIntent.ChallengeId, wrongPurpose, email, newIntent.Credential);
+            var wrong = await secondService.ConsumeAsync(newIntent.ChallengeId, wrongPurpose, email, newIntent.Credential, recoveryUserId: RecoveryUserId);
             Assert.IsFalse(wrong.IsSuccess);
-            var accepted = await secondService.ConsumeAsync(newIntent.ChallengeId, purpose, email, newIntent.Credential);
+            var accepted = await secondService.ConsumeAsync(newIntent.ChallengeId, purpose, email, newIntent.Credential, recoveryUserId: RecoveryUserId);
             Assert.IsTrue(accepted.IsSuccess, "成功重发的新挑战应可消费一次。");
-            var replay = await secondService.ConsumeAsync(newIntent.ChallengeId, purpose, email, newIntent.Credential);
+            var replay = await secondService.ConsumeAsync(newIntent.ChallengeId, purpose, email, newIntent.Credential, recoveryUserId: RecoveryUserId);
             Assert.IsFalse(replay.IsSuccess);
 
             // 无重发时失败挑战仍活跃，验证补偿实际更新一行，而非仅验证迟到失败的零行路径。
             var standaloneGate = delivery.PauseNext();
             var standaloneEmail = $"failed-{Guid.NewGuid():N}@example.test";
-            var standalone = firstService.CreateAndDeliverAsync(purpose, standaloneEmail);
+            var standalone = firstService.CreateAndDeliverAsync(purpose, standaloneEmail, recoveryUserId: RecoveryUserId);
             IdentityChallengeDeliveryIntent? failedIntent = null;
             try
             {
@@ -97,7 +100,7 @@ internal static class AccountChallengeDeliveryCompensationAssertions
             Assert.IsNotNull(compensated);
             Assert.IsNotNull(compensated.ConsumedAtUtc);
             Assert.AreEqual(2, compensated.Version);
-            var rejected = await firstService.ConsumeAsync(failedIntent.ChallengeId, purpose, standaloneEmail, failedIntent.Credential);
+            var rejected = await firstService.ConsumeAsync(failedIntent.ChallengeId, purpose, standaloneEmail, failedIntent.Credential, recoveryUserId: RecoveryUserId);
             Assert.IsFalse(rejected.IsSuccess);
         }
     }

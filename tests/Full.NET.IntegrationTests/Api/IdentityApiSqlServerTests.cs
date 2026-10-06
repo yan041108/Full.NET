@@ -750,6 +750,15 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Recovery_challenge_remains_bound_to_original_account_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await PasswordRecoveryAccountBindingAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Account_recovery_follows_contract_with_sql_server()
     {
         using var factory = new FullNetApiFactory(

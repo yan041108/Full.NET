@@ -24,8 +24,16 @@ internal sealed class AccountChallengeService(
     public async Task<Result<AccountChallengeAcceptedResponse>> CreateAndDeliverAsync(
         IdentityAccountChallengePurpose purpose,
         string email,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Guid? recoveryUserId = null)
     {
+        // 恢复目标必须来自 Identity 的权威账号读取；缺失绑定时不创建任何真实凭据。
+        if (purpose == IdentityAccountChallengePurpose.PasswordRecovery
+            && recoveryUserId.GetValueOrDefault() == Guid.Empty)
+        {
+            return Result<AccountChallengeAcceptedResponse>.Failure(InvalidChallenge());
+        }
+
         var normalizedEmail = NormalizeEmail(email);
         if (normalizedEmail is null)
         {
@@ -53,7 +61,9 @@ internal sealed class AccountChallengeService(
                             ("ChallengeId", challengeId),
                             ("Purpose", (byte)purpose),
                             ("NormalizedEmail", normalizedEmail),
-                            ("CredentialHash", AccountChallengeCredentialHasher.Hash(challengeId, code)),
+                            ("CredentialHash", purpose == IdentityAccountChallengePurpose.PasswordRecovery
+                                ? AccountChallengeCredentialHasher.HashPasswordRecovery(challengeId, recoveryUserId!.Value, code)
+                                : AccountChallengeCredentialHasher.Hash(challengeId, code)),
                             ("ExpiresAtUtc", expiresAtUtc),
                             ("MaxAttempts", DefaultMaxAttempts),
                             ("CreatedAtUtc", now)),
@@ -106,9 +116,10 @@ internal sealed class AccountChallengeService(
         IdentityAccountChallengePurpose purpose,
         string email,
         string credential,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Guid? recoveryUserId = null)
     {
-        var validated = await ValidateCredentialAsync(challengeId, purpose, email, credential, cancellationToken)
+        var validated = await ValidateCredentialAsync(challengeId, purpose, email, credential, cancellationToken, recoveryUserId)
             .ConfigureAwait(false);
         if (!validated.IsSuccess)
         {
@@ -136,15 +147,17 @@ internal sealed class AccountChallengeService(
     /// <param name="email">必须与挑战绑定一致的目标邮箱。</param>
     /// <param name="credential">本次提交的一次性凭据，仅用于摘要比较。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="recoveryUserId">恢复用途必须提供权威账号标识；其他用途沿用原摘要。</param>
     /// <returns>校验结果；成功不代表挑战已消费。</returns>
     public async Task<Result<bool>> ValidateAsync(
         Guid challengeId,
         IdentityAccountChallengePurpose purpose,
         string email,
         string credential,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Guid? recoveryUserId = null)
     {
-        var validated = await ValidateCredentialAsync(challengeId, purpose, email, credential, cancellationToken)
+        var validated = await ValidateCredentialAsync(challengeId, purpose, email, credential, cancellationToken, recoveryUserId)
             .ConfigureAwait(false);
         return validated.IsSuccess ? Result<bool>.Success(true) : Result<bool>.Failure(validated.Error!);
     }
@@ -154,8 +167,15 @@ internal sealed class AccountChallengeService(
         IdentityAccountChallengePurpose purpose,
         string email,
         string credential,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? recoveryUserId)
     {
+        if (purpose == IdentityAccountChallengePurpose.PasswordRecovery
+            && recoveryUserId.GetValueOrDefault() == Guid.Empty)
+        {
+            return Result<AccountChallengeRecord>.Failure(InvalidChallenge());
+        }
+
         var normalizedEmail = NormalizeEmail(email);
         if (normalizedEmail is null)
         {
@@ -184,7 +204,10 @@ internal sealed class AccountChallengeService(
             return Result<AccountChallengeRecord>.Failure(AttemptsExceeded());
         }
 
-        var credentialHash = AccountChallengeCredentialHasher.Hash(challengeId, credential);
+        // 不回退旧恢复摘要：旧格式无法证明原账号归属，必须重新申请；注册摘要保持兼容。
+        var credentialHash = purpose == IdentityAccountChallengePurpose.PasswordRecovery
+            ? AccountChallengeCredentialHasher.HashPasswordRecovery(challengeId, recoveryUserId!.Value, credential)
+            : AccountChallengeCredentialHasher.Hash(challengeId, credential);
         if (!string.Equals(record.CredentialHash, credentialHash, StringComparison.Ordinal))
         {
             await commandExecutor.ExecuteAsync(

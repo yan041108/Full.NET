@@ -16,6 +16,9 @@ namespace Full.NET.IntegrationTests.Identity;
 
 internal static class RegistrationChallengePurposeAssertions
 {
+    // 纯挑战夹具提供稳定恢复账号；注册和邀请用途仍使用原摘要。
+    private static readonly Guid RecoveryUserId = Guid.Parse("018f5f40-0000-7000-8000-000000000123");
+
     public static async Task VerifyAsync(FullNetApiFactory factory)
     {
         var delivery = new CapturingDeliveryPort();
@@ -41,7 +44,7 @@ internal static class RegistrationChallengePurposeAssertions
                 IdentityAccountChallengePurpose.InvitationEmailVerification,
             })
             {
-                var created = await challenges.CreateAndDeliverAsync(purpose, email);
+                var created = await challenges.CreateAndDeliverAsync(purpose, email, recoveryUserId: RecoveryUserId);
                 Assert.IsTrue(created.IsSuccess);
                 existing.Add((await ReadAsync(created.Value!.ChallengeId))!);
             }

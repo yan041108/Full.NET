@@ -674,6 +674,28 @@ F03完整账号绑定、匿名账号无枚举、失败/未知送达状态及真�
 
 没有执行全量Unit/Integration、当前源码独立生成应用全链路或本地Linux原生运行，不升级Aot-published/Provider状态。当前提交CI按推送后精确SHA单独读取，不把前序成功外推；PR保持Draft，未合并、未发布，Capacity-not-verified保持。
 
+**2026-10-06 F03 密码恢复的稳定账号绑定（局部完成，六项里程碑条件继续待办）。**
+
+基线 `4d7a2078064c6b3da3593883f2308728f60672df`，快照 `f03-recovery-account-binding-20261006`。原恢复申请按邮箱选择账号，挑战摘要只含 ChallengeId/验证码，确认再按邮箱查询当前账号，没有绑定发起时的 UserId。真实 Handler 串联首次 3 项为 2 失败/1 通过；补缺失上下文与空 ID 后 5 项为 4 失败/1 通过，零跳过。双库 HTTP 通过管理员移动原账号邮箱，再创建占用旧邮箱的另一账号，两库旧挑战确认均实际 204、预期 400，RED 2/2 失败、零跳过。首轮测试夹具缺引用的编译失败、Docker URI 初始化失败分别保留，不计行为 RED。
+
+恢复用途增加内部 recoveryUserId 上下文：创建与共享校验在任何 SQL 前拒绝缺失/空 ID；RequestHandler 和 ConfirmHandler 均传权威查询的 user.Id，HTTP 无法指定绑定目标。恢复摘要以固定 password-recovery:v1 域、ChallengeId、UserId 和验证码计算 SHA256，仍为 64 字符并仅保存不可逆摘要。生产 SQL、schema、迁移、HTTP/DTO/序列化、限流和依赖没有变化；注册/邀请沿用原摘要，消费 CAS、有效期、次数、版本、事务及补偿保护保持。
+
+兼容边界：未绑定的旧恢复码无法证明发起时账号，不采用旧摘要回退，升级后须重新申请。新码在邮箱换到另一 UserId 后拒绝消费，同账号仍可用；注册/邀请凭据格式保持兼容。安全验收以全部 API 实例使用新代码为前提，本轮没有执行生产切流或发布。
+
+`pnpm test:dotnet:unit -- --filter FullyQualifiedName~PasswordRecoveryAccountBindingTests --minimum-expected-tests 5` 实际 5/5；`pnpm test:dotnet:unit -- --no-build --filter FullyQualifiedName~Full.NET.UnitTests.Identity. --minimum-expected-tests 454` 实际 454/454，零失败/跳过。新增 Unit 调用真实 Request/Confirm/挑战服务，只替换持久化、事务和投递边界，覆盖同账号、邮箱重新分配、旧摘要、缺失上下文及空 ID。
+
+最终双库聚焦 12/12，零失败/跳过：新账号绑定、原恢复正文/恢复契约、迟到失败补偿、并发尝试、用途入口六组各两库。新 HTTP 确认旧码 400/identity.account_challenge.invalid、两个账号 PasswordHash/SecurityStamp/Version 不变、旧挑战未消费；新账号重新申请的新码只更新新账号密码及 SecurityStamp，原账号保持，重放 400。三用途夹具仅补稳定恢复 ID，全部既有断言保留。投递仍为受控 Port 替身，不证明真实 SMTP。
+
+`pnpm test:dotnet:architecture -- --selection api-native-aot` 73/73，零失败/跳过；`pnpm test:aot:analyzers` 退出 0；`pnpm test:aot:native:e2e` Windows 发现 27 项全部跳过、成功 0，不计原生运行通过。
+
+`pnpm test:slice -- --snapshot f03-recovery-account-binding-20261006` 按原选择器完整执行 Identity 与 integration-matrix：双库 175/175，零失败/跳过；工具 65/65、治理 57/57。1128 仅完整互斥分片发现无遗漏/重复，不称全量 Integration 执行。矩阵只增加实际 5 个 Unit 和每库 1 个 API，未调整筛选范围或降低门槛。
+
+完整 slice 首次因验收脚本拼接了错误快照名而在规划启动时退出，尚未运行测试；原日志与元数据保存在 .tmp/f03-account-binding-slice-plan-failed.log / .tmp/f03-account-binding-verify-plan-failed.json。修正参数后重新审查同一 Identity + integration-matrix 范围，14项冻结源码摘要未变，前五步通过证据保留，最终完整 slice 单独记录真实启动和退出。
+
+独立只读安全复审未发现 Critical/Important/Minor 阻断，读取实际 RED，但没有执行测试。最终 14 项源码摘要、六步命令/启动时间/退出码、原日志摘要及新鲜 TRX 保存在 `.tmp/f03-account-binding-source.json`、`.tmp/f03-account-binding-verify.json`、`.tmp/f03-account-binding-evidence.json`、`.tmp/f03-account-binding-identity.trx`。Windows x64 / i7-12700H / 63.75GiB / SDK10.0.401 / Node24.12.0 / pnpm10.26.0 / Docker29.6.2；DOTNET_PROCESSOR_COUNT=1、Integration Workers=2、容器复用关闭，.NET/模板/容器构建与测试串行。
+
+[OWASP 恢复密码指引](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html)要求恢复凭据关联单独用户。本轮仅关闭已复现的跨账号消费边界；响应耗时、异常投递、失败/未知送达追踪、真实邮件渠道及 F03 其他条件仍待办。没有执行当前源码独立生成应用全链路、全量 Unit/Integration 或本地 Linux 原生运行，不升级完整防枚举/Aot-published/Provider/容量结论。六个 checkbox 保持未关闭，Capacity-not-verified 保持；当前提交 CI 推送后按精确 SHA 单独读取，PR 保持 Draft，未合并、未发布。
+
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。
