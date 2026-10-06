@@ -654,6 +654,26 @@ F02及诊断前两项保持待办，Capacity-not-verified保持。静态Realtime
 
 F03完整账号绑定、匿名账号无枚举、失败/未知送达状态及真实邮件渠道等剩余条件保持待办；没有执行全量Unit/Integration、当前源码独立生成应用全链路或本地Linux原生运行，不升级Aot-published/Provider状态。Capacity-not-verified保持；PR继续Draft，未合并、未发布。
 
+**2026-10-06 F03 密码恢复响应正文边界（局部完成，六项里程碑条件继续待办）。**
+
+基线 `12706c3ee4e5c5bd346047fa386c9a993828788a`，快照 `f03-recovery-response-shape-20261006`。真实调用链确认 RecoverAccount.RequestHandler 的未知/停用账号、非法邮箱与投递 Result 失败返回 Guid.Empty 和当前时间，而正常挑战返回 UUID v7 与15分钟窗口。先补实际 Handler Unit：五项中四个占位分支均因空GUID失败，成功分支通过；双库 HTTP RED2/2同因空GUID失败，零跳过，所有账号准备、正常响应、未知/停用无行/投递及真实失败行补偿均在失败断言之前执行。源码未修复前复现，日志及双库RED TRX保留。
+
+占位受理改为 AccountChallengeService.CreateAcceptedPlaceholder：复用已有 IIdGenerator、IClock 与 DefaultLifetime，不生成凭据、不查询或写入数据库、不执行事务或投递。四个失败分支共用这一内部方法；成功路径仍返回真实 ChallengeId/ExpiresAtUtc，原核销、重发和投递失败补偿保持。契约只更新中文XML说明，受理结果不保证账号存在或邮件送达；没有路由、字段、线格式、schema、迁移、错误码、限流或客户端逻辑变化。
+
+`pnpm test:dotnet:unit -- --filter FullyQualifiedName~PasswordRecoveryResponseTests --minimum-expected-tests 5`最终5/5；`pnpm test:dotnet:unit -- --no-build --filter FullyQualifiedName~Full.NET.UnitTests.Identity. --minimum-expected-tests 449`实际449/449。新增四个占位分支及一个成功分支均直接调用真实Handler与挑战服务，只替换SQL/事务/投递依赖；检查统一15分钟窗口、UUIDv7、无凭据写入或真实失败行补偿。
+
+最终双库聚焦4/4：新恢复正文回归和原 Account_recovery_follows_contract 均通过，零失败/跳过。新用例经真实管理员HTTP创建、停用账号，再以无 Authorization 的恢复请求覆盖正常、未知、停用、非法邮箱与投递 Result 失败，响应只含challengeId/expiresAtUtc、标识非空UUIDv7、同15分钟窗口且各不相同；未知/停用/非法邮箱没有行或投递，投递失败真实行撤销，四个占位标识均无真实行且确认400/identity.account_challenge.invalid。固定IClock仅用于窗口比较，投递为受控Port替身；原30/min限流与Workers=2保持。原恢复契约继续确认成功重置、重放拒绝和认证审计。
+
+`pnpm test:dotnet:architecture -- --selection api-native-aot`73/73、零失败/跳过；`pnpm test:aot:analyzers`退出0。`pnpm test:aot:native:e2e`Windows发现27项全部跳过、成功0，不计原生运行通过。
+
+`pnpm test:slice -- --snapshot f03-recovery-response-shape-20261006`按选择器原样运行Identity与integration-matrix：双库173/173、零失败/跳过，工具链65/65、治理57/57；完整互斥分片仅发现1126项无遗漏/重复，不称全量Integration执行。矩阵只登记实际新增5个Unit及每库1个API测试，保持原分片和筛选范围。
+
+独立只读安全复审最初指出非法邮箱缺少HTTP回归，补入后复审确认无剩余阻断；复审未运行构建、测试或数据库。最终九项源码摘要、六步命令/时间/退出码、日志摘要及新鲜TRX保存在`.tmp/f03-recovery-source.json`、`.tmp/f03-recovery-verify.json`、`.tmp/f03-recovery-evidence.json`及`.tmp/f03-recovery-identity.trx`。Windows x64 / i7-12700H /63.75GiB /SDK10.0.401 /Node24.12.0 /pnpm10.26.0 /Docker29.6.2；DOTNET_PROCESSOR_COUNT=1、Integration Workers=2、容器复用关闭，.NET/模板/容器构建与测试串行。
+
+本轮只关闭已复现的响应正文差异。账号存在与否、同步投递的响应耗时以及异常而非Result失败路径仍须单独验证，未声称完整匿名账号防枚举。[OWASP恢复密码指引](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html)分别要求一致消息与一致耗时；本轮没有采用任意睡眠冒充时间侧信道修复。真实SMTP、完整账号绑定、失败/未知送达状态等F03条件保持待办，六个checkbox不关闭。
+
+没有执行全量Unit/Integration、当前源码独立生成应用全链路或本地Linux原生运行，不升级Aot-published/Provider状态。当前提交CI按推送后精确SHA单独读取，不把前序成功外推；PR保持Draft，未合并、未发布，Capacity-not-verified保持。
+
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。

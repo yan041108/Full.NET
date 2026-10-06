@@ -38,10 +38,10 @@ public enum IdentityRegistrationInvitationStatus : byte
     Revoked = 3,
 }
 
-/// <summary>账号挑战接受结果；调用方据此判断挑战窗口是否仍有效。</summary>
-/// <remarks>挑战为一次性短期凭据，过期后必须重新发起；服务端应保证挑战状态迁移的原子性。</remarks>
-/// <param name="ChallengeId">挑战稳定标识。</param>
-/// <param name="ExpiresAtUtc">挑战过期时间（UTC）；过期后不可用于完成后续操作。</param>
+/// <summary>账号挑战受理结果；调用方据此判断受理窗口是否仍有效。</summary>
+/// <remarks>匿名恢复的受理结果不证明账号存在或邮件已送达；完成操作仍须验证真实的一次性挑战。</remarks>
+/// <param name="ChallengeId">挑战或匿名恢复占位标识；仅返回该标识不代表存在可消费凭据。</param>
+/// <param name="ExpiresAtUtc">受理窗口结束时间（UTC）；真实挑战过期后必须重新发起。</param>
 public sealed record AccountChallengeAcceptedResponse(Guid ChallengeId, DateTimeOffset ExpiresAtUtc);
 
 /// <summary>验证注册邀请 Token 请求；用于在提交注册前确认邀请仍然有效。</summary>

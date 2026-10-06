@@ -92,6 +92,15 @@ internal sealed class AccountChallengeService(
             new AccountChallengeAcceptedResponse(challengeId, expiresAtUtc));
     }
 
+    /// <summary>生成匿名恢复的占位受理结果，保持正常挑战的标识与窗口形态，但不生成凭据或访问持久化。</summary>
+    /// <remarks>受理结果不能证明账号存在或邮件已送达；调用方仍须通过真实挑战完成后续验证。</remarks>
+    internal Result<AccountChallengeAcceptedResponse> CreateAcceptedPlaceholder()
+    {
+        var now = clock.UtcNow;
+        return Result<AccountChallengeAcceptedResponse>.Success(
+            new AccountChallengeAcceptedResponse(idGenerator.NewId(), now.Add(DefaultLifetime)));
+    }
+
     public async Task<Result<bool>> ConsumeAsync(
         Guid challengeId,
         IdentityAccountChallengePurpose purpose,

@@ -741,6 +741,15 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Recovery_response_hides_account_and_delivery_state_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await PasswordRecoveryResponseAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Account_recovery_follows_contract_with_mysql()
     {
         using var factory = new FullNetApiFactory(

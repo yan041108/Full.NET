@@ -741,6 +741,15 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Recovery_response_hides_account_and_delivery_state_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await PasswordRecoveryResponseAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Account_recovery_follows_contract_with_sql_server()
     {
         using var factory = new FullNetApiFactory(

@@ -18,7 +18,7 @@ internal sealed class RequestHandler(
         var normalizedEmail = AccountChallengeService.NormalizeEmail(command.Request.Email);
         if (normalizedEmail is null)
         {
-            return AcceptedPlaceholder();
+            return challengeService.CreateAcceptedPlaceholder();
         }
 
         var user = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
@@ -28,7 +28,7 @@ internal sealed class RequestHandler(
             .ConfigureAwait(false);
         if (user is null || !user.IsActive)
         {
-            return AcceptedPlaceholder();
+            return challengeService.CreateAcceptedPlaceholder();
         }
 
         var created = await challengeService.CreateAndDeliverAsync(
@@ -38,10 +38,6 @@ internal sealed class RequestHandler(
             .ConfigureAwait(false);
         return created.IsSuccess
             ? created
-            : AcceptedPlaceholder();
+            : challengeService.CreateAcceptedPlaceholder();
     }
-
-    private static Result<AccountChallengeAcceptedResponse> AcceptedPlaceholder() =>
-        Result<AccountChallengeAcceptedResponse>.Success(
-            new AccountChallengeAcceptedResponse(Guid.Empty, DateTimeOffset.UtcNow));
 }
