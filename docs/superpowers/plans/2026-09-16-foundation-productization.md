@@ -199,8 +199,8 @@ flowchart LR
 
 **依赖：** F01。**提供：** 可复用的应用开发起点及受控诊断结果。
 
-- [ ] 对缺 SDK、错误数据库配置、遗漏模块依赖、未配置密钥建立诊断断言；输出机器码和修复指引，不泄露凭据。
-- [ ] 在现有 CLI 内扩展诊断入口，先只读检查，用户显式要求后才执行初始化；区分本地开发和生产配置。
+- [x] 对缺 SDK、错误数据库配置、遗漏模块依赖、未配置密钥建立诊断断言；输出机器码和修复指引，不泄露凭据。
+- [x] 在现有 CLI 内扩展诊断入口，先只读检查，用户显式要求后才执行初始化；区分本地开发和生产配置。
 - [x] 用现有生成器在新应用生成一个租户 CRUD，贯通数据库、后端、OpenAPI、Vue 和精确权限；开发者修改业务实现后再生成，证明人工文件不会丢失。
 - [x] 完成从创建到首个 CRUD 的教程并实走；记录耗时与失败原因，性能目标由实测基线后制定，不虚称固定分钟数。
 
@@ -558,6 +558,18 @@ F02及诊断前两项保持待办，Capacity-not-verified保持。既有 Redis �
 上一b0e54c59精确HEAD Actions终态：api-native-aot-linux `37387163247` completed / success；worker-native-aot-linux `37387163184` completed / success；ci `37387163516` completed / failure。主CI已知模板正例失败按上述本地完整套件验收修正，API/Worker AOT基线成功只归属上一HEAD。
 
 F02及诊断前两项保持待办，Capacity-not-verified保持。静态Realtime结果不验证Redis可用性、物理隔离、Worker Backplane要求、Ingress亲和部署、Hub授权、实际通信或完整宿主启动。本轮未重验全量Unit/Integration、API/Worker本地Native AOT、吞吐/10K容量或生产SLO；本轮全模板/双库样例通过属于规定范围本地验收，远端精确HEAD Actions状态另写PR，不冒充远端终态成功。行为冻结后仅补总计划，PR仍Draft，未合并、未发布。
+
+2026-10-06 F02 统一验收与里程碑收口（核对基线 `c06e36eb680c29159c1649c7fd4c6feacc70ac5d`，行为源码 `c6ed00d44341485d9250b859e6fc60d66f32f5ed`）：按上方四条原始验收项核对代码、测试与独立应用，诊断两项在本轮关闭，CRUD 与教程两项继续使用已验收事实。此前各增量“F02/诊断仍待办”的阶段状态由本节替代；历史失败与各自未验证项保留。此处收口范围是已列 SDK、数据库配置、官方模块安装/静态依赖、常见秘密与签名前提、开发/生产来源和只读边界，不要求将所有业务模块 Options 变成 CLI 诊断，也不把静态结果当作完整宿主启动或生产认证。
+
+从干净核对基线新打包并创建 Minimal SQL Server/MySQL 两个独立应用，实际执行 `pnpm run diagnose:development` / `diagnose:production` 及参数拒绝场景，共28次预期退出码全部一致，耗时 217.990 秒。每库每环境验证：正常配置0；非法数据库Provider1；Identity + Organization 漏 Tenancy 必需依赖1；显式空密钥开发warning/0、生产error/1；未知Profile与 `--initialize` 均64；global.json锁定缺失SDK时由随包Node入口在CLR前返回1。SDK/配置失败及密钥警告含稳定机器码与固定修复指引，非法参数输出Usage并退出64；配置/人工文件秘密探针与SDK原始版本无回显，应用源码/配置及受管框架摘要不变，两CLI runtimeconfig仅Microsoft.NETCore.App。原始进程结果和摘要留在 `.tmp/f02-closeout-created-apps-result.json` 指向的独立短临时目录，验收脚本为 `.tmp/f02-closeout-created-apps.mjs`。
+
+首轮统一实验因夹具使用未被当前规则识别的自造占位文本，在开发密钥断言失败；保留 `.tmp/f02-closeout-created-apps-fixture-failure.log` 与对应临时目录，不计为验收通过。核对现有占位规则后使用明确的空密钥场景，从新的包和应用重新执行上述完整28次；未修改产品规则、测试矩阵或退出码门禁。
+
+本轮 `node --test --test-concurrency=1 tests/templates/diagnose-app.test.mjs tests/templates/packaged-diagnose-scripts.test.mjs` 实际37/37、零失败/跳过/取消，耗时 34.236 秒；包含真实缺dotnet/缺SDK入口、参数拒绝、SDK前置基线与进程边界、随包脚本/冻结workspace配置及两Profile的pnpm入口。使用Windows x64、SDK10.0.401、Node24.12.0、pnpm10.26.0、DOTNET_PROCESSOR_COUNT=1及独立短TEMP/TMP，日志与环境留在 `.tmp/f02-closeout-template-checks.log` 与 `.tmp/f02-closeout-template-checks-environment.json`。三份文档同步后 `pnpm test:governance` 实际57/57、零失败/跳过，`git diff --check`通过。
+
+验收证据复用条件已实际核对：行为源码 c6ed00d44341485d9250b859e6fc60d66f32f5ed 到本轮核对基线的唯一差异是总计划18行，无代码、模板、客户端、迁移或测试输入变化。沿用该冻结源码的完整CodeGeneration/Realtime2264/2264、Architecture232/232、全模板493/493（1993.611秒、双库真实栈开启）、受影响双库Integration41/41，均零失败/跳过。再次核对其两库真实生成CRUD、五类普通账号权限浏览器与零可访问性违规报告、Worker业务Outbox、在线schema升级/旧数据与旧请求兼容/重放恢复原始结果及生成时间；未以发现数或构建代替真实执行。教程Demo/acme七步按此前分段实走记录验收，本轮未宣称重新执行教程。
+
+“只读”限应用源文件、配置与业务数据；pnpm入口委托dotnet run可能生成bin/obj，不认证整个文件系统零写入。diagnose不执行初始化、迁移、播种或数据库连接，初始化由教程第六/七步的显式命令完成。未覆盖的任意模块Options、实际PEM/密码学有效性、Redis可用性/物理隔离、Worker Backplane与部署亲和由各自专项验收；Capacity-not-verified保持，未重跑全量Unit/Integration或本地Linux Native AOT、未验证10K与生产SLO。B01总体状态不因F02关闭自动升级，F01/F15/F16及F03—F14仍按各自清单推进。后续按F03及C04核对通知挑战安全与投递闭环；本轮只同步总计划、教程和路线图，PR保持Draft，未合并、未发布。
 
 ### F03：复用通知平台完成账号验证挑战
 

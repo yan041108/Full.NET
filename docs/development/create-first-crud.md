@@ -1,6 +1,6 @@
 # 创建首个 CRUD 与环境诊断
 
-本教程提供 Minimal 独立应用的只读诊断与最小租户 CRUD 示例。代表性生成 CRUD 的数据库、OpenAPI、Vue、精确权限、跨租户拒绝、再生成及升级恢复已完成本地双库验收，见[总计划 F02](../superpowers/plans/2026-09-16-foundation-productization.md#f02环境诊断与生成一个真实-crud)。Demo/acme 七步教程已在同一保留的独立应用逐步实走，运行与分段验收边界见第七步；完整配置诊断仍待收口，教程通过不表示业务已经上线。
+本教程提供 Minimal 独立应用的只读诊断与最小租户 CRUD 示例。代表性生成 CRUD 的数据库、OpenAPI、Vue、精确权限、跨租户拒绝、再生成及升级恢复已完成本地双库验收，见[总计划 F02](../superpowers/plans/2026-09-16-foundation-productization.md#f02环境诊断与生成一个真实-crud)。Demo/acme 七步教程已在同一保留的独立应用逐步实走，运行与分段验收边界见第七步；只读诊断已按 F02 明列的 SDK、数据库、官方模块依赖、常见密钥与环境边界完成验收；范围见第一步，教程通过不表示业务已经上线。
 
 ## 前置条件
 
@@ -22,6 +22,8 @@ cd artifacts/first-crud/Demo
 后续命令全部从新应用根目录执行。此例固定应用名 `Demo` 与 OwnerKey `acme`，下方 Schema 与接入路径使用同一组名称；MySQL 示例把创建参数改为 `--database mysql`。使用验证过的创建器后，应用 `package.json` 包含两个 diagnose 脚本；它们使用随应用分发的 CLI，不依赖原仓库的工作目录。已有应用不会因框架源码升级自动获得应用自有脚本，可使用下方等价 CLI 命令，并显式采纳这两个入口。
 
 ## 第一步：运行 diagnose
+
+这里的“只读”指应用源文件、配置和业务数据；随包 Node 入口会执行 `dotnet run`，可能生成 CLI 的 `bin/obj` 构建产物。诊断不执行初始化、迁移、播种或数据库连接，不接受 `--initialize`。初始化须由开发者显式执行第六步迁移与第七步开发播种命令；Production 不采用开发播种流程。诊断范围及未认证项见下文。
 
 在应用根目录执行：
 

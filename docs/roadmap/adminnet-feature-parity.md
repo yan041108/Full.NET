@@ -248,6 +248,8 @@ uni-app 与 Flutter 不复制完整后台管理能力：uni-app 负责 H5/微信
 | B07 | 单据贯通主子表、附件、数据权限、审批、通知、导入报表打印 | 项目业务 Sample + 既有模块 | P1；F09/F10/F11 | Implemented |
 | B08 | 版本支持矩阵、发布清单、升级/备份恢复演练 | Templates + Deployment + Operations | P1，发布必需；F15/F16 | Build-verified |
 
+2026-10-06：B01 中 F02“环境诊断与生成一个真实 CRUD”已在 Minimal SQL Server/MySQL 独立应用完成本地验收，四项任务关闭；SDK/数据库/官方模块依赖/常见密钥与只读边界、真实 CRUD/精确权限/跨租户拒绝、再生成保护及教程证据见[总计划 F02](../superpowers/plans/2026-09-16-foundation-productization.md#f02环境诊断与生成一个真实-crud)。F01/F15/F16 的整项清单仍未关闭，B01 总体保持 `Build-verified`；未认证全部模块配置、生产上线或容量。
+
 ### 已有模块的收口重点
 
 这些工作是验收与集成增量，不重建已有模块。具体任务、依赖与停止条件由[总计划 §6](../superpowers/plans/2026-09-16-foundation-productization.md#6-已有模块的收口队列)关联原专项维护。
