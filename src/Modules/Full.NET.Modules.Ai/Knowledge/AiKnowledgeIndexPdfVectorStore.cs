@@ -14,11 +14,64 @@ namespace Full.NET.Modules.Ai.Knowledge;
 /// <summary>当前原会话授权下的单批恢复结果，不证明整个代次齐全。</summary>
 internal sealed record AiKnowledgeIndexPdfStoredBatch(Guid OperationId, AiKnowledgeIndexPdfVectorSnapshot Snapshot);
 
+/// <summary>分页清单及全量回执的瞬时证明；后续激活仍须事务内复核，不能缓存授权。</summary>
+internal sealed record AiKnowledgeIndexPdfGenerationProof(AiKnowledgeIndexDispatchRecord Source, SessionBindingSnapshot Session,
+    AiKnowledgeIndexPdfManifestSnapshot Manifest, IReadOnlyList<AiKnowledgeIndexVectorReceiptRecord> Receipts);
+
 /// <summary>PDF 批次绑定完整清单和结算操作，唯一竞争只复用原载荷。</summary>
 internal sealed class AiKnowledgeIndexPdfVectorStore(IQueryExecutor query, ICommandExecutor command, ICommandTransaction transaction,
     IDataTransactionState transactions, ICurrentTenant tenant, IClock clock, AiKnowledgeIndexTaskStore tasks,
     AiKnowledgeIndexSessionService sessions, IBackgroundSessionAuthorization authorization, IOptions<DatabaseOptions> database)
 {
+    /// <summary>只消费数据库完整清单，逐批验载荷并复核前后回执；不累计整代次向量或改变状态。</summary>
+    internal async Task<AiKnowledgeIndexPdfGenerationProof?> ReadWholePlanProofAsync(AiKnowledgeIndexTaskBinding binding,
+        Guid taskId, Guid leaseToken, CancellationToken token)
+    {
+        NoTransaction(); _ = tasks.HeldParameters(binding, taskId, leaseToken, token);
+        var state = await CurrentAsync(binding, taskId, leaseToken, null, token).ConfigureAwait(false);
+        if (state is null) return null;
+        // CurrentAsync 已冻结原字节并验证完整清单；调用方不能缩减期望集合。
+        var manifest = AiKnowledgeIndexPdfManifestCodec.Decode(state.Manifest.Payload, token);
+        var before = await ReadReceiptsAsync(binding, state, manifest.Batches.Count, token).ConfigureAwait(false);
+        if (before is null || before.Count != manifest.Batches.Count) return null;
+        var operations = new HashSet<Guid>();
+        for (var ordinal = 0; ordinal < before.Count; ordinal++)
+        {
+            token.ThrowIfCancellationRequested(); var receipt = before[ordinal];
+            if (receipt.BatchOrdinal != ordinal || receipt.Id == Guid.Empty || !operations.Add(receipt.Id)) return null;
+            // 每批携带同一清单/来源/会话约束，分页、正文及请求指纹由单批读边界完整验证。
+            var batch = await ReadAsync(binding, taskId, leaseToken, ordinal, state, token).ConfigureAwait(false);
+            if (batch is null || receipt != WholeReceipt(batch, state.Model)) return null;
+        }
+        // 最后 SQL 同时复算每批实际原字节 SHA 并检查账本，不能只比较表中声明的摘要。
+        var after = await ReadReceiptsAsync(binding, state, manifest.Batches.Count, token).ConfigureAwait(false);
+        return after is not null && before.SequenceEqual(after)
+            ? new(state.Source, state.Session, new(manifest, state.Manifest.PayloadHash), after) : null;
+    }
+
+    private async Task<IReadOnlyList<AiKnowledgeIndexVectorReceiptRecord>?> ReadReceiptsAsync(AiKnowledgeIndexTaskBinding binding,
+        State expected, int count, CancellationToken token)
+    {
+        var state = await CurrentAsync(binding, expected.Source.TaskId, expected.Source.LeaseToken, expected, token).ConfigureAwait(false);
+        if (state is null) return null;
+        var p = Parameters(binding, state, 0, token); p["ExpectedBatchCount"] = count;
+        var rows = await query.QueryAsync<AiKnowledgeIndexVectorReceiptRecord>(ReceiptStatement, p, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested(); NoTransaction();
+        if (rows.Count != count || rows.Count is < 1 or > 2048) return null;
+        var frozen = Array.AsReadOnly(rows.ToArray());
+        // 回执查询也会等待；末次授权与完整清单复核不能复用等待之前的结果。
+        return await CurrentAsync(binding, expected.Source.TaskId, expected.Source.LeaseToken, expected, token).ConfigureAwait(false) is not null
+            ? frozen : null;
+    }
+
+    private static AiKnowledgeIndexVectorReceiptRecord WholeReceipt(AiKnowledgeIndexPdfStoredBatch batch, AiModelConfigRecord model) => new()
+    {
+        Id = batch.OperationId, BatchOrdinal = batch.Snapshot.Payload.Ordinal,
+        RequestHash = Fingerprint(batch.OperationId, model, batch.Snapshot.Payload), InputCount = batch.Snapshot.Payload.Chunks.Count,
+        PayloadHash = batch.Snapshot.PayloadHash, ProviderKey = model.ProviderKey, ModelId = model.ModelId,
+        Dimensions = batch.Snapshot.Payload.Dimensions, FormatKey = AiKnowledgeIndexPdfVectorCodec.FormatKey, DistanceKey = "cosine"
+    };
+
     private static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
         AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.IndexEnqueue];
 
@@ -119,7 +172,7 @@ internal sealed class AiKnowledgeIndexPdfVectorStore(IQueryExecutor query, IComm
         State? expected, CancellationToken token)
     {
         var authority = await AuthorityAsync(binding, taskId, leaseToken, expected?.Source, expected?.Session, token).ConfigureAwait(false);
-        if (authority is null) return null;
+        if (authority is null || (expected is not null && !SameModel(expected, authority.Model))) return null;
         var p = AuthorityParameters(binding, authority.Source, authority.Session, token);
         var row = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexTextManifestRecord>(tasks.IsTenant
             ? AiKnowledgeIndexTextManifestSql.FindTenant : AiKnowledgeIndexTextManifestSql.FindHost, p, token).ConfigureAwait(false);
@@ -134,8 +187,14 @@ internal sealed class AiKnowledgeIndexPdfVectorStore(IQueryExecutor query, IComm
         catch (InvalidDataException) { return null; }
         if (!Matches(manifest.Identity, binding, authority)) return null;
         var final = await AuthorityAsync(binding, taskId, leaseToken, authority.Source, authority.Session, token).ConfigureAwait(false);
-        return final is not null && Matches(manifest.Identity, binding, final) ? new(final.Source, final.Session, final.Model, row) : null;
+        return final is not null && Matches(manifest.Identity, binding, final)
+            && (expected is null || SameModel(expected, final.Model)) ? new(final.Source, final.Session, final.Model, row) : null;
     }
+
+    // 同主键/版本不能掩盖目的地或调用选项变化，证明全过程冻结批准模型的完整请求绑定。
+    private static bool SameModel(State expected, AiModelConfigRecord current) =>
+        AiEmbeddingBudgetRequest.Create(expected.Source.TaskId, expected.Model, ["binding-check"])
+        == AiEmbeddingBudgetRequest.Create(expected.Source.TaskId, current, ["binding-check"]);
 
     private async Task<Authority?> AuthorityAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken,
         AiKnowledgeIndexDispatchRecord? expectedSource, SessionBindingSnapshot? expectedSession, CancellationToken token)
@@ -193,6 +252,9 @@ internal sealed class AiKnowledgeIndexPdfVectorStore(IQueryExecutor query, IComm
     private SqlStatement ReadStatement => database.Value.Provider == DatabaseProvider.MySql
         ? (tasks.IsTenant ? AiKnowledgeIndexVectorSql.FindPdfTenant : AiKnowledgeIndexVectorSql.FindPdfHost)
         : (tasks.IsTenant ? AiKnowledgeIndexVectorSql.FindPdfSqlServerTenant : AiKnowledgeIndexVectorSql.FindPdfSqlServerHost);
+    private SqlStatement ReceiptStatement => database.Value.Provider == DatabaseProvider.MySql
+        ? (tasks.IsTenant ? AiKnowledgeIndexVectorSql.ReceiptsPdfTenant : AiKnowledgeIndexVectorSql.ReceiptsPdfHost)
+        : (tasks.IsTenant ? AiKnowledgeIndexVectorSql.ReceiptsPdfSqlServerTenant : AiKnowledgeIndexVectorSql.ReceiptsPdfSqlServerHost);
     private sealed record Authority(AiKnowledgeIndexDispatchRecord Source, SessionBindingSnapshot Session, AiModelConfigRecord Model);
     private sealed record State(AiKnowledgeIndexDispatchRecord Source, SessionBindingSnapshot Session, AiModelConfigRecord Model,
         AiKnowledgeIndexTextManifestRecord Manifest);

@@ -56,4 +56,14 @@ internal static class AiKnowledgeIndexVectorSql
     internal static readonly SqlStatement ReceiptsTenant = new("ai.knowledge_index_vector.receipts_tenant", Receipts + Tenant + " ORDER BY batch.BatchOrdinal LIMIT 2049", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement ReceiptsSqlServerHost = new("ai.knowledge_index_vector.receipts_sqlserver_host", Receipts.Replace("SELECT batch.Id,", "SELECT TOP (2049) batch.Id,").Replace("ledger.RequestHash=batch.RequestHash", SqlServerHash).Replace(MySqlPayloadHash, SqlServerPayloadHash) + Host + " ORDER BY batch.BatchOrdinal", SqlDataScope.HostOnly);
     internal static readonly SqlStatement ReceiptsSqlServerTenant = new("ai.knowledge_index_vector.receipts_sqlserver_tenant", Receipts.Replace("SELECT batch.Id,", "SELECT TOP (2049) batch.Id,").Replace("ledger.RequestHash=batch.RequestHash", SqlServerHash).Replace(MySqlPayloadHash, SqlServerPayloadHash) + Tenant + " ORDER BY batch.BatchOrdinal", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    // PDF 全量回执追加完整清单及成功结算约束，复用原始批次数守卫与实际载荷 SHA 检查。
+    private static readonly string PdfReceipts = Receipts + PdfHeld
+        + " AND CAST(vector.FormatKey AS BINARY)=CAST('knowledge-pdf-vector-batch-v1' AS BINARY) AND OCTET_LENGTH(vector.FormatKey)=29";
+    private static readonly string PdfSqlServerReceipts = PdfSqlServer(PdfReceipts)
+        .Replace("SELECT batch.Id,", "SELECT TOP (2049) batch.Id,").Replace(MySqlPayloadHash, SqlServerPayloadHash);
+    internal static readonly SqlStatement ReceiptsPdfHost = new("ai.knowledge_index_pdf_vector.receipts_host", PdfReceipts + Host + " ORDER BY batch.BatchOrdinal LIMIT 2049", SqlDataScope.HostOnly);
+    internal static readonly SqlStatement ReceiptsPdfTenant = new("ai.knowledge_index_pdf_vector.receipts_tenant", PdfReceipts + Tenant + " ORDER BY batch.BatchOrdinal LIMIT 2049", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement ReceiptsPdfSqlServerHost = new("ai.knowledge_index_pdf_vector.receipts_sqlserver_host", PdfSqlServerReceipts + Host + " ORDER BY batch.BatchOrdinal", SqlDataScope.HostOnly);
+    internal static readonly SqlStatement ReceiptsPdfSqlServerTenant = new("ai.knowledge_index_pdf_vector.receipts_sqlserver_tenant", PdfSqlServerReceipts + Tenant + " ORDER BY batch.BatchOrdinal", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

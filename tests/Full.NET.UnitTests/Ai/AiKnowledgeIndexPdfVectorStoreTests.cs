@@ -15,7 +15,7 @@ namespace Full.NET.UnitTests.Ai;
 
 /// <summary>有界捕获及原会话复核与真实 SQL 分开验证，不用模拟器证明账本结算。</summary>
 [TestClass]
-public sealed class AiKnowledgeIndexPdfVectorStoreTests
+public sealed partial class AiKnowledgeIndexPdfVectorStoreTests
 {
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public async Task Valid_complete_pdf_batch_is_stored_and_restored_once(bool scoped)
@@ -164,13 +164,17 @@ public sealed class AiKnowledgeIndexPdfVectorStoreTests
         internal readonly AiKnowledgeIndexTaskBinding Binding = new(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), 1, 1, Guid.CreateVersion7());
         internal readonly AiKnowledgeIndexPdfVectorStore Store;
         internal readonly AiKnowledgePdfModelChunks Input;
-        internal readonly AiModelConfigRecord Model;
+        internal AiModelConfigRecord Model;
         internal AiKnowledgeIndexDispatchRecord Source;
         internal AiKnowledgeIndexPdfPlan Plan;
         internal AiKnowledgeIndexTextManifestRecord? Manifest;
         internal AiKnowledgeIndexVectorRecord? Row;
         internal ReadOnlyMemory<float>[] Vectors;
         internal byte[] Payload;
+        internal Dictionary<int, AiKnowledgeIndexVectorRecord>? Rows;
+        internal Action? AfterReceipts = null;
+        internal int ReceiptReads;
+        internal Func<IReadOnlyList<AiKnowledgeIndexVectorReceiptRecord>, IReadOnlyList<AiKnowledgeIndexVectorReceiptRecord>>? ChangeReceipts;
         internal int Ordinal, Writes, Commits, Rollbacks, AuthCalls, VectorReads, WriteCount = 1;
         internal bool Denied, SessionDenied, SourceDenied, ModelDenied, Unique = false, LedgerDenied;
         internal string? DeniedPermission = null;
@@ -198,7 +202,8 @@ public sealed class AiKnowledgeIndexPdfVectorStoreTests
                 EffectiveScope = session.EffectiveScope, LeaseExpiresAtUtc = Now.AddSeconds(30) });
             Query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { AfterModel?.Invoke(); return ModelDenied ? null : Model; });
             Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexTextManifestRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { var row = Manifest; AfterManifest?.Invoke(); return row; });
-            Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexVectorRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { VectorReads++; var row = LedgerDenied ? null : Row; AfterRead?.Invoke(); return row; });
+            Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexVectorRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { VectorReads++; var ordinal = (int)((IReadOnlyDictionary<string, object?>)_[1]!)["BatchOrdinal"]!;
+                var row = LedgerDenied ? null : Rows is null ? Row : Rows.GetValueOrDefault(ordinal); AfterRead?.Invoke(); return row; });
             auth.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
             { Assert.IsFalse(State.HasTransaction); AuthCalls++; return Denied || call.ArgAt<string>(1) == DeniedPermission ? null : new AuthorizedSessionActor(session.UserId, tenantId, session.SessionId); });
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
@@ -212,7 +217,21 @@ public sealed class AiKnowledgeIndexPdfVectorStoreTests
                 AfterWrite?.Invoke(); return WriteCount;
             });
             var sessions = new AiKnowledgeIndexSessionService(Query, command, new Transaction(this), State, tenant, Clock, ids, tasks, auth);
-            Store = new(Query, command, new Transaction(this), State, tenant, Clock, tasks, sessions, auth, Options.Create(new DatabaseOptions()));
+            Store = new(new ReceiptQuery(this), command, new Transaction(this), State, tenant, Clock, tasks, sessions, auth, Options.Create(new DatabaseOptions()));
+        }
+        // 集合读取手写边界，内部行类型无需对动态代理程序集开放。
+        private sealed class ReceiptQuery(Fixture fixture) : IQueryExecutor
+        {
+            public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement sql, object? parameters = null, CancellationToken cancellationToken = default)
+                => fixture.Query.QuerySingleOrDefaultAsync<T>(sql, parameters, cancellationToken);
+            public Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement sql, object? parameters = null, CancellationToken cancellationToken = default)
+            {
+                Assert.AreEqual(typeof(AiKnowledgeIndexVectorReceiptRecord), typeof(T));
+                fixture.ReceiptReads++; IReadOnlyList<AiKnowledgeIndexVectorReceiptRecord> rows = fixture.LedgerDenied || fixture.Rows is null ? []
+                    : fixture.Rows.OrderBy(x => x.Key).Select(x => ToReceipt(x.Value)).ToArray();
+                if (fixture.ChangeReceipts is not null) rows = fixture.ChangeReceipts(rows);
+                fixture.AfterReceipts?.Invoke(); return Task.FromResult((IReadOnlyList<T>)(object)rows);
+            }
         }
         internal Task<bool> Write(CancellationToken token = default) => Store.PersistAsync(Binding, TaskId, Lease, Operation, Plan, Ordinal, Vectors, token);
         internal Task<AiKnowledgeIndexPdfStoredBatch?> Read(CancellationToken token = default) => Store.ReadSnapshotAsync(Binding, TaskId, Lease, Ordinal, token);

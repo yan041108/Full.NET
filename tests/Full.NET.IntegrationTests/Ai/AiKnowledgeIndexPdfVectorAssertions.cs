@@ -56,9 +56,13 @@ internal static class AiKnowledgeIndexPdfVectorAssertions
                 : (scoped ? AiKnowledgeIndexVectorSql.InsertPdfTenant : AiKnowledgeIndexVectorSql.InsertPdfHost);
             var find = sqlServer ? (scoped ? AiKnowledgeIndexVectorSql.FindPdfSqlServerTenant : AiKnowledgeIndexVectorSql.FindPdfSqlServerHost)
                 : (scoped ? AiKnowledgeIndexVectorSql.FindPdfTenant : AiKnowledgeIndexVectorSql.FindPdfHost);
+            p["ExpectedBatchCount"] = 2;
+            var receipts = sqlServer ? (scoped ? AiKnowledgeIndexVectorSql.ReceiptsPdfSqlServerTenant : AiKnowledgeIndexVectorSql.ReceiptsPdfSqlServerHost)
+                : (scoped ? AiKnowledgeIndexVectorSql.ReceiptsPdfTenant : AiKnowledgeIndexVectorSql.ReceiptsPdfHost);
             long charged = 0; var operations = new List<Guid>();
             for (var ordinal = 0; ordinal < 2; ordinal++)
             {
+                Assert.IsNull(await WholeProof());
                 var vectors = plan.Batches[ordinal].Chunks.Select(_ => { var v = new float[scoped ? 3072 : 1536]; v[0] = 1; v[1] = BitConverter.Int32BitsToSingle(int.MinValue); return new ReadOnlyMemory<float>(v); }).ToArray();
                 var request = AiEmbeddingBudgetRequest.Create(Guid.CreateVersion7(), model, plan.Batches[ordinal].Chunks.Select(c => c.EmbeddingText).ToArray());
                 var batch = await Use(a => a.Batches.PrepareAsync(binding, taskId, lease, ordinal, AiOperationBudgetStore.Fingerprint(request), vectors.Length, default)); Assert.IsNotNull(batch);
@@ -134,6 +138,36 @@ internal static class AiKnowledgeIndexPdfVectorAssertions
                 Task<bool> Write() => Use(a => a.Vectors.PersistAsync(binding, taskId, lease, batch.Id, plan, ordinal, vectors, default));
                 Task<AiKnowledgeIndexPdfStoredBatch?> Read() => Use(a => a.Vectors.ReadSnapshotAsync(binding, taskId, lease, ordinal, default));
             }
+            var proof = await WholeProof(); Assert.IsNotNull(proof); Assert.HasCount(2, proof.Receipts);
+            Assert.AreEqual(manifestHash, proof.Manifest.PayloadHash); Assert.AreEqual(plan.Summary.PlanHash, proof.Manifest.Manifest.Summary.PlanHash);
+            Assert.AreEqual(2, (await db.QueryAsync(receipts.Text, p)).Count());
+            var firstPayload = await db.QuerySingleAsync<byte[]>("SELECT Payload FROM fn_ai_knowledge_index_vector WHERE Id=@Id", new { Id = operations[0] });
+            foreach (var keepHash in new[] { true, false })
+            {
+                var broken = new byte[8];
+                await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload,PayloadHash=@Hash WHERE Id=@Id",
+                    new { Payload = broken, Hash = keepHash ? Hash(firstPayload) : Hash(broken), Id = operations[0] });
+                Assert.IsNull(await WholeProof());
+                if (keepHash) Assert.AreEqual(1, (await db.QueryAsync(receipts.Text, p)).Count());
+                await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload,PayloadHash=@Hash WHERE Id=@Id",
+                    new { Payload = firstPayload, Hash = Hash(firstPayload), Id = operations[0] });
+                Assert.IsNotNull(await WholeProof());
+            }
+            foreach (var (flip, restore) in new[] { ("Outcome='failed'", "Outcome='succeeded'"),
+                ("SettledAtUtc=NULL", "SettledAtUtc=@Now"), ("UsageStatus='reserved'", "UsageStatus='known'") })
+            {
+                await db.ExecuteAsync("UPDATE fn_ai_operation_budget SET " + flip + " WHERE Id=@Id", new { Id = operations[0], Now = now.UtcDateTime });
+                Assert.IsNull(await WholeProof()); Assert.AreEqual(1, (await db.QueryAsync(receipts.Text, p)).Count());
+                await db.ExecuteAsync("UPDATE fn_ai_operation_budget SET " + restore + " WHERE Id=@Id", new { Id = operations[0], Now = now.UtcDateTime });
+                Assert.IsNotNull(await WholeProof());
+            }
+            // 多出的未结算批次不能被账本 JOIN 隐藏，原始批次数必须匹配完整清单。
+            var extra = await Use(a => a.Batches.PrepareAsync(binding, taskId, lease, 2, new string('b', 64), 1, default)); Assert.IsNotNull(extra);
+            Assert.IsNull(await WholeProof()); Assert.AreEqual(0, (await db.QueryAsync(receipts.Text, p)).Count());
+            await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_batch WHERE Id=@Id", new { Id = extra.Id }); Assert.IsNotNull(await WholeProof());
+            foreach (var permission in new[] { "ai.knowledge_bases.read", "ai.knowledge_documents.read", "ai.knowledge_documents.source_read", "ai.knowledge_documents.upload", "ai.knowledge_documents.index_enqueue" })
+            { auth.DeniedPermission = permission; Assert.IsNull(await WholeProof()); auth.DeniedPermission = null; }
+            Task<AiKnowledgeIndexPdfGenerationProof?> WholeProof() => Use(a => a.Vectors.ReadWholePlanProofAsync(binding, taskId, lease, default));
             foreach (var (flip, restore) in new[]
             {
                 ("UPDATE fn_ai_knowledge_base SET EmbeddingModelVersion=2 WHERE Id=@KnowledgeBaseId", "UPDATE fn_ai_knowledge_base SET EmbeddingModelVersion=1 WHERE Id=@KnowledgeBaseId"),
