@@ -1693,6 +1693,19 @@
       ]
     },
     {
+      "statementName": "identity.invalidate_account_challenge",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.InvalidateById",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
+      "category": "host_catalog",
+      "reason": "投递失败仅撤销当前请求所属的挑战，不影响已成功重发的新挑战。",
+      "requiredSqlFragments": [
+        "UPDATE fn_identity_account_challenge",
+        "WHERE ChallengeId = @ChallengeId",
+        "ConsumedAtUtc IS NULL",
+        "ExpiresAtUtc > @ConsumedAtUtc"
+      ]
+    },
+    {
       "statementName": "identity.invalidate_active_account_challenges",
       "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.InvalidateActive",
       "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",

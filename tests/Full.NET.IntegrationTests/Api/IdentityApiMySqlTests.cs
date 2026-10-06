@@ -714,6 +714,15 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Late_challenge_delivery_failure_preserves_replacement_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await AccountChallengeDeliveryCompensationAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Account_recovery_follows_contract_with_mysql()
     {
         using var factory = new FullNetApiFactory(

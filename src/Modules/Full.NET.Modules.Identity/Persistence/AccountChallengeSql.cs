@@ -39,6 +39,19 @@ internal static class AccountChallengeSql
         """,
         SqlDataScope.Global);
 
+    // 失败补偿按请求所属挑战定位，已消费或过期记录保持幂等无操作。
+    public static readonly SqlStatement InvalidateById = new(
+        "identity.invalidate_account_challenge",
+        """
+        UPDATE fn_identity_account_challenge
+        SET ConsumedAtUtc = @ConsumedAtUtc,
+            Version = Version + 1
+        WHERE ChallengeId = @ChallengeId
+          AND ConsumedAtUtc IS NULL
+          AND ExpiresAtUtc > @ConsumedAtUtc
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement IncrementAttempt = new(
         "identity.increment_account_challenge_attempt",
         """

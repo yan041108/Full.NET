@@ -714,6 +714,15 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Late_challenge_delivery_failure_preserves_replacement_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await AccountChallengeDeliveryCompensationAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Account_recovery_follows_contract_with_sql_server()
     {
         using var factory = new FullNetApiFactory(

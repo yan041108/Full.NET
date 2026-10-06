@@ -584,6 +584,21 @@ F02及诊断前两项保持待办，Capacity-not-verified保持。静态Realtime
 
 **验收：** 两个并发消费最多一个成功；未送达不被标记为已验证；不能跨用途复用挑战。未注册且未加入任何租户的邮箱可通过受控挑战渠道收信，但不能借该渠道调用普通通知 API 或发送任意邮件。
 
+**2026-10-06 F03 投递失败补偿的并发收口（局部完成，F03 六项保持未关闭）。**
+
+从开发分支基线 `9fbf1b98080957150cf29f7f7d1982a4c3b3632d` 创建任务快照 `f03-challenge-delivery-compensation-20261006`。发现旧挑战已提交、外部投递暂停时，同邮箱/用途可成功重发新挑战；旧投递迟到失败使用用途和邮箱撤销所有活跃挑战，误撤销新挑战。补偿改为仅按当前请求生成的 ChallengeId 更新未消费且未过期的记录；正常重发仍在 Identity 本地事务内撤销旧挑战并插入新摘要，外部投递位于提交之后。双库共用显式 SQL，并精确登记 Global SQL；公共契约和 schema 沿用现有定义。
+
+新增12个单元回归先在旧实现实际9失败/3成功，修复后12/12；覆盖注册、密码恢复、邀请验证三种用途，迟到失败、补偿零/一行、成功投递与事务外投递。完整 Identity 单元集 `pnpm test:dotnet:unit -- --filter FullyQualifiedName~Full.NET.UnitTests.Identity. --minimum-expected-tests 439` 实际439/439，零失败/跳过。
+
+`pnpm test:slice -- --snapshot f03-challenge-delivery-compensation-20261006` 实际执行 Identity 双 Provider 167/167，零失败/跳过；新增 SQL Server/MySQL 两个用例分别覆盖三种用途，控制旧投递暂停、新挑战成功提交及投递、旧失败释放的顺序，查询真实记录并验证新挑战活跃且版本未变、旧挑战失效、跨用途拒绝、一次消费和重放拒绝；另验证无重发时失败挑战真实撤销并增加版本，凭据无法消费。投递 Port 使用受控测试替身，本段不证明真实 SMTP。工具链65/65、治理57/57；分片发现1120项无遗漏/重复，发现数不算完整 Integration 执行数。矩阵只增加对应实际新增用例数量。
+
+首轮复用容器恢复数百个历史测试数据库后 SQL Server 被 OOM 终止（OOMKilled=true、exit137），造成迁移传输错误；中断该轮并保留 `.tmp/f03-slice.log` 和 `.tmp/f03-slice-reused-sqlserver-state.json`，不计为通过。改用仓库已有 `FULLNET_TESTCONTAINERS_REUSE=0` 从新容器完整重跑同一影响集，原始通过日志为 `.tmp/f03-slice-fresh.log`。未调整过滤器、并发或通过门槛。
+
+`pnpm test:dotnet:architecture` 实际232/232、零失败/跳过，包含 API Native AOT 架构集与 Global SQL 边界；`pnpm test:aot:analyzers` 实际退出0。`pnpm test:aot:native:e2e` 在 Windows 发现27项、全部27项跳过、实际成功0，不计为原生运行通过；本轮未升级 Aot-published 或原生 Provider 状态。只读安全审查未发现范围内阻断问题，补充的一行补偿路径已复核并进入双库实际验收。
+
+本地环境：Windows 10.0.19045 x64、12th Gen Intel(R) Core(TM) i7-12700H、63.75GiB、SDK10.0.401、Nodev24.12.0、pnpm10.26.0、Docker29.6.2；DOTNET_PROCESSOR_COUNT=1、Integration Workers=2、最终容器复用关闭。源码差异逐文件摘要、命令/退出码、日志摘要及环境保存在 `.tmp/f03-evidence.json` / `.tmp/f03-post-slice-result.json` / `.tmp/f03-environment.json`，发布前可按本轮提交与该记录核对。
+
+下一切片继续核对用途/账号绑定、并发尝试与消费、匿名入口及无账号枚举、送达失败/未知状态追踪、受限载荷与真实邮件渠道；F03 六项条件未整体验收。本轮未执行全量 Unit/Integration、独立生成应用新一轮全套或本地 Linux 原生运行；容量保持 Capacity-not-verified。
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。
