@@ -19,7 +19,7 @@ namespace Full.NET.UnitTests.Ai;
 
 /// <summary>真实原子会话服务配合执行器 Port，验证公开入队不接受身份或代次覆盖。</summary>
 [TestClass]
-public sealed class AiKnowledgeIndexEnqueueTests
+public sealed partial class AiKnowledgeIndexEnqueueTests
 {
     [TestMethod] [DataRow(false, "refresh")] [DataRow(true, "refresh")]
     [DataRow(false, "oidc-application")] [DataRow(true, "oidc-application")]
@@ -173,6 +173,7 @@ public sealed class AiKnowledgeIndexEnqueueTests
     private sealed class Fixture : IQueryExecutor
     {
         internal readonly CurrentTenantAccessor Tenant = new();
+        internal readonly AiKnowledgePdfRuntimeOptions Pdf = new();
         internal readonly IDataTransactionState State = Substitute.For<IDataTransactionState>();
         internal readonly Guid Knowledge = Guid.CreateVersion7(), Document = Guid.CreateVersion7(), Version = Guid.CreateVersion7(), Task = Guid.CreateVersion7();
         internal SessionBindingSnapshot Session;
@@ -212,7 +213,7 @@ public sealed class AiKnowledgeIndexEnqueueTests
             });
             var sessions = new AiKnowledgeIndexSessionService(this, command, new Transaction(this), State, Tenant, clock, ids,
                 new(this, command, Tenant, clock, ids), authorization);
-            service = new(this, State, Tenant, sessions, authorization);
+            service = new(this, State, Tenant, sessions, authorization, Microsoft.Extensions.Options.Options.Create(Pdf));
         }
         internal Task<Result<AiKnowledgeIndexEnqueueResponse>> Run(CancellationToken token = default) => service.EnqueueAsync(Knowledge, Document, Version, Session, token);
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)

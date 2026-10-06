@@ -172,7 +172,7 @@ public sealed class AiKnowledgeIndexWorkerTests
     private static AiKnowledgeIndexWorkerRecord Row(Guid? tenantId) => new()
     {
         TaskId = Guid.CreateVersion7(), TenantId = tenantId, KnowledgeBaseId = Guid.CreateVersion7(), DocumentId = Guid.CreateVersion7(), VersionId = Guid.CreateVersion7(),
-        OwnerUserId = Guid.CreateVersion7(), DocumentVersion = 1, KnowledgeBaseVersion = 1,
+        OwnerUserId = Guid.CreateVersion7(), DocumentVersion = 1, KnowledgeBaseVersion = 1, ContentType = "text/plain",
     };
 
     [TestMethod] [DataRow(0)] [DataRow(1)] [DataRow(2)] [DataRow(3)] [DataRow(4)] [DataRow(5)] [DataRow(6)] [DataRow(7)]

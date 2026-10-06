@@ -58,13 +58,15 @@ public sealed class AiBudgetRowReaderTests
         var names = new[] { "TaskId", "TenantId", "KnowledgeBaseId", "DocumentId", "VersionId", "OwnerUserId" };
         foreach (var name in names) table.Columns.Add(name, typeof(Guid));
         table.Columns.Add("DocumentVersion", typeof(long)); table.Columns.Add("KnowledgeBaseVersion", typeof(decimal));
+        table.Columns.Add("ContentType", typeof(string));
         var ids = names.Select(_ => Guid.CreateVersion7()).ToArray();
-        table.Rows.Add(ids[0], tenant ? (object)ids[1] : DBNull.Value, ids[2], ids[3], ids[4], ids[5], 2L, 3m);
+        table.Rows.Add(ids[0], tenant ? (object)ids[1] : DBNull.Value, ids[2], ids[3], ids[4], ids[5], 2L, 3m, "application/pdf");
         using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
         var row = AiBudgetRowReaders.ReadKnowledgeWorker(reader);
         Assert.AreEqual(ids[0], row.TaskId); Assert.AreEqual(tenant ? ids[1] : (Guid?)null, row.TenantId);
         Assert.AreEqual(ids[2], row.KnowledgeBaseId); Assert.AreEqual(ids[3], row.DocumentId); Assert.AreEqual(ids[4], row.VersionId);
         Assert.AreEqual(ids[5], row.OwnerUserId); Assert.AreEqual(2, row.DocumentVersion); Assert.AreEqual(3, row.KnowledgeBaseVersion);
+        Assert.AreEqual("application/pdf", row.ContentType);
     }
 
     [TestMethod] [DataRow(false)] [DataRow(true)]

@@ -47,7 +47,7 @@ internal static class NativeApiE2EAssertions
             NativeApiArtifactLocator.RequireArtifact(),
             provider,
             connectionString,
-            new Dictionary<string, string?>(),
+            NativePdfKnowledgeAssertions.Settings(NativeApiArtifactLocator.RequireArtifact().ExecutablePath),
             NativeAotTestTimeouts.ProcessStartup,
             cancellationToken).ConfigureAwait(false);
 
@@ -55,6 +55,7 @@ internal static class NativeApiE2EAssertions
         var token = await LoginAsync(client, host.LogFilePath, cancellationToken)
             .ConfigureAwait(false);
         await VerifyAiModuleNativeClosureAsync(client, token, provider, connectionString, cancellationToken).ConfigureAwait(false);
+        await NativePdfKnowledgeAssertions.VerifyAsync(client, token, provider, connectionString, cancellationToken).ConfigureAwait(false);
         // 专用 AI 探针在末尾切租户，避免让共享 critical flow 的旧令牌失效。
         var tenantToken = await EnterDevelopmentTenantAsync(client, token, cancellationToken).ConfigureAwait(false);
         using var tenantCreate = AuthorizedJson(HttpMethod.Post, "/api/v1/ai/knowledge-bases", tenantToken, new CreateAiKnowledgeBaseRequest("原生租户目录", null));

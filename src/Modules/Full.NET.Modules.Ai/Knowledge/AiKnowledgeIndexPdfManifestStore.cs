@@ -116,7 +116,9 @@ internal sealed class AiKnowledgeIndexPdfManifestStore(IQueryExecutor query, ICo
     private bool Matches(AiKnowledgeIndexPdfPlanIdentity identity, AiKnowledgeIndexTaskBinding binding, State state) =>
         identity.KnowledgeBaseId == binding.KnowledgeBaseId && identity.KnowledgeBaseVersion == state.Source.KnowledgeBaseVersion
         && identity.TenantId == tenant.Id && identity.ModelConfigId == state.Model.Id && identity.ModelConfigVersion == state.Model.Version
-        && identity.ProviderKey == state.Model.ProviderKey && identity.ModelId == state.Model.ModelId && identity.ContentHash == state.Source.ContentHash
+        && identity.ProviderKey == state.Model.ProviderKey && identity.ModelId == state.Model.ModelId
+        // 上传保留大写十六进制，计划采用小写规范编码；摘要比较不改变权威来源快照。
+        && string.Equals(identity.ContentHash, state.Source.ContentHash, StringComparison.OrdinalIgnoreCase)
         && state.Source.ContentType == "application/pdf";
     private Dictionary<string, object?> Parameters(AiKnowledgeIndexTaskBinding binding, State state, CancellationToken token)
     {

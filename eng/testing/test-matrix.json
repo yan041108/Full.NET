@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 5192,
+      "minimum": 5218,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -21,7 +21,7 @@
         },
         "ai-module": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
-          "minimum": 1723
+          "minimum": 1749
         },
         "ai-evaluation": {
           "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests",
@@ -102,16 +102,18 @@
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
     "filter": "FullyQualifiedName~NativeWorker",
     "requiredTestTypes": [
-      "NativeWorkerKafkaLogMySqlE2ETests"
+      "NativeWorkerKafkaLogMySqlE2ETests",
+      "NativeWorkerPdfE2ETests"
     ],
-    "minimum": 14,
+    "minimum": 16,
     "timeout": "45m"
   },
   "nativeAotIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
     "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc",
     "requiredTestTypes": [
-      "NativeApiKafkaLogMySqlE2ETests"
+      "NativeApiKafkaLogMySqlE2ETests",
+      "NativeWorkerPdfE2ETests"
     ],
     "minimum": 10,
     "timeout": "45m"

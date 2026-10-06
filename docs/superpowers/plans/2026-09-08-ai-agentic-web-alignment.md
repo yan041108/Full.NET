@@ -17,6 +17,7 @@
 - R02 已提交 `4a748409af6fcddd23b441a182ee3e7e8fe2b47f`。随后交付 R03 独立选型实验及 [ADR-0013](../../architecture/adr/ADR-0013-ai-retrieval-provider.md)：首版采用双库存派生向量、SQL 先过滤、有界精确余弦；Qdrant 保留候选，PdfPig 0.1.16 作为 R05 文本 PDF 接入候选。没有新增生产依赖或功能开关。
 - 实施基线：分支 `codex/foundation-acceptance-20260926`，HEAD `a7a68776818731703f1ebc11bc529f2746df59e1`，任务快照 `ai-rag-evaluation-r02`。保留原有日志文档、code-wiki 与语言资源改动。
 - R04 的目录、模型版本审批、用户/角色/机构两层授权、文件版本与导入恢复已按 R04a、R04b1–R04b6 分项本地验收，并于 2026-10-04 完成收尾核对。R05a 有界 TXT/Markdown 解析基础、R05b 有界 Token 分块核心、R05c 标题/段落/表格上下文分块基础、R05d 固定真实词表/精确模型配置绑定与 R05e1 PDF 分页输出验收/页内模型分块已完成内部切片本地验收。R05e2 真实 PDF 独立工具、本地 Docker 硬隔离与 Linux Native AOT 发布/运行已验收，尚未接入业务导入或 Worker。R05d 的完整 Host Linux 发布尝试因内存不足/资源压力未完成，分块器原生运行仍未验证；R05f1 索引任务持久化、双库恢复和代次/租约隔离，以及 R05f2a 派发前权威快照已完成内部切片本地验收；后续继续 Worker 执行、派发前权威复核、预算账本及索引写入。R05–R12 未完成，完整知识库/RAG 保持 Planned，Qdrant 未生产选用。R01 既有未关闭门禁不因这些切片自动关闭；当前验收执行位置遵守开发质量 §11 的本地验收规则，替代下方历史记录中的 Actions 前置。
+- 2026-10-07 推进更新（替代上条尚未接入 Worker/公开入口的阶段状态）：文本完整索引、原会话入队/重试、当前 ready 与删除恢复已交付；本批 R05f 接入显式启用的 PDF 运行时、入队/重试、Worker 分流和当前读取证明，完成同批本地验收。Native PDF 证据覆盖真实 HTTP 与已结算代次恢复，不外推真实解析或云模型整代次派发。下一阶段 R06 建设权限检索、问答和可信引用，完整知识库/RAG、质量和容量门禁仍未全部关闭。
 
 ### 2026-09-27 当前摘要（替代下方历史状态中的未实施判断）
 
@@ -1661,3 +1662,18 @@ pnpm test:aot:worker:analyzers
 - `node artifacts/r05e8e/verify-acceptance.mjs` 核对 Integration 全部 82 UID/FQN 和结果、AI 最终 1723 项通过摘要、Unit 实际发现数量，以及 4255 项最终源码/矩阵冻结输入；正式、Unit、Integration 三处 AI DLL SHA 一致。原始失败/中止与最终成功日志、发现记录、TRX、验收清单保留于忽略目录 `artifacts/r05e8e/`。没有改动现有文本激活 SQL、行物化器、DI 或 Worker/Host 可达路径，复用上批未变闭包的原生发布/运行证据，本批未重新发布或运行 Native 宿主，不能外推私有 PDF 服务为已公开 Native 能力。
 - Windows x64、i7-12700H、约 64 GB、.NET SDK 10.0.401；双库测试 2 个处理器、GC 堆 2 GiB、容器不复用。后续集中接入 PDF 公开入队、Worker 分流及状态读取；完整 RAG 仍 Planned，容量仍 Capacity-not-verified。
 - 收尾：交付记录更新后再运行治理检查，最终差异检查通过，在 main 合并提交本批功能。
+
+### 2026-10-07：R05f PDF 可信运行时、公开索引和状态读取合批
+
+- main 基线 `570d0a9a04f22b6a93a3c34e7546e79c23644dc5`，任务快照 `ai-knowledge-pdf-runtime-r05f`。按用户要求同批实现以下四项及摘要兼容修正，统一验收后提交；不改迁移、公开 DTO 或冻结的 Layui。
+- [x] API/Worker 共用 `FullNet:Ai:KnowledgePdf` 显式启用策略，默认关闭。启用时须配置 `NodeExecutablePath`、`CliScriptPath` 的可信绝对路径及固定 `sha256:` 镜像标识；Worker 另校验本机文件存在。解析器仅注册到 Worker，API 只注册读取证明。
+- [x] PDF 公开入队与人工重试沿用原会话、原来源和精确权限边界；Worker 静态双库扫描受启用策略控制，按当前内容类型调用各自的 scoped 消费者。扫描记录不授予模型派发资格。
+- [x] PDF 就绪状态复核当前读取者的权限、角色/组织关系、可见资源及实际完整代次；不依赖历史写入会话仍在线，不调用模型或修改费用账本。
+- [x] 修正上传大写 SHA-256 与规范 PDF 计划小写摘要的比较，保持权威来源快照原表示。回归先复现两项失败，再覆盖整代次与双库清单、向量、激活和读取。
+- 原生 HTTP 首次人工重试实际返回 409，定位为 Retry 条件 UPDATE 遗留文本格式谓词；没有放宽冲突断言。已补可信整数 `PdfEnabled` 和 PDF 条件，Unit 命令断言及双库实际 RetryService 写入回归防止再次只验证模拟返回值。首轮原生运行在失败后主动中止并保留原始状态，不计通过；原生 API/Worker 发布、AI Unit 和正式 merge 双库影响集均针对修正后输入重新验证。只读复审未发现本次修正新增 P1/P2。
+- [x] Unit 实际发现 5218、AI 1749；SQL 修正后完整 AI 1749/1749、零失败/跳过（1m 03s 337ms）。首次资源竞争产生一项 OOM，不计通过，保留失败记录。修正后 API AOT 分析零警告/错误（3m 44s）；Windows Integration、Unit、Architecture 构建均零警告/错误，分别 12m 18s、1m 57s、41s；Linux Integration 重建零警告/错误（14m 46s）。AI 架构 7/7、Native AOT 架构 73/73。
+- [x] `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-runtime-r05f --phase merge` 正式选择 90 项（AI 双库 82、宿主冒烟 8）。SQL 修正前单轮 90/90 不能替代修正后的回归；修正后 Docker EOF 中止运行保留原始日志，不计通过。恢复后的正式运行在 45m 23s 044ms 达到时限，中止、78 成功/0 失败/0 跳过，没有最终 TRX。按当前 TRX 扩展 2.3.2 对应官方提交 `c3fdb81b8a5584664d82f4bcec6577f6d918b5fe` 的长度前缀格式，严格核对原始二进制日志的 78 个完整 Passed 帧及 UID/FQN。沿开发质量 §11 第 5 项复用未变输入的有效结果，`node artifacts/r05f/run-integration-remaining.mjs` 精确发现并补跑剩余 MCP/工具 12 项，退出 0、12/12、零失败/跳过（7m 08s 739ms）。`verify-acceptance.mjs --local` 核对精确并集 90、4263 项冻结输入及相同 AI DLL；保留原中止状态与补跑 TRX，不生成伪造的单轮全绿报告。前置工具链 65/65、治理 57/57，Integration 分片 1194 项无遗漏/重复；PDF 场景直接覆盖实际重试、启用扫描、完整付费代次恢复、当前读取者授权和历史写入撤权，费用不增加。
+- [x] Linux 原生门禁验收。修正后官方 API 发布退出 0，138002096 字节、21m 04s 823ms，17 项允许警告；Worker 发布退出 0，89142344 字节、11m 28s 744ms，15 项允许警告，均通过既有官方警告门禁。API Native HTTP 10/10、零失败/跳过（37m 32s 398ms），直接验证 PDF 入队、人工重试和 ready。Worker 首轮达到时限后中止，13 成功/0 失败/0 跳过（46m 08s 932ms），没有最终 TRX；原始完整帧覆盖 MySQL/Kafka、新增 PDF 两库及两项 SQL Server。按相同官方 TRX 序列化格式严格校验，`node artifacts/r05f/run-native-worker-remaining.mjs` 精确发现并补跑剩余 SQL Server 6 项，退出 0、6/6、零失败/跳过（8m 27s 820ms）。原生 Worker 使用 JIT HTTP 准备真实会话并验证 Native 扫描与已结算代次恢复；API 与 Worker 各自独立准备产物。最终精确并集 API 10、Worker 19、核心 Native 29，新增 PDF 类型与 Kafka 均满足必需发现门禁；API 下限保持 10、Worker 从 14 增至 16。保存真实补跑 TRX 和原中止日志，不制造单轮全绿报告，不将 Windows 的 29 项跳过计为通过。
+- Docker 掉线中止首次原生发布和 Linux 构建，不计通过；恢复已有服务后，2 GiB GC 堆的发布在生成 ELF 对象时 OOM，后续增量链接因遗留零字节对象缺少 exports 再次失败。修正 SQL 后的发布又因引擎 `unexpected EOF` 中止，保留非零退出码；Docker CLI 重启命令本身超时退出 1，后续独立读取确认引擎实际恢复、版本 29.6.2，不把 CLI 命令报告为成功。清理专属缓存中未受本轮验收的 API 对象和 exports，沿官方发布命令重新生成；任务适配器限定 API 2 核、Worker 4 核，各 10 GiB 容器、4 GiB GC 堆，未改变官方发布属性或警告门禁。4263 项源码/矩阵冻结输入与原始成功、失败及中止日志保留在忽略目录 `artifacts/r05f/`。
+- `node artifacts/r05f/verify-acceptance.mjs` 退出 0，核对 4263 项最终源码/矩阵输入未变，AI Unit 1749、双库 90 与 Native 29 的精确 UID/FQN、正式与测试 AI DLL 一致，以及 API/Worker 实际执行摘要和本轮正式发布一致。原始发现、成功/失败/中止记录、序列化格式依据、TRX、日志与 `acceptance.json` 保留在忽略目录 `artifacts/r05f/`；操作说明已同步 PDF 配置、启用边界和运行范围。
+- Windows x64、i7-12700H、约 64 GB、SDK 10.0.401；Linux SDK 10.0.400、Docker 29.6.2、SQL Server 2022-CU14 / MySQL 8.0。测试进程 2 个处理器、GC 堆 2 GiB，容器不复用；原生 SDK 容器初轮 2 CPU/8 GiB，Worker 剩余 6 项补跑使用 4 CPU/8 GiB，进程与 GC 约束不变。原生 PDF 用例使用合成已结算数据证明恢复闭包，不冒充 Native Worker 的真实文件解析或云模型整代次派发；完整 RAG 仍 Planned，容量仍 Capacity-not-verified。治理和最终差异检查后在 main 提交整批，后续进入 R06 权限检索、问答与可信引用。

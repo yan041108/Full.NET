@@ -110,6 +110,11 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
         internal AiKnowledgeIndexBatchRecord[] Batches;
         internal AiKnowledgeIndexVectorRecord[] Payloads;
         internal AiKnowledgeIndexActivationRecord? Pointer;
+        internal AiKnowledgeIndexStatusRecord? ReadRow;
+        internal Action? AtRead;
+        internal IQueryExecutor Query = null!;
+        internal AiKnowledgeIndexTaskStore Tasks = null!;
+        internal CurrentTenantAccessor Tenant = null!;
         internal AiKnowledgeIndexDispatchRecord Source;
         internal AiKnowledgeIndexPdfPersistenceService Consumer = null!;
         internal Action? AtPayload;
@@ -122,7 +127,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
 
         internal Fixture(bool scoped)
         {
-            var tenant = new CurrentTenantAccessor(); Guid? tenantId = scoped ? Guid.CreateVersion7() : null;
+            var tenant = new CurrentTenantAccessor(); Tenant = tenant; Guid? tenantId = scoped ? Guid.CreateVersion7() : null;
             if (tenantId is { } id) tenant.SetTenant(new(id, "test", "测试")); else tenant.SetHost();
             var chunks = AiKnowledgeIndexPdfPlanTests.Source(17) with { KnowledgeBaseVersion = 1, ModelConfigVersion = 1 } with { TenantId = tenantId };
             Binding = new(chunks.KnowledgeBaseId, Guid.CreateVersion7(), Guid.CreateVersion7(), 1, 1, Guid.CreateVersion7());
@@ -135,7 +140,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
                 SessionId = session.SessionId, SessionKind = session.SessionKind, SecurityStamp = session.SecurityStamp, ActorScope = session.ActorScope, EffectiveScope = session.EffectiveScope, LeaseExpiresAtUtc = Now.AddSeconds(30) };
             Source = new AiKnowledgeIndexDispatchRecord { TaskId = TaskId, DocumentId = Binding.DocumentId, VersionId = Binding.VersionId,
                 DocumentVersion = 1, KnowledgeBaseVersion = 1, ModelConfigId = chunks.ModelConfigId, ModelConfigVersion = 1,
-                FileId = Guid.CreateVersion7(), ContentHash = chunks.ContentHash, ContentType = "application/pdf", SizeBytes = 1, ModelProviderKey = chunks.ProviderKey, ModelId = chunks.ModelId, ModelEndpointBaseUrl = "https://api.openai.com/v1", LeaseToken = Lease, LeaseExpiresAtUtc = Now.AddSeconds(30) };
+                FileId = Guid.CreateVersion7(), ContentHash = chunks.ContentHash.ToUpperInvariant(), ContentType = "application/pdf", SizeBytes = 1, ModelProviderKey = chunks.ProviderKey, ModelId = chunks.ModelId, ModelEndpointBaseUrl = "https://api.openai.com/v1", LeaseToken = Lease, LeaseExpiresAtUtc = Now.AddSeconds(30) };
             var model = new AiModelConfigRecord { Id = chunks.ModelConfigId, Version = 1, ProviderKey = chunks.ProviderKey,
                 ModelId = chunks.ModelId, IsEnabled = true, EndpointBaseUrl = Source.ModelEndpointBaseUrl };
             Payloads = plan.Batches.Select(batch =>
@@ -176,9 +181,10 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
                     PlanHash = (string)p["PlanHash"]!, ManifestHash = (string)p["ManifestHash"]!, ReceiptJson = (string)p["ReceiptJson"]!, ReceiptHash = (string)p["ReceiptHash"]!, LeaseToken = Lease };
                 return 1;
             });
-            var tasks = new AiKnowledgeIndexTaskStore(query, command, tenant, Clock, ids);
+            var tasks = new AiKnowledgeIndexTaskStore(query, command, tenant, Clock, ids); Tasks = tasks;
+            query.QuerySingleOrDefaultAsync<AiKnowledgeIndexStatusRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { AtRead?.Invoke(); return ReadRow; });
             query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(model);
-            var collections = new CollectionQuery(query, this); var transaction = new Transaction(this);
+            var collections = new CollectionQuery(query, this); Query = collections; var transaction = new Transaction(this);
             var options = Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer });
             Store = new(collections, command, transaction, Transactions, tenant, Clock, ids, tasks, auth, options);
             var sessions = new AiKnowledgeIndexSessionService(collections, command, transaction, Transactions, tenant, Clock, ids, tasks, auth);

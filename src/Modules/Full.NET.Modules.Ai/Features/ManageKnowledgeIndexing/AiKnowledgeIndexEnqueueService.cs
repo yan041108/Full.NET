@@ -11,12 +11,13 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeIndexing;
 
 /// <summary>服务器推导索引绑定并原子冻结原会话；不读取文件、不调用模型、不自动重试。</summary>
 internal sealed class AiKnowledgeIndexEnqueueService(IQueryExecutor query, IDataTransactionState transactions, ICurrentTenant tenant,
-    AiKnowledgeIndexSessionService sessions, IBackgroundSessionAuthorization authorization)
+    AiKnowledgeIndexSessionService sessions, IBackgroundSessionAuthorization authorization,
+    Microsoft.Extensions.Options.IOptions<AiKnowledgePdfRuntimeOptions>? pdf = null)
 {
     internal static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
         AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.IndexEnqueue];
 
-    /// <summary>接受最新已完成导入的文本版本；重放仅复用完全相同的原会话。</summary>
+    /// <summary>接受最新已完成导入的已启用格式；重放仅复用完全相同的原会话。</summary>
     /// <remarks>所有 Identity Port 均在 AI 事务外；提交后的撤权或来源变化拒绝成功响应，但不删除已原子保存的任务。</remarks>
     internal async Task<Result<AiKnowledgeIndexEnqueueResponse>> EnqueueAsync(Guid knowledgeBaseId, Guid documentId, Guid versionId,
         SessionBindingSnapshot original, CancellationToken token)
@@ -29,17 +30,17 @@ internal sealed class AiKnowledgeIndexEnqueueService(IQueryExecutor query, IData
         { ["KnowledgeBaseId"] = knowledgeBaseId, ["DocumentId"] = documentId, ["VersionId"] = versionId, ["OwnerUserId"] = original.UserId };
         var source = await ReadAsync(parameters, original, token).ConfigureAwait(false);
         if (!ValidSource(source, knowledgeBaseId, documentId, versionId, original)) return AiKnowledgeImportStore.NotFound<AiKnowledgeIndexEnqueueResponse>();
-        // PDF 仍须隔离解析进程；不能让已接受的上传格式隐式进入未启用的 Worker 路径。
-        if (source!.ContentType is not ("text/plain" or "text/markdown"))
-            return Failure(AiKnowledgeErrorCodes.IndexFormatUnsupported, "Indexing supports TXT and Markdown only.", ErrorType.BusinessRule);
+        if (!Supports(source!.ContentType))
+            return Failure(AiKnowledgeErrorCodes.IndexFormatUnsupported, "The source format is not enabled for indexing.", ErrorType.BusinessRule);
         if (!await AuthorizedAsync(original, token).ConfigureAwait(false)) return Forbidden();
+        if (!Supports(source.ContentType)) return Failure(AiKnowledgeErrorCodes.IndexFormatUnsupported, "The source format is not enabled for indexing.", ErrorType.BusinessRule);
         var binding = new AiKnowledgeIndexTaskBinding(knowledgeBaseId, documentId, versionId, source.DocumentVersion, source.KnowledgeBaseVersion, original.UserId);
         var taskId = await sessions.EnqueueAsync(binding, original, token).ConfigureAwait(false);
         Check(token); if (!ValidIdentity(original)) return Forbidden();
         if (!await AuthorizedAsync(original, token).ConfigureAwait(false)) return Forbidden();
         // 跨模块授权等待后，以 AI 权威行查询结束证明，不能返回等待前的来源快照。
         var current = await ReadAsync(parameters, original, token).ConfigureAwait(false);
-        if (current != source || taskId is null || taskId == Guid.Empty)
+        if (current != source || taskId is null || taskId == Guid.Empty || !Supports(source.ContentType))
             return Failure(AiKnowledgeErrorCodes.IndexConflict, "The source or original session binding is no longer available.", ErrorType.Conflict);
         // 不公开内部 StateKey：重复请求可能已经 processing/completed，202 只确认稳定绑定。
         return Result<AiKnowledgeIndexEnqueueResponse>.Success(new(taskId.Value, versionId));
@@ -70,6 +71,7 @@ internal sealed class AiKnowledgeIndexEnqueueService(IQueryExecutor query, IData
         && session.SessionKind is SessionBindingKinds.Refresh or SessionBindingKinds.OidcApplication
         && Text(session.SecurityStamp, 128) && Text(session.ActorScope, 64) && Text(session.EffectiveScope, 64);
     private static bool Text(string value, int max) => !string.IsNullOrWhiteSpace(value) && value.Length <= max;
+    private bool Supports(string contentType) => (pdf?.Value ?? new AiKnowledgePdfRuntimeOptions()).Supports(contentType);
     private static bool ValidSource(AiKnowledgeIndexEnqueueRecord? row, Guid knowledge, Guid document, Guid version, SessionBindingSnapshot original) => row is not null
         && row.KnowledgeBaseId == knowledge && row.DocumentId == document && row.VersionId == version && row.OwnerUserId == original.UserId
         && row.DocumentVersion > 0 && row.KnowledgeBaseVersion > 0 && row.ModelConfigId != Guid.Empty && row.ModelConfigVersion > 0;

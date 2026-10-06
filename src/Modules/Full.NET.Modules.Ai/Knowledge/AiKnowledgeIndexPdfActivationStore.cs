@@ -20,17 +20,29 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
     IBackgroundSessionAuthorization authorization, IOptions<DatabaseOptions> database)
 {
     internal const int MaxReceiptBytes = 1048576;
+    /// <summary>当前读取者由状态服务独立授权；历史写入会话不必仍在线。</summary>
+    internal async Task<bool> IsReadyForReadAsync(AiKnowledgeIndexStatusRecord expected, Dictionary<string, object?> readParameters, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); NoTransaction();
+        if (expected.ContentType != "application/pdf" || expected.IsCurrent != 1 || expected.IsDeleted != 0 || expected.StateKey != "completed"
+            || expected.TaskId is not { } taskId || expected.ActiveTaskId != taskId || expected.ActiveLeaseToken is not { } lease || lease == Guid.Empty) return false;
+        var parameters = new Dictionary<string, object?>(readParameters, StringComparer.Ordinal);
+        using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token); bounded.CancelAfter(TimeSpan.FromSeconds(25));
+        return await AiKnowledgeIndexPdfAuthorityBoundary.RunAsync(ct => VerifyActiveAsync(new(expected.KnowledgeBaseId, expected.DocumentId,
+            expected.VersionId, expected.DocumentVersion, expected.KnowledgeBaseVersion, expected.OwnerUserId), taskId, lease, ct, expected, parameters), bounded.Token).ConfigureAwait(false);
+    }
     private static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
         AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.IndexEnqueue];
 
     /// <summary>原租约重试仍须当前授权与完整持久回执，不缓存成功结果。</summary>
     internal async Task<bool> IsActiveAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
-        {
+    {
         using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token); bounded.CancelAfter(TimeSpan.FromSeconds(25));
         return await VerifyActiveAsync(binding, taskId, leaseToken, bounded.Token).ConfigureAwait(false);
     }
 
-    private async Task<bool> VerifyActiveAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
+    private async Task<bool> VerifyActiveAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token,
+        AiKnowledgeIndexStatusRecord? expected = null, Dictionary<string, object?>? readParameters = null)
     {
         NoTransaction(); var p = tasks.HeldParameters(binding, taskId, leaseToken, token);
         var pointer = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexActivationRecord>(Choose(AiKnowledgeIndexActivationSql.PointerHost,
@@ -53,7 +65,7 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
         var manifest = DecodeManifest(manifestRow, token);
         if (manifest is null || manifest.Summary.PlanHash != pointer.PlanHash || !ValidManifest(binding, manifest)
             || receipts!.Length != manifest.Batches.Count
-            || !await Authorized(binding, session, token).ConfigureAwait(false)) return false;
+            || (expected is null && !await Authorized(binding, session, token).ConfigureAwait(false))) return false;
         Fill(p, session, manifest, receipts);
         p["Completed"] = 1;
         var valid = await transaction.ExecuteAsync(async cancellation =>
@@ -64,10 +76,14 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
                 AiKnowledgeIndexActivationSql.PointerTenant), p, cancellation).ConfigureAwait(false);
             cancellation.ThrowIfCancellationRequested();
             if (current != pointer) return false;
-            return true;
+            if (expected is null) return true;
+            // 事务内只查 AI 可见性；权限与角色/组织关系由外层在证明等待后重新读取。
+            var visible = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexStatusRecord>(
+                AiKnowledgeIndexStatusSql.For(database.Value.Provider, tasks.IsTenant), readParameters, cancellation).ConfigureAwait(false);
+            cancellation.ThrowIfCancellationRequested(); return visible == expected;
         }, token).ConfigureAwait(false);
         // 数据库等待后原会话可能被撤销；读到活动指针不免除当前授权。
-        return valid && await Authorized(binding, session, token).ConfigureAwait(false);
+        return valid && (expected is not null || await Authorized(binding, session, token).ConfigureAwait(false));
     }
 
     /// <summary>可失败入口；事务实现须再次复核实际载荷及当前来源。</summary>
@@ -120,7 +136,7 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
         token.ThrowIfCancellationRequested();
         if (source is null || source.TaskId != (Guid)p["TaskId"]! || source.DocumentId != binding.DocumentId || source.VersionId != binding.VersionId
             || source.ModelConfigId != expectedManifest.Manifest.Identity.ModelConfigId || source.ModelConfigVersion != expectedManifest.Manifest.Identity.ModelConfigVersion
-            || source.ContentHash != expectedManifest.Manifest.Identity.ContentHash || source.ContentType != (string)p["ContentType"]!
+            || !string.Equals(source.ContentHash, expectedManifest.Manifest.Identity.ContentHash, StringComparison.OrdinalIgnoreCase) || source.ContentType != (string)p["ContentType"]!
             || source.ModelProviderKey != expectedManifest.Manifest.Identity.ProviderKey || source.ModelId != expectedManifest.Manifest.Identity.ModelId
             || (expectedSource is not null && (!SameSource(expectedSource, source) || source.LeaseExpiresAtUtc <= clock.UtcNow))) return null;
         // 根查询已经锁住原会话及清单；这些有界重读不调用跨模块 Port。

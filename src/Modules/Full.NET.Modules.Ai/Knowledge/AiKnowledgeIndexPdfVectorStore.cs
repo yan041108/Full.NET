@@ -222,7 +222,8 @@ internal sealed class AiKnowledgeIndexPdfVectorStore(IQueryExecutor query, IComm
     private bool Matches(AiKnowledgeIndexPdfPlanIdentity identity, AiKnowledgeIndexTaskBinding binding, Authority state) =>
         identity.KnowledgeBaseId == binding.KnowledgeBaseId && identity.KnowledgeBaseVersion == state.Source.KnowledgeBaseVersion
         && identity.TenantId == tenant.Id && identity.ModelConfigId == state.Model.Id && identity.ModelConfigVersion == state.Model.Version
-        && identity.ProviderKey == state.Model.ProviderKey && identity.ModelId == state.Model.ModelId && identity.ContentHash == state.Source.ContentHash
+        && identity.ProviderKey == state.Model.ProviderKey && identity.ModelId == state.Model.ModelId
+        && string.Equals(identity.ContentHash, state.Source.ContentHash, StringComparison.OrdinalIgnoreCase)
         && state.Source.ContentType == "application/pdf";
 
     private Dictionary<string, object?> AuthorityParameters(AiKnowledgeIndexTaskBinding binding,

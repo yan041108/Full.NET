@@ -14,7 +14,7 @@ namespace Full.NET.UnitTests.Ai;
 
 /// <summary>重试只恢复原任务；等待后的授权、会话和来源漂移必须失败关闭。</summary>
 [TestClass]
-public sealed class AiKnowledgeIndexRetryTests
+public sealed partial class AiKnowledgeIndexRetryTests
 {
     [TestMethod] [DataRow(false, "refresh")] [DataRow(true, "refresh")]
     [DataRow(false, "oidc-application")] [DataRow(true, "oidc-application")]
@@ -131,6 +131,7 @@ public sealed class AiKnowledgeIndexRetryTests
     private sealed class Fixture : IQueryExecutor
     {
         internal readonly CurrentTenantAccessor Tenant = new();
+        internal readonly AiKnowledgePdfRuntimeOptions Pdf = new();
         internal readonly IDataTransactionState State = Substitute.For<IDataTransactionState>();
         internal readonly Guid Knowledge = Guid.CreateVersion7(), Document = Guid.CreateVersion7(), Version = Guid.CreateVersion7(), TaskId = Guid.CreateVersion7();
         internal SessionBindingSnapshot Session;
@@ -164,13 +165,16 @@ public sealed class AiKnowledgeIndexRetryTests
             {
                 Assert.IsFalse(State.HasTransaction); Writes++;
                 var p = (Dictionary<string, object?>)call[1]!;
+                Assert.AreEqual(Pdf.Enabled ? 1 : 0, p["PdfEnabled"]);
+                StringAssert.Contains(call.ArgAt<SqlStatement>(0).Text, "application/pdf");
+                StringAssert.Contains(call.ArgAt<SqlStatement>(0).Text, "@PdfEnabled=1");
                 Assert.AreEqual(3, p["DocumentVersion"]); Assert.AreEqual(4, p["KnowledgeBaseVersion"]);
                 Assert.AreEqual(Persisted!.Id, p["SessionRecordId"]); Assert.AreEqual(TaskId, p["TaskId"]);
                 Assert.AreEqual(Tenant.IsHost ? SqlDataScope.HostOnly : SqlDataScope.TenantRequired, call.ArgAt<SqlStatement>(0).Scope);
                 if (WriteFailure) throw new InvalidOperationException("测试数据库故障");
                 AfterWrite?.Invoke(); return Affected;
             });
-            service = new(this, command, State, Tenant, clock, new AiKnowledgeIndexTaskStore(this, command, Tenant, clock, ids), authorization);
+            service = new(this, command, State, Tenant, clock, new AiKnowledgeIndexTaskStore(this, command, Tenant, clock, ids), authorization, Microsoft.Extensions.Options.Options.Create(Pdf));
         }
         internal Task<Result<AiKnowledgeIndexEnqueueResponse>> Run(CancellationToken token = default) => service.RetryAsync(Knowledge, Document, Version, TaskId, Session, token);
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)

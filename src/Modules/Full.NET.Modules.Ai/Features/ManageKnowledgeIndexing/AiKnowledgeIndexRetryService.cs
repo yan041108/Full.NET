@@ -12,7 +12,8 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeIndexing;
 
 /// <summary>原交互会话恢复精确失败任务；不读取文件、不派发模型、不清除收费记录。</summary>
 internal sealed class AiKnowledgeIndexRetryService(IQueryExecutor query, ICommandExecutor command, IDataTransactionState transactions,
-    ICurrentTenant tenant, IClock clock, AiKnowledgeIndexTaskStore tasks, IBackgroundSessionAuthorization authorization)
+    ICurrentTenant tenant, IClock clock, AiKnowledgeIndexTaskStore tasks, IBackgroundSessionAuthorization authorization,
+    Microsoft.Extensions.Options.IOptions<AiKnowledgePdfRuntimeOptions>? pdf = null)
 {
     internal static readonly string[] Permissions = [.. AiKnowledgeIndexEnqueueService.Permissions, AiKnowledgeDocumentPermissions.IndexRetry];
 
@@ -31,8 +32,8 @@ internal sealed class AiKnowledgeIndexRetryService(IQueryExecutor query, IComman
         if (source is null || source.KnowledgeBaseId != knowledgeBaseId || source.DocumentId != documentId || source.VersionId != versionId
             || source.OwnerUserId != original.UserId || source.DocumentVersion <= 0 || source.KnowledgeBaseVersion <= 0
             || source.ModelConfigId == Guid.Empty || source.ModelConfigVersion <= 0) return AiKnowledgeImportStore.NotFound<AiKnowledgeIndexEnqueueResponse>();
-        if (source.ContentType is not ("text/plain" or "text/markdown"))
-            return Failure(AiKnowledgeErrorCodes.IndexFormatUnsupported, "Indexing supports TXT and Markdown only.", ErrorType.BusinessRule);
+        if (!Supports(source.ContentType))
+            return Failure(AiKnowledgeErrorCodes.IndexFormatUnsupported, "The source format is not enabled for indexing.", ErrorType.BusinessRule);
         var binding = new AiKnowledgeIndexTaskBinding(knowledgeBaseId, documentId, versionId, source.DocumentVersion, source.KnowledgeBaseVersion, original.UserId);
         var writeParameters = tasks.TaskParameters(binding, taskId, token);
         var frozen = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexSessionRecord>(AiKnowledgeScope.IsTenant(tenant)
@@ -43,17 +44,21 @@ internal sealed class AiKnowledgeIndexRetryService(IQueryExecutor query, IComman
                 frozen.ActorScope, frozen.EffectiveScope, frozen.SessionKind) != original) return Conflict();
         if (!await AuthorizedAsync(original, token).ConfigureAwait(false)) return Forbidden();
         // 查询和授权等待后更新时钟；单次条件写入同时核对最新来源、批准、原会话行及恢复状态。
+        if (!Supports(source.ContentType)) return Conflict();
         writeParameters["Now"] = clock.UtcNow; writeParameters["SessionRecordId"] = frozen.Id;
         writeParameters["ModelConfigId"] = source.ModelConfigId; writeParameters["ModelConfigVersion"] = source.ModelConfigVersion;
+        writeParameters["PdfEnabled"] = pdf?.Value.Enabled == true ? 1 : 0;
         var affected = await command.ExecuteAsync(AiKnowledgeScope.IsTenant(tenant) ? AiKnowledgeIndexRetrySql.Tenant : AiKnowledgeIndexRetrySql.Host,
             writeParameters, token).ConfigureAwait(false);
         Check(token); if (!ValidIdentity(original)) return Forbidden();
         if (affected != 1) return Conflict();
         if (!await AuthorizedAsync(original, token).ConfigureAwait(false)) return Forbidden();
         // 授权等待后重新读取来源；不能把写入之前的快照作为响应时的权威证明。
-        if (await ReadSourceAsync(parameters, original, token).ConfigureAwait(false) != source) return Conflict();
+        if (await ReadSourceAsync(parameters, original, token).ConfigureAwait(false) != source || !Supports(source.ContentType)) return Conflict();
         return Result<AiKnowledgeIndexEnqueueResponse>.Success(new(taskId, versionId));
     }
+
+    private bool Supports(string contentType) => (pdf?.Value ?? new AiKnowledgePdfRuntimeOptions()).Supports(contentType);
 
     private async Task<AiKnowledgeIndexEnqueueRecord?> ReadSourceAsync(Dictionary<string, object?> parameters, SessionBindingSnapshot original, CancellationToken token)
     {

@@ -157,7 +157,7 @@ public sealed class NativeAotLinuxPublishRulesTests
             "artifacts/native-aot/worker/linux-x64/publish/Full.NET.Host.Worker",
             publishGate.GetProperty("executableRelativePath").GetString());
         var integrationGate = matrix.RootElement.GetProperty("workerNativeAotIntegration");
-        Assert.AreEqual(14, integrationGate.GetProperty("minimum").GetInt32());
+        Assert.AreEqual(16, integrationGate.GetProperty("minimum").GetInt32());
 
         string[] requiredFiles =
         [

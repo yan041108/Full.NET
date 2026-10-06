@@ -13,31 +13,59 @@ using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Full.NET.Modules.Ai;
+using Full.NET.Modules.Ai.Runtime;
+using Full.NET.Modules.Ai.Features.ManageKnowledgeIndexing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Full.NET.IntegrationTests.Ai;
 
 /// <summary>真实双库事务验证结算与清单守卫；合成分页输入和受控会话不冒充解析、登录或模型派发。</summary>
 internal static class AiKnowledgeIndexPdfVectorAssertions
 {
-    internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock)
+    internal sealed class WorkerControls
+    {
+        internal IBackgroundSessionAuthorization Authorization = null!;
+        internal void Register(IServiceCollection services)
+        {
+            new AiModule().AddBackgroundServices(services, new ConfigurationBuilder().Build());
+            foreach (var descriptor in services.Where(d => d.ServiceType == typeof(IHostedService)
+                && (d.ImplementationType == typeof(AiKnowledgeIndexHostedProcessor) || d.ImplementationType == typeof(AiAgentRunHostedProcessor))).ToArray()) services.Remove(descriptor);
+            services.RemoveAll<IBackgroundSessionAuthorization>(); services.AddScoped<IBackgroundSessionAuthorization>(_ => Authorization);
+        }
+    }
+    internal sealed record NativeProbe(SessionBindingSnapshot Session, Func<AiKnowledgeIndexTaskBinding, Task<Guid>> Enqueue,
+        Func<AiKnowledgeIndexTaskBinding, Task> ReadReady, Func<AiKnowledgeIndexTaskBinding, Task> Recover);
+    internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock, WorkerControls controls, NativeProbe? native = null)
     {
         await factory.InitializeAsync(); await using var db = AiOperationBudgetAssertions.Connection(factory);
         foreach (var scoped in new[] { false, true })
         {
             var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db, scoped);
+            var probe = scoped ? null : native;
+            if (probe is not null)
+            {
+                p["OwnerUserId"] = probe.Session.UserId;
+                await db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET OwnerUserId=@OwnerUserId WHERE Id=@KnowledgeBaseId", p);
+            }
             clock.UtcNow = new DateTimeOffset((DateTime)p["Now"]!, TimeSpan.Zero); var now = clock.UtcNow;
-            var hash = new string('a', 64); var modelId = scoped ? "text-embedding-3-large" : "text-embedding-3-small";
+            // 真实上传使用大写摘要，规范计划使用小写；双库覆盖完整持久化与激活链路。
+            var hash = new string('A', 64); var modelId = scoped ? "text-embedding-3-large" : "text-embedding-3-small";
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_version SET ContentType='application/pdf',ContentHash=@Hash WHERE Id=@VersionId", new { Hash = hash, VersionId = p["VersionId"] });
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_import SET ContentType='application/pdf',ContentHash=@Hash WHERE VersionId=@VersionId", new { Hash = hash, VersionId = p["VersionId"] });
             await db.ExecuteAsync("UPDATE fn_ai_model_config SET ModelId=@Model WHERE Id=@Id", new { Model = modelId, Id = p["ModelConfigId"] });
             var binding = new AiKnowledgeIndexTaskBinding((Guid)p["KnowledgeBaseId"]!, (Guid)p["DocumentId"]!, (Guid)p["VersionId"]!, 1, 1, (Guid)p["OwnerUserId"]!);
-            var session = new SessionBindingSnapshot(binding.OwnerUserId, (Guid?)p["TenantId"], Guid.CreateVersion7(), "stamp", scoped ? "tenant" : "host", scoped ? "tenant" : "host");
+            var session = probe?.Session ?? new SessionBindingSnapshot(binding.OwnerUserId, (Guid?)p["TenantId"], Guid.CreateVersion7(), "stamp", scoped ? "tenant" : "host", scoped ? "tenant" : "host");
             var auth = new Authorization(session);
+            controls.Authorization = auth;
             var input = new AiKnowledgePdfModelChunks(binding.KnowledgeBaseId, 1, session.TenantId, (Guid)p["ModelConfigId"]!, 1,
                 "openai_compatible", modelId, hash, AiKnowledgeParsedPdf.ParserVersion, AiKnowledgeCl100kTokenizer.Version, new(),
                 Enumerable.Range(0, 17).Select(i => new AiKnowledgePdfChunk(i, i / 16 + 1, i % 16 * 4, 4, "body", "body", 1)).ToArray());
             var plan = AiKnowledgeIndexPdfPlan.Create(input, default)!;
-            var task = await Use(a => a.Sessions.EnqueueAsync(binding, session, default)); Assert.IsNotNull(task);
+            Guid? task = probe is null ? await Use(a => a.Sessions.EnqueueAsync(binding, session, default)) : await probe.Enqueue(binding); Assert.IsNotNull(task);
             var taskId = task.Value;
             var held = await Use(a => a.Tasks.AcquireAsync(binding, taskId, default)); Assert.IsNotNull(held); Assert.IsNotNull(held.LeaseToken);
             var lease = held.LeaseToken.Value;
@@ -177,7 +205,7 @@ internal static class AiKnowledgeIndexPdfVectorAssertions
                 ("UPDATE fn_ai_knowledge_base SET EmbeddingModelVersion=2 WHERE Id=@KnowledgeBaseId", "UPDATE fn_ai_knowledge_base SET EmbeddingModelVersion=1 WHERE Id=@KnowledgeBaseId"),
                 ("UPDATE fn_ai_model_config SET Version=2 WHERE Id=@ModelConfigId", "UPDATE fn_ai_model_config SET Version=1 WHERE Id=@ModelConfigId"),
                 ("UPDATE fn_ai_knowledge_import SET StateKey='cleanup_pending' WHERE VersionId=@VersionId", "UPDATE fn_ai_knowledge_import SET StateKey='completed' WHERE VersionId=@VersionId"),
-                ("UPDATE fn_ai_knowledge_index_session SET SecurityStamp='other' WHERE IndexTaskId=@TaskId", "UPDATE fn_ai_knowledge_index_session SET SecurityStamp='stamp' WHERE IndexTaskId=@TaskId")
+                ("UPDATE fn_ai_knowledge_index_session SET SecurityStamp='other' WHERE IndexTaskId=@TaskId", "UPDATE fn_ai_knowledge_index_session SET SecurityStamp=@SecurityStamp WHERE IndexTaskId=@TaskId")
             })
             {
                 await db.ExecuteAsync(flip, p);
@@ -214,6 +242,44 @@ internal static class AiKnowledgeIndexPdfVectorAssertions
             Assert.IsFalse(await Use(a => a.Activations.IsActiveAsync(binding, taskId, lease, default)));
             await db.ExecuteAsync("UPDATE fn_ai_operation_budget SET SettledAtUtc=@Now WHERE Id=@Id", new { Now = now.UtcDateTime, Id = operations[0] });
             Assert.IsTrue(await Use(a => a.Activations.IsActiveAsync(binding, taskId, lease, default)));
+            // 元数据和完整证明都使用真实 SQL；读取不要求历史写入会话仍有派发权限。
+            var readParameters = new Dictionary<string, object?>(AiSqlParameters.Create(("OwnerUserId", binding.OwnerUserId), ("ActiveRoleIdsJson", "[]"),
+                ("ActiveOrganizationUnitIdsJson", "[]"), ("KnowledgeBaseId", binding.KnowledgeBaseId), ("DocumentId", binding.DocumentId), ("VersionId", binding.VersionId)));
+            var status = await Use(a => a.Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexStatusRecord>(AiKnowledgeIndexStatusSql.For(
+                sqlServer ? DatabaseProvider.SqlServer : DatabaseProvider.MySql, scoped), readParameters, default)); Assert.IsNotNull(status);
+            auth.DeniedPermission = "ai.knowledge_documents.index_enqueue";
+            Assert.IsFalse(await Use(a => a.Activations.IsActiveAsync(binding, taskId, lease, default)));
+            Assert.IsTrue(await Use(a => a.Activations.IsReadyForReadAsync(status, readParameters, default)));
+            if (probe is not null) await probe.ReadReady(binding);
+            auth.DeniedPermission = null;
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=@Id", new { Payload = new byte[8], Id = operations[0] });
+            Assert.IsFalse(await Use(a => a.Activations.IsReadyForReadAsync(status, readParameters, default)));
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=@Id", new { Payload = activePayload, Id = operations[0] });
+            // 一轮生产 Worker DI、格式扫描、领取与 PDF 恢复；完整持久数据不调用文件或模型。
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET StateKey='queued',AttemptCount=0,LeaseToken=NULL,LeaseExpiresAtUtc=NULL WHERE Id=@Id", new { Id = taskId });
+            if (probe is null)
+            {
+                // 真实双库覆盖服务与条件 UPDATE，避免模拟命令成功掩盖格式谓词遗漏。
+                await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET StateKey='failed' WHERE Id=@Id", new { Id = taskId });
+                var retry = await Use(a => a.Retry.RetryAsync(binding.KnowledgeBaseId, binding.DocumentId, binding.VersionId, taskId, session, default));
+                Assert.IsTrue(retry.IsSuccess, retry.Error?.Code);
+            }
+            async Task<int> RunWorker(bool enabled)
+            {
+                await using var root = factory.Services.CreateAsyncScope(); var services = root.ServiceProvider;
+                var writer = services.GetRequiredService<ICurrentTenantContextWriter>(); writer.SetHost();
+                var coordinator = new AiKnowledgeIndexWorkerCoordinator(services.GetRequiredService<IQueryExecutor>(),
+                    services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<IServiceScopeFactory>(), clock,
+                    services.GetRequiredService<IOptions<DatabaseOptions>>(), Options.Create(new AiKnowledgeIndexWorkerOptions { Enabled = true, BatchSize = 1 }),
+                    NullLogger<AiKnowledgeIndexWorkerCoordinator>.Instance, Options.Create(new AiKnowledgePdfRuntimeOptions { Enabled = enabled }));
+                return await coordinator.ProcessPendingAsync(default);
+            }
+            Assert.AreEqual(0, await RunWorker(false));
+            if (probe is null) Assert.AreEqual(1, await RunWorker(true)); else await probe.Recover(binding);
+            Assert.AreEqual("completed", await db.QuerySingleAsync<string>("SELECT StateKey FROM fn_ai_knowledge_index_task WHERE Id=@Id", new { Id = taskId }));
+            var recoveredLease = await db.QuerySingleAsync<Guid>("SELECT LeaseToken FROM fn_ai_knowledge_active_generation WHERE DocumentId=@Id", new { Id = binding.DocumentId });
+            Assert.AreNotEqual(lease, recoveredLease);
+            Assert.IsTrue(await Use(a => a.Activations.IsActiveAsync(binding, taskId, recoveredLease, default)));
             Assert.AreEqual(charged, await db.QuerySingleAsync<long>("SELECT SUM(ChargedTokens) FROM fn_ai_operation_budget WHERE ModelConfigId=@Id", new { Id = model.Id }));
             AiKnowledgeIndexPdfPersistenceService Consumer(Access a) => new(null!, a.Vectors, a.Manifests, a.Sessions, a.Activations);
             // 复用生产文档清理，清理派生数据不会退还或删除既有操作账本。
@@ -238,14 +304,16 @@ internal static class AiKnowledgeIndexPdfVectorAssertions
                     new(query, expire ? new ExpireAfterInsert(command, clock) : command, transaction, state, tenant, clock, tasks, sessions, auth, options),
                     new(query, command, tasks, ids, options), new(query, command, transaction, state, tenant, clock, tasks, sessions, auth, options),
                     new(query, rejectActivation ? new RejectActivationPointer(command) : command, transaction, state, tenant, clock, ids, tasks, auth, options),
-                    query, services.GetRequiredService<IAiOperationBudgetStore>(), services.GetRequiredService<AiKnowledgeIndexCleanupStore>()));
+                    query, services.GetRequiredService<IAiOperationBudgetStore>(), services.GetRequiredService<AiKnowledgeIndexCleanupStore>(),
+                    new(query, command, state, tenant, clock, tasks, auth, Options.Create(new AiKnowledgePdfRuntimeOptions { Enabled = true }))));
             }
         }
     }
     private static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
     private sealed record Access(AiKnowledgeIndexTaskStore Tasks, AiKnowledgeIndexSessionService Sessions,
         AiKnowledgeIndexPdfManifestStore Manifests, AiKnowledgeIndexPdfVectorStore Vectors, AiKnowledgeIndexBatchStore Batches,
-        AiKnowledgeIndexVectorStore Text, AiKnowledgeIndexPdfActivationStore Activations, IQueryExecutor Query, IAiOperationBudgetStore Budgets, AiKnowledgeIndexCleanupStore Cleanup);
+        AiKnowledgeIndexVectorStore Text, AiKnowledgeIndexPdfActivationStore Activations, IQueryExecutor Query, IAiOperationBudgetStore Budgets, AiKnowledgeIndexCleanupStore Cleanup,
+        AiKnowledgeIndexRetryService Retry);
     private sealed class Authorization(SessionBindingSnapshot expected) : IBackgroundSessionAuthorization
     {
         internal string? DeniedPermission;

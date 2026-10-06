@@ -11,4 +11,5 @@ internal sealed class AiKnowledgeIndexWorkerRecord
     public int DocumentVersion { get; init; }
     public int KnowledgeBaseVersion { get; init; }
     public Guid OwnerUserId { get; init; }
+    public string ContentType { get; init; } = string.Empty;
 }

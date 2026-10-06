@@ -116,7 +116,7 @@ public sealed class AiKnowledgeIndexStatusTests
         {
             if (scoped) Tenant.SetTenant(new(Guid.CreateVersion7(), "test", "测试")); else Tenant.SetHost();
             Row = new() { KnowledgeBaseId = Knowledge, DocumentId = Document, VersionId = Version, OwnerUserId = Guid.CreateVersion7(),
-                DocumentVersion = 1, KnowledgeBaseVersion = 1, IsCurrent = 1 };
+                DocumentVersion = 1, KnowledgeBaseVersion = 1, IsCurrent = 1, ContentType = "text/plain" };
             var auth = Substitute.For<ICurrentSessionAuthorization>();
             auth.AuthorizeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
             { Assert.IsFalse(Transactions.HasTransaction); return call.ArgAt<string>(0) == Denied ? null : new AuthorizedSessionActor(Actor, Tenant.Id, Guid.CreateVersion7()); });
