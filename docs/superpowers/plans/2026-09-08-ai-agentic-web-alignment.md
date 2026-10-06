@@ -1600,3 +1600,17 @@ pnpm test:aot:worker:analyzers
 - [x] 治理：命名 33/33、SQL 安全 5/5、治理 57/57；正式影响集工具链 65/65、治理 57/57，Integration 分片 1194 项无遗漏/重复。Windows x64、i7-12700H、约 64 GB、SDK 10.0.401、Docker 29.6.2；SQL Server 2022-CU14、MySQL 8.0，测试进程 2 个处理器/GC 堆 2 GiB、容器不复用。未复现的首轮失败不外推为已定位或修复。
 - 暂存结构检查发现测试空白行尾随空格，机械清理后重新构建 Unit（1m 19s，零警告/错误）并重跑 AI Unit 1516/1516（45s 918ms）。`whitespace-input-transition.json` 验证仅测试空白行及 Unit 程序集改变，生产与 Integration 输入全部不变；重新冻结后再次核对完整 UID/FQN。暂存 diff 检查通过。
 - 收尾：main 单独提交本切片；下一项 R05e8b2 为内部 PDF 批次派发。完整 RAG 仍 Planned，容量仍 Capacity-not-verified；没有公开 PDF 入队、Worker、ready、云模型派发或容量实测，调用者仍须有界取得来源并复核原会话和来源。
+
+### 2026-10-06：R05e8b2a PDF 来源有界读取（本地切片验收完成）
+
+- main 基线 `affd66f35fcff54fe672ad34e755e4a071986d94`，任务快照 `ai-knowledge-pdf-dispatch-r05e8b2`。R05e8b2 的解析桥接只接受冻结字节，因此先独立交付 Files 独占流的读取边界，再接入原会话授权、PDF 清单冻结与付费批次派发。
+- 本切片文件：`Knowledge/AiKnowledgePdfSourceReader.cs` 与对应 Unit；结果为可释放的私有字节缓冲，仍由消费者复核租户、原会话、来源与模型目的地。不增加公开 API、DI、SQL、迁移或 Worker 路径，不把缓冲完成视为派发资格。
+- 执行顺序：先验证精确来源必须在 EOF 和流释放后才交付的失败测试；实现大小及 SHA-256 绑定、读取期限、独立清理期限、迟到读取与缓冲释放；补齐取消、事务变化、流故障和释放失败场景；按正式影响集执行验证并审查后在 main 单独提交。
+- 资源约束：原字节最多 5 MiB，读取期限至多 25 秒，流清理最多 5 秒；流忽略取消、同步阻塞或释放失效时拒绝交付，迟到读取只能接触其私有小缓冲，不能写入已释放或交付的结果。
+- 外层期限令牌与流 IO 令牌隔离，IO 回调使用 `CancelAsync()` 并纳入独立清理预算；取消先撤销并清空结果，再执行清理。读取、释放或回调无法确认结束时传播受控 IO 故障，观察迟到异常，等完整清理结束后才释放 IO CTS；不声称能强制终止任意不合作的 Stream。
+- RED：有效正向测试因占位返回空失败；随后回归复现阻塞回调卡住调用者取消、自动 deadline，以及回调抛异常跳过释放的两场景。编译占位参数错误单独保留，不计为 RED。修复后聚焦 31/31 通过；只读审查的两项 Important 已修复，复审无剩余 Critical/Important/Minor。
+- `artifacts/r05e8b2a/final.ps1` 完成 Host.Api AOT/Trim 分析与默认 JIT 验收构建，均零告警/错误；AI Unit 1547/1547、AI 架构 7/7、Native AOT 架构 73/73 通过。AI/Tenancy 三处副本和 Worker 的 74 项依赖一致，冻结 1113 项输入；`node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-dispatch-r05e8b2 --phase slice` 单次执行双 Provider AI 82/82，通过、零失败/跳过，33 分 32 秒。最终 `verify.mjs` 核对 Unit 与 Integration 的精确 UID/FQN 集合及全部冻结输入，原始控制台、TRX 与发现记录保留；TRX 两项测试的超长文本字段按平台上限截断，不改变用例结果。
+- 实际组合探针 3/3：真实 FileStream 在交付前关闭，明文/压缩的两份合成 PDF 均经现有隔离原生工具取得两页中文；受控挂起输入按期限结束并完成清理，保留的源内存清零。探针与最终验收的 AI DLL 摘要相同，原生工具源码、二进制及两个不可变镜像均复核未变，未重建它们；没有遗留 PDF 归属标签容器。这不证明原会话授权、HTTP 登录、云模型派发或 Host.Api 原生发布运行。
+- `pnpm test:naming` 33/33、`pnpm test:governance` 57/57、`pnpm test:integration:tooling` 54/54 通过；正式 affected 的工具链 65/65、治理 57/57 通过。`pnpm test:integration:partitions` 确认 1194 项无遗漏/重复，测试矩阵按实际 Unit 发现更新。Windows x64、i7-12700H、约 64 GB，SDK 10.0.401、Docker 29.6.2，SQL Server 2022-CU14 / MySQL 8.0；测试进程 2 个处理器、GC 堆 2 GiB、容器不复用。
+- 后续 R05e8b2b 接入来源权威复核与解析规划；付费派发须先冻结全清单、取得新预留，并在客户端创建、模型返回及结算等待后复核，保持未知用量与禁止免费重发。
+- 收尾：main 单独提交本切片。R05e8b2 的授权接入、全清单与付费批次派发尚未交付；完整 RAG 仍 Planned，容量仍 Capacity-not-verified。
