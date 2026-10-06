@@ -599,6 +599,19 @@ F02及诊断前两项保持待办，Capacity-not-verified保持。静态Realtime
 本地环境：Windows 10.0.19045 x64、12th Gen Intel(R) Core(TM) i7-12700H、63.75GiB、SDK10.0.401、Nodev24.12.0、pnpm10.26.0、Docker29.6.2；DOTNET_PROCESSOR_COUNT=1、Integration Workers=2、最终容器复用关闭。源码差异逐文件摘要、命令/退出码、日志摘要及环境保存在 `.tmp/f03-evidence.json` / `.tmp/f03-post-slice-result.json` / `.tmp/f03-environment.json`，发布前可按本轮提交与该记录核对。
 
 下一切片继续核对用途/账号绑定、并发尝试与消费、匿名入口及无账号枚举、送达失败/未知状态追踪、受限载荷与真实邮件渠道；F03 六项条件未整体验收。本轮未执行全量 Unit/Integration、独立生成应用新一轮全套或本地 Linux 原生运行；容量保持 Capacity-not-verified。
+**2026-10-06 客户端新公告依赖修复（共性 CI 缺陷收口）。**
+
+基线 `c5daa0c8e4f2aa59974289e1994cd3cf986722ac`，快照 `foundation-source-map-security-20261006`，独立于同轮尚在验收的Identity改动，后者源码保持独立且不进入本项提交。该基线提交API/Worker Linux Native工作流成功，常规CI的client-build-test在依赖审计被GHSA-68fv-2mgg-jv7q阻断，作业112078585378、运行37404390074；本地原依赖 `pnpm audit:clients` 同样实际失败。官方npm审计随后检出proxy-addr严重、Vue SSR高危及Tinypool两条严重公告；没有通过新增例外消除阻断。
+
+只更新根覆盖、pnpm生成的锁文件、精确覆盖契约和THIRD-PARTY-NOTICES：source-map-js 1.2.2（BSD-3-Clause），express@4.20.0限定proxy-addr 2.0.8（MIT），@vue/server-renderer 3.5.42（MIT），vitest@3.2.6限定Tinypool 2.1.2（MIT）。[source-map-js公告](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)、[proxy-addr公告](https://github.com/advisories/GHSA-jqcg-44mw-7w3h)、[Vue SSR公告](https://github.com/advisories/GHSA-g2v6-rqmx-r4w6)、[Tinypool构造公告](https://github.com/advisories/GHSA-5gmw-xhrv-c9v3)、[Tinypool运行公告](https://github.com/advisories/GHSA-85c8-ppgw-ccpr)。保留Vue主运行时及DCloud/Vitest既有版本；新Vue/Babel包属于SSR官方闭包，其传递peer变化和平台libc/弃用元数据由pnpm刷新，不伪称只替换四个lock节点。Tinypool2移除Node18，本仓库/CI固定Node24。
+
+`pnpm install --frozen-lockfile`、`pnpm audit:clients`、全/生产许可证清单、`pnpm test:workspace`、审计策略9/9及独立Integration工具链54/54实际通过；当前npm报告critical0，high2仅为既有Vite/braces限时精确路径例外，策略文件字节未改，不称依赖零漏洞。四条依赖路径均解析至修复版本，许可证与官方来源已核对，只读复审无剩余代码阻断。
+
+`pnpm test:clients` 完整集合实际1245/1245：Vue887、uni-app144、共享协议194、admin-i18n8、form-designer8、Flutter契约4。首轮默认并行8项Vue测试实际5秒超时，879项通过，原日志保留；以官方VITEST_MAX_WORKERS/VITEST_MAX_THREADS/VITEST_MAX_FORKS固定2重新执行同一完整集合后通过，未修改过滤器、测试超时或门槛。
+
+`pnpm --filter @fullnet/uniapp typecheck`、`pnpm build:clients`（Vue生产构建与uni-app H5/微信/支付宝三目标）、`pnpm test:bundle-budgets` 均退出0；`pnpm test:e2e:uniapp` 实际7/7通过。独立SSR样例证明旧3.4.21/3.5.40含回车属性名断言2项失败，修复后两种既有Vue主运行时渲染、合法属性转义和恶意属性拒绝共6项实际通过。此处Flutter仅Node契约检查，不冒充Flutter/Dart原生构建。
+
+独立快照只触发Integration工具链，不扩大为业务数据/迁移改动；同轮Identity源码逐文件摘要保持。证据为 `.tmp/f03-client-security-source.json`、`.tmp/f03-source-map-verify.json`、`.tmp/f03-client-security-evidence.json`，失败日志 `.tmp/f03-client-security-clients-default-failed.log` 与双SSR RED样例均保留。此轮未重跑全模板/独立生成应用、全部业务样例或当前SHA的Linux原生运行，历史证据不冒充当前完整回归。F03六项仍未关闭，Capacity-not-verified保持；修复提交的远端工作流需另按真实SHA读取结果，保持Draft、不合并/发布。
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。
