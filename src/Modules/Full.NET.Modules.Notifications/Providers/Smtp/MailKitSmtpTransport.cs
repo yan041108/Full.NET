@@ -173,8 +173,10 @@ internal sealed class MailKitSmtpTransport : ISmtpMailTransport
         catch (Exception exception) when (
             exception is IOException
                 or SocketException
+                or SslHandshakeException
                 or System.Security.Authentication.AuthenticationException)
         {
+            // MailKit 的握手异常独立于系统认证异常，必须在传输边界归一化，不能泄露服务端原文。
             throw new SmtpTransportException(
                 SmtpTransportFailureKind.Transient,
                 stage,

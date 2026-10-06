@@ -22,6 +22,22 @@ import * as affectedIntegration
 
 const execFileAsync = promisify(execFile);
 
+test('Notifications 默认聚焦排除外部凭据专项并保留 API 与模块范围', () => {
+  const expected = '(FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.)'
+    + '&TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms';
+  for (const filePath of [
+    'src/Modules/Full.NET.Modules.Notifications/Features/SendIdentityChallenge/IdentityChallengeDeliveryPort.cs',
+    'src/Modules/Full.NET.Modules.Notifications.Contracts/IdentityChallengeDeliveryContracts.cs',
+    'tests/Full.NET.IntegrationTests/Notifications/SmtpTlsBoundaryTests.cs'
+  ]) {
+    const selection = classifyChangedPaths([filePath]);
+    const target = selection.targets.find(item => item.name === 'Notifications');
+    assert.ok(target);
+    const args = argumentsForFocused(target, 2);
+    assert.equal(args[args.indexOf('--filter') + 1], expected);
+  }
+});
+
 test('纯文档和客户端改动不启动 Integration', () => {
   const selection = classifyChangedPaths([
     'docs/development/getting-started.md',
@@ -256,7 +272,8 @@ test('ImportExport、Ai、Reporting、Files、Notifications 改动选择含持�
     [
       'src/Modules/Full.NET.Modules.Notifications/Persistence/Queries.cs',
       'Notifications',
-      'FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.'
+      '(FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.)'
+        + '&TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms'
     ]
   ];
 

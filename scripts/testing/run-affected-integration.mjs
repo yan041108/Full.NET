@@ -35,7 +35,9 @@ const reportingFilter = 'FullyQualifiedName~Full.NET.IntegrationTests.Reporting.
 const filesFilter =
   'FullyQualifiedName~FilesApi|FullyQualifiedName~Full.NET.IntegrationTests.Files.';
 const notificationsFilter =
-  'FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.';
+  // 外部凭据专项与正式完整分片保持一致；本机受控 SMTP 用例仍属于默认模块验收。
+  '(FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.)'
+  + '&TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms';
 const outboxFilter =
   'FullyQualifiedName~Full.NET.IntegrationTests.Messaging.MessagingOutbox'
   + '|FullyQualifiedName~Full.NET.IntegrationTests.Messaging.OutboxRecoveryTests';

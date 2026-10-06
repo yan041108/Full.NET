@@ -764,6 +764,22 @@ Windows x64 / i7-12700H /63.75GiB /SDK10.0.401 /Node24.12.0 /pnpm10.26.0 /Docker
 
 本批解决凭据随账号安全状态变化失效及单收件人输入边界；持久化失败/未知送达与对账、受控真实SMTP和完整耗时防枚举仍待办。没有执行当前独立生成应用全链路、全量Unit/Integration或本地Linux原生运行；F03六项、F04、AOT/Provider整体结论与Capacity-not-verified保持。PR仍Draft，未合并、未发布。父提交f79fdc86的主CI37522878797、API Native37522878657、Worker Native37522878646均终态success（.tmp/f03-lifecycle-parent-actions.json）；本轮推送后按自身精确SHA读取，不相互替代。
 
+**2026-10-07 F03 挑战投递边界与真实 TLS 批量收口（局部完成，六项里程碑条件继续待办）。**
+
+基线f195072771296cefee04c66ad690203564813b06，快照f03-delivery-boundary-batch-20261007。本批一起收口四个相关边界：投递方在读取配置前拒绝未知用途、空挑战标识、非法裸单邮箱及空白/控制字符凭据或投递键；使用模块已有IClock，在查询前及进入SMTP适配器前两次检查有效期，查询期间到期也不开始投递；投递意图ToString仅保留挑战标识与用途，凭据、邮箱及投递键不进入诊断文本；补齐MailKit SslHandshakeException的稳定Connect/Transient分类，保持取消传播、AUTH分类及服务器已接受DATA后的处理。已开始的适配器调用不因到期强行取消；不声称可以撤回已经外发的邮件。公共字段和顺序、错误码、静态SQL、数据库结构及依赖不变。契约同时澄清稳定Message-Id不保证SMTP服务器去重，重发由调用方决定。
+
+新增27项Unit，覆盖非法输入在查询/外发前失败、初始到期和查询期间到期、取消、诊断脱敏，以及三种用途×双Provider的合法请求。有效基线RED实际21失败/6合法控制通过、零跳过，源码摘要与基线一致；CLI参数和新测试API引用的初始启动/编译失败另行归档，不计为RED。真实MailKit本机受控TLS新增两个用例，分别验证SSL-on-connect与STARTTLS；自签证书包含正确localhost/loopback目标，客户端默认校验，断言实际收到同一证书且在AUTH、DATA和挑战正文前停止，再断言稳定异常类型、Connect阶段及Transient分类。Windows受控证书通过PFX重载提供可用私钥句柄，不安装根证书、不改信任库、不绕过生产证书校验。普通连接失败或未收到证书的EOF不能满足测试。
+
+首轮Integration因X509Certificate API引用编译失败，无实际测试；修正后原18项运行终态14通过/2 TLS失败/2外部凭据专项跳过，exit1，不计为完整通过。初始TLS握手EOF不足以证明证书拒绝；修正受控夹具后在生产传输仍未改的情况下，真实两种TLS模式均通过证书与协议断言，最后因raw SslHandshakeException未归一化而失败，有效RED为2失败/0通过/0跳过。随后只补齐生产catch，冻结最终源码重新完整运行影响集，未用原14通过代替新代码验收。
+
+默认Notifications聚焦集原先纳入ExternalSmtp/ExternalAliyunSms，导致无外部凭据时跳过；与正式full/infrastructure既有分类保持一致，默认聚焦排除两个外部专项，仍覆盖Notifications API、模块及本机受控TLS。外部专项保留显式执行能力。新增选择器回归先RED1失败，再Green1通过；没有删除正式必测用例、降低门槛或缩短超时。矩阵只按实际新增27 Unit和2 Integration增加对应数量。
+
+最终源码实际统一验收：pnpm test:dotnet:unit -- --filter FullyQualifiedName~Full.NET.UnitTests.Notifications. --minimum-expected-tests 27 为178/178；pnpm test:dotnet:compatibility 为12/12；pnpm test:dotnet:architecture -- --selection api-native-aot 为73/73；pnpm test:aot:analyzers exit0。pnpm test:slice -- --snapshot f03-delivery-boundary-batch-20261007 发现Notifications双库及真实TLS 16唯一UID，终态15通过/1失败/0跳过、exit1，TLS2均真实通过。唯一MySQL实时通知失败时发现隔离临时目录的25个干净基线文件缺失，包括定位所需Full.NET.slnx；缺失来源未知，仅从HEAD恢复该隔离目录中仍缺失的明确跟踪路径，没有覆盖存在文件或触碰原用户工作区。8源码及Integration/Notifications/Contracts三程序集摘要保持一致；同一DLL以原失败FQN补验1/1、exit0、零跳过，新鲜TRX的唯一Passed UID恰好等于原失败UID，15+1并集准确覆盖原16，无遗漏/重复，不声称单次slice全部通过。工具66/66、治理57/57；1134为完整互斥Integration分片发现，未执行全量。Release受影响构建零警告/错误。独立只读安全审查核对最终8源码摘要、TLS有效RED及异常分类，没有剩余阻断；最终结果按原始TRX唯一标识、启动时间和源码/程序集摘要核对。
+
+Windows10.0.19045 x64/i7-12700H/63.75GiB/SDK10.0.401/Node24.12.0/pnpm10.26.0/Docker29.6.2 Linux；进程级DOTNET_PROCESSOR_COUNT=2、Integration Workers=2，套件串行、容器复用关闭。最终8源码摘要、实际命令/退出码、日志摘要、程序集摘要及新鲜TRX保存在.tmp/f03-delivery-final-source.json、-final-verify.json、-final-evidence.json、-final-slice-root-failed.trx、-root-retry-result.json、-root-retry-accepted.trx、-root-failed-manifest.json、-external-deletion.json、-tls-red-verified.json；原Unit RED、工具RED、初始编译失败及18项失败/跳过运行原记录均保留。
+
+本批验证了投递预检、诊断去敏和真实TLS拒绝边界；持久化失败/未知送达与对账、受控邮箱成功收件并消费及完整耗时防枚举仍待办。没有执行当前独立生成应用全链路、全量Unit/Integration或本地Linux原生运行；F03六项、F04、整体AOT/Provider状态与Capacity-not-verified保持，PR仍Draft，未合并、未发布。基线f1950727的[主CI](https://github.com/yan041108/Full.NET/actions/runs/37535692003)、[API Native AOT](https://github.com/yan041108/Full.NET/actions/runs/37535691992)、[Worker Native AOT](https://github.com/yan041108/Full.NET/actions/runs/37535691988)均已completed/success（.tmp/f03-delivery-parent-actions.json），仅证明基线；本批推送后按自身SHA单独核对。
+
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。
