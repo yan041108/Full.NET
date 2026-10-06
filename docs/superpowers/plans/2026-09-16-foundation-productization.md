@@ -696,6 +696,26 @@ F03完整账号绑定、匿名账号无枚举、失败/未知送达状态及真�
 
 [OWASP 恢复密码指引](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html)要求恢复凭据关联单独用户。本轮仅关闭已复现的跨账号消费边界；响应耗时、异常投递、失败/未知送达追踪、真实邮件渠道及 F03 其他条件仍待办。没有执行当前源码独立生成应用全链路、全量 Unit/Integration 或本地 Linux 原生运行，不升级完整防枚举/Aot-published/Provider/容量结论。六个 checkbox 保持未关闭，Capacity-not-verified 保持；当前提交 CI 推送后按精确 SHA 单独读取，PR 保持 Draft，未合并、未发布。
 
+**2026-10-06 F03 挑战投递异常与未受理结果（局部完成，六项里程碑条件继续待办）。**
+
+基线 281a336e23197e856967cdefea0d2a1648075b38，快照 f03-challenge-delivery-faults-20261006。旧挑战服务仅判断投递 Result.IsSuccess，适配器抛异常绕过补偿，Success(false) 也返回真实挑战。Unit 35 项实际 RED 15 失败/20 通过，零跳过；两库共用既有恢复正文与迟到补偿用例，实际 RED 4/4 失败、零跳过，匿名 HTTP 两库均返回 500、预期 200。RED 运行使用已编译的基线生产代码，源码与程序集摘要在运行结束前核对保留，没有将环境失败计为行为 RED。
+
+只在事务提交后的 SendAsync 边界接住非调用方取消异常，内部超时 OCE 同样按未受理处理；只有成功且明确 true 才接受。上述路径返回既有稳定 delivery_failed，并通过已有 InvalidateById 补偿本次挑战；匿名恢复复用占位受理。调用方令牌取消时异常继续向上传播，不自动重试邮件，不把异常推断为确定未发送。生产 SQL/schema/迁移、HTTP/DTO/序列化、依赖、账号摘要绑定、凭据消费事务与限流保持。LoggerMessage 4531 只记录 ChallengeId/Purpose，不传原始异常、凭据或邮箱；生产 DI 注入闭合 ILogger，旧内部直接构造保持兼容。
+
+pnpm test:dotnet:unit -- --filter "FullyQualifiedName~AccountChallengeDeliveryCompensationTests|FullyQualifiedName~PasswordRecoveryResponseTests" --minimum-expected-tests 35 实际 GREEN 35/35；完整 Identity Unit 使用 --no-build 和 FullyQualifiedName~Full.NET.UnitTests.Identity.，最低 472，实际 472/472，零失败/跳过。新增 18 个 DataRow 覆盖三用途异常/内部超时/false、迟到异常、真实调用方 OCE 及恢复占位；日志校验精确正文和字段集合，不让随机验证码与安全 UUID 的偶然子串重合造成误判。矩阵 Unit 仅增加对应 18 项。
+
+双库聚焦 12/12，零失败/跳过：恢复账号绑定、恢复响应/契约、迟到投递补偿、并发次数及用途入口共六组各两库。扩展既有双库用例，不新增 Integration 发现数：三用途分别验证明确失败、异常、内部超时、false，迟到失败不能撤销新挑战，无重发则旧挑战真实失效并增版本；保留新挑战一次消费、跨用途及重放拒绝全部原断言。匿名 HTTP 的三种新增故障均返回既有两字段受理形态，placeholder 不对应真实行，失败真实凭据 400/identity.account_challenge.invalid。Port 为受控替身，不证明真实 SMTP。
+
+pnpm test:dotnet:architecture -- --selection api-native-aot 实际 73/73，零失败/跳过；pnpm test:aot:analyzers 退出 0。pnpm test:aot:native:e2e 在 Windows 发现 27 项全部跳过、成功 0，不计原生运行通过。
+
+pnpm test:slice -- --snapshot f03-challenge-delivery-faults-20261006 按原影响集完整执行 Identity 与 integration-matrix：双库 175/175，工具 65/65、治理 57/57，均零失败/跳过。1128 仅完整互斥 Integration 分片发现，不称全量执行；未改选择器、并发或降低门槛。最终六项源码摘要、六步命令/时间/退出码、原日志摘要及新鲜 TRX 见 .tmp/f03-delivery-faults-source.json、.tmp/f03-delivery-faults-verify.json、.tmp/f03-delivery-faults-evidence.json、.tmp/f03-delivery-faults-identity.trx。
+
+独立只读安全复审未发现 Critical/Important/Minor 阻断，未运行测试。环境保持 Windows x64 / i7-12700H / 63.75GiB / SDK10.0.401 / Node24.12.0 / pnpm10.26.0 / Docker29.6.2，DOTNET_PROCESSOR_COUNT=1、Integration Workers=2、容器复用关闭，.NET/模板/容器构建与测试串行。
+
+本轮仅关闭已复现的非请求取消投递异常和 false 误受理。调用方取消后补偿、补偿数据库失败、持久化送达/未知状态与对账、响应耗时及真实邮件渠道仍待办；安全标识日志不能替代投递状态闭环。没有执行当前源码独立生成应用全链路、全量 Unit/Integration 或本地 Linux 原生运行，不升级 F03、完整防枚举、Aot-published/Provider/容量结论。六项 checkbox 继续未关闭，Capacity-not-verified 保持；当前提交 CI 推送后按精确 SHA 读取，PR 保持 Draft，未合并、未发布。
+
+父提交 281a336e23197e856967cdefea0d2a1648075b38 的三项 Actions 于 2026-10-06T14:05:23.129Z 核对均 completed/success：[worker-native-aot-linux](https://github.com/yan041108/Full.NET/actions/runs/37471158777)、[api-native-aot-linux](https://github.com/yan041108/Full.NET/actions/runs/37471158692)、[ci](https://github.com/yan041108/Full.NET/actions/runs/37471158737)。该证据范围为父提交；本次投递故障源码的 CI 在推送后按自身 SHA 单独读取。
+
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。

@@ -67,6 +67,24 @@ internal static class PasswordRecoveryResponseAssertions
         Assert.IsNotNull(rejectedRecord);
         Assert.IsNotNull(rejectedRecord.ConsumedAtUtc, "投递失败仍须撤销该次真实挑战。");
 
+        foreach (var outcome in new[] { "exception", "timeout", "not-accepted" })
+        {
+            delivery.Outcome = outcome;
+            responses.Add(await RequestAsync(activeEmail));
+            var failedIntent = delivery.Intents[^1];
+            var failedRecord = await ReadAsync(failedIntent.ChallengeId);
+            Assert.IsNotNull(failedRecord);
+            Assert.IsNotNull(failedRecord.ConsumedAtUtc, "异常或未受理的投递必须补偿本次真实挑战。");
+            Assert.AreEqual(2, failedRecord.Version);
+            Assert.AreNotEqual(failedIntent.ChallengeId, responses[^1].ChallengeId);
+            using var rejectedConfirm = await client.PostAsJsonAsync("/api/v1/auth/recover-password/confirm",
+                new ConfirmPasswordRecoveryRequest(failedIntent.ChallengeId, failedIntent.Credential, "FullNet!2026Recovered"));
+            Assert.AreEqual(HttpStatusCode.BadRequest, rejectedConfirm.StatusCode);
+            using var rejectedProblem = JsonDocument.Parse(await rejectedConfirm.Content.ReadAsStringAsync());
+            Assert.AreEqual(IdentityErrorCodes.AccountChallengeInvalid, rejectedProblem.RootElement.GetProperty("code").GetString());
+        }
+        Assert.AreEqual(5, delivery.Intents.Count);
+
         // 固定时钟只用于比较窗口；此测试不把响应正文一致当成真实耗时或 SMTP 无枚举证明。
         foreach (var response in responses)
         {
@@ -111,10 +129,14 @@ internal static class PasswordRecoveryResponseAssertions
     private sealed class DeliveryPort : IIdentityChallengeDeliveryPort
     {
         public bool Reject { get; set; }
+        public string? Outcome { get; set; }
         public List<IdentityChallengeDeliveryIntent> Intents { get; } = [];
         public Task<Result<bool>> SendAsync(IdentityChallengeDeliveryIntent intent, CancellationToken cancellationToken = default)
         {
             Intents.Add(intent);
+            if (Outcome == "exception") throw new IOException("sensitive-delivery-detail");
+            if (Outcome == "timeout") throw new OperationCanceledException("sensitive-delivery-detail");
+            if (Outcome == "not-accepted") return Task.FromResult(Result<bool>.Success(false));
             return Task.FromResult(Reject
                 ? Result<bool>.Failure(new Error(IdentityErrorCodes.AccountChallengeDeliveryFailed, "Test delivery rejected.", ErrorType.BusinessRule))
                 : Result<bool>.Success(true));

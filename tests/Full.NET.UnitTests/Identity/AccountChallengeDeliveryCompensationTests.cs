@@ -6,6 +6,8 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.AccountChallenges;
 using Full.NET.Modules.Notifications.Contracts;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
@@ -79,6 +81,88 @@ public sealed class AccountChallengeDeliveryCompensationTests
         Assert.AreEqual(1, fixture.TransactionCount);
     }
 
+    [TestMethod]
+    [DataRow(IdentityAccountChallengePurpose.RegistrationEmailVerification, "exception")]
+    [DataRow(IdentityAccountChallengePurpose.PasswordRecovery, "exception")]
+    [DataRow(IdentityAccountChallengePurpose.InvitationEmailVerification, "exception")]
+    [DataRow(IdentityAccountChallengePurpose.RegistrationEmailVerification, "timeout")]
+    [DataRow(IdentityAccountChallengePurpose.PasswordRecovery, "timeout")]
+    [DataRow(IdentityAccountChallengePurpose.InvitationEmailVerification, "timeout")]
+    [DataRow(IdentityAccountChallengePurpose.RegistrationEmailVerification, "not-accepted")]
+    [DataRow(IdentityAccountChallengePurpose.PasswordRecovery, "not-accepted")]
+    [DataRow(IdentityAccountChallengePurpose.InvitationEmailVerification, "not-accepted")]
+    public async Task Unaccepted_delivery_compensates_current_challenge_without_exposing_exception(
+        IdentityAccountChallengePurpose purpose, string outcome)
+    {
+        var fixture = new Fixture();
+        if (outcome == "not-accepted") fixture.FirstDelivery.SetResult(Result<bool>.Success(false));
+        else fixture.FirstDelivery.SetException(outcome == "timeout"
+            ? new OperationCanceledException("sensitive-delivery-detail")
+            : new IOException("sensitive-delivery-detail"));
+
+        var result = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId);
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(IdentityErrorCodes.AccountChallengeDeliveryFailed, result.Error!.Code);
+        Assert.IsFalse(result.Error.Message.Contains("sensitive-delivery-detail", StringComparison.Ordinal));
+        AssertFailedRequestScope(fixture);
+        Assert.AreEqual(3, fixture.Writes.Count);
+        Assert.AreEqual(1, fixture.TransactionCount);
+        if (outcome != "not-accepted")
+        {
+            Assert.AreEqual(1, fixture.Logger.Messages.Count);
+            Assert.AreEqual($"Account challenge delivery threw; ChallengeId {fixture.Intents[0].ChallengeId}, Purpose {(byte)purpose}.",
+                fixture.Logger.Messages[0]);
+            CollectionAssert.AreEquivalent(new[] { "ChallengeId", "Purpose", "{OriginalFormat}" },
+                fixture.Logger.Fields[0].Keys.ToArray());
+            Assert.IsNull(fixture.Logger.Exceptions[0], "原始适配器异常可能含凭据，不得传入日志。");
+            Assert.IsFalse(fixture.Logger.Messages[0].Contains("sensitive-delivery-detail", StringComparison.Ordinal));
+            Assert.IsFalse(fixture.Logger.Messages[0].Contains("user@example.test", StringComparison.Ordinal));
+        }
+    }
+
+    [TestMethod]
+    [DataRow(IdentityAccountChallengePurpose.RegistrationEmailVerification)]
+    [DataRow(IdentityAccountChallengePurpose.PasswordRecovery)]
+    [DataRow(IdentityAccountChallengePurpose.InvitationEmailVerification)]
+    public async Task Late_delivery_exception_preserves_the_successful_replacement(
+        IdentityAccountChallengePurpose purpose)
+    {
+        var fixture = new Fixture();
+        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId);
+        await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        try
+        {
+            var replacement = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId);
+            Assert.IsTrue(replacement.IsSuccess);
+            Assert.AreEqual(fixture.Intents[1].ChallengeId, replacement.Value!.ChallengeId);
+        }
+        finally
+        {
+            fixture.FirstDelivery.TrySetException(new IOException("sensitive-delivery-detail"));
+        }
+        var failed = await pending;
+        Assert.IsFalse(failed.IsSuccess);
+        AssertFailedRequestScope(fixture);
+    }
+
+    [TestMethod]
+    [DataRow(IdentityAccountChallengePurpose.RegistrationEmailVerification)]
+    [DataRow(IdentityAccountChallengePurpose.PasswordRecovery)]
+    [DataRow(IdentityAccountChallengePurpose.InvitationEmailVerification)]
+    public async Task Caller_cancellation_is_not_converted_to_a_delivery_result(
+        IdentityAccountChallengePurpose purpose)
+    {
+        var fixture = new Fixture();
+        using var cancellation = new CancellationTokenSource();
+        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", cancellation.Token, RecoveryUserId);
+        await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+        fixture.FirstDelivery.SetException(new OperationCanceledException(cancellation.Token));
+        var exception = await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => pending);
+        Assert.AreEqual(cancellation.Token, exception.CancellationToken);
+        Assert.AreEqual(0, fixture.Logger.Messages.Count);
+    }
+
     private static void AssertFailedRequestScope(Fixture fixture)
     {
         // 数据库语义由双库回归验证；此处锁定补偿拥有的请求标识及外部投递的事务边界。
@@ -102,6 +186,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
         public int CompensationAffectedRows { get; init; } = 1;
         public int TransactionCount { get; private set; }
         public bool DeliveryInsideTransaction { get; private set; }
+        public RecordingLogger Logger { get; } = new();
         private bool insideTransaction;
 
         public Fixture()
@@ -139,7 +224,26 @@ public sealed class AccountChallengeDeliveryCompensationTests
                     FirstSent.TrySetResult(true);
                     return FirstDelivery.Task;
                 });
-            Service = new AccountChallengeService(query, command, transaction, delivery, clock, ids);
+            using var services = new ServiceCollection()
+                .AddSingleton<ILogger<AccountChallengeService>>(Logger).BuildServiceProvider();
+            Service = ActivatorUtilities.CreateInstance<AccountChallengeService>(services,
+                query, command, transaction, delivery, clock, ids);
+        }
+    }
+
+    private sealed class RecordingLogger : ILogger<AccountChallengeService>
+    {
+        public List<string> Messages { get; } = [];
+        public List<Exception?> Exceptions { get; } = [];
+        public List<Dictionary<string, object?>> Fields { get; } = [];
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state,
+            Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            Messages.Add(formatter(state, exception));
+            Exceptions.Add(exception);
+            Fields.Add(((IEnumerable<KeyValuePair<string, object?>>)(object)state!).ToDictionary(item => item.Key, item => item.Value));
         }
     }
 }

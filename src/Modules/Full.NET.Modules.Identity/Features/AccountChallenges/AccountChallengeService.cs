@@ -7,16 +7,18 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Notifications.Contracts;
+using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Identity.Features.AccountChallenges;
 
-internal sealed class AccountChallengeService(
+internal sealed partial class AccountChallengeService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     IIdentityChallengeDeliveryPort challengeDeliveryPort,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    ILogger<AccountChallengeService>? logger = null)
 {
     private const int DefaultMaxAttempts = 5;
     private static readonly TimeSpan DefaultLifetime = TimeSpan.FromMinutes(15);
@@ -81,8 +83,20 @@ internal sealed class AccountChallengeService(
             code,
             expiresAtUtc,
             $"identity-challenge:{(byte)purpose}:{challengeId:N}");
-        var delivered = await challengeDeliveryPort.SendAsync(intent, cancellationToken).ConfigureAwait(false);
-        if (!delivered.IsSuccess)
+        Result<bool> delivered;
+        try
+        {
+            delivered = await challengeDeliveryPort.SendAsync(intent, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // 投递异常不证明未发送，不自动重试；仅撤销本次凭据，匿名恢复仍返回占位受理。
+            // 适配器异常可能携带明文凭据，日志只记录安全标识；调用方取消保持向上传播。
+            if (logger is not null) LogDeliveryException(logger, challengeId, (byte)purpose);
+            delivered = Result<bool>.Failure(DeliveryFailed());
+        }
+        // Port 契约只有成功且明确 true 才代表受理，false 不能留下可消费的真实挑战。
+        if (!delivered.IsSuccess || !delivered.Value)
         {
             // 投递发生在事务提交之后，迟到失败只能撤销本次挑战，不能影响已成功重发的新挑战。
             await commandExecutor.ExecuteAsync(
@@ -92,10 +106,7 @@ internal sealed class AccountChallengeService(
                         ("ConsumedAtUtc", clock.UtcNow)),
                     cancellationToken)
                 .ConfigureAwait(false);
-            return Result<AccountChallengeAcceptedResponse>.Failure(new Error(
-                IdentityErrorCodes.AccountChallengeDeliveryFailed,
-                "The verification message could not be delivered.",
-                ErrorType.BusinessRule));
+            return Result<AccountChallengeAcceptedResponse>.Failure(DeliveryFailed());
         }
 
         return Result<AccountChallengeAcceptedResponse>.Success(
@@ -237,6 +248,15 @@ internal sealed class AccountChallengeService(
         var value = RandomNumberGenerator.GetInt32(0, 1_000_000);
         return value.ToString("D6", System.Globalization.CultureInfo.InvariantCulture);
     }
+
+    [LoggerMessage(EventId = 4531, Level = LogLevel.Warning,
+        Message = "Account challenge delivery threw; ChallengeId {ChallengeId}, Purpose {Purpose}.")]
+    private static partial void LogDeliveryException(ILogger logger, Guid challengeId, byte purpose);
+
+    private static Error DeliveryFailed() => new(
+        IdentityErrorCodes.AccountChallengeDeliveryFailed,
+        "The verification message could not be delivered.",
+        ErrorType.BusinessRule);
 
     private static Error InvalidChallenge() => new(
         IdentityErrorCodes.AccountChallengeInvalid,

@@ -22,6 +22,9 @@ public sealed class PasswordRecoveryResponseTests
     [DataRow("inactive")]
     [DataRow("invalid-email")]
     [DataRow("delivery-failure")]
+    [DataRow("delivery-exception")]
+    [DataRow("delivery-timeout")]
+    [DataRow("delivery-not-accepted")]
     public async Task Non_delivered_recovery_keeps_the_accepted_response_shape(string scenario)
     {
         var fixture = new Fixture(scenario);
@@ -32,7 +35,7 @@ public sealed class PasswordRecoveryResponseTests
             "匿名恢复响应不能用空标识暴露账号或投递状态。");
         Assert.AreEqual(7, result.Value.ChallengeId.Version);
         Assert.AreEqual(Now.AddMinutes(15), result.Value.ExpiresAtUtc);
-        if (scenario == "delivery-failure")
+        if (scenario.StartsWith("delivery-", StringComparison.Ordinal))
         {
             Assert.AreEqual(1, fixture.Intents.Count);
             Assert.AreNotEqual(fixture.Intents[0].ChallengeId, result.Value.ChallengeId);
@@ -92,6 +95,9 @@ public sealed class PasswordRecoveryResponseTests
             delivery.SendAsync(Arg.Any<IdentityChallengeDeliveryIntent>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
                 Intents.Add(call.ArgAt<IdentityChallengeDeliveryIntent>(0));
+                if (scenario == "delivery-exception") throw new IOException("sensitive-delivery-detail");
+                if (scenario == "delivery-timeout") throw new OperationCanceledException("sensitive-delivery-detail");
+                if (scenario == "delivery-not-accepted") return Task.FromResult(Result<bool>.Success(false));
                 return Task.FromResult(scenario == "delivery-failure"
                     ? Result<bool>.Failure(new Error(IdentityErrorCodes.AccountChallengeDeliveryFailed, "Test delivery rejected.", ErrorType.BusinessRule))
                     : Result<bool>.Success(true));
