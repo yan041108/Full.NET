@@ -1629,10 +1629,14 @@
       "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.IncrementAttempt",
       "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
       "category": "host_catalog",
-      "reason": "挑战尝试计数在公开恢复流程更新。",
+      "reason": "挑战错误尝试按当前记录原子累加，并受消费状态和次数上限保护。",
       "requiredSqlFragments": [
         "UPDATE fn_identity_account_challenge",
-        "@ChallengeId"
+        "AttemptCount = AttemptCount + 1",
+        "Version = Version + 1",
+        "WHERE ChallengeId = @ChallengeId",
+        "ConsumedAtUtc IS NULL",
+        "AttemptCount < MaxAttempts"
       ]
     },
     {

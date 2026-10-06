@@ -99,10 +99,58 @@ internal sealed class AccountChallengeService(
         string credential,
         CancellationToken cancellationToken = default)
     {
+        var validated = await ValidateCredentialAsync(challengeId, purpose, email, credential, cancellationToken)
+            .ConfigureAwait(false);
+        if (!validated.IsSuccess)
+        {
+            return Result<bool>.Failure(validated.Error!);
+        }
+
+        var record = validated.Value!;
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                AccountChallengeSql.Consume,
+                IdentitySqlParameters.Create(
+                    ("ChallengeId", challengeId),
+                    ("ConsumedAtUtc", clock.UtcNow),
+                    ("CredentialHash", record.CredentialHash),
+                    ("Version", record.Version)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return affectedRows == 1
+            ? Result<bool>.Success(true)
+            : Result<bool>.Failure(InvalidChallenge());
+    }
+
+    /// <summary>校验凭据并记录错误尝试，不消费挑战；注册须在业务事务前调用，消费时仍重新校验。</summary>
+    /// <param name="challengeId">当前挑战标识。</param>
+    /// <param name="purpose">必须与挑战绑定一致的用途。</param>
+    /// <param name="email">必须与挑战绑定一致的目标邮箱。</param>
+    /// <param name="credential">本次提交的一次性凭据，仅用于摘要比较。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>校验结果；成功不代表挑战已消费。</returns>
+    public async Task<Result<bool>> ValidateAsync(
+        Guid challengeId,
+        IdentityAccountChallengePurpose purpose,
+        string email,
+        string credential,
+        CancellationToken cancellationToken = default)
+    {
+        var validated = await ValidateCredentialAsync(challengeId, purpose, email, credential, cancellationToken)
+            .ConfigureAwait(false);
+        return validated.IsSuccess ? Result<bool>.Success(true) : Result<bool>.Failure(validated.Error!);
+    }
+
+    private async Task<Result<AccountChallengeRecord>> ValidateCredentialAsync(
+        Guid challengeId,
+        IdentityAccountChallengePurpose purpose,
+        string email,
+        string credential,
+        CancellationToken cancellationToken)
+    {
         var normalizedEmail = NormalizeEmail(email);
         if (normalizedEmail is null)
         {
-            return Result<bool>.Failure(InvalidChallenge());
+            return Result<AccountChallengeRecord>.Failure(InvalidChallenge());
         }
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<AccountChallengeRecord>(
@@ -114,17 +162,17 @@ internal sealed class AccountChallengeService(
             || record.Purpose != (byte)purpose
             || !string.Equals(record.NormalizedEmail, normalizedEmail, StringComparison.Ordinal))
         {
-            return Result<bool>.Failure(InvalidChallenge());
+            return Result<AccountChallengeRecord>.Failure(InvalidChallenge());
         }
 
         if (record.ConsumedAtUtc.HasValue || record.ExpiresAtUtc <= clock.UtcNow)
         {
-            return Result<bool>.Failure(InvalidChallenge());
+            return Result<AccountChallengeRecord>.Failure(InvalidChallenge());
         }
 
         if (record.AttemptCount >= record.MaxAttempts)
         {
-            return Result<bool>.Failure(AttemptsExceeded());
+            return Result<AccountChallengeRecord>.Failure(AttemptsExceeded());
         }
 
         var credentialHash = AccountChallengeCredentialHasher.Hash(challengeId, credential);
@@ -132,26 +180,13 @@ internal sealed class AccountChallengeService(
         {
             await commandExecutor.ExecuteAsync(
                     AccountChallengeSql.IncrementAttempt,
-                    IdentitySqlParameters.Create(
-                        ("ChallengeId", challengeId),
-                        ("Version", record.Version)),
+                    IdentitySqlParameters.Create(("ChallengeId", challengeId)),
                     cancellationToken)
                 .ConfigureAwait(false);
-            return Result<bool>.Failure(InvalidChallenge());
+            return Result<AccountChallengeRecord>.Failure(InvalidChallenge());
         }
 
-        var affectedRows = await commandExecutor.ExecuteAsync(
-                AccountChallengeSql.Consume,
-                IdentitySqlParameters.Create(
-                    ("ChallengeId", challengeId),
-                    ("ConsumedAtUtc", clock.UtcNow),
-                    ("CredentialHash", credentialHash),
-                    ("Version", record.Version)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return affectedRows == 1
-            ? Result<bool>.Success(true)
-            : Result<bool>.Failure(InvalidChallenge());
+        return Result<AccountChallengeRecord>.Success(record);
     }
 
     internal static string? NormalizeEmail(string? email)

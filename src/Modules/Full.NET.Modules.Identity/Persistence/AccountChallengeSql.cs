@@ -52,6 +52,7 @@ internal static class AccountChallengeSql
         """,
         SqlDataScope.Global);
 
+    // 错误尝试是可累加的原子更新，不能按读取版本丢弃并发请求；消费仍使用版本校验。
     public static readonly SqlStatement IncrementAttempt = new(
         "identity.increment_account_challenge_attempt",
         """
@@ -61,7 +62,6 @@ internal static class AccountChallengeSql
         WHERE ChallengeId = @ChallengeId
           AND ConsumedAtUtc IS NULL
           AND AttemptCount < MaxAttempts
-          AND Version = @Version
         """,
         SqlDataScope.Global);
 

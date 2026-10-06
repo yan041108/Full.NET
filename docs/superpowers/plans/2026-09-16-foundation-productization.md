@@ -612,6 +612,25 @@ F02及诊断前两项保持待办，Capacity-not-verified保持。静态Realtime
 `pnpm --filter @fullnet/uniapp typecheck`、`pnpm build:clients`（Vue生产构建与uni-app H5/微信/支付宝三目标）、`pnpm test:bundle-budgets` 均退出0；`pnpm test:e2e:uniapp` 实际7/7通过。独立SSR样例证明旧3.4.21/3.5.40含回车属性名断言2项失败，修复后两种既有Vue主运行时渲染、合法属性转义和恶意属性拒绝共6项实际通过。此处Flutter仅Node契约检查，不冒充Flutter/Dart原生构建。
 
 独立快照只触发Integration工具链，不扩大为业务数据/迁移改动；同轮Identity源码逐文件摘要保持。证据为 `.tmp/f03-client-security-source.json`、`.tmp/f03-source-map-verify.json`、`.tmp/f03-client-security-evidence.json`，失败日志 `.tmp/f03-client-security-clients-default-failed.log` 与双SSR RED样例均保留。此轮未重跑全模板/独立生成应用、全部业务样例或当前SHA的Linux原生运行，历史证据不冒充当前完整回归。F03六项仍未关闭，Capacity-not-verified保持；修复提交的远端工作流需另按真实SHA读取结果，保持Draft、不合并/发布。
+**2026-10-06 F03 并发尝试与注册计数事务边界（局部完成，F03 六项保持未关闭）。**
+
+基线 `c5daa0c8e4f2aa59974289e1994cd3cf986722ac`，快照 `f03-challenge-attempt-concurrency-20261006`。真实双库 RED 证明8个错误请求读到同一版本时只累计1次（预期达到上限5）；错误尝试改为按当前数据库记录原子累加，保留未消费和次数上限条件，每次实际更新同时增加 Version。正确消费继续执行版本、摘要、过期和次数校验；没有新增 schema、迁移或公共契约。Global SQL 目录按原声明精确强化。
+
+独立审查进一步发现注册/邀请注册用 ExecuteResultAsync 返回 Failure 时会回滚错误尝试。新增5个单元回归实际5/5失败；真实 HTTP 双库各一次错误后计数仍0（预期1），两个用例实际失败。修复将不消费挑战的凭据校验放在注册事务前，错误计数独立提交；重复邮箱仍按既有错误顺序检查且事务内复查。正确挑战在原业务事务内重新读取、验证和消费，与账号/邀请写入保持原子性，不信任预校验快照。
+
+`pnpm test:dotnet:unit -- --filter FullyQualifiedName~Full.NET.UnitTests.Identity. --minimum-expected-tests 444` 实际444/444、零失败/跳过，包含新增5项的事务外错误计数和消费前被消费/耗尽/过期拒绝。双库聚焦4/4实际通过；三用途覆盖同版本并发错误上限、计数不越界、耗尽后正确凭据拒绝、并发正确消费最多一次、迟到正确请求不能绕过耗尽、迟到错误请求不修改已消费记录。邀请和开放注册真实 HTTP 覆盖5次错误持久化、耗尽拒绝、未创建账号、邀请仍 Pending、重发新挑战、弱密码业务失败回滚挑战消费、随后正确注册成功。
+
+首次4项聚焦中2项并发回归通过，2项入口测试在测试夹具切换开放注册时缺少 Host 上下文而失败；作用域守卫正确拒绝。失败日志/TRX保存于 `.tmp/f03-attempt-focused-fixture-failed.*`，仅补测试专用可信上下文并在 finally 清理，生产守卫未修改；完整同一聚焦集重跑4/4。上述夹具失败不算行为 RED 或验收通过。
+
+`pnpm test:slice -- --snapshot f03-challenge-attempt-concurrency-20261006` 按选择器原样执行 Identity 与 integration-matrix：真实双库169/169、零失败/跳过；工具链65/65、治理57/57；互斥分片发现1122项无遗漏/重复，发现数不算全量 Integration 执行数。矩阵仅增加实际新增的5个Unit及SQL Server/MySQL各1个Integration用例，没有缩小过滤器或降低门槛。
+
+`pnpm test:dotnet:architecture -- --selection api-native-aot` 实际73/73；`pnpm test:dotnet:architecture -- --no-build --filter "FullyQualifiedName~GlobalSqlStatementCatalogTests|FullyQualifiedName~SqlDataScopeRulesTests" --minimum-expected-tests 4` 实际4/4，均零失败/跳过。`pnpm test:aot:analyzers` 实际退出0；`pnpm test:aot:native:e2e` 在Windows发现27项、全部跳过、成功0，不计为原生运行通过。本轮只运行受影响架构集，不将上轮完整232项结果冒充本轮重跑。
+
+复审发现的计数回滚缺口和清理断言问题均已处理，只读复审未发现剩余阻断。源码逐文件摘要、命令/退出码、原始日志摘要与TRX在 `.tmp/f03-attempt-source.json`、`.tmp/f03-attempt-verify.json`、`.tmp/f03-attempt-evidence.json` 和 `.tmp/f03-attempt-identity.trx`。本地Windows x64 / i7-12700H /63.75GiB /SDK10.0.401 /Node24.12.0 /pnpm10.26.0 /Docker29.6.2；DOTNET_PROCESSOR_COUNT=1、Integration Workers=2、容器复用关闭，.NET/模板/容器构建及验收命令串行；独立客户端Node验证允许同时执行。
+
+本轮投递仍使用受控 Port 替身；真实邮件渠道、失败/未知送达状态、完整账号绑定与匿名入口无枚举等条件继续按F03/C04推进。未执行全量Unit/Integration、全套独立生成应用或本地Linux原生运行，未升级Aot-published/Provider状态；Capacity-not-verified保持。
+
+验收期间独立客户端安全修复先提交 `3a57dbf6b2846e2512fc551472aeeda067a04001`，只包含根依赖、锁文件、契约、许可证及报告，上述10项Identity源码摘要未变。该安全提交的[常规CI](https://github.com/yan041108/Full.NET/actions/runs/37410157639)、[API Linux Native](https://github.com/yan041108/Full.NET/actions/runs/37410157635)、[Worker Linux Native](https://github.com/yan041108/Full.NET/actions/runs/37410157670)三条均已完成并成功；Identity随后独立提交，不能将前一安全提交的远端结果当成其后新SHA通过。
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。

@@ -723,6 +723,15 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Concurrent_challenge_attempts_preserve_limit_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await AccountChallengeConcurrencyAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Account_recovery_follows_contract_with_sql_server()
     {
         using var factory = new FullNetApiFactory(

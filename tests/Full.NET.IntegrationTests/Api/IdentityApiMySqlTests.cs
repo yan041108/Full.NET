@@ -723,6 +723,15 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Concurrent_challenge_attempts_preserve_limit_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await AccountChallengeConcurrencyAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Account_recovery_follows_contract_with_mysql()
     {
         using var factory = new FullNetApiFactory(
