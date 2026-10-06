@@ -541,6 +541,24 @@ F02及诊断前两项保持待办。静态预算通过不证明10K容量、生�
 
 F02及诊断前两项保持待办，Capacity-not-verified保持。既有 Redis 共用校验仅比较连接字符串，静态通过不证明物理隔离、Redis可用性、缓存行为或失效传播；本轮未重验全量Unit/Integration、完整生成CRUD/浏览器、API/Worker本地Native AOT、吞吐/10K容量或生产SLO。行为冻结后仅补总计划，PR仍Draft，未合并、未发布。
 
+2026-10-06 Realtime 传输配置诊断收口（基线 `b0e54c59f942c65666027cbbea190760a6dfeeec`，快照 `f02-realtime-transport-diagnose-20261006`，行为源码冻结 `c6ed00d44341485d9250b859e6fc60d66f32f5ed`）：原 diagnose 缺少 Realtime 专属的字段绑定、Hub 路径和传输/亲和组合检查，相关非法配置可能通过。新增私有诊断适配器，按现有 API 注册的绑定顺序、默认值、Hub 路径与传输组合返回 `code_generation.realtime.transport.configured` / `disabled` / `invalid`；非法配置退出1。Enabled=false仍先绑定字段，仅跳过路径与组合约束；数值枚举及名称组合保持宿主现有语义，不隐式收紧运行时策略。复用既有逐叶有效配置合并，异常只输出固定脱敏提示，不回显路径或配置。CLI不引用SignalR项目或ASP.NET运行时、不构建宿主或连接；私有适配由真实AddFullNetRealtimeSignalR注册对照验证。无HTTP或公共.NET API、SQL、迁移、授权、Host.Api AOT路径或依赖版本变更。
+
+新增64项实际RED：40失败/24通过、零跳过，均在真实API注册对照后验证CLI退出码；实现后Realtime+Cache+数据库预算组合150/150、37s 193ms，重建零警告/错误。覆盖Development/Production、缺省、合法/非法Hub路径、布尔与枚举、传输/协商/亲和组合、关闭后的路径与字段类型区别、环境JSON/User Secrets/环境变量修复与破坏、混合大小写扁平键、Production忽略开发秘密、原JSON类型错误归属；每次脱敏及源配置字节只读。
+
+`pnpm test:dotnet:unit -- --no-build --selection code-generation-realtime`完整2264/2264、7m 26s 376ms；`pnpm test:dotnet:architecture`完整232/232、6m 35s 087ms，零失败/跳过，架构重建零警告/错误。最小发现数仅增加64（Unit5086、CodeGeneration2264），筛选器不变。
+
+上一交付 b0e54c59 的主CI `37387163516` 实际失败于 `template-created-app-real-stack` 的 `pnpm test:templates`：492项中491通过/1失败，打包诊断“有效秘密”正例把Cache与Realtime连接设为相同值，Production缓存注册拒绝，CLI按约退出1。旧冻结独立应用本地精确复现：相同值退出1/cache.invalid，不同值退出0/cache.configured。修正正例与环境修复使用不同虚构Redis地址，保留秘密计数、占位符、总退出码、脱敏与只读断言，增加cache.configured正例断言；未修改产品缓存规则、CI工作流或跳过门禁。
+
+首轮本地全模板因把TEMP/TMP设在深层工作树，Windows apphost启动报文件名或扩展名太长；实际493项490通过/3失败、零跳过，均在生成CLI进程启动处失败；保留templates-path-failure日志与环境，不计为通过。改用独立短TEMP/TMP后，从清洁冻结源码重新执行同一 `pnpm test:templates`，显式 `FULLNET_RUN_TEMPLATE_REAL_STACK=1`、DOTNET_PROCESSOR_COUNT=1、独立TEMP/TMP、新容器Reuse=0：完整493/493、零失败/跳过（Windows额外执行一项pnpm.cmd回归；Ubuntu CI为492项），总计1993.611秒。实际执行两库Minimal独立应用、随包CLI、代表性CRUD/客户端/权限/租户隔离/浏览器可访问性、Worker业务Outbox投影及在线schema升级/重放/恢复；两库新鲜live-upgrade结果databaseMigrationApplied=true，业务Outbox IsProcessed=1/IsDeadLettered=0，五类浏览器报告均本轮生成。此前固定目录证据先归档，本轮复制到 `.tmp/rt-template-accept-c6ed00d4/template-real-stack`；总日志与环境证明本轮源码/启动时间/零跳过。
+
+另从该冻结源码新建Minimal SQL Server/MySQL应用实际运行开发/生产随包诊断24次、275.735秒。每库覆盖合法缺省、非法Hub、非法亲和、合法WebSocketsOnly+跳协商+关闭亲和、关闭后非法路径/组合通过、关闭后非法绑定失败；合法Cache和数据库预算同时通过，轮换直配/命名连接及SQLCONNSTR/MYSQLCONNSTR，SDK/冻结档案/模块闭合正常，无探针回显，源配置及受管摘要不变；两CLI runtimeconfig均仅Microsoft.NETCore.App。证据 `.tmp/rt-c6ed00d4/result.json`及原始进程结果。
+
+`FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:slice -- --snapshot f02-realtime-transport-diagnose-20261006`完整影响CodeGeneration + integration-matrix双库41/41、9m 42s 867ms，零失败/跳过；fresh TRX total/executed/passed=41、failed/notExecuted=0，start不早于本轮启动。工具链65/65、治理57/57；1118仅分片发现核对。Microsoft Windows NT 10.0.19045.0 / 12th Gen Intel(R) Core(TM) i7-12700H / 63.75GiB / SDK10.0.401 / Nodev24.12.0 / pnpm10.26.0，DOTNET_PROCESSOR_COUNT=1、Docker29.6.2、NuGet HTTP200，Integration沿用既有Workers=2，重型验证串行。原始证据 `.tmp/f02-realtime-transport-{red,green,full-unit,architecture,templates,created-apps,integration}.log`、machine/plan、模板及Integration environment、TRX/counters、template-live-evidence。
+
+上一b0e54c59精确HEAD Actions终态：api-native-aot-linux `37387163247` completed / success；worker-native-aot-linux `37387163184` completed / success；ci `37387163516` completed / failure。主CI已知模板正例失败按上述本地完整套件验收修正，API/Worker AOT基线成功只归属上一HEAD。
+
+F02及诊断前两项保持待办，Capacity-not-verified保持。静态Realtime结果不验证Redis可用性、物理隔离、Worker Backplane要求、Ingress亲和部署、Hub授权、实际通信或完整宿主启动。本轮未重验全量Unit/Integration、API/Worker本地Native AOT、吞吐/10K容量或生产SLO；本轮全模板/双库样例通过属于规定范围本地验收，远端精确HEAD Actions状态另写PR，不冒充远端终态成功。行为冻结后仅补总计划，PR仍Draft，未合并、未发布。
+
 ### F03：复用通知平台完成账号验证挑战
 
 **依赖：** F00、C04 通知安全收口。**提供：** Identity 账号操作挑战及 Notifications 投递衔接。
