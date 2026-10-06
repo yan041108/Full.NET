@@ -750,6 +750,14 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Concurrent_password_recovery_preserves_committed_account_state_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await PasswordRecoveryConcurrencyAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Recovery_challenge_remains_bound_to_original_account_with_mysql()
     {
         using var factory = new FullNetApiFactory(

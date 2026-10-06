@@ -102,6 +102,7 @@ internal sealed class ConfirmHandler(
                 IdentitySqlParameters.Create(
                     ("UserId", user.Id),
                     ("ScopeKey", user.ScopeKey),
+                    ("Version", user.Version),
                     ("PasswordHash", passwordHash),
                     ("SecurityStamp", securityStamp),
                     ("PasswordChangedAtUtc", now),

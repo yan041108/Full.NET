@@ -1448,6 +1448,7 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    // 密码校验或恢复授权基于已读账号快照；并发改密及状态变化必须使旧请求更新失败。
     public static readonly SqlStatement ResetUserPasswordByIdentity = new(
         "identity.reset_user_password_by_identity",
         """
@@ -1463,6 +1464,7 @@ internal static class IdentitySql
         WHERE Id = @UserId
           AND ScopeKey = @ScopeKey
           AND IsActive = 1
+          AND Version = @Version
         """,
         SqlDataScope.Global);
 

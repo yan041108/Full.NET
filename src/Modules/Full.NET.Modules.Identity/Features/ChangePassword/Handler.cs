@@ -104,6 +104,7 @@ internal sealed class Handler(
                 IdentitySqlParameters.Create(
                     ("UserId", userId),
                     ("ScopeKey", scopeKey),
+                    ("Version", user.Version),
                     ("PasswordHash", passwordHash),
                     ("SecurityStamp", securityStamp),
                     ("PasswordChangedAtUtc", now),

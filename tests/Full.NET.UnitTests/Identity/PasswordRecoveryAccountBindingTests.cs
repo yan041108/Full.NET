@@ -79,6 +79,21 @@ public sealed class PasswordRecoveryAccountBindingTests
         }
     }
 
+    [TestMethod]
+    public async Task Recovery_rejects_a_concurrent_account_update_using_the_read_version()
+    {
+        var fixture = new Fixture();
+        fixture.CurrentUser.Version = 7;
+        await fixture.CreateAsync();
+        fixture.RejectPasswordReset = true;
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => fixture.Confirm.HandleAsync(new ConfirmCommand(
+            new ConfirmPasswordRecoveryRequest(fixture.Intent!.ChallengeId,
+                fixture.Intent.Credential, "FullNet!2026Recovered")), CancellationToken.None));
+        Assert.IsNotNull(fixture.ResetParameters);
+        Assert.IsTrue(fixture.ResetParameters.TryGetValue("Version", out var version), "改密必须携带权威读取的账号版本。");
+        Assert.AreEqual(7, version);
+    }
+
     private sealed class Fixture
     {
         private readonly DateTimeOffset now = new(2026, 10, 6, 0, 0, 0, TimeSpan.Zero);
@@ -89,6 +104,8 @@ public sealed class PasswordRecoveryAccountBindingTests
         public IdentityChallengeDeliveryIntent? Intent { get; private set; }
         public List<Guid> PasswordResetUsers { get; } = [];
         public ConfirmHandler Confirm { get; }
+        public bool RejectPasswordReset { get; set; }
+        public IReadOnlyDictionary<string, object?>? ResetParameters { get; private set; }
 
         public Fixture()
         {
@@ -116,6 +133,8 @@ public sealed class PasswordRecoveryAccountBindingTests
                     else if (sql.Equals(IdentitySql.ResetUserPasswordByIdentity))
                     {
                         var p = (IReadOnlyDictionary<string, object?>)call.ArgAt<object>(1);
+                        ResetParameters = p;
+                        if (RejectPasswordReset) return Task.FromResult(0);
                         PasswordResetUsers.Add((Guid)p["UserId"]!);
                     }
                     return Task.FromResult(1);

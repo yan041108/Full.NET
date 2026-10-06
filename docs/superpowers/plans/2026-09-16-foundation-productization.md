@@ -734,6 +734,22 @@ pnpm test:slice -- --snapshot f03-challenge-delivery-faults-20261006 按原影�
 
 父提交 315b316e605eb969177735d5ca13d2d4d39ddcd2 的三项 Actions 于 2026-10-06T15:34:59.095Z 核对均 completed/success：[worker-native-aot-linux](https://github.com/yan041108/Full.NET/actions/runs/37482529283)、[ci](https://github.com/yan041108/Full.NET/actions/runs/37482529347)、[api-native-aot-linux](https://github.com/yan041108/Full.NET/actions/runs/37482529277)。证据只属于父提交；本轮源码按推送后的自身 SHA 单独核对。
 
+**2026-10-07 F03 改密并发覆盖保护（局部完成，六项里程碑条件继续待办）。**
+
+基线 8b11ea11f8ff7f4487146c818c2c38121cfee2c8，快照 f03-password-write-race-20261007。密码恢复与登录后自助改密共用的账号更新 SQL 原先只按 Id、ScopeKey 和活跃状态写入；读取与写入之间另一个请求已经提交新密码或账号版本时，旧快照仍可能覆盖新状态。两个调用方现在传入权威读取的 Version，共用 SQL 以 Version 等值条件原子更新，保留现有版本递增。恢复冲突继续使用既有异常触发整笔事务回滚，自助改密冲突继续返回 SessionNotActive，尚未撤销或轮换会话；未新增迁移、依赖、HTTP/DTO字段或错误码。
+
+新增两项 Unit 和双库同场景 Integration。Unit 在基线实际 RED 2/2失败，原因是未传版本；修正真实数据库夹具 Host 上下文后，双库 RED 2/2因旧处理器仍成功写入而失败，均零跳过。早期夹具因缺少 Host 上下文误触发回滚的通过结果和随后失败不计为保护证据；最终断言核对精确业务异常。双库夹具在恢复读取后暂停，由独立连接提交新密码、SecurityStamp和版本，再验证旧请求不覆盖已提交状态、挑战消费回滚、无成功审计；重新读取后的合法请求仍可消费一次且拒绝重放。
+
+当前 Identity Unit 500/500、双库定向6/6、API AOT架构73/73，零失败/跳过；AOT分析器零警告/错误。Windows Native27项全部跳过，成功0/失败0，不属于原生运行证据。完整影响集仍为Identity与integration-matrix，177个唯一UID；原 pnpm test:slice -- --snapshot f03-password-write-race-20261007 终态exit1，TRX原始178行，147通过/31失败，其中30个唯一失败UID含一次重复清理失败。仅补跑这30个失败UID，实际30/30、exit0、零失败/跳过；按UID严格核对147个原有效通过与30个补跑通过的并集恰好为原177项，没有遗漏或额外项。这是未变输入上的完整覆盖证据复用，不宣称单次完整slice全绿。工具65/65、治理57/57；1130仅完整互斥Integration分片发现，不是全量执行。矩阵增加实际2个Unit和2个Integration，未降低门槛或缩小影响选择器。
+
+首轮slice发生系统虚拟内存不足，Windows事件2004和OutOfMemoryException相符；只核实并停止本任务的失败测试进程，未结束无关服务。源码和产物不变时原失败认证事件双库2/2重新通过。完整重跑后半Docker Linux Engine管道消失，导致剩余SQL Server OIDC及夹具连接失败；恢复本地Docker Desktop，保留原失败exit和TRX。首次补跑临时DOCKER_HOST写法被.NET驱动拒绝，30项仅初始化失败，不计为业务证据；移除覆盖、原desktop-linux管道恢复并确认Linux29.6.2后重新执行。未用业务代码修改掩盖环境失败，未清理容器卷或更改全局Docker上下文。
+
+九项测试执行时的冻结源码/测试/矩阵摘要和三项运行程序集摘要核对未变；验收后仅恢复矩阵原有键顺序，JSON全部值深度相等，原执行摘要和最终摘要另存，未改过滤器或门槛；补跑终态精确绑定最新启动、command/args/log和新鲜TRX，再验证全部UID。证据见 .tmp/f03-password-race-frozen-source.json、-verify.json、-unit-result.json、-retry-manifest.json、-evidence.json、-docker-failed.trx、-failed-uids-retry-accepted.trx，中断及错误npipe记录另行保留。独立只读安全复审无剩余阻断；验收汇总复审要求并已补强最新运行绑定，复审未改代码或执行测试。文档与矩阵机械收口后另行复核治理、工具及分片发现。
+
+Windows x64 / i7-12700H /63.75GiB /SDK10.0.401 /Node24.12.0 /pnpm10.26.0 /Docker29.6.2；DOTNET_PROCESSOR_COUNT=1、Integration Workers=2、容器复用关闭，.NET/模板/容器构建与测试串行。当前恢复码仍遵守既有重新读取后可重试规则，本轮不将凭据额外绑定签发时SecurityStamp；更广的凭据/账号生命周期、持久化失败或未知送达状态与对账、真实SMTP和完整耗时防枚举仍待办。没有执行当前独立生成应用全链路、全量Unit/Integration或本地Linux原生运行；F03六项、F04及Capacity-not-verified保持，PR保持Draft，未合并、未发布。
+
+父提交8b11ea11f8ff7f4487146c818c2c38121cfee2c8的三项Actions于2026-10-06T18:05:15.744Z核对均completed/success：[worker-native-aot-linux](https://github.com/yan041108/Full.NET/actions/runs/37503877419)、[api-native-aot-linux](https://github.com/yan041108/Full.NET/actions/runs/37503877329)、[ci](https://github.com/yan041108/Full.NET/actions/runs/37503877360)。证据只属于父提交；本轮按推送后的自身SHA单独读取。
+
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。
