@@ -716,6 +716,24 @@ pnpm test:slice -- --snapshot f03-challenge-delivery-faults-20261006 按原影�
 
 父提交 281a336e23197e856967cdefea0d2a1648075b38 的三项 Actions 于 2026-10-06T14:05:23.129Z 核对均 completed/success：[worker-native-aot-linux](https://github.com/yan041108/Full.NET/actions/runs/37471158777)、[api-native-aot-linux](https://github.com/yan041108/Full.NET/actions/runs/37471158692)、[ci](https://github.com/yan041108/Full.NET/actions/runs/37471158737)。该证据范围为父提交；本次投递故障源码的 CI 在推送后按自身 SHA 单独读取。
 
+**2026-10-07 F03 挑战取消后的撤销边界（局部完成，六项里程碑条件继续待办）。**
+
+基线 315b316e605eb969177735d5ca13d2d4d39ddcd2，快照 f03-challenge-cancellation-20261006。挑战已提交后，调用方取消原先直接逃逸；投递失败/false 的撤销又复用已取消令牌，真实数据库中的凭据可继续保持活跃。Unit 原47项实际 RED 17失败/30通过，补充取消竞态6/6失败；真实 SQL Server/MySQL 原迟到补偿用例2/2失败，均因单独取消挑战 ConsumedAtUtc 为空。RED 使用基线生产程序集，源码及程序集摘要在测试结束时核对未变，零跳过。
+
+撤销改为独立五秒取消令牌，只影响本次 ChallengeId；调用方 OCE 先尝试撤销，再保持原异常对象及令牌。普通投递异常与取消竞态先安全映射失败，失败/false 也先撤销再传播调用方取消；明确成功 true 不因迟到取消撤销。补偿失败仅新增4532安全日志，字段只含挑战标识和用途，不传原始异常、邮箱或明文凭据；无调用方取消时数据库异常继续传播，不能伪报受理或撤销成功。未新增 SMTP 重试、迁移、HTTP/DTO字段、依赖、消费CAS或后台状态机。
+
+当前定向 Unit 53/53、Identity Unit 498/498、API AOT架构73/73，零失败/跳过；AOT分析器零警告/错误。Windows Native 27项全部跳过，成功0/失败0，不属于原生运行证据。重建当前 JIT Integration 后定向12/12通过；按原影响选择器执行 pnpm test:slice -- --snapshot f03-challenge-cancellation-20261006，双库完整175/175，零失败/跳过；工具65/65、治理57/57。1128只代表完整互斥分片发现，不是全量Integration执行。矩阵仅增加实际26个Unit，最低门槛5131至5157，未改变Integration范围或降低门槛。
+
+双库每种用途验证无重发的实际撤销行、旧凭据失效、迟到取消/失败仅影响旧挑战、新挑战仍可消费一次且重放失败。新增单测覆盖调用方OCE、取消后失败/false、异常竞态、明确受理、独立期限、补偿失败、事务前取消及安全诊断。独立只读安全复审没有剩余阻断；已修正 finally 中验收断言可能覆盖原始失败的诊断问题，复审未运行测试。
+
+完整slice首轮在65项中间记录后失去执行会话，没有终态退出码或TRX，不计为完整通过；原日志、元数据及中断流已保留，四项冻结摘要核对不变。仅重跑完整slice，前五步已完成的通过证据保留。后台重启器首个启动检查因PowerShell 5数组读取兼容差异退出，尚未执行测试；修正读取后实际重跑的启动、退出及新鲜TRX单独核对。中断与启动失败记录在 .tmp/f03-cancellation-interruption.json、.tmp/f03-cancellation-slice-interrupted.log、.tmp/f03-cancellation-verify-interrupted.json、.tmp/f03-cancellation-resume-bootstrap-failed-error.log。
+
+四项冻结源码/测试/矩阵摘要、六步实际命令和退出码、原日志及本轮新鲜TRX保存在 .tmp/f03-cancellation-source.json、.tmp/f03-cancellation-verify.json、.tmp/f03-cancellation-evidence.json、.tmp/f03-cancellation-identity.trx。Windows x64 / i7-12700H / 63.75GiB / SDK10.0.401 / Node24.12.0 / pnpm10.26.0 / Docker29.6.2；DOTNET_PROCESSOR_COUNT=1、Integration Workers=2、容器复用关闭，.NET/模板/容器构建与测试串行。
+
+五秒期限依赖数据库驱动遵守取消，数据库不可用时仍可能无法撤销；持久化失败/未知送达状态、对账及真实SMTP仍未闭环。不宣称完整防枚举、F03完成、当前独立生成应用全链路、全量Unit/Integration、本地Linux原生运行或容量达标。六项checkbox及Capacity-not-verified保持；本次CI推送后按精确SHA核对，PR保持Draft，未合并、未发布。
+
+父提交 315b316e605eb969177735d5ca13d2d4d39ddcd2 的三项 Actions 于 2026-10-06T15:34:59.095Z 核对均 completed/success：[worker-native-aot-linux](https://github.com/yan041108/Full.NET/actions/runs/37482529283)、[ci](https://github.com/yan041108/Full.NET/actions/runs/37482529347)、[api-native-aot-linux](https://github.com/yan041108/Full.NET/actions/runs/37482529277)。证据只属于父提交；本轮源码按推送后的自身 SHA 单独核对。
+
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。

@@ -22,6 +22,7 @@ internal sealed partial class AccountChallengeService(
 {
     private const int DefaultMaxAttempts = 5;
     private static readonly TimeSpan DefaultLifetime = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan CompensationTimeout = TimeSpan.FromSeconds(5);
 
     public async Task<Result<AccountChallengeAcceptedResponse>> CreateAndDeliverAsync(
         IdentityAccountChallengePurpose purpose,
@@ -88,7 +89,14 @@ internal sealed partial class AccountChallengeService(
         {
             delivered = await challengeDeliveryPort.SendAsync(intent, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // 挑战已经提交，即使请求取消也须尝试撤销；补偿失败不能覆盖原始调用方取消。
+            try { await InvalidateUndeliveredAsync(challengeId, purpose).ConfigureAwait(false); }
+            catch (Exception) { /* 补偿方法已记录安全诊断，保持原取消异常和令牌。 */ }
+            throw;
+        }
+        catch (Exception)
         {
             // 投递异常不证明未发送，不自动重试；仅撤销本次凭据，匿名恢复仍返回占位受理。
             // 适配器异常可能携带明文凭据，日志只记录安全标识；调用方取消保持向上传播。
@@ -98,19 +106,40 @@ internal sealed partial class AccountChallengeService(
         // Port 契约只有成功且明确 true 才代表受理，false 不能留下可消费的真实挑战。
         if (!delivered.IsSuccess || !delivered.Value)
         {
-            // 投递发生在事务提交之后，迟到失败只能撤销本次挑战，不能影响已成功重发的新挑战。
-            await commandExecutor.ExecuteAsync(
-                    AccountChallengeSql.InvalidateById,
-                    IdentitySqlParameters.Create(
-                        ("ChallengeId", challengeId),
-                        ("ConsumedAtUtc", clock.UtcNow)),
-                    cancellationToken)
-                .ConfigureAwait(false);
+            try { await InvalidateUndeliveredAsync(challengeId, purpose).ConfigureAwait(false); }
+            catch (Exception) when (cancellationToken.IsCancellationRequested)
+            {
+                // 传输返回失败时也可能已经取消；保留调用方令牌，不把数据库失败转换成受理成功。
+                cancellationToken.ThrowIfCancellationRequested();
+                throw;
+            }
+            cancellationToken.ThrowIfCancellationRequested();
             return Result<AccountChallengeAcceptedResponse>.Failure(DeliveryFailed());
         }
 
         return Result<AccountChallengeAcceptedResponse>.Success(
             new AccountChallengeAcceptedResponse(challengeId, expiresAtUtc));
+    }
+
+    /// <summary>提交后以独立五秒取消期限撤销本次未确认受理的挑战，不重试外部投递。</summary>
+    /// <remarks>迟到补偿只限定当前标识；数据库必须遵守令牌，补偿失败继续传播并留下安全诊断。</remarks>
+    private async Task InvalidateUndeliveredAsync(Guid challengeId, IdentityAccountChallengePurpose purpose)
+    {
+        using var timeout = new CancellationTokenSource(CompensationTimeout);
+        try
+        {
+            await commandExecutor.ExecuteAsync(
+                    AccountChallengeSql.InvalidateById,
+                    IdentitySqlParameters.Create(("ChallengeId", challengeId), ("ConsumedAtUtc", clock.UtcNow)),
+                    timeout.Token)
+                .ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // 原始投递及数据库异常均可能含敏感数据；日志只能记录安全定位字段，不能宣称撤销成功。
+            if (logger is not null) LogCompensationFailure(logger, challengeId, (byte)purpose);
+            throw;
+        }
     }
 
     /// <summary>生成匿名恢复的占位受理结果，保持正常挑战的标识与窗口形态，但不生成凭据或访问持久化。</summary>
@@ -252,6 +281,10 @@ internal sealed partial class AccountChallengeService(
     [LoggerMessage(EventId = 4531, Level = LogLevel.Warning,
         Message = "Account challenge delivery threw; ChallengeId {ChallengeId}, Purpose {Purpose}.")]
     private static partial void LogDeliveryException(ILogger logger, Guid challengeId, byte purpose);
+
+    [LoggerMessage(EventId = 4532, Level = LogLevel.Warning,
+        Message = "Account challenge compensation failed; ChallengeId {ChallengeId}, Purpose {Purpose}.")]
+    private static partial void LogCompensationFailure(ILogger logger, Guid challengeId, byte purpose);
 
     private static Error DeliveryFailed() => new(
         IdentityErrorCodes.AccountChallengeDeliveryFailed,
