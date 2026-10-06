@@ -1517,3 +1517,20 @@ pnpm test:aot:worker:analyzers
 - 环境为 Windows x64、i7-12700H、64 GB 内存、.NET SDK 10.0.401、Docker 双提供程序；测试进程限制 2 个处理器、GC 堆 2 GiB，容器不复用。此次没有重新发布或运行 Linux 原生宿主，也没有调用真实云模型或执行容量实测。
 - `pwsh -File artifacts/r05e5/final.ps1` 退出 0；`node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-vectors-r05e5 --phase slice` 执行正式 Ai / integration-matrix 影响集，SQL Server/MySQL AI 78/78，零失败/跳过，26m 29s 115ms。`artifacts/r05e5/acceptance.json` 逐项核对 AI 单元与双库完整 UID/FQN、1113 个源码/矩阵/运行输入 SHA-256 未变化；Worker 74 个项目依赖与 Integration 最终 JIT 闭包一致。
 - `pnpm test:governance` 57/57、`pnpm test:naming` 33/33、`pnpm test:integration:partitions` 合计 1184 项无遗漏/重复。TRX 对 3 项成功用例的诊断文本按既有字段上限截断，用例身份和结果完整；保留原始日志与结果，诊断限幅不计为失败或跳过。下一切片为 PDF 持久化接入，继续核对权威租户/来源、原会话、操作结算、租约与模型批准版本；完整 RAG 未整体完成。
+
+### 2026-10-06：R05e6 PDF 完整清单持久化（本地切片验收完成）
+
+- 基线 `b9073869f52cb30e3f23438b948c5778f2339429`，快照 `ai-knowledge-pdf-manifest-r05e6`。新增 `Knowledge/AiKnowledgeIndexPdfManifestStore.cs`，消费 PDF plan，提供 `PersistAsync(binding, taskId, leaseToken, plan, token)` 与 `ReadSnapshotAsync(binding, taskId, leaseToken, token)`；只证明当前任务完整计划，不授予向量齐全、模型外发或 ready。
+- 保留 `fn_ai_knowledge_text_manifest` 的既有物理名称、任务主键、外键、SQL scope 与静态行物化器；同一任务的文本/PDF 清单互斥，避免建立可并存的第二权威集合。252 双库迁移先增加允许文本/PDF 且保持 8–131072 字节的约束，再移除旧文本限定约束，部分完成重放保留原行。更新实际表/载荷注释及对应元数据；未授权改旧迁移、回填或修改清单正文。
+- PDF store 冻结原字节，核对可信租户、来源/知识库/模型精确版本、`application/pdf`、原会话五项精确权限；授权在事务外，写入仅复用 AI 本地 INSERT 的锁和实时来源条件。唯一竞争只能复用同字节 SHA，写后到期/取消必须回滚；恢复核对格式、原字节 SHA、PDF decoder 和等待后的最新权威条件。继续复用既有清理和 HasDerivedData 判定。
+- 先建立 `AiKnowledgeIndexPdfManifestStoreTests` 的有效 Host/Tenant 保存失败证据；补齐跨来源、权限撤销、等待漂移、损坏行、文本/PDF 互斥、唯一竞争、事务/取消/基础设施故障测试。新增 `Migration252AiKnowledgePdfManifestRecoveryTests`，冻结迁移上界，真实双库证明旧行保留、部分约束/元数据重放、格式/大小/唯一/FK 守卫。
+- 新增 `AiKnowledgeIndexPdfManifest*Tests` 与共享断言，用生产 executor/transaction/session/task 路径验证 Host/Tenant 真实保存、相同载荷竞争、改载荷拒绝、来源/批准/原会话漂移、事务回滚与清理。按实际发现同步唯一矩阵和 252 恢复选择器；官方 slice 影响集、AI Unit、AOT 分析/架构、命名、SQL 安全和分片通过后在 main 提交。本项保持公开 PDF 入队和 Worker 未接入，完整 RAG 为 Planned，容量为 Capacity-not-verified。
+
+- 失败验证分两层：PDF Store 占位返回 false 时有效 Host/Tenant 保存 2/2 失败；缺少 252 脚本时双库恢复测试 2/2 失败（脚本发现为 0）。编译期类型错误不计为 RED。实现后首次聚焦 Unit 38/38、双库持久化/恢复 4/4；后续严格格式修正以最终构建和正式 slice 重新验收。
+- 只读审查指出双库字符串比较会忽略尾随空格；252 为文本 26/PDF 25 字节同时校验精确格式和长度，补充两类尾随空格拒绝。MySQL 按命名规则 §10.6 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE/EXECUTE，登记精确文件级 dynamic_sql 债务；既有非法格式导致新约束验证失败时保留旧守卫，不隐式改写旧数据。复核无新增阻断问题。
+- 清单在模型调用前保存，不要求已结算的付费模型操作；此 store 仍要求完整导入、当前批准模型、原会话五项权限与持有租约。操作结算、向量齐全和完整代次发布证明属于后续向量 store；当前没有 DI、Worker 或公开 PDF 入队接入。
+
+- `pwsh -File artifacts/r05e6/final.ps1` 退出 0：Host.Api `-p:FullNetAotAnalysis=true` 分析零警告/错误（10m 46s）；恢复默认 JIT 后 Integration/Unit/Architecture/Worker Release 最终构建均零警告/错误。`node artifacts/r05e6/run-unit.mjs` 按官方矩阵参数执行 AI 单元 1399/1399，零失败/跳过；全 Unit 实际发现 4868，只报告本次 AI 执行范围。架构 `ai-agentic-boundaries` 7/7、`api-native-aot` 73/73。
+- `node scripts/testing/run-affected-integration.mjs --snapshot ai-knowledge-pdf-manifest-r05e6 --phase slice` 执行正式 Ai / integration-matrix / migration-252 影响集，SQL Server/MySQL 82/82，零失败/跳过，36m 32s 222ms；包含 AI 80 项与 252 恢复 2 项，新增持久化/恢复 4 项在最终严格约束实现下均通过。`artifacts/r05e6/acceptance.json` 逐项核对完整 UID/FQN，1122 个源码/矩阵/运行输入 SHA-256 未变化，Worker 74 个项目依赖与 Integration 最终 JIT 闭包一致。
+- `pnpm test:naming` 33/33、`pnpm test:sql-safety` 5/5、`pnpm test:governance` 57/57；`pnpm test:integration:partitions` 合计 1188 项无遗漏/重复（API 双库各 195，迁移 532，基础设施 186，消息 80；迁移旧段 250、当前段 282）。TRX 对 3 项成功用例的诊断文本按既有字段上限截断，用例身份和结果完整；保留原始日志与结果，不计为失败或跳过。
+- Windows x64、i7-12700H、64 GB、.NET SDK 10.0.401、Docker 双提供程序；测试进程限制 2 个处理器、GC 堆 2 GiB，容器不复用。本次没有重新发布或运行 Linux 原生宿主、调用真实云模型或执行容量实测。下一切片为 PDF 向量持久化与操作结算绑定；完整 RAG 保持 Planned，容量保持 Capacity-not-verified。

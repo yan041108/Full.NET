@@ -418,12 +418,12 @@
       }
     },
     "fn_ai_knowledge_text_manifest": {
-      "comment": "人工智能knowledge text manifest表",
+      "comment": "知识库索引任务不可替换的完整文本或PDF计划",
       "columns": {
         "CreatedAtUtc": "创建时间(UTC)",
         "FormatKey": "格式键",
         "Id": "逻辑主键",
-        "Payload": "消息正文",
+        "Payload": "不含正文的完整有界文本或PDF批次清单",
         "PayloadHash": "载荷哈希"
       }
     },

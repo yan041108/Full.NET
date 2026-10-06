@@ -3,6 +3,13 @@
   "preV1NameMap": "contracts/naming/pre-v1-name-map.json",
   "items": [
     {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/252_AiKnowledgePdfManifest.sql",
+      "reason": "252 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE 恢复清单格式约束及注释；表、列与约束均为脚本常量，无外部输入，双库未记账重放与禁用约束恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "permission",
       "value": "auditing.operations.details.read",
       "file": "src/Modules/Full.NET.Modules.Auditing/AuditingAuthorizationContributor.cs",

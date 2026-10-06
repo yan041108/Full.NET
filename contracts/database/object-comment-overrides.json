@@ -442,6 +442,12 @@
         "InputCount": "批次输入数量",
         "CreatedAtUtc": "创建时间（UTC）"
       }
+    },
+    "fn_ai_knowledge_text_manifest": {
+      "comment": "知识库索引任务不可替换的完整文本或PDF计划",
+      "columns": {
+        "Payload": "不含正文的完整有界文本或PDF批次清单"
+      }
     }
   }
 }
