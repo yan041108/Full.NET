@@ -42,3 +42,14 @@ API 和 Worker 使用相同处理器及最小后台授权依赖。执行、恢�
 错误回执下载也要求原创建人的当前交互会话，并权威复核执行权限、Schema 权限与原预览已授予的能力；原会话撤销后不能继续下载，同一创建人的新会话可重新授权。此下载校验不重新执行业务导入。
 
 正式 Worker profile 的后台宿主恢复验证与独立 Worker 操作系统进程崩溃验证需分别记录；样例生成 CRUD 的完整 Native AOT 运行仍需独立验收。
+
+导入 HTTP 入口通过 Identity 权限解释器冻结当前作用域的有效能力，兼容超级管理员令牌不携带逐项权限 Claim 的情况；组织单位/职级附加能力仍须逐项核对，Host-only 能力不能进入租户快照。原预览缺少能力时重新上传，不因后来授权而改变原有效行集合。样例业务 API 的金额保持 decimal 字符串，草稿状态机器码为 `Draft`。
+
+在干净源码检出中，可启用本地双库独立应用验收（需要 Docker、.NET、Node 和 Python 标准库）：
+
+```powershell
+$env:FULLNET_RUN_TEMPLATE_REAL_STACK='1'
+node --test tests/templates/created-enterprise-data-delivery.test.mjs
+```
+
+该测试从固定提交生成新的 Enterprise 应用，使用自己的数据库和 Redis，构建三个宿主并执行迁移重放；两张正式工作簿在 API 中排队后才启动独立 Worker，通过正式业务 API 回读单位/职级、申请人、金额与租户。报告和生成应用保留在 `.tmp/template-real-stack/enterprise-delivery/`，只清理本次拥有的进程和容器。此验收覆盖正常消费，不包含 Worker OS 崩溃、审批、报表、打印或完整 Native AOT 业务链。

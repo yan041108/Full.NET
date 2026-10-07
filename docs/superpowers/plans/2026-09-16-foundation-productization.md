@@ -1166,6 +1166,24 @@ Vue 两页功能/生命周期 **13/13**；发布目录客户端结构守卫 **8/
 
 从干净代码检查点 `cc2904c0790f43275f2fd08d7fddd075cfbcad06` 使用 `node scripts/templates/build-app-template.mjs --output .tmp/reporting-grants-template` 与 `create-app.mjs --package .tmp/reporting-grants-template --output .tmp/reporting-grants-app --name ReportingGrantAcceptance --owner-key rptaccept --database sqlserver --preset enterprise --http-port 5290` 新建独立应用。`verify-created-app.mjs` 结构校验、冻结 sourceCommit/双库迁移 245/权限 Contract/三个生成操作摘要核对、应用自带生成器 `--check` 均通过。对应用自身 API/Worker/Migrator 三个 csproj 执行 `dotnet build --configuration Release --nologo`，全部零警告/错误，分别 1m02s/10s/9s；不是只编译原仓库 Host。生成目录与 `reporting-grants-acceptance.json` 保留在 `.tmp/reporting-grants-app`。此证据关闭本批独立应用源码/客户端/三宿主构建闭包，未执行应用完整 Enterprise 业务运行链。Vue 此处为 Implemented/Build-verified，真实浏览器集中逐页验收尚未执行。独立 Worker OS 进程崩溃、完整生成应用 Enterprise 业务链、样例 CRUD 完整 Native AOT 运行及 MySQL 外部 TLS 仍待验收。Reporting 原作用域冲突由本批实现修复，但 F11/C02 不整体关闭，`Capacity-not-verified` 保持。开发分支与 Draft PR 交付，不合并、不发布。
 
+#### 2026-10-08 F11：导入有效能力快照与独立 Enterprise Worker 工作簿验收
+
+基线 `0c970c99`，任务快照 `f11-import-capabilities-enterprise-worker-20261008`；代码检查点 `dc09ee34`，最终源码检查点 `de9a3cb8`。本批同时收口导入授权快照、非空组织绑定、独立生成应用后台执行，以及上一提交 Actions 暴露的客户端包体退化。所有修改与验证位于本任务隔离目录，未修改其他 AI 使用的原检出。
+
+ImportExport 创建、执行、恢复、重试四个 HTTP 入口改为复用 Identity 既有 `IIdentityPermissionEvaluator`：先解析有效权限，再以当前主体逐项复核，冻结精确租户能力。修复超级管理员令牌省略逐项权限 Claim 时丢失组织单位/职级能力的问题；Host-only、未知值、大小写漂移及缺少可信作用域不会进入快照。保留当前交互会话、每批权威复核与原有效行集合，不恢复后台超级管理员标记，不扩展授权目录。旧预览缺少原能力时不能因本次升级自动补权，须重新上传预览。
+
+Unit 新回归旧实现 **5/6 失败**，修复后新用例 **6/6**；最终 `pnpm test:dotnet:unit` 使用 ImportExport、FullNetPermissionHandler、TenantPositionImportPreview、TenantPositionsStaticImport 联合过滤与下限 54，**54/54**、零失败/跳过，Release 构建零警告/错误。Unit 矩阵下限 5371 → 5377。正式职位 Worker 夹具通过 HTTP 创建非空单位/职级，上传真实工作簿，断言持久能力及最终业务绑定。`FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:integration:affected -- --snapshot f11-import-capabilities-enterprise-worker-20261008 --phase merge` **22/22**，零失败/跳过，双 Provider、10m36s；覆盖 ImportExport 与 Smoke。运行 Windows x64、20 逻辑核、约 64 GiB、.NET SDK 10.0.401，Integration 并行 2、SQL Server 2022 CU14/MySQL 8.0/Redis 8.6 的独立容器。五项 .NET/矩阵输入 SHA-256 无漂移，后续仅更改 Node 验收与客户端生成器。API `pnpm test:aot:analyzers` 退出 0、零警告/错误；不称完整 Native 业务运行通过。
+
+共用 API 启动等待修复连接已建立却不响应时无界等待：每次探针受 5 秒和剩余总期限约束，外部取消贯通请求及轮询。旧实现真实 HTTP 回归 **2/3 失败**；修复后首次启动/进程清理/验收辅助集 **15/15**，最终金额契约修正后直接相关集 **12/12**，均零跳过。HTTP 验收辅助集旧桩 **3/3 失败**，修复后 **3/3**；这些脚本用例与下述真实 ASP.NET 运行证据分开记录。首轮双库真实应用 **0/2**，断言错误地将正式 decimal 字符串视为 number；第二轮 **0/2**，错误地将正式 `Draft` 状态视为小写。实际两库均已完成 Worker 写入，仍按失败记录；修正只使夹具符合既有契约，未改变业务接口或数据。
+
+上一基线 CI 的 `client-build-test` 明确失败于首屏 minified 1,437,492 字节超过 1,368,052 基线的 5% 门禁；本地同构产物复现为 1,437,491 字节。生成器提取 JSON 共同分派，保持 `http` 接收者、未指定选项时三参数/指定时四参数、signal、错误传播及逐 Operation 响应守卫；Blob、204 与公开 SDK 签名不变，不放宽预算、不迁移依赖掩盖总量。新分派回归旧实现失败，修复后脚本联合 **16/16**；`pnpm test:openapi` **203/203**、`pnpm --filter @fullnet/client-contracts test` **244/244**，管理端类型检查/生产构建通过，生成客户端 `--check` 零漂移。
+
+同一 Windows/Node 24.12.0、相同锁文件、Release Vite 构建的首屏静态图均为 67 个 chunk：minified 1,437,491 → **1,421,091**，gzip 379,719 → **379,407**，Brotli 317,197 → **316,934**；全部 JS minified 3,912,736 → **3,896,336**，gzip 1,163,814 → **1,163,437**，Brotli 1,008,630 → **1,008,425**。首屏相对预算 +3.88%/+2.90%，FullNetChart 与 VForm3 两项延迟块亦通过原门禁。管理端全量 `pnpm --filter @fullnet/admin test` **1,116/1,116**、278 个测试文件，4m05s。仅报告产物体积变化，不推导用户首屏延迟改善。
+
+最终独立生成应用使用同一冻结源码 `de9a3cb8`、Enterprise 预设和 owner `delivery`，每库自己的 SQL Server 2022 CU14/MySQL 8.4、Redis 7.4 与 API/Worker/Migrator。正式联合命令第三轮 **1/2**：SQL Server 在容器端口等待阶段超时，MySQL 完整运行 **1/1**、3m41s；不称该命令双库通过。随后同一输入仅选择 SQL Server 的 `node --test --test-name-pattern=sqlserver tests/templates/created-enterprise-data-delivery.test.mjs` **1/1**、零失败/跳过、2m33s，补齐两库通过证据。每库三宿主 Release 构建零警告/错误，Migrator 实际播种及再次迁移；API 禁用同步执行，两张非空正式 XLSX 均完成预览并排队后才启动 Worker。报告记录互不相同的 API/Worker 操作系统 PID 与 readiness，执行完成各成功一行，正式业务接口核对唯一职位、非空单位/职级、申请人、租户、金额字符串 `123.45` 和 `Draft` 状态。两份报告 `completed/cleanupSucceeded` 均 true，manifest 源提交一致；这是独立 OS 进程正常消费验证，未执行进程崩溃/接管。证据位于 `.tmp/template-real-stack/enterprise-delivery/sqlserver/run-Zn8srb` 与 `mysql/run-q5jcFt`，保留生成应用和日志。
+
+只读安全/公共契约复核未发现重要问题，复核不代替实际运行。Integration 工具链 **59/59**、治理 **57/57**；首次失败、复验日志与运行报告保留于本任务 `.tmp/import-capabilities-*`、`.tmp/enterprise-*`、`.tmp/client-*`。上一基线 API/Worker Linux AOT 均已成功，CI 客户端失败由本批本地修复验收；新推送 SHA 的 Actions 状态单独报告，未完成不能称全绿。独立 Worker OS 崩溃/接管、生成应用审批/报表/打印完整业务链、真实浏览器本批流程、样例完整 Native AOT CRUD 与 MySQL 外部 TLS 仍待验收。F11/C02 不整体关闭，`Capacity-not-verified` 保持；仅开发分支与 Draft PR 交付，不合并、不发布。
+
 ### F12：订阅、试用与支付驱动权益
 
 **依赖：** F06、F08、现有 Payments 安全修复/渠道验收。**提供：** Tenancy 订阅生命周期；Payments 仍拥有资金事实。
