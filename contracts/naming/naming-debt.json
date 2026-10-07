@@ -5,6 +5,20 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/254_AiKnowledgeAnswerLineage.sql",
+      "reason": "254 仅用 INFORMATION_SCHEMA 在固定字面量 DDL 与 SELECT 1 之间选择，补齐答案依赖列、注释及约束；表列名均为常量，无外部输入，双库恢复测试验证逐步中断、禁用约束和旧历史保留。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/254_AiKnowledgeAnswerLineage.sql",
+      "reason": "254 使用固定字面量 EXEC 延迟新增列的约束解析，避免同批次新增列时编译失败；对象和条件均为脚本常量，无外部输入，由双库约束及注释重放测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/253_AiKnowledgePdfVector.sql",
       "reason": "253 仅根据 INFORMATION_SCHEMA 选择固定字面量 DDL 或 SELECT 1，逐阶段恢复向量格式约束与注释；对象名称均为常量且无外部输入，双库恢复覆盖新旧守卫并存、非法历史行失败关闭、禁用约束和未记账重放。",
       "removalMilestone": "M1.0"

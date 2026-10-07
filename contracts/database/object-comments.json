@@ -209,6 +209,8 @@
         "Content": "内容",
         "CreatedAtUtc": "创建时间(UTC)",
         "Id": "逻辑主键",
+        "IsKnowledgeAnswer": "是否Knowledge Answer",
+        "KnowledgeLineage": "Knowledge Lineage",
         "PromptTokens": "提示 Token 数",
         "RoleKey": "角色键",
         "SessionId": "会话标识",

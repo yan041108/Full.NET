@@ -19,4 +19,17 @@ internal static class AiKnowledgeIndexStatusSql
     internal static readonly SqlStatement ReadMySqlTenant = new("ai.knowledge_index_status.read_mysql_tenant", Read(true, true), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static SqlStatement For(DatabaseProvider provider, bool tenant) => provider == DatabaseProvider.MySql
         ? tenant ? ReadMySqlTenant : ReadMySqlHost : tenant ? ReadSqlServerTenant : ReadSqlServerHost;
+
+    // 一笔查询复核完整依赖，避免逐来源查询的等待窗口及角色/机构关系重复读取。
+    private static string History(bool mysql, bool tenant) => "SELECT " + Columns + Root + (mysql ? Latest + " LIMIT 1" : "TOP (1) " + Latest)
+        + ") WHERE knowledge.IsEnabled=1 AND document.IsDeleted=0 AND " + (tenant ? "knowledge.TenantId=@TenantId" : "knowledge.TenantId IS NULL")
+        + " AND " + (mysql ? AiKnowledgeReadSql.LayersMySql : AiKnowledgeReadSql.Layers) + " AND EXISTS (SELECT 1 FROM "
+        + (mysql ? "JSON_TABLE(@DependenciesJson,'$[*]' COLUMNS (KnowledgeBaseId CHAR(36) PATH '$.knowledgeBaseId',DocumentId CHAR(36) PATH '$.documentId',VersionId CHAR(36) PATH '$.versionId')) AS requested WHERE UUID_TO_BIN(requested.KnowledgeBaseId,0)=knowledge.Id AND UUID_TO_BIN(requested.DocumentId,0)=document.Id AND UUID_TO_BIN(requested.VersionId,0)=version.Id)"
+            : "OPENJSON(@DependenciesJson) WITH (KnowledgeBaseId uniqueidentifier '$.knowledgeBaseId',DocumentId uniqueidentifier '$.documentId',VersionId uniqueidentifier '$.versionId') AS requested WHERE requested.KnowledgeBaseId=knowledge.Id AND requested.DocumentId=document.Id AND requested.VersionId=version.Id)");
+    private static readonly SqlStatement HistorySqlServerHost = new("ai.knowledge_answer.sources_sqlserver_host", History(false, false), SqlDataScope.HostOnly);
+    private static readonly SqlStatement HistorySqlServerTenant = new("ai.knowledge_answer.sources_sqlserver_tenant", History(false, true), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    private static readonly SqlStatement HistoryMySqlHost = new("ai.knowledge_answer.sources_mysql_host", History(true, false), SqlDataScope.HostOnly);
+    private static readonly SqlStatement HistoryMySqlTenant = new("ai.knowledge_answer.sources_mysql_tenant", History(true, true), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static SqlStatement HistoryFor(DatabaseProvider provider, bool tenant) => provider == DatabaseProvider.MySql
+        ? tenant ? HistoryMySqlTenant : HistoryMySqlHost : tenant ? HistorySqlServerTenant : HistorySqlServerHost;
 }

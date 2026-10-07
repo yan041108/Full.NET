@@ -49,7 +49,25 @@ internal static class AiKnowledgeRetrievalAssertions
         var embeddingCharges = await AiKnowledgePaidAnswerAssertions.VerifyAsync(services, db, service, permission, model, binding.KnowledgeBaseId, reader.Actor,
             denied => reader.Denied = denied);
         var bytes = Encoding.UTF8.GetBytes($$"""{"answer":"测试答案","citationIds":["{{prepared.Context.Citations[0].Id}}"],"refusal":false}""");
-        Assert.AreEqual("测试答案", (await pipeline.AcceptAsync(prepared, bytes, default)).Text);
+        var accepted = await pipeline.AcceptAsync(prepared, bytes, default); Assert.AreEqual("测试答案", accepted.Text);
+        var historyGuard = new AiKnowledgeAnswerHistoryGuard(query, state, tenant, options, access, permission,
+            new AiKnowledgeAnswerSourceProof(new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options),
+                new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options)));
+        var lineage = AiKnowledgeAnswerLineageCodec.Create(new(prepared, accepted, ids.NewId(), ids.NewId()), ids.NewId(), ids.NewId());
+        var lineageJson = AiKnowledgeAnswerLineageCodec.Encode(lineage);
+        await AiKnowledgeAnswerStoreAssertions.VerifyAsync(db, query, command, transaction, tenant, clock, options, historyGuard, prepared, accepted);
+        Assert.IsNotNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default));
+        Assert.IsNotNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, true, default));
+        var receipt = await db.QuerySingleAsync<string>("SELECT ReceiptJson FROM fn_ai_knowledge_active_generation WHERE DocumentId=@Id", new { Id = binding.DocumentId });
+        await db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET ReceiptJson='[]' WHERE DocumentId=@Id", new { Id = binding.DocumentId });
+        try { Assert.IsNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default)); }
+        finally { await db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET ReceiptJson=@Receipt WHERE DocumentId=@Id", new { Id = binding.DocumentId, Receipt = receipt }); }
+        reader.Denied = true;
+        Assert.IsNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default)); reader.Denied = false;
+        reader.Calls = 0; reader.BeforeAuthorization = count => count == 6
+            ? db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET IsDeleted=1 WHERE Id=@Id", new { Id = binding.DocumentId }) : Task.CompletedTask;
+        try { Assert.IsNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default)); }
+        finally { reader.BeforeAuthorization = null; await db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET IsDeleted=0 WHERE Id=@Id", new { Id = binding.DocumentId }); }
         reader.Denied = true;
         await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => pipeline.AcceptAsync(prepared, bytes, default)); reader.Denied = false;
         // 两层必须同时具备；只有目录成员关系仍不能召回正文。
