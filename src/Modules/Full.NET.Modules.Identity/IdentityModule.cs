@@ -259,6 +259,7 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddSingleton(provider => AuthorizationCatalog.Create(
             provider.GetServices<IAuthorizationCatalogContributor>()));
         services.TryAddSingleton<PermissionClaimEvaluator>();
+        services.TryAddSingleton<IIdentityPermissionEvaluator>(provider => provider.GetRequiredService<PermissionClaimEvaluator>());
         services.TryAddScoped<IPermissionSnapshotReader, PermissionSnapshotReader>();
         services.AddHostUserDirectory();
         services.TryAddScoped<HostUsers.HostUserSelectionDirectory>();

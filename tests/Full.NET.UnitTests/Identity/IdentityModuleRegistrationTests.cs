@@ -83,6 +83,27 @@ namespace Full.NET.UnitTests.Identity;
 [TestClass]
 public sealed class IdentityModuleRegistrationTests
 {
+    /// <summary>API 与 Worker 共享同一权限解释器实例，重复装配不产生旁路实现。</summary>
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Permission_evaluator_contract_reuses_singleton_in_each_host_profile(bool background)
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().Build();
+        for (var iteration = 0; iteration < 2; iteration++)
+        {
+            if (background) new IdentityModule().AddBackgroundServices(services, configuration);
+            else services.AddIdentityAuthorization(configuration);
+        }
+        using var provider = services.BuildServiceProvider();
+        var evaluator = provider.GetRequiredService<IIdentityPermissionEvaluator>();
+        Assert.AreSame(provider.GetRequiredService<PermissionClaimEvaluator>(), evaluator);
+        Assert.AreEqual(1, provider.GetServices<IIdentityPermissionEvaluator>().Count());
+        Assert.AreEqual(ServiceLifetime.Singleton,
+            services.Single(descriptor => descriptor.ServiceType == typeof(IIdentityPermissionEvaluator)).Lifetime);
+    }
+
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
@@ -419,6 +440,7 @@ public sealed class IdentityModuleRegistrationTests
 
         RegistrationExpectation.Self<PermissionClaimEvaluator>(
             ServiceLifetime.Singleton),
+        RegistrationExpectation.Factory<IIdentityPermissionEvaluator>(ServiceLifetime.Singleton),
         RegistrationExpectation.Type<
             IPermissionSnapshotReader,
             PermissionSnapshotReader>(ServiceLifetime.Scoped),

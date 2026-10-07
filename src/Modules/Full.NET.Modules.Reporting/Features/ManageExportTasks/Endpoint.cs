@@ -23,6 +23,7 @@ internal static class Endpoint
 
         group.MapPost("/", async (
             CreateReportingExportTaskRequest request,
+            Full.NET.Abstractions.Tenancy.ICurrentTenant currentTenant,
             ReportingExportTaskManagementService service,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -33,8 +34,11 @@ internal static class Endpoint
                 return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
             }
 
+            if (!ReportingHttpSessionBinding.TryCreate(httpContext, currentTenant.Id, out var binding))
+                return mapper.Map(Result<ReportingExportTaskDetailResponse>.Failure(new(
+                    CommonErrorCodes.PermissionDenied, "An interactive session is required.", ErrorType.Forbidden)), httpContext);
             var result = await service
-                .CreateAsync(request, userId, httpContext.User, cancellationToken)
+                .CreateAsync(request, userId, httpContext.User, binding, cancellationToken)
                 .ConfigureAwait(false);
             if (!result.IsSuccess)
             {

@@ -70,6 +70,9 @@
       "name": "PaymentWeChatNotify"
     },
     {
+      "name": "ReportingDefinitions"
+    },
+    {
       "name": "IdentitySuperAdministrators"
     },
     {
@@ -311,9 +314,6 @@
     },
     {
       "name": "ReportingQueryPorts"
-    },
-    {
-      "name": "ReportingDefinitions"
     },
     {
       "name": "ReportingExecutions"
@@ -31095,6 +31095,160 @@
         ]
       }
     },
+    "/api/v1/reporting/definitions/{definitionId}/versions/{versionNumber}/tenant-grants/{tenantId}": {
+      "delete": {
+        "operationId": "reportingRevokeTenantVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "definitionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "versionNumber",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "ReportingDefinitions"
+        ]
+      },
+      "put": {
+        "operationId": "reportingGrantTenantVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "definitionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "versionNumber",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "ReportingDefinitions"
+        ]
+      }
+    },
     "/api/v1/reporting/export-tasks": {
       "get": {
         "operationId": "reportingListExportTasks",
@@ -31458,6 +31612,57 @@
         ],
         "tags": [
           "ReportingGroups"
+        ]
+      }
+    },
+    "/api/v1/reporting/published-definitions": {
+      "get": {
+        "operationId": "reportingListPublishedDefinitions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportingPublishedDefinitionResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "ReportingDefinitions"
         ]
       }
     },
@@ -59808,6 +60013,50 @@
           "dataTypeKey",
           "isRequired",
           "defaultValue"
+        ],
+        "type": "object"
+      },
+      "ReportingPublishedDefinitionResponse": {
+        "properties": {
+          "definitionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "definitionKey": {
+            "type": "string"
+          },
+          "layoutConfigJson": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parameterSchema": {
+            "items": {
+              "$ref": "#/components/schemas/ReportingParameterSchemaEntry"
+            },
+            "type": "array"
+          },
+          "queryPortKey": {
+            "type": "string"
+          },
+          "versionNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "definitionId",
+          "definitionKey",
+          "name",
+          "versionNumber",
+          "queryPortKey",
+          "parameterSchema",
+          "layoutConfigJson"
         ],
         "type": "object"
       },

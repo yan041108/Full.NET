@@ -1,5 +1,10 @@
 import {
+  reportingListPublishedDefinitions,
+  reportingGrantTenantVersion,
+  reportingRevokeTenantVersion,
   isReportingDefinition,
+  isReportingPublishedDefinitionList,
+  type ReportingPublishedDefinition,
   isReportingDefinitionList,
   isReportingDefinitionVersion,
   isReportingDefinitionVersionList,
@@ -18,7 +23,7 @@ import {
   type UpdateReportingDefinitionRequest,
   type UpdateReportingGroupRequest
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http, request } from './http';
 
 function buildDefinitionListQuery(query: ReportingDefinitionListQuery): string {
   const params = new URLSearchParams();
@@ -193,5 +198,23 @@ export async function listReportingDefinitionVersions(
   if (!isReportingDefinitionVersionList(value)) {
     throw new Error('client.invalid_reporting_definition_version_list');
   }
+  return value;
+}
+
+/** 只读取当前作用域可以执行的不可变版本目录。 */
+export async function listReportingPublishedDefinitions(signal?: AbortSignal): Promise<ReportingPublishedDefinition[]> {
+  const value = await reportingListPublishedDefinitions(http, {}, signal);
+  if (!isReportingPublishedDefinitionList(value)) throw new Error('client.invalid_reporting_definition_list');
+  return value;
+}
+
+/** Host 按租户与版本进行显式授权，参数不会改变当前请求租户。 */
+export async function setReportingTenantVersionGrant(definitionId: string, versionNumber: number,
+  tenantId: string, grant: boolean, signal?: AbortSignal): Promise<boolean> {
+  const parameters = { definitionId, versionNumber, tenantId };
+  const value = grant
+    ? await reportingGrantTenantVersion(http, parameters, signal)
+    : await reportingRevokeTenantVersion(http, parameters, signal);
+  if (value !== true) throw new Error('client.invalid_reporting_definition');
   return value;
 }

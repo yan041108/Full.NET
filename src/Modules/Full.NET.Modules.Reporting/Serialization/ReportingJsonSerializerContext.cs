@@ -34,4 +34,7 @@ namespace Full.NET.Modules.Reporting.Serialization;
 [JsonSerializable(typeof(IReadOnlyList<ReportingExecutionParameterValue>))]
 [JsonSerializable(typeof(IReadOnlyList<ReportingParameterSchemaEntry>))]
 [JsonSerializable(typeof(string[]))]
+[JsonSerializable(typeof(ReportingPublishedDefinitionResponse))]
+[JsonSerializable(typeof(IReadOnlyList<ReportingPublishedDefinitionResponse>))]
+[JsonSerializable(typeof(Full.NET.Modules.Reporting.Features.ManageExportTasks.ReportingExportAuthorizationSnapshot))]
 internal partial class ReportingJsonSerializerContext : JsonSerializerContext;

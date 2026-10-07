@@ -3,11 +3,11 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import ReportingExportTasksView from './ReportingExportTasksView.vue';
 import { useSessionStore } from '../auth/session';
-import { listReportingDefinitions } from '../api/reporting-definitions';
+import { listReportingPublishedDefinitions } from '../api/reporting-definitions';
 import { listReportingExportTasks } from '../api/reporting-export-tasks';
 
 vi.mock('../api/reporting-definitions', () => ({
-  listReportingDefinitions: vi.fn()
+  listReportingPublishedDefinitions: vi.fn()
 }));
 
 vi.mock('../api/reporting-export-tasks', () => ({
@@ -16,7 +16,7 @@ vi.mock('../api/reporting-export-tasks', () => ({
   downloadReportingExportTask: vi.fn()
 }));
 
-const definitionsMock = vi.mocked(listReportingDefinitions);
+const definitionsMock = vi.mocked(listReportingPublishedDefinitions);
 const tasksMock = vi.mocked(listReportingExportTasks);
 
 function mountWithPermissions(permissions: string[]) {

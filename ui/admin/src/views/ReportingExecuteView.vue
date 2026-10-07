@@ -15,7 +15,7 @@ import {
 } from 'element-plus';
 import type {
   FullNetProblemDetails,
-  ReportingDefinition,
+  ReportingPublishedDefinition,
   ReportingExecutionPage,
   ReportingExecutionParameterValue
 } from '@fullnet/client-contracts';
@@ -24,7 +24,7 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { executeReportingDefinition } from '../api/reporting-executions';
-import { listReportingDefinitions } from '../api/reporting-definitions';
+import { listReportingPublishedDefinitions } from '../api/reporting-definitions';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
@@ -33,7 +33,7 @@ defineOptions({ name: 'ReportingExecuteView' });
 
 const { t } = useAdminI18n();
 const session = useSessionStore();
-const definitions = ref<ReportingDefinition[]>([]);
+const definitions = ref<ReportingPublishedDefinition[]>([]);
 const selectedDefinitionId = ref('');
 const parameterValues = reactive<Record<string, string>>({});
 const result = ref<ReportingExecutionPage>();
@@ -44,7 +44,7 @@ const executing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 
 const selectedDefinition = computed(() =>
-  definitions.value.find(item => item.id === selectedDefinitionId.value));
+  definitions.value.find(item => item.definitionId === selectedDefinitionId.value));
 
 const parameterSchema = computed(() => selectedDefinition.value?.parameterSchema ?? []);
 
@@ -68,14 +68,13 @@ const scope = useAuthorizedViewScope(session, () => {
 let executeRequest: ReturnType<typeof scope.begin>;
 
 async function loadDefinitions(): Promise<void> {
-  const request = scope.begin('reporting.definitions.read'); if (!request) return;
+  const request = scope.begin('reporting.executions.run'); if (!request) return;
   loading.value = true;
   try {
-    const values = await listReportingDefinitions({}, request.signal);
+    const values = await listReportingPublishedDefinitions(request.signal);
     if (!request.current()) return;
-    definitions.value = values
-      .filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0);
-    selectedDefinitionId.value = definitions.value[0]?.id ?? '';
+    definitions.value = values.filter((item, index, all) => all.findIndex(candidate => candidate.definitionId === item.definitionId) === index);
+    selectedDefinitionId.value = definitions.value[0]?.definitionId ?? '';
     resetParameters();
   } catch (error: unknown) {
     if (request.current()) problem.value = toProblem(error, 'reportingExecute.loadFailed');
@@ -114,7 +113,7 @@ async function runExecute(): Promise<void> {
     }));
     const value = await executeReportingDefinition(
       selectedDefinitionId.value,
-      { parameters },
+      { versionNumber: selectedDefinition.value?.versionNumber, parameters },
       page.value,
       pageSize.value,
       request.signal
@@ -163,9 +162,9 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
           >
             <ElOption
               v-for="definition in definitions"
-              :key="definition.id"
+              :key="definition.definitionId"
               :label="`${definition.name} (${definition.definitionKey})`"
-              :value="definition.id"
+              :value="definition.definitionId"
             />
           </ElSelect>
         </ElFormItem>

@@ -67,6 +67,9 @@ public sealed class ReportingModule : IFullNetModule
         services.TryAddScoped<ReportingGroupQueryService>();
         services.TryAddScoped<ReportingGroupManagementService>();
         services.TryAddScoped<ReportingDefinitionQueryService>();
+        services.TryAddScoped<Features.PublishedDefinitions.ReportingPublishedDefinitionResolver>();
+        services.TryAddScoped<Features.PublishedDefinitions.ReportingTenantGrantManagementService>();
+        services.TryAddScoped<ReportingExportAuthorization>();
         services.TryAddScoped<ReportingDefinitionManagementService>();
         services.TryAddScoped<ReportingDefinitionExecutionService>();
         services.TryAddScoped<ReportingExportTaskQueryService>();
@@ -93,6 +96,7 @@ public sealed class ReportingModule : IFullNetModule
         Features.ManageGroups.Endpoint.Map(endpoints);
         Features.BrowseQueryPorts.Endpoint.Map(endpoints);
         Features.ManageDefinitions.Endpoint.Map(endpoints);
+        Features.PublishedDefinitions.Endpoint.Map(endpoints);
         Features.ExecuteDefinitions.Endpoint.Map(endpoints);
         Features.ManageExportTasks.Endpoint.Map(endpoints);
     }
@@ -100,6 +104,7 @@ public sealed class ReportingModule : IFullNetModule
     /// <inheritdoc />
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationCatalogContributor, ReportingAuthorizationContributor>());
 #if FULLNET_AOT_COMPILE
         new Persistence.ReportingDapperAotMaterializerContributor()
             .RegisterMaterializers(
@@ -114,6 +119,9 @@ public sealed class ReportingModule : IFullNetModule
             Features.ManageExportTasks.ReportingResourceFileOwner>());
         services.TryAddScoped<ReportingDataSourceQueryService>();
         services.TryAddScoped<ReportingDefinitionQueryService>();
+        services.TryAddScoped<Features.PublishedDefinitions.ReportingPublishedDefinitionResolver>();
+        services.TryAddScoped<Features.PublishedDefinitions.ReportingTenantGrantManagementService>();
+        services.TryAddScoped<ReportingExportAuthorization>();
         services.TryAddScoped<ReportingDefinitionExecutionService>();
         services.TryAddScoped<IReportingExportWorkbookSource, ReportingExportWorkbookSource>();
         services.TryAddScoped<ReportingExportTaskRunner>();

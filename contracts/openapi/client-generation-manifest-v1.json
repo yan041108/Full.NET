@@ -2459,6 +2459,24 @@
       "status": "manual"
     },
     {
+      "operationId": "reportingListPublishedDefinitions",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingGrantTenantVersion",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingRevokeTenantVersion",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "generated"
+    },
+    {
       "operationId": "reportingCreateDefinition",
       "apiModule": "ui/admin/src/api/reporting-definitions.ts",
       "generatedGroup": "reporting-definitions",

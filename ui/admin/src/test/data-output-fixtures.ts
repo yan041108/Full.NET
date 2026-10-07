@@ -1,5 +1,5 @@
 import { createPinia, setActivePinia } from 'pinia';
-import type { PrintingTemplate, PrintingTemplatePreview, ReportingDefinition, ReportingExecutionPage, ReportingExportTaskDetail } from '@fullnet/client-contracts';
+import type { PrintingTemplate, PrintingTemplatePreview, ReportingDefinition, ReportingPublishedDefinition, ReportingExecutionPage, ReportingExportTaskDetail } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 
 export const outputId = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
@@ -30,3 +30,9 @@ export function deferred<T>() {
   const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
   return { promise, resolve, reject };
 }
+
+export const publishedReportDefinition: ReportingPublishedDefinition = {
+  definitionId: reportDefinition.id, definitionKey: reportDefinition.definitionKey, name: reportDefinition.name,
+  versionNumber: 1, queryPortKey: reportDefinition.queryPortKey,
+  parameterSchema: reportDefinition.parameterSchema, layoutConfigJson: reportDefinition.layoutConfigJson
+};

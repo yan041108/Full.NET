@@ -433,6 +433,7 @@ import type {
   ReportingExportTaskResponse,
   ReportingGroupResponse,
   ReportingParameterSchemaEntry,
+  ReportingPublishedDefinitionResponse,
   ReportingQueryPortDefinition,
   ReportingQueryPortParameterDefinition,
   ResetHostUserPasswordRequest,
@@ -5624,6 +5625,18 @@ function isReportingParameterSchemaEntry(value: unknown): value is ReportingPara
   return isRecord(value) && (typeof value["dataTypeKey"] === 'string') && ((value["defaultValue"] === null) || (typeof value["defaultValue"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["isRequired"] === 'boolean') && (typeof value["parameterKey"] === 'string');
 }
 
+export function readReportingPublishedDefinitionResponse(value: unknown): ReportingPublishedDefinitionResponse {
+  const normalizedValue = normalizeReportingPublishedDefinitionResponseIntegerJson(value);
+  if (!(isReportingPublishedDefinitionResponse(normalizedValue))) {
+    throw new Error('client.invalid_reporting_published_definition_response');
+  }
+  return normalizedValue;
+}
+
+function isReportingPublishedDefinitionResponse(value: unknown): value is ReportingPublishedDefinitionResponse {
+  return isRecord(value) && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["layoutConfigJson"] === 'string') && (typeof value["name"] === 'string') && (Array.isArray(value["parameterSchema"]) && value["parameterSchema"].every(item24 => isReportingParameterSchemaEntry(item24))) && (typeof value["queryPortKey"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+}
+
 export function readReportingQueryPortDefinition(value: unknown): ReportingQueryPortDefinition {
   const normalizedValue = normalizeReportingQueryPortDefinitionIntegerJson(value);
   if (!(isReportingQueryPortDefinition(normalizedValue))) {
@@ -7646,6 +7659,13 @@ export function readReportingDeleteGroupResponse(value: unknown): boolean {
   return value as boolean;
 }
 
+export function readReportingGrantTenantVersionResponse(value: unknown): boolean {
+  if (!(typeof value === 'boolean')) {
+    throw new Error('client.invalid_reporting_grant_tenant_version_response');
+  }
+  return value as boolean;
+}
+
 export function readReportingListDefinitionsResponse(value: unknown): Array<ReportingDefinitionResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeReportingDefinitionResponseIntegerJson(item5)) : value);
   if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isReportingDefinitionResponse(item15)))) {
@@ -7670,12 +7690,27 @@ export function readReportingListGroupsResponse(value: unknown): Array<Reporting
   return normalizedValue as Array<ReportingGroupResponse>;
 }
 
+export function readReportingListPublishedDefinitionsResponse(value: unknown): Array<ReportingPublishedDefinitionResponse> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeReportingPublishedDefinitionResponseIntegerJson(item5)) : value);
+  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isReportingPublishedDefinitionResponse(item15)))) {
+    throw new Error('client.invalid_reporting_list_published_definitions_response');
+  }
+  return normalizedValue as Array<ReportingPublishedDefinitionResponse>;
+}
+
 export function readReportingListQueryPortsResponse(value: unknown): Array<ReportingQueryPortDefinition> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeReportingQueryPortDefinitionIntegerJson(item5)) : value);
   if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isReportingQueryPortDefinition(item15)))) {
     throw new Error('client.invalid_reporting_list_query_ports_response');
   }
   return normalizedValue as Array<ReportingQueryPortDefinition>;
+}
+
+export function readReportingRevokeTenantVersionResponse(value: unknown): boolean {
+  if (!(typeof value === 'boolean')) {
+    throw new Error('client.invalid_reporting_revoke_tenant_version_response');
+  }
+  return value as boolean;
 }
 
 export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unknown): boolean {
@@ -9019,6 +9054,10 @@ function normalizeReportingExportTaskResponseIntegerJson(value: unknown): unknow
 
 function normalizeReportingGroupResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sortOrder") ? { ["sortOrder"]: normalizeWireInteger(value["sortOrder"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeReportingPublishedDefinitionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
 }
 
 function normalizeReportingQueryPortDefinitionIntegerJson(value: unknown): unknown {

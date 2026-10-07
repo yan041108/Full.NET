@@ -26,6 +26,7 @@ namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
 /// <param name="idGenerator">租约 UUID。</param>
 /// <param name="databaseOptions">数据库提供程序。</param>
 /// <param name="options">导出 Worker 配置。</param>
+/// <param name="authorization">当前会话、版本授权与原列权限复核。</param>
 internal sealed class ReportingExportTaskRunner(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -37,18 +38,17 @@ internal sealed class ReportingExportTaskRunner(
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
-    IOptionsMonitor<ReportingExportOptions> options)
+    IOptionsMonitor<ReportingExportOptions> options,
+    ReportingExportAuthorization authorization)
 {
     private const string WorkbookContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     /// <summary>领取并执行当前租户中指定任务，供创建请求保持同步完成语义。</summary>
     /// <param name="taskId">刚插入的排队任务。</param>
-    /// <param name="principal">创建请求的授权主体。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     public async Task RunOwnedAsync(
         Guid taskId,
-        ClaimsPrincipal principal,
         CancellationToken cancellationToken)
     {
         var claimed = await ClaimByIdAsync(taskId, cancellationToken).ConfigureAwait(false);
@@ -57,7 +57,7 @@ internal sealed class ReportingExportTaskRunner(
             return;
         }
 
-        await ExecuteClaimedAsync(claimed, principal, cancellationToken).ConfigureAwait(false);
+        await ExecuteClaimedAsync(claimed, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>按租户目录领取过期或排队的导出任务并恢复执行。</summary>
@@ -103,8 +103,7 @@ internal sealed class ReportingExportTaskRunner(
                         break;
                     }
 
-                    var principal = RebuildPrincipal(claimed);
-                    await ExecuteClaimedAsync(claimed, principal, cancellationToken).ConfigureAwait(false);
+                    await ExecuteClaimedAsync(claimed, cancellationToken).ConfigureAwait(false);
                     processed++;
                 }
             }
@@ -119,15 +118,20 @@ internal sealed class ReportingExportTaskRunner(
 
     /// <summary>先绑定已上传文件，必要时再生成；取消与未知异常不得写成失败。</summary>
     /// <param name="task">已领取快照。</param>
-    /// <param name="principal">列权限主体。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     private async Task ExecuteClaimedAsync(
         ReportingExportTaskRecord task,
-        ClaimsPrincipal principal,
         CancellationToken cancellationToken)
     {
         try
         {
+            if (!await authorization.CanRunAsync(task, cancellationToken).ConfigureAwait(false))
+            {
+                await CompleteFailedAsync(task, 0, CommonErrorCodes.PermissionDenied,
+                    "The export session, version grant or permission is no longer valid.", cancellationToken).ConfigureAwait(false);
+                return;
+            }
+            var principal = RebuildPrincipal(task);
             var existing = await TryAttachExistingOutputAsync(task, cancellationToken).ConfigureAwait(false);
             if (existing)
             {
@@ -149,6 +153,13 @@ internal sealed class ReportingExportTaskRunner(
             }
 
             var file = generated.Value!;
+            // 查询期间发生撤销时，禁止把新生成内容上传为可下载的租户文件。
+            if (!await authorization.CanRunAsync(task, cancellationToken).ConfigureAwait(false))
+            {
+                await CompleteFailedAsync(task, 0, CommonErrorCodes.PermissionDenied,
+                    "The export authorization changed during generation.", cancellationToken).ConfigureAwait(false);
+                return;
+            }
             await using var uploadStream = new MemoryStream(file.Content, writable: false);
             var uploadResult = await resourceFiles
                 .UploadAsync(
@@ -239,6 +250,12 @@ internal sealed class ReportingExportTaskRunner(
         int rowCount,
         CancellationToken cancellationToken)
     {
+        if (!await authorization.CanRunAsync(task, cancellationToken).ConfigureAwait(false))
+        {
+            await CompleteFailedAsync(task, 0, CommonErrorCodes.PermissionDenied,
+                "The export authorization changed before file attachment.", cancellationToken).ConfigureAwait(false);
+            return true;
+        }
         var affected = await commandExecutor.ExecuteAsync(
                 databaseOptions.Value.Provider == DatabaseProvider.SqlServer
                     ? ReportingExportTaskSql.CompleteSucceededSqlServer
@@ -376,6 +393,8 @@ internal sealed class ReportingExportTaskRunner(
     private static ClaimsPrincipal RebuildPrincipal(ReportingExportTaskRecord task)
     {
         var identity = new ClaimsIdentity("reporting-export-recovery");
+        identity.AddClaim(new Claim(FullNetIdentityClaimTypes.Scope, $"tenant:{task.TenantId:N}"));
+        identity.AddClaim(new Claim(FullNetIdentityClaimTypes.TenantId, task.TenantId.ToString("D")));
         identity.AddClaim(new Claim(FullNetIdentityClaimTypes.Subject, task.RequestedByUserId.ToString("D")));
         foreach (var code in ReportingExportTaskMapper.DeserializePermissionCodes(task.ActorPermissionCodesJson))
         {

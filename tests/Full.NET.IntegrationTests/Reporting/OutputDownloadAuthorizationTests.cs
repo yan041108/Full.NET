@@ -43,13 +43,20 @@ public sealed class OutputDownloadAuthorizationTests
         var bytes = ReportingExcelExportRenderer.Render([new("SchemaName", "Schema")],
             [new(new Dictionary<string, string?> { ["SchemaName"] = "protected fixture" })]);
 
-        await SeedOutputsAsync(api, tenantId, actorId, reportId, importId, bytes);
-        var paths = new[] { $"/api/v1/import-export/tasks/{importId:D}/error-receipt" };
+        var definitionId = await SeedOutputsAsync(api, tenantId, actorId, reportId, importId, bytes);
         var reportPath = $"/api/v1/reporting/export-tasks/{reportId:D}/download";
-        // Reporting 权限仍为 Host-only；租户 HTTP 入口必须拒绝，不能为验收夹具放宽生产权限目录。
+        var paths = new[] { $"/api/v1/import-export/tasks/{importId:D}/error-receipt", reportPath };
         await AssertDownloadAsync(client, reportPath, token, HttpStatusCode.Forbidden);
-        await AssertReportServiceDownloadAsync(api, tenantId, reportId, token, true, bytes);
+        await AssertReportServiceDownloadAsync(api, tenantId, reportId, token, false);
+        // 同管理员再次登录会撤销旧会话；版本授权使用独立 Host 主体，不改写下载创建人的会话。
+        var hostGrantToken = await api.CreateHostAccessTokenAsync([ReportingDefinitionPermissions.GrantTenants]);
+        var grantPath = $"/api/v1/reporting/definitions/{definitionId:D}/versions/1/tenant-grants/{tenantId:D}";
+        using (var deniedGrant = Request(HttpMethod.Put, grantPath, token))
+        using (var denied = await client.SendAsync(deniedGrant)) Assert.AreEqual(HttpStatusCode.Forbidden, denied.StatusCode);
+        using (var grantRequest = Request(HttpMethod.Put, grantPath, hostGrantToken))
+        using (var granted = await client.SendAsync(grantRequest)) Assert.AreEqual(HttpStatusCode.OK, granted.StatusCode);
         foreach (var path in paths) await AssertDownloadAsync(client, path, token, HttpStatusCode.OK, bytes);
+        await AssertReportServiceDownloadAsync(api, tenantId, reportId, token, true, bytes);
 
         // 超级管理员也不得以自己的当前会话读取其他创建人的原文件。
         await ChangeOwnersAsync(api, tenantId, reportId, importId, Guid.CreateVersion7());
@@ -69,7 +76,13 @@ public sealed class OutputDownloadAuthorizationTests
         await AssertReportServiceDownloadAsync(api, tenantId, reportId, token, false);
         var freshToken = await ImportExportTaskAssertions.LoginAndEnterAcmeTenantAsync(client, default);
         foreach (var path in paths) await AssertDownloadAsync(client, path, freshToken, HttpStatusCode.OK, bytes);
+        using (var revokeGrant = Request(HttpMethod.Delete, grantPath, hostGrantToken))
+        using (var revokedGrant = await client.SendAsync(revokeGrant)) Assert.AreEqual(HttpStatusCode.OK, revokedGrant.StatusCode);
         await AssertDownloadAsync(client, reportPath, freshToken, HttpStatusCode.Forbidden);
+        await AssertReportServiceDownloadAsync(api, tenantId, reportId, freshToken, false);
+        using (var restoreGrant = Request(HttpMethod.Put, grantPath, hostGrantToken))
+        using (var restored = await client.SendAsync(restoreGrant)) Assert.AreEqual(HttpStatusCode.OK, restored.StatusCode);
+        await AssertDownloadAsync(client, reportPath, freshToken, HttpStatusCode.OK, bytes);
         await AssertReportServiceDownloadAsync(api, tenantId, reportId, freshToken, true, bytes);
     }
 
@@ -100,7 +113,7 @@ public sealed class OutputDownloadAuthorizationTests
     }
 
     /// <summary>仅播种已完成输出夹具；生成查询/导入业务链在其他测试验收，此处不把夹具当作业务执行。</summary>
-    private static async Task SeedOutputsAsync(FullNetApiFactory api, Guid tenantId, Guid actorId,
+    private static async Task<Guid> SeedOutputsAsync(FullNetApiFactory api, Guid tenantId, Guid actorId,
         Guid reportId, Guid importId, byte[] bytes)
     {
         await using var scope = api.Services.CreateAsyncScope();
@@ -157,6 +170,7 @@ public sealed class OutputDownloadAuthorizationTests
                 RequestedByUserId = actorId, CreatedAtUtc = now, Version = 1,
                 ExecutionRowsJson = ImportExportTaskMapper.SerializeExecutionState(new(new Dictionary<string, bool>(), [])),
             });
+            return definition;
         }
         finally { tenant.Clear(); }
     }

@@ -17,7 +17,7 @@ using Microsoft.Extensions.Options;
 namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
 
 /// <summary>创建报表导出任务并同步领取执行；崩溃后由 Worker 按租约恢复。</summary>
-/// <param name="definitionQueries">报表定义读取。</param>
+/// <param name="publishedDefinitions">报表定义读取。</param>
 /// <param name="resourceFiles">导出文件读取。</param>
 /// <param name="queryExecutor">受租户守卫保护的读执行器。</param>
 /// <param name="commandExecutor">受租户守卫保护的写执行器。</param>
@@ -25,10 +25,10 @@ namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
 /// <param name="currentTenant">当前可信租户。</param>
 /// <param name="clock">时钟。</param>
 /// <param name="idGenerator">任务 UUID。</param>
-/// <param name="scopeFactory">独立 Host 配置读取作用域，不能改写下载请求的租户。</param>
 /// <param name="authorization">当前会话与精确权限权威校验。</param>
+/// <param name="permissions">身份模块统一的有效权限快照解释器。</param>
 internal sealed class ReportingExportTaskManagementService(
-    ReportingDefinitionQueryService definitionQueries,
+    Full.NET.Modules.Reporting.Features.PublishedDefinitions.ReportingPublishedDefinitionResolver publishedDefinitions,
     ITenantResourceFileStore resourceFiles,
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -37,8 +37,8 @@ internal sealed class ReportingExportTaskManagementService(
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
-    IServiceScopeFactory scopeFactory,
-    IBackgroundSessionAuthorization authorization)
+    ReportingExportAuthorization authorization,
+    IIdentityPermissionEvaluator permissions)
 {
     private const string WorkbookContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -47,11 +47,13 @@ internal sealed class ReportingExportTaskManagementService(
     /// <param name="request">创建请求。</param>
     /// <param name="requestedByUserId">已授权主体。</param>
     /// <param name="principal">列权限主体。</param>
+    /// <param name="binding">创建请求的交互会话委托。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     public async Task<Result<ReportingExportTaskDetailResponse>> CreateAsync(
         CreateReportingExportTaskRequest request,
         Guid requestedByUserId,
         ClaimsPrincipal principal,
+        SessionBindingSnapshot binding,
         CancellationToken cancellationToken = default)
     {
         EnsureTenantContext();
@@ -68,36 +70,16 @@ internal sealed class ReportingExportTaskManagementService(
                 "Export parameter keys are required."));
         }
 
-        var definitionResult = await definitionQueries.GetByIdAsync(request.DefinitionId, cancellationToken)
-            .ConfigureAwait(false);
-        if (!definitionResult.IsSuccess || definitionResult.Value is null)
-        {
-            return Result<ReportingExportTaskDetailResponse>.Failure(definitionResult.Error!);
-        }
-
-        var definition = definitionResult.Value;
-        if (!definition.IsEnabled)
-        {
-            return Result<ReportingExportTaskDetailResponse>.Failure(ExportFailedError(
-                "The reporting definition is disabled."));
-        }
-
-        var versionNumber = request.VersionNumber ?? definition.LatestPublishedVersionNumber;
-        if (versionNumber <= 0)
-        {
-            return Result<ReportingExportTaskDetailResponse>.Failure(new Error(
-                ReportingErrorCodes.DefinitionNotPublished,
-                "The reporting definition has no published version to export.",
-                ErrorType.Validation));
-        }
+        var published = await publishedDefinitions.ResolveAsync(request.DefinitionId, request.VersionNumber, cancellationToken).ConfigureAwait(false);
+        if (!published.IsSuccess) return Result<ReportingExportTaskDetailResponse>.Failure(published.Error!);
+        var definition = published.Value!.Definition;
+        var versionNumber = published.Value.Version.VersionNumber;
 
         var taskId = idGenerator.NewId();
         var now = clock.UtcNow;
         var parametersJson = ReportingExportTaskMapper.SerializeParameters(request.Parameters);
-        var permissionCodes = principal.FindAll(FullNetIdentityClaimTypes.Permission)
-            .Select(claim => claim.Value)
-            .Where(code => !string.IsNullOrWhiteSpace(code))
-            .Distinct(StringComparer.Ordinal)
+        var permissionCodes = permissions.ResolvePermissions(principal)
+            .Where(code => permissions.HasPermission(principal, code))
             .ToArray();
         var record = new ReportingExportTaskRecord
         {
@@ -113,9 +95,13 @@ internal sealed class ReportingExportTaskManagementService(
             RowCount = 0,
             RequestedByUserId = requestedByUserId,
             CreatedAtUtc = now,
-            ActorPermissionCodesJson = ReportingExportTaskMapper.SerializePermissionCodes(permissionCodes),
+            ActorPermissionCodesJson = ReportingExportTaskMapper.SerializeAuthorization(permissionCodes, binding),
             Version = 1,
         };
+
+        if (!await authorization.CanRunAsync(record, cancellationToken).ConfigureAwait(false))
+            return Result<ReportingExportTaskDetailResponse>.Failure(new(CommonErrorCodes.PermissionDenied,
+                "The export session or permission is no longer valid.", ErrorType.Forbidden));
 
         await commandExecutor.ExecuteAsync(
                 ReportingExportTaskSql.InsertFor(databaseOptions.Value.Provider),
@@ -123,7 +109,7 @@ internal sealed class ReportingExportTaskManagementService(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        await runner.RunOwnedAsync(taskId, principal, cancellationToken).ConfigureAwait(false);
+        await runner.RunOwnedAsync(taskId, cancellationToken).ConfigureAwait(false);
         return await LoadResultAsync(taskId, cancellationToken).ConfigureAwait(false);
     }
 
@@ -148,7 +134,7 @@ internal sealed class ReportingExportTaskManagementService(
             return Result<TenantResourceFileContent>.Failure(TaskNotFoundError());
         }
 
-        if (!await IsDownloadAllowedAsync(record, binding, cancellationToken).ConfigureAwait(false))
+        if (!await authorization.CanDownloadAsync(record, binding, cancellationToken).ConfigureAwait(false))
             return Result<TenantResourceFileContent>.Failure(new Error(CommonErrorCodes.PermissionDenied,
                 "The export download session or permission is no longer valid.", ErrorType.Forbidden));
 
@@ -199,69 +185,12 @@ internal sealed class ReportingExportTaskManagementService(
             return Result<ReportingExportTaskDetailResponse>.Failure(new Error(
                 detail.ErrorCode ?? ReportingErrorCodes.ExportFailed,
                 detail.ErrorMessage ?? "Reporting export failed.",
-                ErrorType.Validation));
+                string.Equals(detail.ErrorCode, CommonErrorCodes.PermissionDenied, StringComparison.Ordinal)
+                    ? ErrorType.Forbidden
+                    : ErrorType.Validation));
         }
 
         return Result<ReportingExportTaskDetailResponse>.Success(ReportingExportTaskMapper.MapDetail(detail));
-    }
-
-    /// <summary>只重验原发布布局中已经授予的列权限；无关权限撤销及后来增权不改变旧文件边界。</summary>
-    private async Task<bool> IsDownloadAllowedAsync(ReportingExportTaskRecord task,
-        SessionBindingSnapshot binding, CancellationToken cancellationToken)
-    {
-        if (binding.UserId == Guid.Empty || binding.SessionId == Guid.Empty
-            || task.RequestedByUserId != binding.UserId || task.TenantId != currentTenant.Id
-            || binding.TenantId != task.TenantId || task.TenantId == Guid.Empty)
-            return false;
-        foreach (var permission in new[] { ReportingExportTaskPermissions.Download, ReportingExecutionPermissions.Run })
-            if (!await HasCurrentPermissionAsync(binding, permission, cancellationToken).ConfigureAwait(false)) return false;
-        var required = new HashSet<string>(StringComparer.Ordinal);
-        try
-        {
-            // 存量缺失/损坏快照无法证明原文件的列边界，必须重新生成，不能按空权限猜测。
-            if (string.IsNullOrWhiteSpace(task.ActorPermissionCodesJson)) return false;
-            using var snapshot = JsonDocument.Parse(task.ActorPermissionCodesJson);
-            if (snapshot.RootElement.ValueKind != JsonValueKind.Array) return false;
-            var original = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var code in snapshot.RootElement.EnumerateArray())
-            {
-                if (code.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(code.GetString())) return false;
-                original.Add(code.GetString()!);
-            }
-            // 发布配置属于 Host；子作用域仅只读本模块配置，不改变父请求用于文件读取的租户。
-            await using var metadataScope = scopeFactory.CreateAsyncScope();
-            var metadataTenant = metadataScope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
-            metadataTenant.SetHost();
-            try
-            {
-                var metadataQueries = metadataScope.ServiceProvider.GetRequiredService<ReportingDefinitionQueryService>();
-                var definition = await metadataQueries.GetByIdAsync(task.DefinitionId, cancellationToken).ConfigureAwait(false);
-                if (!definition.IsSuccess || definition.Value?.IsEnabled != true) return false;
-                var version = await metadataQueries.GetVersionAsync(task.DefinitionId, task.VersionNumber, cancellationToken).ConfigureAwait(false);
-                if (!version.IsSuccess || version.Value is null) return false;
-                foreach (var column in ReportingLayoutConfigParser.ParseColumns(version.Value.LayoutConfigJson))
-                    if (column.RequiredPermission is { } permission && original.Contains(permission))
-                        required.Add(permission);
-            }
-            finally { metadataTenant.Clear(); }
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-        foreach (var permission in required)
-        {
-            if (!await HasCurrentPermissionAsync(binding, permission, cancellationToken).ConfigureAwait(false)) return false;
-        }
-        return true;
-    }
-
-    private async Task<bool> HasCurrentPermissionAsync(SessionBindingSnapshot binding,
-        string permission, CancellationToken cancellationToken)
-    {
-        var actor = await authorization.AuthorizeAsync(binding, permission, cancellationToken).ConfigureAwait(false);
-        return actor is not null && actor.UserId == binding.UserId && actor.TenantId == currentTenant.Id
-            && actor.SessionId == binding.SessionId;
     }
 
     private void EnsureTenantContext()

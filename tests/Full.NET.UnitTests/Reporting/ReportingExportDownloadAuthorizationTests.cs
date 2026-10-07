@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Reporting.Contracts;
 using Full.NET.Modules.Reporting.Features.ManageDefinitions;
 using Full.NET.Modules.Reporting.Features.ManageExportTasks;
+using Full.NET.Modules.Reporting.Features.PublishedDefinitions;
 using Full.NET.Modules.Reporting.Persistence;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,8 @@ public sealed class ReportingExportDownloadAuthorizationTests
     [DataRow("missingSnapshot")]
     [DataRow("disabled")]
     [DataRow("missingVersion")]
+    [DataRow("ungranted")]
+    [DataRow("layout")]
     [DataRow("download")]
     [DataRow("run")]
     [DataRow("returnedActor")]
@@ -53,16 +56,16 @@ public sealed class ReportingExportDownloadAuthorizationTests
         query.QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(
             ReportingExportTaskSql.FindByIdFor(DatabaseProvider.SqlServer), Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(task);
         query.QuerySingleOrDefaultAsync<ReportingDefinitionVersionRecord>(
-            ReportingDefinitionSql.FindVersionByNumber, Arg.Any<object>(), Arg.Any<CancellationToken>())
+            ReportingTenantGrantSql.ResolveVersion(DatabaseProvider.SqlServer), Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(new ReportingDefinitionVersionRecord
             {
                 DefinitionId = task.DefinitionId, VersionNumber = 1,
-                LayoutConfigJson = "{\"columns\":[{\"key\":\"secret\",\"requiredPermission\":\"protected.column\"}]}",
+                LayoutConfigJson = reason == "layout" ? "{" : "{\"columns\":[{\"key\":\"secret\",\"requiredPermission\":\"protected.column\"}]}",
             });
-        query.QuerySingleOrDefaultAsync<ReportingDefinitionRecord>(ReportingDefinitionSql.FindDefinitionById, Arg.Any<object>(), Arg.Any<CancellationToken>())
+        query.QuerySingleOrDefaultAsync<ReportingDefinitionRecord>(ReportingTenantGrantSql.FindDefinition, Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(new ReportingDefinitionRecord { Id = task.DefinitionId, IsEnabled = reason != "disabled" });
-        if (reason == "missingVersion")
-            query.QuerySingleOrDefaultAsync<ReportingDefinitionVersionRecord>(ReportingDefinitionSql.FindVersionByNumber,
+        if (reason is "missingVersion" or "ungranted")
+            query.QuerySingleOrDefaultAsync<ReportingDefinitionVersionRecord>(ReportingTenantGrantSql.ResolveVersion(DatabaseProvider.SqlServer),
                 Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<ReportingDefinitionVersionRecord?>(null));
         var files = Substitute.For<ITenantResourceFileStore>();
         files.OpenReadyContentAsync("reporting", task.Id, task.OutputFileId.Value, Arg.Any<CancellationToken>())
@@ -81,13 +84,11 @@ public sealed class ReportingExportDownloadAuthorizationTests
         if (reason == "returnedActor")
             identity.AuthorizeAsync(binding, Arg.Any<string>(), Arg.Any<CancellationToken>())
                 .Returns(new AuthorizedSessionActor(Guid.NewGuid(), binding.TenantId, binding.SessionId));
-        var metadataTenant = new CurrentTenantAccessor();
-        using var services = new ServiceCollection()
-            .AddScoped<ICurrentTenantContextWriter>(_ => metadataTenant)
-            .AddScoped(_ => new ReportingDefinitionQueryService(query, database)).BuildServiceProvider();
-        var service = new ReportingExportTaskManagementService(new ReportingDefinitionQueryService(query, database),
+        var definitions = new ReportingPublishedDefinitionResolver(query, new ReportingDefinitionQueryService(query, database), tenant, database);
+        var authorization = new ReportingExportAuthorization(tenant, identity, definitions);
+        var service = new ReportingExportTaskManagementService(definitions,
             files, query, Substitute.For<ICommandExecutor>(), null!, tenant,
-            Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), database, services.GetRequiredService<IServiceScopeFactory>(), identity);
+            Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), database, authorization, Substitute.For<IIdentityPermissionEvaluator>());
         var result = await service.OpenDownloadAsync(task.Id, binding);
         var allowed = reason is "allowed" or "unrelated" or "newPermission";
         Assert.AreEqual(allowed, result.IsSuccess);
@@ -95,6 +96,5 @@ public sealed class ReportingExportDownloadAuthorizationTests
         else Assert.AreEqual(CommonErrorCodes.PermissionDenied, result.Error!.Code);
         Assert.AreEqual(allowed ? 1 : 0, files.ReceivedCalls().Count());
         Assert.AreEqual(tenantId, tenant.Id); Assert.IsFalse(tenant.IsHost);
-        Assert.IsFalse(metadataTenant.IsAvailable);
     }
 }

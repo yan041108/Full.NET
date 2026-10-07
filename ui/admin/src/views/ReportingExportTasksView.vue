@@ -20,7 +20,7 @@ import {
 import { Plus } from '@element-plus/icons-vue';
 import type {
   FullNetProblemDetails,
-  ReportingDefinition,
+  ReportingPublishedDefinition,
   ReportingExportTask,
   ReportingExportTaskParameterValue
 } from '@fullnet/client-contracts';
@@ -33,7 +33,7 @@ import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useTaskStatusRefresh } from '../composables/useTaskStatusRefresh';
-import { listReportingDefinitions } from '../api/reporting-definitions';
+import { listReportingPublishedDefinitions } from '../api/reporting-definitions';
 import {
   createReportingExportTask,
   downloadReportingExportTask,
@@ -45,7 +45,7 @@ defineOptions({ name: 'ReportingExportTasksView' });
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const items = ref<ReportingExportTask[]>([]);
-const definitions = ref<ReportingDefinition[]>([]);
+const definitions = ref<ReportingPublishedDefinition[]>([]);
 const loading = ref(false);
 const creating = ref(false);
 const downloading = ref(false);
@@ -76,7 +76,7 @@ const canRead = () => session.can('reporting.export_tasks.read');
 const canDownload = () => session.can('reporting.export_tasks.download');
 
 const selectedDefinition = computed(() =>
-  definitions.value.find(item => item.id === selectedDefinitionId.value));
+  definitions.value.find(item => item.definitionId === selectedDefinitionId.value));
 
 const parameterSchema = computed(() => selectedDefinition.value?.parameterSchema ?? []);
 const scope = useAuthorizedViewScope(session, () => {
@@ -121,12 +121,12 @@ function resetParameters(): void {
 
 async function loadDefinitions(): Promise<void> {
   if (!canCreate()) return;
-  const request = scope.begin('reporting.definitions.read'); if (!request) return;
+  const request = scope.begin('reporting.executions.run'); if (!request) return;
   try {
-    const values = await listReportingDefinitions({}, request.signal);
+    const values = await listReportingPublishedDefinitions(request.signal);
     if (!request.current()) return;
-    definitions.value = values.filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0);
-    selectedDefinitionId.value = definitions.value[0]?.id ?? ''; resetParameters();
+    definitions.value = values.filter((item, index, all) => all.findIndex(candidate => candidate.definitionId === item.definitionId) === index);
+    selectedDefinitionId.value = definitions.value[0]?.definitionId ?? ''; resetParameters();
   } catch (error: unknown) {
     if (request.current()) problem.value = toProblem(error, 'reportingExportTasks.loadFailed');
   } finally { request.finish(); }
@@ -182,6 +182,7 @@ async function submitCreate(): Promise<void> {
     }));
     await createReportingExportTask({
       definitionId: selectedDefinitionId.value,
+      versionNumber: selectedDefinition.value?.versionNumber,
       formatKey: 'excel',
       parameters
     }, request.signal);
@@ -330,9 +331,9 @@ async function downloadTask(task: ReportingExportTask): Promise<void> {
           >
             <ElOption
               v-for="definition in definitions"
-              :key="definition.id"
+              :key="definition.definitionId"
               :label="definition.name"
-              :value="definition.id"
+              :value="definition.definitionId"
             />
           </ElSelect>
         </ElFormItem>

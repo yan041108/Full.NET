@@ -39,7 +39,7 @@ public static class ReportingExportTaskStatusKeys
 /// <summary>创建报表导出任务请求。</summary>
 /// <param name="DefinitionId">目标报表定义标识。</param>
 /// <param name="FormatKey">导出格式键，当前仅支持 <see cref="ReportingExportFormatKeys.Excel"/>。</param>
-/// <param name="VersionNumber">目标发布版本号；省略时使用最近发布版本。</param>
+/// <param name="VersionNumber">目标发布版本号；省略时 Host 使用最近发布版本，租户使用最近获授版本。</param>
 /// <param name="Parameters">受控执行参数。</param>
 public sealed record CreateReportingExportTaskRequest(
     Guid DefinitionId,

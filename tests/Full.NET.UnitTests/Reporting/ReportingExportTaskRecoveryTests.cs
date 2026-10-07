@@ -8,6 +8,9 @@ using Full.NET.Data.Dapper;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Reporting.Configuration;
 using Full.NET.Modules.Reporting.Contracts;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Reporting.Features.ManageDefinitions;
+using Full.NET.Modules.Reporting.Features.PublishedDefinitions;
 using Full.NET.Modules.Reporting.Features.ManageExportTasks;
 using Full.NET.Modules.Reporting.Persistence;
 using Microsoft.Extensions.Options;
@@ -19,6 +22,23 @@ namespace Full.NET.UnitTests.Reporting;
 [TestClass]
 public sealed class ReportingExportTaskRecoveryTests
 {
+    /// <summary>旧队列没有当前会话委托时，不能重用文件或凭旧权限快照生成。</summary>
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Missing_session_binding_blocks_generation_and_file_attachment(bool existingOutput)
+    {
+        var fixture = CreateFixture();
+        var task = SeedProcessing(fixture, leaseExpired: true);
+        task.ActorPermissionCodesJson = "[\"reporting.executions.run\"]";
+        if (existingOutput)
+            fixture.Files.ReadyFiles.Add(new TenantResourceFileReadyItem(Guid.NewGuid(), "report.xlsx", fixture.Clock.UtcNow));
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+        Assert.AreEqual(0, fixture.GenerateCount);
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Failed, fixture.Store.Tasks[task.Id].StatusKey);
+        Assert.AreEqual("authorization.permission_denied", fixture.Store.Tasks[task.Id].ErrorCode);
+    }
+
     /// <summary>上传已成功但任务仍 processing 时，恢复必须完成且不再生成工作簿。</summary>
     [TestMethod]
     public async Task Crash_after_upload_completes_from_existing_file_async()
@@ -97,6 +117,96 @@ public sealed class ReportingExportTaskRecoveryTests
         Assert.AreEqual(0, fixture.GenerateCount);
     }
 
+    /// <summary>会话撤销、版本撤销与绑定主体不符都不能复用已上传文件或生成新文件。</summary>
+    [TestMethod]
+    [DataRow("session", false)]
+    [DataRow("session", true)]
+    [DataRow("grant", false)]
+    [DataRow("grant", true)]
+    [DataRow("actor", false)]
+    [DataRow("actor", true)]
+    public async Task Current_authorization_blocks_recovery(string reason, bool existingOutput)
+    {
+        var fixture = CreateFixture(); var task = SeedProcessing(fixture, true);
+        if (reason == "session") fixture.Identity.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<AuthorizedSessionActor?>(null));
+        if (reason == "grant") fixture.Store.Granted = false;
+        if (reason == "actor") task.RequestedByUserId = Guid.NewGuid();
+        if (existingOutput) fixture.Files.ReadyFiles.Add(new(Guid.NewGuid(), "report.xlsx", fixture.Clock.UtcNow));
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(0, fixture.GenerateCount);
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Failed, task.StatusKey);
+        Assert.AreEqual(CommonErrorCodes.PermissionDenied, task.ErrorCode);
+    }
+
+    /// <summary>生成期间撤销授权必须阻止上传，不能仅靠下载入口事后拦截。</summary>
+    [TestMethod]
+    public async Task Revocation_during_generation_blocks_upload()
+    {
+        var fixture = CreateFixture(); var task = SeedQueued(fixture);
+        fixture.Workbook.GenerateAsync(Arg.Any<ReportingExportTaskRecord>(), Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
+            .Returns(_ => { fixture.Store.Granted = false;
+                return Result<ReportingExportGeneratedFile>.Success(new(1, "report.xlsx", [1])); });
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Failed, task.StatusKey);
+        Assert.AreEqual(CommonErrorCodes.PermissionDenied, task.ErrorCode);
+        Assert.IsNull(task.OutputFileId);
+        Assert.AreEqual(0, fixture.Files.UploadCount);
+    }
+
+    /// <summary>超级管理员令牌省略逐项权限，但原导出列快照仍需冻结当前有效权限。</summary>
+    [TestMethod]
+    public async Task Super_administrator_freezes_effective_column_permissions()
+    {
+        var fixture = CreateFixture(); fixture.Context.SetTenant(new TenantContext(fixture.TenantId, "acme", "Acme"));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(FullNetIdentityClaimTypes.SuperAdministrator, "true"),
+            new Claim(FullNetIdentityClaimTypes.Scope, $"tenant:{fixture.TenantId:N}")], "test"));
+        var binding = new SessionBindingSnapshot(fixture.ActorId, fixture.TenantId, Guid.NewGuid(), "stamp", "host", $"tenant:{fixture.TenantId:N}");
+        var result = await fixture.Management.CreateAsync(new(Guid.NewGuid(), "excel", 1, []), fixture.ActorId, principal, binding);
+        Assert.IsTrue(result.IsSuccess);
+        var snapshot = ReportingExportTaskMapper.DeserializeAuthorization(fixture.Store.Tasks.Values.Single().ActorPermissionCodesJson)!;
+        CollectionAssert.Contains(snapshot.PermissionCodes, ReportingExecutionPermissions.ColumnSchemaName);
+        CollectionAssert.DoesNotContain(snapshot.PermissionCodes, ReportingDefinitionPermissions.GrantTenants);
+        var executionPrincipal = (ClaimsPrincipal)fixture.Workbook.ReceivedCalls()
+            .Single(call => call.GetMethodInfo().Name == nameof(IReportingExportWorkbookSource.GenerateAsync)).GetArguments()[1]!;
+        Assert.AreEqual($"tenant:{fixture.TenantId:N}", executionPrincipal.FindFirst(FullNetIdentityClaimTypes.Scope)!.Value);
+        Assert.IsTrue(executionPrincipal.HasClaim(FullNetIdentityClaimTypes.Permission, ReportingExecutionPermissions.ColumnSchemaName));
+        Assert.IsFalse(executionPrincipal.HasClaim(FullNetIdentityClaimTypes.SuperAdministrator, "true"));
+    }
+
+    /// <summary>普通租户令牌的原列快照只冻结目录内当前有效权限，拒绝 Host 专属或未知声明。</summary>
+    [TestMethod]
+    public async Task Tenant_snapshot_excludes_host_only_and_unknown_permissions()
+    {
+        var fixture = CreateFixture(); fixture.Context.SetTenant(new TenantContext(fixture.TenantId, "acme", "Acme"));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(FullNetIdentityClaimTypes.Scope, $"tenant:{fixture.TenantId:N}"),
+            new Claim(FullNetIdentityClaimTypes.Permission, ReportingExecutionPermissions.ColumnSchemaName),
+            new Claim(FullNetIdentityClaimTypes.Permission, ReportingDefinitionPermissions.GrantTenants),
+            new Claim(FullNetIdentityClaimTypes.Permission, "unknown.column")], "test"));
+        var binding = new SessionBindingSnapshot(fixture.ActorId, fixture.TenantId, Guid.NewGuid(), "stamp", "host", $"tenant:{fixture.TenantId:N}");
+        var result = await fixture.Management.CreateAsync(new(Guid.NewGuid(), "excel", 1, []), fixture.ActorId, principal, binding);
+        Assert.IsTrue(result.IsSuccess);
+        var snapshot = ReportingExportTaskMapper.DeserializeAuthorization(fixture.Store.Tasks.Values.Single().ActorPermissionCodesJson)!;
+        CollectionAssert.AreEquivalent(new[] { ReportingExecutionPermissions.ColumnSchemaName }, snapshot.PermissionCodes);
+    }
+
+    /// <summary>创建过程中的底层授权撤销必须保留为 Forbidden，不能持久化后降成输入错误。</summary>
+    [TestMethod]
+    public async Task Persisted_permission_denial_retains_forbidden_contract()
+    {
+        var fixture = CreateFixture(); fixture.Context.SetTenant(new TenantContext(fixture.TenantId, "acme", "Acme"));
+        fixture.Workbook.GenerateAsync(Arg.Any<ReportingExportTaskRecord>(), Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
+            .Returns(Result<ReportingExportGeneratedFile>.Failure(new(CommonErrorCodes.PermissionDenied, "Revoked", ErrorType.Forbidden)));
+        var binding = new SessionBindingSnapshot(fixture.ActorId, fixture.TenantId, Guid.NewGuid(), "stamp", "host", $"tenant:{fixture.TenantId:N}");
+        var result = await fixture.Management.CreateAsync(new(Guid.NewGuid(), "excel", 1, []), fixture.ActorId,
+            new ClaimsPrincipal(new ClaimsIdentity("test")), binding);
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(CommonErrorCodes.PermissionDenied, result.Error!.Code);
+        Assert.AreEqual(ErrorType.Forbidden, result.Error.Type);
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Failed, fixture.Store.Tasks.Values.Single().StatusKey);
+    }
+
     private static Fixture CreateFixture()
     {
         var tenantId = Guid.NewGuid();
@@ -119,6 +229,13 @@ public sealed class ReportingExportTaskRecoveryTests
         ids.NewId().Returns(_ => Guid.NewGuid());
         var files = new FakeFileStore();
         var options = new ReportingExportOptions { ExecutionEnabled = true, BatchSize = 20, LeaseSeconds = 300, PollSeconds = 15 };
+        var identity = Substitute.For<IBackgroundSessionAuthorization>();
+        identity.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => { var binding = call.Arg<SessionBindingSnapshot>()!;
+                return new AuthorizedSessionActor(binding.UserId, binding.TenantId, binding.SessionId); });
+        var database = Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer });
+        var definitions = new ReportingPublishedDefinitionResolver(store, new ReportingDefinitionQueryService(store, database), currentTenant, database);
+        var authorization = new ReportingExportAuthorization(currentTenant, identity, definitions);
         var runner = new ReportingExportTaskRunner(
             store,
             store,
@@ -130,8 +247,12 @@ public sealed class ReportingExportTaskRecoveryTests
             clock,
             ids,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
-            new OptionsMonitorStub<ReportingExportOptions>(options));
-        return new Fixture(store, runner, workbook, files, clock, tenantId, () => generateCount);
+            new OptionsMonitorStub<ReportingExportOptions>(options), authorization);
+        var management = new ReportingExportTaskManagementService(definitions, files, store, store, runner, currentTenant,
+            clock, ids, database, authorization,
+            new Full.NET.Modules.Identity.Authorization.PermissionClaimEvaluator(
+                Full.NET.Modules.Identity.Authorization.AuthorizationCatalog.Create([new Full.NET.Modules.Reporting.ReportingAuthorizationContributor()])));
+        return new Fixture(store, runner, workbook, files, clock, tenantId, identity, currentTenant, management, () => generateCount);
     }
 
     private static ReportingExportTaskRecord SeedQueued(Fixture fixture) =>
@@ -176,11 +297,12 @@ public sealed class ReportingExportTaskRecoveryTests
             StatusKey = statusKey,
             OutputFileId = outputFileId,
             OutputFileName = outputFileId is null ? null : "report.xlsx",
-            RequestedByUserId = Guid.NewGuid(),
+            RequestedByUserId = fixture.ActorId,
             CreatedAtUtc = fixture.Clock.UtcNow.AddMinutes(-10),
             LeaseId = leaseId,
             LeaseExpiresAtUtc = leaseExpiresAtUtc,
-            ActorPermissionCodesJson = """["reporting.executions.run"]""",
+            ActorPermissionCodesJson = ReportingExportTaskMapper.SerializeAuthorization([ReportingExecutionPermissions.Run],
+                new SessionBindingSnapshot(fixture.ActorId, fixture.TenantId, Guid.NewGuid(), "stamp", "host", $"tenant:{fixture.TenantId:N}")),
             Version = 1,
         };
 
@@ -191,14 +313,21 @@ public sealed class ReportingExportTaskRecoveryTests
         FakeFileStore files,
         MutableClock clock,
         Guid tenantId,
+        IBackgroundSessionAuthorization identity,
+        CurrentTenantAccessor context,
+        ReportingExportTaskManagementService management,
         Func<int> generateCount)
     {
         public ExportTaskStore Store { get; } = store;
+        public IBackgroundSessionAuthorization Identity { get; } = identity;
+        public CurrentTenantAccessor Context { get; } = context;
+        public ReportingExportTaskManagementService Management { get; } = management;
         public ReportingExportTaskRunner Runner { get; } = runner;
         public IReportingExportWorkbookSource Workbook { get; } = workbook;
         public FakeFileStore Files { get; } = files;
         public MutableClock Clock { get; } = clock;
         public Guid TenantId { get; } = tenantId;
+        public Guid ActorId { get; } = Guid.NewGuid();
         public int GenerateCount => generateCount();
     }
 
@@ -218,11 +347,15 @@ public sealed class ReportingExportTaskRecoveryTests
     private sealed class FakeFileStore : ITenantResourceFileStore
     {
         public List<TenantResourceFileReadyItem> ReadyFiles { get; } = [];
+        public int UploadCount { get; private set; }
 
         public Task<Result<TenantResourceFileReference>> UploadAsync(
             string ownerModuleKey, Guid resourceId, Guid actorUserId, string originalFileName,
-            string contentType, Stream content, long contentLength, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Result<TenantResourceFileReference>.Success(new(Guid.NewGuid(), contentLength, "hash")));
+            string contentType, Stream content, long contentLength, CancellationToken cancellationToken = default)
+        {
+            UploadCount++;
+            return Task.FromResult(Result<TenantResourceFileReference>.Success(new(Guid.NewGuid(), contentLength, "hash")));
+        }
 
         public Task<Result<TenantResourceFileContent>> OpenReadyContentAsync(
             string ownerModuleKey, Guid resourceId, Guid fileId, CancellationToken cancellationToken = default) =>
@@ -240,12 +373,19 @@ public sealed class ReportingExportTaskRecoveryTests
     private sealed class ExportTaskStore(ICurrentTenant tenant) : IQueryExecutor, ICommandExecutor
     {
         public Dictionary<Guid, ReportingExportTaskRecord> Tasks { get; } = [];
+        public bool Granted { get; set; } = true;
 
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null,
             CancellationToken cancellationToken = default)
         {
             SqlScopeGuard.Validate(statement, tenant);
             var values = Params(parameters);
+            if (statement.Name == "reporting.resolve_granted_version" && Granted)
+                return Task.FromResult((T?)(object)new ReportingDefinitionVersionRecord
+                    { DefinitionId = (Guid)values["DefinitionId"]!, VersionNumber = 1 });
+            if (statement.Name == ReportingTenantGrantSql.FindDefinition.Name)
+                return Task.FromResult((T?)(object)new ReportingDefinitionRecord
+                    { Id = (Guid)values["DefinitionId"]!, IsEnabled = true });
             if ((statement.Name == ReportingExportTaskSql.FindById.Name
                     || statement.Name == ReportingExportTaskSql.FindByIdSqlServer.Name)
                 && Tasks.TryGetValue((Guid)values["Id"]!, out var task))
@@ -286,6 +426,12 @@ public sealed class ReportingExportTaskRecoveryTests
             CancellationToken cancellationToken = default)
         {
             SqlScopeGuard.Validate(statement, tenant);
+            if (statement.Name == ReportingExportTaskSql.InsertFor(DatabaseProvider.SqlServer).Name
+                && parameters is ReportingExportTaskRecord created)
+            {
+                Tasks[created.Id] = created;
+                return Task.FromResult(1);
+            }
             var values = Params(parameters);
             if (!Tasks.TryGetValue((Guid)values["Id"]!, out var current))
             {

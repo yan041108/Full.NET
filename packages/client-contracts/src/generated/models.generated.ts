@@ -3748,6 +3748,16 @@ export interface ReportingParameterSchemaEntry {
   readonly parameterKey: string;
 }
 
+export interface ReportingPublishedDefinitionResponse {
+  readonly definitionId: string;
+  readonly definitionKey: string;
+  readonly layoutConfigJson: string;
+  readonly name: string;
+  readonly parameterSchema: Array<ReportingParameterSchemaEntry>;
+  readonly queryPortKey: string;
+  readonly versionNumber: number;
+}
+
 export interface ReportingQueryPortDefinition {
   readonly description: string;
   readonly displayName: string;

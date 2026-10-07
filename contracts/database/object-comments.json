@@ -2474,6 +2474,17 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_reporting_definition_tenant_grant": {
+      "comment": "报表definition tenant grant表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DefinitionId": "定义标识",
+        "GrantedByUserId": "Granted By User标识",
+        "Id": "逻辑主键",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "VersionNumber": "版本号"
+      }
+    },
     "fn_reporting_definition_version": {
       "comment": "报表定义版本表",
       "columns": {

@@ -434,6 +434,7 @@ import type {
   ReportingExportTaskResponse,
   ReportingGroupResponse,
   ReportingParameterSchemaEntry,
+  ReportingPublishedDefinitionResponse,
   ReportingQueryPortDefinition,
   ReportingQueryPortParameterDefinition,
   ResetHostUserPasswordRequest,
@@ -814,12 +815,15 @@ import {
   readReportingDeleteGroupResponse,
   readReportingExecutionPageResponse,
   readReportingExportTaskDetailResponse,
+  readReportingGrantTenantVersionResponse,
   readReportingGroupResponse,
   readReportingListDefinitionsResponse,
   readReportingListDefinitionVersionsResponse,
   readReportingListGroupsResponse,
+  readReportingListPublishedDefinitionsResponse,
   readReportingListQueryPortsResponse,
   readReportingQueryPortDefinition,
+  readReportingRevokeTenantVersionResponse,
   readRevealHostUserProfileFieldsResponse,
   readRevokeAllHostUserSessionsResponse,
   readSelfServiceProfileResponse,
@@ -10361,6 +10365,26 @@ export async function reportingGetQueryPort(
   return readReportingQueryPortDefinition(value);
 }
 
+export interface ReportingGrantTenantVersionParameters {
+  readonly definitionId: string;
+  readonly versionNumber: number;
+  readonly tenantId: string;
+}
+
+export async function reportingGrantTenantVersion(
+  http: HttpClient,
+  parameters: ReportingGrantTenantVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants/${encodeURIComponent(String(parameters.tenantId))}`;
+  const init: RequestInit = { method: 'PUT' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingGrantTenantVersionResponse(value);
+}
+
 export interface ReportingListDataSourcesParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -10491,6 +10515,24 @@ export async function reportingListGroups(
   return readReportingListGroupsResponse(value);
 }
 
+export interface ReportingListPublishedDefinitionsParameters {
+
+}
+
+export async function reportingListPublishedDefinitions(
+  http: HttpClient,
+  parameters: ReportingListPublishedDefinitionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<ReportingPublishedDefinitionResponse>> {
+  const path = `/api/v1/reporting/published-definitions`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingListPublishedDefinitionsResponse(value);
+}
+
 export interface ReportingListQueryPortsParameters {
 
 }
@@ -10530,6 +10572,26 @@ export async function reportingPublishDefinition(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readReportingDefinitionVersionResponse(value);
+}
+
+export interface ReportingRevokeTenantVersionParameters {
+  readonly definitionId: string;
+  readonly versionNumber: number;
+  readonly tenantId: string;
+}
+
+export async function reportingRevokeTenantVersion(
+  http: HttpClient,
+  parameters: ReportingRevokeTenantVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants/${encodeURIComponent(String(parameters.tenantId))}`;
+  const init: RequestInit = { method: 'DELETE' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingRevokeTenantVersionResponse(value);
 }
 
 export interface ReportingTestDataSourceParameters {
