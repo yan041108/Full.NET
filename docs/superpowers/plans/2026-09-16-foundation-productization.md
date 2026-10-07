@@ -1114,6 +1114,22 @@ Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约
 
 真实 Worker 进程崩溃、排队后权限/会话撤销、结果文件再次授权及独立生成应用的 Enterprise 业务链仍待办；样例既有生成 CRUD 的完整 Native AOT 行物化/参数绑定限制仍未验收。F11/C02 不整体关闭，`Capacity-not-verified` 保持。开发分支与 Draft PR 交付，不合并、不发布。
 
+**进展（2026-10-08，F11 Worker 导入注册、当前会话授权与恢复边界联合完善）：**
+
+官方岗位 Schema 补齐 Worker 处理器、领域服务与授权目录注册；样例和 ImportExport 也在后台贡献精确权限目录。补齐 Tenancy 后台活动租户目录、功能权益、配额预留与真实文件配额 Port，Files/Tenancy 两种注册顺序及重复调用均保留单一真实配额描述符；API 共享注册不重复叠加。执行、恢复、重试仅接受任务创建人的当前交互会话，由服务端冻结 SessionBinding，Worker 每批通过 Identity Contract Port 检查会话、任务执行权限、Schema 权限及原预览已授予的附加能力，再读取文件或调用业务处理器；API Key 不作为持久后台委托。静态 JSON 元数据保存会话绑定，不向任务 HTTP DTO 暴露绑定或安全戳。未新增 SQL、迁移或跨模块事务。
+
+创建任务时冻结 Schema 声明的原预览能力；排队和重试不能因撤权/增权改变原有效行集合。仅同一创建人的新会话可重新授权，防止回执载荷主体变化；检查点未完成却返回空批明确失败，避免无进展 queued 循环。升级先停止并排空旧 Worker 后切换新版 API/Worker；旧队列无会话绑定时拒绝直接执行，由原创建人有效会话显式重试。旧任务无能力快照且 Schema 声明附加能力时必须重新上传预览。
+
+缺口 RED **2/2 失败**（旧无绑定队列仍执行、Worker 缺岗位 handler），恢复边界 RED **7/7 失败**（三种入口撤权、三种入口换主体、剩余有效行返回空批）。首轮双库联合验收 **12/20 通过、8 失败**，暴露后台活动租户目录/权益 Port 缺注册和岗位空模板夹具；已修复依赖链，岗位夹具填入真实业务行，不用零行成功替代业务写入。
+
+最终 Unit 聚焦命令 `pnpm test:dotnet:unit -- --filter 'FullyQualifiedName~Full.NET.UnitTests.ImportExport|FullyQualifiedName~EnterpriseRequestImportRecoveryTests|FullyQualifiedName~TenantPositionImportRecoveryTests|FullyQualifiedName~TenancyWorkerRegistrationTests|FullyQualifiedName~TenantFeatureEntitlementPortTests' --minimum-expected-tests 49` **49/49**，零失败/跳过。最终全量 Architecture 直接运行当前 Release 程序集 `--minimum-expected-tests 232 --timeout 10m` **232/232**，零失败/跳过，6m00s；两套 Release 构建均零警告/错误。治理 **57/57**、Integration 工具链 **58/58**；最终分片发现 **1170** 项，无遗漏/重复，不当作全量实际执行通过。最终 SQL Server/MySQL 联合 **20/20**，零失败/跳过，9m59s：直接运行 Integration Release 程序集，过滤 ImportExportWorkerApi、ImportExportApi、样例工作簿、DataApprovalRecoveryRestartApi 及矩阵 Smoke 八项，`--minimum-expected-tests 20 --timeout 20m --report-trx --report-trx-filename import-worker-final.trx`；TRX 确认全部实际执行。`pnpm test:aot:analyzers` 与 `pnpm test:aot:worker:analyzers` 均退出 **0**、零警告/错误；Worker 脚本恢复默认 JIT 产物也通过。此处只证明编译分析，不新增完整 Native AOT 业务运行结论。
+
+新场景采用正式 Worker profile 的目标 HostedService、真实数据库与资源文件，不调用同步 Runner 或模拟业务处理器。业务行提交后故意阻断检查点写入，停止/释放宿主并以新宿主推进测试时钟让租约到期；重放保留单一业务实体及事务回执。使用正式在线会话撤销 API 验证旧队列拒绝执行，同一创建人重新登录并显式重试后恢复。宿主都在测试进程内，不当作独立 OS 进程强杀验收。
+
+环境为 Windows x64、.NET SDK 10.0.401，SQL Server 2022 CU14、MySQL 8.0、Redis 8.6；Integration 并发 2，`FULLNET_TESTCONTAINERS_REUSE=0` 使用本任务独立容器。26 项代码/测试/配置的最终 SHA-256 冻结核对无漂移，证据在 `.tmp/import-worker-*`。正式 merge 规划为 ImportExport、Organization、Tenancy、integration-matrix 与 smoke；本批仅交付上述联合聚焦集，未称完整模块影响集或全项目 Integration 通过。只读安全复审指出的预览能力漂移与回执主体变化已通过 RED 回归收口；租户后台 Port 再审未发现重要问题。
+
+上一提交 68e952bd 的 CI、API/Worker Linux AOT 已全部成功；新提交的工作流推送后另行核对。独立 Worker OS 进程崩溃、结果文件再次授权、独立生成应用 Enterprise 业务链和样例 CRUD 完整 Native AOT 运行仍待办，F11/C02 不整体关闭，`Capacity-not-verified` 保持。开发分支与 Draft PR 交付，不合并、不发布。
+
 ### F12：订阅、试用与支付驱动权益
 
 **依赖：** F06、F08、现有 Payments 安全修复/渠道验收。**提供：** Tenancy 订阅生命周期；Payments 仍拥有资金事实。

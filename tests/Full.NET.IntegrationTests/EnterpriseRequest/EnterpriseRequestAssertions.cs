@@ -112,7 +112,8 @@ internal static class EnterpriseRequestAssertions
 
     public static async Task VerifyTenantDemoEnterpriseRequestsWorkbookImportAsync(
         FullNetApiFactory factory,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<ImportExportTaskDetailResponse, string, Task<ImportExportTaskDetailResponse>>? executeQueued = null)
     {
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
@@ -173,6 +174,11 @@ internal static class EnterpriseRequestAssertions
         Assert.AreEqual(HttpStatusCode.OK, executeResponse.StatusCode, await executeResponse.Content.ReadAsStringAsync(cancellationToken));
         var executed = await executeResponse.Content.ReadFromJsonAsync<ImportExportTaskDetailResponse>(cancellationToken);
         Assert.IsNotNull(executed);
+        if (executeQueued is not null)
+        {
+            Assert.AreEqual(ImportExportTaskStatusKeys.Queued, executed!.StatusKey);
+            executed = await executeQueued(executed, token);
+        }
         Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionSucceeded, executed!.StatusKey);
         Assert.AreEqual(1, executed.SucceededRowCount); Assert.AreEqual(1, executed.NextLineNumber);
         // 模拟业务已提交、调度检查点尚未提交的恢复窗口，正式处理器重放必须返回同一个实体。

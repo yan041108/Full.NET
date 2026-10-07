@@ -40,6 +40,7 @@ public sealed class EnterpriseRequestModule : IFullNetModule
 
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationCatalogContributor, EnterpriseRequestAuthorizationContributor>());
         // 仅复用生成的业务服务注册，不映射 HTTP 端点；后台使用相同领域授权与事务边界。
         services.AddFullNetGeneratedModuleFeatures();
         services.TryAddScoped<EnterpriseRequestImportService>();

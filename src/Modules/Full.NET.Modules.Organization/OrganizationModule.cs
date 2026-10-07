@@ -116,7 +116,7 @@ public sealed class OrganizationModule : IFullNetModule
     }
 
     /// <summary>
-    /// 注册 Worker 消费 Identity 机构单元投影对账所需的最小 Organization 只读 Port。
+    /// 注册 Worker 的机构投影 Port、组织写授权及官方岗位导入处理器。
     /// </summary>
     public void AddBackgroundServices(
         IServiceCollection services,
@@ -136,6 +136,13 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<IIdentityOrganizationUnitProjectionSource>(provider =>
             provider.GetRequiredService<TenantUnits.OrganizationUnitProjectionCatalog>());
         services.TryAddScoped<IWorkflowUnitLeaderDirectory, TenantUnits.WorkflowUnitLeaderDirectory>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationCatalogContributor, OrganizationAuthorizationContributor>());
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddScoped<TenantPositionQueryService>();
+        services.TryAddScoped<TenantPositionManagementService>();
+        services.TryAddScoped<TenantPositionImportPreviewService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IStaticImportSchemaHandler, TenantPositionsStaticImportSchemaHandler>());
     }
 
     /// <summary>

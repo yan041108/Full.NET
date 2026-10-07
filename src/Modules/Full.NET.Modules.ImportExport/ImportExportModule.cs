@@ -59,6 +59,7 @@ public sealed class ImportExportModule : IFullNetModule
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskManagementService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskQueryService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskExecutionService>();
+        services.TryAddScoped<Features.ManageImportTasks.ImportExportExecutionAuthorization>();
         services.TryAddScoped<ImportExportTaskRunner>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
@@ -88,6 +89,8 @@ public sealed class ImportExportModule : IFullNetModule
         services.TryAddScoped<StaticImportSchemaRegistry>();
         services.TryAddScoped<ImportExportTaskRunner>();
         services.AddHostedService<ImportExportTaskHostedProcessor>();
+        services.TryAddScoped<Features.ManageImportTasks.ImportExportExecutionAuthorization>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationCatalogContributor, ImportExportAuthorizationContributor>());
     }
 
     /// <summary>注册 ImportExport 模块的静态 Schema 浏览与导入任务管理 HTTP 端点。</summary>

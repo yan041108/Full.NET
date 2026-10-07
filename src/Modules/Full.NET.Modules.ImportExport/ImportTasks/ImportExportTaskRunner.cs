@@ -20,6 +20,7 @@ namespace Full.NET.Modules.ImportExport.ImportTasks;
 /// <param name="transaction">MySQL 领取所需的短事务。</param>
 /// <param name="resourceFiles">租户资源文件存储。</param>
 /// <param name="registry">静态 Schema 处理器目录。</param>
+/// <param name="authorization">后台会话与精确权限复核。</param>
 /// <param name="tenantResolver">活动租户解析。</param>
 /// <param name="currentTenant">当前租户写入器。</param>
 /// <param name="clock">时钟。</param>
@@ -32,6 +33,7 @@ internal sealed class ImportExportTaskRunner(
     ICommandTransaction transaction,
     ITenantResourceFileStore resourceFiles,
     StaticImportSchemaRegistry registry,
+    ImportExportExecutionAuthorization authorization,
     IActiveTenantContextResolver tenantResolver,
     ICurrentTenantContextWriter currentTenant,
     IClock clock,
@@ -125,6 +127,16 @@ internal sealed class ImportExportTaskRunner(
                 return;
             }
 
+            var executionState = ImportExportTaskMapper.DeserializeExecutionState(task.ExecutionRowsJson);
+            if (executionState.SessionBinding?.UserId != task.RequestedByUserId
+                || !await authorization.IsAllowedAsync(executionState.SessionBinding, task.TenantId, handler,
+                    executionState.CapabilityFlags, cancellationToken).ConfigureAwait(false))
+            {
+                // 升级前缺少会话绑定的队列同样拒绝，必须由仍有权限的当前会话显式重试。
+                await MarkExecutionFailedAsync(task, CommonErrorCodes.PermissionDenied, clock.UtcNow, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
             var sourceResult = await resourceFiles
                 .OpenReadyContentAsync("import_export", task.Id, task.SourceFileId, cancellationToken)
                 .ConfigureAwait(false);
@@ -141,11 +153,9 @@ internal sealed class ImportExportTaskRunner(
             var source = sourceResult.Value!;
             var contentLength = source.Content.CanSeek ? source.Content.Length : options.CurrentValue.MaxUploadBytes;
             var executionBatchSize = Math.Clamp(options.CurrentValue.BatchSize, 1, 200);
-            var executionState = ImportExportTaskMapper.DeserializeExecutionState(task.ExecutionRowsJson);
             var previewContext = new StaticImportPreviewContext(
-                task.RequestedByUserId,
-                executionState.CapabilityFlags
-                ?? new Dictionary<string, bool>(StringComparer.Ordinal)) { TaskId = task.Id };
+                executionState.SessionBinding!.UserId,
+                ImportExportExecutionAuthorization.FreezeCapabilities(handler, executionState.CapabilityFlags)) { TaskId = task.Id };
             Result<StaticImportBatchExecutionResult> batchResult;
             try
             {
@@ -173,6 +183,12 @@ internal sealed class ImportExportTaskRunner(
                 return;
             }
 
+            if (batchResult.Value!.Rows.Count == 0 && task.NextLineNumber < task.ValidRowCount)
+            {
+                // 检查点尚未完成却返回空批是处理器契约失败，不能无进展地反复排队。
+                await MarkExecutionFailedAsync(task, ImportExportErrorCodes.ExecutionFailed, clock.UtcNow, cancellationToken).ConfigureAwait(false);
+                return;
+            }
             await ApplyBatchResultAsync(task, batchResult.Value!, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -252,7 +268,7 @@ internal sealed class ImportExportTaskRunner(
                     ("ExecutionFailedRowCount", executionFailedRowCount),
                     ("NextLineNumber", nextLineNumber),
                     ("ExecutionRowsJson", ImportExportTaskMapper.SerializeExecutionState(
-                        new ImportExportExecutionStateDocument(executionState.CapabilityFlags, mergedRows))),
+                        new ImportExportExecutionStateDocument(executionState.CapabilityFlags, mergedRows, executionState.SessionBinding))),
                     ("ErrorReceiptFileId", errorReceiptFileId),
                     ("ExecutionCompletedAtUtc", executionCompletedAtUtc),
                     ("ErrorCode", errorCode)),

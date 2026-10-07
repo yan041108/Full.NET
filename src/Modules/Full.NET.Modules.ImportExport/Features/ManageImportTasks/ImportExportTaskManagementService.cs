@@ -165,7 +165,9 @@ internal sealed class ImportExportTaskManagementService(
                     ("SucceededRowCount", 0),
                     ("ExecutionFailedRowCount", 0),
                     ("NextLineNumber", 0),
-                    ("ExecutionRowsJson", null),
+                    ("ExecutionRowsJson", ImportExportTaskMapper.SerializeExecutionState(
+                        new ImportExportExecutionStateDocument(
+                            ImportExportExecutionAuthorization.FreezeCapabilities(handler, previewContext.CapabilityFlags), []))),
                     ("ErrorReceiptFileId", null),
                     ("ExecutionStartedAtUtc", null),
                     ("ExecutionCompletedAtUtc", null),

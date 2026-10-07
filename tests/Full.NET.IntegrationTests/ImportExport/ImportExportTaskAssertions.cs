@@ -17,7 +17,8 @@ internal static class ImportExportTaskAssertions
 
     public static async Task VerifyImportTaskPreviewContractAsync(
         FullNetApiFactory factory,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<ImportExportTaskDetailResponse, string, Task<ImportExportTaskDetailResponse>>? executeQueued = null)
     {
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
@@ -44,6 +45,7 @@ internal static class ImportExportTaskAssertions
         Assert.AreEqual(HttpStatusCode.OK, templateResponse.StatusCode);
         var templateBytes = await templateResponse.Content.ReadAsByteArrayAsync(cancellationToken);
         Assert.IsTrue(templateBytes.Length > 0);
+        if (executeQueued is not null) templateBytes = ImportExportWorkerAssertions.FillPositionTemplate(templateBytes);
 
         using var createContent = new MultipartFormDataContent
         {
@@ -89,6 +91,11 @@ internal static class ImportExportTaskAssertions
         var executed = await executeResponse.Content.ReadFromJsonAsync<ImportExportTaskDetailResponse>(
             cancellationToken);
         Assert.IsNotNull(executed);
+        if (executeQueued is not null)
+        {
+            Assert.AreEqual(ImportExportTaskStatusKeys.Queued, executed.StatusKey);
+            executed = await executeQueued(executed, tenantToken);
+        }
         Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionSucceeded, executed.StatusKey);
         Assert.AreEqual(created.ValidRowCount, executed.SucceededRowCount);
         Assert.IsTrue(executed.ProcessedRowCount >= created.ValidRowCount);
@@ -96,7 +103,7 @@ internal static class ImportExportTaskAssertions
         await OpenApiImportExportContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
-    private static async Task<string> LoginAndEnterAcmeTenantAsync(
+    internal static async Task<string> LoginAndEnterAcmeTenantAsync(
         HttpClient client,
         CancellationToken cancellationToken)
     {

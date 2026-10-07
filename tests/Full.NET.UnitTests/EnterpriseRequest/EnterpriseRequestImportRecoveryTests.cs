@@ -112,6 +112,7 @@ public sealed class EnterpriseRequestImportRecoveryTests
         services.AddSingleton<IIdGenerator>(Substitute.For<IIdGenerator>());
         using var provider = services.BuildServiceProvider(); using var scope = provider.CreateScope();
         Assert.IsTrue(scope.ServiceProvider.GetServices<IStaticImportSchemaHandler>().Any(handler => handler.SchemaKey == StaticImportSchemaKeys.DemoEnterpriseRequests));
+        Assert.IsTrue(scope.ServiceProvider.GetServices<IStaticImportSchemaHandler>().Any(handler => handler.SchemaKey == StaticImportSchemaKeys.OrganizationTenantPositions));
         Assert.IsNotNull(scope.ServiceProvider.GetRequiredService<Full.NET.Modules.ImportExport.ImportTasks.ImportExportTaskRunner>());
         Assert.IsFalse(services.Any(descriptor => descriptor.ServiceType == typeof(Microsoft.AspNetCore.Authentication.IAuthenticationSchemeProvider)));
     }

@@ -122,12 +122,13 @@ internal static class Endpoint
         group.MapPost("/{taskId:guid}/execute", async (
             Guid taskId,
             ImportExportTaskExecutionService executionService,
+            ICurrentTenant currentTenant,
             ClaimsPrincipal principal,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserId(httpContext, out var userId))
+            if (!ImportExportHttpSessionBinding.TryCreate(httpContext, currentTenant.Id, out var binding))
             {
                 return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
             }
@@ -135,7 +136,8 @@ internal static class Endpoint
             var result = await executionService
                 .QueueExecuteAsync(
                     taskId,
-                    BuildPreviewContext(userId, principal),
+                    BuildPreviewContext(binding.UserId, principal),
+                    binding,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -151,12 +153,13 @@ internal static class Endpoint
         group.MapPost("/{taskId:guid}/resume", async (
             Guid taskId,
             ImportExportTaskExecutionService executionService,
+            ICurrentTenant currentTenant,
             ClaimsPrincipal principal,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserId(httpContext, out var userId))
+            if (!ImportExportHttpSessionBinding.TryCreate(httpContext, currentTenant.Id, out var binding))
             {
                 return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
             }
@@ -164,7 +167,8 @@ internal static class Endpoint
             var result = await executionService
                 .ResumeAsync(
                     taskId,
-                    BuildPreviewContext(userId, principal),
+                    BuildPreviewContext(binding.UserId, principal),
+                    binding,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -180,12 +184,13 @@ internal static class Endpoint
         group.MapPost("/{taskId:guid}/retry", async (
             Guid taskId,
             ImportExportTaskExecutionService executionService,
+            ICurrentTenant currentTenant,
             ClaimsPrincipal principal,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserId(httpContext, out var userId))
+            if (!ImportExportHttpSessionBinding.TryCreate(httpContext, currentTenant.Id, out var binding))
             {
                 return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
             }
@@ -193,7 +198,8 @@ internal static class Endpoint
             var result = await executionService
                 .RetryAsync(
                     taskId,
-                    BuildPreviewContext(userId, principal),
+                    BuildPreviewContext(binding.UserId, principal),
+                    binding,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
