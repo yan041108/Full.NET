@@ -60,7 +60,7 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   evidence.printing={status:'tenant-preview-not-supported',templateId:template.id,versionNumber:1,hostPublished:true,scriptsRemovedAtPublish:true};
   // 第一方 ClientId 由服务端固定，默认每客户端单会话；另建最小权限用户，避免重新登录同一 admin 撤销租户会话。
   const revokerCredentials={username:'revoke_'+randomUUID().replaceAll('-',''),password:'Init!'+randomUUID()+'A9'};
-  const revokerRole=await send('revoker-role','/api/v1/identity/roles','POST',{code:'revoke_'+randomUUID().replaceAll('-',''),name:'Owned output revoker'},201);
+  const revokerRole=await send('revoker-role','/api/v1/identity/roles','POST',{code:'revoke-'+randomUUID().replaceAll('-',''),name:'Owned output revoker'},201);
   identifier(revokerRole.id);
   const permissions=['reporting.definitions.grant_tenants'];
   const assigned=await send('revoker-permissions','/api/v1/identity/roles/'+revokerRole.id+'/permissions','PUT',{permissionCodes:permissions,version:revokerRole.version});

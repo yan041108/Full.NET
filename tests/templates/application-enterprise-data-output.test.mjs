@@ -27,7 +27,7 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
   if (!token) return Response.json({code:'authentication.required'}, {status:401});
   assert.equal(token, (path.includes('tenant-grants') && method==='DELETE') || path.endsWith('/me/password') ? 'Bearer REVOKER_SECRET' : activeToken);
   if (revokedSession && !granted && path.endsWith('/download')) return Response.json({code:'authentication.required'}, {status:401});
-  if (path==='/api/v1/identity/roles' && method==='POST') return Response.json({id:roleId,version:1},{status:201});
+  if (path==='/api/v1/identity/roles' && method==='POST') { assert.match(input.code,/^[a-z][a-z0-9-]{2,63}$/u); return Response.json({id:roleId,version:1},{status:201}); }
   if (path===`/api/v1/identity/roles/${roleId}/permissions`) {
    assert.deepEqual(input.permissionCodes,['reporting.definitions.grant_tenants']); assert.equal(input.version,1);
    return Response.json({id:roleId,version:2,permissionCodes:input.permissionCodes});
