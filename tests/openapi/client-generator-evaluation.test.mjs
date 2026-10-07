@@ -96,6 +96,28 @@ test('内联 allOf 的多个整数编码对象可以通过 TypeScript 编译并�
   assert.deepEqual(readers.readCombined({ first: '1', second: '2' }), { first: 1, second: 2 });
 });
 
+test('multipart allOf 和引用字段完整生成导入参数与 FormData', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  const snapshot = JSON.parse(await readFile(snapshotPath, 'utf8'));
+  const files = renderGeneratedFiles(snapshot);
+  const operations = files['operations.generated.ts'];
+  const parameters = operations.slice(operations.indexOf('export interface ImportExportCreateImportTaskParameters'),
+    operations.indexOf('export interface ImportExportDownloadImportTaskErrorReceiptParameters'));
+  assert.match(parameters, /readonly schemaKey: string/u);
+  assert.match(parameters, /readonly worksheetKey: string/u);
+  assert.match(parameters, /readonly file: IFormFile/u);
+  assert.match(parameters, /body\.append\('schemaKey', String\(parameters.schemaKey\)\)/u);
+  assert.match(parameters, /body\.append\('worksheetKey', String\(parameters.worksheetKey\)\)/u);
+  assert.match(parameters, /body\.append\('file', parameters.file\)/u);
+  assert.doesNotMatch(parameters, /content-type/u);
+  const multipart = snapshot.paths['/api/v1/import-export/tasks'].post.requestBody.content['multipart/form-data'];
+  snapshot.components.schemas.ImportForm = multipart.schema;
+  multipart.schema = { $ref: '#/components/schemas/ImportForm' };
+  const referenced = renderGeneratedFiles(snapshot)['operations.generated.ts'];
+  assert.match(referenced, /readonly schemaKey: string/u);
+  assert.match(referenced, /body\.append\('worksheetKey', String\(parameters.worksheetKey\)\)/u);
+});
+
 test('生成器只产生 Full.NET models、guards、operations 与公开入口', async () => {
   const { generateFullNetClient } = await import(
     '../../scripts/openapi/generate-fullnet-client.mjs'

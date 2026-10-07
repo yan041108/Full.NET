@@ -1,6 +1,7 @@
 import {
   importExportCreateImportTask,
   importExportDownloadImportTaskErrorReceipt,
+  importExportDownloadStaticSchemaTemplate,
   importExportExecuteImportTask,
   importExportGetImportTask,
   importExportListImportTasks,
@@ -15,6 +16,13 @@ import {
   type StaticImportSchemaDefinition
 } from '@fullnet/client-contracts';
 import { http } from './http';
+
+/** 下载所选静态 Schema/工作表的 Excel 模板，复用正式生成客户端。 */
+export async function downloadStaticImportTemplate(schemaKey: string, worksheetKey: string, signal?: AbortSignal): Promise<Blob> {
+  const value = await importExportDownloadStaticSchemaTemplate(http, { schemaKey, worksheetKey }, signal);
+  if (!(value instanceof Blob)) throw new Error('client.invalid_import_export_template');
+  return value;
+}
 
 /** 列出已注册的静态导入 Schema。 */
 export async function listStaticImportSchemas(

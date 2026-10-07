@@ -97,6 +97,7 @@ describe('Vue 导入任务页', () => {
   it('create 权限显示提交按钮', async () => {
     const wrapper = mountWithPermissions([
       'import_export.import_tasks.read',
+      'import_export.static_schemas.read',
       'import_export.import_tasks.create'
     ]);
     await flushPromises();

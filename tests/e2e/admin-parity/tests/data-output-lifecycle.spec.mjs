@@ -196,3 +196,44 @@ test('离开文档预览页取消待返回 PDF，不调用打开窗口', async (
   release(); await expect.poll(() => finished).toBe(true);
   expect(await page.evaluate(() => window.__pdfOpens)).toBe(0);
 });
+
+test('导入模板下载、真实 multipart 上传、预校验行和独立执行入口贯通', async ({ page }) => {
+  await boot(page, 'import-export-tasks', '/import-export/tasks', 'import_export.import_tasks.read', [
+    'import_export.import_tasks.read', 'import_export.import_tasks.create', 'import_export.static_schemas.read',
+    'import_export.import_tasks.execute', 'organization.positions.import'
+  ]);
+  let schemas = 0; let uploads = 0; let submittedBody = ''; let contentType = '';
+  await page.route('**/api/v1/import-export/schemas', route => {
+    schemas++; return json(route, [{ schemaKey: importTask.schemaKey, displayName: '租户职位', scopeKey: 'tenant',
+      requiredPermission: 'organization.positions.import',
+      worksheets: [{ worksheetKey: 'positions', displayName: '职位', headerColumns: ['Code', 'Name'] }] }]);
+  });
+  const bytes = Buffer.from('controlled-template');
+  await page.route(`**/api/v1/import-export/schemas/${importTask.schemaKey}/worksheets/positions/template`, route =>
+    route.fulfill({ status: 200, contentType: 'application/octet-stream', body: bytes }));
+  await page.route('**/api/v1/import-export/tasks?*', route => json(route, { items: [], page: 1, pageSize: 20, total: 0 }));
+  await page.route('**/api/v1/import-export/tasks', route => {
+    if (route.request().method() !== 'POST') return json(route, { items: [], page: 1, pageSize: 20, total: 0 });
+    uploads++; submittedBody = route.request().postData() ?? ''; contentType = route.request().headers()['content-type'] ?? '';
+    return json(route, { ...importTask, previewRows: [{ lineNumber: 2, isValid: true, errorCode: null, message: '预校验说明' }] });
+  });
+  await page.goto('/#/import-export/tasks'); await expect(page.getByTestId('import-export-task-create')).toBeEnabled();
+  expect(schemas).toBe(0);
+  await page.getByTestId('import-export-task-create').click();
+  await expect(page.getByTestId('import-create-schema')).toContainText('租户职位');
+  await expect(page.getByTestId('import-create-worksheet')).toContainText('职位');
+  const downloading = page.waitForEvent('download'); await page.getByTestId('import-create-template').click();
+  const download = await downloading; expect(download.suggestedFilename()).toBe('organization-tenant_positions-positions-template.xlsx');
+  const stream = await download.createReadStream(); const chunks = []; for await (const chunk of stream) chunks.push(chunk);
+  expect(Buffer.concat(chunks)).toEqual(bytes);
+  // 受控字节只验收 multipart 传输和交互，不证明服务端已解析真实工作簿。
+  await page.getByTestId('import-create-file').setInputFiles({ name: 'positions.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('controlled-upload') });
+  await page.getByTestId('import-create-submit').click();
+  await expect(page.getByTestId('import-task-preview-rows')).toContainText('预校验说明');
+  await expect(page.getByTestId('import-export-task-execute')).toBeVisible();
+  expect(uploads).toBe(1); expect(contentType).toMatch(/^multipart\/form-data; boundary=/);
+  expect(submittedBody).toContain('name="schemaKey"'); expect(submittedBody).toContain(importTask.schemaKey);
+  expect(submittedBody).toContain('name="worksheetKey"'); expect(submittedBody).toContain('positions');
+  expect(submittedBody).toContain('filename="positions.xlsx"'); expect(submittedBody).toContain('controlled-upload');
+});

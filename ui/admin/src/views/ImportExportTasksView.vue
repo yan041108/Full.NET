@@ -21,6 +21,7 @@ import ArtTableActionGroup from '../framework/art-design/components/ArtTableActi
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
+import ImportTaskCreateDialog from '../components/ImportTaskCreateDialog.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
@@ -47,9 +48,10 @@ const pageSize = ref(20);
 const total = ref(0);
 const drawerVisible = ref(false);
 const selectedTask = ref<ImportExportTaskDetailResponse>();
+const createOpen = ref(false);
 const scope = useAuthorizedViewScope(session, () => {
   items.value = []; selectedTask.value = undefined; problem.value = undefined; drawerVisible.value = false;
-  page.value = 1; total.value = 0; loading.value = false; detailLoading.value = false; actionLoading.value = false;
+  page.value = 1; total.value = 0; createOpen.value = false; loading.value = false; detailLoading.value = false; actionLoading.value = false;
 }, load);
 let listRequest: ReturnType<typeof scope.begin>;
 let detailRequest: ReturnType<typeof scope.begin>;
@@ -79,6 +81,10 @@ watchLoading(loading);
 const canCreate = () => session.can('import_export.import_tasks.create');
 const canRead = () => session.can('import_export.import_tasks.read');
 const canExecute = () => session.can('import_export.import_tasks.execute');
+function onCreated(task: ImportExportTaskDetailResponse): void {
+  if (!canRead()) return;
+  cancelDetail(); selectedTask.value = task; drawerVisible.value = true; void load();
+}
 
 function statusTagType(statusKey: string): 'success' | 'warning' | 'danger' | 'info' {
   if (statusKey === 'preview_succeeded' || statusKey === 'execution_succeeded') {
@@ -242,15 +248,18 @@ function toProblem(error: unknown): FullNetProblemDetails {
         >
           <template #left>
             <PermissionGate code="import_export.import_tasks.create">
+              <PermissionGate code="import_export.static_schemas.read">
               <el-button
+                v-if="session.currentUser?.scope === 'tenant' && session.currentUser.tenantId"
                 type="primary"
                 plain
                 :icon="Plus"
                 data-testid="import-export-task-create"
-                disabled
+                @click="createOpen = true"
               >
                 {{ t('importExportTasks.addTask') }}
               </el-button>
+              </PermissionGate>
             </PermissionGate>
           </template>
         </ArtTableHeader>
@@ -315,6 +324,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
       </div>
     </el-card>
 
+    <ImportTaskCreateDialog v-model:open="createOpen" @created="onCreated" />
     <el-drawer
       v-model="drawerVisible"
       :title="t('importExportTasks.detailTitle')"
@@ -342,6 +352,14 @@ function toProblem(error: unknown): FullNetProblemDetails {
               {{ selectedTask.errorCode ?? '-' }}
             </el-descriptions-item>
           </el-descriptions>
+          <el-table v-if="selectedTask.previewRows.length" :data="selectedTask.previewRows" data-testid="import-task-preview-rows">
+            <el-table-column prop="lineNumber" :label="t('users.importResultLine')" width="80" />
+            <el-table-column :label="t('importExportTasks.status')" width="100">
+              <template #default="{ row }">{{ row.isValid ? t('importExportTasks.status.preview_succeeded') : t('importExportTasks.status.preview_failed') }}</template>
+            </el-table-column>
+            <el-table-column prop="errorCode" :label="t('importExportTasks.errorCode')" min-width="150" />
+            <el-table-column prop="message" :label="t('users.importResultMessage')" min-width="150" />
+          </el-table>
 
           <div class="art-drawer-actions">
             <PermissionGate code="import_export.import_tasks.execute">

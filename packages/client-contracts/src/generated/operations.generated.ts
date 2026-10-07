@@ -5992,7 +5992,9 @@ export async function identityValidateModuleSelection(
 }
 
 export interface ImportExportCreateImportTaskParameters {
-
+  readonly file: IFormFile;
+  readonly schemaKey: string;
+  readonly worksheetKey: string;
 }
 
 export async function importExportCreateImportTask(
@@ -6003,6 +6005,9 @@ export async function importExportCreateImportTask(
 ): Promise<ImportExportTaskDetailResponse> {
   const path = `/api/v1/import-export/tasks`;
   const body = new FormData();
+  body.append('file', parameters.file);
+  body.append('schemaKey', String(parameters.schemaKey));
+  body.append('worksheetKey', String(parameters.worksheetKey));
   const init: RequestInit = { method: 'POST', body };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)

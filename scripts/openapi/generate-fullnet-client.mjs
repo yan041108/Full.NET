@@ -411,7 +411,7 @@ function collectOperations(document) {
           required: parameter.required === true,
           schema: parameter.schema
         })),
-        request: describeRequest(operation.requestBody),
+        request: describeRequest(operation.requestBody, document.components?.schemas ?? {}),
         response
       });
     }
@@ -419,7 +419,7 @@ function collectOperations(document) {
   return operations.sort((left, right) => compareText(left.operationId, right.operationId));
 }
 
-function describeRequest(requestBody) {
+function describeRequest(requestBody, schemas) {
   if (!requestBody) {
     return { kind: 'none' };
   }
@@ -435,10 +435,32 @@ function describeRequest(requestBody) {
     return {
       kind: 'multipart',
       required: requestBody.required === true,
-      schema: content['multipart/form-data'].schema
+      schema: flattenMultipartSchema(content['multipart/form-data'].schema, schemas)
     };
   }
   throw new Error('客户端生成器遇到不支持的 requestBody media type。');
+}
+
+// ASP.NET 多个 FromForm 参数使用 allOf 描述；先展开对象字段，避免生成空上传或丢失必填项。
+function flattenMultipartSchema(schema, schemas, ancestors = new Set()) {
+  if (isReference(schema)) {
+    const name = referenceName(schema);
+    if (ancestors.has(name) || !schemas[name]) throw new Error('multipart Schema 引用缺失或循环。');
+    return flattenMultipartSchema(schemas[name], schemas, new Set([...ancestors, name]));
+  }
+  if (!schema || schema.oneOf || schema.anyOf) throw new Error('multipart Schema 必须是明确的对象字段。');
+  const properties = { ...schema.properties }; const required = new Set(schema.required ?? []);
+  for (const child of schema.allOf ?? []) {
+    const expanded = flattenMultipartSchema(child, schemas, ancestors);
+    for (const [name, property] of Object.entries(expanded.properties)) {
+      if (properties[name] && JSON.stringify(properties[name]) !== JSON.stringify(property)) {
+        throw new Error(`multipart 字段定义冲突：${name}`);
+      }
+      properties[name] = property;
+    }
+    for (const name of expanded.required) required.add(name);
+  }
+  return { type: 'object', properties, required: [...required] };
 }
 
 function describeResponse(responses, context = {}) {

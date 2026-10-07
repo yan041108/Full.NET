@@ -6,6 +6,7 @@ import * as api from '../api/import-export-tasks';
 import { createOutputSession, deferred } from '../test/data-output-fixtures';
 import { importTask } from '../test/task-lifecycle-fixtures';
 vi.mock('../api/import-export-tasks', () => ({
+  listStaticImportSchemas: vi.fn(), createImportExportTask: vi.fn(), downloadStaticImportTemplate: vi.fn(),
   listImportExportTasks: vi.fn(), getImportExportTask: vi.fn(), executeImportExportTask: vi.fn(),
   resumeImportExportTask: vi.fn(), retryImportExportTask: vi.fn(), downloadImportExportTaskErrorReceipt: vi.fn()
 }));

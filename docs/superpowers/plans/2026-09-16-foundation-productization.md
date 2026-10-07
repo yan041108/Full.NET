@@ -1074,6 +1074,18 @@ Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约
 
 源码/测试摘要和原始结果保留在 `.tmp/import-preview-*`。真实 Worker 恢复、结果文件再次授权及独立生成应用业务样板仍待办，C02/F11 不关闭；`Capacity-not-verified` 保持。推送开发分支并更新 Draft PR，合并与发布另行约定。
 
+**进展（2026-10-07，导入创建、模板及逐行预校验功能批量接通）：**
+
+基线 `91109e519bf6e09ed9eccd7418a7addab65fc764`，沿用独立临时 checkout，快照 `c02-import-create-template-preview-20261007`。启用原先一直禁用的提交导入入口：按静态目录选择 Schema/工作表、显示列、下载模板、上传非空且不超过 1MiB 的 xlsx 创建预校验任务，并展示返回的逐行有效状态、错误码和说明。执行保持独立精确权限操作，不自动执行业务写入。入口同时要求 Create、StaticSchemasRead 和可信 tenant 上下文，目录再按 Schema scope 与业务 requiredPermission 过滤；关闭/撤权/切换上下文取消请求及清理文件，创建与模板下载互斥，失败可重试，模板 URL 在触发异常时仍释放。新增表单标签及反馈中英文成对；工作簿结构、解压和最终资源/权限预算仍由服务端验证。
+
+新增入口六项回归先失败，再完成实现及九项安全/重试验证。浏览器首轮 **7/8** 揭示真实通用缺陷：multipart 请求字段位于 OpenAPI `allOf`，生成器只读直接 properties，导入 SDK 发出了空 FormData。用真实快照及根引用建立失败回归后，在生成器请求描述阶段展开 multipart 对象、合并必填项，拒绝引用循环或冲突；正式执行 `pnpm openapi:client:generate`，产物仅补齐导入创建三个参数及三次 append。保持二进制 Blob 与浏览器自动 Content-Type/boundary，不修改 OpenAPI 快照、后端或 SQL；独立只读复核未发现重要问题。
+
+- 最终相关 Vue/API/反馈/语言/权限/导航 **25 文件 89/89**：`pnpm --filter @fullnet/admin exec vitest run <相关测试文件> --maxWorkers=3`；共享契约完整 `pnpm --filter @fullnet/client-contracts test` **236/236**，`pnpm --filter @fullnet/admin-i18n test` **8/8**。
+- `pnpm test:openapi` **202/202**，`pnpm test:naming` **33/33**，`pnpm test:governance` **57/57**；Vue 含 vue-tsc 的生产构建、共享契约构建及 `pnpm test:bundle-budgets` 通过。 包体首轮 minified 1,437,613 bytes 超过原 5% 门槛；复用既有通用错误、导入字段和状态文案后，最终首屏静态 JS 为 **1,436,423 bytes**、gzip **379,561 bytes**（相对原基线 +4.9977%/+2.94%），减少 1,190 bytes，预算配置未修改。构建在 Windows 本地 Node 24.12.0 执行；仅证明包体符合原门槛，不声称加载延迟或吞吐提升。最终文案收口后额外复测创建 **9/9** 与 i18n **8/8**。
+- 真实 Edge + 受控 HTTP 完整 **8/8**：`pnpm --filter @fullnet/admin-parity-e2e exec playwright test --config ../../../.tmp/playwright-output-client.config.mjs`。新增真实文件选择与 multipart 上传，核对三个表单字段、文件名及字节，实际下载模板并展示预校验行及独立执行入口；原七例继续通过。首轮真实空上传失败保留；受控工作簿字节不证明后端已解析实际 Excel或 Worker 完成导入。
+
+正式 merge 影响规划 `pnpm test:integration:affected:plan -- --snapshot c02-import-create-template-preview-20261007 --phase merge` 为 **none**。本批未重跑双库或 Linux Native；端口 25413 结束后无监听，最终源码/测试摘要及原始结果在 `.tmp/import-create-*`。真实 Worker、独立生成应用业务样板和 F11 其余项继续待办，C02/F11 不整体关闭；`Capacity-not-verified` 保持。开发分支交付，PR 保持 Draft，不合并、不发布。
+
 ### F12：订阅、试用与支付驱动权益
 
 **依赖：** F06、F08、现有 Payments 安全修复/渠道验收。**提供：** Tenancy 订阅生命周期；Payments 仍拥有资金事实。
