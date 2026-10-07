@@ -18,7 +18,7 @@ internal static class ImportExportTaskAssertions
     public static async Task VerifyImportTaskPreviewContractAsync(
         FullNetApiFactory factory,
         CancellationToken cancellationToken = default,
-        Func<ImportExportTaskDetailResponse, string, Task<ImportExportTaskDetailResponse>>? executeQueued = null)
+        Func<ImportExportTaskDetailResponse, string, PositionImportBindings, Task<ImportExportTaskDetailResponse>>? executeQueued = null)
     {
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
@@ -45,7 +45,19 @@ internal static class ImportExportTaskAssertions
         Assert.AreEqual(HttpStatusCode.OK, templateResponse.StatusCode);
         var templateBytes = await templateResponse.Content.ReadAsByteArrayAsync(cancellationToken);
         Assert.IsTrue(templateBytes.Length > 0);
-        if (executeQueued is not null) templateBytes = ImportExportWorkerAssertions.FillPositionTemplate(templateBytes);
+        PositionImportBindings? bindings = null;
+        if (executeQueued is not null)
+        {
+            // 非空机构与职级编码才能验证超级管理员的附加能力快照，空字段会掩盖误拒绝。
+            var unitCode = $"worker-unit-{Guid.NewGuid():N}";
+            var levelCode = $"worker-level-{Guid.NewGuid():N}";
+            var unitId = await CreateReferenceAsync(client, tenantToken, "/api/v1/organization/units",
+                new CreateOrganizationUnitRequest(null, unitCode, "Worker import unit", 10), cancellationToken);
+            var levelId = await CreateReferenceAsync(client, tenantToken, "/api/v1/organization/position-levels",
+                new CreateOrganizationPositionLevelRequest(levelCode, "Worker import level", 10), cancellationToken);
+            bindings = new(unitId, unitCode, levelId, levelCode);
+            templateBytes = ImportExportWorkerAssertions.FillPositionTemplate(templateBytes, unitCode, levelCode);
+        }
 
         using var createContent = new MultipartFormDataContent
         {
@@ -94,7 +106,7 @@ internal static class ImportExportTaskAssertions
         if (executeQueued is not null)
         {
             Assert.AreEqual(ImportExportTaskStatusKeys.Queued, executed.StatusKey);
-            executed = await executeQueued(executed, tenantToken);
+            executed = await executeQueued(executed, tenantToken, bindings!);
         }
         Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionSucceeded, executed.StatusKey);
         Assert.AreEqual(created.ValidRowCount, executed.SucceededRowCount);
@@ -150,4 +162,17 @@ internal static class ImportExportTaskAssertions
         Assert.IsNotNull(entered);
         return entered.AccessToken;
     }
+    internal sealed record PositionImportBindings(Guid UnitId, string UnitCode, Guid LevelId, string LevelCode);
+
+    private static async Task<Guid> CreateReferenceAsync(HttpClient client, string token, string path,
+        object body, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken));
+        using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        return json.RootElement.GetProperty("id").GetGuid();
+    }
+
 }

@@ -11,6 +11,7 @@ using Full.NET.IntegrationTests.Api;
 using Full.NET.IntegrationTests.EnterpriseRequest;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.ImportExport.Contracts;
+using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.ImportExport.Features.ManageImportTasks;
 using Full.NET.Modules.ImportExport.Persistence;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,7 +27,7 @@ internal static class ImportExportWorkerAssertions
     {
         var settings = Settings();
         using var api = new FullNetApiFactory(provider, connectionString, settings);
-        await ImportExportTaskAssertions.VerifyImportTaskPreviewContractAsync(api, executeQueued: async (task, token) =>
+        await ImportExportTaskAssertions.VerifyImportTaskPreviewContractAsync(api, executeQueued: async (task, token, bindings) =>
         {
             Assert.IsTrue(task.ValidRowCount > 0);
             using var worker = await BuildWorkerAsync(api, settings);
@@ -40,6 +41,11 @@ internal static class ImportExportWorkerAssertions
                 using var request = Request(HttpMethod.Get, $"/api/v1/organization/positions/{state.Rows.Single().EntityId:D}", token);
                 using var response = await client.SendAsync(request);
                 Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+                var position = (await response.Content.ReadFromJsonAsync<OrganizationPositionResponse>())!;
+                Assert.AreEqual(bindings.UnitId, position.UnitId); Assert.AreEqual(bindings.UnitCode, position.UnitCode);
+                Assert.AreEqual(bindings.LevelId, position.PositionLevelId); Assert.AreEqual(bindings.LevelCode, position.PositionLevelCode);
+                Assert.IsTrue(state.CapabilityFlags![OrganizationPositionManagementPermissions.AssignUnit]);
+                Assert.IsTrue(state.CapabilityFlags[OrganizationPositionManagementPermissions.AssignPositionLevel]);
                 return completed;
             }
             finally { await worker.StopAsync(); }
@@ -164,7 +170,7 @@ internal static class ImportExportWorkerAssertions
     };
 
     /// <summary>正式下载模板默认只有表头；后台业务验收必须填入真实岗位行，不能把零行执行作为写入成功。</summary>
-    internal static byte[] FillPositionTemplate(byte[] template)
+    internal static byte[] FillPositionTemplate(byte[] template, string unitCode = "", string levelCode = "")
     {
         using var workbook = new MemoryStream(); workbook.Write(template);
         using (var archive = new ZipArchive(workbook, ZipArchiveMode.Update, leaveOpen: true))
@@ -172,7 +178,7 @@ internal static class ImportExportWorkerAssertions
             var entry = archive.GetEntry("xl/worksheets/sheet1.xml")!;
             XDocument document; using (var input = entry.Open()) document = XDocument.Load(input);
             XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-            var values = new[] { $"worker-{Guid.NewGuid():N}", "Worker position", "10", "", "" };
+            var values = new[] { $"worker-{Guid.NewGuid():N}", "Worker position", "10", unitCode, levelCode };
             document.Root!.Element(ns + "sheetData")!.Add(new XElement(ns + "row", new XAttribute("r", 2),
                 values.Select((value, index) => new XElement(ns + "c", new XAttribute("r", $"{(char)('A' + index)}2"),
                     new XAttribute("t", "inlineStr"), new XElement(ns + "is", new XElement(ns + "t", value))))));

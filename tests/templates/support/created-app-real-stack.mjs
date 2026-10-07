@@ -48,7 +48,7 @@ export function shouldSkipRealStack() {
   return process.env.CI !== 'true' && process.env.CI !== '1';
 }
 
-async function startDatabaseContainer(provider) {
+export async function startDatabaseContainer(provider) {
   if (provider === 'mysql') {
     const mysqlImage = process.env.CI ? 'mysql:8.4' : process.env.FULLNET_TEMPLATE_TEST_MYSQL_IMAGE ?? 'mysql:8.4';
     const container = await new GenericContainer(mysqlImage)
@@ -82,7 +82,7 @@ async function startDatabaseContainer(provider) {
   return { container, connectionString, databaseProvider: 'SqlServer' };
 }
 
-async function startRedisContainer() {
+export async function startRedisContainer() {
   // 本地 Docker Hub 不可用时可使用已有镜像；CI 始终验证固定版本。
   const redisImage = process.env.CI ? 'redis:7.4-alpine' : process.env.FULLNET_TEMPLATE_TEST_REDIS_IMAGE ?? 'redis:7.4-alpine';
   const container = await new GenericContainer(redisImage)
@@ -95,7 +95,7 @@ async function startRedisContainer() {
   };
 }
 
-function runDotnet(args, cwd, env, timeoutMs = 300_000, logPath) {
+export function runDotnet(args, cwd, env, timeoutMs = 300_000, logPath) {
   const result = spawnSync('dotnet', args, {
     cwd,
     encoding: 'utf8',
@@ -119,7 +119,7 @@ function runOutboxProbe(project, appRoot, env, command, ...argumentsForProbe) {
   return JSON.parse(marker.slice('OUTBOX_PROBE '.length));
 }
 
-function buildSharedEnv(connectionString, databaseProvider, redisConnectionString) {
+export function buildSharedEnv(connectionString, databaseProvider, redisConnectionString) {
   return {
     Database__Provider: databaseProvider,
     Database__ConnectionString: connectionString,
