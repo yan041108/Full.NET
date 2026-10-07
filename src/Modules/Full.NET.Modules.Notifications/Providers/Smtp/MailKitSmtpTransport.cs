@@ -97,6 +97,14 @@ internal interface ISmtpMailTransport
 /// <summary>使用 MailKit 建立一次显式 TLS 连接；不启用协议日志或证书绕过。</summary>
 internal sealed class MailKitSmtpTransport : ISmtpMailTransport
 {
+    private readonly Func<SmtpClient> _createClient;
+
+    /// <summary>生产连接沿用 MailKit 默认的证书与主机名校验。</summary>
+    public MailKitSmtpTransport() : this(static () => new SmtpClient()) { }
+
+    /// <summary>仅供程序集内测试注入局部证书信任；不新增生产配置或修改全局信任。</summary>
+    internal MailKitSmtpTransport(Func<SmtpClient> createClient) => _createClient = createClient;
+
     public async ValueTask<string> SendAsync(
         SmtpSendCommand command,
         CancellationToken cancellationToken)
@@ -112,7 +120,7 @@ internal sealed class MailKitSmtpTransport : ISmtpMailTransport
         message.From.Add(new MailboxAddress(command.FromDisplayName ?? string.Empty, command.FromAddress));
         message.To.Add(MailboxAddress.Parse(command.RecipientAddress));
 
-        using var client = new SmtpClient();
+        using var client = _createClient();
         var stage = SmtpTransportStage.Connect;
         try
         {

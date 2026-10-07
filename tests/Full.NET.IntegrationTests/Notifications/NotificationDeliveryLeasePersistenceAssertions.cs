@@ -15,6 +15,46 @@ namespace Full.NET.IntegrationTests.Notifications;
 /// <summary>使用生产投递领取 SQL 验证双 Worker 争抢、过期重领以及过期后旧代次不能完成或续租。</summary>
 internal static class NotificationDeliveryLeasePersistenceAssertions
 {
+    /// <summary>未安排下一次投递的 unknown 必须停放，人工重试也不能抢走仍有效的外发租约。</summary>
+    public static async Task Unknown_delivery_requires_reconciliation_async(DatabaseProvider provider, bool operatorRetry)
+    {
+        var (first, second, deliveryId) = await SeedAcceptedDeliveryAsync(provider).ConfigureAwait(false);
+        await using var connection = first;
+        await using var other = second;
+        var now = DateTime.UtcNow;
+        var owned = await ClaimAsync(provider, connection, "smtp-worker", now).ConfigureAwait(false);
+        Assert.IsNotNull(owned);
+        var parameters = new { Id = deliveryId, Revision = owned.Revision, owned.LeaseGeneration, owned.LeaseOwnerKey, Now = now };
+        Assert.AreEqual(0, await connection.ExecuteAsync(NotificationPlatformSql.MarkSmtpDeliveryInFlight.Text,
+            new { Id = deliveryId, Revision = owned.Revision, owned.LeaseGeneration, LeaseOwnerKey = "stale-worker", Now = now }).ConfigureAwait(false));
+        Assert.AreEqual(1, await connection.ExecuteAsync(NotificationPlatformSql.MarkSmtpDeliveryInFlight.Text, parameters).ConfigureAwait(false));
+        Assert.AreEqual(0, await connection.ExecuteAsync(NotificationPlatformSql.MarkSmtpDeliveryInFlight.Text, parameters).ConfigureAwait(false));
+        var revision = owned.Revision + 1;
+        Assert.AreEqual(0, await connection.ExecuteAsync(NotificationPlatformSql.CompleteDelivery.Text,
+            new { Id = deliveryId, owned.Revision, owned.LeaseGeneration, owned.LeaseOwnerKey, Now = now,
+                StatusKey = "sent", NextAttemptAtUtc = (DateTime?)null }).ConfigureAwait(false));
+        if (operatorRetry)
+        {
+            Assert.AreEqual(0, await connection.ExecuteAsync(NotificationPlatformSql.RetryDelivery.Text,
+                new { Id = deliveryId, Revision = revision, NextAttemptAtUtc = now, Now = now }).ConfigureAwait(false));
+            await connection.ExecuteAsync(NotificationPlatformSql.ExpireDeliveryLease.Text,
+                new { Id = deliveryId, ExpiredAt = now.AddSeconds(-1) }).ConfigureAwait(false);
+            Assert.AreEqual(1, await connection.ExecuteAsync(NotificationPlatformSql.RetryDelivery.Text,
+                new { Id = deliveryId, Revision = revision, NextAttemptAtUtc = now, Now = now }).ConfigureAwait(false));
+            Assert.IsNotNull(await ClaimAsync(provider, other, "operator-retry", now.AddSeconds(1)).ConfigureAwait(false));
+        }
+        else
+        {
+            await connection.ExecuteAsync(NotificationPlatformSql.ExpireDeliveryLease.Text,
+                new { Id = deliveryId, ExpiredAt = now.AddSeconds(-1) }).ConfigureAwait(false);
+            Assert.IsNull(await ClaimAsync(provider, other, "automatic-retry", now.AddSeconds(1)).ConfigureAwait(false));
+            // 其他提供程序显式安排的 unknown 退避仍可领取，避免改变既有有界重试语义。
+            await connection.ExecuteAsync("UPDATE fn_notifications_delivery SET NextAttemptAtUtc=@Now WHERE Id=@Id",
+                new { Id = deliveryId, Now = now }).ConfigureAwait(false);
+            Assert.IsNotNull(await ClaimAsync(provider, other, "scheduled-retry", now.AddSeconds(1)).ConfigureAwait(false));
+        }
+    }
+
     /// <summary>两条连接同时领取同一 accepted 投递时，只能有一个写入租约世代。</summary>
     /// <param name="provider">正式支持的数据库提供程序。</param>
     public static async Task Concurrent_claim_admits_only_one_owner_async(DatabaseProvider provider)

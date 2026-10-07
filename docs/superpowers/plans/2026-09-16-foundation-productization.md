@@ -780,6 +780,22 @@ Windows10.0.19045 x64/i7-12700H/63.75GiB/SDK10.0.401/Node24.12.0/pnpm10.26.0/Doc
 
 本批验证了投递预检、诊断去敏和真实TLS拒绝边界；持久化失败/未知送达与对账、受控邮箱成功收件并消费及完整耗时防枚举仍待办。没有执行当前独立生成应用全链路、全量Unit/Integration或本地Linux原生运行；F03六项、F04、整体AOT/Provider状态与Capacity-not-verified保持，PR仍Draft，未合并、未发布。基线f1950727的[主CI](https://github.com/yan041108/Full.NET/actions/runs/37535692003)、[API Native AOT](https://github.com/yan041108/Full.NET/actions/runs/37535691992)、[Worker Native AOT](https://github.com/yan041108/Full.NET/actions/runs/37535691988)均已completed/success（.tmp/f03-delivery-parent-actions.json），仅证明基线；本批推送后按自身SHA单独核对。
 
+#### 2026-10-07：SMTP 未知结果停放、有效租约保护与真实协议验收
+
+基线85c26e17，沿用隔离临时工作区和codex/foundation-acceptance-20261003，任务快照f03-smtp-reliability-batch-20261007。本批同时修复SMTP发送阶段断线分类、Worker外发前持久化停放、双库自动领取与人工重试的租约保护，并新增25个测试场景（11 Unit、14 Integration）。未改变公共DTO、表结构或迁移。
+
+真实DATA阶段IO/Socket/协议断线归unknown；明确451/550拒收继续保留Transient/Permanent。Worker在外部调用前独立提交带owner/generation/revision/未过期条件的unknown标记，清空下一次执行时间并更新本地revision。SMTP未知结果、内部超时、宿主取消或崩溃保留停放，不自动重发。SQL Server/MySQL仅允许已显式安排时间的unknown被自动领取，人工重试不能抢占有效租约；已知瞬时失败及其他提供程序的有界重试兼容。标记等待也消耗租约，外发前检查实际剩余时间，超时限于剩余预算80%；异常日志仅保留类型。人工unknown重试仍须先核对外部结果，SMTP Message-ID不是服务端幂等承诺，不能据此保证恰好一次。
+
+有效RED证据：SMTP分类3项中发送阶段失败1、控制通过2；SQL Server领取/人工重试2项均失败，分别实际重领unknown、更新有效租约行；租约预算188项中187通过，marker_expired唯一失败（预期外发0、实际1）。测试代理内部泛型集合与参数袋类型错误的两轮夹具失败均排除，原始日志保留，不冒充行为RED。
+
+受控本机SMTP在两种正式TLS模式分别覆盖接受、DATA确认丢失、接受后QUIT断线、451明确临时拒收、535认证拒绝，共10项；实际验证认证、收件人、标题、正文和Message-ID。测试专用内部client工厂使用局部CustomRootTrust、证书链与主机名校验及叶证书指纹，不安装根证书，不增加生产信任配置，默认生产工厂仍完整校验证书。既有不受信任证书拒绝2项继续真实验收。双库新4项同时验证发送前CAS、陈旧owner/revision拒绝、未知结果停放、有效租约下人工重试拒绝，以及过期后的显式重试和其他提供程序已安排unknown的兼容领取。
+
+最终冻结11源码/矩阵文件验收：pnpm test:dotnet:unit -- --filter FullyQualifiedName~Full.NET.UnitTests.Notifications. --minimum-expected-tests 189 为189/189；pnpm test:dotnet:compatibility 为12/12；pnpm test:dotnet:architecture -- --selection api-native-aot 为73/73；pnpm test:aot:analyzers exit0。首轮切片编译失败仅涉及新Integration测试的MIME空值守卫，修正后其余10文件摘要不变，按§11.5保留前四项有效检查，只重跑切片。pnpm test:slice -- --snapshot f03-smtp-reliability-batch-20261007 为30/30、零跳过、exit0，包含双库与真实SMTP；TRX的30唯一UID与当前DLL正式过滤器发现完全相等，源码与四程序集SHA核对一致。工具66/66、治理57/57；Unit全量发现5561、Integration完整互斥分片发现1148，无遗漏/重复，只是发现，未执行全量。独立只读审查发现的STARTTLS夹具拼写与标记等待预算问题均修复并复核关闭，无剩余阻断。
+
+环境Windows10.0.19045 x64/i7-12700H/63.75GiB、SDK10.0.401、Node24.12.0、pnpm10.26.0、Docker29.6.2 Linux。DOTNET_PROCESSOR_COUNT=2、Integration Workers=2、.NET/Docker套件串行、容器复用关闭。修正夹具后的首次发现遭遇Windows页面文件不足0x800705AF，宿主提交量97,378,181,120/99,540,348,928字节；只对本轮切片和发现的每个.NET进程采用1GiB GC堆预算DOTNET_GCHeapHardLimit=0x40000000（[Microsoft配置说明](https://learn.microsoft.com/en-us/dotnet/core/runtime-config/garbage-collector)），不修改机器或产品配置、不终止其他进程。该发现失败保留exit1，不能计为行为RED或通过。证据保存在.tmp/f03-smtp-final-source.json、-source-before-fixture-fix.json、-final-verify.json、-first-verify.json、-final-current.json、-final-evidence.json、-final-accepted.trx、-runtime-budget.json及-red-unit.log、-sql-red.log、-budget-red.log、-slice-compile-failed.log、-discovery-failed-verify.json、-discovery-commit-failed.log，保留实际命令、退出码、启动时间、日志与程序集摘要。
+
+本批只闭合Notifications投递可靠性与受控协议场景；Identity挑战独立持久化投递日记/对账、受控收件后通过公开流程一次消费、完整耗时防枚举仍待办。未执行本批独立生成应用全链路、全量Unit/Integration、本地Linux原生SMTP运行或容量实测；F03六项、F04、整体AOT/Provider状态及Capacity-not-verified保持，PR仍Draft，未合并、未发布。基线85c26e17的[主CI](https://github.com/yan041108/Full.NET/actions/runs/37544030933)、[API Native AOT](https://github.com/yan041108/Full.NET/actions/runs/37544030943)、[Worker Native AOT](https://github.com/yan041108/Full.NET/actions/runs/37544030966)均已completed/success（.tmp/f03-smtp-parent-actions.json），仅证明基线；本批推送后按自身SHA单独核对。
+
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。

@@ -486,7 +486,7 @@ internal static class NotificationPlatformSql
         (
             SELECT TOP (@BatchSize) *
             FROM fn_notifications_delivery WITH (UPDLOCK, READPAST, ROWLOCK)
-            WHERE StatusKey IN ('accepted', 'unknown')
+            WHERE (StatusKey = 'accepted' OR (StatusKey = 'unknown' AND NextAttemptAtUtc IS NOT NULL))
               AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now)
               AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
             ORDER BY NextAttemptAtUtc, CreatedAtUtc, Id
@@ -510,7 +510,7 @@ internal static class NotificationPlatformSql
         """
         SELECT Id
         FROM fn_notifications_delivery
-        WHERE StatusKey IN ('accepted', 'unknown')
+        WHERE (StatusKey = 'accepted' OR (StatusKey = 'unknown' AND NextAttemptAtUtc IS NOT NULL))
           AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now)
           AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
         ORDER BY NextAttemptAtUtc, CreatedAtUtc, Id
@@ -571,6 +571,22 @@ internal static class NotificationPlatformSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>SMTP 外发前先持久化停放状态；进程中断或确认丢失后禁止无依据自动重发。</summary>
+    public static readonly SqlStatement MarkSmtpDeliveryInFlight = new(
+        "notifications.platform.delivery.mark_smtp_inflight",
+        """
+        UPDATE fn_notifications_delivery
+        SET StatusKey = 'unknown', NextAttemptAtUtc = NULL,
+            Revision = Revision + 1, UpdatedAtUtc = @Now
+        WHERE Id = @Id
+          AND StatusKey IN ('accepted', 'unknown')
+          AND LeaseOwnerKey = @LeaseOwnerKey
+          AND LeaseGeneration = @LeaseGeneration
+          AND Revision = @Revision
+          AND LeaseExpiresAtUtc > @Now
+        """,
+        SqlDataScope.Global);
+
     /// <summary>只有持有有效租约的执行者可以写入本轮结果。</summary>
     public static readonly SqlStatement CompleteDelivery = new(
         "notifications.platform.delivery.complete",
@@ -603,6 +619,7 @@ internal static class NotificationPlatformSql
         WHERE Id = @Id
           AND Revision = @Revision
           AND StatusKey IN ('failed', 'dead_lettered', 'unknown')
+          AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
         """,
         SqlDataScope.Global);
 

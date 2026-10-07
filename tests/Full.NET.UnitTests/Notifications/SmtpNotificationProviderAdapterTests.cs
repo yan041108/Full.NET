@@ -3,12 +3,51 @@ using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Providers;
 using Full.NET.Modules.Notifications.Providers.Smtp;
+using MailKit.Net.Smtp;
 
 namespace Full.NET.UnitTests.Notifications;
 
 [TestClass]
 public sealed class SmtpNotificationProviderAdapterTests
 {
+    /// <summary>发送期间丢失确认与明确拒绝必须分开，不能把可能已被受理的邮件当普通瞬时失败。</summary>
+    [TestMethod]
+    [DataRow((int)SmtpTransportStage.Connect)]
+    [DataRow((int)SmtpTransportStage.Authenticate)]
+    [DataRow((int)SmtpTransportStage.Send)]
+    public async Task Smtp_unknown_outcome_preserves_stage_and_explicit_rejection(int stageValue)
+    {
+        var stage = (SmtpTransportStage)stageValue;
+        var failures = new[]
+        {
+            new SmtpTransportException(SmtpTransportFailureKind.Transient, stage, new IOException("boundary-private-response")),
+            new SmtpTransportException(MailKitSmtpTransport.ClassifyProtocolFailure(stage), stage, new SmtpProtocolException("boundary-private-response")),
+            new SmtpTransportException(SmtpTransportFailureKind.Transient, stage,
+                new SmtpCommandException(SmtpErrorCode.MessageNotAccepted, (SmtpStatusCode)451, "boundary-private-response")),
+            new SmtpTransportException(SmtpTransportFailureKind.Permanent, stage,
+                new SmtpCommandException(SmtpErrorCode.MessageNotAccepted, (SmtpStatusCode)550, "boundary-private-response")),
+        };
+        for (var index = 0; index < failures.Length; index++)
+        {
+            var adapter = new SmtpNotificationProviderAdapter(new StubSecretResolver("authorization-code"), new FaultSmtpTransport(failures[index]));
+            var result = await adapter.SendAsync(CreateRequest(), CancellationToken.None);
+            var expected = index == 3 || (index == 1 && stage == SmtpTransportStage.Authenticate)
+                ? NotificationDeliveryRetry.Permanent
+                : index < 2 && stage == SmtpTransportStage.Send
+                    ? NotificationDeliveryRetry.Unknown
+                    : NotificationDeliveryRetry.Transient;
+            Assert.IsFalse(result.Accepted);
+            Assert.AreEqual(expected, result.ResultCategory, $"阶段 {stage}，故障类型 {failures[index].SourceExceptionType}");
+            Assert.IsNull(result.ProviderMessageId);
+            Assert.IsFalse(result.ToString().Contains("boundary-private", StringComparison.Ordinal));
+        }
+    }
+
+    private sealed class FaultSmtpTransport(Exception failure) : ISmtpMailTransport
+    {
+        public ValueTask<string> SendAsync(SmtpSendCommand command, CancellationToken cancellationToken) => ValueTask.FromException<string>(failure);
+    }
+
     private const string ValidConfig =
         "{\"fromAddress\":\"sender@example.com\",\"fromDisplayName\":\"Full.NET\",\"host\":\"smtp.example.com\",\"port\":465,\"secureSocketMode\":\"ssl_on_connect\",\"username\":\"sender@example.com\"}";
 

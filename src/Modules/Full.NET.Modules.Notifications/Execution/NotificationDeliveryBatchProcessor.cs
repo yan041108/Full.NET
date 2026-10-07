@@ -167,8 +167,23 @@ internal sealed class NotificationDeliveryBatchProcessor(
 
                 delivery = owned;
                 providerType = prepared.ProviderTypeKey;
+                if (providerType == "email.smtp")
+                {
+                    // 独立短写入必须在外部调用之前提交，确保崩溃时留下禁止自动重发的证据。
+                    var marked = await commandExecutor.ExecuteAsync(
+                        NotificationPlatformSql.MarkSmtpDeliveryInFlight,
+                        NotificationPlatformSqlParameters.Create(
+                            ("Id", delivery.Id), ("LeaseOwnerKey", delivery.LeaseOwnerKey),
+                            ("LeaseGeneration", delivery.LeaseGeneration), ("Revision", delivery.Revision),
+                            ("Now", clock.UtcNow)), cancellationToken).ConfigureAwait(false);
+                    if (marked != 1) return;
+                    delivery = delivery with { StatusKey = "unknown", NextAttemptAtUtc = null, Revision = delivery.Revision + 1 };
+                }
+                // 标记的数据库等待也消耗租约；不能在有效期已尽时开始发送或重置完整超时预算。
+                var remainingLease = delivery.LeaseExpiresAtUtc!.Value - clock.UtcNow;
+                if (remainingLease <= TimeSpan.Zero) return;
                 using var providerCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                providerCancellation.CancelAfter(TimeSpan.FromSeconds(_options.LeaseSeconds * 0.8));
+                providerCancellation.CancelAfter(TimeSpan.FromMilliseconds(remainingLease.TotalMilliseconds * 0.8));
                 var send = await prepared.Adapter.SendAsync(prepared.Request, providerCancellation.Token)
                     .ConfigureAwait(false);
                 resultCategory = NormalizeCategory(send);
@@ -182,13 +197,13 @@ internal sealed class NotificationDeliveryBatchProcessor(
         }
         catch (OperationCanceledException)
         {
-            // 本次内部超时无法证明未发送，计入 unknown 和有界退避；宿主取消由上面的分支处理。
+            // 内部超时无法证明未发送；SMTP 停放待核对，其他提供程序沿用有界退避。
             resultCategory = NotificationDeliveryRetry.Unknown;
         }
         catch (Exception exception)
         {
-            // 崩溃窗口只释放本轮调用，不提交 Attempt/终态，以便租约过期后按同一幂等键重领。
-            logger.LogWarning(exception, "Notification delivery attempt crashed before a provider result.");
+            // SMTP 已持久化停放状态；诊断只记录类型，避免原始提供程序异常泄露收件人或秘密。
+            logger.LogWarning("Notification delivery attempt crashed before a provider result. ExceptionType: {ExceptionType}", exception.GetType().Name);
             return;
         }
 
@@ -205,6 +220,11 @@ internal sealed class NotificationDeliveryBatchProcessor(
             now,
             retryAfter,
             _options);
+        if (providerType == "email.smtp" && resultCategory == NotificationDeliveryRetry.Unknown)
+        {
+            status = "unknown";
+            nextAttempt = null;
+        }
         await transaction.ExecuteAsync(
                 async token =>
                 {
