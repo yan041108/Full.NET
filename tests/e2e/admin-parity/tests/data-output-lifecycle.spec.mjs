@@ -11,12 +11,12 @@ const definition = { id, groupId: id, dataSourceId: id, definitionKey: 'fixture'
   latestPublishedVersionNumber: 1, isEnabled: true, createdAtUtc, updatedAtUtc: null, version: 1 };
 const json = (route, body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
 
-async function boot(page, componentKey, path, requiredPermission, permissions) {
+async function boot(page, componentKey, path, requiredPermission, permissions, actorScope = 'tenant') {
   await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
   await page.route('**/api/v1/**', route => route.fulfill({ status: 404 }));
   await page.route('**/api/v1/auth/refresh', route => json(route, token));
   await page.route('**/api/v1/me', route => json(route, { id, username: 'fixture', displayName: '夹具',
-    tenantId: id, actorScope: 'tenant', scope: 'tenant', isSuperAdministrator: false, passwordChangeRequired: false,
+    tenantId: actorScope === 'host' ? null : id, actorScope, scope: actorScope, isSuperAdministrator: false, passwordChangeRequired: false,
     permissions, sessionId: id, preferredLocale: 'zh-CN', profileVersion: 1 }));
   await page.route('**/api/v1/navigation', route => json(route, [{ id: componentKey, parentId: null,
     routeName: componentKey, path, componentKey, title: '数据输出', caption: '', icon: 'document', order: 10,
@@ -111,4 +111,88 @@ test('导出查看及下载不请求创建目录，真实浏览器下载保留�
   const chunks = []; for await (const chunk of stream) chunks.push(chunk);
   expect(Buffer.concat(chunks)).toEqual(bytes);
   expect(definitions).toBe(0); expect(downloads).toBe(1);
+});
+
+const importTask = { id, tenantId: id, schemaKey: 'organization.tenant_positions', schemaDisplayName: '租户职位',
+  worksheetKey: 'positions', sourceFileId: id, sourceFileName: 'positions.xlsx', statusKey: 'preview_succeeded',
+  totalRows: 1, validRowCount: 1, invalidRowCount: 0, errorCode: null, requestedByUserId: id, createdAtUtc,
+  previewCompletedAtUtc: null, processedRowCount: 0, succeededRowCount: 0, executionFailedRowCount: 0,
+  nextLineNumber: 0, executionStartedAtUtc: null, executionCompletedAtUtc: null, hasErrorReceipt: false, version: 1, previewRows: [] };
+
+test('导入执行等待时关闭抽屉，重新打开另一个任务不被旧完成覆盖', async ({ page }) => {
+  await boot(page, 'import-export-tasks', '/import-export/tasks', 'import_export.import_tasks.read',
+    ['import_export.import_tasks.read', 'import_export.import_tasks.execute']);
+  const nextTask = { ...importTask, id: nextId, schemaDisplayName: '新任务详情' };
+  await page.route('**/api/v1/import-export/tasks?*', route => json(route, { items: [importTask, nextTask], page: 1, pageSize: 20, total: 2 }));
+  await page.route(`**/api/v1/import-export/tasks/${id}`, route => json(route, importTask));
+  await page.route(`**/api/v1/import-export/tasks/${nextId}`, route => json(route, nextTask));
+  let release; let pending = false; let finished = false;
+  const waiting = new Promise(resolve => { release = resolve; });
+  await page.route(`**/api/v1/import-export/tasks/${id}/execute`, async route => {
+    pending = true; await waiting; await json(route, { ...importTask, schemaDisplayName: '迟到旧任务' }).catch(() => {});
+    finished = true;
+  });
+  await page.goto('/#/import-export/tasks');
+  await page.getByTestId('import-export-task-detail').first().click();
+  await page.getByTestId('import-export-task-execute').click();
+  await expect.poll(() => pending).toBe(true);
+  const drawer = page.getByRole('dialog', { name: '任务详情', exact: true });
+  await drawer.locator('.el-drawer__close-btn').click();
+  await expect(drawer).not.toBeVisible();
+  await page.getByTestId('import-export-task-detail').nth(1).click();
+  release();
+  await expect.poll(() => finished).toBe(true);
+  await expect(drawer).toContainText('新任务详情');
+  await expect(drawer).not.toContainText('迟到旧任务');
+  await expect(page.getByTestId('import-export-task-execute')).toBeEnabled();
+});
+
+test('导入错误回执实际下载保留派生文件名与字节', async ({ page }) => {
+  await boot(page, 'import-export-tasks', '/import-export/tasks', 'import_export.import_tasks.read',
+    ['import_export.import_tasks.read', 'import_export.import_tasks.execute']);
+  const task = { ...importTask, hasErrorReceipt: true };
+  await page.route('**/api/v1/import-export/tasks?*', route => json(route, { items: [task], page: 1, pageSize: 20, total: 1 }));
+  await page.route(`**/api/v1/import-export/tasks/${id}`, route => json(route, task));
+  const bytes = Buffer.from('controlled-error-receipt');
+  await page.route(`**/api/v1/import-export/tasks/${id}/error-receipt`, route =>
+    route.fulfill({ status: 200, contentType: 'application/octet-stream', body: bytes }));
+  await page.goto('/#/import-export/tasks'); await page.getByTestId('import-export-task-detail').click();
+  const downloading = page.waitForEvent('download'); await page.getByTestId('import-export-task-error-receipt').click();
+  const download = await downloading; expect(download.suggestedFilename()).toBe('positions-errors.xlsx');
+  const stream = await download.createReadStream(); const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  expect(Buffer.concat(chunks)).toEqual(bytes);
+});
+
+test('离开文档预览页取消待返回 PDF，不调用打开窗口', async ({ page }) => {
+  await boot(page, 'document-preview-tasks', '/document/preview-tasks', 'document.host_preview_tasks.read',
+    ['document.host_preview_tasks.read', 'import_export.import_tasks.read'], 'host');
+  await page.route('**/api/v1/navigation', route => json(route, [
+    { id: 'document-preview-tasks', parentId: null, routeName: 'document-preview-tasks', path: '/document/preview-tasks',
+      componentKey: 'document-preview-tasks', title: '文档预览', caption: '', icon: 'document', order: 10,
+      requiredPermission: 'document.host_preview_tasks.read', children: [] },
+    { id: 'import-export-tasks', parentId: null, routeName: 'import-export-tasks', path: '/import-export/tasks',
+      componentKey: 'import-export-tasks', title: '导入任务', caption: '', icon: 'document', order: 20,
+      requiredPermission: 'import_export.import_tasks.read', children: [] }
+  ]));
+  await page.route('**/api/v1/document/host/preview-tasks?*', route => json(route, { items: [{
+    id, documentItemId: id, documentTitle: 'PDF 夹具', versionId: null, sourceFileId: id, outputFileId: id,
+    statusKey: 'succeeded', providerKey: 'fixture', errorCode: null, requestedByUserId: id, createdAtUtc,
+    startedAtUtc: null, completedAtUtc: createdAtUtc, version: 1
+  }], page: 1, pageSize: 20, total: 1 }));
+  await page.route('**/api/v1/import-export/tasks?*', route => json(route, { items: [], page: 1, pageSize: 20, total: 0 }));
+  let release; let pending = false; let finished = false;
+  const waiting = new Promise(resolve => { release = resolve; });
+  await page.route(`**/api/v1/document/host/preview-tasks/${id}/content`, async route => {
+    pending = true; await waiting;
+    await route.fulfill({ status: 200, contentType: 'application/pdf', body: 'controlled-pdf' }).catch(() => {});
+    finished = true;
+  });
+  await page.goto('/#/document/preview-tasks');
+  await page.evaluate(() => { window.__pdfOpens = 0; window.open = () => { window.__pdfOpens++; return null; }; });
+  await page.getByTestId('document-preview-task-open-pdf').click(); await expect.poll(() => pending).toBe(true);
+  await page.evaluate(() => { window.location.hash = '/import-export/tasks'; });
+  await expect(page.getByRole('heading', { name: '导入任务', exact: true })).toBeVisible();
+  release(); await expect.poll(() => finished).toBe(true);
+  expect(await page.evaluate(() => window.__pdfOpens)).toBe(0);
 });

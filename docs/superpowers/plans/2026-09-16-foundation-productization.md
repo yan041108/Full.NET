@@ -1064,6 +1064,16 @@ Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约
 
 证据保留在 `.tmp/output-client-*`。真实 Worker 崩溃恢复、下载再次授权、独立生成应用业务样板及 F11 其余项继续待办，C02/F11 不凭客户端测试关闭；`Capacity-not-verified` 保持。开发分支交付，PR 保持 Draft，合并与发布另行约定。
 
+**进展（2026-10-07，C02 导入操作与文档预览联合收口，F11 整体仍待办）：**
+
+基线 `2b89b9efc14a9ddf2e42980aba1c4c49aee979b4`，独立临时 checkout，快照 `c02-import-preview-lifecycle-20261007`。导入任务列表及详情只接入最后请求；关闭抽屉、重新选择任务或授权上下文变化立即取消旧请求并清空详情。执行、检查点恢复、重试和错误回执共用互斥，分别复核任务状态与既有精确权限，捕获任务 ID 后传递取消信号，迟到完成不覆盖新详情或通知成功；回执触发异常仍释放对象 URL。文档预览列表先检查读取权限并替换旧筛选请求，创建防重复，撤权后不继续成功通知/刷新；PDF 下载返回后、实际打开前再次检查取消信号。两页复用现有授权页面范围，不新增服务端权限、契约、SQL 或任务引擎；本地取消不承诺回滚服务端写入。
+
+- 新增行为回归与 PDF 最终打开边界检查，独立只读审查未发现重要问题。联合上一批报表/打印及相关文档 API、权限门、导航，`pnpm --filter @fullnet/admin exec vitest run <相关测试文件> --maxWorkers=3`：**18 文件 66/66**，零失败/跳过，文件清单和 JSON 结果在 `.tmp/import-preview-affected-*`。本批未声称全量客户端通过。
+- `pnpm --filter @fullnet/admin-parity-e2e exec playwright test --config ../../../.tmp/playwright-output-client.config.mjs`：真实 Edge + 受控 HTTP **7/7**，包括前批四例和新增抽屉关闭/重开丢弃旧执行、错误回执文件名/字节、离开预览页不打开迟到 PDF。首轮 **6/7** 的失败来自定位器匹配三个抽屉；收窄到精确命名的任务详情后完整复验，原失败日志保留。端口 25413 独占且结束后无监听；不把受控字节当作有效 Excel/PDF 转换或真实 Worker 验收。
+- `pnpm --filter @fullnet/admin build`（含 vue-tsc）、`pnpm test:bundle-budgets`、`pnpm test:governance`（**57/57**）通过；`pnpm test:integration:affected:plan -- --snapshot c02-import-preview-lifecycle-20261007 --phase merge` 判定 **none**。本批没有新增双库、.NET 或 Linux 原生验收结论。
+
+源码/测试摘要和原始结果保留在 `.tmp/import-preview-*`。真实 Worker 恢复、结果文件再次授权及独立生成应用业务样板仍待办，C02/F11 不关闭；`Capacity-not-verified` 保持。推送开发分支并更新 Draft PR，合并与发布另行约定。
+
 ### F12：订阅、试用与支付驱动权益
 
 **依赖：** F06、F08、现有 Payments 安全修复/渠道验收。**提供：** Tenancy 订阅生命周期；Payments 仍拥有资金事实。

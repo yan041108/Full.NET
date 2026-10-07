@@ -70,6 +70,8 @@ export async function openDocumentPreviewTaskContent(
   signal?: AbortSignal
 ): Promise<void> {
   const blob = await documentHostDownloadDocumentPreviewTaskContent(http, { taskId }, signal);
+  // 下载器或 Blob 读取即使已经完成，撤权/页面离开也不能继续打开敏感内容。
+  signal?.throwIfAborted();
   openDocumentBlob(blob);
 }
 

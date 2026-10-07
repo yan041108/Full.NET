@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
-import { onMounted, reactive, ref } from 'vue';
+import { reactive, ref } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -26,6 +26,7 @@ import { useArtPagedTableInCard } from '../framework/art-design/composables/useA
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import {
   createDocumentPreviewTask,
   listDocumentPreviewTasks,
@@ -50,6 +51,12 @@ const editorForm = reactive({
   documentItemId: '',
   versionId: ''
 });
+const scope = useAuthorizedViewScope(session, () => {
+  items.value = []; total.value = 0; page.value = 1; problem.value = undefined;
+  editorOpen.value = false; filterDocumentItemId.value = ''; editorForm.documentItemId = ''; editorForm.versionId = '';
+  loading.value = false; changing.value = false;
+}, load);
+let listRequest: ReturnType<typeof scope.begin>;
 
 const {
   tableMainRef,
@@ -85,49 +92,55 @@ function statusLabel(statusKey: string): string {
 }
 
 async function load() {
+  listRequest?.cancel(); const request = scope.begin('document.host_preview_tasks.read'); listRequest = request;
+  if (!request) return;
   loading.value = true;
   problem.value = undefined;
   try {
     const documentItemId = filterDocumentItemId.value.trim() || undefined;
-    const result = await listDocumentPreviewTasks(page.value, pageSize.value, documentItemId);
+    const result = await listDocumentPreviewTasks(page.value, pageSize.value, documentItemId, request.signal);
+    if (!request.current()) return;
     items.value = result.items;
     page.value = result.page;
     pageSize.value = result.pageSize;
     total.value = result.total;
   } catch (error) {
-    problem.value = toProblem(error);
+    if (request.current()) problem.value = toProblem(error);
   } finally {
-    loading.value = false;
-    void syncTableLayout();
+    if (request.current()) { loading.value = false; void syncTableLayout(); } request.finish();
   }
 }
 
 function openCreate() {
+  if (!canCreate() || changing.value) return;
   editorForm.documentItemId = filterDocumentItemId.value.trim();
   editorForm.versionId = '';
   editorOpen.value = true;
 }
 
 async function submitCreate() {
+  if (changing.value) return;
   const documentItemId = editorForm.documentItemId.trim();
   const versionId = editorForm.versionId.trim();
   if (!documentItemId) {
     return;
   }
+  const request = scope.begin('document.host_preview_tasks.create'); if (!request) return;
 
   changing.value = true;
   try {
     await createDocumentPreviewTask({
       documentItemId,
       versionId: versionId || null
-    });
+    }, request.signal);
+    if (!request.current()) return;
     editorOpen.value = false;
     ElMessage.success(t('documentPreviewTasks.createSuccess'));
     await load();
   } catch (error) {
-    problem.value = toProblem(error, 'documentPreviewTasks.operationFailed');
+    if (request.current()) problem.value = toProblem(error, 'documentPreviewTasks.operationFailed');
   } finally {
-    changing.value = false;
+    if (request.current()) changing.value = false; request.finish();
   }
 }
 
@@ -135,14 +148,15 @@ async function openPdf(row: HostDocumentPreviewTaskResponse) {
   if (row.statusKey !== 'succeeded' || changing.value || !canRead()) {
     return;
   }
+  const request = scope.begin('document.host_preview_tasks.read'); if (!request) return;
 
   changing.value = true;
   try {
-    await openDocumentPreviewTaskContent(row.id);
+    await openDocumentPreviewTaskContent(row.id, request.signal);
   } catch (error) {
-    problem.value = toProblem(error, 'documentPreviewTasks.operationFailed');
+    if (request.current()) problem.value = toProblem(error, 'documentPreviewTasks.operationFailed');
   } finally {
-    changing.value = false;
+    if (request.current()) changing.value = false; request.finish();
   }
 }
 
@@ -156,7 +170,6 @@ function toProblem(
   return { title: t(fallbackKey), status: 500, code: fallbackKey };
 }
 
-onMounted(load);
 </script>
 
 <template>
@@ -290,11 +303,11 @@ onMounted(load);
       @confirm="submitCreate"
     >
       <el-form ref="editorFormRef" data-testid="document-preview-task-editor-form" :model="editorForm" label-width="140px">
-        <el-form-item :label="t('documentPreviewTasks.documentItemId')">
-          <el-input v-model="editorForm.documentItemId" autocomplete="off" />
+        <el-form-item :label="t('documentPreviewTasks.documentItemId')" required>
+          <el-input v-model="editorForm.documentItemId" :disabled="changing" autocomplete="off" />
         </el-form-item>
         <el-form-item :label="t('documentPreviewTasks.versionIdOptional')">
-          <el-input v-model="editorForm.versionId" autocomplete="off" />
+          <el-input v-model="editorForm.versionId" :disabled="changing" autocomplete="off" />
         </el-form-item>
       </el-form>
     </ArtFormDialog>
