@@ -1741,8 +1741,18 @@ Host新增三场景先RED2失败/1通过，实现后含原场景14/14；测试�
 
 权限回归先有效 RED（2 项中新增 1 项失败），实现后 Printing Unit 首次 5 成功但错误设置最低数6导致命令失败，修正后5/5；只读安全审查无严重生产缺陷，按建议补挂起绑定与最终权威复核四场景，最终 `pnpm test:dotnet:unit -- --filter FullyQualifiedName~Full.NET.UnitTests.Printing --minimum-expected-tests 9` 为9/9、零失败/跳过。测试选择器漏选 Printing 先有效 RED，修正后 Integration tooling59/59；迁移、Printing、Tenancy、Smoke 能进入本批 merge 影响集。
 
-首轮正式双库 Printing/Migration246/Smoke 联合12项中10成功、2失败、零跳过（659.726s）：两项 Printing 在建立第二租户前失败，原因是默认 Testing Overlay 只有 Acme，测试错误假设另有活动租户；改为调用正式开通 API 创建自有第二租户，再进行隔离验证。两项246迁移并发授权幂等与账本移除后回放、八项Smoke在该轮通过；不将局部10项标为整轮通过。修正后的 Printing+Tenancy 双库联合正在执行，最终以完整报告补记。
+首轮正式双库 Printing/Migration246/Smoke 联合12项中10成功、2失败、零跳过（659.726s）：两项 Printing 在建立第二租户前失败，原因是默认 Testing Overlay 只有 Acme，测试错误假设另有活动租户；改为调用正式开通 API 创建自有第二租户，再进行隔离验证。两项246迁移并发授权幂等与账本移除后回放、八项Smoke在该轮通过；不将局部10项标为整轮通过。修正后的 Printing+Tenancy 双库联合最终48/48成功，详见下述命令与完整摘要。
 
 运行时客户端 OpenAPI 首轮 SQL Server 迁移连接中断（意外使用默认复用夹具），不计通过；显式 `FULLNET_TESTCONTAINERS_REUSE=0` 重跑双库各1/1成功、归一化一致。新增五操作后规范清单计数由565变570，OpenAPI计数门禁首次203通过/1失败，更新真实计数后204/204；SDK重新生成。AOT分析退出0、零警告/错误；NativeAot/MemoryPack/OpenApiOperationIdentity 架构74/74。Node输出/导入/授权/工作簿27/27、治理57/57、命名33/33；分片发现1180项无遗漏/重复（仅发现证据）。
 
-独立 Enterprise 输出验收器增加打印 Host 精确授权、Tenant 目录、实际当前租户档案绑定和固定 HTML 对照、未获授版本/匿名拒绝、不同最小权限 Host 用户撤权后403及目录隐藏；保留原Host模板入口的Tenant403。报告不保存HTML、绑定数据、凭据或响应正文。源码冻结后还需正式独立应用 SQL Server/MySQL 联合验收；尚未升级为端到端打印通过。F11/C02仍局部收口；本批不扩展企业申请业务表单打印、浏览器净化验收、Native运行实测、外部MySQL TLS、Worker OS崩溃接管与容量，保持Capacity-not-verified，未合并/发布。
+独立 Enterprise 输出验收器增加打印 Host 精确授权、Tenant 目录、实际当前租户档案绑定和固定 HTML 对照、未获授版本/匿名拒绝、不同最小权限 Host 用户撤权后403及目录隐藏；保留原Host模板入口的Tenant403。报告不保存HTML、绑定数据、凭据或响应正文。随后在同一冻结源码上完成正式独立应用SQL Server/MySQL联合验收，租户档案发布预览服务端输出子项已有端到端证据，详见下文。F11/C02仍局部收口；本批不扩展企业申请业务表单打印、浏览器净化验收、Native运行实测、外部MySQL TLS、Worker OS崩溃接管与容量，保持Capacity-not-verified，未合并/发布。
+
+
+独立应用最终证据：冻结源码 `0fb4ebef11e776e72fa5874ffdc3f3228adc817c`，执行 `$env:FULLNET_TESTCONTAINERS_REUSE='0'; $env:FULLNET_RUN_TEMPLATE_REAL_STACK='1'; node --test --test-concurrency=1 tests/templates/created-enterprise-data-delivery.test.mjs`，正式双库2/2、零失败/跳过，421.762s（SQL Server179.879s、MySQL239.644s）。两库报告 SQL Server `run-PYJ3t6`、MySQL `run-1eNdCq`，sourceCommit一致，completed、业务导入、报表授权、输出与cleanupSucceeded全true。每库39项正式输出HTTP检查，真实XLSX下载各1735字节并完整核对查询值；打印status=tenant-published-preview-verified，completed/currentTenantBindingVerified/revokedAccessDenied均true，原Host模板入口Tenant403保留。API/Worker各有自有独立PID；三宿主构建零警告/错误，Migrator第二轮ExecutedScriptCount=0。此处关闭租户档案发布预览的服务端输出子项，不宣称浏览器净化、Vue打印页面或企业申请业务打印已交付。
+
+新增SDK共享契约测试261/261、TypeScript构建通过，`pnpm openapi:client:generate -- --check` 零漂移，`pnpm openapi:client:snapshot -- --check --offline`通过。只读复审确认挂起绑定四用例覆盖最终精确版本复核；新增静态物化器和OpenAPI/SDK形状未发现阻断。后续一批接入Host打印版本授权面板与Tenant获授目录/预览，按两个权限分别加载，不调用Host草稿/Schema目录来支撑Tenant页面；沿用自有请求范围、会话变化清理和DOM白名单，打印动作先向正式API刷新授权内容，再触发浏览器打印。根仓库Printing/Tenancy最终结果见下述完整摘要。
+
+
+根仓库最终双库联合：`FULLNET_TESTCONTAINERS_REUSE=0 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --filter 'FullyQualifiedName~Full.NET.IntegrationTests.Printing.|FullyQualifiedName~Full.NET.IntegrationTests.Api.TenancyApi' --minimum-expected-tests 42 --timeout 25m --report-trx --report-trx-filename printing-tenancy-final.trx`，实际48/48成功、零失败/跳过，942.766s；其中Printing两库验证正式开通第二租户、两版冻结、无授权/Host/Tenant/匿名边界、分页、伪造TenantId、其他租户版本、撤权与停用后拒绝。其余46项Tenancy现有回归同时通过；最低数42为启动参数，实际发现与执行48，不报告成42项。TRX位于本任务Temp工作区的IntegrationTests/bin/Release/net10.0/TestResults/printing-tenancy-final.trx。新构建Release零警告/错误，最终分片发现1180项再次无遗漏/重复。
+
+本批实际完整通过集合分别为Unit9/9、Printing/Tenancy48/48、独立生成应用2/2、双库运行时OpenAPI各1/1、架构74/74、OpenAPI204/204、客户端261/261、输出验收器27/27、tooling59/59、治理57/57、命名33/33，AOT分析/客户端类型/SDK零漂移均退出0；不将初轮失败中的Migration246/Smoke局部10项拼成同轮全通过。环境为本机Windows x64、.NET10、Docker Desktop（24.94GiB），根仓库MSTest并行Workers=2；不是容量或生产环境认证。开发分支交付前核对diff/status/分支；285965ae的API Native37696049251、Worker Native37696049191已success，主CI37696049325当时仍in_progress；不冒充本批交付SHA的CI结论。F11/C02保持局部收口，下一批集中接Host授权面板与Tenant目录/预览并统一验证Vue与浏览器；未合并/发布。
