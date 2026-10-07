@@ -35,16 +35,16 @@ export function requestEmailChallenge(
   invitationId?: string,
   invitationToken?: string
 ) {
-  return postJson<{ challengeId: string }>('/api/v1/auth/register/email-challenge', {
+  return postJson<unknown>('/api/v1/auth/register/email-challenge', {
     email,
     purpose,
     invitationId,
     invitationToken
-  });
+  }).then(validateAccountChallengeResponse);
 }
 
 export function recoverPassword(email: string) {
-  return postJson<{ challengeId: string; expiresAtUtc: string }>('/api/v1/auth/recover-password', { email });
+  return postJson<unknown>('/api/v1/auth/recover-password', { email }).then(validateAccountChallengeResponse);
 }
 
 export function confirmRecoverPassword(request: RecoverPasswordConfirmRequest) {
@@ -56,4 +56,12 @@ export function verifyInvitation(invitationId: string, invitationToken: string) 
     invitationId,
     invitationToken
   });
+}
+
+/** 验证匿名挑战响应的标识和有效期；类型断言不能把畸形成功响应提升为可提交凭据。 */
+function validateAccountChallengeResponse(value: unknown): { challengeId: string; expiresAtUtc: string } {
+  if (!isRecord(value) || !isGuid(value.challengeId) || !isDate(value.expiresAtUtc)) {
+    throw new Error('client.invalid_account_challenge_response');
+  }
+  return { challengeId: value.challengeId, expiresAtUtc: value.expiresAtUtc };
 }

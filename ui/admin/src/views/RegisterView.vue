@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElButton, ElInput, ElMessage } from 'element-plus';
-import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import { ElButton, ElInput } from 'element-plus';
+import { showProblem, showSuccess, showWarning } from '../feedback/fullNetMessage';
 import { registerAccount, requestEmailChallenge, verifyInvitation } from '../api/public-auth';
+import { useAdminI18n } from '../i18n/adminI18n';
 import ArtLoginLeftPanel from '../framework/art-design/auth/ArtLoginLeftPanel.vue';
 
 const RegistrationEmailVerification = 1;
@@ -11,6 +12,7 @@ const InvitationEmailVerification = 3;
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useAdminI18n();
 const email = ref('');
 const password = ref('');
 const displayName = ref('');
@@ -20,6 +22,11 @@ const invitationId = ref('');
 const invitationToken = ref('');
 const registrationWayId = ref('');
 const submitting = ref(false);
+const requesting = ref(false);
+let disposed = false;
+let emailRevision = 0;
+onBeforeUnmount(() => { disposed = true; });
+watch(email, () => { emailRevision++; challengeId.value = ''; challengeCode.value = ''; }, { flush: 'sync' });
 const invitationSessionKey = 'fullnet.registration.invitation';
 
 onMounted(async () => {
@@ -54,28 +61,36 @@ onMounted(async () => {
   invitationId.value = parsed.invitationId;
   try {
     const info = await verifyInvitation(parsed.invitationId, parsed.invitationToken);
+    if (disposed) return;
     email.value = info.email;
     registrationWayId.value = info.registrationWayId;
-  } catch {
-    ElMessage.error('Invitation is invalid or expired.');
+  } catch (error: unknown) {
+    if (!disposed) showProblem(error, t('accountChallenges.invitationInvalid'));
   }
 });
 
 async function sendChallenge(): Promise<void> {
+  if (requesting.value || submitting.value) return;
+  const target = email.value.trim();
+  if (!target) { showWarning(t('accountChallenges.emailRequired')); return; }
+  const revision = emailRevision;
+  requesting.value = true;
+  challengeId.value = ''; challengeCode.value = '';
   const purpose = invitationId.value ? InvitationEmailVerification : RegistrationEmailVerification;
-  const result = await requestEmailChallenge(
-    email.value,
-    purpose,
-    invitationId.value || undefined,
-    invitationToken.value || undefined
-  );
-  challengeId.value = result.challengeId;
-  ElMessage.success('Verification code sent if the address is eligible.');
+  try {
+    const result = await requestEmailChallenge(target, purpose, invitationId.value || undefined, invitationToken.value || undefined);
+    if (disposed || emailRevision !== revision || email.value.trim() !== target) return;
+    challengeId.value = result.challengeId;
+    showSuccess(t('accountChallenges.registrationAccepted'));
+  } catch (error: unknown) {
+    if (!disposed && emailRevision === revision && email.value.trim() === target) showProblem(error, t('accountChallenges.requestFailed'));
+  } finally { requesting.value = false; }
 }
 
 async function submit(): Promise<void> {
-  if (!challengeId.value || !challengeCode.value) {
-    ElMessage.error('Email verification is required.');
+  if (requesting.value || submitting.value) return;
+  if (!challengeId.value || !challengeCode.value.trim()) {
+    showWarning(t('accountChallenges.verificationRequired'));
     return;
   }
 
@@ -91,11 +106,13 @@ async function submit(): Promise<void> {
       invitationId: invitationId.value || undefined,
       invitationToken: invitationToken.value || undefined
     });
+    if (disposed) return;
+    password.value = ''; challengeCode.value = ''; challengeId.value = '';
     sessionStorage.removeItem(invitationSessionKey);
-    ElMessage.success('Account created. You can sign in now.');
+    showSuccess(t('accountChallenges.accountCreated'));
     await router.replace('/login');
   } catch (error: unknown) {
-    ElMessage.error(isFullNetProblemDetails(error) ? error.title : 'Registration failed.');
+    if (!disposed) showProblem(error, t('accountChallenges.registrationFailed'));
   } finally {
     submitting.value = false;
   }
@@ -106,15 +123,15 @@ async function submit(): Promise<void> {
   <div class="art-login-page">
     <ArtLoginLeftPanel />
     <section class="register-form">
-      <h1>Create account</h1>
-      <ElInput v-model="displayName" placeholder="Display name" />
-      <ElInput v-model="email" type="email" placeholder="Email" />
-      <ElInput v-model="password" type="password" placeholder="Password" show-password />
-      <ElInput v-model="challengeCode" placeholder="Email verification code" />
+      <h1>{{ t('accountChallenges.registrationTitle') }}</h1>
+      <ElInput v-model="displayName" name="displayName" autocomplete="name" :disabled="submitting" :placeholder="t('accountChallenges.displayName')" :aria-label="t('accountChallenges.displayName')" />
+      <ElInput v-model="email" name="email" type="email" autocomplete="email" :disabled="submitting" :placeholder="t('accountChallenges.email')" :aria-label="t('accountChallenges.email')" />
+      <ElInput v-model="password" name="password" type="password" autocomplete="new-password" show-password :disabled="submitting" :placeholder="t('accountChallenges.password')" :aria-label="t('accountChallenges.password')" />
+      <ElInput v-model="challengeCode" name="challengeCode" autocomplete="one-time-code" inputmode="numeric" :disabled="submitting || requesting" :placeholder="t('accountChallenges.verificationCode')" :aria-label="t('accountChallenges.verificationCode')" />
       <div class="actions">
-        <ElButton @click="sendChallenge">Send code</ElButton>
-        <ElButton type="primary" :loading="submitting" @click="submit">Register</ElButton>
-        <ElButton link @click="router.replace('/login')">Back to sign in</ElButton>
+        <ElButton :loading="requesting" :disabled="submitting" @click="sendChallenge">{{ t('accountChallenges.sendCode') }}</ElButton>
+        <ElButton type="primary" :loading="submitting" :disabled="requesting" @click="submit">{{ t('accountChallenges.register') }}</ElButton>
+        <ElButton link @click="router.replace('/login')">{{ t('accountChallenges.backToSignIn') }}</ElButton>
       </div>
     </section>
   </div>
