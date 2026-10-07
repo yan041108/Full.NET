@@ -82,6 +82,7 @@ internal static class InvitedRegistrationAssertions
         var registration = new RegisterAccountRequest(email, "Invited User", "FullNet!2026Register",
             deliveryPort.LastIntent.ChallengeId, deliveryPort.LastIntent.Credential,
             InvitationId: invitationId, InvitationToken: invitationToken);
+        await VerifyDisabledPolicyAsync(scopedFactory, client, registration, cancellationToken);
         await VerifyFailedAttemptsAsync(scopedFactory, client, registration, cancellationToken);
         // 耗尽后显式重发新挑战，邀请不应因错误验证码被消费。
         using (var resend = await client.PostAsJsonAsync("/api/v1/auth/register/email-challenge",
@@ -176,6 +177,46 @@ internal static class InvitedRegistrationAssertions
         }
     }
 
+    private static async Task VerifyDisabledPolicyAsync(FullNetApiFactory factory, HttpClient client,
+        RegisterAccountRequest registration, CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+        context.SetHost();
+        var policy = scope.ServiceProvider.GetRequiredService<RegistrationPolicyService>();
+        var original = await policy.GetAsync(cancellationToken);
+        Assert.IsTrue(original.IsSuccess);
+        try
+        {
+            var disabled = await policy.UpdateAsync(new UpdateRegistrationPolicyRequest(false,
+                original.Value!.Version, IdentityRegistrationMode.Disabled), cancellationToken);
+            Assert.IsTrue(disabled.IsSuccess);
+            Assert.AreEqual(IdentityRegistrationMode.Disabled, disabled.Value!.RegistrationMode);
+            // 使用仍有效的邀请与验证码，证明关闭模式在真实入口拒绝注册而非凭据验证失败。
+            using var register = await client.PostAsJsonAsync("/api/v1/auth/register", registration, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.Forbidden, register.StatusCode);
+            await AssertProblemAsync(register, IdentityErrorCodes.RegistrationDisabled, cancellationToken, HttpStatusCode.Forbidden);
+            using var challenge = await client.PostAsJsonAsync("/api/v1/auth/register/email-challenge",
+                new SendRegistrationEmailChallengeRequest(registration.Email,
+                    IdentityAccountChallengePurpose.InvitationEmailVerification,
+                    registration.InvitationId, registration.InvitationToken), cancellationToken);
+            Assert.AreEqual(HttpStatusCode.Forbidden, challenge.StatusCode);
+            await AssertProblemAsync(challenge, IdentityErrorCodes.RegistrationDisabled, cancellationToken, HttpStatusCode.Forbidden);
+        }
+        finally
+        {
+            try
+            {
+                var current = await policy.GetAsync(cancellationToken);
+                Assert.IsTrue(current.IsSuccess);
+                Assert.IsTrue((await policy.UpdateAsync(new UpdateRegistrationPolicyRequest(
+                    original.Value!.IsPublicRegistrationEnabled, current.Value!.Version,
+                    original.Value.RegistrationMode), cancellationToken)).IsSuccess);
+            }
+            finally { context.Clear(); }
+        }
+    }
+
     private static async Task VerifyBusinessFailureRollbackAsync(FullNetApiFactory factory, HttpClient client,
         RegisterAccountRequest registration, CancellationToken cancellationToken)
     {
@@ -194,9 +235,10 @@ internal static class InvitedRegistrationAssertions
             IdentitySqlParameters.Create(("Email", registration.Email)), cancellationToken));
     }
 
-    private static async Task AssertProblemAsync(HttpResponseMessage response, string code, CancellationToken cancellationToken)
+    private static async Task AssertProblemAsync(HttpResponseMessage response, string code, CancellationToken cancellationToken,
+        HttpStatusCode expectedStatus = HttpStatusCode.BadRequest)
     {
-        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.AreEqual(expectedStatus, response.StatusCode);
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(code, document.RootElement.GetProperty("code").GetString());
     }

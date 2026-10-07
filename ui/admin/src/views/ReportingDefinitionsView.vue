@@ -468,8 +468,8 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
       </ElCard>
 
       <ElCard class="definitions-card">
-        <ArtTableHeader :title="t('reportingDefinitions.title')">
-          <template #actions>
+        <ArtTableHeader>
+          <template #left>
             <PermissionGate code="reporting.definitions.create">
               <ElButton
                 type="primary"

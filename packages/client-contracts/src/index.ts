@@ -359,6 +359,7 @@ export {
 
 export type {
   CreateRegistrationWayRequest,
+  RegistrationMode,
   RegistrationPolicy,
   RegistrationWay,
   RegistrationWayListQuery,

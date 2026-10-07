@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { canReuseStackState } from './scripts/stack-state.mjs';
 import { waitForApi } from './scripts/wait-for-api.mjs';
 
 const repoRoot = path.resolve(fileURLToPath(new URL('../../..', import.meta.url)));
@@ -20,7 +21,7 @@ function readStackState() {
     return null;
   }
 
-  return JSON.parse(readFileSync(statePath, 'utf8'));
+  try { return JSON.parse(readFileSync(statePath, 'utf8')); } catch { return null; }
 }
 
 function isProcessAlive(pid) {
@@ -63,19 +64,12 @@ export default async function globalSetup() {
   const expectedProvider = resolveDatabaseProvider();
   const expectedProfile = resolveStackProfile();
   const existingState = readStackState();
-  const providerMatches = existingState?.databaseProvider === expectedProvider;
-  const profileMatches = existingState?.stackProfile === expectedProfile;
-  const workspaceMatches = typeof existingState?.codeGenerationWorkspaceRoot === 'string'
-    && existsSync(existingState.codeGenerationWorkspaceRoot);
-  const observabilityLogRootMatches = typeof existingState?.observabilityLogRoot === 'string'
-    && existsSync(existingState.observabilityLogRoot);
-  let stateIsReusable = Boolean(
-    existingState
-    && providerMatches
-    && profileMatches
-    && workspaceMatches
-    && observabilityLogRootMatches
-  );
+  let stateIsReusable = canReuseStackState(existingState, {
+    workspaceRoot: repoRoot,
+    apiUrl: 'http://127.0.0.1:' + (process.env.FULLNET_E2E_API_PORT ?? '5149'),
+    databaseProvider: expectedProvider,
+    stackProfile: expectedProfile
+  }, isProcessAlive, existsSync);
 
   if (stateIsReusable) {
     try {
@@ -92,6 +86,10 @@ export default async function globalSetup() {
   }
 
   if (!stateIsReusable) {
+    // 未匹配的存活实例不归本次运行所有，不能覆盖状态后遗失其清理入口。
+    if (existingState && (isProcessAlive(existingState.apiPid) || isProcessAlive(existingState.workerPid))) {
+      throw new Error('A live real stack has mismatched configuration; use an isolated state workspace.');
+    }
     const { bootstrapStack } = await import('./scripts/bootstrap-stack.mjs');
     await bootstrapStack();
   }

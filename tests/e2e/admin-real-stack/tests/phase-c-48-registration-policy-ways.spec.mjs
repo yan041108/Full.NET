@@ -4,7 +4,8 @@ import {
   clickMainNavLink,
   findSeedTenantViaApi,
   loginAsHostAdmin,
-  loginHostAdminAccessToken
+  loginHostAdminAccessToken,
+  trackUiAccessToken
 } from './support/real-stack-auth.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
@@ -15,7 +16,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('API：默认关闭注册与公开注册方式（清单 48）', async ({ request }, testInfo) => {
+test('API：默认仅邀请注册与公开注册方式（清单 48）', async ({ request }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   const origin = adminOrigin(clientKind);
   const token = await loginHostAdminAccessToken(request, clientKind);
@@ -30,7 +31,7 @@ test('API：默认关闭注册与公开注册方式（清单 48）', async ({ re
   });
   expect(policyResponse.ok()).toBeTruthy();
   const policy = await policyResponse.json();
-  expect(policy.registrationMode).toBe(0);
+  expect(policy.registrationMode).toBe(1);
   expect(policy.isPublicRegistrationEnabled).toBe(false);
 
   const waysResponse = await request.get(
@@ -45,9 +46,9 @@ test('API：默认关闭注册与公开注册方式（清单 48）', async ({ re
   );
   expect(publicWaysResponse.status()).toBe(403);
   const publicProblem = await publicWaysResponse.json();
-  expect(publicProblem.code).toBe('identity.registration.disabled');
+  expect(publicProblem.code).toBe('identity.registration.public_disabled');
 
-  const registerResponse = await request.post(`${apiBaseUrl}/api/v1/identity/register`, {
+  const registerResponse = await request.post(`${apiBaseUrl}/api/v1/auth/register`, {
     headers: { Origin: origin, 'Content-Type': 'application/json' },
     data: {
       email: 'e2e48@example.com',
@@ -57,15 +58,18 @@ test('API：默认关闭注册与公开注册方式（清单 48）', async ({ re
       challengeCode: '000000'
     }
   });
-  expect(registerResponse.status()).toBe(403);
+  expect(registerResponse.status()).toBe(400);
   const registerProblem = await registerResponse.json();
-  expect(registerProblem.code).toBe('identity.registration.disabled');
+  expect(registerProblem.code).toBe('identity.registration_invitation.invalid');
 });
 
 test('UI：注册策略与注册方式管理页（清单 48，Vue）', async ({ page }, testInfo) => {
   test.skip(testInfo.project.metadata.clientKind !== 'vue', '注册方式页仅 Vue 交付线');
   test.setTimeout(120_000);
 
+  const currentToken = trackUiAccessToken(page);
+  const pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
   await loginAsHostAdmin(page);
   await clickMainNavLink(page, /注册方式/);
 
@@ -73,8 +77,39 @@ test('UI：注册策略与注册方式管理页（清单 48，Vue）', async ({ 
     timeout: 20_000
   });
   await expect(page.getByText('注册策略', { exact: true })).toBeVisible();
-  await expect(page.getByText('默认关闭公开注册', { exact: true })).toBeVisible();
-  await expect(page.getByTestId('registration-policy-toggle')).toBeVisible();
+  const token = currentToken();
+  const headers = { Authorization: 'Bearer ' + token, Origin: adminOrigin('vue') };
+  const policyUrl = apiBaseUrl + '/api/v1/identity/registration-policy';
+  const originalResponse = await page.request.get(policyUrl, { headers });
+  expect(originalResponse.ok()).toBeTruthy();
+  const original = await originalResponse.json();
+  const selector = page.getByTestId('registration-policy-mode');
+  await expect(selector).toBeVisible();
+  try {
+    for (const [mode, label] of [[0, '关闭注册'], [2, '公开注册'], [1, '仅邀请注册']]) {
+      await selector.locator('.el-select__wrapper').click();
+      const responsePromise = page.waitForResponse(response => response.url().includes('/registration-policy') && response.request().method() === 'PUT');
+      await page.getByRole('option', { name: label, exact: true }).click();
+      const response = await responsePromise;
+      expect(response.status()).toBe(200);
+      const saved = await response.json();
+      expect(saved.registrationMode).toBe(mode);
+      expect(saved.isPublicRegistrationEnabled).toBe(mode === 2);
+      await expect(page.getByTestId('registration-policy-current')).toHaveText(label);
+      const invalid = await page.request.put(policyUrl, { headers, data: { registrationMode: 255, isPublicRegistrationEnabled: true, version: saved.version } });
+      expect(invalid.status()).toBe(400);
+      expect((await invalid.json()).code).toBe('validation.failed');
+    }
+  } finally {
+    const currentResponse = await page.request.get(policyUrl, { headers });
+    expect(currentResponse.ok()).toBeTruthy();
+    const current = await currentResponse.json();
+    const restore = await page.request.put(policyUrl, { headers, data: {
+      registrationMode: original.registrationMode, isPublicRegistrationEnabled: original.isPublicRegistrationEnabled, version: current.version
+    } });
+    expect(restore.ok()).toBeTruthy();
+  }
   await expect(page.getByTestId('registration-ways-action-create')).toBeVisible();
   await expect(page.getByText('403', { exact: true })).toHaveCount(0);
+  expect(pageErrors).toEqual([]);
 });

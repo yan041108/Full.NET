@@ -310,13 +310,14 @@ onMounted(load);
     />
 
     <el-card class="art-page-card art-full-height-card" shadow="never">
+      <ArtSearchBar
+        v-model="searchForm"
+        :items="searchItems"
+        @search="applySearch"
+        @reset="applySearch"
+      />
       <ArtTableHeader>
-        <ArtSearchBar
-          v-model="searchForm"
-          :items="searchItems"
-          @search="applySearch"
-        />
-        <template #actions>
+        <template #left>
           <PermissionGate code="reporting.data_sources.create">
             <el-button
               type="primary"
