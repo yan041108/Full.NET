@@ -3120,6 +3120,24 @@
       ]
     },
     {
+      "statementName": "notifications.platform.delivery.mark_smtp_inflight",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.MarkSmtpDeliveryInFlight",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Worker 仅使用受信领取的投递标识；SMTP 外发停放必须同时绑定当前租约所有者、世代、修订及未过期窗口，拒绝旧执行者更新。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "Id = @Id",
+        "StatusKey IN ('accepted', 'unknown')",
+        "LeaseOwnerKey = @LeaseOwnerKey",
+        "LeaseGeneration = @LeaseGeneration",
+        "Revision = @Revision",
+        "LeaseExpiresAtUtc > @Now",
+        "StatusKey = 'unknown'",
+        "NextAttemptAtUtc = NULL"
+      ]
+    },
+    {
       "statementName": "notifications.platform.delivery.oldest_backlog",
       "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.OldestDeliveryBacklog",
       "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",

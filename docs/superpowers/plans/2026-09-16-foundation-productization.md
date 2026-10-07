@@ -796,6 +796,23 @@ Windows10.0.19045 x64/i7-12700H/63.75GiB/SDK10.0.401/Node24.12.0/pnpm10.26.0/Doc
 
 本批只闭合Notifications投递可靠性与受控协议场景；Identity挑战独立持久化投递日记/对账、受控收件后通过公开流程一次消费、完整耗时防枚举仍待办。未执行本批独立生成应用全链路、全量Unit/Integration、本地Linux原生SMTP运行或容量实测；F03六项、F04、整体AOT/Provider状态及Capacity-not-verified保持，PR仍Draft，未合并、未发布。基线85c26e17的[主CI](https://github.com/yan041108/Full.NET/actions/runs/37544030933)、[API Native AOT](https://github.com/yan041108/Full.NET/actions/runs/37544030943)、[Worker Native AOT](https://github.com/yan041108/Full.NET/actions/runs/37544030966)均已completed/success（.tmp/f03-smtp-parent-actions.json），仅证明基线；本批推送后按自身SHA单独核对。
 
+#### 2026-10-07：三类账号流程的真实邮件消费与 SQL 目录门禁修复
+
+基线a5c6417c13f08753ea0eb8befec5186a1aa4802a，隔离工作区与开发分支沿用，快照f03-public-smtp-batch-20261007。本批同时扩展注册、邀请注册、密码恢复的受控真实SMTP验收，并修复上一提交主CI发现的全局SQL目录登记遗漏。没有修改生产实现、SQL、迁移、公共契约或依赖。
+
+新增4个双库/双TLS用例，每例验证3种用途×接受、接受后QUIT断线、DATA确认丢失、535认证拒绝四种结果，共48个真实协议与账号流程场景。通过实际后台HTTP创建、发布并启用SMTP配置，使用正式IdentityChallengeDeliveryPort、适配器与公开签发/消费入口；验证码只从实际收到的MIME正文提取。接受及QUIT断线后可一次消费；确认丢失时实际记录撤销、收到的码也不能消费；认证失败不能创建账号、修改密码/安全戳或消费邀请。匿名恢复失败仍返回200占位响应，响应标识与被撤销记录不同且无对应挑战；注册投递失败遵守既有422及稳定机器码。成功恢复验证旧密码登录失败、新密码成功，成功邀请核对实际账号绑定和待入驻状态。用途隔离用同邮箱调用真实挑战服务核对精确错误码，消费后重放同时覆盖公开入口与权威账号绑定的服务验证，避免前置拒绝造成假阳性。
+
+提取共享ControlledSmtpInbox，保留两种真实TLS和局部CustomRootTrust/证书链/目标名/指纹校验，不安装根证书、不改变默认生产信任；增加未连接监听的异步清理回归，取消并观察全部会话。日志夹具包装原singleton ILoggerFactory并完整转发，以同类DI Logger的正向探针证明真实接通，检查已收到验证码和SMTP认证秘密不进入实际启用的Microsoft ILogger调用文本/异常，公开响应也不回显验证码；不把此结果扩大为所有生产日志sink或浏览器验收。
+
+上一提交[主CI37549696713](https://github.com/yan041108/Full.NET/actions/runs/37549696713)终态failure，Architecture231/232，唯一失败为notifications.platform.delivery.mark_smtp_inflight未登记。现精确登记声明、源路径和owner/generation/revision/未过期租约等必要SQL片段，未降低门槛或增加通配例外。pnpm test:dotnet:architecture完整232/232、零跳过、exit0，实际测试5m06.321s；当前Integration Release构建零警告/错误。
+
+首轮pnpm test:slice -- --snapshot f03-public-smtp-batch-20261007为31通过/4失败/0跳过，实际测试19m27.968s，wrapper exit1、MTP exit2保留。四个新增用例均因测试预期400、实际既有映射422失败，不计生产行为RED。四例结束后才修正新增class的预期及日志捕获；原共享夹具、旧31测试、矩阵及当时执行DLL不变，原源码/DLL/TRX归档并核对摘要。随后重建当前DLL，用FullyQualifiedName~Full.NET.IntegrationTests.Notifications.IdentityChallengeSmtpConsumptionTests和minimum4重跑4/4、零跳过、exit0，实际测试3m56.422s。按§11.5复用输入未变的31项，31+4的唯一UID并集准确覆盖当前正式Notifications35项，无遗漏/重复，不声称单次35项切片全部通过。工具66/66、治理57/57；1153是完整互斥Integration分片发现（infrastructure205），未执行全量。独立只读复核无剩余阻断。
+
+Windows10.0.19045 x64/i7-12700H/63.75GiB、SDK10.0.401、Node24.12.0、pnpm10.26.0、Docker29.6.2 Linux；DOTNET_PROCESSOR_COUNT=2、Architecture/Integration Workers=2、.NET及容器套件串行、容器复用关闭，每个.NET进程沿用1GiB GC堆预算0x40000000，不改变机器或产品配置。证据见.tmp/f03-public-smtp-source.json、-final-source.json、-runtime.json、-initial-consumption.cs、-first-runtime.dll、-first.trx、-first-result.json、-followup-results.json、-retry.trx、-retry-result.json、-final-evidence.json及原主CI失败日志，保留实际命令、退出码、时间和日志/源码/程序集摘要。
+
+本批闭合受控真实收件后的公开消费子链；Identity挑战独立持久化投递日记/对账与完整耗时防枚举仍待办。未执行本批独立生成应用全链路、全量Unit/Integration、浏览器、本地Linux原生SMTP或容量实测，F03六项和F04整体未关闭，Capacity-not-verified保持，PR仍Draft，未合并、未发布。父提交a5的[API Native AOT](https://github.com/yan041108/Full.NET/actions/runs/37549696734)与[Worker Native AOT](https://github.com/yan041108/Full.NET/actions/runs/37549696821)均completed/success，仅证明父提交；本批推送后按自身精确SHA独立核对Actions。
+
+
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。
