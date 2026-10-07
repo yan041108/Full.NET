@@ -172,10 +172,13 @@ async function loadPage(): Promise<void> {
   problem.value = undefined;
   try {
     const [groupRows, definitionRows, portRows, dataSourcePage] = await Promise.all([
-      listReportingGroups(),
+      session.can('reporting.groups.read') ? listReportingGroups() : Promise.resolve([]),
       listReportingDefinitions(),
-      listReportingQueryPorts(),
-      listReportingDataSources({ page: 1, pageSize: 200, isEnabled: true })
+      session.can('reporting.query_ports.read') ? listReportingQueryPorts() : Promise.resolve([]),
+      // 数据源目录属于独立权限，定义查看或版本授权不隐式要求它。
+      session.can('reporting.data_sources.read')
+        ? listReportingDataSources({ page: 1, pageSize: 200, isEnabled: true })
+        : Promise.resolve({ items: [] })
     ]);
     groups.value = groupRows;
     definitions.value = definitionRows;
@@ -524,7 +527,8 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
               <template #default="{ row }">
                 <ArtTableActionGroup>
                   <PermissionGate v-if="session.currentUser?.scope === 'host' && row.latestPublishedVersionNumber > 0" code="reporting.definitions.grant_tenants">
-                    <ArtTableActionButton type="view" data-testid="reporting-tenant-grants-open" @click="openGrants(row)">{{ t('reportingGrants.manage') }}</ArtTableActionButton>
+                    <ArtTableActionButton type="view" test-id="reporting-tenant-grants-open"
+                      :title="t('reportingGrants.manage')" :aria-label="t('reportingGrants.manage')" @click="openGrants(row)" />
                   </PermissionGate>
                   <PermissionGate code="reporting.definitions.update">
                     <ArtTableActionButton type="edit" @click="openEditDefinition(row)">

@@ -62,7 +62,10 @@ test('打印切换模板取消旧预览，新预览在真实 DOM 中净化', asy
 test('执行切换报表后丢弃旧查询，只展示新报表结果', async ({ page }) => {
   await boot(page, 'reporting-execute', '/reporting/execute', 'reporting.executions.run',
     ['reporting.definitions.read', 'reporting.executions.run']);
-  await page.route('**/api/v1/reporting/definitions', route => json(route, [definition, { ...definition, id: nextId, name: '新报表夹具' }]));
+  // 执行入口只能使用获授的不可变发布目录，不能用 Host 草稿冒充租户授权。
+  const published = { definitionId: id, definitionKey: definition.definitionKey, name: definition.name,
+    versionNumber: 1, queryPortKey: definition.queryPortKey, parameterSchema: [], layoutConfigJson: '{}' };
+  await page.route('**/api/v1/reporting/published-definitions', route => json(route, [published, { ...published, definitionId: nextId, name: '新报表夹具' }]));
   let release; let pending = false;
   const waiting = new Promise(resolve => { release = resolve; });
   const result = (definitionId, value) => ({ definitionId, definitionKey: 'fixture', definitionName: '报表夹具',
@@ -70,9 +73,13 @@ test('执行切换报表后丢弃旧查询，只展示新报表结果', async ({
     rows: [{ values: { value } }], page: 1, pageSize: 50, hasMore: false, totalRows: 1,
     commandTimeoutSeconds: 30, executedAtUtc: createdAtUtc });
   await page.route(`**/api/v1/reporting/definitions/${id}/execute?*`, async route => {
+    expect(route.request().postDataJSON().versionNumber).toBe(1);
     pending = true; await waiting; await json(route, result(id, '旧敏感查询')).catch(() => {});
   });
-  await page.route(`**/api/v1/reporting/definitions/${nextId}/execute?*`, route => json(route, result(nextId, '新查询内容')));
+  await page.route(`**/api/v1/reporting/definitions/${nextId}/execute?*`, route => {
+    expect(route.request().postDataJSON().versionNumber).toBe(1);
+    return json(route, result(nextId, '新查询内容'));
+  });
   await page.goto('/#/reporting/execute');
   await page.getByTestId('reporting-execute-run').click();
   await expect.poll(() => pending).toBe(true);

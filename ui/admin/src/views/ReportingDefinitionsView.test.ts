@@ -51,6 +51,7 @@ function mountView(permissions: string[] = []) {
 
 describe('ReportingDefinitionsView', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     groupsMock.mockResolvedValue([]);
     definitionsMock.mockResolvedValue([]);
     queryPortsMock.mockResolvedValue([]);
@@ -64,6 +65,9 @@ describe('ReportingDefinitionsView', () => {
     wrapper.unmount();
   });
   it('opens tenant version grants only with the exact Host grant permission', async () => {
+    groupsMock.mockRejectedValue({status:403,code:'authorization.permission_denied',title:'Denied'});
+    queryPortsMock.mockRejectedValue({status:403,code:'authorization.permission_denied',title:'Denied'});
+    dataSourcesMock.mockRejectedValue({status:403,code:'authorization.permission_denied',title:'Denied'});
     definitionsMock.mockResolvedValueOnce([{id:'019bc2b1-2a40-7cc3-8992-a80de51bf298',groupId:'019bc2b1-2a40-7cc3-8992-a80de51bf299',
       dataSourceId:'019bc2b1-2a40-7cc3-8992-a80de51bf300',definitionKey:'fixture',name:'报表',description:null,
       queryPortKey:'reporting.schema_inventory',parameterSchema:[],layoutConfigJson:'{}',latestPublishedVersionNumber:1,
@@ -71,13 +75,17 @@ describe('ReportingDefinitionsView', () => {
     const wrapper = mountView(['reporting.definitions.read','reporting.definitions.grant_tenants']);
     await flushPromises();
     expect(wrapper.find('[data-testid="reporting-tenant-grants-open"]').exists()).toBe(true);
+    expect(dataSourcesMock).not.toHaveBeenCalled();
+    expect(groupsMock).not.toHaveBeenCalled();
+    expect(queryPortsMock).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="reporting-tenant-grants-open"]').attributes('aria-label')).toBe('租户授权');
     wrapper.unmount();
   });
   it('opens the definition dialog with the exact permission through the real header', async () => {
     groupsMock.mockResolvedValueOnce([{ id: '019bc2b1-2a40-7cc3-8992-a80de51bf298',
       parentId: null, name: '报表组', sortOrder: 0, isEnabled: true,
       createdAtUtc: '2026-10-07T00:00:00Z', updatedAtUtc: null, version: 1 }]);
-    const wrapper = mountView(['reporting.definitions.create']);
+    const wrapper = mountView(['reporting.definitions.create','reporting.groups.read']);
     await flushPromises();
     await wrapper.get('[data-testid="reporting-definition-create"]').trigger('click');
     expect(wrapper.findAllComponents({ name: 'ArtFormDialog' }).some(dialog => dialog.props('open'))).toBe(true);
