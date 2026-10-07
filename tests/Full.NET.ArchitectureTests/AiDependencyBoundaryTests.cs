@@ -7,6 +7,24 @@ namespace Full.NET.ArchitectureTests;
 public sealed class AiDependencyBoundaryTests
 {
     [TestMethod]
+    public void Docx_parser_stays_in_an_independent_bcl_only_process()
+    {
+        var path = Path.Combine(Root(), "src", "Tools", "Full.NET.Ai.DocxParser", "Full.NET.Ai.DocxParser.csproj");
+        var project = XDocument.Load(path);
+        Assert.IsFalse(project.Descendants("ProjectReference").Any());
+        Assert.IsFalse(project.Descendants("FrameworkReference").Any());
+        Assert.IsFalse(project.Descendants("PackageReference").Any());
+        Assert.AreEqual("true", project.Descendants("IsAotCompatible").Single().Value);
+        foreach (var source in Directory.GetFiles(Path.Combine(Root(), "src"), "*.csproj", SearchOption.AllDirectories)
+            .Where(p => !p.Split(Path.DirectorySeparatorChar).Any(part => part is "obj" or "bin") && p != path))
+        {
+            var other = XDocument.Load(source);
+            Assert.IsFalse(other.Descendants("ProjectReference").Any(p =>
+                Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, p.Attribute("Include")!.Value.Replace('\\', Path.DirectorySeparatorChar))) == path), source);
+        }
+    }
+
+    [TestMethod]
     public void Pdf_parser_has_an_independent_dependency_boundary()
     {
         var path = Path.Combine(Root(), "src", "Tools", "Full.NET.Ai.PdfParser", "Full.NET.Ai.PdfParser.csproj");

@@ -1,5 +1,17 @@
 # 知识库目录、文件版本、用户与角色授权及模型处理审批
 
+## DOCX 独立解析工具（R08d）
+
+`src/Tools/Full.NET.Ai.DocxParser` 是独立进程工具。R08d 交付正文解析子集，Worker 消费协议、受信隔离启动、DOCX 上传及索引接入仍待后续交付。现有上传格式策略不因工具存在而启用 DOCX。
+
+工具不接受命令行参数，从标准输入读取完整 DOCX 字节，成功时向标准输出写单个 JSON；失败返回退出码 2、标准错误固定 `fn_ai_docx_*` 机器码且无部分解析结果。调用方取消继续传播，输入和输出流归调用方所有。协议为 `protocolVersion=1`、`parserVersion=docx-ooxml-body-v1`，包含原始字节小写 SHA-256、字节大小、正文 `text` 与 `blocks`。区间按 UTF-16 计数，结构分隔符不计入块长度；段落序号从 1 开始，块序号从 0 开始。表格单元格保留表/行/列序号、首段序号、段数和表头标志；段落用换行、单元格用制表符分隔，不生成页码。
+
+只支持普通正文段落、文本/制表符/换行及基本表格，超链接仅提取可见文字。宏、嵌入对象、字段、修订、隐藏文字、自动编号、页眉页脚/脚注尾注、嵌套或合并表格等未支持内容拒绝解析；样式等 XML 部件按内容类型和扩展名预检，部件名比较遵守大小写等价，DTD、外部实体和 XML 网络解析禁用。不执行 Office、不获取外链、不将 ZIP 解压到文件系统，也不演绎 Word 排版或 OCR。
+
+输入上限 5 MiB；ZIP 最多 256 项，单项实际解压不超过 8 MiB、合计不超过 16 MiB，内容类型与根关系各不超过 256 KiB。XML 深度不超过 32、每部件节点与属性合计不超过 65536、单节点属性不超过 64；文本和属性值总量、最终正文分别不超过 2 Mi UTF-16 字符。段落最多 8192、表格 128、表格行合计 4096、单元格合计 8192、每行 64 格，块最多 8192，完整 JSON 最多 16 MiB。预算依据实际读取量，不以 ZIP 声明大小替代验证。
+
+Windows/JIT 与 Linux/AOT 依赖分别锁定在工具目录的 `packages.lock.json` 和 `linux.packages.lock.json`。Linux 先以 `dotnet restore` 对项目执行 `-r linux-x64 -p:PublishAot=true -p:NuGetLockFilePath=linux.packages.lock.json --locked-mode`，再以同一属性执行 `dotnet publish -c Release --no-restore`；SDK/编译器图变化须显式更新锁文件并重验。镜像使用该工具目录的 `Dockerfile` 和包含原生二进制及 `licenses/` 的发布目录构建。镜像以 UID/GID 65532 运行，入口强制 30 秒超时。消费方必须另外设置无网络、只读文件系统、禁用 capabilities/提权、进程数量和内存/CPU 约束；本地原生验证使用 `--network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 32 --memory 256m --cpus 1`。这些约束不会由直接执行 CLI 自动提供，接入 Worker 时仍需验证可信启动与取消清理。
+
 R04a 提供私有目录及审批记录，R04b1 增加明确用户成员与立即撤权，R04b2a 提供文档草稿元数据及独立明确用户授权，R04b2b 接入上传、不可变来源版本及持久化导入恢复，R04b2c 提供共享生成客户端，R04b3a 增加角色授权候选查询，R04b3b 接入角色授予及两层权威读取，R04b3c 补齐角色授予共享客户端，R04b3d 提供当前租户活动机构候选目录及两个候选共享客户端，R04b3e 接入机构授予与权威成员读取。管理与入队 API 不解析正文、不调用模型；R05 索引 Worker 的消费边界见下文。R05/R06 的每次处理派发必须复核这里记录的审批及最新权威状态。
 
 ## 目录 API

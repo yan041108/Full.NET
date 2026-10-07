@@ -1437,6 +1437,20 @@ PDF 页内预览仍为 R07 后续项；处理策略与成员授权编辑见后�
 - `pnpm --filter @fullnet/admin-parity-e2e exec playwright test ai-knowledge-index-reconciliation.spec.mjs --project=vue-admin --workers=1` 3/3（真实 Vue/Edge + Mock HTTP），覆盖重建仅提示、重试冲突及撤权后清除、显式入队接受和无权入口；不冒充真实服务端/双库页面验收。初轮错误夹具缺少必需机器码导致统一错误回退，修正夹具后通过，不修改共享错误处理。
 - `pnpm test:integration:affected:plan -- --snapshot ai-knowledge-reconciliation-ui-r08c --phase slice` 确认纯客户端影响集为 none，本批不重复服务端、双库或 Native AOT 重型门禁。`pnpm audit:clients` 退出 1，既有未审核 High `GHSA-qhr7-859c-m2p7` 仍待处理，不计为审计通过或新增依赖例外；页面能力保持 Build-verified。
 
+#### R08d：DOCX 独立解析工具、表格位置与资源约束合批（2026-10-08）
+
+- main 基线 `45a4796bf2025ee1586a38ded655f400a6c93588`，快照 `ai-docx-parser-r08d`。首批 DOCX 是独立可执行工具，复用 PDF 的标准输入/输出与固定错误模式，后续 Worker 才消费其静态协议；不将解析器注册进 API，不修改数据或放开上传格式。
+- [x] 在 `src/Tools/Full.NET.Ai.DocxParser/` 增加单一 CLI 与有界 ZIP/XML 解析，验证 OPC 内容类型和唯一内部主文档绑定，只读取正文普通段落/基本表格；不解析宏、嵌入对象、字段、修订、嵌套/合并表格等未支持结构，不访问外链或解压到文件系统。
+- [x] 输出原始字节 SHA256、大小、固定解析版本、提取正文及 UTF-16 区间，保留表/行/列、单元格首段与段数、表头标志；不声称 DOCX 拥有可稳定计算的页码，不执行文档指令。
+- [x] TDD 覆盖真实 ZIP/XML 成功、空文档、错包、歧义主文档、DTD/深度/节点、解压放大、字符/结构预算、异常、取消与流所有权；失败无部分解析结果。固定输入 5 MiB，逐条实际解压上限 8 MiB、合计 16 MiB、最多 256 项，XML 深度/节点与输出独立有界。
+- [x] 纳入 Solution/Unit，更新实际测试矩阵，合批 AI/完整 Unit、相关架构/治理及工具真实进程和 Linux Native AOT 发布运行。安全解析交付前只读复审；仅关闭本工具专项，不将 API/Worker DOCX 上传、索引、检索标为完成。
+- 有效 RED 保留于 `artifacts/r08d/`：最初两个成功协议用例因缺失能力失败；复审追加属性修订/隐藏与逻辑空格、碎片属性、单元格修订和跨部件继承样式拒绝。大小写别名样式先复现 1 失败/1 通过，修复内容类型查找后最终专项 69/69。只读复审确认此前问题全部关闭，无剩余 P1/P2；未知内容继续拒绝，不增加 Word 排版或全格式支持承诺。
+- 最终 Unit 构建零警告/错误（12s 18ms），完整 AI 2107/2107（2m 20s 329ms），实际发现 Unit 5576、AI 2107；矩阵同步实际数量。全量 Architecture 234 项中 232 通过、2 项存量失败（4m 36s 576ms），与 R08b 完全相同：PDF 异步边界 11 项违规与六个既有私有异步方法命名。新工具独立 BCL/无业务引用边界通过，不将全量架构报告为全绿。
+- 完整 Windows Unit 5575 通过、1 项 Linux FIFO 跳过（3m 06s 640ms），退出 0。按测试 UID/FQN 对照实际发现集无遗漏；复用 R08b 的 Linux FIFO 通过 TRX，已核对相应测试、BuildingBlocks 和根依赖配置自基线未变，不把 Windows 跳过记录为通过。`artifacts/r08d-verify.py` 核对 4690 项冻结源码/测试/矩阵输入、专项/AI/完整 Unit 精确集合、同两项基线架构失败和原生 SHA；命名 33/33、治理 57/57、工具链独立 54/54。
+- 最终源码 Linux Native AOT 发布成功、无警告，二进制 7893704 字节、SHA-256 `9abe330242d2acbabcc6ba444a9a2919c01c2508bbb7cf961c8655fc6db91ff8`。真实隔离容器 20/20，覆盖协议/UTF-16/表格、正常样式/外链可见文本、拒绝宏/修订/合并/大小写别名隐藏/DTD、解压与 XML/正文预算，以及输入持续阻塞的 30 秒强制终止。原生脚本首轮错误计算中文加 emoji 的 UTF-16 长度，修正断言后完整重跑；保留首次失败，不记作产品行为 RED。
+- `pnpm test:integration:affected -- --snapshot ai-docx-parser-r08d --phase merge` 退出 0；唯一矩阵保持官方 `integration-matrix, smoke` 选择。Integration 构建零警告/错误（44s 86ms），工具链前置 65/65、治理 57/57，分片实际 1202 项无遗漏/重复；Smoke 双库 8/8、零失败/跳过（5m 22s 846ms），精确发现 UID 与原始 TRX 对照通过。Linux 锁定还原 `dotnet restore ... -r linux-x64 -p:PublishAot=true --locked-mode` 使用本工具 Linux 锁文件，退出 0。Windows x64、i7-12700H、约 64 GB、SDK 10.0.401；Linux SDK 10.0.400，测试进程 2 个处理器、GC 堆 2 GiB，数据库容器不复用。源文件、失败/成功日志、发现、TRX、原生及冻结验收清单保存于忽略目录 `artifacts/r08d/` 和 `artifacts/r08d-*`。
+- 实际回归命令：Release `dotnet build` Unit；直接执行新鲜 Unit DLL，专项过滤 `FullyQualifiedName~AiDocxParser`、完整 AI 过滤 `FullyQualifiedName~Full.NET.UnitTests.Ai.` 及不带过滤的完整 Unit，分别保存 TRX；新鲜 Architecture DLL 不带过滤执行 234 项；`pnpm test:naming`、`pnpm test:governance`、`pnpm test:integration:tooling`，以及正式 merge 影响集。收尾再核对冻结输入和任务差异，在 main 提交整批。工具为本地 Build-verified / Linux Native-published，Worker/上传/索引 DOCX 接入继续待办，完整 RAG 状态和 Capacity-not-verified 不变。
+
 ### R09：Prompt 发布、反馈与检索优化（P2，依赖 R02/R06/R08）
 
 **新增责任位置：** `src/Modules/Full.NET.Modules.Ai/Features/ManagePromptVersions/`、`Features/ManageAnswerFeedback/`；扩展 R02 评估语料及 R07 Vue 页面。新增持久化成对迁移，Prompt 版本不混入通用 Settings。
