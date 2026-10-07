@@ -105,6 +105,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexEnqueueService>();
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexRetryService>();
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexStatusService>();
+        services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexReconciliationService>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexActivationStore>();
         RegisterKnowledgePdfServices(services, worker: false);
         services.TryAddScoped<Knowledge.IAiKnowledgeAnswerSourceProof, Knowledge.AiKnowledgeAnswerSourceProof>();

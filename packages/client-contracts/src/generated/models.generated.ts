@@ -258,6 +258,16 @@ export interface AiKnowledgeIndexEnqueueResponse {
   readonly versionId: string;
 }
 
+export interface AiKnowledgeIndexReconciliationResponse {
+  readonly documentVersion: number;
+  readonly knowledgeBaseVersion: number;
+  readonly reason: string;
+  readonly recoveryAction: string;
+  readonly state: string;
+  readonly taskId: null | string;
+  readonly versionId: string;
+}
+
 export interface AiKnowledgeIndexStatusResponse {
   readonly failureCode: null | string;
   readonly state: string;

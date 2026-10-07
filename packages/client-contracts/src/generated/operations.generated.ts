@@ -26,6 +26,7 @@ import type {
   AiKnowledgeDocumentResponse,
   AiKnowledgeImportResponse,
   AiKnowledgeIndexEnqueueResponse,
+  AiKnowledgeIndexReconciliationResponse,
   AiKnowledgeIndexStatusResponse,
   AiKnowledgeMembersResponse,
   AiKnowledgeOrganizationCandidateResponse,
@@ -625,6 +626,7 @@ import {
   readAiKnowledgeDocumentResponse,
   readAiKnowledgeImportResponse,
   readAiKnowledgeIndexEnqueueResponse,
+  readAiKnowledgeIndexReconciliationResponse,
   readAiKnowledgeIndexStatusResponse,
   readAiKnowledgeMembersResponse,
   readAiKnowledgeOrganizationGrantsResponse,
@@ -1533,6 +1535,26 @@ export async function aiGetKnowledgeImport(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeImportResponse(value);
+}
+
+export interface AiGetKnowledgeIndexReconciliationParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly versionId: string;
+}
+
+export async function aiGetKnowledgeIndexReconciliation(
+  http: HttpClient,
+  parameters: AiGetKnowledgeIndexReconciliationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeIndexReconciliationResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/index/reconciliation`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeIndexReconciliationResponse(value);
 }
 
 export interface AiGetKnowledgeIndexStatusParameters {

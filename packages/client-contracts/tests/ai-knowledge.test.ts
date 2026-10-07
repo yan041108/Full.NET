@@ -4,7 +4,8 @@ import {
   aiUploadKnowledgeVersion, aiDownloadKnowledgeSource, aiDeleteKnowledgeDocument,
   aiRetryKnowledgeImport, aiListKnowledgeVersions, aiListKnowledgeOrganizationCandidates, aiListKnowledgeDocumentOrganizationCandidates, aiListKnowledgeRoleCandidates, aiListKnowledgeDocumentRoleCandidates,
   aiGetKnowledgeOrganizations, aiSetKnowledgeOrganizations, aiGetKnowledgeDocumentOrganizations, aiSetKnowledgeDocumentOrganizations,
-  aiGetKnowledgeRoles, aiSetKnowledgeRoles, aiGetKnowledgeDocumentRoles, aiSetKnowledgeDocumentRoles
+  aiGetKnowledgeRoles, aiSetKnowledgeRoles, aiGetKnowledgeDocumentRoles, aiSetKnowledgeDocumentRoles,
+  aiGetKnowledgeIndexReconciliation
 } from '../src/ai-knowledge';
 
 const id = '00000000-0000-0000-0000-000000000001';
@@ -20,6 +21,31 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 afterEach(() => vi.unstubAllGlobals());
 
 describe('知识库共享生成客户端', () => {
+  it('索引核对使用精确版本路径并传递当前认证、语言与取消', async () => {
+    const checkedIndex = { versionId: id, taskId: null, state: 'pending_processing', reason: 'not_indexed',
+      recoveryAction: 'enqueue', documentVersion: 2, knowledgeBaseVersion: 3 };
+    const fetchMock = vi.fn().mockResolvedValue(json(checkedIndex)); vi.stubGlobal('fetch', fetchMock);
+    const http = createHttpClient(); http.configureRequestLocale(() => 'zh-CN');
+    http.configureAuthentication({ getAccessToken: () => 'access', refresh: async () => false });
+    const signal = new AbortController().signal;
+    expect(await aiGetKnowledgeIndexReconciliation(http, { ...resource, versionId: id }, signal)).toEqual(checkedIndex);
+    const [url, request] = fetchMock.mock.calls[0];
+    expect(url).toBe(`/api/v1/ai/knowledge-bases/${id}/documents/${id}/versions/${id}/index/reconciliation`);
+    expect(request.method).toBe('GET'); expect(request.body).toBeUndefined(); expect(request.signal).toBe(signal);
+    expect(new Headers(request.headers).get('authorization')).toBe('Bearer access');
+    expect(new Headers(request.headers).get('accept-language')).toBe('zh-CN');
+  });
+
+  it.each([
+    { versionId: id, taskId: null, state: 'ready', recoveryAction: 'none', documentVersion: 1, knowledgeBaseVersion: 1 },
+    { versionId: id, taskId: 42, state: 'ready', reason: 'ready', recoveryAction: 'none', documentVersion: 1, knowledgeBaseVersion: 1 },
+    { versionId: id, taskId: null, state: 'ready', reason: 'ready', recoveryAction: 'none', documentVersion: '9007199254740993', knowledgeBaseVersion: 1 }
+  ])('索引核对拒绝损坏的来源、分类或版本契约 %j', async checkedIndex => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(checkedIndex)));
+    await expect(aiGetKnowledgeIndexReconciliation(createHttpClient(), { ...resource, versionId: id }))
+      .rejects.toThrow(/invalid_ai_knowledge_index_reconciliation_response/);
+  });
+
   it('四个机构授予操作使用各自资源路径并传递版本、认证、语言与取消', async () => {
     const documentId = '00000000-0000-0000-0000-000000000002';
     const documentResource = { knowledgeBaseId: id, documentId };

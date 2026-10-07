@@ -105,7 +105,18 @@ internal static class NativeApiE2EAssertions
             new SetAiKnowledgeDocumentMembersRequest([tenantMember.UserId], tenantDocument.Version));
         using var tenantDocGranted = await client.SendAsync(tenantDocGrant, cancellationToken).ConfigureAwait(false);
         await AssertStatusAsync(tenantDocGranted, HttpStatusCode.OK, "Grant native tenant document access", cancellationToken).ConfigureAwait(false);
-        await VerifyKnowledgeFileNativeAsync(client, tenantToken, tenantDocPath + $"/{tenantDocument.Id}", tenantDocument.Version + 1, cancellationToken).ConfigureAwait(false);
+        var tenantUpload = await VerifyKnowledgeFileNativeAsync(client, tenantToken, tenantDocPath + $"/{tenantDocument.Id}", tenantDocument.Version + 1, cancellationToken).ConfigureAwait(false);
+        // Tenant 原生 SQL 实际读取非空版本；未批准模型时只读核对不得建议新收费处理。
+        using (var reconcile = Authorized(HttpMethod.Get, tenantDocPath + $"/{tenantDocument.Id}/versions/{tenantUpload.VersionId}/index/reconciliation", tenantToken))
+        using (var checkedResponse = await client.SendAsync(reconcile, cancellationToken).ConfigureAwait(false))
+        {
+            await AssertStatusAsync(checkedResponse, HttpStatusCode.OK, "Read native tenant index reconciliation", cancellationToken).ConfigureAwait(false);
+            var checkedIndex = await checkedResponse.Content.ReadFromJsonAsync<AiKnowledgeIndexReconciliationResponse>(cancellationToken).ConfigureAwait(false);
+            Assert.IsNotNull(checkedIndex); Assert.AreEqual(tenantUpload.VersionId, checkedIndex.VersionId); Assert.IsNull(checkedIndex.TaskId);
+            Assert.AreEqual("pending_processing", checkedIndex.State); Assert.AreEqual("source_unavailable", checkedIndex.Reason);
+            Assert.AreEqual("none", checkedIndex.RecoveryAction); Assert.AreEqual(tenantDocument.Version + 2, checkedIndex.DocumentVersion);
+            Assert.AreEqual(tenantBase.Version + 1, checkedIndex.KnowledgeBaseVersion);
+        }
         // Tenant 原生路径实际绑定非空集合并物化角色授予 DTO；主版本同时供旧名单接口使用。
         foreach (var resource in new[] { $"/api/v1/ai/knowledge-bases/{tenantBase.Id}", tenantDocPath + $"/{tenantDocument.Id}" })
         {

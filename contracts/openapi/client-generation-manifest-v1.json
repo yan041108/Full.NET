@@ -3515,6 +3515,12 @@
       "status": "generated"
     },
     {
+      "operationId": "aiGetKnowledgeIndexReconciliation",
+      "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge",
+      "status": "generated"
+    },
+    {
       "operationId": "aiEnqueueKnowledgeIndex",
       "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
       "generatedGroup": "ai-knowledge",

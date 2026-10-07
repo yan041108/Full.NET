@@ -184,6 +184,23 @@ PUT 正文为 `roleIds` 与对应资源的 `version`：最多 100 个唯一非�
 
 删除后仅所有者能读取精确版本墓碑：仍有文件清理待办或派生指针/清单/向量时为 `deleting`，这些内容清理完后为 `deleted`。任务与收费审计历史可以保留。该入口不执行清理，自动恢复由下述独立 Worker 承担；既有版本列表的 `pending_processing` 字段保持兼容。
 
+## 所有者索引对账与恢复提示
+
+`GET /api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/versions/{versionId}/index/reconciliation` 的 OperationId 为 `aiGetKnowledgeIndexReconciliation`，不接受正文或查询字段。调用者须同时具备知识库读取、文档读取与 `ai.knowledge_documents.index_read`，且必须是当前范围的资源所有者；用户、角色或机构成员的索引读取资格不能用于对账。不可见资源返回 404，未认证/权限失效返回 401/403，证明或权限等待期间观察到来源、任务或范围变化时拒绝旧提示；资源变化返回 409。
+
+响应为 `versionId`、可空 `taskId`、`state`、`reason`、`recoveryAction`、当前 `documentVersion` 与 `knowledgeBaseVersion`。`state` 复用现有 TXT/PDF 完整就绪证明，分类不提升状态；关闭 PDF 新处理开关也不撤销已经完整的代次读取。导入记录与版本的内容摘要、大小或类型不一致时返回 `source_unavailable/none`，不能通过重建绕过失效来源。
+
+| reason | recoveryAction | 当前含义 |
+| --- | --- | --- |
+| `ready` / `deleted` | `none` | 完整代次可读 / 删除清理已完成 |
+| `not_indexed` / `binding_stale` | `enqueue` | 尚无任务 / 文档、知识库或模型批准版本已变化，需要新的当前绑定 |
+| `queued` / `processing` / `lease_expired` / `cleanup_pending` | `wait` | 等待排队、处理、原自动租约恢复或清理 Worker |
+| `task_failed` / `lease_exhausted` | `retry` | 失败任务或第三次运行租约到期；仍须原会话及全部写入权限 |
+| `task_cancelled` / `generation_unavailable` | `rebuild` | 当前绑定的任务已取消、冻结身份失配或完整代次损坏，需独立重建流程 |
+| `source_unavailable` / `format_unsupported` | `none` | 来源/批准失效或格式未启用，先修复相应权威配置或来源 |
+
+该 GET 不写任务、抢租约、解析文件、调用模型或收费。提示是本次核对结果，不是执行许可；enqueue/retry 必须经过已有写入端点的当前会话、权限、预算及幂等检查。`rebuild` 仅表达需要独立新代次，重建执行端点仍待交付，不能重开已完成任务、接管旧会话或利用旧账本免费重发。共享生成客户端提供同名操作与响应校验。
+
 ## 原会话失败索引重试
 
 `POST /api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/versions/{versionId}/index/{taskId}/retry` 的 OperationId 为 `aiRetryKnowledgeIndex`，不接受请求体或查询字段。调用者必须是原任务冻结的 Refresh/OIDC 会话，具备入队的五项权限及独立的 `ai.knowledge_documents.index_retry`；普通角色须显式授予该权限。新登录即使属于同一所有者，也不能接管旧任务。API Key、签名身份与旧无会话任务不能恢复。

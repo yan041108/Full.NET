@@ -45,6 +45,10 @@ internal static class AiKnowledgeIndexStatusApiAssertions
             foreach (var status in new[] { "200", "400", "401", "403", "404", "409" }) Assert.IsTrue(operation.GetProperty("responses").TryGetProperty(status, out _));
             var properties = doc.RootElement.GetProperty("components").GetProperty("schemas").GetProperty("AiKnowledgeIndexStatusResponse").GetProperty("properties");
             CollectionAssert.AreEquivalent(new[] { "versionId", "taskId", "state", "failureCode" }, properties.EnumerateObject().Select(x => x.Name).ToArray());
+            var reconciliation = doc.RootElement.GetProperty("paths").GetProperty("/api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/versions/{versionId}/index/reconciliation").GetProperty("get");
+            Assert.AreEqual("aiGetKnowledgeIndexReconciliation", reconciliation.GetProperty("operationId").GetString());
+            Assert.IsFalse(reconciliation.TryGetProperty("requestBody", out _));
+            foreach (var status in new[] { "200", "400", "401", "403", "404", "409" }) Assert.IsTrue(reconciliation.GetProperty("responses").TryGetProperty(status, out _));
         }
         Dictionary<string, object?>? hostRow = null, tenantRow = null;
         foreach (var scoped in new[] { false, true })
@@ -62,8 +66,14 @@ internal static class AiKnowledgeIndexStatusApiAssertions
             await db.ExecuteAsync("UPDATE fn_ai_model_config SET TenantId=@Tenant WHERE Id=@Id", new { Tenant = scoped ? tenant.Id : (Guid?)null, Id = row["ModelConfigId"] });
             row["OwnerUserId"] = owner.UserId; row["TenantId"] = scoped ? tenant.Id : null;
             var path = Path(row); await State(ownerClient, path, "pending_processing");
+            await Reconciliation(ownerClient, path, "pending_processing", "not_indexed", "enqueue");
+            await Expect(memberClient, path + "/reconciliation", HttpStatusCode.NotFound);
             await Expect(memberClient, path, HttpStatusCode.NotFound);
             using var anonymous = factory.CreateClientForHost(scoped ? "acme.localhost" : "localhost"); await Expect(anonymous, path, HttpStatusCode.Unauthorized);
+            await Expect(anonymous, path + "/reconciliation", HttpStatusCode.Unauthorized);
+            await Expect(ownerClient, path + "/reconciliation?tenantId=" + tenant.Id, HttpStatusCode.BadRequest);
+            using (var request = new HttpRequestMessage(HttpMethod.Get, path + "/reconciliation") { Content = new StringContent("{}", Encoding.UTF8, "application/json") })
+            using (var response = await ownerClient.SendAsync(request)) Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
             await Expect(ownerClient, path + "?tenantId=" + tenant.Id, HttpStatusCode.BadRequest);
             using (var request = new HttpRequestMessage(HttpMethod.Get, path) { Content = new StringContent("{}", Encoding.UTF8, "application/json") })
             using (var response = await ownerClient.SendAsync(request)) Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
@@ -75,18 +85,25 @@ internal static class AiKnowledgeIndexStatusApiAssertions
                     var denied = await factory.CreateHostIdentityAsync($"index-denied-{Guid.NewGuid():N}", permissions.Where(x => x != permission).ToArray());
                     using var deniedClient = factory.CreateClientForHost("localhost"); deniedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", denied.AccessToken);
                     await Expect(deniedClient, path, HttpStatusCode.Forbidden);
+                    await Expect(deniedClient, path + "/reconciliation", HttpStatusCode.Forbidden);
                 }
             }
-            else { tenantRow = row; await Expect(ownerClient, Path(hostRow!), HttpStatusCode.NotFound); }
+            else { tenantRow = row; await Expect(ownerClient, Path(hostRow!), HttpStatusCode.NotFound); await Expect(ownerClient, Path(hostRow!) + "/reconciliation", HttpStatusCode.NotFound); }
             var bytes = Encoding.UTF8.GetBytes("索引状态实际完整性 source proof"); var hash = Convert.ToHexString(SHA256.HashData(bytes));
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_version SET ContentHash=@Hash,SizeBytes=@Size WHERE Id=@Id", new { Hash = hash, Size = bytes.Length, Id = row["VersionId"] });
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_import SET ContentHash=@Hash,SizeBytes=@Size WHERE VersionId=@Id", new { Hash = hash, Size = bytes.Length, Id = row["VersionId"] });
+            await VerifyImportMismatchAsync(db, row, ownerClient, path, "pending_processing", hash);
             using (var admitted = await ownerClient.PostAsync(path, null))
             {
                 Assert.AreEqual(HttpStatusCode.Accepted, admitted.StatusCode, await admitted.Content.ReadAsStringAsync());
                 using var json = JsonDocument.Parse(await admitted.Content.ReadAsStringAsync()); row["TaskId"] = json.RootElement.GetProperty("taskId").GetGuid();
             }
             await State(ownerClient, path, "queued");
+            await Reconciliation(ownerClient, path, "queued", "queued", "wait");
+            // 原任务身份不匹配时不能把失败状态解释为等候或允许接管旧会话。
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_session SET ActorUserId=@Actor WHERE IndexTaskId=@TaskId", new { Actor = member.UserId, TaskId = row["TaskId"] });
+            try { await Reconciliation(ownerClient, path, "failed", "generation_unavailable", "rebuild"); }
+            finally { await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_session SET ActorUserId=@Actor WHERE IndexTaskId=@TaskId", new { Actor = owner.UserId, TaskId = row["TaskId"] }); }
             await using var scope = factory.Services.CreateAsyncScope(); var services = scope.ServiceProvider;
             var context = services.GetRequiredService<ICurrentTenantContextWriter>();
             if (scoped) context.SetTenant(new(tenant.Id, "acme", "测试")); else context.SetHost();
@@ -94,13 +111,21 @@ internal static class AiKnowledgeIndexStatusApiAssertions
             var binding = new AiKnowledgeIndexTaskBinding((Guid)row["KnowledgeBaseId"]!, (Guid)row["DocumentId"]!, (Guid)row["VersionId"]!, 1, 1, owner.UserId);
             var taskId = (Guid)row["TaskId"]!; var held = await tasks.AcquireAsync(binding, taskId, default); Assert.IsNotNull(held);
             await State(ownerClient, path, "processing");
+            await Reconciliation(ownerClient, path, "processing", "processing", "wait");
+            // 租约耗尽只返回显式重试提示，不抢租约、不改变代次或收费记录。
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET LeaseExpiresAtUtc=@Expired,AttemptCount=3 WHERE Id=@TaskId", new { TaskId = taskId, Expired = DateTime.UtcNow.AddDays(-1) });
+            await Reconciliation(ownerClient, path, "processing", "lease_exhausted", "retry");
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET LeaseExpiresAtUtc=@Expiry,AttemptCount=@Attempts WHERE Id=@TaskId", new { TaskId = taskId, Expiry = held.LeaseExpiresAtUtc, Attempts = held.AttemptCount });
             var files = new AiKnowledgeIndexEmbeddingAssertions.ControlledFiles((Guid)row["FileId"]!, binding.VersionId, bytes, hash);
             var provider = new AiKnowledgeIndexEmbeddingAssertions.ControlledFactory();
             Assert.IsTrue(await Generation(services, tasks, files, provider).ExecuteTextGenerationAsync(binding, taskId, held.LeaseToken!.Value, default));
             await State(ownerClient, path, "ready"); var calls = provider.Calls; var opens = files.Opens;
+            await Reconciliation(ownerClient, path, "ready", "ready", "none");
+            await VerifyImportMismatchAsync(db, row, ownerClient, path, "failed", hash);
             var payload = await db.QuerySingleAsync<byte[]>("SELECT vector.Payload FROM fn_ai_knowledge_index_vector AS vector INNER JOIN fn_ai_knowledge_index_batch AS batch ON batch.Id=vector.Id WHERE batch.IndexTaskId=@TaskId", row);
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=(SELECT Id FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@TaskId)", new { TaskId = taskId, Payload = new byte[8] });
             await State(ownerClient, path, "failed");
+            await Reconciliation(ownerClient, path, "failed", "generation_unavailable", "rebuild");
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=(SELECT Id FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@TaskId)", new { TaskId = taskId, Payload = payload });
             await State(ownerClient, path, "ready");
             foreach (var pair in new[] { ("fn_ai_model_config", "ModelConfigId", "IsEnabled=0", "IsEnabled=1"),
@@ -108,6 +133,8 @@ internal static class AiKnowledgeIndexStatusApiAssertions
                 ("fn_ai_knowledge_document", "DocumentId", "Version=2", "Version=1") })
             {
                 await db.ExecuteAsync($"UPDATE {pair.Item1} SET {pair.Item3} WHERE Id=@Id", new { Id = row[pair.Item2] }); await State(ownerClient, path, "failed");
+                await Reconciliation(ownerClient, path, "failed", pair.Item1 == "fn_ai_knowledge_document" ? "binding_stale" : "source_unavailable",
+                    pair.Item1 == "fn_ai_knowledge_document" ? "enqueue" : "none");
                 await db.ExecuteAsync($"UPDATE {pair.Item1} SET {pair.Item4} WHERE Id=@Id", new { Id = row[pair.Item2] }); await State(ownerClient, path, "ready");
             }
             row["ReaderId"] = member.UserId; row["GrantId"] = Guid.CreateVersion7();
@@ -119,12 +146,15 @@ internal static class AiKnowledgeIndexStatusApiAssertions
             await State(ownerClient, path, "ready");
             await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_index_task (Id,DocumentId,VersionId,DocumentVersion,KnowledgeBaseVersion,ModelConfigId,ModelConfigVersion,StateKey,AttemptCount,CreatedAtUtc,UpdatedAtUtc) VALUES (@Id,@DocumentId,@VersionId,2,1,@ModelConfigId,1,'queued',0,@Now,@Now)",
                 new { Id = newer, DocumentId = binding.DocumentId, VersionId = binding.VersionId, ModelConfigId = (Guid)row["ModelConfigId"]!, Now = DateTime.UtcNow.AddMinutes(1) });
-            await State(ownerClient, path, "failed"); await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_task WHERE Id=@Id", new { Id = newer });
+            await State(ownerClient, path, "failed");
+            await Reconciliation(ownerClient, path, "failed", "binding_stale", "enqueue");
+            await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_task WHERE Id=@Id", new { Id = newer });
             await State(ownerClient, path, "ready");
             await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_member (Id,KnowledgeBaseId,UserId,CreatedAtUtc) VALUES (@GrantId,@KnowledgeBaseId,@ReaderId,@Now)", row);
             await Expect(memberClient, path, HttpStatusCode.NotFound); row["GrantId"] = Guid.CreateVersion7();
             await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_document_member (Id,DocumentId,UserId,CreatedAtUtc) VALUES (@GrantId,@DocumentId,@ReaderId,@Now)", row);
             await State(memberClient, path, "ready");
+            await Expect(memberClient, path + "/reconciliation", HttpStatusCode.NotFound);
             await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_document_member WHERE DocumentId=@DocumentId", row); await Expect(memberClient, path, HttpStatusCode.NotFound);
             await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_member WHERE KnowledgeBaseId=@KnowledgeBaseId", row);
             if (!scoped)
@@ -134,6 +164,7 @@ internal static class AiKnowledgeIndexStatusApiAssertions
                 await Expect(memberClient, path, HttpStatusCode.NotFound); row["GrantId"] = Guid.CreateVersion7();
                 await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_document_role (Id,DocumentId,RoleId,CreatedAtUtc) VALUES (@GrantId,@DocumentId,@RoleId,@Now)", row);
                 await State(memberClient, path, "ready");
+                await Expect(memberClient, path + "/reconciliation", HttpStatusCode.NotFound);
                 await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_document_role WHERE DocumentId=@DocumentId", row); await Expect(memberClient, path, HttpStatusCode.NotFound);
             }
             else
@@ -145,6 +176,7 @@ internal static class AiKnowledgeIndexStatusApiAssertions
                 await Expect(memberClient, path, HttpStatusCode.NotFound); row["GrantId"] = Guid.CreateVersion7();
                 await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_document_org (Id,DocumentId,OrganizationUnitId,CreatedAtUtc) VALUES (@GrantId,@DocumentId,@UnitId,@Now)", row);
                 await State(memberClient, path, "ready");
+                await Expect(memberClient, path + "/reconciliation", HttpStatusCode.NotFound);
                 await db.ExecuteAsync("UPDATE fn_organization_user_unit SET IsActive=0 WHERE Id=@MembershipId", row); await Expect(memberClient, path, HttpStatusCode.NotFound);
                 await db.ExecuteAsync("UPDATE fn_organization_user_unit SET IsActive=1 WHERE Id=@MembershipId", row); await State(memberClient, path, "ready");
             }
@@ -152,6 +184,7 @@ internal static class AiKnowledgeIndexStatusApiAssertions
             await db.ExecuteAsync("DELETE FROM fn_identity_role_permission WHERE PermissionCode=@Permission AND RoleId IN (SELECT RoleId FROM fn_identity_user_role WHERE UserId=@User)", new { Permission = AiKnowledgeDocumentPermissions.IndexEnqueue, User = owner.UserId });
             await State(ownerClient, path, "ready");
             Assert.IsFalse(await services.GetRequiredService<AiKnowledgeIndexActivationStore>().IsActiveAsync(binding, taskId, held.LeaseToken.Value, default));
+            await Reconciliation(ownerClient, path, "ready", "ready", "none");
             // 下一轮需要独立有效写入会话；恢复被测试权限只用于此隔离夹具。
             await db.ExecuteAsync("INSERT INTO fn_identity_role_permission (RoleId,PermissionCode) SELECT RoleId,@Permission FROM fn_identity_user_role WHERE UserId=@User", new { Permission = AiKnowledgeDocumentPermissions.IndexEnqueue, User = owner.UserId });
             Assert.AreEqual(calls, provider.Calls); Assert.AreEqual(opens, files.Opens);
@@ -169,6 +202,7 @@ internal static class AiKnowledgeIndexStatusApiAssertions
                 await State(ownerClient, path, "ready");
             }
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET IsDeleted=1 WHERE Id=@DocumentId", row); await State(ownerClient, path, "deleting");
+            await Reconciliation(ownerClient, path, "deleting", "cleanup_pending", "wait");
             await Expect(memberClient, path, HttpStatusCode.NotFound);
             await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_active_generation WHERE DocumentId=@DocumentId", row);
             await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_vector WHERE Id IN (SELECT Id FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@TaskId)", row);
@@ -176,10 +210,12 @@ internal static class AiKnowledgeIndexStatusApiAssertions
             await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_text_manifest WHERE Id=@TaskId", row);
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_import SET StateKey='cleanup_pending' WHERE DocumentId=@DocumentId", row); await State(ownerClient, path, "deleting");
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_import SET StateKey='failed' WHERE DocumentId=@DocumentId", row); await State(ownerClient, path, "deleted");
+            await Reconciliation(ownerClient, path, "deleted", "deleted", "none");
         }
         client.DefaultRequestHeaders.Authorization = null;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await IntegrationTestAuthHelper.LoginAsHostUserAsync(client, owner.Username));
         await Expect(client, Path(tenantRow!), HttpStatusCode.NotFound);
+        await Expect(client, Path(tenantRow!) + "/reconciliation", HttpStatusCode.NotFound);
     }
 
     internal static AiKnowledgeIndexPersistenceService Generation(IServiceProvider services, AiKnowledgeIndexTaskStore tasks,
@@ -208,6 +244,32 @@ internal static class AiKnowledgeIndexStatusApiAssertions
     private static async Task Expect(HttpClient client, string path, HttpStatusCode status)
     {
         using var response = await client.GetAsync(path); Assert.AreEqual(status, response.StatusCode, await response.Content.ReadAsStringAsync());
+    }
+
+    private static async Task VerifyImportMismatchAsync(System.Data.Common.DbConnection db, Dictionary<string, object?> row,
+        HttpClient client, string path, string state, string hash)
+    {
+        // 导入与来源的权威指纹不一致无法靠重新索引修复；有无任务均不建议扣费入队或重建。
+        foreach (var pair in new[] { ("ContentHash=@BrokenHash", "ContentHash=@Hash"),
+            ("SizeBytes=SizeBytes+1", "SizeBytes=SizeBytes-1"), ("ContentType='application/pdf'", "ContentType='text/plain'") })
+        {
+            var parameters = new { VersionId = row["VersionId"], Hash = hash, BrokenHash = new string('0', 64) };
+            await db.ExecuteAsync($"UPDATE fn_ai_knowledge_import SET {pair.Item1} WHERE VersionId=@VersionId", parameters);
+            try { await Reconciliation(client, path, state, "source_unavailable", "none"); }
+            finally { await db.ExecuteAsync($"UPDATE fn_ai_knowledge_import SET {pair.Item2} WHERE VersionId=@VersionId", parameters); }
+        }
+    }
+
+    private static async Task Reconciliation(HttpClient client, string path, string state, string reason, string action)
+    {
+        using var response = await client.GetAsync(path + "/reconciliation");
+        var body = await response.Content.ReadAsStringAsync(); Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, body);
+        using var json = JsonDocument.Parse(body);
+        Assert.AreEqual(state, json.RootElement.GetProperty("state").GetString());
+        Assert.AreEqual(reason, json.RootElement.GetProperty("reason").GetString());
+        Assert.AreEqual(action, json.RootElement.GetProperty("recoveryAction").GetString());
+        CollectionAssert.AreEquivalent(new[] { "versionId", "taskId", "state", "reason", "recoveryAction", "documentVersion", "knowledgeBaseVersion" },
+            json.RootElement.EnumerateObject().Select(property => property.Name).ToArray());
     }
 
     internal static string Path(Dictionary<string, object?> row) => $"/api/v1/ai/knowledge-bases/{row["KnowledgeBaseId"]}/documents/{row["DocumentId"]}/versions/{row["VersionId"]}/index";

@@ -25,6 +25,7 @@ import type {
   AiKnowledgeDocumentResponse,
   AiKnowledgeImportResponse,
   AiKnowledgeIndexEnqueueResponse,
+  AiKnowledgeIndexReconciliationResponse,
   AiKnowledgeIndexStatusResponse,
   AiKnowledgeMembersResponse,
   AiKnowledgeOrganizationCandidateResponse,
@@ -875,6 +876,18 @@ export function readAiKnowledgeIndexEnqueueResponse(value: unknown): AiKnowledge
 
 function isAiKnowledgeIndexEnqueueResponse(value: unknown): value is AiKnowledgeIndexEnqueueResponse {
   return isRecord(value) && (typeof value["taskId"] === 'string' && guidPattern.test(value["taskId"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readAiKnowledgeIndexReconciliationResponse(value: unknown): AiKnowledgeIndexReconciliationResponse {
+  const normalizedValue = normalizeAiKnowledgeIndexReconciliationResponseIntegerJson(value);
+  if (!(isAiKnowledgeIndexReconciliationResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_index_reconciliation_response');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeIndexReconciliationResponse(value: unknown): value is AiKnowledgeIndexReconciliationResponse {
+  return isRecord(value) && (typeof value["documentVersion"] === 'number' && Number.isSafeInteger(value["documentVersion"])) && (typeof value["knowledgeBaseVersion"] === 'number' && Number.isSafeInteger(value["knowledgeBaseVersion"])) && (typeof value["reason"] === 'string') && (typeof value["recoveryAction"] === 'string') && (typeof value["state"] === 'string') && ((value["taskId"] === null) || (typeof value["taskId"] === 'string' && guidPattern.test(value["taskId"]))) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
 }
 
 export function readAiKnowledgeIndexStatusResponse(value: unknown): AiKnowledgeIndexStatusResponse {
@@ -8253,6 +8266,10 @@ function normalizeAiKnowledgeDocumentMembersResponseIntegerJson(value: unknown):
 
 function normalizeAiKnowledgeDocumentResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeIndexReconciliationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "documentVersion") ? { ["documentVersion"]: normalizeWireInteger(value["documentVersion"]) } : {}), ...(Object.hasOwn(value, "knowledgeBaseVersion") ? { ["knowledgeBaseVersion"]: normalizeWireInteger(value["knowledgeBaseVersion"]) } : {}) } : value);
 }
 
 function normalizeAiKnowledgeMembersResponseIntegerJson(value: unknown): unknown {

@@ -58,6 +58,16 @@ internal static class NativePdfKnowledgeAssertions
             using var response = await Send(HttpMethod.Get, PathFor(b)); await Require(response, HttpStatusCode.OK);
             var status = await response.Content.ReadFromJsonAsync<AiKnowledgeIndexStatusResponse>(cancellation);
             Assert.IsNotNull(status); Assert.AreEqual("ready", status.State);
+            if (!nativeWorker)
+            {
+                // 在真实 Native API 中读取只读核对契约；沿用已完成的收费 PDF 证明，不产生新模型调用。
+                using var reconciliation = await Send(HttpMethod.Get, PathFor(b) + "/reconciliation"); await Require(reconciliation, HttpStatusCode.OK);
+                var checkedIndex = await reconciliation.Content.ReadFromJsonAsync<AiKnowledgeIndexReconciliationResponse>(cancellation);
+                Assert.IsNotNull(checkedIndex); Assert.AreEqual(b.VersionId, checkedIndex.VersionId);
+                Assert.AreEqual(status.TaskId, checkedIndex.TaskId); Assert.AreEqual("ready", checkedIndex.State);
+                Assert.AreEqual("ready", checkedIndex.Reason); Assert.AreEqual("none", checkedIndex.RecoveryAction);
+                Assert.AreEqual(b.DocumentVersion, checkedIndex.DocumentVersion); Assert.AreEqual(b.KnowledgeBaseVersion, checkedIndex.KnowledgeBaseVersion);
+            }
             if (!nativeWorker && !historyChecked)
             {
                 historyChecked = true;
@@ -131,7 +141,21 @@ internal static class NativePdfKnowledgeAssertions
         var probe = new AiKnowledgeIndexPdfVectorAssertions.NativeProbe(session, async b =>
         {
             using var response = await Send(HttpMethod.Post, PathFor(b)); await Require(response, HttpStatusCode.Accepted);
-            var queued = await response.Content.ReadFromJsonAsync<AiKnowledgeIndexEnqueueResponse>(cancellation); Assert.IsNotNull(queued); return queued.TaskId;
+            var queued = await response.Content.ReadFromJsonAsync<AiKnowledgeIndexEnqueueResponse>(cancellation); Assert.IsNotNull(queued);
+            if (!nativeWorker)
+            {
+                // 原生读取到失效冻结身份时，只建议独立新代次；对账不接管、续租或派发旧任务。
+                await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_session SET ActorUserId=@Actor WHERE IndexTaskId=@TaskId", new { Actor = Guid.CreateVersion7(), TaskId = queued.TaskId });
+                try
+                {
+                    using var reconciliation = await Send(HttpMethod.Get, PathFor(b) + "/reconciliation"); await Require(reconciliation, HttpStatusCode.OK);
+                    var checkedIndex = await reconciliation.Content.ReadFromJsonAsync<AiKnowledgeIndexReconciliationResponse>(cancellation);
+                    Assert.IsNotNull(checkedIndex); Assert.AreEqual("failed", checkedIndex.State);
+                    Assert.AreEqual("generation_unavailable", checkedIndex.Reason); Assert.AreEqual("rebuild", checkedIndex.RecoveryAction);
+                }
+                finally { await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_session SET ActorUserId=@Actor WHERE IndexTaskId=@TaskId", new { Actor = b.OwnerUserId, TaskId = queued.TaskId }); }
+            }
+            return queued.TaskId;
         }, ReadReady, async b =>
         {
             // 人工重试沿原会话冻结绑定运行，保留已结算清单和向量；Worker 不接触假 Node/CLI 路径。
