@@ -118,6 +118,7 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                             services.GetRequiredService<IIdGenerator>(), tasks, authorization, services.GetRequiredService<IOptions<DatabaseOptions>>()),
                         SessionService(services, tasks)).ExecuteTextGenerationAsync(binding, task.Id, lease, default)),
                     () => provider.Calls, () => files.Opens, authorization, clock, held.LeaseExpiresAtUtc!.Value, scenario == "known");
+                await Use(async (_, _, services) => { await AiKnowledgeRetrievalAssertions.VerifyAsync(services, db, binding); return true; });
                 continue;
             }
             if (wholeGeneration)

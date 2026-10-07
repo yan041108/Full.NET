@@ -252,6 +252,13 @@ internal static class AiKnowledgeIndexPdfVectorAssertions
             Assert.IsTrue(await Use(a => a.Activations.IsReadyForReadAsync(status, readParameters, default)));
             if (probe is not null) await probe.ReadReady(binding);
             auth.DeniedPermission = null;
+            if (native is null)
+            {
+                await using var retrievalScope = factory.Services.CreateAsyncScope();
+                var writer = retrievalScope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+                if (session.TenantId is { } currentTenant) writer.SetTenant(new(currentTenant, "retrieval", "检索测试")); else writer.SetHost();
+                await AiKnowledgeRetrievalAssertions.VerifyAsync(retrievalScope.ServiceProvider, db, binding);
+            }
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=@Id", new { Payload = new byte[8], Id = operations[0] });
             Assert.IsFalse(await Use(a => a.Activations.IsReadyForReadAsync(status, readParameters, default)));
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=@Id", new { Payload = activePayload, Id = operations[0] });

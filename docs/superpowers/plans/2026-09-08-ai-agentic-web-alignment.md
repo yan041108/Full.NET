@@ -1188,6 +1188,29 @@ R04b2c2 本地验收（2026-10-03）：`main` 基线 `fdfab53423bf83e8c91bf2599b
 - [ ] 实现服务端过滤、候选批量权威复核、有界上下文、引用允许集校验和独立来源授权；拒绝无证据回答及未经授权的工具动作。
 - [ ] 对 R02 冻结评估集生成基线；安全泄漏零容忍，未满足质量门槛保持未验收并记录失败样例。
 
+#### R06a 合批执行：权限召回、上下文和引用流水线
+
+main 基线 `6529a2ab481a2a04ca278f9226c15b6bcad6ac51`，快照 `ai-knowledge-retrieval-r06a`。按当前授权在同一会话实施并统一提交，不派生实施代理。
+
+- [x] 新建 `Knowledge/AiKnowledgeVectorRanker.cs` 与 `AiKnowledgeRetrievalTypes.cs`：`Rank(ReadOnlyMemory<float>, IReadOnlyList<AiKnowledgeRetrievalChunk>, CancellationToken)` 校验精确维度、有限非零向量及唯一代次/序号，以 double 计算余弦并按规范 Guid/序号打破平分。先验证正确排名、平分稳定、非有限数、零向量、维度漂移和超限拒绝；不静默截断候选。
+- [x] 新建 `Persistence/AiKnowledgeRetrievalSql.cs` 与 `Knowledge/AiKnowledgeRetrievalService.cs`：`RetrieveAsync(IReadOnlyList<Guid>, Guid, AiModelConfigRecord, ReadOnlyMemory<float>, CancellationToken)` 冻结输入；四条精确权限与当前角色/机构在事务外复核。双库批量限定请求知识库、来源最新版本、当前模型空间和完整活动代次；复用已有静态 Status/Vector 行类型和完整 TXT/PDF 证明，读取实际有界载荷。最多 8 个知识库/文档、32 个批次、256 个片段、8 MiB 载荷；SQL 上限加一，超限整次拒绝。来源批量权威查询在读载荷后和交付前复查，单次工作预算 25 秒，未确认清理拒绝。
+- [x] 新建 `Knowledge/AiKnowledgeAnswerContext.cs` 与 `AiKnowledgeAnswerPipeline.cs`：`PrepareAsync(..., string question, CancellationToken)` 建立最多 8 片段、4096 Token 的完整上下文和 UUID v7 服务端引用，文本写入 JSON 数据字段；`AcceptAsync(context, ReadOnlyMemory<byte> response, CancellationToken)` 先冻结有界 JSON、拒绝未知/重复字段和伪造引用，再复核所有参与生成的来源（包含未引用来源），成功才交付正文。不裁剪来源，不用引用名单替代完整依赖，不执行工具或逐 Token 输出。
+- [x] 在 `tests/Full.NET.UnitTests/Ai/` 增加真实规则、门闩撤权、同版本目的地漂移、载荷篡改与上下文取消测试；已有真实 TXT/PDF 双库索引场景追加生产检索与引用流水线断言。开发先运行聚焦 RED/GREEN，合批再运行完整 AI、受影响架构、正式双库和治理，按实际发现更新唯一矩阵，最后提交 main；以下保留首轮失败、重跑结果和未关闭的全局门禁，不宣称整套验收全绿。
+
+本批是 R06 的内部检索与缓冲引用消费者，不增加 HTTP、DI、持久化答案或模型派发；下一批连接受预算的查询 Embedding/生成及完整来源依赖历史后开放问答。SQL 仅访问 AI 自有表；角色/机构来自既有最小 Port，不入本地事务。本批不把受控查询向量/模型 JSON 作为真实模型质量基线，也不宣称完整 RAG 或新增内部路径 Native 已验收。
+
+**R06a 本地证据与边界（2026-10-07）：**
+
+- RED/GREEN 覆盖稳定排名、数值/规模边界、严格 JSON、伪造引用、取消与未引用来源撤权。审查发现的最后权限等待窗口、捕获载荷与活动回执绑定、最新角色/机构复核均先建立失败用例，再修复并复核；最终只读审查未发现剩余 P1/P2 阻塞项。
+- 最终 Release 构建通过。实际 `node artifacts/r06a/run-ai.mjs` 使用 `pnpm test:dotnet:unit -- --no-build --selection ai-module` 对应的唯一矩阵参数，追加四 Worker 设置和 TRX，完整 AI 实际 1818 通过、零失败、零跳过；新增 69 个用例，完整 Unit 发现数同步到矩阵。`pnpm test:dotnet:architecture -- --no-build --filter 'FullyQualifiedName~AiDependencyBoundaryTests|FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol' --minimum-expected-tests 80` 实际通过全部 80 项。该结果是架构约束验证，不是新增检索消费者的 Native 发布/运行证据。
+- 正式双库使用任务快照的 `pnpm test:integration:affected -- --snapshot ai-knowledge-retrieval-r06a --phase merge`，UID 去重并确认 SQL Server/MySQL；实际 90 项、89 通过、1 失败、零跳过，退出码 1（dotnet 2），40m52s。唯一失败是未修改的 `AiKnowledgeIndexRetryApiMySqlTests.Http_retry_preserves_session_and_recovery_data_async` 在文本代次执行返回 false；不是新增消费者调用路径。本批 TXT/PDF 四个双库核心用例均通过，包含 Host/Tenant、两层授予、角色/机构撤权、模型目的地漂移、载荷篡改和缓冲交付。
+- 未改源码/产物，实际直接运行 Integration DLL，以 `FullyQualifiedName~AiKnowledgeIndexRetryApiMySqlTests|FullyQualifiedName~AiKnowledgeIndexRetryApiSqlServerTests`、最低发现数 2、超时 15m 和独立 TRX 复现；2 项均通过、零失败、零跳过，退出码 0，4m27s。初次失败时任务仍 running、已有清单和一个批次、尚无活动指针（`retry-failed-state.txt`）；不能据此确定失败阶段或原因，也不将重跑视为修复或把首轮改成通过。该既有恢复用例的稳定性仍待定位。
+- `verify-acceptance.mjs --recheck` 核对完整 UID/FQN、两份 TRX 时间和同一冻结输入，成功运行观察覆盖全部 90 个目标 UID，首轮失败单独保留。先前被主动停止的旧源码运行不计为通过。507 个源码/矩阵输入及 7 个构建产物已冻结，四个位置的 AI DLL 一致（`artifacts/r06a/final-inputs.json`）；本批内部消费者已实现并有本地 JIT 核心证据，正式集合的首轮失败仍是未关闭项。
+- `pnpm test:naming` 33 项、`pnpm test:sql-safety` 5 项、`pnpm test:governance` 57 项通过；正式任务入口附带的 Integration tooling 65 项通过，分片核对 1194 项，无遗漏或重复。最终 `git diff --check`、暂存差异检查及 main 分支检查通过，仅提交本批 14 个文件。
+- 扩大架构扫描实际 233 项、229 通过、4 失败：既有 TXT/PDF ActivationStore 异步命名、Cleanup/Index Worker 租户写入登记、PDF `Task.Run`/`.Result` 与 PDF ActivationSql 非静态构造。已修复本批新增消费者自身的异步命名与静态 SQL 声明，保留既有门禁和失败记录。10 个相关既有源码及 4 个门禁与任务基线 Git blob 相同（`baseline-architecture.json`）；该比对不替代完整基线重跑，也不把失败报告为通过。上述全局门禁仍待单独关闭。
+- TXT/PDF 双库夹具使用真实生产 SQL、载荷和完整代次证明，受控会话/角色/机构 Port 验证资源两层授予与等待期间撤权；不外推真实 Identity 登录、云模型质量或容量。上下文只取前八个完整片段，整个 JSON 超过 Token 上限整次拒绝；文本大块夹具仅用一个完整片段验证缓冲交付，PDF 夹具覆盖完整准备流水线，不宣称自动适配上下文大小。
+- Windows x64、i7-12700H、约 64 GB、SDK 10.0.401、运行时 10.0.12；SQL Server 2022-CU14 / MySQL 8.0，测试进程 2 个处理器、GC 堆 2 GiB，AI Unit 独立四 Worker，容器不复用。R06 父项保持未关闭。R06b 下一批接入收费查询 Embedding/生成、预算结算、完整来源历史依赖和公开问答，再补新增可达路径 Native 证据及 R02 真实端到端质量基线；容量仍 `Capacity-not-verified`。
+
 ### R07：Vue 知识库与问答页面（P1，依赖 R04/R06）
 
 **新增：** `ui/admin/src/views/AiKnowledgeBasesView.vue`、`AiKnowledgeDocumentsView.vue` 及对应 `.test.ts`；扩展 `ui/admin/src/views/AiChatView.vue` 与共享生成客户端。路由/菜单按现有机制登记，禁止修改冻结 Layui。
