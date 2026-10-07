@@ -122,7 +122,10 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
    assert.equal(response.status,200,'output Host login HTTP '+response.status);
    let session; try { session = await response.json(); } catch { throw new Error('Output Host login JSON invalid'); }
    assert.ok(typeof session.accessToken === 'string' && session.accessToken.trim(),'output Host session missing');
-   return session.accessToken;
+   const csrfCookie=response.headers.getSetCookie().find(cookie=>cookie.startsWith('fullnet-csrf='));
+   const csrfToken=csrfCookie?.split(';',1)[0].slice('fullnet-csrf='.length);
+   assert.ok(typeof csrfToken==='string' && /^[A-Za-z0-9_-]{1,256}$/u.test(csrfToken),'output Host CSRF cookie missing');
+   return {accessToken:session.accessToken,csrfToken};
   };
   const verifyWorkbook = (bytes,expectedValue) => {
    const python = process.platform === 'win32' ? 'python' : 'python3';
@@ -131,7 +134,7 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
    assert.equal(verified.status,0,'reporting workbook verification failed');
    return JSON.parse(verified.stdout);
   };
-  report.dataOutput = await verifyEnterpriseDataOutputHttp(apiUrl,{hostAccessToken:await loginHost(),tenantId:business.tenantId,
+  report.dataOutput = await verifyEnterpriseDataOutputHttp(apiUrl,{hostAccessToken:(await loginHost()).accessToken,tenantId:business.tenantId,
    externalDataSource:externalSource,loginHost,verifyWorkbook,logPath:join(root,'data-output.json'),signal});
   for (const {child} of processes) { assert.equal(child.exitCode,null,'host exited during acceptance'); assert.equal(child.signalCode,null); }
   report.completed = true;

@@ -37,7 +37,7 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
    if(method==='PUT') assert.deepEqual(input,{roleIds:[roleId],version:1});
    return Response.json({userId,roleIds:method==='PUT'?[roleId]:[],version:1});
   }
-  if (path==='/api/v1/me/password') { assert.equal(input.currentPassword,revokerCredentials.password); assert.notEqual(input.newPassword,input.currentPassword); return Response.json({accessToken:'REVOKER_SECRET'}); }
+  if (path==='/api/v1/me/password') { assert.equal(options.headers.Cookie,'fullnet-csrf=REVOKER_CSRF_SECRET'); assert.equal(options.headers['X-CSRF-Token'],'REVOKER_CSRF_SECRET'); assert.equal(input.currentPassword,revokerCredentials.password); assert.notEqual(input.newPassword,input.currentPassword); return Response.json({accessToken:'REVOKER_SECRET'}); }
   if (path.endsWith('/groups')) return Response.json({id:'01980000-0000-7000-8000-000000000005'}, {status:201});
   if (path.endsWith('/data-sources')) { assert.equal(input.password,source.password); return Response.json({id:'01980000-0000-7000-8000-000000000006'}, {status:201}); }
   if (path.endsWith('/definitions') && method==='POST') return Response.json({id:definitionId,version:1}, {status:201});
@@ -74,7 +74,7 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
  };
  return {
   run: () => verifyEnterpriseDataOutputHttp('http://localhost',{hostAccessToken:'HOST_SECRET',tenantId,externalDataSource:source,logPath,request,
-   loginHost:async(credentials)=> { assert.deepEqual(credentials,revokerCredentials,'revoker must log in as a distinct owned account'); assert.ok(credentials?.username && credentials.username!=='admin'); return 'REVOKER_SECRET'; },verifyWorkbook:async(bytes, expected)=>{
+   loginHost:async(credentials)=> { assert.deepEqual(credentials,revokerCredentials,'revoker must log in as a distinct owned account'); assert.ok(credentials?.username && credentials.username!=='admin'); return {accessToken:'REVOKER_SECRET',csrfToken:'REVOKER_CSRF_SECRET'}; },verifyWorkbook:async(bytes, expected)=>{
     assert.equal(expected,'16.0.4135.4'); assert.deepEqual([...bytes],[80,75,1],'invalid workbook'); checkedWorkbook=true;
     return {worksheets:1,dataRows:1};
    }}),
@@ -91,7 +91,7 @@ test('独立应用联合验证精确版本查询、工作簿校验、撤销后�
   const r=await f.run();assert.equal(r.completed,true);assert.equal(f.checked(),true);
   assert.equal(r.reporting.versionNumber,1);assert.equal(r.reporting.downloadVerified,true);assert.equal(r.reporting.revokedAccessDenied,true);
   assert.equal(r.printing.hostPublished,true);assert.equal(r.printing.tenantPreviewDenied,true);assert.equal(r.printing.status,'tenant-preview-not-supported');
-  assert.doesNotMatch(JSON.stringify(f.report()),/HOST_SECRET|TENANT_SECRET|REVOKER_SECRET|DATABASE_SECRET|16\.0\.4135\.4/u);
+  assert.doesNotMatch(JSON.stringify(f.report()),/HOST_SECRET|TENANT_SECRET|REVOKER_SECRET|REVOKER_CSRF_SECRET|DATABASE_SECRET|16\.0\.4135\.4/u);
   assert.equal(f.requests.filter(r=>r.path.endsWith('/download')).length,2);
  } finally { f.cleanup(); }
 });
@@ -111,6 +111,6 @@ for (const [name,options,pattern] of [
  const f=fixture(options);
  try {
   await assert.rejects(f.run(),pattern);assert.equal(f.report().completed,false);
-  assert.doesNotMatch(JSON.stringify(f.report()),/HOST_SECRET|TENANT_SECRET|REVOKER_SECRET|DATABASE_SECRET|unknown-password/u);
+  assert.doesNotMatch(JSON.stringify(f.report()),/HOST_SECRET|TENANT_SECRET|REVOKER_SECRET|REVOKER_CSRF_SECRET|DATABASE_SECRET|unknown-password/u);
  } finally { f.cleanup(); }
 });

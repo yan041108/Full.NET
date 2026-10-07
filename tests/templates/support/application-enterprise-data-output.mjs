@@ -9,10 +9,11 @@ const identifier = value => ensure(typeof value==='string' && /^[0-9a-f]{8}-[0-9
 export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,tenantId,externalDataSource,loginHost,verifyWorkbook,logPath,signal,request=fetch}) {
  const evidence={completed:false,responses:[],reporting:{completed:false},printing:{completed:false}};
  let stage='configuration'; let token=hostAccessToken;
- const send=async(name,path,method='GET',body,status=200,accessToken=token,binary=false)=>{
+ const send=async(name,path,method='GET',body,status=200,accessToken=token,binary=false,csrfToken=undefined)=>{
   stage=name;
   const headers={Origin:'http://localhost'};
   if(accessToken) headers.Authorization='Bearer '+accessToken;
+  if(csrfToken!==undefined) { headers.Cookie='fullnet-csrf='+csrfToken; headers['X-CSRF-Token']=csrfToken; }
   if(body!==undefined) headers['Content-Type']='application/json';
   const response=await request(baseUrl+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body),redirect:'error',
    signal:signal?AbortSignal.any([signal,AbortSignal.timeout(15_000)]):AbortSignal.timeout(15_000)});
@@ -70,10 +71,12 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   const roleSnapshot=await send('revoker-role-snapshot',rolePath);
   const roles=await send('revoker-assign-role',rolePath,'PUT',{roleIds:[revokerRole.id],version:roleSnapshot.version});
   ensure(roles.userId===revokerUser.id && roles.roleIds?.length===1 && roles.roleIds[0]===revokerRole.id,'revoker role binding mismatch');
-  stage='revoker-login'; let revoker=await loginHost(revokerCredentials);
+  stage='revoker-login'; const revokerSession=await loginHost(revokerCredentials);
+  let revoker=revokerSession?.accessToken;
+  ensure(typeof revokerSession?.csrfToken==='string' && /^[A-Za-z0-9_-]{1,256}$/u.test(revokerSession.csrfToken),'revoker CSRF session missing');
   ensure(typeof revoker==='string' && revoker.trim(),'fresh revoker Host session missing');
   // 管理员创建的账号必须走正式自助改密，再使用轮换后的 Host access token。
-  const changed=await send('revoker-password','/api/v1/me/password','POST',{currentPassword:revokerCredentials.password,newPassword:'Changed!'+randomUUID()+'A9'},200,revoker);
+  const changed=await send('revoker-password','/api/v1/me/password','POST',{currentPassword:revokerCredentials.password,newPassword:'Changed!'+randomUUID()+'A9'},200,revoker,false,revokerSession.csrfToken);
   ensure(typeof changed.accessToken==='string' && changed.accessToken.trim(),'revoker password rotation session missing');
   revoker=changed.accessToken;
   const switched=await send('tenant-context','/api/v1/tenancy/context','PUT',{tenantId});
