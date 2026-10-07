@@ -84,7 +84,8 @@ export async function verifyEnterpriseDataDeliveryHttp(baseUrl, { hostAccessToke
   const application = await send('request-read',`/api/v1/enterprise_request/enterprise-requests/${applicationMatches[0].id}`,'GET');
   assert.equal(application.id,applicationMatches[0].id); assert.equal(application.tenantId,tenantId,'business row tenant mismatch');
   assert.equal(application.organizationUnitId,unit.id); assert.equal(application.requestNumber,requestNumber); assert.equal(application.title,'Enterprise Worker request');
-  assert.equal(application.totalAmount,123.45); assert.equal(application.applicantUserId,me.id); assert.equal(application.status,'draft');
+  // 样例金额契约以字符串传递 decimal，严格核对精度和既有 JSON 类型。
+  assert.equal(application.totalAmount,'123.45'); assert.equal(application.applicantUserId,me.id); assert.equal(application.status,'draft');
   evidence.completed = true; evidence.tenantId = tenantId; evidence.positionId = position.id; evidence.requestId = application.id;
   return evidence;
  } catch (error) {
