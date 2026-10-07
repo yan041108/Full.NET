@@ -1052,6 +1052,18 @@ Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约
 
 **验收：** 导入/导出/打印不会扩大列表权限；任务恢复和文件清理可证明，未跑真实 Worker 不称恢复通过。
 
+**进展（2026-10-07，C02 数据输出页面批量收口，F11 整体仍待办）：**
+
+基线 `c4517ee5b38a2e21fc537666a8b2ad9f42ec1990`，沿用独立临时 checkout 和开发分支，快照 `c02-data-output-client-batch-20261007`。一次完善 PrintingPreview、ReportingExecute、ReportingExportTasks 三页：预览、执行及弹窗提交采用精确响应式权限门；创建/预览/执行/下载互斥，失败可重试；只读导出列表不再加载创建专用定义目录，创建模板仅在具备对应权限时继续发布或预览。三个真实消费者共用授权页面范围，账号、会话、租户、权限或 KeepAlive 状态变化同步清空敏感内容并取消请求，迟到结果、错误和 finally 不覆盖新页面。下载只在授权范围仍有效时触发，正常和浏览器触发失败均释放文件 URL；本地取消不承诺撤销已发生的服务端写入。
+
+原缺陷先用失败回归复现。独立只读审查发现 KeepAlive 激活与同轮租户/会话更新可能重复恢复，新增回归先失败，再统一挂载、激活和微任务的代次去重，复核确认消除该竞态，无新重要问题。
+
+- 相关 Vue 组件、权限门及导航 12 文件 **45/45**，零失败/跳过，包含三页与范围工具的 **29 项**；执行 `pnpm --filter @fullnet/admin exec vitest run <相关测试文件> --maxWorkers=3`，实际文件清单及 JSON 结果保留在 `.tmp/output-client-affected-*`。本批未声称全量 Vue 或跨客户端测试通过。
+- 真实 Edge 浏览器与受控 HTTP **4/4**：只读打印无预览/创建入口；切换模板或报表丢弃旧请求；真实 DOM 净化；导出下载文件名和字节一致且不加载创建目录。执行 `pnpm --filter @fullnet/admin-parity-e2e exec playwright test --config ../../../.tmp/playwright-output-client.config.mjs`，独占端口 25413，结束后监听已退出；受控字节不是 Worker 生成的 Excel。
+- `pnpm --filter @fullnet/admin build`（含 vue-tsc）、`pnpm test:bundle-budgets`、`pnpm test:governance`（**57/57**）通过；`pnpm test:integration:affected:plan -- --snapshot c02-data-output-client-batch-20261007 --phase merge` 判定 **none**。未修改后端、SQL 或公共契约，本批不新增双库、.NET 或原生 AOT 验收结论。
+
+证据保留在 `.tmp/output-client-*`。真实 Worker 崩溃恢复、下载再次授权、独立生成应用业务样板及 F11 其余项继续待办，C02/F11 不凭客户端测试关闭；`Capacity-not-verified` 保持。开发分支交付，PR 保持 Draft，合并与发布另行约定。
+
 ### F12：订阅、试用与支付驱动权益
 
 **依赖：** F06、F08、现有 Payments 安全修复/渠道验收。**提供：** Tenancy 订阅生命周期；Payments 仍拥有资金事实。

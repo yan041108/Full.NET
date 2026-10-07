@@ -1,8 +1,8 @@
 import { mount } from '@vue/test-utils';
-import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ReportingExecuteView from './ReportingExecuteView.vue';
 import { listReportingDefinitions } from '../api/reporting-definitions';
+import { createOutputSession } from '../test/data-output-fixtures';
 
 vi.mock('../api/reporting-definitions', () => ({
   listReportingDefinitions: vi.fn()
@@ -15,8 +15,7 @@ vi.mock('../api/reporting-executions', () => ({
 const definitionsMock = vi.mocked(listReportingDefinitions);
 
 function mountView() {
-  const pinia = createPinia();
-  setActivePinia(pinia);
+  const { pinia } = createOutputSession(['reporting.definitions.read', 'reporting.executions.run']);
   return mount(ReportingExecuteView, { global: { plugins: [pinia] } });
 }
 

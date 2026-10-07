@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import DOMPurify from 'dompurify';
 import {
   ElAlert,
@@ -20,6 +20,7 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import {
   createPrintingTemplate,
   listPrintingTemplates,
@@ -59,6 +60,13 @@ const createForm = ref({
   name: '租户档案卡片',
   layoutHtml: DEFAULT_LAYOUT_HTML
 });
+const scope = useAuthorizedViewScope(session, () => {
+  templates.value = []; selectedTemplateId.value = ''; preview.value = undefined; problem.value = undefined;
+  createDialogVisible.value = false; loading.value = false; previewing.value = false; creating.value = false;
+  createForm.value = { templateKey: 'tenant-profile-card', name: '租户档案卡片', layoutHtml: DEFAULT_LAYOUT_HTML };
+}, load);
+let previewRequest: ReturnType<typeof scope.begin>;
+let loadRequest: ReturnType<typeof scope.begin>;
 
 const selectedTemplate = computed(() =>
   templates.value.find(item => item.id === selectedTemplateId.value));
@@ -74,40 +82,52 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 }
 
 async function load(): Promise<void> {
+  loadRequest?.cancel(); const request = scope.begin('printing.templates.read'); loadRequest = request;
+  if (!request) return;
   loading.value = true;
   problem.value = undefined;
   try {
-    templates.value = await listPrintingTemplates();
+    const values = await listPrintingTemplates(undefined, request.signal);
+    if (!request.current()) return;
+    templates.value = values;
     selectedTemplateId.value = printableTemplates.value[0]?.id ?? templates.value[0]?.id ?? '';
     preview.value = undefined;
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'printingPreview.loadFailed');
+    if (request.current()) problem.value = toProblem(error, 'printingPreview.loadFailed');
   } finally {
-    loading.value = false;
+    if (request.current()) loading.value = false; request.finish();
   }
 }
 
 async function runPreview(): Promise<void> {
-  if (!selectedTemplateId.value) {
+  if (!selectedTemplateId.value || previewing.value || creating.value) {
     return;
   }
+  const request = scope.begin('printing.templates.preview'); if (!request) return; previewRequest = request;
 
   previewing.value = true;
   problem.value = undefined;
   try {
-    preview.value = await previewPrintingTemplate(selectedTemplateId.value, {});
+    const value = await previewPrintingTemplate(selectedTemplateId.value, {}, request.signal);
+    if (request.current()) preview.value = value;
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'printingPreview.previewFailed');
+    if (request.current()) problem.value = toProblem(error, 'printingPreview.previewFailed');
   } finally {
-    previewing.value = false;
+    if (request.current()) previewing.value = false; request.finish();
   }
 }
 
 function printPreview(): void {
-  window.print();
+  if (preview.value && session.can('printing.templates.preview')) window.print();
+}
+
+function onTemplateChanged(): void {
+  previewRequest?.cancel(); preview.value = undefined; previewing.value = false; problem.value = undefined;
 }
 
 async function submitCreate(): Promise<void> {
+  if (creating.value || previewing.value) return;
+  const request = scope.begin('printing.templates.create'); if (!request) return;
   creating.value = true;
   problem.value = undefined;
   try {
@@ -117,23 +137,26 @@ async function submitCreate(): Promise<void> {
       formSchemaKey: 'printing.tenant_profile_card',
       layoutHtml: createForm.value.layoutHtml,
       isEnabled: true
-    });
+    }, request.signal);
+    if (!request.current()) return;
     if (session.can('printing.templates.publish')) {
-      await publishPrintingTemplate(created.id, { version: created.version });
+      await publishPrintingTemplate(created.id, { version: created.version }, request.signal);
+      if (!request.current()) return;
     }
     ElMessage.success(t('printingPreview.createSuccess'));
     createDialogVisible.value = false;
     await load();
+    if (!request.current()) return;
     selectedTemplateId.value = created.id;
+    creating.value = false;
     await runPreview();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'printingPreview.createFailed');
+    if (request.current()) problem.value = toProblem(error, 'printingPreview.createFailed');
   } finally {
-    creating.value = false;
+    if (request.current()) creating.value = false; request.finish();
   }
 }
 
-onMounted(load);
 </script>
 
 <template>
@@ -169,6 +192,8 @@ onMounted(load);
             v-model="selectedTemplateId"
             data-testid="printing-preview-template"
             class="w-full"
+            :disabled="creating"
+            @change="onTemplateChanged"
           >
             <ElOption
               v-for="template in templates"
@@ -179,16 +204,16 @@ onMounted(load);
           </ElSelect>
         </ElFormItem>
         <ElFormItem>
-          <ElButton
+          <PermissionGate code="printing.templates.preview"><ElButton
             type="primary"
             :icon="Printer"
             :loading="previewing"
-            :disabled="!selectedTemplateId"
+            :disabled="!selectedTemplateId || creating"
             data-testid="printing-preview-run"
             @click="runPreview"
           >
             {{ t('printingPreview.preview') }}
-          </ElButton>
+          </ElButton></PermissionGate>
           <ElButton
             v-if="preview"
             :disabled="!preview"
@@ -226,9 +251,9 @@ onMounted(load);
         <ElButton @click="createDialogVisible = false">
           {{ t('common.cancel') }}
         </ElButton>
-        <ElButton type="primary" :loading="creating" data-testid="printing-preview-submit" @click="submitCreate">
+        <PermissionGate code="printing.templates.create"><ElButton type="primary" :loading="creating" :disabled="previewing" data-testid="printing-preview-submit" @click="submitCreate">
           {{ t('printingPreview.submitCreate') }}
-        </ElButton>
+        </ElButton></PermissionGate>
       </template>
     </ElDialog>
   </div>

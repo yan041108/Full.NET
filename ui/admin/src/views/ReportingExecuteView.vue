@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -25,10 +25,14 @@ import { useArtCrudTableLayout } from '../framework/art-design/composables/useAr
 import { useAdminI18n } from '../i18n/adminI18n';
 import { executeReportingDefinition } from '../api/reporting-executions';
 import { listReportingDefinitions } from '../api/reporting-definitions';
+import PermissionGate from '../components/PermissionGate.vue';
+import { useSessionStore } from '../auth/session';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 
 defineOptions({ name: 'ReportingExecuteView' });
 
 const { t } = useAdminI18n();
+const session = useSessionStore();
 const definitions = ref<ReportingDefinition[]>([]);
 const selectedDefinitionId = ref('');
 const parameterValues = reactive<Record<string, string>>({});
@@ -57,20 +61,28 @@ const {
 } = useArtCrudTableLayout();
 
 watchLoading(executing);
+const scope = useAuthorizedViewScope(session, () => {
+  definitions.value = []; selectedDefinitionId.value = ''; result.value = undefined; problem.value = undefined;
+  page.value = 1; loading.value = false; executing.value = false; resetParameters();
+}, loadDefinitions);
+let executeRequest: ReturnType<typeof scope.begin>;
 
-onMounted(async () => {
+async function loadDefinitions(): Promise<void> {
+  const request = scope.begin('reporting.definitions.read'); if (!request) return;
   loading.value = true;
   try {
-    definitions.value = (await listReportingDefinitions())
+    const values = await listReportingDefinitions({}, request.signal);
+    if (!request.current()) return;
+    definitions.value = values
       .filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0);
     selectedDefinitionId.value = definitions.value[0]?.id ?? '';
     resetParameters();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingExecute.loadFailed');
+    if (request.current()) problem.value = toProblem(error, 'reportingExecute.loadFailed');
   } finally {
-    loading.value = false;
+    if (request.current()) loading.value = false; request.finish();
   }
-});
+}
 
 function resetParameters(): void {
   for (const key of Object.keys(parameterValues)) {
@@ -82,6 +94,7 @@ function resetParameters(): void {
 }
 
 function onDefinitionChanged(): void {
+  executeRequest?.cancel(); executing.value = false; problem.value = undefined;
   resetParameters();
   result.value = undefined;
   page.value = 1;
@@ -91,6 +104,7 @@ async function runExecute(): Promise<void> {
   if (!selectedDefinitionId.value || executing.value) {
     return;
   }
+  const request = scope.begin('reporting.executions.run'); if (!request) return; executeRequest = request;
   executing.value = true;
   problem.value = undefined;
   try {
@@ -98,21 +112,25 @@ async function runExecute(): Promise<void> {
       parameterKey: parameter.parameterKey,
       value: parameterValues[parameter.parameterKey]?.trim() || null
     }));
-    result.value = await executeReportingDefinition(
+    const value = await executeReportingDefinition(
       selectedDefinitionId.value,
       { parameters },
       page.value,
-      pageSize.value
+      pageSize.value,
+      request.signal
     );
+    if (!request.current()) return;
+    result.value = value;
     updateTableHeight();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingExecute.executeFailed');
+    if (request.current()) problem.value = toProblem(error, 'reportingExecute.executeFailed');
   } finally {
-    executing.value = false;
+    if (request.current()) executing.value = false; request.finish();
   }
 }
 
 async function onPageChanged(nextPage: number): Promise<void> {
+  if (executing.value || !session.can('reporting.executions.run')) return;
   page.value = nextPage;
   await runExecute();
 }
@@ -156,10 +174,10 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
           :key="parameter.parameterKey"
           :label="parameter.displayName"
         >
-          <ElInput v-model="parameterValues[parameter.parameterKey]" />
+          <ElInput v-model="parameterValues[parameter.parameterKey]" :disabled="executing" />
         </ElFormItem>
         <ElFormItem>
-          <ElButton
+          <PermissionGate code="reporting.executions.run"><ElButton
             type="primary"
             data-testid="reporting-execute-run"
             :loading="executing"
@@ -167,7 +185,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
             @click="runExecute"
           >
             {{ t('reportingExecute.run') }}
-          </ElButton>
+          </ElButton></PermissionGate>
         </ElFormItem>
       </ElForm>
     </ElCard>
@@ -203,6 +221,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
         class="mt-3"
         layout="prev, pager, next"
         :current-page="result.page"
+        :disabled="executing"
         :page-size="result.pageSize"
         :total="result.totalRows ?? result.page * result.pageSize + (result.hasMore ? 1 : 0)"
         @current-change="onPageChanged"
