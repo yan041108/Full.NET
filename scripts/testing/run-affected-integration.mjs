@@ -31,7 +31,8 @@ const codeGenerationFilter =
   'FullyQualifiedName~Full.NET.IntegrationTests.Api.CodeGenerationApi'
   + '|FullyQualifiedName~Full.NET.IntegrationTests.CodeGeneration.';
 const importExportFilter =
-  'FullyQualifiedName~ImportExportApi|FullyQualifiedName~Full.NET.IntegrationTests.ImportExport.';
+  'FullyQualifiedName~ImportExportApi|FullyQualifiedName~ImportExportWorkerApi'
+  + '|FullyQualifiedName~Full.NET.IntegrationTests.ImportExport.';
 const aiFilter = 'FullyQualifiedName~Full.NET.IntegrationTests.Ai.';
 const reportingFilter = 'FullyQualifiedName~Full.NET.IntegrationTests.Reporting.';
 const filesFilter =
@@ -154,7 +155,8 @@ function moduleFromIntegrationPath(filePath) {
     /^tests\/Full\.NET\.IntegrationTests\/Api\/([A-Za-z]+)Api(?:MySql|SqlServer)Tests\.cs$/
       .exec(filePath);
   if (apiMatch) {
-    return apiMatch[1];
+    // Worker 是导入模块的运行角色，不能被误判为未登记的新模块后回退到 Smoke。
+    return apiMatch[1] === 'ImportExportWorker' ? 'ImportExport' : apiMatch[1];
   }
 
   if (filePath.startsWith('tests/Full.NET.IntegrationTests/Api/')) {

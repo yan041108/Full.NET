@@ -1130,6 +1130,24 @@ Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约
 
 上一提交 68e952bd 的 CI、API/Worker Linux AOT 已全部成功；新提交的工作流推送后另行核对。独立 Worker OS 进程崩溃、结果文件再次授权、独立生成应用 Enterprise 业务链和样例 CRUD 完整 Native AOT 运行仍待办，F11/C02 不整体关闭，`Capacity-not-verified` 保持。开发分支与 Draft PR 交付，不合并、不发布。
 
+**进展（2026-10-08，输出下载再次授权与验收影响集联合收口）：**
+
+基线 `6caeb6fc87d173e6281f52af31c57e5d8e10edcf`，沿用独立临时 checkout，快照 `f11-output-download-reauthorization-20261008`。导入错误回执在打开文件前复核原创建人、当前交互会话、精确执行/Schema 权限及原预览已授予的能力；允许同一创建人的新会话，拒绝 API Key 和换主体。报表下载服务同时重查 Download、Run 及原不可变发布布局中原先已授予的受保护列权限；无关权限撤销、后来增权不改变旧文件边界，缺失/损坏权限快照、停用定义或缺失版本均拒绝。配置在独立 Host 子作用域只读，finally 清除，不改变父请求的文件租户；精确上下文写能力清单仅登记已复核的具体文件。没有新增 SQL、迁移、对外 HTTP DTO 或权限目录变更。
+
+Integration 影响选择器补齐 `ImportExportWorkerApiMySqlTests/SqlServerTests` 的正式 ImportExport 归属和过滤器，不再落入仅 smoke。上一基线 CI `37653664739` 实际 Unit **5662/5663**、一项失败：旧 Tenancy Worker 测试夹具缺少真实配额服务新增的命令执行器与事务依赖。补齐夹具并断言真实配额预留服务可解析，保留 ValidateOnBuild/ValidateScopes；不削减生产注册或启动验证。
+
+输出授权 RED **8/8 失败**，影响选择器 RED **1 失败**，CI 缺依赖本地 RED **1/1 失败**；最终相关 Unit 命令 `pnpm test:dotnet:unit -- --filter 'FullyQualifiedName~Full.NET.UnitTests.Reporting|FullyQualifiedName~Full.NET.UnitTests.ImportExport|FullyQualifiedName~Full.NET.UnitTests.Printing|FullyQualifiedName~TenantProvisionedCacheInvalidationHandlerTests|FullyQualifiedName~TenancyWorkerRegistrationTests|FullyQualifiedName~TenantFeatureEntitlementPortTests' --minimum-expected-tests 95` **95/95**，零失败/跳过，Release 构建零警告/错误。早先同范围三模块实际 87 项误填最低 100 得到退出 9，不计通过；显式发现 87 后按真实数量复验 **87/87**，全局最低门槛没有降低。全量 Architecture 首轮 **231/232**，仅精确写能力清单漏登记；补齐登记后聚焦 `TenantContextMutationBoundaryTests` **2/2**，其余 231 项源码未变，不称最后一次全量 232/232。新下载 Unit 增加 22 项，两库 Integration 增加 2 项，正式门槛 Unit 5340、infrastructure 212、full 1172；工具链 **59/59**、治理 **57/57**，分片发现 **1172** 项无遗漏/重复，发现不等于全量运行。
+
+发现并保留 Reporting 既有边界冲突：权限目录全部 Host-only，而导出任务和资源文件要求 TenantRequired，租户 HTTP 下载返回 403；创建/执行还存在直接调用 HostOnly 配置查询的旧路径。本批不为通过夹具放宽目录。新增下载集播种已完成输出，经真实 SQL、Identity Port、Files 验证服务调用的创建人/当前会话与文件字节；报表 HTTP 只验租户 403、撤销后 401，不称报表 HTTP 成功或完整业务查询/生成通过。导入错误回执保持真实 HTTP 成功、异主 403、撤销 401、同一创建人新会话成功的完整下载链路。首轮 SQL Server 夹具误用 `sqlserver`（正式机器码为 `sql_server`），MySQL 首次报表 HTTP 200 预期暴露上述旧冲突，失败证据保留。
+
+API `pnpm test:aot:analyzers` 和 Worker `pnpm test:aot:worker:analyzers` 均退出 **0**、零警告/错误；Worker 默认 JIT 产物恢复构建也通过。仅证明编译分析，未新增 Native 业务运行结论。最终下载集直接运行独立测试产物，过滤 `FullyQualifiedName~OutputDownloadAuthorizationTests`、`--minimum-expected-tests 2 --timeout 10m --report-trx --report-trx-filename output-download-final.trx`，**2/2**、零失败/跳过，3m51s；TRX 确认 MySQL/SQL Server 都实际通过。期间原联合集锁定 Integration 程序集，增量编译成功但最终复制失败（MSB3027/MSB3021），未计构建通过；在本任务 `.tmp/output-download-runtime` 复制相同 Release 依赖并使用新编译 DLL/PDB 完成下载复验，生产源码无漂移。
+
+正式 merge 命令 `pnpm test:integration:affected -- --snapshot f11-output-download-reauthorization-20261008 --phase merge` 在两库联合执行 **28/30**、2 项下载夹具失败、零跳过，23m39s；正式 TRX 确认余下 28 项（ImportExport 14、Reporting Claim 6、Smoke 8）均通过。上述修正后的下载 **2/2** 补齐该集合，合计 30 个用例都有当前生产输入下的通过证据，不称最后一次完整命令 30/30 或抹去原退出 1。最终影响规划仍为 ImportExport、Reporting、integration-matrix、integration-tooling 与 smoke；14 项代码/测试/配置 SHA-256 冻结无漂移，原联合运行后仅改变两个下载夹具的 Provider 常量和证据层次，生产输入保持相同。联合集结束后 Release Integration 构建重新通过，零警告/错误、1m33s；正式 bin 的测试 DLL 与已通过下载复验的独立运行 DLL 字节完全相同，无需重复两库运行。环境 Windows x64、.NET SDK 10.0.401、SQL Server 2022 CU14/MySQL 8.0/Redis 8.6，每套 Integration 并发 2、`FULLNET_TESTCONTAINERS_REUSE=0` 使用独立容器，日志及 TRX 在 `.tmp/output-download-*`。
+
+上一基线 `6caeb6fc` 的 API/Worker Linux AOT 已全部成功，CI 仍为上述夹具失败；本提交推送后查看新 SHA 工作流，未完成不能称 Actions 已修复通过。
+
+只读安全复核未发现新重大问题，确认 Host 子作用域与证据分层；复核不代替实际测试。独立 Worker OS 进程崩溃、Reporting 作用域一致性及完整报表业务链、独立生成应用 Enterprise 全链路、样例 CRUD 完整 Native AOT 运行仍待办。F11/C02 不整体关闭，`Capacity-not-verified` 保持；开发分支与 Draft PR 交付，不合并、不发布。
+
 ### F12：订阅、试用与支付驱动权益
 
 **依赖：** F06、F08、现有 Payments 安全修复/渠道验收。**提供：** Tenancy 订阅生命周期；Payments 仍拥有资金事实。

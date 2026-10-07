@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
@@ -7,8 +8,10 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Reporting.Contracts;
+using Full.NET.Modules.Reporting.Domain;
 using Full.NET.Modules.Reporting.Features.ManageDefinitions;
 using Full.NET.Modules.Reporting.Persistence;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
@@ -22,6 +25,8 @@ namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
 /// <param name="currentTenant">当前可信租户。</param>
 /// <param name="clock">时钟。</param>
 /// <param name="idGenerator">任务 UUID。</param>
+/// <param name="scopeFactory">独立 Host 配置读取作用域，不能改写下载请求的租户。</param>
+/// <param name="authorization">当前会话与精确权限权威校验。</param>
 internal sealed class ReportingExportTaskManagementService(
     ReportingDefinitionQueryService definitionQueries,
     ITenantResourceFileStore resourceFiles,
@@ -31,7 +36,9 @@ internal sealed class ReportingExportTaskManagementService(
     ICurrentTenant currentTenant,
     IClock clock,
     IIdGenerator idGenerator,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    IServiceScopeFactory scopeFactory,
+    IBackgroundSessionAuthorization authorization)
 {
     private const string WorkbookContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -120,11 +127,13 @@ internal sealed class ReportingExportTaskManagementService(
         return await LoadResultAsync(taskId, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>打开已完成导出任务的文件内容流。</summary>
+    /// <summary>按创建人的当前会话及原受保护列权限复核后打开文件；不重新执行报表查询。</summary>
     /// <param name="taskId">任务标识。</param>
+    /// <param name="binding">从已认证请求冻结的当前交互会话。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     public async Task<Result<TenantResourceFileContent>> OpenDownloadAsync(
         Guid taskId,
+        SessionBindingSnapshot binding,
         CancellationToken cancellationToken = default)
     {
         EnsureTenantContext();
@@ -138,6 +147,10 @@ internal sealed class ReportingExportTaskManagementService(
         {
             return Result<TenantResourceFileContent>.Failure(TaskNotFoundError());
         }
+
+        if (!await IsDownloadAllowedAsync(record, binding, cancellationToken).ConfigureAwait(false))
+            return Result<TenantResourceFileContent>.Failure(new Error(CommonErrorCodes.PermissionDenied,
+                "The export download session or permission is no longer valid.", ErrorType.Forbidden));
 
         if (!string.Equals(record.StatusKey, ReportingExportTaskStatusKeys.Succeeded, StringComparison.Ordinal)
             || record.OutputFileId is null)
@@ -190,6 +203,65 @@ internal sealed class ReportingExportTaskManagementService(
         }
 
         return Result<ReportingExportTaskDetailResponse>.Success(ReportingExportTaskMapper.MapDetail(detail));
+    }
+
+    /// <summary>只重验原发布布局中已经授予的列权限；无关权限撤销及后来增权不改变旧文件边界。</summary>
+    private async Task<bool> IsDownloadAllowedAsync(ReportingExportTaskRecord task,
+        SessionBindingSnapshot binding, CancellationToken cancellationToken)
+    {
+        if (binding.UserId == Guid.Empty || binding.SessionId == Guid.Empty
+            || task.RequestedByUserId != binding.UserId || task.TenantId != currentTenant.Id
+            || binding.TenantId != task.TenantId || task.TenantId == Guid.Empty)
+            return false;
+        foreach (var permission in new[] { ReportingExportTaskPermissions.Download, ReportingExecutionPermissions.Run })
+            if (!await HasCurrentPermissionAsync(binding, permission, cancellationToken).ConfigureAwait(false)) return false;
+        var required = new HashSet<string>(StringComparer.Ordinal);
+        try
+        {
+            // 存量缺失/损坏快照无法证明原文件的列边界，必须重新生成，不能按空权限猜测。
+            if (string.IsNullOrWhiteSpace(task.ActorPermissionCodesJson)) return false;
+            using var snapshot = JsonDocument.Parse(task.ActorPermissionCodesJson);
+            if (snapshot.RootElement.ValueKind != JsonValueKind.Array) return false;
+            var original = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var code in snapshot.RootElement.EnumerateArray())
+            {
+                if (code.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(code.GetString())) return false;
+                original.Add(code.GetString()!);
+            }
+            // 发布配置属于 Host；子作用域仅只读本模块配置，不改变父请求用于文件读取的租户。
+            await using var metadataScope = scopeFactory.CreateAsyncScope();
+            var metadataTenant = metadataScope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+            metadataTenant.SetHost();
+            try
+            {
+                var metadataQueries = metadataScope.ServiceProvider.GetRequiredService<ReportingDefinitionQueryService>();
+                var definition = await metadataQueries.GetByIdAsync(task.DefinitionId, cancellationToken).ConfigureAwait(false);
+                if (!definition.IsSuccess || definition.Value?.IsEnabled != true) return false;
+                var version = await metadataQueries.GetVersionAsync(task.DefinitionId, task.VersionNumber, cancellationToken).ConfigureAwait(false);
+                if (!version.IsSuccess || version.Value is null) return false;
+                foreach (var column in ReportingLayoutConfigParser.ParseColumns(version.Value.LayoutConfigJson))
+                    if (column.RequiredPermission is { } permission && original.Contains(permission))
+                        required.Add(permission);
+            }
+            finally { metadataTenant.Clear(); }
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        foreach (var permission in required)
+        {
+            if (!await HasCurrentPermissionAsync(binding, permission, cancellationToken).ConfigureAwait(false)) return false;
+        }
+        return true;
+    }
+
+    private async Task<bool> HasCurrentPermissionAsync(SessionBindingSnapshot binding,
+        string permission, CancellationToken cancellationToken)
+    {
+        var actor = await authorization.AuthorizeAsync(binding, permission, cancellationToken).ConfigureAwait(false);
+        return actor is not null && actor.UserId == binding.UserId && actor.TenantId == currentTenant.Id
+            && actor.SessionId == binding.SessionId;
     }
 
     private void EnsureTenantContext()

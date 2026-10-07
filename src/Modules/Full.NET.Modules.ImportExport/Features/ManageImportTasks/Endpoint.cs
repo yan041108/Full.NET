@@ -215,12 +215,16 @@ internal static class Endpoint
         group.MapGet("/{taskId:guid}/error-receipt", async (
             Guid taskId,
             ImportExportTaskExecutionService executionService,
+            Full.NET.Abstractions.Tenancy.ICurrentTenant currentTenant,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            if (!ImportExportHttpSessionBinding.TryCreate(httpContext, currentTenant.Id, out var binding))
+                return mapper.Map(Result<TenantResourceFileContent>.Failure(new(
+                    CommonErrorCodes.PermissionDenied, "An interactive session is required.", ErrorType.Forbidden)), httpContext);
             var result = await executionService
-                .OpenErrorReceiptAsync(taskId, cancellationToken)
+                .OpenErrorReceiptAsync(taskId, binding, cancellationToken)
                 .ConfigureAwait(false);
             if (!result.IsSuccess)
             {

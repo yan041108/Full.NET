@@ -79,6 +79,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/Endpoint.cs",
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/HostUserManagementReferenceService.cs",
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/HostUserManagementTenantScope.cs",
+        // 下载先重验当前会话，再在独立 Host 子作用域只读本模块发布配置，finally 清除且不改父租户。
+        "src/Modules/Full.NET.Modules.Reporting/Features/ManageExportTasks/ReportingExportTaskManagementService.cs",
         "src/Modules/Full.NET.Modules.Reporting/Features/ManageExportTasks/ReportingExportTaskRunner.cs",
         "src/Modules/Full.NET.Modules.Settings/Features/ManageDiagnosticPolicy/DiagnosticPolicyStore.cs",
         // 权益只读 Port 临时进入 Host 目录读取阶段与绑定，租户来自调用方可信作用域，结束后恢复。

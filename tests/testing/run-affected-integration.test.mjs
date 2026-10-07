@@ -275,7 +275,8 @@ test('ImportExport、Ai、Reporting、Files、Notifications 改动选择含持�
     [
       'src/Modules/Full.NET.Modules.ImportExport/Persistence/Queries.cs',
       'ImportExport',
-      'FullyQualifiedName~ImportExportApi|FullyQualifiedName~Full.NET.IntegrationTests.ImportExport.'
+      'FullyQualifiedName~ImportExportApi|FullyQualifiedName~ImportExportWorkerApi'
+      + '|FullyQualifiedName~Full.NET.IntegrationTests.ImportExport.'
     ],
     [
       'src/Modules/Full.NET.Modules.Ai/Persistence/Queries.cs',
@@ -623,6 +624,16 @@ test('计划预算对重复目标只计算一次并标识超出切片预算', ()
 
   assert.equal(budget.seconds, 1920);
   assert.equal(budget.exceedsSliceBudget, true);
+});
+
+test('后台导入 API 用例归入 ImportExport 聚焦集并进入模块过滤器', () => {
+  for (const provider of ['MySql', 'SqlServer']) {
+    const selection = classifyChangedPaths([
+      `tests/Full.NET.IntegrationTests/Api/ImportExportWorkerApi${provider}Tests.cs`
+    ]);
+    assert.equal(selection.targets[0].name, 'ImportExport');
+    assert.ok(selection.targets[0].filter.includes('FullyQualifiedName~ImportExportWorkerApi'));
+  }
 });
 
 test('测试工具与规则改动只运行工具契约', () => {

@@ -148,6 +148,7 @@ internal sealed class ImportExportTaskExecutionService(
     /// <summary>打开错误回执 xlsx 内容。</summary>
     public async Task<Result<TenantResourceFileContent>> OpenErrorReceiptAsync(
         Guid taskId,
+        SessionBindingSnapshot binding,
         CancellationToken cancellationToken = default)
     {
         EnsureTenantContext();
@@ -155,6 +156,13 @@ internal sealed class ImportExportTaskExecutionService(
         if (task is null)
         {
             return Result<TenantResourceFileContent>.Failure(TaskNotFoundError());
+        }
+
+        // 回执包含原业务行信息，下载不得以通用执行权限替代创建人和 Schema 的当前授权。
+        if (!await IsAuthorizedAsync(task, new StaticImportPreviewContext(binding.UserId,
+                new Dictionary<string, bool>()), binding, cancellationToken).ConfigureAwait(false))
+        {
+            return Result<TenantResourceFileContent>.Failure(PermissionDeniedError());
         }
 
         if (task.ErrorReceiptFileId is null || task.ExecutionFailedRowCount <= 0)
@@ -293,7 +301,8 @@ internal sealed class ImportExportTaskExecutionService(
     {
         var handler = registry.TryResolve(task.SchemaKey);
         var state = ImportExportTaskMapper.DeserializeExecutionState(task.ExecutionRowsJson);
-        return handler is null || context.RequestedByUserId != binding.UserId || task.RequestedByUserId != binding.UserId
+        return handler is null || task.TenantId != currentTenant.Id
+            || context.RequestedByUserId != binding.UserId || task.RequestedByUserId != binding.UserId
             // 旧预览缺少能力集合时不能猜测原有效行；带附加能力的 Schema 必须重新上传预览。
             || (state.CapabilityFlags is null && handler.ExecutionCapabilityPermissions.Count > 0)
             ? Task.FromResult(false)
