@@ -22,6 +22,9 @@ the complete license texts.
   src/Modules/Full.NET.Modules.Ai/Knowledge/Tokenizers/cl100k_base.NOTICE.txt.
 - Dapper — Apache-2.0
   https://github.com/DapperLib/Dapper
+- PDF.js / pdfjs-dist 6.4.299 — Apache-2.0; bundled CMaps and Foxit/Liberation fonts retain their separate notices
+  https://github.com/mozilla/pdf.js
+  Vue PDF canvas preview ships complete upstream terms in ui/admin/public/licenses/pdfjs/.
 - AWS SDK for .NET (AWSSDK.S3 / AWSSDK.Core) — Apache-2.0
   https://github.com/aws/aws-sdk-net
 - DbUp — MIT

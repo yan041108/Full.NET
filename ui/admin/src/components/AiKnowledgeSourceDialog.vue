@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onUnmounted, ref, watch } from 'vue';
 import { ElAlert, ElButton } from 'element-plus';
 import type { AiKnowledgeCitation, AiKnowledgeVersionResponse } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import AiKnowledgeBaseSelect from './AiKnowledgeBaseSelect.vue';
+const AiKnowledgePdfPreview = defineAsyncComponent(() => import('./AiKnowledgePdfPreview.vue'));
 import { downloadKnowledgeSource, listKnowledgeVersions } from '../api/ai-knowledge';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -11,9 +12,10 @@ const props = defineProps<{ open: boolean; knowledgeBaseId?: string; candidateBa
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
 const session = useSessionStore(); const { t } = useAdminI18n();
 const selectedBase = ref(''); const text = ref(''); const binary = ref(false); const failed = ref(false); const loading = ref(false);
+const pdfData = ref<Uint8Array>();
 const canRead = computed(() => !session.switching && ['ai.knowledge_bases.read', 'ai.knowledge_documents.read', 'ai.knowledge_documents.source_read'].every(code => session.can(code)));
 let epoch = 0; let controller: AbortController | undefined;
-function clear() { ++epoch; controller?.abort(); text.value = ''; binary.value = false; failed.value = false; loading.value = false; }
+function clear() { ++epoch; controller?.abort(); pdfData.value = undefined; text.value = ''; binary.value = false; failed.value = false; loading.value = false; }
 watch(() => [props.open, props.knowledgeBaseId, props.candidateBaseIds, props.documentId, props.versionId, props.version], () => { clear(); selectedBase.value = props.knowledgeBaseId ?? ''; }, { immediate: true, deep: true });
 watch(selectedBase, clear);
 watch(() => [session.currentUser, session.switching], () => { clear(); selectedBase.value = ''; emit('update:open', false); }, { deep: true });
@@ -52,6 +54,10 @@ async function read(download = false) {
       const buffer = await blob.arrayBuffer();
       if (current !== epoch || !props.open || !canRead.value) return;
       text.value = new TextDecoder('utf-8', { fatal: true }).decode(buffer).slice(0, 100000);
+    } else if (mime === 'application/pdf') {
+      const buffer = await blob.arrayBuffer();
+      if (current !== epoch || !props.open || !canRead.value) return;
+      pdfData.value = new Uint8Array(buffer);
     } else { binary.value = true; }
   } catch { if (current === epoch) { text.value = ''; binary.value = false; failed.value = true; } }
   finally { if (current === epoch) loading.value = false; }
@@ -70,6 +76,7 @@ async function read(download = false) {
       <el-button :disabled="!selectedBase || loading" data-testid="knowledge-source-download" @click="read(true)">{{ t('knowledge.download') }}</el-button>
     </div>
     <pre v-if="text" data-testid="knowledge-source-text">{{ text }}</pre>
+    <AiKnowledgePdfPreview v-if="pdfData && open && canRead" :data="pdfData" :initial-page="citation?.pageNumber ?? undefined" />
     <p v-if="binary">{{ t('knowledge.sourceBinary') }}</p>
   </ArtFormDialog>
 </template>

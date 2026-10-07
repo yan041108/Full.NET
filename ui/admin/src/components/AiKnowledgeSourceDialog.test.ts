@@ -6,6 +6,7 @@ import type { AiKnowledgeVersionResponse } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { downloadKnowledgeSource } from '../api/ai-knowledge';
 import AiKnowledgeBaseSelect from './AiKnowledgeBaseSelect.vue';
+vi.mock('./AiKnowledgePdfPreview.vue', () => ({ __esModule: true, default: { name: 'AiKnowledgePdfPreview', props: ['data', 'initialPage'], template: '<div />' } }));
 vi.mock('../api/ai-knowledge', () => ({ downloadKnowledgeSource: vi.fn(), listKnowledgeVersions: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 100 }) }));
 let wrappers: VueWrapper[] = [];
 function render(allow = true) {
@@ -59,4 +60,14 @@ it('PDF 下载按精确版本元数据命名并释放临时 URL', async () => {
     await wrapper.get('[data-testid="knowledge-source-download"]').trigger('click'); await flushPromises();
     expect(downloadKnowledgeSource).toHaveBeenCalledTimes(1); expect(click).toHaveBeenCalledTimes(1); expect(revoke).toHaveBeenCalledWith('blob:temporary');
   } finally { vi.unstubAllGlobals(); }
+});
+
+it('PDF 精确版本来源交给画布预览，并在换源时卸载', async () => {
+  const blob = textBlob('pdf'); vi.mocked(downloadKnowledgeSource).mockResolvedValue(blob);
+  const wrapper = render();
+  await wrapper.setProps({ version: { id: 'version', documentId: 'doc', contentHash: 'hash', contentType: 'application/pdf', originalFileName: 'file.pdf', sizeBytes: 3, versionNumber: 1, processingStatus: 'ready', createdAtUtc: 'now' }, citation: { id: 'chunk', documentId: 'doc', versionId: 'version', sequence: 0, pageNumber: 2, offset: 0, length: 10 } });
+  await wrapper.get('[data-testid="knowledge-source-read"]').trigger('click'); await flushPromises();
+  expect(wrapper.findComponent({ name: 'AiKnowledgePdfPreview' }).exists()).toBe(true);
+  expect(wrapper.findComponent({ name: 'AiKnowledgePdfPreview' }).props('initialPage')).toBe(2);
+  await wrapper.setProps({ versionId: 'other' }); expect(wrapper.findComponent({ name: 'AiKnowledgePdfPreview' }).exists()).toBe(false);
 });
