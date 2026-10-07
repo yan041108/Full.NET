@@ -6226,6 +6226,32 @@
         "DeliveryReconciledAtUtc IS NULL",
         "DeliveryCompletedAtUtc IS NOT NULL OR ExpiresAtUtc <= @Now"
       ]
+    },
+    {
+      "statementName": "identity.scan_account_challenge_delivery.sql_server",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.ScanDeliverySqlServer",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
+      "category": "host_catalog",
+      "reason": "仅 Worker 可信 Host 上下文按数据库主键有界扫描本模块挑战；无公开入口，按标识 CAS 对账不重发、不修改受理事实或旧空状态。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_account_challenge",
+        "WHERE (@AfterId IS NULL OR ChallengeId > @AfterId)",
+        "ORDER BY ChallengeId",
+        "TOP (@BatchSize)"
+      ]
+    },
+    {
+      "statementName": "identity.scan_account_challenge_delivery.mysql",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.ScanDeliveryMySql",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
+      "category": "host_catalog",
+      "reason": "仅 Worker 可信 Host 上下文按数据库主键有界扫描本模块挑战；无公开入口，按标识 CAS 对账不重发、不修改受理事实或旧空状态。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_account_challenge",
+        "WHERE (@AfterId IS NULL OR ChallengeId > @AfterId)",
+        "ORDER BY ChallengeId",
+        "LIMIT @BatchSize"
+      ]
     }
   ]
 }

@@ -23,7 +23,8 @@ const nativeAotIntegrationFilter =
 const identityFilter =
   'FullyQualifiedName~Full.NET.IntegrationTests.Api.IdentityApi'
   + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.TotpStrongReauthTests'
-  + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.AccountChallengeDeliveryJournalTests';
+  + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.AccountChallengeDeliveryJournalTests'
+  + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.AccountChallengeReconciliationTests';
 const tenancyFilter =
   'FullyQualifiedName~Full.NET.IntegrationTests.Api.TenancyApi';
 const codeGenerationFilter =

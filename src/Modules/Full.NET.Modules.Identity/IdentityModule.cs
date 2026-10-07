@@ -11,6 +11,7 @@ using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.DependencyInjection;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
+using Full.NET.Modules.Identity.Features.AccountChallenges;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 using Full.NET.Modules.Identity.Middleware;
@@ -266,6 +267,7 @@ public sealed class IdentityModule : IFullNetModule
         if (workerHost)
         {
             services.AddAuthenticationEventRetentionBackgroundService(configuration);
+            services.AddAccountChallengeReconciliation(configuration);
         }
     }
 

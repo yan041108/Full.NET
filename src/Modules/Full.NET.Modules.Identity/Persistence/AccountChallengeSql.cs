@@ -111,4 +111,31 @@ internal static class AccountChallengeSql
           AND (DeliveryCompletedAtUtc IS NOT NULL OR ExpiresAtUtc <= @Now)
         """,
         SqlDataScope.Global);
+    // 页读取与游标比较保持数据库同一排序；不依赖跨库 Guid 排序一致，也不保存游标到业务记录。
+    public static readonly SqlStatement ScanDeliverySqlServer = new(
+        "identity.scan_account_challenge_delivery.sql_server",
+        """
+        SELECT TOP (@BatchSize) ChallengeId, Purpose, NormalizedEmail, CredentialHash, ExpiresAtUtc,
+               ConsumedAtUtc, AttemptCount, MaxAttempts, Version, CreatedAtUtc,
+               DeliveryStateKey, DeliveryCompletedAtUtc, DeliveryReconciledAtUtc
+        FROM fn_identity_account_challenge
+        WHERE (@AfterId IS NULL OR ChallengeId > @AfterId)
+        ORDER BY ChallengeId
+        """,
+        SqlDataScope.Global);
+
+    // 页读取与游标比较保持数据库同一排序；不依赖跨库 Guid 排序一致，也不保存游标到业务记录。
+    public static readonly SqlStatement ScanDeliveryMySql = new(
+        "identity.scan_account_challenge_delivery.mysql",
+        """
+        SELECT ChallengeId, Purpose, NormalizedEmail, CredentialHash, ExpiresAtUtc,
+               ConsumedAtUtc, AttemptCount, MaxAttempts, Version, CreatedAtUtc,
+               DeliveryStateKey, DeliveryCompletedAtUtc, DeliveryReconciledAtUtc
+        FROM fn_identity_account_challenge
+        WHERE (@AfterId IS NULL OR ChallengeId > @AfterId)
+        ORDER BY ChallengeId
+        LIMIT @BatchSize
+        """,
+        SqlDataScope.Global);
+
 }

@@ -42,6 +42,7 @@ test('挑战投递迁移 243 成对进入完整双库恢复目标并保留 Ident
   assert.ok(bundled.targets.some(item => item.name === 'Identity'));
   const identity = bundled.targets.find(item => item.name === 'Identity');
   assert.match(identity.filter, /Full\.NET\.IntegrationTests\.Identity\.AccountChallengeDeliveryJournalTests/u);
+  assert.match(identity.filter, /Full\.NET\.IntegrationTests\.Identity\.AccountChallengeReconciliationTests/u);
 });
 
 test('Notifications 默认聚焦排除外部凭据专项并保留 API 与模块范围', () => {
@@ -696,6 +697,7 @@ test('Identity、Tenancy、Outbox 过滤器不得命中迁移恢复或 CDC 重�
     'FullyQualifiedName~Full.NET.IntegrationTests.Api.IdentityApi'
       + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.TotpStrongReauthTests'
       + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.AccountChallengeDeliveryJournalTests'
+      + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.AccountChallengeReconciliationTests'
   );
   assert.equal(
     tenancy.filter,

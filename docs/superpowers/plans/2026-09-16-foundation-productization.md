@@ -840,6 +840,28 @@ Windows10.0.19045 x64/i7-12700H/63.75GiB、SDK10.0.401、Node24.12.0、pnpm10.26
 本批闭合新挑战投递记录、双层消费防线和按标识本地对账。完整耗时防枚举、全库历史对账及F03/F04整体验收仍待办；未执行本批独立生成应用全链路、全量Unit/Integration、浏览器、本地Linux原生SMTP或容量实测。F03/F04整体、整体AOT/Provider状态与Capacity-not-verified保持，未合并、未发布。推送后按本批精确SHA核对所需工作流，不用父提交状态替代。
 
 
+**2026-10-07 F03 历史挑战巡检、恢复入口与验证码页面批量收口（局部完成，F03/F04 整体保持待办）。**
+
+基线75ab38f78fce6888eb3d2b54141f0eededd00d5f，开发分支codex/foundation-acceptance-20261003，任务快照f03-challenge-sweep-batch-20261007。合并交付后端三项和前端三项：Worker 专属历史 unknown/rejected 巡检、挑战摘要固定时间比较、匿名密码恢复的取消语义统一；Vue 注册/恢复请求状态与迟到响应处理、匿名挑战响应运行时守卫、两页中英本地化及输入语义。
+
+巡检默认关闭，Worker 配置 Identity:AccountChallenges:Reconciliation:Enabled 后启用；API 不装配巡检循环。BatchSize 默认100、范围1～500，PollSeconds 默认60秒、范围30～3600秒，启动校验与热更新校验使用静态绑定。每轮一页，按数据库自身主键顺序查询并推进游标，结束或重启从头幂等扫描；只在整页成功后推进，异常保持原游标。读取和写入数量有限，不宣称SQL物理IO或全表收敛时间固定。只对已完成或到期的unknown/rejected执行既有按标识CAS，accepted、旧null和有效在途不变；不访问其他模块或重发邮件，多实例可幂等竞争。可信Host上下文在作用域finally清理；4533仅记录数量，4534为无原始异常的固定失败诊断。启用方式及升级约束同步[应用恢复](../../operations/application-recovery.md)。
+
+恢复请求在入口、账号读取后及投递返回后三处检查调用方取消，避免无账号、非法地址或依赖忽略取消时返回受理成功；已经明确受理的投递事实仍按原独立期限持久化，不因响应取消撤销该事实。摘要比较改用CryptographicOperations.FixedTimeEquals比较原字符串的UTF-16字节，保留原签发格式、大小写敏感与旧数据语义；此改动不能证明整个HTTP流程耗时防枚举。
+
+行为RED四项全部失败（缺少Worker注册、三类已取消请求继续受理），修复后聚焦129/129。补充实际启用Worker的失败页、Host清理、停止及诊断去敏场景后，首次夹具因NSubstitute Returns重载二义性编译失败，明确返回Task.FromException修复；最终pnpm test:dotnet:unit -- --filter 'FullyQualifiedName~AccountChallenge|FullyQualifiedName~PasswordRecovery|FullyQualifiedName~IdentityModuleRegistrationTests' --minimum-expected-tests 130实际130/130，零失败/跳过，exit0。固定时间原语结构检查先失败后通过；既有正确/错误凭据行为由聚焦集回归。
+
+新增双库巡检测试第一轮2/2因样本摘要长度11违反已有64字符CHECK失败，未进入巡检行为；保留原日志、TRX及冻结清单，不作为产品失败或通过证据。样本改用现有摘要生成器后重建Release，0警告/0错误，重新冻结16项输入及运行程序集；最终全新四个互斥批次2、64、64、59共189个唯一UID全部通过、零跳过、各exit0，严格等于正式merge阶段Identity183与Smoke8去重后的集合。两例新增真实SQL Server/MySQL场景覆盖每页最多3条、未知完成/过期/拒收、已消费版本不重复增加、accepted/旧null/有效在途保持、读取与CAS之间并发受理、重复遍历以及游标之后完成的未知状态在下一轮收敛。Worker启用后的循环/作用域/停止由替身执行器单测验证；双库用例直接运行相同分页执行器，没有宣称双库Worker进程长时间实测。
+
+首轮完整架构232项中231通过，新增Worker上下文写入者未登记精确白名单导致1项失败；只补已复核的具体文件路径及中文约束注释，不放宽匹配。16项原输入和运行程序集均未变，补充第17项架构测试文件冻结摘要。修正后pnpm test:dotnet:architecture完整232/232，零失败/跳过，exit0；pnpm test:aot:analyzers exit0。工具链57/57、治理57/57、命名33/33、SQL安全5/5。pnpm test:integration:partitions发现1159（infrastructure209），只证明分片互斥完整发现，不是全量执行；Unit矩阵增加26项至5258，不宣称全量Unit运行。原SQL安全入口误写test:sql:safety未执行测试，改用真实test:sql-safety后5/5；保留命令失败输出。
+
+Vue注册和恢复页统一请求/提交互斥、挑战目标修改后清除凭据、发送失败允许重试、空恢复字段不调用确认API及卸载后忽略响应。每次邮箱输入变化同步增加代次，A→B→A亦阻断旧成功/失败响应；四项回归先RED4/4再通过。匿名挑战成功响应以unknown进入Guid/日期守卫，只返回已校验字段。两页新增22项中英文本与输入name/aria-label/autocomplete，统一showSuccess/showWarning/showProblem；受理提示不保证邮件送达。邀请失败分支遗漏迁移曾引发ReferenceError，stored invitation拒绝用例复现后修复；不隐藏原失败。最终聚焦页面/API/契约/反馈31/31。
+
+Vue首轮全量因命令中的字面--使maxWorkers失效，904项中903通过、既有App路由例超时，exit1；原日志保留。限定并发单跑App4/4通过，未修改产品、断言或超时阈值。修复邀请分支前的限定并发中途运行仅停止本任务进程树并归档，不作为通过证据。最终冻结六项UI输入，pnpm --filter @fullnet/admin exec vitest run --maxWorkers=2实际909/909，pnpm --filter @fullnet/admin-i18n exec vitest run --maxWorkers=2实际8/8，两包生产构建均exit0（Vue含vue-tsc）；前端六文件单独提交1bf29b970a6844bda94cc6ff6825f63833fc1d09，后端冻结源码与运行程序集未变。客户端audit:clients exit0，沿用已审查的两项其他客户端例外，未新增未审查的高危/严重告警。本轮未跑页面浏览器真实栈，不提升页面Verified状态。
+
+全部使用Windows x64、.NET SDK10.0.401、DOTNET_PROCESSOR_COUNT=2；集成进程独立4GiB堆预算、每批最多64项、串行执行，后续检查1GiB，FULLNET_TESTCONTAINERS_REUSE=0。机器为i7-12700H/63.75GiB内存，SQL Server2022 CU14/MySQL8.4本地测试容器；范围为功能与恢复样本，Capacity-not-verified保持。新鲜证据、原失败、冻结摘要和每批TRX位于.tmp/f03-sweep-*。第一次后台运行中断后无后续退出记录，保留完成66项；恢复时Docker未启动，18项连接失败并触发64最低发现门槛（exit13），不计通过。保留原失败及TRX，启动Docker后只重验剩余64和59项，未重复构建或重跑已完成66项。
+
+本批独立只读复核发现并复核关闭邮箱往返旧响应与邀请反馈遗漏，最终未发现剩余明确Critical/Important问题。失败页游标保留由赋值位置复核，未用真实第二轮轮询计时专门证明。没有执行本批独立生成应用全链路、浏览器、全量Unit/Integration或Linux原生发布运行；仅报告AOT分析，不提升整体AOT/Provider状态。历史未确认记录的自动巡检已提供，完整耗时防枚举及F03/F04整体验收仍待办；PR保持Draft，未合并、未发布。推送后按本批精确SHA读取工作流，不用父提交结果替代。
+
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。

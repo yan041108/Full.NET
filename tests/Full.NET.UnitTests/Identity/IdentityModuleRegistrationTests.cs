@@ -132,7 +132,10 @@ public sealed class IdentityModuleRegistrationTests
         CollectionAssert.AreEqual(
             SnapshotIdentityOwnedRegistrations(moduleServices),
             SnapshotIdentityOwnedRegistrations(splitServices.Where(descriptor =>
-                descriptor.ImplementationType != typeof(AuthenticationEventRetentionHostedProcessor))));
+                descriptor.ImplementationType != typeof(AuthenticationEventRetentionHostedProcessor)
+                && descriptor.ImplementationType != typeof(IdentityFeatures.AccountChallenges.AccountChallengeReconciliationHostedProcessor)
+                && descriptor.ImplementationType != typeof(IdentityFeatures.AccountChallenges.AccountChallengeReconciliationRunner)
+                && descriptor.ImplementationType != typeof(IdentityFeatures.AccountChallenges.AccountChallengeReconciliationOptionsValidator))));
         CollectionAssert.AreEqual(
             ExpectedIdentityOwnedRegistrations(),
             SnapshotIdentityOwnedRegistrations(moduleServices));

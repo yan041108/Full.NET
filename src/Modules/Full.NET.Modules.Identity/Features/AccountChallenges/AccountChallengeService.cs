@@ -1,5 +1,6 @@
 using System.Net.Mail;
 using System.Security.Cryptography;
+using System.Runtime.InteropServices;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
@@ -296,7 +297,9 @@ internal sealed partial class AccountChallengeService(
         var credentialHash = purpose == IdentityAccountChallengePurpose.PasswordRecovery
             ? AccountChallengeCredentialHasher.HashPasswordRecovery(challengeId, recoveryUserId!.Value, recoverySecurityStamp!, credential)
             : AccountChallengeCredentialHasher.Hash(challengeId, credential);
-        if (!string.Equals(record.CredentialHash, credentialHash, StringComparison.Ordinal))
+        // 摘要比较不按相同前缀提前退出；保持原有大小写敏感与摘要格式，不改变签发或旧数据。
+        if (!CryptographicOperations.FixedTimeEquals(
+            MemoryMarshal.AsBytes(record.CredentialHash.AsSpan()), MemoryMarshal.AsBytes(credentialHash.AsSpan())))
         {
             await commandExecutor.ExecuteAsync(
                     AccountChallengeSql.IncrementAttempt,

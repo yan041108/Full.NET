@@ -15,6 +15,7 @@ internal sealed class RequestHandler(
         RequestCommand command,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var normalizedEmail = AccountChallengeService.NormalizeEmail(command.Request.Email);
         if (normalizedEmail is null)
         {
@@ -26,6 +27,7 @@ internal sealed class RequestHandler(
                 IdentitySqlParameters.Create(("Email", normalizedEmail)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (user is null || !user.IsActive)
         {
             return challengeService.CreateAcceptedPlaceholder();
@@ -38,6 +40,7 @@ internal sealed class RequestHandler(
             recoveryUserId: user.Id,
                 recoverySecurityStamp: user.SecurityStamp)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         return created.IsSuccess
             ? created
             : challengeService.CreateAcceptedPlaceholder();

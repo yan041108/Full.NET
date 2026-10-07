@@ -49,6 +49,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Files/Reconciliation/PendingTenantResourceFileReconciliationRunner.cs",
         "src/Modules/Full.NET.Modules.Identity/Features/AcceptTenantInvitation/AcceptTenantInvitationService.cs",
         "src/Modules/Full.NET.Modules.Identity/Features/AcceptTenantInvitation/IdentityTenantInvitationScope.cs",
+        // Worker 巡检在独立作用域固定 Host，不接收请求租户参数，结束或异常均清除上下文。
+        "src/Modules/Full.NET.Modules.Identity/Features/AccountChallenges/AccountChallengeReconciliationHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Identity/Features/ChangeSessionContext/IdentitySessionContextService.cs",
         // 单次请求内临时 Host 作用域，执行 HostOnly SQL 后恢复租户上下文。
         "src/Modules/Full.NET.Modules.Identity/Features/IdentityHostExecutionScope.cs",

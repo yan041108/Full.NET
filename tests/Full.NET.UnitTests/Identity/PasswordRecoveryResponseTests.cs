@@ -63,13 +63,56 @@ public sealed class PasswordRecoveryResponseTests
         Assert.AreEqual("accepted", fixture.Writes[^1]["DeliveryStateKey"]);
     }
 
+    [TestMethod]
+    [DataRow("unknown")]
+    [DataRow("invalid-email")]
+    [DataRow("active")]
+    public async Task Already_cancelled_recovery_does_not_query_write_or_send(string scenario)
+    {
+        var fixture = new Fixture(scenario);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var failure = await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => fixture.Handler.HandleAsync(
+            new RequestCommand(new(scenario == "invalid-email" ? "invalid" : "user@example.test")), cancellation.Token));
+        Assert.AreEqual(cancellation.Token, failure.CancellationToken);
+        Assert.AreEqual(0, fixture.Intents.Count);
+        Assert.AreEqual(0, fixture.Writes.Count);
+    }
+
+    [TestMethod]
+    [DataRow("unknown")]
+    [DataRow("inactive")]
+    [DataRow("active")]
+    public async Task Lookup_cancellation_never_returns_an_accepted_placeholder_or_sends(string scenario)
+    {
+        using var cancellation = new CancellationTokenSource();
+        var fixture = new Fixture(scenario, afterLookup: cancellation.Cancel);
+        var failure = await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => fixture.Handler.HandleAsync(
+            new RequestCommand(new("user@example.test")), cancellation.Token));
+        Assert.AreEqual(cancellation.Token, failure.CancellationToken);
+        Assert.AreEqual(0, fixture.Intents.Count);
+        Assert.AreEqual(0, fixture.Writes.Count);
+    }
+
+    [TestMethod]
+    public async Task Cancellation_after_explicit_acceptance_preserves_delivery_fact_but_returns_no_response()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var fixture = new Fixture("active", duringDelivery: cancellation.Cancel);
+        var failure = await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => fixture.Handler.HandleAsync(
+            new RequestCommand(new("user@example.test")), cancellation.Token));
+        Assert.AreEqual(cancellation.Token, failure.CancellationToken);
+        Assert.AreEqual(3, fixture.Writes.Count);
+        Assert.AreEqual("accepted", fixture.Writes[^1]["DeliveryStateKey"]);
+    }
+
     private sealed class Fixture
     {
         public RequestHandler Handler { get; }
         public List<IdentityChallengeDeliveryIntent> Intents { get; } = [];
         public List<IReadOnlyDictionary<string, object?>> Writes { get; } = [];
 
-        public Fixture(string scenario)
+        public Fixture(string scenario, Action? afterLookup = null, Action? duringDelivery = null)
         {
             var query = Substitute.For<IQueryExecutor>();
             var user = scenario == "unknown" ? null : new IdentityUserRecord
@@ -79,7 +122,7 @@ public sealed class PasswordRecoveryResponseTests
                 SecurityStamp = "trusted-test-stamp",
             };
             query.QuerySingleOrDefaultAsync<IdentityUserRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(user));
+                .Returns(_ => { afterLookup?.Invoke(); return Task.FromResult(user); });
             var command = Substitute.For<ICommandExecutor>();
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
@@ -97,6 +140,7 @@ public sealed class PasswordRecoveryResponseTests
             delivery.SendAsync(Arg.Any<IdentityChallengeDeliveryIntent>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
                 Intents.Add(call.ArgAt<IdentityChallengeDeliveryIntent>(0));
+                duringDelivery?.Invoke();
                 if (scenario == "delivery-exception") throw new IOException("sensitive-delivery-detail");
                 if (scenario == "delivery-timeout") throw new OperationCanceledException("sensitive-delivery-detail");
                 if (scenario == "delivery-not-accepted") return Task.FromResult(Result<bool>.Success(false));
