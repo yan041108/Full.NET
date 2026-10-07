@@ -6,7 +6,8 @@ import type { AiChatSession } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import AiChatView from './AiChatView.vue';
 import { getAiChatSession, listAiChatSessions, streamAiChatMessage, askAiKnowledge } from '../api/ai-chat';
-import AiKnowledgeBaseSelect from '../components/AiKnowledgeBaseSelect.vue';
+import AiKnowledgeBaseMultiSelect from '../components/AiKnowledgeBaseMultiSelect.vue';
+import AiKnowledgeSourceDialog from '../components/AiKnowledgeSourceDialog.vue';
 import { ElSwitch } from 'element-plus';
 import { cancelAiChatGeneration } from '../api/ai-chat';
 import { listAiModelConfigs } from '../api/ai-model-configs';
@@ -115,7 +116,7 @@ describe('公开 Ask、拒答与取消', () => {
   async function ready() {
     const wrapper = mountView(); vi.spyOn(useSessionStore(), 'can').mockReturnValue(true); await flushPromises();
     wrapper.getComponent(ElSwitch).vm.$emit('update:modelValue', true); await flushPromises();
-    wrapper.getComponent(AiKnowledgeBaseSelect).vm.$emit('update:modelValue', baseId); await flushPromises();
+    wrapper.getComponent(AiKnowledgeBaseMultiSelect).vm.$emit('update:modelValue', [baseId]); await flushPromises();
     await wrapper.get('textarea').setValue('检索问题'); return wrapper;
   }
   it('知识问答发送固定资源 ID 并明确展示拒答', async () => {
@@ -123,6 +124,22 @@ describe('公开 Ask、拒答与取消', () => {
     const wrapper = await ready(); await wrapper.get('.ai-chat-composer button').trigger('click'); await flushPromises();
     expect(askAiKnowledge).toHaveBeenCalledWith(sessionId, { knowledgeBaseIds: [baseId], embeddingModelConfigId: modelId, question: '检索问题' }, expect.any(AbortSignal));
     expect(streamAiChatMessage).not.toHaveBeenCalled(); expect(wrapper.find('[data-testid="knowledge-refused"]').exists()).toBe(true); wrapper.unmount();
+  });
+  it('多库 Ask 冻结请求集合，引用必须显式选择原请求范围', async () => {
+    const second = '01900000-0000-7000-8000-000000000005'; const ids = [baseId, second];
+    const citation = { id: 'citation', documentId: 'document', versionId: 'version', sequence: 1, pageNumber: null, offset: 0, length: 10 };
+    const cited = { ...answer, content: '依据', citations: [citation] }; let finish!: (value: { message: typeof cited; refused: boolean }) => void;
+    vi.mocked(askAiKnowledge).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const wrapper = await ready(); wrapper.getComponent(AiKnowledgeBaseMultiSelect).vm.$emit('update:modelValue', ids); await flushPromises();
+    await wrapper.get('.ai-chat-composer button').trigger('click'); ids.push('01900000-0000-7000-8000-000000000006');
+    expect(vi.mocked(askAiKnowledge).mock.calls[0]![1].knowledgeBaseIds).toEqual([baseId, second]);
+    vi.mocked(getAiChatSession).mockResolvedValue({ ...session, messages: [cited] }); finish({ message: cited, refused: false }); await flushPromises();
+    await wrapper.get('[data-testid="knowledge-citation"]').trigger('click'); await flushPromises();
+    const source = wrapper.getComponent(AiKnowledgeSourceDialog); expect(source.props('knowledgeBaseId')).toBeUndefined(); expect(source.props('candidateBaseIds')).toEqual([baseId, second]); wrapper.unmount();
+  });
+  it.each([{ ids: [] }, { ids: [baseId, baseId] }, { ids: ['invalid'] }, { ids: Array.from({ length: 9 }, (_, i) => `01900000-0000-7000-8000-${String(i + 1).padStart(12, '0')}`) }])('空、重复、非法或超限知识库集合不能发送', async ({ ids }) => {
+    const wrapper = await ready(); wrapper.getComponent(AiKnowledgeBaseMultiSelect).vm.$emit('update:modelValue', ids); await flushPromises(); await wrapper.get('textarea').trigger('keydown', { key: 'Enter', ctrlKey: true });
+    expect(askAiKnowledge).not.toHaveBeenCalled(); wrapper.unmount();
   });
   it.each([403, 409, 422])('Ask HTTP %s 失败恢复问题输入', async status => {
     vi.mocked(askAiKnowledge).mockRejectedValue({ status, code: 'ai.knowledge.answer_unavailable', title: '来源或索引不可用', type: 'about:blank' });

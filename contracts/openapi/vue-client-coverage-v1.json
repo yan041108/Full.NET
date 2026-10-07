@@ -1923,7 +1923,9 @@
         "ui/admin/src/components/AiKnowledgeDirectory.vue",
         "ui/admin/src/components/AiKnowledgeSourceDialog.vue",
         "ui/admin/src/components/AiKnowledgePolicyDialog.vue",
-        "ui/admin/src/components/AiKnowledgeGrantsDialog.vue"
+        "ui/admin/src/components/AiKnowledgeGrantsDialog.vue",
+        "ui/admin/src/components/AiKnowledgeIndexDialog.vue",
+        "ui/admin/src/components/AiKnowledgeBaseMultiSelect.vue"
       ]
     }
   ]

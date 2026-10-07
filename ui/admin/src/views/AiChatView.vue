@@ -5,7 +5,7 @@ import { Plus, VideoPause } from '@element-plus/icons-vue';
 import type { AiChatMessage, AiChatSession, AiChatSessionListItem, AiKnowledgeCitation, AiModelConfigListItem, FullNetProblemDetails } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import PermissionGate from '../components/PermissionGate.vue';
-import AiKnowledgeBaseSelect from '../components/AiKnowledgeBaseSelect.vue';
+import AiKnowledgeBaseMultiSelect from '../components/AiKnowledgeBaseMultiSelect.vue';
 import AiKnowledgeSourceDialog from '../components/AiKnowledgeSourceDialog.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -17,17 +17,21 @@ const { t } = useAdminI18n(); const session = useSessionStore();
 const sessions = ref<AiChatSessionListItem[]>([]); const models = ref<AiModelConfigListItem[]>([]);
 const selectedSessionId = ref(''); const activeSession = ref<AiChatSession>(); const draft = ref(''); const selectedModelId = ref('');
 const loading = ref(false); const sending = ref(false); const cancelling = ref(false); const problem = ref<FullNetProblemDetails>();
-const knowledgeMode = ref(false); const knowledgeBaseId = ref(''); const embeddingModelId = ref('');
-const refusedIds = ref(new Set<string>()); const citationBases = new Map<string, string>();
+const knowledgeMode = ref(false); const knowledgeBaseIds = ref<string[]>([]); const embeddingModelId = ref('');
+const refusedIds = ref(new Set<string>()); const citationBases = new Map<string, string[]>();
 const sourceOpen = ref(false); const sourceCitation = ref<AiKnowledgeCitation>(); const sourceBaseId = ref<string>();
+const sourceCandidateBaseIds = ref<string[]>();
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 let epoch = 0; let readEpoch = 0; let streamController: AbortController | undefined;
 const canAsk = computed(() => !session.switching && ['ai.chat.messages.send', 'ai.knowledge_bases.read', 'ai.knowledge_documents.read', 'ai.knowledge_documents.source_read', 'ai.knowledge_documents.index_read'].every(code => session.can(code)));
 const embeddingModels = computed(() => models.value.filter(model => ['text-embedding-3-small', 'text-embedding-3-large'].includes(model.modelId)));
 const visibleMessages = computed(() => activeSession.value?.messages ?? []);
+const validKnowledgeBases = computed(() => knowledgeBaseIds.value.length >= 1 && knowledgeBaseIds.value.length <= 8
+  && new Set(knowledgeBaseIds.value.map(id => id.toLowerCase())).size === knowledgeBaseIds.value.length
+  && knowledgeBaseIds.value.every(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) && id !== '00000000-0000-0000-0000-000000000000'));
 const canSend = computed(() => !!activeSession.value && draft.value.trim().length > 0 && draft.value.trim().length <= 4096
   && !session.switching && !loading.value && !sending.value && !activeSession.value.isGenerating && session.can('ai.chat.messages.send')
-  && (!knowledgeMode.value || (canAsk.value && !!knowledgeBaseId.value && !!embeddingModelId.value)));
+  && (!knowledgeMode.value || (canAsk.value && validKnowledgeBases.value && !!embeddingModelId.value)));
 function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   return isFullNetProblemDetails(error) ? error : { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
@@ -69,7 +73,7 @@ async function createSession() {
 }
 async function selectSession(id: string) {
   if (sending.value || loading.value) return;
-  activeSession.value = undefined; sourceOpen.value = false; selectedSessionId.value = id; loading.value = true;
+  activeSession.value = undefined; sourceOpen.value = false; knowledgeBaseIds.value = []; selectedSessionId.value = id; loading.value = true;
   try { await loadSession(id); } catch (error) { showProblem(error, t('aiChat.loadFailed')); } finally { loading.value = false; }
 }
 async function renameSession() {
@@ -104,17 +108,17 @@ function patchAssistant(id: string, content: string, statusKey: string) {
 async function sendMessage() {
   if (!activeSession.value || !canSend.value) return;
   const scope = epoch; const original = activeSession.value; const content = draft.value.trim(); const useKnowledge = knowledgeMode.value;
-  const base = knowledgeBaseId.value; const embedding = embeddingModelId.value;
+  const bases = [...knowledgeBaseIds.value]; const embedding = embeddingModelId.value;
   draft.value = ''; sending.value = true; const controller = new AbortController(); streamController = controller;
   const current = () => scope === epoch && streamController === controller && !controller.signal.aborted && activeSession.value?.id === original.id;
   const assistant: AiChatMessage = { id: crypto.randomUUID(), sessionId: original.id, roleKey: 'assistant', content: '', statusKey: 'streaming', promptTokens: null, completionTokens: null, createdAtUtc: new Date().toISOString() };
   activeSession.value = { ...original, isGenerating: true, messages: [...original.messages, { ...assistant, id: crypto.randomUUID(), roleKey: 'user', content, statusKey: 'completed' }, assistant] };
   try {
     if (useKnowledge) {
-      const result = await askAiKnowledge(original.id, { knowledgeBaseIds: [base], embeddingModelConfigId: embedding, question: content }, controller.signal);
+      const result = await askAiKnowledge(original.id, { knowledgeBaseIds: bases, embeddingModelConfigId: embedding, question: content }, controller.signal);
       if (!current()) return;
       activeSession.value = { ...activeSession.value!, isGenerating: false, messages: activeSession.value!.messages.map(item => item.id === assistant.id ? result.message : item) };
-      citationBases.set(result.message.id, base); if (result.refused) refusedIds.value.add(result.message.id);
+      citationBases.set(result.message.id, [...bases]); if (result.refused) refusedIds.value.add(result.message.id);
     } else {
       await streamAiChatMessage(original.id, { content }, {
         onDelta: delta => { if (current()) { assistant.content += delta; patchAssistant(assistant.id, assistant.content, 'streaming'); } },
@@ -165,12 +169,14 @@ async function stopGeneration() {
 }
 function openCitation(message: AiChatMessage, citation: AiKnowledgeCitation) {
   if (message.knowledgeUnavailableCode || !['ai.knowledge_bases.read', 'ai.knowledge_documents.read', 'ai.knowledge_documents.source_read'].every(code => session.can(code))) return;
-  sourceCitation.value = citation; sourceBaseId.value = citationBases.get(message.id); sourceOpen.value = true;
+  const bases = citationBases.get(message.id);
+  sourceCitation.value = citation; sourceBaseId.value = bases?.length === 1 ? bases[0] : undefined;
+  sourceCandidateBaseIds.value = bases ? [...bases] : undefined; sourceOpen.value = true;
 }
 function reset() {
   if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = undefined; }
   ++epoch; ++readEpoch; streamController?.abort(); streamController = undefined; sessions.value = []; models.value = [];
-  activeSession.value = undefined; selectedSessionId.value = ''; draft.value = ''; knowledgeBaseId.value = ''; embeddingModelId.value = ''; selectedModelId.value = '';
+  activeSession.value = undefined; selectedSessionId.value = ''; draft.value = ''; knowledgeBaseIds.value = []; embeddingModelId.value = ''; selectedModelId.value = ''; sourceCandidateBaseIds.value = undefined;
   refusedIds.value.clear(); citationBases.clear(); sourceOpen.value = false; sourceCitation.value = undefined; problem.value = undefined;
   sending.value = false; loading.value = false; cancelling.value = false; knowledgeMode.value = false;
 }
@@ -285,7 +291,7 @@ onMounted(() => { void loadModels(); void loadSessions(); }); onUnmounted(reset)
           <div v-if="canAsk" class="ai-chat-knowledge">
             <el-switch v-model="knowledgeMode" :disabled="sending || loading" :active-text="t('knowledge.mode')" :aria-label="t('knowledge.mode')" data-testid="knowledge-mode" />
             <template v-if="knowledgeMode">
-              <AiKnowledgeBaseSelect v-model="knowledgeBaseId" :disabled="sending || loading" />
+              <AiKnowledgeBaseMultiSelect v-model="knowledgeBaseIds" :disabled="sending || loading" />
               <el-select v-model="embeddingModelId" :disabled="sending || loading" :placeholder="t('knowledge.embedding')" :aria-label="t('knowledge.embedding')" data-testid="knowledge-embedding">
                 <el-option v-for="model in embeddingModels" :key="model.id" :label="model.name" :value="model.id" />
               </el-select><p>{{ t('knowledge.askHint') }}</p>
@@ -310,7 +316,7 @@ onMounted(() => { void loadModels(); void loadSessions(); }); onUnmounted(reset)
         <el-empty v-else :description="t('aiChat.emptyState')" />
       </el-card>
     </div>
-    <AiKnowledgeSourceDialog v-if="sourceCitation" v-model:open="sourceOpen" :knowledge-base-id="sourceBaseId" :document-id="sourceCitation.documentId" :version-id="sourceCitation.versionId" :citation="sourceCitation" />
+    <AiKnowledgeSourceDialog v-if="sourceCitation" v-model:open="sourceOpen" :knowledge-base-id="sourceBaseId" :candidate-base-ids="sourceCandidateBaseIds" :document-id="sourceCitation.documentId" :version-id="sourceCitation.versionId" :citation="sourceCitation" />
   </section>
 </template>
 

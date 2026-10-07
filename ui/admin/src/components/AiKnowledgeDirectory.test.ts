@@ -18,7 +18,7 @@ async function render(documents = false, allow: (code: string) => boolean = () =
   const pinia = createPinia(); setActivePinia(pinia); vi.spyOn(useSessionStore(), 'can').mockImplementation(allow);
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/ai/knowledge-documents', name: 'ai-knowledge-documents', component: { template: '<div />' } }, { path: '/', component: { template: '<div />' } }] });
   await router.push({ path: '/', query: documents ? { knowledgeBaseId: baseId } : {} }); await router.isReady();
-  const wrapper = mount(AiKnowledgeDirectory, { props: { documents }, global: { plugins: [pinia, router], stubs: { ArtFormDialog: dialog, AiKnowledgeSourceDialog: true, AiKnowledgePolicyDialog: true, AiKnowledgeGrantsDialog: true } } });
+  const wrapper = mount(AiKnowledgeDirectory, { props: { documents }, global: { plugins: [pinia, router], stubs: { ArtFormDialog: dialog, AiKnowledgeSourceDialog: true, AiKnowledgePolicyDialog: true, AiKnowledgeGrantsDialog: true, AiKnowledgeIndexDialog: true } } });
   wrappers.push(wrapper); await flushPromises(); return wrapper;
 }
 async function selectUpload(wrapper: VueWrapper) {
@@ -33,6 +33,11 @@ beforeEach(() => {
 });
 afterEach(() => { wrappers.forEach(wrapper => wrapper.unmount()); wrappers = []; vi.restoreAllMocks(); });
 describe('知识目录与文件交付', () => {
+  it('版本索引读取权提供索引入口，不隐式提供原文读取', async () => {
+    vi.mocked(api.listKnowledgeVersions).mockResolvedValue(page([{ id: docId, documentId: docId, versionNumber: 1, originalFileName: 'test.txt', contentType: 'text/plain', contentHash: 'hash', sizeBytes: 4, processingStatus: 'completed', createdAtUtc: 'now' }]));
+    const wrapper = await render(true, code => ['ai.knowledge_bases.read', 'ai.knowledge_documents.read', 'ai.knowledge_documents.versions_read', 'ai.knowledge_documents.index_read'].includes(code));
+    await wrapper.get('[data-testid="knowledge-versions"]').trigger('click'); await flushPromises(); expect(wrapper.find('[data-testid="knowledge-index"]').exists()).toBe(true); expect(wrapper.find('[data-testid="knowledge-source"]').exists()).toBe(false);
+  });
   it('知识库的独立策略权限提供处理策略入口', async () => {
     const wrapper = await render(false, code => ['ai.knowledge_bases.read', 'ai.knowledge_bases.policy_update'].includes(code));
     expect(wrapper.find('[data-testid="knowledge-policy"]').exists()).toBe(true);

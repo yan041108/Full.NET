@@ -253,6 +253,18 @@ export interface AiKnowledgeImportResponse {
   readonly versionId: string;
 }
 
+export interface AiKnowledgeIndexEnqueueResponse {
+  readonly taskId: string;
+  readonly versionId: string;
+}
+
+export interface AiKnowledgeIndexStatusResponse {
+  readonly failureCode: null | string;
+  readonly state: string;
+  readonly taskId: null | string;
+  readonly versionId: string;
+}
+
 export interface AiKnowledgeMembersResponse {
   readonly knowledgeBaseId: string;
   readonly userIds: Array<string>;

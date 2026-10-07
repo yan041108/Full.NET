@@ -16,6 +16,7 @@ import AiKnowledgeBaseSelect from './AiKnowledgeBaseSelect.vue';
 import AiKnowledgeSourceDialog from './AiKnowledgeSourceDialog.vue';
 import AiKnowledgePolicyDialog from './AiKnowledgePolicyDialog.vue';
 import AiKnowledgeGrantsDialog from './AiKnowledgeGrantsDialog.vue';
+import AiKnowledgeIndexDialog from './AiKnowledgeIndexDialog.vue';
 const props = defineProps<{ documents?: boolean }>();
 const { t } = useAdminI18n(); const session = useSessionStore(); const route = useRoute();
 type Row = AiKnowledgeBaseResponse | AiKnowledgeDocumentResponse;
@@ -27,6 +28,7 @@ const versionPage = ref(1); const versionTotal = ref(0); const versionsLoading =
 const file = ref<File>(); let uploadKey = ''; let uploadVersion = 0; const importOperation = ref<AiKnowledgeImportResponse>(); const operationId = ref('');
 const sourceOpen = ref(false); const sourceVersion = ref<AiKnowledgeVersionResponse>();
 const policyOpen = ref(false); const grantsOpen = ref(false); const accessRow = ref<Row>();
+const indexOpen = ref(false); const indexVersion = ref<AiKnowledgeVersionResponse>();
 const { tableMainRef, tableHeight, tableHeaderCellStyle, syncTableLayout } = useArtPagedTableInCard(loading);
 const prefix = computed(() => props.documents ? 'ai.knowledge_documents' : 'ai.knowledge_bases');
 const canRead = computed(() => !session.switching && session.can('ai.knowledge_bases.read') && (!props.documents || session.can('ai.knowledge_documents.read')));
@@ -153,10 +155,16 @@ function openSource(id: string) {
   if (!session.can('ai.knowledge_documents.source_read') || !canRead.value) return;
   sourceVersion.value = row; sourceOpen.value = true;
 }
+function openIndex(id: string) {
+  const row = versions.value.find(item => item.id === id);
+  if (!row || busy.value || !canRead.value || !session.can('ai.knowledge_documents.index_read')) return;
+  indexVersion.value = row; indexOpen.value = true;
+}
 function reset() {
   ++epoch; ++listEpoch; ++versionEpoch; controller?.abort(); versionController?.abort(); rows.value = []; versions.value = [];
   editorOpen.value = false; versionOpen.value = false; sourceOpen.value = false; editing.value = undefined; documentRow.value = undefined;
   policyOpen.value = false; grantsOpen.value = false; accessRow.value = undefined;
+  indexOpen.value = false; indexVersion.value = undefined;
   sourceVersion.value = undefined; importOperation.value = undefined; file.value = undefined; uploadKey = ''; operationId.value = ''; total.value = 0; loading.value = false; busy.value = false; versionsLoading.value = false;
 }
 watch(() => route.query.knowledgeBaseId, value => { baseId.value = typeof value === 'string' ? value : ''; });
@@ -203,7 +211,7 @@ onMounted(() => void load(1)); onUnmounted(reset);
         <el-form-item v-if="editing && !documents" :label="t('knowledge.enabled')"><el-switch v-model="form.isEnabled" :disabled="busy" /></el-form-item>
       </el-form>
     </ArtFormDialog>
-    <ArtFormDialog :open="versionOpen" :title="t('knowledge.versions')" width="860px" :show-confirm="false" :cancel-label="t('common.cancel')" @update:open="value => { if (!busy) { versionOpen = value; if (!value) { ++versionEpoch; versionController?.abort(); versions = []; sourceOpen = false; } } }">
+    <ArtFormDialog :open="versionOpen" :title="t('knowledge.versions')" width="860px" :show-confirm="false" :cancel-label="t('common.cancel')" @update:open="value => { if (!busy) { versionOpen = value; if (!value) { ++versionEpoch; versionController?.abort(); versions = []; sourceOpen = false; indexOpen = false; } } }">
       <template v-if="documentRow">
         <p>{{ documentRow.title }}</p><p>{{ t('knowledge.fileHint') }}</p>
         <div v-if="session.can('ai.knowledge_documents.upload')" class="knowledge-toolbar">
@@ -214,7 +222,10 @@ onMounted(() => void load(1)); onUnmounted(reset);
           <el-table-column prop="versionNumber" :label="t('knowledge.version')" width="90" />
           <el-table-column prop="originalFileName" :label="t('knowledge.file')" min-width="230" />
           <el-table-column prop="processingStatus" :label="t('knowledge.state')" width="160" />
-          <el-table-column v-if="session.can('ai.knowledge_documents.source_read')" :label="t('knowledge.source')" :width="ART_TABLE_ACTION_COLUMN_WIDTH"><template #default="{ row }"><ArtTableActionGroup><ArtTableActionButton type="view" :title="t('knowledge.source')" test-id="knowledge-source" @click="openSource(row.id)" /></ArtTableActionGroup></template></el-table-column>
+          <el-table-column v-if="session.can('ai.knowledge_documents.source_read') || session.can('ai.knowledge_documents.index_read')" :label="t('knowledge.actions')" :width="ART_TABLE_ACTION_COLUMN_WIDTH"><template #default="{ row }"><ArtTableActionGroup>
+            <ArtTableActionButton v-if="session.can('ai.knowledge_documents.source_read')" type="view" :title="t('knowledge.source')" test-id="knowledge-source" @click="openSource(row.id)" />
+            <ArtTableActionButton v-if="session.can('ai.knowledge_documents.index_read')" type="view" :title="t('knowledge.index')" test-id="knowledge-index" @click="openIndex(row.id)" />
+          </ArtTableActionGroup></template></el-table-column>
         </el-table>
         <el-pagination :current-page="versionPage" :page-size="20" :total="versionTotal" :disabled="versionsLoading || busy" layout="total, prev, pager, next" @current-change="loadVersions($event)" />
         <section v-if="session.can('ai.knowledge_documents.imports_read')" class="knowledge-import">
@@ -229,6 +240,7 @@ onMounted(() => void load(1)); onUnmounted(reset);
       </template><el-empty v-else :description="t('knowledge.empty')" />
     </ArtFormDialog>
     <AiKnowledgeSourceDialog v-if="sourceVersion && documentRow" v-model:open="sourceOpen" :knowledge-base-id="baseId" :document-id="documentRow.id" :version-id="sourceVersion.id" :version="sourceVersion" />
+    <AiKnowledgeIndexDialog v-if="indexVersion && documentRow" v-model:open="indexOpen" :knowledge-base-id="documentRow.knowledgeBaseId" :document-id="documentRow.id" :version-id="indexVersion.id" />
   </section>
 </template>
 <style scoped>

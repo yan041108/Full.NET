@@ -25,6 +25,8 @@ import type {
   AiKnowledgeDocumentMembersResponse,
   AiKnowledgeDocumentResponse,
   AiKnowledgeImportResponse,
+  AiKnowledgeIndexEnqueueResponse,
+  AiKnowledgeIndexStatusResponse,
   AiKnowledgeMembersResponse,
   AiKnowledgeOrganizationCandidateResponse,
   AiKnowledgeOrganizationGrantsResponse,
@@ -622,6 +624,8 @@ import {
   readAiKnowledgeDocumentMembersResponse,
   readAiKnowledgeDocumentResponse,
   readAiKnowledgeImportResponse,
+  readAiKnowledgeIndexEnqueueResponse,
+  readAiKnowledgeIndexStatusResponse,
   readAiKnowledgeMembersResponse,
   readAiKnowledgeOrganizationGrantsResponse,
   readAiKnowledgeRoleGrantsResponse,
@@ -1325,6 +1329,26 @@ export async function aiDownloadKnowledgeSource(
     : await http.requestBlob(path, init, signal, options);
 }
 
+export interface AiEnqueueKnowledgeIndexParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly versionId: string;
+}
+
+export async function aiEnqueueKnowledgeIndex(
+  http: HttpClient,
+  parameters: AiEnqueueKnowledgeIndexParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeIndexEnqueueResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/index`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeIndexEnqueueResponse(value);
+}
+
 export interface AiGetAgentApprovalParameters {
   readonly approvalId: string;
 }
@@ -1509,6 +1533,26 @@ export async function aiGetKnowledgeImport(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeImportResponse(value);
+}
+
+export interface AiGetKnowledgeIndexStatusParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly versionId: string;
+}
+
+export async function aiGetKnowledgeIndexStatus(
+  http: HttpClient,
+  parameters: AiGetKnowledgeIndexStatusParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeIndexStatusResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/index`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeIndexStatusResponse(value);
 }
 
 export interface AiGetKnowledgeMembersParameters {
@@ -2050,6 +2094,27 @@ export async function aiRetryKnowledgeImport(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeImportResponse(value);
+}
+
+export interface AiRetryKnowledgeIndexParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly versionId: string;
+  readonly taskId: string;
+}
+
+export async function aiRetryKnowledgeIndex(
+  http: HttpClient,
+  parameters: AiRetryKnowledgeIndexParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeIndexEnqueueResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/index/${encodeURIComponent(String(parameters.taskId))}/retry`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeIndexEnqueueResponse(value);
 }
 
 export interface AiRevokeAgentDelegationParameters {

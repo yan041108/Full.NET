@@ -5,6 +5,19 @@ import * as api from './ai-knowledge';
 
 vi.mock('./http', () => ({ http: { request: vi.fn(), requestBlob: vi.fn() } }));
 describe('知识库生成协议适配', () => {
+  it('索引入队仅绑定精确版本路径，不添加请求体或查询字段', async () => {
+    const versionId = '01900000-0000-7000-8000-000000000001'; const taskId = '01900000-0000-7000-8000-000000000002';
+    vi.mocked(http.request).mockResolvedValue({ taskId, versionId });
+    await expect(api.enqueueKnowledgeIndex({ knowledgeBaseId: 'base', documentId: 'doc', versionId })).resolves.toEqual({ taskId, versionId });
+    expect(http.request).toHaveBeenLastCalledWith(`/api/v1/ai/knowledge-bases/base/documents/doc/versions/${versionId}/index`, { method: 'POST' }, undefined);
+  });
+  it('索引重试绑定原任务，状态读取使用生成响应守卫', async () => {
+    vi.mocked(http.request).mockRejectedValue(new Error('conflict'));
+    await expect(api.retryKnowledgeIndex({ knowledgeBaseId: 'base', documentId: 'doc', versionId: 'version', taskId: 'task' })).rejects.toThrow('conflict');
+    expect(http.request).toHaveBeenLastCalledWith('/api/v1/ai/knowledge-bases/base/documents/doc/versions/version/index/task/retry', { method: 'POST' }, undefined);
+    vi.mocked(http.request).mockResolvedValue({ state: 'ready' });
+    await expect(api.getKnowledgeIndexStatus({ knowledgeBaseId: 'base', documentId: 'doc', versionId: 'version' })).rejects.toThrow();
+  });
   it('策略写入保留原版本及成对撤销值', async () => {
     vi.mocked(http.request).mockRejectedValue(new Error('conflict'));
     const signal = new AbortController().signal;

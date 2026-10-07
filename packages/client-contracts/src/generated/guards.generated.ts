@@ -24,6 +24,8 @@ import type {
   AiKnowledgeDocumentMembersResponse,
   AiKnowledgeDocumentResponse,
   AiKnowledgeImportResponse,
+  AiKnowledgeIndexEnqueueResponse,
+  AiKnowledgeIndexStatusResponse,
   AiKnowledgeMembersResponse,
   AiKnowledgeOrganizationCandidateResponse,
   AiKnowledgeOrganizationGrantsResponse,
@@ -862,6 +864,28 @@ export function readAiKnowledgeImportResponse(value: unknown): AiKnowledgeImport
 
 function isAiKnowledgeImportResponse(value: unknown): value is AiKnowledgeImportResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["failureCode"] === null) || (typeof value["failureCode"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["state"] === 'string') && (typeof value["updatedAtUtc"] === 'string') && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readAiKnowledgeIndexEnqueueResponse(value: unknown): AiKnowledgeIndexEnqueueResponse {
+  if (!(isAiKnowledgeIndexEnqueueResponse(value))) {
+    throw new Error('client.invalid_ai_knowledge_index_enqueue_response');
+  }
+  return value;
+}
+
+function isAiKnowledgeIndexEnqueueResponse(value: unknown): value is AiKnowledgeIndexEnqueueResponse {
+  return isRecord(value) && (typeof value["taskId"] === 'string' && guidPattern.test(value["taskId"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readAiKnowledgeIndexStatusResponse(value: unknown): AiKnowledgeIndexStatusResponse {
+  if (!(isAiKnowledgeIndexStatusResponse(value))) {
+    throw new Error('client.invalid_ai_knowledge_index_status_response');
+  }
+  return value;
+}
+
+function isAiKnowledgeIndexStatusResponse(value: unknown): value is AiKnowledgeIndexStatusResponse {
+  return isRecord(value) && ((value["failureCode"] === null) || (typeof value["failureCode"] === 'string')) && (typeof value["state"] === 'string') && ((value["taskId"] === null) || (typeof value["taskId"] === 'string' && guidPattern.test(value["taskId"]))) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
 }
 
 export function readAiKnowledgeMembersResponse(value: unknown): AiKnowledgeMembersResponse {

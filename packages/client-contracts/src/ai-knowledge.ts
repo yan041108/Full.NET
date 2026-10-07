@@ -20,6 +20,9 @@ export {
   aiGetKnowledgeImport,
   aiRetryKnowledgeImport,
   aiCleanupKnowledgeImports,
+  aiGetKnowledgeIndexStatus,
+  aiEnqueueKnowledgeIndex,
+  aiRetryKnowledgeIndex,
   aiListKnowledgeOrganizationCandidates,
   aiListKnowledgeDocumentOrganizationCandidates,
   aiListKnowledgeRoleCandidates,
@@ -41,6 +44,8 @@ export type {
   AiKnowledgeDocumentMembersResponse,
   AiKnowledgeVersionResponse,
   AiKnowledgeImportResponse,
+  AiKnowledgeIndexStatusResponse,
+  AiKnowledgeIndexEnqueueResponse,
   AiKnowledgeOrganizationCandidateResponse,
   PagedResultOfAiKnowledgeOrganizationCandidateResponse,
   AiKnowledgeRoleCandidateResponse,
@@ -69,6 +74,8 @@ export {
   readAiKnowledgeDocumentMembersResponse,
   readAiKnowledgeVersionResponse,
   readAiKnowledgeImportResponse,
+  readAiKnowledgeIndexStatusResponse,
+  readAiKnowledgeIndexEnqueueResponse,
   readAiKnowledgeOrganizationCandidateResponse,
   readAiKnowledgeRoleCandidateResponse,
   readAiKnowledgeRoleGrantsResponse,
@@ -76,6 +83,9 @@ export {
 } from './generated/guards.generated.js';
 
 export type {
+  AiGetKnowledgeIndexStatusParameters,
+  AiEnqueueKnowledgeIndexParameters,
+  AiRetryKnowledgeIndexParameters,
   AiGetKnowledgeMembersParameters,
   AiSetKnowledgeMembersParameters,
   AiListKnowledgeBasesParameters,

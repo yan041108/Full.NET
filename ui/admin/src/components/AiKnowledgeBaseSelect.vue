@@ -6,7 +6,7 @@ import { listKnowledgeBases } from '../api/ai-knowledge';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { showProblem } from '../feedback/fullNetMessage';
-const props = defineProps<{ modelValue: string; disabled?: boolean }>();
+const props = defineProps<{ modelValue: string; disabled?: boolean; candidateIds?: readonly string[] }>();
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
 const session = useSessionStore(); const { t } = useAdminI18n();
 const rows = ref<AiKnowledgeBaseResponse[]>([]); const page = ref(1); const total = ref(0); const loading = ref(false);
@@ -18,11 +18,12 @@ async function load(next = 1) {
   try {
     const result = await listKnowledgeBases({ page: next, pageSize: 20 }, controller.signal);
     if (current !== epoch) return;
-    rows.value = result.items.filter(row => row.isEnabled); page.value = next; total.value = result.total;
+    rows.value = result.items.filter(row => row.isEnabled && (!props.candidateIds || props.candidateIds.includes(row.id))); page.value = next; total.value = result.total;
   } catch (error) { if (current === epoch) showProblem(error, t('common.loadFailed')); }
   finally { if (current === epoch) loading.value = false; }
 }
 watch(() => [session.currentUser, session.switching], () => { emit('update:modelValue', ''); void load(); }, { deep: true });
+watch(() => props.candidateIds, () => { emit('update:modelValue', ''); void load(); }, { deep: true });
 onMounted(() => void load()); onUnmounted(() => { ++epoch; controller?.abort(); });
 </script>
 <template>

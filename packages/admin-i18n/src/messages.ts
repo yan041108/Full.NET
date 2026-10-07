@@ -2,6 +2,15 @@ import type { SupportedLocale } from './locale.js';
 
 export const zhCN = {
   'knowledge.title': '知识库',
+  'knowledge.selectBases': '选择 1–8 个知识库',
+  'knowledge.invalidBases': '请选择最多 8 个不重复的有效知识库。',
+  'knowledge.sourceBaseChoice': '请选择本次问题使用的知识库。引用未绑定知识库，来源访问仍由服务端重新授权。',
+  'knowledge.index': '版本索引',
+  'knowledge.indexTask': '索引任务',
+  'knowledge.indexEnqueue': '提交索引',
+  'knowledge.indexRetry': '重试任务',
+  'knowledge.indexAccepted': '任务已接受，请刷新查看当前状态',
+  'knowledge.indexHint': '操作只作用于当前文件版本。入队需要来源读取及上传权限；重试仅恢复原会话的失败或超期任务，条件由服务端复验。请求结果不明时先刷新，不自动重发。',
   'knowledge.policy': '处理策略',
   'knowledge.grants': '访问授权',
   'knowledge.classification': '数据分类',
@@ -4378,6 +4387,15 @@ export type MessageParameters = Readonly<Record<string, string | number>>;
 
 const enUS = {
   'knowledge.title': 'Knowledge bases',
+  'knowledge.selectBases': 'Choose 1–8 knowledge bases',
+  'knowledge.invalidBases': 'Choose up to 8 unique, valid knowledge bases.',
+  'knowledge.sourceBaseChoice': 'Choose a knowledge base used for this question. Citations do not bind a base; the server authorizes source access again.',
+  'knowledge.index': 'Version index',
+  'knowledge.indexTask': 'Index task',
+  'knowledge.indexEnqueue': 'Submit index',
+  'knowledge.indexRetry': 'Retry task',
+  'knowledge.indexAccepted': 'Task accepted. Refresh to read its current state.',
+  'knowledge.indexHint': 'Actions apply to this file version. Admission requires source-read and upload permissions. Retry restores only failed or expired tasks from the original session, subject to server validation. Refresh uncertain outcomes; requests are not replayed automatically.',
   'knowledge.policy': 'Processing policy',
   'knowledge.grants': 'Access grants',
   'knowledge.classification': 'Data classification',

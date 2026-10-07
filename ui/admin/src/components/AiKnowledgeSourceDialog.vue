@@ -7,14 +7,14 @@ import AiKnowledgeBaseSelect from './AiKnowledgeBaseSelect.vue';
 import { downloadKnowledgeSource, listKnowledgeVersions } from '../api/ai-knowledge';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-const props = defineProps<{ open: boolean; knowledgeBaseId?: string; documentId: string; versionId: string; citation?: AiKnowledgeCitation; version?: AiKnowledgeVersionResponse }>();
+const props = defineProps<{ open: boolean; knowledgeBaseId?: string; candidateBaseIds?: readonly string[]; documentId: string; versionId: string; citation?: AiKnowledgeCitation; version?: AiKnowledgeVersionResponse }>();
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
 const session = useSessionStore(); const { t } = useAdminI18n();
 const selectedBase = ref(''); const text = ref(''); const binary = ref(false); const failed = ref(false); const loading = ref(false);
 const canRead = computed(() => !session.switching && ['ai.knowledge_bases.read', 'ai.knowledge_documents.read', 'ai.knowledge_documents.source_read'].every(code => session.can(code)));
 let epoch = 0; let controller: AbortController | undefined;
 function clear() { ++epoch; controller?.abort(); text.value = ''; binary.value = false; failed.value = false; loading.value = false; }
-watch(() => [props.open, props.knowledgeBaseId, props.documentId, props.versionId, props.version], () => { clear(); selectedBase.value = props.knowledgeBaseId ?? ''; }, { immediate: true });
+watch(() => [props.open, props.knowledgeBaseId, props.candidateBaseIds, props.documentId, props.versionId, props.version], () => { clear(); selectedBase.value = props.knowledgeBaseId ?? ''; }, { immediate: true, deep: true });
 watch(selectedBase, clear);
 watch(() => [session.currentUser, session.switching], () => { clear(); selectedBase.value = ''; emit('update:open', false); }, { deep: true });
 onUnmounted(clear);
@@ -33,6 +33,7 @@ async function versionMetadata(current: number) {
 }
 async function read(download = false) {
   if (!props.open || !canRead.value || !selectedBase.value || !props.documentId || !props.versionId || loading.value) return;
+  if (!props.knowledgeBaseId && props.candidateBaseIds && !props.candidateBaseIds.includes(selectedBase.value)) return;
   clear(); const current = epoch; loading.value = true; controller = new AbortController();
   try {
     // 每次预览或下载都重新请求授权来源，不复用失效的下载链接或模型 URL。
@@ -60,7 +61,8 @@ async function read(download = false) {
   <ArtFormDialog :open="open" :title="t('knowledge.source')" width="760px" :show-confirm="false" :cancel-label="t('common.cancel')" @update:open="emit('update:open', $event)">
     <p>{{ t('knowledge.sourceHint') }}</p>
     <p v-if="citation">{{ t('knowledge.position', { page: citation.pageNumber ?? t('knowledge.noPage'), sequence: citation.sequence, offset: citation.offset, length: citation.length }) }}</p>
-    <AiKnowledgeBaseSelect v-if="!knowledgeBaseId" v-model="selectedBase" :disabled="loading" />
+    <AiKnowledgeBaseSelect v-if="!knowledgeBaseId" v-model="selectedBase" :disabled="loading" :candidate-ids="candidateBaseIds" />
+    <p v-if="!knowledgeBaseId && candidateBaseIds">{{ t('knowledge.sourceBaseChoice') }}</p>
     <el-alert v-if="!canRead" :title="t('knowledge.noPermission')" type="warning" :closable="false" />
     <el-alert v-if="failed" :title="t('knowledge.sourceUnavailable')" type="warning" :closable="false" data-testid="knowledge-source-error" />
     <div v-if="canRead" class="source-actions">

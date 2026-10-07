@@ -5,6 +5,7 @@ import AiKnowledgeSourceDialog from './AiKnowledgeSourceDialog.vue';
 import type { AiKnowledgeVersionResponse } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { downloadKnowledgeSource } from '../api/ai-knowledge';
+import AiKnowledgeBaseSelect from './AiKnowledgeBaseSelect.vue';
 vi.mock('../api/ai-knowledge', () => ({ downloadKnowledgeSource: vi.fn(), listKnowledgeVersions: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 100 }) }));
 let wrappers: VueWrapper[] = [];
 function render(allow = true) {
@@ -14,6 +15,14 @@ function render(allow = true) {
 function textBlob(text: string) { const blob = new Blob([text], { type: 'text/plain' }); Object.defineProperty(blob, 'arrayBuffer', { value: async () => new TextEncoder().encode(text).buffer }); return blob; }
 afterEach(() => { wrappers.forEach(w => w.unmount()); wrappers = []; vi.clearAllMocks(); vi.restoreAllMocks(); });
 describe('授权来源预览', () => {
+  it('多库引用只提示原请求范围，不默认绑定第一库或读取来源', async () => {
+    const wrapper = render(); await wrapper.setProps({ knowledgeBaseId: undefined, candidateBaseIds: ['first', 'second'] });
+    expect(wrapper.getComponent(AiKnowledgeBaseSelect).props('candidateIds')).toEqual(['first', 'second']); expect(wrapper.get('[data-testid="knowledge-source-read"]').attributes('disabled')).toBeDefined(); expect(downloadKnowledgeSource).not.toHaveBeenCalled();
+  });
+  it('原请求范围之外的来源选择不发起网络请求', async () => {
+    const wrapper = render(); await wrapper.setProps({ knowledgeBaseId: undefined, candidateBaseIds: ['first', 'second'] });
+    wrapper.getComponent(AiKnowledgeBaseSelect).vm.$emit('update:modelValue', 'outside'); await flushPromises(); await wrapper.get('[data-testid="knowledge-source-read"]').trigger('click'); await flushPromises(); expect(downloadKnowledgeSource).not.toHaveBeenCalled();
+  });
   it('没有来源读取权时不创建读取操作', async () => { const wrapper = render(false); expect(wrapper.find('[data-testid="knowledge-source-read"]').exists()).toBe(false); expect(downloadKnowledgeSource).not.toHaveBeenCalled(); });
   it('文本作为纯文本渲染，读取被撤权后清除旧预览', async () => {
     vi.mocked(downloadKnowledgeSource).mockResolvedValueOnce(textBlob('<img src=x onerror=alert(1)>')).mockRejectedValueOnce({ status: 403 });

@@ -1,4 +1,7 @@
 import {
+  aiGetKnowledgeIndexStatus, type AiGetKnowledgeIndexStatusParameters,
+  aiEnqueueKnowledgeIndex, type AiEnqueueKnowledgeIndexParameters,
+  aiRetryKnowledgeIndex, type AiRetryKnowledgeIndexParameters,
   aiListKnowledgeBases, type AiListKnowledgeBasesParameters,
   aiGetKnowledgeBase, type AiGetKnowledgeBaseParameters,
   aiCreateKnowledgeBase, type AiCreateKnowledgeBaseParameters,
@@ -32,6 +35,18 @@ import {
   aiListKnowledgeDocumentOrganizationCandidates, type AiListKnowledgeDocumentOrganizationCandidatesParameters,
 } from '@fullnet/client-contracts';
 import { http } from './http';
+
+export function getKnowledgeIndexStatus(parameters: AiGetKnowledgeIndexStatusParameters, signal?: AbortSignal) {
+  return aiGetKnowledgeIndexStatus(http, parameters, signal);
+}
+
+export function enqueueKnowledgeIndex(parameters: AiEnqueueKnowledgeIndexParameters, signal?: AbortSignal) {
+  return aiEnqueueKnowledgeIndex(http, parameters, signal);
+}
+
+export function retryKnowledgeIndex(parameters: AiRetryKnowledgeIndexParameters, signal?: AbortSignal) {
+  return aiRetryKnowledgeIndex(http, parameters, signal);
+}
 
 // 页面适配只绑定共享 HTTP 客户端，响应验证和协议路径由生成操作负责。
 export function listKnowledgeBases(parameters: AiListKnowledgeBasesParameters = {}, signal?: AbortSignal) {

@@ -1310,7 +1310,7 @@ main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-pa
 - [x] 对话增加单知识库 Ask、明确拒答/来源不可用、引用来源入口；取消、重复提交、页面卸载和作用域变化保护。
 - [x] 建立失败测试后统一运行组件、共享契约、语言、生产构建和相关治理验证，在 main 提交。
 
-索引派发/状态/重试的生成操作、多知识库选择、PDF 页内预览仍为 R07 后续项；处理策略与成员授权编辑见后续 R07b。页面真实自动化和人工验收登记 R12；本批最多标记 Build-verified，不借用 R06 服务端证据标记页面 Verified。
+PDF 页内预览仍为 R07 后续项；处理策略与成员授权编辑见后续 R07b，索引派发/状态/重试及多知识库选择见后续 R07c。页面真实自动化和人工验收登记 R12；本批最多标记 Build-verified，不借用 R06 服务端证据标记页面 Verified。
 
 - main 基线 `1173f95d756aab795370e3465f692bd016a3d3a9`，快照 `ai-knowledge-vue-r07a`。后端仅扩展两个静态导航元数据，不改变 Endpoint、DTO、持久化、迁移或 DI；冻结 Layui 未变。Vue 适配器直接消费既有共享生成操作，覆盖门禁支持显式共享消费者，不移动稳定生成清单的操作所有权。
 - 上传结果不明时保留原 request key 和乐观版本；当前会话/租户或知识库改变时清空结果，晚到响应与卸载不回填。原文 Endpoint 的实际 MIME 是 octet-stream，文本预览必须匹配精确版本元数据；UTF-8 严格解码、8 MiB 上限、最多展示 100,000 字符且不渲染 HTML。历史引用缺少知识库绑定时让用户选择当前授权库，不猜测历史绑定。
@@ -1344,6 +1344,24 @@ main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-pa
 - 依赖与锁文件未改，本批未重跑全工作区依赖审计；R07a 记录的存量审计失败不因此关闭。未完成真实页面/人工验收，不推导端到端、Native、容量或 SLO 已验收。
 
 延后索引生成操作/页面与多库 Ask，R07 总体不提前关闭。真实页面及两层授权交互验收继续登记 R12。
+
+#### R07c：索引操作与多库问答合批（2026-10-07，Build-verified）
+
+- main 基线 `062c20c21c1c780aa48876bcc31de6c1c523668a`，快照 `ai-knowledge-vue-r07c`。复用已有服务端索引与 Ask，不改 C#、SQL、授权或模型派发规则。
+- [x] 从 SQL Server/MySQL 真实运行时 OpenAPI 同步三个索引操作，生成共享模型/守卫/操作，补齐薄适配及请求路径、无请求体、响应守卫测试。
+- [x] 版本列表增加精确索引权限入口，弹窗交付状态查询、入队与原任务重试；写操作不自动重发，不用旧状态或旧 taskId 重试；失败、重复提交、关闭/资源/会话变化丢弃迟到响应。
+- [x] 问答交付 1–8 个知识库的有界多选，跨页保留已选项、唯一 UUID 校验、会话切换清理；提交冻结资源列表，引用不猜测来自哪一库，来源选择仅建议本次请求范围并由服务器再次授权。
+- [x] 合批运行受影响组件、共享契约、OpenAPI/生成一致性、多语言、构建、包体和治理验证；记录真实页面验收项到 R12，复审后提交 main。PDF 页内预览继续后续项，R07 不提前关闭。
+
+本地证据（Windows x64，原始报告 `artifacts/r07c`）：
+
+- `dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj -c Release --no-restore -m:2 -nr:false` 成功，零警告/错误。`FULLNET_TESTCONTAINERS_REUSE=0 FULLNET_API_SCHEMA_TEMPLATE=1 pnpm openapi:client:snapshot -- --update --no-build` 从当前产物导出 SQL Server、MySQL 各 1/1 OpenAPI 测试，零跳过，两库规范内容一致。
+- `pnpm openapi:client:generate` 成功；`pnpm openapi:client:generate -- --check` 零漂移，`pnpm openapi:client:snapshot -- --check --offline` 通过。三个现有索引 Operation 进入 manifest/规范快照及生成产物；总操作 594 → 597，知识库组 32 → 35，保持原操作、权限与响应字段，未手工编辑生成文件。
+- API/多选、索引弹窗、页面入口/多库来源先建立 RED，原始记录保留。首轮组件 61/62：唯一后续失败是测试夹具非 UUID 被生成守卫拒绝，修正夹具后最终七个受影响文件 64/64；OpenAPI 原固定操作清单未含新增三项，补齐登记与索引参数/无正文/响应模型断言后通过，不放宽门禁。
+- `pnpm --filter @fullnet/admin test --maxWorkers=4`：266 文件 1020/1020；`pnpm --filter @fullnet/client-contracts test`：226/226；`pnpm --filter @fullnet/admin-i18n test`：8/8；`pnpm test:openapi`：210/210；`pnpm test:governance`：57/57，均无跳过。
+- `pnpm --filter @fullnet/admin build`（vue-tsc + Vite）成功；`pnpm test:bundle-budgets` 三项通过，初始静态 JS 1,457,655 bytes（+2.19%）、gzip 381,967 bytes（+1.34%），既有基线与 5% 限额不变。
+- `pnpm test:integration:affected:plan -- --snapshot ai-knowledge-vue-r07c --phase slice`：25 个变更文件，目标 `none`；C#/SQL 未变，本批不重复业务 Integration 或 Native 发布。真实双库仅证明本批运行时 OpenAPI/生成范围，不替代页面或云模型验收。只读复审未发现阻断项。
+- `pnpm audit:clients` 退出 1，仍为既有未复核高危 `GHSA-qhr7-859c-m2p7`；未改依赖或锁文件，不申报审计通过。本批保持 Build-verified，PDF 页内预览与真实页面验收仍待后续，不推导端到端、Native、容量或 SLO 已验收。
 
 ### R08：增量更新、删除与索引重建（P2，依赖 R05–R07）
 
@@ -1389,6 +1407,7 @@ main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-pa
 
   R07a 页面验收清单：两页目录/分页/CRUD 精确权限、网络结果不明上传重试、导入失败刷新/重试、octet-stream 的 TXT/MD 授权预览与 PDF 下载、实时及历史引用来源选择、明确拒答与空历史回答、索引/模型不可用、取消到终态刷新、重复提交、路由库参数变化、租户切换与卸载晚到结果。需实际浏览器和人工证据后升级页面 Verified。
   R07b 页面验收清单：独立策略权限、原模型审批保留及显式版本升级/成对撤销、模型候选分页；库/文档两层用户/角色/组织读取与全量替换、候选读取独立权限及分页、只读和资源所有者错误、空集合撤销、100 项上限及无效/重复 UUID、409 保留输入、关闭/撤权/租户或资源/类别切换与卸载晚到结果。需实际浏览器和人工证据后升级页面 Verified。
+  R07c 页面验收清单：精确文件版本索引状态/入队/原任务重试、组合权限、202 仅代表接受、未知结果先刷新、原会话及失败/超期条件由服务端裁决；1–8 库跨页选择与请求集合冻结、引用显式来源选择及请求范围/授权目录交集、历史引用缺少库绑定的选择、关闭/候选集合/资源/会话变化及卸载晚到结果。PDF 页内预览尚未交付；实际浏览器和人工证据完成后才升级页面 Verified。
 - [ ] 按精确提交核对必要 CI 终态，更新能力矩阵和运维文档；存在失败、跳过或部署环境缺失时仅标明已实现/局部验证，保留 `Capacity-not-verified`。
 
 ### 执行与验证入口
