@@ -1257,6 +1257,23 @@ main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-pa
 - `pnpm test:integration:affected -- --snapshot ai-knowledge-public-answer-r06b2 --phase merge` 正式发现 94 项。为减少逐场景重复迁移，保留无模板运行已完成的 32 项后主动中止该任务进程，原始退出 1 不计为单轮全量通过。按既有官方 TRX 2.3.2 序列化依据严格核对原始日志完整 Passed 帧及 UID/FQN，精确补跑剩余 62 项；补跑使用不复用的私有双库容器及只含结构/journal 的 schema 模板，每个用例仍独立供给业务数据库。`node artifacts/r06b/lineage-run-remaining.mjs` 退出 0，62/62、零失败/跳过（31m24s223ms）；两条成功结果诊断按 TRX 字段上限截断，身份及结果完整。`node artifacts/r06b/lineage-verify.mjs` 退出 0，核对最终精确并集 94、全部 UID/FQN、1215 项冻结源码/矩阵输入和七个程序集未变，正式及测试 AI DLL 摘要一致。不伪造单轮全绿报告；原始发现、冻结输入、成功/失败/中止日志、真实补跑 TRX 和 `lineage-local-acceptance.json` 保留在忽略目录 `artifacts/r06b/lineage-*`，不覆盖 R06b1 记录。
 - Windows x64、.NET SDK 10.0.401、Docker SQL Server 2022-CU14 / MySQL 8.0；集成进程限制两个处理器，不复用容器。本批没有新增公开 Host/Worker 可达路径，未重新发布或运行 Native 宿主、调用真实云模型或执行容量实测；公开问答仍未完成，完整 RAG 保持 Planned，容量保持 Capacity-not-verified。
 
+**R06b2b 历史消费者合批交付（2026-10-07）：**
+
+- 基线 main `1575dc4b315d966584296a13258087052c961840`，快照 `ai-knowledge-public-consumers-r06b2b`。本批复用已有 schema，不新增表或迁移；跨模块权限/角色/机构仍走既有最小 Port，不读写对方表，也不引入跨模块事务。
+- [x] RED：缺失来源标记读取、未授权映射、跨消息等待撤权、损坏记录和普通聊天转述均先复现。公开 Ask 写入端点另列 R06b2c，当前批次完成历史、MCP 摘要及普通聊天上下文三个真实消费入口。
+- [x] 历史整批复核最多 64 条派生消息、512 个完整依赖，同一来源只验证一次实际完成证明，最后一笔 SQL 同时复核全部请求来源。超限不截断依赖，派生消息失败关闭；普通消息保持原语义。详情映射和 MCP 摘要只接收经资格复核的正文及服务器引用，不返回内部元数据。
+- [x] 普通聊天在 SQL 和内存两层排除所有派生历史；完整追问依赖传播继续单独待办，不能把知识转述落成普通消息。
+- [ ] R06b2c 后续交付：新增会话内非流式 Ask 契约，复用 Chat.Send 与四项精确来源读取权限、可信所有者、原会话生成模型及显式 Embedding 模型。槽位/占位短事务，外部收费执行在事务外，正文缓冲、来源复核、租约原子落库和独立原范围清理后交付；引用只有服务器确认的标识和位置。
+- [x] 同步 DI、静态行物化、JSON 源生成、OpenAPI 及历史 HTTP 路径 Linux Native 发布/运行。统一完整 AI、双库正式 merge、治理/命名/契约与只读复审后在 main 提交；保留真实结果及未验证项，完整 RAG/云质量/容量不提前关闭。
+
+**R06b2b 最终验收证据（2026-10-07）：**
+
+- pnpm test:dotnet:unit -- --selection ai-module：1955/1955，0 失败、0 跳过；完整 Unit 发现 5424 项，矩阵按真实发现同步。Native/MemoryPack/AI 依赖/全局 SQL 目录架构组合实际 82/82；PDF 激活 SQL 的静态构造已修复，目录门禁未放宽。
+- AOT 分析单进程重跑构建 0 警告/0 错误；OpenAPI 双提供程序生成一致，208 项工具测试通过，96 个契约相对基线兼容。命名 33、SQL 安全 5、治理 57 项通过。
+- 正式 merge 发现 AI 82 + smoke 8 = 90 项，双 Provider；首次完整运行 86 通过/4 失败/0 跳过（36m16s558ms），最终 TRX 已正常生成；首次运行中 TXT/PDF 四项因夹具插入未标记且带来源的非法组合，被迁移 254 的现有 CHECK 拒绝。修正夹具并显式验证该非法写入被拒绝；保留首次失败，受影响四项使用新编译程序集单独补验 4/4，0 失败、0 跳过（6m02s549ms）；新 DLL 与已编译 obj 输出哈希一致，UID 为正式 90 项集合的严格子集。两份 TRX 按 UID/FQN 合并恰好 90/90 最终 Passed、0 跳过，原失败不改写；最终 Windows Integration 重建 0 警告/0 错误且 DLL 与补验输出一致。
+- 首次 Linux API 原生发布因 2 GiB GC 堆上限触发 ILC OutOfMemoryException；重试仅调整构建资源为 4 CPU、12 GiB 容器/6 GiB GC 堆，并保留编译缓存，发布/告警/体积门禁不变。重试发布成功（1420718ms），17 条既有精确 allowlist 告警通过，原生 ELF 138237344 字节通过体积门禁；Native 核心过滤器实际发现 29 项（矩阵最低数 10，不能等同发现数）；首次 45 分钟全局时限中止，26 项全部 Passed、0 失败/跳过（45m16s212ms），官方 2.3.2 完整记录序列化及 UID/FQN 已核对；剩余 3 项独立补验 3/3、0 失败/跳过（6m29s258ms）。最终按唯一 UID/FQN 合并恰好 29/29 Passed，两次执行的 API/Worker 工件 SHA-256 完全一致；原始中止记录保留。验收容器初始 2 CPU、8 GiB/2 GiB GC 堆，后调为 4 CPU；补验 4 CPU、8 GiB，结果仅说明该范围本地验收通过。Worker 门禁复用此前已发布的原生工件并记录哈希，不据此宣称本批重新发布 Worker。
+- 只读代码复审未发现待修正 P1/P2；生产实现、测试输入及 DLL 校验保留在 rtifacts/r06b2b。公开 Ask、完整追问依赖传播、RAG 云质量与容量验证继续待办。
+
 ### R07：Vue 知识库与问答页面（P1，依赖 R04/R06）
 
 **新增：** `ui/admin/src/views/AiKnowledgeBasesView.vue`、`AiKnowledgeDocumentsView.vue` 及对应 `.test.ts`；扩展 `ui/admin/src/views/AiChatView.vue` 与共享生成客户端。路由/菜单按现有机制登记，禁止修改冻结 Layui。

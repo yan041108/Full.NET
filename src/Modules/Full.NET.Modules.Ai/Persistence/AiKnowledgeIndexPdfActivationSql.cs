@@ -6,8 +6,7 @@ namespace Full.NET.Modules.Ai.Persistence;
 internal static class AiKnowledgeIndexPdfActivationSql
 {
     private static string Settled(SqlStatement basis) => basis.Text.Replace("ledger.Outcome='succeeded'", "ledger.Outcome='succeeded' AND ledger.SettledAtUtc IS NOT NULL", StringComparison.Ordinal);
-    private static SqlStatement Receipts(SqlStatement basis, string name) => new(name, Settled(basis), basis.Scope, basis.TenantBinding);
-    private static SqlStatement Payload(SqlStatement basis, string name, bool sqlServer)
+    private static string Payload(SqlStatement basis, bool sqlServer)
     {
         var text = Settled(basis);
         // 投影固定列名，沿用静态 AOT 行读取器；只物化一个有界批次。
@@ -17,14 +16,15 @@ internal static class AiKnowledgeIndexPdfActivationSql
         var order = text.IndexOf(" ORDER BY ", StringComparison.Ordinal);
         text = text[..order] + " AND batch.BatchOrdinal=@BatchOrdinal AND " + (sqlServer ? "DATALENGTH" : "OCTET_LENGTH")
             + "(vector.Payload) BETWEEN 8 AND 524288" + (sqlServer ? "" : " LIMIT 1 FOR UPDATE");
-        return new(name, text, basis.Scope, basis.TenantBinding);
+        return text;
     }
-    internal static readonly SqlStatement ReceiptsSqlServerHost = Receipts(AiKnowledgeIndexActivationSql.ReceiptsSqlServerHost, "ai.knowledge_pdf_activation.receipts_sqlserver_host");
-    internal static readonly SqlStatement ReceiptsSqlServerTenant = Receipts(AiKnowledgeIndexActivationSql.ReceiptsSqlServerTenant, "ai.knowledge_pdf_activation.receipts_sqlserver_tenant");
-    internal static readonly SqlStatement ReceiptsMySqlHost = Receipts(AiKnowledgeIndexActivationSql.ReceiptsMySqlHost, "ai.knowledge_pdf_activation.receipts_mysql_host");
-    internal static readonly SqlStatement ReceiptsMySqlTenant = Receipts(AiKnowledgeIndexActivationSql.ReceiptsMySqlTenant, "ai.knowledge_pdf_activation.receipts_mysql_tenant");
-    internal static readonly SqlStatement PayloadSqlServerHost = Payload(AiKnowledgeIndexActivationSql.ReceiptsSqlServerHost, "ai.knowledge_pdf_activation.payload_sqlserver_host", true);
-    internal static readonly SqlStatement PayloadSqlServerTenant = Payload(AiKnowledgeIndexActivationSql.ReceiptsSqlServerTenant, "ai.knowledge_pdf_activation.payload_sqlserver_tenant", true);
-    internal static readonly SqlStatement PayloadMySqlHost = Payload(AiKnowledgeIndexActivationSql.ReceiptsMySqlHost, "ai.knowledge_pdf_activation.payload_mysql_host", false);
-    internal static readonly SqlStatement PayloadMySqlTenant = Payload(AiKnowledgeIndexActivationSql.ReceiptsMySqlTenant, "ai.knowledge_pdf_activation.payload_mysql_tenant", false);
+    // 语句只在固定字段初始化时构造；帮助方法仅组合文本，避免运行时克隆逃离精确目录。
+    internal static readonly SqlStatement ReceiptsSqlServerHost = new("ai.knowledge_pdf_activation.receipts_sqlserver_host", Settled(AiKnowledgeIndexActivationSql.ReceiptsSqlServerHost), SqlDataScope.HostOnly);
+    internal static readonly SqlStatement ReceiptsSqlServerTenant = new("ai.knowledge_pdf_activation.receipts_sqlserver_tenant", Settled(AiKnowledgeIndexActivationSql.ReceiptsSqlServerTenant), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement ReceiptsMySqlHost = new("ai.knowledge_pdf_activation.receipts_mysql_host", Settled(AiKnowledgeIndexActivationSql.ReceiptsMySqlHost), SqlDataScope.HostOnly);
+    internal static readonly SqlStatement ReceiptsMySqlTenant = new("ai.knowledge_pdf_activation.receipts_mysql_tenant", Settled(AiKnowledgeIndexActivationSql.ReceiptsMySqlTenant), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement PayloadSqlServerHost = new("ai.knowledge_pdf_activation.payload_sqlserver_host", Payload(AiKnowledgeIndexActivationSql.ReceiptsSqlServerHost, true), SqlDataScope.HostOnly);
+    internal static readonly SqlStatement PayloadSqlServerTenant = new("ai.knowledge_pdf_activation.payload_sqlserver_tenant", Payload(AiKnowledgeIndexActivationSql.ReceiptsSqlServerTenant, true), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static readonly SqlStatement PayloadMySqlHost = new("ai.knowledge_pdf_activation.payload_mysql_host", Payload(AiKnowledgeIndexActivationSql.ReceiptsMySqlHost, false), SqlDataScope.HostOnly);
+    internal static readonly SqlStatement PayloadMySqlTenant = new("ai.knowledge_pdf_activation.payload_mysql_tenant", Payload(AiKnowledgeIndexActivationSql.ReceiptsMySqlTenant, false), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

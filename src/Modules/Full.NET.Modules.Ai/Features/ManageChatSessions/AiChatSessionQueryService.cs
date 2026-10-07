@@ -5,6 +5,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Features;
 using Full.NET.Modules.Ai.Persistence;
+using Full.NET.Modules.Ai.Knowledge;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Ai.Features.ManageChatSessions;
@@ -14,11 +15,13 @@ namespace Full.NET.Modules.Ai.Features.ManageChatSessions;
 /// <param name="currentTenant">可信租户范围。</param>
 /// <param name="databaseOptions">双库分页语法选择。</param>
 /// <param name="clock">判断生成租约是否到期的 UTC 时钟。</param>
+/// <param name="historyGuard">API 的完整来源复核；其他宿主未提供时知识答案失败关闭。</param>
 internal sealed class AiChatSessionQueryService(
     IQueryExecutor queryExecutor,
     ICurrentTenant currentTenant,
     IOptions<DatabaseOptions> databaseOptions,
-    IClock clock)
+    IClock clock,
+    AiKnowledgeAnswerHistoryGuard? historyGuard = null)
 {
     /// <summary>仅分页列出当前用户所属范围内的会话。</summary>
     /// <param name="ownerUserId">当前会话所有者。</param>
@@ -82,7 +85,14 @@ internal sealed class AiChatSessionQueryService(
                 AiSqlParameters.Create(("SessionId", sessionId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        return Result<AiChatSessionResponse>.Success(AiChatMapper.MapDetail(session, messages, clock.UtcNow));
+        var derived = messages.Where(message => message.IsKnowledgeAnswer || message.KnowledgeLineage is not null)
+            .Select(message => new AiKnowledgeAnswerHistoryEntry(message.Id, message.SessionId, message.KnowledgeLineage)).ToArray();
+        IReadOnlyDictionary<Guid, AiKnowledgeAnswerLineage> verified = new Dictionary<Guid, AiKnowledgeAnswerLineage>();
+        if (historyGuard is not null && derived.Length > 0)
+            verified = await historyGuard.AuthorizeBatchAsync(derived, ownerUserId, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (AiChatScope.Resolve(currentTenant) != scope) return NotFound();
+        return Result<AiChatSessionResponse>.Success(AiChatMapper.MapAuthorizedDetail(session, messages, clock.UtcNow, verified));
     }
     /// <summary>以用户和租户双重条件读取会话。</summary>
     /// <param name="scope">从可信上下文取得的租户或 Host 范围。</param>

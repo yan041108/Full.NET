@@ -24,6 +24,7 @@ public sealed class AiChatExecutionTests
     [TestMethod]
     [DataRow("success")]
     [DataRow("host")]
+    [DataRow("knowledge_history")]
     [DataRow("quota")]
     [DataRow("provider")]
     [DataRow("save")]
@@ -52,6 +53,10 @@ public sealed class AiChatExecutionTests
             .Returns(new AiTenantQuotaRecord { IsEnabled = true });
         queries.ReturnsForAll<Task<IReadOnlyList<AiChatMessageRecord>>>(
             Task.FromResult<IReadOnlyList<AiChatMessageRecord>>(Array.Empty<AiChatMessageRecord>()));
+        if (scenario == "knowledge_history") queries.ReturnsForAll<Task<IReadOnlyList<AiChatMessageRecord>>>(Task.FromResult<IReadOnlyList<AiChatMessageRecord>>([
+            new() { RoleKey = "assistant", Content = new string('秘', 40000), IsKnowledgeAnswer = true, CreatedAtUtc = clock.UtcNow },
+            new() { RoleKey = "assistant", Content = "损坏知识正文", KnowledgeLineage = "{}", CreatedAtUtc = clock.UtcNow.AddSeconds(-1) },
+            new() { RoleKey = "user", Content = "普通上下文", CreatedAtUtc = clock.UtcNow.AddSeconds(-2) }]));
         var commands = Substitute.For<ICommandExecutor>();
         var output = new RecordingOutput();
         var released = false;
@@ -114,7 +119,8 @@ public sealed class AiChatExecutionTests
         var registry = new AiChatGenerationRegistry();
         var options = Options.Create(new DatabaseOptions());
         var http = Substitute.For<IHttpClientFactory>();
-        http.CreateClient(Arg.Any<string>()).Returns(_ => new HttpClient(new ResponseHandler(scenario == "provider")));
+        string? providerInput = null;
+        http.CreateClient(Arg.Any<string>()).Returns(_ => new HttpClient(new ResponseHandler(scenario == "provider", value => providerInput = value)));
         var service = new AiChatStreamService(queries, commands, transaction,
             new AiChatSessionQueryService(queries, tenant, options, clock), TestAiProviders.Streamer(http), registry,
             monitor, budget,
@@ -143,8 +149,8 @@ public sealed class AiChatExecutionTests
             else
             {
                 Assert.IsTrue(result.IsSuccess, "流启动后的失败通过语义事件交付。");
-                Assert.AreEqual(scenario is "success" or "host", output.Done);
-                Assert.AreEqual(scenario is not ("success" or "host"), output.Error is not null);
+                Assert.AreEqual(scenario is "success" or "host" or "knowledge_history", output.Done);
+                Assert.AreEqual(scenario is not ("success" or "host" or "knowledge_history"), output.Error is not null);
                 Assert.DoesNotContain("private", output.Error ?? "", StringComparison.Ordinal);
             }
         }
@@ -152,16 +158,27 @@ public sealed class AiChatExecutionTests
             await commands.Received(1).ExecuteAsync(AiQuotaReservationSql.Reserve, Arg.Any<object?>(), Arg.Any<CancellationToken>());
         Assert.IsTrue(released);
         Assert.IsFalse(registry.TryCancel(sessionId, generationId));
+        if (scenario == "knowledge_history")
+        {
+            Assert.IsNotNull(providerInput);
+            using var payload = System.Text.Json.JsonDocument.Parse(providerInput);
+            var contents = payload.RootElement.GetProperty("messages").EnumerateArray().Select(message => message.GetProperty("content").GetString()).ToArray();
+            Assert.IsTrue(contents.Contains("普通上下文"));
+            Assert.IsFalse(contents.Any(content => content!.Contains('秘') || content.Contains("损坏知识正文", StringComparison.Ordinal)));
+        }
     }
 
-    private sealed class ResponseHandler(bool failed) : HttpMessageHandler
+    private sealed class ResponseHandler(bool failed, Action<string> capture) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            capture(await request.Content!.ReadAsStringAsync(cancellationToken));
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
             {
                 Content = new StringContent(failed ? "{\"error\":\"private provider detail\"}\n" :
                     "{\"message\":{\"content\":\"hello\"},\"done\":true,\"prompt_eval_count\":2,\"eval_count\":1}\n")
-            });
+            };
+        }
     }
 
     private sealed class RecordingOutput : IAiChatOutput

@@ -34,8 +34,36 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeIndexVectorReceiptRecord>(ReadKnowledgeVectorReceipt);
         registrar.Register<AiKnowledgeIndexActivationRecord>(ReadKnowledgeActivation);
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
+        registrar.Register<AiChatMessageRecord>(ReadChatMessage);
+        registrar.Register<AiChatSessionRecord>(ReadChatSession);
     }
 #endif
+
+    /// <summary>标记独立于可空元数据读取，缺失元数据不能把派生正文降级为普通消息。</summary>
+    internal static AiChatMessageRecord ReadChatMessage(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), SessionId = reader.GetGuid(reader.GetOrdinal("SessionId")),
+        RoleKey = Text(reader, "RoleKey"), Content = Text(reader, "Content"), StatusKey = Text(reader, "StatusKey"),
+        PromptTokens = Null(reader, "PromptTokens") ? null : checked((int)Integer(reader, "PromptTokens")),
+        CompletionTokens = Null(reader, "CompletionTokens") ? null : checked((int)Integer(reader, "CompletionTokens")),
+        CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"), IsKnowledgeAnswer = Convert.ToBoolean(reader.GetValue(reader.GetOrdinal("IsKnowledgeAnswer")), CultureInfo.InvariantCulture),
+        KnowledgeLineage = Null(reader, "KnowledgeLineage") ? null : Text(reader, "KnowledgeLineage"),
+    };
+
+    /// <summary>会话所有权与租约静态物化，保持 Host 空租户和两库 UTC 类型。</summary>
+    internal static AiChatSessionRecord ReadChatSession(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
+        TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        ModelConfigId = reader.GetGuid(reader.GetOrdinal("ModelConfigId")), ModelName = Text(reader, "ModelName"), Title = Text(reader, "Title"),
+        MessageCount = checked((int)Integer(reader, "MessageCount")), Version = checked((int)Integer(reader, "Version")),
+        LastMessageAtUtc = Null(reader, "LastMessageAtUtc") ? null : Timestamp(reader, "LastMessageAtUtc"),
+        IsGenerating = Convert.ToBoolean(reader.GetValue(reader.GetOrdinal("IsGenerating")), CultureInfo.InvariantCulture),
+        CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"), UpdatedAtUtc = Null(reader, "UpdatedAtUtc") ? null : Timestamp(reader, "UpdatedAtUtc"),
+        GenerationId = Null(reader, "GenerationId") ? null : reader.GetGuid(reader.GetOrdinal("GenerationId")),
+        GenerationExpiresAtUtc = Null(reader, "GenerationExpiresAtUtc") ? null : Timestamp(reader, "GenerationExpiresAtUtc"),
+        GenerationCancellationRequested = Convert.ToBoolean(reader.GetValue(reader.GetOrdinal("GenerationCancellationRequested")), CultureInfo.InvariantCulture),
+    };
 
     // LEFT JOIN 的任务、模型和指针允许为空；不同数据库的 CASE 整数类型显式归一。
     internal static AiKnowledgeIndexStatusRecord ReadKnowledgeIndexStatus(DbDataReader reader) => new()

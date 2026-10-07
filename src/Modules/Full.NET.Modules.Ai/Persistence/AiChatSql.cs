@@ -31,7 +31,9 @@ internal static class AiChatSql
                   message.StatusKey,
                   message.PromptTokens,
                   message.CompletionTokens,
-                  message.CreatedAtUtc
+                  message.CreatedAtUtc,
+                  message.IsKnowledgeAnswer,
+                  message.KnowledgeLineage
         """;
 
     private const string OwnerScopeClause = """
@@ -186,6 +188,7 @@ internal static class AiChatSql
         FROM fn_ai_chat_message AS message
         WHERE message.SessionId = @SessionId
           AND message.StatusKey IN ('completed', 'cancelled')
+          AND message.IsKnowledgeAnswer = 0 AND message.KnowledgeLineage IS NULL
         ORDER BY message.CreatedAtUtc DESC, message.Id DESC
         OFFSET 0 ROWS FETCH NEXT @Take ROWS ONLY
         """,
@@ -196,6 +199,7 @@ internal static class AiChatSql
         FROM fn_ai_chat_message AS message
         WHERE message.SessionId = @SessionId
           AND message.StatusKey IN ('completed', 'cancelled')
+          AND message.IsKnowledgeAnswer = 0 AND message.KnowledgeLineage IS NULL
         ORDER BY message.CreatedAtUtc DESC, message.Id DESC
         LIMIT @Take
         """;

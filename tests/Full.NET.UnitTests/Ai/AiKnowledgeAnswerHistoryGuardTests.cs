@@ -125,6 +125,49 @@ public sealed class AiKnowledgeAnswerHistoryGuardTests
         f.ProofReady = fault != "missing";
         Assert.IsNull(await f.Read()); Assert.IsTrue(f.ProofCalls > 0);
     }
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Batch_history_revalidates_all_messages_in_one_authority_boundary(bool lateDelete)
+    {
+        var f = new Fixture();
+        var second = f.Data with { MessageId = Guid.CreateVersion7() };
+        if (lateDelete) f.AfterFirstRead = () => f.Rows[1] = f.Rows[1] with { IsDeleted = 1 };
+        var result = await f.Guard.AuthorizeBatchAsync([new(f.Data.MessageId, f.Data.SessionId, f.Json),
+            new(second.MessageId, second.SessionId, AiKnowledgeAnswerLineageCodec.Encode(second))], f.Data.ActorUserId, default);
+        Assert.AreEqual(lateDelete ? 0 : 2, result.Count);
+        Assert.AreEqual(2, f.Queries);
+    }
+    [TestMethod]
+    public async Task Batch_corrupt_record_does_not_hide_independent_valid_answer()
+    {
+        var f = new Fixture(); var invalid = Guid.CreateVersion7();
+        var result = await f.Guard.AuthorizeBatchAsync([new(f.Data.MessageId, f.Data.SessionId, f.Json),
+            new(invalid, f.Data.SessionId, "{}")], f.Data.ActorUserId, default);
+        Assert.IsTrue(result.ContainsKey(f.Data.MessageId)); Assert.IsFalse(result.ContainsKey(invalid));
+    }
+    [TestMethod] [DataRow("permission")] [DataRow("scope")] [DataRow("proof")] [DataRow("duplicate")] [DataRow("overflow")]
+    public async Task Batch_authority_and_bounds_fail_closed_without_truncating_dependencies(string fault)
+    {
+        var f = new Fixture();
+        if (fault == "permission") f.BeforeProof = () => f.Denied = AiKnowledgeDocumentPermissions.SourceRead;
+        if (fault == "scope") f.BeforeProof = () => f.Tenant.SetTenant(new(Guid.CreateVersion7(), "changed", "另一租户"));
+        if (fault == "proof") f.ProofReady = false;
+        var entries = new List<AiKnowledgeAnswerHistoryEntry> { new(f.Data.MessageId, f.Data.SessionId, f.Json) };
+        if (fault == "duplicate") entries.Add(entries[0]);
+        if (fault == "overflow") for (var i = 0; i < 64; i++)
+        { var other = f.Data with { MessageId = Guid.CreateVersion7() }; entries.Add(new(other.MessageId, other.SessionId, AiKnowledgeAnswerLineageCodec.Encode(other))); }
+        Assert.HasCount(0, await f.Guard.AuthorizeBatchAsync(entries, f.Data.ActorUserId, default));
+        if (fault is "duplicate" or "overflow") Assert.AreEqual(0, f.Queries);
+    }
+    [TestMethod]
+    public async Task Batch_shared_dependencies_are_proven_once_and_independent_answer_survives_changed_source()
+    {
+        var f = new Fixture(); var second = f.Data with { MessageId = Guid.CreateVersion7(), Dependencies = [f.Data.Dependencies[0]] };
+        f.AfterFirstRead = () => f.Rows[1] = f.Rows[1] with { IsDeleted = 1 };
+        var result = await f.Guard.AuthorizeBatchAsync([new(f.Data.MessageId, f.Data.SessionId, f.Json),
+            new(second.MessageId, second.SessionId, AiKnowledgeAnswerLineageCodec.Encode(second))], f.Data.ActorUserId, default);
+        Assert.IsFalse(result.ContainsKey(f.Data.MessageId)); Assert.IsTrue(result.ContainsKey(second.MessageId));
+        Assert.AreEqual(2, f.ProofCalls); Assert.AreEqual(2, f.Queries);
+    }
     private sealed class Fixture
     {
         internal readonly CurrentTenantAccessor Tenant = new(); internal readonly IDataTransactionState Transactions = Substitute.For<IDataTransactionState>();

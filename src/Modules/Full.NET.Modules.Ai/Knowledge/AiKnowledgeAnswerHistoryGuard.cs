@@ -8,8 +8,11 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Ai.Knowledge;
 
+/// <summary>已确认所有权的历史消息绑定，原始元数据仅来自持久化行。</summary>
+internal sealed record AiKnowledgeAnswerHistoryEntry(Guid MessageId, Guid SessionId, string? Json);
+
 /// <summary>历史及后续模型输入共用完整来源复核；调用者先验证消息所有权，本边界不授予会话读取权。</summary>
-/// <remarks>事务外使用；任何依赖不可用时返回空资格，不允许只检查展示引用。尚未注册公开消费者。</remarks>
+/// <remarks>事务外使用；任何依赖不可用时返回空资格，不允许只检查展示引用。</remarks>
 internal sealed class AiKnowledgeAnswerHistoryGuard(IQueryExecutor query, IDataTransactionState transactions, ICurrentTenant tenant,
     IOptions<DatabaseOptions> database, AiKnowledgeReadAccess access, AiKnowledgePermissionGuard permissions, IAiKnowledgeAnswerSourceProof proof)
 {
@@ -17,6 +20,64 @@ internal sealed class AiKnowledgeAnswerHistoryGuard(IQueryExecutor query, IDataT
         AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.IndexRead];
     private static readonly string[] ModelPermissions = [AiChatPermissions.Send, AiKnowledgePermissions.Read,
         AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.IndexRead];
+
+    internal const int MaxHistoryAnswers = 64;
+    /// <summary>整批复核后再映射正文；最终查询覆盖所有消息，避免逐消息等待使前面的资格失效。</summary>
+    internal async Task<IReadOnlyDictionary<Guid, AiKnowledgeAnswerLineage>> AuthorizeBatchAsync(
+        IReadOnlyList<AiKnowledgeAnswerHistoryEntry> entries, Guid actor, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        if (transactions.HasTransaction) throw new InvalidOperationException("来源复核不能加入本地事务。");
+        var scoped = AiKnowledgeScope.IsTenant(tenant); var tenantId = tenant.Id;
+        var empty = new Dictionary<Guid, AiKnowledgeAnswerLineage>();
+        if (actor == Guid.Empty || tenantId == Guid.Empty || scoped != tenantId.HasValue || entries.Count > MaxHistoryAnswers) return empty;
+        var frozen = entries.ToArray();
+        if (frozen.Select(entry => entry.MessageId).Distinct().Count() != frozen.Length) return empty;
+        var candidates = new Dictionary<Guid, AiKnowledgeAnswerLineage>();
+        foreach (var entry in frozen)
+            try { candidates.Add(entry.MessageId, AiKnowledgeAnswerLineageCodec.Decode(entry.Json, entry.MessageId, entry.SessionId, actor, tenantId)); }
+            catch (InvalidDataException) { /* 损坏记录独立隐藏，不能影响其他有效答案。 */ }
+        if (candidates.Count == 0) return empty;
+        var dependencies = candidates.Values.SelectMany(lineage => lineage.Dependencies).Distinct().ToArray();
+        // 每条最多八项，整批不得通过截断依赖降低授权要求。
+        if (dependencies.Length > MaxHistoryAnswers * 8) return empty;
+        var dependenciesJson = JsonSerializer.Serialize(dependencies, AiKnowledgeAnswerLineageJsonContext.Default.AiKnowledgeAnswerDependencyArray);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token); deadline.CancelAfter(TimeSpan.FromSeconds(25));
+        return await AiKnowledgeIndexPdfAuthorityBoundary.RunAsync(async work =>
+        {
+            var proven = new HashSet<AiKnowledgeAnswerDependency>();
+            for (var pass = 0; pass < 2; pass++)
+            {
+                if (!SameScope() || !await permissions.IsAuthorizedAsync(HistoryPermissions, actor, work).ConfigureAwait(false) || !SameScope()) return empty;
+                var parameters = await access.ParametersAsync(actor, work).ConfigureAwait(false);
+                if (!SameScope()) return empty;
+                parameters["DependenciesJson"] = dependenciesJson;
+                var rows = await query.QueryAsync<AiKnowledgeIndexStatusRecord>(AiKnowledgeIndexStatusSql.HistoryFor(database.Value.Provider, scoped), parameters, work).ConfigureAwait(false);
+                if (!SameScope() || rows.Select(row => (row.DocumentId, row.VersionId)).Distinct().Count() != rows.Count
+                    || rows.Any(row => !dependencies.Any(dependency => dependency.KnowledgeBaseId == row.KnowledgeBaseId
+                        && dependency.DocumentId == row.DocumentId && dependency.VersionId == row.VersionId))) return empty;
+                foreach (var candidate in candidates.ToArray())
+                    if (candidate.Value.Dependencies.Any(dependency => !rows.Any(row => AiKnowledgeAnswerLineageCodec.Matches(dependency, row))
+                        || (pass == 1 && !proven.Contains(dependency)))) candidates.Remove(candidate.Key);
+                if (pass == 0)
+                    foreach (var dependency in candidates.Values.SelectMany(lineage => lineage.Dependencies).Distinct().ToArray())
+                    {
+                        var row = rows.Single(row => AiKnowledgeAnswerLineageCodec.Matches(dependency, row));
+                        var sourceParameters = new Dictionary<string, object?>(parameters) { ["KnowledgeBaseId"] = row.KnowledgeBaseId,
+                            ["DocumentId"] = row.DocumentId, ["VersionId"] = row.VersionId };
+                        if (await proof.VerifyAsync(row, sourceParameters, work).ConfigureAwait(false)) proven.Add(dependency);
+                        if (!SameScope()) return empty;
+                    }
+            }
+            work.ThrowIfCancellationRequested(); return candidates;
+        }, deadline.Token).ConfigureAwait(false);
+
+        bool SameScope()
+        {
+            if (transactions.HasTransaction) throw new InvalidOperationException("来源复核不能加入本地事务。");
+            return tenant.Id == tenantId && AiKnowledgeScope.IsTenant(tenant) == scoped;
+        }
+    }
 
     /// <summary>冻结持久化元数据并核对两轮权威关系及全部来源；未知、损坏、删除、撤权均拒绝释放正文。</summary>
     /// <param name="json">有界且绑定消息的持久化依赖，不能使用客户端提交的元数据。</param>

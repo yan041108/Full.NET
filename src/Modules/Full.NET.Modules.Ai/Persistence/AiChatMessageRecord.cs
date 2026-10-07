@@ -18,6 +18,12 @@ internal sealed class AiChatMessageRecord
     /// <summary>状态键。</summary>
     public string StatusKey { get; init; } = string.Empty;
 
+    /// <summary>独立派生标记；空或损坏依赖也不能降级为普通消息。</summary>
+    public bool IsKnowledgeAnswer { get; init; }
+
+    /// <summary>绑定消息与可信范围的完整来源元数据，不得直接返回客户端。</summary>
+    public string? KnowledgeLineage { get; init; }
+
     /// <summary>提示 Token 数。</summary>
     public int? PromptTokens { get; init; }
 

@@ -3,6 +3,8 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <summary>AI 模块稳定业务错误码。</summary>
 public static class AiErrorCodes
 {
+    /// <summary>知识答案的完整来源当前不可读，正文与引用不可交付。</summary>
+    public const string KnowledgeAnswerUnavailable = "ai.knowledge.answer_unavailable";
     /// <summary>模型配置不存在。</summary>
     public const string ModelConfigNotFound = "ai.model_config.not_found";
 

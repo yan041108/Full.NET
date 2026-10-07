@@ -52,6 +52,7 @@ internal static class AiKnowledgeAnswerLineageCodec
         }
         catch (JsonException) { throw Invalid(); }
         catch (DecoderFallbackException) { throw Invalid(); }
+        catch (EncoderFallbackException) { throw Invalid(); }
     }
     /// <summary>只投影全部召回依赖与已接受引用；临时快照中的凭据、向量与来源正文不进入存储。</summary>
     internal static AiKnowledgeAnswerLineage Create(AiKnowledgeExecutedAnswer answer, Guid messageId, Guid sessionId)

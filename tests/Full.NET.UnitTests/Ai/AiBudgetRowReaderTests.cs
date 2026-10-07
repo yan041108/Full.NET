@@ -8,6 +8,24 @@ namespace Full.NET.UnitTests.Ai;
 public sealed class AiBudgetRowReaderTests
 {
     [TestMethod] [DataRow(false, false)] [DataRow(true, false)] [DataRow(false, true)] [DataRow(true, true)]
+    public void Chat_message_reads_knowledge_marker_independent_of_nullable_lineage(bool mysql, bool absent)
+    {
+        using var table = new DataTable(); var id = Guid.CreateVersion7(); var now = DateTime.UtcNow;
+        foreach (var name in new[] { "Id", "SessionId" }) table.Columns.Add(name, typeof(Guid));
+        foreach (var name in new[] { "RoleKey", "Content", "StatusKey", "KnowledgeLineage" }) table.Columns.Add(name, typeof(string));
+        foreach (var name in new[] { "PromptTokens", "CompletionTokens" }) table.Columns.Add(name, typeof(int));
+        table.Columns.Add("IsKnowledgeAnswer", mysql ? typeof(sbyte) : typeof(bool));
+        table.Columns.Add("CreatedAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
+        table.Rows.Add(id, id, "assistant", "知识正文", "completed", absent ? DBNull.Value : "{}", absent ? DBNull.Value : 2, absent ? DBNull.Value : 3,
+            mysql ? (object)(sbyte)1 : true, mysql ? (object)now : new DateTimeOffset(now));
+        // 列按名称读取，特意使元数据与标记不相邻；空元数据不允许丢失独立标记。
+        table.Rows[0]["KnowledgeLineage"] = absent ? DBNull.Value : "{}";
+        using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read()); var row = AiBudgetRowReaders.ReadChatMessage(reader);
+        Assert.AreEqual(id, row.Id); Assert.AreEqual("知识正文", row.Content); Assert.IsTrue(row.IsKnowledgeAnswer);
+        Assert.AreEqual(absent ? null : "{}", row.KnowledgeLineage); Assert.AreEqual(absent ? null : (int?)2, row.PromptTokens);
+        Assert.AreEqual(new DateTimeOffset(now), row.CreatedAtUtc);
+    }
+    [TestMethod] [DataRow(false, false)] [DataRow(true, false)] [DataRow(false, true)] [DataRow(true, true)]
     public void Cleanup_projection_maps_provider_time_kind_and_nullable_scope(bool mysql, bool tenant)
     {
         using var table = new DataTable(); var id = Guid.CreateVersion7(); var now = DateTime.UtcNow;

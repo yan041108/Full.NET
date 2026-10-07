@@ -15,6 +15,8 @@ using Full.NET.Modules.Organization.Contracts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Full.NET.Modules.Ai.Features.ManageChatSessions;
+using Full.NET.Modules.Ai.Contracts;
 
 namespace Full.NET.IntegrationTests.Ai;
 
@@ -55,7 +57,7 @@ internal static class AiKnowledgeRetrievalAssertions
                 new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options)));
         var lineage = AiKnowledgeAnswerLineageCodec.Create(new(prepared, accepted, ids.NewId(), ids.NewId()), ids.NewId(), ids.NewId());
         var lineageJson = AiKnowledgeAnswerLineageCodec.Encode(lineage);
-        await AiKnowledgeAnswerStoreAssertions.VerifyAsync(db, query, command, transaction, tenant, clock, options, historyGuard, prepared, accepted);
+        var stored = await AiKnowledgeAnswerStoreAssertions.VerifyAsync(db, query, command, transaction, tenant, clock, options, historyGuard, prepared, accepted);
         Assert.IsNotNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default));
         Assert.IsNotNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, true, default));
         var receipt = await db.QuerySingleAsync<string>("SELECT ReceiptJson FROM fn_ai_knowledge_active_generation WHERE DocumentId=@Id", new { Id = binding.DocumentId });
@@ -63,7 +65,12 @@ internal static class AiKnowledgeRetrievalAssertions
         try { Assert.IsNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default)); }
         finally { await db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET ReceiptJson=@Receipt WHERE DocumentId=@Id", new { Id = binding.DocumentId, Receipt = receipt }); }
         reader.Denied = true;
-        Assert.IsNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default)); reader.Denied = false;
+        Assert.IsNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default));
+        var deniedHistory = await new AiChatSessionQueryService(query, tenant, options, clock, historyGuard).GetByIdAsync(stored.SessionId, reader.Actor);
+        Assert.IsTrue(deniedHistory.IsSuccess); var deniedMessage = deniedHistory.Value!.Messages.Single(message => message.Id == stored.MessageId);
+        Assert.AreEqual("", deniedMessage.Content); Assert.HasCount(0, deniedMessage.Citations);
+        Assert.AreEqual(AiErrorCodes.KnowledgeAnswerUnavailable, deniedMessage.KnowledgeUnavailableCode);
+        Assert.IsTrue(deniedHistory.Value.Messages.Any(message => message.Content == "普通上下文")); reader.Denied = false;
         reader.Calls = 0; reader.BeforeAuthorization = count => count == 6
             ? db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET IsDeleted=1 WHERE Id=@Id", new { Id = binding.DocumentId }) : Task.CompletedTask;
         try { Assert.IsNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default)); }

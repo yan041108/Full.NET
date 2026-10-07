@@ -47,7 +47,7 @@ public sealed class AiKnowledgeAnswerLineageTests
     }
     [TestMethod] [DataRow("version")] [DataRow("unknown")] [DataRow("empty")] [DataRow("duplicate")]
     [DataRow("orphan")] [DataRow("hash")] [DataRow("offset")] [DataRow("page")] [DataRow("overflow")]
-    [DataRow("missing")] [DataRow("null")] [DataRow("large")] [DataRow("repeatField")]
+    [DataRow("missing")] [DataRow("null")] [DataRow("large")] [DataRow("repeatField")] [DataRow("surrogate")]
     public void Corrupt_lineage_fails_closed(string fault)
     {
         var data = Lineage(); var json = JsonNode.Parse(AiKnowledgeAnswerLineageCodec.Encode(data))!.AsObject();
@@ -64,7 +64,7 @@ public sealed class AiKnowledgeAnswerLineageTests
             case "overflow": json["references"]![0]!["offset"] = int.MaxValue; break;
             case "missing": json.Remove("actorUserId"); break;
         }
-        var encoded = fault switch { "null" => null, "large" => new string(' ', 65537),
+        var encoded = fault switch { "null" => null, "large" => new string(' ', 65537), "surrogate" => "\ud800",
             "repeatField" => json.ToJsonString().Replace("\"version\":1", "\"version\":1,\"version\":1"), _ => json.ToJsonString() };
         Assert.ThrowsExactly<InvalidDataException>(() => AiKnowledgeAnswerLineageCodec.Decode(encoded,
             data.MessageId, data.SessionId, data.ActorUserId, data.TenantId));

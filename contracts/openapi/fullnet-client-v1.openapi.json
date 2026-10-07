@@ -45618,6 +45618,12 @@
       },
       "AiChatMessageResponse": {
         "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/AiKnowledgeCitationResponse"
+            },
+            "type": "array"
+          },
           "completionTokens": {
             "format": "int32",
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -45637,6 +45643,12 @@
           "id": {
             "format": "uuid",
             "type": "string"
+          },
+          "knowledgeUnavailableCode": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "promptTokens": {
             "format": "int32",
@@ -45904,6 +45916,65 @@
           "createdAtUtc",
           "updatedAtUtc",
           "version"
+        ],
+        "type": "object"
+      },
+      "AiKnowledgeCitationResponse": {
+        "properties": {
+          "documentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "length": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "offset": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "sequence": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "versionId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "documentId",
+          "versionId",
+          "sequence",
+          "pageNumber",
+          "offset",
+          "length"
         ],
         "type": "object"
       },

@@ -74,7 +74,23 @@ public sealed record AiChatMessageResponse(
     string StatusKey,
     int? PromptTokens,
     int? CompletionTokens,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc)
+{
+    /// <summary>来源复核未通过时的稳定机器码；正文和引用同时隐藏。</summary>
+    public string? KnowledgeUnavailableCode { get; init; }
+    /// <summary>仅返回服务器确认且当前可读的引用位置。</summary>
+    public IReadOnlyList<AiKnowledgeCitationResponse> Citations { get; init; } = [];
+}
+
+/// <summary>知识答案的来源位置，不包含内部完成证明或原始来源正文。</summary>
+/// <param name="Id">服务器引用标识。</param>
+/// <param name="DocumentId">来源文档标识。</param>
+/// <param name="VersionId">来源版本标识。</param>
+/// <param name="Sequence">分块序号。</param>
+/// <param name="PageNumber">PDF 页码，文本来源为空。</param>
+/// <param name="Offset">分块偏移。</param>
+/// <param name="Length">分块长度。</param>
+public sealed record AiKnowledgeCitationResponse(Guid Id, Guid DocumentId, Guid VersionId, int Sequence, int? PageNumber, int Offset, int Length);
 
 /// <remarks>
 /// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。

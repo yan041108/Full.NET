@@ -296,6 +296,8 @@ internal sealed class AiChatStreamService(
         var characters = 0;
         foreach (var row in rows.OrderByDescending(item => item.CreatedAtUtc).ThenByDescending(item => item.Id))
         {
+            // 普通聊天尚未传递完整来源依赖，必须在字符预算前排除派生答案，防止产生无依赖的新消息。
+            if (row.IsKnowledgeAnswer || row.KnowledgeLineage is not null) continue;
             if (characters + (long)row.Content.Length > AiChatContentPolicy.MaxHistoryCharacters) break;
             history.Add((row.RoleKey, row.Content));
             characters += row.Content.Length;

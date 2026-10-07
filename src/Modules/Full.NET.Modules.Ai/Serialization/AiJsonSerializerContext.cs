@@ -59,6 +59,7 @@ namespace Full.NET.Modules.Ai.Serialization;
 [JsonSerializable(typeof(AiChatSessionListItem))]
 [JsonSerializable(typeof(AiChatSessionResponse))]
 [JsonSerializable(typeof(AiChatMessageResponse))]
+[JsonSerializable(typeof(AiKnowledgeCitationResponse))]
 [JsonSerializable(typeof(CreateAiChatSessionRequest))]
 [JsonSerializable(typeof(UpdateAiChatSessionRequest))]
 [JsonSerializable(typeof(StreamAiChatMessageRequest))]
