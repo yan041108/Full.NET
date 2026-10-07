@@ -3,6 +3,13 @@
   "preV1NameMap": "contracts/naming/pre-v1-name-map.json",
   "items": [
     {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/243_IdentityChallengeDeliveryJournal.sql",
+      "reason": "243 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE 逐列恢复挑战投递可空状态；表列名及 COMMENT 均为脚本常量，不接受外部输入，由双库半完成与未记账重放测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "permission",
       "value": "auditing.operations.details.read",
       "file": "src/Modules/Full.NET.Modules.Auditing/AuditingAuthorizationContributor.cs",

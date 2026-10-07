@@ -71,6 +71,7 @@ internal sealed partial class AccountChallengeService(
                                 : AccountChallengeCredentialHasher.Hash(challengeId, code)),
                             ("ExpiresAtUtc", expiresAtUtc),
                             ("MaxAttempts", DefaultMaxAttempts),
+                            ("DeliveryStateKey", "unknown"),
                             ("CreatedAtUtc", now)),
                         token)
                     .ConfigureAwait(false);
@@ -89,7 +90,33 @@ internal sealed partial class AccountChallengeService(
         Result<bool> delivered;
         try
         {
-            delivered = await challengeDeliveryPort.SendAsync(intent, cancellationToken).ConfigureAwait(false);
+            var outcome = IdentityChallengeDeliveryOutcome.Unknown;
+            if (challengeDeliveryPort is IIdentityChallengeDeliveryOutcomePort outcomePort)
+            {
+                outcome = await outcomePort.SendWithOutcomeAsync(intent, cancellationToken).ConfigureAwait(false);
+                delivered = outcome == IdentityChallengeDeliveryOutcome.Accepted
+                    ? Result<bool>.Success(true) : Result<bool>.Failure(DeliveryFailed());
+            }
+            else
+            {
+                // 旧 Port 未保留失败阶段，非受理结果只能保守记录为 unknown，不能推断确定未发送。
+                delivered = await challengeDeliveryPort.SendAsync(intent, cancellationToken).ConfigureAwait(false);
+                if (delivered.IsSuccess && delivered.Value) outcome = IdentityChallengeDeliveryOutcome.Accepted;
+            }
+
+            // 日记与挑战同一行原子创建，外发不进入事务；仅确切受理并持久化后才返回真实挑战。
+            if (!delivered.IsSuccess || !delivered.Value) cancellationToken.ThrowIfCancellationRequested();
+            // 外部明确受理后即使请求已取消，也独立限时保存事实；写入失败仍不得返回真实挑战受理成功。
+            using var completionTimeout = new CancellationTokenSource(CompensationTimeout);
+            var completed = await commandExecutor.ExecuteAsync(AccountChallengeSql.CompleteDelivery,
+                IdentitySqlParameters.Create(("ChallengeId", challengeId), ("CompletedAtUtc", clock.UtcNow),
+                    ("DeliveryStateKey", outcome switch
+                    {
+                        IdentityChallengeDeliveryOutcome.Accepted => "accepted",
+                        IdentityChallengeDeliveryOutcome.Rejected => "rejected",
+                        _ => "unknown",
+                    })), completionTimeout.Token).ConfigureAwait(false);
+            if (completed != 1) delivered = Result<bool>.Failure(DeliveryFailed());
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -152,6 +179,13 @@ internal sealed partial class AccountChallengeService(
         return Result<AccountChallengeAcceptedResponse>.Success(
             new AccountChallengeAcceptedResponse(idGenerator.NewId(), now.Add(DefaultLifetime)));
     }
+
+    /// <summary>对账已完成或已到期的未知/拒收挑战，原子撤销当前标识；不重发邮件，不访问其他模块表。</summary>
+    /// <remarks>有效且仍在发送的挑战不变，明确受理和旧版空状态记录不变；重复对账为无操作。</remarks>
+    public async Task<bool> ReconcileUnconfirmedAsync(Guid challengeId, CancellationToken cancellationToken = default) =>
+        await commandExecutor.ExecuteAsync(AccountChallengeSql.ReconcileDelivery,
+            IdentitySqlParameters.Create(("ChallengeId", challengeId), ("Now", clock.UtcNow)), cancellationToken)
+            .ConfigureAwait(false) == 1;
 
     public async Task<Result<bool>> ConsumeAsync(
         Guid challengeId,
@@ -237,6 +271,14 @@ internal sealed partial class AccountChallengeService(
             || record.Purpose != (byte)purpose
             || !string.Equals(record.NormalizedEmail, normalizedEmail, StringComparison.Ordinal))
         {
+            return Result<AccountChallengeRecord>.Failure(InvalidChallenge());
+        }
+
+        // 新挑战必须有持久化受理证据。旧版 null 状态只按原过期窗口兼容，不续期、不提升为 accepted。
+        // 即使补偿数据库失败，未知挑战也不能消费；SQL 再次核对状态竞态，且不撤销有效在途请求。
+        if (record.DeliveryStateKey is not (null or "accepted"))
+        {
+            await ReconcileUnconfirmedAsync(challengeId, cancellationToken).ConfigureAwait(false);
             return Result<AccountChallengeRecord>.Failure(InvalidChallenge());
         }
 

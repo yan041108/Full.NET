@@ -35,3 +35,25 @@ public interface IIdentityChallengeDeliveryPort
         IdentityChallengeDeliveryIntent intent,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>挑战外部投递结果；受理不能证明收件人已收到或验证邮箱。</summary>
+public enum IdentityChallengeDeliveryOutcome
+{
+    /// <summary>提供程序明确受理。</summary>
+    Accepted,
+    /// <summary>本次未受理或明确拒收；重发必须申请新挑战。</summary>
+    Rejected,
+    /// <summary>无法确认外部结果；禁止自动重发。</summary>
+    Unknown,
+}
+
+/// <summary>可选的精确结果扩展，保留既有布尔 Port 实现的兼容性。</summary>
+public interface IIdentityChallengeDeliveryOutcomePort : IIdentityChallengeDeliveryPort
+{
+    /// <summary>投递一次并区分明确受理、拒收和未知结果。</summary>
+    /// <param name="intent">受信 Identity 创建的固定挑战意图。</param>
+    /// <param name="cancellationToken">取消令牌，调用方取消保持传播。</param>
+    /// <returns>不携带凭据、地址或提供程序原始异常的投递结果。</returns>
+    Task<IdentityChallengeDeliveryOutcome> SendWithOutcomeAsync(
+        IdentityChallengeDeliveryIntent intent, CancellationToken cancellationToken = default);
+}

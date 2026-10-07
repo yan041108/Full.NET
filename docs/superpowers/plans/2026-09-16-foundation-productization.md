@@ -813,6 +813,33 @@ Windows10.0.19045 x64/i7-12700H/63.75GiB、SDK10.0.401、Node24.12.0、pnpm10.26
 本批闭合受控真实收件后的公开消费子链；Identity挑战独立持久化投递日记/对账与完整耗时防枚举仍待办。未执行本批独立生成应用全链路、全量Unit/Integration、浏览器、本地Linux原生SMTP或容量实测，F03六项和F04整体未关闭，Capacity-not-verified保持，PR仍Draft，未合并、未发布。父提交a5的[API Native AOT](https://github.com/yan041108/Full.NET/actions/runs/37549696734)与[Worker Native AOT](https://github.com/yan041108/Full.NET/actions/runs/37549696821)均completed/success，仅证明父提交；本批推送后按自身精确SHA独立核对Actions。
 
 
+#### 2026-10-07：挑战投递状态、消费保护与本地对账联合升级
+
+基线d1efde568be10069fd30554d2e07d2546a02fc97，沿用隔离工作区、开发分支和Draft PR #3，快照f03-challenge-journal-batch-20261007。本批将投递结果、消费防线、失败对账与双库增量恢复合并实施验收。
+
+在Identity既有挑战行追加DeliveryStateKey、DeliveryCompletedAtUtc、DeliveryReconciledAtUtc，以不可复用的ChallengeId保存单次签发的独立投递记录；不复制凭据、邮件或载荷，也不新增跨模块事务。unknown与挑战同事务提交，提交后仅外发一次，明确结果以有界独立期限和一次CAS持久化。Notifications增加可选Accepted/Rejected/Unknown outcome Port，原bool Port签名保持兼容；旧bool失败与未知枚举保守处理为unknown。确认写入异常或零行不能返回真实受理成功，服务校验与消费SQL均要求accepted，旧null仅按原过期、尝试次数、摘要与版本规则兼容。消费SQL再次核对投递状态，防止校验后竞态。
+
+未确认结果按当前ChallengeId补偿；即使补偿写入失败，也不能消费unknown。按需及显式按标识对账仅撤销已完成或到期的unknown/rejected，不撤销有效在途发送、不重发SMTP、不改变accepted或旧null、重复为无操作，也不会撤销同邮箱的新挑战。对账在过期拒绝前处理，迟到受理不能重开已对账记录。此能力是本地按标识修复，尚无全库历史批量扫描或管理入口。
+
+双库增量迁移243逐列探测，可恢复半完成DDL、缺失SQL Server列元数据和未记账重放；旧记录保持null、原摘要、版本与有效期，不回填为accepted、不续期。MySQL固定条件DDL按命名规则10.6登记精确文件级dynamic_sql与M1.0退出里程碑，未增加通配例外。安全保障要求全部签发及消费实例升级；旧签发代码仍可能创建null，旧消费代码也不检查新状态。混跑旧代码或回退前必须停发并排空有效新挑战，不能将此改动宣称为支持无门禁的混版滚动升级。
+
+实际TDD：先对尚无投递状态的基线执行3个行为用例，3失败、零跳过，确认能力缺失；实现后3/3。首轮扩大Unit为130项、115通过/15失败，均为既有夹具写入次数预期未包含新增确认写入，保留原失败日志，仅调整相关预期并加入accepted事实断言。当前pnpm test:dotnet:unit -- --filter 'FullyQualifiedName~AccountChallenge|FullyQualifiedName~PasswordRecovery|FullyQualifiedName~RegistrationTransactionBoundary|FullyQualifiedName~IdentityChallengeDeliveryPort' --minimum-expected-tests 143通过143/143、零跳过、exit0。新增16项覆盖发送前已持久化、确认CAS失败/零行、非法枚举、消费状态与精确传输结果。当前Unit与Integration所用三份模块/契约程序集摘要一致。
+
+正式pnpm test:slice -- --snapshot f03-challenge-journal-batch-20261007首轮因新增测试缺少ICommandTransaction命名空间编译失败，未计为行为RED；补齐后Release零警告/错误。第二轮旧启动过滤器发现216项，执行至大型OIDC用例时1GiB堆预算耗尽，清理也失败，wrapper exit1、dotnet exit3762504530，未产生可复用本轮TRX，不复用任何通过项。验收期间发现默认Identity过滤器遗漏新增journal class，以可失败工具断言确认并精确扩展默认目标。
+
+随后按当前正式三个目标重新发现全部218项，保持同一冻结DLL，以4GiB测试进程堆预算、双Worker、串行执行39/64/64/51四个互斥UID批次，逐批最低发现数和精确UID筛选均校验。四批全部通过、零跳过、exit0，实际测试分别21.126/32.512/22.277/10.906分钟；唯一UID并集精确覆盖当前正式218项，无遗漏/重复，不宣称单次218项全绿，也不把崩溃轮次记为通过。第三批首次执行曾在SQL Server模板克隆的DropSqlServerDatabaseAsync超过既有180秒，随后执行进程消失，未生成完整TRX、无最终退出码，未复用该轮任何通过项。保留原日志，先用同一冻结DLL独立复现该用例，单例1/1通过；没有据此修改产品或增加超时。前两批103项经源码、运行程序集、日志摘要和精确UID复核后复用，第三、第四批完整执行。后台验证进程脱离当前会话工具的中断边界，避免重复“继续”输入终止未完成验收。单例复现不计入正式218项。包含完整默认Notifications35项、Identity当前181项和迁移243双库恢复2项。新增journal双库用例覆盖3用途×5场景共30条流程：补偿失败、确认异常、确认零行、在途/到期/迟到受理及旧null兼容；真实SMTP四个双库/双TLS用例的48条公开流程现同时断言accepted/rejected/unknown及完成/对账时间。
+
+最终验证包装脚本曾因WindowsPowerShell环境缺少Get-FileHash而失败，保留原兼容性输出但不作为最终验收；改用本机PowerShell7.6.5完整重跑三个步骤，实际退出码、耗时与日志摘要均已记录。pnpm test:dotnet:compatibility为12/12，pnpm test:dotnet:architecture完整232/232，零跳过、exit0；pnpm test:aot:analyzers为exit0。pnpm test:naming为33/33，SQL安全5/5，正式工具与反馈治理合计68/68；完整互斥Integration分片发现1157（migrations504、infrastructure207），仅发现门禁，不是全量执行。矩阵Unit最低数5232仅反映新增16项，不宣称全量Unit已运行。命名登记缺失和过滤器遗漏的原失败日志均保留，未降低发现门槛。
+
+Windows10.0.19045 x64/i7-12700H/63.75GiB、SDK10.0.401、Node24.12.0、pnpm10.26.0、Docker29.6.2 Linux；DOTNET_PROCESSOR_COUNT=2、Architecture/Integration Workers=2、.NET及容器套件串行、容器复用关闭。Unit/Architecture/构建沿用1GiB进程堆预算；集成崩溃后确认当时可用物理内存约16GiB，仅本次集成子进程调整为4GiB并每批不超过64项，不修改机器、产品或Kubernetes配置，不作为生产内存/容量结论。证据包括.tmp/f03-journal-frozen.json、-slice-runtime.dll、-unit-final-runtime.dll、-red-original.log、-unit-first.log、-slice.log、-slice-retry.log、-selector-red.log、-batch-plan.json、-batch-results.json、四份-batch-*.trx、-final-verify.json、-final-evidence.json，保存失败记录、实际命令、退出码、时间、源码/运行程序集/日志摘要和完整测试UID。模板迁移归属与预设清单3/3仅为结构验收，不扩大为生成应用运行验收。
+
+同时修正规划器的明显低估：此前本机Identity169～175项实测约56～67分钟，Notifications30～35项约17～20分钟，但两者均误用默认120秒。先以工具用例确认120与预期3900秒不符，再在矩阵分别登记3900和1200秒预算，当前工具与反馈治理68/68；计划由约7分钟校准为约88分钟，仍为本机历史粗估，不是SLO或保证。预算校准仅改变耗时提示，未改变超时或筛选范围；默认Identity过滤器的补齐作为另一项缺陷修复单独验证。修改前后五份运行程序集摘要完全一致。父提交d1的主CI37553790095、API Native AOT37553790015、Worker Native AOT37553790016均completed/success，只证明父提交。
+
+提交前暂存区检查发现两份新增迁移末尾各多一个LF，机械删除各一个字节。原冻结SQL已归档，逐字节证明其余SQL完全一致，五份已验收运行程序集保持原摘要；未把重新格式化后的原始摘要冒充编译时输入。最终证据分别保存冻结输入与提交输入，通过新鲜命名、SQL安全、模板迁移归属与治理结构检查确认该机械差异。
+
+本批闭合新挑战投递记录、双层消费防线和按标识本地对账。完整耗时防枚举、全库历史对账及F03/F04整体验收仍待办；未执行本批独立生成应用全链路、全量Unit/Integration、浏览器、本地Linux原生SMTP或容量实测。F03/F04整体、整体AOT/Provider状态与Capacity-not-verified保持，未合并、未发布。推送后按本批精确SHA核对所需工作流，不用父提交状态替代。
+
+
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。

@@ -9,10 +9,10 @@ internal static class AccountChallengeSql
         """
         INSERT INTO fn_identity_account_challenge
             (ChallengeId, Purpose, NormalizedEmail, CredentialHash, ExpiresAtUtc,
-             ConsumedAtUtc, AttemptCount, MaxAttempts, Version, CreatedAtUtc)
+             ConsumedAtUtc, AttemptCount, MaxAttempts, Version, CreatedAtUtc, DeliveryStateKey)
         VALUES
             (@ChallengeId, @Purpose, @NormalizedEmail, @CredentialHash, @ExpiresAtUtc,
-             NULL, 0, @MaxAttempts, 1, @CreatedAtUtc)
+             NULL, 0, @MaxAttempts, 1, @CreatedAtUtc, @DeliveryStateKey)
         """,
         SqlDataScope.Global);
 
@@ -20,7 +20,8 @@ internal static class AccountChallengeSql
         "identity.find_account_challenge_by_id",
         """
         SELECT ChallengeId, Purpose, NormalizedEmail, CredentialHash, ExpiresAtUtc,
-               ConsumedAtUtc, AttemptCount, MaxAttempts, Version, CreatedAtUtc
+               ConsumedAtUtc, AttemptCount, MaxAttempts, Version, CreatedAtUtc,
+               DeliveryStateKey, DeliveryCompletedAtUtc, DeliveryReconciledAtUtc
         FROM fn_identity_account_challenge
         WHERE ChallengeId = @ChallengeId
         """,
@@ -45,6 +46,7 @@ internal static class AccountChallengeSql
         """
         UPDATE fn_identity_account_challenge
         SET ConsumedAtUtc = @ConsumedAtUtc,
+            DeliveryReconciledAtUtc = COALESCE(DeliveryReconciledAtUtc, @ConsumedAtUtc),
             Version = Version + 1
         WHERE ChallengeId = @ChallengeId
           AND ConsumedAtUtc IS NULL
@@ -77,6 +79,36 @@ internal static class AccountChallengeSql
           AND CredentialHash = @CredentialHash
           AND AttemptCount < MaxAttempts
           AND Version = @Version
+          AND (DeliveryStateKey = 'accepted' OR DeliveryStateKey IS NULL)
+        """,
+        SqlDataScope.Global);
+
+    // 日记不保存明文载荷；同一挑战仅完成一次，已对账的未知记录不能被迟到受理重新开放。
+    public static readonly SqlStatement CompleteDelivery = new(
+        "identity.complete_account_challenge_delivery",
+        """
+        UPDATE fn_identity_account_challenge
+        SET DeliveryStateKey = @DeliveryStateKey,
+            DeliveryCompletedAtUtc = @CompletedAtUtc
+        WHERE ChallengeId = @ChallengeId
+          AND DeliveryStateKey = 'unknown'
+          AND DeliveryCompletedAtUtc IS NULL
+          AND DeliveryReconciledAtUtc IS NULL
+        """,
+        SqlDataScope.Global);
+
+    // 仅撤销已完成或已到期的未确认记录；不重发邮件、不读取其他模块表，也不误撤销新挑战。
+    public static readonly SqlStatement ReconcileDelivery = new(
+        "identity.reconcile_account_challenge_delivery",
+        """
+        UPDATE fn_identity_account_challenge
+        SET Version = CASE WHEN ConsumedAtUtc IS NULL THEN Version + 1 ELSE Version END,
+            ConsumedAtUtc = COALESCE(ConsumedAtUtc, @Now),
+            DeliveryReconciledAtUtc = @Now
+        WHERE ChallengeId = @ChallengeId
+          AND DeliveryStateKey IN ('unknown', 'rejected')
+          AND DeliveryReconciledAtUtc IS NULL
+          AND (DeliveryCompletedAtUtc IS NOT NULL OR ExpiresAtUtc <= @Now)
         """,
         SqlDataScope.Global);
 }

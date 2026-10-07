@@ -155,6 +155,26 @@ public sealed class IdentityChallengeDeliveryPortTests
             Arg.Any<object?>(), Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    [DataRow("accepted", IdentityChallengeDeliveryOutcome.Accepted)]
+    [DataRow("ack-lost", IdentityChallengeDeliveryOutcome.Unknown)]
+    [DataRow("permanent-rejection", IdentityChallengeDeliveryOutcome.Rejected)]
+    [DataRow("temporary-rejection", IdentityChallengeDeliveryOutcome.Rejected)]
+    public async Task Structured_outcome_preserves_unknown_and_definite_rejection_without_resending(
+        string mode, IdentityChallengeDeliveryOutcome expected)
+    {
+        var fixture = new Fixture();
+        fixture.Transport.Failure = mode switch
+        {
+            "ack-lost" => new SmtpTransportException(SmtpTransportFailureKind.Transient, SmtpTransportStage.Send, new IOException()),
+            "permanent-rejection" => new SmtpTransportException(SmtpTransportFailureKind.Permanent),
+            "temporary-rejection" => new SmtpTransportException(SmtpTransportFailureKind.Transient),
+            _ => null,
+        };
+        Assert.AreEqual(expected, await fixture.Port.SendWithOutcomeAsync(fixture.Intent));
+        Assert.AreEqual(1, fixture.Transport.Sends);
+    }
+
     private sealed class Fixture
     {
         public Fixture(DatabaseProvider provider = DatabaseProvider.MySql)
@@ -196,12 +216,14 @@ public sealed class IdentityChallengeDeliveryPortTests
     {
         public int Sends { get; private set; }
         public SmtpSendCommand? Command { get; private set; }
+        public Exception? Failure { get; set; }
 
         public ValueTask<string> SendAsync(SmtpSendCommand command, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             Sends++;
             Command = command;
+            if (Failure is not null) return ValueTask.FromException<string>(Failure);
             return ValueTask.FromResult("test-message-id");
         }
     }

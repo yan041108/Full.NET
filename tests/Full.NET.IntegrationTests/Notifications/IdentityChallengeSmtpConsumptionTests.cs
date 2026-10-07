@@ -126,12 +126,16 @@ public sealed class IdentityChallengeSmtpConsumptionTests
             var record = await query.QuerySingleOrDefaultAsync<AccountChallengeRecord>(new SqlStatement(
                 "integration.smtp_challenge_by_email", """
                 SELECT ChallengeId, Purpose, NormalizedEmail, CredentialHash, ExpiresAtUtc,
-                       ConsumedAtUtc, AttemptCount, MaxAttempts, Version, CreatedAtUtc
+                       ConsumedAtUtc, AttemptCount, MaxAttempts, Version, CreatedAtUtc,
+                       DeliveryStateKey, DeliveryCompletedAtUtc, DeliveryReconciledAtUtc
                 FROM fn_identity_account_challenge WHERE NormalizedEmail = @Email AND Purpose = @Purpose
                 """, SqlDataScope.Global), new { Email = email, Purpose = (byte)purpose }, timeout.Token);
             Assert.IsNotNull(record);
             Assert.AreEqual(!accepted, record.ConsumedAtUtc.HasValue);
             Assert.AreEqual(accepted ? 1 : 2, record.Version);
+            Assert.AreEqual(accepted ? "accepted" : outcome == "ack_lost" ? "unknown" : "rejected", record.DeliveryStateKey);
+            Assert.IsNotNull(record.DeliveryCompletedAtUtc);
+            Assert.AreEqual(!accepted, record.DeliveryReconciledAtUtc.HasValue);
             if (response.IsSuccessStatusCode)
             {
                 using var body = JsonDocument.Parse(responseText);

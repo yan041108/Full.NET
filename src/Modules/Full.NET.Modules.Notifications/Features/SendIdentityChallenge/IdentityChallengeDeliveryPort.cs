@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Notifications.Contracts;
+using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Persistence;
 using Full.NET.Modules.Notifications.Providers;
 using Full.NET.Modules.Notifications.Providers.Smtp;
@@ -15,7 +16,7 @@ internal sealed class IdentityChallengeDeliveryPort(
     IQueryExecutor queryExecutor,
     IEnumerable<INotificationProviderAdapter> providerAdapters,
     IOptions<DatabaseOptions> databaseOptions,
-    IClock clock) : IIdentityChallengeDeliveryPort
+    IClock clock) : IIdentityChallengeDeliveryOutcomePort
 {
     private const string SmtpProviderTypeKey = "email.smtp";
 
@@ -23,10 +24,19 @@ internal sealed class IdentityChallengeDeliveryPort(
         IdentityChallengeDeliveryIntent intent,
         CancellationToken cancellationToken = default)
     {
+        var outcome = await SendWithOutcomeAsync(intent, cancellationToken).ConfigureAwait(false);
+        return outcome == IdentityChallengeDeliveryOutcome.Accepted
+            ? Result<bool>.Success(true) : Result<bool>.Failure(DeliveryFailed());
+    }
+
+    public async Task<IdentityChallengeDeliveryOutcome> SendWithOutcomeAsync(
+        IdentityChallengeDeliveryIntent intent,
+        CancellationToken cancellationToken = default)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         if (intent is null)
         {
-            return Result<bool>.Failure(DeliveryFailed());
+            return IdentityChallengeDeliveryOutcome.Rejected;
         }
 
         // 用途属于封闭契约；未知数值不能退化为注册邮件，也不能触发配置读取或外发。
@@ -39,7 +49,7 @@ internal sealed class IdentityChallengeDeliveryPort(
         };
         if (subject is null || !IsValidIntent(intent) || intent.ExpiresAtUtc <= clock.UtcNow)
         {
-            return Result<bool>.Failure(DeliveryFailed());
+            return IdentityChallengeDeliveryOutcome.Rejected;
         }
 
         var statement = databaseOptions.Value.Provider == DatabaseProvider.MySql
@@ -52,7 +62,7 @@ internal sealed class IdentityChallengeDeliveryPort(
             .ConfigureAwait(false);
         if (profileVersion is null)
         {
-            return Result<bool>.Failure(DeliveryFailed());
+            return IdentityChallengeDeliveryOutcome.Rejected;
         }
 
         var adapter = providerAdapters.SingleOrDefault(item =>
@@ -60,7 +70,7 @@ internal sealed class IdentityChallengeDeliveryPort(
             && string.Equals(item.RecipientEndpointKindKey, "email", StringComparison.Ordinal));
         if (adapter is not SmtpNotificationProviderAdapter smtpAdapter)
         {
-            return Result<bool>.Failure(DeliveryFailed());
+            return IdentityChallengeDeliveryOutcome.Rejected;
         }
 
         var body = $"Your verification code is {intent.Credential}. It expires at {intent.ExpiresAtUtc:u}.";
@@ -78,13 +88,14 @@ internal sealed class IdentityChallengeDeliveryPort(
         cancellationToken.ThrowIfCancellationRequested();
         if (intent.ExpiresAtUtc <= clock.UtcNow)
         {
-            return Result<bool>.Failure(DeliveryFailed());
+            return IdentityChallengeDeliveryOutcome.Rejected;
         }
 
         var result = await smtpAdapter.SendAsync(request, cancellationToken).ConfigureAwait(false);
         return result.Accepted
-            ? Result<bool>.Success(true)
-            : Result<bool>.Failure(DeliveryFailed());
+            ? IdentityChallengeDeliveryOutcome.Accepted
+            : result.ResultCategory == NotificationDeliveryRetry.Unknown
+                ? IdentityChallengeDeliveryOutcome.Unknown : IdentityChallengeDeliveryOutcome.Rejected;
     }
 
     private static bool IsValidIntent(IdentityChallengeDeliveryIntent intent) =>

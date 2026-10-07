@@ -22,6 +22,28 @@ import * as affectedIntegration
 
 const execFileAsync = promisify(execFile);
 
+test('挑战投递迁移 243 成对进入完整双库恢复目标并保留 Identity 验收', () => {
+  for (const filePath of [
+    'src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/243_IdentityChallengeDeliveryJournal.sql',
+    'src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/243_IdentityChallengeDeliveryJournal.sql',
+    'tests/Full.NET.IntegrationTests/Migrations/Migration243ChallengeDeliveryRecoveryTests.cs'
+  ]) {
+    const selection = classifyChangedPaths([filePath]);
+    const target = selection.targets.find(item => item.name === 'migration-243');
+    assert.ok(target, '新增迁移必须登记双库恢复目标，不能静默遗漏或手工缩小过滤器。');
+    assert.match(target.filter, /Migration243ChallengeDeliveryRecoveryTests.SqlServer_/u);
+    assert.match(target.filter, /Migration243ChallengeDeliveryRecoveryTests.MySql_/u);
+    assert.ok(!selection.targets.some(item => item.kind === 'shard' && item.name === 'migrations'));
+  }
+  const bundled = classifyChangedPaths([
+    'src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs',
+    'src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/243_IdentityChallengeDeliveryJournal.sql'
+  ]);
+  assert.ok(bundled.targets.some(item => item.name === 'Identity'));
+  const identity = bundled.targets.find(item => item.name === 'Identity');
+  assert.match(identity.filter, /Full\.NET\.IntegrationTests\.Identity\.AccountChallengeDeliveryJournalTests/u);
+});
+
 test('Notifications 默认聚焦排除外部凭据专项并保留 API 与模块范围', () => {
   const expected = '(FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.)'
     + '&TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms';
@@ -582,6 +604,15 @@ test('合并阶段将重叠 Smoke 与模块测试放入一次 UID 去重执行',
   assert.deepEqual(combined.targetNames, ['Identity', 'smoke']);
 });
 
+test('Identity 与 Notifications 长套件预算不再沿用两分钟默认值', () => {
+  const identity = estimateSelectionSeconds([{ kind: 'filter', name: 'Identity' }]);
+  const notifications = estimateSelectionSeconds([{ kind: 'filter', name: 'Notifications' }]);
+  assert.equal(identity.seconds, 3900);
+  assert.equal(notifications.seconds, 1200);
+  assert.equal(identity.exceedsSliceBudget, true);
+  assert.equal(notifications.exceedsSliceBudget, true);
+});
+
 test('计划预算对重复目标只计算一次并标识超出切片预算', () => {
   const budget = estimateSelectionSeconds([
     { kind: 'filter', name: 'Settings' },
@@ -664,6 +695,7 @@ test('Identity、Tenancy、Outbox 过滤器不得命中迁移恢复或 CDC 重�
     identity.filter,
     'FullyQualifiedName~Full.NET.IntegrationTests.Api.IdentityApi'
       + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.TotpStrongReauthTests'
+      + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.AccountChallengeDeliveryJournalTests'
   );
   assert.equal(
     tenancy.filter,

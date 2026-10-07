@@ -22,6 +22,32 @@ public sealed class AccountChallengeDeliveryCompensationTests
     [DataRow(IdentityAccountChallengePurpose.RegistrationEmailVerification)]
     [DataRow(IdentityAccountChallengePurpose.PasswordRecovery)]
     [DataRow(IdentityAccountChallengePurpose.InvitationEmailVerification)]
+    public async Task Challenge_delivery_status_is_durable_before_external_call_and_confirmed_after_acceptance(
+        IdentityAccountChallengePurpose purpose)
+    {
+        var fixture = new Fixture();
+        var pending = fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test",
+            recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
+        await fixture.FirstSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        try
+        {
+            Assert.IsTrue(fixture.Writes.Any(values => values.TryGetValue("DeliveryStateKey", out var state)
+                && Equals("unknown", state)), "外发开始前必须原子保存未知送达状态，崩溃后仍可定位。");
+            Assert.IsFalse(fixture.DeliveryInsideTransaction);
+        }
+        finally
+        {
+            fixture.FirstDelivery.TrySetResult(Result<bool>.Success(true));
+            await pending;
+        }
+        Assert.IsTrue(fixture.Writes.Any(values => values.TryGetValue("DeliveryStateKey", out var state)
+            && Equals("accepted", state)), "只有实际受理后才能保存可消费的投递状态。");
+    }
+
+    [TestMethod]
+    [DataRow(IdentityAccountChallengePurpose.RegistrationEmailVerification)]
+    [DataRow(IdentityAccountChallengePurpose.PasswordRecovery)]
+    [DataRow(IdentityAccountChallengePurpose.InvitationEmailVerification)]
     public async Task Late_delivery_failure_compensates_only_the_failed_request(
         IdentityAccountChallengePurpose purpose)
     {
@@ -77,7 +103,8 @@ public sealed class AccountChallengeDeliveryCompensationTests
         var result = await fixture.Service.CreateAndDeliverAsync(purpose, "user@example.test", recoveryUserId: RecoveryUserId, recoverySecurityStamp: "trusted-test-stamp");
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(fixture.Intents[0].ChallengeId, result.Value!.ChallengeId);
-        Assert.AreEqual(2, fixture.Writes.Count);
+        Assert.AreEqual(3, fixture.Writes.Count);
+        Assert.AreEqual("accepted", fixture.Writes[^1]["DeliveryStateKey"]);
         Assert.AreEqual(1, fixture.TransactionCount);
     }
 
@@ -105,7 +132,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
         Assert.AreEqual(IdentityErrorCodes.AccountChallengeDeliveryFailed, result.Error!.Code);
         Assert.IsFalse(result.Error.Message.Contains("sensitive-delivery-detail", StringComparison.Ordinal));
         AssertFailedRequestScope(fixture);
-        Assert.AreEqual(3, fixture.Writes.Count);
+        Assert.AreEqual(outcome == "not-accepted" ? 4 : 3, fixture.Writes.Count);
         Assert.AreEqual(1, fixture.TransactionCount);
         if (outcome != "not-accepted")
         {
@@ -203,7 +230,8 @@ public sealed class AccountChallengeDeliveryCompensationTests
         cancellation.Cancel();
         fixture.FirstDelivery.SetResult(Result<bool>.Success(true));
         Assert.IsTrue((await pending).IsSuccess);
-        Assert.AreEqual(2, fixture.Writes.Count);
+        Assert.AreEqual(3, fixture.Writes.Count);
+        Assert.AreEqual("accepted", fixture.Writes[^1]["DeliveryStateKey"]);
     }
 
     [TestMethod]
@@ -264,7 +292,7 @@ public sealed class AccountChallengeDeliveryCompensationTests
             fixture.FirstDelivery.TrySetException(new OperationCanceledException(cancellation.Token));
         }
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => pending);
-        Assert.AreEqual(5, fixture.Writes.Count);
+        Assert.AreEqual(6, fixture.Writes.Count);
         AssertFailedRequestScope(fixture);
         AssertIndependentCompensation(fixture, cancellation.Token);
     }
@@ -301,6 +329,37 @@ public sealed class AccountChallengeDeliveryCompensationTests
     {
         Assert.AreNotEqual(caller, fixture.WriteTokens[^1]);
         Assert.IsTrue(fixture.WriteTokens[^1].CanBeCanceled, "补偿必须具备独立期限，不能无限等待。");
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Accepted_transport_without_persisted_confirmation_is_not_reported_as_accepted(bool throws)
+    {
+        var fixture = new Fixture
+        {
+            CompletionAffectedRows = 0,
+            CompletionException = throws ? new IOException("sensitive-confirmation-detail") : null,
+        };
+        fixture.FirstDelivery.SetResult(Result<bool>.Success(true));
+        var result = await fixture.Service.CreateAndDeliverAsync(
+            IdentityAccountChallengePurpose.RegistrationEmailVerification, "user@example.test");
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(IdentityErrorCodes.AccountChallengeDeliveryFailed, result.Error!.Code);
+        AssertFailedRequestScope(fixture);
+        Assert.AreEqual(1, fixture.Intents.Count, "确认写入失败不得重发外部邮件。");
+        Assert.IsFalse(fixture.Logger.Messages.Any(message => message.Contains("sensitive-confirmation-detail", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task Unknown_outcome_enum_is_not_promoted_to_acceptance()
+    {
+        var fixture = new Fixture((IdentityChallengeDeliveryOutcome)255);
+        var result = await fixture.Service.CreateAndDeliverAsync(
+            IdentityAccountChallengePurpose.RegistrationEmailVerification, "user@example.test");
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual("unknown", fixture.Writes[^2]["DeliveryStateKey"]);
+        Assert.AreEqual(1, fixture.Intents.Count);
     }
 
     [TestMethod]
@@ -378,13 +437,15 @@ public sealed class AccountChallengeDeliveryCompensationTests
         public List<CancellationToken> WriteTokens { get; } = [];
         public int CompensationAffectedRows { get; init; } = 1;
         public Exception? CompensationException { get; init; }
+        public int CompletionAffectedRows { get; init; } = 1;
+        public Exception? CompletionException { get; init; }
         public bool StallCompensation { get; init; }
         public int TransactionCount { get; private set; }
         public bool DeliveryInsideTransaction { get; private set; }
         public RecordingLogger Logger { get; } = new();
         private bool insideTransaction;
 
-        public Fixture()
+        public Fixture(IdentityChallengeDeliveryOutcome? structuredOutcome = null)
         {
             var query = Substitute.For<IQueryExecutor>();
             var command = Substitute.For<ICommandExecutor>();
@@ -402,6 +463,11 @@ public sealed class AccountChallengeDeliveryCompensationTests
                     var values = (IReadOnlyDictionary<string, object?>)call.ArgAt<object>(1);
                     Writes.Add(new Dictionary<string, object?>(values));
                     WriteTokens.Add(token);
+                    if (call.ArgAt<SqlStatement>(0).Equals(Full.NET.Modules.Identity.Persistence.AccountChallengeSql.CompleteDelivery))
+                    {
+                        if (CompletionException is not null) throw CompletionException;
+                        return CompletionAffectedRows;
+                    }
                     if (!insideTransaction && StallCompensation) await Task.Delay(Timeout.InfiniteTimeSpan, token);
                     if (!insideTransaction && CompensationException is not null) throw CompensationException;
                     return insideTransaction ? 1 : CompensationAffectedRows;
@@ -415,7 +481,18 @@ public sealed class AccountChallengeDeliveryCompensationTests
                     try { return await call.ArgAt<Func<CancellationToken, Task<bool>>>(0)(call.ArgAt<CancellationToken>(1)); }
                     finally { insideTransaction = false; }
                 });
-            var delivery = Substitute.For<IIdentityChallengeDeliveryPort>();
+            IIdentityChallengeDeliveryPort delivery = structuredOutcome.HasValue
+                ? Substitute.For<IIdentityChallengeDeliveryOutcomePort>() : Substitute.For<IIdentityChallengeDeliveryPort>();
+            if (delivery is IIdentityChallengeDeliveryOutcomePort outcomePort)
+            {
+                outcomePort.SendWithOutcomeAsync(Arg.Any<IdentityChallengeDeliveryIntent>(), Arg.Any<CancellationToken>())
+                    .Returns(call =>
+                    {
+                        DeliveryInsideTransaction |= insideTransaction;
+                        Intents.Add(call.ArgAt<IdentityChallengeDeliveryIntent>(0));
+                        return Task.FromResult(structuredOutcome!.Value);
+                    });
+            }
             delivery.SendAsync(Arg.Any<IdentityChallengeDeliveryIntent>(), Arg.Any<CancellationToken>())
                 .Returns(call =>
                 {

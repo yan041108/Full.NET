@@ -39,7 +39,7 @@ public sealed class PasswordRecoveryResponseTests
         {
             Assert.AreEqual(1, fixture.Intents.Count);
             Assert.AreNotEqual(fixture.Intents[0].ChallengeId, result.Value.ChallengeId);
-            Assert.AreEqual(3, fixture.Writes.Count);
+            Assert.AreEqual(scenario is "delivery-failure" or "delivery-not-accepted" ? 4 : 3, fixture.Writes.Count);
             Assert.AreEqual(fixture.Intents[0].ChallengeId, fixture.Writes[^1]["ChallengeId"]);
         }
         else
@@ -59,7 +59,8 @@ public sealed class PasswordRecoveryResponseTests
         Assert.AreEqual(fixture.Intents[0].ChallengeId, result.Value!.ChallengeId);
         Assert.AreEqual(fixture.Intents[0].ExpiresAtUtc, result.Value.ExpiresAtUtc);
         Assert.AreEqual(Now.AddMinutes(15), result.Value.ExpiresAtUtc);
-        Assert.AreEqual(2, fixture.Writes.Count);
+        Assert.AreEqual(3, fixture.Writes.Count);
+        Assert.AreEqual("accepted", fixture.Writes[^1]["DeliveryStateKey"]);
     }
 
     private sealed class Fixture
