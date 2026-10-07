@@ -1425,6 +1425,18 @@ PDF 页内预览仍为 R07 后续项；处理策略与成员授权编辑见后�
 - `python -X utf8 artifacts/r08b/verify-acceptance.py` 核对 5558 项最终源码/契约/测试/矩阵输入未变、Unit 5507（Windows 5506 与 Linux 1 的精确并集）、AI Unit 2038、双库影响集 94、Native 10 的精确 UID/FQN及零用例失败；验证 Unit/Integration 的 AI DLL 一致，Linux 关键源码及实际执行二进制 SHA 与最终发布一致。原始失败记录、发现、TRX、发布清单和验收报告保留在忽略目录 `artifacts/r08b/`，不伪造单轮全绿报告。
 - Windows x64、i7-12700H、约 64 GB、SDK 10.0.401；Linux SDK 10.0.400、Docker 29.6.2、SQL Server 2022-CU14 / MySQL 8.0。JIT 测试 2 个处理器、GC 堆 2 GiB、容器不复用；原生发布 4 CPU/12 GiB、GC 堆 6 GiB，原生测试 4 CPU/8 GiB、GC 堆 2 GiB，实际 MSTest 为 2 个 Worker。整批 main 提交；后续继续独立重建执行、增量可靠事件与 DOCX，完整 RAG 及 R12 页面人工验收状态不变，容量仍 Capacity-not-verified。
 
+#### R08c：Vue 索引对账、恢复说明与显式恢复操作合批（2026-10-08）
+
+- main 基线 `bf10c21b26c3e84293631e4bb138cbf43e838185`，任务快照 `ai-knowledge-reconciliation-ui-r08c`。复用 R08b 生成操作，范围为 Vue 适配、索引弹窗、双语文案及回归测试，不修改服务端、SQL 或生成契约。
+- [x] 将所有者只读对账接入版本索引弹窗，展示稳定原因、恢复建议及文档/知识库快照；对账显式触发，所有权继续由服务端校验。
+- [x] 只有已知且一致的建议可显式入队/重试，并保留精确权限、版本/任务绑定、原会话限制及不明结果先刷新；等待/重建不产生请求。
+- [x] 验证拒绝、损坏响应、权限/版本切换与迟到结果，合批客户端/契约/构建和受影响 Mock 浏览器验证后 main 提交。保持 Build-verified，真实栈页面及独立重建执行仍待后续验收。
+- 新行为 RED：适配及对账入口缺失使聚焦测试 11 项失败，17 项既有行为通过；实现后聚焦 50/50，覆盖 14 个原因/动作组合、无权操作、错版本/任务/快照、未知动作、不明结果、撤权及迟到响应。原始日志保留在 `artifacts/r08c-*.log`。
+- 最终 `pnpm --filter @fullnet/admin test -- --maxWorkers=4` 全量 268 个文件、1069/1069，零失败/跳过，退出 0（361.25s）。初轮默认高并发与其他构建同场时，既有壳层强制改密用例超时，其余 1068 项通过；该文件单独复跑 4/4，随后限制 4 个 Worker 完整重跑通过，不改超时、降低发现数或删测试。Windows x64、Node 24、pnpm 10.26.0，复用本地 Edge 验证 UI，未调用真实云模型或扩大容量结论。
+- `pnpm --filter @fullnet/admin build` 通过 TypeScript 与 Vite；`pnpm --filter @fullnet/client-contracts test` 230/230，`pnpm test:openapi` 210/210，生成器 `--check` 零漂移；`pnpm --filter @fullnet/admin-i18n test` 8/8、`pnpm test:localization` 7/7、`pnpm test:governance` 57/57，包体预算通过，许可证清单成功导出且没有新增依赖。
+- `pnpm --filter @fullnet/admin-parity-e2e exec playwright test ai-knowledge-index-reconciliation.spec.mjs --project=vue-admin --workers=1` 3/3（真实 Vue/Edge + Mock HTTP），覆盖重建仅提示、重试冲突及撤权后清除、显式入队接受和无权入口；不冒充真实服务端/双库页面验收。初轮错误夹具缺少必需机器码导致统一错误回退，修正夹具后通过，不修改共享错误处理。
+- `pnpm test:integration:affected:plan -- --snapshot ai-knowledge-reconciliation-ui-r08c --phase slice` 确认纯客户端影响集为 none，本批不重复服务端、双库或 Native AOT 重型门禁。`pnpm audit:clients` 退出 1，既有未审核 High `GHSA-qhr7-859c-m2p7` 仍待处理，不计为审计通过或新增依赖例外；页面能力保持 Build-verified。
+
 ### R09：Prompt 发布、反馈与检索优化（P2，依赖 R02/R06/R08）
 
 **新增责任位置：** `src/Modules/Full.NET.Modules.Ai/Features/ManagePromptVersions/`、`Features/ManageAnswerFeedback/`；扩展 R02 评估语料及 R07 Vue 页面。新增持久化成对迁移，Prompt 版本不混入通用 Settings。

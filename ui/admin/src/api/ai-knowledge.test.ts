@@ -5,6 +5,12 @@ import * as api from './ai-knowledge';
 
 vi.mock('./http', () => ({ http: { request: vi.fn(), requestBlob: vi.fn() } }));
 describe('知识库生成协议适配', () => {
+  it('对账复用生成操作、精确版本和取消信号，并拒绝缺失字段', async () => {
+    const signal = new AbortController().signal;
+    vi.mocked(http.request).mockResolvedValue({ reason: 'ready' });
+    await expect(api.getKnowledgeIndexReconciliation({ knowledgeBaseId: 'base', documentId: 'doc', versionId: 'version' }, signal)).rejects.toThrow();
+    expect(http.request).toHaveBeenLastCalledWith('/api/v1/ai/knowledge-bases/base/documents/doc/versions/version/index/reconciliation', { method: 'GET' }, signal);
+  });
   it('索引入队仅绑定精确版本路径，不添加请求体或查询字段', async () => {
     const versionId = '01900000-0000-7000-8000-000000000001'; const taskId = '01900000-0000-7000-8000-000000000002';
     vi.mocked(http.request).mockResolvedValue({ taskId, versionId });
