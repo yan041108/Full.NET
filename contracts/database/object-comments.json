@@ -311,6 +311,16 @@
         "RoleId": "角色标识"
       }
     },
+    "fn_ai_knowledge_docx_manifest": {
+      "comment": "知识库索引任务不可替换的完整 DOCX 计划",
+      "columns": {
+        "CreatedAtUtc": "创建时间（UTC）",
+        "FormatKey": "固定清单格式版本",
+        "Id": "逻辑主键及所属索引任务标识",
+        "Payload": "包含完整正文及逻辑块坐标的有界 DOCX 计划",
+        "PayloadHash": "完整清单载荷 SHA256 摘要"
+      }
+    },
     "fn_ai_knowledge_import": {
       "comment": "知识库持久化导入及文件补偿日志",
       "columns": {

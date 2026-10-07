@@ -1470,6 +1470,22 @@ PDF 页内预览仍为 R07 后续项；处理策略与成员授权编辑见后�
 - 正式 `pnpm test:integration:affected -- --snapshot ai-docx-planning-r08e --phase merge` 退出 0，保留唯一矩阵的 `Ai, integration-matrix, smoke` 选择。Integration 构建零警告/错误，工具链前置 65/65、治理 57/57，分片 1202 项无遗漏/重复；原定 AI 与 Smoke 合并 94/94，零失败/跳过（41m 46s 301ms）。发现 UID 与原始 TRX 精确对照通过；日志字段的 TRX 流式截断不影响 94 项结果及结果状态，原运行日志保留。收尾验收脚本退出 0，逐项复核 4697 个冻结输入、37 项专项、完整 Unit/AI、存量架构失败、94 项双库和真实原生串联证据。
 - 原始 RED/Green、发现 UID、TRX、原生输入/输出和复核清单保存于忽略目录 `artifacts/r08e/` 与 `artifacts/r08e-*`。冻结 4697 项代码、测试、脚本、项目和矩阵输入，验收后再核对未变化。测试环境沿用 Windows x64、i7-12700H、约 64 GB、SDK 10.0.401；测试进程 2 个处理器、GC 堆 2 GiB，双库容器不复用。Worker 付费执行、双库持久化、激活及 DOCX 上传仍待办，完整 RAG 与 Capacity-not-verified 状态不变。
 
+#### R08f：DOCX 完整清单、向量保存与恢复证明合批（2026-10-08）
+
+- main 基线 `152273325f5e33064eb12d489bf3cb3193ed7c52`，快照 `ai-docx-persistence-r08f`。沿 R08e 的完整计划增加实际双库保存消费者，不复制 PDF 页码，也不把保存证明解释为来源授权、真实模型收费或 ready。
+- [x] 新增 `Knowledge/AiKnowledgeIndexDocxManifestCodec.cs` 与 `AiKnowledgeIndexDocxVectorCodec.cs`：完整清单保存全文、空白块、逻辑坐标和精确模型身份，重建原计划并核对摘要；向量批次绑定指定完整计划与原块位置，拒绝截断、尾部、未知格式、坏 Unicode、伪造 Token、错批次、非有限或零向量，按实际字节预算限界。
+- [x] 新增 DOCX 专属清单/向量 Store 与固定成对 SQL：原会话五项精确权限、当前来源、模型批准、租约和可信租户每次权威复核；短事务写后取消/过期回滚，唯一竞争只恢复同原载荷，向量必须绑定已结算账本和完整清单，整代证明不得漏批或重复 OperationId。
+- [x] 双库 255 迁移新增 `fn_ai_knowledge_docx_manifest`，只扩展向量格式约束；保留历史文本/PDF数据，探测式创建、先校验启用新守卫再移除旧守卫，记录旧结构和每个半完成步骤重放验证。不得自动收缩已有 DOCX 格式或删除载荷。
+- [x] 先建立可失败的清单/向量/Store 验证，再运行专项、AI/完整 Unit、架构、命名/SQL治理与正式双库影响集；真实数据库验证 Unit 无法证明的原字节、账本关联、事务和迁移恢复。更新实际矩阵并只读复审，最后在 main 合批提交。
+- 有效 RED 覆盖能力缺失的清单/向量编码、Store 成功路径、缺少迁移、原始摘要大小写伪造，以及删除后只剩 DOCX 清单的双库清理遗漏；不把编译失败、无效 fixture 或容器连接问题计为 RED。补齐删除和退役扫描、相同任务锁下的 DOCX 清单删除与状态派生数据检测，保留任务、会话及账本。两个协议 GUID 使用网络字节序，固定原字节黄金用例通过。
+- 本批新增 DOCX 专项 162/162；完整 Unit 5774 通过、1 项 Windows FIFO 跳过，AI 精确子集 2306/2306。完整 Architecture 235 项中 233 通过，剩余同两项存量失败：PDF 异步边界 11 项违规及六个既有私有异步方法命名；新增 GUID 转换问题已修正。命名 33/33、SQL 安全 5/5、治理 57/57、工具链 54/54。正式 `pnpm test:integration:affected -- --snapshot ai-docx-persistence-r08f --phase merge` 合并 Ai、migration-255 与 Smoke，100/100、无跳过（44m 44s 323ms），发现 UID 与 TRX 完整一致；全分片 1208 项无遗漏或重复。
+- 只读复审及 GUID 修正复审未发现关键/重要问题；最大文档恢复成本仍须在启用前实测，完整代次证明当前重复重建清单与词表计数，不宣称吞吐或时限保证。API/Worker AOT 分析均零警告/错误，分别 3m 22s 520ms 与 2m 30s 100ms；默认 JIT 还原图恢复成功。
+- 最终代码按现有 publish contract 在 Linux SDK 10.0.400 实际发布：API 17 项、Worker 15 项告警均在既有精确清单内，未增加 suppression；API 原生 SHA256 `4a4be5fc14bbf4668eac1abdf8fecea28f19ef3a51e92f3a826c70b37794c6b9`，Worker `0c5a90586294a42bacd1f0a8c09b975f8d123c2a25fa37dfc66b3d568a0590b7`。完整矩阵必要原生集合 33 项按宿主分组取得通过证据：API TRX 10/10（23m 40s 630ms）；Worker 整组触及 45 分钟总时限，退出 3，原始摘要记录 21 成功、0 失败、0 跳过（46m 08s 634ms），报告器保留逐结果流水而未输出 TRX。逐帧恢复流水的 21 个唯一 UID，与摘要核对；未完成的两个 SQL Server 文件清理/引用对账用例单独补跑 2/2（4m 13s 720ms）。21 项流水加 2 项补跑 TRX 精确覆盖 Worker 23 项，三组并集与矩阵 33 个 UID 相同、无遗漏；原始整组超时不报告为整组通过，补跑与原始 Worker 的实际二进制摘要一致。
+- 真实不可变 DOCX 工具输出串联到本批 JIT 清单和向量协议，1/1（1s 989ms）；工具镜像 ID 和二进制 SHA 沿 R08d，原始文件摘要、坐标、全量空白及向量字节均复核。Linux FIFO 继续复用 R08b 通过结果，已核对对应测试、运行时代码及根依赖配置自基线未变；本批 BuildingBlocks 仅新增 255 SQL 资源，不将 Windows 跳过计为通过。
+- 实际入口为新鲜 Release Unit/Architecture DLL、上述正式 merge 影响集、`pnpm test:naming`、`pnpm test:sql-safety`、`pnpm test:governance`、`pnpm test:integration:tooling`、API/Worker AOT analyzer，以及基于现有 Native publish contract 的本地 helper 和 Linux 外部进程测试；原始命令、RED/Green、发现集、TRX、结果流水及 SHA 保存于忽略目录 `artifacts/r08f/` 与 `artifacts/r08f-*`。`r08f-verify.py` 验证冻结 5349 项输入、精确结果集合、同两项架构基线失败、流水完整帧及二进制一致性，退出 0。
+- Windows x64、i7-12700H、约 64 GB、SDK 10.0.401，Docker 29.6.2；SQL Server 2022-CU14 / MySQL 8.0，数据库容器不复用。JIT 测试 2 个处理器、GC 堆 4 GiB；Linux 原生发布 4 CPU/12 GiB、GC 堆 6 GiB，测试 2 CPU/8 GiB、GC 堆 4 GiB。整批 main 提交；后续合批接入受信解析启动、Worker 付费执行、完整恢复/激活及上传开放，并先收敛轻检查和复审再固定代码运行重型验收。
+- API/Worker 不注册本批格式消费者，DOCX 上传及 paid dispatch/激活继续按完整链路接入；原生工具至本批 JIT 持久化链路以独立实际输入验证，不声称 Host/Worker DOCX Native 发布或完整 RAG 已完成。
+
 ### R09：Prompt 发布、反馈与检索优化（P2，依赖 R02/R06/R08）
 
 **新增责任位置：** `src/Modules/Full.NET.Modules.Ai/Features/ManagePromptVersions/`、`Features/ManageAnswerFeedback/`；扩展 R02 评估语料及 R07 Vue 页面。新增持久化成对迁移，Prompt 版本不混入通用 Settings。

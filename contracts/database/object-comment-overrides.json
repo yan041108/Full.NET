@@ -1,6 +1,16 @@
 {
   "schemaVersion": 1,
   "tables": {
+    "fn_ai_knowledge_docx_manifest": {
+      "comment": "知识库索引任务不可替换的完整 DOCX 计划",
+      "columns": {
+        "Id": "逻辑主键及所属索引任务标识",
+        "FormatKey": "固定清单格式版本",
+        "PayloadHash": "完整清单载荷 SHA256 摘要",
+        "Payload": "包含完整正文及逻辑块坐标的有界 DOCX 计划",
+        "CreatedAtUtc": "创建时间（UTC）"
+      }
+    },
     "fn_ai_knowledge_document": {
       "comment": "知识库文档草稿及权威删除状态",
       "columns": {

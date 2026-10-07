@@ -29,6 +29,9 @@ internal static class AiKnowledgeRetiredGenerationSql
     internal static readonly SqlStatement ManifestTenant = new("ai.knowledge_retired_generation.manifest_tenant", Delete(Manifest, true), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement CurrentVersionHost = new("ai.knowledge_retired_generation.current_version_host", "SELECT active.VersionId" + Eligible + Ownership + Host, SqlDataScope.HostOnly);
     internal static readonly SqlStatement CurrentVersionTenant = new("ai.knowledge_retired_generation.current_version_tenant", "SELECT active.VersionId" + Eligible + Ownership + Tenant, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    // DOCX 全文与文本/PDF清单共享同一所有权守卫和任务锁，不清除费用凭据。
+    internal static readonly SqlStatement DocxManifestHost = new("ai.knowledge_retired_generation.docx_manifest_host", Delete("DELETE FROM fn_ai_knowledge_docx_manifest WHERE Id=@TaskId", false), SqlDataScope.HostOnly);
+    internal static readonly SqlStatement DocxManifestTenant = new("ai.knowledge_retired_generation.docx_manifest_tenant", Delete("DELETE FROM fn_ai_knowledge_docx_manifest WHERE Id=@TaskId", true), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static SqlStatement LockFor(DatabaseProvider provider, bool tenant) => provider == DatabaseProvider.MySql
         ? tenant ? LockMySqlTenant : LockMySqlHost : tenant ? LockSqlServerTenant : LockSqlServerHost;
 }

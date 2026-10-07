@@ -8,7 +8,7 @@ internal static class AiKnowledgeIndexCleanupSql
     private const string Owned = " FROM fn_ai_knowledge_index_task AS task INNER JOIN fn_ai_knowledge_document AS document ON document.Id=task.DocumentId INNER JOIN fn_ai_knowledge_base AS knowledge ON knowledge.Id=document.KnowledgeBaseId WHERE document.Id=@DocumentId AND document.KnowledgeBaseId=@KnowledgeBaseId AND document.IsDeleted=1 AND knowledge.OwnerUserId=@OwnerUserId AND ";
     private const string Host = "knowledge.TenantId IS NULL";
     private const string Tenant = "knowledge.TenantId=@TenantId";
-    private const string Pending = " AND (task.StateKey IN ('queued','running') OR EXISTS (SELECT 1 FROM fn_ai_knowledge_active_generation AS active WHERE active.IndexTaskId=task.Id AND active.DocumentId=document.Id) OR EXISTS (SELECT 1 FROM fn_ai_knowledge_text_manifest AS manifest WHERE manifest.Id=task.Id) OR EXISTS (SELECT 1 FROM fn_ai_knowledge_index_batch AS batch INNER JOIN fn_ai_knowledge_index_vector AS vector ON vector.Id=batch.Id WHERE batch.IndexTaskId=task.Id)) ORDER BY task.CreatedAtUtc,task.Id";
+    private const string Pending = " AND (task.StateKey IN ('queued','running') OR EXISTS (SELECT 1 FROM fn_ai_knowledge_active_generation AS active WHERE active.IndexTaskId=task.Id AND active.DocumentId=document.Id) OR EXISTS (SELECT 1 FROM fn_ai_knowledge_text_manifest AS manifest WHERE manifest.Id=task.Id) OR EXISTS (SELECT 1 FROM fn_ai_knowledge_docx_manifest AS docx WHERE docx.Id=task.Id) OR EXISTS (SELECT 1 FROM fn_ai_knowledge_index_batch AS batch INNER JOIN fn_ai_knowledge_index_vector AS vector ON vector.Id=batch.Id WHERE batch.IndexTaskId=task.Id)) ORDER BY task.CreatedAtUtc,task.Id";
     private const string Guard = " AND EXISTS (SELECT 1" + Owned;
     // 先持有与写清单、向量和激活相同的任务锁；不靠租约超时推断旧执行者已经退出。
     private static string Lock(bool mysql, bool tenant) => "SELECT task.Id" + (mysql ? Owned : Owned.Replace(" AS task INNER", " AS task WITH(UPDLOCK,HOLDLOCK) INNER"))
@@ -37,6 +37,9 @@ internal static class AiKnowledgeIndexCleanupSql
     internal static readonly SqlStatement VectorsTenant = new("ai.knowledge_index_cleanup.vectors_tenant", Delete(Vectors, true), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static readonly SqlStatement ManifestHost = new("ai.knowledge_index_cleanup.manifest_host", Delete(Manifest, false), SqlDataScope.HostOnly);
     internal static readonly SqlStatement ManifestTenant = new("ai.knowledge_index_cleanup.manifest_tenant", Delete(Manifest, true), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    // DOCX 全文与文本/PDF清单共享同一所有权守卫和任务锁，不清除费用凭据。
+    internal static readonly SqlStatement DocxManifestHost = new("ai.knowledge_index_cleanup.docx_manifest_host", Delete("DELETE FROM fn_ai_knowledge_docx_manifest WHERE Id=@TaskId", false), SqlDataScope.HostOnly);
+    internal static readonly SqlStatement DocxManifestTenant = new("ai.knowledge_index_cleanup.docx_manifest_tenant", Delete("DELETE FROM fn_ai_knowledge_docx_manifest WHERE Id=@TaskId", true), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     internal static SqlStatement ListFor(DatabaseProvider provider, bool tenant) => provider == DatabaseProvider.MySql
         ? tenant ? ListMySqlTenant : ListMySqlHost : tenant ? ListSqlServerTenant : ListSqlServerHost;
     internal static SqlStatement LockFor(DatabaseProvider provider, bool tenant) => provider == DatabaseProvider.MySql

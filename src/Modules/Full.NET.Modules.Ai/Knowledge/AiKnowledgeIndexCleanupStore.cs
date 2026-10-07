@@ -85,12 +85,14 @@ internal sealed class AiKnowledgeIndexCleanupStore(IQueryExecutor query, IComman
             {
                 scoped ? AiKnowledgeRetiredGenerationSql.VectorsTenant : AiKnowledgeRetiredGenerationSql.VectorsHost,
                 scoped ? AiKnowledgeRetiredGenerationSql.ManifestTenant : AiKnowledgeRetiredGenerationSql.ManifestHost,
+                scoped ? AiKnowledgeRetiredGenerationSql.DocxManifestTenant : AiKnowledgeRetiredGenerationSql.DocxManifestHost,
             } : new[]
             {
                 scoped ? AiKnowledgeIndexCleanupSql.CancelTenant : AiKnowledgeIndexCleanupSql.CancelHost,
                 scoped ? AiKnowledgeIndexCleanupSql.PointerTenant : AiKnowledgeIndexCleanupSql.PointerHost,
                 scoped ? AiKnowledgeIndexCleanupSql.VectorsTenant : AiKnowledgeIndexCleanupSql.VectorsHost,
                 scoped ? AiKnowledgeIndexCleanupSql.ManifestTenant : AiKnowledgeIndexCleanupSql.ManifestHost,
+                scoped ? AiKnowledgeIndexCleanupSql.DocxManifestTenant : AiKnowledgeIndexCleanupSql.DocxManifestHost,
             };
             foreach (var statement in statements)
             {
