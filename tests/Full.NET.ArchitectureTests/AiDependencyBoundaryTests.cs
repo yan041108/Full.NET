@@ -7,6 +7,23 @@ namespace Full.NET.ArchitectureTests;
 public sealed class AiDependencyBoundaryTests
 {
     [TestMethod]
+    public void Docx_local_planning_does_not_admit_host_or_database_consumers()
+    {
+        var allowed = new HashSet<string>(StringComparer.Ordinal)
+        { "AiKnowledgeDocxOutputReader.cs", "AiKnowledgeDocxStructure.cs", "AiKnowledgeDocxModelChunker.cs", "AiKnowledgeDocxPlanHash.cs", "AiKnowledgeIndexDocxPlan.cs" };
+        foreach (var source in Directory.GetFiles(Path.Combine(Root(), "src"), "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "obj" or "bin")))
+        {
+            var text = File.ReadAllText(source);
+            if (!text.Contains("AiKnowledgeDocx", StringComparison.Ordinal) && !text.Contains("AiKnowledgeIndexDocx", StringComparison.Ordinal)) continue;
+            Assert.IsTrue(allowed.Contains(Path.GetFileName(source)), source);
+            Assert.IsTrue(source.Contains(Path.Combine("Full.NET.Modules.Ai", "Knowledge"), StringComparison.Ordinal), source);
+            Assert.DoesNotContain("ISqlExecutor", text, StringComparison.Ordinal, source);
+            Assert.DoesNotContain("Process.Start", text, StringComparison.Ordinal, source);
+        }
+    }
+
+    [TestMethod]
     public void Docx_parser_stays_in_an_independent_bcl_only_process()
     {
         var path = Path.Combine(Root(), "src", "Tools", "Full.NET.Ai.DocxParser", "Full.NET.Ai.DocxParser.csproj");

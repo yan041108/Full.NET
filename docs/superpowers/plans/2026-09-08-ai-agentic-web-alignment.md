@@ -1451,6 +1451,25 @@ PDF 页内预览仍为 R07 后续项；处理策略与成员授权编辑见后�
 - `pnpm test:integration:affected -- --snapshot ai-docx-parser-r08d --phase merge` 退出 0；唯一矩阵保持官方 `integration-matrix, smoke` 选择。Integration 构建零警告/错误（44s 86ms），工具链前置 65/65、治理 57/57，分片实际 1202 项无遗漏/重复；Smoke 双库 8/8、零失败/跳过（5m 22s 846ms），精确发现 UID 与原始 TRX 对照通过。Linux 锁定还原 `dotnet restore ... -r linux-x64 -p:PublishAot=true --locked-mode` 使用本工具 Linux 锁文件，退出 0。Windows x64、i7-12700H、约 64 GB、SDK 10.0.401；Linux SDK 10.0.400，测试进程 2 个处理器、GC 堆 2 GiB，数据库容器不复用。源文件、失败/成功日志、发现、TRX、原生及冻结验收清单保存于忽略目录 `artifacts/r08d/` 和 `artifacts/r08d-*`。
 - 实际回归命令：Release `dotnet build` Unit；直接执行新鲜 Unit DLL，专项过滤 `FullyQualifiedName~AiDocxParser`、完整 AI 过滤 `FullyQualifiedName~Full.NET.UnitTests.Ai.` 及不带过滤的完整 Unit，分别保存 TRX；新鲜 Architecture DLL 不带过滤执行 234 项；`pnpm test:naming`、`pnpm test:governance`、`pnpm test:integration:tooling`，以及正式 merge 影响集。收尾再核对冻结输入和任务差异，在 main 提交整批。工具为本地 Build-verified / Linux Native-published，Worker/上传/索引 DOCX 接入继续待办，完整 RAG 状态和 Capacity-not-verified 不变。
 
+#### R08e：DOCX 输出验收、模型分块与完整计划合批（2026-10-08）
+
+- main 基线 `e720d80e6d07d7d438d43cd6d543a794227d96a8`，快照 `ai-docx-planning-r08e`。沿 R08d 独立工具接入 AI 内部消费算法；实际消费者为串联工具与规划的离线专项。后续 Worker 付费执行、持久化、激活和上传开放一起接入，本批不将它们标为完成。
+- [x] `AiKnowledgeDocxOutputReader` 有界读取固定协议，复核可信原始摘要/大小、严格字段、Unicode、连续段落/表行列/单元格与 UTF-16 区间，拒绝任何部分或歧义结果。
+- [x] `AiKnowledgeDocxModelChunker` 使用现有获批模型词表，逻辑段落/单元格内重叠，保持全局位置和完整文档坐标；块数、字符与 Token 全局累计，不解释文档指令或派发模型。
+- [x] `AiKnowledgeIndexDocxPlan` 冻结全文、坐标和精确模型身份，重算真实 Token 与来源切片，生成有界完整批次和稳定摘要，拒绝伪造/遗漏/变更后的输入。
+- [x] 先成功协议/串联用例有效 RED，再覆盖拒绝、预算、取消、集合变更与位置漂移；统一 AI/完整 Unit、架构、正式双库影响集和真实原生 DOCX 输出串联，复审后在 main 提交。API/Worker 原生可达闭包、HTTP/SQL/依赖及上传策略不扩展。
+
+**实现与已完成验证：**
+
+- 本批 5 个模块内类型、2 个 Unit 测试文件与 1 个静态闭包架构回归，没有新增宿主注册、SQL、公共 HTTP 契约或依赖。固定协议拒绝重复/遗漏/未知字段、无效 Unicode、来源不匹配、读取超限与不连续结构；冻结集合只读取一次数量并按固定范围复制。规划复核每个非空逻辑块的完整覆盖、重叠推进、代理对边界、原文切片和真实 Token，再将来源、坐标、模型/租户版本及所有预算纳入摘要。
+- 成功协议和串联用例先在已构建占位实现上有效 RED（2 失败）；34 项边界专项有效 RED（10 失败）。只读复审发现的集合数量变更、UTF-16 半代理对、单元格虚报段落分别补充有效 RED 并修复，复审无剩余 P1/P2。最终 Release Unit 构建退出 0，零警告/错误（17s 54ms）；新鲜 DLL 专项 37/37，通过且无跳过（1s 506ms）。完整 Unit 5613 项，5612 通过、1 项 Linux FIFO 在 Windows 跳过、零失败（4m 26s 807ms）；完整运行包含 AI 2144 项，按发现 UID 与 TRX 核对，不再重复运行同一 AI 集合。
+- 使用 R08d 未改动原生工具镜像 `sha256:baed15a1a0eb1f902135ac3eb0fc52f9c84c7d4d77034f22888e5982637eef57`，重新核对二进制 SHA-256 `9abe330242d2acbabcc6ba444a9a2919c01c2508bbb7cf961c8655fc6db91ff8`，以无网络、只读、非特权和资源限制执行真实 OOXML。工具正常退出且无 stderr；实际原始文件和 JSON 串联至本批 JIT 验收、分块、计划专项 1/1 通过（1s 497ms）。这只证明原生工具到 JIT 算法的本地链路，不代表 Worker 已接入或新算法完成 Native 发布。
+- Architecture Release 构建退出 0，零警告/错误（16s 16ms）；完整 235 项，233 通过、零跳过（7m 14s 965ms），仅原有 `Production_sources_do_not_block_tasks_or_sleep_or_offload_to_thread_pool` 和 `CSharp_symbols_follow_project_conventions` 两项失败；按 R08d 原始 TRX 对照，未新增失败。新静态闭包回归通过。命名脚本 33/33、治理 57/57 均退出 0。
+- Windows 跳过的 FIFO 用例复用 `artifacts/r08b/linux-fifo/linux-fifo.trx` 同一 UID 的真实 Linux 通过结果；自 `bf10c21b26c3e84293631e4bb138cbf43e838185` 起，其测试、BuildingBlocks 与根构建/依赖配置均无变化。Unit 与 Integration 使用的 AI 模块 DLL SHA-256 一致，为 `9f60e30ac934aa908a07088e79db579e3382d7961d1c576d56cd297df8f8b7da`。
+- 实际命令包括 `dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --report-trx --results-directory artifacts/r08e/unit`，以及 `dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 235 --report-trx --results-directory artifacts/r08e/architecture`；均在相应 Release 构建退出 0 后执行。完整 Unit 不带最低通过数参数，以精确发现 UID、TRX 与未变 Linux 单项证据合并验收，不能把 Windows 跳过报告为通过。命名与治理分别执行 `pnpm test:naming`、`pnpm test:governance`。
+- 正式 `pnpm test:integration:affected -- --snapshot ai-docx-planning-r08e --phase merge` 退出 0，保留唯一矩阵的 `Ai, integration-matrix, smoke` 选择。Integration 构建零警告/错误，工具链前置 65/65、治理 57/57，分片 1202 项无遗漏/重复；原定 AI 与 Smoke 合并 94/94，零失败/跳过（41m 46s 301ms）。发现 UID 与原始 TRX 精确对照通过；日志字段的 TRX 流式截断不影响 94 项结果及结果状态，原运行日志保留。收尾验收脚本退出 0，逐项复核 4697 个冻结输入、37 项专项、完整 Unit/AI、存量架构失败、94 项双库和真实原生串联证据。
+- 原始 RED/Green、发现 UID、TRX、原生输入/输出和复核清单保存于忽略目录 `artifacts/r08e/` 与 `artifacts/r08e-*`。冻结 4697 项代码、测试、脚本、项目和矩阵输入，验收后再核对未变化。测试环境沿用 Windows x64、i7-12700H、约 64 GB、SDK 10.0.401；测试进程 2 个处理器、GC 堆 2 GiB，双库容器不复用。Worker 付费执行、双库持久化、激活及 DOCX 上传仍待办，完整 RAG 与 Capacity-not-verified 状态不变。
+
 ### R09：Prompt 发布、反馈与检索优化（P2，依赖 R02/R06/R08）
 
 **新增责任位置：** `src/Modules/Full.NET.Modules.Ai/Features/ManagePromptVersions/`、`Features/ManageAnswerFeedback/`；扩展 R02 评估语料及 R07 Vue 页面。新增持久化成对迁移，Prompt 版本不混入通用 Settings。
