@@ -57,9 +57,28 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   ensure(published.templateId===template.id && published.versionNumber===1,'printing published version mismatch');
   ensure(typeof published.layoutHtml==='string' && !/<script\b|outputUnsafe/iu.test(published.layoutHtml),'printing published HTML invalid');
   evidence.printing={status:'tenant-preview-not-supported',templateId:template.id,versionNumber:1,hostPublished:true,scriptsRemovedAtPublish:true};
+  // 第一方 ClientId 由服务端固定，默认每客户端单会话；另建最小权限用户，避免重新登录同一 admin 撤销租户会话。
+  const revokerCredentials={username:'revoke_'+randomUUID().replaceAll('-',''),password:'Init!'+randomUUID()+'A9'};
+  const revokerRole=await send('revoker-role','/api/v1/identity/roles','POST',{code:'revoke_'+randomUUID().replaceAll('-',''),name:'Owned output revoker'},201);
+  identifier(revokerRole.id);
+  const permissions=['reporting.definitions.grant_tenants'];
+  const assigned=await send('revoker-permissions','/api/v1/identity/roles/'+revokerRole.id+'/permissions','PUT',{permissionCodes:permissions,version:revokerRole.version});
+  ensure(assigned.permissionCodes?.length===1 && assigned.permissionCodes[0]===permissions[0],'revoker permissions mismatch');
+  const revokerUser=await send('revoker-user','/api/v1/identity/users','POST',{...revokerCredentials,displayName:'Owned output revoker'},201);
+  identifier(revokerUser.id);
+  const rolePath='/api/v1/identity/users/'+revokerUser.id+'/roles';
+  const roleSnapshot=await send('revoker-role-snapshot',rolePath);
+  const roles=await send('revoker-assign-role',rolePath,'PUT',{roleIds:[revokerRole.id],version:roleSnapshot.version});
+  ensure(roles.userId===revokerUser.id && roles.roleIds?.length===1 && roles.roleIds[0]===revokerRole.id,'revoker role binding mismatch');
+  stage='revoker-login'; let revoker=await loginHost(revokerCredentials);
+  ensure(typeof revoker==='string' && revoker.trim(),'fresh revoker Host session missing');
+  // 管理员创建的账号必须走正式自助改密，再使用轮换后的 Host access token。
+  const changed=await send('revoker-password','/api/v1/me/password','POST',{currentPassword:revokerCredentials.password,newPassword:'Changed!'+randomUUID()+'A9'},200,revoker);
+  ensure(typeof changed.accessToken==='string' && changed.accessToken.trim(),'revoker password rotation session missing');
+  revoker=changed.accessToken;
   const switched=await send('tenant-context','/api/v1/tenancy/context','PUT',{tenantId});
   ensure(switched.context?.tenantId===tenantId && typeof switched.accessToken==='string' && switched.accessToken.trim(),'tenant context mismatch');
-  // 切换后不能复用旧 Host scope；另一个 Host 会话稍后撤销授权，不使当前 Tenant 会话失效。
+  // 切换后不能复用旧 Host scope；不同用户的 Host 会话稍后撤销授权，不使当前 Tenant 会话失效。
   token=switched.accessToken;
   const catalog=await send('catalog','/api/v1/reporting/published-definitions');
   const visible=catalog.filter(item=>item.definitionId===definition.id);
@@ -95,8 +114,6 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   await send('anonymous-printing-denied',printRoot+'/preview','POST',{versionNumber:1},401,null);
   evidence.printing.tenantPreviewDenied=true;
 
-  stage='revoker-login'; const revoker=await loginHost();
-  ensure(typeof revoker==='string' && revoker.trim(),'fresh revoker Host session missing');
   ensure(await send('revoke',grant,'DELETE',undefined,200,revoker)===true,'version revoke failed');
   await send('revoked-download-denied',download,'GET',undefined,403);
   await send('revoked-execute-denied',root+'/execute','POST',{versionNumber:1,parameters:[]},403);
@@ -104,6 +121,7 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   const revokedCatalog=await send('revoked-catalog','/api/v1/reporting/published-definitions');
   ensure(!revokedCatalog.some(item=>item.definitionId===definition.id),'revoked definition remains in catalog');
   evidence.reporting.revokedAccessDenied=true;
+  evidence.reporting.revokerDifferentUser=true;
   evidence.completed=true;return evidence;
  } catch(error) {
   // 网络、JSON 和验证器异常可能带任意响应值；只传播本工具拥有的固定诊断。

@@ -10,11 +10,14 @@ const definitionId = '01980000-0000-7000-8000-000000000002';
 const taskId = '01980000-0000-7000-8000-000000000003';
 const templateId = '01980000-0000-7000-8000-000000000004';
 
-function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, printingAllowed=false, revokedAllowed=false, leakedCatalog=false, failedHttp=false, invalidId=false, wrongTaskDefinition=false} = {}) {
+function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, printingAllowed=false, revokedAllowed=false, leakedCatalog=false, failedHttp=false, invalidId=false, wrongTaskDefinition=false, revokedSession=false} = {}) {
  const root = mkdtempSync(join(tmpdir(),'enterprise-output-http-'));
  const logPath = join(root,'result.json');
  let granted = false; let published = 0; let activeToken = 'Bearer HOST_SECRET'; let checkedWorkbook = false;
  const requests = [];
+ let revokerCredentials;
+ const roleId='01980000-0000-7000-8000-000000000007';
+ const userId='01980000-0000-7000-8000-000000000008';
  const source = {providerKey:'sql_server',serverHost:'127.0.0.1',port:1433,databaseName:'master',username:'sa',password:'DATABASE_SECRET',trustServerCertificate:true};
  const request = async (url, options) => {
   const path = new URL(url).pathname; const method = options.method;
@@ -22,7 +25,19 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
   requests.push({path,method,input});
   const token = options.headers.Authorization;
   if (!token) return Response.json({code:'authentication.required'}, {status:401});
-  assert.equal(token, path.includes('tenant-grants') && method==='DELETE' ? 'Bearer REVOKER_SECRET' : activeToken);
+  assert.equal(token, (path.includes('tenant-grants') && method==='DELETE') || path.endsWith('/me/password') ? 'Bearer REVOKER_SECRET' : activeToken);
+  if (revokedSession && !granted && path.endsWith('/download')) return Response.json({code:'authentication.required'}, {status:401});
+  if (path==='/api/v1/identity/roles' && method==='POST') return Response.json({id:roleId,version:1},{status:201});
+  if (path===`/api/v1/identity/roles/${roleId}/permissions`) {
+   assert.deepEqual(input.permissionCodes,['reporting.definitions.grant_tenants']); assert.equal(input.version,1);
+   return Response.json({id:roleId,version:2,permissionCodes:input.permissionCodes});
+  }
+  if (path==='/api/v1/identity/users' && method==='POST') { revokerCredentials={username:input.username,password:input.password}; return Response.json({id:userId,version:1},{status:201}); }
+  if (path===`/api/v1/identity/users/${userId}/roles`) {
+   if(method==='PUT') assert.deepEqual(input,{roleIds:[roleId],version:1});
+   return Response.json({userId,roleIds:method==='PUT'?[roleId]:[],version:1});
+  }
+  if (path==='/api/v1/me/password') { assert.equal(input.currentPassword,revokerCredentials.password); assert.notEqual(input.newPassword,input.currentPassword); return Response.json({accessToken:'REVOKER_SECRET'}); }
   if (path.endsWith('/groups')) return Response.json({id:'01980000-0000-7000-8000-000000000005'}, {status:201});
   if (path.endsWith('/data-sources')) { assert.equal(input.password,source.password); return Response.json({id:'01980000-0000-7000-8000-000000000006'}, {status:201}); }
   if (path.endsWith('/definitions') && method==='POST') return Response.json({id:definitionId,version:1}, {status:201});
@@ -59,7 +74,7 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
  };
  return {
   run: () => verifyEnterpriseDataOutputHttp('http://localhost',{hostAccessToken:'HOST_SECRET',tenantId,externalDataSource:source,logPath,request,
-   loginHost:async()=> 'REVOKER_SECRET',verifyWorkbook:async(bytes, expected)=>{
+   loginHost:async(credentials)=> { assert.deepEqual(credentials,revokerCredentials,'revoker must log in as a distinct owned account'); assert.ok(credentials?.username && credentials.username!=='admin'); return 'REVOKER_SECRET'; },verifyWorkbook:async(bytes, expected)=>{
     assert.equal(expected,'16.0.4135.4'); assert.deepEqual([...bytes],[80,75,1],'invalid workbook'); checkedWorkbook=true;
     return {worksheets:1,dataRows:1};
    }}),
@@ -86,6 +101,7 @@ for (const [name,options,pattern] of [
  ['拒绝空查询冒充实际外部查询',{emptyQuery:true},/row/iu],
  ['拒绝仅有 ZIP 前缀的损坏工作簿',{corruptWorkbook:true},/workbook/iu],
  ['租户打印预览不得被错误放行',{printingAllowed:true},/HTTP 200/u],
+ ['会话失效的 401 不得冒充撤权 403',{revokedSession:true},/HTTP 401/u],
  ['拒绝撤销后仍可访问旧结果',{revokedAllowed:true},/HTTP 200/u],
  ['拒绝发布目录泄露连接配置',{leakedCatalog:true},/catalog/iu],
  ['失败证据不保存响应中的未知密码',{failedHttp:true},/HTTP 500/u],

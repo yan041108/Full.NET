@@ -1202,7 +1202,7 @@ Vue Host 定义列表新增精确权限入口；组件加载已发布版本，�
 
 基线 `147045bd90f5974c0adfbb30e3cc76e361cac334`，快照 `f11-generated-report-print-chain-20261008`，独立临时 checkout。一次应用启动复用已有三宿主、两张非空工作簿和版本授权管理链，追加正式外部查询、默认获授版本选择、未授版本拒绝、同步 API Excel 导出/下载，以及撤销后的目录隐藏、执行/导出/下载再次拒绝。两主库均使用本次拥有的 SQL Server 外部只读驱动：SQL Server 主库复用自有容器，MySQL 主库另建一个自有随机 SQL Server 容器。自签名证书豁免只配置隔离验收目标，不改变应用生产配置，也不降级 MySQL 外部 TLS。
 
-首次冻结源码 `ac858e374c71121f8feacebbf027f8ed28a51ce7` 的正式双库联合实际 **0/2**，两库都已完成真实导入 Worker 与授权管理，执行 HTTP 200 后因结果键检查失败，日志/应用及 cleanupSucceeded=true 的报告分别保留于 `.tmp/template-real-stack/enterprise-delivery/sqlserver/run-wVBqwu` 和本批 MySQL 对应目录。根因是宿主 DictionaryKeyPolicy=CamelCase 将 Values 的 EngineVersion 转成 engineVersion，而 Columns 的 columnKey 仍是 EngineVersion，前端按精确列键会得到空值；大小写不同的结果键还会被压成重复 JSON 键。真实宿主选项加 Reporting 源生成的四项回归为 **3 失败/1 通过**，确认 HTTP 线格式缺陷。
+首次冻结源码 `ac858e374c71121f8feacebbf027f8ed28a51ce7` 的正式双库联合实际 **0/2**，两库都已完成真实导入 Worker 与授权管理，执行 HTTP 200 后因结果键检查失败，日志/应用及 cleanupSucceeded=true 的报告分别保留于 `.tmp/template-real-stack/enterprise-delivery/sqlserver/run-wVBqwu` 和 `.tmp/template-real-stack/enterprise-delivery/mysql/run-Dp86gq`。根因是宿主 DictionaryKeyPolicy=CamelCase 将 Values 的 EngineVersion 转成 engineVersion，而 Columns 的 columnKey 仍是 EngineVersion，前端按精确列键会得到空值；大小写不同的结果键还会被压成重复 JSON 键。真实宿主选项加 Reporting 源生成的四项回归为 **3 失败/1 通过**，确认 HTTP 线格式缺陷。
 
 修复仅为 ReportingExecutionRow.Values 指定静态属性级转换器，保留 Ordinal 列机器码和 null 单元格，拒绝 null 字典、重复同名列与非文本单元格；不改变其他字典、对象 CamelCase 属性、DTO 结构、SQL 或查询授权。现有双库报表 API 验收追加 SchemaName 原始字典键及非空值检查，新增四个 Unit 用例，Unit 最低数按真实增量增加 4。最终 Reporting Unit **77/77**，零失败/跳过，Release 构建零警告/错误；其中四项回归包含 JSON schema additionalProperties 的 string/null 类型精确集合检查。AOT analyzers 实际退出 0，无新增警告。
 
@@ -1212,7 +1212,11 @@ Vue Host 定义列表新增精确权限入口；组件加载已发布版本，�
 
 修复后冻结源码 `a827b53fdf93db91be6ce636488dcd5078d8bc43` 的第二轮正式双库仍为 **0/2**：真实查询与版本拒绝已通过，导出 HTTP 201 后验收器错误要求 DTO 包含 TenantId；正式导出 DTO 不公开该字段。这是验收契约误判，保留现有 API，改为已验证的可信 Tenant scope 内读回任务并检查 ID、报表、版本、状态和行数。报告保留 SQL Server `run-tkAS4Z` 与 MySQL `run-EV0Emp`，两库 cleanupSucceeded=true。对齐正式 DTO 的夹具先 **5 失败/5 通过**，修正后上述四组 **23/23**；新增读回串用其他报表的负例。
 
-检查点：修复源码的独立应用双库、受影响 Reporting/Smoke 与 AOT 门禁仍待完成，最终结果在本节补录。首轮实际失败不计为通过。该批不关闭 Worker OS 崩溃/接管、租户打印既有边界冲突、企业申请业务报表/打印、真实栈浏览器、完整 Native CRUD、MySQL 外部 TLS 或容量验收；F11/C02 与 Capacity-not-verified 保持。开发分支/Draft PR 交付，不合并、不发布。
+第三轮冻结源码 `4830a220898591f0c2813e2627268cf94df6d637` 实际 **0/2**（SQL Server `run-00YWMY`、MySQL `run-7G0i69`，cleanupSucceeded=true），两库真实查询、任务读回及下载 XLSX 内容核对已通过，但验收器同一 admin 重新登录撤销了原 Tenant 会话，撤权后下载得到 401 而非要求的 403。根因是默认 SingleSessionPerClient，第一方 ClientId 为服务端固定值，不能靠请求传入其他客户端。纠正为正式 Host API 创建临时最小角色（仅 reporting.definitions.grant_tenants）和不同用户，正式赋角色、登录、自助首次改密后持有独立 Host token；不改会话策略、种子和权限生产配置。旧会话 401 不允许计作撤权 403，新增负例；会话夹具先失败，最终四组 **24/24**。
+
+受影响 Reporting/Smoke 正式双库 **18/18**，零失败/跳过，11m42.345s；API Native AOT 架构 **73/73**，Release 构建零警告/错误，6.781s。治理 **57/57**、Integration tooling **59/59**、命名 **33/33**、OpenAPI 门禁 **204/204**。产品转换器自 `a827b53f` 后未变，后续只修正验收器，不重复同源码根项目数据库测试。
+
+检查点：修复源码的独立应用双库、独立应用联合链仍待完整通过，最终结果在本节补录。首轮实际失败不计为通过。该批不关闭 Worker OS 崩溃/接管、租户打印既有边界冲突、企业申请业务报表/打印、真实栈浏览器、完整 Native CRUD、MySQL 外部 TLS 或容量验收；F11/C02 与 Capacity-not-verified 保持。开发分支/Draft PR 交付，不合并、不发布。
 
 ### F12：订阅、试用与支付驱动权益
 

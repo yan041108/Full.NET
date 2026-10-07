@@ -116,9 +116,9 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
   assert.equal(hostLogin.status,200,'reporting Host login HTTP '+hostLogin.status);
   const hostSession = await hostLogin.json();assert.ok(typeof hostSession.accessToken === 'string' && hostSession.accessToken.trim());
   report.reportingGrants = await verifyReportingGrantManagementHttp(apiUrl,{hostAccessToken:hostSession.accessToken,tenantId:business.tenantId,signal});
-  const loginHost = async () => {
+  const loginHost = async (credentials={username:'admin',password:'FullNet!2026Secure'}) => {
    const response = await fetch(apiUrl+'/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json',Origin:'http://localhost'},
-    body:JSON.stringify({username:'admin',password:'FullNet!2026Secure'}),redirect:'error',signal:signal ? AbortSignal.any([signal,AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000)});
+    body:JSON.stringify(credentials),redirect:'error',signal:signal ? AbortSignal.any([signal,AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000)});
    assert.equal(response.status,200,'output Host login HTTP '+response.status);
    let session; try { session = await response.json(); } catch { throw new Error('Output Host login JSON invalid'); }
    assert.ok(typeof session.accessToken === 'string' && session.accessToken.trim(),'output Host session missing');
