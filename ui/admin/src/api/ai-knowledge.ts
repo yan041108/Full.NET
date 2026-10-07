@@ -13,6 +13,23 @@ import {
   aiGetKnowledgeImport, type AiGetKnowledgeImportParameters,
   aiRetryKnowledgeImport, type AiRetryKnowledgeImportParameters,
   aiDownloadKnowledgeSource, type AiDownloadKnowledgeSourceParameters,
+  aiUpdateKnowledgePolicy, type AiUpdateKnowledgePolicyParameters,
+  aiGetKnowledgeMembers, type AiGetKnowledgeMembersParameters,
+  aiSetKnowledgeMembers, type AiSetKnowledgeMembersParameters,
+  aiGetKnowledgeDocumentMembers, type AiGetKnowledgeDocumentMembersParameters,
+  aiSetKnowledgeDocumentMembers, type AiSetKnowledgeDocumentMembersParameters,
+  aiGetKnowledgeRoles, type AiGetKnowledgeRolesParameters,
+  aiSetKnowledgeRoles, type AiSetKnowledgeRolesParameters,
+  aiGetKnowledgeDocumentRoles, type AiGetKnowledgeDocumentRolesParameters,
+  aiSetKnowledgeDocumentRoles, type AiSetKnowledgeDocumentRolesParameters,
+  aiGetKnowledgeOrganizations, type AiGetKnowledgeOrganizationsParameters,
+  aiSetKnowledgeOrganizations, type AiSetKnowledgeOrganizationsParameters,
+  aiGetKnowledgeDocumentOrganizations, type AiGetKnowledgeDocumentOrganizationsParameters,
+  aiSetKnowledgeDocumentOrganizations, type AiSetKnowledgeDocumentOrganizationsParameters,
+  aiListKnowledgeRoleCandidates, type AiListKnowledgeRoleCandidatesParameters,
+  aiListKnowledgeDocumentRoleCandidates, type AiListKnowledgeDocumentRoleCandidatesParameters,
+  aiListKnowledgeOrganizationCandidates, type AiListKnowledgeOrganizationCandidatesParameters,
+  aiListKnowledgeDocumentOrganizationCandidates, type AiListKnowledgeDocumentOrganizationCandidatesParameters,
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
@@ -71,4 +88,72 @@ export function retryKnowledgeImport(parameters: AiRetryKnowledgeImportParameter
 
 export function downloadKnowledgeSource(parameters: AiDownloadKnowledgeSourceParameters, signal?: AbortSignal) {
   return aiDownloadKnowledgeSource(http, parameters, signal);
+}
+
+export function updateKnowledgePolicy(parameters: AiUpdateKnowledgePolicyParameters, signal?: AbortSignal) {
+  return aiUpdateKnowledgePolicy(http, parameters, signal);
+}
+
+export function getKnowledgeMembers(parameters: AiGetKnowledgeMembersParameters, signal?: AbortSignal) {
+  return aiGetKnowledgeMembers(http, parameters, signal);
+}
+
+export function setKnowledgeMembers(parameters: AiSetKnowledgeMembersParameters, signal?: AbortSignal) {
+  return aiSetKnowledgeMembers(http, parameters, signal);
+}
+
+export function getKnowledgeDocumentMembers(parameters: AiGetKnowledgeDocumentMembersParameters, signal?: AbortSignal) {
+  return aiGetKnowledgeDocumentMembers(http, parameters, signal);
+}
+
+export function setKnowledgeDocumentMembers(parameters: AiSetKnowledgeDocumentMembersParameters, signal?: AbortSignal) {
+  return aiSetKnowledgeDocumentMembers(http, parameters, signal);
+}
+
+export function getKnowledgeRoles(parameters: AiGetKnowledgeRolesParameters, signal?: AbortSignal) {
+  return aiGetKnowledgeRoles(http, parameters, signal);
+}
+
+export function setKnowledgeRoles(parameters: AiSetKnowledgeRolesParameters, signal?: AbortSignal) {
+  return aiSetKnowledgeRoles(http, parameters, signal);
+}
+
+export function getKnowledgeDocumentRoles(parameters: AiGetKnowledgeDocumentRolesParameters, signal?: AbortSignal) {
+  return aiGetKnowledgeDocumentRoles(http, parameters, signal);
+}
+
+export function setKnowledgeDocumentRoles(parameters: AiSetKnowledgeDocumentRolesParameters, signal?: AbortSignal) {
+  return aiSetKnowledgeDocumentRoles(http, parameters, signal);
+}
+
+export function getKnowledgeOrganizations(parameters: AiGetKnowledgeOrganizationsParameters, signal?: AbortSignal) {
+  return aiGetKnowledgeOrganizations(http, parameters, signal);
+}
+
+export function setKnowledgeOrganizations(parameters: AiSetKnowledgeOrganizationsParameters, signal?: AbortSignal) {
+  return aiSetKnowledgeOrganizations(http, parameters, signal);
+}
+
+export function getKnowledgeDocumentOrganizations(parameters: AiGetKnowledgeDocumentOrganizationsParameters, signal?: AbortSignal) {
+  return aiGetKnowledgeDocumentOrganizations(http, parameters, signal);
+}
+
+export function setKnowledgeDocumentOrganizations(parameters: AiSetKnowledgeDocumentOrganizationsParameters, signal?: AbortSignal) {
+  return aiSetKnowledgeDocumentOrganizations(http, parameters, signal);
+}
+
+export function listKnowledgeRoleCandidates(parameters: AiListKnowledgeRoleCandidatesParameters, signal?: AbortSignal) {
+  return aiListKnowledgeRoleCandidates(http, parameters, signal);
+}
+
+export function listKnowledgeDocumentRoleCandidates(parameters: AiListKnowledgeDocumentRoleCandidatesParameters, signal?: AbortSignal) {
+  return aiListKnowledgeDocumentRoleCandidates(http, parameters, signal);
+}
+
+export function listKnowledgeOrganizationCandidates(parameters: AiListKnowledgeOrganizationCandidatesParameters, signal?: AbortSignal) {
+  return aiListKnowledgeOrganizationCandidates(http, parameters, signal);
+}
+
+export function listKnowledgeDocumentOrganizationCandidates(parameters: AiListKnowledgeDocumentOrganizationCandidatesParameters, signal?: AbortSignal) {
+  return aiListKnowledgeDocumentOrganizationCandidates(http, parameters, signal);
 }

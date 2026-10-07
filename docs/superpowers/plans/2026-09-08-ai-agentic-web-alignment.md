@@ -1310,7 +1310,7 @@ main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-pa
 - [x] 对话增加单知识库 Ask、明确拒答/来源不可用、引用来源入口；取消、重复提交、页面卸载和作用域变化保护。
 - [x] 建立失败测试后统一运行组件、共享契约、语言、生产构建和相关治理验证，在 main 提交。
 
-索引派发/状态/重试的生成操作、处理策略与成员授权编辑、多知识库选择、PDF 页内预览仍为 R07 后续项。页面真实自动化和人工验收登记 R12；本批最多标记 Build-verified，不借用 R06 服务端证据标记页面 Verified。
+索引派发/状态/重试的生成操作、多知识库选择、PDF 页内预览仍为 R07 后续项；处理策略与成员授权编辑见后续 R07b。页面真实自动化和人工验收登记 R12；本批最多标记 Build-verified，不借用 R06 服务端证据标记页面 Verified。
 
 - main 基线 `1173f95d756aab795370e3465f692bd016a3d3a9`，快照 `ai-knowledge-vue-r07a`。后端仅扩展两个静态导航元数据，不改变 Endpoint、DTO、持久化、迁移或 DI；冻结 Layui 未变。Vue 适配器直接消费既有共享生成操作，覆盖门禁支持显式共享消费者，不移动稳定生成清单的操作所有权。
 - 上传结果不明时保留原 request key 和乐观版本；当前会话/租户或知识库改变时清空结果，晚到响应与卸载不回填。原文 Endpoint 的实际 MIME 是 octet-stream，文本预览必须匹配精确版本元数据；UTF-8 严格解码、8 MiB 上限、最多展示 100,000 字符且不渲染 HTML。历史引用缺少知识库绑定时让用户选择当前授权库，不猜测历史绑定。
@@ -1324,6 +1324,26 @@ main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-pa
 - 正式 `pnpm test:slice -- --snapshot ai-knowledge-vue-r07a` 选择完整双库 AI 82 项。首次复用容器因模板冲突及 SQL Server 连接失效中止；隔离重跑在 Docker 引擎不可连接后没有终态/TRX，不能计整轮通过。严格按现有 TRX 扩展 2.3.2 序列化格式核对原始日志，31 项完整 Passed UID/FQN。恢复引擎后，`FULLNET_TESTCONTAINERS_REUSE=0 FULLNET_API_SCHEMA_TEMPLATE=1 node artifacts/r07a/run-integration-remaining.mjs` 在独立容器使用既有只读 schema 模板加速，精确发现并补跑其余 51 项，退出 0、51/51、零失败/跳过（31m 01s 156ms）；两项成功用例的诊断文本按既有 TRX 字段上限截断，用例身份和结果完整。原中断记录保留，不生成伪造的单轮全绿报告。
 - `node artifacts/r07a/verify-acceptance.mjs` 退出 0，核对 3992 项后端源码/配置与 247 DLL 的冻结输入未变、正式/Unit/Integration 三处 AI DLL 一致、AI Unit 1989 通过摘要，以及双库原 31 + 补跑 51 的完整 82 UID/FQN 精确并集。原始日志、发现、TRX、SHA 与 `acceptance.json` 保留在忽略目录 `artifacts/r07a/`。最后两处契约消费者与包体基线的只读复审没有实质阻断项。Windows x64、i7-12700H、约 64 GB、.NET SDK 10.0.401、Docker 29.6.2、SQL Server 2022-CU14 / MySQL 8.0；本地资源共享，不外推容量或 SLO。
 - 本批没有重新发布/运行 Native 宿主、真实云模型调用、页面自动化或人工验收，也没有容量/SLO 实测。R07 总体仍未关闭，容量保持 `Capacity-not-verified`。
+
+#### R07b：处理策略与两层授权维护合批（2026-10-07，Build-verified）
+
+- main 基线 `dd14a1aa48a4a809b09fe26be4e3e589c5ae7543`，快照 `ai-knowledge-vue-r07b`。本批只改 Vue 消费层、语言资源与覆盖清单，复用已批准的生成操作；不修改服务端、SQL、DTO 或生成操作所有权，按 §11.1 纯客户端范围验收。
+- [x] `ui/admin/src/api/ai-knowledge.ts` 补齐策略、库/文档用户、角色、组织授权和受作用域保护的候选薄适配；测试验证请求版本、路径绑定和运行时响应守卫。
+- [x] 新增 `AiKnowledgePolicyDialog.vue`：独立策略权限、分类与精确模型版本选择、撤销时成对清空、保留旧批准而不自动升级；模型分页仅使用模型读取权限，不请求凭据。
+- [x] 新增 `AiKnowledgeGrantsDialog.vue`：库/文档两层用户、角色与组织授权独立读取/替换，原授予版本、最大 100 项、角色/组织候选分页；当前接口只提供用户 UUID，用户授予用明确标识列表，不借 Host 用户目录扩大 Tenant 范围。
+- [x] `AiKnowledgeDirectory.vue` 增加精确权限入口，先以入口和行为测试建立 RED，覆盖只读、重复提交、冲突、关闭/撤权/租户或资源切换及晚到响应；同批组件、共享契约、语言、构建、包体与治理验收后提交 main。
+
+本地证据（Windows x64，原始报告 `artifacts/r07b`）：
+
+- API、目录入口与弹窗分别建立 RED：3 项、2 项、18 项预期行为失败；后续 3 项测试选择器失败定位为 Element Plus 把标记放在 textarea 本身，修正测试后受影响组件通过，原始报告保留。
+- 最终 `pnpm --filter @fullnet/admin test src/components/AiKnowledgePolicyDialog.test.ts src/components/AiKnowledgeGrantsDialog.test.ts src/components/AiKnowledgeDirectory.test.ts src/api/ai-knowledge.test.ts --maxWorkers=4`：4 文件 43/43，无跳过。
+- `pnpm --filter @fullnet/admin test --maxWorkers=6`：263 文件，991/992 通过，唯一失败是未改动的 `App.test.ts` 账户安全页 5000ms 超时。保持源码不变，`pnpm --filter @fullnet/admin test src/App.test.ts --maxWorkers=1`：4/4 通过，无跳过；不将首次全量命令报告为成功，也不重复累计重叠用例。
+- `pnpm --filter @fullnet/admin build`（vue-tsc + Vite）、`pnpm --filter @fullnet/client-contracts test`（226/226）、`pnpm --filter @fullnet/admin-i18n test`（8/8）、`pnpm test:openapi`（210/210）、`pnpm test:governance`（57/57）均通过，无测试跳过。
+- `pnpm test:bundle-budgets` 三项通过；初始静态 JS 1,454,545 bytes（+1.97%）、gzip 381,310 bytes（+1.16%），既有基线及 5% 限额不变。
+- `pnpm test:integration:affected:plan -- --snapshot ai-knowledge-vue-r07b --phase slice` 返回 11 个变更文件、目标 `none`；按 §11.1 不重复后端 Integration 或 Native 发布。只读复审未发现需修复项，`git diff --cached --check` 通过。
+- 依赖与锁文件未改，本批未重跑全工作区依赖审计；R07a 记录的存量审计失败不因此关闭。未完成真实页面/人工验收，不推导端到端、Native、容量或 SLO 已验收。
+
+延后索引生成操作/页面与多库 Ask，R07 总体不提前关闭。真实页面及两层授权交互验收继续登记 R12。
 
 ### R08：增量更新、删除与索引重建（P2，依赖 R05–R07）
 
@@ -1368,6 +1388,7 @@ main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-pa
 - [ ] 集中收敛页面自动化与人工验收；分别测量 API、Worker、向量库、模型服务的资源和延迟，不引用文章的百分比作为验收结果。
 
   R07a 页面验收清单：两页目录/分页/CRUD 精确权限、网络结果不明上传重试、导入失败刷新/重试、octet-stream 的 TXT/MD 授权预览与 PDF 下载、实时及历史引用来源选择、明确拒答与空历史回答、索引/模型不可用、取消到终态刷新、重复提交、路由库参数变化、租户切换与卸载晚到结果。需实际浏览器和人工证据后升级页面 Verified。
+  R07b 页面验收清单：独立策略权限、原模型审批保留及显式版本升级/成对撤销、模型候选分页；库/文档两层用户/角色/组织读取与全量替换、候选读取独立权限及分页、只读和资源所有者错误、空集合撤销、100 项上限及无效/重复 UUID、409 保留输入、关闭/撤权/租户或资源/类别切换与卸载晚到结果。需实际浏览器和人工证据后升级页面 Verified。
 - [ ] 按精确提交核对必要 CI 终态，更新能力矩阵和运维文档；存在失败、跳过或部署环境缺失时仅标明已实现/局部验证，保留 `Capacity-not-verified`。
 
 ### 执行与验证入口

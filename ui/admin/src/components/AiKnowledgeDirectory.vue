@@ -14,6 +14,8 @@ import { ART_TABLE_ACTION_COLUMN_WIDTH } from '../framework/art-design/component
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import AiKnowledgeBaseSelect from './AiKnowledgeBaseSelect.vue';
 import AiKnowledgeSourceDialog from './AiKnowledgeSourceDialog.vue';
+import AiKnowledgePolicyDialog from './AiKnowledgePolicyDialog.vue';
+import AiKnowledgeGrantsDialog from './AiKnowledgeGrantsDialog.vue';
 const props = defineProps<{ documents?: boolean }>();
 const { t } = useAdminI18n(); const session = useSessionStore(); const route = useRoute();
 type Row = AiKnowledgeBaseResponse | AiKnowledgeDocumentResponse;
@@ -24,11 +26,18 @@ const versionOpen = ref(false); const documentRow = ref<AiKnowledgeDocumentRespo
 const versionPage = ref(1); const versionTotal = ref(0); const versionsLoading = ref(false);
 const file = ref<File>(); let uploadKey = ''; let uploadVersion = 0; const importOperation = ref<AiKnowledgeImportResponse>(); const operationId = ref('');
 const sourceOpen = ref(false); const sourceVersion = ref<AiKnowledgeVersionResponse>();
+const policyOpen = ref(false); const grantsOpen = ref(false); const accessRow = ref<Row>();
 const { tableMainRef, tableHeight, tableHeaderCellStyle, syncTableLayout } = useArtPagedTableInCard(loading);
 const prefix = computed(() => props.documents ? 'ai.knowledge_documents' : 'ai.knowledge_bases');
 const canRead = computed(() => !session.switching && session.can('ai.knowledge_bases.read') && (!props.documents || session.can('ai.knowledge_documents.read')));
 const can = (action: string) => canRead.value && session.can(`${prefix.value}.${action}`);
 const canVersion = computed(() => canRead.value && session.can('ai.knowledge_documents.versions_read'));
+const canGrants = computed(() => ['members_read', 'roles_read', 'organizations_read'].some(action => can(action)));
+function openAccess(id: string, policy = false) {
+  const row = rows.value.find(item => item.id === id);
+  if (!row || busy.value || (policy ? props.documents || !can('policy_update') : !canGrants.value)) return;
+  accessRow.value = row; if (policy) policyOpen.value = true; else grantsOpen.value = true;
+}
 let epoch = 0; let listEpoch = 0; let versionEpoch = 0; let controller: AbortController | undefined; let versionController: AbortController | undefined;
 const guid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function load(next = page.value) {
@@ -147,6 +156,7 @@ function openSource(id: string) {
 function reset() {
   ++epoch; ++listEpoch; ++versionEpoch; controller?.abort(); versionController?.abort(); rows.value = []; versions.value = [];
   editorOpen.value = false; versionOpen.value = false; sourceOpen.value = false; editing.value = undefined; documentRow.value = undefined;
+  policyOpen.value = false; grantsOpen.value = false; accessRow.value = undefined;
   sourceVersion.value = undefined; importOperation.value = undefined; file.value = undefined; uploadKey = ''; operationId.value = ''; total.value = 0; loading.value = false; busy.value = false; versionsLoading.value = false;
 }
 watch(() => route.query.knowledgeBaseId, value => { baseId.value = typeof value === 'string' ? value : ''; });
@@ -156,6 +166,8 @@ onMounted(() => void load(1)); onUnmounted(reset);
 </script>
 <template>
   <section class="art-page-stack art-full-height" :aria-busy="loading || busy">
+    <AiKnowledgePolicyDialog v-if="accessRow && !documents" v-model:open="policyOpen" :knowledge-base-id="accessRow.id" @saved="load()" />
+    <AiKnowledgeGrantsDialog v-if="accessRow" v-model:open="grantsOpen" :knowledge-base-id="'knowledgeBaseId' in accessRow ? accessRow.knowledgeBaseId : accessRow.id" :document-id="documents ? accessRow.id : undefined" @saved="load()" />
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t(documents ? 'knowledge.documents' : 'knowledge.title') }}</h1>
     <el-alert v-if="!canRead" :title="t('knowledge.noPermission')" type="warning" :closable="false" />
     <el-card v-else shadow="never" class="art-table-card">
@@ -173,6 +185,8 @@ onMounted(() => void load(1)); onUnmounted(reset);
           <el-table-column :label="t('knowledge.actions')" :width="ART_TABLE_ACTION_COLUMN_WIDTH" fixed="right">
             <template #default="{ row }"><ArtTableActionGroup>
               <ArtTableActionButton v-if="can('update')" type="edit" :title="t('knowledge.edit')" test-id="knowledge-edit" @click="openEditor(row.id)" />
+              <ArtTableActionButton v-if="!documents && can('policy_update')" type="edit" :title="t('knowledge.policy')" test-id="knowledge-policy" @click="openAccess(row.id, true)" />
+              <ArtTableActionButton v-if="canGrants" type="view" :title="t('knowledge.grants')" test-id="knowledge-grants" @click="openAccess(row.id)" />
               <ArtTableActionButton v-if="documents && canVersion" type="view" :title="t('knowledge.versions')" test-id="knowledge-versions" @click="openVersions(row.id)" />
               <router-link v-if="!documents && session.can('ai.knowledge_documents.read')" :to="{ name: 'ai-knowledge-documents', query: { knowledgeBaseId: row.id } }"><ArtTableActionButton type="view" :title="t('knowledge.documents')" /></router-link>
               <ArtTableActionButton v-if="documents && can('delete')" type="delete" :title="t('knowledge.delete')" test-id="knowledge-delete" @click="remove(row.id)" />

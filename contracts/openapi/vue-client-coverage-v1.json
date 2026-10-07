@@ -1346,7 +1346,8 @@
       "apiModule": "ui/admin/src/api/ai-model-configs.ts",
       "consumers": [
         "ui/admin/src/views/AiModelConfigsView.vue",
-        "ui/admin/src/views/AiChatView.vue"
+        "ui/admin/src/views/AiChatView.vue",
+        "ui/admin/src/components/AiKnowledgePolicyDialog.vue"
       ]
     },
     {
@@ -1920,7 +1921,9 @@
       "consumers": [
         "ui/admin/src/components/AiKnowledgeBaseSelect.vue",
         "ui/admin/src/components/AiKnowledgeDirectory.vue",
-        "ui/admin/src/components/AiKnowledgeSourceDialog.vue"
+        "ui/admin/src/components/AiKnowledgeSourceDialog.vue",
+        "ui/admin/src/components/AiKnowledgePolicyDialog.vue",
+        "ui/admin/src/components/AiKnowledgeGrantsDialog.vue"
       ]
     }
   ]

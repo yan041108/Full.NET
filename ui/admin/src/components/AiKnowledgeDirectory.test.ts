@@ -18,7 +18,7 @@ async function render(documents = false, allow: (code: string) => boolean = () =
   const pinia = createPinia(); setActivePinia(pinia); vi.spyOn(useSessionStore(), 'can').mockImplementation(allow);
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/ai/knowledge-documents', name: 'ai-knowledge-documents', component: { template: '<div />' } }, { path: '/', component: { template: '<div />' } }] });
   await router.push({ path: '/', query: documents ? { knowledgeBaseId: baseId } : {} }); await router.isReady();
-  const wrapper = mount(AiKnowledgeDirectory, { props: { documents }, global: { plugins: [pinia, router], stubs: { ArtFormDialog: dialog, AiKnowledgeSourceDialog: true } } });
+  const wrapper = mount(AiKnowledgeDirectory, { props: { documents }, global: { plugins: [pinia, router], stubs: { ArtFormDialog: dialog, AiKnowledgeSourceDialog: true, AiKnowledgePolicyDialog: true, AiKnowledgeGrantsDialog: true } } });
   wrappers.push(wrapper); await flushPromises(); return wrapper;
 }
 async function selectUpload(wrapper: VueWrapper) {
@@ -33,6 +33,20 @@ beforeEach(() => {
 });
 afterEach(() => { wrappers.forEach(wrapper => wrapper.unmount()); wrappers = []; vi.restoreAllMocks(); });
 describe('知识目录与文件交付', () => {
+  it('知识库的独立策略权限提供处理策略入口', async () => {
+    const wrapper = await render(false, code => ['ai.knowledge_bases.read', 'ai.knowledge_bases.policy_update'].includes(code));
+    expect(wrapper.find('[data-testid="knowledge-policy"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="knowledge-edit"]').exists()).toBe(false);
+  });
+  it('文档角色读取权提供授权入口，不隐式授予编辑或成员读取', async () => {
+    const wrapper = await render(true, code => ['ai.knowledge_bases.read', 'ai.knowledge_documents.read', 'ai.knowledge_documents.roles_read'].includes(code));
+    expect(wrapper.find('[data-testid="knowledge-grants"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="knowledge-edit"]').exists()).toBe(false);
+  });
+  it('只有授权写入权限不显示读取入口', async () => {
+    const wrapper = await render(false, code => ['ai.knowledge_bases.read', 'ai.knowledge_bases.members_update'].includes(code));
+    expect(wrapper.find('[data-testid="knowledge-grants"]').exists()).toBe(false);
+  });
   it('没有目录读取权时不请求数据或创建入口', async () => {
     const wrapper = await render(false, () => false); expect(api.listKnowledgeBases).not.toHaveBeenCalled(); expect(wrapper.find('[data-testid="knowledge-create"]').exists()).toBe(false);
   });

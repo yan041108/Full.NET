@@ -1,9 +1,28 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http } from './http';
 import { listKnowledgeBases, uploadKnowledgeVersion, downloadKnowledgeSource } from './ai-knowledge';
+import * as api from './ai-knowledge';
 
 vi.mock('./http', () => ({ http: { request: vi.fn(), requestBlob: vi.fn() } }));
 describe('知识库生成协议适配', () => {
+  it('策略写入保留原版本及成对撤销值', async () => {
+    vi.mocked(http.request).mockRejectedValue(new Error('conflict'));
+    const signal = new AbortController().signal;
+    const body = { dataClassification: 'restricted', embeddingModelConfigId: null, embeddingModelVersion: null, generationModelConfigId: null, generationModelVersion: null, version: 8 };
+    await expect(api.updateKnowledgePolicy({ knowledgeBaseId: 'base', body }, signal)).rejects.toThrow('conflict');
+    expect(http.request).toHaveBeenLastCalledWith('/api/v1/ai/knowledge-bases/base/policy', expect.objectContaining({ method: 'PUT', body: JSON.stringify(body) }), signal);
+  });
+  it('文档角色替换绑定原库、文档和授予版本', async () => {
+    vi.mocked(http.request).mockRejectedValue(new Error('conflict'));
+    const body = { roleIds: ['role'], version: 5 };
+    await expect(api.setKnowledgeDocumentRoles({ knowledgeBaseId: 'base', documentId: 'doc', body })).rejects.toThrow('conflict');
+    expect(http.request).toHaveBeenLastCalledWith('/api/v1/ai/knowledge-bases/base/documents/doc/roles', expect.objectContaining({ method: 'PUT', body: JSON.stringify(body) }), undefined);
+  });
+  it('拒绝非法成员响应和候选响应', async () => {
+    vi.mocked(http.request).mockResolvedValue({ userIds: ['invalid'], version: 1 });
+    await expect(api.getKnowledgeMembers({ knowledgeBaseId: 'base' })).rejects.toThrow();
+    await expect(api.listKnowledgeOrganizationCandidates({ knowledgeBaseId: 'base', page: 1, pageSize: 20 })).rejects.toThrow();
+  });
   it('拒绝非法目录响应', async () => {
     vi.mocked(http.request).mockResolvedValue({ items: [{ id: 'invalid' }], total: 1, page: 1, pageSize: 20 });
     await expect(listKnowledgeBases({ page: 1 })).rejects.toThrow();
