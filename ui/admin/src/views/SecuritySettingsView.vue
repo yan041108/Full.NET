@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn } from 'element-plus';
 import type { OAuthUserLink, PublicOAuthProvider } from '@fullnet/client-contracts';
@@ -30,11 +30,30 @@ const availableProviders = ref<PublicOAuthProvider[]>([]);
 const forced = computed(() =>
   session.currentUser?.passwordChangeRequired === true
   || route.query.forced === '1');
+let disposed = false;
+let operationGeneration = 0;
+let viewGeneration = 0;
+let inactive = false;
+onBeforeUnmount(() => { disposed = true; invalidateView(); });
+onDeactivated(() => { inactive = true; invalidateView(); });
+onActivated(() => { inactive = false; });
 const form = reactive({
   currentPassword: '',
   newPassword: '',
   confirmPassword: ''
 });
+
+// 恢复码和密码属于发起会话；会话切换后清除显示并使旧结果失效。
+watch([() => session.currentUser?.id, () => session.currentUser?.sessionId], ([userId], [previousId]) => {
+  if (userId !== previousId) viewGeneration++;
+  operationGeneration++; recoveryCodes.value = [];
+  form.currentPassword = ''; form.newPassword = ''; form.confirmPassword = '';
+}, { flush: 'sync' });
+function invalidateView(): void {
+  viewGeneration++; operationGeneration++; recoveryCodes.value = [];
+  form.currentPassword = ''; form.newPassword = ''; form.confirmPassword = '';
+}
+function isCurrentOperation(generation: number): boolean { return !disposed && !inactive && generation === operationGeneration; }
 
 function oauthReturnUrl(): string {
   const { origin, pathname, search } = window.location;
@@ -70,6 +89,7 @@ async function unbindLink(link: OAuthUserLink): Promise<void> {
 }
 
 async function submit(): Promise<void> {
+  if (disposed || inactive || saving.value || regeneratingRecoveryCodes.value) return;
   if (!form.currentPassword || !form.newPassword) {
     showWarning(t('securitySettings.requiredFields'));
     return;
@@ -83,32 +103,42 @@ async function submit(): Promise<void> {
     return;
   }
 
+  const generation = operationGeneration;
+  const view = viewGeneration;
+  const userId = session.currentUser?.id;
+  const wasForced = forced.value;
   saving.value = true;
+  recoveryCodes.value = [];
   try {
-    await session.changePassword(form.currentPassword, form.newPassword);
+    // 改密自己轮换 sessionId；由控制器确认本次操作有效，再核对页面和账号边界。
+    const applied = await session.changePassword(form.currentPassword, form.newPassword);
+    if (!applied || disposed || inactive || view !== viewGeneration || session.currentUser?.id !== userId) return;
     form.currentPassword = '';
     form.newPassword = '';
     form.confirmPassword = '';
     showSuccess(t('securitySettings.changeSuccess'));
-    if (forced.value) {
+    if (wasForced) {
       await router.replace('/');
     }
   } catch (error: unknown) {
-    showProblem(error, t('securitySettings.changeFailed'));
+    if (isCurrentOperation(generation)) showProblem(error, t('securitySettings.changeFailed'));
   } finally {
     saving.value = false;
   }
 }
 
 async function regenerateRecoveryCodes(): Promise<void> {
+  if (disposed || saving.value || regeneratingRecoveryCodes.value) return;
+  const generation = operationGeneration;
   regeneratingRecoveryCodes.value = true;
   recoveryCodes.value = [];
   try {
     const result = await regenerateMyMfaRecoveryCodes();
+    if (!isCurrentOperation(generation)) return;
     recoveryCodes.value = [...result.recoveryCodes];
     showSuccess(t('mfaRecovery.regenerateSuccess'));
   } catch (error: unknown) {
-    showProblem(error, t('mfaRecovery.regenerateFailed'));
+    if (isCurrentOperation(generation)) showProblem(error, t('mfaRecovery.regenerateFailed'));
   } finally {
     regeneratingRecoveryCodes.value = false;
   }
@@ -132,32 +162,35 @@ onMounted(() => {
       </template>
 
       <el-form label-width="120px" class="security-settings-form" @submit.prevent="submit">
-        <el-form-item :label="t('securitySettings.currentPassword')">
+        <el-form-item required :label="t('securitySettings.currentPassword')">
           <el-input
             v-model="form.currentPassword"
             type="password"
             show-password
+            :disabled="saving || regeneratingRecoveryCodes"
             autocomplete="current-password"
           />
         </el-form-item>
-        <el-form-item :label="t('securitySettings.newPassword')">
+        <el-form-item required :label="t('securitySettings.newPassword')">
           <el-input
             v-model="form.newPassword"
             type="password"
             show-password
+            :disabled="saving || regeneratingRecoveryCodes"
             autocomplete="new-password"
           />
         </el-form-item>
-        <el-form-item :label="t('securitySettings.confirmPassword')">
+        <el-form-item required :label="t('securitySettings.confirmPassword')">
           <el-input
             v-model="form.confirmPassword"
             type="password"
             show-password
+            :disabled="saving || regeneratingRecoveryCodes"
             autocomplete="new-password"
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="saving" @click="submit">
+          <el-button type="primary" :loading="saving" :disabled="regeneratingRecoveryCodes" native-type="submit">
             {{ t('securitySettings.submit') }}
           </el-button>
         </el-form-item>
@@ -169,9 +202,10 @@ onMounted(() => {
         <h2 class="security-settings-card__title">{{ t('mfaRecovery.title') }}</h2>
         <p class="security-settings-card__subtitle">{{ t('mfaRecovery.subtitle') }}</p>
       </template>
-      <el-button type="primary" :loading="regeneratingRecoveryCodes" @click="regenerateRecoveryCodes">
+      <el-button type="primary" :loading="regeneratingRecoveryCodes" :disabled="saving" @click="regenerateRecoveryCodes">
         {{ t('mfaRecovery.regenerate') }}
       </el-button>
+      <el-button v-if="recoveryCodes.length > 0" @click="recoveryCodes = []">{{ t('mfaRecovery.hide') }}</el-button>
       <ul v-if="recoveryCodes.length > 0" class="security-settings-recovery-codes">
         <li v-for="code in recoveryCodes" :key="code">{{ code }}</li>
       </ul>

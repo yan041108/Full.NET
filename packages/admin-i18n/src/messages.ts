@@ -2,6 +2,10 @@ import type { SupportedLocale } from './locale.js';
 
 export const zhCN = {
   "accountChallenges.email": "邮箱",
+  "accountChallenges.requiredFields": "请填写邮箱和显示名称。",
+  "auth.createAccount": "注册账号",
+  "auth.forgotPassword": "忘记密码",
+  "mfaRecovery.hide": "隐藏恢复码",
   "accountChallenges.recoveryCode": "恢复验证码",
   "accountChallenges.verificationCode": "邮箱验证码",
   "accountChallenges.sendCode": "发送验证码",
@@ -364,7 +368,7 @@ export const zhCN = {
   'securitySettings.changeSuccess': '密码已更新，其他会话已失效。',
   'securitySettings.changeFailed': '密码更新失败，请检查当前密码后重试。',
   'mfaRecovery.title': 'MFA 恢复码',
-  'mfaRecovery.subtitle': '恢复码用于在无法使用验证器时登录；重新生成会使旧恢复码全部失效。',
+  'mfaRecovery.subtitle': '此处管理当前账号的恢复码；重新生成会使旧码失效。匿名登录恢复流程尚未接通。',
   'mfaRecovery.regenerate': '重新生成恢复码',
   'mfaRecovery.regenerateSuccess': '新的恢复码已生成，请妥善保存。',
   'mfaRecovery.regenerateFailed': '恢复码生成失败，请稍后重试。',
@@ -4331,6 +4335,10 @@ export type MessageParameters = Readonly<Record<string, string | number>>;
 
 const enUS = {
   "accountChallenges.email": "Email",
+  "accountChallenges.requiredFields": "Enter your email and display name.",
+  "auth.createAccount": "Create account",
+  "auth.forgotPassword": "Forgot password",
+  "mfaRecovery.hide": "Hide recovery codes",
   "accountChallenges.recoveryCode": "Recovery code",
   "accountChallenges.verificationCode": "Email verification code",
   "accountChallenges.sendCode": "Send code",
@@ -4693,7 +4701,7 @@ const enUS = {
   'securitySettings.changeSuccess': 'Password updated. Other sessions were revoked.',
   'securitySettings.changeFailed': 'Password update failed. Check your current password and try again.',
   'mfaRecovery.title': 'MFA recovery codes',
-  'mfaRecovery.subtitle': 'Use recovery codes when your authenticator is unavailable. Regenerating invalidates all previous codes.',
+  'mfaRecovery.subtitle': 'Manage recovery codes for your current account. Regenerating invalidates previous codes. Anonymous sign-in recovery is not available yet.',
   'mfaRecovery.regenerate': 'Regenerate recovery codes',
   'mfaRecovery.regenerateSuccess': 'New recovery codes were generated. Store them securely.',
   'mfaRecovery.regenerateFailed': 'Could not regenerate recovery codes. Try again later.',

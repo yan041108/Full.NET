@@ -5,6 +5,8 @@ import { ElButton, ElInput } from 'element-plus';
 import { showProblem, showSuccess, showWarning } from '../feedback/fullNetMessage';
 import { confirmRecoverPassword, recoverPassword } from '../api/public-auth';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { isIdentityPasswordValid } from '../auth/identity-password-policy';
+import LocaleSelector from '../i18n/LocaleSelector.vue';
 import ArtLoginLeftPanel from '../framework/art-design/auth/ArtLoginLeftPanel.vue';
 
 const router = useRouter();
@@ -22,7 +24,7 @@ onBeforeUnmount(() => { disposed = true; });
 watch(email, () => { emailRevision++; challengeId.value = ''; challengeCode.value = ''; }, { flush: 'sync' });
 
 async function requestCode(): Promise<void> {
-  if (requesting.value || submitting.value) return;
+  if (disposed || requesting.value || submitting.value) return;
   const target = email.value.trim();
   if (!target) { showWarning(t('accountChallenges.emailRequired')); return; }
   const revision = emailRevision;
@@ -39,10 +41,11 @@ async function requestCode(): Promise<void> {
 }
 
 async function submit(): Promise<void> {
-  if (requesting.value || submitting.value) return;
+  if (disposed || requesting.value || submitting.value) return;
   if (!challengeId.value || !challengeCode.value.trim() || !newPassword.value) {
     showWarning(t('accountChallenges.verificationRequired')); return;
   }
+  if (!isIdentityPasswordValid(newPassword.value)) { showWarning(t('securitySettings.passwordInvalid')); return; }
   submitting.value = true;
   try {
     await confirmRecoverPassword({
@@ -65,17 +68,18 @@ async function submit(): Promise<void> {
 <template>
   <div class="art-login-page">
     <ArtLoginLeftPanel />
-    <section class="recover-form">
-      <h1>{{ t('accountChallenges.recoveryTitle') }}</h1>
+    <form class="recover-form" aria-labelledby="recover-title" @submit.prevent="submit">
+      <LocaleSelector id="recover-locale" compact />
+      <h1 id="recover-title">{{ t('accountChallenges.recoveryTitle') }}</h1>
       <ElInput v-model="email" name="email" type="email" autocomplete="email" :disabled="submitting" :placeholder="t('accountChallenges.email')" :aria-label="t('accountChallenges.email')" />
       <ElInput v-model="challengeCode" name="challengeCode" autocomplete="one-time-code" inputmode="numeric" :disabled="requesting || submitting" :placeholder="t('accountChallenges.recoveryCode')" :aria-label="t('accountChallenges.recoveryCode')" />
       <ElInput v-model="newPassword" name="newPassword" type="password" autocomplete="new-password" :disabled="submitting" :placeholder="t('accountChallenges.newPassword')" :aria-label="t('accountChallenges.newPassword')" show-password />
       <div class="actions">
         <ElButton :loading="requesting" :disabled="submitting" @click="requestCode">{{ t('accountChallenges.sendCode') }}</ElButton>
-        <ElButton type="primary" :loading="submitting" :disabled="requesting" @click="submit">{{ t('accountChallenges.updatePassword') }}</ElButton>
+        <ElButton type="primary" :loading="submitting" :disabled="requesting" native-type="submit">{{ t('accountChallenges.updatePassword') }}</ElButton>
         <ElButton link @click="router.replace('/login')">{{ t('accountChallenges.backToSignIn') }}</ElButton>
       </div>
-    </section>
+    </form>
   </div>
 </template>
 

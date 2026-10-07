@@ -1,10 +1,12 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHttpClient } from '../src/http';
 import { createAdminNavigationCatalog } from '../src/navigation-catalog';
 import { createIdentitySession } from '../src/identity-session';
 
 const localeStorageKey = 'fullnet.admin.locale';
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
+
+beforeEach(() => { vi.stubGlobal('document', { cookie: '' }); });
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -85,6 +87,23 @@ describe('headless 身份会话', () => {
     session.dispose();
   });
 
+  it('confirms an applied password change only after loading the rotated session', async () => {
+    const fetchMock = createLoginFetch(); vi.stubGlobal('fetch', fetchMock); const session = createTestSession(); await session.login('admin', 'FullNet!2026Secure');
+    fetchMock.mockResolvedValueOnce(jsonResponse(tokenResponse('rotated-token'))).mockResolvedValueOnce(jsonResponse({ ...currentUser(), sessionId: tenantId })).mockResolvedValueOnce(jsonResponse(navigation())).mockResolvedValueOnce(jsonResponse(tenants()));
+    expect(await session.changePassword('Current!Password123', 'Changed!Password123')).toBe(true);
+    expect(session.snapshot().currentUser?.sessionId).toBe(tenantId); session.dispose();
+  });
+  it('does not confirm a password result arriving after session disposal', async () => {
+    const fetchMock = createLoginFetch(); vi.stubGlobal('fetch', fetchMock); const session = createTestSession(); await session.login('admin', 'FullNet!2026Secure');
+    let resolve!: (value: Response) => void; const pending = new Promise<Response>(r => { resolve = r; }); fetchMock.mockReturnValueOnce(pending);
+    const change = session.changePassword('Current!Password123', 'Changed!Password123'); session.dispose(); resolve(jsonResponse(tokenResponse('old-token')));
+    expect(await change).toBe(false); expect(session.readAccessToken()).toBeUndefined();
+  });
+  it('does not confirm a password change when its authenticated context cannot reload', async () => {
+    const fetchMock = createLoginFetch(); vi.stubGlobal('fetch', fetchMock); const session = createTestSession(); await session.login('admin', 'FullNet!2026Secure');
+    fetchMock.mockResolvedValueOnce(jsonResponse(tokenResponse('rotated-token'))).mockResolvedValueOnce(jsonResponse({ invalid: true }));
+    expect(await session.changePassword('Current!Password123', 'Changed!Password123')).toBe(false); expect(session.snapshot().state).toBe('anonymous'); session.dispose();
+  });
   it('权限判断精确匹配完整编码', async () => {
     vi.stubGlobal('fetch', createLoginFetch());
     const session = createTestSession();

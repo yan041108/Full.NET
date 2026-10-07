@@ -1,3 +1,4 @@
+import { createPinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { showError, showProblem, showSuccess, showWarning } from '../feedback/fullNetMessage';
@@ -11,7 +12,7 @@ vi.mock('vue-router', () => ({ useRouter: () => ({ replace: vi.fn() }), useRoute
 vi.mock('../feedback/fullNetMessage', () => ({ showSuccess: vi.fn(), showError: vi.fn(), showWarning: vi.fn(), showProblem: vi.fn() }));
 const response = { challengeId: '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f60', expiresAtUtc: '2099-01-01T00:00:00Z' };
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (reason: unknown) => void; const promise = new Promise<T>((r, e) => { resolve = r; reject = e; }); return { resolve, reject, promise }; }
-function page(component: typeof RecoverPasswordView | typeof RegisterView) { return mount(component, { global: { stubs: { ArtLoginLeftPanel: true } } }); }
+function page(component: typeof RecoverPasswordView | typeof RegisterView) { return mount(component, { global: { plugins: [createPinia()], stubs: { ArtLoginLeftPanel: true } } }); }
 async function click(wrapper: VueWrapper, text: string) { const button = wrapper.findAll('button').find(item => item.text().includes(text)); expect(button).toBeDefined(); await button!.trigger('click'); }
 
 describe('账号验证码页面请求状态', () => {
@@ -33,7 +34,7 @@ describe('账号验证码页面请求状态', () => {
   });
   it('empty recovery fields never call the confirmation API', async () => {
     vi.mocked(confirmRecoverPassword).mockResolvedValueOnce(undefined);
-    const wrapper = page(RecoverPasswordView); await click(wrapper, 'Update password'); await flushPromises();
+    const wrapper = page(RecoverPasswordView); await wrapper.get('form').trigger('submit'); await flushPromises();
     expect(confirmRecoverPassword).not.toHaveBeenCalled(); expect(showWarning).toHaveBeenCalled(); wrapper.unmount();
   });
   it('an old email response cannot authorize the edited target', async () => {
@@ -101,5 +102,44 @@ describe('账号验证码页面请求状态', () => {
     wrapper.unmount();
     expect(successCalls).toBe(0); expect(errorCalls).toBe(0);
     expect(kind === 'recovery' ? confirmRecoverPassword : registerAccount).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('账号自助表单与邀请边界', () => {
+  beforeEach(() => { vi.resetAllMocks(); sessionStorage.clear(); useAdminI18n().setLocale('en-US'); });
+  it.each([null, [], { invitationId: response.challengeId, invitationToken: 123 }])('clears malformed cached invitation %j', async value => {
+    sessionStorage.setItem('fullnet.registration.invitation', JSON.stringify(value));
+    const wrapper = page(RegisterView); await flushPromises(); wrapper.unmount();
+    expect(verifyInvitation).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem('fullnet.registration.invitation')).toBeNull();
+  });
+  it('blocks challenge requests while invitation verification is pending', async () => {
+    sessionStorage.setItem('fullnet.registration.invitation', JSON.stringify({ invitationId: response.challengeId, invitationToken: 'test-token' }));
+    const pending = deferred<Awaited<ReturnType<typeof verifyInvitation>>>(); vi.mocked(verifyInvitation).mockReturnValue(pending.promise);
+    const wrapper = page(RegisterView); await flushPromises();
+    await wrapper.get('input[name="email"]').setValue('changed@example.test');
+    await click(wrapper, 'Send code');
+    expect(requestEmailChallenge).not.toHaveBeenCalled();
+    pending.resolve({ invitationId: response.challengeId, tenantId: response.challengeId, registrationWayId: response.challengeId, email: 'invite@example.test', expiresAtUtc: response.expiresAtUtc });
+    await flushPromises();
+    expect(wrapper.get('input[name="email"]').attributes('readonly')).toBeDefined(); wrapper.unmount();
+  });
+  it('blocks submissions after rejected invitation verification', async () => {
+    sessionStorage.setItem('fullnet.registration.invitation', JSON.stringify({ invitationId: response.challengeId, invitationToken: 'test-token' }));
+    vi.mocked(verifyInvitation).mockRejectedValue(new Error('expired'));
+    const wrapper = page(RegisterView); await flushPromises();
+    await wrapper.get('input[name="email"]').setValue('invite@example.test');
+    await click(wrapper, 'Send code');
+    expect(requestEmailChallenge).not.toHaveBeenCalled(); expect(sessionStorage.getItem('fullnet.registration.invitation')).toBeNull(); wrapper.unmount();
+  });
+  it.each([['registration', RegisterView], ['recovery', RecoverPasswordView]] as const)('%s submits through a native form and rejects a weak password', async (kind, component) => {
+    vi.mocked(requestEmailChallenge).mockResolvedValue(response); vi.mocked(recoverPassword).mockResolvedValue(response);
+    const wrapper = page(component);
+    await wrapper.get('input[name="email"]').setValue('user@example.test'); await click(wrapper, 'Send code'); await flushPromises();
+    await wrapper.get('input[name="challengeCode"]').setValue('123456'); await wrapper.get('input[type="password"]').setValue('weak');
+    if (kind === 'registration') await wrapper.get('input[name="displayName"]').setValue('User');
+    const form = wrapper.find('form'); expect(form.exists()).toBe(true); await form.trigger('submit'); await flushPromises();
+    expect(kind === 'registration' ? registerAccount : confirmRecoverPassword).not.toHaveBeenCalled(); wrapper.unmount();
   });
 });

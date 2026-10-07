@@ -2,13 +2,14 @@ import type { RegisterAccountRequest, RecoverPasswordConfirmRequest, VerifyRegis
 import { resolveFullNetApiUrl } from '@fullnet/client-contracts';
 import { isRecord, isGuid, isDate } from '@fullnet/client-contracts';
 import { apiBaseUrl } from './http';
+import { useAdminI18n } from '../i18n/adminI18n';
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(resolveFullNetApiUrl(apiBaseUrl, path), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Accept-Language': navigator.language || 'zh-CN'
+      'Accept-Language': useAdminI18n().locale.value
     },
     body: JSON.stringify(body)
   });
@@ -52,9 +53,19 @@ export function confirmRecoverPassword(request: RecoverPasswordConfirmRequest) {
 }
 
 export function verifyInvitation(invitationId: string, invitationToken: string) {
-  return postJson<VerifyRegistrationInvitationResponse>('/api/v1/auth/invitations/verify', {
+  return postJson<unknown>('/api/v1/auth/invitations/verify', {
     invitationId,
     invitationToken
+  }).then(value => {
+    // 校验线协议与请求绑定，拒绝将另一邀请或畸形数据带入注册表单。
+    if (!isRecord(value) || !isGuid(value.invitationId) || !isGuid(value.tenantId)
+      || !isGuid(value.registrationWayId) || typeof value.email !== 'string' || !value.email.trim()
+      || !isDate(value.expiresAtUtc) || !isGuid(invitationId)
+      || value.invitationId.toLowerCase() !== invitationId.toLowerCase()) {
+      throw new Error('client.invalid_registration_invitation_response');
+    }
+    return { invitationId: value.invitationId, tenantId: value.tenantId, email: value.email,
+      registrationWayId: value.registrationWayId, expiresAtUtc: value.expiresAtUtc } satisfies VerifyRegistrationInvitationResponse;
   });
 }
 

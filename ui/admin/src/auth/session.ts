@@ -119,8 +119,8 @@ export const useSessionStore = defineStore('identity-session', () => {
   async function changePassword(
     currentPassword: string,
     newPassword: string
-  ): Promise<void> {
-    await getController().changePassword(currentPassword, newPassword);
+  ): Promise<boolean> {
+    return getController().changePassword(currentPassword, newPassword);
   }
 
   /** 退出当前会话，并清空受认证状态保护的本地快照。 */

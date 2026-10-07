@@ -2,10 +2,10 @@
 export const IDENTITY_PASSWORD_MIN_LENGTH = 12;
 
 /** 以下模式需与服务端密码策略保持同语义，避免前后端校验结果漂移。 */
-const UPPERCASE_PATTERN = /[A-Z]/;
-const LOWERCASE_PATTERN = /[a-z]/;
-const DIGIT_PATTERN = /\d/;
-const NON_ALPHANUMERIC_PATTERN = /[^A-Za-z0-9]/;
+const UPPERCASE_PATTERN = /\p{Lu}/u;
+const LOWERCASE_PATTERN = /\p{Ll}/u;
+const DIGIT_PATTERN = /\p{Nd}/u;
+const NON_ALPHANUMERIC_PATTERN = /[^\p{L}\p{Nd}]/u;
 
 /** 校验密码是否满足平台 Identity 密码策略。 */
 export function isIdentityPasswordValid(password: string): boolean {
@@ -13,19 +13,21 @@ export function isIdentityPasswordValid(password: string): boolean {
     return false;
   }
 
-  if (!UPPERCASE_PATTERN.test(password)) {
+  // 服务端按 char（UTF-16 单元）分类；不能将代理对合并为 Unicode 码点。
+  const characters = password.split('');
+  if (!characters.some(character => UPPERCASE_PATTERN.test(character))) {
     return false;
   }
 
-  if (!LOWERCASE_PATTERN.test(password)) {
+  if (!characters.some(character => LOWERCASE_PATTERN.test(character))) {
     return false;
   }
 
-  if (!DIGIT_PATTERN.test(password)) {
+  if (!characters.some(character => DIGIT_PATTERN.test(character))) {
     return false;
   }
 
-  if (!NON_ALPHANUMERIC_PATTERN.test(password)) {
+  if (!characters.some(character => NON_ALPHANUMERIC_PATTERN.test(character))) {
     return false;
   }
 

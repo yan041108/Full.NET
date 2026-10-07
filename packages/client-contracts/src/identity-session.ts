@@ -46,7 +46,8 @@ export interface IdentitySessionController {
   reloadAuthenticatedContext(): Promise<void>;
   switchTenant(tenantId: string | null): Promise<void>;
   changeLocale(locale: SupportedLocale): Promise<void>;
-  changePassword(currentPassword: string, newPassword: string): Promise<void>;
+  /** 仅在本次改密及会话快照仍有效时确认成功，取消或上下文刷新失败返回 false。 */
+  changePassword(currentPassword: string, newPassword: string): Promise<boolean>;
   logout(): Promise<void>;
   /** 在服务端已撤销会话时仅清理本地凭据，不再调用 Logout 端点。 */
   invalidateLocalSession(): void;
@@ -376,23 +377,26 @@ export function createIdentitySession(
   async function changePassword(
     currentPassword: string,
     newPassword: string
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (state !== 'authenticated' || currentUser === undefined) {
       throw new Error('identity.session_not_authenticated');
     }
 
     const operationGeneration = sessionGeneration;
+    const userId = currentUser.id;
     const value = await changePasswordRequest(
       http,
       currentPassword,
       newPassword
     );
     if (operationGeneration !== sessionGeneration) {
-      return;
+      return false;
     }
 
     token = value;
     await reloadAuthenticatedContext();
+    return operationGeneration === sessionGeneration
+      && state === 'authenticated' && currentUser?.id === userId;
   }
 
   async function changeTenantContext(

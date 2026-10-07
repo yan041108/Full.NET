@@ -5,6 +5,9 @@ import { ElButton, ElInput } from 'element-plus';
 import { showProblem, showSuccess, showWarning } from '../feedback/fullNetMessage';
 import { registerAccount, requestEmailChallenge, verifyInvitation } from '../api/public-auth';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { isGuid, isRecord } from '@fullnet/client-contracts';
+import { isIdentityPasswordValid } from '../auth/identity-password-policy';
+import LocaleSelector from '../i18n/LocaleSelector.vue';
 import ArtLoginLeftPanel from '../framework/art-design/auth/ArtLoginLeftPanel.vue';
 
 const RegistrationEmailVerification = 1;
@@ -23,6 +26,7 @@ const invitationToken = ref('');
 const registrationWayId = ref('');
 const submitting = ref(false);
 const requesting = ref(false);
+const invitationState = ref<'none' | 'checking' | 'valid' | 'invalid'>('none');
 let disposed = false;
 let emailRevision = 0;
 onBeforeUnmount(() => { disposed = true; });
@@ -33,30 +37,22 @@ onMounted(async () => {
   const queryToken = typeof route.query.invitationToken === 'string' ? route.query.invitationToken : '';
   const queryId = typeof route.query.invitationId === 'string' ? route.query.invitationId : '';
   if (queryToken && queryId) {
-    sessionStorage.setItem(
-      invitationSessionKey,
-      JSON.stringify({ invitationId: queryId, invitationToken: queryToken })
-    );
+    invitationState.value = 'checking';
+    sessionStorage.setItem(invitationSessionKey, JSON.stringify({ invitationId: queryId, invitationToken: queryToken }));
     await router.replace({ path: route.path });
+    if (disposed) return;
   }
-
   const stored = sessionStorage.getItem(invitationSessionKey);
-  if (!stored) {
-    return;
-  }
-
-  let parsed: { invitationId?: string; invitationToken?: string };
-  try {
-    parsed = JSON.parse(stored) as { invitationId?: string; invitationToken?: string };
-  } catch {
+  if (!stored) return;
+  let parsed: unknown;
+  try { parsed = JSON.parse(stored); } catch { parsed = undefined; }
+  if (!isRecord(parsed) || !isGuid(parsed.invitationId)
+    || typeof parsed.invitationToken !== 'string' || !parsed.invitationToken.trim()) {
     sessionStorage.removeItem(invitationSessionKey);
+    invitationState.value = 'none';
     return;
   }
-
-  if (!parsed.invitationId || !parsed.invitationToken) {
-    return;
-  }
-
+  invitationState.value = 'checking';
   invitationToken.value = parsed.invitationToken;
   invitationId.value = parsed.invitationId;
   try {
@@ -64,13 +60,18 @@ onMounted(async () => {
     if (disposed) return;
     email.value = info.email;
     registrationWayId.value = info.registrationWayId;
+    invitationState.value = 'valid';
   } catch (error: unknown) {
-    if (!disposed) showProblem(error, t('accountChallenges.invitationInvalid'));
+    if (disposed) return;
+    invitationState.value = 'invalid';
+    invitationId.value = ''; invitationToken.value = ''; registrationWayId.value = '';
+    sessionStorage.removeItem(invitationSessionKey);
+    showProblem(error, t('accountChallenges.invitationInvalid'));
   }
 });
 
 async function sendChallenge(): Promise<void> {
-  if (requesting.value || submitting.value) return;
+  if (disposed || requesting.value || submitting.value || invitationState.value === 'checking' || invitationState.value === 'invalid') return;
   const target = email.value.trim();
   if (!target) { showWarning(t('accountChallenges.emailRequired')); return; }
   const revision = emailRevision;
@@ -88,12 +89,14 @@ async function sendChallenge(): Promise<void> {
 }
 
 async function submit(): Promise<void> {
-  if (requesting.value || submitting.value) return;
+  if (disposed || requesting.value || submitting.value || invitationState.value === 'checking' || invitationState.value === 'invalid') return;
   if (!challengeId.value || !challengeCode.value.trim()) {
     showWarning(t('accountChallenges.verificationRequired'));
     return;
   }
 
+  if (!email.value.trim() || !displayName.value.trim()) { showWarning(t('accountChallenges.requiredFields')); return; }
+  if (!isIdentityPasswordValid(password.value)) { showWarning(t('securitySettings.passwordInvalid')); return; }
   submitting.value = true;
   try {
     await registerAccount({
@@ -122,18 +125,19 @@ async function submit(): Promise<void> {
 <template>
   <div class="art-login-page">
     <ArtLoginLeftPanel />
-    <section class="register-form">
-      <h1>{{ t('accountChallenges.registrationTitle') }}</h1>
-      <ElInput v-model="displayName" name="displayName" autocomplete="name" :disabled="submitting" :placeholder="t('accountChallenges.displayName')" :aria-label="t('accountChallenges.displayName')" />
-      <ElInput v-model="email" name="email" type="email" autocomplete="email" :disabled="submitting" :placeholder="t('accountChallenges.email')" :aria-label="t('accountChallenges.email')" />
-      <ElInput v-model="password" name="password" type="password" autocomplete="new-password" show-password :disabled="submitting" :placeholder="t('accountChallenges.password')" :aria-label="t('accountChallenges.password')" />
+    <form class="register-form" aria-labelledby="register-title" @submit.prevent="submit">
+      <LocaleSelector id="register-locale" compact />
+      <h1 id="register-title">{{ t('accountChallenges.registrationTitle') }}</h1>
+      <ElInput v-model="displayName" name="displayName" autocomplete="name" :disabled="submitting || invitationState === 'checking' || invitationState === 'invalid'" :placeholder="t('accountChallenges.displayName')" :aria-label="t('accountChallenges.displayName')" />
+      <ElInput v-model="email" name="email" type="email" :readonly="invitationState === 'valid'" autocomplete="email" :disabled="submitting || invitationState === 'checking' || invitationState === 'invalid'" :placeholder="t('accountChallenges.email')" :aria-label="t('accountChallenges.email')" />
+      <ElInput v-model="password" name="password" type="password" autocomplete="new-password" show-password :disabled="submitting || invitationState === 'checking' || invitationState === 'invalid'" :placeholder="t('accountChallenges.password')" :aria-label="t('accountChallenges.password')" />
       <ElInput v-model="challengeCode" name="challengeCode" autocomplete="one-time-code" inputmode="numeric" :disabled="submitting || requesting" :placeholder="t('accountChallenges.verificationCode')" :aria-label="t('accountChallenges.verificationCode')" />
       <div class="actions">
-        <ElButton :loading="requesting" :disabled="submitting" @click="sendChallenge">{{ t('accountChallenges.sendCode') }}</ElButton>
-        <ElButton type="primary" :loading="submitting" :disabled="requesting" @click="submit">{{ t('accountChallenges.register') }}</ElButton>
+        <ElButton :loading="requesting" :disabled="submitting || invitationState === 'checking' || invitationState === 'invalid'" @click="sendChallenge">{{ t('accountChallenges.sendCode') }}</ElButton>
+        <ElButton type="primary" :loading="submitting" :disabled="requesting || invitationState === 'checking' || invitationState === 'invalid'" native-type="submit">{{ t('accountChallenges.register') }}</ElButton>
         <ElButton link @click="router.replace('/login')">{{ t('accountChallenges.backToSignIn') }}</ElButton>
       </div>
-    </section>
+    </form>
   </div>
 </template>
 

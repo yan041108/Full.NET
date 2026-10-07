@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { recoverPassword, requestEmailChallenge } from './public-auth';
+import { recoverPassword, requestEmailChallenge, verifyInvitation } from './public-auth';
+import { useAdminI18n } from '../i18n/adminI18n';
 const id = '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f60';
 describe('公开验证码响应运行时校验', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -18,4 +19,28 @@ describe('公开验证码响应运行时校验', () => {
     const result = kind === 'recovery' ? await recoverPassword('user@example.test') : await requestEmailChallenge('user@example.test', 1);
     expect(result).toEqual({ challengeId: id, expiresAtUtc: '2099-01-01T00:00:00Z' });
   });
+});
+
+
+describe('邀请校验响应', () => {
+  const valid = { invitationId: id, tenantId: id, registrationWayId: id, email: 'invite@example.test', expiresAtUtc: '2099-01-01T00:00:00Z' };
+  afterEach(() => vi.unstubAllGlobals());
+  it.each([null, {}, {...valid, invitationId: 'invalid'}, {...valid, tenantId: null}, {...valid, registrationWayId: 'invalid'}, {...valid, email: ''}, {...valid, expiresAtUtc: 'invalid'}])('rejects malformed invitation %j', async payload => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 })));
+    await expect(verifyInvitation(id, 'test-token')).rejects.toThrow('client.invalid_registration_invitation_response');
+  });
+  it('rejects a valid-looking response bound to another invitation', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({...valid, invitationId: '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f61'}), { status: 200 })));
+    await expect(verifyInvitation(id, 'test-token')).rejects.toThrow('client.invalid_registration_invitation_response');
+  });
+  it('returns only validated invitation fields', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({...valid, extra: 'ignored'}), { status: 200 })));
+    await expect(verifyInvitation(id, 'test-token')).resolves.toEqual(valid);
+  });
+});
+
+it('sends the selected page locale instead of the browser locale', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ challengeId: id, expiresAtUtc: '2099-01-01T00:00:00Z' }), { status: 202 }));
+  vi.stubGlobal('fetch', fetchMock); useAdminI18n().setLocale('zh-CN');
+  try { await recoverPassword('user@example.test'); expect(fetchMock.mock.calls[0]![1].headers['Accept-Language']).toBe('zh-CN'); } finally { vi.unstubAllGlobals(); }
 });

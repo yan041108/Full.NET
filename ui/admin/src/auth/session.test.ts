@@ -49,6 +49,11 @@ describe('Vue 管理端会话', () => {
     );
   });
 
+  it('forwards confirmed password rotation from the session controller', async () => {
+    const fetchMock = createLoginFetch(); vi.stubGlobal('fetch', fetchMock); const session = useSessionStore(); await session.login('admin', 'FullNet!2026Secure');
+    fetchMock.mockResolvedValueOnce(jsonResponse(tokenResponse('rotated-token'))).mockResolvedValueOnce(jsonResponse(currentUser())).mockResolvedValueOnce(jsonResponse(navigation())).mockResolvedValueOnce(jsonResponse(tenants()));
+    expect(await session.changePassword('Current!Password123', 'Changed!Password123')).toBe(true);
+  });
   it('权限判断使用精确且区分大小写的权限码', async () => {
     vi.stubGlobal('fetch', createLoginFetch());
     const session = useSessionStore();
