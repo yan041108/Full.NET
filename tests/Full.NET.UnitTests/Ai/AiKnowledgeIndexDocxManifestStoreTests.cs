@@ -166,7 +166,9 @@ public sealed class AiKnowledgeIndexDocxManifestStoreTests
             Plan = AiKnowledgeIndexDocxPlan.Create(Input, default)!; Clock.UtcNow.Returns(Now);
             Source = new() { TaskId = TaskId, DocumentId = Binding.DocumentId, VersionId = Binding.VersionId, DocumentVersion = 1,
                 KnowledgeBaseVersion = 1, LeaseToken = Lease, LeaseExpiresAtUtc = Now.AddSeconds(30), ModelConfigId = Input.ModelConfigId,
-                ModelConfigVersion = 1, FileId = Guid.CreateVersion7(), ContentHash = Input.Document.ContentHash, ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document", SizeBytes = Input.Document.SizeBytes };
+                ModelConfigVersion = 1, FileId = Guid.CreateVersion7(), ContentHash = Input.Document.ContentHash, ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document", SizeBytes = Input.Document.SizeBytes,
+                DataClassification = "internal", ModelProviderKey = Input.ProviderKey, ModelId = Input.ModelId,
+                ModelEndpointBaseUrl = "https://api.openai.com/v1" };
             var model = new AiModelConfigRecord { Id = Input.ModelConfigId, Version = 1, IsEnabled = true, TenantId = tenantId,
                 ProviderKey = Input.ProviderKey, ModelId = Input.ModelId, EndpointBaseUrl = "https://api.openai.com/v1" };
             var session = new SessionBindingSnapshot(Binding.OwnerUserId, tenantId, Guid.CreateVersion7(), "stamp", "host", "host");
@@ -199,7 +201,9 @@ public sealed class AiKnowledgeIndexDocxManifestStoreTests
                 DocumentVersion = before.DocumentVersion, KnowledgeBaseVersion = before.KnowledgeBaseVersion,
                 ModelConfigId = before.ModelConfigId, ModelConfigVersion = before.ModelConfigVersion, LeaseToken = before.LeaseToken,
                 LeaseExpiresAtUtc = before.LeaseExpiresAtUtc, FileId = fileId ?? before.FileId, ContentHash = before.ContentHash,
-                ContentType = contentType ?? before.ContentType, SizeBytes = before.SizeBytes };
+                ContentType = contentType ?? before.ContentType, SizeBytes = before.SizeBytes,
+                DataClassification = before.DataClassification, ModelProviderKey = before.ModelProviderKey, ModelId = before.ModelId,
+                ModelEndpointBaseUrl = before.ModelEndpointBaseUrl, ModelOrganizationId = before.ModelOrganizationId };
         }
         internal void Lose(string fault)
         { if (fault == "permission") Denied = true; else if (fault == "session") SessionDenied = true; else if (fault == "source") SourceDenied = true; else if (fault == "model") ModelDenied = true; else Clock.UtcNow.Returns(Now.AddSeconds(30)); }

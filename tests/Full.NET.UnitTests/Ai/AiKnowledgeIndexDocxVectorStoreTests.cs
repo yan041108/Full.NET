@@ -245,7 +245,9 @@ public sealed partial class AiKnowledgeIndexDocxVectorStoreTests
         internal AiKnowledgeIndexDispatchRecord NewSource(string? mime = null, Guid? file = null) => new()
         { TaskId = TaskId, DocumentId = Binding.DocumentId, VersionId = Binding.VersionId, DocumentVersion = 1, KnowledgeBaseVersion = 1,
             ModelConfigId = Input.ModelConfigId, ModelConfigVersion = 1, LeaseToken = Lease, LeaseExpiresAtUtc = Now.AddSeconds(30),
-            FileId = file ?? Source?.FileId ?? Guid.CreateVersion7(), ContentHash = Input.Document.ContentHash, ContentType = mime ?? "application/vnd.openxmlformats-officedocument.wordprocessingml.document", SizeBytes = Input.Document.SizeBytes };
+            FileId = file ?? Source?.FileId ?? Guid.CreateVersion7(), ContentHash = Input.Document.ContentHash, ContentType = mime ?? "application/vnd.openxmlformats-officedocument.wordprocessingml.document", SizeBytes = Input.Document.SizeBytes,
+                DataClassification = "internal", ModelProviderKey = Input.ProviderKey, ModelId = Input.ModelId,
+                ModelEndpointBaseUrl = "https://api.openai.com/v1" };
         internal void Lose(string fault)
         { if (fault == "permission") Denied = true; else if (fault == "session") SessionDenied = true; else if (fault == "source") SourceDenied = true;
             else if (fault == "model") ModelDenied = true; else if (fault == "ledger") LedgerDenied = true; else Clock.UtcNow.Returns(Now.AddSeconds(30)); }

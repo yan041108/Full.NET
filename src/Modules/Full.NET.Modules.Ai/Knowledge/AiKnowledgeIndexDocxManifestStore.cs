@@ -74,8 +74,8 @@ internal sealed class AiKnowledgeIndexDocxManifestStore(IQueryExecutor query, IC
     {
         var state = await CurrentAsync(binding, taskId, leaseToken, expectedSource, expectedSession, token).ConfigureAwait(false);
         if (state is null) return null;
-        var row = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexTextManifestRecord>(tasks.IsTenant ? AiKnowledgeIndexDocxManifestSql.FindTenant : AiKnowledgeIndexDocxManifestSql.FindHost,
-            Parameters(binding, state, token), token).ConfigureAwait(false);
+        var row = await ReadAuthorityAsync(ct => query.QuerySingleOrDefaultAsync<AiKnowledgeIndexTextManifestRecord>(tasks.IsTenant ? AiKnowledgeIndexDocxManifestSql.FindTenant : AiKnowledgeIndexDocxManifestSql.FindHost,
+            Parameters(binding, state, token), ct), token).ConfigureAwait(false);
         token.ThrowIfCancellationRequested(); NoTransaction();
         if (row is null || row.Id != taskId || row.FormatKey != AiKnowledgeIndexDocxManifestCodec.FormatKey
             || row.Payload.Length is < 8 or > AiKnowledgeIndexDocxManifestCodec.MaxPayloadBytes) return null;
@@ -93,26 +93,36 @@ internal sealed class AiKnowledgeIndexDocxManifestStore(IQueryExecutor query, IC
     private async Task<State?> CurrentAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken,
         AiKnowledgeIndexDispatchRecord? expectedSource, SessionBindingSnapshot? expectedSession, CancellationToken token)
     {
-        NoTransaction(); var source = await tasks.ReadDispatchAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
-        if (source is null || (expectedSource is not null && !AiKnowledgeIndexEmbeddingService.SameSource(expectedSource, source))) return null;
-        var session = await sessions.ReadHeldAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
+        NoTransaction(); var source = await ReadAuthorityAsync(ct => tasks.ReadDispatchAsync(binding, taskId, leaseToken, ct), token).ConfigureAwait(false);
+        if (source is null || (expectedSource is not null && !SameAuthoritySource(expectedSource, source))) return null;
+        var session = await ReadAuthorityAsync(ct => sessions.ReadHeldAsync(binding, taskId, leaseToken, ct), token).ConfigureAwait(false);
         if (session is null || (expectedSession is not null && expectedSession != session)) return null;
-        var model = await query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(tasks.IsTenant ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
-            AiSqlParameters.Create(("ModelConfigId", source.ModelConfigId)), token).ConfigureAwait(false);
+        var model = await ReadAuthorityAsync(ct => query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(tasks.IsTenant ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
+            AiSqlParameters.Create(("ModelConfigId", source.ModelConfigId)), ct), token).ConfigureAwait(false);
         if (model is null || !model.IsEnabled || model.Id != source.ModelConfigId || model.Version != source.ModelConfigVersion
             || model.TenantId == Guid.Empty || (model.TenantId.HasValue && model.TenantId != tenant.Id)
             || model.ProviderKey != "openai_compatible" || model.ModelId is not ("text-embedding-3-small" or "text-embedding-3-large")) return null;
-        if (await sessions.ReadHeldAsync(binding, taskId, leaseToken, token).ConfigureAwait(false) != session) return null;
+        if (await ReadAuthorityAsync(ct => sessions.ReadHeldAsync(binding, taskId, leaseToken, ct), token).ConfigureAwait(false) != session) return null;
         foreach (var permission in Permissions)
         {
             token.ThrowIfCancellationRequested(); NoTransaction();
-            var actor = await authorization.AuthorizeAsync(session, permission, token).ConfigureAwait(false);
+            var actor = await ReadAuthorityAsync(ct => authorization.AuthorizeAsync(session, permission, ct), token).ConfigureAwait(false);
             if (actor is null || actor.UserId != session.UserId || actor.TenantId != session.TenantId || actor.SessionId != session.SessionId) return null;
         }
         token.ThrowIfCancellationRequested(); NoTransaction();
-        var final = await tasks.ReadDispatchAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
-        return final is not null && AiKnowledgeIndexEmbeddingService.SameSource(source, final) ? new(final, session, model) : null;
+        var final = await ReadAuthorityAsync(ct => tasks.ReadDispatchAsync(binding, taskId, leaseToken, ct), token).ConfigureAwait(false);
+        return final is not null && SameAuthoritySource(source, final)
+            && model.ProviderKey == final.ModelProviderKey && model.ModelId == final.ModelId
+            && model.EndpointBaseUrl == final.ModelEndpointBaseUrl && model.OrganizationId == final.ModelOrganizationId
+            ? new(final, session, model) : null;
     }
+    // 最后权限或来源等待之后仍核对完整投影，版本号相同不能掩盖目的地和分类漂移。
+    private static bool SameAuthoritySource(AiKnowledgeIndexDispatchRecord expected, AiKnowledgeIndexDispatchRecord current) =>
+        AiKnowledgeIndexEmbeddingService.SameSource(expected, current)
+        && expected.DataClassification == current.DataClassification && expected.ModelProviderKey == current.ModelProviderKey
+        && expected.ModelId == current.ModelId && expected.ModelEndpointBaseUrl == current.ModelEndpointBaseUrl
+        && expected.ModelOrganizationId == current.ModelOrganizationId;
+
     private bool Matches(AiKnowledgeDocxModelChunks identity, AiKnowledgeIndexTaskBinding binding, State state) =>
         identity.KnowledgeBaseId == binding.KnowledgeBaseId && identity.KnowledgeBaseVersion == state.Source.KnowledgeBaseVersion
         && identity.TenantId == tenant.Id && identity.ModelConfigId == state.Model.Id && identity.ModelConfigVersion == state.Model.Version
@@ -129,6 +139,14 @@ internal sealed class AiKnowledgeIndexDocxManifestStore(IQueryExecutor query, IC
         p["FileId"] = state.Source.FileId; p["ContentHash"] = state.Source.ContentHash; p["ContentType"] = state.Source.ContentType; p["SizeBytes"] = state.Source.SizeBytes;
         return p;
     }
+    // 只隔离事务外读取；命令与写事务必须由原调用者等待，不能以超时放弃后仍在后台提交。
+    private async Task<T> ReadAuthorityAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); NoTransaction();
+        var result = await AiKnowledgeIndexPdfAuthorityBoundary.RunAsync(action, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested(); NoTransaction(); return result;
+    }
+
     private void NoTransaction()
     { if (transactions.HasTransaction) throw new InvalidOperationException("Manifest persistence cannot join an ambient transaction."); }
     private sealed record State(AiKnowledgeIndexDispatchRecord Source, SessionBindingSnapshot Session, AiModelConfigRecord Model);
