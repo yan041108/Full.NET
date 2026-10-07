@@ -4,7 +4,8 @@ export type SessionRefreshCoordinatorMessage =
 
 export interface SessionRefreshCoordinator {
   readonly tabId: string;
-  runExclusive<T>(operation: () => Promise<T>): Promise<T>;
+  /** 通知引起的跟随刷新须关闭完成广播，保留互斥而不触发标签页回环。 */
+  runExclusive<T>(operation: () => Promise<T>, options?: { broadcastCompletion?: boolean }): Promise<T>;
   notifySessionCleared(): void;
   subscribe(
     listener: (message: SessionRefreshCoordinatorMessage) => void
@@ -218,14 +219,16 @@ export function createSessionRefreshCoordinator(
     listeners.forEach(listener => listener(message));
   }
 
-  async function runExclusive<T>(operation: () => Promise<T>): Promise<T> {
+  async function runExclusive<T>(operation: () => Promise<T>, options?: { broadcastCompletion?: boolean }): Promise<T> {
     const execute = async () => {
       const result = await operation();
-      publish({
-        type: 'refresh-complete',
-        success: result === true,
-        sourceId: tabId
-      });
+      if (options?.broadcastCompletion !== false) {
+        publish({
+          type: 'refresh-complete',
+          success: result === true,
+          sourceId: tabId
+        });
+      }
       return result;
     };
 

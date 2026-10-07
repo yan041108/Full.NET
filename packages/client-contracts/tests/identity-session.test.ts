@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHttpClient } from '../src/http';
 import { createAdminNavigationCatalog } from '../src/navigation-catalog';
 import { createIdentitySession } from '../src/identity-session';
+import { createSessionRefreshCoordinator } from '../src/session-refresh-coordinator';
+import type { SessionRefreshCoordinator } from '../src/session-refresh-coordinator';
 
 const localeStorageKey = 'fullnet.admin.locale';
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
@@ -14,6 +16,85 @@ afterEach(() => {
 });
 
 describe('headless 身份会话', () => {
+  it('恢复通知的同步重入共用任务，失败后可重新恢复', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(jsonResponse(tokenResponse('retry-access'))).mockResolvedValueOnce(jsonResponse(currentUser()))
+      .mockResolvedValueOnce(jsonResponse(navigation())).mockResolvedValueOnce(jsonResponse(tenants()));
+    vi.stubGlobal('fetch', fetchMock); const session = createTestSession(); const reentries: Promise<boolean>[] = [];
+    session.subscribe(snapshot => { if (snapshot.state === 'initializing') reentries.push(session.restore()); });
+    expect(await session.restore()).toBe(false); expect(await Promise.all(reentries)).toEqual([false, false]);
+    expect(await session.restore()).toBe(true); expect(session.readAccessToken()).toBe('retry-access');
+    expect(fetchMock.mock.calls.filter(call => call[0] === '/api/v1/auth/refresh')).toHaveLength(2); session.dispose();
+  });
+
+  it('旧恢复仍在网络中时，新代次可以独立恢复且不被旧结果覆盖', async () => {
+    let finishOld!: (value: Response) => void;
+    const fetchMock = vi.fn().mockImplementationOnce(() => new Promise<Response>(resolve => { finishOld = resolve; }))
+      .mockResolvedValueOnce(jsonResponse(tokenResponse('new-access'))).mockResolvedValueOnce(jsonResponse(currentUser()))
+      .mockResolvedValueOnce(jsonResponse(navigation())).mockResolvedValueOnce(jsonResponse(tenants()));
+    vi.stubGlobal('fetch', fetchMock); const session = createTestSession(); const old = session.restore();
+    await vi.waitFor(() => expect(finishOld).toBeTypeOf('function')); session.invalidateLocalSession();
+    expect(await session.restore()).toBe(true); finishOld(jsonResponse(tokenResponse('old-access')));
+    expect(await old).toBe(false); expect(session.readAccessToken()).toBe('new-access'); expect(session.snapshot().state).toBe('authenticated'); session.dispose();
+  });
+  it('同一代次的并发恢复只刷新一次并共用完整快照', async () => {
+    let finish!: (value: Response) => void;
+    const fetchMock = vi.fn().mockImplementationOnce(() => new Promise<Response>(resolve => { finish = resolve; }))
+      .mockResolvedValueOnce(jsonResponse(currentUser())).mockResolvedValueOnce(jsonResponse(navigation())).mockResolvedValueOnce(jsonResponse(tenants()));
+    vi.stubGlobal('fetch', fetchMock); const session = createTestSession();
+    const first = session.restore(); const second = session.restore();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled()); finish(jsonResponse(tokenResponse('restored-access')));
+    expect(await Promise.all([first, second])).toEqual([true, true]);
+    expect(fetchMock.mock.calls.filter(call => call[0] === '/api/v1/auth/refresh')).toHaveLength(1);
+    expect(fetchMock.mock.calls.filter(call => call[0] === '/api/v1/me')).toHaveLength(1); session.dispose();
+  });
+
+  it('等待刷新锁的旧任务在注销后不再外发刷新', async () => {
+    let release!: () => void;
+    const coordinator: SessionRefreshCoordinator = {
+      tabId: 'queued', runExclusive: async operation => { await new Promise<void>(resolve => { release = resolve; }); return operation(); },
+      notifySessionCleared: () => {}, subscribe: () => () => {}, dispose: () => {}
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(tokenResponse('late-access'))); vi.stubGlobal('fetch', fetchMock);
+    const session = createIdentitySession({ http: createHttpClient(), i18n: { getLocale: () => 'zh-CN', setLocale: () => {} }, isSupportedNavigationTree: () => true, sessionRefreshCoordinator: coordinator });
+    const pending = session.restore(); await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    session.invalidateLocalSession(); release(); expect(await pending).toBe(false); expect(fetchMock).not.toHaveBeenCalled();
+    expect(session.snapshot().state).toBe('anonymous'); session.dispose();
+  });
+
+  it('收到跨标签刷新后静默恢复，不产生第二个完成广播', async () => {
+    const pendingMessages: Array<() => void> = []; let broadcasts = 0;
+    const channels = new Set<TestChannel>();
+    class TestChannel {
+      onmessage?: (event: { data: unknown }) => void;
+      constructor() { channels.add(this); }
+      postMessage(data: unknown) {
+        broadcasts++;
+        for (const peer of channels) if (peer !== this) pendingMessages.push(() => peer.onmessage?.({ data }));
+      }
+      close() { channels.delete(this); }
+    }
+    vi.stubGlobal('BroadcastChannel', TestChannel); vi.stubGlobal('navigator', { locks: { request: async (_name: string, callback: () => unknown) => callback() } });
+    const fetchMock = vi.fn(async (path: string) => jsonResponse(path === '/api/v1/me' ? currentUser()
+      : path === '/api/v1/navigation' ? navigation() : path === '/api/v1/tenancy/available' ? tenants() : tokenResponse('refreshed')));
+    vi.stubGlobal('fetch', fetchMock);
+    const leader = createSessionRefreshCoordinator({ tabId: 'leader' }); const follower = createSessionRefreshCoordinator({ tabId: 'follower' });
+    const session = createIdentitySession({ http: createHttpClient(), i18n: { getLocale: () => 'zh-CN', setLocale: () => {} }, isSupportedNavigationTree: () => true, sessionRefreshCoordinator: follower });
+    try {
+      await session.login('admin', 'Password!123'); await leader.runExclusive(async () => true);
+      pendingMessages.shift()?.(); await vi.waitFor(() => expect(session.snapshot().state).toBe('authenticated'));
+      expect(fetchMock.mock.calls.filter(call => call[0] === '/api/v1/auth/refresh')).toHaveLength(1);
+      expect(broadcasts).toBe(1); expect(pendingMessages).toHaveLength(0);
+    } finally { session.dispose(); leader.dispose(); follower.dispose(); }
+  });
+
+  it('恢复尚未确认时精确权限门失败关闭', async () => {
+    const fetchMock = createLoginFetch(); vi.stubGlobal('fetch', fetchMock); const session = createTestSession(); await session.login('admin', 'Password!123');
+    let finish!: (value: Response) => void; fetchMock.mockImplementationOnce(() => new Promise<Response>(resolve => { finish = resolve; }));
+    const pending = session.restore(); await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+    expect(session.can('tenancy.tenants.read')).toBe(false);
+    session.invalidateLocalSession(); finish(jsonResponse(tokenResponse('late-access'))); await pending; session.dispose();
+  });
   it.each(['login', 'oidc'] as const)('取消 %s 后迟到快照不能建立会话', async flow => {
     let finish!: (value: Response) => void;
     const fetchMock = vi.fn().mockImplementation(() => new Promise<Response>(resolve => { finish = resolve; }));

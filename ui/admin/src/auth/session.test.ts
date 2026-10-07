@@ -19,6 +19,14 @@ afterEach(() => {
 });
 
 describe('Vue 管理端会话', () => {
+  it('恢复期间不沿用旧权限，恢复确认后重新开放', async () => {
+    const fetchMock = createLoginFetch(); vi.stubGlobal('fetch', fetchMock); const session = useSessionStore(); await session.login('admin', 'Password!123');
+    let finish!: (value: Response) => void; fetchMock.mockImplementationOnce(() => new Promise<Response>(resolve => { finish = resolve; }))
+      .mockResolvedValueOnce(jsonResponse(currentUser())).mockResolvedValueOnce(jsonResponse(navigation())).mockResolvedValueOnce(jsonResponse(tenants()));
+    const pending = session.restore(); await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+    expect(session.can('tenancy.tenants.read')).toBe(false);
+    finish(jsonResponse(tokenResponse('restored-access'))); expect(await pending).toBe(true); expect(session.can('tenancy.tenants.read')).toBe(true);
+  });
   it('登录后仅在内存保存令牌并按顺序加载授权快照', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(tokenResponse('access-token')))

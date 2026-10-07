@@ -20,6 +20,7 @@ const listMock = vi.mocked(listReportingDataSources);
 function mountView(permissions: string[] = []) {
   const pinia = createPinia();
   setActivePinia(pinia);
+  useSessionStore().state = 'authenticated';
   useSessionStore().currentUser = {
     id: '019bc2b1-2a40-7cc3-8992-a80de51bf296', username: 'reader', displayName: '查看者',
     tenantId: null, actorScope: 'host', scope: 'host', isSuperAdministrator: false,

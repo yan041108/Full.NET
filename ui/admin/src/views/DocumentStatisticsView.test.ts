@@ -22,6 +22,7 @@ describe('Vue 文档统计页', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const session = useSessionStore();
+    session.state = 'authenticated';
     session.currentUser = {
       id: '01912345-6789-7abc-8def-0123456789ae',
       username: 'doc-admin',

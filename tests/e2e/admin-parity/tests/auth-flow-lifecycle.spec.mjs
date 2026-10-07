@@ -60,3 +60,32 @@ test('离开登录页后迟到错误不影响恢复密码页', async ({ page }) 
   await expect(page.getByRole('heading', { name: '恢复密码', exact: true })).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
+
+test('跨标签刷新保持互斥且不回传完成广播，退出同步到另一标签', async ({ page, context }) => {
+  let refreshes = 0;
+  await context.route('**/api/v1/**', route => route.fulfill({ status: 404 }));
+  await context.route('**/api/v1/auth/refresh', route => { refreshes++; return json(route, token); });
+  await context.route('**/api/v1/me', route => json(route, user));
+  await context.route('**/api/v1/navigation', route => json(route, navigation));
+  // 既有 page 级兜底优先于 context，移除后由两标签共用同一受控 HTTP。
+  await page.unrouteAll();
+  const peer = await context.newPage();
+  try {
+    await page.goto('/#/oauth/callback?oauth=success'); await expect(page.locator('.art-admin-shell')).toBeVisible();
+    await peer.goto('/#/oauth/callback?oauth=success'); await expect(peer.locator('.art-admin-shell')).toBeVisible();
+    await expect(page.locator('.art-admin-shell')).toBeVisible();
+    const before = refreshes;
+    await page.evaluate(() => {
+      const channel = new BroadcastChannel('fullnet.session.refresh');
+      window.__sessionProbe = { channel, completions: 0 };
+      channel.onmessage = event => { if (event.data?.type === 'refresh-complete') window.__sessionProbe.completions++; };
+      channel.postMessage({ type: 'refresh-complete', success: true, sourceId: 'browser-probe' });
+    });
+    await expect.poll(() => refreshes).toBe(before + 2);
+    await expect(page.locator('.art-admin-shell')).toBeVisible(); await expect(peer.locator('.art-admin-shell')).toBeVisible();
+    expect(await page.evaluate(() => window.__sessionProbe.completions)).toBe(0);
+    await page.evaluate(() => window.__sessionProbe.channel.postMessage({ type: 'session-cleared', sourceId: 'browser-probe' }));
+    await expect(page.locator('input[name="password"]')).toBeVisible(); await expect(peer.locator('input[name="password"]')).toBeVisible();
+    expect(refreshes).toBe(before + 2);
+  } finally { await page.evaluate(() => window.__sessionProbe?.channel.close()); await peer.close(); }
+});

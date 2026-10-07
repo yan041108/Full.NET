@@ -46,6 +46,7 @@ const catalog = {
 function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
+  useSessionStore().state = 'authenticated';
   useSessionStore().currentUser = {
     id: 'user-1', username: 'starter', displayName: '管理员', tenantId: 'tenant-1',
     actorScope: 'tenant', scope: 'tenant', isSuperAdministrator: false,

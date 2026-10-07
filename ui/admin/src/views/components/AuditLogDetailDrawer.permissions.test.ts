@@ -26,6 +26,7 @@ describe('受限操作详情实时权限边界', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const session = useSessionStore();
+    session.state = 'authenticated';
     session.currentUser = user(['auditing.operations.details.read']);
     const wrapper = mount(AuditLogDetailDrawer, {
       props: { modelValue: true, record: {
@@ -44,6 +45,7 @@ describe('受限操作详情实时权限边界', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const session = useSessionStore();
+    session.state = 'authenticated';
     session.currentUser = user(['auditing.operations.read', 'auditing.operations.details.read']);
     getDetails.mockResolvedValueOnce({
       id, detailsExpiresAtUtc: '2026-09-30T00:00:00Z',
@@ -63,6 +65,7 @@ describe('受限操作详情实时权限边界', () => {
     await flushPromises();
     expect(document.body.textContent).toContain('203.0.113.42');
 
+    session.state = 'authenticated';
     session.currentUser = user(['auditing.operations.read']);
     await flushPromises();
     expect(document.body.textContent).not.toContain('203.0.113.42');
@@ -74,6 +77,7 @@ describe('受限操作详情实时权限边界', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const session = useSessionStore();
+    session.state = 'authenticated';
     session.currentUser = user(['auditing.operations.read', 'auditing.operations.details.read']);
     let resolve!: (value: Awaited<ReturnType<typeof getAuditingOperationLogDetails>>) => void;
     getDetails.mockImplementationOnce(() => new Promise(value => { resolve = value; }));
@@ -90,6 +94,7 @@ describe('受限操作详情实时权限边界', () => {
     const signal = getDetails.mock.calls[0]?.[1];
     expect(signal?.aborted).toBe(false);
 
+    session.state = 'authenticated';
     session.currentUser = user(['auditing.operations.read']);
     await flushPromises();
     expect(signal?.aborted).toBe(true);

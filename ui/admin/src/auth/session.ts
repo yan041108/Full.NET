@@ -83,7 +83,7 @@ export const useSessionStore = defineStore('identity-session', () => {
 
   /** 基于当前用户权限快照做失败关闭判断，缺少用户或权限时一律返回 false。 */
   function can(permission: string): boolean {
-    return currentUser.value?.permissions.includes(permission) === true;
+    return state.value === 'authenticated' && currentUser.value?.permissions.includes(permission) === true;
   }
 
   /** 使用用户名和密码启动登录流程，并由底层控制器负责刷新本地快照。 */

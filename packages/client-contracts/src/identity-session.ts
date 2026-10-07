@@ -102,6 +102,7 @@ export function createIdentitySession(
   let savingLocale = false;
   let token: TokenResponse | undefined;
   let sessionGeneration = 0;
+  let restoreOperation: { generation: number; promise: Promise<boolean> } | undefined;
   const listeners = new Set<(snapshot: IdentitySessionSnapshot) => void>();
   const unsubscribeCoordinator = sessionRefreshCoordinator?.subscribe(message => {
     if (message.sourceId === sessionRefreshCoordinator.tabId) {
@@ -115,7 +116,7 @@ export function createIdentitySession(
 
     if (message.type === 'refresh-complete' && message.success
       && state === 'authenticated') {
-      void restore();
+      void restoreSession(false);
     }
   });
 
@@ -168,11 +169,28 @@ export function createIdentitySession(
     }
   }
 
-  async function restore(): Promise<boolean> {
+  function restore(): Promise<boolean> {
+    return restoreSession(true);
+  }
+
+  /** 同一认证代次共用恢复任务；先登记再通知，防止订阅者重入产生重复刷新。 */
+  function restoreSession(broadcastCompletion: boolean): Promise<boolean> {
     const operationGeneration = sessionGeneration;
+    if (restoreOperation?.generation === operationGeneration) return restoreOperation.promise;
+    const operation = {
+      generation: operationGeneration,
+      promise: Promise.resolve().then(() => restoreSnapshot(operationGeneration, broadcastCompletion))
+    };
+    restoreOperation = operation;
+    const release = (): void => { if (restoreOperation === operation) restoreOperation = undefined; };
+    void operation.promise.then(release, release);
     state = 'initializing';
     notify();
-    if (!await refreshAccessToken(operationGeneration)) {
+    return operation.promise;
+  }
+
+  async function restoreSnapshot(operationGeneration: number, broadcastCompletion: boolean): Promise<boolean> {
+    if (!await refreshAccessToken(operationGeneration, broadcastCompletion)) {
       return false;
     }
 
@@ -213,9 +231,12 @@ export function createIdentitySession(
   }
 
   async function refreshAccessToken(
-    operationGeneration = sessionGeneration
+    operationGeneration = sessionGeneration,
+    broadcastCompletion = true
   ): Promise<boolean> {
     const execute = async (): Promise<boolean> => {
+      // 等待跨标签锁期间可能已经注销或新登录，旧任务不得再外发 Cookie 刷新。
+      if (operationGeneration !== sessionGeneration) return false;
       const tokenBeforeRefresh = token;
       try {
         if (externalRefreshAccessToken !== undefined) {
@@ -273,7 +294,7 @@ export function createIdentitySession(
       return execute();
     }
 
-    return sessionRefreshCoordinator.runExclusive(execute);
+    return sessionRefreshCoordinator.runExclusive(execute, { broadcastCompletion });
   }
 
   async function switchTenant(tenantId: string | null): Promise<void> {
@@ -495,7 +516,7 @@ export function createIdentitySession(
   }
 
   function can(permission: string): boolean {
-    return currentUser?.permissions.includes(permission) === true;
+    return state === 'authenticated' && currentUser?.permissions.includes(permission) === true;
   }
 
   /**
