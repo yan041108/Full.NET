@@ -6,16 +6,16 @@
       "declaration": "Full.NET.Modules.Ai.Persistence.AiKnowledgeCleanupWorkerSql.ScanSqlServer",
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeCleanupWorkerSql.cs",
       "category": "explicit_tenant_anchor",
-      "reason": "Worker 只扫描 AI 自有墓碑下的有界清理标识；恢复独立可信范围后重验所有者和墓碑，索引短事务与 Files 幂等补偿分离，不触发模型派发。",
-      "requiredSqlFragments": ["TOP (@BatchSize)", "document.IsDeleted=1", "knowledge.TenantId", "knowledge.OwnerUserId", "work.StateKey='cleanup_pending'", "work.LeaseExpiresAtUtc<=@Now", "candidate.Id>@AfterId", "ORDER BY candidate.CreatedAtUtc,candidate.Kind,candidate.Id"]
+      "reason": "Worker 有界扫描 AI 墓碑或显式开启且保留期已过的旧完成代次；独立可信范围内锁定重验所有者、墓碑或当前完整后继指针。清理短事务不改写账本，不触发模型派发。",
+      "requiredSqlFragments": ["TOP (@BatchSize)", "document.IsDeleted=1", "knowledge.TenantId", "knowledge.OwnerUserId", "work.StateKey='cleanup_pending'", "work.LeaseExpiresAtUtc<=@Now", "candidate.Id>@AfterId", "ORDER BY candidate.CreatedAtUtc,candidate.Kind,candidate.Id", "@RetiredEnabled=1", "task.Id<>active.IndexTaskId", "successor.StateKey='completed'", "active.ActivatedAtUtc<=@RetiredBefore"]
     },
     {
       "statementName": "ai.knowledge_cleanup_worker.scan.mysql",
       "declaration": "Full.NET.Modules.Ai.Persistence.AiKnowledgeCleanupWorkerSql.ScanMySql",
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeCleanupWorkerSql.cs",
       "category": "explicit_tenant_anchor",
-      "reason": "Worker 只扫描 AI 自有墓碑下的有界清理标识；恢复独立可信范围后重验所有者和墓碑，索引短事务与 Files 幂等补偿分离，不触发模型派发。",
-      "requiredSqlFragments": ["LIMIT @BatchSize", "document.IsDeleted=1", "knowledge.TenantId", "knowledge.OwnerUserId", "work.StateKey='cleanup_pending'", "work.LeaseExpiresAtUtc<=@Now", "candidate.Id>@AfterId", "ORDER BY candidate.CreatedAtUtc,candidate.Kind,candidate.Id"]
+      "reason": "Worker 有界扫描 AI 墓碑或显式开启且保留期已过的旧完成代次；独立可信范围内锁定重验所有者、墓碑或当前完整后继指针。清理短事务不改写账本，不触发模型派发。",
+      "requiredSqlFragments": ["LIMIT @BatchSize", "document.IsDeleted=1", "knowledge.TenantId", "knowledge.OwnerUserId", "work.StateKey='cleanup_pending'", "work.LeaseExpiresAtUtc<=@Now", "candidate.Id>@AfterId", "ORDER BY candidate.CreatedAtUtc,candidate.Kind,candidate.Id", "@RetiredEnabled=1", "task.Id<>active.IndexTaskId", "successor.StateKey='completed'", "active.ActivatedAtUtc<=@RetiredBefore"]
     },
     {
       "statementName": "ai.knowledge_index_worker.scan.sqlserver",

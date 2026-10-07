@@ -206,7 +206,7 @@ test('Notifications Native AOT 门禁登记矩阵、脚本、工作流与专用 
   );
   assert.deepEqual(
     matrix.nativeAotIntegration.requiredTestTypes,
-    ['NativeApiKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests']
+    ['NativeApiKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests', 'NativeWorkerKnowledgeRetirementE2ETests']
   );
   assert.match(await read('scripts/testing/run-native-aot-e2e.mjs'),
     /discoveredTypes\.has\(requiredType\)/);
@@ -313,12 +313,12 @@ test('OIDC Native AOT 门禁登记矩阵、脚本、工作流与专用 TRX', asy
   );
 });
 
-test('Worker Native AOT 发现门禁包含 Kafka 日志原生用例', async () => {
+test('Worker Native AOT 发现门禁包含 Kafka、PDF 与旧代次清理原生用例', async () => {
   const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
   const runner = await read('scripts/testing/run-native-aot-worker-e2e.mjs');
   assert.deepEqual(
     matrix.workerNativeAotIntegration.requiredTestTypes,
-    ['NativeWorkerKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests']
+    ['NativeWorkerKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests', 'NativeWorkerKnowledgeRetirementE2ETests']
   );
   assert.match(runner, /discoveredTypes\.has\(requiredType\)/);
 });

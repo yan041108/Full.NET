@@ -210,6 +210,7 @@ public sealed class AiModule : IFullNetModule
             .BindConfiguration(Knowledge.AiKnowledgeCleanupWorkerOptions.SectionName)
             .Validate(options => options.BatchSize is >= 1 and <= 32, "BatchSize must be between 1 and 32.")
             .Validate(options => options.PollMilliseconds is >= 250 and <= 60000, "PollMilliseconds must be between 250 and 60000.")
+            .Validate(options => options.RetiredGenerationRetentionHours is >= 24 and <= 8760, "RetiredGenerationRetentionHours must be between 24 and 8760.")
             .ValidateOnStart();
         services.TryAddSingleton<Knowledge.AiKnowledgeCleanupCursor>();
         services.TryAddScoped<Knowledge.AiKnowledgeCleanupWorkerCoordinator>();

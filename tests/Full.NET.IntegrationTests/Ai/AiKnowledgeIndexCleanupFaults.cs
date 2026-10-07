@@ -27,6 +27,8 @@ internal sealed class AiKnowledgeIndexCleanupFaults
     internal TaskCompletionSource<bool>? ContinueCleanup;
     internal TaskCompletionSource<bool>? CandidatesReady;
     internal int CandidateReaders;
+    internal TaskCompletionSource<bool>? RetirementScanned;
+    internal TaskCompletionSource<bool>? ContinueRetirement;
 
     internal void Configure(IServiceCollection services)
     {
@@ -55,7 +57,9 @@ internal sealed class AiKnowledgeIndexCleanupFaults
                 faults.VectorEntering?.TrySetResult(true);
             }
             var changed = await inner.ExecuteAsync(statement, parameters, cancellationToken);
-            if (changed > 0 && statement.Name.StartsWith("ai.knowledge_index_cleanup.vectors_", StringComparison.Ordinal)) faults.CancelCleanup?.Cancel();
+            var cleanupVector = statement.Name.StartsWith("ai.knowledge_index_cleanup.vectors_", StringComparison.Ordinal)
+                || statement.Name.StartsWith("ai.knowledge_retired_generation.vectors_", StringComparison.Ordinal);
+            if (changed > 0 && cleanupVector) faults.CancelCleanup?.Cancel();
             if (vector && changed == 1 && faults.VectorWritten is { } written)
             {
                 written.TrySetResult(true);
@@ -66,7 +70,7 @@ internal sealed class AiKnowledgeIndexCleanupFaults
                 locked.TrySetResult(true);
                 await faults.ContinueCleanup!.Task.WaitAsync(TimeSpan.FromSeconds(20), cancellationToken);
             }
-            if (faults.InterruptCleanup && changed > 0 && statement.Name.StartsWith("ai.knowledge_index_cleanup.vectors_", StringComparison.Ordinal))
+            if (faults.InterruptCleanup && changed > 0 && cleanupVector)
             {
                 faults.Interrupted++;
                 throw new IOException("Simulated interruption after deleting vectors.");
@@ -85,6 +89,12 @@ internal sealed class AiKnowledgeIndexCleanupFaults
         public async Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
         {
             var rows = await inner.QueryAsync<T>(statement, parameters, cancellationToken);
+            if (statement.Name.StartsWith("ai.knowledge_cleanup_worker.scan.", StringComparison.Ordinal)
+                && rows.Count > 0 && faults.RetirementScanned is { } scanned)
+            {
+                scanned.TrySetResult(true);
+                await faults.ContinueRetirement!.Task.WaitAsync(TimeSpan.FromSeconds(20), cancellationToken);
+            }
             if (statement.Name.StartsWith("ai.knowledge_index_cleanup.list_", StringComparison.Ordinal) && faults.CandidatesReady is { } ready)
             {
                 if (Interlocked.Increment(ref faults.CandidateReaders) == 2) ready.TrySetResult(true);

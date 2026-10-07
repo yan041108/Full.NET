@@ -22,6 +22,9 @@ public sealed class TenantContextMutationBoundaryTests
         // 工具审计仅复制可信请求作用域，不从工具参数获取租户，不派发业务操作。
         "src/Modules/Full.NET.Modules.Ai/Features/ManageAgentTools/AiBackgroundToolAuditPort.cs",
         "src/Modules/Full.NET.Modules.Ai/Features/ManageAgentTools/AiToolAuditPort.cs",
+        // AI 自有全局候选恢复独立范围；清理重验所有者/指针，生成重验冻结原会话，均不沿用父请求身份。
+        "src/Modules/Full.NET.Modules.Ai/Knowledge/AiKnowledgeCleanupWorkerCoordinator.cs",
+        "src/Modules/Full.NET.Modules.Ai/Knowledge/AiKnowledgeIndexWorkerCoordinator.cs",
         // 领取运行后按持久化记录恢复可信租户作用域，用于会话重验与预算结算。
         "src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs",
         // Worker 心跳写入 Global 作用域表，固定 Host 上下文，不从运行参数推断租户。

@@ -35,8 +35,20 @@ internal sealed class AiKnowledgeIndexActivationStore(IQueryExecutor query, ICom
             expected.KnowledgeBaseVersion, expected.OwnerUserId), taskId, lease, expected, readParameters, token);
     }
 
+    /// <summary>可信所有者清理旧载荷时复用完整证明，并在同一锁事务内执行清理；不调用原会话外部授权。</summary>
+    internal Task<bool> WithReadyGenerationAsync(AiKnowledgeIndexStatusRecord expected, Dictionary<string, object?> readParameters,
+        Func<CancellationToken, Task<bool>> cleanup, CancellationToken token)
+    {
+        if (expected.IsCurrent != 1 || expected.IsDeleted != 0 || expected.StateKey != "completed"
+            || expected.TaskId is not { } taskId || expected.ActiveTaskId != taskId || expected.ActiveLeaseToken is not { } lease || lease == Guid.Empty)
+            return Task.FromResult(false);
+        return VerifyActiveAsync(new(expected.KnowledgeBaseId, expected.DocumentId, expected.VersionId, expected.DocumentVersion,
+            expected.KnowledgeBaseVersion, expected.OwnerUserId), taskId, lease, expected, readParameters, token, cleanup);
+    }
+
     private async Task<bool> VerifyActiveAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken,
-        AiKnowledgeIndexStatusRecord? expected, Dictionary<string, object?>? readParameters, CancellationToken token)
+        AiKnowledgeIndexStatusRecord? expected, Dictionary<string, object?>? readParameters, CancellationToken token,
+        Func<CancellationToken, Task<bool>>? cleanup = null)
     {
         NoTransaction(); var p = tasks.HeldParameters(binding, taskId, leaseToken, token);
         var pointer = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexActivationRecord>(Choose(AiKnowledgeIndexActivationSql.PointerHost,
@@ -75,7 +87,7 @@ internal sealed class AiKnowledgeIndexActivationStore(IQueryExecutor query, ICom
             var visible = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexStatusRecord>(
                 AiKnowledgeIndexStatusSql.For(database.Value.Provider, tasks.IsTenant), readParameters, cancellation).ConfigureAwait(false);
             cancellation.ThrowIfCancellationRequested();
-            return visible == expected;
+            return visible == expected && (cleanup is null || await cleanup(cancellation).ConfigureAwait(false));
         }, token).ConfigureAwait(false);
     }
 

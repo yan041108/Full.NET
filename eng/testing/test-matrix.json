@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 5458,
+      "minimum": 5462,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -21,7 +21,7 @@
         },
         "ai-module": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
-          "minimum": 1989
+          "minimum": 1993
         },
         "ai-evaluation": {
           "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests",
@@ -103,9 +103,10 @@
     "filter": "FullyQualifiedName~NativeWorker",
     "requiredTestTypes": [
       "NativeWorkerKafkaLogMySqlE2ETests",
-      "NativeWorkerPdfE2ETests"
+      "NativeWorkerPdfE2ETests",
+      "NativeWorkerKnowledgeRetirementE2ETests"
     ],
-    "minimum": 16,
+    "minimum": 23,
     "timeout": "45m"
   },
   "nativeAotIntegration": {
@@ -113,7 +114,8 @@
     "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc",
     "requiredTestTypes": [
       "NativeApiKafkaLogMySqlE2ETests",
-      "NativeWorkerPdfE2ETests"
+      "NativeWorkerPdfE2ETests",
+      "NativeWorkerKnowledgeRetirementE2ETests"
     ],
     "minimum": 10,
     "timeout": "45m"
@@ -636,7 +638,7 @@
       },
       "infrastructure": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~KafkaLogDeliveryTests&FullyQualifiedName!~KafkaLogRequestLatencyTests&FullyQualifiedName!~KafkaCollectorRequestReplayTests&FullyQualifiedName!~KafkaLogRouteComparisonTests&FullyQualifiedName!~KafkaLogConsumerDeliveryTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchReplayTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchTlsTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests&FullyQualifiedName!~KafkaLogSecretBoundaryTests",
-        "minimum": 186,
+        "minimum": 190,
         "timeout": "60m"
       },
       "messaging-heavy": {
@@ -664,7 +666,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1198,
+        "minimum": 1202,
         "timeout": "90m"
       },
       "logging-route-comparison": {

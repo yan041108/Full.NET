@@ -57,6 +57,38 @@ public sealed class AiKnowledgeCleanupWorkerTests
         Assert.IsFalse(scopes.ReceivedCalls().Any());
     }
 
+    [TestMethod] [DataRow(23)] [DataRow(8761)]
+    public void Configuration_rejects_unsafe_retired_retention(int hours)
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        { [$"{AiKnowledgeCleanupWorkerOptions.SectionName}:RetiredGenerationRetentionHours"] = hours.ToString() }).Build();
+        var services = new ServiceCollection(); services.AddSingleton<IConfiguration>(config); new AiModule().AddBackgroundServices(services, config);
+        using var provider = services.BuildServiceProvider();
+        Assert.ThrowsExactly<OptionsValidationException>(() => { _ = provider.GetRequiredService<IOptions<AiKnowledgeCleanupWorkerOptions>>().Value; });
+    }
+
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Retired_candidate_uses_fixed_retention_and_advances_after_failure(bool mysql)
+    {
+        var now = DateTimeOffset.UtcNow; var id = Guid.CreateVersion7(); using var cursor = new AiKnowledgeCleanupCursor();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        { ["RetiredGenerationCleanupEnabled"] = "true", ["RetiredGenerationRetentionHours"] = "24" }).Build();
+        var options = new AiKnowledgeCleanupWorkerOptions { Enabled = true, BatchSize = 1 }; config.Bind(options);
+        var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(now);
+        var scopes = Substitute.For<IServiceScopeFactory>(); scopes.CreateScope().Returns(_ => throw new IOException("scope failure"));
+        var query = new Query { Read = (_, p) =>
+        {
+            CollectionAssert.Contains(p.Keys.ToArray(), "RetiredBefore"); Assert.AreEqual(now.AddHours(-24), p["RetiredBefore"]);
+            Assert.AreEqual(1, p["RetiredEnabled"]);
+            return [new() { Id = id, Kind = 2, CreatedAtUtc = now, KnowledgeBaseId = id, DocumentId = id, OwnerUserId = id }];
+        } };
+        var worker = new AiKnowledgeCleanupWorkerCoordinator(query, Substitute.For<IDataTransactionState>(), scopes, clock,
+            Options.Create(new DatabaseOptions { Provider = mysql ? DatabaseProvider.MySql : DatabaseProvider.SqlServer }), Options.Create(options), cursor,
+            NullLogger<AiKnowledgeCleanupWorkerCoordinator>.Instance);
+        Assert.AreEqual(1, await worker.ProcessPendingAsync(default)); Assert.AreEqual(id, cursor.Id);
+        Assert.AreEqual(1, scopes.ReceivedCalls().Count());
+    }
+
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public async Task Cursor_advances_on_failed_item_and_wraps_across_scopes(bool mysql)
     {

@@ -157,7 +157,10 @@ public sealed class NativeAotLinuxPublishRulesTests
             "artifacts/native-aot/worker/linux-x64/publish/Full.NET.Host.Worker",
             publishGate.GetProperty("executableRelativePath").GetString());
         var integrationGate = matrix.RootElement.GetProperty("workerNativeAotIntegration");
-        Assert.AreEqual(16, integrationGate.GetProperty("minimum").GetInt32());
+        // 发现数量只以矩阵为准，门禁不得在架构测试中复制可变计数。
+        Assert.IsTrue(integrationGate.GetProperty("minimum").GetInt32() > 0);
+        Assert.IsTrue(integrationGate.GetProperty("requiredTestTypes").EnumerateArray()
+            .Any(item => item.GetString() == "NativeWorkerKnowledgeRetirementE2ETests"));
 
         string[] requiredFiles =
         [
