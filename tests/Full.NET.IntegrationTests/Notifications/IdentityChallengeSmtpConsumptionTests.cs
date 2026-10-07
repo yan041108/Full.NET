@@ -37,6 +37,21 @@ public sealed class IdentityChallengeSmtpConsumptionTests
     public Task Real_mail_challenges_are_consumed_once_or_revoked_with_mysql(bool startTls) =>
         VerifyAsync(DatabaseProvider.MySql, startTls);
 
+    [TestMethod]
+    public void Capture_observes_logs_when_the_downstream_sink_is_disabled()
+    {
+        var entries = new ConcurrentQueue<string>();
+        using var factory = new CapturingLoggerFactory(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance, entries);
+        var logger = factory.CreateLogger(typeof(AccountChallengeService).FullName!);
+        Assert.IsTrue(logger.IsEnabled(LogLevel.Information));
+        Assert.IsTrue(logger.IsEnabled(LogLevel.Warning));
+        Assert.IsFalse(logger.IsEnabled(LogLevel.None));
+        logger.LogInformation("SMTP capture disabled-sink probe.");
+        var generatedWarning = LoggerMessage.Define(LogLevel.Warning, new EventId(4532), "SMTP capture generated warning.");
+        generatedWarning(logger, null);
+        CollectionAssert.AreEqual(new[] { "SMTP capture disabled-sink probe.", "SMTP capture generated warning." }, entries.ToArray());
+    }
+
     private async Task VerifyAsync(DatabaseProvider provider, bool startTls)
     {
         await using var inbox = new ControlledSmtpInbox(startTls);
@@ -339,11 +354,12 @@ public sealed class IdentityChallengeSmtpConsumptionTests
         private sealed class CaptureLogger(ILogger innerLogger, ConcurrentQueue<string> captured) : ILogger
         {
             public IDisposable? BeginScope<TState>(TState state) where TState : notnull => innerLogger.BeginScope(state);
-            public bool IsEnabled(LogLevel logLevel) => innerLogger.IsEnabled(logLevel);
+            // 测试捕获独立于下游过滤及共享日志生命周期，源生成日志也必须实际进入收集器。
+            public bool IsEnabled(LogLevel logLevel) => logLevel != LogLevel.None;
             public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
                 Func<TState, Exception?, string> formatter)
             {
-                if (innerLogger.IsEnabled(logLevel)) captured.Enqueue(formatter(state, exception) + exception?.ToString());
+                if (logLevel != LogLevel.None) captured.Enqueue(formatter(state, exception) + exception?.ToString());
                 innerLogger.Log(logLevel, eventId, state, exception, formatter);
             }
         }

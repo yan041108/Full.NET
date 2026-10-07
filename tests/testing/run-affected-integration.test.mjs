@@ -1057,3 +1057,23 @@ test('聚焦执行参数使用发现数门槛、双库过滤器和独立 TRX', (
     /发现数/
   );
 });
+
+
+test('任务快照 CLI 接受 pnpm 分隔符并拒绝多个任务标识', async () => {
+  const repository = await mkdtemp(path.join(os.tmpdir(), 'fullnet-snapshot-cli-'));
+  const script = path.resolve('scripts/testing/create-task-snapshot.mjs');
+  try {
+    await execFileAsync('git', ['init'], { cwd: repository });
+    await execFileAsync('git', ['-c', 'user.email=tests@fullnet.local', '-c', 'user.name=Full.NET Tests',
+      'commit', '--allow-empty', '-m', 'base'], { cwd: repository });
+    for (const [id, args] of [['with-separator', ['--', 'with-separator']], ['direct-id', ['direct-id']]]) {
+      const result = await execFileAsync(process.execPath, [script, ...args], { cwd: repository, encoding: 'utf8' });
+      assert.ok(result.stdout.includes(id));
+      assert.deepEqual(await collectChangedPaths({ cwd: repository, snapshotId: id }), []);
+    }
+    await assert.rejects(execFileAsync(process.execPath, [script, '--', 'first', 'second'],
+      { cwd: repository, encoding: 'utf8' }), error => error.code === 1 && /用法/u.test(error.stderr));
+  } finally {
+    await rm(repository, { recursive: true, force: true });
+  }
+});

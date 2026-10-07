@@ -862,6 +862,18 @@ Vue首轮全量因命令中的字面--使maxWorkers失效，904项中903通过�
 
 本批独立只读复核发现并复核关闭邮箱往返旧响应与邀请反馈遗漏，最终未发现剩余明确Critical/Important问题。失败页游标保留由赋值位置复核，未用真实第二轮轮询计时专门证明。没有执行本批独立生成应用全链路、浏览器、全量Unit/Integration或Linux原生发布运行；仅报告AOT分析，不提升整体AOT/Provider状态。历史未确认记录的自动巡检已提供，完整耗时防枚举及F03/F04整体验收仍待办；PR保持Draft，未合并、未发布。推送后按本批精确SHA读取工作流，不用父提交结果替代。
 
+**2026-10-07 F03 SMTP验收日志与任务快照命令收口（局部完成）。**
+
+基线03df1abf53f155e0fd22b1ba210827fac9ff3301，沿用开发分支codex/foundation-acceptance-20261003，快照f03-smtp-log-capture-ci-20261007。父提交75ab38f的主CI实际失败（run37573416062，build-and-module-test264/265）来自MySQL STARTTLS真实账号消费用例的DI日志正向探针未捕获；父API/Worker原生工作流成功不替代新提交结果。正式捕获器原先让IsEnabled和入队依赖下游日志器。多个测试Host共享Serilog全局生命周期可使某个下游为SilentLogger；精确CI并行时序未在本地重演，禁用下游导致丢日志已在原私有捕获器的正式回归复现。
+
+仅修改测试捕获器：非None级别固定启用并收集，仍向原日志器转发。正式DI正向哨兵、真实MIME读码、三种用途的公开消费、验证码和SMTP协议密码泄漏断言均保留；生产日志配置没有改动，也不宣称测试捕获证明最终日志Sink全部内容。新增用例就在拥有私有捕获器的Integration夹具中，以NullLoggerFactory验证Information、Warning、None及LoggerMessage.Define的IsEnabled短路；该回归自身无数据库依赖，未为私有测试工具另建生产API。正式RED1/1失败、exit2；最后GREEN1/1通过、零跳过、exit0。首次GREEN复制保留旧LastWriteTime，增量构建跳过CoreCompile，仍执行RED程序集而失败；原日志/TRX及详细编译跳过诊断已归档，只更新时间戳后重建，源码字节不变，重新执行通过，不冒充首次即通过。
+
+同时修复任务快照CLI真实缺陷：pnpm test:task:start -- <id>保留分隔符，原脚本误按两参数拒绝，首次启动exit1且未修改源码；保留该输出。脚本只剥离首项--，原ID校验、重复快照拒绝和独占写入不变。新测试以真实子进程和临时Git仓库验证带分隔符与直接ID两条路径，并确认多ID仍exit1；先RED1后GREEN1。
+
+实际执行pnpm test:integration:affected:plan -- --phase merge --snapshot f03-smtp-log-capture-ci-20261007，正式执行同参数的test:integration:affected。四项变化精确选择integration-matrix、integration-tooling、Notifications和追加Smoke；最终44个唯一UID全部Passed，零失败/跳过、exit0，含SQL Server/MySQL × 明文/STARTTLS四条真实SMTP用途消费流程。工具链与反馈治理合计69/69（含工具链58项）、治理57/57通过；Release构建零警告/错误。新增一项私有捕获器回归使infrastructure209→210、完整Integration1159→1160，pnpm test:integration:partitions确认1160项互斥完整发现，仅发现不宣称全量执行。四项输入及测试/Identity/Notifications运行程序集冻结摘要核对，新证据位于.tmp/f03-smtp-capture-*；该批运行程序集与前批分别记录，不合并宣称同一DLL全量通过。
+
+独立只读复核未发现Critical/Important，复核的是最终GREEN捕获器及CLI代码；Windows/.NET/双库环境和4GiB集成堆预算同前批。完整HTTP耗时防枚举、浏览器、独立生成应用新一轮全链路、全量Unit/Integration、Linux原生运行及容量仍未执行，F03/F04整体待办、Capacity-not-verified保持。PR继续Draft，未合并、未发布；精确新SHA工作流状态在推送后单独核对。
+
 ### F04：注册、密码恢复与 MFA 恢复
 
 **依赖：** F03；新旧会话撤销消费 C01。**提供：** Identity 的完整账号自助流程。

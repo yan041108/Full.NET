@@ -4,6 +4,8 @@ import { pathToFileURL } from 'node:url';
 import { createTaskSnapshot } from './run-affected-integration.mjs';
 
 async function run(args) {
+  // pnpm 保留脚本参数分隔符；只剥离首项，仍拒绝多个任务标识。
+  if (args[0] === '--') args = args.slice(1);
   if (args.length > 1) {
     throw new Error('用法：pnpm test:task:start -- [task-id]');
   }
