@@ -8,7 +8,7 @@ vi.mock('../api/printing-templates', () => ({ createPrintingTemplate: vi.fn(), l
 let wrapper: VueWrapper | undefined;
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(listPrintingTemplates).mockResolvedValue([printTemplate]); });
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); });
-const mountView = (permissions: string[]) => { const context = createOutputSession(permissions); wrapper = mount(PrintingPreviewView, { global: { plugins: [context.pinia] } }); return context.session; };
+const mountView = (permissions: string[]) => { const context = createOutputSession(permissions); context.session.currentUser = {...context.session.currentUser!,scope:'host',actorScope:'host',tenantId:null}; wrapper = mount(PrintingPreviewView, { global: { plugins: [context.pinia] } }); return context.session; };
 describe('打印输出授权与生命周期', () => {
   it('预览失败可重试，已展示内容在注销时立即清理', async () => {
     vi.mocked(previewPrintingTemplate).mockRejectedValueOnce(new Error('failed')).mockResolvedValueOnce(printResult);
@@ -54,4 +54,15 @@ describe('打印输出授权与生命周期', () => {
     const button = wrapper!.get('[data-testid="printing-preview-submit"]'); await button.trigger('click'); await button.trigger('click'); pending.resolve(printTemplate); await flushPromises();
     expect(createPrintingTemplate).toHaveBeenCalledTimes(1); expect(publishPrintingTemplate).not.toHaveBeenCalled(); expect(previewPrintingTemplate).not.toHaveBeenCalled();
   });
+  it('打印前重新获取预览，服务端撤权时立即清除旧内容且不调用浏览器打印', async () => {
+    vi.mocked(previewPrintingTemplate).mockResolvedValueOnce(printResult).mockRejectedValueOnce({status:403,code:'authorization.permission_denied',title:'Denied'});
+    const print = vi.spyOn(window,'print').mockImplementation(() => {});
+    mountView(['printing.templates.read','printing.templates.preview']); await flushPromises();
+    await wrapper!.get('[data-testid="printing-preview-run"]').trigger('click'); await flushPromises();
+    expect(wrapper!.text()).toContain('旧租户敏感内容');
+    await wrapper!.get('[data-testid="printing-preview-print"]').trigger('click'); await flushPromises();
+    expect(previewPrintingTemplate).toHaveBeenCalledTimes(2);
+    expect(print).not.toHaveBeenCalled(); expect(wrapper!.text()).not.toContain('旧租户敏感内容');
+  });
+
 });

@@ -47,7 +47,11 @@ public sealed class PrintingAuthorizationContributorTests
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
         var preview = catalog.Navigation.Single(item => item.Id == "printing-preview");
-        Assert.AreEqual(PrintingTemplatePermissions.Preview, preview.RequiredPermission);
+        Assert.AreEqual(PrintingTemplatePermissions.Read, preview.RequiredPermission);
+        var tenant = catalog.Navigation.Single(item => item.Id == "printing-published-templates");
+        Assert.AreEqual(PrintingPublishedTemplatePermissions.Read, tenant.RequiredPermission);
+        Assert.AreEqual("/printing/published-templates", tenant.Path);
+        Assert.IsTrue(catalog.Actions.Any(action => action.PermissionCode == PrintingTemplatePermissions.GrantTenants));
         Assert.AreEqual("/printing/preview", preview.Path);
     }
 }

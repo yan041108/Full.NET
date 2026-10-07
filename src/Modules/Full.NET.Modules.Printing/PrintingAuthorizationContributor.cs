@@ -34,11 +34,20 @@ internal sealed class PrintingAuthorizationContributor : IAuthorizationCatalogCo
             "Printing Preview",
             "printer",
             10,
-            PrintingTemplatePermissions.Preview),
+            PrintingTemplatePermissions.Read),
+        new NavigationDefinition("printing-published-templates", null, "printing-published-templates",
+            "/printing/published-templates", "printing-published-templates", "已授权打印", "Published Printing",
+            "printer", 20, PrintingPublishedTemplatePermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
+        new AuthorizationActionDefinition("printing.templates.preview", "printing-preview",
+            PrintingTemplatePermissions.Preview, "生成预览", "preview", 40),
+        new AuthorizationActionDefinition("printing.templates.grant_tenants", "printing-preview",
+            PrintingTemplatePermissions.GrantTenants, "授权租户版本", "grant", 50),
+        new AuthorizationActionDefinition("printing.published_templates.preview", "printing-published-templates",
+            PrintingPublishedTemplatePermissions.Preview, "预览与打印", "preview", 10),
         new AuthorizationActionDefinition(
             "printing.templates.create",
             "printing-preview",

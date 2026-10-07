@@ -24,7 +24,7 @@ async function boot(page, componentKey, path, requiredPermission, permissions, a
 }
 
 test('打印只读用户可以加载目录，但没有预览和创建入口', async ({ page }) => {
-  await boot(page, 'printing-preview', '/printing/preview', 'printing.templates.read', ['printing.templates.read']);
+  await boot(page, 'printing-preview', '/printing/preview', 'printing.templates.read', ['printing.templates.read'], 'host');
   await page.route('**/api/v1/printing/templates', route => json(route, [template]));
   await page.goto('/#/printing/preview');
   await expect(page.getByTestId('printing-preview-template')).toContainText('打印夹具');
@@ -34,7 +34,7 @@ test('打印只读用户可以加载目录，但没有预览和创建入口', as
 
 test('打印切换模板取消旧预览，新预览在真实 DOM 中净化', async ({ page }) => {
   await boot(page, 'printing-preview', '/printing/preview', 'printing.templates.read',
-    ['printing.templates.read', 'printing.templates.preview']);
+    ['printing.templates.read', 'printing.templates.preview'], 'host');
   await page.route('**/api/v1/printing/templates', route => json(route, [template, { ...template, id: nextId, name: '新打印夹具' }]));
   let release; let pending = false;
   const waiting = new Promise(resolve => { release = resolve; });

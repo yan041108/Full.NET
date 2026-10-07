@@ -196,6 +196,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.reportingExportTasks.title',
     captionKey: 'navigation.reportingExportTasks.caption'
   }],
+  ['printing-published-templates', {
+    titleKey: 'navigation.printingPublishedTemplates.title',
+    captionKey: 'navigation.printingPublishedTemplates.caption'
+  }],
   ['printing-preview', {
     titleKey: 'navigation.printingPreview.title',
     captionKey: 'navigation.printingPreview.caption'

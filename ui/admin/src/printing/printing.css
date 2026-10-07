@@ -1,0 +1,22 @@
+/* 只在当前页面具有打印预览时移除后台壳，避免菜单和固定高度裁切进入纸张。 */
+@media print {
+  body:has(.printing-preview-surface) .art-admin-shell__sidebar,
+  body:has(.printing-preview-surface) .art-admin-shell__header,
+  body:has(.printing-preview-surface) .art-admin-shell__backdrop,
+  body:has(.printing-preview-surface) .art-admin-shell__problem,
+  body:has(.printing-preview-surface) .skip-link {
+    display: none !important;
+  }
+  body:has(.printing-preview-surface) .art-admin-shell,
+  body:has(.printing-preview-surface) .art-admin-shell__main,
+  body:has(.printing-preview-surface) .art-admin-shell__content,
+  body:has(.printing-preview-surface) .art-page-content {
+    display: block;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    padding: 0;
+    margin: 0;
+    background: #fff;
+  }
+}

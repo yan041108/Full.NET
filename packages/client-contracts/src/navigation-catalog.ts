@@ -450,6 +450,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/payments/refunds'
   },
   {
+    componentKey: 'printing-published-templates',
+    routeName: 'printing-published-templates',
+    path: '/printing/published-templates'
+  },
+  {
     componentKey: 'printing-preview',
     routeName: 'printing-preview',
     path: '/printing/preview'

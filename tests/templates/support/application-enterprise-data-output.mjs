@@ -64,7 +64,7 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   const revokerCredentials={username:'revoke_'+randomUUID().replaceAll('-',''),password:'Init!'+randomUUID()+'A9'};
   const revokerRole=await send('revoker-role','/api/v1/identity/roles','POST',{code:'revoke-'+randomUUID().replaceAll('-',''),name:'Owned output revoker'},201);
   identifier(revokerRole.id);
-  const permissions=['reporting.definitions.grant_tenants','printing.templates.grant_tenants'];
+  const permissions=['reporting.definitions.grant_tenants','printing.templates.read','printing.templates.grant_tenants'];
   const assigned=await send('revoker-permissions','/api/v1/identity/roles/'+revokerRole.id+'/permissions','PUT',{permissionCodes:permissions,version:revokerRole.version});
   ensure(assigned.permissionCodes?.length===permissions.length && permissions.every(permission=>assigned.permissionCodes.includes(permission)),'revoker permissions mismatch');
   const revokerUser=await send('revoker-user','/api/v1/identity/users','POST',{...revokerCredentials,displayName:'Owned output revoker'},201);
