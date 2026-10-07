@@ -397,6 +397,7 @@ import type {
   PreviewWorkflowAssigneeRequest,
   PrintingFormFieldDefinition,
   PrintingFormSchemaDefinition,
+  PrintingPublishedTemplateResponse,
   PrintingTemplatePreviewResponse,
   PrintingTemplateResponse,
   PrintingTemplateVersionResponse,
@@ -5202,6 +5203,18 @@ function isPrintingFormSchemaDefinition(value: unknown): value is PrintingFormSc
   return isRecord(value) && (typeof value["description"] === 'string') && (typeof value["displayName"] === 'string') && (Array.isArray(value["fields"]) && value["fields"].every(item15 => isPrintingFormFieldDefinition(item15))) && (typeof value["formSchemaKey"] === 'string');
 }
 
+export function readPrintingPublishedTemplateResponse(value: unknown): PrintingPublishedTemplateResponse {
+  const normalizedValue = normalizePrintingPublishedTemplateResponseIntegerJson(value);
+  if (!(isPrintingPublishedTemplateResponse(normalizedValue))) {
+    throw new Error('client.invalid_printing_published_template_response');
+  }
+  return normalizedValue;
+}
+
+function isPrintingPublishedTemplateResponse(value: unknown): value is PrintingPublishedTemplateResponse {
+  return isRecord(value) && (typeof value["formSchemaKey"] === 'string') && (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"])) && (typeof value["templateKey"] === 'string') && (typeof value["templateName"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+}
+
 export function readPrintingTemplatePreviewResponse(value: unknown): PrintingTemplatePreviewResponse {
   const normalizedValue = normalizePrintingTemplatePreviewResponseIntegerJson(value);
   if (!(isPrintingTemplatePreviewResponse(normalizedValue))) {
@@ -7612,11 +7625,26 @@ export function readObservabilityListServerInstancesResponse(value: unknown): Ar
   return value as Array<ServerInstanceCatalogEntry>;
 }
 
+export function readPrintingGrantTenantVersionResponse(value: unknown): boolean {
+  if (!(typeof value === 'boolean')) {
+    throw new Error('client.invalid_printing_grant_tenant_version_response');
+  }
+  return value as boolean;
+}
+
 export function readPrintingListFormSchemasResponse(value: unknown): Array<PrintingFormSchemaDefinition> {
   if (!(Array.isArray(value) && value.every(item5 => isPrintingFormSchemaDefinition(item5)))) {
     throw new Error('client.invalid_printing_list_form_schemas_response');
   }
   return value as Array<PrintingFormSchemaDefinition>;
+}
+
+export function readPrintingListPublishedTemplatesResponse(value: unknown): Array<PrintingPublishedTemplateResponse> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizePrintingPublishedTemplateResponseIntegerJson(item5)) : value);
+  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isPrintingPublishedTemplateResponse(item15)))) {
+    throw new Error('client.invalid_printing_list_published_templates_response');
+  }
+  return normalizedValue as Array<PrintingPublishedTemplateResponse>;
 }
 
 export function readPrintingListTemplatesResponse(value: unknown): Array<PrintingTemplateResponse> {
@@ -7633,6 +7661,13 @@ export function readPrintingListTemplateVersionsResponse(value: unknown): Array<
     throw new Error('client.invalid_printing_list_template_versions_response');
   }
   return normalizedValue as Array<PrintingTemplateVersionResponse>;
+}
+
+export function readPrintingRevokeTenantVersionResponse(value: unknown): boolean {
+  if (!(typeof value === 'boolean')) {
+    throw new Error('client.invalid_printing_revoke_tenant_version_response');
+  }
+  return value as boolean;
 }
 
 export function readRegionsGetAdministrativeRegionTreeResponse(value: unknown): Array<AdministrativeRegionTreeNodeResponse> {
@@ -8955,6 +8990,10 @@ function normalizePreviewPrintingTemplateRequestIntegerJson(value: unknown): unk
 
 function normalizePreviewSerialNumberRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sequenceValue") ? { ["sequenceValue"]: normalizeWireInteger(value["sequenceValue"]) } : {}) } : value);
+}
+
+function normalizePrintingPublishedTemplateResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
 }
 
 function normalizePrintingTemplatePreviewResponseIntegerJson(value: unknown): unknown {

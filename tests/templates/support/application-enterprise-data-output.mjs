@@ -49,7 +49,7 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   const grant=root+'/versions/1/tenant-grants/'+tenantId;
   ensure(await send('grant',grant,'PUT')===true,'version grant failed');
 
-  // 模板管理和预览当前均为 HostOnly；先核对 Host 发布，再记录 Tenant 拒绝，不伪造租户绑定成功。
+  // Host 管理草稿与精确授权；租户通过独立发布入口读取冻结版本。
   const template=await send('printing-create','/api/v1/printing/templates','POST',{templateKey:'output_'+randomUUID().replaceAll('-',''),name:'Tenant output card',
    formSchemaKey:'printing.tenant_profile_card',layoutHtml:'<article>{{tenantName}} / {{tenantCode}}</article><script>window.outputUnsafe=true</script>',isEnabled:true},201);
   identifier(template.id);
@@ -57,14 +57,16 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   const published=await send('printing-publish',printRoot+'/publish','POST',{changeNote:'Frozen tenant card',version:template.version});
   ensure(published.templateId===template.id && published.versionNumber===1,'printing published version mismatch');
   ensure(typeof published.layoutHtml==='string' && !/<script\b|outputUnsafe/iu.test(published.layoutHtml),'printing published HTML invalid');
-  evidence.printing={status:'tenant-preview-not-supported',templateId:template.id,versionNumber:1,hostPublished:true,scriptsRemovedAtPublish:true};
+  const printGrant=printRoot+'/versions/1/tenant-grants/'+tenantId;
+  ensure(await send('printing-grant',printGrant,'PUT')===true,'printing version grant failed');
+  evidence.printing={status:'tenant-published-preview-pending',templateId:template.id,versionNumber:1,hostPublished:true,scriptsRemovedAtPublish:true};
   // 第一方 ClientId 由服务端固定，默认每客户端单会话；另建最小权限用户，避免重新登录同一 admin 撤销租户会话。
   const revokerCredentials={username:'revoke_'+randomUUID().replaceAll('-',''),password:'Init!'+randomUUID()+'A9'};
   const revokerRole=await send('revoker-role','/api/v1/identity/roles','POST',{code:'revoke-'+randomUUID().replaceAll('-',''),name:'Owned output revoker'},201);
   identifier(revokerRole.id);
-  const permissions=['reporting.definitions.grant_tenants'];
+  const permissions=['reporting.definitions.grant_tenants','printing.templates.grant_tenants'];
   const assigned=await send('revoker-permissions','/api/v1/identity/roles/'+revokerRole.id+'/permissions','PUT',{permissionCodes:permissions,version:revokerRole.version});
-  ensure(assigned.permissionCodes?.length===1 && assigned.permissionCodes[0]===permissions[0],'revoker permissions mismatch');
+  ensure(assigned.permissionCodes?.length===permissions.length && permissions.every(permission=>assigned.permissionCodes.includes(permission)),'revoker permissions mismatch');
   const revokerUser=await send('revoker-user','/api/v1/identity/users','POST',{...revokerCredentials,displayName:'Owned output revoker'},201);
   identifier(revokerUser.id);
   const rolePath='/api/v1/identity/users/'+revokerUser.id+'/roles';
@@ -116,6 +118,28 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   await send('tenant-printing-denied',printRoot+'/preview','POST',{versionNumber:1},403);
   await send('anonymous-printing-denied',printRoot+'/preview','POST',{versionNumber:1},401,null);
   evidence.printing.tenantPreviewDenied=true;
+  const printCatalog='/api/v1/printing/published-templates';
+  const printPreview=printCatalog+'/'+template.id+'/preview';
+  const grantedPrint=await send('printing-catalog',printCatalog);
+  const printVisible=grantedPrint.filter(item=>item.templateId===template.id);
+  ensure(printVisible.length===1 && printVisible[0].versionNumber===1,'printing catalog version mismatch');
+  ensure(!/"(?:layoutHtml|boundFields)"/iu.test(JSON.stringify(grantedPrint)),'printing catalog leaked rendering data');
+  const rendered=await send('printing-tenant-preview',printPreview,'POST',{versionNumber:null});
+  ensure(rendered.templateId===template.id && rendered.versionNumber===1,'printing version mismatch');
+  ensure(rendered.formSchemaKey==='printing.tenant_profile_card' && rendered.boundFields?.tenantName===switched.context.name
+   && rendered.boundFields?.tenantCode===switched.context.identifier,'printing binding tenant mismatch');
+  const encode=value=>value.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
+  ensure(typeof rendered.html==='string' && rendered.html==='<article>'+encode(switched.context.name)+' / '+encode(switched.context.identifier)+'</article>',
+   'printing rendered HTML mismatch');
+  await send('printing-ungranted-version-denied',printPreview,'POST',{versionNumber:2},403);
+  await send('printing-anonymous-published-denied',printPreview,'POST',{versionNumber:1},401,null);
+  evidence.printing.completed=true; evidence.printing.status='tenant-published-preview-verified';
+  evidence.printing.currentTenantBindingVerified=true;
+  ensure(await send('printing-revoke',printGrant,'DELETE',undefined,200,revoker)===true,'printing version revoke failed');
+  await send('printing-revoked-preview-denied',printPreview,'POST',{versionNumber:1},403);
+  const revokedPrinting=await send('printing-revoked-catalog',printCatalog);
+  ensure(!revokedPrinting.some(item=>item.templateId===template.id),'revoked printing version remains in catalog');
+  evidence.printing.revokedAccessDenied=true;
 
   ensure(await send('revoke',grant,'DELETE',undefined,200,revoker)===true,'version revoke failed');
   await send('revoked-download-denied',download,'GET',undefined,403);

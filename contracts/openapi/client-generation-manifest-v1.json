@@ -2603,6 +2603,36 @@
       "status": "manual"
     },
     {
+      "operationId": "printingListPublishedTemplates",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "printingPreviewPublishedTemplate",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "printingListTenantVersionGrants",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "printingGrantTenantVersion",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "printingRevokeTenantVersion",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
       "operationId": "aiListModelConfigs",
       "apiModule": "ui/admin/src/api/ai-model-configs.ts",
       "generatedGroup": "ai-model-configs",

@@ -3435,6 +3435,14 @@ export interface PrintingFormSchemaDefinition {
   readonly formSchemaKey: string;
 }
 
+export interface PrintingPublishedTemplateResponse {
+  readonly formSchemaKey: string;
+  readonly templateId: string;
+  readonly templateKey: string;
+  readonly templateName: string;
+  readonly versionNumber: number;
+}
+
 export interface PrintingTemplatePreviewResponse {
   readonly boundFields: Readonly<Record<string, unknown>>;
   readonly formSchemaKey: string;

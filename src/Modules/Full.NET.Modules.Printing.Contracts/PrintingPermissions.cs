@@ -15,6 +15,9 @@ public static class PrintingTemplatePermissions
     /// <summary>发布打印模板版本。</summary>
     public const string Publish = "printing.templates.publish";
 
+    /// <summary>向活动租户授予或撤销精确发布版本。</summary>
+    public const string GrantTenants = "printing.templates.grant_tenants";
+
     /// <summary>预览打印模板绑定结果。</summary>
     public const string Preview = "printing.templates.preview";
 }
@@ -31,4 +34,13 @@ public static class PrintingFormSchemaKeys
 {
     /// <summary>租户档案卡片；字段由 Printing 模块固定声明。</summary>
     public const string TenantProfileCard = "printing.tenant_profile_card";
+}
+
+/// <summary>租户已获授打印版本的独立权限，不能访问 Host 草稿管理。</summary>
+public static class PrintingPublishedTemplatePermissions
+{
+    /// <summary>读取当前租户获授的发布版本目录。</summary>
+    public const string Read = "printing.published_templates.read";
+    /// <summary>使用当前租户数据预览已获授发布版本。</summary>
+    public const string Preview = "printing.published_templates.preview";
 }

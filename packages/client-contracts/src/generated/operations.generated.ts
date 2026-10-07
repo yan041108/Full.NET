@@ -398,6 +398,7 @@ import type {
   PreviewWorkflowAssigneeRequest,
   PrintingFormFieldDefinition,
   PrintingFormSchemaDefinition,
+  PrintingPublishedTemplateResponse,
   PrintingTemplatePreviewResponse,
   PrintingTemplateResponse,
   PrintingTemplateVersionResponse,
@@ -799,9 +800,12 @@ import {
   readPaymentRefundResponse,
   readPersonalScheduleResponse,
   readPrintingFormSchemaDefinition,
+  readPrintingGrantTenantVersionResponse,
   readPrintingListFormSchemasResponse,
+  readPrintingListPublishedTemplatesResponse,
   readPrintingListTemplatesResponse,
   readPrintingListTemplateVersionsResponse,
+  readPrintingRevokeTenantVersionResponse,
   readPrintingTemplatePreviewResponse,
   readPrintingTemplateResponse,
   readPrintingTemplateVersionResponse,
@@ -8959,6 +8963,24 @@ export async function printingGetTemplateVersion(
   return readPrintingTemplateVersionResponse(value);
 }
 
+export interface PrintingGrantTenantVersionParameters {
+  readonly templateId: string;
+  readonly versionNumber: number;
+  readonly tenantId: string;
+}
+
+export async function printingGrantTenantVersion(
+  http: HttpClient,
+  parameters: PrintingGrantTenantVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants/${encodeURIComponent(String(parameters.tenantId))}`;
+  const init: RequestInit = { method: 'PUT' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPrintingGrantTenantVersionResponse(value);
+}
+
 export interface PrintingListFormSchemasParameters {
 
 }
@@ -8973,6 +8995,22 @@ export async function printingListFormSchemas(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readPrintingListFormSchemasResponse(value);
+}
+
+export interface PrintingListPublishedTemplatesParameters {
+
+}
+
+export async function printingListPublishedTemplates(
+  http: HttpClient,
+  parameters: PrintingListPublishedTemplatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<PrintingPublishedTemplateResponse>> {
+  const path = `/api/v1/printing/published-templates`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPrintingListPublishedTemplatesResponse(value);
 }
 
 export interface PrintingListTemplatesParameters {
@@ -9009,6 +9047,53 @@ export async function printingListTemplateVersions(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readPrintingListTemplateVersionsResponse(value);
+}
+
+export interface PrintingListTenantVersionGrantsParameters {
+  readonly templateId: string;
+  readonly versionNumber: number;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function printingListTenantVersionGrants(
+  http: HttpClient,
+  parameters: PrintingListTenantVersionGrantsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfGuid> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants` : `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPagedResultOfGuid(value);
+}
+
+export interface PrintingPreviewPublishedTemplateParameters {
+  readonly templateId: string;
+  readonly body: PreviewPrintingTemplateRequest;
+}
+
+export async function printingPreviewPublishedTemplate(
+  http: HttpClient,
+  parameters: PrintingPreviewPublishedTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PrintingTemplatePreviewResponse> {
+  const path = `/api/v1/printing/published-templates/${encodeURIComponent(String(parameters.templateId))}/preview`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPrintingTemplatePreviewResponse(value);
 }
 
 export interface PrintingPreviewTemplateParameters {
@@ -9051,6 +9136,24 @@ export async function printingPublishTemplate(
   };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readPrintingTemplateVersionResponse(value);
+}
+
+export interface PrintingRevokeTenantVersionParameters {
+  readonly templateId: string;
+  readonly versionNumber: number;
+  readonly tenantId: string;
+}
+
+export async function printingRevokeTenantVersion(
+  http: HttpClient,
+  parameters: PrintingRevokeTenantVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants/${encodeURIComponent(String(parameters.tenantId))}`;
+  const init: RequestInit = { method: 'DELETE' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPrintingRevokeTenantVersionResponse(value);
 }
 
 export interface PrintingUpdateTemplateParameters {

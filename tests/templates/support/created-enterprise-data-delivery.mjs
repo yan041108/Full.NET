@@ -42,7 +42,7 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
   createApp({packageRoot:templateRoot,output:appRoot,name:'EnterpriseDelivery',ownerKey:'delivery',database:provider,preset:'enterprise',httpPort:await freePort()});
   const manifest = JSON.parse(readFileSync(join(appRoot,'framework-manifest.json'),'utf8'));
   assert.equal(manifest.projectedPreset,'enterprise');
-  for (const name of ['244_DemoEnterpriseRequestImportReceipt.sql','245_ReportingTenantGrant.sql']) {
+  for (const name of ['244_DemoEnterpriseRequestImportReceipt.sql','245_ReportingTenantGrant.sql','246_PrintingTenantGrant.sql']) {
    const script = manifest.migrationInventory.scripts.find(item => item.name === name); assert.ok(script,name);
    assert.deepEqual(Object.keys(script.providers).sort(),['MySql','SqlServer']);
   }

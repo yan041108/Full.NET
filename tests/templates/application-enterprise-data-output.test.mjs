@@ -10,10 +10,10 @@ const definitionId = '01980000-0000-7000-8000-000000000002';
 const taskId = '01980000-0000-7000-8000-000000000003';
 const templateId = '01980000-0000-7000-8000-000000000004';
 
-function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, printingAllowed=false, revokedAllowed=false, leakedCatalog=false, failedHttp=false, invalidId=false, wrongTaskDefinition=false, revokedSession=false} = {}) {
+function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, printingAllowed=false, revokedAllowed=false, leakedCatalog=false, failedHttp=false, invalidId=false, wrongTaskDefinition=false, revokedSession=false, wrongPrintingVersion=false, wrongPrintingTenant=false, revokedPrintingAllowed=false} = {}) {
  const root = mkdtempSync(join(tmpdir(),'enterprise-output-http-'));
  const logPath = join(root,'result.json');
- let granted = false; let published = 0; let activeToken = 'Bearer HOST_SECRET'; let checkedWorkbook = false;
+ let printGranted = false; let granted = false; let published = 0; let activeToken = 'Bearer HOST_SECRET'; let checkedWorkbook = false;
  const requests = [];
  let revokerCredentials;
  const roleId='01980000-0000-7000-8000-000000000007';
@@ -29,7 +29,7 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
   if (revokedSession && !granted && path.endsWith('/download')) return Response.json({code:'authentication.required'}, {status:401});
   if (path==='/api/v1/identity/roles' && method==='POST') { assert.match(input.code,/^[a-z][a-z0-9-]{2,63}$/u); return Response.json({id:roleId,version:1},{status:201}); }
   if (path===`/api/v1/identity/roles/${roleId}/permissions`) {
-   assert.deepEqual(input.permissionCodes,['reporting.definitions.grant_tenants']); assert.equal(input.version,1);
+   assert.deepEqual(input.permissionCodes,['reporting.definitions.grant_tenants','printing.templates.grant_tenants']); assert.equal(input.version,1);
    return Response.json({id:roleId,version:2,permissionCodes:input.permissionCodes});
   }
   if (path==='/api/v1/identity/users' && method==='POST') { revokerCredentials={username:input.username,password:input.password}; return Response.json({id:userId,version:1},{status:201}); }
@@ -43,10 +43,11 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
   if (path.endsWith('/definitions') && method==='POST') return Response.json({id:definitionId,version:1}, {status:201});
   if (path===`/api/v1/reporting/definitions/${definitionId}`) return Response.json({id:definitionId,version:2});
   if (path.endsWith('/publish') && path.includes('/reporting/')) return Response.json({definitionId,versionNumber:++published});
+  if (path.includes('/printing/') && path.includes('tenant-grants')) { printGranted=method==='PUT'; return Response.json(true); }
   if (path.includes('tenant-grants')) { granted=method==='PUT'; return Response.json(true); }
   if (path.endsWith('/tenancy/context')) {
    assert.equal(input.tenantId,tenantId); activeToken='Bearer TENANT_SECRET';
-   return Response.json({accessToken:'TENANT_SECRET',context:{tenantId}});
+   return Response.json({accessToken:'TENANT_SECRET',context:{tenantId,identifier:'local',name:'Local tenant'}});
   }
   if (path.endsWith('/tenancy/available')) return Response.json([{id:tenantId,identifier:'local',name:'Local tenant'}]);
   if (path.endsWith('/published-definitions')) return Response.json(granted ? [{definitionId,versionNumber:1,
@@ -69,6 +70,12 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
   }
   if (path.endsWith('/printing/templates') && method==='POST') return Response.json({id:templateId,version:1}, {status:201});
   if (path.endsWith('/publish') && path.includes('/printing/')) return Response.json({templateId,versionNumber:1,layoutHtml:'<article>{{tenantName}} / {{tenantCode}}</article>'});
+  if (path.endsWith('/published-templates')) return Response.json(printGranted?[{templateId,versionNumber:1}]:[]);
+  if (path.includes('/published-templates/') && path.endsWith('/preview')) {
+   if(input.versionNumber===2 || (!printGranted && !revokedPrintingAllowed)) return Response.json({code:'authorization.permission_denied'},{status:403});
+   return Response.json({templateId,versionNumber:wrongPrintingVersion?2:1,formSchemaKey:'printing.tenant_profile_card',
+    boundFields:{tenantName:'Local tenant',tenantCode:wrongPrintingTenant?'other':'local'},html:'<article>Local tenant / local</article>'});
+  }
   if (path.endsWith('/preview')) return Response.json({code:'authorization.permission_denied'}, {status:printingAllowed?200:403});
   throw new Error('Unexpected output request: '+method+' '+path);
  };
@@ -90,13 +97,16 @@ test('独立应用联合验证精确版本查询、工作簿校验、撤销后�
  try {
   const r=await f.run();assert.equal(r.completed,true);assert.equal(f.checked(),true);
   assert.equal(r.reporting.versionNumber,1);assert.equal(r.reporting.downloadVerified,true);assert.equal(r.reporting.revokedAccessDenied,true);
-  assert.equal(r.printing.hostPublished,true);assert.equal(r.printing.tenantPreviewDenied,true);assert.equal(r.printing.status,'tenant-preview-not-supported');
+  assert.equal(r.printing.hostPublished,true);assert.equal(r.printing.tenantPreviewDenied,true);assert.equal(r.printing.status,'tenant-published-preview-verified');assert.equal(r.printing.completed,true);assert.equal(r.printing.revokedAccessDenied,true);
   assert.doesNotMatch(JSON.stringify(f.report()),/HOST_SECRET|TENANT_SECRET|REVOKER_SECRET|REVOKER_CSRF_SECRET|DATABASE_SECRET|16\.0\.4135\.4/u);
   assert.equal(f.requests.filter(r=>r.path.endsWith('/download')).length,2);
  } finally { f.cleanup(); }
 });
 
 for (const [name,options,pattern] of [
+ ['拒绝打印串用未获授版本',{wrongPrintingVersion:true},/printing version/iu],
+ ['拒绝打印绑定其他租户',{wrongPrintingTenant:true},/printing binding/iu],
+ ['拒绝打印撤权后仍可预览',{revokedPrintingAllowed:true},/HTTP 200/u],
  ['拒绝报表执行串用未获授版本',{wrongVersion:true},/version/iu],
  ['拒绝空查询冒充实际外部查询',{emptyQuery:true},/row/iu],
  ['拒绝仅有 ZIP 前缀的损坏工作簿',{corruptWorkbook:true},/workbook/iu],

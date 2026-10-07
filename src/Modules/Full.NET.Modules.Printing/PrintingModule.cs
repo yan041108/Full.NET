@@ -8,6 +8,11 @@ using Full.NET.Modules.Printing.Features.BrowseFormSchemas;
 using Full.NET.Modules.Printing.Features.ManageTemplates;
 using Full.NET.Modules.Printing.Features.PreviewTemplates;
 using Full.NET.Modules.Printing.Serialization;
+using Full.NET.Modules.Printing.Features.PublishedTemplates;
+#if FULLNET_AOT_COMPILE
+using Full.NET.Data.Dapper;
+using Full.NET.Modules.Printing.Persistence;
+#endif
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +49,11 @@ public sealed class PrintingModule : IFullNetModule
         services.TryAddScoped<PrintingTemplateManagementService>();
         services.TryAddScoped<PrintingFormBindingService>();
         services.TryAddScoped<PrintingTemplatePreviewService>();
+        services.TryAddScoped<PrintingPublishedTemplateService>();
+        services.TryAddScoped<PrintingTenantGrantManagementService>();
+#if FULLNET_AOT_COMPILE
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IDapperAotMaterializerContributor, PrintingDapperAotMaterializerContributor>());
+#endif
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -57,5 +67,6 @@ public sealed class PrintingModule : IFullNetModule
         Features.BrowseFormSchemas.Endpoint.Map(endpoints);
         Features.ManageTemplates.Endpoint.Map(endpoints);
         Features.PreviewTemplates.Endpoint.Map(endpoints);
+        Features.PublishedTemplates.Endpoint.Map(endpoints);
     }
 }

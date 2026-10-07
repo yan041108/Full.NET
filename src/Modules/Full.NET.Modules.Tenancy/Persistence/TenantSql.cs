@@ -4,6 +4,15 @@ namespace Full.NET.Modules.Tenancy.Persistence;
 
 internal static class TenantSql
 {
+    /// <summary>仅供当前租户档案绑定；可信上下文覆盖参数，不允许读取其他租户。</summary>
+    public static readonly SqlStatement FindCurrentPrintingProfile = new(
+        "tenancy.printing.find_current_profile",
+        """
+        SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
+        FROM fn_tenancy_tenant
+        WHERE Id = @TenantId AND IsActive = 1
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement FindByIdentifier = new(
         "tenancy.find_by_identifier",
         """

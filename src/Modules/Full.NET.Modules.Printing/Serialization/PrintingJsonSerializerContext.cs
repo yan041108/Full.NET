@@ -5,6 +5,9 @@ using Full.NET.Modules.Printing.Contracts;
 namespace Full.NET.Modules.Printing.Serialization;
 
 /// <summary>Printing 模块 JSON 源生成上下文。</summary>
+[JsonSerializable(typeof(PrintingPublishedTemplateResponse))]
+[JsonSerializable(typeof(IReadOnlyList<PrintingPublishedTemplateResponse>))]
+[JsonSerializable(typeof(PagedResult<Guid>))]
 [JsonSerializable(typeof(PrintingFormSchemaDefinition))]
 [JsonSerializable(typeof(PrintingFormFieldDefinition))]
 [JsonSerializable(typeof(IReadOnlyList<PrintingFormSchemaDefinition>))]

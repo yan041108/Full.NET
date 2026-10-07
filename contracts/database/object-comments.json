@@ -2386,6 +2386,17 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_printing_template_tenant_grant": {
+      "comment": "打印模板发布版本租户授权",
+      "columns": {
+        "CreatedAtUtc": "授权时间(UTC)",
+        "GrantedByUserId": "授权操作人标识",
+        "Id": "逻辑主键",
+        "TemplateId": "本模块打印模板标识",
+        "TenantId": "获授租户标识，不建立跨模块外键",
+        "VersionNumber": "明确获授的不可变发布版本"
+      }
+    },
     "fn_printing_template_version": {
       "comment": "打印模板版本表",
       "columns": {

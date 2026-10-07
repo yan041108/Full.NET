@@ -1731,3 +1731,18 @@ Host新增三场景先RED2失败/1通过，实现后含原场景14/14；测试�
 针对空列表只验证结构的缺口，在已有tenantCRUD创建商品并校验Id/TenantId/Name/Version后增加可选回调，将可信租户token和最小商品身份只在内存中传给生成客户端Worker。Worker实际调用catalogGetProduct，要求单次HTTP200、生成响应解析成功、四字段完全一致；失败即停止原CRUD的后续更新/删除，product-read.json只记录操作、HTTP状态及completed。未改生产服务端、SQL、授权或Vue。四项新增可失败验证初始RED，实施后4/4；相关Node59/59、治理57/57均零跳过。新规则R-20260930允许本地验收，本轮Node夹具证明辅助验收逻辑；真实独立应用双库运行仍未验证，故不将此项标为完整应用通过。F02和Capacity-not-verified保持，未合并/发布。
 
 独立只读复审相关两组Node37/37、任务diff通过，无阻断。复审指出本地测试成功响应同时包含旧CatalogProduct黄金契约的displayName/description/isActive与当前应用name；它证明旧夹具的生成读取器路径和明确name比对，不证明新应用真实ProductResponse schema。新SHA本地双库真实栈尚未执行，不能把该夹具通过称作真实DTO兼容认证。并行AI/日志工作区改动继续保留，不纳入本提交。
+
+
+### 2026-10-08 打印发布版本租户授权与预览批量交付
+
+基线 `285965aeae49fa96798f81e95051a53891070087`，任务快照 `c02-printing-published-tenant-20261008`。本批实现五个正式 HTTP 入口：Host 精确版本授权列表/授予/撤销，Tenant 获授目录/预览。新增一个 Host 授权权限和两个独立 Tenant 权限，旧模板草稿与 Host 预览权限、HostOnly SQL 不变。246 成对迁移仅建授权表和唯一键，不为存量模板自动授权；授权以租户+模板+发布版本为边界，不建立跨模块外键。默认预览选择租户最高获授版本，不自动跟随模板最新发布；目录只返回元数据，不加载草稿/布局/绑定数据。
+
+沿调用链修复 Tenancy 打印桥复用 HostTenantQueryService 的缺陷：由 Tenancy 自有静态 TenantRequired SQL 读取可信当前租户活动档案，拒绝不匹配的显式租户参数，Printing 不访问 Tenancy 表。跨模块绑定前查询获授冻结版本，绑定后复核同一版本授权和模板启用状态，再交付 HTML。登记现有草稿/版本及新增目录/获授布局的 AOT 静态物化器、JSON 源生成元数据、正式 OpenAPI 与 SDK；Vue 页面接线留待下一批。
+
+权限回归先有效 RED（2 项中新增 1 项失败），实现后 Printing Unit 首次 5 成功但错误设置最低数6导致命令失败，修正后5/5；只读安全审查无严重生产缺陷，按建议补挂起绑定与最终权威复核四场景，最终 `pnpm test:dotnet:unit -- --filter FullyQualifiedName~Full.NET.UnitTests.Printing --minimum-expected-tests 9` 为9/9、零失败/跳过。测试选择器漏选 Printing 先有效 RED，修正后 Integration tooling59/59；迁移、Printing、Tenancy、Smoke 能进入本批 merge 影响集。
+
+首轮正式双库 Printing/Migration246/Smoke 联合12项中10成功、2失败、零跳过（659.726s）：两项 Printing 在建立第二租户前失败，原因是默认 Testing Overlay 只有 Acme，测试错误假设另有活动租户；改为调用正式开通 API 创建自有第二租户，再进行隔离验证。两项246迁移并发授权幂等与账本移除后回放、八项Smoke在该轮通过；不将局部10项标为整轮通过。修正后的 Printing+Tenancy 双库联合正在执行，最终以完整报告补记。
+
+运行时客户端 OpenAPI 首轮 SQL Server 迁移连接中断（意外使用默认复用夹具），不计通过；显式 `FULLNET_TESTCONTAINERS_REUSE=0` 重跑双库各1/1成功、归一化一致。新增五操作后规范清单计数由565变570，OpenAPI计数门禁首次203通过/1失败，更新真实计数后204/204；SDK重新生成。AOT分析退出0、零警告/错误；NativeAot/MemoryPack/OpenApiOperationIdentity 架构74/74。Node输出/导入/授权/工作簿27/27、治理57/57、命名33/33；分片发现1180项无遗漏/重复（仅发现证据）。
+
+独立 Enterprise 输出验收器增加打印 Host 精确授权、Tenant 目录、实际当前租户档案绑定和固定 HTML 对照、未获授版本/匿名拒绝、不同最小权限 Host 用户撤权后403及目录隐藏；保留原Host模板入口的Tenant403。报告不保存HTML、绑定数据、凭据或响应正文。源码冻结后还需正式独立应用 SQL Server/MySQL 联合验收；尚未升级为端到端打印通过。F11/C02仍局部收口；本批不扩展企业申请业务表单打印、浏览器净化验收、Native运行实测、外部MySQL TLS、Worker OS崩溃接管与容量，保持Capacity-not-verified，未合并/发布。

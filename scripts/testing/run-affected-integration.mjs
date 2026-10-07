@@ -35,6 +35,7 @@ const importExportFilter =
   + '|FullyQualifiedName~Full.NET.IntegrationTests.ImportExport.';
 const aiFilter = 'FullyQualifiedName~Full.NET.IntegrationTests.Ai.';
 const reportingFilter = 'FullyQualifiedName~Full.NET.IntegrationTests.Reporting.';
+const printingFilter = 'FullyQualifiedName~Full.NET.IntegrationTests.Printing.';
 const filesFilter =
   'FullyQualifiedName~FilesApi|FullyQualifiedName~Full.NET.IntegrationTests.Files.';
 const notificationsFilter =
@@ -61,6 +62,7 @@ const focusedModules = new Set([
   'Organization',
   'Regions',
   'Reporting',
+  'Printing',
   'SerialNumbers',
   'Settings',
   'Workflow'
@@ -234,6 +236,10 @@ function addModuleTarget(targets, moduleName) {
   }
   if (moduleName === 'Reporting') {
     addTarget(targets, filterTarget('Reporting', reportingFilter));
+    return;
+  }
+  if (moduleName === 'Printing') {
+    addTarget(targets, filterTarget('Printing', printingFilter));
     return;
   }
   if (moduleName === 'Files') {

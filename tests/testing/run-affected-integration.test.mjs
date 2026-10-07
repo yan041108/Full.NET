@@ -270,7 +270,7 @@ test('普通单模块改动选择双库聚焦测试', () => {
   }
 });
 
-test('ImportExport、Ai、Reporting、Files、Notifications 改动选择含持久化夹具的双库聚焦集', () => {
+test('ImportExport、Ai、Reporting、Printing、Files、Notifications 改动选择含持久化夹具的双库聚焦集', () => {
   const cases = [
     [
       'src/Modules/Full.NET.Modules.ImportExport/Persistence/Queries.cs',
@@ -287,6 +287,11 @@ test('ImportExport、Ai、Reporting、Files、Notifications 改动选择含持�
       'src/Modules/Full.NET.Modules.Reporting/Persistence/Queries.cs',
       'Reporting',
       'FullyQualifiedName~Full.NET.IntegrationTests.Reporting.'
+    ],
+    [
+      'src/Modules/Full.NET.Modules.Printing/Persistence/Queries.cs',
+      'Printing',
+      'FullyQualifiedName~Full.NET.IntegrationTests.Printing.'
     ],
     [
       'src/Modules/Full.NET.Modules.Files/Persistence/Queries.cs',

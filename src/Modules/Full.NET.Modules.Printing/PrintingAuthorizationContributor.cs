@@ -16,6 +16,9 @@ internal sealed class PrintingAuthorizationContributor : IAuthorizationCatalogCo
         new(PrintingTemplatePermissions.Update, "更新打印模板", AuthorizationScope.Host),
         new(PrintingTemplatePermissions.Publish, "发布打印模板版本", AuthorizationScope.Host),
         new(PrintingTemplatePermissions.Preview, "预览打印模板", AuthorizationScope.Host),
+        new(PrintingTemplatePermissions.GrantTenants, "授权租户打印版本", AuthorizationScope.Host),
+        new(PrintingPublishedTemplatePermissions.Read, "读取获授打印版本", AuthorizationScope.Tenant),
+        new(PrintingPublishedTemplatePermissions.Preview, "预览获授打印版本", AuthorizationScope.Tenant),
         new(PrintingFormSchemaPermissions.Read, "读取固定表单 Schema 目录", AuthorizationScope.Host),
     ];
 
