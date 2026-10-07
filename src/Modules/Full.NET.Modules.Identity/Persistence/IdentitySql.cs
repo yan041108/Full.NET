@@ -2060,6 +2060,8 @@ internal static class IdentitySql
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE UserId = @UserId
+          AND IsEnabled = 0
+          AND Version = @Version
         """,
         SqlDataScope.HostOnly);
 

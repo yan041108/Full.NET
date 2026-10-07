@@ -30,6 +30,7 @@
   <data name="identity.mfa.totp_required" xml:space="preserve"><value>A TOTP code is required.</value></data>
   <data name="identity.mfa.totp_invalid" xml:space="preserve"><value>The TOTP code is invalid or expired.</value></data>
   <data name="identity.mfa.not_enrolled" xml:space="preserve"><value>TOTP has not been enabled for this account.</value></data>
+  <data name="identity.mfa.totp_enrollment_conflict" xml:space="preserve"><value>TOTP is enabled or enrollment changed. Refresh its status.</value></data>
   <data name="identity.users.username_exists" xml:space="preserve"><value>A host user with this username already exists.</value></data>
   <data name="identity.users.not_found" xml:space="preserve"><value>The host user was not found.</value></data>
   <data name="identity.users.login_not_locked" xml:space="preserve"><value>The host user is not currently in a login lockout state.</value></data>

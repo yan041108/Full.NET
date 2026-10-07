@@ -103,6 +103,9 @@ public static class IdentityErrorCodes
     /// <summary>操作者尚未确认启用 TOTP。</summary>
     public const string MfaTotpNotEnrolled = "identity.mfa.not_enrolled";
 
+    /// <summary>TOTP 登记已启用或状态发生并发变化。</summary>
+    public const string MfaTotpEnrollmentConflict = "identity.mfa.totp_enrollment_conflict";
+
     /// <summary>MFA 恢复码无效、已消费或并发冲突。</summary>
     public const string MfaRecoveryCodeInvalid = "identity.mfa.recovery_code_invalid";
 
@@ -508,6 +511,7 @@ public static class IdentityErrorCodes
         MfaTotpRequired,
         MfaTotpInvalid,
         MfaTotpNotEnrolled,
+        MfaTotpEnrollmentConflict,
         UsernameExists,
         UserNotFound,
         LoginNotLocked,

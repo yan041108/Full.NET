@@ -21,4 +21,9 @@ test('TOTP 登记 OpenAPI 夹具与 C# 契约和端点一致', async () => {
   assert.match(endpointSource, /WithTags\("IdentityTotpEnrollment"\)/u);
   assert.match(contractsSource, /record TotpEnrollmentStatusResponse/u);
   assert.ok(contract.paths.some((entry) => entry.path.endsWith('/confirm')));
+  for (const suffix of ['/begin', '/confirm']) {
+    const operation = contract.paths.find(entry => entry.path.endsWith(suffix)).operations[0];
+    assert.ok(operation.errorStatuses.includes(409));
+  }
+  assert.equal((endpointSource.match(/ProducesProblem\(StatusCodes.Status409Conflict\)/gu) ?? []).length, 2);
 });

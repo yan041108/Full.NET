@@ -14,6 +14,7 @@ import { isIdentityPasswordValid } from '../auth/identity-password-policy';
 import { buildOAuthAuthorizeUrl, deleteOAuthUserLink, listOAuthUserLinks } from '../api/oauth-links';
 import { listPublicOAuthProviders } from '../api/oauth-providers';
 import { regenerateMyMfaRecoveryCodes } from '../api/mfaRecoveryCodes';
+import TotpEnrollmentCard from '../components/TotpEnrollmentCard.vue';
 
 defineOptions({ name: 'SecuritySettingsView' });
 
@@ -24,6 +25,8 @@ const { t } = useAdminI18n();
 const saving = ref(false);
 const regeneratingRecoveryCodes = ref(false);
 const recoveryCodes = ref<string[]>([]);
+const totpBusy = ref(false);
+const unbinding = ref(false);
 const linksLoading = ref(false);
 const oauthLinks = ref<OAuthUserLink[]>([]);
 const availableProviders = ref<PublicOAuthProvider[]>([]);
@@ -34,9 +37,12 @@ let disposed = false;
 let operationGeneration = 0;
 let viewGeneration = 0;
 let inactive = false;
+let oauthGeneration = 0;
+let oauthController: AbortController | undefined;
+let unbindController: AbortController | undefined;
 onBeforeUnmount(() => { disposed = true; invalidateView(); });
 onDeactivated(() => { inactive = true; invalidateView(); });
-onActivated(() => { inactive = false; });
+onActivated(() => { if (inactive) { inactive = false; void loadOAuthSection(); } });
 const form = reactive({
   currentPassword: '',
   newPassword: '',
@@ -48,10 +54,18 @@ watch([() => session.currentUser?.id, () => session.currentUser?.sessionId], ([u
   if (userId !== previousId) viewGeneration++;
   operationGeneration++; recoveryCodes.value = [];
   form.currentPassword = ''; form.newPassword = ''; form.confirmPassword = '';
+  invalidateOAuth();
+  if (!disposed && !inactive) void loadOAuthSection();
 }, { flush: 'sync' });
+watch(forced, () => { invalidateOAuth(); if (!forced.value) void loadOAuthSection(); });
+function invalidateOAuth(): void {
+  oauthGeneration++; oauthController?.abort(); unbindController?.abort();
+  oauthLinks.value = []; availableProviders.value = []; linksLoading.value = false; unbinding.value = false;
+}
 function invalidateView(): void {
   viewGeneration++; operationGeneration++; recoveryCodes.value = [];
   form.currentPassword = ''; form.newPassword = ''; form.confirmPassword = '';
+  invalidateOAuth();
 }
 function isCurrentOperation(generation: number): boolean { return !disposed && !inactive && generation === operationGeneration; }
 
@@ -61,35 +75,58 @@ function oauthReturnUrl(): string {
 }
 
 async function loadOAuthSection(): Promise<void> {
+  if (disposed || inactive || forced.value || !session.currentUser) return;
+  const generation = ++oauthGeneration;
+  oauthController?.abort();
+  const controller = new AbortController();
+  oauthController = controller;
+  const current = () => !disposed && !inactive && generation === oauthGeneration;
   linksLoading.value = true;
   try {
     const [links, providers] = await Promise.all([
-      listOAuthUserLinks(),
-      listPublicOAuthProviders()
+      listOAuthUserLinks(controller.signal),
+      listPublicOAuthProviders(controller.signal)
     ]);
+    if (!current()) return;
     oauthLinks.value = links;
     const linkedKeys = new Set(links.map(link => link.providerKey));
     availableProviders.value = providers.filter(provider => !linkedKeys.has(provider.providerKey));
-  } catch {
+  } catch (error: unknown) {
+    if (!current()) return;
     oauthLinks.value = [];
     availableProviders.value = [];
+    showProblem(error, t('oauthLinks.loadFailed'));
   } finally {
-    linksLoading.value = false;
+    if (current()) { linksLoading.value = false; oauthController = undefined; }
   }
 }
 
 function startOAuthBind(providerKey: string): void {
+  if (disposed || inactive || forced.value || saving.value || regeneratingRecoveryCodes.value || totpBusy.value || unbinding.value || linksLoading.value
+    || !availableProviders.value.some(provider => provider.providerKey === providerKey)) return;
   window.location.href = buildOAuthAuthorizeUrl(providerKey, 'bind', oauthReturnUrl());
 }
 
 async function unbindLink(link: OAuthUserLink): Promise<void> {
-  await deleteOAuthUserLink(link.id);
-  showSuccess(t('oauthLinks.unbindSuccess'));
-  await loadOAuthSection();
+  if (disposed || inactive || forced.value || saving.value || regeneratingRecoveryCodes.value || totpBusy.value || unbinding.value || linksLoading.value
+    || !oauthLinks.value.some(current => current.id === link.id)) return;
+  const generation = operationGeneration;
+  const controller = new AbortController();
+  unbindController = controller; unbinding.value = true;
+  try {
+    await deleteOAuthUserLink(link.id, controller.signal);
+    if (!isCurrentOperation(generation)) return;
+    showSuccess(t('oauthLinks.unbindSuccess'));
+    await loadOAuthSection();
+  } catch (error: unknown) {
+    if (isCurrentOperation(generation)) showProblem(error, t('oauthLinks.unbindFailed'));
+  } finally {
+    if (isCurrentOperation(generation)) { unbinding.value = false; unbindController = undefined; }
+  }
 }
 
 async function submit(): Promise<void> {
-  if (disposed || inactive || saving.value || regeneratingRecoveryCodes.value) return;
+  if (disposed || inactive || saving.value || regeneratingRecoveryCodes.value || totpBusy.value || unbinding.value) return;
   if (!form.currentPassword || !form.newPassword) {
     showWarning(t('securitySettings.requiredFields'));
     return;
@@ -128,7 +165,7 @@ async function submit(): Promise<void> {
 }
 
 async function regenerateRecoveryCodes(): Promise<void> {
-  if (disposed || saving.value || regeneratingRecoveryCodes.value) return;
+  if (disposed || inactive || saving.value || regeneratingRecoveryCodes.value || totpBusy.value || unbinding.value) return;
   const generation = operationGeneration;
   regeneratingRecoveryCodes.value = true;
   recoveryCodes.value = [];
@@ -167,7 +204,7 @@ onMounted(() => {
             v-model="form.currentPassword"
             type="password"
             show-password
-            :disabled="saving || regeneratingRecoveryCodes"
+            :disabled="saving || regeneratingRecoveryCodes || totpBusy || unbinding"
             autocomplete="current-password"
           />
         </el-form-item>
@@ -176,7 +213,7 @@ onMounted(() => {
             v-model="form.newPassword"
             type="password"
             show-password
-            :disabled="saving || regeneratingRecoveryCodes"
+            :disabled="saving || regeneratingRecoveryCodes || totpBusy || unbinding"
             autocomplete="new-password"
           />
         </el-form-item>
@@ -185,24 +222,27 @@ onMounted(() => {
             v-model="form.confirmPassword"
             type="password"
             show-password
-            :disabled="saving || regeneratingRecoveryCodes"
+            :disabled="saving || regeneratingRecoveryCodes || totpBusy || unbinding"
             autocomplete="new-password"
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="saving" :disabled="regeneratingRecoveryCodes" native-type="submit">
+          <el-button type="primary" :loading="saving" :disabled="regeneratingRecoveryCodes || totpBusy || unbinding" native-type="submit">
             {{ t('securitySettings.submit') }}
           </el-button>
         </el-form-item>
       </el-form>
     </el-card>
 
+    <totp-enrollment-card v-if="!forced && session.currentUser?.scope === 'host' && session.currentUser.actorScope === 'host'"
+      :disabled="saving || regeneratingRecoveryCodes || unbinding" @busy="totpBusy = $event" />
+
     <el-card v-if="!forced" shadow="never" class="security-settings-card security-settings-card--oauth">
       <template #header>
         <h2 class="security-settings-card__title">{{ t('mfaRecovery.title') }}</h2>
         <p class="security-settings-card__subtitle">{{ t('mfaRecovery.subtitle') }}</p>
       </template>
-      <el-button type="primary" :loading="regeneratingRecoveryCodes" :disabled="saving" @click="regenerateRecoveryCodes">
+      <el-button type="primary" :loading="regeneratingRecoveryCodes" :disabled="saving || totpBusy || unbinding" @click="regenerateRecoveryCodes">
         {{ t('mfaRecovery.regenerate') }}
       </el-button>
       <el-button v-if="recoveryCodes.length > 0" @click="recoveryCodes = []">{{ t('mfaRecovery.hide') }}</el-button>
@@ -211,12 +251,13 @@ onMounted(() => {
       </ul>
     </el-card>
 
-    <el-card shadow="never" class="security-settings-card security-settings-card--oauth">
+    <el-card v-if="!forced" shadow="never" class="security-settings-card security-settings-card--oauth">
       <template #header>
         <h2 class="security-settings-card__title">{{ t('oauthLinks.title') }}</h2>
         <p class="security-settings-card__subtitle">{{ t('oauthLinks.subtitle') }}</p>
       </template>
 
+      <el-button :disabled="linksLoading || unbinding" @click="loadOAuthSection">{{ t('oauthLinks.refresh') }}</el-button>
       <el-table v-loading="linksLoading" :data="oauthLinks" style="width: 100%; margin-bottom: 16px;">
         <el-table-column prop="providerDisplayName" :label="t('oauthLinks.fieldProvider')" min-width="160" />
         <el-table-column prop="subject" :label="t('oauthLinks.fieldSubject')" min-width="180" />
@@ -224,7 +265,7 @@ onMounted(() => {
         <!-- @vue-generic {OAuthUserLink} -->
           <el-table-column width="120">
           <template #default="{ row }">
-            <el-button type="danger" link @click="unbindLink(row)">{{ t('oauthLinks.unbind') }}</el-button>
+            <el-button type="danger" link :disabled="linksLoading || unbinding || saving || regeneratingRecoveryCodes || totpBusy" @click="unbindLink(row)">{{ t('oauthLinks.unbind') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -234,6 +275,7 @@ onMounted(() => {
         <el-button
           v-for="provider in availableProviders"
           :key="provider.providerKey"
+          :disabled="linksLoading || unbinding || saving || regeneratingRecoveryCodes || totpBusy"
           @click="startOAuthBind(provider.providerKey)"
         >
           {{ t('oauthLinks.bindAction', { name: provider.displayName }) }}

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { adminOrigin, loginAsHostUser, loginHostAdminAccessToken, provisionLimitedHostUserViaApi, trackUiAccessToken } from './support/real-stack-auth.mjs';
+import { computeTotpCode, decodeBase32Secret } from '../scripts/totp-utils.mjs';
 
 async function withTestAccount(page, run) {
   const stamp = crypto.randomUUID().slice(0, 8);
@@ -77,5 +78,52 @@ test('独立账号真实自助改密轮换会话后仍显示成功', async ({ pa
   const after = await page.request.get('/api/v1/me', { headers: { Authorization: 'Bearer ' + rotatedToken } });
   expect((await after.json()).sessionId).not.toBe(originalSession);
   await expect(inputs.nth(0)).toHaveValue('');
+  });
+});
+
+test('独立账号通过安全设置登记 TOTP，已启用凭据不可重置', async ({ page }) => {
+  const token = trackUiAccessToken(page);
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await withTestAccount(page, async () => {
+    await page.evaluate(() => { location.hash = '/account/security'; });
+    const card = page.locator('.totp-enrollment-card');
+    const begin = async () => {
+      const response = page.waitForResponse(value => value.url().endsWith('/mfa/totp/begin'));
+      await card.getByRole('button', { name: '开始登记', exact: true }).click();
+      const result = await response; expect(result.status()).toBe(200);
+      return result.json();
+    };
+    const first = await begin();
+    await expect(card.locator('input[readonly]')).toHaveValue(first.sharedSecretBase32);
+    await card.getByRole('button', { name: '隐藏登记材料', exact: true }).click();
+    await expect(card.locator('input[readonly]')).toHaveCount(0);
+    const restarted = await begin();
+    expect(restarted.sharedSecretBase32).not.toBe(first.sharedSecretBase32);
+    const key = decodeBase32Secret(restarted.sharedSecretBase32);
+    const accepted = new Set([-30_000, 0, 30_000].map(offset => computeTotpCode(key, Date.now() + offset)));
+    let invalid = '000000'; while (accepted.has(invalid)) invalid = String(Number(invalid) + 1).padStart(6, '0');
+    await card.locator('input[inputmode="numeric"]').fill(invalid);
+    const rejected = page.waitForResponse(value => value.url().endsWith('/mfa/totp/confirm'));
+    await card.getByRole('button', { name: '确认启用', exact: true }).click();
+    expect((await rejected).status()).toBe(400);
+    await expect(card.locator('input[readonly]')).toHaveValue(restarted.sharedSecretBase32);
+    await card.locator('input[inputmode="numeric"]').fill(computeTotpCode(key));
+    const confirmed = page.waitForResponse(value => value.url().endsWith('/mfa/totp/confirm'));
+    await card.getByRole('button', { name: '确认启用', exact: true }).click();
+    expect((await confirmed).status()).toBe(200);
+    await expect(card.getByRole('status')).toHaveText('TOTP 已启用');
+    await expect(card.locator('input[readonly]')).toHaveCount(0);
+    const forbiddenReset = await page.request.post('/api/v1/identity/me/mfa/totp/begin', {
+      headers: { Authorization: `Bearer ${token()}`, Origin: new URL(page.url()).origin }
+    });
+    expect(forbiddenReset.status()).toBe(409);
+    expect(await forbiddenReset.json()).toMatchObject({ code: 'identity.mfa.totp_enrollment_conflict' });
+    await page.evaluate(() => { location.hash = '/'; });
+    await expect(card).toBeHidden();
+    await page.evaluate(() => { location.hash = '/account/security'; });
+    await expect(card.getByRole('status')).toHaveText('TOTP 已启用');
+    await expect(card.locator('input[readonly]')).toHaveCount(0);
+    expect(errors).toEqual([]);
   });
 });

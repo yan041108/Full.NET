@@ -5,6 +5,8 @@ import { createMemoryHistory } from 'vue-router';
 import { createPinia, setActivePinia } from 'pinia';
 import { ElConfigProvider, ElOption } from 'element-plus';
 import App from './App.vue';
+// 本例验证路由授权边界；提前加载真实页面，避免将 Vite 冷编译计入行为测试时限。
+import './views/SecuritySettingsView.vue';
 import { createAppRouter } from './router';
 import { useSessionStore } from './auth/session';
 import { useAdminI18n } from './i18n/adminI18n';
