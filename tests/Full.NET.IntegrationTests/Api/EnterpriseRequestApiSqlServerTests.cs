@@ -33,13 +33,13 @@ public sealed class EnterpriseRequestApiSqlServerTests
     }
 
     [TestMethod]
-    public async Task Tenant_demo_enterprise_requests_csv_import()
+    public async Task Tenant_demo_enterprise_requests_workbook_import()
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
             ImportExportSyncSettings);
 
-        await EnterpriseRequestAssertions.VerifyTenantDemoEnterpriseRequestsCsvImportAsync(factory);
+        await EnterpriseRequestAssertions.VerifyTenantDemoEnterpriseRequestsWorkbookImportAsync(factory);
     }
 }

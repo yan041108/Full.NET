@@ -33,13 +33,13 @@ public sealed class EnterpriseRequestApiMySqlTests
     }
 
     [TestMethod]
-    public async Task Tenant_demo_enterprise_requests_csv_import()
+    public async Task Tenant_demo_enterprise_requests_workbook_import()
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
             ImportExportSyncSettings);
 
-        await EnterpriseRequestAssertions.VerifyTenantDemoEnterpriseRequestsCsvImportAsync(factory);
+        await EnterpriseRequestAssertions.VerifyTenantDemoEnterpriseRequestsWorkbookImportAsync(factory);
     }
 }

@@ -26,3 +26,13 @@ dotnet run --project src/Tools/Full.NET.CodeGeneration.Cli -- plan-module-integr
 ## E2E
 
 管理端路由 `/enterprise-requests` 由 `tests/e2e/admin-real-stack/tests/enterprise-request.spec.mjs` 桩测试覆盖。
+
+## 静态工作簿导入
+
+使用 `demo.enterprise_requests` Schema 的 `requests` 工作表，从正式模板下载入口获取 `.xlsx`；不接受改名为 `.xlsx` 的 CSV。固定列为 `requestNumber`、`title`、`totalAmount`、`applicantUserId`、`organizationUnitId`。金额使用不带千位分隔符的 invariant 十进制，必须精确落入数据库 decimal(18,2)，机构与申请人使用非空 Guid。
+
+样例限制上传 1 MiB、压缩目录声明的解压总量 4 MiB、32 个压缩条目、单个 XML 2 MiB 字符和 1,000 个数据行；拒绝公式、外部关系、重复或错位单元格以及漂移表头。空白行跳过，字段错误保留 Excel 原始行号；预校验不创建业务实体。
+
+执行检查点是有效行的零基序号，回执身份为可信租户、任务标识与原始行号。申请创建、回执占位与完成在同一事务内，复用生成的领域创建和组织写授权。相同载荷重放返回同一实体，并再次检查实体当前机构的写授权；不同载荷或不完整回执失败关闭。迁移 244 只增加样例自有回执表，不修改原有业务数据、不建立跨模块外键；回退应用时可保留该表，迁移重跑保留已提交回执。
+
+API 和 Worker 使用相同处理器及最小后台授权依赖。注册解析测试和同步 API 双库验证不能替代真实 Worker 崩溃恢复；样例生成 CRUD 的完整 Native AOT 运行仍需独立验收。

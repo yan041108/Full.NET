@@ -127,6 +127,11 @@ public sealed class OrganizationModule : IFullNetModule
             .RegisterMaterializers(
                 new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
 #endif
+        // 后台导入复用当前机构及有效隶属校验，不能因 Worker 没有 HTTP 入口而省略写授权。
+        services.TryAddScoped<TenantUnits.TenantOrganizationUnitDirectory>();
+        services.TryAddScoped<ITenantOrganizationUnitDirectory>(provider => provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());
+        services.TryAddScoped<IOrganizationOwnedEntityWriteAuthorizer, OrganizationOwnedEntityWriteAuthorizer>();
+        services.TryAddSingleton<IIdentityOrganizationDataScopeSqlProjection, IdentityOrganizationDataScopeSqlProjection>();
         services.TryAddScoped<TenantUnits.OrganizationUnitProjectionCatalog>();
         services.TryAddScoped<IIdentityOrganizationUnitProjectionSource>(provider =>
             provider.GetRequiredService<TenantUnits.OrganizationUnitProjectionCatalog>());

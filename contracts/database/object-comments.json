@@ -43,6 +43,18 @@
         "Version": "乐观并发版本号"
       }
     },
+    "demo_enterprise_request_import_receipt": {
+      "comment": "unknowndemo enterprise request import receipt表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "EntityId": "实体标识",
+        "Id": "逻辑主键",
+        "LineNumber": "Line Number",
+        "PayloadHash": "载荷哈希",
+        "TaskId": "任务标识",
+        "TenantId": "租户标识；NULL 表示 Host 级"
+      }
+    },
     "fn_ai_agent_approval": {
       "comment": "人工智能agent approval表",
       "columns": {

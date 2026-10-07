@@ -1099,6 +1099,21 @@ Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约
 
 原始证据与源码摘要在 `.tmp/task-progress-*`；本批未改 SDK、后端、SQL 或依赖，不新增双库/Native 结论。静态核对发现 enterprise-request 样例导入仍使用 CSV 及固定零行预校验，需另做工作簿与业务幂等验收；真实 Worker、样例数据交付和 F11 其余项继续待办，C02/F11 不整体关闭，`Capacity-not-verified` 保持。开发分支和 Draft PR 交付，不合并、不发布。
 
+**进展（2026-10-07，F11 工作簿、检查点、事务回执与后台依赖联合修复）：**
+
+企业申请样例正式模板改为真实 Open XML `.xlsx`，按固定列解析并返回真实行数、有效/无效行及原始 Excel 行号；拒绝伪装 CSV、公式、外部关系、重复/错位单元格、漂移表头和超预算输入。金额使用 invariant decimal(18,2)，同时检查原文精度，防止千位分隔符误读及极小非零值被解析器舍入成零。有效行检查点采用零基序号，空白和无效行不改变原始行幂等身份；预校验不写业务数据。
+
+样例自有迁移 244 成对增加回执表，以可信租户、任务与原始行号唯一；回执占位、生成的领域创建和完成在同一事务内，业务失败/完成失败回滚，并发败方回滚后才读取已提交回执。重放要求相同载荷并重新校验实体当前机构写授权。补齐 EnterpriseRequest/ImportExport/Organization/Identity 的最小 Worker 导入注册及数据范围投影依赖，未引入 HTTP 认证栈；登记新回执 AOT 物化器和 Enterprise preset 迁移归属，minimal preset 排除该样例迁移。
+
+- 首轮模板/预校验 RED **5/5 失败**；Worker 解析 RED **1/1 失败**；极小金额 RED **1/1 失败**。最终 `pnpm test:dotnet:unit -- --filter 'FullyQualifiedName~Full.NET.UnitTests.EnterpriseRequest|FullyQualifiedName~FullNetModuleCatalogTests|FullyQualifiedName~IdentityModuleRegistrationTests' --minimum-expected-tests 38` **38/38**，零失败/跳过，包含回执重放、冲突载荷、组织撤权、业务/完成回滚及唯一键败方恢复。
+- Release Integration 首轮 **18/20**：两项 MySQL 恢复夹具仅允许 244，缺少正式 UUID Contract 前置状态而失败。夹具改为冻结 Through244 的完整迁移集合；随后用 `dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --filter 'FullyQualifiedName~Tenant_demo_enterprise_requests_workbook_import|FullyQualifiedName~Migration244EnterpriseRequestImportReceiptTests' --minimum-expected-tests 6 --timeout 20m --report-trx --report-trx-filename sample-workbook-recovery-final.trx` 重测 **6/6**（343.85 秒）。原 TRX 中未受影响的 CRUD、ImportExport 契约和双库 Smoke **14/14** 复用；两轮按完整用例名核对后覆盖 **20 个不同场景**，不是同一轮 20/20。工作簿测试从正式模板下载入口填充、上传、执行、重复重放，并断言只有一个申请；恢复测试覆盖双库回执回滚、租户隔离、并发唯一键及未记账重跑。
+- 架构全量首轮 **231/232**，唯一失败为哈希中的 `Guid.ToByteArray()` 违反统一 UUID 转换门禁；改为规范 Guid 文本后，`pnpm test:dotnet:architecture -- --filter FullyQualifiedName~Guid_storage_unsafe_conversions_exist_only_in_negative_fixtures --minimum-expected-tests 1` **1/1**。`pnpm test:aot:analyzers` 退出 0、零警告/错误；这只证明分析器编译，不证明样例原生执行。
+- `pnpm test:governance` **57/57**、`pnpm test:naming` **33/33**、`pnpm test:sql-safety` **5/5**、`pnpm test:integration:tooling` **58/58**，迁移 preset 归属测试 **4/4**。`pnpm test:integration:partitions` 发现 **1164** 项，无遗漏/重复，不当作实际执行通过数。测试矩阵登记新恢复集和新增测试数量。
+
+环境为 Windows x64 / .NET SDK 10.0.401，Integration 并发 2；SQL Server 2022-CU14、MySQL 8.0 与 Redis 8.6 使用本任务关闭复用的 Testcontainers，未重启或改动其他任务容器。源码摘要、两轮原始结果与按完整用例名合并的证据保存在 `.tmp/sample-*`。正式 slice 规划包含 Identity、Organization、ImportExport、migration-244、smoke 与 integration-matrix，估计 75 分钟；本轮交付上述聚焦证据，未称完整自动影响集通过。
+
+真实 Worker 进程崩溃、排队后权限/会话撤销、结果文件再次授权及独立生成应用的 Enterprise 业务链仍待办；样例既有生成 CRUD 的完整 Native AOT 行物化/参数绑定限制仍未验收。F11/C02 不整体关闭，`Capacity-not-verified` 保持。开发分支与 Draft PR 交付，不合并、不发布。
+
 ### F12：订阅、试用与支付驱动权益
 
 **依赖：** F06、F08、现有 Payments 安全修复/渠道验收。**提供：** Tenancy 订阅生命周期；Payments 仍拥有资金事实。

@@ -1,3 +1,7 @@
+using System.IO.Compression;
+using System.Xml.Linq;
+using Full.NET.Abstractions.Tenancy;
+using Microsoft.Extensions.DependencyInjection;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
@@ -106,7 +110,7 @@ internal static class EnterpriseRequestAssertions
         Assert.AreEqual(EnterpriseRequestStatusKeys.Submitted, submitted!.Status);
     }
 
-    public static async Task VerifyTenantDemoEnterpriseRequestsCsvImportAsync(
+    public static async Task VerifyTenantDemoEnterpriseRequestsWorkbookImportAsync(
         FullNetApiFactory factory,
         CancellationToken cancellationToken = default)
     {
@@ -116,23 +120,35 @@ internal static class EnterpriseRequestAssertions
         var organizationUnitId = await CreateOrganizationUnitAsync(client, token, cancellationToken);
         var applicantUserId = Guid.NewGuid();
         var requestNumber = $"IMP-{Guid.NewGuid():N}".Substring(0, 16);
-        var csv = new StringBuilder()
-            .AppendLine("requestNumber,title,totalAmount,applicantUserId,organizationUnitId")
-            .Append(requestNumber)
-            .Append(",Imported row,12.5,")
-            .Append(applicantUserId.ToString("D", CultureInfo.InvariantCulture))
-            .Append(',')
-            .Append(organizationUnitId.ToString("D", CultureInfo.InvariantCulture))
-            .AppendLine()
-            .ToString();
-        var csvBytes = Encoding.UTF8.GetBytes(csv);
+        using var templateRequest = new HttpRequestMessage(HttpMethod.Get,
+            $"/api/v1/import-export/schemas/{StaticImportSchemaKeys.DemoEnterpriseRequests}/worksheets/requests/template");
+        templateRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var templateResponse = await client.SendAsync(templateRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, templateResponse.StatusCode);
+        var workbookBytes = await templateResponse.Content.ReadAsByteArrayAsync(cancellationToken);
+        using (var workbook = new MemoryStream())
+        {
+            workbook.Write(workbookBytes);
+            using (var archive = new ZipArchive(workbook, ZipArchiveMode.Update, leaveOpen: true))
+            {
+                var entry = archive.GetEntry("xl/worksheets/sheet1.xml")!;
+                XDocument document; using (var input = entry.Open()) document = XDocument.Load(input);
+                XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+                var values = new[] { requestNumber, "Imported row, with comma", "12.5", applicantUserId.ToString("D"), organizationUnitId.ToString("D") };
+                document.Root!.Element(ns + "sheetData")!.Add(new XElement(ns + "row", new XAttribute("r", 2),
+                    values.Select((value, index) => new XElement(ns + "c", new XAttribute("r", $"{(char)('A' + index)}2"),
+                        new XAttribute("t", "inlineStr"), new XElement(ns + "is", new XElement(ns + "t", value))))));
+                entry.Delete(); using var output = archive.CreateEntry("xl/worksheets/sheet1.xml").Open(); document.Save(output);
+            }
+            workbookBytes = workbook.ToArray();
+        }
 
         using var createContent = new MultipartFormDataContent
         {
             { new StringContent(StaticImportSchemaKeys.DemoEnterpriseRequests), "schemaKey" },
             { new StringContent("requests"), "worksheetKey" },
         };
-        var fileContent = new ByteArrayContent(csvBytes);
+        var fileContent = new ByteArrayContent(workbookBytes);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         createContent.Add(fileContent, "file", "demo-enterprise-requests.xlsx");
@@ -148,6 +164,8 @@ internal static class EnterpriseRequestAssertions
         Assert.IsNotNull(created);
         Assert.AreEqual(ImportExportTaskStatusKeys.PreviewSucceeded, created!.StatusKey);
         Assert.AreEqual(StaticImportSchemaKeys.DemoEnterpriseRequests, created.SchemaKey);
+        Assert.AreEqual(1, created.TotalRows); Assert.AreEqual(1, created.ValidRowCount); Assert.AreEqual(0, created.InvalidRowCount);
+        Assert.AreEqual(2, created.PreviewRows.Single().LineNumber);
 
         using var executeRequest = new HttpRequestMessage(HttpMethod.Post, $"{ImportTasksPath}/{created.Id:D}/execute");
         executeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -156,20 +174,38 @@ internal static class EnterpriseRequestAssertions
         var executed = await executeResponse.Content.ReadFromJsonAsync<ImportExportTaskDetailResponse>(cancellationToken);
         Assert.IsNotNull(executed);
         Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionSucceeded, executed!.StatusKey);
-        Assert.IsTrue(executed.SucceededRowCount >= 1);
+        Assert.AreEqual(1, executed.SucceededRowCount); Assert.AreEqual(1, executed.NextLineNumber);
+        // 模拟业务已提交、调度检查点尚未提交的恢复窗口，正式处理器重放必须返回同一个实体。
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var tenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+            tenant.SetTenant(new TenantContext(created.TenantId, "acme", "Acme"));
+            try
+            {
+                var handler = scope.ServiceProvider.GetServices<IStaticImportSchemaHandler>().Single(item => item.SchemaKey == created.SchemaKey);
+                var context = new StaticImportPreviewContext(created.RequestedByUserId, new Dictionary<string, bool>()) { TaskId = created.Id };
+                using var replayContent = new MemoryStream(workbookBytes);
+                var replay = await handler.ExecuteBatchAsync(replayContent, replayContent.Length, 0, 1, context, cancellationToken);
+                Assert.IsTrue(replay.IsSuccess); Assert.IsTrue(replay.Value!.Rows.Single().Succeeded);
+                using var secondContent = new MemoryStream(workbookBytes);
+                var second = await handler.ExecuteBatchAsync(secondContent, secondContent.Length, 0, 1, context, cancellationToken);
+                Assert.AreEqual(replay.Value.Rows.Single().EntityId, second.Value!.Rows.Single().EntityId);
+            }
+            finally { tenant.Clear(); }
+        }
 
         using var listRequest = new HttpRequestMessage(HttpMethod.Get, $"{BasePath}?page=1&pageSize=50");
         listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var listResponse = await client.SendAsync(listRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
         using var listJson = JsonDocument.Parse(await listResponse.Content.ReadAsStringAsync(cancellationToken));
-        var found = listJson.RootElement.GetProperty("items")
+        var matching = listJson.RootElement.GetProperty("items")
             .EnumerateArray()
-            .Any(item => string.Equals(
+            .Count(item => string.Equals(
                 item.GetProperty("requestNumber").GetString(),
                 requestNumber,
                 StringComparison.Ordinal));
-        Assert.IsTrue(found, "Imported enterprise request should appear in tenant list.");
+        Assert.AreEqual(1, matching, "Recovered import must create exactly one enterprise request.");
     }
 
     private static async Task<Guid> CreateOrganizationUnitAsync(

@@ -40,3 +40,11 @@ test('preset-minimal migration inventory is smaller than unscoped inventory', ()
   assert.ok(minimal.scripts.length > 40);
   assert.ok(!minimal.scripts.some(({ name }) => name.startsWith('102_Workflow')));
 });
+
+test('sample import receipt remains inside the enterprise preset migration closure', () => {
+  const script = { name: '244_DemoEnterpriseRequestImportReceipt.sql' };
+  assert.equal(inferMigrationModuleOwner(script.name), 'EnterpriseRequest');
+  const full = { scripts: [{ name: '001_Foundation.sql' }, script] };
+  assert.ok(!buildPresetMigrationInventory(full, 'minimal', resolvePresetModules('minimal')).scripts.some(item => item.name === script.name));
+  assert.ok(buildPresetMigrationInventory(full, 'enterprise', resolvePresetModules('enterprise')).scripts.some(item => item.name === script.name));
+});

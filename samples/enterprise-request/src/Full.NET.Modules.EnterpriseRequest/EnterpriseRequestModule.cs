@@ -28,6 +28,10 @@ public sealed class EnterpriseRequestModule : IFullNetModule
             IAuthorizationCatalogContributor,
             EnterpriseRequestAuthorizationContributor>());
         services.TryAddScoped<SubmitEnterpriseRequestForApprovalService>();
+        services.TryAddScoped<EnterpriseRequestImportService>();
+#if FULLNET_AOT_COMPILE
+        Persistence.EnterpriseRequestImportAotMaterializer.Register();
+#endif
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IStaticImportSchemaHandler,
             EnterpriseRequestStaticImportSchemaHandler>());
@@ -36,6 +40,13 @@ public sealed class EnterpriseRequestModule : IFullNetModule
 
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+        // 仅复用生成的业务服务注册，不映射 HTTP 端点；后台使用相同领域授权与事务边界。
+        services.AddFullNetGeneratedModuleFeatures();
+        services.TryAddScoped<EnterpriseRequestImportService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IStaticImportSchemaHandler, EnterpriseRequestStaticImportSchemaHandler>());
+#if FULLNET_AOT_COMPILE
+        Persistence.EnterpriseRequestImportAotMaterializer.Register();
+#endif
         services.TryAddScoped<EnterpriseRequestWorkflowOutcomeService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IWorkflowInstanceCompletedSink,

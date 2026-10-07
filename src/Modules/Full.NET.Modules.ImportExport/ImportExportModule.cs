@@ -80,6 +80,12 @@ public sealed class ImportExportModule : IFullNetModule
 #endif
         services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner,
             Features.ManageImportTasks.ImportExportResourceFileOwner>());
+        // Worker 必须解析静态处理器并绑定同一执行配置；不能依赖仅在 API 注册的服务。
+        services.AddOptions<ImportExportOptions>().Bind(configuration.GetSection(ImportExportOptions.SectionName)).ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<ImportExportOptions>, ImportExportOptionsValidator>());
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddScoped<StaticImportSchemaRegistry>();
         services.TryAddScoped<ImportExportTaskRunner>();
         services.AddHostedService<ImportExportTaskHostedProcessor>();
     }

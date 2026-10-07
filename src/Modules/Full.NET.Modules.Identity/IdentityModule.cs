@@ -248,6 +248,10 @@ public sealed class IdentityModule : IFullNetModule
             IIntegrationEventHandlerRegistry,
             global::Full.NET.Generated.IntegrationEventHandlerRegistry>());
         services.TryAddSingleton<IClock, SystemClock>();
+        // 后台组织归属业务服务使用静态数据范围契约，不引入 HTTP 授权中间件。
+        services.TryAddSingleton<DataScope.RoleDataScopeProjection>();
+        services.TryAddScoped<Contracts.IUserDataScopeResolver, DataScope.UserDataScopeResolver>();
+        services.TryAddSingleton<Contracts.IDataScopeSqlFilterBuilder, DataScope.DataScopeSqlFilterBuilder>();
         // Worker 后台授权与工具执行依赖权限快照，但不装配完整 HTTP 授权中间件栈。
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
