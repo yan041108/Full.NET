@@ -1198,6 +1198,16 @@ Vue Host 定义列表新增精确权限入口；组件加载已发布版本，�
 
 最终前端补充验收：真实 Edge、独立 Vite 随机端口和受控 HTTP 的数据输出/授权浏览器联合 **12/12**、零失败/跳过，59.1 秒。覆盖打印净化、报表切换丢弃旧结果、下载、任务轮询、multipart、Host 发布版本 2 切到 1 授权、取消确认不写入、撤销与关闭在途分页；三种独立目录无权限时均设置 403 并要求零请求，浏览器无 pageerror。定义页按 `reporting.groups.read`、`reporting.query_ports.read`、`reporting.data_sources.read` 分别加载目录，修复只具定义读取和授权权限时被额外目录 403 阻断的问题；授权图标补精确 testId、标题及可访问名称。此修复先 RED **1/3** 失败，最终相关组件/页面/适配器/范围 **30/30**，类型、生产构建及三项原预算通过，首屏体积与上述测量相同。浏览器旧夹具从草稿目录改为获授发布目录，执行请求要求冻结 versionNumber=1；上一基线 `89eec2e5` 的 Actions 客户端任务原为 77 通过、1 失败、4 跳过，实际失败已从远端日志和调用链定位并修正，不把本地通过称远端通过。引导配置、定位与失败 trace 日志保留 `.tmp/reporting-grants-browser-*`；当前只证明受控 HTTP 浏览器交互，不替代双库真实栈浏览器。最后增量只改前端/测试/报告，后端源码与已双库运行的 `abf90fbb` 逐文件一致，无需重复相同数据库验收。
 
+#### 2026-10-08 独立 Enterprise 报表输出与租户打印联合验收
+
+基线 `147045bd90f5974c0adfbb30e3cc76e361cac334`，快照 `f11-generated-report-print-chain-20261008`。沿用独立临时 checkout。复用既有三宿主和两张非空工作簿链路，在同一次生成应用启动内追加：正式 Host 创建报表数据源及两个冻结版本，仅授权版本 1；Tenant 默认查询必须执行版本 1，未获授版本 2 和配置目录拒绝。当前导出 API 优先同步执行，下载工作簿必须完整解压解析，固定五个 Open XML 条目、关系、内容类型、工作表和单列单行文本与真实查询值一致。独立 Host 会话撤销后，当前 Tenant 的下载、执行、再次导出及目录分别拒绝/隐藏。打印复用正式租户档案 Schema，核对可信租户名称/编码、冻结版本、字段绑定和脚本移除，不保存 HTML、查询值或任何签发正文。
+
+两种主库均使用本次拥有的 SQL Server 外部驱动；SQL Server 主库复用自有容器，MySQL 主库追加一个自有随机 SQL Server 容器。证书豁免只作用于隔离验收目标，不改变应用生产配置、不降级 MySQL 外部 TLS。报告只记录阶段、状态码、对象 ID、字节数和结构结论；网络、解析器与回调异常转换为固定诊断。
+
+快速证据：新验收入口缺失时 8 项均先失败；实现后 8/8。追加 Open XML 错误关系和错误内容类型负例先 2 失败/7 通过，收紧后 9/9。连同既有导入和授权管理，共 `node --test --test-concurrency=1 tests/templates/application-enterprise-data-delivery.test.mjs tests/templates/application-reporting-grants.test.mjs tests/templates/application-enterprise-data-output.test.mjs tests/templates/reporting-workbook-verification.test.mjs` 21/21，零失败/跳过。治理 57/57、脚本语法和 diff 检查通过；受影响 Integration 规划为 none，本次只扩展验收工具，未修改产品 .NET、SQL 或客户端。
+
+检查点：独立生成应用双库实际执行尚待完成；快速 HTTP 替身和合成 ZIP 不作为真实查询、Excel 导出或打印服务证明。该批不关闭 Worker OS 崩溃/接管、企业申请业务报表/打印、真实栈浏览器、Native CRUD、MySQL 外部 TLS 或容量验收；F11/C02 与 Capacity-not-verified 保持。最终运行结果在本节补录，开发分支/Draft PR 交付，不合并、不发布。
+
 ### F12：订阅、试用与支付驱动权益
 
 **依赖：** F06、F08、现有 Payments 安全修复/渠道验收。**提供：** Tenancy 订阅生命周期；Payments 仍拥有资金事实。

@@ -9,6 +9,7 @@ import { createApp } from '../../../scripts/templates/create-app.mjs';
 import { startDatabaseContainer, startRedisContainer, buildSharedEnv, runDotnet } from './created-app-real-stack.mjs';
 import { verifyEnterpriseDataDeliveryHttp } from './application-enterprise-data-delivery.mjs';
 import { verifyReportingGrantManagementHttp } from './application-reporting-grants.mjs';
+import { verifyEnterpriseDataOutputHttp } from './application-enterprise-data-output.mjs';
 import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 import { waitForApi } from '../../e2e/admin-real-stack/scripts/wait-for-api.mjs';
 
@@ -30,6 +31,7 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
  const root = mkdtempSync(join(reportParent,'run-'));
  const processes = [];
  let database;
+ let externalDatabase;
  let redis;
  let failure;
  const report = { completed:false, provider, hosts:[] };
@@ -47,10 +49,22 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
   report.sourceCommit = manifest.sourceCommit;
   report.applicationRoot = appRoot;
   const databaseStack = await startDatabaseContainer(provider); database = databaseStack.container;
+  // 两种主库都使用测试自有的 SQL Server 外部只读驱动；MySQL TLS 未验收，不能在此降级。
+  const externalStack = provider === 'sqlserver' ? databaseStack : await startDatabaseContainer('sqlserver');
+  if (provider !== 'sqlserver') externalDatabase = externalStack.container;
+  const externalSource = {providerKey:'sql_server',serverHost:externalStack.container.getHost(),port:externalStack.container.getMappedPort(1433),
+   databaseName:'master',username:externalStack.connectionString.match(/(?:^|;)User Id=([^;]+)/iu)?.[1],
+   password:externalStack.connectionString.match(/(?:^|;)Password=([^;]+)/iu)?.[1],trustServerCertificate:true};
+  assert.ok(externalSource.username && externalSource.password,'owned external credentials missing');
   const redisStack = await startRedisContainer(); redis = redisStack.container;
   const env = { ...buildSharedEnv(databaseStack.connectionString,databaseStack.databaseProvider,redisStack.connectionString),
    Files__Local__RootPath:join(root,'files'), FullNet__ImportExport__RunSynchronously:'false', FullNet__ImportExport__ExecutionEnabled:'false',
-   FullNet__ImportExport__PollSeconds:'5', FullNet__ImportExport__BatchSize:'1' };
+   FullNet__ImportExport__PollSeconds:'5', FullNet__ImportExport__BatchSize:'1',
+   FullNet__ExternalDatabaseAccess__AllowedDestinations__0__Provider:'SqlServer',
+   FullNet__ExternalDatabaseAccess__AllowedDestinations__0__Host:externalSource.serverHost,
+   FullNet__ExternalDatabaseAccess__AllowedDestinations__0__Port:String(externalSource.port),
+   // 此豁免仅针对本次随机容器的自签名证书，不改变生成应用的生产默认值。
+   FullNet__ExternalDatabaseAccess__AllowedDestinations__0__AllowUntrustedCertificate:'true' };
   const profile = JSON.parse(readFileSync(join(appRoot,'fullnet-app.json'),'utf8'));
   const apiUrl = `http://127.0.0.1:${profile.httpPort}`;
   const workerUrl = `http://127.0.0.1:${await freePort()}`;
@@ -100,6 +114,23 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
   assert.equal(hostLogin.status,200,'reporting Host login HTTP '+hostLogin.status);
   const hostSession = await hostLogin.json();assert.ok(typeof hostSession.accessToken === 'string' && hostSession.accessToken.trim());
   report.reportingGrants = await verifyReportingGrantManagementHttp(apiUrl,{hostAccessToken:hostSession.accessToken,tenantId:business.tenantId,signal});
+  const loginHost = async () => {
+   const response = await fetch(apiUrl+'/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json',Origin:'http://localhost'},
+    body:JSON.stringify({username:'admin',password:'FullNet!2026Secure'}),redirect:'error',signal:signal ? AbortSignal.any([signal,AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000)});
+   assert.equal(response.status,200,'output Host login HTTP '+response.status);
+   let session; try { session = await response.json(); } catch { throw new Error('Output Host login JSON invalid'); }
+   assert.ok(typeof session.accessToken === 'string' && session.accessToken.trim(),'output Host session missing');
+   return session.accessToken;
+  };
+  const verifyWorkbook = (bytes,expectedValue) => {
+   const python = process.platform === 'win32' ? 'python' : 'python3';
+   const verified = spawnSync(python,['-X','utf8',join(repoRoot,'tests/templates/support/verify-reporting-workbook.py')],{
+    cwd:root,input:JSON.stringify({workbook:Buffer.from(bytes).toString('base64'),expectedValue}),encoding:'utf8',maxBuffer:4*1024*1024,timeout:15_000,windowsHide:true});
+   assert.equal(verified.status,0,'reporting workbook verification failed');
+   return JSON.parse(verified.stdout);
+  };
+  report.dataOutput = await verifyEnterpriseDataOutputHttp(apiUrl,{hostAccessToken:await loginHost(),tenantId:business.tenantId,
+   externalDataSource:externalSource,loginHost,verifyWorkbook,logPath:join(root,'data-output.json'),signal});
   for (const {child} of processes) { assert.equal(child.exitCode,null,'host exited during acceptance'); assert.equal(child.signalCode,null); }
   report.completed = true;
   return report;
@@ -109,7 +140,7 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
  } finally {
   const errors = [];
   for (const {child,stream} of processes.reverse()) { try { await stopLoggedProcess(child,stream); } catch(error) { errors.push(error); } }
-  for (const container of [database,redis]) { try { await container?.stop(); } catch(error) { errors.push(error); } }
+  for (const container of [externalDatabase,database,redis]) { try { await container?.stop(); } catch(error) { errors.push(error); } }
   report.cleanupSucceeded = errors.length === 0;
   writeFileSync(join(root,'result.json'),JSON.stringify(report,null,2));
   // 保留本次独立应用与失败证据，既不删除其他工作区，也不触碰共享命名容器。
