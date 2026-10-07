@@ -1184,6 +1184,16 @@ Unit 新回归旧实现 **5/6 失败**，修复后新用例 **6/6**；最终 `pn
 
 只读安全/公共契约复核未发现重要问题，复核不代替实际运行。Integration 工具链 **59/59**、治理 **57/57**；首次失败、复验日志与运行报告保留于本任务 `.tmp/import-capabilities-*`、`.tmp/enterprise-*`、`.tmp/client-*`。上一基线 API/Worker Linux AOT 均已成功，CI 客户端失败由本批本地修复验收；新推送 SHA 的 Actions 状态单独报告，未完成不能称全绿。独立 Worker OS 崩溃/接管、生成应用审批/报表/打印完整业务链、真实浏览器本批流程、样例完整 Native AOT CRUD 与 MySQL 外部 TLS 仍待验收。F11/C02 不整体关闭，`Capacity-not-verified` 保持；仅开发分支与 Draft PR 交付，不合并、不发布。
 
+#### 2026-10-08 报表精确版本授权管理批次
+
+基线 `89eec2e5`，继续使用独立临时 checkout、开发分支和快照 `f11-reporting-grant-management-20261008`。新增 Host 精确发布版本的授权租户分页 GET，复用 `reporting.definitions.grant_tenants`、现有授权表、SQL Server/MySQL 静态 SQL 和 `PagedResult<Guid>` AOT 序列化。只返回 Tenant UUID，不跨模块查询租户目录；分页采用 long offset、稳定顺序及 1..200 页容量。存量停用租户可查看和撤销，新增授权仍走既有活动租户检查。真实双库导出归一化完全一致，冻结操作清单从 564 到 565，正式生成 SDK 与 Vue 适配器接线。
+
+Vue Host 定义列表新增精确权限入口；组件加载已发布版本，按当前选中版本分页、显式输入 Tenant UUID 授权和确认撤销。版本切换取消旧读取；关闭、撤权、会话或租户变化清空敏感内容、取消请求，并忽略迟到结果。确认框由组件持有，失效时同步清除，避免全局确认框残留旧租户信息。共享请求范围公开现有 `invalidate`，用于显式关闭立即失效。未重构其他旧管理动作。
+
+真实后端分页 RED 双库 **0/2**（期望 200，实际 404）后实现；正式 `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:integration:affected -- --snapshot f11-reporting-grant-management-20261008 --phase merge` Reporting/Smoke 双库 **18/18**、零失败/跳过、12m03s。Reporting 单测 **73/73**；API Native AOT 编译分析零警告/错误。真实 OpenAPI SQL Server/MySQL 导出各 **1/1**，正式契约 **204/204**，共享客户端契约 **261/261**，SDK 零漂移与离线快照检查通过。Vue 真实 Teleport/选择器/表格及相关页面、适配器、生命周期联测 **30/30**，类型检查和生产构建通过；错误关闭方法、会话变化时确认框清除均有 RED 与回归。嵌套 Teleport 替身曾导致递归更新，最小用例证实真实 Teleport 正常，测试改用真实传送门；未修改生产组件库。首屏 JS minified **1,424,739**、gzip **380,131**，三项原预算全部通过。SQL Safety **5/5**、命名 **33/33**、治理 **57/57**、Integration 工具链 **59/59**。
+
+独立 Enterprise 生成应用验收继续在 API/Worker 两张非空正式工作簿消费后，使用正式 HTTP 创建两份不可变报表版本，核对重复授权、分页、版本隔离、Tenant 403、匿名 401 及撤销。仅保存数据源元数据，不执行外部报表查询。验收入口重新取得 Host 会话；Tenant 探针后切回 Host 并使用新签发令牌，避免复用上下文失效 token。包含会话失效模拟的 Node 快测 **4/4**；实际新源码独立双库运行结果后续补录，尚不计通过。Vue 浏览器真实栈、完整报表/打印业务与 Native AOT 运行不由组件测试或本批编译检查替代。F11/C02 保持局部收口，`Capacity-not-verified` 保持，不合并、不发布。
+
 ### F12：订阅、试用与支付驱动权益
 
 **依赖：** F06、F08、现有 Payments 安全修复/渠道验收。**提供：** Tenancy 订阅生命周期；Payments 仍拥有资金事实。

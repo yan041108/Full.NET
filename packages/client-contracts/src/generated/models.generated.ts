@@ -2932,6 +2932,13 @@ export interface PagedResultOfExceptionLogResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfGuid {
+  readonly items: Array<string>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfHostAnnouncementReadReceiptResponse {
   readonly items: Array<HostAnnouncementReadReceiptResponse>;
   readonly page: number;

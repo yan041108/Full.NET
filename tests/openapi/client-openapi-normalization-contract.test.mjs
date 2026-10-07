@@ -206,6 +206,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   assert.equal(manifest.schemaVersion, 1);
   for (const [route, method, operationId] of [
     ['/api/v1/reporting/published-definitions', 'get', 'reportingListPublishedDefinitions'],
+    ['/api/v1/reporting/definitions/{definitionId}/versions/{versionNumber}/tenant-grants', 'get', 'reportingListTenantVersionGrants'],
     ['/api/v1/reporting/definitions/{definitionId}/versions/{versionNumber}/tenant-grants/{tenantId}', 'put', 'reportingGrantTenantVersion'],
     ['/api/v1/reporting/definitions/{definitionId}/versions/{versionNumber}/tenant-grants/{tenantId}', 'delete', 'reportingRevokeTenantVersion']
   ]) {
@@ -216,8 +217,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
     assert.ok(operation.responses['403']);
   }
 
-  assert.equal(manifest.entries.length, 564);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 564);
+  assert.equal(manifest.entries.length, 565);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 565);
   assert.deepEqual(
     manifest.entries
       .filter(entry => entry.generatedGroup === 'workflow-forms')
@@ -340,7 +341,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    564
+    565
   );
   assert.equal(
     snapshot.paths['/api/v1/workflow/forms/component-catalog'].get.operationId,

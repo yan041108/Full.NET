@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onMounted, reactive, ref, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -36,6 +36,7 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { useSessionStore } from '../auth/session';
 import { listReportingDataSources } from '../api/reporting-data-sources';
 import {
   createReportingDefinition,
@@ -57,6 +58,15 @@ type GroupEditorMode = 'create' | 'edit';
 type DefinitionEditorMode = 'create' | 'edit';
 
 const { t } = useAdminI18n();
+const session = useSessionStore();
+const ReportingTenantGrantsDialog = defineAsyncComponent(() => import('../components/reporting/ReportingTenantGrantsDialog.vue'));
+const grantDefinition = ref<ReportingDefinition>();
+
+function openGrants(definition: ReportingDefinition): void {
+  if (session.currentUser?.scope !== 'host' || session.currentUser.tenantId !== null
+    || !session.can('reporting.definitions.read') || !session.can('reporting.definitions.grant_tenants')) return;
+  grantDefinition.value = definition;
+}
 const groups = ref<ReportingGroup[]>([]);
 const definitions = ref<ReportingDefinition[]>([]);
 const queryPorts = ref<ReportingQueryPortDefinition[]>([]);
@@ -513,6 +523,9 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
           <ElTableColumn :label="t('reportingDefinitions.actions')" width="260" fixed="right">
               <template #default="{ row }">
                 <ArtTableActionGroup>
+                  <PermissionGate v-if="session.currentUser?.scope === 'host' && row.latestPublishedVersionNumber > 0" code="reporting.definitions.grant_tenants">
+                    <ArtTableActionButton type="view" data-testid="reporting-tenant-grants-open" @click="openGrants(row)">{{ t('reportingGrants.manage') }}</ArtTableActionButton>
+                  </PermissionGate>
                   <PermissionGate code="reporting.definitions.update">
                     <ArtTableActionButton type="edit" @click="openEditDefinition(row)">
                       {{ t('reportingDefinitions.actionEdit') }}
@@ -627,6 +640,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
       </ElForm>
     </ArtFormDialog>
 
+    <ReportingTenantGrantsDialog v-if="grantDefinition" :definition="grantDefinition" @close="grantDefinition = undefined" />
     <ElDrawer v-model="versionsDrawerOpen" :title="t('reportingDefinitions.versionsTitle')" size="40%">
       <ElTable :data="versions" size="small">
         <ElTableColumn prop="versionNumber" :label="t('reportingDefinitions.fieldVersionNumber')" width="100" />

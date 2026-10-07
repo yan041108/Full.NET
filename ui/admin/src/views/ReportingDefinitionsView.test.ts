@@ -22,7 +22,9 @@ vi.mock('../api/reporting-definitions', () => ({
   updateReportingDefinition: vi.fn(),
   deleteReportingDefinition: vi.fn(),
   publishReportingDefinition: vi.fn(),
-  listReportingDefinitionVersions: vi.fn()
+  listReportingDefinitionVersions: vi.fn().mockResolvedValue([]),
+  listReportingTenantVersionGrants: vi.fn().mockResolvedValue({items:[],page:1,pageSize:20,total:0}),
+  setReportingTenantVersionGrant: vi.fn().mockResolvedValue(true)
 }));
 
 vi.mock('../api/reporting-data-sources', () => ({
@@ -59,6 +61,16 @@ describe('ReportingDefinitionsView', () => {
     const wrapper = mountView();
     await wrapper.vm.$nextTick();
     expect(wrapper.find('[data-testid="reporting-definition-create"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+  it('opens tenant version grants only with the exact Host grant permission', async () => {
+    definitionsMock.mockResolvedValueOnce([{id:'019bc2b1-2a40-7cc3-8992-a80de51bf298',groupId:'019bc2b1-2a40-7cc3-8992-a80de51bf299',
+      dataSourceId:'019bc2b1-2a40-7cc3-8992-a80de51bf300',definitionKey:'fixture',name:'报表',description:null,
+      queryPortKey:'reporting.schema_inventory',parameterSchema:[],layoutConfigJson:'{}',latestPublishedVersionNumber:1,
+      isEnabled:true,createdAtUtc:'2026-10-08T00:00:00Z',updatedAtUtc:null,version:1}]);
+    const wrapper = mountView(['reporting.definitions.read','reporting.definitions.grant_tenants']);
+    await flushPromises();
+    expect(wrapper.find('[data-testid="reporting-tenant-grants-open"]').exists()).toBe(true);
     wrapper.unmount();
   });
   it('opens the definition dialog with the exact permission through the real header', async () => {

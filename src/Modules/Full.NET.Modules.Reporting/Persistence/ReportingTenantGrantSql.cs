@@ -5,6 +5,27 @@ namespace Full.NET.Modules.Reporting.Persistence;
 /// <summary>仅通过本模块版本授权读取 Host 发布快照；租户参数必须来自可信上下文。</summary>
 internal static class ReportingTenantGrantSql
 {
+    /// <summary>Host 分页查看精确版本授权，不连接其他模块的租户表。</summary>
+    public static readonly SqlStatement CountGrants = new("reporting.count_tenant_version_grants",
+        "SELECT COUNT(*) FROM fn_reporting_definition_tenant_grant WHERE DefinitionId = @DefinitionId AND VersionNumber = @VersionNumber",
+        SqlDataScope.HostOnly);
+
+    private static readonly SqlStatement ListGrantsSqlServer = new("reporting.list_tenant_version_grants",
+        """
+        SELECT TenantId FROM fn_reporting_definition_tenant_grant
+        WHERE DefinitionId = @DefinitionId AND VersionNumber = @VersionNumber
+        ORDER BY CreatedAtUtc, TenantId OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """, SqlDataScope.HostOnly);
+    private static readonly SqlStatement ListGrantsMySql = new("reporting.list_tenant_version_grants",
+        """
+        SELECT TenantId FROM fn_reporting_definition_tenant_grant
+        WHERE DefinitionId = @DefinitionId AND VersionNumber = @VersionNumber
+        ORDER BY CreatedAtUtc, TenantId LIMIT @PageSize OFFSET @Offset
+        """, SqlDataScope.HostOnly);
+
+    public static SqlStatement ListGrants(DatabaseProvider provider) =>
+        provider == DatabaseProvider.SqlServer ? ListGrantsSqlServer : ListGrantsMySql;
+
     private const string GrantedVersionJoin = """
         FROM fn_reporting_definition_version AS version
         INNER JOIN fn_reporting_definition AS definition ON definition.Id = version.DefinitionId

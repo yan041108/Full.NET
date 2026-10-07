@@ -1,4 +1,5 @@
 using Full.NET.Hosting.Api;
+using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Reporting.Contracts;
 using Microsoft.AspNetCore.Builder;
@@ -22,6 +23,15 @@ internal static class Endpoint
             .RequireAuthorization(FullNetPermissionPolicies.For(ReportingExecutionPermissions.Run));
 
         var route = "/api/v1/reporting/definitions/{definitionId:guid}/versions/{versionNumber:int}/tenant-grants/{tenantId:guid}";
+        endpoints.MapGet("/api/v1/reporting/definitions/{definitionId:guid}/versions/{versionNumber:int}/tenant-grants",
+            async (Guid definitionId, int versionNumber, int? page, int? pageSize,
+                ReportingTenantGrantManagementService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+                mapper.Map(await service.ListAsync(definitionId, versionNumber, page ?? 1, pageSize ?? 20, token).ConfigureAwait(false), context))
+            .WithTags("ReportingDefinitions").WithName("reportingListTenantVersionGrants")
+            .Produces<PagedResult<Guid>>()
+            .ProducesProblem(StatusCodes.Status400BadRequest).ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status401Unauthorized).ProducesProblem(StatusCodes.Status403Forbidden)
+            .RequireAuthorization(FullNetPermissionPolicies.For(ReportingDefinitionPermissions.GrantTenants));
         endpoints.MapPut(route, (Guid definitionId, int versionNumber, Guid tenantId,
             ReportingTenantGrantManagementService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
             SetAsync(definitionId, versionNumber, tenantId, true, service, mapper, context, token))

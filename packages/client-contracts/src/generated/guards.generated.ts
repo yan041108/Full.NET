@@ -335,6 +335,7 @@ import type {
   PagedResultOfDictTypeResponse,
   PagedResultOfEnterpriseRequestResponse,
   PagedResultOfExceptionLogResponse,
+  PagedResultOfGuid,
   PagedResultOfHostAnnouncementReadReceiptResponse,
   PagedResultOfHostAnnouncementResponse,
   PagedResultOfHostApiKeyResponse,
@@ -4458,6 +4459,18 @@ export function readPagedResultOfExceptionLogResponse(value: unknown): PagedResu
 
 function isPagedResultOfExceptionLogResponse(value: unknown): value is PagedResultOfExceptionLogResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isExceptionLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfGuid(value: unknown): PagedResultOfGuid {
+  const normalizedValue = normalizePagedResultOfGuidIntegerJson(value);
+  if (!(isPagedResultOfGuid(normalizedValue))) {
+    throw new Error('client.invalid_paged_result_of_guid');
+  }
+  return normalizedValue;
+}
+
+function isPagedResultOfGuid(value: unknown): value is PagedResultOfGuid {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => typeof item14 === 'string' && guidPattern.test(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostAnnouncementReadReceiptResponse(value: unknown): PagedResultOfHostAnnouncementReadReceiptResponse {
@@ -8705,6 +8718,10 @@ function normalizePagedResultOfEnterpriseRequestResponseIntegerJson(value: unkno
 }
 
 function normalizePagedResultOfExceptionLogResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfGuidIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 

@@ -1699,5 +1699,5 @@ export * from './tenancy-entitlements.js';
 export * from './tenant-members.js';
 export * from './tenant-subscriptions.js';
 
-export { isReportingPublishedDefinition, isReportingPublishedDefinitionList } from './reporting-definitions.js';
-export type { ReportingPublishedDefinition } from './reporting-definitions.js';
+export { isReportingPublishedDefinition, isReportingPublishedDefinitionList, isReportingTenantVersionGrantPage } from './reporting-definitions.js';
+export type { ReportingPublishedDefinition, ReportingTenantVersionGrantPage } from './reporting-definitions.js';

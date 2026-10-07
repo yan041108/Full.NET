@@ -8,6 +8,7 @@ import { buildAppTemplate } from '../../../scripts/templates/build-app-template.
 import { createApp } from '../../../scripts/templates/create-app.mjs';
 import { startDatabaseContainer, startRedisContainer, buildSharedEnv, runDotnet } from './created-app-real-stack.mjs';
 import { verifyEnterpriseDataDeliveryHttp } from './application-enterprise-data-delivery.mjs';
+import { verifyReportingGrantManagementHttp } from './application-reporting-grants.mjs';
 import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 import { waitForApi } from '../../e2e/admin-real-stack/scripts/wait-for-api.mjs';
 
@@ -93,6 +94,12 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
   const business = await verifyEnterpriseDataDeliveryHttp(apiUrl,{hostAccessToken:credentials.accessToken,fillWorkbook,
    logPath:join(root,'business.json'),signal,startWorker:() => start('Worker',workerUrl,{FullNet__ImportExport__ExecutionEnabled:'true'})});
   report.business = business;
+  // 前序业务已切到 Tenant，重新取得 Host 会话，不能复用失效的初始 scope 令牌。
+  const hostLogin = await fetch(apiUrl+'/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json',Origin:'http://localhost'},
+   body:JSON.stringify({username:'admin',password:'FullNet!2026Secure'}),redirect:'error',signal:signal ? AbortSignal.any([signal,AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000)});
+  assert.equal(hostLogin.status,200,'reporting Host login HTTP '+hostLogin.status);
+  const hostSession = await hostLogin.json();assert.ok(typeof hostSession.accessToken === 'string' && hostSession.accessToken.trim());
+  report.reportingGrants = await verifyReportingGrantManagementHttp(apiUrl,{hostAccessToken:hostSession.accessToken,tenantId:business.tenantId,signal});
   for (const {child} of processes) { assert.equal(child.exitCode,null,'host exited during acceptance'); assert.equal(child.signalCode,null); }
   report.completed = true;
   return report;

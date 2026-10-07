@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.IntegrationTests.ImportExport;
@@ -44,6 +45,18 @@ public sealed class ReportingTenantPublishedApiTests
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(tenantToken);
         var tenantId = Guid.Parse(jwt.Claims.Single(c => c.Type == FullNetIdentityClaimTypes.TenantId).Value);
         var definition = await SeedPublishedAsync(api, external, host, port, Guid.Parse(jwt.Subject));
+        var grants = $"/api/v1/reporting/definitions/{definition:D}/versions/1/tenant-grants";
+        using (var initial = await SendAsync(client, HttpMethod.Get, grants, hostToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, initial.StatusCode);
+            Assert.AreEqual(0L, (await initial.Content.ReadFromJsonAsync<PagedResult<Guid>>())!.Total);
+        }
+        using (var denied = await SendAsync(client, HttpMethod.Get, grants, tenantToken))
+            Assert.AreEqual(HttpStatusCode.Forbidden, denied.StatusCode);
+        var readOnlyHost = await api.CreateHostAccessTokenAsync([ReportingDefinitionPermissions.Read]);
+        using (var denied = await SendAsync(client, HttpMethod.Get, grants, readOnlyHost))
+            Assert.AreEqual(HttpStatusCode.Forbidden, denied.StatusCode);
+        using (var anonymous = await client.GetAsync(grants)) Assert.AreEqual(HttpStatusCode.Unauthorized, anonymous.StatusCode);
         var catalog = "/api/v1/reporting/published-definitions";
         using (var empty = await SendAsync(client, HttpMethod.Get, catalog, tenantToken))
         {
@@ -57,6 +70,25 @@ public sealed class ReportingTenantPublishedApiTests
         var grant = $"/api/v1/reporting/definitions/{definition:D}/versions/1/tenant-grants/{tenantId:D}";
         using (var granted = await SendAsync(client, HttpMethod.Put, grant, hostToken)) Assert.AreEqual(HttpStatusCode.OK, granted.StatusCode);
         using (var duplicate = await SendAsync(client, HttpMethod.Put, grant, hostToken)) Assert.AreEqual(HttpStatusCode.OK, duplicate.StatusCode);
+        using (var firstPage = await SendAsync(client, HttpMethod.Get, grants + "?page=1&pageSize=1", hostToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, firstPage.StatusCode);
+            var page = (await firstPage.Content.ReadFromJsonAsync<PagedResult<Guid>>())!;
+            Assert.AreEqual(1L, page.Total); Assert.AreEqual(1, page.Page); Assert.AreEqual(1, page.PageSize);
+            CollectionAssert.AreEqual(new[] { tenantId }, page.Items.ToArray());
+        }
+        using (var secondPage = await SendAsync(client, HttpMethod.Get, grants + "?page=2&pageSize=1", hostToken))
+        {
+            var page = (await secondPage.Content.ReadFromJsonAsync<PagedResult<Guid>>())!;
+            Assert.AreEqual(1L, page.Total); Assert.AreEqual(0, page.Items.Count);
+        }
+        using (var anotherVersion = await SendAsync(client, HttpMethod.Get, grants.Replace("/versions/1/", "/versions/2/", StringComparison.Ordinal), hostToken))
+            Assert.AreEqual(0L, (await anotherVersion.Content.ReadFromJsonAsync<PagedResult<Guid>>())!.Total);
+        foreach (var query in new[] { "?page=0", "?pageSize=201" })
+        {
+            using var invalid = await SendAsync(client, HttpMethod.Get, grants + query, hostToken);
+            Assert.AreEqual(HttpStatusCode.BadRequest, invalid.StatusCode);
+        }
         using (var list = await SendAsync(client, HttpMethod.Get, catalog, tenantToken))
         {
             Assert.AreEqual(HttpStatusCode.OK, list.StatusCode);
@@ -97,6 +129,8 @@ public sealed class ReportingTenantPublishedApiTests
             Assert.AreEqual((byte)'P', bytes[0]); Assert.AreEqual((byte)'K', bytes[1]);
         }
         using (var revoked = await SendAsync(client, HttpMethod.Delete, grant, hostToken)) Assert.AreEqual(HttpStatusCode.OK, revoked.StatusCode);
+        using (var empty = await SendAsync(client, HttpMethod.Get, grants, hostToken))
+            Assert.AreEqual(0L, (await empty.Content.ReadFromJsonAsync<PagedResult<Guid>>())!.Total);
         using (var denied = await SendAsync(client, HttpMethod.Get, download, tenantToken)) Assert.AreEqual(HttpStatusCode.Forbidden, denied.StatusCode);
         using (var denied = await SendAsync(client, HttpMethod.Post, execute, tenantToken, new ExecuteReportingDefinitionRequest(null, parameters)))
             Assert.AreEqual(HttpStatusCode.Forbidden, denied.StatusCode);

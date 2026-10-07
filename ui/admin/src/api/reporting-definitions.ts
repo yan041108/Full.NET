@@ -1,5 +1,7 @@
 import {
   reportingListPublishedDefinitions,
+  reportingListTenantVersionGrants,
+  isReportingTenantVersionGrantPage,
   reportingGrantTenantVersion,
   reportingRevokeTenantVersion,
   isReportingDefinition,
@@ -216,5 +218,13 @@ export async function setReportingTenantVersionGrant(definitionId: string, versi
     ? await reportingGrantTenantVersion(http, parameters, signal)
     : await reportingRevokeTenantVersion(http, parameters, signal);
   if (value !== true) throw new Error('client.invalid_reporting_definition');
+  return value;
+}
+
+/** 仅供 Host 按精确发布版本分页读取已授权租户。 */
+export async function listReportingTenantVersionGrants(definitionId: string, versionNumber: number,
+  page = 1, pageSize = 20, signal?: AbortSignal): Promise<import('@fullnet/client-contracts').ReportingTenantVersionGrantPage> {
+  const value = await reportingListTenantVersionGrants(http, {definitionId, versionNumber, page, pageSize}, signal);
+  if (!isReportingTenantVersionGrantPage(value)) throw new Error('client.invalid_reporting_tenant_grants');
   return value;
 }

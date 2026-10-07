@@ -44,5 +44,5 @@ export function useAuthorizedViewScope(session: Session, reset: () => void, resu
   onActivated(() => { if (!active) { active = true; resumeCurrent(); } });
   onDeactivated(suspend);
   onBeforeUnmount(() => { mounted = false; suspend(); });
-  return { begin };
+  return { begin, invalidate };
 }

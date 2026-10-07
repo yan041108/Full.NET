@@ -65,6 +65,23 @@ export interface ReportingDefinitionVersion {
   publishedAtUtc: string;
 }
 
+/** Host 精确版本的授权租户标识分页，不包含租户目录或秘密。 */
+export interface ReportingTenantVersionGrantPage {
+  items: string[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export function isReportingTenantVersionGrantPage(value: unknown): value is ReportingTenantVersionGrantPage {
+  if (!isRecord(value)) return false;
+  return Array.isArray(value.items) && value.items.every(isGuid)
+    && Number.isSafeInteger(value.page) && Number(value.page) >= 1
+    && Number.isSafeInteger(value.pageSize) && Number(value.pageSize) >= 1 && Number(value.pageSize) <= 200
+    && value.items.length <= Number(value.pageSize)
+    && Number.isSafeInteger(value.total) && Number(value.total) >= value.items.length;
+}
+
 export interface CreateReportingGroupRequest {
   parentId?: string | null;
   name: string;

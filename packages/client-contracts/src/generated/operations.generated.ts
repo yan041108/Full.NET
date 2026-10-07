@@ -336,6 +336,7 @@ import type {
   PagedResultOfDictTypeResponse,
   PagedResultOfEnterpriseRequestResponse,
   PagedResultOfExceptionLogResponse,
+  PagedResultOfGuid,
   PagedResultOfHostAnnouncementReadReceiptResponse,
   PagedResultOfHostAnnouncementResponse,
   PagedResultOfHostApiKeyResponse,
@@ -745,6 +746,7 @@ import {
   readPagedResultOfDictTypeResponse,
   readPagedResultOfEnterpriseRequestResponse,
   readPagedResultOfExceptionLogResponse,
+  readPagedResultOfGuid,
   readPagedResultOfHostAnnouncementReadReceiptResponse,
   readPagedResultOfHostAnnouncementResponse,
   readPagedResultOfHostApiKeyResponse,
@@ -9756,6 +9758,32 @@ export async function reportingListQueryPorts(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingListQueryPortsResponse(value);
+}
+
+export interface ReportingListTenantVersionGrantsParameters {
+  readonly definitionId: string;
+  readonly versionNumber: number;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function reportingListTenantVersionGrants(
+  http: HttpClient,
+  parameters: ReportingListTenantVersionGrantsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfGuid> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants` : `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPagedResultOfGuid(value);
 }
 
 export interface ReportingPublishDefinitionParameters {
