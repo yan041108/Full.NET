@@ -1211,6 +1211,39 @@ main 基线 `6529a2ab481a2a04ca278f9226c15b6bcad6ac51`，快照 `ai-knowledge-re
 - TXT/PDF 双库夹具使用真实生产 SQL、载荷和完整代次证明，受控会话/角色/机构 Port 验证资源两层授予与等待期间撤权；不外推真实 Identity 登录、云模型质量或容量。上下文只取前八个完整片段，整个 JSON 超过 Token 上限整次拒绝；文本大块夹具仅用一个完整片段验证缓冲交付，PDF 夹具覆盖完整准备流水线，不宣称自动适配上下文大小。
 - Windows x64、i7-12700H、约 64 GB、SDK 10.0.401、运行时 10.0.12；SQL Server 2022-CU14 / MySQL 8.0，测试进程 2 个处理器、GC 堆 2 GiB，AI Unit 独立四 Worker，容器不复用。R06 父项保持未关闭。R06b 下一批接入收费查询 Embedding/生成、预算结算、完整来源历史依赖和公开问答，再补新增可达路径 Native 证据及 R02 真实端到端质量基线；容量仍 `Capacity-not-verified`。
 
+#### R06b1 合批执行：收费问答执行闭环与完整块容量适配
+
+main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-paid-answer-r06b`。继续在当前会话实施、测试并提交 main。本批不增加公开入口，历史持久化和新增公开可达路径 Native 证据仍属于后续 R06b。
+
+- [x] 修改 `Knowledge/AiKnowledgeAnswerContext.cs` 与 `tests/Full.NET.UnitTests/Ai/AiKnowledgeAnswerContextTests.cs`：按排名选择至多八个完整块，每加入一块计算完整 JSON 的固定词表 Token；遇到超限停止，不截断正文或跳过较高排名。连第一块都放不下则拒绝；整份候选依赖仍保留在检索快照。先证明当前八块整包拒绝，再验证完整块适配、边界拒绝、位置和输入冻结。
+- [x] 扩展 `Knowledge/AiKnowledgeRetrievalService.cs` 的 `PreflightAsync(IReadOnlyList<Guid>, Guid, AiModelConfigRecord, CancellationToken)`：冻结请求并复用当前权限、角色/机构、模型和完整活动代次证明；无查询向量也能在收费前拒绝不可读或损坏来源。随后实际召回必须与这份来源快照一致。
+- [x] 新建 `Knowledge/AiKnowledgePaidAnswerService.cs` 的 `ExecuteAsync(IReadOnlyList<Guid>, Guid, AiModelConfigRecord, AiModelConfigRecord, string, CancellationToken)`：通过现有模型工厂和预算账本依次执行一次查询 Embedding、一次有界非流式生成。两个阶段各自预留、禁止复用预留重发、客户端创建后再复核、保存已知计量后才验证输出；未知计量保留，未派发使用零计量。异常/取消/撤权仍独立结算，结算失败禁止交付，结算等待后重验来源及生成模型。返回经过引用校验的答案及完整准备快照，不能把该临时快照当作已持久化历史。
+- [x] 在 `tests/Full.NET.UnitTests/Ai/AiKnowledgePaidAnswerTests.cs` 复用完整 PDF 激活夹具，以可控客户端和预算 Port 覆盖 Host/Tenant、预留拒绝/重复、派发前后撤权/同版本模型漂移、已知/未知/非法计量、恶意引用/工具、取消和结算失败。`tests/Full.NET.IntegrationTests/Ai/AiKnowledgeRetrievalAssertions.cs` 在既有真实 TXT/PDF 双库场景消费实际收费流水线与生产账本；保持真实模型质量未验收。
+- [x] RED/GREEN 后运行完整 AI Unit、相关架构和治理，更新唯一测试矩阵；按快照执行双库影响集并保留真实失败记录，检查差异与分支后提交。R06 父项、公开 Ask、历史显示/导出/追问撤权、R02 质量和容量保持未关闭。
+
+**R06b1 本地证据与边界（2026-10-07）：**
+
+- 一批接入查询 Embedding、缓冲回答生成、两个独立预算操作、完整块容量适配及全部来源复核。来源快照保留所有候选依赖，最前面的完整块装不下则拒绝，不裁剪正文或跳过较高排名。生成目的地、凭据和 `AiChatPermissions.Send` 与最后来源查询绑定；首次模型读取前冻结入口范围，等待后范围改变时拒绝，禁止在新范围收费、按旧范围结算。
+- 新增 49 个 Unit 用例。审查发现生产适配器拒绝非空 ChatOptions、最后权限等待中只撤 Send、非合作客户端创建/调用/同步释放及入口范围漂移四类问题，均建立失败回归再修复。真实注册工厂通过本地 HTTP Handler 验证 Embedding JSON 和缓冲生成传输；不把受控供应商响应作为云模型质量证据。外部 IO 复用既有边界，冻结回执后不接受迟到计量或再次派发，结算使用原租户的独立五秒作用域。最终只读复核未发现剩余具体 P1/P2；复核人未代跑测试。
+- 最终 Release Unit/Integration/Architecture 构建均为零警告、零错误。`node artifacts/r06b/run-ai.mjs` 使用唯一矩阵的 `ai-module` 参数及四 Worker 设置，实际 AI Unit 1867 通过、零失败、零跳过；完整 Unit 发现 5336 项，矩阵同步。`verify-acceptance.mjs --unit` 精确核对 UID/FQN 与最终 TRX。510 个源码/矩阵输入、7 个产物冻结，四处 AI DLL 一致；后续验收只复用这些未变输入。
+- `pnpm test:dotnet:architecture -- --no-build --filter 'FullyQualifiedName~AiDependencyBoundaryTests|FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol' --minimum-expected-tests 80` 实际 80/80、零失败/跳过。补查四组既有全局门禁，实际 14 项、10 通过、4 失败，分别是 TXT/PDF ActivationStore 异步命名、两个 Worker 租户写入登记、PDF 异步边界和 ActivationSql 非静态构造。`baseline-architecture.json` 核对 9 个相关源码和 4 个门禁与本批基线 Git blob 相同；AuthorityBoundary 仅 XML 摘要改变，实现体在换行规范化后相同。该比对不替代完整基线重跑，四项失败仍未关闭。
+- `pnpm test:integration:affected -- --snapshot ai-knowledge-paid-answer-r06b --phase merge` 正式选择双库 90 个目标，首轮实际 88 通过、2 失败、零跳过，退出码 1（dotnet 2），40m49s726ms。两次失败均为 PDF 夹具仍以原索引费用 37 校验整个模型账本；本批六场景查询 Embedding 新增 79（五次已知各 7、一次未知保留 44），实际总额 116。修正夹具逐操作核对收费并返回查询 Embedding 费用，在原期望中相加，保留恢复不新增费用、清理不退费及原索引操作账本保留断言；生产代码未改变。只读复核确认计数/范围和原验证均保留，未代跑测试。
+- 保存首轮三处夹具源码、Integration DLL、冻结输入及原始 TRX，重建后 `node artifacts/r06b/run-fixture-recheck.mjs` 精确重新发现并执行全部受改动影响的 TXT/PDF 双库四个方法，实际 4/4、零失败/跳过、退出 0，4m58s315ms，包含 Host/Tenant 和真实生产账本。`verify-acceptance.mjs` 核对两份 TRX 的完整 UID/FQN、先后时间、仅三处夹具源码/一个 Integration DLL 改变、其余 507 输入与生产/Unit/Architecture 产物未变，最终有效通过覆盖 90 个目标，无遗漏/重复。首轮失败仍保留，不生成伪造的单轮全绿报告；R06a 既有重试用例本轮通过，不视为已定位或修复其历史稳定性问题。
+- 正式 TRX 两个测试结果的超长捕获文本被平台截断，测试身份与结果完整，截断区域不作为完整诊断证据。原始记录与核对报告位于忽略目录 `artifacts/r06b/`。Windows x64、i7-12700H、约 64 GB、SDK 10.0.401、运行时 10.0.12；SQL Server 2022-CU14 / MySQL 8.0，测试进程 2 个处理器、GC 堆 2 GiB，AI Unit 四 Worker，双库两 Worker，容器不复用。结论仅适用于本批本地 JIT 消费边界。
+- `pnpm test:naming` 33 项、`pnpm test:sql-safety` 5 项、`pnpm test:governance` 57 项通过。正式影响集入口的 tooling 65 项通过、Integration 分片 1194 项无遗漏/重复；最终影响规划仍为 Ai、integration-matrix 与双库 Smoke。检查 `git diff --check`、暂存差异、main 分支和冻结输入后，仅提交本批 14 个文件，保护无关改动。
+- 本批仍是内部消费者，没有 HTTP/DI 接线或已持久化答案。临时快照含内部模型和向量，禁止直接作为公开契约或历史保存。公开 Ask 与历史详情、MCP 摘要、后续聊天取上下文的完整来源权限保护合并为下一批；R06 父项、R02 真实质量、新增公开 Native 发布/运行与容量均保持未关闭，容量仍 `Capacity-not-verified`。
+
+#### R06b2 下一批：公开问答、来源依赖持久化及历史复核
+
+复用 R06b1 执行器，一次完成公开入口与所有已确认的历史消费者。以下仅为下一批实施计划，未实现或验收。
+
+- [ ] 先建立来源未引用但参与生成、等待期间撤权、删除/版本变化、损坏依赖记录及跨租户的失败用例；证明历史正文、引用摘要与后续模型输入都不会绕过来源复核。普通聊天无来源依赖时保持原语义。
+- [ ] 在 AI 自有持久化边界增加成对迁移、静态 SQL 和最小完整来源依赖/引用记录，绑定答案消息与服务器确认的位置。保存版本化受控元数据，不保存临时检索快照、向量或受保护密钥；未知或损坏依赖拒绝释放正文。
+- [ ] 增加 `Features/AskKnowledge/` 与源生成公开契约，通过可信主体和精确权限接入已授权知识库、模型选择及 R06b1 执行器。复用聊天生成槽位、原范围独立清理、租约监视与跨实例取消，外部模型调用不入事务；短事务按本代租约保存答案及全部依赖，不能先发送正文再补历史。
+- [ ] 统一历史来源复核：`AiChatSessionQueryService.GetByIdAsync` 的详情映射、通过该查询取摘要的 `AiMcpSessionSummaryReader`，以及 `AiChatStreamService.LoadRecentMessagesAsync` 的模型输入。撤权消息隐藏正文/引用并从后续模型上下文剔除，稳定机器码说明不可用状态；新增出口必须复用同一边界。
+- [ ] 使用真实生产 SQL/账本及受控模型，成对覆盖 Host/Tenant、TXT/PDF、重复并发、取消/租约失效、落库失败和完整依赖撤权。同步 DI、物化/JSON 静态闭包、OpenAPI 及新增 HTTP 可达路径 Native 发布/运行证据，保持云质量与容量未验收。
+- [ ] 合批运行完整 AI、受影响双库及新增 Native 路径，核对当前输入和原始报告，在 main 提交；仅关闭有实际证据的 R06 子项，继续 R07 页面交付。
+
 ### R07：Vue 知识库与问答页面（P1，依赖 R04/R06）
 
 **新增：** `ui/admin/src/views/AiKnowledgeBasesView.vue`、`AiKnowledgeDocumentsView.vue` 及对应 `.test.ts`；扩展 `ui/admin/src/views/AiChatView.vue` 与共享生成客户端。路由/菜单按现有机制登记，禁止修改冻结 Layui。

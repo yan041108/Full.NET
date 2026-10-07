@@ -14,7 +14,11 @@ namespace Full.NET.Modules.Ai.Knowledge;
 /// <summary>保留全部召回来源依赖；引用子集不能替代此权威快照。</summary>
 internal sealed record AiKnowledgeRetrievalSnapshot(Guid Actor, Guid? TenantId, bool IsTenant,
     AiModelConfigRecord Model, IReadOnlyList<Guid> KnowledgeBaseIds, IReadOnlyList<AiKnowledgeIndexStatusRecord> Sources,
-    IReadOnlyList<AiKnowledgeRankedChunk> Chunks);
+    IReadOnlyList<AiKnowledgeRankedChunk> Chunks)
+{
+    // 收费问答将生成目的地绑定到最后来源 SQL，避免独立模型查询等待形成撤权窗口。
+    internal AiModelConfigRecord? GenerationModel { get; init; }
+}
 
 /// <summary>读取当前授权且完整的活动代次；禁止加入外部事务或触发收费模型调用。</summary>
 internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTransactionState transactions, ICurrentTenant tenant,
@@ -23,10 +27,24 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
 {
     private static readonly string[] RequiredPermissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
         AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.IndexRead];
+    private static readonly string[] DispatchPermissions = [.. RequiredPermissions, AiChatPermissions.Send];
+    /// <summary>查询 Embedding 收费前证明全部来源可读且完整；模型和来源绑定在同一最终查询。</summary>
+    internal async Task<AiKnowledgeRetrievalSnapshot> PreflightAsync(IReadOnlyList<Guid> knowledgeBaseIds, Guid actor,
+        AiModelConfigRecord model, CancellationToken token, AiModelConfigRecord? generationModel = null)
+    {
+        var initial = Initial(knowledgeBaseIds, actor, model, token, generationModel);
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(TimeSpan.FromSeconds(25));
+        return await AiKnowledgeIndexPdfAuthorityBoundary.RunAsync(async work =>
+        {
+            var first = await LoadAsync(initial, work).ConfigureAwait(false);
+            var result = initial with { Sources = first.Rows };
+            await RevalidateCoreAsync(result, work).ConfigureAwait(false); return result;
+        }, budget.Token).ConfigureAwait(false);
+    }
     /// <summary>冻结输入后读取有界完整代次；未知、不可读、不完整或超限来源拒绝整次召回。</summary>
     /// <remarks>当前可信租户与会话须有效，禁止已有事务。只支持已批准的官方 Embedding 空间，不授予模型派发权。</remarks>
     internal async Task<AiKnowledgeRetrievalSnapshot> RetrieveAsync(IReadOnlyList<Guid> knowledgeBaseIds, Guid actor,
-        AiModelConfigRecord model, ReadOnlyMemory<float> vector, CancellationToken token)
+        AiModelConfigRecord model, ReadOnlyMemory<float> vector, CancellationToken token, AiModelConfigRecord? generationModel = null)
     {
         Check(token); ArgumentNullException.ThrowIfNull(knowledgeBaseIds); ArgumentNullException.ThrowIfNull(model);
         if (knowledgeBaseIds.Count is < 1 or > 8 || vector.Length is not (1536 or 3072)) throw Invalid();
@@ -43,7 +61,7 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(token); budget.CancelAfter(TimeSpan.FromSeconds(25));
         return await AiKnowledgeIndexPdfAuthorityBoundary.RunAsync(async work =>
         {
-            var initial = new AiKnowledgeRetrievalSnapshot(actor, tenantId, scope, model, Array.AsReadOnly(ids), [], []);
+            var initial = new AiKnowledgeRetrievalSnapshot(actor, tenantId, scope, model, Array.AsReadOnly(ids), [], []) { GenerationModel = generationModel };
             var first = await LoadAsync(initial, work).ConfigureAwait(false);
             CheckScope(initial, work);
             first.Parameters["TaskIdsJson"] = JsonSerializer.Serialize(first.Rows.Select(r => r.TaskId!.Value).ToArray(), AiJsonSerializerContext.Default.GuidArray);
@@ -83,19 +101,25 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
         AiKnowledgeRetrievalSnapshot snapshot, CancellationToken token)
     {
         CheckScope(snapshot, token);
-        if (!await permissions.IsAuthorizedAsync(RequiredPermissions, snapshot.Actor, token).ConfigureAwait(false)) throw Denied();
+        var required = snapshot.GenerationModel is null ? RequiredPermissions : DispatchPermissions;
+        if (!await permissions.IsAuthorizedAsync(required, snapshot.Actor, token).ConfigureAwait(false)) throw Denied();
         CheckScope(snapshot, token);
         var p = new Dictionary<string, object?>();
         p["ModelConfigId"] = snapshot.Model.Id; p["ModelConfigVersion"] = snapshot.Model.Version;
         p["ExpectedModelTenantId"] = snapshot.Model.TenantId; p["ExpectedEndpointBaseUrl"] = snapshot.Model.EndpointBaseUrl;
         p["ExpectedProviderKey"] = snapshot.Model.ProviderKey; p["ExpectedModelId"] = snapshot.Model.ModelId;
         p["ExpectedOrganizationId"] = snapshot.Model.OrganizationId; p["ExpectedApiKeyProtected"] = snapshot.Model.ApiKeyProtected;
+        var generation = snapshot.GenerationModel;
+        p["GenerationModelConfigId"] = generation?.Id; p["GenerationModelConfigVersion"] = generation?.Version;
+        p["GenerationTenantId"] = generation?.TenantId; p["GenerationEndpointBaseUrl"] = generation?.EndpointBaseUrl;
+        p["GenerationProviderKey"] = generation?.ProviderKey; p["GenerationModelId"] = generation?.ModelId;
+        p["GenerationOrganizationId"] = generation?.OrganizationId; p["GenerationApiKeyProtected"] = generation?.ApiKeyProtected;
         p["KnowledgeBaseIdsJson"] = JsonSerializer.Serialize(snapshot.KnowledgeBaseIds.ToArray(), AiJsonSerializerContext.Default.GuidArray);
         var current = await query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(snapshot.IsTenant ? AiModelConfigSql.FindAvailableForTenantChat
             : AiModelConfigSql.FindAvailableForHostChat, p, token).ConfigureAwait(false);
         CheckScope(snapshot, token); if (!SameModel(snapshot.Model, current)) throw Invalid();
         // 最后一笔资源 SQL 必须晚于操作权限等待；同时绑定完整模型目的地，避免等待窗口内同版本漂移。
-        if (!await permissions.IsAuthorizedAsync(RequiredPermissions, snapshot.Actor, token).ConfigureAwait(false)) throw Denied();
+        if (!await permissions.IsAuthorizedAsync(required, snapshot.Actor, token).ConfigureAwait(false)) throw Denied();
         CheckScope(snapshot, token);
         // 角色和机构也可能在模型/操作权限等待中撤销；最新关系紧邻最后资源查询，不沿用等待前的列表。
         var relationships = await access.ParametersAsync(snapshot.Actor, token).ConfigureAwait(false); CheckScope(snapshot, token);
@@ -189,10 +213,24 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
     }
     private static void SameSources(IReadOnlyList<AiKnowledgeIndexStatusRecord> expected, IReadOnlyList<AiKnowledgeIndexStatusRecord> current)
     { if (!expected.SequenceEqual(current)) throw Invalid(); }
-    private static bool SameModel(AiModelConfigRecord expected, AiModelConfigRecord? actual) => actual is not null && actual.IsEnabled
+    internal static bool SameModel(AiModelConfigRecord expected, AiModelConfigRecord? actual) => actual is not null && actual.IsEnabled
         && actual.Id == expected.Id && actual.TenantId == expected.TenantId && actual.Version == expected.Version
         && actual.ProviderKey == expected.ProviderKey && actual.ModelId == expected.ModelId
         && actual.EndpointBaseUrl == expected.EndpointBaseUrl && actual.OrganizationId == expected.OrganizationId && actual.ApiKeyProtected == expected.ApiKeyProtected;
+    private AiKnowledgeRetrievalSnapshot Initial(IReadOnlyList<Guid> knowledgeBaseIds, Guid actor, AiModelConfigRecord model,
+        CancellationToken token, AiModelConfigRecord? generationModel)
+    {
+        Check(token); ArgumentNullException.ThrowIfNull(knowledgeBaseIds); ArgumentNullException.ThrowIfNull(model);
+        var scope = AiKnowledgeScope.IsTenant(tenant); var tenantId = tenant.Id; var ids = knowledgeBaseIds.ToArray();
+        if (actor == Guid.Empty || tenantId == Guid.Empty || scope != tenantId.HasValue) throw Denied();
+        if (ids.Length is < 1 or > 8 || ids.Any(id => id == Guid.Empty) || ids.Distinct().Count() != ids.Length
+            || model.Id == Guid.Empty || model.Version < 1 || !model.IsEnabled || model.ProviderKey != AiProviderKeys.OpenAiCompatible
+            || model.ModelId is not ("text-embedding-3-small" or "text-embedding-3-large") || model.TenantId == Guid.Empty
+            || model.TenantId.HasValue && model.TenantId != tenantId) throw Invalid();
+        if (generationModel is not null && (generationModel.Id == Guid.Empty || generationModel.Version < 1 || !generationModel.IsEnabled
+            || generationModel.TenantId == Guid.Empty || generationModel.TenantId.HasValue && generationModel.TenantId != tenantId)) throw Invalid();
+        return new(actor, tenantId, scope, model, Array.AsReadOnly(ids), [], []) { GenerationModel = generationModel };
+    }
     private void CheckScope(AiKnowledgeRetrievalSnapshot snapshot, CancellationToken token)
     { Check(token); if (tenant.Id != snapshot.TenantId || AiKnowledgeScope.IsTenant(tenant) != snapshot.IsTenant) throw Denied(); }
     private void Check(CancellationToken token)

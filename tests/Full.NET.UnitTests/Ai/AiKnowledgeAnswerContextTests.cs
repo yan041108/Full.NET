@@ -9,6 +9,31 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiKnowledgeAnswerContextTests
 {
+    [TestMethod]
+    public void Context_fits_ranked_complete_blocks_without_clipping_or_skipping()
+    {
+        var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(_ => Guid.CreateVersion7());
+        var chunks = Enumerable.Range(0, 8).Select(index =>
+        {
+            var text = string.Concat(Enumerable.Repeat("完整来源内容 ", 120));
+            return new AiKnowledgeRankedChunk(AiKnowledgeRetrievalRuleTests.Chunk("text/plain", index,
+                AiKnowledgeRetrievalRuleTests.Vector(1, 0)) with { Text = text, Length = text.Length }, 1 - index * .01);
+        }).ToArray();
+        var context = AiKnowledgeAnswerContext.Create("问题", chunks, ids, default);
+        Assert.IsTrue(context.Citations.Count is > 0 and < 8);
+        Assert.IsTrue(AiKnowledgeCl100kTokenizer.Get(default).CountTokens(context.Json, considerNormalization: false) <= 4096);
+        CollectionAssert.AreEqual(chunks.Take(context.Citations.Count).Select(c => c.Chunk.Text).ToArray(), context.Citations.Select(c => c.Chunk.Text).ToArray());
+        CollectionAssert.AreEqual(Enumerable.Range(0, context.Citations.Count).ToArray(), context.Citations.Select(c => c.Chunk.Sequence).ToArray());
+    }
+    [TestMethod]
+    public void Context_does_not_skip_an_oversized_high_ranked_first_block()
+    {
+        var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(_ => Guid.CreateVersion7());
+        var text = new string('汉', 8000);
+        var chunk = AiKnowledgeRetrievalRuleTests.Chunk("text/plain", 0, AiKnowledgeRetrievalRuleTests.Vector(1, 0));
+        Assert.ThrowsExactly<InvalidDataException>(() => AiKnowledgeAnswerContext.Create("问题",
+            [new(chunk with { Text = text, Length = text.Length }, 1), new(chunk with { Sequence = 1 }, .5)], ids, default));
+    }
     [TestMethod] [DataRow("create")] [DataRow("parse")]
     public void Context_and_answer_observe_cancellation(string operation)
     {

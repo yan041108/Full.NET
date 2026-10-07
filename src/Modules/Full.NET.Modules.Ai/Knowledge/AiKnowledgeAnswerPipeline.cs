@@ -11,11 +11,11 @@ internal sealed class AiKnowledgeAnswerPipeline(AiKnowledgeRetrievalService retr
 {
     /// <summary>准备有界问答数据包，不派发模型；上下文构造后仍重新核对读取资格。</summary>
     internal async Task<AiKnowledgePreparedAnswer> PrepareAsync(IReadOnlyList<Guid> knowledgeBaseIds, Guid actor, AiModelConfigRecord model,
-        ReadOnlyMemory<float> vector, string question, CancellationToken token)
+        ReadOnlyMemory<float> vector, string question, CancellationToken token, AiModelConfigRecord? generationModel = null)
     {
         token.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(question) || question.Length > 4096) throw new InvalidDataException("问题超过上下文边界。");
-        var snapshot = await retrieval.RetrieveAsync(knowledgeBaseIds, actor, model, vector, token).ConfigureAwait(false);
+        var snapshot = await retrieval.RetrieveAsync(knowledgeBaseIds, actor, model, vector, token, generationModel).ConfigureAwait(false);
         var context = AiKnowledgeAnswerContext.Create(question, snapshot.Chunks, ids, token);
         // 同步词表初始化和上下文构造也可能等待，准备完成前再确认全部依赖。
         await retrieval.RevalidateAsync(snapshot, token).ConfigureAwait(false); return new(snapshot, context);

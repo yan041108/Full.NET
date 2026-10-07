@@ -21,7 +21,7 @@ namespace Full.NET.IntegrationTests.Ai;
 /// <summary>真实生产 SQL/载荷和完整代次证明；读取身份受控，不宣称真实登录或云模型问答。</summary>
 internal static class AiKnowledgeRetrievalAssertions
 {
-    internal static async Task VerifyAsync(IServiceProvider services, DbConnection db, AiKnowledgeIndexTaskBinding binding)
+    internal static async Task<long> VerifyAsync(IServiceProvider services, DbConnection db, AiKnowledgeIndexTaskBinding binding)
     {
         var query = services.GetRequiredService<IQueryExecutor>(); var tenant = services.GetRequiredService<ICurrentTenant>();
         var state = services.GetRequiredService<IDataTransactionState>(); var options = services.GetRequiredService<IOptions<DatabaseOptions>>();
@@ -44,11 +44,10 @@ internal static class AiKnowledgeRetrievalAssertions
         Assert.IsTrue(result.Chunks.All(c => c.Chunk.Source.ModelConfigId == model.Id));
         Assert.IsTrue(result.Chunks.All(c => c.Chunk.PageNumber.HasValue == (c.Chunk.Source.ContentType == "application/pdf")));
         var pipeline = new AiKnowledgeAnswerPipeline(service, ids);
-        // 文本夹具包含八个满额块，整包超过 4096 Token 必须拒绝；单个完整块仍可形成有界问答包。
-        var context = AiKnowledgeAnswerContext.Create("来源说明", result.Chunks.Take(1).ToArray(), ids, default);
-        var prepared = result.Sources[0].ContentType == "application/pdf"
-            ? await pipeline.PrepareAsync([binding.KnowledgeBaseId], reader.Actor, model, vector, "来源说明", default)
-            : new AiKnowledgePreparedAnswer(result, context);
+        // TXT 和 PDF 均直接使用生产完整准备流程；上下文选择完整块前缀，完整来源依赖不随容量裁剪。
+        var prepared = await pipeline.PrepareAsync([binding.KnowledgeBaseId], reader.Actor, model, vector, "来源说明", default);
+        var embeddingCharges = await AiKnowledgePaidAnswerAssertions.VerifyAsync(services, db, service, permission, model, binding.KnowledgeBaseId, reader.Actor,
+            denied => reader.Denied = denied);
         var bytes = Encoding.UTF8.GetBytes($$"""{"answer":"测试答案","citationIds":["{{prepared.Context.Citations[0].Id}}"],"refusal":false}""");
         Assert.AreEqual("测试答案", (await pipeline.AcceptAsync(prepared, bytes, default)).Text);
         reader.Denied = true;
@@ -112,6 +111,7 @@ internal static class AiKnowledgeRetrievalAssertions
         try { await Assert.ThrowsExactlyAsync<InvalidDataException>(() => pipeline.AcceptAsync(prepared, bytes, default)); }
         finally { await SetPayload(payload); }
         await service.RevalidateAsync(result, default);
+        return embeddingCharges;
         Task<int> SetPayload(byte[] value) => db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=(SELECT Id FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@TaskId AND BatchOrdinal=0)", new { TaskId = result.Sources[0].TaskId, Payload = value });
     }
     private sealed class Reader(Guid actor, Guid? tenant, IDataTransactionState state) : ICurrentSessionAuthorization

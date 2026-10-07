@@ -14,14 +14,15 @@ internal sealed class AiKnowledgeAnswerContext
 {
     internal string Json { get; private init; } = "";
     internal IReadOnlyList<AiKnowledgeCitation> Citations { get; private init; } = [];
-    /// <summary>选择排名前八个完整块；按固定词表计算整个 JSON 包，超限拒绝而不裁剪正文。</summary>
+    /// <summary>选择能容纳的排名前缀完整块；整个 JSON 包限额，不裁剪正文或跳过高排名块。</summary>
     internal static AiKnowledgeAnswerContext Create(string question, IReadOnlyList<AiKnowledgeRankedChunk> chunks,
         IIdGenerator ids, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); ArgumentNullException.ThrowIfNull(chunks); ArgumentNullException.ThrowIfNull(ids);
         if (string.IsNullOrWhiteSpace(question) || question.Length > 4096 || chunks.Count is < 1 or > 256) throw Invalid();
         var citations = new List<AiKnowledgeCitation>(); var seen = new HashSet<Guid>();
-        // 排名的前八块构成明确的上下文选择；总 Token 超限拒绝，绝不裁剪一块正文。
+        var tokenizer = AiKnowledgeCl100kTokenizer.Get(token); string? json = null;
+        // 每个前缀重新计算元数据与问题开销；遇到第一块超限停止，依赖仍由完整检索快照保留。
         foreach (var ranked in chunks.Take(8))
         {
             token.ThrowIfCancellationRequested(); var chunk = ranked.Chunk;
@@ -29,7 +30,16 @@ internal sealed class AiKnowledgeAnswerContext
                 || chunk.Offset < 0 || chunk.Length != chunk.Text.Length || chunk.Sequence < 0 || chunk.PageNumber is < 1) throw Invalid();
             var id = ids.NewId(); if (id == Guid.Empty || id.Version != 7 || !seen.Add(id)) throw Invalid();
             citations.Add(new(id, chunk with { Vector = chunk.Vector.ToArray() }));
+            var candidate = Serialize(question, citations, token);
+            if (tokenizer.CountTokens(candidate, considerNormalization: false) > 4096)
+            { citations.RemoveAt(citations.Count - 1); break; }
+            json = candidate;
         }
+        if (json is null || citations.Count == 0) throw Invalid();
+        token.ThrowIfCancellationRequested(); return new() { Json = json, Citations = citations.AsReadOnly() };
+    }
+    private static string Serialize(string question, IReadOnlyList<AiKnowledgeCitation> citations, CancellationToken token)
+    {
         using var buffer = new MemoryStream();
         using (var writer = new Utf8JsonWriter(buffer))
         {
@@ -44,9 +54,7 @@ internal sealed class AiKnowledgeAnswerContext
             }
             writer.WriteEndArray(); writer.WriteEndObject();
         }
-        var json = new UTF8Encoding(false, true).GetString(buffer.ToArray());
-        if (AiKnowledgeCl100kTokenizer.Get(token).CountTokens(json, considerNormalization: false) > 4096) throw Invalid();
-        token.ThrowIfCancellationRequested(); return new() { Json = json, Citations = citations.AsReadOnly() };
+        return new UTF8Encoding(false, true).GetString(buffer.ToArray());
     }
     /// <summary>冻结有界模型 JSON，拒绝未知字段与伪造引用；本方法不独立授予正文交付资格。</summary>
     internal AiKnowledgeAnswer Parse(ReadOnlyMemory<byte> response, CancellationToken token)

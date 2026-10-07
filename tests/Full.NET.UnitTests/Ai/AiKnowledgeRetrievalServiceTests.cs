@@ -152,7 +152,9 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
     {
         internal Fixture F = null!; internal RetrievalQuery Query = null!;
         internal AiKnowledgeRetrievalService Service = null!; internal AiModelConfigRecord Model = null!;
-        internal bool Denied; internal int PermissionCalls; internal Action? BeforeAuthorization; internal Guid Actor;
+        internal AiKnowledgePermissionGuard Permissions = null!;
+        internal bool Denied; internal string? DeniedPermission; internal int PermissionCalls; internal Action? BeforeAuthorization;
+        internal Action<string>? BeforePermission; internal Guid Actor;
         internal Guid[] RoleIds = [], OrganizationIds = [];
         internal static async Task<RetrievalFixture> Create(bool scoped)
         {
@@ -160,13 +162,15 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
             r.Model = await f.Query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(AiModelConfigSql.FindAvailableForHostChat, new(), default) ?? throw new InvalidOperationException();
             r.Query = new(f.Query) { Rows = [f.ReadRow], Vectors = f.Payloads, Model = r.Model };
             var auth = Substitute.For<ICurrentSessionAuthorization>();
-            auth.AuthorizeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ =>
-            { Assert.IsFalse(f.Transactions.HasTransaction); r.PermissionCalls++; r.BeforeAuthorization?.Invoke(); return r.Denied ? null : new AuthorizedSessionActor(r.Actor, f.Tenant.Id, Guid.CreateVersion7()); });
+            auth.AuthorizeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
+            { Assert.IsFalse(f.Transactions.HasTransaction); r.PermissionCalls++; r.BeforeAuthorization?.Invoke(); var permission = call.ArgAt<string>(0);
+                r.BeforePermission?.Invoke(permission); return r.Denied || r.DeniedPermission == permission ? null : new AuthorizedSessionActor(r.Actor, f.Tenant.Id, Guid.CreateVersion7()); });
             var roles = Substitute.For<IActiveRoleDirectory>(); var orgs = Substitute.For<ICurrentTenantOrganizationUnitDirectory>();
             roles.ListActiveRoleIdsForUserAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(_ => { Assert.IsFalse(f.Transactions.HasTransaction); return r.RoleIds; });
             orgs.ListActiveUnitIdsForUserAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(_ => { Assert.IsFalse(f.Transactions.HasTransaction); return r.OrganizationIds; });
+            r.Permissions = new(auth, Substitute.For<IHttpContextAccessor>(), Substitute.For<ICurrentApiKeyAuthorization>());
             r.Service = new(r.Query, f.Transactions, f.Tenant, new(roles, orgs, f.Tenant),
-                new(auth, Substitute.For<IHttpContextAccessor>(), Substitute.For<ICurrentApiKeyAuthorization>()), null!, f.Store,
+                r.Permissions, null!, f.Store,
                 Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
             return r;
         }
@@ -175,11 +179,18 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
     private sealed class RetrievalQuery(IQueryExecutor inner) : IQueryExecutor
     {
         internal AiKnowledgeIndexStatusRecord[] Rows = []; internal AiKnowledgeIndexVectorRecord[] Vectors = [];
-        internal AiModelConfigRecord Model = null!; internal int SourceReads, VectorReads;
+        internal AiModelConfigRecord Model = null!; internal AiModelConfigRecord? GenerationModel; internal int SourceReads, VectorReads;
+        internal Func<CancellationToken, Task>? BeforeGenerationModel;
         internal Func<CancellationToken, Task>? BeforeVectors;
         internal Guid? RequiredRole, RequiredOrganization;
-        public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement sql, object? p = null, CancellationToken token = default) =>
-            typeof(T) == typeof(AiModelConfigRecord) ? Task.FromResult((T?)(object)Model) : inner.QuerySingleOrDefaultAsync<T>(sql, p, token);
+        public async Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement sql, object? p = null, CancellationToken token = default)
+        {
+            if (typeof(T) != typeof(AiModelConfigRecord)) return await inner.QuerySingleOrDefaultAsync<T>(sql, p, token);
+            var generation = p is IReadOnlyDictionary<string, object?> values && GenerationModel is not null
+                && (Guid)values["ModelConfigId"]! == GenerationModel.Id;
+            if (generation && BeforeGenerationModel is not null) await BeforeGenerationModel(token);
+            return (T?)(object)(generation ? GenerationModel! : Model);
+        }
         public async Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement sql, object? p = null, CancellationToken token = default)
         {
             if (typeof(T) == typeof(AiKnowledgeIndexStatusRecord))
@@ -187,6 +198,15 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
                 SourceReads++; var parameters = (Dictionary<string, object?>)p!;
                 var visible = (!RequiredRole.HasValue || ((string)parameters["ActiveRoleIdsJson"]!).Contains(RequiredRole.Value.ToString(), StringComparison.Ordinal))
                     && (!RequiredOrganization.HasValue || ((string)parameters["ActiveOrganizationUnitIdsJson"]!).Contains(RequiredOrganization.Value.ToString(), StringComparison.Ordinal));
+                if (parameters["GenerationModelConfigId"] is Guid generationId)
+                    visible &= GenerationModel is not null && GenerationModel.Id == generationId && GenerationModel.IsEnabled
+                        && GenerationModel.Version == (int)parameters["GenerationModelConfigVersion"]!
+                        && GenerationModel.TenantId == (Guid?)parameters["GenerationTenantId"]
+                        && GenerationModel.EndpointBaseUrl == (string)parameters["GenerationEndpointBaseUrl"]!
+                        && GenerationModel.ProviderKey == (string)parameters["GenerationProviderKey"]!
+                        && GenerationModel.ModelId == (string)parameters["GenerationModelId"]!
+                        && GenerationModel.OrganizationId == (string?)parameters["GenerationOrganizationId"]
+                        && GenerationModel.ApiKeyProtected == (string?)parameters["GenerationApiKeyProtected"];
                 return (IReadOnlyList<T>)(object)(visible ? Rows : Array.Empty<AiKnowledgeIndexStatusRecord>());
             }
             if (typeof(T) == typeof(AiKnowledgeIndexVectorRecord)) { VectorReads++; if (BeforeVectors is not null) await BeforeVectors(token); return (IReadOnlyList<T>)(object)Vectors; }

@@ -1,6 +1,6 @@
 namespace Full.NET.Modules.Ai.Knowledge;
 
-/// <summary>只保护事务外读取及原会话续租，不用于放弃计费派发或激活写事务。</summary>
+/// <summary>托管事务外 IO 及原会话续租，禁止用于放弃激活写事务；收费消费者须独立冻结回执并结算。</summary>
 internal static class AiKnowledgeIndexPdfAuthorityBoundary
 {
     internal static async Task<T> RunAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken token)

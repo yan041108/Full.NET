@@ -17,7 +17,15 @@ internal static class AiKnowledgeRetrievalSql
         + " AND model.IsEnabled=1 AND model.Version=@ModelConfigVersion AND ((model.TenantId IS NULL AND @ExpectedModelTenantId IS NULL) OR model.TenantId=@ExpectedModelTenantId)"
         + " AND " + Exact(mysql, "model.EndpointBaseUrl", "ExpectedEndpointBaseUrl")
         + " AND " + Exact(mysql, "model.ProviderKey", "ExpectedProviderKey") + " AND " + Exact(mysql, "model.ModelId", "ExpectedModelId")
-        + " AND " + Exact(mysql, "model.OrganizationId", "ExpectedOrganizationId") + " AND " + Exact(mysql, "model.ApiKeyProtected", "ExpectedApiKeyProtected");
+        + " AND " + Exact(mysql, "model.OrganizationId", "ExpectedOrganizationId") + " AND " + Exact(mysql, "model.ApiKeyProtected", "ExpectedApiKeyProtected")
+        + " AND " + Generation(mysql, scoped);
+    // 可选生成模型和来源在同一权威查询判定；不以版本号替代目的地、凭据和租户范围。
+    private static string Generation(bool mysql, bool scoped) => "(@GenerationModelConfigId IS NULL OR EXISTS (SELECT 1 FROM fn_ai_model_config AS generation WHERE generation.Id=@GenerationModelConfigId AND generation.IsEnabled=1 AND generation.Version=@GenerationModelConfigVersion AND "
+        + (scoped ? "(generation.TenantId IS NULL OR generation.TenantId=@TenantId)" : "generation.TenantId IS NULL")
+        + " AND ((generation.TenantId IS NULL AND @GenerationTenantId IS NULL) OR generation.TenantId=@GenerationTenantId)"
+        + " AND " + Exact(mysql, "generation.EndpointBaseUrl", "GenerationEndpointBaseUrl")
+        + " AND " + Exact(mysql, "generation.ProviderKey", "GenerationProviderKey") + " AND " + Exact(mysql, "generation.ModelId", "GenerationModelId")
+        + " AND " + Exact(mysql, "generation.OrganizationId", "GenerationOrganizationId") + " AND " + Exact(mysql, "generation.ApiKeyProtected", "GenerationApiKeyProtected") + "))";
     // 字符串绑定必须保留大小写、尾空格和空值语义，不能继承提供程序默认排序规则。
     private static string Exact(bool mysql, string column, string parameter) => $"(({column} IS NULL AND @{parameter} IS NULL) OR "
         + (mysql ? $"CAST({column} AS BINARY)=CAST(@{parameter} AS BINARY)" : $"CONVERT(varbinary(max),CONVERT(nvarchar(max),{column}))=CONVERT(varbinary(max),CONVERT(nvarchar(max),@{parameter}))") + ")";
