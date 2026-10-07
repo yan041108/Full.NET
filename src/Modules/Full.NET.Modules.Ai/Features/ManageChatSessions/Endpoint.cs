@@ -5,6 +5,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Full.NET.Modules.Ai.Knowledge;
 
 namespace Full.NET.Modules.Ai.Features.ManageChatSessions;
 
@@ -170,6 +171,28 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(AiChatPermissions.Send));
+
+        group.MapPost("/{sessionId:guid}/knowledge/ask", async (
+            Guid sessionId,
+            AskAiKnowledgeRequest request,
+            AiKnowledgeAskService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var actor)) return Results.Unauthorized();
+            return mapper.Map(await service.AskAsync(sessionId, actor, request, cancellationToken).ConfigureAwait(false), httpContext);
+        })
+        .WithName("aiAskKnowledge")
+        .Produces<AskAiKnowledgeResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status500InternalServerError)
+        .RequireAuthorization(FullNetPermissionPolicies.For(AiChatPermissions.Send))
+        .AddEndpointFilter(new AiKnowledgeReadPermissionFilter(AiKnowledgeAskService.RequiredPermissions));
 
         group.MapPost("/{sessionId:guid}/cancel", async (
             Guid sessionId,

@@ -1263,7 +1263,7 @@ main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-pa
 - [x] RED：缺失来源标记读取、未授权映射、跨消息等待撤权、损坏记录和普通聊天转述均先复现。公开 Ask 写入端点另列 R06b2c，当前批次完成历史、MCP 摘要及普通聊天上下文三个真实消费入口。
 - [x] 历史整批复核最多 64 条派生消息、512 个完整依赖，同一来源只验证一次实际完成证明，最后一笔 SQL 同时复核全部请求来源。超限不截断依赖，派生消息失败关闭；普通消息保持原语义。详情映射和 MCP 摘要只接收经资格复核的正文及服务器引用，不返回内部元数据。
 - [x] 普通聊天在 SQL 和内存两层排除所有派生历史；完整追问依赖传播继续单独待办，不能把知识转述落成普通消息。
-- [ ] R06b2c 后续交付：新增会话内非流式 Ask 契约，复用 Chat.Send 与四项精确来源读取权限、可信所有者、原会话生成模型及显式 Embedding 模型。槽位/占位短事务，外部收费执行在事务外，正文缓冲、来源复核、租约原子落库和独立原范围清理后交付；引用只有服务器确认的标识和位置。
+- [x] R06b2c 公开入口交付：新增会话内非流式 Ask 契约，复用 Chat.Send 与四项精确来源读取权限、可信所有者、原会话生成模型及显式 Embedding 模型。槽位/占位短事务，外部收费执行在事务外，正文缓冲、来源复核、租约原子落库和独立原范围清理后交付；引用只有服务器确认的标识和位置。
 - [x] 同步 DI、静态行物化、JSON 源生成、OpenAPI 及历史 HTTP 路径 Linux Native 发布/运行。统一完整 AI、双库正式 merge、治理/命名/契约与只读复审后在 main 提交；保留真实结果及未验证项，完整 RAG/云质量/容量不提前关闭。
 
 **R06b2b 最终验收证据（2026-10-07）：**
@@ -1273,6 +1273,27 @@ main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-pa
 - 正式 merge 发现 AI 82 + smoke 8 = 90 项，双 Provider；首次完整运行 86 通过/4 失败/0 跳过（36m16s558ms），最终 TRX 已正常生成；首次运行中 TXT/PDF 四项因夹具插入未标记且带来源的非法组合，被迁移 254 的现有 CHECK 拒绝。修正夹具并显式验证该非法写入被拒绝；保留首次失败，受影响四项使用新编译程序集单独补验 4/4，0 失败、0 跳过（6m02s549ms）；新 DLL 与已编译 obj 输出哈希一致，UID 为正式 90 项集合的严格子集。两份 TRX 按 UID/FQN 合并恰好 90/90 最终 Passed、0 跳过，原失败不改写；最终 Windows Integration 重建 0 警告/0 错误且 DLL 与补验输出一致。
 - 首次 Linux API 原生发布因 2 GiB GC 堆上限触发 ILC OutOfMemoryException；重试仅调整构建资源为 4 CPU、12 GiB 容器/6 GiB GC 堆，并保留编译缓存，发布/告警/体积门禁不变。重试发布成功（1420718ms），17 条既有精确 allowlist 告警通过，原生 ELF 138237344 字节通过体积门禁；Native 核心过滤器实际发现 29 项（矩阵最低数 10，不能等同发现数）；首次 45 分钟全局时限中止，26 项全部 Passed、0 失败/跳过（45m16s212ms），官方 2.3.2 完整记录序列化及 UID/FQN 已核对；剩余 3 项独立补验 3/3、0 失败/跳过（6m29s258ms）。最终按唯一 UID/FQN 合并恰好 29/29 Passed，两次执行的 API/Worker 工件 SHA-256 完全一致；原始中止记录保留。验收容器初始 2 CPU、8 GiB/2 GiB GC 堆，后调为 4 CPU；补验 4 CPU、8 GiB，结果仅说明该范围本地验收通过。Worker 门禁复用此前已发布的原生工件并记录哈希，不据此宣称本批重新发布 Worker。
 - 只读代码复审未发现待修正 P1/P2；生产实现、测试输入及 DLL 校验保留在 rtifacts/r06b2b。公开 Ask、完整追问依赖传播、RAG 云质量与容量验证继续待办。
+
+**R06b2c 公开 Ask 合批执行计划（2026-10-07）：**
+
+- 基线 main `d731f6c0b0b57da68627255e0c4b431adc71d1b7`，快照 `ai-knowledge-public-ask-r06b2c`；沿用现有 schema 与最小权威 Port，只在 AI 表内启动/完成短事务。
+- [x] 会话内 `POST /api/v1/ai/chat/sessions/{sessionId}/knowledge/ask`：输入问题、1–8 个知识库和显式 Embedding 模型，生成模型固定为原会话配置，权限为 Chat.Send 加四项来源读取权限；返回已确认消息、引用位置与明确拒答。
+- [x] 与普通聊天共用生成租约、取消注册和独立续租；短事务获取槽位并插入用户消息和知识占位，事务外执行两阶段收费；失败/取消仅收敛本代未完成占位，独立原范围释放槽位，清理等待后重新授权才交付正文。
+- [x] RED 后覆盖输入、所有权、槽位竞争、取消、启动失败及引用/拒答；双库实际 HTTP 验证公开入口，补齐 DI、源生成 JSON、OpenAPI 与 Native API 可达路径证据。统一测试并只读复审后提交，完整 R06/R07、追问依赖传播、真实云质量和容量继续待办。
+
+**R06b2c 本地证据（已完成）：**
+
+- 服务端公开非流式 Ask、共享槽位与取消、两阶段账本及服务器引用/拒答一并交付。Vue 增加 `askAiKnowledge` 与严格响应守卫，运行时 OpenAPI 双库一致，新增 Operation 与生成客户端已同步；R07 页面仍未完成。
+- RED 先复现服务未注册及客户端入口不存在；启动/执行单元验证覆盖 Host/Tenant、输入、所有权、竞争、请求与注册表取消、续租失败、引用、拒答、清理失败与交付前撤权。`pnpm test:dotnet:unit -- --no-build --selection ai-module` 1988/1988，零失败/跳过；实际全 Unit 发现 5457，只更新发现门槛，不宣称执行全 Unit。
+- `pnpm --filter @fullnet/admin test -- src/api/ai-chat.test.ts` 18/18；共享契约 226/226；共享契约 build 与 Vue typecheck 通过。`pnpm test:openapi` 208/208；运行时快照精确 594 Operation，`pnpm test:openapi:breaking -- --base-ref d731f6c0b0b57da68627255e0c4b431adc71d1b7` 96 契约兼容，离线快照与生成零漂移检查通过。
+- Host.Api 私有输出 AOT/Trim 分析构建通过（零警告/错误）；Native AOT、AI 依赖、SQL 目录/范围/数据访问架构最终 82/82。首次自定义过滤实际 79 项、门槛 82 导致退出失败，保留原结果；补齐 SQL 范围与数据访问后精确发现 82 项并全部通过，没有降低门槛。
+- 聚焦 MySQL HTTP 首次正常回答和拒答成功，撤权按既有 `409 ai.knowledge.answer_unavailable` 拒绝；断言误写 403，已修正并追加精确机器码，生产查询与授权不变。修正测试缺少 JsonElement using 的构建失败，以及 OpenAPI 并发占用 DLL 的构建复制失败均保留；之后私有输出正式构建零警告/错误。正式重跑与原生运行结果见下，全部新功能的真实 TXT/PDF Host 公开 HTTP 场景均已在双库通过。
+- `node artifacts/r06b2c/affected-private.mjs --snapshot ai-knowledge-public-ask-r06b2c --phase merge` 正式 Ai + Smoke 去重集合 90/90、零失败/跳过（38m 20s 289ms），构建零警告/错误；前置工具链 65/65、治理 57/57，Integration 分片精确 1198 项无遗漏/重复。TXT/PDF 双库真实来源分别验证公开 Ask 回答、拒答、输入与权限拒绝、模型返回前撤权、历史隐藏、会话竞争和主动取消；实际 Embedding 费用纳入原场景总量，未用模拟数据库替代权威 SQL。
+- `python -X utf8 artifacts/r06b2c/verify-acceptance.py` 逐项核对正式 90 与 Native 10 的精确 FQN/结果、架构真实 82 项、冻结输入与输出 SHA、运行的原生二进制，退出 0。两个成功 Integration 用例的过长诊断字段被既有 TRX 扩展截断，用例身份与结果完整，不作为失败或跳过；原始控制台、真实 TRX、发现记录及 `acceptance.json` 均保留。最终 `pnpm test:naming` 33/33、`pnpm test:sql-safety` 5/5、`pnpm test:governance` 57/57，以及本任务 Git 分支/status、未暂存/暂存 diff 检查通过；初始无关文件不纳入提交。
+- 官方 API Native 发布副本 `node artifacts/r06b2c/native-publish.mjs` 退出 0：linux-x64、138597968 字节、41m 50s 710ms，17 项允许警告通过既有门禁；发布与运行 SHA-256 均为 `02b5c9962887687603ea0a8a0fa3d089dbb5d7d60b3a7c25f9ae7ef41bfc1f71`。源码没有 Worker 可达行为变化，本批未发布或运行 Worker，不能外推为新 Worker 验收。
+- `node artifacts/r06b2c/native-core.mjs` 使用矩阵核心选择器排除未变 Worker，仅执行 API 精确 10 项；Native API 10/10、零失败/跳过（23m 53s 402ms），包含 SQL Server/MySQL 的实际公开 Ask 失败收敛、AI/MCP、Kafka 日志、关键 HTTP、SignalR、启动/就绪/退出及工作流。Linux 测试程序集在两个测试 helper 最新源码下重建，零警告/错误；原生进程日志、真实 TRX、发现集合和 SHA 保存在 `artifacts/r06b2c/native-core`。
+- 原生问答使用模型地址漂移触发实际来源收费指纹不匹配，预期 `409 ai.knowledge.answer_unavailable`、失败占位空正文和槽位释放；该拒绝先于外部模型调用，不冒充成功云模型问答或网络政策运行验证。首次计划误以为会到达网络拒绝，调用链核对后修正 Native-only 测试断言与 import，Linux 测试程序集重新构建后运行。`native-only-test-delta.json` 记录唯一冻结差异，1533 项原 Ai/Smoke 输入及四个输出均未变，Native 测试源码和实际程序集另行记录 SHA。
+- 使用忽略目录 `artifacts/r06b2c` 的官方工具副本，仅重定向独立输出并限制构建并行数，选择器、Provider 与最低发现门槛保持。源码/矩阵/客户端冻结 1534 项及四个测试输出单独记录 SHA；只读最终复审无阻断项。真实外部云回答、追问来源依赖传播、完整 R06/R07、容量与 SLO 保持未验证。
 
 ### R07：Vue 知识库与问答页面（P1，依赖 R04/R06）
 

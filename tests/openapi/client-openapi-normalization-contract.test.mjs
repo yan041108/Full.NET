@@ -204,8 +204,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 593);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 593);
+  assert.equal(manifest.entries.length, 594);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 594);
   assert.deepEqual(
     manifest.entries
       .filter(entry => entry.generatedGroup === 'workflow-forms')
@@ -329,8 +329,14 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    593
+    594
   );
+  const ask = snapshot.paths['/api/v1/ai/chat/sessions/{sessionId}/knowledge/ask'].post;
+  assert.equal(ask.operationId, 'aiAskKnowledge');
+  assert.ok(ask.requestBody.content['application/json'].schema);
+  assert.ok(ask.responses['200'].content['application/json'].schema);
+  for (const status of ['401', '403', '404', '409', '422', '500']) assert.ok(ask.responses[status]);
+  assert.ok(ask.security?.length > 0);
   assert.equal(
     snapshot.paths['/api/v1/workflow/forms/component-catalog'].get.operationId,
     'workflowGetFormComponentCatalog'

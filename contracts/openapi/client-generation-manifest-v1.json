@@ -2675,6 +2675,12 @@
       "status": "manual"
     },
     {
+      "operationId": "aiAskKnowledge",
+      "apiModule": "ui/admin/src/api/ai-chat.ts",
+      "generatedGroup": "ai-chat",
+      "status": "manual"
+    },
+    {
       "operationId": "aiCancelChatGeneration",
       "apiModule": "ui/admin/src/api/ai-chat.ts",
       "generatedGroup": "ai-chat",

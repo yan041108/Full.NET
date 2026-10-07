@@ -161,10 +161,12 @@ export interface AiAgentToolCatalogItem {
 }
 
 export interface AiChatMessageResponse {
+  readonly citations?: Array<AiKnowledgeCitationResponse>;
   readonly completionTokens: null | number;
   readonly content: string;
   readonly createdAtUtc: string;
   readonly id: string;
+  readonly knowledgeUnavailableCode?: null | string;
   readonly promptTokens: null | number;
   readonly roleKey: string;
   readonly sessionId: string;
@@ -212,6 +214,16 @@ export interface AiKnowledgeBaseResponse {
   readonly name: string;
   readonly updatedAtUtc: null | string;
   readonly version: number;
+}
+
+export interface AiKnowledgeCitationResponse {
+  readonly documentId: string;
+  readonly id: string;
+  readonly length: number;
+  readonly offset: number;
+  readonly pageNumber: null | number;
+  readonly sequence: number;
+  readonly versionId: string;
 }
 
 export interface AiKnowledgeDocumentMembersResponse {
@@ -395,6 +407,17 @@ export interface ApproveAiMcpRemoteToolRequest {
   readonly permissionCode: string;
   readonly remoteToolName: string;
   readonly sideEffectKey: string;
+}
+
+export interface AskAiKnowledgeRequest {
+  readonly embeddingModelConfigId: string;
+  readonly knowledgeBaseIds: Array<string>;
+  readonly question: string;
+}
+
+export interface AskAiKnowledgeResponse {
+  readonly message: AiChatMessageResponse;
+  readonly refused: boolean;
 }
 
 export interface AssignHostTenantPackageRequest {

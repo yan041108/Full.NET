@@ -1855,6 +1855,115 @@
         ]
       }
     },
+    "/api/v1/ai/chat/sessions/{sessionId}/knowledge/ask": {
+      "post": {
+        "operationId": "aiAskKnowledge",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskAiKnowledgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskAiKnowledgeResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "AiChatSessions"
+        ]
+      }
+    },
     "/api/v1/ai/chat/sessions/{sessionId}/messages/stream": {
       "post": {
         "operationId": "aiStreamChatMessage",
@@ -46849,6 +46958,45 @@
           "remoteToolName",
           "sideEffectKey",
           "permissionCode"
+        ],
+        "type": "object"
+      },
+      "AskAiKnowledgeRequest": {
+        "properties": {
+          "embeddingModelConfigId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "knowledgeBaseIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "question": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "knowledgeBaseIds",
+          "embeddingModelConfigId",
+          "question"
+        ],
+        "type": "object"
+      },
+      "AskAiKnowledgeResponse": {
+        "properties": {
+          "message": {
+            "$ref": "#/components/schemas/AiChatMessageResponse"
+          },
+          "refused": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message",
+          "refused"
         ],
         "type": "object"
       },

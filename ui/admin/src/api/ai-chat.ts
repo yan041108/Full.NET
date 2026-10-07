@@ -1,4 +1,7 @@
 import {
+  isAskAiKnowledgeResponse,
+  type AskAiKnowledgeRequest,
+  type AskAiKnowledgeResponse,
   isAiChatSession,
   isAiChatSessionPage,
   type AiChatSession,
@@ -194,4 +197,17 @@ function dispatchStreamEvent(
       : 'client.invalid_ai_chat_stream_event';
     handlers.onError(message);
   }
+}
+
+/** 公开知识问答等待服务器确认完整答案和引用，支持请求取消。 */
+export async function askAiKnowledge(
+  sessionId: string, body: AskAiKnowledgeRequest, signal?: AbortSignal
+): Promise<AskAiKnowledgeResponse> {
+  const value = await request<unknown>(
+    `/api/v1/ai/chat/sessions/${encodeURIComponent(sessionId)}/knowledge/ask`,
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+    signal
+  );
+  if (!isAskAiKnowledgeResponse(value)) throw new Error('client.invalid_ai_knowledge_answer');
+  return value;
 }

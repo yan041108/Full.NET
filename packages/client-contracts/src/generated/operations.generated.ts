@@ -21,6 +21,7 @@ import type {
   AiChatSessionListItem,
   AiChatSessionResponse,
   AiKnowledgeBaseResponse,
+  AiKnowledgeCitationResponse,
   AiKnowledgeDocumentMembersResponse,
   AiKnowledgeDocumentResponse,
   AiKnowledgeImportResponse,
@@ -39,6 +40,8 @@ import type {
   AiTenantQuotaListItem,
   AiTenantQuotaResponse,
   ApproveAiMcpRemoteToolRequest,
+  AskAiKnowledgeRequest,
+  AskAiKnowledgeResponse,
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
   AssignOrganizationPositionUnitRequest,
@@ -631,6 +634,7 @@ import {
   readAiModelConfigResponse,
   readAiResumeAgentRunResponse,
   readAiTenantQuotaResponse,
+  readAskAiKnowledgeResponse,
   readAuthenticationEventCursorPage,
   readAuthenticationEventResponse,
   readBatchChangeHostJobScheduleStateResponse,
@@ -940,6 +944,29 @@ export async function aiApproveMcpRemoteTool(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiMcpRemoteToolApprovalItem(value);
+}
+
+export interface AiAskKnowledgeParameters {
+  readonly sessionId: string;
+  readonly body: AskAiKnowledgeRequest;
+}
+
+export async function aiAskKnowledge(
+  http: HttpClient,
+  parameters: AiAskKnowledgeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AskAiKnowledgeResponse> {
+  const path = `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}/knowledge/ask`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAskAiKnowledgeResponse(value);
 }
 
 export interface AiCancelAgentRunParameters {

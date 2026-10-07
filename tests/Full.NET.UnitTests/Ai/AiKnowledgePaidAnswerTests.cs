@@ -307,6 +307,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
                 using var json = JsonDocument.Parse(f.Messages[1].Text); var id = json.RootElement.GetProperty("sources")[0].GetProperty("citationId").GetGuid();
                 var text = $$"""{"answer":"有依据的答案","citationIds":["{{(f.Fault == "citation" ? Guid.CreateVersion7() : id)}}"],"refusal":false}""";
                 if (f.Fault == "size") text = new string('x', 65537);
+                if (f.Fault == "refusal") text = "{\"answer\":\"\",\"citationIds\":[],\"refusal\":true}";
                 var content = f.Fault == "tool" ? new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("call", "delete", new Dictionary<string, object?>())])
                     : new ChatMessage(f.Fault == "role" ? ChatRole.User : ChatRole.Assistant, text);
                 var result = new ChatResponse(f.Fault == "multiple" ? [content, content] : [content])

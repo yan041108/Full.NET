@@ -119,10 +119,10 @@ internal static class AiKnowledgePaidAnswerAssertions
         public Task SettleAsync(Guid operationId, AiOperationUsage usage, string outcome, CancellationToken cancellationToken = default)
             => throw new AssertFailedException("结算必须由独立原租户作用域消费生产账本。");
     }
-    private sealed class ControlledFactory : IAiModelClientFactory
+    internal sealed class ControlledFactory : IAiModelClientFactory
     {
         public string ProviderKey => "openai_compatible";
-        internal bool Unknown, Forge; internal Func<Task>? BeforeChatReturn;
+        internal bool Unknown, Forge, Refused; internal Func<Task>? BeforeChatReturn;
         public ValueTask<IChatClient> CreateChatClientAsync(ModelBinding binding, CancellationToken cancellationToken)
             => ValueTask.FromResult<IChatClient>(new Client(this));
         public ValueTask<IEmbeddingGenerator<string, Embedding<float>>> CreateEmbeddingGeneratorAsync(ModelBinding binding, CancellationToken cancellationToken)
@@ -148,7 +148,8 @@ internal static class AiKnowledgePaidAnswerAssertions
                 using var json = JsonDocument.Parse(messages.Last().Text); var source = json.RootElement.GetProperty("sources")[0];
                 var id = f.Forge ? Guid.CreateVersion7() : source.GetProperty("citationId").GetGuid();
                 if (f.BeforeChatReturn is not null) await f.BeforeChatReturn();
-                return new(new ChatMessage(ChatRole.Assistant, $$"""{"answer":"真实索引受控问答","citationIds":["{{id}}"],"refusal":false}"""))
+                var text = f.Refused ? "{\"answer\":\"\",\"citationIds\":[],\"refusal\":true}" : $$"""{"answer":"真实索引受控问答","citationIds":["{{id}}"],"refusal":false}""";
+                return new(new ChatMessage(ChatRole.Assistant, text))
                 { Usage = f.Unknown ? null : new UsageDetails { InputTokenCount = 7, OutputTokenCount = 3 } };
             }
             public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)

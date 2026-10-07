@@ -16,6 +16,12 @@ internal static class AiKnowledgeAnswerSql
     internal static SqlStatement InsertFor(bool tenant) => tenant ? InsertTenant : InsertHost;
     internal static SqlStatement CompleteFor(bool tenant) => tenant ? CompleteTenant : CompleteHost;
 
+    // 清理允许租约已到期或取消，但仅收敛本代尚未完成的知识占位，不能抹除已完成答案。
+    private static string Fail(bool tenant) => "UPDATE fn_ai_chat_message SET Content='',StatusKey=@StatusKey WHERE Id=@MessageId AND SessionId=@SessionId AND RoleKey='assistant' AND IsKnowledgeAnswer=1 AND KnowledgeLineage IS NULL AND StatusKey='streaming' AND EXISTS (SELECT 1 FROM fn_ai_chat_session AS session WHERE session.Id=@SessionId AND session.OwnerUserId=@OwnerUserId AND session.GenerationId=@MessageId AND " + (tenant ? "session.TenantId=@TenantId" : "session.TenantId IS NULL") + ")";
+    private static readonly SqlStatement FailHost = new("ai.knowledge_answer.fail_host", Fail(false), SqlDataScope.HostOnly);
+    private static readonly SqlStatement FailTenant = new("ai.knowledge_answer.fail_tenant", Fail(true), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static SqlStatement FailFor(bool tenant) => tenant ? FailTenant : FailHost;
+
     // 首先锁定本代会话；取得锁后的短事务末尾再查询数据库当前 UTC，不能沿用连接/锁等待前的 @Now。
     private static string Lock(bool mysql, bool tenant) => "SELECT session.GenerationId FROM fn_ai_chat_session AS session" + (mysql ? "" : " WITH (UPDLOCK,HOLDLOCK)")
         + " WHERE session.Id=@SessionId AND session.OwnerUserId=@OwnerUserId AND session.GenerationId=@MessageId AND session.IsGenerating=1 AND "

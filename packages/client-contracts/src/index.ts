@@ -654,11 +654,15 @@ export type {
 
 export {
   isAiChatSession,
-  isAiChatSessionPage
+  isAiChatSessionPage,
+  isAskAiKnowledgeResponse
 } from './ai-chat.js';
 
 export type {
   AiChatMessage,
+  AiKnowledgeCitation,
+  AskAiKnowledgeRequest,
+  AskAiKnowledgeResponse,
   AiChatSession,
   AiChatSessionListItem,
   AiChatSessionListQuery,

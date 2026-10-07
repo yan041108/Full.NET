@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 namespace Full.NET.Modules.Ai.Knowledge;
 
 /// <summary>内部答案落库边界：完整来源资格在事务外复核，正文和依赖由一笔租约条件更新原子保存。</summary>
-/// <remarks>尚未注册 HTTP 或历史消费者；调用者必须先取得会话生成槽位并插入带来源标记的占位。</remarks>
+/// <remarks>公开 Ask 先取得会话生成槽位并插入带来源标记的占位；历史消费者独立复核来源。</remarks>
 internal sealed class AiKnowledgeAnswerStore(ICommandExecutor commands, IQueryExecutor query, ICommandTransaction transaction,
     ICurrentTenant tenant, IClock clock, IOptions<DatabaseOptions> database, AiKnowledgeAnswerHistoryGuard guard)
 {

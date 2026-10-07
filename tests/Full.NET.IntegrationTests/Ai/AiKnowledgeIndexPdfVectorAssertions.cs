@@ -258,7 +258,7 @@ internal static class AiKnowledgeIndexPdfVectorAssertions
                 var writer = retrievalScope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
                 if (session.TenantId is { } currentTenant) writer.SetTenant(new(currentTenant, "retrieval", "检索测试")); else writer.SetHost();
                 // 查询 Embedding 也使用同一模型的真实账本；仍检查恢复/清理不增加或退还索引及问答费用。
-                charged = checked(charged + await AiKnowledgeRetrievalAssertions.VerifyAsync(retrievalScope.ServiceProvider, db, binding));
+                charged = checked(charged + await AiKnowledgeRetrievalAssertions.VerifyAsync(retrievalScope.ServiceProvider, db, binding, factory));
             }
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=@Id", new { Payload = new byte[8], Id = operations[0] });
             Assert.IsFalse(await Use(a => a.Activations.IsReadyForReadAsync(status, readParameters, default)));

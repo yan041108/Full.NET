@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -77,6 +78,25 @@ internal static class NativePdfKnowledgeAssertions
             create.Content = JsonContent.Create(new CreateAiChatSessionRequest(source.ModelConfigId!.Value, "原生来源历史"));
             using var created = await client.SendAsync(create, cancellation); await Require(created, HttpStatusCode.Created);
             var chat = await created.Content.ReadFromJsonAsync<AiChatSessionResponse>(cancellation); Assert.IsNotNull(chat);
+            // 模型地址漂移使原索引的收费请求指纹证明失效；公开 Ask 必须先拒绝来源并释放槽位。
+            var destination = await db.QuerySingleAsync<string>("SELECT EndpointBaseUrl FROM fn_ai_model_config WHERE Id=@Id", new { Id = source.ModelConfigId });
+            await db.ExecuteAsync("UPDATE fn_ai_model_config SET EndpointBaseUrl=@Endpoint WHERE Id=@Id",
+                new { Id = source.ModelConfigId, Endpoint = "http://127.0.0.1:9/v1" });
+            try
+            {
+                using var ask = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/ai/chat/sessions/{chat.Id}/knowledge/ask");
+                ask.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                ask.Content = JsonContent.Create(new AskAiKnowledgeRequest([b.KnowledgeBaseId], source.ModelConfigId!.Value, "原生来源问题"));
+                using var blocked = await client.SendAsync(ask, cancellation); await Require(blocked, HttpStatusCode.Conflict);
+                Assert.AreEqual("ai.knowledge.answer_unavailable", (await blocked.Content.ReadFromJsonAsync<JsonElement>(cancellation)).GetProperty("code").GetString());
+                Assert.IsFalse((await blocked.Content.ReadAsStringAsync(cancellation)).Contains("127.0.0.1", StringComparison.Ordinal));
+                Assert.AreEqual(0L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_chat_session WHERE Id=@Id AND IsGenerating=1", new { Id = chat.Id }));
+                Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_chat_message WHERE SessionId=@Id AND IsKnowledgeAnswer=1 AND StatusKey='failed' AND Content='' AND KnowledgeLineage IS NULL", new { Id = chat.Id }));
+            }
+            finally
+            {
+                await db.ExecuteAsync("UPDATE fn_ai_model_config SET EndpointBaseUrl=@Endpoint WHERE Id=@Id", new { Id = source.ModelConfigId, Endpoint = destination });
+            }
             var messageId = Guid.CreateVersion7(); var citationId = Guid.CreateVersion7();
             var lineage = new AiKnowledgeAnswerLineage(1, messageId, chat.Id, session.UserId, null,
                 [new(source.KnowledgeBaseId, source.DocumentId, source.VersionId, source.DocumentVersion, source.KnowledgeBaseVersion,

@@ -20,6 +20,7 @@ import type {
   AiChatSessionListItem,
   AiChatSessionResponse,
   AiKnowledgeBaseResponse,
+  AiKnowledgeCitationResponse,
   AiKnowledgeDocumentMembersResponse,
   AiKnowledgeDocumentResponse,
   AiKnowledgeImportResponse,
@@ -38,6 +39,8 @@ import type {
   AiTenantQuotaListItem,
   AiTenantQuotaResponse,
   ApproveAiMcpRemoteToolRequest,
+  AskAiKnowledgeRequest,
+  AskAiKnowledgeResponse,
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
   AssignOrganizationPositionUnitRequest,
@@ -775,7 +778,7 @@ export function readAiChatMessageResponse(value: unknown): AiChatMessageResponse
 }
 
 function isAiChatMessageResponse(value: unknown): value is AiChatMessageResponse {
-  return isRecord(value) && ((value["completionTokens"] === null) || (typeof value["completionTokens"] === 'number' && Number.isSafeInteger(value["completionTokens"]))) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["promptTokens"] === null) || (typeof value["promptTokens"] === 'number' && Number.isSafeInteger(value["promptTokens"]))) && (typeof value["roleKey"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && (typeof value["statusKey"] === 'string');
+  return isRecord(value) && (value["citations"] === undefined || (Array.isArray(value["citations"]) && value["citations"].every(item18 => isAiKnowledgeCitationResponse(item18)))) && ((value["completionTokens"] === null) || (typeof value["completionTokens"] === 'number' && Number.isSafeInteger(value["completionTokens"]))) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["knowledgeUnavailableCode"] === undefined || ((value["knowledgeUnavailableCode"] === null) || (typeof value["knowledgeUnavailableCode"] === 'string'))) && ((value["promptTokens"] === null) || (typeof value["promptTokens"] === 'number' && Number.isSafeInteger(value["promptTokens"]))) && (typeof value["roleKey"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && (typeof value["statusKey"] === 'string');
 }
 
 export function readAiChatSessionListItem(value: unknown): AiChatSessionListItem {
@@ -812,6 +815,18 @@ export function readAiKnowledgeBaseResponse(value: unknown): AiKnowledgeBaseResp
 
 function isAiKnowledgeBaseResponse(value: unknown): value is AiKnowledgeBaseResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["dataClassification"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["embeddingModelConfigId"] === null) || (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"]))) && ((value["embeddingModelVersion"] === null) || (typeof value["embeddingModelVersion"] === 'number' && Number.isSafeInteger(value["embeddingModelVersion"]))) && ((value["generationModelConfigId"] === null) || (typeof value["generationModelConfigId"] === 'string' && guidPattern.test(value["generationModelConfigId"]))) && ((value["generationModelVersion"] === null) || (typeof value["generationModelVersion"] === 'number' && Number.isSafeInteger(value["generationModelVersion"]))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeCitationResponse(value: unknown): AiKnowledgeCitationResponse {
+  const normalizedValue = normalizeAiKnowledgeCitationResponseIntegerJson(value);
+  if (!(isAiKnowledgeCitationResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_citation_response');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeCitationResponse(value: unknown): value is AiKnowledgeCitationResponse {
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["length"] === 'number' && Number.isSafeInteger(value["length"])) && (typeof value["offset"] === 'number' && Number.isSafeInteger(value["offset"])) && ((value["pageNumber"] === null) || (typeof value["pageNumber"] === 'number' && Number.isSafeInteger(value["pageNumber"]))) && (typeof value["sequence"] === 'number' && Number.isSafeInteger(value["sequence"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
 }
 
 export function readAiKnowledgeDocumentMembersResponse(value: unknown): AiKnowledgeDocumentMembersResponse {
@@ -1023,6 +1038,29 @@ export function readApproveAiMcpRemoteToolRequest(value: unknown): ApproveAiMcpR
 
 function isApproveAiMcpRemoteToolRequest(value: unknown): value is ApproveAiMcpRemoteToolRequest {
   return isRecord(value) && (typeof value["permissionCode"] === 'string') && (typeof value["remoteToolName"] === 'string') && (typeof value["sideEffectKey"] === 'string');
+}
+
+export function readAskAiKnowledgeRequest(value: unknown): AskAiKnowledgeRequest {
+  if (!(isAskAiKnowledgeRequest(value))) {
+    throw new Error('client.invalid_ask_ai_knowledge_request');
+  }
+  return value;
+}
+
+function isAskAiKnowledgeRequest(value: unknown): value is AskAiKnowledgeRequest {
+  return isRecord(value) && (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"])) && (Array.isArray(value["knowledgeBaseIds"]) && value["knowledgeBaseIds"].every(item25 => typeof item25 === 'string' && guidPattern.test(item25))) && (typeof value["question"] === 'string');
+}
+
+export function readAskAiKnowledgeResponse(value: unknown): AskAiKnowledgeResponse {
+  const normalizedValue = normalizeAskAiKnowledgeResponseIntegerJson(value);
+  if (!(isAskAiKnowledgeResponse(normalizedValue))) {
+    throw new Error('client.invalid_ask_ai_knowledge_response');
+  }
+  return normalizedValue;
+}
+
+function isAskAiKnowledgeResponse(value: unknown): value is AskAiKnowledgeResponse {
+  return isRecord(value) && (isAiChatMessageResponse(value["message"])) && (typeof value["refused"] === 'boolean');
 }
 
 export function readAssignHostTenantPackageRequest(value: unknown): AssignHostTenantPackageRequest {
@@ -8166,7 +8204,7 @@ function normalizeAiAgentToolCallListItemIntegerJson(value: unknown): unknown {
 }
 
 function normalizeAiChatMessageResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "completionTokens") ? { ["completionTokens"]: normalizeWireInteger(value["completionTokens"]) } : {}), ...(Object.hasOwn(value, "promptTokens") ? { ["promptTokens"]: normalizeWireInteger(value["promptTokens"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "citations") ? { ["citations"]: (Array.isArray(value["citations"]) ? value["citations"].map((item18: unknown) => normalizeAiKnowledgeCitationResponseIntegerJson(item18)) : value["citations"]) } : {}), ...(Object.hasOwn(value, "completionTokens") ? { ["completionTokens"]: normalizeWireInteger(value["completionTokens"]) } : {}), ...(Object.hasOwn(value, "promptTokens") ? { ["promptTokens"]: normalizeWireInteger(value["promptTokens"]) } : {}) } : value);
 }
 
 function normalizeAiChatSessionListItemIntegerJson(value: unknown): unknown {
@@ -8179,6 +8217,10 @@ function normalizeAiChatSessionResponseIntegerJson(value: unknown): unknown {
 
 function normalizeAiKnowledgeBaseResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "embeddingModelVersion") ? { ["embeddingModelVersion"]: normalizeWireInteger(value["embeddingModelVersion"]) } : {}), ...(Object.hasOwn(value, "generationModelVersion") ? { ["generationModelVersion"]: normalizeWireInteger(value["generationModelVersion"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCitationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "length") ? { ["length"]: normalizeWireInteger(value["length"]) } : {}), ...(Object.hasOwn(value, "offset") ? { ["offset"]: normalizeWireInteger(value["offset"]) } : {}), ...(Object.hasOwn(value, "pageNumber") ? { ["pageNumber"]: normalizeWireInteger(value["pageNumber"]) } : {}), ...(Object.hasOwn(value, "sequence") ? { ["sequence"]: normalizeWireInteger(value["sequence"]) } : {}) } : value);
 }
 
 function normalizeAiKnowledgeDocumentMembersResponseIntegerJson(value: unknown): unknown {
@@ -8231,6 +8273,10 @@ function normalizeAiTenantQuotaListItemIntegerJson(value: unknown): unknown {
 
 function normalizeAiTenantQuotaResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "monthlyRequestLimit") ? { ["monthlyRequestLimit"]: normalizeWireInteger(value["monthlyRequestLimit"]) } : {}), ...(Object.hasOwn(value, "monthlyTokenLimit") ? { ["monthlyTokenLimit"]: normalizeWireInteger(value["monthlyTokenLimit"]) } : {}), ...(Object.hasOwn(value, "usedRequestsThisMonth") ? { ["usedRequestsThisMonth"]: normalizeWireInteger(value["usedRequestsThisMonth"]) } : {}), ...(Object.hasOwn(value, "usedTokensThisMonth") ? { ["usedTokensThisMonth"]: normalizeWireInteger(value["usedTokensThisMonth"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAskAiKnowledgeResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "message") ? { ["message"]: normalizeAiChatMessageResponseIntegerJson(value["message"]) } : {}) } : value);
 }
 
 function normalizeAssignHostTenantPackageRequestIntegerJson(value: unknown): unknown {

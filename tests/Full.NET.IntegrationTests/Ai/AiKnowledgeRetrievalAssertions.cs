@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Full.NET.IntegrationTests.Api;
 using System.Text;
 using Dapper;
 using Full.NET.Abstractions.Ids;
@@ -23,7 +24,7 @@ namespace Full.NET.IntegrationTests.Ai;
 /// <summary>真实生产 SQL/载荷和完整代次证明；读取身份受控，不宣称真实登录或云模型问答。</summary>
 internal static class AiKnowledgeRetrievalAssertions
 {
-    internal static async Task<long> VerifyAsync(IServiceProvider services, DbConnection db, AiKnowledgeIndexTaskBinding binding)
+    internal static async Task<long> VerifyAsync(IServiceProvider services, DbConnection db, AiKnowledgeIndexTaskBinding binding, FullNetApiFactory? factory = null)
     {
         var query = services.GetRequiredService<IQueryExecutor>(); var tenant = services.GetRequiredService<ICurrentTenant>();
         var state = services.GetRequiredService<IDataTransactionState>(); var options = services.GetRequiredService<IOptions<DatabaseOptions>>();
@@ -50,6 +51,7 @@ internal static class AiKnowledgeRetrievalAssertions
         var prepared = await pipeline.PrepareAsync([binding.KnowledgeBaseId], reader.Actor, model, vector, "来源说明", default);
         var embeddingCharges = await AiKnowledgePaidAnswerAssertions.VerifyAsync(services, db, service, permission, model, binding.KnowledgeBaseId, reader.Actor,
             denied => reader.Denied = denied);
+        if (factory is not null && tenant.IsHost) embeddingCharges += await AiKnowledgeAskApiAssertions.VerifyAsync(factory, db, binding, model);
         var bytes = Encoding.UTF8.GetBytes($$"""{"answer":"测试答案","citationIds":["{{prepared.Context.Citations[0].Id}}"],"refusal":false}""");
         var accepted = await pipeline.AcceptAsync(prepared, bytes, default); Assert.AreEqual("测试答案", accepted.Text);
         var historyGuard = new AiKnowledgeAnswerHistoryGuard(query, state, tenant, options, access, permission,
