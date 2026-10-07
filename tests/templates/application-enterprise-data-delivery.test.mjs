@@ -47,7 +47,7 @@ async function fixture({ wrongStatus = false, wrongTenant = false } = {}) {
   } else if (path.includes('/enterprise_request/enterprise-requests/')) {
    body = { id: tasks[1].id, tenantId: wrongTenant ? ids.user : ids.tenant, organizationUnitId: ids.unit,
     requestNumber: fills[1][0], title: 'Enterprise Worker request', totalAmount: '123.45',
-    applicantUserId: ids.user, status: 'draft' };
+    applicantUserId: ids.user, status: 'Draft' };
   } else if (path.endsWith('/enterprise_request/enterprise-requests')) body = { items: [{ id: tasks[1].id, requestNumber: fills[1][0] }] };
   else throw new Error('Unexpected request path: ' + path);
   return Response.json(body, { status });

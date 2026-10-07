@@ -238,6 +238,19 @@ function renderOperations(operations, schemas, httpModuleSpecifier) {
     + '  signal?: AbortSignal,\n'
     + '  options?: RequestOptions\n'
     + ') => Promise<T>;\n\n'
+    // 合并重复的 JSON 分派，保留可选参数省略、接收者和响应守卫语义。
+    + (readerNames.length > 0 ? [
+      'function requestJsonOperation(',
+      '  http: HttpClient, path: string, init: RequestInit,',
+      '  signal?: AbortSignal, options?: RequestOptions',
+      '): Promise<unknown> {',
+      '  return options === undefined',
+      '    ? http.request<unknown>(path, init, signal)',
+      '    : http.request<unknown>(path, init, signal, options);',
+      '}',
+      '',
+      ''
+    ].join('\n') : '')
     + blocks.join('\n\n')
     + '\n';
 }
@@ -292,9 +305,7 @@ function renderOperation(operation, schemas) {
     lines.push('    await http.request<void>(path, init, signal, options);');
     lines.push('  }');
   } else {
-    lines.push('  const value = options === undefined');
-    lines.push('    ? await http.request<unknown>(path, init, signal)');
-    lines.push('    : await http.request<unknown>(path, init, signal, options);');
+    lines.push('  const value = await requestJsonOperation(http, path, init, signal, options);');
     lines.push(`  return ${responseReaderName(operation)}(value);`);
   }
   lines.push('}');
