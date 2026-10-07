@@ -108,6 +108,9 @@ public sealed class ReportingTenantPublishedApiTests
             var page = (await result.Content.ReadFromJsonAsync<ReportingExecutionPageResponse>())!;
             Assert.AreEqual(1, page.VersionNumber); Assert.IsGreaterThan(0, page.Rows.Count);
             Assert.IsTrue(page.Columns.Any(column => column.ColumnKey == "SchemaName"));
+            // 正式 HTTP 字典键必须与静态列键一致，否则客户端按列读取会显示空值。
+            Assert.IsTrue(page.Rows[0].Values.TryGetValue("SchemaName", out var schemaName));
+            Assert.IsFalse(string.IsNullOrWhiteSpace(schemaName));
         }
         using (var futureVersion = await SendAsync(client, HttpMethod.Post, execute, tenantToken, new ExecuteReportingDefinitionRequest(2, parameters)))
             Assert.AreEqual(HttpStatusCode.Forbidden, futureVersion.StatusCode);

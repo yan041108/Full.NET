@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs';
 
 class AcceptanceError extends Error {}
 const ensure = (condition, message) => { if (!condition) throw new AcceptanceError(message); };
+const identifier = value => ensure(typeof value==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value),'response identifier invalid');
 
 // 从应用自己的正式入口验证输出；凭据和查询值只留在内存，报告不保存响应正文。
 export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,tenantId,externalDataSource,loginHost,verifyWorkbook,logPath,signal,request=fetch}) {
@@ -27,13 +28,17 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
  };
  try {
   ensure(typeof token==='string' && token.trim(),'Host session is required');
+  identifier(tenantId);
   ensure(typeof loginHost==='function' && typeof verifyWorkbook==='function','output verification callbacks are required');
   ensure(externalDataSource?.providerKey==='sql_server','reviewed SQL Server external source is required');
   const group=await send('group','/api/v1/reporting/groups','POST',{parentId:null,name:'Output acceptance',sortOrder:10,isEnabled:true},201);
+  identifier(group.id);
   const source=await send('source','/api/v1/reporting/data-sources','POST',{...externalDataSource,tenantId:null,name:'Owned output fixture',isEnabled:true},201);
+  identifier(source.id);
   const definition=await send('definition','/api/v1/reporting/definitions','POST',{groupId:group.id,dataSourceId:source.id,
    definitionKey:'output_'+randomUUID().replaceAll('-',''),name:'Output acceptance',description:null,
    queryPortKey:'reporting.database_engine_version',parameterSchema:[],layoutConfigJson:'{}',isEnabled:true},201);
+  identifier(definition.id);
   const root='/api/v1/reporting/definitions/'+definition.id;
   const first=await send('publish-first',root+'/publish','POST',{changeNote:'Frozen output',version:definition.version});
   ensure(first.definitionId===definition.id && first.versionNumber===1,'published version mismatch');
@@ -42,6 +47,16 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   ensure(second.versionNumber===2,'second published version mismatch');
   const grant=root+'/versions/1/tenant-grants/'+tenantId;
   ensure(await send('grant',grant,'PUT')===true,'version grant failed');
+
+  // 模板管理和预览当前均为 HostOnly；先核对 Host 发布，再记录 Tenant 拒绝，不伪造租户绑定成功。
+  const template=await send('printing-create','/api/v1/printing/templates','POST',{templateKey:'output_'+randomUUID().replaceAll('-',''),name:'Tenant output card',
+   formSchemaKey:'printing.tenant_profile_card',layoutHtml:'<article>{{tenantName}} / {{tenantCode}}</article><script>window.outputUnsafe=true</script>',isEnabled:true},201);
+  identifier(template.id);
+  const printRoot='/api/v1/printing/templates/'+template.id;
+  const published=await send('printing-publish',printRoot+'/publish','POST',{changeNote:'Frozen tenant card',version:template.version});
+  ensure(published.templateId===template.id && published.versionNumber===1,'printing published version mismatch');
+  ensure(typeof published.layoutHtml==='string' && !/<script\b|outputUnsafe/iu.test(published.layoutHtml),'printing published HTML invalid');
+  evidence.printing={status:'tenant-preview-not-supported',templateId:template.id,versionNumber:1,hostPublished:true,scriptsRemovedAtPublish:true};
   const switched=await send('tenant-context','/api/v1/tenancy/context','PUT',{tenantId});
   ensure(switched.context?.tenantId===tenantId && typeof switched.accessToken==='string' && switched.accessToken.trim(),'tenant context mismatch');
   // 切换后不能复用旧 Host scope；另一个 Host 会话稍后撤销授权，不使当前 Tenant 会话失效。
@@ -60,6 +75,7 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   await send('ungranted-version-denied',root+'/execute','POST',{versionNumber:2,parameters:[]},403);
   await send('anonymous-execute-denied',root+'/execute','POST',{versionNumber:1,parameters:[]},401,null);
   const exported=await send('export','/api/v1/reporting/export-tasks','POST',{definitionId:definition.id,formatKey:'excel',versionNumber:null,parameters:[]},201);
+  identifier(exported.id);
   ensure(exported.definitionId===definition.id && exported.tenantId===tenantId && exported.versionNumber===1,'export tenant or version mismatch');
   // 当前正式创建入口优先同步执行；此证据不升级为 Worker 恢复或崩溃接管验收。
   ensure(exported.statusKey==='succeeded' && exported.rowCount===1,'export row or terminal state mismatch');
@@ -71,22 +87,9 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   ensure(workbook?.worksheets===1 && workbook.dataRows===1,'workbook verification incomplete');
   evidence.reporting={completed:true,definitionId:definition.id,taskId:exported.id,versionNumber:1,rowCount:1,downloadBytes:bytes.length,downloadVerified:true};
 
-  const available=await send('available','/api/v1/tenancy/available');
-  const current=available.find(item=>item.id===tenantId);
-  ensure(current && typeof current.name==='string' && typeof current.identifier==='string','trusted tenant profile missing');
-  const template=await send('printing-create','/api/v1/printing/templates','POST',{templateKey:'output_'+randomUUID().replaceAll('-',''),name:'Tenant output card',
-   formSchemaKey:'printing.tenant_profile_card',layoutHtml:'<article>{{tenantName}} / {{tenantCode}}</article><script>window.outputUnsafe=true</script>',isEnabled:true},201);
-  const printRoot='/api/v1/printing/templates/'+template.id;
-  const published=await send('printing-publish',printRoot+'/publish','POST',{changeNote:'Frozen tenant card',version:template.version});
-  ensure(published.templateId===template.id && published.versionNumber===1,'printing published version mismatch');
-  const preview=await send('printing-preview',printRoot+'/preview','POST',{versionNumber:1});
-  ensure(preview.templateId===template.id && preview.versionNumber===1 && preview.formSchemaKey==='printing.tenant_profile_card','printing version mismatch');
-  ensure(preview.boundFields?.tenantName===current.name && preview.boundFields.tenantCode===current.identifier,'printing tenant binding mismatch');
-  const encode=value=>value.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
-  ensure(typeof preview.html==='string' && preview.html.includes(encode(current.name)) && preview.html.includes(encode(current.identifier)), 'printing tenant HTML binding missing');
-  ensure(!/<script\b|outputUnsafe|\{\{/iu.test(preview.html),'printing HTML rendering invalid');
+  await send('tenant-printing-denied',printRoot+'/preview','POST',{versionNumber:1},403);
   await send('anonymous-printing-denied',printRoot+'/preview','POST',{versionNumber:1},401,null);
-  evidence.printing={completed:true,templateId:template.id,versionNumber:1,bindingVerified:true,scriptsRemoved:true};
+  evidence.printing.tenantPreviewDenied=true;
 
   stage='revoker-login'; const revoker=await loginHost();
   ensure(typeof revoker==='string' && revoker.trim(),'fresh revoker Host session missing');

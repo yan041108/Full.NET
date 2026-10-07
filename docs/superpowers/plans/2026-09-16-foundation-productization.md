@@ -1198,15 +1198,19 @@ Vue Host 定义列表新增精确权限入口；组件加载已发布版本，�
 
 最终前端补充验收：真实 Edge、独立 Vite 随机端口和受控 HTTP 的数据输出/授权浏览器联合 **12/12**、零失败/跳过，59.1 秒。覆盖打印净化、报表切换丢弃旧结果、下载、任务轮询、multipart、Host 发布版本 2 切到 1 授权、取消确认不写入、撤销与关闭在途分页；三种独立目录无权限时均设置 403 并要求零请求，浏览器无 pageerror。定义页按 `reporting.groups.read`、`reporting.query_ports.read`、`reporting.data_sources.read` 分别加载目录，修复只具定义读取和授权权限时被额外目录 403 阻断的问题；授权图标补精确 testId、标题及可访问名称。此修复先 RED **1/3** 失败，最终相关组件/页面/适配器/范围 **30/30**，类型、生产构建及三项原预算通过，首屏体积与上述测量相同。浏览器旧夹具从草稿目录改为获授发布目录，执行请求要求冻结 versionNumber=1；上一基线 `89eec2e5` 的 Actions 客户端任务原为 77 通过、1 失败、4 跳过，实际失败已从远端日志和调用链定位并修正，不把本地通过称远端通过。引导配置、定位与失败 trace 日志保留 `.tmp/reporting-grants-browser-*`；当前只证明受控 HTTP 浏览器交互，不替代双库真实栈浏览器。最后增量只改前端/测试/报告，后端源码与已双库运行的 `abf90fbb` 逐文件一致，无需重复相同数据库验收。
 
-#### 2026-10-08 独立 Enterprise 报表输出与租户打印联合验收
+#### 2026-10-08 独立 Enterprise 数据输出联合验收与结果键修复
 
-基线 `147045bd90f5974c0adfbb30e3cc76e361cac334`，快照 `f11-generated-report-print-chain-20261008`。沿用独立临时 checkout。复用既有三宿主和两张非空工作簿链路，在同一次生成应用启动内追加：正式 Host 创建报表数据源及两个冻结版本，仅授权版本 1；Tenant 默认查询必须执行版本 1，未获授版本 2 和配置目录拒绝。当前导出 API 优先同步执行，下载工作簿必须完整解压解析，固定五个 Open XML 条目、关系、内容类型、工作表和单列单行文本与真实查询值一致。独立 Host 会话撤销后，当前 Tenant 的下载、执行、再次导出及目录分别拒绝/隐藏。打印复用正式租户档案 Schema，核对可信租户名称/编码、冻结版本、字段绑定和脚本移除，不保存 HTML、查询值或任何签发正文。
+基线 `147045bd90f5974c0adfbb30e3cc76e361cac334`，快照 `f11-generated-report-print-chain-20261008`，独立临时 checkout。一次应用启动复用已有三宿主、两张非空工作簿和版本授权管理链，追加正式外部查询、默认获授版本选择、未授版本拒绝、同步 API Excel 导出/下载，以及撤销后的目录隐藏、执行/导出/下载再次拒绝。两主库均使用本次拥有的 SQL Server 外部只读驱动：SQL Server 主库复用自有容器，MySQL 主库另建一个自有随机 SQL Server 容器。自签名证书豁免只配置隔离验收目标，不改变应用生产配置，也不降级 MySQL 外部 TLS。
 
-两种主库均使用本次拥有的 SQL Server 外部驱动；SQL Server 主库复用自有容器，MySQL 主库追加一个自有随机 SQL Server 容器。证书豁免只作用于隔离验收目标，不改变应用生产配置、不降级 MySQL 外部 TLS。报告只记录阶段、状态码、对象 ID、字节数和结构结论；网络、解析器与回调异常转换为固定诊断。
+首次冻结源码 `ac858e374c71121f8feacebbf027f8ed28a51ce7` 的正式双库联合实际 **0/2**，两库都已完成真实导入 Worker 与授权管理，执行 HTTP 200 后因结果键检查失败，日志/应用及 cleanupSucceeded=true 的报告分别保留于 `.tmp/template-real-stack/enterprise-delivery/sqlserver/run-wVBqwu` 和本批 MySQL 对应目录。根因是宿主 DictionaryKeyPolicy=CamelCase 将 Values 的 EngineVersion 转成 engineVersion，而 Columns 的 columnKey 仍是 EngineVersion，前端按精确列键会得到空值；大小写不同的结果键还会被压成重复 JSON 键。真实宿主选项加 Reporting 源生成的四项回归为 **3 失败/1 通过**，确认 HTTP 线格式缺陷。
 
-快速证据：新验收入口缺失时 8 项均先失败；实现后 8/8。追加 Open XML 错误关系和错误内容类型负例先 2 失败/7 通过，收紧后 9/9。连同既有导入和授权管理，共 `node --test --test-concurrency=1 tests/templates/application-enterprise-data-delivery.test.mjs tests/templates/application-reporting-grants.test.mjs tests/templates/application-enterprise-data-output.test.mjs tests/templates/reporting-workbook-verification.test.mjs` 21/21，零失败/跳过。治理 57/57、脚本语法和 diff 检查通过；受影响 Integration 规划为 none，本次只扩展验收工具，未修改产品 .NET、SQL 或客户端。
+修复仅为 ReportingExecutionRow.Values 指定静态属性级转换器，保留 Ordinal 列机器码和 null 单元格，拒绝 null 字典、重复同名列与非文本单元格；不改变其他字典、对象 CamelCase 属性、DTO 结构、SQL 或查询授权。现有双库报表 API 验收追加 SchemaName 原始字典键及非空值检查，新增四个 Unit 用例，Unit 最低数按真实增量增加 4。最终 Reporting Unit **77/77**，零失败/跳过，Release 构建零警告/错误；其中四项回归包含 JSON schema additionalProperties 的 string/null 类型精确集合检查。AOT analyzers 实际退出 0，无新增警告。
 
-检查点：独立生成应用双库实际执行尚待完成；快速 HTTP 替身和合成 ZIP 不作为真实查询、Excel 导出或打印服务证明。该批不关闭 Worker OS 崩溃/接管、企业申请业务报表/打印、真实栈浏览器、Native CRUD、MySQL 外部 TLS 或容量验收；F11/C02 与 Capacity-not-verified 保持。最终运行结果在本节补录，开发分支/Draft PR 交付，不合并、不发布。
+只读复核同时纠正两处验收问题：保留真实 Import Worker，但禁用报表恢复循环，确保同步导出不与 Worker 抢领；打印权限、模板 SQL 为 HostOnly，而租户档案绑定要求 Tenant，当前正式 API 无法完成租户档案预览。新门禁只记录 Host 创建/发布及发布前剥离 script、Tenant preview403 与匿名401，明确 printing.status=tenant-preview-not-supported，不宣称打印绑定、浏览器净化或业务打印完成。报告全部对象 ID 先验证 UUIDv7；只输出阶段、状态码、ID、字节数与结构结论，不保存 HTML、查询值、连接配置或签发正文，外部异常转换为固定诊断。
+
+快速证据：新 HTTP 验收入口缺失时 8 项先失败；实现后 8/8。Open XML 错误关系和内容类型负例先 2 失败/7 通过，收紧后 9/9；打印边界和恶意 ID 修正先 4 失败/5 通过。最终四组 `node --test --test-concurrency=1 tests/templates/application-enterprise-data-delivery.test.mjs tests/templates/application-reporting-grants.test.mjs tests/templates/application-enterprise-data-output.test.mjs tests/templates/reporting-workbook-verification.test.mjs` **22/22**，零失败/跳过。工作簿验证完整解压五个固定 Open XML 条目并校验关系、内容类型、工作表及单列单行文本与真实查询值一致，合成 ZIP 不作为正式 Excel 输出证明。Integration 分片发现 **1176** 无遗漏/重复，仅为发现证据；修复后的 merge 影响为 Reporting + smoke，矩阵工具变化另验 Integration tooling。
+
+检查点：修复源码的独立应用双库、受影响 Reporting/Smoke 与 AOT 门禁仍待完成，最终结果在本节补录。首轮实际失败不计为通过。该批不关闭 Worker OS 崩溃/接管、租户打印既有边界冲突、企业申请业务报表/打印、真实栈浏览器、完整 Native CRUD、MySQL 外部 TLS 或容量验收；F11/C02 与 Capacity-not-verified 保持。开发分支/Draft PR 交付，不合并、不发布。
 
 ### F12：订阅、试用与支付驱动权益
 

@@ -60,6 +60,8 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
   const env = { ...buildSharedEnv(databaseStack.connectionString,databaseStack.databaseProvider,redisStack.connectionString),
    Files__Local__RootPath:join(root,'files'), FullNet__ImportExport__RunSynchronously:'false', FullNet__ImportExport__ExecutionEnabled:'false',
    FullNet__ImportExport__PollSeconds:'5', FullNet__ImportExport__BatchSize:'1',
+   // 保留真实导入 Worker，但禁用报表恢复循环，避免与请求内导出争抢并误归因执行宿主。
+   FullNet__Reporting__Export__ExecutionEnabled:'false',
    FullNet__ExternalDatabaseAccess__AllowedDestinations__0__Provider:'SqlServer',
    FullNet__ExternalDatabaseAccess__AllowedDestinations__0__Host:externalSource.serverHost,
    FullNet__ExternalDatabaseAccess__AllowedDestinations__0__Port:String(externalSource.port),

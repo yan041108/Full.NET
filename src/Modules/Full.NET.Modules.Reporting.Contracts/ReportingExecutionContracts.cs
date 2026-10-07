@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Full.NET.Modules.Reporting.Contracts;
 
 /// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加到本类末尾，避免破坏既有角色分配与策略缓存。ColumnSchemaName 为细分列权限，须与 Run 组合授权。</remarks>
@@ -47,6 +49,7 @@ public sealed record ReportingExecutionColumnDefinition(
 /// <summary>报表执行结果行。</summary>
 /// <param name="Values">按列键索引的单元格文本值。</param>
 public sealed record ReportingExecutionRow(
+    [property: JsonConverter(typeof(ReportingResultValuesJsonConverter))]
     IReadOnlyDictionary<string, string?> Values);
 
 /// <remarks>
