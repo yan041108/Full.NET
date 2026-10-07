@@ -9,10 +9,6 @@ using Full.NET.Modules.Printing.Features.ManageTemplates;
 using Full.NET.Modules.Printing.Features.PreviewTemplates;
 using Full.NET.Modules.Printing.Serialization;
 using Full.NET.Modules.Printing.Features.PublishedTemplates;
-#if FULLNET_AOT_COMPILE
-using Full.NET.Data.Dapper;
-using Full.NET.Modules.Printing.Persistence;
-#endif
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -52,7 +48,9 @@ public sealed class PrintingModule : IFullNetModule
         services.TryAddScoped<PrintingPublishedTemplateService>();
         services.TryAddScoped<PrintingTenantGrantManagementService>();
 #if FULLNET_AOT_COMPILE
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IDapperAotMaterializerContributor, PrintingDapperAotMaterializerContributor>());
+        // 条件编译只包围实现注册，模块名称与依赖元数据之前不放置条件分支。
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<Full.NET.Data.Dapper.IDapperAotMaterializerContributor,
+            Persistence.PrintingDapperAotMaterializerContributor>());
 #endif
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(

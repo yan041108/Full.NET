@@ -1756,3 +1756,29 @@ Host新增三场景先RED2失败/1通过，实现后含原场景14/14；测试�
 根仓库最终双库联合：`FULLNET_TESTCONTAINERS_REUSE=0 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --filter 'FullyQualifiedName~Full.NET.IntegrationTests.Printing.|FullyQualifiedName~Full.NET.IntegrationTests.Api.TenancyApi' --minimum-expected-tests 42 --timeout 25m --report-trx --report-trx-filename printing-tenancy-final.trx`，实际48/48成功、零失败/跳过，942.766s；其中Printing两库验证正式开通第二租户、两版冻结、无授权/Host/Tenant/匿名边界、分页、伪造TenantId、其他租户版本、撤权与停用后拒绝。其余46项Tenancy现有回归同时通过；最低数42为启动参数，实际发现与执行48，不报告成42项。TRX位于本任务Temp工作区的IntegrationTests/bin/Release/net10.0/TestResults/printing-tenancy-final.trx。新构建Release零警告/错误，最终分片发现1180项再次无遗漏/重复。
 
 本批实际完整通过集合分别为Unit9/9、Printing/Tenancy48/48、独立生成应用2/2、双库运行时OpenAPI各1/1、架构74/74、OpenAPI204/204、客户端261/261、输出验收器27/27、tooling59/59、治理57/57、命名33/33，AOT分析/客户端类型/SDK零漂移均退出0；不将初轮失败中的Migration246/Smoke局部10项拼成同轮全通过。环境为本机Windows x64、.NET10、Docker Desktop（24.94GiB），根仓库MSTest并行Workers=2；不是容量或生产环境认证。开发分支交付前核对diff/status/分支；285965ae的API Native37696049251、Worker Native37696049191已success，主CI37696049325当时仍in_progress；不冒充本批交付SHA的CI结论。F11/C02保持局部收口，下一批集中接Host授权面板与Tenant目录/预览并统一验证Vue与浏览器；未合并/发布。
+
+### 2026-10-08 打印 Vue 目录、版本授权与打印前复核批量交付
+
+- 基线 `0336c8d9508c0b1016996553f73b5136b2199513`；核心功能提交 `3df4a8737b5e413eae2a8b3e9ecd3a1da75f4b86`。本批一次实施 Host 精确版本授权/撤销、Tenant 独立获授目录/预览、打印前服务端权威复核三条关联功能，沿用既有独立验收工作区。
+- Host `/printing/preview` 页面使用 `printing.templates.read`；创建、发布、预览和授权继续按精确操作权限。Tenant `/printing/published-templates` 只消费发布目录，服务端导航、共享可信白名单、Vue 路由与中英文消息同步，未请求 Host 草稿或 Schema 接口。
+- 授权面板读取真实已发布版本，支持精确版本分页、授予、确认撤销、关闭/撤权取消及迟到响应丢弃；操作列复用 ArtTableActionGroup。同一模板可获授多版，选择身份为 `templateId:versionNumber`；只读用户无预览/打印按钮。打印重新请求同一版本，净化新内容并等待 DOM 更新后再检查页面代次，服务端拒绝即清空旧内容。
+- Host/Tenant 复用既有 DOMPurify 策略；打印媒体只在具有预览的页面隐藏后台壳并解除固定高度裁切。无发布权限时创建模板明确反馈为草稿。独立应用最小撤权角色补 `printing.templates.read` 以满足新授权 action 的页面父权限，三项权限不含创建、发布或预览；不同 Host 用户撤权仍要求原 Tenant 会话有效且返回 403。
+- Actions 实际故障：上一提交 run `37700877193` 的 build-and-module-test 完整 Unit 5731 项中 1 项失败（Printing 静态依赖诊断）；build-test 仅汇总失败。本地 StandaloneModuleDependencyTests 57 项中 1 失败复现。根因是模块元数据前的 AOT 条件 using；删除该引用并用限定类型名保持方法内原注册，不改名称、依赖、AOT 注册集合或诊断规则。
+
+| 实际命令/范围 | 本地结果 | 原始证据 |
+| --- | --- | --- |
+| `pnpm --filter @fullnet/admin test -- src/views/PrintingPreviewView.test.ts src/views/PrintingPreviewView.lifecycle.test.ts src/views/PrintingPublishedTemplatesView.test.ts src/components/printing/PrintingTenantGrantsDialog.test.ts src/api/printing-templates.test.ts src/navigation/catalog.test.ts src/router/index.auth-guard.test.ts src/router/index.performance.test.ts` | 47/47，8 文件；无失败/跳过 | `.tmp/printing-ui-tests-complete.log` |
+| `pnpm --filter @fullnet/admin build` | 类型检查及生产构建退出 0 | `.tmp/printing-ui-build-complete.log` |
+| `pnpm --filter @fullnet/client-contracts test` / `build`；`pnpm --filter @fullnet/admin-i18n test` | 261/261、类型构建退出 0；8/8 | `.tmp/printing-ui-client-contracts.log`、`.tmp/printing-ui-contract-build.log`、`.tmp/printing-ui-i18n.log` |
+| `CI=1 pnpm --filter @fullnet/admin-parity-e2e exec playwright test printing-tenant-grants.spec.mjs printing-published-templates.spec.mjs data-output-lifecycle.spec.mjs --project=vue-admin --workers=1` | 联合浏览器 14/14，57.6s；最终打印媒体样式后仅重跑两张打印页面 3/3，20.2s，axe 无违规 | `.tmp/printing-ui-browser-repaired.log`、`.tmp/printing-ui-browser-complete.log` |
+| `pnpm test:dotnet:unit -- --filter 'FullyQualifiedName~Full.NET.UnitTests.Printing.|FullyQualifiedName~AuthorizationCatalogTests|FullyQualifiedName~StandaloneModuleDependencyTests' --minimum-expected-tests 100` | 100/100，45.953s，无失败/跳过，Release 构建零警告/错误 | `.tmp/printing-ui-ci-closure-green.log` |
+| `FULLNET_TESTCONTAINERS_REUSE=0 pnpm test:integration:affected -- --base 0336c8d9508c0b1016996553f73b5136b2199513 --phase merge` | Printing + Smoke 双 Provider 10/10，5m55.809s，无失败/跳过 | `.tmp/printing-ui-integration.log` |
+| `FULLNET_TESTCONTAINERS_REUSE=0 FULLNET_RUN_TEMPLATE_REAL_STACK=1 node --test --test-concurrency=1 tests/templates/created-enterprise-data-delivery.test.mjs` | 冻结 3df4a873 正式双库 2/2，6m46.973s，无失败/跳过；两套 cleanupSucceeded=true | `.tmp/printing-ui-enterprise-final.log` |
+| `node --test tests/templates/application-enterprise-data-output.test.mjs` | 验收器 14/14 | `.tmp/printing-ui-output-helpers.log` |
+| `pnpm test:aot:analyzers` / `pnpm test:dotnet:architecture -- --selection api-native-aot` | 分析退出 0，零警告/错误；架构 73/73，10.601s，无失败/跳过 | `.tmp/printing-ui-aot.log`、`.tmp/printing-ui-aot-architecture.log` |
+| `pnpm test:governance` / `pnpm audit:clients` / `pnpm licenses list --prod --json` | 治理 57/57；无未审查 Critical/High；许可证清单退出 0，无新增依赖 | `.tmp/printing-ui-governance.log`、`.tmp/printing-ui-audit.log`、`.tmp/printing-ui-licenses.json` |
+
+- RED 与排错未计通过：打印重验 8 项中 1 失败；页面读取权限 2 项中 1 失败；同模板多版 11 项中 1 失败；打印媒体 2 项中 1 失败（侧栏仍可见）。初次生产构建失败于旧可选版本请求与生成 SDK 必填可空版本属性，适配层补显式 null。首次 Playwright script 参数被误认为项目名，未执行；首轮联合浏览器 13/14，唯一失败为验收布局红字对比度 3.99/图片缺 alt，改成可访问布局后保持 script/onerror 净化断言并通过。提交前发现的三个末尾空行已修正并重验差异。
+- 只读审查关闭多版本选择 P2，并复核打印媒体、页面父权限及 AOT 引用调整；未发现剩余重要问题。独立应用证据为 `.tmp/template-real-stack/enterprise-delivery/sqlserver/run-ifUeEe` 与 `.tmp/template-real-stack/enterprise-delivery/mysql/run-Wx0zLh`，两者 sourceCommit 均为 3df4a873，当前租户绑定及撤权均通过。
+- 生成应用证据覆盖独立 API/Worker/Migrator、重复迁移、真实非空导入、业务回读、报表查询/XLSX 下载及打印授权/撤权。其后唯一生产修复为不改变 JIT 业务/AOT 注册集合的引用调整，单独由 Unit/AOT 证据覆盖，不把冻结应用结果冒充最终 SHA 的全量重跑。
+- 本批 Vue 能力保持 **Build-verified**，Mock 浏览器与双库服务端验证不冒充页面真实栈验收。F11/C02 仍局部收口；下一批集中推进企业申请业务打印模型与两张打印页面的双库真实浏览器。完整 Native 打印运行、外部 MySQL TLS、Worker OS 崩溃接管及容量未验收，保持 `Capacity-not-verified`。仅指定开发分支和 Draft PR 交付，未合并、未发布。
