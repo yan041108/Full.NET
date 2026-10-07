@@ -372,6 +372,8 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.workflowRecoveryTasks.title',
     captionKey: 'navigation.workflowRecoveryTasks.caption'
   }],
+  ['ai-knowledge-bases', { titleKey: 'knowledge.title', captionKey: 'knowledge.caption' }],
+  ['ai-knowledge-documents', { titleKey: 'knowledge.documents', captionKey: 'knowledge.documentsCaption' }],
   ['ai-agent-runs', {
     titleKey: 'navigation.aiAgentRuns.title',
     captionKey: 'navigation.aiAgentRuns.caption'

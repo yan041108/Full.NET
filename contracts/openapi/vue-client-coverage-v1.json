@@ -1186,6 +1186,16 @@
       ],
       "apiModule": "ui/admin/src/api/enterprise-requests.ts",
       "openApiFixture": "contracts/openapi/enterprise-requests.generated.openapi.json"
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/ai-knowledge.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-knowledge.ts",
+      "routePrefixes": [
+        "/api/v1/ai/knowledge-bases"
+      ]
     }
   ],
   "infrastructureModules": [
@@ -1904,6 +1914,14 @@
         "ui/admin/src/views/EnterpriseRequestsView.vue"
       ],
       "apiModule": "ui/admin/src/api/enterprise-requests.ts"
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-knowledge.ts",
+      "consumers": [
+        "ui/admin/src/components/AiKnowledgeBaseSelect.vue",
+        "ui/admin/src/components/AiKnowledgeDirectory.vue",
+        "ui/admin/src/components/AiKnowledgeSourceDialog.vue"
+      ]
     }
   ]
 }

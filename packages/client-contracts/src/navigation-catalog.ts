@@ -395,6 +395,16 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/ai/chat'
   },
   {
+    componentKey: 'ai-knowledge-bases',
+    routeName: 'ai-knowledge-bases',
+    path: '/ai/knowledge-bases'
+  },
+  {
+    componentKey: 'ai-knowledge-documents',
+    routeName: 'ai-knowledge-documents',
+    path: '/ai/knowledge-documents'
+  },
+  {
     componentKey: 'ai-agent-tools',
     routeName: 'ai-agent-tools',
     path: '/ai/agent-tools'

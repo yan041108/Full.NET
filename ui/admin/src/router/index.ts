@@ -351,6 +351,16 @@ export function createAppRouter(
         component: () => import('../views/AiChatView.vue')
       },
       {
+        name: 'ai-knowledge-bases',
+        path: '/ai/knowledge-bases',
+        component: () => import('../views/AiKnowledgeBasesView.vue')
+      },
+      {
+        name: 'ai-knowledge-documents',
+        path: '/ai/knowledge-documents',
+        component: () => import('../views/AiKnowledgeDocumentsView.vue')
+      },
+      {
         name: 'ai-agent-tools',
         path: '/ai/agent-tools',
         component: () => import('../views/AiAgentToolsView.vue')

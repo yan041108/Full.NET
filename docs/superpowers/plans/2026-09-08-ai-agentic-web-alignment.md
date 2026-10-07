@@ -1303,6 +1303,28 @@ main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-pa
 - [ ] 覆盖无权限、索引未就绪、文档已撤权、模型/索引不可用、取消、空态及重复提交；前端隐藏不代替 API 授权。
 - [ ] 完成类型检查、受影响组件测试、规范语言资源；页面自动化/人工验收条目登记到 R12，不能提前标记 Verified。
 
+#### R07a：目录、文件版本与公开 Ask 页面合批（2026-10-07，Build-verified）
+
+- [x] 沿用 Art Design 增加知识库创建/编辑、文档创建/编辑/删除与分页，登记精确权限导航。
+- [x] 复用生成客户端交付文件上传、导入状态/失败码/手动重试、版本列表和受授权来源读取；文本只按纯文本预览，PDF 原文件下载。
+- [x] 对话增加单知识库 Ask、明确拒答/来源不可用、引用来源入口；取消、重复提交、页面卸载和作用域变化保护。
+- [x] 建立失败测试后统一运行组件、共享契约、语言、生产构建和相关治理验证，在 main 提交。
+
+索引派发/状态/重试的生成操作、处理策略与成员授权编辑、多知识库选择、PDF 页内预览仍为 R07 后续项。页面真实自动化和人工验收登记 R12；本批最多标记 Build-verified，不借用 R06 服务端证据标记页面 Verified。
+
+- main 基线 `1173f95d756aab795370e3465f692bd016a3d3a9`，快照 `ai-knowledge-vue-r07a`。后端仅扩展两个静态导航元数据，不改变 Endpoint、DTO、持久化、迁移或 DI；冻结 Layui 未变。Vue 适配器直接消费既有共享生成操作，覆盖门禁支持显式共享消费者，不移动稳定生成清单的操作所有权。
+- 上传结果不明时保留原 request key 和乐观版本；当前会话/租户或知识库改变时清空结果，晚到响应与卸载不回填。原文 Endpoint 的实际 MIME 是 octet-stream，文本预览必须匹配精确版本元数据；UTF-8 严格解码、8 MiB 上限、最多展示 100,000 字符且不渲染 HTML。历史引用缺少知识库绑定时让用户选择当前授权库，不猜测历史绑定。
+- 取消先提交服务端，再中止本地流并有界刷新状态；服务器未终止时继续轮询和允许人工刷新。即时拒答有专门状态；历史 API 没有拒答判别字段，已完成空 assistant 显示“未生成回答”。来源失效时隐藏旧回答与引用。
+- 行为失败测试覆盖无权限调用、上传幂等重试、导入失败重试、迟到响应、撤权后纯文本关闭、实际 octet-stream 来源、取消状态刷新和历史空回答。只读复审发现的来源 MIME、取消仍在生成、历史空回答三项问题已修复，最终复审没有剩余 P1/P2。
+- `pnpm --filter @fullnet/admin test --maxWorkers=6`：261 文件、959/959，211.10s；`pnpm --filter @fullnet/admin build`：类型检查和生产构建退出 0。共享客户端 60 文件、226/226，语言 8/8，表单设计器 3 文件、8/8；`pnpm test:openapi` 210/210，workspace 检查退出 0。首轮默认 Vue 并发出现 10 项超时；另一次低并发运行主动中止，均不计为通过，最终完整结果保存 `artifacts/r07a/admin-tests-final.log`。
+- `pnpm test:dotnet:unit -- --selection ai-module --no-build`：1989/1989、零失败/跳过，39.976s；Release Unit 和 Integration 构建完成，Integration 构建零警告/错误。矩阵按实际新增导航测试同步 Unit 5458、AI 1989；Integration 分片 1198 项无遗漏/重复，治理 57/57。
+- 收尾追加 AI Unit 的默认 20 Worker 运行出现一项既有 PDF 子进程 1 秒截止时间夹具清理断言失败，1988 成功/1 失败，保留失败日志，不计为通过。相同源码/程序集以 `DOTNET_PROCESSOR_COUNT=4` 执行同一正式选择，1989/1989、零失败/跳过（2m 01s 477ms），不放宽断言或降低发现数；最终日志 `artifacts/r07a/ai-unit-accepted.log`。该对比支持资源竞争相关的不稳定表现，不宣称已经修复存量夹具。
+- 原首屏包体门禁超限后按同环境基线与候选构建比较：首屏 minified +1.11%、gzip +0.69%，全部 JS +1.26%。首屏预算对齐本批开始前的实测基线，保留 5% 停止条件；三项 `pnpm test:bundle-budgets` 通过，详见 [包体核对](../../verification/2026-10-07-ai-knowledge-vue-bundle.md)。这是增长核对，不宣称浏览器体验优化。
+- `pnpm audit:clients` 仍未通过，当前阻断为 `GHSA-qhr7-859c-m2p7` 等跨客户端工具链存量告警。已将 undici 7.29.0 → 7.29.1 并完成冻结安装及受影响测试，不扩大为整个客户端工具链升级，不增设审计豁免或宣称发布候选全绿。
+- 正式 `pnpm test:slice -- --snapshot ai-knowledge-vue-r07a` 选择完整双库 AI 82 项。首次复用容器因模板冲突及 SQL Server 连接失效中止；隔离重跑在 Docker 引擎不可连接后没有终态/TRX，不能计整轮通过。严格按现有 TRX 扩展 2.3.2 序列化格式核对原始日志，31 项完整 Passed UID/FQN。恢复引擎后，`FULLNET_TESTCONTAINERS_REUSE=0 FULLNET_API_SCHEMA_TEMPLATE=1 node artifacts/r07a/run-integration-remaining.mjs` 在独立容器使用既有只读 schema 模板加速，精确发现并补跑其余 51 项，退出 0、51/51、零失败/跳过（31m 01s 156ms）；两项成功用例的诊断文本按既有 TRX 字段上限截断，用例身份和结果完整。原中断记录保留，不生成伪造的单轮全绿报告。
+- `node artifacts/r07a/verify-acceptance.mjs` 退出 0，核对 3992 项后端源码/配置与 247 DLL 的冻结输入未变、正式/Unit/Integration 三处 AI DLL 一致、AI Unit 1989 通过摘要，以及双库原 31 + 补跑 51 的完整 82 UID/FQN 精确并集。原始日志、发现、TRX、SHA 与 `acceptance.json` 保留在忽略目录 `artifacts/r07a/`。最后两处契约消费者与包体基线的只读复审没有实质阻断项。Windows x64、i7-12700H、约 64 GB、.NET SDK 10.0.401、Docker 29.6.2、SQL Server 2022-CU14 / MySQL 8.0；本地资源共享，不外推容量或 SLO。
+- 本批没有重新发布/运行 Native 宿主、真实云模型调用、页面自动化或人工验收，也没有容量/SLO 实测。R07 总体仍未关闭，容量保持 `Capacity-not-verified`。
+
 ### R08：增量更新、删除与索引重建（P2，依赖 R05–R07）
 
 **修改：** R04/R05 新增目录、Ai 持久任务/事件入口；新增 `tests/Full.NET.IntegrationTests/Ai/AiKnowledgeIndexRecoveryTests.cs`，以双库测试方法覆盖相同场景。
@@ -1344,6 +1366,8 @@ main 基线 `1964f73cb2aed2eb4fa88723395eab6ca7e875c1`，快照 `ai-knowledge-pa
 - [ ] 汇总并补齐各切片的原生产物证据，覆盖真实 Embedding/索引写入、带权限检索、删除、解析、工具及审批恢复；同时覆盖确定性测试 Provider 与获准环境的选定真实 Provider，明确各自证明范围。此项不允许把 R05/R06 的 AOT 兼容检查延后。
 - [ ] 演练索引丢失重建、Provider 故障、文档撤权、任务重复派发、密钥/网络策略变化与应用回退；核对双库同语义。
 - [ ] 集中收敛页面自动化与人工验收；分别测量 API、Worker、向量库、模型服务的资源和延迟，不引用文章的百分比作为验收结果。
+
+  R07a 页面验收清单：两页目录/分页/CRUD 精确权限、网络结果不明上传重试、导入失败刷新/重试、octet-stream 的 TXT/MD 授权预览与 PDF 下载、实时及历史引用来源选择、明确拒答与空历史回答、索引/模型不可用、取消到终态刷新、重复提交、路由库参数变化、租户切换与卸载晚到结果。需实际浏览器和人工证据后升级页面 Verified。
 - [ ] 按精确提交核对必要 CI 终态，更新能力矩阵和运维文档；存在失败、跳过或部署环境缺失时仅标明已实现/局部验证，保留 `Capacity-not-verified`。
 
 ### 执行与验证入口

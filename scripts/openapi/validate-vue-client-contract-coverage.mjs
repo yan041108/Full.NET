@@ -73,9 +73,15 @@ function generatedSourceHasRoutePrefix(
   apiSource,
   routePrefix,
   generatedEntriesByModule,
-  generatedOperationPaths
+  generatedOperationPaths,
+  clientContractModules = []
 ) {
-  const entries = generatedEntriesByModule.get(apiModule) ?? [];
+  // 一个共享生成操作可供多个 Vue 适配器消费，不转移或改写稳定契约的所有权。
+  const entries = [
+    ...(generatedEntriesByModule.get(apiModule) ?? []),
+    ...clientContractModules.flatMap(modulePath =>
+      (generatedEntriesByModule.get(modulePath) ?? []).filter(entry => entry.status === 'generated'))
+  ];
   return entries.some((entry) => {
     const operationPath = generatedOperationPaths.get(entry.operationId);
     return apiSource.includes(entry.operationId)
@@ -243,7 +249,8 @@ export async function validateVueClientContractCoverage(repositoryRoot = default
           apiSource,
           routePrefix,
           generatedEntriesByModule,
-          generatedOperationPaths
+          generatedOperationPaths,
+          entry.clientContractModules
         )) {
         violations.push(`${entry.apiModule}: route prefix ${routePrefix} is not covered by API source or generated operation binding`);
       }

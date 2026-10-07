@@ -82,6 +82,18 @@ public sealed class AiAuthorizationContributorTests
     }
 
     [TestMethod]
+    public void Knowledge_pages_register_exact_navigation_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create([new AiAuthorizationContributor()]);
+        var knowledge = catalog.Navigation.Single(item => item.Id == "ai-knowledge-bases");
+        var documents = catalog.Navigation.Single(item => item.Id == "ai-knowledge-documents");
+        Assert.AreEqual(AiKnowledgePermissions.Read, knowledge.RequiredPermission);
+        Assert.AreEqual("/ai/knowledge-bases", knowledge.Path);
+        Assert.AreEqual(AiKnowledgeDocumentPermissions.Read, documents.RequiredPermission);
+        Assert.AreEqual("/ai/knowledge-documents", documents.Path);
+    }
+
+    [TestMethod]
     public void Tenant_agent_permissions_include_the_tool_catalog_and_agent_run_actions()
     {
         var catalog = AuthorizationCatalog.Create([new AiAuthorizationContributor()]);

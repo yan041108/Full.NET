@@ -113,3 +113,10 @@ describe('Vue 本地导航目录', () => {
     });
   });
 });
+
+it('知识库页面只接受精确白名单路径', () => {
+  expect(localNavigationFor('ai-knowledge-bases')).toMatchObject({ path: '/ai/knowledge-bases', titleKey: 'knowledge.title' });
+  expect(localNavigationFor('ai-knowledge-documents')).toMatchObject({ path: '/ai/knowledge-documents', titleKey: 'knowledge.documents' });
+  expect(isSupportedNavigationTree([createNode('ai-knowledge-bases', { path: '/ai/knowledge-bases' })])).toBe(true);
+  expect(isSupportedNavigationTree([createNode('ai-knowledge-bases', { path: '/ai/knowledge-documents' })])).toBe(false);
+});
