@@ -99,6 +99,7 @@ function isOidcCenterCallbackLocation(): boolean {
 
 const isAuthCallbackRoute = computed(() =>
   authCallbackPaths.has(route.path)
+  || authCallbackPaths.has(window.location.hash.replace(/^#/, '').split('?')[0] ?? '')
   || (adminIdentityAuthMode === 'oidc-center' && isOidcCenterCallbackLocation()));
 const isPublicAuthRoute = computed(() => publicAuthPaths.has(route.path));
 const isPublicShareRoute = computed(
@@ -142,7 +143,7 @@ onMounted(() => {
     return;
   }
 
-  if (adminIdentityAuthMode === 'oidc-center' && isAuthCallbackRoute.value) {
+  if (isAuthCallbackRoute.value) {
     return;
   }
 
@@ -338,7 +339,8 @@ watch(
     :locale="elementLocale"
     :dialog="{ draggable: true }"
   >
-    <router-view v-if="isPublicShareRoute" />
+    <!-- 回调跨 initializing/authenticated 保持实例，避免自身认证过程卸载并重复消费。 -->
+    <router-view v-if="isPublicShareRoute || isAuthCallbackRoute" />
     <div
       v-else-if="session.state === 'initializing'"
       class="session-boot"
@@ -348,7 +350,7 @@ watch(
       <strong>{{ t('session.restoring') }}</strong>
       <i />
     </div>
-    <router-view v-else-if="session.state === 'anonymous' && (isAuthCallbackRoute || isPublicAuthRoute)" />
+    <router-view v-else-if="session.state === 'anonymous' && isPublicAuthRoute" />
     <LoginView v-else-if="session.state === 'anonymous'" />
     <ArtAdminShell
       v-else

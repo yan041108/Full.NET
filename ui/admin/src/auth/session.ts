@@ -87,18 +87,18 @@ export const useSessionStore = defineStore('identity-session', () => {
   }
 
   /** 使用用户名和密码启动登录流程，并由底层控制器负责刷新本地快照。 */
-  async function login(username: string, password: string): Promise<void> {
-    await getController().login(username, password);
+  async function login(username: string, password: string, signal?: AbortSignal): Promise<void> {
+    await getController().login(username, password, signal);
   }
 
   /** 使用 OIDC 授权码流程兑换的访问令牌建立本地会话。 */
-  async function completeOidcAuthorization(accessToken: TokenResponse): Promise<void> {
-    await getController().completeOidcAuthorization(accessToken);
+  async function completeOidcAuthorization(accessToken: TokenResponse, signal?: AbortSignal): Promise<void> {
+    await getController().completeOidcAuthorization(accessToken, signal);
   }
 
   /** 从现有凭据恢复会话，用于应用启动或页面刷新后的状态重建。 */
-  async function restore(): Promise<void> {
-    await getController().restore();
+  async function restore(): Promise<boolean> {
+    return getController().restore();
   }
 
   /** 在已认证前提下重新加载当前上下文，确保导航与租户信息保持最新。 */

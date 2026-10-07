@@ -14,6 +14,70 @@ afterEach(() => {
 });
 
 describe('headless 身份会话', () => {
+  it.each(['login', 'oidc'] as const)('取消 %s 后迟到快照不能建立会话', async flow => {
+    let finish!: (value: Response) => void;
+    const fetchMock = vi.fn().mockImplementation(() => new Promise<Response>(resolve => { finish = resolve; }));
+    if (flow === 'login') fetchMock.mockResolvedValueOnce(jsonResponse(tokenResponse('pending-access')));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = createTestSession(); const controller = new AbortController();
+    const pending = flow === 'login'
+      ? session.login('admin', 'Password!123', controller.signal)
+      : session.completeOidcAuthorization(tokenResponse('pending-access'), controller.signal);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(flow === 'login' ? 2 : 1));
+    controller.abort(); finish(jsonResponse({ ...currentUser(), passwordChangeRequired: true })); await pending;
+    expect(session.snapshot().state).toBe('anonymous'); expect(session.readAccessToken()).toBeUndefined(); session.dispose();
+  });
+
+  it('导航尚未通过守卫时不提前暴露用户权限或切换语言', async () => {
+    let finish!: (value: Response) => void;
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(tokenResponse('access-token')))
+      .mockResolvedValueOnce(jsonResponse(currentUser(null, 'en-US')))
+      .mockImplementationOnce(() => new Promise<Response>(resolve => { finish = resolve; }))
+      .mockResolvedValueOnce(jsonResponse(tenants()));
+    vi.stubGlobal('fetch', fetchMock); const storage = createMemoryStorage(); const session = createTestSession(storage);
+    const pending = session.login('admin', 'Password!123');
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(session.snapshot().currentUser).toBeUndefined(); expect(session.can('tenancy.tenants.read')).toBe(false);
+    expect(storage.getItem(localeStorageKey)).not.toBe('en-US');
+    finish(jsonResponse(navigation())); await pending; expect(session.snapshot().state).toBe('authenticated'); session.dispose();
+  });
+
+  it('成功通知触发页面取消不能撤销已确认会话', async () => {
+    vi.stubGlobal('fetch', createLoginFetch()); const session = createTestSession(); const controller = new AbortController();
+    session.subscribe(snapshot => { if (snapshot.state === 'authenticated') controller.abort(); });
+    await session.login('admin', 'Password!123', controller.signal);
+    expect(session.snapshot().state).toBe('authenticated'); expect(session.readAccessToken()).toBe('access-token'); session.dispose();
+  });
+
+  it('快照返回与认证提交之间取消仍保持匿名', async () => {
+    const controller = new AbortController();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({ ...currentUser(), passwordChangeRequired: true })));
+    const session = createIdentitySession({ http: createHttpClient(), i18n: { getLocale: () => 'zh-CN', setLocale: () => { queueMicrotask(() => controller.abort()); } }, isSupportedNavigationTree: () => true });
+    await session.completeOidcAuthorization(tokenResponse('pending-access'), controller.signal);
+    expect(session.snapshot().state).toBe('anonymous'); expect(session.readAccessToken()).toBeUndefined(); session.dispose();
+  });
+
+  it.each(['restore', 'switch'] as const)('%s 快照提交前注销不能重建假认证', async flow => {
+    const fetchMock = createLoginFetch(); vi.stubGlobal('fetch', fetchMock); let invalidate = false;
+    const session = createIdentitySession({ http: createHttpClient(), i18n: { getLocale: () => 'zh-CN', setLocale: () => { if (invalidate) queueMicrotask(() => session.invalidateLocalSession()); } }, isSupportedNavigationTree: () => true });
+    await session.login('admin', 'Password!123'); invalidate = true;
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...tokenResponse('refreshed-access'), context: { tenantId: null, identifier: 'host', scope: 'host', name: 'Full.NET Host' } }))
+      .mockResolvedValueOnce(jsonResponse({ ...currentUser(), passwordChangeRequired: true }));
+    if (flow === 'restore') expect(await session.restore()).toBe(false); else await session.switchTenant(null);
+    expect(session.snapshot().state).toBe('anonymous'); expect(session.readAccessToken()).toBeUndefined(); session.dispose();
+  });
+
+  it('旧认证取消不能清理后来建立的会话', async () => {
+    let finish!: (value: Response) => void;
+    const fetchMock = vi.fn().mockImplementationOnce(() => new Promise<Response>(resolve => { finish = resolve; }));
+    vi.stubGlobal('fetch', fetchMock); const session = createTestSession(); const controller = new AbortController();
+    const old = session.login('old', 'Password!123', controller.signal);
+    fetchMock.mockResolvedValueOnce(jsonResponse(tokenResponse('new-access'))).mockResolvedValueOnce(jsonResponse(currentUser()))
+      .mockResolvedValueOnce(jsonResponse(navigation())).mockResolvedValueOnce(jsonResponse(tenants()));
+    await session.login('new', 'Password!123'); controller.abort(); finish(jsonResponse(tokenResponse('old-access'))); await old;
+    expect(session.snapshot().state).toBe('authenticated'); expect(session.readAccessToken()).toBe('new-access'); session.dispose();
+  });
+
   it('登录后仅在内存保存令牌并按顺序加载授权快照', async () => {
     const fetchMock = createLoginFetch();
     vi.stubGlobal('fetch', fetchMock);
@@ -150,7 +214,7 @@ function jsonResponse(body: unknown) {
 function tokenResponse(accessToken: string) {
   return {
     accessToken,
-    tokenType: 'Bearer',
+    tokenType: 'Bearer' as const,
     expiresAtUtc: '2026-07-17T04:00:00Z'
   };
 }

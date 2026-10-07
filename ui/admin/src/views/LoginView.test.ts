@@ -62,6 +62,23 @@ describe('Vue 登录页', () => {
     expect(wrapper.text()).not.toContain('前往身份中心登录');
   });
 
+  it('失败后清理密码并允许重新提交', async () => {
+    setActivePinia(createPinia());
+    const login = vi.spyOn(useSessionStore(), 'login').mockRejectedValue(new Error('network'));
+    const wrapper = mount(LoginView); await wrapper.get('input[name="username"]').setValue('admin');
+    await wrapper.get('input[name="password"]').setValue('Password!123'); await wrapper.get('form').trigger('submit'); await flushPromises();
+    expect((wrapper.get('input[name="password"]').element as HTMLInputElement).value).toBe('');
+    await wrapper.get('input[name="password"]').setValue('Retry!123'); await wrapper.get('form').trigger('submit'); await flushPromises(); expect(login).toHaveBeenCalledTimes(2);
+  });
+
+  it('离开页面取消本次登录请求', async () => {
+    setActivePinia(createPinia()); let finish!: () => void;
+    const login = vi.spyOn(useSessionStore(), 'login').mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+    const wrapper = mount(LoginView); await wrapper.get('input[name="password"]').setValue('Password!123'); await wrapper.get('form').trigger('submit');
+    const signal = login.mock.calls[0]?.[2] as AbortSignal | undefined;
+    wrapper.unmount(); finish(); await flushPromises(); expect(signal?.aborted).toBe(true);
+  });
+
   it('提供可访问的双语登录表单且不改变认证状态', async () => {
     const pinia = createPinia();
     setActivePinia(pinia);

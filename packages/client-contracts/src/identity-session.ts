@@ -39,9 +39,10 @@ export interface IdentitySessionSnapshot {
 }
 
 export interface IdentitySessionController {
-  login(username: string, password: string): Promise<void>;
+  /** 可取消本次认证；取消只阻断本地接入，不承诺撤销服务端已经写入的 Cookie。 */
+  login(username: string, password: string, signal?: AbortSignal): Promise<void>;
   /** 使用 OIDC 授权码流程已兑换的访问令牌建立本地会话。 */
-  completeOidcAuthorization(accessTokenResponse: TokenResponse): Promise<void>;
+  completeOidcAuthorization(accessTokenResponse: TokenResponse, signal?: AbortSignal): Promise<void>;
   restore(): Promise<boolean>;
   reloadAuthenticatedContext(): Promise<void>;
   switchTenant(tenantId: string | null): Promise<void>;
@@ -124,64 +125,46 @@ export function createIdentitySession(
   });
   http.configureRequestLocale(() => i18n.getLocale());
 
-  async function login(username: string, password: string): Promise<void> {
-    const operationGeneration = ++sessionGeneration;
-    const value = await identityLogin(
-      http,
-      { body: { username, password } },
-      undefined,
-      { retryUnauthorized: false }
-    );
-    // 生成守卫不强制 Bearer / 非空 expires；会话层继续用更严的手写契约。
-    if (!isTokenResponse(value)) {
-      throw new TypeError('登录响应不符合 TokenResponse 契约。');
-    }
-
-    if (operationGeneration !== sessionGeneration) {
-      return;
-    }
-
-    token = value;
-    try {
-      if (!await loadAuthenticatedSnapshot(operationGeneration)) {
-        return;
-      }
-
-      state = 'authenticated';
-      notify();
-    } catch (error: unknown) {
-      if (operationGeneration !== sessionGeneration) {
-        return;
-      }
-
-      clear();
-      throw error;
-    }
+  async function login(username: string, password: string, signal?: AbortSignal): Promise<void> {
+    await establishAuthentication(() => identityLogin(http,
+      { body: { username, password } }, signal, { retryUnauthorized: false }), signal);
   }
 
   async function completeOidcAuthorization(
-    accessTokenResponse: TokenResponse
+    accessTokenResponse: TokenResponse,
+    signal?: AbortSignal
   ): Promise<void> {
-    const operationGeneration = ++sessionGeneration;
-    if (!isTokenResponse(accessTokenResponse)) {
-      throw new TypeError('OIDC token response不符合 TokenResponse 契约。');
-    }
+    await establishAuthentication(async () => accessTokenResponse, signal);
+  }
 
-    token = accessTokenResponse;
+  /** 认证取消只能清理所属代次，成功通知前解除监听，避免路由卸载撤销刚建立的会话。 */
+  async function establishAuthentication(loadToken: () => Promise<unknown>, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
+    const operationGeneration = ++sessionGeneration;
+    const abort = (): void => { if (operationGeneration === sessionGeneration) clearLocal(); };
+    signal?.addEventListener('abort', abort, { once: true });
     try {
-      if (!await loadAuthenticatedSnapshot(operationGeneration)) {
+      const value = await loadToken();
+      if (signal?.aborted || operationGeneration !== sessionGeneration) return;
+      // 生成守卫不强制 Bearer / 非空 expires；会话层保留更严格的手写契约。
+      if (!isTokenResponse(value)) throw new TypeError('认证响应不符合 TokenResponse 契约。');
+      token = value;
+      if (!await loadAuthenticatedSnapshot(operationGeneration, signal)) {
         return;
       }
-
+      // 快照返回与当前 continuation 之间也可发生取消或新认证，提交前必须再次核对。
+      if (signal?.aborted || operationGeneration !== sessionGeneration) return;
+      signal?.removeEventListener('abort', abort);
       state = 'authenticated';
       notify();
     } catch (error: unknown) {
-      if (operationGeneration !== sessionGeneration) {
+      if (signal?.aborted || operationGeneration !== sessionGeneration) {
         return;
       }
-
       clear();
       throw error;
+    } finally {
+      signal?.removeEventListener('abort', abort);
     }
   }
 
@@ -197,7 +180,7 @@ export function createIdentitySession(
       if (!await loadAuthenticatedSnapshot(operationGeneration)) {
         return false;
       }
-
+      if (operationGeneration !== sessionGeneration) return false;
       state = 'authenticated';
       notify();
       return true;
@@ -422,7 +405,7 @@ export function createIdentitySession(
       if (!await loadAuthenticatedSnapshot(operationGeneration)) {
         return;
       }
-
+      if (operationGeneration !== sessionGeneration) return;
       state = 'authenticated';
       notify();
     } catch (error: unknown) {
@@ -462,9 +445,10 @@ export function createIdentitySession(
   }
 
   async function loadAuthenticatedSnapshot(
-    operationGeneration: number
+    operationGeneration: number,
+    signal?: AbortSignal
   ): Promise<boolean> {
-    const userValue = await identityGetCurrentUser(http, {});
+    const userValue = await identityGetCurrentUser(http, {}, signal);
     // 生成守卫不校验 SupportedLocale 与 profileVersion>0；会话快照仍要求手写契约。
     if (!isCurrentUserResponse(userValue)) {
       throw new TypeError('当前用户响应不符合契约。');
@@ -474,15 +458,15 @@ export function createIdentitySession(
       return false;
     }
 
-    currentUser = userValue;
-    i18n.setLocale(userValue.preferredLocale);
     if (userValue.passwordChangeRequired) {
+      currentUser = userValue;
+      i18n.setLocale(userValue.preferredLocale);
       navigation = [];
       availableTenants = [];
       return true;
     }
 
-    const navigationValue = await http.request<unknown>('/api/v1/navigation');
+    const navigationValue = await http.request<unknown>('/api/v1/navigation', {}, signal);
     if (!isNavigationTree(navigationValue)
       || !isSupportedNavigationTree(navigationValue)) {
       throw new TypeError('导航响应不符合本地组件白名单。');
@@ -490,7 +474,7 @@ export function createIdentitySession(
 
     let tenantValues: TenantContextSummary[] = [];
     if (userValue.permissions.includes(readTenantsPermission)) {
-      const tenantValue = await http.request<unknown>('/api/v1/tenancy/available');
+      const tenantValue = await http.request<unknown>('/api/v1/tenancy/available', {}, signal);
       if (!isTenantContextSummaryArray(tenantValue)) {
         throw new TypeError('可用租户响应不符合契约。');
       }

@@ -938,6 +938,18 @@ SQL Server 真实栈浏览器 4/4、零跳过、无 route mock，覆盖恢复请
 
 Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约 24.94GiB；集成每进程 2 worker、4GiB 堆预算、随机独立 Testcontainers，浏览器并发 1，未修改共享容器。原失败、命令、冻结摘要和 TRX 保留在 `.tmp/totp-*`。匿名 MFA 登录及恢复编排、正式邀请管理/企业入驻、真实 SMTP 成功注册/恢复全链路、完整 HTTP 耗时防枚举、新一轮独立生成应用全链路、MySQL 浏览器、全量 .NET 和 Linux 原生运行仍未在本批验收。F03/F04 整体待办，`Capacity-not-verified` 保持；PR 保持 Draft，不合并、不发布，推送后单独核对新 SHA 的 Actions。
 
+**进展（2026-10-07，登录与外部身份回调批量收口）：**
+
+基线 `38b182c1fb30bb2f20f2805a9a4f974038e7b000`，沿用独立临时 checkout 和开发分支，快照 `f04-auth-flow-batch-20261007`。一次收口四组相关能力：登录请求可取消且失败/离开清除密码；OAuth/OIDC 回调仅在实际认证后提示成功，App 跨认证状态保持回调实例并在路由就绪前识别精确 hash，避免重复恢复或兑换；OIDC 旧刷新成功/失败只能操作所属凭据代次，PKCE 生成及 finally 不覆盖新请求，缺少新 refresh 时不沿用旧账号凭据；共享会话在完整快照通过校验后提交权限和语言，并在认证、恢复及租户切换最后提交前再次核对代次。成功通知前解除取消监听，正常路由卸载保留已确认会话。
+
+回归先复现再修复。独立只读复核揭示并关闭 App 分支切换导致回调重挂、快照返回后的微任务注销，以及 refresh 凭据写入与页面接收之间的归属交接窗口；同步 handoff 记录代次，接入前再次验证，不重新认领后来凭据。真实 App+路由+会话控制器两例先失败后通过。最终冻结 16 项代码/测试输入，摘要核对未变，证据见 `.tmp/auth-flow-final-evidence.json`。
+
+- `pnpm --filter @fullnet/admin exec vitest run --maxWorkers=4`：完整 1028/1028，零失败/跳过；共享契约完整 229/229、uni-app 144/144。Vue 含 vue-tsc 的生产构建、共享契约构建及 `pnpm test:bundle-budgets` 通过。
+- 真实 Edge 浏览器配受控 HTTP 4/4：匿名回调不误报成功、成功回调仅恢复一次并实际进入壳层、失败清理密码后 Enter 重试、离开登录页后迟到错误不干扰恢复页。未连接实际外部 OAuth 提供程序、SMTP 或数据库，不冒充双库或端到端身份提供程序验收；独占本地端口25413，结束后停止服务。
+- 正式 `pnpm test:integration:affected:plan -- --snapshot f04-auth-flow-batch-20261007 --phase merge` 为 none。本批没有改动服务端、迁移、依赖或 HTTP 协议，不额外重跑 .NET、双库或原生发布。
+
+原失败保留在 `.tmp/auth-flow-*`：首轮类型构建把生成 TokenResponse 的 string 当作手写 Bearer 类型，改为 unknown 并保留严格守卫；首轮浏览器发现首帧重复恢复，另一例按钮文案不匹配；switch 夹具初次缺 identifier，修正后两例真实微任务注销 RED。开发中全量遇到随后修复的提交窗口，只取消已核对归属的本任务进程树，不计通过；最终冻结完整运行另行验收。Windows x64/i7-12700H、约63.75GiB内存，Vue并发4、浏览器并发1。F03/F04整体及匿名 MFA 登录/恢复编排等待办保持，`Capacity-not-verified`，PR保持Draft，不合并、不发布，新SHA Actions推送后另行核对。
+
 ### F05：企业开通、邀请与租户成员管理
 
 **依赖：** F04。**提供：** 可恢复开通流程、正式邀请入口及不依赖配额的成员基础能力。仅在明确未启用配额的基础预设验收；F08b 再接席位限制，限额/SaaS 预设在 F08b 完成前不得启用。不设置 F05 → F08 的前置依赖。
