@@ -25,6 +25,7 @@ import ImportTaskCreateDialog from '../components/ImportTaskCreateDialog.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { useTaskStatusRefresh } from '../composables/useTaskStatusRefresh';
 import {
   downloadImportExportTaskErrorReceipt,
   executeImportExportTask,
@@ -52,7 +53,7 @@ const createOpen = ref(false);
 const scope = useAuthorizedViewScope(session, () => {
   items.value = []; selectedTask.value = undefined; problem.value = undefined; drawerVisible.value = false;
   page.value = 1; total.value = 0; createOpen.value = false; loading.value = false; detailLoading.value = false; actionLoading.value = false;
-}, load);
+}, async () => { await load(); });
 let listRequest: ReturnType<typeof scope.begin>;
 let detailRequest: ReturnType<typeof scope.begin>;
 let actionRequest: ReturnType<typeof scope.begin>;
@@ -127,43 +128,62 @@ const executionStats = computed(() => {
   });
 });
 
-async function load() {
+async function load(): Promise<boolean> {
   listRequest?.cancel(); const request = scope.begin('import_export.import_tasks.read'); listRequest = request;
-  if (!request) return;
+  if (!request) return false;
 
   loading.value = true;
   problem.value = undefined;
   try {
     const result = await listImportExportTasks(page.value, pageSize.value, undefined, request.signal);
-    if (!request.current()) return;
+    if (!request.current()) return false;
     items.value = result.items;
     page.value = result.page;
     pageSize.value = result.pageSize;
     total.value = result.total;
     await updateTableHeight();
+    return request.current();
   } catch (error) {
     if (request.current()) problem.value = toProblem(error);
+    return false;
   } finally {
     if (request.current()) loading.value = false; request.finish();
   }
 }
 
 async function openDetail(taskId: string) {
-  cancelDetail(); const request = scope.begin('import_export.import_tasks.read'); detailRequest = request;
+  cancelDetail(); drawerVisible.value = true; await refreshDetail(taskId);
+}
+
+// 进度读取保留已展示内容；关闭抽屉及操作仍由原请求租约取消旧结果。
+async function refreshDetail(taskId: string) {
+  detailRequest?.cancel(); const request = scope.begin('import_export.import_tasks.read'); detailRequest = request;
   if (!request) return;
   detailLoading.value = true;
-  drawerVisible.value = true;
   try {
     const detail = await getImportExportTask(taskId, request.signal);
     if (request.current()) selectedTask.value = detail;
   } catch (error) {
     if (!request.current()) return;
-    ElMessage.error(toProblem(error).title);
+    problem.value = toProblem(error);
+    ElMessage.error(problem.value.title);
     drawerVisible.value = false;
   } finally {
     if (request.current()) detailLoading.value = false; request.finish();
   }
 }
+
+const isRunning = (statusKey?: string) => statusKey === 'queued' || statusKey === 'executing';
+useTaskStatusRefresh(() => canRead() && !problem.value && (items.value.some(task => isRunning(task.statusKey))
+  || (drawerVisible.value && isRunning(selectedTask.value?.statusKey))), async current => {
+  if (loading.value || detailLoading.value || actionLoading.value || createOpen.value) return;
+  const loaded = await load();
+  const task = selectedTask.value;
+  // 列表被手动刷新替换时，本轮不得继续详情读取，即使页面仍处于同一授权代次。
+  if (loaded && current() && !loading.value && !problem.value && drawerVisible.value && task && isRunning(task.statusKey) && !actionLoading.value && !detailLoading.value) {
+    await refreshDetail(task.id);
+  }
+});
 
 async function runAction(kind: 'execute' | 'resume' | 'retry') {
   const task = selectedTask.value;

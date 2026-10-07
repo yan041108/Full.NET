@@ -27,6 +27,7 @@ import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { useTaskStatusRefresh } from '../composables/useTaskStatusRefresh';
 import {
   createDocumentPreviewTask,
   listDocumentPreviewTasks,
@@ -90,6 +91,12 @@ function statusLabel(statusKey: string): string {
   const translated = translateRuntimeMessage(t, key);
   return translated === key ? statusKey : translated;
 }
+
+useTaskStatusRefresh(() => canRead() && !problem.value
+  && items.value.some(task => task.statusKey === 'pending' || task.statusKey === 'processing'), async () => {
+  if (loading.value || changing.value || editorOpen.value) return;
+  await load();
+});
 
 async function load() {
   listRequest?.cancel(); const request = scope.begin('document.host_preview_tasks.read'); listRequest = request;

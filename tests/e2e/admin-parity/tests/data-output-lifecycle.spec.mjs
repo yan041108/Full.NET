@@ -119,6 +119,40 @@ const importTask = { id, tenantId: id, schemaKey: 'organization.tenant_positions
   previewCompletedAtUtc: null, processedRowCount: 0, succeededRowCount: 0, executionFailedRowCount: 0,
   nextLineNumber: 0, executionStartedAtUtc: null, executionCompletedAtUtc: null, hasErrorReceipt: false, version: 1, previewRows: [] };
 
+for (const scenario of [
+  { name: '导入', component: 'import-export-tasks', path: '/import-export/tasks', endpoint: '/import-export/tasks',
+    permission: 'import_export.import_tasks.read', task: importTask, pending: 'queued', pendingLabel: '排队中', terminal: 'execution_succeeded', label: '执行成功' },
+  { name: '报表导出', component: 'reporting-export-tasks', path: '/reporting/export-tasks', endpoint: '/reporting/export-tasks',
+    permission: 'reporting.export_tasks.read', pending: 'queued', pendingLabel: '排队中', terminal: 'succeeded', label: '已成功', task: {
+      id, definitionId: id, definitionKey: 'fixture', definitionName: '进度报表', versionNumber: 1,
+      formatKey: 'excel', rowCount: 1, outputFileName: 'fixture.xlsx', outputFileId: id, errorCode: null,
+      errorMessage: null, requestedByUserId: id, createdAtUtc, completedAtUtc: null, parameters: []
+    } },
+  { name: '文档预览', component: 'document-preview-tasks', path: '/document/preview-tasks', endpoint: '/document/host/preview-tasks',
+    permission: 'document.host_preview_tasks.read', pending: 'pending', pendingLabel: '待处理', terminal: 'succeeded', label: '已成功', task: {
+      id, documentItemId: id, documentTitle: '进度文档', versionId: null, sourceFileId: id, outputFileId: id,
+      providerKey: 'fixture', errorCode: null, requestedByUserId: id, createdAtUtc, startedAtUtc: null, completedAtUtc: null, version: 1
+    } }
+]) {
+  test(`${scenario.name}在途任务自动刷新到终态，随后停止读取`, async ({ page }) => {
+    await page.clock.install();
+    await page.clock.pauseAt(new Date());
+    await boot(page, scenario.component, scenario.path, scenario.permission, [scenario.permission], scenario.name === '文档预览' ? 'host' : 'tenant');
+    let reads = 0;
+    await page.route(`**/api/v1${scenario.endpoint}?*`, route => {
+      reads++;
+      return json(route, { items: [{ ...scenario.task, statusKey: reads === 1 ? scenario.pending : scenario.terminal }], page: 1, pageSize: 20, total: 1 });
+    });
+    await page.goto(`/#${scenario.path}`);
+    await expect.poll(() => reads).toBe(1);
+    await expect(page.locator('.el-table__body-wrapper')).toContainText(scenario.pendingLabel);
+    await page.clock.runFor(5_000);
+    await expect.poll(() => reads).toBe(2);
+    await expect(page.locator('.el-table__body-wrapper')).toContainText(scenario.label);
+    await page.clock.runFor(20_000); expect(reads).toBe(2);
+  });
+}
+
 test('导入执行等待时关闭抽屉，重新打开另一个任务不被旧完成覆盖', async ({ page }) => {
   await boot(page, 'import-export-tasks', '/import-export/tasks', 'import_export.import_tasks.read',
     ['import_export.import_tasks.read', 'import_export.import_tasks.execute']);

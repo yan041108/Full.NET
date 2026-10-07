@@ -1086,6 +1086,19 @@ Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约
 
 正式 merge 影响规划 `pnpm test:integration:affected:plan -- --snapshot c02-import-create-template-preview-20261007 --phase merge` 为 **none**。本批未重跑双库或 Linux Native；端口 25413 结束后无监听，最终源码/测试摘要及原始结果在 `.tmp/import-create-*`。真实 Worker、独立生成应用业务样板和 F11 其余项继续待办，C02/F11 不整体关闭；`Capacity-not-verified` 保持。开发分支交付，PR 保持 Draft，不合并、不发布。
 
+
+**进展（2026-10-07，三类任务进度跟踪批量接通）：**
+
+基线 `d61f0372deb8a372ff8469cbd815a2b79b99a7d9`，沿用独立临时 checkout，快照 `c02-task-progress-refresh-20261007`。ImportExportTasks、ReportingExportTasks 与 DocumentPreviewTasks 共用页面状态刷新调度：当前页面含已知在途状态时，上一轮读取结束后再等待五秒；导入额外刷新已打开抽屉的执行行数、结果与状态，保留已展示内容。初始状态分别按正式契约识别 `queued/executing`、`queued/processing` 和 `pending/processing`，未知与终态不轮询。报表排队状态复用既有排队翻译，避免显示原始机器值。
+
+页面隐藏、KeepAlive 停用、卸载停止调度并释放监听；错误停止，手动刷新恢复；创建、下载或编辑期间跳过自动读取。旧轮次不得在换账号/租户/撤权后继续详情，请求结果仍由既有授权租约控制。独立只读复核发现自动列表被手动刷新替换后旧轮次仍能继续详情；新增回归先出现详情 2 次而预期 1 次，再以列表成功且仍持有租约的结果阻断交接，复核确认修复且无其他重要问题。此处的自动刷新只观察服务端进度，不执行、重试或回滚任务。
+
+- `pnpm --filter @fullnet/admin exec vitest run <27 个相关测试文件> --maxWorkers=3`：**109/109**，其中本批调度及三页进度 **20/20**；含慢请求不重叠、失败恢复、隐藏/撤权、KeepAlive、迟到完成和手动替换。`pnpm --filter @fullnet/admin-i18n test` **8/8**。
+- `pnpm --filter @fullnet/admin-parity-e2e exec playwright test --config ../../../.tmp/playwright-output-client.config.mjs`：真实 Edge + 受控 HTTP **11/11**，原八例继续通过，三页新增在途→终态→停止请求场景使用浏览器时钟验证五秒调度。受控状态不替代实际 Worker 或生成有效工作簿/PDF 的证据。
+- `pnpm --filter @fullnet/admin build`（含 vue-tsc）及 `pnpm test:bundle-budgets` 通过：Windows / Node 24.12.0，首屏 minified **1,436,446 bytes**、gzip **379,583 bytes**，原 5% 门槛未改。首轮包体为 1,436,477 bytes 超预算，精简等义导入提示后降低 31 bytes；不据此宣称加载延迟改善。`pnpm test:governance` **57/57**，正式 merge Integration 影响规划 **none**。
+
+原始证据与源码摘要在 `.tmp/task-progress-*`；本批未改 SDK、后端、SQL 或依赖，不新增双库/Native 结论。静态核对发现 enterprise-request 样例导入仍使用 CSV 及固定零行预校验，需另做工作簿与业务幂等验收；真实 Worker、样例数据交付和 F11 其余项继续待办，C02/F11 不整体关闭，`Capacity-not-verified` 保持。开发分支和 Draft PR 交付，不合并、不发布。
+
 ### F12：订阅、试用与支付驱动权益
 
 **依赖：** F06、F08、现有 Payments 安全修复/渠道验收。**提供：** Tenancy 订阅生命周期；Payments 仍拥有资金事实。

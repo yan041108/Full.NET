@@ -32,6 +32,7 @@ import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { useTaskStatusRefresh } from '../composables/useTaskStatusRefresh';
 import { listReportingDefinitions } from '../api/reporting-definitions';
 import {
   createReportingExportTask,
@@ -96,6 +97,7 @@ function statusTagType(statusKey: string): 'success' | 'danger' | 'info' {
 }
 
 function statusLabel(statusKey: string): string {
+  if (statusKey === 'queued') return t('importExportTasks.status.queued');
   const key = `reportingExportTasks.status.${statusKey}` as const;
   const translated = translateRuntimeMessage(t, key);
   return translated === key ? statusKey : translated;
@@ -129,6 +131,12 @@ async function loadDefinitions(): Promise<void> {
     if (request.current()) problem.value = toProblem(error, 'reportingExportTasks.loadFailed');
   } finally { request.finish(); }
 }
+
+useTaskStatusRefresh(() => canRead() && !problem.value
+  && items.value.some(task => task.statusKey === 'queued' || task.statusKey === 'processing'), async () => {
+  if (loading.value || creating.value || downloading.value || createDialogVisible.value) return;
+  await load();
+});
 
 async function load(): Promise<void> {
   if (!canRead()) {
