@@ -76,9 +76,13 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   await send('anonymous-execute-denied',root+'/execute','POST',{versionNumber:1,parameters:[]},401,null);
   const exported=await send('export','/api/v1/reporting/export-tasks','POST',{definitionId:definition.id,formatKey:'excel',versionNumber:null,parameters:[]},201);
   identifier(exported.id);
-  ensure(exported.definitionId===definition.id && exported.tenantId===tenantId && exported.versionNumber===1,'export tenant or version mismatch');
+  ensure(exported.definitionId===definition.id && exported.versionNumber===1,'export definition or version mismatch');
   // 当前正式创建入口优先同步执行；此证据不升级为 Worker 恢复或崩溃接管验收。
   ensure(exported.statusKey==='succeeded' && exported.rowCount===1,'export row or terminal state mismatch');
+  // 导出 DTO 不公开 TenantId；在已验证的可信 Tenant scope 读回任务，不扩展公共响应字段。
+  const detail=await send('export-read','/api/v1/reporting/export-tasks/'+exported.id);
+  ensure(detail.id===exported.id && detail.definitionId===definition.id && detail.versionNumber===1,'export task identity mismatch');
+  ensure(detail.statusKey==='succeeded' && detail.rowCount===1,'export task state mismatch');
   const download='/api/v1/reporting/export-tasks/'+exported.id+'/download';
   const bytes=await send('download',download,'GET',undefined,200,token,true);
   stage='workbook';

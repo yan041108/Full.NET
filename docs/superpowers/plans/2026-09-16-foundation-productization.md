@@ -1208,7 +1208,9 @@ Vue Host 定义列表新增精确权限入口；组件加载已发布版本，�
 
 只读复核同时纠正两处验收问题：保留真实 Import Worker，但禁用报表恢复循环，确保同步导出不与 Worker 抢领；打印权限、模板 SQL 为 HostOnly，而租户档案绑定要求 Tenant，当前正式 API 无法完成租户档案预览。新门禁只记录 Host 创建/发布及发布前剥离 script、Tenant preview403 与匿名401，明确 printing.status=tenant-preview-not-supported，不宣称打印绑定、浏览器净化或业务打印完成。报告全部对象 ID 先验证 UUIDv7；只输出阶段、状态码、ID、字节数与结构结论，不保存 HTML、查询值、连接配置或签发正文，外部异常转换为固定诊断。
 
-快速证据：新 HTTP 验收入口缺失时 8 项先失败；实现后 8/8。Open XML 错误关系和内容类型负例先 2 失败/7 通过，收紧后 9/9；打印边界和恶意 ID 修正先 4 失败/5 通过。最终四组 `node --test --test-concurrency=1 tests/templates/application-enterprise-data-delivery.test.mjs tests/templates/application-reporting-grants.test.mjs tests/templates/application-enterprise-data-output.test.mjs tests/templates/reporting-workbook-verification.test.mjs` **22/22**，零失败/跳过。工作簿验证完整解压五个固定 Open XML 条目并校验关系、内容类型、工作表及单列单行文本与真实查询值一致，合成 ZIP 不作为正式 Excel 输出证明。Integration 分片发现 **1176** 无遗漏/重复，仅为发现证据；修复后的 merge 影响为 Reporting + smoke，矩阵工具变化另验 Integration tooling。
+快速证据：新 HTTP 验收入口缺失时 8 项先失败；实现后 8/8。Open XML 错误关系和内容类型负例先 2 失败/7 通过，收紧后 9/9；打印边界和恶意 ID 修正先 4 失败/5 通过。最终四组 `node --test --test-concurrency=1 tests/templates/application-enterprise-data-delivery.test.mjs tests/templates/application-reporting-grants.test.mjs tests/templates/application-enterprise-data-output.test.mjs tests/templates/reporting-workbook-verification.test.mjs` **23/23**，零失败/跳过。工作簿验证完整解压五个固定 Open XML 条目并校验关系、内容类型、工作表及单列单行文本与真实查询值一致，合成 ZIP 不作为正式 Excel 输出证明。Integration 分片发现 **1176** 无遗漏/重复，仅为发现证据；修复后的 merge 影响为 Reporting + smoke，矩阵工具变化另验 Integration tooling。
+
+修复后冻结源码 `a827b53fdf93db91be6ce636488dcd5078d8bc43` 的第二轮正式双库仍为 **0/2**：真实查询与版本拒绝已通过，导出 HTTP 201 后验收器错误要求 DTO 包含 TenantId；正式导出 DTO 不公开该字段。这是验收契约误判，保留现有 API，改为已验证的可信 Tenant scope 内读回任务并检查 ID、报表、版本、状态和行数。报告保留 SQL Server `run-tkAS4Z` 与 MySQL `run-EV0Emp`，两库 cleanupSucceeded=true。对齐正式 DTO 的夹具先 **5 失败/5 通过**，修正后上述四组 **23/23**；新增读回串用其他报表的负例。
 
 检查点：修复源码的独立应用双库、受影响 Reporting/Smoke 与 AOT 门禁仍待完成，最终结果在本节补录。首轮实际失败不计为通过。该批不关闭 Worker OS 崩溃/接管、租户打印既有边界冲突、企业申请业务报表/打印、真实栈浏览器、完整 Native CRUD、MySQL 外部 TLS 或容量验收；F11/C02 与 Capacity-not-verified 保持。开发分支/Draft PR 交付，不合并、不发布。
 

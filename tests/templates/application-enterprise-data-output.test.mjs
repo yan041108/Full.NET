@@ -10,7 +10,7 @@ const definitionId = '01980000-0000-7000-8000-000000000002';
 const taskId = '01980000-0000-7000-8000-000000000003';
 const templateId = '01980000-0000-7000-8000-000000000004';
 
-function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, printingAllowed=false, revokedAllowed=false, leakedCatalog=false, failedHttp=false, invalidId=false} = {}) {
+function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, printingAllowed=false, revokedAllowed=false, leakedCatalog=false, failedHttp=false, invalidId=false, wrongTaskDefinition=false} = {}) {
  const root = mkdtempSync(join(tmpdir(),'enterprise-output-http-'));
  const logPath = join(root,'result.json');
  let granted = false; let published = 0; let activeToken = 'Bearer HOST_SECRET'; let checkedWorkbook = false;
@@ -45,8 +45,9 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
   }
   if (path.endsWith('/export-tasks') && method==='POST') {
    if (!granted && !revokedAllowed) return Response.json({code:'authorization.permission_denied'}, {status:403});
-   return Response.json({id:invalidId?'DATABASE_SECRET':taskId,definitionId,tenantId,versionNumber:1,statusKey:'succeeded',rowCount:1}, {status:201});
+   return Response.json({id:invalidId?'DATABASE_SECRET':taskId,definitionId,versionNumber:1,statusKey:'succeeded',rowCount:1}, {status:201});
   }
+  if(path===`/api/v1/reporting/export-tasks/${taskId}` && method==='GET') return Response.json({id:taskId,definitionId:wrongTaskDefinition?templateId:definitionId,versionNumber:1,statusKey:'succeeded',rowCount:1});
   if (path.endsWith('/download')) {
    if (!granted && !revokedAllowed) return Response.json({code:'authorization.permission_denied'}, {status:403});
    return new Response(new Uint8Array(corruptWorkbook?[80,75,0]:[80,75,1]), {headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}});
@@ -89,6 +90,7 @@ for (const [name,options,pattern] of [
  ['拒绝发布目录泄露连接配置',{leakedCatalog:true},/catalog/iu],
  ['失败证据不保存响应中的未知密码',{failedHttp:true},/HTTP 500/u],
  ['错误对象 ID 不得带入报告',{invalidId:true},/identifier/iu],
+ ['当前租户的任务读回不得串用其他报表',{wrongTaskDefinition:true},/task identity/iu],
 ]) test(name,async()=>{
  const f=fixture(options);
  try {
