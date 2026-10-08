@@ -65,6 +65,12 @@ internal static partial class EnterpriseRequestAssertions
         using var problem = JsonDocument.Parse(await denied.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(submitGranted ? OrganizationErrorCodes.WriteAccessDenied : "authorization.permission_denied",
             problem.RootElement.GetProperty("code").GetString());
+        using var writeLines = new HttpRequestMessage(HttpMethod.Put, $"{BasePath}/{created.Id:D}/lines")
+        { Content = JsonContent.Create(new { version = created.Version.ToString(), items = Array.Empty<object>() }) };
+        writeLines.Headers.Authorization = new AuthenticationHeaderValue("Bearer", entered.AccessToken);
+        writeLines.Headers.Add(OrganizationRequestHeaders.OrganizationUnitId, unit.ToString("D"));
+        using var linesDenied = await client.SendAsync(writeLines, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, linesDenied.StatusCode);
         using var read = new HttpRequestMessage(HttpMethod.Get, $"{BasePath}/{created.Id:D}");
         read.Headers.Authorization = new AuthenticationHeaderValue("Bearer", admin);
         using var readResponse = await client.SendAsync(read, cancellationToken);

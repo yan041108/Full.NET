@@ -21,6 +21,7 @@ import { useEnterpriseRequestPage } from './enterprise-requests/enterprise-reque
 import type { EnterpriseRequestResponse } from './enterprise-requests/enterprise-requests.generated';
 import EnterpriseRequestApprovalProgressDialog from './enterprise-requests/EnterpriseRequestApprovalProgressDialog.vue';
 import EnterpriseRequestDetailDialog from './enterprise-requests/EnterpriseRequestDetailDialog.vue';
+import EnterpriseRequestLinesDialog from './enterprise-requests/EnterpriseRequestLinesDialog.vue';
 import { requestStatusLabel } from './enterprise-requests/enterprise-request-presentation';
 import { useAdminI18n } from '../i18n/adminI18n';
 
@@ -28,6 +29,7 @@ const session = useSessionStore();
 const { t } = useAdminI18n();
 const progressId = ref<string>();
 const detailId = ref<string>();
+const linesId = ref<string>();
 const submitOpen = ref(false);
 const submitting = ref<EnterpriseRequestResponse>();
 let submitTicket = 0;
@@ -94,6 +96,7 @@ watch(scopeVersion, () => {
   editing.value = undefined; deleting.value = undefined; problem.value = undefined;
   progressId.value = undefined;
   detailId.value = undefined; submitOpen.value = false; submitting.value = undefined;
+  linesId.value = undefined;
   Object.assign(createForm, initialCreateForm()); Object.assign(editForm, initialEditForm());
 }, { flush: 'sync' });
 watch(createOpen, open => {
@@ -167,6 +170,10 @@ function openDetail(row: EnterpriseRequestResponse): void {
   if (!canRead.value || !items.value.includes(row)) return;
   detailId.value = row.id;
 }
+function openLines(row: EnterpriseRequestResponse): void {
+  if (!canRead.value || !items.value.includes(row)) return;
+  linesId.value = row.id;
+}
 function openSubmit(row: EnterpriseRequestResponse): void {
   if (!canSubmit.value || changing.value || row.status !== 'Draft' || !items.value.includes(row)) return;
   problem.value = undefined; submitting.value = row; submitOpen.value = true;
@@ -229,6 +236,7 @@ async function confirmDelete(): Promise<void> {
       <el-table-column :label="t('enterpriseRequests.actions')" min-width="390">
         <template #default="{ row }">
           <el-button v-if="canRead" link type="primary" @click="openDetail(row)">{{ t('enterpriseRequests.detail') }}</el-button>
+          <el-button v-if="canRead" link type="primary" @click="openLines(row)">{{ t('enterpriseRequests.lines') }}</el-button>
           <el-button v-if="canRead" link type="primary" @click="openProgress(row)">
             {{ t('enterpriseRequests.approvalProgress') }}
           </el-button>
@@ -271,6 +279,7 @@ async function confirmDelete(): Promise<void> {
     />
     <EnterpriseRequestApprovalProgressDialog v-if="progressId" :key="progressId" :request-id="progressId" @close="closeProgress" />
     <EnterpriseRequestDetailDialog v-if="detailId" :key="detailId" :request-id="detailId" @close="detailId = undefined" />
+    <EnterpriseRequestLinesDialog v-if="linesId" :key="linesId" :request-id="linesId" @close="linesId = undefined" @changed="load()" />
     <el-dialog v-model="submitOpen" :title="t('enterpriseRequests.submitTitle')" width="min(520px, 94vw)">
       <p>{{ t('enterpriseRequests.submitConfirm') }}</p>
       <p v-if="submitting" translate="no">{{ submitting.requestNumber }} · {{ submitting.title }}</p>

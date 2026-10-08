@@ -15,6 +15,34 @@ const response = {
 };
 
 describe('企业样例请求适配', () => {
+  it('明细读取与替换通过生成操作传递主表版本、精确金额和取消信号', async () => {
+    const lines = { requestId: id, requestVersion: '3', requestStatus: 'Draft', totalAmount: '50.01', items: [
+      { id: unitId, lineNumber: 1, itemDescription: 'Item', quantity: '1.00010', unitPrice: '50.000', lineAmount: '50.01' }
+    ] };
+    const request = vi.fn().mockResolvedValue(lines); const signal = new AbortController().signal;
+    const api = createEnterpriseRequestsApi({ request } as unknown as HttpClient);
+    expect((await api.lines(id, signal)).requestVersion).toBe(3);
+    expect(request.mock.calls[0]![2]).toBe(signal);
+    const body = { version: 2, items: [{ itemDescription: 'Item', quantity: '1.0001', unitPrice: '50' }] };
+    await api.replaceLines(id, body, signal);
+    expect(request.mock.calls[1]![0]).toBe(`/api/v1/enterprise_request/enterprise-requests/${id}/lines`);
+    expect(request.mock.calls[1]![1].method).toBe('PUT');
+    expect(JSON.parse(request.mock.calls[1]![1].body)).toEqual(body);
+  });
+  it.each(['identity', 'version', 'total', 'amount', 'precision', 'duplicate', 'number'])('明细拒绝 %s 错配', async kind => {
+    const line = { id: unitId, lineNumber: 1, itemDescription: 'Item', quantity: '1', unitPrice: '50', lineAmount: '50.00' };
+    const value = { requestId: kind === 'identity' ? unitId : id, requestVersion: kind === 'version' ? '9007199254740992' : '2', requestStatus: 'Draft',
+      totalAmount: kind === 'total' ? '51' : '50', items: [{ ...line, lineAmount: kind === 'amount' ? '49' : line.lineAmount,
+        quantity: kind === 'precision' ? '1.00001' : line.quantity, lineNumber: kind === 'number' ? 2 : 1 }] };
+    if (kind === 'duplicate') value.items.push({ ...line, lineNumber: 2 });
+    const request = vi.fn().mockResolvedValue(value);
+    await expect(createEnterpriseRequestsApi({ request } as unknown as HttpClient).lines(id)).rejects.toThrow();
+  });
+  it('替换回执必须对应下一版本，不能将旧快照当保存成功', async () => {
+    const request = vi.fn().mockResolvedValue({ requestId: id, requestVersion: '1', requestStatus: 'Draft', totalAmount: '0', items: [] });
+    await expect(createEnterpriseRequestsApi({ request } as unknown as HttpClient).replaceLines(id, { version: 1, items: [] })).rejects.toThrow();
+  });
+
   it('详情通过生成操作读取并传递取消信号，字符串版本归一化', async () => {
     const request = vi.fn().mockResolvedValue({ ...response, version: '3' });
     const signal = new AbortController().signal;

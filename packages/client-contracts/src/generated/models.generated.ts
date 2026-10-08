@@ -1448,6 +1448,29 @@ export interface EnterpriseRequestApprovalProgressResponse {
   readonly workflowInstanceId: null | string;
 }
 
+export interface EnterpriseRequestLineInput {
+  readonly itemDescription: string;
+  readonly quantity: number | string;
+  readonly unitPrice: number | string;
+}
+
+export interface EnterpriseRequestLineResponse {
+  readonly id: string;
+  readonly itemDescription: string;
+  readonly lineAmount: number | string;
+  readonly lineNumber: number;
+  readonly quantity: number | string;
+  readonly unitPrice: number | string;
+}
+
+export interface EnterpriseRequestLinesResponse {
+  readonly items: Array<EnterpriseRequestLineResponse>;
+  readonly requestId: string;
+  readonly requestStatus: string;
+  readonly requestVersion: number;
+  readonly totalAmount: number | string;
+}
+
 export interface EnterpriseRequestResponse {
   readonly applicantUserId: string;
   readonly createdAtUtc: string;
@@ -3604,6 +3627,11 @@ export interface RecoverWorkflowInstanceRequest {
   readonly expectedRevision: number;
   readonly idempotencyKey: string;
   readonly reason: string;
+}
+
+export interface ReplaceEnterpriseRequestLinesRequest {
+  readonly items: null | Array<EnterpriseRequestLineInput>;
+  readonly version: number;
 }
 
 export interface ReplaceHostRoleFieldGrantsRequest {

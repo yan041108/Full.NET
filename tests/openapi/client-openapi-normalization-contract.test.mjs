@@ -209,6 +209,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   for (const [route, method, operationId] of [
     ['/api/v1/enterprise_request/enterprise-requests/{id}/submit-for-approval', 'post', 'submitEnterpriseRequestForApproval'],
     ['/api/v1/enterprise_request/enterprise-requests/{id}/approval-progress', 'get', 'enterpriseRequestGetApprovalProgress'],
+    ['/api/v1/enterprise_request/enterprise-requests/{id}/lines', 'get', 'enterpriseRequestGetLines'],
+    ['/api/v1/enterprise_request/enterprise-requests/{id}/lines', 'put', 'enterpriseRequestReplaceLines'],
     ['/api/v1/reporting/published-definitions', 'get', 'reportingListPublishedDefinitions'],
     ['/api/v1/reporting/definitions/{definitionId}/versions/{versionNumber}/tenant-grants', 'get', 'reportingListTenantVersionGrants'],
     ['/api/v1/reporting/definitions/{definitionId}/versions/{versionNumber}/tenant-grants/{tenantId}', 'put', 'reportingGrantTenantVersion'],
@@ -221,8 +223,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
     assert.ok(operation.responses['403']);
   }
 
-  assert.equal(manifest.entries.length, 572);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 572);
+  assert.equal(manifest.entries.length, 574);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 574);
   assert.deepEqual(
     manifest.entries
       .filter(entry => entry.generatedGroup === 'workflow-forms')
@@ -345,7 +347,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    572
+    574
   );
   assert.equal(
     snapshot.paths['/api/v1/workflow/forms/component-catalog'].get.operationId,

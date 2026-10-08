@@ -88,6 +88,8 @@ internal static partial class EnterpriseRequestAssertions
             await AssertDenied(deniedDelete, EnterpriseRequestWorkflowErrorCodes.InvalidStatus);
         Assert.AreEqual(submitted, await Read());
         Assert.AreEqual(1L, await LineCount());
+        using (var deniedLines = await Send(HttpMethod.Put, $"{path}/lines", new { version = submitted.Version.ToString(), items = Array.Empty<object>() }))
+            await AssertDenied(deniedLines, EnterpriseRequestWorkflowErrorCodes.InvalidStatus);
 
         async Task<HttpResponseMessage> Send(HttpMethod method, string url, object? payload)
         {

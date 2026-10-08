@@ -181,6 +181,9 @@ import type {
   DisableHostJobDefinitionRequest,
   EnterpriseRequestApprovalDeliveryState,
   EnterpriseRequestApprovalProgressResponse,
+  EnterpriseRequestLineInput,
+  EnterpriseRequestLineResponse,
+  EnterpriseRequestLinesResponse,
   EnterpriseRequestResponse,
   EnumCatalogDetail,
   EnumCatalogDictGenerationItemPreview,
@@ -422,6 +425,7 @@ import type {
   RecipientEndpointResponse,
   ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
+  ReplaceEnterpriseRequestLinesRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRoleMembersRequest,
   ReplaceHostRolePermissionsRequest,
@@ -648,6 +652,7 @@ import {
   readDocumentHostPurgeRecycleBinItemResponse,
   readDocumentHostSetDocumentPermissionsResponse,
   readEnterpriseRequestApprovalProgressResponse,
+  readEnterpriseRequestLinesResponse,
   readEnterpriseRequestResponse,
   readEnumCatalogDetail,
   readEnumCatalogDictGenerationPreview,
@@ -3548,6 +3553,22 @@ export async function enterpriseRequestGetEnterpriseRequest(
   return readEnterpriseRequestResponse(value);
 }
 
+export interface EnterpriseRequestGetLinesParameters {
+  readonly id: string;
+}
+
+export async function enterpriseRequestGetLines(
+  http: HttpClient,
+  parameters: EnterpriseRequestGetLinesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestLinesResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/lines`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestLinesResponse(value);
+}
+
 export interface EnterpriseRequestListEnterpriseRequestsParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -3570,6 +3591,27 @@ export async function enterpriseRequestListEnterpriseRequests(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestReplaceLinesParameters {
+  readonly id: string;
+  readonly body: ReplaceEnterpriseRequestLinesRequest;
+}
+
+export async function enterpriseRequestReplaceLines(
+  http: HttpClient,
+  parameters: EnterpriseRequestReplaceLinesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestLinesResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/lines`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestLinesResponse(value);
 }
 
 export interface EnterpriseRequestUpdateEnterpriseRequestParameters {

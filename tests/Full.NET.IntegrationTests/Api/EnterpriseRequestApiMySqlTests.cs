@@ -25,7 +25,8 @@ public sealed class EnterpriseRequestApiMySqlTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            configureTestServices: EnterpriseRequestAssertions.ConfigureLineInsertFailure);
 
         await EnterpriseRequestAssertions.VerifyTenantCrudContractAsync(factory);
     }

@@ -180,6 +180,9 @@ import type {
   DisableHostJobDefinitionRequest,
   EnterpriseRequestApprovalDeliveryState,
   EnterpriseRequestApprovalProgressResponse,
+  EnterpriseRequestLineInput,
+  EnterpriseRequestLineResponse,
+  EnterpriseRequestLinesResponse,
   EnterpriseRequestResponse,
   EnumCatalogDetail,
   EnumCatalogDictGenerationItemPreview,
@@ -421,6 +424,7 @@ import type {
   RecipientEndpointResponse,
   ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
+  ReplaceEnterpriseRequestLinesRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRoleMembersRequest,
   ReplaceHostRolePermissionsRequest,
@@ -2647,6 +2651,41 @@ export function readEnterpriseRequestApprovalProgressResponse(value: unknown): E
 
 function isEnterpriseRequestApprovalProgressResponse(value: unknown): value is EnterpriseRequestApprovalProgressResponse {
   return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (isEnterpriseRequestApprovalDeliveryState(value["deliveryState"])) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestStatus"] === 'string') && (typeof value["requestVersion"] === 'number' && Number.isSafeInteger(value["requestVersion"])) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && ((value["submittedAtUtc"] === null) || (typeof value["submittedAtUtc"] === 'string')) && ((value["submittedVersion"] === null) || (typeof value["submittedVersion"] === 'number' && Number.isSafeInteger(value["submittedVersion"]))) && ((value["workflowDefinitionVersionId"] === null) || (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"]))) && ((value["workflowInstanceId"] === null) || (typeof value["workflowInstanceId"] === 'string' && guidPattern.test(value["workflowInstanceId"])));
+}
+
+export function readEnterpriseRequestLineInput(value: unknown): EnterpriseRequestLineInput {
+  if (!(isEnterpriseRequestLineInput(value))) {
+    throw new Error('client.invalid_enterprise_request_line_input');
+  }
+  return value;
+}
+
+function isEnterpriseRequestLineInput(value: unknown): value is EnterpriseRequestLineInput {
+  return isRecord(value) && (typeof value["itemDescription"] === 'string') && ((typeof value["quantity"] === 'number' && Number.isFinite(value["quantity"])) || (typeof value["quantity"] === 'string')) && ((typeof value["unitPrice"] === 'number' && Number.isFinite(value["unitPrice"])) || (typeof value["unitPrice"] === 'string'));
+}
+
+export function readEnterpriseRequestLineResponse(value: unknown): EnterpriseRequestLineResponse {
+  const normalizedValue = normalizeEnterpriseRequestLineResponseIntegerJson(value);
+  if (!(isEnterpriseRequestLineResponse(normalizedValue))) {
+    throw new Error('client.invalid_enterprise_request_line_response');
+  }
+  return normalizedValue;
+}
+
+function isEnterpriseRequestLineResponse(value: unknown): value is EnterpriseRequestLineResponse {
+  return isRecord(value) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["itemDescription"] === 'string') && ((typeof value["lineAmount"] === 'number' && Number.isFinite(value["lineAmount"])) || (typeof value["lineAmount"] === 'string')) && (typeof value["lineNumber"] === 'number' && Number.isSafeInteger(value["lineNumber"])) && ((typeof value["quantity"] === 'number' && Number.isFinite(value["quantity"])) || (typeof value["quantity"] === 'string')) && ((typeof value["unitPrice"] === 'number' && Number.isFinite(value["unitPrice"])) || (typeof value["unitPrice"] === 'string'));
+}
+
+export function readEnterpriseRequestLinesResponse(value: unknown): EnterpriseRequestLinesResponse {
+  const normalizedValue = normalizeEnterpriseRequestLinesResponseIntegerJson(value);
+  if (!(isEnterpriseRequestLinesResponse(normalizedValue))) {
+    throw new Error('client.invalid_enterprise_request_lines_response');
+  }
+  return normalizedValue;
+}
+
+function isEnterpriseRequestLinesResponse(value: unknown): value is EnterpriseRequestLinesResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isEnterpriseRequestLineResponse(item14))) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestStatus"] === 'string') && (typeof value["requestVersion"] === 'number' && Number.isSafeInteger(value["requestVersion"])) && ((typeof value["totalAmount"] === 'number' && Number.isFinite(value["totalAmount"])) || (typeof value["totalAmount"] === 'string'));
 }
 
 export function readEnterpriseRequestResponse(value: unknown): EnterpriseRequestResponse {
@@ -5486,6 +5525,18 @@ export function readRecoverWorkflowInstanceRequest(value: unknown): RecoverWorkf
 
 function isRecoverWorkflowInstanceRequest(value: unknown): value is RecoverWorkflowInstanceRequest {
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
+}
+
+export function readReplaceEnterpriseRequestLinesRequest(value: unknown): ReplaceEnterpriseRequestLinesRequest {
+  const normalizedValue = normalizeReplaceEnterpriseRequestLinesRequestIntegerJson(value);
+  if (!(isReplaceEnterpriseRequestLinesRequest(normalizedValue))) {
+    throw new Error('client.invalid_replace_enterprise_request_lines_request');
+  }
+  return normalizedValue;
+}
+
+function isReplaceEnterpriseRequestLinesRequest(value: unknown): value is ReplaceEnterpriseRequestLinesRequest {
+  return isRecord(value) && ((value["items"] === null) || (Array.isArray(value["items"]) && value["items"].every(item14 => isEnterpriseRequestLineInput(item14)))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readReplaceHostRoleFieldGrantsRequest(value: unknown): ReplaceHostRoleFieldGrantsRequest {
@@ -8341,6 +8392,14 @@ function normalizeEnterpriseRequestApprovalProgressResponseIntegerJson(value: un
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "requestVersion") ? { ["requestVersion"]: normalizeWireInteger(value["requestVersion"]) } : {}), ...(Object.hasOwn(value, "submittedVersion") ? { ["submittedVersion"]: normalizeWireInteger(value["submittedVersion"]) } : {}) } : value);
 }
 
+function normalizeEnterpriseRequestLineResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "lineNumber") ? { ["lineNumber"]: normalizeWireInteger(value["lineNumber"]) } : {}) } : value);
+}
+
+function normalizeEnterpriseRequestLinesResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeEnterpriseRequestLineResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "requestVersion") ? { ["requestVersion"]: normalizeWireInteger(value["requestVersion"]) } : {}) } : value);
+}
+
 function normalizeEnterpriseRequestResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -9091,6 +9150,10 @@ function normalizeReconcileWorkflowRecoveryTaskRequestIntegerJson(value: unknown
 
 function normalizeRecoverWorkflowInstanceRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
+function normalizeReplaceEnterpriseRequestLinesRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeReplaceHostRoleFieldGrantsRequestIntegerJson(value: unknown): unknown {

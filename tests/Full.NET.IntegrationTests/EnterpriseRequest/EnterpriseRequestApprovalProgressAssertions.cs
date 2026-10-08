@@ -60,6 +60,19 @@ internal static partial class EnterpriseRequestAssertions
             using var denied = await client.SendAsync(request, ct);
             Assert.AreEqual(mode == "no_read" ? HttpStatusCode.Forbidden : HttpStatusCode.NotFound, denied.StatusCode,
                 await denied.Content.ReadAsStringAsync(ct));
+            using var lines = new HttpRequestMessage(HttpMethod.Get, $"{BasePath}/{draft.Id:D}/lines");
+            lines.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            lines.Headers.Add("X-FullNet-Tenant-Id", draft.TenantId.ToString("D"));
+            using var hiddenLines = await client.SendAsync(lines, ct);
+            Assert.AreEqual(mode == "no_read" ? HttpStatusCode.Forbidden : HttpStatusCode.NotFound, hiddenLines.StatusCode);
+            if (mode != "host")
+            {
+                using var writeLines = new HttpRequestMessage(HttpMethod.Put, $"{BasePath}/{draft.Id:D}/lines")
+                { Content = JsonContent.Create(new { version = draft.Version.ToString(), items = Array.Empty<object>() }) };
+                writeLines.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                using var deniedWrite = await client.SendAsync(writeLines, ct);
+                Assert.AreEqual(HttpStatusCode.Forbidden, deniedWrite.StatusCode, "Read 权限不能授予明细写入。");
+            }
         }
     }
 

@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.EnterpriseRequest.Contracts;
+using Full.NET.Modules.EnterpriseRequest.Persistence;
 
 namespace Full.NET.Modules.EnterpriseRequest.Generated;
 
@@ -26,7 +27,14 @@ internal sealed partial class EnterpriseRequestManagementService
         // 请求版本先绑定本次领域快照，不能让调用方猜测未来版本命中并发提交后的状态。
         if (request.Version != existing.Value!.Version) return InvalidVersion();
         // 相同快照之后发生提交会增加版本，生成 SQL 的版本 CAS 继续拒绝覆盖。
-        return IsDraft(existing.Value!.Status) ? null : InvalidStatus();
+        if (!IsDraft(existing.Value!.Status)) return InvalidStatus();
+        // 没有明细的历史申请继续允许手填金额；有明细时合计只能通过整组编辑改变。
+        var total = await queryExecutor.QuerySingleOrDefaultAsync<decimal?>(EnterpriseRequestLineSql.Sum,
+            new Dictionary<string, object?> { ["RequestId"] = id }, cancellationToken).ConfigureAwait(false);
+        return total is { } amount && amount != request.TotalAmount
+            ? new Error(ValidationErrorCodes.Failed, "The total amount must match the request lines.", ErrorType.Validation,
+                new Dictionary<string, string[]> { ["TotalAmount"] = ["Edit the request lines to change their total amount."] })
+            : null;
     }
 
     partial void ValidateDeleteDomain(EnterpriseRequestResponse existing, long? expectedVersion, ref Error? error)

@@ -1030,6 +1030,20 @@ Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约
 
 **验收：** 开发者可从模板运行完整单据 CRUD，权限与附件所有权贯通列表和详情。
 
+#### 2026-10-09 申请明细聚合批次
+
+基线 `ee77a07128dc0273c5b3c8c214346db515150a5e`，快照 `enterprise-lines-20261009`。本批集中实现既有 `demo_enterprise_request_enterprise_request_line` 的读取、整组替换、主表金额保护、生成 SDK 与 Vue 明细编辑，不增加数据库迁移或模块依赖。GET/PUT `/api/v1/enterprise_request/enterprise-requests/{id}/lines` 分别复用精确 Read/Update 权限；读取先遵守主表组织范围，写入使用记录原机构授权，事务之外调用组织 Port。事务内先以 Draft、机构与主表版本 CAS 更新总额/版本，再清空旧行并插入新行；任一步失败回滚整个聚合。明细身份和行号由服务端产生，整组保存重新生成行身份，尚无对外稳定明细身份消费者。
+
+最多 200 行，项目说明不超过 200 字符；数量、单价分别符合 `decimal(18,4)`、`decimal(18,2)`。每行以 `AwayFromZero` 舍入两位再相加，行金额与合计均受 `decimal(18,2)` 上限保护。无明细的历史申请兼容手填总额，有明细时主表编辑不得改变合计，整组清空保存后总额归零。Vue 绑定读取版本、精确字符串和取消作用域；409 保留输入，取消编辑后可刷新最新快照，关闭/换单据/租户或撤权丢弃迟到响应。共享客户端先验证线格式，再以整数运算核对金额与身份，允许不改变数值的尾零。
+
+新增场景复用现有双库 CRUD、状态和授权 fixture，包含真实 INSERT 之后注入故障，核对主表版本、金额和原明细身份完整恢复；不为每个边界重新创建数据库。真实浏览器场景已追加明细编辑/金额回读步骤，留在申请模块批次集中验收。F09/F10 整体仍未关闭，附件、通知、可靠审批和当前源码的独立应用完整闭环仍待完成；保持 `Build-verified` 与 `Capacity-not-verified`，不合并、不发布。
+
+本地最终证据：申请 Unit **132/132**（`pnpm test:dotnet:unit -- --filter FullyQualifiedName~EnterpriseRequest --minimum-expected-tests 132 --reuse-build`）；Vue 明细/详情/进度、API、作用域、双语、导航和路由 **129/129**（`pnpm --filter @fullnet/admin test -- src/views/EnterpriseRequestsView.test.ts src/views/enterprise-requests src/api/enterprise-requests.test.ts src/composables/useAuthorizedViewScope.test.ts src/i18n src/navigation/catalog.test.ts src/router/index.auth-guard.test.ts src/router/index.performance.test.ts --maxWorkers=2`）。`FULLNET_TESTCONTAINERS_REUSE=0` 下执行 `pnpm test:integration:affected -- --snapshot enterprise-lines-20261009 --phase slice --reuse-build`，双库 **12/12**、零失败/跳过，**230.599 秒**；修正夹具后的 Release 构建 **17.51 秒**、零警告/错误，同次 tooling **99/99**、governance **59/59**，发现 **1188** 项且分片互斥无遗漏，后者只证明发现集合。
+
+共享客户端 **261/261**、词典 **8/8**、本地化 **7/7**、OpenAPI **206/206**；两库运行时 OpenAPI 各 **1/1**，规范一致，SDK `--check` 零漂移、离线快照校验及 `--base-ref ee77a07128dc0273c5b3c8c214346db515150a5e` 的 **94** 组契约兼容检查通过。Vue 类型与生产构建、命名 **33/33**、SQL 安全 **5/5** 通过。原包体预算未提高：首屏静态 JS minified **1,436,106 B**、gzip **383,911 B**，相对原预算基线 **+4.97%/+4.12%**，Chart/VForm3 预算也通过。AOT 分析在工作区锁内顺序运行，**54.00 秒**、零警告/错误并恢复默认 JIT 图；随后相关授权/Native/协议/事务/跨模块/领域所有权 Architecture **113/113**。只读复审无剩余 P1/P2；真实浏览器 spec 仅语法检查通过，未执行浏览器、独立应用、完整 .NET、当前业务 Linux 原生运行或容量实测。
+
+RED 已证明明细路由/页面入口缺失，以及主表可破坏明细合计。开发中一次编译缺少 Messaging using；单测首次 **18** 项因代理库无法构造内部集合失败，改为手写查询夹具；双库首次 **10/12** 因故障注入误接到授权 fixture 失败，接线修正后上述 **12/12** 通过。小数尾零协议不一致经只读审查发现并加入成功回归，不扩大生产类型可见性。原始结果保留 `.tmp/enterprise-lines-*` 与 `tests/Full.NET.IntegrationTests/bin/Release/net10.0/TestResults/Full.NET.IntegrationTests-affected-enterpriserequest.trx`。
+
 ### F10：业务审批、状态回写与通知
 
 **依赖：** F09、C03/C04。**提供：** 单据提交到审批结果的端到端样板。

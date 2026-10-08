@@ -31,6 +31,17 @@ const createDialog = (wrapper: ReturnType<typeof mount>) => wrapper.findAllCompo
   .find(dialog => dialog.props('title') === '创建')!;
 
 describe('企业样例对话框归属', () => {
+  it('明细入口从服务端读取版本与精确金额', async () => {
+    const f = fixture();
+    try {
+      await flushPromises();
+      request.mockResolvedValueOnce({ requestId: outputId, requestVersion: '1', requestStatus: 'Draft', totalAmount: '12.00', items: [] });
+      await click(f.wrapper, '明细'); await flushPromises();
+      expect(request.mock.calls[1]![0]).toBe(`/api/v1/enterprise_request/enterprise-requests/${outputId}/lines`);
+      expect(f.wrapper.text()).toContain('申请明细');
+    } finally { f.wrapper.unmount(); }
+  });
+
   it('详情入口从服务端读取最新单据，不能直接展示列表快照', async () => {
     const f = fixture();
     try {

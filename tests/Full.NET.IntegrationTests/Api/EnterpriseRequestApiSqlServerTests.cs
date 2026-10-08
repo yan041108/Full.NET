@@ -25,7 +25,8 @@ public sealed class EnterpriseRequestApiSqlServerTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            configureTestServices: EnterpriseRequestAssertions.ConfigureLineInsertFailure);
 
         await EnterpriseRequestAssertions.VerifyTenantCrudContractAsync(factory);
     }

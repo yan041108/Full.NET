@@ -68,6 +68,17 @@ public sealed class EnterpriseRequestStateWriteTests
     }
 
     [TestMethod]
+    public async Task Header_update_cannot_change_amount_when_lines_exist()
+    {
+        var f = new Fixture();
+        f.Queries.QuerySingleOrDefaultAsync<decimal?>(Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(58.04m);
+        var result = await f.Service.UpdateAsync(f.Id, f.Update, f.Actor);
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(ValidationErrorCodes.Failed, result.Error!.Code);
+        Assert.AreEqual(0, f.Commands.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
     public async Task Draft_create_edit_and_delete_keep_existing_write_paths()
     {
         var f = new Fixture();
