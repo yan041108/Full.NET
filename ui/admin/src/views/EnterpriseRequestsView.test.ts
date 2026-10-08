@@ -28,6 +28,26 @@ const click = async (wrapper: ReturnType<typeof mount>, text: string) => {
 };
 
 describe('企业样例对话框归属', () => {
+  it.each(['Submitted', 'Approved', 'Rejected', 'Cancelled'])('状态 %s 没有编辑或删除入口', async status => {
+    request.mockResolvedValue({ ...list, items: [{ ...row, status }] });
+    const f = fixture();
+    try {
+      await flushPromises();
+      const labels = f.wrapper.findAll('button').map(button => button.text());
+      expect(labels).not.toContain('编辑'); expect(labels).not.toContain('删除');
+    } finally { f.wrapper.unmount(); }
+  });
+  it('草稿状态字段只读，创建正文保持 Draft', async () => {
+    const f = fixture();
+    try {
+      await flushPromises(); await click(f.wrapper, '创建'); await flushPromises();
+      const field = f.wrapper.findComponent(ElDialog).findAll('.el-form-item')
+        .find(item => item.text().includes('Status'))!;
+      expect(field.find('input').attributes('disabled')).toBeDefined();
+      await click(f.wrapper, '保存');
+      expect(JSON.parse(request.mock.calls[1]![1]!.body as string)).toMatchObject({ status: 'Draft' });
+    } finally { f.wrapper.unmount(); }
+  });
   it.each([['update', false], ['submit', true]] as const)('只有 %s 时审批按钮可见性为 %s', async (action, visible) => {
     const f = fixture(['read', action].map(value => 'enterprise_request.enterprise_requests.' + value));
     try {

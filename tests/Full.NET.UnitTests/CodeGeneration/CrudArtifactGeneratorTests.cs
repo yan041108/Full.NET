@@ -12,6 +12,23 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class CrudArtifactGeneratorTests
 {
     [TestMethod]
+    [DataRow(FullNetCrudOwnershipMode.None)]
+    [DataRow(FullNetCrudOwnershipMode.OrganizationUnit)]
+    public void Explicit_crud_has_optional_domain_guards_before_writes(FullNetCrudOwnershipMode ownership)
+    {
+        var feature = Artifact(GenerateWithLayui(CreateExplicitLifecycleSchema(ownershipMode: ownership)), "backend/ProductFeature.g.cs");
+        StringAssert.Contains(feature, "internal sealed partial class ProductManagementService(");
+        foreach (var action in new[] { "Create", "Update", "Delete" })
+        {
+            StringAssert.Contains(feature, $"partial void Validate{action}Domain(");
+            var start = feature.IndexOf($"private async Task<Result<ProductResponse>> {action}CoreAsync(", StringComparison.Ordinal);
+            var guard = feature.IndexOf($"Validate{action}Domain(", start, StringComparison.Ordinal);
+            var write = feature.IndexOf("var affectedRows = await commandExecutor.ExecuteAsync(", start, StringComparison.Ordinal);
+            Assert.IsTrue(guard > start && guard < write, $"{action} guard must precede SQL write");
+        }
+    }
+
+    [TestMethod]
     public void Generate_vue_edit_form_copies_only_editable_fields_and_resets_update_only_values()
     {
         var columns = FullNetCrudSchemaTests.CreateProductSchema().Columns.Select(column =>

@@ -24,6 +24,15 @@ function fixture(request: ReturnType<typeof vi.fn>) {
 }
 
 describe('企业样例页面请求归属', () => {
+  it.each(['Submitted', 'Approved', 'Rejected', 'Cancelled'])('状态 %s 禁止编辑和删除请求', async status => {
+    const request = vi.fn().mockResolvedValue({ ...list(), items: [{ ...row, status }] });
+    const f = fixture(request); await f.model.load(); const item = f.model.items.value[0]!;
+    try {
+      expect(await f.model.update(item, { requestNumber: 'REQ', title: 'changed', status: 'Draft', totalAmount: 1, applicantUserId: outputId })).toBe(false);
+      expect(await f.model.remove(item)).toBe(false);
+      expect(request).toHaveBeenCalledTimes(1);
+    } finally { f.wrapper.unmount(); }
+  });
   it.each([['update', false], ['submit', true]] as const)('审批动作独立于 %s 权限', async (action, permitted) => {
     const request = vi.fn().mockResolvedValueOnce(list()).mockResolvedValueOnce({ ...row, status: 'Submitted' }).mockResolvedValue(list());
     let model!: ReturnType<typeof useEnterpriseRequestPage>;

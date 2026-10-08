@@ -6,6 +6,14 @@ namespace Full.NET.IntegrationTests.Api;
 [TestClass]
 public sealed class EnterpriseRequestApiMySqlTests
 {
+    [TestMethod]
+    public async Task Ordinary_state_writes_and_cascade_delete_conflict_preserve_business_data()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            configureTestServices: EnterpriseRequestAssertions.ForceParentDeleteConflict);
+        await EnterpriseRequestAssertions.VerifyOrdinaryStateWritesAndCascadeRollbackAsync(factory);
+    }
+
     private static readonly IReadOnlyDictionary<string, string?> ImportExportSyncSettings =
         new Dictionary<string, string?>
         {

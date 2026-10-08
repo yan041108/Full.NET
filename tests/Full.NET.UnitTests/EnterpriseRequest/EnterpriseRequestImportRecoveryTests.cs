@@ -154,14 +154,14 @@ public sealed class EnterpriseRequestImportRecoveryTests
         internal Harness()
         {
             Tenant.SetTenant(new TenantContext(Guid.NewGuid(), "test", "Test"));
-            Request = new("REQ", "title", "draft", 1m, Applicant);
+            Request = new("REQ", "title", "Draft", 1m, Applicant);
             var transaction = new DapperCommandTransaction(Coordinator);
             var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(DateTimeOffset.UtcNow);
             var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(_ => Guid.CreateVersion7());
             Commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(1);
             Authorizer.EnsureCanWriteAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(Result<bool>.Success(true));
             Queries.QuerySingleOrDefaultAsync<EnterpriseRequestRecord>(Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>())
-                .Returns(new EnterpriseRequestRecord(Entity, Tenant.Id!.Value, Unit, "REQ", "title", "draft", 1m, Applicant, 1,
+                .Returns(new EnterpriseRequestRecord(Entity, Tenant.Id!.Value, Unit, "REQ", "title", "Draft", 1m, Applicant, 1,
                     DateTimeOffset.UtcNow, Actor, null, null, false, null, null));
             var queryService = new EnterpriseRequestQueryService(Queries, Options.Create(new DatabaseOptions()),
                 Substitute.For<IUserDataScopeResolver>(), Substitute.For<IDataScopeSqlFilterBuilder>());

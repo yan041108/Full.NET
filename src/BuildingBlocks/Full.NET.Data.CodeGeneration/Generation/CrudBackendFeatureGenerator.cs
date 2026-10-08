@@ -949,7 +949,7 @@ internal static class CrudBackendFeatureGenerator
             {{organizationDataScopeComposer}}
             }
 
-            internal sealed class {{schema.ClrTypeName}}ManagementService(
+            internal sealed partial class {{schema.ClrTypeName}}ManagementService(
             {{IndentLines(managementConstructorParameters, 4)}})
             {
                 public Task<Result<{{schema.ClrTypeName}}Response>> CreateAsync(
@@ -966,7 +966,14 @@ internal static class CrudBackendFeatureGenerator
                     {{createCoreParameters}})
                 {
             {{contextGuardLine}}
-            {{IndentLines(createCoreAuthorization, 8)}}{{IndentLines(validationCall, 8)}}        var {{idParameter}} = idGenerator.NewId();
+            {{IndentLines(createCoreAuthorization, 8)}}{{IndentLines(validationCall, 8)}}        Error? domainError = null;
+                    ValidateCreateDomain(request, ref domainError);
+                    if (domainError is not null)
+                    {
+                        return Result<{{schema.ClrTypeName}}Response>.Failure(domainError);
+                    }
+
+                    var {{idParameter}} = idGenerator.NewId();
             {{IndentLines(
                 CrudSceneGuardGenerator.CreateGuardCall(schema, idParameter),
                 8)}}        var affectedRows = await commandExecutor.ExecuteAsync(
@@ -991,6 +998,9 @@ internal static class CrudBackendFeatureGenerator
                         .ConfigureAwait(false);
                 }
             {{updateMethods}}{{deleteMethods}}
+                // 在独立手写 partial 文件实现领域约束；未实现时编译器移除调用。
+                partial void ValidateCreateDomain(Create{{schema.ClrTypeName}}Request request, ref Error? error);
+
             {{contextGuardMethod}}{{validationMethod}}{{conflictMethods}}{{CrudSceneGuardGenerator.Methods(schema, idParameter)}}
 
                 private static Result<{{schema.ClrTypeName}}Response> NotFound() =>
@@ -1089,6 +1099,10 @@ internal static class CrudBackendFeatureGenerator
             : "return NotFound();";
         return "\n" + $$"""
 
+            // 领域读取只在存在实现时执行，普通生成 CRUD 不增加数据库往返。
+            partial void ValidateUpdateDomain(Guid id, Update{{schema.ClrTypeName}}Request request,
+                CancellationToken cancellationToken, ref Task<Error?>? validation);
+
             public Task<Result<{{schema.ClrTypeName}}Response>> UpdateAsync(
                 Guid {{idParameter}},
                 Update{{schema.ClrTypeName}}Request request,
@@ -1111,7 +1125,18 @@ internal static class CrudBackendFeatureGenerator
         {{contextGuardLine}}
         {{IndentLines(authorizationBlock, 4)}}{{IndentLines(validationCall, 4)}}{{IndentLines(
             CrudSceneGuardGenerator.UpdateGuardCall(schema, idParameter),
-            8)}}        var affectedRows = await commandExecutor.ExecuteAsync(
+            8)}}        Task<Error?>? domainValidation = null;
+                ValidateUpdateDomain({{idParameter}}, request, cancellationToken, ref domainValidation);
+                if (domainValidation is not null)
+                {
+                    var domainError = await domainValidation.ConfigureAwait(false);
+                    if (domainError is not null)
+                    {
+                        return Result<{{schema.ClrTypeName}}Response>.Failure(domainError);
+                    }
+                }
+
+                var affectedRows = await commandExecutor.ExecuteAsync(
                         {{schema.ClrTypeName}}Sql.UpdateStatement,
                         new
                         {
@@ -1154,11 +1179,14 @@ internal static class CrudBackendFeatureGenerator
             : "return NotFound();";
         return "\n" + $$"""
 
+            // 删除约束先于级联写入，不能只在父行删除后判断领域状态。
+            partial void ValidateDeleteDomain({{schema.ClrTypeName}}Response existing, long? expectedVersion, ref Error? error);
+
             public Task<Result<{{schema.ClrTypeName}}Response>> DeleteAsync(
                 Guid {{idParameter}}{{requestParameter}},
                 Guid actorUserId,
                 CancellationToken cancellationToken = default) =>
-                transaction.ExecuteAsync(
+                transaction.ExecuteResultAsync(
                     token => DeleteCoreAsync(
                         {{idParameter}}{{requestArgument}},
                         actorUserId,
@@ -1181,6 +1209,13 @@ internal static class CrudBackendFeatureGenerator
                 }
 
         {{IndentLines(authorizationBlock, 8)}}
+                Error? domainError = null;
+                ValidateDeleteDomain(existing.Value!, {{(schema.HasVersion ? "request.Version" : "null")}}, ref domainError);
+                if (domainError is not null)
+                {
+                    return Result<{{schema.ClrTypeName}}Response>.Failure(domainError);
+                }
+
             {{IndentLines(
                 CrudSceneGuardGenerator.DeleteGuardCall(schema, idParameter),
                 8)}}                var affectedRows = await commandExecutor.ExecuteAsync(

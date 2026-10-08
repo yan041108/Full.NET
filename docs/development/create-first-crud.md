@@ -136,6 +136,8 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 
 相同输入重复执行应报告 `Unchanged`；未登记的人工文件应保留，人工修改的受管产物应报告冲突并拒绝覆盖。生成产物落盘不等于模块已接入宿主或可运行。
 
+显式配置 `entityCapabilities` 的管理服务提供可选领域校验扩展点。业务规则放在同命名空间、同服务类型的独立手写 `partial` 文件中，实现 `ValidateCreateDomain`、`ValidateUpdateDomain` 或 `ValidateDeleteDomain`，不要编辑受管 `.g.cs`。创建校验在 INSERT 前，更新校验可以返回异步读取任务，删除校验在级联写入前；错误沿既有 `Result` 返回，没有实现时编译器移除调用。状态规则必须同时约束输入和当前记录；带版本的业务须将请求版本绑定领域读取快照，再由 SQL CAS 拒绝读取之后的并发变化。参考企业申请样例的 `EnterpriseRequestManagementDomain.cs`：普通写入仅允许 Draft，已提交记录禁止编辑或删除。生成删除使用 `ExecuteResultAsync`，父行冲突会回滚先前明细写入。该扩展点不自动提供完整业务状态机、可靠审批提交或结果回写。
+
 可以在新应用中用下面的 PowerShell 步骤验证保护边界。第一遍生成后再添加人工文件，重复生成应仍报告 14 个 `Unchanged`，且人工文件内容保持。
 
 ```powershell

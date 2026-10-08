@@ -1058,7 +1058,26 @@ Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约
 - `pnpm test:dotnet:architecture -- --reuse-build --filter 'FullyQualifiedName~EndpointAuthorizationTests|FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol' --minimum-expected-tests 37`：**101/101**；`pnpm test:aot:analyzers` 通过，不等于 Linux 原生运行验收。
 - `pnpm test:openapi` **204/204**；`pnpm test:naming` **33/33**。日志保留 `.tmp/enterprise-submit-*`。
 
-下一批需一起收口状态机与可靠提交：普通生成 CRUD 目前仍可写任意 Status，尚未阻止审批状态绕写；服务先落 Submitted 后同步启动 Workflow，启动失败或取消可能留下无流程的 Submitted 单据。需要服务端业务状态写入约束、本模块事务 Outbox、幂等启动/恢复及可靠结果回写，不能用跨模块本地事务代替。明细、附件和通知链路也未由本批关闭。按既定批量策略，F10 或约定业务批次实现完整后集中执行独立生成应用验收；本批没有重跑独立应用、完整浏览器、全量 .NET、Linux 原生或容量实测。`Capacity-not-verified` 保持；不合并、不发布。
+该批结束时，普通生成 CRUD 仍可写任意 Status，尚未阻止审批状态绕写；服务先落 Submitted 后同步启动 Workflow，启动失败或取消可能留下无流程的 Submitted 单据。需要服务端业务状态写入约束、本模块事务 Outbox、幂等启动/恢复及可靠结果回写，不能用跨模块本地事务代替。明细、附件和通知链路也未由本批关闭。按既定批量策略，F10 或约定业务批次实现完整后集中执行独立生成应用验收；本批没有重跑独立应用、完整浏览器、全量 .NET、Linux 原生或容量实测。`Capacity-not-verified` 保持；不合并、不发布。
+
+#### 2026-10-08 企业申请状态写入与级联回滚批次
+
+基线 `61e7c4df1fa2443652ef33e90cf8ac2d0673ecc1`，快照 `enterprise-state-write-20261008`。本批收口普通状态写入、领域扩展点、并发版本绑定与级联回滚，不扩大到可靠提交的持久化和跨模块事件设计；F10 四项继续待办，Enterprise 样板保持 `Build-verified`。
+
+显式能力生成服务改为 partial，提供创建、异步更新读取及删除前的可选领域校验；无手写实现时编译器移除调用。Enterprise 独立手写文件限制创建为 Draft，更新输入及当前行均须 Draft，删除当前行须 Draft；API 与导入共用管理服务。更新/删除还要求请求版本匹配本次领域读取快照，再由现有 SQL CAS 拒绝读取之后的并发提交，防止调用方猜测未来版本覆盖 Submitted。生成删除改用 `ExecuteResultAsync`，父行 CAS 失败会回滚先前的明细删除。Vue 的状态输入只读，非草稿不提供编辑/删除，并在页面状态层重复约束。
+
+状态绕写、级联失败提交及未来版本预测均先复现失败。独立只读复核发现并发版本预测绕过后，新增六项回归模拟真实 CAS 条件，修复并复核，无新增必须修复问题。样例后端由 CLI 实际生成，重复生成的 14 个产物全部 Unchanged，正式样例与临时生成后端 SHA-256 一致。旧数据若使用小写 `draft` 或其他非规范状态，将被拒绝普通写入；本批不自动迁移既有业务数据。
+
+本地已确认的验证：
+
+- `pnpm test:dotnet:unit -- --reuse-build --filter 'FullyQualifiedName~Full.NET.UnitTests.EnterpriseRequest|FullyQualifiedName~CrudArtifactGeneratorTests' --minimum-expected-tests 105`：**105/105**，新增 24 项状态/事务回归和 2 项生成器回归，零失败/跳过。
+- `pnpm --filter @fullnet/admin test -- src/views/EnterpriseRequestsView.test.ts src/views/enterprise-requests/enterprise-requests-page.test.ts src/api/enterprise-requests.test.ts --maxWorkers=2`：**32/32**；Vue 类型检查和生产构建通过。
+- `pnpm test:openapi` **204/204**、`pnpm test:naming` **33/33**、`pnpm test:sql-safety` **5/5**，零失败/跳过；`pnpm test:aot:analyzers` 构建及默认还原图恢复通过，零警告/错误，不等于 Linux 原生运行。
+- `FULLNET_TESTCONTAINERS_REUSE=0` 下执行 `pnpm test:integration:affected -- --snapshot enterprise-state-write-20261008 --phase slice --reuse-build`：**53/53**，含 CodeGeneration **41/41** 与 Enterprise 双库 API **12/12**，零失败/跳过，测试执行 **497.664 秒**。使用 Windows 本地 Docker 的 SQL Server 2022 CU14 / MySQL 8.0；合法领域快照和版本通过后，仅在父行 SQL 注入 CAS 冲突，验证真实明细删除被事务回滚。同次 tooling **99/99**、governance **59/59**。首轮两项新增 API 测试误用 DELETE 路由返回 405，修正为 POST `/{id}/delete`；另外 12 项生成编译因官方 NuGet 服务 TLS 故障被 NU1900 阻断。最终在测试进程中显式使用本机既有代理重跑完整相同影响集通过，证书校验、漏洞审计及断言均未关闭，原失败日志保留。
+- `pnpm test:integration:partitions -- --no-build`：发现 **1186** 项，互斥且无遗漏；此项只证明发现集合，没有执行全量 Integration。
+- `pnpm test:dotnet:architecture -- --reuse-build --filter 'FullyQualifiedName~EndpointAuthorizationTests|FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol' --minimum-expected-tests 37`：**101/101**，零失败/跳过；最终文档同步后的 `pnpm test:governance` **59/59**。TRX 确认本次两个数据库容器已删除。
+
+证据保留 `.tmp/enterprise-state-*`。提交启动失败恢复、本模块事务 Outbox、幂等流程启动、实例与提交身份绑定及可靠结果回写仍需下一批集中完成；明细直接写入、附件与通知也未由本批关闭。独立生成应用和完整浏览器在约定模块批次实现完毕后集中执行，本批不重复运行；没有全量 .NET、Linux 原生或容量实测结论。`Capacity-not-verified` 保持，开发分支交付，不合并、不发布。
 
 ### F11：导入、报表与打印接入样板
 

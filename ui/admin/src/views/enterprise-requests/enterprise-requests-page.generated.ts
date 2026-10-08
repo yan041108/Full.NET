@@ -154,6 +154,7 @@ export function useEnterpriseRequestPage(
     input: EnterpriseRequestPageUpdate
   ): Promise<boolean> {
     if (!canUpdate.value || changing.value) return false;
+    if (item.status !== 'Draft' || input.status !== 'Draft') return false;
     if (!isCurrentItem(item)) return false;
     const request = beginRequest(enterpriseRequestPermissions.update);
     if (!request) return false;
@@ -210,6 +211,7 @@ export function useEnterpriseRequestPage(
     item: EnterpriseRequestResponse
   ): Promise<boolean> {
     if (!canDisable.value || changing.value) return false;
+    if (item.status !== 'Draft') return false;
     if (!isCurrentItem(item)) return false;
     const request = beginRequest(enterpriseRequestPermissions.disable);
     if (!request) return false;

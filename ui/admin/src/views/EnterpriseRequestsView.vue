@@ -108,7 +108,7 @@ function openCreate(): void {
 }
 
 function openEdit(row: EnterpriseRequestResponse): void {
-  if (!canUpdate.value || changing.value || !items.value.includes(row)) return;
+  if (!canUpdate.value || changing.value || row.status !== 'Draft' || !items.value.includes(row)) return;
   problem.value = undefined;
   editing.value = row;
   Object.assign(editForm, {
@@ -139,7 +139,7 @@ async function submitEdit(): Promise<void> {
 }
 
 function openDelete(row: EnterpriseRequestResponse): void {
-  if (!canDisable.value || changing.value || !items.value.includes(row)) return;
+  if (!canDisable.value || changing.value || row.status !== 'Draft' || !items.value.includes(row)) return;
   problem.value = undefined; deleting.value = row; deleteOpen.value = true;
 }
 
@@ -194,7 +194,7 @@ async function confirmDelete(): Promise<void> {
             提交审批
           </el-button>
           <el-button
-            v-if="canUpdate"
+            v-if="canUpdate && row.status === 'Draft'"
             link
             type="primary"
             @click="openEdit(row)"
@@ -202,7 +202,7 @@ async function confirmDelete(): Promise<void> {
             编辑
           </el-button>
           <el-button
-            v-if="canDisable"
+            v-if="canDisable && row.status === 'Draft'"
             link
             type="danger"
             @click="openDelete(row)"
@@ -231,7 +231,7 @@ async function confirmDelete(): Promise<void> {
         <el-input v-model="createForm.title" />
       </el-form-item>
       <el-form-item label="Status">
-        <el-input v-model="createForm.status" />
+        <el-input v-model="createForm.status" disabled />
       </el-form-item>
       <el-form-item label="TotalAmount">
         <el-input v-model="createForm.totalAmount" />
@@ -254,7 +254,7 @@ async function confirmDelete(): Promise<void> {
         <el-input v-model="editForm.title" />
       </el-form-item>
       <el-form-item label="Status">
-        <el-input v-model="editForm.status" />
+        <el-input v-model="editForm.status" disabled />
       </el-form-item>
       <el-form-item label="TotalAmount">
         <el-input v-model="editForm.totalAmount" />
