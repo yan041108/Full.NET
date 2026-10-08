@@ -4,7 +4,10 @@
   body:has(.printing-preview-surface) .art-admin-shell__header,
   body:has(.printing-preview-surface) .art-admin-shell__backdrop,
   body:has(.printing-preview-surface) .art-admin-shell__problem,
-  body:has(.printing-preview-surface) .skip-link {
+  body:has(.printing-preview-surface) .skip-link,
+  /* 通知通过 Teleport 挂到 body，必须单独排除，避免租户切换提示进入纸面。 */
+  body:has(.printing-preview-surface) .el-message,
+  body:has(.printing-preview-surface) .el-notification {
     display: none !important;
   }
   body:has(.printing-preview-surface) .art-admin-shell,

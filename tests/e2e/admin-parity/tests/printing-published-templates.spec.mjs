@@ -32,7 +32,14 @@ test('租户浏览器精确选择旧版、净化预览、打印重验及撤权�
  expect(await page.evaluate(()=>window.__unsafe)).toBeUndefined();
  const axe=await new AxeBuilder({page}).include('.printing-published-view').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
  expect(axe.violations).toEqual([]);
+ // 通知挂在 body，不能依靠隐藏后台壳排除；保持通知可见来稳定复现纸面污染。
+ await page.evaluate(()=>{for(const className of ['el-message','el-notification']) {
+  const notice=document.createElement('div');notice.className=className;notice.textContent='打印外临时通知';document.body.append(notice);
+ }});
+ await expect(page.locator('.el-message,.el-notification')).toHaveCount(2);
+ await expect(page.locator('.el-message')).toBeVisible();
  await page.emulateMedia({media:'print'});
+ await expect(page.locator('.el-message:visible,.el-notification:visible')).toHaveCount(0);
  await expect(page.locator('.art-admin-shell__sidebar')).toBeHidden();
  await expect(page.locator('.art-admin-shell__header')).toBeHidden();
  await expect(page.locator('.printing-preview-html')).toBeVisible();

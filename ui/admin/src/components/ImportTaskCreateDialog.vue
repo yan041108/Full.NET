@@ -5,6 +5,7 @@ import type { ImportExportTaskDetailResponse, StaticImportSchemaDefinition } fro
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import PermissionGate from './PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
+import { isTenantSessionContext } from '../auth/tenant-session-context';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { showProblem, showSuccess, showWarning } from '../feedback/fullNetMessage';
@@ -20,7 +21,7 @@ const loading = ref(false); const saving = ref(false); const downloading = ref(f
 const selectedSchema = computed(() => schemas.value.find(value => value.schemaKey === schemaKey.value));
 const selectedWorksheet = computed(() => selectedSchema.value?.worksheets.find(value => value.worksheetKey === worksheetKey.value));
 const canCreate = () => session.can('import_export.import_tasks.create') && session.can('import_export.static_schemas.read')
-  && session.currentUser?.scope === 'tenant' && !!session.currentUser.tenantId;
+  && isTenantSessionContext(session.currentUser);
 const scope = useAuthorizedViewScope(session, () => { reset(); emit('update:open', false); }, () => { if (props.open) return loadSchemas(); });
 let schemaRequest: ReturnType<typeof scope.begin>; let createRequest: ReturnType<typeof scope.begin>; let downloadRequest: ReturnType<typeof scope.begin>;
 

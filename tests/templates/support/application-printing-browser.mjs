@@ -108,7 +108,8 @@ export async function verifyApplicationPrintingBrowser(appRoot, apiUrl, reportDi
   await expect.poll(()=>page.evaluate(()=>window.fullnetPrintCalls??0)).toBe(2);
   assert.ok(await page.evaluate(()=>window.fullnetPrintedText.includes('Enterprise Worker request')),'printing invoked before business DOM binding');
   evidence.businessRecord=true;evidence.printCalls=2;
-  await page.emulateMedia({media:'print'});
+  stage='business-paper';await page.emulateMedia({media:'print'});
+  await expect(page.locator('.el-message:visible,.el-notification:visible')).toHaveCount(0);
   await expect(page.locator('.printing-preview-surface')).toBeVisible();
   await expect(page.locator('.art-admin-shell__sidebar')).toBeHidden();
   await expect(page.getByTestId('printing-published-preview')).toBeHidden();

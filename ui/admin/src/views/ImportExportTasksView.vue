@@ -23,6 +23,7 @@ import { useArtCrudTableLayout } from '../framework/art-design/composables/useAr
 import PermissionGate from '../components/PermissionGate.vue';
 import ImportTaskCreateDialog from '../components/ImportTaskCreateDialog.vue';
 import { useSessionStore } from '../auth/session';
+import { isTenantSessionContext } from '../auth/tenant-session-context';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useTaskStatusRefresh } from '../composables/useTaskStatusRefresh';
@@ -270,7 +271,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
             <PermissionGate code="import_export.import_tasks.create">
               <PermissionGate code="import_export.static_schemas.read">
               <el-button
-                v-if="session.currentUser?.scope === 'tenant' && session.currentUser.tenantId"
+                v-if="isTenantSessionContext(session.currentUser)"
                 type="primary"
                 plain
                 :icon="Plus"

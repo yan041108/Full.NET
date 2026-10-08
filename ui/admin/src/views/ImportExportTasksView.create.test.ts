@@ -36,6 +36,17 @@ async function file(value = new File(['fixture'], 'positions.xlsx')) {
   Object.defineProperty(input.element, 'files', { value: [value], configurable: true }); await input.trigger('change'); return value;
 }
 describe('导入创建完整入口', () => {
+  it('Host 身份切入正式租户上下文可以读取导入 Schema', async () => {
+    const session = await setup();session.currentUser!.actorScope = 'host';await flushPromises();
+    await open();expect(api.listStaticImportSchemas).toHaveBeenCalledOnce();
+    expect(wrapper!.get('[data-testid="import-create-schema"]').text()).toContain('租户职位');
+  });
+  it.each(['host', 'tenant', 'tenant:00000000000000000000000000000000'])('不匹配作用域 %s 隐藏并关闭导入入口', async (scope) => {
+    const session = await setup();await open();
+    session.currentUser!.scope = scope;await flushPromises();
+    expect(wrapper!.find('[data-testid="import-export-task-create"]').exists()).toBe(false);
+    expect(wrapper!.find('[data-testid="import-create-file"]').exists()).toBe(false);
+  });
   it('有权用户可打开提交入口；关闭时不预取目录', async () => {
     await setup(); expect(api.listStaticImportSchemas).not.toHaveBeenCalled();
     expect(wrapper!.get('[data-testid="import-export-task-create"]').attributes('disabled')).toBeUndefined();

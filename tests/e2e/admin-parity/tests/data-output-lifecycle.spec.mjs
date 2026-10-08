@@ -16,7 +16,7 @@ async function boot(page, componentKey, path, requiredPermission, permissions, a
   await page.route('**/api/v1/**', route => route.fulfill({ status: 404 }));
   await page.route('**/api/v1/auth/refresh', route => json(route, token));
   await page.route('**/api/v1/me', route => json(route, { id, username: 'fixture', displayName: '夹具',
-    tenantId: actorScope === 'host' ? null : id, actorScope, scope: actorScope, isSuperAdministrator: false, passwordChangeRequired: false,
+    tenantId: actorScope === 'host' ? null : id, actorScope: actorScope === 'host' ? 'host' : `tenant:${id.replaceAll('-', '')}`, scope: actorScope === 'host' ? 'host' : `tenant:${id.replaceAll('-', '')}`, isSuperAdministrator: false, passwordChangeRequired: false,
     permissions, sessionId: id, preferredLocale: 'zh-CN', profileVersion: 1 }));
   await page.route('**/api/v1/navigation', route => json(route, [{ id: componentKey, parentId: null,
     routeName: componentKey, path, componentKey, title: '数据输出', caption: '', icon: 'document', order: 10,
