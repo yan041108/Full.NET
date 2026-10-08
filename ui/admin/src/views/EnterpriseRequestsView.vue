@@ -1,6 +1,7 @@
 <script setup lang="ts">
 defineOptions({ name: 'EnterpriseRequestsView' });
-import { onMounted, reactive, ref, watch } from 'vue';
+import { onActivated, onDeactivated, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import {
   ElButton,
   ElDialog,
@@ -27,6 +28,10 @@ import { requestStatusLabel } from './enterprise-requests/enterprise-request-pre
 import { useAdminI18n } from '../i18n/adminI18n';
 
 const session = useSessionStore();
+const route = useRoute();
+const router = useRouter();
+let viewActive = true;
+let linkBlocked = false;
 const { t } = useAdminI18n();
 const progressId = ref<string>();
 const detailId = ref<string>();
@@ -94,6 +99,8 @@ const {
 
 // 上下文或激活代次改变时，关闭所有旧资料入口并同步清除输入和错误。
 watch(scopeVersion, () => {
+  // 租户、会话或权限改变后，旧 URL 不能自动在新上下文中重新读取。
+  linkBlocked = true;
   createOpen.value = false; editOpen.value = false; deleteOpen.value = false;
   editing.value = undefined; deleting.value = undefined; problem.value = undefined;
   progressId.value = undefined;
@@ -121,7 +128,34 @@ watch(submitOpen, open => {
 
 onMounted(() => {
   void load();
+  openLinkedDetail();
 });
+watch([() => route.name, () => route.query.requestId], () => {
+  linkBlocked = false;
+  openLinkedDetail();
+}, { flush: 'sync' });
+onDeactivated(() => { viewActive = false; detailId.value = undefined; });
+onActivated(() => {
+  if (!viewActive) { viewActive = true; openLinkedDetail(); }
+});
+
+function openLinkedDetail(): void {
+  detailId.value = undefined;
+  const id = route.query.requestId;
+  if (!viewActive || linkBlocked || !canRead.value || route.name !== 'enterprise-requests'
+    || typeof id !== 'string' || id === '00000000-0000-0000-0000-000000000000'
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return;
+  // URL 只提供单据标识，详情仍由 Endpoint 按可信租户和数据范围授权读取。
+  detailId.value = id;
+}
+function closeDetail(): void {
+  const id = detailId.value;
+  detailId.value = undefined; linkBlocked = true;
+  if (route.name === 'enterprise-requests' && route.query.requestId === id) {
+    const query = { ...route.query }; delete query.requestId;
+    void router.replace({ query });
+  }
+}
 
 function openCreate(): void {
   if (!canCreate.value || changing.value) return;
@@ -286,7 +320,7 @@ async function confirmDelete(): Promise<void> {
       @current-change="(next: number) => load(next)"
     />
     <EnterpriseRequestApprovalProgressDialog v-if="progressId" :key="progressId" :request-id="progressId" @close="closeProgress" />
-    <EnterpriseRequestDetailDialog v-if="detailId" :key="detailId" :request-id="detailId" @close="detailId = undefined" />
+    <EnterpriseRequestDetailDialog v-if="detailId" :key="detailId" :request-id="detailId" @close="closeDetail" />
     <EnterpriseRequestLinesDialog v-if="linesId" :key="linesId" :request-id="linesId" @close="linesId = undefined" @changed="load()" />
     <EnterpriseRequestAttachmentsDialog v-if="attachmentsId" :key="attachmentsId" :request-id="attachmentsId" @close="attachmentsId = undefined" @changed="load()" />
     <el-dialog v-model="submitOpen" :title="t('enterpriseRequests.submitTitle')" width="min(520px, 94vw)">

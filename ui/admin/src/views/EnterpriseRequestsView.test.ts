@@ -1,6 +1,6 @@
 import { mount, flushPromises } from '@vue/test-utils';
 import { ElDialog, ElLoading } from 'element-plus';
-import { watch } from 'vue';
+import { reactive, watch } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import EnterpriseRequestsView from './EnterpriseRequestsView.vue';
 import { enterpriseRequestsHttp } from '../api/enterprise-requests';
@@ -11,6 +11,9 @@ vi.mock('../api/enterprise-requests', async original => ({
   ...await original<typeof import('../api/enterprise-requests')>(), enterpriseRequestsHttp: { request: vi.fn() }
 }));
 const request = vi.mocked(enterpriseRequestsHttp.request);
+const route = reactive<{ name: string; query: Record<string, unknown> }>({ name: 'enterprise-requests', query: {} });
+const replace = vi.fn(async (value: { query: Record<string, unknown> }) => { route.query = value.query; });
+vi.mock('vue-router', () => ({ useRoute: () => route, useRouter: () => ({ replace }) }));
 const row = { id: outputId, tenantId: outputId, organizationUnitId: outputId,
   requestNumber: 'REQ-1', title: '旧租户资料', status: 'Draft', totalAmount: 12,
   applicantUserId: outputId, version: 1, createdAtUtc: '2026-10-08T00:00:00Z',
@@ -31,6 +34,53 @@ const createDialog = (wrapper: ReturnType<typeof mount>) => wrapper.findAllCompo
   .find(dialog => dialog.props('title') === '创建')!;
 
 describe('企业样例对话框归属', () => {
+  it('业务链接可读取不在当前列表页的申请，关闭时只移除详情参数', async () => {
+    const id = '019bc2b1-2a40-7cc3-8992-a80de51bf330';
+    route.query = { requestId: id, page: '3' };
+    request.mockImplementation(async path => path.includes(id) ? { ...row, id, title: '链接申请' } : list);
+    const f = fixture();
+    try {
+      await flushPromises(); expect(f.wrapper.text()).toContain('链接申请');
+      expect(request.mock.calls.some(call => call[0] === `/api/v1/enterprise_request/enterprise-requests/${id}`)).toBe(true);
+      const dialog = f.wrapper.findAllComponents(ElDialog).find(value => value.props('title') === '申请详情')!;
+      await dialog.findAll('button').find(value => value.text() === '取消')!.trigger('click'); await flushPromises();
+      expect(route.query).toEqual({ page: '3' });
+    } finally { f.wrapper.unmount(); }
+  });
+  it.each(['bad', ['019bc2b1-2a40-7cc3-8992-a80de51bf330'], '00000000-0000-0000-0000-000000000000'])('非法详情参数 %s 不触发读取', async value => {
+    route.query = { requestId: value }; const f = fixture();
+    try { await flushPromises(); expect(request).toHaveBeenCalledTimes(1); }
+    finally { f.wrapper.unmount(); }
+  });
+  it('链接没有权限不读取；租户变化关闭旧详情且不重新解释旧链接', async () => {
+    route.query = { requestId: outputId }; const denied = fixture([]);
+    await flushPromises(); expect(request).not.toHaveBeenCalled(); denied.wrapper.unmount();
+    request.mockImplementation(async path => path.endsWith(outputId) ? row : list);
+    const f = fixture();
+    try {
+      await flushPromises(); expect(f.wrapper.text()).toContain('申请详情');
+      f.session.currentUser = { ...f.session.currentUser!, tenantId: '019bc2b1-2a40-7cc3-8992-a80de51bf330' };
+      await flushPromises();
+      expect(f.wrapper.findAllComponents(ElDialog).some(value => value.props('title') === '申请详情')).toBe(false);
+      expect(request.mock.calls.filter(call => call[0].endsWith(outputId))).toHaveLength(1);
+      route.query = { ...route.query, page: '2' }; await flushPromises();
+      expect(request.mock.calls.filter(call => call[0].endsWith(outputId))).toHaveLength(1);
+    } finally { f.wrapper.unmount(); }
+  });
+  it('切换链接取消旧详情请求，迟到响应不能替换当前单据', async () => {
+    const nextId = '019bc2b1-2a40-7cc3-8992-a80de51bf330';
+    const old = deferred<unknown>(); route.query = { requestId: outputId };
+    request.mockImplementation(async path => path.endsWith(outputId) ? old.promise : path.endsWith(nextId) ? { ...row, id: nextId, title: '新链接申请' } : list);
+    const f = fixture();
+    try {
+      await flushPromises(); const oldCall = request.mock.calls.find(call => call[0].endsWith(outputId))!;
+      route.query = { requestId: nextId }; await flushPromises(); expect(oldCall[2]?.aborted).toBe(true);
+      old.resolve({ ...row, title: '迟到旧详情' }); await flushPromises();
+      expect(f.wrapper.text()).toContain('新链接申请'); expect(f.wrapper.text()).not.toContain('迟到旧详情');
+      route.name = 'another-view'; await flushPromises();
+      expect(f.wrapper.findAllComponents(ElDialog).some(value => value.props('title') === '申请详情')).toBe(false);
+    } finally { f.wrapper.unmount(); }
+  });
   it('附件入口从服务端读取当前申请的受保护引用', async () => {
     const f = fixture();
     try {
@@ -156,7 +206,7 @@ describe('企业样例对话框归属', () => {
       expect(f.wrapper.findAll('button').some(button => button.text() === '提交审批')).toBe(visible);
     } finally { f.wrapper.unmount(); }
   });
-  beforeEach(() => { request.mockReset(); request.mockResolvedValue(list); });
+  beforeEach(() => { route.name = 'enterprise-requests'; route.query = {}; replace.mockClear(); request.mockReset(); request.mockResolvedValue(list); });
   it('实际点击进度读取当前行；切换租户关闭弹窗并取消旧查询', async () => {
     const pending = deferred<unknown>(); const f = fixture(['enterprise_request.enterprise_requests.read']);
     try {

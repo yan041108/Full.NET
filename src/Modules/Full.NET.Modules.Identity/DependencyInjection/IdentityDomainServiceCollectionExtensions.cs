@@ -142,6 +142,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<
             ITenantMemberSelectionDirectory,
             HostUsers.TenantMemberSelectionDirectory>();
+        services.TryAddScoped<ITenantMemberBatchSelectionDirectory, HostUsers.TenantMemberSelectionDirectory>();
         services.TryAddScoped<ITenantActiveMemberCountPort, HostUsers.TenantActiveMemberCountPort>();
         services.TryAddScoped<HostUsers.HostTenantUserSelectionDirectory>();
         services.TryAddScoped<IHostTenantUserSelectionDirectory>(provider =>
@@ -239,6 +240,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<IHostUserBatchSelectionDirectory>(provider =>
             provider.GetRequiredService<HostUsers.HostUserSelectionDirectory>());
         services.TryAddScoped<ITenantUserSelectionDirectory, HostUsers.TenantUserSelectionDirectory>();
+        services.TryAddScoped<ITenantMemberBatchSelectionDirectory, HostUsers.TenantMemberSelectionDirectory>();
         return services;
     }
 }

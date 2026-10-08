@@ -76,6 +76,9 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Jobs/Features/ManageHostJobExecutions/HostJobTriggerService.cs",
         "src/Modules/Full.NET.Modules.Jobs/Middleware/HostJobsHostContextMiddleware.cs",
         "src/Modules/Full.NET.Modules.Jobs/Middleware/HostJobsHostContextScope.cs",
+        // 通知仅按可信 Outbox Envelope 临时安装租户；完成、失败或取消后均恢复原上下文。
+        "src/Modules/Full.NET.Modules.Notifications/Features/ProjectWorkflowNotifications/WorkflowNotificationProjectionService.cs",
+        "src/Modules/Full.NET.Modules.Notifications/Features/ProjectWorkflowNotifications/WorkflowNotificationTenantScope.cs",
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/Endpoint.cs",
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/HostUserManagementReferenceService.cs",
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/HostUserManagementTenantScope.cs",

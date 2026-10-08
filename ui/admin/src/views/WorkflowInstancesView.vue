@@ -212,7 +212,7 @@ async function selectListItem(item: WorkflowInstanceListItemResponse): Promise<v
 }
 
 function openBusinessDetail(businessType: string, businessId: string): void {
-  const route = findWorkflowBusinessDetailRoute(businessType);
+  const route = findWorkflowBusinessDetailRoute(businessType, session.can);
   if (route === undefined) {
     return;
   }
@@ -629,7 +629,7 @@ function toProblem(
           <span>{{ t('workflowInstances.business') }}</span>
           <strong>{{ formatWorkflowBusinessLabel(instance.businessTitle, instance.businessType, instance.businessId) }}</strong>
           <el-button
-            v-if="findWorkflowBusinessDetailRoute(instance.businessType)"
+            v-if="findWorkflowBusinessDetailRoute(instance.businessType, session.can)"
             type="primary"
             link
             data-testid="workflow-instance-open-business"

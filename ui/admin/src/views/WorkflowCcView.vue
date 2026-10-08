@@ -8,6 +8,7 @@ import {
 import { useRouter } from 'vue-router';
 import { listMyWorkflowCc, markWorkflowCcRead, type WorkflowCcResponse } from '../api/workflow-cc';
 import PermissionGate from '../components/PermissionGate.vue';
+import { usePermission } from '../auth/permission';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   findWorkflowBusinessDetailRoute,
@@ -23,6 +24,7 @@ function formatDateTime(value: string): string {
   return formatAdminDateTime(locale.value, value);
 }
 const router = useRouter();
+const { can } = usePermission();
 const records = ref<WorkflowCcResponse[]>([]);
 const loading = ref(false);
 const { tableMainRef, tableHeight, updateTableHeight, watchLoading } = useArtCrudTableLayout({
@@ -81,7 +83,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
 
 /** 通过可信白名单路由打开业务单据详情。 */
 function openBusinessDetail(businessType: string, businessId: string): void {
-  const route = findWorkflowBusinessDetailRoute(businessType);
+  const route = findWorkflowBusinessDetailRoute(businessType, can);
   if (route === undefined) {
     return;
   }
@@ -115,7 +117,7 @@ function openBusinessDetail(businessType: string, businessId: string): void {
             <div class="workflow-cc__business">
               <strong translate="no">{{ formatWorkflowBusinessLabel(row.businessTitle, row.businessType, row.businessId) }}</strong>
               <el-button
-                v-if="findWorkflowBusinessDetailRoute(row.businessType)"
+                v-if="findWorkflowBusinessDetailRoute(row.businessType, can)"
                 link
                 type="primary"
                 data-testid="workflow-cc-view-document"

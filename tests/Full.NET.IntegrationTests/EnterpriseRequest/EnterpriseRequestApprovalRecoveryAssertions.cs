@@ -14,6 +14,9 @@ using Full.NET.Modules.EnterpriseRequest;
 using Full.NET.Modules.EnterpriseRequest.Contracts;
 using Full.NET.Modules.EnterpriseRequest.Generated;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Features.ProjectWorkflowTerminalEvents;
+using Full.NET.Modules.Notifications;
+using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -73,10 +76,14 @@ internal static partial class EnterpriseRequestAssertions
         var outcome = ActivatorUtilities.CreateInstance(services, outcomeType, new LoseFinalReceiptOnceExecutor(commands));
         var sink = (IWorkflowInstanceCancelledSink)ActivatorUtilities.CreateInstance(services,
             assembly.GetType("Full.NET.Modules.EnterpriseRequest.Features.WorkflowOutcomes.WorkflowInstanceCancelledEnterpriseRequestSink", true)!, outcome);
-        var terminal = new WorkflowInstanceCancelledIntegrationEvent(submission.WorkflowInstanceId, submission.SubmittedById,
-            EnterpriseRequestWorkflowConstants.BusinessType, submitted.Id.ToString("D"), DateTimeOffset.UtcNow);
-        var terminalContext = new IntegrationEventContext(Guid.CreateVersion7(), WorkflowNotificationIntegrationEventTypes.InstanceCancelled,
-            1, submitted.TenantId, null, DateTimeOffset.UtcNow);
+        var terminalMessage = await connection.QuerySingleAsync<ApprovalOutboxProbe>("""
+            SELECT Id, TenantId, Payload, OccurredAtUtc FROM fn_outbox_message
+            WHERE TenantId = @TenantId AND MessageType = @MessageType
+            """, new { submitted.TenantId, MessageType = WorkflowNotificationIntegrationEventTypes.InstanceCancelled });
+        var serializer = services.GetRequiredService<IIntegrationEventSerializer>();
+        var terminal = serializer.Deserialize<WorkflowInstanceCancelledIntegrationEvent>(terminalMessage.Payload);
+        var terminalContext = new IntegrationEventContext(terminalMessage.Id, WorkflowNotificationIntegrationEventTypes.InstanceCancelled,
+            1, submitted.TenantId, null, terminalMessage.OccurredAtUtc);
         // 外来实例的同业务标识不能回写；合法终态允许在启动回执之前到达。
         await sink.HandleAsync(terminalContext, terminal with { InstanceId = Guid.CreateVersion7() }, ct);
         Assert.AreEqual("Submitted", await Status());
@@ -84,14 +91,47 @@ internal static partial class EnterpriseRequestAssertions
         Assert.AreEqual("Submitted", await Status(), "终态回执失败必须回滚申请状态。");
         Assert.AreEqual(submitted.Version, await connection.ExecuteScalarAsync<long>("SELECT Version FROM demo_enterprise_request_enterprise_request WHERE Id = @Id", new { submitted.Id }));
         Assert.IsNull(await connection.ExecuteScalarAsync<string>("SELECT FinalStatus FROM demo_enterprise_request_approval_submission WHERE Id = @Id", new { submission.Id }));
-        await sink.HandleAsync(terminalContext, terminal, ct);
-        await sink.HandleAsync(terminalContext, terminal, ct);
+        var notification = services.GetServices<IWorkflowInstanceCancelledSink>()
+            .Single(value => value.GetType().Assembly == typeof(NotificationsModule).Assembly);
+        var terminalHandler = new WorkflowInstanceCancelledIntegrationEventHandler(serializer,
+            [new UnavailableNotificationOnceSink(notification), sink]);
+        Assert.IsTrue(tenant.IsHost, "从真实轮询 Worker 的 Host 上下文验证通知投影，不能由夹具预装租户。");
+        // 通知失败仍允许业务终态提交，但投递必须失败，以便同一消息重试通知。
+        await Assert.ThrowsAsync<InvalidOperationException>(() => terminalHandler.HandleAsync(terminalContext, terminalMessage.Payload, ct));
         Assert.AreEqual("Cancelled", await Status());
+        var notificationKey = $"workflow-{terminalMessage.Id:N}";
+        var tenantScopeKey = $"tenant:{submitted.TenantId:N}";
+        Assert.AreEqual(0, await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_notifications_intent WHERE TenantScopeKey = @tenantScopeKey AND ProducerKey = 'workflow' AND IdempotencyKey = @notificationKey", new { tenantScopeKey, notificationKey }));
+        await terminalHandler.HandleAsync(terminalContext, terminalMessage.Payload, ct);
+        await terminalHandler.HandleAsync(terminalContext, terminalMessage.Payload, ct);
+        Assert.IsTrue(tenant.IsHost, "通知和业务接收点必须分别恢复 Worker 的 Host 上下文。");
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_notifications_intent WHERE TenantScopeKey = @tenantScopeKey AND ProducerKey = 'workflow' AND IdempotencyKey = @notificationKey", new { tenantScopeKey, notificationKey }));
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>("""
+            SELECT COUNT(*) FROM fn_notifications_inbox_message m
+            JOIN fn_notifications_intent i ON m.IntentId = i.Id AND m.TenantScopeKey = i.TenantScopeKey
+            WHERE i.TenantScopeKey = @tenantScopeKey AND i.ProducerKey = 'workflow' AND i.IdempotencyKey = @notificationKey
+              AND m.RecipientUserId = @RecipientId AND m.Status = 'unread'
+            """, new { tenantScopeKey, notificationKey, RecipientId = submission.SubmittedById }));
+        var memberDirectory = services.GetRequiredService<ITenantMemberBatchSelectionDirectory>();
+        tenant.SetTenant(new TenantContext(submitted.TenantId, "acme", "Acme"));
+        Assert.HasCount(1, await memberDirectory.FindActiveTenantMembersAsync([submission.SubmittedById, submission.SubmittedById], ct));
+        tenant.SetTenant(new TenantContext(Guid.CreateVersion7(), "other", "Other"));
+        Assert.HasCount(0, await memberDirectory.FindActiveTenantMembersAsync([submission.SubmittedById], ct), "其他租户不能查询已有成员。");
+        tenant.SetTenant(new TenantContext(submitted.TenantId, "acme", "Acme"));
+        // 同一夹具验证成员状态和账号状态，不能因仍有旧角色关系而继续作为收件人。
+        await connection.ExecuteAsync("UPDATE fn_identity_tenant_member SET Status = @Status WHERE TenantId = @TenantId AND UserId = @UserId",
+            new { Status = TenantMemberStatuses.Suspended, submitted.TenantId, UserId = submission.SubmittedById });
+        try { Assert.HasCount(0, await memberDirectory.FindActiveTenantMembersAsync([submission.SubmittedById], ct)); }
+        finally { await connection.ExecuteAsync("UPDATE fn_identity_tenant_member SET Status = @Status WHERE TenantId = @TenantId AND UserId = @UserId", new { Status = TenantMemberStatuses.Active, submitted.TenantId, UserId = submission.SubmittedById }); }
+        await connection.ExecuteAsync("UPDATE fn_identity_user SET IsActive = 0 WHERE Id = @Id", new { Id = submission.SubmittedById });
+        try { Assert.HasCount(0, await memberDirectory.FindActiveTenantMembersAsync([submission.SubmittedById], ct)); }
+        finally { await connection.ExecuteAsync("UPDATE fn_identity_user SET IsActive = 1 WHERE Id = @Id", new { Id = submission.SubmittedById }); }
         var finalized = await ReadProgress(client, token, submitted.Id, ct);
         Assert.AreEqual(EnterpriseRequestApprovalDeliveryState.Finalized, finalized.DeliveryState);
         Assert.AreEqual("Cancelled", finalized.RequestStatus);
         Assert.IsNull(finalized.StartedAtUtc);
         Assert.IsNotNull(finalized.CompletedAtUtc);
+        tenant.SetHost();
         await handler.HandleAsync(context, message.Payload, ct);
         await handler.HandleAsync(context, message.Payload, ct);
         Assert.IsTrue(tenant.IsHost);
@@ -105,6 +145,15 @@ internal static partial class EnterpriseRequestAssertions
 
     private sealed record ApprovalRecoveryProbe(Guid Id, Guid TenantId, Guid RequestId, Guid WorkflowInstanceId, Guid SubmittedById, long RequestVersion);
     private sealed record ApprovalOutboxProbe(Guid Id, Guid TenantId, byte[] Payload, DateTimeOffset OccurredAtUtc);
+    private sealed class UnavailableNotificationOnceSink(IWorkflowInstanceCancelledSink inner) : IWorkflowInstanceCancelledSink
+    {
+        private bool failed;
+        public Task HandleAsync(IntegrationEventContext context, WorkflowInstanceCancelledIntegrationEvent value, CancellationToken ct)
+        {
+            if (!failed) { failed = true; throw new InvalidOperationException("test.notification_unavailable"); }
+            return inner.HandleAsync(context, value, ct);
+        }
+    }
     private sealed class LoseStartReceiptOnceExecutor(ICommandExecutor inner) : ICommandExecutor
     {
         private bool lost;

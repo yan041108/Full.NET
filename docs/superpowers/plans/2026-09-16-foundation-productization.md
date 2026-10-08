@@ -1165,6 +1165,31 @@ OpenAPI 提速实验中，SQL Server 文档可在不可连接地址下运行，M
 
 受影响 Vue 与语言/导航/权限回归 107/107，共享契约 261/261，多语言 8/8，OpenAPI 206/206，生产构建及 AOT 分析通过。最终 `pnpm test:integration:affected -- --snapshot enterprise-detail-client-20261009 --phase slice --reuse-build` 在临时容器模式下通过双库申请 12/12，零失败/跳过，221.974 秒；命名 33/33、治理 59/59。初次首屏包体超预算，复用通用文案字面量后恢复门禁；两语言各 4,410 个旧键/文案保持不变，预算未提高，gzip 的略增如实记录。详细证据与未验证范围见[批次报告](../../verification/2026-10-09-enterprise-detail-client.md)。F09/F10 整体不关闭，明细、附件、通知与完整独立应用验收继续按约定集中推进。
 
+#### 2026-10-09 申请通知与终态隔离批次
+
+基线 `d7ae1a1380fd8c893f902c66af9f321cdb983265`，快照 `enterprise-notifications-20261009`。本批集中完善申请通知、Workflow 终态独立消费和受保护的业务入口，不新增业务表、迁移或 HTTP 契约。F09/F10 整体不关闭，Enterprise 保持 `Build-verified`；历史绑定恢复/对账及完整独立应用链路仍待完成。
+
+Workflow 完成、驳回、取消事件按顺序尝试全部独立 Sink；通知异常不阻断后续业务回写，但最终仍抛出原异常或包含全部失败的聚合异常，让消息进入重试。请求取消立即停止后续消费，最后一个 Sink 返回时也复核取消，不能把取消后的消息确认成功。共用作用域数据库会话不并行使用；各 Sink 继续按同一消息身份幂等。
+
+真实双库夹具暴露通知仍沿用旧角色目录、无法找到规范租户成员的问题。新增加法式 `ITenantMemberBatchSelectionDirectory`，既有单成员接口不变；Identity 内一次查询活动成员及活动 Host 用户，可信租户由执行器绑定，拒绝 Host、其他租户及停用成员/用户。API 与 Worker 最小注册均包含新 Port。后台通知投影按可信 Outbox Envelope 临时安装租户，模板补齐与 Intent 受理退出时恢复原 Host、租户或未解析上下文；不依赖 HTTP 作用域，不改变共享 Outbox 处理器。
+
+待办、实例和抄送页面使用业务类型白名单与精确读取权限进入申请详情；深链接直接读取目标申请，不依赖当前列表是否包含记录。无效/数组标识拒绝，租户切换清空详情，旧结果不能覆盖新请求；无关查询参数变化不能重新打开旧租户链接，关闭详情只消费匹配的 requestId，保留其他参数。审批进度弹窗提供精确 Inbox 权限控制的站内信入口；进度仍仅表示业务提交/回写，不据此声称通知送达或展示 Workflow 当前节点。
+
+可失败验证先复现终态扇出 **12 失败/6 通过**、深链接 **2 失败/25 通过**，只读审查再复现无关查询参数导致旧链接重开的 **1 失败/27 通过**。首轮真实双库 **24/26** 因成员目录返回 `notifications.inbox_recipient_not_found` 失败；修复后扩大关联验证。审查提出 Worker 最小 DI 缺新目录及 Host 投递缺可信租户两个阻断项，已补实现与回归；最终复审无剩余阻断项。
+
+已确认本地证据：
+
+- `node scripts/testing/run-dotnet-test-suite.mjs unit --filter 'FullyQualifiedName~WorkflowTerminalEventFanoutTests|FullyQualifiedName~Full.NET.UnitTests.EnterpriseRequest|FullyQualifiedName~Full.NET.UnitTests.Notifications|FullyQualifiedName~HostUserDirectoryTests|FullyQualifiedName~IdentityModuleRegistrationTests' --minimum-expected-tests 380 --reuse-build`：**380/380**，零失败/跳过，执行 **3.433 秒**，构建零警告/错误。
+- `pnpm --filter @fullnet/admin test src/views/EnterpriseRequestsView.test.ts src/views/enterprise-requests src/api/enterprise-requests.test.ts src/workflow/workflowBusinessDetail.test.ts src/views/WorkflowTodosView.test.ts src/views/WorkflowInstancesView.test.ts src/views/WorkflowCcView.test.ts src/composables/useAuthorizedViewScope.test.ts src/i18n src/navigation/catalog.test.ts src/router/index.auth-guard.test.ts src/router/index.performance.test.ts --maxWorkers=2`：**178/178**；最后深链接修正后原页面 **28/28**，零失败/跳过。初次默认 Vue 全套与编译同时开启 18 个 Worker，出现 UsersView 两项超时，已停止本任务进程；该轮不计通过，UsersView 单独 **25/25**。相关集中回归使用两个 Worker，未提高超时或降低断言。
+- `pnpm --filter @fullnet/admin build` 类型检查及生产构建通过；`pnpm test:bundle-budgets` 首屏 minified **1,429,021 B** / gzip **384,105 B**，Chart/VForm3 门禁通过，预算未提高。
+- `node --test tests/localization-contract.test.mjs tests/governance/*.test.mjs` **66/66**；命名/UUID/SQL 结构 **33/33**；`node --test tests/sql/*.test.mjs` SQL 安全 **5/5**，零失败/跳过。
+
+`FULLNET_TESTCONTAINERS_REUSE=0 node .tmp/enterprise-notifications-integration-final.mjs`：最终集中双库 **28/28**，零失败/跳过，执行 **473.317 秒**。申请 **12**、Workflow API **14**、Notifications API **2**；真实取消 Outbox 消息首次通知失败时业务终态提交，重放两次只形成一个 Intent/Inbox，投递从 Host 发起并恢复 Host，原提交版本只推进一次。原申请夹具复用成员查询、跨租户不可见、成员停用与账号停用断言；Notifications API 覆盖现有公告、收件箱、模板/Intent 与 Worker 管道。Windows 本地 Docker、SQL Server 2022 CU14/MySQL 8.0，临时容器模式，TRX 全部项目为 passed，未执行及不确定计数均零。自动影响集因共享 Identity 目录扩展到约 89 分钟的宽范围；本批按开发质量 §11.1 聚焦直接调用链，使用官方资源锁、构建指纹、双 Provider 发现核对及 TRX 入口，不创建额外数据库夹具。宽范围身份模块回归未执行，不报告其通过。
+
+最终 `node .tmp/enterprise-notifications-aot.mjs` 顺序执行 API/Worker 分析，两者通过、零警告/错误；默认 JIT 还原图和 Worker 强制重建均成功（35.57 秒），不等于原生运行。随后 `node scripts/testing/run-dotnet-test-suite.mjs architecture --reuse-build` 完整运行 **231 通过/1 失败**，141.418 秒；唯一失败为新增通知投影及租户作用域未登记精确上下文写入边界。复审确认全部调用仅来自可信 `IntegrationEventContext.TenantId`，无普通 HTTP 入口；只在精确文件目录中加入这两个路径及中文理由，保留全量扫描相等断言。生产代码未再变化，`node scripts/testing/run-dotnet-test-suite.mjs architecture --reuse-build --filter FullyQualifiedName~TenantContextMutationBoundaryTests --minimum-expected-tests 2` **2/2**、零失败/跳过，420 毫秒，构建零警告/错误；复用同一生产源码已通过的其余 231 项，不报告完整重跑 232 项。文档同步后治理/本地化 **66/66**。
+
+证据保留 `.tmp/enterprise-notifications-*` 与 `.tmp/enterprise-deeplink-review-*`。成员/Worker 扩展前完整 Unit **5905 通过/1 Linux FIFO 跳过**，不替代最终源码的关联 380 项；不声称最终全量 .NET 通过。完整独立应用与浏览器按约定在申请模块批次结束后集中执行；本批未执行完整 Linux 业务 Native 或容量实测，`Capacity-not-verified` 保持。合并与发布另行约定。
+
 ### F11：导入、报表与打印接入样板
 
 **依赖：** F09、C02/C05。**提供：** 现有三个模块的受控业务接入范例。

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElButton, ElDialog } from 'element-plus';
 import { isFullNetProblemDetails, type FullNetProblemDetails } from '@fullnet/client-contracts';
 import { createEnterpriseRequestsApi, enterpriseRequestsHttp, enterpriseRequestPermissions,
@@ -11,12 +12,14 @@ import { useAdminI18n } from '../../i18n/adminI18n';
 const props = defineProps<{ requestId: string }>();
 const emit = defineEmits<{ close: [] }>();
 const session = useSessionStore();
+const router = useRouter();
 const { t, locale } = useAdminI18n();
 const api = createEnterpriseRequestsApi(enterpriseRequestsHttp);
 const progress = ref<EnterpriseRequestApprovalProgressResponse>();
 const problem = ref<FullNetProblemDetails>();
 const loading = ref(false);
 const canRead = computed(() => session.can(enterpriseRequestPermissions.read));
+const canOpenInbox = computed(() => canRead.value && session.can('notifications.inbox.read') && !!progress.value);
 let currentRequest: ReturnType<typeof scope.begin>;
 const scope = useAuthorizedViewScope(session, reset, load);
 
@@ -51,6 +54,11 @@ function close(): void {
   // 关闭同步清空敏感快照并取消当前请求，避免弹窗动画期间接入迟到内容。
   scope.invalidate(); emit('close');
 }
+function openInbox(): void {
+  if (!canOpenInbox.value) return;
+  close();
+  void router.push({ name: 'inbox-messages' });
+}
 const stateLabel = computed(() => progress.value ? t(`enterpriseRequests.progress.${progress.value.deliveryState}`) : '');
 function time(value: string | null | undefined): string {
   return value ? new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(value)) : '—';
@@ -81,6 +89,7 @@ function time(value: string | null | undefined): string {
       </template>
     </div>
     <template #footer>
+      <el-button v-if="canOpenInbox" @click="openInbox">{{ t('enterpriseRequests.openInbox') }}</el-button>
       <el-button v-if="canRead" :loading="loading" @click="load">{{ t('common.refresh') }}</el-button>
       <el-button @click="close">{{ t('common.cancel') }}</el-button>
     </template>

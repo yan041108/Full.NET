@@ -244,6 +244,10 @@ public sealed class IdentityModuleRegistrationTests
         Assert.IsTrue(services.Any(descriptor =>
             descriptor.ServiceType == typeof(ITenantUserSelectionDirectory)
             && descriptor.Lifetime == ServiceLifetime.Scoped));
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(ITenantMemberBatchSelectionDirectory)
+            && descriptor.ImplementationType == typeof(TenantMemberSelectionDirectory)
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
     }
 
     [TestMethod]
@@ -603,6 +607,7 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<
             ITenantMemberSelectionDirectory,
             TenantMemberSelectionDirectory>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<ITenantMemberBatchSelectionDirectory, TenantMemberSelectionDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<ITenantActiveMemberCountPort, TenantActiveMemberCountPort>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostTenantUserSelectionDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Factory<IHostTenantUserSelectionDirectory>(

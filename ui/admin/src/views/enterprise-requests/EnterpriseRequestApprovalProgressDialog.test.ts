@@ -9,6 +9,8 @@ vi.mock('../../api/enterprise-requests', async original => ({
   ...await original<typeof import('../../api/enterprise-requests')>(), enterpriseRequestsHttp: { request: vi.fn() }
 }));
 const request = vi.mocked(enterpriseRequestsHttp.request);
+const push = vi.fn();
+vi.mock('vue-router', () => ({ useRouter: () => ({ push }) }));
 const instanceId = '019bc2b1-2a40-7cc3-8992-a80de51bf330';
 const response = { requestId: outputId, requestStatus: 'Submitted', requestVersion: '2', deliveryState: 'queued',
   workflowDefinitionVersionId: instanceId, workflowInstanceId: instanceId, submittedVersion: '2',
@@ -26,7 +28,24 @@ async function click(wrapper: ReturnType<typeof mount>, text: string) {
 }
 
 describe('审批进度弹窗的读取与生命周期', () => {
-  beforeEach(() => { useAdminI18n().setLocale('zh-CN'); request.mockReset(); request.mockResolvedValue(response); });
+  beforeEach(() => { push.mockReset(); useAdminI18n().setLocale('zh-CN'); request.mockReset(); request.mockResolvedValue(response); });
+  it('通知入口需要独立收件箱权限，导航只使用白名单路由', async () => {
+    const f = fixture([permission, 'notifications.inbox.read']);
+    try {
+      await flushPromises(); await click(f.wrapper, '查看站内信');
+      expect(push).toHaveBeenCalledWith({ name: 'inbox-messages' });
+      expect(f.wrapper.emitted('close')).toHaveLength(1);
+      expect(f.wrapper.text()).not.toContain(instanceId);
+    } finally { f.wrapper.unmount(); }
+  });
+  it('撤销收件箱权限立即隐藏通知入口', async () => {
+    const f = fixture([permission, 'notifications.inbox.read']);
+    try {
+      await flushPromises(); expect(f.wrapper.findAll('button').some(button => button.text() === '查看站内信')).toBe(true);
+      f.session.currentUser = { ...f.session.currentUser!, permissions: [permission] };
+      await flushPromises(); expect(f.wrapper.findAll('button').some(button => button.text() === '查看站内信')).toBe(false); expect(push).not.toHaveBeenCalled();
+    } finally { f.wrapper.unmount(); }
+  });
   it.each([
     ['not_submitted', '尚未提交审批'], ['queued', '等待流程启动回执'], ['started', '流程已启动，等待审批结果回写'],
     ['finalized', '审批结果已回写'], ['recovery_required', '需要恢复历史流程绑定']
