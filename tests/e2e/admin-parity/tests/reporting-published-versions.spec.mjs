@@ -30,7 +30,9 @@ test('浏览器选择旧版本，拒绝错版查询，再切新版清空旧结�
 });
 test('浏览器创建指定旧版导出，错任务不关弹窗，下载定位当前任务',async({page})=>{
  await boot(page,'reporting-export-tasks','/reporting/export-tasks','reporting.export_tasks.read');let mismatch=true;let created=false;const versions=[];
- await page.route('**/api/v1/reporting/export-tasks?*',route=>json(route,{items:created?[task]:[],page:1,pageSize:20,total:created?1:0}));
+ // 真实页面已有历史任务，新任务插入首行后下载控件仍须对应当前行。
+ const oldTask={...task,id:other};
+ await page.route('**/api/v1/reporting/export-tasks?*',route=>json(route,{items:created?[task,oldTask]:[oldTask],page:1,pageSize:20,total:created?2:1}));
  await page.route('**/api/v1/reporting/export-tasks',route=>{
   const body=route.request().postDataJSON();expect(body.definitionId).toBe(id);expect(body.formatKey).toBe('excel');versions.push(body.versionNumber);
   created=!mismatch;return json(route,{...task,definitionId:mismatch?other:id},201);
