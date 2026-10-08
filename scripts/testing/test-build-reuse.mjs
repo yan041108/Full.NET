@@ -13,7 +13,11 @@ async function inputs(cwd) {
     cwd, maxBuffer: 32 * 1024 * 1024
   });
   // 保守覆盖全部非文档仓库输入；未跟踪的新源码和删除也参与摘要，不能只检查 HEAD。
-  const files = [...new Set(stdout.split('\0').filter(Boolean))].filter(file =>
+  const listed = stdout.split('\0').filter(Boolean);
+  // SDK 会隐式加载项目旁的 .user，Git 的 *.user 忽略规则不能使其绕过构建校验。
+  // 缺失也登记为输入状态，因此新增、删除和被引用项目的配置变化都能失效。
+  const implicitInputs = listed.filter(file => /\.[a-z]*proj$/iu.test(file)).map(file => `${file}.user`);
+  const files = [...new Set([...listed, ...implicitInputs])].filter(file =>
     !/^(?:docs|rules|\.tmp|\.cache)\//u.test(file)
       && !(file.endsWith('.md') && !file.includes('/'))
   ).sort();
@@ -44,7 +48,11 @@ async function outputs(directory) {
 /** 只复用由本入口成功构建且输入/产物仍一致的记录；verify 模式不自动补构建。 */
 export async function prepareTestBuild({ cwd, project, assembly, args, build, mode = 'reuse', sdkVersion }) {
   if (!['reuse', 'verify', 'fresh'].includes(mode)) throw new Error('未知构建复用模式。');
-  const env = testRunEnvironment();
+  // pnpm 将测试筛选与缓存模式放入此元数据；从实际构建环境和指纹同时移除。
+  // 保留其他 MSBuild 环境属性，且不修改调用进程或测试进程的环境。
+  const env = Object.fromEntries(Object.entries(testRunEnvironment()).filter(([name]) =>
+    name.toLowerCase() !== 'npm_lifecycle_script'
+  ));
   sdkVersion ??= (await exec('dotnet', ['--version'], { cwd, env })).stdout.trim();
   // MSBuild 可以读取任意合法环境属性；只排除每轮隔离的临时目录，不维护易漏项的前缀清单。
   // 环境值仅参与摘要，不写入记录，避免保存凭据。
@@ -70,7 +78,7 @@ export async function prepareTestBuild({ cwd, project, assembly, args, build, mo
   }
   if (mode === 'verify') throw new Error('构建输入或产物已改变/缺少有效记录；先执行 --reuse-build 或正常构建入口。');
   try { await unlink(recordPath); } catch (error) { if (error.code !== 'ENOENT') throw error; }
-  await build();
+  await build(env);
   if (await inputs(cwd) !== source) throw new Error('构建期间源码发生变化，不能登记或运行该产物。');
   await readFile(path.join(cwd, assembly));
   output = await outputs(path.dirname(path.join(cwd, assembly)));

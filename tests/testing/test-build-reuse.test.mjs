@@ -114,3 +114,40 @@ test('自定义 MSBuild 环境属性变化必须失效，失败重建不能留�
     else process.env.FullNetAotAnalysis = before;
   }
 });
+
+test('Git 忽略的项目 user 文件新增、修改和删除均使构建失效', async t => {
+  const f = await fixture(t);
+  await writeFile(path.join(f.cwd, '.gitignore'), 'bin/\n.tmp/\n*.user\n');
+  await f.run();
+  const user = path.join(f.cwd, 'test.csproj.user');
+  for (const constants of ['FIRST', 'SECOND']) {
+    await writeFile(user, `<Project><PropertyGroup><DefineConstants>${constants}</DefineConstants></PropertyGroup></Project>`);
+    await assert.rejects(f.run({ mode: 'verify' }), /构建|输入/);
+    assert.equal((await f.run()).reused, false);
+  }
+  await rm(user);
+  await assert.rejects(f.run({ mode: 'verify' }), /构建|输入/);
+  assert.equal((await f.run()).reused, false);
+});
+
+test('pnpm 测试选择及缓存模式不改变构建环境，真实 MSBuild 属性仍参与校验', async t => {
+  const f = await fixture(t);
+  const before = process.env.npm_lifecycle_script;
+  try {
+    process.env.npm_lifecycle_script = 'node run.mjs --reuse-build --selection first';
+    await f.run({ build: async env => {
+      assert.ok(env);
+      assert.equal(env?.npm_lifecycle_script, undefined);
+      assert.ok(process.env.npm_lifecycle_script);
+      await f.options.build();
+    } });
+    process.env.npm_lifecycle_script = 'node run.mjs --reuse-build --selection second';
+    assert.equal((await f.run()).reused, true);
+    process.env.npm_lifecycle_script = 'node run.mjs --no-build --selection second';
+    assert.equal((await f.run({ mode: 'verify' })).reused, true);
+    assert.equal(f.builds(), 1);
+  } finally {
+    if (before === undefined) delete process.env.npm_lifecycle_script;
+    else process.env.npm_lifecycle_script = before;
+  }
+});

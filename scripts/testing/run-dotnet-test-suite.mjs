@@ -172,11 +172,11 @@ export function commandsForSuite(suiteName, suiteOptions = {}) {
   return commands;
 }
 
-function runProcess(command, args) {
+function runProcess(command, args, env = testRunEnvironment()) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: repositoryRoot,
-      env: testRunEnvironment(),
+      env,
       stdio: 'inherit',
       shell: false
     });
@@ -206,7 +206,7 @@ async function run(args) {
       const result = await prepareTestBuild({
         cwd: repositoryRoot, project: suite.project, assembly: suite.assembly, args: entry.args,
         mode: suiteOptions.reuseBuild ? 'reuse' : 'fresh',
-        build: () => runProcess(entry.command, entry.args)
+        build: env => runProcess(entry.command, entry.args, env)
       });
       process.stdout.write(result.reused ? '构建输入和产物一致，复用 Release。\n' : '已登记本次 Release 构建。\n');
     }

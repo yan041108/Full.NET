@@ -8,6 +8,7 @@ on:
 
 jobs:
   client-build-test:
+    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -125,7 +126,7 @@ jobs:
 
   template-created-app-real-stack:
     # 模块/约定批次完成后显式标记集中验收；main 继续执行完整生成应用回归。
-    if: (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'fullnet:acceptance')) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'fullnet:acceptance') && (github.event.action != 'labeled' || github.event.label.name == 'fullnet:acceptance')) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -163,7 +164,7 @@ jobs:
           if-no-files-found: warn
 
   foundation-sample-e2e:
-    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'fullnet:acceptance')
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'fullnet:acceptance') && (github.event.action != 'labeled' || github.event.label.name == 'fullnet:acceptance')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -333,6 +334,7 @@ jobs:
           if-no-files-found: warn
 
   build-and-module-test:
+    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     # PR 按差异验证模块和 Smoke；迁移恢复由独立分组并行执行。
     timeout-minutes: 120
@@ -408,7 +410,7 @@ jobs:
           if-no-files-found: warn
 
   affected-migration-recovery:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.action != 'labeled'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -446,7 +448,7 @@ jobs:
 
   build-test:
     needs: [build-and-module-test, affected-migration-recovery]
-    if: always()
+    if: always() && github.event.action != 'labeled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

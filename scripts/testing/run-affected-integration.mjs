@@ -1093,11 +1093,11 @@ export function argumentsForFocused(target, discoveredCount) {
   ];
 }
 
-function runProcess(command, args, cwd) {
+function runProcess(command, args, cwd, env = testRunEnvironment()) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
-      env: testRunEnvironment(),
+      env,
       stdio: 'inherit',
       shell: false
     });
@@ -1260,7 +1260,7 @@ async function runCli(args, cwd = process.cwd()) {
   const buildResult = await prepareTestBuild({
     cwd, project: buildArgs[1], assembly, args: buildArgs,
     mode: noBuild ? 'verify' : reuseBuild ? 'reuse' : 'fresh',
-    build: () => runProcess('dotnet', buildArgs, cwd)
+    build: env => runProcess('dotnet', buildArgs, cwd, env)
   });
   process.stdout.write(buildResult.reused ? '构建输入和产物一致，复用 Integration Release。\n' : '已登记 Integration Release 构建。\n');
 

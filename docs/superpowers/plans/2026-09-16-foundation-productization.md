@@ -1877,3 +1877,10 @@ Host新增三场景先RED2失败/1通过，实现后含原场景14/14；测试�
 
 - 已将共享规则、工具和适用测试精准同步到 `G:/wwwroot/github_fork/Full.NET`，快照 `testing-optimization-shared-20261008`，作为未提交覆盖保留；保护其既有修改，不移植开发分支业务代码或 main 不存在的 Enterprise 验收文件。其他对话下次读取规则即可使用，已运行对话的上下文不会强制刷新。
 - 计时仅代表 Windows 本机该 43 项场景，不能外推全套提速比例。并行任务的应用目录清理改动不纳入本批提交；能力状态不变。本批未重跑真实独立应用、完整双库或 Native AOT，未合并、未发布。
+### 2026-10-08 测试优化审查修复
+
+- 基线 `68b34203b10bfd5d1af5e790ee5282c77e5edd26`，快照 `testing-optimization-review-fixes-20261008`。三项审查发现集中修复：将已枚举项目旁 SDK 隐式 `.user` 配置的缺失/新增/修改/删除纳入指纹；从实际构建环境和指纹同时去掉 pnpm 的 `npm_lifecycle_script`，两个入口均传递规范化环境，其他 MSBuild 属性继续参与校验；CI 标签事件仅在本次新增 `fullnet:acceptance` 时运行集中验收，普通作业排除标签事件，常规 PR/main 范围保留。
+- 新增三项回归先失败（9 通过/3 失败），修复后 12/12。核心证据 `.tmp/testing-review-fixes-red.log`、`.tmp/testing-review-fixes-green.log`。真实 pnpm + 最小 .NET 项目验证：首次构建输出 BASELINE，变更 selection 后及改用 `--no-build` 均 reused=true；新增定义 LOCAL_USER 的 `.csproj.user` 后 verify 拒绝，重建 reused=false 且程序输出 LOCAL_USER。证据 `.tmp/testing-review-real-first.log`、`-selection.log`、`-verify.log`、`-stale.log`、`-rebuilt.log`；初次实验脚本 import 路径错误已修正，不能计通过。
+- 实际项目连续执行 `pnpm test:dotnet:unit -- --reuse-build --filter FullyQualifiedName~CrudArtifactGeneratorTests --minimum-expected-tests 43` 和将筛选换为 `FullyQualifiedName~CrudArtifactGenerator` 的命令，两轮各 43/43、零失败/跳过。首次 Release 构建零警告/错误；第二轮明确复用 Release。证据 `.tmp/testing-review-unit-first.log`、`.tmp/testing-review-unit-selection.log`；其后只修正 Node 并发测试时序，不冒充最终提交的全套 .NET 重跑。
+- 主工作区工具验证暴露旧并发测试抢锁顺序假设：合法结果 second/first/release 被误判失败。测试现先等首个任务取得锁，再启动竞争者，保留串行和失败释放断言。最终主工作区 `pnpm test:integration:tooling` 73/73、`pnpm test:governance` 59/59；开发工作区 `pnpm test:integration:affected -- --snapshot testing-optimization-review-fixes-20261008 --phase slice` 仅选 integration-tooling，98/98；治理 59/59。工具集包含同时存在的其他任务测试，其代码不纳入本次提交。证据 `.tmp/testing-review-shared-tooling-final.log`、`.tmp/testing-review-shared-governance.log`、`.tmp/testing-review-affected-final.log`、`.tmp/testing-review-governance.log`。
+- 三项修复只读复审无剩余 Important；共享工作区以快照 `testing-optimization-review-shared-20261008` 精准同步规则、工具及对应测试，保留其他任务修改。本批不运行完整独立应用、双库或 Native AOT 验收，不扩张能力状态；未合并、未发布。

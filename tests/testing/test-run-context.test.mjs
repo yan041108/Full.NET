@@ -28,12 +28,17 @@ test('共享重型锁跨工作区串行且失败后释放', async t => {
   const { withTestRun } = await import('../../scripts/testing/test-run-context.mjs');
   const events = [];
   const lockRoot = path.join(root, 'locks');
+  let acquired;
+  const ready = new Promise(resolve => { acquired = resolve; });
   const first = withTestRun({ cwd: path.join(root, 'one'), heavy: true, lockRoot }, async () => {
     events.push('first');
+    acquired();
     await new Promise(resolve => setTimeout(resolve, 80));
     events.push('release');
     throw new Error('expected failure');
   });
+  // 锁不承诺申请顺序；确认首个任务持有资源后，再验证竞争者等待释放。
+  await ready;
   const second = withTestRun({ cwd: path.join(root, 'two'), heavy: true, lockRoot }, async () => {
     events.push('second');
   });
