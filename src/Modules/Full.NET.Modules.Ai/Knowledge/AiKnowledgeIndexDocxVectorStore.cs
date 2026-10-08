@@ -31,7 +31,7 @@ internal sealed class AiKnowledgeIndexDocxVectorStore(IQueryExecutor query, ICom
         var state = await CurrentAsync(binding, taskId, leaseToken, null, token).ConfigureAwait(false);
         if (state is null) return null;
         // CurrentAsync 已冻结原字节并验证完整清单；调用方不能缩减期望集合。
-        var manifest = AiKnowledgeIndexDocxManifestCodec.Decode(state.Manifest.Payload, token);
+        var manifest = state.Verified.Plan;
         var before = await ReadReceiptsAsync(binding, state, manifest.Batches.Count, token).ConfigureAwait(false);
         if (before is null || before.Count != manifest.Batches.Count) return null;
         var operations = new HashSet<Guid>();
@@ -85,7 +85,7 @@ internal sealed class AiKnowledgeIndexDocxVectorStore(IQueryExecutor query, ICom
         var state = await CurrentAsync(binding, taskId, leaseToken, null, token).ConfigureAwait(false);
         if (state is null) return false;
         AiKnowledgeIndexDocxVectorSnapshot frozen;
-        try { frozen = AiKnowledgeIndexDocxVectorCodec.ReadBatch(state.Manifest.Payload, ordinal, bytes, token); }
+        try { frozen = AiKnowledgeIndexDocxVectorCodec.ReadBatch(state.Verified, ordinal, bytes, token); }
         catch (InvalidDataException) { return false; }
         var p = Parameters(binding, state, ordinal, token);
         p["OperationId"] = operationId; p["InputCount"] = frozen.Payload.Chunks.Count;
@@ -137,7 +137,7 @@ internal sealed class AiKnowledgeIndexDocxVectorStore(IQueryExecutor query, ICom
             Parameters(binding, state, ordinal, token), ct), token).ConfigureAwait(false), state, ordinal, token);
         if (row is null) return null;
         AiKnowledgeIndexDocxVectorSnapshot snapshot;
-        try { snapshot = AiKnowledgeIndexDocxVectorCodec.ReadBatch(state.Manifest.Payload, ordinal, row.Payload, token); }
+        try { snapshot = AiKnowledgeIndexDocxVectorCodec.ReadBatch(state.Verified, ordinal, row.Payload, token); }
         catch (InvalidDataException) { return null; }
         if (snapshot.Payload.Dimensions != row.Dimensions || snapshot.Payload.Chunks.Count != row.InputCount
             || row.RequestHash != Fingerprint(row.Id, state.Model, snapshot.Payload)) return null;
@@ -182,13 +182,15 @@ internal sealed class AiKnowledgeIndexDocxVectorStore(IQueryExecutor query, ICom
         row = row with { Payload = row.Payload.ToArray() };
         if (row.PayloadHash != Convert.ToHexString(SHA256.HashData(row.Payload))
             || (expected is not null && row.PayloadHash != expected.Manifest.PayloadHash)) return null;
-        AiKnowledgeIndexDocxPlan manifest;
-        try { manifest = AiKnowledgeIndexDocxManifestCodec.Decode(row.Payload, token); }
+        AiKnowledgeIndexDocxVerifiedManifest verified;
+        // 每次都冻结并复算当前原字节 SHA；只有同一次操作中相同字节的完整计划才可复用。
+        try { verified = expected?.Verified ?? AiKnowledgeIndexDocxVerifiedManifest.Capture(row.Payload, token); }
         catch (InvalidDataException) { return null; }
+        var manifest = verified.Plan;
         if (!Matches(manifest.Source, binding, authority)) return null;
         var final = await AuthorityAsync(binding, taskId, leaseToken, authority.Source, authority.Session, token).ConfigureAwait(false);
         return final is not null && Matches(manifest.Source, binding, final)
-            && (expected is null || SameModel(expected, final.Model)) ? new(final.Source, final.Session, final.Model, row) : null;
+            && (expected is null || SameModel(expected, final.Model)) ? new(final.Source, final.Session, final.Model, row, verified) : null;
     }
 
     // 同主键/版本不能掩盖目的地或调用选项变化，证明全过程冻结批准模型的完整请求绑定。
@@ -277,6 +279,6 @@ internal sealed class AiKnowledgeIndexDocxVectorStore(IQueryExecutor query, ICom
         : (tasks.IsTenant ? AiKnowledgeIndexDocxVectorSql.ReceiptsDocxSqlServerTenant : AiKnowledgeIndexDocxVectorSql.ReceiptsDocxSqlServerHost);
     private sealed record Authority(AiKnowledgeIndexDispatchRecord Source, SessionBindingSnapshot Session, AiModelConfigRecord Model);
     private sealed record State(AiKnowledgeIndexDispatchRecord Source, SessionBindingSnapshot Session, AiModelConfigRecord Model,
-        AiKnowledgeIndexTextManifestRecord Manifest);
+        AiKnowledgeIndexTextManifestRecord Manifest, AiKnowledgeIndexDocxVerifiedManifest Verified);
     private sealed class LeaseExpiredDuringWriteException : Exception;
 }

@@ -14,7 +14,8 @@ public sealed class AiDependencyBoundaryTests
             "AiKnowledgeIndexDocxManifestCodec.cs", "AiKnowledgeIndexDocxVectorCodec.cs", "AiKnowledgeIndexDocxManifestStore.cs", "AiKnowledgeIndexDocxVectorStore.cs",
             "AiKnowledgeIndexDocxManifestSql.cs", "AiKnowledgeIndexDocxVectorSql.cs",
             "AiKnowledgeDocxSandboxParser.cs", "AiKnowledgeIndexDocxPlanningService.cs",
-            "AiKnowledgeIndexDocxEmbeddingService.cs", "AiKnowledgeIndexDocxPersistenceService.cs" };
+            "AiKnowledgeIndexDocxEmbeddingService.cs", "AiKnowledgeIndexDocxPersistenceService.cs", "AiKnowledgeIndexDocxActivationStore.cs",
+            "AiKnowledgeIndexDocxActivationSql.cs", "AiKnowledgeIndexDocxVerifiedManifest.cs" };
         foreach (var source in Directory.GetFiles(Path.Combine(Root(), "src"), "*.cs", SearchOption.AllDirectories)
             .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "obj" or "bin")))
         {

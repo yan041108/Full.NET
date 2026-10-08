@@ -181,11 +181,11 @@ public sealed partial class AiKnowledgeIndexDocxVectorStoreTests
         internal Exception? Failure = null;
         internal Action? AfterModel = null, AfterManifest = null, AfterRead = null, AfterWrite = null, AfterCommit = null;
 
-        internal Fixture(bool scoped, bool large = false, int ordinal = 0)
+        internal Fixture(bool scoped, bool large = false, int ordinal = 0, int blockCount = 17)
         {
             Ordinal = ordinal; var tenant = new CurrentTenantAccessor(); Guid? tenantId = scoped ? Guid.CreateVersion7() : null;
             if (tenantId is { } id) tenant.SetTenant(new TenantContext(id, "test", "测试")); else tenant.SetHost();
-            Input = AiKnowledgeIndexDocxCodecTests.Plan(17).Source with { KnowledgeBaseId = Binding.KnowledgeBaseId, KnowledgeBaseVersion = 1,
+            Input = AiKnowledgeIndexDocxCodecTests.Plan(blockCount).Source with { KnowledgeBaseId = Binding.KnowledgeBaseId, KnowledgeBaseVersion = 1,
                 ModelConfigVersion = 1, TenantId = tenantId, ModelId = large ? "text-embedding-3-large" : "text-embedding-3-small" };
             Plan = AiKnowledgeIndexDocxPlan.Create(Input, default)!; Clock.UtcNow.Returns(Now);
             Source = NewSource(); Model = new() { Id = Input.ModelConfigId, Version = 1, IsEnabled = true, TenantId = tenantId,

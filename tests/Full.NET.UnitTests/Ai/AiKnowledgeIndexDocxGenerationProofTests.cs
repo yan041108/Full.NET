@@ -115,10 +115,10 @@ public sealed partial class AiKnowledgeIndexDocxVectorStoreTests
         f.State.HasTransaction.Returns(true); await Assert.ThrowsAsync<InvalidOperationException>(() => Proof(f));
     }
 
-    private static Fixture Whole(bool tenant, bool large = false)
+    private static Fixture Whole(bool tenant, bool large = false, int blockCount = 17)
     {
-        var f = new Fixture(tenant, large); f.Rows = new();
-        for (var ordinal = 0; ordinal < 2; ordinal++)
+        var f = new Fixture(tenant, large, blockCount: blockCount); f.Rows = new();
+        for (var ordinal = 0; ordinal < f.Plan.Batches.Count; ordinal++)
         {
             f.Ordinal = ordinal; f.Operation = Guid.CreateVersion7();
             f.Vectors = f.Plan.Batches[ordinal].Chunks.Select(_ => { var v = new float[large ? 3072 : 1536]; v[0] = 1; return new ReadOnlyMemory<float>(v); }).ToArray();

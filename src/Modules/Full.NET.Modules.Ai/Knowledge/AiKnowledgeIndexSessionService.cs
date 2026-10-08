@@ -65,20 +65,29 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
     }
 
     /// <summary>整代次消费者的阶段门禁；续租只绑定原会话，授权不进入事务。</summary>
-    internal async Task<bool> RenewHeldAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, SessionBindingSnapshot original, CancellationToken token)
+    internal Task<bool> RenewHeldAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, SessionBindingSnapshot original, CancellationToken token) =>
+        RenewHeldCoreAsync(binding, taskId, leaseToken, original, false, token);
+
+    /// <summary>纯读取有界，临界续租命令直接等待提交；取消不得遗留后台写入。</summary>
+    internal Task<bool> RenewHeldWithBoundedReadsAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, SessionBindingSnapshot original, CancellationToken token) =>
+        RenewHeldCoreAsync(binding, taskId, leaseToken, original, true, token);
+
+    private async Task<bool> RenewHeldCoreAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, SessionBindingSnapshot original, bool boundedReads, CancellationToken token)
     {
         NoTransaction(); ArgumentNullException.ThrowIfNull(original);
-        if (await ReadHeldAsync(binding, taskId, leaseToken, token).ConfigureAwait(false) != original
-            || !await AuthorizedAsync(binding, original, token).ConfigureAwait(false)) return false;
-        var source = await tasks.ReadDispatchAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
+        Task<T> ReadAsync<T>(Func<CancellationToken, Task<T>> action) => boundedReads
+            ? AiKnowledgeIndexPdfAuthorityBoundary.RunAsync(action, token) : action(token);
+        if (await ReadAsync(ct => ReadHeldAsync(binding, taskId, leaseToken, ct)).ConfigureAwait(false) != original
+            || !await ReadAsync(ct => AuthorizedAsync(binding, original, ct)).ConfigureAwait(false)) return false;
+        var source = await ReadAsync(ct => tasks.ReadDispatchAsync(binding, taskId, leaseToken, ct)).ConfigureAwait(false);
         if (source is null) return false;
         // 每个派发阶段最多 25 秒；充足租约不重复写入，临界租约必须先成功续租。
         if (source.LeaseExpiresAtUtc <= clock.UtcNow.AddSeconds(25)
             && !await tasks.RenewAsync(binding, taskId, leaseToken, token).ConfigureAwait(false)) return false;
         token.ThrowIfCancellationRequested(); NoTransaction();
-        if (await ReadHeldAsync(binding, taskId, leaseToken, token).ConfigureAwait(false) != original
-            || !await AuthorizedAsync(binding, original, token).ConfigureAwait(false)) return false;
-        var current = await tasks.ReadDispatchAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
+        if (await ReadAsync(ct => ReadHeldAsync(binding, taskId, leaseToken, ct)).ConfigureAwait(false) != original
+            || !await ReadAsync(ct => AuthorizedAsync(binding, original, ct)).ConfigureAwait(false)) return false;
+        var current = await ReadAsync(ct => tasks.ReadDispatchAsync(binding, taskId, leaseToken, ct)).ConfigureAwait(false);
         token.ThrowIfCancellationRequested(); NoTransaction();
         // 等待期间会话、来源和剩余时间都可能变化；续租成功不是下一阶段的永久授权。
         return current is not null && AiKnowledgeIndexEmbeddingService.SameSource(source, current)

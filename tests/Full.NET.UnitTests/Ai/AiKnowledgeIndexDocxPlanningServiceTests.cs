@@ -607,7 +607,7 @@ public sealed partial class AiKnowledgeIndexDocxPlanningServiceTests
         internal Func<CancellationToken, Task>? BeforeModelAsync, BeforeAuthorizeAsync, BeforeReferenceAsync;
         internal TaskCompletionSource<Result<HostFileContent>>? OpenGate;
 
-        internal Fixture(bool scoped, bool hold = false, bool malformed = false, int workTimeout = 25000)
+        internal Fixture(bool scoped, bool hold = false, bool malformed = false, int workTimeout = 25000, int blockCount = 2)
         {
             Factory = new(Generator);
             TenantId = scoped ? Guid.CreateVersion7() : null; var tenant = Tenant;
@@ -661,7 +661,7 @@ public sealed partial class AiKnowledgeIndexDocxPlanningServiceTests
             var node = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator).Select(p => Path.GetFullPath(Path.Combine(p, executable))).FirstOrDefault(File.Exists);
             Assert.IsNotNull(node, "测试依赖真实 Node 子进程，不允许跳过");
             var script = Path.Combine(Folder, "cli.mjs");
-            File.WriteAllText(script, Script.Replace("HOLD", hold ? "true" : "false", StringComparison.Ordinal).Replace("MALFORMED", malformed ? "true" : "false", StringComparison.Ordinal), new UTF8Encoding(false));
+            File.WriteAllText(script, Script.Replace("HOLD", hold ? "true" : "false", StringComparison.Ordinal).Replace("MALFORMED", malformed ? "true" : "false", StringComparison.Ordinal).Replace("BLOCK_COUNT", blockCount.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal), new UTF8Encoding(false));
             Service = new(Query, tenant, State, tasks, sessions, auth, references, host, files,
                 new(node, script, "sha256:" + new string('a', 64), 10000), workTimeout);
         }
@@ -729,8 +729,10 @@ public sealed partial class AiKnowledgeIndexDocxPlanningServiceTests
               count += bytes.length; if (count !== Number(value('--size-bytes'))) return;
               writeFileSync(path.join(folder, 'started'), '1');
               const publish = () => {
+                let offset = 0; const blocks = Array.from({length:BLOCK_COUNT}, (_, sequence) => { const block = {sequence,kind:'paragraph',offset,length:18,paragraphNumber:sequence+1,tableNumber:null,rowNumber:null,cellNumber:null,cellParagraphCount:0,isHeader:false}; offset += 19; return block; });
+                if (BLOCK_COUNT === 2) { blocks[1] = {sequence:1,kind:'tableCell',offset:19,length:18,paragraphNumber:2,tableNumber:1,rowNumber:1,cellNumber:1,cellParagraphCount:1,isHeader:true}; }
                 const wire = MALFORMED ? '{}' : JSON.stringify({protocolVersion:1,parserVersion:'docx-ooxml-body-v1',sizeBytes:Number(value('--size-bytes')),
-                  contentHash:value('--content-hash'),text:'第一段完整内容 hello DOCX\n第一格独立内容 world DOCX\n',blocks:[{sequence:0,kind:'paragraph',offset:0,length:18,paragraphNumber:1,tableNumber:null,rowNumber:null,cellNumber:null,cellParagraphCount:0,isHeader:false},{sequence:1,kind:'tableCell',offset:19,length:18,paragraphNumber:2,tableNumber:1,rowNumber:1,cellNumber:1,cellParagraphCount:1,isHeader:true}]});
+                  contentHash:value('--content-hash'),text:BLOCK_COUNT===2?'第一段完整内容 hello DOCX\n第一格独立内容 world DOCX\n':Array.from({length:BLOCK_COUNT}, () => '第一段完整内容 hello DOCX\n').join(''),blocks});
                 process.stdout.write(wire, () => process.exit(0));
               };
               if (!HOLD) publish(); else interval = setInterval(() => { if(existsSync(path.join(folder,'release'))) {clearInterval(interval);publish();} }, 10);

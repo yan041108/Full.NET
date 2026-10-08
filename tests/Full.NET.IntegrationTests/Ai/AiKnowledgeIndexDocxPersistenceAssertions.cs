@@ -23,7 +23,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Full.NET.IntegrationTests.Ai;
 
-/// <summary>真实双库验证 DOCX 完整原文、向量及结算账本关联；受控来源和原会话不冒充上传、模型执行或激活。</summary>
+/// <summary>真实双库验证 DOCX 完整原文、向量及结算账本关联；原子激活和完成恢复沿用受控原会话，不冒充上传或云模型执行。</summary>
 internal static class AiKnowledgeIndexDocxPersistenceAssertions
 {
     internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock)
@@ -197,6 +197,52 @@ internal static class AiKnowledgeIndexDocxPersistenceAssertions
             Assert.AreEqual(charged, await db.QuerySingleAsync<long>("SELECT SUM(ChargedTokens) FROM fn_ai_operation_budget WHERE ModelConfigId=@Id", new { Id = model.Id }));
             Assert.AreEqual("running", await db.QuerySingleAsync<string>("SELECT StateKey FROM fn_ai_knowledge_index_task WHERE Id=@Id", new { Id = taskId }));
             Assert.AreEqual(0L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_active_generation WHERE DocumentId=@Id", new { Id = binding.DocumentId }));
+            // 完成前拒绝写入的失败与第一次完成 UPDATE 后的失败都不能留下孤立终态。
+            proof = await WholeProof(); Assert.IsNotNull(proof);
+            foreach (var permission in new[] { "ai.knowledge_bases.read", "ai.knowledge_documents.read", "ai.knowledge_documents.source_read", "ai.knowledge_documents.upload", "ai.knowledge_documents.index_enqueue" })
+            {
+                auth.DeniedPermission = permission;
+                Assert.IsFalse(await Use(a => a.Activations.ActivateAsync(binding, taskId, lease, proof, default)));
+                auth.DeniedPermission = null;
+            }
+            Assert.IsFalse(await Use(a => a.Activations.ActivateAsync(binding, taskId, lease, proof, default), failActivation: true));
+            Assert.AreEqual("running", await db.QuerySingleAsync<string>("SELECT StateKey FROM fn_ai_knowledge_index_task WHERE Id=@TaskId", p));
+            Assert.AreEqual(0L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_active_generation WHERE DocumentId=@DocumentId", p));
+            Assert.IsTrue(await Use(a => a.Consumer.ActivateGenerationAsync(binding, taskId, lease, default)));
+            Assert.AreEqual("completed", await db.QuerySingleAsync<string>("SELECT StateKey FROM fn_ai_knowledge_index_task WHERE Id=@TaskId", p));
+            var pointerBefore = await db.QuerySingleAsync<AiKnowledgeIndexActivationRecord>("SELECT Id,DocumentId,IndexTaskId,VersionId,PlanHash,ManifestHash,ReceiptHash,ReceiptJson,LeaseToken,ActivatedAtUtc FROM fn_ai_knowledge_active_generation WHERE DocumentId=@DocumentId", p);
+            Assert.AreEqual(taskId, pointerBefore.IndexTaskId); Assert.AreEqual(lease, pointerBefore.LeaseToken);
+            Assert.IsTrue(await Use(a => a.Consumer.ExecuteGenerationAsync(binding, taskId, lease, default)));
+            Assert.IsTrue(await Use(a => a.Consumer.ExecuteGenerationAsync(binding, taskId, lease, default)));
+            Assert.IsFalse(await Use(a => a.Consumer.ExecuteGenerationAsync(binding, taskId, Guid.CreateVersion7(), default)));
+            foreach (var permission in new[] { "ai.knowledge_bases.read", "ai.knowledge_documents.read", "ai.knowledge_documents.source_read", "ai.knowledge_documents.upload", "ai.knowledge_documents.index_enqueue" })
+            {
+                auth.DeniedPermission = permission;
+                Assert.IsFalse(await Use(a => a.Consumer.ExecuteGenerationAsync(binding, taskId, lease, default)));
+                auth.DeniedPermission = null;
+            }
+            foreach (var (flip, restore) in new[]
+            {
+                ("UPDATE fn_ai_model_config SET EndpointBaseUrl='https://other.example/v1' WHERE Id=@ModelConfigId", "UPDATE fn_ai_model_config SET EndpointBaseUrl=@Endpoint WHERE Id=@ModelConfigId"),
+                ("UPDATE fn_ai_model_config SET OrganizationId='other' WHERE Id=@ModelConfigId", "UPDATE fn_ai_model_config SET OrganizationId=@Organization WHERE Id=@ModelConfigId"),
+                ("UPDATE fn_ai_knowledge_index_session SET SecurityStamp='other' WHERE IndexTaskId=@TaskId", "UPDATE fn_ai_knowledge_index_session SET SecurityStamp=@SecurityStamp WHERE IndexTaskId=@TaskId"),
+                ("UPDATE fn_ai_operation_budget SET Outcome='failed' WHERE Id=@OperationId", "UPDATE fn_ai_operation_budget SET Outcome='succeeded' WHERE Id=@OperationId")
+            })
+            {
+                p["Endpoint"] = model.EndpointBaseUrl; p["Organization"] = model.OrganizationId;
+                await db.ExecuteAsync(flip, p);
+                Assert.IsFalse(await Use(a => a.Consumer.ExecuteGenerationAsync(binding, taskId, lease, default)));
+                await db.ExecuteAsync(restore, p);
+                Assert.IsTrue(await Use(a => a.Consumer.ExecuteGenerationAsync(binding, taskId, lease, default)));
+            }
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Broken WHERE Id=@Id", new { Broken = new byte[8], Id = operations[0] });
+            Assert.IsFalse(await Use(a => a.Consumer.ExecuteGenerationAsync(binding, taskId, lease, default)));
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=@Id", new { Payload = firstPayload, Id = operations[0] });
+            Assert.IsTrue(await Use(a => a.Consumer.ExecuteGenerationAsync(binding, taskId, lease, default)));
+            Assert.AreEqual(pointerBefore, await db.QuerySingleAsync<AiKnowledgeIndexActivationRecord>("SELECT Id,DocumentId,IndexTaskId,VersionId,PlanHash,ManifestHash,ReceiptHash,ReceiptJson,LeaseToken,ActivatedAtUtc FROM fn_ai_knowledge_active_generation WHERE DocumentId=@DocumentId", p));
+            Assert.AreEqual(charged, await db.QuerySingleAsync<long>("SELECT SUM(ChargedTokens) FROM fn_ai_operation_budget WHERE ModelConfigId=@Id", new { Id = model.Id }));
+            // 清理测试另行撤销受控活动指针，避免把待实现的 DOCX 活动代次退役冒充已交付。
+            await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_active_generation WHERE DocumentId=@DocumentId", p);
             // 终态、只有清单残留的任务也必须进入墓碑清理，费用和审计凭据保持完整。
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET StateKey='cancelled',LeaseToken=NULL,LeaseExpiresAtUtc=NULL WHERE Id=@TaskId", p);
             if (!scoped) await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_vector WHERE Id IN @Ids", new { Ids = operations });
@@ -207,7 +253,7 @@ internal static class AiKnowledgeIndexDocxPersistenceAssertions
             Assert.AreEqual(0L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_docx_manifest WHERE Id=@TaskId", p));
             Assert.AreEqual(0L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_index_vector WHERE Id IN @Ids", new { Ids = operations }));
             Assert.AreEqual(2L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_operation_budget WHERE Id IN @Ids", new { Ids = operations }));
-            async Task<T> Use<T>(Func<Access, Task<T>> action, bool expire = false)
+            async Task<T> Use<T>(Func<Access, Task<T>> action, bool expire = false, bool failActivation = false)
             {
                 await using var scope = factory.Services.CreateAsyncScope(); var services = scope.ServiceProvider;
                 var writer = services.GetRequiredService<ICurrentTenantContextWriter>();
@@ -219,13 +265,24 @@ internal static class AiKnowledgeIndexDocxPersistenceAssertions
                 var sessions = new AiKnowledgeIndexSessionService(query, command, transaction, state, tenant, clock, ids, tasks, auth);
                 return await action(new(tasks, sessions, new(query, command, transaction, state, tenant, clock, tasks, sessions, auth, options),
                     new(query, expire ? new ExpireAfterInsert(command, clock) : command, transaction, state, tenant, clock, tasks, sessions, auth, options),
-                    new(query, command, tasks, ids, options), query, services.GetRequiredService<IAiOperationBudgetStore>(), services.GetRequiredService<AiKnowledgeIndexCleanupStore>()));
+                    new(query, command, tasks, ids, options), query, services.GetRequiredService<IAiOperationBudgetStore>(), services.GetRequiredService<AiKnowledgeIndexCleanupStore>(),
+                    new(query, failActivation ? new RejectActivationInsert(command) : command, transaction, state, tenant, clock, ids, tasks, auth, options)));
             }
         }
     }
     private static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
     private sealed record Access(AiKnowledgeIndexTaskStore Tasks, AiKnowledgeIndexSessionService Sessions,
-        AiKnowledgeIndexDocxManifestStore Manifests, AiKnowledgeIndexDocxVectorStore Vectors, AiKnowledgeIndexBatchStore Batches, IQueryExecutor Query, IAiOperationBudgetStore Budgets, AiKnowledgeIndexCleanupStore Cleanup);
+        AiKnowledgeIndexDocxManifestStore Manifests, AiKnowledgeIndexDocxVectorStore Vectors, AiKnowledgeIndexBatchStore Batches, IQueryExecutor Query, IAiOperationBudgetStore Budgets, AiKnowledgeIndexCleanupStore Cleanup, AiKnowledgeIndexDocxActivationStore Activations)
+    {
+        internal AiKnowledgeIndexDocxPersistenceService Consumer => new(null!, Vectors, Manifests, Sessions, Activations);
+    }
+    /// <summary>真实完成 UPDATE 已执行后拒绝指针 INSERT，检验外层实际事务回滚。</summary>
+    private sealed class RejectActivationInsert(ICommandExecutor inner) : ICommandExecutor
+    {
+        public Task<int> ExecuteAsync(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default) =>
+            statement.Name.StartsWith("ai.knowledge_activation.insert_", StringComparison.Ordinal) ? Task.FromResult(0)
+                : inner.ExecuteAsync(statement, parameters, cancellationToken);
+    }
     private sealed class Authorization(SessionBindingSnapshot expected) : IBackgroundSessionAuthorization
     {
         internal string? DeniedPermission;

@@ -58,13 +58,19 @@ internal static class AiKnowledgeIndexDocxVectorCodec
     /// <summary>原始批次须逐块等于完整计划中的原文、Token 和逻辑坐标。</summary>
     internal static AiKnowledgeIndexDocxVectorSnapshot ReadBatch(byte[] manifestBytes, int ordinal, byte[] bytes, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested(); var plan = AiKnowledgeIndexDocxManifestCodec.Decode(manifestBytes, token);
+        return ReadBatch(AiKnowledgeIndexDocxVerifiedManifest.Capture(manifestBytes, token), ordinal, bytes, token);
+    }
+
+    /// <summary>共享已经验证的完整计划；仍逐批校验实际向量字节及全部逻辑坐标。</summary>
+    internal static AiKnowledgeIndexDocxVectorSnapshot ReadBatch(AiKnowledgeIndexDocxVerifiedManifest manifest, int ordinal, byte[] bytes, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); ArgumentNullException.ThrowIfNull(manifest); var plan = manifest.Plan;
         if (ordinal < 0 || ordinal >= plan.Batches.Count) throw Invalid();
         var captured = Capture(bytes, token);
         try
         {
             var payload = DecodeFrozen(captured, token); var batch = plan.Batches[ordinal];
-            if (payload.Identity != Identity(plan, token) || payload.PlanHash != plan.Summary.PlanHash || payload.Ordinal != ordinal
+            if (payload.Identity != manifest.VectorIdentity || payload.PlanHash != plan.Summary.PlanHash || payload.Ordinal != ordinal
                 || payload.SourceHash != batch.SourceHash || payload.Chunks.Count != batch.Chunks.Count) throw Invalid();
             for (var index = 0; index < payload.Chunks.Count; index++)
             {
@@ -76,7 +82,7 @@ internal static class AiKnowledgeIndexDocxVectorCodec
         finally { CryptographicOperations.ZeroMemory(captured); }
     }
 
-    private static AiKnowledgeIndexDocxVectorIdentity Identity(AiKnowledgeIndexDocxPlan plan, CancellationToken token)
+    internal static AiKnowledgeIndexDocxVectorIdentity Identity(AiKnowledgeIndexDocxPlan plan, CancellationToken token)
     { var s = plan.Source; return new(s.KnowledgeBaseId, s.KnowledgeBaseVersion, s.TenantId, s.ModelConfigId, s.ModelConfigVersion, s.ProviderKey, s.ModelId, s.Document.ContentHash, s.Document.SizeBytes, AiKnowledgeDocxPlanHash.Document(s.Document, token)); }
     private static void WriteIdentity(BinaryWriter writer, AiKnowledgeIndexDocxVectorIdentity identity)
     {
