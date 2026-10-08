@@ -7,5 +7,6 @@ namespace Full.NET.Modules.Printing.Contracts;
 /// <param name="TemplateName">模板显示名称。</param>
 /// <param name="FormSchemaKey">固定表单 Schema 键。</param>
 /// <param name="VersionNumber">获授的不可变发布版本。</param>
+/// <param name="RequiresRecordId">是否需要业务记录标识；不包含业务数据或 Host Schema 端点。</param>
 public sealed record PrintingPublishedTemplateResponse(
-    Guid TemplateId, string TemplateKey, string TemplateName, string FormSchemaKey, int VersionNumber);
+    Guid TemplateId, string TemplateKey, string TemplateName, string FormSchemaKey, int VersionNumber, bool RequiresRecordId = false);

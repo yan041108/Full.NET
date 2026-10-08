@@ -3406,6 +3406,7 @@ export interface PreviewGoViewProjectRequest {
 }
 
 export interface PreviewPrintingTemplateRequest {
+  readonly recordId?: null | string;
   readonly versionNumber: null | number;
 }
 
@@ -3433,10 +3434,12 @@ export interface PrintingFormSchemaDefinition {
   readonly displayName: string;
   readonly fields: Array<PrintingFormFieldDefinition>;
   readonly formSchemaKey: string;
+  readonly requiresRecordId?: boolean;
 }
 
 export interface PrintingPublishedTemplateResponse {
   readonly formSchemaKey: string;
+  readonly requiresRecordId?: boolean;
   readonly templateId: string;
   readonly templateKey: string;
   readonly templateName: string;

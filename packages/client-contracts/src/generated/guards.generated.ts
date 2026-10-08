@@ -5155,7 +5155,7 @@ export function readPreviewPrintingTemplateRequest(value: unknown): PreviewPrint
 }
 
 function isPreviewPrintingTemplateRequest(value: unknown): value is PreviewPrintingTemplateRequest {
-  return isRecord(value) && ((value["versionNumber"] === null) || (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"])));
+  return isRecord(value) && (value["recordId"] === undefined || ((value["recordId"] === null) || (typeof value["recordId"] === 'string' && guidPattern.test(value["recordId"])))) && ((value["versionNumber"] === null) || (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"])));
 }
 
 export function readPreviewSerialNumberRequest(value: unknown): PreviewSerialNumberRequest {
@@ -5200,7 +5200,7 @@ export function readPrintingFormSchemaDefinition(value: unknown): PrintingFormSc
 }
 
 function isPrintingFormSchemaDefinition(value: unknown): value is PrintingFormSchemaDefinition {
-  return isRecord(value) && (typeof value["description"] === 'string') && (typeof value["displayName"] === 'string') && (Array.isArray(value["fields"]) && value["fields"].every(item15 => isPrintingFormFieldDefinition(item15))) && (typeof value["formSchemaKey"] === 'string');
+  return isRecord(value) && (typeof value["description"] === 'string') && (typeof value["displayName"] === 'string') && (Array.isArray(value["fields"]) && value["fields"].every(item15 => isPrintingFormFieldDefinition(item15))) && (typeof value["formSchemaKey"] === 'string') && (value["requiresRecordId"] === undefined || (typeof value["requiresRecordId"] === 'boolean'));
 }
 
 export function readPrintingPublishedTemplateResponse(value: unknown): PrintingPublishedTemplateResponse {
@@ -5212,7 +5212,7 @@ export function readPrintingPublishedTemplateResponse(value: unknown): PrintingP
 }
 
 function isPrintingPublishedTemplateResponse(value: unknown): value is PrintingPublishedTemplateResponse {
-  return isRecord(value) && (typeof value["formSchemaKey"] === 'string') && (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"])) && (typeof value["templateKey"] === 'string') && (typeof value["templateName"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+  return isRecord(value) && (typeof value["formSchemaKey"] === 'string') && (value["requiresRecordId"] === undefined || (typeof value["requiresRecordId"] === 'boolean')) && (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"])) && (typeof value["templateKey"] === 'string') && (typeof value["templateName"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readPrintingTemplatePreviewResponse(value: unknown): PrintingTemplatePreviewResponse {

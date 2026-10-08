@@ -14,7 +14,7 @@ namespace Full.NET.Modules.Printing.Features.PublishedTemplates;
 /// <summary>租户只读获授发布快照；绑定期间撤权后不得返回已渲染内容。</summary>
 internal sealed class PrintingPublishedTemplateService(
     ICurrentTenant tenant, IQueryExecutor queries, IOptions<DatabaseOptions> database,
-    PrintingFormBindingService bindings, IClock clock)
+    PrintingFormBindingService bindings, IClock clock, PrintingFormSchemaCatalog catalog)
 {
     /// <summary>只返回当前可信租户获授且仍启用的版本目录；Host 上下文拒绝读取。</summary>
     public async Task<Result<IReadOnlyList<PrintingPublishedTemplateResponse>>> ListAsync(CancellationToken token)
@@ -25,7 +25,7 @@ internal sealed class PrintingPublishedTemplateService(
             cancellationToken: token).ConfigureAwait(false);
         return Result<IReadOnlyList<PrintingPublishedTemplateResponse>>.Success(rows.Select(row =>
             new PrintingPublishedTemplateResponse(row.TemplateId, row.TemplateKey, row.TemplateName,
-                row.FormSchemaKey, row.VersionNumber)).ToArray());
+                row.FormSchemaKey, row.VersionNumber, catalog.TryGet(row.FormSchemaKey)?.RequiresRecordId ?? false)).ToArray());
     }
 
     /// <summary>读取获授快照并绑定当前租户，返回前复核同一版本的实时授权与启用状态。</summary>
@@ -37,7 +37,7 @@ internal sealed class PrintingPublishedTemplateService(
             return Denied<PrintingTemplatePreviewResponse>();
         var row = await ResolveAsync(templateId, request.VersionNumber, token).ConfigureAwait(false);
         if (row is null) return Denied<PrintingTemplatePreviewResponse>();
-        var binding = await bindings.ResolveAsync(row.FormSchemaKey, principal, token).ConfigureAwait(false);
+        var binding = await bindings.ResolveAsync(row.FormSchemaKey, principal, token, request.RecordId).ConfigureAwait(false);
         if (!binding.IsSuccess || binding.Value is null)
             return Result<PrintingTemplatePreviewResponse>.Failure(binding.Error!);
         // 权威源复核精确版本，避免跨模块绑定期间撤权或停用后继续交付内容。

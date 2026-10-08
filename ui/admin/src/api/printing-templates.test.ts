@@ -14,8 +14,13 @@ describe('打印发布与授权生成 SDK 适配',()=>{
  it('目录拒绝畸形响应',async()=>{request.mockResolvedValue([{templateId:'bad'}]);await expect(listPrintingPublishedTemplates()).rejects.toThrow();});
  it('精确版本预览保留生成守卫并校验绑定值',async()=>{
   request.mockResolvedValue(printResult);await previewPrintingPublishedTemplate(outputId,{versionNumber:1});
-  expect(request).toHaveBeenCalledWith('/api/v1/printing/published-templates/'+outputId+'/preview',expect.objectContaining({method:'POST',body:'{"versionNumber":1}'}),undefined);
+  expect(request).toHaveBeenCalledWith('/api/v1/printing/published-templates/'+outputId+'/preview',expect.objectContaining({method:'POST',body:'{"versionNumber":1,"recordId":null}'}),undefined);
   request.mockResolvedValue({...printResult,boundFields:{secret:123}});await expect(previewPrintingPublishedTemplate(outputId)).rejects.toThrow();
+ });
+ it('业务预览按生成契约传递记录编号和取消信号',async()=>{
+  request.mockResolvedValue(printResult);const signal=new AbortController().signal;
+  await previewPrintingPublishedTemplate(outputId,{versionNumber:1,recordId:outputId},signal);
+  expect(request).toHaveBeenLastCalledWith('/api/v1/printing/published-templates/'+outputId+'/preview',expect.objectContaining({body:JSON.stringify({versionNumber:1,recordId:outputId})}),signal);
  });
  it('Host 版本列表与分页授权走生成操作',async()=>{
   request.mockResolvedValue([]);expect(await listPrintingTemplateVersions(outputId)).toEqual([]);

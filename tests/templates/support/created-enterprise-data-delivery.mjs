@@ -10,6 +10,7 @@ import { startDatabaseContainer, startRedisContainer, buildSharedEnv, runDotnet 
 import { verifyEnterpriseDataDeliveryHttp } from './application-enterprise-data-delivery.mjs';
 import { verifyReportingGrantManagementHttp } from './application-reporting-grants.mjs';
 import { verifyEnterpriseDataOutputHttp } from './application-enterprise-data-output.mjs';
+import { verifyApplicationPrintingBrowser } from './application-printing-browser.mjs';
 import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 import { waitForApi } from '../../e2e/admin-real-stack/scripts/wait-for-api.mjs';
 
@@ -57,7 +58,9 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
    password:externalStack.connectionString.match(/(?:^|;)Password=([^;]+)/iu)?.[1],trustServerCertificate:true};
   assert.ok(externalSource.username && externalSource.password,'owned external credentials missing');
   const redisStack = await startRedisContainer(); redis = redisStack.container;
+  const browserPort = await freePort();
   const env = { ...buildSharedEnv(databaseStack.connectionString,databaseStack.databaseProvider,redisStack.connectionString),
+   Identity__AllowedOrigins__3:'http://localhost:'+browserPort,
    Files__Local__RootPath:join(root,'files'), FullNet__ImportExport__RunSynchronously:'false', FullNet__ImportExport__ExecutionEnabled:'false',
    FullNet__ImportExport__PollSeconds:'5', FullNet__ImportExport__BatchSize:'1',
    // 保留真实导入 Worker，但禁用报表恢复循环，避免与请求内导出争抢并误归因执行宿主。
@@ -135,7 +138,8 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
    return JSON.parse(verified.stdout);
   };
   report.dataOutput = await verifyEnterpriseDataOutputHttp(apiUrl,{hostAccessToken:(await loginHost()).accessToken,tenantId:business.tenantId,
-   externalDataSource:externalSource,loginHost,verifyWorkbook,logPath:join(root,'data-output.json'),signal});
+   externalDataSource:externalSource,loginHost,verifyWorkbook,logPath:join(root,'data-output.json'),signal,businessRecordId:business.requestId,
+   verifyPrintingBrowser:fixture=>verifyApplicationPrintingBrowser(appRoot,apiUrl,root,{port:browserPort,fixture,signal})});
   for (const {child} of processes) { assert.equal(child.exitCode,null,'host exited during acceptance'); assert.equal(child.signalCode,null); }
   report.completed = true;
   return report;

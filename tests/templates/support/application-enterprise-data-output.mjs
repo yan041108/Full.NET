@@ -6,7 +6,7 @@ const ensure = (condition, message) => { if (!condition) throw new AcceptanceErr
 const identifier = value => ensure(typeof value==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value),'response identifier invalid');
 
 // 从应用自己的正式入口验证输出；凭据和查询值只留在内存，报告不保存响应正文。
-export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,tenantId,externalDataSource,loginHost,verifyWorkbook,logPath,signal,request=fetch}) {
+export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,tenantId,externalDataSource,loginHost,verifyWorkbook,logPath,signal,businessRecordId,verifyPrintingBrowser,request=fetch}) {
  const evidence={completed:false,responses:[],reporting:{completed:false},printing:{completed:false}};
  let stage='configuration'; let token=hostAccessToken;
  const send=async(name,path,method='GET',body,status=200,accessToken=token,binary=false,csrfToken=undefined)=>{
@@ -60,6 +60,18 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   const printGrant=printRoot+'/versions/1/tenant-grants/'+tenantId;
   ensure(await send('printing-grant',printGrant,'PUT')===true,'printing version grant failed');
   evidence.printing={status:'tenant-published-preview-pending',templateId:template.id,versionNumber:1,hostPublished:true,scriptsRemovedAtPublish:true};
+  let businessTemplate; let businessPrintGrant;
+  if (businessRecordId) {
+   identifier(businessRecordId);
+   businessTemplate=await send('business-printing-create','/api/v1/printing/templates','POST',{
+    templateKey:'business_'+randomUUID().replaceAll('-',''),name:'Enterprise request print',formSchemaKey:'enterprise_request.request_summary',
+    layoutHtml:'<article><h1>Enterprise request</h1><p>{{requestNumber}}</p><p>{{title}}</p><p>{{status}}</p><p>{{totalAmount}}</p></article>',isEnabled:true},201);
+   identifier(businessTemplate.id);
+   const businessPublished=await send('business-printing-publish','/api/v1/printing/templates/'+businessTemplate.id+'/publish','POST',{changeNote:'Frozen request',version:businessTemplate.version});
+   ensure(businessPublished.versionNumber===1,'business printing published version mismatch');
+   businessPrintGrant='/api/v1/printing/templates/'+businessTemplate.id+'/versions/1/tenant-grants/'+tenantId;
+   ensure(await send('business-printing-grant',businessPrintGrant,'PUT')===true,'business printing grant failed');
+  }
   // 第一方 ClientId 由服务端固定，默认每客户端单会话；另建最小权限用户，避免重新登录同一 admin 撤销租户会话。
   const revokerCredentials={username:'revoke_'+randomUUID().replaceAll('-',''),password:'Init!'+randomUUID()+'A9'};
   const revokerRole=await send('revoker-role','/api/v1/identity/roles','POST',{code:'revoke-'+randomUUID().replaceAll('-',''),name:'Owned output revoker'},201);
@@ -133,6 +145,21 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
    'printing rendered HTML mismatch');
   await send('printing-ungranted-version-denied',printPreview,'POST',{versionNumber:2},403);
   await send('printing-anonymous-published-denied',printPreview,'POST',{versionNumber:1},401,null);
+  if (businessTemplate) {
+   const businessPreview=printCatalog+'/'+businessTemplate.id+'/preview';
+   const metadata=grantedPrint.find(item=>item.templateId===businessTemplate.id);
+   ensure(metadata?.requiresRecordId===true,'business record requirement metadata missing');
+   await send('business-printing-record-required',businessPreview,'POST',{versionNumber:1},400);
+   await send('business-printing-record-missing',businessPreview,'POST',{versionNumber:1,recordId:randomUUID()},404);
+   const businessRendered=await send('business-printing-preview',businessPreview,'POST',{versionNumber:1,recordId:businessRecordId,tenantId:randomUUID()});
+   ensure(businessRendered.templateId===businessTemplate.id && businessRendered.versionNumber===1 && businessRendered.formSchemaKey==='enterprise_request.request_summary',
+    'business printing identity mismatch');
+   ensure(businessRendered.boundFields?.title==='Enterprise Worker request' && businessRendered.boundFields.totalAmount==='123.45'
+    && businessRendered.boundFields.status==='Draft' && businessRendered.html.includes('Enterprise Worker request'), 'business printing binding mismatch');
+   ensure(await send('business-printing-revoke',businessPrintGrant,'DELETE',undefined,200,revoker)===true,'business printing revoke failed');
+   await send('business-printing-revoked-denied',businessPreview,'POST',{versionNumber:1,recordId:businessRecordId},403);
+   evidence.printing.businessRecordVerified=true;
+  }
   evidence.printing.completed=true; evidence.printing.status='tenant-published-preview-verified';
   evidence.printing.currentTenantBindingVerified=true;
   ensure(await send('printing-revoke',printGrant,'DELETE',undefined,200,revoker)===true,'printing version revoke failed');
@@ -149,6 +176,18 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
   ensure(!revokedCatalog.some(item=>item.definitionId===definition.id),'revoked definition remains in catalog');
   evidence.reporting.revokedAccessDenied=true;
   evidence.reporting.revokerDifferentUser=true;
+  if (verifyPrintingBrowser) {
+   // 浏览器登录会轮换同一 admin 会话，放在所有 HTTP 断言之后；撤权由独立 Host 用户执行。
+   ensure(await send('browser-profile-regrant',printGrant,'PUT',undefined,200,revoker)===true,'browser profile regrant failed');
+   if (businessPrintGrant) ensure(await send('browser-business-regrant',businessPrintGrant,'PUT',undefined,200,revoker)===true,'browser business regrant failed');
+   evidence.printing.browser=await verifyPrintingBrowser({templateId:template.id,businessTemplateId:businessTemplate?.id,
+    tenantName:switched.context.name,tenantId,recordId:businessRecordId,
+    revoke:async()=>{
+     ensure(await send('browser-profile-revoke',printGrant,'DELETE',undefined,200,revoker)===true,'browser profile revoke failed');
+     if(businessPrintGrant) ensure(await send('browser-business-revoke',businessPrintGrant,'DELETE',undefined,200,revoker)===true,'browser business revoke failed');
+    }});
+   ensure(evidence.printing.browser?.completed===true,'printing browser verification incomplete');
+  }
   evidence.completed=true;return evidence;
  } catch(error) {
   // 网络、JSON 和验证器异常可能带任意响应值；只传播本工具拥有的固定诊断。

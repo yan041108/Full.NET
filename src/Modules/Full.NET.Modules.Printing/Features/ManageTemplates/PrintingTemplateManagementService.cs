@@ -16,7 +16,8 @@ internal sealed class PrintingTemplateManagementService(
     ICommandTransaction transaction,
     PrintingTemplateQueryService queries,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    PrintingFormSchemaCatalog catalog)
 {
     public Task<Result<PrintingTemplateResponse>> CreateAsync(
         CreatePrintingTemplateRequest request,
@@ -148,7 +149,7 @@ internal sealed class PrintingTemplateManagementService(
             return VersionConflictVersion();
         }
 
-        if (PrintingFormSchemaCatalog.TryGet(record.FormSchemaKey) is null)
+        if (catalog.TryGet(record.FormSchemaKey) is null)
         {
             return Result<PrintingTemplateVersionResponse>.Failure(new Error(
                 PrintingErrorCodes.TemplateInvalid,
@@ -195,7 +196,7 @@ internal sealed class PrintingTemplateManagementService(
         return await queries.GetVersionAsync(templateId, versionNumber, cancellationToken).ConfigureAwait(false);
     }
 
-    private static Result<bool> ValidateDraft(
+    private Result<bool> ValidateDraft(
         string templateKey,
         string name,
         string formSchemaKey,
@@ -206,7 +207,7 @@ internal sealed class PrintingTemplateManagementService(
             return InvalidTemplate("Template key and name are required.");
         }
 
-        if (PrintingFormSchemaCatalog.TryGet(formSchemaKey) is null)
+        if (catalog.TryGet(formSchemaKey) is null)
         {
             return InvalidTemplate("The printing form schema was not found.");
         }

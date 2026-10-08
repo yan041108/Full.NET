@@ -61,6 +61,12 @@
       "name": "DocumentHostSettings"
     },
     {
+      "name": "PrintingTemplates"
+    },
+    {
+      "name": "PrintingPreviews"
+    },
+    {
       "name": "EnterpriseRequestEnterpriseRequests"
     },
     {
@@ -68,12 +74,6 @@
     },
     {
       "name": "PaymentWeChatNotify"
-    },
-    {
-      "name": "PrintingTemplates"
-    },
-    {
-      "name": "PrintingPreviews"
     },
     {
       "name": "ReportingDefinitions"
@@ -235,6 +235,9 @@
       "name": "ImportExportTasks"
     },
     {
+      "name": "PrintingFormSchemas"
+    },
+    {
       "name": "GoViewProjects"
     },
     {
@@ -299,9 +302,6 @@
     },
     {
       "name": "PlatformMyReleaseNotes"
-    },
-    {
-      "name": "PrintingFormSchemas"
     },
     {
       "name": "RegionsAdministrativeRegions"
@@ -58952,6 +58952,13 @@
       },
       "PreviewPrintingTemplateRequest": {
         "properties": {
+          "recordId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "versionNumber": {
             "format": "int32",
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -59056,6 +59063,10 @@
           },
           "formSchemaKey": {
             "type": "string"
+          },
+          "requiresRecordId": {
+            "default": false,
+            "type": "boolean"
           }
         },
         "required": [
@@ -59070,6 +59081,10 @@
         "properties": {
           "formSchemaKey": {
             "type": "string"
+          },
+          "requiresRecordId": {
+            "default": false,
+            "type": "boolean"
           },
           "templateId": {
             "format": "uuid",

@@ -20,7 +20,7 @@ async function boot(page,permissions=['printing.published_templates.read','print
 test('租户浏览器精确选择旧版、净化预览、打印重验及撤权清空',async({page})=>{
  const errors=[];page.on('pageerror',error=>errors.push(error.message));const hostReads=await boot(page);const versions=[];let revoke=false;
  await page.route('**/api/v1/printing/published-templates/*/preview',route=>{
-  const body=route.request().postDataJSON();expect(Object.keys(body)).toEqual(['versionNumber']);versions.push(body.versionNumber);
+  const body=route.request().postDataJSON();expect(Object.keys(body)).toEqual(['versionNumber','recordId']);expect(body.recordId).toBeNull();versions.push(body.versionNumber);
   if(revoke)return route.fulfill({status:403,contentType:'application/problem+json',body:JSON.stringify({status:403,code:'authorization.permission_denied',title:'已撤销授权'})});
   return json(route,{templateId:id,templateKey:'fixture',templateName:'租户档案卡',formSchemaKey:'printing.tenant_profile_card',versionNumber:body.versionNumber,
   html:'<div style="color:#8b0000">当前租户版本 '+body.versionNumber+'</div><script>window.__unsafe=true</script><img src=x alt="" onerror="window.__unsafe=true">',boundFields:{},generatedAtUtc:date});

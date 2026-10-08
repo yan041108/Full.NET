@@ -49,7 +49,23 @@ API 和 Worker 使用相同处理器及最小后台授权依赖。执行、恢�
 
 ```powershell
 $env:FULLNET_RUN_TEMPLATE_REAL_STACK='1'
+$env:FULLNET_TESTCONTAINERS_REUSE='0'
 node --test tests/templates/created-enterprise-data-delivery.test.mjs
 ```
 
-该测试从固定提交生成新的 Enterprise 应用，使用自己的数据库和 Redis，构建三个宿主并执行迁移重放；两张正式工作簿在 API 中排队后才启动独立 Worker，通过正式业务 API 回读单位/职级、申请人、金额与租户。报告和生成应用保留在 `.tmp/template-real-stack/enterprise-delivery/`，只清理本次拥有的进程和容器。此验收覆盖正常消费，不包含 Worker OS 崩溃、审批、报表、打印或完整 Native AOT 业务链。
+该测试从固定提交生成新的 Enterprise 应用，使用自己的数据库和 Redis，构建三个宿主并执行迁移重放；两张正式工作簿在 API 中排队后才启动独立 Worker，通过正式业务 API 回读单位/职级、申请人、金额与租户。报告和生成应用保留在 `.tmp/template-real-stack/enterprise-delivery/`，只清理本次拥有的进程和容器。验收器同时执行正式报表查询、工作簿导出、租户档案与企业申请打印，并从生成应用自己的 Vue 骨架进行真实浏览器授权、预览、打印前复核和撤权验证。正常消费与输出链分别记录，不包含 Worker OS 崩溃、审批或完整 Native AOT 业务链。浏览器打印验证调用时序、内容与打印媒体样式，不验证实体打印机或系统打印对话框。
+
+
+## 企业申请摘要打印
+
+`EnterpriseRequest` 显式依赖 `Printing`，通过 `IPrintingFormSchemaContributor` 注册固定表单 `enterprise_request.request_summary`，通过 `IPrintingRecordBindingSource` 提供申请编号、标题、状态与 invariant 金额。目录贡献者只持有静态元数据；绑定源按请求作用域注册，由业务模块拥有读取权限和数据范围判断。Printing 不直接读取申请表，也不接收客户端 SQL、字段值或租户覆盖。
+
+Host 创建此 Schema 的模板、发布并授予租户精确版本；租户在 `/printing/published-templates` 中选择获授版本，填写申请 UUID。发布目录中的 `requiresRecordId` 表明必须选择业务记录，无需访问 Host Schema 目录。预览请求示例：
+
+```json
+{"versionNumber":1,"recordId":"01980000-0000-7000-8000-000000000001"}
+```
+
+申请绑定要求当前交互会话具有 `enterprise_request.enterprise_requests.read`，并复用申请 API 的当前租户与组织数据范围；超级管理员仍受租户隔离约束。绑定前后均通过 Identity Port 复核会话与精确业务权限，Printing 在交付前复核版本授权和启用状态。没有记录编号返回验证失败，不可读取的记录不交付字段，撤销版本授权返回 403。`recordId` 是资源选择，不能替代授权；租户档案表单仍可省略该字段。
+
+这份固定摘要不含申请明细、审批历史、附件或 PDF 输出。新增业务表单应由数据所有者贡献固定 Schema 与窄绑定源，不能在通用打印模块增加跨模块 SQL。

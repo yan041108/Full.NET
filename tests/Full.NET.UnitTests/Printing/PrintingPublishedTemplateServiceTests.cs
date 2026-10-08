@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Printing.Contracts;
+using Full.NET.Modules.Printing.Domain;
 using Full.NET.Modules.Printing.Features.PreviewTemplates;
 using Full.NET.Modules.Printing.Features.PublishedTemplates;
 using Full.NET.Modules.Printing.Persistence;
@@ -44,8 +45,8 @@ public sealed class PrintingPublishedTemplateServiceTests
         var source = Substitute.For<IPrintingTenantProfileBindingSource>();
         source.ResolveAsync(tenantId, Arg.Any<CancellationToken>()).Returns(_ => { entered.SetResult(); return release.Task; });
         var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(DateTimeOffset.UtcNow);
-        var bindings = new PrintingFormBindingService(tenant, clock, source);
-        var service = new PrintingPublishedTemplateService(tenant, query, Options.Create(new DatabaseOptions { Provider = provider }), bindings, clock);
+        var bindings = new PrintingFormBindingService(tenant, clock, source, new PrintingFormSchemaCatalog([]), []);
+        var service = new PrintingPublishedTemplateService(tenant, query, Options.Create(new DatabaseOptions { Provider = provider }), bindings, clock, new PrintingFormSchemaCatalog([]));
         var preview = service.PreviewAsync(row.TemplateId, new PreviewPrintingTemplateRequest(null), new ClaimsPrincipal(), default);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.AreEqual(1, parameters.Count); Assert.IsFalse(preview.IsCompleted);

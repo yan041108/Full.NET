@@ -50,7 +50,7 @@ internal sealed class PrintingTemplatePreviewService(
         }
 
         var bindingResult = await bindingService
-            .ResolveAsync(template.FormSchemaKey, principal, cancellationToken)
+            .ResolveAsync(template.FormSchemaKey, principal, cancellationToken, request.RecordId)
             .ConfigureAwait(false);
         if (!bindingResult.IsSuccess || bindingResult.Value is null)
         {

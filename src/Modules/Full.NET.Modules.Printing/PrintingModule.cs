@@ -40,6 +40,7 @@ public sealed class PrintingModule : IFullNetModule
             PrintingAuthorizationContributor>());
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddSingleton<Domain.PrintingFormSchemaCatalog>();
         services.TryAddSingleton<PrintingFormSchemaQueryService>();
         services.TryAddScoped<PrintingTemplateQueryService>();
         services.TryAddScoped<PrintingTemplateManagementService>();

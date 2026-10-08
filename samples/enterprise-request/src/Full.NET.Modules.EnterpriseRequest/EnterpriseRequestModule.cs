@@ -1,5 +1,7 @@
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Printing.Contracts;
+using Full.NET.Modules.EnterpriseRequest.Features.Printing;
 using Full.NET.Modules.EnterpriseRequest.Features.ImportExport;
 using Full.NET.Modules.EnterpriseRequest.Features.SubmitForApproval;
 using Full.NET.Modules.EnterpriseRequest.Features.WorkflowOutcomes;
@@ -18,7 +20,7 @@ public sealed class EnterpriseRequestModule : IFullNetModule
     public string Name => "EnterpriseRequest";
 
     public IReadOnlyCollection<string> Dependencies =>
-        ["Identity", "Tenancy", "Organization", "Files", "Workflow", "ImportExport"];
+        ["Identity", "Tenancy", "Organization", "Files", "Workflow", "ImportExport", "Printing"];
 
     public IReadOnlyCollection<string> OptionalContractDependencies => [];
 
@@ -27,6 +29,8 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             EnterpriseRequestAuthorizationContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IPrintingFormSchemaContributor, EnterpriseRequestPrintingSchemaContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IPrintingRecordBindingSource, EnterpriseRequestPrintingBindingSource>());
         services.TryAddScoped<SubmitEnterpriseRequestForApprovalService>();
         services.TryAddScoped<EnterpriseRequestImportService>();
 #if FULLNET_AOT_COMPILE

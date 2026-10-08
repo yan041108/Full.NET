@@ -116,7 +116,7 @@ export async function listPrintingPublishedTemplates(signal?: AbortSignal): Prom
 /** 通过生成操作发送精确版本，不传入可伪造的租户标识。 */
 export async function previewPrintingPublishedTemplate(templateId: string, body: PreviewPrintingTemplateRequest = {},
   signal?: AbortSignal): Promise<PrintingTemplatePreview> {
-  const value = await printingPreviewPublishedTemplate(http, {templateId,body:{versionNumber:body.versionNumber ?? null}}, signal);
+  const value = await printingPreviewPublishedTemplate(http, {templateId,body:{versionNumber:body.versionNumber ?? null,recordId:body.recordId ?? null}}, signal);
   if (!isPrintingTemplatePreview(value) || Object.values(value.boundFields).some(field => field !== null && typeof field !== 'string'))
     throw new Error('client.invalid_printing_template_preview');
   return value;

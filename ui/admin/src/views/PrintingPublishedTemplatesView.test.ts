@@ -16,6 +16,30 @@ function create(permissions=['printing.published_templates.read','printing.publi
 beforeEach(()=>{vi.resetAllMocks();vi.mocked(listPrintingPublishedTemplates).mockResolvedValue([published]);vi.mocked(previewPrintingPublishedTemplate).mockResolvedValue(printResult);});
 afterEach(()=>{wrapper?.unmount();vi.restoreAllMocks();});
 describe('租户已授权打印目录',()=>{
+ it('业务表单必须填写记录编号，打印时重验同一记录与版本',async()=>{
+  vi.mocked(listPrintingPublishedTemplates).mockResolvedValue([{...published,formSchemaKey:'enterprise_request.request_summary',requiresRecordId:true}]);
+  vi.mocked(previewPrintingPublishedTemplate).mockResolvedValue({...printResult,formSchemaKey:'enterprise_request.request_summary'});
+  create();await flushPromises();
+  expect(wrapper.get('[data-testid="printing-published-preview"]').attributes('disabled')).toBeDefined();
+  const recordId='01980000-0000-7000-8000-000000000002';
+  await wrapper.get('[data-testid="printing-published-record"]').setValue(recordId);
+  await wrapper.get('[data-testid="printing-published-preview"]').trigger('click');await flushPromises();
+  const print=vi.spyOn(window,'print').mockImplementation(()=>{});
+  await wrapper.get('[data-testid="printing-published-print"]').trigger('click');await flushPromises();
+  expect(previewPrintingPublishedTemplate).toHaveBeenLastCalledWith(outputId,{versionNumber:1,recordId},expect.any(AbortSignal));
+  expect(print).toHaveBeenCalledOnce();
+ });
+ it('业务编号变化清除旧内容并取消挂起预览',async()=>{
+  vi.mocked(listPrintingPublishedTemplates).mockResolvedValue([{...published,formSchemaKey:'enterprise_request.request_summary',requiresRecordId:true}]);
+  create();await flushPromises();
+  await wrapper.get('[data-testid="printing-published-record"]').setValue('01980000-0000-7000-8000-000000000002');
+  const pending=deferred<typeof printResult>();vi.mocked(previewPrintingPublishedTemplate).mockReturnValueOnce(pending.promise);
+  await wrapper.get('[data-testid="printing-published-preview"]').trigger('click');
+  const signal=vi.mocked(previewPrintingPublishedTemplate).mock.calls[0]![2]!;
+  await wrapper.get('[data-testid="printing-published-record"]').setValue('01980000-0000-7000-8000-000000000003');
+  pending.resolve({...printResult,html:'<p>过时申请敏感内容</p>'});await flushPromises();
+  expect(signal.aborted).toBe(true);expect(wrapper.text()).not.toContain('过时申请敏感内容');
+ });
  it('同模板切换版本取消旧响应，打印只重验当前精确版本',async()=>{
   vi.mocked(listPrintingPublishedTemplates).mockResolvedValue([{...published,versionNumber:2},published]);
   create();await flushPromises();const pending=deferred<typeof printResult>();vi.mocked(previewPrintingPublishedTemplate).mockReturnValueOnce(pending.promise);

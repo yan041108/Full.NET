@@ -10,10 +10,11 @@ const definitionId = '01980000-0000-7000-8000-000000000002';
 const taskId = '01980000-0000-7000-8000-000000000003';
 const templateId = '01980000-0000-7000-8000-000000000004';
 
-function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, printingAllowed=false, revokedAllowed=false, leakedCatalog=false, failedHttp=false, invalidId=false, wrongTaskDefinition=false, revokedSession=false, wrongPrintingVersion=false, wrongPrintingTenant=false, revokedPrintingAllowed=false} = {}) {
+function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, printingAllowed=false, revokedAllowed=false, leakedCatalog=false, failedHttp=false, invalidId=false, wrongTaskDefinition=false, revokedSession=false, wrongPrintingVersion=false, wrongPrintingTenant=false, revokedPrintingAllowed=false,businessPrinting=false,wrongBusinessBinding=false,missingBusinessRecordAllowed=false} = {}) {
  const root = mkdtempSync(join(tmpdir(),'enterprise-output-http-'));
  const logPath = join(root,'result.json');
- let printGranted = false; let granted = false; let published = 0; let activeToken = 'Bearer HOST_SECRET'; let checkedWorkbook = false;
+ const businessTemplateId='01980000-0000-7000-8000-000000000009';const businessRecordId='01980000-0000-7000-8000-000000000010';
+ let businessGranted=false;let printGranted = false; let granted = false; let published = 0; let activeToken = 'Bearer HOST_SECRET'; let checkedWorkbook = false;
  const requests = [];
  let revokerCredentials;
  const roleId='01980000-0000-7000-8000-000000000007';
@@ -25,7 +26,7 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
   requests.push({path,method,input});
   const token = options.headers.Authorization;
   if (!token) return Response.json({code:'authentication.required'}, {status:401});
-  assert.equal(token, (path.includes('tenant-grants') && method==='DELETE') || path.endsWith('/me/password') ? 'Bearer REVOKER_SECRET' : activeToken);
+  assert.equal(token, (path.includes('tenant-grants') && (method==='DELETE'||token==='Bearer REVOKER_SECRET')) || path.endsWith('/me/password') ? 'Bearer REVOKER_SECRET' : activeToken);
   if (revokedSession && !granted && path.endsWith('/download')) return Response.json({code:'authentication.required'}, {status:401});
   if (path==='/api/v1/identity/roles' && method==='POST') { assert.match(input.code,/^[a-z][a-z0-9-]{2,63}$/u); return Response.json({id:roleId,version:1},{status:201}); }
   if (path===`/api/v1/identity/roles/${roleId}/permissions`) {
@@ -43,7 +44,7 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
   if (path.endsWith('/definitions') && method==='POST') return Response.json({id:definitionId,version:1}, {status:201});
   if (path===`/api/v1/reporting/definitions/${definitionId}`) return Response.json({id:definitionId,version:2});
   if (path.endsWith('/publish') && path.includes('/reporting/')) return Response.json({definitionId,versionNumber:++published});
-  if (path.includes('/printing/') && path.includes('tenant-grants')) { printGranted=method==='PUT'; return Response.json(true); }
+  if (path.includes('/printing/') && path.includes('tenant-grants')) { if(path.includes(businessTemplateId)) businessGranted=method==='PUT';else printGranted=method==='PUT'; return Response.json(true); }
   if (path.includes('tenant-grants')) { granted=method==='PUT'; return Response.json(true); }
   if (path.endsWith('/tenancy/context')) {
    assert.equal(input.tenantId,tenantId); activeToken='Bearer TENANT_SECRET';
@@ -68,10 +69,17 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
    if (!granted && !revokedAllowed) return Response.json({code:'authorization.permission_denied'}, {status:403});
    return new Response(new Uint8Array(corruptWorkbook?[80,75,0]:[80,75,1]), {headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}});
   }
-  if (path.endsWith('/printing/templates') && method==='POST') return Response.json({id:templateId,version:1}, {status:201});
+  if (path.endsWith('/printing/templates') && method==='POST') return Response.json({id:input.formSchemaKey==='enterprise_request.request_summary'?businessTemplateId:templateId,version:1}, {status:201});
   if (path.endsWith('/publish') && path.includes('/printing/')) return Response.json({templateId,versionNumber:1,layoutHtml:'<article>{{tenantName}} / {{tenantCode}}</article>'});
-  if (path.endsWith('/published-templates')) return Response.json(printGranted?[{templateId,versionNumber:1}]:[]);
+  if (path.endsWith('/published-templates')) return Response.json([...(printGranted?[{templateId,versionNumber:1}]:[]),...(businessGranted?[{templateId:businessTemplateId,versionNumber:1,requiresRecordId:true}]:[])]);
   if (path.includes('/published-templates/') && path.endsWith('/preview')) {
+   if(path.includes(businessTemplateId)) {
+    if(!businessGranted) return Response.json({code:'authorization.permission_denied'},{status:403});
+    if(!input.recordId&&!missingBusinessRecordAllowed) return Response.json({code:'printing.binding_failed'},{status:400});
+    if(input.recordId&&input.recordId!==businessRecordId) return Response.json({code:'enterprise_request.enterprise_requests.not_found'},{status:404});
+    return Response.json({templateId:businessTemplateId,versionNumber:1,formSchemaKey:'enterprise_request.request_summary',
+     boundFields:{title:wrongBusinessBinding?'foreign request':'Enterprise Worker request',totalAmount:'123.45',status:'Draft'},html:'<article>Enterprise Worker request</article>'});
+   }
    if(input.versionNumber===2 || (!printGranted && !revokedPrintingAllowed)) return Response.json({code:'authorization.permission_denied'},{status:403});
    return Response.json({templateId,versionNumber:wrongPrintingVersion?2:1,formSchemaKey:'printing.tenant_profile_card',
     boundFields:{tenantName:'Local tenant',tenantCode:wrongPrintingTenant?'other':'local'},html:'<article>Local tenant / local</article>'});
@@ -80,7 +88,7 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
   throw new Error('Unexpected output request: '+method+' '+path);
  };
  return {
-  run: () => verifyEnterpriseDataOutputHttp('http://localhost',{hostAccessToken:'HOST_SECRET',tenantId,externalDataSource:source,logPath,request,
+  run: (overrides={}) => verifyEnterpriseDataOutputHttp('http://localhost',{hostAccessToken:'HOST_SECRET',tenantId,externalDataSource:source,logPath,request,businessRecordId:businessPrinting?businessRecordId:undefined,...overrides,
    loginHost:async(credentials)=> { assert.deepEqual(credentials,revokerCredentials,'revoker must log in as a distinct owned account'); assert.ok(credentials?.username && credentials.username!=='admin'); return {accessToken:'REVOKER_SECRET',csrfToken:'REVOKER_CSRF_SECRET'}; },verifyWorkbook:async(bytes, expected)=>{
     assert.equal(expected,'16.0.4135.4'); assert.deepEqual([...bytes],[80,75,1],'invalid workbook'); checkedWorkbook=true;
     return {worksheets:1,dataRows:1};
@@ -123,4 +131,30 @@ for (const [name,options,pattern] of [
   await assert.rejects(f.run(),pattern);assert.equal(f.report().completed,false);
   assert.doesNotMatch(JSON.stringify(f.report()),/HOST_SECRET|TENANT_SECRET|REVOKER_SECRET|REVOKER_CSRF_SECRET|DATABASE_SECRET|unknown-password/u);
  } finally { f.cleanup(); }
+});
+
+
+test('业务打印校验真实记录字段及撤权，错误记录不可冒充成功',async()=>{
+ const f=fixture({businessPrinting:true});
+ try {const r=await f.run();assert.equal(r.printing.businessRecordVerified,true);assert.equal(r.completed,true);}
+ finally {f.cleanup();}
+});
+for(const options of [{wrongBusinessBinding:true},{missingBusinessRecordAllowed:true}]) {
+ test('拒绝不正确的业务打印绑定 '+JSON.stringify(options),async()=>{
+  const f=fixture({businessPrinting:true,...options});
+  try {await assert.rejects(f.run(),/business printing binding|unexpected HTTP 200/u);assert.equal(f.report().completed,false);}
+  finally {f.cleanup();}
+ });
+}
+test('浏览器验收必须完成并实际执行撤权回调',async()=>{
+ const f=fixture();
+ try {
+  const r=await f.run({verifyPrintingBrowser:async fixture=>{await fixture.revoke();return {completed:true};}});
+  assert.equal(r.printing.browser.completed,true);assert.equal(f.requests.filter(item=>item.path.includes('/printing/')&&item.method==='DELETE').length,2);
+ } finally {f.cleanup();}
+});
+test('未完成的浏览器回调不能升级独立应用验收',async()=>{
+ const f=fixture();
+ try {await assert.rejects(f.run({verifyPrintingBrowser:async()=>({completed:false})}),/browser verification incomplete/u);assert.equal(f.report().completed,false);}
+ finally {f.cleanup();}
 });

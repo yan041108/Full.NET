@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import "../printing/printing.css";
-import { computed, nextTick, ref } from 'vue';
-import { ElAlert, ElButton, ElCard, ElEmpty, ElForm, ElFormItem, ElOption, ElSelect } from 'element-plus';
+import { computed, nextTick, ref, watch } from 'vue';
+import { ElAlert, ElButton, ElCard, ElEmpty, ElForm, ElFormItem, ElInput, ElOption, ElSelect } from 'element-plus';
 import { Printer, Refresh } from '@element-plus/icons-vue';
 import { isFullNetProblemDetails, type FullNetProblemDetails, type PrintingPublishedTemplateResponse, type PrintingTemplatePreview } from '@fullnet/client-contracts';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
@@ -19,13 +19,15 @@ const previewPermission = 'printing.published_templates.preview';
 const tenant = () => session.currentUser?.scope === 'tenant' && Boolean(session.currentUser.tenantId);
 const templates = ref<PrintingPublishedTemplateResponse[]>([]); const selectedId = ref('');
 const preview = ref<PrintingTemplatePreview>(); const problem = ref<FullNetProblemDetails>();
+const recordId = ref('');
 const loading = ref(false); const previewing = ref(false);
 // 同一模板可以获授多个版本；选择身份必须同时包含模板和不可变版本。
 const versionKey = (item: PrintingPublishedTemplateResponse) => item.templateId + ':' + item.versionNumber;
 const selected = computed(() => templates.value.find(item => versionKey(item) === selectedId.value));
+const validRecord = computed(() => !selected.value?.requiresRecordId || (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(recordId.value.trim()) && recordId.value.trim() !== '00000000-0000-0000-0000-000000000000'));
 const safeHtml = computed(() => sanitizePrintingHtml(preview.value?.html ?? ''));
 const scope = useAuthorizedViewScope(session, () => {
-  templates.value = []; selectedId.value = ''; preview.value = undefined; problem.value = undefined;
+  templates.value = []; selectedId.value = ''; recordId.value = ''; preview.value = undefined; problem.value = undefined;
   loading.value = false; previewing.value = false;
 }, load);
 let listRequest: ReturnType<typeof scope.begin>; let previewRequest: ReturnType<typeof scope.begin>;
@@ -35,11 +37,14 @@ function toProblem(error: unknown): FullNetProblemDetails {
 function clearPreview(): void {
   previewRequest?.cancel(); preview.value = undefined; previewing.value = false; problem.value = undefined;
 }
+// 业务编号变化立即取消旧请求，避免迟到内容或旧打印覆盖新选择。
+watch(recordId, clearPreview, {flush:'sync'});
+function changeTemplate(): void { recordId.value = ''; clearPreview(); }
 async function load(): Promise<void> {
   if (!tenant()) return;
   clearPreview(); listRequest?.cancel();
   const request = scope.begin(readPermission); if (!request) return; listRequest = request;
-  templates.value = []; selectedId.value = ''; loading.value = true;
+  templates.value = []; selectedId.value = ''; recordId.value = ''; loading.value = true;
   try {
     const result = await listPrintingPublishedTemplates(request.signal);
     if (!request.current()) return;
@@ -48,20 +53,20 @@ async function load(): Promise<void> {
   finally { if (request.current()) loading.value = false; request.finish(); }
 }
 async function render(printAfter = false): Promise<void> {
-  if (!tenant() || !selected.value || loading.value || previewing.value) return;
+  if (!tenant() || !selected.value || !validRecord.value || loading.value || previewing.value) return;
   const request = scope.begin(previewPermission); if (!request) return;
-  const template = selected.value; previewRequest = request;
+  const template = selected.value; const bindingRecordId = recordId.value.trim(); previewRequest = request;
   // 授权可在会话权限不变时撤销；每次打印都重新核验服务器上的精确版本。
   preview.value = undefined; problem.value = undefined; previewing.value = true;
   try {
-    const result = await previewPrintingPublishedTemplate(template.templateId,{versionNumber:template.versionNumber},request.signal);
+    const result = await previewPrintingPublishedTemplate(template.templateId,{versionNumber:template.versionNumber,...(template.requiresRecordId ? {recordId:bindingRecordId} : {})},request.signal);
     if (!request.current()) return;
-    if (result.templateId !== template.templateId || result.versionNumber !== template.versionNumber)
+    if (result.templateId !== template.templateId || result.versionNumber !== template.versionNumber || result.formSchemaKey !== template.formSchemaKey)
       throw new Error('client.invalid_printing_template_preview');
     preview.value = result;
     // 浏览器打印之前等待净化后的新内容进入 DOM，并再次核对当前页面代次。
     await nextTick();
-    if (printAfter && request.current() && selectedId.value === versionKey(template)) window.print();
+    if (printAfter && request.current() && selectedId.value === versionKey(template) && recordId.value.trim() === bindingRecordId) window.print();
   } catch (error) { if (request.current()) problem.value = toProblem(error); }
   finally { if (request.current()) previewing.value = false; request.finish(); }
 }
@@ -78,12 +83,15 @@ async function render(printAfter = false): Promise<void> {
       <ElEmpty v-if="!loading && !templates.length && !problem" :description="t('printingPublished.empty')" />
       <ElForm label-width="120px" class="printing-published-form">
         <ElFormItem :label="t('printingPreview.fieldTemplate')">
-          <ElSelect v-model="selectedId" :disabled="loading || previewing" class="printing-template-select" data-testid="printing-published-template" @change="clearPreview">
+          <ElSelect v-model="selectedId" :disabled="loading || previewing" class="printing-template-select" data-testid="printing-published-template" @change="changeTemplate">
             <ElOption v-for="item in templates" :key="versionKey(item)" :label="item.templateName + ' · v' + item.versionNumber" :value="versionKey(item)" />
           </ElSelect>
         </ElFormItem>
+        <ElFormItem v-if="selected?.requiresRecordId" :label="t('printingPublished.recordId')" required>
+          <ElInput v-model="recordId" data-testid="printing-published-record" :placeholder="t('printingPublished.recordIdHint')" :maxlength="36" />
+        </ElFormItem>
         <ElFormItem>
-          <PermissionGate :code="previewPermission"><ElButton type="primary" :icon="Printer" :loading="previewing" :disabled="!selected || loading" data-testid="printing-published-preview" @click="render()">{{ t('printingPreview.preview') }}</ElButton></PermissionGate>
+          <PermissionGate :code="previewPermission"><ElButton type="primary" :icon="Printer" :loading="previewing" :disabled="!selected || !validRecord || loading" data-testid="printing-published-preview" @click="render()">{{ t('printingPreview.preview') }}</ElButton></PermissionGate>
           <PermissionGate :code="previewPermission"><ElButton v-if="preview" :disabled="loading || previewing" data-testid="printing-published-print" @click="render(true)">{{ t('printingPreview.print') }}</ElButton></PermissionGate>
         </ElFormItem>
       </ElForm>
