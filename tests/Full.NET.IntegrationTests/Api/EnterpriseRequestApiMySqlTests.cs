@@ -33,6 +33,16 @@ public sealed class EnterpriseRequestApiMySqlTests
     }
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Tenant_submit_rejects_unprivileged_or_unassigned_actor(bool submitGranted)
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await EnterpriseRequestAssertions.VerifySubmitRejectsUnprivilegedOrUnassignedActorAsync(factory, submitGranted);
+    }
+
+    [TestMethod]
     public async Task Tenant_demo_enterprise_requests_workbook_import()
     {
         using var factory = new FullNetApiFactory(

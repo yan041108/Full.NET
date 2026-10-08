@@ -58,6 +58,7 @@ const {
   cancelChange,
   canCreate,
   canUpdate,
+  canSubmit,
   canDisable,
   load,
   create,
@@ -185,7 +186,7 @@ async function confirmDelete(): Promise<void> {
       <el-table-column label="操作" width="240">
         <template #default="{ row }">
           <el-button
-            v-if="canUpdate && row.status === 'Draft'"
+            v-if="canSubmit && row.status === 'Draft'"
             link
             type="success"
             @click="submitForApproval(row)"

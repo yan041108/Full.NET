@@ -27,6 +27,7 @@ export const enterpriseRequestPermissions = {
   read: 'enterprise_request.enterprise_requests.read',
   create: 'enterprise_request.enterprise_requests.create',
   update: 'enterprise_request.enterprise_requests.update',
+  submit: 'enterprise_request.enterprise_requests.submit',
   disable: 'enterprise_request.enterprise_requests.disable',
   write: 'enterprise_request.enterprise_requests.update'
 } as const;

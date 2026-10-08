@@ -1041,6 +1041,25 @@ Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约
 
 **验收：** 一个真实申请从创建到完成可追踪；停止 Worker 后恢复不会重复产生业务副作用。
 
+#### 2026-10-08 企业申请提交审批授权批次
+
+基线 `5bb263787dfd2e18d155c4fac035906aaa7c4e2e`，快照 `enterprise-submit-security-20261008`。本批补齐提交 Endpoint、业务服务与 Vue 的授权边界，并修复影响选择器遗漏样例目录的问题；F10 四项仍待办，Enterprise 样板保持 `Build-verified`。
+
+审批提交使用独立权限 `enterprise_request.enterprise_requests.submit`，在授权目录、操作目录、Endpoint 和 Vue 中一致声明。仅有编辑权限不能调用提交接口；既有受限角色需要显式授予新权限，不自动扩大其权限。服务在 CAS 写状态及 Workflow 启动之前校验可信租户、非空操作者、记录身份/租户/删除状态，并用记录原机构执行组织写授权；请求头不能替代组织授权。拒绝后状态、版本和更新时间不变。Vue 单独撤销提交权限会取消在途请求并忽略迟到结果；客户端取消不承诺撤销已经发生的服务端写入。
+
+回归先复现缺陷再实现修复。真实 API 验证区分“仅编辑权限”与“有提交权限但无原机构写授权”，避免错误拒绝路径遮蔽问题；复用既有双库 API fixture。样例源码、Schema 和集成测试路径现在选中 canonical `enterprise-sample`，不再遗漏真实业务验证。独立只读安全审查未发现本批新增的重要问题。
+
+本地验证结果（均零失败/跳过，命令退出 0）：
+
+- `pnpm test:dotnet:unit -- --reuse-build --filter FullyQualifiedName~Full.NET.UnitTests.EnterpriseRequest --minimum-expected-tests 36`：**36/36**，含新增 **13** 项提交授权与 CAS 回归。
+- `pnpm --filter @fullnet/admin test -- src/views/EnterpriseRequestsView.test.ts src/views/enterprise-requests/enterprise-requests-page.test.ts src/api/enterprise-requests.test.ts --maxWorkers=2`：**23/23**；`pnpm --filter @fullnet/admin build` 类型检查与生产构建通过。
+- `FULLNET_TESTCONTAINERS_REUSE=0` 下执行 `pnpm test:integration:affected -- --snapshot enterprise-submit-security-20261008 --phase slice --reuse-build`：SQL Server/MySQL **10/10**，包括既有 CRUD、发布定义后正常提交、工作簿导入及新增四项拒绝场景，测试执行 **216.659 秒**。同次 tooling **99/99**、governance **59/59**；首次编译因新 fixture 缺少 Identity Contracts using 失败，补齐后重跑通过，不把该编译失败记为行为 RED。
+- `pnpm test:integration:partitions -- --no-build`：发现 **1184** 项，分片互斥且无遗漏；此项仅证明发现集合，没有执行全量 Integration。
+- `pnpm test:dotnet:architecture -- --reuse-build --filter 'FullyQualifiedName~EndpointAuthorizationTests|FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol' --minimum-expected-tests 37`：**101/101**；`pnpm test:aot:analyzers` 通过，不等于 Linux 原生运行验收。
+- `pnpm test:openapi` **204/204**；`pnpm test:naming` **33/33**。日志保留 `.tmp/enterprise-submit-*`。
+
+下一批需一起收口状态机与可靠提交：普通生成 CRUD 目前仍可写任意 Status，尚未阻止审批状态绕写；服务先落 Submitted 后同步启动 Workflow，启动失败或取消可能留下无流程的 Submitted 单据。需要服务端业务状态写入约束、本模块事务 Outbox、幂等启动/恢复及可靠结果回写，不能用跨模块本地事务代替。明细、附件和通知链路也未由本批关闭。按既定批量策略，F10 或约定业务批次实现完整后集中执行独立生成应用验收；本批没有重跑独立应用、完整浏览器、全量 .NET、Linux 原生或容量实测。`Capacity-not-verified` 保持；不合并、不发布。
+
 ### F11：导入、报表与打印接入样板
 
 **依赖：** F09、C02/C05。**提供：** 现有三个模块的受控业务接入范例。

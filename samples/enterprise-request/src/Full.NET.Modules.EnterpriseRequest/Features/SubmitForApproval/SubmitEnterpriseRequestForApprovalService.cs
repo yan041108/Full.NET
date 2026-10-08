@@ -6,6 +6,7 @@ using Full.NET.Modules.EnterpriseRequest.Contracts;
 using Full.NET.Modules.EnterpriseRequest.Generated;
 using Full.NET.Modules.EnterpriseRequest.Persistence;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Organization.Contracts;
 
 namespace Full.NET.Modules.EnterpriseRequest.Features.SubmitForApproval;
 
@@ -15,18 +16,27 @@ internal sealed class SubmitEnterpriseRequestForApprovalService(
     IClock clock,
     ICurrentTenant currentTenant,
     IWorkflowPublishedDefinitionDirectory definitionDirectory,
-    IWorkflowInstanceStarter workflowStarter)
+    IWorkflowInstanceStarter workflowStarter,
+    IOrganizationOwnedEntityWriteAuthorizer writeAuthorizer)
 {
     public async Task<Result<EnterpriseRequestResponse>> SubmitAsync(
         Guid requestId,
         Guid actorUserId,
         CancellationToken cancellationToken = default)
     {
-        if (!currentTenant.IsAvailable || currentTenant.IsHost || currentTenant.Id is null)
+        if (!currentTenant.IsAvailable || currentTenant.IsHost || currentTenant.Id is null || currentTenant.Id == Guid.Empty)
         {
             return Result<EnterpriseRequestResponse>.Failure(new Error(
                 "enterprise_request.tenant_context_required",
                 "Tenant context is required.",
+                ErrorType.Forbidden));
+        }
+
+        if (actorUserId == Guid.Empty)
+        {
+            return Result<EnterpriseRequestResponse>.Failure(new Error(
+                OrganizationErrorCodes.WriteAccessDenied,
+                "A valid actor is required.",
                 ErrorType.Forbidden));
         }
 
@@ -35,12 +45,25 @@ internal sealed class SubmitEnterpriseRequestForApprovalService(
                 new { Id = requestId },
                 cancellationToken)
             .ConfigureAwait(false);
-        if (row is null)
+        if (row is null || row.Id != requestId || row.TenantId != currentTenant.Id.Value || row.IsDeleted)
         {
             return Result<EnterpriseRequestResponse>.Failure(new Error(
                 EnterpriseRequestErrorCodes.NotFound,
                 "The resource was not found.",
                 ErrorType.NotFound));
+        }
+
+        // 提交与编辑同属组织归属写入；使用记录原机构，不能信任请求头替换目标。
+        // 在状态更新及跨模块流程启动前拒绝，避免无权调用留下 Submitted 单据。
+        var authorization = await writeAuthorizer.EnsureCanWriteAsync(
+                currentTenant.Id.Value, row.OrganizationUnitId, actorUserId, cancellationToken)
+            .ConfigureAwait(false);
+        if (!authorization.IsSuccess || !authorization.Value)
+        {
+            return Result<EnterpriseRequestResponse>.Failure(authorization.Error ?? new Error(
+                OrganizationErrorCodes.WriteAccessDenied,
+                "Write access to the organization unit was denied.",
+                ErrorType.Forbidden));
         }
 
         if (!string.Equals(row.Status, EnterpriseRequestStatusKeys.Draft, StringComparison.Ordinal))

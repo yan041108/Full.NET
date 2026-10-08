@@ -47,6 +47,7 @@ export function useEnterpriseRequestPage(
     dependencies.hasPermission(enterpriseRequestPermissions.disable)
   );
   const canWrite = canUpdate;
+  const canSubmit = computed(() => dependencies.hasPermission(enterpriseRequestPermissions.submit));
 
 
   const scopeVersion = ref(0);
@@ -85,7 +86,7 @@ export function useEnterpriseRequestPage(
   }
 
   // 同步失效阻止旧 Promise continuation；同轮上下文替换只恢复最终代次。
-  watch(() => JSON.stringify([dependencies.contextKey(), canRead.value, canCreate.value, canUpdate.value, canDisable.value]), () => {
+  watch(() => JSON.stringify([dependencies.contextKey(), canRead.value, canCreate.value, canUpdate.value, canDisable.value, canSubmit.value]), () => {
     reset(); const ticket = scopeVersion.value;
     queueMicrotask(() => { if (active && ticket === scopeVersion.value) void load(); });
   }, { flush: 'sync' });
@@ -181,10 +182,10 @@ export function useEnterpriseRequestPage(
   async function submitForApproval(
     item: EnterpriseRequestResponse
   ): Promise<boolean> {
-    if (!canUpdate.value || changing.value) return false;
+    if (!canSubmit.value || changing.value) return false;
     if (item.status !== 'Draft') return false;
     if (!isCurrentItem(item)) return false;
-    const request = beginRequest(enterpriseRequestPermissions.update);
+    const request = beginRequest(enterpriseRequestPermissions.submit);
     if (!request) return false;
     changeRequest = request;
     changing.value = true;
@@ -247,6 +248,7 @@ export function useEnterpriseRequestPage(
     canUpdate,
     canDisable,
     canWrite,
+    canSubmit,
     load,
     create,
     update,

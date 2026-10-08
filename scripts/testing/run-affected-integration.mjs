@@ -50,6 +50,7 @@ const outboxFilter =
 const mergeDeferredShardNames = new Set(['messaging-heavy']);
 
 const focusedModules = new Set([
+  'EnterpriseRequest',
   'Ai',
   'Auditing',
   'Calendar',
@@ -212,6 +213,10 @@ function addTarget(targets, target) {
 }
 
 function addModuleTarget(targets, moduleName) {
+  if (moduleName === 'EnterpriseRequest') {
+    addTarget(targets, filterTarget(moduleName, testMatrix.integration.shards['enterprise-sample'].filter));
+    return;
+  }
   if (moduleName === 'DataApproval') {
     addTarget(targets, { kind: 'shard', name: 'smoke' });
     return;
@@ -500,6 +505,13 @@ export function classifyChangedPaths(paths) {
 
   for (const filePath of normalizedPaths) {
     if (isLocalNoise(filePath)) {
+      continue;
+    }
+
+    // 样例是生成应用的真实消费者，目录不在 src/Modules 下仍必须验证业务影响。
+    if (/^samples\/enterprise-request\/(?:src\/|schema\.json$|integration-target\.json$)/u.test(filePath)) {
+      addModuleTarget(targets, 'EnterpriseRequest');
+      reasons.push(`Enterprise 业务样例：${filePath}`);
       continue;
     }
 

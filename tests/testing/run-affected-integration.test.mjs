@@ -332,6 +332,18 @@ test('未登记业务模块改动仍使用 Smoke', () => {
   ]);
 });
 
+test('Enterprise 样例源码与双库夹具必须选择真实业务 API，不能退化为 Smoke', () => {
+  for (const file of [
+    'samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/Features/SubmitForApproval/Endpoint.cs',
+    'samples/enterprise-request/schema.json',
+    'tests/Full.NET.IntegrationTests/Api/EnterpriseRequestApiMySqlTests.cs',
+    'tests/Full.NET.IntegrationTests/EnterpriseRequest/EnterpriseRequestSubmitSecurityAssertions.cs'
+  ]) {
+    assert.deepEqual(classifyChangedPaths([file]).targets, [{ kind: 'filter', name: 'EnterpriseRequest',
+      filter: 'FullyQualifiedName~Full.NET.IntegrationTests.Api.EnterpriseRequestApi' }], file);
+  }
+});
+
 test('单模块 Integration 夹具改动仍选择对应双库聚焦测试', () => {
   const selection = classifyChangedPaths([
     'tests/Full.NET.IntegrationTests/Api/AuditingApiSqlServerTests.cs',

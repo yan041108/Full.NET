@@ -18,7 +18,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.EnterpriseRequest;
 
-internal static class EnterpriseRequestAssertions
+internal static partial class EnterpriseRequestAssertions
 {
     private const string BasePath = "/api/v1/enterprise_request/enterprise-requests";
     private const string ImportTasksPath = "/api/v1/import-export/tasks";

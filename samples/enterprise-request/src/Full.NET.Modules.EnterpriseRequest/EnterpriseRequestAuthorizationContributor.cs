@@ -1,4 +1,5 @@
 using Full.NET.Modules.EnterpriseRequest.Generated;
+using Full.NET.Modules.EnterpriseRequest.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.EnterpriseRequest;
@@ -22,6 +23,10 @@ internal sealed class EnterpriseRequestAuthorizationContributor : IAuthorization
         new PermissionDefinition(
             EnterpriseRequestPermissions.Update,
             "更新企业申请",
+            AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            EnterpriseRequestWorkflowPermissions.Submit,
+            "提交企业申请审批",
             AuthorizationScope.Host | AuthorizationScope.Tenant),
         new PermissionDefinition(
             EnterpriseRequestPermissions.Disable,
@@ -60,6 +65,13 @@ internal sealed class EnterpriseRequestAuthorizationContributor : IAuthorization
             "更新",
             "update",
             20),
+        new AuthorizationActionDefinition(
+            EnterpriseRequestWorkflowPermissions.Submit,
+            "enterprise-requests",
+            EnterpriseRequestWorkflowPermissions.Submit,
+            "提交审批",
+            "submit",
+            25),
         new AuthorizationActionDefinition(
             "enterprise_request.enterprise_requests.disable",
             "enterprise-requests",

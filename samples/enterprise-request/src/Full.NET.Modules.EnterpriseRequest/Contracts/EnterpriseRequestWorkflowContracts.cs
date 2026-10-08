@@ -1,5 +1,12 @@
 namespace Full.NET.Modules.EnterpriseRequest.Contracts;
 
+/// <summary>审批动作独立授权，不能由编辑权限隐式授予。</summary>
+public static class EnterpriseRequestWorkflowPermissions
+{
+    /// <summary>将有权写入的草稿提交审批。</summary>
+    public const string Submit = "enterprise_request.enterprise_requests.submit";
+}
+
 public static class EnterpriseRequestWorkflowConstants
 {
     public const string BusinessType = "demo.enterprise_request";

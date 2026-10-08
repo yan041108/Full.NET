@@ -24,6 +24,40 @@ function fixture(request: ReturnType<typeof vi.fn>) {
 }
 
 describe('企业样例页面请求归属', () => {
+  it.each([['update', false], ['submit', true]] as const)('审批动作独立于 %s 权限', async (action, permitted) => {
+    const request = vi.fn().mockResolvedValueOnce(list()).mockResolvedValueOnce({ ...row, status: 'Submitted' }).mockResolvedValue(list());
+    let model!: ReturnType<typeof useEnterpriseRequestPage>;
+    const permissions = ['read', action].map(value => 'enterprise_request.enterprise_requests.' + value);
+    const wrapper = mount(defineComponent({ setup() {
+      model = useEnterpriseRequestPage({ request: { request } as unknown as HttpClient,
+        hasPermission: permission => permissions.includes(permission), contextKey: () => 'tenant-a', onProblem: vi.fn() });
+      return () => h('div');
+    } }));
+    try {
+      await model.load();
+      expect(await model.submitForApproval(model.items.value[0]!)).toBe(permitted);
+      expect(request).toHaveBeenCalledTimes(permitted ? 3 : 1);
+    } finally { wrapper.unmount(); }
+  });
+
+  it('只撤销审批权限也同步取消在途提交并丢弃迟到结果', async () => {
+    const pending = deferred<unknown>(); const submitAllowed = ref(true);
+    const request = vi.fn().mockResolvedValueOnce(list()).mockReturnValueOnce(pending.promise).mockResolvedValue(list());
+    let model!: ReturnType<typeof useEnterpriseRequestPage>;
+    const wrapper = mount(defineComponent({ setup() {
+      model = useEnterpriseRequestPage({ request: { request } as unknown as HttpClient,
+        hasPermission: permission => permission !== 'enterprise_request.enterprise_requests.submit' || submitAllowed.value,
+        contextKey: () => 'tenant-a', onProblem: vi.fn() });
+      return () => h('div');
+    } }));
+    try {
+      await model.load(); const old = model.submitForApproval(model.items.value[0]!);
+      submitAllowed.value = false;
+      expect(request.mock.calls[1]![1]?.signal?.aborted).toBe(true);
+      pending.resolve({ ...row, status: 'Submitted' });
+      expect(await old).toBe(false);
+    } finally { pending.resolve(row); wrapper.unmount(); }
+  });
   it.each(['create', 'update', 'remove'] as const)('旧 %s 完成不得刷新新上下文', async action => {
     const pending = deferred<unknown>(); const request = vi.fn().mockResolvedValue(list());
     const f = fixture(request); await f.model.load(); const item = f.model.items.value[0]!;

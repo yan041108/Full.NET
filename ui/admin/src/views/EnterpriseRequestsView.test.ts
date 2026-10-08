@@ -17,8 +17,8 @@ const row = { id: outputId, tenantId: outputId, organizationUnitId: outputId,
   deletedAtUtc: null, deletedById: null };
 const list = { items: [row], page: 1, pageSize: 20, total: 1 };
 const permissions = ['read', 'create', 'update', 'disable'].map(x => 'enterprise_request.enterprise_requests.' + x);
-function fixture() {
-  const { pinia, session } = createOutputSession(permissions);
+function fixture(granted = permissions) {
+  const { pinia, session } = createOutputSession(granted);
   const wrapper = mount(EnterpriseRequestsView, { global: { plugins: [pinia], stubs: { teleport: true } } });
   return { wrapper, session };
 }
@@ -28,6 +28,13 @@ const click = async (wrapper: ReturnType<typeof mount>, text: string) => {
 };
 
 describe('企业样例对话框归属', () => {
+  it.each([['update', false], ['submit', true]] as const)('只有 %s 时审批按钮可见性为 %s', async (action, visible) => {
+    const f = fixture(['read', action].map(value => 'enterprise_request.enterprise_requests.' + value));
+    try {
+      await flushPromises();
+      expect(f.wrapper.findAll('button').some(button => button.text() === '提交审批')).toBe(visible);
+    } finally { f.wrapper.unmount(); }
+  });
   beforeEach(() => { request.mockReset(); request.mockResolvedValue(list); });
   it('切换租户关闭对话框并清空表单，重新创建不得携带旧输入', async () => {
     const f = fixture(); await flushPromises(); await click(f.wrapper, '创建'); await flushPromises();

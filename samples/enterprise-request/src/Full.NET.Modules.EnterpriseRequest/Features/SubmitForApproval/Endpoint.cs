@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.EnterpriseRequest.Generated;
+using Full.NET.Modules.EnterpriseRequest.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -31,7 +32,7 @@ internal static class SubmitForApprovalEndpoint
                         .ConfigureAwait(false);
                     return mapper.Map(result, httpContext);
                 })
-            .RequireAuthorization()
+            .RequireAuthorization(FullNetPermissionPolicies.For(EnterpriseRequestWorkflowPermissions.Submit))
             .WithTags("EnterpriseRequestEnterpriseRequests")
             .WithName("submitEnterpriseRequestForApproval");
     }
@@ -41,6 +42,6 @@ internal static class SubmitForApprovalEndpoint
         actorUserId = default;
         return Guid.TryParse(
             principal.FindFirstValue(FullNetIdentityClaimTypes.Subject),
-            out actorUserId);
+            out actorUserId) && actorUserId != Guid.Empty;
     }
 }

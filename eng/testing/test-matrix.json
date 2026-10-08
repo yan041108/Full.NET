@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 5396,
+      "minimum": 5409,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -597,12 +597,12 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 186,
+        "minimum": 188,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 186,
+        "minimum": 188,
         "timeout": "60m"
       },
       "migrations": {
@@ -635,12 +635,12 @@
       },
       "enterprise-sample": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Api.EnterpriseRequestApi",
-        "minimum": 6,
+        "minimum": 10,
         "timeout": "15m"
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1180,
+        "minimum": 1184,
         "timeout": "90m"
       },
       "logging-route-comparison": {

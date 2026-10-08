@@ -84,6 +84,8 @@
 | Admin.NET 功能吸收 | Build-verified | 已完成首轮设计吸收与多个纵向切片；2026-08-30 将 Admin.NET.Pro `v2.1` 基线更新至 `09d38bd8`，自 `3879b035` 累计审计 59 个提交。Identity Excel、Host 用户资料权威校验与 Observability Admin 日志控制面已按 Full.NET 安全边界交付；当前明确缺口包括 Notifications 强类型扩展元数据和 MCP 安全/AOT 设计。后续按 [`adminnet-feature-parity.md`](adminnet-feature-parity.md) 逐模块交付，不承诺代码逐行复制。见[资料权威校验](../verification/2026-08-30-identity-authoritative-profile-validation.md)。 |
 | k6 与生产容量认证 | Implemented | [`eng/load`](../../eng/load/README.md) 已提供工具、阈值和报告能力；生产等价环境认证前统一标记 `Capacity-not-verified`。 |
 
+2026-10-08 Enterprise 提交审批授权增量：独立 Submit 权限与原机构写授权已贯通 Endpoint、服务和 Vue，后端样例 36/36、Vue 23/23、双库 API 10/10 通过，见[本批证据](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-08-企业申请提交审批授权批次)。普通 CRUD 审批状态写入约束、提交启动失败恢复和可靠结果回写仍待完成；本批不提升 F10 或 Enterprise 整体状态。既有受限角色须显式授予 `enterprise_request.enterprise_requests.submit`。
+
 ## 2026-09-16 当前建设优先级
 
 1. 先收口所选交付预设的安全/隔离阻塞和已有模块证据，保持 SSO、AI、全项目修复等原专项的唯一任务所有权。
