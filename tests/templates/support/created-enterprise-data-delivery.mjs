@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { createWriteStream, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { createWriteStream, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -41,7 +41,8 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
   signal?.throwIfAborted();
   const { templateRoot } = buildAppTemplate({ output:join(root,'package') });
   // Windows 深层 pnpm 路径可能使 Vite 同步 package-import 解析失败，应用使用自有短临时根。
-  const appRoot = join(mkdtempSync(join(tmpdir(),'fn-enterprise-')),'app');
+  // 临时目录可能含 Windows 8.3 别名；统一成真实路径，避免 Vite 根目录与依赖解析路径不一致。
+  const appRoot = join(realpathSync.native(mkdtempSync(join(tmpdir(),'fn-enterprise-'))),'app');
   createApp({packageRoot:templateRoot,output:appRoot,name:'EnterpriseDelivery',ownerKey:'delivery',database:provider,preset:'enterprise',httpPort:await freePort()});
   const manifest = JSON.parse(readFileSync(join(appRoot,'framework-manifest.json'),'utf8'));
   assert.equal(manifest.projectedPreset,'enterprise');
