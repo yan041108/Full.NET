@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { prepareTestBuild } from './test-build-reuse.mjs';
+import { testRunEnvironment, withTestRun } from './test-run-context.mjs';
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -21,6 +23,7 @@ export function loadTestMatrix() {
 export function parseSuiteOptions(options) {
   const parsed = {
     noBuild: false,
+    reuseBuild: false,
     selection: null,
     filter: null,
     minimumExpectedTests: null
@@ -35,6 +38,10 @@ export function parseSuiteOptions(options) {
 
     if (option === '--no-build') {
       parsed.noBuild = true;
+      continue;
+    }
+    if (option === '--reuse-build') {
+      parsed.reuseBuild = true;
       continue;
     }
 
@@ -73,10 +80,11 @@ export function parseSuiteOptions(options) {
     }
 
     throw new Error(
-      `测试套件只支持 --no-build、--selection、--filter 与 --minimum-expected-tests，收到：${option}`
+      `测试套件只支持 --reuse-build、--no-build、--selection、--filter 与 --minimum-expected-tests，收到：${option}`
     );
   }
 
+  if (parsed.reuseBuild && parsed.noBuild) throw new Error('--reuse-build 与 --no-build 不能同时使用。');
   if (parsed.selection
       && (parsed.filter || parsed.minimumExpectedTests !== null)) {
     throw new Error('--selection 不能与 --filter 或 --minimum-expected-tests 同时使用。');
@@ -168,6 +176,7 @@ function runProcess(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: repositoryRoot,
+      env: testRunEnvironment(),
       stdio: 'inherit',
       shell: false
     });
@@ -189,9 +198,22 @@ function runProcess(command, args) {
 async function run(args) {
   const suiteName = args[0] ?? '';
   const suiteOptions = parseSuiteOptions(args.slice(1));
-  for (const entry of commandsForSuite(suiteName, suiteOptions)) {
+  const commands = commandsForSuite(suiteName, suiteOptions);
+  await withTestRun({ cwd: repositoryRoot }, async () => {
+    if (!suiteOptions.noBuild) {
+      const suite = loadTestMatrix().dotnetSuites[suiteName];
+      const entry = commands[0];
+      const result = await prepareTestBuild({
+        cwd: repositoryRoot, project: suite.project, assembly: suite.assembly, args: entry.args,
+        mode: suiteOptions.reuseBuild ? 'reuse' : 'fresh',
+        build: () => runProcess(entry.command, entry.args)
+      });
+      process.stdout.write(result.reused ? '构建输入和产物一致，复用 Release。\n' : '已登记本次 Release 构建。\n');
+    }
+    // 原 --no-build 保留统一外部构建的调用契约；自动复用必须通过上述记录校验。
+    const entry = commands.at(-1);
     await runProcess(entry.command, entry.args);
-  }
+  });
 }
 
 if (

@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
 
 jobs:
   client-build-test:
@@ -123,7 +124,8 @@ jobs:
           if-no-files-found: warn
 
   template-created-app-real-stack:
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    # 模块/约定批次完成后显式标记集中验收；main 继续执行完整生成应用回归。
+    if: (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'fullnet:acceptance')) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -161,7 +163,7 @@ jobs:
           if-no-files-found: warn
 
   foundation-sample-e2e:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'fullnet:acceptance')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:

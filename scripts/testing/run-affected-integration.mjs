@@ -11,6 +11,8 @@ import { pathToFileURL } from 'node:url';
 
 import { argumentsFor } from './run-integration-shard.mjs';
 import { loadTestMatrix } from './run-dotnet-test-suite.mjs';
+import { prepareTestBuild } from './test-build-reuse.mjs';
+import { testRunEnvironment, withTestRun } from './test-run-context.mjs';
 
 const execFileAsync = promisify(execFile);
 const testMatrix = loadTestMatrix();
@@ -773,6 +775,8 @@ export function parseArguments(args) {
   let planOnly = false;
   let includeHeavy = false;
   let executionGroup = 'all';
+  let reuseBuild = false;
+  let noBuild = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -784,6 +788,8 @@ export function parseArguments(args) {
       planOnly = true;
       continue;
     }
+    if (argument === '--reuse-build') { reuseBuild = true; continue; }
+    if (argument === '--no-build') { noBuild = true; continue; }
     if (argument === '--include-heavy') {
       includeHeavy = true;
       continue;
@@ -836,7 +842,8 @@ export function parseArguments(args) {
   }
 
   targetsForExecutionGroup([], executionGroup);
-  return { baseRef, phase, planOnly, snapshotId, includeHeavy, executionGroup };
+  if (reuseBuild && noBuild) throw new Error('--reuse-build 与 --no-build 不能同时使用。');
+  return { baseRef, phase, planOnly, snapshotId, includeHeavy, executionGroup, reuseBuild, noBuild };
 }
 
 function lines(value) {
@@ -1090,6 +1097,7 @@ function runProcess(command, args, cwd) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
+      env: testRunEnvironment(),
       stdio: 'inherit',
       shell: false
     });
@@ -1123,6 +1131,7 @@ async function discover(filter, cwd) {
     ],
     {
       cwd,
+      env: testRunEnvironment(),
       encoding: 'utf8',
       maxBuffer: 20 * 1024 * 1024
     }
@@ -1194,7 +1203,9 @@ async function runCli(args, cwd = process.cwd()) {
     planOnly,
     snapshotId,
     includeHeavy,
-    executionGroup
+    executionGroup,
+    reuseBuild,
+    noBuild
   } = parseArguments(args);
   const paths = await collectChangedPaths({ baseRef, snapshotId, cwd });
   if (paths.length === 0) {
@@ -1220,6 +1231,7 @@ async function runCli(args, cwd = process.cwd()) {
     return;
   }
 
+  return withTestRun({ cwd, heavy: executionTargets.some(target => target.kind !== 'tooling') }, async () => {
   const toolingTargets = executionTargets.filter(
     target => target.kind === 'tooling'
   );
@@ -1237,18 +1249,20 @@ async function runCli(args, cwd = process.cwd()) {
     return;
   }
 
-  await runProcess(
-    'dotnet',
-    [
+  const buildArgs = [
       'build',
       'tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj',
       '--configuration',
       'Release',
       '--no-restore',
       '--nologo'
-    ],
-    cwd
-  );
+    ];
+  const buildResult = await prepareTestBuild({
+    cwd, project: buildArgs[1], assembly, args: buildArgs,
+    mode: noBuild ? 'verify' : reuseBuild ? 'reuse' : 'fresh',
+    build: () => runProcess('dotnet', buildArgs, cwd)
+  });
+  process.stdout.write(buildResult.reused ? '构建输入和产物一致，复用 Integration Release。\n' : '已登记 Integration Release 构建。\n');
 
   if (toolingScopes.includes('partitions')) {
     await runMatrixVerification(cwd);
@@ -1303,6 +1317,7 @@ async function runCli(args, cwd = process.cwd()) {
       cwd
     );
   }
+  });
 }
 
 if (

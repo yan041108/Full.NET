@@ -1859,3 +1859,21 @@ Host新增三场景先RED2失败/1通过，实现后含原场景14/14；测试�
 - 受影响 Integration 初次启动缺 assets，执行正式 restore 后恢复；其后一轮 41 项为 27 成功/14 失败，不能计通过。11 项 SQL Server 连接拒绝对应旧复用容器 4 GiB 限额、OOMKilled=true/exit137；另 3 项模块编译的全局临时目录前后快照受并行独立生成应用影响。未重启、删除或改变共享容器，也未放宽断言。修复执行隔离后，使用本任务 TEMP/TMP 和 FULLNET_TESTCONTAINERS_REUSE=0 重跑相同 base/slice、41 项双 Provider 选择；最终 41/41 成功、零失败/跳过，7m04.945s，Release 构建零警告/错误。实际命令为 `pnpm test:integration:affected -- --base c0af236feb2792d44f14d9989502e32e94a3043e --phase slice`，TEMP/TMP 指向本任务 `.tmp/enterprise-scope-integration-temp`；日志 `.tmp/enterprise-scope-affected-integration-isolated.log`，TRX 为 `tests/Full.NET.IntegrationTests/bin/Release/net10.0/TestResults/Full.NET.IntegrationTests-affected-codegeneration.trx`。
 - 客户端审计 `pnpm audit:clients` 退出 0，无未审查 Critical/High；保留原有精确登记的 uni-app 依赖例外，不声称无所有公告。报告同步后 `pnpm test:governance` 57/57、零失败/跳过（`.tmp/enterprise-scope-delivery-governance.log`）；`git diff --check` 退出 0。2026-10-08 18:07 +08:00 核对，上一交付 c0af236 的主 CI 37755132529、API Native 37755132531、Worker Native 37755132499 均 success，bdd6c0f 三工作流也 success；不冒充本批提交的远端结果。
 - 环境为 Windows x64、.NET SDK 10.0.401、Node 24.12.0、Docker Linux、Edge。能力保持 Build-verified；F01/F15/F16、F09/F11 不整项关闭。明细行 API、附件、Worker 审批回写、完整业务 Native 运行、灾难恢复及容量仍待相应验收，保持 Capacity-not-verified；仅开发分支和 Draft PR 交付，未合并、未发布。
+
+### 2026-10-08 测试构建复用与模块集中验收
+
+- 用户明确要求同一模块或约定多个模块全部完成后，再集中执行独立应用验收。已写入根 AGENTS 与测试规则 R-20261008-concentrated-acceptance；开发期运行聚焦验证，安全、隔离、数据及契约回归及时执行，不在每个小修改后重复完整应用链路。
+- 基线 `20e8b44819bf6c6e79763ef07d9175d37a4df34c`，快照 `testing-batch-optimization-20261008`。两个 .NET 入口增加 `--reuse-build`，核对实际工作区输入（含未提交/未跟踪文件）、SDK、参数、环境及输出内容；不匹配即重建，失败或输入中途变化不得登记证明。受影响测试的 `--no-build` 严格核验证明，原快速套件保留调用方保证外部统一构建的兼容语义。只复用构建，所选测试仍执行。
+- .NET 子进程隔离 TEMP/TMP；同工作区构建互斥，受影响数据库测试与正式 Minimal/Enterprise 验收共用同机重型资源锁。双锁共享排队截止时间，排队不占独立应用原执行预算；取消和失败释放已持有锁，死 PID 锁需确认资源后处理。生成应用沿用自己的应用目录与容器，不声称所有历史直接命令均接入隔离。
+- PR 生成应用和代表性样例改为 `fullnet:acceptance` 标签触发，标签已创建。完成模块批次后添加，下一开发批次移除；main 完整生成应用回归保留。当前工具批次不添加标签，不重复完整应用验收。
+- RED/GREEN 覆盖缓存失效、失败重建、MSBuild 环境、异步环境隔离、真实跨进程互斥、取消清理和排队预算。只读复审提出的环境指纹遗漏、生成应用环境说明过宽和双锁预算重复均已处理，最终无剩余 Important 问题。
+
+| 实际命令/范围 | 结果 | 证据 |
+| --- | --- | --- |
+| `pnpm test:integration:tooling`；`pnpm test:governance` | 本批工具 77/77；最终治理 58/58，零失败/跳过 | `.tmp/testing-optimization-tooling-final.log`、`.tmp/testing-optimization-governance-final.log` |
+| 连续两次 `pnpm test:dotnet:unit -- --reuse-build --filter FullyQualifiedName~CrudArtifactGeneratorTests --minimum-expected-tests 43` | 每轮 43/43；含构建 17.894s，复用后 3.727s；构建零警告/错误，第二次明确复用 Release | `.tmp/testing-optimization-real-cold.log`、`.tmp/testing-optimization-real-warm.log`、`.tmp/testing-optimization-real-results.json` |
+| `pnpm test:integration:affected -- --snapshot testing-batch-optimization-20261008 --phase slice` | 仅选 integration-tooling，工作区 95/95；包含其他并行任务新增的工作目录工具测试，不纳入本批提交 | `.tmp/testing-optimization-final-affected.log` |
+| 主工作区 `pnpm test:integration:tooling`；`pnpm test:governance` | 71/71；58/58，零失败/跳过 | 主工作区 `.tmp/testing-optimization-shared-tooling.log`、`.tmp/testing-optimization-shared-governance.log` |
+
+- 已将共享规则、工具和适用测试精准同步到 `G:/wwwroot/github_fork/Full.NET`，快照 `testing-optimization-shared-20261008`，作为未提交覆盖保留；保护其既有修改，不移植开发分支业务代码或 main 不存在的 Enterprise 验收文件。其他对话下次读取规则即可使用，已运行对话的上下文不会强制刷新。
+- 计时仅代表 Windows 本机该 43 项场景，不能外推全套提速比例。并行任务的应用目录清理改动不纳入本批提交；能力状态不变。本批未重跑真实独立应用、完整双库或 Native AOT，未合并、未发布。

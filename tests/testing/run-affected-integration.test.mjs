@@ -22,6 +22,12 @@ import * as affectedIntegration
 
 const execFileAsync = promisify(execFile);
 
+test('受影响集成入口支持构建复用与校验式 no-build，互斥选项失败关闭', () => {
+  assert.equal(parseArguments(['--base', 'HEAD', '--reuse-build']).reuseBuild, true);
+  assert.equal(parseArguments(['--base', 'HEAD', '--no-build']).noBuild, true);
+  assert.throws(() => parseArguments(['--base', 'HEAD', '--reuse-build', '--no-build']), /不能/);
+});
+
 test('挑战投递迁移 243 成对进入完整双库恢复目标并保留 Identity 验收', () => {
   for (const filePath of [
     'src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/243_IdentityChallengeDeliveryJournal.sql',
@@ -836,7 +842,7 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       planOnly: true,
       snapshotId: null,
       includeHeavy: false,
-      executionGroup: 'all'
+      executionGroup: 'all', reuseBuild: false, noBuild: false
     }
   );
   assert.deepEqual(
@@ -847,7 +853,7 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       planOnly: false,
       snapshotId: 'task-123',
       includeHeavy: false,
-      executionGroup: 'all'
+      executionGroup: 'all', reuseBuild: false, noBuild: false
     }
   );
   assert.deepEqual(
@@ -858,7 +864,7 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       planOnly: false,
       snapshotId: null,
       includeHeavy: true,
-      executionGroup: 'all'
+      executionGroup: 'all', reuseBuild: false, noBuild: false
     }
   );
   assert.throws(() => parseArguments([]), /--base/);
