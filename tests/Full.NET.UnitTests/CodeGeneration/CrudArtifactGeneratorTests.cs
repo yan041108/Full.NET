@@ -11,6 +11,44 @@ namespace Full.NET.UnitTests.CodeGeneration;
 [TestClass]
 public sealed class CrudArtifactGeneratorTests
 {
+    [TestMethod]
+    public void Generate_vue_edit_form_copies_only_editable_fields_and_resets_update_only_values()
+    {
+        var columns = FullNetCrudSchemaTests.CreateProductSchema().Columns.Select(column =>
+            column.DatabaseName == "Description"
+                ? column with { Ui = column.ResolvedUi with { IncludeInCreate = false, IncludeInUpdate = true } }
+                : column).ToArray();
+        var view = Artifact(GenerateWithLayui(FullNetCrudSchemaTests.CreateProductSchema(columns: columns)),
+            "clients/vue/productsView.vue");
+        Assert.IsFalse(view.Contains("Object.assign(editForm, item)", StringComparison.Ordinal));
+        StringAssert.Contains(view, "const initialEditForm = () => ({");
+        StringAssert.Contains(view, "Object.assign(editForm, initialEditForm())");
+        StringAssert.Contains(view, "description: item.description");
+        StringAssert.Contains(view, "if (succeeded && ticket === editTicket");
+        StringAssert.Contains(view, "await disable(deleting.value)");
+    }
+
+    [TestMethod]
+    [DataRow("legacy")]
+    [DataRow("lifecycle")]
+    public void Generate_vue_pages_bind_requests_and_dialogs_to_current_context(string mode)
+    {
+        var schema = mode == "legacy"
+            ? FullNetCrudSchemaTests.CreateProductSchema()
+            : CreateExplicitLifecycleSchema();
+        var artifacts = GenerateWithLayui(schema);
+        var model = Artifact(artifacts, "clients/vue/products-page.generated.ts");
+        var view = Artifact(artifacts, "clients/vue/productsView.vue");
+        StringAssert.Contains(model, "contextKey: () => string;");
+        StringAssert.Contains(model, "if (!request.current()) return false;");
+        StringAssert.Contains(model, "api.list(nextPage, nextPageSize, request.signal)");
+        StringAssert.Contains(model, "onDeactivated(suspend)");
+        StringAssert.Contains(model, "flush: 'sync'");
+        StringAssert.Contains(view, "contextKey: () => JSON.stringify");
+        StringAssert.Contains(view, "watch(scopeVersion");
+        StringAssert.Contains(view, "cancelChange()");
+    }
+
     private static IReadOnlyList<GeneratedArtifact> GenerateWithLayui(FullNetCrudSchema schema) =>
         CrudArtifactGenerator.Generate(schema, includeLayuiClientArtifacts: true);
 
@@ -414,7 +452,7 @@ public sealed class CrudArtifactGeneratorTests
         StringAssert.Contains(vue, "export function createProductsApi");
         StringAssert.Contains(
             vue,
-            "disable: (id: string, input: DisableProductRequest)");
+            "disable: (id: string, input: DisableProductRequest, signal?: AbortSignal)");
         StringAssert.Contains(layui, "export function createProductsApi");
         StringAssert.Contains(layui, "disable(id, input)");
         StringAssert.Contains(layui, "jsonRequest('POST', input)");
@@ -644,10 +682,10 @@ public sealed class CrudArtifactGeneratorTests
         StringAssert.Contains(endpoint, "MapPost(\"/{productId:guid}/delete\"");
         StringAssert.Contains(
             vue,
-            "update: (id: string, input: UpdateProductRequest)");
+            "update: (id: string, input: UpdateProductRequest, signal?: AbortSignal)");
         StringAssert.Contains(
             vue,
-            "delete: (id: string, input: DeleteProductRequest)");
+            "delete: (id: string, input: DeleteProductRequest, signal?: AbortSignal)");
         StringAssert.Contains(vuePage, "version: item.version");
         StringAssert.Contains(layui, "update(id, input)");
         StringAssert.Contains(layui, "delete(id, input)");

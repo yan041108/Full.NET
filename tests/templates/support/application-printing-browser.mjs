@@ -4,6 +4,7 @@ import { createWriteStream, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { watchPrintingBrowserCancellation, runPrintingBrowserResponseAction } from './application-printing-browser-lifecycle.mjs';
+import { verifyEnterpriseRequestCrudBrowser } from './application-enterprise-crud-browser.mjs';
 import { runPnpm } from './pnpm-process.mjs';
 import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 
@@ -105,6 +106,8 @@ export async function verifyApplicationPrintingBrowser(appRoot, apiUrl, reportDi
   const importedRow=page.locator('.el-table__row').filter({hasText:fixture.importValues[0]});
   await expect(importedRow).toHaveCount(1);await expect(importedRow).toContainText('Enterprise Browser request');await expect(importedRow).toContainText('456.78');
   evidence.tenantImport=true;
+  signal?.throwIfAborted();stage='tenant-business-crud';
+  evidence.enterpriseCrud=await verifyEnterpriseRequestCrudBrowser(page,origin,fixture);
   signal?.throwIfAborted();stage='tenant-report-execute';await page.goto(origin+'/#/reporting/execute');
   await page.getByTestId('reporting-execute-definition').click();
   await expect(page.getByRole('option',{name:'Output acceptance ('+fixture.reportingDefinitionKey+') · v2',exact:true})).toBeVisible();

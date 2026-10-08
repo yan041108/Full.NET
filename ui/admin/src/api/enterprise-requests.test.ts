@@ -15,6 +15,16 @@ const response = {
 };
 
 describe('企业样例请求适配', () => {
+  it('审批响应复用完整守卫并规范化字符串版本', async () => {
+    const request = vi.fn().mockResolvedValue({ ...response, status: 'Submitted', version: '2' });
+    const value = await createEnterpriseRequestsApi({ request } as unknown as HttpClient).submitForApproval(id);
+    expect(value.version).toBe(2);
+  });
+  it.each([{ id }, { ...response, id: unitId }, { ...response, version: '9007199254740992' }])(
+    '拒绝残缺、身份错配或越界的审批响应 %#', async value => {
+      const request = vi.fn().mockResolvedValue(value);
+      await expect(createEnterpriseRequestsApi({ request } as unknown as HttpClient).submitForApproval(id)).rejects.toThrow();
+    });
   it('读取服务端字符串版本后保持客户端并发版本为安全整数', async () => {
     const request = vi.fn().mockResolvedValue({ ...response, version: '1' });
     const result = await createEnterpriseRequestsApi({ request } as unknown as HttpClient)

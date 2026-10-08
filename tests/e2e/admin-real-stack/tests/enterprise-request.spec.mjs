@@ -66,9 +66,15 @@ test('租户管理员通过 Vue 创建、编辑和删除企业申请单', async 
   await expect(editDialog).toBeHidden();
   await expect(row).toContainText(`${title} updated`);
 
+  await row.getByRole('button', { name: '删除', exact: true }).click();
+  const deleteDialog = page.getByRole('dialog', { name: '确认删除', exact: true });
+  await expect(deleteDialog).toBeVisible();
+  await deleteDialog.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: '删除', exact: true }).click();
   const deletedResponse = page.waitForResponse(response => new URL(response.url()).pathname === `${requestPath}/${created.id}/delete`
     && response.request().method() === 'POST');
-  await row.getByRole('button', { name: '删除', exact: true }).click();
+  await deleteDialog.getByRole('button', { name: '确认删除', exact: true }).click();
   expect((await deletedResponse).status()).toBe(200);
   await expect(row).toHaveCount(0);
   await expect(view.getByRole('alert')).toHaveCount(0);

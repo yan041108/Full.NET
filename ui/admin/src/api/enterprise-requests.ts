@@ -3,6 +3,7 @@ import {
   enterpriseRequestDeleteEnterpriseRequest,
   enterpriseRequestListEnterpriseRequests,
   enterpriseRequestUpdateEnterpriseRequest,
+  readEnterpriseRequestResponse,
   type CreateEnterpriseRequestRequest,
   type DeleteEnterpriseRequestRequest,
   type EnterpriseRequestResponse,
@@ -34,35 +35,36 @@ export function createEnterpriseRequestsApi(
   http: GeneratedRequest
 ) {
   return {
-    list: (page = 1, pageSize = 20) =>
-      enterpriseRequestListEnterpriseRequests(http, { page, pageSize }),
-    create: (input: CreateEnterpriseRequestInput) =>
+    list: (page = 1, pageSize = 20, signal?: AbortSignal) =>
+      enterpriseRequestListEnterpriseRequests(http, { page, pageSize }, signal),
+    create: (input: CreateEnterpriseRequestInput, signal?: AbortSignal) =>
       enterpriseRequestCreateEnterpriseRequest(http, { body: {
         requestNumber: input.requestNumber,
         title: input.title,
         status: input.status,
         totalAmount: input.totalAmount,
         applicantUserId: input.applicantUserId
-      } }, undefined, { headers: { 'X-FullNet-Organization-Unit-Id': input.organizationUnitId } }),
-    update: (id: string, input: UpdateEnterpriseRequestRequest) =>
+      } }, signal, { headers: { 'X-FullNet-Organization-Unit-Id': input.organizationUnitId } }),
+    update: (id: string, input: UpdateEnterpriseRequestRequest, signal?: AbortSignal) =>
       enterpriseRequestUpdateEnterpriseRequest(
         http,
-        { enterpriseRequestId: id, body: input }
+        { enterpriseRequestId: id, body: input }, signal
       ),
-    delete: (id: string, input: DeleteEnterpriseRequestRequest) =>
+    delete: (id: string, input: DeleteEnterpriseRequestRequest, signal?: AbortSignal) =>
       enterpriseRequestDeleteEnterpriseRequest(
         http,
-        { enterpriseRequestId: id, body: input }
+        { enterpriseRequestId: id, body: input }, signal
       ),
-    submitForApproval: (id: string) =>
+    submitForApproval: (id: string, signal?: AbortSignal) =>
       http.request<unknown>(
         `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(id)}/submit-for-approval`,
-        { method: 'POST' }
+        { method: 'POST', signal }
       ).then(value => {
-        if (!value || typeof value !== 'object' || typeof (value as { id?: unknown }).id !== 'string') {
+        const response = readEnterpriseRequestResponse(value);
+        if (response.id !== id) {
           throw new Error('client.invalid_enterprise_request_response');
         }
-        return value as EnterpriseRequestResponse;
+        return response;
       })
   };
 }

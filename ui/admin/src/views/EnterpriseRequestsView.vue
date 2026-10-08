@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({ name: 'EnterpriseRequestsView' });
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, reactive, ref, watch } from 'vue';
 import {
   ElButton,
   ElDialog,
@@ -25,8 +25,11 @@ const session = useSessionStore();
 const problem = ref<FullNetProblemDetails>();
 const createOpen = ref(false);
 const editOpen = ref(false);
+const deleteOpen = ref(false);
 const editing = ref<EnterpriseRequestResponse>();
-const createForm = reactive({
+const deleting = ref<EnterpriseRequestResponse>();
+let createTicket = 0; let editTicket = 0; let deleteTicket = 0;
+const initialCreateForm = () => ({
   organizationUnitId: '',
   requestNumber: '',
   title: '',
@@ -34,13 +37,15 @@ const createForm = reactive({
   totalAmount: 0,
   applicantUserId: ''
 });
-const editForm = reactive({
+const initialEditForm = () => ({
   requestNumber: '',
   title: '',
   status: '',
   totalAmount: 0,
   applicantUserId: ''
 });
+const createForm = reactive(initialCreateForm());
+const editForm = reactive(initialEditForm());
 
 const {
   items,
@@ -48,6 +53,9 @@ const {
   pageSize,
   total,
   loading,
+  changing,
+  scopeVersion,
+  cancelChange,
   canCreate,
   canUpdate,
   canDisable,
@@ -58,6 +66,9 @@ const {
   submitForApproval
 } = useEnterpriseRequestPage({
   request: enterpriseRequestsHttp,
+  contextKey: () => JSON.stringify([session.state, session.currentUser?.id,
+    session.currentUser?.sessionId, session.currentUser?.tenantId, session.currentUser?.scope,
+    session.currentUser?.actorScope, session.currentUser?.permissions]),
   hasPermission: permission => session.can(permission),
   onProblem: (error, fallbackCode) => {
     problem.value = isFullNetProblemDetails(error)
@@ -66,15 +77,38 @@ const {
   }
 });
 
+// 上下文或激活代次改变时，关闭所有旧资料入口并同步清除输入和错误。
+watch(scopeVersion, () => {
+  createOpen.value = false; editOpen.value = false; deleteOpen.value = false;
+  editing.value = undefined; deleting.value = undefined; problem.value = undefined;
+  Object.assign(createForm, initialCreateForm()); Object.assign(editForm, initialEditForm());
+}, { flush: 'sync' });
+watch(createOpen, open => {
+  createTicket++;
+  if (!open) { cancelChange(); Object.assign(createForm, initialCreateForm()); }
+}, { flush: 'sync' });
+watch(editOpen, open => {
+  editTicket++;
+  if (!open) { cancelChange(); editing.value = undefined; Object.assign(editForm, initialEditForm()); }
+}, { flush: 'sync' });
+watch(deleteOpen, open => {
+  deleteTicket++;
+  if (!open) { cancelChange(); deleting.value = undefined; }
+}, { flush: 'sync' });
+
 onMounted(() => {
   void load();
 });
 
 function openCreate(): void {
+  if (!canCreate.value || changing.value) return;
+  problem.value = undefined;
   createOpen.value = true;
 }
 
 function openEdit(row: EnterpriseRequestResponse): void {
+  if (!canUpdate.value || changing.value || !items.value.includes(row)) return;
+  problem.value = undefined;
   editing.value = row;
   Object.assign(editForm, {
     requestNumber: row.requestNumber, title: row.title, status: row.status,
@@ -84,24 +118,36 @@ function openEdit(row: EnterpriseRequestResponse): void {
 }
 
 async function submitCreate(): Promise<void> {
+  if (!createOpen.value) return;
+  const ticket = createTicket; const scopeTicket = scopeVersion.value;
   const succeeded = await create({ ...createForm });
-  if (succeeded) {
+  if (succeeded && ticket === createTicket && scopeTicket === scopeVersion.value && createOpen.value) {
     createOpen.value = false;
   }
 }
 
 async function submitEdit(): Promise<void> {
-  if (!editing.value) {
+  if (!editOpen.value || !editing.value) {
     return;
   }
+  const ticket = editTicket; const scopeTicket = scopeVersion.value;
   const succeeded = await update(editing.value, { ...editForm });
-  if (succeeded) {
+  if (succeeded && ticket === editTicket && scopeTicket === scopeVersion.value && editOpen.value) {
     editOpen.value = false;
   }
 }
 
-async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
-  await remove(row);
+function openDelete(row: EnterpriseRequestResponse): void {
+  if (!canDisable.value || changing.value || !items.value.includes(row)) return;
+  problem.value = undefined; deleting.value = row; deleteOpen.value = true;
+}
+
+async function confirmDelete(): Promise<void> {
+  if (!deleteOpen.value || !deleting.value) return;
+  const ticket = deleteTicket; const scopeTicket = scopeVersion.value;
+  const succeeded = await remove(deleting.value);
+  if (succeeded && ticket === deleteTicket && scopeTicket === scopeVersion.value && deleteOpen.value)
+    deleteOpen.value = false;
 }
 </script>
 
@@ -158,7 +204,7 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
             v-if="canDisable"
             link
             type="danger"
-            @click="removeRow(row)"
+            @click="openDelete(row)"
           >
             删除
           </el-button>
@@ -195,7 +241,7 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
       </el-form>
       <template #footer>
         <el-button @click="createOpen = false">取消</el-button>
-        <el-button type="primary" @click="submitCreate">保存</el-button>
+        <el-button type="primary" :loading="changing" @click="submitCreate">保存</el-button>
       </template>
     </el-dialog>
     <el-dialog v-model="editOpen" title="编辑">
@@ -218,7 +264,14 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
       </el-form>
       <template #footer>
         <el-button @click="editOpen = false">取消</el-button>
-        <el-button type="primary" @click="submitEdit">保存</el-button>
+        <el-button type="primary" :loading="changing" @click="submitEdit">保存</el-button>
+      </template>
+    </el-dialog>
+    <el-dialog v-model="deleteOpen" title="确认删除">
+      <p>确定删除该条记录吗？</p>
+      <template #footer>
+        <el-button @click="deleteOpen = false">取消</el-button>
+        <el-button type="danger" :loading="changing" @click="confirmDelete">确认删除</el-button>
       </template>
     </el-dialog>
   </section>
