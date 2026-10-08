@@ -302,9 +302,13 @@ internal static class AiKnowledgeIndexDocxPersistenceAssertions
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET Version=2 WHERE Id=@DocumentId", p);
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET DocumentVersion=2 WHERE Id=@TaskId", p);
             binding = binding with { DocumentVersion = 2 };
-            await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_index_task (Id,DocumentId,VersionId,DocumentVersion,KnowledgeBaseVersion,ModelConfigId,ModelConfigVersion,StateKey,AttemptCount,CreatedAtUtc,UpdatedAtUtc) SELECT @OldTask,DocumentId,VersionId,1,KnowledgeBaseVersion,ModelConfigId,ModelConfigVersion,'completed',1,CreatedAtUtc,UpdatedAtUtc FROM fn_ai_knowledge_index_task WHERE Id=@TaskId", new { OldTask = oldTask, TaskId = taskId });
+            // 旧任务必须真实早于后继；同一创建时间下更大的 UUID 会成为状态查询的最新候选。
+            await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_index_task (Id,DocumentId,VersionId,DocumentVersion,KnowledgeBaseVersion,ModelConfigId,ModelConfigVersion,StateKey,AttemptCount,CreatedAtUtc,UpdatedAtUtc) SELECT @OldTask,DocumentId,VersionId,1,KnowledgeBaseVersion,ModelConfigId,ModelConfigVersion,'completed',1,@RetiredCreatedAt,@RetiredCreatedAt FROM fn_ai_knowledge_index_task WHERE Id=@TaskId", new { OldTask = oldTask, TaskId = taskId, RetiredCreatedAt = now.AddDays(-3).UtcDateTime });
             await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_docx_manifest (Id,FormatKey,PayloadHash,Payload,CreatedAtUtc) SELECT @OldTask,FormatKey,PayloadHash,Payload,CreatedAtUtc FROM fn_ai_knowledge_docx_manifest WHERE Id=@TaskId", new { OldTask = oldTask, TaskId = taskId });
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET ActivatedAtUtc=@Time WHERE DocumentId=@DocumentId", new { Time = now.AddDays(-2).UtcDateTime, binding.DocumentId });
+            var successorStatus = await ReadStatus(); Assert.IsNotNull(successorStatus);
+            Assert.AreEqual(taskId, successorStatus.TaskId); Assert.AreEqual(1, successorStatus.IsCurrent);
+            Assert.IsTrue(await Use(a => a.Activations.IsReadyForReadAsync(successorStatus, readParameters, default)));
             await Retire(Guid.CreateVersion7()); Assert.AreEqual(1L, await OldManifestCount());
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Broken WHERE Id=@Id", new { Broken = new byte[8], Id = operations[0] });
             await Retire(binding.OwnerUserId); Assert.AreEqual(1L, await OldManifestCount());
