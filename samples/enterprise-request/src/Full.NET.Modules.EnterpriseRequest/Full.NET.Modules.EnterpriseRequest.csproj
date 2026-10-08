@@ -9,6 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="MemoryPack" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../../../../src/BuildingBlocks/Full.NET.Abstractions/Full.NET.Abstractions.csproj" />
     <ProjectReference Include="../../../../src/BuildingBlocks/Full.NET.Data.Abstractions/Full.NET.Data.Abstractions.csproj" />

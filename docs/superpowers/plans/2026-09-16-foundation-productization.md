@@ -1079,6 +1079,27 @@ Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约
 
 证据保留 `.tmp/enterprise-state-*`。提交启动失败恢复、本模块事务 Outbox、幂等流程启动、实例与提交身份绑定及可靠结果回写仍需下一批集中完成；明细直接写入、附件与通知也未由本批关闭。独立生成应用和完整浏览器在约定模块批次实现完毕后集中执行，本批不重复运行；没有全量 .NET、Linux 原生或容量实测结论。`Capacity-not-verified` 保持，开发分支交付，不合并、不发布。
 
+#### 2026-10-08 企业申请可靠提交与终态回写批次
+
+基线 `cd23bb4e45fce96800963d0151faa469874b612f`，快照 `enterprise-reliable-approval-20261008`。本批集中完成事务提交、流程幂等恢复、实例/提交版本绑定及终态回写；通知、附件、完整页面与独立应用链路尚未验收，F10 四项保持待办，Enterprise 样板保持 `Build-verified`。
+
+API 在本模块同一事务内 CAS 更新 Submitted、写入不可变提交日志及事务 Outbox；失败整组回滚。日志预分配 UUID v7 流程实例，固定定义版本、申请人、机构、标题和提交版本。Worker 在事务外通过稳定 Workflow Port 启动该实例，回执丢失时重放同一实例；活动、挂起、完成、驳回及取消均可返回已有实例，身份或幂等回执不一致拒绝。终态事件只回写日志绑定的实例与版本，在本模块事务内更新单据和封存日志，重复/竞争回执不产生第二次状态写入。SQL Server/MySQL 的 247 迁移、静态 AOT 物化与模板迁移归属同时落地；未新增跨模块事务、外键或 CDC 切流。
+
+提交权限与会话以 API 提交事务为授权点，之后撤权不自动撤销已提交业务；Worker 仍复核活动租户及当前原机构资源授权。历史 Submitted 无日志不能推断流程绑定，明确以 `enterprise_request.legacy_binding_required` 进入重试/死信处理，待人工或后续受控对账补绑定。本批不自动迁移既有业务状态。
+
+先执行可失败验证：固定实例重放、回执身份冲突及可靠排队共 **10/10 失败**，实现后相同语义通过；新增 32 项单测及双库迁移 2 项。独立只读审查提出历史缺失绑定静默确认和真实事务回滚证据不足，已补显式失败及真实数据库故障注入。验证命令与结果（最终均零失败/跳过、退出 0）：
+
+- `pnpm test:dotnet:unit -- --reuse-build --filter 'FullyQualifiedName~Full.NET.UnitTests.EnterpriseRequest|FullyQualifiedName~Full.NET.UnitTests.Workflow' --minimum-expected-tests 102`：**372/372**，执行 **6.844 秒**。
+- `FULLNET_TESTCONTAINERS_REUSE=0` 下执行 `pnpm test:integration:affected -- --snapshot enterprise-reliable-approval-20261008 --phase slice --reuse-build`：**28/28**，含 Enterprise 双库 API **12**、Workflow **14**、迁移 247 **2**，执行 **458.354 秒**。真实断言覆盖 Submit Outbox 抛错整组回滚、终态第二次写入失败整组回滚、实际流程创建/取消后启动回执恢复、错误实例拒绝、重复回写及迁移重入/索引恢复；同次 tooling **99/99**、governance **59/59**。
+- `pnpm test:dotnet:architecture -- --reuse-build`：**232/232**，执行 **144.189 秒**，构建零警告/错误。
+- `pnpm test:aot:analyzers`、`pnpm test:aot:worker:analyzers` 均通过，默认 JIT 还原图恢复通过，零警告/错误；不等于 Linux 原生运行验收。
+- `pnpm test:integration:partitions -- --no-build`：发现 **1188** 项，分片互斥且无遗漏；仅验证发现集合，没有执行全量 Integration。
+- `pnpm test:naming` **33/33**、`pnpm test:sql-safety` **5/5**、`node --test tests/templates/migration-script-modules.test.mjs` **4/4**；迁移归属测试先复现 247 未登记，再补齐归属。数据库中文注释目录与双库迁移一致，`node scripts/database/validate-sql-comments.mjs` 通过；文档同步后 `pnpm test:governance` **59/59**。
+
+首次集成运行复用的 SQL Server 容器在恢复数百个历史测试库时 OOM（4 GiB 内存限制），导致连接失败；该轮不计通过。停止本任务测试进程后，用已有入口的临时容器模式重跑完整相同影响集通过，未删除其他任务数据库/容器或降低断言。本机 Windows Docker、SQL Server 2022 CU14/MySQL 8.0；NuGet 仅在本任务进程使用既有本机代理，保持证书校验、漏洞审计和警告门禁。日志保留 `.tmp/enterprise-reliable-*`。
+
+最终独立只读复核核对两组故障注入仍执行真实 Dapper/事务及双 Provider 通过证据，无剩余阻断项。独立生成应用、完整浏览器、通知/附件及历史绑定对账继续待办；同模块与约定批次完成后集中执行验收。本批没有全量 .NET、Linux 原生或容量实测结论，`Capacity-not-verified` 保持。开发分支及 Draft PR 交付，合并与发布另行约定。
+
 ### F11：导入、报表与打印接入样板
 
 **依赖：** F09、C02/C05。**提供：** 现有三个模块的受控业务接入范例。

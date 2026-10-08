@@ -1,4 +1,8 @@
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Ids;
+using Full.NET.Data.Dapper;
+using Full.NET.UnitTests.Data;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -108,7 +112,7 @@ public sealed class SubmitEnterpriseRequestForApprovalSecurityTests
     }
 
     [TestMethod]
-    public async Task Allowed_submission_authorizes_original_unit_and_starts_pinned_definition_once()
+    public async Task Allowed_submission_authorizes_original_unit_and_records_pinned_intent_once()
     {
         using var fixture = new Fixture();
         var original = fixture.Row;
@@ -116,11 +120,13 @@ public sealed class SubmitEnterpriseRequestForApprovalSecurityTests
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(EnterpriseRequestStatusKeys.Submitted, result.Value!.Status);
         await fixture.Authorizer.Received(1).EnsureCanWriteAsync(fixture.TenantId, original.OrganizationUnitId, fixture.Actor, Arg.Any<CancellationToken>());
-        await fixture.Starter.Received(1).StartAsync(fixture.Actor,
-            Arg.Is<StartWorkflowInstanceCommand>(value => value != null && value.DefinitionVersionId == fixture.DefinitionId
-                && value.BusinessId == original.Id.ToString("D")
-                && value.IdempotencyKey == $"submit:{original.Id:D}:{original.Version}"), Arg.Any<CancellationToken>());
-        Assert.AreEqual(1, fixture.Commands.ReceivedCalls().Count());
+        await fixture.Commands.Received(1).ExecuteAsync(EnterpriseRequestApprovalSql.Insert,
+            Arg.Is<object?>(value => value is Dictionary<string, object?> &&
+                ((Dictionary<string, object?>)value)["WorkflowDefinitionVersionId"]!.Equals(fixture.DefinitionId) &&
+                ((Dictionary<string, object?>)value)["RequestVersion"]!.Equals(original.Version + 1)), Arg.Any<CancellationToken>());
+        Assert.AreEqual(0, fixture.Starter.ReceivedCalls().Count());
+        Assert.AreEqual(2, fixture.Commands.ReceivedCalls().Count());
+        Assert.AreEqual(1, fixture.Coordinator.CommitCount);
     }
 
     [TestMethod]
@@ -134,6 +140,65 @@ public sealed class SubmitEnterpriseRequestForApprovalSecurityTests
         Assert.AreEqual(0, fixture.Starter.ReceivedCalls().Count());
     }
 
+    [TestMethod]
+    public async Task Allowed_submission_queues_outbox_without_inline_workflow_start()
+    {
+        using var fixture = new Fixture();
+        var result = await fixture.Service.SubmitAsync(fixture.Row.Id, fixture.Actor);
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(0, fixture.Starter.ReceivedCalls().Count(), "提交请求不能等待跨模块流程写入。");
+        Assert.AreEqual(1, fixture.Outbox.ReceivedCalls().Count(), "状态和启动意图必须由事务 Outbox 可靠交付。");
+    }
+
+    [TestMethod]
+    public async Task Workflow_unavailability_does_not_prevent_durable_submission()
+    {
+        using var fixture = new Fixture();
+        fixture.Starter.StartAsync(Arg.Any<Guid>(), Arg.Any<StartWorkflowInstanceCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Result<WorkflowInstanceLifecycleResult>.Failure(new Error("workflow.unavailable", "Unavailable", ErrorType.Conflict)));
+        var result = await fixture.Service.SubmitAsync(fixture.Row.Id, fixture.Actor);
+        Assert.IsTrue(result.IsSuccess, "流程不可用时仍应可靠保存待启动意图，由 Worker 重试。");
+        Assert.AreEqual(EnterpriseRequestStatusKeys.Submitted, result.Value!.Status);
+        Assert.AreEqual(0, fixture.Starter.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    public async Task Outbox_failure_rolls_back_submission_transaction()
+    {
+        using var f = new Fixture();
+        f.Outbox.AddAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<EnterpriseRequestApprovalSubmittedIntegrationEvent>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("outbox.failed")));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => f.Service.SubmitAsync(f.Row.Id, f.Actor));
+        Assert.AreEqual(1, f.Coordinator.RollbackCount); Assert.AreEqual(0, f.Coordinator.CommitCount);
+        Assert.AreEqual(0, f.Starter.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    public async Task Submission_insert_failure_rolls_back_and_does_not_queue_outbox()
+    {
+        using var f = new Fixture();
+        f.Commands.ExecuteAsync(EnterpriseRequestApprovalSql.Insert, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(0);
+        var result = await f.Service.SubmitAsync(f.Row.Id, f.Actor);
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(1, f.Coordinator.RollbackCount); Assert.AreEqual(0, f.Coordinator.CommitCount);
+        Assert.AreEqual(0, f.Outbox.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    public async Task Original_actor_can_replay_queued_submission_without_new_intent()
+    {
+        using var f = new Fixture();
+        f.Row = f.Row with { Status = "Submitted", Version = 2 };
+        var submission = new EnterpriseRequestApprovalSubmission(Guid.CreateVersion7(), f.TenantId, f.Row.Id, 2,
+            f.DefinitionId, Guid.CreateVersion7(), f.Actor, f.Row.OrganizationUnitId, f.Row.Title, DateTimeOffset.UtcNow, null, null, null, null);
+        f.Queries.QuerySingleOrDefaultAsync<EnterpriseRequestApprovalSubmission>(EnterpriseRequestApprovalSql.FindByRequest,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(submission);
+        Assert.IsTrue((await f.Service.SubmitAsync(f.Row.Id, f.Actor)).IsSuccess);
+        f.AssertNoSideEffects();
+        Assert.AreEqual(0, f.Definitions.ReceivedCalls().Count());
+        await f.Authorizer.Received(1).EnsureCanWriteAsync(f.TenantId, f.Row.OrganizationUnitId, f.Actor, Arg.Any<CancellationToken>());
+    }
+
     private sealed class Fixture : IDisposable
     {
         public Guid TenantId { get; } = Guid.NewGuid();
@@ -145,6 +210,8 @@ public sealed class SubmitEnterpriseRequestForApprovalSecurityTests
         public IOrganizationOwnedEntityWriteAuthorizer Authorizer { get; } = Substitute.For<IOrganizationOwnedEntityWriteAuthorizer>();
         public IWorkflowPublishedDefinitionDirectory Definitions { get; } = Substitute.For<IWorkflowPublishedDefinitionDirectory>();
         public IWorkflowInstanceStarter Starter { get; } = Substitute.For<IWorkflowInstanceStarter>();
+        public IOutboxWriter Outbox { get; } = Substitute.For<IOutboxWriter>();
+        public RecordingDbTransactionCoordinator Coordinator { get; } = new();
         public EnterpriseRequestRecord Row { get; set; }
         public SubmitEnterpriseRequestForApprovalService Service { get; }
         private readonly ServiceProvider provider;
@@ -162,10 +229,13 @@ public sealed class SubmitEnterpriseRequestForApprovalSecurityTests
                 .Returns(new WorkflowPublishedDefinitionVersion(DefinitionId, Guid.NewGuid(), EnterpriseRequestWorkflowConstants.DefinitionKey));
             Commands.ExecuteAsync(EnterpriseRequestWorkflowSql.ApplySubmittedStatus, Arg.Any<object>(), Arg.Any<CancellationToken>())
                 .Returns(_ => { Row = Row with { Status = EnterpriseRequestStatusKeys.Submitted, Version = Row.Version + 1 }; return 1; });
+            Commands.ExecuteAsync(EnterpriseRequestApprovalSql.Insert, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
             Starter.StartAsync(Arg.Any<Guid>(), Arg.Any<StartWorkflowInstanceCommand>(), Arg.Any<CancellationToken>())
                 .Returns(Result<WorkflowInstanceLifecycleResult>.Success(new WorkflowInstanceLifecycleResult(Guid.NewGuid(), "running", 1)));
+            var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(_ => Guid.CreateVersion7());
             provider = new ServiceCollection().AddSingleton(Queries).AddSingleton(Commands).AddSingleton(Tenant)
-                .AddSingleton(Authorizer).AddSingleton(Definitions).AddSingleton(Starter).AddSingleton(Substitute.For<IClock>())
+                .AddSingleton(ids).AddSingleton<ICommandTransaction>(new DapperCommandTransaction(Coordinator))
+                .AddSingleton(Authorizer).AddSingleton(Definitions).AddSingleton(Starter).AddSingleton(Outbox).AddSingleton(Substitute.For<IClock>())
                 .AddTransient<SubmitEnterpriseRequestForApprovalService>().BuildServiceProvider();
             Service = provider.GetRequiredService<SubmitEnterpriseRequestForApprovalService>();
         }
@@ -174,6 +244,7 @@ public sealed class SubmitEnterpriseRequestForApprovalSecurityTests
         {
             Assert.AreEqual(0, Commands.ReceivedCalls().Count());
             Assert.AreEqual(0, Starter.ReceivedCalls().Count());
+            Assert.AreEqual(0, Outbox.ReceivedCalls().Count());
         }
 
         public void Dispose() => provider.Dispose();

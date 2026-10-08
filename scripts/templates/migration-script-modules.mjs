@@ -39,6 +39,7 @@ const STEM_MODULE_OVERRIDES = new Map([
   ['IdentityHostUserProfileAuthority', 'Identity'],
   ['DemoEnterpriseRequest', 'EnterpriseRequest'],
   ['DemoEnterpriseRequestImportReceipt', 'EnterpriseRequest'],
+  ['DemoEnterpriseRequestApprovalSubmission', 'EnterpriseRequest'],
   ['CodeGenerationTemplate', 'Platform'],
   ['CodeGenerationRun', 'Platform'],
   ['CodeGenerationApply', 'Platform'],

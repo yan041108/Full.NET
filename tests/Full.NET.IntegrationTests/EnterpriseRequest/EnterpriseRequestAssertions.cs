@@ -102,12 +102,14 @@ internal static partial class EnterpriseRequestAssertions
         Assert.IsNotNull(created);
 
         using var submitRequest = new HttpRequestMessage(HttpMethod.Post, $"{BasePath}/{created!.Id:D}/submit-for-approval");
+        await VerifySubmissionRollbackAsync(factory, created, cancellationToken);
         submitRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var submitResponse = await client.SendAsync(submitRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, submitResponse.StatusCode, await submitResponse.Content.ReadAsStringAsync(cancellationToken));
         var submitted = await submitResponse.Content.ReadFromJsonAsync<EnterpriseRequestResponse>(cancellationToken);
         Assert.IsNotNull(submitted);
         Assert.AreEqual(EnterpriseRequestStatusKeys.Submitted, submitted!.Status);
+        await VerifyReliableApprovalRecoveryAsync(factory, client, token, submitted, cancellationToken);
     }
 
     public static async Task VerifyTenantDemoEnterpriseRequestsWorkbookImportAsync(

@@ -1,6 +1,25 @@
 {
   "schemaVersion": 1,
   "tables": {
+    "demo_enterprise_request_approval_submission": {
+      "comment": "unknowndemo enterprise request approval submission表",
+      "columns": {
+        "BusinessTitle": "业务标题",
+        "CompletedAtUtc": "完成时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "FinalStatus": "Final Status",
+        "Id": "逻辑主键",
+        "LastMessageId": "Last Message标识",
+        "OrganizationUnitId": "机构单元标识",
+        "RequestId": "Request标识",
+        "RequestVersion": "Request Version",
+        "StartedAtUtc": "开始时间(UTC)",
+        "SubmittedById": "Submitted By标识",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "WorkflowDefinitionVersionId": "工作流定义版本标识",
+        "WorkflowInstanceId": "工作流实例标识"
+      }
+    },
     "demo_enterprise_request_enterprise_request": {
       "comment": "企业申请示例主表",
       "columns": {

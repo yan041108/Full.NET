@@ -246,12 +246,56 @@ public sealed class WorkflowInstanceManagementServiceTests
         Assert.AreEqual(2, result.Value.PendingCount);
     }
 
-    /// <summary>构造暂停/恢复服务及其查询替身。</summary>
-    /// <param name="query">已配置的查询执行器。</param>
-    /// <param name="command">命令执行器。</param>
-    /// <param name="actorId">当前操作人标识，用于时钟以外的无关构造。</param>
-    /// <param name="outbox">可选 Outbox 写入器。</param>
-    /// <returns>可直接调用暂停或恢复的服务实例。</returns>
+    /// <summary>定义停用或实例已终结后，可靠启动重放仍不得创建第二个实例。</summary>
+    [TestMethod]
+    [DataRow("active")]
+    [DataRow("suspended")]
+    [DataRow("completed")]
+    [DataRow("rejected")]
+    [DataRow("cancelled")]
+    public async Task Pinned_start_replay_returns_original_instance_without_new_writes(string status)
+    {
+        using var json = System.Text.Json.JsonDocument.Parse("{}");
+        var id = Guid.CreateVersion7(); var actor = Guid.CreateVersion7(); var definition = Guid.CreateVersion7();
+        var request = new StartWorkflowInstanceRequest(definition, "leave", "LEAVE-001", json.RootElement.Clone(), "start-001");
+        var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{definition:D}\nleave\nLEAVE-001\n{{}}")));
+        var query = CreateQuery(id, actor, status, 3, Guid.CreateVersion7(),
+            new WorkflowActionReceiptRecord("start", actor, 1, request.IdempotencyKey, hash, null));
+        var row = await query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById, null);
+        query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(row! with { DefinitionVersionId = definition });
+        if (status is "completed" or "rejected" or "cancelled")
+            query.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(WorkflowSql.FindActiveTodoByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns((WorkflowTodoRecord?)null);
+        var commands = Substitute.For<ICommandExecutor>();
+        var result = await CreateService(query, commands, actor).StartAsync(actor, request, requestedInstanceId: id);
+        Assert.IsTrue(result.IsSuccess, result.Error?.Code);
+        Assert.AreEqual(id, result.Value!.Id); Assert.AreEqual(status, result.Value.StatusKey);
+        Assert.AreEqual(0, commands.ReceivedCalls().Count());
+        await query.DidNotReceive().QuerySingleOrDefaultAsync<WorkflowRuntimeAssetRecord>(WorkflowSql.FindRuntimeAsset, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [DataRow("actor")]
+    [DataRow("hash")]
+    [DataRow("action")]
+    public async Task Pinned_start_rejects_receipt_mismatch_without_writes(string mismatch)
+    {
+        using var json = System.Text.Json.JsonDocument.Parse("{}");
+        var id = Guid.CreateVersion7(); var actor = Guid.CreateVersion7(); var definition = Guid.CreateVersion7();
+        var request = new StartWorkflowInstanceRequest(definition, "leave", "LEAVE-001", json.RootElement.Clone(), "start-001");
+        var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{definition:D}\nleave\nLEAVE-001\n{{}}")));
+        var query = CreateQuery(id, actor, "completed", 3, Guid.CreateVersion7(),
+            new WorkflowActionReceiptRecord(mismatch == "action" ? "cancel" : "start", mismatch == "actor" ? Guid.CreateVersion7() : actor,
+                1, request.IdempotencyKey, mismatch == "hash" ? "different" : hash, null));
+        var row = await query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById, null);
+        query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(row! with { DefinitionVersionId = definition });
+        var command = Substitute.For<ICommandExecutor>();
+        var result = await CreateService(query, command, actor).StartAsync(actor, request, requestedInstanceId: id);
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(WorkflowErrorCodes.ActiveInstanceExists, result.Error!.Code);
+        Assert.AreEqual(0, command.ReceivedCalls().Count());
+    }
+
     private static WorkflowInstanceManagementService CreateService(
         IQueryExecutor query,
         ICommandExecutor command,

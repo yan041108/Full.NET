@@ -1,4 +1,5 @@
 using Full.NET.Modularity.Modules;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Printing.Contracts;
 using Full.NET.Modules.EnterpriseRequest.Features.Printing;
@@ -35,6 +36,7 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         services.TryAddScoped<EnterpriseRequestImportService>();
 #if FULLNET_AOT_COMPILE
         Persistence.EnterpriseRequestImportAotMaterializer.Register();
+        Persistence.EnterpriseRequestApprovalAotMaterializer.Register();
 #endif
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IStaticImportSchemaHandler,
@@ -51,8 +53,10 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IStaticImportSchemaHandler, EnterpriseRequestStaticImportSchemaHandler>());
 #if FULLNET_AOT_COMPILE
         Persistence.EnterpriseRequestImportAotMaterializer.Register();
+        Persistence.EnterpriseRequestApprovalAotMaterializer.Register();
 #endif
         services.TryAddScoped<EnterpriseRequestWorkflowOutcomeService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, EnterpriseRequestApprovalSubmittedHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IWorkflowInstanceCompletedSink,
             WorkflowInstanceCompletedEnterpriseRequestSink>());
