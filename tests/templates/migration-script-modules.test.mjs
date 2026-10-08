@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 import { buildMigrationInventory } from '../../scripts/templates/framework-manifest-utils.mjs';
 import { buildPresetMigrationInventory, inferMigrationModuleOwner } from '../../scripts/templates/migration-script-modules.mjs';
-import { resolvePresetModules } from '../../scripts/templates/preset-modules.mjs';
+import { resolvePresetModules, VALID_PRESETS } from '../../scripts/templates/preset-modules.mjs';
 
 const MIGRATIONS = resolve('src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer');
 
@@ -12,6 +12,25 @@ test('inferMigrationModuleOwner resolves every published script', () => {
   const names = readdirSync(MIGRATIONS).filter((name) => name.endsWith('.sql')).sort();
   for (const name of names) {
     assert.doesNotThrow(() => inferMigrationModuleOwner(name), name);
+  }
+});
+
+test('knowledge migrations retain Ai ownership and stay outside generated presets for both providers', () => {
+  for (const provider of ['SqlServer', 'MySql']) {
+    const migrationDirectory = resolve('src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations', provider);
+    const names = readdirSync(migrationDirectory).filter((name) => name.endsWith('.sql'));
+    const aiNames = names.filter((name) => /^\d+_Ai.+\.sql$/.test(name));
+    assert.ok(aiNames.includes('240_AiKnowledgeBase.sql'), provider);
+    assert.ok(aiNames.includes('255_AiKnowledgeDocxPersistence.sql'), provider);
+    for (const name of aiNames) assert.equal(inferMigrationModuleOwner(name), 'Ai', provider + '/' + name);
+    const full = buildMigrationInventory(Object.fromEntries(names.flatMap((name) => [
+      [`src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/${name}`, '0'.repeat(64)],
+      [`src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/${name}`, '0'.repeat(64)],
+    ])));
+    for (const preset of VALID_PRESETS) {
+      const inventory = buildPresetMigrationInventory(full, preset, resolvePresetModules(preset));
+      assert.ok(!inventory.scripts.some(({ name }) => aiNames.includes(name)), provider + '/' + preset);
+    }
   }
 });
 
