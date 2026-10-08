@@ -180,6 +180,7 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
    // 浏览器登录会轮换同一 admin 会话，放在所有 HTTP 断言之后；撤权由独立 Host 用户执行。
    ensure(await send('browser-profile-regrant',printGrant,'PUT',undefined,200,revoker)===true,'browser profile regrant failed');
    if (businessPrintGrant) ensure(await send('browser-business-regrant',businessPrintGrant,'PUT',undefined,200,revoker)===true,'browser business regrant failed');
+   stage='printing-browser';
    evidence.printing.browser=await verifyPrintingBrowser({templateId:template.id,businessTemplateId:businessTemplate?.id,
     tenantName:switched.context.name,tenantId,recordId:businessRecordId,
     revoke:async()=>{

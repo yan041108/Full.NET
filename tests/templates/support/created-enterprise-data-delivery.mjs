@@ -3,6 +3,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createWriteStream, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { buildAppTemplate } from '../../../scripts/templates/build-app-template.mjs';
 import { createApp } from '../../../scripts/templates/create-app.mjs';
@@ -39,7 +40,8 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
  try {
   signal?.throwIfAborted();
   const { templateRoot } = buildAppTemplate({ output:join(root,'package') });
-  const appRoot = join(root,'app');
+  // Windows 深层 pnpm 路径可能使 Vite 同步 package-import 解析失败，应用使用自有短临时根。
+  const appRoot = join(mkdtempSync(join(tmpdir(),'fn-enterprise-')),'app');
   createApp({packageRoot:templateRoot,output:appRoot,name:'EnterpriseDelivery',ownerKey:'delivery',database:provider,preset:'enterprise',httpPort:await freePort()});
   const manifest = JSON.parse(readFileSync(join(appRoot,'framework-manifest.json'),'utf8'));
   assert.equal(manifest.projectedPreset,'enterprise');

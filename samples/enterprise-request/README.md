@@ -53,7 +53,7 @@ $env:FULLNET_TESTCONTAINERS_REUSE='0'
 node --test tests/templates/created-enterprise-data-delivery.test.mjs
 ```
 
-该测试从固定提交生成新的 Enterprise 应用，使用自己的数据库和 Redis，构建三个宿主并执行迁移重放；两张正式工作簿在 API 中排队后才启动独立 Worker，通过正式业务 API 回读单位/职级、申请人、金额与租户。报告和生成应用保留在 `.tmp/template-real-stack/enterprise-delivery/`，只清理本次拥有的进程和容器。验收器同时执行正式报表查询、工作簿导出、租户档案与企业申请打印，并从生成应用自己的 Vue 骨架进行真实浏览器授权、预览、打印前复核和撤权验证。正常消费与输出链分别记录，不包含 Worker OS 崩溃、审批或完整 Native AOT 业务链。浏览器打印验证调用时序、内容与打印媒体样式，不验证实体打印机或系统打印对话框。
+该测试从固定提交生成新的 Enterprise 应用，使用自己的数据库和 Redis，构建三个宿主并执行迁移重放；两张正式工作簿在 API 中排队后才启动独立 Worker，通过正式业务 API 回读单位/职级、申请人、金额与租户。报告保留在 `.tmp/template-real-stack/enterprise-delivery/`；生成应用保留在本次独占的系统临时短目录，报告 `applicationRoot` 记录其路径，以避免 Windows 深层依赖目录的 Node/Vite package-import 解析问题。只清理本次拥有的进程和容器。验收器同时执行正式报表查询、工作簿导出、租户档案与企业申请打印，并从生成应用自己的 Vue 骨架进行真实浏览器授权、预览、打印前复核和撤权验证。正常消费与输出链分别记录，不包含 Worker OS 崩溃、审批或完整 Native AOT 业务链。浏览器打印验证调用时序、内容与打印媒体样式，不验证实体打印机或系统打印对话框。
 
 
 ## 企业申请摘要打印
