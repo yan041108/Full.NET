@@ -144,6 +144,19 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     assert.equal(download.suggestedFilename(), 'approval.txt'); assert.deepEqual(readFileSync(await download.path()), bytes);
     await audit('attachments', '[role="dialog"][aria-label="申请附件"]');
     await attachments.getByRole('button', { name: '取消', exact: true }).click(); evidence.linesAndAttachments = true;
+    const deleted = await create('Deleted');
+    stage = 'detail-and-delete';
+    const deletedRow = view.locator('.el-table__row').filter({ hasText: deleted.requestNumber });
+    await deletedRow.getByRole('button', { name: '详情', exact: true }).click();
+    const detail = page.getByRole('dialog', { name: '申请详情', exact: true });
+    await expect(detail).toContainText(deleted.title); await detail.getByRole('button', { name: '取消', exact: true }).click();
+    await deletedRow.getByRole('button', { name: '删除', exact: true }).click();
+    const deletion = page.getByRole('dialog', { name: '确认删除', exact: true });
+    await deletion.getByRole('button', { name: '取消', exact: true }).click(); await expect(deletedRow).toBeVisible();
+    await deletedRow.getByRole('button', { name: '删除', exact: true }).click();
+    await action(requestsPath + '/' + deleted.id + '/delete', 'POST', () => deletion.getByRole('button', { name: '确认删除', exact: true }).click());
+    await expect(deletedRow).toHaveCount(0); await send(requestsPath + '/' + deleted.id, 'GET', undefined, 404);
+    evidence.detailAndDelete = true;
     const rejected = await create('Rejected'); const cancelled = await create('Cancelled');
     const submit = async request => {
       stage = 'submit-' + request.id; await page.goto(origin + '/#/enterprise-requests');

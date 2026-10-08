@@ -26,6 +26,67 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowInstanceRecoveryServiceTests
 {
     [TestMethod]
+    public async Task Reassign_accepts_active_member_without_legacy_tenant_role_async()
+    {
+        var targetId = Guid.CreateVersion7();
+        var legacy = Substitute.For<ITenantUserSelectionDirectory>();
+        var members = Substitute.For<ITenantMemberBatchSelectionDirectory>();
+        var transaction = new TrackingTransaction();
+        legacy.FindActiveTenantUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, TenantUserDirectoryEntry>());
+        members.FindActiveTenantMembersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(_ => {
+                Assert.IsFalse(transaction.HasStarted, "成员权威读取必须位于 Workflow 本地事务之外。");
+                return new Dictionary<Guid, TenantUserDirectoryEntry> { [targetId] = new(targetId, "member", "活动成员") };
+            });
+        var service = CreateTenantMembershipProbe(legacy, members, transaction);
+        var result = await service.ReassignAsync(Guid.CreateVersion7(), Guid.CreateVersion7(),
+            new ReassignWorkflowInstanceRequest(targetId, 1, "成员交接", "member-reassign"));
+        // 空实例夹具应在成员资格通过后进入事务并返回实例缺失，而非误报目标用户不存在。
+        Assert.IsTrue(transaction.HasStarted);
+        Assert.AreEqual(WorkflowErrorCodes.VersionNotPublished, result.Error!.Code);
+        await members.Received(1).FindActiveTenantMembersAsync(
+            Arg.Is<IReadOnlyCollection<Guid>>(values => values != null && values.SequenceEqual(new[] { targetId })), Arg.Any<CancellationToken>());
+        await legacy.DidNotReceiveWithAnyArgs().FindActiveTenantUsersAsync(default!, default);
+    }
+
+    [TestMethod]
+    public async Task Reassign_rejects_inactive_member_despite_legacy_role_async()
+    {
+        var targetId = Guid.CreateVersion7();
+        var legacy = Substitute.For<ITenantUserSelectionDirectory>();
+        var members = Substitute.For<ITenantMemberBatchSelectionDirectory>();
+        var transaction = new TrackingTransaction();
+        legacy.FindActiveTenantUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, TenantUserDirectoryEntry> { [targetId] = new(targetId, "former", "旧角色用户") });
+        members.FindActiveTenantMembersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, TenantUserDirectoryEntry>());
+        var result = await CreateTenantMembershipProbe(legacy, members, transaction).ReassignAsync(
+            Guid.CreateVersion7(), Guid.CreateVersion7(), new ReassignWorkflowInstanceRequest(targetId, 1, null, "removed-member"));
+        Assert.IsFalse(transaction.HasStarted);
+        Assert.AreEqual(WorkflowErrorCodes.TodoAssigneeNotFound, result.Error!.Code);
+        await legacy.DidNotReceiveWithAnyArgs().FindActiveTenantUsersAsync(default!, default);
+    }
+
+    private static WorkflowInstanceRecoveryService CreateTenantMembershipProbe(
+        ITenantUserSelectionDirectory legacy, ITenantMemberBatchSelectionDirectory members, TrackingTransaction transaction)
+    {
+        var tenant = Substitute.For<ICurrentTenant>();
+        tenant.IsHost.Returns(false); tenant.IsAvailable.Returns(true); tenant.Id.Returns(Guid.CreateVersion7());
+        var services = new ServiceCollection();
+        services.AddSingleton(Substitute.For<IQueryExecutor>()); services.AddSingleton(Substitute.For<ICommandExecutor>());
+        services.AddSingleton<ICommandTransaction>(transaction); services.AddSingleton(tenant);
+        services.AddSingleton(Substitute.For<IClock>()); services.AddSingleton(Substitute.For<IIdGenerator>());
+        services.AddSingleton(Substitute.For<IHostUserBatchSelectionDirectory>());
+        services.AddSingleton(legacy); services.AddSingleton(members);
+        services.AddSingleton(new WorkflowNotificationOutboxPublisher(Substitute.For<IOutboxWriter>()));
+        services.AddTransient<WorkflowInstanceRecoveryService>();
+        // 使用真实 DI 构造路径，回归必须证明生产服务选择成员 Port 而非旧角色目录。
+        using var provider = services.BuildServiceProvider();
+        return provider.GetRequiredService<WorkflowInstanceRecoveryService>();
+    }
+
+    [TestMethod]
     public async Task Reassign_validates_target_before_transaction_and_atomically_writes_notification()
     {
         var instanceId = Guid.CreateVersion7();
@@ -40,7 +101,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
         var clock = Substitute.For<IClock>();
         var ids = Substitute.For<IIdGenerator>();
         var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberBatchSelectionDirectory>();
         var outbox = Substitute.For<IOutboxWriter>();
         var transaction = new TrackingTransaction();
         tenant.IsHost.Returns(true);
@@ -88,7 +149,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
         await hostUsers.Received(1).FindActiveHostUsersAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(ids => ids != null && ids.SequenceEqual(new[] { assigneeId })),
             Arg.Any<CancellationToken>());
-        await tenantUsers.DidNotReceiveWithAnyArgs().FindActiveTenantUsersAsync(default!, default);
+        await tenantUsers.DidNotReceiveWithAnyArgs().FindActiveTenantMembersAsync(default!, default);
         Assert.AreEqual(7, command.ReceivedCalls().Count());
         await query.Received(1).QuerySingleOrDefaultAsync<WorkflowApprovalSlotRecord>(
             WorkflowSql.FindApprovalSlotByStepAssignee,
@@ -123,7 +184,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
         var command = Substitute.For<ICommandExecutor>();
         var tenant = Substitute.For<ICurrentTenant>();
         var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberBatchSelectionDirectory>();
         var request = new ReassignWorkflowInstanceRequest(assigneeId, 3, "交接", "reassign-001");
         tenant.IsHost.Returns(true);
         hostUsers.FindActiveHostUsersAsync(
@@ -172,7 +233,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
         var service = new WorkflowInstanceRecoveryService(
             query, command, transaction, tenant,
             Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), hostUsers,
-            Substitute.For<ITenantUserSelectionDirectory>(),
+            Substitute.For<ITenantMemberBatchSelectionDirectory>(),
             new WorkflowNotificationOutboxPublisher(Substitute.For<IOutboxWriter>()));
 
         var result = await service.ReassignAsync(
@@ -220,7 +281,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
         var service = new WorkflowInstanceRecoveryService(
             query, command, new TrackingTransaction(), tenant,
             Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), hostUsers,
-            Substitute.For<ITenantUserSelectionDirectory>(),
+            Substitute.For<ITenantMemberBatchSelectionDirectory>(),
             new WorkflowNotificationOutboxPublisher(Substitute.For<IOutboxWriter>()));
 
         var result = await service.ReassignAsync(
@@ -261,7 +322,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
         var service = new WorkflowInstanceRecoveryService(
             query, command, new TrackingTransaction(), tenant,
             Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), hostUsers,
-            Substitute.For<ITenantUserSelectionDirectory>(),
+            Substitute.For<ITenantMemberBatchSelectionDirectory>(),
             new WorkflowNotificationOutboxPublisher(Substitute.For<IOutboxWriter>()));
 
         var result = await service.ReassignAsync(
@@ -312,7 +373,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
         var service = new WorkflowInstanceRecoveryService(
             query, command, new TrackingTransaction(), tenant, clock, ids,
             Substitute.For<IHostUserBatchSelectionDirectory>(),
-            Substitute.For<ITenantUserSelectionDirectory>(),
+            Substitute.For<ITenantMemberBatchSelectionDirectory>(),
             new WorkflowNotificationOutboxPublisher(outbox));
 
         var missingReason = await service.RecoverAsync(
@@ -389,7 +450,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
         var service = new WorkflowInstanceRecoveryService(
             query, command, new TrackingTransaction(), tenant, Substitute.For<IClock>(),
             Substitute.For<IIdGenerator>(), hostUsers,
-            Substitute.For<ITenantUserSelectionDirectory>(),
+            Substitute.For<ITenantMemberBatchSelectionDirectory>(),
             new WorkflowNotificationOutboxPublisher(Substitute.For<IOutboxWriter>()));
 
         var result = await service.ReassignAsync(

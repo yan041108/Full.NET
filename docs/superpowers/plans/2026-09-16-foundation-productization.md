@@ -1219,7 +1219,11 @@ Workflow 最小只读 Port 在可信租户内验证实例、定义、业务键�
 
 行为验证先复现四项失败，再修复并补充旧列表成功/错误、新动作仍执行时旧 rejection/finally、同实例修订/待办变化等组合。`pnpm --filter @fullnet/admin test src/views/WorkflowInstancesView.test.ts src/views/workflow/WorkflowInstanceReassignDialog.test.ts src/views/WorkflowTodosView.test.ts src/api/workflow-instances.test.ts src/composables/useAuthorizedViewScope.test.ts --maxWorkers=2` 最终 **57/57**、5 文件、11.62 秒、零失败/跳过；`pnpm --filter @fullnet/admin build` 类型检查及生产构建通过，`pnpm test:bundle-budgets` 通过，语言包 **8/8**、多语言契约 **7/7**、治理 **59/59**。两轮只读复审无可确认阻断缺陷，不把静态审查代替测试。证据 `.tmp/enterprise-workflow-*`。
 
-新增 `created-enterprise-approval.test.mjs` 集中入口，使用官方工作区/同机重型锁与独立执行预算，计划在每种数据库的一份生成应用中统一验证创建/编辑、明细精度、附件上传下载、无 Worker 排队及提交重放、改派、审批/驳回/取消、Worker 停启终态回写和通知。该入口当前仅完成语法检查，实际应用与浏览器执行尚未完成，不能报告为通过。其他窗口的样例 README 与验收工具未提交改动保留，后续从本批提交的临时干净副本打包，不以脏源码冒充固定 SHA。F09/F10 整体与 Enterprise 状态仍保持待验收及 `Build-verified`、`Capacity-not-verified`；不合并、不发布。
+新增 `created-enterprise-approval.test.mjs` 集中入口，使用官方工作区/同机重型锁与独立执行预算，每种数据库的一份生成应用统一验证创建/编辑、明细精度、附件上传下载、无 Worker 排队及提交重放、改派、审批/驳回/取消、Worker 停启终态回写和通知。从临时干净副本冻结 `9c1181ea55fa830a38d39e97ba18fd0b502d1890` 的首轮，两库均完成三 Host 构建、Development 迁移及重复迁移、真实 Vue 创建/编辑/明细/附件、无 Worker 提交与幂等重放，均在改派返回 `workflow.todo.assignee_not_found` 时失败。SqlServer 实际执行 233.704 秒（另排队约 339 秒），MySQL 212.606 秒；两份应用、进程及容器均清理成功。首轮不算通过，日志与截图保留在干净副本 `.tmp/template-real-stack/enterprise-approval/`。
+
+根因是 Tenant 改派仍读取旧租户角色用户目录，遗漏经现代成员 Provision 创建的活动成员，且可能保留已撤销成员的旧角色资格。先建立两项真实 DI 回归，确认 **2/2 预期失败**，再将 Tenant 分支切到现有 `ITenantMemberBatchSelectionDirectory` 权威 Port：读取仍在 Workflow 本地事务外，Host 分支不变，不新增 SQL、迁移或注册。`pnpm test:dotnet:unit -- --filter 'FullyQualifiedName~Full.NET.UnitTests.Workflow|FullyQualifiedName~TenantMemberSelectionDirectory' --minimum-expected-tests 10`：**316/316**、零失败/跳过，测试 2.825 秒，构建 21.53 秒、零警告/错误；`pnpm test:aot:analyzers` 零警告/错误，默认 JIT 还原成功；`pnpm test:dotnet:architecture -- --selection api-native-aot`：**73/73**、零失败/跳过，测试 5.216 秒、构建 30.31 秒。治理 **59/59**，矩阵结构 **7/7**，Integration 分片发现 **1190** 项、无遗漏/重复。证据 `.tmp/workflow-member-reassign-*`；分析与架构不等于原生运行。
+
+冻结修复后集中重跑两库应用，并加入真实详情、取消删除确认及删除后的 404 验证；重跑尚未完成，不报告闭环通过。其他窗口的样例 README 与验收工具未提交改动保留，不以脏源码冒充固定 SHA。F09/F10 整体与 Enterprise 状态仍保持待验收及 `Build-verified`、`Capacity-not-verified`；不合并、不发布。
 
 ### F11：导入、报表与打印接入样板
 
