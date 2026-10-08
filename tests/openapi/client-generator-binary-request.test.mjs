@@ -3,7 +3,8 @@ import test from 'node:test';
 import { stripTypeScriptTypes } from 'node:module';
 import { renderGeneratedFiles } from '../../scripts/openapi/generate-fullnet-client.mjs';
 
-function document(required = true, mediaTypes = ['application/pdf', 'text/markdown', 'text/plain']) {
+function document(required = true, mediaTypes = ['application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/markdown', 'text/plain']) {
   return { openapi: '3.1.0', paths: {
     '/versions/{documentId}': { post: {
       operationId: 'uploadVersion',
@@ -49,6 +50,10 @@ test('原始二进制上传保留 Blob 字节、显式媒体类型和查询编�
   assert.equal(new Headers(call[1].headers).get('content-type'), 'application/pdf');
   assert.equal(call[2], signal);
   assert.equal(call[3], options);
+  const docxMime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  await uploadVersion(http, { documentId: 'a', fileName: '原文.docx', body, contentType: docxMime }, signal, options);
+  assert.equal(call[1].body, body);
+  assert.equal(new Headers(call[1].headers).get('content-type'), docxMime);
   await assert.rejects(uploadVersion({ request: async () => ({ status: 42 }) }, {
     documentId: 'a', fileName: 'a.pdf', body, contentType: 'application/pdf'
   }), /invalid_import/u);

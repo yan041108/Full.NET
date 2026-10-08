@@ -34,7 +34,12 @@ test('知识库 36 个受保护 Operation 从标准快照进入共享生成客�
   }
   const upload = operations.get('aiUploadKnowledgeVersion');
   assert.equal(upload.requestBody.required, true);
-  assert.deepEqual(Object.keys(upload.requestBody.content).sort(), ['application/pdf', 'text/markdown', 'text/plain']);
+  assert.deepEqual(Object.keys(upload.requestBody.content).sort(), ['application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/markdown', 'text/plain']);
+  const citation = snapshot.components.schemas.AiKnowledgeCitationResponse;
+  assert.ok(!citation.required.includes('docxLocation'));
+  assert.deepEqual(citation.properties.docxLocation.oneOf, [{ type: 'null' },
+    { $ref: '#/components/schemas/AiKnowledgeDocxLocationResponse' }]);
   assert.deepEqual(upload.parameters.map(item => item.name).sort(), ['documentId', 'fileName', 'knowledgeBaseId', 'requestKey', 'version']);
   assert.ok(upload.responses['202'].content['application/json']);
   assert.ok(operations.get('aiDownloadKnowledgeSource').responses['200'].content['application/octet-stream']);
