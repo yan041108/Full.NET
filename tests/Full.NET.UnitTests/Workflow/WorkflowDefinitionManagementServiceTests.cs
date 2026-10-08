@@ -32,7 +32,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
         var clock = Substitute.For<IClock>();
         var ids = Substitute.For<IIdGenerator>();
         var users = Substitute.For<IHostUserBatchSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberBatchSelectionDirectory>();
         tenant.IsHost.Returns(true);
         clock.UtcNow.Returns(now);
 
@@ -78,7 +78,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
         var clock = Substitute.For<IClock>();
         var ids = Substitute.For<IIdGenerator>();
         var users = Substitute.For<IHostUserBatchSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberBatchSelectionDirectory>();
         var transaction = new TrackingTransaction();
         tenant.IsHost.Returns(true);
         clock.UtcNow.Returns(now);
@@ -141,7 +141,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
         var clock = Substitute.For<IClock>();
         var ids = Substitute.For<IIdGenerator>();
         var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberBatchSelectionDirectory>();
         var transaction = new TrackingTransaction();
         tenant.IsHost.Returns(false);
         tenant.IsAvailable.Returns(true);
@@ -166,7 +166,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
         query.QuerySingleOrDefaultAsync<WorkflowFormDefinitionRecord>(
                 WorkflowSql.FindFormDefinitionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(CreateActiveFormDefinition(formDefinitionId, actorId, now, formVersionId, tenantId));
-        tenantUsers.FindActiveTenantUsersAsync(
+        tenantUsers.FindActiveTenantMembersAsync(
                 Arg.Any<IReadOnlyCollection<Guid>>(),
                 Arg.Any<CancellationToken>())
             .Returns(_ =>
@@ -186,7 +186,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(WorkflowErrorCodes.DefinitionCcRecipientsInvalid, result.Error!.Code);
-        await tenantUsers.Received(1).FindActiveTenantUsersAsync(
+        await tenantUsers.Received(1).FindActiveTenantMembersAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(userIds =>
                 userIds != null && userIds.SequenceEqual(new[] { recipientId })),
             Arg.Any<CancellationToken>());
@@ -223,7 +223,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
             Substitute.For<IClock>(),
             Substitute.For<IIdGenerator>(),
             Substitute.For<IHostUserBatchSelectionDirectory>(),
-            Substitute.For<ITenantUserSelectionDirectory>(),
+            Substitute.For<ITenantMemberBatchSelectionDirectory>(),
             WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator(),
             featureEntitlements);
 

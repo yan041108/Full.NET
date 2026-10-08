@@ -248,6 +248,13 @@ public sealed class IdentityModuleRegistrationTests
             descriptor.ServiceType == typeof(ITenantMemberBatchSelectionDirectory)
             && descriptor.ImplementationType == typeof(TenantMemberSelectionDirectory)
             && descriptor.Lifetime == ServiceLifetime.Scoped));
+        // Worker 也装配工作流候选服务，必须真实解析分页成员 Port，不能只有批量目录。
+        services.AddSingleton(Substitute.For<IQueryExecutor>());
+        services.AddSingleton(Substitute.For<Full.NET.Abstractions.Tenancy.ICurrentTenant>());
+        services.AddOptions<DatabaseOptions>();
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        Assert.IsInstanceOfType<TenantMemberSelectionDirectory>(scope.ServiceProvider.GetRequiredService<ITenantMemberSelectionDirectory>());
     }
 
     [TestMethod]

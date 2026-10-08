@@ -6,11 +6,11 @@ namespace Full.NET.Modules.Workflow.Features.ManageDefinitions;
 /// <summary>按可信 Host/Tenant 作用域选择 Identity 用户候选目录。</summary>
 /// <param name="currentTenant">由认证与租户中间件建立的可信当前租户。</param>
 /// <param name="hostUsers">活动 Host 用户候选目录。</param>
-/// <param name="tenantUsers">当前 Tenant 活动用户候选目录。</param>
+/// <param name="tenantUsers">当前可信 Tenant 活动成员候选目录。</param>
 internal sealed class WorkflowRecipientCandidateQueryService(
     ICurrentTenant currentTenant,
     IHostUserSelectionDirectory hostUsers,
-    ITenantUserSelectionDirectory tenantUsers)
+    ITenantMemberSelectionDirectory tenantUsers)
 {
     /// <summary>分页读取与当前工作流管理作用域一致的收件人候选。</summary>
     /// <param name="page">从 1 开始的页码。</param>
@@ -26,7 +26,7 @@ internal sealed class WorkflowRecipientCandidateQueryService(
         if (scope.TenantId.HasValue)
         {
             // Tenant 请求只委托给当前租户目录，避免设计器枚举整个 Host 用户空间。
-            var result = await tenantUsers.ListActiveTenantUsersAsync(
+            var result = await tenantUsers.ListActiveTenantMembersAsync(
                     page,
                     pageSize,
                     cancellationToken)

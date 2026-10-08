@@ -8,12 +8,12 @@ namespace Full.NET.Modules.Workflow.Domain;
 
 /// <summary>在 Workflow 边界内把固化办理人策略解析为可信活动用户标识集合。</summary>
 /// <param name="hostUserDirectory">Host 活动用户批量目录。</param>
-/// <param name="tenantUserDirectory">Tenant 活动用户批量目录。</param>
+/// <param name="tenantUserDirectory">可信 Tenant 活动成员批量目录。</param>
 /// <param name="roleMemberDirectory">角色成员批量目录。</param>
 /// <param name="unitLeaderDirectory">机构负责人批量目录。</param>
 internal sealed class WorkflowAssigneeResolver(
     IHostUserBatchSelectionDirectory hostUserDirectory,
-    ITenantUserSelectionDirectory tenantUserDirectory,
+    ITenantMemberBatchSelectionDirectory tenantUserDirectory,
     IWorkflowRoleMemberDirectory roleMemberDirectory,
     IWorkflowUnitLeaderDirectory unitLeaderDirectory)
 {
@@ -189,7 +189,7 @@ internal sealed class WorkflowAssigneeResolver(
         if (scope.TenantId.HasValue)
         {
             var users = await tenantUserDirectory
-                .FindActiveTenantUsersAsync(userIds, cancellationToken)
+                .FindActiveTenantMembersAsync(userIds, cancellationToken)
                 .ConfigureAwait(false);
             return users.ToDictionary(pair => pair.Key, _ => (object)string.Empty);
         }

@@ -25,7 +25,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageDefinitions;
 /// <param name="clock">统一 UTC 时钟。</param>
 /// <param name="idGenerator">UUID v7 标识生成器。</param>
 /// <param name="hostUserDirectory">Identity 提供的活动 Host 用户批量候选目录。</param>
-/// <param name="tenantUserDirectory">Identity 提供的当前 Tenant 活动用户批量候选目录。</param>
+/// <param name="tenantUserDirectory">Identity 提供的当前可信 Tenant 活动成员批量候选目录。</param>
 internal sealed class WorkflowDefinitionManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -34,7 +34,7 @@ internal sealed class WorkflowDefinitionManagementService(
     IClock clock,
     IIdGenerator idGenerator,
     IHostUserBatchSelectionDirectory hostUserDirectory,
-    ITenantUserSelectionDirectory tenantUserDirectory,
+    ITenantMemberBatchSelectionDirectory tenantUserDirectory,
     WorkflowAssigneePublishValidator assigneePublishValidator,
     ITenantFeatureEntitlementPort featureEntitlements)
 {
@@ -456,7 +456,7 @@ internal sealed class WorkflowDefinitionManagementService(
         if (scope.TenantId.HasValue)
         {
             // Tenant 定义中的审批和抄送身份统一批量复核，禁止逐节点回退查询或跨租户引用。
-            var users = await tenantUserDirectory.FindActiveTenantUsersAsync(referencedUserIds, token)
+            var users = await tenantUserDirectory.FindActiveTenantMembersAsync(referencedUserIds, token)
                 .ConfigureAwait(false);
             validUserIds = users.Keys.ToHashSet();
         }

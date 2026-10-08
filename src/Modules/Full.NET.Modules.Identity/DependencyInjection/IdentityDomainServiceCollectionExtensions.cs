@@ -241,6 +241,8 @@ internal static class IdentityDomainServiceCollectionExtensions
             provider.GetRequiredService<HostUsers.HostUserSelectionDirectory>());
         services.TryAddScoped<ITenantUserSelectionDirectory, HostUsers.TenantUserSelectionDirectory>();
         services.TryAddScoped<ITenantMemberBatchSelectionDirectory, HostUsers.TenantMemberSelectionDirectory>();
+        // Worker 工作流候选闭包也依赖分页成员 Port，不能回退到旧租户角色目录。
+        services.TryAddScoped<ITenantMemberSelectionDirectory, HostUsers.TenantMemberSelectionDirectory>();
         return services;
     }
 }

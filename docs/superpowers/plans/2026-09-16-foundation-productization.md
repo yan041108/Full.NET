@@ -1225,6 +1225,16 @@ Workflow 最小只读 Port 在可信租户内验证实例、定义、业务键�
 
 冻结修复后集中重跑两库应用，并加入真实详情、取消删除确认及删除后的 404 验证；重跑尚未完成，不报告闭环通过。其他窗口的样例 README 与验收工具未提交改动保留，不以脏源码冒充固定 SHA。F09/F10 整体与 Enterprise 状态仍保持待验收及 `Build-verified`、`Capacity-not-verified`；不合并、不发布。
 
+#### 2026-10-09 工作流成员资格共性收口批次
+
+在等待独立应用重型资源期间沿同根因追踪，把定义审批/抄送发布校验、指定办理人/角色/机构负责人解析、预览、候选列表和加签统一切到现有可信活动成员 Batch/Paged Port，保留旧角色目录的历史契约。发布期角色/机构负责人也复核活动成员及人数上限，防止成员已撤销而旧关系残留导致发布成功、运行时拒绝。Worker 最小 Identity 目录补充分页 Port，避免其既有候选服务闭包缺少依赖；不引入完整 Identity HTTP 栈，不新增 SQL、迁移或权限。
+
+四项冲突目录 DI 回归先 **4/4 预期失败**；角色/机构及后台解析第二组 **2 通过、3 预期失败**。修复后 `pnpm test:dotnet:unit -- --filter 'FullyQualifiedName~Full.NET.UnitTests.Workflow|FullyQualifiedName~TenantMemberSelectionDirectory|FullyQualifiedName~Identity_background_services_register_scope_aware_notification_recipient_directories' --minimum-expected-tests 325`：**325/325**、零失败/跳过，测试 **2.807 秒**，构建 **21.03 秒**、零警告/错误。最终 API AOT 分析 **39.78 秒**、零警告/错误、默认 JIT 还原成功；`api-native-aot` Architecture **73/73**、零失败/跳过，测试 **4.902 秒**、构建 **33.42 秒**。矩阵/治理 **66/66**；Unit 最低发现数随新增八例同步，不降低门槛。证据 `.tmp/workflow-membership-*`。
+
+生成应用新增真实成员候选/预览断言，主审批显式绑定活动成员，避免默认发起人特例掩盖目录缺陷。既有两库 Native Workflow 外部进程用例补现代成员候选、预览、显式发布/启动、A→B 改派及撤销 B 后拒绝；拒绝核对机器码，避免相同办理人的另一种 400 造成假绿。`pnpm test:aot:native:e2e` 在本机完成新鲜 Integration 构建 **18.30 秒**、零警告/错误、发现 **27** 项，但 Windows 下 **27 跳过、0 实际成功**，只记编译/发现，不记原生运行通过。Integration 分片发现 **1190** 项、无遗漏/重复；最终只读复核确认上述三项阻断已消除。
+
+最终冻结前的 `97c1fde` 应用队列尚未取得重型锁、未创建应用或子进程，因这组关联缺陷扩大修复而停止，仅清理核实 token 的本任务工作区锁；其他窗口的重型锁和进程完整保留。该队列不计作执行失败或通过。最终两库应用和本次新增 Linux 原生路径仍待执行，不提前关闭 F09/F10、Native 或容量状态。
+
 ### F11：导入、报表与打印接入样板
 
 **依赖：** F09、C02/C05。**提供：** 现有三个模块的受控业务接入范例。

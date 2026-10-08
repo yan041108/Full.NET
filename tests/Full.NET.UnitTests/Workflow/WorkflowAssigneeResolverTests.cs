@@ -32,8 +32,8 @@ public sealed class WorkflowAssigneeResolverTests
                 Arg.Any<CancellationToken>())
             .Returns(leaderId);
 
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
-        tenantUsers.FindActiveTenantUsersAsync(
+        var tenantUsers = Substitute.For<ITenantMemberBatchSelectionDirectory>();
+        tenantUsers.FindActiveTenantMembersAsync(
                 Arg.Any<IReadOnlyCollection<Guid>>(),
                 Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, TenantUserDirectoryEntry>
@@ -72,8 +72,8 @@ public sealed class WorkflowAssigneeResolverTests
     {
         var initiatorId = Guid.CreateVersion7();
         var tenantId = Guid.CreateVersion7();
-        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
-        tenantUsers.FindActiveTenantUsersAsync(
+        var tenantUsers = Substitute.For<ITenantMemberBatchSelectionDirectory>();
+        tenantUsers.FindActiveTenantMembersAsync(
                 Arg.Any<IReadOnlyCollection<Guid>>(),
                 Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, TenantUserDirectoryEntry>());
@@ -93,7 +93,7 @@ public sealed class WorkflowAssigneeResolverTests
         Assert.IsTrue(result.IsSuccess);
         CollectionAssert.AreEqual(new[] { initiatorId }, result.Value!.ToArray());
         await tenantUsers.DidNotReceive()
-            .FindActiveTenantUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+            .FindActiveTenantMembersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
     }
 
     /// <summary>上级部门负责人无法解析时必须失败关闭。</summary>
@@ -111,7 +111,7 @@ public sealed class WorkflowAssigneeResolverTests
 
         var resolver = new WorkflowAssigneeResolver(
             Substitute.For<IHostUserBatchSelectionDirectory>(),
-            Substitute.For<ITenantUserSelectionDirectory>(),
+            Substitute.For<ITenantMemberBatchSelectionDirectory>(),
             Substitute.For<IWorkflowRoleMemberDirectory>(),
             unitDirectory);
 

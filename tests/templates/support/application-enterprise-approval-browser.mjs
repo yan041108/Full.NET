@@ -97,13 +97,20 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     const target = await send('/api/v1/identity/tenant-members/provision', 'POST', { username: 'approval-' + randomUUID().slice(0, 8),
       displayName: 'Acceptance assignee', password: 'FullNet!2026Secure', memberRole: 'Member', email: null });
     assert.ok(target.userId && target.userId !== me.id);
+    const candidates = await send('/api/v1/workflow/definitions/recipient-candidates?page=1&pageSize=100');
+    assert.ok(candidates.items.some(item => item.id === target.userId));
+    const memberPolicy = { sources: [{ resolverKindKey: 'specified_users', userIds: [target.userId] }] };
+    const preview = await send('/api/v1/workflow/definitions/assignee-preview', 'POST', { assigneePolicy: memberPolicy });
+    assert.ok(preview.users.some(item => item.id === target.userId)); evidence.memberCandidateAndPreview = true;
     const form = await send('/api/v1/workflow/forms', 'POST', { formKey: 'approval.' + randomUUID(), draft: {
       schemaVersion: 1, adapterVersion: 1, sections: [{ sectionKey: 'main', fields: [{ fieldKey: 'title', fieldTypeKey: 'text', required: false, constraints: {} }] }] } }, 201);
     const formVersion = await send('/api/v1/workflow/forms/' + form.id + '/publish', 'POST', { expectedRevision: form.draftRevision });
     const definitionKey = 'demo.enterprise_request.approval';
     const definition = await send('/api/v1/workflow/definitions', 'POST', { definitionKey, draft: { schemaVersion: 1, nodes: [
       { nodeKey: 'start', nodeTypeKey: 'start', nodeSchemaVersion: 1, config: { nextNodeKeys: ['approve'] } },
-      { nodeKey: 'approve', nodeTypeKey: 'human.approval', nodeSchemaVersion: 1, config: { nextNodeKeys: ['end'] } },
+      { nodeKey: 'approve', nodeTypeKey: 'human.approval', nodeSchemaVersion: 1, config: { nextNodeKeys: ['end'],
+        assigneePolicy: { sources: [{ resolverKindKey: 'specified_users', userIds: [me.id] }] },
+        approvalPolicy: { modeKey: 'any', approverUserIds: [me.id] } } },
       { nodeKey: 'end', nodeTypeKey: 'end', nodeSchemaVersion: 1, config: { nextNodeKeys: [] } }] } }, 201);
     await send('/api/v1/workflow/definitions/' + definition.id + '/publish', 'POST', { expectedRevision: definition.draftRevision, formVersionId: formVersion.id });
     const view = page.locator('.generated-crud-view');
