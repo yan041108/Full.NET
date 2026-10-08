@@ -232,7 +232,7 @@ PUT 正文为 `roleIds` 与对应资源的 `version`：最多 100 个唯一非�
 
 `GET /api/v1/ai/knowledge-bases/{knowledgeBaseId}/documents/{documentId}/versions/{versionId}/index/reconciliation` 的 OperationId 为 `aiGetKnowledgeIndexReconciliation`，不接受正文或查询字段。调用者须同时具备知识库读取、文档读取与 `ai.knowledge_documents.index_read`，且必须是当前范围的资源所有者；用户、角色或机构成员的索引读取资格不能用于对账。不可见资源返回 404，未认证/权限失效返回 401/403，证明或权限等待期间观察到来源、任务或范围变化时拒绝旧提示；资源变化返回 409。
 
-响应为 `versionId`、可空 `taskId`、`state`、`reason`、`recoveryAction`、当前 `documentVersion` 与 `knowledgeBaseVersion`。`state` 复用现有 TXT/PDF 完整就绪证明，分类不提升状态；关闭 PDF 新处理开关也不撤销已经完整的代次读取。导入记录与版本的内容摘要、大小或类型不一致时返回 `source_unavailable/none`，不能通过重建绕过失效来源。
+响应为 `versionId`、可空 `taskId`、`state`、`reason`、`recoveryAction`、当前 `documentVersion` 与 `knowledgeBaseVersion`。`state` 使用 TXT/PDF/DOCX 各自的完整就绪证明，分类不提升状态；关闭 PDF/DOCX 新处理开关也不撤销已经完整的代次读取。导入记录与版本的内容摘要、大小或类型不一致时返回 `source_unavailable/none`，不能通过重建绕过失效来源。
 
 | reason | recoveryAction | 当前含义 |
 | --- | --- | --- |
@@ -318,4 +318,4 @@ Worker Profile 通过 `FullNet:Ai:KnowledgeCleanupWorker` 自动恢复已提交�
 
 迁移 `245_AiKnowledgeOrganizationGrant.sql` 增加 AI 自有知识库及文档机构授予表，只有 AI 父资源外键，不向 Organization 建外键；同样成对实现、支持恢复重放且不播种默认授权。
 
-验收证据与任务状态统一记录在[活动开发计划](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。目录、授权、文件引用与导入恢复、共享客户端、检索问答及 Vue 文件入口已接入；R08i 合批扩展 DOCX 上传、Worker、当前读取者证明、逻辑引用与历史、双库恢复和派生数据清理，验收进度见计划。PDF 原生用例验证真实 HTTP 与已结算代次恢复，不能据此证明 Native Worker 的真实文件解析或云模型整代次派发。完整知识库/RAG、模型质量与容量状态不能由局部验收推导，容量保持 `Capacity-not-verified`。
+验收证据与任务状态统一记录在[活动开发计划](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。目录、授权、文件引用与导入恢复、共享客户端、检索问答及 Vue 文件入口已接入；R08i 合批扩展 DOCX 上传、Worker、当前读取者证明、逻辑引用与历史、双库恢复和派生数据清理，验收进度见计划。PDF/DOCX 原生 API 用例验证真实 HTTP 入队、重试和已结算代次读取；受控恢复由 JIT Coordinator 执行，不能据此证明 Native Worker 的真实文件解析或云模型整代次派发。完整知识库/RAG、模型质量与容量状态不能由局部验收推导，容量保持 `Capacity-not-verified`。
