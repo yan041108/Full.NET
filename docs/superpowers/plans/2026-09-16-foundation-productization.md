@@ -1213,6 +1213,14 @@ Workflow 最小只读 Port 在可信租户内验证实例、定义、业务键�
 
 证据保留 `.tmp/enterprise-recovery-*`。下一批按冻结源码集中验收申请明细/附件、提交、Worker 停启、审批终态、通知及真实浏览器，不按每个功能重复生成应用。完整申请/可靠审批独立生成应用及浏览器闭环尚未完成，F09/F10 整体不关闭，Enterprise 维持 `Build-verified`、`Capacity-not-verified`；完整 Linux 业务 Native 与容量仍未验收，合并与发布另行约定。
 
+#### 2026-10-09 实例改派入口与会话隔离批次
+
+基线 `48492426b841f05dc9a2740c0376ae233182a5de`，快照 `enterprise-application-acceptance-20261009`。集中验收前核对 F10 页面发现已有改派 API/SDK 尚无 Vue 入口，实例列表、详情和确认动作也缺少一致的会话/租户代次保护。本批复用 `workflow.instances.read` 与独立 `workflow.instances.recover`，新增活动待办改派弹窗；目标 UUID、可选原因、原修订号、新幂等键和确认后授权复核贯通。实例页统一使用已有 `useAuthorizedViewScope`，分别管理列表、详情和动作，阻止撤权、租户/账号切换、查询目标变化、停用/卸载后的迟到响应及 finally 回填。不新增权限、HTTP、表或迁移。
+
+行为验证先复现四项失败，再修复并补充旧列表成功/错误、新动作仍执行时旧 rejection/finally、同实例修订/待办变化等组合。`pnpm --filter @fullnet/admin test src/views/WorkflowInstancesView.test.ts src/views/workflow/WorkflowInstanceReassignDialog.test.ts src/views/WorkflowTodosView.test.ts src/api/workflow-instances.test.ts src/composables/useAuthorizedViewScope.test.ts --maxWorkers=2` 最终 **57/57**、5 文件、11.62 秒、零失败/跳过；`pnpm --filter @fullnet/admin build` 类型检查及生产构建通过，`pnpm test:bundle-budgets` 通过，语言包 **8/8**、多语言契约 **7/7**、治理 **59/59**。两轮只读复审无可确认阻断缺陷，不把静态审查代替测试。证据 `.tmp/enterprise-workflow-*`。
+
+新增 `created-enterprise-approval.test.mjs` 集中入口，使用官方工作区/同机重型锁与独立执行预算，计划在每种数据库的一份生成应用中统一验证创建/编辑、明细精度、附件上传下载、无 Worker 排队及提交重放、改派、审批/驳回/取消、Worker 停启终态回写和通知。该入口当前仅完成语法检查，实际应用与浏览器执行尚未完成，不能报告为通过。其他窗口的样例 README 与验收工具未提交改动保留，后续从本批提交的临时干净副本打包，不以脏源码冒充固定 SHA。F09/F10 整体与 Enterprise 状态仍保持待验收及 `Build-verified`、`Capacity-not-verified`；不合并、不发布。
+
 ### F11：导入、报表与打印接入样板
 
 **依赖：** F09、C02/C05。**提供：** 现有三个模块的受控业务接入范例。

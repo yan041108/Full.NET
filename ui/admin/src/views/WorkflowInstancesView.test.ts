@@ -11,6 +11,7 @@ import {
   listWorkflowInstances,
   pauseWorkflowInstance,
   recoverWorkflowInstance,
+  reassignWorkflowInstance,
   resumeWorkflowInstance
 } from '../api/workflow-instances';
 import WorkflowInstancesView from './WorkflowInstancesView.vue';
@@ -23,6 +24,7 @@ vi.mock('../api/workflow-instances', () => ({
   listWorkflowInstances: vi.fn(),
   pauseWorkflowInstance: vi.fn(),
   recoverWorkflowInstance: vi.fn(),
+  reassignWorkflowInstance: vi.fn(),
   resumeWorkflowInstance: vi.fn()
 }));
 
@@ -127,6 +129,115 @@ describe('WorkflowInstancesView', () => {
     vi.mocked(pauseWorkflowInstance).mockReset();
     vi.mocked(resumeWorkflowInstance).mockReset();
     vi.mocked(recoverWorkflowInstance).mockReset();
+    vi.mocked(reassignWorkflowInstance).mockReset();
+  });
+
+  it('撤销读取权限后取消请求并丢弃迟到的列表和详情', async () => {
+    let resolveList!: (value: Awaited<ReturnType<typeof listMyWorkflowInstances>>) => void;
+    const list = vi.mocked(listMyWorkflowInstances).getMockImplementation()!();
+    vi.mocked(listMyWorkflowInstances).mockImplementationOnce(() => new Promise(resolve => { resolveList = resolve; }));
+    const wrapper = mountView();
+    await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
+    await wrapper.get('[data-testid="workflow-instance-search"]').trigger('click');
+    await flushPromises();
+    const session = useSessionStore();
+    session.currentUser!.permissions = [];
+    await flushPromises();
+    resolveList(await list);
+    await flushPromises();
+    expect(wrapper.find('[data-testid="workflow-instance-summary"]').exists()).toBe(false);
+    expect(wrapper.findAll('[data-testid="workflow-instance-list-item"]')).toHaveLength(0);
+    expect(vi.mocked(listMyWorkflowInstances).mock.calls[0]?.[1]?.aborted).toBe(true);
+    wrapper.unmount();
+  });
+
+  it('取消确认期间切换租户不能写入旧实例', async () => {
+    let confirm!: (value: never) => void;
+    vi.mocked(ElMessageBox.confirm).mockImplementationOnce(() => new Promise(resolve => { confirm = resolve; }));
+    const wrapper = mountView(['workflow.instances.read', 'workflow.instances.cancel']);
+    await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
+    await wrapper.get('[data-testid="workflow-instance-search"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-instance-cancel"]').trigger('click');
+    useSessionStore().currentUser!.tenantId = '01912345-6789-7abc-8def-0123456789bb';
+    await flushPromises();
+    confirm(undefined as never);
+    await flushPromises();
+    expect(cancelWorkflowInstance).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="workflow-instance-summary"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('切换账号后丢弃旧动作的迟到成功和执行轨迹', async () => {
+    let complete!: (value: Awaited<ReturnType<typeof cancelWorkflowInstance>>) => void;
+    const cancelled = await vi.mocked(cancelWorkflowInstance).getMockImplementation()!(instanceId, { expectedRevision: 3, reason: null, idempotencyKey: 'probe' });
+    vi.mocked(cancelWorkflowInstance).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const wrapper = mountView(['workflow.instances.read', 'workflow.instances.cancel']);
+    await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
+    await wrapper.get('[data-testid="workflow-instance-search"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-instance-cancel"]').trigger('click');
+    await flushPromises();
+    useSessionStore().currentUser!.id = '01912345-6789-7abc-8def-0123456789bb';
+    await flushPromises();
+    complete(cancelled);
+    await flushPromises();
+    expect(wrapper.find('[data-testid="workflow-instance-summary"]').exists()).toBe(false);
+    expect(wrapper.findAll('[data-testid="workflow-execution-log"]')).toHaveLength(0);
+    wrapper.unmount();
+  });
+
+  it('有精确恢复权限时提供活动待办改派入口', async () => {
+    const wrapper = mountView(['workflow.instances.read', 'workflow.instances.recover']);
+    await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
+    await wrapper.get('[data-testid="workflow-instance-search"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[data-testid="workflow-instance-reassign"]').exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it.each(['pause', 'resume', 'recover'] as const)('%s 确认期间撤权不能继续写入', async kind => {
+    let confirm!: (value: never) => void;
+    if (kind === 'recover') vi.spyOn(ElMessageBox, 'prompt').mockImplementationOnce(() => new Promise(resolve => { confirm = resolve; }));
+    else vi.mocked(ElMessageBox.confirm).mockImplementationOnce(() => new Promise(resolve => { confirm = resolve; }));
+    const snapshot = await vi.mocked(getWorkflowInstance).getMockImplementation()!(instanceId);
+    vi.mocked(getWorkflowInstance).mockResolvedValueOnce({ ...snapshot, statusKey: kind === 'pause' ? 'active' : 'suspended' });
+    const wrapper = mountView(['workflow.instances.read', 'workflow.instances.' + kind]);
+    await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
+    await wrapper.get('[data-testid="workflow-instance-search"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="workflow-instance-' + kind + '"]').trigger('click');
+    useSessionStore().currentUser!.permissions = ['workflow.instances.read']; await flushPromises();
+    confirm((kind === 'recover' ? { value: '核对恢复' } : undefined) as never); await flushPromises();
+    expect({ pause: pauseWorkflowInstance, resume: resumeWorkflowInstance, recover: recoverWorkflowInstance }[kind]).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it('新查询完成后旧详情不能回填，旧请求同步取消', async () => {
+    let complete!: (value: Awaited<ReturnType<typeof getWorkflowInstance>>) => void;
+    const old = await vi.mocked(getWorkflowInstance).getMockImplementation()!(instanceId);
+    vi.mocked(getWorkflowInstance).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const wrapper = mountView();
+    await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
+    await wrapper.get('[data-testid="workflow-instance-search"]').trigger('click'); await flushPromises();
+    const nextId = '01912345-6789-7abc-8def-0123456789bc';
+    vi.mocked(getWorkflowInstance).mockResolvedValueOnce({ ...old, id: nextId, businessId: 'NEW' });
+    vi.mocked(listWorkflowInstanceExecutionLogs).mockResolvedValueOnce([]);
+    await wrapper.get('[data-testid="workflow-instance-id"]').setValue(nextId);
+    await wrapper.get('[data-testid="workflow-instance-search"]').trigger('click'); await flushPromises();
+    expect(vi.mocked(getWorkflowInstance).mock.calls[0]?.[1]?.aborted).toBe(true);
+    complete(old); await flushPromises();
+    expect(wrapper.get('[data-testid="workflow-instance-summary"]').text()).toContain('NEW');
+    expect(wrapper.get('[data-testid="workflow-instance-summary"]').text()).not.toContain('PO-001'); wrapper.unmount();
+  });
+
+  it('错误实例的执行轨迹不得显示在当前详情', async () => {
+    const logs = await vi.mocked(listWorkflowInstanceExecutionLogs).getMockImplementation()!(instanceId);
+    vi.mocked(listWorkflowInstanceExecutionLogs).mockResolvedValueOnce(logs.map(log => ({ ...log, instanceId: 'different' })));
+    const wrapper = mountView();
+    await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
+    await wrapper.get('[data-testid="workflow-instance-search"]').trigger('click'); await flushPromises();
+    expect(wrapper.find('[data-testid="workflow-instance-summary"]').exists()).toBe(false);
+    expect(wrapper.findAll('[data-testid="workflow-execution-log"]')).toHaveLength(0); wrapper.unmount();
   });
 
   it('默认加载我发起的列表并在点击行后展开详情', async () => {
@@ -140,6 +251,52 @@ describe('WorkflowInstancesView', () => {
 
     expect(getWorkflowInstance).toHaveBeenCalledWith(instanceId, expect.any(AbortSignal));
     expect(wrapper.get('[data-testid="workflow-instance-summary"]').text()).toContain('PO-001');
+  });
+
+  it.each(['success', 'error'] as const)('重叠列表的旧 %s 与 finally 不影响新请求', async outcome => {
+    let resolveOld!: (value: Awaited<ReturnType<typeof listMyWorkflowInstances>>) => void;
+    let rejectOld!: (reason: unknown) => void;
+    let resolveNew!: (value: Awaited<ReturnType<typeof listMyWorkflowInstances>>) => void;
+    const result = await vi.mocked(listMyWorkflowInstances).getMockImplementation()!();
+    vi.mocked(listMyWorkflowInstances)
+      .mockImplementationOnce(() => new Promise((resolve, reject) => { resolveOld = resolve; rejectOld = reject; }))
+      .mockImplementationOnce(() => new Promise(resolve => { resolveNew = resolve; }));
+    const wrapper = mountView(); await flushPromises();
+    await wrapper.get('.workflow-instances__filters').trigger('submit'); await flushPromises();
+    expect(vi.mocked(listMyWorkflowInstances).mock.calls[0]?.[1]?.aborted).toBe(true);
+    if (outcome === 'success') resolveOld(result); else rejectOld({ status: 500, code: 'old.failure', title: '旧错误' });
+    await flushPromises();
+    expect(wrapper.get('.workflow-instances__list-card').attributes('aria-busy')).toBe('true');
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+    expect(wrapper.findAll('[data-testid="workflow-instance-list-item"]')).toHaveLength(0);
+    resolveNew({ ...result, items: [{ ...result.items[0]!, businessId: 'NEW-LIST' }] }); await flushPromises();
+    expect(wrapper.get('.workflow-instances__list-card').attributes('aria-busy')).toBe('false');
+    expect(wrapper.get('[data-testid="workflow-instance-list-item"]').text()).toContain('NEW-LIST'); wrapper.unmount();
+  });
+
+  it('旧取消报错不能结束新实例仍在执行的取消', async () => {
+    let rejectOld!: (reason: unknown) => void;
+    let resolveNew!: (value: Awaited<ReturnType<typeof cancelWorkflowInstance>>) => void;
+    const snapshot = await vi.mocked(getWorkflowInstance).getMockImplementation()!(instanceId);
+    vi.mocked(cancelWorkflowInstance)
+      .mockImplementationOnce(() => new Promise((_, reject) => { rejectOld = reject; }))
+      .mockImplementationOnce(() => new Promise(resolve => { resolveNew = resolve; }));
+    const wrapper = mountView(['workflow.instances.read', 'workflow.instances.cancel']);
+    await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
+    await wrapper.get('[data-testid="workflow-instance-search"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="workflow-instance-cancel"]').trigger('click'); await flushPromises();
+    const nextId = '01912345-6789-7abc-8def-0123456789bc';
+    vi.mocked(getWorkflowInstance).mockResolvedValueOnce({ ...snapshot, id: nextId });
+    vi.mocked(listWorkflowInstanceExecutionLogs).mockResolvedValue([]);
+    await wrapper.get('[data-testid="workflow-instance-id"]').setValue(nextId);
+    await wrapper.get('[data-testid="workflow-instance-search"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="workflow-instance-cancel"]').trigger('click'); await flushPromises();
+    rejectOld({ status: 500, code: 'old.action.failure', title: '旧操作错误' }); await flushPromises();
+    expect(wrapper.get('[data-testid="workflow-instance-search"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+    expect(vi.mocked(cancelWorkflowInstance).mock.calls[0]?.[2]?.aborted).toBe(true);
+    resolveNew({ ...snapshot, id: nextId, statusKey: 'cancelled', activeTodoId: null, revision: 4 }); await flushPromises();
+    expect(wrapper.get('[data-testid="workflow-instance-summary"]').text()).toContain('cancelled'); wrapper.unmount();
   });
 
   it('仅向具有独立取消权限的用户展示并执行活动实例取消', async () => {
@@ -165,7 +322,8 @@ describe('WorkflowInstancesView', () => {
         expectedRevision: 3,
         reason: null,
         idempotencyKey: expect.any(String)
-      })
+      }),
+      expect.any(AbortSignal)
     );
     expect(operator.get('[data-testid="workflow-instance-summary"]').text())
       .toContain('cancelled');
@@ -279,7 +437,8 @@ describe('WorkflowInstancesView', () => {
         expectedRevision: 3,
         reason: null,
         idempotencyKey: expect.stringMatching(/^pause-/)
-      })
+      }),
+      expect.any(AbortSignal)
     );
     expect(listWorkflowInstanceExecutionLogs).toHaveBeenCalledTimes(2);
     expect(operator.get('[data-testid="workflow-instance-summary"]').text())
@@ -348,7 +507,8 @@ describe('WorkflowInstancesView', () => {
       expect.objectContaining({
         expectedRevision: 4,
         idempotencyKey: expect.stringMatching(/^resume-/)
-      })
+      }),
+      expect.any(AbortSignal)
     );
 
     const recoverer = mountView([
@@ -367,7 +527,8 @@ describe('WorkflowInstancesView', () => {
         expectedRevision: 4,
         reason: '卡住后强制恢复',
         idempotencyKey: expect.stringMatching(/^recover-/)
-      })
+      }),
+      expect.any(AbortSignal)
     );
   });
 
