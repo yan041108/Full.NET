@@ -116,6 +116,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Knowledge.AiKnowledgePaidAnswerService>();
         services.TryAddScoped<Knowledge.AiKnowledgeAnswerStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeAskService>();
+        services.TryAddScoped<Features.ManageAnswerFeedback.AiKnowledgeAnswerFeedbackService>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexTaskStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexSessionService>();
         RegisterKnowledgeFileReferences(services);
@@ -174,6 +175,7 @@ public sealed class AiModule : IFullNetModule
         Features.ManageMcpRemoteConnections.Endpoint.Map(endpoints);
         Features.ManageTenantQuotas.Endpoint.Map(endpoints);
         Features.ManageChatSessions.Endpoint.Map(endpoints);
+        Features.ManageAnswerFeedback.Endpoint.Map(endpoints);
         Features.ManageAgentTools.Endpoint.Map(endpoints);
         Features.ManageAgentRuns.Endpoint.Map(endpoints);
         AgUiEndpoint.Map(endpoints);

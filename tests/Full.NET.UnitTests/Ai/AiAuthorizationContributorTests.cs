@@ -16,6 +16,8 @@ public sealed class AiAuthorizationContributorTests
         CollectionAssert.AreEquivalent(
             new[]
             {
+                AiKnowledgeAnswerFeedbackPermissions.Read,
+                AiKnowledgeAnswerFeedbackPermissions.Submit, AiKnowledgeAnswerFeedbackPermissions.Withdraw,
                 AiKnowledgePermissions.Read,
                 AiKnowledgePermissions.Create,
                 AiKnowledgePermissions.Update,
@@ -79,6 +81,20 @@ public sealed class AiAuthorizationContributorTests
         var navigation = catalog.Navigation.Single(item => item.Id == "ai-model-configs");
         Assert.AreEqual(AiModelPermissions.Read, navigation.RequiredPermission);
         Assert.AreEqual("/ai/model-configs", navigation.Path);
+    }
+
+    [TestMethod]
+    public void Feedback_actions_are_grantable_on_the_chat_page_in_host_and_tenant_scopes()
+    {
+        var catalog = AuthorizationCatalog.Create([new AiAuthorizationContributor()]);
+        var scope = AuthorizationScope.Host | AuthorizationScope.Tenant;
+        Assert.AreEqual(scope, catalog.Permissions.Single(p => p.Code == AiChatPermissions.Read).Scope);
+        foreach (var code in new[] { AiKnowledgeAnswerFeedbackPermissions.Read, AiKnowledgeAnswerFeedbackPermissions.Submit, AiKnowledgeAnswerFeedbackPermissions.Withdraw })
+        {
+            Assert.AreEqual(scope, catalog.Permissions.Single(p => p.Code == code).Scope);
+            var action = catalog.Actions.Single(a => a.PermissionCode == code);
+            Assert.AreEqual("ai-chat", action.NavigationId);
+        }
     }
 
     [TestMethod]

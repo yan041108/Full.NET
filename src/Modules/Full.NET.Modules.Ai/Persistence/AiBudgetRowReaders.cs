@@ -35,6 +35,7 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeIndexActivationRecord>(ReadKnowledgeActivation);
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
         registrar.Register<AiChatMessageRecord>(ReadChatMessage);
+        registrar.Register<AiKnowledgeAnswerFeedbackRecord>(ReadAnswerFeedback);
         registrar.Register<AiChatSessionRecord>(ReadChatSession);
     }
 #endif
@@ -48,6 +49,16 @@ internal static class AiBudgetRowReaders
         CompletionTokens = Null(reader, "CompletionTokens") ? null : checked((int)Integer(reader, "CompletionTokens")),
         CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"), IsKnowledgeAnswer = Convert.ToBoolean(reader.GetValue(reader.GetOrdinal("IsKnowledgeAnswer")), CultureInfo.InvariantCulture),
         KnowledgeLineage = Null(reader, "KnowledgeLineage") ? null : Text(reader, "KnowledgeLineage"),
+    };
+
+    /// <summary>反馈静态物化，显式处理双库 UTC 与撤回字段空值。</summary>
+    internal static AiKnowledgeAnswerFeedbackRecord ReadAnswerFeedback(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), MessageId = reader.GetGuid(reader.GetOrdinal("MessageId")),
+        RatingKey = Null(reader, "RatingKey") ? null : Text(reader, "RatingKey"),
+        ReasonKey = Null(reader, "ReasonKey") ? null : Text(reader, "ReasonKey"),
+        CitationIdsJson = Text(reader, "CitationIdsJson"), LineageHash = Null(reader, "LineageHash") ? null : Text(reader, "LineageHash"),
+        StatusKey = Text(reader, "StatusKey"), Version = checked((int)Integer(reader, "Version")), UpdatedAtUtc = Timestamp(reader, "UpdatedAtUtc"),
     };
 
     /// <summary>会话所有权与租约静态物化，保持 Host 空租户和两库 UTC 类型。</summary>

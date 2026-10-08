@@ -166,6 +166,7 @@ export interface AiChatMessageResponse {
   readonly content: string;
   readonly createdAtUtc: string;
   readonly id: string;
+  readonly isKnowledgeAnswer?: boolean;
   readonly knowledgeUnavailableCode?: null | string;
   readonly promptTokens: null | number;
   readonly roleKey: string;
@@ -198,6 +199,23 @@ export interface AiChatSessionResponse {
   readonly tenantId: null | string;
   readonly title: string;
   readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
+export interface AiKnowledgeAnswerFeedbackResponse {
+  readonly citationIds: Array<string>;
+  readonly id: string;
+  readonly messageId: string;
+  readonly ratingKey: null | string;
+  readonly reasonKey: null | string;
+  readonly statusKey: string;
+  readonly updatedAtUtc: string;
+  readonly version: number;
+}
+
+export interface AiKnowledgeAnswerFeedbackStateResponse {
+  readonly messageId: string;
+  readonly statusKey: string;
   readonly version: number;
 }
 
@@ -4155,6 +4173,13 @@ export interface ServerRuntimeSnapshot {
   readonly processId: number;
   readonly processStartedAtUtc: string;
   readonly uptimeSeconds: number;
+}
+
+export interface SetAiKnowledgeAnswerFeedbackRequest {
+  readonly citationIds: Array<string>;
+  readonly ratingKey: string;
+  readonly reasonKey: string;
+  readonly version: number;
 }
 
 export interface SetAiKnowledgeDocumentMembersRequest {

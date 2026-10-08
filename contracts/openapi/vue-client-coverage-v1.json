@@ -1196,6 +1196,16 @@
       "routePrefixes": [
         "/api/v1/ai/knowledge-bases"
       ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/ai-answer-feedback.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-answer-feedback.ts",
+      "routePrefixes": [
+        "/api/v1/ai/chat/sessions/{sessionId}/messages/{messageId}/feedback"
+      ]
     }
   ],
   "infrastructureModules": [
@@ -1926,6 +1936,12 @@
         "ui/admin/src/components/AiKnowledgeGrantsDialog.vue",
         "ui/admin/src/components/AiKnowledgeIndexDialog.vue",
         "ui/admin/src/components/AiKnowledgeBaseMultiSelect.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-answer-feedback.ts",
+      "consumers": [
+        "ui/admin/src/components/AiKnowledgeAnswerFeedback.vue"
       ]
     }
   ]

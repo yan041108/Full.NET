@@ -11,6 +11,9 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
 
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
+        new(AiKnowledgeAnswerFeedbackPermissions.Read, "读取本人回答反馈", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiKnowledgeAnswerFeedbackPermissions.Submit, "提交本人回答反馈", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiKnowledgeAnswerFeedbackPermissions.Withdraw, "撤回本人回答反馈", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgePermissions.Read, "读取获授权知识库", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgePermissions.Create, "创建私有知识库", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgePermissions.Update, "更新本人知识库目录", AuthorizationScope.Host | AuthorizationScope.Tenant),
@@ -49,7 +52,7 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
         new(AiModelPermissions.Test, "测试 AI 模型连通性", AuthorizationScope.Host),
         new(AiTenantQuotaPermissions.Read, "读取 AI 租户配额", AuthorizationScope.Host),
         new(AiTenantQuotaPermissions.Update, "更新 AI 租户配额", AuthorizationScope.Host),
-        new(AiChatPermissions.Read, "读取 AI 聊天会话", AuthorizationScope.Host),
+        new(AiChatPermissions.Read, "读取 AI 聊天会话", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiChatPermissions.Create, "创建 AI 聊天会话", AuthorizationScope.Host),
         new(AiChatPermissions.Update, "更新 AI 聊天会话", AuthorizationScope.Host),
         new(AiChatPermissions.Delete, "删除 AI 聊天会话", AuthorizationScope.Host),
@@ -153,6 +156,9 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
+        new("ai.knowledge_answer_feedback.read", "ai-chat", AiKnowledgeAnswerFeedbackPermissions.Read, "读取本人回答反馈", "feedback-read", 40),
+        new("ai.knowledge_answer_feedback.submit", "ai-chat", AiKnowledgeAnswerFeedbackPermissions.Submit, "提交本人回答反馈", "feedback-submit", 50),
+        new("ai.knowledge_answer_feedback.withdraw", "ai-chat", AiKnowledgeAnswerFeedbackPermissions.Withdraw, "撤回本人回答反馈", "feedback-withdraw", 60),
         new AuthorizationActionDefinition(
             "ai.models.create",
             "ai-model-configs",

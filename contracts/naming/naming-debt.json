@@ -5,6 +5,13 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/256_AiKnowledgeAnswerFeedback.sql",
+      "reason": "256 仅由 INFORMATION_SCHEMA 在固定字面量 DDL 与 SELECT 1 之间选择；无外部标识符或输入，双库恢复测试覆盖约束与说明重建、非法反馈失败关闭及已有行保留。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/255_AiKnowledgeDocxPersistence.sql",
       "reason": "255 只依 INFORMATION_SCHEMA 选择固定字面量 DDL 或 SELECT 1，恢复 DOCX 清单注释及扩展向量守卫；无外部输入，先校验新守卫再移除旧守卫，由双库逐步中断和非法历史行失败关闭测试覆盖。",
       "removalMilestone": "M1.0"

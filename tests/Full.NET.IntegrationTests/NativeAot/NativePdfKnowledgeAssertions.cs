@@ -134,6 +134,14 @@ internal static class NativePdfKnowledgeAssertions
             Assert.AreEqual("原生可读知识答案", answer.Content); Assert.IsNull(answer.KnowledgeUnavailableCode);
             Assert.HasCount(1, answer.Citations); Assert.AreEqual(citationId, answer.Citations[0].Id); Assert.AreEqual(docx ? null : 1, answer.Citations[0].PageNumber);
             Assert.AreEqual(docx ? new AiKnowledgeDocxLocationResponse(0, 1, null, null, null) : null, answer.Citations[0].DocxLocation);
+            Assert.IsTrue(answer.IsKnowledgeAnswer);
+            async Task<HttpResponseMessage> FeedbackSend(HttpMethod method, string path, HttpContent? content)
+            {
+                using var request = new HttpRequestMessage(method, path) { Content = content };
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                return await client.SendAsync(request, cancellation);
+            }
+            var feedback = await AiKnowledgeAnswerFeedbackAssertions.HttpAsync(FeedbackSend, chat.Id, answer);
             foreach (var id in ids.Skip(1))
             { var hidden = readable.Messages.Single(message => message.Id == id); Assert.AreEqual("", hidden.Content);
                 Assert.AreEqual(AiErrorCodes.KnowledgeAnswerUnavailable, hidden.KnowledgeUnavailableCode); Assert.HasCount(0, hidden.Citations); }
@@ -141,7 +149,13 @@ internal static class NativePdfKnowledgeAssertions
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET ReceiptJson='[]' WHERE DocumentId=@Id", new { Id = b.DocumentId });
             try
             { var hidden = (await ReadHistory()).Messages.Single(message => message.Id == messageId); Assert.AreEqual("", hidden.Content);
-                Assert.AreEqual(AiErrorCodes.KnowledgeAnswerUnavailable, hidden.KnowledgeUnavailableCode); Assert.HasCount(0, hidden.Citations); }
+                Assert.AreEqual(AiErrorCodes.KnowledgeAnswerUnavailable, hidden.KnowledgeUnavailableCode); Assert.HasCount(0, hidden.Citations);
+                var feedbackPath = $"/api/v1/ai/chat/sessions/{chat.Id}/messages/{messageId}/feedback";
+                using var payload = await FeedbackSend(HttpMethod.Get, feedbackPath, null); await Require(payload, HttpStatusCode.NotFound);
+                using var state = await FeedbackSend(HttpMethod.Get, feedbackPath + "/state", null); await Require(state, HttpStatusCode.OK);
+                var clear = await state.Content.ReadFromJsonAsync<AiKnowledgeAnswerFeedbackStateResponse>(cancellation); Assert.IsNotNull(clear); Assert.AreEqual(feedback.Version, clear.Version);
+                using var withdrawn = await FeedbackSend(HttpMethod.Delete, feedbackPath + $"?version={clear.Version}", null); await Require(withdrawn, HttpStatusCode.OK);
+            }
             finally { await db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET ReceiptJson=@Receipt WHERE DocumentId=@Id", new { Id = b.DocumentId, Receipt = receipt }); }
         }
         async Task<Guid> Enqueue(AiKnowledgeIndexTaskBinding b)

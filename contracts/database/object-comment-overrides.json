@@ -464,6 +464,24 @@
       "columns": {
         "Payload": "不含正文的完整有界文本或PDF批次清单"
       }
+    },
+    "fn_ai_knowledge_answer_feedback": {
+      "comment": "本人知识答案未审核反馈；撤回清空载荷，删除消息级联清理",
+      "columns": {
+        "Id": "反馈逻辑主键",
+        "TenantId": "可信租户；宿主为空",
+        "SessionId": "本人会话标识",
+        "MessageId": "实际已完成知识答案标识",
+        "ActorUserId": "提交用户标识",
+        "RatingKey": "固定评价机器码",
+        "ReasonKey": "固定原因机器码",
+        "CitationIdsJson": "实际答案引用标识数组",
+        "LineageHash": "完整答案依赖 SHA256 摘要",
+        "StatusKey": "待审核或已撤回状态",
+        "Version": "乐观并发版本",
+        "CreatedAtUtc": "创建时间（UTC）",
+        "UpdatedAtUtc": "更新时间（UTC）"
+      }
     }
   }
 }

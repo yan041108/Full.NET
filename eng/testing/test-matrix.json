@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 6020,
+      "minimum": 6034,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -21,7 +21,7 @@
         },
         "ai-module": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
-          "minimum": 2551
+          "minimum": 2565
         },
         "ai-evaluation": {
           "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests",
@@ -609,6 +609,9 @@
       },
       "255": {
         "filter": "FullyQualifiedName~Migration255AiKnowledgeDocxPersistenceRecoveryTests.MySql_|FullyQualifiedName~Migration255AiKnowledgeDocxPersistenceRecoveryTests.SqlServer_"
+      },
+      "256": {
+        "filter": "FullyQualifiedName~Migration256AiKnowledgeAnswerFeedbackRecoveryTests.MySql_|FullyQualifiedName~Migration256AiKnowledgeAnswerFeedbackRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -636,7 +639,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 544,
+        "minimum": 546,
         "timeout": "120m"
       },
       "infrastructure": {
@@ -669,7 +672,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1208,
+        "minimum": 1210,
         "timeout": "90m"
       },
       "logging-route-comparison": {

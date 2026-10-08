@@ -26,4 +26,7 @@
   <data name="ai.knowledge.role_unavailable" xml:space="preserve"><value>角色不存在、已停用或不属于当前范围。</value></data>
   <data name="ai.knowledge.index_format_unsupported" xml:space="preserve"><value>当前仅支持 TXT 和 Markdown 文本索引。</value></data>
   <data name="ai.knowledge.index_conflict" xml:space="preserve"><value>来源或原会话绑定已变化，不能接管或自动重试索引。</value></data>
+  <data name="ai.knowledge.feedback_invalid" xml:space="preserve"><value>答案反馈的评价、原因、引用或版本无效。</value></data>
+  <data name="ai.knowledge.feedback_not_found" xml:space="preserve"><value>答案反馈在当前范围不可用。</value></data>
+  <data name="ai.knowledge.feedback_conflict" xml:space="preserve"><value>答案反馈已被其他请求修改，请刷新后重试。</value></data>
 </root>

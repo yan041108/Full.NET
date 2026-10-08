@@ -310,6 +310,25 @@ Worker Profile 通过 `FullNet:Ai:KnowledgeCleanupWorker` 自动恢复已提交�
 
 启用前按恢复需求设置保留时间。清理后的旧载荷不能仅靠切回旧指针恢复，也不能利用保留的收费记录免费重发；需要后续独立重建流程。关闭旧代次清理开关并重启 Worker 后停止新的旧代次扫描，已在途项仍由事务及取消语义收敛。此能力不承诺积压清理时限，未进行容量实测。
 
+## 本人回答反馈与撤回
+
+知识答案（包括拒答）支持固定评价：`helpful` 对应 `accurate/useful`，`unhelpful` 对应 `incomplete/unsupported/outdated/other`。最多选八个该回答真实引用，可不选；不接收自由文本、评审声明或模型指令。反馈始终待审核，不自动进入评估集或模型输入，也不产生模型调用或收费。
+
+路径前缀为 `/api/v1/ai/chat/sessions/{sessionId}/messages/{messageId}/feedback`，仅交互用户可操作本人可信租户中的已完成知识答案。除精确反馈权限外，服务复核当前 `ai.chat.sessions.read`；API Key 与 Signature 不可代替本人交互会话。
+
+| 操作 | 精确权限 | 语义 |
+| --- | --- | --- |
+| GET 前缀 | `ai.knowledge_answer_feedback.read` | 读取固定评价及引用；完整当前来源证明失效时返回 404 |
+| PUT 前缀 | `ai.knowledge_answer_feedback.submit` | 同样复核来源；版本零首次创建，同版本同载荷重放幂等，不同旧载荷返回 409 |
+| GET 前缀 `/state` | `ai.knowledge_answer_feedback.withdraw` | 只返回本人消息标识、状态和当前版本；来源撤权后仍可取清除版本，无评价或引用 |
+| DELETE 前缀 `?version=N` | `ai.knowledge_answer_feedback.withdraw` | 按当前版本清空评价、原因、引用与依赖摘要，返回递增版本的 `withdrawn` 墓碑；同原版本重放幂等 |
+
+非法评价、版本或伪造引用使用标准 400 ProblemDetails，版本竞争使用 409；不可读资源使用 404。
+
+角色授权树在 AI 对话页登记反馈读取、提交和撤回动作；`Chat.Read` 覆盖宿主和租户，不授予其他用户会话或来源读取权。Vue 在未知结果或 409 后保留选择并要求显式刷新；来源失效时清除反馈载荷，独立取清除版本后允许撤回。来源仍可读时可按墓碑版本重新评价。
+
+迁移 `256_AiKnowledgeAnswerFeedback.sql` 成对创建 AI 自有反馈表，消息唯一约束防重复，会话锁与行版本防并发覆盖。外部权威授权在事务外，锁内复核本人会话及原消息绑定；不承诺跨模块授权原子性。物理删除消息级联清理反馈，应用回退保留新增表；未记账重放恢复约束和说明，不覆盖已有反馈。审核、脱敏导出及 Prompt 发布仍属后续开发。
+
 ## 双库与部署
 
 迁移 `240_AiKnowledgeBase.sql` 增加 `fn_ai_knowledge_base`，`241_AiKnowledgeMember.sql` 增加 `fn_ai_knowledge_member`，`242_AiKnowledgeDocument.sql` 增加 `fn_ai_knowledge_document` 与 `fn_ai_knowledge_document_member`，`243_AiKnowledgeFileVersion.sql` 增加 `fn_ai_knowledge_version` 与 `fn_ai_knowledge_import`，`244_AiKnowledgeRoleGrant.sql` 增加知识库及文档角色授予表；均有 SQL Server 与 MySQL 实现，不改写已有业务表。外键仅关联 AI 自有父记录，不向 Files、Identity 或 Tenancy 表建立外键。SQL Server 主键显式采用 UUID v7 聚集键；MySQL 使用 Binary16 网络字节序。

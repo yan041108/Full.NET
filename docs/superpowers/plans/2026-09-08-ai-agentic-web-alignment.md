@@ -1494,6 +1494,23 @@ PDF 页内预览仍为 R07 后续项；处理策略与成员授权编辑见后�
 - [ ] 反馈绑定真实回答/引用、可信用户范围与权限；反馈脱敏审核后才能进入评估集，禁止直接信任反馈指令。
 - [ ] 在同一评估集比较基础检索、关键词/向量融合和重排，记录质量、用量与耗时；仅启用有证据收益的策略，失败保留旧策略。
 
+#### R09a：真实回答反馈、版本冲突及撤回合批（2026-10-09，本批验收完成）
+
+- 基线 main `098ba9e5cfad74feea1694fa65749d61409dd341`，任务快照 `ai-answer-feedback-r09a`；受保护文件在快照哈希前排除，其他任务改动保留。
+- [x] `ManageAnswerFeedback` 同批交付本人反馈 GET/PUT/DELETE 及仅供本人清除的 GET `/feedback/state`；固定评价/原因和最多八个真实引用，不接收正文、任意 JSON 指令或可信评审声明。反馈始终 `pending_review`，不得自动进入评估集或模型输入；Prompt 发布与审核导出仍独立待实施。
+- [x] 双库 `256_AiKnowledgeAnswerFeedback.sql` 保存应用端 UUID v7、可信租户/用户/消息、完整 lineage 摘要、引用标识、版本及撤回状态。会话锁串行化首次创建，版本控制修改/撤回；原消息、会话和反馈在同一 AI 本地事务复核，外部当前授权/来源证明在事务外完成。反馈不保存答案正文或原文，不产生模型调用/新收费。
+- [x] API 使用 `ai.knowledge_answer_feedback.read/submit/withdraw` 精确权限和权威会话检查；提交及读取复用当前完整历史依赖证明，其他用户、其他租户、普通/未完成消息及伪造引用均拒绝。撤回仍须当前精确权限及本人会话，来源撤权后允许清除本人反馈；`state` 仅按 Chat.Read+Feedback.Withdraw 返回本人消息/状态/版本，不返回评价或引用。角色树登记反馈读取、提交和撤回动作，Chat.Read 扩展到 Host|Tenant，不扩大其他聊天写权限；失败/取消/版本冲突回滚。
+- [x] 源生成 DTO、Dapper AOT 物化、运行时 OpenAPI 与共享客户端、Vue 反馈入口集中接入；UI 保留输入并提示 409/结果未知先刷新，切换用户/租户/会话、卸载及撤权时中止并丢弃晚到响应。
+- [x] 先建立行为失败证据，统一运行直接回归、双库实际 API/迁移、完整 AI Unit、受影响架构/AOT 和原生路径。按 R-20261008-concentrated-acceptance，独立生成应用留到 AI 模块建设完成后集中验收，本批不重复启动。只读安全审查后在 main 提交本批，记录既有失败及未验证边界，不提升完整 RAG/容量状态。
+
+- 有效失败证据覆盖固定评价与引用校验、权限范围及 UI 未知结果恢复；权限拆分后 UI 专项 33/33，共享客户端 239/239，Vue 生产构建通过。Playwright 本批浏览器流程 3/3 使用受控 API 响应，真实 HTTP 与数据库行为由以下双库集成证明。
+- `node artifacts/r09a/run-final-fast.mjs`：新鲜 Release AI Unit 2565/2565；Architecture 235 项中 233 通过，同两项既有失败为六个私有异步方法命名及 PDF 异步边界 11 项违规。API AOT analyzer 零警告/错误，默认 JIT 还原及 Integration Release 构建通过；不把存量架构失败报告为通过。
+- `node artifacts/r09a/run-paired.mjs` 按 merge 影响集合并 Ai、迁移 256、Smoke 与双库实际运行时 OpenAPI，共 100 个唯一 UID。首轮 94 通过、6 失败，均为新夹具把统一 Validation 的标准 400 错写为 422；修正断言和 PUT/DELETE 响应元数据后，`node artifacts/r09a/run-retry.mjs` 补跑六项及变更后的双库 OpenAPI 8/8，无跳过。`verify-formal-union.py` 核对全部 UID/FQN、100 项通过并集与仅三项输入变化；原始失败记录保留，不宣称首轮整组通过。双库恢复覆盖未记账重放、消息唯一约束及外键恢复，真实 API 覆盖 TXT/PDF/DOCX、并发/幂等、租户/用户/权限、来源撤权与清除。
+- 最终运行时契约双库重新导出并归一化，602 个操作；共享客户端生成及类型检查通过。OpenAPI 静态 210/210、命名 33/33、SQL 安全 5/5、测试工具链 73/73、治理 59/59；集成发现 1271 项（完整 Integration 1210、Native 61）及分片检查无遗漏/重复。并未执行全部 1210 项 Integration 或 6034 项 Unit。
+- `node artifacts/r09a/run-native.mjs` 按现有发布契约实际发布 Linux x64 API，17 项告警均在既有精确清单内，未增加 suppression；Linux Integration 构建零警告/错误。原生启动脚本修改进度输出时被写入 CRLF，shell 首行失败、未执行测试；保留失败日志，核对并修正为 LF 后，`node artifacts/r09a/run-native-focus.mjs` 复用相同二进制及测试 DLL，双库关键 HTTP 与 AI PDF/DOCX 链路 4/4，无跳过；覆盖反馈版本、伪造引用拒绝及来源撤权后清除。Worker 可达路径本批未改变，不重复发布 Worker。最终 `freeze.mjs verify` 核对 5424 项源码/测试/契约输入未变，`verify-results.py` 核对全部结果身份、计数和原生二进制摘要；原始命令、日志、TRX、输入摘要及验收清单保存在忽略目录 `artifacts/r09a/`。
+- Windows x64、i7-12700H、约 64 GB、SDK 10.0.401；SQL Server 2022-CU14 / MySQL 8.0 使用本批独立容器。Linux API 发布 4 CPU/12 GiB，原生测试 2 CPU/8 GiB；遵守工作区及机器重型测试锁。构建使用 `NuGetAudit=false`，未执行在线漏洞审计。只读安全复审及权限/SQL 修正复审未发现关键或重要问题；R09 的 Prompt 发布、反馈审核/脱敏导出与检索质量对比仍未完成，完整 RAG、云端模型质量及容量保持未验证。按集中验收规则，独立生成应用留到 AI 模块建设全部完成后统一执行。
+- 本批原生 API SHA256 `595c3f091459d3ca8431b2c779d2cda0c6bb486a36ef23f85b469ab9eeedae68`；发布使用上述基线与冻结工作区输入，冻结后只追加验收文档，提交内源码与受测输入一致；不将二进制内基线版本冒充最终 Git 提交。
+
 ### R10：节点恢复与审批一致性（P2，依赖 R01/R09）
 
 **修改：** `src/AI/Full.NET.Agents/Workflows/AgentWorkflowRunner.cs`、`src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs`；扩展 `tests/Full.NET.UnitTests/Ai/AiAgentRunCoordinatorTests.cs`、现有 `AiWorkflowCheckpoint*Tests.cs` 与 `AiApprovalRecovery*Tests.cs`。

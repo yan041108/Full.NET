@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AiKnowledgeCitationPosition from '../components/AiKnowledgeCitationPosition.vue';
+import AiKnowledgeAnswerFeedback from '../components/AiKnowledgeAnswerFeedback.vue';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElCard, ElEmpty, ElInput, ElMessageBox, ElOption, ElSelect, ElSwitch } from 'element-plus';
 import { Plus, VideoPause } from '@element-plus/icons-vue';
@@ -286,6 +287,7 @@ onMounted(() => { void loadModels(); void loadSessions(); }); onUnmounted(reset)
               <div v-if="!message.knowledgeUnavailableCode && message.citations?.length && session.can('ai.knowledge_bases.read') && session.can('ai.knowledge_documents.read') && session.can('ai.knowledge_documents.source_read')" class="ai-chat-citations">
                 <el-button v-for="(citation, index) in message.citations" :key="citation.id" link type="primary" :disabled="!session.can('ai.knowledge_bases.read') || !session.can('ai.knowledge_documents.read') || !session.can('ai.knowledge_documents.source_read')" data-testid="knowledge-citation" @click="openCitation(message, citation)">{{ t('knowledge.citation', { number: index + 1 }) }} · <AiKnowledgeCitationPosition :citation="citation" /></el-button>
               </div>
+              <AiKnowledgeAnswerFeedback v-if="activeSession && message.isKnowledgeAnswer && message.statusKey === 'completed'" :session-id="activeSession.id" :message-id="message.id" :citations="message.citations ?? []" :unavailable="!!message.knowledgeUnavailableCode" :disabled="loading || sending" />
             </article>
           </div>
 

@@ -76,6 +76,8 @@ public sealed record AiChatMessageResponse(
     int? CompletionTokens,
     DateTimeOffset CreatedAtUtc)
 {
+    /// <summary>服务器保存的知识答案标记，包括拒答；当前来源资格由不可用机器码独立表示。</summary>
+    public bool IsKnowledgeAnswer { get; init; }
     /// <summary>来源复核未通过时的稳定机器码；正文和引用同时隐藏。</summary>
     public string? KnowledgeUnavailableCode { get; init; }
     /// <summary>仅返回服务器确认且当前可读的引用位置。</summary>

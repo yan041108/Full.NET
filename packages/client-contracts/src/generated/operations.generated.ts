@@ -20,6 +20,8 @@ import type {
   AiChatMessageResponse,
   AiChatSessionListItem,
   AiChatSessionResponse,
+  AiKnowledgeAnswerFeedbackResponse,
+  AiKnowledgeAnswerFeedbackStateResponse,
   AiKnowledgeBaseResponse,
   AiKnowledgeCitationResponse,
   AiKnowledgeDocumentMembersResponse,
@@ -491,6 +493,7 @@ import type {
   ServerInstanceCatalogEntry,
   ServerRuntimeMetric,
   ServerRuntimeSnapshot,
+  SetAiKnowledgeAnswerFeedbackRequest,
   SetAiKnowledgeDocumentMembersRequest,
   SetAiKnowledgeMembersRequest,
   SetAiKnowledgeOrganizationGrantsRequest,
@@ -622,6 +625,8 @@ import {
   readAiCleanupKnowledgeImportsResponse,
   readAiDeleteChatSessionResponse,
   readAiDiscoverMcpRemoteToolsResponse,
+  readAiKnowledgeAnswerFeedbackResponse,
+  readAiKnowledgeAnswerFeedbackStateResponse,
   readAiKnowledgeBaseResponse,
   readAiKnowledgeDocumentMembersResponse,
   readAiKnowledgeDocumentResponse,
@@ -1424,6 +1429,44 @@ export async function aiGetChatSession(
   return readAiChatSessionResponse(value);
 }
 
+export interface AiGetKnowledgeAnswerFeedbackParameters {
+  readonly sessionId: string;
+  readonly messageId: string;
+}
+
+export async function aiGetKnowledgeAnswerFeedback(
+  http: HttpClient,
+  parameters: AiGetKnowledgeAnswerFeedbackParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeAnswerFeedbackResponse> {
+  const path = `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}/messages/${encodeURIComponent(String(parameters.messageId))}/feedback`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeAnswerFeedbackResponse(value);
+}
+
+export interface AiGetKnowledgeAnswerFeedbackStateParameters {
+  readonly sessionId: string;
+  readonly messageId: string;
+}
+
+export async function aiGetKnowledgeAnswerFeedbackState(
+  http: HttpClient,
+  parameters: AiGetKnowledgeAnswerFeedbackStateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeAnswerFeedbackStateResponse> {
+  const path = `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}/messages/${encodeURIComponent(String(parameters.messageId))}/feedback/state`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeAnswerFeedbackStateResponse(value);
+}
+
 export interface AiGetKnowledgeBaseParameters {
   readonly knowledgeBaseId: string;
 }
@@ -2163,6 +2206,30 @@ export async function aiRevokeAgentDelegation(
   return readAiAgentDelegationResponse(value);
 }
 
+export interface AiSetKnowledgeAnswerFeedbackParameters {
+  readonly sessionId: string;
+  readonly messageId: string;
+  readonly body: SetAiKnowledgeAnswerFeedbackRequest;
+}
+
+export async function aiSetKnowledgeAnswerFeedback(
+  http: HttpClient,
+  parameters: AiSetKnowledgeAnswerFeedbackParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeAnswerFeedbackResponse> {
+  const path = `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}/messages/${encodeURIComponent(String(parameters.messageId))}/feedback`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeAnswerFeedbackResponse(value);
+}
+
 export interface AiSetKnowledgeDocumentMembersParameters {
   readonly knowledgeBaseId: string;
   readonly documentId: string;
@@ -2537,6 +2604,28 @@ export async function aiUpsertTenantQuota(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiTenantQuotaResponse(value);
+}
+
+export interface AiWithdrawKnowledgeAnswerFeedbackParameters {
+  readonly sessionId: string;
+  readonly messageId: string;
+  readonly version: number;
+}
+
+export async function aiWithdrawKnowledgeAnswerFeedback(
+  http: HttpClient,
+  parameters: AiWithdrawKnowledgeAnswerFeedbackParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeAnswerFeedbackResponse> {
+  const query = new URLSearchParams();
+  query.set('version', String(parameters.version));
+  const path = query.size === 0 ? `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}/messages/${encodeURIComponent(String(parameters.messageId))}/feedback` : `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}/messages/${encodeURIComponent(String(parameters.messageId))}/feedback?${query.toString()}`;
+  const init: RequestInit = { method: 'DELETE' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeAnswerFeedbackResponse(value);
 }
 
 export interface AuditingGetHostOperationLogDetailsParameters {

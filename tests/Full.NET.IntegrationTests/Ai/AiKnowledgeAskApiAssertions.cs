@@ -27,8 +27,9 @@ internal static class AiKnowledgeAskApiAssertions
             services.RemoveAll<IAiModelClientFactory>(); services.AddSingleton<IAiModelClientFactory>(model);
         });
         var actor = await factory.CreateHostIdentityAsync($"ask-{Guid.NewGuid():N}", [AiChatPermissions.Create, AiChatPermissions.Read, AiChatPermissions.Send,
-            AiChatPermissions.Cancel, AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.IndexRead]);
-        var other = await factory.CreateHostIdentityAsync($"ask-other-{Guid.NewGuid():N}", [AiChatPermissions.Send]);
+            AiChatPermissions.Cancel, AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.IndexRead,
+            AiKnowledgeAnswerFeedbackPermissions.Read, AiKnowledgeAnswerFeedbackPermissions.Submit, AiKnowledgeAnswerFeedbackPermissions.Withdraw]);
+        var other = await factory.CreateHostIdentityAsync($"ask-other-{Guid.NewGuid():N}", [AiChatPermissions.Send, AiChatPermissions.Read, AiKnowledgeAnswerFeedbackPermissions.Read, AiKnowledgeAnswerFeedbackPermissions.Submit, AiKnowledgeAnswerFeedbackPermissions.Withdraw]);
         var memberId = Guid.CreateVersion7(); var docMemberId = Guid.CreateVersion7();
         await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_member (Id,KnowledgeBaseId,UserId,CreatedAtUtc) VALUES (@Id,@BaseId,@Actor,@Now)",
             new { Id = memberId, BaseId = source.KnowledgeBaseId, Actor = actor.UserId, Now = DateTimeOffset.UtcNow });
@@ -54,12 +55,19 @@ internal static class AiKnowledgeAskApiAssertions
             Assert.AreEqual(HttpStatusCode.Forbidden, forbidden.StatusCode, await forbidden.Content.ReadAsStringAsync());
         }
         Assert.AreEqual(before, await Charges());
+        using var otherClient = factory.CreateClientForHost("localhost");
+        otherClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", other.AccessToken);
+        var feedback = new List<AiKnowledgeAnswerFeedbackResponse>();
+        async Task<HttpResponseMessage> Send(HttpMethod method, string route, HttpContent? content) => await client.SendAsync(new HttpRequestMessage(method, route) { Content = content });
+        async Task<HttpResponseMessage> Stranger(HttpMethod method, string route, HttpContent? content) => await otherClient.SendAsync(new HttpRequestMessage(method, route) { Content = content });
         foreach (var refused in new[] { false, true })
         {
             model.Refused = refused;
             using var response = await client.PostAsJsonAsync(path, request);
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
             var result = await response.Content.ReadFromJsonAsync<AskAiKnowledgeResponse>(); Assert.IsNotNull(result);
+            Assert.IsTrue(result.Message.IsKnowledgeAnswer);
+            feedback.Add(await AiKnowledgeAnswerFeedbackAssertions.HttpAsync(Send, chat.Id, result.Message, Stranger));
             Assert.AreEqual(refused, result.Refused); Assert.AreEqual(refused ? "" : "真实索引受控问答", result.Message.Content);
             Assert.AreEqual(refused ? 0 : 1, result.Message.Citations.Count); Assert.IsNull(result.Message.KnowledgeUnavailableCode);
             if (!refused) { Assert.AreEqual(source.DocumentId, result.Message.Citations[0].DocumentId); Assert.AreEqual(source.VersionId, result.Message.Citations[0].VersionId); }
@@ -77,6 +85,15 @@ internal static class AiKnowledgeAskApiAssertions
             Assert.IsFalse((await revoked.Content.ReadAsStringAsync()).Contains("真实索引受控问答", StringComparison.Ordinal));
         }
         model.BeforeChatReturn = null;
+        foreach (var item in feedback)
+        {
+            var feedbackPath = $"/api/v1/ai/chat/sessions/{chat.Id}/messages/{item.MessageId}/feedback";
+            using var hidden = await client.GetAsync(feedbackPath); await AiKnowledgeAnswerFeedbackAssertions.Expect(hidden, HttpStatusCode.NotFound);
+            using var state = await client.GetAsync(feedbackPath + "/state"); await AiKnowledgeAnswerFeedbackAssertions.Expect(state, HttpStatusCode.OK);
+            var clearState = await state.Content.ReadFromJsonAsync<AiKnowledgeAnswerFeedbackStateResponse>(); Assert.IsNotNull(clearState); Assert.AreEqual(item.Version, clearState.Version);
+            using var denied = await client.PutAsJsonAsync(feedbackPath, new SetAiKnowledgeAnswerFeedbackRequest("helpful", "accurate", [], item.Version)); await AiKnowledgeAnswerFeedbackAssertions.Expect(denied, HttpStatusCode.NotFound);
+            using var withdrawn = await client.DeleteAsync(feedbackPath + $"?version={item.Version}"); await AiKnowledgeAnswerFeedbackAssertions.Expect(withdrawn, HttpStatusCode.OK);
+        }
         Assert.AreEqual(6L, await db.QuerySingleAsync<long>("SELECT MessageCount FROM fn_ai_chat_session WHERE Id=@Id", new { Id = chat.Id }));
         Assert.AreEqual(0L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_chat_message WHERE SessionId=@Id AND StatusKey='streaming'", new { Id = chat.Id }));
         var failed = await db.QuerySingleAsync<string>("SELECT Content FROM fn_ai_chat_message WHERE SessionId=@Id AND IsKnowledgeAnswer=1 AND StatusKey='failed'", new { Id = chat.Id });

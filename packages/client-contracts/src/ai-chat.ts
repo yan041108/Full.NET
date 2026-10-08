@@ -22,6 +22,8 @@ export interface AiChatMessage {
   completionTokens: number | null;
   createdAtUtc: string;
   knowledgeUnavailableCode?: string | null;
+  /** 服务器知识答案标记，包括拒答；来源资格由不可用机器码独立表示。 */
+  isKnowledgeAnswer?: boolean;
   citations?: AiKnowledgeCitation[];
 }
 
@@ -146,6 +148,7 @@ export function isAiChatMessage(value: unknown): value is AiChatMessage {
     && (value.completionTokens === null || typeof value.completionTokens === 'number')
     && typeof value.createdAtUtc === 'string'
     && (value.knowledgeUnavailableCode === undefined || value.knowledgeUnavailableCode === null || typeof value.knowledgeUnavailableCode === 'string')
+    && (value.isKnowledgeAnswer === undefined || typeof value.isKnowledgeAnswer === 'boolean')
     && (value.citations === undefined || (Array.isArray(value.citations) && value.citations.every(isAiKnowledgeCitation)));
 }
 

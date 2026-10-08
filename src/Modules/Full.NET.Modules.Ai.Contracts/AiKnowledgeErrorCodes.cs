@@ -3,6 +3,12 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <summary>知识库稳定错误码；业务不依赖译文。</summary>
 public static class AiKnowledgeErrorCodes
 {
+    /// <summary>反馈输入或实际引用绑定无效。</summary>
+    public const string FeedbackInvalid = Prefix + "feedback_invalid";
+    /// <summary>反馈或其当前来源资格不可用。</summary>
+    public const string FeedbackNotFound = Prefix + "feedback_not_found";
+    /// <summary>反馈版本已改变，须刷新后重新操作。</summary>
+    public const string FeedbackConflict = Prefix + "feedback_conflict";
     /// <summary>来源格式尚未接入有界索引 Worker。</summary>
     public const string IndexFormatUnsupported = Prefix + "index_format_unsupported";
     /// <summary>当前来源或原会话绑定冲突，不能接管或隐式重试。</summary>

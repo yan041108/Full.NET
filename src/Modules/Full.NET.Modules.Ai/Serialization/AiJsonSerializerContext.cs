@@ -7,6 +7,9 @@ namespace Full.NET.Modules.Ai.Serialization;
 
 /// <summary>AI 模块 JSON 源生成上下文。</summary>
 [JsonSerializable(typeof(AiKnowledgeDocxLocationResponse))]
+[JsonSerializable(typeof(SetAiKnowledgeAnswerFeedbackRequest))]
+[JsonSerializable(typeof(AiKnowledgeAnswerFeedbackResponse))]
+[JsonSerializable(typeof(AiKnowledgeAnswerFeedbackStateResponse))]
 [JsonSerializable(typeof(AiModelConfigListItem))]
 [JsonSerializable(typeof(AskAiKnowledgeRequest))]
 [JsonSerializable(typeof(AskAiKnowledgeResponse))]

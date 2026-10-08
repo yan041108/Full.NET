@@ -3603,6 +3603,30 @@
       "apiModule": "packages/client-contracts/src/ai-knowledge.ts",
       "generatedGroup": "ai-knowledge",
       "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeAnswerFeedback",
+      "apiModule": "packages/client-contracts/src/ai-answer-feedback.ts",
+      "generatedGroup": "ai-answer-feedback",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiSetKnowledgeAnswerFeedback",
+      "apiModule": "packages/client-contracts/src/ai-answer-feedback.ts",
+      "generatedGroup": "ai-answer-feedback",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiWithdrawKnowledgeAnswerFeedback",
+      "apiModule": "packages/client-contracts/src/ai-answer-feedback.ts",
+      "generatedGroup": "ai-answer-feedback",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeAnswerFeedbackState",
+      "apiModule": "packages/client-contracts/src/ai-answer-feedback.ts",
+      "generatedGroup": "ai-answer-feedback",
+      "status": "generated"
     }
   ]
 }
