@@ -3,6 +3,13 @@
   "preV1NameMap": "contracts/naming/pre-v1-name-map.json",
   "items": [
     {
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/249_DemoEnterpriseRequestApprovalRepair.sql",
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "reason": "MySQL 不支持 CREATE INDEX IF NOT EXISTS；仅按 INFORMATION_SCHEMA 选择固定索引 DDL 或 SELECT 1，不拼接输入或动态标识符，双库申请夹具覆盖索引丢失与未记账重入。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/243_IdentityChallengeDeliveryJournal.sql",

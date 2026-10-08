@@ -429,6 +429,7 @@ import type {
   ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
   RemoveEnterpriseRequestAttachmentRequest,
+  RepairEnterpriseRequestApprovalRequest,
   ReplaceEnterpriseRequestLinesRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRoleMembersRequest,
@@ -5592,6 +5593,18 @@ function isRemoveEnterpriseRequestAttachmentRequest(value: unknown): value is Re
   return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
+export function readRepairEnterpriseRequestApprovalRequest(value: unknown): RepairEnterpriseRequestApprovalRequest {
+  const normalizedValue = normalizeRepairEnterpriseRequestApprovalRequestIntegerJson(value);
+  if (!(isRepairEnterpriseRequestApprovalRequest(normalizedValue))) {
+    throw new Error('client.invalid_repair_enterprise_request_approval_request');
+  }
+  return normalizedValue;
+}
+
+function isRepairEnterpriseRequestApprovalRequest(value: unknown): value is RepairEnterpriseRequestApprovalRequest {
+  return isRecord(value) && (Number.isSafeInteger(value["expectedVersion"])) && (typeof value["reason"] === 'string') && (typeof value["workflowInstanceId"] === 'string' && guidPattern.test(value["workflowInstanceId"]));
+}
+
 export function readReplaceEnterpriseRequestLinesRequest(value: unknown): ReplaceEnterpriseRequestLinesRequest {
   const normalizedValue = normalizeReplaceEnterpriseRequestLinesRequestIntegerJson(value);
   if (!(isReplaceEnterpriseRequestLinesRequest(normalizedValue))) {
@@ -9235,6 +9248,10 @@ function normalizeRecoverWorkflowInstanceRequestIntegerJson(value: unknown): unk
 
 function normalizeRemoveEnterpriseRequestAttachmentRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeRepairEnterpriseRequestApprovalRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
 }
 
 function normalizeReplaceEnterpriseRequestLinesRequestIntegerJson(value: unknown): unknown {

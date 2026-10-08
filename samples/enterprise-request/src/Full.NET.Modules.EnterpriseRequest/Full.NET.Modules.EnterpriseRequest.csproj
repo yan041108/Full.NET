@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Full.NET.UnitTests" />
+    <InternalsVisibleTo Include="Full.NET.IntegrationTests" />
   </ItemGroup>
 
   <ItemGroup>

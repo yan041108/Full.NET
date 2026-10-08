@@ -3659,6 +3659,12 @@ export interface RemoveEnterpriseRequestAttachmentRequest {
   readonly version: number;
 }
 
+export interface RepairEnterpriseRequestApprovalRequest {
+  readonly expectedVersion: number;
+  readonly reason: string;
+  readonly workflowInstanceId: string;
+}
+
 export interface ReplaceEnterpriseRequestLinesRequest {
   readonly items: null | Array<EnterpriseRequestLineInput>;
   readonly version: number;

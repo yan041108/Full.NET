@@ -28,6 +28,8 @@ internal sealed class EnterpriseRequestAuthorizationContributor : IAuthorization
             EnterpriseRequestWorkflowPermissions.Submit,
             "提交企业申请审批",
             AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new PermissionDefinition(EnterpriseRequestWorkflowPermissions.RepairApproval,
+            "恢复与对账企业申请审批", AuthorizationScope.Tenant),
         new PermissionDefinition(
             EnterpriseRequestPermissions.Disable,
             "停用企业申请",
@@ -72,6 +74,9 @@ internal sealed class EnterpriseRequestAuthorizationContributor : IAuthorization
             "提交审批",
             "submit",
             25),
+        new AuthorizationActionDefinition(EnterpriseRequestWorkflowPermissions.RepairApproval,
+            "enterprise-requests", EnterpriseRequestWorkflowPermissions.RepairApproval,
+            "恢复审批", "repair-approval", 26),
         new AuthorizationActionDefinition(
             "enterprise_request.enterprise_requests.disable",
             "enterprise-requests",

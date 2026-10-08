@@ -1,6 +1,21 @@
 {
   "schemaVersion": 1,
   "tables": {
+    "demo_enterprise_request_approval_repair": {
+      "comment": "企业申请受控审批恢复记录",
+      "columns": {
+        "ActorUserId": "恢复操作者标识，与原发起人区分",
+        "CreatedAtUtc": "恢复事务记录时间(UTC)",
+        "Id": "逻辑主键及对账逻辑消息标识",
+        "KindKey": "binding补绑定、start_receipt补启动回执或reconcile终态对账",
+        "Reason": "操作者提供的恢复原因",
+        "RequestId": "申请标识",
+        "RequestVersion": "恢复前申请版本",
+        "TenantId": "可信租户标识",
+        "WorkflowInstanceId": "已核对原启动回执的流程实例标识",
+        "WorkflowStatusKey": "读取时的权威流程状态"
+      }
+    },
     "demo_enterprise_request_approval_submission": {
       "comment": "unknowndemo enterprise request approval submission表",
       "columns": {

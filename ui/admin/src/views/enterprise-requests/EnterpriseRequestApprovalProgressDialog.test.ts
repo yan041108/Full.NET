@@ -1,5 +1,6 @@
 import { mount, flushPromises } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ElMessageBox } from 'element-plus';
 import { enterpriseRequestsHttp } from '../../api/enterprise-requests';
 import { useAdminI18n } from '../../i18n/adminI18n';
 import { createOutputSession, deferred, outputId } from '../../test/data-output-fixtures';
@@ -10,6 +11,7 @@ vi.mock('../../api/enterprise-requests', async original => ({
 }));
 const request = vi.mocked(enterpriseRequestsHttp.request);
 const push = vi.fn();
+const confirm = vi.spyOn(ElMessageBox, 'confirm');
 vi.mock('vue-router', () => ({ useRouter: () => ({ push }) }));
 const instanceId = '019bc2b1-2a40-7cc3-8992-a80de51bf330';
 const response = { requestId: outputId, requestStatus: 'Submitted', requestVersion: '2', deliveryState: 'queued',
@@ -28,7 +30,72 @@ async function click(wrapper: ReturnType<typeof mount>, text: string) {
 }
 
 describe('审批进度弹窗的读取与生命周期', () => {
-  beforeEach(() => { push.mockReset(); useAdminI18n().setLocale('zh-CN'); request.mockReset(); request.mockResolvedValue(response); });
+  beforeEach(() => { confirm.mockReset(); confirm.mockResolvedValue('confirm' as never); push.mockReset(); useAdminI18n().setLocale('zh-CN'); request.mockReset(); request.mockResolvedValue(response); });
+  it('单独恢复权限和原因确认后，使用加载版本恢复并重新读取进度', async () => {
+    request.mockResolvedValueOnce({ ...unbound, requestStatus: 'Submitted', requestVersion: '2', deliveryState: 'recovery_required' })
+      .mockResolvedValueOnce(undefined).mockResolvedValueOnce({ ...response, deliveryState: 'started', startedAtUtc: '2026-10-08T00:00:01Z' });
+    const f = fixture([permission, 'enterprise_request.enterprise_requests.repair_approval']);
+    try {
+      await flushPromises();
+      await f.wrapper.get('input[placeholder="原流程实例标识"]').setValue(instanceId);
+      await f.wrapper.get('textarea[placeholder="恢复原因"]').setValue('已核对原启动记录');
+      await click(f.wrapper, '恢复与对账'); await flushPromises();
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(request.mock.calls[1]?.[0]).toBe(`/api/v1/enterprise_request/enterprise-requests/${outputId}/repair-approval`);
+      expect(request.mock.calls[1]?.[1]?.method).toBe('POST');
+      expect(JSON.parse(request.mock.calls[1]![1]!.body as string)).toEqual({ workflowInstanceId: instanceId, expectedVersion: 2, reason: '已核对原启动记录' });
+      expect(request).toHaveBeenCalledTimes(3); expect(f.wrapper.text()).toContain('流程已启动');
+    } finally { f.wrapper.unmount(); }
+  });
+  it('恢复权限在确认期间撤销，不发送写请求并清空原因', async () => {
+    const pending = deferred<Awaited<ReturnType<typeof ElMessageBox.confirm>>>(); confirm.mockReturnValueOnce(pending.promise);
+    request.mockResolvedValue({ ...response, deliveryState: 'started', startedAtUtc: '2026-10-08T00:00:01Z' });
+    const f = fixture([permission, 'enterprise_request.enterprise_requests.repair_approval']);
+    try {
+      await flushPromises(); await f.wrapper.get('textarea[placeholder="恢复原因"]').setValue('受控恢复');
+      await click(f.wrapper, '恢复与对账');
+      f.session.currentUser = { ...f.session.currentUser!, permissions: [permission] };
+      pending.resolve('confirm' as never); await flushPromises();
+      expect(request.mock.calls.every(call => call[1]?.method === 'GET')).toBe(true);
+      expect(f.wrapper.find('textarea[placeholder="恢复原因"]').exists()).toBe(false);
+    } finally { f.wrapper.unmount(); }
+  });
+  it('只有读取权限时不渲染恢复输入和动作', async () => {
+    const f = fixture();
+    try { await flushPromises(); expect(f.wrapper.find('textarea').exists()).toBe(false);
+      expect(f.wrapper.findAll('button').some(button => button.text() === '恢复与对账')).toBe(false); }
+    finally { f.wrapper.unmount(); }
+  });
+  it.each(['', ' ', '原因\n换行'])('无效恢复原因不能提交：%j', async reason => {
+    request.mockResolvedValue({ ...response, deliveryState: 'started', startedAtUtc: '2026-10-08T00:00:01Z' });
+    const f = fixture([permission, 'enterprise_request.enterprise_requests.repair_approval']);
+    try {
+      await flushPromises(); await f.wrapper.get('textarea').setValue(reason);
+      const button = f.wrapper.findAll('button').find(button => button.text() === '恢复与对账')!;
+      expect(button.attributes('disabled')).toBeDefined(); expect(confirm).not.toHaveBeenCalled(); expect(request).toHaveBeenCalledTimes(1);
+    } finally { f.wrapper.unmount(); }
+  });
+  it('取消人工确认不执行恢复且保留当前输入', async () => {
+    confirm.mockRejectedValueOnce('cancel');
+    const f = fixture([permission, 'enterprise_request.enterprise_requests.repair_approval']);
+    try {
+      await flushPromises(); await f.wrapper.get('textarea').setValue('受控对账');
+      await click(f.wrapper, '恢复与对账'); await flushPromises();
+      expect(request).toHaveBeenCalledTimes(1); expect(f.wrapper.text()).not.toContain('client.enterprise_request_approval_repair_failed');
+      expect((f.wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('受控对账');
+    } finally { f.wrapper.unmount(); }
+  });
+  it('关闭期间的迟到恢复响应不刷新或接入旧错误', async () => {
+    const pending = deferred<unknown>(); request.mockResolvedValueOnce(response).mockReturnValueOnce(pending.promise);
+    const f = fixture([permission, 'enterprise_request.enterprise_requests.repair_approval']);
+    try {
+      await flushPromises(); await f.wrapper.get('textarea').setValue('受控对账');
+      await click(f.wrapper, '恢复与对账'); await flushPromises();
+      await click(f.wrapper, '取消'); expect(request.mock.calls[1]![2]?.aborted).toBe(true);
+      pending.reject({ status: 409, code: 'old.repair.conflict', title: '旧单据恢复错误' }); await flushPromises();
+      expect(request).toHaveBeenCalledTimes(2); expect(f.wrapper.text()).not.toContain('旧单据恢复错误'); expect(f.wrapper.text()).not.toContain(instanceId);
+    } finally { f.wrapper.unmount(); }
+  });
   it('通知入口需要独立收件箱权限，导航只使用白名单路由', async () => {
     const f = fixture([permission, 'notifications.inbox.read']);
     try {

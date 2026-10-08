@@ -209,6 +209,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   for (const [route, method, operationId] of [
     ['/api/v1/enterprise_request/enterprise-requests/{id}/submit-for-approval', 'post', 'submitEnterpriseRequestForApproval'],
     ['/api/v1/enterprise_request/enterprise-requests/{id}/approval-progress', 'get', 'enterpriseRequestGetApprovalProgress'],
+    ['/api/v1/enterprise_request/enterprise-requests/{id}/repair-approval', 'post', 'enterpriseRequestRepairApproval'],
     ['/api/v1/enterprise_request/enterprise-requests/{id}/lines', 'get', 'enterpriseRequestGetLines'],
     ['/api/v1/enterprise_request/enterprise-requests/{id}/lines', 'put', 'enterpriseRequestReplaceLines'],
     ['/api/v1/enterprise_request/enterprise-requests/{id}/attachments', 'get', 'enterpriseRequestListAttachments'],
@@ -231,8 +232,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   assert.deepEqual(attachments.post.requestBody.content['multipart/form-data'].schema.required, ['version', 'file']);
   assert.ok(snapshot.paths['/api/v1/enterprise_request/enterprise-requests/{id}/attachments/{attachmentId}/content']
     .get.responses['200'].content['application/octet-stream'], '下载必须明确声明认证 Blob 成功内容');
-  assert.equal(manifest.entries.length, 578);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 578);
+  assert.equal(manifest.entries.length, 579);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 579);
   assert.deepEqual(
     manifest.entries
       .filter(entry => entry.generatedGroup === 'workflow-forms')
@@ -355,7 +356,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    578
+    579
   );
   assert.equal(
     snapshot.paths['/api/v1/workflow/forms/component-catalog'].get.operationId,

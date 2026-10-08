@@ -5,6 +5,8 @@ public static class EnterpriseRequestWorkflowPermissions
 {
     /// <summary>将有权写入的草稿提交审批。</summary>
     public const string Submit = "enterprise_request.enterprise_requests.submit";
+    /// <summary>核对原启动证据、恢复历史绑定与幂等终态对账，不由编辑或提交权限授予。</summary>
+    public const string RepairApproval = "enterprise_request.enterprise_requests.repair_approval";
 }
 
 public static class EnterpriseRequestWorkflowConstants

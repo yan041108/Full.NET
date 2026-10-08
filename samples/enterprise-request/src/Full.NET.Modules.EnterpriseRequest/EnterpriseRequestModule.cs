@@ -9,6 +9,7 @@ using Full.NET.Modules.EnterpriseRequest.Features.WorkflowOutcomes;
 using Full.NET.Modules.EnterpriseRequest.Features.ApprovalProgress;
 using Full.NET.Modules.EnterpriseRequest.Features.ManageLines;
 using Full.NET.Modules.EnterpriseRequest.Features.ManageAttachments;
+using Full.NET.Modules.EnterpriseRequest.Features.RepairApproval;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
@@ -38,6 +39,8 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IPrintingRecordBindingSource, EnterpriseRequestPrintingBindingSource>());
         services.TryAddScoped<SubmitEnterpriseRequestForApprovalService>();
         services.TryAddScoped<EnterpriseRequestApprovalProgressService>();
+        services.TryAddScoped<EnterpriseRequestApprovalRepairService>();
+        services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, EnterpriseRequestApprovalRepairJsonContext.Default));
         services.TryAddScoped<EnterpriseRequestLineService>();
         services.TryAddScoped<EnterpriseRequestAttachmentService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner, EnterpriseRequestResourceFileOwner>());
@@ -89,6 +92,7 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         endpoints.MapFullNetGeneratedModuleFeatures();
         SubmitForApprovalEndpoint.Map(endpoints);
         ApprovalProgressEndpoint.Map(endpoints);
+        EnterpriseRequestApprovalRepairEndpoint.Map(endpoints);
         EnterpriseRequestLinesEndpoint.Map(endpoints);
         EnterpriseRequestAttachmentsEndpoint.Map(endpoints);
     }

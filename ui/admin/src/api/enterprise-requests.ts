@@ -2,6 +2,7 @@ import {
   enterpriseRequestCreateEnterpriseRequest,
   enterpriseRequestDeleteEnterpriseRequest,
   enterpriseRequestGetApprovalProgress,
+  enterpriseRequestRepairApproval,
   enterpriseRequestGetEnterpriseRequest,
   enterpriseRequestGetLines,
   enterpriseRequestReplaceLines,
@@ -16,6 +17,7 @@ import {
   type DeleteEnterpriseRequestRequest,
   type EnterpriseRequestResponse,
   type EnterpriseRequestApprovalProgressResponse,
+  type RepairEnterpriseRequestApprovalRequest,
   type EnterpriseRequestLinesResponse,
   type ReplaceEnterpriseRequestLinesRequest,
   type EnterpriseRequestAttachmentResponse,
@@ -46,6 +48,7 @@ export const enterpriseRequestPermissions = {
   create: 'enterprise_request.enterprise_requests.create',
   update: 'enterprise_request.enterprise_requests.update',
   submit: 'enterprise_request.enterprise_requests.submit',
+  repairApproval: 'enterprise_request.enterprise_requests.repair_approval',
   disable: 'enterprise_request.enterprise_requests.disable',
   write: 'enterprise_request.enterprise_requests.update'
 } as const;
@@ -86,6 +89,8 @@ export function createEnterpriseRequestsApi(
       if (!isConsistentApprovalProgress(response)) throw new Error('client.invalid_enterprise_request_approval_progress');
       return response;
     },
+    repairApproval: (id: string, body: RepairEnterpriseRequestApprovalRequest, signal?: AbortSignal) =>
+      enterpriseRequestRepairApproval(http, { id, body }, signal),
     lines: async (id: string, signal?: AbortSignal) =>
       validateLines(id, await enterpriseRequestGetLines(http, { id }, signal)),
     replaceLines: async (id: string, body: ReplaceEnterpriseRequestLinesRequest, signal?: AbortSignal) => {

@@ -164,6 +164,9 @@
       }
     },
     "migrationSelections": {
+      "249": {
+        "filter": "FullyQualifiedName~EnterpriseRequestApiSqlServerTests.Tenant_submit_for_approval_when_definition_published|FullyQualifiedName~EnterpriseRequestApiMySqlTests.Tenant_submit_for_approval_when_definition_published"
+      },
       "248": {
         "filter": "FullyQualifiedName~Migration248EnterpriseRequestAttachmentTests.MySql_|FullyQualifiedName~Migration248EnterpriseRequestAttachmentTests.SqlServer_"
       },

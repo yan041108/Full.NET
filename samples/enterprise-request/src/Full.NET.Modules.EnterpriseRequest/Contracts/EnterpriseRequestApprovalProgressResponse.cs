@@ -10,7 +10,7 @@ namespace Full.NET.Modules.EnterpriseRequest.Contracts;
 /// <param name="WorkflowDefinitionVersionId">提交时固定的流程定义版本；未绑定时为空。</param>
 /// <param name="WorkflowInstanceId">提交时固定的实例标识；未绑定时为空。</param>
 /// <param name="SubmittedVersion">提交日志固定的单据版本。</param>
-/// <param name="SubmittedAtUtc">提交事务落库时间。</param>
+/// <param name="SubmittedAtUtc">提交记录落库时间；历史补绑定时为恢复记录时间，不推定原提交时间。</param>
 /// <param name="StartedAtUtc">已记录的启动回执时间；终态可能先到达。</param>
 /// <param name="CompletedAtUtc">终态回写时间。</param>
 public sealed record EnterpriseRequestApprovalProgressResponse(

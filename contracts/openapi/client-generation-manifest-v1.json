@@ -65,6 +65,12 @@
       "status": "generated"
     },
     {
+      "operationId": "enterpriseRequestRepairApproval",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
       "operationId": "enterpriseRequestListEnterpriseRequests",
       "apiModule": "ui/admin/src/views/enterprise-requests/enterprise-requests.generated.ts",
       "generatedGroup": "enterprise-requests",

@@ -430,6 +430,7 @@ import type {
   ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
   RemoveEnterpriseRequestAttachmentRequest,
+  RepairEnterpriseRequestApprovalRequest,
   ReplaceEnterpriseRequestLinesRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRoleMembersRequest,
@@ -3658,6 +3659,30 @@ export async function enterpriseRequestRemoveAttachment(
   };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readEnterpriseRequestAttachmentRemovedResponse(value);
+}
+
+export interface EnterpriseRequestRepairApprovalParameters {
+  readonly id: string;
+  readonly body: RepairEnterpriseRequestApprovalRequest;
+}
+
+export async function enterpriseRequestRepairApproval(
+  http: HttpClient,
+  parameters: EnterpriseRequestRepairApprovalParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<void> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/repair-approval`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
 }
 
 export interface EnterpriseRequestReplaceLinesParameters {

@@ -1190,6 +1190,25 @@ Workflow 完成、驳回、取消事件按顺序尝试全部独立 Sink；通知
 
 证据保留 `.tmp/enterprise-notifications-*` 与 `.tmp/enterprise-deeplink-review-*`。成员/Worker 扩展前完整 Unit **5905 通过/1 Linux FIFO 跳过**，不替代最终源码的关联 380 项；不声称最终全量 .NET 通过。完整独立应用与浏览器按约定在申请模块批次结束后集中执行；本批未执行完整 Linux 业务 Native 或容量实测，`Capacity-not-verified` 保持。合并与发布另行约定。
 
+### 2026-10-09 企业申请受控审批恢复与对账批次
+
+基线 `62b80d3e6da59837aa7139932f593b507db2daa8`，快照 `enterprise-recovery-20261009`。集中提供历史 Submitted 补绑定、已有绑定补启动回执与权威终态对账，以及 SDK、Vue 入口和双库迁移 249。恢复须同时具备 Read 与独立 `enterprise_request.enterprise_requests.repair_approval` 权限，并通过申请数据范围及原机构写授权；现有角色不隐式获得恢复权限。
+
+Workflow 最小只读 Port 在可信租户内验证实例、定义、业务键、原表单快照、原启动幂等键及原操作者回执。跨模块读取位于申请事务外；证据不足、版本不符或不同绑定均拒绝。业务事务以 SQL Server 更新锁/MySQL `FOR UPDATE` 串行化父行，锁内复查后原子保存绑定、启动回执、终态和操作者/原因记录；不重启流程、不补发通知、不将恢复 UUID 伪装成原 Workflow 事件。历史补绑定的提交记录时间为本次记录时间，不推定原提交时间；原启动时间从 Workflow 权威摘要取得。已经终态且无可靠绑定的历史单据不自动修复。
+
+审查复现已有绑定补启动回执会占用后续终态对账唯一键，以及并发补绑定会追加多余记录：新增两条回归 **2/2 失败**。最终 `binding / start_receipt / reconcile` 分离记录身份，父行锁内已补启动时无操作成功，不改变业务元数据或原恢复原因。服务最初行为 RED 为 **5 失败/8 通过**，Port RED 为 **1 失败/7 通过**；编译错误不计作行为 RED。后端与前端只读复审均无剩余阻断项，复审本身不冒充运行验收。
+
+已确认快速证据：
+
+- `node scripts/testing/run-dotnet-test-suite.mjs unit --filter 'FullyQualifiedName~Full.NET.UnitTests.EnterpriseRequest|FullyQualifiedName~Full.NET.UnitTests.Workflow' --minimum-expected-tests 493 --reuse-build`：最终 **493/493**、零失败/跳过，执行 **4.106 秒**，构建零警告/错误。
+- 完整 Architecture 首轮 **231 通过/1 失败**，**150.490 秒**；唯一失败是 `ReadBinding` 缺少异步后缀。仅改为 `ReadBindingAsync`，命名检查新鲜构建复测 **1/1**、零失败/跳过，**1.327 秒**。其余 231 项复用未受影响证据，不报告完整重跑 232 项。
+- Vue 六文件集中 **108/108**；最后仅修正测试类型后进度弹窗 **23/23**。`pnpm --filter @fullnet/client-contracts test` **261/261**。`pnpm --filter @fullnet/admin build` 类型检查和生产构建通过；`pnpm test:bundle-budgets` 首屏 minified **1,430,626 B** / gzip **384,511 B**，Chart/VForm3 门禁通过，未提高预算。
+- `node --test tests/openapi/*.test.mjs tests/naming/*.test.mjs tests/database/uuid-storage-contract.test.mjs tests/sql/*.test.mjs tests/templates/migration-script-modules.test.mjs tests/testing/*.test.mjs tests/governance/*.test.mjs tests/localization-contract.test.mjs` **403/403**、零失败/跳过。MySQL 固定条件索引 DDL 按命名规则 §10.6 精确登记动态 SQL 解析债务，退出里程碑 M1.0；不放宽扫描器、不引入运行时动态标识符。
+- 两库运行时 OpenAPI 各 **1/1**，规范结果一致；SqlServer **54.026 秒**、MySQL **101.503 秒**，SDK 生成零漂移，离线快照与 94 组基线契约兼容检查通过。首轮复用 SQL Server 容器 OOM、迁移断连，仅记失败；核实 `OOMKilled=true` 后改为一次性容器，不清理共享历史库。
+- 最终 API/Worker AOT 分析均零警告/错误，默认 JIT 还原图与 Worker 强制重建成功；不等于原生运行。Integration 分片发现 **1190** 项，无遗漏/重复；249 恢复断言复用既有双库申请夹具，未增加数据库测试夹具。影响计划选择 EnterpriseRequest、Workflow、迁移 249 与矩阵，不将计划当作测试执行。
+
+集中双库运行仍等待另一窗口释放同机重型锁，最终结果待回填；不得据上述快速证据宣称迁移/事务已完成真实双库验收。证据保留 `.tmp/enterprise-recovery-*`。完整申请/可靠审批独立生成应用及浏览器闭环按约定集中执行，F09/F10 整体不关闭，Enterprise 维持 `Build-verified`、`Capacity-not-verified`；完整 Linux 业务 Native 与容量仍未验收，合并与发布另行约定。
+
 ### F11：导入、报表与打印接入样板
 
 **依赖：** F09、C02/C05。**提供：** 现有三个模块的受控业务接入范例。

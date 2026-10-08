@@ -140,6 +140,8 @@ internal static partial class EnterpriseRequestAssertions
         Assert.IsNotNull(await connection.ExecuteScalarAsync<DateTime?>("SELECT StartedAtUtc FROM demo_enterprise_request_approval_submission WHERE Id = @Id", new { submission.Id }));
         Assert.AreEqual(submitted.Version + 1, await connection.ExecuteScalarAsync<long>("SELECT Version FROM demo_enterprise_request_enterprise_request WHERE Id = @Id", new { submitted.Id }));
 
+        await VerifyControlledApprovalRepairAsync(factory, client, token, submitted, connection, services, ct);
+
         Task<string?> Status() => connection.ExecuteScalarAsync<string>("SELECT Status FROM demo_enterprise_request_enterprise_request WHERE Id = @Id", new { submitted.Id });
     }
 

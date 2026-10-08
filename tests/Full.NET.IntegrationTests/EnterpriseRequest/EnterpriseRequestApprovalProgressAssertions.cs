@@ -26,12 +26,13 @@ internal static partial class EnterpriseRequestAssertions
         using var anonymous = await client.GetAsync($"{BasePath}/{draft.Id:D}/approval-progress", ct);
         Assert.AreEqual(HttpStatusCode.Unauthorized, anonymous.StatusCode);
 
-        foreach (var mode in new[] { "host", "no_read", "self" })
+        foreach (var mode in new[] { "host", "no_read", "self", "repair_self" })
         {
             var permissions = new List<string> { "tenancy.tenants.read", "tenancy.tenants.switch" };
             if (mode != "no_read") permissions.Add(EnterpriseRequestPermissions.Read);
+            if (mode is "no_read" or "repair_self") permissions.Add(EnterpriseRequestWorkflowPermissions.RepairApproval);
             var identity = await factory.CreateHostIdentityAsync($"progress-{Guid.NewGuid():N}", permissions, ct);
-            if (mode == "self")
+            if (mode.EndsWith("self", StringComparison.Ordinal))
             {
                 await using DbConnection connection = factory.Provider == DatabaseProvider.SqlServer
                     ? new SqlConnection(factory.ConnectionString) : ReviewFixMigrationRecoverySupport.MySqlConnection(factory.ConnectionString);
@@ -60,6 +61,12 @@ internal static partial class EnterpriseRequestAssertions
             using var denied = await client.SendAsync(request, ct);
             Assert.AreEqual(mode == "no_read" ? HttpStatusCode.Forbidden : HttpStatusCode.NotFound, denied.StatusCode,
                 await denied.Content.ReadAsStringAsync(ct));
+            using var repairRequest = new HttpRequestMessage(HttpMethod.Post, $"{BasePath}/{draft.Id:D}/repair-approval")
+            { Content = JsonContent.Create(new RepairEnterpriseRequestApprovalRequest(Guid.NewGuid(), 2, "权限验证")) };
+            repairRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var deniedRepair = await client.SendAsync(repairRequest, ct);
+            Assert.AreEqual(mode == "repair_self" ? HttpStatusCode.NotFound : HttpStatusCode.Forbidden, deniedRepair.StatusCode,
+                "恢复需同时授权读取和恢复，且不能绕过申请数据范围。");
             using var lines = new HttpRequestMessage(HttpMethod.Get, $"{BasePath}/{draft.Id:D}/lines");
             lines.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             lines.Headers.Add("X-FullNet-Tenant-Id", draft.TenantId.ToString("D"));
