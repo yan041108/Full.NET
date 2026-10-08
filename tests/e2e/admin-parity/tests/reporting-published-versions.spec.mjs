@@ -39,7 +39,9 @@ test('浏览器创建指定旧版导出，错任务不关弹窗，下载定位�
  await page.goto('/#/reporting/export-tasks');await page.getByTestId('reporting-export-create').click();await page.getByTestId('reporting-export-definition').click();
  await expect(page.getByRole('option',{name:'版本报表 · v2',exact:true})).toBeVisible();await page.getByRole('option',{name:'版本报表 · v1',exact:true}).click();
  await page.getByTestId('reporting-export-submit').click();await expect(page.getByRole('alert')).toBeVisible();await expect(page.getByTestId('reporting-export-submit')).toBeVisible();
- mismatch=false;await page.getByTestId('reporting-export-submit').click();await expect(page.getByTestId('reporting-export-submit')).toBeHidden();
+ mismatch=false;
+ const [createdResponse]=await Promise.all([page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/reporting/export-tasks'&&response.request().method()==='POST'),page.getByTestId('reporting-export-submit').click()]);
+ expect((await createdResponse.json()).id).toBe(id);await expect(page.getByTestId('reporting-export-submit')).toBeHidden();
  const [download]=await Promise.all([page.waitForEvent('download'),page.locator('[data-testid="reporting-export-download"][data-task-id="'+id+'"]').click()]);
  expect(download.suggestedFilename()).toBe('version-1.xlsx');expect(versions).toEqual([1,1]);
 });

@@ -115,12 +115,15 @@ export async function verifyApplicationPrintingBrowser(appRoot, apiUrl, reportDi
   signal?.throwIfAborted();stage='tenant-report-export';await page.goto(origin+'/#/reporting/export-tasks');
   await page.getByTestId('reporting-export-create').click();await choose('[data-testid="reporting-export-definition"]','Output acceptance · v1');
   const exported=await runPrintingBrowserResponseAction(page,response=>new URL(response.url()).pathname==='/api/v1/reporting/export-tasks'&&response.request().method()==='POST',()=>page.getByTestId('reporting-export-submit').click());
-  assert.equal(exported.status(),201);const exportTask=await exported.json();assert.equal(exportTask.definitionId,fixture.reportingDefinitionId);assert.equal(exportTask.versionNumber,1);assert.equal(exportTask.statusKey,'succeeded');
+  assert.equal(exported.status(),201);stage='tenant-report-export-response';const exportTask=await exported.json();
+  stage='tenant-report-export-identity';assert.equal(exportTask.definitionId,fixture.reportingDefinitionId);assert.equal(exportTask.versionNumber,1);assert.equal(exportTask.statusKey,'succeeded');
   // 稳定任务身份仅用于定位控件，不能下载同名旧任务冒充本次导出。
   const exportDownload=page.locator('[data-testid="reporting-export-download"][data-task-id="'+exportTask.id+'"]');
-  await expect(exportDownload).toHaveCount(1);
+  stage='tenant-report-export-download-control';await expect(exportDownload).toHaveCount(1);
+  stage='tenant-report-export-download';
   const [reportDownload]=await Promise.all([page.waitForEvent('download'),exportDownload.click()]);
-  assert.equal(reportDownload.suggestedFilename(),exportTask.outputFileName);
+  stage='tenant-report-export-filename';assert.equal(reportDownload.suggestedFilename(),exportTask.outputFileName);
+  stage='tenant-report-export-workbook';
   const verified=fixture.verifyWorkbook(readFileSync(await reportDownload.path()),fixture.reportingExpectedValue);assert.equal(verified.dataRows,1);evidence.reportExport=true;
   signal?.throwIfAborted();stage='tenant-report-revoke';await fixture.revokeReporting();await page.goto(origin+'/#/reporting/execute');
   await expect(page.getByTestId('reporting-execute-run')).toBeDisabled();await expect(page.locator('.result-card')).toHaveCount(0);evidence.reportRevokedDenied=true;
