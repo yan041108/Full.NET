@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { createWriteStream, writeFileSync } from 'node:fs';
+import { createWriteStream, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { watchPrintingBrowserCancellation, runPrintingBrowserResponseAction } from './application-printing-browser-lifecycle.mjs';
@@ -15,7 +15,7 @@ const AxeBuilder = requireParity('@axe-core/playwright');
 // 仅启动独立生成应用拥有的 Vue；端口与 API 由本次资源范围分配，不复用共享开发服务器。
 export async function verifyApplicationPrintingBrowser(appRoot, apiUrl, reportDirectory, {port,fixture,signal}) {
  const origin = 'http://localhost:'+port;
- const evidence={completed:false,hostDirectory:false,hostGrant:false,tenantProfile:false,businessRecord:false,printCalls:0,revokedDenied:false,accessibility:[],responses:[]};
+ const evidence={completed:false,hostDirectory:false,hostGrant:false,tenantProfile:false,businessRecord:false,printCalls:0,revokedDenied:false,tenantImport:false,reportExecution:false,reportExport:false,reportRevokedDenied:false,accessibility:[],responses:[]};
  signal?.throwIfAborted();
  const execute=(stage,args)=>{
   signal?.throwIfAborted();
@@ -44,7 +44,7 @@ export async function verifyApplicationPrintingBrowser(appRoot, apiUrl, reportDi
   signal?.throwIfAborted();context=await browser.newContext();const page=await context.newPage();
   page.on('response',response=>{
    const path=new URL(response.url()).pathname;
-   if(path.startsWith('/api/v1/printing/')) evidence.responses.push({path,method:response.request().method(),status:response.status()});
+   if(['/api/v1/printing/','/api/v1/reporting/','/api/v1/import-export/'].some(prefix=>path.startsWith(prefix))) evidence.responses.push({path,method:response.request().method(),status:response.status()});
   });
   await page.addInitScript(()=>{
    localStorage.setItem('fullnet.admin.locale','zh-CN');
@@ -89,6 +89,41 @@ export async function verifyApplicationPrintingBrowser(appRoot, apiUrl, reportDi
   await expect(tenantRow).toBeVisible();await tenantRow.getByRole('button',{name:'进入租户'}).click();
   await expect(page.getByTestId('shell-current-context')).toHaveText(fixture.tenantName);
   await expect(page).toHaveURL(origin+'/#/');
+  signal?.throwIfAborted();stage='tenant-import';await page.goto(origin+'/#/import-export/tasks');
+  await page.getByTestId('import-export-task-create').click();
+  await choose('[data-testid="import-create-schema"]','企业申请');
+  const [templateDownload]=await Promise.all([page.waitForEvent('download'),page.getByTestId('import-create-template').click()]);
+  const workbook=fixture.fillWorkbook(readFileSync(await templateDownload.path()),fixture.importValues);
+  await page.getByTestId('import-create-file').setInputFiles({name:'browser-request.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from(workbook)});
+  const uploaded=await runPrintingBrowserResponseAction(page,response=>new URL(response.url()).pathname==='/api/v1/import-export/tasks'&&response.request().method()==='POST',()=>page.getByTestId('import-create-submit').click());
+  assert.equal(uploaded.status(),201);const importTask=await uploaded.json();
+  assert.equal(importTask.tenantId,fixture.tenantId);assert.equal(importTask.schemaKey,'demo.enterprise_requests');assert.equal(importTask.validRowCount,1);assert.equal(importTask.invalidRowCount,0);
+  const executed=await runPrintingBrowserResponseAction(page,response=>new URL(response.url()).pathname==='/api/v1/import-export/tasks/'+importTask.id+'/execute',()=>page.getByTestId('import-export-task-execute').click());
+  assert.equal(executed.status(),200);
+  await expect(page.getByRole('dialog',{name:'任务详情',exact:true}).locator('.el-tag')).toHaveText('执行成功',{timeout:90_000});
+  await page.goto(origin+'/#/enterprise-requests');
+  const importedRow=page.locator('.el-table__row').filter({hasText:fixture.importValues[0]});
+  await expect(importedRow).toHaveCount(1);await expect(importedRow).toContainText('Enterprise Browser request');await expect(importedRow).toContainText('456.78');
+  evidence.tenantImport=true;
+  signal?.throwIfAborted();stage='tenant-report-execute';await page.goto(origin+'/#/reporting/execute');
+  await page.getByTestId('reporting-execute-definition').click();
+  await expect(page.getByRole('option',{name:'Output acceptance ('+fixture.reportingDefinitionKey+') · v2',exact:true})).toBeVisible();
+  await page.getByRole('option',{name:'Output acceptance ('+fixture.reportingDefinitionKey+') · v1',exact:true}).click();
+  const execution=await runPrintingBrowserResponseAction(page,response=>new URL(response.url()).pathname==='/api/v1/reporting/definitions/'+fixture.reportingDefinitionId+'/execute',()=>page.getByTestId('reporting-execute-run').click());
+  assert.equal(execution.status(),200);assert.equal(execution.request().postDataJSON().versionNumber,1);
+  await expect(page.locator('.result-card')).toContainText(fixture.reportingExpectedValue);evidence.reportExecution=true;
+  signal?.throwIfAborted();stage='tenant-report-export';await page.goto(origin+'/#/reporting/export-tasks');
+  await page.getByTestId('reporting-export-create').click();await choose('[data-testid="reporting-export-definition"]','Output acceptance · v1');
+  const exported=await runPrintingBrowserResponseAction(page,response=>new URL(response.url()).pathname==='/api/v1/reporting/export-tasks'&&response.request().method()==='POST',()=>page.getByTestId('reporting-export-submit').click());
+  assert.equal(exported.status(),201);const exportTask=await exported.json();assert.equal(exportTask.definitionId,fixture.reportingDefinitionId);assert.equal(exportTask.versionNumber,1);assert.equal(exportTask.statusKey,'succeeded');
+  // 稳定任务身份仅用于定位控件，不能下载同名旧任务冒充本次导出。
+  const exportDownload=page.locator('[data-testid="reporting-export-download"][data-task-id="'+exportTask.id+'"]');
+  await expect(exportDownload).toHaveCount(1);
+  const [reportDownload]=await Promise.all([page.waitForEvent('download'),exportDownload.click()]);
+  assert.equal(reportDownload.suggestedFilename(),exportTask.outputFileName);
+  const verified=fixture.verifyWorkbook(readFileSync(await reportDownload.path()),fixture.reportingExpectedValue);assert.equal(verified.dataRows,1);evidence.reportExport=true;
+  signal?.throwIfAborted();stage='tenant-report-revoke';await fixture.revokeReporting();await page.goto(origin+'/#/reporting/execute');
+  await expect(page.getByTestId('reporting-execute-run')).toBeDisabled();await expect(page.locator('.result-card')).toHaveCount(0);evidence.reportRevokedDenied=true;
   signal?.throwIfAborted();stage='tenant-profile';await page.goto(origin+'/#/printing/published-templates');
   await choose('[data-testid="printing-published-template"]','Tenant output card · v1');
   await page.getByTestId('printing-published-preview').click();

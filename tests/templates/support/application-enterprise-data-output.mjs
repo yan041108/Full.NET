@@ -180,9 +180,16 @@ export async function verifyEnterpriseDataOutputHttp(baseUrl, {hostAccessToken,t
    // 浏览器登录会轮换同一 admin 会话，放在所有 HTTP 断言之后；撤权由独立 Host 用户执行。
    ensure(await send('browser-profile-regrant',printGrant,'PUT',undefined,200,revoker)===true,'browser profile regrant failed');
    if (businessPrintGrant) ensure(await send('browser-business-regrant',businessPrintGrant,'PUT',undefined,200,revoker)===true,'browser business regrant failed');
+   ensure(await send('browser-report-first-regrant',grant,'PUT',undefined,200,revoker)===true,'browser first report regrant failed');
+   ensure(await send('browser-report-second-grant',root+'/versions/2/tenant-grants/'+tenantId,'PUT',undefined,200,revoker)===true,'browser second report grant failed');
    stage='printing-browser';
    evidence.printing.browser=await verifyPrintingBrowser({templateId:template.id,businessTemplateId:businessTemplate?.id,
     tenantName:switched.context.name,tenantId,recordId:businessRecordId,
+    reportingDefinitionId:definition.id,reportingDefinitionKey:definition.definitionKey,reportingExpectedValue:engine,
+    revokeReporting:async()=>{
+     ensure(await send('browser-report-first-revoke',grant,'DELETE',undefined,200,revoker)===true,'browser first report revoke failed');
+     ensure(await send('browser-report-second-revoke',root+'/versions/2/tenant-grants/'+tenantId,'DELETE',undefined,200,revoker)===true,'browser second report revoke failed');
+    },
     revoke:async()=>{
      ensure(await send('browser-profile-revoke',printGrant,'DELETE',undefined,200,revoker)===true,'browser profile revoke failed');
      if(businessPrintGrant) ensure(await send('browser-business-revoke',businessPrintGrant,'DELETE',undefined,200,revoker)===true,'browser business revoke failed');

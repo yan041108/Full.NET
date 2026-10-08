@@ -86,7 +86,7 @@ export async function verifyEnterpriseDataDeliveryHttp(baseUrl, { hostAccessToke
   assert.equal(application.organizationUnitId,unit.id); assert.equal(application.requestNumber,requestNumber); assert.equal(application.title,'Enterprise Worker request');
   // 样例金额契约以字符串传递 decimal，严格核对精度和既有 JSON 类型。
   assert.equal(application.totalAmount,'123.45'); assert.equal(application.applicantUserId,me.id); assert.equal(application.status,'Draft');
-  evidence.completed = true; evidence.tenantId = tenantId; evidence.positionId = position.id; evidence.requestId = application.id;
+  evidence.completed = true; evidence.tenantId = tenantId; evidence.positionId = position.id; evidence.requestId = application.id; evidence.organizationUnitId = unit.id; evidence.applicantUserId = me.id;
   return evidence;
  } catch (error) {
   evidence.error = redact(error instanceof Error ? error.message : error);

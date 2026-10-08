@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { createWriteStream, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
@@ -142,7 +143,7 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
   };
   report.dataOutput = await verifyEnterpriseDataOutputHttp(apiUrl,{hostAccessToken:(await loginHost()).accessToken,tenantId:business.tenantId,
    externalDataSource:externalSource,loginHost,verifyWorkbook,logPath:join(root,'data-output.json'),signal,businessRecordId:business.requestId,
-   verifyPrintingBrowser:fixture=>verifyApplicationPrintingBrowser(appRoot,apiUrl,root,{port:browserPort,fixture,signal})});
+   verifyPrintingBrowser:fixture=>verifyApplicationPrintingBrowser(appRoot,apiUrl,root,{port:browserPort,fixture:{...fixture,fillWorkbook,verifyWorkbook,importValues:['UI-'+randomUUID().replaceAll('-',''),'Enterprise Browser request','456.78',business.applicantUserId,business.organizationUnitId]},signal})});
   for (const {child} of processes) { assert.equal(child.exitCode,null,'host exited during acceptance'); assert.equal(child.signalCode,null); }
   report.completed = true;
   return report;

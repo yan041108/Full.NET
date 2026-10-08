@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
-import { ElSelect } from 'element-plus';
+import { ElOption, ElSelect } from 'element-plus';
 import ReportingExecuteView from './ReportingExecuteView.vue';
 import { listReportingPublishedDefinitions } from '../api/reporting-definitions';
 import { executeReportingDefinition } from '../api/reporting-executions';
@@ -12,6 +12,35 @@ beforeEach(() => { vi.resetAllMocks(); vi.mocked(listReportingPublishedDefinitio
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; });
 const mountView = (permissions = ['reporting.definitions.read', 'reporting.executions.run']) => { const context = createOutputSession(permissions); wrapper = mount(ReportingExecuteView, { global: { plugins: [context.pinia] } }); return context.session; };
 describe('报表执行授权与生命周期', () => {
+  it('再次执行收到错版响应时清空旧结果，不能把旧页当作新查询',async()=>{
+    vi.mocked(executeReportingDefinition).mockResolvedValueOnce(reportResult).mockResolvedValueOnce({...reportResult,versionNumber:2});
+    mountView();await flushPromises();await wrapper!.get('[data-testid="reporting-execute-run"]').trigger('click');await flushPromises();
+    expect(wrapper!.find('.result-card').exists()).toBe(true);
+    await wrapper!.get('[data-testid="reporting-execute-run"]').trigger('click');await flushPromises();
+    expect(wrapper!.find('.result-card').exists()).toBe(false);
+  });
+  it('同一报表的多个获授版本均可选择，执行旧版发送精确资源与版本', async () => {
+    vi.mocked(listReportingPublishedDefinitions).mockResolvedValue([{...publishedReportDefinition,versionNumber:2},publishedReportDefinition]);
+    vi.mocked(executeReportingDefinition).mockResolvedValue(reportResult);
+    mountView(['reporting.executions.run']);await flushPromises();
+    const select=wrapper!.findComponent(ElSelect);
+    expect(select.findAllComponents(ElOption).map(option=>option.props('value'))).toEqual([publishedReportDefinition.definitionId+':2',publishedReportDefinition.definitionId+':1']);
+    select.vm.$emit('update:modelValue',publishedReportDefinition.definitionId+':1');select.vm.$emit('change');await flushPromises();
+    await wrapper!.get('[data-testid="reporting-execute-run"]').trigger('click');await flushPromises();
+    expect(executeReportingDefinition).toHaveBeenCalledWith(publishedReportDefinition.definitionId,{versionNumber:1,parameters:[]},1,50,expect.any(AbortSignal));
+    expect(wrapper!.find('.result-card').exists()).toBe(true);
+  });
+  it('不存在的目录选择不能发起执行', async () => {
+    mountView();await flushPromises();const select=wrapper!.findComponent(ElSelect);
+    select.vm.$emit('update:modelValue','unknown:1');select.vm.$emit('change');await flushPromises();
+    await wrapper!.get('[data-testid="reporting-execute-run"]').trigger('click');await flushPromises();
+    expect(executeReportingDefinition).not.toHaveBeenCalled();
+  });
+  it.each([{definitionId:'another'},{versionNumber:2}])('拒绝不匹配的执行响应 %j', async (change) => {
+    vi.mocked(executeReportingDefinition).mockResolvedValue({...reportResult,...change});mountView();await flushPromises();
+    await wrapper!.get('[data-testid="reporting-execute-run"]').trigger('click');await flushPromises();
+    expect(wrapper!.find('.result-card').exists()).toBe(false);
+  });
   it('只有执行权限也能读取发布目录，并固定目录给出的版本号', async () => {
     vi.mocked(executeReportingDefinition).mockResolvedValue(reportResult);
     mountView(['reporting.executions.run']); await flushPromises();

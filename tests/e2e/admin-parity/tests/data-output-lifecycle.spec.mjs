@@ -84,7 +84,7 @@ test('执行切换报表后丢弃旧查询，只展示新报表结果', async ({
   await page.getByTestId('reporting-execute-run').click();
   await expect.poll(() => pending).toBe(true);
   await page.getByTestId('reporting-execute-definition').click();
-  await page.getByRole('option', { name: '新报表夹具 (fixture)', exact: true }).click();
+  await page.getByRole('option', { name: '新报表夹具 (fixture) · v1', exact: true }).click();
   release();
   await expect(page.getByTestId('reporting-execute-run')).toBeEnabled();
   await page.getByTestId('reporting-execute-run').click();

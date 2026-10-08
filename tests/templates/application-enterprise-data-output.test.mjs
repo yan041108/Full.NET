@@ -10,7 +10,7 @@ const definitionId = '01980000-0000-7000-8000-000000000002';
 const taskId = '01980000-0000-7000-8000-000000000003';
 const templateId = '01980000-0000-7000-8000-000000000004';
 
-function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, printingAllowed=false, revokedAllowed=false, leakedCatalog=false, failedHttp=false, invalidId=false, wrongTaskDefinition=false, revokedSession=false, wrongPrintingVersion=false, wrongPrintingTenant=false, revokedPrintingAllowed=false,businessPrinting=false,wrongBusinessBinding=false,missingBusinessRecordAllowed=false} = {}) {
+function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, printingAllowed=false, revokedAllowed=false, leakedCatalog=false, failedHttp=false, invalidId=false, wrongTaskDefinition=false, revokedSession=false, wrongPrintingVersion=false, wrongPrintingTenant=false, revokedPrintingAllowed=false,businessPrinting=false,wrongBusinessBinding=false,missingBusinessRecordAllowed=false,browserSecondReportGrantRejected=false} = {}) {
  const root = mkdtempSync(join(tmpdir(),'enterprise-output-http-'));
  const logPath = join(root,'result.json');
  const businessTemplateId='01980000-0000-7000-8000-000000000009';const businessRecordId='01980000-0000-7000-8000-000000000010';
@@ -45,7 +45,7 @@ function fixture({wrongVersion=false, emptyQuery=false, corruptWorkbook=false, p
   if (path===`/api/v1/reporting/definitions/${definitionId}`) return Response.json({id:definitionId,version:2});
   if (path.endsWith('/publish') && path.includes('/reporting/')) return Response.json({definitionId,versionNumber:++published});
   if (path.includes('/printing/') && path.includes('tenant-grants')) { if(path.includes(businessTemplateId)) businessGranted=method==='PUT';else printGranted=method==='PUT'; return Response.json(true); }
-  if (path.includes('tenant-grants')) { granted=method==='PUT'; return Response.json(true); }
+  if (path.includes('tenant-grants')) { if(browserSecondReportGrantRejected && method==='PUT' && path.includes('/versions/2/')) return Response.json({code:'fixture.rejected'},{status:500}); granted=method==='PUT'; return Response.json(true); }
   if (path.endsWith('/tenancy/context')) {
    assert.equal(input.tenantId,tenantId); activeToken='Bearer TENANT_SECRET';
    return Response.json({accessToken:'TENANT_SECRET',context:{tenantId,identifier:'local',name:'Local tenant'}});
@@ -156,5 +156,22 @@ test('浏览器验收必须完成并实际执行撤权回调',async()=>{
 test('未完成的浏览器回调不能升级独立应用验收',async()=>{
  const f=fixture();
  try {await assert.rejects(f.run({verifyPrintingBrowser:async()=>({completed:false})}),/browser verification incomplete/u);assert.equal(f.report().completed,false);}
+ finally {f.cleanup();}
+});
+
+test('浏览器取得两个报表版本和独立撤权入口，撤权同时回收两个版本',async()=>{
+ const f=fixture({businessPrinting:true});
+ try {
+  const r=await f.run({verifyPrintingBrowser:async browser=>{
+   assert.equal(browser.reportingDefinitionId,definitionId);assert.match(browser.reportingExpectedValue,/^\d+\.\d+\.\d+/u);
+   await browser.revokeReporting();await browser.revoke();return {completed:true};
+  }});
+  assert.equal(r.completed,true);
+  for(const [version,count] of [[1,2],[2,1]]) assert.equal(f.requests.filter(item=>item.path.includes('/reporting/')&&item.path.includes('/versions/'+version+'/tenant-grants/')&&item.method==='DELETE').length,count);
+ } finally {f.cleanup();}
+});
+test('报表第二版授权失败不能开始浏览器或计通过',async()=>{
+ const f=fixture({browserSecondReportGrantRejected:true});let called=false;
+ try {await assert.rejects(f.run({verifyPrintingBrowser:async()=>{called=true;return {completed:true};}}),/browser-report-second-grant/u);assert.equal(called,false);assert.equal(f.report().completed,false);}
  finally {f.cleanup();}
 });

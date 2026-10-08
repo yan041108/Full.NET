@@ -34,7 +34,7 @@ defineOptions({ name: 'ReportingExecuteView' });
 const { t } = useAdminI18n();
 const session = useSessionStore();
 const definitions = ref<ReportingPublishedDefinition[]>([]);
-const selectedDefinitionId = ref('');
+const selectedDefinitionVersionKey = ref('');
 const parameterValues = reactive<Record<string, string>>({});
 const result = ref<ReportingExecutionPage>();
 const page = ref(1);
@@ -43,8 +43,10 @@ const loading = ref(false);
 const executing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 
+// 同一定义的每个不可变发布版本都是独立授权资源，选择身份同时包含定义和版本。
+const versionKey = (definition: ReportingPublishedDefinition) => definition.definitionId + ':' + definition.versionNumber;
 const selectedDefinition = computed(() =>
-  definitions.value.find(item => item.definitionId === selectedDefinitionId.value));
+  definitions.value.find(item => versionKey(item) === selectedDefinitionVersionKey.value));
 
 const parameterSchema = computed(() => selectedDefinition.value?.parameterSchema ?? []);
 
@@ -62,7 +64,7 @@ const {
 
 watchLoading(executing);
 const scope = useAuthorizedViewScope(session, () => {
-  definitions.value = []; selectedDefinitionId.value = ''; result.value = undefined; problem.value = undefined;
+  definitions.value = []; selectedDefinitionVersionKey.value = ''; result.value = undefined; problem.value = undefined;
   page.value = 1; loading.value = false; executing.value = false; resetParameters();
 }, loadDefinitions);
 let executeRequest: ReturnType<typeof scope.begin>;
@@ -73,8 +75,8 @@ async function loadDefinitions(): Promise<void> {
   try {
     const values = await listReportingPublishedDefinitions(request.signal);
     if (!request.current()) return;
-    definitions.value = values.filter((item, index, all) => all.findIndex(candidate => candidate.definitionId === item.definitionId) === index);
-    selectedDefinitionId.value = definitions.value[0]?.definitionId ?? '';
+    definitions.value = values.filter((item, index, all) => all.findIndex(candidate => versionKey(candidate) === versionKey(item)) === index);
+    selectedDefinitionVersionKey.value = definitions.value[0] ? versionKey(definitions.value[0]) : '';
     resetParameters();
   } catch (error: unknown) {
     if (request.current()) problem.value = toProblem(error, 'reportingExecute.loadFailed');
@@ -100,25 +102,31 @@ function onDefinitionChanged(): void {
 }
 
 async function runExecute(): Promise<void> {
-  if (!selectedDefinitionId.value || executing.value) {
+  const definition = selectedDefinition.value;
+  if (!definition || executing.value) {
     return;
   }
   const request = scope.begin('reporting.executions.run'); if (!request) return; executeRequest = request;
   executing.value = true;
   problem.value = undefined;
+  // 新查询失败时不得把上一次结果继续呈现为本次输出。
+  result.value = undefined;
   try {
     const parameters: ReportingExecutionParameterValue[] = parameterSchema.value.map(parameter => ({
       parameterKey: parameter.parameterKey,
       value: parameterValues[parameter.parameterKey]?.trim() || null
     }));
     const value = await executeReportingDefinition(
-      selectedDefinitionId.value,
-      { versionNumber: selectedDefinition.value?.versionNumber, parameters },
+      definition.definitionId,
+      { versionNumber: definition.versionNumber, parameters },
       page.value,
       pageSize.value,
       request.signal
     );
     if (!request.current()) return;
+    // 运行时守卫只验证形状；内容交付前还须匹配本次选择的精确发布身份。
+    if (value.definitionId !== definition.definitionId || value.versionNumber !== definition.versionNumber)
+      throw new Error('client.invalid_reporting_execution_identity');
     result.value = value;
     updateTableHeight();
   } catch (error: unknown) {
@@ -155,16 +163,16 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
       <ElForm label-width="140px" class="execute-form">
         <ElFormItem :label="t('reportingExecute.fieldDefinition')">
           <ElSelect
-            v-model="selectedDefinitionId"
+            v-model="selectedDefinitionVersionKey"
             filterable
             data-testid="reporting-execute-definition"
             @change="onDefinitionChanged"
           >
             <ElOption
               v-for="definition in definitions"
-              :key="definition.definitionId"
-              :label="`${definition.name} (${definition.definitionKey})`"
-              :value="definition.definitionId"
+              :key="versionKey(definition)"
+              :label="`${definition.name} (${definition.definitionKey}) · v${definition.versionNumber}`"
+              :value="versionKey(definition)"
             />
           </ElSelect>
         </ElFormItem>
@@ -180,7 +188,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
             type="primary"
             data-testid="reporting-execute-run"
             :loading="executing"
-            :disabled="!selectedDefinitionId"
+            :disabled="!selectedDefinition"
             @click="runExecute"
           >
             {{ t('reportingExecute.run') }}

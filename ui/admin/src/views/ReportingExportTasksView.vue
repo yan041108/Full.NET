@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -54,7 +54,7 @@ const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 const createDialogVisible = ref(false);
-const selectedDefinitionId = ref('');
+const selectedDefinitionVersionKey = ref('');
 const parameterValues = reactive<Record<string, string>>({});
 
 const {
@@ -75,12 +75,19 @@ const canCreate = () => session.can('reporting.export_tasks.create');
 const canRead = () => session.can('reporting.export_tasks.read');
 const canDownload = () => session.can('reporting.export_tasks.download');
 
+// 同一定义的每个不可变发布版本都是独立授权资源，选择身份同时包含定义和版本。
+const versionKey = (definition: ReportingPublishedDefinition) => definition.definitionId + ':' + definition.versionNumber;
 const selectedDefinition = computed(() =>
-  definitions.value.find(item => item.definitionId === selectedDefinitionId.value));
+  definitions.value.find(item => versionKey(item) === selectedDefinitionVersionKey.value));
 
 const parameterSchema = computed(() => selectedDefinition.value?.parameterSchema ?? []);
+let createRequest: ReturnType<typeof scope.begin>;
+// 关闭只取消客户端接入，不承诺撤销已经提交到服务端的导出任务。
+watch(createDialogVisible, visible => {
+  if (!visible) { createRequest?.cancel(); creating.value = false; }
+}, {flush:'sync'});
 const scope = useAuthorizedViewScope(session, () => {
-  items.value = []; definitions.value = []; selectedDefinitionId.value = ''; total.value = 0; page.value = 1;
+  items.value = []; definitions.value = []; selectedDefinitionVersionKey.value = ''; total.value = 0; page.value = 1;
   problem.value = undefined; createDialogVisible.value = false; loading.value = false; creating.value = false; downloading.value = false;
   resetParameters();
 }, async () => { await Promise.all([loadDefinitions(), load()]); });
@@ -125,8 +132,8 @@ async function loadDefinitions(): Promise<void> {
   try {
     const values = await listReportingPublishedDefinitions(request.signal);
     if (!request.current()) return;
-    definitions.value = values.filter((item, index, all) => all.findIndex(candidate => candidate.definitionId === item.definitionId) === index);
-    selectedDefinitionId.value = definitions.value[0]?.definitionId ?? ''; resetParameters();
+    definitions.value = values.filter((item, index, all) => all.findIndex(candidate => versionKey(candidate) === versionKey(item)) === index);
+    selectedDefinitionVersionKey.value = definitions.value[0] ? versionKey(definitions.value[0]) : ''; resetParameters();
   } catch (error: unknown) {
     if (request.current()) problem.value = toProblem(error, 'reportingExportTasks.loadFailed');
   } finally { request.finish(); }
@@ -168,10 +175,11 @@ function openCreateDialog(): void {
 }
 
 async function submitCreate(): Promise<void> {
-  if (!selectedDefinitionId.value || creating.value) {
+  const definition = selectedDefinition.value;
+  if (!definition || creating.value) {
     return;
   }
-  const request = scope.begin('reporting.export_tasks.create'); if (!request) return;
+  const request = scope.begin('reporting.export_tasks.create'); if (!request) return; createRequest = request;
 
   creating.value = true;
   problem.value = undefined;
@@ -180,13 +188,16 @@ async function submitCreate(): Promise<void> {
       parameterKey: parameter.parameterKey,
       value: parameterValues[parameter.parameterKey] ?? null
     }));
-    await createReportingExportTask({
-      definitionId: selectedDefinitionId.value,
-      versionNumber: selectedDefinition.value?.versionNumber,
+    const task = await createReportingExportTask({
+      definitionId: definition.definitionId,
+      versionNumber: definition.versionNumber,
       formatKey: 'excel',
       parameters
     }, request.signal);
     if (!request.current()) return;
+    // 创建成功必须对应选中的发布版本和格式，不能将其他任务误认为本次结果。
+    if (task.definitionId !== definition.definitionId || task.versionNumber !== definition.versionNumber || task.formatKey !== 'excel')
+      throw new Error('client.invalid_reporting_export_task_identity');
     ElMessage.success(t('reportingExportTasks.createSuccess'));
     createDialogVisible.value = false;
     await load();
@@ -291,6 +302,7 @@ async function downloadTask(task: ReportingExportTask): Promise<void> {
                     link
                     type="primary"
                     data-testid="reporting-export-download"
+                    :data-task-id="row.id"
                     :disabled="downloading"
                     @click="downloadTask(row)"
                   >
@@ -323,7 +335,7 @@ async function downloadTask(task: ReportingExportTask): Promise<void> {
       <ElForm label-width="120px">
         <ElFormItem :label="t('reportingExportTasks.fieldDefinition')">
           <ElSelect
-            v-model="selectedDefinitionId"
+            v-model="selectedDefinitionVersionKey"
             data-testid="reporting-export-definition"
             class="w-full"
             :disabled="creating"
@@ -331,9 +343,9 @@ async function downloadTask(task: ReportingExportTask): Promise<void> {
           >
             <ElOption
               v-for="definition in definitions"
-              :key="definition.definitionId"
-              :label="definition.name"
-              :value="definition.definitionId"
+              :key="versionKey(definition)"
+              :label="`${definition.name} · v${definition.versionNumber}`"
+              :value="versionKey(definition)"
             />
           </ElSelect>
         </ElFormItem>
@@ -352,7 +364,7 @@ async function downloadTask(task: ReportingExportTask): Promise<void> {
         <PermissionGate code="reporting.export_tasks.create"><ElButton
           type="primary"
           :loading="creating"
-          :disabled="!selectedDefinitionId"
+          :disabled="!selectedDefinition"
           data-testid="reporting-export-submit"
           @click="submitCreate"
         >
