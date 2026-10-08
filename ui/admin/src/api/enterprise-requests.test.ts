@@ -15,6 +15,24 @@ const response = {
 };
 
 describe('企业样例请求适配', () => {
+  const progress = { requestId: id, requestStatus: 'Submitted', requestVersion: '2', deliveryState: 'queued',
+    workflowDefinitionVersionId: unitId, workflowInstanceId: unitId, submittedVersion: '2',
+    submittedAtUtc: '2026-10-08T00:00:00Z', startedAtUtc: null, completedAtUtc: null };
+  it('审批进度使用生成操作与守卫，传递取消信号并规范化版本', async () => {
+    const request = vi.fn().mockResolvedValue(progress); const signal = new AbortController().signal;
+    const value = await createEnterpriseRequestsApi({ request } as unknown as HttpClient).approvalProgress(id, signal);
+    expect(value.requestVersion).toBe(2); expect(value.submittedVersion).toBe(2);
+    expect(request.mock.calls[0]![0]).toBe(`/api/v1/enterprise_request/enterprise-requests/${id}/approval-progress`);
+    expect(request.mock.calls[0]![2]).toBe(signal);
+  });
+  it.each([{ requestId: id }, { ...progress, requestId: unitId }, { ...progress, deliveryState: 'unknown' },
+    { ...progress, requestVersion: '9007199254740992' }, { ...progress, workflowInstanceId: 'bad-id' },
+    { ...progress, submittedAtUtc: 'bad-date' }, { ...progress, workflowInstanceId: null },
+    { ...progress, requestVersion: '0' }, { ...progress, deliveryState: 'finalized', requestStatus: 'Draft' }])(
+    '审批进度拒绝残缺、错配或非法响应 %#', async value => {
+      const request = vi.fn().mockResolvedValue(value);
+      await expect(createEnterpriseRequestsApi({ request } as unknown as HttpClient).approvalProgress(id)).rejects.toThrow();
+    });
   it('审批响应复用完整守卫并规范化字符串版本', async () => {
     const request = vi.fn().mockResolvedValue({ ...response, status: 'Submitted', version: '2' });
     const value = await createEnterpriseRequestsApi({ request } as unknown as HttpClient).submitForApproval(id);

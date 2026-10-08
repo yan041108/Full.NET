@@ -179,6 +179,8 @@ import type {
   DictItemResponse,
   DictTypeResponse,
   DisableHostJobDefinitionRequest,
+  EnterpriseRequestApprovalDeliveryState,
+  EnterpriseRequestApprovalProgressResponse,
   EnterpriseRequestResponse,
   EnumCatalogDetail,
   EnumCatalogDictGenerationItemPreview,
@@ -645,6 +647,7 @@ import {
   readDocumentHostListTagsResponse,
   readDocumentHostPurgeRecycleBinItemResponse,
   readDocumentHostSetDocumentPermissionsResponse,
+  readEnterpriseRequestApprovalProgressResponse,
   readEnterpriseRequestResponse,
   readEnumCatalogDetail,
   readEnumCatalogDictGenerationPreview,
@@ -3511,6 +3514,22 @@ export async function enterpriseRequestDeleteEnterpriseRequest(
   };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestGetApprovalProgressParameters {
+  readonly id: string;
+}
+
+export async function enterpriseRequestGetApprovalProgress(
+  http: HttpClient,
+  parameters: EnterpriseRequestGetApprovalProgressParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestApprovalProgressResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/approval-progress`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestApprovalProgressResponse(value);
 }
 
 export interface EnterpriseRequestGetEnterpriseRequestParameters {

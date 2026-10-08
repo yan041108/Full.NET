@@ -20,8 +20,12 @@ import { enterpriseRequestsHttp } from '../api/enterprise-requests';
 import { useSessionStore } from '../auth/session';
 import { useEnterpriseRequestPage } from './enterprise-requests/enterprise-requests-page.generated';
 import type { EnterpriseRequestResponse } from './enterprise-requests/enterprise-requests.generated';
+import EnterpriseRequestApprovalProgressDialog from './enterprise-requests/EnterpriseRequestApprovalProgressDialog.vue';
+import { useAdminI18n } from '../i18n/adminI18n';
 
 const session = useSessionStore();
+const { t } = useAdminI18n();
+const progressId = ref<string>();
 const problem = ref<FullNetProblemDetails>();
 const createOpen = ref(false);
 const editOpen = ref(false);
@@ -56,6 +60,7 @@ const {
   changing,
   scopeVersion,
   cancelChange,
+  canRead,
   canCreate,
   canUpdate,
   canSubmit,
@@ -82,6 +87,7 @@ const {
 watch(scopeVersion, () => {
   createOpen.value = false; editOpen.value = false; deleteOpen.value = false;
   editing.value = undefined; deleting.value = undefined; problem.value = undefined;
+  progressId.value = undefined;
   Object.assign(createForm, initialCreateForm()); Object.assign(editForm, initialEditForm());
 }, { flush: 'sync' });
 watch(createOpen, open => {
@@ -143,6 +149,15 @@ function openDelete(row: EnterpriseRequestResponse): void {
   problem.value = undefined; deleting.value = row; deleteOpen.value = true;
 }
 
+function openProgress(row: EnterpriseRequestResponse): void {
+  if (!canRead.value || !items.value.includes(row)) return;
+  progressId.value = row.id;
+}
+function closeProgress(): void {
+  progressId.value = undefined;
+  void load();
+}
+
 async function confirmDelete(): Promise<void> {
   if (!deleteOpen.value || !deleting.value) return;
   const ticket = deleteTicket; const scopeTicket = scopeVersion.value;
@@ -183,8 +198,11 @@ async function confirmDelete(): Promise<void> {
       <el-table-column prop="updatedById" label="UpdatedById" />
       <el-table-column prop="deletedById" label="DeletedById" />
       <!-- @vue-generic {EnterpriseRequestResponse} -->
-      <el-table-column label="操作" width="240">
+      <el-table-column label="操作" width="330">
         <template #default="{ row }">
+          <el-button v-if="canRead" link type="primary" @click="openProgress(row)">
+            {{ t('enterpriseRequests.approvalProgress') }}
+          </el-button>
           <el-button
             v-if="canSubmit && row.status === 'Draft'"
             link
@@ -219,6 +237,7 @@ async function confirmDelete(): Promise<void> {
       layout="total, prev, pager, next"
       @current-change="(next: number) => load(next)"
     />
+    <EnterpriseRequestApprovalProgressDialog v-if="progressId" :key="progressId" :request-id="progressId" @close="closeProgress" />
     <el-dialog v-model="createOpen" title="创建">
       <el-form label-width="120px">
       <el-form-item label="OrganizationUnitId">

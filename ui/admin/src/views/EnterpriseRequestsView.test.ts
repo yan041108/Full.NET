@@ -28,6 +28,14 @@ const click = async (wrapper: ReturnType<typeof mount>, text: string) => {
 };
 
 describe('企业样例对话框归属', () => {
+  it.each(['Submitted', 'Approved'])('状态 %s 可查看审批进度，读取权限足够', async status => {
+    request.mockResolvedValue({ ...list, items: [{ ...row, status }] });
+    const f = fixture(['enterprise_request.enterprise_requests.read']);
+    try {
+      await flushPromises();
+      expect(f.wrapper.findAll('button').map(button => button.text())).toContain('审批进度');
+    } finally { f.wrapper.unmount(); }
+  });
   it.each(['Submitted', 'Approved', 'Rejected', 'Cancelled'])('状态 %s 没有编辑或删除入口', async status => {
     request.mockResolvedValue({ ...list, items: [{ ...row, status }] });
     const f = fixture();
@@ -56,6 +64,19 @@ describe('企业样例对话框归属', () => {
     } finally { f.wrapper.unmount(); }
   });
   beforeEach(() => { request.mockReset(); request.mockResolvedValue(list); });
+  it('实际点击进度读取当前行；切换租户关闭弹窗并取消旧查询', async () => {
+    const pending = deferred<unknown>(); const f = fixture(['enterprise_request.enterprise_requests.read']);
+    try {
+      await flushPromises(); request.mockReturnValueOnce(pending.promise);
+      await click(f.wrapper, '审批进度'); await flushPromises();
+      expect(request.mock.calls[1]![0]).toBe(`/api/v1/enterprise_request/enterprise-requests/${outputId}/approval-progress`);
+      f.session.currentUser = { ...f.session.currentUser!, tenantId: '019bc2b1-2a40-7cc3-8992-a80de51bf300' };
+      expect(request.mock.calls[1]![2]?.aborted).toBe(true);
+      await flushPromises();
+      pending.resolve({ requestId: outputId }); await flushPromises();
+      expect(f.wrapper.findAllComponents(ElDialog).every(dialog => !dialog.props('modelValue'))).toBe(true);
+    } finally { f.wrapper.unmount(); }
+  });
   it('切换租户关闭对话框并清空表单，重新创建不得携带旧输入', async () => {
     const f = fixture(); await flushPromises(); await click(f.wrapper, '创建'); await flushPromises();
     await f.wrapper.findComponent(ElDialog).get('input').setValue(outputId);

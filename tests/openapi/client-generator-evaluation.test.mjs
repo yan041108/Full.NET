@@ -20,6 +20,35 @@ const expectedFileNames = [
   'operations.generated.ts'
 ];
 
+test('无 type 的字符串枚举保持闭合模型与引用、可空守卫', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  const files = renderGeneratedFiles({ openapi: '3.1.0', paths: {}, components: { schemas: {
+    Stage: { enum: ['queued', 'started'] },
+    Progress: { type: 'object', required: ['stage'], properties: {
+      stage: { $ref: '#/components/schemas/Stage' }
+    } },
+    NullableStage: { anyOf: [{ $ref: '#/components/schemas/Stage' }, { type: 'null' }] }
+  } } });
+  assert.match(files['models.generated.ts'], /export type Stage = "queued" \| "started";/u);
+  const code = stripTypeScriptTypes(files['guards.generated.ts']) + '\n//# sourceURL=fullnet-test-enum-guards.mjs';
+  const readers = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+  assert.deepEqual(readers.readProgress({ stage: 'queued' }), { stage: 'queued' });
+  assert.equal(readers.readNullableStage('started'), 'started');
+  assert.equal(readers.readNullableStage(null), null);
+  for (const stage of ['unknown', 0, null, {}, undefined]) {
+    assert.throws(() => readers.readProgress({ stage }), /invalid_progress/u);
+  }
+});
+
+test('无 type 的空、非字符串或混合枚举仍拒绝生成，不退化为未知值', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  for (const values of [[], [0, 1], ['queued', 1], ['queued', null], [{}]]) {
+    assert.throws(() => renderGeneratedFiles({ openapi: '3.1.0', paths: {}, components: { schemas: {
+      Unsupported: { enum: values }
+    } } }), /不支持 Schema|无法生成 Schema guard/u);
+  }
+});
+
 test('生成守卫读取服务端整数字符串且拒绝精度丢失，嵌套引用和数组保持一致', async () => {
   const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
   const files = renderGeneratedFiles({ openapi: '3.1.0', paths: {}, components: { schemas: {

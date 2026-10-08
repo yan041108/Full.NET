@@ -178,6 +178,8 @@ import type {
   DictItemResponse,
   DictTypeResponse,
   DisableHostJobDefinitionRequest,
+  EnterpriseRequestApprovalDeliveryState,
+  EnterpriseRequestApprovalProgressResponse,
   EnterpriseRequestResponse,
   EnumCatalogDetail,
   EnumCatalogDictGenerationItemPreview,
@@ -2622,6 +2624,29 @@ export function readDisableHostJobDefinitionRequest(value: unknown): DisableHost
 
 function isDisableHostJobDefinitionRequest(value: unknown): value is DisableHostJobDefinitionRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readEnterpriseRequestApprovalDeliveryState(value: unknown): EnterpriseRequestApprovalDeliveryState {
+  if (!(isEnterpriseRequestApprovalDeliveryState(value))) {
+    throw new Error('client.invalid_enterprise_request_approval_delivery_state');
+  }
+  return value;
+}
+
+function isEnterpriseRequestApprovalDeliveryState(value: unknown): value is EnterpriseRequestApprovalDeliveryState {
+  return typeof value === 'string' && ["not_submitted", "queued", "started", "finalized", "recovery_required"].includes(value);
+}
+
+export function readEnterpriseRequestApprovalProgressResponse(value: unknown): EnterpriseRequestApprovalProgressResponse {
+  const normalizedValue = normalizeEnterpriseRequestApprovalProgressResponseIntegerJson(value);
+  if (!(isEnterpriseRequestApprovalProgressResponse(normalizedValue))) {
+    throw new Error('client.invalid_enterprise_request_approval_progress_response');
+  }
+  return normalizedValue;
+}
+
+function isEnterpriseRequestApprovalProgressResponse(value: unknown): value is EnterpriseRequestApprovalProgressResponse {
+  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (isEnterpriseRequestApprovalDeliveryState(value["deliveryState"])) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestStatus"] === 'string') && (typeof value["requestVersion"] === 'number' && Number.isSafeInteger(value["requestVersion"])) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && ((value["submittedAtUtc"] === null) || (typeof value["submittedAtUtc"] === 'string')) && ((value["submittedVersion"] === null) || (typeof value["submittedVersion"] === 'number' && Number.isSafeInteger(value["submittedVersion"]))) && ((value["workflowDefinitionVersionId"] === null) || (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"]))) && ((value["workflowInstanceId"] === null) || (typeof value["workflowInstanceId"] === 'string' && guidPattern.test(value["workflowInstanceId"])));
 }
 
 export function readEnterpriseRequestResponse(value: unknown): EnterpriseRequestResponse {
@@ -8310,6 +8335,10 @@ function normalizeDictTypeResponseIntegerJson(value: unknown): unknown {
 
 function normalizeDisableHostJobDefinitionRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeEnterpriseRequestApprovalProgressResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "requestVersion") ? { ["requestVersion"]: normalizeWireInteger(value["requestVersion"]) } : {}), ...(Object.hasOwn(value, "submittedVersion") ? { ["submittedVersion"]: normalizeWireInteger(value["submittedVersion"]) } : {}) } : value);
 }
 
 function normalizeEnterpriseRequestResponseIntegerJson(value: unknown): unknown {

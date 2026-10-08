@@ -1100,6 +1100,31 @@ API 在本模块同一事务内 CAS 更新 Submitted、写入不可变提交日�
 
 最终独立只读复核核对两组故障注入仍执行真实 Dapper/事务及双 Provider 通过证据，无剩余阻断项。独立生成应用、完整浏览器、通知/附件及历史绑定对账继续待办；同模块与约定批次完成后集中执行验收。本批没有全量 .NET、Linux 原生或容量实测结论，`Capacity-not-verified` 保持。开发分支及 Draft PR 交付，合并与发布另行约定。
 
+#### 2026-10-08 企业申请审批进度批次
+
+基线 `fba732cb2c6ded88bc895dd4afacdc3c591628cb`，快照 `enterprise-approval-progress-20261008`。本批集中提供提交/启动回执/终态回写进度 API、OpenAPI 生成客户端和 Vue 进度弹窗；不新增表、迁移、权限或流程引擎。F10 整体及样板 `Build-verified` 状态保持，完整页面、附件、通知和独立应用验收在约定批次完成后集中执行。
+
+进度 GET 复用稳定 Read 权限，先按单据组织数据范围读取，再查询本模块租户日志。阶段使用稳定机器值 `not_submitted`、`queued`、`started`、`finalized`、`recovery_required`；版本按现有字符串 Int64 线协议输出。绑定身份或两次读取的版本/终态不一致返回可重试冲突，不拼接错误快照。终态先于启动回执仍可显示已回写，历史无日志明确提示受控恢复；这些阶段不代表 Workflow 当前节点或通知投递成功。
+
+Vue 使用生成操作和完整响应守卫，再检查单据身份、版本、阶段与时间的一致性。弹窗在关闭、单据切换、租户/账号/权限变更和卸载时同步清空资料并取消请求，迟到成功、错误和 finally 不覆盖新查询。刷新互斥且失败可重试，读取权限撤销后刷新按钮不进入 DOM；中文/英文仅改变显示文本，不改变绑定标识或阶段。
+
+先执行可失败验证：服务端进度场景 **15 失败/3 通过**，页面缺少进度入口 **2 失败/11 通过**，无 Read 时刷新仍渲染 **1 失败**；对应实现修复后纳入最终回归。SDK 尚未生成时整组前端测试的缺少导出函数错误只记录为生成步骤未完成，不计业务失败证据。
+
+真实双提供程序 OpenAPI 导出 **2/2**（SQL Server 53.780 秒、MySQL 124.417 秒），规范一致。发现运行时字符串枚举可只输出 `enum`；SDK 生成器此前因缺少 `type` 拒绝生成。新增回归先复现失败，修复仅为非空全字符串枚举推导字符串类型，继续生成闭合联合和成员守卫；空、非字符串、混合枚举仍拒绝，引用与可空分支验证通过。新进度操作和 571 项 manifest/快照计数同步；SDK 完全由规范生成，未手改产物。
+
+本地已确认（最终客户端验证于 2026-10-09）：
+
+- `pnpm --filter @fullnet/admin test -- src/views/EnterpriseRequestsView.test.ts src/views/enterprise-requests/EnterpriseRequestApprovalProgressDialog.test.ts src/views/enterprise-requests/enterprise-requests-page.test.ts src/api/enterprise-requests.test.ts --maxWorkers=2`：**58/58**；`pnpm --filter @fullnet/client-contracts test --maxWorkers=2`：**261/261**，零失败/跳过。
+- `pnpm --filter @fullnet/admin build`：Vue 类型检查与生产构建通过；`pnpm test:bundle-budgets` 通过，首屏静态图 minified **1,435,888 B** / gzip **382,390 B**（相对既有预算基线 +4.96% / +3.71%，不是本批单独增幅）。`node .tmp/enterprise-progress-brotli.mjs` 补充 Brotli quality 4：首屏静态图 **381,816 B**，EnterpriseRequestsView 延迟 JS minified **16,198 B** / gzip **4,835 B** / Brotli **4,838 B**；仅报告实际压缩设置和包体，不形成运行性能结论。
+- `pnpm test:openapi` **206/206**；`node scripts/openapi/generate-fullnet-client.mjs --check` 零漂移，`node scripts/openapi/snapshot-client-openapi.mjs --check --offline` 通过；`pnpm test:openapi:breaking -- --base-ref fba732cb2c6ded88bc895dd4afacdc3c591628cb`：94 组契约兼容检查通过。
+- `pnpm test:dotnet:unit -- --reuse-build --filter 'FullyQualifiedName~Full.NET.UnitTests.EnterpriseRequest' --minimum-expected-tests 102`：**102/102**，1.144 秒；`pnpm test:aot:analyzers` 分析构建、默认 JIT 还原图恢复通过且零警告/错误；`pnpm test:dotnet:architecture -- --reuse-build --filter 'FullyQualifiedName~EndpointAuthorizationTests|FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol' --minimum-expected-tests 37`：**101/101**，16.353 秒；命名 **33/33**、SQL 安全 **5/5**、多语言 **8/8**、直接测试工具 **88/88**、治理 **59/59**、样板 schema **1/1**。
+
+`FULLNET_TESTCONTAINERS_REUSE=0` 下执行 `pnpm test:integration:affected -- --snapshot enterprise-approval-progress-20261008 --phase slice --reuse-build`：最终 **12/12**，零失败/跳过，执行 **229.480 秒**。新断言复用已有双库 CRUD/恢复夹具，覆盖匿名 401、缺权 403、Host 与组织范围外 404、伪造上下文请求头无效、排队进度和终态先于启动回执的真实 HTTP/JSON。首轮 **10 通过/2 失败** 是新增夹具直接写入错误数据范围码 `self`，触发原有投影的 ArgumentException；改用 `RoleDataScopeKinds.Self` 参数化写入后重跑同样 12 项，授权实现与 404 断言未放宽。工具与矩阵门禁 **99/99**、治理 **59/59**；发现 **1188** 项互斥且无遗漏，只验证发现集合，不代表执行全量 Integration。Integration Release 构建零警告/错误，本机 Windows Docker、SQL Server 2022 CU14 / MySQL 8.0，临时容器模式不复用历史测试库。
+
+服务端、Vue 和最终 SDK 的独立只读复核无剩余阻断项；本批通过约定范围的本地验证。上一提交 `fba732c` 的 CI、Linux API/Worker Native AOT 工作流成功，仅对应上一批源码；本批原生运行结论不由其替代。开发分支与 Draft PR 交付，合并与发布另行约定。
+
+OpenAPI 提速实验中，SQL Server 文档可在不可连接地址下运行，MySQL 则由 `MySqlSchemaModeStartupValidator` 在启动时拒绝；实验已恢复原夹具，保留 schema 模式门禁。本次只将快速编译与数据库资源排队分开，没有降低测试断言或删除其他任务的进程、数据库、容器或资源锁。证据保留 `.tmp/enterprise-progress-*`；尚未执行全量 .NET、Linux 原生及容量实测，不形成相应通过结论，`Capacity-not-verified` 保持。
+
 ### F11：导入、报表与打印接入样板
 
 **依赖：** F09、C02/C05。**提供：** 现有三个模块的受控业务接入范例。

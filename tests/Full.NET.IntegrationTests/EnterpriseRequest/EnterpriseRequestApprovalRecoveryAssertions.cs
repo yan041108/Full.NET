@@ -33,6 +33,10 @@ internal static partial class EnterpriseRequestAssertions
             FROM demo_enterprise_request_approval_submission WHERE TenantId = @TenantId AND RequestId = @Id
             """, new { submitted.TenantId, submitted.Id });
         Assert.AreEqual(submitted.Version, submission.RequestVersion);
+        var queued = await ReadProgress(client, token, submitted.Id, ct);
+        Assert.AreEqual(EnterpriseRequestApprovalDeliveryState.Queued, queued.DeliveryState);
+        Assert.AreEqual(submission.WorkflowInstanceId, queued.WorkflowInstanceId);
+        Assert.AreEqual(submitted.Version, queued.SubmittedVersion);
         var message = await connection.QuerySingleAsync<ApprovalOutboxProbe>("""
             SELECT Id, TenantId, Payload, OccurredAtUtc FROM fn_outbox_message
             WHERE TenantId = @TenantId AND MessageType = @MessageType
@@ -57,6 +61,8 @@ internal static partial class EnterpriseRequestAssertions
         Assert.IsTrue(tenant.IsHost, "消费失败后必须恢复 Worker Host 上下文。");
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_instance WHERE Id = @Id", new { Id = submission.WorkflowInstanceId }));
         Assert.IsNull(await connection.ExecuteScalarAsync<DateTime?>("SELECT StartedAtUtc FROM demo_enterprise_request_approval_submission WHERE Id = @Id", new { submission.Id }));
+        Assert.AreEqual(EnterpriseRequestApprovalDeliveryState.Queued, (await ReadProgress(client, token, submitted.Id, ct)).DeliveryState,
+            "流程已创建但启动回执丢失时，只能报告日志的排队阶段，不能猜测其他模块状态。");
 
         tenant.SetTenant(new TenantContext(submitted.TenantId, "acme", "Acme"));
         var cancelled = await services.GetRequiredService<IWorkflowInstanceCanceller>().CancelAsync(submission.SubmittedById,
@@ -81,6 +87,11 @@ internal static partial class EnterpriseRequestAssertions
         await sink.HandleAsync(terminalContext, terminal, ct);
         await sink.HandleAsync(terminalContext, terminal, ct);
         Assert.AreEqual("Cancelled", await Status());
+        var finalized = await ReadProgress(client, token, submitted.Id, ct);
+        Assert.AreEqual(EnterpriseRequestApprovalDeliveryState.Finalized, finalized.DeliveryState);
+        Assert.AreEqual("Cancelled", finalized.RequestStatus);
+        Assert.IsNull(finalized.StartedAtUtc);
+        Assert.IsNotNull(finalized.CompletedAtUtc);
         await handler.HandleAsync(context, message.Payload, ct);
         await handler.HandleAsync(context, message.Payload, ct);
         Assert.IsTrue(tenant.IsHost);

@@ -6,6 +6,7 @@ using Full.NET.Modules.EnterpriseRequest.Features.Printing;
 using Full.NET.Modules.EnterpriseRequest.Features.ImportExport;
 using Full.NET.Modules.EnterpriseRequest.Features.SubmitForApproval;
 using Full.NET.Modules.EnterpriseRequest.Features.WorkflowOutcomes;
+using Full.NET.Modules.EnterpriseRequest.Features.ApprovalProgress;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
 using Microsoft.AspNetCore.Routing;
@@ -33,6 +34,8 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IPrintingFormSchemaContributor, EnterpriseRequestPrintingSchemaContributor>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IPrintingRecordBindingSource, EnterpriseRequestPrintingBindingSource>());
         services.TryAddScoped<SubmitEnterpriseRequestForApprovalService>();
+        services.TryAddScoped<EnterpriseRequestApprovalProgressService>();
+        services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, EnterpriseRequestApprovalProgressJsonContext.Default));
         services.TryAddScoped<EnterpriseRequestImportService>();
 #if FULLNET_AOT_COMPILE
         Persistence.EnterpriseRequestImportAotMaterializer.Register();
@@ -72,5 +75,6 @@ public sealed class EnterpriseRequestModule : IFullNetModule
     {
         endpoints.MapFullNetGeneratedModuleFeatures();
         SubmitForApprovalEndpoint.Map(endpoints);
+        ApprovalProgressEndpoint.Map(endpoints);
     }
 }

@@ -1433,6 +1433,21 @@ export interface DisableHostJobDefinitionRequest {
   readonly version: number;
 }
 
+export type EnterpriseRequestApprovalDeliveryState = "not_submitted" | "queued" | "started" | "finalized" | "recovery_required";
+
+export interface EnterpriseRequestApprovalProgressResponse {
+  readonly completedAtUtc: null | string;
+  readonly deliveryState: EnterpriseRequestApprovalDeliveryState;
+  readonly requestId: string;
+  readonly requestStatus: string;
+  readonly requestVersion: number;
+  readonly startedAtUtc: null | string;
+  readonly submittedAtUtc: null | string;
+  readonly submittedVersion: null | number;
+  readonly workflowDefinitionVersionId: null | string;
+  readonly workflowInstanceId: null | string;
+}
+
 export interface EnterpriseRequestResponse {
   readonly applicantUserId: string;
   readonly createdAtUtc: string;

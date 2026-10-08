@@ -669,7 +669,10 @@ function effectiveTypes(schema) {
       ? [schema.type]
       : schema.properties || schema.additionalProperties
         ? ['object']
-        : [];
+        // 运行时 OpenAPI 可只提供字符串 enum；仍生成闭合联合与成员校验，不能退化为任意字符串。
+        : Array.isArray(schema.enum) && schema.enum.length > 0 && schema.enum.every(value => typeof value === 'string')
+          ? ['string']
+          : [];
   if (source.includes('integer')
     && source.includes('string')
     && typeof schema.pattern === 'string'
