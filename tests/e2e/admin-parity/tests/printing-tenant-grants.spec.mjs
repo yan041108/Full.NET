@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 const id = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
 const tenant = '019bc2b1-2a40-7cc3-8992-a80de51bf298';
@@ -39,11 +40,14 @@ test('Host 浏览器按所选发布版本授权、取消确认、撤销，并在
   return json(route,true);
  });
  await page.goto('/#/printing/preview');await page.getByTestId('printing-tenant-grants-open').click();
- const dialog=page.getByRole('dialog').filter({has:page.getByTestId('printing-grant-save')});
+ const dialog=page.getByRole('dialog',{name:'租户版本授权：打印夹具',exact:true});
  await expect(dialog.locator('.el-select')).toContainText('2');expect(dataSourceReads).toBe(0);expect(directoryReads).toBe(0);
  await dialog.locator('.el-select').click();await page.getByRole('option',{name:'1',exact:true}).click();
  await page.getByTestId('printing-grant-tenant').fill(tenant);
  await page.getByTestId('printing-grant-save').click();await expect(page.getByTestId('printing-grant-revoke')).toBeVisible();
+ await dialog.evaluate(async element=>{await Promise.all(element.getAnimations({subtree:true}).filter(animation=>animation.effect?.getTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{})));});
+ const accessibility=await new AxeBuilder({page}).include('[role="dialog"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();
+ expect(accessibility.violations.map(({id,nodes})=>({id,targets:nodes.map(node=>node.target)}))).toEqual([]);
  expect(writes).toEqual([{version:1,method:'PUT'}]);
  await page.getByTestId('printing-grant-revoke').click();
  const confirmation=page.getByRole('dialog').filter({has:page.getByTestId('printing-grant-confirm-revoke')});

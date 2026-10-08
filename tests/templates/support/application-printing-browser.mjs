@@ -70,11 +70,14 @@ export async function verifyApplicationPrintingBrowser(appRoot, apiUrl, reportDi
   await choose('.printing-preview-view .el-select','Enterprise request print');
   evidence.hostDirectory=true;
   await page.getByTestId('printing-tenant-grants-open').click();
+  stage='host-grant-dialog';
   const dialog=page.getByRole('dialog',{name:'租户版本授权：Enterprise request print'});
   await expect(dialog.locator('.el-table__row').filter({hasText:fixture.tenantId})).toBeVisible();
   await page.getByTestId('printing-grant-tenant').fill(fixture.tenantId);
+  stage='host-grant-save';
   const grantResponse=await runPrintingBrowserResponseAction(page,response=>new URL(response.url()).pathname.endsWith('/tenant-grants/'+fixture.tenantId)&&response.request().method()==='PUT',()=>page.getByTestId('printing-grant-save').click());
   assert.equal(grantResponse.status(),200);
+  stage='host-grant-accessibility';
   await audit('host-grants','[role="dialog"]');evidence.hostGrant=true;
   await dialog.getByRole('button',{name:'关闭',exact:true}).click();
   signal?.throwIfAborted();stage='tenant-context';await page.goto(origin+'/#/tenant-context');

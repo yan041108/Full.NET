@@ -142,8 +142,9 @@ for (const scenario of [
     } }
 ]) {
   test(`${scenario.name}在途任务自动刷新到终态，随后停止读取`, async ({ page }) => {
-    await page.clock.install();
-    await page.clock.pauseAt(new Date());
+    // 安装与暂停是两次跨进程调用；先设固定纪元，再向前暂停，避免主机时钟落在浏览器过去。
+    await page.clock.install({time:new Date(0)});
+    await page.clock.pauseAt(new Date(86_400_000));
     await boot(page, scenario.component, scenario.path, scenario.permission, [scenario.permission], scenario.name === '文档预览' ? 'host' : 'tenant');
     let reads = 0;
     await page.route(`**/api/v1${scenario.endpoint}?*`, route => {

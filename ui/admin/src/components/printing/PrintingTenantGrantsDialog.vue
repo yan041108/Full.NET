@@ -110,7 +110,7 @@ async function changeGrant(target: string, grant: boolean): Promise<void> {
       <ElButton :disabled="busy || selectedVersion === undefined" data-testid="printing-grant-save" @click="changeGrant(tenantId,true)">{{ t('printingGrants.grant') }}</ElButton>
       <ElButton :disabled="busy" data-testid="printing-grant-refresh" @click="loadGrants(page)">{{ t('printingGrants.refresh') }}</ElButton>
     </ElForm>
-    <ElTable v-loading="loading" :data="grantRows" max-height="320">
+    <ElTable v-loading="loading" :data="grantRows" class="art-crud-data-table" max-height="320">
       <ElTableColumn prop="id" :label="t('printingGrants.tenant')" min-width="280" />
       <ElTableColumn :label="t('printingGrants.actions')" :width="ART_TABLE_ACTION_COLUMN_WIDTH">
         <template #default="{row}"><ArtTableActionGroup><ArtTableActionButton type="delete" :disabled="busy" test-id="printing-grant-revoke" :title="t('printingGrants.revoke')" @click="changeGrant(row.id,false)" /></ArtTableActionGroup></template>
