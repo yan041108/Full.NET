@@ -15,6 +15,27 @@ const response = {
 };
 
 describe('企业样例请求适配', () => {
+  it('附件生成操作传递版本、文件和受保护 Blob 下载参数', async () => {
+    const attachment = { id: unitId, fileId: id, originalFileName: 'probe.txt', sizeBytes: '12', createdAtUtc: '2026-10-09T00:00:00Z' };
+    const request = vi.fn().mockResolvedValueOnce({ requestId: id, requestVersion: '2', requestStatus: 'Draft', items: [attachment] })
+      .mockResolvedValueOnce({ requestId: id, requestVersion: '3', attachment }).mockResolvedValueOnce({ requestId: id, requestVersion: '4' });
+    const requestBlob = vi.fn().mockResolvedValue(new Blob(['probe'])); const signal = new AbortController().signal;
+    const api = createEnterpriseRequestsApi({ request, requestBlob } as unknown as HttpClient);
+    expect((await api.attachments(id, signal)).items[0]!.sizeBytes).toBe(12);
+    await api.uploadAttachment(id, 2, new File(['probe'], 'probe.txt'), signal);
+    expect((request.mock.calls[1]![1].body as FormData).get('version')).toBe('2');
+    await api.removeAttachment(id, unitId, 3, signal);
+    expect(JSON.parse(request.mock.calls[2]![1].body)).toEqual({ version: 3 });
+    await api.downloadAttachment(id, unitId, signal);
+    expect(requestBlob.mock.calls[0]![0]).toBe(`/api/v1/enterprise_request/enterprise-requests/${id}/attachments/${unitId}/content`);
+    expect(requestBlob.mock.calls[0]![2]).toBe(signal);
+  });
+  it.each(['identity', 'path', 'bytes', 'duplicate', 'time'])('附件引用拒绝 %s 错配', async kind => {
+    const item = { id: unitId, fileId: id, originalFileName: kind === 'path' ? '../probe.txt' : 'probe.txt',
+      sizeBytes: kind === 'bytes' ? '10485761' : '12', createdAtUtc: kind === 'time' ? 'invalid' : '2026-10-09T00:00:00Z' };
+    const request = vi.fn().mockResolvedValue({ requestId: kind === 'identity' ? unitId : id, requestVersion: '2', requestStatus: 'Draft', items: kind === 'duplicate' ? [item, item] : [item] });
+    await expect(createEnterpriseRequestsApi({ request } as unknown as HttpClient).attachments(id)).rejects.toThrow();
+  });
   it('明细读取与替换通过生成操作传递主表版本、精确金额和取消信号', async () => {
     const lines = { requestId: id, requestVersion: '3', requestStatus: 'Draft', totalAmount: '50.01', items: [
       { id: unitId, lineNumber: 1, itemDescription: 'Item', quantity: '1.00010', unitPrice: '50.000', lineAmount: '50.01' }

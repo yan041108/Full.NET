@@ -31,6 +31,16 @@ const createDialog = (wrapper: ReturnType<typeof mount>) => wrapper.findAllCompo
   .find(dialog => dialog.props('title') === '创建')!;
 
 describe('企业样例对话框归属', () => {
+  it('附件入口从服务端读取当前申请的受保护引用', async () => {
+    const f = fixture();
+    try {
+      await flushPromises();
+      request.mockResolvedValueOnce({ requestId: outputId, requestVersion: '1', requestStatus: 'Draft', items: [] });
+      await click(f.wrapper, '附件'); await flushPromises();
+      expect(request.mock.calls[1]![0]).toBe(`/api/v1/enterprise_request/enterprise-requests/${outputId}/attachments`);
+      expect(f.wrapper.text()).toContain('申请附件');
+    } finally { f.wrapper.unmount(); }
+  });
   it('明细入口从服务端读取版本与精确金额', async () => {
     const f = fixture();
     try {

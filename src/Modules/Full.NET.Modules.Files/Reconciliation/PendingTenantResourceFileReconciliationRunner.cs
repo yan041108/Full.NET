@@ -223,6 +223,10 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
             return PendingOutcome.Skipped;
         }
 
+        // 对象尚未落盘可能是活动慢上传，先让所属模块以持久化状态仲裁；端口故障由外层保留意图。
+        if (!exists && resourceOwners.SingleOrDefault(item => item.OwnerModuleKey == record.OwnerModuleKey) is { } owner
+            && await owner.IsReferencedAsync(record.ResourceId, record.Id, cancellationToken).ConfigureAwait(false))
+            return PendingOutcome.Skipped;
         var statement = exists ? TenantResourceFileSql.PromotePending : TenantResourceFileSql.PurgePending;
         var affected = await commandExecutor.ExecuteAsync(
                 statement,

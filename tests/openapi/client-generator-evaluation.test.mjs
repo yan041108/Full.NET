@@ -74,6 +74,25 @@ test('生成守卫读取服务端整数字符串且拒绝精度丢失，嵌套�
   assert.throws(() => readers.readNativeInteger('42'), /invalid_native_integer/);
 });
 
+test('数值守卫不发生类型强转，安全整数与有限小数边界保持独立', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  const files = renderGeneratedFiles({ openapi: '3.1.0', paths: {}, components: { schemas: {
+    Integer: { type: 'integer' }, Numeric: { type: 'number' }
+  } } });
+  const code = stripTypeScriptTypes(files['guards.generated.ts']) + '\n//# sourceURL=fullnet-test-numeric-guards.mjs';
+  const readers = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+  for (const value of [0, -0, 1, -1, Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER]) {
+    assert.equal(readers.readInteger(value), value); assert.equal(readers.readNumeric(value), value);
+  }
+  for (const value of [1.5, Number.MAX_VALUE, Number.MIN_VALUE, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => readers.readInteger(value), /invalid_integer/u); assert.equal(readers.readNumeric(value), value);
+  }
+  for (const value of ['1', '', true, false, null, undefined, [], {}, new Number(1), 1n, Symbol('number'), NaN, Infinity, -Infinity]) {
+    assert.throws(() => readers.readInteger(value), /invalid_integer/u);
+    assert.throws(() => readers.readNumeric(value), /invalid_numeric/u);
+  }
+});
+
 test('联合 Schema 按匹配分支归一，不改写另一分支的普通字符串', async () => {
   const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
   const integer = { type: ['integer', 'string'], pattern: '^-?(?:0|[1-9]\\d*)$' };

@@ -56,6 +56,9 @@ internal static partial class EnterpriseRequestAssertions
         Assert.AreEqual(organizationUnitId, created.OrganizationUnitId);
         await VerifyApprovalProgressReadBoundaryAsync(factory, client, token, created, cancellationToken);
         await VerifyLinesAsync(factory, client, token, created, cancellationToken);
+        using var anonymousAttachments = await client.GetAsync($"{BasePath}/{created.Id:D}/attachments", cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, anonymousAttachments.StatusCode);
+        await VerifyAttachmentsAsync(factory, client, token, created, cancellationToken);
 
         using var getRequest = new HttpRequestMessage(HttpMethod.Get, $"{BasePath}/{created.Id:D}");
         getRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);

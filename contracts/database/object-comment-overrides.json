@@ -386,6 +386,21 @@
         "TenantId": "获授租户标识，不建立跨模块外键",
         "VersionNumber": "明确获授的不可变发布版本"
       }
+    },
+    "demo_enterprise_request_request_attachment": {
+      "comment": "企业申请附件引用表",
+      "columns": {
+        "Id": "逻辑主键",
+        "TenantId": "所属租户标识",
+        "RequestId": "所属申请标识",
+        "FileId": "文件标识",
+        "OriginalFileName": "下载文件名",
+        "SizeBytes": "文件字节数",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedById": "创建人标识",
+        "StateKey": "附件绑定状态键",
+        "UploadExpiresAtUtc": "上传保护过期时间(UTC)"
+      }
     }
   }
 }

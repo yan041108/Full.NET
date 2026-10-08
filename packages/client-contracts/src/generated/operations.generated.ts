@@ -181,6 +181,10 @@ import type {
   DisableHostJobDefinitionRequest,
   EnterpriseRequestApprovalDeliveryState,
   EnterpriseRequestApprovalProgressResponse,
+  EnterpriseRequestAttachmentMutationResponse,
+  EnterpriseRequestAttachmentRemovedResponse,
+  EnterpriseRequestAttachmentResponse,
+  EnterpriseRequestAttachmentsResponse,
   EnterpriseRequestLineInput,
   EnterpriseRequestLineResponse,
   EnterpriseRequestLinesResponse,
@@ -425,6 +429,7 @@ import type {
   RecipientEndpointResponse,
   ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
+  RemoveEnterpriseRequestAttachmentRequest,
   ReplaceEnterpriseRequestLinesRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRoleMembersRequest,
@@ -652,6 +657,9 @@ import {
   readDocumentHostPurgeRecycleBinItemResponse,
   readDocumentHostSetDocumentPermissionsResponse,
   readEnterpriseRequestApprovalProgressResponse,
+  readEnterpriseRequestAttachmentMutationResponse,
+  readEnterpriseRequestAttachmentRemovedResponse,
+  readEnterpriseRequestAttachmentsResponse,
   readEnterpriseRequestLinesResponse,
   readEnterpriseRequestResponse,
   readEnumCatalogDetail,
@@ -3521,6 +3529,27 @@ export async function enterpriseRequestDeleteEnterpriseRequest(
   return readEnterpriseRequestResponse(value);
 }
 
+export interface EnterpriseRequestDownloadAttachmentParameters {
+  readonly id: string;
+  readonly attachmentId: string;
+}
+
+export async function enterpriseRequestDownloadAttachment(
+  http: HttpClient,
+  parameters: EnterpriseRequestDownloadAttachmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/attachments/${encodeURIComponent(String(parameters.attachmentId))}/content`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
 export interface EnterpriseRequestGetApprovalProgressParameters {
   readonly id: string;
 }
@@ -3569,6 +3598,22 @@ export async function enterpriseRequestGetLines(
   return readEnterpriseRequestLinesResponse(value);
 }
 
+export interface EnterpriseRequestListAttachmentsParameters {
+  readonly id: string;
+}
+
+export async function enterpriseRequestListAttachments(
+  http: HttpClient,
+  parameters: EnterpriseRequestListAttachmentsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestAttachmentsResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/attachments`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestAttachmentsResponse(value);
+}
+
 export interface EnterpriseRequestListEnterpriseRequestsParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -3591,6 +3636,28 @@ export async function enterpriseRequestListEnterpriseRequests(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestRemoveAttachmentParameters {
+  readonly id: string;
+  readonly attachmentId: string;
+  readonly body: RemoveEnterpriseRequestAttachmentRequest;
+}
+
+export async function enterpriseRequestRemoveAttachment(
+  http: HttpClient,
+  parameters: EnterpriseRequestRemoveAttachmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestAttachmentRemovedResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/attachments/${encodeURIComponent(String(parameters.attachmentId))}`;
+  const init: RequestInit = {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestAttachmentRemovedResponse(value);
 }
 
 export interface EnterpriseRequestReplaceLinesParameters {
@@ -3633,6 +3700,27 @@ export async function enterpriseRequestUpdateEnterpriseRequest(
   };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestUploadAttachmentParameters {
+  readonly id: string;
+  readonly file: IFormFile;
+  readonly version: number;
+}
+
+export async function enterpriseRequestUploadAttachment(
+  http: HttpClient,
+  parameters: EnterpriseRequestUploadAttachmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestAttachmentMutationResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/attachments`;
+  const body = new FormData();
+  body.append('file', parameters.file);
+  body.append('version', String(parameters.version));
+  const init: RequestInit = { method: 'POST', body };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestAttachmentMutationResponse(value);
 }
 
 export interface FilesBatchDeleteHostFilesParameters {

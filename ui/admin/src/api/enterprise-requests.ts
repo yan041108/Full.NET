@@ -5,6 +5,10 @@ import {
   enterpriseRequestGetEnterpriseRequest,
   enterpriseRequestGetLines,
   enterpriseRequestReplaceLines,
+  enterpriseRequestListAttachments,
+  enterpriseRequestUploadAttachment,
+  enterpriseRequestRemoveAttachment,
+  enterpriseRequestDownloadAttachment,
   enterpriseRequestListEnterpriseRequests,
   enterpriseRequestUpdateEnterpriseRequest,
   submitEnterpriseRequestForApproval,
@@ -14,6 +18,7 @@ import {
   type EnterpriseRequestApprovalProgressResponse,
   type EnterpriseRequestLinesResponse,
   type ReplaceEnterpriseRequestLinesRequest,
+  type EnterpriseRequestAttachmentResponse,
   type HttpClient,
   type UpdateEnterpriseRequestRequest
 } from '@fullnet/client-contracts';
@@ -26,6 +31,8 @@ export {
   type EnterpriseRequestLineInput,
   type EnterpriseRequestLinesResponse,
   type ReplaceEnterpriseRequestLinesRequest,
+  type EnterpriseRequestAttachmentsResponse,
+  type EnterpriseRequestAttachmentResponse,
   type UpdateEnterpriseRequestRequest
 } from '@fullnet/client-contracts';
 
@@ -87,6 +94,36 @@ export function createEnterpriseRequestsApi(
         throw new Error('client.invalid_enterprise_request_lines');
       return response;
     },
+    attachments: async (id: string, signal?: AbortSignal) => {
+      const response = await enterpriseRequestListAttachments(http, { id }, signal);
+      const ids = new Set<string>(), files = new Set<string>();
+      if (response.requestId !== id || response.requestVersion < 1 || response.items.length > 20)
+        throw new Error('client.invalid_enterprise_request_attachments');
+      for (const item of response.items) {
+        validateAttachment(item);
+        if (ids.has(item.id) || files.has(item.fileId)) throw new Error('client.invalid_enterprise_request_attachments');
+        ids.add(item.id); files.add(item.fileId);
+      }
+      return response;
+    },
+    uploadAttachment: async (id: string, version: number, file: File, signal?: AbortSignal) => {
+      const response = await enterpriseRequestUploadAttachment(http, { id, version, file }, signal);
+      if (response.requestId !== id || response.requestVersion !== version + 1)
+        throw new Error('client.invalid_enterprise_request_attachments');
+      validateAttachment(response.attachment);
+      return response;
+    },
+    removeAttachment: async (id: string, attachmentId: string, version: number, signal?: AbortSignal) => {
+      const response = await enterpriseRequestRemoveAttachment(http, { id, attachmentId, body: { version } }, signal);
+      if (response.requestId !== id || response.requestVersion !== version + 1)
+        throw new Error('client.invalid_enterprise_request_attachments');
+      return response;
+    },
+    downloadAttachment: async (id: string, attachmentId: string, signal?: AbortSignal) => {
+      const blob = await enterpriseRequestDownloadAttachment(http, { id, attachmentId }, signal);
+      if (!(blob instanceof Blob)) throw new Error('client.invalid_enterprise_request_attachment_content');
+      return blob;
+    },
     submitForApproval: (id: string, signal?: AbortSignal) =>
       submitEnterpriseRequestForApproval(http, { id }, signal).then(response => {
         if (response.id !== id) {
@@ -95,6 +132,13 @@ export function createEnterpriseRequestsApi(
         return response;
       })
   };
+}
+
+/** 附件描述只允许安全下载文件名与本批声明的有界内容，不接受地址或物理路径。 */
+function validateAttachment(item: EnterpriseRequestAttachmentResponse): void {
+  if (!item.originalFileName.trim() || item.originalFileName.length > 255 || /[\\/\x00-\x1f\x7f]/.test(item.originalFileName)
+    || item.sizeBytes < 1 || item.sizeBytes > 10 * 1024 * 1024 || !Number.isFinite(Date.parse(item.createdAtUtc)))
+    throw new Error('client.invalid_enterprise_request_attachments');
 }
 
 /** 精确十进制用整数验证行金额与合计，不经浮点计算制造金额误差。 */

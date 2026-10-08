@@ -1044,6 +1044,26 @@ Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约
 
 RED 已证明明细路由/页面入口缺失，以及主表可破坏明细合计。开发中一次编译缺少 Messaging using；单测首次 **18** 项因代理库无法构造内部集合失败，改为手写查询夹具；双库首次 **10/12** 因故障注入误接到授权 fixture 失败，接线修正后上述 **12/12** 通过。小数尾零协议不一致经只读审查发现并加入成功回归，不扩大生产类型可见性。原始结果保留 `.tmp/enterprise-lines-*` 与 `tests/Full.NET.IntegrationTests/bin/Release/net10.0/TestResults/Full.NET.IntegrationTests-affected-enterpriserequest.trx`。
 
+#### 2026-10-09 申请附件与文件清理批次
+
+基线 `6035e992c1e373496b53293e0154e84b66848847`，快照 `enterprise-attachments-20261009`。集中实现附件上传、列表、认证下载与移除，新增双库迁移 248 的 `demo_enterprise_request_request_attachment`。申请只拥有附件引用，实际对象由 Files Port 管理，不访问 Files 表或建立跨模块外键。读取复用主表数据范围并在文件 I/O 后复核权限快照；写入在事务外验证原机构授权，事务内以草稿、原机构与版本 CAS 更新主表，再绑定或删除精确附件。旧版本、提交后的申请和越权资源不能写入；回滚不留下已绑定引用或递增版本。
+
+上传先验证实际流长度，最多 20 个已绑定附件、每个 1 字节至 10 MiB，下载名去除路径并拒绝控制字符。所有下载通过认证客户端获取字节，服务端强制 `application/octet-stream`、`attachment`、`nosniff` 与 `no-store`，不公开存储路径。Vue 使用独立附件弹窗、当前版本、移除确认与取消作用域；上传冲突保留选择，刷新后才重试，关闭/切换申请/租户或撤权丢弃迟到响应。
+
+Files 增加可选上传 owner 契约，原消费者保持兼容。对象上传前由申请模块持久化精确文件的 uploading 意图；前台绑定与 Worker 过期撤销竞争同一条记录的 CAS，避免后台清理先成功后前台仍绑定已删除对象。未绑定意图不进入列表或下载。慢上传对象尚未落盘时，Worker 先咨询 owner 再清理 pending；迟到对象对应的 pending 已消失时，Files 先恢复不可下载的 released 墓碑，再进行可能失败的独立清理。删除异常或取消保留墓碑供后轮回收。
+
+集中验收证据：
+
+- `node scripts/testing/run-dotnet-test-suite.mjs unit --filter 'FullyQualifiedName~EnterpriseRequest|FullyQualifiedName~TenantResourceFileStoreTests|FullyQualifiedName~PendingTenantResourceFileReconciliationTests' --minimum-expected-tests 171 --reuse-build`：最终生产源码 171/171，零失败/跳过，测试 1.044 秒，Release 构建 21.98 秒。覆盖授权、版本、绑定失败、慢上传，以及 pending 消失后删除异常、取消、配额释放异常和 Worker 后轮回收。
+- `node scripts/testing/run-dotnet-test-suite.mjs architecture --reuse-build`：完整 232/232，零失败/跳过，测试 141.053 秒，Release 构建 11.65 秒。旧 HEAD 的 CI run `37817145826` 曾因明细 SQL 的运行时声明辅助方法失败；明细与附件 SQL 均改为直接静态声明，保留原 SQL、租户声明和并发条件。首次完整本地检查还发现 5 个异步私有方法缺少 `Async` 后缀，修正后完整复验通过。
+- `FULLNET_TESTCONTAINERS_REUSE=0 node scripts/testing/run-affected-integration.mjs --snapshot enterprise-attachments-20261009 --phase slice --reuse-build`：最终双库 25/25，零失败/跳过，执行 489.909 秒，Integration Release 构建 53.83 秒；同次 tooling 99/99、governance 59/59。实际覆盖附件读取/上传/下载/移除、错父资源/越权与过期版本、真实父表更新后失败回滚、真实绑定后异常回滚、上传租期过期与绑定竞争、Files 所有权及 released 墓碑 SQL、迁移 248 重执行和 SQL Server 索引恢复。分片发现 1190 项，互斥无遗漏，仅为发现证据，未执行全量集合。首次 22/25，三项失败来自 Files 夹具未主动注册生产 UTC 时间处理器（MySQL 不可变记录构造匹配失败），以及两库附件夹具同步释放仅支持异步释放的 DbSession。夹具改为生产 Dapper 注册、核对 UTC Offset，附件使用 `CreateAsyncScope`；未更改生产记录类型、时间语义或 SQL。
+- `pnpm --filter @fullnet/admin test -- src/views/EnterpriseRequestsView.test.ts src/views/enterprise-requests src/api/enterprise-requests.test.ts src/composables/useAuthorizedViewScope.test.ts src/i18n src/navigation/catalog.test.ts src/router/index.auth-guard.test.ts src/router/index.performance.test.ts --maxWorkers=2`：146/146；`pnpm --filter @fullnet/client-contracts test`：261/261；词典与本地化测试分别 8/8、7/7。`pnpm --filter @fullnet/admin build` 包含类型检查与生产构建，均通过。只读安全复审及数值守卫复审无剩余 P1/P2。
+- `node --test tests/openapi/*.test.mjs`：207/207；`node scripts/openapi/generate-fullnet-client.mjs --check` 与 `node scripts/openapi/snapshot-client-openapi.mjs --check --offline` 零漂移/离线校验通过；`node scripts/openapi/check-openapi-breaking-changes.mjs --base-ref 6035e992c1e373496b53293e0154e84b66848847`：94 组冻结契约兼容。两库运行时 OpenAPI 各 1/1，规范一致，生成 manifest 共 578 操作；下载成功响应补齐二进制元数据。初轮归一化检查的旧操作数量断言已同步为 578，并明确验证新增四操作、上传 multipart 与下载二进制响应。
+- `node scripts/testing/run-api-aot-analyzers.mjs`：分析构建零警告/错误，65.80 秒，默认 JIT 图恢复通过；其后仅修改附件服务私有方法名，完整 Architecture 与 Unit 已按最终源码重建。`pnpm test:naming`、`pnpm test:sql-safety`、`pnpm test:governance` 分别 33/33、5/5、59/59；迁移归属 4/4，双库对象注释校验通过。
+- `pnpm test:bundle-budgets`：首屏初轮 minified 1,440,602 B 超出现有 5% 预算。定位生成守卫重复的数值类型判断后，生成器使用不强转类型的 `Number.isSafeInteger` / `Number.isFinite`，新增可执行回归覆盖边界和非数值输入，未改变 wire 整数规范化。Node v24.12.0 下，相同生产构建配置最终首屏 minified/gzip/Brotli 为 1,428,925/384,100/319,949 B，初轮为 1,440,602/384,657/320,295 B；全部 JS 最终为 3,959,731/1,183,729/1,025,299 B，初轮为 3,971,408/1,184,238/1,025,571 B。首屏相对原预算基线 +4.45%/+4.17%，Chart/VForm3 同样通过，未提高阈值或改变加载时机；这些是静态产物证据，不推导请求延迟或容量。
+
+独立生成应用与真实浏览器保留到申请模块约定范围全部实现后集中执行；本批未执行完整 Linux 业务 Native 运行、容量实测或完整 .NET 集合。F09/F10 整体未关闭，保持 `Build-verified` 与 `Capacity-not-verified`，不合并、不发布。
+
 ### F10：业务审批、状态回写与通知
 
 **依赖：** F09、C03/C04。**提供：** 单据提交到审批结果的端到端样板。

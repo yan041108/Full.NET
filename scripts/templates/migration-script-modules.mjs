@@ -40,6 +40,7 @@ const STEM_MODULE_OVERRIDES = new Map([
   ['DemoEnterpriseRequest', 'EnterpriseRequest'],
   ['DemoEnterpriseRequestImportReceipt', 'EnterpriseRequest'],
   ['DemoEnterpriseRequestApprovalSubmission', 'EnterpriseRequest'],
+  ['DemoEnterpriseRequestAttachment', 'EnterpriseRequest'],
   ['CodeGenerationTemplate', 'Platform'],
   ['CodeGenerationRun', 'Platform'],
   ['CodeGenerationApply', 'Platform'],

@@ -634,10 +634,11 @@ function guardExpression(schema, valueExpression) {
     return `typeof ${valueExpression} === 'string'`;
   }
   if (type === 'integer') {
-    return `typeof ${valueExpression} === 'number' && Number.isSafeInteger(${valueExpression})`;
+    // Number 的静态谓词不强转类型，已拒绝字符串、装箱值与非有限数，避免重复输出类型判断。
+    return `Number.isSafeInteger(${valueExpression})`;
   }
   if (type === 'number') {
-    return `typeof ${valueExpression} === 'number' && Number.isFinite(${valueExpression})`;
+    return `Number.isFinite(${valueExpression})`;
   }
   if (type === 'boolean') {
     return `typeof ${valueExpression} === 'boolean'`;

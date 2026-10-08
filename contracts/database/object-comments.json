@@ -74,6 +74,21 @@
         "TenantId": "租户标识；NULL 表示 Host 级"
       }
     },
+    "demo_enterprise_request_request_attachment": {
+      "comment": "企业申请附件引用表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedById": "创建人标识",
+        "FileId": "文件标识",
+        "Id": "逻辑主键",
+        "OriginalFileName": "下载文件名",
+        "RequestId": "所属申请标识",
+        "SizeBytes": "文件字节数",
+        "StateKey": "附件绑定状态键",
+        "TenantId": "所属租户标识",
+        "UploadExpiresAtUtc": "上传保护过期时间(UTC)"
+      }
+    },
     "fn_ai_agent_approval": {
       "comment": "人工智能agent approval表",
       "columns": {

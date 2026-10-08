@@ -17,6 +17,30 @@
   ],
   "entries": [
     {
+      "operationId": "enterpriseRequestListAttachments",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestUploadAttachment",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestRemoveAttachment",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestDownloadAttachment",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
       "operationId": "enterpriseRequestGetLines",
       "apiModule": "ui/admin/src/api/enterprise-requests.ts",
       "generatedGroup": "enterprise-requests",

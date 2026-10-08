@@ -3,6 +3,8 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Full.NET.Data.Abstractions;
+using Full.NET.Abstractions.Results;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.EnterpriseRequest.Generated;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +18,12 @@ internal static partial class EnterpriseRequestAssertions
         var factory = services.Last(item => item.ServiceType == typeof(ICommandExecutor)).ImplementationFactory!;
         services.AddSingleton(new LineInsertFailureProbe());
         services.AddScoped<ICommandExecutor>(provider => new LineInsertFailureExecutor((ICommandExecutor)factory(provider), provider.GetRequiredService<LineInsertFailureProbe>()));
+        var fileDescriptor = services.Last(item => item.ServiceType == typeof(ITenantResourceFileStore));
+        services.AddScoped<ITenantResourceFileStore>(provider => new AttachmentUploadInterleavingStore(
+            (ITenantResourceFileStore)(fileDescriptor.ImplementationFactory?.Invoke(provider)
+                ?? ActivatorUtilities.CreateInstance(provider, fileDescriptor.ImplementationType!)),
+            provider.GetRequiredService<ICommandExecutor>(), provider.GetServices<ITenantResourceFileOwner>().Single(value => value.OwnerModuleKey == "enterprise_request"),
+            provider.GetRequiredService<LineInsertFailureProbe>()));
     }
 
     private static async Task VerifyLinesAsync(FullNetApiFactory factory, HttpClient client, string token, EnterpriseRequestResponse parent, CancellationToken ct)
@@ -75,12 +83,43 @@ internal static partial class EnterpriseRequestAssertions
         }
     }
 
-    private sealed class LineInsertFailureProbe { internal bool Enabled; }
+    private sealed class LineInsertFailureProbe { internal bool Enabled; internal bool AttachmentConflict; internal bool AttachmentInsertFailure; internal bool ExpireAttachment; }
+    private static readonly SqlStatement BackdateAttachmentUploadLease = new("enterprise_request.test_expire_upload_lease", """
+        UPDATE demo_enterprise_request_request_attachment SET UploadExpiresAtUtc = @Now
+        WHERE TenantId = @TenantId AND RequestId = @RequestId AND FileId = @FileId AND StateKey = 'uploading'
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    // 真实上传就绪后、申请绑定前插入 Worker 的过期探测，精确复现清理与绑定竞争。
+    private sealed class AttachmentUploadInterleavingStore(ITenantResourceFileStore inner, ICommandExecutor commands,
+        ITenantResourceFileOwner owner, LineInsertFailureProbe probe) : ITenantResourceFileStore
+    {
+        public async Task<Result<TenantResourceFileReference>> UploadAsync(string module, Guid resourceId, Guid actor,
+            string name, string type, Stream stream, long size, CancellationToken ct = default)
+        {
+            var result = await inner.UploadAsync(module, resourceId, actor, name, type, stream, size, ct);
+            if (module != "enterprise_request" || !result.IsSuccess) return result;
+            Assert.IsTrue(await owner.IsReferencedAsync(resourceId, result.Value!.FileId, ct), "绑定之前的活动上传意图必须保护精确文件。");
+            if (probe.ExpireAttachment)
+            {
+                probe.ExpireAttachment = false;
+                await commands.ExecuteAsync(BackdateAttachmentUploadLease,
+                    new Dictionary<string, object?> { ["Now"] = DateTimeOffset.UtcNow.AddHours(-1), ["RequestId"] = resourceId, ["FileId"] = result.Value!.FileId }, ct);
+                Assert.IsFalse(await owner.IsReferencedAsync(resourceId, result.Value!.FileId, ct), "Worker 获得过期撤销后，前台不得再次绑定。");
+            }
+            return result;
+        }
+        public Task<Result<TenantResourceFileContent>> OpenReadyContentAsync(string module, Guid resource, Guid file, CancellationToken ct = default) => inner.OpenReadyContentAsync(module, resource, file, ct);
+        public Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(string module, Guid resource, CancellationToken ct = default) => inner.ListReadyAsync(module, resource, ct);
+        public Task ReleaseAsync(string module, Guid resource, Guid file, CancellationToken ct = default) => inner.ReleaseAsync(module, resource, file, ct);
+    }
     private sealed class LineInsertFailureExecutor(ICommandExecutor inner, LineInsertFailureProbe probe) : ICommandExecutor
     {
         public async Task<int> ExecuteAsync(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
         {
             var result = await inner.ExecuteAsync(statement, parameters, cancellationToken);
+            if (statement.Name == "enterprise_request.attachment_advance_parent" && probe.AttachmentConflict)
+            { probe.AttachmentConflict = false; return 0; }
+            if (statement.Name == "enterprise_request.attachment_bind" && probe.AttachmentInsertFailure)
+            { probe.AttachmentInsertFailure = false; throw new InvalidOperationException("Injected attachment insert failure."); }
             // 真实 INSERT 完成后才抛错，覆盖父表更新、清空旧行与已写入新行的整组回滚。
             if (statement.Name == "enterprise_request.replace_lines_insert" && probe.Enabled)
             { probe.Enabled = false; throw new InvalidOperationException("Injected request line failure."); }

@@ -42,7 +42,7 @@ test('preset-minimal migration inventory is smaller than unscoped inventory', ()
 });
 
 test('sample import receipt and approval journal remain inside the enterprise preset migration closure', () => {
-  for (const name of ['244_DemoEnterpriseRequestImportReceipt.sql', '247_DemoEnterpriseRequestApprovalSubmission.sql']) {
+  for (const name of ['244_DemoEnterpriseRequestImportReceipt.sql', '247_DemoEnterpriseRequestApprovalSubmission.sql', '248_DemoEnterpriseRequestAttachment.sql']) {
     const script = { name };
     assert.equal(inferMigrationModuleOwner(script.name), 'EnterpriseRequest');
     const full = { scripts: [{ name: '001_Foundation.sql' }, script] };

@@ -65,6 +65,11 @@ internal static partial class EnterpriseRequestAssertions
             lines.Headers.Add("X-FullNet-Tenant-Id", draft.TenantId.ToString("D"));
             using var hiddenLines = await client.SendAsync(lines, ct);
             Assert.AreEqual(mode == "no_read" ? HttpStatusCode.Forbidden : HttpStatusCode.NotFound, hiddenLines.StatusCode);
+            using var attachments = new HttpRequestMessage(HttpMethod.Get, $"{BasePath}/{draft.Id:D}/attachments");
+            attachments.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            attachments.Headers.Add("X-FullNet-Tenant-Id", draft.TenantId.ToString("D"));
+            using var hiddenAttachments = await client.SendAsync(attachments, ct);
+            Assert.AreEqual(mode == "no_read" ? HttpStatusCode.Forbidden : HttpStatusCode.NotFound, hiddenAttachments.StatusCode);
             if (mode != "host")
             {
                 using var writeLines = new HttpRequestMessage(HttpMethod.Put, $"{BasePath}/{draft.Id:D}/lines")

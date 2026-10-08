@@ -1448,6 +1448,32 @@ export interface EnterpriseRequestApprovalProgressResponse {
   readonly workflowInstanceId: null | string;
 }
 
+export interface EnterpriseRequestAttachmentMutationResponse {
+  readonly attachment: EnterpriseRequestAttachmentResponse;
+  readonly requestId: string;
+  readonly requestVersion: number;
+}
+
+export interface EnterpriseRequestAttachmentRemovedResponse {
+  readonly requestId: string;
+  readonly requestVersion: number;
+}
+
+export interface EnterpriseRequestAttachmentResponse {
+  readonly createdAtUtc: string;
+  readonly fileId: string;
+  readonly id: string;
+  readonly originalFileName: string;
+  readonly sizeBytes: number;
+}
+
+export interface EnterpriseRequestAttachmentsResponse {
+  readonly items: Array<EnterpriseRequestAttachmentResponse>;
+  readonly requestId: string;
+  readonly requestStatus: string;
+  readonly requestVersion: number;
+}
+
 export interface EnterpriseRequestLineInput {
   readonly itemDescription: string;
   readonly quantity: number | string;
@@ -3627,6 +3653,10 @@ export interface RecoverWorkflowInstanceRequest {
   readonly expectedRevision: number;
   readonly idempotencyKey: string;
   readonly reason: string;
+}
+
+export interface RemoveEnterpriseRequestAttachmentRequest {
+  readonly version: number;
 }
 
 export interface ReplaceEnterpriseRequestLinesRequest {

@@ -8,6 +8,8 @@ using Full.NET.Modules.EnterpriseRequest.Features.SubmitForApproval;
 using Full.NET.Modules.EnterpriseRequest.Features.WorkflowOutcomes;
 using Full.NET.Modules.EnterpriseRequest.Features.ApprovalProgress;
 using Full.NET.Modules.EnterpriseRequest.Features.ManageLines;
+using Full.NET.Modules.EnterpriseRequest.Features.ManageAttachments;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
 using Microsoft.AspNetCore.Routing;
@@ -37,6 +39,9 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         services.TryAddScoped<SubmitEnterpriseRequestForApprovalService>();
         services.TryAddScoped<EnterpriseRequestApprovalProgressService>();
         services.TryAddScoped<EnterpriseRequestLineService>();
+        services.TryAddScoped<EnterpriseRequestAttachmentService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner, EnterpriseRequestResourceFileOwner>());
+        services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, EnterpriseRequestAttachmentsJsonContext.Default));
         services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, EnterpriseRequestLinesJsonContext.Default));
         services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, EnterpriseRequestApprovalProgressJsonContext.Default));
         services.TryAddScoped<EnterpriseRequestImportService>();
@@ -44,6 +49,7 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         Persistence.EnterpriseRequestImportAotMaterializer.Register();
         Persistence.EnterpriseRequestApprovalAotMaterializer.Register();
         Persistence.EnterpriseRequestLineAotMaterializer.Register();
+        Persistence.EnterpriseRequestAttachmentAotMaterializer.Register();
 #endif
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IStaticImportSchemaHandler,
@@ -57,11 +63,13 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         // 仅复用生成的业务服务注册，不映射 HTTP 端点；后台使用相同领域授权与事务边界。
         services.AddFullNetGeneratedModuleFeatures();
         services.TryAddScoped<EnterpriseRequestImportService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner, EnterpriseRequestResourceFileOwner>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IStaticImportSchemaHandler, EnterpriseRequestStaticImportSchemaHandler>());
 #if FULLNET_AOT_COMPILE
         Persistence.EnterpriseRequestImportAotMaterializer.Register();
         Persistence.EnterpriseRequestApprovalAotMaterializer.Register();
         Persistence.EnterpriseRequestLineAotMaterializer.Register();
+        Persistence.EnterpriseRequestAttachmentAotMaterializer.Register();
 #endif
         services.TryAddScoped<EnterpriseRequestWorkflowOutcomeService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, EnterpriseRequestApprovalSubmittedHandler>());
@@ -82,5 +90,6 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         SubmitForApprovalEndpoint.Map(endpoints);
         ApprovalProgressEndpoint.Map(endpoints);
         EnterpriseRequestLinesEndpoint.Map(endpoints);
+        EnterpriseRequestAttachmentsEndpoint.Map(endpoints);
     }
 }
