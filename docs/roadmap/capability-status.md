@@ -1,6 +1,6 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-10-08（本轮同步 Enterprise 导入、报表输出与记录打印切片，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-10-08（本轮补齐 Enterprise 真实 UI 上传、报表多版本输出与共享行操作验证，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 > 2026-09-16 规划增补：已纳入[八项底座完善能力及七类收口重点](adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)，执行见[唯一总计划](../superpowers/plans/2026-09-16-foundation-productization.md)。本次未重新认证下表的实现状态；部分历史条目落后于专项记录，F00 将逐项核对。工作区其他改动不作为能力完成证据。
 
@@ -43,7 +43,7 @@
 | Identity 会话、刷新令牌、MFA 与 TOTP | Build-verified | 单元、集成及生产配置真实栈 TOTP 浏览器链路已有验证记录；不等于生产环境认证。 |
 | Identity 用户管理与档案 | Build-verified | Host 用户列表、创建、编辑、启停、重置密码、JSON 兼容接口、固定结构 Excel 模板/导入/导出和批量启停已落地；工作簿限制为 1 MiB/1,000 行并拒绝公式、外部关系和未知表头。手机号、邮箱、工号及证件组合现由服务端规范化/校验，并以 Host 目录全局唯一索引关闭双库并发竞态；失败资料写入会回滚整个用户事务。生产真实栈浏览器与 Linux 原生进程尚未认证，完成前不升 `Verified`。见[资料权威校验](../verification/2026-08-30-identity-authoritative-profile-validation.md)与[Excel/日志切片](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)。 |
 | Tenancy 生命周期与配额 | Build-verified | 租户创建、状态、解析与缓存失效已完成纵向切片；跨模块读取继续通过 Contracts 或投影演进。 |
-| Enterprise 业务样板（F09–F11 子集） | Build-verified | `Presets.Enterprise`、demo CRUD、提交审批 + Workflow Sink、静态导入 Schema；证据见 [enterprise-business-integration-closeout](../verification/2026-09-17-enterprise-business-integration-closeout.md)。API 集成含 CRUD 与租户内定义发布后提交；2026-10-08 在独立生成应用上通过双库实际工作簿导入、Worker 消费/业务回读、Reporting 查询/下载，以及 Host 授权、Tenant 档案/申请记录打印、撤权与纸面真实浏览器，见[本批总计划](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-08-企业申请记录打印共性-ui-修复与生成应用验收)。导入按钮/上传弹窗另有组件与 Mock 浏览器验收，未单独认证真实 UI 上传；明细行 API、附件、Worker 审批回写、完整业务 Native 运行及容量仍待补。 |
+| Enterprise 业务样板（F09–F11 子集） | Build-verified | `Presets.Enterprise`、demo CRUD、提交审批 + Workflow Sink、静态导入 Schema；证据见 [enterprise-business-integration-closeout](../verification/2026-09-17-enterprise-business-integration-closeout.md)。API 集成含 CRUD 与租户内定义发布后提交；2026-10-08 在独立生成应用上通过双库实际工作簿导入、Worker 消费/业务回读、Reporting 查询/下载，以及 Host 授权、Tenant 档案/申请记录打印、撤权与纸面真实浏览器，见[打印总计划](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-08-企业申请记录打印共性-ui-修复与生成应用验收)。本轮另通过两库真实租户页面下载模板、上传申请 XLSX、执行 Worker、业务列表回读，以及报表两版目录/选择旧版查询与实际工作簿下载、两版撤权；修复新任务插入时共享行操作保留旧身份/点击目标，见[本批验收](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-08-报表多版本与租户页面验收)。明细行 API、附件、Worker 审批回写、完整业务 Native 运行及容量仍待补。 |
 | SaaS 预设与订阅运营（F12 子集） | Build-verified | `Presets.Saas`（Platform + Payments + Webhooks）、Host 试用/取消订阅与 `TenantPackageId` 联动、Enforced 下 reactivate 商业化门禁、权益阶段 Host UI；证据见 [saas-preset-closeout](../verification/2026-09-17-saas-preset-closeout.md)。API 集成分片待 Docker/Testcontainers 可用；真实支付渠道 **External-auth-not-verified**。 |
 | RBAC、菜单、页面与按钮级权限 | Build-verified | Vue 按稳定权限码不创建无权入口，后端 Endpoint 精确权限失败关闭，授权页按模块/页面/操作分层。 |
 | Host / Tenant 字典 | Build-verified | 模块内查询、事务、双库和 Vue 管理页已形成完整切片。Host.Api Native AOT 双库 Settings HTTP/JSON 证据见 [`api-native-aot-settings-jobs-2026-08-25.md`](../verification/api-native-aot-settings-jobs-2026-08-25.md)。 |
