@@ -1207,7 +1207,11 @@ Workflow 最小只读 Port 在可信租户内验证实例、定义、业务键�
 - 两库运行时 OpenAPI 各 **1/1**，规范结果一致；SqlServer **54.026 秒**、MySQL **101.503 秒**，SDK 生成零漂移，离线快照与 94 组基线契约兼容检查通过。首轮复用 SQL Server 容器 OOM、迁移断连，仅记失败；核实 `OOMKilled=true` 后改为一次性容器，不清理共享历史库。
 - 最终 API/Worker AOT 分析均零警告/错误，默认 JIT 还原图与 Worker 强制重建成功；不等于原生运行。Integration 分片发现 **1190** 项，无遗漏/重复；249 恢复断言复用既有双库申请夹具，未增加数据库测试夹具。影响计划选择 EnterpriseRequest、Workflow、迁移 249 与矩阵，不将计划当作测试执行。
 
-集中双库运行仍等待另一窗口释放同机重型锁，最终结果待回填；不得据上述快速证据宣称迁移/事务已完成真实双库验收。证据保留 `.tmp/enterprise-recovery-*`。完整申请/可靠审批独立生成应用及浏览器闭环按约定集中执行，F09/F10 整体不关闭，Enterprise 维持 `Build-verified`、`Capacity-not-verified`；完整 Linux 业务 Native 与容量仍未验收，合并与发布另行约定。
+- `FULLNET_TESTCONTAINERS_REUSE=0 node .tmp/enterprise-recovery-integration.mjs`：冻结生产代码 `e498e8b770e6edb76acf12738d2c9fe0da2261b4` 的最终集中双库 **26/26**、零失败/跳过，测试 **406.858 秒**，Integration Release 构建 **94.00 秒**、零警告/错误。TRX 核对 SQL Server/MySQL 各 **13** 项（EnterpriseRequest 各 6、Workflow 各 7），覆盖真实并发补绑定、响应丢失重放、补启动回执后再终态对账、审计插入失败整组回滚、249 索引丢失/未记账重入与唯一性恢复。使用官方发现、双 Provider 核对、构建复用及聚焦参数；父进程退出 0，本任务工作区锁已释放。排队独立计时，不计入实际测试时间。日志 `.tmp/enterprise-recovery-integration-final.log`，TRX `tests/Full.NET.IntegrationTests/bin/Release/net10.0/TestResults/Full.NET.IntegrationTests-affected-enterprise-recovery.trx`。
+
+本批数据库验收已关闭。环境为 Windows x64、i7-12700H（14 核/20 逻辑处理器）、主机 68,450,914,304 B 内存、Docker Linux 20,718,342,144 B 内存、.NET SDK 10.0.401、Node 24.12.0，MSTest Workers=2；不认证容量。2026-10-09 05:56 +08:00 核对上述生产 SHA：Worker Native AOT `37847789823` 终态 success；主 CI `37847789817` 的客户端及两组迁移恢复作业 success，后端作业与 API Native AOT `37847789804` 仍运行中，不报告整体通过。
+
+证据保留 `.tmp/enterprise-recovery-*`。下一批按冻结源码集中验收申请明细/附件、提交、Worker 停启、审批终态、通知及真实浏览器，不按每个功能重复生成应用。完整申请/可靠审批独立生成应用及浏览器闭环尚未完成，F09/F10 整体不关闭，Enterprise 维持 `Build-verified`、`Capacity-not-verified`；完整 Linux 业务 Native 与容量仍未验收，合并与发布另行约定。
 
 ### F11：导入、报表与打印接入样板
 
