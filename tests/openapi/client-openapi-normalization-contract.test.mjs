@@ -204,7 +204,10 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
+  const submit = snapshot.paths['/api/v1/enterprise_request/enterprise-requests/{id}/submit-for-approval']?.post;
+  assert.ok(submit?.responses['400'], '未发布流程定义的校验失败必须进入公开契约');
   for (const [route, method, operationId] of [
+    ['/api/v1/enterprise_request/enterprise-requests/{id}/submit-for-approval', 'post', 'submitEnterpriseRequestForApproval'],
     ['/api/v1/enterprise_request/enterprise-requests/{id}/approval-progress', 'get', 'enterpriseRequestGetApprovalProgress'],
     ['/api/v1/reporting/published-definitions', 'get', 'reportingListPublishedDefinitions'],
     ['/api/v1/reporting/definitions/{definitionId}/versions/{versionNumber}/tenant-grants', 'get', 'reportingListTenantVersionGrants'],
@@ -218,8 +221,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
     assert.ok(operation.responses['403']);
   }
 
-  assert.equal(manifest.entries.length, 571);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 571);
+  assert.equal(manifest.entries.length, 572);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 572);
   assert.deepEqual(
     manifest.entries
       .filter(entry => entry.generatedGroup === 'workflow-forms')
@@ -342,7 +345,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    571
+    572
   );
   assert.equal(
     snapshot.paths['/api/v1/workflow/forms/component-catalog'].get.operationId,

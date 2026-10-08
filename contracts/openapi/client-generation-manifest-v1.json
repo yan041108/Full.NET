@@ -17,6 +17,12 @@
   ],
   "entries": [
     {
+      "operationId": "submitEnterpriseRequestForApproval",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
       "operationId": "enterpriseRequestGetApprovalProgress",
       "apiModule": "ui/admin/src/api/enterprise-requests.ts",
       "generatedGroup": "enterprise-requests",

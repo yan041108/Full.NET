@@ -15,6 +15,27 @@ const response = {
 };
 
 describe('企业样例请求适配', () => {
+  it('详情通过生成操作读取并传递取消信号，字符串版本归一化', async () => {
+    const request = vi.fn().mockResolvedValue({ ...response, version: '3' });
+    const signal = new AbortController().signal;
+    const value = await createEnterpriseRequestsApi({ request } as unknown as HttpClient).get(id, signal);
+    expect(value.version).toBe(3);
+    expect(request.mock.calls[0]![0]).toBe(`/api/v1/enterprise_request/enterprise-requests/${id}`);
+    expect(request.mock.calls[0]![2]).toBe(signal);
+  });
+  it.each([{ id }, { ...response, id: unitId }, { ...response, version: '9007199254740992' }])(
+    '详情拒绝残缺、错配或越界响应 %#', async value => {
+      const request = vi.fn().mockResolvedValue(value);
+      await expect(createEnterpriseRequestsApi({ request } as unknown as HttpClient).get(id)).rejects.toThrow();
+    });
+  it('提交审批使用生成操作的 POST 与取消参数，不发送正文', async () => {
+    const request = vi.fn().mockResolvedValue({ ...response, status: 'Submitted' });
+    const signal = new AbortController().signal;
+    await createEnterpriseRequestsApi({ request } as unknown as HttpClient).submitForApproval(id, signal);
+    expect(request.mock.calls[0]![0]).toBe(`/api/v1/enterprise_request/enterprise-requests/${id}/submit-for-approval`);
+    expect(request.mock.calls[0]![1]).toEqual({ method: 'POST' });
+    expect(request.mock.calls[0]![2]).toBe(signal);
+  });
   const progress = { requestId: id, requestStatus: 'Submitted', requestVersion: '2', deliveryState: 'queued',
     workflowDefinitionVersionId: unitId, workflowInstanceId: unitId, submittedVersion: '2',
     submittedAtUtc: '2026-10-08T00:00:00Z', startedAtUtc: null, completedAtUtc: null };

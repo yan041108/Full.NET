@@ -8,7 +8,6 @@ import {
   ElFormItem,
   ElInput,
   ElPagination,
-  ElSwitch,
   ElTable,
   ElTableColumn
 } from 'element-plus';
@@ -21,11 +20,17 @@ import { useSessionStore } from '../auth/session';
 import { useEnterpriseRequestPage } from './enterprise-requests/enterprise-requests-page.generated';
 import type { EnterpriseRequestResponse } from './enterprise-requests/enterprise-requests.generated';
 import EnterpriseRequestApprovalProgressDialog from './enterprise-requests/EnterpriseRequestApprovalProgressDialog.vue';
+import EnterpriseRequestDetailDialog from './enterprise-requests/EnterpriseRequestDetailDialog.vue';
+import { requestStatusLabel } from './enterprise-requests/enterprise-request-presentation';
 import { useAdminI18n } from '../i18n/adminI18n';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const progressId = ref<string>();
+const detailId = ref<string>();
+const submitOpen = ref(false);
+const submitting = ref<EnterpriseRequestResponse>();
+let submitTicket = 0;
 const problem = ref<FullNetProblemDetails>();
 const createOpen = ref(false);
 const editOpen = ref(false);
@@ -88,6 +93,7 @@ watch(scopeVersion, () => {
   createOpen.value = false; editOpen.value = false; deleteOpen.value = false;
   editing.value = undefined; deleting.value = undefined; problem.value = undefined;
   progressId.value = undefined;
+  detailId.value = undefined; submitOpen.value = false; submitting.value = undefined;
   Object.assign(createForm, initialCreateForm()); Object.assign(editForm, initialEditForm());
 }, { flush: 'sync' });
 watch(createOpen, open => {
@@ -101,6 +107,10 @@ watch(editOpen, open => {
 watch(deleteOpen, open => {
   deleteTicket++;
   if (!open) { cancelChange(); deleting.value = undefined; }
+}, { flush: 'sync' });
+watch(submitOpen, open => {
+  submitTicket++;
+  if (!open) { cancelChange(); submitting.value = undefined; }
 }, { flush: 'sync' });
 
 onMounted(() => {
@@ -153,6 +163,21 @@ function openProgress(row: EnterpriseRequestResponse): void {
   if (!canRead.value || !items.value.includes(row)) return;
   progressId.value = row.id;
 }
+function openDetail(row: EnterpriseRequestResponse): void {
+  if (!canRead.value || !items.value.includes(row)) return;
+  detailId.value = row.id;
+}
+function openSubmit(row: EnterpriseRequestResponse): void {
+  if (!canSubmit.value || changing.value || row.status !== 'Draft' || !items.value.includes(row)) return;
+  problem.value = undefined; submitting.value = row; submitOpen.value = true;
+}
+async function confirmSubmit(): Promise<void> {
+  if (!submitOpen.value || !submitting.value) return;
+  const ticket = submitTicket; const scopeTicket = scopeVersion.value;
+  const succeeded = await submitForApproval(submitting.value);
+  if (succeeded && ticket === submitTicket && scopeTicket === scopeVersion.value && submitOpen.value)
+    submitOpen.value = false;
+}
 function closeProgress(): void {
   progressId.value = undefined;
   void load();
@@ -174,32 +199,36 @@ async function confirmDelete(): Promise<void> {
       <span>{{problem.title}}</span>
     </div>
     <div class="generated-crud-view__toolbar">
+      <el-button v-if="canRead" :loading="loading" :disabled="changing" @click="load()">{{ t('common.refresh') }}</el-button>
       <el-button
         v-if="canCreate"
         type="primary"
         @click="openCreate"
       >
-        创建
+        {{ t('enterpriseRequests.create') }}
       </el-button>
     </div>
     <el-table
       :data="[...items]"
-      empty-text="暂无数据"
+      :empty-text="t('enterpriseRequests.empty')"
       v-loading="loading"
     >
-      <el-table-column prop="id" label="Id" />
-      <el-table-column prop="organizationUnitId" label="OrganizationUnitId" />
-      <el-table-column prop="requestNumber" label="RequestNumber" />
-      <el-table-column prop="title" label="Title" />
-      <el-table-column prop="status" label="Status" />
-      <el-table-column prop="totalAmount" label="TotalAmount" />
-      <el-table-column prop="applicantUserId" label="ApplicantUserId" />
-      <el-table-column prop="createdById" label="CreatedById" />
-      <el-table-column prop="updatedById" label="UpdatedById" />
-      <el-table-column prop="deletedById" label="DeletedById" />
+      <el-table-column prop="id" :label="t('enterpriseRequests.id')" />
+      <el-table-column prop="organizationUnitId" :label="t('enterpriseRequests.organizationUnitId')" />
+      <el-table-column prop="requestNumber" :label="t('enterpriseRequests.requestNumber')" />
+      <el-table-column prop="title" :label="t('enterpriseRequests.title')" />
+      <el-table-column prop="status" :label="t('enterpriseRequests.requestStatus')">
+        <template #default="{ row }">{{ requestStatusLabel(row.status, t) }}</template>
+      </el-table-column>
+      <el-table-column prop="totalAmount" :label="t('enterpriseRequests.totalAmount')" />
+      <el-table-column prop="applicantUserId" :label="t('enterpriseRequests.applicantUserId')" />
+      <el-table-column prop="createdById" :label="t('enterpriseRequests.createdById')" />
+      <el-table-column prop="updatedById" :label="t('enterpriseRequests.updatedById')" />
+      <el-table-column prop="deletedById" :label="t('enterpriseRequests.deletedById')" />
       <!-- @vue-generic {EnterpriseRequestResponse} -->
-      <el-table-column label="操作" width="330">
+      <el-table-column :label="t('enterpriseRequests.actions')" min-width="390">
         <template #default="{ row }">
+          <el-button v-if="canRead" link type="primary" @click="openDetail(row)">{{ t('enterpriseRequests.detail') }}</el-button>
           <el-button v-if="canRead" link type="primary" @click="openProgress(row)">
             {{ t('enterpriseRequests.approvalProgress') }}
           </el-button>
@@ -207,25 +236,28 @@ async function confirmDelete(): Promise<void> {
             v-if="canSubmit && row.status === 'Draft'"
             link
             type="success"
-            @click="submitForApproval(row)"
+            :disabled="changing"
+            @click="openSubmit(row)"
           >
-            提交审批
+            {{ t('enterpriseRequests.submit') }}
           </el-button>
           <el-button
             v-if="canUpdate && row.status === 'Draft'"
             link
             type="primary"
             @click="openEdit(row)"
+            :disabled="changing"
           >
-            编辑
+            {{ t('enterpriseRequests.edit') }}
           </el-button>
           <el-button
             v-if="canDisable && row.status === 'Draft'"
             link
             type="danger"
             @click="openDelete(row)"
+            :disabled="changing"
           >
-            删除
+            {{ t('enterpriseRequests.delete') }}
           </el-button>
         </template>
       </el-table-column>
@@ -238,60 +270,69 @@ async function confirmDelete(): Promise<void> {
       @current-change="(next: number) => load(next)"
     />
     <EnterpriseRequestApprovalProgressDialog v-if="progressId" :key="progressId" :request-id="progressId" @close="closeProgress" />
-    <el-dialog v-model="createOpen" title="创建">
+    <EnterpriseRequestDetailDialog v-if="detailId" :key="detailId" :request-id="detailId" @close="detailId = undefined" />
+    <el-dialog v-model="submitOpen" :title="t('enterpriseRequests.submitTitle')" width="min(520px, 94vw)">
+      <p>{{ t('enterpriseRequests.submitConfirm') }}</p>
+      <p v-if="submitting" translate="no">{{ submitting.requestNumber }} · {{ submitting.title }}</p>
+      <template #footer>
+        <el-button @click="submitOpen = false">{{ t('common.cancel') }}</el-button>
+        <el-button v-if="canSubmit" type="primary" :loading="changing" @click="confirmSubmit">{{ t('enterpriseRequests.confirmSubmit') }}</el-button>
+      </template>
+    </el-dialog>
+    <el-dialog v-model="createOpen" :title="t('enterpriseRequests.create')">
       <el-form label-width="120px">
-      <el-form-item label="OrganizationUnitId">
+      <el-form-item :label="t('enterpriseRequests.organizationUnitId')">
         <el-input v-model="createForm.organizationUnitId" />
       </el-form-item>
-      <el-form-item label="RequestNumber">
+      <el-form-item :label="t('enterpriseRequests.requestNumber')">
         <el-input v-model="createForm.requestNumber" />
       </el-form-item>
-      <el-form-item label="Title">
+      <el-form-item :label="t('enterpriseRequests.title')">
         <el-input v-model="createForm.title" />
       </el-form-item>
-      <el-form-item label="Status">
-        <el-input v-model="createForm.status" disabled />
+      <el-form-item :label="t('enterpriseRequests.requestStatus')">
+        <el-input :model-value="requestStatusLabel(createForm.status, t)" disabled />
       </el-form-item>
-      <el-form-item label="TotalAmount">
+      <el-form-item :label="t('enterpriseRequests.totalAmount')">
         <el-input v-model="createForm.totalAmount" />
       </el-form-item>
-      <el-form-item label="ApplicantUserId">
+      <el-form-item :label="t('enterpriseRequests.applicantUserId')">
         <el-input v-model="createForm.applicantUserId" />
       </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="createOpen = false">取消</el-button>
-        <el-button type="primary" :loading="changing" @click="submitCreate">保存</el-button>
+        <el-button @click="createOpen = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="changing" @click="submitCreate">{{ t('enterpriseRequests.save') }}</el-button>
       </template>
     </el-dialog>
-    <el-dialog v-model="editOpen" title="编辑">
+    <el-dialog v-model="editOpen" :title="t('enterpriseRequests.edit')">
       <el-form label-width="120px">
-      <el-form-item label="RequestNumber">
+      <el-form-item :label="t('enterpriseRequests.requestNumber')">
         <el-input v-model="editForm.requestNumber" />
       </el-form-item>
-      <el-form-item label="Title">
+      <el-form-item :label="t('enterpriseRequests.title')">
         <el-input v-model="editForm.title" />
       </el-form-item>
-      <el-form-item label="Status">
-        <el-input v-model="editForm.status" disabled />
+      <el-form-item :label="t('enterpriseRequests.requestStatus')">
+        <el-input :model-value="requestStatusLabel(editForm.status, t)" disabled />
       </el-form-item>
-      <el-form-item label="TotalAmount">
+      <el-form-item :label="t('enterpriseRequests.totalAmount')">
         <el-input v-model="editForm.totalAmount" />
       </el-form-item>
-      <el-form-item label="ApplicantUserId">
+      <el-form-item :label="t('enterpriseRequests.applicantUserId')">
         <el-input v-model="editForm.applicantUserId" />
       </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="editOpen = false">取消</el-button>
-        <el-button type="primary" :loading="changing" @click="submitEdit">保存</el-button>
+        <el-button @click="editOpen = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="changing" @click="submitEdit">{{ t('enterpriseRequests.save') }}</el-button>
       </template>
     </el-dialog>
-    <el-dialog v-model="deleteOpen" title="确认删除">
-      <p>确定删除该条记录吗？</p>
+    <el-dialog v-model="deleteOpen" :title="t('enterpriseRequests.deleteTitle')">
+      <p>{{ t('enterpriseRequests.deleteConfirm') }}</p>
       <template #footer>
-        <el-button @click="deleteOpen = false">取消</el-button>
-        <el-button type="danger" :loading="changing" @click="confirmDelete">确认删除</el-button>
+        <el-button @click="deleteOpen = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="danger" :loading="changing" @click="confirmDelete">{{ t('enterpriseRequests.confirmDelete') }}</el-button>
       </template>
     </el-dialog>
   </section>

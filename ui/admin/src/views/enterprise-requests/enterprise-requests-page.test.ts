@@ -62,7 +62,7 @@ describe('企业样例页面请求归属', () => {
     try {
       await model.load(); const old = model.submitForApproval(model.items.value[0]!);
       submitAllowed.value = false;
-      expect(request.mock.calls[1]![1]?.signal?.aborted).toBe(true);
+      expect(request.mock.calls[1]![2]?.aborted).toBe(true);
       pending.resolve({ ...row, status: 'Submitted' });
       expect(await old).toBe(false);
     } finally { pending.resolve(row); wrapper.unmount(); }

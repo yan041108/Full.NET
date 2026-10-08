@@ -11117,6 +11117,22 @@ export async function settingsUpdateTenantDictType(
   return readDictTypeResponse(value);
 }
 
+export interface SubmitEnterpriseRequestForApprovalParameters {
+  readonly id: string;
+}
+
+export async function submitEnterpriseRequestForApproval(
+  http: HttpClient,
+  parameters: SubmitEnterpriseRequestForApprovalParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/submit-for-approval`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestResponse(value);
+}
+
 export interface TenancyAssignHostTenantPackageParameters {
   readonly tenantId: string;
   readonly body: AssignHostTenantPackageRequest;

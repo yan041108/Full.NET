@@ -2,9 +2,10 @@ import {
   enterpriseRequestCreateEnterpriseRequest,
   enterpriseRequestDeleteEnterpriseRequest,
   enterpriseRequestGetApprovalProgress,
+  enterpriseRequestGetEnterpriseRequest,
   enterpriseRequestListEnterpriseRequests,
   enterpriseRequestUpdateEnterpriseRequest,
-  readEnterpriseRequestResponse,
+  submitEnterpriseRequestForApproval,
   type CreateEnterpriseRequestRequest,
   type DeleteEnterpriseRequestRequest,
   type EnterpriseRequestResponse,
@@ -41,6 +42,11 @@ export function createEnterpriseRequestsApi(
   return {
     list: (page = 1, pageSize = 20, signal?: AbortSignal) =>
       enterpriseRequestListEnterpriseRequests(http, { page, pageSize }, signal),
+    get: async (id: string, signal?: AbortSignal) => {
+      const response = await enterpriseRequestGetEnterpriseRequest(http, { enterpriseRequestId: id }, signal);
+      if (response.id !== id) throw new Error('client.invalid_enterprise_request_response');
+      return response;
+    },
     create: (input: CreateEnterpriseRequestInput, signal?: AbortSignal) =>
       enterpriseRequestCreateEnterpriseRequest(http, { body: {
         requestNumber: input.requestNumber,
@@ -67,11 +73,7 @@ export function createEnterpriseRequestsApi(
       return response;
     },
     submitForApproval: (id: string, signal?: AbortSignal) =>
-      http.request<unknown>(
-        `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(id)}/submit-for-approval`,
-        { method: 'POST', signal }
-      ).then(value => {
-        const response = readEnterpriseRequestResponse(value);
+      submitEnterpriseRequestForApproval(http, { id }, signal).then(response => {
         if (response.id !== id) {
           throw new Error('client.invalid_enterprise_request_response');
         }

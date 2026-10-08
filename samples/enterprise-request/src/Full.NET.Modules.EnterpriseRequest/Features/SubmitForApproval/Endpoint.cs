@@ -34,7 +34,14 @@ internal static class SubmitForApprovalEndpoint
                 })
             .RequireAuthorization(FullNetPermissionPolicies.For(EnterpriseRequestWorkflowPermissions.Submit))
             .WithTags("EnterpriseRequestEnterpriseRequests")
-            .WithName("submitEnterpriseRequestForApproval");
+            .WithName("submitEnterpriseRequestForApproval")
+            // 显式成功与失败响应使生成客户端复用同一静态 JSON 契约。
+            .Produces<EnterpriseRequestResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
     }
 
     private static bool TryResolveActor(ClaimsPrincipal principal, out Guid actorUserId)
