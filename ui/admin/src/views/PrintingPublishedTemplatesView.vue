@@ -16,7 +16,12 @@ defineOptions({name:'PrintingPublishedTemplatesView'});
 const session = useSessionStore(); const { t } = useAdminI18n();
 const readPermission = 'printing.published_templates.read';
 const previewPermission = 'printing.published_templates.preview';
-const tenant = () => session.currentUser?.scope === 'tenant' && Boolean(session.currentUser.tenantId);
+// 有效作用域携带规范化租户 UUID；Host 账号切租户仍须匹配当前上下文，不能按 actorScope 判断。
+const tenant = () => {
+  const user = session.currentUser;
+  if (!user?.tenantId) return false;
+  return user.scope === `tenant:${user.tenantId.replaceAll('-', '').toLowerCase()}`;
+};
 const templates = ref<PrintingPublishedTemplateResponse[]>([]); const selectedId = ref('');
 const preview = ref<PrintingTemplatePreview>(); const problem = ref<FullNetProblemDetails>();
 const recordId = ref('');

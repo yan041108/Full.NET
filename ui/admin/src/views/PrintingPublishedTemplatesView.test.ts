@@ -7,15 +7,26 @@ import { createOutputSession, deferred, outputId, printResult } from '../test/da
 vi.mock('../api/printing-templates', () => ({listPrintingPublishedTemplates:vi.fn(),previewPrintingPublishedTemplate:vi.fn(),listPrintingTemplates:vi.fn()}));
 const published = {templateId:outputId,templateKey:'fixture',templateName:'已授权模板',formSchemaKey:'printing.tenant_profile_card',versionNumber:1};
 let wrapper: VueWrapper;
-function create(permissions=['printing.published_templates.read','printing.published_templates.preview'], host=false) {
+function create(permissions=['printing.published_templates.read','printing.published_templates.preview'], host=false, overrides: {scope?: string; actorScope?: string}={}) {
  const context=createOutputSession(permissions);
  if(host) context.session.currentUser={...context.session.currentUser!,scope:'host',actorScope:'host',tenantId:null};
+ context.session.currentUser={...context.session.currentUser!,...overrides};
  wrapper=mount(PrintingPublishedTemplatesView,{global:{plugins:[context.pinia]}});
  return context.session;
 }
 beforeEach(()=>{vi.resetAllMocks();vi.mocked(listPrintingPublishedTemplates).mockResolvedValue([published]);vi.mocked(previewPrintingPublishedTemplate).mockResolvedValue(printResult);});
 afterEach(()=>{wrapper?.unmount();vi.restoreAllMocks();});
 describe('租户已授权打印目录',()=>{
+ it.each(['host', `tenant:${outputId.replaceAll('-', '')}`])('真实租户作用域允许 %s 身份的记录打印目录',async(actorScope)=>{
+  create(undefined,false,{actorScope});await flushPromises();
+  expect(listPrintingPublishedTemplates).toHaveBeenCalledOnce();
+  expect(wrapper.find('[data-testid="printing-published-template"]').exists()).toBe(true);
+ });
+ it.each(['host', 'tenant', 'tenant:00000000000000000000000000000000'])('不匹配的作用域 %s 不读取租户目录',async(scope)=>{
+  create(undefined,false,{scope});await flushPromises();
+  expect(listPrintingPublishedTemplates).not.toHaveBeenCalled();
+  expect(wrapper.find('[data-testid="printing-published-template"]').exists()).toBe(false);
+ });
  it('业务表单必须填写记录编号，打印时重验同一记录与版本',async()=>{
   vi.mocked(listPrintingPublishedTemplates).mockResolvedValue([{...published,formSchemaKey:'enterprise_request.request_summary',requiresRecordId:true}]);
   vi.mocked(previewPrintingPublishedTemplate).mockResolvedValue({...printResult,formSchemaKey:'enterprise_request.request_summary'});
@@ -93,7 +104,7 @@ describe('租户已授权打印目录',()=>{
   const pending=deferred<typeof printResult>();vi.mocked(previewPrintingPublishedTemplate).mockReturnValueOnce(pending.promise);
   const print=vi.spyOn(window,'print').mockImplementation(()=>{});await wrapper.get('[data-testid="printing-published-print"]').trigger('click');
   const signal=vi.mocked(previewPrintingPublishedTemplate).mock.calls[1]![2]!;
-  session.currentUser={...session.currentUser!,tenantId:'019bc2b1-2a40-7cc3-8992-a80de51bf298'};await flushPromises();
+  session.currentUser={...session.currentUser!,tenantId:'019bc2b1-2a40-7cc3-8992-a80de51bf298',scope:'tenant:019bc2b12a407cc38992a80de51bf298'};await flushPromises();
   pending.resolve(printResult);await flushPromises();expect(signal.aborted).toBe(true);expect(print).not.toHaveBeenCalled();expect(wrapper.text()).not.toContain('旧租户敏感内容');
  });
  it('换模板取消旧请求，并拒绝服务器返回其他模板或版本',async()=>{

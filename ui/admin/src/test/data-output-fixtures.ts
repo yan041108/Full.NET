@@ -7,7 +7,7 @@ export function createOutputSession(permissions: string[]) {
   const pinia = createPinia(); setActivePinia(pinia);
   const session = useSessionStore(); session.state = 'authenticated';
   session.currentUser = { id: outputId, username: 'reader', displayName: '查看者', tenantId: outputId,
-    actorScope: 'tenant', scope: 'tenant', isSuperAdministrator: false, passwordChangeRequired: false,
+    actorScope: `tenant:${outputId.replaceAll('-', '')}`, scope: `tenant:${outputId.replaceAll('-', '')}`, isSuperAdministrator: false, passwordChangeRequired: false,
     permissions, sessionId: outputId, preferredLocale: 'zh-CN', profileVersion: 1 };
   return { pinia, session };
 }

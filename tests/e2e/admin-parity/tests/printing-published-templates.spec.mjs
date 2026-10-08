@@ -7,7 +7,7 @@ async function boot(page,permissions=['printing.published_templates.read','print
  await page.addInitScript(()=>{localStorage.setItem('fullnet.admin.locale','zh-CN');window.__printCalls=0;window.print=()=>{window.__printCalls++;window.__printedText=document.querySelector('.printing-preview-html')?.textContent;};});
  await page.route('**/api/v1/**',route=>route.fulfill({status:404}));
  await page.route('**/api/v1/auth/refresh',route=>json(route,{accessToken:'fixture',tokenType:'Bearer',expiresAtUtc:'2099-01-01T00:00:00Z'}));
- await page.route('**/api/v1/me',route=>json(route,{id,username:'fixture',displayName:'Tenant',tenantId:id,actorScope:'tenant',scope:'tenant',
+ await page.route('**/api/v1/me',route=>json(route,{id,username:'fixture',displayName:'Tenant',tenantId:id,actorScope:`tenant:${id.replaceAll('-', '')}`,scope:`tenant:${id.replaceAll('-', '')}`,
  isSuperAdministrator:false,passwordChangeRequired:false,permissions,sessionId:id,preferredLocale:'zh-CN',profileVersion:1}));
  await page.route('**/api/v1/navigation',route=>json(route,[{id:'printing-published-templates',parentId:null,routeName:'printing-published-templates',
  path:'/printing/published-templates',componentKey:'printing-published-templates',title:'已授权打印',caption:'',icon:'printer',order:1,
