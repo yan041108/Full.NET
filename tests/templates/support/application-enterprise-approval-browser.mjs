@@ -19,7 +19,7 @@ const requestsPath = '/api/v1/enterprise_request/enterprise-requests';
 export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDirectory,
   { port, signal, startWorker, stopWorker }) {
   const origin = 'http://localhost:' + port;
-  const evidence = { completed: false, responses: [], accessibility: [], requests: [] };
+  const evidence = { completed: false, responses: [], fixtureResponses: [], accessibility: [], requests: [] };
   const execute = (stage, args) => {
     signal?.throwIfAborted();
     const result = runPnpm(args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000 });
@@ -41,7 +41,14 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
       Origin: origin, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       body: body === undefined ? undefined : JSON.stringify(body), redirect: 'error',
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000) });
-    assert.equal(response.status, expected, path + ': unexpected HTTP ' + response.status);
+    evidence.fixtureResponses.push({ path, method, status: response.status });
+    if (response.status !== expected) {
+      const problem = await response.json().catch(() => null);
+      // 仅保存受控诊断字段；凭据与未知服务端正文不进入报告。
+      evidence.fixtureFailure = { path, method, status: response.status, expected,
+        code: typeof problem?.code === 'string' && /^[a-z][a-z0-9_.-]{0,199}$/.test(problem.code) ? problem.code : null };
+      assert.fail(path + ': unexpected HTTP ' + response.status);
+    }
     if (expected >= 400) { await response.body?.cancel(); return; }
     return response.json();
   };
@@ -109,8 +116,7 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     const definition = await send('/api/v1/workflow/definitions', 'POST', { definitionKey, draft: { schemaVersion: 1, nodes: [
       { nodeKey: 'start', nodeTypeKey: 'start', nodeSchemaVersion: 1, config: { nextNodeKeys: ['approve'] } },
       { nodeKey: 'approve', nodeTypeKey: 'human.approval', nodeSchemaVersion: 1, config: { nextNodeKeys: ['end'],
-        assigneePolicy: { sources: [{ resolverKindKey: 'specified_users', userIds: [me.id] }] },
-        approvalPolicy: { modeKey: 'any', approverUserIds: [me.id] } } },
+        assigneePolicy: { sources: [{ resolverKindKey: 'specified_users', userIds: [me.id] }] } } },
       { nodeKey: 'end', nodeTypeKey: 'end', nodeSchemaVersion: 1, config: { nextNodeKeys: [] } }] } }, 201);
     await send('/api/v1/workflow/definitions/' + definition.id + '/publish', 'POST', { expectedRevision: definition.draftRevision, formVersionId: formVersion.id });
     const view = page.locator('.generated-crud-view');
