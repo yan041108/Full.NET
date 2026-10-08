@@ -26,12 +26,31 @@ namespace Full.NET.IntegrationTests.Ai;
 /// <summary>真实双库验证 DOCX 完整原文、向量及结算账本关联；原子激活和完成恢复沿用受控原会话，不冒充上传或云模型执行。</summary>
 internal static class AiKnowledgeIndexDocxPersistenceAssertions
 {
-    internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock)
+    internal sealed class WorkerControls
+    {
+        internal IBackgroundSessionAuthorization Authorization = null!;
+        internal void Register(IServiceCollection services)
+        {
+            new AiModule().AddBackgroundServices(services, new ConfigurationBuilder().Build());
+            foreach (var descriptor in services.Where(d => d.ServiceType == typeof(IHostedService)
+                && (d.ImplementationType == typeof(AiKnowledgeIndexHostedProcessor) || d.ImplementationType == typeof(AiAgentRunHostedProcessor))).ToArray()) services.Remove(descriptor);
+            services.RemoveAll<IBackgroundSessionAuthorization>(); services.AddScoped<IBackgroundSessionAuthorization>(_ => Authorization);
+        }
+    }
+    internal sealed record NativeProbe(SessionBindingSnapshot Session, Func<AiKnowledgeIndexTaskBinding, Task<Guid>> Enqueue,
+        Func<AiKnowledgeIndexTaskBinding, Task> ReadReady, Func<AiKnowledgeIndexTaskBinding, Task> Recover);
+    internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock, WorkerControls controls, NativeProbe? native = null)
     {
         await factory.InitializeAsync(); await using var db = AiOperationBudgetAssertions.Connection(factory);
         foreach (var scoped in new[] { false, true })
         {
             var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db, scoped);
+            var probe = scoped ? null : native;
+            if (probe is not null)
+            {
+                p["OwnerUserId"] = probe.Session.UserId;
+                await db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET OwnerUserId=@OwnerUserId WHERE Id=@KnowledgeBaseId", p);
+            }
             clock.UtcNow = new DateTimeOffset((DateTime)p["Now"]!, TimeSpan.Zero); var now = clock.UtcNow;
             var hash = new string('A', 64); var modelId = scoped ? "text-embedding-3-large" : "text-embedding-3-small";
             const string mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -39,16 +58,22 @@ internal static class AiKnowledgeIndexDocxPersistenceAssertions
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_import SET ContentType=@Mime,ContentHash=@Hash,SizeBytes=97 WHERE VersionId=@VersionId", new { Mime = mime, Hash = hash, VersionId = p["VersionId"] });
             await db.ExecuteAsync("UPDATE fn_ai_model_config SET ModelId=@Model WHERE Id=@Id", new { Model = modelId, Id = p["ModelConfigId"] });
             var binding = new AiKnowledgeIndexTaskBinding((Guid)p["KnowledgeBaseId"]!, (Guid)p["DocumentId"]!, (Guid)p["VersionId"]!, 1, 1, (Guid)p["OwnerUserId"]!);
-            var session = new SessionBindingSnapshot(binding.OwnerUserId, (Guid?)p["TenantId"], Guid.CreateVersion7(), "stamp", scoped ? "tenant" : "host", scoped ? "tenant" : "host");
-            var auth = new Authorization(session);
+            var session = probe?.Session ?? new SessionBindingSnapshot(binding.OwnerUserId, (Guid?)p["TenantId"], Guid.CreateVersion7(), "stamp", scoped ? "tenant" : "host", scoped ? "tenant" : "host");
+            var auth = new Authorization(session); controls.Authorization = auth;
             var text = new System.Text.StringBuilder(); var blocks = new List<AiKnowledgeDocxBlock>();
             for (var i = 0; i < 17; i++)
-            { var content = $"正文 {i} 😀"; blocks.Add(new(i, "paragraph", text.Length, content.Length, i + 1, null, null, null, 0, false)); text.Append(content).Append('\n'); }
+            {
+                var content = $"正文 {i} 😀";
+                // 同一完整计划包含正文段落及单列表格，真实召回不能丢失服务器逻辑坐标。
+                blocks.Add(i < 8 ? new(i, "paragraph", text.Length, content.Length, i + 1, null, null, null, 0, false)
+                    : new(i, "tableCell", text.Length, content.Length, i + 1, 1, i - 7, 1, 1, i == 8));
+                text.Append(content).Append('\n');
+            }
             var document = new AiKnowledgeParsedDocx(hash.ToLowerInvariant(), 97, text.ToString(), blocks.AsReadOnly());
             var chunks = AiKnowledgeDocxModelChunker.Chunk(new AiKnowledgeBaseRecord { Id = binding.KnowledgeBaseId, Version = 1, TenantId = session.TenantId, IsEnabled = true, EmbeddingModelConfigId = (Guid)p["ModelConfigId"]!, EmbeddingModelVersion = 1 },
                 new AiModelConfigRecord { Id = (Guid)p["ModelConfigId"]!, Version = 1, TenantId = session.TenantId, IsEnabled = true, ProviderKey = "openai_compatible", ModelId = modelId, EndpointBaseUrl = "https://api.openai.com/v1" }, document, new(), default);
             Assert.IsTrue(chunks.IsSuccess); var input = chunks.Output!; var plan = AiKnowledgeIndexDocxPlan.Create(input, default)!;
-            var task = await Use(a => a.Sessions.EnqueueAsync(binding, session, default)); Assert.IsNotNull(task); var taskId = task.Value;
+            Guid? task = probe is null ? await Use(a => a.Sessions.EnqueueAsync(binding, session, default)) : await probe.Enqueue(binding); Assert.IsNotNull(task); var taskId = task.Value;
             var held = await Use(a => a.Tasks.AcquireAsync(binding, taskId, default)); Assert.IsNotNull(held); Assert.IsNotNull(held.LeaseToken); var lease = held.LeaseToken.Value;
             Assert.IsTrue(await Use(a => a.Manifests.PersistAsync(binding, taskId, lease, plan, default)));
             var manifest = AiKnowledgeIndexDocxManifestCodec.Encode(plan, default); var manifestHash = Hash(manifest);
@@ -241,18 +266,75 @@ internal static class AiKnowledgeIndexDocxPersistenceAssertions
             Assert.IsTrue(await Use(a => a.Consumer.ExecuteGenerationAsync(binding, taskId, lease, default)));
             Assert.AreEqual(pointerBefore, await db.QuerySingleAsync<AiKnowledgeIndexActivationRecord>("SELECT Id,DocumentId,IndexTaskId,VersionId,PlanHash,ManifestHash,ReceiptHash,ReceiptJson,LeaseToken,ActivatedAtUtc FROM fn_ai_knowledge_active_generation WHERE DocumentId=@DocumentId", p));
             Assert.AreEqual(charged, await db.QuerySingleAsync<long>("SELECT SUM(ChargedTokens) FROM fn_ai_operation_budget WHERE ModelConfigId=@Id", new { Id = model.Id }));
-            // 清理测试另行撤销受控活动指针，避免把待实现的 DOCX 活动代次退役冒充已交付。
-            await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_active_generation WHERE DocumentId=@DocumentId", p);
-            // 终态、只有清单残留的任务也必须进入墓碑清理，费用和审计凭据保持完整。
-            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET StateKey='cancelled',LeaseToken=NULL,LeaseExpiresAtUtc=NULL WHERE Id=@TaskId", p);
-            if (!scoped) await db.ExecuteAsync("DELETE FROM fn_ai_knowledge_index_vector WHERE Id IN @Ids", new { Ids = operations });
-            await db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET IsDeleted=1,Version=2 WHERE Id=@DocumentId", p);
+            // 当前读取者使用真实元数据 SQL 和完整证明，不要求历史写入会话仍可派发。
+            var readParameters = new Dictionary<string, object?>(AiSqlParameters.Create(("OwnerUserId", binding.OwnerUserId), ("ActiveRoleIdsJson", "[]"),
+                ("ActiveOrganizationUnitIdsJson", "[]"), ("KnowledgeBaseId", binding.KnowledgeBaseId), ("DocumentId", binding.DocumentId), ("VersionId", binding.VersionId)));
+            var status = await ReadStatus(); Assert.IsNotNull(status);
+            auth.DeniedPermission = "ai.knowledge_documents.index_enqueue";
+            Assert.IsFalse(await Use(a => a.Activations.IsActiveAsync(binding, taskId, lease, default)));
+            Assert.IsTrue(await Use(a => a.Activations.IsReadyForReadAsync(status, readParameters, default)));
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Broken WHERE Id=@Id", new { Broken = new byte[8], Id = operations[0] });
+            Assert.IsFalse(await Use(a => a.Activations.IsReadyForReadAsync(status, readParameters, default)));
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=@Id", new { Payload = firstPayload, Id = operations[0] });
+            if (probe is not null) await probe.ReadReady(binding);
+            auth.DeniedPermission = null;
+            if (native is null)
+            await using (var retrievalScope = factory.Services.CreateAsyncScope())
+            {
+                var writer = retrievalScope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+                if (session.TenantId is { } currentTenant) writer.SetTenant(new(currentTenant, "retrieval", "DOCX检索测试")); else writer.SetHost();
+                charged = checked(charged + await AiKnowledgeRetrievalAssertions.VerifyAsync(retrievalScope.ServiceProvider, db, binding, factory));
+            }
+            // 生产 Worker DI、双库格式扫描及 Retry 条件 UPDATE：已结算完整数据恢复不再次读取文件或派发模型。
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET StateKey='failed',AttemptCount=0,LeaseToken=NULL,LeaseExpiresAtUtc=NULL WHERE Id=@TaskId", p);
+            if (probe is null)
+                Assert.IsTrue((await Use(a => a.Retry.RetryAsync(binding.KnowledgeBaseId, binding.DocumentId, binding.VersionId, taskId, session, default))).IsSuccess);
+            else await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET StateKey='queued' WHERE Id=@TaskId", p);
+            Assert.AreEqual(0, await RunWorker(false));
+            if (probe is null) Assert.AreEqual(1, await RunWorker(true)); else await probe.Recover(binding);
+            Assert.AreEqual("completed", await db.QuerySingleAsync<string>("SELECT StateKey FROM fn_ai_knowledge_index_task WHERE Id=@TaskId", p));
+            var recoveredLease = await db.QuerySingleAsync<Guid>("SELECT LeaseToken FROM fn_ai_knowledge_active_generation WHERE DocumentId=@DocumentId", p);
+            Assert.AreNotEqual(lease, recoveredLease);
+            Assert.IsTrue(await Use(a => a.Activations.IsActiveAsync(binding, taskId, recoveredLease, default)));
+            Assert.AreEqual(charged, await db.QuerySingleAsync<long>("SELECT SUM(ChargedTokens) FROM fn_ai_operation_budget WHERE ModelConfigId=@Id", new { Id = model.Id }));
+            // 真实退役清理必须锁定并证明后继代次；错误所有者和损坏后继不能删除旧清单。
+            var oldTask = Guid.CreateVersion7();
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET Version=2 WHERE Id=@DocumentId", p);
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET DocumentVersion=2 WHERE Id=@TaskId", p);
+            binding = binding with { DocumentVersion = 2 };
+            await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_index_task (Id,DocumentId,VersionId,DocumentVersion,KnowledgeBaseVersion,ModelConfigId,ModelConfigVersion,StateKey,AttemptCount,CreatedAtUtc,UpdatedAtUtc) SELECT @OldTask,DocumentId,VersionId,1,KnowledgeBaseVersion,ModelConfigId,ModelConfigVersion,'completed',1,CreatedAtUtc,UpdatedAtUtc FROM fn_ai_knowledge_index_task WHERE Id=@TaskId", new { OldTask = oldTask, TaskId = taskId });
+            await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_docx_manifest (Id,FormatKey,PayloadHash,Payload,CreatedAtUtc) SELECT @OldTask,FormatKey,PayloadHash,Payload,CreatedAtUtc FROM fn_ai_knowledge_docx_manifest WHERE Id=@TaskId", new { OldTask = oldTask, TaskId = taskId });
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET ActivatedAtUtc=@Time WHERE DocumentId=@DocumentId", new { Time = now.AddDays(-2).UtcDateTime, binding.DocumentId });
+            await Retire(Guid.CreateVersion7()); Assert.AreEqual(1L, await OldManifestCount());
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Broken WHERE Id=@Id", new { Broken = new byte[8], Id = operations[0] });
+            await Retire(binding.OwnerUserId); Assert.AreEqual(1L, await OldManifestCount());
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=@Id", new { Payload = firstPayload, Id = operations[0] });
+            auth.DeniedPermission = "ai.knowledge_documents.index_enqueue";
+            await Retire(binding.OwnerUserId); Assert.AreEqual(0L, await OldManifestCount()); auth.DeniedPermission = null;
+            Assert.AreEqual(taskId, await db.QuerySingleAsync<Guid>("SELECT IndexTaskId FROM fn_ai_knowledge_active_generation WHERE DocumentId=@DocumentId", p));
+            Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_docx_manifest WHERE Id=@TaskId", p));
+            Task<long> OldManifestCount() => db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_docx_manifest WHERE Id=@Id", new { Id = oldTask });
+            Task<bool> Retire(Guid owner) => Use(async a => { await a.Cleanup.CleanupRetiredTaskAsync(binding.KnowledgeBaseId, binding.DocumentId, owner, oldTask, now.AddHours(-24), default); return true; });
+            Task<AiKnowledgeIndexStatusRecord?> ReadStatus() => Use(a => a.Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexStatusRecord>(AiKnowledgeIndexStatusSql.For(sqlServer ? DatabaseProvider.SqlServer : DatabaseProvider.MySql, scoped), readParameters, default));
+            async Task<int> RunWorker(bool enabled)
+            {
+                await using var root = factory.Services.CreateAsyncScope(); var services = root.ServiceProvider;
+                services.GetRequiredService<ICurrentTenantContextWriter>().SetHost();
+                var coordinator = new AiKnowledgeIndexWorkerCoordinator(services.GetRequiredService<IQueryExecutor>(), services.GetRequiredService<IDataTransactionState>(),
+                    services.GetRequiredService<IServiceScopeFactory>(), clock, services.GetRequiredService<IOptions<DatabaseOptions>>(),
+                    Options.Create(new AiKnowledgeIndexWorkerOptions { Enabled = true, BatchSize = 1 }), NullLogger<AiKnowledgeIndexWorkerCoordinator>.Instance,
+                    docxOptions: Options.Create(new AiKnowledgeDocxRuntimeOptions { Enabled = enabled }));
+                return await coordinator.ProcessPendingAsync(default);
+            }
+            // 活动终态墓碑删除也要去掉指针和完整派生数据，费用审计凭据保持完整。
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET IsDeleted=1,Version=3 WHERE Id=@DocumentId", p);
             await Use(async a => { await a.Cleanup.CleanupDocumentAsync(binding.KnowledgeBaseId, binding.DocumentId, Guid.CreateVersion7(), default); return true; });
             Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_docx_manifest WHERE Id=@TaskId", p));
             await Use(async a => { await a.Cleanup.CleanupDocumentAsync(binding.KnowledgeBaseId, binding.DocumentId, binding.OwnerUserId, default); return true; });
             Assert.AreEqual(0L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_docx_manifest WHERE Id=@TaskId", p));
             Assert.AreEqual(0L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_index_vector WHERE Id IN @Ids", new { Ids = operations }));
             Assert.AreEqual(2L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_operation_budget WHERE Id IN @Ids", new { Ids = operations }));
+            Assert.AreEqual(0L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_active_generation WHERE DocumentId=@DocumentId", p));
             async Task<T> Use<T>(Func<Access, Task<T>> action, bool expire = false, bool failActivation = false)
             {
                 await using var scope = factory.Services.CreateAsyncScope(); var services = scope.ServiceProvider;
@@ -266,13 +348,14 @@ internal static class AiKnowledgeIndexDocxPersistenceAssertions
                 return await action(new(tasks, sessions, new(query, command, transaction, state, tenant, clock, tasks, sessions, auth, options),
                     new(query, expire ? new ExpireAfterInsert(command, clock) : command, transaction, state, tenant, clock, tasks, sessions, auth, options),
                     new(query, command, tasks, ids, options), query, services.GetRequiredService<IAiOperationBudgetStore>(), services.GetRequiredService<AiKnowledgeIndexCleanupStore>(),
-                    new(query, failActivation ? new RejectActivationInsert(command) : command, transaction, state, tenant, clock, ids, tasks, auth, options)));
+                    new(query, failActivation ? new RejectActivationInsert(command) : command, transaction, state, tenant, clock, ids, tasks, auth, options),
+                    new(query, command, state, tenant, clock, tasks, auth, docx: Options.Create(new AiKnowledgeDocxRuntimeOptions { Enabled = true }))));
             }
         }
     }
     private static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
     private sealed record Access(AiKnowledgeIndexTaskStore Tasks, AiKnowledgeIndexSessionService Sessions,
-        AiKnowledgeIndexDocxManifestStore Manifests, AiKnowledgeIndexDocxVectorStore Vectors, AiKnowledgeIndexBatchStore Batches, IQueryExecutor Query, IAiOperationBudgetStore Budgets, AiKnowledgeIndexCleanupStore Cleanup, AiKnowledgeIndexDocxActivationStore Activations)
+        AiKnowledgeIndexDocxManifestStore Manifests, AiKnowledgeIndexDocxVectorStore Vectors, AiKnowledgeIndexBatchStore Batches, IQueryExecutor Query, IAiOperationBudgetStore Budgets, AiKnowledgeIndexCleanupStore Cleanup, AiKnowledgeIndexDocxActivationStore Activations, AiKnowledgeIndexRetryService Retry)
     {
         internal AiKnowledgeIndexDocxPersistenceService Consumer => new(null!, Vectors, Manifests, Sessions, Activations);
     }

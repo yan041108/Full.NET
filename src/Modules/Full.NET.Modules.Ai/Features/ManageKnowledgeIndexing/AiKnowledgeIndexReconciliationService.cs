@@ -13,7 +13,7 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeIndexing;
 /// <summary>只读对账入口；所有者、当前范围及完整证明共同约束恢复提示。</summary>
 internal sealed class AiKnowledgeIndexReconciliationService(IQueryExecutor query, IDataTransactionState transactions, ICurrentTenant tenant,
     AiKnowledgeReadAccess access, AiKnowledgePermissionGuard permissions, AiKnowledgeIndexStatusService statuses,
-    IClock clock, IOptions<DatabaseOptions> database, IOptions<AiKnowledgePdfRuntimeOptions> pdf)
+    IClock clock, IOptions<DatabaseOptions> database, IOptions<AiKnowledgePdfRuntimeOptions> pdf, IOptions<AiKnowledgeDocxRuntimeOptions>? docx = null)
 {
     internal async Task<Result<AiKnowledgeIndexReconciliationResponse>> ReadAsync(Guid knowledgeBaseId, Guid documentId,
         Guid versionId, Guid actor, CancellationToken token)
@@ -84,7 +84,7 @@ internal sealed class AiKnowledgeIndexReconciliationService(IQueryExecutor query
                 task = new(record.Id, record.DocumentVersion, record.KnowledgeBaseVersion, record.ModelConfigId, record.ModelConfigVersion,
                     record.StateKey, record.AttemptCount, record.FailureCode, record.LeaseToken, record.LeaseExpiresAtUtc, record.CreatedAtUtc, record.UpdatedAtUtc);
             }
-            return Result<Snapshot>.Success(new(current, source, task, pdf.Value.Supports(current.ContentType)));
+            return Result<Snapshot>.Success(new(current, source, task, pdf.Value.Supports(current.ContentType) || (docx?.Value.Enabled == true && current.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType)));
         }
     }
 

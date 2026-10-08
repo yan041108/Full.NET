@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AiKnowledgeCitationPosition from '../components/AiKnowledgeCitationPosition.vue';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElCard, ElEmpty, ElInput, ElMessageBox, ElOption, ElSelect, ElSwitch } from 'element-plus';
 import { Plus, VideoPause } from '@element-plus/icons-vue';
@@ -283,7 +284,7 @@ onMounted(() => { void loadModels(); void loadSessions(); }); onUnmounted(reset)
               <p v-else-if="message.roleKey === 'assistant' && message.statusKey === 'completed' && !message.content" data-testid="knowledge-no-answer">{{ t('knowledge.noAnswer') }}</p>
               <p v-else>{{ message.content || (message.statusKey === 'streaming' ? '...' : '') }}</p>
               <div v-if="!message.knowledgeUnavailableCode && message.citations?.length && session.can('ai.knowledge_bases.read') && session.can('ai.knowledge_documents.read') && session.can('ai.knowledge_documents.source_read')" class="ai-chat-citations">
-                <el-button v-for="(citation, index) in message.citations" :key="citation.id" link type="primary" :disabled="!session.can('ai.knowledge_bases.read') || !session.can('ai.knowledge_documents.read') || !session.can('ai.knowledge_documents.source_read')" data-testid="knowledge-citation" @click="openCitation(message, citation)">{{ t('knowledge.citation', { number: index + 1 }) }} · {{ t('knowledge.position', { page: citation.pageNumber ?? t('knowledge.noPage'), sequence: citation.sequence, offset: citation.offset, length: citation.length }) }}</el-button>
+                <el-button v-for="(citation, index) in message.citations" :key="citation.id" link type="primary" :disabled="!session.can('ai.knowledge_bases.read') || !session.can('ai.knowledge_documents.read') || !session.can('ai.knowledge_documents.source_read')" data-testid="knowledge-citation" @click="openCitation(message, citation)">{{ t('knowledge.citation', { number: index + 1 }) }} · <AiKnowledgeCitationPosition :citation="citation" /></el-button>
               </div>
             </article>
           </div>

@@ -13,9 +13,9 @@ public sealed class AiKnowledgeIndexDocxPersistenceApiMySqlTests
     [TestMethod]
     public async Task Docx_vectors_require_complete_manifest_and_settled_operation()
     {
-        var clock = new AiOperationBudgetAssertions.TestClock();
+        var clock = new AiOperationBudgetAssertions.TestClock(); var controls = new AiKnowledgeIndexDocxPersistenceAssertions.WorkerControls();
         using var factory = new FullNetApiFactory(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
-            configureTestServices: services => { services.RemoveAll<IClock>(); services.AddSingleton<IClock>(clock); });
-        await AiKnowledgeIndexDocxPersistenceAssertions.VerifyAsync(factory, clock);
+            configureTestServices: services => { services.RemoveAll<IClock>(); services.AddSingleton<IClock>(clock); controls.Register(services); });
+        await AiKnowledgeIndexDocxPersistenceAssertions.VerifyAsync(factory, clock, controls);
     }
 }

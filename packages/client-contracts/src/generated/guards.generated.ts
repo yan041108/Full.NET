@@ -23,6 +23,7 @@ import type {
   AiKnowledgeCitationResponse,
   AiKnowledgeDocumentMembersResponse,
   AiKnowledgeDocumentResponse,
+  AiKnowledgeDocxLocationResponse,
   AiKnowledgeImportResponse,
   AiKnowledgeIndexEnqueueResponse,
   AiKnowledgeIndexReconciliationResponse,
@@ -829,7 +830,7 @@ export function readAiKnowledgeCitationResponse(value: unknown): AiKnowledgeCita
 }
 
 function isAiKnowledgeCitationResponse(value: unknown): value is AiKnowledgeCitationResponse {
-  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["length"] === 'number' && Number.isSafeInteger(value["length"])) && (typeof value["offset"] === 'number' && Number.isSafeInteger(value["offset"])) && ((value["pageNumber"] === null) || (typeof value["pageNumber"] === 'number' && Number.isSafeInteger(value["pageNumber"]))) && (typeof value["sequence"] === 'number' && Number.isSafeInteger(value["sequence"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (value["docxLocation"] === undefined || ((value["docxLocation"] === null) || (isAiKnowledgeDocxLocationResponse(value["docxLocation"])))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["length"] === 'number' && Number.isSafeInteger(value["length"])) && (typeof value["offset"] === 'number' && Number.isSafeInteger(value["offset"])) && ((value["pageNumber"] === null) || (typeof value["pageNumber"] === 'number' && Number.isSafeInteger(value["pageNumber"]))) && (typeof value["sequence"] === 'number' && Number.isSafeInteger(value["sequence"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
 }
 
 export function readAiKnowledgeDocumentMembersResponse(value: unknown): AiKnowledgeDocumentMembersResponse {
@@ -854,6 +855,18 @@ export function readAiKnowledgeDocumentResponse(value: unknown): AiKnowledgeDocu
 
 function isAiKnowledgeDocumentResponse(value: unknown): value is AiKnowledgeDocumentResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeDocxLocationResponse(value: unknown): AiKnowledgeDocxLocationResponse {
+  const normalizedValue = normalizeAiKnowledgeDocxLocationResponseIntegerJson(value);
+  if (!(isAiKnowledgeDocxLocationResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_docx_location_response');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeDocxLocationResponse(value: unknown): value is AiKnowledgeDocxLocationResponse {
+  return isRecord(value) && (typeof value["blockSequence"] === 'number' && Number.isSafeInteger(value["blockSequence"])) && ((value["cellNumber"] === null) || (typeof value["cellNumber"] === 'number' && Number.isSafeInteger(value["cellNumber"]))) && (typeof value["paragraphNumber"] === 'number' && Number.isSafeInteger(value["paragraphNumber"])) && ((value["rowNumber"] === null) || (typeof value["rowNumber"] === 'number' && Number.isSafeInteger(value["rowNumber"]))) && ((value["tableNumber"] === null) || (typeof value["tableNumber"] === 'number' && Number.isSafeInteger(value["tableNumber"])));
 }
 
 export function readAiKnowledgeImportResponse(value: unknown): AiKnowledgeImportResponse {
@@ -8257,7 +8270,7 @@ function normalizeAiKnowledgeBaseResponseIntegerJson(value: unknown): unknown {
 }
 
 function normalizeAiKnowledgeCitationResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "length") ? { ["length"]: normalizeWireInteger(value["length"]) } : {}), ...(Object.hasOwn(value, "offset") ? { ["offset"]: normalizeWireInteger(value["offset"]) } : {}), ...(Object.hasOwn(value, "pageNumber") ? { ["pageNumber"]: normalizeWireInteger(value["pageNumber"]) } : {}), ...(Object.hasOwn(value, "sequence") ? { ["sequence"]: normalizeWireInteger(value["sequence"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "docxLocation") ? { ["docxLocation"]: normalizeIntegerUnion(value["docxLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeDocxLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeDocxLocationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "length") ? { ["length"]: normalizeWireInteger(value["length"]) } : {}), ...(Object.hasOwn(value, "offset") ? { ["offset"]: normalizeWireInteger(value["offset"]) } : {}), ...(Object.hasOwn(value, "pageNumber") ? { ["pageNumber"]: normalizeWireInteger(value["pageNumber"]) } : {}), ...(Object.hasOwn(value, "sequence") ? { ["sequence"]: normalizeWireInteger(value["sequence"]) } : {}) } : value);
 }
 
 function normalizeAiKnowledgeDocumentMembersResponseIntegerJson(value: unknown): unknown {
@@ -8266,6 +8279,10 @@ function normalizeAiKnowledgeDocumentMembersResponseIntegerJson(value: unknown):
 
 function normalizeAiKnowledgeDocumentResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeDocxLocationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "blockSequence") ? { ["blockSequence"]: normalizeWireInteger(value["blockSequence"]) } : {}), ...(Object.hasOwn(value, "cellNumber") ? { ["cellNumber"]: normalizeWireInteger(value["cellNumber"]) } : {}), ...(Object.hasOwn(value, "paragraphNumber") ? { ["paragraphNumber"]: normalizeWireInteger(value["paragraphNumber"]) } : {}), ...(Object.hasOwn(value, "rowNumber") ? { ["rowNumber"]: normalizeWireInteger(value["rowNumber"]) } : {}), ...(Object.hasOwn(value, "tableNumber") ? { ["tableNumber"]: normalizeWireInteger(value["tableNumber"]) } : {}) } : value);
 }
 
 function normalizeAiKnowledgeIndexReconciliationResponseIntegerJson(value: unknown): unknown {

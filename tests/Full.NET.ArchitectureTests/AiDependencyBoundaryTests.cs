@@ -7,24 +7,18 @@ namespace Full.NET.ArchitectureTests;
 public sealed class AiDependencyBoundaryTests
 {
     [TestMethod]
-    public void Docx_local_planning_and_persistence_remain_unregistered_from_hosts()
+    public void Docx_runtime_consumers_stay_inside_ai_and_keep_parser_external()
     {
-        var allowed = new HashSet<string>(StringComparer.Ordinal)
-        { "AiKnowledgeDocxOutputReader.cs", "AiKnowledgeDocxStructure.cs", "AiKnowledgeDocxModelChunker.cs", "AiKnowledgeDocxPlanHash.cs", "AiKnowledgeIndexDocxPlan.cs",
-            "AiKnowledgeIndexDocxManifestCodec.cs", "AiKnowledgeIndexDocxVectorCodec.cs", "AiKnowledgeIndexDocxManifestStore.cs", "AiKnowledgeIndexDocxVectorStore.cs",
-            "AiKnowledgeIndexDocxManifestSql.cs", "AiKnowledgeIndexDocxVectorSql.cs",
-            "AiKnowledgeDocxSandboxParser.cs", "AiKnowledgeIndexDocxPlanningService.cs",
-            "AiKnowledgeIndexDocxEmbeddingService.cs", "AiKnowledgeIndexDocxPersistenceService.cs", "AiKnowledgeIndexDocxActivationStore.cs",
-            "AiKnowledgeIndexDocxActivationSql.cs", "AiKnowledgeIndexDocxVerifiedManifest.cs" };
         foreach (var source in Directory.GetFiles(Path.Combine(Root(), "src"), "*.cs", SearchOption.AllDirectories)
             .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "obj" or "bin")))
         {
             var text = File.ReadAllText(source);
             if (!text.Contains("AiKnowledgeDocx", StringComparison.Ordinal) && !text.Contains("AiKnowledgeIndexDocx", StringComparison.Ordinal)) continue;
-            Assert.IsTrue(allowed.Contains(Path.GetFileName(source)), source);
-            Assert.IsTrue(source.Contains(Path.Combine("Full.NET.Modules.Ai", Path.GetFileName(source).EndsWith("Sql.cs", StringComparison.Ordinal) ? "Persistence" : "Knowledge"), StringComparison.Ordinal), source);
+            Assert.IsTrue(source.Contains(Path.Combine("Modules", "Full.NET.Modules.Ai") + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                || source.Contains(Path.Combine("Modules", "Full.NET.Modules.Ai.Contracts") + Path.DirectorySeparatorChar, StringComparison.Ordinal), source);
             Assert.DoesNotContain("ISqlExecutor", text, StringComparison.Ordinal, source);
             Assert.DoesNotContain("Process.Start", text, StringComparison.Ordinal, source);
+            Assert.DoesNotContain("Full.NET.Ai.DocxParser", text, StringComparison.Ordinal, source);
         }
     }
 

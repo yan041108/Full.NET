@@ -87,10 +87,23 @@ public sealed record AiChatMessageResponse(
 /// <param name="DocumentId">来源文档标识。</param>
 /// <param name="VersionId">来源版本标识。</param>
 /// <param name="Sequence">分块序号。</param>
-/// <param name="PageNumber">PDF 页码，文本来源为空。</param>
+/// <param name="PageNumber">PDF 页码，TXT/DOCX 来源为空。</param>
 /// <param name="Offset">分块偏移。</param>
 /// <param name="Length">分块长度。</param>
-public sealed record AiKnowledgeCitationResponse(Guid Id, Guid DocumentId, Guid VersionId, int Sequence, int? PageNumber, int Offset, int Length);
+public sealed record AiKnowledgeCitationResponse(Guid Id, Guid DocumentId, Guid VersionId, int Sequence, int? PageNumber, int Offset, int Length)
+{
+    /// <summary>DOCX 的逻辑段落/表格位置；旧 TXT/PDF 响应省略此字段。</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AiKnowledgeDocxLocationResponse? DocxLocation { get; init; }
+}
+
+/// <summary>DOCX 原始正文逻辑位置；不声明版式页码。</summary>
+/// <param name="BlockSequence">逻辑正文块的零起始序号。</param>
+/// <param name="ParagraphNumber">正文块的一起始段落编号。</param>
+/// <param name="TableNumber">表格编号，普通段落为空。</param>
+/// <param name="RowNumber">表格行号，普通段落为空。</param>
+/// <param name="CellNumber">表格单元格号，普通段落为空。</param>
+public sealed record AiKnowledgeDocxLocationResponse(int BlockSequence, int ParagraphNumber, int? TableNumber, int? RowNumber, int? CellNumber);
 
 /// <remarks>
 /// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。

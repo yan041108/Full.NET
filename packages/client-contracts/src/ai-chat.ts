@@ -25,12 +25,22 @@ export interface AiChatMessage {
   citations?: AiKnowledgeCitation[];
 }
 
+/** DOCX 正文的逻辑坐标；不代表版式页码。 */
+export interface AiKnowledgeDocxLocation {
+  blockSequence: number;
+  paragraphNumber: number;
+  tableNumber: number | null;
+  rowNumber: number | null;
+  cellNumber: number | null;
+}
+
 export interface AiKnowledgeCitation {
   id: string;
   documentId: string;
   versionId: string;
   sequence: number;
   pageNumber: number | null;
+  docxLocation?: AiKnowledgeDocxLocation | null;
   offset: number;
   length: number;
 }
@@ -172,7 +182,17 @@ function isAiKnowledgeCitation(value: unknown): value is AiKnowledgeCitation {
   return isRecord(value) && isGuid(value.id) && isGuid(value.documentId) && isGuid(value.versionId)
     && isNonNegativeInteger(value.sequence) && isNonNegativeInteger(value.offset)
     && isNonNegativeInteger(value.length) && value.length > 0
-    && (value.pageNumber === null || (isNonNegativeInteger(value.pageNumber) && value.pageNumber > 0));
+    && (value.pageNumber === null || (isNonNegativeInteger(value.pageNumber) && value.pageNumber > 0))
+    && (value.docxLocation == null || (value.pageNumber === null && isAiKnowledgeDocxLocation(value.docxLocation)));
+}
+
+function isAiKnowledgeDocxLocation(value: unknown): value is AiKnowledgeDocxLocation {
+  if (!isRecord(value) || !isNonNegativeInteger(value.blockSequence) || value.blockSequence >= 8192
+    || !isNonNegativeInteger(value.paragraphNumber) || value.paragraphNumber < 1 || value.paragraphNumber > 8192) return false;
+  return value.tableNumber === null && value.rowNumber === null && value.cellNumber === null
+    || isNonNegativeInteger(value.tableNumber) && value.tableNumber >= 1 && value.tableNumber <= 128
+      && isNonNegativeInteger(value.rowNumber) && value.rowNumber >= 1 && value.rowNumber <= 4096
+      && isNonNegativeInteger(value.cellNumber) && value.cellNumber >= 1 && value.cellNumber <= 64;
 }
 
 // 只有已完成且引用完整的响应可进入展示；拒答不能夹带正文或引用。

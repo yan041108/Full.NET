@@ -12,3 +12,5 @@ export {
   type MessageKey,
   type MessageParameters
 } from './messages.js';
+
+export { translateKnowledgeDocx } from './knowledge-docx.js';

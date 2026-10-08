@@ -24,6 +24,7 @@ import type {
   AiKnowledgeCitationResponse,
   AiKnowledgeDocumentMembersResponse,
   AiKnowledgeDocumentResponse,
+  AiKnowledgeDocxLocationResponse,
   AiKnowledgeImportResponse,
   AiKnowledgeIndexEnqueueResponse,
   AiKnowledgeIndexReconciliationResponse,
@@ -2490,7 +2491,7 @@ export interface AiUploadKnowledgeVersionParameters {
   readonly requestKey: string;
   readonly fileName: string;
   readonly body: Blob;
-  readonly contentType: "application/pdf" | "text/markdown" | "text/plain";
+  readonly contentType: "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "text/markdown" | "text/plain";
 }
 
 export async function aiUploadKnowledgeVersion(

@@ -13,7 +13,8 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeIndexing;
 /// <summary>原交互会话恢复精确失败任务；不读取文件、不派发模型、不清除收费记录。</summary>
 internal sealed class AiKnowledgeIndexRetryService(IQueryExecutor query, ICommandExecutor command, IDataTransactionState transactions,
     ICurrentTenant tenant, IClock clock, AiKnowledgeIndexTaskStore tasks, IBackgroundSessionAuthorization authorization,
-    Microsoft.Extensions.Options.IOptions<AiKnowledgePdfRuntimeOptions>? pdf = null)
+    Microsoft.Extensions.Options.IOptions<AiKnowledgePdfRuntimeOptions>? pdf = null,
+    Microsoft.Extensions.Options.IOptions<AiKnowledgeDocxRuntimeOptions>? docx = null)
 {
     internal static readonly string[] Permissions = [.. AiKnowledgeIndexEnqueueService.Permissions, AiKnowledgeDocumentPermissions.IndexRetry];
 
@@ -48,6 +49,7 @@ internal sealed class AiKnowledgeIndexRetryService(IQueryExecutor query, IComman
         writeParameters["Now"] = clock.UtcNow; writeParameters["SessionRecordId"] = frozen.Id;
         writeParameters["ModelConfigId"] = source.ModelConfigId; writeParameters["ModelConfigVersion"] = source.ModelConfigVersion;
         writeParameters["PdfEnabled"] = pdf?.Value.Enabled == true ? 1 : 0;
+        writeParameters["DocxEnabled"] = docx?.Value.Enabled == true ? 1 : 0;
         var affected = await command.ExecuteAsync(AiKnowledgeScope.IsTenant(tenant) ? AiKnowledgeIndexRetrySql.Tenant : AiKnowledgeIndexRetrySql.Host,
             writeParameters, token).ConfigureAwait(false);
         Check(token); if (!ValidIdentity(original)) return Forbidden();
@@ -58,7 +60,8 @@ internal sealed class AiKnowledgeIndexRetryService(IQueryExecutor query, IComman
         return Result<AiKnowledgeIndexEnqueueResponse>.Success(new(taskId, versionId));
     }
 
-    private bool Supports(string contentType) => (pdf?.Value ?? new AiKnowledgePdfRuntimeOptions()).Supports(contentType);
+    private bool Supports(string contentType) => (pdf?.Value ?? new AiKnowledgePdfRuntimeOptions()).Supports(contentType)
+        || (docx?.Value.Enabled == true && contentType == Domain.AiKnowledgeFilePolicy.DocxContentType);
 
     private async Task<AiKnowledgeIndexEnqueueRecord?> ReadSourceAsync(Dictionary<string, object?> parameters, SessionBindingSnapshot original, CancellationToken token)
     {

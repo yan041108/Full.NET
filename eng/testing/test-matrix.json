@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 5977,
+      "minimum": 6020,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -21,7 +21,7 @@
         },
         "ai-module": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
-          "minimum": 2508
+          "minimum": 2551
         },
         "ai-evaluation": {
           "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests",

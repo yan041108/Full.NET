@@ -12,7 +12,11 @@ internal sealed record AiKnowledgeAnswerDependency(Guid KnowledgeBaseId, Guid Do
 
 /// <summary>服务器核对的引用位置；模型输出只能选择引用标识。</summary>
 internal sealed record AiKnowledgeAnswerReference(Guid Id, Guid DocumentId, Guid VersionId,
-    int Sequence, int? PageNumber, int Offset, int Length);
+    int Sequence, int? PageNumber, int Offset, int Length)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Full.NET.Modules.Ai.Contracts.AiKnowledgeDocxLocationResponse? DocxLocation { get; init; }
+}
 
 /// <summary>版本化完整依赖绑定实际答案消息及可信所有者范围，不能按展示引用缩减。</summary>
 internal sealed record AiKnowledgeAnswerLineage(int Version, Guid MessageId, Guid SessionId, Guid ActorUserId,
@@ -44,7 +48,17 @@ internal static class AiKnowledgeAnswerLineageCodec
                 Fields(dependency, "knowledgeBaseId", "documentId", "versionId", "documentVersion", "knowledgeBaseVersion", "fileId",
                     "contentHash", "taskId", "receiptHash", "manifestHash", "planHash");
             foreach (var reference in references.EnumerateArray())
-                Fields(reference, "id", "documentId", "versionId", "sequence", "pageNumber", "offset", "length");
+            {
+                if (reference.ValueKind != JsonValueKind.Object) throw Invalid();
+                if (reference.TryGetProperty("docxLocation", out var location))
+                {
+                    var versionElement = root.GetProperty("version");
+                    if (versionElement.ValueKind != JsonValueKind.Number || !versionElement.TryGetInt32(out var version) || version != 2) throw Invalid();
+                    Fields(reference, "id", "documentId", "versionId", "sequence", "pageNumber", "offset", "length", "docxLocation");
+                    Fields(location, "blockSequence", "paragraphNumber", "tableNumber", "rowNumber", "cellNumber");
+                }
+                else Fields(reference, "id", "documentId", "versionId", "sequence", "pageNumber", "offset", "length");
+            }
             var lineage = JsonSerializer.Deserialize(json, AiKnowledgeAnswerLineageJsonContext.Default.AiKnowledgeAnswerLineage) ?? throw Invalid();
             Validate(lineage);
             if (lineage.MessageId != messageId || lineage.SessionId != sessionId || lineage.ActorUserId != actor || lineage.TenantId != tenantId) throw Invalid();
@@ -64,8 +78,9 @@ internal static class AiKnowledgeAnswerLineageCodec
         if (dependencies.Where((dependency, i) => !Matches(dependency, snapshot.Sources[i])).Any()) throw Invalid();
         var references = answer.Answer.Citations.Select(citation => new AiKnowledgeAnswerReference(citation.Id,
             citation.Chunk.Source.DocumentId, citation.Chunk.Source.VersionId, citation.Chunk.Sequence,
-            citation.Chunk.PageNumber, citation.Chunk.Offset, citation.Chunk.Length)).ToArray();
-        var lineage = new AiKnowledgeAnswerLineage(1, messageId, sessionId, snapshot.Actor, snapshot.TenantId,
+            citation.Chunk.PageNumber, citation.Chunk.Offset, citation.Chunk.Length) { DocxLocation = citation.Chunk.DocxLocation }).ToArray();
+        // 拒答或只展示其他格式引用时，也必须保存未引用 DOCX 的完整依赖及其原始小写计划摘要。
+        var lineage = new AiKnowledgeAnswerLineage(snapshot.Sources.Any(source => source.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType) ? 2 : 1, messageId, sessionId, snapshot.Actor, snapshot.TenantId,
             Array.AsReadOnly(dependencies), Array.AsReadOnly(references));
         Validate(lineage); return lineage;
     }
@@ -78,24 +93,31 @@ internal static class AiKnowledgeAnswerLineageCodec
         && row.IsDeleted == 0 && row.CleanupPending == 0 && row.IsCurrent == 1 && row.StateKey == "completed" && row.HasDerivedData == 1;
     private static void Validate(AiKnowledgeAnswerLineage lineage)
     {
-        if (lineage.Version != 1 || lineage.MessageId == Guid.Empty || lineage.SessionId == Guid.Empty || lineage.ActorUserId == Guid.Empty
+        if (lineage.Version is not (1 or 2) || lineage.MessageId == Guid.Empty || lineage.SessionId == Guid.Empty || lineage.ActorUserId == Guid.Empty
             || lineage.TenantId == Guid.Empty || lineage.Dependencies is null || lineage.References is null
             || lineage.Dependencies.Count is < 1 or > 8 || lineage.References.Count > 8) throw Invalid();
+        // 旧版本保持精确字段；新版允许拒答或未展示 DOCX 引用，完整来源证明仍由外层逐项验证。
+        if (lineage.Version == 1 && lineage.References.Any(reference => reference?.DocxLocation is not null)) throw Invalid();
         var documents = new HashSet<Guid>(); var citations = new HashSet<Guid>();
         foreach (var source in lineage.Dependencies)
         {
             if (source is null || source.KnowledgeBaseId == Guid.Empty || source.DocumentId == Guid.Empty || !documents.Add(source.DocumentId)
                 || source.VersionId == Guid.Empty || source.FileId == Guid.Empty || source.TaskId == Guid.Empty
                 || source.DocumentVersion < 1 || source.KnowledgeBaseVersion < 1 || !Hash(source.ContentHash)
-                || !Hash(source.ReceiptHash) || !Hash(source.ManifestHash) || !Hash(source.PlanHash)) throw Invalid();
+                || !Hash(source.ReceiptHash) || !Hash(source.ManifestHash) || !Hash(source.PlanHash, lineage.Version == 2)) throw Invalid();
         }
         foreach (var reference in lineage.References)
             if (reference is null || reference.Id == Guid.Empty || !citations.Add(reference.Id) || reference.Sequence < 0
-                || reference.PageNumber is < 1 || reference.Offset < 0 || reference.Length is < 1 or > 8000
+                || !ValidLocation(reference.DocxLocation, reference.PageNumber) || reference.PageNumber is < 1 || reference.Offset < 0 || reference.Length is < 1 or > 8000
                 || (long)reference.Offset + reference.Length > int.MaxValue
                 || !lineage.Dependencies.Any(source => source.DocumentId == reference.DocumentId && source.VersionId == reference.VersionId)) throw Invalid();
     }
-    private static bool Hash(string? value) => value is { Length: 64 } && value.All(c => c is >= '0' and <= '9' or >= 'A' and <= 'F');
+    internal static bool ValidLocation(Full.NET.Modules.Ai.Contracts.AiKnowledgeDocxLocationResponse? location, int? page) => location is null
+        || page is null && location.BlockSequence is >= 0 and < 8192 && location.ParagraphNumber is >= 1 and <= 8192
+        && (location.TableNumber is null && location.RowNumber is null && location.CellNumber is null
+            || location.TableNumber is >= 1 and <= 128 && location.RowNumber is >= 1 and <= 4096 && location.CellNumber is >= 1 and <= 64);
+    private static bool Hash(string? value, bool allowLowercase = false) => value is { Length: 64 }
+        && value.All(c => c is >= '0' and <= '9' or >= 'A' and <= 'F' || allowLowercase && c is >= 'a' and <= 'f');
     private static void Fields(JsonElement element, params string[] expected)
     {
         if (element.ValueKind != JsonValueKind.Object) throw Invalid();
@@ -109,6 +131,7 @@ internal static class AiKnowledgeAnswerLineageCodec
 /// <summary>持久化元数据只使用显式源生成类型，禁止依赖反射序列化。</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, GenerationMode = JsonSourceGenerationMode.Metadata,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]
+[JsonSerializable(typeof(Full.NET.Modules.Ai.Contracts.AiKnowledgeDocxLocationResponse))]
 [JsonSerializable(typeof(AiKnowledgeAnswerLineage))]
 [JsonSerializable(typeof(AiKnowledgeAnswerDependency[]))]
 internal partial class AiKnowledgeAnswerLineageJsonContext : JsonSerializerContext;

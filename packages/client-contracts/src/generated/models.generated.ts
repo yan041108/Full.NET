@@ -218,6 +218,7 @@ export interface AiKnowledgeBaseResponse {
 
 export interface AiKnowledgeCitationResponse {
   readonly documentId: string;
+  readonly docxLocation?: null | AiKnowledgeDocxLocationResponse;
   readonly id: string;
   readonly length: number;
   readonly offset: number;
@@ -241,6 +242,14 @@ export interface AiKnowledgeDocumentResponse {
   readonly title: string;
   readonly updatedAtUtc: null | string;
   readonly version: number;
+}
+
+export interface AiKnowledgeDocxLocationResponse {
+  readonly blockSequence: number;
+  readonly cellNumber: null | number;
+  readonly paragraphNumber: number;
+  readonly rowNumber: null | number;
+  readonly tableNumber: null | number;
 }
 
 export interface AiKnowledgeImportResponse {

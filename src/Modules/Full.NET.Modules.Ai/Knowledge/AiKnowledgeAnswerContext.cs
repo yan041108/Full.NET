@@ -27,6 +27,8 @@ internal sealed class AiKnowledgeAnswerContext
         {
             token.ThrowIfCancellationRequested(); var chunk = ranked.Chunk;
             if (!double.IsFinite(ranked.Score) || string.IsNullOrWhiteSpace(chunk.Text) || chunk.Text.Length > 8000
+                || !AiKnowledgeAnswerLineageCodec.ValidLocation(chunk.DocxLocation, chunk.PageNumber)
+                || (chunk.Source.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType) != (chunk.DocxLocation is not null)
                 || chunk.Offset < 0 || chunk.Length != chunk.Text.Length || chunk.Sequence < 0 || chunk.PageNumber is < 1) throw Invalid();
             var id = ids.NewId(); if (id == Guid.Empty || id.Version != 7 || !seen.Add(id)) throw Invalid();
             citations.Add(new(id, chunk with { Vector = chunk.Vector.ToArray() }));
@@ -50,6 +52,15 @@ internal sealed class AiKnowledgeAnswerContext
                 writer.WriteStartObject(); writer.WriteString("citationId", citation.Id);
                 writer.WriteString("documentId", chunk.Source.DocumentId); writer.WriteString("versionId", chunk.Source.VersionId);
                 if (chunk.PageNumber is { } page) writer.WriteNumber("page", page); else writer.WriteNull("page");
+                if (chunk.DocxLocation is { } location)
+                {
+                    writer.WriteStartObject("docxLocation"); writer.WriteNumber("blockSequence", location.BlockSequence);
+                    writer.WriteNumber("paragraphNumber", location.ParagraphNumber);
+                    if (location.TableNumber is { } table) writer.WriteNumber("tableNumber", table); else writer.WriteNull("tableNumber");
+                    if (location.RowNumber is { } row) writer.WriteNumber("rowNumber", row); else writer.WriteNull("rowNumber");
+                    if (location.CellNumber is { } cell) writer.WriteNumber("cellNumber", cell); else writer.WriteNull("cellNumber");
+                    writer.WriteEndObject();
+                }
                 writer.WriteNumber("offset", chunk.Offset); writer.WriteNumber("length", chunk.Length); writer.WriteString("text", chunk.Text); writer.WriteEndObject();
             }
             writer.WriteEndArray(); writer.WriteEndObject();

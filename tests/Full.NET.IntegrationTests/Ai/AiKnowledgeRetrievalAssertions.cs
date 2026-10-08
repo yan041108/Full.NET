@@ -37,7 +37,8 @@ internal static class AiKnowledgeRetrievalAssertions
         var tasks = new AiKnowledgeIndexTaskStore(query, command, tenant, clock, ids); var offlineWriter = new OfflineWriter();
         var service = new AiKnowledgeRetrievalService(query, state, tenant, access, permission,
             new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options),
-            new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options), options);
+            new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options), options,
+            new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options));
         var modelId = await db.QuerySingleAsync<Guid>("SELECT EmbeddingModelConfigId FROM fn_ai_knowledge_base WHERE Id=@Id", new { Id = binding.KnowledgeBaseId });
         var model = await query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(tenant.Id.HasValue ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
             new Dictionary<string, object?> { ["ModelConfigId"] = modelId }); Assert.IsNotNull(model);
@@ -46,6 +47,7 @@ internal static class AiKnowledgeRetrievalAssertions
         Assert.IsTrue(result.Chunks.Count > 1); Assert.AreEqual(binding.VersionId, result.Sources[0].VersionId);
         Assert.IsTrue(result.Chunks.All(c => c.Chunk.Source.ModelConfigId == model.Id));
         Assert.IsTrue(result.Chunks.All(c => c.Chunk.PageNumber.HasValue == (c.Chunk.Source.ContentType == "application/pdf")));
+        Assert.IsTrue(result.Chunks.All(c => (c.Chunk.DocxLocation is not null) == (c.Chunk.Source.ContentType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document")));
         var pipeline = new AiKnowledgeAnswerPipeline(service, ids);
         // TXT 和 PDF 均直接使用生产完整准备流程；上下文选择完整块前缀，完整来源依赖不随容量裁剪。
         var prepared = await pipeline.PrepareAsync([binding.KnowledgeBaseId], reader.Actor, model, vector, "来源说明", default);
@@ -56,6 +58,7 @@ internal static class AiKnowledgeRetrievalAssertions
         var accepted = await pipeline.AcceptAsync(prepared, bytes, default); Assert.AreEqual("测试答案", accepted.Text);
         var historyGuard = new AiKnowledgeAnswerHistoryGuard(query, state, tenant, options, access, permission,
             new AiKnowledgeAnswerSourceProof(new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options),
+                new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options),
                 new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options)));
         var lineage = AiKnowledgeAnswerLineageCodec.Create(new(prepared, accepted, ids.NewId(), ids.NewId()), ids.NewId(), ids.NewId());
         var lineageJson = AiKnowledgeAnswerLineageCodec.Encode(lineage);

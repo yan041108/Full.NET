@@ -27,7 +27,7 @@ internal static class Endpoint
                 : mapper.Map(result, context);
         }), "aiUploadKnowledgeVersion", AiKnowledgeDocumentPermissions.Upload)
             // 正文由协调器有界读取；OpenAPI 必须声明原始流，不能让客户端误用 JSON 或 multipart。
-            .Accepts<Stream>("application/pdf", "text/markdown", "text/plain")
+            .Accepts<Stream>(Domain.AiKnowledgeFilePolicy.DocxContentType, "application/pdf", "text/markdown", "text/plain")
             .Produces<AiKnowledgeImportResponse>(StatusCodes.Status202Accepted);
         Read(Common(group.MapGet("/versions", async (Guid knowledgeBaseId, Guid documentId, int? page, int? pageSize,
             AiKnowledgeVersionReader reader, IApiResultMapper mapper, HttpContext context, CancellationToken token) => TryActor(context, out var actor)

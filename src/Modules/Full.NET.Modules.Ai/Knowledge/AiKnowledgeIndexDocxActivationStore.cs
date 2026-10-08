@@ -19,7 +19,38 @@ internal sealed class AiKnowledgeIndexDocxActivationStore(IQueryExecutor query, 
     IDataTransactionState transactions, ICurrentTenant tenant, IClock clock, IIdGenerator ids, AiKnowledgeIndexTaskStore tasks,
     IBackgroundSessionAuthorization authorization, IOptions<DatabaseOptions> database)
 {
+    private readonly ICommandTransaction proofTransactions = AiKnowledgeIndexPdfAuthorityBoundary.TrackTransactions(transaction);
     internal const int MaxReceiptBytes = 1048576;
+    /// <summary>当前读取者由外层独立授权；原写入会话离线不影响已完成内容。</summary>
+    internal Task<bool> IsReadyForReadAsync(AiKnowledgeIndexStatusRecord expected, Dictionary<string, object?> parameters, CancellationToken token)
+        => ReadGenerationAsync(expected, parameters, null, token);
+
+    /// <summary>完整证明与旧载荷删除共享 AI 锁事务；拒绝或取消必须回滚。</summary>
+    internal Task<bool> WithReadyGenerationAsync(AiKnowledgeIndexStatusRecord expected, Dictionary<string, object?> parameters,
+        Func<CancellationToken, Task<bool>> cleanup, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(cleanup);
+        return ReadGenerationAsync(expected, parameters, cleanup, token);
+    }
+
+    private async Task<bool> ReadGenerationAsync(AiKnowledgeIndexStatusRecord expected, Dictionary<string, object?> parameters,
+        Func<CancellationToken, Task<bool>>? cleanup, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); NoTransaction();
+        if (expected.ContentType != Domain.AiKnowledgeFilePolicy.DocxContentType || expected.IsCurrent != 1 || expected.IsDeleted != 0
+            || expected.CleanupPending != 0 || expected.StateKey != "completed" || expected.TaskId is not { } taskId || taskId == Guid.Empty
+            || expected.ActiveTaskId != taskId || expected.ActiveLeaseToken is not { } lease || lease == Guid.Empty) return false;
+        var captured = new Dictionary<string, object?>(parameters, StringComparer.Ordinal);
+        using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token); bounded.CancelAfter(TimeSpan.FromSeconds(25));
+        // 不能用可放弃迟到 IO 的边界包装整段证明，调用方必须等待本地事务结束。
+        try
+        {
+            return await VerifyActiveAsync(new(expected.KnowledgeBaseId, expected.DocumentId, expected.VersionId, expected.DocumentVersion,
+                expected.KnowledgeBaseVersion, expected.OwnerUserId), taskId, lease, bounded.Token, expected, captured, cleanup).ConfigureAwait(false);
+        }
+        catch (ActivationRejectedException) { return false; }
+    }
+
     private static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
         AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.IndexEnqueue];
 
@@ -30,7 +61,9 @@ internal sealed class AiKnowledgeIndexDocxActivationStore(IQueryExecutor query, 
         return await VerifyActiveAsync(binding, taskId, leaseToken, bounded.Token).ConfigureAwait(false);
     }
 
-    private async Task<bool> VerifyActiveAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
+    private async Task<bool> VerifyActiveAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token,
+        AiKnowledgeIndexStatusRecord? expected = null, Dictionary<string, object?>? readParameters = null,
+        Func<CancellationToken, Task<bool>>? cleanup = null)
     {
         NoTransaction(); var p = tasks.HeldParameters(binding, taskId, leaseToken, token);
         var pointer = await ReadAuthorityAsync(ct => query.QuerySingleOrDefaultAsync<AiKnowledgeIndexActivationRecord>(Choose(AiKnowledgeIndexActivationSql.PointerHost,
@@ -54,23 +87,40 @@ internal sealed class AiKnowledgeIndexDocxActivationStore(IQueryExecutor query, 
         var manifest = verifiedManifest?.Plan;
         if (manifest is null || manifest.Summary.PlanHash != pointer.PlanHash || !ValidManifest(binding, manifest)
             || receipts!.Length != manifest.Batches.Count
-            || !await AuthorizedAsync(binding, session, token).ConfigureAwait(false)) return false;
+            || (expected is null && !await AuthorizedAsync(binding, session, token).ConfigureAwait(false))) return false;
         Fill(p, session, manifest, receipts);
         p["Completed"] = 1;
-        var proven = await transaction.ExecuteAsync<AiKnowledgeIndexDispatchRecord?>(async cancellation =>
+        var proven = await proofTransactions.ExecuteAsync<AiKnowledgeIndexDispatchRecord?>(async cancellation =>
         {
             var source = await ValidateLockedAsync(binding, p, session, new(manifest, pointer.ManifestHash), receipts, null, cancellation).ConfigureAwait(false);
             if (source is null) return null;
             var current = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexActivationRecord>(Choose(AiKnowledgeIndexActivationSql.PointerHost,
                 AiKnowledgeIndexActivationSql.PointerTenant), p, cancellation).ConfigureAwait(false);
             cancellation.ThrowIfCancellationRequested();
-            return current == pointer ? source : null;
+            if (current != pointer) return null;
+            if (expected is not null)
+            {
+                // 只查询 AI 可见性；角色/机构关系与当前权限由外层在证明之后重新读取。
+                var visible = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexStatusRecord>(
+                    AiKnowledgeIndexStatusSql.For(database.Value.Provider, tasks.IsTenant), readParameters, cancellation).ConfigureAwait(false);
+                cancellation.ThrowIfCancellationRequested();
+                if (visible != expected || expected.ActiveManifestHash != pointer.ManifestHash || expected.ActivePlanHash != pointer.PlanHash
+                    || expected.ActiveReceiptHash != pointer.ReceiptHash) return null;
+                if (cleanup is not null)
+                {
+                    // 回调可能已经写入；false 不能提交部分删除。
+                    if (!await cleanup(cancellation).ConfigureAwait(false)) throw new ActivationRejectedException();
+                    cancellation.ThrowIfCancellationRequested();
+                }
+            }
+            return source;
         }, token).ConfigureAwait(false);
+        if (expected is not null) return proven is not null;
         // 数据库等待后原会话可能被撤销；读到活动指针不免除当前授权。
         if (proven is null || !await AuthorizedAsync(binding, session, token).ConfigureAwait(false)) return false;
         // 最后权限等待后再锁读 AI 来源、目的地、原绑定和指针；不重复解码整份计划。
         // 向量/结算证明对应前一个完整锁事务；这不是 Identity 与 AI 的联合原子快照。
-        return await transaction.ExecuteAsync(async cancellation =>
+        return await proofTransactions.ExecuteAsync(async cancellation =>
         {
             cancellation.ThrowIfCancellationRequested(); p["Now"] = clock.UtcNow;
             var currentSource = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Choose(
@@ -102,7 +152,7 @@ internal sealed class AiKnowledgeIndexDocxActivationStore(IQueryExecutor query, 
         p["Id"] = ids.NewId(); p["ManifestHash"] = manifest.PayloadHash;
         try
         {
-            _ = await transaction.ExecuteAsync(async cancellation =>
+            _ = await proofTransactions.ExecuteAsync(async cancellation =>
             {
                 var source = await ValidateLockedAsync(binding, p, proof.Session, manifest, receipts, proof.Source, cancellation).ConfigureAwait(false);
                 if (source is null) return false;

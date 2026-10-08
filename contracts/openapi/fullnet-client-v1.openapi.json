@@ -4431,6 +4431,11 @@
                 "$ref": "#/components/schemas/Stream"
               }
             },
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            },
             "text/markdown": {
               "schema": {
                 "$ref": "#/components/schemas/Stream"
@@ -46492,6 +46497,16 @@
             "format": "uuid",
             "type": "string"
           },
+          "docxLocation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiKnowledgeDocxLocationResponse"
+              }
+            ]
+          },
           "id": {
             "format": "uuid",
             "type": "string"
@@ -46625,6 +46640,61 @@
           "createdAtUtc",
           "updatedAtUtc",
           "version"
+        ],
+        "type": "object"
+      },
+      "AiKnowledgeDocxLocationResponse": {
+        "properties": {
+          "blockSequence": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "cellNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "paragraphNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "rowNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "tableNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "blockSequence",
+          "paragraphNumber",
+          "tableNumber",
+          "rowNumber",
+          "cellNumber"
         ],
         "type": "object"
       },

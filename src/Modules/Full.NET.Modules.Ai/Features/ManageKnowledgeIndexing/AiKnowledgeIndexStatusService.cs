@@ -12,7 +12,7 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeIndexing;
 /// <summary>当前读取者独立授权；完成状态须复核当前完整性，不消费原会话或触发模型。</summary>
 internal sealed class AiKnowledgeIndexStatusService(IQueryExecutor query, IDataTransactionState transactions, ICurrentTenant tenant,
     AiKnowledgeReadAccess access, AiKnowledgePermissionGuard permissions, AiKnowledgeIndexActivationStore activation, IOptions<DatabaseOptions> database,
-    AiKnowledgeIndexPdfActivationStore? pdfActivation = null)
+    AiKnowledgeIndexPdfActivationStore? pdfActivation = null, AiKnowledgeIndexDocxActivationStore? docxActivation = null)
 {
     internal static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.IndexRead];
 
@@ -36,6 +36,7 @@ internal sealed class AiKnowledgeIndexStatusService(IQueryExecutor query, IDataT
         {
             "text/plain" or "text/markdown" => await activation.IsReadyForReadAsync(row, snapshot.Parameters, token).ConfigureAwait(false),
             "application/pdf" when pdfActivation is not null => await pdfActivation.IsReadyForReadAsync(row, snapshot.Parameters, token).ConfigureAwait(false),
+            Domain.AiKnowledgeFilePolicy.DocxContentType when docxActivation is not null => await docxActivation.IsReadyForReadAsync(row, snapshot.Parameters, token).ConfigureAwait(false),
             _ => false
         };
         Check(token); if (!SameScope()) return Denied();

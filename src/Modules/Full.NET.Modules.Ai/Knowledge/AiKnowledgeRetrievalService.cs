@@ -23,7 +23,7 @@ internal sealed record AiKnowledgeRetrievalSnapshot(Guid Actor, Guid? TenantId, 
 /// <summary>读取当前授权且完整的活动代次；禁止加入外部事务或触发收费模型调用。</summary>
 internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTransactionState transactions, ICurrentTenant tenant,
     AiKnowledgeReadAccess access, AiKnowledgePermissionGuard permissions, AiKnowledgeIndexActivationStore activation,
-    AiKnowledgeIndexPdfActivationStore pdfActivation, IOptions<DatabaseOptions> database)
+    AiKnowledgeIndexPdfActivationStore pdfActivation, IOptions<DatabaseOptions> database, AiKnowledgeIndexDocxActivationStore? docxActivation = null)
 {
     private static readonly string[] RequiredPermissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
         AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.IndexRead];
@@ -77,7 +77,7 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
                 frozen.Add(row with { Payload = row.Payload.ToArray() });
             }
             BindCapturedReceipts(first.Rows, frozen, work);
-            var chunks = Decode(first.Rows, frozen, model, input.Length, work);
+            var chunks = await DecodeAsync(initial, first.Rows, frozen, model, input.Length, first.Parameters, work).ConfigureAwait(false);
             var result = initial with { Sources = first.Rows, Chunks = AiKnowledgeVectorRanker.Rank(input, chunks, work) };
             // 载荷读取和解码等待后，复核完整代次及当前读取权；不复用原索引写入人的在线状态。
             await RevalidateCoreAsync(result, work).ConfigureAwait(false); return result;
@@ -136,7 +136,7 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
                 || row.TaskId is not { } task || task == Guid.Empty || row.ActiveTaskId != task || row.ActiveLeaseToken is not { } lease || lease == Guid.Empty
                 || row.ModelConfigId != snapshot.Model.Id || row.ModelConfigVersion != snapshot.Model.Version
                 || row.ProviderKey != snapshot.Model.ProviderKey || row.ModelId != snapshot.Model.ModelId
-                || row.ContentType is not ("text/plain" or "text/markdown" or "application/pdf")) throw Invalid();
+                || row.ContentType is not ("text/plain" or "text/markdown" or "application/pdf" or Domain.AiKnowledgeFilePolicy.DocxContentType)) throw Invalid();
         }
         return (Array.AsReadOnly(rows.OrderBy(r => r.DocumentId.ToString("N"), StringComparer.Ordinal).ToArray()), p);
     }
@@ -148,18 +148,39 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
             var p = new Dictionary<string, object?>(parameters) { ["KnowledgeBaseId"] = row.KnowledgeBaseId,
                 ["DocumentId"] = row.DocumentId, ["VersionId"] = row.VersionId };
             var ready = row.ContentType == "application/pdf" ? await pdfActivation.IsReadyForReadAsync(row, p, token).ConfigureAwait(false)
-                : await activation.IsReadyForReadAsync(row, p, token).ConfigureAwait(false);
+                : row.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType
+                    ? docxActivation is not null && await docxActivation.IsReadyForReadAsync(row, p, token).ConfigureAwait(false)
+                    : await activation.IsReadyForReadAsync(row, p, token).ConfigureAwait(false);
             Check(token); if (!ready) throw Invalid();
         }
     }
-    private static IReadOnlyList<AiKnowledgeRetrievalChunk> Decode(IReadOnlyList<AiKnowledgeIndexStatusRecord> sources,
-        IReadOnlyList<AiKnowledgeIndexVectorRecord> vectors, AiModelConfigRecord model, int dimensions, CancellationToken token)
+    private async Task<IReadOnlyList<AiKnowledgeRetrievalChunk>> DecodeAsync(AiKnowledgeRetrievalSnapshot snapshot, IReadOnlyList<AiKnowledgeIndexStatusRecord> sources,
+        IReadOnlyList<AiKnowledgeIndexVectorRecord> vectors, AiModelConfigRecord model, int dimensions, Dictionary<string, object?> parameters, CancellationToken token)
     {
-        var chunks = new List<AiKnowledgeRetrievalChunk>(); var seen = new HashSet<Guid>();
+        var chunks = new List<AiKnowledgeRetrievalChunk>(); var seen = new HashSet<Guid>(); long manifestBytes = 0;
         foreach (var source in sources)
         {
             var rows = vectors.Where(r => r.IndexTaskId == source.TaskId).OrderBy(r => r.BatchOrdinal).ToArray();
             if (rows.Length == 0) throw Invalid();
+            AiKnowledgeIndexDocxVerifiedManifest? manifest = null;
+            if (source.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType)
+            {
+                var p = new Dictionary<string, object?>(parameters) { ["DocumentId"] = source.DocumentId, ["VersionId"] = source.VersionId, ["TaskId"] = source.TaskId };
+                var captured = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexTextManifestRecord>(
+                    AiKnowledgeRetrievalSql.DocxManifestFor(database.Value.Provider, snapshot.IsTenant), p, token).ConfigureAwait(false);
+                CheckScope(snapshot, token);
+                if (captured is null || captured.Id != source.TaskId || captured.FormatKey != AiKnowledgeIndexDocxManifestCodec.FormatKey
+                    || captured.PayloadHash != source.ActiveManifestHash || captured.Payload is null
+                    || captured.Payload.Length is < 8 or > AiKnowledgeIndexDocxManifestCodec.MaxPayloadBytes) throw Invalid();
+                manifestBytes += captured.Payload.Length; if (manifestBytes > AiKnowledgeIndexDocxManifestCodec.MaxPayloadBytes) throw Invalid();
+                manifest = AiKnowledgeIndexDocxVerifiedManifest.Capture(captured.Payload, token); var identity = manifest.VectorIdentity;
+                if (manifest.PayloadHash != source.ActiveManifestHash || manifest.Plan.Summary.PlanHash != source.ActivePlanHash
+                    || manifest.Plan.Batches.Count != rows.Length || identity.KnowledgeBaseId != source.KnowledgeBaseId
+                    || identity.KnowledgeBaseVersion != source.KnowledgeBaseVersion || identity.TenantId != snapshot.TenantId
+                    || identity.ModelConfigId != model.Id || identity.ModelConfigVersion != model.Version
+                    || identity.ProviderKey != model.ProviderKey || identity.ModelId != model.ModelId
+                    || !string.Equals(identity.ContentHash, source.ContentHash, StringComparison.OrdinalIgnoreCase) || identity.SizeBytes != source.SizeBytes) throw Invalid();
+            }
             for (var ordinal = 0; ordinal < rows.Length; ordinal++)
             {
                 token.ThrowIfCancellationRequested(); var row = rows[ordinal];
@@ -176,6 +197,17 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
                     foreach (var item in pdf.Chunks)
                     {
                         var c = item.Source; Add(new(source, c.Sequence, c.PageNumber, c.Offset, c.Length, c.TokenCount, c.Text, item.Vector));
+                    }
+                }
+                else if (manifest is not null)
+                {
+                    if (row.FormatKey != AiKnowledgeIndexDocxVectorCodec.FormatKey) throw Invalid();
+                    var docx = AiKnowledgeIndexDocxVectorCodec.ReadBatch(manifest, ordinal, row.Payload, token).Payload;
+                    foreach (var item in docx.Chunks)
+                    {
+                        var c = item.Source; var b = item.Block;
+                        Add(new(source, c.Sequence, null, c.Offset, c.Length, c.TokenCount, c.Text, item.Vector)
+                        { DocxLocation = new(b.Sequence, b.ParagraphNumber, b.TableNumber, b.RowNumber, b.CellNumber) });
                     }
                 }
                 else

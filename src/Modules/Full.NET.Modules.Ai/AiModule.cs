@@ -108,6 +108,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexReconciliationService>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexActivationStore>();
         RegisterKnowledgePdfServices(services, worker: false);
+        RegisterKnowledgeDocxServices(services, worker: false);
         services.TryAddScoped<Knowledge.IAiKnowledgeAnswerSourceProof, Knowledge.AiKnowledgeAnswerSourceProof>();
         services.TryAddScoped<Knowledge.AiKnowledgeAnswerHistoryGuard>();
         services.TryAddScoped<Knowledge.AiKnowledgeRetrievalService>();
@@ -205,6 +206,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Knowledge.AiKnowledgeIndexActivationStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexPersistenceService>();
         RegisterKnowledgePdfServices(services, worker: true);
+        RegisterKnowledgeDocxServices(services, worker: true);
         services.TryAddScoped<Knowledge.AiKnowledgeIndexWorkerCoordinator>();
         services.AddHostedService<Knowledge.AiKnowledgeIndexHostedProcessor>();
         services.AddOptions<Knowledge.AiKnowledgeCleanupWorkerOptions>()
@@ -262,6 +264,25 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Knowledge.AiKnowledgeIndexPdfManifestStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexPdfVectorStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexPdfPersistenceService>();
+    }
+
+    private static void RegisterKnowledgeDocxServices(IServiceCollection services, bool worker)
+    {
+        services.AddOptions<Knowledge.AiKnowledgeDocxRuntimeOptions>().BindConfiguration(Knowledge.AiKnowledgeDocxRuntimeOptions.SectionName)
+            .Validate(options => options.IsValid(worker), "DOCX runtime requires trusted absolute paths and an immutable image; Worker files must exist.")
+            .ValidateOnStart();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexDocxActivationStore>();
+        if (!worker) return;
+        services.TryAddSingleton(provider =>
+        {
+            var options = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Knowledge.AiKnowledgeDocxRuntimeOptions>>().Value;
+            return new Knowledge.AiKnowledgeDocxSandboxOptions(options.NodeExecutablePath, options.CliScriptPath, options.ImageId);
+        });
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexDocxPlanningService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexDocxEmbeddingService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexDocxManifestStore>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexDocxVectorStore>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexDocxPersistenceService>();
     }
 
     private static void RegisterKnowledgeFileReferences(IServiceCollection services)

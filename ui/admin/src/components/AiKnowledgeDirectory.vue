@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { translateKnowledgeDocx } from '@fullnet/admin-i18n';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElAlert, ElButton, ElCard, ElEmpty, ElForm, ElFormItem, ElInput, ElMessageBox, ElPagination, ElSwitch, ElTable, ElTableColumn, ElTag } from 'element-plus';
@@ -18,7 +19,7 @@ import AiKnowledgePolicyDialog from './AiKnowledgePolicyDialog.vue';
 import AiKnowledgeGrantsDialog from './AiKnowledgeGrantsDialog.vue';
 import AiKnowledgeIndexDialog from './AiKnowledgeIndexDialog.vue';
 const props = defineProps<{ documents?: boolean }>();
-const { t } = useAdminI18n(); const session = useSessionStore(); const route = useRoute();
+const { t, locale } = useAdminI18n(); const session = useSessionStore(); const route = useRoute();
 type Row = AiKnowledgeBaseResponse | AiKnowledgeDocumentResponse;
 const rows = ref<Row[]>([]); const loading = ref(false); const busy = ref(false); const page = ref(1); const total = ref(0);
 const baseId = ref(typeof route.query.knowledgeBaseId === 'string' ? route.query.knowledgeBaseId : '');
@@ -121,8 +122,8 @@ function chooseFile(event: Event) {
 async function upload() {
   if (busy.value || !documentRow.value || !file.value || !canRead.value || !session.can('ai.knowledge_documents.upload')) return;
   const selected = file.value; const extension = selected.name.split('.').at(-1)?.toLowerCase();
-  const contentType = extension === 'txt' ? 'text/plain' : extension === 'md' ? 'text/markdown' : extension === 'pdf' ? 'application/pdf' : undefined;
-  if (!contentType || selected.size <= 0 || selected.size > 8 * 1024 * 1024) { showWarning(t('knowledge.fileInvalid')); return; }
+  const contentType = extension === 'txt' ? 'text/plain' : extension === 'md' ? 'text/markdown' : extension === 'pdf' ? 'application/pdf' : extension === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : undefined;
+  if (!contentType || selected.size <= 0 || selected.size > (extension === 'docx' ? 5 : 8) * 1024 * 1024) { showWarning(extension === 'docx' ? translateKnowledgeDocx(locale.value, 'fileInvalid') : t('knowledge.fileInvalid')); return; }
   // 网络结果不明时保留原请求键和原版本；只允许用户显式重试原上传。
   if (!uploadKey) { uploadKey = crypto.randomUUID(); uploadVersion = documentRow.value.version; }
   const scope = epoch; busy.value = true;
@@ -215,7 +216,7 @@ onMounted(() => void load(1)); onUnmounted(reset);
       <template v-if="documentRow">
         <p>{{ documentRow.title }}</p><p>{{ t('knowledge.fileHint') }}</p>
         <div v-if="session.can('ai.knowledge_documents.upload')" class="knowledge-toolbar">
-          <label>{{ t('knowledge.file') }} <input type="file" accept=".txt,.md,.pdf" :disabled="busy" data-testid="knowledge-file" @change="chooseFile" /></label>
+          <label>{{ t('knowledge.file') }} <input type="file" accept=".txt,.md,.pdf,.docx" :disabled="busy" data-testid="knowledge-file" @change="chooseFile" /></label>
           <el-button :disabled="!file || busy" :loading="busy" data-testid="knowledge-upload" @click="upload">{{ t('knowledge.upload') }}</el-button>
         </div>
         <el-table :data="versions" max-height="320" :empty-text="t('knowledge.empty')" row-key="id">

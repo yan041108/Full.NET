@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import AiKnowledgeDirectory from './AiKnowledgeDirectory.vue';
 import { useSessionStore } from '../auth/session';
 import * as api from '../api/ai-knowledge';
-import { showProblem } from '../feedback/fullNetMessage';
+import { showProblem, showWarning } from '../feedback/fullNetMessage';
 vi.mock('../api/ai-knowledge', () => ({ listKnowledgeBases: vi.fn(), createKnowledgeBase: vi.fn(), updateKnowledgeBase: vi.fn(), listKnowledgeDocuments: vi.fn(), getKnowledgeDocument: vi.fn(), createKnowledgeDocument: vi.fn(), updateKnowledgeDocument: vi.fn(), deleteKnowledgeDocument: vi.fn(), listKnowledgeVersions: vi.fn(), uploadKnowledgeVersion: vi.fn(), getKnowledgeImport: vi.fn(), retryKnowledgeImport: vi.fn() }));
 vi.mock('../feedback/fullNetMessage', () => ({ showProblem: vi.fn(), showSuccess: vi.fn(), showWarning: vi.fn() }));
 const baseId = '01900000-0000-7000-8000-000000000001'; const docId = '01900000-0000-7000-8000-000000000002';
@@ -21,10 +21,10 @@ async function render(documents = false, allow: (code: string) => boolean = () =
   const wrapper = mount(AiKnowledgeDirectory, { props: { documents }, global: { plugins: [pinia, router], stubs: { ArtFormDialog: dialog, AiKnowledgeSourceDialog: true, AiKnowledgePolicyDialog: true, AiKnowledgeGrantsDialog: true, AiKnowledgeIndexDialog: true } } });
   wrappers.push(wrapper); await flushPromises(); return wrapper;
 }
-async function selectUpload(wrapper: VueWrapper) {
+async function selectUpload(wrapper: VueWrapper, file = new File(['hello'], 'hello.txt', { type: 'text/plain' })) {
   await wrapper.get('[data-testid="knowledge-versions"]').trigger('click'); await flushPromises();
   const input = wrapper.get('[data-testid="knowledge-file"]');
-  Object.defineProperty(input.element, 'files', { value: [new File(['hello'], 'hello.txt', { type: 'text/plain' })], configurable: true });
+  Object.defineProperty(input.element, 'files', { value: [file], configurable: true });
   await input.trigger('change'); await wrapper.get('[data-testid="knowledge-upload"]').trigger('click'); await flushPromises();
 }
 beforeEach(() => {
@@ -33,6 +33,18 @@ beforeEach(() => {
 });
 afterEach(() => { wrappers.forEach(wrapper => wrapper.unmount()); wrappers = []; vi.restoreAllMocks(); });
 describe('知识目录与文件交付', () => {
+  it('DOCX 在 5 MiB 边界使用规范 MIME 上传', async () => {
+    vi.mocked(api.uploadKnowledgeVersion).mockRejectedValue(new Error('network'));
+    const wrapper = await render(true);
+    await selectUpload(wrapper, new File([new Uint8Array(5 * 1024 * 1024)], 'source.docx', { type: '' }));
+    expect(api.uploadKnowledgeVersion).toHaveBeenCalledWith(expect.objectContaining({ contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
+  });
+  it('DOCX 超过 5 MiB 时拒绝上传并显示准确限制', async () => {
+    const wrapper = await render(true);
+    await selectUpload(wrapper, new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'source.docx', { type: '' }));
+    expect(api.uploadKnowledgeVersion).not.toHaveBeenCalled();
+    expect(showWarning).toHaveBeenCalledWith(expect.stringContaining('5 MiB'));
+  });
   it('版本索引读取权提供索引入口，不隐式提供原文读取', async () => {
     vi.mocked(api.listKnowledgeVersions).mockResolvedValue(page([{ id: docId, documentId: docId, versionNumber: 1, originalFileName: 'test.txt', contentType: 'text/plain', contentHash: 'hash', sizeBytes: 4, processingStatus: 'completed', createdAtUtc: 'now' }]));
     const wrapper = await render(true, code => ['ai.knowledge_bases.read', 'ai.knowledge_documents.read', 'ai.knowledge_documents.versions_read', 'ai.knowledge_documents.index_read'].includes(code));

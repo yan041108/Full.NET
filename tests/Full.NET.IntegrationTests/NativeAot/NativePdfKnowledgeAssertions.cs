@@ -30,19 +30,24 @@ internal static class NativePdfKnowledgeAssertions
         ["FullNet:Ai:KnowledgePdf:Enabled"] = "true",
         ["FullNet:Ai:KnowledgePdf:NodeExecutablePath"] = executable,
         ["FullNet:Ai:KnowledgePdf:CliScriptPath"] = executable,
-        ["FullNet:Ai:KnowledgePdf:ImageId"] = "sha256:" + new string('a', 64)
+        ["FullNet:Ai:KnowledgePdf:ImageId"] = "sha256:" + new string('a', 64),
+        ["FullNet:Ai:KnowledgeDocx:Enabled"] = "true",
+        ["FullNet:Ai:KnowledgeDocx:NodeExecutablePath"] = executable,
+        ["FullNet:Ai:KnowledgeDocx:CliScriptPath"] = executable,
+        ["FullNet:Ai:KnowledgeDocx:ImageId"] = "sha256:" + new string('a', 64)
     };
 
     internal static async Task VerifyAsync(HttpClient client, string token, DatabaseProvider provider, string connectionString, CancellationToken cancellation,
-        bool nativeWorker = false)
+        bool nativeWorker = false, bool docx = false)
     {
         string Claim(string name) => IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(token, name)!;
         var session = new SessionBindingSnapshot(Guid.Parse(Claim(FullNetIdentityClaimTypes.Subject)), null,
             Guid.Parse(Claim(FullNetIdentityClaimTypes.SessionId)), Claim(FullNetIdentityClaimTypes.SecurityStamp),
             Claim(FullNetIdentityClaimTypes.ActorScope), Claim(FullNetIdentityClaimTypes.Scope));
         var clock = new AiOperationBudgetAssertions.TestClock(); var controls = new AiKnowledgeIndexPdfVectorAssertions.WorkerControls();
+        var docxControls = new AiKnowledgeIndexDocxPersistenceAssertions.WorkerControls();
         using var factory = new FullNetApiFactory(provider, connectionString, configureTestServices: services =>
-        { services.RemoveAll<IClock>(); services.AddSingleton<IClock>(clock); controls.Register(services); });
+        { services.RemoveAll<IClock>(); services.AddSingleton<IClock>(clock); if (docx) docxControls.Register(services); else controls.Register(services); });
         await using var db = AiOperationBudgetAssertions.Connection(factory);
         var historyChecked = false;
         static string PathFor(AiKnowledgeIndexTaskBinding b) => $"/api/v1/ai/knowledge-bases/{b.KnowledgeBaseId}/documents/{b.DocumentId}/versions/{b.VersionId}/index";
@@ -60,7 +65,7 @@ internal static class NativePdfKnowledgeAssertions
             Assert.IsNotNull(status); Assert.AreEqual("ready", status.State);
             if (!nativeWorker)
             {
-                // 在真实 Native API 中读取只读核对契约；沿用已完成的收费 PDF 证明，不产生新模型调用。
+                // 在真实 Native API 中读取只读核对契约；沿用已完成的收费来源 证明，不产生新模型调用。
                 using var reconciliation = await Send(HttpMethod.Get, PathFor(b) + "/reconciliation"); await Require(reconciliation, HttpStatusCode.OK);
                 var checkedIndex = await reconciliation.Content.ReadFromJsonAsync<AiKnowledgeIndexReconciliationResponse>(cancellation);
                 Assert.IsNotNull(checkedIndex); Assert.AreEqual(b.VersionId, checkedIndex.VersionId);
@@ -71,7 +76,7 @@ internal static class NativePdfKnowledgeAssertions
             if (!nativeWorker && !historyChecked)
             {
                 historyChecked = true;
-                // 使用同一已结算 PDF 夹具验证真实 Native 历史读取；正文由夹具种入，不宣称云模型生成。
+                // 使用同一已结算来源 夹具验证真实 Native 历史读取；正文由夹具种入，不宣称云模型生成。
                 await VerifyHistoryAsync(b);
             }
         }
@@ -108,10 +113,10 @@ internal static class NativePdfKnowledgeAssertions
                 await db.ExecuteAsync("UPDATE fn_ai_model_config SET EndpointBaseUrl=@Endpoint WHERE Id=@Id", new { Id = source.ModelConfigId, Endpoint = destination });
             }
             var messageId = Guid.CreateVersion7(); var citationId = Guid.CreateVersion7();
-            var lineage = new AiKnowledgeAnswerLineage(1, messageId, chat.Id, session.UserId, null,
+            var lineage = new AiKnowledgeAnswerLineage(docx ? 2 : 1, messageId, chat.Id, session.UserId, null,
                 [new(source.KnowledgeBaseId, source.DocumentId, source.VersionId, source.DocumentVersion, source.KnowledgeBaseVersion,
                     source.FileId, source.ContentHash, source.TaskId!.Value, source.ActiveReceiptHash!, source.ActiveManifestHash!, source.ActivePlanHash!)],
-                [new(citationId, source.DocumentId, source.VersionId, 0, 1, 0, 1)]);
+                [new(citationId, source.DocumentId, source.VersionId, 0, docx ? null : 1, 0, 1) { DocxLocation = docx ? new(0, 1, null, null, null) : null }]);
             var json = AiKnowledgeAnswerLineageCodec.Encode(lineage);
             var ids = new[] { messageId, Guid.CreateVersion7(), Guid.CreateVersion7() };
             for (var i = 0; i < ids.Length; i++)
@@ -127,7 +132,8 @@ internal static class NativePdfKnowledgeAssertions
             }
             var readable = await ReadHistory(); var answer = readable.Messages.Single(message => message.Id == messageId);
             Assert.AreEqual("原生可读知识答案", answer.Content); Assert.IsNull(answer.KnowledgeUnavailableCode);
-            Assert.HasCount(1, answer.Citations); Assert.AreEqual(citationId, answer.Citations[0].Id); Assert.AreEqual(1, answer.Citations[0].PageNumber);
+            Assert.HasCount(1, answer.Citations); Assert.AreEqual(citationId, answer.Citations[0].Id); Assert.AreEqual(docx ? null : 1, answer.Citations[0].PageNumber);
+            Assert.AreEqual(docx ? new AiKnowledgeDocxLocationResponse(0, 1, null, null, null) : null, answer.Citations[0].DocxLocation);
             foreach (var id in ids.Skip(1))
             { var hidden = readable.Messages.Single(message => message.Id == id); Assert.AreEqual("", hidden.Content);
                 Assert.AreEqual(AiErrorCodes.KnowledgeAnswerUnavailable, hidden.KnowledgeUnavailableCode); Assert.HasCount(0, hidden.Citations); }
@@ -138,7 +144,7 @@ internal static class NativePdfKnowledgeAssertions
                 Assert.AreEqual(AiErrorCodes.KnowledgeAnswerUnavailable, hidden.KnowledgeUnavailableCode); Assert.HasCount(0, hidden.Citations); }
             finally { await db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET ReceiptJson=@Receipt WHERE DocumentId=@Id", new { Id = b.DocumentId, Receipt = receipt }); }
         }
-        var probe = new AiKnowledgeIndexPdfVectorAssertions.NativeProbe(session, async b =>
+        async Task<Guid> Enqueue(AiKnowledgeIndexTaskBinding b)
         {
             using var response = await Send(HttpMethod.Post, PathFor(b)); await Require(response, HttpStatusCode.Accepted);
             var queued = await response.Content.ReadFromJsonAsync<AiKnowledgeIndexEnqueueResponse>(cancellation); Assert.IsNotNull(queued);
@@ -156,7 +162,8 @@ internal static class NativePdfKnowledgeAssertions
                 finally { await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_session SET ActorUserId=@Actor WHERE IndexTaskId=@TaskId", new { Actor = b.OwnerUserId, TaskId = queued.TaskId }); }
             }
             return queued.TaskId;
-        }, ReadReady, async b =>
+        }
+        async Task Recover(AiKnowledgeIndexTaskBinding b)
         {
             // 人工重试沿原会话冻结绑定运行，保留已结算清单和向量；Worker 不接触假 Node/CLI 路径。
             var task = await db.QuerySingleAsync<Guid>("SELECT Id FROM fn_ai_knowledge_index_task WHERE VersionId=@Id", new { Id = b.VersionId });
@@ -170,7 +177,8 @@ internal static class NativePdfKnowledgeAssertions
                 var coordinator = new AiKnowledgeIndexWorkerCoordinator(services.GetRequiredService<IQueryExecutor>(),
                     services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<IServiceScopeFactory>(), clock,
                     services.GetRequiredService<IOptions<DatabaseOptions>>(), Options.Create(new AiKnowledgeIndexWorkerOptions { Enabled = true, BatchSize = 1 }),
-                    NullLogger<AiKnowledgeIndexWorkerCoordinator>.Instance, Options.Create(new AiKnowledgePdfRuntimeOptions { Enabled = true }));
+                    NullLogger<AiKnowledgeIndexWorkerCoordinator>.Instance, Options.Create(new AiKnowledgePdfRuntimeOptions { Enabled = !docx }),
+                    Options.Create(new AiKnowledgeDocxRuntimeOptions { Enabled = docx }));
                 Assert.AreEqual(1, await coordinator.ProcessPendingAsync(cancellation)); await ReadReady(b); return;
             }
             Assert.IsTrue(NativeWorkerArtifactLocator.TryResolve(out var artifact, out var reason), reason);
@@ -189,7 +197,8 @@ internal static class NativePdfKnowledgeAssertions
                 deadline.Token.ThrowIfCancellationRequested(); await Task.Delay(250, deadline.Token);
             }
             await ReadReady(b);
-        });
-        await AiKnowledgeIndexPdfVectorAssertions.VerifyAsync(factory, clock, controls, probe);
+        }
+        if (docx) await AiKnowledgeIndexDocxPersistenceAssertions.VerifyAsync(factory, clock, docxControls, new(session, Enqueue, ReadReady, Recover));
+        else await AiKnowledgeIndexPdfVectorAssertions.VerifyAsync(factory, clock, controls, new(session, Enqueue, ReadReady, Recover));
     }
 }

@@ -29,6 +29,7 @@ internal static class AiKnowledgeFileVersionsApiAssertions
         Assert.AreEqual(HttpStatusCode.Created, createBase.StatusCode);
         var catalog = (await createBase.Content.ReadFromJsonAsync<AiKnowledgeBaseResponse>())!;
         var basePath = $"/api/v1/ai/knowledge-bases/{catalog.Id}/documents";
+        await VerifyDocxUploadAsync(client, basePath);
         using var create = await client.PostAsJsonAsync(basePath, new CreateAiKnowledgeDocumentRequest("受控上传", null));
         Assert.AreEqual(HttpStatusCode.Created, create.StatusCode);
         var document = (await create.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>())!;
@@ -112,6 +113,7 @@ internal static class AiKnowledgeFileVersionsApiAssertions
         using var tenantBaseCreated = await tenantClient.PostAsJsonAsync("/api/v1/ai/knowledge-bases", new CreateAiKnowledgeBaseRequest("租户来源", null));
         var tenantBase = (await tenantBaseCreated.Content.ReadFromJsonAsync<AiKnowledgeBaseResponse>())!;
         var tenantDocuments = $"/api/v1/ai/knowledge-bases/{tenantBase.Id}/documents";
+        await VerifyDocxUploadAsync(tenantClient, tenantDocuments);
         using var tenantCreated = await tenantClient.PostAsJsonAsync(tenantDocuments, new CreateAiKnowledgeDocumentRequest("租户文件", null));
         var tenantDoc = (await tenantCreated.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>())!;
         var tenantPath = tenantDocuments + $"/{tenantDoc.Id}";
@@ -132,5 +134,47 @@ internal static class AiKnowledgeFileVersionsApiAssertions
         await Expect(client, sourcePath, HttpStatusCode.NotFound);
         var tombstoneOperation = (await client.GetFromJsonAsync<AiKnowledgeImportResponse>(path + $"/imports/{operationId}"))!;
         Assert.AreEqual("failed", tombstoneOperation.State);
+    }
+
+    /// <summary>真实 HTTP 在 Host 和 Tenant 上传 OOXML，拒绝超限或格式错误并保持幂等原文件。</summary>
+    private static async Task VerifyDocxUploadAsync(HttpClient client, string documents)
+    {
+        const string mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        using var created = await client.PostAsJsonAsync(documents, new CreateAiKnowledgeDocumentRequest("DOCX原文件", null));
+        Assert.AreEqual(HttpStatusCode.Created, created.StatusCode);
+        var document = (await created.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>())!;
+        var path = $"{documents}/{document.Id}";
+        using var bytes = new MemoryStream();
+        using (var zip = new System.IO.Compression.ZipArchive(bytes, System.IO.Compression.ZipArchiveMode.Create, true))
+        {
+            Add("[Content_Types].xml", "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/></Types>");
+            Add("_rels/.rels", "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/></Relationships>");
+            Add("word/document.xml", "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body><w:p><w:r><w:t>授权 DOCX 正文</w:t></w:r></w:p></w:body></w:document>");
+            void Add(string name, string content) { using var writer = new StreamWriter(zip.CreateEntry(name).Open(), new UTF8Encoding(false)); writer.Write(content); }
+        }
+        var content = bytes.ToArray();
+        var oversized = new byte[5 * 1024 * 1024 + 1]; content.CopyTo(oversized, 0);
+        foreach (var invalid in new[] { ("source.txt", content), ("source.docx", Encoding.UTF8.GetBytes("非ZIP正文")), ("source.docx", oversized) })
+        {
+            using var body = Body(invalid.Item2);
+            using var denied = await client.PostAsync($"{path}/versions?version=1&requestKey={Guid.NewGuid()}&fileName={invalid.Item1}", body);
+            Assert.AreEqual(HttpStatusCode.BadRequest, denied.StatusCode, await denied.Content.ReadAsStringAsync());
+        }
+        Assert.AreEqual(0L, (await client.GetFromJsonAsync<PagedResult<AiKnowledgeVersionResponse>>(path + "/versions"))!.Total);
+        var uploadPath = $"{path}/versions?version=1&requestKey={Guid.NewGuid()}&fileName=source.docx";
+        using var uploadBody = Body(content); using var upload = await client.PostAsync(uploadPath, uploadBody);
+        Assert.AreEqual(HttpStatusCode.Accepted, upload.StatusCode, await upload.Content.ReadAsStringAsync());
+        var operation = (await upload.Content.ReadFromJsonAsync<AiKnowledgeImportResponse>())!;
+        Assert.AreEqual("completed", operation.State);
+        using var replayBody = Body(content); using var replay = await client.PostAsync(uploadPath, replayBody);
+        Assert.AreEqual(HttpStatusCode.Accepted, replay.StatusCode);
+        Assert.AreEqual(operation.Id, (await replay.Content.ReadFromJsonAsync<AiKnowledgeImportResponse>())!.Id);
+        var version = (await client.GetFromJsonAsync<PagedResult<AiKnowledgeVersionResponse>>(path + "/versions"))!.Items.Single();
+        Assert.AreEqual(mime, version.ContentType); Assert.AreEqual(content.LongLength, version.SizeBytes);
+        using var source = await client.GetAsync($"{path}/versions/{version.Id}/source");
+        Assert.AreEqual(HttpStatusCode.OK, source.StatusCode);
+        Assert.IsTrue(source.Headers.CacheControl!.NoStore);
+        CollectionAssert.AreEqual(content, await source.Content.ReadAsByteArrayAsync());
+        ByteArrayContent Body(byte[] value) { var body = new ByteArrayContent(value); body.Headers.ContentType = new(mime); return body; }
     }
 }

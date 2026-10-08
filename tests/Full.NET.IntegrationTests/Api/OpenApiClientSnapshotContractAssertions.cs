@@ -93,7 +93,8 @@ internal static class OpenApiClientSnapshotContractAssertions
         var body = upload.GetProperty("requestBody");
         Assert.IsTrue(body.GetProperty("required").GetBoolean());
         var content = body.GetProperty("content");
-        CollectionAssert.AreEquivalent(new[] { "application/pdf", "text/markdown", "text/plain" },
+        CollectionAssert.AreEquivalent(new[] { "application/pdf", "text/markdown", "text/plain",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
             content.EnumerateObject().Select(item => item.Name).ToArray());
         foreach (var item in content.EnumerateObject())
         {
@@ -134,6 +135,12 @@ internal static class OpenApiClientSnapshotContractAssertions
         Assert.IsFalse(
             requiredProperties.Contains("hasVersion", StringComparer.Ordinal),
             "CodeGenerationPreviewRequest.hasVersion 可在现代响应中省略，不得生成必填客户端守卫。");
+        var citation = document.RootElement.GetProperty("components").GetProperty("schemas")
+            .GetProperty("AiKnowledgeCitationResponse");
+        Assert.IsTrue(citation.GetProperty("properties").TryGetProperty("docxLocation", out _));
+        // TXT/PDF 及旧历史可以省略 DOCX 坐标，客户端不能要求新增兼容字段。
+        Assert.IsFalse(citation.TryGetProperty("required", out var citationRequired)
+            && citationRequired.EnumerateArray().Any(property => property.GetString() == "docxLocation"));
     }
 
     private static async Task NormalizeAsync(

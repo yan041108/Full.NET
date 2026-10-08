@@ -36,6 +36,18 @@ internal static class AiKnowledgeRetrievalSql
         "SELECT " + (mysql ? "" : "TOP (33) ") + "vector.Id,batch.IndexTaskId,batch.BatchOrdinal,batch.RequestHash,batch.InputCount,task.ModelConfigId,task.ModelConfigVersion,vector.ProviderKey,vector.ModelId,vector.Dimensions,vector.FormatKey,vector.DistanceKey,vector.PayloadHash,SUBSTRING(vector.Payload,1,524289) AS Payload,vector.CreatedAtUtc"
         + Root + " INNER JOIN fn_ai_knowledge_index_batch AS batch ON batch.IndexTaskId=task.Id INNER JOIN fn_ai_knowledge_index_vector AS vector ON vector.Id=batch.Id WHERE "
         + Filter(mysql, scoped) + " AND " + Ids(mysql, "requested", "TaskIdsJson", "task.Id") + " ORDER BY document.Id,batch.BatchOrdinal" + (mysql ? " LIMIT 33" : "");
+    // DOCX 召回需要完整逻辑清单；只读当前授权来源，截断上限加一使超限明确失败。
+    private static string DocxManifestText(bool mysql, bool scoped) =>
+        "SELECT " + (mysql ? "" : "TOP (1) ") + "manifest.Id,manifest.FormatKey,manifest.PayloadHash,SUBSTRING(manifest.Payload,1,8388609) AS Payload,manifest.CreatedAtUtc"
+        + Root + " INNER JOIN fn_ai_knowledge_docx_manifest AS manifest ON manifest.Id=task.Id WHERE " + Filter(mysql, scoped)
+        + " AND document.Id=@DocumentId AND version.Id=@VersionId AND task.Id=@TaskId AND version.ContentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'"
+        + (mysql ? " LIMIT 1" : "");
+    private static readonly SqlStatement DocxManifestSqlServerHost = new("ai.knowledge_retrieval.docx_manifest_sqlserver_host", DocxManifestText(false, false), SqlDataScope.HostOnly);
+    private static readonly SqlStatement DocxManifestSqlServerTenant = new("ai.knowledge_retrieval.docx_manifest_sqlserver_tenant", DocxManifestText(false, true), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    private static readonly SqlStatement DocxManifestMySqlHost = new("ai.knowledge_retrieval.docx_manifest_mysql_host", DocxManifestText(true, false), SqlDataScope.HostOnly);
+    private static readonly SqlStatement DocxManifestMySqlTenant = new("ai.knowledge_retrieval.docx_manifest_mysql_tenant", DocxManifestText(true, true), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    internal static SqlStatement DocxManifestFor(DatabaseProvider provider, bool scoped) => provider == DatabaseProvider.MySql
+        ? scoped ? DocxManifestMySqlTenant : DocxManifestMySqlHost : scoped ? DocxManifestSqlServerTenant : DocxManifestSqlServerHost;
     private static readonly SqlStatement SourcesSqlServerHost = new("ai.knowledge_retrieval.sources_sqlserver_host", SourceText(false, false), SqlDataScope.HostOnly);
     private static readonly SqlStatement SourcesSqlServerTenant = new("ai.knowledge_retrieval.sources_sqlserver_tenant", SourceText(false, true), SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
     private static readonly SqlStatement SourcesMySqlHost = new("ai.knowledge_retrieval.sources_mysql_host", SourceText(true, false), SqlDataScope.HostOnly);

@@ -22,7 +22,7 @@ internal sealed class AiKnowledgeUploadBuffer(MemoryStream content, string hash)
             int count;
             while ((count = await source.ReadAsync(bytes, token).ConfigureAwait(false)) > 0)
             {
-                if (output.Length > AiKnowledgeFilePolicy.MaxBytes - count)
+                if (output.Length > AiKnowledgeFilePolicy.Limit(type) - count)
                 {
                     output.Dispose();
                     return Invalid();
@@ -35,6 +35,11 @@ internal sealed class AiKnowledgeUploadBuffer(MemoryStream content, string hash)
             if (type == "application/pdf")
             {
                 if (length < 5 || !data.AsSpan(0, 5).SequenceEqual("%PDF-"u8)) { output.Dispose(); return Invalid(); }
+            }
+            else if (type == AiKnowledgeFilePolicy.DocxContentType)
+            {
+                // 这里只检查 ZIP 外壳；完整结构、压缩比和外部关系由独立隔离解析器检查。
+                if (length < 4 || !data.AsSpan(0, 4).SequenceEqual("PK\u0003\u0004"u8)) { output.Dispose(); return Invalid(); }
             }
             else
             {
@@ -49,5 +54,5 @@ internal sealed class AiKnowledgeUploadBuffer(MemoryStream content, string hash)
     }
 
     private static Result<AiKnowledgeUploadBuffer> Invalid() => Result<AiKnowledgeUploadBuffer>.Failure(
-        new Error("ai.knowledge.upload_invalid", "The content is empty, invalid or exceeds 8 MiB.", ErrorType.Validation));
+        new Error("ai.knowledge.upload_invalid", "The content is empty, invalid or exceeds the format size limit.", ErrorType.Validation));
 }

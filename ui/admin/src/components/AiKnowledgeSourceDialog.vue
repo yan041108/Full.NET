@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AiKnowledgeCitationPosition from './AiKnowledgeCitationPosition.vue';
 import { computed, defineAsyncComponent, onUnmounted, ref, watch } from 'vue';
 import { ElAlert, ElButton } from 'element-plus';
 import type { AiKnowledgeCitation, AiKnowledgeVersionResponse } from '@fullnet/client-contracts';
@@ -47,7 +48,7 @@ async function read(download = false) {
     const mime = (version?.contentType ?? blob.type).split(';')[0]?.trim().toLowerCase();
     if (download) {
       const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
-      anchor.href = url; anchor.download = `${props.versionId}.${mime === 'application/pdf' ? 'pdf' : mime === 'text/markdown' ? 'md' : mime === 'text/plain' ? 'txt' : 'bin'}`;
+      anchor.href = url; anchor.download = `${props.versionId}.${mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ? 'docx' : mime === 'application/pdf' ? 'pdf' : mime === 'text/markdown' ? 'md' : mime === 'text/plain' ? 'txt' : 'bin'}`;
       document.body.append(anchor);
       try { anchor.click(); } finally { anchor.remove(); URL.revokeObjectURL(url); }
     } else if (mime === 'text/plain' || mime === 'text/markdown') {
@@ -66,7 +67,7 @@ async function read(download = false) {
 <template>
   <ArtFormDialog :open="open" :title="t('knowledge.source')" width="760px" :show-confirm="false" :cancel-label="t('common.cancel')" @update:open="emit('update:open', $event)">
     <p>{{ t('knowledge.sourceHint') }}</p>
-    <p v-if="citation">{{ t('knowledge.position', { page: citation.pageNumber ?? t('knowledge.noPage'), sequence: citation.sequence, offset: citation.offset, length: citation.length }) }}</p>
+    <p v-if="citation"><AiKnowledgeCitationPosition :citation="citation" /></p>
     <AiKnowledgeBaseSelect v-if="!knowledgeBaseId" v-model="selectedBase" :disabled="loading" :candidate-ids="candidateBaseIds" />
     <p v-if="!knowledgeBaseId && candidateBaseIds">{{ t('knowledge.sourceBaseChoice') }}</p>
     <el-alert v-if="!canRead" :title="t('knowledge.noPermission')" type="warning" :closable="false" />

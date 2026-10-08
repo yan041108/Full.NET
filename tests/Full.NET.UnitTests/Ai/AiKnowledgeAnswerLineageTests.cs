@@ -53,7 +53,7 @@ public sealed class AiKnowledgeAnswerLineageTests
         var data = Lineage(); var json = JsonNode.Parse(AiKnowledgeAnswerLineageCodec.Encode(data))!.AsObject();
         switch (fault)
         {
-            case "version": json["version"] = 2; break;
+            case "version": json["version"] = 3; break;
             case "unknown": json["vector"] = "secret"; break;
             case "empty": json["dependencies"] = new JsonArray(); break;
             case "duplicate": json["dependencies"]!.AsArray().Add(json["dependencies"]![0]!.DeepClone()); break;

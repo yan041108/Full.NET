@@ -6,6 +6,7 @@ using Full.NET.Modules.Ai.Runtime;
 namespace Full.NET.Modules.Ai.Serialization;
 
 /// <summary>AI 模块 JSON 源生成上下文。</summary>
+[JsonSerializable(typeof(AiKnowledgeDocxLocationResponse))]
 [JsonSerializable(typeof(AiModelConfigListItem))]
 [JsonSerializable(typeof(AskAiKnowledgeRequest))]
 [JsonSerializable(typeof(AskAiKnowledgeResponse))]
