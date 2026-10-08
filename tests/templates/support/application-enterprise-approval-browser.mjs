@@ -172,7 +172,7 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     const openInstance = async id => {
       await page.goto(origin + '/#/workflow/instances'); await page.getByTestId('workflow-instance-id').fill(id);
       await page.getByTestId('workflow-instance-search').click();
-      await expect(page.getByTestId('workflow-instance-summary').locator('code')).toHaveText(id);
+      await expect(page.getByTestId('workflow-instance-summary').getByText(id, { exact: true })).toBeVisible();
     };
     stage = 'reassign'; const initial = instances.get(approved.id); await openInstance(initial.id);
     for (const assignee of [target.userId, me.id]) {
