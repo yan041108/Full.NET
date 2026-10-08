@@ -51,10 +51,13 @@ export async function verifyApplicationPrintingBrowser(appRoot, apiUrl, reportDi
    window.print=()=>{window.fullnetPrintCalls=(window.fullnetPrintCalls??0)+1;window.fullnetPrintedText=document.querySelector('.printing-preview-surface')?.textContent??'';};
   });
   const audit=async(surface,selector)=>{
+   evidence.auditProgress={surface,phase:'animations',matchingSurfaces:await page.locator(selector).count()};
    await page.locator(selector).evaluate(async element=>{
     await Promise.all(element.getAnimations({subtree:true}).filter(animation=>animation.effect?.getTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{})));
    });
+   evidence.auditProgress.phase='axe';
    const result=await new AxeBuilder({page}).include(selector).withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();
+   evidence.auditProgress.phase='results';
    const violations=result.violations.map(({id,nodes})=>({id,targets:nodes.map(node=>node.target)}));
    evidence.accessibility.push({surface,violations});assert.equal(violations.length,0,surface+' accessibility failed');
   };
@@ -78,7 +81,8 @@ export async function verifyApplicationPrintingBrowser(appRoot, apiUrl, reportDi
   const grantResponse=await runPrintingBrowserResponseAction(page,response=>new URL(response.url()).pathname.endsWith('/tenant-grants/'+fixture.tenantId)&&response.request().method()==='PUT',()=>page.getByTestId('printing-grant-save').click());
   assert.equal(grantResponse.status(),200);
   stage='host-grant-accessibility';
-  await audit('host-grants','[role="dialog"]');evidence.hostGrant=true;
+  // 真实后台保留多个已关闭弹窗的 DOM；只审计本次拥有且按名称识别的授权弹窗。
+  await audit('host-grants','[role="dialog"][aria-label="租户版本授权：Enterprise request print"]');evidence.hostGrant=true;
   await dialog.getByRole('button',{name:'关闭',exact:true}).click();
   signal?.throwIfAborted();stage='tenant-context';await page.goto(origin+'/#/tenant-context');
   const tenantRow=page.locator('.tenant-context-view .el-table__row').filter({hasText:fixture.tenantName});
@@ -118,7 +122,8 @@ export async function verifyApplicationPrintingBrowser(appRoot, apiUrl, reportDi
   await page.getByTestId('printing-published-refresh').click();
   await expect(page.getByText('暂无已授权模板，请联系平台管理员授权发布版本。',{exact:true})).toBeVisible();
   signal?.throwIfAborted();evidence.revokedDenied=true;evidence.completed=true;return evidence;
- } catch {
+ } catch(error) {
+  evidence.failureKind=error?.message?.includes('strict mode violation')?'strict-locator':error?.name==='TimeoutError'?'timeout':'execution-error';
   failed=true;evidence.error=stage+': generated printing browser acceptance failed';throw new Error(evidence.error);
  } finally {
   const errors=[];
