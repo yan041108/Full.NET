@@ -130,3 +130,32 @@ try {
 当前交付为比较工具与失败保留门禁。真实三策略运行器、端到端质量/性能收益、融合/重排生产启用及反馈审核导出仍待实施，默认参考和测试构造证据均不关闭这些状态。
 
 R03 的独立原生选型实验另见 [RETRIEVAL-PROBE.md](RETRIEVAL-PROBE.md)，决策见 [ADR-0013](../../docs/architecture/adr/ADR-0013-ai-retrieval-provider.md)。其合成特征/过滤报告不提交为本评分器的真实模型端到端结果。
+
+## 有界三策略检索计算（R09h）
+
+`RagRetrievalExecution` 在测试项目内真实计算 `basic/exact-cosine-v1`、`keyword_vector/bm25-rrf-v1` 与 `rerank/supplied-scores-v1`，生成检索专用报告。调用方先加载固定合成语料，或通过 R09g 严格读取已准入语料；输入必须绑定该语料的数据版本和摘要、全部片段及全部案例，模型空间不能混用。核心方法的语料和摘要由可信调用方提供，不能以任意传入摘要认证任意语料。
+
+每案例先按冻结 `tenantScope` 和 `allowedSourceVersions` 过滤，再计算词频、精确余弦、融合及重排窗口。这些是离线案例标签，不能代替生产的当前会话、权限或来源撤权复核。分词使用 FormKC/大写规范化、ASCII 单词及完整编号和编号组成部分、非 ASCII 字母/数字的单字与相邻双字；属于固定实验算法，不宣称中文语言学分词质量。BM25 固定 `k1=1.2`、`b=0.75`，统计仅使用过滤后的候选集，查询词去重；公式参考 [Elastic BM25 说明](https://www.elastic.co/blog/practical-bm25-part-2-the-bm25-algorithm-and-its-variables)。融合按每路排名 `1/(60+rank)` 求和，排名从1开始，无词法命中时保持向量顺序，参考 [Microsoft RRF 说明](https://learn.microsoft.com/en-us/azure/search/hybrid-search-ranking)。得分相同按片段标识稳定排序。
+
+输入为 UTF-8 JSON `RagRetrievalExecutionInput`，字段如下：
+
+- `schemaVersion=1`、`datasetVersion`、`datasetSha256`、`embeddingEvidenceKind`、`modelKey`、`dimensions`、可空的 `rerankModelKey`、`vectors`、`queries`；重复、未知、缺失及不允许的 null 字段拒绝。
+- `vectors` 每个片段恰一项，包含 `chunkId`、`modelKey`、`values`；`queries` 每个案例恰一项，包含 `caseId`、`modelKey`、`values`、可空的 `rerankScores`。向量有限、非零且维度一致，余弦用 double 累加。输入示例见 `RagRetrievalExecutionTests.Input()`。
+- `synthetic_features` 仅允许128维和 `synthetic-` 模型键；`provided_model` 仅允许1536/3072维且禁止 `synthetic-` 模型键。模型键为小写机器标识，最多128字符，禁止 `none-`/`reference-` 占位；`provided_model` 是外部提交声明，不认证实际提供者或模型调用。
+- 重排在融合前20个候选内执行。先不提供分数生成窗口，再为每案例窗口中的每个片段恰提供一项 `{ chunkId, score }`，分数须有限，并提供明确 `rerankModelKey`；遗漏、重复或窗口外片段全部拒绝。分数相同保留融合顺序。工具只验证与排序外部供应分数，不发起真实重排模型调用。
+
+文件最多8 MiB，语料最多4096片段/256案例，问题2048字符、片段8000字符、正文总计2 Mi字符，片段向量32 MiB；文件、JSON、维度与集合门禁共同限制实际输入。专用入口有30秒取消预算；没有部分成功报告。输出只能新建，不覆盖既有文件，包括输入文件。默认入口使用合成向量且不供应重排分数；准入语料必须另提供完整外部输入，禁止回退原固定向量。
+
+```powershell
+$env:FULLNET_AI_RETRIEVAL_EXECUTION_INPUT = Join-Path (Get-Location) 'artifacts/ai-evaluation/retrieval-input.json'
+# 可选：指向 R09g 准入后的单文件语料封装。
+# $env:FULLNET_AI_RETRIEVAL_EXECUTION_CORPUS = Join-Path (Get-Location) 'artifacts/ai-evaluation/admitted-v1.json'
+$env:FULLNET_AI_RETRIEVAL_EXECUTION_REPORT = Join-Path (Get-Location) 'artifacts/ai-evaluation/retrieval-report.json'
+pnpm test:dotnet:unit -- --selection ai-retrieval-execution
+Remove-Item Env:FULLNET_AI_RETRIEVAL_EXECUTION_INPUT, Env:FULLNET_AI_RETRIEVAL_EXECUTION_REPORT
+Remove-Item Env:FULLNET_AI_RETRIEVAL_EXECUTION_CORPUS -ErrorAction SilentlyContinue
+```
+
+报告绑定数据、规范化输入摘要、算法和声明模型版本，只输出片段标识、得分、窗口、召回与本地阶段耗时，不复制问题、正文或原始向量。无重排分数的案例为 `not_measured`，召回为 null；任一案例未测时该策略总召回仍为 null。拒答案例不计答案召回。Basic 耗时为本地余弦排序，融合耗时仅为追加的词法计算与融合，重排耗时仅为供应分数校验与排序；均不含文件读取、Embedding/模型网络调用，不能作为策略端到端延迟或费用。
+
+本报告 `retrievalOnly=true`，没有答案、引用质量、语义支持、实际调用/Token/费用，也不直接构成 R09d 的完整观测或推荐。要评估上线收益，须另留存受控模型调用与完整质量/资源观测，再运行 R09d 门禁并人工核对原始记录。默认生产策略不变，真实模型执行、独立质量/成本证据及生产授权仍待验收。

@@ -119,7 +119,7 @@ internal static class RagEvaluationScorer
         return mean;
     }
 
-    private static void ValidateCorpus(RagEvaluationCorpus corpus)
+    internal static void ValidateCorpus(RagEvaluationCorpus corpus)
     {
         Require(corpus.Policy is not null && corpus.Chunks is not null && corpus.Cases is not null
             && corpus.Chunks.All(x => x is not null) && corpus.Cases.All(x => x is not null),
