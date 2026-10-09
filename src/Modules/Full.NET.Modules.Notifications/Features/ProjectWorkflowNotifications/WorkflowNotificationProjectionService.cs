@@ -27,16 +27,13 @@ internal sealed class WorkflowNotificationProjectionService(
         // 旧轮询投递器从 Host 调用；目录 Port 必须在可信 Envelope 租户内执行，不能依赖 HTTP 上下文。
         using var tenantScope = new WorkflowNotificationTenantScope(tenantWriter, tenantId);
         var scope = NotificationInboxScope.FromTrustedTenantId(tenantId);
-        // 内建模板先在独立本地事务中形成完整发布版本；成功后才允许 Intent 固定该不可变版本。
-        await templateProvisioner.EnsurePublishedAsync(
-            scope,
-            request.TemplateKey,
-            cancellationToken).ConfigureAwait(false);
+        // 首次受理先独立发布模板，再固定版本；历史重放只核对已受理快照。
         var result = await intentService.CreateForTrustedEventAsync(
             scope,
             actorUserId,
             request,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            token => templateProvisioner.EnsurePublishedAsync(scope, request.TemplateKey, token)).ConfigureAwait(false);
         if (!result.IsSuccess)
         {
             throw new InvalidOperationException(result.Error!.Code);

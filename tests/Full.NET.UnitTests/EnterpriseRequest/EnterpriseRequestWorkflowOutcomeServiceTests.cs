@@ -67,6 +67,7 @@ public sealed class EnterpriseRequestWorkflowOutcomeServiceTests
     [TestMethod]
     [DataRow("Approved")]
     [DataRow("Rejected")]
+    [DataRow("Cancelled")]
     public async Task Sealed_submission_ignores_duplicate_or_conflicting_outcome(string sealedStatus)
     {
         var f = new Fixture(); f.Submission = f.Submission! with { FinalStatus = sealedStatus, LastMessageId = f.Message };
@@ -81,6 +82,47 @@ public sealed class EnterpriseRequestWorkflowOutcomeServiceTests
         f.Commands.ExecuteAsync(EnterpriseRequestApprovalSql.MarkFinal, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(0);
         await Assert.ThrowsAsync<InvalidOperationException>(() => f.Deliver());
         Assert.AreEqual(1, f.Coordinator.RollbackCount); Assert.AreEqual(0, f.Coordinator.CommitCount);
+        f.Tenant.Received(1).SetHost();
+    }
+
+    /// <summary>完成、驳回、取消均须以提交版本更新，并写入同一事务的消息回执。</summary>
+    [TestMethod]
+    [DataRow("Approved")]
+    [DataRow("Rejected")]
+    [DataRow("Cancelled")]
+    public async Task Terminal_results_preserve_submission_version_and_message_identity(string status)
+    {
+        var f = new Fixture();
+        await f.Deliver(status: status);
+        await f.Commands.Received(1).ExecuteAsync(EnterpriseRequestWorkflowSql.ApplyTerminalStatus,
+            Arg.Is<object?>(p => ((Dictionary<string, object?>)p!)["Status"]!.Equals(status)
+                && ((Dictionary<string, object?>)p!)["ExpectedVersion"]!.Equals(f.Submission!.RequestVersion)),
+            Arg.Any<CancellationToken>());
+        await f.Commands.Received(1).ExecuteAsync(EnterpriseRequestApprovalSql.MarkFinal,
+            Arg.Is<object?>(p => ((Dictionary<string, object?>)p!)["FinalStatus"]!.Equals(status)
+                && ((Dictionary<string, object?>)p!)["LastMessageId"]!.Equals(f.Message)), Arg.Any<CancellationToken>());
+        Assert.AreEqual(1, f.Coordinator.CommitCount);
+    }
+
+    /// <summary>乐观锁竞争失败后，已绑定实例的获胜回执允许确认重投；不再重写终态。</summary>
+    [TestMethod]
+    [DataRow("Approved")]
+    [DataRow("Rejected")]
+    [DataRow("Cancelled")]
+    public async Task Concurrent_terminal_winner_is_preserved_after_losing_compare_exchange(string winnerStatus)
+    {
+        var f = new Fixture();
+        var original = f.Submission!;
+        f.Queries.QuerySingleOrDefaultAsync<EnterpriseRequestApprovalSubmission>(EnterpriseRequestApprovalSql.FindByRequest,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(original,
+                original with { FinalStatus = winnerStatus, LastMessageId = Guid.CreateVersion7() });
+        f.Commands.ExecuteAsync(EnterpriseRequestWorkflowSql.ApplyTerminalStatus,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(0);
+        await f.Deliver();
+        await f.Commands.DidNotReceive().ExecuteAsync(EnterpriseRequestApprovalSql.MarkFinal,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        Assert.AreEqual(1, f.Coordinator.RollbackCount);
+        Assert.AreEqual(0, f.Coordinator.CommitCount);
         f.Tenant.Received(1).SetHost();
     }
 
@@ -106,7 +148,7 @@ public sealed class EnterpriseRequestWorkflowOutcomeServiceTests
             Tenant.IsHost.Returns(true);
             Service = new(Queries, Commands, Substitute.For<IClock>(), new DapperCommandTransaction(Coordinator), Tenant);
         }
-        internal Task Deliver(string type = EnterpriseRequestWorkflowConstants.BusinessType) =>
-            Service.HandleTerminalWorkflowAsync(type, Row.Id.ToString("D"), "Approved", Instance, Row.TenantId, Message);
+        internal Task Deliver(string type = EnterpriseRequestWorkflowConstants.BusinessType, string status = "Approved") =>
+            Service.HandleTerminalWorkflowAsync(type, Row.Id.ToString("D"), status, Instance, Row.TenantId, Message);
     }
 }

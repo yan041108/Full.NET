@@ -94,7 +94,8 @@ internal static partial class EnterpriseRequestAssertions
         var notification = services.GetServices<IWorkflowInstanceCancelledSink>()
             .Single(value => value.GetType().Assembly == typeof(NotificationsModule).Assembly);
         var terminalHandler = new WorkflowInstanceCancelledIntegrationEventHandler(serializer,
-            [new UnavailableNotificationOnceSink(notification), sink]);
+            [new UnavailableNotificationOnceSink(notification), new ConcurrentCancellationOutcomeSink(factory, sink, outcomeType,
+                sink.GetType())]);
         Assert.IsTrue(tenant.IsHost, "从真实轮询 Worker 的 Host 上下文验证通知投影，不能由夹具预装租户。");
         // 通知失败仍允许业务终态提交，但投递必须失败，以便同一消息重试通知。
         await Assert.ThrowsAsync<InvalidOperationException>(() => terminalHandler.HandleAsync(terminalContext, terminalMessage.Payload, ct));
@@ -103,6 +104,23 @@ internal static partial class EnterpriseRequestAssertions
         var tenantScopeKey = $"tenant:{submitted.TenantId:N}";
         Assert.AreEqual(0, await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_notifications_intent WHERE TenantScopeKey = @tenantScopeKey AND ProducerKey = 'workflow' AND IdempotencyKey = @notificationKey", new { tenantScopeKey, notificationKey }));
         await terminalHandler.HandleAsync(terminalContext, terminalMessage.Payload, ct);
+        var template = await connection.QuerySingleAsync<ApprovalNotificationTemplateProbe>("""
+            SELECT t.Id, t.LatestPublishedVersionId
+            FROM fn_notifications_intent i
+            JOIN fn_notifications_template_version v ON v.Id = i.TemplateVersionId
+            JOIN fn_notifications_template t ON t.Id = v.TemplateId AND t.TenantScopeKey = i.TenantScopeKey
+            WHERE i.TenantScopeKey = @tenantScopeKey AND i.ProducerKey = 'workflow' AND i.IdempotencyKey = @notificationKey
+            """, new { tenantScopeKey, notificationKey });
+        // 模板当前发布指针失效后，重投只核对历史快照；修复回执不能重新解析收件人或生成重复通知。
+        await connection.ExecuteAsync("UPDATE fn_notifications_template SET LatestPublishedVersionId = NULL WHERE Id = @Id", new { template.Id });
+        try
+        {
+            await terminalHandler.HandleAsync(terminalContext, terminalMessage.Payload, ct);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("UPDATE fn_notifications_template SET LatestPublishedVersionId = @LatestPublishedVersionId WHERE Id = @Id", template);
+        }
         await terminalHandler.HandleAsync(terminalContext, terminalMessage.Payload, ct);
         Assert.IsTrue(tenant.IsHost, "通知和业务接收点必须分别恢复 Worker 的 Host 上下文。");
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_notifications_intent WHERE TenantScopeKey = @tenantScopeKey AND ProducerKey = 'workflow' AND IdempotencyKey = @notificationKey", new { tenantScopeKey, notificationKey }));
@@ -147,6 +165,59 @@ internal static partial class EnterpriseRequestAssertions
 
     private sealed record ApprovalRecoveryProbe(Guid Id, Guid TenantId, Guid RequestId, Guid WorkflowInstanceId, Guid SubmittedById, long RequestVersion);
     private sealed record ApprovalOutboxProbe(Guid Id, Guid TenantId, byte[] Payload, DateTimeOffset OccurredAtUtc);
+    private sealed record ApprovalNotificationTemplateProbe(Guid Id, Guid LatestPublishedVersionId);
+
+    /// <summary>首次投递让两个独立消费者竞争同一提交版本，后续投递仍走原幂等消费者。</summary>
+    private sealed class ConcurrentCancellationOutcomeSink(FullNetApiFactory factory,
+        IWorkflowInstanceCancelledSink inner, Type outcomeType, Type sinkType) : IWorkflowInstanceCancelledSink
+    {
+        private bool raced;
+        public async Task HandleAsync(IntegrationEventContext context, WorkflowInstanceCancelledIntegrationEvent value, CancellationToken ct)
+        {
+            if (raced) { await inner.HandleAsync(context, value, ct); return; }
+            raced = true;
+            var gate = new TerminalWriteGate();
+            await Task.WhenAll(Project(), Project());
+            Assert.AreEqual(2, gate.Arrivals, "两个消费者必须先读到同一未完成提交，再竞争 SQL 更新。");
+            Assert.AreEqual(1, gate.Writes, "真实数据库只能接受一次终态版本更新。");
+
+            async Task Project()
+            {
+                await using var scope = factory.Services.CreateAsyncScope();
+                var services = scope.ServiceProvider;
+                var tenant = services.GetRequiredService<ICurrentTenantContextWriter>();
+                tenant.SetHost();
+                var command = new GatedTerminalExecutor(services.GetRequiredService<ICommandExecutor>(), gate);
+                var outcome = ActivatorUtilities.CreateInstance(services, outcomeType, command);
+                var sink = (IWorkflowInstanceCancelledSink)ActivatorUtilities.CreateInstance(services, sinkType, outcome);
+                await sink.HandleAsync(context, value, ct);
+                Assert.IsTrue(tenant.IsHost, "独立竞争消费者必须恢复自己的 Host 上下文。");
+            }
+        }
+    }
+
+    /// <summary>仅同步测试中的两次 CAS；不共享数据库会话，也不在生产代码添加锁。</summary>
+    private sealed class TerminalWriteGate
+    {
+        internal readonly TaskCompletionSource Ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal int Arrivals;
+        internal int Writes;
+    }
+
+    private sealed class GatedTerminalExecutor(ICommandExecutor inner, TerminalWriteGate gate) : ICommandExecutor
+    {
+        public async Task<int> ExecuteAsync(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
+        {
+            if (statement.Name != "enterprise_request.apply_terminal_status")
+                return await inner.ExecuteAsync(statement, parameters, cancellationToken);
+            if (Interlocked.Increment(ref gate.Arrivals) == 2) gate.Ready.TrySetResult();
+            await gate.Ready.Task.WaitAsync(TimeSpan.FromSeconds(20), cancellationToken);
+            var affected = await inner.ExecuteAsync(statement, parameters, cancellationToken);
+            if (affected == 1) Interlocked.Increment(ref gate.Writes);
+            return affected;
+        }
+    }
+
     private sealed class UnavailableNotificationOnceSink(IWorkflowInstanceCancelledSink inner) : IWorkflowInstanceCancelledSink
     {
         private bool failed;

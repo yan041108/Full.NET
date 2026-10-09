@@ -1,8 +1,10 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-10-09（本轮补齐 Enterprise 通知、终态独立消费与受保护业务入口，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-10-09（本轮完善 Enterprise 通知快照重放与终态竞争验证，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 > 2026-09-16 规划增补：已纳入[八项底座完善能力及七类收口重点](adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)，执行见[唯一总计划](../superpowers/plans/2026-09-16-foundation-productization.md)。本次未重新认证下表的实现状态；部分历史条目落后于专项记录，F00 将逐项核对。工作区其他改动不作为能力完成证据。
+
+Enterprise 的通知历史重投已优先核对受理快照，当前模板未发布仍可幂等恢复；终态双消费者竞争与通知独立消费通过本地双库完整影响集，见[通知快照与终态竞争证据](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-09-申请通知快照重放与终态竞争加固)。补投状态展示、完整故障矩阵和人工页面验收仍待完成，状态保持 `Build-verified`。
 
 ## 状态定义
 

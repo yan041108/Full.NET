@@ -1075,6 +1075,28 @@ Files 增加可选上传 owner 契约，原消费者保持兼容。对象上传�
 
 **验收：** 一个真实申请从创建到完成可追踪；停止 Worker 后恢复不会重复产生业务副作用。
 
+#### 2026-10-09 申请通知快照重放与终态竞争加固
+
+基线 `0f28363c64724f84e7d89bc0d63ec61bbe50899f`，任务快照 `enterprise-outcome-delivery-20261009`。本批沿 F10 集中完善通知重放及结果回写的故障回归；F10 剩余清单仍保持待办，Enterprise 保持 `Build-verified`。
+
+修复 Workflow 通知入口在历史重投前强制检查当前模板的问题。通知意图先按可信作用域、Producer 和幂等键读取原受理快照；只有首次受理才在独立本地事务中准备内建模板。当前发布指针失效时，已受理消息仍按原模板版本、参数和收件人快照回放；相同幂等键的不同负载仍返回冲突。首次准备失败或取消不进入 Intent 写事务，取消令牌保持原样。
+
+完成、驳回、取消均补齐提交版本与消息身份断言，以及 CAS 失败后保留已绑定实例获胜回执的 Unit 回归。双库既有申请恢复场景增加真实竞争：两个独立 DI scope、租户对象、数据库会话和事务先读取同一未完成提交，在 SQL CAS 前经有界 gate 同步；仅一次真实状态更新成功，申请版本只增加一次，回执与业务状态原子提交。后续通知重投即使当前模板未发布，仍仅有一个 Intent 和一个站内信。通知失败独立消费、回执写失败回滚、启动回执迟到等既有断言同时执行。只读审查未发现 P1/P2。
+
+本地最终证据：
+
+- 行为 RED：`NotificationIntentReplayTests` **8 项，6 失败 / 2 通过**；新增 Host/租户三类终态重投均准确失败于 `notifications.template_not_published`。首次 GREEN 的 33 项虽零断言失败，但最低发现数误填 34，入口退出 9；此轮不计为成功命令，修正并扩大范围后取得下列最终结果。
+- `pnpm test:dotnet:unit -- --reuse-build --filter 'FullyQualifiedName~Full.NET.UnitTests.Notifications.|FullyQualifiedName~Full.NET.UnitTests.Workflow.|FullyQualifiedName~Full.NET.UnitTests.EnterpriseRequest.' --minimum-expected-tests 733`：**733/733**，零失败/跳过，测试 **2.792 秒**，构建 **24.07 秒**、零警告/错误。新增 **21** 项 Unit，机器最低门槛同步增加；不同范围和重跑结果不累加。
+- `pnpm test:governance` **59/59**，`pnpm test:integration:tooling` **89/89**；API / Worker AOT 分析均零警告/错误，Worker 恢复 JIT 构建通过；`pnpm test:dotnet:architecture -- --reuse-build --selection api-native-aot` **73/73**。
+- `pnpm test:integration:affected:plan -- --snapshot enterprise-outcome-delivery-20261009 --phase slice` 选中 EnterpriseRequest、Notifications 和矩阵 tooling。自有集中 runner `.tmp/enterprise-outcome-integration.mjs` 复用官方任务边界、影响选择器、Release 指纹、UID 合并、双库检查与资源锁；工具证据单独执行，Release 在申请重型资源前准备，取得锁后再次验证冻结输入。
+- `FULLNET_TESTCONTAINERS_REUSE=0 node .tmp/enterprise-outcome-integration.mjs`：完整服务端影响集 **50/50**（Enterprise **14**、Notifications **36**），零失败/跳过，测试 **18 分 18.272 秒**，构建 **24.90 秒**、零警告/错误。TRX 核对两库 `Tenant_submit_for_approval_when_definition_published` 均通过，覆盖真实终态竞争与模板发布指针失效后的重投；分片发现 **1192** 项、无遗漏/重复，只作为发现证据。临时 SQL Server、MySQL、Redis 容器已清理。
+
+排队和失败单独保留：首次自有排队在 **11 分 14 秒**后主动取消，尚未构建或执行双库测试；先完成轻量验证再排队。随后默认复用的 `fullnet-it-mssql` 容器在迁移/握手阶段退出，Docker 明确报告 `OOMKilled=true`、退出码 **137**，恢复日志出现 DbId 超过 **700** 的历史测试库。该次 50 项批次未完成并因环境故障中止，不计为通过；最终以关闭复用的临时容器完整重跑结果验收。未停止其他窗口任务、删除历史共享库或修改生产代码掩盖环境故障。原日志、取消元数据及最终 TRX 保存在本工作区 `.tmp/enterprise-outcome-*` 与 Integration `TestResults`。
+
+由实际故障确认后续测试优化优先项：复用夹具当前保留容器，但未按运行所有权回收本轮创建的测试库。应补齐可验证的自有数据库登记与清理，保留容器启动收益，限制历史库累积；既有未知所有权数据库不自动删除。
+
+本批属于 F10 建设期集中故障回归。独立生成应用在约定模块范围全部实现后集中执行；此前冻结 `4d342de` 的应用证据不外推为本次新代码验收。完整实例失败/撤销故障矩阵、补投与业务状态分别展示、人工页面验收、完整业务 Native 运行与容量实测仍待完成；不合并、不发布。
+
 #### 2026-10-08 企业申请提交审批授权批次
 
 基线 `5bb263787dfd2e18d155c4fac035906aaa7c4e2e`，快照 `enterprise-submit-security-20261008`。本批补齐提交 Endpoint、业务服务与 Vue 的授权边界，并修复影响选择器遗漏样例目录的问题；F10 四项仍待办，Enterprise 样板保持 `Build-verified`。
