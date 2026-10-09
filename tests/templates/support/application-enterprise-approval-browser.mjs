@@ -43,9 +43,9 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     env: { ...process.env, VITE_API_PROXY_TARGET: apiUrl, VITE_STRICT_CSP: '1' }, stdio: 'pipe', windowsHide: true });
   child.stdout.pipe(stream, { end: false }); child.stderr.pipe(stream, { end: false });
   let browser; let context; let cancellation; let page; let stage = 'vite'; let token; let failed = false;
-  const send = async (path, method = 'GET', body, expected = 200, bearer = token) => {
+  const send = async (path, method = 'GET', body, expected = 200) => {
     signal?.throwIfAborted();
-    const response = await fetch(apiUrl + path, { method, headers: { ...(bearer ? { Authorization: 'Bearer ' + bearer } : {}),
+    const response = await fetch(apiUrl + path, { method, headers: { Authorization: 'Bearer ' + token,
       Origin: origin, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       body: body === undefined ? undefined : JSON.stringify(body), redirect: 'error',
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000) });
@@ -295,13 +295,19 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     await expect(page.getByTestId('inbox-messages-detail-drawer')).toContainText(approved.id); evidence.notificationViewed = true;
     await page.screenshot({ path: join(reportDirectory, 'approval-inbox.png'), fullPage: true });
     stage = 'restart-idempotency'; const messageIds = messages.items.map(item => item.id).sort(); await crashWorker(); await startWorker();
-    // 切租户会使原 Host 令牌失效；新建独立 Host 会话，保留页面正在使用的租户会话。
-    const hostLogin = await send('/api/v1/auth/login', 'POST', { username: 'admin', password: 'FullNet!2026Secure' }, 200, null);
-    const hostToken = hostLogin.accessToken; assert.ok(hostToken);
+    // 保持正式单会话策略，通过实际页面切回 Host 再返回租户；每次只使用重新签发的令牌。
+    await page.goto(origin + '/#/tenant-context');
+    const hostContext = await action('/api/v1/tenancy/context', 'PUT', () => page.getByTestId('return-host').click());
+    token = hostContext.accessToken; assert.ok(token); assert.equal(hostContext.context.tenantId, null);
+    await expect(page.getByTestId('return-host')).toHaveCount(0);
     // 只读查询所有者积压；活动租约或未到期重试不能提前通过。
-    const drained = await poll(() => send('/api/v1/messaging/delivery-status/', 'GET', undefined, 200, hostToken),
+    const drained = await poll(() => send('/api/v1/messaging/delivery-status/'),
       value => isOutboxDrained(value.backlog), 'Outbox recovery drain');
     evidence.outboxDrainedAfterCrash = drained.backlog;
+    const returned = await action('/api/v1/tenancy/context', 'PUT', () => page.locator('.tenant-context-view .el-table__row')
+      .filter({ hasText: 'local' }).getByRole('button', { name: '进入租户' }).click());
+    token = returned.accessToken; assert.ok(token); assert.equal(returned.context.tenantId, tenantId);
+    await expect(page).toHaveURL(origin + '/#/'); evidence.restoredTenantAfterDrain = true;
     assert.deepEqual((await inbox()).items.map(item => item.id).sort(), messageIds, 'restart duplicated notifications');
     for (const request of terminalRequests) {
       const final = await progress(request.id); assert.equal(final.requestVersion, evidence.requests.find(item => item.id === request.id).finalVersion);
