@@ -21,6 +21,9 @@ const response = { requestId: outputId, requestStatus: 'Submitted', requestVersi
 const permission = 'enterprise_request.enterprise_requests.read';
 const unbound = { ...response, requestStatus: 'Draft', requestVersion: '1', deliveryState: 'not_submitted',
   workflowDefinitionVersionId: null, workflowInstanceId: null, submittedVersion: null, submittedAtUtc: null };
+const notificationSummary = { intentId: instanceId, acceptedAtUtc: '2026-10-08T00:00:04Z', totalDeliveryCount: 7,
+  pendingDeliveryCount: 1, sentDeliveryCount: 2, failedDeliveryCount: 1, deadLetteredDeliveryCount: 1,
+  unknownDeliveryCount: 1, otherDeliveryCount: 1, nextAttemptAtUtc: '2026-10-08T00:01:00Z' };
 function fixture(permissions = [permission]) {
   const { pinia, session } = createOutputSession(permissions);
   return { session, wrapper: mount(Dialog, { props: { requestId: outputId }, global: { plugins: [pinia], stubs: { teleport: true } } }) };
@@ -29,6 +32,68 @@ async function click(wrapper: ReturnType<typeof mount>, text: string) {
   const button = wrapper.findAll('button').find(value => value.text() === text);
   expect(button).toBeDefined(); await button!.trigger('click');
 }
+
+describe('审批结果与终态通知分别展示', () => {
+  const final = { ...response, requestStatus: 'Approved', requestVersion: '3', deliveryState: 'finalized', completedAtUtc: '2026-10-08T00:00:03Z' };
+  beforeEach(() => { request.mockReset(); useAdminI18n().setLocale('zh-CN'); });
+  afterEach(() => { vi.useRealTimers(); useAdminI18n().setLocale('zh-CN'); });
+  it('分别显示通知内核已有的送达、已读、抑制和持久化状态', async () => {
+    request.mockResolvedValue({ ...final, finalNotification: { ...notificationSummary, totalDeliveryCount: 11,
+      persistedDeliveryCount: 1, deliveredDeliveryCount: 1, readDeliveryCount: 1, suppressedDeliveryCount: 1 } });
+    const f = fixture();
+    try { await flushPromises();
+      for (const state of ['persisted', 'delivered', 'read', 'suppressed']) expect(f.wrapper.get(`[data-testid="notification-${state}"]`).text()).toBe('1');
+    } finally { f.wrapper.unmount(); }
+  });
+  it.each(['zh-CN', 'en-US'] as const)('展示独立投递分类并保留审批结果：%s', async locale => {
+    useAdminI18n().setLocale(locale); request.mockResolvedValue({ ...final, finalNotification: notificationSummary });
+    const f = fixture();
+    try {
+      await flushPromises();
+      expect(f.wrapper.get('[data-testid="notification-pending"]').text()).toBe('1');
+      expect(f.wrapper.get('[data-testid="notification-sent"]').text()).toBe('2');
+      expect(f.wrapper.get('[data-testid="notification-failed"]').text()).toBe('1');
+      expect(f.wrapper.get('[data-testid="notification-dead-lettered"]').text()).toBe('1');
+      expect(f.wrapper.get('[data-testid="notification-unknown"]').text()).toBe('1');
+      expect(f.wrapper.get('[data-testid="notification-other"]').text()).toBe('1');
+      expect(f.wrapper.text()).toContain('Approved');
+      expect(f.wrapper.text()).toContain(locale === 'zh-CN' ? '已发送不代表收件人已阅读' : 'Sent does not mean it was read');
+    } finally { f.wrapper.unmount(); }
+  });
+  it('未受理不显示通知已发送，业务结果仍保持已回写', async () => {
+    request.mockResolvedValue({ ...final, finalNotification: null }); const f = fixture();
+    try { await flushPromises(); expect(f.wrapper.text()).toContain('尚未查到通知受理意图');
+      expect(f.wrapper.text()).toContain('审批结果已回写'); expect(f.wrapper.find('[data-testid="notification-sent"]').exists()).toBe(false); }
+    finally { f.wrapper.unmount(); }
+  });
+  it('旧服务未提供字段时明确提示兼容状态，不推定受理失败', async () => {
+    request.mockResolvedValue(final); const f = fixture();
+    try { await flushPromises(); expect(f.wrapper.text()).toContain('当前服务尚未提供通知状态');
+      expect(f.wrapper.text()).not.toContain('尚未查到通知受理意图'); }
+    finally { f.wrapper.unmount(); }
+  });
+  it('审批完成后继续跟踪未受理和待投递，全部送出后停止刷新', async () => {
+    vi.useFakeTimers(); request.mockResolvedValueOnce({ ...final, finalNotification: null })
+      .mockResolvedValueOnce({ ...final, finalNotification: notificationSummary })
+      .mockResolvedValue({ ...final, finalNotification: { ...notificationSummary, totalDeliveryCount: 7, pendingDeliveryCount: 0,
+        sentDeliveryCount: 7, failedDeliveryCount: 0, deadLetteredDeliveryCount: 0, unknownDeliveryCount: 0, otherDeliveryCount: 0, nextAttemptAtUtc: null } });
+    const f = fixture();
+    try {
+      await flushPromises(); await vi.advanceTimersByTimeAsync(5000); await flushPromises(); expect(request).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(5000); await flushPromises(); expect(request).toHaveBeenCalledTimes(3);
+      expect(f.wrapper.get('[data-testid="notification-sent"]').text()).toBe('7');
+      await vi.advanceTimersByTimeAsync(20000); expect(request).toHaveBeenCalledTimes(3);
+    } finally { f.wrapper.unmount(); }
+  });
+  it('只有明确失败或未知终态时停止后台刷新，保留手动刷新', async () => {
+    vi.useFakeTimers(); request.mockResolvedValue({ ...final, finalNotification: { ...notificationSummary,
+      totalDeliveryCount: 6, pendingDeliveryCount: 0, nextAttemptAtUtc: null } }); const f = fixture();
+    try { await flushPromises(); await vi.advanceTimersByTimeAsync(20000); expect(request).toHaveBeenCalledTimes(1);
+      await click(f.wrapper, '刷新'); await flushPromises(); expect(request).toHaveBeenCalledTimes(2);
+      expect(f.wrapper.get('[data-testid="notification-unknown"]').text()).toBe('1'); }
+    finally { f.wrapper.unmount(); }
+  });
+});
 
 describe('审批进度弹窗的读取与生命周期', () => {
   beforeEach(() => { confirm.mockReset(); confirm.mockResolvedValue('confirm' as never); push.mockReset(); useAdminI18n().setLocale('zh-CN'); request.mockReset(); request.mockResolvedValue(response); });

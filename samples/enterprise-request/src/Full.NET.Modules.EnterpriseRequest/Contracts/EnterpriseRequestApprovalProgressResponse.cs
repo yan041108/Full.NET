@@ -1,8 +1,9 @@
 using System.Text.Json.Serialization;
+using Full.NET.Modules.Notifications.Contracts;
 
 namespace Full.NET.Modules.EnterpriseRequest.Contracts;
 
-/// <summary>本模块审批提交与回写的权威进度；不代表通知投递结果或 Workflow 当前节点。</summary>
+/// <summary>本模块审批权威进度及通知所有者的投递摘要；不代表 Workflow 当前节点或用户已经阅读。</summary>
 /// <param name="RequestId">当前有权读取的单据标识。</param>
 /// <param name="RequestStatus">单据业务状态。</param>
 /// <param name="RequestVersion">当前单据版本。</param>
@@ -13,13 +14,15 @@ namespace Full.NET.Modules.EnterpriseRequest.Contracts;
 /// <param name="SubmittedAtUtc">提交记录落库时间；历史补绑定时为恢复记录时间，不推定原提交时间。</param>
 /// <param name="StartedAtUtc">已记录的启动回执时间；终态可能先到达。</param>
 /// <param name="CompletedAtUtc">终态回写时间。</param>
+/// <param name="FinalNotification">终态提醒的所有者摘要；终态已回写但为空时表示尚未查到受理意图，不推定补投次数或发送成功。</param>
 public sealed record EnterpriseRequestApprovalProgressResponse(
     Guid RequestId, string RequestStatus,
     [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)] long RequestVersion,
     EnterpriseRequestApprovalDeliveryState DeliveryState,
     Guid? WorkflowDefinitionVersionId, Guid? WorkflowInstanceId,
     [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)] long? SubmittedVersion,
-    DateTimeOffset? SubmittedAtUtc, DateTimeOffset? StartedAtUtc, DateTimeOffset? CompletedAtUtc);
+    DateTimeOffset? SubmittedAtUtc, DateTimeOffset? StartedAtUtc, DateTimeOffset? CompletedAtUtc,
+    NotificationIntentDeliverySnapshot? FinalNotification = null);
 
 /// <summary>稳定线协议阶段；后续新增值须同步客户端闭合校验。</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<EnterpriseRequestApprovalDeliveryState>))]

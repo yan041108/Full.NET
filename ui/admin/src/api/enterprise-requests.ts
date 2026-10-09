@@ -172,6 +172,7 @@ function validateLines(id: string, value: EnterpriseRequestLinesResponse): Enter
 
 /** 生成守卫验证线格式；此处再绑定业务阶段，避免显示互相矛盾的身份、版本和时间。 */
 function isConsistentApprovalProgress(value: EnterpriseRequestApprovalProgressResponse): boolean {
+  if (!isConsistentFinalNotification(value)) return false;
   const terminal = ['Approved', 'Rejected', 'Cancelled'].includes(value.requestStatus);
   if (value.requestVersion < 1 || [value.submittedAtUtc, value.startedAtUtc, value.completedAtUtc]
     .some(time => time !== null && !Number.isFinite(Date.parse(time)))) return false;
@@ -185,4 +186,20 @@ function isConsistentApprovalProgress(value: EnterpriseRequestApprovalProgressRe
     return terminal && value.requestVersion === value.submittedVersion + 1 && value.completedAtUtc !== null;
   return value.requestStatus === 'Submitted' && value.requestVersion === value.submittedVersion && value.completedAtUtc === null
     && (value.deliveryState === 'queued' ? value.startedAtUtc === null : value.startedAtUtc !== null);
+}
+
+/** 通知受理与外发状态只附着于已回写终态；统计不能把未知类别或矛盾计数视作发送成功。 */
+function isConsistentFinalNotification(value: EnterpriseRequestApprovalProgressResponse): boolean {
+  const notification = value.finalNotification;
+  if (notification === undefined || notification === null) return true;
+  if (value.deliveryState !== 'finalized' || notification.intentId === '00000000-0000-0000-0000-000000000000'
+    || !Number.isFinite(Date.parse(notification.acceptedAtUtc))
+    || (notification.nextAttemptAtUtc !== null && !Number.isFinite(Date.parse(notification.nextAttemptAtUtc)))) return false;
+  const counts = [notification.totalDeliveryCount, notification.pendingDeliveryCount, notification.sentDeliveryCount,
+    notification.failedDeliveryCount, notification.deadLetteredDeliveryCount, notification.unknownDeliveryCount, notification.otherDeliveryCount,
+    notification.persistedDeliveryCount ?? 0, notification.deliveredDeliveryCount ?? 0,
+    notification.readDeliveryCount ?? 0, notification.suppressedDeliveryCount ?? 0];
+  return counts.every(count => Number.isSafeInteger(count) && count >= 0 && count <= 2147483647)
+    && counts.slice(1).reduce((total, count) => total + count, 0) === notification.totalDeliveryCount
+    && (notification.pendingDeliveryCount > 0 || notification.nextAttemptAtUtc === null);
 }

@@ -33,9 +33,11 @@ const canOpenInbox = computed(() => canRead.value && session.can('notifications.
 let currentRequest: ReturnType<typeof scope.begin>;
 const scope = useAuthorizedViewScope(session, reset, load);
 
-// 只跟踪尚未回写的审批；人工恢复草稿优先，后台刷新不能覆盖正在编辑的输入。
+const needsNotificationRefresh = computed(() => progress.value?.deliveryState === 'finalized'
+  && (progress.value.finalNotification === null || (progress.value.finalNotification?.pendingDeliveryCount ?? 0) > 0));
+// 审批与通知分别跟踪；人工恢复草稿优先，后台刷新不能覆盖正在编辑的输入。
 useTaskStatusRefresh(() => canRead.value && !problem.value && !repairing.value
-  && (progress.value?.deliveryState === 'queued' || progress.value?.deliveryState === 'started')
+  && (progress.value?.deliveryState === 'queued' || progress.value?.deliveryState === 'started' || needsNotificationRefresh.value)
   && repairReason.value === '' && repairInstanceId.value === (progress.value?.workflowInstanceId ?? ''),
 async current => { await fetchProgress(true, current); });
 
@@ -141,6 +143,30 @@ function time(value: string | null | undefined): string {
           <dt>{{ t('enterpriseRequests.startedAt') }}</dt><dd>{{ time(progress.startedAtUtc) }}</dd>
           <dt>{{ t('enterpriseRequests.completedAt') }}</dt><dd>{{ time(progress.completedAtUtc) }}</dd>
         </dl>
+        <section v-if="progress.deliveryState === 'finalized'" class="notification-progress" aria-labelledby="final-notification-title">
+          <h3 id="final-notification-title">{{ t('enterpriseRequests.notificationTitle') }}</h3>
+          <p v-if="progress.finalNotification === undefined">{{ t('enterpriseRequests.notificationLegacy') }}</p>
+          <p v-else-if="progress.finalNotification === null">{{ t('enterpriseRequests.notificationUnaccepted') }}</p>
+          <template v-else>
+            <p>{{ t('enterpriseRequests.notificationAccepted') }}</p>
+            <dl class="approval-progress">
+              <dt>{{ t('enterpriseRequests.notificationAcceptedAt') }}</dt><dd>{{ time(progress.finalNotification.acceptedAtUtc) }}</dd>
+              <dt>{{ t('enterpriseRequests.notificationTotal') }}</dt><dd>{{ progress.finalNotification.totalDeliveryCount }}</dd>
+              <dt>{{ t('enterpriseRequests.notificationPending') }}</dt><dd data-testid="notification-pending">{{ progress.finalNotification.pendingDeliveryCount }}</dd>
+              <dt>{{ t('enterpriseRequests.notificationSent') }}</dt><dd data-testid="notification-sent">{{ progress.finalNotification.sentDeliveryCount }}</dd>
+              <dt>{{ t('enterpriseRequests.notificationDelivered') }}</dt><dd data-testid="notification-delivered">{{ progress.finalNotification.deliveredDeliveryCount ?? 0 }}</dd>
+              <dt>{{ t('enterpriseRequests.notificationRead') }}</dt><dd data-testid="notification-read">{{ progress.finalNotification.readDeliveryCount ?? 0 }}</dd>
+              <dt>{{ t('enterpriseRequests.notificationSuppressed') }}</dt><dd data-testid="notification-suppressed">{{ progress.finalNotification.suppressedDeliveryCount ?? 0 }}</dd>
+              <dt>{{ t('enterpriseRequests.notificationPersisted') }}</dt><dd data-testid="notification-persisted">{{ progress.finalNotification.persistedDeliveryCount ?? 0 }}</dd>
+              <dt>{{ t('enterpriseRequests.notificationFailed') }}</dt><dd data-testid="notification-failed">{{ progress.finalNotification.failedDeliveryCount }}</dd>
+              <dt>{{ t('enterpriseRequests.notificationDeadLettered') }}</dt><dd data-testid="notification-dead-lettered">{{ progress.finalNotification.deadLetteredDeliveryCount }}</dd>
+              <dt>{{ t('enterpriseRequests.notificationUnknown') }}</dt><dd data-testid="notification-unknown">{{ progress.finalNotification.unknownDeliveryCount }}</dd>
+              <dt>{{ t('enterpriseRequests.notificationOther') }}</dt><dd data-testid="notification-other">{{ progress.finalNotification.otherDeliveryCount }}</dd>
+              <dt>{{ t('enterpriseRequests.notificationNextAttempt') }}</dt><dd>{{ time(progress.finalNotification.nextAttemptAtUtc) }}</dd>
+            </dl>
+            <p>{{ t('enterpriseRequests.notificationHint') }}</p>
+          </template>
+        </section>
         <div v-if="canRepair" class="approval-repair">
           <p>{{ t('enterpriseRequests.repairHint') }}</p>
           <label for="approval-repair-instance">{{ t('enterpriseRequests.repairInstance') }}</label>
@@ -166,4 +192,6 @@ function time(value: string | null | undefined): string {
 .approval-progress dt { color: var(--el-text-color-secondary); }
 .approval-progress dd { margin: 0; overflow-wrap: anywhere; }
 .approval-repair { display: grid; gap: .5rem; margin-top: 1rem; }
+.notification-progress { margin-top: 1.25rem; }
+.notification-progress h3 { font-size: 1rem; }
 </style>

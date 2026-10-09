@@ -5,6 +5,7 @@ using Full.NET.Modules.EnterpriseRequest.Features.ApprovalProgress;
 using Full.NET.Modules.EnterpriseRequest.Generated;
 using Full.NET.Modules.EnterpriseRequest.Persistence;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Notifications.Contracts;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -37,6 +38,8 @@ public sealed class EnterpriseRequestApprovalProgressTests
         Assert.AreEqual(f.Submission!.WorkflowInstanceId, result.Value.WorkflowInstanceId);
         Assert.AreEqual(f.Submission.RequestVersion, result.Value.SubmittedVersion);
         Assert.AreEqual(f.Submission.CreatedAtUtc, result.Value.SubmittedAtUtc);
+        Assert.IsNull(result.Value.FinalNotification);
+        Assert.AreEqual(0, f.Notifications.ReceivedCalls().Count());
     }
 
     [TestMethod]
@@ -76,6 +79,7 @@ public sealed class EnterpriseRequestApprovalProgressTests
         Assert.AreEqual(EnterpriseRequestErrorCodes.NotFound, result.Error!.Code);
         await f.Queries.DidNotReceive().QuerySingleOrDefaultAsync<EnterpriseRequestApprovalSubmission>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
         await f.Scopes.Received(1).ResolveAsync(f.Actor, false, Arg.Any<CancellationToken>());
+        Assert.AreEqual(0, f.Notifications.ReceivedCalls().Count());
         Assert.IsTrue(f.Queries.ReceivedCalls().Any(call => call.GetArguments()[0] is SqlStatement sql && sql.Text.Contains("OrganizationUnitId = @ProgressUnit", StringComparison.Ordinal)));
     }
 
@@ -100,6 +104,7 @@ public sealed class EnterpriseRequestApprovalProgressTests
         var result = await f.Read();
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(EnterpriseRequestErrorCodes.VersionConflict, result.Error!.Code);
+        Assert.AreEqual(0, f.Notifications.ReceivedCalls().Count());
     }
 
     [TestMethod]
@@ -115,6 +120,77 @@ public sealed class EnterpriseRequestApprovalProgressTests
         Assert.AreEqual(0, f.Queries.ReceivedCalls().Count());
     }
 
+    [TestMethod]
+    [DataRow("Approved")]
+    [DataRow("Rejected")]
+    [DataRow("Cancelled")]
+    public async Task Filtered_final_request_never_uses_receipt_to_read_notification(string status)
+    {
+        var f = new Fixture(); f.Row = null;
+        f.Submission = f.Submission! with { FinalStatus = status, CompletedAtUtc = f.Now, LastMessageId = Guid.NewGuid() };
+        var result = await f.Read();
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(EnterpriseRequestErrorCodes.NotFound, result.Error!.Code);
+        Assert.AreEqual(0, f.Notifications.ReceivedCalls().Count());
+        await f.Queries.DidNotReceive().QuerySingleOrDefaultAsync<EnterpriseRequestApprovalSubmission>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Foreign_or_deleted_final_request_never_reads_notification(bool deleted)
+    {
+        var f = new Fixture(); f.Row = f.Row! with { Status = "Approved", Version = 3,
+            IsDeleted = deleted, TenantId = deleted ? f.TenantId : Guid.NewGuid() };
+        f.Submission = f.Submission! with { FinalStatus = "Approved", CompletedAtUtc = f.Now, LastMessageId = Guid.NewGuid() };
+        var result = await f.Read();
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(EnterpriseRequestErrorCodes.NotFound, result.Error!.Code);
+        Assert.AreEqual(0, f.Notifications.ReceivedCalls().Count());
+        await f.Queries.DidNotReceive().QuerySingleOrDefaultAsync<EnterpriseRequestApprovalSubmission>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [DataRow("version")]
+    [DataRow("message")]
+    [DataRow("completed")]
+    public async Task Inconsistent_final_receipt_never_reads_notification(string kind)
+    {
+        var f = new Fixture(); f.Row = f.Row! with { Status = "Approved", Version = kind == "version" ? 4 : 3 };
+        f.Submission = f.Submission! with { FinalStatus = "Approved", CompletedAtUtc = kind == "completed" ? null : f.Now,
+            LastMessageId = kind == "message" ? Guid.Empty : Guid.NewGuid() };
+        var result = await f.Read();
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(EnterpriseRequestErrorCodes.VersionConflict, result.Error!.Code);
+        Assert.AreEqual(0, f.Notifications.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    public async Task Finalized_approval_keeps_business_and_notification_status_separate()
+    {
+        var f = new Fixture(); f.Row = f.Row! with { Status = "Approved", Version = 3 };
+        f.Submission = f.Submission! with { FinalStatus = "Approved", CompletedAtUtc = f.Now, LastMessageId = Guid.NewGuid() };
+        var snapshot = new NotificationIntentDeliverySnapshot(Guid.NewGuid(), f.Now, 3, 1, 0, 2, 0, 0, 0, f.Now.AddMinutes(1));
+        f.Notifications.FindByIdempotencyAsync("workflow", $"workflow-{f.Submission.LastMessageId:N}", Arg.Any<CancellationToken>()).Returns(snapshot);
+        var result = await f.Read();
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual("Approved", result.Value!.RequestStatus);
+        Assert.AreEqual(EnterpriseRequestApprovalDeliveryState.Finalized, result.Value.DeliveryState);
+        Assert.AreSame(snapshot, result.Value.FinalNotification);
+        Assert.AreEqual(2, result.Value.FinalNotification!.FailedDeliveryCount);
+        Assert.AreEqual(1, f.Notifications.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    public async Task Notification_lookup_failure_does_not_change_completed_business_receipt()
+    {
+        var f = new Fixture(); f.Row = f.Row! with { Status = "Rejected", Version = 3 };
+        f.Submission = f.Submission! with { FinalStatus = "Rejected", CompletedAtUtc = f.Now, LastMessageId = Guid.NewGuid() };
+        var originalRow = f.Row; var originalReceipt = f.Submission;
+        var expected = new InvalidOperationException("notification owner unavailable");
+        f.Notifications.FindByIdempotencyAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromException<NotificationIntentDeliverySnapshot?>(expected));
+        Assert.AreSame(expected, await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => f.Read()));
+        Assert.AreSame(originalRow, f.Row); Assert.AreSame(originalReceipt, f.Submission);
+        Assert.AreEqual(1, f.Notifications.ReceivedCalls().Count());
+    }
     private sealed class Fixture
     {
         internal readonly Guid Id = Guid.NewGuid(), Actor = Guid.NewGuid(), Unit = Guid.NewGuid(), TenantId = Guid.NewGuid();
@@ -122,6 +198,7 @@ public sealed class EnterpriseRequestApprovalProgressTests
         internal readonly IQueryExecutor Queries = Substitute.For<IQueryExecutor>();
         internal readonly ICurrentTenant Tenant = Substitute.For<ICurrentTenant>();
         internal readonly IUserDataScopeResolver Scopes = Substitute.For<IUserDataScopeResolver>();
+        internal readonly INotificationIntentDeliveryDirectory Notifications = Substitute.For<INotificationIntentDeliveryDirectory>();
         internal EnterpriseRequestRecord? Row;
         internal EnterpriseRequestApprovalSubmission? Submission;
         internal readonly EnterpriseRequestApprovalProgressService Service;
@@ -136,7 +213,7 @@ public sealed class EnterpriseRequestApprovalProgressTests
                 .Returns(new DataScopeSqlFilter("OrganizationUnitId = @ProgressUnit", new Dictionary<string, object?> { ["ProgressUnit"] = Unit }));
             Queries.QuerySingleOrDefaultAsync<EnterpriseRequestRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Row);
             Queries.QuerySingleOrDefaultAsync<EnterpriseRequestApprovalSubmission>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Submission);
-            Service = new(new EnterpriseRequestQueryService(Queries, Options.Create(new DatabaseOptions()), Scopes, filters), Queries, Tenant);
+            Service = new(new EnterpriseRequestQueryService(Queries, Options.Create(new DatabaseOptions()), Scopes, filters), Queries, Tenant, new EnterpriseRequestNotificationProgressReader(Notifications, Tenant));
         }
         internal Task<Full.NET.Abstractions.Results.Result<EnterpriseRequestApprovalProgressResponse>> Read() => Service.GetAsync(Id, Actor, false);
     }

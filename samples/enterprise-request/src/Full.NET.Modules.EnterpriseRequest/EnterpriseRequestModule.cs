@@ -26,7 +26,7 @@ public sealed class EnterpriseRequestModule : IFullNetModule
     public string Name => "EnterpriseRequest";
 
     public IReadOnlyCollection<string> Dependencies =>
-        ["Identity", "Tenancy", "Organization", "Files", "Workflow", "ImportExport", "Printing"];
+        ["Identity", "Tenancy", "Organization", "Files", "Workflow", "Notifications", "ImportExport", "Printing"];
 
     public IReadOnlyCollection<string> OptionalContractDependencies => [];
 
@@ -39,6 +39,7 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IPrintingRecordBindingSource, EnterpriseRequestPrintingBindingSource>());
         services.TryAddScoped<SubmitEnterpriseRequestForApprovalService>();
         services.TryAddScoped<EnterpriseRequestApprovalProgressService>();
+        services.TryAddScoped<EnterpriseRequestNotificationProgressReader>();
         services.TryAddScoped<EnterpriseRequestApprovalRepairService>();
         services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, EnterpriseRequestApprovalRepairJsonContext.Default));
         services.TryAddScoped<EnterpriseRequestLineService>();

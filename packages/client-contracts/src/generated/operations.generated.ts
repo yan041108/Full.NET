@@ -310,6 +310,7 @@ import type {
   NotificationDeliveryAttemptResponse,
   NotificationDeliveryReceiptResponse,
   NotificationDeliveryResponse,
+  NotificationIntentDeliverySnapshot,
   NotificationProviderConfigField,
   NotificationProviderProfileResponse,
   NotificationProviderTypeDescriptor,

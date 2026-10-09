@@ -1438,6 +1438,7 @@ export type EnterpriseRequestApprovalDeliveryState = "not_submitted" | "queued" 
 export interface EnterpriseRequestApprovalProgressResponse {
   readonly completedAtUtc: null | string;
   readonly deliveryState: EnterpriseRequestApprovalDeliveryState;
+  readonly finalNotification?: null | NotificationIntentDeliverySnapshot;
   readonly requestId: string;
   readonly requestStatus: string;
   readonly requestVersion: number;
@@ -2646,6 +2647,23 @@ export interface NotificationDeliveryResponse {
   readonly revision: number;
   readonly statusKey: string;
   readonly updatedAtUtc: null | string;
+}
+
+export interface NotificationIntentDeliverySnapshot {
+  readonly acceptedAtUtc: string;
+  readonly deadLetteredDeliveryCount: number;
+  readonly deliveredDeliveryCount?: number;
+  readonly failedDeliveryCount: number;
+  readonly intentId: string;
+  readonly nextAttemptAtUtc: null | string;
+  readonly otherDeliveryCount: number;
+  readonly pendingDeliveryCount: number;
+  readonly persistedDeliveryCount?: number;
+  readonly readDeliveryCount?: number;
+  readonly sentDeliveryCount: number;
+  readonly suppressedDeliveryCount?: number;
+  readonly totalDeliveryCount: number;
+  readonly unknownDeliveryCount: number;
 }
 
 export interface NotificationProviderConfigField {

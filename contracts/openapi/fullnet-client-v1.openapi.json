@@ -49479,6 +49479,16 @@
           "deliveryState": {
             "$ref": "#/components/schemas/EnterpriseRequestApprovalDeliveryState"
           },
+          "finalNotification": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NotificationIntentDeliverySnapshot"
+              }
+            ]
+          },
           "requestId": {
             "format": "uuid",
             "type": "string"
@@ -55597,6 +55607,130 @@
           "updatedAtUtc",
           "attempts",
           "receipts"
+        ],
+        "type": "object"
+      },
+      "NotificationIntentDeliverySnapshot": {
+        "properties": {
+          "acceptedAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deadLetteredDeliveryCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "deliveredDeliveryCount": {
+            "default": 0,
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "failedDeliveryCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "intentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "nextAttemptAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "otherDeliveryCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pendingDeliveryCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "persistedDeliveryCount": {
+            "default": 0,
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "readDeliveryCount": {
+            "default": 0,
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "sentDeliveryCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "suppressedDeliveryCount": {
+            "default": 0,
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "totalDeliveryCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "unknownDeliveryCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "intentId",
+          "acceptedAtUtc",
+          "totalDeliveryCount",
+          "pendingDeliveryCount",
+          "sentDeliveryCount",
+          "failedDeliveryCount",
+          "deadLetteredDeliveryCount",
+          "unknownDeliveryCount",
+          "otherDeliveryCount",
+          "nextAttemptAtUtc"
         ],
         "type": "object"
       },

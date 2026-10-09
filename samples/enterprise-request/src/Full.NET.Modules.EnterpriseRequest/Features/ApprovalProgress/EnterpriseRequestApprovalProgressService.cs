@@ -9,7 +9,8 @@ namespace Full.NET.Modules.EnterpriseRequest.Features.ApprovalProgress;
 
 /// <summary>审批进度遵循单据的组织读取范围，日志不能作为绕过业务授权的独立入口。</summary>
 internal sealed class EnterpriseRequestApprovalProgressService(
-    EnterpriseRequestQueryService requests, IQueryExecutor queries, ICurrentTenant tenant)
+    EnterpriseRequestQueryService requests, IQueryExecutor queries, ICurrentTenant tenant,
+    EnterpriseRequestNotificationProgressReader notifications)
 {
     public async Task<Result<EnterpriseRequestApprovalProgressResponse>> GetAsync(Guid requestId, Guid actorUserId,
         bool isSuperAdministrator, CancellationToken cancellationToken = default)
@@ -55,9 +56,13 @@ internal sealed class EnterpriseRequestApprovalProgressService(
                 return Conflict();
             state = EnterpriseRequestApprovalDeliveryState.Finalized;
         }
+        // 已先完成租户、组织和回执一致性校验，通知读取失败不会改变已提交业务状态。
+        var finalNotification = state == EnterpriseRequestApprovalDeliveryState.Finalized
+            ? await notifications.GetAsync(submission, cancellationToken).ConfigureAwait(false)
+            : null;
         return Result<EnterpriseRequestApprovalProgressResponse>.Success(new(row.Id, row.Status, row.Version, state,
             submission.WorkflowDefinitionVersionId, submission.WorkflowInstanceId, submission.RequestVersion,
-            submission.CreatedAtUtc, submission.StartedAtUtc, submission.CompletedAtUtc));
+            submission.CreatedAtUtc, submission.StartedAtUtc, submission.CompletedAtUtc, finalNotification));
     }
 
     private static Result<EnterpriseRequestApprovalProgressResponse> Conflict() => Failure(EnterpriseRequestErrorCodes.VersionConflict, ErrorType.Conflict);

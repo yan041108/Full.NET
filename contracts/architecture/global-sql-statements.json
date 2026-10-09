@@ -6252,6 +6252,18 @@
         "ORDER BY ChallengeId",
         "LIMIT @BatchSize"
       ]
+    },
+    {
+      "statementName": "notifications.platform.intent.read_delivery_progress",
+      "declaration": "Full.NET.Modules.Notifications.Features.ReadIntentDelivery.NotificationIntentDeliverySql.FindByIdempotency",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Features/ReadIntentDelivery/NotificationIntentDeliveryDirectory.cs",
+      "category": "host_tenant_catalog",
+      "reason": "通知模块按受信 Host/租户作用域与业务回执的固定生产者、幂等键查询自身表，只公开统计；消费模块必须先验证业务读取权限。",
+      "requiredSqlFragments": [
+        "WHERE i.TenantScopeKey = @TenantScopeKey",
+        "AND i.ProducerKey = @ProducerKey",
+        "AND i.IdempotencyKey = @IdempotencyKey"
+      ]
     }
   ]
 }

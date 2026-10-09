@@ -309,6 +309,7 @@ import type {
   NotificationDeliveryAttemptResponse,
   NotificationDeliveryReceiptResponse,
   NotificationDeliveryResponse,
+  NotificationIntentDeliverySnapshot,
   NotificationProviderConfigField,
   NotificationProviderProfileResponse,
   NotificationProviderTypeDescriptor,
@@ -2656,7 +2657,7 @@ export function readEnterpriseRequestApprovalProgressResponse(value: unknown): E
 }
 
 function isEnterpriseRequestApprovalProgressResponse(value: unknown): value is EnterpriseRequestApprovalProgressResponse {
-  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (isEnterpriseRequestApprovalDeliveryState(value["deliveryState"])) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestStatus"] === 'string') && (Number.isSafeInteger(value["requestVersion"])) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && ((value["submittedAtUtc"] === null) || (typeof value["submittedAtUtc"] === 'string')) && ((value["submittedVersion"] === null) || (Number.isSafeInteger(value["submittedVersion"]))) && ((value["workflowDefinitionVersionId"] === null) || (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"]))) && ((value["workflowInstanceId"] === null) || (typeof value["workflowInstanceId"] === 'string' && guidPattern.test(value["workflowInstanceId"])));
+  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (isEnterpriseRequestApprovalDeliveryState(value["deliveryState"])) && (value["finalNotification"] === undefined || ((value["finalNotification"] === null) || (isNotificationIntentDeliverySnapshot(value["finalNotification"])))) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestStatus"] === 'string') && (Number.isSafeInteger(value["requestVersion"])) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && ((value["submittedAtUtc"] === null) || (typeof value["submittedAtUtc"] === 'string')) && ((value["submittedVersion"] === null) || (Number.isSafeInteger(value["submittedVersion"]))) && ((value["workflowDefinitionVersionId"] === null) || (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"]))) && ((value["workflowInstanceId"] === null) || (typeof value["workflowInstanceId"] === 'string' && guidPattern.test(value["workflowInstanceId"])));
 }
 
 export function readEnterpriseRequestAttachmentMutationResponse(value: unknown): EnterpriseRequestAttachmentMutationResponse {
@@ -4162,6 +4163,18 @@ export function readNotificationDeliveryResponse(value: unknown): NotificationDe
 
 function isNotificationDeliveryResponse(value: unknown): value is NotificationDeliveryResponse {
   return isRecord(value) && (Array.isArray(value["attempts"]) && value["attempts"].every(item17 => isNotificationDeliveryAttemptResponse(item17))) && ((value["bindingVersionId"] === null) || (typeof value["bindingVersionId"] === 'string' && guidPattern.test(value["bindingVersionId"]))) && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["intentId"] === 'string' && guidPattern.test(value["intentId"])) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && ((value["providerProfileVersionId"] === null) || (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"]))) && (Array.isArray(value["receipts"]) && value["receipts"].every(item17 => isNotificationDeliveryReceiptResponse(item17))) && (typeof value["recipientId"] === 'string' && guidPattern.test(value["recipientId"])) && (Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string'));
+}
+
+export function readNotificationIntentDeliverySnapshot(value: unknown): NotificationIntentDeliverySnapshot {
+  const normalizedValue = normalizeNotificationIntentDeliverySnapshotIntegerJson(value);
+  if (!(isNotificationIntentDeliverySnapshot(normalizedValue))) {
+    throw new Error('client.invalid_notification_intent_delivery_snapshot');
+  }
+  return normalizedValue;
+}
+
+function isNotificationIntentDeliverySnapshot(value: unknown): value is NotificationIntentDeliverySnapshot {
+  return isRecord(value) && (typeof value["acceptedAtUtc"] === 'string') && (Number.isSafeInteger(value["deadLetteredDeliveryCount"])) && (value["deliveredDeliveryCount"] === undefined || (Number.isSafeInteger(value["deliveredDeliveryCount"]))) && (Number.isSafeInteger(value["failedDeliveryCount"])) && (typeof value["intentId"] === 'string' && guidPattern.test(value["intentId"])) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && (Number.isSafeInteger(value["otherDeliveryCount"])) && (Number.isSafeInteger(value["pendingDeliveryCount"])) && (value["persistedDeliveryCount"] === undefined || (Number.isSafeInteger(value["persistedDeliveryCount"]))) && (value["readDeliveryCount"] === undefined || (Number.isSafeInteger(value["readDeliveryCount"]))) && (Number.isSafeInteger(value["sentDeliveryCount"])) && (value["suppressedDeliveryCount"] === undefined || (Number.isSafeInteger(value["suppressedDeliveryCount"]))) && (Number.isSafeInteger(value["totalDeliveryCount"])) && (Number.isSafeInteger(value["unknownDeliveryCount"]));
 }
 
 export function readNotificationProviderConfigField(value: unknown): NotificationProviderConfigField {
@@ -8467,7 +8480,7 @@ function normalizeDisableHostJobDefinitionRequestIntegerJson(value: unknown): un
 }
 
 function normalizeEnterpriseRequestApprovalProgressResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "requestVersion") ? { ["requestVersion"]: normalizeWireInteger(value["requestVersion"]) } : {}), ...(Object.hasOwn(value, "submittedVersion") ? { ["submittedVersion"]: normalizeWireInteger(value["submittedVersion"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "finalNotification") ? { ["finalNotification"]: normalizeIntegerUnion(value["finalNotification"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isNotificationIntentDeliverySnapshot(value), normalize: (value: unknown) => normalizeNotificationIntentDeliverySnapshotIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "requestVersion") ? { ["requestVersion"]: normalizeWireInteger(value["requestVersion"]) } : {}), ...(Object.hasOwn(value, "submittedVersion") ? { ["submittedVersion"]: normalizeWireInteger(value["submittedVersion"]) } : {}) } : value);
 }
 
 function normalizeEnterpriseRequestAttachmentMutationResponseIntegerJson(value: unknown): unknown {
@@ -8812,6 +8825,10 @@ function normalizeNotificationDeliveryAttemptResponseIntegerJson(value: unknown)
 
 function normalizeNotificationDeliveryResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attempts") ? { ["attempts"]: (Array.isArray(value["attempts"]) ? value["attempts"].map((item17: unknown) => normalizeNotificationDeliveryAttemptResponseIntegerJson(item17)) : value["attempts"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
+function normalizeNotificationIntentDeliverySnapshotIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "deadLetteredDeliveryCount") ? { ["deadLetteredDeliveryCount"]: normalizeWireInteger(value["deadLetteredDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "deliveredDeliveryCount") ? { ["deliveredDeliveryCount"]: normalizeWireInteger(value["deliveredDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "failedDeliveryCount") ? { ["failedDeliveryCount"]: normalizeWireInteger(value["failedDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "otherDeliveryCount") ? { ["otherDeliveryCount"]: normalizeWireInteger(value["otherDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "pendingDeliveryCount") ? { ["pendingDeliveryCount"]: normalizeWireInteger(value["pendingDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "persistedDeliveryCount") ? { ["persistedDeliveryCount"]: normalizeWireInteger(value["persistedDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "readDeliveryCount") ? { ["readDeliveryCount"]: normalizeWireInteger(value["readDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "sentDeliveryCount") ? { ["sentDeliveryCount"]: normalizeWireInteger(value["sentDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "suppressedDeliveryCount") ? { ["suppressedDeliveryCount"]: normalizeWireInteger(value["suppressedDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "totalDeliveryCount") ? { ["totalDeliveryCount"]: normalizeWireInteger(value["totalDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "unknownDeliveryCount") ? { ["unknownDeliveryCount"]: normalizeWireInteger(value["unknownDeliveryCount"]) } : {}) } : value);
 }
 
 function normalizeNotificationProviderProfileResponseIntegerJson(value: unknown): unknown {
