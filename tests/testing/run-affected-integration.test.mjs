@@ -22,6 +22,23 @@ import * as affectedIntegration
 
 const execFileAsync = promisify(execFile);
 
+test('Data 目录使用完整命名空间，不能因 metadata 名称误选 Native AOT 或迁移测试', () => {
+  const target = classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Data/OwnedTestDatabasesTests.cs'
+  ]).targets.find(item => item.name === 'Data');
+  assert.equal(target.filter, 'FullyQualifiedName~Full.NET.IntegrationTests.Data.');
+});
+
+test('数据库生命周期与 schema 共享夹具必须覆盖双库 Smoke 和完整迁移消费者', () => {
+  for (const file of ['SharedDatabaseFixture.cs', 'OwnedTestDatabases.cs', 'ApiSchemaTemplate.cs']) {
+    const targets = targetsForPhase(classifyChangedPaths([
+      `tests/Full.NET.IntegrationTests/${file}`
+    ]).targets, 'slice');
+    assert.ok(targets.some(target => target.name === 'smoke'), file);
+    assert.ok(targets.some(target => target.name === 'migrations'), file);
+  }
+});
+
 test('受影响集成入口支持构建复用与校验式 no-build，互斥选项失败关闭', () => {
   assert.equal(parseArguments(['--base', 'HEAD', '--reuse-build']).reuseBuild, true);
   assert.equal(parseArguments(['--base', 'HEAD', '--no-build']).noBuild, true);
@@ -457,8 +474,9 @@ test('共享与安全关键改动选择对应影响集而不升级全量', () =>
   for (const [filePath, targetName, targetKind] of cases) {
     const selection = classifyChangedPaths([filePath]);
     assert.notEqual(selection.mode, 'full');
-    assert.equal(selection.targets[0].name, targetName);
-    assert.equal(selection.targets[0].kind, targetKind);
+    const target = selection.targets.find(item => item.name === targetName);
+    assert.ok(target, filePath);
+    assert.equal(target.kind, targetKind);
   }
 });
 
@@ -761,9 +779,10 @@ test('inner 把 Smoke 和聚焦过滤器收成 MySQL，且忽略 Messaging 非�
     'tests/Full.NET.IntegrationTests/Messaging/Assets/debezium-connect-java.security.override'
   ]);
 
-  assert.equal(smoke[0].kind, 'filter');
-  assert.match(smoke[0].filter, /^\(/);
-  assert.match(smoke[0].filter, /&FullyQualifiedName~MySql$/);
+  const smokeTarget = smoke.find(target => target.name === 'smoke');
+  assert.equal(smokeTarget.kind, 'filter');
+  assert.match(smokeTarget.filter, /^\(/);
+  assert.match(smokeTarget.filter, /&FullyQualifiedName~MySql$/);
   assert.match(identity[0].filter, /&FullyQualifiedName~MySql$/);
   assert.equal(asset.mode, 'none');
 });

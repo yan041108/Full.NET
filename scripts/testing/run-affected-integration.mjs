@@ -388,10 +388,15 @@ function classifyIntegrationPath(filePath, targets) {
     filePath === 'tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj'
     || filePath === 'tests/Full.NET.IntegrationTests/MSTestSettings.cs'
     || filePath === 'tests/Full.NET.IntegrationTests/SharedDatabaseFixture.cs'
+    || filePath === 'tests/Full.NET.IntegrationTests/OwnedTestDatabases.cs'
     || filePath === 'tests/Full.NET.IntegrationTests/ApiSchemaTemplate.cs'
     || filePath === 'tests/Full.NET.IntegrationTests/Api/FullNetApiFactory.cs'
   ) {
     addTarget(targets, { kind: 'shard', name: 'smoke' });
+    if (['SharedDatabaseFixture.cs', 'OwnedTestDatabases.cs', 'ApiSchemaTemplate.cs']
+      .some(name => filePath === `tests/Full.NET.IntegrationTests/${name}`)) {
+      addTarget(targets, { kind: 'shard', name: 'migrations' });
+    }
     return 'Integration 共享夹具';
   }
 
@@ -484,6 +489,9 @@ function classifyIntegrationPath(filePath, targets) {
   ) {
     if (moduleName === 'CodeGeneration') {
       addModuleTarget(targets, moduleName);
+    } else if (moduleName === 'Data') {
+      // 使用目录对应的完整命名空间，避免 metadata 等方法名误选 Native 进程用例。
+      addTarget(targets, filterTarget('Data', 'FullyQualifiedName~Full.NET.IntegrationTests.Data.'));
     } else {
       addTarget(
         targets,

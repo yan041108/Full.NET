@@ -2,6 +2,21 @@
 
 > 执行方式：按仓库 AGENTS.md 逐切片推进，不自动创建工作树、派发代理、提交或推送。本文件负责新增能力和跨专项依赖；已有专项的实现步骤与进度继续在原计划维护。
 
+### 2026-10-09 自有测试资源与迁移模板复用批次
+
+- 本批基线 `42812adbe5280ba57464b5e63b6218b4bf13bd71`，任务快照 `owned-test-database-cleanup-20261009`，工作区 `Full.NET-printing-20261008-recovery`，分支 `codex/foundation-acceptance-20261003`。其他窗口的生成应用清理与样例文档改动不纳入本批；不修改生产代码、公共契约或发布策略。
+- 临时库以本次运行成功建库的登记取得所有权，初始化后的授权失败/取消仍保留登记；复用容器只删除自有库及对应 MySQL 库级授权，保留其他运行、固定模板与全局复制授权。失败继续清理其余资源并聚合报告，成功项不重复删除。不扫描库名前缀接管历史资源，不声称能够回收进程崩溃后的未知库。
+- 空库判定覆盖 SQL Server 用户对象、类型、schema、用户和 XML 等元数据，以及 MySQL 表、视图、routine 与 event，避免覆盖没有 journal 的历史库。MySQL 克隆改用真实建表 DDL，保留外键，复制数据后安装触发器并将视图引用绑定目标库；真实约束回归已获得 1/1 聚焦成功证据 `.tmp/owned-db-mysql-clone-fixed.log`，不外推为最终批次认证。
+- 82 个标准全量恢复测试文件的 298 处初始化调用接入模板复用；损坏、目标迁移重放与原断言保留。首次安装、历史前缀和定制 Runner 不接入，不能以克隆代替被测迁移执行。共享夹具影响集包含完整 migrations 与双库 Smoke；Data 使用完整命名空间，避免 metadata 名称误选 Native AOT 与迁移类。
+- 首轮合并会话错误采用迁移分片的 120 分钟上限，而且私有容器逐库删除后再销毁，造成重复清理。该轮实际中止：586 成功、2 个误选的 Linux Native 用例跳过、0 失败，退出码 3；589 项发现范围未完整完成，不能计整批通过。自有容器已正常移除，未清理其他窗口容器。证据 `.tmp/owned-db-final-concentrated.log`。
+- 私有容器模式改为先关闭启动入口、等待在途建库/配置，再移除容器，全部成功才清空登记；失败保留登记且继续其他容器，启动锁防止移除期间重新启动。四项回归有效 RED 为 10 成功/4 失败，GREEN 为 14/14、零失败/跳过；最新 Release 构建零警告/错误。证据 `.tmp/owned-db-retirement-red.log`、`.tmp/owned-db-retirement-green.log`；最终源码只读复审未发现 P1/P2。
+- 最新 `pnpm test:integration:tooling` 91/91（含工作区其他任务测试）及 `pnpm test:governance` 59/59，均零失败/跳过。此前工具套件中的其他任务生成应用用例因等待重型锁超过其 30 秒子进程预算失败，本轮在锁释放后复验成功，不把失败轮次计通过。证据 `.tmp/owned-db-tooling-retirement-final.log`、`.tmp/owned-db-governance-retirement-final.log`。
+- 最终集中验收已经冻结源码：按快照推导 slice，将全量 migrations 覆盖的编号选择去重，实际 Data 39、migrations 516、Smoke 8，按 UID 合并为 561 项；分片总发现 1218，无遗漏/重复，仅为发现证据。使用正式资源锁、构建登记和输入校验，私有 SQL Server/MySQL 容器，保留发现数门禁，总执行预算 180 分钟。实际 `FULLNET_TESTCONTAINERS_REUSE=0 node .tmp/owned-db-final.mjs`，重启恢复后的日志 `.tmp/owned-db-final-after-reboot.log`；该会话于 22:13:18 主机再次重启时中断，没有最终 TRX、退出码或清理认证，不计通过。
+- 22:12:31 RuntimeBroker 代表本机用户发起重启，22:13:18 开机；21:11 的验收、数据库交付助手及审批进度接续助手均丢失，原状态仅保存为 interrupted。恢复 Docker 后核对本任务 SQL Server/MySQL 两容器的精确 ID、会话标签与退出 255（OOMKilled=false），仅移除这两容器及 PID 21104/token 匹配的两锁，保留其他窗口资源。最终采用 `.tmp/owned-db-checkpoint.mjs` 分段集中执行同一冻结构建：Data/Smoke 47 项、迁移六段各 80 项及一段 34 项，八段按 UID 不重不漏覆盖 561。原生 UID 发现预检成功、Release 构建 13.13 秒零警告/错误，不计实际测试通过。每段须实际 exit 0、精确新鲜 TRX 全 Passed、输入/程序集一致与自有容器清理后才保存检查点；中断只重做未认证段，不伪造单轮 561 项通过。证据 `.tmp/owned-db-checkpoints/manifest.json` 与 `.tmp/owned-db-checkpoint-run.log`；八个执行段共 561 个不同用例全部通过，各段零失败/跳过且 exit 0，协调进程 exit 0；每段真实 TRX 的 UID 与计划精确相等，并集与正式重新发现的 561 个 UID 完全一致。累计测试时间 02:08:04.6750948，不含排队，不声称单轮 561/561。各段关联到实际测试 PID 的自有容器会话均已移除。冻结输入与 Release 产物交付前再次核对一致，证据为 .tmp/owned-db-checkpoints/manifest.json、各段 TRX、.tmp/owned-db-checkpoint-accepted.json 与 .tmp/owned-db-delivery.log。
+- 2026-10-10 00:28 +08:00，首个迁移段实际 80/80、零失败/跳过、测试进程 exit 0，TRX 用时 20 分 45.586 秒；协调器因立即检查 Ryuk 尚未退出而 exit 1，不把该协调失败计为整批通过。Docker 事件确认两数据库先移除，Ryuk 于 00:28:49 移除，晚于检查约 4 秒。仅为忽略目录内的协调器增加最长 60 秒自有会话清理等待，持续残留或 Docker 查询失败仍拒绝；五项合成守卫 RED 2 失败/3 成功、GREEN 5/5，不加入真实 561 项。用冻结输入/程序集、实际新鲜 TRX 精确 UID、原进程资源回执与当前会话为空复核已完成段，恢复时累计 127 个不同用例、两段通过，避免重跑 80 项；其余范围继续执行。证据 .tmp/owned-db-checkpoint-recover.log、.tmp/owned-db-resource-settle-red.log、.tmp/owned-db-resource-settle-green.log 与原段 TRX，先前停止日志保留。
+- 环境为 Windows、i7-12700H（14 核/20 线程）、Docker 20 CPU/约 19.3 GiB、MTP 两个 worker。本批没有完整前后计时对照，不承诺全套提速比例；不重复独立生成应用或 Native AOT 验收，F10 故障矩阵、补投状态与人工页面验收继续待完成，`Capacity-not-verified` 保持。本批本地验收通过后提交并推送指定开发分支；提交/推送与工作流快照见 .tmp/owned-db-delivery-result.json，不把运行中的 CI 计为成功。未合并、未发布。
+- 18:00:35 主机重启，17:14 启动的 561 项会话及其交付助手均被中断，未生成最终 TRX，不能计通过；21:05 恢复时 Docker 未启动。恢复 Docker 后按精确容器 ID 与原 Testcontainers 会话标签核对并移除本任务两只已退出数据库容器，仅清理原 PID 41336、匹配 token 的工作区锁和重型锁，保留其他工作区锁与容器。旧日志和构建绑定备份保留；重新运行相同 561 项冻结范围，并在启动测试前固定构建记录 identity/output/digest，交付仅推送精确验收提交 SHA。
+
 **Goal：** 将现有模块组合为可创建项目、可由企业自主使用、可运营 SaaS、可升级恢复的开发底座。
 
 **Architecture：** 保持强化型模块化单体、API/Worker/Migrator 分离、Dapper 双库和 Host.Api Native AOT。复用 Identity、Tenancy、Organization、Payments 等数据所有者，不复制账号库，不为目录完整度增加业务项目。
