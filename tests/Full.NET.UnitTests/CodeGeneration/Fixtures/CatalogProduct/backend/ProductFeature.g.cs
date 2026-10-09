@@ -15,7 +15,7 @@ using Microsoft.Extensions.Options;
 
 namespace Acme.Modules.Catalog.Generated;
 
-internal sealed class ProductQueryService(
+internal sealed partial class ProductQueryService(
     IQueryExecutor queryExecutor,
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IOptions<DatabaseOptions> databaseOptions)

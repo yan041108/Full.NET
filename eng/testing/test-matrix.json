@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 5550,
+      "minimum": 5561,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -41,7 +41,7 @@
         },
         "code-generation-realtime": {
           "filter": "FullyQualifiedName~CodeGeneration|FullyQualifiedName~Realtime",
-          "minimum": 2264
+          "minimum": 2266
         },
         "identity-oidc": {
           "filter": "FullyQualifiedName~IdentityOidcOptionsTests|FullyQualifiedName~IdentityOidcSessionTests|FullyQualifiedName~IdentityOidcPrincipalTests|FullyQualifiedName~IdentityOidcPkceHelperTests|FullyQualifiedName~IdentityOidcInteractionTests|FullyQualifiedName~IdentityOidcStoreSerializationTests|FullyQualifiedName~IdentityOidcCenterLoginServiceTests|FullyQualifiedName~IdentityOidcLogoutTests",
@@ -606,12 +606,12 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 189,
+        "minimum": 190,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 189,
+        "minimum": 190,
         "timeout": "60m"
       },
       "migrations": {
@@ -644,12 +644,12 @@
       },
       "enterprise-sample": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Api.EnterpriseRequestApi",
-        "minimum": 12,
+        "minimum": 14,
         "timeout": "15m"
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1190,
+        "minimum": 1192,
         "timeout": "90m"
       },
       "logging-route-comparison": {

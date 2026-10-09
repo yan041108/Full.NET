@@ -16,7 +16,7 @@ using Microsoft.Extensions.Options;
 using Full.NET.Modules.Organization.Contracts;
 namespace Full.NET.Modules.EnterpriseRequest.Generated;
 
-internal sealed class EnterpriseRequestQueryService(
+internal sealed partial class EnterpriseRequestQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions,
     IUserDataScopeResolver dataScopeResolver,
@@ -42,6 +42,7 @@ internal sealed class EnterpriseRequestQueryService(
                     scope,
                     "OrganizationUnitId",
                     currentUserId);
+                ConfigureReadDataScope(scope, currentUserId, ref filter);
                 var countStatement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                     EnterpriseRequestSql.CountStatement,
                     filter,
@@ -65,7 +66,7 @@ internal sealed class EnterpriseRequestQueryService(
                 var listStatement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                     baseStatement,
                     filter,
-                    "WHERE 1 = 1\n            AND TenantId = @TenantId");
+                    "AND TenantId = @TenantId");
                 var rows = await queryExecutor
                     .QueryAsync<EnterpriseRequestRecord>(
                         listStatement,
@@ -97,6 +98,7 @@ internal sealed class EnterpriseRequestQueryService(
                     scope,
                     "OrganizationUnitId",
                     currentUserId);
+                ConfigureReadDataScope(scope, currentUserId, ref filter);
                 var statement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                     EnterpriseRequestSql.FindByIdStatement,
                     filter,
@@ -152,13 +154,17 @@ internal sealed class EnterpriseRequestQueryService(
     private static Result<EnterpriseRequestResponse> NotFound() =>
         EnterpriseRequestFeatureErrors.NotFound();
 
+    // 在独立手写 partial 中细化业务记录范围；未实现时编译器移除调用。
+    partial void ConfigureReadDataScope(
+        EffectiveUserDataScope scope, Guid currentUserId, ref DataScopeSqlFilter? filter);
+
     private static class GeneratedTenantDataScopeComposer
     {
         private const string CountTenantWhereAnchor =
             "WHERE TenantId = @TenantId";
 
         private const string ListTenantWhereAnchor =
-            "WHERE 1 = 1\n            AND TenantId = @TenantId";
+            "AND TenantId = @TenantId";
 
         internal static SqlStatement ApplyDataScopeFilter(
             SqlStatement statement,

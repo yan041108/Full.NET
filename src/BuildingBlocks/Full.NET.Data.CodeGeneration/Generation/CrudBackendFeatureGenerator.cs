@@ -186,7 +186,7 @@ internal static class CrudBackendFeatureGenerator
 
             namespace {{schema.RootNamespace}}.Generated;
 
-            internal sealed class {{schema.ClrTypeName}}QueryService(
+            internal sealed partial class {{schema.ClrTypeName}}QueryService(
                 IQueryExecutor queryExecutor,
                 IMultiResultQueryExecutor multiResultQueryExecutor,
                 IOptions<DatabaseOptions> databaseOptions)
@@ -927,7 +927,7 @@ internal static class CrudBackendFeatureGenerator
             {{organizationFeatureUsings}}
             namespace {{schema.RootNamespace}}.Generated;
 
-            internal sealed class {{schema.ClrTypeName}}QueryService(
+            internal sealed partial class {{schema.ClrTypeName}}QueryService(
             {{IndentLines(queryServiceConstructorParameters, 4)}})
             {
             {{IndentLines(listMethod, 4)}}

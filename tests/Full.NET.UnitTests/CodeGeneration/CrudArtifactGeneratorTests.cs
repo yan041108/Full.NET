@@ -14,6 +14,20 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     [DataRow(FullNetCrudOwnershipMode.None)]
     [DataRow(FullNetCrudOwnershipMode.OrganizationUnit)]
+    public void Generated_queries_allow_static_domain_scope_customization(FullNetCrudOwnershipMode ownership)
+    {
+        var feature = Artifact(GenerateWithLayui(CreateExplicitLifecycleSchema(ownershipMode: ownership)), "backend/ProductFeature.g.cs");
+        StringAssert.Contains(feature, "internal sealed partial class ProductQueryService(");
+        if (ownership == FullNetCrudOwnershipMode.OrganizationUnit)
+        {
+            StringAssert.Contains(feature, "partial void ConfigureReadDataScope(");
+            Assert.AreEqual(2, feature.Split("ConfigureReadDataScope(scope, currentUserId, ref filter);", StringSplitOptions.None).Length - 1);
+        }
+    }
+
+    [TestMethod]
+    [DataRow(FullNetCrudOwnershipMode.None)]
+    [DataRow(FullNetCrudOwnershipMode.OrganizationUnit)]
     public void Explicit_crud_has_optional_domain_guards_before_writes(FullNetCrudOwnershipMode ownership)
     {
         var feature = Artifact(GenerateWithLayui(CreateExplicitLifecycleSchema(ownershipMode: ownership)), "backend/ProductFeature.g.cs");

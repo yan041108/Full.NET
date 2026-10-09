@@ -7,6 +7,14 @@ namespace Full.NET.IntegrationTests.Api;
 public sealed class EnterpriseRequestApiMySqlTests
 {
     [TestMethod]
+    public async Task Enterprise_security_matrix_preserves_scope_ownership_and_concurrent_version()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            settingsOverrides: new Dictionary<string, string?> { ["Identity:SessionLoginPolicy"] = "AllowMultiple" });
+        await EnterpriseRequestAssertions.VerifySecurityMatrixAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Ordinary_state_writes_and_cascade_delete_conflict_preserve_business_data()
     {
         using var factory = new FullNetApiFactory(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
