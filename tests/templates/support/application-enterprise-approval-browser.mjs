@@ -267,7 +267,9 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
       assert.equal(settled.finalNotification.deadLetteredDeliveryCount, 0);
       assert.equal(settled.finalNotification.unknownDeliveryCount, 0);
       assert.equal(settled.finalNotification.otherDeliveryCount, 0);
-      assert.ok(settled.finalNotification.totalDeliveryCount > 0);
+      // 此夹具只发送站内信，所有者的外部渠道统计允许为零。
+      assert.equal(settled.finalNotification.totalDeliveryCount, 0);
+      assert.equal(settled.finalNotification.nextAttemptAtUtc, null);
       evidence.requests.find(item => item.id === request.id).finalNotification = settled.finalNotification;
     }
     await page.goto(origin + '/#/enterprise-requests');
