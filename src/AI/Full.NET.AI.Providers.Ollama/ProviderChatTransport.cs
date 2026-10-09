@@ -9,14 +9,14 @@ internal sealed class ProviderChatTransport(HttpClient client)
 {
     internal Task<AiChatCompletionResult> StreamAsync(ModelBinding modelConfig, string? apiKey,
         IReadOnlyList<(string RoleKey, string Content)> messages, Func<string, Task> onDelta,
-        StringBuilder buffer, CancellationToken cancellationToken, bool requestStreamingUsage = false) =>
-        StreamOllamaAsync(modelConfig, messages, onDelta, buffer, cancellationToken);
+        StringBuilder buffer, CancellationToken cancellationToken, bool requestStreamingUsage = false, int maxOutputTokens = 4096) =>
+        StreamOllamaAsync(modelConfig, messages, onDelta, buffer, cancellationToken, maxOutputTokens);
     private async Task<AiChatCompletionResult> StreamOllamaAsync(
         ModelBinding modelConfig,
         IReadOnlyList<(string RoleKey, string Content)> messages,
         Func<string, Task> onDelta,
         StringBuilder builder,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, int maxOutputTokens)
     {
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
@@ -25,7 +25,7 @@ internal sealed class ProviderChatTransport(HttpClient client)
         {
             ["model"] = modelConfig.ModelId,
             ["stream"] = true,
-            ["options"] = new JsonObject { ["num_predict"] = 4096 },
+            ["options"] = new JsonObject { ["num_predict"] = maxOutputTokens },
             ["messages"] = new JsonArray(messages.Select(item => (JsonNode)new JsonObject
             {
                 ["role"] = item.RoleKey,

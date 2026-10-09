@@ -316,7 +316,7 @@ internal sealed class AiAgentRunCoordinator(
                     }
                     effectivePrompt = proven.Value!;
                 }
-                result = await runner.RunAsync(client, effectivePrompt, cancellationToken).ConfigureAwait(false);
+                result = await runner.RunAsync(new AiRunOutputLimitClient(client, snapshot.OutputTokenLimit), effectivePrompt, cancellationToken).ConfigureAwait(false);
             }
 
             var checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(result.Session.GetRawText())));

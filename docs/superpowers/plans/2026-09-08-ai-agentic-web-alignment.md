@@ -1537,6 +1537,25 @@ Token 值只限制现有预算预留；实际提供程序输入分词/输出硬�
 - `python artifacts/r09b/collect-acceptance.py` 核对 TRX/UID、源码冻结、原失败与补跑、原生文件摘要及其他任务未修改；摘要 `artifacts/r09b/acceptance.json`。测试范围只包含本批能力；完整工作流模板、反馈审核/脱敏导出、检索对比和实际 Token 硬限仍属 R09 待办。旧 API/Worker 不理解新绑定；必须关闭所有 API 的新 Run 准入并等待已进入的创建请求结束，优雅停止旧 Worker，升级全部 API/Worker 并核对工件后再开放。旧消费者回退前须保持当前 Worker 将绑定 Run 处理至终态，等待在途调用退出并优雅停止 Worker；取消状态不证明外部调用已停止，未知调用须对账。准入关闭不阻止消费队列。未提供自动能力协商，不宣称新旧混布/回退已验证，具体门禁见运维说明。独立生成应用按 AI 模块全部完成后集中验收；在线 NuGet 审计未执行（本地命令使用 `NuGetAudit=false`），真实云模型质量及容量保持未验证、`Capacity-not-verified`。
 - 环境：Windows x64、i7-12700H、约 64 GB、SDK 10.0.401；Linux Docker SDK 10.0.400/运行时 10.0.11，SQL Server 2022-CU14/MySQL 8.0。双库不复用容器；最终原生发布 8 CPU/12 GiB，构建及原生测试 2 CPU/8 GiB、GC 堆 2 GiB。整批 main 提交，保护其他任务改动及受保护文件。
 
+#### R09c：单次文本 Run 输出请求上限（2026-10-09，集中交付）
+
+- [x] 单次文本 Run 在真实模型调用边界使用冻结的 `OutputTokenLimit`，绑定及未绑定 Prompt 均发送 `min(冻结预算, 4096)`；保持已存在的更低调用方上限。
+- [x] OpenAI 兼容与 Azure OpenAI 发送 `max_tokens`，Ollama 发送 `options.num_predict`；流式及非流式调用均支持显式 1–4096 上限，无选项或空选项沿用 4096。
+- [x] 中立客户端只开放 `MaxOutputTokens`，其余 SDK 选项逐项静态拒绝；模型覆盖、工具、扩展字典与原始请求工厂均不得静默启用，并通过 SDK 属性集合防漂移。
+- [x] 运行级外观克隆选项、不修改调用方，显式 `IChatClient` 服务查询仅返回自身，底层资源仍由协调器释放；正数与极大值、取消传递、解包和资源所有权均有验证。
+- [x] 原生 API/Worker 双库实际调用同时验证旧代次拒绝及当前绑定请求 `num_predict=100`；保留旧聊天调用兼容和纯文本失败关闭行为。
+- [x] 集中回归、静态/AOT 分析、实际 Linux API/Worker 发布及受影响原生运行完成，更新运营保证、旧 Worker 升级门禁和实际测试计数；按 main 显式范围交付。
+
+本批完成输出**请求参数**约束，不宣称提供程序不可忽略该参数、实际 Token 数或费用的独立硬限。实际输入分词、超量/缺失回执精确治理、真实云端模型守限、Workflow 总输出预算、反馈审核/脱敏导出和检索策略对比仍待完成，R09 保持未整体关闭。旧 Worker 仍发送固定 4096，所有承接 Run 的 Worker 须升级；沿用 R09b 绑定能力的停准入、等待在途和正常停机门禁。
+
+**本地验证记录：**
+
+- 基线 `30ed661d67df3290238468334f60a1bae46178ca`，冻结 6455 个实际输入。`node artifacts/r09c/run-red.mjs` 的修正夹具版本先观察 17 项能力缺失失败；`node artifacts/r09c/run-owner-red.mjs` 观察资源所有权失败。最初完整架构 235 项为 232 通过/3 失败，其中新增服务定位器表面问题已收紧，原日志保留；显式接口可选参数的编译失败也保留并修正。
+- `node artifacts/r09c/run-final-fixed.mjs`：Unit 实际发现 6109，AI **2640/2640** 无跳过；API/Worker AOT analyzer 均零警告/错误。受影响架构实际 **85：83 通过/2 原有失败**，与本轮初次完整扫描的 150 个未影响通过 UID 合并为 235：233 通过/2 原有失败；完整错误信息与 R09a/R09b 基线一致。失败仍为存量 TXT/PDF 异步命名及 PDF 阻塞调用，未扩宽豁免。
+- 同命令完成测试工具 **73/73**、命名 **30/30**，Integration 规范分片发现 **1212**，无遗漏/重复；分片发现不计为执行 1212 项。`node artifacts/r09c/run-static.mjs`：UUID **3/3**（命名合计 33）、OpenAPI 静态 **210/210**、治理 **59/59**（排除会读取受保护文档的精确仓库全量扫描项），替代扫描在读取前排除保护路径，覆盖 **385** 份 Markdown。公共接口/DTO 字段及数据库结构未改变，本批无新迁移或前端改动。
+- `node artifacts/r09c/run-native.mjs`：实际 linux-x64 API/Worker 发布均退出 0、警告门禁只允许已有第三方告警；API **140164320 bytes / SHA256 `659548f59b9a3399adbbce41351873814bfab256d0c07985f96e033f1723399a` / 1132915 ms**，Worker **90430776 bytes / SHA256 `77ad37c417f48a244b1ebba58e923018e2e8b420942116beb81594c35df4856f` / 327869 ms**。Linux JIT 夹具以当前源码重新构建，实际发现并运行 AI API 与 Prompt Worker 双库 **4/4**，零失败/跳过，运行 SHA 与本次产物相符；未重复身份模块完整流程，也未把旧二进制结果外推到本批代码。
+- `python artifacts/r09c/collect-acceptance.py` 核对 TRX、UID、冻结源码、JIT 夹具及运行二进制摘要；摘要 `artifacts/r09c/acceptance.json`。本地 Windows x64/i7-12700H/约 64 GB/SDK 10.0.401；Linux Docker SDK 10.0.400、runtime 10.0.11，SQL Server 2022-CU14 与 MySQL 8.0；原生发布 8 CPU/12 GiB，运行及夹具 2 CPU/8 GiB。双库使用新测试数据库、不复用 Testcontainers 数据库。独立生成应用待 AI 模块全部实现后集中验收；在线 NuGet 审计未执行（`NuGetAudit=false`），云端模型、回答质量、旧消费者混布/回退及容量未验收，保持 `Capacity-not-verified`。既有外部改动和受保护文件保留。
+
 ### R10：节点恢复与审批一致性（P2，依赖 R01/R09）
 
 **修改：** `src/AI/Full.NET.Agents/Workflows/AgentWorkflowRunner.cs`、`src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs`；扩展 `tests/Full.NET.UnitTests/Ai/AiAgentRunCoordinatorTests.cs`、现有 `AiWorkflowCheckpoint*Tests.cs` 与 `AiApprovalRecovery*Tests.cs`。

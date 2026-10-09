@@ -14,11 +14,11 @@ internal sealed class ProviderChatTransport(HttpClient client)
         Func<string, Task> onDelta,
         StringBuilder buffer,
         CancellationToken cancellationToken,
-        bool requestStreamingUsage = false)
+        bool requestStreamingUsage = false, int maxOutputTokens = 4096)
     {
         if (requestStreamingUsage)
             throw new NotSupportedException("AI provider capability is not enabled.");
-        return StreamAzureAsync(modelConfig, apiKey, messages, onDelta, buffer, cancellationToken);
+        return StreamAzureAsync(modelConfig, apiKey, messages, onDelta, buffer, cancellationToken, maxOutputTokens);
     }
 
     private async Task<AiChatCompletionResult> StreamAzureAsync(
@@ -27,7 +27,7 @@ internal sealed class ProviderChatTransport(HttpClient client)
         IReadOnlyList<(string RoleKey, string Content)> messages,
         Func<string, Task> onDelta,
         StringBuilder builder,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, int maxOutputTokens)
     {
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("API key is required for azure_openai provider.");
@@ -40,7 +40,7 @@ internal sealed class ProviderChatTransport(HttpClient client)
         var payload = new JsonObject
         {
             ["stream"] = true,
-            ["max_tokens"] = 4096,
+            ["max_tokens"] = maxOutputTokens,
             ["messages"] = new JsonArray(messages.Select(item => (JsonNode)new JsonObject
             {
                 ["role"] = item.RoleKey,

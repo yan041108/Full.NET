@@ -28,12 +28,14 @@ public sealed class NativeWorkerPromptE2ETests
         if (!NativeWorkerArtifactLocator.TryResolve(out var artifact, out var reason)) Assert.Inconclusive(reason ?? "Native Worker artifact unavailable.");
         if (!NativeApiArtifactLocator.TryResolve(out var apiArtifact, out var apiReason)) Assert.Inconclusive(apiReason ?? "Native API artifact unavailable.");
         var requests = new ConcurrentQueue<string>();
+        var outputLimits = new ConcurrentQueue<int>();
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseUrls("http://127.0.0.1:0"); builder.Logging.ClearProviders();
         await using var providerHost = builder.Build();
         providerHost.MapPost("/api/chat", async (HttpContext context) =>
         {
             using var body = await System.Text.Json.JsonDocument.ParseAsync(context.Request.Body, cancellationToken: context.RequestAborted);
+            outputLimits.Enqueue(body.RootElement.GetProperty("options").GetProperty("num_predict").GetInt32());
             requests.Enqueue(body.RootElement.GetProperty("messages").EnumerateArray().Single(m => m.GetProperty("role").GetString() == "user").GetProperty("content").GetString()!);
             context.Response.ContentType = "application/x-ndjson";
             await context.Response.WriteAsync("{\"message\":{\"role\":\"assistant\",\"content\":\"native-ok\"},\"done\":true,\"prompt_eval_count\":5,\"eval_count\":2}\n", context.RequestAborted);
@@ -90,6 +92,7 @@ public sealed class NativeWorkerPromptE2ETests
         Assert.AreEqual("ai.prompts.unavailable", failure.RootElement.GetProperty("errorCode").GetString());
         await host.StopGracefullyAsync(TimeSpan.FromSeconds(30)); host.AssertNoFatalMarkersInLogs(); Assert.AreEqual(0, host.ExitCode);
         CollectionAssert.AreEqual(new[] { "Native current epoch" }, requests.ToArray());
+        CollectionAssert.AreEqual(new[] { 100 }, outputLimits.ToArray());
         await apiHost.StopGracefullyAsync(); apiHost.AssertNoFatalMarkersInLogs(); Assert.AreEqual(0, apiHost.ExitCode);
         async Task<AiPromptResponse> WriteAsync<T>(string url, T request, HttpStatusCode status = HttpStatusCode.OK)
         {

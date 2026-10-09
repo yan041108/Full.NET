@@ -9,15 +9,15 @@ internal sealed class ProviderChatTransport(HttpClient client)
 {
     internal Task<AiChatCompletionResult> StreamAsync(ModelBinding modelConfig, string? apiKey,
         IReadOnlyList<(string RoleKey, string Content)> messages, Func<string, Task> onDelta,
-        StringBuilder buffer, CancellationToken cancellationToken, bool requestStreamingUsage = false) =>
-        StreamOpenAiCompatibleAsync(modelConfig, apiKey, messages, onDelta, buffer, cancellationToken, requestStreamingUsage);
+        StringBuilder buffer, CancellationToken cancellationToken, bool requestStreamingUsage = false, int maxOutputTokens = 4096) =>
+        StreamOpenAiCompatibleAsync(modelConfig, apiKey, messages, onDelta, buffer, cancellationToken, requestStreamingUsage, maxOutputTokens);
     private async Task<AiChatCompletionResult> StreamOpenAiCompatibleAsync(
         ModelBinding modelConfig,
         string? apiKey,
         IReadOnlyList<(string RoleKey, string Content)> messages,
         Func<string, Task> onDelta,
         StringBuilder builder,
-        CancellationToken cancellationToken, bool requestStreamingUsage)
+        CancellationToken cancellationToken, bool requestStreamingUsage, int maxOutputTokens)
     {
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -38,7 +38,7 @@ internal sealed class ProviderChatTransport(HttpClient client)
         {
             ["model"] = modelConfig.ModelId,
             ["stream"] = true,
-            ["max_tokens"] = 4096,
+            ["max_tokens"] = maxOutputTokens,
             ["messages"] = new JsonArray(messages.Select(item => (JsonNode)new JsonObject
             {
                 ["role"] = item.RoleKey,

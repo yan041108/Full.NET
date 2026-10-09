@@ -7,7 +7,7 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <param name="ModelConfigId">使用的模型配置标识。</param>
 /// <param name="Prompt">本次运行的输入提示文本。</param>
 /// <param name="InputTokenLimit">输入 Token 预算预留上限；当前提供程序链路不实现实际输入分词硬限。</param>
-/// <param name="OutputTokenLimit">输出 Token 预算预留上限；实际用量由模型回执结算，当前不实现请求硬限。</param>
+/// <param name="OutputTokenLimit">输出 Token 预算预留上限；单次文本运行请求上限取该值与 4096 的较小值，实际用量仍由模型回执结算。</param>
 /// <param name="PromptVersionId">可选当前发布的不可变纯文本版本；运行固定版本及停用代次，旧客户端省略时保留原协议。</param>
 public sealed record CreateAiAgentRunRequest(
     Guid ClientRequestId,

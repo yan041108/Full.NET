@@ -212,6 +212,24 @@ public sealed class AiAgentRunCoordinatorTests
         AssertStatusCommit(fixture.Commands, "failed");
     }
 
+    [TestMethod]
+    [DataRow(false)] [DataRow(true)]
+    public async Task Single_text_runner_receives_frozen_output_limit_at_dispatch(bool promptBound)
+    {
+        var client = Substitute.For<IChatClient>();
+        client.GetResponseAsync(Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatOptions?>(), Arg.Any<CancellationToken>())
+            .Returns(new ChatResponse(new ChatMessage(ChatRole.Assistant, "reply")));
+        var runner = Substitute.For<IAgentModelRunner>();
+        runner.RunAsync(Arg.Any<IChatClient>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(async call =>
+        {
+            await call.ArgAt<IChatClient>(0).GetResponseAsync([new(ChatRole.User, call.ArgAt<string>(1))], cancellationToken: call.ArgAt<CancellationToken>(2));
+            return new AgentModelResult("reply", JsonSerializer.SerializeToElement(new { messages = Array.Empty<string>() }), 2, 1);
+        });
+        var fixture = await CreateFixtureAsync(chatClient: client, runner: runner, promptBound: promptBound);
+        Assert.AreEqual(1, await fixture.Coordinator.ProcessPendingAsync());
+        await client.Received(1).GetResponseAsync(Arg.Any<IEnumerable<ChatMessage>>(), Arg.Is<ChatOptions?>(options => options != null && options.MaxOutputTokens == 100), Arg.Any<CancellationToken>());
+    }
+
     private static async Task<CoordinatorFixture> CreateFixtureAsync(
         bool bindingValid = true,
         bool includeModel = true,

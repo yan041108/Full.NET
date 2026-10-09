@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 6070,
+      "minimum": 6109,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -21,7 +21,7 @@
         },
         "ai-module": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
-          "minimum": 2601
+          "minimum": 2640
         },
         "ai-evaluation": {
           "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests",
@@ -32,12 +32,12 @@
           "minimum": 7
         },
         "ai-runtime": {
-          "filter": "FullyQualifiedName~AiAgentRunReadiness|FullyQualifiedName~AiAgentRunState|FullyQualifiedName~AiAgentRunManagement|FullyQualifiedName~AiAgentRunCoordinator|FullyQualifiedName~AiAgentToolLoop|FullyQualifiedName~AiCheckpointCompatibility|FullyQualifiedName~AgentWorkflowRunner|FullyQualifiedName~AiMultiAgentBudget",
-          "minimum": 72
+          "filter": "FullyQualifiedName~AiAgentRunReadiness|FullyQualifiedName~AiAgentRunState|FullyQualifiedName~AiAgentRunManagement|FullyQualifiedName~AiAgentRunCoordinator|FullyQualifiedName~AiAgentToolLoop|FullyQualifiedName~AiCheckpointCompatibility|FullyQualifiedName~AgentWorkflowRunner|FullyQualifiedName~AiMultiAgentBudget|FullyQualifiedName~AiRunOutputLimitClientTests",
+          "minimum": 86
         },
         "ai-provider": {
-          "filter": "FullyQualifiedName~AiGatewayCapabilityTests|FullyQualifiedName~AiCredentialBoundaryTests|FullyQualifiedName~AiProviderEndpointPolicyTests|FullyQualifiedName~AiProviderSafetyRegressionTests|FullyQualifiedName~AiChatStreamingBudgetTests|FullyQualifiedName~AiModelConnectivityTesterTests|FullyQualifiedName~AiChatContentPolicyTests|FullyQualifiedName~AiAgentToolAuditPolicyTests|FullyQualifiedName~AiEmbeddingProviderContractTests|FullyQualifiedName~AzureOpenAiProviderTests",
-          "minimum": 120
+          "filter": "FullyQualifiedName~AiGatewayCapabilityTests|FullyQualifiedName~AiCredentialBoundaryTests|FullyQualifiedName~AiProviderEndpointPolicyTests|FullyQualifiedName~AiProviderSafetyRegressionTests|FullyQualifiedName~AiChatStreamingBudgetTests|FullyQualifiedName~AiModelConnectivityTesterTests|FullyQualifiedName~AiChatContentPolicyTests|FullyQualifiedName~AiAgentToolAuditPolicyTests|FullyQualifiedName~AiEmbeddingProviderContractTests|FullyQualifiedName~AzureOpenAiProviderTests|FullyQualifiedName~AiProviderOutputLimitTests",
+          "minimum": 145
         },
         "code-generation-realtime": {
           "filter": "FullyQualifiedName~CodeGeneration|FullyQualifiedName~Realtime",

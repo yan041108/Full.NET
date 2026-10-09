@@ -7,7 +7,7 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <param name="LanguageTag">规范语言标签，本阶段仅支持 en-US 或 zh-CN。</param>
 /// <param name="Template">包含且仅包含一次 {{input}} 的文本模板，最多 8192 个字符。</param>
 /// <param name="InputTokenLimit">该版本允许的输入 Token 预算预留上限；当前协议不提供提供程序分词或实际请求硬限。</param>
-/// <param name="OutputTokenLimit">该版本允许的输出 Token 预算预留上限；实际计量仍由模型回执和预算对账处理。</param>
+/// <param name="OutputTokenLimit">该版本允许的输出 Token 预算预留上限；单次文本 Run 的请求上限同时受此预算与提供程序 4096 上限约束，实际计量仍由模型回执处理。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record AiPromptBody(Guid ModelConfigId, string LanguageTag, string Template, long InputTokenLimit, long OutputTokenLimit);
 
