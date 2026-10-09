@@ -5,7 +5,7 @@ import { createWriteStream, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { runPnpm } from './pnpm-process.mjs';
+import { runPnpm, runPnpmInstall } from './pnpm-process.mjs';
 import { runPrintingBrowserResponseAction, watchPrintingBrowserCancellation } from './application-printing-browser-lifecycle.mjs';
 import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 import { isOutboxDrained } from './worker-crash-lifecycle.mjs';
@@ -23,7 +23,14 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
   const evidence = { completed: false, responses: [], fixtureResponses: [], accessibility: [], requests: [] };
   const execute = (stage, args) => {
     signal?.throwIfAborted();
-    const result = runPnpm(args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000 });
+    const options = { cwd: appRoot, encoding: 'utf8', timeout: 300_000 };
+    const installation = stage === 'install' ? runPnpmInstall(options) : undefined;
+    if (installation) {
+      evidence.installAttempts = installation.attempts.length;
+      installation.attempts.forEach((result, index) => writeFileSync(join(reportDirectory, 'approval-install-attempt-' + (index + 1) + '.log'),
+        (result.stdout ?? '') + (result.stderr ?? '')));
+    }
+    const result = installation?.result ?? runPnpm(args, options);
     writeFileSync(join(reportDirectory, 'approval-' + stage + '.log'), (result.stdout ?? '') + (result.stderr ?? ''));
     assert.equal(result.status, 0, 'generated approval ' + stage + ' failed');
   };
@@ -38,7 +45,7 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
   let browser; let context; let cancellation; let page; let stage = 'vite'; let token; let failed = false;
   const send = async (path, method = 'GET', body, expected = 200, bearer = token) => {
     signal?.throwIfAborted();
-    const response = await fetch(apiUrl + path, { method, headers: { Authorization: 'Bearer ' + bearer,
+    const response = await fetch(apiUrl + path, { method, headers: { ...(bearer ? { Authorization: 'Bearer ' + bearer } : {}),
       Origin: origin, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       body: body === undefined ? undefined : JSON.stringify(body), redirect: 'error',
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000) });
@@ -90,8 +97,7 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     };
     stage = 'login'; await page.goto(origin);
     await page.getByLabel('账号', { exact: true }).fill('admin'); await page.getByLabel('密码', { exact: true }).fill('FullNet!2026Secure');
-    const hostLogin = await action('/api/v1/auth/login', 'POST', () => page.getByRole('button', { name: '进入控制台' }).click());
-    const hostToken = hostLogin.accessToken; assert.ok(hostToken);
+    await action('/api/v1/auth/login', 'POST', () => page.getByRole('button', { name: '进入控制台' }).click());
     await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({ timeout: 30_000 });
     stage = 'tenant'; await page.goto(origin + '/#/tenant-context');
     const tenantRow = page.locator('.tenant-context-view .el-table__row').filter({ hasText: 'local' });
@@ -289,7 +295,10 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     await expect(page.getByTestId('inbox-messages-detail-drawer')).toContainText(approved.id); evidence.notificationViewed = true;
     await page.screenshot({ path: join(reportDirectory, 'approval-inbox.png'), fullPage: true });
     stage = 'restart-idempotency'; const messageIds = messages.items.map(item => item.id).sort(); await crashWorker(); await startWorker();
-    // 通过原 Host 会话只读查询所有者积压；活动租约或未到期重试不能提前通过。
+    // 切租户会使原 Host 令牌失效；新建独立 Host 会话，保留页面正在使用的租户会话。
+    const hostLogin = await send('/api/v1/auth/login', 'POST', { username: 'admin', password: 'FullNet!2026Secure' }, 200, null);
+    const hostToken = hostLogin.accessToken; assert.ok(hostToken);
+    // 只读查询所有者积压；活动租约或未到期重试不能提前通过。
     const drained = await poll(() => send('/api/v1/messaging/delivery-status/', 'GET', undefined, 200, hostToken),
       value => isOutboxDrained(value.backlog), 'Outbox recovery drain');
     evidence.outboxDrainedAfterCrash = drained.backlog;

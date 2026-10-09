@@ -4,6 +4,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { runPnpmInstall } from './support/pnpm-process.mjs';
 
 const helper = new URL('./support/pnpm-process.mjs', import.meta.url).href;
 const argumentSets = [
@@ -12,6 +13,28 @@ const argumentSets = [
   ['install', '--frozen-lockfile'],
   ['--filter', '@fullnet/client-contracts', 'build'],
 ];
+
+test('安装成功或普通失败不能自动重复执行', () => {
+  for (const status of [0, 1, null]) {
+    let calls = 0;
+    const run = (args, options) => { calls++; assert.deepEqual(args, ['install', '--frozen-lockfile']);
+      assert.equal(options.cwd, 'owned'); return { status, stderr: 'ordinary failure' }; };
+    const receipt = runPnpmInstall({ cwd: 'owned' }, run);
+    assert.equal(calls, 1); assert.equal(receipt.result.status, status); assert.equal(receipt.attempts.length, 1);
+  }
+});
+
+test('明确目录占用只重试一次，保留原失败与最终结果', () => {
+  let calls = 0;
+  const receipt = runPnpmInstall({}, () => ++calls === 1 ? { status: 1, stderr: 'ERR_PNPM_EBUSY symlink locked' } : { status: 0 });
+  assert.equal(calls, 2); assert.equal(receipt.result.status, 0); assert.equal(receipt.attempts[0].status, 1);
+});
+
+test('再次目录占用仍然失败，不能无限重试或掩盖失败', () => {
+  let calls = 0;
+  const receipt = runPnpmInstall({}, () => { calls++; return { status: 1, stdout: 'ERR_PNPM_EBUSY symlink locked' }; });
+  assert.equal(calls, 2); assert.equal(receipt.result.status, 1); assert.equal(receipt.attempts.length, 2);
+});
 
 // 子 Node 将弃用警告转为失败；真正经过本机命令解析器，不能由调用形状替身掩盖。
 function invoke(args, options = {}) {
