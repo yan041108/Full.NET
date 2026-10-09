@@ -1650,6 +1650,25 @@ Token 值只限制现有预算预留；实际提供程序输入分词/输出硬�
 - [ ] 定义并持久化节点输入/输出摘要、定义/模型/Prompt 版本及 OperationId；已知完成不重跑，未知外部副作用进入对账，不能从 checkpoint 缺失推断未执行。
 - [ ] 审批恢复复核当前会话/权限、参数摘要、工具/策略版本及业务状态；全节点预算和 deadline 必须约束实际派发，未知用量不得计零。
 
+#### R10a：累计用量保真与取消派发边界合批（2026-10-10，本批本地验收完成）
+
+- [x] 工作流与工具循环共用累计规则：首次模型调用初始化用量；后续任一输入/输出用量缺失时，该流累计保持null，不以之后的已知值补齐未知总量。工作流恢复按定义前缀判定是否已有模型调用，避免从null误判首次调用。
+- [x] 拒绝负数模型用量和负数检查点；已知用量采用checked累加，溢出失败关闭。输入/输出总量全部校验成功后再更新工作流状态，输出流溢出不部分写入输入流累计值。
+- [x] 模型/工具返回后、工具逐次执行间及OperationId解析后再次检查取消；已取消请求不继续派发后续工具或返回成功。只读审查指出解析OperationId期间取消仍可能派发，新增失败回归后修复两个运行消费者。
+- [x] 更新唯一测试矩阵与[操作预算说明](../../operations/ai-operation-budgets.md#工作流与工具循环的累计计量)；保持公共签名、检查点序列化字段/版本、数据库与授权契约不变。
+
+**本地验证记录：**
+
+- 基线 `6712515178227263d3baa130a99e8df96ebf7106`，快照 `ai-runtime-metering-cancellation-r10a`。首次RED **16失败/7通过**，初步 **23/23** 通过；扩充输入/输出溢出原子性与OperationId取消回归后，派发边界RED **2失败/25通过**。`node artifacts/r10a/run-focused.mjs final-green` 最终 **27/27**，零失败/跳过，Release构建零警告/错误；原RED/TRX保留。
+- `node artifacts/r10a/run-concentrated.mjs`：AI **2837/2837**、运行时 **115/115**、受影响Architecture **82/82**，零失败/跳过；实际Unit发现 **6306**，未将发现数报告为全量Unit执行。Integration与Architecture新鲜构建、API/Worker `FullNetAotAnalysis=true` 分析构建均零警告/错误；只复用核对过摘要的程序集，不重复构建已冻结输入。
+- `node artifacts/r10a/run-tooling.mjs` 与 `node artifacts/r10a/run-extra.mjs`：测试工具 **73/73**、命名30与UUID3共 **33/33**、治理 **59/59**；Integration分片发现 **1214** 无遗漏/重复，未执行其全部业务用例；Markdown受保护排除扫描 **385** 文件通过。
+- 影响分类要求完整Smoke；`node artifacts/r10a/run-delivery.mjs` 的Linux功能阶段覆盖SQL Server/MySQL完整Smoke及工作流检查点、审批恢复、Agent租约各双库用例，**14/14**，零失败/跳过。同一Integration与Agents程序集作为原生消费者；所有源码、测试、构建输入共 **6489** 项保持冻结，保护其他任务改动。
+- 同一交付脚本新鲜发布linux-x64 Native API/Worker：API **140546864** 字节、1037476ms，Worker **90586360** 字节、365055ms；分别 **17/15** 条既有依赖告警通过白名单门禁，不表述为实际Native发布零警告。两个可执行文件SHA-256分别为 `2fdab1341bc6b8858a0082399cb86639a471267a3371fe4f81f87ac2a479f86d`、`288ff30278aa5c61bcab63422471a5247cf53c29b9a219d19469829568a60eaa`；耗时仅是本次构建记录，无容量结论。
+- 交付脚本按唯一矩阵完整核心Native过滤器执行，发现与TRX精确UID一致，**35/35**，零失败/跳过，42m26.335s；包含双库AI/工作流、Kafka日志、PDF恢复、知识版本退役、旧Prompt拒绝及Worker后台/文件路径，不把最低发现门槛10当成执行数。Integration程序集SHA-256为 `38ce1ac021745846054f533ffc5fdf5fbef7dfe72de5f4ec473549205a4a56ee`；Unit、Integration、Linux功能与Native消费者的Agents程序集摘要一致为 `99f4f6b9b9a553584d38350f39c8636f32694e9e84521b5cd8b3ada4267adfaa`，Native消费者实际可执行文件摘要与上述新鲜发布一致。
+- Windows x64、i7-12700H、63.7GiB内存、本机SDK10.0.401、Docker29.6.2；Linux发布SDK10.0.400，发布8CPU/12GiB，功能/原生消费者2CPU/8GiB并限制GC堆2GiB，集中Unit回归4处理器，使用工作区/机器重任务锁和独立临时目录。构建仅本次 `NuGetAudit=false`，在线依赖审计未执行；全量Unit、全量Architecture未执行，不把历史验收算作本批新执行。
+- `python artifacts/r10a/collect-acceptance.py` 核对专项/运行时/AI的精确UID包含关系、两个RED、双库与Native发现/执行一致性、程序集及产物摘要、6489冻结输入与本批7文件范围；只读复审确认OperationId取消后派发问题已修复，无剩余具体缺陷。证据在忽略目录 `artifacts/r10a/`，受保护路径先于读取/hash排除，既有其他任务改动保留；审查不代替执行证据。
+- 本批修复累计计量与协作式取消边界；不恢复历史已丢失用量，不证明模型提供者已支持deadline/硬取消，也不关闭节点完成凭证、未知外部副作用对账、长调用租约续期及审批当前再授权。R10原三项继续未勾选，无真实外部模型调用、费用/容量/SLO实测；独立生成应用按AI模块集中验收，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

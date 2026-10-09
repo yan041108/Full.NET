@@ -56,8 +56,10 @@ public sealed class AgentToolLoop
         {
             cancellationToken.ThrowIfCancellationRequested();
             var response = await request.Client.GetResponseAsync(messages, options, cancellationToken).ConfigureAwait(false);
-            inputTokens = AddUsage(inputTokens, response.Usage?.InputTokenCount);
-            outputTokens = AddUsage(outputTokens, response.Usage?.OutputTokenCount);
+            // 供应商可以忽略令牌并返回；等待后必须复核，禁止取消后继续派发工具或交付完成结果。
+            cancellationToken.ThrowIfCancellationRequested();
+            inputTokens = AgentTokenUsage.Add(inputTokens, response.Usage?.InputTokenCount, iteration == 0);
+            outputTokens = AgentTokenUsage.Add(outputTokens, response.Usage?.OutputTokenCount, iteration == 0);
             var calls = response.Messages.SelectMany(message => message.Contents.OfType<FunctionCallContent>()).ToArray();
             if (calls.Length == 0)
             {
@@ -68,6 +70,7 @@ public sealed class AgentToolLoop
             messages.AddRange(response.Messages);
             foreach (var call in calls)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 toolSteps++;
                 if (!allowed.Contains(call.Name))
                 {
@@ -97,7 +100,9 @@ public sealed class AgentToolLoop
                 using var arguments = ToJsonElement(call.Arguments);
                 var operationId = request.ResolveOperationId(call.CallId);
                 var invocation = new ToolInvocation(operationId, request.RunId, call.Name, tool.Version, arguments.RootElement.Clone());
+                cancellationToken.ThrowIfCancellationRequested();
                 var result = await request.Executor.ExecuteAsync(invocation, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
                 if (string.Equals(result.ErrorCode, "ai.tool.approval_required", StringComparison.Ordinal))
                 {
                     approvalRequired = true;
@@ -184,7 +189,6 @@ public sealed class AgentToolLoop
         _ => JsonSerializer.SerializeToElement(value.ToString(), AgentToolLoopJsonSerializerContext.Default.String),
     };
 
-    private static long? AddUsage(long? current, long? delta) => current is null && delta is null ? null : (current ?? 0) + (delta ?? 0);
 }
 
 /// <summary>工具循环执行请求；RunId 与 OperationId 解析由调用方控制。</summary>

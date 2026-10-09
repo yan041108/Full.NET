@@ -31,7 +31,8 @@ public sealed class AgentWorkflowRunner
             return new(AgentWorkflowRunStatus.Failed, request.State, null, "ai.agent_run.definition_incompatible");
 
         var state = request.State;
-        if (state.NextNodeIndex < 0 || state.NextNodeIndex > definition.Nodes.Count)
+        if (state.NextNodeIndex < 0 || state.NextNodeIndex > definition.Nodes.Count
+            || state.InputTokens is < 0 || state.OutputTokens is < 0)
             return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.checkpoint_incompatible");
         // 恢复到写入或结束位置仍需校验原始结果，不能把节点游标当作校验已通过的证据。
         if (state.NextNodeIndex >= 3 && !CanRename(state))
@@ -51,6 +52,7 @@ public sealed class AgentWorkflowRunner
                     if (node.Kind == AgentWorkflowNodeKind.ToolWrite && !CanRename(state))
                         return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.workflow_validation_failed");
                     var toolResult = await ExecuteToolNodeAsync(request, node, state, cancellationToken).ConfigureAwait(false);
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (toolResult.ApprovalRequired)
                     {
                         approvalRequired = true;
@@ -78,8 +80,14 @@ public sealed class AgentWorkflowRunner
                 {
                     var prompt = Interpolate(node.PromptTemplate!, state.Outputs);
                     var modelResult = await request.ModelRunner.RunAsync(request.Client, prompt, cancellationToken).ConfigureAwait(false);
-                    state.InputTokens = AddUsage(state.InputTokens, modelResult.InputTokens);
-                    state.OutputTokens = AddUsage(state.OutputTokens, modelResult.OutputTokens);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    // 恢复游标前已有模型节点时，空值代表未知累计量；不能把已发生调用当作首次计量。
+                    var firstModelCall = !definition.Nodes.Take(index).Any(x => x.Kind == AgentWorkflowNodeKind.ModelText);
+                    var inputTokens = AgentTokenUsage.Add(state.InputTokens, modelResult.InputTokens, firstModelCall);
+                    var outputTokens = AgentTokenUsage.Add(state.OutputTokens, modelResult.OutputTokens, firstModelCall);
+                    // 两类计量均校验成功后一起推进状态，避免第二类溢出留下半份已更新检查点。
+                    state.InputTokens = inputTokens;
+                    state.OutputTokens = outputTokens;
                     state.Outputs[node.Key] = modelResult.Text;
                     if (string.Equals(node.Key, "validate", StringComparison.Ordinal)
                         && !AgentValidationResult.IsApproved(modelResult.Text))
@@ -107,6 +115,7 @@ public sealed class AgentWorkflowRunner
             return new(AgentWorkflowRunStatus.ReconciliationRequired, state, null, null);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var finalText = state.Outputs.TryGetValue("summarize", out var summary) ? summary : string.Empty;
         return new(AgentWorkflowRunStatus.Completed, state, finalText, null);
     }
@@ -127,6 +136,7 @@ public sealed class AgentWorkflowRunner
         using var arguments = BuildToolArguments(node, state);
         var operationId = request.ResolveOperationId(node.Key);
         var invocation = new ToolInvocation(operationId, request.RunId, toolName, tool.Version, arguments.RootElement.Clone());
+        cancellationToken.ThrowIfCancellationRequested();
         var result = await request.Executor.ExecuteAsync(invocation, cancellationToken).ConfigureAwait(false);
         if (string.Equals(result.ErrorCode, "ai.tool.approval_required", StringComparison.Ordinal))
         {
@@ -179,9 +189,6 @@ public sealed class AgentWorkflowRunner
 
         return result;
     }
-
-    private static long? AddUsage(long? current, long? delta) =>
-        current is null && delta is null ? null : (current ?? 0) + (delta ?? 0);
 
     private sealed record ToolNodeResult(
         bool Succeeded,
