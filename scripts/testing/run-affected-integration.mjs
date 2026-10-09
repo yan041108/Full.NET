@@ -716,7 +716,8 @@ export function estimateSelectionSeconds(targets) {
 export function targetsForExecutionGroup(targets, group = 'all') {
   const isMigration = target => target.name === 'migrations' || /^migration-\d+$/.test(target.name);
   if (group === 'all') return targets;
-  if (group === 'modules') return targets.filter(target => !isMigration(target));
+  // 普通模块 CI 没有原生产物；Native 由 API/Worker 专用发布工作流验收，不能混入后以跳过冒充通过。
+  if (group === 'modules') return targets.filter(target => !isMigration(target) && target.name !== 'native-aot');
   if (group !== 'migrations-legacy' && group !== 'migrations-current') {
     throw new Error(`未知执行分组：${group}`);
   }

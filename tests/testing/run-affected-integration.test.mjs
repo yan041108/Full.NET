@@ -822,6 +822,13 @@ test('CI 执行分组保留全部模块、工具门禁和双库迁移目标且�
   assert.throws(() => split(targets, 'unknown'), /执行分组/);
 });
 
+test('模块 CI 排除独立发布验收的 Native 目标，完整本地选择仍保留', () => {
+  const native = { kind: 'filter', name: 'native-aot', filter: 'native' };
+  const module = { kind: 'filter', name: 'Workflow', filter: 'workflow' };
+  assert.deepEqual(affectedIntegration.targetsForExecutionGroup([native, module], 'modules'), [module]);
+  assert.deepEqual(affectedIntegration.targetsForExecutionGroup([native, module], 'all'), [native, module]);
+});
+
 test('登记过的精确恢复集只进入所属迁移分组，不混入模块分组', () => {
   const split = affectedIntegration.targetsForExecutionGroup;
   assert.equal(typeof split, 'function');
