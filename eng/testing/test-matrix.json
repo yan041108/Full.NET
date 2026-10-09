@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 6109,
+      "minimum": 6163,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -21,11 +21,11 @@
         },
         "ai-module": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
-          "minimum": 2640
+          "minimum": 2694
         },
         "ai-evaluation": {
-          "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests",
-          "minimum": 44
+          "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests|FullyQualifiedName~RagRetrievalComparison",
+          "minimum": 98
         },
         "ai-retrieval-candidates": {
           "filter": "FullyQualifiedName~AiRetrievalCandidateTests",
@@ -50,6 +50,10 @@
         "identity-oidc-protocol": {
           "filter": "FullyQualifiedName~IdentityOidcPkceHelperTests|FullyQualifiedName~Oidc_protocol|FullyQualifiedName~IdentityOidcProtocol|FullyQualifiedName~IdentityOidcInteractionTests",
           "minimum": 15
+        },
+        "ai-retrieval-comparison": {
+          "filter": "FullyQualifiedName~RagRetrievalComparison",
+          "minimum": 54
         }
       }
     },

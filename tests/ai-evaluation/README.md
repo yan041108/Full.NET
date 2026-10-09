@@ -64,4 +64,36 @@ Remove-Item Env:FULLNET_AI_EVALUATION_REPORT
 
 R02 交付冻结合成数据、测试项目内评分器、失败回归、参考结果与报告入口。首份真实端到端基线仍为 **未测**，由 R06 在同一语料上生成；检索 Provider/解析器选型属于 R03。没有开启生产 AI 功能，也没有关闭历史运行时的双库或原生门禁。
 
+## 三策略比较与推荐门禁（R09d）
+
+`RagRetrievalComparison` 复用 R02 评分器，对 `basic`、`keyword_vector`、`rerank` 三份完整观测分别重新评分。候选不得提交自报总分或覆盖门槛；三份观测必须绑定同一冻结数据摘要、质量策略、模型、Prompt、解析器、分块和索引版本，只有检索版本可以不同，且三个检索版本必须各自明确。每个运行都须包含全部冻结案例，不能删掉失败案例；模型或索引变化必须另做实验，不能计作检索策略收益。
+
+比较策略为 `rag-strategy-comparison-v1`。基础策略和候选均须通过 R02 质量、安全门禁，候选不得退化任何单案例的召回、带引用回答、拒答判定或语义支持；召回或带引用回答率至少提升 0.02。候选总 Token、费用分别最多为基础的 1.10 倍，P95 耗时最多 1.20 倍，模型调用最多 1.25 倍。所有案例的调用、输入/输出 Token、费用须已知，币种须唯一且相同，耗时须正数；未知数据、未测执行或无质量收益均保留基础策略。费用为零可代表免费本地模型，但零基础费用不能容纳新增费用。报告中的比例用于展示；门禁按精确数值关系判断，不能用比例的舍入结果放行超预算。
+
+有多个合格候选时，先选召回与回答率收益之和最高者，再按费用、Token、P95、调用比例从低到高选择；完全相同时优先融合策略。输出推荐供人工评审，不自动修改生产配置。`end_to_end` 及独立语义评审仍是外部提交声明；本工具不认证执行者、评审者或原始网络调用，启用策略前必须核对原始检索、模型、用量和评审记录。
+
+通过已有 Unit 入口运行默认参考，报告为 `not_measured`，推荐始终保留基础策略：
+
+```powershell
+pnpm test:dotnet:unit -- --selection ai-retrieval-comparison
+```
+
+实际比较输入是 UTF-8 JSON（最多 8 MiB），格式为 `{"schemaVersion":1,"strategies":[{"strategyKey":"basic","run":完整R02运行},{"strategyKey":"keyword_vector","run":完整R02运行},{"strategyKey":"rerank","run":完整R02运行}]}`。重复、未知、缺失字段或不兼容冻结输入直接拒绝。以下命令只读取已经采集的观测，不执行模型或检索：
+
+```powershell
+$inputFile = Join-Path (Get-Location) 'artifacts/ai-evaluation/three-strategy-observations.json'
+$env:FULLNET_AI_STRATEGY_COMPARISON_INPUT = $inputFile
+$env:FULLNET_AI_STRATEGY_COMPARISON_REPORT = Join-Path (Get-Location) ('artifacts/ai-evaluation/strategy-report-' + [guid]::NewGuid().ToString('N') + '.json')
+try {
+    pnpm test:dotnet:unit -- --selection ai-retrieval-comparison --reuse-build
+} finally {
+    Remove-Item Env:FULLNET_AI_STRATEGY_COMPARISON_INPUT
+    Remove-Item Env:FULLNET_AI_STRATEGY_COMPARISON_REPORT
+}
+```
+
+合法观测即使门禁失败也先写报告，再以非零退出码结束；无法解析的输入不生成评分报告。报告使用新文件，已有路径拒绝覆盖，包括输入文件；未指定输出时以唯一文件名保存为测试附件。报告包含各策略的 R02 评分、案例失败原因、质量差值、资源比例、推荐及阻断机器码，不复制问题、答案、片段正文或评审正文。每份运行的摘要为按 `RagEvaluationJson.Options` 序列化、规范化换行后的 SHA-256；它绑定全部观测和标注，不能当作原始文件字节摘要。原始证据需要单独受控保留；该摘要与报告不构成生产数据脱敏审核或评审者身份认证。
+
+当前交付为比较工具与失败保留门禁。真实三策略运行器、端到端质量/性能收益、融合/重排生产启用及反馈审核导出仍待实施，默认参考和测试构造证据均不关闭这些状态。
+
 R03 的独立原生选型实验另见 [RETRIEVAL-PROBE.md](RETRIEVAL-PROBE.md)，决策见 [ADR-0013](../../docs/architecture/adr/ADR-0013-ai-retrieval-provider.md)。其合成特征/过滤报告不提交为本评分器的真实模型端到端结果。

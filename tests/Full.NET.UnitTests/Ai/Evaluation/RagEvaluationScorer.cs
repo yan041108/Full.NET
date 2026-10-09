@@ -91,7 +91,9 @@ internal static class RagEvaluationScorer
         var currencies = usage.Select(x => x.Currency).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         var durations = run.Results.Select(x => x.DurationMilliseconds).Order().ToArray();
         // 任一未知计量使对应合计仍为未知；不同币种不能直接相加，合成计时不能冒充模型性能。
-        return new(corpus.DatasetVersion, datasetSha256, corpus.Policy.Version, run.RunKind,
+        try
+        {
+            return new(corpus.DatasetVersion, datasetSha256, corpus.Policy.Version, run.RunKind,
             run.RunKind == "offline_reference" ? "not_measured" : "reported",
             run.Versions, recall, citationValidity, answerRate, refusalAccuracy, semanticRate,
             securityFailures, scores.Count(x => x.IsSafetyCase && x.SecurityFailures.Length > 0),
@@ -100,8 +102,21 @@ internal static class RagEvaluationScorer
             usage.All(x => x.InputTokens.HasValue) ? usage.Sum(x => x.InputTokens!.Value) : null,
             usage.All(x => x.OutputTokens.HasValue) ? usage.Sum(x => x.OutputTokens!.Value) : null,
             currencies.Length == 1 && usage.All(x => x.Cost.HasValue) ? usage.Sum(x => x.Cost!.Value) : null,
-            currencies, durations.Average(), durations[(int)Math.Ceiling(durations.Length * 0.95) - 1],
+            currencies, MeanDuration(durations), durations[(int)Math.Ceiling(durations.Length * 0.95) - 1],
             gate.Count == 0, gate.ToArray(), scores);
+        }
+        catch (OverflowException exception)
+        {
+            throw new InvalidDataException("评估用量合计超过报告数值的表示范围。", exception);
+        }
+    }
+
+    // 已排序且非负的耗时逐步更新均值，避免有限单项在求和时溢出为 Infinity。
+    private static double MeanDuration(double[] ordered)
+    {
+        var mean = 0.0;
+        for (var i = 0; i < ordered.Length; i++) mean += (ordered[i] - mean) / (i + 1);
+        return mean;
     }
 
     private static void ValidateCorpus(RagEvaluationCorpus corpus)

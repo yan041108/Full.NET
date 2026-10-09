@@ -1556,6 +1556,24 @@ Token 值只限制现有预算预留；实际提供程序输入分词/输出硬�
 - `node artifacts/r09c/run-native.mjs`：实际 linux-x64 API/Worker 发布均退出 0、警告门禁只允许已有第三方告警；API **140164320 bytes / SHA256 `659548f59b9a3399adbbce41351873814bfab256d0c07985f96e033f1723399a` / 1132915 ms**，Worker **90430776 bytes / SHA256 `77ad37c417f48a244b1ebba58e923018e2e8b420942116beb81594c35df4856f` / 327869 ms**。Linux JIT 夹具以当前源码重新构建，实际发现并运行 AI API 与 Prompt Worker 双库 **4/4**，零失败/跳过，运行 SHA 与本次产物相符；未重复身份模块完整流程，也未把旧二进制结果外推到本批代码。
 - `python artifacts/r09c/collect-acceptance.py` 核对 TRX、UID、冻结源码、JIT 夹具及运行二进制摘要；摘要 `artifacts/r09c/acceptance.json`。本地 Windows x64/i7-12700H/约 64 GB/SDK 10.0.401；Linux Docker SDK 10.0.400、runtime 10.0.11，SQL Server 2022-CU14 与 MySQL 8.0；原生发布 8 CPU/12 GiB，运行及夹具 2 CPU/8 GiB。双库使用新测试数据库、不复用 Testcontainers 数据库。独立生成应用待 AI 模块全部实现后集中验收；在线 NuGet 审计未执行（`NuGetAudit=false`），云端模型、回答质量、旧消费者混布/回退及容量未验收，保持 `Capacity-not-verified`。既有外部改动和受保护文件保留。
 
+#### R09d：三策略评估、资源门禁与失败报告合批（2026-10-09，本批工具验收完成）
+
+- [x] 基于 R02 现有评分器交付 `basic` / `keyword_vector` / `rerank` 三策略比较，重新评分全部冻结案例；模型、Prompt、解析、分块、索引及数据/质量策略一致，只有检索版本可变且须各自明确。候选不能自报通过、删题或覆盖门槛。
+- [x] 固定 `rag-strategy-comparison-v1`：召回或带引用回答率绝对提升至少 0.02，基础和候选均通过既有质量/安全门禁，逐案例无退化；总 Token/费用 ≤ 基础 1.10 倍，P95 ≤ 1.20 倍，调用 ≤ 1.25 倍。未知用量、币种不一致、未测执行/耗时、无收益或超预算保留基础策略；多个合格候选按收益和资源稳定排序，工具不改生产配置。
+- [x] 费用/Token/调用按 decimal 尾数与位数精确交叉比较，P95 按 IEEE 754 实际值与十进制门槛精确比较；展示比例溢出保留 null。修复评分器有限大耗时均值溢出，超出报告类型的用量合计明确拒绝为 InvalidDataException。
+- [x] 接入已有 Unit 命令的 `ai-retrieval-comparison` 选择集；外部三策略完整 UTF-8 JSON 最多 8 MiB，严格拒绝重复/未知/缺失字段，报告使用 CreateNew 防覆盖。合法候选失败先写报告再非零退出，默认参考不产生启用推荐。报告不复制问题、答案、片段或评审正文，摘要绑定完整规范化运行；不把此工具当作生产脱敏审核或评审者认证。
+- [x] 新增比较及报告回归、既有评分器回归、AI 模块集中验证与只读复审，同步唯一测试矩阵和既有评估 README；仅暂存本批文件，按 main 交付。
+
+本批完成离线比较工具、推荐门禁和报告消费入口，不宣称已实现关键词/向量融合或重排运行器，也不宣称真实模型产生收益。`end_to_end` 与语义评审仍是外部声明，启用策略必须人工核对原始检索、模型、用量与评审证据。真实三策略运行及收益验证、反馈审核/脱敏导出仍待完成，R09 保持未整体关闭。
+
+**本地验证记录：**
+
+- 基线 `58a88ed7d562da37f471e30db01f8833e355bc96`。比较首轮 RED 36/36 能力缺失失败、报告入口 RED 7/7 失败；数值边界 RED 9/9 失败，补充精度组 2 项为 1 失败/1 已通过。首次测试断言编译失败与自有测试包装的锁嵌套等待均保留原始日志，已修正；未将这些结果计作通过，未终止其他任务进程。
+- `node artifacts/r09d/run-numeric-green.mjs`：最终 Release 构建零警告/错误，新功能 54/54 通过。`node artifacts/r09d/run-final.mjs` 复用同一最终源码的 Release DLL，实际发现 Unit 6163，评估 **98/98**、AI **2694/2694**，均零失败/跳过；外部测试构造观测的合格入口 1/1，通过，超预算入口预期 1 项失败/exit=2，先保存报告并推荐保留基础策略。这两组是控制路径实验，不是实际模型/检索性能。
+- 同一最终命令：测试工具 **73/73**、命名 **30/30**、治理 **59/59**；会读取受保护文档的精确全库 Markdown 项未执行，替代扫描先排除保护路径再读取 **385** 份文档。Integration 分片发现 **1212**、无遗漏/重复，发现不计作执行。受保护路径先于读/hash 排除，既有外部改动保持原摘要。
+- `python artifacts/r09d/collect-acceptance.py` 核对新功能、评估与 AI 的实际 UID 集合、正式 TRX、退出码、外部失败报告及最终 DLL；冻结 **6460** 个实际输入，验收记录位于忽略目录 `artifacts/r09d/`。只读复审确认数值、读取限额及禁止覆盖修正后无剩余 P1/P2。
+- 影响集仅选择测试矩阵工具；生产源码/依赖、API/Worker 可达路径、SQL、迁移和前端未改变，本批未重跑原生发布/双库业务场景或架构扫描，不把 R09c 历史结果当作新执行。在线 NuGet 审计未执行（`NuGetAudit=false`）；独立生成应用仍按 AI 模块范围全部实现后集中验收，真实云端模型、回答质量和容量未验收，保持 `Capacity-not-verified`。
+
 ### R10：节点恢复与审批一致性（P2，依赖 R01/R09）
 
 **修改：** `src/AI/Full.NET.Agents/Workflows/AgentWorkflowRunner.cs`、`src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs`；扩展 `tests/Full.NET.UnitTests/Ai/AiAgentRunCoordinatorTests.cs`、现有 `AiWorkflowCheckpoint*Tests.cs` 与 `AiApprovalRecovery*Tests.cs`。
