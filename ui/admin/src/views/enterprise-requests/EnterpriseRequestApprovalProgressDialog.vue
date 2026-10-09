@@ -189,7 +189,7 @@ function time(value: string | null | undefined): string {
 
 <style scoped>
 .approval-progress { display: grid; grid-template-columns: minmax(7rem, auto) minmax(0, 1fr); gap: .75rem 1rem; }
-.approval-progress dt { color: var(--el-text-color-secondary); }
+.approval-progress dt { color: var(--el-text-color-regular); }
 .approval-progress dd { margin: 0; overflow-wrap: anywhere; }
 .approval-repair { display: grid; gap: .5rem; margin-top: 1rem; }
 .notification-progress { margin-top: 1.25rem; }

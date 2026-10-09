@@ -8,6 +8,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { runPnpm } from './pnpm-process.mjs';
 import { runPrintingBrowserResponseAction, watchPrintingBrowserCancellation } from './application-printing-browser-lifecycle.mjs';
 import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
+import { isOutboxDrained } from './worker-crash-lifecycle.mjs';
 
 const requireE2e = createRequire(new URL('../../e2e/admin-real-stack/package.json', import.meta.url));
 const requireParity = createRequire(new URL('../../e2e/admin-parity/package.json', import.meta.url));
@@ -35,9 +36,9 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     env: { ...process.env, VITE_API_PROXY_TARGET: apiUrl, VITE_STRICT_CSP: '1' }, stdio: 'pipe', windowsHide: true });
   child.stdout.pipe(stream, { end: false }); child.stderr.pipe(stream, { end: false });
   let browser; let context; let cancellation; let page; let stage = 'vite'; let token; let failed = false;
-  const send = async (path, method = 'GET', body, expected = 200) => {
+  const send = async (path, method = 'GET', body, expected = 200, bearer = token) => {
     signal?.throwIfAborted();
-    const response = await fetch(apiUrl + path, { method, headers: { Authorization: 'Bearer ' + token,
+    const response = await fetch(apiUrl + path, { method, headers: { Authorization: 'Bearer ' + bearer,
       Origin: origin, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       body: body === undefined ? undefined : JSON.stringify(body), redirect: 'error',
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000) });
@@ -89,7 +90,8 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     };
     stage = 'login'; await page.goto(origin);
     await page.getByLabel('账号', { exact: true }).fill('admin'); await page.getByLabel('密码', { exact: true }).fill('FullNet!2026Secure');
-    await page.getByRole('button', { name: '进入控制台' }).click();
+    const hostLogin = await action('/api/v1/auth/login', 'POST', () => page.getByRole('button', { name: '进入控制台' }).click());
+    const hostToken = hostLogin.accessToken; assert.ok(hostToken);
     await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({ timeout: 30_000 });
     stage = 'tenant'; await page.goto(origin + '/#/tenant-context');
     const tenantRow = page.locator('.tenant-context-view .el-table__row').filter({ hasText: 'local' });
@@ -287,7 +289,10 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     await expect(page.getByTestId('inbox-messages-detail-drawer')).toContainText(approved.id); evidence.notificationViewed = true;
     await page.screenshot({ path: join(reportDirectory, 'approval-inbox.png'), fullPage: true });
     stage = 'restart-idempotency'; const messageIds = messages.items.map(item => item.id).sort(); await crashWorker(); await startWorker();
-    await sleep(2500, undefined, { signal });
+    // 通过原 Host 会话只读查询所有者积压；活动租约或未到期重试不能提前通过。
+    const drained = await poll(() => send('/api/v1/messaging/delivery-status/', 'GET', undefined, 200, hostToken),
+      value => isOutboxDrained(value.backlog), 'Outbox recovery drain');
+    evidence.outboxDrainedAfterCrash = drained.backlog;
     assert.deepEqual((await inbox()).items.map(item => item.id).sort(), messageIds, 'restart duplicated notifications');
     for (const request of terminalRequests) {
       const final = await progress(request.id); assert.equal(final.requestVersion, evidence.requests.find(item => item.id === request.id).finalVersion);

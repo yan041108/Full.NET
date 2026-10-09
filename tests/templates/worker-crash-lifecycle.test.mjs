@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { createWriteStream, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { crashLoggedWorker } from './support/worker-crash-lifecycle.mjs';
+import { crashLoggedWorker, isOutboxDrained } from './support/worker-crash-lifecycle.mjs';
 import { stopLoggedProcess } from '../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 
 test('强制退出自有进程并等待日志落盘，不能走优雅停机回调', { timeout: 15_000 }, async () => {
@@ -38,4 +38,15 @@ test('已退出的 Worker 不能被登记为本次成功注入', async () => {
 test('信号未发送成功不能伪造恢复证据', async () => {
   await assert.rejects(crashLoggedWorker({ pid: process.pid + 1, exitCode: null, signalCode: null,
     kill: signal => { assert.equal(signal, 'SIGKILL'); return false; } }), /not accepted/u);
+});
+
+test('发布排空必须同时排除待处理、重试、活动租约与死信', () => {
+  const empty = { pendingCount: 0, dueRetryCount: 0, activeLeaseCount: 0, deadLetterCount: 0 };
+  assert.equal(isOutboxDrained(empty), true);
+  assert.equal(isOutboxDrained(Object.fromEntries(Object.keys(empty).map(key => [key, '0']))), true);
+  for (const key of Object.keys(empty)) {
+    assert.equal(isOutboxDrained({ ...empty, [key]: 1 }), false, key);
+    assert.equal(isOutboxDrained({ ...empty, [key]: undefined }), false, key);
+  }
+  assert.equal(isOutboxDrained(null), false); assert.equal(isOutboxDrained({}), false);
 });
