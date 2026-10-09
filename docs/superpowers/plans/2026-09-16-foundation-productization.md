@@ -1026,7 +1026,7 @@ Windows x64/i7-12700H、20 逻辑处理器、约 63.75GiB 内存，Docker VM 约
 
 - [x] 在新应用样板内定义主表/明细、申请人、组织归属、金额/数量、状态和版本；通过命名内核生成固定 `demo_*` 表，不写进框架 `fn_*` 业务表。
 - [x] 使用生成器建立列表、详情、编辑、附件与权限；样板依赖官方模块稳定 Port，不反向成为框架必选依赖。
-- [ ] 建立 A/B 租户、本人/部门/全租户数据范围、敏感字段、越权附件和并发编辑断言。
+- [x] 建立 A/B 租户、本人/部门/全租户数据范围、敏感字段、越权附件和并发编辑断言。
 
 **验收：** 开发者可从模板运行完整单据 CRUD，权限与附件所有权贯通列表和详情。
 
@@ -1250,6 +1250,22 @@ Workflow 最小只读 Port 在可信租户内验证实例、定义、业务键�
 2026-10-09 07:46 +08:00 核对：`86d401c` 的 API Native `37858158615` 外部进程 E2E 步骤 success，包含本批现代成员及撤销成员的两库 Workflow 路径；其余 API Provider 步骤仍执行中。Worker Native `37858158540` 已终态 success。主 CI `37858158526` 客户端及两类迁移作业 success，受影响 Integration 仍在执行；标签门控的应用作业 skipped，不计通过。Windows 本机 27 项 Native 跳过结论不变，也不声称 Enterprise 完整业务 Native 或容量验收。
 
 本轮关闭 F09 的样板聚合、生成 CRUD/附件及 F10 的可靠单实例启动三项已证明的清单项；F09 全范围隔离/敏感字段/越权附件/并发矩阵，F10 故障竞争与通知补投显示的完整范围及人工页面验收继续保留待办，不据正常链路和重启通过关闭整项。同步总计划与能力状态后 `pnpm test:governance` **59/59**、零失败/跳过（`.tmp/enterprise-approval-milestone-governance.log`）；本任务文档 `git diff --check` 退出 0。环境为 Windows x64、i7-12700H（14 核/20 线程）、约 63.75 GiB 内存、Docker Linux、.NET SDK 10.0.401、Node 24.12.0、Edge，双库串行执行。Enterprise 保持 `Build-verified`、`Capacity-not-verified`；只交付指定开发分支与 Draft PR，不合并、不发布。
+
+#### 2026-10-09 申请数据范围与双库安全矩阵
+
+基线 `29dee20a4225c7213517bb00482d1ef13c4f59e5`，快照 `enterprise-security-matrix-20261009`。沿调用链发现申请读取直接沿用机构目录的 self（本人关联机构），因此同机构同事记录也可见；申请单现以可信 `CreatedById` 定义本人读取，允许代填的申请人不能提升范围。生成查询服务提供可被编译器移除的静态 partial 扩展，样例在独立手写文件细化本人范围；部门等其他角色仍经权威 Port 取并集，外层租户条件保持。机构写授权仍要求记录原机构及活动隶属，本批不重定义该写策略。另修复 Windows CRLF 与生成器 LF 多行 SQL 锚点不匹配导致受限列表抛错，使用稳定的单行租户谓词锚点；不新增表、迁移、HTTP 契约或动态反射。
+
+行为 RED 为 11 项中的 10 失败、1 通过：包含真实 CRLF 锚点异常、本人/混合范围断言和 partial 生成断言。修复后同组 **11/11**；扩大申请与生成产物回归 **235/235**，最终 `pnpm test:dotnet:unit -- --reuse-build --filter 'FullyQualifiedName~CodeGeneration|FullyQualifiedName~Full.NET.UnitTests.EnterpriseRequest' --minimum-expected-tests 235` **2382/2382**、零失败/跳过，实际测试 5m23.721s、构建 14.14s。`pnpm test:aot:analyzers` 退出 0、零警告/错误，分析构建 72.65s 且默认 JIT 图恢复通过；`pnpm test:dotnet:architecture -- --reuse-build --selection api-native-aot` **73/73**（4.380s）。SQL 安全 **5/5**、命名 **33/33**、工具 **89/89**、治理 **59/59**。只读安全复审未发现剩余 P1/P2。这些聚焦结果不等同全量 .NET 或完整业务 Native 验收。
+
+新增两库真实 API 矩阵复用每库一个 fixture，通过正式成员 Provision、角色权限/范围和机构隶属建立本人、部门、全部与无读权限用户；覆盖 A/B 租户、受保护输入字段、详情/明细/附件/内容/审批进度，以及同版本实际并发写入。首轮完整影响集 **55/57**、零跳过（10m36.357s），新矩阵两库失败均为 B 租户 Host 管理员未被正式加入活动成员即尝试机构绑定，生产目录正确返回 `organization.user_units.tenant_member_required`。夹具改为 B 租户通过正式 Provision 建立活动成员及机构隶属，由其创建 B 单据；跨租户探测仍由 B 上下文超级管理员发起。仅重测新矩阵 **2/2**、零失败/跳过（4m30.427s、重建 17.44s），每库复用一套范围用户和资源。两轮 TRX 按 testId 精确核对失败集与重测集一致，覆盖 **57 个不同用例**，不写成单轮 57/57。代码生成 41、原申请 12、上轮成员资格 2 项通过证据复用，生产源码未再变化；新增矩阵证明本人/部门/全部读取、无权 403、受限/跨租户 404、原机构越权写 403、审计/租户/机构输入不可覆盖、并发恰好一赢一冲突、过期删除不改版本和附件内容保留。
+
+上一轮未启动的成员资格 API 队列已取消，仅清理核实 token 的本任务工作区锁，保留其他窗口锁与进程；两项回归合入本批完整 slice 影响集。Integration 新鲜 Release 构建 89.00s、零警告/错误；分片发现 **1192** 项无遗漏/重复，仅为发现证据。代码生成 41、申请 14、成员资格 2 项按 UID 去重后实际选择 **57** 项；排队时间不计入执行时间。
+
+主 CI `86d401c` / `37858158526` 最终失败：实际测试 **387 成功、27 Native 缺产物跳过、0 失败**，MTP 退出码 9，不能报告为 CI 通过。定位为普通 modules 作业混入原生外部进程用例；修复 `9b60feb57fa9b5590a567d98c75933a0b02fd2a7` 仅让 modules 分组排除精确 Native 目标，完整 all 本地选择仍保留，API/Worker 专用发布验收继续执行。回归先 1/1 失败，修复后选择器 **50/50**，只读复审无 P1/P2。该历史提交 API Native `37858158615` 与 Worker Native `37858158540` 已完整 success，范围包含此前成员资格路径，不外推本批尚未提交的申请范围变更。
+
+证据为本任务 `.tmp/enterprise-security-*` 与 `.tmp/enterprise-ci-86-failed.log`；硬件沿用上一集中验收批次。生产与测试冻结并推送 `4d342de6e7c32cd3cbc49cfe99d26c36ca0ea7d9`；本任务干净独立副本已切换精确 SHA，SQL Server/MySQL 应用按约定集中验收。首轮 SQL Server 应用通过（实际 177.862s、外层 177.877s）；MySQL 在 pnpm 安装时因 Windows 软链接 `ERR_PNPM_EBUSY` 失败，实际 137.060s、外层 137.070s，不计应用通过，应用目录和资源清理均成功。仅从同一固定源码重试 MySQL 后通过（实际 **321.100s**、外层 **321.113s**，命令总时长 322.213s）；不重复 SQL Server，不修改依赖图或放宽安装门禁。两轮覆盖 **2 个独立 Provider 应用**，不是首轮双库命令 2/2；初轮 Node 摘要包含内层子测试，重试 Node 2/2 也只代表一个 MySQL 应用。两份 result.json 的 sourceCommit、completed、三宿主、重复迁移、浏览器全部关键标志、目录删除与资源清理均核对成功；三单审批/驳回/取消、停 Worker 后可靠回写及通知再次重启不重复，附件与改派表面 axe 零违规。证据分别为干净副本 `G:/fn-ea-20261009-43f76e7/.tmp/template-real-stack/enterprise-approval/sqlserver/run-NCenlD` 与 `mysql/run-sLg3qj`，初次失败为 `mysql/run-Nm8vz0`；日志 `.tmp/enterprise-security-app-acceptance.log` 与 `.tmp/enterprise-security-app-mysql-retry.log`。本批关闭 F09 第三项已建立并通过的矩阵清单，不外推完整故障、人工页面、业务 Native 或容量；F10 剩余矩阵与人工项继续保留待办，不合并、不发布。
+
+最终文档同步后治理 **59/59**、零失败/跳过，证据 `.tmp/enterprise-security-final-governance.log`；本任务 diff 检查通过。2026-10-09 08:56 +0800 核对实现提交 `4d342de`：Worker Native `37865911151` 完整 success，API Native `37865911124` 与主 CI `37865911062` 仍在运行，不计通过；上述本地矩阵与独立应用已满足本批规定验收范围，不等待 CI 才交付。
 
 ### F11：导入、报表与打印接入样板
 
