@@ -108,6 +108,22 @@ internal static class AiOperationBudgetAssertions
         await Settle(retry.OperationId, new(1, 1), "succeeded");
         Assert.AreEqual(2L, await Charged(retry.OperationId));
 
+        // 未执行操作的完整零用量释放租户兼容 Token 预留；请求次数仍按账本请求计数。
+        await db.ExecuteAsync("""
+            INSERT INTO fn_ai_tenant_quota (Id,TenantId,MonthlyTokenLimit,MonthlyRequestLimit,UsedTokensThisMonth,UsedRequestsThisMonth,QuotaMonthKey,IsEnabled,CreatedAtUtc,UpdatedAtUtc,Version)
+            VALUES (@Id,@Tenant,10000,100,0,0,@Month,1,@Now,@Now,1)
+            """, new { Id = Guid.CreateVersion7(), Tenant = tenant, Month = clock.UtcNow.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture), Now = clock.UtcNow });
+        var unused = request with { OperationId = Guid.CreateVersion7() };
+        await Use(store => store.ReserveAsync(unused), tenant);
+        Assert.AreEqual(30L, await db.QuerySingleAsync<long>("SELECT UsedTokensThisMonth FROM fn_ai_tenant_quota WHERE TenantId=@Tenant", new { Tenant = tenant }));
+        await Use(async store => { await store.SettleAsync(unused.OperationId, new(0, 0), "cancelled"); return true; }, tenant);
+        await Use(async store => { await store.SettleAsync(unused.OperationId, new(0, 0), "cancelled"); return true; }, tenant);
+        Assert.AreEqual(0L, await Charged(unused.OperationId));
+        Assert.AreEqual("known", await db.QuerySingleAsync<string>("SELECT UsageStatus FROM fn_ai_operation_budget WHERE Id=@Id", new { Id = unused.OperationId }));
+        Assert.AreEqual(0m, await db.QuerySingleAsync<decimal>("SELECT ChargedCost FROM fn_ai_operation_budget WHERE Id=@Id", new { Id = unused.OperationId }));
+        Assert.AreEqual(0L, await db.QuerySingleAsync<long>("SELECT UsedTokensThisMonth FROM fn_ai_tenant_quota WHERE TenantId=@Tenant", new { Tenant = tenant }));
+        Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT UsedRequestsThisMonth FROM fn_ai_tenant_quota WHERE TenantId=@Tenant", new { Tenant = tenant }));
+
         async Task<AiOperationReservation?> TryReserve(AiOperationRequest value)
         {
             try { return await Use(store => store.ReserveAsync(value)); }

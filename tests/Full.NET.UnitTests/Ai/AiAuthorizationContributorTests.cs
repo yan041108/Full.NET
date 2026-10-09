@@ -16,6 +16,8 @@ public sealed class AiAuthorizationContributorTests
         CollectionAssert.AreEquivalent(
             new[]
             {
+                AiPromptPermissions.Read, AiPromptPermissions.Create, AiPromptPermissions.Append, AiPromptPermissions.Publish,
+                AiPromptPermissions.Deactivate, AiPromptPermissions.Rollback, AiPromptPermissions.Use,
                 AiKnowledgeAnswerFeedbackPermissions.Read,
                 AiKnowledgeAnswerFeedbackPermissions.Submit, AiKnowledgeAnswerFeedbackPermissions.Withdraw,
                 AiKnowledgePermissions.Read,

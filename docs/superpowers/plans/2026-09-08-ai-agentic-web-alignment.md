@@ -1511,6 +1511,32 @@ PDF 页内预览仍为 R07 后续项；处理策略与成员授权编辑见后�
 - Windows x64、i7-12700H、约 64 GB、SDK 10.0.401；SQL Server 2022-CU14 / MySQL 8.0 使用本批独立容器。Linux API 发布 4 CPU/12 GiB，原生测试 2 CPU/8 GiB；遵守工作区及机器重型测试锁。构建使用 `NuGetAudit=false`，未执行在线漏洞审计。只读安全复审及权限/SQL 修正复审未发现关键或重要问题；R09 的 Prompt 发布、反馈审核/脱敏导出与检索质量对比仍未完成，完整 RAG、云端模型质量及容量保持未验证。按集中验收规则，独立生成应用留到 AI 模块建设全部完成后统一执行。
 - 本批原生 API SHA256 `595c3f091459d3ca8431b2c779d2cda0c6bb486a36ef23f85b469ab9eeedae68`；发布使用上述基线与冻结工作区输入，冻结后只追加验收文档，提交内源码与受测输入一致；不将二进制内基线版本冒充最终 Git 提交。
 
+#### R09b：纯文本 Prompt 不可变版本、发布治理与真实 Run 绑定合批（2026-10-09，本批范围回归完成，保留架构基线失败）
+
+沿用 R09 批次，在 main 基线 `7cba28f3f62e133b4868eddae33b12eacb832ffd` 上执行；任务快照 `ai-prompt-publication-r09b`。本批集中实现目录/版本读取、幂等创建、追加草稿、显式发布、回滚、停用、Run 精确绑定和 Vue 页面接入。模型策略固定修订，格式 v1 仅支持纯文本、规范语言、一个 `{{input}}`、固定输入输出 Schema、零工具和无检索；不放开工具循环、Workflow 或任意 Schema。
+
+- [x] 不可变草稿及乐观修订；创建不自动发布，追加不改变发布指针。
+- [x] 发布仅接受草稿，回滚只接受曾发布版本，精确权限独立；停用增加撤销代次。
+- [x] Run 固化版本 UUID/序号、正文摘要、原始输入及代次；发布切换保留旧版本，停用后的旧 Run 不因重新发布复活。
+- [x] Worker 在客户端建立前及执行器调用前复核授权、作用域、正文完整性和模型修订；失败不调用模型并结算预算。
+- [x] 双库 257、恢复重放、约束/注释/历史保留、租户隔离、精确权限与并发幂等回归。
+- [x] Vue 草稿及发布操作确认、Run 绑定、上下文失效及晚到响应防护；生成客户端和双库 OpenAPI 同批同步。
+- [x] 固定源码后集中运行本地影响集、API/Worker Native AOT 及浏览器验证，核对实际测试身份后提交。
+
+Token 值只限制现有预算预留；实际提供程序输入分词/输出硬限仍待建设。完整工作流模板、反馈审核与脱敏导出、检索策略对比继续保留为 R09 未完成项。运维协议见 [纯文本 Prompt 版本](../../operations/ai-prompts.md)，原始命令和 RED/Green 证据在 `artifacts/r09b/`，不将首轮小范围回归当成最终验收。
+
+本批本地验收记录：
+
+- 最终暂存检查清理 9 个新文件末尾多余空行；逐个验证受测文件摘要及修改前后字节前缀完全相同，差异仅 EOF 换行，依据见 `format-transition.json`。业务逻辑、SQL、契约与测试断言未改变，复用已通过的运行证据，仅重做格式、源码输入与暂存范围检查。
+- 首轮真实原生 6 项中 4 通过、2 失败（退出 2、零跳过），精确定位 API `find_owned` 与 Worker `select_lease` 缺少 `AiAgentRunRecord` 静态物化。补齐完整/租约投影及已可达检查点读取和同步注册；原失败 TRX/日志/产物保存在 `native-before-row-fix/`，不计为通过。变更仅进入原生闭包，既有 JIT/迁移证据按未受影响范围复用，源码差异见 `row-production-transition.json`。
+- `node artifacts/r09b/run-zero-green.mjs`：双库固定竞争及预算 4/4、零失败/跳过，验证有价/无价、混合绑定两个方向、同载荷重放、赢家保护、用户取消仍保守计量、租户 Token 只退一次及请求次数不退款。随后 `node artifacts/r09b/run-row-green.mjs`：最终 AI Unit 2601/2601、零失败/跳过，实际发现 Unit 6070；含 10 项两库静态物化回归。API/Worker AOT analyzer 构建均零警告/错误。
+- 正式影响集实际发现 100 个唯一测试。原 `node artifacts/r09b/run-paired.mjs` 首轮 98 成功、2 失败、零跳过；持久快照沿源生成上下文使用 PascalCase，原 HTTP camelCase 夹具读取错误。只修正夹具后 `run-paired-retry.mjs` 精确补跑 2/2；保留原退出 2 和 TRX，并核对通过并集为 100。随后修复未生成 Run 的落败请求按 unknown 计量导致额度保留的问题，先建立实际 RED 2/2 失败再改为已知 0/0；原生链路改为实际 API 登录/创建。该修复仅影响落败结算，最终补跑前述双库 4 项，其余 96 项按未受影响范围复用，UID 与发现集一致；变化及依据见 `zero-production-transition.json`。
+- `node artifacts/r09b/run-native.mjs`：最终 Linux API/Worker 两次实际发布均退出 0，现有告警门禁分别为 17/15 项；Linux Integration 夹具按本次未影响 JIT 的源码差异复用上轮退出 0 的构建；记录 DLL SHA256，并与实际探针运行文件相符，依据见 native-build-reuse.json。原生实际发现并运行 6/6、零失败/跳过，覆盖双库关键 HTTP、AI/Prompt 元数据与发布生命周期，以及真实原生 API 创建精确绑定、真实原生 Worker 拒绝已撤销旧代次并成功执行同版本当前代次；每库唯一提供程序请求严格为 `Native current epoch`，两个进程正常关闭。API 140164288 字节、SHA256 `fa7f32ffb534d849f5c7703174fcbcd1cbbe221e9ddbe80fac86fe6749d54ae6`；Worker 90430744 字节、SHA256 `a0ad1bfd07ea02539083b80b79097bad4e716a5548a2f3c01479ec6a70152440`，均与实际运行文件一致。旧候选在两次发布及构建完成后主动停止尚未完成的原生测试（退出 143），完整记录保存在 `native-before-zero/`，不计为通过。
+- `finish-light.mjs`、`run-tooling.mjs` 等本批脚本：Vue 组件/页面 12/12、共享客户端 239/239、浏览器模拟 API 流程 2/2，类型检查和生产构建通过；OpenAPI 静态 210/210、命名 33/33、SQL 安全 5/5。实际双库运行时 OpenAPI 与冻结快照相符，共 609 个操作；生成客户端已同步。更新矩阵后工具链 73/73，Integration 分片实际 1212 项无遗漏或重复。
+- 最终 `run-row-green.mjs` 重跑 Architecture 235 项中 233 通过、2 项既有失败，失败消息与 R09a 基线逐项完全一致，保留非零退出码。治理选择 59/59；会读取受保护文档的 Markdown 扫描未执行，替换为先排除两条受保护路径、再读取的 385 文件编码检查，不报告被排除文件已扫描。
+- `python artifacts/r09b/collect-acceptance.py` 核对 TRX/UID、源码冻结、原失败与补跑、原生文件摘要及其他任务未修改；摘要 `artifacts/r09b/acceptance.json`。测试范围只包含本批能力；完整工作流模板、反馈审核/脱敏导出、检索对比和实际 Token 硬限仍属 R09 待办。旧 API/Worker 不理解新绑定；必须关闭所有 API 的新 Run 准入并等待已进入的创建请求结束，优雅停止旧 Worker，升级全部 API/Worker 并核对工件后再开放。旧消费者回退前须保持当前 Worker 将绑定 Run 处理至终态，等待在途调用退出并优雅停止 Worker；取消状态不证明外部调用已停止，未知调用须对账。准入关闭不阻止消费队列。未提供自动能力协商，不宣称新旧混布/回退已验证，具体门禁见运维说明。独立生成应用按 AI 模块全部完成后集中验收；在线 NuGet 审计未执行（本地命令使用 `NuGetAudit=false`），真实云模型质量及容量保持未验证、`Capacity-not-verified`。
+- 环境：Windows x64、i7-12700H、约 64 GB、SDK 10.0.401；Linux Docker SDK 10.0.400/运行时 10.0.11，SQL Server 2022-CU14/MySQL 8.0。双库不复用容器；最终原生发布 8 CPU/12 GiB，构建及原生测试 2 CPU/8 GiB、GC 堆 2 GiB。整批 main 提交，保护其他任务改动及受保护文件。
+
 ### R10：节点恢复与审批一致性（P2，依赖 R01/R09）
 
 **修改：** `src/AI/Full.NET.Agents/Workflows/AgentWorkflowRunner.cs`、`src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs`；扩展 `tests/Full.NET.UnitTests/Ai/AiAgentRunCoordinatorTests.cs`、现有 `AiWorkflowCheckpoint*Tests.cs` 与 `AiApprovalRecovery*Tests.cs`。

@@ -73,6 +73,7 @@ public sealed class AiModule : IFullNetModule
             AiAuthorizationContributor>());
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, Resources.AiKnowledgeErrorResourceSource>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, Resources.AiPromptErrorResourceSource>());
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<AiModelBindingScope>();
         services.TryAddScoped<IProtectedModelCredentialStore>(provider => provider.GetRequiredService<AiModelBindingScope>());
@@ -117,6 +118,9 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Knowledge.AiKnowledgeAnswerStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeAskService>();
         services.TryAddScoped<Features.ManageAnswerFeedback.AiKnowledgeAnswerFeedbackService>();
+        services.TryAddScoped<Features.ManagePromptVersions.AiPromptManagementService>();
+        services.TryAddScoped<Features.ManagePromptVersions.AiPromptReader>();
+        services.TryAddScoped<AiPromptRunResolver>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexTaskStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexSessionService>();
         RegisterKnowledgeFileReferences(services);
@@ -176,6 +180,7 @@ public sealed class AiModule : IFullNetModule
         Features.ManageTenantQuotas.Endpoint.Map(endpoints);
         Features.ManageChatSessions.Endpoint.Map(endpoints);
         Features.ManageAnswerFeedback.Endpoint.Map(endpoints);
+        Features.ManagePromptVersions.Endpoint.Map(endpoints);
         Features.ManageAgentTools.Endpoint.Map(endpoints);
         Features.ManageAgentRuns.Endpoint.Map(endpoints);
         AgUiEndpoint.Map(endpoints);
@@ -235,6 +240,8 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<AiChatSessionManagementService>();
         services.TryAddScoped<AiAgentRunStore>();
         services.TryAddScoped<IAgentRunStore>(provider => provider.GetRequiredService<AiAgentRunStore>());
+        services.TryAddScoped<Features.ManagePromptVersions.AiPromptReader>();
+        services.TryAddScoped<AiPromptRunResolver>();
         services.TryAddScoped<IAiOperationBudgetStore, AiOperationBudgetStore>();
         services.TryAddScoped<IAgentRunExecutionContext, AgentRunExecutionContext>();
         RegisterAgentToolExecution(services, forWorker: true);

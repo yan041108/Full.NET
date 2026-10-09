@@ -42,8 +42,12 @@ import type {
   AiMcpRemoteToolApprovalItem,
   AiModelConfigListItem,
   AiModelConfigResponse,
+  AiPromptBody,
+  AiPromptResponse,
+  AiPromptVersionResponse,
   AiTenantQuotaListItem,
   AiTenantQuotaResponse,
+  AppendAiPromptVersionRequest,
   ApproveAiMcpRemoteToolRequest,
   AskAiKnowledgeRequest,
   AskAiKnowledgeResponse,
@@ -129,6 +133,7 @@ import type {
   CreateAiKnowledgeDocumentRequest,
   CreateAiMcpRemoteConnectionRequest,
   CreateAiModelConfigRequest,
+  CreateAiPromptRequest,
   CreateCodeGenerationTemplateRequest,
   CreateConfigEntryRequest,
   CreateDataApprovalRequestBody,
@@ -179,6 +184,7 @@ import type {
   CurrentUserResponse,
   DataApprovalRequestResponse,
   DataApprovalScenarioResponse,
+  DeactivateAiPromptRequest,
   DecideAiAgentApprovalRequest,
   DeleteAdministrativeRegionRequest,
   DeleteAiKnowledgeDocumentRequest,
@@ -353,6 +359,8 @@ import type {
   PagedResultOfAiKnowledgeRoleCandidateResponse,
   PagedResultOfAiKnowledgeVersionResponse,
   PagedResultOfAiModelConfigListItem,
+  PagedResultOfAiPromptResponse,
+  PagedResultOfAiPromptVersionResponse,
   PagedResultOfAiTenantQuotaListItem,
   PagedResultOfCodeGenerationRunResponse,
   PagedResultOfCodeGenerationTemplateResponse,
@@ -477,6 +485,7 @@ import type {
   RevokeAllHostUserSessionsResponse,
   RevokeSuperAdministratorRequest,
   RollbackHostDocumentVersionRequest,
+  SelectAiPromptVersionRequest,
   SelfServiceProfileResponse,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
@@ -1082,6 +1091,42 @@ function isAiModelConfigResponse(value: unknown): value is AiModelConfigResponse
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["endpointBaseUrl"] === 'string') && (typeof value["hasApiKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["modelId"] === 'string') && (typeof value["name"] === 'string') && ((value["organizationId"] === null) || (typeof value["organizationId"] === 'string')) && (typeof value["providerKey"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readAiPromptBody(value: unknown): AiPromptBody {
+  const normalizedValue = normalizeAiPromptBodyIntegerJson(value);
+  if (!(isAiPromptBody(normalizedValue))) {
+    throw new Error('client.invalid_ai_prompt_body');
+  }
+  return normalizedValue;
+}
+
+function isAiPromptBody(value: unknown): value is AiPromptBody {
+  return isRecord(value) && (typeof value["inputTokenLimit"] === 'number' && Number.isSafeInteger(value["inputTokenLimit"])) && (typeof value["languageTag"] === 'string') && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["outputTokenLimit"] === 'number' && Number.isSafeInteger(value["outputTokenLimit"])) && (typeof value["template"] === 'string');
+}
+
+export function readAiPromptResponse(value: unknown): AiPromptResponse {
+  const normalizedValue = normalizeAiPromptResponseIntegerJson(value);
+  if (!(isAiPromptResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_prompt_response');
+  }
+  return normalizedValue;
+}
+
+function isAiPromptResponse(value: unknown): value is AiPromptResponse {
+  return isRecord(value) && ((value["activeVersionId"] === null) || (typeof value["activeVersionId"] === 'string' && guidPattern.test(value["activeVersionId"]))) && (typeof value["epoch"] === 'number' && Number.isSafeInteger(value["epoch"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["lastVersion"] === 'number' && Number.isSafeInteger(value["lastVersion"])) && (typeof value["name"] === 'string') && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"]));
+}
+
+export function readAiPromptVersionResponse(value: unknown): AiPromptVersionResponse {
+  const normalizedValue = normalizeAiPromptVersionResponseIntegerJson(value);
+  if (!(isAiPromptVersionResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_prompt_version_response');
+  }
+  return normalizedValue;
+}
+
+function isAiPromptVersionResponse(value: unknown): value is AiPromptVersionResponse {
+  return isRecord(value) && (value["allowedToolNames"] === undefined || ((value["allowedToolNames"] === null) || (Array.isArray(value["allowedToolNames"]) && value["allowedToolNames"].every(item25 => typeof item25 === 'string')))) && (isAiPromptBody(value["body"])) && (typeof value["bodyHash"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (value["definitionKey"] === undefined || ((value["definitionKey"] === null) || (typeof value["definitionKey"] === 'string'))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["inputSchemaKey"] === undefined || ((value["inputSchemaKey"] === null) || (typeof value["inputSchemaKey"] === 'string'))) && (typeof value["modelConfigVersion"] === 'number' && Number.isSafeInteger(value["modelConfigVersion"])) && (typeof value["modelId"] === 'string') && (value["outputSchemaKey"] === undefined || ((value["outputSchemaKey"] === null) || (typeof value["outputSchemaKey"] === 'string'))) && (typeof value["promptId"] === 'string' && guidPattern.test(value["promptId"])) && (typeof value["providerKey"] === 'string') && (value["retrievalStrategyKey"] === undefined || ((value["retrievalStrategyKey"] === null) || (typeof value["retrievalStrategyKey"] === 'string'))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["wasPublished"] === 'boolean');
+}
+
 export function readAiTenantQuotaListItem(value: unknown): AiTenantQuotaListItem {
   const normalizedValue = normalizeAiTenantQuotaListItemIntegerJson(value);
   if (!(isAiTenantQuotaListItem(normalizedValue))) {
@@ -1104,6 +1149,18 @@ export function readAiTenantQuotaResponse(value: unknown): AiTenantQuotaResponse
 
 function isAiTenantQuotaResponse(value: unknown): value is AiTenantQuotaResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["monthlyRequestLimit"] === null) || (typeof value["monthlyRequestLimit"] === 'number' && Number.isSafeInteger(value["monthlyRequestLimit"]))) && ((value["monthlyTokenLimit"] === null) || (typeof value["monthlyTokenLimit"] === 'number' && Number.isSafeInteger(value["monthlyTokenLimit"]))) && (typeof value["quotaMonthKey"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["usedRequestsThisMonth"] === 'number' && Number.isSafeInteger(value["usedRequestsThisMonth"])) && (typeof value["usedTokensThisMonth"] === 'number' && Number.isSafeInteger(value["usedTokensThisMonth"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAppendAiPromptVersionRequest(value: unknown): AppendAiPromptVersionRequest {
+  const normalizedValue = normalizeAppendAiPromptVersionRequestIntegerJson(value);
+  if (!(isAppendAiPromptVersionRequest(normalizedValue))) {
+    throw new Error('client.invalid_append_ai_prompt_version_request');
+  }
+  return normalizedValue;
+}
+
+function isAppendAiPromptVersionRequest(value: unknown): value is AppendAiPromptVersionRequest {
+  return isRecord(value) && (isAiPromptBody(value["body"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"]));
 }
 
 export function readApproveAiMcpRemoteToolRequest(value: unknown): ApproveAiMcpRemoteToolRequest {
@@ -2013,7 +2070,7 @@ export function readCreateAiAgentRunRequest(value: unknown): CreateAiAgentRunReq
 }
 
 function isCreateAiAgentRunRequest(value: unknown): value is CreateAiAgentRunRequest {
-  return isRecord(value) && (typeof value["clientRequestId"] === 'string' && guidPattern.test(value["clientRequestId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["inputTokenLimit"] === 'number' && Number.isSafeInteger(value["inputTokenLimit"])) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["outputTokenLimit"] === 'number' && Number.isSafeInteger(value["outputTokenLimit"])) && (typeof value["prompt"] === 'string');
+  return isRecord(value) && (typeof value["clientRequestId"] === 'string' && guidPattern.test(value["clientRequestId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["inputTokenLimit"] === 'number' && Number.isSafeInteger(value["inputTokenLimit"])) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["outputTokenLimit"] === 'number' && Number.isSafeInteger(value["outputTokenLimit"])) && (typeof value["prompt"] === 'string') && (value["promptVersionId"] === undefined || ((value["promptVersionId"] === null) || (typeof value["promptVersionId"] === 'string' && guidPattern.test(value["promptVersionId"]))));
 }
 
 export function readCreateAiAgentRunResponse(value: unknown): CreateAiAgentRunResponse {
@@ -2080,6 +2137,18 @@ export function readCreateAiModelConfigRequest(value: unknown): CreateAiModelCon
 
 function isCreateAiModelConfigRequest(value: unknown): value is CreateAiModelConfigRequest {
   return isRecord(value) && ((value["apiKey"] === null) || (typeof value["apiKey"] === 'string')) && (typeof value["endpointBaseUrl"] === 'string') && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (typeof value["modelId"] === 'string') && (typeof value["name"] === 'string') && ((value["organizationId"] === null) || (typeof value["organizationId"] === 'string')) && (typeof value["providerKey"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])));
+}
+
+export function readCreateAiPromptRequest(value: unknown): CreateAiPromptRequest {
+  const normalizedValue = normalizeCreateAiPromptRequestIntegerJson(value);
+  if (!(isCreateAiPromptRequest(normalizedValue))) {
+    throw new Error('client.invalid_create_ai_prompt_request');
+  }
+  return normalizedValue;
+}
+
+function isCreateAiPromptRequest(value: unknown): value is CreateAiPromptRequest {
+  return isRecord(value) && (isAiPromptBody(value["body"])) && (typeof value["clientRequestId"] === 'string' && guidPattern.test(value["clientRequestId"])) && (typeof value["name"] === 'string');
 }
 
 export function readCreateCodeGenerationTemplateRequest(value: unknown): CreateCodeGenerationTemplateRequest {
@@ -2658,6 +2727,18 @@ export function readDataApprovalScenarioResponse(value: unknown): DataApprovalSc
 
 function isDataApprovalScenarioResponse(value: unknown): value is DataApprovalScenarioResponse {
   return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["isRegistered"] === 'boolean') && (typeof value["scenarioKey"] === 'string') && (typeof value["scopeKey"] === 'string') && ((value["version"] === null) || (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]))) && ((value["workflowDefinitionKey"] === null) || (typeof value["workflowDefinitionKey"] === 'string')) && ((value["workflowDefinitionVersionId"] === null) || (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"])));
+}
+
+export function readDeactivateAiPromptRequest(value: unknown): DeactivateAiPromptRequest {
+  const normalizedValue = normalizeDeactivateAiPromptRequestIntegerJson(value);
+  if (!(isDeactivateAiPromptRequest(normalizedValue))) {
+    throw new Error('client.invalid_deactivate_ai_prompt_request');
+  }
+  return normalizedValue;
+}
+
+function isDeactivateAiPromptRequest(value: unknown): value is DeactivateAiPromptRequest {
+  return isRecord(value) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"]));
 }
 
 export function readDecideAiAgentApprovalRequest(value: unknown): DecideAiAgentApprovalRequest {
@@ -4702,6 +4783,30 @@ function isPagedResultOfAiModelConfigListItem(value: unknown): value is PagedRes
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiModelConfigListItem(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
+export function readPagedResultOfAiPromptResponse(value: unknown): PagedResultOfAiPromptResponse {
+  const normalizedValue = normalizePagedResultOfAiPromptResponseIntegerJson(value);
+  if (!(isPagedResultOfAiPromptResponse(normalizedValue))) {
+    throw new Error('client.invalid_paged_result_of_ai_prompt_response');
+  }
+  return normalizedValue;
+}
+
+function isPagedResultOfAiPromptResponse(value: unknown): value is PagedResultOfAiPromptResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiPromptResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfAiPromptVersionResponse(value: unknown): PagedResultOfAiPromptVersionResponse {
+  const normalizedValue = normalizePagedResultOfAiPromptVersionResponseIntegerJson(value);
+  if (!(isPagedResultOfAiPromptVersionResponse(normalizedValue))) {
+    throw new Error('client.invalid_paged_result_of_ai_prompt_version_response');
+  }
+  return normalizedValue;
+}
+
+function isPagedResultOfAiPromptVersionResponse(value: unknown): value is PagedResultOfAiPromptVersionResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiPromptVersionResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
 export function readPagedResultOfAiTenantQuotaListItem(value: unknown): PagedResultOfAiTenantQuotaListItem {
   const normalizedValue = normalizePagedResultOfAiTenantQuotaListItemIntegerJson(value);
   if (!(isPagedResultOfAiTenantQuotaListItem(normalizedValue))) {
@@ -6173,6 +6278,18 @@ export function readRollbackHostDocumentVersionRequest(value: unknown): Rollback
 
 function isRollbackHostDocumentVersionRequest(value: unknown): value is RollbackHostDocumentVersionRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readSelectAiPromptVersionRequest(value: unknown): SelectAiPromptVersionRequest {
+  const normalizedValue = normalizeSelectAiPromptVersionRequestIntegerJson(value);
+  if (!(isSelectAiPromptVersionRequest(normalizedValue))) {
+    throw new Error('client.invalid_select_ai_prompt_version_request');
+  }
+  return normalizedValue;
+}
+
+function isSelectAiPromptVersionRequest(value: unknown): value is SelectAiPromptVersionRequest {
+  return isRecord(value) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
 }
 
 export function readSelfServiceProfileResponse(value: unknown): SelfServiceProfileResponse {
@@ -8372,12 +8489,28 @@ function normalizeAiModelConfigResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeAiPromptBodyIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "inputTokenLimit") ? { ["inputTokenLimit"]: normalizeWireInteger(value["inputTokenLimit"]) } : {}), ...(Object.hasOwn(value, "outputTokenLimit") ? { ["outputTokenLimit"]: normalizeWireInteger(value["outputTokenLimit"]) } : {}) } : value);
+}
+
+function normalizeAiPromptResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "epoch") ? { ["epoch"]: normalizeWireInteger(value["epoch"]) } : {}), ...(Object.hasOwn(value, "lastVersion") ? { ["lastVersion"]: normalizeWireInteger(value["lastVersion"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
+function normalizeAiPromptVersionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "body") ? { ["body"]: normalizeAiPromptBodyIntegerJson(value["body"]) } : {}), ...(Object.hasOwn(value, "modelConfigVersion") ? { ["modelConfigVersion"]: normalizeWireInteger(value["modelConfigVersion"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeAiTenantQuotaListItemIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "monthlyRequestLimit") ? { ["monthlyRequestLimit"]: normalizeWireInteger(value["monthlyRequestLimit"]) } : {}), ...(Object.hasOwn(value, "monthlyTokenLimit") ? { ["monthlyTokenLimit"]: normalizeWireInteger(value["monthlyTokenLimit"]) } : {}), ...(Object.hasOwn(value, "usedRequestsThisMonth") ? { ["usedRequestsThisMonth"]: normalizeWireInteger(value["usedRequestsThisMonth"]) } : {}), ...(Object.hasOwn(value, "usedTokensThisMonth") ? { ["usedTokensThisMonth"]: normalizeWireInteger(value["usedTokensThisMonth"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeAiTenantQuotaResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "monthlyRequestLimit") ? { ["monthlyRequestLimit"]: normalizeWireInteger(value["monthlyRequestLimit"]) } : {}), ...(Object.hasOwn(value, "monthlyTokenLimit") ? { ["monthlyTokenLimit"]: normalizeWireInteger(value["monthlyTokenLimit"]) } : {}), ...(Object.hasOwn(value, "usedRequestsThisMonth") ? { ["usedRequestsThisMonth"]: normalizeWireInteger(value["usedRequestsThisMonth"]) } : {}), ...(Object.hasOwn(value, "usedTokensThisMonth") ? { ["usedTokensThisMonth"]: normalizeWireInteger(value["usedTokensThisMonth"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAppendAiPromptVersionRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "body") ? { ["body"]: normalizeAiPromptBodyIntegerJson(value["body"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
 }
 
 function normalizeAskAiKnowledgeResponseIntegerJson(value: unknown): unknown {
@@ -8544,6 +8677,10 @@ function normalizeCreateAiAgentRunRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "inputTokenLimit") ? { ["inputTokenLimit"]: normalizeWireInteger(value["inputTokenLimit"]) } : {}), ...(Object.hasOwn(value, "outputTokenLimit") ? { ["outputTokenLimit"]: normalizeWireInteger(value["outputTokenLimit"]) } : {}) } : value);
 }
 
+function normalizeCreateAiPromptRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "body") ? { ["body"]: normalizeAiPromptBodyIntegerJson(value["body"]) } : {}) } : value);
+}
+
 function normalizeCreateCodeGenerationTemplateRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schema") ? { ["schema"]: normalizeCodeGenerationPreviewRequestIntegerJson(value["schema"]) } : {}) } : value);
 }
@@ -8654,6 +8791,10 @@ function normalizeDataApprovalRequestResponseIntegerJson(value: unknown): unknow
 
 function normalizeDataApprovalScenarioResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeDeactivateAiPromptRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
 }
 
 function normalizeDecideAiAgentApprovalRequestIntegerJson(value: unknown): unknown {
@@ -9168,6 +9309,14 @@ function normalizePagedResultOfAiModelConfigListItemIntegerJson(value: unknown):
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiModelConfigListItemIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
+function normalizePagedResultOfAiPromptResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiPromptResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfAiPromptVersionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiPromptVersionResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
 function normalizePagedResultOfAiTenantQuotaListItemIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiTenantQuotaListItemIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
@@ -9602,6 +9751,10 @@ function normalizeRevokeAllHostUserSessionsResponseIntegerJson(value: unknown): 
 
 function normalizeRollbackHostDocumentVersionRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeSelectAiPromptVersionRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
 }
 
 function normalizeSelfServiceProfileResponseIntegerJson(value: unknown): unknown {

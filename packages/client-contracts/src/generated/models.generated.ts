@@ -424,6 +424,41 @@ export interface AiModelConfigResponse {
   readonly version: number;
 }
 
+export interface AiPromptBody {
+  readonly inputTokenLimit: number;
+  readonly languageTag: string;
+  readonly modelConfigId: string;
+  readonly outputTokenLimit: number;
+  readonly template: string;
+}
+
+export interface AiPromptResponse {
+  readonly activeVersionId: null | string;
+  readonly epoch: number;
+  readonly id: string;
+  readonly lastVersion: number;
+  readonly name: string;
+  readonly revision: number;
+}
+
+export interface AiPromptVersionResponse {
+  readonly allowedToolNames?: null | Array<string>;
+  readonly body: AiPromptBody;
+  readonly bodyHash: string;
+  readonly createdAtUtc: string;
+  readonly definitionKey?: null | string;
+  readonly id: string;
+  readonly inputSchemaKey?: null | string;
+  readonly modelConfigVersion: number;
+  readonly modelId: string;
+  readonly outputSchemaKey?: null | string;
+  readonly promptId: string;
+  readonly providerKey: string;
+  readonly retrievalStrategyKey?: null | string;
+  readonly version: number;
+  readonly wasPublished: boolean;
+}
+
 export interface AiTenantQuotaListItem {
   readonly createdAtUtc: string;
   readonly id: string;
@@ -450,6 +485,11 @@ export interface AiTenantQuotaResponse {
   readonly usedRequestsThisMonth: number;
   readonly usedTokensThisMonth: number;
   readonly version: number;
+}
+
+export interface AppendAiPromptVersionRequest {
+  readonly body: AiPromptBody;
+  readonly revision: number;
 }
 
 export interface ApproveAiMcpRemoteToolRequest {
@@ -1010,6 +1050,7 @@ export interface CreateAiAgentRunRequest {
   readonly modelConfigId: string;
   readonly outputTokenLimit: number;
   readonly prompt: string;
+  readonly promptVersionId?: null | string;
 }
 
 export interface CreateAiAgentRunResponse {
@@ -1049,6 +1090,12 @@ export interface CreateAiModelConfigRequest {
   readonly organizationId: null | string;
   readonly providerKey: string;
   readonly tenantId: null | string;
+}
+
+export interface CreateAiPromptRequest {
+  readonly body: AiPromptBody;
+  readonly clientRequestId: string;
+  readonly name: string;
 }
 
 export interface CreateCodeGenerationTemplateRequest {
@@ -1482,6 +1529,10 @@ export interface DataApprovalScenarioResponse {
   readonly version: null | number;
   readonly workflowDefinitionKey: null | string;
   readonly workflowDefinitionVersionId: null | string;
+}
+
+export interface DeactivateAiPromptRequest {
+  readonly revision: number;
 }
 
 export interface DecideAiAgentApprovalRequest {
@@ -3074,6 +3125,20 @@ export interface PagedResultOfAiModelConfigListItem {
   readonly total: number;
 }
 
+export interface PagedResultOfAiPromptResponse {
+  readonly items: Array<AiPromptResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfAiPromptVersionResponse {
+  readonly items: Array<AiPromptVersionResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfAiTenantQuotaListItem {
   readonly items: Array<AiTenantQuotaListItem>;
   readonly page: number;
@@ -4042,6 +4107,11 @@ export interface RevokeSuperAdministratorRequest {
 
 export interface RollbackHostDocumentVersionRequest {
   readonly version: number;
+}
+
+export interface SelectAiPromptVersionRequest {
+  readonly revision: number;
+  readonly versionId: string;
 }
 
 export interface SelfServiceProfileResponse {

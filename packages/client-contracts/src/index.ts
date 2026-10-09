@@ -1704,3 +1704,4 @@ export * from './tenant-subscriptions.js';
 
 export * from './ai-knowledge.js';
 export * from './ai-answer-feedback.js';
+export * from './ai-prompts.js';

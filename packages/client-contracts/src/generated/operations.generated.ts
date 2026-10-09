@@ -43,8 +43,12 @@ import type {
   AiMcpRemoteToolApprovalItem,
   AiModelConfigListItem,
   AiModelConfigResponse,
+  AiPromptBody,
+  AiPromptResponse,
+  AiPromptVersionResponse,
   AiTenantQuotaListItem,
   AiTenantQuotaResponse,
+  AppendAiPromptVersionRequest,
   ApproveAiMcpRemoteToolRequest,
   AskAiKnowledgeRequest,
   AskAiKnowledgeResponse,
@@ -130,6 +134,7 @@ import type {
   CreateAiKnowledgeDocumentRequest,
   CreateAiMcpRemoteConnectionRequest,
   CreateAiModelConfigRequest,
+  CreateAiPromptRequest,
   CreateCodeGenerationTemplateRequest,
   CreateConfigEntryRequest,
   CreateDataApprovalRequestBody,
@@ -180,6 +185,7 @@ import type {
   CurrentUserResponse,
   DataApprovalRequestResponse,
   DataApprovalScenarioResponse,
+  DeactivateAiPromptRequest,
   DecideAiAgentApprovalRequest,
   DeleteAdministrativeRegionRequest,
   DeleteAiKnowledgeDocumentRequest,
@@ -354,6 +360,8 @@ import type {
   PagedResultOfAiKnowledgeRoleCandidateResponse,
   PagedResultOfAiKnowledgeVersionResponse,
   PagedResultOfAiModelConfigListItem,
+  PagedResultOfAiPromptResponse,
+  PagedResultOfAiPromptVersionResponse,
   PagedResultOfAiTenantQuotaListItem,
   PagedResultOfCodeGenerationRunResponse,
   PagedResultOfCodeGenerationTemplateResponse,
@@ -478,6 +486,7 @@ import type {
   RevokeAllHostUserSessionsResponse,
   RevokeSuperAdministratorRequest,
   RollbackHostDocumentVersionRequest,
+  SelectAiPromptVersionRequest,
   SelfServiceProfileResponse,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
@@ -644,6 +653,7 @@ import {
   readAiMcpRemoteConnectionResponse,
   readAiMcpRemoteToolApprovalItem,
   readAiModelConfigResponse,
+  readAiPromptResponse,
   readAiResumeAgentRunResponse,
   readAiTenantQuotaResponse,
   readAskAiKnowledgeResponse,
@@ -789,6 +799,8 @@ import {
   readPagedResultOfAiKnowledgeRoleCandidateResponse,
   readPagedResultOfAiKnowledgeVersionResponse,
   readPagedResultOfAiModelConfigListItem,
+  readPagedResultOfAiPromptResponse,
+  readPagedResultOfAiPromptVersionResponse,
   readPagedResultOfAiTenantQuotaListItem,
   readPagedResultOfCodeGenerationRunResponse,
   readPagedResultOfCodeGenerationTemplateResponse,
@@ -934,6 +946,29 @@ export type GeneratedJsonOperation<T> = (
   signal?: AbortSignal,
   options?: RequestOptions
 ) => Promise<T>;
+
+export interface AiAppendPromptVersionParameters {
+  readonly promptId: string;
+  readonly body: AppendAiPromptVersionRequest;
+}
+
+export async function aiAppendPromptVersion(
+  http: HttpClient,
+  parameters: AiAppendPromptVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiPromptResponse> {
+  const path = `/api/v1/ai/prompts/${encodeURIComponent(String(parameters.promptId))}/versions`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiPromptResponse(value);
+}
 
 export interface AiApproveMcpRemoteToolParameters {
   readonly connectionId: string;
@@ -1211,6 +1246,51 @@ export async function aiCreateModelConfig(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiModelConfigResponse(value);
+}
+
+export interface AiCreatePromptParameters {
+  readonly body: CreateAiPromptRequest;
+}
+
+export async function aiCreatePrompt(
+  http: HttpClient,
+  parameters: AiCreatePromptParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiPromptResponse> {
+  const path = `/api/v1/ai/prompts`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiPromptResponse(value);
+}
+
+export interface AiDeactivatePromptParameters {
+  readonly promptId: string;
+  readonly body: DeactivateAiPromptRequest;
+}
+
+export async function aiDeactivatePrompt(
+  http: HttpClient,
+  parameters: AiDeactivatePromptParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiPromptResponse> {
+  const path = `/api/v1/ai/prompts/${encodeURIComponent(String(parameters.promptId))}/deactivate`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiPromptResponse(value);
 }
 
 export interface AiDecideAgentApprovalParameters {
@@ -1711,6 +1791,33 @@ export async function aiGetModelConfig(
   return readAiModelConfigResponse(value);
 }
 
+export interface AiGetPromptVersionsParameters {
+  readonly promptId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function aiGetPromptVersions(
+  http: HttpClient,
+  parameters: AiGetPromptVersionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiPromptVersionResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/prompts/${encodeURIComponent(String(parameters.promptId))}/versions` : `/api/v1/ai/prompts/${encodeURIComponent(String(parameters.promptId))}/versions?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiPromptVersionResponse(value);
+}
+
 export interface AiGetTenantQuotaParameters {
   readonly tenantId: string;
 }
@@ -2094,6 +2201,32 @@ export async function aiListModelConfigs(
   return readPagedResultOfAiModelConfigListItem(value);
 }
 
+export interface AiListPromptsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function aiListPrompts(
+  http: HttpClient,
+  parameters: AiListPromptsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiPromptResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/prompts` : `/api/v1/ai/prompts?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiPromptResponse(value);
+}
+
 export interface AiListTenantQuotasParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -2122,6 +2255,29 @@ export async function aiListTenantQuotas(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfAiTenantQuotaListItem(value);
+}
+
+export interface AiPublishPromptVersionParameters {
+  readonly promptId: string;
+  readonly body: SelectAiPromptVersionRequest;
+}
+
+export async function aiPublishPromptVersion(
+  http: HttpClient,
+  parameters: AiPublishPromptVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiPromptResponse> {
+  const path = `/api/v1/ai/prompts/${encodeURIComponent(String(parameters.promptId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiPromptResponse(value);
 }
 
 export interface AiResumeAgentRunParameters {
@@ -2204,6 +2360,29 @@ export async function aiRevokeAgentDelegation(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiAgentDelegationResponse(value);
+}
+
+export interface AiRollbackPromptVersionParameters {
+  readonly promptId: string;
+  readonly body: SelectAiPromptVersionRequest;
+}
+
+export async function aiRollbackPromptVersion(
+  http: HttpClient,
+  parameters: AiRollbackPromptVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiPromptResponse> {
+  const path = `/api/v1/ai/prompts/${encodeURIComponent(String(parameters.promptId))}/rollback`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiPromptResponse(value);
 }
 
 export interface AiSetKnowledgeAnswerFeedbackParameters {

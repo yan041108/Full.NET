@@ -128,6 +128,16 @@ internal sealed class AiAgentRunCoordinator(
             }
 
             using var credentialScope = scope.ServiceProvider.GetRequiredService<AiModelBindingScope>();
+            if (snapshot.PromptBinding is not null)
+            {
+                var eligibility = await scope.ServiceProvider.GetRequiredService<AiPromptRunResolver>()
+                    .ExecutionAsync(snapshot, record.DefinitionKey, binding, model, cancellationToken).ConfigureAwait(false);
+                if (!eligibility.IsSuccess)
+                {
+                    await FailRunAsync(scope.ServiceProvider, store, lease, runId, eligibility.Error!.Code, cancellationToken).ConfigureAwait(false);
+                    return true;
+                }
+            }
             var factories = scope.ServiceProvider.GetServices<IAiModelClientFactory>();
             var factory = factories.FirstOrDefault(item => item.ProviderKey == model.ProviderKey)
                 ?? throw new InvalidOperationException("AI model provider is not registered.");
@@ -293,7 +303,20 @@ internal sealed class AiAgentRunCoordinator(
             }
             else
             {
-                result = await runner.RunAsync(client, snapshot.Prompt, cancellationToken).ConfigureAwait(false);
+                var effectivePrompt = snapshot.Prompt;
+                if (snapshot.PromptBinding is not null)
+                {
+                    // 建立客户端后再次复核，关闭停用、模型修订或权限撤销在创建期间发生的窗口。
+                    var proven = await scope.ServiceProvider.GetRequiredService<AiPromptRunResolver>()
+                        .ExecutionAsync(snapshot, record.DefinitionKey, binding, model, cancellationToken).ConfigureAwait(false);
+                    if (!proven.IsSuccess)
+                    {
+                        await FailRunAsync(scope.ServiceProvider, store, lease, runId, proven.Error!.Code, cancellationToken).ConfigureAwait(false);
+                        return true;
+                    }
+                    effectivePrompt = proven.Value!;
+                }
+                result = await runner.RunAsync(client, effectivePrompt, cancellationToken).ConfigureAwait(false);
             }
 
             var checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(result.Session.GetRawText())));

@@ -11,6 +11,13 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
 
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
+        new(AiPromptPermissions.Read, "读取 Prompt 目录与版本", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiPromptPermissions.Create, "创建 Prompt 草稿", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiPromptPermissions.Append, "追加 Prompt 草稿版本", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiPromptPermissions.Publish, "显式发布 Prompt 版本", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiPromptPermissions.Deactivate, "停用 Prompt 目录", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiPromptPermissions.Rollback, "回滚 Prompt 发布版本", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(AiPromptPermissions.Use, "在本人运行使用已发布 Prompt", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeAnswerFeedbackPermissions.Read, "读取本人回答反馈", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeAnswerFeedbackPermissions.Submit, "提交本人回答反馈", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new(AiKnowledgeAnswerFeedbackPermissions.Withdraw, "撤回本人回答反馈", AuthorizationScope.Host | AuthorizationScope.Tenant),
@@ -156,6 +163,13 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
+        new AuthorizationActionDefinition("ai.prompts.read", "ai-agent-runs", AiPromptPermissions.Read, "读取 Prompt 目录与版本", "prompt-read", 100),
+        new AuthorizationActionDefinition("ai.prompts.create", "ai-agent-runs", AiPromptPermissions.Create, "创建 Prompt 草稿", "prompt-create", 101),
+        new AuthorizationActionDefinition("ai.prompts.append", "ai-agent-runs", AiPromptPermissions.Append, "追加 Prompt 草稿版本", "prompt-append", 102),
+        new AuthorizationActionDefinition("ai.prompts.publish", "ai-agent-runs", AiPromptPermissions.Publish, "发布 Prompt 版本", "prompt-publish", 103),
+        new AuthorizationActionDefinition("ai.prompts.deactivate", "ai-agent-runs", AiPromptPermissions.Deactivate, "停用 Prompt", "prompt-deactivate", 104),
+        new AuthorizationActionDefinition("ai.prompts.rollback", "ai-agent-runs", AiPromptPermissions.Rollback, "回滚已发布版本", "prompt-rollback", 105),
+        new AuthorizationActionDefinition("ai.prompts.use", "ai-agent-runs", AiPromptPermissions.Use, "使用已发布 Prompt", "prompt-use", 106),
         new("ai.knowledge_answer_feedback.read", "ai-chat", AiKnowledgeAnswerFeedbackPermissions.Read, "读取本人回答反馈", "feedback-read", 40),
         new("ai.knowledge_answer_feedback.submit", "ai-chat", AiKnowledgeAnswerFeedbackPermissions.Submit, "提交本人回答反馈", "feedback-submit", 50),
         new("ai.knowledge_answer_feedback.withdraw", "ai-chat", AiKnowledgeAnswerFeedbackPermissions.Withdraw, "撤回本人回答反馈", "feedback-withdraw", 60),

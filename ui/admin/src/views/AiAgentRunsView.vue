@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -17,6 +17,10 @@ import {
 import type { AgUiRunProgressState, AiAgentRunResponse, FullNetProblemDetails } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import PermissionGate from '../components/PermissionGate.vue';
+import AiPromptPanel from '../components/AiPromptPanel.vue';
+import type { AiPromptVersionResponse } from '@fullnet/client-contracts';
+import { useSessionStore } from '../auth/session';
+import { promptText } from '../i18n/prompts';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listAiModelConfigs } from '../api/ai-model-configs';
 import {
@@ -31,7 +35,13 @@ import {
 
 defineOptions({ name: 'AiAgentRunsView' });
 
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
+const session = useSessionStore();
+const promptVersion = ref<AiPromptVersionResponse>();
+function selectPrompt(version: AiPromptVersionResponse | undefined) {
+  promptVersion.value = version;
+  if (version) { createModelId.value = version.body.modelConfigId; createDefinitionKey.value = 'fullnet-single-text-v1'; }
+}
 const runIdInput = ref('');
 const activeRun = ref<AiAgentRunResponse>();
 const progress = ref<AgUiRunProgressState>();
@@ -43,6 +53,17 @@ const streamController = ref<AbortController>();
 const createModelId = ref('');
 const createPrompt = ref('');
 const createDefinitionKey = ref('fullnet-single-text-v1');
+let contextEpoch = 0;
+let loadEpoch = 0;
+let contextController = new AbortController();
+const current = (epoch: number) => epoch === contextEpoch && !contextController.signal.aborted;
+// 会话及租户变化同时取消表单请求和事件流，旧模型、正文和运行状态不跨上下文显示。
+watch(() => [session.currentUser, session.currentContextName, session.switching], () => {
+  ++contextEpoch; ++loadEpoch; contextController.abort(); contextController = new AbortController(); stopStream();
+  selectPrompt(undefined); createPrompt.value = ''; createModelId.value = ''; runIdInput.value = '';
+  activeRun.value = undefined; progress.value = undefined; events.value = []; problem.value = undefined; loading.value = false;
+  if (!session.switching) void loadModels();
+}, { deep: true, flush: 'sync' });
 
 const definitionOptions = [
   { value: 'fullnet-single-text-v1', label: 'fullnet-single-text-v1' },
@@ -73,19 +94,23 @@ async function loadRun(runId?: string): Promise<void> {
   }
 
   stopStream();
+  const epoch = contextEpoch; const request = ++loadEpoch;
   loading.value = true;
   problem.value = undefined;
   events.value = [];
   progress.value = undefined;
   try {
-    activeRun.value = await getAiAgentRun(targetId);
+    const result = await getAiAgentRun(targetId, contextController.signal);
+    if (!current(epoch) || request !== loadEpoch) return;
+    activeRun.value = result;
     runIdInput.value = activeRun.value.id;
     await startEventStream(activeRun.value.id);
   } catch (error: unknown) {
+    if (!current(epoch) || request !== loadEpoch) return;
     activeRun.value = undefined;
     problem.value = toProblem(error, 'aiAgentRuns.loadFailed');
   } finally {
-    loading.value = false;
+    if (current(epoch) && request === loadEpoch) loading.value = false;
   }
 }
 
@@ -93,39 +118,44 @@ async function startEventStream(runId: string): Promise<void> {
   stopStream();
   streaming.value = true;
   const controller = new AbortController();
+  const epoch = contextEpoch;
   streamController.value = controller;
   try {
     await streamAiAgentRunEvents(runId, {
       onEvent: event => {
+        if (!current(epoch) || controller.signal.aborted) return;
         events.value.push(event);
         if (event.eventType === 'STATE_SNAPSHOT') {
           progress.value = parseAgUiStateSnapshot(event.payload) ?? progress.value;
         }
       },
       onError: message => {
+        if (!current(epoch) || controller.signal.aborted) return;
         problem.value = { code: 'client.stream_failed', title: message, status: 500, type: 'about:blank' };
       }
     }, controller.signal);
-    await refreshRunQuietly(runId);
+    if (current(epoch) && !controller.signal.aborted) await refreshRunQuietly(runId);
   } catch (error: unknown) {
-    if (!controller.signal.aborted) {
+    if (current(epoch) && !controller.signal.aborted) {
       problem.value = toProblem(error, 'aiAgentRuns.streamFailed');
     }
   } finally {
-    streaming.value = false;
-    streamController.value = undefined;
+    if (streamController.value === controller) { streaming.value = false; streamController.value = undefined; }
   }
 }
 
 async function refreshRunQuietly(runId: string): Promise<void> {
+  const epoch = contextEpoch; const request = loadEpoch;
   try {
-    activeRun.value = await getAiAgentRun(runId);
+    const result = await getAiAgentRun(runId, contextController.signal);
+    if (current(epoch) && request === loadEpoch) activeRun.value = result;
   } catch {
     // 流结束后刷新失败不覆盖已有状态。
   }
 }
 
 async function handleCreate(): Promise<void> {
+  const epoch = contextEpoch;
   if (!createModelId.value || !createPrompt.value.trim()) {
     ElMessage.warning(t('aiAgentRuns.createValidation'));
     return;
@@ -139,54 +169,70 @@ async function handleCreate(): Promise<void> {
       definitionKey: createDefinitionKey.value,
       modelConfigId: createModelId.value,
       prompt: createPrompt.value.trim(),
-      inputTokenLimit: 4096,
-      outputTokenLimit: 4096
-    });
+      inputTokenLimit: Math.min(4096, promptVersion.value?.body.inputTokenLimit ?? 4096),
+      outputTokenLimit: Math.min(4096, promptVersion.value?.body.outputTokenLimit ?? 4096),
+      ...(promptVersion.value ? { promptVersionId: promptVersion.value.id } : {})
+    }, contextController.signal);
+    if (!current(epoch)) return;
     runIdInput.value = created.runId;
     await loadRun(created.runId);
+    if (!current(epoch)) return;
     ElMessage.success(t('aiAgentRuns.createSucceeded'));
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'aiAgentRuns.createFailed');
+    if (current(epoch)) problem.value = toProblem(error, 'aiAgentRuns.createFailed');
   } finally {
-    loading.value = false;
+    if (current(epoch)) loading.value = false;
   }
 }
 
 async function handleCancel(): Promise<void> {
+  const epoch = contextEpoch;
   if (!activeRun.value) {
     return;
   }
+  const runId = activeRun.value.id;
   try {
-    await cancelAiAgentRun(activeRun.value.id);
-    await loadRun(activeRun.value.id);
+    await cancelAiAgentRun(runId, contextController.signal);
+    if (!current(epoch)) return;
+    await loadRun(runId);
+    if (!current(epoch)) return;
     ElMessage.success(t('aiAgentRuns.cancelSucceeded'));
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'aiAgentRuns.cancelFailed');
+    if (current(epoch)) problem.value = toProblem(error, 'aiAgentRuns.cancelFailed');
   }
 }
 
 async function handleResume(): Promise<void> {
+  const epoch = contextEpoch;
   if (!activeRun.value) {
     return;
   }
+  const runId = activeRun.value.id;
   try {
-    await resumeAiAgentRun(activeRun.value.id);
-    await loadRun(activeRun.value.id);
+    await resumeAiAgentRun(runId, contextController.signal);
+    if (!current(epoch)) return;
+    await loadRun(runId);
+    if (!current(epoch)) return;
     ElMessage.success(t('aiAgentRuns.resumeSucceeded'));
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'aiAgentRuns.resumeFailed');
+    if (current(epoch)) problem.value = toProblem(error, 'aiAgentRuns.resumeFailed');
   }
 }
 
 onBeforeUnmount(() => {
+  ++contextEpoch; contextController.abort();
   stopStream();
 });
 
-void listAiModelConfigs({ page: 1, pageSize: 100, isEnabled: true })
-  .then(result => {
-    createModelId.value = result.items.find(item => item.isDefault)?.id ?? result.items[0]?.id ?? '';
-  })
-  .catch(() => undefined);
+async function loadModels() {
+  if (!session.can('ai.model_configs.read') || session.switching) return;
+  const epoch = contextEpoch;
+  try {
+    const result = await listAiModelConfigs({ page: 1, pageSize: 100, isEnabled: true }, contextController.signal);
+    if (current(epoch) && !promptVersion.value) createModelId.value = result.items.find(item => item.isDefault)?.id ?? result.items[0]?.id ?? '';
+  } catch { /* 模型列表失败不覆盖已选版本。 */ }
+}
+void loadModels();
 </script>
 
 <template>
@@ -235,11 +281,13 @@ void listAiModelConfigs({ page: 1, pageSize: 100, isEnabled: true })
       </div>
     </ElCard>
 
+    <AiPromptPanel :model-id="createModelId" @select="selectPrompt" />
     <PermissionGate code="ai.agent_runs.create">
       <ElCard shadow="never" class="ai-agent-runs-create-card">
         <template #header>{{ t('aiAgentRuns.createTitle') }}</template>
         <div class="ai-agent-runs-create-form">
-          <ElSelect v-model="createDefinitionKey" :placeholder="t('aiAgentRuns.fieldDefinition')">
+          <ElButton v-if="promptVersion" data-testid="prompt-clear-binding" @click="selectPrompt(undefined)">{{ promptText(locale, 'clear') }} · v{{ promptVersion.version }}</ElButton>
+          <ElSelect v-model="createDefinitionKey" :disabled="!!promptVersion" :placeholder="t('aiAgentRuns.fieldDefinition')">
             <ElOption
               v-for="option in definitionOptions"
               :key="option.value"
@@ -247,9 +295,10 @@ void listAiModelConfigs({ page: 1, pageSize: 100, isEnabled: true })
               :value="option.value"
             />
           </ElSelect>
-          <ElInput v-model="createModelId" :placeholder="t('aiAgentRuns.fieldModelId')" />
+          <ElInput v-model="createModelId" :disabled="!!promptVersion" :placeholder="t('aiAgentRuns.fieldModelId')" />
           <ElInput
             v-model="createPrompt"
+            data-testid="ai-agent-runs-create-prompt"
             type="textarea"
             :rows="3"
             :placeholder="t('aiAgentRuns.fieldPrompt')"

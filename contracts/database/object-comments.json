@@ -573,6 +573,42 @@
         "UsageStatus": "用量计量状态"
       }
     },
+    "fn_ai_prompt": {
+      "comment": "当前作用域的 Prompt 目录与发布指针；停用代次撤销旧运行",
+      "columns": {
+        "ActiveVersionId": "显式发布版本；停用或未发布时为空",
+        "ClientRequestId": "创建者在作用域内的幂等键",
+        "CreateHash": "首版请求的规范载荷摘要",
+        "CreatedAtUtc": "目录创建 UTC 时间",
+        "Epoch": "停用撤销代次；重新发布不会恢复旧代次",
+        "Id": "目录逻辑主键",
+        "LastVersion": "最后追加的不可变版本号",
+        "Name": "目录显示名称",
+        "OwnerUserId": "目录创建者；不构成额外授权",
+        "Revision": "目录并发修订号",
+        "ScopeKey": "可信宿主 host 或租户 UUID 规范串",
+        "TenantId": "可信租户；宿主为空"
+      }
+    },
+    "fn_ai_prompt_version": {
+      "comment": "不可变纯文本 Prompt 正文与模型身份；首次发布标记不改写正文",
+      "columns": {
+        "BodyHash": "完整规范正文和模型身份的 SHA256 摘要",
+        "BodyJson": "源生成规范正文；固定文本 Schema、零工具及无检索",
+        "CreatedAtUtc": "版本创建 UTC 时间",
+        "CreatedByUserId": "版本创建者",
+        "FormatVersion": "闭合纯文本策略协议版本",
+        "Id": "不可变版本逻辑主键",
+        "ModelConfigVersion": "草稿创建时绑定的模型配置修订号",
+        "ModelId": "绑定的模型稳定标识",
+        "PromptId": "所属 AI 目录",
+        "ProviderKey": "绑定的提供程序稳定键",
+        "ScopeKey": "与所属目录相同的可信作用域",
+        "TenantId": "可信租户；宿主为空",
+        "Version": "目录内不可变版本号",
+        "WasPublished": "是否曾经显式发布；不因停用清除"
+      }
+    },
     "fn_ai_quota_reservation": {
       "comment": "人工智能配额预留表",
       "columns": {

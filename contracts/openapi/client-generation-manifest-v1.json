@@ -3627,6 +3627,48 @@
       "apiModule": "packages/client-contracts/src/ai-answer-feedback.ts",
       "generatedGroup": "ai-answer-feedback",
       "status": "generated"
+    },
+    {
+      "operationId": "aiListPrompts",
+      "apiModule": "packages/client-contracts/src/ai-prompts.ts",
+      "generatedGroup": "ai-prompts",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetPromptVersions",
+      "apiModule": "packages/client-contracts/src/ai-prompts.ts",
+      "generatedGroup": "ai-prompts",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCreatePrompt",
+      "apiModule": "packages/client-contracts/src/ai-prompts.ts",
+      "generatedGroup": "ai-prompts",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiAppendPromptVersion",
+      "apiModule": "packages/client-contracts/src/ai-prompts.ts",
+      "generatedGroup": "ai-prompts",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiPublishPromptVersion",
+      "apiModule": "packages/client-contracts/src/ai-prompts.ts",
+      "generatedGroup": "ai-prompts",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiRollbackPromptVersion",
+      "apiModule": "packages/client-contracts/src/ai-prompts.ts",
+      "generatedGroup": "ai-prompts",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiDeactivatePrompt",
+      "apiModule": "packages/client-contracts/src/ai-prompts.ts",
+      "generatedGroup": "ai-prompts",
+      "status": "generated"
     }
   ]
 }

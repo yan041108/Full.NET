@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 6034,
+      "minimum": 6070,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -21,7 +21,7 @@
         },
         "ai-module": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
-          "minimum": 2565
+          "minimum": 2601
         },
         "ai-evaluation": {
           "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests",
@@ -33,7 +33,7 @@
         },
         "ai-runtime": {
           "filter": "FullyQualifiedName~AiAgentRunReadiness|FullyQualifiedName~AiAgentRunState|FullyQualifiedName~AiAgentRunManagement|FullyQualifiedName~AiAgentRunCoordinator|FullyQualifiedName~AiAgentToolLoop|FullyQualifiedName~AiCheckpointCompatibility|FullyQualifiedName~AgentWorkflowRunner|FullyQualifiedName~AiMultiAgentBudget",
-          "minimum": 68
+          "minimum": 72
         },
         "ai-provider": {
           "filter": "FullyQualifiedName~AiGatewayCapabilityTests|FullyQualifiedName~AiCredentialBoundaryTests|FullyQualifiedName~AiProviderEndpointPolicyTests|FullyQualifiedName~AiProviderSafetyRegressionTests|FullyQualifiedName~AiChatStreamingBudgetTests|FullyQualifiedName~AiModelConnectivityTesterTests|FullyQualifiedName~AiChatContentPolicyTests|FullyQualifiedName~AiAgentToolAuditPolicyTests|FullyQualifiedName~AiEmbeddingProviderContractTests|FullyQualifiedName~AzureOpenAiProviderTests",
@@ -106,7 +106,7 @@
       "NativeWorkerPdfE2ETests",
       "NativeWorkerKnowledgeRetirementE2ETests"
     ],
-    "minimum": 23,
+    "minimum": 25,
     "timeout": "45m"
   },
   "nativeAotIntegration": {
@@ -391,6 +391,27 @@
       "250": {
         "filter": "FullyQualifiedName~Migration250AiKnowledgeTextManifestRecoveryTests.MySql_|FullyQualifiedName~Migration250AiKnowledgeTextManifestRecoveryTests.SqlServer_"
       },
+      "251": {
+        "filter": "FullyQualifiedName~Migration251AiKnowledgeActivationRecoveryTests.MySql_|FullyQualifiedName~Migration251AiKnowledgeActivationRecoveryTests.SqlServer_"
+      },
+      "252": {
+        "filter": "FullyQualifiedName~Migration252AiKnowledgePdfManifestRecoveryTests.MySql_|FullyQualifiedName~Migration252AiKnowledgePdfManifestRecoveryTests.SqlServer_"
+      },
+      "253": {
+        "filter": "FullyQualifiedName~Migration253AiKnowledgePdfVectorRecoveryTests.MySql_|FullyQualifiedName~Migration253AiKnowledgePdfVectorRecoveryTests.SqlServer_"
+      },
+      "254": {
+        "filter": "FullyQualifiedName~Migration254AiKnowledgeAnswerLineageRecoveryTests.MySql_|FullyQualifiedName~Migration254AiKnowledgeAnswerLineageRecoveryTests.SqlServer_"
+      },
+      "255": {
+        "filter": "FullyQualifiedName~Migration255AiKnowledgeDocxPersistenceRecoveryTests.MySql_|FullyQualifiedName~Migration255AiKnowledgeDocxPersistenceRecoveryTests.SqlServer_"
+      },
+      "256": {
+        "filter": "FullyQualifiedName~Migration256AiKnowledgeAnswerFeedbackRecoveryTests.MySql_|FullyQualifiedName~Migration256AiKnowledgeAnswerFeedbackRecoveryTests.SqlServer_"
+      },
+      "257": {
+        "filter": "FullyQualifiedName~Migration257AiPromptVersionsRecoveryTests.MySql_|FullyQualifiedName~Migration257AiPromptVersionsRecoveryTests.SqlServer_"
+      },
       "008": {
         "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryExpandMigrationTests|FullyQualifiedName~UuidBinaryPartialRecoveryTests"
       },
@@ -594,24 +615,6 @@
       },
       "098": {
         "filter": "FullyQualifiedName~Migration098JobsDefinitionHandlerKindAndArgsRecoveryTests.MySql_|FullyQualifiedName~Migration098JobsDefinitionHandlerKindAndArgsRecoveryTests.SqlServer_"
-      },
-      "251": {
-        "filter": "FullyQualifiedName~Migration251AiKnowledgeActivationRecoveryTests.MySql_|FullyQualifiedName~Migration251AiKnowledgeActivationRecoveryTests.SqlServer_"
-      },
-      "252": {
-        "filter": "FullyQualifiedName~Migration252AiKnowledgePdfManifestRecoveryTests.MySql_|FullyQualifiedName~Migration252AiKnowledgePdfManifestRecoveryTests.SqlServer_"
-      },
-      "253": {
-        "filter": "FullyQualifiedName~Migration253AiKnowledgePdfVectorRecoveryTests.MySql_|FullyQualifiedName~Migration253AiKnowledgePdfVectorRecoveryTests.SqlServer_"
-      },
-      "254": {
-        "filter": "FullyQualifiedName~Migration254AiKnowledgeAnswerLineageRecoveryTests.MySql_|FullyQualifiedName~Migration254AiKnowledgeAnswerLineageRecoveryTests.SqlServer_"
-      },
-      "255": {
-        "filter": "FullyQualifiedName~Migration255AiKnowledgeDocxPersistenceRecoveryTests.MySql_|FullyQualifiedName~Migration255AiKnowledgeDocxPersistenceRecoveryTests.SqlServer_"
-      },
-      "256": {
-        "filter": "FullyQualifiedName~Migration256AiKnowledgeAnswerFeedbackRecoveryTests.MySql_|FullyQualifiedName~Migration256AiKnowledgeAnswerFeedbackRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -639,7 +642,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 546,
+        "minimum": 548,
         "timeout": "120m"
       },
       "infrastructure": {
@@ -672,7 +675,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1210,
+        "minimum": 1212,
         "timeout": "90m"
       },
       "logging-route-comparison": {

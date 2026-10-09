@@ -182,6 +182,36 @@ public sealed class AiAgentRunCoordinatorTests
         await fixture.Budget.Received(1).SettleAsync(fixture.RunId, Arg.Any<AiOperationUsage>(), "failed", Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    public async Task Bound_prompt_passes_exact_composed_text_to_runner()
+    {
+        var fixture = await CreateFixtureAsync(promptBound: true);
+        Assert.AreEqual(1, await fixture.Coordinator.ProcessPendingAsync());
+        await fixture.Runner.Received(1).RunAsync(Arg.Any<IChatClient>(), "Bound hello", Arg.Any<CancellationToken>());
+        AssertStatusCommit(fixture.Commands, "completed");
+    }
+
+    [TestMethod]
+    public async Task Prompt_deactivated_before_client_creation_never_calls_factory_or_runner()
+    {
+        var fixture = await CreateFixtureAsync(promptBound: true, promptDeactivated: true);
+        Assert.AreEqual(1, await fixture.Coordinator.ProcessPendingAsync());
+        await fixture.Factory.DidNotReceive().CreateChatClientAsync(Arg.Any<ModelBinding>(), Arg.Any<CancellationToken>());
+        await fixture.Runner.DidNotReceive().RunAsync(Arg.Any<IChatClient>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        AssertStatusCommit(fixture.Commands, "failed");
+    }
+
+    [TestMethod]
+    public async Task Prompt_deactivated_during_client_creation_never_calls_runner_and_settles_failed()
+    {
+        var fixture = await CreateFixtureAsync(promptBound: true, deactivateDuringFactory: true);
+        Assert.AreEqual(1, await fixture.Coordinator.ProcessPendingAsync());
+        await fixture.Factory.Received(1).CreateChatClientAsync(Arg.Any<ModelBinding>(), Arg.Any<CancellationToken>());
+        await fixture.Runner.DidNotReceive().RunAsync(Arg.Any<IChatClient>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await fixture.Budget.Received(1).SettleAsync(fixture.RunId, Arg.Any<AiOperationUsage>(), "failed", Arg.Any<CancellationToken>());
+        AssertStatusCommit(fixture.Commands, "failed");
+    }
+
     private static async Task<CoordinatorFixture> CreateFixtureAsync(
         bool bindingValid = true,
         bool includeModel = true,
@@ -191,7 +221,10 @@ public sealed class AiAgentRunCoordinatorTests
         IChatClient? chatClient = null,
         IAgentToolExecutor? toolExecutor = null,
         IAgentModelRunner? runner = null,
-        Guid? sessionId = null)
+        Guid? sessionId = null,
+        bool promptBound = false,
+        bool promptDeactivated = false,
+        bool deactivateDuringFactory = false)
     {
         var runId = Guid.CreateVersion7();
         var modelId = Guid.CreateVersion7();
@@ -207,7 +240,14 @@ public sealed class AiAgentRunCoordinatorTests
             .Returns([runId]);
         queries.QuerySingleOrDefaultAsync<AgentCheckpointRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns((AgentCheckpointRecord?)null);
-        var record = CreateRecord(runId, modelId, definitionKey, sessionId);
+        var promptId = Guid.CreateVersion7(); var promptVersionId = Guid.CreateVersion7(); var promptEpoch = 0;
+        var promptJson = Full.NET.Modules.Ai.Domain.AiPromptVersionIntegrity.Serialize(new(modelId, "zh-CN", "Bound {{input}}", 100, 100));
+        var promptHash = Full.NET.Modules.Ai.Domain.AiPromptVersionIntegrity.Hash(promptJson, 1, "ollama", "model");
+        var record = CreateRecord(runId, modelId, definitionKey, sessionId, promptBound ? new(promptId, promptVersionId, 1, promptHash, 0) : null);
+        queries.QuerySingleOrDefaultAsync<AiPromptRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => new AiPromptRecord { Id = promptId, ScopeKey = "host", Revision = 2, LastVersion = 1, ActiveVersionId = promptDeactivated ? null : promptVersionId, Epoch = promptEpoch });
+        queries.QuerySingleOrDefaultAsync<AiPromptVersionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new AiPromptVersionRecord { Id = promptVersionId, PromptId = promptId, ScopeKey = "host", Version = 1, FormatVersion = 1, BodyJson = promptJson, BodyHash = promptHash, WasPublished = true, ModelConfigVersion = 1, ProviderKey = "ollama", ModelId = "model" });
         queries.QuerySingleOrDefaultAsync<AiAgentRunRecord>(AiAgentRunSql.SelectLease, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(record);
         queries.QuerySingleOrDefaultAsync<AiAgentRunRecord>(AiAgentRunSql.FindById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -255,7 +295,8 @@ public sealed class AiAgentRunCoordinatorTests
 
         var client = chatClient ?? Substitute.For<IChatClient>();
         var resolvedToolExecutor = toolExecutor ?? CreateDefaultToolExecutor();
-        var coordinatorScope = BuildCoordinatorScope(binding, queries, budget, client, ids, resolvedToolExecutor, definitionKey);
+        var coordinatorScope = BuildCoordinatorScope(binding, queries, budget, client, ids, resolvedToolExecutor, definitionKey, record,
+            () => { if (deactivateDuringFactory) promptEpoch++; });
         var scopeFactory = coordinatorScope.GetRequiredService<IServiceScopeFactory>();
         var coordinator = new AiAgentRunCoordinator(
             scopeFactory,
@@ -267,7 +308,7 @@ public sealed class AiAgentRunCoordinatorTests
             Options.Create(new AiAgentRuntimeOptions { BatchSize = 4, LeaseSeconds = 30 }),
             NullLogger<AiAgentRunCoordinator>.Instance);
         await heartbeat.UpsertAsync().ConfigureAwait(false);
-        return new CoordinatorFixture(runId, commands, budget, coordinator, resolvedRunner, resolvedToolExecutor);
+        return new CoordinatorFixture(runId, commands, budget, coordinator, resolvedRunner, resolvedToolExecutor, coordinatorScope.GetRequiredService<IAiModelClientFactory>());
     }
 
     private static IAgentToolExecutor CreateDefaultToolExecutor()
@@ -285,10 +326,21 @@ public sealed class AiAgentRunCoordinatorTests
         IChatClient client,
         IIdGenerator ids,
         IAgentToolExecutor toolExecutor,
-        string definitionKey)
+        string definitionKey,
+        AiAgentRunRecord record,
+        Action onFactory)
     {
         var services = new ServiceCollection();
-        services.AddSingleton<ICurrentTenantContextWriter>(new CurrentTenantAccessor());
+        var tenant = new CurrentTenantAccessor();
+        services.AddSingleton<ICurrentTenantContextWriter>(tenant);
+        services.AddSingleton<Full.NET.Abstractions.Tenancy.ICurrentTenant>(tenant);
+        var authorization = Substitute.For<IBackgroundSessionAuthorization>();
+        authorization.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new AuthorizedSessionActor(record.ActorUserId, record.TenantId, record.SessionId));
+        services.AddSingleton(authorization);
+        services.AddSingleton(Substitute.For<IDataTransactionState>());
+        services.AddScoped<Full.NET.Modules.Ai.Features.ManagePromptVersions.AiPromptReader>();
+        services.AddScoped<AiPromptRunResolver>();
         services.AddSingleton(binding);
         services.AddSingleton(queries);
         services.AddSingleton(budget);
@@ -311,7 +363,7 @@ public sealed class AiAgentRunCoordinatorTests
         var modelFactory = Substitute.For<IAiModelClientFactory>();
         modelFactory.ProviderKey.Returns("ollama");
         modelFactory.CreateChatClientAsync(Arg.Any<ModelBinding>(), Arg.Any<CancellationToken>())
-            .Returns(client);
+            .Returns(_ => { onFactory(); return client; });
         services.AddSingleton(modelFactory);
         return services.BuildServiceProvider();
     }
@@ -341,10 +393,10 @@ public sealed class AiAgentRunCoordinatorTests
             Options.Create(new AiAgentRuntimeOptions { PollMilliseconds = 1000 }));
     }
 
-    private static AiAgentRunRecord CreateRecord(Guid runId, Guid modelId, string definitionKey, Guid? sessionId = null)
+    private static AiAgentRunRecord CreateRecord(Guid runId, Guid modelId, string definitionKey, Guid? sessionId = null, AiPromptRunBinding? promptBinding = null)
     {
         var budgetJson = JsonSerializer.Serialize(
-            new AgentRunBudgetSnapshot(modelId, "hello", 100, 100),
+            new AgentRunBudgetSnapshot(modelId, "hello", 100, 100, promptBinding),
             AiJsonSerializerContext.Default.AgentRunBudgetSnapshot);
         return new AiAgentRunRecord
         {
@@ -371,5 +423,6 @@ public sealed class AiAgentRunCoordinatorTests
         IAiOperationBudgetStore Budget,
         AiAgentRunCoordinator Coordinator,
         IAgentModelRunner Runner,
-        IAgentToolExecutor ToolExecutor);
+        IAgentToolExecutor ToolExecutor,
+        IAiModelClientFactory Factory);
 }

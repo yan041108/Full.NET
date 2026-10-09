@@ -5,4 +5,5 @@ internal sealed record AgentRunBudgetSnapshot(
     Guid ModelConfigId,
     string Prompt,
     long InputTokenLimit,
-    long OutputTokenLimit);
+    long OutputTokenLimit,
+    AiPromptRunBinding? PromptBinding = null);

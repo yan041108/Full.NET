@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="ai.prompts.invalid" xml:space="preserve"><value>The Prompt input, version or operation target is invalid.</value></data>
+  <data name="ai.prompts.conflict" xml:space="preserve"><value>The Prompt changed. Refresh before retrying.</value></data>
+  <data name="ai.prompts.not_found" xml:space="preserve"><value>The Prompt catalog is unavailable in the current scope.</value></data>
+  <data name="ai.prompts.unavailable" xml:space="preserve"><value>The published Prompt version, model or policy is unavailable.</value></data>
+</root>

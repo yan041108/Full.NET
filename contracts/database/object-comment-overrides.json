@@ -482,6 +482,42 @@
         "CreatedAtUtc": "创建时间（UTC）",
         "UpdatedAtUtc": "更新时间（UTC）"
       }
+    },
+    "fn_ai_prompt": {
+      "comment": "当前作用域的 Prompt 目录与发布指针；停用代次撤销旧运行",
+      "columns": {
+        "Id": "目录逻辑主键",
+        "ScopeKey": "可信宿主 host 或租户 UUID 规范串",
+        "TenantId": "可信租户；宿主为空",
+        "OwnerUserId": "目录创建者；不构成额外授权",
+        "ClientRequestId": "创建者在作用域内的幂等键",
+        "CreateHash": "首版请求的规范载荷摘要",
+        "Name": "目录显示名称",
+        "Revision": "目录并发修订号",
+        "LastVersion": "最后追加的不可变版本号",
+        "ActiveVersionId": "显式发布版本；停用或未发布时为空",
+        "Epoch": "停用撤销代次；重新发布不会恢复旧代次",
+        "CreatedAtUtc": "目录创建 UTC 时间"
+      }
+    },
+    "fn_ai_prompt_version": {
+      "comment": "不可变纯文本 Prompt 正文与模型身份；首次发布标记不改写正文",
+      "columns": {
+        "Id": "不可变版本逻辑主键",
+        "PromptId": "所属 AI 目录",
+        "ScopeKey": "与所属目录相同的可信作用域",
+        "TenantId": "可信租户；宿主为空",
+        "Version": "目录内不可变版本号",
+        "FormatVersion": "闭合纯文本策略协议版本",
+        "BodyJson": "源生成规范正文；固定文本 Schema、零工具及无检索",
+        "ModelConfigVersion": "草稿创建时绑定的模型配置修订号",
+        "ProviderKey": "绑定的提供程序稳定键",
+        "ModelId": "绑定的模型稳定标识",
+        "BodyHash": "完整规范正文和模型身份的 SHA256 摘要",
+        "WasPublished": "是否曾经显式发布；不因停用清除",
+        "CreatedByUserId": "版本创建者",
+        "CreatedAtUtc": "版本创建 UTC 时间"
+      }
     }
   }
 }

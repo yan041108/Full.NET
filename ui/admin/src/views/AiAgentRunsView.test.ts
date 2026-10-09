@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import AiAgentRunsView from './AiAgentRunsView.vue';
 import { getAiAgentRun, streamAiAgentRunEvents } from '../api/ai-agent-runs';
 import { listAiModelConfigs } from '../api/ai-model-configs';
+import { useSessionStore } from '../auth/session';
 
 vi.mock('../api/ai-agent-runs', () => ({
   createAiAgentRun: vi.fn(),
@@ -69,5 +70,18 @@ describe('AiAgentRunsView', () => {
     expect(getRunMock).toHaveBeenCalled();
     expect(streamMock).toHaveBeenCalled();
     expect(wrapper.text()).toContain('completed');
+  });
+  it('discards delayed run read and clears run state when context changes', async () => {
+    let resolve!: (value: Awaited<ReturnType<typeof getAiAgentRun>>) => void;
+    getRunMock.mockReturnValue(new Promise(r => { resolve = r; }));
+    const wrapper = mountView();
+    await wrapper.get('[data-testid="ai-agent-runs-id"]').setValue('11111111-1111-1111-1111-111111111111');
+    await wrapper.get('[data-testid="ai-agent-runs-load"]').trigger('click');
+    useSessionStore().currentContextName = 'Tenant B';
+    resolve({ id: '11111111-1111-1111-1111-111111111111', statusKey: 'completed', definitionKey: 'fullnet-single-text-v1', definitionVersion: 1, deadlineAtUtc: 'now', createdAtUtc: 'now', updatedAtUtc: 'now' });
+    await flushPromises();
+    expect(streamMock).not.toHaveBeenCalled();
+    expect((wrapper.get('[data-testid="ai-agent-runs-id"]').element as HTMLInputElement).value).toBe('');
+    expect(wrapper.text()).not.toContain('completed'); wrapper.unmount();
   });
 });

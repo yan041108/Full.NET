@@ -5,6 +5,7 @@ export interface CreateAiAgentRunRequest {
   prompt: string;
   inputTokenLimit: number;
   outputTokenLimit: number;
+  promptVersionId?: string | null;
 }
 
 export interface CreateAiAgentRunResponse {

@@ -1341,6 +1341,13 @@ internal static class NativeApiE2EAssertions
         using var modelResponse = await client.SendAsync(modelCreate, cancellationToken).ConfigureAwait(false);
         await AssertStatusAsync(modelResponse, HttpStatusCode.Created, "Create native approval model", cancellationToken).ConfigureAwait(false);
         var model = (await modelResponse.Content.ReadFromJsonAsync<AiModelConfigResponse>(cancellationToken).ConfigureAwait(false))!;
+        var previousAuthorization = client.DefaultRequestHeaders.Authorization;
+        try
+        {
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            await Full.NET.IntegrationTests.Ai.AiPromptApiAssertions.VerifyAsync(client, model.Id).ConfigureAwait(false);
+        }
+        finally { client.DefaultRequestHeaders.Authorization = previousAuthorization; }
         using var update = AuthorizedJson(HttpMethod.Put, $"/api/v1/ai/knowledge-bases/{created.Id}/policy", accessToken,
             new UpdateAiKnowledgePolicyRequest("restricted", model.Id, model.Version, model.Id, model.Version, created.Version));
         using var updatedResponse = await client.SendAsync(update, cancellationToken).ConfigureAwait(false);

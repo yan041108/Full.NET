@@ -26,6 +26,7 @@ internal sealed class AiAgentRunManagementService(
     AiAgentRunApprovalGate approvalGate,
     AiModelConfigQueryService modelQueries,
     IBackgroundSessionBindingValidator bindingValidator,
+    AiPromptRunResolver prompts,
     IAiOperationBudgetStore budgetStore,
     ICurrentTenant tenant,
     IClock clock,
@@ -60,15 +61,27 @@ internal sealed class AiAgentRunManagementService(
         }
 
         var scope = ResolveScope();
+        if (request.PromptVersionId.HasValue && !await prompts.AuthorizedAsync(binding, cancellationToken).ConfigureAwait(false))
+            return Result<CreateAiAgentRunResponse>.Failure(new Error("authorization.permission_denied", "The published Prompt version is unavailable.", ErrorType.Forbidden));
         var requestHash = ComputeRequestHash(request, scope);
         var existingId = await store.FindClientRequestAsync(scope, binding.UserId, request.ClientRequestId, cancellationToken)
             .ConfigureAwait(false);
         if (existingId != Guid.Empty)
         {
+            var existing = await store.FindOwnedAsync(existingId, scope, binding.UserId, cancellationToken).ConfigureAwait(false);
+            if (!ReplayMatches(existing, request)) return PromptConflict();
             return Result<CreateAiAgentRunResponse>.Success(new(existingId));
         }
 
-        var modelResult = await modelQueries.GetByIdAsync(request.ModelConfigId, cancellationToken).ConfigureAwait(false);
+        AiPromptRunPreparation? prepared = null;
+        if (request.PromptVersionId.HasValue)
+        {
+            var promptResult = await prompts.PrepareAsync(request, binding, cancellationToken).ConfigureAwait(false);
+            if (!promptResult.IsSuccess) return Result<CreateAiAgentRunResponse>.Failure(promptResult.Error!);
+            prepared = promptResult.Value!;
+        }
+        var modelResult = prepared is null ? await modelQueries.GetByIdAsync(request.ModelConfigId, cancellationToken).ConfigureAwait(false)
+            : Result<AiModelConfigResponse>.Success(AiModelConfigMapper.MapDetail(prepared.Model));
         if (!modelResult.IsSuccess)
         {
             return Result<CreateAiAgentRunResponse>.Failure(modelResult.Error!);
@@ -85,7 +98,7 @@ internal sealed class AiAgentRunManagementService(
 
         var runId = ids.NewId();
         var budgetJson = JsonSerializer.Serialize(
-            new AgentRunBudgetSnapshot(request.ModelConfigId, request.Prompt, request.InputTokenLimit, request.OutputTokenLimit),
+            new AgentRunBudgetSnapshot(request.ModelConfigId, request.Prompt, request.InputTokenLimit, request.OutputTokenLimit, prepared?.Binding),
             AiJsonSerializerContext.Default.AgentRunBudgetSnapshot);
         var deadline = clock.UtcNow.AddSeconds(runtimeOptions.Value.MaxRunDurationSeconds);
         var bindingId = ids.NewId();
@@ -126,6 +139,13 @@ internal sealed class AiAgentRunManagementService(
             runId,
             binding.SessionKind), cancellationToken).ConfigureAwait(false);
 
+        if (createdId != runId)
+        {
+            // 落败请求没有插入 Run 或调用模型，已知零用量必须释放 Token/费用预留，冲突载荷不能借幂等覆盖。
+            await budgetStore.SettleAsync(runId, new(0, 0), "cancelled", cancellationToken).ConfigureAwait(false);
+            var existing = await store.FindOwnedAsync(createdId, scope, binding.UserId, cancellationToken).ConfigureAwait(false);
+            if (!ReplayMatches(existing, request)) return PromptConflict();
+        }
         return Result<CreateAiAgentRunResponse>.Success(new(createdId));
     }
 
@@ -216,7 +236,8 @@ internal sealed class AiAgentRunManagementService(
     {
         var isWorkflow = AgentWorkflowRegistry.Resolve(request.DefinitionKey, ResolveDefinitionVersion(request.DefinitionKey)) is not null;
         var isAgent = AgentDefinitionRegistry.Resolve(request.DefinitionKey, SingleTextDefinitionVersion) is not null;
-        if (request.ClientRequestId == Guid.Empty || request.ModelConfigId == Guid.Empty
+        if (request.ClientRequestId == Guid.Empty || request.ModelConfigId == Guid.Empty || request.PromptVersionId == Guid.Empty
+            || (request.PromptVersionId.HasValue && request.DefinitionKey != SingleTextDefinitionKey)
             || (!isWorkflow && !isAgent)
             || (!isWorkflow && (string.IsNullOrWhiteSpace(request.Prompt) || request.Prompt.Length > 16_384))
             || (isWorkflow && request.Prompt.Length > 16_384)
@@ -229,9 +250,24 @@ internal sealed class AiAgentRunManagementService(
         return null;
     }
 
+    private static bool ReplayMatches(Persistence.AiAgentRunRecord? row, CreateAiAgentRunRequest request)
+    {
+        try
+        {
+            var saved = row is null ? null : JsonSerializer.Deserialize(row.BudgetJson, AiJsonSerializerContext.Default.AgentRunBudgetSnapshot);
+            if (!request.PromptVersionId.HasValue && saved?.PromptBinding is null) return true;
+            return row?.DefinitionKey == request.DefinitionKey && saved is not null && saved.ModelConfigId == request.ModelConfigId
+                && saved.Prompt == request.Prompt && saved.InputTokenLimit == request.InputTokenLimit && saved.OutputTokenLimit == request.OutputTokenLimit
+                && saved.PromptBinding?.VersionId == request.PromptVersionId;
+        }
+        catch (JsonException) { return !request.PromptVersionId.HasValue && row is null; }
+    }
+    private static Result<CreateAiAgentRunResponse> PromptConflict() => Result<CreateAiAgentRunResponse>.Failure(new Error("ai.prompts.conflict", "The Prompt run request conflicts with the original request.", ErrorType.Conflict));
+
     private static string ComputeRequestHash(CreateAiAgentRunRequest request, string scope) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
-            FormattableString.Invariant($"{scope}|{request.ClientRequestId:N}|{request.DefinitionKey}|{ResolveDefinitionVersion(request.DefinitionKey)}|{request.ModelConfigId:N}|{request.InputTokenLimit}|{request.OutputTokenLimit}|{request.Prompt.Length}:{request.Prompt}"))));
+            FormattableString.Invariant($"{scope}|{request.ClientRequestId:N}|{request.DefinitionKey}|{ResolveDefinitionVersion(request.DefinitionKey)}|{request.ModelConfigId:N}|{request.InputTokenLimit}|{request.OutputTokenLimit}|{request.Prompt.Length}:{request.Prompt}")
+            + (request.PromptVersionId is { } version ? FormattableString.Invariant($"|prompt-version:{version:N}") : ""))));
 
     /// <summary>创建与摘要使用同一版本，防止新运行继续写入旧校验协议版本。</summary>
     internal static int ResolveDefinitionVersion(string definitionKey) =>

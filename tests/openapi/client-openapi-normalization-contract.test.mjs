@@ -204,8 +204,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 602);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 602);
+  assert.equal(manifest.entries.length, 609);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 609);
   assert.deepEqual(
     manifest.entries
       .filter(entry => entry.generatedGroup === 'workflow-forms')
@@ -235,6 +235,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'ai-knowledge',
       'ai-mcp-remote-connections',
       'ai-model-configs',
+      'ai-prompts',
       'auditing-host-access-logs',
       'auditing-host-exception-logs',
       'auditing-host-operation-logs',
@@ -330,7 +331,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    602
+    609
   );
   const ask = snapshot.paths['/api/v1/ai/chat/sessions/{sessionId}/knowledge/ask'].post;
   assert.equal(ask.operationId, 'aiAskKnowledge');

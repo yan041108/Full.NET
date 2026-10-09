@@ -1,6 +1,7 @@
 #if FULLNET_AOT_COMPILE || FULLNET_AI_ROW_READER_TESTS
 using System.Data.Common;
 using System.Globalization;
+using Full.NET.Agents.Runtime;
 
 namespace Full.NET.Modules.Ai.Persistence;
 
@@ -17,6 +18,8 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiTenantQuotaRecord>(ReadQuota);
         registrar.Register<AiMcpRemoteToolRecord>(ReadMcpRemoteTool);
         registrar.Register<AiAgentApprovalRecord>(ReadAgentApproval);
+        registrar.Register<AiAgentRunRecord>(ReadAgentRun);
+        registrar.Register<AgentCheckpointRecord>(ReadAgentCheckpoint);
         registrar.Register<AiKnowledgeBaseRecord>(ReadKnowledgeBase);
         registrar.Register<AiKnowledgeDocumentRecord>(ReadKnowledgeDocument);
         registrar.Register<AiKnowledgeImportRecord>(ReadKnowledgeImport);
@@ -34,11 +37,73 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiKnowledgeIndexVectorReceiptRecord>(ReadKnowledgeVectorReceipt);
         registrar.Register<AiKnowledgeIndexActivationRecord>(ReadKnowledgeActivation);
         registrar.Register<AiModelConfigRecord>(ReadModelConfig);
+        registrar.Register<AiPromptRecord>(ReadPrompt);
+        registrar.Register<AiPromptVersionRecord>(ReadPromptVersion);
         registrar.Register<AiChatMessageRecord>(ReadChatMessage);
         registrar.Register<AiKnowledgeAnswerFeedbackRecord>(ReadAnswerFeedback);
         registrar.Register<AiChatSessionRecord>(ReadChatSession);
     }
 #endif
+
+    /// <summary>运行完整投影与领取租约的四列投影共用静态物化，保留作用域、代次和原始绑定快照。</summary>
+    internal static AiAgentRunRecord ReadAgentRun(DbDataReader reader)
+    {
+        var row = new AiAgentRunRecord
+        {
+            Id = reader.GetGuid(reader.GetOrdinal("Id")), Version = Integer(reader, "Version"),
+            LeaseEpoch = Integer(reader, "LeaseEpoch"),
+            LeaseExpiresAtUtc = Null(reader, "LeaseExpiresAtUtc") ? null : Timestamp(reader, "LeaseExpiresAtUtc")
+        };
+        // SelectLease 只返回四个 fencing 字段；完整查询的其余必需列不得静默缺省。
+        if (reader.FieldCount == 4) return row;
+        row.ScopeKey = Text(reader, "ScopeKey");
+        row.TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId"));
+        row.ActorUserId = reader.GetGuid(reader.GetOrdinal("ActorUserId"));
+        row.SessionId = reader.GetGuid(reader.GetOrdinal("SessionId"));
+        row.SessionKind = Text(reader, "SessionKind");
+        row.DefinitionKey = Text(reader, "DefinitionKey");
+        row.DefinitionVersion = checked((int)Integer(reader, "DefinitionVersion"));
+        row.AuthorizationBindingId = reader.GetGuid(reader.GetOrdinal("AuthorizationBindingId"));
+        row.SecurityStamp = Text(reader, "SecurityStamp");
+        row.ActorScope = Text(reader, "ActorScope");
+        row.EffectiveScope = Text(reader, "EffectiveScope");
+        row.StatusKey = Text(reader, "StatusKey");
+        row.BudgetJson = Text(reader, "BudgetJson");
+        row.DeadlineAtUtc = Timestamp(reader, "DeadlineAtUtc");
+        row.LeaseOwner = Null(reader, "LeaseOwner") ? null : Text(reader, "LeaseOwner");
+        row.CreatedAtUtc = Timestamp(reader, "CreatedAtUtc");
+        row.UpdatedAtUtc = Timestamp(reader, "UpdatedAtUtc");
+        return row;
+    }
+
+    /// <summary>检查点保留原始密文、摘要与版本，由协调器校验后恢复，不在物化阶段改写。</summary>
+    internal static AgentCheckpointRecord ReadAgentCheckpoint(DbDataReader reader) => new(
+        reader.GetGuid(reader.GetOrdinal("CheckpointId")), reader.GetGuid(reader.GetOrdinal("RunId")),
+        Integer(reader, "Sequence"), checked((int)Integer(reader, "FormatVersion")), Text(reader, "FrameworkVersion"),
+        checked((int)Integer(reader, "DefinitionVersion")), Text(reader, "PayloadProtected"), Text(reader, "Checksum"));
+
+    /// <summary>目录物化保留可信作用域与可空指针；MySQL 使用网络字节序 UUID。</summary>
+    internal static AiPromptRecord ReadPrompt(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), ScopeKey = Text(reader, "ScopeKey"),
+        TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")), ClientRequestId = reader.GetGuid(reader.GetOrdinal("ClientRequestId")),
+        CreateHash = Text(reader, "CreateHash"), Name = Text(reader, "Name"),
+        Revision = checked((int)Integer(reader, "Revision")), LastVersion = checked((int)Integer(reader, "LastVersion")),
+        ActiveVersionId = Null(reader, "ActiveVersionId") ? null : reader.GetGuid(reader.GetOrdinal("ActiveVersionId")),
+        Epoch = checked((int)Integer(reader, "Epoch")), CreatedAtUtc = Timestamp(reader, "CreatedAtUtc")
+    };
+
+    /// <summary>版本按原始 JSON 和精确摘要物化，不在 Reader 中修复或截断载荷。</summary>
+    internal static AiPromptVersionRecord ReadPromptVersion(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), PromptId = reader.GetGuid(reader.GetOrdinal("PromptId")),
+        ScopeKey = Text(reader, "ScopeKey"), TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        Version = checked((int)Integer(reader, "Version")), FormatVersion = checked((int)Integer(reader, "FormatVersion")),
+        BodyJson = Text(reader, "BodyJson"), ModelConfigVersion = checked((int)Integer(reader, "ModelConfigVersion")),
+        ProviderKey = Text(reader, "ProviderKey"), ModelId = Text(reader, "ModelId"), BodyHash = Text(reader, "BodyHash"),
+        WasPublished = Integer(reader, "WasPublished") != 0, CreatedAtUtc = Timestamp(reader, "CreatedAtUtc")
+    };
 
     /// <summary>标记独立于可空元数据读取，缺失元数据不能把派生正文降级为普通消息。</summary>
     internal static AiChatMessageRecord ReadChatMessage(DbDataReader reader) => new()

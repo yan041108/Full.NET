@@ -29,6 +29,9 @@ internal static class AiAgentRunApiAssertions
             AiAgentRunPermissions.Read,
             AiAgentRunPermissions.Create,
             AiAgentRunPermissions.Cancel,
+            AiPromptPermissions.Read, AiPromptPermissions.Create, AiPromptPermissions.Append,
+            AiPromptPermissions.Publish, AiPromptPermissions.Deactivate, AiPromptPermissions.Rollback, AiPromptPermissions.Use,
+            "tenancy.tenants.switch",
         ];
         var owner = await factory.CreateHostIdentityAsync($"agent-run-owner-{Guid.NewGuid():N}", permissions);
         var other = await factory.CreateHostIdentityAsync($"agent-run-other-{Guid.NewGuid():N}", permissions);
@@ -37,6 +40,7 @@ internal static class AiAgentRunApiAssertions
             null, "Agent 模型", "ollama", "https://provider.test", "model", null, null, false, true));
         Assert.IsTrue(modelResponse.IsSuccessStatusCode, await modelResponse.Content.ReadAsStringAsync());
         var model = (await modelResponse.Content.ReadFromJsonAsync<AiModelConfigResponse>())!;
+        await AiPromptApiAssertions.VerifyAsync(client, model.Id);
         var clientRequestId = Guid.CreateVersion7();
         var createRequest = new CreateAiAgentRunRequest(
             clientRequestId,
@@ -50,6 +54,7 @@ internal static class AiAgentRunApiAssertions
         await AssertProblemAsync(rejected, HttpStatusCode.UnprocessableEntity, AiErrorCodes.AgentRuntimeUnavailable);
 
         await SeedFreshWorkerHeartbeatAsync(factory);
+        await AiPromptApiAssertions.VerifyRunAsync(client, model.Id, factory);
         using var accepted = await client.PostAsJsonAsync("/api/v1/ai/agent/runs", createRequest);
         Assert.AreEqual(HttpStatusCode.Accepted, accepted.StatusCode);
         var created = await accepted.Content.ReadFromJsonAsync<CreateAiAgentRunResponse>();
@@ -83,6 +88,7 @@ internal static class AiAgentRunApiAssertions
 
         using var cancelAgain = await client.PostAsync($"/api/v1/ai/agent/runs/{created.RunId}/cancel", null);
         await AssertProblemAsync(cancelAgain, HttpStatusCode.UnprocessableEntity, AiErrorCodes.AgentRunNotCancellable);
+        await AiPromptApiAssertions.VerifyTenantAsync(client, model.Id, factory, owner.AccessToken);
     }
 
     internal static async Task SeedFreshWorkerHeartbeatAsync(FullNetApiFactory factory)
