@@ -8,6 +8,24 @@ namespace Full.NET.UnitTests.Ai;
 public sealed class AiBudgetRowReaderTests
 {
     [TestMethod] [DataRow(false, false)] [DataRow(true, false)] [DataRow(false, true)] [DataRow(true, true)]
+    public void Feedback_review_projection_preserves_left_join_versions_and_owner(bool mysql, bool absent)
+    {
+        using var table = new DataTable(); var id = Guid.CreateVersion7(); var reviewer = Guid.CreateVersion7();
+        foreach (var name in new[] { "FeedbackId", "SessionId", "MessageId", "OwnerUserId", "ReviewerUserId" }) table.Columns.Add(name, typeof(Guid));
+        foreach (var name in new[] { "RatingKey", "ReasonKey", "CitationIdsJson", "LineageHash", "KnowledgeLineage", "ReviewLineageHash", "DecisionKey" }) table.Columns.Add(name, typeof(string));
+        foreach (var name in new[] { "FeedbackVersion", "ReviewFeedbackVersion", "ReviewVersion" }) table.Columns.Add(name, mysql ? typeof(long) : typeof(int));
+        var row = table.NewRow();
+        foreach (DataColumn column in table.Columns) row[column] = column.DataType == typeof(Guid) ? id : column.DataType == typeof(string) ? "value" : 7;
+        row["ReviewerUserId"] = reviewer;
+        if (absent) foreach (var name in new[] { "ReviewerUserId", "ReviewLineageHash", "ReviewFeedbackVersion", "ReviewVersion", "DecisionKey" }) row[name] = DBNull.Value;
+        table.Rows.Add(row); using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
+        var result = AiBudgetRowReaders.ReadAnswerFeedbackReview(reader);
+        Assert.AreEqual(id, result.OwnerUserId); Assert.AreEqual(7, result.FeedbackVersion);
+        Assert.AreEqual(absent ? null : (int?)7, result.ReviewVersion);
+        Assert.AreEqual(absent ? null : (Guid?)reviewer, result.ReviewerUserId);
+    }
+
+    [TestMethod] [DataRow(false, false)] [DataRow(true, false)] [DataRow(false, true)] [DataRow(true, true)]
     public void Chat_message_reads_knowledge_marker_independent_of_nullable_lineage(bool mysql, bool absent)
     {
         using var table = new DataTable(); var id = Guid.CreateVersion7(); var now = DateTime.UtcNow;

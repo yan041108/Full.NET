@@ -64,6 +64,9 @@ internal static class AiKnowledgeRetrievalAssertions
         var lineageJson = AiKnowledgeAnswerLineageCodec.Encode(lineage);
         var stored = await AiKnowledgeAnswerStoreAssertions.VerifyAsync(db, query, command, transaction, tenant, clock, options, historyGuard, prepared, accepted);
         await AiKnowledgeAnswerFeedbackAssertions.ServiceAsync(services, db, historyGuard, reader, reader.Actor, stored.SessionId, stored.MessageId, binding.DocumentId);
+        await AiKnowledgeAnswerFeedbackReviewAssertions.ServiceAsync(services, db, historyGuard, reader, reader.Actor,
+            stored.SessionId, stored.MessageId, binding.KnowledgeBaseId, binding.DocumentId, actor => reader.Actor = actor,
+            callback => reader.BeforeAuthorization = callback, () => reader.Calls = 0);
         Assert.IsNotNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default));
         Assert.IsNotNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, true, default));
         var receipt = await db.QuerySingleAsync<string>("SELECT ReceiptJson FROM fn_ai_knowledge_active_generation WHERE DocumentId=@Id", new { Id = binding.DocumentId });

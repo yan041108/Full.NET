@@ -101,7 +101,15 @@ public sealed class AiDependencyBoundaryTests
         {
             var relativePath = Path.GetRelativePath(Root(), source).Replace('\\', '/');
             var text = File.ReadAllText(source);
-            if (!McpServiceTokenDecryptionAllowlist.Contains(relativePath))
+            const string reviewCursorPath = "src/Modules/Full.NET.Modules.Ai/Domain/AiKnowledgeAnswerFeedbackReviewCursor.cs";
+            if (relativePath == reviewCursorPath)
+            {
+                // 仅允许专用不透明扫描位置，不允许复用模型或服务令牌的解密用途。
+                Assert.Contains("CreateProtector(\"Full.NET.Ai.KnowledgeAnswerFeedback.ReviewCursor.v1\")", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("ApiKey", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("ServiceToken", text, StringComparison.Ordinal);
+            }
+            else if (!McpServiceTokenDecryptionAllowlist.Contains(relativePath))
             {
                 Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(text, @"\.Unprotect\s*\("), source);
             }

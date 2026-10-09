@@ -1,6 +1,21 @@
 {
   "schemaVersion": 1,
   "tables": {
+    "fn_ai_knowledge_answer_review": {
+      "comment": "独立反馈标签审核；绑定反馈版本与来源，删除反馈级联清理",
+      "columns": {
+        "Id": "审核逻辑主键",
+        "TenantId": "可信租户；宿主为空",
+        "FeedbackId": "同模块反馈标识",
+        "FeedbackVersion": "本次审核的反馈版本",
+        "LineageHash": "本次审核的完整来源摘要",
+        "ReviewerUserId": "独立评审者标识",
+        "DecisionKey": "固定批准或拒绝机器码",
+        "Version": "单调递增审核并发版本",
+        "CreatedAtUtc": "创建时间（UTC）",
+        "UpdatedAtUtc": "更新时间（UTC）"
+      }
+    },
     "fn_ai_knowledge_docx_manifest": {
       "comment": "知识库索引任务不可替换的完整 DOCX 计划",
       "columns": {

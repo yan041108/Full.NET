@@ -41,6 +41,7 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiPromptVersionRecord>(ReadPromptVersion);
         registrar.Register<AiChatMessageRecord>(ReadChatMessage);
         registrar.Register<AiKnowledgeAnswerFeedbackRecord>(ReadAnswerFeedback);
+        registrar.Register<AiKnowledgeAnswerFeedbackReviewRecord>(ReadAnswerFeedbackReview);
         registrar.Register<AiChatSessionRecord>(ReadChatSession);
     }
 #endif
@@ -124,6 +125,20 @@ internal static class AiBudgetRowReaders
         ReasonKey = Null(reader, "ReasonKey") ? null : Text(reader, "ReasonKey"),
         CitationIdsJson = Text(reader, "CitationIdsJson"), LineageHash = Null(reader, "LineageHash") ? null : Text(reader, "LineageHash"),
         StatusKey = Text(reader, "StatusKey"), Version = checked((int)Integer(reader, "Version")), UpdatedAtUtc = Timestamp(reader, "UpdatedAtUtc"),
+    };
+
+    /// <summary>审核 JOIN 静态物化；未审核的 LEFT JOIN 字段保留空值，不能降级版本。</summary>
+    internal static AiKnowledgeAnswerFeedbackReviewRecord ReadAnswerFeedbackReview(DbDataReader reader) => new()
+    {
+        FeedbackId = reader.GetGuid(reader.GetOrdinal("FeedbackId")), SessionId = reader.GetGuid(reader.GetOrdinal("SessionId")),
+        MessageId = reader.GetGuid(reader.GetOrdinal("MessageId")), OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
+        RatingKey = Text(reader, "RatingKey"), ReasonKey = Text(reader, "ReasonKey"), CitationIdsJson = Text(reader, "CitationIdsJson"),
+        LineageHash = Text(reader, "LineageHash"), FeedbackVersion = checked((int)Integer(reader, "FeedbackVersion")), KnowledgeLineage = Text(reader, "KnowledgeLineage"),
+        ReviewFeedbackVersion = Null(reader, "ReviewFeedbackVersion") ? null : checked((int)Integer(reader, "ReviewFeedbackVersion")),
+        ReviewLineageHash = Null(reader, "ReviewLineageHash") ? null : Text(reader, "ReviewLineageHash"),
+        ReviewerUserId = Null(reader, "ReviewerUserId") ? null : reader.GetGuid(reader.GetOrdinal("ReviewerUserId")),
+        DecisionKey = Null(reader, "DecisionKey") ? null : Text(reader, "DecisionKey"),
+        ReviewVersion = Null(reader, "ReviewVersion") ? null : checked((int)Integer(reader, "ReviewVersion")),
     };
 
     /// <summary>会话所有权与租约静态物化，保持 Host 空租户和两库 UTC 类型。</summary>

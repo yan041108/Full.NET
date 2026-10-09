@@ -118,6 +118,8 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Knowledge.AiKnowledgeAnswerStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeAskService>();
         services.TryAddScoped<Features.ManageAnswerFeedback.AiKnowledgeAnswerFeedbackService>();
+        services.TryAddScoped<Domain.AiKnowledgeAnswerFeedbackReviewCursor>();
+        services.TryAddScoped<Features.ManageAnswerFeedbackReview.AiKnowledgeAnswerFeedbackReviewService>();
         services.TryAddScoped<Features.ManagePromptVersions.AiPromptManagementService>();
         services.TryAddScoped<Features.ManagePromptVersions.AiPromptReader>();
         services.TryAddScoped<AiPromptRunResolver>();
@@ -180,6 +182,7 @@ public sealed class AiModule : IFullNetModule
         Features.ManageTenantQuotas.Endpoint.Map(endpoints);
         Features.ManageChatSessions.Endpoint.Map(endpoints);
         Features.ManageAnswerFeedback.Endpoint.Map(endpoints);
+        Features.ManageAnswerFeedbackReview.Endpoint.Map(endpoints);
         Features.ManagePromptVersions.Endpoint.Map(endpoints);
         Features.ManageAgentTools.Endpoint.Map(endpoints);
         Features.ManageAgentRuns.Endpoint.Map(endpoints);

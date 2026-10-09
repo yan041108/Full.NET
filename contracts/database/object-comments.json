@@ -270,6 +270,21 @@
         "Version": "乐观并发版本"
       }
     },
+    "fn_ai_knowledge_answer_review": {
+      "comment": "独立反馈标签审核；绑定反馈版本与来源，删除反馈级联清理",
+      "columns": {
+        "CreatedAtUtc": "创建时间（UTC）",
+        "DecisionKey": "固定批准或拒绝机器码",
+        "FeedbackId": "同模块反馈标识",
+        "FeedbackVersion": "本次审核的反馈版本",
+        "Id": "审核逻辑主键",
+        "LineageHash": "本次审核的完整来源摘要",
+        "ReviewerUserId": "独立评审者标识",
+        "TenantId": "可信租户；宿主为空",
+        "UpdatedAtUtc": "更新时间（UTC）",
+        "Version": "单调递增审核并发版本"
+      }
+    },
     "fn_ai_knowledge_base": {
       "comment": "私有知识库目录及模型处理审批",
       "columns": {

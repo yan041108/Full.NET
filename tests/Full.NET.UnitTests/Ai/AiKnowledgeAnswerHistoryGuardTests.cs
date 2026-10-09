@@ -168,6 +168,29 @@ public sealed class AiKnowledgeAnswerHistoryGuardTests
         Assert.IsFalse(result.ContainsKey(f.Data.MessageId)); Assert.IsTrue(result.ContainsKey(second.MessageId));
         Assert.AreEqual(2, f.ProofCalls); Assert.AreEqual(2, f.Queries);
     }
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Feedback_review_decodes_original_owner_but_proves_current_reviewer(bool scoped)
+    {
+        var f = new Fixture(scoped); var reviewer = Guid.CreateVersion7(); f.AuthorizingActor = reviewer;
+        f.ExpectedReader = reviewer;
+        var result = await f.Guard.AuthorizeFeedbackReviewBatchAsync(
+            [new(f.Data.MessageId, f.Data.SessionId, f.Data.ActorUserId, f.Json)], reviewer, default);
+        Assert.IsTrue(result.ContainsKey(f.Data.MessageId)); Assert.AreEqual(2, f.Queries); Assert.AreEqual(2, f.ProofCalls);
+    }
+
+    [TestMethod] [DataRow("owner")] [DataRow("permission")] [DataRow("scope")] [DataRow("proof")]
+    public async Task Feedback_review_never_borrows_original_owner_authority(string fault)
+    {
+        var f = new Fixture(); var reviewer = Guid.CreateVersion7(); f.AuthorizingActor = reviewer; f.ExpectedReader = reviewer;
+        if (fault == "permission") f.BeforeProof = () => f.Denied = AiKnowledgeDocumentPermissions.SourceRead;
+        if (fault == "scope") f.BeforeProof = () => f.Tenant.SetTenant(new(Guid.CreateVersion7(), "changed", "变更范围"));
+        if (fault == "proof") f.ProofReady = false;
+        var result = await f.Guard.AuthorizeFeedbackReviewBatchAsync(
+            [new(f.Data.MessageId, f.Data.SessionId, fault == "owner" ? reviewer : f.Data.ActorUserId, f.Json)], reviewer, default);
+        Assert.HasCount(0, result);
+        if (fault == "owner") Assert.AreEqual(0, f.Queries);
+    }
+
     private sealed class Fixture
     {
         internal readonly CurrentTenantAccessor Tenant = new(); internal readonly IDataTransactionState Transactions = Substitute.For<IDataTransactionState>();
@@ -175,6 +198,7 @@ public sealed class AiKnowledgeAnswerHistoryGuardTests
         internal string? Denied; internal int Queries; internal Action? AfterFirstRead; internal Action<string>? BeforePort;
         internal readonly List<string> Permissions = []; internal SqlStatement? LastSql; internal readonly AiKnowledgeAnswerHistoryGuard Guard;
         internal Action? BeforeProof; internal bool ProofReady = true; internal int ProofCalls;
+        internal Guid AuthorizingActor; internal Guid? ExpectedReader;
         internal Fixture(bool scoped = false)
         {
             if (scoped) Tenant.SetTenant(new(Guid.CreateVersion7(), "tenant", "当前租户")); else Tenant.SetHost();
@@ -184,10 +208,11 @@ public sealed class AiKnowledgeAnswerHistoryGuardTests
                 Rows.Select(AiKnowledgeAnswerLineageTests.Dependency).ToArray(),
                 [new(Guid.CreateVersion7(), Rows[0].DocumentId, Rows[0].VersionId, 0, null, 0, 10)]);
             Json = AiKnowledgeAnswerLineageCodec.Encode(Data);
+            AuthorizingActor = Data.ActorUserId;
             var auth = Substitute.For<ICurrentSessionAuthorization>();
             auth.AuthorizeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
             { var p = call.ArgAt<string>(0); Permissions.Add(p); BeforePort?.Invoke("authorization");
-                return p == Denied ? null : new AuthorizedSessionActor(Data.ActorUserId, Tenant.Id, Guid.CreateVersion7()); });
+                return p == Denied ? null : new AuthorizedSessionActor(AuthorizingActor, Tenant.Id, Guid.CreateVersion7()); });
             var roles = Substitute.For<IActiveRoleDirectory>(); var units = Substitute.For<ICurrentTenantOrganizationUnitDirectory>();
             roles.ListActiveRoleIdsForUserAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(_ => { BeforePort?.Invoke("roles"); return Array.Empty<Guid>(); });
             units.ListActiveUnitIdsForUserAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(_ => { BeforePort?.Invoke("organizations"); return Array.Empty<Guid>(); });
@@ -198,15 +223,18 @@ public sealed class AiKnowledgeAnswerHistoryGuardTests
             });
             Guard = new(query, Transactions, Tenant, Options.Create(new DatabaseOptions()), new(roles, units, Tenant),
                 new(auth, new HttpContextAccessor(), Substitute.For<ICurrentApiKeyAuthorization>()), new Proof(() =>
-                { ProofCalls++; BeforeProof?.Invoke(); return ProofReady; }));
+                { ProofCalls++; BeforeProof?.Invoke(); return ProofReady; }, () => ExpectedReader));
         }
         internal Task<AiKnowledgeAnswerLineage?> Read(bool model = false, CancellationToken token = default) =>
             Guard.AuthorizeAsync(Json, Data.MessageId, Data.SessionId, Data.ActorUserId, model, token);
     }
-    private sealed class Proof(Func<bool> verify) : IAiKnowledgeAnswerSourceProof
+    private sealed class Proof(Func<bool> verify, Func<Guid?>? expectedReader = null) : IAiKnowledgeAnswerSourceProof
     {
         public Task<bool> VerifyAsync(AiKnowledgeIndexStatusRecord source, Dictionary<string, object?> parameters, CancellationToken token)
-            => Task.FromResult(verify());
+        {
+            if (expectedReader?.Invoke() is { } actor) Assert.AreEqual(actor, parameters["OwnerUserId"]);
+            return Task.FromResult(verify());
+        }
     }
     private sealed class ScalarQuery(Func<SqlStatement, Guid> read) : IQueryExecutor
     {

@@ -11,6 +11,9 @@ namespace Full.NET.Modules.Ai.Knowledge;
 /// <summary>已确认所有权的历史消息绑定，原始元数据仅来自持久化行。</summary>
 internal sealed record AiKnowledgeAnswerHistoryEntry(Guid MessageId, Guid SessionId, string? Json);
 
+/// <summary>服务器 JOIN 证明的反馈所属人；仅用于解码历史绑定，不能替代当前评审者权限。</summary>
+internal sealed record AiKnowledgeAnswerFeedbackHistoryEntry(Guid MessageId, Guid SessionId, Guid OwnerUserId, string? Json);
+
 /// <summary>历史及后续模型输入共用完整来源复核；调用者先验证消息所有权，本边界不授予会话读取权。</summary>
 /// <remarks>事务外使用；任何依赖不可用时返回空资格，不允许只检查展示引用。</remarks>
 internal sealed class AiKnowledgeAnswerHistoryGuard(IQueryExecutor query, IDataTransactionState transactions, ICurrentTenant tenant,
@@ -22,9 +25,31 @@ internal sealed class AiKnowledgeAnswerHistoryGuard(IQueryExecutor query, IDataT
         AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.IndexRead];
 
     internal const int MaxHistoryAnswers = 64;
+    internal Task<IReadOnlyDictionary<Guid, AiKnowledgeAnswerLineage>> AuthorizeFeedbackReviewBatchAsync(
+        IReadOnlyList<AiKnowledgeAnswerFeedbackHistoryEntry> entries, Guid actor, CancellationToken token)
+        => AuthorizeBoundBatchAsync(entries, actor, token);
+
+    /// <summary>审核最终联合查询使用的新鲜评审者参数；只可在事务外读取权威端口。</summary>
+    internal async Task<Dictionary<string, object?>?> CurrentReviewParametersAsync(Guid actor, CancellationToken token)
+    {
+        if (transactions.HasTransaction) throw new InvalidOperationException("来源授权参数不能加入本地事务。");
+        var scoped = AiKnowledgeScope.IsTenant(tenant); var tenantId = tenant.Id;
+        if (actor == Guid.Empty || tenantId == Guid.Empty || scoped != tenantId.HasValue
+            || !await permissions.IsAuthorizedAsync(HistoryPermissions, actor, token).ConfigureAwait(false)
+            || tenant.Id != tenantId || AiKnowledgeScope.IsTenant(tenant) != scoped) return null;
+        var parameters = await access.ParametersAsync(actor, token).ConfigureAwait(false);
+        if (transactions.HasTransaction || tenant.Id != tenantId || AiKnowledgeScope.IsTenant(tenant) != scoped) return null;
+        return parameters;
+    }
     /// <summary>整批复核后再映射正文；最终查询覆盖所有消息，避免逐消息等待使前面的资格失效。</summary>
-    internal async Task<IReadOnlyDictionary<Guid, AiKnowledgeAnswerLineage>> AuthorizeBatchAsync(
+    internal Task<IReadOnlyDictionary<Guid, AiKnowledgeAnswerLineage>> AuthorizeBatchAsync(
         IReadOnlyList<AiKnowledgeAnswerHistoryEntry> entries, Guid actor, CancellationToken token)
+        => AuthorizeBoundBatchAsync(entries.Select(entry => new AiKnowledgeAnswerFeedbackHistoryEntry(entry.MessageId,
+            entry.SessionId, actor, entry.Json)).ToArray(), actor, token);
+
+    // 所属人只影响持久化绑定解码；两轮权限、关系和载荷证明始终使用当前读取人。
+    private async Task<IReadOnlyDictionary<Guid, AiKnowledgeAnswerLineage>> AuthorizeBoundBatchAsync(
+        IReadOnlyList<AiKnowledgeAnswerFeedbackHistoryEntry> entries, Guid actor, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         if (transactions.HasTransaction) throw new InvalidOperationException("来源复核不能加入本地事务。");
@@ -35,7 +60,7 @@ internal sealed class AiKnowledgeAnswerHistoryGuard(IQueryExecutor query, IDataT
         if (frozen.Select(entry => entry.MessageId).Distinct().Count() != frozen.Length) return empty;
         var candidates = new Dictionary<Guid, AiKnowledgeAnswerLineage>();
         foreach (var entry in frozen)
-            try { candidates.Add(entry.MessageId, AiKnowledgeAnswerLineageCodec.Decode(entry.Json, entry.MessageId, entry.SessionId, actor, tenantId)); }
+            try { candidates.Add(entry.MessageId, AiKnowledgeAnswerLineageCodec.Decode(entry.Json, entry.MessageId, entry.SessionId, entry.OwnerUserId, tenantId)); }
             catch (InvalidDataException) { /* 损坏记录独立隐藏，不能影响其他有效答案。 */ }
         if (candidates.Count == 0) return empty;
         var dependencies = candidates.Values.SelectMany(lineage => lineage.Dependencies).Distinct().ToArray();

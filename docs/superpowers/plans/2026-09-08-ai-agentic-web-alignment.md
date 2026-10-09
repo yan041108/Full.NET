@@ -1574,6 +1574,25 @@ Token 值只限制现有预算预留；实际提供程序输入分词/输出硬�
 - `python artifacts/r09d/collect-acceptance.py` 核对新功能、评估与 AI 的实际 UID 集合、正式 TRX、退出码、外部失败报告及最终 DLL；冻结 **6460** 个实际输入，验收记录位于忽略目录 `artifacts/r09d/`。只读复审确认数值、读取限额及禁止覆盖修正后无剩余 P1/P2。
 - 影响集仅选择测试矩阵工具；生产源码/依赖、API/Worker 可达路径、SQL、迁移和前端未改变，本批未重跑原生发布/双库业务场景或架构扫描，不把 R09c 历史结果当作新执行。在线 NuGet 审计未执行（`NuGetAudit=false`）；独立生成应用仍按 AI 模块范围全部实现后集中验收，真实云端模型、回答质量和容量未验收，保持 `Capacity-not-verified`。
 
+#### R09e：结构化反馈审核、版本失效与标签统计合批（2026-10-10，本批本地验收完成）
+
+- [x] 同批交付审核队列、批准/驳回与标签统计三个 Endpoint；精确读、审核、导出权限挂在现有 AI 对话授权页，仅交互用户可用，禁止本人审核本人，不授予其他用户的会话/正文读取权。
+- [x] 审核按服务器 JOIN 证明的原所属人解码来源，当前评审者证明知识库/文档双层授予、权限、角色和机构；最终单次 SQL 复核所有依赖的当前 ACL、版本、文件、任务、租约与完成摘要。分页游标由 Data Protection 保护并绑定主体/租户，十五分钟有效，不释放被过滤行的 UUID。
+- [x] 独立迁移258保存审核双版本绑定；本人修改或撤回令旧审核失效且保留单调审核版本，重提交不复活批准。同载荷重放幂等，旧版本409，失败结果和取消回滚；双库未记账重放恢复约束/说明并保留既有审核，物理删除反馈级联清理审核。
+- [x] `feedback-labels-v1` 固定最前64项当前批准窗口，仅释放固定评价、原因、引用数量与反馈计数；每格至少五名不同提交者，无主体/反馈/引用标识、正文、时间或客户端筛选。始终声明 `IsPartial=true`，不自动进入评估、训练或模型输入，不产生模型费用。
+- [x] 修正本批来源 SQL 将空租约哨兵当作持久化 GUID 参数的问题及空反馈标识进入查询的问题，补充真实 HTTP 400 回归；同时修正既有 PDF/DOCX 测试夹具“完整输出后挂起”的就绪信号竞争，保留取消清理断言，解析器生产行为不变。
+
+小样本抑制不保证匿名化，实时精确计数仍有跨次差分风险。当前交付结构化标签审核与有界统计；原始问答脱敏审核、正式评估集准入、Vue 审核操作页、真实三策略运行及收益验证仍待完成，R09 不整体关闭。协议见 [知识库运营说明](../../operations/ai-knowledge-bases.md#结构化反馈审核与标签统计)。
+
+**本地验证记录：**
+
+- 基线 `ee8581753c9f531d866074ec7c75394b312193de`，冻结6474个实际输入。规则 RED 14项为7失败/7通过，来源边界 RED 9项为4失败/5通过；初始最小发现数和权限目录期望已修正。Windows真实双库首轮内存不足，未计为通过；Linux首轮发现空 GUID 参数错误，保留日志后停止本批测试并修正。后续双库首轮为4通过/2 MySQL清理失败：API测试模板的CREATE TABLE LIKE未复制外键，修正本模块夹具显式重放258并核对CASCADE，正式迁移未改动。重放夹具首次从已打开连接读取连接串，密码被驱动隐藏导致2项认证失败；改用受控数据库选项中的原始连接串，重新构建集成程序集后双库6/6通过，未输出凭据。AI全集两次出现既有 PDF 夹具取消竞争；独立实验20次中4次 EPIPE/清理缺失，修正就绪信号后全新目录20次均清理完成且无 EPIPE，不用重复通过替代原因定位。
+- `node artifacts/r09e/run-sql-repair.mjs`：最终 Release Unit/Integration/Architecture 构建均零警告/错误，Unit发现6190，AI **2721/2721** 零失败/跳过；受影响架构 **87：85通过/2存量失败**，仍为旧 TXT/PDF 异步命名及 PDF 阻塞调用，未扩宽其豁免。旧源码首次架构87项的新增游标告警已通过固定用途的精确边界检查修正，当前实际重跑87项；最后一次变更仅为 Native 测试清理夹具，Unit/Architecture 输入不变，集成程序集另行重建；不外推全仓架构通过。
+- `node artifacts/r09e/run-tooling.mjs`：测试工具 **73/73**、命名 **30/30**、OpenAPI静态 **210/210**、治理 **59/59**；受保护文档在读取/hash前排除，替代 Markdown扫描覆盖385份。Integration分片实际发现 **1214**，无遗漏/重复，迁移分片发现550；发现不计作执行这些全部测试。
+- `node artifacts/r09e/run-delivery-verification.mjs`：在一次共享重型资源/工作区锁中复用 Windows构建的RID无关集成程序集，Linux实际运行 PDF/DOCX来源证明、审核事务与迁移258恢复双库 **6/6**；随后实际发布并启动新 linux-x64 API/Worker。首轮原生4项中Worker2通过、API2失败于夹具只删会话的清理断言；会话到消息没有级联外键，夹具修正为与生产相同的先删消息、再删会话，保留消息到反馈到审核的级联断言。`node artifacts/r09e/run-native-fixture-repair.mjs` 重新构建并交接最终测试程序集，仅此测试文件改变，生产输入与已发布原生产物摘要不变；复用产物重跑 AI API与Prompt Worker双库 **4/4**，零失败/跳过。Native HTTP覆核权限、密文游标、批准/拒绝/重放、过期反馈、来源删除、统计阈值与级联清理；历史提交者为明确构造的服务器绑定夹具，不代表真实多用户登录或云模型生成。
+- 新API **140542640 bytes / SHA256 `8daace699d90e59e59394ad4fbc42c587134b1eabd4eadfa959bad8f3f26494a` / 985000 ms**；新Worker **90582136 bytes / SHA256 `5ddb9ca0484f6a76e0da69f943708c33a799a826fb16c86707391ba8aa981f23` / 287851 ms**。`python artifacts/r09e/collect-acceptance.py` 核对TRX、实际发现/UID、输入冻结、首轮与最终测试程序集、唯一 Native 夹具变更及运行Native文件摘要，证据位于忽略目录 `artifacts/r09e/`。只读安全复审在来源联合读取、密文游标和静态SqlStatement修正后未发现剩余P1/P2；复审不代替运行验收。
+- 本地Windows x64/i7-12700H/约64GB/SDK10.0.401；Linux Docker SDK10.0.400、runtime10.0.11，SQL Server2022-CU14与MySQL8.0。Native发布8CPU/12GiB，Linux验收2CPU/8GiB，使用新测试数据库、不复用Testcontainers数据库；排队曾因系统重启中断，核实进程标识被重用后仅清理本任务旧锁并重新执行。忽略目录中的一次性资源协调副本仅将重型锁轮询缩短为5ms，工作区锁仍为100ms；独占锁路径、所有权、失效检查及释放协议与仓库脚本一致，仓库脚本未改，不终止其他任务或抢占其锁。独立生成应用待AI模块范围全部实现后集中验收，在线NuGet审计未执行（`NuGetAudit=false`）；真实云模型、回答质量和容量保持未验证、`Capacity-not-verified`。其他任务改动经摘要比对保持不变，本任务未读取、hash或修改受保护文件，仅本批文件在main提交。
+
 ### R10：节点恢复与审批一致性（P2，依赖 R01/R09）
 
 **修改：** `src/AI/Full.NET.Agents/Workflows/AgentWorkflowRunner.cs`、`src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs`；扩展 `tests/Full.NET.UnitTests/Ai/AiAgentRunCoordinatorTests.cs`、现有 `AiWorkflowCheckpoint*Tests.cs` 与 `AiApprovalRecovery*Tests.cs`。

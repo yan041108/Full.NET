@@ -20,6 +20,7 @@ public sealed class AiAuthorizationContributorTests
                 AiPromptPermissions.Deactivate, AiPromptPermissions.Rollback, AiPromptPermissions.Use,
                 AiKnowledgeAnswerFeedbackPermissions.Read,
                 AiKnowledgeAnswerFeedbackPermissions.Submit, AiKnowledgeAnswerFeedbackPermissions.Withdraw,
+                AiKnowledgeAnswerFeedbackReviewPermissions.Read, AiKnowledgeAnswerFeedbackReviewPermissions.Review, AiKnowledgeAnswerFeedbackReviewPermissions.Export,
                 AiKnowledgePermissions.Read,
                 AiKnowledgePermissions.Create,
                 AiKnowledgePermissions.Update,
@@ -91,7 +92,8 @@ public sealed class AiAuthorizationContributorTests
         var catalog = AuthorizationCatalog.Create([new AiAuthorizationContributor()]);
         var scope = AuthorizationScope.Host | AuthorizationScope.Tenant;
         Assert.AreEqual(scope, catalog.Permissions.Single(p => p.Code == AiChatPermissions.Read).Scope);
-        foreach (var code in new[] { AiKnowledgeAnswerFeedbackPermissions.Read, AiKnowledgeAnswerFeedbackPermissions.Submit, AiKnowledgeAnswerFeedbackPermissions.Withdraw })
+        foreach (var code in new[] { AiKnowledgeAnswerFeedbackPermissions.Read, AiKnowledgeAnswerFeedbackPermissions.Submit, AiKnowledgeAnswerFeedbackPermissions.Withdraw,
+            AiKnowledgeAnswerFeedbackReviewPermissions.Read, AiKnowledgeAnswerFeedbackReviewPermissions.Review, AiKnowledgeAnswerFeedbackReviewPermissions.Export })
         {
             Assert.AreEqual(scope, catalog.Permissions.Single(p => p.Code == code).Scope);
             var action = catalog.Actions.Single(a => a.PermissionCode == code);

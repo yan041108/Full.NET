@@ -176,7 +176,8 @@ public sealed class AiKnowledgeDocxSandboxParserTests
               count += bytes.length;
               chunks.push(bytes);
               if (started || count !== Number(value('--size-bytes'))) return;
-              started = true; writeFileSync(path.join(folder, 'started'), '1');
+              started = true;
+              if (mode !== 'complete-hang') writeFileSync(path.join(folder, 'started'), '1');
               if (createHash('sha256').update(Buffer.concat(chunks)).digest('hex') !== value('--content-hash')) process.exit(9);
               if (mode === 'hang') return;
               let wire = JSON.stringify({ protocolVersion: 1, parserVersion: 'docx-ooxml-body-v1', sizeBytes: Number(value('--size-bytes')),
@@ -188,7 +189,8 @@ public sealed class AiKnowledgeDocxSandboxParserTests
               if (mode === 'oversize') wire = 'x'.repeat(17 * 1024 * 1024);
               if (mode === 'stderr') process.stderr.write('synthetic');
               if (mode === 'error-flood') process.stderr.write('x'.repeat(5000));
-              if (mode === 'complete-hang') { process.stdout.end(wire); return; }
+              // 此场景先完成输出再挂起；提前宣告就绪会让取消关闭管道，引发 EPIPE 而跳过 EOF 清理。
+              if (mode === 'complete-hang') { process.stdout.end(wire, () => writeFileSync(path.join(folder, 'started'), '1')); return; }
               const publish = () => process.stdout.end(wire, () => { process.stdin.destroy(); process.exitCode = mode === 'exit' ? 2 : 0; });
               if (mode === 'hold-success') {
                 const timer = setInterval(() => { if (existsSync(path.join(folder, 'release'))) { clearInterval(timer); publish(); } }, 10);

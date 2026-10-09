@@ -142,6 +142,7 @@ internal static class NativePdfKnowledgeAssertions
                 return await client.SendAsync(request, cancellation);
             }
             var feedback = await AiKnowledgeAnswerFeedbackAssertions.HttpAsync(FeedbackSend, chat.Id, answer);
+            await NativeFeedbackReviewAssertions.VerifyAsync(db, FeedbackSend, source.ModelConfigId.Value, lineage, feedback);
             foreach (var id in ids.Skip(1))
             { var hidden = readable.Messages.Single(message => message.Id == id); Assert.AreEqual("", hidden.Content);
                 Assert.AreEqual(AiErrorCodes.KnowledgeAnswerUnavailable, hidden.KnowledgeUnavailableCode); Assert.HasCount(0, hidden.Citations); }

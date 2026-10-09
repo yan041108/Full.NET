@@ -10,6 +10,9 @@ internal sealed record AiKnowledgeAnswerDependency(Guid KnowledgeBaseId, Guid Do
     int DocumentVersion, int KnowledgeBaseVersion, Guid FileId, string ContentHash,
     Guid TaskId, string ReceiptHash, string ManifestHash, string PlanHash);
 
+/// <summary>已证明反馈与完整来源的联合查询参数；只来源于服务器冻结元数据。</summary>
+internal sealed record AiKnowledgeAnswerFeedbackReviewBinding(Guid FeedbackId, Guid MessageId, AiKnowledgeAnswerDependency Dependency);
+
 /// <summary>服务器核对的引用位置；模型输出只能选择引用标识。</summary>
 internal sealed record AiKnowledgeAnswerReference(Guid Id, Guid DocumentId, Guid VersionId,
     int Sequence, int? PageNumber, int Offset, int Length)
@@ -134,4 +137,5 @@ internal static class AiKnowledgeAnswerLineageCodec
 [JsonSerializable(typeof(Full.NET.Modules.Ai.Contracts.AiKnowledgeDocxLocationResponse))]
 [JsonSerializable(typeof(AiKnowledgeAnswerLineage))]
 [JsonSerializable(typeof(AiKnowledgeAnswerDependency[]))]
+[JsonSerializable(typeof(AiKnowledgeAnswerFeedbackReviewBinding[]))]
 internal partial class AiKnowledgeAnswerLineageJsonContext : JsonSerializerContext;

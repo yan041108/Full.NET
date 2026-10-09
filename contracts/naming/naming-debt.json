@@ -5,6 +5,13 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/258_AiKnowledgeAnswerReview.sql",
+      "reason": "258 仅依据 INFORMATION_SCHEMA 在固定字面量 DDL 与 SELECT 1 间选择；无外部对象名和业务输入。恢复测试核验约束与说明恢复、非法审核失败关闭及单调版本保留。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/257_AiPromptVersions.sql",
       "reason": "257 仅依据 INFORMATION_SCHEMA 在固定字面量 DDL 和 SELECT 1 间选择；无外部标识符和业务输入。双库恢复验证目录、不可变版本、作用域与发布外键约束恢复并保留已发布数据。",
       "removalMilestone": "M1.0"
