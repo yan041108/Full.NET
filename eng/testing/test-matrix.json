@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 6190,
+      "minimum": 6228,
       "timeout": "10m",
       "selections": {
         "logging-delivery": {
@@ -21,11 +21,15 @@
         },
         "ai-module": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
-          "minimum": 2721
+          "minimum": 2759
         },
         "ai-evaluation": {
-          "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests|FullyQualifiedName~RagRetrievalComparison",
-          "minimum": 98
+          "filter": "FullyQualifiedName~RagEvaluationScoringTests|FullyQualifiedName~RagEvaluationBaselineTests|FullyQualifiedName~RagRetrievalComparison|FullyQualifiedName~RagFeedbackAdmission",
+          "minimum": 136
+        },
+        "ai-feedback-admission": {
+          "filter": "FullyQualifiedName~RagFeedbackAdmission",
+          "minimum": 38
         },
         "ai-retrieval-candidates": {
           "filter": "FullyQualifiedName~AiRetrievalCandidateTests",

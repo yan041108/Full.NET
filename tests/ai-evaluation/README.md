@@ -64,6 +64,39 @@ Remove-Item Env:FULLNET_AI_EVALUATION_REPORT
 
 R02 交付冻结合成数据、测试项目内评分器、失败回归、参考结果与报告入口。首份真实端到端基线仍为 **未测**，由 R06 在同一语料上生成；检索 Provider/解析器选型属于 R03。没有开启生产 AI 功能，也没有关闭历史运行时的双库或原生门禁。
 
+## 人工脱敏反馈候选准入（R09g）
+
+离线工具 `RagFeedbackAdmission` 接收操作人准备的 UTF-8 JSON 候选包，保留原冻结语料全部案例、来源和 `rag-quality-v1` 门槛，只追加新数据版本的样本。不读取生产问答、反馈或数据库，不调用模型，也不执行反馈、文档中的指令。标签审核批准和统计导出不构成样本准入。
+
+候选格式为 `RagFeedbackAdmissionInput`，`schemaVersion=1`、`policyVersion=rag-feedback-admission-v1`，`baseDatasetSha256` 必须为上文冻结摘要；`datasetVersion` 使用 `fullnet-rag-reviewed-<名称>-v<正整数>`。一个包最多32项，原始文件最多2 MiB，每项最多16个片段，问题最多2048字符、片段最多4096字符，新增问题/片段合计最多131072字符。重复、未知、缺失、空值字段和错误编码拒绝，无部分准入。
+
+每项包括 `sampleKey`、操作人分配的匿名化标签 `authorKey`、受控原始来源摘要 `sourceSha256`、`case`、`chunks`、`redactionReview` 与 `admissionReview`。案例标识为 `reviewed-<sampleKey>`，本地虚构范围固定为 `reviewed`，片段标识以 `reviewed-<sampleKey>-` 开头，来源版本为 `reviewed-<sampleKey>-v1`，位置固定为 `redacted`。这些标识不得复用生产资源标识或人员标签。案例类别沿用原语料闭集，拒答场景不允许预设答案证据，安全类别必须同时标记安全与拒答；普通答案的预期证据必须属于本样本来源。
+
+两个审核标签必须不同，且均不同于提交者；`decisionKey=approved`，`contentSha256` 绑定 `RagFeedbackAdmission.ContentDigest(sample)` 的整个规范化候选内容，`sourceUseAllowed`、`redactionConfirmed`、`instructionRiskReviewed` 均须为真，并提供受控的 `evidenceKey`。修改问题、片段、来源或提交者后重新计算摘要并重新审核。明显邮箱、URL、IP、长数字、UUID 与凭据赋值格式会被拒绝；工具不自动替换正文，也不能检测任意姓名、编码、改写或隐私内容，人工脱敏和许可核对仍必需。提示注入合成案例只作为拒答测试数据，不进入执行指令。
+
+审核者标签属于操作人声明，**不是身份认证或生产授权证明**。回执明确为 `reviewVerificationStatus=operator_attested`；`contentSha256` 绑定候选及受控元数据，`payloadSha256` 单独绑定实际输出的案例和片段，重新计算语料总摘要不能沿用未改写的旧样本回执。摘要不是签名，不能阻止有权改写整份文件者伪造声明。候选、原始来源、许可和审核记录应保存在受控位置，操作人须核对实际身份、授权、独立审核与来源仍可使用。输出省略提交者、审核者、证据标签和原始来源摘要；保留的样本与内容摘要仍可能关联，**不保证匿名化**。本工具不关闭生产问答脱敏读取、撤权失效或在线准入待办。
+
+语料与回执封装成一个新建 JSON 文件，既有文件绝不覆盖。生成样例由 `RagFeedbackAdmissionTests.Input()` 展示，可在受控本地工具中调用 `ContentDigest` 计算审核绑定；默认命令只生成合成示例，不能将其冒充真实反馈处理：
+
+```powershell
+$env:FULLNET_AI_FEEDBACK_ADMISSION_INPUT = Join-Path (Get-Location) 'artifacts/ai-evaluation/reviewed-candidates.json'
+$env:FULLNET_AI_FEEDBACK_ADMISSION_OUTPUT = Join-Path (Get-Location) 'artifacts/ai-evaluation/admitted-v1.json'
+pnpm test:dotnet:unit -- --selection ai-feedback-admission
+```
+
+只有专用评分入口读取 `FULLNET_AI_EVALUATION_ADMITTED_CORPUS`，其余固定基线回归仍读取原语料。启用后必须另提供完整的新旧案例观测，`runKind=end_to_end`，版本不能使用 `none-` 或 `reference-` 占位，每个案例耗时须为有限正值，可回答案例不接受已知零模型调用，未知计量继续为 `null`。不能回退到旧参考文件；这些结构门禁不认证实际运行真实性，仍须核对原始观测。评分报告同样只能新建，质量失败先保存报告再非零退出：
+
+```powershell
+$env:FULLNET_AI_EVALUATION_ADMITTED_CORPUS = $env:FULLNET_AI_FEEDBACK_ADMISSION_OUTPUT
+Remove-Item Env:FULLNET_AI_FEEDBACK_ADMISSION_INPUT, Env:FULLNET_AI_FEEDBACK_ADMISSION_OUTPUT
+$env:FULLNET_AI_EVALUATION_RESULTS = Join-Path (Get-Location) 'artifacts/ai-evaluation/admitted-results.json'
+$env:FULLNET_AI_EVALUATION_REPORT = Join-Path (Get-Location) 'artifacts/ai-evaluation/admitted-report.json'
+pnpm test:dotnet:unit -- --selection ai-evaluation --reuse-build
+Remove-Item Env:FULLNET_AI_EVALUATION_ADMITTED_CORPUS, Env:FULLNET_AI_EVALUATION_RESULTS, Env:FULLNET_AI_EVALUATION_REPORT
+```
+
+候选准入不认证运行结果的来源，也不将任何人工构造结果升级为真实模型质量证据。原数据版本与摘要不改写，新基线须单独留存完整观测、许可、审核与实际运行记录。
+
 ## 三策略比较与推荐门禁（R09d）
 
 `RagRetrievalComparison` 复用 R02 评分器，对 `basic`、`keyword_vector`、`rerank` 三份完整观测分别重新评分。候选不得提交自报总分或覆盖门槛；三份观测必须绑定同一冻结数据摘要、质量策略、模型、Prompt、解析器、分块和索引版本，只有检索版本可以不同，且三个检索版本必须各自明确。每个运行都须包含全部冻结案例，不能删掉失败案例；模型或索引变化必须另做实验，不能计作检索策略收益。

@@ -219,16 +219,25 @@ public sealed class RagEvaluationBaselineTests
     public void Evaluate_frozen_results_and_write_reviewable_report()
     {
         var input = Environment.GetEnvironmentVariable("FULLNET_AI_EVALUATION_RESULTS");
+        var admitted = Environment.GetEnvironmentVariable("FULLNET_AI_EVALUATION_ADMITTED_CORPUS");
+        if (!string.IsNullOrWhiteSpace(admitted) && string.IsNullOrWhiteSpace(input))
+            throw new InvalidDataException("admitted_feedback_requires_external_results");
         var run = string.IsNullOrWhiteSpace(input) ? Reference()
             : RagEvaluationJson.Read<RagEvaluationRun>(File.ReadAllText(input));
-        var report = Score(run);
+        var report = string.IsNullOrWhiteSpace(admitted) ? Score(run) : ScoreAdmitted(admitted, run);
         var output = Environment.GetEnvironmentVariable("FULLNET_AI_EVALUATION_REPORT");
         if (string.IsNullOrWhiteSpace(output))
             output = Path.Combine(TestContext.TestResultsDirectory!, "rag-evaluation-report.json");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
-        File.WriteAllText(output, JsonSerializer.Serialize(report, RagEvaluationJson.Options) + "\n");
+        if (string.IsNullOrWhiteSpace(admitted)) File.WriteAllText(output, JsonSerializer.Serialize(report, RagEvaluationJson.Options) + "\n");
+        else RagFeedbackAdmissionArtifacts.WriteReport(output, report);
         TestContext.AddResultFile(output);
         Assert.IsTrue(report.Passed, string.Join(", ", report.GateFailures));
+    }
+
+    private static RagEvaluationReport ScoreAdmitted(string path, RagEvaluationRun run)
+    {
+        return RagFeedbackAdmissionArtifacts.Score(path, run);
     }
 
     private static RagEvaluationRun Reference() => RagEvaluationJson.LoadReference();

@@ -351,6 +351,8 @@ Vue AI 对话页提供“反馈审核”入口，按独立读取与导出权限�
 
 统计预览与 JSON 下载分别重新请求当前统计。共享客户端和页面均只投影固定字段，下载文件为 `ai-feedback-labels.json`，含规则版本、部分窗口声明，以及各格的评价、原因、引用数量、计数。界面提供中英文范围说明，批准不等于正式评估集准入。Vue 当前为 `Implemented / Build-verified`，真实栈页面验收在 AI 模块范围全部实现后集中执行，不能据此宣称页面已完成真实多用户验收。
 
+离线人工审核候选准入工具及评估入口见 [评估语料说明](../../tests/ai-evaluation/README.md#人工脱敏反馈候选准入r09g)。操作人另行准备脱敏案例、受控来源许可与双人审核记录，工具保留全部原基线并追加独立版本，不直接消费标签统计或读取生产问答。审核标签为 `operator_attested`，不认证身份，不替代生产授权、撤权失效或在线样本准入；这些服务端能力仍待完成。
+
 ## 双库与部署
 
 迁移 `240_AiKnowledgeBase.sql` 增加 `fn_ai_knowledge_base`，`241_AiKnowledgeMember.sql` 增加 `fn_ai_knowledge_member`，`242_AiKnowledgeDocument.sql` 增加 `fn_ai_knowledge_document` 与 `fn_ai_knowledge_document_member`，`243_AiKnowledgeFileVersion.sql` 增加 `fn_ai_knowledge_version` 与 `fn_ai_knowledge_import`，`244_AiKnowledgeRoleGrant.sql` 增加知识库及文档角色授予表；均有 SQL Server 与 MySQL 实现，不改写已有业务表。外键仅关联 AI 自有父记录，不向 Files、Identity 或 Tenancy 表建立外键。SQL Server 主键显式采用 UUID v7 聚集键；MySQL 使用 Binary16 网络字节序。
