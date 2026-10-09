@@ -1593,6 +1593,22 @@ Token 值只限制现有预算预留；实际提供程序输入分词/输出硬�
 - 新API **140542640 bytes / SHA256 `8daace699d90e59e59394ad4fbc42c587134b1eabd4eadfa959bad8f3f26494a` / 985000 ms**；新Worker **90582136 bytes / SHA256 `5ddb9ca0484f6a76e0da69f943708c33a799a826fb16c86707391ba8aa981f23` / 287851 ms**。`python artifacts/r09e/collect-acceptance.py` 核对TRX、实际发现/UID、输入冻结、首轮与最终测试程序集、唯一 Native 夹具变更及运行Native文件摘要，证据位于忽略目录 `artifacts/r09e/`。只读安全复审在来源联合读取、密文游标和静态SqlStatement修正后未发现剩余P1/P2；复审不代替运行验收。
 - 本地Windows x64/i7-12700H/约64GB/SDK10.0.401；Linux Docker SDK10.0.400、runtime10.0.11，SQL Server2022-CU14与MySQL8.0。Native发布8CPU/12GiB，Linux验收2CPU/8GiB，使用新测试数据库、不复用Testcontainers数据库；排队曾因系统重启中断，核实进程标识被重用后仅清理本任务旧锁并重新执行。忽略目录中的一次性资源协调副本仅将重型锁轮询缩短为5ms，工作区锁仍为100ms；独占锁路径、所有权、失效检查及释放协议与仓库脚本一致，仓库脚本未改，不终止其他任务或抢占其锁。独立生成应用待AI模块范围全部实现后集中验收，在线NuGet审计未执行（`NuGetAudit=false`）；真实云模型、回答质量和容量保持未验证、`Capacity-not-verified`。其他任务改动经摘要比对保持不变，本任务未读取、hash或修改受保护文件，仅本批文件在main提交。
 
+#### R09f：Vue 反馈审核、统计下载与共享客户端合批（2026-10-10，Implemented / Build-verified）
+
+- [x] AI 对话页交付反馈审核入口，独立控制队列读取、批准/驳回及统计导出权限；无权限动作不进入 DOM，导出不依赖队列读取权限。队列只显示固定标签、引用数量、状态和双版本，支持密文游标、被过滤的空页继续翻页及前页返回。
+- [x] 审核确认冻结当前标签及双版本；409、未知写入结果后要求刷新，失效游标刷新回第一页。身份、租户、权限变化、关闭与卸载取消在途操作并清除载荷，迟到响应不能恢复旧上下文。
+- [x] 统计预览与 JSON 下载分别取得当前统计，SDK 和页面双重投影固定字段，释放下载 Blob URL；中英文明确有界窗口、小样本抑制不保证匿名化、批准不等于评估集准入，不输出问答正文或主体/资源标识。
+- [x] 双库实际运行时 OpenAPI 规范化结果一致，追加登记三个操作，冻结快照共612个操作；通过生成器更新 SDK。公共出口明确选择校验包装，闭合评价/原因、版本、分页与统计界限，透传取消信号。Vue 审核适配层独立登记，保留原用户反馈 API 稳定绑定。
+
+**本地验证记录：**
+
+- 基线 `0d8cf0c0aebb15d2770445a73444171678307031`。缺失能力 RED：SDK13项失败、页面入口1项失败；补充取消回归首次1失败/13通过。公共出口从实际 `src/index` 测试，首轮17失败/4通过定位星号导出选择了生成操作，显式包装出口修正后完整客户端 **260/260**。权限撤销夹具改为真实 Pinia 权限快照，保留首轮48通过/1失败日志；最终相关 Vue **49/49**，零失败/跳过。
+- `node artifacts/r09f/run-openapi.mjs`：复用未改变的 R09e 后端源码及集成 DLL，在 SQL Server/MySQL 实际取得运行时 OpenAPI **2/2**，零失败/跳过；程序集 SHA256 `ae2b5007f1b1e50ca4a56733c48de00f4fa1c6544e872c6d707db9004bd93d24`。Windows 本地客户端测试与构建；双库 OpenAPI 在 Linux SDK10.0.400/runtime10.0.11、2CPU/8GiB 容器中执行，使用共享资源锁。
+- `node artifacts/r09f/run-checks.mjs`：生成产物离线精确检查、OpenAPI **210/210**、共享客户端构建、Vue 类型检查与生产构建通过。首轮登记数量仍冻结609与既有路由绑定扩展触发失败；拆分新适配层、保留既有绑定并更新操作/API登记断言后原兼容门禁通过，未扩大豁免。`node artifacts/r09f/run-final-checks.mjs`：拆分后的 Vue **49/49**、相对基线96份契约的向后兼容、命名 **33/33** 均通过；最终实际输入冻结6479项，排除保护路径后的 Markdown 编码扫描385份通过。
+- 最终测试包装误加参数分隔符，导致 Vitest 启动全量后台测试并出现无关用例超时；仅停止本任务误启动进程，保留失败日志，修正包装后按三个受影响文件重跑49项全部通过。这次误启动不计为通过，未据此修改无关实现或宣称全部后台测试通过。
+- 只读安全复审及适配层拆分复审未发现有证据的 P1/P2，复审不代替运行验证。后端生产路径、依赖及迁移未改变，本批未重建 .NET、重发 Native 或重跑后台业务功能测试；R09e 记录保留原执行范围，不作为本批新执行。未新增依赖，未执行在线依赖审计。
+- 本批证据保留于忽略目录 `artifacts/r09f/`；受保护路径先于读取/hash排除，其他任务改动保持原摘要，仅本批文件在 main 提交。真实栈页面与独立生成应用按 AI 模块范围全部实现后集中验收。原始问答脱敏审核、正式评估集准入、真实三策略运行及收益验证仍待完成，R09 不整体关闭；真实云模型、回答质量与容量未验证，保持 `Capacity-not-verified`。
+
 ### R10：节点恢复与审批一致性（P2，依赖 R01/R09）
 
 **修改：** `src/AI/Full.NET.Agents/Workflows/AgentWorkflowRunner.cs`、`src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs`；扩展 `tests/Full.NET.UnitTests/Ai/AiAgentRunCoordinatorTests.cs`、现有 `AiWorkflowCheckpoint*Tests.cs` 与 `AiApprovalRecovery*Tests.cs`。

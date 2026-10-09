@@ -3669,6 +3669,24 @@
       "apiModule": "packages/client-contracts/src/ai-prompts.ts",
       "generatedGroup": "ai-prompts",
       "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeAnswerFeedbackReviews",
+      "apiModule": "packages/client-contracts/src/ai-answer-feedback.ts",
+      "generatedGroup": "ai-answer-feedback",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiReviewKnowledgeAnswerFeedback",
+      "apiModule": "packages/client-contracts/src/ai-answer-feedback.ts",
+      "generatedGroup": "ai-answer-feedback",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiExportKnowledgeAnswerFeedbackLabels",
+      "apiModule": "packages/client-contracts/src/ai-answer-feedback.ts",
+      "generatedGroup": "ai-answer-feedback",
+      "status": "generated"
     }
   ]
 }

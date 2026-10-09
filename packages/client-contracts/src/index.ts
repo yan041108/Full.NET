@@ -1704,4 +1704,6 @@ export * from './tenant-subscriptions.js';
 
 export * from './ai-knowledge.js';
 export * from './ai-answer-feedback.js';
+// 审核操作必须经过闭集校验和安全投影，明确覆盖生成入口以避免星号导出的歧义。
+export { aiGetKnowledgeAnswerFeedbackReviews, aiReviewKnowledgeAnswerFeedback, aiExportKnowledgeAnswerFeedbackLabels } from './ai-answer-feedback.js';
 export * from './ai-prompts.js';

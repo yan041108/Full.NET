@@ -20,7 +20,11 @@ import type {
   AiChatMessageResponse,
   AiChatSessionListItem,
   AiChatSessionResponse,
+  AiKnowledgeAnswerFeedbackExportCell,
+  AiKnowledgeAnswerFeedbackExportResponse,
   AiKnowledgeAnswerFeedbackResponse,
+  AiKnowledgeAnswerFeedbackReviewItem,
+  AiKnowledgeAnswerFeedbackReviewPage,
   AiKnowledgeAnswerFeedbackStateResponse,
   AiKnowledgeBaseResponse,
   AiKnowledgeCitationResponse,
@@ -482,6 +486,7 @@ import type {
   ReturnWorkflowTodoRequest,
   RevealHostUserProfileFieldsRequest,
   RevealHostUserProfileFieldsResponse,
+  ReviewAiKnowledgeAnswerFeedbackRequest,
   RevokeAiAgentDelegationRequest,
   RevokeAllHostUserSessionsResponse,
   RevokeSuperAdministratorRequest,
@@ -634,7 +639,10 @@ import {
   readAiCleanupKnowledgeImportsResponse,
   readAiDeleteChatSessionResponse,
   readAiDiscoverMcpRemoteToolsResponse,
+  readAiKnowledgeAnswerFeedbackExportResponse,
   readAiKnowledgeAnswerFeedbackResponse,
+  readAiKnowledgeAnswerFeedbackReviewItem,
+  readAiKnowledgeAnswerFeedbackReviewPage,
   readAiKnowledgeAnswerFeedbackStateResponse,
   readAiKnowledgeBaseResponse,
   readAiKnowledgeDocumentMembersResponse,
@@ -1437,6 +1445,24 @@ export async function aiEnqueueKnowledgeIndex(
   return readAiKnowledgeIndexEnqueueResponse(value);
 }
 
+export interface AiExportKnowledgeAnswerFeedbackLabelsParameters {
+
+}
+
+export async function aiExportKnowledgeAnswerFeedbackLabels(
+  http: HttpClient,
+  parameters: AiExportKnowledgeAnswerFeedbackLabelsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeAnswerFeedbackExportResponse> {
+  const path = `/api/v1/ai/knowledge-answer-feedback/export`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeAnswerFeedbackExportResponse(value);
+}
+
 export interface AiGetAgentApprovalParameters {
   readonly approvalId: string;
 }
@@ -1526,6 +1552,28 @@ export async function aiGetKnowledgeAnswerFeedback(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeAnswerFeedbackResponse(value);
+}
+
+export interface AiGetKnowledgeAnswerFeedbackReviewsParameters {
+  readonly after?: string;
+}
+
+export async function aiGetKnowledgeAnswerFeedbackReviews(
+  http: HttpClient,
+  parameters: AiGetKnowledgeAnswerFeedbackReviewsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeAnswerFeedbackReviewPage> {
+  const query = new URLSearchParams();
+  if (parameters.after !== undefined) {
+    query.set('after', String(parameters.after));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-answer-feedback/reviews` : `/api/v1/ai/knowledge-answer-feedback/reviews?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeAnswerFeedbackReviewPage(value);
 }
 
 export interface AiGetKnowledgeAnswerFeedbackStateParameters {
@@ -2337,6 +2385,29 @@ export async function aiRetryKnowledgeIndex(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeIndexEnqueueResponse(value);
+}
+
+export interface AiReviewKnowledgeAnswerFeedbackParameters {
+  readonly feedbackId: string;
+  readonly body: ReviewAiKnowledgeAnswerFeedbackRequest;
+}
+
+export async function aiReviewKnowledgeAnswerFeedback(
+  http: HttpClient,
+  parameters: AiReviewKnowledgeAnswerFeedbackParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeAnswerFeedbackReviewItem> {
+  const path = `/api/v1/ai/knowledge-answer-feedback/reviews/${encodeURIComponent(String(parameters.feedbackId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeAnswerFeedbackReviewItem(value);
 }
 
 export interface AiRevokeAgentDelegationParameters {

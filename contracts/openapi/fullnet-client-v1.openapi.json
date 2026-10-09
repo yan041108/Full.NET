@@ -2476,6 +2476,220 @@
         ]
       }
     },
+    "/api/v1/ai/knowledge-answer-feedback/export": {
+      "get": {
+        "operationId": "aiExportKnowledgeAnswerFeedbackLabels",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiKnowledgeAnswerFeedbackExportResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "AiKnowledgeAnswerFeedback"
+        ]
+      }
+    },
+    "/api/v1/ai/knowledge-answer-feedback/reviews": {
+      "get": {
+        "operationId": "aiGetKnowledgeAnswerFeedbackReviews",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiKnowledgeAnswerFeedbackReviewPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "AiKnowledgeAnswerFeedback"
+        ]
+      }
+    },
+    "/api/v1/ai/knowledge-answer-feedback/reviews/{feedbackId}": {
+      "put": {
+        "operationId": "aiReviewKnowledgeAnswerFeedback",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feedbackId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewAiKnowledgeAnswerFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiKnowledgeAnswerFeedbackReviewItem"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "AiKnowledgeAnswerFeedback"
+        ]
+      }
+    },
     "/api/v1/ai/knowledge-bases": {
       "get": {
         "operationId": "aiListKnowledgeBases",
@@ -47489,6 +47703,61 @@
         ],
         "type": "object"
       },
+      "AiKnowledgeAnswerFeedbackExportCell": {
+        "properties": {
+          "citationCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "feedbackCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "ratingKey": {
+            "type": "string"
+          },
+          "reasonKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ratingKey",
+          "reasonKey",
+          "citationCount",
+          "feedbackCount"
+        ],
+        "type": "object"
+      },
+      "AiKnowledgeAnswerFeedbackExportResponse": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/AiKnowledgeAnswerFeedbackExportCell"
+            },
+            "type": "array"
+          },
+          "isPartial": {
+            "type": "boolean"
+          },
+          "policyVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "policyVersion",
+          "isPartial",
+          "cells"
+        ],
+        "type": "object"
+      },
       "AiKnowledgeAnswerFeedbackResponse": {
         "properties": {
           "citationIds": {
@@ -47543,6 +47812,78 @@
           "statusKey",
           "version",
           "updatedAtUtc"
+        ],
+        "type": "object"
+      },
+      "AiKnowledgeAnswerFeedbackReviewItem": {
+        "properties": {
+          "citationCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "feedbackId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "feedbackVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "ratingKey": {
+            "type": "string"
+          },
+          "reasonKey": {
+            "type": "string"
+          },
+          "reviewStateKey": {
+            "type": "string"
+          },
+          "reviewVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "feedbackId",
+          "ratingKey",
+          "reasonKey",
+          "citationCount",
+          "feedbackVersion",
+          "reviewStateKey",
+          "reviewVersion"
+        ],
+        "type": "object"
+      },
+      "AiKnowledgeAnswerFeedbackReviewPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AiKnowledgeAnswerFeedbackReviewItem"
+            },
+            "type": "array"
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
         ],
         "type": "object"
       },
@@ -66600,6 +66941,35 @@
         },
         "required": [
           "values"
+        ],
+        "type": "object"
+      },
+      "ReviewAiKnowledgeAnswerFeedbackRequest": {
+        "properties": {
+          "decisionKey": {
+            "type": "string"
+          },
+          "feedbackVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "reviewVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "decisionKey",
+          "feedbackVersion",
+          "reviewVersion"
         ],
         "type": "object"
       },

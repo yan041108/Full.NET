@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AiKnowledgeCitationPosition from '../components/AiKnowledgeCitationPosition.vue';
 import AiKnowledgeAnswerFeedback from '../components/AiKnowledgeAnswerFeedback.vue';
+import AiFeedbackReviewPanel from '../components/AiFeedbackReviewPanel.vue';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElCard, ElEmpty, ElInput, ElMessageBox, ElOption, ElSelect, ElSwitch } from 'element-plus';
 import { Plus, VideoPause } from '@element-plus/icons-vue';
@@ -190,6 +191,7 @@ onMounted(() => { void loadModels(); void loadSessions(); }); onUnmounted(reset)
   <section class="ai-chat-view art-page-stack art-full-height" :aria-busy="loading || sending">
     <div class="ai-chat-heading-row">
       <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('aiChat.title') }}</h1>
+      <AiFeedbackReviewPanel />
       <PermissionGate code="ai.knowledge_bases.read"><router-link to="/ai/knowledge-bases">{{ t('knowledge.title') }}</router-link></PermissionGate>
       <PermissionGate code="ai.agent_runs.read">
         <router-link class="ai-chat-runs-link" to="/ai/agent-runs">{{ t('navigation.aiAgentRuns.title') }}</router-link>

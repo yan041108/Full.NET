@@ -202,6 +202,19 @@ export interface AiChatSessionResponse {
   readonly version: number;
 }
 
+export interface AiKnowledgeAnswerFeedbackExportCell {
+  readonly citationCount: number;
+  readonly feedbackCount: number;
+  readonly ratingKey: string;
+  readonly reasonKey: string;
+}
+
+export interface AiKnowledgeAnswerFeedbackExportResponse {
+  readonly cells: Array<AiKnowledgeAnswerFeedbackExportCell>;
+  readonly isPartial: boolean;
+  readonly policyVersion: string;
+}
+
 export interface AiKnowledgeAnswerFeedbackResponse {
   readonly citationIds: Array<string>;
   readonly id: string;
@@ -211,6 +224,21 @@ export interface AiKnowledgeAnswerFeedbackResponse {
   readonly statusKey: string;
   readonly updatedAtUtc: string;
   readonly version: number;
+}
+
+export interface AiKnowledgeAnswerFeedbackReviewItem {
+  readonly citationCount: number;
+  readonly feedbackId: string;
+  readonly feedbackVersion: number;
+  readonly ratingKey: string;
+  readonly reasonKey: string;
+  readonly reviewStateKey: string;
+  readonly reviewVersion: number;
+}
+
+export interface AiKnowledgeAnswerFeedbackReviewPage {
+  readonly items: Array<AiKnowledgeAnswerFeedbackReviewItem>;
+  readonly nextCursor: null | string;
 }
 
 export interface AiKnowledgeAnswerFeedbackStateResponse {
@@ -4087,6 +4115,12 @@ export interface RevealHostUserProfileFieldsRequest {
 
 export interface RevealHostUserProfileFieldsResponse {
   readonly values: Readonly<Record<string, unknown>>;
+}
+
+export interface ReviewAiKnowledgeAnswerFeedbackRequest {
+  readonly decisionKey: string;
+  readonly feedbackVersion: number;
+  readonly reviewVersion: number;
 }
 
 export interface RevokeAiAgentDelegationRequest {

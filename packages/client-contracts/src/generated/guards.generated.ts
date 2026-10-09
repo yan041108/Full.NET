@@ -19,7 +19,11 @@ import type {
   AiChatMessageResponse,
   AiChatSessionListItem,
   AiChatSessionResponse,
+  AiKnowledgeAnswerFeedbackExportCell,
+  AiKnowledgeAnswerFeedbackExportResponse,
   AiKnowledgeAnswerFeedbackResponse,
+  AiKnowledgeAnswerFeedbackReviewItem,
+  AiKnowledgeAnswerFeedbackReviewPage,
   AiKnowledgeAnswerFeedbackStateResponse,
   AiKnowledgeBaseResponse,
   AiKnowledgeCitationResponse,
@@ -481,6 +485,7 @@ import type {
   ReturnWorkflowTodoRequest,
   RevealHostUserProfileFieldsRequest,
   RevealHostUserProfileFieldsResponse,
+  ReviewAiKnowledgeAnswerFeedbackRequest,
   RevokeAiAgentDelegationRequest,
   RevokeAllHostUserSessionsResponse,
   RevokeSuperAdministratorRequest,
@@ -821,6 +826,30 @@ function isAiChatSessionResponse(value: unknown): value is AiChatSessionResponse
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isGenerating"] === 'boolean') && (Array.isArray(value["messages"]) && value["messages"].every(item17 => isAiChatMessageResponse(item17))) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["modelName"] === 'string') && (typeof value["ownerUserId"] === 'string' && guidPattern.test(value["ownerUserId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readAiKnowledgeAnswerFeedbackExportCell(value: unknown): AiKnowledgeAnswerFeedbackExportCell {
+  const normalizedValue = normalizeAiKnowledgeAnswerFeedbackExportCellIntegerJson(value);
+  if (!(isAiKnowledgeAnswerFeedbackExportCell(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_answer_feedback_export_cell');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeAnswerFeedbackExportCell(value: unknown): value is AiKnowledgeAnswerFeedbackExportCell {
+  return isRecord(value) && (typeof value["citationCount"] === 'number' && Number.isSafeInteger(value["citationCount"])) && (typeof value["feedbackCount"] === 'number' && Number.isSafeInteger(value["feedbackCount"])) && (typeof value["ratingKey"] === 'string') && (typeof value["reasonKey"] === 'string');
+}
+
+export function readAiKnowledgeAnswerFeedbackExportResponse(value: unknown): AiKnowledgeAnswerFeedbackExportResponse {
+  const normalizedValue = normalizeAiKnowledgeAnswerFeedbackExportResponseIntegerJson(value);
+  if (!(isAiKnowledgeAnswerFeedbackExportResponse(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_answer_feedback_export_response');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeAnswerFeedbackExportResponse(value: unknown): value is AiKnowledgeAnswerFeedbackExportResponse {
+  return isRecord(value) && (Array.isArray(value["cells"]) && value["cells"].every(item14 => isAiKnowledgeAnswerFeedbackExportCell(item14))) && (typeof value["isPartial"] === 'boolean') && (typeof value["policyVersion"] === 'string');
+}
+
 export function readAiKnowledgeAnswerFeedbackResponse(value: unknown): AiKnowledgeAnswerFeedbackResponse {
   const normalizedValue = normalizeAiKnowledgeAnswerFeedbackResponseIntegerJson(value);
   if (!(isAiKnowledgeAnswerFeedbackResponse(normalizedValue))) {
@@ -831,6 +860,30 @@ export function readAiKnowledgeAnswerFeedbackResponse(value: unknown): AiKnowled
 
 function isAiKnowledgeAnswerFeedbackResponse(value: unknown): value is AiKnowledgeAnswerFeedbackResponse {
   return isRecord(value) && (Array.isArray(value["citationIds"]) && value["citationIds"].every(item20 => typeof item20 === 'string' && guidPattern.test(item20))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["messageId"] === 'string' && guidPattern.test(value["messageId"])) && ((value["ratingKey"] === null) || (typeof value["ratingKey"] === 'string')) && ((value["reasonKey"] === null) || (typeof value["reasonKey"] === 'string')) && (typeof value["statusKey"] === 'string') && (typeof value["updatedAtUtc"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeAnswerFeedbackReviewItem(value: unknown): AiKnowledgeAnswerFeedbackReviewItem {
+  const normalizedValue = normalizeAiKnowledgeAnswerFeedbackReviewItemIntegerJson(value);
+  if (!(isAiKnowledgeAnswerFeedbackReviewItem(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_answer_feedback_review_item');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeAnswerFeedbackReviewItem(value: unknown): value is AiKnowledgeAnswerFeedbackReviewItem {
+  return isRecord(value) && (typeof value["citationCount"] === 'number' && Number.isSafeInteger(value["citationCount"])) && (typeof value["feedbackId"] === 'string' && guidPattern.test(value["feedbackId"])) && (typeof value["feedbackVersion"] === 'number' && Number.isSafeInteger(value["feedbackVersion"])) && (typeof value["ratingKey"] === 'string') && (typeof value["reasonKey"] === 'string') && (typeof value["reviewStateKey"] === 'string') && (typeof value["reviewVersion"] === 'number' && Number.isSafeInteger(value["reviewVersion"]));
+}
+
+export function readAiKnowledgeAnswerFeedbackReviewPage(value: unknown): AiKnowledgeAnswerFeedbackReviewPage {
+  const normalizedValue = normalizeAiKnowledgeAnswerFeedbackReviewPageIntegerJson(value);
+  if (!(isAiKnowledgeAnswerFeedbackReviewPage(normalizedValue))) {
+    throw new Error('client.invalid_ai_knowledge_answer_feedback_review_page');
+  }
+  return normalizedValue;
+}
+
+function isAiKnowledgeAnswerFeedbackReviewPage(value: unknown): value is AiKnowledgeAnswerFeedbackReviewPage {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeAnswerFeedbackReviewItem(item14))) && ((value["nextCursor"] === null) || (typeof value["nextCursor"] === 'string'));
 }
 
 export function readAiKnowledgeAnswerFeedbackStateResponse(value: unknown): AiKnowledgeAnswerFeedbackStateResponse {
@@ -6233,6 +6286,18 @@ function isRevealHostUserProfileFieldsResponse(value: unknown): value is RevealH
   return isRecord(value) && (isRecord(value["values"]));
 }
 
+export function readReviewAiKnowledgeAnswerFeedbackRequest(value: unknown): ReviewAiKnowledgeAnswerFeedbackRequest {
+  const normalizedValue = normalizeReviewAiKnowledgeAnswerFeedbackRequestIntegerJson(value);
+  if (!(isReviewAiKnowledgeAnswerFeedbackRequest(normalizedValue))) {
+    throw new Error('client.invalid_review_ai_knowledge_answer_feedback_request');
+  }
+  return normalizedValue;
+}
+
+function isReviewAiKnowledgeAnswerFeedbackRequest(value: unknown): value is ReviewAiKnowledgeAnswerFeedbackRequest {
+  return isRecord(value) && (typeof value["decisionKey"] === 'string') && (typeof value["feedbackVersion"] === 'number' && Number.isSafeInteger(value["feedbackVersion"])) && (typeof value["reviewVersion"] === 'number' && Number.isSafeInteger(value["reviewVersion"]));
+}
+
 export function readRevokeAiAgentDelegationRequest(value: unknown): RevokeAiAgentDelegationRequest {
   const normalizedValue = normalizeRevokeAiAgentDelegationRequestIntegerJson(value);
   if (!(isRevokeAiAgentDelegationRequest(normalizedValue))) {
@@ -8421,8 +8486,24 @@ function normalizeAiChatSessionResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "messages") ? { ["messages"]: (Array.isArray(value["messages"]) ? value["messages"].map((item17: unknown) => normalizeAiChatMessageResponseIntegerJson(item17)) : value["messages"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeAiKnowledgeAnswerFeedbackExportCellIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "citationCount") ? { ["citationCount"]: normalizeWireInteger(value["citationCount"]) } : {}), ...(Object.hasOwn(value, "feedbackCount") ? { ["feedbackCount"]: normalizeWireInteger(value["feedbackCount"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeAnswerFeedbackExportResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "cells") ? { ["cells"]: (Array.isArray(value["cells"]) ? value["cells"].map((item14: unknown) => normalizeAiKnowledgeAnswerFeedbackExportCellIntegerJson(item14)) : value["cells"]) } : {}) } : value);
+}
+
 function normalizeAiKnowledgeAnswerFeedbackResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeAnswerFeedbackReviewItemIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "citationCount") ? { ["citationCount"]: normalizeWireInteger(value["citationCount"]) } : {}), ...(Object.hasOwn(value, "feedbackVersion") ? { ["feedbackVersion"]: normalizeWireInteger(value["feedbackVersion"]) } : {}), ...(Object.hasOwn(value, "reviewVersion") ? { ["reviewVersion"]: normalizeWireInteger(value["reviewVersion"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeAnswerFeedbackReviewPageIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeAnswerFeedbackReviewItemIntegerJson(item14)) : value["items"]) } : {}) } : value);
 }
 
 function normalizeAiKnowledgeAnswerFeedbackStateResponseIntegerJson(value: unknown): unknown {
@@ -9739,6 +9820,10 @@ function normalizeRetryWorkflowRecoveryTaskRequestIntegerJson(value: unknown): u
 
 function normalizeReturnWorkflowTodoRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
+function normalizeReviewAiKnowledgeAnswerFeedbackRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "feedbackVersion") ? { ["feedbackVersion"]: normalizeWireInteger(value["feedbackVersion"]) } : {}), ...(Object.hasOwn(value, "reviewVersion") ? { ["reviewVersion"]: normalizeWireInteger(value["reviewVersion"]) } : {}) } : value);
 }
 
 function normalizeRevokeAiAgentDelegationRequestIntegerJson(value: unknown): unknown {

@@ -204,8 +204,11 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 609);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 609);
+  assert.equal(manifest.entries.length, 612);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 612);
+  for (const operationId of ['aiGetKnowledgeAnswerFeedbackReviews', 'aiReviewKnowledgeAnswerFeedback', 'aiExportKnowledgeAnswerFeedbackLabels']) {
+    assert.ok(manifest.entries.some(entry => entry.operationId === operationId && entry.generatedGroup === 'ai-answer-feedback' && entry.status === 'generated'));
+  }
   assert.deepEqual(
     manifest.entries
       .filter(entry => entry.generatedGroup === 'workflow-forms')
@@ -331,7 +334,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    609
+    612
   );
   const ask = snapshot.paths['/api/v1/ai/chat/sessions/{sessionId}/knowledge/ask'].post;
   assert.equal(ask.operationId, 'aiAskKnowledge');

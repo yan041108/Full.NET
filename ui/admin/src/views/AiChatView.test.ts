@@ -125,6 +125,14 @@ describe('公开 Ask、拒答与取消', () => {
     expect(askAiKnowledge).toHaveBeenCalledWith(sessionId, { knowledgeBaseIds: [baseId], embeddingModelConfigId: modelId, question: '检索问题' }, expect.any(AbortSignal));
     expect(streamAiChatMessage).not.toHaveBeenCalled(); expect(wrapper.find('[data-testid="knowledge-refused"]').exists()).toBe(true); wrapper.unmount();
   });
+
+  it('对话页提供精确授权的反馈审核入口', async () => {
+    const pinia = createPinia(); setActivePinia(pinia);
+    vi.spyOn(useSessionStore(), 'can').mockImplementation(code => ['ai.chat.sessions.read', 'ai.knowledge_answer_feedback.review_read'].includes(code));
+    const wrapper = mount(AiChatView, { global: { plugins: [pinia], stubs: { RouterLink: true } } });
+    try { await flushPromises(); expect(wrapper.find('[data-testid="feedback-review-open"]').exists()).toBe(true); }
+    finally { wrapper.unmount(); }
+  });
   it('多库 Ask 冻结请求集合，引用必须显式选择原请求范围', async () => {
     const second = '01900000-0000-7000-8000-000000000005'; const ids = [baseId, second];
     const citation = { id: 'citation', documentId: 'document', versionId: 'version', sequence: 1, pageNumber: null, offset: 0, length: 10 };
