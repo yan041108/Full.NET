@@ -126,13 +126,100 @@ public sealed class EnterpriseRequestWorkflowOutcomeServiceTests
         f.Tenant.Received(1).SetHost();
     }
 
+    /// <summary>读取、状态 CAS 与回执写入分别失败或取消时，不提交，且恢复事件租户作用域。</summary>
+    [TestMethod]
+    [DataRow("submission", false)]
+    [DataRow("submission", true)]
+    [DataRow("request", false)]
+    [DataRow("request", true)]
+    [DataRow("status", false)]
+    [DataRow("status", true)]
+    [DataRow("receipt", false)]
+    [DataRow("receipt", true)]
+    public async Task Failure_or_cancellation_keeps_transaction_and_tenant_boundaries(string stage, bool cancelled)
+    {
+        var f = new Fixture();
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        Exception fault = cancelled ? new OperationCanceledException("test.outcome_cancelled", token)
+            : new InvalidOperationException("test.outcome_fault");
+        Task<T> Faulted<T>()
+        {
+            // 在被测阶段才取消真实令牌，证明回滚不会被已经取消的业务令牌阻断。
+            if (cancelled) cancellation.Cancel();
+            return Task.FromException<T>(fault);
+        }
+        if (stage == "submission") f.Queries.QuerySingleOrDefaultAsync<EnterpriseRequestApprovalSubmission>(
+            EnterpriseRequestApprovalSql.FindByRequest, Arg.Any<object?>(), token)
+            .Returns(_ => Faulted<EnterpriseRequestApprovalSubmission?>());
+        else if (stage == "request") f.Queries.QuerySingleOrDefaultAsync<EnterpriseRequestRecord>(
+            EnterpriseRequestSql.FindByIdStatement, Arg.Any<object?>(), token)
+            .Returns(_ => Faulted<EnterpriseRequestRecord?>());
+        else f.Commands.ExecuteAsync(stage == "status" ? EnterpriseRequestWorkflowSql.ApplyTerminalStatus
+                : EnterpriseRequestApprovalSql.MarkFinal, Arg.Any<object?>(), token)
+            .Returns(_ => Faulted<int>());
+
+        if (cancelled)
+        {
+            var observed = await Assert.ThrowsAsync<OperationCanceledException>(() => f.Deliver(cancellationToken: token));
+            Assert.AreSame(fault, observed); Assert.AreEqual(token, observed.CancellationToken);
+        }
+        else Assert.AreSame(fault, await Assert.ThrowsAsync<InvalidOperationException>(() => f.Deliver(cancellationToken: token)));
+        Assert.AreEqual(cancelled, token.IsCancellationRequested);
+        var enteredTransaction = stage is "status" or "receipt";
+        Assert.AreEqual(enteredTransaction ? 1 : 0, f.Coordinator.BeginCount);
+        Assert.AreEqual(enteredTransaction ? 1 : 0, f.Coordinator.RollbackCount);
+        Assert.AreEqual(0, f.Coordinator.CommitCount);
+        Assert.IsFalse(f.Coordinator.HasTransaction);
+        if (enteredTransaction) Assert.AreEqual(CancellationToken.None, f.Coordinator.RollbackToken);
+        foreach (var call in f.Queries.ReceivedCalls().Concat(f.Commands.ReceivedCalls()))
+            Assert.AreEqual(token, call.GetArguments().OfType<CancellationToken>().Single());
+        f.Tenant.Received(1).SetHost();
+    }
+
+    /// <summary>CAS 失败只有同一提交和实例的完整获胜回执可确认，否则保留重试错误。</summary>
+    [TestMethod]
+    [DataRow("missing")]
+    [DataRow("pending")]
+    [DataRow("submission")]
+    [DataRow("instance")]
+    public async Task Losing_compare_exchange_without_matching_winner_remains_retryable(string kind)
+    {
+        var f = new Fixture(); var original = f.Submission!;
+        EnterpriseRequestApprovalSubmission? latest = original with { FinalStatus = "Cancelled", LastMessageId = Guid.CreateVersion7() };
+        latest = kind switch {
+            "missing" => null,
+            "pending" => latest with { FinalStatus = null },
+            "submission" => latest with { Id = Guid.CreateVersion7() },
+            "instance" => latest with { WorkflowInstanceId = Guid.CreateVersion7() },
+            _ => latest
+        };
+        f.Queries.QuerySingleOrDefaultAsync<EnterpriseRequestApprovalSubmission>(EnterpriseRequestApprovalSql.FindByRequest,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(original, latest);
+        f.Commands.ExecuteAsync(EnterpriseRequestWorkflowSql.ApplyTerminalStatus,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(0);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => f.Deliver());
+        Assert.AreEqual("enterprise_request.status_update_conflict", error.Message);
+        Assert.AreEqual(1, f.Coordinator.RollbackCount); Assert.AreEqual(0, f.Coordinator.CommitCount);
+        await f.Commands.DidNotReceive().ExecuteAsync(EnterpriseRequestApprovalSql.MarkFinal,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        f.Tenant.Received(1).SetHost();
+    }
+
+    private sealed class CancellationRecordingCoordinator : RecordingDbTransactionCoordinator
+    {
+        internal CancellationToken? RollbackToken;
+        public override Task RollbackAsync(CancellationToken cancellationToken)
+        { RollbackToken = cancellationToken; return base.RollbackAsync(cancellationToken); }
+    }
+
     private sealed class Fixture
     {
         internal readonly Guid Instance = Guid.CreateVersion7(), Message = Guid.CreateVersion7();
         internal readonly IQueryExecutor Queries = Substitute.For<IQueryExecutor>();
         internal readonly ICommandExecutor Commands = Substitute.For<ICommandExecutor>();
         internal readonly ICurrentTenantContextWriter Tenant = Substitute.For<ICurrentTenantContextWriter>();
-        internal readonly RecordingDbTransactionCoordinator Coordinator = new();
+        internal readonly CancellationRecordingCoordinator Coordinator = new();
         internal EnterpriseRequestRecord Row;
         internal EnterpriseRequestApprovalSubmission? Submission;
         internal readonly EnterpriseRequestWorkflowOutcomeService Service;
@@ -148,7 +235,7 @@ public sealed class EnterpriseRequestWorkflowOutcomeServiceTests
             Tenant.IsHost.Returns(true);
             Service = new(Queries, Commands, Substitute.For<IClock>(), new DapperCommandTransaction(Coordinator), Tenant);
         }
-        internal Task Deliver(string type = EnterpriseRequestWorkflowConstants.BusinessType, string status = "Approved") =>
-            Service.HandleTerminalWorkflowAsync(type, Row.Id.ToString("D"), status, Instance, Row.TenantId, Message);
+        internal Task Deliver(string type = EnterpriseRequestWorkflowConstants.BusinessType, string status = "Approved", CancellationToken cancellationToken = default) =>
+            Service.HandleTerminalWorkflowAsync(type, Row.Id.ToString("D"), status, Instance, Row.TenantId, Message, cancellationToken);
     }
 }

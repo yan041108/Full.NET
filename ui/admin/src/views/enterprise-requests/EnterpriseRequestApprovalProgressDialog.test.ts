@@ -1,6 +1,7 @@
 import { mount, flushPromises } from '@vue/test-utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ElMessageBox } from 'element-plus';
+import { defineComponent, h, KeepAlive, ref } from 'vue';
 import { enterpriseRequestsHttp } from '../../api/enterprise-requests';
 import { useAdminI18n } from '../../i18n/adminI18n';
 import { createOutputSession, deferred, outputId } from '../../test/data-output-fixtures';
@@ -184,5 +185,140 @@ describe('审批进度弹窗的读取与生命周期', () => {
       await flushPromises(); useAdminI18n().setLocale('en-US'); await flushPromises();
       expect(f.wrapper.text()).toContain('Awaiting workflow start receipt'); expect(f.wrapper.text()).toContain(instanceId);
     } finally { f.wrapper.unmount(); useAdminI18n().setLocale('zh-CN'); }
+  });
+});
+
+describe('审批进度自动刷新', () => {
+  let visibility: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    visibility = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+    request.mockReset(); request.mockResolvedValue(response);
+    confirm.mockReset(); confirm.mockResolvedValue('confirm' as never);
+    useAdminI18n().setLocale('zh-CN');
+  });
+  afterEach(() => { visibility.mockRestore(); vi.useRealTimers(); });
+  async function advance(milliseconds = 5000) {
+    await vi.advanceTimersByTimeAsync(milliseconds); await flushPromises();
+  }
+  const started = { ...response, deliveryState: 'started', startedAtUtc: '2026-10-08T00:00:01Z' };
+  const finalized = { ...started, deliveryState: 'finalized', requestStatus: 'Approved', requestVersion: '3', completedAtUtc: '2026-10-08T00:00:02Z' };
+
+  it('排队和审批中每五秒更新，结果回写后停止', async () => {
+    request.mockResolvedValueOnce(response).mockResolvedValueOnce(started).mockResolvedValue(finalized);
+    const f = fixture();
+    try {
+      await flushPromises(); await advance(); expect(f.wrapper.text()).toContain('流程已启动');
+      await advance(); expect(f.wrapper.text()).toContain('审批结果已回写');
+      await advance(20000); expect(request).toHaveBeenCalledTimes(3);
+    } finally { f.wrapper.unmount(); }
+  });
+  it.each(['not_submitted', 'finalized', 'recovery_required'])('阶段 %s 不自动查询', async state => {
+    request.mockResolvedValue(state === 'not_submitted' ? unbound : state === 'finalized' ? finalized
+      : { ...unbound, requestStatus: 'Submitted', requestVersion: '2', deliveryState: state });
+    const f = fixture();
+    try { await flushPromises(); await advance(20000); expect(request).toHaveBeenCalledTimes(1); }
+    finally { f.wrapper.unmount(); }
+  });
+  it('后台查询保留当前快照，慢请求和手动刷新不重叠', async () => {
+    const pending = deferred<unknown>(); request.mockResolvedValueOnce(response).mockReturnValueOnce(pending.promise).mockResolvedValue(finalized);
+    const f = fixture();
+    try {
+      await flushPromises(); await advance(); expect(request).toHaveBeenCalledTimes(2);
+      expect(f.wrapper.text()).toContain(instanceId); await click(f.wrapper, '刷新');
+      await advance(20000); expect(request).toHaveBeenCalledTimes(2);
+      pending.resolve(started); await flushPromises(); await advance(); expect(request).toHaveBeenCalledTimes(3);
+    } finally { f.wrapper.unmount(); }
+  });
+  it('自动读取失败停止重试并清空旧快照，手动成功后恢复', async () => {
+    request.mockResolvedValueOnce(response).mockRejectedValueOnce({ status: 409, code: 'snapshot.changed', title: '请重试' }).mockResolvedValue(started);
+    const f = fixture();
+    try {
+      await flushPromises(); await advance(); expect(f.wrapper.text()).toContain('请重试');
+      expect(f.wrapper.text()).not.toContain(instanceId); await advance(20000); expect(request).toHaveBeenCalledTimes(2);
+      await click(f.wrapper, '刷新'); await flushPromises(); await advance(); expect(request).toHaveBeenCalledTimes(4);
+    } finally { f.wrapper.unmount(); }
+  });
+  it('切到后台丢弃在途结果，回到前台重新查询', async () => {
+    const pending = deferred<unknown>(); request.mockResolvedValueOnce(response).mockReturnValueOnce(pending.promise).mockResolvedValue(finalized);
+    const f = fixture();
+    try {
+      await flushPromises(); await advance(); visibility.mockReturnValue(true); document.dispatchEvent(new Event('visibilitychange'));
+      pending.resolve(started); await flushPromises(); expect(f.wrapper.text()).toContain('等待流程启动回执');
+      await advance(20000); expect(request).toHaveBeenCalledTimes(2);
+      visibility.mockReturnValue(false); document.dispatchEvent(new Event('visibilitychange'));
+      await advance(); expect(f.wrapper.text()).toContain('审批结果已回写');
+    } finally { f.wrapper.unmount(); }
+  });
+  it.each(['permission', 'close'])('%s 取消自动请求，不接入迟到响应或继续查询', async action => {
+    const pending = deferred<unknown>(); request.mockResolvedValueOnce(response).mockReturnValueOnce(pending.promise);
+    const f = fixture();
+    try {
+      await flushPromises(); await advance(); expect(request).toHaveBeenCalledTimes(2);
+      if (action === 'permission') f.session.currentUser = { ...f.session.currentUser!, permissions: [] };
+      else await click(f.wrapper, '取消');
+      expect(request.mock.calls[1]![2]?.aborted).toBe(true);
+      pending.resolve(started); await flushPromises(); await advance(20000);
+      expect(request).toHaveBeenCalledTimes(2); expect(f.wrapper.text()).not.toContain(instanceId);
+    } finally { f.wrapper.unmount(); }
+  });
+  it('编辑恢复原因暂停自动查询，保留输入，清空后恢复', async () => {
+    const f = fixture([permission, 'enterprise_request.enterprise_requests.repair_approval']);
+    try {
+      await flushPromises(); await f.wrapper.get('textarea').setValue('已核对历史记录');
+      await advance(20000); expect(request).toHaveBeenCalledTimes(1);
+      expect((f.wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('已核对历史记录');
+      await f.wrapper.get('textarea').setValue(''); await advance(); expect(request).toHaveBeenCalledTimes(2);
+    } finally { f.wrapper.unmount(); }
+  });
+  it('在途刷新后开始填写恢复原因，迟到快照不能覆盖输入', async () => {
+    const pending = deferred<unknown>(); request.mockResolvedValueOnce(response).mockReturnValueOnce(pending.promise);
+    const f = fixture([permission, 'enterprise_request.enterprise_requests.repair_approval']);
+    try {
+      await flushPromises(); await advance(); expect(request).toHaveBeenCalledTimes(2);
+      await f.wrapper.get('textarea').setValue('保持当前恢复原因'); pending.resolve(finalized); await flushPromises();
+      expect(f.wrapper.text()).toContain('等待流程启动回执');
+      expect((f.wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('保持当前恢复原因');
+      await advance(20000); expect(request).toHaveBeenCalledTimes(2);
+    } finally { f.wrapper.unmount(); }
+  });
+  it('切换单据中止自动请求，旧响应不替换新单据', async () => {
+    const pending = deferred<unknown>(); request.mockResolvedValueOnce(response).mockReturnValueOnce(pending.promise).mockResolvedValueOnce({ ...unbound, requestId: instanceId });
+    const f = fixture();
+    try {
+      await flushPromises(); await advance(); expect(request).toHaveBeenCalledTimes(2);
+      await f.wrapper.setProps({ requestId: instanceId }); await flushPromises();
+      expect(request.mock.calls[1]![2]?.aborted).toBe(true);
+      pending.resolve(finalized); await flushPromises(); await advance(20000);
+      expect(f.wrapper.text()).toContain('尚未提交审批'); expect(request).toHaveBeenCalledTimes(3);
+    } finally { f.wrapper.unmount(); }
+  });
+  it('自动读取期间切换租户，取消旧请求且旧终态不污染新租户', async () => {
+    const pending = deferred<unknown>(); request.mockResolvedValueOnce(response).mockReturnValueOnce(pending.promise).mockResolvedValueOnce(unbound);
+    const f = fixture();
+    try {
+      await flushPromises(); await advance(); expect(request).toHaveBeenCalledTimes(2);
+      f.session.currentUser = { ...f.session.currentUser!, tenantId: instanceId };
+      await flushPromises(); expect(request.mock.calls[1]![2]?.aborted).toBe(true);
+      pending.resolve(finalized); await flushPromises(); await advance(20000);
+      expect(f.wrapper.text()).toContain('尚未提交审批'); expect(request).toHaveBeenCalledTimes(3);
+      expect(f.wrapper.text()).not.toContain('审批结果已回写');
+    } finally { f.wrapper.unmount(); }
+  });
+  it('KeepAlive 停用取消自动查询，重新激活仅恢复当前代次', async () => {
+    const pending = deferred<unknown>(); request.mockResolvedValueOnce(response).mockReturnValueOnce(pending.promise)
+      .mockResolvedValueOnce(started).mockResolvedValue(finalized);
+    const { pinia } = createOutputSession([permission]); const show = ref(true);
+    const Other = defineComponent({ render: () => h('span', '其他页面') });
+    const Host = defineComponent({ setup: () => () => h(KeepAlive, null, { default: () => show.value ? h(Dialog, { requestId: outputId }) : h(Other) }) });
+    const wrapper = mount(Host, { global: { plugins: [pinia], stubs: { teleport: true } } });
+    try {
+      await flushPromises(); await advance(); expect(request).toHaveBeenCalledTimes(2);
+      show.value = false; await flushPromises(); expect(request.mock.calls[1]![2]?.aborted).toBe(true);
+      pending.resolve(finalized); await flushPromises(); await advance(20000); expect(request).toHaveBeenCalledTimes(2);
+      show.value = true; await flushPromises(); expect(request).toHaveBeenCalledTimes(3);
+      expect(wrapper.text()).toContain('流程已启动'); await advance(); expect(request).toHaveBeenCalledTimes(4);
+      expect(wrapper.text()).toContain('审批结果已回写'); await advance(20000); expect(request).toHaveBeenCalledTimes(4);
+    } finally { wrapper.unmount(); }
   });
 });

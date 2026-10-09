@@ -7,6 +7,7 @@ import { createEnterpriseRequestsApi, enterpriseRequestsHttp, enterpriseRequestP
   type EnterpriseRequestApprovalProgressResponse } from '../../api/enterprise-requests';
 import { useSessionStore } from '../../auth/session';
 import { useAuthorizedViewScope } from '../../composables/useAuthorizedViewScope';
+import { useTaskStatusRefresh } from '../../composables/useTaskStatusRefresh';
 import { useAdminI18n } from '../../i18n/adminI18n';
 
 const props = defineProps<{ requestId: string }>();
@@ -18,6 +19,7 @@ const api = createEnterpriseRequestsApi(enterpriseRequestsHttp);
 const progress = ref<EnterpriseRequestApprovalProgressResponse>();
 const problem = ref<FullNetProblemDetails>();
 const loading = ref(false);
+const refreshing = ref(false);
 const repairInstanceId = ref('');
 const repairReason = ref('');
 const repairing = ref(false);
@@ -31,38 +33,52 @@ const canOpenInbox = computed(() => canRead.value && session.can('notifications.
 let currentRequest: ReturnType<typeof scope.begin>;
 const scope = useAuthorizedViewScope(session, reset, load);
 
+// 只跟踪尚未回写的审批；人工恢复草稿优先，后台刷新不能覆盖正在编辑的输入。
+useTaskStatusRefresh(() => canRead.value && !problem.value && !repairing.value
+  && (progress.value?.deliveryState === 'queued' || progress.value?.deliveryState === 'started')
+  && repairReason.value === '' && repairInstanceId.value === (progress.value?.workflowInstanceId ?? ''),
+async current => { await fetchProgress(true, current); });
+
 function reset(): void {
   progress.value = undefined; problem.value = undefined; loading.value = false;
+  refreshing.value = false;
   currentRequest = undefined;
   repairInstanceId.value = ''; repairReason.value = ''; repairing.value = false;
 }
 watch(() => props.requestId, () => { scope.invalidate(); void load(); }, { flush: 'sync' });
 
 async function load(): Promise<void> {
-  if (!canRead.value || loading.value || repairing.value) return;
+  await fetchProgress(false);
+}
+async function fetchProgress(background: boolean, current: () => boolean = () => true): Promise<void> {
+  if (!canRead.value || loading.value || refreshing.value || repairing.value) return;
   const request = scope.begin(enterpriseRequestPermissions.read);
   if (!request) return;
   currentRequest = request;
   const id = props.requestId;
-  loading.value = true; progress.value = undefined; problem.value = undefined;
+  if (background) refreshing.value = true;
+  else { loading.value = true; progress.value = undefined; problem.value = undefined; }
   try {
     const value = await api.approvalProgress(id, request.signal);
-    if (request.current() && id === props.requestId) {
+    if (request.current() && id === props.requestId && current()) {
       progress.value = value; repairInstanceId.value = value.workflowInstanceId ?? ''; repairReason.value = '';
     }
   } catch (error: unknown) {
-    if (!request.current() || id !== props.requestId) return;
+    if (!request.current() || id !== props.requestId || !current()) return;
+    progress.value = undefined; repairInstanceId.value = ''; repairReason.value = '';
     problem.value = isFullNetProblemDetails(error) ? error : {
       status: 500, code: 'client.enterprise_request_approval_progress_load_failed', title: t('enterpriseRequests.progressLoadFailed')
     };
   } finally {
-    if (request.current() && id === props.requestId) loading.value = false;
     request.finish();
-    if (currentRequest === request) currentRequest = undefined;
+    // 只释放本次查询的加载态，隐藏页面或草稿变化可以使刷新票据失效而不改变请求归属。
+    if (currentRequest === request) {
+      loading.value = false; refreshing.value = false; currentRequest = undefined;
+    }
   }
 }
 async function repair(): Promise<void> {
-  if (!canRepair.value || !validRepair.value || repairing.value || !progress.value) return;
+  if (!canRepair.value || !validRepair.value || repairing.value || refreshing.value || !progress.value) return;
   const request = scope.begin(enterpriseRequestPermissions.repairApproval);
   if (!request) return;
   const id = props.requestId;
@@ -138,8 +154,8 @@ function time(value: string | null | undefined): string {
     </div>
     <template #footer>
       <el-button v-if="canOpenInbox" @click="openInbox">{{ t('enterpriseRequests.openInbox') }}</el-button>
-      <el-button v-if="canRepair" :loading="repairing" :disabled="!validRepair || repairing" @click="repair">{{ t('enterpriseRequests.repairApproval') }}</el-button>
-      <el-button v-if="canRead" :loading="loading" :disabled="repairing" @click="load">{{ t('common.refresh') }}</el-button>
+      <el-button v-if="canRepair" :loading="repairing" :disabled="!validRepair || repairing || refreshing" @click="repair">{{ t('enterpriseRequests.repairApproval') }}</el-button>
+      <el-button v-if="canRead" :loading="loading || refreshing" :disabled="repairing || refreshing" @click="load">{{ t('common.refresh') }}</el-button>
       <el-button @click="close">{{ t('common.cancel') }}</el-button>
     </template>
   </el-dialog>
