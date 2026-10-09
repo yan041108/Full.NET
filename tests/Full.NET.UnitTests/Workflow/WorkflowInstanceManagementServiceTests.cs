@@ -28,6 +28,46 @@ namespace Full.NET.UnitTests.Workflow;
 [TestClass]
 public sealed class WorkflowInstanceManagementServiceTests
 {
+    /// <summary>故障暂停后允许在无活动待办时受控取消；活动实例缺待办仍拒绝，日志保留真实前态。</summary>
+    [TestMethod]
+    [DataRow("suspended", false, true)]
+    [DataRow("suspended", true, true)]
+    [DataRow("active", false, false)]
+    public async Task Cancel_handles_missing_work_only_for_suspended_instances(string status, bool hasWork, bool succeeds)
+    {
+        var instanceId = Guid.CreateVersion7();
+        var actorId = Guid.CreateVersion7();
+        var query = CreateQuery(instanceId, actorId, status, 3, Guid.CreateVersion7(), receipt: null);
+        if (!hasWork)
+            query.QuerySingleOrDefaultAsync<WorkflowActiveWorkRecord>(WorkflowSql.FindActiveWorkByInstance,
+                Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns((WorkflowActiveWorkRecord?)null);
+        var command = Substitute.For<ICommandExecutor>();
+        command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var outbox = Substitute.For<IOutboxWriter>();
+        var result = await CreateService(query, command, actorId, outbox).CancelAsync(instanceId, actorId,
+            new CancelWorkflowInstanceRequest(3, "运行失败后取消", "cancel-failed"));
+        Assert.AreEqual(succeeds, result.IsSuccess, result.Error?.Code);
+        if (!succeeds)
+        {
+            Assert.AreEqual(WorkflowErrorCodes.RevisionConflict, result.Error!.Code);
+            Assert.AreEqual(0, command.ReceivedCalls().Count());
+            Assert.AreEqual(0, outbox.ReceivedCalls().Count());
+            return;
+        }
+        Assert.AreEqual("cancelled", result.Value!.StatusKey);
+        Assert.AreEqual(4, result.Value.Revision);
+        Assert.IsNull(result.Value.ActiveTodoId);
+        var log = command.ReceivedCalls().Single(call => Equals(call.GetArguments()[0], WorkflowSql.InsertExecutionLog));
+        var parameters = (Dictionary<string, object?>)log.GetArguments()[1]!;
+        Assert.AreEqual(status, parameters["FromStatusKey"]);
+        Assert.AreEqual(1, outbox.ReceivedCalls().Count());
+        await command.Received().ExecuteAsync(WorkflowSql.CancelAllActiveStepsByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await command.Received().ExecuteAsync(WorkflowSql.CancelPendingApprovalSlotsByInstance,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        if (!hasWork)
+            await command.DidNotReceive().ExecuteAsync(WorkflowSql.CancelTodoWithRevision, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
     /// <summary>暂停只改实例状态，必须保留原活动待办且不得写入通知。</summary>
     [TestMethod]
     public async Task Pause_keeps_the_original_todo_and_does_not_publish_notifications()

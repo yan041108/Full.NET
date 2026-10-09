@@ -4519,6 +4519,18 @@
       ]
     },
     {
+      "statementName": "workflow.approval_slot.cancel_pending_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelPendingApprovalSlotsByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "仅在同一本地事务内通过可信 TenantScopeKey 与修订号取消实例成功后，关闭该实例全部未决席位；保留既有投票。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "InstanceId = @InstanceId",
+        "DecisionKey IS NULL"
+      ]
+    },
+    {
       "statementName": "workflow.approval_slot.cancel_pending_by_step",
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelPendingApprovalSlotsByStep",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",

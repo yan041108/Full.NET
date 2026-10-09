@@ -268,19 +268,33 @@ public sealed class GlobalSqlStatementCatalogTests
             .ToArray();
     }
 
-    private static SqlStatementDeclaration[] ReadProductionGlobalStatements(string root) =>
-        SqlStatementAssemblies
+    private static SqlStatementDeclaration[] ReadProductionGlobalStatements(string root)
+    {
+        // 同轮类型的全部语句共用已验证路径；每轮新建缓存，避免沿用其他目录或旧源码的解析结果。
+        var sourceFiles = new Dictionary<Type, string>();
+        return SqlStatementAssemblies
             .Distinct()
             .SelectMany(GetLoadableTypes)
-            .SelectMany(type => ReadSqlStatements(root, type))
+            .SelectMany(type => ReadSqlStatements(type, SourceFile))
             .Where(item => item.Statement.Scope == SqlDataScope.Global)
             .OrderBy(item => item.Statement.Name, StringComparer.Ordinal)
             .ThenBy(item => item.Declaration, StringComparer.Ordinal)
             .ToArray();
 
+        string SourceFile(Type type)
+        {
+            if (!sourceFiles.TryGetValue(type, out var file))
+            {
+                file = ResolveSourceFile(root, type);
+                sourceFiles.Add(type, file);
+            }
+            return file;
+        }
+    }
+
     private static IEnumerable<SqlStatementDeclaration> ReadSqlStatements(
-        string root,
-        Type type)
+        Type type,
+        Func<Type, string> sourceFile)
     {
         const BindingFlags Flags = BindingFlags.Public
             | BindingFlags.NonPublic
@@ -294,7 +308,7 @@ public sealed class GlobalSqlStatementCatalogTests
             {
                 yield return new SqlStatementDeclaration(
                     $"{FormatDeclarationPrefix(type)}.{field.Name}",
-                    ResolveSourceFile(root, type),
+                    sourceFile(type),
                     statement);
             }
         }
@@ -307,7 +321,7 @@ public sealed class GlobalSqlStatementCatalogTests
             {
                 yield return new SqlStatementDeclaration(
                     $"{FormatDeclarationPrefix(type)}.{property.Name}",
-                    ResolveSourceFile(root, type),
+                    sourceFile(type),
                     statement);
             }
         }

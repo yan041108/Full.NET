@@ -1102,6 +1102,24 @@ Files 增加可选上传 owner 契约，原消费者保持兼容。对象上传�
 
 F10通知子项完成本次集中收口；自动Vue闭环已通过，人工页面确认仍待完成。结果回写总项继续待验收：Workflow运行任务失败/耗尽可使实例suspended，尚须把该状态与真实企业申请绑定，验证申请版本、回执以及后续恢复/取消；已有启动端口异常不替代运行中实例失败。完整业务Native、精准强杀窗口及容量不由本批外推。仅提交推送指定开发分支，合并与发布另行约定。
 
+#### 2026-10-10 运行故障暂停与无待办取消
+
+基线 `e1b8149495a897a26bfa54cbdd6535edcf8654a5`，快照 `f10-bound-runtime-failure-20261010`。真实 Recovery Worker 在活动待办缺失且重试耗尽后把已绑定申请的实例置为 suspended。原取消服务仍要求活动待办，导致这种故障状态无法受控退出；原取消日志还把 suspended 前态写成 active。回归测试先复现两项失败，再保留活动实例缺待办时的拒绝行为，仅允许暂停实例以可信租户实例及修订号的 CAS 为取消锚点。
+
+有活动待办时沿用原个人待办、审批席位和步骤的修订保护；无待办时不创建替代待办或步骤。实例取消成功后在同一原事务中关闭全部未决席位、活动步骤、待办和等待汇合，保留已提交投票；动作及日志允许空步骤/待办引用，取消日志使用真实前态。可靠取消事件仍与终态同事务发布，公开权限、请求幂等及旧版本冲突保持原边界。新增子表 SQL 已在精确全局清单登记可信租户实例 CAS 的前置条件，未扩大 Global 语句作用域。
+
+新增双库夹具先真实启动申请，再在独占库构造待办完成后未推进的故障及未决/已决席位残留，由实际 Recovery HostedProcessor 耗尽重试产生暂停。核对申请仍为 Submitted、版本/绑定/启动回执不变、三个终态事件为零、终态通知为空；缺待办的公开恢复返回409，旧版本取消返回409。相同取消请求重放两次，真实 Enterprise/Notifications 终态 fanout 重投三次，要求业务仅加一个版本、只有一份意图与站内信、未决席位全部关闭且原投票不变。席位遗漏经只读复审发现、补失败回归后修复。
+
+同批优化 SQL 清单架构测试：同一轮检查内按声明类型复用源码文件定位，每轮重新创建缓存，保留源码歧义、全局语句及清单完整性检查。完整 Architecture 232项在本机前后两次运行均零失败/跳过，耗时由142.174秒降至70.870秒；这是单轮本地比较，不是容量结论，证据分别为 `.tmp/f10-runtime-bound-architecture-before-lookup-cache.log` 与 `.tmp/f10-runtime-bound-architecture-after-lookup-cache.log`。最终夹具修正后的完整复验232/232，73.509秒。
+
+最终相关 Unit 827/827、完整 Architecture 232/232、API AOT/Trim 分析零警告/错误、矩阵选择器工具59/59、最终文档治理59/59通过。Unit入口为 `node scripts/testing/run-dotnet-test-suite.mjs unit --filter 'FullyQualifiedName~Full.NET.UnitTests.Notifications.|FullyQualifiedName~Full.NET.UnitTests.Workflow.|FullyQualifiedName~Full.NET.UnitTests.EnterpriseRequest.' --minimum-expected-tests 827 --reuse-build`；Architecture入口为 `node scripts/testing/run-dotnet-test-suite.mjs architecture --reuse-build`。AOT分析完成后仅修改架构测试辅助代码、集成夹具和文档，生产源码保持一致，复用该分析证据；不宣称完成原生运行。分片发现1220项无遗漏/重复，仅为发现证据。
+
+双库首轮16项为14通过、2失败、零跳过，实际执行424.389秒；之前约18分钟为同机资源排队，单独计时。两项新用例已成功取消，但终态仍为Started：夹具错误地从API作用域取消费者，漏掉仅在Worker注册的Enterprise结果Sink。修正为真实Recovery Worker停止后、宿主尚未释放的新异步作用域，核对Enterprise/Notifications各一个Sink，使用实际注册的唯一终态Handler，并核对其Host租户上下文恢复；不扩大API后台消费者注册。只读复审无剩余P1/P2。
+
+夹具修正后的两项新场景及两库既有Workflow生命周期用例集中复验4/4，零失败/跳过，162.217秒。已有14项的测试与共享实现输入未变，通过精确补丁反向摘要及原始TRX/UID核对复用；合并覆盖18个不同用例（申请16、共享生命周期2），不是单轮18项。原失败结果未删改，两次自有数据库、Redis与Ryuk会话均已核对清理。数据库执行使用当前Release Integration DLL，先 `--list-tests json` 冻结发现UID，再 `--filter-uid` 执行并生成TRX；实际完整命令、分组UID及计数在 `.tmp/f10-runtime-bound-receipt.json`，原始结果为 `.tmp/f10-runtime-bound-terminal-red.log` 与 `.tmp/f10-runtime-bound-tests.log`，复用证据为 `.tmp/f10-runtime-bound-reuse-evidence.json`，最终输入为 `.tmp/f10-runtime-bound-frozen-input.json`。首次Architecture因新增语句未登记清单失败，保留失败日志并补精确声明后完整复验通过，没有降低门槛。
+
+F10 仍待集中关闭：合法活动待办的绑定申请恢复后继续审批、人工页面确认和完整业务原生运行尚未由本批证明。基线提交的 API/Worker Native 工作流因 Docker Hub 未认证拉取限流失败，未进入相应业务断言，不能计为原生通过；基线主 CI 的428项影响集为418通过、10失败、零跳过，失败均发生于镜像准备（4项限流、6项registry认证请求超时），不作为本批验收证据。镜像拉取路径修复列入后续基础设施批次，失败日志保留 `.tmp/f10-prior-ci-37988856315.log` 和 `.tmp/f10-prior-native-*.log`。容量保持 `Capacity-not-verified`，合并与发布另行约定。
+
 #### 2026-10-10 启动故障矩阵与停止边界
 
 基线 0c03d768f3704ddbc9d1d51185275b5cfc874132，快照 f10-start-fault-matrix-20261010。本批先完成审批启动、启动回执及事件租户恢复的关联回归，再集中验证。启动处理器和有效终态消费者现在在读取、建立租户作用域或写成功回执前检查停止令牌；不能依赖后续 Port/数据适配器才响应取消。修改前两项前置取消测试均因为没有抛出取消异常而失败；修复后保留原取消令牌，可靠消息仍可由新投递重放。事件格式、公开 API、SQL、数据库结构及跨模块事务边界不变。

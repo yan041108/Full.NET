@@ -7,6 +7,14 @@ namespace Full.NET.IntegrationTests.Api;
 public sealed class EnterpriseRequestApiSqlServerTests
 {
     [TestMethod]
+    public async Task Bound_runtime_failure_preserves_submission_and_cancels_idempotently()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await EnterpriseRequestAssertions.VerifyBoundRuntimeFailureAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Enterprise_security_matrix_preserves_scope_ownership_and_concurrent_version()
     {
         using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer, await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),

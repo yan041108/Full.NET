@@ -7,6 +7,14 @@ namespace Full.NET.IntegrationTests.Api;
 public sealed class EnterpriseRequestApiMySqlTests
 {
     [TestMethod]
+    public async Task Bound_runtime_failure_preserves_submission_and_cancels_idempotently()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await EnterpriseRequestAssertions.VerifyBoundRuntimeFailureAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Enterprise_security_matrix_preserves_scope_ownership_and_concurrent_version()
     {
         using var factory = new FullNetApiFactory(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
