@@ -17,7 +17,7 @@ const requestsPath = '/api/v1/enterprise_request/enterprise-requests';
 
 // 业务操作由生成应用的实际 Vue 完成；HTTP 只建立所属模块夹具和回读权威结果。
 export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDirectory,
-  { port, signal, startWorker, stopWorker }) {
+  { port, signal, startWorker, stopWorker, crashWorker }) {
   const origin = 'http://localhost:' + port;
   const evidence = { completed: false, responses: [], fixtureResponses: [], accessibility: [], requests: [] };
   const execute = (stage, args) => {
@@ -188,7 +188,15 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     }
     evidence.queuedWithoutWorker = true; stage = 'start-worker'; await startWorker();
     const instances = new Map();
-    for (const request of [approved, rejected, cancelled]) {
+    // 首条启动已落库后直接终止进程；不假定其他消息恰好处于某个指令边界。
+    const firstStarted = await poll(() => progress(approved.id), value => value.deliveryState === 'started', 'first approval start');
+    stage = 'crash-after-start'; await crashWorker(); evidence.workerCrashedAfterStart = true;
+    assert.equal((await progress(approved.id)).workflowInstanceId, firstStarted.workflowInstanceId);
+    // 进程退出期间新提交的意图必须仍然可读，后续独立进程负责恢复。
+    const crashQueued = await create('Cancelled'); await submit(crashQueued);
+    assert.equal((await progress(crashQueued.id)).deliveryState, 'queued');
+    stage = 'restart-after-start-crash'; await startWorker();
+    for (const request of [approved, rejected, cancelled, crashQueued]) {
       const started = await poll(() => progress(request.id), value => value.deliveryState === 'started', 'approval start');
       const instance = await send('/api/v1/workflow/instances/' + started.workflowInstanceId);
       assert.equal(instance.statusKey, 'active'); assert.equal(instance.businessId, request.id); assert.ok(instance.activeTodoId);
@@ -231,8 +239,14 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     const cancelResult = await action('/api/v1/workflow/instances/' + cancelInstance.id + '/cancel', 'POST',
       () => page.locator('.el-message-box').getByRole('button', { name: '取消实例', exact: true }).click());
     assert.equal(cancelResult.statusKey, 'cancelled'); assert.equal((await progress(cancelled.id)).requestStatus, 'Submitted');
+    stage = 'cancel-crash-queued'; const recoveredInstance = instances.get(crashQueued.id); await openInstance(recoveredInstance.id);
+    await page.getByTestId('workflow-instance-cancel').click();
+    await action('/api/v1/workflow/instances/' + recoveredInstance.id + '/cancel', 'POST',
+      () => page.locator('.el-message-box').getByRole('button', { name: '取消实例', exact: true }).click());
+    assert.equal((await progress(crashQueued.id)).requestStatus, 'Submitted');
     stage = 'restart-worker'; await startWorker();
-    for (const request of [approved, rejected, cancelled]) {
+    const terminalRequests = [approved, rejected, cancelled, crashQueued];
+    for (const request of terminalRequests) {
       const expected = evidence.requests.find(item => item.id === request.id).outcome;
       const final = await poll(() => progress(request.id), value => value.deliveryState === 'finalized', 'business outcome');
       assert.equal(final.requestStatus, expected); assert.ok(final.completedAtUtc); assert.equal(final.workflowInstanceId, instances.get(request.id).id);
@@ -240,26 +254,48 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     }
     evidence.durableOutcomeRecovered = true;
     const inbox = () => send('/api/v1/notifications/my-inbox-messages?page=1&pageSize=100');
-    const terminalTitles = new Map([[approved.id, '审批已完成'], [rejected.id, '审批已驳回'], [cancelled.id, '审批已取消']]);
-    stage = 'notification'; const messages = await poll(inbox, page => [approved, rejected, cancelled].every(request =>
+    const terminalTitles = new Map([[approved.id, '审批已完成'], [rejected.id, '审批已驳回'], [cancelled.id, '审批已取消'], [crashQueued.id, '审批已取消']]);
+    stage = 'notification'; const messages = await poll(inbox, page => terminalRequests.every(request =>
       page.items.some(item => item.title === terminalTitles.get(request.id) && item.content?.includes(request.id))), 'business notifications');
-    for (const request of [approved, rejected, cancelled]) assert.equal(messages.items.filter(item =>
+    for (const request of terminalRequests) assert.equal(messages.items.filter(item =>
       item.title === terminalTitles.get(request.id) && item.content?.includes(request.id)).length, 1);
+    stage = 'notification-progress';
+    for (const request of terminalRequests) {
+      const settled = await poll(() => progress(request.id), value => value.finalNotification != null
+        && value.finalNotification.pendingDeliveryCount === 0, 'final notification receipt');
+      assert.equal(settled.finalNotification.failedDeliveryCount, 0);
+      assert.equal(settled.finalNotification.deadLetteredDeliveryCount, 0);
+      assert.equal(settled.finalNotification.unknownDeliveryCount, 0);
+      assert.equal(settled.finalNotification.otherDeliveryCount, 0);
+      assert.ok(settled.finalNotification.totalDeliveryCount > 0);
+      evidence.requests.find(item => item.id === request.id).finalNotification = settled.finalNotification;
+    }
+    await page.goto(origin + '/#/enterprise-requests');
+    await view.locator('.el-table__row').filter({ hasText: approved.requestNumber }).getByRole('button', { name: '审批进度', exact: true }).click();
+    const progressDialog = page.getByRole('dialog', { name: '审批进度', exact: true });
+    await expect(progressDialog.getByTestId('notification-pending')).toHaveText('0');
+    await expect(progressDialog.getByTestId('notification-failed')).toHaveText('0');
+    await audit('approval-notification-progress', '[role="dialog"][aria-label="审批进度"]');
+    await page.screenshot({ path: join(reportDirectory, 'approval-notification-progress.png'), fullPage: true });
+    await progressDialog.getByRole('button', { name: '取消', exact: true }).click(); evidence.notificationProgressViewed = true;
     const message = messages.items.find(item => item.title === terminalTitles.get(approved.id) && item.content?.includes(approved.id)); assert.ok(message);
     await page.goto(origin + '/#/notifications/inbox-messages');
     const messageRow = page.locator('.inbox-messages-data-table .el-table__row').filter({ hasText: message.content });
     await expect(messageRow).toHaveCount(1); await messageRow.click();
     await expect(page.getByTestId('inbox-messages-detail-drawer')).toContainText(approved.id); evidence.notificationViewed = true;
     await page.screenshot({ path: join(reportDirectory, 'approval-inbox.png'), fullPage: true });
-    stage = 'restart-idempotency'; const messageIds = messages.items.map(item => item.id).sort(); await stopWorker(); await startWorker();
+    stage = 'restart-idempotency'; const messageIds = messages.items.map(item => item.id).sort(); await crashWorker(); await startWorker();
     await sleep(2500, undefined, { signal });
     assert.deepEqual((await inbox()).items.map(item => item.id).sort(), messageIds, 'restart duplicated notifications');
-    for (const request of [approved, rejected, cancelled]) {
+    for (const request of terminalRequests) {
       const final = await progress(request.id); assert.equal(final.requestVersion, evidence.requests.find(item => item.id === request.id).finalVersion);
       assert.equal(final.workflowInstanceId, instances.get(request.id).id);
+      const receipt = evidence.requests.find(item => item.id === request.id).finalNotification;
+      assert.equal(final.finalNotification.intentId, receipt.intentId);
+      assert.equal(final.finalNotification.totalDeliveryCount, receipt.totalDeliveryCount);
     }
     const list = await send('/api/v1/workflow/instances?page=1&pageSize=100&definitionKey=' + definitionKey);
-    for (const request of [approved, rejected, cancelled]) assert.equal(list.items.filter(item => item.businessId === request.id).length, 1);
+    for (const request of terminalRequests) assert.equal(list.items.filter(item => item.businessId === request.id).length, 1);
     evidence.restartStable = true; evidence.completed = true; return evidence;
   } catch (error) {
     failed = true; evidence.failureKind = error?.name ?? 'Error'; evidence.error = stage + ': generated approval browser acceptance failed';

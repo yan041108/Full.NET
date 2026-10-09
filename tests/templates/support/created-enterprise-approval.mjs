@@ -12,6 +12,7 @@ import { startDatabaseContainer, startRedisContainer, buildSharedEnv, runDotnet 
 import { verifyEnterpriseApprovalBrowser } from './application-enterprise-approval-browser.mjs';
 import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 import { waitForApi } from '../../e2e/admin-real-stack/scripts/wait-for-api.mjs';
+import { crashLoggedWorker } from './worker-crash-lifecycle.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 async function freePort() {
@@ -85,8 +86,13 @@ export async function verifyCreatedEnterpriseApproval(provider, { signal } = {})
     const stopWorker = async () => {
       assert.ok(worker && !worker.stopped); await stopLoggedProcess(worker.child, worker.stream); worker.stopped = true;
     };
+    const crashWorker = async () => {
+      assert.ok(worker && processes.includes(worker) && !worker.stopped);
+      const receipt = await crashLoggedWorker(worker.child, worker.stream); worker.stopped = true;
+      (report.workerCrashes ??= []).push(receipt);
+    };
     report.browser = await verifyEnterpriseApprovalBrowser(appRoot, apiUrl, root,
-      { port: browserPort, signal, startWorker, stopWorker });
+      { port: browserPort, signal, startWorker, stopWorker, crashWorker });
     for (const { child, stopped } of processes) if (!stopped) { assert.equal(child.exitCode, null); assert.equal(child.signalCode, null); }
     report.completed = true; return report;
   } catch (error) {
