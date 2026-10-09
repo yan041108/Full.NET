@@ -24,6 +24,8 @@ internal sealed class EnterpriseRequestWorkflowOutcomeService(
             !EnterpriseRequestStatusTransition.IsTerminal(targetStatus) ||
             instanceId == Guid.Empty || tenantId is null || tenantId == Guid.Empty || messageId == Guid.Empty)
             return;
+        // 已取消的有效业务投递必须保持可重放，不建立作用域、不读取或提交成功回执。
+        cancellationToken.ThrowIfCancellationRequested();
         // 已经由 Worker 校验的事件元数据用于恢复租户；事务内不跨模块解析租户。
         using var scope = new EnterpriseRequestEventTenantScope(tenantWriter,
             new TenantContext(tenantId.Value, tenantId.Value.ToString("D"), tenantId.Value.ToString("D")));

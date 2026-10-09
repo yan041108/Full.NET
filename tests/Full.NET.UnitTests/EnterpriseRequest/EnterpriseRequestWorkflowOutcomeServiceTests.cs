@@ -213,6 +213,17 @@ public sealed class EnterpriseRequestWorkflowOutcomeServiceTests
         { RollbackToken = cancellationToken; return base.RollbackAsync(cancellationToken); }
     }
 
+    [TestMethod]
+    public async Task Pre_cancelled_outcome_has_no_reads_writes_or_transaction()
+    {
+        var f = new Fixture(); using var stop = new CancellationTokenSource(); stop.Cancel();
+        var error = await Assert.ThrowsAsync<OperationCanceledException>(() => f.Deliver(cancellationToken: stop.Token));
+        Assert.AreEqual(stop.Token, error.CancellationToken);
+        Assert.AreEqual(0, f.Queries.ReceivedCalls().Count()); Assert.AreEqual(0, f.Commands.ReceivedCalls().Count());
+        Assert.AreEqual(0, f.Coordinator.BeginCount); Assert.AreEqual(0, f.Coordinator.CommitCount);
+        Assert.AreEqual(0, f.Tenant.ReceivedCalls().Count(call => call.GetMethodInfo().Name is "SetTenant" or "SetHost" or "Clear"));
+    }
+
     private sealed class Fixture
     {
         internal readonly Guid Instance = Guid.CreateVersion7(), Message = Guid.CreateVersion7();

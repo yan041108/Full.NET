@@ -34,6 +34,8 @@ internal sealed class EnterpriseRequestApprovalSubmittedHandler(
 
     public async Task HandleAsync(IntegrationEventContext context, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
+        // 停止信号在入口生效，不能依赖后续数据或契约端口才终止当前投递。
+        cancellationToken.ThrowIfCancellationRequested();
         // 现阶段使用 Legacy Outbox；禁止在 Inbox 本地事务内调用 Workflow 写端口。
         if (transactionState.HasTransaction || context.TenantId is not { } tenantId || tenantId == Guid.Empty ||
             context.MessageId == Guid.Empty || context.MessageType != EventType || context.SchemaVersion != SchemaVersion)

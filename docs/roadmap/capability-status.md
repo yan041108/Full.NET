@@ -1,12 +1,14 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-10-10（本轮收口 Enterprise 终态通知投递进度，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-10-10（本轮补齐 Enterprise 启动故障矩阵与停止边界，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 > 2026-09-16 规划增补：已纳入[八项底座完善能力及七类收口重点](adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)，执行见[唯一总计划](../superpowers/plans/2026-09-16-foundation-productization.md)。本次未重新认证下表的实现状态；部分历史条目落后于专项记录，F00 将逐项核对。工作区其他改动不作为能力完成证据。
 
 Enterprise 的通知历史重投已优先核对受理快照，当前模板未发布仍可幂等恢复；终态双消费者竞争与通知独立消费通过本地双库完整影响集，见[通知快照与终态竞争证据](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-09-申请通知快照重放与终态竞争加固)。终态通知投递进度已在本地本批收口；完整故障矩阵、独立应用整批集中验收和人工页面仍待完成，状态保持 `Build-verified`。
 
 2026-10-10 审批进度页已提供串行自动刷新、后台暂停、恢复草稿保护与撤权/租户隔离；相关前端 106/106、类型/生产构建/预算与 Chrome 模拟接口检查通过；新增 12 项结果故障回归，相关服务端 Unit 745/745 通过，取消和事务变异验证有效。独立应用、完整故障矩阵及人工页面不据此提升，Enterprise 保持 Build-verified、Capacity-not-verified，见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-审批进度刷新与结果故障回归)。
+
+2026-10-10 启动故障矩阵新增28项，提前取消投递现在在任何读取/作用域切换/写入前终止，固定实例重试、回执竞争及原上下文恢复已通过本地Unit824、架构232和完整Enterprise双库14项集中验证，见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-启动故障矩阵与停止边界)。整批独立应用、完整Worker故障/重启、人工页面与本批Native发布仍待验收。
 
 2026-10-10 终态通知已通过所有者只读 Port、服务端/前端/SDK 和双库影响集集中验证；审批结果与通知未受理、等待投递和各终态分别展示。实际命令及验证范围见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-终态通知投递进度与集中验证)。独立应用、完整故障矩阵、人工页面和本批 Native 发布继续待验收。
 
