@@ -66,10 +66,10 @@ test('离开数据源页取消详情读取，迟到凭据不能弹出；再次�
   });
   await page.goto('/#/reporting/data-sources'); await page.getByTestId('reporting-data-source-edit').click();
   await expect.poll(() => reads).toBe(1);
-  await page.getByRole('menuitem', { name: '报表管理', exact: true }).click();
+  await page.getByRole('menuitem', { name: '报表定义', exact: true }).click();
   await expect(page).toHaveURL(/reporting\/definitions/u); release(); await expect.poll(() => finished).toBe(true);
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.getByRole('menuitem', { name: '数据源管理', exact: true }).click();
+  await page.getByRole('menuitem', { name: '报表数据源', exact: true }).click();
   await page.getByTestId('reporting-data-source-edit').click(); await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('dialog').locator('.el-form-item').filter({ has: page.locator('label').filter({ hasText: /^名称$/u }) }).locator('input')).toHaveValue(source.name);
   await expect(page.getByRole('dialog').locator('input[type=password]')).toHaveValue('');
