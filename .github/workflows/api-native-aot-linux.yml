@@ -63,6 +63,9 @@ jobs:
           restore-keys: |
             nuget-${{ runner.os }}-
 
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
+
       - name: Restore solution
         run: dotnet restore Full.NET.slnx
 

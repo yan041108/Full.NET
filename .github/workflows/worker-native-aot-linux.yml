@@ -47,6 +47,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
+
       - run: dotnet restore Full.NET.slnx
       - name: Verify Worker Native AOT analyzers
         run: pnpm test:aot:worker:analyzers

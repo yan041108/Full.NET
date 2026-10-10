@@ -57,6 +57,9 @@ jobs:
       - name: Verify real-stack bootstrap helpers
         run: pnpm test:e2e:provisioner
 
+      - name: Verify CI image preparation contracts
+        run: node --test tests/testing/prepare-ci-test-images.test.mjs
+
       - name: Setup Helm
         uses: azure/setup-helm@v4
         with:
@@ -142,6 +145,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs --include-mysql-8.4
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -180,6 +186,9 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -219,6 +228,9 @@ jobs:
           node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs --redis-only
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -263,6 +275,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -305,6 +320,9 @@ jobs:
           node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs --redis-only
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -350,6 +368,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
 
       - uses: pnpm/action-setup@v4
         with:
@@ -427,6 +448,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
       - uses: pnpm/action-setup@v4
         with:
           version: 10.26.0
@@ -494,6 +518,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
 
       - uses: actions/setup-dotnet@v4
         with:

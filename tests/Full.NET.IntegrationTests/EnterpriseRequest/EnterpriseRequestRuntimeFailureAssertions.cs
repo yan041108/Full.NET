@@ -221,6 +221,9 @@ internal static partial class EnterpriseRequestAssertions
             AND m.RecipientUserId = @RecipientId
             """, new { tenantScopeKey, notificationKey, RecipientId = binding.SubmittedById }));
 
+        // 复用同一个独占库和 Worker 服务提供程序，补齐有效待办恢复路径而不增加建库和容器启动。
+        await VerifyBoundPausedRecoveryAndApprovalAsync(client, token, organizationUnitId, connection, worker.Services, ct);
+
         async Task AssertUnfinalized()
         {
             var progress = await ReadProgress(client, token, submitted.Id, ct);
