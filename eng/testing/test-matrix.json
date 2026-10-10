@@ -7,6 +7,10 @@
       "minimum": 5678,
       "timeout": "10m",
       "selections": {
+        "native-migrator-process": {
+          "filter": "FullyQualifiedName~NativeMigratorProcessTests",
+          "minimum": 8
+        },
         "workflow-timeout": {
           "filter": "FullyQualifiedName~WorkflowTodoTimeoutProcessorTests",
           "minimum": 7

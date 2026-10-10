@@ -1,5 +1,6 @@
 <Project Sdk="MSTest.Sdk">
   <ItemGroup>
+    <Compile Include="../Shared/Testing/NativeMigratorProcess.cs" Link="Testing/NativeMigratorProcess.cs" />
     <Compile Include="../Shared/CodeGeneration/GeneratedMigrationRecoveryFixture.cs" Link="CodeGeneration/GeneratedMigrationRecoveryFixture.cs" />
   </ItemGroup>
   <PropertyGroup>
@@ -25,6 +26,8 @@
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Api\Full.NET.Host.Api.csproj" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.LogConsumer\Full.NET.Host.LogConsumer.csproj" Aliases="consumerhost" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Worker\Full.NET.Host.Worker.csproj" Aliases="workerhost" />
+    <!-- 原生用例复用此构建复制的 JIT Migrator，禁止逐例隐式编译。 -->
+    <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Migrator\Full.NET.Host.Migrator.csproj" Aliases="migratorhost" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Notifications.Contracts\Full.NET.Modules.Notifications.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.CodeGeneration\Full.NET.Modules.CodeGeneration.csproj" />

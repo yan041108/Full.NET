@@ -36,6 +36,27 @@ test('相同源码和 Release 产物只构建一次，测试筛选变化不重�
   assert.equal(f.builds(), 1);
 });
 
+test('同输出目录中的 Migrator DLL、依赖图与运行配置变动会使构建记录失效', async t => {
+  const f = await fixture(t);
+  const files = ['dll', 'deps.json', 'runtimeconfig.json'].map(extension =>
+    path.join(f.cwd, 'bin/Release', `Full.NET.Host.Migrator.${extension}`));
+  const build = async () => {
+    await f.options.build();
+    for (const file of files) await writeFile(file, 'migrator-output');
+  };
+  await f.run({ build });
+  assert.equal((await f.run({ build })).reused, true);
+  for (const file of files) {
+    await writeFile(file, 'changed');
+    await assert.rejects(f.run({ mode: 'verify', build }), /构建|产物/);
+    assert.equal((await f.run({ build })).reused, false);
+    await rm(file);
+    await assert.rejects(f.run({ mode: 'verify', build }), /构建|产物/);
+    assert.equal((await f.run({ build })).reused, false);
+  }
+  assert.equal(f.builds(), 7);
+});
+
 test('源码、未跟踪输入、依赖产物或 SDK 改变必须重新构建', async t => {
   const f = await fixture(t);
   await f.run();

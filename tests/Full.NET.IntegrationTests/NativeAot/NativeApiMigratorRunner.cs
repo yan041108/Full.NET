@@ -1,8 +1,7 @@
-using System.Diagnostics;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
-using Full.NET.Seeding.Abstractions;
+using Full.NET.Testing;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
@@ -17,32 +16,7 @@ internal static class NativeApiMigratorRunner
         CancellationToken cancellationToken = default)
     {
         var repositoryRoot = NativeApiArtifactLocator.FindRepositoryRoot();
-        var migratorProject = Path.Combine(
-            repositoryRoot,
-            "src",
-            "Hosts",
-            "Full.NET.Host.Migrator",
-            "Full.NET.Host.Migrator.csproj");
-
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WorkingDirectory = repositoryRoot,
-        };
-        startInfo.ArgumentList.Add("run");
-        startInfo.ArgumentList.Add("--project");
-        startInfo.ArgumentList.Add(migratorProject);
-        startInfo.ArgumentList.Add("-c");
-        startInfo.ArgumentList.Add("Release");
-        startInfo.ArgumentList.Add("--no-launch-profile");
-        startInfo.ArgumentList.Add("--");
-        startInfo.ArgumentList.Add("migrate");
-        startInfo.ArgumentList.Add("--seed");
-        startInfo.ArgumentList.Add(SeedProfile.Development.ToCanonicalName());
+        var startInfo = NativeMigratorProcess.CreateStartInfo(repositoryRoot, AppContext.BaseDirectory);
 
         startInfo.Environment["DOTNET_ENVIRONMENT"] = "Testing";
         startInfo.Environment[$"{DatabaseOptions.SectionName}__Provider"] =
@@ -60,19 +34,7 @@ internal static class NativeApiMigratorRunner
         startInfo.Environment["Identity__AllowDevelopmentEphemeralSigningKey"] = "true";
         ApplyMigrationContractGates(startInfo.Environment);
 
-        using var process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("无法启动 JIT Migrator。");
-        var stdout = await process.StandardOutput.ReadToEndAsync(cancellationToken)
-            .ConfigureAwait(false);
-        var stderr = await process.StandardError.ReadToEndAsync(cancellationToken)
-            .ConfigureAwait(false);
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-
-        if (process.ExitCode != 0)
-        {
-            throw new InvalidOperationException(
-                $"JIT Migrator 退出码 {process.ExitCode}。stderr: {stderr}\nstdout: {stdout}");
-        }
+        await NativeMigratorProcess.RunAsync(startInfo, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
