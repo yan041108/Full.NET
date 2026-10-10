@@ -20,7 +20,7 @@ internal static class RenameChatSessionArgumentParser
         try
         {
             var value = arguments.Deserialize(AiToolJsonSerializerContext.Default.RenameChatSessionArguments);
-            if (value is null || value.SessionId == Guid.Empty) return null;
+            if (value is null || value.SessionId == Guid.Empty || string.IsNullOrWhiteSpace(value.Title)) return null;
             var title = value.Title.Trim();
             return string.IsNullOrWhiteSpace(title) || title.Length > 256 ? null : value with { Title = title };
         }

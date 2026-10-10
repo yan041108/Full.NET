@@ -20,6 +20,9 @@ internal sealed class RenameChatSessionToolHandler(
     ICommandTransaction transaction,
     ICurrentTenant tenant) : IAgentToolHandler
 {
+    internal const string ToolName = "ai.chat.sessions.rename";
+    internal const int ToolVersion = 1;
+
     public bool ValidateArguments(JsonElement arguments) => RenameChatSessionArgumentParser.Parse(arguments) is not null;
 
     public async ValueTask<JsonElement> ExecuteAsync(ToolInvocation invocation, ToolActor actor, CancellationToken cancellationToken)
@@ -34,10 +37,17 @@ internal sealed class RenameChatSessionToolHandler(
         var scope = AiChatScope.Resolve(tenant);
         var session = await queries.FindOwnedSessionAsync(scope, parsed.SessionId, actor.UserId, cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (session is null)
         {
             throw new InvalidOperationException("Tool session not found.");
         }
+
+        // 目标查询期间权限或原会话可能失效；Identity 授权必须在 AI 本地事务外完成。
+        var admission = await approvals.ValidateForToolExecutionAsync(invocation, actor, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (admission != AgentApprovalExecutionStatus.Approved)
+            throw new InvalidOperationException("The agent approval is no longer executable.");
 
         var result = await transaction.ExecuteResultAsync(async token =>
         {

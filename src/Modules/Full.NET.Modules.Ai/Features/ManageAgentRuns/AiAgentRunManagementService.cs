@@ -189,6 +189,7 @@ internal sealed class AiAgentRunManagementService(
     {
         var scope = ResolveScope();
         var existing = await store.FindOwnedAsync(runId, scope, binding.UserId, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (existing is null)
         {
             return Result<bool>.Failure(new Error(
@@ -199,21 +200,36 @@ internal sealed class AiAgentRunManagementService(
 
         if (!string.Equals(existing.StatusKey, "awaiting_approval", StringComparison.Ordinal)
             || existing.DeadlineAtUtc <= clock.UtcNow
+            || existing.TenantId != binding.TenantId || binding.TenantId != tenant.Id
+            || existing.ScopeKey != scope || ResolveScope() != scope
+            || existing.ActorUserId != binding.UserId
+            || existing.ActorScope != binding.ActorScope || existing.EffectiveScope != binding.EffectiveScope
+            || (string.IsNullOrWhiteSpace(existing.SessionKind) ? SessionBindingKinds.Refresh : existing.SessionKind) != binding.SessionKind
             || existing.SessionId != binding.SessionId
             || !string.Equals(existing.SecurityStamp, binding.SecurityStamp, StringComparison.Ordinal))
         {
             return NotResumable();
         }
 
-        if (!await bindingValidator.IsValidAsync(binding, cancellationToken).ConfigureAwait(false))
+        var validBinding = await bindingValidator.IsValidAsync(binding, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!validBinding)
         {
             return NotResumable();
         }
 
-        if (!await approvalGate.HasApprovedUnconsumedForRunAsync(runId, binding.UserId, cancellationToken).ConfigureAwait(false))
+        var approved = await approvalGate.HasApprovedUnconsumedForRunAsync(runId, binding.UserId, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!approved)
         {
             return NotResumable();
         }
+
+        // 审批复核期间会话可能撤销，最后一次 Identity 检查仍处于本地写事务之外。
+        validBinding = await bindingValidator.IsValidAsync(binding, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!validBinding || existing.DeadlineAtUtc <= clock.UtcNow || ResolveScope() != scope)
+            return NotResumable();
 
         var resumed = await store.TryResumeOwnedAsync(
             runId,

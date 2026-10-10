@@ -19,7 +19,7 @@ internal sealed class AgentToolRegistryFactory(
             new("ai.tools.ping", 1, AiAgentToolPermissions.CatalogRead, "none", true, ping),
             new("ai.models.list", 1, AiModelPermissions.Read, "read", true, listModels),
             new("ai.chat.sessions.list", 1, AiChatPermissions.Read, "read", true, listSessions),
-            new("ai.chat.sessions.rename", 1, AiChatPermissions.Update, "write", true, renameSession),
+            new(RenameChatSessionToolHandler.ToolName, RenameChatSessionToolHandler.ToolVersion, AiChatPermissions.Update, "write", true, renameSession),
         };
         var remote = await remoteAdapter.BuildDefinitionsAsync(cancellationToken).ConfigureAwait(false);
         return new AgentToolRegistry(local.Concat(remote));

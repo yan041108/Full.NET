@@ -414,6 +414,40 @@
       ]
     },
     {
+      "statementName": "ai.list_approved_unconsumed_for_run.sqlserver",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentApprovalSql.ListApprovedUnconsumedForRunSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "恢复运行前有界读取原主体、范围与运行的未消费批准；完整绑定、当前权限和业务目标由入场门禁复核。",
+      "requiredSqlFragments": [
+        "TOP (@PageSize)",
+        "approval.RunId = @RunId",
+        "approval.ScopeKey = @ScopeKey",
+        "approval.RequestedBy = @ActorUserId",
+        "approval.DecisionKey = 'approved'",
+        "approval.ConsumedAtUtc IS NULL",
+        "approval.ExpiresAtUtc > @Now",
+        "ORDER BY approval.CreatedAtUtc, approval.Id"
+      ]
+    },
+    {
+      "statementName": "ai.list_approved_unconsumed_for_run.mysql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentApprovalSql.ListApprovedUnconsumedForRunMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "恢复运行前有界读取原主体、范围与运行的未消费批准；完整绑定、当前权限和业务目标由入场门禁复核。",
+      "requiredSqlFragments": [
+        "LIMIT @PageSize",
+        "approval.RunId = @RunId",
+        "approval.ScopeKey = @ScopeKey",
+        "approval.RequestedBy = @ActorUserId",
+        "approval.DecisionKey = 'approved'",
+        "approval.ConsumedAtUtc IS NULL",
+        "approval.ExpiresAtUtc > @Now",
+        "ORDER BY approval.CreatedAtUtc, approval.Id"
+      ]
+    },
+    {
       "statementName": "ai.count_approved_unconsumed_for_run",
       "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentApprovalSql.CountApprovedUnconsumedForRun",
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentApprovalSql.cs",

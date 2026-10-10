@@ -103,6 +103,37 @@ internal static class AiAgentApprovalSql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement ListApprovedUnconsumedForRunSqlServer = new(
+        "ai.list_approved_unconsumed_for_run.sqlserver",
+        $"""
+        SELECT TOP (@PageSize) {Columns}
+        FROM fn_ai_agent_approval AS approval
+        WHERE approval.RunId = @RunId
+          AND approval.ScopeKey = @ScopeKey
+          AND approval.RequestedBy = @ActorUserId
+          AND approval.DecisionKey = 'approved'
+          AND approval.ConsumedAtUtc IS NULL
+          AND approval.ExpiresAtUtc > @Now
+        ORDER BY approval.CreatedAtUtc, approval.Id
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListApprovedUnconsumedForRunMySql = new(
+        "ai.list_approved_unconsumed_for_run.mysql",
+        $"""
+        SELECT {Columns}
+        FROM fn_ai_agent_approval AS approval
+        WHERE approval.RunId = @RunId
+          AND approval.ScopeKey = @ScopeKey
+          AND approval.RequestedBy = @ActorUserId
+          AND approval.DecisionKey = 'approved'
+          AND approval.ConsumedAtUtc IS NULL
+          AND approval.ExpiresAtUtc > @Now
+        ORDER BY approval.CreatedAtUtc, approval.Id
+        LIMIT @PageSize
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement Consume = new(
         "ai.consume_agent_approval",
         """

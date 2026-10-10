@@ -1,9 +1,17 @@
 using Full.NET.Agents.Approvals;
+using System.Text.Json;
+using Full.NET.AI.Abstractions.Tools;
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Ai.Persistence;
+using Full.NET.Modules.Ai.Contracts;
+using Full.NET.Modules.Ai.Features.ManageAgentApprovals;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Ai;
@@ -16,6 +24,79 @@ internal static class AiApprovalRecoveryAssertions
         await factory.InitializeAsync();
         await Concurrent_consume_allows_only_one_success_async(factory).ConfigureAwait(false);
         await Consumed_approval_cannot_be_reused_async(factory).ConfigureAwait(false);
+        await Current_admission_and_failed_write_preserve_approval_async(factory).ConfigureAwait(false);
+    }
+
+    private static async Task Current_admission_and_failed_write_preserve_approval_async(FullNetApiFactory factory)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var tenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        tenant.SetHost();
+        try
+        {
+            var queries = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
+            var commands = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+            var transaction = scope.ServiceProvider.GetRequiredService<ICommandTransaction>();
+            var clock = scope.ServiceProvider.GetRequiredService<IClock>();
+            var actor = new ToolActor(Guid.CreateVersion7(), null, Guid.CreateVersion7());
+            var auth = new CurrentAuthorization { Actor = actor };
+            var sessionId = Guid.CreateVersion7(); var runId = Guid.CreateVersion7(); var operationId = Guid.CreateVersion7();
+            await commands.ExecuteAsync(AiChatSql.InsertSession, AiSqlParameters.Create(
+                ("Id", sessionId), ("TenantId", null), ("OwnerUserId", actor.UserId), ("ModelConfigId", Guid.CreateVersion7()),
+                ("ModelName", "admission-fixture"), ("Title", "old"), ("CreatedAtUtc", clock.UtcNow)), default);
+            var json = JsonSerializer.Serialize(new { sessionId, title = "approved" });
+            using var args = JsonDocument.Parse(json);
+            var invocation = new ToolInvocation(operationId, runId, "ai.chat.sessions.rename", 1, args.RootElement);
+            await commands.ExecuteAsync(AiAgentApprovalSql.Insert, AiSqlParameters.Create(
+                ("Id", Guid.CreateVersion7()), ("ScopeKey", "host"), ("TenantId", null), ("RunId", runId),
+                ("OperationId", operationId), ("SessionId", actor.SessionId), ("ToolName", invocation.ToolName),
+                ("ToolVersion", 1), ("ArgumentsHash", AgentApprovalGate.ComputeArgumentsHash(args.RootElement)),
+                ("ArgumentsProtected", json), ("PolicyVersion", AgentApprovalGate.CurrentPolicyVersion),
+                ("PresentationJson", """{"action":"Rename","target":"old","change":"approved","scope":"session","costCeiling":null,"currency":null}"""),
+                ("RequestedBy", actor.UserId), ("DecisionKey", AgentApprovalDecisionKeys.Approved),
+                ("ExpiresAtUtc", clock.UtcNow.AddHours(1)), ("Now", clock.UtcNow)), default);
+            var consumption = new AiAgentApprovalConsumption(queries, commands, clock, tenant, auth);
+            var gate = new AiAgentRunApprovalGate(queries, tenant, clock, auth, Options.Create(new DatabaseOptions { Provider = factory.Provider }));
+            Assert.IsTrue(await gate.HasApprovedUnconsumedForRunAsync(runId, actor.UserId));
+            Assert.AreEqual(AgentApprovalExecutionStatus.Approved, await consumption.ValidateForToolExecutionAsync(invocation, actor, default));
+            auth.Actor = null;
+            Assert.IsFalse(await gate.HasApprovedUnconsumedForRunAsync(runId, actor.UserId));
+            Assert.AreEqual(AgentApprovalExecutionStatus.Denied, await consumption.ValidateForToolExecutionAsync(invocation, actor, default));
+            auth.Actor = actor with { SessionId = Guid.CreateVersion7() };
+            Assert.IsFalse(await gate.HasApprovedUnconsumedForRunAsync(runId, actor.UserId));
+            auth.Actor = actor;
+            // 使用真实数据库事务：审批已消费但目标版本冲突时，整个本地结果事务必须回滚。
+            var failed = await transaction.ExecuteResultAsync<bool>(async token =>
+            {
+                Assert.IsTrue(await consumption.TryConsumeForToolExecutionAsync(invocation, actor, token));
+                var changed = await commands.ExecuteAsync(AiChatSql.UpdateSessionTitle, AiSqlParameters.Create(
+                    ("SessionId", sessionId), ("OwnerUserId", actor.UserId), ("ScopeTenantId", null),
+                    ("Title", "approved"), ("UpdatedAtUtc", clock.UtcNow), ("Version", 99)), token);
+                Assert.AreEqual(0, changed);
+                return Result<bool>.Failure(new Error("fixture.version_conflict", "Expected version conflict.", ErrorType.Conflict));
+            }, default);
+            Assert.IsFalse(failed.IsSuccess);
+            var approval = await queries.QuerySingleOrDefaultAsync<AiAgentApprovalRecord>(AiAgentApprovalSql.FindByOperation,
+                AiSqlParameters.Create(("OperationId", operationId)), default);
+            Assert.IsNotNull(approval); Assert.IsNull(approval.ConsumedAtUtc); Assert.AreEqual(1L, approval.Version);
+            Assert.AreEqual(1, await commands.ExecuteAsync(AiChatSql.UpdateSessionTitle, AiSqlParameters.Create(
+                ("SessionId", sessionId), ("OwnerUserId", actor.UserId), ("ScopeTenantId", null),
+                ("Title", "changed"), ("UpdatedAtUtc", clock.UtcNow), ("Version", 1)), default));
+            Assert.IsFalse(await gate.HasApprovedUnconsumedForRunAsync(runId, actor.UserId));
+            Assert.IsFalse(await consumption.TryConsumeForToolExecutionAsync(invocation, actor, default));
+            approval = await queries.QuerySingleOrDefaultAsync<AiAgentApprovalRecord>(AiAgentApprovalSql.FindByOperation,
+                AiSqlParameters.Create(("OperationId", operationId)), default);
+            Assert.IsNull(approval!.ConsumedAtUtc); Assert.AreEqual(1L, approval.Version);
+        }
+        finally { tenant.Clear(); }
+    }
+
+    /// <summary>只控制 Contract 授权结果，审批、目标和回滚均走真实双库实现。</summary>
+    private sealed class CurrentAuthorization : IToolAuthorizationPort
+    {
+        internal ToolActor? Actor;
+        public ValueTask<ToolActor?> AuthorizeAsync(string permissionCode, CancellationToken token) =>
+            ValueTask.FromResult(permissionCode == AiChatPermissions.Update ? Actor : null);
     }
 
     private static async Task Concurrent_consume_allows_only_one_success_async(FullNetApiFactory factory)

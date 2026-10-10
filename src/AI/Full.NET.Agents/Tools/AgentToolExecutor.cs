@@ -95,14 +95,25 @@ public sealed class AgentToolExecutor(
                         result = new("denied", null, "ai.tool.authorization_required");
                     else
                     {
+                        // 持久化意图后，审批可能已到期、被消费或失去当前授权；派发前再次只读复核。
+                        var latestApproval = tool.SideEffectKey is "none" or "read"
+                            ? AgentApprovalExecutionStatus.Approved
+                            : approval is null ? AgentApprovalExecutionStatus.Required
+                            : await approval.ValidateForExecutionAsync(invocation, tool.SideEffectKey, actor, token).ConfigureAwait(false);
                         token.ThrowIfCancellationRequested();
-                        // 进入写 Handler 后，异常或取消不能证明副作用尚未发生，必须保守进入对账。
-                        dispatchedWrite = tool.SideEffectKey is not ("none" or "read");
-                        var value = await currentTool.Handler.ExecuteAsync(invocation, actor, token).ConfigureAwait(false);
-                        token.ThrowIfCancellationRequested();
-                        bytes = Encoding.UTF8.GetByteCount(value.GetRawText());
-                        result = bytes > 65536 ? new("failed", null, dispatchedWrite ? "ai.tool.reconciliation_required" : "ai.tool.output_limit")
-                            : new("succeeded", value.Clone(), null);
+                        if (latestApproval != AgentApprovalExecutionStatus.Approved)
+                            result = new("denied", null, latestApproval == AgentApprovalExecutionStatus.Denied
+                                ? "ai.tool.approval_denied" : "ai.tool.approval_required");
+                        else
+                        {
+                            // 进入写 Handler 后，异常或取消不能证明副作用尚未发生，必须保守进入对账。
+                            dispatchedWrite = tool.SideEffectKey is not ("none" or "read");
+                            var value = await currentTool.Handler.ExecuteAsync(invocation, actor, token).ConfigureAwait(false);
+                            token.ThrowIfCancellationRequested();
+                            bytes = Encoding.UTF8.GetByteCount(value.GetRawText());
+                            result = bytes > 65536 ? new("failed", null, dispatchedWrite ? "ai.tool.reconciliation_required" : "ai.tool.output_limit")
+                                : new("succeeded", value.Clone(), null);
+                        }
                     }
                 }
             }

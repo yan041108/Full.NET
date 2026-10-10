@@ -146,6 +146,38 @@ public sealed class AiToolDispatchOutcomeTests
         Assert.IsNull((await source.GetRegistryAsync()).Find("remote"), "同一作用域不能继续使用撤回前的目录。");
     }
 
+    [TestMethod]
+    [DataRow(AgentApprovalExecutionStatus.Required)]
+    [DataRow(AgentApprovalExecutionStatus.Denied)]
+    [DataRow(AgentApprovalExecutionStatus.NotRequired)]
+    public async Task Approval_is_rechecked_after_audit_intent(AgentApprovalExecutionStatus latest)
+    {
+        using var cancellation = new CancellationTokenSource();
+        var handler = new Handler("success", cancellation);
+        var f = Create(handler, "write");
+        f.Approval.ValidateForExecutionAsync(Arg.Any<ToolInvocation>(), "write", f.Actor, Arg.Any<CancellationToken>())
+            .Returns(AgentApprovalExecutionStatus.Approved, latest);
+        var result = await f.Executor.ExecuteAsync(f.Invocation);
+        Assert.AreEqual("denied", result.StatusKey);
+        Assert.AreEqual(latest == AgentApprovalExecutionStatus.Denied ? "ai.tool.approval_denied" : "ai.tool.approval_required", result.ErrorCode);
+        Assert.AreEqual(0, handler.Calls);
+        await f.Audit.Received(1).CompleteAsync(f.Invocation.OperationId, "denied", result.ErrorCode, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Cancellation_during_final_approval_never_dispatches_handler()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var handler = new Handler("success", cancellation);
+        var f = Create(handler, "write"); var checks = 0;
+        f.Approval.ValidateForExecutionAsync(Arg.Any<ToolInvocation>(), "write", f.Actor, Arg.Any<CancellationToken>())
+            .Returns(_ => { if (++checks == 2) cancellation.Cancel(); return AgentApprovalExecutionStatus.Approved; });
+        var result = await f.Executor.ExecuteAsync(f.Invocation, cancellation.Token);
+        Assert.AreEqual("cancelled", result.StatusKey);
+        Assert.AreEqual(0, handler.Calls);
+        Assert.AreEqual(2, checks);
+    }
+
     private static Fixture Create(Handler handler, string effect)
     {
         var actor = new ToolActor(Guid.CreateVersion7(), null, Guid.CreateVersion7());
