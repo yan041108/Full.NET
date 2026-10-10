@@ -244,7 +244,8 @@ public sealed partial class AiAgentRunCoordinatorTests
         bool promptDeactivated = false,
         bool deactivateDuringFactory = false,
         Func<AiAgentRunRecord, AgentCheckpointRecord?>? checkpointFactory = null,
-        Action<AiAgentRunRecord>? configureRecord = null)
+        Action<AiAgentRunRecord>? configureRecord = null,
+        Action? duringModelLookup = null)
     {
         var runId = Guid.CreateVersion7();
         var modelId = Guid.CreateVersion7();
@@ -276,8 +277,10 @@ public sealed partial class AiAgentRunCoordinatorTests
         queries.QuerySingleOrDefaultAsync<AiAgentRunRecord>(AiAgentRunSql.FindById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(record);
         queries.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(includeModel
-                ? new AiModelConfigRecord
+            .Returns(_ =>
+            {
+                duringModelLookup?.Invoke();
+                return includeModel ? new AiModelConfigRecord
                 {
                     Id = modelId,
                     Version = 1,
@@ -286,7 +289,8 @@ public sealed partial class AiAgentRunCoordinatorTests
                     ModelId = "model",
                     EndpointBaseUrl = "https://provider.test",
                 }
-                : null);
+                : null;
+            });
         var transaction = new DapperCommandTransaction(new RecordingDbTransactionCoordinator());
         var store = new AiAgentRunStore(
             queries,

@@ -95,13 +95,16 @@ internal sealed class AiAgentRunCoordinator(
                     : record.SessionKind);
             if (!await bindingValidator.IsValidAsync(binding, cancellationToken).ConfigureAwait(false))
             {
-                await store.CommitProgressAsync(new(
+                cancellationToken.ThrowIfCancellationRequested();
+                var authorizationCommitted = await store.CommitProgressAsync(new(
                     lease,
                     "authorization_required",
                     null,
                     null,
                     new(ids.NewId(), 1, "run.authorization_required", 1, """{"reason":"session_invalid"}""")), cancellationToken)
                     .ConfigureAwait(false);
+                // 失租后的会话拒绝不能改写由当前执行者负责的预算账本。
+                if (!authorizationCommitted) return false;
                 await scope.ServiceProvider.GetRequiredService<IAiOperationBudgetStore>()
                     .SettleAsync(runId, new(null, null), "cancelled", cancellationToken).ConfigureAwait(false);
                 return true;
@@ -114,8 +117,7 @@ internal sealed class AiAgentRunCoordinator(
                 ? AgentWorkflowRegistry.Resolve(record.DefinitionKey, record.DefinitionVersion) is null
                 : AgentDefinitionRegistry.Resolve(record.DefinitionKey, record.DefinitionVersion) is null)
             {
-                await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.definition_incompatible", cancellationToken).ConfigureAwait(false);
-                return true;
+                return await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.definition_incompatible", cancellationToken).ConfigureAwait(false);
             }
             AgentWorkflowState? workflowState = null;
             if (isWorkflow)
@@ -124,8 +126,7 @@ internal sealed class AiAgentRunCoordinator(
                 cancellationToken.ThrowIfCancellationRequested();
                 if (workflowState is null)
                 {
-                    await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.checkpoint_incompatible", cancellationToken).ConfigureAwait(false);
-                    return true;
+                    return await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.checkpoint_incompatible", cancellationToken).ConfigureAwait(false);
                 }
             }
             // 查询提供者可能忽略令牌；恢复校验结束后仍须阻止取消请求创建外部客户端。
@@ -134,8 +135,7 @@ internal sealed class AiAgentRunCoordinator(
             var snapshot = JsonSerializer.Deserialize(record.BudgetJson, AiJsonSerializerContext.Default.AgentRunBudgetSnapshot);
             if (snapshot is null)
             {
-                await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.invalid_payload", cancellationToken).ConfigureAwait(false);
-                return true;
+                return await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.invalid_payload", cancellationToken).ConfigureAwait(false);
             }
 
             var queries = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
@@ -145,8 +145,7 @@ internal sealed class AiAgentRunCoordinator(
                 cancellationToken).ConfigureAwait(false);
             if (model is null || !model.IsEnabled)
             {
-                await FailRunAsync(scope.ServiceProvider, store, lease, runId, AiErrorCodes.ModelConfigUnavailable, cancellationToken).ConfigureAwait(false);
-                return true;
+                return await FailRunAsync(scope.ServiceProvider, store, lease, runId, AiErrorCodes.ModelConfigUnavailable, cancellationToken).ConfigureAwait(false);
             }
 
             using var credentialScope = scope.ServiceProvider.GetRequiredService<AiModelBindingScope>();
@@ -156,15 +155,17 @@ internal sealed class AiAgentRunCoordinator(
                     .ExecutionAsync(snapshot, record.DefinitionKey, binding, model, cancellationToken).ConfigureAwait(false);
                 if (!eligibility.IsSuccess)
                 {
-                    await FailRunAsync(scope.ServiceProvider, store, lease, runId, eligibility.Error!.Code, cancellationToken).ConfigureAwait(false);
-                    return true;
+                    return await FailRunAsync(scope.ServiceProvider, store, lease, runId, eligibility.Error!.Code, cancellationToken).ConfigureAwait(false);
                 }
             }
+            cancellationToken.ThrowIfCancellationRequested();
             var factories = scope.ServiceProvider.GetServices<IAiModelClientFactory>();
             var factory = factories.FirstOrDefault(item => item.ProviderKey == model.ProviderKey)
                 ?? throw new InvalidOperationException("AI model provider is not registered.");
             var bindingModel = credentialScope.Create(model);
             using var client = await factory.CreateChatClientAsync(bindingModel, cancellationToken).ConfigureAwait(false);
+            // 客户端工厂可能忽略令牌；取消后仍须释放已创建资源并阻止任何节点派发。
+            cancellationToken.ThrowIfCancellationRequested();
             AgentModelResult result;
             if (isWorkflow)
             {
@@ -211,14 +212,13 @@ internal sealed class AiAgentRunCoordinator(
 
                 if (workflowResult.Status == AgentWorkflowRunStatus.Failed)
                 {
-                    await FailRunAsync(
+                    return await FailRunAsync(
                         scope.ServiceProvider,
                         store,
                         lease,
                         runId,
                         workflowResult.ErrorCode ?? "ai.agent_run.workflow_failed",
                         cancellationToken).ConfigureAwait(false);
-                    return true;
                 }
 
                 var workflowSession = JsonSerializer.SerializeToElement(
@@ -320,14 +320,15 @@ internal sealed class AiAgentRunCoordinator(
                         .ExecutionAsync(snapshot, record.DefinitionKey, binding, model, cancellationToken).ConfigureAwait(false);
                     if (!proven.IsSuccess)
                     {
-                        await FailRunAsync(scope.ServiceProvider, store, lease, runId, proven.Error!.Code, cancellationToken).ConfigureAwait(false);
-                        return true;
+                        return await FailRunAsync(scope.ServiceProvider, store, lease, runId, proven.Error!.Code, cancellationToken).ConfigureAwait(false);
                     }
                     effectivePrompt = proven.Value!;
                 }
                 result = await runner.RunAsync(new AiRunOutputLimitClient(client, snapshot.OutputTokenLimit), effectivePrompt, cancellationToken).ConfigureAwait(false);
             }
 
+            // 单次模型调用也可能在取消后返回成功，不能把晚到结果提交或结算。
+            cancellationToken.ThrowIfCancellationRequested();
             var checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(result.Session.GetRawText())));
             var stepId = ids.NewId();
             var checkpointId = ids.NewId();
@@ -358,14 +359,12 @@ internal sealed class AiAgentRunCoordinator(
         }
         catch (AgentToolLoopBudgetExceededException)
         {
-            await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.tool_budget_exceeded", cancellationToken).ConfigureAwait(false);
-            return true;
+            return await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.tool_budget_exceeded", cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception)
         {
             logger.LogError(exception, "Agent run {RunId} failed.", runId);
-            await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.failed", cancellationToken).ConfigureAwait(false);
-            return true;
+            return await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.failed", cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -420,7 +419,8 @@ internal sealed class AiAgentRunCoordinator(
             new(ids.NewId(), sequence, $"run.{statusKey}", 1, eventPayload)), cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task FailRunAsync(
+    /// <summary>失败状态须先通过租约fencing提交；失租时不结算预算，也不计入处理成功数。</summary>
+    private static async Task<bool> FailRunAsync(
         IServiceProvider provider,
         AiAgentRunStore store,
         AgentRunLease lease,
@@ -428,12 +428,14 @@ internal sealed class AiAgentRunCoordinator(
         string errorCode,
         CancellationToken cancellationToken)
     {
-        await store.CommitProgressAsync(new(
+        cancellationToken.ThrowIfCancellationRequested();
+        var committed = await store.CommitProgressAsync(new(
             lease,
             "failed",
             null,
             null,
             new(provider.GetRequiredService<IIdGenerator>().NewId(), 1, "run.failed", 1, $$"""{"errorCode":"{{errorCode}}"}""")), cancellationToken).ConfigureAwait(false);
+        if (!committed) return false;
         try
         {
             await provider.GetRequiredService<IAiOperationBudgetStore>()
@@ -442,5 +444,6 @@ internal sealed class AiAgentRunCoordinator(
         catch (AiBudgetException)
         {
         }
+        return true;
     }
 }
