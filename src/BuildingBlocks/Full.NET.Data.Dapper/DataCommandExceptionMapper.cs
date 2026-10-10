@@ -10,6 +10,51 @@ namespace Full.NET.Data.Dapper;
 internal static class DataCommandExceptionMapper
 {
     /// <summary>
+    /// 仅在调用令牌已取消且 Provider 返回取消候选码时，收敛为统一取消异常。
+    /// </summary>
+    /// <param name="exception">保留为内部异常的原始 Provider 诊断。</param>
+    /// <param name="cancellationToken">当前数据库操作使用的调用令牌。</param>
+    /// <param name="mapped">携带原异常和调用令牌的取消异常。</param>
+    /// <returns>符合受限取消特征时返回 true；其他故障保留原有传播方式。</returns>
+    /// <remarks>候选码不证明因果或写入回滚；调用方仍须遵守事务和结果不确定性边界。</remarks>
+    public static bool TryMapCancellation(
+        Exception exception,
+        CancellationToken cancellationToken,
+        out OperationCanceledException mapped)
+    {
+        if (cancellationToken.IsCancellationRequested && IsCancellationCandidate(exception))
+        {
+            mapped = new OperationCanceledException(
+                "The database operation was canceled.", exception, cancellationToken);
+            return true;
+        }
+
+        mapped = null!;
+        return false;
+    }
+
+    private static bool IsCancellationCandidate(Exception exception)
+    {
+        if (exception is MySqlException mySqlException)
+        {
+            return mySqlException.ErrorCode == MySqlErrorCode.QueryInterrupted;
+        }
+
+        if (exception is not SqlException { Number: 0 } sqlException || sqlException.Errors.Count == 0)
+        {
+            return false;
+        }
+
+        // SQL Server 停止在途查询可能只返回零码；混合语法、权限、超时等明确故障不得被取消掩盖。
+        foreach (SqlError error in sqlException.Errors)
+        {
+            if (error.Number != 0) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// 尝试把数据库 Provider 异常转换为稳定的数据命令失败类别。
     /// </summary>
     /// <param name="exception">待识别的数据库异常。</param>
