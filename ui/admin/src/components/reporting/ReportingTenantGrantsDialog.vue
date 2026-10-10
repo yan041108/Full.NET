@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElOption, ElPagination, ElSelect, ElTable, ElTableColumn } from 'element-plus';
 import { isFullNetProblemDetails, type FullNetProblemDetails, type ReportingDefinition, type ReportingDefinitionVersion } from '@fullnet/client-contracts';
 import ArtFormDialog from '../../framework/art-design/components/ArtFormDialog.vue';
@@ -16,6 +16,7 @@ const permission = 'reporting.definitions.grant_tenants';
 const versions = ref<ReportingDefinitionVersion[]>([]); const selectedVersion = ref<number>();
 const tenantId = ref(''); const tenants = ref<string[]>([]); const page = ref(1); const total = ref(0);
 const loading = ref(false); const acting = ref(false); const problem = ref<FullNetProblemDetails>();
+const canManage = computed(() => host() && session.can('reporting.definitions.read') && session.can(permission));
 const busy = computed(() => loading.value || acting.value);
 const confirmation = ref<{ target: string; version: number; resolve: (confirmed: boolean) => void }>();
 function finishConfirmation(confirmed: boolean): void {
@@ -30,6 +31,8 @@ const scope = useAuthorizedViewScope(session, () => {
   versions.value = []; selectedVersion.value = undefined; tenantId.value = ''; tenants.value = []; total.value = 0;
   loading.value = false; acting.value = false; problem.value = undefined; emit('close');
 }, loadVersions);
+// 授权对象变化必须关闭旧弹窗，不能把旧版本和待确认操作迁移到另一个定义。
+watch(() => props.definition.id, () => scope.invalidate(), { flush: 'sync' });
 let listRequest: ReturnType<typeof scope.begin>;
 
 function toProblem(error: unknown): FullNetProblemDetails {
@@ -37,7 +40,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
 }
 
 async function loadVersions(): Promise<void> {
-  if (!host() || !session.can('reporting.definitions.read')) return;
+  if (!canManage.value) return;
   const request = scope.begin(permission); if (!request) return;
   loading.value = true; problem.value = undefined;
   try {
@@ -53,7 +56,7 @@ async function loadVersions(): Promise<void> {
 }
 
 async function loadGrants(nextPage: number): Promise<void> {
-  if (!host() || selectedVersion.value === undefined) return;
+  if (!canManage.value || selectedVersion.value === undefined) return;
   listRequest?.cancel(); const request = scope.begin(permission); if (!request) return;
   listRequest = request; const version = selectedVersion.value;
   loading.value = true; problem.value = undefined; tenants.value = []; total.value = 0; page.value = nextPage;
@@ -66,7 +69,7 @@ async function loadGrants(nextPage: number): Promise<void> {
 }
 
 async function changeGrant(target: string, grant: boolean): Promise<void> {
-  if (busy.value || !host() || selectedVersion.value === undefined) return;
+  if (busy.value || !canManage.value || selectedVersion.value === undefined) return;
   target = target.trim().toLowerCase();
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(target)
     || target === '00000000-0000-0000-0000-000000000000') { showWarning(t('reportingGrants.invalidTenant')); return; }
@@ -90,7 +93,7 @@ async function changeGrant(target: string, grant: boolean): Promise<void> {
 </script>
 
 <template>
-  <ArtFormDialog :open="true" :title="t('reportingGrants.title', {name:definition.name})" :show-confirm="false"
+  <ArtFormDialog v-if="canManage" :open="true" :title="t('reportingGrants.title', {name:definition.name})" :show-confirm="false"
     :cancel-label="t('reportingGrants.close')" @update:open="value => { if (!value) scope.invalidate(); }">
     <ElAlert :title="t('reportingGrants.versionHint')" type="info" :closable="false" />
     <ElAlert v-if="problem" :title="problem.title" type="error" :closable="false" />
@@ -114,7 +117,7 @@ async function changeGrant(target: string, grant: boolean): Promise<void> {
     </ElTable>
     <ElPagination :current-page="page" :page-size="20" :total="total" :disabled="acting" layout="prev, pager, next" @current-change="loadGrants" />
   </ArtFormDialog>
-  <ArtFormDialog v-if="confirmation" :open="true" :title="t('reportingGrants.revoke')"
+  <ArtFormDialog v-if="confirmation && canManage" :open="true" :title="t('reportingGrants.revoke')"
     :confirm-label="t('reportingGrants.revoke')" confirm-test-id="reporting-grant-confirm-revoke"
     @confirm="finishConfirmation(true)" @update:open="value => { if (!value) finishConfirmation(false); }">
     <p>{{ t('reportingGrants.confirmRevoke', {tenant:confirmation.target,version:String(confirmation.version)}) }}</p>

@@ -82,3 +82,61 @@ describe('PrintingTenantGrantsDialog', () => {
   expect(showProblem).toHaveBeenCalledOnce();await body.get('[data-testid="printing-grant-save"]').trigger('click');await flushPromises();expect(setGrant).toHaveBeenCalledTimes(2);wrapper.unmount();
  });
 });
+
+describe('Printing grant target lifetime', () => {
+ beforeEach(() => {
+  vi.clearAllMocks();
+  versions.mockResolvedValue([1,2].map(versionNumber => ({id:tenant.slice(0,-1)+String(versionNumber),templateId:template.id,versionNumber,
+   layoutHtml:'<div>Frozen</div>',
+   changeNote:null,publishedByUserId:tenant,publishedAtUtc:'2026-10-08T00:00:00Z'})));
+  grants.mockResolvedValue({items:[tenant],page:1,pageSize:20,total:1});setGrant.mockResolvedValue(true);
+ });
+ it('does not render grant controls without the parent read permission', async () => {
+  const {wrapper}=create(['printing.templates.grant_tenants']);await flushPromises();
+  expect(body.find('[data-testid="printing-grant-save"]').exists()).toBe(false);
+  expect(versions).not.toHaveBeenCalled();expect(grants).not.toHaveBeenCalled();expect(setGrant).not.toHaveBeenCalled();
+ });
+ it('closes and aborts the old tenant read when the target identity changes', async () => {
+  const pending=deferred<{items:string[];page:number;pageSize:number;total:number}>();grants.mockReturnValueOnce(pending.promise);
+  const {wrapper}=create();await flushPromises();const signal=grants.mock.calls[0]![4]!;
+  await wrapper.setProps({template:{...template,id:tenant,name:'Replacement'}});
+  expect(signal.aborted).toBe(true);expect(wrapper.emitted('close')).toHaveLength(1);
+  pending.resolve({items:[tenant],page:1,pageSize:20,total:1});await flushPromises();
+  expect(body.find('[data-testid="printing-grant-revoke"]').exists()).toBe(false);expect(grants).toHaveBeenCalledTimes(1);
+ });
+ it('ignores the old version read failure after the target identity changes', async () => {
+  const pending=deferred<Awaited<ReturnType<typeof versions>>>();versions.mockReturnValueOnce(pending.promise);
+  const {wrapper}=create();await flushPromises();const signal=versions.mock.calls[0]![1]!;
+  await wrapper.setProps({template:{...template,id:tenant,name:'Replacement'}});
+  expect(signal.aborted).toBe(true);pending.reject({status:500,code:'old.failure',title:'Old target failed'});await flushPromises();
+  expect(body.text()).not.toContain('Old target failed');expect(showProblem).not.toHaveBeenCalled();expect(grants).not.toHaveBeenCalled();
+ });
+ it('removes the pending confirmation without revoking the replacement target', async () => {
+  const {wrapper}=create();await flushPromises();await body.get('[data-testid="printing-grant-revoke"]').trigger('click');await flushPromises();
+  expect(body.find('[data-testid="printing-grant-confirm-revoke"]').exists()).toBe(true);
+  await wrapper.setProps({template:{...template,id:tenant,name:'Replacement'}});await flushPromises();
+  expect(body.find('[data-testid="printing-grant-confirm-revoke"]').exists()).toBe(false);expect(setGrant).not.toHaveBeenCalled();
+  expect(wrapper.emitted('close')).toHaveLength(1);
+ });
+ it.each(['resolve','reject'] as const)('ignores a late grant %s after target replacement', async outcome => {
+  const pending=deferred<boolean>();setGrant.mockReturnValueOnce(pending.promise);
+  const {wrapper}=create();await flushPromises();await enter(wrapper);await body.get('[data-testid="printing-grant-save"]').trigger('click');await flushPromises();
+  const signal=setGrant.mock.calls[0]![4]!;await wrapper.setProps({template:{...template,id:tenant,name:'Replacement'}});
+  expect(signal.aborted).toBe(true);
+  if(outcome==='resolve') pending.resolve(true);else pending.reject(new Error('old mutation failed'));
+  await flushPromises();expect(showSuccess).not.toHaveBeenCalled();expect(showProblem).not.toHaveBeenCalled();expect(grants).toHaveBeenCalledTimes(1);
+ });
+ it('keeps the frozen version when only target display metadata changes', async () => {
+  const {wrapper}=create();await flushPromises();
+  wrapper.getComponent(ElSelect).vm.$emit('update:modelValue',1);wrapper.getComponent(ElSelect).vm.$emit('change',1);await flushPromises();
+  await wrapper.setProps({template:{...template,name:'Renamed',latestPublishedVersionNumber:3}});
+  expect(wrapper.emitted('close')).toBeUndefined();await enter(wrapper);await body.get('[data-testid="printing-grant-save"]').trigger('click');await flushPromises();
+  expect(setGrant).toHaveBeenCalledWith(template.id,1,tenant,true,expect.any(AbortSignal));expect(versions).toHaveBeenCalledOnce();
+ });
+ it('removes both dialogs when read permission is revoked during confirmation', async () => {
+  const {wrapper,session}=create();await flushPromises();await body.get('[data-testid="printing-grant-revoke"]').trigger('click');await flushPromises();
+  session.currentUser={...session.currentUser!,permissions:['printing.templates.grant_tenants']};await flushPromises();
+  expect(body.find('[data-testid="printing-grant-save"]').exists()).toBe(false);expect(body.find('[data-testid="printing-grant-confirm-revoke"]').exists()).toBe(false);
+  expect(setGrant).not.toHaveBeenCalled();expect(wrapper.emitted('close')).toBeTruthy();
+ });
+});
