@@ -121,15 +121,16 @@ public sealed class NativeApiProcessHostLifecycleTests
                 AutoFlush = true,
             };
             var cancellation = new CancellationTokenSource();
+            var gate = new SemaphoreSlim(1, 1);
             var reader = new GatedLogReader();
             // 用真实输出泵固定“进程已退出、日志尾部尚未读完”的窗口，不启动数据库或完整 Native 应用。
             var pump = (Task)typeof(NativeApiProcessHost)
                 .GetMethod("PumpStreamAsync", BindingFlags.Static | BindingFlags.NonPublic)!
-                .Invoke(null, [reader, writer, cancellation.Token])!;
+                .Invoke(null, [reader, writer, gate, cancellation.Token])!;
             await reader.Reading.Task.WaitAsync(TimeSpan.FromSeconds(5));
             var host = (NativeApiProcessHost)typeof(NativeApiProcessHost)
                 .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic).Single()
-                .Invoke([process, path, writer, cancellation, pump, Task.CompletedTask, new Uri("http://127.0.0.1:1")]);
+                .Invoke([process, path, writer, gate, cancellation, pump, Task.CompletedTask, new Uri("http://127.0.0.1:1")]);
             return new LogDrainHarness(host, process, reader, cancellation, path);
         }
 

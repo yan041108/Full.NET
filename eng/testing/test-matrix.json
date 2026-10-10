@@ -125,7 +125,7 @@
     "requiredTestTypes": [
       "NativeApiKafkaLogMySqlE2ETests"
     ],
-    "minimum": 14,
+    "minimum": 21,
     "timeout": "45m"
   },
   "nativeAotNotificationsIntegration": {
