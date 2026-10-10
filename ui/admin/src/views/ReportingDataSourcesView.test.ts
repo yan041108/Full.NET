@@ -54,16 +54,16 @@ describe('ReportingDataSourcesView', () => {
     wrapper.unmount();
   });
   it('renders a usable name filter and resets the applied query', async () => {
-    const wrapper = mountView();
+    const wrapper = mountView(['reporting.data_sources.read']);
     await flushPromises();
     const search = wrapper.getComponent({ name: 'ArtSearchBar' });
     await search.get('input').setValue('  north  ');
     await search.findAll('button').find(button => button.text() === '查询')!.trigger('click');
     await flushPromises();
-    expect(listMock).toHaveBeenLastCalledWith({ page: 1, pageSize: 20, nameContains: 'north' });
+    expect(listMock).toHaveBeenLastCalledWith({ page: 1, pageSize: 20, nameContains: 'north' }, expect.any(AbortSignal));
     await search.findAll('button').find(button => button.text() === '重置')!.trigger('click');
     await flushPromises();
-    expect(listMock).toHaveBeenLastCalledWith({ page: 1, pageSize: 20, nameContains: undefined });
+    expect(listMock).toHaveBeenLastCalledWith({ page: 1, pageSize: 20, nameContains: undefined }, expect.any(AbortSignal));
     wrapper.unmount();
   });
 });
