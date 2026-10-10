@@ -45,6 +45,7 @@ export async function restoreRecycleBinItem(
   if (!isHostRecycleBinItemResponse(value)) {
     throw new Error('client.invalid_recycle_bin_item');
   }
+  if (value.id.toLowerCase() !== id.toLowerCase()) throw new Error('client.invalid_recycle_bin_identity');
   return value;
 }
 
