@@ -8,7 +8,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { runPnpm, runPnpmInstall } from './pnpm-process.mjs';
 import { runPrintingBrowserResponseAction, watchPrintingBrowserCancellation } from './application-printing-browser-lifecycle.mjs';
 import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
-import { isOutboxDrained } from './worker-crash-lifecycle.mjs';
+import { isOutboxDrained, verifyDrainedWorkerRestart } from './worker-crash-lifecycle.mjs';
 
 const requireE2e = createRequire(new URL('../../e2e/admin-real-stack/package.json', import.meta.url));
 const requireParity = createRequire(new URL('../../e2e/admin-parity/package.json', import.meta.url));
@@ -294,21 +294,33 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     await expect(messageRow).toHaveCount(1); await messageRow.click();
     await expect(page.getByTestId('inbox-messages-detail-drawer')).toContainText(approved.id); evidence.notificationViewed = true;
     await page.screenshot({ path: join(reportDirectory, 'approval-inbox.png'), fullPage: true });
-    stage = 'restart-idempotency'; const messageIds = messages.items.map(item => item.id).sort(); await crashWorker(); await startWorker();
-    // 保持正式单会话策略，通过实际页面切回 Host 再返回租户；每次只使用重新签发的令牌。
-    await page.goto(origin + '/#/tenant-context');
-    const hostContext = await action('/api/v1/tenancy/context', 'PUT', () => page.getByTestId('return-host').click());
-    token = hostContext.accessToken; assert.ok(token); assert.equal(hostContext.context.tenantId, null);
-    await expect(page.getByTestId('return-host')).toHaveCount(0);
-    // 只读查询所有者积压；活动租约或未到期重试不能提前通过。
-    const drained = await poll(() => send('/api/v1/messaging/delivery-status/'),
-      value => isOutboxDrained(value.backlog), 'Outbox recovery drain');
-    evidence.outboxDrainedAfterCrash = drained.backlog;
-    const returned = await action('/api/v1/tenancy/context', 'PUT', () => page.locator('.tenant-context-view .el-table__row')
-      .filter({ hasText: 'local' }).getByRole('button', { name: '进入租户' }).click());
-    token = returned.accessToken; assert.ok(token); assert.equal(returned.context.tenantId, tenantId);
-    await expect(page).toHaveURL(origin + '/#/'); evidence.restoredTenantAfterDrain = true;
-    assert.deepEqual((await inbox()).items.map(item => item.id).sort(), messageIds, 'restart duplicated notifications');
+    const drainAndRestoreTenant = async phase => {
+      stage = 'drain-' + phase + '-restart';
+      // 保持正式单会话策略，通过实际页面切回 Host 再返回租户；每次只使用重新签发的令牌。
+      await page.goto(origin + '/#/tenant-context');
+      const hostContext = await action('/api/v1/tenancy/context', 'PUT', () => page.getByTestId('return-host').click());
+      token = hostContext.accessToken; assert.ok(token); assert.equal(hostContext.context.tenantId, null);
+      await expect(page.getByTestId('return-host')).toHaveCount(0);
+      // 只读查询所有者积压；活动租约或未到期重试不能提前通过。
+      const drained = await poll(() => send('/api/v1/messaging/delivery-status/'),
+        value => isOutboxDrained(value.backlog), 'Outbox recovery drain');
+      evidence[phase === 'before' ? 'outboxDrainedBeforeCrash' : 'outboxDrainedAfterCrash'] = drained.backlog;
+      const returned = await action('/api/v1/tenancy/context', 'PUT', () => page.locator('.tenant-context-view .el-table__row')
+        .filter({ hasText: 'local' }).getByRole('button', { name: '进入租户' }).click());
+      token = returned.accessToken; assert.ok(token); assert.equal(returned.context.tenantId, tenantId);
+      await expect(page).toHaveURL(origin + '/#/'); evidence.restoredTenantAfterDrain = true;
+      return drained.backlog;
+    };
+    const restartProof = await verifyDrainedWorkerRestart({ drain: drainAndRestoreTenant, readInbox: inbox,
+      // 两次排空都核对终态唯一性，防止排空期间的重复投递被纳入稳定基线。
+      validateInbox: snapshot => {
+        for (const request of terminalRequests) assert.equal(snapshot.items.filter(item =>
+          item.title === terminalTitles.get(request.id) && item.content?.includes(request.id)).length, 1,
+        'terminal notification must be unique');
+      },
+      restart: async () => { stage = 'restart-idempotency'; await crashWorker(); await startWorker(); } });
+    evidence.inboxMessageIdsBeforeRestart = restartProof.messageIds;
+    stage = 'restart-idempotency';
     for (const request of terminalRequests) {
       const final = await progress(request.id); assert.equal(final.requestVersion, evidence.requests.find(item => item.id === request.id).finalVersion);
       assert.equal(final.workflowInstanceId, instances.get(request.id).id);
