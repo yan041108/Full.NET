@@ -131,16 +131,63 @@ public sealed class DapperCancellationTests
     }
 
     /// <summary>
-    /// SQL Server 一组错误包含明确故障码时，不能仅凭首个零码吞掉故障。
+    /// SQL Server 一组错误包含明确故障码时，不能仅凭首个取消候选码吞掉故障。
     /// </summary>
     [TestMethod]
-    public async Task Mixed_sqlserver_errors_remain_original()
+    [DataRow(0, 102)]
+    [DataRow(3980, 102)]
+    [DataRow(3980, 229)]
+    public async Task Mixed_sqlserver_errors_remain_original(int candidate, int failure)
     {
-        var original = CreateSqlException(0, 102);
+        var original = CreateSqlException(candidate, failure);
         foreach (var operation in Operations)
         {
             using var cancellation = new CancellationTokenSource();
             Assert.AreSame(original, await CaptureAsync(operation, DatabaseProvider.SqlServer, original, cancellation, true));
+        }
+    }
+
+    /// <summary>批次中止只有在调用令牌已取消时才归类为取消，活动调用仍保留数据库故障。</summary>
+    [TestMethod]
+    [DataRow("typed")]
+    [DataRow("execute")]
+    [DataRow("single")]
+    [DataRow("query")]
+    [DataRow("multiple")]
+    public async Task Sqlserver_aborted_batch_requires_canceled_call(string operation)
+    {
+        var original = CreateSqlException(3980);
+        foreach (var cancel in new[] { false, true })
+        {
+            using var cancellation = new CancellationTokenSource();
+            var caught = await CaptureAsync(operation, DatabaseProvider.SqlServer, original, cancellation, cancel);
+            if (cancel)
+            {
+                Assert.IsInstanceOfType<OperationCanceledException>(caught);
+                Assert.AreEqual(cancellation.Token, ((OperationCanceledException)caught).CancellationToken);
+                Assert.AreSame(original, caught.InnerException);
+            }
+            else
+            {
+                Assert.AreSame(original, caught);
+            }
+        }
+    }
+
+    /// <summary>零码与批次中止并存时仍要求调用取消，且完整保留原始错误集合。</summary>
+    [TestMethod]
+    [DataRow(0, 3980)]
+    [DataRow(3980, 0)]
+    public async Task Mixed_sqlserver_cancellation_candidates_preserve_context(int first, int second)
+    {
+        var original = CreateSqlException(first, second);
+        foreach (var operation in Operations)
+        {
+            using var cancellation = new CancellationTokenSource();
+            var caught = await CaptureAsync(operation, DatabaseProvider.SqlServer, original, cancellation, true);
+            Assert.IsInstanceOfType<OperationCanceledException>(caught);
+            Assert.AreEqual(cancellation.Token, ((OperationCanceledException)caught).CancellationToken);
+            Assert.AreSame(original, caught.InnerException);
         }
     }
 

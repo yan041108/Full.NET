@@ -40,15 +40,16 @@ internal static class DataCommandExceptionMapper
             return mySqlException.ErrorCode == MySqlErrorCode.QueryInterrupted;
         }
 
-        if (exception is not SqlException { Number: 0 } sqlException || sqlException.Errors.Count == 0)
+        if (exception is not SqlException sqlException || sqlException.Errors.Count == 0)
         {
             return false;
         }
 
-        // SQL Server 停止在途查询可能只返回零码；混合语法、权限、超时等明确故障不得被取消掩盖。
+        // 停止在途查询可能返回零码或批次中止 3980；后者也可能是会话繁忙，因此仍必须有调用取消。
+        // 错误集合出现语法、权限、超时等明确故障时，不能被同时发生的取消掩盖。
         foreach (SqlError error in sqlException.Errors)
         {
-            if (error.Number != 0) return false;
+            if (error.Number is not (0 or 3980)) return false;
         }
 
         return true;
