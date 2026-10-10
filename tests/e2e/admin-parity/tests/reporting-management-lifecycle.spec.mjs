@@ -91,5 +91,6 @@ test('报表发布防重、版本错误可见、关闭编辑清除发布备注',
   await page.getByTestId('reporting-definition-publish').evaluate(button => { button.click(); button.click(); });
   await expect.poll(() => publishes).toBe(1); release(); await expect(page.locator('.el-message--success')).toBeVisible();
   await page.getByTestId('reporting-definition-versions').click();
-  await expect(page.getByRole('dialog')).toHaveCount(0); await expect(page.getByRole('alert')).toContainText('版本服务不可用');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.reporting-definitions-view > .el-alert')).toContainText('版本服务不可用');
 });

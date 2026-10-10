@@ -200,6 +200,7 @@ describe('Reporting 管理页授权代次', () => {
     expect(definitions.publishReportingDefinition).toHaveBeenCalledWith(outputId, { changeNote: null, version: 1 }, expect.any(AbortSignal));
   });
   it('同 Host 会话更换取消连接测试，迟到失败不能显示', async () => {
+    const errorMessage = vi.spyOn(ElMessage, 'error');
     const pending = deferred<any>(); vi.mocked(sources.testReportingDataSource).mockReturnValue(pending.promise);
     const session = mountPage(ReportingDataSourcesView); await flushPromises();
     await wrapper!.get('[data-testid="reporting-data-source-test"]').trigger('click'); await flushPromises();
@@ -207,6 +208,7 @@ describe('Reporting 管理页授权代次', () => {
     pending.reject({ status: 500, code: 'fixture.old', title: '旧会话测试错误' }); await flushPromises();
     expect(vi.mocked(sources.testReportingDataSource).mock.calls[0]![1]!.aborted).toBe(true);
     expect(wrapper!.text()).not.toContain('旧会话测试错误');
+    expect(errorMessage).not.toHaveBeenCalled();
     expect(sources.listReportingDataSources).toHaveBeenCalledTimes(2);
   });
   it.each(['close', 'revoke'] as const)('数据源编辑器 %s 清除已读凭据和手动输入密码', async kind => {
