@@ -1,8 +1,10 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-10-10（本轮收口文档分类与标签管理，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-10-10（本轮收口文档权限与回收站管理，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 > 2026-09-16 规划增补：已纳入[八项底座完善能力及七类收口重点](adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)，执行见[唯一总计划](../superpowers/plans/2026-09-16-foundation-productization.md)。本次未重新认证下表的实现状态；部分历史条目落后于专项记录，F00 将逐项核对。工作区其他改动不作为能力完成证据。
+
+2026-10-10 文档权限与回收站管理已补Host/父read/操作权限与取消归属。权限单用户编辑保留其他已读取授权，读取失败及保存结果不确定后禁止用旧快照重试；API核对文档/用户/权限集合完整性及发送快照，恢复核对itemId。回收站批量冻结目标和版本、逐项复核归属，清除false停止，确认随页面回收。相关Vue94/94、类型/构建和包预算通过；冻结c3eec1d的两种Enterprise配置客户端一致，集中生成应用Edge7/7通过。受控HTTP限客户端，无Version的跨管理员权限覆盖及正式双库业务不由此认证，整体保持Build-verified、Capacity-not-verified。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-文档权限与回收站管理收口)。
 
 2026-10-10 文档分类与标签管理已补Host/父read/操作权限与异步取消归属；关闭清理编辑输入，删除确认由页面持有并随撤权/离页回收，删除false不误报成功。分类排序严格校验Int32，标签保留隐藏元数据，更新API核对响应身份。相关Vue99/99、类型/构建和包预算通过；生成来源7164b4b的两种Enterprise配置客户端一致，最终候选934a014只改测试定位并复用已校验产物，集中生成应用Edge9/9通过。受控HTTP限客户端，不重新认证服务端授权或正式双库业务；整体保持Build-verified、Capacity-not-verified。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-文档分类与标签管理收口)。
 
