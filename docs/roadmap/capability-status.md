@@ -1,8 +1,10 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-10-11（本轮收口提供程序取消与测试门禁，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-10-11（本轮完善共享测试构建复用与取消收尾，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 > 2026-09-16 规划增补：已纳入[八项底座完善能力及七类收口重点](adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)，执行见[唯一总计划](../superpowers/plans/2026-09-16-foundation-productization.md)。本次未重新认证下表的实现状态；部分历史条目落后于专项记录，F00 将逐项核对。工作区其他改动不作为能力完成证据。
+
+2026-10-11 Native 测试已统一执行 Integration 输出中的 Migrator DLL，保留 Development 种子与配置门禁，缺失产物不隐式构建；进程双输出并行读取，预取消不启动、在途取消清理运行中的进程树。构建缓存纳入 Git 修订并拒绝构建期间修订变化。相关 Hosting Unit292/292、已跟踪工具98/98通过；9be503b的Worker Native16/17暴露停机3980归类缺口，3ba5c46补齐已取消令牌且全为0/3980的窄范围映射，Data Unit227/227、架构73/73及AOT分析通过。最终3ba5c46的Linux独立干净副本集中验收Data49/49、双库Smoke8/8、Worker Native17/17、API核心Native10/10，均零失败/跳过；两个新Native发布通过，15/17条既有允许警告保留，统一构建产物摘要未变，副本已清理。精确代码的主CI及API/Worker Native CI均success，完整Unit6141/6141、架构232/232及受影响Integration/Smoke440/440通过。全工作区工具另有受保护外部未提交测试排队超时，103/104，不写为全通过。验收另发现API停机后的审计微批处理错误日志，异常类型缺失、原因未定，已保留为待定位项。新夹具/生产代码不使用旧Native结果提升状态，整体Build-verified、Capacity-not-verified，见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-11-native-migrator-构建复用与子进程收尾)。
 
 2026-10-10 Dapper 五个执行入口已统一归类已取消请求的窄范围 Provider 异常，保留原诊断与令牌、遥测记取消，其他错误及已有驱动取消异常维持原语义。相关 Unit 218/218；冻结 3ef9466 的本地双库 Data 49/49、Smoke 8/8、架构 73/73、Worker Native 17/17、API 核心 Native 10/10 均零失败/跳过。原生产物及分析器来自生产输入相同的 47fbaee 成功 CI，经身份和摘要核对后本地重跑；首轮夹具和原生依赖/超时失败保留，恢复同版本已核验 native 文件、只重跑原生运行；分享页卸载等待及发现数量登记一并修正。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-dapper-提供程序取消与-worker-停机错误归类)。本批不重新认证完整企业业务 Native 或容量，保持 Build-verified、Capacity-not-verified。
 
