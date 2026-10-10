@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { testRunEnvironment } from '../../../scripts/testing/test-run-context.mjs';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { MODULE_ARTIFACTS } from './application-crud-module.mjs';
@@ -27,7 +28,7 @@ export function verifyApplicationCrudHostWiring(appRoot, {
   assert.match(readFileSync(join(appRoot, catalog), 'utf8'), /new Demo\.Modules\.Probe\.ProbeModule\(\)/u, 'existing application probe is required');
   mkdirSync(reportDirectory, { recursive: true });
   const execute = (stage, args) => {
-    const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
+    const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true, env: testRunEnvironment() });
     writeFileSync(join(reportDirectory, stage + '.json'), JSON.stringify({ args,
       status: result.status, signal: result.signal, error: result.error?.message, stdout: result.stdout, stderr: result.stderr,
     }, null, 2));
@@ -59,7 +60,7 @@ export function verifyApplicationCrudHostWiring(appRoot, {
       writeFileSync(join(appRoot, 'global.json'), JSON.stringify({ sdk: { version: '99.0.100', rollForward: 'disable' } }));
       const unavailableSdk = readFileSync(join(appRoot, 'global.json'));
       const failedBuild = run('dotnet', ['build', 'src/Demo.Modules.Catalog/Demo.Modules.Catalog.csproj', '-c', 'Release'],
-        { cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true });
+        { cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true, env: testRunEnvironment() });
       assert.equal(failedBuild.error, undefined);
       assert.equal(failedBuild.signal, null);
       assert.ok(Number.isInteger(failedBuild.status) && failedBuild.status !== 0, 'missing SDK must fail real build');
@@ -70,7 +71,7 @@ export function verifyApplicationCrudHostWiring(appRoot, {
           'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.CodeGeneration.Cli.dll'),
         command, '--schema', join(appRoot, 'verification/CrudGeneration/schema.json'), '--repository', appRoot,
         '--target', join(appRoot, 'verification/CrudGeneration/module-target.json')],
-        { cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true });
+        { cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true, env: testRunEnvironment() });
         assert.equal(failedIntegration.error, undefined);
         assert.equal(failedIntegration.status, 2);
         assert.ok(failedIntegration.stderr.includes(`构建进程退出码：${diagnosticExitCode}`), failedIntegration.stderr);

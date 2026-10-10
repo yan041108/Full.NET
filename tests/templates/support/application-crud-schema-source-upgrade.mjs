@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { testRunEnvironment } from '../../../scripts/testing/test-run-context.mjs';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CRUD_ARTIFACTS } from './application-crud-generation.mjs';
@@ -24,7 +25,7 @@ export function verifyApplicationCrudSchemaSourceUpgrade(appRoot, {
   ];
   const snapshot = () => new Map(protectedPaths.map(path => [path, readFileSync(path)]));
   const execute = (stage, args) => {
-    const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
+    const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true, env: testRunEnvironment() });
     writeFileSync(join(reportDirectory, `${stage}.json`), JSON.stringify({ status: result.status,
       signal: result.signal, error: result.error?.message, stdout: result.stdout, stderr: result.stderr }, null, 2));
     assert.equal(result.error, undefined, `${stage} process failed`);
