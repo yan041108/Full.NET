@@ -54,7 +54,8 @@ internal sealed class WorkflowTodoTimeoutProcessor(
                     ("Now", now), ("Take", BatchSize),
                     ("HasAfter", cursor.SignalAtUtc is null ? 0 : 1),
                     ("AfterSignalAtUtc", cursor.SignalAtUtc ?? now),
-                    ("AfterTodoId", cursor.TodoId ?? Guid.Empty)),
+                    // 首轮没有游标；SQL 的 HasAfter 门禁排除比较，不能绑定被标识门禁拒绝的 Guid.Empty。
+                    ("AfterTodoId", cursor.TodoId)),
                 cancellationToken).ConfigureAwait(false);
         }
         finally

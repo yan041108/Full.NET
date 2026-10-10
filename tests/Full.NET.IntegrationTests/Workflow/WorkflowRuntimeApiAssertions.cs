@@ -14,6 +14,7 @@ using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Execution;
 using Full.NET.Modules.Workflow.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Data.SqlClient;
@@ -316,6 +317,16 @@ internal static class WorkflowRuntimeApiAssertions
         CancellationToken cancellationToken = default)
     {
         await factory.InitializeAsync(cancellationToken);
+        // 在原双库独占夹具中真实执行首轮及回绕后的空扫描，不额外创建数据库。
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var processor = ActivatorUtilities.CreateInstance<WorkflowTodoTimeoutProcessor>(
+                scope.ServiceProvider,
+                new WorkflowNotificationOutboxPublisher(scope.ServiceProvider.GetRequiredService<IOutboxWriter>()),
+                new WorkflowTodoTimeoutScanCursor());
+            Assert.AreEqual(0, await processor.ProcessDueAsync(cancellationToken));
+            Assert.AreEqual(0, await processor.ProcessDueAsync(cancellationToken));
+        }
         using var client = factory.CreateClientForHost("localhost");
         await VerifyOpenApiAsync(client, cancellationToken);
         var identity = await factory.CreateHostIdentityAsync(

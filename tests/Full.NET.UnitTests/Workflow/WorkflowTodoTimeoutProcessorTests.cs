@@ -16,6 +16,43 @@ namespace Full.NET.UnitTests.Workflow;
 [TestClass]
 public sealed class WorkflowTodoTimeoutProcessorTests
 {
+    /// <summary>首轮和尾页回绕都绑定空游标，不能触发未分配 Guid 的数据库门禁。</summary>
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Initial_and_reset_scan_do_not_bind_unassigned_identifier(DatabaseProvider provider)
+    {
+        var query = Substitute.For<IQueryExecutor>();
+        var statement = provider == DatabaseProvider.SqlServer
+            ? WorkflowTodoTimeoutSql.ScanDueSqlServer : WorkflowTodoTimeoutSql.ScanDueMySql;
+        query.QueryAsync<WorkflowTodoTimeoutCandidateRecord>(statement,
+                Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var parameters = (IReadOnlyDictionary<string, object?>)call[1]!;
+                Assert.AreEqual(0, parameters["HasAfter"]);
+                Assert.IsNull(parameters["AfterTodoId"], "初始游标不能绑定 Guid.Empty。");
+                return Array.Empty<WorkflowTodoTimeoutCandidateRecord>();
+            });
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.Parse("2026-10-10T03:00:00Z"));
+        var currentTenant = Substitute.For<ICurrentTenantContextWriter>();
+        var outbox = Substitute.For<IOutboxWriter>();
+        var processor = new WorkflowTodoTimeoutProcessor(query, Substitute.For<ICommandExecutor>(),
+            new RecordingTransaction(), clock, Substitute.For<IIdGenerator>(),
+            Options.Create(new DatabaseOptions { Provider = provider }),
+            Substitute.For<IActiveTenantContextResolver>(), currentTenant,
+            new WorkflowNotificationOutboxPublisher(outbox), new WorkflowTodoTimeoutScanCursor());
+
+        Assert.AreEqual(0, await processor.ProcessDueAsync(TestContext.CancellationToken));
+        Assert.AreEqual(0, await processor.ProcessDueAsync(TestContext.CancellationToken));
+        await query.Received(2).QueryAsync<WorkflowTodoTimeoutCandidateRecord>(statement,
+            Arg.Any<object?>(), TestContext.CancellationToken);
+        currentTenant.Received(2).SetHost();
+        currentTenant.Received(2).Clear();
+        await outbox.DidNotReceiveWithAnyArgs().AddAsync<object>(default!, default, default!, default!, default);
+    }
+
     /// <summary>催办应发送给扫描时的当前办理人，改派不会重置策略时钟。</summary>
     [TestMethod]
     public async Task Due_reminder_is_committed_and_published_to_current_assignee()
@@ -117,7 +154,7 @@ public sealed class WorkflowTodoTimeoutProcessorTests
             WorkflowTodoTimeoutSql.ScanDueSqlServer,
             Arg.Is<object?>(value => Has(value, "HasAfter", 1) &&
                 HasNonNull(value, "AfterSignalAtUtc") &&
-                HasNonNull(value, "AfterTodoId")),
+                Has(value, "AfterTodoId", inactiveCandidates[inactiveCandidates.Length - 1].TodoId)),
             TestContext.CancellationToken);
         await outbox.Received(1).AddAsync(
             WorkflowNotificationIntegrationEventTypes.TodoReminderRequested, 1,

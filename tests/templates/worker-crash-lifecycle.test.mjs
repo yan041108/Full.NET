@@ -8,6 +8,17 @@ import { crashLoggedWorker, isOutboxDrained } from './support/worker-crash-lifec
 import * as workerLifecycle from './support/worker-crash-lifecycle.mjs';
 import { stopLoggedProcess } from '../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 
+test('独立应用必须拒绝任一 Worker 的超时扫描异常，不能只看健康状态', () => {
+  assert.throws(() => workerLifecycle.assertNoWorkerTimeoutScanFailures([
+    'Application started.', JSON.stringify({ '@mt': 'Workflow todo timeout worker iteration failed.' }),
+  ]), /timeout scan failed/u);
+});
+
+test('无扫描异常的全部 Worker 日志可通过，但缺少日志不得通过', () => {
+  assert.doesNotThrow(() => workerLifecycle.assertNoWorkerTimeoutScanFailures(['Application started.', 'Application stopped.']));
+  assert.throws(() => workerLifecycle.assertNoWorkerTimeoutScanFailures([]), /Worker logs required/u);
+});
+
 test('强制退出自有进程并等待日志落盘，不能走优雅停机回调', { timeout: 15_000 }, async () => {
   const root = mkdtempSync(join(tmpdir(), 'fullnet-worker-crash-'));
   const log = join(root, 'worker.log'); const stream = createWriteStream(log);

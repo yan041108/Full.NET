@@ -12,7 +12,7 @@ import { startDatabaseContainer, startRedisContainer, buildSharedEnv, runDotnet 
 import { verifyEnterpriseApprovalBrowser } from './application-enterprise-approval-browser.mjs';
 import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 import { waitForApi } from '../../e2e/admin-real-stack/scripts/wait-for-api.mjs';
-import { crashLoggedWorker } from './worker-crash-lifecycle.mjs';
+import { assertNoWorkerTimeoutScanFailures, crashLoggedWorker } from './worker-crash-lifecycle.mjs';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 async function freePort() {
@@ -73,7 +73,7 @@ export async function verifyCreatedEnterpriseApproval(provider, { signal } = {})
       const stream = createWriteStream(logPath);
       const child = spawn('dotnet', [projects[host]], { cwd: appRoot, env: { ...env, ASPNETCORE_URLS: url,
         Kestrel__Endpoints__Http__Url: url }, stdio: 'pipe', windowsHide: true });
-      const owned = { child, stream, stopped: false }; processes.push(owned);
+      const owned = { child, stream, stopped: false, host, logPath }; processes.push(owned);
       child.stdout.pipe(stream, { end: false }); child.stderr.pipe(stream, { end: false });
       await waitForApi(url, 180_000, logPath, { signal });
       const ready = await fetch(url + '/health/ready', { signal: AbortSignal.timeout(15_000) });
@@ -94,6 +94,12 @@ export async function verifyCreatedEnterpriseApproval(provider, { signal } = {})
     report.browser = await verifyEnterpriseApprovalBrowser(appRoot, apiUrl, root,
       { port: browserPort, signal, startWorker, stopWorker, crashWorker });
     for (const { child, stopped } of processes) if (!stopped) { assert.equal(child.exitCode, null); assert.equal(child.signalCode, null); }
+    await stopWorker();
+    // 四次启动均接受门禁；不能由一次健康响应推导超时 Worker 的运行正确性。
+    const workerLogs = processes.filter(item => item.host === 'Worker');
+    assert.equal(workerLogs.length, 4);
+    assertNoWorkerTimeoutScanFailures(workerLogs.map(item => readFileSync(item.logPath, 'utf8')));
+    report.timeoutWorkerLogsChecked = workerLogs.length;
     report.completed = true; return report;
   } catch (error) {
     failure = error; report.error = error instanceof Error ? error.message : String(error); throw error;

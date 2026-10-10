@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 
+// 就绪探针不覆盖后台扫描；每次启动的 Worker 都必须保留并检查相应日志。
+export function assertNoWorkerTimeoutScanFailures(logs) {
+  assert.ok(logs.length > 0, 'Worker logs required');
+  for (const log of logs) assert.equal(log.includes('Workflow todo timeout worker iteration failed.'), false,
+    'Worker timeout scan failed');
+}
+
 // 发布积压包含尚未到期的租约与重试；不能仅凭短暂观察无新增副作用判定排空。
 export function isOutboxDrained(backlog) {
   return backlog != null && ['pendingCount', 'dueRetryCount', 'activeLeaseCount', 'deadLetterCount']
