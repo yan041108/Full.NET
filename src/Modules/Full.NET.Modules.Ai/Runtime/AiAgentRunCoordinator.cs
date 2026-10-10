@@ -24,7 +24,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Ai.Runtime;
 
-/// <summary>Worker 领取运行、重验会话并执行单文本 Agent；工具循环留给后续切片。</summary>
+/// <summary>Worker 领取运行、重验会话与恢复状态后执行静态 Agent 或工作流。</summary>
 internal sealed class AiAgentRunCoordinator(
     IServiceScopeFactory scopeFactory,
     AiAgentRunStore store,
@@ -109,6 +109,28 @@ internal sealed class AiAgentRunCoordinator(
 
             executionContext.SetBinding(binding);
 
+            var isWorkflow = record.DefinitionKey == AgentWorkflowRegistry.ChatRenameWorkflowKey;
+            if (isWorkflow
+                ? AgentWorkflowRegistry.Resolve(record.DefinitionKey, record.DefinitionVersion) is null
+                : AgentDefinitionRegistry.Resolve(record.DefinitionKey, record.DefinitionVersion) is null)
+            {
+                await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.definition_incompatible", cancellationToken).ConfigureAwait(false);
+                return true;
+            }
+            AgentWorkflowState? workflowState = null;
+            if (isWorkflow)
+            {
+                workflowState = await LoadWorkflowStateAsync(store, record, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (workflowState is null)
+                {
+                    await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.checkpoint_incompatible", cancellationToken).ConfigureAwait(false);
+                    return true;
+                }
+            }
+            // 查询提供者可能忽略令牌；恢复校验结束后仍须阻止取消请求创建外部客户端。
+            cancellationToken.ThrowIfCancellationRequested();
+
             var snapshot = JsonSerializer.Deserialize(record.BudgetJson, AiJsonSerializerContext.Default.AgentRunBudgetSnapshot);
             if (snapshot is null)
             {
@@ -144,21 +166,8 @@ internal sealed class AiAgentRunCoordinator(
             var bindingModel = credentialScope.Create(model);
             using var client = await factory.CreateChatClientAsync(bindingModel, cancellationToken).ConfigureAwait(false);
             AgentModelResult result;
-            if (record.DefinitionKey == AgentWorkflowRegistry.ChatRenameWorkflowKey)
+            if (isWorkflow)
             {
-                var workflow = AgentWorkflowRegistry.Resolve(record.DefinitionKey, record.DefinitionVersion);
-                if (workflow is null)
-                {
-                    await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.definition_incompatible", cancellationToken).ConfigureAwait(false);
-                    return true;
-                }
-                var workflowState = await LoadWorkflowStateAsync(store, record, cancellationToken).ConfigureAwait(false);
-                if (workflowState is null)
-                {
-                    await FailRunAsync(scope.ServiceProvider, store, lease, runId, "ai.agent_run.checkpoint_incompatible", cancellationToken).ConfigureAwait(false);
-                    return true;
-                }
-
                 var toolRegistry = await scope.ServiceProvider.GetRequiredService<IAgentToolRegistrySource>()
                     .GetRegistryAsync(cancellationToken).ConfigureAwait(false);
                 var workflowRunner = new AgentWorkflowRunner();
@@ -166,7 +175,7 @@ internal sealed class AiAgentRunCoordinator(
                     runId,
                     record.DefinitionKey,
                     record.DefinitionVersion,
-                    workflowState,
+                    workflowState!,
                     client,
                     runner,
                     scope.ServiceProvider.GetRequiredService<IAgentToolExecutor>(),
@@ -383,29 +392,7 @@ internal sealed class AiAgentRunCoordinator(
         CancellationToken cancellationToken)
     {
         var checkpoint = await store.FindLatestCheckpointAsync(record.Id, cancellationToken).ConfigureAwait(false);
-        if (checkpoint is null)
-        {
-            return AgentWorkflowState.Create(record.SessionId);
-        }
-
-        if (!AgentCheckpointCompatibility.TryValidateWorkflow(
-                record.DefinitionKey,
-                record.DefinitionVersion,
-                checkpoint.FormatVersion,
-                checkpoint.FrameworkVersion,
-                out _))
-        {
-            return null;
-        }
-
-        var payloadChecksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(checkpoint.PayloadProtected)));
-        if (!string.Equals(payloadChecksum, checkpoint.Checksum, StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        var state = AgentWorkflowState.FromJson(checkpoint.PayloadProtected);
-        return state is null || state.SessionId != record.SessionId ? null : state;
+        return AiWorkflowCheckpointAdmission.Restore(record, checkpoint);
     }
 
     private async Task<bool> CommitWorkflowProgressAsync(

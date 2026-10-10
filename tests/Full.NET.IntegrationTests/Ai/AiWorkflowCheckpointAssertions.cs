@@ -5,11 +5,12 @@ using Full.NET.Agents.Workflows;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.Modules.Ai.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Ai;
 
-/// <summary>双库验证工作流检查点写入、读取与校验和门禁。</summary>
+/// <summary>双库验证真实检查点与运行元数据的写入、读取及恢复准入。</summary>
 internal static class AiWorkflowCheckpointAssertions
 {
     internal static async Task VerifyAsync(FullNetApiFactory factory)
@@ -17,14 +18,17 @@ internal static class AiWorkflowCheckpointAssertions
         await factory.InitializeAsync();
         var runId = await SeedWorkflowRunAsync(factory).ConfigureAwait(false);
         await Roundtrip_checkpoint_payload_async(factory, runId).ConfigureAwait(false);
-        await Incompatible_checksum_is_rejected_by_coordinator_gate_async(runId).ConfigureAwait(false);
     }
 
     private static async Task Roundtrip_checkpoint_payload_async(FullNetApiFactory factory, Guid runId)
     {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var store = scope.ServiceProvider.GetRequiredService<IAgentRunStore>();
+        var run = await scope.ServiceProvider.GetRequiredService<AiAgentRunStore>().FindByIdAsync(runId);
+        Assert.IsNotNull(run);
         var state = new AgentWorkflowState
         {
-            SessionId = Guid.CreateVersion7(),
+            SessionId = run.SessionId,
             NextNodeIndex = 2,
             Outputs = { ["read_sessions"] = "[]", ["summarize"] = "Title" },
             InputTokens = 4,
@@ -32,8 +36,6 @@ internal static class AiWorkflowCheckpointAssertions
         };
         var payload = state.ToJson();
         var checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload)));
-        await using var scope = factory.Services.CreateAsyncScope();
-        var store = scope.ServiceProvider.GetRequiredService<IAgentRunStore>();
         var lease = await store.TryAcquireAsync(runId, "workflow-checkpoint", DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1)).ConfigureAwait(false);
         Assert.IsNotNull(lease);
         var committed = await store.CommitProgressAsync(new(
@@ -49,22 +51,16 @@ internal static class AiWorkflowCheckpointAssertions
         Assert.AreEqual(AgentWorkflowRegistry.ChatRenameWorkflowVersion, latest.DefinitionVersion);
         Assert.AreEqual(payload, latest!.PayloadProtected);
         Assert.AreEqual(checksum, latest.Checksum);
-        var restored = AgentWorkflowState.FromJson(latest.PayloadProtected);
+        var restored = AiWorkflowCheckpointAdmission.Restore(run, latest);
         Assert.IsNotNull(restored);
         Assert.AreEqual(2, restored!.NextNodeIndex);
         Assert.AreEqual("Title", restored.Outputs["summarize"]);
-    }
-
-    private static Task Incompatible_checksum_is_rejected_by_coordinator_gate_async(Guid runId)
-    {
-        Assert.IsFalse(AgentCheckpointCompatibility.TryValidateWorkflow(
-            AgentWorkflowRegistry.ChatRenameWorkflowKey,
-            AgentWorkflowRegistry.ChatRenameWorkflowVersion,
-            99,
-            AgentFrameworkRuntime.FrameworkVersion,
-            out var error));
-        Assert.AreEqual("ai.agent_run.checkpoint_format_incompatible", error);
-        return Task.CompletedTask;
+        Assert.AreEqual(4L, restored.InputTokens);
+        Assert.AreEqual(2L, restored.OutputTokens);
+        Assert.IsNull(AiWorkflowCheckpointAdmission.Restore(run, latest with { DefinitionVersion = 1 }));
+        Assert.IsNull(AiWorkflowCheckpointAdmission.Restore(run, latest with { RunId = Guid.CreateVersion7() }));
+        Assert.IsNull(AiWorkflowCheckpointAdmission.Restore(run, latest with { FormatVersion = 99 }));
+        Assert.IsNull(AiWorkflowCheckpointAdmission.Restore(run, latest with { Checksum = new('0', 64) }));
     }
 
     private static async Task<Guid> SeedWorkflowRunAsync(FullNetApiFactory factory)

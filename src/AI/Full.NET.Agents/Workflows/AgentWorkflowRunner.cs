@@ -35,7 +35,7 @@ public sealed class AgentWorkflowRunner
             || state.InputTokens is < 0 || state.OutputTokens is < 0)
             return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.checkpoint_incompatible");
         // 恢复到写入或结束位置仍需校验原始结果，不能把节点游标当作校验已通过的证据。
-        if (state.NextNodeIndex >= 3 && !CanRename(state))
+        if (state.NextNodeIndex >= 3 && !HasValidRenameProposal(state))
             return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.workflow_validation_failed");
         var approvalRequired = false;
         var reconciliationRequired = false;
@@ -49,7 +49,7 @@ public sealed class AgentWorkflowRunner
                 case AgentWorkflowNodeKind.ToolRead:
                 case AgentWorkflowNodeKind.ToolWrite:
                 {
-                    if (node.Kind == AgentWorkflowNodeKind.ToolWrite && !CanRename(state))
+                    if (node.Kind == AgentWorkflowNodeKind.ToolWrite && !HasValidRenameProposal(state))
                         return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.workflow_validation_failed");
                     var toolResult = await ExecuteToolNodeAsync(request, node, state, cancellationToken).ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
@@ -171,13 +171,21 @@ public sealed class AgentWorkflowRunner
         return JsonDocument.Parse("{}");
     }
 
-    // 标题规则由程序独立保证；不截断后再执行，避免实际参数偏离被校验/审批的内容。
-    private static bool CanRename(AgentWorkflowState state) =>
-        state.Outputs.TryGetValue("validate", out var validation)
-        && AgentValidationResult.IsApproved(validation)
-        && state.Outputs.TryGetValue("summarize", out var title)
-        && !string.IsNullOrWhiteSpace(title)
-        && title.Trim().Length <= 256;
+    /// <summary>工作流执行与检查点准入共享重命名建议校验；结果不代表工具授权或人工审批已通过。</summary>
+    /// <param name="state">待校验的工作流状态，不修改其原始标题或校验输出。</param>
+    /// <returns>结构化模型校验批准且原始标题符合长度要求时返回true。</returns>
+    /// <exception cref="ArgumentNullException">状态为null。</exception>
+    public static bool HasValidRenameProposal(AgentWorkflowState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        // 不截断后再执行，避免实际参数偏离被校验/审批的内容。
+        return state.Outputs is not null
+            && state.Outputs.TryGetValue("validate", out var validation)
+            && AgentValidationResult.IsApproved(validation)
+            && state.Outputs.TryGetValue("summarize", out var title)
+            && !string.IsNullOrWhiteSpace(title)
+            && title.Trim().Length <= 256;
+    }
 
     private static string Interpolate(string template, IReadOnlyDictionary<string, string> outputs)
     {

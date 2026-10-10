@@ -29,7 +29,7 @@ namespace Full.NET.UnitTests.Ai;
 
 /// <summary>Worker 协调器在会话失效、模型失败与租约丢失时保持预算与状态边界。</summary>
 [TestClass]
-public sealed class AiAgentRunCoordinatorTests
+public sealed partial class AiAgentRunCoordinatorTests
 {
     [TestMethod]
     public async Task Invalid_session_marks_authorization_required_and_cancels_budget_async()
@@ -242,7 +242,9 @@ public sealed class AiAgentRunCoordinatorTests
         Guid? sessionId = null,
         bool promptBound = false,
         bool promptDeactivated = false,
-        bool deactivateDuringFactory = false)
+        bool deactivateDuringFactory = false,
+        Func<AiAgentRunRecord, AgentCheckpointRecord?>? checkpointFactory = null,
+        Action<AiAgentRunRecord>? configureRecord = null)
     {
         var runId = Guid.CreateVersion7();
         var modelId = Guid.CreateVersion7();
@@ -262,6 +264,9 @@ public sealed class AiAgentRunCoordinatorTests
         var promptJson = Full.NET.Modules.Ai.Domain.AiPromptVersionIntegrity.Serialize(new(modelId, "zh-CN", "Bound {{input}}", 100, 100));
         var promptHash = Full.NET.Modules.Ai.Domain.AiPromptVersionIntegrity.Hash(promptJson, 1, "ollama", "model");
         var record = CreateRecord(runId, modelId, definitionKey, sessionId, promptBound ? new(promptId, promptVersionId, 1, promptHash, 0) : null);
+        configureRecord?.Invoke(record);
+        queries.QuerySingleOrDefaultAsync<AgentCheckpointRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => checkpointFactory?.Invoke(record));
         queries.QuerySingleOrDefaultAsync<AiPromptRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(_ => new AiPromptRecord { Id = promptId, ScopeKey = "host", Revision = 2, LastVersion = 1, ActiveVersionId = promptDeactivated ? null : promptVersionId, Epoch = promptEpoch });
         queries.QuerySingleOrDefaultAsync<AiPromptVersionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
