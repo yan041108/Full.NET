@@ -39,7 +39,7 @@ internal sealed partial class ProductQueryService(
         };
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                new Dictionary<string, object?> { ["Offset"] = offset, ["PageSize"] = pageSize },
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -66,7 +66,7 @@ internal sealed partial class ProductQueryService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<ProductRecord>(
                 ProductSql.FindByIdStatement,
-                new { Id = productId },
+                new Dictionary<string, object?> { ["Id"] = productId },
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null
@@ -144,14 +144,14 @@ internal sealed class ProductManagementService(
         var productId = idGenerator.NewId();
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductSql.InsertStatement,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = productId,
-                    request.Name,
-                    request.Description,
-                    request.IsActive,
-                    Version = 1L,
-                    CreatedAtUtc = clock.UtcNow
+                    ["Id"] = productId,
+                    ["Name"] = request.Name,
+                    ["Description"] = request.Description,
+                    ["IsActive"] = request.IsActive,
+                    ["Version"] = 1L,
+                    ["CreatedAtUtc"] = clock.UtcNow
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -183,13 +183,13 @@ internal sealed class ProductManagementService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductSql.UpdateStatement,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = productId,
-                    request.Name,
-                    request.Description,
-                    request.IsActive,
-                    request.Version
+                    ["Id"] = productId,
+                    ["Name"] = request.Name,
+                    ["Description"] = request.Description,
+                    ["IsActive"] = request.IsActive,
+                    ["Version"] = request.Version
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -215,10 +215,10 @@ internal sealed class ProductManagementService(
         EnsureTenantContext();
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductSql.DisableStatement,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = productId,
-                    request.Version
+                    ["Id"] = productId,
+                    ["Version"] = request.Version
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -281,7 +281,7 @@ internal sealed class ProductManagementService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<ProductRecord>(
                 ProductSql.FindByIdStatement,
-                new { Id = productId },
+                new Dictionary<string, object?> { ["Id"] = productId },
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null ? NotFound() : VersionConflict();

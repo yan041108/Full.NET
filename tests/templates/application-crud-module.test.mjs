@@ -87,6 +87,8 @@ test('application generated module compiles and preserves module and host conten
     assert.ok(calls.every(({ options }) => options.cwd === root && options.windowsHide === true));
     const project = readFileSync(join(root, moduleProject), 'utf8');
     assert.match(project, /\.\.\/\.\.\/framework\/fullnet\/src\/BuildingBlocks\/Full.NET.Modularity/);
+    assert.match(project, /<ProjectReference Condition="'\$\(FullNetAotAnalysis\)' == 'true' or '\$\(FullNetPublishMode\)' == 'NativeAot' or '\$\(PublishAot\)' == 'true'" Include="[^"\n]+\/Full\.NET\.Data\.Dapper\/Full\.NET\.Data\.Dapper\.csproj"/u,
+      '生成模块须在 Native 编译条件下引用静态 SQL 物化器实现。');
     assert.doesNotMatch(project, /G:|github_fork/);
     for (const path of untouched) assert.equal(readFileSync(join(root, path), 'utf8'), 'human ' + path);
     assert.match(readFileSync(join(root, 'src/Demo.Modules.Catalog/Generated/Product/ProductSql.g.cs'), 'utf8'), /人工修改/);

@@ -37,6 +37,7 @@ export function verifyApplicationCrudModule(appRoot, {
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
 ${references.map((path) => `    <ProjectReference Include="../../framework/fullnet/src/${path}" />`).join('\n')}
+    <ProjectReference Condition="'$(FullNetAotAnalysis)' == 'true' or '$(FullNetPublishMode)' == 'NativeAot' or '$(PublishAot)' == 'true'" Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj" />
   </ItemGroup>
 </Project>
 `);

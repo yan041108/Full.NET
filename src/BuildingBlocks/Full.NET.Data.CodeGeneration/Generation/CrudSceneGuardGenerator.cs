@@ -90,7 +90,7 @@ internal static class CrudSceneGuardGenerator
         if (schema.Scene == FullNetCrudScene.Tree)
         {
             var tenantParent = schema.IsTenantScoped
-                ? "\n                    TenantId = currentTenant.Id!.Value,"
+                ? "\n                    [\"TenantId\"] = currentTenant.Id!.Value,"
                 : string.Empty;
             methods.Add(
                 $$"""
@@ -112,9 +112,9 @@ internal static class CrudSceneGuardGenerator
                     var parent = await queryExecutor
                         .QuerySingleOrDefaultAsync<{{schema.ClrTypeName}}Record>(
                             {{schema.ClrTypeName}}Sql.FindByIdStatement,
-                            new
+                            new Dictionary<string, object?>
                             {
-                                Id = parentId.Value,{{tenantParent}}
+                                ["Id"] = parentId.Value,{{tenantParent}}
                             },
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -129,9 +129,9 @@ internal static class CrudSceneGuardGenerator
                         var node = await queryExecutor
                             .QuerySingleOrDefaultAsync<{{schema.ClrTypeName}}Record>(
                                 {{schema.ClrTypeName}}Sql.FindByIdStatement,
-                                new
+                                new Dictionary<string, object?>
                                 {
-                                    Id = current,{{tenantParent}}
+                                    ["Id"] = current,{{tenantParent}}
                                 },
                                 cancellationToken)
                             .ConfigureAwait(false);
@@ -160,7 +160,7 @@ internal static class CrudSceneGuardGenerator
                 ? " AND TenantId = @TenantId"
                 : string.Empty;
             var tenantParam = schema.IsTenantScoped
-                ? "\n                            TenantId = currentTenant.Id!.Value,"
+                ? "\n                            [\"TenantId\"] = currentTenant.Id!.Value,"
                 : string.Empty;
             var scope = schema.DataScope switch
             {
@@ -185,10 +185,10 @@ internal static class CrudSceneGuardGenerator
                                 "SELECT Id FROM {{schema.DatabaseTableName}} WHERE {{firstUnique.DatabaseName}} = @Value AND Id <> @Id{{tenantUnique}}",
                                 {{scope}},
                                 {{tenantBinding}}),
-                            new
+                            new Dictionary<string, object?>
                             {
-                                Value = value,
-                                Id = {{idParameter}},{{tenantParam}}
+                                ["Value"] = value,
+                                ["Id"] = {{idParameter}},{{tenantParam}}
                             },
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -207,7 +207,7 @@ internal static class CrudSceneGuardGenerator
                 ? " AND TenantId = @TenantId"
                 : string.Empty;
             var tenantParam = schema.IsTenantScoped
-                ? "\n                            TenantId = currentTenant.Id!.Value,"
+                ? "\n                            [\"TenantId\"] = currentTenant.Id!.Value,"
                 : string.Empty;
             var scope = schema.DataScope switch
             {
@@ -231,9 +231,9 @@ internal static class CrudSceneGuardGenerator
                                 "SELECT Id FROM {{principalTable}} WHERE Id = @Id{{tenantSql}}",
                                 {{scope}},
                                 {{tenantBinding}}),
-                            new
+                            new Dictionary<string, object?>
                             {
-                                Id = principalId,{{tenantParam}}
+                                ["Id"] = principalId,{{tenantParam}}
                             },
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -261,7 +261,7 @@ internal static class CrudSceneGuardGenerator
                         ? " AND TenantId = @TenantId"
                         : string.Empty;
                     var tenantParam = schema.IsTenantScoped
-                        ? "\n                            TenantId = currentTenant.Id!.Value,"
+                        ? "\n                            [\"TenantId\"] = currentTenant.Id!.Value,"
                         : string.Empty;
                     var scope = schema.DataScope switch
                     {
@@ -280,9 +280,9 @@ internal static class CrudSceneGuardGenerator
                                 "DELETE FROM {{dependentTable}} WHERE {{relationship.DependentColumnName}} = @Id{{tenantSql}}",
                                 {{scope}},
                                 {{tenantBinding}}),
-                            new
+                            new Dictionary<string, object?>
                             {
-                                Id = {{idParameter}},{{tenantParam}}
+                                ["Id"] = {{idParameter}},{{tenantParam}}
                             },
                             cancellationToken)
                         .ConfigureAwait(false);

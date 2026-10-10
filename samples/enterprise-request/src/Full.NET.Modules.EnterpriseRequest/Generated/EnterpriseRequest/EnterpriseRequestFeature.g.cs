@@ -298,23 +298,23 @@ CancellationToken cancellationToken = default)
         var enterpriseRequestId = idGenerator.NewId();
         var affectedRows = await commandExecutor.ExecuteAsync(
                 EnterpriseRequestSql.InsertStatement,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = enterpriseRequestId,
-                    OrganizationUnitId = organizationUnitId,
-                    request.RequestNumber,
-                    request.Title,
-                    request.Status,
-                    request.TotalAmount,
-                    request.ApplicantUserId,
-                    Version = 1L,
-                    CreatedAtUtc = clock.UtcNow,
-                    CreatedById = actorUserId,
-                    UpdatedAtUtc = (DateTimeOffset?)null,
-                    UpdatedById = (Guid?)null,
-                    IsDeleted = false,
-                    DeletedAtUtc = (DateTimeOffset?)null,
-                    DeletedById = (Guid?)null
+                    ["Id"] = enterpriseRequestId,
+                    ["OrganizationUnitId"] = organizationUnitId,
+                    ["RequestNumber"] = request.RequestNumber,
+                    ["Title"] = request.Title,
+                    ["Status"] = request.Status,
+                    ["TotalAmount"] = request.TotalAmount,
+                    ["ApplicantUserId"] = request.ApplicantUserId,
+                    ["Version"] = 1L,
+                    ["CreatedAtUtc"] = clock.UtcNow,
+                    ["CreatedById"] = actorUserId,
+                    ["UpdatedAtUtc"] = (DateTimeOffset?)null,
+                    ["UpdatedById"] = (Guid?)null,
+                    ["IsDeleted"] = false,
+                    ["DeletedAtUtc"] = (DateTimeOffset?)null,
+                    ["DeletedById"] = (Guid?)null
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -396,17 +396,17 @@ CancellationToken cancellationToken = default)
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 EnterpriseRequestSql.UpdateStatement,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = enterpriseRequestId,
-                    request.RequestNumber,
-                    request.Title,
-                    request.Status,
-                    request.TotalAmount,
-                    request.ApplicantUserId,
-                    UpdatedAtUtc = clock.UtcNow,
-                    UpdatedById = actorUserId,
-                    request.Version
+                    ["Id"] = enterpriseRequestId,
+                    ["RequestNumber"] = request.RequestNumber,
+                    ["Title"] = request.Title,
+                    ["Status"] = request.Status,
+                    ["TotalAmount"] = request.TotalAmount,
+                    ["ApplicantUserId"] = request.ApplicantUserId,
+                    ["UpdatedAtUtc"] = clock.UtcNow,
+                    ["UpdatedById"] = actorUserId,
+                    ["Version"] = request.Version
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -479,12 +479,12 @@ CancellationToken cancellationToken = default)
             .ConfigureAwait(false);
                 var affectedRows = await commandExecutor.ExecuteAsync(
                 EnterpriseRequestSql.DeleteStatement,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = enterpriseRequestId,
-                    DeletedAtUtc = clock.UtcNow,
-                    DeletedById = actorUserId,
-                    request.Version
+                    ["Id"] = enterpriseRequestId,
+                    ["DeletedAtUtc"] = clock.UtcNow,
+                    ["DeletedById"] = actorUserId,
+                    ["Version"] = request.Version
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -552,7 +552,7 @@ CancellationToken cancellationToken = default)
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<EnterpriseRequestRecord>(
                 EnterpriseRequestSql.FindByIdStatement,
-                new { Id = enterpriseRequestId },
+                new Dictionary<string, object?> { ["Id"] = enterpriseRequestId },
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null ? NotFound() : VersionConflict();
@@ -573,10 +573,10 @@ CancellationToken cancellationToken = default)
                     "DELETE FROM demo_enterprise_request_enterprise_request_line WHERE RequestId = @Id AND TenantId = @TenantId",
                     SqlDataScope.TenantRequired,
                     SqlTenantBinding.CurrentTenantId),
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = enterpriseRequestId,
-                                    TenantId = currentTenant.Id!.Value,
+                    ["Id"] = enterpriseRequestId,
+                                    ["TenantId"] = currentTenant.Id!.Value,
                 },
                 cancellationToken)
             .ConfigureAwait(false);

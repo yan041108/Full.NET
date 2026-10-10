@@ -12,6 +12,58 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class CrudArtifactGeneratorTests
 {
     [TestMethod]
+    [DataRow("legacy")]
+    [DataRow("explicit")]
+    public void Generated_write_parameter_names_match_sql_when_column_name_differs(string mode)
+    {
+        var original = mode == "legacy" ? FullNetCrudSchemaTests.CreateProductSchema() : CreateExplicitLifecycleSchema();
+        var columns = original.Columns.Select(column => column.ClrPropertyName == "Name"
+            ? column with { DatabaseName = "DisplayName" } : column).ToArray();
+        var schema = mode == "legacy" ? FullNetCrudSchemaTests.CreateProductSchema(columns: columns)
+            : FullNetCrudSchema.CreateProject(original.OwnerKey, original.ModuleKey, original.EntityKey, original.DatabaseTableName,
+                original.RootNamespace, original.ClrTypeName, original.ApiResourceName, original.PermissionResourceName,
+                original.DataScope, original.EntityCapabilities, original.Scene, original.Relationships, columns);
+        var artifacts = GenerateWithLayui(schema);
+        var sql = Artifact(artifacts, "backend/ProductSql.g.cs");
+        var feature = Artifact(artifacts, "backend/ProductFeature.g.cs");
+        StringAssert.Contains(sql, "DisplayName = @Name");
+        Assert.AreEqual(2, feature.Split("[\"Name\"] = request.Name", StringSplitOptions.None).Length - 1,
+            "创建和更新的参数名跟随 SQL 占位符，数据库列名只用于 SQL 列投影。");
+        Assert.IsFalse(feature.Contains("[\"DisplayName\"] = request.Name", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("legacy")]
+    [DataRow("explicit")]
+    [DataRow("tree")]
+    public void Generated_sql_parameters_have_static_shape(string mode)
+    {
+        var schema = mode switch
+        {
+            "legacy" => FullNetCrudSchemaTests.CreateProductSchema(),
+            "tree" => CreateTreeSchema(),
+            _ => CreateExplicitLifecycleSchema(),
+        };
+        var feature = Artifact(GenerateWithLayui(schema), "backend/ProductFeature.g.cs");
+        var syntax = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(feature).GetRoot();
+        Assert.AreEqual(0, syntax.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.AnonymousObjectCreationExpressionSyntax>().Count(),
+            "生成的 SQL 参数必须能在禁止反射的 Native 执行器上绑定。");
+    }
+
+    [TestMethod]
+    [DataRow("legacy")]
+    [DataRow("explicit")]
+    public void Generated_records_register_static_native_materializer(string mode)
+    {
+        var schema = mode == "legacy" ? FullNetCrudSchemaTests.CreateProductSchema() : CreateExplicitLifecycleSchema();
+        var artifacts = GenerateWithLayui(schema);
+        var record = Artifact(artifacts, "backend/ProductRecord.g.cs");
+        var endpoint = Artifact(artifacts, "backend/ProductEndpoint.g.cs");
+        StringAssert.Contains(record, "Register<ProductRecord>");
+        StringAssert.Contains(endpoint, "ProductRecordAotMaterializer.Register()");
+    }
+
+    [TestMethod]
     [DataRow(FullNetCrudOwnershipMode.None)]
     [DataRow(FullNetCrudOwnershipMode.OrganizationUnit)]
     public void Generated_queries_allow_static_domain_scope_customization(FullNetCrudOwnershipMode ownership)
@@ -704,10 +756,10 @@ public sealed class CrudArtifactGeneratorTests
             + "            DeletedById = @DeletedById,\n"
             + "            Version = Version + 1");
         StringAssert.Contains(sql, "AND IsDeleted = 0");
-        StringAssert.Contains(feature, "CreatedById = actorUserId");
-        StringAssert.Contains(feature, "UpdatedById = actorUserId");
-        StringAssert.Contains(feature, "DeletedById = actorUserId");
-        StringAssert.Contains(feature, "DeletedAtUtc = clock.UtcNow");
+        StringAssert.Contains(feature, "[\"CreatedById\"] = actorUserId");
+        StringAssert.Contains(feature, "[\"UpdatedById\"] = actorUserId");
+        StringAssert.Contains(feature, "[\"DeletedById\"] = actorUserId");
+        StringAssert.Contains(feature, "[\"DeletedAtUtc\"] = clock.UtcNow");
         StringAssert.Contains(endpoint, "ClaimsPrincipal principal");
         StringAssert.Contains(endpoint, "FullNetIdentityClaimTypes.Subject");
         StringAssert.Contains(endpoint, "MapPost(\"/{productId:guid}/delete\"");
@@ -1027,7 +1079,7 @@ public sealed class CrudArtifactGeneratorTests
         StringAssert.Contains(feature, "IOrganizationOwnedEntityWriteAuthorizer writeAuthorizer");
         StringAssert.Contains(feature, "IDataScopeSqlFilterBuilder dataScopeFilterBuilder");
         StringAssert.Contains(feature, "EnsureCanWriteAsync");
-        StringAssert.Contains(feature, "OrganizationUnitId = organizationUnitId");
+        StringAssert.Contains(feature, "[\"OrganizationUnitId\"] = organizationUnitId");
         StringAssert.Contains(feature, "BuildOrganizationUnitFilter");
         Assert.IsFalse(feature.Contains("GetProperties()", StringComparison.Ordinal));
         StringAssert.Contains(feature, "new Dictionary<string, object?> { [\"Offset\"] = offset");
@@ -1566,7 +1618,7 @@ public sealed class CrudArtifactGeneratorTests
         $"{artifact.Kind}\n{artifact.RelativePath}\n{artifact.Content}";
 
     private static T ReadParameter<T>(object parameters, string name) =>
-        (T)parameters.GetType().GetProperty(name)!.GetValue(parameters)!;
+        (T)((IReadOnlyDictionary<string, object?>)parameters)[name]!;
 
     private static string FindRepositoryRoot()
     {

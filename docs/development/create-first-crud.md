@@ -176,12 +176,15 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Abstractions/Full.NET.Abstractions.csproj" />
     <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Data.Abstractions/Full.NET.Data.Abstractions.csproj" />
+    <ProjectReference Condition="'$(FullNetAotAnalysis)' == 'true' or '$(FullNetPublishMode)' == 'NativeAot' or '$(PublishAot)' == 'true'" Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj" />
     <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Hosting/Full.NET.Hosting.csproj" />
     <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Modularity/Full.NET.Modularity.csproj" />
     <ProjectReference Include="../../framework/fullnet/src/Modules/Full.NET.Modules.Identity.Contracts/Full.NET.Modules.Identity.Contracts.csproj" />
   </ItemGroup>
 </Project>
 ```
+
+生成记录在 Native 编译条件下使用静态物化器，条件引用用于安装该映射；业务查询与写入仍经 `Data.Abstractions` 的执行边界。JIT 模块编译不包含这项引用。分析编译通过仅证明静态闭包，独立应用的 Native 发布和真实运行仍需单独验收。
 
 同目录保存 `CatalogModule.cs`：
 

@@ -19,6 +19,22 @@ namespace Full.NET.UnitTests.EnterpriseRequest;
 public sealed class EnterpriseRequestStateWriteTests
 {
     [TestMethod]
+    public async Task Ordinary_writes_use_native_compatible_sql_parameters()
+    {
+        var f = new Fixture();
+        f.Commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                Assert.IsInstanceOfType<IReadOnlyDictionary<string, object?>>(call.Arg<object>(),
+                    "在数据库调用之前复现 Native 执行器对匿名参数的拒绝。");
+                return 1;
+            });
+        Assert.IsTrue((await f.Service.CreateAsync(f.Create, f.Actor, f.Unit)).IsSuccess);
+        Assert.IsTrue((await f.Service.UpdateAsync(f.Id, f.Update, f.Actor)).IsSuccess);
+        Assert.IsTrue((await f.Service.DeleteAsync(f.Id, new DeleteEnterpriseRequestRequest(f.Row.Version), f.Actor)).IsSuccess);
+    }
+
+    [TestMethod]
     [DataRow("Submitted")]
     [DataRow("Approved")]
     [DataRow("Rejected")]
@@ -151,7 +167,7 @@ public sealed class EnterpriseRequestStateWriteTests
                 var statement = call.Arg<SqlStatement>();
                 if (statement == EnterpriseRequestSql.UpdateStatement || statement == EnterpriseRequestSql.DeleteStatement)
                 {
-                    var version = (long)call.Arg<object>()!.GetType().GetProperty("Version")!.GetValue(call.Arg<object>())!;
+                    var version = (long)((IReadOnlyDictionary<string, object?>)call.Arg<object>()!)["Version"]!;
                     if (version != f.Row.Version) return 0;
                     f.Row = f.Row with { Status = action == "update" ? "Draft" : f.Row.Status, IsDeleted = action == "delete" };
                 }
