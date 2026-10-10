@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
-import { reactive, ref } from 'vue';
+import { reactive, ref, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -58,6 +58,14 @@ const scope = useAuthorizedViewScope(session, () => {
   loading.value = false; changing.value = false;
 }, load);
 let listRequest: ReturnType<typeof scope.begin>;
+let createRequest: ReturnType<typeof scope.begin>;
+// 关闭同步撤销本弹窗创建的接入资格；已到服务端的写入仍由服务端完成。
+watch(editorOpen, open => {
+  if (!open) {
+    createRequest?.cancel(); changing.value = false;
+    editorForm.documentItemId = ''; editorForm.versionId = '';
+  }
+}, { flush: 'sync' });
 
 const {
   tableMainRef,
@@ -132,7 +140,7 @@ async function submitCreate() {
   if (!documentItemId) {
     return;
   }
-  const request = scope.begin('document.host_preview_tasks.create'); if (!request) return;
+  const request = scope.begin('document.host_preview_tasks.create'); if (!request) return; createRequest = request;
 
   changing.value = true;
   try {

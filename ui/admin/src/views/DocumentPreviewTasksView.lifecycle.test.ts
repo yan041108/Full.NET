@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { ElButton, ElMessage } from 'element-plus';
+import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import DocumentPreviewTasksView from './DocumentPreviewTasksView.vue';
 import * as api from '../api/document-preview-tasks';
 import { createOutputSession, deferred, outputId } from '../test/data-output-fixtures';
@@ -58,5 +59,25 @@ describe('文档预览请求归属', () => {
     session.currentUser!.permissions = [read]; await flushPromises();
     await wrapper!.get('[data-testid="document-preview-task-open-pdf"]').trigger('click'); await flushPromises();
     expect(api.openDocumentPreviewTaskContent).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('文档预览创建弹窗关闭', () => {
+  it.each(['resolve','reject'] as const)('关闭同步取消，迟到%s不反馈或刷新，重开清空输入', async outcome => {
+    const pending=deferred<typeof task>();vi.mocked(api.createDocumentPreviewTask).mockReturnValueOnce(pending.promise).mockResolvedValueOnce(task);
+    const success=vi.spyOn(ElMessage,'success');await setup();
+    await wrapper!.get('[data-testid="document-preview-task-create"]').trigger('click');await flushPromises();
+    const inputs=wrapper!.get('[data-testid="document-preview-task-editor-form"]').findAll('input');
+    await inputs[0]!.setValue(outputId);await inputs[1]!.setValue(outputId);
+    await wrapper!.get('[data-testid="document-preview-task-editor-submit"]').trigger('click');
+    const signal=vi.mocked(api.createDocumentPreviewTask).mock.calls[0]![1]!;
+    wrapper!.getComponent(ArtFormDialog).vm.$emit('update:open',false);
+    expect(signal.aborted).toBe(true);
+    if(outcome==='resolve')pending.resolve(task);else pending.reject(new Error('late'));
+    await flushPromises();expect(success).not.toHaveBeenCalled();expect(api.listDocumentPreviewTasks).toHaveBeenCalledOnce();expect(wrapper!.find('.el-alert').exists()).toBe(false);
+    await wrapper!.get('[data-testid="document-preview-task-create"]').trigger('click');await flushPromises();
+    expect(wrapper!.get('[data-testid="document-preview-task-editor-form"]').findAll('input').map(input=>(input.element as HTMLInputElement).value)).toEqual(['','']);
+    await wrapper!.get('[data-testid="document-preview-task-editor-form"] input').setValue(outputId);
+    await wrapper!.get('[data-testid="document-preview-task-editor-submit"]').trigger('click');await flushPromises();expect(success).toHaveBeenCalledOnce();expect(api.listDocumentPreviewTasks).toHaveBeenCalledTimes(2);
   });
 });

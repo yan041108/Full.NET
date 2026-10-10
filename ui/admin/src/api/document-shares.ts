@@ -184,12 +184,15 @@ export async function getDocumentSharePreviewTaskByCode(
   if (!isAccessHostDocumentShareRequest(req)) {
     throw new Error('client.invalid_access_document_share_request');
   }
-  return documentPublicGetDocumentSharePreviewTask(
+  const value = await documentPublicGetDocumentSharePreviewTask(
     http,
     { shareCode, taskId, body: req },
     signal,
     publicShareOptions
   );
+  // 生成操作验证响应结构；公开轮询还必须拒绝另一个任务的合法响应。
+  if (value.id.toLowerCase() !== taskId.toLowerCase()) throw new Error('client.invalid_document_preview_task_identity');
+  return value;
 }
 
 /** 匿名分享：读取已完成的预览任务输出（通常为 PDF）。 */
