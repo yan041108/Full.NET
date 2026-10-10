@@ -1,8 +1,10 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-10-10（本轮收口Reporting/Printing版本授权对象隔离，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-10-10（本轮收口导入任务响应归属与弹窗取消，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 > 2026-09-16 规划增补：已纳入[八项底座完善能力及七类收口重点](adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)，执行见[唯一总计划](../superpowers/plans/2026-09-16-foundation-productization.md)。本次未重新认证下表的实现状态；部分历史条目落后于专项记录，F00 将逐项核对。工作区其他改动不作为能力完成证据。
+
+2026-10-10 导入任务客户端已统一核对详情/执行/恢复/重试的任务ID及创建的Schema/工作表键；关闭创建弹窗同步取消目录、上传和模板下载，阻断迟到结果。相关客户端61/61、Vue类型/构建及包预算通过；冻结0c438f4的独立生成应用Edge5/5通过，两种提供程序配置客户端一致、只构建一次。受控HTTP限客户端证据，不重新认证正式双库业务，整体保持Build-verified、Capacity-not-verified。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-导入任务响应归属与弹窗取消)。
 
 2026-10-10 Reporting/Printing租户版本授权组件已补对象ID替换失效、父read与grant_tenants双权限门禁；旧确认、读取及写结果不能接入替换对象，同ID元数据更新仍保留主动选择的冻结版本。相关客户端13文件128/128、Vue类型/构建及包预算通过；冻结ad2c763的独立生成应用客户端Edge4/4通过，两种提供程序配置的客户端输入一致、只构建一次。受控HTTP证据不外推为正式双库业务，整体仍为Build-verified、Capacity-not-verified。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-reporting-与-printing-版本授权对象隔离)。
 
