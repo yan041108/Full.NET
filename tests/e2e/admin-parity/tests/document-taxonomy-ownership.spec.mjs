@@ -41,12 +41,12 @@ for (const config of configurations) {
       if (route.request().method() !== 'POST') return route.fallback();
       started = true; await pending; await json(route, config.entity).catch(() => {}); finished = true;
     });
-    await page.getByTestId(testId('create')).click(); await page.getByTestId(testId('name')).locator('input').fill('待取消目录');
+    await page.getByTestId(testId('create')).click(); await page.getByTestId(testId('name')).fill('待取消目录');
     await page.getByTestId(testId('editor-submit')).click(); await expect.poll(() => started).toBe(true);
     await page.getByRole('dialog').getByRole('button', { name: '取消', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
     release(); await expect.poll(() => finished).toBe(true); await expect.poll(() => cancelled).toBe(true);
     expect(lists()).toBe(1); await expect(page.locator('.el-message--success,.el-message--error')).toHaveCount(0);
-    await page.getByTestId(testId('create')).click(); await expect(page.getByTestId(testId('name')).locator('input')).toHaveValue('');
+    await page.getByTestId(testId('create')).click(); await expect(page.getByTestId(testId('name'))).toHaveValue('');
   });
 
   test(config.kind + '更新拒绝错配身份，保留隐藏元数据并允许重试', async ({ page }) => {
@@ -88,8 +88,8 @@ test('分类排序拒绝小数及溢出，合法Int32下界完整提交', async 
     if (route.request().method() !== 'POST') return route.fallback();
     creates++; expect(route.request().postDataJSON().sortOrder).toBe(-2147483648); return json(route, config.entity);
   });
-  await page.getByTestId('document-category-create').click(); await page.getByTestId('document-category-name').locator('input').fill('排序目录');
-  const input = page.getByTestId('document-category-sort-order').locator('input');
+  await page.getByTestId('document-category-create').click(); await page.getByTestId('document-category-name').fill('排序目录');
+  const input = page.getByTestId('document-category-sort-order');
   for (const value of ['1.5', '2147483648']) {
     await input.fill(value); await page.getByTestId('document-category-editor-submit').click();
     await expect(page.locator('.el-message--warning').last()).toBeVisible(); expect(creates).toBe(0);
