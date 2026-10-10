@@ -2308,3 +2308,16 @@ F10结果回写子项收口：只读复审核对实际TRX、UID及夹具摘要�
 - 冻结6d09bcc的独立生成应用集中客户端验收：SQL Server/MySQL两种Enterprise配置生成/完整性检查通过，客户端逐文件一致；离线锁定还原与共享Vue构建退出0。Edge7/7、零失败/跳过，浏览器10.1s；生成至清理189.749秒，工作区等待7毫秒。覆盖分享码切换的真实请求取消、两种转换创建错配、轮询错配、后台创建错配及重试、后台关闭及重开清理、密码错误改正后预览。回执.tmp/c02-document-generated-acceptance/receipt.json与browser.log，自有副本已清理，384项冻结产物SHA256已全量核对，汇总.tmp/c02-document-proof.json。使用工作区互斥、独立目录、单Edge worker及VITE_REALTIME_ENABLED=false，不启动数据库/三宿主；受控HTTP/内容字节只证明客户端流程，不代表真实Office转换、数据库业务、公开分享服务端授权或Realtime验收。
 - 最终文档治理命令node --test --test-concurrency=1 tests/governance/*.test.mjs，回执.tmp/c02-reporting-scope-document-governance/；本任务git diff --check及外来内容保护.tmp/c02-reporting-foreign-proof.mjs交付前复核。
 - Windows x64、Node24.12.0、Edge，本地客户端功能证据。整体Build-verified、Capacity-not-verified；完整业务Native、人工全页面、完整故障矩阵、灾难恢复及容量仍待对应验收。开发分支及Draft PR3交付，未合并、未发布；远端CI不以运行中代替成功。
+
+### 2026-10-10 文档分享管理与创建请求归属
+
+- 基线f164bb9c62df74f035be2e3d357b31a37b662733，任务快照c02-document-share-management-20261010；冻结候选a37483dcbb02c3ae513c3b700b1a0f991c79903b。本批12文件，覆盖分享API、管理页、创建弹窗、文档库分享消费者、多语言与对应单测/浏览器；文档库其余操作不据此认证，服务端、双库SQL与Native输入未变，外来样例和工具保持原样。
+- 分享管理读取要求有效Host与父read，写入另核对create/update_status；文档库消费者明确使用documents.read，不额外要求shares.read。列表与文档标签目录持有各自取消租约，刷新替换、上下文/权限变更、卸载及KeepAlive停用后同步取消并清理数据；旧响应、剪贴板成功/失败和写入结果不再反馈或刷新。状态更新及单项/批量创建防重复；取消不能撤回已到服务端的写入。
+- 创建关闭意图不等待父open回写，立即取消并清空密码、选项与表单；已关闭的直接confirm也拒绝。预设文档身份变化取消旧创建，单项数组优先于单项对象，批量只选一项仍锁定文档。开启初始化等同轮props完整更新，关闭/已打开对象替换保持同步失效，避免真实文档库行分享和批量入口误关闭。有效天数为1..365整数，非空访问上限为1..2147483647整数；无效数值不能降级成null无限次。文档选择与有效天数展示必填标识，分享反馈统一经fullNetMessage。
+- API单项创建核对documentId、状态更新核对shareId，UUID大小写等价。批量逐文档结果按请求多重集合核对，允许正常乱序/部分失败，拒绝缺项、额外或重复错项、错误成功数、成功缺分享、失败带分享、嵌套文档错配与password/passwordHash敏感字段。生成操作仍负责线结构守卫，不手改生成契约。
+- 初轮34项31失败/3通过；夹具补齐clipboard并修正空数组参数化，失败不作为通过。独立审查补真实父子点击与单选批量回归：parent-red 2失败/34通过、single-red 3失败/34通过，修复同轮props和预设后通过；close-red再1失败/40通过，补accepting提交守卫后通过。新增测试的ElTable类型选择器曾导致类型检查失败，修正具名组件选择器后通过。最新只读复审无剩余确定P1/P2；纯Boolean同轮false→true被折叠不代表独立用户事件，未引入无消费者的重开协议。
+- 最终node .tmp/c02-share-check.mjs verified-final2在ui/admin依次执行node node_modules/vitest/vitest.mjs run及11个相关文件（分享API/生命周期、文档库消费者、既有分享及预览API、公开分享生命周期、共享授权scope）：81/81，零失败/跳过；node node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.json与node node_modules/vite/bin/vite.js build均退出0，回执.tmp/c02-share-verified-final2/。packages/admin-i18n执行node node_modules/vitest/vitest.mjs run，8/8；node scripts/testing/check-frontend-bundle-budget.mjs三项通过。
+- pnpm test:integration:affected:plan -- --snapshot c02-document-share-management-20261010 --phase slice：代码12文件，交付时含两份证据文档14文件，Integration none；不重复未变的正式双库业务、公开分享服务端授权、三宿主、Office或Native验收。
+- 冻结a37483d的独立生成应用集中验收：SQL Server/MySQL两种Enterprise配置生成与完整性校验通过，客户端逐文件一致，离线锁定还原与共享Vue构建均退出0。Edge7/7，零失败/跳过，浏览器21.5s；生成至自有副本清理252.572秒，工作区等待8毫秒。覆盖非法访问上限与合法整数边界、创建身份错配及重试、关闭真实在途创建/密码清理、状态身份错配及重试、离页取消在途状态更新、文档库自身read单项入口、批量计数错配及正常部分成功；受控HTTP仅证明客户端。工作区互斥、独立目录、单Edge worker、VITE_REALTIME_ENABLED=false，不启动数据库；384项冻结产物SHA256全量核对，自有副本已清理。回执.tmp/c02-share-generated-acceptance/receipt.json、browser.log及汇总.tmp/c02-share-proof.json。
+- 文档治理执行node --test --test-concurrency=1 tests/governance/*.test.mjs，回执.tmp/c02-share-governance/；交付前复核本任务git diff --check、分支与状态、.tmp/c02-reporting-foreign-proof.mjs，冻结后仅增加两份证据文档。
+- Windows x64、Node24.12.0、Edge；本地客户端功能证据。整体Build-verified、Capacity-not-verified，完整企业业务Native、人工全页面、故障矩阵、灾难恢复与容量仍待验收。开发分支与Draft PR3交付，未合并或发布；远端CI以实际状态为准。
