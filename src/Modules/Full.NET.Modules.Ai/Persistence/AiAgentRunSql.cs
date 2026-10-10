@@ -65,6 +65,8 @@ internal static class AiAgentRunSql
           AND LeaseEpoch = @LeaseEpoch
           AND Version = @Version
           AND StatusKey IN ('running', 'retry_scheduled', 'awaiting_approval', 'reconciliation_required')
+          AND LeaseExpiresAtUtc > @Now
+          AND DeadlineAtUtc > @Now
         """, SqlDataScope.Global);
 
     public static readonly SqlStatement UpdateRunStatus = new("ai.agent_run.update_status", """
@@ -76,6 +78,9 @@ internal static class AiAgentRunSql
           AND LeaseOwner = @WorkerId
           AND LeaseEpoch = @LeaseEpoch
           AND Version = @Version
+          AND StatusKey IN ('running', 'retry_scheduled', 'awaiting_approval', 'reconciliation_required')
+          AND LeaseExpiresAtUtc > @Now
+          AND DeadlineAtUtc > @Now
         """, SqlDataScope.Global);
 
     public static readonly SqlStatement InsertStep = new("ai.agent_step.insert", """

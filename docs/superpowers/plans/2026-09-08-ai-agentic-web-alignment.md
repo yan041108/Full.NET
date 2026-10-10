@@ -1725,6 +1725,24 @@ Token 值只限制现有预算预留；实际提供程序输入分词/输出硬�
 - 本地Windows x64、i7-12700H、约64GiB RAM；Linux SDK容器实际为Ubuntu24.04.4、SDK10.0.400／Runtime10.0.11，Docker29.6.2、约20CPU／19.3GiB RAM。集中编译／单元4处理器，发布8CPU／12GiB，功能及两条原生运行线各2CPU／8GiB、GC堆2GiB；使用同机重型锁与独立TEMP。仅进程级 `NuGetAudit=false`，在线依赖审计未执行；无全量Unit／Architecture／Integration、真实云模型、费用、容量或SLO结论。
 - 无SQL、迁移、公共HTTP或检查点线格式变化，未知用量不补零。全节点累计预算、实际deadline、长调用续租、节点完成凭证、未知外部副作用对账及审批当前再授权仍开放，R10原三项不关闭。独立生成应用按AI模块集中验收，保持 `Capacity-not-verified`。
 
+#### R10e：三分支长调用续租、期限取消与双库提交边界（2026-10-10，本批本地验收完成）
+
+- [x] 独立作用域续租及成功 CAS 版本交接；正常收尾停止调度并等待在途续租，保持 Epoch 不变。
+- [x] 三分支共用调用方、租约及运行 deadline 取消；拒绝／异常续租与静默到期均丢弃晚到结果，不提交状态或结算预算。
+- [x] 续租和状态更新共用显式 SQL 的租约／deadline 存活条件；状态更新拒绝终态改写，双库同场景回归。
+- [x] 新增31项行为／SQL边界回归；补齐既有夹具的运行期限与独立续租作用域，公共 bool 续租契约、HTTP、迁移及检查点线格式不变。
+
+**本地验证记录：**
+
+- 基线 main `f7fefc8823bac005e5f86c2a7b76cbc94631f35b`，快照 `ai-agent-lease-watch-r10e`。首次 RED 编译缺少测试夹具的 Messaging 引用，不算行为 RED；补引用后有效 RED 为154项中29失败／125通过，首次 GREEN154/154。
+- 只读审查发现停止与续租 OCE 竞态；新增确定性成功／异常交接回归后，review-red156项中仅异常分支失败。修复仅让定时器等待吞掉停止取消，续租自身 OCE 仍取消执行；修复后只读复核无阻塞项。最终 Windows GREEN156/156，零失败／跳过，构建零警告／错误。
+- 基线归档仅叠加本批11文件并排除受保护路径，冻结7756项输入；另一窗口日志改动保留，共享矩阵仅提交本批阈值及租约边界筛选器。`node artifacts/r10e/run-batch.mjs` 已通过Linux定向156/156、AI2959/2959、运行时237/237、受影响Architecture82/82，均零失败／跳过，Unit发现6428；但Docker引擎在Worker分析和API原生编译期间退出，原进程退出码不可取得，保留原始日志及字节摘要，不将原整组记为通过。确认旧进程及本批容器不存在后，仅清理该失效所有者两个锁，恢复Docker并执行 `node artifacts/r10e/run-resume.mjs`。复用已通过且输入未变的结果，仅重跑未完成分析及发布，再执行双库／原生验收；API和Worker发布使用隔离缓存并行，未删除共享缓存。Unit、Integration、Architecture及API/Worker AOT分析构建均零警告／错误，随后恢复JIT依赖，未执行全量Unit／Architecture／Integration。
+- 双库功能按精确发现UID分为SQL Server44/44、MySQL44/44；原生核心按API10/10、Worker SQL Server12/12和其他13/13并行运行，全部零失败／跳过、退出0。各线使用独立构建卷、同一冻结源码和程序集，保留原44m／45m预算；发现及结果集合无遗漏／重复，分别完整覆盖88项AI功能和35项原生核心。
+- API/Worker新Linux原生发布退出0，分别140584432/90619656字节，耗时1523271/591871ms，警告门禁分别17/15项既有批准警告；不是零发布警告。实际运行文件SHA-256分别 `6b566f907d8ebe23730da58c75fd023caaa1757a20f2a20882b747826a08649f`、`0e38369aed670bc3c387e93cac0bdbb5eaf1aecbc0cbb2aab136a90ff46a0d2e`，与发布产物一致。Unit/Integration消费者Agents `5a554d29e3df99b6316b6b437f8bd144c122df4072ccea364a55fd61df58aa71`、Modules.Ai `47b9041d102455a6df5090caf96caba1c6ac1b4c55f1c495d9f10d6b17698a96` 一致；Integration `51b9934021dfb6aa3f5121ae6aeb7bf22a0a003b42a83d5774136fdec608a9c7`。`node artifacts/r10e/check-final-volumes.mjs` 逐份核对五个运行卷全部Linux输入及消费者，`python artifacts/r10e/collect-final.py` 核对TRX、退出码、发现UID闭包、产物摘要及本任务范围。
+- 固定副本工具54/54、命名30/30、治理57/57、UUID3/3、SQL安全5/5、1214项Integration分片发现核对及受保护路径排除的Markdown检查通过。命名生成目录仅CRLF转LF，经字节比较后恢复归档原字节；Linux SDK仅将两个工具锁的构建期ILLink.Tasks从10.0.12改为10.0.11，核对其余JSON、NuGet元数据及签名包SHA512，单列7754项原输入加两个派生锁，原7756项归档清单不变。
+- 环境为Windows x64、i7-12700H、约64GiB RAM；Linux SDK容器Ubuntu24.04.4、SDK10.0.400／Runtime10.0.11，Docker29.6.2、约20CPU／19.3GiB RAM。集中编译／单元4处理器，发布8CPU／12GiB，双库和原生每条线各2CPU／8GiB、GC堆2GiB；由最外层同机重型锁管理，独立TEMP并等待全部子进程完成后释放。`NuGetAudit=false` 仅进程级覆盖，在线依赖审计未执行；无真实云模型、费用、容量或SLO认证。
+- 仅提供协作取消与租约存活约束，不宣称强制终止非协作外部调用、持久节点凭证、费用认证、未知副作用对账、审批当前再授权或全节点累计硬预算。R10原三项仍开放；独立生成应用按AI模块集中验收，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

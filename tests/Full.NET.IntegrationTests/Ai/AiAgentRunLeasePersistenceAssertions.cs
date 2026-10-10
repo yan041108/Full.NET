@@ -22,6 +22,10 @@ internal static class AiAgentRunLeasePersistenceAssertions
         await Expired_lease_can_be_reclaimed_by_another_worker_async(factory).ConfigureAwait(false);
         await Stale_lease_cannot_commit_terminal_progress_async(factory).ConfigureAwait(false);
         await Renew_requires_current_version_async(factory).ConfigureAwait(false);
+        await Live_renewals_handoff_versions_and_commit_async(factory).ConfigureAwait(false);
+        await Expired_authority_cannot_renew_or_commit_async(factory, deadline: false).ConfigureAwait(false);
+        await Expired_authority_cannot_renew_or_commit_async(factory, deadline: true).ConfigureAwait(false);
+        await Terminal_run_cannot_be_rewritten_async(factory).ConfigureAwait(false);
     }
 
     private static async Task Concurrent_claim_admits_only_one_owner_async(FullNetApiFactory factory)
@@ -74,6 +78,53 @@ internal static class AiAgentRunLeasePersistenceAssertions
             await store.RenewAsync(lease!, now.AddSeconds(5), TimeSpan.FromSeconds(60)).ConfigureAwait(false)).ConfigureAwait(false));
         Assert.IsFalse(await UseStoreAsync(factory, async store =>
             await store.RenewAsync(lease!, now.AddSeconds(10), TimeSpan.FromSeconds(60)).ConfigureAwait(false)).ConfigureAwait(false));
+    }
+
+    private static async Task Live_renewals_handoff_versions_and_commit_async(FullNetApiFactory factory)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var runId = await SeedQueuedRunAsync(factory, now);
+        var lease = (await AcquireAsync(factory, runId, "worker-handoff", now))!;
+        for (var i = 0; i < 2; i++)
+        {
+            var renewedAt = DateTimeOffset.UtcNow;
+            Assert.IsTrue(await UseStoreAsync(factory, async store => await store.RenewAsync(lease, renewedAt, TimeSpan.FromSeconds(60))));
+            lease = lease with { Version = lease.Version + 1, ExpiresAtUtc = renewedAt.AddSeconds(60) };
+        }
+        Assert.IsTrue(await UseStoreAsync(factory, async store => await store.CommitProgressAsync(new(lease, "completed", null, null, null))));
+        Assert.AreEqual("completed", await StatusAsync(factory, runId));
+    }
+
+    private static async Task Expired_authority_cannot_renew_or_commit_async(FullNetApiFactory factory, bool deadline)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var runId = await SeedQueuedRunAsync(factory, now);
+        var lease = (await AcquireAsync(factory, runId, "worker-expired", now))!;
+        // 仅改有效期，保留原版本与所有者；不能把依赖抢占后的 CAS 拒绝当成到期拒绝证据。
+        await using (DbConnection connection = factory.Provider == DatabaseProvider.SqlServer
+            ? new SqlConnection(factory.ConnectionString)
+            : new MySqlConnection(MySqlConnectionStringPolicy.Create(factory.ConnectionString, MySqlGuidStorageMode.Binary16, allowUserVariables: false)))
+        {
+            await connection.ExecuteAsync(deadline
+                ? "UPDATE fn_ai_agent_run SET DeadlineAtUtc = @Expired WHERE Id = @RunId"
+                : "UPDATE fn_ai_agent_run SET LeaseExpiresAtUtc = @Expired WHERE Id = @RunId",
+                new { RunId = runId, Expired = now.AddMinutes(-1) });
+        }
+        Assert.IsFalse(await UseStoreAsync(factory, async store => await store.RenewAsync(lease, DateTimeOffset.UtcNow, TimeSpan.FromSeconds(60))));
+        Assert.IsFalse(await UseStoreAsync(factory, async store => await store.CommitProgressAsync(new(lease, "completed", null, null, null))));
+        Assert.AreEqual("running", await StatusAsync(factory, runId));
+    }
+
+    private static async Task Terminal_run_cannot_be_rewritten_async(FullNetApiFactory factory)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var runId = await SeedQueuedRunAsync(factory, now);
+        var lease = (await AcquireAsync(factory, runId, "worker-terminal", now))!;
+        Assert.IsTrue(await UseStoreAsync(factory, async store => await store.CommitProgressAsync(new(lease, "completed", null, null, null))));
+        var terminalLease = lease with { Version = lease.Version + 1 };
+        Assert.IsFalse(await UseStoreAsync(factory, async store => await store.CommitProgressAsync(new(terminalLease, "failed", null, null, null))));
+        Assert.IsFalse(await UseStoreAsync(factory, async store => await store.RenewAsync(terminalLease, DateTimeOffset.UtcNow, TimeSpan.FromSeconds(60))));
+        Assert.AreEqual("completed", await StatusAsync(factory, runId));
     }
 
     private static async Task<Guid> SeedQueuedRunAsync(FullNetApiFactory factory, DateTimeOffset now)

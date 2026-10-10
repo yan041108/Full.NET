@@ -2,6 +2,7 @@ using System.Text.Json;
 using Full.NET.AI.Abstractions.Budgets;
 using Full.NET.AI.Abstractions.Models;
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.AI.Abstractions.Tools;
@@ -245,17 +246,20 @@ public sealed partial class AiAgentRunCoordinatorTests
         bool deactivateDuringFactory = false,
         Func<AiAgentRunRecord, AgentCheckpointRecord?>? checkpointFactory = null,
         Action<AiAgentRunRecord>? configureRecord = null,
-        Action? duringModelLookup = null)
+        Action? duringModelLookup = null,
+        int leaseSeconds = 30,
+        Action<ICommandExecutor>? configureCommands = null)
     {
         var runId = Guid.CreateVersion7();
         var modelId = Guid.CreateVersion7();
         var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        clock.UtcNow.Returns(_ => DateTimeOffset.UtcNow);
         var ids = Substitute.For<IIdGenerator>();
         ids.NewId().Returns(_ => Guid.CreateVersion7());
         var commands = Substitute.For<ICommandExecutor>();
         commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<SqlStatement>() == AiAgentRunSql.UpdateRunStatus && !commitSucceeds ? 0 : 1);
+        configureCommands?.Invoke(commands);
         var queries = Substitute.For<IQueryExecutor>();
         queries.QueryAsync<Guid>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns([runId]);
@@ -323,7 +327,7 @@ public sealed partial class AiAgentRunCoordinatorTests
         var client = chatClient ?? Substitute.For<IChatClient>();
         var resolvedToolExecutor = toolExecutor ?? CreateDefaultToolExecutor();
         var coordinatorScope = BuildCoordinatorScope(binding, queries, budget, client, ids, resolvedToolExecutor, definitionKey, record,
-            () => { if (deactivateDuringFactory) promptEpoch++; });
+            () => { if (deactivateDuringFactory) promptEpoch++; }, commands, clock);
         var scopeFactory = coordinatorScope.GetRequiredService<IServiceScopeFactory>();
         var coordinator = new AiAgentRunCoordinator(
             scopeFactory,
@@ -332,10 +336,10 @@ public sealed partial class AiAgentRunCoordinatorTests
             resolvedRunner,
             clock,
             ids,
-            Options.Create(new AiAgentRuntimeOptions { BatchSize = 4, LeaseSeconds = 30 }),
+            Options.Create(new AiAgentRuntimeOptions { BatchSize = 4, LeaseSeconds = leaseSeconds }),
             NullLogger<AiAgentRunCoordinator>.Instance);
         await heartbeat.UpsertAsync().ConfigureAwait(false);
-        return new CoordinatorFixture(runId, commands, budget, coordinator, resolvedRunner, resolvedToolExecutor, coordinatorScope.GetRequiredService<IAiModelClientFactory>());
+        return new CoordinatorFixture(runId, commands, budget, coordinator, resolvedRunner, resolvedToolExecutor, coordinatorScope.GetRequiredService<IAiModelClientFactory>(), scopeFactory, clock);
     }
 
     private static IAgentToolExecutor CreateDefaultToolExecutor()
@@ -355,7 +359,9 @@ public sealed partial class AiAgentRunCoordinatorTests
         IAgentToolExecutor toolExecutor,
         string definitionKey,
         AiAgentRunRecord record,
-        Action onFactory)
+        Action onFactory,
+        ICommandExecutor commands,
+        IClock clock)
     {
         var services = new ServiceCollection();
         var tenant = new CurrentTenantAccessor();
@@ -370,6 +376,11 @@ public sealed partial class AiAgentRunCoordinatorTests
         services.AddScoped<AiPromptRunResolver>();
         services.AddSingleton(binding);
         services.AddSingleton(queries);
+        services.AddSingleton(commands);
+        services.AddSingleton(clock);
+        services.AddSingleton(Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+        services.AddScoped<ICommandTransaction>(_ => new DapperCommandTransaction(new RecordingDbTransactionCoordinator()));
+        services.AddScoped<AiAgentRunStore>();
         services.AddSingleton(budget);
         services.AddSingleton(ids);
         services.AddSingleton(toolExecutor);
@@ -441,6 +452,7 @@ public sealed partial class AiAgentRunCoordinatorTests
             Version = 2,
             LeaseEpoch = 1,
             LeaseExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(5),
+            DeadlineAtUtc = DateTimeOffset.UtcNow.AddMinutes(5),
         };
     }
 
@@ -451,5 +463,7 @@ public sealed partial class AiAgentRunCoordinatorTests
         AiAgentRunCoordinator Coordinator,
         IAgentModelRunner Runner,
         IAgentToolExecutor ToolExecutor,
-        IAiModelClientFactory Factory);
+        IAiModelClientFactory Factory,
+        IServiceScopeFactory Scopes,
+        IClock Clock);
 }
