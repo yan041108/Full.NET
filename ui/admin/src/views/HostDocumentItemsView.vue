@@ -32,7 +32,9 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtClientPagination } from '../framework/art-design/composables/useArtCrudTableLayout';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import PermissionGate from '../components/PermissionGate.vue';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useSessionStore } from '../auth/session';
+import { showSuccess } from '../feedback/fullNetMessage';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   createDocumentItem,
@@ -112,12 +114,17 @@ const canRollbackVersion = computed(() => session.can('document.host_documents.r
 const canDeleteVersion = computed(() => session.can('document.host_documents.delete_version'));
 const canDownload = computed(() => session.can('document.host_documents.download'));
 const canCreatePreviewTask = computed(() => session.can('document.host_preview_tasks.create'));
-const canCreateShare = computed(() => session.can('document.host_shares.create'));
+const canCreateShare = computed(() => session.currentUser?.scope === 'host'
+  && session.can('document.host_documents.read') && session.can('document.host_shares.create'));
 const canRead = computed(() => session.can('document.host_documents.read'));
 const shareDialogOpen = ref(false);
 const shareTarget = ref<HostDocumentItem | null>(null);
 const shareBatchTargets = ref<HostDocumentItem[]>([]);
 const selectedItems = ref<HostDocumentItem[]>([]);
+// 只管理文档库的分享流程，不扩大到尚未收口的其他文档操作。
+const shareScope = useAuthorizedViewScope(session, () => {
+  shareDialogOpen.value = false; shareTarget.value = null; shareBatchTargets.value = []; selectedItems.value = [];
+}, () => {});
 const editingItem = computed(() => items.value.find(entry => entry.id === editingId.value));
 
 const editDialogOpen = computed({
@@ -255,17 +262,21 @@ function onCategorySelected(node: CategoryTreeNode): void {
 }
 
 function openShareDialog(item: HostDocumentItem): void {
+  if (!canCreateShare.value) return;
+  shareScope.invalidate();
   shareBatchTargets.value = [];
   shareTarget.value = item;
   shareDialogOpen.value = true;
 }
 
 function openBatchShareDialog(): void {
-  if (selectedItems.value.length === 0) {
+  if (!canCreateShare.value || selectedItems.value.length === 0) {
     return;
   }
+  const targets = [...selectedItems.value];
+  shareScope.invalidate();
   shareTarget.value = null;
-  shareBatchTargets.value = [...selectedItems.value];
+  shareBatchTargets.value = targets;
   shareDialogOpen.value = true;
 }
 
@@ -276,7 +287,8 @@ function onTableSelectionChange(rows: HostDocumentItem[]): void {
 const DOCUMENT_SHARE_BATCH_HINT_KEY = 'documentShares.recentBatch';
 
 function onShareBatchCreated(succeeded: number, total: number): void {
-  ElMessage.success(t('documentShares.batchCreateResult', { succeeded, total }));
+  if (!canCreateShare.value) return;
+  showSuccess(t('documentShares.batchCreateResult', { succeeded, total }));
   try {
     sessionStorage.setItem(
       DOCUMENT_SHARE_BATCH_HINT_KEY,
@@ -287,17 +299,21 @@ function onShareBatchCreated(succeeded: number, total: number): void {
   }
   shareBatchTargets.value = [];
   selectedItems.value = [];
-  void router.push({ name: 'document-shares' });
+  if (session.can('document.host_shares.read')) void router.push({ name: 'document-shares' });
 }
 
 async function onShareCreated(_share: HostDocumentShareResponse, shareUrl: string): Promise<void> {
+  if (!canCreateShare.value) return;
+  const request = shareScope.begin('document.host_shares.create');
+  if (!request) return;
   try {
     await navigator.clipboard.writeText(shareUrl);
-    ElMessage.success(t('documentShares.createdWithLink'));
+    if (request.current()) showSuccess(t('documentShares.createdWithLink'));
   } catch {
-    ElMessage.success(t('documentShares.createSuccess'));
+    if (request.current()) showSuccess(t('documentShares.createSuccess'));
   }
-  shareTarget.value = null;
+  if (request.current()) shareTarget.value = null;
+  request.finish();
 }
 
 function rowIndex(index: number): number {
@@ -886,7 +902,7 @@ function toProblem(
                       {{ t('hostDocumentItems.edit') }}
                     </el-button>
                   </PermissionGate>
-                  <PermissionGate code="document.host_shares.create">
+                  <PermissionGate v-if="canCreateShare" code="document.host_shares.create">
                     <el-button
                       plain
                       size="small"
@@ -1171,10 +1187,11 @@ function toProblem(
     </el-drawer>
 
     <DocumentShareCreateDialog
+      parent-read-permission="document.host_documents.read"
       v-if="canCreateShare"
       v-model:open="shareDialogOpen"
       :preset-document="shareTarget"
-      :preset-documents="shareBatchTargets.length > 1 ? shareBatchTargets : null"
+      :preset-documents="shareBatchTargets.length > 0 ? shareBatchTargets : null"
       @created="onShareCreated"
       @batch-created="onShareBatchCreated"
     />

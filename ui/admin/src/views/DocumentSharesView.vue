@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import {
   ElAlert,
   ElButton,
   ElCard,
   ElCheckbox,
   ElInput,
-  ElMessage,
   ElOption,
   ElPagination,
   ElSelect,
@@ -25,7 +24,9 @@ import ArtTableActionGroup from '../framework/art-design/components/ArtTableActi
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import PermissionGate from '../components/PermissionGate.vue';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useSessionStore } from '../auth/session';
+import { showError, showSuccess } from '../feedback/fullNetMessage';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   listDocumentShares,
@@ -128,8 +129,21 @@ const {
   syncTableLayout
 } = useArtPagedTableInCard(loading);
 
-const canCreate = () => session.can('document.host_shares.create');
-const canUpdateStatus = () => session.can('document.host_shares.update_status');
+const canRead = computed(() => session.currentUser?.scope === 'host' && session.can('document.host_shares.read'));
+const canCreate = () => canRead.value && session.can('document.host_shares.create');
+const canUpdateStatus = () => canRead.value && session.can('document.host_shares.update_status');
+const scope = useAuthorizedViewScope(session, () => {
+  items.value = []; documentLabels.value = new Map(); problem.value = undefined;
+  total.value = 0; page.value = 1; pageSize.value = 20; loading.value = false; changing.value = false;
+  editorOpen.value = false; batchShareHint.value = null; searchForm.value = {};
+  appliedFilters.value = { sortBy: 'createdAtUtc', sortDir: 'desc' };
+}, () => {
+  if (!canRead.value) return;
+  consumeBatchShareHint();
+  void loadDocumentLabels(); void load();
+});
+let listRequest: ReturnType<typeof scope.begin>;
+let labelsRequest: ReturnType<typeof scope.begin>;
 
 function shareUrl(row: HostDocumentShareResponse): string {
   return buildDocumentShareUrl(row.shareCode);
@@ -144,16 +158,21 @@ function documentNo(documentId: string): string {
 }
 
 async function loadDocumentLabels() {
-  if (!session.can('document.host_documents.read')) {
+  labelsRequest?.cancel();
+  if (!canRead.value || !session.can('document.host_documents.read')) {
     documentLabels.value = new Map();
     return;
   }
+  const request = scope.begin('document.host_documents.read');
+  if (!request) return;
+  labelsRequest = request;
   try {
     const collected = new Map<string, DocumentLabel>();
     let pageIndex = 1;
     let totalItems = 0;
     do {
-      const result = await listDocumentItems(pageIndex, 100);
+      const result = await listDocumentItems(pageIndex, 100, {}, request.signal);
+      if (!request.current() || !canRead.value) return;
       for (const item of result.items) {
         collected.set(item.id, { title: item.title, documentNo: item.documentNo });
       }
@@ -162,8 +181,8 @@ async function loadDocumentLabels() {
     } while (collected.size < totalItems && pageIndex <= 10);
     documentLabels.value = collected;
   } catch {
-    documentLabels.value = new Map();
-  }
+    if (request.current()) documentLabels.value = new Map();
+  } finally { request.finish(); }
 }
 
 function buildFiltersFromSearch(params: Record<string, string | undefined>): DocumentShareListFilters {
@@ -201,59 +220,69 @@ function resetSearch() {
 }
 
 async function load() {
-  loading.value = true;
-  problem.value = undefined;
+  listRequest?.cancel();
+  if (!canRead.value) return;
+  const request = scope.begin('document.host_shares.read');
+  if (!request) return;
+  listRequest = request; loading.value = true; problem.value = undefined;
   try {
-    const result = await listDocumentShares(page.value, pageSize.value, appliedFilters.value);
-    items.value = result.items;
-    page.value = result.page;
-    pageSize.value = result.pageSize;
-    total.value = result.total;
+    const result = await listDocumentShares(page.value, pageSize.value, appliedFilters.value, request.signal);
+    if (!request.current() || !canRead.value) return;
+    items.value = result.items; page.value = result.page; pageSize.value = result.pageSize; total.value = result.total;
   } catch (error) {
-    problem.value = toProblem(error);
+    if (request.current()) problem.value = toProblem(error);
   } finally {
-    loading.value = false;
-    void syncTableLayout();
+    if (request.current()) { loading.value = false; void syncTableLayout(); }
+    request.finish();
   }
 }
 
 function openCreate() {
-  editorOpen.value = true;
+  if (canCreate()) editorOpen.value = true;
 }
 
 async function onShareCreated(_share: HostDocumentShareResponse, shareUrlValue: string) {
+  if (!canCreate()) return;
+  const request = scope.begin('document.host_shares.create');
+  if (!request) return;
   try {
-    await navigator.clipboard.writeText(shareUrlValue);
-    ElMessage.success(t('documentShares.createdWithLink'));
-  } catch {
-    ElMessage.success(t('documentShares.createSuccess'));
-  }
-  await load();
-  await loadDocumentLabels();
+    try {
+      await navigator.clipboard.writeText(shareUrlValue);
+      if (request.current()) showSuccess(t('documentShares.createdWithLink'));
+    } catch {
+      if (request.current()) showSuccess(t('documentShares.createSuccess'));
+    }
+    if (request.current()) await Promise.all([load(), loadDocumentLabels()]);
+  } finally { request.finish(); }
 }
 
 async function copyShareLink(url: string) {
+  if (!canRead.value) return;
+  const request = scope.begin('document.host_shares.read');
+  if (!request) return;
   try {
     await navigator.clipboard.writeText(url);
-    ElMessage.success(t('documentShares.copyLinkSuccess'));
+    if (request.current()) showSuccess(t('documentShares.copyLinkSuccess'));
   } catch {
-    ElMessage.error(t('documentShares.operationFailed'));
-  }
+    if (request.current()) showError(t('documentShares.operationFailed'));
+  } finally { request.finish(); }
 }
 
 async function toggleStatus(row: HostDocumentShareResponse) {
+  if (changing.value || !canUpdateStatus()) return;
+  const request = scope.begin('document.host_shares.update_status');
+  if (!request) return;
   changing.value = true;
   try {
-    await updateDocumentShareStatus(row.id, {
-      isEnabled: !row.isEnabled,
-      version: row.version
-    });
-    ElMessage.success(t('documentShares.updateSuccess'));
+    await updateDocumentShareStatus(row.id, { isEnabled: !row.isEnabled, version: row.version }, request.signal);
+    if (!request.current()) return;
+    showSuccess(t('documentShares.updateSuccess'));
     await load();
   } catch (error) {
-    problem.value = toProblem(error, 'documentShares.operationFailed');
+    if (request.current()) problem.value = toProblem(error, 'documentShares.operationFailed');
   } finally {
-    changing.value = false;
+    if (request.current()) changing.value = false;
+    request.finish();
   }
 }
 
@@ -267,15 +296,10 @@ function toProblem(
   return { title: t(fallbackKey), status: 500, code: fallbackKey };
 }
 
-onMounted(async () => {
-  consumeBatchShareHint();
-  await loadDocumentLabels();
-  await load();
-});
 </script>
 
 <template>
-  <section class="document-shares-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
+  <section v-if="canRead" class="document-shares-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentShares.title') }}</h1>
 
     <el-alert
