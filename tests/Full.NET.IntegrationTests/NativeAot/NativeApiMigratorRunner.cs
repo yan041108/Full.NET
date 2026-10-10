@@ -1,6 +1,7 @@
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
+using Full.NET.Seeding.Abstractions;
 using Full.NET.Testing;
 
 namespace Full.NET.IntegrationTests.NativeAot;
@@ -16,7 +17,8 @@ internal static class NativeApiMigratorRunner
         CancellationToken cancellationToken = default)
     {
         var repositoryRoot = NativeApiArtifactLocator.FindRepositoryRoot();
-        var startInfo = NativeMigratorProcess.CreateStartInfo(repositoryRoot, AppContext.BaseDirectory);
+        var startInfo = NativeMigratorProcess.CreateStartInfo(
+            repositoryRoot, AppContext.BaseDirectory, SeedProfile.Development.ToCanonicalName());
 
         startInfo.Environment["DOTNET_ENVIRONMENT"] = "Testing";
         startInfo.Environment[$"{DatabaseOptions.SectionName}__Provider"] =

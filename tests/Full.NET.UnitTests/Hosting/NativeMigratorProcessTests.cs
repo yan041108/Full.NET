@@ -12,7 +12,7 @@ public sealed class NativeMigratorProcessTests
     {
         using var fixture = new ProbeFixture();
         fixture.CreateArtifacts();
-        var info = NativeMigratorProcess.CreateStartInfo(fixture.Directory, fixture.Directory);
+        var info = NativeMigratorProcess.CreateStartInfo(fixture.Directory, fixture.Directory, "development");
         CollectionAssert.AreEqual(new[] { Path.Combine(fixture.Directory, "Full.NET.Host.Migrator.dll"),
             "migrate", "--seed", "development" }, info.ArgumentList.ToArray());
         Assert.AreEqual(Path.Combine(fixture.Directory, "src", "Hosts", "Full.NET.Host.Migrator"), info.WorkingDirectory);
@@ -29,7 +29,7 @@ public sealed class NativeMigratorProcessTests
         fixture.CreateArtifacts();
         File.Delete(Path.Combine(fixture.Directory, $"Full.NET.Host.Migrator.{extension}"));
         var exception = Assert.ThrowsExactly<FileNotFoundException>(() =>
-            NativeMigratorProcess.CreateStartInfo(fixture.Directory, fixture.Directory));
+            NativeMigratorProcess.CreateStartInfo(fixture.Directory, fixture.Directory, "development"));
         StringAssert.Contains(exception.Message, "Integration");
     }
 

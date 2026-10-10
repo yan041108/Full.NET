@@ -5,7 +5,7 @@ namespace Full.NET.Testing;
 /// <summary>为原生用例准备 JIT Migrator 子进程并保留失败输出。</summary>
 internal static class NativeMigratorProcess
 {
-    internal static ProcessStartInfo CreateStartInfo(string repositoryRoot, string outputDirectory)
+    internal static ProcessStartInfo CreateStartInfo(string repositoryRoot, string outputDirectory, string seedProfile)
     {
         const string assemblyName = "Full.NET.Host.Migrator";
         // DLL、依赖图与运行配置由 Integration 的项目引用一同构建/复制，并参与输出摘要。
@@ -26,7 +26,7 @@ internal static class NativeMigratorProcess
             CreateNoWindow = true,
         };
         foreach (var argument in new[] { Path.GetFullPath(Path.Combine(outputDirectory, $"{assemblyName}.dll")),
-            "migrate", "--seed", "development" })
+            "migrate", "--seed", seedProfile })
         {
             info.ArgumentList.Add(argument);
         }
