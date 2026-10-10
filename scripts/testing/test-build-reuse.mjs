@@ -8,6 +8,16 @@ import { testRunEnvironment } from './test-run-context.mjs';
 const exec = promisify(execFile);
 const digest = value => createHash('sha256').update(value).digest('hex');
 
+async function revision(cwd) {
+  try {
+    return (await exec('git', ['rev-parse', '--verify', '--quiet', 'HEAD'], { cwd })).stdout.trim();
+  } catch (error) {
+    // Git 对无可解析 HEAD 返回 1，允许新仓库尚无提交；其它退出码与启动故障不能忽略。
+    if (error.code === 1) return null;
+    throw error;
+  }
+}
+
 async function inputs(cwd) {
   const { stdout } = await exec('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
     cwd, maxBuffer: 32 * 1024 * 1024
@@ -60,7 +70,9 @@ export async function prepareTestBuild({ cwd, project, assembly, args, build, mo
     !/^(?:TEMP|TMP|TMPDIR)$/iu.test(name)
   ).sort(([left], [right]) => left.localeCompare(right)));
   const source = await inputs(cwd);
-  const identity = digest(JSON.stringify({ source, sdkVersion, args, environment }));
+  // SDK 会把 SourceRevisionId 写入程序集版本及 SourceLink，提交也是实际构建输入。
+  const sourceRevision = await revision(cwd);
+  const identity = digest(JSON.stringify({ source, sourceRevision, sdkVersion, args, environment }));
   const recordPath = path.join(cwd, '.tmp', 'test-builds', `${digest(project)}.json`);
   let record;
   try { record = JSON.parse(await readFile(recordPath, 'utf8')); }
@@ -74,12 +86,16 @@ export async function prepareTestBuild({ cwd, project, assembly, args, build, mo
   }
   if (mode !== 'fresh' && record?.schemaVersion === 1
       && record.identity === identity && record.output === output && output) {
+    if (await revision(cwd) !== sourceRevision)
+      throw new Error('构建校验期间 Git 修订发生变化，不能复用该产物。');
     return { reused: true, recordPath };
   }
   if (mode === 'verify') throw new Error('构建输入或产物已改变/缺少有效记录；先执行 --reuse-build 或正常构建入口。');
   try { await unlink(recordPath); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   await build(env);
   if (await inputs(cwd) !== source) throw new Error('构建期间源码发生变化，不能登记或运行该产物。');
+  if (await revision(cwd) !== sourceRevision)
+    throw new Error('构建期间 Git 修订发生变化，不能登记或运行该产物。');
   await readFile(path.join(cwd, assembly));
   output = await outputs(path.dirname(path.join(cwd, assembly)));
   await mkdir(path.dirname(recordPath), { recursive: true });

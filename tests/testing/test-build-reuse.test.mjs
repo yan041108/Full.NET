@@ -111,6 +111,33 @@ test('构建记录损坏不能绕过新鲜性校验', async t => {
   await assert.doesNotReject(async () => JSON.parse(await readFile(result.recordPath, 'utf8')));
 });
 
+function commitFixture(cwd, message, empty = false) {
+  execFileSync('git', ['add', '.'], { cwd });
+  execFileSync('git', ['-c', 'user.name=Build Fixture', '-c', 'user.email=fixture@example.invalid',
+    '-c', 'commit.gpgsign=false', '-c', `core.hooksPath=${path.join(cwd, '.git', 'no-hooks')}`,
+    'commit', ...(empty ? ['--allow-empty'] : []), '-m', message], { cwd });
+}
+
+test('文件内容相同但 Git 修订改变时必须重建 SDK 的版本元数据', async t => {
+  const f = await fixture(t);
+  commitFixture(f.cwd, 'initial');
+  await f.run();
+  commitFixture(f.cwd, 'metadata only', true);
+  await assert.rejects(f.run({ mode: 'verify' }), /构建|记录/);
+  assert.equal((await f.run()).reused, false);
+  assert.equal(f.builds(), 2);
+});
+
+test('构建过程中 Git 修订改变不能登记为原修订的有效产物', async t => {
+  const f = await fixture(t);
+  commitFixture(f.cwd, 'initial');
+  await assert.rejects(f.run({ build: async () => {
+    await f.options.build();
+    commitFixture(f.cwd, 'during build', true);
+  } }), /构建期间.*(?:修订|版本|源码)/);
+  await assert.rejects(f.run({ mode: 'verify' }), /构建|记录/);
+});
+
 test('嵌入资源与构建参数改变不能复用', async t => {
   const f = await fixture(t);
   await f.run();
