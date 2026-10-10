@@ -2395,3 +2395,27 @@ F10结果回写子项收口：只读复审核对实际TRX、UID及夹具摘要�
 - 本地API运行另外发现待定位线索：fullnet-native-aot-99dd59b3e6c0450cb636f9fef610eb63.log中18:47:12.5137324Z停机后，18:47:12.5489264Z记录B1 micro-batch loop failed; continuing.，未携异常类型。审计Coordinator的StopAsync先TryComplete通道再调用base.StopAsync，而消费循环有ReadAsync及通用异常日志，可能存在关闭顺序竞态；当前未复现或确定根因，未修改审计实现，不将核心测试通过解释为审计停机无错误。运行日志随本批归档，后续需建立可失败回归后处理。
 
 本批交付正式共享测试实现，替代上轮一次性SDK包装；后续检出此提交的Native用例共用构建产物。父进程提前退出而脱离后代仍持管道的情况未纳入通用进程监督，当前Migrator未发现派生子进程证据。完整企业业务Native、人工全页面、完整故障/灾备与10K容量仍待验收，整体Build-verified、Capacity-not-verified。
+
+
+## 2026-10-11 审计正常停机与 Native 日志排空
+
+从 c0176f70b8a3f3f85f942b00d2abff6af4866480 继续，冻结代码 681d9a1bf3dab57458777f6e394105933bb288db，任务快照 audit-shutdown-20261011。只修改审计 Coordinator、相关 Unit、Native API 日志夹具/Smoke 与机器测试矩阵；SQL、迁移、依赖、SDK 和生产配置未变。四份其他对话的既有修改逐字节保护，未纳入提交。
+
+- 上批停机日志缺少异常类型，不能追溯证明唯一原因；本批用受控通道完成窗口实际复现正常 EOF 被记为故障。消费端改用 WaitToReadAsync/TryRead，明确处理正常 EOF，保留 deferred、ShutdownFlushTimeout、排空和预算释放。writer 的 ChannelClosedException 仍进入真实故障路径，不以宽泛吞异常消除告警。循环/排空故障仅补结构化异常类型，不输出原始消息、堆栈或审计内容。
+- Native API 的 StopGracefullyAsync 等待 stdout/stderr EOF 并刷新后返回，DisposeAsync 排空后才取消输出泵，避免末尾停机故障被截断而误验收；调用方取消仍生效，后续 Dispose 保留未读尾部。双库 smoke 检查 exit 0、Application is shutting down 日志以及无 B1 正常关闭误报。父进程退出而脱离后代仍持管道的通用监督不属于本批。
+- 审计有效 RED 为 35 项中 31 通过/4 失败，零跳过、13.593 秒；修复后 Auditing 与 canonical logging-delivery 联集 408/408、零失败/跳过、20.007 秒，Release 构建 41.69 秒、零警告/错误。覆盖空输入完成、deferred 两行写入与预算、writer 真实通道故障及 shutdown 失败类型/隐私边界。该验证 C# 输入与冻结代码相同，执行在提交前，不冒称最终 HEAD 完整 Unit。
+- 三个无数据库日志夹具使用真实输出泵和已退出 dotnet 进程固定尾部窗口。MSTest attribute 设置错误首次未运行测试，单独保留；有效 RED 三项全失败、1.186 秒。首轮复验为 2 通过/1 失败，原因是 Windows 默认读取与仍打开的写入句柄冲突；改为 FileShare.ReadWrite 后 3/3、零失败/跳过、0.812 秒，构建 25.76 秒、零警告/错误。调用方取消、停止等待和 Dispose 三条回归均保留，未放宽尾部断言。
+- pnpm test:aot:analyzers 首轮返回成功但曾与架构构建重叠，不采用其结果作为最终分析证据；冻结 681d9a1 串行复验通过，DOTNET_PROCESSOR_COUNT=4、关闭共享编译/节点复用，构建 340.32 秒、零警告/错误，并恢复 JIT 还原图。架构首轮与 AOT 构建重叠被主动中止，不计通过；随后串行执行 pnpm test:dotnet:architecture -- --reuse-build --selection api-native-aot，73/73、零失败/跳过、24.994 秒，DOTNET_PROCESSOR_COUNT=4，构建 57.90 秒、零警告/错误。已跟踪测试工具 node --test 对 git ls-files 的 tests/testing/*.test.mjs 为 98/98、零失败/跳过、56.651 秒；提交前治理 59/59、2.620 秒。独立只读复审未发现确定 P1/P2，未代替测试。
+- merge 影响计划精确识别六个本任务文件，目标为 Auditing、integration-matrix、native-aot；普通影响集由双库 Auditing、矩阵工具和 Smoke 覆盖，原生可达变化另做 API 核心运行。机器门槛新增三个审计用例和四个 API 核心组用例；API 核心组含 11 个真实原生运行用例、3 个 JIT 日志夹具用例，分开记录其证据性质。
+
+Linux 集中验收已通过：冻结 681d9a1 的独立干净副本统一 Integration Release 构建 357.70 秒、零警告/错误；双库 Auditing 12/12、281.262 秒，Smoke 8/8、266.167 秒，API 核心组 14/14、622.671 秒，逐份 TRX 精确复核零失败/Inconclusive/跳过/未执行/未知结果。核心组拆为 11 个真实原生运行、3 个 JIT 日志夹具；两个 smoke DataRow 分别为 SqlServer/MySql，均通过 exit 0、完整停机日志和无 B1 误报断言。11 份原生进程日志的 B1 循环/排空错误均为 0，不外推任意故障注入场景。
+
+- 实际入口为 node .tmp/audit-shutdown-linux-acceptance.mjs；回执逐条保存 git clone/checkout、docker run --rm、测试 DLL/filter/TRX/最低发现数/timeout 和 node scripts/testing/run-api-aot-publish-linux.mjs --host api 的实际参数。普通影响计划 pnpm test:integration:affected:plan -- --snapshot audit-shutdown-20261011 --phase merge 与集中范围相符。发现完整 1230，五分片为 191/191/516/252/80，迁移 legacy/current 为 250/266；精确集合无遗漏/重复，仅为发现验证，不写成 1230 项本地执行。
+- API 正式新发布一次，801429 ms、135967056 字节，通过现有 warning allowlist，保留 17 条第三方允许告警，不写零告警。SHA256 b45405a9d9e6e1b2397ed48bb86d1103941940d1f0a8b7ee22aa1e1d81be7c96，与旧产物不同；冻结审计源码摘要 c256835cb6392221dd9ba0651009d0d625d73f9929a55d4a333a010212bfb014 匹配，新诊断前缀存在。辅助完整 UTF16/UTF8 模板字节扫描未匹配，记录 false，未把扫描冒充运行验证或据此改变代码；正式证据为源码、manifest、摘要及实际运行。
+- 发布与运行前后 Integration 及三个 Migrator 产物摘要一致，本地批次共用一次 JIT 构建，不重复生成业务应用。回执、全源摘要、发现集、TRX、产物/manifest 和日志归档于 .tmp/audit-shutdown-linux-acceptance，completed=true、cloneCleaned=true；独立复核 .tmp/audit-shutdown-final-proof.json 通过。副本经所有权标记/绝对路径核对后清理，运行容器随 --rm 退出，自有锁释放，后续其他任务取得的 heavy.lock 未触碰。
+- 候选登记 2026-10-10T19:21:31.167Z，取得资源/实际执行起点 19:43:33.189Z，结束 20:23:03.452Z；登记至执行包含准备与排队约 22 分 2 秒，实际批次约 39 分 30 秒，合计约 61 分 32 秒。启动日志只在完整阶段结束时追加，期间曾误判仍在排队，已按实时回执更正。预备超时恢复脚本未启动，不产生第二次验收。
+- 环境为 Windows x64、Node 24.12.0、Windows SDK 10.0.401、Docker Linux SDK 10.0.400，主机 20 逻辑处理器/约 64 GiB、Docker 约 19.3 GiB；JIT/运行 DOTNET_PROCESSOR_COUNT=4、MTP 两个 worker，publish 使用 Docker 默认 CPU 配置。耗时只描述本次记录，不推导固定提速比例或容量认证。
+
+精确代码 CI 状态：[Worker Native 38079506614](https://github.com/yan041108/Full.NET/actions/runs/38079506614) 已核对 681d9a1、completed/success，Native 17/17、零失败/跳过、4 分 48.134 秒，架构 73/73、8.167 秒；发布门禁允许警告 15 条，不声称零警告，完整日志位于 .tmp/audit-shutdown-worker-ci.log。这是 CI 执行，不冒称本批本地 Worker 重跑。[API Native 38079506720](https://github.com/yan041108/Full.NET/actions/runs/38079506720) 亦已核对 681d9a1、completed/success；核心组 total 31、14 通过、17 个 Worker 产物未提供的跳过，不写为 31 通过，其中通过项为 11 个原生运行与 3 个 JIT 日志夹具。Notifications/Settings Jobs/OIDC/S3/Kafka Replay 专项分别 2/4/16/2/2 项全通过、零失败/跳过；架构 73/73，发布允许警告 17 条。首次获取完整日志返回 EOF，重试成功，正式证据为 .tmp/audit-shutdown-api-ci-retry.log 与 .tmp/audit-shutdown-api-ci.json 回执，未把抓取错误当作测试失败。[主 CI 38079506649](https://github.com/yan041108/Full.NET/actions/runs/38079506649) 已核对精确 681d9a1、completed/success：完整 Unit 6144/6144、兼容性 12/12、完整架构 232/232、受影响双库 Integration/Smoke 452/452、代表性企业 API 样例 16/16，均零失败/跳过；客户端及两类迁移恢复作业 success。迁移 CI 实际各 250/268 项，不与本地 discovery 的 legacy/current 拆分等同，未聚合为一个发现集合；未触发的集中整项目作业 skipped 不计通过。完整日志 .tmp/audit-shutdown-main-ci.log 保留。文档提交之后的工作流独立记录，不把旧 3ba5c46 Native 证据外推到本批审计改动。
+
+整体保持 Build-verified、Capacity-not-verified。本批审计与日志集中验收关闭；完整企业业务 Native、人工全页面、完整故障/灾备与 10K 容量继续待验收。PR3 保持 Draft，不合并、不发布。
