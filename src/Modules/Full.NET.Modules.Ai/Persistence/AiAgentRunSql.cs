@@ -121,6 +121,10 @@ internal static class AiAgentRunSql
             (@EventId, @RunId, @Sequence, @EventType, @PayloadVersion, @Payload, @Now)
         """, SqlDataScope.Global);
 
+    public static readonly SqlStatement FindLatestEventSequence = new("ai.agent_event.latest_sequence", """
+        SELECT COALESCE(MAX(Sequence), 0) FROM fn_ai_agent_event WHERE RunId = @RunId
+        """, SqlDataScope.Global);
+
     public static readonly SqlStatement FindOwned = new("ai.agent_run.find_owned", """
         SELECT Id, ScopeKey, TenantId, ActorUserId, SessionId, SessionKind, DefinitionKey, DefinitionVersion,
                AuthorizationBindingId, SecurityStamp, ActorScope, EffectiveScope, StatusKey, BudgetJson,
@@ -132,7 +136,11 @@ internal static class AiAgentRunSql
     public static readonly SqlStatement ScanQueuedSqlServer = new("ai.agent_run.scan_queued.sqlserver", """
         SELECT TOP (@BatchSize) Id
         FROM fn_ai_agent_run
-        WHERE StatusKey = 'queued' AND DeadlineAtUtc > @Now
+        WHERE DeadlineAtUtc > @Now
+          AND (StatusKey = 'queued' OR (StatusKey = 'running' AND DefinitionKey = @WorkflowKey
+               AND EXISTS (SELECT 1 FROM fn_ai_agent_checkpoint c WHERE c.RunId = fn_ai_agent_run.Id)
+               AND EXISTS (SELECT 1 FROM fn_ai_agent_event e WHERE e.RunId = fn_ai_agent_run.Id
+                           AND e.EventType IN ('run.node_started', 'run.node_completed'))))
           AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
         ORDER BY CreatedAtUtc, Id
         """, SqlDataScope.Global);
@@ -140,7 +148,11 @@ internal static class AiAgentRunSql
     public static readonly SqlStatement ScanQueuedMySql = new("ai.agent_run.scan_queued.mysql", """
         SELECT Id
         FROM fn_ai_agent_run
-        WHERE StatusKey = 'queued' AND DeadlineAtUtc > @Now
+        WHERE DeadlineAtUtc > @Now
+          AND (StatusKey = 'queued' OR (StatusKey = 'running' AND DefinitionKey = @WorkflowKey
+               AND EXISTS (SELECT 1 FROM fn_ai_agent_checkpoint c WHERE c.RunId = fn_ai_agent_run.Id)
+               AND EXISTS (SELECT 1 FROM fn_ai_agent_event e WHERE e.RunId = fn_ai_agent_run.Id
+                           AND e.EventType IN ('run.node_started', 'run.node_completed'))))
           AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
         ORDER BY CreatedAtUtc, Id
         LIMIT @BatchSize

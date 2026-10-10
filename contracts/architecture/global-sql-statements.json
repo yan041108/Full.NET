@@ -124,6 +124,17 @@
       ]
     },
     {
+      "statementName": "ai.agent_event.latest_sequence",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.FindLatestEventSequence",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "按已领取或已验证归属的不可变RunId读取事件序号，等待事件无检查点时仍保持恢复追加单调递增。",
+      "requiredSqlFragments": [
+        "WHERE RunId = @RunId",
+        "fn_ai_agent_event"
+      ]
+    },
+    {
       "statementName": "ai.agent_event.list_after.mysql",
       "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentEventSql.ListAfterSequenceMySql",
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentEventSql.cs",

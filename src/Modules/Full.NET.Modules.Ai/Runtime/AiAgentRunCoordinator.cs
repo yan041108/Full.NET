@@ -99,6 +99,7 @@ internal sealed class AiAgentRunCoordinator(
         }
 
         var executionContext = scope.ServiceProvider.GetRequiredService<IAgentRunExecutionContext>();
+        AgentWorkflowState? workflowState = null;
         try
         {
             var bindingValidator = scope.ServiceProvider.GetRequiredService<IBackgroundSessionBindingValidator>();
@@ -116,12 +117,13 @@ internal sealed class AiAgentRunCoordinator(
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
+                var authorizationSequence = await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false);
                 var authorizationCommitted = await store.CommitProgressAsync(new(
                     lease,
                     "authorization_required",
                     null,
                     null,
-                    new(ids.NewId(), 1, "run.authorization_required", 1, """{"reason":"session_invalid"}""")), cancellationToken)
+                    new(ids.NewId(), authorizationSequence, "run.authorization_required", 1, """{"reason":"session_invalid"}""")), cancellationToken)
                     .ConfigureAwait(false);
                 // 失租后的会话拒绝不能改写由当前执行者负责的预算账本。
                 if (!authorizationCommitted) return false;
@@ -139,7 +141,6 @@ internal sealed class AiAgentRunCoordinator(
             {
                 return await FailAsync("ai.agent_run.definition_incompatible").ConfigureAwait(false);
             }
-            AgentWorkflowState? workflowState = null;
             if (isWorkflow)
             {
                 workflowState = await LoadWorkflowStateAsync(store, record, cancellationToken).ConfigureAwait(false);
@@ -147,6 +148,13 @@ internal sealed class AiAgentRunCoordinator(
                 if (workflowState is null)
                 {
                     return await FailAsync("ai.agent_run.checkpoint_incompatible").ConfigureAwait(false);
+                }
+                if (workflowState.PendingNode is not null)
+                {
+                    // 派发意图存在但没有完成凭证，创建客户端前停止，不能重发结果不明的模型或工具调用。
+                    if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
+                    return await CommitWorkflowProgressAsync(store, lease, runId, record, workflowState,
+                        "reconciliation_required", """{"reason":"node_outcome_unknown"}""", null, cancellationToken).ConfigureAwait(false);
                 }
             }
             // 查询提供者可能忽略令牌；恢复校验结束后仍须阻止取消请求创建外部客户端。
@@ -167,6 +175,9 @@ internal sealed class AiAgentRunCoordinator(
             {
                 return await FailAsync(AiErrorCodes.ModelConfigUnavailable).ConfigureAwait(false);
             }
+            if (workflowState?.Binding is { } savedBinding
+                && (savedBinding.ModelConfigId != model.Id || savedBinding.ModelConfigVersion != model.Version))
+                return await FailAsync("ai.agent_run.checkpoint_incompatible").ConfigureAwait(false);
 
             using var credentialScope = scope.ServiceProvider.GetRequiredService<AiModelBindingScope>();
             if (snapshot.PromptBinding is not null)
@@ -191,6 +202,9 @@ internal sealed class AiAgentRunCoordinator(
             AgentModelResult result;
             if (isWorkflow)
             {
+                workflowState!.Binding ??= new(runId, record.DefinitionKey, record.DefinitionVersion,
+                    AgentWorkflowNodeReceipt.DigestDefinition(AgentWorkflowRegistry.Resolve(record.DefinitionKey, record.DefinitionVersion)!),
+                    model.Id, model.Version, workflowState.NextNodeIndex);
                 var toolRegistry = await scope.ServiceProvider.GetRequiredService<IAgentToolRegistrySource>()
                     .GetRegistryAsync(cancellationToken).ConfigureAwait(false);
                 var workflowRunner = new AgentWorkflowRunner();
@@ -203,7 +217,16 @@ internal sealed class AiAgentRunCoordinator(
                     runner,
                     scope.ServiceProvider.GetRequiredService<IAgentToolExecutor>(),
                     toolRegistry,
-                    nodeKey => ResolveWorkflowOperationId(runId, nodeKey)), cancellationToken).ConfigureAwait(false);
+                    nodeKey => AgentWorkflowNodeReceipt.ResolveOperationId(runId, nodeKey))
+                {
+                    PersistNodeAsync = (receipt, state, _) => leaseWatch.CommitNodeAsync((currentLease, token) =>
+                        CommitWorkflowProgressAsync(store, currentLease, runId, record, state, "running",
+                            receipt.OutputDigest is null ? """{"phase":"node_started"}""" : """{"phase":"node_completed"}""",
+                            receipt.OutputDigest is null ? null : new(ids.NewId(), receipt.NodeKey, 1, receipt.OperationId, "committed",
+                                receipt.ToolVersion is null ? model.Version : null, receipt.ToolVersion, null,
+                                receipt.InputTokens, receipt.OutputTokens, null, null, null, receipt.InputDigest, null), token,
+                            receipt.OutputDigest is null ? "run.node_started" : "run.node_completed")),
+                }, cancellationToken).ConfigureAwait(false);
                 if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
                 if (workflowResult.Status == AgentWorkflowRunStatus.AwaitingApproval)
                 {
@@ -297,7 +320,7 @@ internal sealed class AiAgentRunCoordinator(
                         "awaiting_approval",
                         null,
                         null,
-                        new(ids.NewId(), 1, "run.awaiting_approval", 1, """{"reason":"tool_approval_required"}""")),
+                        new(ids.NewId(), await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false), "run.awaiting_approval", 1, """{"reason":"tool_approval_required"}""")),
                         cancellationToken).ConfigureAwait(false);
                     if (!waiting)
                     {
@@ -315,7 +338,7 @@ internal sealed class AiAgentRunCoordinator(
                         "reconciliation_required",
                         null,
                         null,
-                        new(ids.NewId(), 1, "run.reconciliation_required", 1, """{"reason":"tool_receipt_unknown"}""")),
+                        new(ids.NewId(), await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false), "run.reconciliation_required", 1, """{"reason":"tool_receipt_unknown"}""")),
                         cancellationToken).ConfigureAwait(false);
                     if (!reconciling)
                     {
@@ -351,14 +374,15 @@ internal sealed class AiAgentRunCoordinator(
             if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
             var stepId = ids.NewId();
             var checkpointId = ids.NewId();
+            var completionSequence = await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false);
             var committed = await store.CommitProgressAsync(new(
                 lease,
                 "completed",
                 new(stepId, "model.text", 1, runId, "committed", model.Version, null, null,
                     result.InputTokens, result.OutputTokens, null, null, null, null, null),
-                new(checkpointId, 1, 1, AgentFrameworkRuntime.FrameworkVersion, record.DefinitionVersion,
+                new(checkpointId, completionSequence, 1, AgentFrameworkRuntime.FrameworkVersion, record.DefinitionVersion,
                     result.Session.GetRawText(), checksum),
-                new(ids.NewId(), 1, "run.completed", 1, """{"status":"completed"}""")), cancellationToken).ConfigureAwait(false);
+                new(ids.NewId(), completionSequence, "run.completed", 1, """{"status":"completed"}""")), cancellationToken).ConfigureAwait(false);
             if (!committed)
             {
                 logger.LogWarning("Agent run {RunId} progress commit lost lease fencing.", runId);
@@ -388,6 +412,13 @@ internal sealed class AiAgentRunCoordinator(
         catch (Exception exception)
         {
             logger.LogError(exception, "Agent run {RunId} failed.", runId);
+            if (workflowState?.PendingNode is not null)
+            {
+                // 已持久化意图后的网络异常与提供者独立超时无法证明未执行，预算预留保留待对账。
+                if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
+                return await CommitWorkflowProgressAsync(store, lease, runId, record, workflowState,
+                    "reconciliation_required", """{"reason":"node_outcome_unknown"}""", null, cancellationToken).ConfigureAwait(false);
+            }
             return await FailAsync("ai.agent_run.failed").ConfigureAwait(false);
         }
         finally
@@ -400,12 +431,6 @@ internal sealed class AiAgentRunCoordinator(
     private static Guid ResolveToolOperationId(Guid runId, string callId)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(FormattableString.Invariant($"{runId:N}|tool|{callId}")));
-        return new Guid(bytes.AsSpan(0, 16), bigEndian: true);
-    }
-
-    private static Guid ResolveWorkflowOperationId(Guid runId, string nodeKey)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(FormattableString.Invariant($"{runId:N}|workflow|{nodeKey}")));
         return new Guid(bytes.AsSpan(0, 16), bigEndian: true);
     }
 
@@ -427,12 +452,15 @@ internal sealed class AiAgentRunCoordinator(
         string statusKey,
         string eventPayload,
         AgentStepUpsert? step,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? eventType = null)
     {
         var payload = state.ToJson();
         var checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload)));
         var latest = await store.FindLatestCheckpointAsync(runId, cancellationToken).ConfigureAwait(false);
-        var sequence = (latest?.Sequence ?? 0) + 1;
+        cancellationToken.ThrowIfCancellationRequested();
+        var sequence = Math.Max(checked((latest?.Sequence ?? 0) + 1),
+            await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false));
         var checkpointId = ids.NewId();
         return await store.CommitProgressAsync(new(
             lease,
@@ -440,7 +468,7 @@ internal sealed class AiAgentRunCoordinator(
             step,
             new(checkpointId, sequence, AgentCheckpointCompatibility.CurrentCheckpointFormatVersion,
                 AgentFrameworkRuntime.FrameworkVersion, record.DefinitionVersion, payload, checksum),
-            new(ids.NewId(), sequence, $"run.{statusKey}", 1, eventPayload)), cancellationToken).ConfigureAwait(false);
+            new(ids.NewId(), sequence, eventType ?? $"run.{statusKey}", 1, eventPayload)), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>失败状态须先通过租约fencing提交；失租时不结算预算，也不计入处理成功数。</summary>
@@ -453,12 +481,13 @@ internal sealed class AiAgentRunCoordinator(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var sequence = await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false);
         var committed = await store.CommitProgressAsync(new(
             lease,
             "failed",
             null,
             null,
-            new(provider.GetRequiredService<IIdGenerator>().NewId(), 1, "run.failed", 1, $$"""{"errorCode":"{{errorCode}}"}""")), cancellationToken).ConfigureAwait(false);
+            new(provider.GetRequiredService<IIdGenerator>().NewId(), sequence, "run.failed", 1, $$"""{"errorCode":"{{errorCode}}"}""")), cancellationToken).ConfigureAwait(false);
         if (!committed) return false;
         try
         {
@@ -469,5 +498,13 @@ internal sealed class AiAgentRunCoordinator(
         {
         }
         return true;
+    }
+
+    private static async Task<long> NextEventSequenceAsync(AiAgentRunStore store, Guid runId, CancellationToken token)
+    {
+        var sequence = await store.FindLatestEventSequenceAsync(runId, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        if (sequence < 0) throw new InvalidOperationException("Agent event sequence must be nonnegative.");
+        return checked(sequence + 1);
     }
 }

@@ -248,7 +248,8 @@ public sealed partial class AiAgentRunCoordinatorTests
         Action<AiAgentRunRecord>? configureRecord = null,
         Action? duringModelLookup = null,
         int leaseSeconds = 30,
-        Action<ICommandExecutor>? configureCommands = null)
+        Action<ICommandExecutor>? configureCommands = null,
+        long priorEventSequence = 0)
     {
         var runId = Guid.CreateVersion7();
         var modelId = Guid.CreateVersion7();
@@ -261,6 +262,19 @@ public sealed partial class AiAgentRunCoordinatorTests
             .Returns(call => call.Arg<SqlStatement>() == AiAgentRunSql.UpdateRunStatus && !commitSucceeds ? 0 : 1);
         configureCommands?.Invoke(commands);
         var queries = Substitute.For<IQueryExecutor>();
+        AgentCheckpointRecord? persistedCheckpoint = null;
+        var eventSequence = priorEventSequence;
+        commands.When(c => c.ExecuteAsync(AiAgentRunSql.InsertEvent, Arg.Any<object?>(), Arg.Any<CancellationToken>()))
+            .Do(call => eventSequence = (long)((IReadOnlyDictionary<string, object?>)call.ArgAt<object>(1))["Sequence"]!);
+        queries.QuerySingleOrDefaultAsync<long>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => eventSequence);
+        commands.When(c => c.ExecuteAsync(AiAgentRunSql.InsertCheckpoint, Arg.Any<object?>(), Arg.Any<CancellationToken>()))
+            .Do(call =>
+            {
+                var values = (IReadOnlyDictionary<string, object?>)call.ArgAt<object>(1);
+                persistedCheckpoint = new((Guid)values["CheckpointId"]!, (Guid)values["RunId"]!, (long)values["Sequence"]!,
+                    (int)values["FormatVersion"]!, (string)values["FrameworkVersion"]!, (int)values["DefinitionVersion"]!,
+                    (string)values["PayloadProtected"]!, (string)values["Checksum"]!);
+            });
         queries.QueryAsync<Guid>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns([runId]);
         queries.QuerySingleOrDefaultAsync<AgentCheckpointRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -271,7 +285,7 @@ public sealed partial class AiAgentRunCoordinatorTests
         var record = CreateRecord(runId, modelId, definitionKey, sessionId, promptBound ? new(promptId, promptVersionId, 1, promptHash, 0) : null);
         configureRecord?.Invoke(record);
         queries.QuerySingleOrDefaultAsync<AgentCheckpointRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(_ => checkpointFactory?.Invoke(record));
+            .Returns(_ => persistedCheckpoint ?? checkpointFactory?.Invoke(record));
         queries.QuerySingleOrDefaultAsync<AiPromptRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(_ => new AiPromptRecord { Id = promptId, ScopeKey = "host", Revision = 2, LastVersion = 1, ActiveVersionId = promptDeactivated ? null : promptVersionId, Epoch = promptEpoch });
         queries.QuerySingleOrDefaultAsync<AiPromptVersionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())

@@ -61,9 +61,9 @@ public sealed partial class AiAgentRunCoordinatorTests
                 {
                     var args = call.ArgAt<IReadOnlyDictionary<string, object?>>(1);
                     Assert.AreEqual(version, (long)args["Version"]!);
+                    version++;
                     if (statement == AiAgentRunSql.RenewLease)
                     {
-                        version++;
                         if (++renewCount >= 2) renewed.TrySetResult();
                     }
                 }
@@ -145,14 +145,20 @@ public sealed partial class AiAgentRunCoordinatorTests
     private static async Task AssertLeaseCancellationAsync(LeaseScenario scenario, Action? releaseRenewal = null)
     {
         var pending = scenario.Fixture.Coordinator.ProcessPendingAsync();
+        var progressBeforeRelease = 0;
         try
         {
             await scenario.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
             await scenario.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            progressBeforeRelease = scenario.Fixture.Commands.ReceivedCalls().Count(c => c.GetArguments()[0] is SqlStatement s && s == AiAgentRunSql.UpdateRunStatus);
         }
         finally { releaseRenewal?.Invoke(); scenario.Release.TrySetResult(); await pending; }
         Assert.AreEqual(0, await pending);
-        AssertNoProgress(scenario.Fixture);
+        // 失租前已完成的节点和当前派发意图必须保留；失租后不得追加状态或结算。
+        var beforeRelease = scenario.Fixture.Commands.ReceivedCalls().Where(c => c.GetArguments()[0] is SqlStatement s && s == AiAgentRunSql.UpdateRunStatus).ToArray();
+        Assert.AreEqual(progressBeforeRelease, beforeRelease.Length);
+        Assert.IsTrue(beforeRelease.All(c => ((IReadOnlyDictionary<string, object?>)c.GetArguments()[1]!)["StatusKey"]?.ToString() == "running"));
+        Assert.AreEqual(0, scenario.Fixture.Budget.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "SettleAsync"));
         Assert.AreEqual(1, scenario.Client.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "GetResponseAsync"));
         scenario.Client.Received(1).Dispose();
     }

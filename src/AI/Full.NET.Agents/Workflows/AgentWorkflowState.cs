@@ -21,6 +21,15 @@ public sealed class AgentWorkflowState
     /// <summary>累计输出 Token。</summary>
     public long? OutputTokens { get; set; }
 
+    /// <summary>新节点凭证的执行绑定；旧检查点为空，不能补造其历史凭证。</summary>
+    public AgentWorkflowExecutionBinding? Binding { get; set; }
+
+    /// <summary>已确定成功的节点凭证，与检查点及步骤在同一事务提交。</summary>
+    public List<AgentWorkflowNodeReceipt> NodeReceipts { get; set; } = [];
+
+    /// <summary>已持久化的派发意图；存在时恢复必须对账，不能推断尚未调用。</summary>
+    public AgentWorkflowNodeReceipt? PendingNode { get; set; }
+
     /// <summary>序列化为检查点 JSON。</summary>
     public string ToJson() => JsonSerializer.Serialize(this, AgentWorkflowJsonContext.Default.AgentWorkflowState);
 

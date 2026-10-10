@@ -46,7 +46,7 @@ public sealed partial class AiAgentRunCoordinatorTests
         else
             await fixture.Budget.DidNotReceive().SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         Assert.AreEqual(ownsLease ? 1 : 0, processed);
-        AssertStatusCommit(fixture.Commands, failure == "session" ? "authorization_required" : "failed");
+        AssertStatusCommit(fixture.Commands, failure == "session" ? "authorization_required" : failure == "workflow" && !ownsLease ? "running" : "failed");
     }
 
     [TestMethod]

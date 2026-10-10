@@ -20,6 +20,7 @@ internal sealed class AiAgentRunLeaseWatch : IAsyncDisposable
     private readonly CancellationTokenSource _runDeadline;
     private readonly CancellationTokenSource _execution;
     private readonly Task _watch;
+    private readonly SemaphoreSlim _mutation = new(1, 1);
     private AgentRunLease _lease;
 
     /// <summary>监视已领取运行；租约和运行期限分别约束实际派发令牌。</summary>
@@ -61,6 +62,32 @@ internal sealed class AiAgentRunLeaseWatch : IAsyncDisposable
         return Volatile.Read(ref _lease);
     }
 
+    /// <summary>节点提交与续租串行使用最新CAS版本；结果不明时取消执行，不继续派发或猜测提交失败。</summary>
+    internal async Task<bool> CommitNodeAsync(Func<AgentRunLease, CancellationToken, Task<bool>> commit)
+    {
+        await _mutation.WaitAsync(Token).ConfigureAwait(false);
+        try
+        {
+            if (!IsActive) return false;
+            var lease = Volatile.Read(ref _lease);
+            if (!await commit(lease, Token).ConfigureAwait(false))
+            {
+                await _execution.CancelAsync().ConfigureAwait(false);
+                return false;
+            }
+            Volatile.Write(ref _lease, lease with { Version = lease.Version + 1 });
+            if (IsActive) return true;
+            await _execution.CancelAsync().ConfigureAwait(false);
+            return false;
+        }
+        catch
+        {
+            await _execution.CancelAsync().ConfigureAwait(false);
+            throw;
+        }
+        finally { _mutation.Release(); }
+    }
+
     private async Task WatchAsync()
     {
         using var timer = new PeriodicTimer(_duration / 3);
@@ -71,20 +98,25 @@ internal sealed class AiAgentRunLeaseWatch : IAsyncDisposable
                 // 停止只取消定时器等待；不能吞掉使用执行令牌的在途续租异常。
                 try { if (!await timer.WaitForNextTickAsync(_stop.Token).ConfigureAwait(false)) return; }
                 catch (OperationCanceledException) when (_stop.IsCancellationRequested) { return; }
-                if (!IsActive) { await _execution.CancelAsync().ConfigureAwait(false); return; }
-                var lease = Volatile.Read(ref _lease);
-                var started = _clock.UtcNow;
-                // 正常收尾只停止调度；若数据库已续租，必须先接收递增后的版本，不能用旧版本提交。
-                var renewed = await RenewAsync(lease, started, Token).ConfigureAwait(false);
-                var expires = started + _duration;
-                if (!renewed || _execution.IsCancellationRequested || _clock.UtcNow >= lease.ExpiresAtUtc
-                    || _clock.UtcNow >= expires || _clock.UtcNow >= _deadline)
+                await _mutation.WaitAsync(Token).ConfigureAwait(false);
+                try
                 {
-                    await _execution.CancelAsync().ConfigureAwait(false);
-                    return;
+                    if (!IsActive) { await _execution.CancelAsync().ConfigureAwait(false); return; }
+                    var lease = Volatile.Read(ref _lease);
+                    var started = _clock.UtcNow;
+                    // 正常收尾只停止调度；若数据库已续租，必须先接收递增后的版本，不能用旧版本提交。
+                    var renewed = await RenewAsync(lease, started, Token).ConfigureAwait(false);
+                    var expires = started + _duration;
+                    if (!renewed || _execution.IsCancellationRequested || _clock.UtcNow >= lease.ExpiresAtUtc
+                        || _clock.UtcNow >= expires || _clock.UtcNow >= _deadline)
+                    {
+                        await _execution.CancelAsync().ConfigureAwait(false);
+                        return;
+                    }
+                    Volatile.Write(ref _lease, lease with { Version = lease.Version + 1, ExpiresAtUtc = expires });
+                    _leaseDeadline.CancelAfter(Remaining(expires, _clock.UtcNow));
                 }
-                Volatile.Write(ref _lease, lease with { Version = lease.Version + 1, ExpiresAtUtc = expires });
-                _leaseDeadline.CancelAfter(Remaining(expires, _clock.UtcNow));
+                finally { _mutation.Release(); }
             }
         }
         catch (OperationCanceledException) when (_execution.IsCancellationRequested) { }
@@ -120,5 +152,6 @@ internal sealed class AiAgentRunLeaseWatch : IAsyncDisposable
         _leaseDeadline.Dispose();
         _runDeadline.Dispose();
         _stop.Dispose();
+        _mutation.Dispose();
     }
 }

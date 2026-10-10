@@ -149,6 +149,11 @@ internal sealed class AiAgentRunStore(
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>事件序号独立于检查点；工具循环等待事件没有检查点也必须保持单调递增。</summary>
+    internal async ValueTask<long> FindLatestEventSequenceAsync(Guid runId, CancellationToken cancellationToken) =>
+        await queries.QuerySingleOrDefaultAsync<long>(AiAgentRunSql.FindLatestEventSequence,
+            AiSqlParameters.Create(("RunId", runId)), cancellationToken).ConfigureAwait(false);
+
     public async ValueTask<bool> CommitProgressAsync(AgentRunProgressCommit commit, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(commit);
@@ -281,7 +286,7 @@ internal sealed class AiAgentRunStore(
             : AiAgentRunSql.ScanQueuedSqlServer;
         var rows = await queries.QueryAsync<Guid>(
             statement,
-            AiSqlParameters.Create(("BatchSize", batchSize), ("Now", now)),
+            AiSqlParameters.Create(("BatchSize", batchSize), ("Now", now), ("WorkflowKey", Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatRenameWorkflowKey)),
             cancellationToken).ConfigureAwait(false);
         return rows.ToList();
     }

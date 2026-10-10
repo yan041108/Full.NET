@@ -1759,6 +1759,24 @@ Token 值只限制现有预算预留；实际提供程序输入分词/输出硬�
 
 本批不改变SQL、迁移、HTTP或线格式；持久节点完成凭证、自动对账／崩溃恢复、审批当前再授权及全节点累计硬预算仍开放，R10原三项继续未勾选，保持 `Capacity-not-verified`。
 
+#### R10g：工作流逐节点持久凭证、崩溃恢复与事件序号合批（2026-10-10，本批本地验收完成）
+
+- [x] 静态会话重命名工作流逐节点先持久化 PendingNode 与输入摘要，确认后派发；完成输出、用量、步骤、检查点与事件在同一模块事务中提交。明确拒绝的校验结果保留实际用量，不进入业务写入。
+- [x] Binding 冻结定义及静态 Prompt 摘要、模型配置版本；恢复校验确定性 OperationId、节点前缀和输入／输出摘要。兼容历史前缀但不伪造旧凭证，新格式仍为1并追加可选字段。
+- [x] 未知模型网络／独立超时与恢复中的 PendingNode 进入对账态，保留预算预留，不重复派发。Worker 只自动领取租约过期、期限有效且已有新节点事件／检查点的该静态工作流；其他分支和历史无凭证记录保持原边界。
+- [x] 续租与节点提交串行交接 CAS Version；所有运行分支按最新持久事件分配序号，等待事件没有检查点也不重复。双库覆盖节点完成、过期领取、旧所有者拒绝及步骤／末段事件失败后的完整事务回滚。
+
+**本地验证记录：** 基线 main `d3564b193ba08757cfa4fa6227a85dd114b49c60`，任务快照 `ai-workflow-node-persistence-r10g`，本批17文件。有效首轮RED142项中4失败／138通过；首次GREEN142项中8失败／134通过，校正旧夹具的节点提交与续租版本预期。review-red-build出现两处测试表达式编译错误，不作为行为RED；修正后review-red156项中3失败／153通过，review-green156项中1失败／155通过。事件序号扩展RED163项中8失败／155通过，修复未知模型结果、校验拒绝凭证与各分支恢复事件序号。最终 `node artifacts/r10g/run-focused.mjs final-green` Windows186/186，零失败／跳过，Release构建零警告／错误；Windows Integration Release编译零警告／错误。只读复审确认无剩余具体P1／P2阻塞，审查不替代运行证据。
+
+- `node artifacts/r10g/run-batch.mjs` 的冻结Linux定向186/186、AI3040/3040、运行时318/318、受影响Architecture86/86均零失败／跳过；Unit实际发现6509，Integration分片发现1214，未执行全量Unit／Architecture／Integration。Unit、Integration、Architecture与API/Worker AOT分析均零编译警告／错误，分析后恢复JIT依赖。原批次因下述测试断言失败退出1，原结果完整保留，不标为整批一次通过。
+- SQL Server／MySQL功能组各44项，首次均43通过／1失败／零跳过，退出2；失败均为新增检查点回滚断言误期待原始DbException，实际数据边界返回DataCommandException／UniqueConstraint。仅修正共享测试帮助类两处异常分类断言，补验同时验证内层DbException与完整回滚；`node artifacts/r10g/run-assertion-fix.mjs` 用隔离副本重编Integration，零警告／错误，精确定向双库检查点2/2、零失败／跳过、退出0。原86个Passed UID与这两个修正后Passed UID闭包恰好88，分别覆盖双库各44，不能称原组退出0。
+- 原生核心API10/10、Worker SQL Server12/12和其他13/13，各线退出0、零失败／跳过，完整闭包35项。五个原运行卷使用同一7759项冻结源码与Integration程序集；断言补验仅替换登记的一个测试源码，补验Integration SHA-256 `1a8e3ff57068e0fd6d94e6b698d6c0895a2c635072cfb5e8ab454dd6226521ab`，Agents／Modules.Ai与原消费者完全一致。源码与发现集合无未登记变化或重复，原44m／45m预算保留。
+- API/Worker本批Linux原生发布退出0，分别140684688/90711528字节，耗时1631489/797150ms；既有批准警告门禁分别17/15，不是零发布警告。API SHA-256 `44bb6f92e008c945be7c377fe335c85d427697643f0bdc38d79fa5ae8089d4f5`、Worker `7402d9e1694b4b984761881ef94a7b7bf0f3964f85630e8504a574c16c17cbee` 与实际运行文件一致；Unit及Integration消费者Agents `81429dd69396a4c9036571009c4f3dcb3af9676e463f8654ec02f3459bc85588`、Modules.Ai `6afc74e2f67891ac75922eb15a8ae5f0f3868fddda7d8b7590709fc8e66e0315` 一致，Integration `85eeeff048a559cd4505d48efd3d29fa0651c43b341fb01d419c32602ac75377`。
+- 基线归档仅叠加本批实现并在读取／哈希前排除受保护路径，冻结7759输入，保护其他窗口改动；共享矩阵仅提交本批阈值。Linux SDK两个构建工具锁仅有ILLink.Tasks10.0.12至10.0.11差异，7757原输入加两个派生锁单列，原归档不改写；其余JSON与NuGet包SHA512已核对。独立静态副本工具54/54、命名30/30、治理57/57、UUID3/3、SQL安全5/5和受保护路径排除的Markdown检查通过，CRLF至LF只发生在静态副本并经字节核对。
+- `node artifacts/r10g/check-final-volumes.mjs` 与 `python artifacts/r10g/collect-final.py` 核对TRX、退出码、发现UID闭包、全部源码及消费者／发布摘要。环境Windows x64、i7-12700H、约64GiB；Docker29.6.2、Linux约20CPU／19.3GiB、Ubuntu24.04.4、SDK10.0.400／Runtime10.0.11。集中编译与单元4处理器，发布8CPU／12GiB，每条数据库／原生运行线2CPU／8GiB、GC堆2GiB，由同机重型锁与独立TEMP管理；全部子进程完成后释放，发布缓存保留。`NuGetAudit=false` 仅进程级覆盖，在线依赖审计未执行。
+
+无需迁移，HTTP契约不变；回退前暂停AI派发并排空在途运行，旧Worker不得忽略新增意图后重放新记录。证据只覆盖该静态工作流与受影响事件边界，不表示其他分支已具备节点凭证、自动外部对账、完整审批当前再授权、全节点累计硬预算、真实进程崩溃／云模型收费或容量认证。R10原三项仍开放，独立生成应用按整个AI模块集中验收，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。
