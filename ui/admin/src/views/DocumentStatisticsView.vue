@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import {
   ElAlert,
@@ -11,7 +11,6 @@ import {
   ElFormItem,
   ElInput,
   ElInputNumber,
-  ElMessage,
   ElOption,
   ElPagination,
   ElRow,
@@ -29,11 +28,14 @@ import type {
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { showSuccess } from '../feedback/fullNetMessage';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listDocumentAccessLogs, type DocumentAccessLogListFilters } from '../api/document-access-logs';
 import { getDocumentStatistics } from '../api/document-statistics';
 import {
   getDocumentVersionRetentionSettings,
+  isDocumentVersionRetentionInput,
   updateDocumentVersionRetentionSettings
 } from '../api/document-version-retention';
 
@@ -60,15 +62,50 @@ const accessLogFilters = ref<DocumentAccessLogListFilters>({
 });
 const retentionSettings = ref<Awaited<ReturnType<typeof getDocumentVersionRetentionSettings>> | null>(null);
 const retentionSaving = ref(false);
-const retentionForm = ref({
+const defaultRetentionForm = () => ({
   minimumRetainedVersionsPerItem: 1,
   maximumRetainedHistoryVersions: 0,
   pollSeconds: 300,
   batchSize: 50
 });
+const retentionForm = ref(defaultRetentionForm());
 
-const canReadAccessLogs = computed(() => session.can('document.host_access_logs.read'));
-const canUpdateRetention = computed(() => session.can('document.host_documents.update'));
+const canReadPage = computed(() => session.currentUser?.scope === 'host' && session.can('document.host_statistics.read'));
+const canReadAccessLogs = computed(() => canReadPage.value && session.can('document.host_access_logs.read'));
+const canReadRetention = computed(() => canReadPage.value && session.can('document.host_documents.read'));
+const canUpdateRetention = computed(() => canReadRetention.value && session.can('document.host_documents.update'));
+const validRetentionForm = computed(() => isDocumentVersionRetentionInput(retentionForm.value));
+
+const scope = useAuthorizedViewScope(session, resetPage, () => {
+  if (!canReadPage.value) return;
+  if ((activeTab.value === 'accessLogs' && !canReadAccessLogs.value) || (activeTab.value === 'retention' && !canReadRetention.value)) {
+    activeTab.value = 'statistics';
+  } else void loadActiveTab();
+});
+let statisticsRequest: ReturnType<typeof scope.begin>;
+let logsRequest: ReturnType<typeof scope.begin>;
+let retentionRequest: ReturnType<typeof scope.begin>;
+let saveRequest: ReturnType<typeof scope.begin>;
+
+/** 页签与账号共用失效边界；离开策略页也清空编辑值，取消不代表服务端写入回滚。 */
+function clearTabData() {
+  statisticsRequest?.cancel(); logsRequest?.cancel(); retentionRequest?.cancel(); saveRequest?.cancel();
+  statistics.value = null; accessLogs.value = []; accessLogsTotal.value = 0; retentionSettings.value = null;
+  statisticsProblem.value = undefined; accessLogsProblem.value = undefined; retentionProblem.value = undefined;
+  statisticsLoading.value = false; accessLogsLoading.value = false; retentionLoading.value = false; retentionSaving.value = false;
+  retentionForm.value = defaultRetentionForm();
+}
+
+function resetPage() {
+  clearTabData(); accessLogsPage.value = 1; accessLogsPageSize.value = 20;
+  accessLogFilters.value = { documentItemId: '', accessTypeKey: '', sourceKey: '' };
+}
+
+function loadActiveTab() {
+  if (activeTab.value === 'statistics') return loadStatistics();
+  if (activeTab.value === 'accessLogs') return loadAccessLogs();
+  return loadRetentionSettings();
+}
 
 const { tableMainRef, tableHeight, syncTableLayout } = useArtPagedTableInCard(accessLogsLoading);
 
@@ -91,23 +128,33 @@ function sourceLabel(sourceKey: string): string {
 
 /** 页面只有一份汇总快照，失败时清空旧数据，避免用户把历史统计误认为最新结果。 */
 async function loadStatistics() {
+  statisticsRequest?.cancel();
+  if (!canReadPage.value || activeTab.value !== 'statistics') return;
+  const request = scope.begin('document.host_statistics.read'); if (!request) return;
+  statisticsRequest = request; statistics.value = null;
   statisticsLoading.value = true;
   statisticsProblem.value = undefined;
   try {
-    statistics.value = await getDocumentStatistics();
+    const result = await getDocumentStatistics(request.signal);
+    if (request.current()) statistics.value = result;
   } catch (error) {
+    if (!request.current()) return;
     statistics.value = null;
     statisticsProblem.value = toProblem(error, 'documentStatistics.loadFailed');
   } finally {
-    statisticsLoading.value = false;
+    if (request.current()) statisticsLoading.value = false;
+    request.finish();
   }
 }
 
 /** 访问日志按服务端分页拉取，避免把全量日志一次性加载到浏览器。 */
 async function loadAccessLogs() {
-  if (!canReadAccessLogs.value) {
+  logsRequest?.cancel();
+  if (!canReadAccessLogs.value || activeTab.value !== 'accessLogs') {
     return;
   }
+  const request = scope.begin('document.host_access_logs.read'); if (!request) return;
+  logsRequest = request; accessLogs.value = []; accessLogsTotal.value = 0;
 
   accessLogsLoading.value = true;
   accessLogsProblem.value = undefined;
@@ -115,18 +162,22 @@ async function loadAccessLogs() {
     const result = await listDocumentAccessLogs(
       accessLogsPage.value,
       accessLogsPageSize.value,
-      buildAccessLogFilters()
+      buildAccessLogFilters(),
+      request.signal
     );
+    if (!request.current()) return;
     accessLogs.value = result.items;
     accessLogsPage.value = result.page;
     accessLogsPageSize.value = result.pageSize;
     accessLogsTotal.value = result.total;
   } catch (error) {
+    if (!request.current()) return;
     accessLogs.value = [];
+    accessLogsTotal.value = 0;
     accessLogsProblem.value = toProblem(error, 'documentStatistics.accessLogs.loadFailed');
   } finally {
-    accessLogsLoading.value = false;
-    void syncTableLayout();
+    if (request.current()) { accessLogsLoading.value = false; void syncTableLayout(); }
+    request.finish();
   }
 }
 
@@ -161,56 +212,62 @@ function resetAccessLogFilters(): void {
 }
 
 async function loadRetentionSettings() {
+  if (!canReadRetention.value || activeTab.value !== 'retention' || retentionSaving.value) return;
+  retentionRequest?.cancel();
+  const request = scope.begin('document.host_documents.read'); if (!request) return;
+  retentionRequest = request; retentionSettings.value = null; retentionForm.value = defaultRetentionForm();
   retentionLoading.value = true;
   retentionProblem.value = undefined;
   try {
-    retentionSettings.value = await getDocumentVersionRetentionSettings();
-    retentionForm.value = { ...retentionSettings.value };
+    const result = await getDocumentVersionRetentionSettings(request.signal);
+    if (!request.current()) return;
+    retentionSettings.value = result; retentionForm.value = { ...result };
   } catch (error) {
+    if (!request.current()) return;
     retentionSettings.value = null;
     retentionProblem.value = toProblem(error, 'documentStatistics.retention.loadFailed');
   } finally {
-    retentionLoading.value = false;
+    if (request.current()) retentionLoading.value = false;
+    request.finish();
   }
 }
 
 async function saveRetentionSettings() {
-  if (!canUpdateRetention.value || retentionSaving.value) {
+  if (!canUpdateRetention.value || activeTab.value !== 'retention' || !retentionSettings.value || retentionLoading.value || retentionSaving.value || !validRetentionForm.value) {
     return;
   }
+  const request = scope.begin('document.host_documents.update'); if (!request) return;
+  saveRequest = request; const snapshot = { ...retentionForm.value };
   retentionSaving.value = true;
   retentionProblem.value = undefined;
   try {
-    retentionSettings.value = await updateDocumentVersionRetentionSettings(retentionForm.value);
-    retentionForm.value = { ...retentionSettings.value };
-    ElMessage.success(t('documentStatistics.retention.saveSuccess'));
+    const result = await updateDocumentVersionRetentionSettings(snapshot, request.signal);
+    if (!request.current()) return;
+    retentionSettings.value = result; retentionForm.value = { ...result };
+    showSuccess(t('documentStatistics.retention.saveSuccess'));
   } catch (error) {
+    if (!request.current()) return;
+    // 写入可能已提交而回包丢失，旧快照必须失效，重读后再允许整体替换策略。
+    retentionSettings.value = null; retentionForm.value = defaultRetentionForm();
     retentionProblem.value = toProblem(error, 'documentStatistics.retention.saveFailed');
   } finally {
-    retentionSaving.value = false;
+    if (request.current()) retentionSaving.value = false;
+    request.finish();
   }
 }
 
-watch(activeTab, tab => {
-  if (tab === 'accessLogs' && canReadAccessLogs.value && accessLogs.value.length === 0 && !accessLogsLoading.value) {
-    void loadAccessLogs();
-  }
-  if (tab === 'retention' && !retentionSettings.value && !retentionLoading.value) {
-    void loadRetentionSettings();
-  }
-});
-
-onMounted(() => {
-  void loadStatistics();
-});
+watch(activeTab, () => { clearTabData(); void loadActiveTab(); }, { flush: 'sync' });
 </script>
 
 <template>
   <section
+    v-if="canReadPage"
     class="document-statistics-view art-page-stack art-full-height"
     :class="{ 'document-statistics-view--logs': activeTab === 'accessLogs' }"
   >
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentStatistics.title') }}</h1>
+
+    <el-button data-testid="document-statistics-refresh" :disabled="retentionSaving" @click="loadActiveTab">{{ t('common.refresh') }}</el-button>
 
     <el-tabs v-model="activeTab" data-testid="document-statistics-tabs">
       <el-tab-pane :label="t('documentStatistics.tabs.statistics')" name="statistics" />
@@ -219,7 +276,7 @@ onMounted(() => {
         :label="t('documentStatistics.tabs.accessLogs')"
         name="accessLogs"
       />
-      <el-tab-pane :label="t('documentStatistics.tabs.retention')" name="retention" />
+      <el-tab-pane v-if="canReadRetention" :label="t('documentStatistics.tabs.retention')" name="retention" />
     </el-tabs>
 
     <template v-if="activeTab === 'statistics'">
@@ -382,7 +439,7 @@ onMounted(() => {
       </el-card>
     </template>
 
-    <template v-else-if="activeTab === 'retention'">
+    <template v-else-if="activeTab === 'retention' && canReadRetention">
       <el-alert
         v-if="retentionProblem"
         type="error"
@@ -399,25 +456,27 @@ onMounted(() => {
             v-if="canUpdateRetention"
             label-width="200px"
             class="document-statistics__retention-form"
+            :disabled="retentionSaving || retentionLoading"
             @submit.prevent
           >
-            <el-form-item :label="t('documentStatistics.retention.minimumRetainedVersions')">
-              <el-input-number v-model="retentionForm.minimumRetainedVersionsPerItem" :min="1" :max="1000" />
+            <el-form-item :label="t('documentStatistics.retention.minimumRetainedVersions')" required>
+              <el-input-number v-model="retentionForm.minimumRetainedVersionsPerItem" :min="1" :max="1000" :precision="0" />
             </el-form-item>
-            <el-form-item :label="t('documentStatistics.retention.maximumHistoryVersions')">
-              <el-input-number v-model="retentionForm.maximumRetainedHistoryVersions" :min="0" :max="10000" />
+            <el-form-item :label="t('documentStatistics.retention.maximumHistoryVersions')" required>
+              <el-input-number v-model="retentionForm.maximumRetainedHistoryVersions" :min="0" :max="10000" :precision="0" />
             </el-form-item>
-            <el-form-item :label="t('documentStatistics.retention.pollSeconds')">
-              <el-input-number v-model="retentionForm.pollSeconds" :min="60" :max="86400" />
+            <el-form-item :label="t('documentStatistics.retention.pollSeconds')" required>
+              <el-input-number v-model="retentionForm.pollSeconds" :min="60" :max="86400" :precision="0" />
             </el-form-item>
-            <el-form-item :label="t('documentStatistics.retention.batchSize')">
-              <el-input-number v-model="retentionForm.batchSize" :min="1" :max="1000" />
+            <el-form-item :label="t('documentStatistics.retention.batchSize')" required>
+              <el-input-number v-model="retentionForm.batchSize" :min="1" :max="1000" :precision="0" />
             </el-form-item>
             <el-form-item>
               <el-button
                 type="primary"
                 data-testid="document-version-retention-save"
                 :loading="retentionSaving"
+                :disabled="!validRetentionForm || retentionLoading"
                 @click="saveRetentionSettings"
               >
                 {{ t('documentStatistics.retention.save') }}
