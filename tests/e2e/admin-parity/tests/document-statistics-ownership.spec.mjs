@@ -18,15 +18,16 @@ async function boot(page, permissions = ['document.host_statistics.read', 'docum
   await page.goto('/#/document/statistics'); await expect(page.getByTestId('document-statistics-panel')).toContainText('1 MB');
 }
 const refresh = page => page.getByTestId('document-statistics-refresh').click();
-const retentionTab = page => page.getByRole('tab', { name: '版本保留', exact: true }).click();
-const logsTab = page => page.getByRole('tab', { name: '访问日志', exact: true }).click();
-const statsTab = page => page.getByRole('tab').first().click();
+const tabs = page => page.getByTestId('document-statistics-tabs');
+const retentionTab = page => tabs(page).getByRole('tab', { name: '版本保留', exact: true }).click();
+const logsTab = page => tabs(page).getByRole('tab', { name: '访问日志', exact: true }).click();
+const statsTab = page => tabs(page).getByRole('tab').first().click();
 const saveButton = page => page.getByTestId('document-version-retention-save');
 
 test('子页签按独立read隐藏，update不能代替read', async ({ page }) => {
   let reads = 0; await boot(page, ['document.host_statistics.read', 'document.host_documents.update']);
   await page.route('**/api/v1/document/host/version-retention', route => { reads++; return json(route, settings); });
-  await expect(page.getByRole('tab')).toHaveCount(1); await expect(saveButton(page)).toHaveCount(0); expect(reads).toBe(0);
+  await expect(tabs(page).getByRole('tab')).toHaveCount(1); await expect(saveButton(page)).toHaveCount(0); expect(reads).toBe(0);
 });
 
 test('只读设置允许刷新，操作权限缺失无保存入口', async ({ page }) => {
@@ -73,7 +74,7 @@ test('离开页签取消保存且不显示迟到成功，返回重新读取', as
   });
   await retentionTab(page); await expect(saveButton(page)).toBeEnabled(); await saveButton(page).click(); await expect.poll(() => started).toBe(true);
   await expect(page.getByRole('spinbutton').first()).toBeDisabled(); await expect(page.getByTestId('document-statistics-refresh')).toBeDisabled();
-  await statsTab(page); release(); await expect.poll(() => finished).toBe(true); await expect.poll(() => cancelled).toBe(true); await expect(page.locator('.el-message--success,.el-alert--error')).toHaveCount(0);
+  await statsTab(page); await expect(page.getByTestId('document-statistics-panel')).toBeVisible(); release(); await expect.poll(() => finished).toBe(true); await expect.poll(() => cancelled).toBe(true); await expect(page.locator('.el-message--success,.el-alert--error')).toHaveCount(0);
   await retentionTab(page); await expect(page.getByRole('spinbutton').nth(3)).toHaveValue('77'); expect(reads).toBe(2);
 });
 
@@ -99,7 +100,7 @@ test('卸载取消在途读取，返回读取新设置', async ({ page }) => {
     if (++reads === 1) { started = true; await pending; await json(route, { ...settings, batchSize: 888 }).catch(() => {}); finished = true; return; }
     return json(route, settings);
   });
-  await retentionTab(page); await expect.poll(() => started).toBe(true); await page.goto('/#/document/share/PUBLIC'); release();
-  await expect.poll(() => finished).toBe(true); await expect.poll(() => cancelled).toBe(true); await expect(page.getByTestId('document-version-retention-panel')).toHaveCount(0);
+  await retentionTab(page); await expect.poll(() => started).toBe(true); await page.goto('/#/document/share/PUBLIC'); await expect(page.getByTestId('document-version-retention-panel')).toHaveCount(0); release();
+  await expect.poll(() => finished).toBe(true); await expect.poll(() => cancelled).toBe(true);
   await page.goto('/#/document/statistics'); await retentionTab(page); await expect(page.getByRole('spinbutton').nth(3)).toHaveValue('50'); expect(reads).toBe(2);
 });
