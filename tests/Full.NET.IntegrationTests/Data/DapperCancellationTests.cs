@@ -29,7 +29,7 @@ public sealed class DapperCancellationTests
     [DataRow(DatabaseProvider.MySql, "query")]
     [DataRow(DatabaseProvider.MySql, "multiple")]
     [DataRow(DatabaseProvider.MySql, "reader")]
-    public async Task Inflight_cancellation_preserves_token_and_recovers_connection(
+    public async Task Inflight_cancellation_is_observed_and_recovers_connection(
         DatabaseProvider provider, string operation)
     {
         var connectionString = provider == DatabaseProvider.SqlServer
@@ -43,14 +43,27 @@ public sealed class DapperCancellationTests
         var multiple = scope.ServiceProvider.GetRequiredService<IMultiResultQueryExecutor>();
         var transaction = scope.ServiceProvider.GetRequiredService<ICommandTransaction>();
         var delay = provider == DatabaseProvider.SqlServer
-            ? "WAITFOR DELAY '00:00:10';" : "DO SLEEP(10);";
-        var sql = operation == "reader" ? "SELECT 1; " + delay + " SELECT 2;" : delay + " SELECT 1;";
+            ? "WAITFOR DELAY '00:00:10'; SELECT 2;"
+            : "SELECT Value FROM fn_test_cancellation_probe WHERE SLEEP(10) = 0;";
+        // MySQL 单独 SLEEP 和常量派生表都可能成功结束；读取真实临时表以触发引擎中断检查。
+        // SQL Server 显式发送首结果，避免小批次缓冲到等待结束后才进入读取投影。
+        var first = provider == DatabaseProvider.SqlServer
+            ? "SELECT 1; RAISERROR (N'cancellation probe ready', 0, 1) WITH NOWAIT; "
+            : "SELECT 1; ";
+        var sql = operation == "reader" ? first + delay : delay;
         var statement = new SqlStatement("test.inflight_cancel." + operation, sql, SqlDataScope.HostOnly);
         using var cancellation = new CancellationTokenSource();
         var projectorEntered = false;
 
         var caught = await Assert.ThrowsAsync<OperationCanceledException>(() => transaction.ExecuteAsync(async _ =>
         {
+            if (provider == DatabaseProvider.MySql)
+            {
+                await command.ExecuteAsync(new SqlStatement(
+                    "test.inflight_cancel.setup",
+                    "CREATE TEMPORARY TABLE fn_test_cancellation_probe (Value INT NOT NULL); INSERT INTO fn_test_cancellation_probe VALUES (2);",
+                    SqlDataScope.HostOnly));
+            }
             if (operation != "reader") cancellation.CancelAfter(TimeSpan.FromMilliseconds(200));
             await (operation switch
             {
@@ -70,7 +83,8 @@ public sealed class DapperCancellationTests
             return 0;
         }, CancellationToken.None));
 
-        Assert.AreEqual(cancellation.Token, caught.CancellationToken);
+        // 驱动已有的取消异常可携带内部令牌，执行层保持原异常；映射后的令牌身份由单测验证。
+        Assert.IsTrue(cancellation.IsCancellationRequested);
         if (operation == "reader") Assert.IsTrue(projectorEntered, "取消必须覆盖已创建的多结果读取器。");
         Assert.AreEqual(9, await query.QuerySingleOrDefaultAsync<int>(
             new SqlStatement("test.after_inflight_cancel", "SELECT 9;", SqlDataScope.HostOnly)));
