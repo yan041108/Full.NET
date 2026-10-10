@@ -166,6 +166,8 @@ internal sealed class AiAgentRunCoordinator(
             using var client = await factory.CreateChatClientAsync(bindingModel, cancellationToken).ConfigureAwait(false);
             // 客户端工厂可能忽略令牌；取消后仍须释放已创建资源并阻止任何节点派发。
             cancellationToken.ThrowIfCancellationRequested();
+            // 三类运行共用冻结输出上限，工作流与工具循环不能绕过单次文本已有的派发保护。
+            var executionClient = new AiRunOutputLimitClient(client, snapshot.OutputTokenLimit);
             AgentModelResult result;
             if (isWorkflow)
             {
@@ -177,7 +179,7 @@ internal sealed class AiAgentRunCoordinator(
                     record.DefinitionKey,
                     record.DefinitionVersion,
                     workflowState!,
-                    client,
+                    executionClient,
                     runner,
                     scope.ServiceProvider.GetRequiredService<IAgentToolExecutor>(),
                     toolRegistry,
@@ -267,7 +269,7 @@ internal sealed class AiAgentRunCoordinator(
                     record.DefinitionKey,
                     record.DefinitionVersion,
                     snapshot.Prompt,
-                    client,
+                    executionClient,
                     scope.ServiceProvider.GetRequiredService<IAgentToolExecutor>(),
                     toolRegistry,
                     callId => ResolveToolOperationId(runId, callId),
@@ -324,7 +326,7 @@ internal sealed class AiAgentRunCoordinator(
                     }
                     effectivePrompt = proven.Value!;
                 }
-                result = await runner.RunAsync(new AiRunOutputLimitClient(client, snapshot.OutputTokenLimit), effectivePrompt, cancellationToken).ConfigureAwait(false);
+                result = await runner.RunAsync(executionClient, effectivePrompt, cancellationToken).ConfigureAwait(false);
             }
 
             // 单次模型调用也可能在取消后返回成功，不能把晚到结果提交或结算。

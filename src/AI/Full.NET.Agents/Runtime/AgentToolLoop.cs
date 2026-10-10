@@ -17,6 +17,7 @@ public sealed class AgentToolLoop
     /// </summary>
     /// <remarks>
     /// 未在定义允许清单中的工具不会进入执行器，直接返回 ai.tool.unavailable 错误载荷；单次循环内累计的 Token 用量与工具步数会写回结果，供调用方做预算核算。
+    /// 审批或对账要求立即暂停执行，返回空文本与已发生用量，不派发同轮剩余工具或下一轮模型。
     /// </remarks>
     /// <param name="request">循环运行请求；包含定义键、提示词、客户端、执行器与工具注册表。</param>
     /// <param name="cancellationToken">用于取消模型调用与工具执行的令牌。</param>
@@ -121,6 +122,12 @@ public sealed class AgentToolLoop
                         result.IsUntrusted),
                     AgentToolLoopJsonSerializerContext.Default.ToolLoopExecutionPayload);
                 messages.Add(new ChatMessage(ChatRole.Tool, [new FunctionResultContent(call.CallId, payload)]));
+                // 暂停结果是执行边界，不能让模型或同轮后续调用继续消耗预算、产生副作用。
+                if (approvalRequired || reconciliationRequired)
+                {
+                    return new(string.Empty, SerializeSession(messages, string.Empty), inputTokens, outputTokens,
+                        toolSteps, approvalRequired, reconciliationRequired);
+                }
             }
         }
 

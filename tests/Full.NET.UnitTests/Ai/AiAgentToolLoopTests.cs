@@ -170,7 +170,7 @@ public sealed class AiAgentToolLoopTests
             executor,
             registry,
             _ => Guid.CreateVersion7()), CancellationToken.None);
-        Assert.AreEqual("done", result.Text);
+        Assert.AreEqual(string.Empty, result.Text);
         Assert.IsTrue(result.ApprovalRequired);
     }
 

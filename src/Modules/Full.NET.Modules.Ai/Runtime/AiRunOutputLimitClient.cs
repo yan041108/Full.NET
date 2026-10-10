@@ -2,7 +2,7 @@ using Microsoft.Extensions.AI;
 
 namespace Full.NET.Modules.Ai.Runtime;
 
-/// <summary>单次文本运行在模型调用边界降低请求上限；底层客户端由协调器独占并释放。</summary>
+/// <summary>Agent各类模型派发在调用边界降低每次请求上限；底层客户端由协调器独占并释放。</summary>
 internal sealed class AiRunOutputLimitClient : IChatClient
 {
     private readonly IChatClient _innerClient;
@@ -17,10 +17,19 @@ internal sealed class AiRunOutputLimitClient : IChatClient
     }
 
     public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
-        CancellationToken cancellationToken = default) => _innerClient.GetResponseAsync(messages, Limit(options), cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        // 底层提供者可能忽略令牌；已取消请求不得进入真实客户端调用。
+        cancellationToken.ThrowIfCancellationRequested();
+        return _innerClient.GetResponseAsync(messages, Limit(options), cancellationToken);
+    }
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
-        CancellationToken cancellationToken = default) => _innerClient.GetStreamingResponseAsync(messages, Limit(options), cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return _innerClient.GetStreamingResponseAsync(messages, Limit(options), cancellationToken);
+    }
 
     // 框架使用传入的客户端；不泄漏底层服务，防止绕过预算外观调用真实客户端。
     object? IChatClient.GetService(Type serviceType, object? serviceKey) =>

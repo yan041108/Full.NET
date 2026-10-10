@@ -1709,6 +1709,22 @@ Token 值只限制现有预算预留；实际提供程序输入分词/输出硬�
 - 环境为Windows x64、i7-12700H、约64GiB RAM；固定副本SDK容器实际为Ubuntu24.04.4（noble）、SDK10.0.400/Runtime10.0.11，Docker Linux约20CPU/19.3GiB RAM。集中编译/单元4处理器、GC堆2GiB；发布器8CPU/12GiB；功能与每条原生运行线2CPU/8GiB、GC堆2GiB。补跑继续使用同机重型锁与独立TEMP，等待其他验收释放锁后运行；未抢占外部进程。早前工作区工具73/73、命名30/30、治理59/59、UUID3/3及1214项Integration分片检查通过；交付前另核对受保护路径排除的Markdown和本任务差异。`NuGetAudit=false` 仅作进程级覆盖，未执行在线依赖审计。固定副本证据仅覆盖基线加本批AI修改，不外推到另一窗口持续变化的日志模块。
 - 同一模块批次集中验收，独立生成应用在约定AI范围完成后统一执行。本批不改变SQL、迁移、公共HTTP契约或检查点线格式；未知外部动作、节点完成凭证、长调用续租、实际deadline/全节点预算及审批当前再授权仍未完成，R10原三项保持开放，容量仍为 `Capacity-not-verified`。
 
+#### R10d：工具暂停边界与多分支派发上限合批（2026-10-10，本批本地验收完成）
+
+- [x] 工具审批或对账返回后立即暂停；保留会话摘要、已发生用量、工具步数和暂停标志，同轮剩余工具及后续模型不再派发。暂停不在第八轮误报迭代预算耗尽。
+- [x] 单次文本、工作流与工具循环统一使用运行冻结输出上限外观；每次请求受调用方／冻结值／4096 的最小值限制，客户端仍由协调器独占释放。模型请求调用前取消直接拒绝，不依赖提供者实现检查。
+- [x] 新增24项行为回归（暂停16、协调器多分支6、预取消2），更新既有审批断言；同步唯一矩阵与[运行边界说明](../../operations/ai-operation-budgets.md#工具暂停与模型请求上限)。
+
+**本地验证记录：**
+
+- 基线main `1c27b71db2481fe0ed814527df81cfdb4b0e8aa4`，任务快照 `ai-tool-suspension-dispatch-budget-r10d`。`node artifacts/r10d/run-focused.mjs red` 有效RED为125项中25失败／100通过；产品修复后 `node artifacts/r10d/run-focused.mjs green` 定向125/125、零失败／跳过，Windows Release构建零警告／错误。独立静态审查无阻塞问题；会话仅摘要，完整工具回执仍待建设。
+- 取基线归档，仅叠加本批10文件，排除受保护路径后冻结7753项输入；另一窗口日志改动保持原样，共享矩阵仅暂存本批四处阈值。`node artifacts/r10d/run-batch.mjs` 中Linux集中阶段完成：定向125/125、AI2928/2928、运行时206/206、受影响Architecture82/82，均零失败／跳过；Unit发现6397，未执行全量Unit。Unit、Integration、Architecture及API/Worker AOT分析均零编译警告／错误，分析后恢复JIT依赖。
+- 固定副本工具54/54、命名30/30、治理57/57、UUID3/3、1214项Integration分片核对及受保护路径排除的386份Markdown检查通过。命名测试将生成目录改为LF，经字节比较确认仅CRLF转换后恢复归档原字节；Linux SDK生成的两个工具锁仅将构建期ILLink.Tasks从10.0.12改为10.0.11，已核对NuGet元数据及签名包摘要。原7753项归档输入不变，Linux派生清单单列7751项原输入与两个锁，不冒充原锁。最初分片检查缺少Windows副本Integration产物及功能预检锁摘要不一致均保留失败记录，修复环境后再执行。
+- Docker服务在首轮运行期间退出；双库命令退出1073807364，原生API/Worker各退出125，保留unexpected EOF日志，不将中断组记为通过。使用与三个Linux消费者实际DLL摘要一致的测试平台2.3.2.0官方读取器完整读取结果流：双库52个Passed UID（2998915字节）、API5个（68470字节）、Worker8个（173331字节），无截断、重复或非通过记录。`node artifacts/r10d/run-interrupted-completion.mjs` 在同一冻结输入、程序集及本批原生文件上按精确缺失UID补跑双库36/36、API5/5、Worker17/17，均退出0、零失败／跳过；分别保留44m／45m原预算，不生成替代TRX。原记录与补跑集合不重叠，恰好覆盖双库88项及API10＋Worker25＝原生核心35项完整发现集合。
+- API/Worker本批Linux原生发布各退出0，文件分别140555104/90590472字节、1457462ms/398274ms，警告门禁分别17/15项既有批准警告；不是零发布警告。实际执行文件SHA-256分别 `91571ca03536195c1cde78ba5172401a5e6ea1b33b19abf0e9b115c530b48032`、`c11bb049062e10b1e7bcd6a09e8c72e1548845a2f680804f10ae3a2e69d5e8d0`，与新发布产物一致。Unit/Integration消费者Agents `d0a4a1b9a9ec8a28c9491da9d710472c48d8ff6d9277fd4e999d840fd5f1281c`、Modules.Ai `efbc3cee2ced8cfa17edb96bea5c4f19636937656eadb9bc608bf57071fd3ff3` 一致；Integration `f3c505b9d6e58865b7a6f6bd9ac5d9643a31675b62e46948deff029bf6329e93`。`node artifacts/r10d/check-final-volumes.mjs` 核对三个运行卷全部Linux派生输入、程序集及官方结果读取器摘要；`python artifacts/r10d/collect-final.py` 核对UID闭包、原始结果、退出码与本任务范围，证据保留在忽略目录 `artifacts/r10d/`。
+- 本地Windows x64、i7-12700H、约64GiB RAM；Linux SDK容器实际为Ubuntu24.04.4、SDK10.0.400／Runtime10.0.11，Docker29.6.2、约20CPU／19.3GiB RAM。集中编译／单元4处理器，发布8CPU／12GiB，功能及两条原生运行线各2CPU／8GiB、GC堆2GiB；使用同机重型锁与独立TEMP。仅进程级 `NuGetAudit=false`，在线依赖审计未执行；无全量Unit／Architecture／Integration、真实云模型、费用、容量或SLO结论。
+- 无SQL、迁移、公共HTTP或检查点线格式变化，未知用量不补零。全节点累计预算、实际deadline、长调用续租、节点完成凭证、未知外部副作用对账及审批当前再授权仍开放，R10原三项不关闭。独立生成应用按AI模块集中验收，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

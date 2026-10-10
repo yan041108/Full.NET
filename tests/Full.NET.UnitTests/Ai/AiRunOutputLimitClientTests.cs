@@ -9,6 +9,23 @@ namespace Full.NET.UnitTests.Ai;
 public sealed class AiRunOutputLimitClientTests
 {
     [TestMethod]
+    [DataRow(false)] [DataRow(true)]
+    public void Cancelled_dispatch_never_enters_underlying_client(bool streaming)
+    {
+        var inner = Substitute.For<IChatClient>();
+        using var client = new AiRunOutputLimitClient(inner, 100);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.ThrowsExactly<OperationCanceledException>(() =>
+        {
+            if (streaming) _ = client.GetStreamingResponseAsync([], cancellationToken: cancellation.Token);
+            else _ = client.GetResponseAsync([], cancellationToken: cancellation.Token);
+        });
+        inner.DidNotReceive().GetResponseAsync(Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatOptions?>(), Arg.Any<CancellationToken>());
+        _ = inner.DidNotReceive().GetStreamingResponseAsync(Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatOptions?>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     [DataRow(100L, null, 100)] [DataRow(100L, 20, 20)] [DataRow(100L, 200, 100)]
     [DataRow(10000L, null, 4096)] [DataRow(long.MaxValue, 9000, 4096)]
     public async Task Buffered_dispatch_clamps_budget_without_mutating_caller(long budget, int? requested, int expected)
