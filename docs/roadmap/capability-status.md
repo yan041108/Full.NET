@@ -1,8 +1,10 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-10-10（本轮收口文档统计日志与版本保留设置，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-10-11（本轮收口提供程序取消与测试门禁，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 > 2026-09-16 规划增补：已纳入[八项底座完善能力及七类收口重点](adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)，执行见[唯一总计划](../superpowers/plans/2026-09-16-foundation-productization.md)。本次未重新认证下表的实现状态；部分历史条目落后于专项记录，F00 将逐项核对。工作区其他改动不作为能力完成证据。
+
+2026-10-10 Dapper 五个执行入口已统一归类已取消请求的窄范围 Provider 异常，保留原诊断与令牌、遥测记取消，其他错误及已有驱动取消异常维持原语义。相关 Unit 218/218；冻结 3ef9466 的本地双库 Data 49/49、Smoke 8/8、架构 73/73、Worker Native 17/17、API 核心 Native 10/10 均零失败/跳过。原生产物及分析器来自生产输入相同的 47fbaee 成功 CI，经身份和摘要核对后本地重跑；首轮夹具和原生依赖/超时失败保留，恢复同版本已核验 native 文件、只重跑原生运行；分享页卸载等待及发现数量登记一并修正。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-dapper-提供程序取消与-worker-停机错误归类)。本批不重新认证完整企业业务 Native 或容量，保持 Build-verified、Capacity-not-verified。
 
 2026-10-10 文档统计、访问日志及版本保留设置已补Host/页面/子页签/操作权限和取消归属，替换、撤权、离页及KeepAlive失活清理旧结果；日志失败清total。策略保存冻结参数、锁定编辑、整数范围与回包核对，未读取或保存结果不确定后必须重读。相关Vue61/61，类型/构建及包预算通过；产物6aba1bf两种Enterprise配置客户端一致，首轮3失败/4通过保留，测试1083d41仅修正定位及等待时序，复用冻结产物Edge7/7通过。受控HTTP限客户端，不认证服务端清理和正式双库行为，无Version跨管理员覆盖仍未解决；整体Build-verified、Capacity-not-verified。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-文档统计日志与版本保留设置收口)。
 
