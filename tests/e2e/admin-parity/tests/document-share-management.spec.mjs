@@ -62,7 +62,9 @@ test('离开分享页取消在途状态更新，旧成功不反馈',async({page}
  const lists=await boot(page);let release,started=false,finished=false,cancelled=false;const pending=new Promise(resolve=>{release=resolve;});
  page.on('requestfailed',request=>{if(request.url().endsWith('/status'))cancelled=true;});
  await page.route('**/api/v1/document/host/shares/'+id+'/status',async route=>{started=true;await pending;await json(route,{...share,isEnabled:false,version:2}).catch(()=>{});finished=true;});
- await page.getByTestId('document-share-toggle').click();await expect.poll(()=>started).toBe(true);await page.goto('/#/document/share/PUBLIC');release();await expect.poll(()=>finished).toBe(true);await expect.poll(()=>cancelled).toBe(true);expect(lists()).toBe(1);await expect(page.locator('.el-message--success')).toHaveCount(0);
+ await page.getByTestId('document-share-toggle').click();await expect.poll(()=>started).toBe(true);await page.goto('/#/document/share/PUBLIC');
+ // hash 导航结束不保证 Vue 已卸载；先确认旧页面离开，再放行迟到响应以验证取消边界。
+ await expect(page.getByTestId('document-share-toggle')).toHaveCount(0);release();await expect.poll(()=>finished).toBe(true);await expect.poll(()=>cancelled).toBe(true);expect(lists()).toBe(1);await expect(page.locator('.el-message--success')).toHaveCount(0);
 });
 
 test('文档库仅凭自身读取和分享创建权限完成单项分享',async({page})=>{
