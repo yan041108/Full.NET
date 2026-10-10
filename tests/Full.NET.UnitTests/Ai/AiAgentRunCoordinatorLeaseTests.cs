@@ -183,7 +183,8 @@ public sealed partial class AiAgentRunCoordinatorTests
             // 故意忽略令牌，使晚到成功和晚到异常都经过真实协调器边界。
             await release.Task;
             if (modelThrows) throw new InvalidOperationException("late provider failure");
-            return new ChatResponse(new ChatMessage(ChatRole.Assistant, "done"));
+            return new ChatResponse(new ChatMessage(ChatRole.Assistant, "done"))
+                { Usage = new() { InputTokenCount = 2, OutputTokenCount = 1 } };
         });
         var runner = Substitute.For<IAgentModelRunner>();
         runner.RunAsync(Arg.Any<IChatClient>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(async call =>

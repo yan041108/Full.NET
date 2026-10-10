@@ -99,13 +99,18 @@ public sealed partial class AiAgentRunCoordinatorTests
         var fixture = await CreateFixtureAsync(
             definitionKey: AgentWorkflowRegistry.ChatRenameWorkflowKey,
             runner: runner,
-            checkpointFactory: run => Checkpoint(run, State(run.SessionId, next)));
+            checkpointFactory: run =>
+            {
+                var state = State(run.SessionId, next);
+                if (next == 2) state.OutputTokens = 1;
+                return Checkpoint(run, state);
+            });
         Assert.AreEqual(1, await fixture.Coordinator.ProcessPendingAsync());
         AssertStatusCommit(fixture.Commands, "completed");
         Assert.AreEqual(next < 2 ? 2 : next == 2 ? 1 : 0, runner.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IAgentModelRunner.RunAsync)));
         await fixture.ToolExecutor.Received(next == 0 ? 1 : 0).ExecuteAsync(Arg.Is<ToolInvocation>(t => t != null && t.ToolName == "ai.chat.sessions.list"), Arg.Any<CancellationToken>());
         await fixture.ToolExecutor.Received(next < 4 ? 1 : 0).ExecuteAsync(Arg.Is<ToolInvocation>(t => t != null && t.ToolName == "ai.chat.sessions.rename"), Arg.Any<CancellationToken>());
-        await fixture.Budget.Received(1).SettleAsync(fixture.RunId, Arg.Is<AiOperationUsage>(u => u != null && u.InputTokens == (next < 2 ? 4 : next == 2 ? 9 : 7) && u.OutputTokens == (next < 2 ? 2 : null)), "succeeded", Arg.Any<CancellationToken>());
+        await fixture.Budget.Received(1).SettleAsync(fixture.RunId, Arg.Is<AiOperationUsage>(u => u != null && u.InputTokens == (next < 2 ? 4 : next == 2 ? 9 : 7) && u.OutputTokens == (next < 3 ? 2 : null)), "succeeded", Arg.Any<CancellationToken>());
     }
 
     private static AgentWorkflowState State(Guid sessionId, int next)

@@ -186,6 +186,9 @@ public sealed partial class AiAgentRunCoordinatorTests
     {
         var state = State(run.SessionId, next);
         var definition = AgentWorkflowRegistry.Resolve(run.DefinitionKey, run.DefinitionVersion)!;
+        var completedModels = definition.Nodes.Take(next).Count(node => node.Kind == AgentWorkflowNodeKind.ModelText);
+        state.InputTokens = completedModels == 0 ? null : completedModels * 2L;
+        state.OutputTokens = completedModels == 0 ? null : completedModels;
         using var budget = JsonDocument.Parse(run.BudgetJson);
         state.Binding = new(run.Id, run.DefinitionKey, run.DefinitionVersion, AgentWorkflowNodeReceipt.DigestDefinition(definition),
             budget.RootElement.GetProperty("ModelConfigId").GetGuid(), 1);
@@ -195,6 +198,8 @@ public sealed partial class AiAgentRunCoordinatorTests
             var receipt = new AgentWorkflowNodeReceipt(i, node.Key, AgentWorkflowNodeReceipt.ResolveOperationId(run.Id, node.Key),
                 AgentWorkflowNodeReceipt.Digest(AgentWorkflowNodeReceipt.BuildInput(node, State(run.SessionId, i))),
                 i == next ? null : AgentWorkflowNodeReceipt.Digest(state.Outputs[node.Key]), node.ToolName is null ? null : 1, null, null);
+            if (i < next && node.Kind == AgentWorkflowNodeKind.ModelText)
+                receipt = receipt with { InputTokens = 2, OutputTokens = 1 };
             if (i == next) state.PendingNode = receipt;
             else state.NodeReceipts.Add(receipt);
         }

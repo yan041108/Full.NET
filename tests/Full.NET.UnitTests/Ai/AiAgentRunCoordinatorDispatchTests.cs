@@ -26,7 +26,8 @@ public sealed partial class AiAgentRunCoordinatorTests
             .Returns(call =>
             {
                 dispatched.Add(call.ArgAt<ChatOptions?>(1)?.MaxOutputTokens);
-                return new ChatResponse(new ChatMessage(ChatRole.Assistant, "done"));
+                return new ChatResponse(new ChatMessage(ChatRole.Assistant, "done"))
+                    { Usage = new() { InputTokenCount = 2, OutputTokenCount = 1 } };
             });
         var runner = Substitute.For<IAgentModelRunner>();
         runner.RunAsync(Arg.Any<IChatClient>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(async call =>
@@ -45,7 +46,9 @@ public sealed partial class AiAgentRunCoordinatorTests
         Assert.AreEqual(1, await fixture.Coordinator.ProcessPendingAsync());
         AssertStatusCommit(fixture.Commands, "completed");
         Assert.AreEqual(definition == AgentWorkflowRegistry.ChatRenameWorkflowKey ? 2 : 1, dispatched.Count);
-        Assert.IsTrue(dispatched.All(value => value == expected));
+        var expectedLimits = definition == AgentWorkflowRegistry.ChatRenameWorkflowKey
+            ? new int?[] { expected, (int)Math.Min(limit - 1, 4096) } : [expected];
+        CollectionAssert.AreEqual(expectedLimits, dispatched);
         client.Received(1).Dispose();
     }
 }

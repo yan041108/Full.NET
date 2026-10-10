@@ -165,6 +165,8 @@ internal sealed class AiAgentRunCoordinator(
             {
                 return await FailAsync("ai.agent_run.invalid_payload").ConfigureAwait(false);
             }
+            if (!AiRunOutputBudgetAdmission.TryGetConsumedTokens(snapshot, workflowState, out var consumedOutputTokens))
+                return await FailAsync("ai.budget.limit_exceeded").ConfigureAwait(false);
 
             var queries = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
             var model = await queries.QuerySingleOrDefaultAsync<AiModelConfigRecord>(
@@ -197,8 +199,8 @@ internal sealed class AiAgentRunCoordinator(
             using var client = await factory.CreateChatClientAsync(bindingModel, cancellationToken).ConfigureAwait(false);
             // 客户端工厂可能忽略令牌；取消后仍须释放已创建资源并阻止任何节点派发。
             cancellationToken.ThrowIfCancellationRequested();
-            // 三类运行共用冻结输出上限，工作流与工具循环不能绕过单次文本已有的派发保护。
-            var executionClient = new AiRunOutputLimitClient(client, snapshot.OutputTokenLimit);
+            // 三类运行共用累计输出额度；工作流恢复先扣减已确认输出，未知历史不补零。
+            var executionClient = new AiRunOutputLimitClient(client, snapshot.OutputTokenLimit, consumedOutputTokens);
             AgentModelResult result;
             if (isWorkflow)
             {
@@ -408,6 +410,25 @@ internal sealed class AiAgentRunCoordinator(
         catch (AgentToolLoopBudgetExceededException)
         {
             return await FailAsync("ai.agent_run.tool_budget_exceeded").ConfigureAwait(false);
+        }
+        catch (AiRunOutputBudgetException exception) when (!exception.DispatchStarted)
+        {
+            if (workflowState?.PendingNode is not null)
+            {
+                // 本地额度拒绝能证明本次模型尚未派发；清除已保存意图后失败，不要求外部对账。
+                workflowState.PendingNode = null;
+                if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
+                if (!await CommitWorkflowProgressAsync(store, lease, runId, record, workflowState,
+                    "failed", $$"""{"errorCode":"{{exception.Code}}"}""", null, cancellationToken).ConfigureAwait(false)) return false;
+                try
+                {
+                    await scope.ServiceProvider.GetRequiredService<IAiOperationBudgetStore>()
+                        .SettleAsync(runId, new(null, null), "failed", cancellationToken).ConfigureAwait(false);
+                }
+                catch (AiBudgetException) { }
+                return true;
+            }
+            return await FailAsync(exception.Code).ConfigureAwait(false);
         }
         catch (Exception exception)
         {

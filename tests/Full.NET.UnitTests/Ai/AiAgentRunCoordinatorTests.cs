@@ -87,7 +87,8 @@ public sealed partial class AiAgentRunCoordinatorTests
         var client = Substitute.For<IChatClient>();
         client.GetResponseAsync(Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatOptions?>(), Arg.Any<CancellationToken>())
             .Returns(
-                new ChatResponse(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("call-1", "ai.tools.ping", new Dictionary<string, object?>())])),
+                new ChatResponse(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("call-1", "ai.tools.ping", new Dictionary<string, object?>())]))
+                    { Usage = new() { InputTokenCount = 1, OutputTokenCount = 1 } },
                 new ChatResponse(new ChatMessage(ChatRole.Assistant, "tool-loop-done")));
         var fixture = await CreateFixtureAsync(
             definitionKey: AgentDefinitionRegistry.ReadOnlyToolLoopKey,

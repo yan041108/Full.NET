@@ -8,6 +8,8 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Ai.Runtime;
+using Full.NET.Modules.Ai.Serialization;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Ai;
@@ -20,8 +22,51 @@ internal static class AiWorkflowCheckpointAssertions
         await factory.InitializeAsync();
         var runId = await SeedWorkflowRunAsync(factory).ConfigureAwait(false);
         await Roundtrip_checkpoint_payload_async(factory, runId).ConfigureAwait(false);
+        await Node_budget_receipt_consistency_async(factory).ConfigureAwait(false);
         await Node_receipt_intent_atomicity_and_reclaim_async(factory).ConfigureAwait(false);
         await Event_sequence_without_checkpoint_async(factory).ConfigureAwait(false);
+    }
+
+    private static async Task Node_budget_receipt_consistency_async(FullNetApiFactory factory)
+    {
+        foreach (var scenario in new[] { "known", "known-drift", "unknown-drift", "unknown", "finished-unknown" })
+        {
+            var runId = await SeedWorkflowRunAsync(factory);
+            await using var scope = factory.Services.CreateAsyncScope();
+            var store = scope.ServiceProvider.GetRequiredService<AiAgentRunStore>();
+            var run = (await store.FindByIdAsync(runId))!;
+            var definition = AgentWorkflowRegistry.Resolve(run.DefinitionKey, run.DefinitionVersion)!;
+            var state = AgentWorkflowState.Create(run.SessionId);
+            state.Binding = new(run.Id, run.DefinitionKey, run.DefinitionVersion, AgentWorkflowNodeReceipt.DigestDefinition(definition),
+                Guid.Parse("00000000-0000-0000-0000-000000000001"), 1);
+            state.NextNodeIndex = scenario == "finished-unknown" ? 3 : 2;
+            state.InputTokens = state.NextNodeIndex == 3 ? 8 : 7;
+            state.OutputTokens = scenario switch { "known" => 3, "known-drift" or "unknown-drift" => 0, _ => null };
+            for (var index = 0; index < state.NextNodeIndex; index++)
+            {
+                var node = definition.Nodes[index];
+                var inputDigest = AgentWorkflowNodeReceipt.Digest(AgentWorkflowNodeReceipt.BuildInput(node, state));
+                var output = index switch { 0 => "[]", 1 => "Title", _ => """{"decision":"approved"}""" };
+                state.Outputs.Add(node.Key, output);
+                var model = node.Kind == AgentWorkflowNodeKind.ModelText;
+                state.NodeReceipts.Add(new(index, node.Key, AgentWorkflowNodeReceipt.ResolveOperationId(runId, node.Key), inputDigest,
+                    AgentWorkflowNodeReceipt.Digest(output), model ? null : 1, model ? index == 1 ? 7 : 1 : null,
+                    model && scenario is "known" or "known-drift" ? 3 : null));
+            }
+            var lease = (await store.TryAcquireAsync(runId, "budget-owner", DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1)))!;
+            var payload = state.ToJson();
+            Assert.IsTrue(await store.CommitProgressAsync(new(lease, "running", null,
+                new(Guid.CreateVersion7(), 1, 1, AgentFrameworkRuntime.FrameworkVersion, run.DefinitionVersion, payload, AgentWorkflowNodeReceipt.Digest(payload)),
+                new(Guid.CreateVersion7(), 1, "run.node_completed", 1, "{}"))));
+            // 真实双库写入、读取后核对计量证明；未知且没有剩余模型时允许保存既有事实。
+            var restored = AiWorkflowCheckpointAdmission.Restore(run, await store.FindLatestCheckpointAsync(runId));
+            Assert.IsNotNull(restored);
+            var budget = JsonSerializer.Deserialize(run.BudgetJson, AiJsonSerializerContext.Default.AgentRunBudgetSnapshot)!;
+            var accepted = AiRunOutputBudgetAdmission.TryGetConsumedTokens(budget, restored, out var consumed);
+            Assert.AreEqual(scenario is "known" or "finished-unknown", accepted, scenario);
+            if (scenario == "known") Assert.AreEqual(3L, consumed);
+            if (scenario == "finished-unknown") Assert.IsNull(consumed);
+        }
     }
 
     private static async Task Node_receipt_intent_atomicity_and_reclaim_async(FullNetApiFactory factory)
@@ -159,6 +204,13 @@ internal static class AiWorkflowCheckpointAssertions
         Assert.AreEqual("Title", restored.Outputs["summarize"]);
         Assert.AreEqual(4L, restored.InputTokens);
         Assert.AreEqual(2L, restored.OutputTokens);
+        var budget = JsonSerializer.Deserialize(run.BudgetJson, AiJsonSerializerContext.Default.AgentRunBudgetSnapshot)!;
+        Assert.IsTrue(AiRunOutputBudgetAdmission.TryGetConsumedTokens(budget, restored, out var consumed));
+        Assert.AreEqual(2L, consumed);
+        Assert.IsFalse(AiRunOutputBudgetAdmission.TryGetConsumedTokens(budget with { OutputTokenLimit = 2 }, restored, out _));
+        Assert.IsFalse(AiRunOutputBudgetAdmission.TryGetConsumedTokens(budget with { InputTokenLimit = 3 }, restored, out _));
+        restored.OutputTokens = null;
+        Assert.IsFalse(AiRunOutputBudgetAdmission.TryGetConsumedTokens(budget, restored, out _));
         Assert.IsNull(AiWorkflowCheckpointAdmission.Restore(run, latest with { DefinitionVersion = 1 }));
         Assert.IsNull(AiWorkflowCheckpointAdmission.Restore(run, latest with { RunId = Guid.CreateVersion7() }));
         Assert.IsNull(AiWorkflowCheckpointAdmission.Restore(run, latest with { FormatVersion = 99 }));
@@ -187,7 +239,8 @@ internal static class AiWorkflowCheckpointAssertions
                 "host",
                 AgentWorkflowRegistry.ChatRenameWorkflowKey,
                 AgentWorkflowRegistry.ChatRenameWorkflowVersion,
-                """{"modelConfigId":"00000000-0000-0000-0000-000000000001","prompt":"","inputTokenLimit":100,"outputTokenLimit":100}""",
+                JsonSerializer.Serialize(new AgentRunBudgetSnapshot(Guid.Parse("00000000-0000-0000-0000-000000000001"), "", 100, 100),
+                    AiJsonSerializerContext.Default.AgentRunBudgetSnapshot),
                 DateTimeOffset.UtcNow.AddHours(1),
                 runId);
             await scope.ServiceProvider.GetRequiredService<IAgentRunStore>().CreateOrGetAsync(draft).ConfigureAwait(false);
