@@ -4,6 +4,45 @@ import test from 'node:test';
 import { prepareCiTestImages } from '../../scripts/testing/prepare-ci-test-images.mjs';
 
 const imageId = `sha256:${'a'.repeat(64)}`;
+
+test('拉取限流按5秒和15秒退避，成功后才设置别名', async () => {
+  let pulls = 0;
+  const delays = [];
+  const adapter = recorder(args => {
+    if (args[0] === 'pull' && ++pulls < 3) throw new Error('toomanyrequests: Rate exceeded');
+  });
+  assert.deepEqual(await prepareCiTestImages({ ...adapter, redisOnly: true,
+    wait: async ms => delays.push(ms) }), ['redis:8.6']);
+  assert.equal(pulls, 3);
+  assert.deepEqual(delays, [5000, 15000]);
+  assert.deepEqual(adapter.calls.slice(0, 3).map(args => args[0]), ['pull', 'pull', 'pull']);
+  assert.equal(adapter.calls.filter(args => args[0] === 'tag').length, 1);
+});
+
+test('持续限流只尝试三次，不设置别名或准备下一镜像', async () => {
+  const adapter = recorder(() => { throw new Error('toomanyrequests: Rate exceeded'); });
+  const delays = [];
+  await assert.rejects(async () => prepareCiTestImages({ ...adapter, wait: async ms => delays.push(ms) }), /Rate exceeded/);
+  assert.equal(adapter.calls.length, 3);
+  assert.deepEqual(delays, [5000, 15000]);
+});
+
+test('EOF和权限错误立即失败，镜像核对错误也不能重试', async () => {
+  for (const message of ['Head registry: EOF', 'denied: access forbidden']) {
+    const adapter = recorder(() => { throw new Error(message); });
+    const delays = [];
+    await assert.rejects(async () => prepareCiTestImages({ ...adapter, wait: async ms => delays.push(ms) }),
+      error => error.message === message);
+    assert.equal(adapter.calls.length, 1);
+    assert.deepEqual(delays, []);
+  }
+  const adapter = recorder(args => { if (args[0] === 'tag') throw new Error('toomanyrequests: Rate exceeded'); });
+  const delays = [];
+  await assert.rejects(async () => prepareCiTestImages({ ...adapter, wait: async ms => delays.push(ms) }), /Rate exceeded/);
+  assert.equal(adapter.calls.length, 3);
+  assert.deepEqual(delays, []);
+});
+
 function recorder(fail = () => {}) {
   const calls = [];
   return { calls, run(args) {
@@ -13,9 +52,9 @@ function recorder(fail = () => {}) {
   } };
 }
 
-test('官方源预拉取后按顺序核对镜像与原有标签', () => {
+test('官方源预拉取后按顺序核对镜像与原有标签', async () => {
   const adapter = recorder();
-  assert.deepEqual(prepareCiTestImages(adapter), ['mysql:8.0', 'redis:8.6']);
+  assert.deepEqual(await prepareCiTestImages(adapter), ['mysql:8.0', 'redis:8.6']);
   assert.deepEqual(adapter.calls, ['mysql:8.0', 'redis:8.6'].flatMap(target => {
     const source = `public.ecr.aws/docker/library/${target}`;
     return [['pull', source], ['image', 'inspect', '--format', '{{.Id}}', source],
@@ -23,36 +62,36 @@ test('官方源预拉取后按顺序核对镜像与原有标签', () => {
   }));
 });
 
-test('SQL Server 作业只准备 Redis，生成应用保留 MySQL 8.4', () => {
-  assert.deepEqual(prepareCiTestImages({ ...recorder(), redisOnly: true }), ['redis:8.6']);
-  assert.deepEqual(prepareCiTestImages({ ...recorder(), includeMySql84: true }),
+test('SQL Server 作业只准备 Redis，生成应用保留 MySQL 8.4', async () => {
+  assert.deepEqual(await prepareCiTestImages({ ...recorder(), redisOnly: true }), ['redis:8.6']);
+  assert.deepEqual(await prepareCiTestImages({ ...recorder(), includeMySql84: true }),
     ['mysql:8.0', 'mysql:8.4', 'redis:8.6']);
 });
 
-test('拉取失败不能设置别名或继续准备下一镜像', () => {
+test('拉取失败不能设置别名或继续准备下一镜像', async () => {
   const adapter = recorder(() => { throw new Error('registry unavailable'); });
-  assert.throws(() => prepareCiTestImages(adapter), /registry unavailable/);
+  await assert.rejects(() => prepareCiTestImages(adapter), /registry unavailable/);
   assert.equal(adapter.calls.length, 1);
 });
 
-test('源镜像元数据无效不能覆盖原有标签', () => {
+test('源镜像元数据无效不能覆盖原有标签', async () => {
   const calls = [];
-  assert.throws(() => prepareCiTestImages({ run(args) { calls.push(args); return 'not-an-image'; } }), /ID 无效/);
+  await assert.rejects(() => prepareCiTestImages({ run(args) { calls.push(args); return 'not-an-image'; } }), /ID 无效/);
   assert.equal(calls.length, 2);
 });
 
-test('别名核对失败不能开始下一镜像', () => {
+test('别名核对失败不能开始下一镜像', async () => {
   const adapter = recorder();
-  assert.throws(() => prepareCiTestImages({ run(args) {
+  await assert.rejects(() => prepareCiTestImages({ run(args) {
     const value = adapter.run(args);
     return args.at(-1) === 'mysql:8.0' && args[0] === 'image' ? `sha256:${'b'.repeat(64)}` : value;
   } }), /别名不匹配/);
   assert.equal(adapter.calls.length, 4);
 });
 
-test('相互矛盾的选择在运行 Docker 前拒绝', () => {
+test('相互矛盾的选择在运行 Docker 前拒绝', async () => {
   const adapter = recorder();
-  assert.throws(() => prepareCiTestImages({ ...adapter, redisOnly: true, includeMySql84: true }), /不能同时/);
+  await assert.rejects(() => prepareCiTestImages({ ...adapter, redisOnly: true, includeMySql84: true }), /不能同时/);
   assert.equal(adapter.calls.length, 0);
 });
 
