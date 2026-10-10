@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { buildAppTemplate } from '../../../scripts/templates/build-app-template.mjs';
 import { createApp } from '../../../scripts/templates/create-app.mjs';
+import { testRunEnvironment } from '../../../scripts/testing/test-run-context.mjs';
 import { startDatabaseContainer, startRedisContainer, buildSharedEnv, runDotnet } from './created-app-real-stack.mjs';
 import { verifyEnterpriseDataDeliveryHttp } from './application-enterprise-data-delivery.mjs';
 import { verifyReportingGrantManagementHttp } from './application-reporting-grants.mjs';
@@ -63,7 +64,7 @@ export async function verifyCreatedEnterpriseDataDelivery(provider, { signal } =
   assert.ok(externalSource.username && externalSource.password,'owned external credentials missing');
   const redisStack = await startRedisContainer(); redis = redisStack.container;
   const browserPort = await freePort();
-  const env = { ...buildSharedEnv(databaseStack.connectionString,databaseStack.databaseProvider,redisStack.connectionString),
+  const env = { ...testRunEnvironment(), ...buildSharedEnv(databaseStack.connectionString,databaseStack.databaseProvider,redisStack.connectionString),
    Identity__AllowedOrigins__3:'http://localhost:'+browserPort,
    Files__Local__RootPath:join(root,'files'), FullNet__ImportExport__RunSynchronously:'false', FullNet__ImportExport__ExecutionEnabled:'false',
    FullNet__ImportExport__PollSeconds:'5', FullNet__ImportExport__BatchSize:'1',

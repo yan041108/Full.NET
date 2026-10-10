@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildAppTemplate } from '../../../scripts/templates/build-app-template.mjs';
 import { createApp } from '../../../scripts/templates/create-app.mjs';
+import { testRunEnvironment } from '../../../scripts/testing/test-run-context.mjs';
 import { prepareApplicationCompositionProbe } from './application-composition-probe.mjs';
 import { verifyApplicationModuleEndpoint } from './application-module-http.mjs';
 import { cleanupCreatedApp } from './created-app-cleanup.mjs';
@@ -95,12 +96,12 @@ export async function startRedisContainer() {
   };
 }
 
-export function runDotnet(args, cwd, env, timeoutMs = 300_000, logPath) {
-  const result = spawnSync('dotnet', args, {
+export function runDotnet(args, cwd, env, timeoutMs = 300_000, logPath, run = spawnSync) {
+  const result = run('dotnet', args, {
     cwd,
     encoding: 'utf8',
     timeout: timeoutMs,
-    env: { ...process.env, ...env },
+    env: { ...testRunEnvironment(), ...env },
     windowsHide: true,
   });
   if (logPath) writeFileSync(logPath, `${result.stdout ?? ''}\n${result.stderr ?? ''}`);

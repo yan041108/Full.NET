@@ -53,6 +53,9 @@ export async function verifyCreatedEnterpriseApproval(provider, { signal } = {})
       Identity__AllowedOrigins__3: 'http://localhost:' + browserPort, Files__Local__RootPath: join(root, 'files'),
       FullNet__ImportExport__ExecutionEnabled: 'false', FullNet__Reporting__Export__ExecutionEnabled: 'false',
       OutboxWorker__PollMilliseconds: '250', OutboxWorker__MaximumIdlePollMilliseconds: '1000' };
+    report.buildEnvironment = { UseSharedCompilation: env.UseSharedCompilation ?? null,
+      MSBUILDDISABLENODEREUSE: env.MSBUILDDISABLENODEREUSE ?? null,
+      DOTNET_CLI_USE_MSBUILD_SERVER: env.DOTNET_CLI_USE_MSBUILD_SERVER ?? null };
     const profile = JSON.parse(readFileSync(join(appRoot, 'fullnet-app.json'), 'utf8'));
     const apiUrl = 'http://127.0.0.1:' + profile.httpPort;
     const workerUrl = 'http://127.0.0.1:' + await freePort();

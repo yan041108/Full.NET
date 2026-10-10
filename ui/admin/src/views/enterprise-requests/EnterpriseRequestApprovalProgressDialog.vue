@@ -9,6 +9,7 @@ import { useSessionStore } from '../../auth/session';
 import { useAuthorizedViewScope } from '../../composables/useAuthorizedViewScope';
 import { useTaskStatusRefresh } from '../../composables/useTaskStatusRefresh';
 import { useAdminI18n } from '../../i18n/adminI18n';
+import { requestStatusLabel } from './enterprise-request-presentation';
 
 const props = defineProps<{ requestId: string }>();
 const emit = defineEmits<{ close: [] }>();
@@ -116,6 +117,18 @@ function openInbox(): void {
   close();
   void router.push({ name: 'inbox-messages' });
 }
+function keepDialogFocus(event: KeyboardEvent): void {
+  if (event.key !== 'Tab' || event.altKey || event.ctrlKey || event.metaKey || !(event.currentTarget instanceof HTMLElement)) return;
+  // 组件库在冒泡后才更新键盘来源，鼠标打开后的首次边界 Tab 可能放行；捕获阶段只补齐首尾循环。
+  const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button, input, textarea, select, a[href], [tabindex]'))
+    .filter(control => control.tabIndex >= 0 && !control.matches(':disabled') && control.getClientRects().length > 0
+      && getComputedStyle(control).visibility !== 'hidden');
+  const first = controls[0]; const last = controls.at(-1);
+  if (!first || !last) return;
+  const target = event.shiftKey && document.activeElement === first ? last
+    : !event.shiftKey && document.activeElement === last ? first : undefined;
+  if (target) { event.preventDefault(); target.focus(); }
+}
 const stateLabel = computed(() => progress.value ? t(`enterpriseRequests.progress.${progress.value.deliveryState}`) : '');
 function time(value: string | null | undefined): string {
   return value ? new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(value)) : '—';
@@ -124,6 +137,7 @@ function time(value: string | null | undefined): string {
 
 <template>
   <el-dialog :model-value="true" :title="t('enterpriseRequests.approvalProgress')" width="min(640px, 94vw)"
+    @keydown.capture="keepDialogFocus"
     @update:model-value="open => { if (!open) close(); }">
     <div :aria-busy="loading" aria-live="polite">
       <p v-if="loading">{{ t('common.loading') }}</p>
@@ -136,7 +150,7 @@ function time(value: string | null | undefined): string {
         <p>{{ t('enterpriseRequests.progressHint') }}</p>
         <p v-if="progress.deliveryState === 'recovery_required'">{{ t('enterpriseRequests.progressRecoveryHint') }}</p>
         <dl class="approval-progress">
-          <dt>{{ t('enterpriseRequests.requestStatus') }}</dt><dd translate="no">{{ progress.requestStatus }}</dd>
+          <dt>{{ t('enterpriseRequests.requestStatus') }}</dt><dd>{{ requestStatusLabel(progress.requestStatus, t) }}</dd>
           <dt>{{ t('enterpriseRequests.requestVersion') }}</dt><dd>{{ progress.requestVersion }}</dd>
           <dt>{{ t('workflowInstances.instanceId') }}</dt><dd><code translate="no">{{ progress.workflowInstanceId ?? '—' }}</code></dd>
           <dt>{{ t('enterpriseRequests.submittedAt') }}</dt><dd>{{ time(progress.submittedAtUtc) }}</dd>

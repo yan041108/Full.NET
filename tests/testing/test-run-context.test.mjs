@@ -22,6 +22,31 @@ test('并行运行的 TEMP/TMP 独立且不改调用进程环境', async t => {
   assert.equal(process.env.TEMP, before);
 });
 
+test('集中验收的子进程禁用常驻编译服务，普通测试保持调用环境', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'fullnet-disposable-build-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { withTestRun, runConcentratedAcceptance, testRunEnvironment } = await import('../../scripts/testing/test-run-context.mjs');
+  const names = ['UseSharedCompilation', 'MSBUILDDISABLENODEREUSE', 'DOTNET_CLI_USE_MSBUILD_SERVER'];
+  const before = names.map(name => process.env[name]);
+  await runConcentratedAcceptance(t, async () => {
+    const env = testRunEnvironment();
+    const values = await new Promise((resolve, reject) => {
+      const child = spawn(process.execPath, ['-e', `process.stdout.write(JSON.stringify(${JSON.stringify(names)}.map(name => process.env[name])))`],
+        { env, windowsHide: true });
+      let output = '';
+      child.stdout.on('data', value => { output += value; });
+      child.on('error', reject);
+      child.on('close', code => code === 0 ? resolve(JSON.parse(output)) : reject(new Error(`child exit ${code}`)));
+    });
+    assert.deepEqual(values, ['false', '1', '0']);
+    assert.equal(env.TEMP, env.TMP);
+  }, { cwd: root, lock: false });
+  assert.deepEqual(names.map(name => process.env[name]), before);
+  await withTestRun({ cwd: root, lock: false }, async () => {
+    assert.deepEqual(names.map(name => testRunEnvironment()[name]), before);
+  });
+});
+
 test('共享重型锁跨工作区串行且失败后释放', async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'fullnet-run-lock-'));
   t.after(() => rm(root, { recursive: true, force: true }));

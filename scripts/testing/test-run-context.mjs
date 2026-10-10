@@ -12,7 +12,7 @@ export const concentratedAcceptanceTimeout = 45 * 60_000 + 30_000;
 /** 排队属于外层预算；取得资源后才开始原来的独立应用执行预算。 */
 export async function runConcentratedAcceptance(testContext, action, options = {}) {
   const { executionTimeoutMs = 15 * 60_000, ...runOptions } = options;
-  return withTestRun({ cwd: process.cwd(), heavy: true, signal: testContext.signal, ...runOptions }, async () => {
+  return withTestRun({ cwd: process.cwd(), heavy: true, signal: testContext.signal, ...runOptions, disposableBuild: true }, async () => {
     let pending;
     let completed = false;
     await testContext.test('集中验收执行', { timeout: executionTimeoutMs }, execution => {
@@ -66,7 +66,7 @@ async function acquire(file, { signal, deadline, onWait }) {
 
 /** 独立 TEMP/TMP 隔离子进程；同工作区运行互斥，重型验收另使用跨工作区的同机锁。 */
 export async function withTestRun({ cwd, heavy = false, lock = true, lockRoot,
-  signal, timeoutMs = 30 * 60_000, onWait = file => process.stdout.write(`等待测试资源：${file}\n`) }, action) {
+  signal, disposableBuild = false, timeoutMs = 30 * 60_000, onWait = file => process.stdout.write(`等待测试资源：${file}\n`) }, action) {
   signal?.throwIfAborted();
   if (context.getStore()) throw new Error('测试运行上下文不能嵌套；资源由最外层入口拥有。');
   const runRoot = path.join(cwd, '.tmp', 'test-runs', randomUUID());
@@ -89,7 +89,11 @@ export async function withTestRun({ cwd, heavy = false, lock = true, lockRoot,
       if (heavy) releases.push(await acquire(path.join(lockRoot, 'heavy.lock'), { signal, deadline, onWait }));
     }
     signal?.throwIfAborted();
-    const value = await context.run({ env: { ...process.env, TEMP: temporary, TMP: temporary, TMPDIR: temporary } }, action);
+    // 临时应用结束后必须释放目录；禁止编译服务继续持有 TEMP 内源生成器，普通套件仍保留构建复用。
+    const buildEnvironment = disposableBuild ? {
+      UseSharedCompilation: 'false', MSBUILDDISABLENODEREUSE: '1', DOTNET_CLI_USE_MSBUILD_SERVER: '0'
+    } : {};
+    const value = await context.run({ env: { ...process.env, TEMP: temporary, TMP: temporary, TMPDIR: temporary, ...buildEnvironment } }, action);
     outcome = 'passed';
     return value;
   } finally {

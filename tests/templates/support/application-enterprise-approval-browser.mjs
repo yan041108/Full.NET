@@ -285,9 +285,14 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     const progressDialog = page.getByRole('dialog', { name: '审批进度', exact: true });
     await expect(progressDialog.getByTestId('notification-pending')).toHaveText('0');
     await expect(progressDialog.getByTestId('notification-failed')).toHaveText('0');
+    await expect(progressDialog.locator('.approval-progress').first().locator('dd').first()).toHaveText('已通过');
     await audit('approval-notification-progress', '[role="dialog"][aria-label="审批进度"]');
     await page.screenshot({ path: join(reportDirectory, 'approval-notification-progress.png'), fullPage: true });
-    await progressDialog.getByRole('button', { name: '取消', exact: true }).click(); evidence.notificationProgressViewed = true;
+    const progressCancel = progressDialog.getByRole('button', { name: '取消', exact: true });
+    await progressCancel.scrollIntoViewIfNeeded(); await progressCancel.focus(); await page.keyboard.press('Tab');
+    await expect.poll(() => progressDialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press('Escape'); await expect(progressDialog).toBeHidden();
+    evidence.notificationProgressViewed = true; evidence.approvalProgressStatusLocalized = true; evidence.approvalProgressKeyboardClose = true;
     const message = messages.items.find(item => item.title === terminalTitles.get(approved.id) && item.content?.includes(approved.id)); assert.ok(message);
     await page.goto(origin + '/#/notifications/inbox-messages');
     const messageRow = page.locator('.inbox-messages-data-table .el-table__row').filter({ hasText: message.content });

@@ -56,7 +56,7 @@ describe('审批结果与终态通知分别展示', () => {
       expect(f.wrapper.get('[data-testid="notification-dead-lettered"]').text()).toBe('1');
       expect(f.wrapper.get('[data-testid="notification-unknown"]').text()).toBe('1');
       expect(f.wrapper.get('[data-testid="notification-other"]').text()).toBe('1');
-      expect(f.wrapper.text()).toContain('Approved');
+      expect(f.wrapper.findAll('.approval-progress dd')[0]!.text()).toBe(locale === 'zh-CN' ? '已通过' : 'Approved');
       expect(f.wrapper.text()).toContain(locale === 'zh-CN' ? '已发送不代表收件人已阅读' : 'Sent does not mean it was read');
     } finally { f.wrapper.unmount(); }
   });
