@@ -64,6 +64,7 @@ internal sealed class RenameChatSessionToolHandler(
                 actor.UserId,
                 new UpdateAiChatSessionRequest(parsed.Title, session.Version),
                 token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
             if (!renamed.IsSuccess)
             {
                 return Result<JsonElement>.Failure(renamed.Error!);
@@ -73,6 +74,9 @@ internal sealed class RenameChatSessionToolHandler(
                 new RenameChatSessionResult(parsed.SessionId, parsed.Title),
                 AiToolJsonSerializerContext.Default.RenameChatSessionResult));
         }, cancellationToken).ConfigureAwait(false);
+
+        // 提交等待期间取消时不得交付成功；已提交写入仍需按工具未知结果语义核对。
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (!result.IsSuccess)
         {

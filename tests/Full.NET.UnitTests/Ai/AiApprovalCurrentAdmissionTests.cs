@@ -236,18 +236,48 @@ public sealed class AiApprovalCurrentAdmissionTests
         Assert.AreEqual(0, f.Commands.ReceivedCalls().Count());
     }
 
+    [TestMethod]
+    public async Task Approved_rename_handler_does_not_read_or_release_chat_history()
+    {
+        using var f = new Fixture();
+        f.Queries.RejectHistory = true;
+        var transaction = new RecordingTransaction();
+        var queryService = new AiChatSessionQueryService(f.Queries, f.Tenant, Options.Create(new DatabaseOptions()), f.Clock);
+        var sessions = new AiChatSessionManagementService(f.Queries, f.Commands, transaction, queryService, null!, f.Tenant, f.Clock, Substitute.For<IIdGenerator>());
+        var handler = new RenameChatSessionToolHandler(sessions, queryService, f.Consumption, transaction, f.Tenant);
+        var result = await handler.ExecuteAsync(f.Invocation, f.Actor, default);
+        Assert.AreEqual("new", result.GetProperty("title").GetString());
+        Assert.AreEqual(2, result.EnumerateObject().Count());
+        Assert.AreEqual(1, transaction.Calls);
+        Assert.AreEqual(2, f.Commands.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    public async Task Approved_rename_handler_cancellation_after_commit_never_returns_success()
+    {
+        using var f = new Fixture(); using var cancellation = new CancellationTokenSource();
+        var transaction = new RecordingTransaction { AfterResult = cancellation.Cancel };
+        var queryService = new AiChatSessionQueryService(f.Queries, f.Tenant, Options.Create(new DatabaseOptions()), f.Clock);
+        var sessions = new AiChatSessionManagementService(f.Queries, f.Commands, transaction, queryService, null!, f.Tenant, f.Clock, Substitute.For<IIdGenerator>());
+        var handler = new RenameChatSessionToolHandler(sessions, queryService, f.Consumption, transaction, f.Tenant);
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await handler.ExecuteAsync(f.Invocation, f.Actor, cancellation.Token));
+        Assert.AreEqual(2, f.Commands.ReceivedCalls().Count());
+    }
+
     private sealed class RecordingTransaction : ICommandTransaction
     {
         internal int Calls;
+        internal Action? AfterResult;
         public Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken token)
         { Calls++; return action(token); }
-        public Task<Result<T>> ExecuteResultAsync<T>(Func<CancellationToken, Task<Result<T>>> action, CancellationToken token)
-        { Calls++; return action(token); }
+        public async Task<Result<T>> ExecuteResultAsync<T>(Func<CancellationToken, Task<Result<T>>> action, CancellationToken token)
+        { Calls++; var result = await action(token); AfterResult?.Invoke(); return result; }
     }
 
     /// <summary>显式查询夹具故意忽略取消，避免内部行类型被动态代理并验证调用方边界。</summary>
     private sealed class FixtureQueries(Fixture fixture) : IQueryExecutor
     {
+        internal bool RejectHistory;
         internal Func<AiAgentRunRecord?>? RunQuery;
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken token = default)
         {
@@ -264,7 +294,11 @@ public sealed class AiApprovalCurrentAdmissionTests
         {
             if (typeof(T) == typeof(AiAgentApprovalRecord))
             { fixture.OnApprovalQuery?.Invoke(); return Task.FromResult<IReadOnlyList<T>>([(T)(object)fixture.Record]); }
-            if (typeof(T) == typeof(AiChatMessageRecord)) return Task.FromResult<IReadOnlyList<T>>([]);
+            if (typeof(T) == typeof(AiChatMessageRecord))
+            {
+                if (RejectHistory) throw new InvalidOperationException("工具写入不能查询聊天历史。");
+                return Task.FromResult<IReadOnlyList<T>>([]);
+            }
             throw new InvalidOperationException("Unexpected query projection.");
         }
     }

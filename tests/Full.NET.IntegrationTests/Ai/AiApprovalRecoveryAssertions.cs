@@ -11,6 +11,8 @@ using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Features.ManageAgentApprovals;
+using Full.NET.Modules.Ai.Features.ManageAgentTools.Handlers;
+using Full.NET.Modules.Ai.Features.ManageChatSessions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -87,6 +89,30 @@ internal static class AiApprovalRecoveryAssertions
             approval = await queries.QuerySingleOrDefaultAsync<AiAgentApprovalRecord>(AiAgentApprovalSql.FindByOperation,
                 AiSqlParameters.Create(("OperationId", operationId)), default);
             Assert.IsNull(approval!.ConsumedAtUtc); Assert.AreEqual(1L, approval.Version);
+
+            // 带派生答案的目标仍可执行批准的标题写入；工具事务不得尝试交付历史正文。
+            Assert.AreEqual(1, await commands.ExecuteAsync(AiChatSql.UpdateSessionTitle, AiSqlParameters.Create(
+                ("SessionId", sessionId), ("OwnerUserId", actor.UserId), ("ScopeTenantId", null),
+                ("Title", "old"), ("UpdatedAtUtc", clock.UtcNow), ("Version", 2)), default));
+            var messageId = Guid.CreateVersion7();
+            await commands.ExecuteAsync(new SqlStatement("fixture.insert_knowledge_answer", """
+                INSERT INTO fn_ai_chat_message (Id, SessionId, RoleKey, Content, StatusKey, CreatedAtUtc, IsKnowledgeAnswer, KnowledgeLineage)
+                VALUES (@Id, @SessionId, 'assistant', @Content, 'completed', @Now, 1, NULL)
+                """, SqlDataScope.Global), AiSqlParameters.Create(("Id", messageId), ("SessionId", sessionId),
+                ("Content", "不可交付的旧知识答案"), ("Now", clock.UtcNow)), default);
+            var sessionQueries = scope.ServiceProvider.GetRequiredService<AiChatSessionQueryService>();
+            var handler = new RenameChatSessionToolHandler(scope.ServiceProvider.GetRequiredService<AiChatSessionManagementService>(),
+                sessionQueries, consumption, transaction, tenant);
+            var result = await handler.ExecuteAsync(invocation, actor, default);
+            Assert.AreEqual("approved", result.GetProperty("title").GetString());
+            approval = await queries.QuerySingleOrDefaultAsync<AiAgentApprovalRecord>(AiAgentApprovalSql.FindByOperation,
+                AiSqlParameters.Create(("OperationId", operationId)), default);
+            Assert.IsNotNull(approval!.ConsumedAtUtc); Assert.AreEqual(2L, approval.Version);
+            var detail = await sessionQueries.GetByIdAsync(sessionId, actor.UserId);
+            Assert.IsTrue(detail.IsSuccess); Assert.AreEqual("approved", detail.Value!.Title); Assert.AreEqual(4, detail.Value.Version);
+            Assert.AreEqual("", detail.Value.Messages.Single().Content);
+            Assert.AreEqual(AiErrorCodes.KnowledgeAnswerUnavailable, detail.Value.Messages.Single().KnowledgeUnavailableCode);
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await handler.ExecuteAsync(invocation, actor, default));
         }
         finally { tenant.Clear(); }
     }

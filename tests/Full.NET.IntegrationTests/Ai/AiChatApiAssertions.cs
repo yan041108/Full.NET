@@ -20,7 +20,7 @@ internal static class AiChatApiAssertions
         await factory.InitializeAsync();
         using var client = factory.CreateClientForHost("localhost");
         var identity = await factory.CreateHostIdentityAsync($"ai-{Guid.NewGuid():N}",
-            [AiModelPermissions.Read, AiModelPermissions.Create, AiChatPermissions.Read, AiChatPermissions.Create, AiChatPermissions.Send]);
+            [AiModelPermissions.Read, AiModelPermissions.Create, AiChatPermissions.Read, AiChatPermissions.Create, AiChatPermissions.Send, AiChatPermissions.Update]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", identity.AccessToken);
         await AssertProblemAsync(client, Guid.NewGuid(), " ", HttpStatusCode.UnprocessableEntity, AiErrorCodes.ChatMessageInvalid);
         await AssertProblemAsync(client, Guid.NewGuid(), "hello", HttpStatusCode.NotFound, AiErrorCodes.ChatSessionNotFound);
@@ -42,6 +42,21 @@ internal static class AiChatApiAssertions
             WHERE Id = @SessionId AND OwnerUserId = @OwnerUserId AND TenantId IS NULL
             """, new { GenerationId = Guid.CreateVersion7(), ExpiresAtUtc = DateTime.UtcNow.AddMinutes(2), SessionId = session.Id, OwnerUserId = identity.UserId }));
         await AssertProblemAsync(client, session.Id, "hello", HttpStatusCode.Conflict, AiErrorCodes.ChatGenerationInProgress);
+
+        // 真实 HTTP 重命名须先提交短事务，再按当前来源资格读取历史；损坏依赖保持隐藏。
+        var messageId = Guid.CreateVersion7();
+        Assert.AreEqual(1, await connection.ExecuteAsync("""
+            INSERT INTO fn_ai_chat_message (Id, SessionId, RoleKey, Content, StatusKey, CreatedAtUtc, IsKnowledgeAnswer, KnowledgeLineage)
+            VALUES (@Id, @SessionId, 'assistant', @Content, 'completed', @Now, 1, NULL)
+            """, new { Id = messageId, SessionId = session.Id, Content = "不可交付的旧答案", Now = DateTime.UtcNow }));
+        using var renamedResponse = await client.PutAsJsonAsync($"/api/v1/ai/chat/sessions/{session.Id}", new UpdateAiChatSessionRequest(" 新标题 ", session.Version));
+        Assert.AreEqual(HttpStatusCode.OK, renamedResponse.StatusCode, await renamedResponse.Content.ReadAsStringAsync());
+        var renamed = (await renamedResponse.Content.ReadFromJsonAsync<AiChatSessionResponse>())!;
+        Assert.AreEqual("新标题", renamed.Title); Assert.AreEqual(session.Version + 1, renamed.Version);
+        Assert.AreEqual("", renamed.Messages.Single().Content);
+        Assert.AreEqual(AiErrorCodes.KnowledgeAnswerUnavailable, renamed.Messages.Single().KnowledgeUnavailableCode);
+        using var staleResponse = await client.PutAsJsonAsync($"/api/v1/ai/chat/sessions/{session.Id}", new UpdateAiChatSessionRequest("不能覆盖", session.Version));
+        Assert.AreEqual(HttpStatusCode.Conflict, staleResponse.StatusCode, await staleResponse.Content.ReadAsStringAsync());
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
             await factory.CreateHostAccessTokenAsync([AiChatPermissions.Read, AiChatPermissions.Send]));

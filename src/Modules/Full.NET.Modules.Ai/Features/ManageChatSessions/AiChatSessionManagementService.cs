@@ -43,27 +43,39 @@ internal sealed class AiChatSessionManagementService(
             token => CreateCoreAsync(ownerUserId, request, token),
             cancellationToken);
 
-    /// <summary>以版本约束更新会话标题。</summary>
+    /// <summary>以版本约束提交标题，再在事务外按当前来源资格读取完整详情。</summary>
+    /// <remarks>提交后的详情读取失败或取消不回滚标题，调用方应刷新会话版本。</remarks>
     /// <param name="sessionId">已授权的会话标识。</param>
     /// <param name="ownerUserId">当前会话所有者。</param>
     /// <param name="request">已经过入口绑定的请求。</param>
     /// <param name="cancellationToken">取消当前操作的令牌。</param>
-    public Task<Result<AiChatSessionResponse>> RenameAsync(
+    public async Task<Result<AiChatSessionResponse>> RenameAsync(
         Guid sessionId,
         Guid ownerUserId,
         UpdateAiChatSessionRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => RenameCoreAsync(sessionId, ownerUserId, request, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var scope = AiChatScope.Resolve(currentTenant);
+        var result = await transaction.ExecuteResultAsync(
+            token => RenameCoreAsync(scope, sessionId, ownerUserId, request, token),
+            cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!result.IsSuccess) return Result<AiChatSessionResponse>.Failure(result.Error!);
+        if (AiChatScope.Resolve(currentTenant) != scope)
+            return SessionScopeFailure<AiChatSessionResponse>();
 
-    /// <summary>由外层事务包裹的写工具重命名；不得再嵌套开启事务。</summary>
-    internal Task<Result<AiChatSessionResponse>> RenameInCurrentTransactionAsync(
+        // 历史可能依赖 Identity 与 Files 的权威证明；标题提交不能把这些读取拉入 AI 事务。
+        return await queries.GetByIdAsync(sessionId, ownerUserId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>外层结果事务内只执行标题 CAS，不嵌套事务或查询历史；失败必须由调用方回滚。</summary>
+    internal Task<Result<bool>> RenameInCurrentTransactionAsync(
         Guid sessionId,
         Guid ownerUserId,
         UpdateAiChatSessionRequest request,
         CancellationToken cancellationToken = default) =>
-        RenameCoreAsync(sessionId, ownerUserId, request, cancellationToken);
+        RenameCoreAsync(AiChatScope.Resolve(currentTenant), sessionId, ownerUserId, request, cancellationToken);
 
     /// <summary>删除已授权会话与本模块消息。</summary>
     /// <param name="sessionId">已授权的会话标识。</param>
@@ -165,21 +177,24 @@ internal sealed class AiChatSessionManagementService(
             .ConfigureAwait(false);
     }
     /// <summary>验证标题并防止覆盖并发修改。</summary>
+    /// <param name="scope">入场时冻结的可信范围，等待期间变化必须触发结果事务回滚。</param>
     /// <param name="sessionId">已授权的会话标识。</param>
     /// <param name="ownerUserId">当前会话所有者。</param>
     /// <param name="request">已经过入口绑定的请求。</param>
     /// <param name="cancellationToken">取消当前操作的令牌。</param>
-    private async Task<Result<AiChatSessionResponse>> RenameCoreAsync(
+    private async Task<Result<bool>> RenameCoreAsync(
+        AiChatScope scope,
         Guid sessionId,
         Guid ownerUserId,
         UpdateAiChatSessionRequest request,
         CancellationToken cancellationToken)
     {
-        var scope = AiChatScope.Resolve(currentTenant);
-        var title = request.Title.Trim();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (AiChatScope.Resolve(currentTenant) != scope) return SessionScopeFailure<bool>();
+        var title = request.Title?.Trim();
         if (string.IsNullOrWhiteSpace(title) || title.Length > 256)
         {
-            return ValidationFailure<AiChatSessionResponse>("Title is required and must not exceed 256 characters.");
+            return ValidationFailure<bool>("Title is required and must not exceed 256 characters.");
         }
 
         var affected = await commandExecutor.ExecuteAsync(
@@ -193,16 +208,18 @@ internal sealed class AiChatSessionManagementService(
                     ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (affected == 0)
+        // 驱动可能忽略取消；返回后再次复核，使结果事务在提交前回滚标题和审批消费。
+        cancellationToken.ThrowIfCancellationRequested();
+        if (AiChatScope.Resolve(currentTenant) != scope) return SessionScopeFailure<bool>();
+        if (affected != 1)
         {
-            return Result<AiChatSessionResponse>.Failure(new Error(
+            return Result<bool>.Failure(new Error(
                 AiErrorCodes.ChatSessionConcurrencyConflict,
                 "The AI chat session was modified by another request.",
                 ErrorType.Conflict));
         }
 
-        return await queries.GetByIdAsync(sessionId, ownerUserId, cancellationToken)
-            .ConfigureAwait(false);
+        return Result<bool>.Success(true);
     }
     /// <summary>先验证所有权，再取消及删除该会话。</summary>
     /// <param name="sessionId">已授权的会话标识。</param>
@@ -247,4 +264,8 @@ internal sealed class AiChatSessionManagementService(
             AiErrorCodes.ChatSessionInvalid,
             message,
             ErrorType.Validation));
+
+    /// <summary>可信作用域在等待期间变化时，拒绝提交或向新作用域交付详情。</summary>
+    private static Result<T> SessionScopeFailure<T>() => Result<T>.Failure(new Error(
+        AiErrorCodes.ChatSessionNotFound, "The AI chat session was not found.", ErrorType.NotFound));
 }

@@ -1796,6 +1796,23 @@ Token 值只限制现有预算预留；实际提供程序输入分词/输出硬�
 
 现有审批没有目标历史版本；本批只比较批准时原始标题及预期变更，并由当前目标版本 CAS 保护写入，不证明标题从未改变后恢复。其他写工具、未知外部副作用自动对账、其他分支逐节点凭证与全节点累计硬预算仍开放，R10 原三项暂不关闭。无需迁移和 HTTP 契约变更，升级／回退须停准入并排空旧版本写派发；独立生成应用按整个 AI 模块集中验收，保持 `Capacity-not-verified`。
 
+#### R10i：审批标题写入与知识历史事务边界合批（2026-10-11，本批本地验收完成）
+
+- [x] 根因修复：会话重命名的标题更新与完整历史交付分开；普通 HTTP 在结果事务提交后读取详情，知识来源授权仍在事务外失败关闭。带知识答案的会话不再因为事务内来源守卫拒绝而阻断标题更新。
+- [x] 审批工具事务只执行审批消费和标题版本 CAS，返回操作结果，不读取／返回历史正文；版本冲突和提交前取消／可信租户变化回滚。SQL 返回后及事务返回后再次检查取消，提交后不确定结果不能报告为未写入。
+- [x] 新增 16 项 Unit 回归，扩展现有 SQL Server／MySQL 聊天和审批夹具，覆盖真实来源守卫、提交后详情契约、损坏知识依赖隐藏、版本冲突、原子消费成功／回滚及重复消费拒绝；无迁移、新公共 HTTP 字段或跨模块 SQL。
+
+本地验证记录：
+
+- 基线 main `caae13c3213055d877fd8ed075ff06bd987e3521`，快照 `ai-chat-rename-transaction-boundary-r10i`，本批 9 文件。首次测试编译的空值告警修正后，`node artifacts/r10i/run-focused.mjs behavior-red` 实际 67 项中 13 个业务失败／54 通过；原编译失败和业务 RED 保留。`node artifacts/r10i/run-focused.mjs final-green` 67/67、零失败／跳过，Release 构建零警告／错误。独立只读事务审查未发现本补丁新增 P1/P2；审查不代替测试。
+- `node artifacts/r10i/launch-batch.mjs`／`run-batch.mjs` 退出 0：冻结定向 67/67、AI 3111/3111、运行时 389/389、受影响 Architecture 86/86；SQL Server／MySQL 功能各 44/44；原生核心 API 10/10、Worker SQL Server 12/12、其他 13/13，全部零失败／跳过。Unit 实际发现 6580，Integration 分片发现 1214 且精确 UID 无遗漏／重复，未执行全量 Unit／Architecture／Integration。
+- Unit、Integration、Architecture 和 API／Worker AOT 分析构建均零警告／错误；分析后恢复 JIT 依赖。新鲜 Linux Native API／Worker 发布分别 140714016/90732360 字节，耗时 2065008/1032896ms，既有批准告警门禁分别 17/15。实际运行文件 SHA-256 分别 `0f9987596a3f9a37db0771beddc9e8e777efd881025980e5b5b4c3b856dc1681`／`b0562483112e83346546e06b93d19f93dbbc3c6660eb47d5d243a5c2c8c7a0eb`，各原生线逐一核对一致。
+- 冻结 7761 输入，基线归档仅叠加本批修改，保护路径在读取／hash 前排除；五个独立运行卷复用一次 Integration 构建，核对源码、程序集及唯一 UID。仅两个构建工具锁 ILLink.Tasks 10.0.12→10.0.11 单列派生，经完整 JSON、NuGet 元数据与包 SHA512 验证，其余 7759 原输入不变。
+- 独立静态副本工具 54/54、命名 30/30、治理 57/57、UUID 3/3、SQL 安全 5/5 和受保护路径排除 Markdown 通过。静态副本仅对象注释目录 CRLF→LF 单列，运行源码不改写。`node artifacts/r10i/check-final-volumes.mjs`／`python artifacts/r10i/collect-final.py` 核对原始退出码、TRX、发现闭包和产物摘要；main、任务 diff、暂存范围与其他任务摘要在提交前复核，共享矩阵仅暂存本批修改。
+- 本地 Windows x64、i7-12700H、约 64GiB、SDK 10.0.401；Docker 29.6.2、Linux 约 20CPU／19.3GiB、SDK 10.0.400／Runtime 10.0.11。集中编译／单元 4 处理器，发布 8CPU／12GiB，各双库／原生线 2CPU／8GiB、GC 堆 2GiB；同机锁排队与独立 TEMP，全部子进程结束后释放资源，保留缓存。首次排队在其他任务释放锁附近遇到 Windows EPERM，验收尚未启动；核对原持有进程、容器和锁均已退出后，复验同一冻结输入并重试，未删除／抢占资源。首次 exit 1 与诊断单列保留，不计作通过。`NuGetAudit=false` 只在本次进程覆盖，在线依赖审计未执行。
+
+HTTP 提交后详情读取失败／取消并不回滚标题，调用方须刷新版本；工具不确定结果继续受控对账，不自动复用已消费审批。R10 全节点累计硬预算、其他运行分支凭证、历史目标版本证明与自动外部对账仍开放；独立生成应用按整个 AI 模块范围集中验收，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。
