@@ -7,7 +7,12 @@ namespace Full.NET.Modules.Ai.Runtime;
 internal static class AiRunOutputBudgetAdmission
 {
     internal static bool TryGetConsumedTokens(AgentRunBudgetSnapshot snapshot, AgentWorkflowState? state, out long? consumedOutputTokens)
+        => TryGetConsumedTokens(snapshot, state, out _, out consumedOutputTokens);
+
+    internal static bool TryGetConsumedTokens(AgentRunBudgetSnapshot snapshot, AgentWorkflowState? state,
+        out long? consumedInputTokens, out long? consumedOutputTokens)
     {
+        consumedInputTokens = 0;
         consumedOutputTokens = 0;
         if (snapshot.InputTokenLimit is <= 0 or > AiExecutionBudget.MaximumTokens
             || snapshot.OutputTokenLimit is <= 0 or > AiExecutionBudget.MaximumTokens) return false;
@@ -25,9 +30,11 @@ internal static class AiRunOutputBudgetAdmission
         }
         var hadModel = definition.Nodes.Take(state.NextNodeIndex).Any(node => node.Kind == AgentWorkflowNodeKind.ModelText);
         var needsModel = definition.Nodes.Skip(state.NextNodeIndex).Any(node => node.Kind == AgentWorkflowNodeKind.ModelText);
+        consumedInputTokens = hadModel ? state.InputTokens : 0;
         consumedOutputTokens = hadModel ? state.OutputTokens : 0;
         // 已完成运行可以继续保存既有事实与未知结算；有剩余模型时，空值或耗尽不得当作首次调用。
-        return !needsModel || consumedOutputTokens is { } used && used < snapshot.OutputTokenLimit;
+        return !needsModel || consumedOutputTokens is { } used && used < snapshot.OutputTokenLimit
+            && consumedInputTokens is { } input && input < snapshot.InputTokenLimit;
     }
 
     private static bool MatchesUsage(long? total, IEnumerable<long?> receipts, bool legacyModel)

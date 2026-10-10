@@ -9,11 +9,13 @@ namespace Full.NET.Agents.Runtime;
 /// <summary>受控工具循环：模型请求经统一执行器派发，未注册工具不会执行 Handler。</summary>
 public sealed class AgentToolLoop
 {
+    // 迭代上限不能约束单轮批量工具；模型与每个工具请求合计最多 64 步，拒绝项同样占用额度。
+    private const int MaximumExecutionSteps = 64;
     private static readonly JsonElement EmptyObjectSchema = JsonDocument.Parse(
         """{"type":"object","additionalProperties":false}""").RootElement.Clone();
 
     /// <summary>
-    /// 执行受控工具循环：按定义允许的最大迭代次数反复调用模型，逐轮将工具调用交给执行器处理，直到模型不再请求工具或触达迭代上限。
+    /// 执行受控工具循环：按定义允许的最大迭代次数反复调用模型，模型与工具请求合计最多 64 步。
     /// </summary>
     /// <remarks>
     /// 未在定义允许清单中的工具不会进入执行器，直接返回 ai.tool.unavailable 错误载荷；单次循环内累计的 Token 用量与工具步数会写回结果，供调用方做预算核算。
@@ -24,7 +26,7 @@ public sealed class AgentToolLoop
     /// <returns>模型最终文本、会话快照、累计 Token 用量、工具步数以及是否触发审批/对账标志。</returns>
     /// <exception cref="ArgumentNullException"><paramref name="request"/> 为 <see langword="null"/>。</exception>
     /// <exception cref="InvalidOperationException">定义不存在，或定义不支持工具循环（MaxToolIterations 非正数）。</exception>
-    /// <exception cref="AgentToolLoopBudgetExceededException">达到定义允许的工具迭代上限仍未得到无工具调用的最终响应。</exception>
+    /// <exception cref="AgentToolLoopBudgetExceededException">达到迭代或累计步数上限，禁止继续派发模型或工具。</exception>
     public async Task<AgentToolLoopResult> RunAsync(AgentToolLoopRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -50,18 +52,23 @@ public sealed class AgentToolLoop
         long? inputTokens = null;
         long? outputTokens = null;
         var toolSteps = 0;
+        var executionSteps = 0;
         var approvalRequired = false;
         var reconciliationRequired = false;
 
         for (var iteration = 0; iteration < definition.MaxToolIterations; iteration++)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (executionSteps >= MaximumExecutionSteps) throw new AgentToolLoopBudgetExceededException();
+            executionSteps++;
             var response = await request.Client.GetResponseAsync(messages, options, cancellationToken).ConfigureAwait(false);
             // 供应商可以忽略令牌并返回；等待后必须复核，禁止取消后继续派发工具或交付完成结果。
             cancellationToken.ThrowIfCancellationRequested();
             inputTokens = AgentTokenUsage.Add(inputTokens, response.Usage?.InputTokenCount, iteration == 0);
             outputTokens = AgentTokenUsage.Add(outputTokens, response.Usage?.OutputTokenCount, iteration == 0);
-            var calls = response.Messages.SelectMany(message => message.Contents.OfType<FunctionCallContent>()).ToArray();
+            // 只枚举足以触发上限的前缀；不为不可派发的长列表额外创建无界数组。
+            var calls = response.Messages.SelectMany(message => message.Contents.OfType<FunctionCallContent>())
+                .Take(MaximumExecutionSteps + 1).ToArray();
             if (calls.Length == 0)
             {
                 var text = response.Messages.LastOrDefault()?.Text ?? string.Empty;
@@ -72,6 +79,8 @@ public sealed class AgentToolLoop
             foreach (var call in calls)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (executionSteps >= MaximumExecutionSteps) throw new AgentToolLoopBudgetExceededException();
+                executionSteps++;
                 toolSteps++;
                 if (!allowed.Contains(call.Name))
                 {
@@ -226,7 +235,7 @@ public sealed record AgentToolLoopRequest(
 /// <param name="Session">序列化后的会话消息快照；用于审计与重放。</param>
 /// <param name="InputTokens">累计输入 Token 数；模型未上报用量时为 <see langword="null"/>。</param>
 /// <param name="OutputTokens">累计输出 Token 数；模型未上报用量时为 <see langword="null"/>。</param>
-/// <param name="ToolSteps">本次循环实际执行的工具调用步数。</param>
+/// <param name="ToolSteps">本次循环已处理的工具请求步数，包含本地拒绝项。</param>
 /// <param name="ApprovalRequired">是否有工具触发审批要求；为 <see langword="true"/> 时调用方须介入审批流程。</param>
 /// <param name="ReconciliationRequired">是否有工具触发对账要求；为 <see langword="true"/> 时调用方须执行对账。</param>
 public sealed record AgentToolLoopResult(
@@ -238,8 +247,8 @@ public sealed record AgentToolLoopResult(
     bool ApprovalRequired = false,
     bool ReconciliationRequired = false);
 
-/// <summary>达到定义允许的工具迭代上限。</summary>
+/// <summary>达到工具迭代或模型／工具累计步数上限。</summary>
 public sealed class AgentToolLoopBudgetExceededException : InvalidOperationException
 {
-    public AgentToolLoopBudgetExceededException() : base("Agent tool loop exceeded the configured iteration budget.") { }
+    public AgentToolLoopBudgetExceededException() : base("Agent tool loop exceeded the execution budget.") { }
 }

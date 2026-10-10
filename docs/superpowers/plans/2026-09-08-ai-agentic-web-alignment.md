@@ -1834,6 +1834,25 @@ HTTP 提交后详情读取失败／取消并不回滚标题，调用方须刷新
 
 供应商实际遵守 MaxOutputTokens 仍依赖契约，此批不认证硬费用或实际输入上界；协作取消不证明外部请求未完成或未收费。累计输入实际硬上界、工具／全节点步数限制、其他运行分支凭证、历史审批目标版本证明与自动外部对账仍开放，R10 不整体关闭；独立生成应用按整个 AI 模块范围集中验收，保持 `Capacity-not-verified`。
 
+#### R10k：累计输入回执与模型／工具派发步数合批（2026-10-11，本批本地验收完成）
+
+- 本批沿用静态定义、运行冻结预算和节点凭证，不增加 SQL、迁移、公共 HTTP 字段或检查点格式。三种运行按输入回执累计扣减；恢复有剩余模型时，未知或耗尽输入在工厂前拒绝；流保守保留所有剩余输入，部分回执不退回。
+- 工具循环的模型与工具请求合计最多 64 步，并保留 8 轮上限；本地拒绝工具同样计数，派发、OperationId 解析之前拒绝超限，最后允许步骤上的审批／对账正常暂停。
+- 失败路径区分本地未派发拒绝与外部不可信回执，保护现有意图、租约、未知结算和对账语义。真实双库检查点覆盖未知输入、耗尽输入、零输入及无需剩余模型的未知事实。
+- [x] 本批新增 36 项 Unit 回归。`node artifacts/r10k/run-focused.mjs red` 构建零警告／错误，231 项中按预期 13 失败、218 通过；非流式与步数实现后 231/231 通过。`node artifacts/r10k/run-input-red.mjs` 19 项中流边界按预期 6 失败、13 通过，随后才实现流输入预留。`node artifacts/r10k/run-focused.mjs final-green` 250/250，通过、零失败／跳过，保留各轮原始日志和 TRX。
+- [x] `node artifacts/r10k/launch-scheduled.mjs` 先在工作区锁内运行纯 Linux 编译／无容器用例，再申请共享重型资源执行双库与原生验收，排队不侵占原测试预算。首次尚未执行的重型排队主动撤回，记录退出 4294967295；确认无自有子进程／容器并核对 PID／token 后仅释放自有工作区锁，不动其他任务重型锁，未产生测试失败或替代 TRX。冻结 7767 项输入，以 5db60942＋本批 AI 修改执行；仅字节相同输入保留上一批时间戳，复用构建缓存并按改动增量编译，2 个工具先强制恢复，派生 ILLink 10.0.12→10.0.11 仅跟随 Linux SDK，其他依赖字段／包摘要核对一致。
+- [x] Linux 定向 250/250、AI 3182/3182、运行时 460/460、受影响架构 86/86，通过、零失败／跳过；Unit／Integration／Architecture 及 API／Worker AOT 分析构建零警告／错误。Unit 完整发现与唯一矩阵一致；不是全量 Unit／Architecture 执行。
+- [x] 正式 slice 分类为 Ai／integration-matrix／Smoke，实际 AI 双库各 44/44，Smoke 双库各 4/4，原生 API 10/10＋Worker SQL Server 12/12＋其他 13/13，全部零失败／跳过。按唯一 UID 验证完整发现、分片、同场景双库和无遗漏；同源码消费者的 Agents／Ai／Integration DLL 与各独立运行卷摘要一致。
+- [x] API／Worker linux-x64 实际 Native AOT 发布成功，批准告警门禁 17／15 通过，无新告警；本批发布 SHA-256 为 API `42531180bbc41c2fee1a177836a49fff4d72bd153fede8982d6130f7ad92bb59`、Worker `de245fc4f751fbe43319a86124cb2bb0d3b7dfd5d5f25e5f5ac9835bc9d6e690`，与实际外部进程运行一致。
+- [x] `node artifacts/r10k/run-static.mjs` 与 `check-static-copy.mjs`：工具链 54、命名 30、治理 57、UUID 3、SQL 安全 5，通过；文档编码 386 文件通过，排除受保护路径在读取／哈希之前生效。独立静态副本仅规范化既有注释目录换行，运行源码保持冻结。
+- [x] 按代码审查技能执行独立只读审查，非流式、恢复、意图清理、工具步数及流式补审均无确认 P1/P2。`node artifacts/r10k/check-final-volumes.mjs`、`python artifacts/r10k/collect-final.py` 核对最终 5 个独立消费卷、冻结输入、编译／发布摘要及精确测试集合通过；分支 main，其他 WIP 保留，仅提交本批 11 项路径及共享矩阵的 AI 变更。
+
+环境：Windows i7-12700H／约 64 GiB，Docker Linux 约 20 CPU／19.3 GiB，Linux SDK 10.0.400／Runtime 10.0.11；主构建 4 CPU／4 GiB，API／Worker 发布各 8 CPU／12 GiB，独立功能及原生消费者各 2 CPU／8 GiB、GC 堆上限 2 GiB，延用既有执行预算。双库 Smoke 串接到对应功能运行线，未增加并行运行线。
+
+报告汇总首次因 Windows 默认 cp936 解码 UTF-8 JSON 退出 1，失败日志保留；显式 UTF-8 读写后核对原始报告通过，未重跑或替换测试结果。
+
+供应商没有请求前精确输入计量认证，本次回执校验不能撤销外部超量／收费；跨审批及崩溃的持久步数、其他分支节点凭证、历史目标版本证明和自动外部对账继续开放。独立生成应用按整个 AI 模块集中验收，R10 暂不整体关闭，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

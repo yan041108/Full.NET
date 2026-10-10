@@ -165,7 +165,7 @@ internal sealed class AiAgentRunCoordinator(
             {
                 return await FailAsync("ai.agent_run.invalid_payload").ConfigureAwait(false);
             }
-            if (!AiRunOutputBudgetAdmission.TryGetConsumedTokens(snapshot, workflowState, out var consumedOutputTokens))
+            if (!AiRunOutputBudgetAdmission.TryGetConsumedTokens(snapshot, workflowState, out var consumedInputTokens, out var consumedOutputTokens))
                 return await FailAsync("ai.budget.limit_exceeded").ConfigureAwait(false);
 
             var queries = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
@@ -199,8 +199,9 @@ internal sealed class AiAgentRunCoordinator(
             using var client = await factory.CreateChatClientAsync(bindingModel, cancellationToken).ConfigureAwait(false);
             // 客户端工厂可能忽略令牌；取消后仍须释放已创建资源并阻止任何节点派发。
             cancellationToken.ThrowIfCancellationRequested();
-            // 三类运行共用累计输出额度；工作流恢复先扣减已确认输出，未知历史不补零。
-            var executionClient = new AiRunOutputLimitClient(client, snapshot.OutputTokenLimit, consumedOutputTokens);
+            // 三类运行共用累计输入回执／输出额度；恢复先扣减已确认用量，未知历史不补零。
+            var executionClient = new AiRunOutputLimitClient(client, snapshot.OutputTokenLimit, consumedOutputTokens,
+                snapshot.InputTokenLimit, consumedInputTokens);
             AgentModelResult result;
             if (isWorkflow)
             {

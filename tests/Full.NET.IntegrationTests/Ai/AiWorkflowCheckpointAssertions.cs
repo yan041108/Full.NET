@@ -29,7 +29,8 @@ internal static class AiWorkflowCheckpointAssertions
 
     private static async Task Node_budget_receipt_consistency_async(FullNetApiFactory factory)
     {
-        foreach (var scenario in new[] { "known", "known-drift", "unknown-drift", "unknown", "finished-unknown" })
+        foreach (var scenario in new[] { "known", "known-drift", "unknown-drift", "unknown", "finished-unknown",
+            "input-exhausted", "input-unknown", "finished-input-unknown", "input-zero" })
         {
             var runId = await SeedWorkflowRunAsync(factory);
             await using var scope = factory.Services.CreateAsyncScope();
@@ -39,9 +40,11 @@ internal static class AiWorkflowCheckpointAssertions
             var state = AgentWorkflowState.Create(run.SessionId);
             state.Binding = new(run.Id, run.DefinitionKey, run.DefinitionVersion, AgentWorkflowNodeReceipt.DigestDefinition(definition),
                 Guid.Parse("00000000-0000-0000-0000-000000000001"), 1);
-            state.NextNodeIndex = scenario == "finished-unknown" ? 3 : 2;
-            state.InputTokens = state.NextNodeIndex == 3 ? 8 : 7;
-            state.OutputTokens = scenario switch { "known" => 3, "known-drift" or "unknown-drift" => 0, _ => null };
+            state.NextNodeIndex = scenario is "finished-unknown" or "finished-input-unknown" ? 3 : 2;
+            state.InputTokens = scenario switch { "input-exhausted" => 100, "input-unknown" or "finished-input-unknown" => null,
+                "input-zero" => 0, _ => state.NextNodeIndex == 3 ? 8 : 7 };
+            var knownOutput = scenario is "known" or "known-drift" or "input-exhausted" or "input-unknown" or "input-zero";
+            state.OutputTokens = knownOutput ? scenario == "known-drift" ? 0 : 3 : scenario == "unknown-drift" ? 0 : null;
             for (var index = 0; index < state.NextNodeIndex; index++)
             {
                 var node = definition.Nodes[index];
@@ -49,9 +52,10 @@ internal static class AiWorkflowCheckpointAssertions
                 var output = index switch { 0 => "[]", 1 => "Title", _ => """{"decision":"approved"}""" };
                 state.Outputs.Add(node.Key, output);
                 var model = node.Kind == AgentWorkflowNodeKind.ModelText;
+                var input = !model ? null : index != 1 ? 1 : scenario switch
+                { "input-exhausted" => (long?)100, "input-unknown" or "finished-input-unknown" => null, "input-zero" => 0, _ => 7 };
                 state.NodeReceipts.Add(new(index, node.Key, AgentWorkflowNodeReceipt.ResolveOperationId(runId, node.Key), inputDigest,
-                    AgentWorkflowNodeReceipt.Digest(output), model ? null : 1, model ? index == 1 ? 7 : 1 : null,
-                    model && scenario is "known" or "known-drift" ? 3 : null));
+                    AgentWorkflowNodeReceipt.Digest(output), model ? null : 1, input, model && knownOutput ? 3 : null));
             }
             var lease = (await store.TryAcquireAsync(runId, "budget-owner", DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1)))!;
             var payload = state.ToJson();
@@ -63,9 +67,9 @@ internal static class AiWorkflowCheckpointAssertions
             Assert.IsNotNull(restored);
             var budget = JsonSerializer.Deserialize(run.BudgetJson, AiJsonSerializerContext.Default.AgentRunBudgetSnapshot)!;
             var accepted = AiRunOutputBudgetAdmission.TryGetConsumedTokens(budget, restored, out var consumed);
-            Assert.AreEqual(scenario is "known" or "finished-unknown", accepted, scenario);
-            if (scenario == "known") Assert.AreEqual(3L, consumed);
-            if (scenario == "finished-unknown") Assert.IsNull(consumed);
+            Assert.AreEqual(scenario is "known" or "finished-unknown" or "finished-input-unknown" or "input-zero", accepted, scenario);
+            if (scenario is "known" or "input-zero") Assert.AreEqual(3L, consumed);
+            if (scenario is "finished-unknown" or "finished-input-unknown") Assert.IsNull(consumed);
         }
     }
 
