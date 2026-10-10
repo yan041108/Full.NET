@@ -8,10 +8,14 @@ using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 using Full.NET.Modules.Auditing.Middleware;
 using Full.NET.Modules.Identity.Contracts;
 using System.Text;
+using System.Collections.Concurrent;
+using System.Reflection;
+using System.Threading.Channels;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -401,6 +405,88 @@ public sealed class AuditingWritePathTests
     }
 
     [TestMethod]
+    public async Task Microbatch_normal_input_completion_before_cancellation_finishes_without_error()
+    {
+        var logger = new CaptureCoordinatorLogger();
+        await using var harness = await MicroBatchHarness.CreateAsync(
+            new AuditMicroBatchOptions(), flushGate: null, logger: logger);
+
+        CompleteInputBeforeCancellation(harness.Coordinator);
+        await Task.WhenAny(harness.Coordinator.ExecuteTask!, logger.ErrorObserved.Task)
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.AreEqual(0, logger.Errors.Count, "正常关闭输入不能进入故障重试循环。");
+        await harness.Coordinator.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.AreEqual(0, harness.Coordinator.QueueBytesInUse);
+    }
+
+    [TestMethod]
+    public async Task Microbatch_normal_input_completion_preserves_deferred_rows_and_budget()
+    {
+        var model = CreateOperationModel("closing-batch");
+        var charge = AuditWriteEnvelope.ForOperation(model).EstimatedBytes;
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var logger = new CaptureCoordinatorLogger();
+        await using var harness = await MicroBatchHarness.CreateAsync(
+            new AuditMicroBatchOptions
+            {
+                MaxBatchRows = 8,
+                MaxBatchBytes = charge + 1,
+                QueueMaxBytes = charge * 4,
+            }, gate, logger: logger, start: false);
+
+        var first = harness.Coordinator.FlushImportantAsync(model, null, CancellationToken.None);
+        var second = harness.Coordinator.FlushImportantAsync(model, null, CancellationToken.None);
+        await harness.Coordinator.StartAsync(CancellationToken.None);
+        try
+        {
+            await WaitUntilAsync(() => harness.Transaction.ExecutionCount == 1
+                && GetInputChannel(harness.Coordinator).Reader.Count == 0,
+                TimeSpan.FromSeconds(5));
+            Assert.AreEqual(charge * 2L, harness.Coordinator.QueueBytesInUse);
+            CompleteInputBeforeCancellation(harness.Coordinator);
+            gate.TrySetResult();
+            await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
+            await Task.WhenAny(harness.Coordinator.ExecuteTask!, logger.ErrorObserved.Task)
+                .WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.AreEqual(0, logger.Errors.Count);
+            await harness.Coordinator.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.AreEqual(2, harness.Executor.CommittedIdCount);
+            Assert.AreEqual(2, harness.Transaction.ExecutionCount);
+            Assert.AreEqual(0, harness.Coordinator.QueueBytesInUse);
+        }
+        finally
+        {
+            gate.TrySetResult();
+        }
+    }
+
+    [TestMethod]
+    public async Task Microbatch_writer_channel_failure_remains_visible_without_sensitive_diagnostics()
+    {
+        const string diagnostic = "private writer diagnostic";
+        var logger = new CaptureCoordinatorLogger();
+        await using var harness = await MicroBatchHarness.CreateAsync(
+            new AuditMicroBatchOptions { MaxBatchRows = 1 }, flushGate: null,
+            failWriterResolutionFromAttempt: 1, logger: logger,
+            resolutionFailure: new ChannelClosedException(diagnostic));
+
+        await harness.Coordinator.FlushImportantAsync(
+            CreateOperationModel("writer-channel-failure"), null, CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        await logger.ErrorObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var entry = logger.Errors.Single();
+        StringAssert.Contains(entry.Message, "B1 micro-batch loop failed");
+        Assert.AreEqual(typeof(ChannelClosedException).FullName, entry.ExceptionType);
+        Assert.IsNull(entry.Exception);
+        Assert.IsFalse(entry.Message.Contains(diagnostic, StringComparison.Ordinal));
+        Assert.AreEqual(0, harness.Coordinator.QueueBytesInUse);
+        Assert.IsFalse(harness.Coordinator.ExecuteTask!.IsCompleted);
+    }
+
+    [TestMethod]
     public async Task Microbatch_stopped_channel_fails_open_and_releases_byte_reservation()
     {
         await using var harness = await MicroBatchHarness.CreateAsync(
@@ -437,6 +523,7 @@ public sealed class AuditingWritePathTests
     public async Task Microbatch_shutdown_drain_failure_completes_queued_row_and_releases_budget()
     {
         var flushGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var logger = new CaptureCoordinatorLogger();
         await using var harness = await MicroBatchHarness.CreateAsync(
             new AuditMicroBatchOptions
             {
@@ -446,7 +533,7 @@ public sealed class AuditingWritePathTests
                 ShutdownFlushTimeout = TimeSpan.FromMilliseconds(500),
             },
             flushGate,
-            failWriterResolutionFromAttempt: 2);
+            failWriterResolutionFromAttempt: 2, logger: logger);
 
         var first = harness.Coordinator.FlushImportantAsync(
             CreateOperationModel("active-row"), null, CancellationToken.None);
@@ -462,6 +549,11 @@ public sealed class AuditingWritePathTests
             .WaitAsync(TimeSpan.FromSeconds(5));
         await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
         Assert.AreEqual(0, harness.Coordinator.QueueBytesInUse);
+        var failure = logger.Errors.Single(entry =>
+            entry.Message.Contains("shutdown drain failed open", StringComparison.Ordinal));
+        Assert.AreEqual(typeof(InvalidOperationException).FullName, failure.ExceptionType);
+        Assert.IsNull(failure.Exception);
+        Assert.IsFalse(failure.Message.Contains("writer resolution failed", StringComparison.Ordinal));
     }
 
     [TestMethod]
@@ -930,6 +1022,42 @@ public sealed class AuditingWritePathTests
             "trace",
             "fingerprint");
 
+    private static Channel<AuditWriteEnvelope> GetInputChannel(AuditMicroBatchCoordinator coordinator) =>
+        (Channel<AuditWriteEnvelope>)typeof(AuditMicroBatchCoordinator)
+            .GetField("_channel", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(coordinator)!;
+
+    private static void CompleteInputBeforeCancellation(AuditMicroBatchCoordinator coordinator)
+    {
+        // 只在测试中固定 StopAsync 关闭输入、base.StopAsync 尚未发取消信号的窗口，避免依赖调度概率。
+        Assert.IsTrue(GetInputChannel(coordinator).Writer.TryComplete());
+    }
+
+    private sealed class CaptureCoordinatorLogger : ILogger<AuditMicroBatchCoordinator>
+    {
+        public ConcurrentQueue<(string Message, string? ExceptionType, Exception? Exception)> Errors { get; } = new();
+
+        public TaskCompletionSource ErrorObserved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state,
+            Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel < LogLevel.Error)
+            {
+                return;
+            }
+
+            var properties = state as IEnumerable<KeyValuePair<string, object?>>;
+            var type = properties?.FirstOrDefault(property => property.Key == "ExceptionType").Value?.ToString();
+            Errors.Enqueue((formatter(state, exception), type, exception));
+            ErrorObserved.TrySetResult();
+        }
+    }
+
     private sealed class MicroBatchHarness : IAsyncDisposable
     {
         private MicroBatchHarness(
@@ -963,13 +1091,20 @@ public sealed class AuditingWritePathTests
             AuditMicroBatchOptions options,
             TaskCompletionSource? flushGate,
             int failWriterResolutionFromAttempt = int.MaxValue,
-            IOptionsMonitor<AuditMicroBatchOptions>? optionsMonitor = null)
+            IOptionsMonitor<AuditMicroBatchOptions>? optionsMonitor = null,
+            CaptureCoordinatorLogger? logger = null,
+            bool start = true,
+            Exception? resolutionFailure = null)
         {
             var transaction = new RecordingCommandTransaction(flushGate);
             var executor = new RecordingCommandExecutor();
             var writer = CreateWriter(transaction, executor);
             var services = new ServiceCollection();
             services.AddLogging();
+            if (logger is not null)
+            {
+                services.AddSingleton<ILogger<AuditMicroBatchCoordinator>>(logger);
+            }
             services.AddSingleton<IOptionsMonitor<AuditMicroBatchOptions>>(
                 optionsMonitor ?? new StaticOptionsMonitor(options));
             services.AddSingleton<IClock, FixedClock>();
@@ -979,12 +1114,15 @@ public sealed class AuditingWritePathTests
             var resolutionAttempt = 0;
             services.AddScoped<AuditWriteBatchWriter>(_ =>
                 Interlocked.Increment(ref resolutionAttempt) >= failWriterResolutionFromAttempt
-                    ? throw new InvalidOperationException("writer resolution failed")
+                    ? throw resolutionFailure ?? new InvalidOperationException("writer resolution failed")
                     : writer);
 
             var provider = services.BuildServiceProvider();
             var coordinator = ActivatorUtilities.CreateInstance<AuditMicroBatchCoordinator>(provider);
-            await coordinator.StartAsync(CancellationToken.None);
+            if (start)
+            {
+                await coordinator.StartAsync(CancellationToken.None);
+            }
             return new MicroBatchHarness(provider, coordinator, writer, transaction, executor);
         }
 

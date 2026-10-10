@@ -182,27 +182,37 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
 
     public async Task StopGracefullyAsync(CancellationToken cancellationToken = default)
     {
-        if (_process.HasExited)
+        if (!_process.HasExited)
         {
-            return;
-        }
-
-        if (OperatingSystem.IsLinux())
-        {
-            TrySendSigTerm(_process.Id);
-            using var registration = cancellationToken.Register(() =>
+            if (OperatingSystem.IsLinux())
             {
-                if (!_process.HasExited)
+                TrySendSigTerm(_process.Id);
+                using var registration = cancellationToken.Register(() =>
                 {
-                    _process.Kill(entireProcessTree: true);
-                }
-            });
-            await _process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-            return;
+                    if (!_process.HasExited)
+                    {
+                        _process.Kill(entireProcessTree: true);
+                    }
+                });
+                await _process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                _process.Kill(entireProcessTree: true);
+                await _process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            }
         }
 
-        _process.Kill(entireProcessTree: true);
-        await _process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        // 进程退出只关闭写入端；断言前仍须读取管道缓冲中的最后诊断。
+        await DrainLogOutputAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>等待输出泵读到 EOF 并刷新日志，不以取消读取代替排空。</summary>
+    private async Task DrainLogOutputAsync(CancellationToken cancellationToken)
+    {
+        await Task.WhenAll(_stdoutPump, _stderrPump).WaitAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await _logWriter.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public void AssertNoFatalMarkersInLogs() => AssertNoFatalMarkersInLog(_logFilePath);
@@ -233,17 +243,16 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             }
         }
 
-        // 先让宿主正常退出并刷新异步日志，再结束输出泵；否则失败现场会只留下启动日志。
-        _logPumpCancellation.Cancel();
+        // 宿主退出后先排空 EOF；提前取消会丢掉停机错误并让断言误通过。
         try
         {
-            await Task.WhenAll(_stdoutPump, _stderrPump).ConfigureAwait(false);
+            await DrainLogOutputAsync(CancellationToken.None).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        finally
         {
+            _logPumpCancellation.Cancel();
+            await _logWriter.DisposeAsync().ConfigureAwait(false);
         }
-
-        await _logWriter.DisposeAsync().ConfigureAwait(false);
         AssertNoFatalMarkersInLog(_logFilePath);
     }
 
