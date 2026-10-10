@@ -31,6 +31,11 @@ function reset(): void {
   schemas.value = []; schemaKey.value = ''; worksheetKey.value = ''; clearFile();
   loading.value = false; saving.value = false; downloading.value = false;
 }
+function changeOpen(open: boolean): void {
+  // 关闭意图先取消本组件请求，不能等父组件下一轮更新属性后才阻断迟到结果。
+  if (!open) reset();
+  emit('update:open', open);
+}
 watch(() => props.open, open => { reset(); if (open) void loadSchemas(); }, { flush: 'sync' });
 function schemaChanged(): void {
   downloadRequest?.cancel(); downloading.value = false; clearFile();
@@ -95,7 +100,7 @@ async function downloadTemplate(): Promise<void> {
 <template>
   <ArtFormDialog :open="open" :title="t('importExportTasks.addTask')" :saving="saving" :show-confirm="canCreate()"
     :confirm-label="t('importCreate.submit')" :cancel-label="t('common.cancel')" confirm-test-id="import-create-submit"
-    @update:open="emit('update:open', $event)" @confirm="submit">
+    @update:open="changeOpen" @confirm="submit">
     <ElForm label-width="120px">
       <ElFormItem :label="t('importExportTasks.schema')" required>
         <ElSelect v-model="schemaKey" data-testid="import-create-schema" :loading="loading" :disabled="saving || downloading" @change="schemaChanged">
