@@ -1743,6 +1743,22 @@ Token 值只限制现有预算预留；实际提供程序输入分词/输出硬�
 - 环境为Windows x64、i7-12700H、约64GiB RAM；Linux SDK容器Ubuntu24.04.4、SDK10.0.400／Runtime10.0.11，Docker29.6.2、约20CPU／19.3GiB RAM。集中编译／单元4处理器，发布8CPU／12GiB，双库和原生每条线各2CPU／8GiB、GC堆2GiB；由最外层同机重型锁管理，独立TEMP并等待全部子进程完成后释放。`NuGetAudit=false` 仅进程级覆盖，在线依赖审计未执行；无真实云模型、费用、容量或SLO认证。
 - 仅提供协作取消与租约存活约束，不宣称强制终止非协作外部调用、持久节点凭证、费用认证、未知副作用对账、审批当前再授权或全节点累计硬预算。R10原三项仍开放；独立生成应用按AI模块集中验收，保持 `Capacity-not-verified`。
 
+#### R10f：当前工具派发复核与未知写结果暂停（2026-10-10，本批本地验收完成）
+
+- [x] 审计意图等待后重新构建生产工具目录，核对启用、版本、权限、副作用和参数，再复核当前主体／会话并使用当前 Handler；不以旧缓存批准派发。
+- [x] 写 Handler 已派发时，异常、取消、输出超限与回执失败统一进入已有对账暂停错误码；失败回执能够保存时记录该错误，结果正文不交付，不自动重放。
+- [x] 目录、授权、审批与审计 await 边界检查取消；只读失败保留原语义，新增33项回归，同步唯一矩阵与运维限制。
+
+**验证记录：** 基线 main `0529c247265226d27a9faecff97cf292f4b19feb`，任务快照 `ai-tool-dispatch-outcome-r10f`。首轮有效 RED76项中20失败／56通过；扩展 RED78项中22失败／56通过。初次GREEN78项中6项失败是NSubstitute整数匹配器歧义，保留原日志，改用精确匹配后业务断言通过。独立审查发现回执期间取消仍可能交付输出，新增4项回归得到review-red82项中4失败／78通过，修复后 `node artifacts/r10f/run-focused.mjs review-green` 最终82/82，零失败／跳过、Release构建零警告／错误；复审确认阻塞关闭。
+
+- 基线归档仅叠加本批6文件，排除受保护路径后冻结7757项输入；其他窗口改动保留，共享矩阵只提交本批AI阈值／筛选器。`node artifacts/r10f/run-batch.mjs` 退出0：Linux定向82/82、AI2992/2992、运行时270/270、受影响Architecture82/82，均零失败／跳过；Unit实际发现6461，未执行全量Unit／Architecture／Integration。Unit、Integration、Architecture与API/Worker AOT分析均零编译警告／错误，分析后恢复JIT依赖。
+- 双库AI功能按精确UID分为SQL Server44/44和MySQL44/44；原生核心按API10/10、Worker SQL Server12/12和其他13/13运行，均退出0、零失败／跳过，完整覆盖88项双库功能及35项核心，无发现遗漏／重复，保留44m／45m原预算。五个独立构建卷逐份核对冻结源码、Unit/Integration消费者及实际可执行文件摘要。
+- 本批API/Worker Linux原生发布退出0，分别140588528/90623752字节、1590099/789503ms；警告门禁分别17/15项既有批准警告，不宣称零发布警告。API SHA-256 `da7cfb4c988a2817d530536836ffbef4351c1f39dbd43e8224f346c20fe1eb13`、Worker `3a194af5ffd0b882ed7694129e5914e0cd199600cf49f317a640debadde1a072` 与运行文件一致；Agents `770a2de44d8149d08f08f6070c62a6c549148057666f732fc0b9e183bd286510`、Modules.Ai `e0efd168c2377a1b96fef6af8d6628a6827742c7f6dc292ad0b03f91d655e844` 在Unit及Integration消费者一致，Integration `719df0adbd638d0929b68edf197e926aefa794a04bf95334f244c2adce17a871`。
+- 独立静态副本工具54/54、命名30/30、治理57/57、UUID3/3、SQL安全5/5、Integration1214项分片发现核对及受保护路径排除的Markdown检查通过。命名仅在静态副本把生成目录CRLF转LF，经完整字节比较核对；运行／发布冻结副本始终保留原字节。Linux SDK两个工具锁仅有构建期ILLink.Tasks10.0.12至10.0.11差异，其余JSON与NuGet元数据／签名包SHA512已核对，7755原输入加两个派生锁单列，原7757输入清单不改写。
+- 环境为Windows x64、i7-12700H、约64GiB RAM；Docker29.6.2、Linux约20CPU／19.3GiB RAM，SDK10.0.400／Runtime10.0.11。集中编译与单元4处理器，原生发布8CPU／12GiB，每条功能及原生运行线2CPU／8GiB、GC堆2GiB；由同机重型锁及独立TEMP管理，全部子进程完成后才释放资源。API/Worker以隔离缓存并行发布，没有删除共享缓存。`NuGetAudit=false` 仅进程级覆盖，在线依赖审计未执行；无真实云模型、费用、容量或SLO认证。`node artifacts/r10f/check-final-volumes.mjs` 与 `python artifacts/r10f/collect-final.py` 核对报告、退出码、发现UID闭包、摘要及6文件范围。
+
+本批不改变SQL、迁移、HTTP或线格式；持久节点完成凭证、自动对账／崩溃恢复、审批当前再授权及全节点累计硬预算仍开放，R10原三项继续未勾选，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。
