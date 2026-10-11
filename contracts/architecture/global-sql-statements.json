@@ -279,7 +279,7 @@
       "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.ScanQueuedMySql",
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
       "category": "explicit_tenant_anchor",
-      "reason": "MySQL Worker 扫描 queued 运行。",
+      "reason": "MySQL Worker 扫描 queued 或有节点凭证的过期工作流/单模型运行；领取与恢复仍复核租约和可信会话。",
       "requiredSqlFragments": [
         "StatusKey = 'queued'",
         "LIMIT @BatchSize"
@@ -290,7 +290,7 @@
       "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.ScanQueuedSqlServer",
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
       "category": "explicit_tenant_anchor",
-      "reason": "Worker 扫描 queued 运行；领取前仍经租约条件过滤。",
+      "reason": "Worker 扫描 queued 或有节点凭证的过期工作流/单模型运行；领取与恢复仍复核租约和可信会话。",
       "requiredSqlFragments": [
         "StatusKey = 'queued'",
         "fn_ai_agent_run"

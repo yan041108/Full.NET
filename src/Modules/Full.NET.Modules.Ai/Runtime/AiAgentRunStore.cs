@@ -286,7 +286,9 @@ internal sealed class AiAgentRunStore(
             : AiAgentRunSql.ScanQueuedSqlServer;
         var rows = await queries.QueryAsync<Guid>(
             statement,
-            AiSqlParameters.Create(("BatchSize", batchSize), ("Now", now), ("WorkflowKey", Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatRenameWorkflowKey)),
+            AiSqlParameters.Create(("BatchSize", batchSize), ("Now", now),
+                ("WorkflowKey", Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatRenameWorkflowKey),
+                ("SingleModelKey", Full.NET.Agents.Definitions.AgentDefinitionRegistry.SingleTextKey)),
             cancellationToken).ConfigureAwait(false);
         return rows.ToList();
     }

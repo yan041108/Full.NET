@@ -51,12 +51,12 @@ public sealed partial class AiAgentRunCoordinatorTests
     }
 
     [TestMethod]
-    public async Task Runner_failure_marks_failed_and_settles_budget_async()
+    public async Task Runner_failure_marks_reconciliation_and_preserves_budget_async()
     {
         var fixture = await CreateFixtureAsync(runnerThrows: true).ConfigureAwait(false);
         Assert.AreEqual(1, await fixture.Coordinator.ProcessPendingAsync().ConfigureAwait(false));
-        await fixture.Budget.Received(1).SettleAsync(fixture.RunId, Arg.Any<AiOperationUsage>(), "failed", Arg.Any<CancellationToken>());
-        AssertStatusCommit(fixture.Commands, "failed");
+        await fixture.Budget.DidNotReceive().SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        AssertStatusCommit(fixture.Commands, "reconciliation_required");
     }
 
     [TestMethod]

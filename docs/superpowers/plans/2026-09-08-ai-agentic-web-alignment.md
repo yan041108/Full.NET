@@ -1892,6 +1892,28 @@ HTTP 提交后详情读取失败／取消并不回滚标题，调用方须刷新
 
 本批为 `Aot-analysis-clean`，未新鲜 Native publish/运行；旧 ELF 结果不证明新代码，原生发布与运行及独立生成应用留待 AI 模块集中验收。升级／回退须停止工作流准入并排空旧 API／Worker，旧二进制会忽略计数，不能混跑或删除字段后恢复旧写派发。工具循环等其他分支的跨恢复预算/凭证、提供者请求前输入硬上界与自动外部对账继续开放；R10 不整体关闭，保持 `Capacity-not-verified`。
 
+#### R10n：单模型派发凭证与崩溃恢复（2026-10-11，本批受影响验收完成）
+
+本批基线 `b50604eabc8f2b1905f51b8de4ec1ed8ed1c6921`，在 main 合批推进单模型派发意图、完成凭证、恢复准入及双库领取，不扩展工具循环重放。任务快照 `ai-single-model-recovery-r10n` 排除受保护文件后建立，保留并隔离其他窗口的日志与工具链改动。
+
+- [x] 在 `AiSingleModelRecoveryTests.cs` 先验证派发前无意图、未知结果被重发、旧检查点被忽略及租约提交失败仍派发的失败场景。
+- [x] 新增模块内部 `AiSingleModelCheckpoint` 与静态 JSON 闭包，绑定 Run/Session/Definition、模型修订、冻结预算与实际输入摘要。协调器先保存意图再派发，完成后原子保存结果凭证和步骤；恢复完成结果不再创建客户端，未知结果保留预算转入对账。
+- [x] 成对扩展过期单模型领取条件，复用既有检查点/事件与租约事务，不增加数据库表；双库验证真实读写、过期重领、旧 Worker 拒绝和事务回滚。补齐恢复载荷、模型/Prompt 漂移、取消与未知计量回归。
+- [x] 集中运行当前输入的 AI、相关架构、AOT 分析及受影响双库，更新实际矩阵和运维边界并提交。Native 原生产物与独立应用仍按 AI 模块集中验收，工具循环逐步恢复和自动外部对账不由本批关闭。
+
+本批新增 37 项回归。复审补齐检查点读取失败、会话撤权及模型/策略漂移时的预算保留；已完成凭证仅收敛终态，不再次创建客户端或调用模型。最终复审无新增可证实问题。
+
+实际验证与边界：
+
+- `node artifacts/r10n/run-focused.mjs red-retry`：首次行为 RED 为 211 项中 5 失败；随后 `green` 为 211 项中 3 失败，其中原取消断言需匹配新增意图、夹具模型 ID 改为类型化解析。`green-final` 为 243 项中 2 失败，精确暴露检查点读取异常发生在预算保留标记之前的问题；修复后由最终 Linux 277 项回归覆盖全部失败 UID。原始报告和退出码保留，不将中间失败记作通过。首次 Windows 构建中断记录保留，后续构建成功；最终代码以 Linux 冻结输入验证为准。
+- `node artifacts/r10n/run-validation.mjs`：定向 277/277、AI 3270/3270、运行时 548/548、受影响 Architecture 86/86，零失败/跳过；Unit、Integration、Architecture 及 API/Worker AOT 分析构建均零警告/错误。全量 Unit 精确发现 6739，未执行全量 Unit 或 Architecture；规范分片发现 1214。
+- `node artifacts/r10n/run-portable.mjs`：SQL Server/MySQL AI 各 44/44、Smoke 各 4/4，首轮全部通过、零跳过；精确 UID 并集为 AI 88 与 Smoke 8，无遗漏或重复。单模型凭证双库真实读写、事务回滚、过期重领及旧租约拒绝包含在既有检查点用例中。
+- `node artifacts/r10n/run-static.mjs`：工具 54、命名 30、治理 57、UUID 3 全通过；受保护路径在读取前排除，Markdown 386 文件通过。文档收尾后重跑保护排除的 Markdown 检查。`python artifacts/r10n/collect-final.py` 核对精确 UID、历史 RED、7773 项冻结输入、程序集摘要、实际退出码与任务范围；只提交本批 12 文件，共享矩阵仅提交 AI 计数，其他窗口内容保留。
+
+环境与 R10m 同机：Windows x64／i7-12700H／约 64 GiB；Docker Linux SDK 10.0.400／Runtime 10.0.11，主构建 4 CPU／4 GiB，功能线各 2 CPU／8 GiB。持工作区和同机重任务锁；复用前后验证源码及程序集摘要，只复用构建缓存，不复用测试结果。两个解析工具 ILLink 锁按 Linux SDK 派生，其他冻结输入不变；本次 `NuGetAudit=false`，未执行在线依赖审计。
+
+本批为 `Aot-analysis-clean`，未新鲜 Native publish/运行或独立生成应用验收，仍在 AI 模块集中验收补齐。升级/回退须停准入并排空旧 API/Worker，不能混跑忽略凭证的旧 Worker。工具循环逐步凭证、运行终态与预算结算之间的存量故障恢复、请求前输入硬上界及自动外部对账继续开放；R10 不整体关闭，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

@@ -39,14 +39,16 @@ public sealed partial class AiAgentRunCoordinatorTests
             checkpointFactory: failure == "checkpoint" ? run => FaultedCheckpoint(run, "checksum") : null,
             configureRecord: run => { if (failure == "definition") run.DefinitionVersion = 999; if (failure == "payload") run.BudgetJson = "null"; });
         var processed = await fixture.Coordinator.ProcessPendingAsync();
-        if (ownsLease)
+        if (ownsLease && failure != "runner")
             await fixture.Budget.Received(1).SettleAsync(fixture.RunId,
                 Arg.Is<AiOperationUsage>(usage => usage != null && usage.InputTokens == null && usage.OutputTokens == null),
                 failure == "session" ? "cancelled" : "failed", Arg.Any<CancellationToken>());
         else
             await fixture.Budget.DidNotReceive().SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         Assert.AreEqual(ownsLease ? 1 : 0, processed);
-        AssertStatusCommit(fixture.Commands, failure == "session" ? "authorization_required" : failure == "workflow" && !ownsLease ? "running" : "failed");
+        AssertStatusCommit(fixture.Commands, failure == "session" ? "authorization_required"
+            : failure is "workflow" or "runner" && !ownsLease ? "running"
+            : failure == "runner" ? "reconciliation_required" : "failed");
     }
 
     [TestMethod]
@@ -99,7 +101,13 @@ public sealed partial class AiAgentRunCoordinatorTests
         var fixture = await CreateFixtureAsync(runner: runner, promptBound: promptBound);
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => fixture.Coordinator.ProcessPendingAsync(cancellation.Token));
         await fixture.Runner.Received(1).RunAsync(Arg.Any<IChatClient>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
-        AssertNoStatusOrSettlement(fixture);
+        AssertStatusCommit(fixture.Commands, "running");
+        Assert.IsFalse(fixture.Budget.ReceivedCalls().Any(call => call.GetMethodInfo().Name == nameof(IAiOperationBudgetStore.SettleAsync)));
+        var checkpoints = fixture.Commands.ReceivedCalls().Where(call => call.GetArguments()[0] is Full.NET.Data.Abstractions.SqlStatement statement
+            && statement == Full.NET.Modules.Ai.Persistence.AiAgentRunSql.InsertCheckpoint).ToArray();
+        Assert.AreEqual(1, checkpoints.Length);
+        using var state = JsonDocument.Parse((string)((IReadOnlyDictionary<string, object?>)checkpoints[0].GetArguments()[1]!)["PayloadProtected"]!);
+        Assert.AreEqual("started", state.RootElement.GetProperty("Phase").GetString());
     }
 
     private static void AssertNoStatusOrSettlement(CoordinatorFixture fixture)

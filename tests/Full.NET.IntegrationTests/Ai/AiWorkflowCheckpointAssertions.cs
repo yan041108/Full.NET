@@ -25,6 +25,60 @@ internal static class AiWorkflowCheckpointAssertions
         await Node_budget_receipt_consistency_async(factory).ConfigureAwait(false);
         await Node_receipt_intent_atomicity_and_reclaim_async(factory).ConfigureAwait(false);
         await Event_sequence_without_checkpoint_async(factory).ConfigureAwait(false);
+        await Single_model_receipt_reclaim_and_rollback_async(factory).ConfigureAwait(false);
+    }
+
+    private static async Task Single_model_receipt_reclaim_and_rollback_async(FullNetApiFactory factory)
+    {
+        var runId = await SeedWorkflowRunAsync(factory, Full.NET.Agents.Definitions.AgentDefinitionRegistry.SingleTextKey);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var store = scope.ServiceProvider.GetRequiredService<AiAgentRunStore>();
+        var run = (await store.FindByIdAsync(runId))!;
+        var budget = JsonSerializer.Deserialize(run.BudgetJson, AiJsonSerializerContext.Default.AgentRunBudgetSnapshot)!;
+        var state = AiSingleModelCheckpoint.Start(run, new AiModelConfigRecord { Id = budget.ModelConfigId, Version = 1 }, "");
+        var lease = (await store.TryAcquireAsync(runId, "single-owner", DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1)))!;
+        var payload = state.ToJson();
+        Assert.IsTrue(await store.CommitProgressAsync(new(lease, "running", null,
+            new(Guid.CreateVersion7(), 1, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiSingleModelCheckpoint.Digest(payload)),
+            new(Guid.CreateVersion7(), 1, "run.node_started", 1, "{}"))));
+        lease = lease with { Version = lease.Version + 1 };
+        Assert.AreEqual("started", AiSingleModelCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!.Phase);
+        Assert.IsFalse((await store.ScanQueuedAsync(100, DateTimeOffset.UtcNow)).Contains(runId));
+        state = state.Complete(new("done", JsonSerializer.SerializeToElement(new[] { "answer" }), null, 1));
+        payload = state.ToJson();
+        var step = new AgentStepUpsert(Guid.CreateVersion7(), "model.text", 1, runId, "committed", 1, null,
+            null, null, 1, null, null, null, state.InputDigest, null);
+        // 事务末尾事件冲突必须回滚完成凭证与步骤，恢复只能读到之前的未知派发。
+        var failure = await Assert.ThrowsAsync<DataCommandException>(async () => await store.CommitProgressAsync(new(lease, "running", step,
+            new(Guid.CreateVersion7(), 2, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiSingleModelCheckpoint.Digest(payload)),
+            new(Guid.CreateVersion7(), 1, "run.node_completed", 1, "{}"))));
+        Assert.AreEqual(DataCommandFailureKind.UniqueConstraint, failure.Kind);
+        Assert.AreEqual(lease.Version, (await store.FindByIdAsync(runId))!.Version);
+        Assert.AreEqual("started", AiSingleModelCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!.Phase);
+        Assert.IsTrue(await store.CommitProgressAsync(new(lease, "running", step,
+            new(Guid.CreateVersion7(), 2, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiSingleModelCheckpoint.Digest(payload)),
+            new(Guid.CreateVersion7(), 2, "run.node_completed", 1, "{}"))));
+        lease = lease with { Version = lease.Version + 1 };
+        var restored = AiSingleModelCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!);
+        Assert.AreEqual("completed", restored!.Phase);
+        Assert.AreEqual("done", restored.Result!.Text);
+        Assert.IsNull(restored.Result.InputTokens);
+        Assert.AreEqual(1L, restored.Result.OutputTokens);
+        var commands = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+        await commands.ExecuteAsync(new("test.ai.single.expire", "UPDATE fn_ai_agent_run SET LeaseExpiresAtUtc = @Expired WHERE Id = @RunId", SqlDataScope.Global),
+            AiSqlParameters.Create(("RunId", runId), ("Expired", DateTimeOffset.UtcNow.AddMinutes(-1))));
+        Assert.IsTrue((await store.ScanQueuedAsync(100, DateTimeOffset.UtcNow)).Contains(runId));
+        var reclaimed = (await store.TryAcquireAsync(runId, "single-recovery", DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1)))!;
+        Assert.IsGreaterThan(lease.Epoch, reclaimed.Epoch);
+        Assert.IsFalse(await store.CommitProgressAsync(new(lease, "completed", null, null, null)));
+        Assert.IsTrue(await store.CommitProgressAsync(new(reclaimed, "completed", null, null,
+            new(Guid.CreateVersion7(), 3, "run.completed", 1, "{}"))));
+        Assert.AreEqual("completed", (await store.FindByIdAsync(runId))!.StatusKey);
+        var legacyId = await SeedWorkflowRunAsync(factory, Full.NET.Agents.Definitions.AgentDefinitionRegistry.SingleTextKey);
+        Assert.IsNotNull(await store.TryAcquireAsync(legacyId, "legacy-single", DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1)));
+        await commands.ExecuteAsync(new("test.ai.single.expire", "UPDATE fn_ai_agent_run SET LeaseExpiresAtUtc = @Expired WHERE Id = @RunId", SqlDataScope.Global),
+            AiSqlParameters.Create(("RunId", legacyId), ("Expired", DateTimeOffset.UtcNow.AddMinutes(-1))));
+        Assert.IsFalse((await store.ScanQueuedAsync(100, DateTimeOffset.UtcNow)).Contains(legacyId));
     }
 
     private static async Task Node_budget_receipt_consistency_async(FullNetApiFactory factory)
@@ -232,7 +286,7 @@ internal static class AiWorkflowCheckpointAssertions
         Assert.IsNull(AiWorkflowCheckpointAdmission.Restore(run, latest with { Checksum = new('0', 64) }));
     }
 
-    private static async Task<Guid> SeedWorkflowRunAsync(FullNetApiFactory factory)
+    private static async Task<Guid> SeedWorkflowRunAsync(FullNetApiFactory factory, string definitionKey = AgentWorkflowRegistry.ChatRenameWorkflowKey)
     {
         await using var scope = factory.Services.CreateAsyncScope();
         var tenant = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
@@ -252,8 +306,8 @@ internal static class AiWorkflowCheckpointAssertions
                 Guid.NewGuid().ToString("N"),
                 "host-admin",
                 "host",
-                AgentWorkflowRegistry.ChatRenameWorkflowKey,
-                AgentWorkflowRegistry.ChatRenameWorkflowVersion,
+                definitionKey,
+                definitionKey == AgentWorkflowRegistry.ChatRenameWorkflowKey ? AgentWorkflowRegistry.ChatRenameWorkflowVersion : 1,
                 JsonSerializer.Serialize(new AgentRunBudgetSnapshot(Guid.Parse("00000000-0000-0000-0000-000000000001"), "", 100, 100),
                     AiJsonSerializerContext.Default.AgentRunBudgetSnapshot),
                 DateTimeOffset.UtcNow.AddHours(1),
