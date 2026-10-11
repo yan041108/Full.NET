@@ -2633,3 +2633,18 @@ ci 38166643529 为 in_progress/pending；api-native-aot-linux 38166643492 为 co
 交付核对时，源码0dbca94的Worker Native CI38169966660已completed/success；API CI38169966637的Notifications步骤已success，整条API与主CI38169966638仍in_progress，不能报告为整条通过。API生产任务完整检出日志审计尚待任务结束，本地规定范围已实际通过，未把CI上传或发现检查冒充业务结果。
 
 只读续查核对两项Tenancy配额对账投影（OutstandingReservationRow、TenantQuotaMetricBackfillCandidate）对应实际映射Endpoint及QueryAsync，尚无所有者静态物化注册，运行未验证；登记.tmp/notifications-channel-next-readers.json作为后续模块批次候选。初步扫描中的限定名/别名注册误报不计为缺陷。
+
+
+## 2026-10-12 Tenancy 配额对账原生集中验收
+
+完成两项已登记的原生读取缺口：OutstandingReservationRow 由私有嵌套类型移至模块内部持久化投影，静态读取 Id/TenantId/MetricCode/Version；TenantQuotaMetricBackfillCandidate 静态读取 TenantId。SQL、事务、公开请求/响应与精确 Host 权限保持现有行为，没有迁移。源码冻结 eb8ae212d11502b3deb52abb3e31af241efd7753。
+
+非空原生 HTTP 样例同批覆盖两种数据库：历史预留预览不写入、一个可修复与一个缺指标跳过、实际绑定 Guid/版本递增、重复不再写入；删除本样例指标后，预览不补建、实际回填默认 Limit/非空权威活动成员数、重复零修正。匿名 401、普通 Host 精确 authorization.permission_denied 403、Tenant 403；普通账号在登录前于自有新库初始化改密状态，排除首次改密中间件的假绿。只读审查发现并关闭该夹具问题，复审无新增关键/重要项。
+
+实际本地验证：新增架构回归 RED 两项失败，修复后 api-native-aot 88/88；Architecture 全集发现 247（发现不等于全集执行），治理 62/62；Release 全消费者及最终夹具增量编译、API AOT 分析均零警告/错误。本批没有单独执行 Unit 或完整 JIT Integration。Integration 1230 发现及分区、迁移分区、API/Worker 原生角色不重叠检查通过，仅作为发现证据。
+
+冻结独立副本复用同源码树 CI Linux ELF 与最终 Release 消费者，在一次本机重型租约执行完整 Native API 核心 21/21，包含 SQL Server/MySQL critical HTTP 配额样例，没有失败、跳过或 Inconclusive。业务执行 591.207 秒，排队 34.176 秒；Windows SDK 10.0.401、Linux SDK 10.0.400，SDK 容器预算 4 CPU/3 GiB。对应源码树/产物摘要、TRX、11 份 API 日志、消费者摘要与运行上下文已留存 .tmp/tenancy-quota-native-1 和 .tmp/tenancy-quota-final-proof.json；自有 SDK 与独立副本清理核对通过，五项外来内容保护不变。CI 实际状态单列，不将进行中/跳过算通过。
+
+上批 Notifications API Native CI 38169966637 已完整成功，实际 checkout 30fc5ee266adafaa7ecab2fb278d4186c9e613ba 的源码树与冻结源码一致，完成此前待办生产日志审计。主 CI 状态仍按交付时读取，不外推。
+
+现存 RepairedCount 的 DryRun XML 描述与实现/既有 JIT 测试矛盾，本批保留当前预估修复数语义，并用实际数据库不变断言验证无写入，后续须单独收口契约文档。整体继续 Build-verified / Capacity-not-verified；不提升完整生成应用、全页面、F10/F11、故障、供应商或生产容量状态。PR3 保持 Draft，不合并、不发布。

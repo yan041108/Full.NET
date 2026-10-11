@@ -1,5 +1,7 @@
 # Full.NET 能力状态矩阵
 
+2026-10-12 Tenancy 配额对账补齐两种 Native 静态物化器，冻结 eb8ae21 的独立副本集中执行完整 Native API 核心 21/21，双库非空样例验证历史预留预览/修复/跳过/版本与重复、指标回填权威用量、匿名及 Host/Tenant 权限。AOT 架构 88/88、治理 62/62、AOT 与最终消费者构建零警告/错误，精确产物和自有资源清理已核对；没有单独执行全量 Unit/JIT Integration，不提升完整生成应用、全页面、故障或容量。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-tenancy-配额对账原生集中验收)，整体保持 Build-verified、Capacity-not-verified。
+
 2026-10-12 可选通知渠道的管理读取已补齐三种Native静态物化器。架构86/86、治理62/62、相关Unit21/21通过，AOT与最终消费者构建零警告/错误；冻结0dbca94的独立副本集中执行Native Notifications双库2/2，覆盖非空投影、空值/完整值、长整数、时间、Host范围和mine用户过滤。精确源码产物、消费者、日志与自有资源清理均核对；没有调用真实钉钉/微信服务。范围仅为API管理读取，未提升供应商发送、完整生成应用、全页面、故障或容量；后续两项租户配额对账投影待处理。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-可选通知渠道管理读取集中验收)，整体保持Build-verified、Capacity-not-verified。
 
 > 更新时间：2026-10-12（本轮关闭机构公告集中双库验收、缓存L2原生静态闭包和诊断夹具缺陷；其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
