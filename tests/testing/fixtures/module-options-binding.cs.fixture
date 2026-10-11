@@ -1,0 +1,132 @@
+using Full.NET.Modules.Cryptography.Configuration;
+using Full.NET.Modules.ImportExport.Configuration;
+using Full.NET.Modules.Mqtt.Configuration;
+using Full.NET.Modules.Notifications.Configuration;
+using Full.NET.Modules.ObservabilityAdmin.Configuration;
+using Full.NET.Modules.Platform.Configuration;
+using Full.NET.Modules.Reporting.Configuration;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
+// 直接编译正式配置源码；绑定调用保持闭合泛型，让真实源生成器拦截，而不是反射替身。
+var input = new Dictionary<string, string?>
+{
+    ["FullNet:Reporting:Export:ExecutionEnabled"] = "false",
+    ["FullNet:Reporting:Export:PollSeconds"] = "6",
+    ["FullNet:Reporting:Export:BatchSize"] = "3",
+    ["FullNet:Reporting:Export:LeaseSeconds"] = "45",
+    ["Notifications:Providers:DingTalk:Workflow:Enabled"] = "true",
+    ["Notifications:Providers:DingTalk:Workflow:ProcessCode"] = "fixture-process",
+    ["Notifications:Providers:DingTalk:Workflow:AgentId"] = "123",
+    ["Notifications:Providers:DingTalk:Workflow:AppKey"] = "fixture-app",
+    ["Notifications:Providers:DingTalk:Workflow:AppSecretReference"] = "env://FIXTURE_APP",
+    ["Notifications:Providers:DingTalk:Workflow:CallbackSecretReference"] = "env://FIXTURE_CALLBACK",
+    ["Notifications:Providers:DingTalk:Workflow:PollIntervalSeconds"] = "30",
+    ["FullNet:Cryptography:DefaultUserId"] = "fixture-user",
+    ["FullNet:Cryptography:SigningPurpose"] = "fixture-purpose",
+    ["FullNet:Cryptography:DeploymentNotice"] = "fixture-notice",
+    ["FullNet:Cryptography:Sm2PrivateKeys:fixture"] = "synthetic-key",
+    ["FullNet:Mqtt:Broker:Enabled"] = "true",
+    ["FullNet:Mqtt:Broker:Host"] = "fixture.invalid",
+    ["FullNet:Mqtt:Broker:Port"] = "8883",
+    ["FullNet:Mqtt:Broker:UseTls"] = "true",
+    ["FullNet:Mqtt:Broker:Username"] = "fixture-user",
+    ["FullNet:Mqtt:Broker:Password"] = "synthetic-password",
+    ["FullNet:Mqtt:Broker:MaximumPayloadBytes"] = "1024",
+    ["FullNet:Mqtt:Broker:MaximumPublishRatePerMinute"] = "7",
+    ["FullNet:Mqtt:Broker:AllowedPublishTopicPrefixes:0"] = "fixture/",
+    ["FullNet:Mqtt:Broker:DeploymentNotice"] = "fixture-notice",
+    ["FullNet:ObservabilityAdmin:LogRootPath"] = "fixture-logs",
+    ["FullNet:ObservabilityAdmin:MaximumListFiles"] = "7",
+    ["FullNet:ObservabilityAdmin:DefaultTailLines"] = "8",
+    ["FullNet:ObservabilityAdmin:MaximumTailLines"] = "9",
+    ["FullNet:ObservabilityAdmin:DefaultTailBytes"] = "1024",
+    ["FullNet:ObservabilityAdmin:MaximumTailBytes"] = "2048",
+    ["FullNet:ObservabilityAdmin:InstanceKey"] = "fixture-instance",
+    ["FullNet:ObservabilityAdmin:InstanceDisplayName"] = "fixture-name",
+    ["FullNet:ObservabilityAdmin:HostRole"] = "Worker",
+    ["FullNet:ObservabilityAdmin:Instances:0:InstanceKey"] = "fixture-other",
+    ["FullNet:ObservabilityAdmin:Instances:0:DisplayName"] = "fixture-other-name",
+    ["FullNet:ObservabilityAdmin:Instances:0:HostRole"] = "Api",
+    ["FullNet:Platform:BackupExecutor:ArtifactRootPath"] = "fixture-artifacts",
+    ["FullNet:Platform:BackupExecutor:DeploymentNotice"] = "fixture-notice",
+    ["FullNet:ImportExport:MaxUploadBytes"] = "4096",
+    ["FullNet:ImportExport:MaxPreviewRows"] = "11",
+    ["FullNet:ImportExport:ExecutionEnabled"] = "true",
+    ["FullNet:ImportExport:PollSeconds"] = "5",
+    ["FullNet:ImportExport:BatchSize"] = "3",
+    ["FullNet:ImportExport:LeaseSeconds"] = "30",
+    ["FullNet:ImportExport:RunSynchronously"] = "true",
+};
+var config = new ConfigurationBuilder().AddInMemoryCollection(input).Build();
+var services = new ServiceCollection();
+services.AddOptions<ReportingExportOptions>().Bind(config.GetSection(ReportingExportOptions.SectionName));
+services.AddOptions<DingTalkApprovalSyncOptions>().Bind(config.GetSection(DingTalkApprovalSyncOptions.SectionName));
+services.AddOptions<CryptographyOptions>().Bind(config.GetSection(CryptographyOptions.SectionName));
+services.AddOptions<MqttBrokerOptions>().Bind(config.GetSection(MqttBrokerOptions.SectionName));
+services.AddOptions<ObservabilityAdminOptions>().Bind(config.GetSection(ObservabilityAdminOptions.SectionName));
+// Platform 正式入口使用 Configure，同样必须被源生成器覆盖。
+services.Configure<PlatformBackupExecutorOptions>(config.GetSection(PlatformBackupExecutorOptions.SectionName));
+services.AddOptions<ImportExportOptions>().Bind(config.GetSection(ImportExportOptions.SectionName));
+using var provider = services.BuildServiceProvider();
+var reporting = provider.GetRequiredService<IOptions<ReportingExportOptions>>().Value;
+Check("reporting", !reporting.ExecutionEnabled && reporting.PollSeconds == 6 && reporting.BatchSize == 3 && reporting.LeaseSeconds == 45);
+var dingTalk = provider.GetRequiredService<IOptions<DingTalkApprovalSyncOptions>>().Value;
+Check("dingtalk", dingTalk.Enabled && dingTalk.ProcessCode == "fixture-process" && dingTalk.AgentId == 123
+    && dingTalk.AppKey == "fixture-app" && dingTalk.AppSecretReference == "env://FIXTURE_APP"
+    && dingTalk.CallbackSecretReference == "env://FIXTURE_CALLBACK" && dingTalk.PollIntervalSeconds == 30);
+var crypto = provider.GetRequiredService<IOptions<CryptographyOptions>>().Value;
+Check("cryptography", crypto.DefaultUserId == "fixture-user" && crypto.SigningPurpose == "fixture-purpose"
+    && crypto.DeploymentNotice == "fixture-notice" && crypto.Sm2PrivateKeys.Count == 1
+    && crypto.Sm2PrivateKeys.TryGetValue("fixture", out var key) && key == "synthetic-key");
+var mqtt = provider.GetRequiredService<IOptions<MqttBrokerOptions>>().Value;
+Check("mqtt", mqtt.Enabled && mqtt.Host == "fixture.invalid" && mqtt.Port == 8883 && mqtt.UseTls
+    && mqtt.Username == "fixture-user" && mqtt.Password == "synthetic-password" && mqtt.MaximumPayloadBytes == 1024
+    && mqtt.MaximumPublishRatePerMinute == 7 && mqtt.AllowedPublishTopicPrefixes.SequenceEqual(["fullnet/", "tenants/", "fixture/"])
+    && mqtt.DeploymentNotice == "fixture-notice");
+var logs = provider.GetRequiredService<IOptions<ObservabilityAdminOptions>>().Value;
+Check("observability", logs.LogRootPath == "fixture-logs" && logs.MaximumListFiles == 7 && logs.DefaultTailLines == 8
+    && logs.MaximumTailLines == 9 && logs.DefaultTailBytes == 1024 && logs.MaximumTailBytes == 2048
+    && logs.InstanceKey == "fixture-instance" && logs.InstanceDisplayName == "fixture-name" && logs.HostRole == "Worker"
+    && logs.Instances.Count == 1 && logs.Instances[0].InstanceKey == "fixture-other"
+    && logs.Instances[0].DisplayName == "fixture-other-name" && logs.Instances[0].HostRole == "Api");
+var backup = provider.GetRequiredService<IOptions<PlatformBackupExecutorOptions>>().Value;
+Check("backup", backup.ArtifactRootPath == "fixture-artifacts" && backup.DeploymentNotice == "fixture-notice");
+var imports = provider.GetRequiredService<IOptions<ImportExportOptions>>().Value;
+Check("import", imports.MaxUploadBytes == 4096 && imports.MaxPreviewRows == 11 && imports.ExecutionEnabled
+    && imports.PollSeconds == 5 && imports.BatchSize == 3 && imports.LeaseSeconds == 30 && imports.RunSynchronously);
+
+// 通过实际配置再次绑定空节及非法值，确认默认值与校验器没有被配置覆盖修复改变。
+var empty = new ConfigurationBuilder().Build();
+var defaults = new ServiceCollection();
+defaults.AddOptions<ReportingExportOptions>().Bind(empty.GetSection(ReportingExportOptions.SectionName));
+using var defaultProvider = defaults.BuildServiceProvider();
+var defaultReporting = defaultProvider.GetRequiredService<IOptions<ReportingExportOptions>>().Value;
+Check("defaults", defaultReporting.ExecutionEnabled && defaultReporting.PollSeconds == 15
+    && defaultReporting.BatchSize == 20 && defaultReporting.LeaseSeconds == 300);
+var invalid = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+{
+    ["FullNet:Reporting:Export:PollSeconds"] = "4",
+    ["Notifications:Providers:DingTalk:Workflow:Enabled"] = "true",
+}).Build();
+var validators = new ServiceCollection();
+validators.AddOptions<ReportingExportOptions>().Bind(invalid.GetSection(ReportingExportOptions.SectionName));
+validators.AddOptions<DingTalkApprovalSyncOptions>().Bind(invalid.GetSection(DingTalkApprovalSyncOptions.SectionName));
+validators.AddSingleton<IValidateOptions<ReportingExportOptions>, ReportingExportOptionsValidator>();
+validators.AddSingleton<IValidateOptions<DingTalkApprovalSyncOptions>, DingTalkApprovalSyncOptionsValidator>();
+using var invalidProvider = validators.BuildServiceProvider();
+Check("reporting-invalid", RejectReporting(invalidProvider));
+Check("dingtalk-invalid", RejectDingTalk(invalidProvider));
+
+static void Check(string name, bool passed) => Console.WriteLine($"CHECK {name} {passed}");
+static bool RejectReporting(IServiceProvider provider)
+{
+    try { _ = provider.GetRequiredService<IOptions<ReportingExportOptions>>().Value; return false; }
+    catch (OptionsValidationException) { return true; }
+}
+static bool RejectDingTalk(IServiceProvider provider)
+{
+    try { _ = provider.GetRequiredService<IOptions<DingTalkApprovalSyncOptions>>().Value; return false; }
+    catch (OptionsValidationException) { return true; }
+}

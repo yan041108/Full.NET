@@ -135,6 +135,8 @@ Enterprise 的通知历史重投已优先核对受理快照，当前模板未发
 
 ## 2026-09-16 当前建设优先级
 
+2026-10-11 配置兼容性增量：修复 Reporting 导出、DingTalk 审批同步、Cryptography、MQTT、ObservabilityAdmin 和 Platform 备份执行器配置的 `init` 源生成绑定缺陷，配置名称、类型、默认值及校验逻辑保留。永久源生成回归 11/11；独立 Linux 原生配置探针十个行为检查通过、原生退出 0，覆盖集合/嵌套项和非法配置拒绝。六模块及导入配置 Unit 372 通过/1 个 Linux 专属跳过，AOT 架构 73/73、已跟踪工具 112/112、治理 59/59，AOT 分析零警告/错误。此证据只覆盖配置绑定及受影响范围，不替代完整宿主、渠道、双库生成应用或 F10/F11 故障验收，整体 Build-verified、Capacity-not-verified 保持，见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-11-配置源生成绑定共性修复)。
+
 1. 先收口所选交付预设的安全/隔离阻塞和已有模块证据，保持 SSO、AI、全项目修复等原专项的唯一任务所有权。
 2. P0 补齐项目创建/升级工具链、企业成员生命周期、套餐权益/配额、账号自助恢复；已有套餐目录、注册政策或局部配额不等于这些完整流程已交付。
 3. P1 交付订阅运营、开放集成、业务样板及发布恢复包；ImportExport/Reporting/Printing、Workflow、Notifications 均复用现有实现，先核对再补缺口。
