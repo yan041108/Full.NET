@@ -209,7 +209,10 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<DapperOutboxStore>());
         services.AddScoped<IOutboxRetentionStore>(provider =>
             provider.GetRequiredService<DapperOutboxStore>());
-        services.AddScoped<ICommandTransaction, DapperCommandTransaction>();
+        // 命令与提交观测必须共享同一队列，不能由两个 Scoped 注册各自构造协调器。
+        services.AddScoped<DapperCommandTransaction>();
+        services.AddScoped<ICommandTransaction>(provider => provider.GetRequiredService<DapperCommandTransaction>());
+        services.AddScoped<ICommandCommitObserver>(provider => provider.GetRequiredService<DapperCommandTransaction>());
         services
             .AddOpenTelemetry()
             .WithMetrics(metrics => metrics

@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Diagnostics.Metrics;
 using Dapper;
 using Full.NET.AI.Abstractions.Budgets;
 using Full.NET.Abstractions.Tenancy;
@@ -124,6 +125,9 @@ internal static class AiOperationBudgetAssertions
         Assert.AreEqual(0L, await db.QuerySingleAsync<long>("SELECT UsedTokensThisMonth FROM fn_ai_tenant_quota WHERE TenantId=@Tenant", new { Tenant = tenant }));
         Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT UsedRequestsThisMonth FROM fn_ai_tenant_quota WHERE TenantId=@Tenant", new { Tenant = tenant }));
 
+        options.MonthlyRequestLimit = 1000;
+        await VerifyCommitObservationsAsync(factory, db, request);
+
         async Task<AiOperationReservation?> TryReserve(AiOperationRequest value)
         {
             try { return await Use(store => store.ReserveAsync(value)); }
@@ -140,6 +144,62 @@ internal static class AiOperationBudgetAssertions
             try { return await action(scope.ServiceProvider.GetRequiredService<IAiOperationBudgetStore>()); }
             finally { context.Clear(); }
         }
+    }
+
+    private static async Task VerifyCommitObservationsAsync(FullNetApiFactory factory, DbConnection db, AiOperationRequest template)
+    {
+        var facts = new List<string>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, current) =>
+        {
+            if (instrument.Meter.Name == AiOperationBudgetStore.MeterName) current.EnableMeasurementEvents(instrument);
+        };
+        listener.SetMeasurementEventCallback<long>((_, _, tags, _) =>
+        {
+            foreach (var tag in tags) if (tag.Key == "status") facts.Add((string)tag.Value!);
+        });
+        listener.SetMeasurementEventCallback<double>((_, _, tags, _) => facts.Add("cost"));
+        listener.Start();
+        var request = template with { OperationId = Guid.CreateVersion7() };
+        await using var scope = factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>().SetHost();
+        var transaction = scope.ServiceProvider.GetRequiredService<Full.NET.Abstractions.Messaging.ICommandTransaction>();
+        var store = scope.ServiceProvider.GetRequiredService<IAiOperationBudgetStore>();
+        // 验证的是物理提交，而不是嵌套 ExecuteAsync 返回；异常后数据库和指标必须同时不留成功事实。
+        await Assert.ThrowsAsync<IOException>(() => transaction.ExecuteAsync<bool>(async token =>
+        {
+            await store.ReserveAsync(request, token);
+            Assert.HasCount(0, facts);
+            throw new IOException("late reservation failure");
+        }, CancellationToken.None));
+        Assert.HasCount(0, facts);
+        Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_operation_budget WHERE Id=@Id", new { Id = request.OperationId }));
+        await transaction.ExecuteAsync(async token =>
+        {
+            Assert.IsTrue((await store.ReserveAsync(request, token)).IsNew);
+            Assert.HasCount(0, facts);
+            return true;
+        }, CancellationToken.None);
+        CollectionAssert.AreEqual(new[] { "reserved" }, facts);
+        facts.Clear();
+        await Assert.ThrowsAsync<IOException>(() => transaction.ExecuteAsync<bool>(async token =>
+        {
+            await store.SettleAsync(request.OperationId, new(2, 1), "succeeded", token);
+            Assert.HasCount(0, facts);
+            throw new IOException("late settlement failure");
+        }, CancellationToken.None));
+        Assert.HasCount(0, facts);
+        Assert.AreEqual("reserved", await db.QuerySingleAsync<string>("SELECT UsageStatus FROM fn_ai_operation_budget WHERE Id=@Id", new { Id = request.OperationId }));
+        await transaction.ExecuteAsync(async token =>
+        {
+            await store.SettleAsync(request.OperationId, new(2, 1), "succeeded", token);
+            Assert.HasCount(0, facts);
+            return true;
+        }, CancellationToken.None);
+        CollectionAssert.AreEqual(new[] { "succeeded", "cost" }, facts);
+        Assert.AreEqual(3L, await db.QuerySingleAsync<long>("SELECT ChargedTokens FROM fn_ai_operation_budget WHERE Id=@Id", new { Id = request.OperationId }));
+        await store.SettleAsync(request.OperationId, new(2, 1), "succeeded");
+        CollectionAssert.AreEqual(new[] { "succeeded", "cost" }, facts);
     }
 
     internal static DbConnection Connection(FullNetApiFactory factory) => factory.Provider == DatabaseProvider.SqlServer

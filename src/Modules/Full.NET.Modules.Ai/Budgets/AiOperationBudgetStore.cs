@@ -18,7 +18,7 @@ namespace Full.NET.Modules.Ai.Budgets;
 /// <summary>预算账本归 Ai 所有；同 scope 行锁串行化跨实例计数，外部模型不进入事务。</summary>
 internal sealed class AiOperationBudgetStore(IQueryExecutor queries, ICommandExecutor commands, ICommandTransaction transaction,
     ICurrentTenant tenant, IClock clock, IIdGenerator ids, IOptions<DatabaseOptions> database,
-    IOptions<AiOperationBudgetOptions> options, AiChatQuotaGuard legacy) : IAiOperationBudgetStore
+    IOptions<AiOperationBudgetOptions> options, AiChatQuotaGuard legacy, ICommandCommitObserver observations) : IAiOperationBudgetStore
 {
     internal const string MeterName = "Full.NET.Ai.Budgets";
     private static readonly Meter Meter = new(MeterName);
@@ -28,9 +28,9 @@ internal sealed class AiOperationBudgetStore(IQueryExecutor queries, ICommandExe
     public async Task<AiOperationReservation> ReserveAsync(AiOperationRequest request, CancellationToken cancellationToken = default)
     {
         try { return await ReserveCoreAsync(request, cancellationToken).ConfigureAwait(false); }
-        catch (AiBudgetException) { Calls.Add(1, new KeyValuePair<string, object?>("status", "rejected")); throw; }
-        catch (OperationCanceledException) { Calls.Add(1, new KeyValuePair<string, object?>("status", "cancelled")); throw; }
-        catch (Exception) { Calls.Add(1, new KeyValuePair<string, object?>("status", "failed")); throw; }
+        catch (AiBudgetException) { RecordAttempt("rejected"); throw; }
+        catch (OperationCanceledException) { RecordAttempt("cancelled"); throw; }
+        catch (Exception) { RecordAttempt("failed"); throw; }
     }
 
     private async Task<AiOperationReservation> ReserveCoreAsync(AiOperationRequest request, CancellationToken cancellationToken = default)
@@ -83,9 +83,10 @@ internal sealed class AiOperationBudgetStore(IQueryExecutor queries, ICommandExe
                 ("OutputPerMillion", price?.OutputPerMillion), ("CachedInputPerMillion", price?.CachedInputPerMillion),
                 ("LegacyTracked", compatibility?.IsTracked ?? false), ("Now", now), ("TraceId", Activity.Current?.TraceId.ToString())), token).ConfigureAwait(false);
             if (affected != 1) throw new AiBudgetException("ai.budget.persistence_failed");
+            // 内层返回不证明最外层已提交；回滚的账本不能成为成功指标。
+            observations.Observe(() => Calls.Add(1, new KeyValuePair<string, object?>("status", "reserved")));
             return new AiOperationReservation(request.OperationId, true, "reserved", reserved, cost, price?.Currency);
         }, cancellationToken).ConfigureAwait(false);
-        if (result.IsNew) Calls.Add(1, new KeyValuePair<string, object?>("status", "reserved"));
         return result;
     }
 
@@ -95,7 +96,7 @@ internal sealed class AiOperationBudgetStore(IQueryExecutor queries, ICommandExe
         if (operationId == Guid.Empty || outcome is not ("succeeded" or "failed" or "cancelled"))
             throw new AiBudgetException("ai.budget.invalid_usage");
         var scope = Scope();
-        var charged = await transaction.ExecuteAsync(async token =>
+        await transaction.ExecuteAsync(async token =>
         {
             await LockAsync(scope, token).ConfigureAwait(false);
             var row = await FindAsync(operationId, scope, token).ConfigureAwait(false)
@@ -121,12 +122,21 @@ internal sealed class AiOperationBudgetStore(IQueryExecutor queries, ICommandExe
             if (complete && row.LegacyTracked)
                 await legacy.SettleAsync(new(row.Id, row.QuotaMonthKey, row.ReservedTokens, true),
                     checked((int)usage.InputTokens!.Value), checked((int)usage.OutputTokens!.Value), token).ConfigureAwait(false);
+            var currency = row.Currency;
+            var chargedCost = complete && currency == options.Value.Currency ? cost : null;
+            observations.Observe(() => Calls.Add(1, new KeyValuePair<string, object?>("status", outcome)));
+            // 币种只允许配置中单一受控值进入指标；计量监听器异常不应阻止另一项指标。
+            if (chargedCost is { } amount)
+                observations.Observe(() => Cost.Add((double)amount, new KeyValuePair<string, object?>("currency", currency)));
             return (Cost: complete ? cost : null, Currency: row.Currency, Changed: true);
         }, cancellationToken).ConfigureAwait(false);
-        if (charged.Changed) Calls.Add(1, new KeyValuePair<string, object?>("status", outcome));
-        // 币种只允许配置中单一受控值进入指标，其余仍在账本留痕；用户/模型/Run 不作为 label。
-        if (charged.Cost is { } amount && charged.Currency == options.Value.Currency)
-            Cost.Add((double)amount, new KeyValuePair<string, object?>("currency", charged.Currency));
+    }
+
+    private static void RecordAttempt(string status)
+    {
+        // 尝试失败不是已提交事实；观测失败仍须保留原业务异常。
+        try { Calls.Add(1, new KeyValuePair<string, object?>("status", status)); }
+        catch (Exception) { /* 指标为临时观测，不能覆盖预算拒绝或取消原因。 */ }
     }
 
     internal static string Fingerprint(AiOperationRequest request) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(

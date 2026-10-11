@@ -1981,6 +1981,35 @@ SQL Server 另有已有知识索引状态用例在文本代次生成断言返回
 
 不新增迁移、对外 DTO、权限或外部调用；历史终态修复、工具循环逐步恢复、输入硬上界、自动对账和提交后 Metrics 仍待后续。状态仅为 `Aot-analysis-clean`；完整 AI 回归、Native publish/运行、独立生成应用及页面验收继续按模块集中执行，R10 不整体关闭，保持 `Capacity-not-verified`。
 
+### R10r：预算指标提交后发布（2026-10-11，已实现并完成本批验证）
+
+基线 `27257ed963b740529322fa6315bc187de6f405d6`，沿用 main。预算账本的预留与结算指标必须等到最外层本地事务成功提交后发布；外层异常、失败 Result 或提交失败丢弃未提交事实。指标只作临时观测，不承担可靠业务通知或持久化恰好一次语义。
+
+- [x] 用真实预算服务、Dapper 命令事务和 MeterListener 复现嵌套事务提前计数；覆盖预留、结算、回滚、幂等及监听器异常。
+- [x] 在 Messaging 抽象增加窄提交观测契约，由同作用域 Dapper 命令事务管理；回滚清空，成功提交后逐项发布，观测异常不能改变已提交结果。DI 两个接口必须解析到同一实例。
+- [x] 预算成功指标在事务内注册观测，拒绝/取消/失败尝试指标保持原语义；费用只使用配置币种，标签不增加用户、租户、模型或 Run。
+- [x] 聚焦共享事务消费者与预算回归，扩展既有双库预算夹具核对真实提交/回滚时序；执行架构、AOT 分析、静态检查和独立复审，更新矩阵后提交本批文件。
+
+本批新增 26 项 Unit（预算观测 12、事务观测 14），覆盖外层回滚/失败 Result/提交失败、重复预留或结算、监听器异常、重入顺序、外部事务拒绝登记、DI 同实例与忽略取消令牌后的提交阻断。首次有效红灯为预算 8/12 失败；复审后取消阻断补充用例也先出现预期失败，再修复。测试夹具的编译和异步释放错误及两次构建缓存校验失败均保留原始证据，没有登记为通过。
+
+实际验证命令与结果（命令封装、完整过滤器和 TRX 在 `artifacts/r10r/`）：
+
+- `dotnet build tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release` 与 `node artifacts/r10r/run-green.mjs`：构建零警告/错误，46/46 聚焦回归通过。
+- `node artifacts/r10r/run-consumers.mjs`：3,635/3,635、零跳过，含完整 AI Unit 3,338、Data 197、其他直接事务消费者 100；发现 UID 与 TRX 集合完全相同。完整 Unit 未执行；工作区发现 6,831，其中既有本地日志 WIP 10 不属于本批，提交矩阵为 6,821，AI 3,338、运行时 609。
+- Linux Integration 与 Architecture 项目 Release 构建均零警告/错误；`node artifacts/r10r/run-resume-build.mjs` 中受影响架构过滤 86/86 通过，API/Worker 的 `-p:FullNetAotAnalysis=true` 构建均零警告/错误，仅证明 `Aot-analysis-clean`。
+- `node artifacts/r10r/run-databases.mjs`：SQL Server 与 MySQL 各预算 1/1、Agent API/AG-UI/Smoke 6/6，共 14/14、零跳过，分别核对发现 UID 与 TRX。预算夹具独立进程运行，核对回滚无指标/无账本、新事务提交后计数/费用和重复结算无追加；双方复用同一组冻结程序集并在运行前后校验哈希。
+- `node artifacts/r10r/run-static.mjs`：命名 30/30、矩阵 6/6、治理 57/57；保护路径先排除再读取的 Markdown 检查 386 文件通过。提交前另复核 Markdown、编译源哈希、外来改动不变与差异空白检查。独立复审未发现遗留阻断，本批不新增 SQL/迁移、外部调用、权限或 HTTP DTO。
+
+构建从 HEAD 加本批文件冻结，未纳入日志/Helm/测试资源等外来 WIP；Linux SDK 10.0.400 与 Windows 10.0.401 的解析器锁差异只在构建缓存派生，仓库锁不改动。详细计数、哈希、范围和原始失败汇总见 `artifacts/r10r/acceptance.json`。
+
+最终暂存差异检查另发现新事务测试文件末尾多余空行，仅删除该空行后通过检查；可执行文本未改变，不为纯格式重复构建或运行回归，编译源与提交源的两字节差异由 `postbuild-format.json` 严格核对并保留。
+
+扩大的全量架构检查实际为 232 通过、3 失败、0 跳过：知识库 PDF 路径存在 11 处受禁止的 Task.Run/Task.Result，两个索引激活服务有 6 个异步方法缺少 Async 后缀，`AiAgentRunLeaseWatch` 尚未加入精确租户写入允许清单。失败检查与对应生产源码相对本批基线内容不变（仅归档行尾差异），本批受影响的 86 项架构检查已通过；保留失败证据，不降低检查规则。上述问题继续开放，不能据此宣称全量架构检查通过。
+
+补充来源验证：76 个相关文件与 HEAD 内容一致，租户写入消费者集合也完全一致。以 HEAD 归档生产源码覆盖只读容器源码目录、复用本轮测试程序集，重新执行两项源码检查，得到相同 11 处异步边界违规与租户清单失败（2/2 失败为预期复现）；命名问题由相同违规源码确认，未另行编译整个基线，不能把此复现称为完整基线构建验收。证据保留于 `artifacts/r10r/architecture-baseline-inputs.json`、`architecture-baseline-source/`。
+
+其余 AI 集成、Native 发布/运行、独立生成应用及页面继续集中验收；历史终态修复、逐步工具恢复、输入硬上界及自动外部对账继续开放，R10 不整体关闭，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

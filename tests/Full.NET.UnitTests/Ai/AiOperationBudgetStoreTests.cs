@@ -126,6 +126,6 @@ public sealed class AiOperationBudgetStoreTests
         var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(_ => Guid.NewGuid());
         var transaction = new DapperCommandTransaction(new RecordingDbTransactionCoordinator());
         return (new(queries, commands, transaction, tenant, clock, ids, Options.Create(new DatabaseOptions()),
-            Options.Create(new AiOperationBudgetOptions()), new AiChatQuotaGuard(queries, commands, transaction, clock)), queries, commands, tenant, clock);
+            Options.Create(new AiOperationBudgetOptions()), new AiChatQuotaGuard(queries, commands, transaction, clock), transaction), queries, commands, tenant, clock);
     }
 }
