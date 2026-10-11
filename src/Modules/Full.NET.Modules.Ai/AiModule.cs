@@ -144,6 +144,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<AiAgentDelegationService>();
         services.TryAddScoped<IAgentRunStore, AiAgentRunStore>();
         services.TryAddScoped<AiAgentRunStore>();
+        services.TryAddScoped<AiAgentRunCompletion>();
         services.AddOptions<AiAgentRuntimeOptions>().BindConfiguration(AiAgentRuntimeOptions.SectionName);
         // API 侧就绪门禁需要读取 StaleThreshold；Worker 侧复用同一单例写入心跳。
         services.TryAddSingleton<AiAgentWorkerHeartbeatService>();
@@ -242,6 +243,7 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<AiChatSessionQueryService>();
         services.TryAddScoped<AiChatSessionManagementService>();
         services.TryAddScoped<AiAgentRunStore>();
+        services.TryAddScoped<AiAgentRunCompletion>();
         services.TryAddScoped<IAgentRunStore>(provider => provider.GetRequiredService<AiAgentRunStore>());
         services.TryAddScoped<Features.ManagePromptVersions.AiPromptReader>();
         services.TryAddScoped<AiPromptRunResolver>();

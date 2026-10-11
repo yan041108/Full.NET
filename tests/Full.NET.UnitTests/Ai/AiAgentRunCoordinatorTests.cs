@@ -250,7 +250,8 @@ public sealed partial class AiAgentRunCoordinatorTests
         Action? duringModelLookup = null,
         int leaseSeconds = 30,
         Action<ICommandExecutor>? configureCommands = null,
-        long priorEventSequence = 0)
+        long priorEventSequence = 0,
+        Action<RecordingDbTransactionCoordinator>? transactionCreated = null)
     {
         var runId = Guid.CreateVersion7();
         var modelId = Guid.CreateVersion7();
@@ -342,7 +343,7 @@ public sealed partial class AiAgentRunCoordinatorTests
         var client = chatClient ?? Substitute.For<IChatClient>();
         var resolvedToolExecutor = toolExecutor ?? CreateDefaultToolExecutor();
         var coordinatorScope = BuildCoordinatorScope(binding, queries, budget, client, ids, resolvedToolExecutor, definitionKey, record,
-            () => { if (deactivateDuringFactory) promptEpoch++; }, commands, clock);
+            () => { if (deactivateDuringFactory) promptEpoch++; }, commands, clock, transactionCreated);
         var scopeFactory = coordinatorScope.GetRequiredService<IServiceScopeFactory>();
         var coordinator = new AiAgentRunCoordinator(
             scopeFactory,
@@ -376,7 +377,8 @@ public sealed partial class AiAgentRunCoordinatorTests
         AiAgentRunRecord record,
         Action onFactory,
         ICommandExecutor commands,
-        IClock clock)
+        IClock clock,
+        Action<RecordingDbTransactionCoordinator>? transactionCreated)
     {
         var services = new ServiceCollection();
         var tenant = new CurrentTenantAccessor();
@@ -394,8 +396,14 @@ public sealed partial class AiAgentRunCoordinatorTests
         services.AddSingleton(commands);
         services.AddSingleton(clock);
         services.AddSingleton(Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
-        services.AddScoped<ICommandTransaction>(_ => new DapperCommandTransaction(new RecordingDbTransactionCoordinator()));
+        services.AddScoped<ICommandTransaction>(_ =>
+        {
+            var transaction = new RecordingDbTransactionCoordinator();
+            transactionCreated?.Invoke(transaction);
+            return new DapperCommandTransaction(transaction);
+        });
         services.AddScoped<AiAgentRunStore>();
+        services.AddScoped<AiAgentRunCompletion>();
         services.AddSingleton(budget);
         services.AddSingleton(ids);
         services.AddSingleton(toolExecutor);

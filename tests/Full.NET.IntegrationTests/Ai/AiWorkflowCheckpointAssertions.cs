@@ -26,6 +26,7 @@ internal static class AiWorkflowCheckpointAssertions
         await Node_receipt_intent_atomicity_and_reclaim_async(factory).ConfigureAwait(false);
         await Event_sequence_without_checkpoint_async(factory).ConfigureAwait(false);
         await Single_model_receipt_reclaim_and_rollback_async(factory).ConfigureAwait(false);
+        await AiAgentCompletionAssertions.VerifyAsync(factory).ConfigureAwait(false);
     }
 
     private static async Task Single_model_receipt_reclaim_and_rollback_async(FullNetApiFactory factory)
@@ -286,11 +287,13 @@ internal static class AiWorkflowCheckpointAssertions
         Assert.IsNull(AiWorkflowCheckpointAdmission.Restore(run, latest with { Checksum = new('0', 64) }));
     }
 
-    private static async Task<Guid> SeedWorkflowRunAsync(FullNetApiFactory factory, string definitionKey = AgentWorkflowRegistry.ChatRenameWorkflowKey)
+    internal static async Task<Guid> SeedWorkflowRunAsync(FullNetApiFactory factory,
+        string definitionKey = AgentWorkflowRegistry.ChatRenameWorkflowKey, Guid? tenantId = null)
     {
         await using var scope = factory.Services.CreateAsyncScope();
         var tenant = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
-        tenant.SetHost();
+        if (tenantId is { } id) tenant.SetTenant(new TenantContext(id, "completion-test", "完成测试"));
+        else tenant.SetHost();
         try
         {
             var ids = scope.ServiceProvider.GetRequiredService<IIdGenerator>();
@@ -298,8 +301,8 @@ internal static class AiWorkflowCheckpointAssertions
             var draft = new AgentRunDraft(
                 Guid.CreateVersion7(),
                 new string('C', 64),
-                "host",
-                null,
+                tenantId?.ToString("N") ?? "host",
+                tenantId,
                 Guid.CreateVersion7(),
                 Guid.CreateVersion7(),
                 Guid.CreateVersion7(),
