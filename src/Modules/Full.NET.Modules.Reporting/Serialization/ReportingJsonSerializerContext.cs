@@ -6,6 +6,7 @@ namespace Full.NET.Modules.Reporting.Serialization;
 
 /// <summary>Reporting 模块 JSON 源生成上下文。</summary>
 [JsonSerializable(typeof(PagedResult<ReportingDataSourceListItem>))]
+[JsonSerializable(typeof(PagedResult<Guid>))]
 [JsonSerializable(typeof(ReportingDataSourceListItem))]
 [JsonSerializable(typeof(ReportingDataSourceResponse))]
 [JsonSerializable(typeof(CreateReportingDataSourceRequest))]
@@ -34,4 +35,7 @@ namespace Full.NET.Modules.Reporting.Serialization;
 [JsonSerializable(typeof(IReadOnlyList<ReportingExecutionParameterValue>))]
 [JsonSerializable(typeof(IReadOnlyList<ReportingParameterSchemaEntry>))]
 [JsonSerializable(typeof(string[]))]
+[JsonSerializable(typeof(ReportingPublishedDefinitionResponse))]
+[JsonSerializable(typeof(IReadOnlyList<ReportingPublishedDefinitionResponse>))]
+[JsonSerializable(typeof(Full.NET.Modules.Reporting.Features.ManageExportTasks.ReportingExportAuthorizationSnapshot))]
 internal partial class ReportingJsonSerializerContext : JsonSerializerContext;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -15,7 +15,7 @@ import {
 } from 'element-plus';
 import type {
   FullNetProblemDetails,
-  ReportingDefinition,
+  ReportingPublishedDefinition,
   ReportingExecutionPage,
   ReportingExecutionParameterValue
 } from '@fullnet/client-contracts';
@@ -24,13 +24,17 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { executeReportingDefinition } from '../api/reporting-executions';
-import { listReportingDefinitions } from '../api/reporting-definitions';
+import { listReportingPublishedDefinitions } from '../api/reporting-definitions';
+import PermissionGate from '../components/PermissionGate.vue';
+import { useSessionStore } from '../auth/session';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 
 defineOptions({ name: 'ReportingExecuteView' });
 
 const { t } = useAdminI18n();
-const definitions = ref<ReportingDefinition[]>([]);
-const selectedDefinitionId = ref('');
+const session = useSessionStore();
+const definitions = ref<ReportingPublishedDefinition[]>([]);
+const selectedDefinitionVersionKey = ref('');
 const parameterValues = reactive<Record<string, string>>({});
 const result = ref<ReportingExecutionPage>();
 const page = ref(1);
@@ -39,8 +43,10 @@ const loading = ref(false);
 const executing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 
+// 同一定义的每个不可变发布版本都是独立授权资源，选择身份同时包含定义和版本。
+const versionKey = (definition: ReportingPublishedDefinition) => definition.definitionId + ':' + definition.versionNumber;
 const selectedDefinition = computed(() =>
-  definitions.value.find(item => item.id === selectedDefinitionId.value));
+  definitions.value.find(item => versionKey(item) === selectedDefinitionVersionKey.value));
 
 const parameterSchema = computed(() => selectedDefinition.value?.parameterSchema ?? []);
 
@@ -57,20 +63,27 @@ const {
 } = useArtCrudTableLayout();
 
 watchLoading(executing);
+const scope = useAuthorizedViewScope(session, () => {
+  definitions.value = []; selectedDefinitionVersionKey.value = ''; result.value = undefined; problem.value = undefined;
+  page.value = 1; loading.value = false; executing.value = false; resetParameters();
+}, loadDefinitions);
+let executeRequest: ReturnType<typeof scope.begin>;
 
-onMounted(async () => {
+async function loadDefinitions(): Promise<void> {
+  const request = scope.begin('reporting.executions.run'); if (!request) return;
   loading.value = true;
   try {
-    definitions.value = (await listReportingDefinitions())
-      .filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0);
-    selectedDefinitionId.value = definitions.value[0]?.id ?? '';
+    const values = await listReportingPublishedDefinitions(request.signal);
+    if (!request.current()) return;
+    definitions.value = values.filter((item, index, all) => all.findIndex(candidate => versionKey(candidate) === versionKey(item)) === index);
+    selectedDefinitionVersionKey.value = definitions.value[0] ? versionKey(definitions.value[0]) : '';
     resetParameters();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingExecute.loadFailed');
+    if (request.current()) problem.value = toProblem(error, 'reportingExecute.loadFailed');
   } finally {
-    loading.value = false;
+    if (request.current()) loading.value = false; request.finish();
   }
-});
+}
 
 function resetParameters(): void {
   for (const key of Object.keys(parameterValues)) {
@@ -82,37 +95,49 @@ function resetParameters(): void {
 }
 
 function onDefinitionChanged(): void {
+  executeRequest?.cancel(); executing.value = false; problem.value = undefined;
   resetParameters();
   result.value = undefined;
   page.value = 1;
 }
 
 async function runExecute(): Promise<void> {
-  if (!selectedDefinitionId.value || executing.value) {
+  const definition = selectedDefinition.value;
+  if (!definition || executing.value) {
     return;
   }
+  const request = scope.begin('reporting.executions.run'); if (!request) return; executeRequest = request;
   executing.value = true;
   problem.value = undefined;
+  // 新查询失败时不得把上一次结果继续呈现为本次输出。
+  result.value = undefined;
   try {
     const parameters: ReportingExecutionParameterValue[] = parameterSchema.value.map(parameter => ({
       parameterKey: parameter.parameterKey,
       value: parameterValues[parameter.parameterKey]?.trim() || null
     }));
-    result.value = await executeReportingDefinition(
-      selectedDefinitionId.value,
-      { parameters },
+    const value = await executeReportingDefinition(
+      definition.definitionId,
+      { versionNumber: definition.versionNumber, parameters },
       page.value,
-      pageSize.value
+      pageSize.value,
+      request.signal
     );
+    if (!request.current()) return;
+    // 运行时守卫只验证形状；内容交付前还须匹配本次选择的精确发布身份。
+    if (value.definitionId !== definition.definitionId || value.versionNumber !== definition.versionNumber)
+      throw new Error('client.invalid_reporting_execution_identity');
+    result.value = value;
     updateTableHeight();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingExecute.executeFailed');
+    if (request.current()) problem.value = toProblem(error, 'reportingExecute.executeFailed');
   } finally {
-    executing.value = false;
+    if (request.current()) executing.value = false; request.finish();
   }
 }
 
 async function onPageChanged(nextPage: number): Promise<void> {
+  if (executing.value || !session.can('reporting.executions.run')) return;
   page.value = nextPage;
   await runExecute();
 }
@@ -138,16 +163,16 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
       <ElForm label-width="140px" class="execute-form">
         <ElFormItem :label="t('reportingExecute.fieldDefinition')">
           <ElSelect
-            v-model="selectedDefinitionId"
+            v-model="selectedDefinitionVersionKey"
             filterable
             data-testid="reporting-execute-definition"
             @change="onDefinitionChanged"
           >
             <ElOption
               v-for="definition in definitions"
-              :key="definition.id"
-              :label="`${definition.name} (${definition.definitionKey})`"
-              :value="definition.id"
+              :key="versionKey(definition)"
+              :label="`${definition.name} (${definition.definitionKey}) · v${definition.versionNumber}`"
+              :value="versionKey(definition)"
             />
           </ElSelect>
         </ElFormItem>
@@ -156,18 +181,18 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
           :key="parameter.parameterKey"
           :label="parameter.displayName"
         >
-          <ElInput v-model="parameterValues[parameter.parameterKey]" />
+          <ElInput v-model="parameterValues[parameter.parameterKey]" :disabled="executing" />
         </ElFormItem>
         <ElFormItem>
-          <ElButton
+          <PermissionGate code="reporting.executions.run"><ElButton
             type="primary"
             data-testid="reporting-execute-run"
             :loading="executing"
-            :disabled="!selectedDefinitionId"
+            :disabled="!selectedDefinition"
             @click="runExecute"
           >
             {{ t('reportingExecute.run') }}
-          </ElButton>
+          </ElButton></PermissionGate>
         </ElFormItem>
       </ElForm>
     </ElCard>
@@ -203,6 +228,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
         class="mt-3"
         layout="prev, pager, next"
         :current-page="result.page"
+        :disabled="executing"
         :page-size="result.pageSize"
         :total="result.totalRows ?? result.page * result.pageSize + (result.hasMore ? 1 : 0)"
         @current-change="onPageChanged"

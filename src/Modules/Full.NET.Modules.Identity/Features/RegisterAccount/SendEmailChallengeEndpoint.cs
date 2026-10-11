@@ -23,6 +23,18 @@ internal static class SendEmailChallengeEndpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            // 注册入口只允许注册及邀请验证，不能借用途字段签发密码恢复或未知挑战。
+            if (request.Purpose is not (IdentityAccountChallengePurpose.RegistrationEmailVerification
+                or IdentityAccountChallengePurpose.InvitationEmailVerification))
+            {
+                return mapper.Map(
+                    Result<AccountChallengeAcceptedResponse>.Failure(new Error(
+                        ValidationErrorCodes.Failed,
+                        "The registration challenge purpose is invalid.",
+                        ErrorType.Validation)),
+                    httpContext);
+            }
+
             var policy = await policyService.GetAsync(cancellationToken).ConfigureAwait(false);
             if (!policy.IsSuccess)
             {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -21,8 +21,12 @@ import ArtTableActionGroup from '../framework/art-design/components/ArtTableActi
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
+import ImportTaskCreateDialog from '../components/ImportTaskCreateDialog.vue';
 import { useSessionStore } from '../auth/session';
+import { isTenantSessionContext } from '../auth/tenant-session-context';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { useTaskStatusRefresh } from '../composables/useTaskStatusRefresh';
 import {
   downloadImportExportTaskErrorReceipt,
   executeImportExportTask,
@@ -46,6 +50,21 @@ const pageSize = ref(20);
 const total = ref(0);
 const drawerVisible = ref(false);
 const selectedTask = ref<ImportExportTaskDetailResponse>();
+const createOpen = ref(false);
+const scope = useAuthorizedViewScope(session, () => {
+  items.value = []; selectedTask.value = undefined; problem.value = undefined; drawerVisible.value = false;
+  page.value = 1; total.value = 0; createOpen.value = false; loading.value = false; detailLoading.value = false; actionLoading.value = false;
+}, async () => { await load(); });
+let listRequest: ReturnType<typeof scope.begin>;
+let detailRequest: ReturnType<typeof scope.begin>;
+let actionRequest: ReturnType<typeof scope.begin>;
+
+// 抽屉关闭或重新选择任务后，旧详情、执行和下载均失去接入资格。
+function cancelDetail(): void {
+  detailRequest?.cancel(); actionRequest?.cancel(); selectedTask.value = undefined;
+  detailLoading.value = false; actionLoading.value = false;
+}
+watch(drawerVisible, visible => { if (!visible) cancelDetail(); }, { flush: 'sync' });
 
 const {
   tableMainRef,
@@ -64,6 +83,10 @@ watchLoading(loading);
 const canCreate = () => session.can('import_export.import_tasks.create');
 const canRead = () => session.can('import_export.import_tasks.read');
 const canExecute = () => session.can('import_export.import_tasks.execute');
+function onCreated(task: ImportExportTaskDetailResponse): void {
+  if (!canRead()) return;
+  cancelDetail(); selectedTask.value = task; drawerVisible.value = true; void load();
+}
 
 function statusTagType(statusKey: string): 'success' | 'warning' | 'danger' | 'info' {
   if (statusKey === 'preview_succeeded' || statusKey === 'execution_succeeded') {
@@ -106,76 +129,107 @@ const executionStats = computed(() => {
   });
 });
 
-async function load() {
-  if (!canRead()) {
-    return;
-  }
+async function load(): Promise<boolean> {
+  listRequest?.cancel(); const request = scope.begin('import_export.import_tasks.read'); listRequest = request;
+  if (!request) return false;
 
   loading.value = true;
   problem.value = undefined;
   try {
-    const result = await listImportExportTasks(page.value, pageSize.value);
+    const result = await listImportExportTasks(page.value, pageSize.value, undefined, request.signal);
+    if (!request.current()) return false;
     items.value = result.items;
     page.value = result.page;
     pageSize.value = result.pageSize;
     total.value = result.total;
     await updateTableHeight();
+    return request.current();
   } catch (error) {
-    problem.value = toProblem(error);
+    if (request.current()) problem.value = toProblem(error);
+    return false;
   } finally {
-    loading.value = false;
+    if (request.current()) loading.value = false; request.finish();
   }
 }
 
 async function openDetail(taskId: string) {
+  cancelDetail(); drawerVisible.value = true; await refreshDetail(taskId);
+}
+
+// 进度读取保留已展示内容；关闭抽屉及操作仍由原请求租约取消旧结果。
+async function refreshDetail(taskId: string) {
+  detailRequest?.cancel(); const request = scope.begin('import_export.import_tasks.read'); detailRequest = request;
+  if (!request) return;
   detailLoading.value = true;
-  drawerVisible.value = true;
   try {
-    selectedTask.value = await getImportExportTask(taskId);
+    const detail = await getImportExportTask(taskId, request.signal);
+    if (request.current()) selectedTask.value = detail;
   } catch (error) {
+    if (!request.current()) return;
+    problem.value = toProblem(error);
+    ElMessage.error(problem.value.title);
     drawerVisible.value = false;
-    ElMessage.error(toProblem(error).title);
   } finally {
-    detailLoading.value = false;
+    if (request.current()) detailLoading.value = false; request.finish();
   }
 }
 
-async function runAction(action: () => Promise<ImportExportTaskDetailResponse>) {
-  if (!selectedTask.value) {
-    return;
+const isRunning = (statusKey?: string) => statusKey === 'queued' || statusKey === 'executing';
+useTaskStatusRefresh(() => canRead() && !problem.value && (items.value.some(task => isRunning(task.statusKey))
+  || (drawerVisible.value && isRunning(selectedTask.value?.statusKey))), async current => {
+  if (loading.value || detailLoading.value || actionLoading.value || createOpen.value) return;
+  const loaded = await load();
+  const task = selectedTask.value;
+  // 列表被手动刷新替换时，本轮不得继续详情读取，即使页面仍处于同一授权代次。
+  if (loaded && current() && !loading.value && !problem.value && drawerVisible.value && task && isRunning(task.statusKey) && !actionLoading.value && !detailLoading.value) {
+    await refreshDetail(task.id);
   }
+});
+
+async function runAction(kind: 'execute' | 'resume' | 'retry') {
+  const task = selectedTask.value;
+  if (!drawerVisible.value || !task || actionLoading.value || detailLoading.value) return;
+  const eligible = kind === 'execute' ? task.statusKey === 'preview_succeeded'
+    : kind === 'resume' ? task.statusKey === 'execution_partial'
+    : task.statusKey === 'execution_partial' || task.statusKey === 'execution_failed';
+  if (!eligible) return;
+  const request = scope.begin('import_export.import_tasks.execute'); if (!request) return; actionRequest = request;
+  const action = kind === 'execute' ? executeImportExportTask : kind === 'resume' ? resumeImportExportTask : retryImportExportTask;
 
   actionLoading.value = true;
   try {
-    selectedTask.value = await action();
+    const detail = await action(task.id, request.signal);
+    if (!request.current()) return;
+    selectedTask.value = detail;
     ElMessage.success(t('importExportTasks.actionSuccess'));
     await load();
   } catch (error) {
-    ElMessage.error(toProblem(error).title || t('importExportTasks.actionFailed'));
+    if (request.current()) ElMessage.error(toProblem(error).title || t('importExportTasks.actionFailed'));
   } finally {
-    actionLoading.value = false;
+    if (request.current()) actionLoading.value = false; request.finish();
   }
 }
 
 async function downloadErrorReceipt() {
-  if (!selectedTask.value) {
-    return;
-  }
+  const task = selectedTask.value;
+  if (!drawerVisible.value || !task?.hasErrorReceipt || actionLoading.value || detailLoading.value) return;
+  const request = scope.begin('import_export.import_tasks.execute'); if (!request) return; actionRequest = request;
 
   actionLoading.value = true;
   try {
-    const blob = await downloadImportExportTaskErrorReceipt(selectedTask.value.id);
+    const blob = await downloadImportExportTaskErrorReceipt(task.id, request.signal);
+    if (!request.current()) return;
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = selectedTask.value.sourceFileName?.replace(/\.xlsx$/i, '-errors.xlsx')
-      ?? 'import-task-errors.xlsx';
-    anchor.click();
-    URL.revokeObjectURL(url);
+    try {
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = task.sourceFileName?.replace(/\.xlsx$/i, '-errors.xlsx') ?? 'import-task-errors.xlsx';
+      anchor.click();
+    } finally { URL.revokeObjectURL(url); }
   } catch (error) {
-    ElMessage.error(toProblem(error).title || t('importExportTasks.actionFailed'));
+    if (request.current()) ElMessage.error(toProblem(error).title || t('importExportTasks.actionFailed'));
   } finally {
-    actionLoading.value = false;
+    if (request.current()) actionLoading.value = false; request.finish();
   }
 }
 
@@ -186,7 +240,6 @@ function toProblem(error: unknown): FullNetProblemDetails {
   return { title: t('importExportTasks.loadFailed'), status: 500, code: 'importExportTasks.loadFailed' };
 }
 
-onMounted(load);
 </script>
 
 <template>
@@ -216,15 +269,18 @@ onMounted(load);
         >
           <template #left>
             <PermissionGate code="import_export.import_tasks.create">
+              <PermissionGate code="import_export.static_schemas.read">
               <el-button
+                v-if="isTenantSessionContext(session.currentUser)"
                 type="primary"
                 plain
                 :icon="Plus"
                 data-testid="import-export-task-create"
-                disabled
+                @click="createOpen = true"
               >
                 {{ t('importExportTasks.addTask') }}
               </el-button>
+              </PermissionGate>
             </PermissionGate>
           </template>
         </ArtTableHeader>
@@ -259,14 +315,14 @@ onMounted(load);
             <el-table-column :label="t('users.columnActions')" width="120" fixed="right" align="center">
               <template #default="{ row }">
                 <ArtTableActionGroup>
-                  <el-button
+                  <PermissionGate code="import_export.import_tasks.read"><el-button
                     link
                     type="primary"
                     data-testid="import-export-task-detail"
                     @click="openDetail(row.id)"
                   >
                     {{ t('importExportTasks.viewDetail') }}
-                  </el-button>
+                  </el-button></PermissionGate>
                 </ArtTableActionGroup>
               </template>
             </el-table-column>
@@ -289,6 +345,7 @@ onMounted(load);
       </div>
     </el-card>
 
+    <ImportTaskCreateDialog v-model:open="createOpen" @created="onCreated" />
     <el-drawer
       v-model="drawerVisible"
       :title="t('importExportTasks.detailTitle')"
@@ -316,6 +373,14 @@ onMounted(load);
               {{ selectedTask.errorCode ?? '-' }}
             </el-descriptions-item>
           </el-descriptions>
+          <el-table v-if="selectedTask.previewRows.length" :data="selectedTask.previewRows" data-testid="import-task-preview-rows">
+            <el-table-column prop="lineNumber" :label="t('users.importResultLine')" width="80" />
+            <el-table-column :label="t('importExportTasks.status')" width="100">
+              <template #default="{ row }">{{ row.isValid ? t('importExportTasks.status.preview_succeeded') : t('importExportTasks.status.preview_failed') }}</template>
+            </el-table-column>
+            <el-table-column prop="errorCode" :label="t('importExportTasks.errorCode')" min-width="150" />
+            <el-table-column prop="message" :label="t('users.importResultMessage')" min-width="150" />
+          </el-table>
 
           <div class="art-drawer-actions">
             <PermissionGate code="import_export.import_tasks.execute">
@@ -325,7 +390,7 @@ onMounted(load);
                 data-testid="import-export-task-execute"
                 :loading="actionLoading"
                 :disabled="!canExecute()"
-                @click="runAction(() => executeImportExportTask(selectedTask!.id))"
+                @click="runAction('execute')"
               >
                 {{ t('importExportTasks.execute') }}
               </el-button>
@@ -335,7 +400,7 @@ onMounted(load);
                 data-testid="import-export-task-resume"
                 :loading="actionLoading"
                 :disabled="!canExecute()"
-                @click="runAction(() => resumeImportExportTask(selectedTask!.id))"
+                @click="runAction('resume')"
               >
                 {{ t('importExportTasks.resume') }}
               </el-button>
@@ -344,7 +409,7 @@ onMounted(load);
                 data-testid="import-export-task-retry"
                 :loading="actionLoading"
                 :disabled="!canExecute()"
-                @click="runAction(() => retryImportExportTask(selectedTask!.id))"
+                @click="runAction('retry')"
               >
                 {{ t('importExportTasks.retry') }}
               </el-button>

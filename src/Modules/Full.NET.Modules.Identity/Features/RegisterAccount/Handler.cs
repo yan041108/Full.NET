@@ -46,6 +46,27 @@ internal sealed class Handler(
                 ErrorType.NotFound));
         }
 
+        // 保留既有重复邮箱错误顺序；事务内仍复核，防止预检查后并发创建账号。
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                AccountLifecycleSql.FindUserByProfileEmail,
+                IdentitySqlParameters.Create(("Email", target.Value.NormalizedEmail)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is not null)
+        {
+            return Result<RegisterAccountResponse>.Failure(EmailAlreadyExists());
+        }
+
+        // 错误尝试必须在注册业务事务外提交，否则 Failure 回滚会使尝试上限失效。
+        // 此处只校验不消费；事务内消费仍重新读取并校验挑战，不能信任预检查快照。
+        var challenge = await challengeService.ValidateAsync(command.Request.ChallengeId,
+                target.Value.ChallengePurpose, target.Value.NormalizedEmail, command.Request.ChallengeCode, cancellationToken)
+            .ConfigureAwait(false);
+        if (!challenge.IsSuccess)
+        {
+            return Result<RegisterAccountResponse>.Failure(challenge.Error!);
+        }
+
         return await transaction.ExecuteResultAsync(
                 token => HandleCoreAsync(command.Request, target.Value!, token), cancellationToken)
             .ConfigureAwait(false);
@@ -169,10 +190,7 @@ internal sealed class Handler(
             .ConfigureAwait(false);
         if (existing is not null)
         {
-            return Result<RegisterAccountResponse>.Failure(new Error(
-                IdentityErrorCodes.RegistrationEmailAlreadyExists,
-                "An account with this email already exists.",
-                ErrorType.Conflict));
+            return Result<RegisterAccountResponse>.Failure(EmailAlreadyExists());
         }
 
         var challenge = await challengeService.ConsumeAsync(
@@ -260,6 +278,11 @@ internal sealed class Handler(
         IdentityAccountChallengePurpose ChallengePurpose,
         int? WayVersion,
         VerifyRegistrationInvitationResponse? Invitation);
+
+    private static Error EmailAlreadyExists() => new(
+        IdentityErrorCodes.RegistrationEmailAlreadyExists,
+        "An account with this email already exists.",
+        ErrorType.Conflict);
 
     private static Result<RegisterAccountResponse> ValidationFailure() =>
         Result<RegisterAccountResponse>.Failure(new Error(

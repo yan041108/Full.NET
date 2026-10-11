@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -9,7 +9,6 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
-  ElMessageBox,
   ElOption,
   ElSelect,
   ElSwitch,
@@ -36,6 +35,8 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { useSessionStore } from '../auth/session';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { listReportingDataSources } from '../api/reporting-data-sources';
 import {
   createReportingDefinition,
@@ -57,6 +58,15 @@ type GroupEditorMode = 'create' | 'edit';
 type DefinitionEditorMode = 'create' | 'edit';
 
 const { t } = useAdminI18n();
+const session = useSessionStore();
+const ReportingTenantGrantsDialog = defineAsyncComponent(() => import('../components/reporting/ReportingTenantGrantsDialog.vue'));
+const grantDefinition = ref<ReportingDefinition>();
+
+function openGrants(definition: ReportingDefinition): void {
+  if (session.currentUser?.scope !== 'host' || session.currentUser.tenantId !== null
+    || !session.can('reporting.definitions.read') || !session.can('reporting.definitions.grant_tenants')) return;
+  grantDefinition.value = definition;
+}
 const groups = ref<ReportingGroup[]>([]);
 const definitions = ref<ReportingDefinition[]>([]);
 const queryPorts = ref<ReportingQueryPortDefinition[]>([]);
@@ -153,37 +163,83 @@ watch(() => definitionForm.queryPortKey, queryPortKey => {
   }));
 });
 
-onMounted(() => {
-  void loadPage();
-});
+
+
+
+const confirmation = ref<{ title: string; message: string; resolve: (confirmed: boolean) => void }>();
+function finishConfirmation(confirmed: boolean): void {
+  const pending = confirmation.value; confirmation.value = undefined; pending?.resolve(confirmed);
+}
+const host = () => session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
+const scope = useAuthorizedViewScope(session, () => {
+  // 确认提示与编辑凭据属于当前会话，失效时立即清除并解除等待。
+  finishConfirmation(false);
+  groups.value = []; definitions.value = []; queryPorts.value = []; dataSourceOptions.value = [];
+  selectedGroupId.value = undefined; versions.value = []; grantDefinition.value = undefined;
+  groupEditorOpen.value = false; definitionEditorOpen.value = false; versionsDrawerOpen.value = false;
+  editingGroup.value = null; editingDefinition.value = null; groupForm.name = ''; groupForm.sortOrder = '0'; groupForm.isEnabled = true;
+  Object.assign(definitionForm, { definitionKey: '', name: '', description: '', dataSourceId: '', queryPortKey: '',
+    layoutConfigJson: '{}', isEnabled: true, parameterSchema: [] });
+  publishNote.value = ''; searchForm.value = {}; appliedFilters.value = { name: '' };
+  loading.value = false; acting.value = false; problem.value = undefined;
+}, loadPage);
+type ViewRequest = NonNullable<ReturnType<typeof scope.begin>>;
+const begin = (permission: string) => host() ? scope.begin(permission) : undefined;
+function canEnter(permission: string): boolean {
+  const request = begin(permission); request?.finish(); return !!request;
+}
+
+let listRequest: ReturnType<typeof scope.begin>;
+let groupRequest: ReturnType<typeof scope.begin>;
+let definitionRequest: ReturnType<typeof scope.begin>;
+let versionRequest: ReturnType<typeof scope.begin>;
+watch(groupEditorOpen, open => { if (!open) { groupRequest?.cancel(); editingGroup.value = null;
+  groupForm.name = ''; groupForm.sortOrder = '0'; acting.value = false; } }, { flush: 'sync' });
+watch(definitionEditorOpen, open => { if (!open) { definitionRequest?.cancel(); editingDefinition.value = null;
+  Object.assign(definitionForm, { definitionKey: '', name: '', description: '', dataSourceId: '', queryPortKey: '',
+    layoutConfigJson: '{}', parameterSchema: [] }); publishNote.value = ''; acting.value = false; } }, { flush: 'sync' });
+watch(versionsDrawerOpen, open => { if (!open) { versionRequest?.cancel(); versions.value = []; acting.value = false; } }, { flush: 'sync' });
+async function withAction(permission: string, action: (request: ViewRequest) => Promise<void>,
+  editor?: 'group' | 'definition' | 'versions', fallback: Parameters<typeof t>[0] = 'reportingDefinitions.saveFailed'): Promise<void> {
+  if (acting.value) return;
+  const request = begin(permission); if (!request) return;
+  if (editor === 'group') groupRequest = request;
+  if (editor === 'definition') definitionRequest = request;
+  if (editor === 'versions') versionRequest = request;
+  acting.value = true; problem.value = undefined;
+  try { await action(request); }
+  catch (error) {
+    if (request.current()) {
+      problem.value = toProblem(error, fallback);
+      // 读取失败后退出空抽屉，让页面错误可见；关闭仍会取消本次租约。
+      if (editor === 'versions') versionsDrawerOpen.value = false;
+    }
+  }
+  finally { if (request.current()) acting.value = false; request.finish(); }
+}
 
 async function loadPage(): Promise<void> {
-  loading.value = true;
-  problem.value = undefined;
+  listRequest?.cancel();
+  const permission = ['reporting.definitions.read', 'reporting.groups.read', 'reporting.query_ports.read', 'reporting.data_sources.read']
+    .find(code => session.can(code));
+  const request = permission ? begin(permission) : undefined; listRequest = request; if (!request) return;
+  loading.value = true; problem.value = undefined;
   try {
     const [groupRows, definitionRows, portRows, dataSourcePage] = await Promise.all([
-      listReportingGroups(),
-      listReportingDefinitions(),
-      listReportingQueryPorts(),
-      listReportingDataSources({ page: 1, pageSize: 200, isEnabled: true })
+      session.can('reporting.groups.read') ? listReportingGroups(request.signal) : Promise.resolve([]),
+      session.can('reporting.definitions.read') ? listReportingDefinitions({}, request.signal) : Promise.resolve([]),
+      session.can('reporting.query_ports.read') ? listReportingQueryPorts(request.signal) : Promise.resolve([]),
+      // 数据源目录仍需独立权限，不把定义读取权限扩大到连接信息。
+      session.can('reporting.data_sources.read') ? listReportingDataSources({ page: 1, pageSize: 200, isEnabled: true }, request.signal)
+        : Promise.resolve({ items: [] })
     ]);
-    groups.value = groupRows;
-    definitions.value = definitionRows;
-    queryPorts.value = portRows;
-    dataSourceOptions.value = dataSourcePage.items.map(item => ({
-      value: item.id,
-      label: item.name,
-      providerKey: item.providerKey
-    }));
-    if (!selectedGroupId.value && groups.value.length > 0) {
-      selectedGroupId.value = groups.value[0]?.id;
-    }
-    updateTableHeight();
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.loadFailed');
-  } finally {
-    loading.value = false;
-  }
+    if (!request.current()) return;
+    groups.value = groupRows; definitions.value = definitionRows; queryPorts.value = portRows;
+    dataSourceOptions.value = dataSourcePage.items.map(item => ({ value: item.id, label: item.name, providerKey: item.providerKey }));
+    if (!selectedGroupId.value && groups.value.length > 0) selectedGroupId.value = groups.value[0]?.id;
+    await updateTableHeight();
+  } catch (error) { if (request.current()) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
+  finally { if (request.current()) loading.value = false; request.finish(); }
 }
 
 function selectGroup(groupId: string): void {
@@ -199,6 +255,7 @@ function resetSearch(): void {
 }
 
 function openCreateGroup(): void {
+  if (acting.value || !canEnter('reporting.groups.create')) return;
   groupEditorMode.value = 'create';
   editingGroup.value = null;
   groupForm.name = '';
@@ -208,6 +265,7 @@ function openCreateGroup(): void {
 }
 
 function openEditGroup(group: ReportingGroup): void {
+  if (acting.value || !canEnter('reporting.groups.update')) return;
   groupEditorMode.value = 'edit';
   editingGroup.value = group;
   groupForm.name = group.name;
@@ -217,70 +275,38 @@ function openEditGroup(group: ReportingGroup): void {
 }
 
 async function submitGroup(): Promise<void> {
-  if (!groupFormRef.value || acting.value) {
-    return;
-  }
-  const valid = await groupFormRef.value.validate().catch(() => false);
-  if (!valid) {
-    return;
-  }
-  acting.value = true;
-  problem.value = undefined;
-  try {
-    const sortOrder = Number.parseInt(groupForm.sortOrder, 10) || 0;
+  if (!groupEditorOpen.value || !groupFormRef.value) return;
+  await withAction(groupEditorMode.value === 'create' ? 'reporting.groups.create' : 'reporting.groups.update', async request => {
+    const valid = await groupFormRef.value!.validate().catch(() => false); if (!valid || !request.current()) return;
+    const payload = { name: groupForm.name.trim(), sortOrder: Number.parseInt(groupForm.sortOrder, 10) || 0, isEnabled: groupForm.isEnabled };
     if (groupEditorMode.value === 'create') {
-      const created = await createReportingGroup({
-        name: groupForm.name.trim(),
-        sortOrder,
-        isEnabled: groupForm.isEnabled
-      });
-      groups.value = [...groups.value, created];
-      selectedGroupId.value = created.id;
+      const created = await createReportingGroup(payload, request.signal); if (!request.current()) return;
+      groups.value = [...groups.value, created]; selectedGroupId.value = created.id;
       ElMessage.success(t('reportingDefinitions.groupCreateSuccess'));
     } else if (editingGroup.value) {
-      const updated = await updateReportingGroup(editingGroup.value.id, {
-        name: groupForm.name.trim(),
-        sortOrder,
-        isEnabled: groupForm.isEnabled,
-        version: editingGroup.value.version
-      });
-      groups.value = groups.value.map(item => item.id === updated.id ? updated : item);
-      ElMessage.success(t('reportingDefinitions.groupUpdateSuccess'));
-    }
+      const updated = await updateReportingGroup(editingGroup.value.id, { ...payload, version: editingGroup.value.version }, request.signal);
+      if (!request.current()) return;
+      groups.value = groups.value.map(item => item.id === updated.id ? updated : item); ElMessage.success(t('reportingDefinitions.groupUpdateSuccess'));
+    } else return;
     groupEditorOpen.value = false;
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.saveFailed');
-  } finally {
-    acting.value = false;
-  }
+  }, 'group');
 }
 
-async function confirmDeleteGroup(group: ReportingGroup): Promise<void> {
-  try {
-    await ElMessageBox.confirm(
-      t('reportingDefinitions.confirmDeleteGroup', { name: group.name }),
-      { type: 'warning' }
-    );
-  } catch {
-    return;
-  }
-  acting.value = true;
-  try {
-    await deleteReportingGroup(group.id);
-    groups.value = groups.value.filter(item => item.id !== group.id);
-    definitions.value = definitions.value.filter(item => item.groupId !== group.id);
-    if (selectedGroupId.value === group.id) {
-      selectedGroupId.value = groups.value[0]?.id;
-    }
+async function confirmDeleteGroup(row: ReportingGroup): Promise<void> {
+  await withAction('reporting.groups.delete', async request => {
+    const confirmed = await new Promise<boolean>(resolve => { confirmation.value = {
+      title: t('reportingDefinitions.fieldGroupName'), message: t('reportingDefinitions.confirmDeleteGroup', { name: row.name }), resolve }; });
+    if (!confirmed || !request.current()) return;
+    await deleteReportingGroup(row.id, request.signal); if (!request.current()) return;
+    groups.value = groups.value.filter(item => item.id !== row.id);
+    definitions.value = definitions.value.filter(item => item.groupId !== row.id);
+    if (selectedGroupId.value === row.id) selectedGroupId.value = groups.value[0]?.id;
     ElMessage.success(t('reportingDefinitions.groupDeleteSuccess'));
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.saveFailed');
-  } finally {
-    acting.value = false;
-  }
+  });
 }
 
 function openCreateDefinition(): void {
+  if (acting.value || !canEnter('reporting.definitions.create')) return;
   if (!selectedGroupId.value) {
     ElMessage.warning(t('reportingDefinitions.selectGroupFirst'));
     return;
@@ -298,6 +324,7 @@ function openCreateDefinition(): void {
 }
 
 function openEditDefinition(definition: ReportingDefinition): void {
+  if (acting.value || !canEnter('reporting.definitions.update')) return;
   definitionEditorMode.value = 'edit';
   editingDefinition.value = definition;
   definitionForm.definitionKey = definition.definitionKey;
@@ -312,104 +339,55 @@ function openEditDefinition(definition: ReportingDefinition): void {
 }
 
 async function submitDefinition(): Promise<void> {
-  if (!definitionFormRef.value || acting.value || !selectedGroupId.value) {
-    return;
-  }
-  const valid = await definitionFormRef.value.validate().catch(() => false);
-  if (!valid) {
-    return;
-  }
-  acting.value = true;
-  problem.value = undefined;
-  try {
-    const payload = {
-      groupId: selectedGroupId.value,
-      dataSourceId: definitionForm.dataSourceId,
-      name: definitionForm.name.trim(),
-      description: definitionForm.description.trim() || null,
-      queryPortKey: definitionForm.queryPortKey,
-      parameterSchema: definitionForm.parameterSchema,
-      layoutConfigJson: definitionForm.layoutConfigJson,
-      isEnabled: definitionForm.isEnabled
-    };
+  if (!definitionEditorOpen.value || !definitionFormRef.value || !selectedGroupId.value) return;
+  await withAction(definitionEditorMode.value === 'create' ? 'reporting.definitions.create' : 'reporting.definitions.update', async request => {
+    const valid = await definitionFormRef.value!.validate().catch(() => false); if (!valid || !request.current()) return;
+    const payload = { groupId: selectedGroupId.value!, dataSourceId: definitionForm.dataSourceId, name: definitionForm.name.trim(),
+      description: definitionForm.description.trim() || null, queryPortKey: definitionForm.queryPortKey,
+      parameterSchema: definitionForm.parameterSchema.map(item => ({ ...item })), layoutConfigJson: definitionForm.layoutConfigJson, isEnabled: definitionForm.isEnabled };
     if (definitionEditorMode.value === 'create') {
-      const created = await createReportingDefinition({
-        ...payload,
-        definitionKey: definitionForm.definitionKey.trim()
-      });
-      definitions.value = [...definitions.value, created];
-      ElMessage.success(t('reportingDefinitions.createSuccess'));
+      const created = await createReportingDefinition({ ...payload, definitionKey: definitionForm.definitionKey.trim() }, request.signal);
+      if (!request.current()) return;
+      definitions.value = [...definitions.value, created]; ElMessage.success(t('reportingDefinitions.createSuccess'));
     } else if (editingDefinition.value) {
-      const updated = await updateReportingDefinition(editingDefinition.value.id, {
-        ...payload,
-        version: editingDefinition.value.version
-      });
-      definitions.value = definitions.value.map(item => item.id === updated.id ? updated : item);
-      editingDefinition.value = updated;
-      ElMessage.success(t('reportingDefinitions.updateSuccess'));
-    }
+      const updated = await updateReportingDefinition(editingDefinition.value.id, { ...payload, version: editingDefinition.value.version }, request.signal);
+      if (!request.current()) return;
+      definitions.value = definitions.value.map(item => item.id === updated.id ? updated : item); ElMessage.success(t('reportingDefinitions.updateSuccess'));
+    } else return;
     definitionEditorOpen.value = false;
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.saveFailed');
-  } finally {
-    acting.value = false;
-  }
+  }, 'definition');
 }
 
-async function confirmDeleteDefinition(definition: ReportingDefinition): Promise<void> {
-  try {
-    await ElMessageBox.confirm(
-      t('reportingDefinitions.confirmDeleteDefinition', { name: definition.name }),
-      { type: 'warning' }
-    );
-  } catch {
-    return;
-  }
-  acting.value = true;
-  try {
-    await deleteReportingDefinition(definition.id);
-    definitions.value = definitions.value.filter(item => item.id !== definition.id);
+async function confirmDeleteDefinition(row: ReportingDefinition): Promise<void> {
+  await withAction('reporting.definitions.delete', async request => {
+    const confirmed = await new Promise<boolean>(resolve => { confirmation.value = {
+      title: t('reportingDefinitions.actionDelete'), message: t('reportingDefinitions.confirmDeleteDefinition', { name: row.name }), resolve }; });
+    if (!confirmed || !request.current()) return;
+    await deleteReportingDefinition(row.id, request.signal); if (!request.current()) return;
+    definitions.value = definitions.value.filter(item => item.id !== row.id);
     ElMessage.success(t('reportingDefinitions.deleteSuccess'));
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.saveFailed');
-  } finally {
-    acting.value = false;
-  }
+  });
 }
 
 async function publishCurrentDefinition(definition: ReportingDefinition): Promise<void> {
-  acting.value = true;
-  problem.value = undefined;
-  try {
-    await publishReportingDefinition(definition.id, {
-      changeNote: publishNote.value.trim() || null,
-      version: definition.version
-    });
-    const refreshed = await listReportingDefinitions({ groupId: definition.groupId });
-    definitions.value = definitions.value.map(item => {
-      const updated = refreshed.find(row => row.id === item.id);
-      return updated ?? item;
-    });
-    ElMessage.success(t('reportingDefinitions.publishSuccess'));
-    publishNote.value = '';
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.saveFailed');
-  } finally {
-    acting.value = false;
-  }
+  await withAction('reporting.definitions.publish', async request => {
+    await publishReportingDefinition(definition.id, { changeNote: publishNote.value.trim() || null, version: definition.version }, request.signal);
+    // 发布后的目录补读也需要仍然有效的独立读取权限。
+    if (!request.current()) return;
+    if (session.can('reporting.definitions.read')) {
+      const refreshed = await listReportingDefinitions({ groupId: definition.groupId }, request.signal); if (!request.current()) return;
+      definitions.value = definitions.value.map(item => refreshed.find(row => row.id === item.id) ?? item);
+    }
+    ElMessage.success(t('reportingDefinitions.publishSuccess')); publishNote.value = '';
+  });
 }
 
 async function openVersions(definition: ReportingDefinition): Promise<void> {
-  acting.value = true;
-  try {
-    versions.value = await listReportingDefinitionVersions(definition.id);
-    editingDefinition.value = definition;
-    versionsDrawerOpen.value = true;
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.loadFailed');
-  } finally {
-    acting.value = false;
-  }
+  await withAction('reporting.definitions.read', async request => {
+    versions.value = []; editingDefinition.value = definition; versionsDrawerOpen.value = true;
+    const rows = await listReportingDefinitionVersions(definition.id, request.signal); if (!request.current()) return;
+    versions.value = rows;
+  }, 'versions', 'reportingDefinitions.loadFailed');
 }
 
 function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
@@ -452,12 +430,12 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
             <template #default="{ row }">
               <ArtTableActionGroup>
                 <PermissionGate code="reporting.groups.update">
-                  <ArtTableActionButton type="edit" @click="openEditGroup(row)">
+                  <ArtTableActionButton type="edit" test-id="reporting-group-edit" :title="t('reportingDefinitions.actionEdit')" @click="openEditGroup(row)">
                     {{ t('reportingDefinitions.actionEdit') }}
                   </ArtTableActionButton>
                 </PermissionGate>
                 <PermissionGate code="reporting.groups.delete">
-                  <ArtTableActionButton type="delete" @click="confirmDeleteGroup(row)">
+                  <ArtTableActionButton type="delete" test-id="reporting-group-delete" :title="t('reportingDefinitions.actionDelete')" @click="confirmDeleteGroup(row)">
                     {{ t('reportingDefinitions.actionDelete') }}
                   </ArtTableActionButton>
                 </PermissionGate>
@@ -468,8 +446,8 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
       </ElCard>
 
       <ElCard class="definitions-card">
-        <ArtTableHeader :title="t('reportingDefinitions.title')">
-          <template #actions>
+        <ArtTableHeader @refresh="loadPage">
+          <template #left>
             <PermissionGate code="reporting.definitions.create">
               <ElButton
                 type="primary"
@@ -513,21 +491,25 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
           <ElTableColumn :label="t('reportingDefinitions.actions')" width="260" fixed="right">
               <template #default="{ row }">
                 <ArtTableActionGroup>
+                  <PermissionGate v-if="session.currentUser?.scope === 'host' && row.latestPublishedVersionNumber > 0" code="reporting.definitions.grant_tenants">
+                    <ArtTableActionButton type="view" test-id="reporting-tenant-grants-open"
+                      :title="t('reportingGrants.manage')" :aria-label="t('reportingGrants.manage')" @click="openGrants(row)" />
+                  </PermissionGate>
                   <PermissionGate code="reporting.definitions.update">
-                    <ArtTableActionButton type="edit" @click="openEditDefinition(row)">
+                    <ArtTableActionButton type="edit" test-id="reporting-definition-edit" :title="t('reportingDefinitions.actionEdit')" @click="openEditDefinition(row)">
                       {{ t('reportingDefinitions.actionEdit') }}
                     </ArtTableActionButton>
                   </PermissionGate>
                   <PermissionGate code="reporting.definitions.publish">
-                    <ArtTableActionButton type="view" @click="publishCurrentDefinition(row)">
+                    <ArtTableActionButton type="view" test-id="reporting-definition-publish" :title="t('reportingDefinitions.actionPublish')" @click="publishCurrentDefinition(row)">
                       {{ t('reportingDefinitions.actionPublish') }}
                     </ArtTableActionButton>
                   </PermissionGate>
-                  <ArtTableActionButton type="view" @click="openVersions(row)">
+                  <ArtTableActionButton type="view" test-id="reporting-definition-versions" :title="t('reportingDefinitions.actionVersions')" @click="openVersions(row)">
                     {{ t('reportingDefinitions.actionVersions') }}
                   </ArtTableActionButton>
                   <PermissionGate code="reporting.definitions.delete">
-                    <ArtTableActionButton type="delete" @click="confirmDeleteDefinition(row)">
+                    <ArtTableActionButton type="delete" test-id="reporting-definition-delete" :title="t('reportingDefinitions.actionDelete')" @click="confirmDeleteDefinition(row)">
                       {{ t('reportingDefinitions.actionDelete') }}
                     </ArtTableActionButton>
                   </PermissionGate>
@@ -538,6 +520,13 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
         </div>
       </ElCard>
     </div>
+
+
+    <ArtFormDialog v-if="confirmation" :open="true" :title="confirmation.title"
+      :confirm-label="t('users.confirm')" :cancel-label="t('common.cancel')" confirm-test-id="reporting-management-confirm"
+      @confirm="finishConfirmation(true)" @update:open="open => { if (!open) finishConfirmation(false); }">
+      <p>{{ confirmation.message }}</p>
+    </ArtFormDialog>
 
     <ArtFormDialog
       v-model:open="groupEditorOpen"
@@ -622,13 +611,14 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
           </ElTable>
         </ElFormItem>
         <ElFormItem v-if="definitionEditorMode === 'edit'" :label="t('reportingDefinitions.fieldChangeNote')">
-          <ElInput v-model="publishNote" type="textarea" :rows="2" />
+          <ElInput v-model="publishNote" data-testid="reporting-publish-note" type="textarea" :rows="2" />
         </ElFormItem>
       </ElForm>
     </ArtFormDialog>
 
+    <ReportingTenantGrantsDialog v-if="grantDefinition" :definition="grantDefinition" @close="grantDefinition = undefined" />
     <ElDrawer v-model="versionsDrawerOpen" :title="t('reportingDefinitions.versionsTitle')" size="40%">
-      <ElTable :data="versions" size="small">
+      <ElTable v-loading="acting" :data="versions" size="small">
         <ElTableColumn prop="versionNumber" :label="t('reportingDefinitions.fieldVersionNumber')" width="100" />
         <ElTableColumn prop="queryPortKey" :label="t('reportingDefinitions.fieldQueryPort')" />
         <ElTableColumn prop="publishedAtUtc" :label="t('reportingDefinitions.fieldPublishedAt')" min-width="180" />

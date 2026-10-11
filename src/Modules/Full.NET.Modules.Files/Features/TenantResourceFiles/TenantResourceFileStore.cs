@@ -93,6 +93,17 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         }
 
         var provider = providers.DefaultProvider;
+        try
+        {
+            var uploadOwner = resourceOwners.SingleOrDefault(item => item.OwnerModuleKey == ownerModuleKey) as ITenantResourceFileUploadOwner;
+            if (uploadOwner is not null)
+                await uploadOwner.BeginUploadAsync(new(resourceId, fileId, actorUserId, fileName, buffered.Length, clock.UtcNow), cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
+            throw;
+        }
         var storageKey = $"tenant-resources/{tenantId:N}/{fileId:N}";
         var parameters = Parameters(ownerModuleKey, resourceId, fileId);
         parameters["OriginalFileName"] = fileName;
@@ -119,13 +130,18 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
             throw;
         }
 
+        // 对象已落盘后完成持久化仲裁，不让请求取消切断迟到对象的可发现清理记录。
         if (await commands.ExecuteAsync(TenantResourceFileSql.MarkReady,
-            Parameters(ownerModuleKey, resourceId, fileId), cancellationToken).ConfigureAwait(false) != 1)
+            Parameters(ownerModuleKey, resourceId, fileId), CancellationToken.None).ConfigureAwait(false) != 1)
         {
-            await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
             var current = await queries.QuerySingleOrDefaultAsync<TenantResourceFileRecord>(TenantResourceFileSql.FindOwned,
-                Parameters(ownerModuleKey, resourceId, fileId), cancellationToken).ConfigureAwait(false);
-            if (current?.StatusKey == "released")
+                Parameters(ownerModuleKey, resourceId, fileId), CancellationToken.None).ConfigureAwait(false);
+            if (current is null && await commands.ExecuteAsync(TenantResourceFileSql.InsertReleasedIntent,
+                parameters, CancellationToken.None).ConfigureAwait(false) != 1)
+                throw new InvalidOperationException("Late tenant resource object cleanup intent was not persisted.");
+            // 配额属于独立事务；先持久化对象回收状态，配额故障不能造成无法扫描的对象。
+            await ReleaseQuotaReservationAsync(tenantId, operationId, CancellationToken.None).ConfigureAwait(false);
+            if (current is null || current.StatusKey == "released")
             {
                 await provider.DeleteAsync(storageKey, cancellationToken).ConfigureAwait(false);
             }

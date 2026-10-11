@@ -247,6 +247,7 @@ internal static class ReportingExportTaskSql
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'processing'
           AND LeaseId = @LeaseId
+          AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -267,6 +268,7 @@ internal static class ReportingExportTaskSql
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'processing'
           AND LeaseId = @LeaseId
+          AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -285,6 +287,7 @@ internal static class ReportingExportTaskSql
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'processing'
           AND LeaseId = @LeaseId
+          AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -303,6 +306,7 @@ internal static class ReportingExportTaskSql
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'processing'
           AND LeaseId = @LeaseId
+          AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

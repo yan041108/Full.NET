@@ -590,6 +590,8 @@ public sealed class DependencyRulesTests
             Path.Combine("src", "Hosts", "Full.NET.Host.Worker", "Full.NET.Host.Worker.csproj"),
             // 独立应用 API 模板沿用相同受控 Kafka 重放注册，生成物由模板验收验证。
             Path.Combine("templates", "fullnet-app", "src", "FullNetAppNameToken.Host.Api", "FullNetAppNameToken.Host.Api.csproj"),
+            // 独立应用 Worker 复用官方后台管线，仅在 Worker Profile 启用 Kafka 消费。
+            Path.Combine("templates", "fullnet-app", "src", "FullNetAppNameToken.Host.Worker", "FullNetAppNameToken.Host.Worker.csproj"),
             // Benchmarks 只承载显式执行的独立容量工具，不进入 API/Worker 生产依赖图。
             Path.Combine("benchmarks", "Full.NET.Benchmarks", "Full.NET.Benchmarks.csproj"),
             Path.Combine("tests", "Full.NET.UnitTests", "Full.NET.UnitTests.csproj"),
@@ -695,6 +697,8 @@ public sealed class DependencyRulesTests
             Path.Combine("src", "BuildingBlocks", "Full.NET.Migrations.DbUp", "Full.NET.Migrations.DbUp.csproj"),
             Path.Combine("src", "BuildingBlocks", "Full.NET.Seeding.Dapper", "Full.NET.Seeding.Dapper.csproj"),
             Path.Combine("src", "Hosts", "Full.NET.Host.Migrator", "Full.NET.Host.Migrator.csproj"),
+            // CLI 仅在离线诊断中复用策略；下方锁定该入口不得创建或打开 MySQL 连接。
+            Path.Combine("src", "Tools", "Full.NET.CodeGeneration.Cli", "Full.NET.CodeGeneration.Cli.csproj"),
             Path.Combine("tests", "Full.NET.UnitTests", "Full.NET.UnitTests.csproj"),
             Path.Combine("tests", "Full.NET.IntegrationTests", "Full.NET.IntegrationTests.csproj"),
             Path.Combine("tests", "Full.NET.ArchitectureTests", "Full.NET.ArchitectureTests.csproj"),
@@ -734,6 +738,13 @@ public sealed class DependencyRulesTests
             root,
             Path.Combine("src", "BuildingBlocks", "Full.NET.Migrations.DbUp", "DbUpMigrationRunner.cs"),
             "allowUserVariables: true");
+        var diagnosisPath = Path.Combine("src", "Tools", "Full.NET.CodeGeneration.Cli", "DiagnoseCommand.ConnectionSyntax.cs");
+        AssertPolicyConsumer(root, diagnosisPath, "allowUserVariables: false");
+        var diagnosis = File.ReadAllText(Path.Combine(root, diagnosisPath));
+        Assert.IsFalse(
+            System.Text.RegularExpressions.Regex.IsMatch(
+                diagnosis, @"new\s+MySqlConnection\s*\(|\.Open(?:Async)?\s*\("),
+            "诊断策略消费方不能创建或打开 MySQL 连接。");
     }
 
     [TestMethod]
@@ -743,6 +754,8 @@ public sealed class DependencyRulesTests
         var allowedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             Path.Combine("tests", "Full.NET.UnitTests", "Data", "MySqlConnectionStringPolicyTests.cs"),
+            // 该夹具以真实未打开工厂对照诊断拒绝冲突 GuidFormat；不豁免生产源码。
+            Path.Combine("tests", "Full.NET.UnitTests", "CodeGeneration", "DiagnoseConnectionSyntaxTests.cs"),
             Path.Combine("tests", "Full.NET.IntegrationTests", "Data", "GuidBinaryRoundTripTests.cs"),
         };
         var sourceFiles = EnumerateRepositoryFiles(root, "*.*")

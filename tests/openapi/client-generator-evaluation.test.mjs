@@ -20,6 +20,35 @@ const expectedFileNames = [
   'operations.generated.ts'
 ];
 
+test('无 type 的字符串枚举保持闭合模型与引用、可空守卫', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  const files = renderGeneratedFiles({ openapi: '3.1.0', paths: {}, components: { schemas: {
+    Stage: { enum: ['queued', 'started'] },
+    Progress: { type: 'object', required: ['stage'], properties: {
+      stage: { $ref: '#/components/schemas/Stage' }
+    } },
+    NullableStage: { anyOf: [{ $ref: '#/components/schemas/Stage' }, { type: 'null' }] }
+  } } });
+  assert.match(files['models.generated.ts'], /export type Stage = "queued" \| "started";/u);
+  const code = stripTypeScriptTypes(files['guards.generated.ts']) + '\n//# sourceURL=fullnet-test-enum-guards.mjs';
+  const readers = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+  assert.deepEqual(readers.readProgress({ stage: 'queued' }), { stage: 'queued' });
+  assert.equal(readers.readNullableStage('started'), 'started');
+  assert.equal(readers.readNullableStage(null), null);
+  for (const stage of ['unknown', 0, null, {}, undefined]) {
+    assert.throws(() => readers.readProgress({ stage }), /invalid_progress/u);
+  }
+});
+
+test('无 type 的空、非字符串或混合枚举仍拒绝生成，不退化为未知值', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  for (const values of [[], [0, 1], ['queued', 1], ['queued', null], [{}]]) {
+    assert.throws(() => renderGeneratedFiles({ openapi: '3.1.0', paths: {}, components: { schemas: {
+      Unsupported: { enum: values }
+    } } }), /不支持 Schema|无法生成 Schema guard/u);
+  }
+});
+
 test('生成守卫读取服务端整数字符串且拒绝精度丢失，嵌套引用和数组保持一致', async () => {
   const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
   const files = renderGeneratedFiles({ openapi: '3.1.0', paths: {}, components: { schemas: {
@@ -43,6 +72,25 @@ test('生成守卫读取服务端整数字符串且拒绝精度丢失，嵌套�
   }
   assert.equal(readers.readRow({ ...row, version: Number.MAX_SAFE_INTEGER }).version, Number.MAX_SAFE_INTEGER);
   assert.throws(() => readers.readNativeInteger('42'), /invalid_native_integer/);
+});
+
+test('数值守卫不发生类型强转，安全整数与有限小数边界保持独立', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  const files = renderGeneratedFiles({ openapi: '3.1.0', paths: {}, components: { schemas: {
+    Integer: { type: 'integer' }, Numeric: { type: 'number' }
+  } } });
+  const code = stripTypeScriptTypes(files['guards.generated.ts']) + '\n//# sourceURL=fullnet-test-numeric-guards.mjs';
+  const readers = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+  for (const value of [0, -0, 1, -1, Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER]) {
+    assert.equal(readers.readInteger(value), value); assert.equal(readers.readNumeric(value), value);
+  }
+  for (const value of [1.5, Number.MAX_VALUE, Number.MIN_VALUE, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => readers.readInteger(value), /invalid_integer/u); assert.equal(readers.readNumeric(value), value);
+  }
+  for (const value of ['1', '', true, false, null, undefined, [], {}, new Number(1), 1n, Symbol('number'), NaN, Infinity, -Infinity]) {
+    assert.throws(() => readers.readInteger(value), /invalid_integer/u);
+    assert.throws(() => readers.readNumeric(value), /invalid_numeric/u);
+  }
 });
 
 test('联合 Schema 按匹配分支归一，不改写另一分支的普通字符串', async () => {
@@ -94,6 +142,28 @@ test('内联 allOf 的多个整数编码对象可以通过 TypeScript 编译并�
   const code = stripTypeScriptTypes(files['guards.generated.ts']) + '\n//# sourceURL=fullnet-test-allof-guards.mjs';
   const readers = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
   assert.deepEqual(readers.readCombined({ first: '1', second: '2' }), { first: 1, second: 2 });
+});
+
+test('multipart allOf 和引用字段完整生成导入参数与 FormData', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  const snapshot = JSON.parse(await readFile(snapshotPath, 'utf8'));
+  const files = renderGeneratedFiles(snapshot);
+  const operations = files['operations.generated.ts'];
+  const parameters = operations.slice(operations.indexOf('export interface ImportExportCreateImportTaskParameters'),
+    operations.indexOf('export interface ImportExportDownloadImportTaskErrorReceiptParameters'));
+  assert.match(parameters, /readonly schemaKey: string/u);
+  assert.match(parameters, /readonly worksheetKey: string/u);
+  assert.match(parameters, /readonly file: IFormFile/u);
+  assert.match(parameters, /body\.append\('schemaKey', String\(parameters.schemaKey\)\)/u);
+  assert.match(parameters, /body\.append\('worksheetKey', String\(parameters.worksheetKey\)\)/u);
+  assert.match(parameters, /body\.append\('file', parameters.file\)/u);
+  assert.doesNotMatch(parameters, /content-type/u);
+  const multipart = snapshot.paths['/api/v1/import-export/tasks'].post.requestBody.content['multipart/form-data'];
+  snapshot.components.schemas.ImportForm = multipart.schema;
+  multipart.schema = { $ref: '#/components/schemas/ImportForm' };
+  const referenced = renderGeneratedFiles(snapshot)['operations.generated.ts'];
+  assert.match(referenced, /readonly schemaKey: string/u);
+  assert.match(referenced, /body\.append\('worksheetKey', String\(parameters.worksheetKey\)\)/u);
 });
 
 test('生成器只产生 Full.NET models、guards、operations 与公开入口', async () => {

@@ -55,6 +55,8 @@ internal static class EnterpriseRequestEndpoint
         .WithName("enterpriseRequestListEnterpriseRequests")
         .Produces<PagedResult<EnterpriseRequestResponse>>(
             StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             EnterpriseRequestPermissions.Read));
 
@@ -84,6 +86,8 @@ internal static class EnterpriseRequestEndpoint
             })
         .WithName("enterpriseRequestGetEnterpriseRequest")
         .Produces<EnterpriseRequestResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             EnterpriseRequestPermissions.Read));
 
@@ -124,6 +128,8 @@ internal static class EnterpriseRequestEndpoint
             })
         .WithName("enterpriseRequestCreateEnterpriseRequest")
         .Produces<EnterpriseRequestResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             EnterpriseRequestPermissions.Create));
 
@@ -152,6 +158,8 @@ internal static class EnterpriseRequestEndpoint
         })
         .WithName("enterpriseRequestUpdateEnterpriseRequest")
         .Produces<EnterpriseRequestResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             EnterpriseRequestPermissions.Update));
 
@@ -178,6 +186,8 @@ internal static class EnterpriseRequestEndpoint
         })
         .WithName("enterpriseRequestDeleteEnterpriseRequest")
         .Produces<EnterpriseRequestResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             EnterpriseRequestPermissions.Disable));
     }
@@ -229,6 +239,9 @@ public static class EnterpriseRequestGeneratedFeatureExtensions
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<EnterpriseRequestQueryService>();
         services.TryAddScoped<EnterpriseRequestManagementService>();
+#if FULLNET_AOT_COMPILE
+        EnterpriseRequestRecordAotMaterializer.Register();
+#endif
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

@@ -21,7 +21,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageInstances;
 /// <param name="clock">统一 UTC 时钟。</param>
 /// <param name="idGenerator">UUID v7 标识生成器。</param>
 /// <param name="hostUserDirectory">Host 活动用户批量目录。</param>
-/// <param name="tenantUserDirectory">当前 Tenant 活动用户批量目录。</param>
+/// <param name="tenantMemberDirectory">当前可信 Tenant 的活动成员权威目录。</param>
 /// <param name="notificationPublisher">工作流提醒事务 Outbox 发布器。</param>
 internal sealed class WorkflowInstanceRecoveryService(
     IQueryExecutor queryExecutor,
@@ -31,7 +31,7 @@ internal sealed class WorkflowInstanceRecoveryService(
     IClock clock,
     IIdGenerator idGenerator,
     IHostUserBatchSelectionDirectory hostUserDirectory,
-    ITenantUserSelectionDirectory tenantUserDirectory,
+    ITenantMemberBatchSelectionDirectory tenantMemberDirectory,
     WorkflowNotificationOutboxPublisher notificationPublisher)
 {
     private const string ActionKey = "reassign";
@@ -137,7 +137,8 @@ internal sealed class WorkflowInstanceRecoveryService(
         IReadOnlyCollection<Guid> ids = [assigneeUserId];
         if (scope.TenantId.HasValue)
         {
-            var users = await tenantUserDirectory.FindActiveTenantUsersAsync(ids, cancellationToken)
+            // 成员关系是现行资格来源；旧租户角色既会遗漏新成员，也可能保留已撤销成员的资格。
+            var users = await tenantMemberDirectory.FindActiveTenantMembersAsync(ids, cancellationToken)
                 .ConfigureAwait(false);
             return users.ContainsKey(assigneeUserId);
         }

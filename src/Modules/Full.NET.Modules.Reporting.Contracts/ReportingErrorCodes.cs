@@ -3,6 +3,9 @@ namespace Full.NET.Modules.Reporting.Contracts;
 /// <summary>Reporting 模块稳定业务错误码。</summary>
 public static class ReportingErrorCodes
 {
+    /// <summary>精确发布版本的租户授权分页参数无效。</summary>
+    public const string DefinitionGrantPaginationInvalid = "reporting.definition_grants.pagination_invalid";
+
     /// <summary>报表数据源不存在。</summary>
     public const string DataSourceNotFound = "reporting.data_source.not_found";
 

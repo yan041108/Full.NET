@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -42,7 +42,9 @@ test('build-source-bundle writes manifest with sha256 managed files', { skip: sk
     assert.ok(existsSync(join(bundleRoot, 'packages/design-tokens/package.json')));
     assert.ok(existsSync(join(bundleRoot, 'pnpm-lock.yaml')));
     assert.equal(manifest.migrationInventory.selectionStatus, 'unscoped');
-    assert.equal(manifest.migrationInventory.scripts.length, 240);
+    const publishedSqlServerScripts = readdirSync(resolve('src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer'))
+      .filter((name) => /^\d+_.+\.sql$/.test(name)).sort();
+    assert.deepEqual(manifest.migrationInventory.scripts.map(({ name }) => name).sort(), publishedSqlServerScripts);
     const entitlementSeed = manifest.seedInventory.contributors.find((entry) => entry.name === 'TenancyEntitlementCatalogBaselineSeedContributor');
     assert.ok(entitlementSeed, 'commercial feature catalog must be included in the source bundle');
     assert.equal(entitlementSeed.module, 'Tenancy');

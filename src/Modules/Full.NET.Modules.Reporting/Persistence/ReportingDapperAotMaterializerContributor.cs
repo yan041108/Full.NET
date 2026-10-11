@@ -14,7 +14,41 @@ internal sealed class ReportingDapperAotMaterializerContributor
     {
         registrar.Register<ReportingDataSourceRecord>(ReadDataSource);
         registrar.Register<ReportingExportTaskRecord>(ReadExportTask);
+        registrar.Register<ReportingPublishedDefinitionRecord>(ReadPublishedDefinition);
+        registrar.Register<ReportingDefinitionRecord>(ReadDefinition);
+        registrar.Register<ReportingDefinitionVersionRecord>(ReadDefinitionVersion);
     }
+
+    /// <summary>读取本模块定义元信息；租户 SQL 必须先匹配精确版本授权。</summary>
+    private static ReportingDefinitionRecord ReadDefinition(DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"), GroupId = ReadGuid(reader, "GroupId"), DataSourceId = ReadGuid(reader, "DataSourceId"),
+        DefinitionKey = ReadString(reader, "DefinitionKey"), Name = ReadString(reader, "Name"),
+        Description = ReadNullableString(reader, "Description"), QueryPortKey = ReadString(reader, "QueryPortKey"),
+        ParameterSchemaJson = ReadString(reader, "ParameterSchemaJson"), LayoutConfigJson = ReadString(reader, "LayoutConfigJson"),
+        LatestPublishedVersionNumber = ReadInt32(reader, "LatestPublishedVersionNumber"), IsEnabled = ReadBoolean(reader, "IsEnabled"),
+        CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"), UpdatedAtUtc = ReadNullableDateTimeOffset(reader, "UpdatedAtUtc"),
+        Version = ReadInt32(reader, "Version"),
+    };
+
+    /// <summary>不可变发布版本使用静态物化，授权不会退化到当前草稿。</summary>
+    private static ReportingDefinitionVersionRecord ReadDefinitionVersion(DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"), DefinitionId = ReadGuid(reader, "DefinitionId"), VersionNumber = ReadInt32(reader, "VersionNumber"),
+        DataSourceId = ReadGuid(reader, "DataSourceId"), QueryPortKey = ReadString(reader, "QueryPortKey"),
+        ParameterSchemaJson = ReadString(reader, "ParameterSchemaJson"), LayoutConfigJson = ReadString(reader, "LayoutConfigJson"),
+        ChangeNote = ReadNullableString(reader, "ChangeNote"), PublishedByUserId = ReadGuid(reader, "PublishedByUserId"),
+        PublishedAtUtc = ReadDateTimeOffset(reader, "PublishedAtUtc"),
+    };
+
+    /// <summary>目录只物化获授版本的执行字段，保持 Native AOT 静态闭包。</summary>
+    private static ReportingPublishedDefinitionRecord ReadPublishedDefinition(DbDataReader reader) => new()
+    {
+        DefinitionId = ReadGuid(reader, "DefinitionId"), DefinitionKey = ReadString(reader, "DefinitionKey"),
+        Name = ReadString(reader, "Name"), VersionNumber = ReadInt32(reader, "VersionNumber"),
+        QueryPortKey = ReadString(reader, "QueryPortKey"), ParameterSchemaJson = ReadString(reader, "ParameterSchemaJson"),
+        LayoutConfigJson = ReadString(reader, "LayoutConfigJson"),
+    };
 
     private static ReportingDataSourceRecord ReadDataSource(DbDataReader reader) => new()
     {

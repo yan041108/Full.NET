@@ -11,6 +11,8 @@ import { pathToFileURL } from 'node:url';
 
 import { argumentsFor } from './run-integration-shard.mjs';
 import { loadTestMatrix } from './run-dotnet-test-suite.mjs';
+import { prepareTestBuild } from './test-build-reuse.mjs';
+import { testRunEnvironment, withTestRun } from './test-run-context.mjs';
 
 const execFileAsync = promisify(execFile);
 const testMatrix = loadTestMatrix();
@@ -22,26 +24,33 @@ const nativeAotIntegrationFilter =
   ?? 'FullyQualifiedName~Full.NET.IntegrationTests.NativeAot';
 const identityFilter =
   'FullyQualifiedName~Full.NET.IntegrationTests.Api.IdentityApi'
-  + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.TotpStrongReauthTests';
+  + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.TotpStrongReauthTests'
+  + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.AccountChallengeDeliveryJournalTests'
+  + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.AccountChallengeReconciliationTests';
 const tenancyFilter =
   'FullyQualifiedName~Full.NET.IntegrationTests.Api.TenancyApi';
 const codeGenerationFilter =
   'FullyQualifiedName~Full.NET.IntegrationTests.Api.CodeGenerationApi'
   + '|FullyQualifiedName~Full.NET.IntegrationTests.CodeGeneration.';
 const importExportFilter =
-  'FullyQualifiedName~ImportExportApi|FullyQualifiedName~Full.NET.IntegrationTests.ImportExport.';
+  'FullyQualifiedName~ImportExportApi|FullyQualifiedName~ImportExportWorkerApi'
+  + '|FullyQualifiedName~Full.NET.IntegrationTests.ImportExport.';
 const aiFilter = 'FullyQualifiedName~Full.NET.IntegrationTests.Ai.';
 const reportingFilter = 'FullyQualifiedName~Full.NET.IntegrationTests.Reporting.';
+const printingFilter = 'FullyQualifiedName~Full.NET.IntegrationTests.Printing.';
 const filesFilter =
   'FullyQualifiedName~FilesApi|FullyQualifiedName~Full.NET.IntegrationTests.Files.';
 const notificationsFilter =
-  'FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.';
+  // 外部凭据专项与正式完整分片保持一致；本机受控 SMTP 用例仍属于默认模块验收。
+  '(FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.)'
+  + '&TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms';
 const outboxFilter =
   'FullyQualifiedName~Full.NET.IntegrationTests.Messaging.MessagingOutbox'
   + '|FullyQualifiedName~Full.NET.IntegrationTests.Messaging.OutboxRecoveryTests';
 const mergeDeferredShardNames = new Set(['messaging-heavy']);
 
 const focusedModules = new Set([
+  'EnterpriseRequest',
   'Ai',
   'Auditing',
   'Calendar',
@@ -56,6 +65,7 @@ const focusedModules = new Set([
   'Organization',
   'Regions',
   'Reporting',
+  'Printing',
   'SerialNumbers',
   'Settings',
   'Workflow'
@@ -150,7 +160,8 @@ function moduleFromIntegrationPath(filePath) {
     /^tests\/Full\.NET\.IntegrationTests\/Api\/([A-Za-z]+)Api(?:MySql|SqlServer)Tests\.cs$/
       .exec(filePath);
   if (apiMatch) {
-    return apiMatch[1];
+    // Worker 是导入模块的运行角色，不能被误判为未登记的新模块后回退到 Smoke。
+    return apiMatch[1] === 'ImportExportWorker' ? 'ImportExport' : apiMatch[1];
   }
 
   if (filePath.startsWith('tests/Full.NET.IntegrationTests/Api/')) {
@@ -202,6 +213,10 @@ function addTarget(targets, target) {
 }
 
 function addModuleTarget(targets, moduleName) {
+  if (moduleName === 'EnterpriseRequest') {
+    addTarget(targets, filterTarget(moduleName, testMatrix.integration.shards['enterprise-sample'].filter));
+    return;
+  }
   if (moduleName === 'DataApproval') {
     addTarget(targets, { kind: 'shard', name: 'smoke' });
     return;
@@ -228,6 +243,10 @@ function addModuleTarget(targets, moduleName) {
   }
   if (moduleName === 'Reporting') {
     addTarget(targets, filterTarget('Reporting', reportingFilter));
+    return;
+  }
+  if (moduleName === 'Printing') {
+    addTarget(targets, filterTarget('Printing', printingFilter));
     return;
   }
   if (moduleName === 'Files') {
@@ -369,10 +388,15 @@ function classifyIntegrationPath(filePath, targets) {
     filePath === 'tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj'
     || filePath === 'tests/Full.NET.IntegrationTests/MSTestSettings.cs'
     || filePath === 'tests/Full.NET.IntegrationTests/SharedDatabaseFixture.cs'
+    || filePath === 'tests/Full.NET.IntegrationTests/OwnedTestDatabases.cs'
     || filePath === 'tests/Full.NET.IntegrationTests/ApiSchemaTemplate.cs'
     || filePath === 'tests/Full.NET.IntegrationTests/Api/FullNetApiFactory.cs'
   ) {
     addTarget(targets, { kind: 'shard', name: 'smoke' });
+    if (['SharedDatabaseFixture.cs', 'OwnedTestDatabases.cs', 'ApiSchemaTemplate.cs']
+      .some(name => filePath === `tests/Full.NET.IntegrationTests/${name}`)) {
+      addTarget(targets, { kind: 'shard', name: 'migrations' });
+    }
     return 'Integration 共享夹具';
   }
 
@@ -465,6 +489,9 @@ function classifyIntegrationPath(filePath, targets) {
   ) {
     if (moduleName === 'CodeGeneration') {
       addModuleTarget(targets, moduleName);
+    } else if (moduleName === 'Data') {
+      // 使用目录对应的完整命名空间，避免 metadata 等方法名误选 Native 进程用例。
+      addTarget(targets, filterTarget('Data', 'FullyQualifiedName~Full.NET.IntegrationTests.Data.'));
     } else {
       addTarget(
         targets,
@@ -486,6 +513,13 @@ export function classifyChangedPaths(paths) {
 
   for (const filePath of normalizedPaths) {
     if (isLocalNoise(filePath)) {
+      continue;
+    }
+
+    // 样例是生成应用的真实消费者，目录不在 src/Modules 下仍必须验证业务影响。
+    if (/^samples\/enterprise-request\/(?:src\/|schema\.json$|integration-target\.json$)/u.test(filePath)) {
+      addModuleTarget(targets, 'EnterpriseRequest');
+      reasons.push(`Enterprise 业务样例：${filePath}`);
       continue;
     }
 
@@ -690,7 +724,8 @@ export function estimateSelectionSeconds(targets) {
 export function targetsForExecutionGroup(targets, group = 'all') {
   const isMigration = target => target.name === 'migrations' || /^migration-\d+$/.test(target.name);
   if (group === 'all') return targets;
-  if (group === 'modules') return targets.filter(target => !isMigration(target));
+  // 普通模块 CI 没有原生产物；Native 由 API/Worker 专用发布工作流验收，不能混入后以跳过冒充通过。
+  if (group === 'modules') return targets.filter(target => !isMigration(target) && target.name !== 'native-aot');
   if (group !== 'migrations-legacy' && group !== 'migrations-current') {
     throw new Error(`未知执行分组：${group}`);
   }
@@ -761,6 +796,8 @@ export function parseArguments(args) {
   let planOnly = false;
   let includeHeavy = false;
   let executionGroup = 'all';
+  let reuseBuild = false;
+  let noBuild = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -772,6 +809,8 @@ export function parseArguments(args) {
       planOnly = true;
       continue;
     }
+    if (argument === '--reuse-build') { reuseBuild = true; continue; }
+    if (argument === '--no-build') { noBuild = true; continue; }
     if (argument === '--include-heavy') {
       includeHeavy = true;
       continue;
@@ -824,7 +863,8 @@ export function parseArguments(args) {
   }
 
   targetsForExecutionGroup([], executionGroup);
-  return { baseRef, phase, planOnly, snapshotId, includeHeavy, executionGroup };
+  if (reuseBuild && noBuild) throw new Error('--reuse-build 与 --no-build 不能同时使用。');
+  return { baseRef, phase, planOnly, snapshotId, includeHeavy, executionGroup, reuseBuild, noBuild };
 }
 
 function lines(value) {
@@ -1074,10 +1114,11 @@ export function argumentsForFocused(target, discoveredCount) {
   ];
 }
 
-function runProcess(command, args, cwd) {
+function runProcess(command, args, cwd, env = testRunEnvironment()) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
+      env,
       stdio: 'inherit',
       shell: false
     });
@@ -1111,6 +1152,7 @@ async function discover(filter, cwd) {
     ],
     {
       cwd,
+      env: testRunEnvironment(),
       encoding: 'utf8',
       maxBuffer: 20 * 1024 * 1024
     }
@@ -1182,7 +1224,9 @@ async function runCli(args, cwd = process.cwd()) {
     planOnly,
     snapshotId,
     includeHeavy,
-    executionGroup
+    executionGroup,
+    reuseBuild,
+    noBuild
   } = parseArguments(args);
   const paths = await collectChangedPaths({ baseRef, snapshotId, cwd });
   if (paths.length === 0) {
@@ -1208,6 +1252,7 @@ async function runCli(args, cwd = process.cwd()) {
     return;
   }
 
+  return withTestRun({ cwd, heavy: executionTargets.some(target => target.kind !== 'tooling') }, async () => {
   const toolingTargets = executionTargets.filter(
     target => target.kind === 'tooling'
   );
@@ -1225,18 +1270,20 @@ async function runCli(args, cwd = process.cwd()) {
     return;
   }
 
-  await runProcess(
-    'dotnet',
-    [
+  const buildArgs = [
       'build',
       'tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj',
       '--configuration',
       'Release',
       '--no-restore',
       '--nologo'
-    ],
-    cwd
-  );
+    ];
+  const buildResult = await prepareTestBuild({
+    cwd, project: buildArgs[1], assembly, args: buildArgs,
+    mode: noBuild ? 'verify' : reuseBuild ? 'reuse' : 'fresh',
+    build: env => runProcess('dotnet', buildArgs, cwd, env)
+  });
+  process.stdout.write(buildResult.reused ? '构建输入和产物一致，复用 Integration Release。\n' : '已登记 Integration Release 构建。\n');
 
   if (toolingScopes.includes('partitions')) {
     await runMatrixVerification(cwd);
@@ -1291,6 +1338,7 @@ async function runCli(args, cwd = process.cwd()) {
       cwd
     );
   }
+  });
 }
 
 if (

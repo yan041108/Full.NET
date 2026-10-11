@@ -1,8 +1,16 @@
 using Full.NET.Modularity.Modules;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Printing.Contracts;
+using Full.NET.Modules.EnterpriseRequest.Features.Printing;
 using Full.NET.Modules.EnterpriseRequest.Features.ImportExport;
 using Full.NET.Modules.EnterpriseRequest.Features.SubmitForApproval;
 using Full.NET.Modules.EnterpriseRequest.Features.WorkflowOutcomes;
+using Full.NET.Modules.EnterpriseRequest.Features.ApprovalProgress;
+using Full.NET.Modules.EnterpriseRequest.Features.ManageLines;
+using Full.NET.Modules.EnterpriseRequest.Features.ManageAttachments;
+using Full.NET.Modules.EnterpriseRequest.Features.RepairApproval;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
 using Microsoft.AspNetCore.Routing;
@@ -18,7 +26,7 @@ public sealed class EnterpriseRequestModule : IFullNetModule
     public string Name => "EnterpriseRequest";
 
     public IReadOnlyCollection<string> Dependencies =>
-        ["Identity", "Tenancy", "Organization", "Files", "Workflow", "ImportExport"];
+        ["Identity", "Tenancy", "Organization", "Files", "Workflow", "Notifications", "ImportExport", "Printing"];
 
     public IReadOnlyCollection<string> OptionalContractDependencies => [];
 
@@ -27,7 +35,26 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             EnterpriseRequestAuthorizationContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IPrintingFormSchemaContributor, EnterpriseRequestPrintingSchemaContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IPrintingRecordBindingSource, EnterpriseRequestPrintingBindingSource>());
         services.TryAddScoped<SubmitEnterpriseRequestForApprovalService>();
+        services.TryAddScoped<EnterpriseRequestApprovalProgressService>();
+        services.TryAddScoped<EnterpriseRequestNotificationProgressReader>();
+        services.TryAddScoped<EnterpriseRequestApprovalRepairService>();
+        services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, EnterpriseRequestApprovalRepairJsonContext.Default));
+        services.TryAddScoped<EnterpriseRequestLineService>();
+        services.TryAddScoped<EnterpriseRequestAttachmentService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner, EnterpriseRequestResourceFileOwner>());
+        services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, EnterpriseRequestAttachmentsJsonContext.Default));
+        services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, EnterpriseRequestLinesJsonContext.Default));
+        services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, EnterpriseRequestApprovalProgressJsonContext.Default));
+        services.TryAddScoped<EnterpriseRequestImportService>();
+#if FULLNET_AOT_COMPILE
+        Persistence.EnterpriseRequestImportAotMaterializer.Register();
+        Persistence.EnterpriseRequestApprovalAotMaterializer.Register();
+        Persistence.EnterpriseRequestLineAotMaterializer.Register();
+        Persistence.EnterpriseRequestAttachmentAotMaterializer.Register();
+#endif
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IStaticImportSchemaHandler,
             EnterpriseRequestStaticImportSchemaHandler>());
@@ -36,7 +63,20 @@ public sealed class EnterpriseRequestModule : IFullNetModule
 
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationCatalogContributor, EnterpriseRequestAuthorizationContributor>());
+        // 仅复用生成的业务服务注册，不映射 HTTP 端点；后台使用相同领域授权与事务边界。
+        services.AddFullNetGeneratedModuleFeatures();
+        services.TryAddScoped<EnterpriseRequestImportService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner, EnterpriseRequestResourceFileOwner>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IStaticImportSchemaHandler, EnterpriseRequestStaticImportSchemaHandler>());
+#if FULLNET_AOT_COMPILE
+        Persistence.EnterpriseRequestImportAotMaterializer.Register();
+        Persistence.EnterpriseRequestApprovalAotMaterializer.Register();
+        Persistence.EnterpriseRequestLineAotMaterializer.Register();
+        Persistence.EnterpriseRequestAttachmentAotMaterializer.Register();
+#endif
         services.TryAddScoped<EnterpriseRequestWorkflowOutcomeService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, EnterpriseRequestApprovalSubmittedHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IWorkflowInstanceCompletedSink,
             WorkflowInstanceCompletedEnterpriseRequestSink>());
@@ -52,5 +92,9 @@ public sealed class EnterpriseRequestModule : IFullNetModule
     {
         endpoints.MapFullNetGeneratedModuleFeatures();
         SubmitForApprovalEndpoint.Map(endpoints);
+        ApprovalProgressEndpoint.Map(endpoints);
+        EnterpriseRequestApprovalRepairEndpoint.Map(endpoints);
+        EnterpriseRequestLinesEndpoint.Map(endpoints);
+        EnterpriseRequestAttachmentsEndpoint.Map(endpoints);
     }
 }

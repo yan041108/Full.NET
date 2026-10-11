@@ -49,6 +49,10 @@ export async function createDocumentPreviewTask(
   if (!isHostDocumentPreviewTaskResponse(value)) {
     throw new Error('client.invalid_document_preview_task');
   }
+  // 当前文件用null表示；显式历史版本必须与创建请求相同，UUID文本大小写不改变身份。
+  if (value.documentItemId.toLowerCase() !== req.documentItemId.toLowerCase()
+    || (value.versionId?.toLowerCase() ?? null) !== (req.versionId?.toLowerCase() ?? null))
+    throw new Error('client.invalid_document_preview_task_identity');
   return value;
 }
 
@@ -61,6 +65,7 @@ export async function getDocumentPreviewTask(
   if (!isHostDocumentPreviewTaskResponse(value)) {
     throw new Error('client.invalid_document_preview_task');
   }
+  if (value.id.toLowerCase() !== taskId.toLowerCase()) throw new Error('client.invalid_document_preview_task_identity');
   return value;
 }
 
@@ -70,6 +75,8 @@ export async function openDocumentPreviewTaskContent(
   signal?: AbortSignal
 ): Promise<void> {
   const blob = await documentHostDownloadDocumentPreviewTaskContent(http, { taskId }, signal);
+  // 下载器或 Blob 读取即使已经完成，撤权/页面离开也不能继续打开敏感内容。
+  signal?.throwIfAborted();
   openDocumentBlob(blob);
 }
 

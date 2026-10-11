@@ -24,6 +24,7 @@ describe('Vue API Key 管理页', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const session = useSessionStore();
+    session.state = 'authenticated';
     session.currentUser = {
       id: userId,
       username: 'admin',

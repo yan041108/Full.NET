@@ -55,7 +55,7 @@ test('API：固定表单 Schema、模板列表与预览契约（清单 71）', a
     clientKind,
     randomUUID()
   );
-  expect(previewMissing.status()).toBe(404);
+  expect(previewMissing.status()).toBe(403);
 });
 
 test('UI：打印预览页入口（清单 71）', async ({ page }, testInfo) => {
@@ -64,10 +64,13 @@ test('UI：打印预览页入口（清单 71）', async ({ page }, testInfo) => 
   test.setTimeout(90_000);
 
   await loginAsHostAdmin(page);
-  await enterDevelopmentTenant(page);
   await clickMainNavLink(page, /打印预览/);
 
   await expect(page.getByTestId('printing-preview-run')).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId('printing-preview-create')).toBeVisible();
   await expect(page.getByText('403', { exact: true })).toHaveCount(0);
+  await enterDevelopmentTenant(page);
+  await clickMainNavLink(page, /已授权打印/);
+  await expect(page.getByTestId('printing-published-refresh')).toBeVisible();
+  await expect(page.getByTestId('printing-preview-create')).toHaveCount(0);
 });

@@ -201,6 +201,7 @@ internal static class ImportExportTaskSql
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'executing'
           AND LeaseId = @LeaseId
+          AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -217,6 +218,7 @@ internal static class ImportExportTaskSql
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'executing'
           AND LeaseId = @LeaseId
+          AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

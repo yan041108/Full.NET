@@ -179,6 +179,15 @@ import type {
   DictItemResponse,
   DictTypeResponse,
   DisableHostJobDefinitionRequest,
+  EnterpriseRequestApprovalDeliveryState,
+  EnterpriseRequestApprovalProgressResponse,
+  EnterpriseRequestAttachmentMutationResponse,
+  EnterpriseRequestAttachmentRemovedResponse,
+  EnterpriseRequestAttachmentResponse,
+  EnterpriseRequestAttachmentsResponse,
+  EnterpriseRequestLineInput,
+  EnterpriseRequestLineResponse,
+  EnterpriseRequestLinesResponse,
   EnterpriseRequestResponse,
   EnumCatalogDetail,
   EnumCatalogDictGenerationItemPreview,
@@ -301,6 +310,7 @@ import type {
   NotificationDeliveryAttemptResponse,
   NotificationDeliveryReceiptResponse,
   NotificationDeliveryResponse,
+  NotificationIntentDeliverySnapshot,
   NotificationProviderConfigField,
   NotificationProviderProfileResponse,
   NotificationProviderTypeDescriptor,
@@ -336,6 +346,7 @@ import type {
   PagedResultOfDictTypeResponse,
   PagedResultOfEnterpriseRequestResponse,
   PagedResultOfExceptionLogResponse,
+  PagedResultOfGuid,
   PagedResultOfHostAnnouncementReadReceiptResponse,
   PagedResultOfHostAnnouncementResponse,
   PagedResultOfHostApiKeyResponse,
@@ -397,6 +408,7 @@ import type {
   PreviewWorkflowAssigneeRequest,
   PrintingFormFieldDefinition,
   PrintingFormSchemaDefinition,
+  PrintingPublishedTemplateResponse,
   PrintingTemplatePreviewResponse,
   PrintingTemplateResponse,
   PrintingTemplateVersionResponse,
@@ -418,6 +430,9 @@ import type {
   RecipientEndpointResponse,
   ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
+  RemoveEnterpriseRequestAttachmentRequest,
+  RepairEnterpriseRequestApprovalRequest,
+  ReplaceEnterpriseRequestLinesRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRoleMembersRequest,
   ReplaceHostRolePermissionsRequest,
@@ -434,6 +449,7 @@ import type {
   ReportingExportTaskResponse,
   ReportingGroupResponse,
   ReportingParameterSchemaEntry,
+  ReportingPublishedDefinitionResponse,
   ReportingQueryPortDefinition,
   ReportingQueryPortParameterDefinition,
   ResetHostUserPasswordRequest,
@@ -642,6 +658,11 @@ import {
   readDocumentHostListTagsResponse,
   readDocumentHostPurgeRecycleBinItemResponse,
   readDocumentHostSetDocumentPermissionsResponse,
+  readEnterpriseRequestApprovalProgressResponse,
+  readEnterpriseRequestAttachmentMutationResponse,
+  readEnterpriseRequestAttachmentRemovedResponse,
+  readEnterpriseRequestAttachmentsResponse,
+  readEnterpriseRequestLinesResponse,
   readEnterpriseRequestResponse,
   readEnumCatalogDetail,
   readEnumCatalogDictGenerationPreview,
@@ -744,6 +765,7 @@ import {
   readPagedResultOfDictTypeResponse,
   readPagedResultOfEnterpriseRequestResponse,
   readPagedResultOfExceptionLogResponse,
+  readPagedResultOfGuid,
   readPagedResultOfHostAnnouncementReadReceiptResponse,
   readPagedResultOfHostAnnouncementResponse,
   readPagedResultOfHostApiKeyResponse,
@@ -796,9 +818,12 @@ import {
   readPaymentRefundResponse,
   readPersonalScheduleResponse,
   readPrintingFormSchemaDefinition,
+  readPrintingGrantTenantVersionResponse,
   readPrintingListFormSchemasResponse,
+  readPrintingListPublishedTemplatesResponse,
   readPrintingListTemplatesResponse,
   readPrintingListTemplateVersionsResponse,
+  readPrintingRevokeTenantVersionResponse,
   readPrintingTemplatePreviewResponse,
   readPrintingTemplateResponse,
   readPrintingTemplateVersionResponse,
@@ -814,12 +839,15 @@ import {
   readReportingDeleteGroupResponse,
   readReportingExecutionPageResponse,
   readReportingExportTaskDetailResponse,
+  readReportingGrantTenantVersionResponse,
   readReportingGroupResponse,
   readReportingListDefinitionsResponse,
   readReportingListDefinitionVersionsResponse,
   readReportingListGroupsResponse,
+  readReportingListPublishedDefinitionsResponse,
   readReportingListQueryPortsResponse,
   readReportingQueryPortDefinition,
+  readReportingRevokeTenantVersionResponse,
   readRevealHostUserProfileFieldsResponse,
   readRevokeAllHostUserSessionsResponse,
   readSelfServiceProfileResponse,
@@ -881,6 +909,15 @@ export type GeneratedJsonOperation<T> = (
   options?: RequestOptions
 ) => Promise<T>;
 
+function requestJsonOperation(
+  http: HttpClient, path: string, init: RequestInit,
+  signal?: AbortSignal, options?: RequestOptions
+): Promise<unknown> {
+  return options === undefined
+    ? http.request<unknown>(path, init, signal)
+    : http.request<unknown>(path, init, signal, options);
+}
+
 export interface AiApproveMcpRemoteToolParameters {
   readonly connectionId: string;
   readonly body: ApproveAiMcpRemoteToolRequest;
@@ -898,9 +935,7 @@ export async function aiApproveMcpRemoteTool(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiMcpRemoteToolApprovalItem(value);
 }
 
@@ -916,9 +951,7 @@ export async function aiCancelAgentRun(
 ): Promise<boolean> {
   const path = `/api/v1/ai/agent/runs/${encodeURIComponent(String(parameters.runId))}/cancel`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiCancelAgentRunResponse(value);
 }
 
@@ -934,9 +967,7 @@ export async function aiCancelChatGeneration(
 ): Promise<boolean> {
   const path = `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}/cancel`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiCancelChatGenerationResponse(value);
 }
 
@@ -956,9 +987,7 @@ export async function aiCreateAgentApproval(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCreateAiAgentApprovalResponse(value);
 }
 
@@ -978,9 +1007,7 @@ export async function aiCreateAgentDelegation(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCreateAiAgentDelegationResponse(value);
 }
 
@@ -1000,9 +1027,7 @@ export async function aiCreateAgentRun(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCreateAiAgentRunResponse(value);
 }
 
@@ -1022,9 +1047,7 @@ export async function aiCreateChatSession(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiChatSessionResponse(value);
 }
 
@@ -1044,9 +1067,7 @@ export async function aiCreateMcpRemoteConnection(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiMcpRemoteConnectionResponse(value);
 }
 
@@ -1066,9 +1087,7 @@ export async function aiCreateModelConfig(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiModelConfigResponse(value);
 }
 
@@ -1089,9 +1108,7 @@ export async function aiDecideAgentApproval(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiAgentApprovalResponse(value);
 }
 
@@ -1107,9 +1124,7 @@ export async function aiDeleteChatSession(
 ): Promise<boolean> {
   const path = `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}`;
   const init: RequestInit = { method: 'DELETE' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiDeleteChatSessionResponse(value);
 }
 
@@ -1125,9 +1140,7 @@ export async function aiDisableModelConfig(
 ): Promise<AiModelConfigResponse> {
   const path = `/api/v1/ai/model-configs/${encodeURIComponent(String(parameters.modelConfigId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiModelConfigResponse(value);
 }
 
@@ -1143,9 +1156,7 @@ export async function aiDiscoverMcpRemoteTools(
 ): Promise<Array<AiMcpRemoteDiscoveredToolItem>> {
   const path = `/api/v1/ai/mcp/remote-connections/${encodeURIComponent(String(parameters.connectionId))}/discover-tools`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiDiscoverMcpRemoteToolsResponse(value);
 }
 
@@ -1161,9 +1172,7 @@ export async function aiGetAgentApproval(
 ): Promise<AiAgentApprovalResponse> {
   const path = `/api/v1/ai/agent/approvals/${encodeURIComponent(String(parameters.approvalId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiAgentApprovalResponse(value);
 }
 
@@ -1179,9 +1188,7 @@ export async function aiGetAgentRun(
 ): Promise<AiAgentRunResponse> {
   const path = `/api/v1/ai/agent/runs/${encodeURIComponent(String(parameters.runId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiAgentRunResponse(value);
 }
 
@@ -1197,9 +1204,7 @@ export async function aiGetAgentTool(
 ): Promise<AiAgentToolCatalogItem> {
   const path = `/api/v1/ai/agent-tools/${encodeURIComponent(String(parameters.toolName))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiAgentToolCatalogItem(value);
 }
 
@@ -1215,9 +1220,7 @@ export async function aiGetChatSession(
 ): Promise<AiChatSessionResponse> {
   const path = `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiChatSessionResponse(value);
 }
 
@@ -1233,9 +1236,7 @@ export async function aiGetMcpRemoteConnection(
 ): Promise<AiMcpRemoteConnectionResponse> {
   const path = `/api/v1/ai/mcp/remote-connections/${encodeURIComponent(String(parameters.connectionId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiMcpRemoteConnectionResponse(value);
 }
 
@@ -1251,9 +1252,7 @@ export async function aiGetModelConfig(
 ): Promise<AiModelConfigResponse> {
   const path = `/api/v1/ai/model-configs/${encodeURIComponent(String(parameters.modelConfigId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiModelConfigResponse(value);
 }
 
@@ -1269,9 +1268,7 @@ export async function aiGetTenantQuota(
 ): Promise<AiTenantQuotaResponse> {
   const path = `/api/v1/ai/tenant-quotas/${encodeURIComponent(String(parameters.tenantId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiTenantQuotaResponse(value);
 }
 
@@ -1287,9 +1284,7 @@ export async function aiListAgentDelegations(
 ): Promise<Array<AiAgentDelegationResponse>> {
   const path = `/api/v1/ai/agent/delegations`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiListAgentDelegationsResponse(value);
 }
 
@@ -1325,9 +1320,7 @@ export async function aiListAgentToolCalls(
   }
   const path = query.size === 0 ? `/api/v1/ai/agent-tool-calls` : `/api/v1/ai/agent-tool-calls?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfAiAgentToolCallListItem(value);
 }
 
@@ -1343,9 +1336,7 @@ export async function aiListAgentTools(
 ): Promise<Array<AiAgentToolCatalogItem>> {
   const path = `/api/v1/ai/agent-tools`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiListAgentToolsResponse(value);
 }
 
@@ -1369,9 +1360,7 @@ export async function aiListChatSessions(
   }
   const path = query.size === 0 ? `/api/v1/ai/chat/sessions` : `/api/v1/ai/chat/sessions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfAiChatSessionListItem(value);
 }
 
@@ -1387,9 +1376,7 @@ export async function aiListMcpRemoteConnections(
 ): Promise<Array<AiMcpRemoteConnectionListItem>> {
   const path = `/api/v1/ai/mcp/remote-connections`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiListMcpRemoteConnectionsResponse(value);
 }
 
@@ -1405,9 +1392,7 @@ export async function aiListMcpRemoteToolApprovals(
 ): Promise<Array<AiMcpRemoteToolApprovalItem>> {
   const path = `/api/v1/ai/mcp/remote-connections/${encodeURIComponent(String(parameters.connectionId))}/approvals`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiListMcpRemoteToolApprovalsResponse(value);
 }
 
@@ -1443,9 +1428,7 @@ export async function aiListModelConfigs(
   }
   const path = query.size === 0 ? `/api/v1/ai/model-configs` : `/api/v1/ai/model-configs?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfAiModelConfigListItem(value);
 }
 
@@ -1473,9 +1456,7 @@ export async function aiListTenantQuotas(
   }
   const path = query.size === 0 ? `/api/v1/ai/tenant-quotas` : `/api/v1/ai/tenant-quotas?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfAiTenantQuotaListItem(value);
 }
 
@@ -1491,9 +1472,7 @@ export async function aiResumeAgentRun(
 ): Promise<boolean> {
   const path = `/api/v1/ai/agent/runs/${encodeURIComponent(String(parameters.runId))}/resume`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiResumeAgentRunResponse(value);
 }
 
@@ -1514,9 +1493,7 @@ export async function aiRevokeAgentDelegation(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiAgentDelegationResponse(value);
 }
 
@@ -1532,9 +1509,7 @@ export async function aiTestModelConfig(
 ): Promise<TestAiModelConfigResult> {
   const path = `/api/v1/ai/model-configs/${encodeURIComponent(String(parameters.modelConfigId))}/test`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTestAiModelConfigResult(value);
 }
 
@@ -1555,9 +1530,7 @@ export async function aiTestModelEmbeddings(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTestAiModelEmbeddingResult(value);
 }
 
@@ -1578,9 +1551,7 @@ export async function aiUpdateChatSession(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiChatSessionResponse(value);
 }
 
@@ -1601,9 +1572,7 @@ export async function aiUpdateMcpRemoteConnection(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiMcpRemoteConnectionResponse(value);
 }
 
@@ -1624,9 +1593,7 @@ export async function aiUpdateModelConfig(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiModelConfigResponse(value);
 }
 
@@ -1647,9 +1614,7 @@ export async function aiUpsertTenantQuota(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAiTenantQuotaResponse(value);
 }
 
@@ -1665,9 +1630,7 @@ export async function auditingGetHostOperationLogDetails(
 ): Promise<OperationLogDetailsResponse> {
   const path = `/api/v1/auditing/operation-logs/${encodeURIComponent(String(parameters.operationLogId))}/details`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOperationLogDetailsResponse(value);
 }
 
@@ -1711,9 +1674,7 @@ export async function auditingListHostAccessLogs(
   }
   const path = query.size === 0 ? `/api/v1/auditing/access-logs` : `/api/v1/auditing/access-logs?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfAccessLogResponse(value);
 }
 
@@ -1757,9 +1718,7 @@ export async function auditingListHostAccessLogsByCursor(
   }
   const path = query.size === 0 ? `/api/v1/auditing/access-logs/cursor` : `/api/v1/auditing/access-logs/cursor?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAccessLogCursorPageResponse(value);
 }
 
@@ -1799,9 +1758,7 @@ export async function auditingListHostExceptionLogs(
   }
   const path = query.size === 0 ? `/api/v1/auditing/exception-logs` : `/api/v1/auditing/exception-logs?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfExceptionLogResponse(value);
 }
 
@@ -1845,9 +1802,7 @@ export async function auditingListHostOperationLogs(
   }
   const path = query.size === 0 ? `/api/v1/auditing/operation-logs` : `/api/v1/auditing/operation-logs?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfOperationLogResponse(value);
 }
 
@@ -1891,9 +1846,7 @@ export async function auditingListHostOutboundCallLogs(
   }
   const path = query.size === 0 ? `/api/v1/auditing/outbound-call-logs` : `/api/v1/auditing/outbound-call-logs?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfOutboundCallLogResponse(value);
 }
 
@@ -1913,9 +1866,7 @@ export async function calendarCreateMyPersonalSchedule(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPersonalScheduleResponse(value);
 }
 
@@ -1955,9 +1906,7 @@ export async function calendarGetMyPersonalSchedule(
 ): Promise<PersonalScheduleResponse> {
   const path = `/api/v1/calendar/my-personal-schedules/${encodeURIComponent(String(parameters.scheduleId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPersonalScheduleResponse(value);
 }
 
@@ -1993,9 +1942,7 @@ export async function calendarListMyPersonalSchedules(
   }
   const path = query.size === 0 ? `/api/v1/calendar/my-personal-schedules` : `/api/v1/calendar/my-personal-schedules?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfPersonalScheduleResponse(value);
 }
 
@@ -2016,9 +1963,7 @@ export async function calendarSetMyPersonalScheduleStatus(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPersonalScheduleResponse(value);
 }
 
@@ -2039,9 +1984,7 @@ export async function calendarUpdateMyPersonalSchedule(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPersonalScheduleResponse(value);
 }
 
@@ -2061,9 +2004,7 @@ export async function codeGenerationApplyRun(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationRunApplyResponse(value);
 }
 
@@ -2083,9 +2024,7 @@ export async function codeGenerationCreateTemplate(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationTemplateResponse(value);
 }
 
@@ -2149,9 +2088,7 @@ export async function codeGenerationGenerateCatalogMigrationDraft(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationCatalogMigrationDraftResponse(value);
 }
 
@@ -2167,9 +2104,7 @@ export async function codeGenerationGetCatalogMetadata(
 ): Promise<CodeGenerationCatalogMetadataResponse> {
   const path = `/api/v1/code-generation/catalog/objects/${encodeURIComponent(String(parameters.objectName))}/metadata`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationCatalogMetadataResponse(value);
 }
 
@@ -2185,9 +2120,7 @@ export async function codeGenerationGetTemplate(
 ): Promise<CodeGenerationTemplateResponse> {
   const path = `/api/v1/code-generation/templates/${encodeURIComponent(String(parameters.templateId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationTemplateResponse(value);
 }
 
@@ -2203,9 +2136,7 @@ export async function codeGenerationListCatalogColumns(
 ): Promise<CodeGenerationCatalogColumnListResponse> {
   const path = `/api/v1/code-generation/catalog/tables/${encodeURIComponent(String(parameters.tableName))}/columns`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationCatalogColumnListResponse(value);
 }
 
@@ -2221,9 +2152,7 @@ export async function codeGenerationListCatalogObjects(
 ): Promise<Array<CodeGenerationCatalogObjectResponse>> {
   const path = `/api/v1/code-generation/catalog/objects`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationListCatalogObjectsResponse(value);
 }
 
@@ -2239,9 +2168,7 @@ export async function codeGenerationListCatalogTables(
 ): Promise<Array<CodeGenerationCatalogTableResponse>> {
   const path = `/api/v1/code-generation/catalog/tables`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationListCatalogTablesResponse(value);
 }
 
@@ -2257,9 +2184,7 @@ export async function codeGenerationListCatalogViews(
 ): Promise<Array<CodeGenerationCatalogObjectResponse>> {
   const path = `/api/v1/code-generation/catalog/views`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationListCatalogViewsResponse(value);
 }
 
@@ -2287,9 +2212,7 @@ export async function codeGenerationListRuns(
   }
   const path = query.size === 0 ? `/api/v1/code-generation/runs` : `/api/v1/code-generation/runs?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfCodeGenerationRunResponse(value);
 }
 
@@ -2321,9 +2244,7 @@ export async function codeGenerationListTemplates(
   }
   const path = query.size === 0 ? `/api/v1/code-generation/templates` : `/api/v1/code-generation/templates?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfCodeGenerationTemplateResponse(value);
 }
 
@@ -2343,9 +2264,7 @@ export async function codeGenerationPreviewCrud(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationPreviewResponse(value);
 }
 
@@ -2365,9 +2284,7 @@ export async function codeGenerationPreviewRun(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationRunPreviewResponse(value);
 }
 
@@ -2387,9 +2304,7 @@ export async function codeGenerationRollbackRun(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationRunRollbackResponse(value);
 }
 
@@ -2409,9 +2324,7 @@ export async function codeGenerationRollbackRunChain(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationRunRollbackChainResponse(value);
 }
 
@@ -2431,9 +2344,7 @@ export async function codeGenerationSyncCatalogColumns(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationCatalogColumnSyncResponse(value);
 }
 
@@ -2454,9 +2365,7 @@ export async function codeGenerationUpdateTemplate(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCodeGenerationTemplateResponse(value);
 }
 
@@ -2477,9 +2386,7 @@ export async function dataApprovalsCancelRequest(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDataApprovalRequestResponse(value);
 }
 
@@ -2499,9 +2406,7 @@ export async function dataApprovalsCreateRequest(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDataApprovalRequestResponse(value);
 }
 
@@ -2517,9 +2422,7 @@ export async function dataApprovalsGetRequest(
 ): Promise<DataApprovalRequestResponse> {
   const path = `/api/v1/data-approvals/requests/${encodeURIComponent(String(parameters.requestId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDataApprovalRequestResponse(value);
 }
 
@@ -2535,9 +2438,7 @@ export async function dataApprovalsGetScenario(
 ): Promise<DataApprovalScenarioResponse> {
   const path = `/api/v1/data-approvals/scenarios/${encodeURIComponent(String(parameters.scenarioKey))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDataApprovalScenarioResponse(value);
 }
 
@@ -2569,9 +2470,7 @@ export async function dataApprovalsListRequests(
   }
   const path = query.size === 0 ? `/api/v1/data-approvals/requests` : `/api/v1/data-approvals/requests?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfDataApprovalRequestResponse(value);
 }
 
@@ -2587,9 +2486,7 @@ export async function dataApprovalsListScenarios(
 ): Promise<Array<DataApprovalScenarioResponse>> {
   const path = `/api/v1/data-approvals/scenarios`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDataApprovalsListScenariosResponse(value);
 }
 
@@ -2610,9 +2507,7 @@ export async function dataApprovalsRetryApplyRequest(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDataApprovalRequestResponse(value);
 }
 
@@ -2633,9 +2528,7 @@ export async function dataApprovalsRetryRequest(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDataApprovalRequestResponse(value);
 }
 
@@ -2656,9 +2549,7 @@ export async function dataApprovalsUpdateScenarioBinding(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDataApprovalScenarioResponse(value);
 }
 
@@ -2679,9 +2570,7 @@ export async function documentHostAddItemVersion(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentItemResponse(value);
 }
 
@@ -2701,9 +2590,7 @@ export async function documentHostBatchCreateDocumentShares(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readBatchCreateHostDocumentSharesResponse(value);
 }
 
@@ -2723,9 +2610,7 @@ export async function documentHostCreateCategory(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentCategoryResponse(value);
 }
 
@@ -2745,9 +2630,7 @@ export async function documentHostCreateDocumentPreviewTask(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentPreviewTaskResponse(value);
 }
 
@@ -2767,9 +2650,7 @@ export async function documentHostCreateDocumentShare(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentShareResponse(value);
 }
 
@@ -2789,9 +2670,7 @@ export async function documentHostCreateItem(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentItemResponse(value);
 }
 
@@ -2811,9 +2690,7 @@ export async function documentHostCreateTag(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentTagResponse(value);
 }
 
@@ -2834,9 +2711,7 @@ export async function documentHostDeleteCategory(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDocumentHostDeleteCategoryResponse(value);
 }
 
@@ -2857,9 +2732,7 @@ export async function documentHostDeleteItem(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDocumentHostDeleteItemResponse(value);
 }
 
@@ -2881,9 +2754,7 @@ export async function documentHostDeleteItemVersion(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentItemResponse(value);
 }
 
@@ -2904,9 +2775,7 @@ export async function documentHostDeleteTag(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDocumentHostDeleteTagResponse(value);
 }
 
@@ -2962,9 +2831,7 @@ export async function documentHostGetDocumentPreviewTask(
 ): Promise<HostDocumentPreviewTaskResponse> {
   const path = `/api/v1/document/host/preview-tasks/${encodeURIComponent(String(parameters.taskId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentPreviewTaskResponse(value);
 }
 
@@ -2980,9 +2847,7 @@ export async function documentHostGetDocumentStatistics(
 ): Promise<HostDocumentStatisticsResponse> {
   const path = `/api/v1/document/host/statistics`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentStatisticsResponse(value);
 }
 
@@ -2998,9 +2863,7 @@ export async function documentHostGetVersionRetentionSettings(
 ): Promise<HostDocumentVersionRetentionSettingsResponse> {
   const path = `/api/v1/document/host/version-retention`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentVersionRetentionSettingsResponse(value);
 }
 
@@ -3016,9 +2879,7 @@ export async function documentHostListCategories(
 ): Promise<Array<HostDocumentCategoryResponse>> {
   const path = `/api/v1/document/host/categories`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDocumentHostListCategoriesResponse(value);
 }
 
@@ -3054,9 +2915,7 @@ export async function documentHostListDocumentAccessLogs(
   }
   const path = query.size === 0 ? `/api/v1/document/host/access-logs` : `/api/v1/document/host/access-logs?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostDocumentAccessLogResponse(value);
 }
 
@@ -3072,9 +2931,7 @@ export async function documentHostListDocumentPermissions(
 ): Promise<Array<HostDocumentPermissionResponse>> {
   const path = `/api/v1/document/host/permissions/by-document/${encodeURIComponent(String(parameters.documentId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDocumentHostListDocumentPermissionsResponse(value);
 }
 
@@ -3102,9 +2959,7 @@ export async function documentHostListDocumentPreviewTasks(
   }
   const path = query.size === 0 ? `/api/v1/document/host/preview-tasks` : `/api/v1/document/host/preview-tasks?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostDocumentPreviewTaskResponse(value);
 }
 
@@ -3164,9 +3019,7 @@ export async function documentHostListDocumentShares(
   }
   const path = query.size === 0 ? `/api/v1/document/host/shares` : `/api/v1/document/host/shares?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostDocumentShareResponse(value);
 }
 
@@ -3194,9 +3047,7 @@ export async function documentHostListItems(
   }
   const path = query.size === 0 ? `/api/v1/document/host/items` : `/api/v1/document/host/items?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostDocumentItemResponse(value);
 }
 
@@ -3212,9 +3063,7 @@ export async function documentHostListItemVersions(
 ): Promise<Array<HostDocumentVersionResponse>> {
   const path = `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/versions`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDocumentHostListItemVersionsResponse(value);
 }
 
@@ -3238,9 +3087,7 @@ export async function documentHostListRecycleBinItems(
   }
   const path = query.size === 0 ? `/api/v1/document/host/recycle-bin` : `/api/v1/document/host/recycle-bin?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostDocumentItemResponse(value);
 }
 
@@ -3264,9 +3111,7 @@ export async function documentHostListTags(
   }
   const path = query.size === 0 ? `/api/v1/document/host/tags` : `/api/v1/document/host/tags?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDocumentHostListTagsResponse(value);
 }
 
@@ -3323,9 +3168,7 @@ export async function documentHostPurgeRecycleBinItem(
 ): Promise<boolean> {
   const path = `/api/v1/document/host/recycle-bin/${encodeURIComponent(String(parameters.id))}/purge`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDocumentHostPurgeRecycleBinItemResponse(value);
 }
 
@@ -3346,9 +3189,7 @@ export async function documentHostRestoreItem(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentItemResponse(value);
 }
 
@@ -3369,9 +3210,7 @@ export async function documentHostRestoreRecycleBinItem(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentItemResponse(value);
 }
 
@@ -3393,9 +3232,7 @@ export async function documentHostRollbackItemVersion(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentItemResponse(value);
 }
 
@@ -3415,9 +3252,7 @@ export async function documentHostSetDocumentPermissions(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDocumentHostSetDocumentPermissionsResponse(value);
 }
 
@@ -3438,9 +3273,7 @@ export async function documentHostUpdateCategory(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentCategoryResponse(value);
 }
 
@@ -3461,9 +3294,7 @@ export async function documentHostUpdateDocumentShareStatus(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentShareResponse(value);
 }
 
@@ -3484,9 +3315,7 @@ export async function documentHostUpdateItem(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentItemResponse(value);
 }
 
@@ -3507,9 +3336,7 @@ export async function documentHostUpdateTag(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentTagResponse(value);
 }
 
@@ -3529,9 +3356,7 @@ export async function documentHostUpdateVersionRetentionSettings(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentVersionRetentionSettingsResponse(value);
 }
 
@@ -3552,9 +3377,7 @@ export async function documentHostUploadItemVersion(
     body.append('file', parameters.file);
   }
   const init: RequestInit = { method: 'POST', body };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentItemResponse(value);
 }
 
@@ -3575,9 +3398,7 @@ export async function documentPublicAccessDocumentShare(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentShareAccessResponse(value);
 }
 
@@ -3643,9 +3464,7 @@ export async function documentPublicCreateDocumentSharePreviewTask(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentPreviewTaskResponse(value);
 }
 
@@ -3667,9 +3486,7 @@ export async function documentPublicGetDocumentSharePreviewTask(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDocumentPreviewTaskResponse(value);
 }
 
@@ -3689,9 +3506,7 @@ export async function enterpriseRequestCreateEnterpriseRequest(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readEnterpriseRequestResponse(value);
 }
 
@@ -3712,10 +3527,45 @@ export async function enterpriseRequestDeleteEnterpriseRequest(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestDownloadAttachmentParameters {
+  readonly id: string;
+  readonly attachmentId: string;
+}
+
+export async function enterpriseRequestDownloadAttachment(
+  http: HttpClient,
+  parameters: EnterpriseRequestDownloadAttachmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/attachments/${encodeURIComponent(String(parameters.attachmentId))}/content`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
+export interface EnterpriseRequestGetApprovalProgressParameters {
+  readonly id: string;
+}
+
+export async function enterpriseRequestGetApprovalProgress(
+  http: HttpClient,
+  parameters: EnterpriseRequestGetApprovalProgressParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestApprovalProgressResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/approval-progress`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestApprovalProgressResponse(value);
 }
 
 export interface EnterpriseRequestGetEnterpriseRequestParameters {
@@ -3730,10 +3580,40 @@ export async function enterpriseRequestGetEnterpriseRequest(
 ): Promise<EnterpriseRequestResponse> {
   const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.enterpriseRequestId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestGetLinesParameters {
+  readonly id: string;
+}
+
+export async function enterpriseRequestGetLines(
+  http: HttpClient,
+  parameters: EnterpriseRequestGetLinesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestLinesResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/lines`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestLinesResponse(value);
+}
+
+export interface EnterpriseRequestListAttachmentsParameters {
+  readonly id: string;
+}
+
+export async function enterpriseRequestListAttachments(
+  http: HttpClient,
+  parameters: EnterpriseRequestListAttachmentsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestAttachmentsResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/attachments`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestAttachmentsResponse(value);
 }
 
 export interface EnterpriseRequestListEnterpriseRequestsParameters {
@@ -3756,10 +3636,75 @@ export async function enterpriseRequestListEnterpriseRequests(
   }
   const path = query.size === 0 ? `/api/v1/enterprise_request/enterprise-requests` : `/api/v1/enterprise_request/enterprise-requests?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestRemoveAttachmentParameters {
+  readonly id: string;
+  readonly attachmentId: string;
+  readonly body: RemoveEnterpriseRequestAttachmentRequest;
+}
+
+export async function enterpriseRequestRemoveAttachment(
+  http: HttpClient,
+  parameters: EnterpriseRequestRemoveAttachmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestAttachmentRemovedResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/attachments/${encodeURIComponent(String(parameters.attachmentId))}`;
+  const init: RequestInit = {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestAttachmentRemovedResponse(value);
+}
+
+export interface EnterpriseRequestRepairApprovalParameters {
+  readonly id: string;
+  readonly body: RepairEnterpriseRequestApprovalRequest;
+}
+
+export async function enterpriseRequestRepairApproval(
+  http: HttpClient,
+  parameters: EnterpriseRequestRepairApprovalParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<void> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/repair-approval`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
+}
+
+export interface EnterpriseRequestReplaceLinesParameters {
+  readonly id: string;
+  readonly body: ReplaceEnterpriseRequestLinesRequest;
+}
+
+export async function enterpriseRequestReplaceLines(
+  http: HttpClient,
+  parameters: EnterpriseRequestReplaceLinesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestLinesResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/lines`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestLinesResponse(value);
 }
 
 export interface EnterpriseRequestUpdateEnterpriseRequestParameters {
@@ -3779,10 +3724,29 @@ export async function enterpriseRequestUpdateEnterpriseRequest(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestUploadAttachmentParameters {
+  readonly id: string;
+  readonly file: IFormFile;
+  readonly version: number;
+}
+
+export async function enterpriseRequestUploadAttachment(
+  http: HttpClient,
+  parameters: EnterpriseRequestUploadAttachmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestAttachmentMutationResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/attachments`;
+  const body = new FormData();
+  body.append('file', parameters.file);
+  body.append('version', String(parameters.version));
+  const init: RequestInit = { method: 'POST', body };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestAttachmentMutationResponse(value);
 }
 
 export interface FilesBatchDeleteHostFilesParameters {
@@ -3801,9 +3765,7 @@ export async function filesBatchDeleteHostFiles(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readBatchDeleteHostFilesResponse(value);
 }
 
@@ -3828,9 +3790,7 @@ export async function filesBatchUploadHostFiles(
     body.append('files', file);
   }
   const init: RequestInit = { method: 'POST', body };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readBatchUploadHostFilesResponse(value);
 }
 
@@ -3850,9 +3810,7 @@ export async function filesCreateHostFolder(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostFolderResponse(value);
 }
 
@@ -3868,9 +3826,7 @@ export async function filesDeleteHostFile(
 ): Promise<HostFileResponse> {
   const path = `/api/v1/files/host-files/${encodeURIComponent(String(parameters.fileId))}/delete`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostFileResponse(value);
 }
 
@@ -3891,9 +3847,7 @@ export async function filesDeleteHostFolder(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostFolderResponse(value);
 }
 
@@ -3929,9 +3883,7 @@ export async function filesGetHostFile(
 ): Promise<HostFileResponse> {
   const path = `/api/v1/files/host-files/${encodeURIComponent(String(parameters.fileId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostFileResponse(value);
 }
 
@@ -3947,9 +3899,7 @@ export async function filesGetHostFolderTree(
 ): Promise<Array<HostFolderTreeNode>> {
   const path = `/api/v1/files/host-folders/tree`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readFilesGetHostFolderTreeResponse(value);
 }
 
@@ -3974,9 +3924,7 @@ export async function filesListHostFileReferences(
   }
   const path = query.size === 0 ? `/api/v1/files/host-files/${encodeURIComponent(String(parameters.fileId))}/references` : `/api/v1/files/host-files/${encodeURIComponent(String(parameters.fileId))}/references?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostFileReferenceClaimResponse(value);
 }
 
@@ -4008,9 +3956,7 @@ export async function filesListHostFiles(
   }
   const path = query.size === 0 ? `/api/v1/files/host-files` : `/api/v1/files/host-files?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostFileResponse(value);
 }
 
@@ -4051,9 +3997,7 @@ export async function filesUpdateHostFileMetadata(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostFileResponse(value);
 }
 
@@ -4074,9 +4018,7 @@ export async function filesUpdateHostFolder(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostFolderResponse(value);
 }
 
@@ -4101,9 +4043,7 @@ export async function filesUploadHostFile(
     body.append('file', parameters.file);
   }
   const init: RequestInit = { method: 'POST', body };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostFileResponse(value);
 }
 
@@ -4123,9 +4063,7 @@ export async function goviewCreateProject(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readGoViewProjectResponse(value);
 }
 
@@ -4141,9 +4079,7 @@ export async function goviewGetProject(
 ): Promise<GoViewProjectResponse> {
   const path = `/api/v1/goview/projects/${encodeURIComponent(String(parameters.projectId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readGoViewProjectResponse(value);
 }
 
@@ -4160,9 +4096,7 @@ export async function goviewGetProjectVersion(
 ): Promise<GoViewProjectVersionResponse> {
   const path = `/api/v1/goview/projects/${encodeURIComponent(String(parameters.projectId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readGoViewProjectVersionResponse(value);
 }
 
@@ -4182,9 +4116,7 @@ export async function goviewListProjects(
   }
   const path = query.size === 0 ? `/api/v1/goview/projects` : `/api/v1/goview/projects?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readGoviewListProjectsResponse(value);
 }
 
@@ -4200,9 +4132,7 @@ export async function goviewListProjectVersions(
 ): Promise<Array<GoViewProjectVersionResponse>> {
   const path = `/api/v1/goview/projects/${encodeURIComponent(String(parameters.projectId))}/versions`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readGoviewListProjectVersionsResponse(value);
 }
 
@@ -4223,9 +4153,7 @@ export async function goviewPreviewProject(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readGoViewProjectPreviewResponse(value);
 }
 
@@ -4246,9 +4174,7 @@ export async function goviewPublishProject(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readGoViewProjectVersionResponse(value);
 }
 
@@ -4269,9 +4195,7 @@ export async function goviewUpdateProject(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readGoViewProjectResponse(value);
 }
 
@@ -4291,9 +4215,7 @@ export async function identityBatchDisableHostUsers(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readBatchHostUserStatusResponse(value);
 }
 
@@ -4313,9 +4235,7 @@ export async function identityBatchEnableHostUsers(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readBatchHostUserStatusResponse(value);
 }
 
@@ -4331,9 +4251,7 @@ export async function identityBeginTotpEnrollment(
 ): Promise<BeginTotpEnrollmentResponse> {
   const path = `/api/v1/identity/me/mfa/totp/begin`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readBeginTotpEnrollmentResponse(value);
 }
 
@@ -4353,9 +4271,7 @@ export async function identityChangePassword(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTokenResponse(value);
 }
 
@@ -4375,9 +4291,7 @@ export async function identityConfirmTotpEnrollment(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTotpEnrollmentStatusResponse(value);
 }
 
@@ -4398,9 +4312,7 @@ export async function identityCopyHostRole(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -4420,9 +4332,7 @@ export async function identityCreateHostApiKey(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCreateHostApiKeyResponse(value);
 }
 
@@ -4442,9 +4352,7 @@ export async function identityCreateHostMenu(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -4464,9 +4372,7 @@ export async function identityCreateHostRole(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -4486,9 +4392,7 @@ export async function identityCreateHostUser(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -4523,9 +4427,7 @@ export async function identityDeleteSelfServiceAvatar(
 ): Promise<SelfServiceProfileResponse> {
   const path = `/api/v1/me/profile/avatar`;
   const init: RequestInit = { method: 'DELETE' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSelfServiceProfileResponse(value);
 }
 
@@ -4541,9 +4443,7 @@ export async function identityDeleteSelfServiceSignature(
 ): Promise<SelfServiceProfileResponse> {
   const path = `/api/v1/me/profile/signature`;
   const init: RequestInit = { method: 'DELETE' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSelfServiceProfileResponse(value);
 }
 
@@ -4559,9 +4459,7 @@ export async function identityDisableHostApiKey(
 ): Promise<HostApiKeyResponse> {
   const path = `/api/v1/identity/api-keys/${encodeURIComponent(String(parameters.apiKeyId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostApiKeyResponse(value);
 }
 
@@ -4577,9 +4475,7 @@ export async function identityDisableHostMenu(
 ): Promise<HostMenuResponse> {
   const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -4595,9 +4491,7 @@ export async function identityDisableHostRole(
 ): Promise<HostRoleResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -4613,9 +4507,7 @@ export async function identityDisableHostUser(
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -4651,9 +4543,7 @@ export async function identityEnableHostMenu(
 ): Promise<HostMenuResponse> {
   const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}/enable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -4669,9 +4559,7 @@ export async function identityEnableHostRole(
 ): Promise<HostRoleResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/enable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -4687,9 +4575,7 @@ export async function identityEnableHostUser(
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/enable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -4741,9 +4627,7 @@ export async function identityExportHostUsers(
 ): Promise<Array<HostUserResponse>> {
   const path = `/api/v1/identity/users/export`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readIdentityExportHostUsersResponse(value);
 }
 
@@ -4779,9 +4663,7 @@ export async function identityGetAuthenticationEvent(
 ): Promise<AuthenticationEventResponse> {
   const path = `/api/v1/identity/authentication-events/${encodeURIComponent(String(parameters.id))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAuthenticationEventResponse(value);
 }
 
@@ -4797,9 +4679,7 @@ export async function identityGetAuthorizationTree(
 ): Promise<Array<AuthorizationTreeModuleResponse>> {
   const path = `/api/v1/identity/authorization-tree`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readIdentityGetAuthorizationTreeResponse(value);
 }
 
@@ -4815,9 +4695,7 @@ export async function identityGetCurrentUser(
 ): Promise<CurrentUserResponse> {
   const path = `/api/v1/me`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCurrentUserResponse(value);
 }
 
@@ -4833,9 +4711,7 @@ export async function identityGetHostMenu(
 ): Promise<HostMenuResponse> {
   const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -4851,9 +4727,7 @@ export async function identityGetHostModule(
 ): Promise<ModuleCatalogEntryResponse> {
   const path = `/api/v1/identity/modules/${encodeURIComponent(String(parameters.moduleKey))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readModuleCatalogEntryResponse(value);
 }
 
@@ -4869,9 +4743,7 @@ export async function identityGetHostRole(
 ): Promise<HostRoleResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -4887,9 +4759,7 @@ export async function identityGetHostRoleDataScope(
 ): Promise<HostRoleDataScopeResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/data-scope`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostRoleDataScopeResponse(value);
 }
 
@@ -4908,9 +4778,7 @@ export async function identityGetHostRoleFieldGrants(
   query.set('resourceKey', String(parameters.resourceKey));
   const path = query.size === 0 ? `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/field-grants` : `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/field-grants?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostRoleFieldGrantsResponse(value);
 }
 
@@ -4926,9 +4794,7 @@ export async function identityGetHostSessionPolicy(
 ): Promise<IdentitySessionPolicyResponse> {
   const path = `/api/v1/identity/session-policy`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readIdentitySessionPolicyResponse(value);
 }
 
@@ -4944,9 +4810,7 @@ export async function identityGetHostUser(
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -4962,9 +4826,7 @@ export async function identityGetHostUserRoles(
 ): Promise<HostUserRolesResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/roles`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostUserRolesResponse(value);
 }
 
@@ -4980,9 +4842,7 @@ export async function identityGetModuleSelectionRuntime(
 ): Promise<ModuleSelectionAnalysisResponse> {
   const path = `/api/v1/identity/modules/selection/runtime`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readModuleSelectionAnalysisResponse(value);
 }
 
@@ -5018,9 +4878,7 @@ export async function identityGetSelfServiceProfile(
 ): Promise<SelfServiceProfileResponse> {
   const path = `/api/v1/me/profile`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSelfServiceProfileResponse(value);
 }
 
@@ -5056,9 +4914,7 @@ export async function identityGetTotpEnrollmentStatus(
 ): Promise<TotpEnrollmentStatusResponse> {
   const path = `/api/v1/identity/me/mfa/totp`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTotpEnrollmentStatusResponse(value);
 }
 
@@ -5078,9 +4934,7 @@ export async function identityGrantSuperAdministrator(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSuperAdministratorChangeResponse(value);
 }
 
@@ -5100,9 +4954,7 @@ export async function identityImportHostUsers(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readImportHostUsersResponse(value);
 }
 
@@ -5120,9 +4972,7 @@ export async function identityImportHostUsersWorkbook(
   const body = new FormData();
   body.append('file', parameters.file);
   const init: RequestInit = { method: 'POST', body };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readImportHostUsersResponse(value);
 }
 
@@ -5138,9 +4988,7 @@ export async function identityListAllHostMenus(
 ): Promise<Array<HostMenuResponse>> {
   const path = `/api/v1/identity/menus/all`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readIdentityListAllHostMenusResponse(value);
 }
 
@@ -5188,9 +5036,7 @@ export async function identityListAuthenticationEvents(
   }
   const path = query.size === 0 ? `/api/v1/identity/authentication-events` : `/api/v1/identity/authentication-events?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAuthenticationEventCursorPage(value);
 }
 
@@ -5206,9 +5052,7 @@ export async function identityListFieldProjectionCatalog(
 ): Promise<Array<FieldProjectionResourceDefinition>> {
   const path = `/api/v1/identity/field-projections/catalog`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readIdentityListFieldProjectionCatalogResponse(value);
 }
 
@@ -5240,9 +5084,7 @@ export async function identityListHostApiKeys(
   }
   const path = query.size === 0 ? `/api/v1/identity/api-keys` : `/api/v1/identity/api-keys?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostApiKeyResponse(value);
 }
 
@@ -5258,9 +5100,7 @@ export async function identityListHostMenuPermissionOptions(
 ): Promise<Array<HostMenuPermissionOptionResponse>> {
   const path = `/api/v1/identity/menus/permission-options`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readIdentityListHostMenuPermissionOptionsResponse(value);
 }
 
@@ -5284,9 +5124,7 @@ export async function identityListHostMenus(
   }
   const path = query.size === 0 ? `/api/v1/identity/menus` : `/api/v1/identity/menus?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostMenuResponse(value);
 }
 
@@ -5302,9 +5140,7 @@ export async function identityListHostModules(
 ): Promise<Array<ModuleCatalogEntryResponse>> {
   const path = `/api/v1/identity/modules`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readIdentityListHostModulesResponse(value);
 }
 
@@ -5336,9 +5172,7 @@ export async function identityListHostOnlineSessions(
   }
   const path = query.size === 0 ? `/api/v1/identity/online-sessions` : `/api/v1/identity/online-sessions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostOnlineSessionResponse(value);
 }
 
@@ -5363,9 +5197,7 @@ export async function identityListHostRoleMembers(
   }
   const path = query.size === 0 ? `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/members` : `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/members?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostRoleMembersPageResponse(value);
 }
 
@@ -5389,9 +5221,7 @@ export async function identityListHostRoles(
   }
   const path = query.size === 0 ? `/api/v1/identity/roles` : `/api/v1/identity/roles?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostRoleResponse(value);
 }
 
@@ -5415,9 +5245,7 @@ export async function identityListHostUsers(
   }
   const path = query.size === 0 ? `/api/v1/identity/users` : `/api/v1/identity/users?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostUserResponse(value);
 }
 
@@ -5437,9 +5265,7 @@ export async function identityListSuperAdministratorAudits(
   }
   const path = query.size === 0 ? `/api/v1/identity/super-administrators/audits` : `/api/v1/identity/super-administrators/audits?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readIdentityListSuperAdministratorAuditsResponse(value);
 }
 
@@ -5455,9 +5281,7 @@ export async function identityListSuperAdministrators(
 ): Promise<Array<SuperAdministratorResponse>> {
   const path = `/api/v1/identity/super-administrators`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readIdentityListSuperAdministratorsResponse(value);
 }
 
@@ -5477,9 +5301,7 @@ export async function identityLogin(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTokenResponse(value);
 }
 
@@ -5514,9 +5336,7 @@ export async function identityRefreshSession(
 ): Promise<TokenResponse> {
   const path = `/api/v1/auth/refresh`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTokenResponse(value);
 }
 
@@ -5537,9 +5357,7 @@ export async function identityReplaceHostRoleFieldGrants(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostRoleFieldGrantsResponse(value);
 }
 
@@ -5560,9 +5378,7 @@ export async function identityReplaceHostRoleMembers(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostRoleMembersAssignmentResponse(value);
 }
 
@@ -5583,9 +5399,7 @@ export async function identityReplaceHostRolePermissions(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -5606,9 +5420,7 @@ export async function identityReplaceHostUserRoles(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostUserRolesResponse(value);
 }
 
@@ -5629,9 +5441,7 @@ export async function identityResetHostUserPassword(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -5647,9 +5457,7 @@ export async function identityRetireHostUser(
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/retire`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -5670,9 +5478,7 @@ export async function identityRevealHostUserProfileFields(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readRevealHostUserProfileFieldsResponse(value);
 }
 
@@ -5688,9 +5494,7 @@ export async function identityRevokeAllHostUserOnlineSessions(
 ): Promise<RevokeAllHostUserSessionsResponse> {
   const path = `/api/v1/identity/online-sessions/users/${encodeURIComponent(String(parameters.userId))}/revoke-all`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readRevokeAllHostUserSessionsResponse(value);
 }
 
@@ -5706,9 +5510,7 @@ export async function identityRevokeHostOnlineSession(
 ): Promise<HostOnlineSessionResponse> {
   const path = `/api/v1/identity/online-sessions/${encodeURIComponent(String(parameters.sessionId))}/revoke`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostOnlineSessionResponse(value);
 }
 
@@ -5729,9 +5531,7 @@ export async function identityRevokeSuperAdministrator(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSuperAdministratorChangeResponse(value);
 }
 
@@ -5747,9 +5547,7 @@ export async function identityRotateHostApiKey(
 ): Promise<CreateHostApiKeyResponse> {
   const path = `/api/v1/identity/api-keys/${encodeURIComponent(String(parameters.apiKeyId))}/rotate`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCreateHostApiKeyResponse(value);
 }
 
@@ -5765,9 +5563,7 @@ export async function identitySyncHostMenuCatalog(
 ): Promise<HostNavigationCatalogSyncResponse> {
   const path = `/api/v1/identity/menus/sync-catalog`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostNavigationCatalogSyncResponse(value);
 }
 
@@ -5783,9 +5579,7 @@ export async function identityUnlockHostUserLogin(
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/unlock-login`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -5806,9 +5600,7 @@ export async function identityUpdateHostMenu(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -5829,9 +5621,7 @@ export async function identityUpdateHostRole(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -5852,9 +5642,7 @@ export async function identityUpdateHostRoleDataScope(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostRoleDataScopeResponse(value);
 }
 
@@ -5875,9 +5663,7 @@ export async function identityUpdateHostUser(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -5897,9 +5683,7 @@ export async function identityUpdatePreferredLocale(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readLocalePreferenceResponse(value);
 }
 
@@ -5919,9 +5703,7 @@ export async function identityUpdateSelfServiceProfile(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSelfServiceProfileResponse(value);
 }
 
@@ -5941,9 +5723,7 @@ export async function identityUploadSelfServiceAvatar(
     body.append('file', parameters.file);
   }
   const init: RequestInit = { method: 'POST', body };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSelfServiceProfileResponse(value);
 }
 
@@ -5963,9 +5743,7 @@ export async function identityUploadSelfServiceSignature(
     body.append('file', parameters.file);
   }
   const init: RequestInit = { method: 'POST', body };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSelfServiceProfileResponse(value);
 }
 
@@ -5985,14 +5763,14 @@ export async function identityValidateModuleSelection(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readModuleSelectionAnalysisResponse(value);
 }
 
 export interface ImportExportCreateImportTaskParameters {
-
+  readonly file: IFormFile;
+  readonly schemaKey: string;
+  readonly worksheetKey: string;
 }
 
 export async function importExportCreateImportTask(
@@ -6003,10 +5781,11 @@ export async function importExportCreateImportTask(
 ): Promise<ImportExportTaskDetailResponse> {
   const path = `/api/v1/import-export/tasks`;
   const body = new FormData();
+  body.append('file', parameters.file);
+  body.append('schemaKey', String(parameters.schemaKey));
+  body.append('worksheetKey', String(parameters.worksheetKey));
   const init: RequestInit = { method: 'POST', body };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readImportExportTaskDetailResponse(value);
 }
 
@@ -6063,9 +5842,7 @@ export async function importExportExecuteImportTask(
 ): Promise<ImportExportTaskDetailResponse> {
   const path = `/api/v1/import-export/tasks/${encodeURIComponent(String(parameters.taskId))}/execute`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readImportExportTaskDetailResponse(value);
 }
 
@@ -6081,9 +5858,7 @@ export async function importExportGetImportTask(
 ): Promise<ImportExportTaskDetailResponse> {
   const path = `/api/v1/import-export/tasks/${encodeURIComponent(String(parameters.taskId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readImportExportTaskDetailResponse(value);
 }
 
@@ -6099,9 +5874,7 @@ export async function importExportGetStaticSchema(
 ): Promise<StaticImportSchemaDefinition> {
   const path = `/api/v1/import-export/schemas/${encodeURIComponent(String(parameters.schemaKey))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readStaticImportSchemaDefinition(value);
 }
 
@@ -6129,9 +5902,7 @@ export async function importExportListImportTasks(
   }
   const path = query.size === 0 ? `/api/v1/import-export/tasks` : `/api/v1/import-export/tasks?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfImportExportTaskResponse(value);
 }
 
@@ -6147,9 +5918,7 @@ export async function importExportListStaticSchemas(
 ): Promise<Array<StaticImportSchemaDefinition>> {
   const path = `/api/v1/import-export/schemas`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readImportExportListStaticSchemasResponse(value);
 }
 
@@ -6165,9 +5934,7 @@ export async function importExportResumeImportTask(
 ): Promise<ImportExportTaskDetailResponse> {
   const path = `/api/v1/import-export/tasks/${encodeURIComponent(String(parameters.taskId))}/resume`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readImportExportTaskDetailResponse(value);
 }
 
@@ -6183,9 +5950,7 @@ export async function importExportRetryImportTask(
 ): Promise<ImportExportTaskDetailResponse> {
   const path = `/api/v1/import-export/tasks/${encodeURIComponent(String(parameters.taskId))}/retry`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readImportExportTaskDetailResponse(value);
 }
 
@@ -6205,9 +5970,7 @@ export async function jobsBatchPauseHostJobSchedules(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readBatchChangeHostJobScheduleStateResponse(value);
 }
 
@@ -6227,9 +5990,7 @@ export async function jobsBatchResumeHostJobSchedules(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readBatchChangeHostJobScheduleStateResponse(value);
 }
 
@@ -6245,9 +6006,7 @@ export async function jobsCancelHostJobExecution(
 ): Promise<HostJobExecutionResponse> {
   const path = `/api/v1/jobs/host-executions/${encodeURIComponent(String(parameters.executionId))}/cancel`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostJobExecutionResponse(value);
 }
 
@@ -6288,9 +6047,7 @@ export async function jobsCreateHostJobDefinition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostJobDefinitionResponse(value);
 }
 
@@ -6310,9 +6067,7 @@ export async function jobsCreateHostJobSchedule(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostJobScheduleResponse(value);
 }
 
@@ -6381,9 +6136,7 @@ export async function jobsDisableHostJobDefinition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostJobDefinitionResponse(value);
 }
 
@@ -6399,9 +6152,7 @@ export async function jobsGetHostJobExecution(
 ): Promise<HostJobExecutionResponse> {
   const path = `/api/v1/jobs/host-executions/${encodeURIComponent(String(parameters.executionId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostJobExecutionResponse(value);
 }
 
@@ -6417,9 +6168,7 @@ export async function jobsGetHostJobHealth(
 ): Promise<HostJobHealthResponse> {
   const path = `/api/v1/jobs/host-health`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostJobHealthResponse(value);
 }
 
@@ -6443,9 +6192,7 @@ export async function jobsListHostJobDefinitions(
   }
   const path = query.size === 0 ? `/api/v1/jobs/host-definitions` : `/api/v1/jobs/host-definitions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostJobDefinitionResponse(value);
 }
 
@@ -6489,9 +6236,7 @@ export async function jobsListHostJobExecutions(
   }
   const path = query.size === 0 ? `/api/v1/jobs/host-executions` : `/api/v1/jobs/host-executions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostJobExecutionResponse(value);
 }
 
@@ -6507,9 +6252,7 @@ export async function jobsListHostJobGroups(
 ): Promise<Array<HostJobGroupResponse>> {
   const path = `/api/v1/jobs/host-definitions/groups`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readJobsListHostJobGroupsResponse(value);
 }
 
@@ -6525,9 +6268,7 @@ export async function jobsListHostJobScheduleDefinitionOptions(
 ): Promise<Array<HostJobScheduleDefinitionOptionResponse>> {
   const path = `/api/v1/jobs/host-schedules/definition-options`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readJobsListHostJobScheduleDefinitionOptionsResponse(value);
 }
 
@@ -6567,9 +6308,7 @@ export async function jobsListHostJobSchedules(
   }
   const path = query.size === 0 ? `/api/v1/jobs/host-schedules` : `/api/v1/jobs/host-schedules?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostJobScheduleResponse(value);
 }
 
@@ -6590,9 +6329,7 @@ export async function jobsPauseHostJobSchedule(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostJobScheduleResponse(value);
 }
 
@@ -6616,9 +6353,7 @@ export async function jobsPreviewHostJobScheduleCron(
   }
   const path = query.size === 0 ? `/api/v1/jobs/host-schedules/cron-preview` : `/api/v1/jobs/host-schedules/cron-preview?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostJobScheduleCronPreviewResponse(value);
 }
 
@@ -6639,9 +6374,7 @@ export async function jobsResumeHostJobSchedule(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostJobScheduleResponse(value);
 }
 
@@ -6657,9 +6390,7 @@ export async function jobsTriggerHostJobDefinition(
 ): Promise<HostJobExecutionResponse> {
   const path = `/api/v1/jobs/host-definitions/${encodeURIComponent(String(parameters.definitionId))}/trigger`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostJobExecutionResponse(value);
 }
 
@@ -6680,9 +6411,7 @@ export async function jobsUpdateHostJobDefinition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostJobDefinitionResponse(value);
 }
 
@@ -6703,9 +6432,7 @@ export async function jobsUpdateHostJobSchedule(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostJobScheduleResponse(value);
 }
 
@@ -6725,9 +6452,7 @@ export async function k3cloudCreateConnectionConfig(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readK3CloudConnectionConfigResponse(value);
 }
 
@@ -6747,9 +6472,7 @@ export async function k3cloudCreateDocumentSync(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readK3CloudDocumentSyncResponse(value);
 }
 
@@ -6765,9 +6488,7 @@ export async function k3cloudGetConnectionConfig(
 ): Promise<K3CloudConnectionConfigResponse> {
   const path = `/api/v1/k3cloud/connection-configs/${encodeURIComponent(String(parameters.connectionConfigId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readK3CloudConnectionConfigResponse(value);
 }
 
@@ -6783,9 +6504,7 @@ export async function k3cloudGetDocumentSync(
 ): Promise<K3CloudDocumentSyncResponse> {
   const path = `/api/v1/k3cloud/document-syncs/${encodeURIComponent(String(parameters.syncId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readK3CloudDocumentSyncResponse(value);
 }
 
@@ -6801,9 +6520,7 @@ export async function k3cloudListConnectionConfigs(
 ): Promise<Array<K3CloudConnectionConfigResponse>> {
   const path = `/api/v1/k3cloud/connection-configs`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readK3cloudListConnectionConfigsResponse(value);
 }
 
@@ -6827,9 +6544,7 @@ export async function k3cloudListDocumentSyncs(
   }
   const path = query.size === 0 ? `/api/v1/k3cloud/document-syncs` : `/api/v1/k3cloud/document-syncs?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfK3CloudDocumentSyncResponse(value);
 }
 
@@ -6845,9 +6560,7 @@ export async function k3cloudRetryDocumentSync(
 ): Promise<K3CloudDocumentSyncResponse> {
   const path = `/api/v1/k3cloud/document-syncs/${encodeURIComponent(String(parameters.syncId))}/retry`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readK3CloudDocumentSyncResponse(value);
 }
 
@@ -6863,9 +6576,7 @@ export async function k3cloudTestConnectionConfig(
 ): Promise<TestK3CloudConnectionConfigResult> {
   const path = `/api/v1/k3cloud/connection-configs/${encodeURIComponent(String(parameters.connectionConfigId))}/test`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTestK3CloudConnectionConfigResult(value);
 }
 
@@ -6886,9 +6597,7 @@ export async function k3cloudUpdateConnectionConfig(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readK3CloudConnectionConfigResponse(value);
 }
 
@@ -6908,9 +6617,7 @@ export async function notificationsCreateBinding(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationBindingResponse(value);
 }
 
@@ -6930,9 +6637,7 @@ export async function notificationsCreateHostAnnouncement(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostAnnouncementResponse(value);
 }
 
@@ -6952,9 +6657,7 @@ export async function notificationsCreateMyRecipientEndpoint(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readRecipientEndpointResponse(value);
 }
 
@@ -6974,9 +6677,7 @@ export async function notificationsCreateProviderProfile(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationProviderProfileResponse(value);
 }
 
@@ -6996,9 +6697,7 @@ export async function notificationsCreateTemplate(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationTemplateResponse(value);
 }
 
@@ -7038,9 +6737,7 @@ export async function notificationsDisableProviderProfile(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationProviderProfileResponse(value);
 }
 
@@ -7061,9 +6758,7 @@ export async function notificationsEnableProviderProfile(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationProviderProfileResponse(value);
 }
 
@@ -7079,9 +6774,7 @@ export async function notificationsGetBinding(
 ): Promise<NotificationBindingResponse> {
   const path = `/api/v1/notifications/bindings/${encodeURIComponent(String(parameters.bindingId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationBindingResponse(value);
 }
 
@@ -7097,9 +6790,7 @@ export async function notificationsGetDelivery(
 ): Promise<NotificationDeliveryResponse> {
   const path = `/api/v1/notifications/deliveries/${encodeURIComponent(String(parameters.deliveryId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationDeliveryResponse(value);
 }
 
@@ -7115,9 +6806,7 @@ export async function notificationsGetHostAnnouncementReadStats(
 ): Promise<HostAnnouncementReadStatsResponse> {
   const path = `/api/v1/notifications/host-announcements/${encodeURIComponent(String(parameters.announcementId))}/read-stats`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostAnnouncementReadStatsResponse(value);
 }
 
@@ -7133,9 +6822,7 @@ export async function notificationsGetMyHostAnnouncement(
 ): Promise<ReceivedHostAnnouncementDetailResponse> {
   const path = `/api/v1/notifications/my-host-announcements/${encodeURIComponent(String(parameters.announcementId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReceivedHostAnnouncementDetailResponse(value);
 }
 
@@ -7151,9 +6838,7 @@ export async function notificationsGetMyHostAnnouncementUnreadCount(
 ): Promise<HostAnnouncementUnreadCountResponse> {
   const path = `/api/v1/notifications/my-host-announcements/unread-count`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostAnnouncementUnreadCountResponse(value);
 }
 
@@ -7169,9 +6854,7 @@ export async function notificationsGetMyInboxUnreadCount(
 ): Promise<InboxUnreadCountResponse> {
   const path = `/api/v1/notifications/my-inbox-messages/unread-count`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readInboxUnreadCountResponse(value);
 }
 
@@ -7187,9 +6870,7 @@ export async function notificationsGetProviderProfile(
 ): Promise<NotificationProviderProfileResponse> {
   const path = `/api/v1/notifications/provider-profiles/${encodeURIComponent(String(parameters.profileId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationProviderProfileResponse(value);
 }
 
@@ -7205,9 +6886,7 @@ export async function notificationsGetTemplate(
 ): Promise<NotificationTemplateResponse> {
   const path = `/api/v1/notifications/templates/${encodeURIComponent(String(parameters.templateId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationTemplateResponse(value);
 }
 
@@ -7231,9 +6910,7 @@ export async function notificationsListBindings(
   }
   const path = query.size === 0 ? `/api/v1/notifications/bindings` : `/api/v1/notifications/bindings?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfNotificationBindingResponse(value);
 }
 
@@ -7257,9 +6934,7 @@ export async function notificationsListDeliveries(
   }
   const path = query.size === 0 ? `/api/v1/notifications/deliveries` : `/api/v1/notifications/deliveries?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfNotificationDeliveryResponse(value);
 }
 
@@ -7284,9 +6959,7 @@ export async function notificationsListHostAnnouncementReadReceipts(
   }
   const path = query.size === 0 ? `/api/v1/notifications/host-announcements/${encodeURIComponent(String(parameters.announcementId))}/read-receipts` : `/api/v1/notifications/host-announcements/${encodeURIComponent(String(parameters.announcementId))}/read-receipts?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostAnnouncementReadReceiptResponse(value);
 }
 
@@ -7326,9 +6999,7 @@ export async function notificationsListHostAnnouncements(
   }
   const path = query.size === 0 ? `/api/v1/notifications/host-announcements` : `/api/v1/notifications/host-announcements?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostAnnouncementResponse(value);
 }
 
@@ -7360,9 +7031,7 @@ export async function notificationsListMyHostAnnouncements(
   }
   const path = query.size === 0 ? `/api/v1/notifications/my-host-announcements` : `/api/v1/notifications/my-host-announcements?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfReceivedHostAnnouncementListItemResponse(value);
 }
 
@@ -7394,9 +7063,7 @@ export async function notificationsListMyInboxMessages(
   }
   const path = query.size === 0 ? `/api/v1/notifications/my-inbox-messages` : `/api/v1/notifications/my-inbox-messages?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfInboxMessageResponse(value);
 }
 
@@ -7412,9 +7079,7 @@ export async function notificationsListMyRecipientEndpoints(
 ): Promise<Array<RecipientEndpointResponse>> {
   const path = `/api/v1/notifications/my-recipient-endpoints`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationsListMyRecipientEndpointsResponse(value);
 }
 
@@ -7438,9 +7103,7 @@ export async function notificationsListProviderProfiles(
   }
   const path = query.size === 0 ? `/api/v1/notifications/provider-profiles` : `/api/v1/notifications/provider-profiles?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfNotificationProviderProfileResponse(value);
 }
 
@@ -7456,9 +7119,7 @@ export async function notificationsListProviderTypes(
 ): Promise<Array<NotificationProviderTypeDescriptor>> {
   const path = `/api/v1/notifications/provider-types`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationsListProviderTypesResponse(value);
 }
 
@@ -7482,9 +7143,7 @@ export async function notificationsListTemplates(
   }
   const path = query.size === 0 ? `/api/v1/notifications/templates` : `/api/v1/notifications/templates?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfNotificationTemplateResponse(value);
 }
 
@@ -7500,9 +7159,7 @@ export async function notificationsMarkAllMyHostAnnouncementsRead(
 ): Promise<HostAnnouncementUnreadCountResponse> {
   const path = `/api/v1/notifications/my-host-announcements/read-all`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostAnnouncementUnreadCountResponse(value);
 }
 
@@ -7518,9 +7175,7 @@ export async function notificationsMarkAllMyInboxMessagesRead(
 ): Promise<InboxUnreadCountResponse> {
   const path = `/api/v1/notifications/my-inbox-messages/read-all`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readInboxUnreadCountResponse(value);
 }
 
@@ -7536,9 +7191,7 @@ export async function notificationsMarkMyHostAnnouncementRead(
 ): Promise<ReceivedHostAnnouncementDetailResponse> {
   const path = `/api/v1/notifications/my-host-announcements/${encodeURIComponent(String(parameters.announcementId))}/read`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReceivedHostAnnouncementDetailResponse(value);
 }
 
@@ -7554,9 +7207,7 @@ export async function notificationsMarkMyInboxMessageRead(
 ): Promise<InboxMessageResponse> {
   const path = `/api/v1/notifications/my-inbox-messages/${encodeURIComponent(String(parameters.messageId))}/read`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readInboxMessageResponse(value);
 }
 
@@ -7577,9 +7228,7 @@ export async function notificationsPublishBinding(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationBindingResponse(value);
 }
 
@@ -7600,9 +7249,7 @@ export async function notificationsPublishHostAnnouncement(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostAnnouncementResponse(value);
 }
 
@@ -7623,9 +7270,7 @@ export async function notificationsPublishProviderProfile(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationProviderProfileResponse(value);
 }
 
@@ -7646,9 +7291,7 @@ export async function notificationsPublishTemplate(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationTemplateResponse(value);
 }
 
@@ -7669,9 +7312,7 @@ export async function notificationsRetryDelivery(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationDeliveryResponse(value);
 }
 
@@ -7691,9 +7332,7 @@ export async function notificationsSendHostInboxMessage(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readInboxMessageResponse(value);
 }
 
@@ -7709,9 +7348,7 @@ export async function notificationsSendMyRecipientEndpointVerification(
 ): Promise<SendRecipientEndpointVerificationResponse> {
   const path = `/api/v1/notifications/my-recipient-endpoints/${encodeURIComponent(String(parameters.endpointId))}/verification/send`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSendRecipientEndpointVerificationResponse(value);
 }
 
@@ -7732,9 +7369,7 @@ export async function notificationsUpdateBinding(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationBindingResponse(value);
 }
 
@@ -7755,9 +7390,7 @@ export async function notificationsUpdateHostAnnouncement(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostAnnouncementResponse(value);
 }
 
@@ -7778,9 +7411,7 @@ export async function notificationsUpdateProviderProfile(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationProviderProfileResponse(value);
 }
 
@@ -7801,9 +7432,7 @@ export async function notificationsUpdateTemplate(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationTemplateResponse(value);
 }
 
@@ -7824,9 +7453,7 @@ export async function notificationsVerifyMyRecipientEndpoint(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readRecipientEndpointResponse(value);
 }
 
@@ -7862,9 +7489,7 @@ export async function observabilityGetCachePolicy(
 ): Promise<CachePolicySummary> {
   const path = `/api/v1/observability/cache-policies/${encodeURIComponent(String(parameters.entryName))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCachePolicySummary(value);
 }
 
@@ -7880,9 +7505,7 @@ export async function observabilityGetServerRuntime(
 ): Promise<ServerRuntimeSnapshot> {
   const path = `/api/v1/observability/server-instances/${encodeURIComponent(String(parameters.instanceKey))}/runtime`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readServerRuntimeSnapshot(value);
 }
 
@@ -7903,9 +7526,7 @@ export async function observabilityInvalidateCachePolicy(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readCacheInvalidationResult(value);
 }
 
@@ -7921,9 +7542,7 @@ export async function observabilityListCachePolicies(
 ): Promise<Array<CachePolicySummary>> {
   const path = `/api/v1/observability/cache-policies`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readObservabilityListCachePoliciesResponse(value);
 }
 
@@ -7939,9 +7558,7 @@ export async function observabilityListLogFiles(
 ): Promise<Array<LogFileSummary>> {
   const path = `/api/v1/observability/log-files`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readObservabilityListLogFilesResponse(value);
 }
 
@@ -7957,9 +7574,7 @@ export async function observabilityListServerInstances(
 ): Promise<Array<ServerInstanceCatalogEntry>> {
   const path = `/api/v1/observability/server-instances`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readObservabilityListServerInstancesResponse(value);
 }
 
@@ -7984,9 +7599,7 @@ export async function observabilityTailLogFile(
   }
   const path = query.size === 0 ? `/api/v1/observability/log-files/${encodeURIComponent(String(parameters.id))}/tail` : `/api/v1/observability/log-files/${encodeURIComponent(String(parameters.id))}/tail?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readLogFileTail(value);
 }
 
@@ -8007,9 +7620,7 @@ export async function ocrConfirmIdCardTask(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOcrIdCardTaskResponse(value);
 }
 
@@ -8029,9 +7640,7 @@ export async function ocrCreateIdCardTask(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOcrIdCardTaskResponse(value);
 }
 
@@ -8047,9 +7656,7 @@ export async function ocrGetIdCardTask(
 ): Promise<OcrIdCardTaskResponse> {
   const path = `/api/v1/ocr/id-card-tasks/${encodeURIComponent(String(parameters.taskId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOcrIdCardTaskResponse(value);
 }
 
@@ -8065,9 +7672,7 @@ export async function ocrGetProviderConfig(
 ): Promise<OcrProviderConfigResponse> {
   const path = `/api/v1/ocr/provider-configs/${encodeURIComponent(String(parameters.providerKey))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOcrProviderConfigResponse(value);
 }
 
@@ -8091,9 +7696,7 @@ export async function ocrListIdCardTasks(
   }
   const path = query.size === 0 ? `/api/v1/ocr/id-card-tasks` : `/api/v1/ocr/id-card-tasks?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfOcrIdCardTaskResponse(value);
 }
 
@@ -8114,9 +7717,7 @@ export async function ocrRejectIdCardTask(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOcrIdCardTaskResponse(value);
 }
 
@@ -8132,9 +7733,7 @@ export async function ocrTestProviderConfig(
 ): Promise<TestOcrProviderConfigResult> {
   const path = `/api/v1/ocr/provider-configs/${encodeURIComponent(String(parameters.providerKey))}/test`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTestOcrProviderConfigResult(value);
 }
 
@@ -8155,9 +7754,7 @@ export async function ocrUpdateProviderConfig(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOcrProviderConfigResponse(value);
 }
 
@@ -8178,9 +7775,7 @@ export async function organizationAssignTenantPositionLevel(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationPositionResponse(value);
 }
 
@@ -8201,9 +7796,7 @@ export async function organizationAssignTenantPositionUnit(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationPositionResponse(value);
 }
 
@@ -8226,9 +7819,7 @@ export async function organizationCreateHostUserManagementUserPosition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUserPositionResponse(value);
 }
 
@@ -8251,9 +7842,7 @@ export async function organizationCreateHostUserManagementUserUnit(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUserUnitResponse(value);
 }
 
@@ -8273,9 +7862,7 @@ export async function organizationCreateTenantPosition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationPositionResponse(value);
 }
 
@@ -8295,9 +7882,7 @@ export async function organizationCreateTenantPositionLevel(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationPositionLevelResponse(value);
 }
 
@@ -8317,9 +7902,7 @@ export async function organizationCreateTenantUnit(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUnitResponse(value);
 }
 
@@ -8339,9 +7922,7 @@ export async function organizationCreateTenantUserPosition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUserPositionResponse(value);
 }
 
@@ -8361,9 +7942,7 @@ export async function organizationCreateTenantUserUnit(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUserUnitResponse(value);
 }
 
@@ -8382,9 +7961,7 @@ export async function organizationDisableHostUserManagementUserPosition(
   query.set('tenantId', String(parameters.tenantId));
   const path = query.size === 0 ? `/api/v1/organization/host-user-management/user-positions/${encodeURIComponent(String(parameters.assignmentId))}/disable` : `/api/v1/organization/host-user-management/user-positions/${encodeURIComponent(String(parameters.assignmentId))}/disable?${query.toString()}`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUserPositionResponse(value);
 }
 
@@ -8403,9 +7980,7 @@ export async function organizationDisableHostUserManagementUserUnit(
   query.set('tenantId', String(parameters.tenantId));
   const path = query.size === 0 ? `/api/v1/organization/host-user-management/user-units/${encodeURIComponent(String(parameters.assignmentId))}/disable` : `/api/v1/organization/host-user-management/user-units/${encodeURIComponent(String(parameters.assignmentId))}/disable?${query.toString()}`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUserUnitResponse(value);
 }
 
@@ -8421,9 +7996,7 @@ export async function organizationDisableTenantPosition(
 ): Promise<OrganizationPositionResponse> {
   const path = `/api/v1/organization/positions/${encodeURIComponent(String(parameters.positionId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationPositionResponse(value);
 }
 
@@ -8439,9 +8012,7 @@ export async function organizationDisableTenantPositionLevel(
 ): Promise<OrganizationPositionLevelResponse> {
   const path = `/api/v1/organization/position-levels/${encodeURIComponent(String(parameters.positionLevelId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationPositionLevelResponse(value);
 }
 
@@ -8457,9 +8028,7 @@ export async function organizationDisableTenantUnit(
 ): Promise<OrganizationUnitResponse> {
   const path = `/api/v1/organization/units/${encodeURIComponent(String(parameters.unitId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUnitResponse(value);
 }
 
@@ -8475,9 +8044,7 @@ export async function organizationDisableTenantUserPosition(
 ): Promise<OrganizationUserPositionResponse> {
   const path = `/api/v1/organization/user-positions/${encodeURIComponent(String(parameters.assignmentId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUserPositionResponse(value);
 }
 
@@ -8493,9 +8060,7 @@ export async function organizationDisableTenantUserUnit(
 ): Promise<OrganizationUserUnitResponse> {
   const path = `/api/v1/organization/user-units/${encodeURIComponent(String(parameters.assignmentId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUserUnitResponse(value);
 }
 
@@ -8553,9 +8118,7 @@ export async function organizationGetHostUserManagementReference(
   query.set('tenantId', String(parameters.tenantId));
   const path = query.size === 0 ? `/api/v1/organization/host-user-management/reference` : `/api/v1/organization/host-user-management/reference?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostUserManagementOrganizationReferenceResponse(value);
 }
 
@@ -8571,9 +8134,7 @@ export async function organizationGetTenantPosition(
 ): Promise<OrganizationPositionResponse> {
   const path = `/api/v1/organization/positions/${encodeURIComponent(String(parameters.positionId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationPositionResponse(value);
 }
 
@@ -8589,9 +8150,7 @@ export async function organizationGetTenantPositionLevel(
 ): Promise<OrganizationPositionLevelResponse> {
   const path = `/api/v1/organization/position-levels/${encodeURIComponent(String(parameters.positionLevelId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationPositionLevelResponse(value);
 }
 
@@ -8607,9 +8166,7 @@ export async function organizationGetTenantUnit(
 ): Promise<OrganizationUnitResponse> {
   const path = `/api/v1/organization/units/${encodeURIComponent(String(parameters.unitId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUnitResponse(value);
 }
 
@@ -8629,9 +8186,7 @@ export async function organizationImportTenantPositions(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readImportOrganizationPositionsResponse(value);
 }
 
@@ -8649,9 +8204,7 @@ export async function organizationImportTenantPositionsWorkbook(
   const body = new FormData();
   body.append('file', parameters.file);
   const init: RequestInit = { method: 'POST', body };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readImportOrganizationPositionsResponse(value);
 }
 
@@ -8675,9 +8228,7 @@ export async function organizationListAssignableTenantUserPositionUsers(
   }
   const path = query.size === 0 ? `/api/v1/organization/user-positions/assignable-users` : `/api/v1/organization/user-positions/assignable-users?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfOrganizationAssignableUserResponse(value);
 }
 
@@ -8701,9 +8252,7 @@ export async function organizationListAssignableTenantUserUnitUsers(
   }
   const path = query.size === 0 ? `/api/v1/organization/user-units/assignable-users` : `/api/v1/organization/user-units/assignable-users?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfOrganizationAssignableUserResponse(value);
 }
 
@@ -8727,9 +8276,7 @@ export async function organizationListTenantPositionLevels(
   }
   const path = query.size === 0 ? `/api/v1/organization/position-levels` : `/api/v1/organization/position-levels?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfOrganizationPositionLevelResponse(value);
 }
 
@@ -8753,9 +8300,7 @@ export async function organizationListTenantPositions(
   }
   const path = query.size === 0 ? `/api/v1/organization/positions` : `/api/v1/organization/positions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfOrganizationPositionResponse(value);
 }
 
@@ -8779,9 +8324,7 @@ export async function organizationListTenantUnits(
   }
   const path = query.size === 0 ? `/api/v1/organization/units` : `/api/v1/organization/units?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfOrganizationUnitResponse(value);
 }
 
@@ -8813,9 +8356,7 @@ export async function organizationListTenantUserPositions(
   }
   const path = query.size === 0 ? `/api/v1/organization/user-positions` : `/api/v1/organization/user-positions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfOrganizationUserPositionResponse(value);
 }
 
@@ -8847,9 +8388,7 @@ export async function organizationListTenantUserUnits(
   }
   const path = query.size === 0 ? `/api/v1/organization/user-units` : `/api/v1/organization/user-units?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfOrganizationUserUnitResponse(value);
 }
 
@@ -8873,9 +8412,7 @@ export async function organizationUpdateHostUserManagementUserPosition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUserPositionResponse(value);
 }
 
@@ -8899,9 +8436,7 @@ export async function organizationUpdateHostUserManagementUserUnit(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUserUnitResponse(value);
 }
 
@@ -8922,9 +8457,7 @@ export async function organizationUpdateTenantPosition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationPositionResponse(value);
 }
 
@@ -8945,9 +8478,7 @@ export async function organizationUpdateTenantPositionLevel(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationPositionLevelResponse(value);
 }
 
@@ -8968,9 +8499,7 @@ export async function organizationUpdateTenantUnit(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUnitResponse(value);
 }
 
@@ -8991,9 +8520,7 @@ export async function organizationUpdateTenantUserPosition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUserPositionResponse(value);
 }
 
@@ -9014,9 +8541,7 @@ export async function organizationUpdateTenantUserUnit(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readOrganizationUserUnitResponse(value);
 }
 
@@ -9036,9 +8561,7 @@ export async function paymentsCreateMerchantConfig(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPaymentMerchantConfigResponse(value);
 }
 
@@ -9058,9 +8581,7 @@ export async function paymentsCreateOrder(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPaymentOrderResponse(value);
 }
 
@@ -9081,9 +8602,7 @@ export async function paymentsCreateRefund(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPaymentRefundResponse(value);
 }
 
@@ -9099,9 +8618,7 @@ export async function paymentsDisableMerchantConfig(
 ): Promise<PaymentMerchantConfigResponse> {
   const path = `/api/v1/payments/merchant-configs/${encodeURIComponent(String(parameters.merchantConfigId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPaymentMerchantConfigResponse(value);
 }
 
@@ -9117,9 +8634,7 @@ export async function paymentsGetMerchantConfig(
 ): Promise<PaymentMerchantConfigResponse> {
   const path = `/api/v1/payments/merchant-configs/${encodeURIComponent(String(parameters.merchantConfigId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPaymentMerchantConfigResponse(value);
 }
 
@@ -9135,9 +8650,7 @@ export async function paymentsGetOrder(
 ): Promise<PaymentOrderResponse> {
   const path = `/api/v1/payments/orders/${encodeURIComponent(String(parameters.orderId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPaymentOrderResponse(value);
 }
 
@@ -9153,9 +8666,7 @@ export async function paymentsGetRefund(
 ): Promise<PaymentRefundResponse> {
   const path = `/api/v1/payments/refunds/${encodeURIComponent(String(parameters.refundId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPaymentRefundResponse(value);
 }
 
@@ -9195,9 +8706,7 @@ export async function paymentsListMerchantConfigs(
   }
   const path = query.size === 0 ? `/api/v1/payments/merchant-configs` : `/api/v1/payments/merchant-configs?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfPaymentMerchantConfigListItem(value);
 }
 
@@ -9233,9 +8742,7 @@ export async function paymentsListOrders(
   }
   const path = query.size === 0 ? `/api/v1/payments/orders` : `/api/v1/payments/orders?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfPaymentOrderListItem(value);
 }
 
@@ -9271,9 +8778,7 @@ export async function paymentsListRefunds(
   }
   const path = query.size === 0 ? `/api/v1/payments/refunds` : `/api/v1/payments/refunds?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfPaymentRefundListItem(value);
 }
 
@@ -9289,9 +8794,7 @@ export async function paymentsReconcileOrder(
 ): Promise<PaymentOrderResponse> {
   const path = `/api/v1/payments/orders/${encodeURIComponent(String(parameters.orderId))}/reconcile`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPaymentOrderResponse(value);
 }
 
@@ -9312,9 +8815,7 @@ export async function paymentsUpdateMerchantConfig(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPaymentMerchantConfigResponse(value);
 }
 
@@ -9353,9 +8854,7 @@ export async function platformCreateHostReleaseNote(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostReleaseNoteResponse(value);
 }
 
@@ -9395,9 +8894,7 @@ export async function platformGetHostDashboardSummary(
 ): Promise<HostDashboardSummaryResponse> {
   const path = `/api/v1/platform/host-dashboard-summary`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostDashboardSummaryResponse(value);
 }
 
@@ -9413,9 +8910,7 @@ export async function platformGetHostReleaseNote(
 ): Promise<HostReleaseNoteResponse> {
   const path = `/api/v1/platform/host-release-notes/${encodeURIComponent(String(parameters.releaseNoteId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostReleaseNoteResponse(value);
 }
 
@@ -9431,9 +8926,7 @@ export async function platformGetLatestUnreadReleaseNote(
 ): Promise<MyReleaseNoteResponse> {
   const path = `/api/v1/platform/my-release-notes/latest-unread`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readMyReleaseNoteResponse(value);
 }
 
@@ -9469,9 +8962,7 @@ export async function platformListHostReleaseNotes(
   }
   const path = query.size === 0 ? `/api/v1/platform/host-release-notes` : `/api/v1/platform/host-release-notes?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfHostReleaseNoteResponse(value);
 }
 
@@ -9495,9 +8986,7 @@ export async function platformListMyReleaseNotes(
   }
   const path = query.size === 0 ? `/api/v1/platform/my-release-notes` : `/api/v1/platform/my-release-notes?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfMyReleaseNoteResponse(value);
 }
 
@@ -9513,9 +9002,7 @@ export async function platformMarkMyReleaseNoteRead(
 ): Promise<MyReleaseNoteResponse> {
   const path = `/api/v1/platform/my-release-notes/${encodeURIComponent(String(parameters.releaseNoteId))}/read`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readMyReleaseNoteResponse(value);
 }
 
@@ -9536,9 +9023,7 @@ export async function platformPublishHostReleaseNote(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostReleaseNoteResponse(value);
 }
 
@@ -9559,9 +9044,7 @@ export async function platformRetractHostReleaseNote(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostReleaseNoteResponse(value);
 }
 
@@ -9582,9 +9065,7 @@ export async function platformUpdateHostReleaseNote(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostReleaseNoteResponse(value);
 }
 
@@ -9604,9 +9085,7 @@ export async function printingCreateTemplate(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPrintingTemplateResponse(value);
 }
 
@@ -9622,9 +9101,7 @@ export async function printingGetFormSchema(
 ): Promise<PrintingFormSchemaDefinition> {
   const path = `/api/v1/printing/form-schemas/${encodeURIComponent(String(parameters.formSchemaKey))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPrintingFormSchemaDefinition(value);
 }
 
@@ -9640,9 +9117,7 @@ export async function printingGetTemplate(
 ): Promise<PrintingTemplateResponse> {
   const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPrintingTemplateResponse(value);
 }
 
@@ -9659,10 +9134,26 @@ export async function printingGetTemplateVersion(
 ): Promise<PrintingTemplateVersionResponse> {
   const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPrintingTemplateVersionResponse(value);
+}
+
+export interface PrintingGrantTenantVersionParameters {
+  readonly templateId: string;
+  readonly versionNumber: number;
+  readonly tenantId: string;
+}
+
+export async function printingGrantTenantVersion(
+  http: HttpClient,
+  parameters: PrintingGrantTenantVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants/${encodeURIComponent(String(parameters.tenantId))}`;
+  const init: RequestInit = { method: 'PUT' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPrintingGrantTenantVersionResponse(value);
 }
 
 export interface PrintingListFormSchemasParameters {
@@ -9677,10 +9168,24 @@ export async function printingListFormSchemas(
 ): Promise<Array<PrintingFormSchemaDefinition>> {
   const path = `/api/v1/printing/form-schemas`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPrintingListFormSchemasResponse(value);
+}
+
+export interface PrintingListPublishedTemplatesParameters {
+
+}
+
+export async function printingListPublishedTemplates(
+  http: HttpClient,
+  parameters: PrintingListPublishedTemplatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<PrintingPublishedTemplateResponse>> {
+  const path = `/api/v1/printing/published-templates`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPrintingListPublishedTemplatesResponse(value);
 }
 
 export interface PrintingListTemplatesParameters {
@@ -9699,9 +9204,7 @@ export async function printingListTemplates(
   }
   const path = query.size === 0 ? `/api/v1/printing/templates` : `/api/v1/printing/templates?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPrintingListTemplatesResponse(value);
 }
 
@@ -9717,10 +9220,55 @@ export async function printingListTemplateVersions(
 ): Promise<Array<PrintingTemplateVersionResponse>> {
   const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPrintingListTemplateVersionsResponse(value);
+}
+
+export interface PrintingListTenantVersionGrantsParameters {
+  readonly templateId: string;
+  readonly versionNumber: number;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function printingListTenantVersionGrants(
+  http: HttpClient,
+  parameters: PrintingListTenantVersionGrantsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfGuid> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants` : `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPagedResultOfGuid(value);
+}
+
+export interface PrintingPreviewPublishedTemplateParameters {
+  readonly templateId: string;
+  readonly body: PreviewPrintingTemplateRequest;
+}
+
+export async function printingPreviewPublishedTemplate(
+  http: HttpClient,
+  parameters: PrintingPreviewPublishedTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PrintingTemplatePreviewResponse> {
+  const path = `/api/v1/printing/published-templates/${encodeURIComponent(String(parameters.templateId))}/preview`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPrintingTemplatePreviewResponse(value);
 }
 
 export interface PrintingPreviewTemplateParameters {
@@ -9740,9 +9288,7 @@ export async function printingPreviewTemplate(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPrintingTemplatePreviewResponse(value);
 }
 
@@ -9763,10 +9309,26 @@ export async function printingPublishTemplate(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPrintingTemplateVersionResponse(value);
+}
+
+export interface PrintingRevokeTenantVersionParameters {
+  readonly templateId: string;
+  readonly versionNumber: number;
+  readonly tenantId: string;
+}
+
+export async function printingRevokeTenantVersion(
+  http: HttpClient,
+  parameters: PrintingRevokeTenantVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants/${encodeURIComponent(String(parameters.tenantId))}`;
+  const init: RequestInit = { method: 'DELETE' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPrintingRevokeTenantVersionResponse(value);
 }
 
 export interface PrintingUpdateTemplateParameters {
@@ -9786,9 +9348,7 @@ export async function printingUpdateTemplate(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPrintingTemplateResponse(value);
 }
 
@@ -9808,9 +9368,7 @@ export async function regionsApplyAdministrativeRegionImport(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readImportAdministrativeRegionsApplyResponse(value);
 }
 
@@ -9830,9 +9388,7 @@ export async function regionsCreateAdministrativeRegion(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAdministrativeRegionResponse(value);
 }
 
@@ -9872,9 +9428,7 @@ export async function regionsGetAdministrativeRegion(
 ): Promise<AdministrativeRegionResponse> {
   const path = `/api/v1/regions/administrative-regions/${encodeURIComponent(String(parameters.regionId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAdministrativeRegionResponse(value);
 }
 
@@ -9898,9 +9452,7 @@ export async function regionsGetAdministrativeRegionTree(
   }
   const path = query.size === 0 ? `/api/v1/regions/administrative-regions/tree` : `/api/v1/regions/administrative-regions/tree?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readRegionsGetAdministrativeRegionTreeResponse(value);
 }
 
@@ -9920,9 +9472,7 @@ export async function regionsGetLatestAdministrativeRegionDatasetManifest(
   }
   const path = query.size === 0 ? `/api/v1/regions/administrative-regions/dataset-manifest/latest` : `/api/v1/regions/administrative-regions/dataset-manifest/latest?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAdministrativeRegionDatasetManifestResponse(value);
 }
 
@@ -9942,9 +9492,7 @@ export async function regionsListAdministrativeRegionChildren(
   }
   const path = query.size === 0 ? `/api/v1/regions/administrative-regions/children` : `/api/v1/regions/administrative-regions/children?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readRegionsListAdministrativeRegionChildrenResponse(value);
 }
 
@@ -9984,9 +9532,7 @@ export async function regionsListAdministrativeRegions(
   }
   const path = query.size === 0 ? `/api/v1/regions/administrative-regions` : `/api/v1/regions/administrative-regions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfAdministrativeRegionResponse(value);
 }
 
@@ -10006,9 +9552,7 @@ export async function regionsPreviewAdministrativeRegionImport(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readImportAdministrativeRegionsPreviewResponse(value);
 }
 
@@ -10029,9 +9573,7 @@ export async function regionsUpdateAdministrativeRegion(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readAdministrativeRegionResponse(value);
 }
 
@@ -10051,9 +9593,7 @@ export async function reportingCreateDataSource(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingDataSourceResponse(value);
 }
 
@@ -10073,9 +9613,7 @@ export async function reportingCreateDefinition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingDefinitionResponse(value);
 }
 
@@ -10095,9 +9633,7 @@ export async function reportingCreateExportTask(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingExportTaskDetailResponse(value);
 }
 
@@ -10117,9 +9653,7 @@ export async function reportingCreateGroup(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingGroupResponse(value);
 }
 
@@ -10135,9 +9669,7 @@ export async function reportingDeleteDataSource(
 ): Promise<boolean> {
   const path = `/api/v1/reporting/data-sources/${encodeURIComponent(String(parameters.dataSourceId))}`;
   const init: RequestInit = { method: 'DELETE' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingDeleteDataSourceResponse(value);
 }
 
@@ -10153,9 +9685,7 @@ export async function reportingDeleteDefinition(
 ): Promise<boolean> {
   const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}`;
   const init: RequestInit = { method: 'DELETE' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingDeleteDefinitionResponse(value);
 }
 
@@ -10171,9 +9701,7 @@ export async function reportingDeleteGroup(
 ): Promise<boolean> {
   const path = `/api/v1/reporting/groups/${encodeURIComponent(String(parameters.groupId))}`;
   const init: RequestInit = { method: 'DELETE' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingDeleteGroupResponse(value);
 }
 
@@ -10189,9 +9717,7 @@ export async function reportingDisableDataSource(
 ): Promise<ReportingDataSourceResponse> {
   const path = `/api/v1/reporting/data-sources/${encodeURIComponent(String(parameters.dataSourceId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingDataSourceResponse(value);
 }
 
@@ -10241,9 +9767,7 @@ export async function reportingExecuteDefinition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingExecutionPageResponse(value);
 }
 
@@ -10259,9 +9783,7 @@ export async function reportingGetDataSource(
 ): Promise<ReportingDataSourceResponse> {
   const path = `/api/v1/reporting/data-sources/${encodeURIComponent(String(parameters.dataSourceId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingDataSourceResponse(value);
 }
 
@@ -10277,9 +9799,7 @@ export async function reportingGetDefinition(
 ): Promise<ReportingDefinitionResponse> {
   const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingDefinitionResponse(value);
 }
 
@@ -10296,9 +9816,7 @@ export async function reportingGetDefinitionVersion(
 ): Promise<ReportingDefinitionVersionResponse> {
   const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingDefinitionVersionResponse(value);
 }
 
@@ -10314,9 +9832,7 @@ export async function reportingGetExportTask(
 ): Promise<ReportingExportTaskDetailResponse> {
   const path = `/api/v1/reporting/export-tasks/${encodeURIComponent(String(parameters.taskId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingExportTaskDetailResponse(value);
 }
 
@@ -10332,9 +9848,7 @@ export async function reportingGetGroup(
 ): Promise<ReportingGroupResponse> {
   const path = `/api/v1/reporting/groups/${encodeURIComponent(String(parameters.groupId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingGroupResponse(value);
 }
 
@@ -10350,10 +9864,26 @@ export async function reportingGetQueryPort(
 ): Promise<ReportingQueryPortDefinition> {
   const path = `/api/v1/reporting/query-ports/${encodeURIComponent(String(parameters.queryPortKey))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingQueryPortDefinition(value);
+}
+
+export interface ReportingGrantTenantVersionParameters {
+  readonly definitionId: string;
+  readonly versionNumber: number;
+  readonly tenantId: string;
+}
+
+export async function reportingGrantTenantVersion(
+  http: HttpClient,
+  parameters: ReportingGrantTenantVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants/${encodeURIComponent(String(parameters.tenantId))}`;
+  const init: RequestInit = { method: 'PUT' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readReportingGrantTenantVersionResponse(value);
 }
 
 export interface ReportingListDataSourcesParameters {
@@ -10388,9 +9918,7 @@ export async function reportingListDataSources(
   }
   const path = query.size === 0 ? `/api/v1/reporting/data-sources` : `/api/v1/reporting/data-sources?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfReportingDataSourceListItem(value);
 }
 
@@ -10414,9 +9942,7 @@ export async function reportingListDefinitions(
   }
   const path = query.size === 0 ? `/api/v1/reporting/definitions` : `/api/v1/reporting/definitions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingListDefinitionsResponse(value);
 }
 
@@ -10432,9 +9958,7 @@ export async function reportingListDefinitionVersions(
 ): Promise<Array<ReportingDefinitionVersionResponse>> {
   const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingListDefinitionVersionsResponse(value);
 }
 
@@ -10462,9 +9986,7 @@ export async function reportingListExportTasks(
   }
   const path = query.size === 0 ? `/api/v1/reporting/export-tasks` : `/api/v1/reporting/export-tasks?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfReportingExportTaskResponse(value);
 }
 
@@ -10480,10 +10002,24 @@ export async function reportingListGroups(
 ): Promise<Array<ReportingGroupResponse>> {
   const path = `/api/v1/reporting/groups`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingListGroupsResponse(value);
+}
+
+export interface ReportingListPublishedDefinitionsParameters {
+
+}
+
+export async function reportingListPublishedDefinitions(
+  http: HttpClient,
+  parameters: ReportingListPublishedDefinitionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<ReportingPublishedDefinitionResponse>> {
+  const path = `/api/v1/reporting/published-definitions`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readReportingListPublishedDefinitionsResponse(value);
 }
 
 export interface ReportingListQueryPortsParameters {
@@ -10498,10 +10034,34 @@ export async function reportingListQueryPorts(
 ): Promise<Array<ReportingQueryPortDefinition>> {
   const path = `/api/v1/reporting/query-ports`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingListQueryPortsResponse(value);
+}
+
+export interface ReportingListTenantVersionGrantsParameters {
+  readonly definitionId: string;
+  readonly versionNumber: number;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function reportingListTenantVersionGrants(
+  http: HttpClient,
+  parameters: ReportingListTenantVersionGrantsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfGuid> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants` : `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPagedResultOfGuid(value);
 }
 
 export interface ReportingPublishDefinitionParameters {
@@ -10521,10 +10081,26 @@ export async function reportingPublishDefinition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingDefinitionVersionResponse(value);
+}
+
+export interface ReportingRevokeTenantVersionParameters {
+  readonly definitionId: string;
+  readonly versionNumber: number;
+  readonly tenantId: string;
+}
+
+export async function reportingRevokeTenantVersion(
+  http: HttpClient,
+  parameters: ReportingRevokeTenantVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}/tenant-grants/${encodeURIComponent(String(parameters.tenantId))}`;
+  const init: RequestInit = { method: 'DELETE' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readReportingRevokeTenantVersionResponse(value);
 }
 
 export interface ReportingTestDataSourceParameters {
@@ -10539,9 +10115,7 @@ export async function reportingTestDataSource(
 ): Promise<TestReportingDataSourceResult> {
   const path = `/api/v1/reporting/data-sources/${encodeURIComponent(String(parameters.dataSourceId))}/test`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTestReportingDataSourceResult(value);
 }
 
@@ -10562,9 +10136,7 @@ export async function reportingUpdateDataSource(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingDataSourceResponse(value);
 }
 
@@ -10585,9 +10157,7 @@ export async function reportingUpdateDefinition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingDefinitionResponse(value);
 }
 
@@ -10608,9 +10178,7 @@ export async function reportingUpdateGroup(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readReportingGroupResponse(value);
 }
 
@@ -10630,9 +10198,7 @@ export async function serialNumbersCreateRule(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSerialNumberRuleResponse(value);
 }
 
@@ -10653,9 +10219,7 @@ export async function serialNumbersDisableRule(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSerialNumberRuleResponse(value);
 }
 
@@ -10676,9 +10240,7 @@ export async function serialNumbersEnableRule(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSerialNumberRuleResponse(value);
 }
 
@@ -10730,9 +10292,7 @@ export async function serialNumbersListRules(
   }
   const path = query.size === 0 ? `/api/v1/serial-numbers/rules` : `/api/v1/serial-numbers/rules?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfSerialNumberRuleResponse(value);
 }
 
@@ -10753,9 +10313,7 @@ export async function serialNumbersPreviewRuleDisableApproval(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSerialRuleDisableApprovalPreviewResponse(value);
 }
 
@@ -10776,9 +10334,7 @@ export async function serialNumbersPreviewRuleUpdateApproval(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSerialRuleUpdateApprovalPreviewResponse(value);
 }
 
@@ -10798,9 +10354,7 @@ export async function serialNumbersPreviewSerialNumber(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSerialNumberPreviewResponse(value);
 }
 
@@ -10821,9 +10375,7 @@ export async function serialNumbersSubmitRuleDisableApproval(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSerialRuleDisableApprovalSubmissionResponse(value);
 }
 
@@ -10844,9 +10396,7 @@ export async function serialNumbersSubmitRuleUpdateApproval(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSerialRuleUpdateApprovalSubmissionResponse(value);
 }
 
@@ -10867,9 +10417,7 @@ export async function serialNumbersUpdateRule(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSerialNumberRuleResponse(value);
 }
 
@@ -10912,9 +10460,7 @@ export async function settingsBatchUpdateHostConfigEntryValues(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSettingsBatchUpdateHostConfigEntryValuesResponse(value);
 }
 
@@ -10934,9 +10480,7 @@ export async function settingsCreateHostConfigEntry(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readConfigEntryResponse(value);
 }
 
@@ -10957,9 +10501,7 @@ export async function settingsCreateHostDictItem(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictItemResponse(value);
 }
 
@@ -10979,9 +10521,7 @@ export async function settingsCreateHostDictType(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictTypeResponse(value);
 }
 
@@ -11002,9 +10542,7 @@ export async function settingsCreateTenantDictItem(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictItemResponse(value);
 }
 
@@ -11024,9 +10562,7 @@ export async function settingsCreateTenantDictType(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictTypeResponse(value);
 }
 
@@ -11162,9 +10698,7 @@ export async function settingsDisableHostConfigEntry(
 ): Promise<ConfigEntryResponse> {
   const path = `/api/v1/settings/config-entries/${encodeURIComponent(String(parameters.configEntryId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readConfigEntryResponse(value);
 }
 
@@ -11180,9 +10714,7 @@ export async function settingsDisableHostDictItem(
 ): Promise<DictItemResponse> {
   const path = `/api/v1/settings/dict-items/${encodeURIComponent(String(parameters.dictItemId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictItemResponse(value);
 }
 
@@ -11198,9 +10730,7 @@ export async function settingsDisableHostDictType(
 ): Promise<DictTypeResponse> {
   const path = `/api/v1/settings/dict-types/${encodeURIComponent(String(parameters.dictTypeId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictTypeResponse(value);
 }
 
@@ -11216,9 +10746,7 @@ export async function settingsDisableTenantDictItem(
 ): Promise<DictItemResponse> {
   const path = `/api/v1/settings/tenant-dict-items/${encodeURIComponent(String(parameters.dictItemId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictItemResponse(value);
 }
 
@@ -11234,9 +10762,7 @@ export async function settingsDisableTenantDictType(
 ): Promise<DictTypeResponse> {
   const path = `/api/v1/settings/tenant-dict-types/${encodeURIComponent(String(parameters.dictTypeId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictTypeResponse(value);
 }
 
@@ -11252,9 +10778,7 @@ export async function settingsGenerateHostEnumCatalogDict(
 ): Promise<EnumCatalogDictGenerationResult> {
   const path = `/api/v1/settings/enum-catalogs/${encodeURIComponent(String(parameters.catalogKey))}/dict-generation`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readEnumCatalogDictGenerationResult(value);
 }
 
@@ -11270,9 +10794,7 @@ export async function settingsGetHostConfigEntry(
 ): Promise<ConfigEntryResponse> {
   const path = `/api/v1/settings/config-entries/${encodeURIComponent(String(parameters.configEntryId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readConfigEntryResponse(value);
 }
 
@@ -11288,9 +10810,7 @@ export async function settingsGetHostConfigEntryByKey(
 ): Promise<ConfigEntryResponse> {
   const path = `/api/v1/settings/config-entries/by-key/${encodeURIComponent(String(parameters.configKey))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readConfigEntryResponse(value);
 }
 
@@ -11306,9 +10826,7 @@ export async function settingsGetHostDiagnosticPolicy(
 ): Promise<DiagnosticPolicyResponse> {
   const path = `/api/v1/settings/diagnostic-policy`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDiagnosticPolicyResponse(value);
 }
 
@@ -11324,9 +10842,7 @@ export async function settingsGetHostDictItem(
 ): Promise<DictItemResponse> {
   const path = `/api/v1/settings/dict-items/${encodeURIComponent(String(parameters.dictItemId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictItemResponse(value);
 }
 
@@ -11342,9 +10858,7 @@ export async function settingsGetHostEnumCatalog(
 ): Promise<EnumCatalogDetail> {
   const path = `/api/v1/settings/enum-catalogs/${encodeURIComponent(String(parameters.catalogKey))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readEnumCatalogDetail(value);
 }
 
@@ -11360,9 +10874,7 @@ export async function settingsGetTenantDictItem(
 ): Promise<DictItemResponse> {
   const path = `/api/v1/settings/tenant-dict-items/${encodeURIComponent(String(parameters.dictItemId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictItemResponse(value);
 }
 
@@ -11378,9 +10890,7 @@ export async function settingsListAllHostConfigEntries(
 ): Promise<Array<ConfigEntryResponse>> {
   const path = `/api/v1/settings/config-entries/list`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSettingsListAllHostConfigEntriesResponse(value);
 }
 
@@ -11396,9 +10906,7 @@ export async function settingsListAllHostDictTypes(
 ): Promise<Array<DictTypeResponse>> {
   const path = `/api/v1/settings/dict-types/list`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSettingsListAllHostDictTypesResponse(value);
 }
 
@@ -11414,9 +10922,7 @@ export async function settingsListAllTenantDictTypes(
 ): Promise<Array<DictTypeResponse>> {
   const path = `/api/v1/settings/tenant-dict-types/list`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSettingsListAllTenantDictTypesResponse(value);
 }
 
@@ -11440,9 +10946,7 @@ export async function settingsListHostConfigEntries(
   }
   const path = query.size === 0 ? `/api/v1/settings/config-entries` : `/api/v1/settings/config-entries?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfConfigEntryResponse(value);
 }
 
@@ -11458,9 +10962,7 @@ export async function settingsListHostConfigEntryGroups(
 ): Promise<Array<string>> {
   const path = `/api/v1/settings/config-entries/groups`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSettingsListHostConfigEntryGroupsResponse(value);
 }
 
@@ -11485,9 +10987,7 @@ export async function settingsListHostDictItems(
   }
   const path = query.size === 0 ? `/api/v1/settings/dict-types/${encodeURIComponent(String(parameters.dictTypeId))}/items` : `/api/v1/settings/dict-types/${encodeURIComponent(String(parameters.dictTypeId))}/items?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfDictItemResponse(value);
 }
 
@@ -11503,9 +11003,7 @@ export async function settingsListHostDictItemsByTypeCode(
 ): Promise<Array<DictItemResponse>> {
   const path = `/api/v1/settings/dict-types/by-code/${encodeURIComponent(String(parameters.code))}/items`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSettingsListHostDictItemsByTypeCodeResponse(value);
 }
 
@@ -11529,9 +11027,7 @@ export async function settingsListHostDictTypes(
   }
   const path = query.size === 0 ? `/api/v1/settings/dict-types` : `/api/v1/settings/dict-types?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfDictTypeResponse(value);
 }
 
@@ -11547,9 +11043,7 @@ export async function settingsListHostEnumCatalogs(
 ): Promise<Array<EnumCatalogSummary>> {
   const path = `/api/v1/settings/enum-catalogs`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSettingsListHostEnumCatalogsResponse(value);
 }
 
@@ -11574,9 +11068,7 @@ export async function settingsListTenantDictItems(
   }
   const path = query.size === 0 ? `/api/v1/settings/tenant-dict-types/${encodeURIComponent(String(parameters.dictTypeId))}/items` : `/api/v1/settings/tenant-dict-types/${encodeURIComponent(String(parameters.dictTypeId))}/items?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfDictItemResponse(value);
 }
 
@@ -11592,9 +11084,7 @@ export async function settingsListTenantDictItemsByTypeCode(
 ): Promise<Array<DictItemResponse>> {
   const path = `/api/v1/settings/tenant-dict-types/by-code/${encodeURIComponent(String(parameters.code))}/items`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readSettingsListTenantDictItemsByTypeCodeResponse(value);
 }
 
@@ -11618,9 +11108,7 @@ export async function settingsListTenantDictTypes(
   }
   const path = query.size === 0 ? `/api/v1/settings/tenant-dict-types` : `/api/v1/settings/tenant-dict-types?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfDictTypeResponse(value);
 }
 
@@ -11636,9 +11124,7 @@ export async function settingsPreviewHostEnumCatalogDictGeneration(
 ): Promise<EnumCatalogDictGenerationPreview> {
   const path = `/api/v1/settings/enum-catalogs/${encodeURIComponent(String(parameters.catalogKey))}/dict-generation-preview`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readEnumCatalogDictGenerationPreview(value);
 }
 
@@ -11658,9 +11144,7 @@ export async function settingsRestoreHostDiagnosticPolicy(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDiagnosticPolicyResponse(value);
 }
 
@@ -11681,9 +11165,7 @@ export async function settingsUpdateHostConfigEntry(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readConfigEntryResponse(value);
 }
 
@@ -11703,9 +11185,7 @@ export async function settingsUpdateHostDiagnosticPolicy(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDiagnosticPolicyResponse(value);
 }
 
@@ -11726,9 +11206,7 @@ export async function settingsUpdateHostDictItem(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictItemResponse(value);
 }
 
@@ -11749,9 +11227,7 @@ export async function settingsUpdateHostDictType(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictTypeResponse(value);
 }
 
@@ -11772,9 +11248,7 @@ export async function settingsUpdateTenantDictItem(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictItemResponse(value);
 }
 
@@ -11795,10 +11269,24 @@ export async function settingsUpdateTenantDictType(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readDictTypeResponse(value);
+}
+
+export interface SubmitEnterpriseRequestForApprovalParameters {
+  readonly id: string;
+}
+
+export async function submitEnterpriseRequestForApproval(
+  http: HttpClient,
+  parameters: SubmitEnterpriseRequestForApprovalParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.id))}/submit-for-approval`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readEnterpriseRequestResponse(value);
 }
 
 export interface TenancyAssignHostTenantPackageParameters {
@@ -11818,9 +11306,7 @@ export async function tenancyAssignHostTenantPackage(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantSummary(value);
 }
 
@@ -11840,9 +11326,7 @@ export async function tenancyCreateHostTenant(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantSummary(value);
 }
 
@@ -11862,9 +11346,7 @@ export async function tenancyCreateHostTenantPackage(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantPackageSummary(value);
 }
 
@@ -11880,9 +11362,7 @@ export async function tenancyDeleteCurrentBrandingLogo(
 ): Promise<TenantBrandingResponse> {
   const path = `/api/v1/tenancy/branding/logo`;
   const init: RequestInit = { method: 'DELETE' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantBrandingResponse(value);
 }
 
@@ -11898,9 +11378,7 @@ export async function tenancyDeleteHostTenantBrandingLogo(
 ): Promise<TenantBrandingResponse> {
   const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/branding/logo`;
   const init: RequestInit = { method: 'DELETE' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantBrandingResponse(value);
 }
 
@@ -11916,9 +11394,7 @@ export async function tenancyDisableHostTenant(
 ): Promise<TenantSummary> {
   const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantSummary(value);
 }
 
@@ -11934,9 +11410,7 @@ export async function tenancyDisableHostTenantPackage(
 ): Promise<TenantPackageSummary> {
   const path = `/api/v1/tenancy/tenant-packages/${encodeURIComponent(String(parameters.packageId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantPackageSummary(value);
 }
 
@@ -11952,9 +11426,7 @@ export async function tenancyEnableHostTenant(
 ): Promise<TenantSummary> {
   const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/enable`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantSummary(value);
 }
 
@@ -11970,9 +11442,7 @@ export async function tenancyGetCurrentBranding(
 ): Promise<TenantBrandingResponse> {
   const path = `/api/v1/tenancy/branding`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantBrandingResponse(value);
 }
 
@@ -12008,9 +11478,7 @@ export async function tenancyGetHostTenant(
 ): Promise<TenantSummary> {
   const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantSummary(value);
 }
 
@@ -12026,9 +11494,7 @@ export async function tenancyGetHostTenantBranding(
 ): Promise<TenantBrandingResponse> {
   const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/branding`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantBrandingResponse(value);
 }
 
@@ -12064,9 +11530,7 @@ export async function tenancyGetHostTenantPackage(
 ): Promise<TenantPackageSummary> {
   const path = `/api/v1/tenancy/tenant-packages/${encodeURIComponent(String(parameters.packageId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantPackageSummary(value);
 }
 
@@ -12082,9 +11546,7 @@ export async function tenancyGetRuntimeBranding(
 ): Promise<TenantRuntimeBrandingResponse> {
   const path = `/api/v1/tenancy/branding/current`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantRuntimeBrandingResponse(value);
 }
 
@@ -12109,9 +11571,7 @@ export async function tenancyListHostTenantAdministrators(
   }
   const path = query.size === 0 ? `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/administrators` : `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/administrators?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostTenantAdministratorsPageResponse(value);
 }
 
@@ -12136,9 +11596,7 @@ export async function tenancyListHostTenantMembers(
   }
   const path = query.size === 0 ? `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/members` : `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/members?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readHostTenantMembersPageResponse(value);
 }
 
@@ -12162,9 +11620,7 @@ export async function tenancyListHostTenantPackages(
   }
   const path = query.size === 0 ? `/api/v1/tenancy/tenant-packages` : `/api/v1/tenancy/tenant-packages?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfTenantPackageSummary(value);
 }
 
@@ -12188,9 +11644,7 @@ export async function tenancyListHostTenants(
   }
   const path = query.size === 0 ? `/api/v1/tenancy/tenants` : `/api/v1/tenancy/tenants?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfTenantSummary(value);
 }
 
@@ -12210,9 +11664,7 @@ export async function tenancyUpdateCurrentBranding(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantBrandingResponse(value);
 }
 
@@ -12233,9 +11685,7 @@ export async function tenancyUpdateHostTenant(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantSummary(value);
 }
 
@@ -12256,9 +11706,7 @@ export async function tenancyUpdateHostTenantBranding(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantBrandingResponse(value);
 }
 
@@ -12279,9 +11727,7 @@ export async function tenancyUpdateHostTenantPackage(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantPackageSummary(value);
 }
 
@@ -12301,9 +11747,7 @@ export async function tenancyUploadCurrentBrandingLogo(
     body.append('file', parameters.file);
   }
   const init: RequestInit = { method: 'POST', body };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantBrandingResponse(value);
 }
 
@@ -12324,9 +11768,7 @@ export async function tenancyUploadHostTenantBrandingLogo(
     body.append('file', parameters.file);
   }
   const init: RequestInit = { method: 'POST', body };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantBrandingResponse(value);
 }
 
@@ -12347,9 +11789,7 @@ export async function workflowApproveTodo(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowInstanceResponse(value);
 }
 
@@ -12370,9 +11810,7 @@ export async function workflowCancelInstance(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowInstanceResponse(value);
 }
 
@@ -12392,9 +11830,7 @@ export async function workflowCreateDefinition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowDefinitionResponse(value);
 }
 
@@ -12414,9 +11850,7 @@ export async function workflowCreateForm(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowFormResponse(value);
 }
 
@@ -12470,9 +11904,7 @@ export async function workflowGetDefinition(
 ): Promise<WorkflowDefinitionResponse> {
   const path = `/api/v1/workflow/definitions/${encodeURIComponent(String(parameters.definitionId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowDefinitionResponse(value);
 }
 
@@ -12488,9 +11920,7 @@ export async function workflowGetForm(
 ): Promise<WorkflowFormResponse> {
   const path = `/api/v1/workflow/forms/${encodeURIComponent(String(parameters.formId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowFormResponse(value);
 }
 
@@ -12506,9 +11936,7 @@ export async function workflowGetFormComponentCatalog(
 ): Promise<WorkflowFormComponentCatalogResponse> {
   const path = `/api/v1/workflow/forms/component-catalog`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowFormComponentCatalogResponse(value);
 }
 
@@ -12524,9 +11952,7 @@ export async function workflowGetFormVersion(
 ): Promise<WorkflowFormVersionResponse> {
   const path = `/api/v1/workflow/form-versions/${encodeURIComponent(String(parameters.versionId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowFormVersionResponse(value);
 }
 
@@ -12542,9 +11968,7 @@ export async function workflowGetInstance(
 ): Promise<WorkflowInstanceResponse> {
   const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowInstanceResponse(value);
 }
 
@@ -12560,9 +11984,7 @@ export async function workflowGetNodeTypeCatalog(
 ): Promise<WorkflowNodeTypeCatalogResponse> {
   const path = `/api/v1/workflow/definitions/node-type-catalog`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowNodeTypeCatalogResponse(value);
 }
 
@@ -12578,9 +12000,7 @@ export async function workflowGetRecoveryTask(
 ): Promise<WorkflowRecoveryTaskResponse> {
   const path = `/api/v1/workflow/recovery-tasks/${encodeURIComponent(String(parameters.taskId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowRecoveryTaskResponse(value);
 }
 
@@ -12596,9 +12016,7 @@ export async function workflowGetTodo(
 ): Promise<WorkflowTodoDetailResponse> {
   const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowTodoDetailResponse(value);
 }
 
@@ -12614,9 +12032,7 @@ export async function workflowGetTodoRuntime(
 ): Promise<WorkflowTodoRuntimeResponse> {
   const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/runtime`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowTodoRuntimeResponse(value);
 }
 
@@ -12632,9 +12048,7 @@ export async function workflowListDefinitions(
 ): Promise<Array<WorkflowDefinitionResponse>> {
   const path = `/api/v1/workflow/definitions`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowListDefinitionsResponse(value);
 }
 
@@ -12650,9 +12064,7 @@ export async function workflowListDefinitionVersions(
 ): Promise<Array<WorkflowDefinitionVersionResponse>> {
   const path = `/api/v1/workflow/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowListDefinitionVersionsResponse(value);
 }
 
@@ -12668,9 +12080,7 @@ export async function workflowListForms(
 ): Promise<Array<WorkflowFormResponse>> {
   const path = `/api/v1/workflow/forms`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowListFormsResponse(value);
 }
 
@@ -12686,9 +12096,7 @@ export async function workflowListFormVersions(
 ): Promise<Array<WorkflowFormVersionResponse>> {
   const path = `/api/v1/workflow/forms/${encodeURIComponent(String(parameters.formId))}/versions`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowListFormVersionsResponse(value);
 }
 
@@ -12704,9 +12112,7 @@ export async function workflowListInstanceExecutionLogs(
 ): Promise<Array<WorkflowExecutionLogResponse>> {
   const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/execution-logs`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowListInstanceExecutionLogsResponse(value);
 }
 
@@ -12750,9 +12156,7 @@ export async function workflowListInstances(
   }
   const path = query.size === 0 ? `/api/v1/workflow/instances` : `/api/v1/workflow/instances?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfWorkflowInstanceListItemResponse(value);
 }
 
@@ -12768,9 +12172,7 @@ export async function workflowListMyCc(
 ): Promise<Array<WorkflowCcResponse>> {
   const path = `/api/v1/workflow/cc/mine`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowListMyCcResponse(value);
 }
 
@@ -12814,9 +12216,7 @@ export async function workflowListMyInstances(
   }
   const path = query.size === 0 ? `/api/v1/workflow/instances/mine` : `/api/v1/workflow/instances/mine?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfWorkflowInstanceListItemResponse(value);
 }
 
@@ -12860,9 +12260,7 @@ export async function workflowListMyTodoHistory(
   }
   const path = query.size === 0 ? `/api/v1/workflow/todos/mine/history` : `/api/v1/workflow/todos/mine/history?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfWorkflowTodoListItemResponse(value);
 }
 
@@ -12902,9 +12300,7 @@ export async function workflowListMyTodos(
   }
   const path = query.size === 0 ? `/api/v1/workflow/todos/mine` : `/api/v1/workflow/todos/mine?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfWorkflowTodoListItemResponse(value);
 }
 
@@ -12928,9 +12324,7 @@ export async function workflowListRecipientCandidates(
   }
   const path = query.size === 0 ? `/api/v1/workflow/definitions/recipient-candidates` : `/api/v1/workflow/definitions/recipient-candidates?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowRecipientCandidatePageResponse(value);
 }
 
@@ -12954,9 +12348,7 @@ export async function workflowListRecoveryTasks(
   }
   const path = query.size === 0 ? `/api/v1/workflow/recovery-tasks` : `/api/v1/workflow/recovery-tasks?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfWorkflowRecoveryTaskResponse(value);
 }
 
@@ -12981,9 +12373,7 @@ export async function workflowListTodoReturnTargets(
   }
   const path = query.size === 0 ? `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/return-targets` : `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/return-targets?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowListTodoReturnTargetsResponse(value);
 }
 
@@ -12999,9 +12389,7 @@ export async function workflowMarkCcRead(
 ): Promise<WorkflowCcReadResponse> {
   const path = `/api/v1/workflow/cc/${encodeURIComponent(String(parameters.ccId))}/read`;
   const init: RequestInit = { method: 'POST' };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowCcReadResponse(value);
 }
 
@@ -13022,9 +12410,7 @@ export async function workflowPauseInstance(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowInstanceResponse(value);
 }
 
@@ -13044,9 +12430,7 @@ export async function workflowPreviewAssignees(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowAssigneePreviewResponse(value);
 }
 
@@ -13067,9 +12451,7 @@ export async function workflowPublishDefinition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowDefinitionVersionResponse(value);
 }
 
@@ -13090,9 +12472,7 @@ export async function workflowPublishForm(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowFormVersionResponse(value);
 }
 
@@ -13113,9 +12493,7 @@ export async function workflowReassignInstance(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowInstanceResponse(value);
 }
 
@@ -13136,9 +12514,7 @@ export async function workflowReconcileRecoveryTask(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowRecoveryTaskResponse(value);
 }
 
@@ -13159,9 +12535,7 @@ export async function workflowRecoverInstance(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowInstanceResponse(value);
 }
 
@@ -13182,9 +12556,7 @@ export async function workflowRejectTodo(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowInstanceResponse(value);
 }
 
@@ -13205,9 +12577,7 @@ export async function workflowResumeInstance(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowInstanceResponse(value);
 }
 
@@ -13228,9 +12598,7 @@ export async function workflowRetryRecoveryTask(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowRecoveryTaskResponse(value);
 }
 
@@ -13251,9 +12619,7 @@ export async function workflowReturnTodo(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowInstanceResponse(value);
 }
 
@@ -13274,9 +12640,7 @@ export async function workflowSetDefinitionStatus(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowDefinitionResponse(value);
 }
 
@@ -13297,9 +12661,7 @@ export async function workflowSetFormStatus(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowFormResponse(value);
 }
 
@@ -13319,9 +12681,7 @@ export async function workflowStartInstance(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowInstanceResponse(value);
 }
 
@@ -13342,9 +12702,7 @@ export async function workflowUpdateDefinitionDraft(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowDefinitionResponse(value);
 }
 
@@ -13365,8 +12723,6 @@ export async function workflowUpdateFormDraft(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = options === undefined
-    ? await http.request<unknown>(path, init, signal)
-    : await http.request<unknown>(path, init, signal, options);
+  const value = await requestJsonOperation(http, path, init, signal, options);
   return readWorkflowFormResponse(value);
 }

@@ -359,6 +359,7 @@ export {
 
 export type {
   CreateRegistrationWayRequest,
+  RegistrationMode,
   RegistrationPolicy,
   RegistrationWay,
   RegistrationWayListQuery,
@@ -1697,3 +1698,6 @@ export * from './public-auth.js';
 export * from './tenancy-entitlements.js';
 export * from './tenant-members.js';
 export * from './tenant-subscriptions.js';
+
+export { isReportingPublishedDefinition, isReportingPublishedDefinitionList, isReportingTenantVersionGrantPage } from './reporting-definitions.js';
+export type { ReportingPublishedDefinition, ReportingTenantVersionGrantPage } from './reporting-definitions.js';

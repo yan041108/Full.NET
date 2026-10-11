@@ -549,7 +549,10 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             AotDataReaderExtensions.ReadInt32(reader, 6),
             AotDataReaderExtensions.ReadInt32(reader, 7),
             AotDataReaderExtensions.ReadInt32(reader, 8),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 9));
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 9),
+            reader.IsDBNull(10) ? null : reader.GetString(10),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 11),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 12));
 
     private static RegistrationInvitationRecord ReadRegistrationInvitationRecord(DbDataReader reader) =>
         new(

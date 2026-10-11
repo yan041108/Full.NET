@@ -1,11 +1,14 @@
 using System.Data.Common;
 using Dapper;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.Dapper;
 using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modules.Files.Persistence;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
@@ -73,9 +76,9 @@ internal static class TenantResourceFilePersistenceAssertions
         var ready = (await first.QueryAsync<TenantResourceFileReadyRecord>(
             TenantResourceFileSql.ListReady.Text,
             new { TenantId = tenantA, OwnerModuleKey = "import_export", ResourceId = resourceA }).ConfigureAwait(false))
-            .Select(row => row.Id)
             .ToList();
-        CollectionAssert.AreEquivalent(new[] { fileA }, ready);
+        CollectionAssert.AreEquivalent(new[] { fileA }, ready.Select(row => row.Id).ToList());
+        Assert.AreEqual(TimeSpan.Zero, ready.Single().CreatedAtUtc.Offset);
     }
 
     /// <summary>陈旧 pending 只能由匹配所有权的语句提升或清除，跨租户不得删除元数据。</summary>
@@ -97,6 +100,16 @@ internal static class TenantResourceFilePersistenceAssertions
         Assert.AreEqual(0, await first.ExecuteAsync(
             TenantResourceFileSql.PurgePending.Text,
             new { TenantId = tenantA, Id = fileId, OwnerModuleKey = "import_export", ResourceId = resourceA }).ConfigureAwait(false));
+        // 迟到对象只能恢复为不可发布的 released 墓碑，后续删除仍绑定精确租户与资源。
+        var lateId = Guid.CreateVersion7();
+        await InsertAsync(first, lateId, tenantA, "import_export", resourceA, DateTime.UtcNow, TenantResourceFileSql.InsertReleasedIntent).ConfigureAwait(false);
+        Assert.AreEqual("released", await StatusAsync(first, lateId).ConfigureAwait(false));
+        Assert.AreEqual(0, await first.ExecuteAsync(TenantResourceFileSql.MarkReady.Text,
+            new { TenantId = tenantA, Id = lateId, OwnerModuleKey = "import_export", ResourceId = resourceA }).ConfigureAwait(false));
+        Assert.AreEqual(0, await first.ExecuteAsync(TenantResourceFileSql.PurgeReleased.Text,
+            new { TenantId = tenantB, Id = lateId, OwnerModuleKey = "import_export", ResourceId = resourceA }).ConfigureAwait(false));
+        Assert.AreEqual(1, await first.ExecuteAsync(TenantResourceFileSql.PurgeReleased.Text,
+            new { TenantId = tenantA, Id = lateId, OwnerModuleKey = "import_export", ResourceId = resourceA }).ConfigureAwait(false));
     }
 
     /// <summary>写入一条租户 A 的 pending 文件，并预留租户 B 与另一资源标识。</summary>
@@ -105,6 +118,14 @@ internal static class TenantResourceFilePersistenceAssertions
         var connectionString = provider == DatabaseProvider.SqlServer
             ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync().ConfigureAwait(false)
             : await SharedDatabaseFixture.CreateMySqlDatabaseAsync().ConfigureAwait(false);
+        // 直接执行生产 SQL 也必须装配生产类型处理器，不能依赖其他 Host 夹具先注册 UTC 映射。
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Database:Provider"] = provider.ToString(),
+            ["Database:ConnectionString"] = connectionString,
+            ["Database:MySqlGuidStorageMode"] = nameof(MySqlGuidStorageMode.Binary16),
+        }).Build();
+        _ = new ServiceCollection().AddFullNetDapper(configuration, "Testing");
         var runner = new DbUpMigrationRunner(Options.Create(new DatabaseOptions
         {
             Provider = provider,
@@ -133,9 +154,10 @@ internal static class TenantResourceFilePersistenceAssertions
         Guid tenantId,
         string ownerModuleKey,
         Guid resourceId,
-        DateTime createdAtUtc) =>
+        DateTime createdAtUtc,
+        SqlStatement? statement = null) =>
         connection.ExecuteAsync(
-            TenantResourceFileSql.Insert.Text,
+            (statement ?? TenantResourceFileSql.Insert).Text,
             new
             {
                 Id = id,

@@ -11,8 +11,21 @@ describe('Vue PermissionGate', () => {
     setActivePinia(createPinia());
   });
 
+  it.each(['initializing', 'anonymous'] as const)('%s 状态即使残留权限也不渲染操作', async state => {
+    const session = useSessionStore();
+    session.currentUser = authenticatedUser(['identity.users.reset_password']);
+    session.state = state;
+    const wrapper = mount(PermissionGate, {
+      props: { code: 'identity.users.reset_password' }, slots: { default: '<button>reset</button>' }
+    });
+    expect(wrapper.find('button').exists()).toBe(false);
+    session.state = 'authenticated'; await wrapper.vm.$nextTick();
+    expect(wrapper.find('button').exists()).toBe(true); wrapper.unmount();
+  });
+
   it('无精确权限时不渲染默认插槽', () => {
     const session = useSessionStore();
+    session.state = 'authenticated';
     session.currentUser = authenticatedUser(['identity.users.read']);
 
     const wrapper = mount(PermissionGate, {
@@ -25,6 +38,7 @@ describe('Vue PermissionGate', () => {
 
   it('拥有精确权限时渲染默认插槽', () => {
     const session = useSessionStore();
+    session.state = 'authenticated';
     session.currentUser = authenticatedUser(['identity.users.reset_password']);
 
     const wrapper = mount(PermissionGate, {
@@ -37,6 +51,7 @@ describe('Vue PermissionGate', () => {
 
   it('权限撤销后移除已渲染内容', async () => {
     const session = useSessionStore();
+    session.state = 'authenticated';
     session.currentUser = authenticatedUser(['identity.users.reset_password']);
 
     const wrapper = mount(PermissionGate, {
@@ -45,6 +60,7 @@ describe('Vue PermissionGate', () => {
     });
     expect(wrapper.find('button').exists()).toBe(true);
 
+    session.state = 'authenticated';
     session.currentUser = authenticatedUser([]);
     await wrapper.vm.$nextTick();
 

@@ -238,6 +238,19 @@ function renderOperations(operations, schemas, httpModuleSpecifier) {
     + '  signal?: AbortSignal,\n'
     + '  options?: RequestOptions\n'
     + ') => Promise<T>;\n\n'
+    // 合并重复的 JSON 分派，保留可选参数省略、接收者和响应守卫语义。
+    + (readerNames.length > 0 ? [
+      'function requestJsonOperation(',
+      '  http: HttpClient, path: string, init: RequestInit,',
+      '  signal?: AbortSignal, options?: RequestOptions',
+      '): Promise<unknown> {',
+      '  return options === undefined',
+      '    ? http.request<unknown>(path, init, signal)',
+      '    : http.request<unknown>(path, init, signal, options);',
+      '}',
+      '',
+      ''
+    ].join('\n') : '')
     + blocks.join('\n\n')
     + '\n';
 }
@@ -292,9 +305,7 @@ function renderOperation(operation, schemas) {
     lines.push('    await http.request<void>(path, init, signal, options);');
     lines.push('  }');
   } else {
-    lines.push('  const value = options === undefined');
-    lines.push('    ? await http.request<unknown>(path, init, signal)');
-    lines.push('    : await http.request<unknown>(path, init, signal, options);');
+    lines.push('  const value = await requestJsonOperation(http, path, init, signal, options);');
     lines.push(`  return ${responseReaderName(operation)}(value);`);
   }
   lines.push('}');
@@ -411,7 +422,7 @@ function collectOperations(document) {
           required: parameter.required === true,
           schema: parameter.schema
         })),
-        request: describeRequest(operation.requestBody),
+        request: describeRequest(operation.requestBody, document.components?.schemas ?? {}),
         response
       });
     }
@@ -419,7 +430,7 @@ function collectOperations(document) {
   return operations.sort((left, right) => compareText(left.operationId, right.operationId));
 }
 
-function describeRequest(requestBody) {
+function describeRequest(requestBody, schemas) {
   if (!requestBody) {
     return { kind: 'none' };
   }
@@ -435,10 +446,32 @@ function describeRequest(requestBody) {
     return {
       kind: 'multipart',
       required: requestBody.required === true,
-      schema: content['multipart/form-data'].schema
+      schema: flattenMultipartSchema(content['multipart/form-data'].schema, schemas)
     };
   }
   throw new Error('客户端生成器遇到不支持的 requestBody media type。');
+}
+
+// ASP.NET 多个 FromForm 参数使用 allOf 描述；先展开对象字段，避免生成空上传或丢失必填项。
+function flattenMultipartSchema(schema, schemas, ancestors = new Set()) {
+  if (isReference(schema)) {
+    const name = referenceName(schema);
+    if (ancestors.has(name) || !schemas[name]) throw new Error('multipart Schema 引用缺失或循环。');
+    return flattenMultipartSchema(schemas[name], schemas, new Set([...ancestors, name]));
+  }
+  if (!schema || schema.oneOf || schema.anyOf) throw new Error('multipart Schema 必须是明确的对象字段。');
+  const properties = { ...schema.properties }; const required = new Set(schema.required ?? []);
+  for (const child of schema.allOf ?? []) {
+    const expanded = flattenMultipartSchema(child, schemas, ancestors);
+    for (const [name, property] of Object.entries(expanded.properties)) {
+      if (properties[name] && JSON.stringify(properties[name]) !== JSON.stringify(property)) {
+        throw new Error(`multipart 字段定义冲突：${name}`);
+      }
+      properties[name] = property;
+    }
+    for (const name of expanded.required) required.add(name);
+  }
+  return { type: 'object', properties, required: [...required] };
 }
 
 function describeResponse(responses, context = {}) {
@@ -601,10 +634,11 @@ function guardExpression(schema, valueExpression) {
     return `typeof ${valueExpression} === 'string'`;
   }
   if (type === 'integer') {
-    return `typeof ${valueExpression} === 'number' && Number.isSafeInteger(${valueExpression})`;
+    // Number 的静态谓词不强转类型，已拒绝字符串、装箱值与非有限数，避免重复输出类型判断。
+    return `Number.isSafeInteger(${valueExpression})`;
   }
   if (type === 'number') {
-    return `typeof ${valueExpression} === 'number' && Number.isFinite(${valueExpression})`;
+    return `Number.isFinite(${valueExpression})`;
   }
   if (type === 'boolean') {
     return `typeof ${valueExpression} === 'boolean'`;
@@ -636,7 +670,10 @@ function effectiveTypes(schema) {
       ? [schema.type]
       : schema.properties || schema.additionalProperties
         ? ['object']
-        : [];
+        // 运行时 OpenAPI 可只提供字符串 enum；仍生成闭合联合与成员校验，不能退化为任意字符串。
+        : Array.isArray(schema.enum) && schema.enum.length > 0 && schema.enum.every(value => typeof value === 'string')
+          ? ['string']
+          : [];
   if (source.includes('integer')
     && source.includes('string')
     && typeof schema.pattern === 'string'

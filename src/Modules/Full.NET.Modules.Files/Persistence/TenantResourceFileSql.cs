@@ -22,6 +22,15 @@ internal static class TenantResourceFileSql
             @SizeBytes, @ContentHash, @ProviderKey, @StorageKey, 'pending', @CreatedByUserId, @CreatedAtUtc)
         """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    /// <summary>迟到对象的 pending 已被清理时，先恢复不可读取的释放墓碑再尝试物理删除。</summary>
+    public static readonly SqlStatement InsertReleasedIntent = new("files.tenant_resource_file.insert_released_intent", """
+        INSERT INTO fn_files_tenant_resource_file
+            (Id, TenantId, OwnerModuleKey, ResourceId, OriginalFileName, ContentType,
+             SizeBytes, ContentHash, ProviderKey, StorageKey, StatusKey, CreatedByUserId, CreatedAtUtc)
+        VALUES (@Id, @TenantId, @OwnerModuleKey, @ResourceId, @OriginalFileName, @ContentType,
+            @SizeBytes, @ContentHash, @ProviderKey, @StorageKey, 'released', @CreatedByUserId, @CreatedAtUtc)
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     /// <summary>精确读取所属资源的文件，不根据文件 UUID 单独授予访问权。</summary>
     public static readonly SqlStatement FindOwned = new("files.tenant_resource_file.find_owned", """
         SELECT Id, OriginalFileName, ContentType, SizeBytes, ContentHash, ProviderKey, StorageKey, StatusKey

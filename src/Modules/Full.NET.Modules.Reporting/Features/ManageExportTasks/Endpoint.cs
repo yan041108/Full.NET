@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Reporting.Contracts;
 using Microsoft.AspNetCore.Builder;
@@ -22,6 +23,7 @@ internal static class Endpoint
 
         group.MapPost("/", async (
             CreateReportingExportTaskRequest request,
+            Full.NET.Abstractions.Tenancy.ICurrentTenant currentTenant,
             ReportingExportTaskManagementService service,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -32,8 +34,11 @@ internal static class Endpoint
                 return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
             }
 
+            if (!ReportingHttpSessionBinding.TryCreate(httpContext, currentTenant.Id, out var binding))
+                return mapper.Map(Result<ReportingExportTaskDetailResponse>.Failure(new(
+                    CommonErrorCodes.PermissionDenied, "An interactive session is required.", ErrorType.Forbidden)), httpContext);
             var result = await service
-                .CreateAsync(request, userId, httpContext.User, cancellationToken)
+                .CreateAsync(request, userId, httpContext.User, binding, cancellationToken)
                 .ConfigureAwait(false);
             if (!result.IsSuccess)
             {
@@ -83,11 +88,15 @@ internal static class Endpoint
         group.MapGet("/{taskId:guid}/download", async (
             Guid taskId,
             ReportingExportTaskManagementService service,
+            Full.NET.Abstractions.Tenancy.ICurrentTenant currentTenant,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.OpenDownloadAsync(taskId, cancellationToken).ConfigureAwait(false);
+            if (!ReportingHttpSessionBinding.TryCreate(httpContext, currentTenant.Id, out var binding))
+                return mapper.Map(Result<TenantResourceFileContent>.Failure(new(
+                    CommonErrorCodes.PermissionDenied, "An interactive session is required.", ErrorType.Forbidden)), httpContext);
+            var result = await service.OpenDownloadAsync(taskId, binding, cancellationToken).ConfigureAwait(false);
             if (!result.IsSuccess)
             {
                 return mapper.Map(result, httpContext);

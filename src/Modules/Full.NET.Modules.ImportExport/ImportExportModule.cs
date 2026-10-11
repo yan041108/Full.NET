@@ -59,6 +59,7 @@ public sealed class ImportExportModule : IFullNetModule
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskManagementService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskQueryService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskExecutionService>();
+        services.TryAddScoped<Features.ManageImportTasks.ImportExportExecutionAuthorization>();
         services.TryAddScoped<ImportExportTaskRunner>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
@@ -80,8 +81,16 @@ public sealed class ImportExportModule : IFullNetModule
 #endif
         services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner,
             Features.ManageImportTasks.ImportExportResourceFileOwner>());
+        // Worker 必须解析静态处理器并绑定同一执行配置；不能依赖仅在 API 注册的服务。
+        services.AddOptions<ImportExportOptions>().Bind(configuration.GetSection(ImportExportOptions.SectionName)).ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<ImportExportOptions>, ImportExportOptionsValidator>());
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddScoped<StaticImportSchemaRegistry>();
         services.TryAddScoped<ImportExportTaskRunner>();
         services.AddHostedService<ImportExportTaskHostedProcessor>();
+        services.TryAddScoped<Features.ManageImportTasks.ImportExportExecutionAuthorization>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationCatalogContributor, ImportExportAuthorizationContributor>());
     }
 
     /// <summary>注册 ImportExport 模块的静态 Schema 浏览与导入任务管理 HTTP 端点。</summary>

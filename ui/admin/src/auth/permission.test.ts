@@ -19,6 +19,7 @@ describe('Vue 权限门组合函数', () => {
 
   it('仅当会话包含精确权限码时返回 true', () => {
     const session = useSessionStore();
+    session.state = 'authenticated';
     session.currentUser = authenticatedUser(['identity.users.reset_password']);
     const { can } = usePermission();
 
@@ -29,6 +30,7 @@ describe('Vue 权限门组合函数', () => {
 
   it('权限撤销后会话更新时同步收敛', async () => {
     const session = useSessionStore();
+    session.state = 'authenticated';
     session.currentUser = authenticatedUser([
       'identity.users.read',
       'identity.users.reset_password'
@@ -37,6 +39,7 @@ describe('Vue 权限门组合函数', () => {
 
     expect(can('identity.users.reset_password')).toBe(true);
 
+    session.state = 'authenticated';
     session.currentUser = authenticatedUser(['identity.users.read']);
 
     expect(can('identity.users.reset_password')).toBe(false);

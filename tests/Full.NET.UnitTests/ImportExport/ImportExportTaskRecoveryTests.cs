@@ -5,6 +5,8 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Modules.Files.Contracts;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.ImportExport.Features.ManageImportTasks;
 using Full.NET.Modules.ImportExport.Configuration;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.ImportExport.Domain;
@@ -19,6 +21,152 @@ namespace Full.NET.UnitTests.ImportExport;
 [TestClass]
 public sealed class ImportExportTaskRecoveryTests
 {
+    /// <summary>异步边界耗尽租约后，不得启动新副作用或覆盖可恢复检查点。</summary>
+    [TestMethod]
+    [DataRow("authorization", 0, 0)]
+    [DataRow("source", 0, 0)]
+    [DataRow("batch", 1, 0)]
+    [DataRow("receipt-list", 1, 0)]
+    [DataRow("receipt-upload", 1, 1)]
+    [DataRow("failure", 0, 0)]
+    public async Task Expired_lease_stops_execution_and_preserves_checkpoint_async(string stage, int expectedBatches, int expectedUploads)
+    {
+        var fixture = CreateFixture(batchSize: 1);
+        var task = SeedQueuedTask(fixture, validRowCount: 1);
+        void Expire() => fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddMinutes(3);
+        fixture.Authorization.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                if (stage is "authorization" or "failure") Expire();
+                return stage == "failure" ? null : new AuthorizedSessionActor(fixture.Binding.UserId, fixture.Binding.TenantId, fixture.Binding.SessionId);
+            });
+        fixture.Files.OnOpen = () => { if (stage == "source") Expire(); };
+        fixture.Files.OnList = () => { if (stage == "receipt-list") Expire(); };
+        fixture.Files.OnUpload = () => { if (stage == "receipt-upload") Expire(); };
+        fixture.Handler.ExecuteBatchAsync(Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(),
+                Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                if (stage == "batch") Expire();
+                var failed = stage.StartsWith("receipt-", StringComparison.Ordinal);
+                return Result<StaticImportBatchExecutionResult>.Success(new([
+                    new StaticImportRowExecutionResult(1, !failed, null, failed ? ImportExportErrorCodes.ExecutionFailed : null, null),
+                ]));
+            });
+
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+
+        Assert.AreEqual(expectedBatches, fixture.Handler.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(IStaticImportSchemaHandler.ExecuteBatchAsync)));
+        Assert.AreEqual(expectedUploads, fixture.Files.UploadCount);
+        Assert.IsFalse(fixture.Files.LastOpenedContent?.CanRead ?? false);
+        var stored = fixture.Store.Tasks[task.Id];
+        Assert.AreEqual(ImportExportTaskStatusKeys.Executing, stored.StatusKey);
+        Assert.AreEqual(0, stored.NextLineNumber);
+        Assert.AreEqual(0, stored.SucceededRowCount);
+        Assert.IsNull(stored.ErrorCode);
+        Assert.IsNotNull(stored.LeaseId);
+    }
+
+    /// <summary>领取后剩余租约很短时，处理器收到的令牌应在期限内取消。</summary>
+    [TestMethod]
+    public async Task Remaining_lease_budget_cancels_handler_async()
+    {
+        var fixture = CreateFixture(batchSize: 1);
+        var task = SeedQueuedTask(fixture, validRowCount: 1);
+        fixture.Store.ClaimLeaseDuration = TimeSpan.FromSeconds(1);
+        var cancelled = false;
+        fixture.Handler.ExecuteBatchAsync(Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(),
+                Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>())
+            .Returns(async call =>
+            {
+                try { await Task.Delay(TimeSpan.FromSeconds(3), call.ArgAt<CancellationToken>(5)); }
+                catch (OperationCanceledException) { cancelled = true; throw; }
+                return Result<StaticImportBatchExecutionResult>.Success(new([
+                    new StaticImportRowExecutionResult(1, true, null, null, null),
+                ]));
+            });
+
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+
+        Assert.IsTrue(cancelled);
+        Assert.AreEqual(ImportExportTaskStatusKeys.Executing, fixture.Store.Tasks[task.Id].StatusKey);
+    }
+
+    /// <summary>忽略取消的处理器返回结果后，也不能继续写入检查点。</summary>
+    [TestMethod]
+    public async Task Host_cancel_ignored_by_handler_does_not_commit_async()
+    {
+        var fixture = CreateFixture(batchSize: 1);
+        var task = SeedQueuedTask(fixture, validRowCount: 1);
+        using var cancellation = new CancellationTokenSource();
+        fixture.Handler.ExecuteBatchAsync(Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(),
+                Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                cancellation.Cancel();
+                return Result<StaticImportBatchExecutionResult>.Success(new([
+                    new StaticImportRowExecutionResult(1, true, null, null, null),
+                ]));
+            });
+
+        await fixture.Runner.ProcessPendingAsync(cancellation.Token);
+
+        Assert.AreEqual(ImportExportTaskStatusKeys.Executing, fixture.Store.Tasks[task.Id].StatusKey);
+        Assert.AreEqual(0, fixture.Store.Tasks[task.Id].NextLineNumber);
+    }
+
+    /// <summary>旧队列缺少可信会话绑定时必须拒绝执行，不能继续使用冻结权限。</summary>
+    [TestMethod]
+    public async Task Legacy_queued_task_without_session_binding_does_not_execute_async()
+    {
+        var fixture = CreateFixture(legacy: true);
+        var task = SeedQueuedTask(fixture);
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+        Assert.AreEqual(0, fixture.HandlerInvocations);
+        Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionFailed, fixture.Store.Tasks[task.Id].StatusKey);
+        Assert.AreEqual(CommonErrorCodes.PermissionDenied, fixture.Store.Tasks[task.Id].ErrorCode);
+    }
+
+    /// <summary>会话、主执行权限或已授予的岗位能力撤销后，后台不能读取源文件或调用业务处理器。</summary>
+    [TestMethod]
+    [DataRow(ImportExportPermissions.ImportTasksExecute)]
+    [DataRow("positions.import")]
+    [DataRow("positions.assign")]
+    public async Task Revoked_execution_permission_rejects_batch_async(string permission)
+    {
+        var fixture = CreateFixture(); var task = SeedQueuedTask(fixture);
+        fixture.Authorization.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), permission, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<AuthorizedSessionActor?>(null));
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+        Assert.AreEqual(0, fixture.HandlerInvocations);
+        Assert.AreEqual(0, fixture.Files.OpenCount);
+        Assert.AreEqual(CommonErrorCodes.PermissionDenied, fixture.Store.Tasks[task.Id].ErrorCode);
+    }
+
+    /// <summary>冻结主体的租户与任务不匹配时，不调用 Identity Port，避免跨租户授权。</summary>
+    [TestMethod]
+    public async Task Session_binding_for_another_tenant_rejects_without_identity_lookup_async()
+    {
+        var fixture = CreateFixture(); fixture.Binding = fixture.Binding with { TenantId = Guid.NewGuid() };
+        SeedQueuedTask(fixture);
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+        Assert.AreEqual(0, fixture.HandlerInvocations); Assert.AreEqual(0, fixture.Files.OpenCount);
+        Assert.AreEqual(0, fixture.Authorization.ReceivedCalls().Count());
+    }
+
+    /// <summary>租约到期后可以从检查点重领，且不得重置已成功行。</summary>
+    [TestMethod]
+    public async Task Empty_batch_with_remaining_valid_rows_fails_instead_of_looping_async()
+    {
+        var fixture = CreateFixture(); var task = SeedQueuedTask(fixture, validRowCount: 1);
+        fixture.Handler.ExecuteBatchAsync(Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(),
+            Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>())
+            .Returns(Result<StaticImportBatchExecutionResult>.Success(new StaticImportBatchExecutionResult([])));
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+        Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionFailed, fixture.Store.Tasks[task.Id].StatusKey);
+        Assert.AreEqual(0, fixture.Store.Tasks[task.Id].NextLineNumber);
+    }
+
     /// <summary>租约到期后可以从检查点重领，且不得重置已成功行。</summary>
     [TestMethod]
     public async Task Expired_executing_lease_is_reclaimed_from_checkpoint_async()
@@ -152,7 +300,7 @@ public sealed class ImportExportTaskRecoveryTests
     }
 
     /// <summary>组装使用内存存储的生产 Runner。</summary>
-    private static Fixture CreateFixture()
+    private static Fixture CreateFixture(bool legacy = false, int batchSize = 50)
     {
         var tenantId = Guid.NewGuid();
         var tenant = new TenantContext(tenantId, "acme", "Acme");
@@ -160,6 +308,12 @@ public sealed class ImportExportTaskRecoveryTests
         var store = new ImportTaskStore(currentTenant);
         var handler = Substitute.For<IStaticImportSchemaHandler>();
         handler.SchemaKey.Returns("organization.tenant_positions");
+        handler.GetDefinition().Returns(new StaticImportSchemaDefinition("organization.tenant_positions", "positions", "tenant", "positions.import", []));
+        handler.ExecutionCapabilityPermissions.Returns(["positions.assign"]);
+        var binding = new SessionBindingSnapshot(Guid.NewGuid(), tenantId, Guid.NewGuid(), "stamp", "host", $"tenant:{tenantId:N}");
+        var authorization = Substitute.For<IBackgroundSessionAuthorization>();
+        authorization.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => { var b = call.ArgAt<SessionBindingSnapshot>(0); return new AuthorizedSessionActor(b.UserId, b.TenantId, b.SessionId); });
         var invocations = 0;
         handler.ExecuteBatchAsync(
                 Arg.Any<Stream>(),
@@ -187,7 +341,7 @@ public sealed class ImportExportTaskRecoveryTests
         var options = Options.Create(new ImportExportOptions
         {
             ExecutionEnabled = true,
-            BatchSize = 50,
+            BatchSize = batchSize,
             LeaseSeconds = 120,
             PollSeconds = 15,
             MaxUploadBytes = 1024 * 1024,
@@ -198,13 +352,14 @@ public sealed class ImportExportTaskRecoveryTests
             new DapperCommandTransaction(new RecordingDbTransactionCoordinator()),
             files,
             new StaticImportSchemaRegistry([handler]),
+            new ImportExportExecutionAuthorization(authorization),
             resolver,
             currentTenant,
             clock,
             ids,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             new OptionsMonitorStub<ImportExportOptions>(options.Value));
-        return new Fixture(store, runner, handler, files, clock, tenantId, () => invocations);
+        return new Fixture(store, runner, handler, files, clock, tenantId, binding, authorization, legacy, () => invocations);
     }
 
     private static ImportExportTaskRecord SeedQueuedTask(Fixture fixture, int validRowCount = 2) =>
@@ -271,7 +426,9 @@ public sealed class ImportExportTaskRecoveryTests
             StatusKey = statusKey,
             TotalRows = validRowCount,
             ValidRowCount = validRowCount,
-            RequestedByUserId = Guid.NewGuid(),
+            RequestedByUserId = fixture.Binding.UserId,
+            ExecutionRowsJson = fixture.Legacy ? null : ImportExportTaskMapper.SerializeExecutionState(
+                new ImportExportExecutionStateDocument(new Dictionary<string, bool> { ["positions.assign"] = true }, [], fixture.Binding)),
             CreatedAtUtc = fixture.Clock.UtcNow.AddMinutes(-10),
             ProcessedRowCount = nextLineNumber,
             SucceededRowCount = succeededRowCount,
@@ -288,6 +445,9 @@ public sealed class ImportExportTaskRecoveryTests
         FakeFileStore files,
         MutableClock clock,
         Guid tenantId,
+        SessionBindingSnapshot binding,
+        IBackgroundSessionAuthorization authorization,
+        bool legacy,
         Func<int> invocations)
     {
         public ImportTaskStore Store { get; } = store;
@@ -296,6 +456,9 @@ public sealed class ImportExportTaskRecoveryTests
         public FakeFileStore Files { get; } = files;
         public MutableClock Clock { get; } = clock;
         public Guid TenantId { get; } = tenantId;
+        public SessionBindingSnapshot Binding { get; set; } = binding;
+        public IBackgroundSessionAuthorization Authorization { get; } = authorization;
+        public bool Legacy { get; } = legacy;
         public int HandlerInvocations => invocations();
     }
 
@@ -314,13 +477,19 @@ public sealed class ImportExportTaskRecoveryTests
 
     private sealed class FakeFileStore : ITenantResourceFileStore
     {
+        public Action? OnOpen { get; set; }
+        public Action? OnList { get; set; }
+        public Action? OnUpload { get; set; }
+        public MemoryStream? LastOpenedContent { get; private set; }
         public int UploadCount { get; private set; }
+        public int OpenCount { get; private set; }
         public List<TenantResourceFileReadyItem> ReadyFiles { get; } = [];
 
         public Task<Result<TenantResourceFileReference>> UploadAsync(
             string ownerModuleKey, Guid resourceId, Guid actorUserId, string originalFileName,
             string contentType, Stream content, long contentLength, CancellationToken cancellationToken = default)
         {
+            OnUpload?.Invoke();
             UploadCount++;
             var fileId = Guid.NewGuid();
             ReadyFiles.Add(new TenantResourceFileReadyItem(fileId, originalFileName, DateTimeOffset.UtcNow));
@@ -328,13 +497,21 @@ public sealed class ImportExportTaskRecoveryTests
         }
 
         public Task<Result<TenantResourceFileContent>> OpenReadyContentAsync(
-            string ownerModuleKey, Guid resourceId, Guid fileId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Result<TenantResourceFileContent>.Success(
-                new TenantResourceFileContent(new MemoryStream([1, 2, 3]), "application/test", "source.xlsx")));
+            string ownerModuleKey, Guid resourceId, Guid fileId, CancellationToken cancellationToken = default)
+        {
+            OnOpen?.Invoke();
+            OpenCount++;
+            LastOpenedContent = new MemoryStream([1, 2, 3]);
+            return Task.FromResult(Result<TenantResourceFileContent>.Success(
+                new TenantResourceFileContent(LastOpenedContent, "application/test", "source.xlsx")));
+        }
 
         public Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(
-            string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TenantResourceFileReadyItem>>(ReadyFiles);
+            string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default)
+        {
+            OnList?.Invoke();
+            return Task.FromResult<IReadOnlyList<TenantResourceFileReadyItem>>(ReadyFiles);
+        }
 
         public Task ReleaseAsync(string ownerModuleKey, Guid resourceId, Guid fileId,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -342,6 +519,7 @@ public sealed class ImportExportTaskRecoveryTests
 
     private sealed class ImportTaskStore(ICurrentTenant tenant) : IQueryExecutor, ICommandExecutor
     {
+        public TimeSpan? ClaimLeaseDuration { get; set; }
         public Dictionary<Guid, ImportExportTaskRecord> Tasks { get; } = [];
 
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null,
@@ -395,7 +573,8 @@ public sealed class ImportExportTaskRecoveryTests
             if (statement.Name == ImportExportTaskSql.UpdateExecutionProgress.Name)
             {
                 if (!string.Equals(current.StatusKey, ImportExportTaskStatusKeys.Executing, StringComparison.Ordinal)
-                    || current.LeaseId != (Guid?)values["LeaseId"])
+                    || current.LeaseId != (Guid?)values["LeaseId"]
+                    || current.LeaseExpiresAtUtc is null || current.LeaseExpiresAtUtc <= (DateTimeOffset)values["Now"]!)
                 {
                     return Task.FromResult(0);
                 }
@@ -408,7 +587,8 @@ public sealed class ImportExportTaskRecoveryTests
             if (statement.Name == ImportExportTaskSql.MarkExecutionFailed.Name)
             {
                 if (!string.Equals(current.StatusKey, ImportExportTaskStatusKeys.Executing, StringComparison.Ordinal)
-                    || current.LeaseId != (Guid?)values["LeaseId"])
+                    || current.LeaseId != (Guid?)values["LeaseId"]
+                    || current.LeaseExpiresAtUtc is null || current.LeaseExpiresAtUtc <= (DateTimeOffset)values["Now"]!)
                 {
                     return Task.FromResult(0);
                 }
@@ -456,7 +636,7 @@ public sealed class ImportExportTaskRecoveryTests
                 ExecutionStartedAtUtc = candidate.ExecutionStartedAtUtc ?? now,
                 ExecutionCompletedAtUtc = candidate.ExecutionCompletedAtUtc,
                 LeaseId = leaseId,
-                LeaseExpiresAtUtc = leaseExpiresAtUtc,
+                LeaseExpiresAtUtc = ClaimLeaseDuration is { } duration ? now.Add(duration) : leaseExpiresAtUtc,
                 Version = candidate.Version + 1,
             };
             Tasks[claimed.Id] = claimed;

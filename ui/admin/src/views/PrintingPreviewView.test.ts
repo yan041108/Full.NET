@@ -19,13 +19,14 @@ function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
+  session.state = 'authenticated';
   session.currentUser = {
     id: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
     username: 'admin',
     displayName: '管理员',
-    tenantId: '019bc2b1-2a40-7cc3-8992-a80de51bf297',
-    actorScope: 'tenant',
-    scope: 'tenant',
+    tenantId: null,
+    actorScope: 'host',
+    scope: 'host',
     isSuperAdministrator: false,
     passwordChangeRequired: false,
     permissions,
@@ -42,7 +43,7 @@ describe('PrintingPreviewView', () => {
   });
 
   it('shows preview action entry point', async () => {
-    const wrapper = mountWithPermissions(['printing.templates.preview']);
+    const wrapper = mountWithPermissions(['printing.templates.read', 'printing.templates.preview']);
     await flushPromises();
     expect(wrapper.find('[data-testid="printing-preview-run"]').exists()).toBe(true);
   });
@@ -58,7 +59,7 @@ describe('PrintingPreviewView', () => {
       html: '<div style="color:red">安全正文</div><img src="x" onerror="alert(1)"><svg onload="alert(2)"></svg><a href="javascript:alert(3)">链接</a>',
       generatedAtUtc: '2026-09-07T00:00:00Z'
     });
-    const wrapper = mountWithPermissions(['printing.templates.preview']);
+    const wrapper = mountWithPermissions(['printing.templates.read', 'printing.templates.preview']);
     await flushPromises();
     wrapper.findComponent(ElSelect).vm.$emit('update:modelValue', '019bc2b1-2a40-7cc3-8992-a80de51bf299');
     await flushPromises();

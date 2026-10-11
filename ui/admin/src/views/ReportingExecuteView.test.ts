@@ -1,22 +1,21 @@
 import { mount } from '@vue/test-utils';
-import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ReportingExecuteView from './ReportingExecuteView.vue';
-import { listReportingDefinitions } from '../api/reporting-definitions';
+import { listReportingPublishedDefinitions } from '../api/reporting-definitions';
+import { createOutputSession } from '../test/data-output-fixtures';
 
 vi.mock('../api/reporting-definitions', () => ({
-  listReportingDefinitions: vi.fn()
+  listReportingPublishedDefinitions: vi.fn()
 }));
 
 vi.mock('../api/reporting-executions', () => ({
   executeReportingDefinition: vi.fn()
 }));
 
-const definitionsMock = vi.mocked(listReportingDefinitions);
+const definitionsMock = vi.mocked(listReportingPublishedDefinitions);
 
 function mountView() {
-  const pinia = createPinia();
-  setActivePinia(pinia);
+  const { pinia } = createOutputSession(['reporting.definitions.read', 'reporting.executions.run']);
   return mount(ReportingExecuteView, { global: { plugins: [pinia] } });
 }
 

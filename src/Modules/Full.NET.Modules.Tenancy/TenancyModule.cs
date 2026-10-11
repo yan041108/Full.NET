@@ -103,7 +103,7 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageManagementService>();
         services.AddScoped<Features.ManageTenantLifecycle.TenantCommercialReactivateGate>();
         services.AddScoped<Features.ManageTenantLifecycle.TenantLifecycleManagementService>();
-        services.AddScoped<Features.ManageTenantEntitlements.TenantEntitlementQueryService>();
+        services.TryAddScoped<Features.ManageTenantEntitlements.TenantEntitlementQueryService>();
         services.AddScoped<Features.ManageTenantEntitlements.TenantEntitlementManagementService>();
         services.AddScoped<Features.ManageTenantSubscriptions.TenantSubscriptionQueryService>();
         services.AddScoped<Features.ManageTenantSubscriptions.TenantSubscriptionManagementService>();
@@ -113,9 +113,8 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddScoped<ITenantQuotaReservationService, Features.ReserveTenantQuota.TenantQuotaReservationService>();
         services.AddScoped<Features.ReserveTenantQuota.TenantQuotaReservationService>();
         services.AddScoped<ITenantMemberSeatQuotaPort, Features.ReserveTenantQuota.TenantMemberSeatQuotaPort>();
-        services.AddScoped<ITenantFileStorageQuotaPort, Features.ReserveTenantQuota.TenantFileStorageQuotaPort>();
         services.AddScoped<Features.ManageTenantEntitlements.TenantEntitlementBackfillService>();
-        services.AddScoped<ITenantFeatureEntitlementPort, Features.ManageTenantEntitlements.TenantFeatureEntitlementPort>();
+        services.TryAddScoped<ITenantFeatureEntitlementPort, Features.ManageTenantEntitlements.TenantFeatureEntitlementPort>();
         services.AddScoped<Features.ManageTenantQuota.TenantQuotaManagementService>();
         services.AddScoped<Features.ReconcileQuotaReservationMetricIds.TenantQuotaMetricIdReconciliationService>();
         services.AddScoped<Features.ReconcileQuotaUsageBaseline.TenantQuotaUsageBaselineService>();
@@ -205,7 +204,7 @@ public sealed class TenancyModule : IFullNetModule
     }
 
     /// <summary>
-    /// 注册 Worker 消费租户事件所需的最小后台能力；不引入额外的模块拆分来承载唯一后台消费者。
+    /// 注册 Worker 的租户解析、活动目录、功能权益与文件配额 Port，后台不得回退为空配额实现。
     /// </summary>
     public void AddBackgroundServices(
         IServiceCollection services,
@@ -228,6 +227,16 @@ public sealed class TenancyModule : IFullNetModule
             IIntegrationEventHandler,
             TenantChangedCacheInvalidationHandler>());
         services.TryAddScoped<TenantCacheInvalidator>();
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddScoped<Directories.ActiveTenantDirectory>();
+        services.TryAddScoped<IIdentityActiveTenantDirectory>(provider => provider.GetRequiredService<Directories.ActiveTenantDirectory>());
+        services.TryAddScoped<ITenantActivityReadPort>(provider => provider.GetRequiredService<Directories.ActiveTenantDirectory>());
+        services.TryAddScoped<Features.ManageTenantEntitlements.TenantEntitlementQueryService>();
+        services.TryAddScoped<ITenantFeatureEntitlementPort, Features.ManageTenantEntitlements.TenantFeatureEntitlementPort>();
+        services.TryAddScoped<ITenantQuotaReservationService, Features.ReserveTenantQuota.TenantQuotaReservationService>();
+        // Files 在缺少 Tenancy 的组合中注册空配额；包含 Tenancy 的 Worker 必须选用权威配额 Port。
+        services.Replace(ServiceDescriptor.Scoped<ITenantFileStorageQuotaPort, Features.ReserveTenantQuota.TenantFileStorageQuotaPort>());
     }
 
     /// <summary>

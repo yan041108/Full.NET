@@ -1,5 +1,6 @@
 <Project Sdk="MSTest.Sdk">
   <ItemGroup>
+    <Compile Include="../Shared/Testing/NativeMigratorProcess.cs" Link="Testing/NativeMigratorProcess.cs" />
     <Compile Include="../templates/support/fixtures/application-migration-runner.cs.fixture" Link="Hosting/ApplicationMigrationRunner.cs" />
     <Compile Include="../ai-evaluation/probe/ProbeVectorSearch.cs" Link="Ai/Evaluation/ProbeVectorSearch.cs" />
     <Compile Include="../Shared/CodeGeneration/GeneratedMigrationRecoveryFixture.cs" Link="CodeGeneration/GeneratedMigrationRecoveryFixture.cs" />

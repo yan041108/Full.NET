@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using Full.NET.Data.Abstractions;
 
@@ -27,6 +28,7 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
         "Files cleanup iteration failed",
         "Files upload reconciliation iteration failed",
         "Files reference claim reconciliation iteration failed",
+        "Workflow todo timeout worker iteration failed.",
     ];
 
     private readonly Process _process;
@@ -109,8 +111,6 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             startInfo.Environment[pair.Key] = pair.Value;
         }
 
-        var process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("无法启动 Native Worker 常驻进程。");
         var logWriter = new StreamWriter(
             new FileStream(
                 logFilePath,
@@ -122,6 +122,20 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             AutoFlush = true,
         };
         var logWriteGate = new SemaphoreSlim(1, 1);
+        Process process;
+        try
+        {
+            // 文件创建失败时不启动进程；启动失败则释放已经取得的日志资源。
+            process = Process.Start(startInfo)
+                ?? throw new InvalidOperationException("无法启动 Native Worker 常驻进程。");
+        }
+        catch
+        {
+            await logWriter.DisposeAsync().ConfigureAwait(false);
+            logWriteGate.Dispose();
+            throw;
+        }
+
         var stdoutPump = PumpStreamAsync(
             "STDOUT",
             process.StandardOutput,
@@ -132,6 +146,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             process.StandardError,
             logWriter,
             logWriteGate);
+        var host = new NativeWorkerProcessHost(process, logFilePath, logWriter,
+            logWriteGate, stdoutPump, stderrPump, baseAddress);
 
         try
         {
@@ -141,29 +157,20 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
                 baseAddress,
                 startupTimeout,
                 cancellationToken).ConfigureAwait(false);
-            var host = new NativeWorkerProcessHost(
-                process,
-                logFilePath,
-                logWriter,
-                logWriteGate,
-                stdoutPump,
-                stderrPump,
-                baseAddress);
             host.AssertNoFatalMarkersInLogs();
             return host;
         }
-        catch
+        catch (Exception startupFailure)
         {
-            if (!process.HasExited)
+            try
             {
-                process.Kill(entireProcessTree: true);
-                await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+                await host.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception cleanupFailure)
+            {
+                throw new AggregateException("Native Worker 启动与清理均失败。", startupFailure, cleanupFailure);
             }
 
-            await Task.WhenAll(stdoutPump, stderrPump).ConfigureAwait(false);
-            await logWriter.DisposeAsync().ConfigureAwait(false);
-            logWriteGate.Dispose();
-            process.Dispose();
             throw;
         }
     }
@@ -207,7 +214,7 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             return;
         }
 
-        var content = File.ReadAllText(LogFilePath);
+        var content = NativeProcessLogReader.Read(LogFilePath);
         foreach (var marker in FatalLogMarkers)
         {
             Assert.IsFalse(
@@ -224,16 +231,42 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
         }
 
         _disposed = true;
-        if (!_process.HasExited)
+        Exception? failure = null;
+        try
         {
-            _process.Kill(entireProcessTree: true);
-            await _process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            if (!_process.HasExited)
+            {
+                _process.Kill(entireProcessTree: true);
+                await _process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+
+            await CompleteOutputAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
         }
 
-        await Task.WhenAll(_stdoutPump, _stderrPump).ConfigureAwait(false);
-        await _logWriter.DisposeAsync().ConfigureAwait(false);
-        _logWriteGate.Dispose();
-        _process.Dispose();
+        // 输出故障不能阻断句柄释放，也不能被随后的释放故障覆盖。
+        try
+        {
+            await _logWriter.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            failure = failure is null ? exception
+                : new AggregateException("Native Worker 输出与日志释放均失败。", failure, exception);
+        }
+        finally
+        {
+            _logWriteGate.Dispose();
+            _process.Dispose();
+        }
+
+        if (failure is not null)
+        {
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
     }
 
     private async Task CompleteOutputAsync()
@@ -403,7 +436,7 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             return string.Empty;
         }
 
-        var content = File.ReadAllText(logFilePath);
+        var content = NativeProcessLogReader.Read(logFilePath);
         return content.Length <= maxChars ? content : content[^maxChars..];
     }
 

@@ -22,6 +22,7 @@ describe('Vue 文档统计页', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const session = useSessionStore();
+    session.state = 'authenticated';
     session.currentUser = {
       id: '01912345-6789-7abc-8def-0123456789ae',
       username: 'doc-admin',
@@ -101,7 +102,7 @@ describe('Vue 文档统计页', () => {
     await tabs[1].trigger('click');
     await flushPromises();
 
-    expect(accessLogsMock).toHaveBeenCalledWith(1, 20, {});
+    expect(accessLogsMock).toHaveBeenCalledWith(1, 20, {}, expect.any(AbortSignal));
     expect(wrapper.find('[data-testid="document-access-logs-table"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('Demo');
   });

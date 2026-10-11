@@ -1433,6 +1433,71 @@ export interface DisableHostJobDefinitionRequest {
   readonly version: number;
 }
 
+export type EnterpriseRequestApprovalDeliveryState = "not_submitted" | "queued" | "started" | "finalized" | "recovery_required";
+
+export interface EnterpriseRequestApprovalProgressResponse {
+  readonly completedAtUtc: null | string;
+  readonly deliveryState: EnterpriseRequestApprovalDeliveryState;
+  readonly finalNotification?: null | NotificationIntentDeliverySnapshot;
+  readonly requestId: string;
+  readonly requestStatus: string;
+  readonly requestVersion: number;
+  readonly startedAtUtc: null | string;
+  readonly submittedAtUtc: null | string;
+  readonly submittedVersion: null | number;
+  readonly workflowDefinitionVersionId: null | string;
+  readonly workflowInstanceId: null | string;
+}
+
+export interface EnterpriseRequestAttachmentMutationResponse {
+  readonly attachment: EnterpriseRequestAttachmentResponse;
+  readonly requestId: string;
+  readonly requestVersion: number;
+}
+
+export interface EnterpriseRequestAttachmentRemovedResponse {
+  readonly requestId: string;
+  readonly requestVersion: number;
+}
+
+export interface EnterpriseRequestAttachmentResponse {
+  readonly createdAtUtc: string;
+  readonly fileId: string;
+  readonly id: string;
+  readonly originalFileName: string;
+  readonly sizeBytes: number;
+}
+
+export interface EnterpriseRequestAttachmentsResponse {
+  readonly items: Array<EnterpriseRequestAttachmentResponse>;
+  readonly requestId: string;
+  readonly requestStatus: string;
+  readonly requestVersion: number;
+}
+
+export interface EnterpriseRequestLineInput {
+  readonly itemDescription: string;
+  readonly quantity: number | string;
+  readonly unitPrice: number | string;
+}
+
+export interface EnterpriseRequestLineResponse {
+  readonly id: string;
+  readonly itemDescription: string;
+  readonly lineAmount: number | string;
+  readonly lineNumber: number;
+  readonly quantity: number | string;
+  readonly unitPrice: number | string;
+}
+
+export interface EnterpriseRequestLinesResponse {
+  readonly items: Array<EnterpriseRequestLineResponse>;
+  readonly requestId: string;
+  readonly requestStatus: string;
+  readonly requestVersion: number;
+  readonly totalAmount: number | string;
+}
+
 export interface EnterpriseRequestResponse {
   readonly applicantUserId: string;
   readonly createdAtUtc: string;
@@ -2584,6 +2649,23 @@ export interface NotificationDeliveryResponse {
   readonly updatedAtUtc: null | string;
 }
 
+export interface NotificationIntentDeliverySnapshot {
+  readonly acceptedAtUtc: string;
+  readonly deadLetteredDeliveryCount: number;
+  readonly deliveredDeliveryCount?: number;
+  readonly failedDeliveryCount: number;
+  readonly intentId: string;
+  readonly nextAttemptAtUtc: null | string;
+  readonly otherDeliveryCount: number;
+  readonly pendingDeliveryCount: number;
+  readonly persistedDeliveryCount?: number;
+  readonly readDeliveryCount?: number;
+  readonly sentDeliveryCount: number;
+  readonly suppressedDeliveryCount?: number;
+  readonly totalDeliveryCount: number;
+  readonly unknownDeliveryCount: number;
+}
+
 export interface NotificationProviderConfigField {
   readonly name: string;
   readonly required: boolean;
@@ -2927,6 +3009,13 @@ export interface PagedResultOfEnterpriseRequestResponse {
 
 export interface PagedResultOfExceptionLogResponse {
   readonly items: Array<ExceptionLogResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfGuid {
+  readonly items: Array<string>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
@@ -3399,6 +3488,7 @@ export interface PreviewGoViewProjectRequest {
 }
 
 export interface PreviewPrintingTemplateRequest {
+  readonly recordId?: null | string;
   readonly versionNumber: null | number;
 }
 
@@ -3426,6 +3516,16 @@ export interface PrintingFormSchemaDefinition {
   readonly displayName: string;
   readonly fields: Array<PrintingFormFieldDefinition>;
   readonly formSchemaKey: string;
+  readonly requiresRecordId?: boolean;
+}
+
+export interface PrintingPublishedTemplateResponse {
+  readonly formSchemaKey: string;
+  readonly requiresRecordId?: boolean;
+  readonly templateId: string;
+  readonly templateKey: string;
+  readonly templateName: string;
+  readonly versionNumber: number;
 }
 
 export interface PrintingTemplatePreviewResponse {
@@ -3571,6 +3671,21 @@ export interface RecoverWorkflowInstanceRequest {
   readonly expectedRevision: number;
   readonly idempotencyKey: string;
   readonly reason: string;
+}
+
+export interface RemoveEnterpriseRequestAttachmentRequest {
+  readonly version: number;
+}
+
+export interface RepairEnterpriseRequestApprovalRequest {
+  readonly expectedVersion: number;
+  readonly reason: string;
+  readonly workflowInstanceId: string;
+}
+
+export interface ReplaceEnterpriseRequestLinesRequest {
+  readonly items: null | Array<EnterpriseRequestLineInput>;
+  readonly version: number;
 }
 
 export interface ReplaceHostRoleFieldGrantsRequest {
@@ -3746,6 +3861,16 @@ export interface ReportingParameterSchemaEntry {
   readonly displayName: string;
   readonly isRequired: boolean;
   readonly parameterKey: string;
+}
+
+export interface ReportingPublishedDefinitionResponse {
+  readonly definitionId: string;
+  readonly definitionKey: string;
+  readonly layoutConfigJson: string;
+  readonly name: string;
+  readonly parameterSchema: Array<ReportingParameterSchemaEntry>;
+  readonly queryPortKey: string;
+  readonly versionNumber: number;
 }
 
 export interface ReportingQueryPortDefinition {

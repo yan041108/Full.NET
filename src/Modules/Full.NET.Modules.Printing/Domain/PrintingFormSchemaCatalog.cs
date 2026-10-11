@@ -10,7 +10,7 @@ internal static class PrintingLayoutPolicy
 }
 
 /// <summary>内置固定表单 Schema 目录；字段集合由服务端固定，客户端不可扩展。</summary>
-internal static class PrintingFormSchemaCatalog
+internal sealed class PrintingFormSchemaCatalog
 {
     private static readonly IReadOnlyList<PrintingFormSchemaDefinition> Schemas =
     [
@@ -27,11 +27,22 @@ internal static class PrintingFormSchemaCatalog
             ]),
     ];
 
+    private readonly IReadOnlyList<PrintingFormSchemaDefinition> schemas;
+
+    /// <summary>组合内置和显式贡献的静态目录，重复键必须失败，避免绑定所有权被覆盖。</summary>
+    public PrintingFormSchemaCatalog(IEnumerable<IPrintingFormSchemaContributor> contributors)
+    {
+        var all = Schemas.Concat(contributors.SelectMany(item => item.Schemas)).ToArray();
+        if (all.GroupBy(item => item.FormSchemaKey, StringComparer.Ordinal).Any(group => group.Count() != 1))
+            throw new InvalidOperationException("Printing form schema keys must be unique.");
+        schemas = all;
+    }
+
     /// <summary>返回全部固定表单 Schema。</summary>
-    public static IReadOnlyList<PrintingFormSchemaDefinition> List() => Schemas;
+    public IReadOnlyList<PrintingFormSchemaDefinition> List() => schemas;
 
     /// <summary>按键解析 Schema；不存在时返回 <see langword="null"/>。</summary>
-    public static PrintingFormSchemaDefinition? TryGet(string formSchemaKey) =>
-        Schemas.FirstOrDefault(schema =>
+    public PrintingFormSchemaDefinition? TryGet(string formSchemaKey) =>
+        schemas.FirstOrDefault(schema =>
             string.Equals(schema.FormSchemaKey, formSchemaKey, StringComparison.Ordinal));
 }

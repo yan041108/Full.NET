@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ReportingDefinitionsView from './ReportingDefinitionsView.vue';
@@ -8,6 +8,7 @@ import {
   listReportingQueryPorts
 } from '../api/reporting-definitions';
 import { listReportingDataSources } from '../api/reporting-data-sources';
+import { useSessionStore } from '../auth/session';
 
 vi.mock('../api/reporting-definitions', () => ({
   listReportingGroups: vi.fn(),
@@ -21,7 +22,9 @@ vi.mock('../api/reporting-definitions', () => ({
   updateReportingDefinition: vi.fn(),
   deleteReportingDefinition: vi.fn(),
   publishReportingDefinition: vi.fn(),
-  listReportingDefinitionVersions: vi.fn()
+  listReportingDefinitionVersions: vi.fn().mockResolvedValue([]),
+  listReportingTenantVersionGrants: vi.fn().mockResolvedValue({items:[],page:1,pageSize:20,total:0}),
+  setReportingTenantVersionGrant: vi.fn().mockResolvedValue(true)
 }));
 
 vi.mock('../api/reporting-data-sources', () => ({
@@ -33,14 +36,22 @@ const definitionsMock = vi.mocked(listReportingDefinitions);
 const queryPortsMock = vi.mocked(listReportingQueryPorts);
 const dataSourcesMock = vi.mocked(listReportingDataSources);
 
-function mountView() {
+function mountView(permissions: string[] = []) {
   const pinia = createPinia();
   setActivePinia(pinia);
+  useSessionStore().state = 'authenticated';
+  useSessionStore().currentUser = {
+    id: '019bc2b1-2a40-7cc3-8992-a80de51bf296', username: 'reader', displayName: '查看者',
+    tenantId: null, actorScope: 'host', scope: 'host', isSuperAdministrator: false,
+    passwordChangeRequired: false, permissions,
+    sessionId: '019bc2b1-2a40-7cc3-8992-a80de51bf297', preferredLocale: 'zh-CN', profileVersion: 1
+  };
   return mount(ReportingDefinitionsView, { global: { plugins: [pinia] } });
 }
 
 describe('ReportingDefinitionsView', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     groupsMock.mockResolvedValue([]);
     definitionsMock.mockResolvedValue([]);
     queryPortsMock.mockResolvedValue([]);
@@ -51,5 +62,33 @@ describe('ReportingDefinitionsView', () => {
     const wrapper = mountView();
     await wrapper.vm.$nextTick();
     expect(wrapper.find('[data-testid="reporting-definition-create"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+  it('opens tenant version grants only with the exact Host grant permission', async () => {
+    groupsMock.mockRejectedValue({status:403,code:'authorization.permission_denied',title:'Denied'});
+    queryPortsMock.mockRejectedValue({status:403,code:'authorization.permission_denied',title:'Denied'});
+    dataSourcesMock.mockRejectedValue({status:403,code:'authorization.permission_denied',title:'Denied'});
+    definitionsMock.mockResolvedValueOnce([{id:'019bc2b1-2a40-7cc3-8992-a80de51bf298',groupId:'019bc2b1-2a40-7cc3-8992-a80de51bf299',
+      dataSourceId:'019bc2b1-2a40-7cc3-8992-a80de51bf300',definitionKey:'fixture',name:'报表',description:null,
+      queryPortKey:'reporting.schema_inventory',parameterSchema:[],layoutConfigJson:'{}',latestPublishedVersionNumber:1,
+      isEnabled:true,createdAtUtc:'2026-10-08T00:00:00Z',updatedAtUtc:null,version:1}]);
+    const wrapper = mountView(['reporting.definitions.read','reporting.definitions.grant_tenants']);
+    await flushPromises();
+    expect(wrapper.find('[data-testid="reporting-tenant-grants-open"]').exists()).toBe(true);
+    expect(dataSourcesMock).not.toHaveBeenCalled();
+    expect(groupsMock).not.toHaveBeenCalled();
+    expect(queryPortsMock).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="reporting-tenant-grants-open"]').attributes('aria-label')).toBe('租户授权');
+    wrapper.unmount();
+  });
+  it('opens the definition dialog with the exact permission through the real header', async () => {
+    groupsMock.mockResolvedValueOnce([{ id: '019bc2b1-2a40-7cc3-8992-a80de51bf298',
+      parentId: null, name: '报表组', sortOrder: 0, isEnabled: true,
+      createdAtUtc: '2026-10-07T00:00:00Z', updatedAtUtc: null, version: 1 }]);
+    const wrapper = mountView(['reporting.definitions.create','reporting.groups.read']);
+    await flushPromises();
+    await wrapper.get('[data-testid="reporting-definition-create"]').trigger('click');
+    expect(wrapper.findAllComponents({ name: 'ArtFormDialog' }).some(dialog => dialog.props('open'))).toBe(true);
+    wrapper.unmount();
   });
 });

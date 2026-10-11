@@ -34,7 +34,8 @@ internal static class IntegrationWorkerHostFactory
         string connectionString,
         IReadOnlyDictionary<string, string?> workerSettings,
         string applicationName,
-        string hostedServiceName)
+        string hostedServiceName,
+        Action<IServiceCollection>? configureTargetServices = null)
     {
         var redisConnectionString = await SharedDatabaseFixture.GetRedisConnectionStringAsync()
             .ConfigureAwait(false);
@@ -48,7 +49,8 @@ internal static class IntegrationWorkerHostFactory
             ["Realtime:RedisBackplaneConnectionString"] = redisConnectionString,
             ["Realtime:AllowSharedRedisInDevelopment"] = "true",
             ["ConnectionStrings:redis"] = redisConnectionString,
-            ["Files:Local:RootPath"] = Path.Combine(
+            ["Files:Local:RootPath"] = workerSettings.TryGetValue("Files:Local:RootPath", out var sharedFilesRoot)
+                ? sharedFilesRoot : Path.Combine(
                 Path.GetTempPath(),
                 "fullnet-files-integration",
                 $"worker-{Guid.NewGuid():N}"),
@@ -74,9 +76,6 @@ internal static class IntegrationWorkerHostFactory
         builder.Services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         builder.Services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
         builder.Services.AddSingleton<
-            ITenantOrganizationUnitDirectory,
-            EmptyTenantOrganizationUnitDirectory>();
-        builder.Services.AddSingleton<
             IIdentityOrganizationUnitDirectory,
             EmptyIdentityOrganizationUnitDirectory>();
         builder.Services.AddFullNetDapper(configuration, "Testing");
@@ -95,16 +94,8 @@ internal static class IntegrationWorkerHostFactory
             builder.Services.Remove(descriptor);
         }
 
+        configureTargetServices?.Invoke(builder.Services);
         return builder.Build();
-    }
-
-    private sealed class EmptyTenantOrganizationUnitDirectory : ITenantOrganizationUnitDirectory
-    {
-        public Task<TenantOrganizationUnitDirectoryEntry?> FindActiveUnitAsync(
-            Guid tenantId,
-            Guid unitId,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<TenantOrganizationUnitDirectoryEntry?>(null);
     }
 
     private sealed class EmptyIdentityOrganizationUnitDirectory : IIdentityOrganizationUnitDirectory

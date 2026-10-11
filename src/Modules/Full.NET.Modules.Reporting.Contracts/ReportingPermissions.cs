@@ -52,6 +52,9 @@ public static class ReportingDefinitionPermissions
 
     /// <summary>发布报表定义版本。</summary>
     public const string Publish = "reporting.definitions.publish";
+
+    /// <summary>向指定租户授予或撤销精确发布版本。</summary>
+    public const string GrantTenants = "reporting.definitions.grant_tenants";
 }
 
 /// <summary>Reporting 静态 Query Port 目录权限码。</summary>

@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from 'node:child_process';
-import { generateKeyPairSync } from 'node:crypto';
+import { generateKeyPairSync, randomUUID } from 'node:crypto';
 import {
   createWriteStream,
   existsSync,
@@ -7,6 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   rmSync,
+  realpathSync,
   unlinkSync,
   writeFileSync
 } from 'node:fs';
@@ -17,6 +18,7 @@ import { GenericContainer, Wait } from 'testcontainers';
 import { createOidcStackEnv } from './oidc-stack-env.mjs';
 import { provisionViewer } from './provision-viewer.mjs';
 import { waitForApi } from './wait-for-api.mjs';
+import { createStackResourceScope, releaseOwnedStack } from './stack-resource-scope.mjs';
 import { stopLoggedProcess } from './stop-logged-process.mjs';
 
 const repoRoot = path.resolve(fileURLToPath(new URL('../../../..', import.meta.url)));
@@ -31,6 +33,7 @@ const adminUsername = process.env.FULLNET_E2E_USERNAME ?? 'admin';
 
 /** 由 global-teardown 调用的进程内栈引用，避免序列化 testcontainers 句柄。 */
 let activeStack;
+let activeResources;
 
 function resolveDatabaseProvider() {
   const value = (process.env.FULLNET_E2E_DATABASE_PROVIDER ?? 'SqlServer').toLowerCase();
@@ -214,252 +217,296 @@ export async function bootstrapStack() {
     return activeStack;
   }
 
-  const stackProfile = resolveStackProfile();
-  const isProductionTotp = stackProfile === 'production-totp';
-  const databaseProvider = resolveDatabaseProvider();
-  const { container, connectionString } = await startDatabaseContainer(databaseProvider);
-  const { container: redisContainer, connectionString: cacheRedisConnectionString } =
-    await startRedisContainer();
-  let realtimeRedisContainer = redisContainer;
-  let realtimeRedisConnectionString = cacheRedisConnectionString;
-  // Production 门禁禁止 Cache 与 Realtime Backplane 共用同一 Redis；development 栈仍允许共用。
-  if (isProductionTotp) {
-    const realtimeRedis = await startRedisContainer();
-    realtimeRedisContainer = realtimeRedis.container;
-    realtimeRedisConnectionString = realtimeRedis.connectionString;
-  }
-  const codeGenerationWorkspaceRoot = mkdtempSync(path.join(
-    tmpdir(),
-    'fullnet-codegeneration-e2e-'
-  ));
-  const observabilityLogRoot = mkdtempSync(path.join(
-    tmpdir(),
-    'fullnet-observability-e2e-'
-  ));
-  writeFileSync(
-    path.join(observabilityLogRoot, 'e2e-observability.log'),
-    'fullnet-observability-real-stack-start\nfullnet-observability-real-stack-marker\n'
-  );
-
-  const sharedEnv = {
-    ...withoutTestScenarioHostConfiguration(process.env),
-    Database__Provider: databaseProvider,
-    Database__ConnectionString: connectionString,
-    Database__MySqlGuidStorageMode: 'Binary16',
-    Cache__RedisConnectionString: cacheRedisConnectionString,
-    Realtime__RedisBackplaneConnectionString: realtimeRedisConnectionString,
-    Realtime__AllowSharedRedisInDevelopment: isProductionTotp ? 'false' : 'true',
-    UuidBinaryContract__MaintenanceMode: 'true',
-    UuidBinaryContract__BackupVerified: 'true',
-    UuidBinaryContract__LegacyWritersStopped: 'true',
-    UuidBinaryContract__DestructiveDdlApprovalId: 'e2e-real-stack-009',
-    PreV1NamingContract__MaintenanceMode: 'true',
-    PreV1NamingContract__BackupVerified: 'true',
-    PreV1NamingContract__LegacyWritersStopped: 'true',
-    PreV1NamingContract__LegacyOutboxDrained: 'true',
-    PreV1NamingContract__DestructiveDdlApprovalId: 'e2e-real-stack-011',
-    Identity__Bootstrap__Username: adminUsername,
-    Identity__Bootstrap__Password: adminPassword,
-    Identity__AllowedOrigins__0: 'http://localhost:25173',
-    Identity__AllowedOrigins__1: 'http://localhost:25174',
-    Identity__AllowedOrigins__2: 'http://localhost:5173',
-    Identity__AllowedOrigins__3: 'http://localhost:5174',
-    Identity__AllowedOrigins__4: 'http://127.0.0.1:5173',
-    Identity__AllowedOrigins__5: 'http://127.0.0.1:5174',
-    Identity__AllowedOrigins__6: 'http://localhost:5175',
-    Identity__LoginRateLimitPermitLimitPerMinute: '240',
-    Identity__SessionMutationRateLimitPermitLimitPerMinute: '240',
-    ...(isProductionTotp ? {} : { RateLimiting__EnableGlobalApiLimit: 'false' }),
-    Tenancy__HostDomains__0: 'localhost',
-    Tenancy__HostDomains__1: '127.0.0.1',
-    Realtime__Enabled: 'true',
-    Realtime__HubPath: '/hubs/notifications',
-    OutboxWorker__PollMilliseconds: '100',
-    CodeGeneration__Apply__Enabled: 'true',
-    CodeGeneration__Apply__WorkspaceRoot: codeGenerationWorkspaceRoot,
-    FullNet__ObservabilityAdmin__LogRootPath: observabilityLogRoot,
-    DOTNET_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
-    ASPNETCORE_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
-    ...(isProductionTotp
-      ? {
-          ...createProductionDataProtectionEnv(repoRoot),
-          ...createProductionSigningKeyEnv(),
-          Identity__Oidc__Enable: 'false',
-          Identity__AllowDevelopmentEphemeralSigningKey: 'false',
-          Identity__EnableTotpStrongReauthentication: 'true',
-          Identity__EnableRemoteSuperAdministratorManagement: 'true',
-          Files__Local__RootPath: path.join(repoRoot, '.tmp/e2e-real-stack-files'),
-          // 此套件只验证 TOTP；提供测试专用对象存储配置以通过 Production 启动校验。
-          Files__Storage__DefaultProviderKey: 's3',
-          Files__S3__BucketName: 'fullnet-e2e-only',
-          Files__S3__Region: 'us-east-1',
-          Files__S3__AccessKeyId: 'fullnet-e2e-only',
-          Files__S3__SecretAccessKey: 'fullnet-e2e-only',
-          Files__Oss__BucketName: 'fullnet-e2e-only',
-          Files__Oss__Endpoint: 'oss-cn-hangzhou.aliyuncs.com',
-          Files__Oss__AccessKeyId: 'fullnet-e2e-only',
-          Files__Oss__AccessKeySecret: 'fullnet-e2e-only'
-        }
-      : {
-          ...createOidcStackEnv(apiUrl),
-          Identity__AllowDevelopmentEphemeralSigningKey: 'true'
-        })
-  };
-
-  // 所有 Host 使用独立产物和单并发构建，避免开发栈进程锁住默认 bin 目录。
-  const stackArtifactsPath = path.join(repoRoot, '.tmp/e2e-real-stack/build');
-  const isolatedBuildArgs = [
-    '-p:UseArtifactsOutput=true',
-    `-p:ArtifactsPath=${stackArtifactsPath}`,
-    '-m:1',
-    '-nodeReuse:false'
-  ];
-  const migratorProjectPath = path.join(
-    repoRoot,
-    'src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj'
-  );
-  await runDotnet(['build', migratorProjectPath, ...isolatedBuildArgs], sharedEnv);
-  const migratorAssemblyPath = path.join(
-    stackArtifactsPath,
-    'bin/Full.NET.Host.Migrator/debug/Full.NET.Host.Migrator.dll'
-  );
-  await runDotnet([
-    migratorAssemblyPath,
-    '--seed',
-    isProductionTotp ? 'baseline' : 'development'
-  ], sharedEnv);
-
-  const apiProjectPath = path.join(
-    repoRoot,
-    'src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj'
-  );
-  const apiProjectDirectory = path.dirname(apiProjectPath);
-  await runDotnet(['build', apiProjectPath, ...isolatedBuildArgs], sharedEnv);
-  const apiAssemblyPath = path.join(
-    stackArtifactsPath,
-    'bin/Full.NET.Host.Api/debug/Full.NET.Host.Api.dll'
-  );
-
-  const apiLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/api.log');
-  mkdirSync(path.dirname(apiLogPath), { recursive: true });
-  writeFileSync(apiLogPath, '');
-  const apiLogStream = createWriteStream(apiLogPath, { flags: 'a' });
-  const apiProcess = spawn(
-    'dotnet',
-    [apiAssemblyPath],
-    {
-      cwd: apiProjectDirectory,
-      env: {
-        ...sharedEnv,
-        ASPNETCORE_URLS: apiUrl,
-        Identity__EnableRemoteSuperAdministratorManagement: 'true'
-      },
-      stdio: 'pipe'
+  if (activeResources) throw new Error('Real-stack startup is already in progress');
+  const resources = createStackResourceScope();
+  activeResources = resources;
+  const stackInstanceId = randomUUID();
+  try {
+    const stackProfile = resolveStackProfile();
+    const isProductionTotp = stackProfile === 'production-totp';
+    const databaseProvider = resolveDatabaseProvider();
+    const { container, connectionString } = await startDatabaseContainer(databaseProvider);
+    resources.add(() => container.stop());
+    const { container: redisContainer, connectionString: cacheRedisConnectionString } =
+      await startRedisContainer();
+    resources.add(() => redisContainer.stop());
+    let realtimeRedisContainer = redisContainer;
+    let realtimeRedisConnectionString = cacheRedisConnectionString;
+    // Production 门禁禁止 Cache 与 Realtime Backplane 共用同一 Redis；development 栈仍允许共用。
+    if (isProductionTotp) {
+      const realtimeRedis = await startRedisContainer();
+      resources.add(() => realtimeRedis.container.stop());
+      realtimeRedisContainer = realtimeRedis.container;
+      realtimeRedisConnectionString = realtimeRedis.connectionString;
     }
-  );
-  apiProcess.stdout?.pipe(apiLogStream, { end: false });
-  apiProcess.stderr?.pipe(apiLogStream, { end: false });
-
-  const apiExit = new Promise((resolve, reject) => {
-    apiProcess.once('error', reject);
-    apiProcess.once('exit', (code, signal) => {
-      resolve({ code, signal });
-    });
-  });
-  const apiReady = waitForApi(apiUrl, 120_000, apiLogPath);
-  const earlyExit = await Promise.race([
-    apiReady.then(() => null),
-    apiExit.then(exit => exit)
-  ]);
-  if (earlyExit) {
-    let logTail = '';
-    try {
-      const text = readFileSync(apiLogPath, 'utf8').trim();
-      if (text) {
-        logTail = `\n${text.split(/\r?\n/).slice(-40).join('\n')}`;
-      }
-    } catch {
-      // 忽略日志读取失败，保留退出码信息。
-    }
-
-    throw new Error(
-      `Host.Api 在健康检查前退出（code=${earlyExit.code ?? 'null'}, signal=${earlyExit.signal ?? 'null'}）。${logTail}`
+    const codeGenerationWorkspaceRoot = mkdtempSync(path.join(
+      tmpdir(),
+      'fullnet-codegeneration-e2e-'
+    ));
+    resources.add(() => removeOwnedTempDirectory(codeGenerationWorkspaceRoot, 'fullnet-codegeneration-e2e-'));
+    const observabilityLogRoot = mkdtempSync(path.join(
+      tmpdir(),
+      'fullnet-observability-e2e-'
+    ));
+    resources.add(() => removeOwnedTempDirectory(observabilityLogRoot, 'fullnet-observability-e2e-'));
+    writeFileSync(
+      path.join(observabilityLogRoot, 'e2e-observability.log'),
+      'fullnet-observability-real-stack-start\nfullnet-observability-real-stack-marker\n'
     );
-  }
 
-  await apiReady;
-
-  if (!isProductionTotp) {
-    const viewerEnvironment = {
-      ...process.env,
-      FULLNET_E2E_API_URL: apiUrl
+    const sharedEnv = {
+      ...withoutTestScenarioHostConfiguration(process.env),
+      Database__Provider: databaseProvider,
+      Database__ConnectionString: connectionString,
+      Database__MySqlGuidStorageMode: 'Binary16',
+      Cache__RedisConnectionString: cacheRedisConnectionString,
+      Realtime__RedisBackplaneConnectionString: realtimeRedisConnectionString,
+      Realtime__AllowSharedRedisInDevelopment: isProductionTotp ? 'false' : 'true',
+      UuidBinaryContract__MaintenanceMode: 'true',
+      UuidBinaryContract__BackupVerified: 'true',
+      UuidBinaryContract__LegacyWritersStopped: 'true',
+      UuidBinaryContract__DestructiveDdlApprovalId: 'e2e-real-stack-009',
+      PreV1NamingContract__MaintenanceMode: 'true',
+      PreV1NamingContract__BackupVerified: 'true',
+      PreV1NamingContract__LegacyWritersStopped: 'true',
+      PreV1NamingContract__LegacyOutboxDrained: 'true',
+      PreV1NamingContract__DestructiveDdlApprovalId: 'e2e-real-stack-011',
+      Identity__Bootstrap__Username: adminUsername,
+      Identity__Bootstrap__Password: adminPassword,
+      Identity__AllowedOrigins__0: 'http://localhost:25173',
+      Identity__AllowedOrigins__1: 'http://localhost:25174',
+      Identity__AllowedOrigins__2: 'http://localhost:5173',
+      Identity__AllowedOrigins__3: 'http://localhost:5174',
+      Identity__AllowedOrigins__4: 'http://127.0.0.1:5173',
+      Identity__AllowedOrigins__5: 'http://127.0.0.1:5174',
+      Identity__AllowedOrigins__6: 'http://localhost:5175',
+      Identity__LoginRateLimitPermitLimitPerMinute: '240',
+      Identity__SessionMutationRateLimitPermitLimitPerMinute: '240',
+      ...(isProductionTotp ? {} : { RateLimiting__EnableGlobalApiLimit: 'false' }),
+      Tenancy__HostDomains__0: 'localhost',
+      Tenancy__HostDomains__1: '127.0.0.1',
+      Realtime__Enabled: 'true',
+      Realtime__HubPath: '/hubs/notifications',
+      OutboxWorker__PollMilliseconds: '100',
+      CodeGeneration__Apply__Enabled: 'true',
+      CodeGeneration__Apply__WorkspaceRoot: codeGenerationWorkspaceRoot,
+      FullNet__ObservabilityAdmin__LogRootPath: observabilityLogRoot,
+      DOTNET_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
+      ASPNETCORE_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
+      ...(isProductionTotp
+        ? {
+            ...createProductionDataProtectionEnv(repoRoot),
+            ...createProductionSigningKeyEnv(),
+            Identity__Oidc__Enable: 'false',
+            Identity__AllowDevelopmentEphemeralSigningKey: 'false',
+            Identity__EnableTotpStrongReauthentication: 'true',
+            Identity__EnableRemoteSuperAdministratorManagement: 'true',
+            Files__Local__RootPath: path.join(repoRoot, '.tmp/e2e-real-stack-files'),
+            // 此套件只验证 TOTP；提供测试专用对象存储配置以通过 Production 启动校验。
+            Files__Storage__DefaultProviderKey: 's3',
+            Files__S3__BucketName: 'fullnet-e2e-only',
+            Files__S3__Region: 'us-east-1',
+            Files__S3__AccessKeyId: 'fullnet-e2e-only',
+            Files__S3__SecretAccessKey: 'fullnet-e2e-only',
+            Files__Oss__BucketName: 'fullnet-e2e-only',
+            Files__Oss__Endpoint: 'oss-cn-hangzhou.aliyuncs.com',
+            Files__Oss__AccessKeyId: 'fullnet-e2e-only',
+            Files__Oss__AccessKeySecret: 'fullnet-e2e-only'
+          }
+        : {
+            ...createOidcStackEnv(apiUrl),
+            Identity__AllowDevelopmentEphemeralSigningKey: 'true'
+          })
     };
-    await provisionViewer(viewerEnvironment);
-    // 第二次准备必须只复用同一角色和用户，防止测试重跑产生重复场景数据。
-    await provisionViewer(viewerEnvironment);
-  }
 
-  // 真实栈保持 API/Worker 角色分离，确保浏览器场景经过事务 Outbox 和 Redis Backplane。
-  const workerProjectPath = path.join(
-    repoRoot,
-    'src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj'
-  );
-  const workerProjectDirectory = path.dirname(workerProjectPath);
-  await runDotnet(['build', workerProjectPath, ...isolatedBuildArgs], sharedEnv);
-  const workerAssemblyPath = path.join(
-    stackArtifactsPath,
-    'bin/Full.NET.Host.Worker/debug/Full.NET.Host.Worker.dll'
-  );
-  const workerLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/worker.log');
-  mkdirSync(path.dirname(workerLogPath), { recursive: true });
-  writeFileSync(workerLogPath, '');
-  const workerLogStream = createWriteStream(workerLogPath, { flags: 'a' });
-  const workerProcess = spawn(
-    'dotnet',
-    [workerAssemblyPath],
-    {
-      cwd: workerProjectDirectory,
-      env: sharedEnv,
-      stdio: 'pipe'
+    // 所有 Host 使用独立产物和单并发构建，避免开发栈进程锁住默认 bin 目录。
+    const stackArtifactsPath = path.join(repoRoot, '.tmp/e2e-real-stack/build');
+    const isolatedBuildArgs = [
+      '-p:UseArtifactsOutput=true',
+      `-p:ArtifactsPath=${stackArtifactsPath}`,
+      '-m:1',
+      '-nodeReuse:false'
+    ];
+    const migratorProjectPath = path.join(
+      repoRoot,
+      'src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj'
+    );
+    await runDotnet(['build', migratorProjectPath, ...isolatedBuildArgs], sharedEnv);
+    const migratorAssemblyPath = path.join(
+      stackArtifactsPath,
+      'bin/Full.NET.Host.Migrator/debug/Full.NET.Host.Migrator.dll'
+    );
+    await runDotnet([
+      migratorAssemblyPath,
+      '--seed',
+      isProductionTotp ? 'baseline' : 'development'
+    ], sharedEnv);
+
+    const apiProjectPath = path.join(
+      repoRoot,
+      'src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj'
+    );
+    const apiProjectDirectory = path.dirname(apiProjectPath);
+    await runDotnet(['build', apiProjectPath, ...isolatedBuildArgs], sharedEnv);
+    const apiAssemblyPath = path.join(
+      stackArtifactsPath,
+      'bin/Full.NET.Host.Api/debug/Full.NET.Host.Api.dll'
+    );
+
+    const apiLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/api.log');
+    mkdirSync(path.dirname(apiLogPath), { recursive: true });
+    writeFileSync(apiLogPath, '');
+    const apiLogStream = createWriteStream(apiLogPath, { flags: 'a' });
+    const apiProcess = spawn(
+      'dotnet',
+      [apiAssemblyPath],
+      {
+        cwd: apiProjectDirectory,
+        env: {
+          ...sharedEnv,
+          ASPNETCORE_URLS: apiUrl,
+          Identity__EnableRemoteSuperAdministratorManagement: 'true'
+        },
+        stdio: 'pipe'
+      }
+    );
+    resources.add(() => stopLoggedProcess(apiProcess, apiLogStream));
+    apiProcess.stdout?.pipe(apiLogStream, { end: false });
+    apiProcess.stderr?.pipe(apiLogStream, { end: false });
+
+    const apiExit = new Promise((resolve, reject) => {
+      apiProcess.once('error', reject);
+      apiProcess.once('exit', (code, signal) => {
+        resolve({ code, signal });
+      });
+    });
+    const apiReady = waitForApi(apiUrl, 120_000, apiLogPath);
+    const earlyExit = await Promise.race([
+      apiReady.then(() => null),
+      apiExit.then(exit => exit)
+    ]);
+    if (earlyExit) {
+      let logTail = '';
+      try {
+        const text = readFileSync(apiLogPath, 'utf8').trim();
+        if (text) {
+          logTail = `\n${text.split(/\r?\n/).slice(-40).join('\n')}`;
+        }
+      } catch {
+        // 忽略日志读取失败，保留退出码信息。
+      }
+
+      throw new Error(
+        `Host.Api 在健康检查前退出（code=${earlyExit.code ?? 'null'}, signal=${earlyExit.signal ?? 'null'}）。${logTail}`
+      );
     }
-  );
-  workerProcess.stdout?.pipe(workerLogStream, { end: false });
-  workerProcess.stderr?.pipe(workerLogStream, { end: false });
 
-  activeStack = {
-    apiUrl,
-    apiProcess,
-    apiLogStream,
-    workerProcess,
-    workerLogStream,
-    container,
-    redisContainer,
-    realtimeRedisContainer,
-    databaseProvider,
-    stackProfile,
-    cacheRedisConnectionString,
-    realtimeRedisConnectionString,
-    codeGenerationWorkspaceRoot,
-    observabilityLogRoot
-  };
-  writeFileSync(statePath, JSON.stringify({
-    apiUrl,
-    apiPid: apiProcess.pid,
-    apiLogPath,
-    workerPid: workerProcess.pid,
-    workerLogPath,
-    containerId: container.getId(),
-    redisContainerId: redisContainer.getId(),
-    realtimeRedisContainerId: realtimeRedisContainer.getId(),
-    databaseProvider,
-    stackProfile,
-    cacheRedisConnectionString,
-    realtimeRedisConnectionString,
-    codeGenerationWorkspaceRoot,
-    observabilityLogRoot
-  }, null, 2));
+    await apiReady;
 
-  return activeStack;
+    if (!isProductionTotp) {
+      const viewerEnvironment = {
+        ...process.env,
+        FULLNET_E2E_API_URL: apiUrl
+      };
+      await provisionViewer(viewerEnvironment);
+      // 第二次准备必须只复用同一角色和用户，防止测试重跑产生重复场景数据。
+      await provisionViewer(viewerEnvironment);
+    }
+
+    // 真实栈保持 API/Worker 角色分离，确保浏览器场景经过事务 Outbox 和 Redis Backplane。
+    const workerProjectPath = path.join(
+      repoRoot,
+      'src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj'
+    );
+    const workerProjectDirectory = path.dirname(workerProjectPath);
+    await runDotnet(['build', workerProjectPath, ...isolatedBuildArgs], sharedEnv);
+    const workerAssemblyPath = path.join(
+      stackArtifactsPath,
+      'bin/Full.NET.Host.Worker/debug/Full.NET.Host.Worker.dll'
+    );
+    const workerLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/worker.log');
+    mkdirSync(path.dirname(workerLogPath), { recursive: true });
+    writeFileSync(workerLogPath, '');
+    const workerLogStream = createWriteStream(workerLogPath, { flags: 'a' });
+    const workerProcess = spawn(
+      'dotnet',
+      [workerAssemblyPath],
+      {
+        cwd: workerProjectDirectory,
+        env: sharedEnv,
+        stdio: 'pipe'
+      }
+    );
+    resources.add(() => stopLoggedProcess(workerProcess, workerLogStream));
+    workerProcess.stdout?.pipe(workerLogStream, { end: false });
+    workerProcess.stderr?.pipe(workerLogStream, { end: false });
+
+    activeStack = {
+      apiUrl,
+      stackInstanceId,
+      apiProcess,
+      apiLogStream,
+      workerProcess,
+      workerLogStream,
+      container,
+      redisContainer,
+      realtimeRedisContainer,
+      databaseProvider,
+      stackProfile,
+      cacheRedisConnectionString,
+      realtimeRedisConnectionString,
+      codeGenerationWorkspaceRoot,
+      observabilityLogRoot
+    };
+    writeFileSync(statePath, JSON.stringify({
+      workspaceRoot: repoRoot,
+      stackInstanceId,
+      apiUrl,
+      apiPid: apiProcess.pid,
+      apiLogPath,
+      workerPid: workerProcess.pid,
+      workerLogPath,
+      containerId: container.getId(),
+      redisContainerId: redisContainer.getId(),
+      realtimeRedisContainerId: realtimeRedisContainer.getId(),
+      databaseProvider,
+      stackProfile,
+      cacheRedisConnectionString,
+      realtimeRedisConnectionString,
+      codeGenerationWorkspaceRoot,
+      observabilityLogRoot
+    }, null, 2));
+
+    return activeStack;
+  } catch (startupError) {
+    activeStack = undefined;
+    activeResources = undefined;
+    try { await releaseOwnedStack(resources, () => removeOwnedStackState(stackInstanceId)); }
+    catch (cleanupError) {
+      throw new AggregateError([startupError, cleanupError], 'Real-stack startup and cleanup failed', { cause: startupError });
+    }
+    throw startupError;
+  }
+}
+
+/** 资源停止成功后才删除本实例的归属记录；失败时保留 PID 与容器信息。 */
+function removeOwnedStackState(stackInstanceId) {
+  if (!existsSync(statePath)) return;
+  let state;
+  try { state = JSON.parse(readFileSync(statePath, 'utf8')); } catch { return; }
+  if (state.stackInstanceId === stackInstanceId) unlinkSync(statePath);
+}
+
+/** 仅清理本次 mkdtemp 创建且仍在系统临时目录内的路径，禁止跟随重定向。 */
+function removeOwnedTempDirectory(directory, prefix) {
+  if (!existsSync(directory)) return;
+  const resolved = path.resolve(directory);
+  if (!path.isAbsolute(directory)
+      || path.dirname(realpathSync(resolved)) !== realpathSync(tmpdir())
+      || !path.basename(resolved).startsWith(prefix)) {
+    throw new Error('Refusing to remove an unowned real-stack directory');
+  }
+  rmSync(resolved, { recursive: true, force: true });
 }
 
 function withoutTestScenarioHostConfiguration(environment) {
@@ -470,41 +517,11 @@ function withoutTestScenarioHostConfiguration(environment) {
 
 /** 停止 bootstrap 拉起的 API 与 Testcontainer。 */
 export async function teardownStack() {
-  if (!activeStack) {
-    return;
-  }
-
-  // 两个进程均完成停机和日志排空后再销毁依赖；单个失败也不能跳过另一个的清理。
-  const stopped = await Promise.allSettled([
-    stopLoggedProcess(activeStack.apiProcess, activeStack.apiLogStream),
-    stopLoggedProcess(activeStack.workerProcess, activeStack.workerLogStream)
-  ]);
-
-  await activeStack.container.stop();
-  if (activeStack.redisContainer) {
-    await activeStack.redisContainer.stop();
-  }
-  if (
-    activeStack.realtimeRedisContainer
-    && activeStack.realtimeRedisContainer !== activeStack.redisContainer
-  ) {
-    await activeStack.realtimeRedisContainer.stop();
-  }
-  if (activeStack.codeGenerationWorkspaceRoot) {
-    rmSync(activeStack.codeGenerationWorkspaceRoot, {
-      recursive: true,
-      force: true
-    });
-  }
-  if (activeStack.observabilityLogRoot) {
-    rmSync(activeStack.observabilityLogRoot, {
-      recursive: true,
-      force: true
-    });
-  }
+  const resources = activeResources;
+  const stackInstanceId = activeStack?.stackInstanceId;
   activeStack = undefined;
-  const failures = stopped.filter(result => result.status === 'rejected').map(result => result.reason);
-  if (failures.length) throw new AggregateError(failures, 'Real-stack process shutdown failed');
+  activeResources = undefined;
+  if (resources) await releaseOwnedStack(resources, () => removeOwnedStackState(stackInstanceId));
 }
 
 function runDotnet(args, env) {

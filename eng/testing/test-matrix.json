@@ -4,12 +4,28 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 3657,
+      "minimum": 5695,
       "timeout": "10m",
       "selections": {
+        "reporting-recovery": {
+          "filter": "FullyQualifiedName~ReportingExportTaskRecoveryTests",
+          "minimum": 25
+        },
+        "import-recovery": {
+          "filter": "FullyQualifiedName~ImportExportTaskRecoveryTests",
+          "minimum": 19
+        },
+        "native-migrator-process": {
+          "filter": "FullyQualifiedName~NativeMigratorProcessTests",
+          "minimum": 8
+        },
+        "workflow-timeout": {
+          "filter": "FullyQualifiedName~WorkflowTodoTimeoutProcessorTests",
+          "minimum": 7
+        },
         "logging-delivery": {
-          "filter": "FullyQualifiedName~OperationLogMiddlewareTests|FullyQualifiedName~HttpOperationLogTests|FullyQualifiedName~FullNetExceptionHandlerLogTests|FullyQualifiedName~HttpOperationPayloadProjectionTests|FullyQualifiedName~HttpLogCaptureBudgetTests|FullyQualifiedName~HttpOperationMetadataTests|FullyQualifiedName~DiagnosticPolicySnapshotTests|FullyQualifiedName~DiagnosticPolicyValidationTests|FullyQualifiedName~DiagnosticPolicyStoreTests|FullyQualifiedName~ReservedDiagnosticPolicyConfigTests|FullyQualifiedName~HighPriorityLoggingTests|FullyQualifiedName~ElasticsearchLogDeliveryStatusTests|FullyQualifiedName~LogEnvelopeBudgetTests|FullyQualifiedName~LogQueueByteBudgetTests|FullyQualifiedName~Operation_uses_mapped_exception_status_before_audit_flush|FullyQualifiedName~Stopped_audit_coordinator_does_not_replace_successful_response|FullyQualifiedName~AccessLogRouteTests|FullyQualifiedName~Cancelled_request_preserves_exception_and_waits_for_b1_attempt|FullyQualifiedName~Started_response_exception_keeps_sent_status_and_failed_operation|FullyQualifiedName~Microbatch_envelope_never_undercharges_multibyte_text|FullyQualifiedName~Microbatch_envelope_keeps_utf16_memory_charge_for_ascii_text|FullyQualifiedName~Microbatch_does_not_combine_rows_beyond_byte_limit|FullyQualifiedName~Oversize_single_b1_row_fails_open_before_database_write|FullyQualifiedName~Shutdown_completes_deferred_b1_row_when_active_flush_is_cancelled|FullyQualifiedName~Microbatch_byte_budget_rejects_while_first_row_is_in_flight_and_recovers|FullyQualifiedName~Microbatch_enqueue_timeout_releases_byte_reservation|FullyQualifiedName~Microbatch_options_reject_queue_budget_smaller_than_one_batch|FullyQualifiedName~Microbatch_byte_budget_is_atomic_under_parallel_producers|FullyQualifiedName~Microbatch_stopped_channel_fails_open_and_releases_byte_reservation|FullyQualifiedName~Microbatch_writer_resolution_failure_fails_open_and_releases_budget|FullyQualifiedName~Microbatch_shutdown_drain_failure_completes_queued_row_and_releases_budget|FullyQualifiedName~Microbatch_shutdown_with_invalid_hot_options_completes_all_reserved_rows|FullyQualifiedName~Microbatch_invalid_hot_options_fail_open_before_reservation|FullyQualifiedName~Microbatch_invalid_hot_options_fail_open_already_queued_rows_while_running|FullyQualifiedName~SqlServer_details_cleanup_clears_expired_context_even_when_summary_retention_is_disabled|FullyQualifiedName~MySql_details_cleanup_claims_expired_ids_then_clears_both_columns|FullyQualifiedName~Details_retention_options_remain_active_when_summary_retention_is_disabled|FullyQualifiedName~Details_cleanup_retries_immediately_after_bounded_full_batch|FullyQualifiedName~AuditDetailsCleanupCheckpointTests|FullyQualifiedName~AuditDetailsCapturePolicyTests|FullyQualifiedName~AuditOperationDetailsCaptureTests|FullyQualifiedName~Operation_detail_and_absolute_expiry_share_one_insert_and_byte_budget|FullyQualifiedName~Summary_only_operation_writes_null_detail_columns|FullyQualifiedName~Oversize_detail_downgrades_to_summary_without_dropping_operation|FullyQualifiedName~HostOperationLogDetailsQueryTests|FullyQualifiedName~KafkaLogProducerBudgetTests|FullyQualifiedName~KafkaLogProducerOptionsTests|FullyQualifiedName~KafkaLogDeliveryLaneTests|FullyQualifiedName~ElasticsearchBulkOutcomeTests|FullyQualifiedName~PartitionDeliveryWatermarkTests|FullyQualifiedName~KafkaLogRecordParserTests|FullyQualifiedName~SequentialLogDeliveryProcessorTests|FullyQualifiedName~BatchLogDeliveryProcessorTests|FullyQualifiedName~LoggingRequestEvidenceTests|FullyQualifiedName~ElasticsearchLogDocumentSinkTests|FullyQualifiedName~LogConsumerTelemetryTests",
-          "minimum": 318
+          "filter": "FullyQualifiedName~OperationLogMiddlewareTests|FullyQualifiedName~HttpOperationLogTests|FullyQualifiedName~FullNetExceptionHandlerLogTests|FullyQualifiedName~HttpOperationPayloadProjectionTests|FullyQualifiedName~HttpLogCaptureBudgetTests|FullyQualifiedName~HttpOperationMetadataTests|FullyQualifiedName~DiagnosticPolicySnapshotTests|FullyQualifiedName~DiagnosticPolicyValidationTests|FullyQualifiedName~DiagnosticPolicyStoreTests|FullyQualifiedName~ReservedDiagnosticPolicyConfigTests|FullyQualifiedName~HighPriorityLoggingTests|FullyQualifiedName~ElasticsearchLogDeliveryStatusTests|FullyQualifiedName~LogEnvelopeBudgetTests|FullyQualifiedName~LogQueueByteBudgetTests|FullyQualifiedName~Operation_uses_mapped_exception_status_before_audit_flush|FullyQualifiedName~Stopped_audit_coordinator_does_not_replace_successful_response|FullyQualifiedName~AccessLogRouteTests|FullyQualifiedName~Cancelled_request_preserves_exception_and_waits_for_b1_attempt|FullyQualifiedName~Started_response_exception_keeps_sent_status_and_failed_operation|FullyQualifiedName~Microbatch_envelope_never_undercharges_multibyte_text|FullyQualifiedName~Microbatch_envelope_keeps_utf16_memory_charge_for_ascii_text|FullyQualifiedName~Microbatch_does_not_combine_rows_beyond_byte_limit|FullyQualifiedName~Oversize_single_b1_row_fails_open_before_database_write|FullyQualifiedName~Shutdown_completes_deferred_b1_row_when_active_flush_is_cancelled|FullyQualifiedName~Microbatch_byte_budget_rejects_while_first_row_is_in_flight_and_recovers|FullyQualifiedName~Microbatch_enqueue_timeout_releases_byte_reservation|FullyQualifiedName~Microbatch_options_reject_queue_budget_smaller_than_one_batch|FullyQualifiedName~Microbatch_byte_budget_is_atomic_under_parallel_producers|FullyQualifiedName~Microbatch_stopped_channel_fails_open_and_releases_byte_reservation|FullyQualifiedName~Microbatch_writer_resolution_failure_fails_open_and_releases_budget|FullyQualifiedName~Microbatch_shutdown_drain_failure_completes_queued_row_and_releases_budget|FullyQualifiedName~Microbatch_shutdown_with_invalid_hot_options_completes_all_reserved_rows|FullyQualifiedName~Microbatch_invalid_hot_options_fail_open_before_reservation|FullyQualifiedName~Microbatch_invalid_hot_options_fail_open_already_queued_rows_while_running|FullyQualifiedName~SqlServer_details_cleanup_clears_expired_context_even_when_summary_retention_is_disabled|FullyQualifiedName~MySql_details_cleanup_claims_expired_ids_then_clears_both_columns|FullyQualifiedName~Details_retention_options_remain_active_when_summary_retention_is_disabled|FullyQualifiedName~Details_cleanup_retries_immediately_after_bounded_full_batch|FullyQualifiedName~AuditDetailsCleanupCheckpointTests|FullyQualifiedName~AuditDetailsCapturePolicyTests|FullyQualifiedName~AuditOperationDetailsCaptureTests|FullyQualifiedName~Operation_detail_and_absolute_expiry_share_one_insert_and_byte_budget|FullyQualifiedName~Summary_only_operation_writes_null_detail_columns|FullyQualifiedName~Oversize_detail_downgrades_to_summary_without_dropping_operation|FullyQualifiedName~HostOperationLogDetailsQueryTests|FullyQualifiedName~KafkaLogProducerBudgetTests|FullyQualifiedName~KafkaLogProducerOptionsTests|FullyQualifiedName~KafkaLogDeliveryLaneTests|FullyQualifiedName~ElasticsearchBulkOutcomeTests|FullyQualifiedName~PartitionDeliveryWatermarkTests|FullyQualifiedName~KafkaLogRecordParserTests|FullyQualifiedName~SequentialLogDeliveryProcessorTests|FullyQualifiedName~BatchLogDeliveryProcessorTests|FullyQualifiedName~LoggingRequestEvidenceTests|FullyQualifiedName~ElasticsearchLogDocumentSinkTests|FullyQualifiedName~LogConsumerTelemetryTests|FullyQualifiedName~Microbatch_normal_input_completion_before_cancellation_finishes_without_error|FullyQualifiedName~Microbatch_normal_input_completion_preserves_deferred_rows_and_budget|FullyQualifiedName~Microbatch_writer_channel_failure_remains_visible_without_sensitive_diagnostics",
+          "minimum": 321
         },
         "async-lifecycle": {
           "filter": "FullyQualifiedName~CodeGenerationApplyGateTests|FullyQualifiedName~CodeGenerationApplyServiceTests|FullyQualifiedName~CodeGenerationRollbackServiceTests|FullyQualifiedName~GenerationRollbackCheckpointStoreTests|FullyQualifiedName~KafkaConsumerLagObserverTests",
@@ -41,7 +57,7 @@
         },
         "code-generation-realtime": {
           "filter": "FullyQualifiedName~CodeGeneration|FullyQualifiedName~Realtime",
-          "minimum": 642
+          "minimum": 2266
         },
         "identity-oidc": {
           "filter": "FullyQualifiedName~IdentityOidcOptionsTests|FullyQualifiedName~IdentityOidcSessionTests|FullyQualifiedName~IdentityOidcPrincipalTests|FullyQualifiedName~IdentityOidcPkceHelperTests|FullyQualifiedName~IdentityOidcInteractionTests|FullyQualifiedName~IdentityOidcStoreSerializationTests|FullyQualifiedName~IdentityOidcCenterLoginServiceTests|FullyQualifiedName~IdentityOidcLogoutTests",
@@ -50,6 +66,10 @@
         "identity-oidc-protocol": {
           "filter": "FullyQualifiedName~IdentityOidcPkceHelperTests|FullyQualifiedName~Oidc_protocol|FullyQualifiedName~IdentityOidcProtocol|FullyQualifiedName~IdentityOidcInteractionTests",
           "minimum": 15
+        },
+        "enterprise-outcome-faults": {
+          "filter": "FullyQualifiedName~Full.NET.UnitTests.EnterpriseRequest.EnterpriseRequestWorkflowOutcomeServiceTests",
+          "minimum": 31
         }
       }
     },
@@ -109,12 +129,18 @@
   },
   "nativeAotIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
-    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc",
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc&FullyQualifiedName!~NativeEnterpriseBusiness",
     "requiredTestTypes": [
       "NativeApiKafkaLogMySqlE2ETests"
     ],
-    "minimum": 10,
+    "minimum": 21,
     "timeout": "45m"
+  },
+  "nativeAotEnterpriseIntegration": {
+    "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+    "filter": "FullyQualifiedName~NativeEnterpriseBusinessTests",
+    "minimum": 2,
+    "timeout": "15m"
   },
   "nativeAotNotificationsIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
@@ -152,6 +178,8 @@
       "sliceBudgetSeconds": 600,
       "defaultFocusedEstimateSeconds": 120,
       "targetEstimatedSeconds": {
+        "Identity": 3900,
+        "Notifications": 1200,
         "integration-matrix": 30,
         "integration-tooling": 5,
         "migrations": 1800,
@@ -162,24 +190,6 @@
       }
     },
     "migrationSelections": {
-      "242": {
-        "filter": "FullyQualifiedName~Migration242AiKnowledgeDocumentRecoveryTests.MySql_|FullyQualifiedName~Migration242AiKnowledgeDocumentRecoveryTests.SqlServer_"
-      },
-      "241": {
-        "filter": "FullyQualifiedName~Migration241AiKnowledgeMemberRecoveryTests.MySql_|FullyQualifiedName~Migration241AiKnowledgeMemberRecoveryTests.SqlServer_"
-      },
-      "240": {
-        "filter": "FullyQualifiedName~Migration240AiKnowledgeBaseRecoveryTests.MySql_|FullyQualifiedName~Migration240AiKnowledgeBaseRecoveryTests.SqlServer_"
-      },
-      "239": {
-        "filter": "FullyQualifiedName~Migration239AuditingOperationLogContextRecoveryTests.MySql_|FullyQualifiedName~Migration239AuditingOperationLogContextRecoveryTests.SqlServer_"
-      },
-      "238": {
-        "filter": "FullyQualifiedName~Migration238MfaRecoveryCodeRecoveryTests.MySql_|FullyQualifiedName~Migration238MfaRecoveryCodeRecoveryTests.SqlServer_"
-      },
-      "229": {
-        "filter": "FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.MySql_|FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.SqlServer_"
-      },
       "101": {
         "filter": "FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.MySql_|FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.SqlServer_"
       },
@@ -362,6 +372,45 @@
       },
       "217": {
         "filter": "FullyQualifiedName~Migration217IdentityOidcSessionTests.MySql_|FullyQualifiedName~Migration217IdentityOidcSessionTests.SqlServer_"
+      },
+      "229": {
+        "filter": "FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.MySql_|FullyQualifiedName~Migration229QuotaMetricBindingRecoveryTests.SqlServer_"
+      },
+      "238": {
+        "filter": "FullyQualifiedName~Migration238MfaRecoveryCodeRecoveryTests.MySql_|FullyQualifiedName~Migration238MfaRecoveryCodeRecoveryTests.SqlServer_"
+      },
+      "239": {
+        "filter": "FullyQualifiedName~Migration239AuditingOperationLogContextRecoveryTests.MySql_|FullyQualifiedName~Migration239AuditingOperationLogContextRecoveryTests.SqlServer_"
+      },
+      "240": {
+        "filter": "FullyQualifiedName~Migration240AiKnowledgeBaseRecoveryTests.MySql_|FullyQualifiedName~Migration240AiKnowledgeBaseRecoveryTests.SqlServer_"
+      },
+      "241": {
+        "filter": "FullyQualifiedName~Migration241AiKnowledgeMemberRecoveryTests.MySql_|FullyQualifiedName~Migration241AiKnowledgeMemberRecoveryTests.SqlServer_"
+      },
+      "242": {
+        "filter": "FullyQualifiedName~Migration242AiKnowledgeDocumentRecoveryTests.MySql_|FullyQualifiedName~Migration242AiKnowledgeDocumentRecoveryTests.SqlServer_"
+      },
+      "243": {
+        "filter": "FullyQualifiedName~Migration243ChallengeDeliveryRecoveryTests.MySql_|FullyQualifiedName~Migration243ChallengeDeliveryRecoveryTests.SqlServer_"
+      },
+      "244": {
+        "filter": "FullyQualifiedName~Migration244EnterpriseRequestImportReceiptTests.MySql_|FullyQualifiedName~Migration244EnterpriseRequestImportReceiptTests.SqlServer_"
+      },
+      "245": {
+        "filter": "FullyQualifiedName~Migration245ReportingTenantGrantTests.MySql_|FullyQualifiedName~Migration245ReportingTenantGrantTests.SqlServer_"
+      },
+      "246": {
+        "filter": "FullyQualifiedName~Migration246PrintingTenantGrantTests.MySql_|FullyQualifiedName~Migration246PrintingTenantGrantTests.SqlServer_"
+      },
+      "247": {
+        "filter": "FullyQualifiedName~Migration247EnterpriseRequestApprovalSubmissionTests.MySql_|FullyQualifiedName~Migration247EnterpriseRequestApprovalSubmissionTests.SqlServer_"
+      },
+      "248": {
+        "filter": "FullyQualifiedName~Migration248EnterpriseRequestAttachmentTests.MySql_|FullyQualifiedName~Migration248EnterpriseRequestAttachmentTests.SqlServer_"
+      },
+      "249": {
+        "filter": "FullyQualifiedName~EnterpriseRequestApiSqlServerTests.Tenant_submit_for_approval_when_definition_published|FullyQualifiedName~EnterpriseRequestApiMySqlTests.Tenant_submit_for_approval_when_definition_published"
       },
       "008": {
         "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryExpandMigrationTests|FullyQualifiedName~UuidBinaryPartialRecoveryTests"
@@ -583,22 +632,22 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 176,
+        "minimum": 191,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 176,
+        "minimum": 191,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 502,
+        "minimum": 516,
         "timeout": "120m"
       },
       "infrastructure": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~KafkaLogDeliveryTests&FullyQualifiedName!~KafkaLogRequestLatencyTests&FullyQualifiedName!~KafkaCollectorRequestReplayTests&FullyQualifiedName!~KafkaLogRouteComparisonTests&FullyQualifiedName!~KafkaLogConsumerDeliveryTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchReplayTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchTlsTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests&FullyQualifiedName!~KafkaLogSecretBoundaryTests",
-        "minimum": 184,
+        "minimum": 252,
         "timeout": "60m"
       },
       "messaging-heavy": {
@@ -621,12 +670,12 @@
       },
       "enterprise-sample": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Api.EnterpriseRequestApi",
-        "minimum": 6,
+        "minimum": 16,
         "timeout": "15m"
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1118,
+        "minimum": 1230,
         "timeout": "90m"
       },
       "logging-route-comparison": {
@@ -667,7 +716,11 @@
     },
     "f02": {
       "description": "Diagnostics and generated CRUD sample",
-      "filter": "FullyQualifiedName~CodeGeneration"
+      "filter": "FullyQualifiedName~CodeGeneration",
+      "tests": [
+        "tests/templates/diagnose-app.test.mjs",
+        "tests/templates/packaged-diagnose-scripts.test.mjs"
+      ]
     },
     "f03": {
       "description": "Account verification challenges",

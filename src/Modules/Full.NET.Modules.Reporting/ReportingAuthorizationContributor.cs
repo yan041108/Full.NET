@@ -24,13 +24,14 @@ internal sealed class ReportingAuthorizationContributor : IAuthorizationCatalogC
         new(ReportingDefinitionPermissions.Create, "创建报表定义", AuthorizationScope.Host),
         new(ReportingDefinitionPermissions.Update, "更新报表定义", AuthorizationScope.Host),
         new(ReportingDefinitionPermissions.Delete, "删除报表定义", AuthorizationScope.Host),
+        new(ReportingDefinitionPermissions.GrantTenants, "管理报表租户版本授权", AuthorizationScope.Host),
         new(ReportingDefinitionPermissions.Publish, "发布报表定义", AuthorizationScope.Host),
         new(ReportingQueryPortPermissions.Read, "读取静态 Query Port 目录", AuthorizationScope.Host),
-        new(ReportingExecutionPermissions.Run, "执行已发布报表", AuthorizationScope.Host),
-        new(ReportingExecutionPermissions.ColumnSchemaName, "读取 Schema 清单列", AuthorizationScope.Host),
-        new(ReportingExportTaskPermissions.Create, "创建报表导出任务", AuthorizationScope.Host),
-        new(ReportingExportTaskPermissions.Read, "读取报表导出任务", AuthorizationScope.Host),
-        new(ReportingExportTaskPermissions.Download, "下载报表导出文件", AuthorizationScope.Host),
+        new(ReportingExecutionPermissions.Run, "执行已发布报表", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(ReportingExecutionPermissions.ColumnSchemaName, "读取 Schema 清单列", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(ReportingExportTaskPermissions.Create, "创建报表导出任务", AuthorizationScope.Tenant),
+        new(ReportingExportTaskPermissions.Read, "读取报表导出任务", AuthorizationScope.Tenant),
+        new(ReportingExportTaskPermissions.Download, "下载报表导出文件", AuthorizationScope.Tenant),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =

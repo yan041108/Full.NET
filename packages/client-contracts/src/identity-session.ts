@@ -39,14 +39,16 @@ export interface IdentitySessionSnapshot {
 }
 
 export interface IdentitySessionController {
-  login(username: string, password: string): Promise<void>;
+  /** 可取消本次认证；取消只阻断本地接入，不承诺撤销服务端已经写入的 Cookie。 */
+  login(username: string, password: string, signal?: AbortSignal): Promise<void>;
   /** 使用 OIDC 授权码流程已兑换的访问令牌建立本地会话。 */
-  completeOidcAuthorization(accessTokenResponse: TokenResponse): Promise<void>;
+  completeOidcAuthorization(accessTokenResponse: TokenResponse, signal?: AbortSignal): Promise<void>;
   restore(): Promise<boolean>;
   reloadAuthenticatedContext(): Promise<void>;
   switchTenant(tenantId: string | null): Promise<void>;
   changeLocale(locale: SupportedLocale): Promise<void>;
-  changePassword(currentPassword: string, newPassword: string): Promise<void>;
+  /** 仅在本次改密及会话快照仍有效时确认成功，取消或上下文刷新失败返回 false。 */
+  changePassword(currentPassword: string, newPassword: string): Promise<boolean>;
   logout(): Promise<void>;
   /** 在服务端已撤销会话时仅清理本地凭据，不再调用 Logout 端点。 */
   invalidateLocalSession(): void;
@@ -100,6 +102,7 @@ export function createIdentitySession(
   let savingLocale = false;
   let token: TokenResponse | undefined;
   let sessionGeneration = 0;
+  let restoreOperation: { generation: number; promise: Promise<boolean> } | undefined;
   const listeners = new Set<(snapshot: IdentitySessionSnapshot) => void>();
   const unsubscribeCoordinator = sessionRefreshCoordinator?.subscribe(message => {
     if (message.sourceId === sessionRefreshCoordinator.tabId) {
@@ -113,7 +116,7 @@ export function createIdentitySession(
 
     if (message.type === 'refresh-complete' && message.success
       && state === 'authenticated') {
-      void restore();
+      void restoreSession(false);
     }
   });
 
@@ -123,72 +126,71 @@ export function createIdentitySession(
   });
   http.configureRequestLocale(() => i18n.getLocale());
 
-  async function login(username: string, password: string): Promise<void> {
-    const operationGeneration = ++sessionGeneration;
-    const value = await identityLogin(
-      http,
-      { body: { username, password } },
-      undefined,
-      { retryUnauthorized: false }
-    );
-    // 生成守卫不强制 Bearer / 非空 expires；会话层继续用更严的手写契约。
-    if (!isTokenResponse(value)) {
-      throw new TypeError('登录响应不符合 TokenResponse 契约。');
-    }
-
-    if (operationGeneration !== sessionGeneration) {
-      return;
-    }
-
-    token = value;
-    try {
-      if (!await loadAuthenticatedSnapshot(operationGeneration)) {
-        return;
-      }
-
-      state = 'authenticated';
-      notify();
-    } catch (error: unknown) {
-      if (operationGeneration !== sessionGeneration) {
-        return;
-      }
-
-      clear();
-      throw error;
-    }
+  async function login(username: string, password: string, signal?: AbortSignal): Promise<void> {
+    await establishAuthentication(() => identityLogin(http,
+      { body: { username, password } }, signal, { retryUnauthorized: false }), signal);
   }
 
   async function completeOidcAuthorization(
-    accessTokenResponse: TokenResponse
+    accessTokenResponse: TokenResponse,
+    signal?: AbortSignal
   ): Promise<void> {
-    const operationGeneration = ++sessionGeneration;
-    if (!isTokenResponse(accessTokenResponse)) {
-      throw new TypeError('OIDC token response不符合 TokenResponse 契约。');
-    }
+    await establishAuthentication(async () => accessTokenResponse, signal);
+  }
 
-    token = accessTokenResponse;
+  /** 认证取消只能清理所属代次，成功通知前解除监听，避免路由卸载撤销刚建立的会话。 */
+  async function establishAuthentication(loadToken: () => Promise<unknown>, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
+    const operationGeneration = ++sessionGeneration;
+    const abort = (): void => { if (operationGeneration === sessionGeneration) clearLocal(); };
+    signal?.addEventListener('abort', abort, { once: true });
     try {
-      if (!await loadAuthenticatedSnapshot(operationGeneration)) {
+      const value = await loadToken();
+      if (signal?.aborted || operationGeneration !== sessionGeneration) return;
+      // 生成守卫不强制 Bearer / 非空 expires；会话层保留更严格的手写契约。
+      if (!isTokenResponse(value)) throw new TypeError('认证响应不符合 TokenResponse 契约。');
+      token = value;
+      if (!await loadAuthenticatedSnapshot(operationGeneration, signal)) {
         return;
       }
-
+      // 快照返回与当前 continuation 之间也可发生取消或新认证，提交前必须再次核对。
+      if (signal?.aborted || operationGeneration !== sessionGeneration) return;
+      signal?.removeEventListener('abort', abort);
       state = 'authenticated';
       notify();
     } catch (error: unknown) {
-      if (operationGeneration !== sessionGeneration) {
+      if (signal?.aborted || operationGeneration !== sessionGeneration) {
         return;
       }
-
       clear();
       throw error;
+    } finally {
+      signal?.removeEventListener('abort', abort);
     }
   }
 
-  async function restore(): Promise<boolean> {
+  function restore(): Promise<boolean> {
+    return restoreSession(true);
+  }
+
+  /** 同一认证代次共用恢复任务；先登记再通知，防止订阅者重入产生重复刷新。 */
+  function restoreSession(broadcastCompletion: boolean): Promise<boolean> {
     const operationGeneration = sessionGeneration;
+    if (restoreOperation?.generation === operationGeneration) return restoreOperation.promise;
+    const operation = {
+      generation: operationGeneration,
+      promise: Promise.resolve().then(() => restoreSnapshot(operationGeneration, broadcastCompletion))
+    };
+    restoreOperation = operation;
+    const release = (): void => { if (restoreOperation === operation) restoreOperation = undefined; };
+    void operation.promise.then(release, release);
     state = 'initializing';
     notify();
-    if (!await refreshAccessToken(operationGeneration)) {
+    return operation.promise;
+  }
+
+  async function restoreSnapshot(operationGeneration: number, broadcastCompletion: boolean): Promise<boolean> {
+    if (!await refreshAccessToken(operationGeneration, broadcastCompletion)) {
       return false;
     }
 
@@ -196,7 +198,7 @@ export function createIdentitySession(
       if (!await loadAuthenticatedSnapshot(operationGeneration)) {
         return false;
       }
-
+      if (operationGeneration !== sessionGeneration) return false;
       state = 'authenticated';
       notify();
       return true;
@@ -229,9 +231,12 @@ export function createIdentitySession(
   }
 
   async function refreshAccessToken(
-    operationGeneration = sessionGeneration
+    operationGeneration = sessionGeneration,
+    broadcastCompletion = true
   ): Promise<boolean> {
     const execute = async (): Promise<boolean> => {
+      // 等待跨标签锁期间可能已经注销或新登录，旧任务不得再外发 Cookie 刷新。
+      if (operationGeneration !== sessionGeneration) return false;
       const tokenBeforeRefresh = token;
       try {
         if (externalRefreshAccessToken !== undefined) {
@@ -289,7 +294,7 @@ export function createIdentitySession(
       return execute();
     }
 
-    return sessionRefreshCoordinator.runExclusive(execute);
+    return sessionRefreshCoordinator.runExclusive(execute, { broadcastCompletion });
   }
 
   async function switchTenant(tenantId: string | null): Promise<void> {
@@ -376,23 +381,26 @@ export function createIdentitySession(
   async function changePassword(
     currentPassword: string,
     newPassword: string
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (state !== 'authenticated' || currentUser === undefined) {
       throw new Error('identity.session_not_authenticated');
     }
 
     const operationGeneration = sessionGeneration;
+    const userId = currentUser.id;
     const value = await changePasswordRequest(
       http,
       currentPassword,
       newPassword
     );
     if (operationGeneration !== sessionGeneration) {
-      return;
+      return false;
     }
 
     token = value;
     await reloadAuthenticatedContext();
+    return operationGeneration === sessionGeneration
+      && state === 'authenticated' && currentUser?.id === userId;
   }
 
   async function changeTenantContext(
@@ -418,7 +426,7 @@ export function createIdentitySession(
       if (!await loadAuthenticatedSnapshot(operationGeneration)) {
         return;
       }
-
+      if (operationGeneration !== sessionGeneration) return;
       state = 'authenticated';
       notify();
     } catch (error: unknown) {
@@ -458,9 +466,10 @@ export function createIdentitySession(
   }
 
   async function loadAuthenticatedSnapshot(
-    operationGeneration: number
+    operationGeneration: number,
+    signal?: AbortSignal
   ): Promise<boolean> {
-    const userValue = await identityGetCurrentUser(http, {});
+    const userValue = await identityGetCurrentUser(http, {}, signal);
     // 生成守卫不校验 SupportedLocale 与 profileVersion>0；会话快照仍要求手写契约。
     if (!isCurrentUserResponse(userValue)) {
       throw new TypeError('当前用户响应不符合契约。');
@@ -470,15 +479,15 @@ export function createIdentitySession(
       return false;
     }
 
-    currentUser = userValue;
-    i18n.setLocale(userValue.preferredLocale);
     if (userValue.passwordChangeRequired) {
+      currentUser = userValue;
+      i18n.setLocale(userValue.preferredLocale);
       navigation = [];
       availableTenants = [];
       return true;
     }
 
-    const navigationValue = await http.request<unknown>('/api/v1/navigation');
+    const navigationValue = await http.request<unknown>('/api/v1/navigation', {}, signal);
     if (!isNavigationTree(navigationValue)
       || !isSupportedNavigationTree(navigationValue)) {
       throw new TypeError('导航响应不符合本地组件白名单。');
@@ -486,7 +495,7 @@ export function createIdentitySession(
 
     let tenantValues: TenantContextSummary[] = [];
     if (userValue.permissions.includes(readTenantsPermission)) {
-      const tenantValue = await http.request<unknown>('/api/v1/tenancy/available');
+      const tenantValue = await http.request<unknown>('/api/v1/tenancy/available', {}, signal);
       if (!isTenantContextSummaryArray(tenantValue)) {
         throw new TypeError('可用租户响应不符合契约。');
       }
@@ -507,7 +516,7 @@ export function createIdentitySession(
   }
 
   function can(permission: string): boolean {
-    return currentUser?.permissions.includes(permission) === true;
+    return state === 'authenticated' && currentUser?.permissions.includes(permission) === true;
   }
 
   /**

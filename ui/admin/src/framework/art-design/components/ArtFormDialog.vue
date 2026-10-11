@@ -35,6 +35,7 @@ function close(): void {
 <template>
   <el-dialog
     :model-value="open"
+    :title="title"
     :width="width"
     class="art-form-dialog"
     modal-class="art-form-dialog-modal"

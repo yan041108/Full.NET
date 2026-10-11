@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Workflow.Contracts;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
@@ -53,6 +54,12 @@ internal static class NativeApiWorkflowE2EAssertions
                 assets,
                 host.LogFilePath,
                 cancellationToken)
+            .ConfigureAwait(false);
+
+        // 最后切换租户，避免会话代次变化使前面的 Host 令牌失效。
+        var tenantToken = await NativeApiE2EAssertions.EnterLocalTenantAsync(client, token, cancellationToken)
+            .ConfigureAwait(false);
+        await VerifyTenantMembershipAsync(client, tenantToken, host.LogFilePath, cancellationToken)
             .ConfigureAwait(false);
 
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
@@ -188,7 +195,8 @@ internal static class NativeApiWorkflowE2EAssertions
     private static async Task<PublishedWorkflowAssets> PublishAssetsAsync(
         HttpClient client,
         string token,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? assigneeId = null)
     {
         using var createFormResponse = await client.SendAsync(
             AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/forms", token, new
@@ -255,6 +263,9 @@ internal static class NativeApiWorkflowE2EAssertions
             ["reason"] = "readOnly",
             ["decision"] = "required",
         };
+        var assigneePolicy = assigneeId.HasValue
+            ? JsonSerializer.SerializeToElement(new { sources = new[] { new { resolverKindKey = "specified_users", userIds = new[] { assigneeId.Value } } } })
+            : JsonSerializer.SerializeToElement(new { sources = new[] { new { resolverKindKey = "initiator" } } });
         using var createDefinitionResponse = await client.SendAsync(
             AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/definitions", token, new
             {
@@ -276,14 +287,14 @@ internal static class NativeApiWorkflowE2EAssertions
                             nodeKey = "first",
                             nodeTypeKey = "human.approval",
                             nodeSchemaVersion = 1,
-                            config = new { nextNodeKeys = new[] { "second" }, fieldPolicies },
+                            config = new { nextNodeKeys = new[] { "second" }, fieldPolicies, assigneePolicy },
                         },
                         new
                         {
                             nodeKey = "second",
                             nodeTypeKey = "human.approval",
                             nodeSchemaVersion = 1,
-                            config = new { nextNodeKeys = new[] { "end" }, fieldPolicies },
+                            config = new { nextNodeKeys = new[] { "end" }, fieldPolicies, assigneePolicy },
                         },
                         new
                         {
@@ -322,6 +333,80 @@ internal static class NativeApiWorkflowE2EAssertions
         return new PublishedWorkflowAssets(
             definitionVersion.RootElement.GetProperty("id").GetGuid(),
             formVersionId);
+    }
+
+    /// <summary>以真实现代成员验证原生候选、预览、发布、运行时解析、改派与撤销后的拒绝。</summary>
+    private static async Task VerifyTenantMembershipAsync(
+        HttpClient client, string token, string logPath, CancellationToken cancellationToken)
+    {
+        using var provision = await client.SendAsync(AuthorizedJson(HttpMethod.Post,
+            "/api/v1/identity/tenant-members/provision", token, new
+            {
+                username = $"native-wf-{Guid.NewGuid():N}", displayName = "原生审批成员",
+                password = NativeApiE2EAssertions.AdminPassword, memberRole = "Member", email = (string?)null,
+            }), cancellationToken).ConfigureAwait(false);
+        await NativeApiE2EAssertions.AssertStatusAsync(provision, HttpStatusCode.OK,
+            "Provision native Workflow tenant member", cancellationToken, logPath).ConfigureAwait(false);
+        using var member = JsonDocument.Parse(await provision.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        var userId = member.RootElement.GetProperty("userId").GetGuid();
+        using var nextProvision = await client.SendAsync(AuthorizedJson(HttpMethod.Post,
+            "/api/v1/identity/tenant-members/provision", token, new
+            {
+                username = $"native-wf-next-{Guid.NewGuid():N}", displayName = "原生改派成员",
+                password = NativeApiE2EAssertions.AdminPassword, memberRole = "Member", email = (string?)null,
+            }), cancellationToken).ConfigureAwait(false);
+        await NativeApiE2EAssertions.AssertStatusAsync(nextProvision, HttpStatusCode.OK,
+            "Provision distinct native reassignment member", cancellationToken, logPath).ConfigureAwait(false);
+        using var nextMember = JsonDocument.Parse(await nextProvision.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        var nextUserId = nextMember.RootElement.GetProperty("userId").GetGuid();
+        var memberId = nextMember.RootElement.GetProperty("id").GetGuid();
+        var memberVersion = nextMember.RootElement.GetProperty("version").GetInt32();
+        Assert.AreNotEqual(userId, nextUserId);
+        using var candidatesRequest = new HttpRequestMessage(HttpMethod.Get,
+            "/api/v1/workflow/definitions/recipient-candidates?page=1&pageSize=100");
+        candidatesRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var candidatesResponse = await client.SendAsync(candidatesRequest, cancellationToken).ConfigureAwait(false);
+        await NativeApiE2EAssertions.AssertStatusAsync(candidatesResponse, HttpStatusCode.OK,
+            "List native member candidates", cancellationToken, logPath).ConfigureAwait(false);
+        using var candidates = JsonDocument.Parse(await candidatesResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        Assert.IsTrue(candidates.RootElement.GetProperty("items").EnumerateArray().Any(item => item.GetProperty("id").GetGuid() == userId));
+        using var preview = await client.SendAsync(AuthorizedJson(HttpMethod.Post,
+            "/api/v1/workflow/definitions/assignee-preview", token,
+            new { assigneePolicy = new { sources = new[] { new { resolverKindKey = "specified_users", userIds = new[] { userId } } } } }),
+            cancellationToken).ConfigureAwait(false);
+        await NativeApiE2EAssertions.AssertStatusAsync(preview, HttpStatusCode.OK,
+            "Preview native member assignee", cancellationToken, logPath).ConfigureAwait(false);
+        var assets = await PublishAssetsAsync(client, token, cancellationToken, userId).ConfigureAwait(false);
+        using var start = await client.SendAsync(AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", token,
+            new { definitionVersionId = assets.DefinitionVersionId, businessType = "native.workflow.member",
+                businessId = Guid.NewGuid().ToString("N"), initialValues = new { reason = "native member" },
+                idempotencyKey = $"member-{Guid.NewGuid():N}" }), cancellationToken).ConfigureAwait(false);
+        await NativeApiE2EAssertions.AssertStatusAsync(start, HttpStatusCode.Created,
+            "Start native member-assigned Workflow", cancellationToken, logPath).ConfigureAwait(false);
+        using var instance = JsonDocument.Parse(await start.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        var instanceId = instance.RootElement.GetProperty("id").GetGuid();
+        var revision = instance.RootElement.GetProperty("revision").GetInt32();
+        using var reassigned = await client.SendAsync(AuthorizedJson(HttpMethod.Post,
+            $"/api/v1/workflow/instances/{instanceId:D}/reassign", token,
+            new { assigneeUserId = nextUserId, expectedRevision = revision, reason = "原生成员交接", idempotencyKey = $"reassign-{Guid.NewGuid():N}" }),
+            cancellationToken).ConfigureAwait(false);
+        await NativeApiE2EAssertions.AssertStatusAsync(reassigned, HttpStatusCode.OK,
+            "Reassign native Workflow to active member", cancellationToken, logPath).ConfigureAwait(false);
+        using var updated = JsonDocument.Parse(await reassigned.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        revision = updated.RootElement.GetProperty("revision").GetInt32();
+        using var removal = await client.SendAsync(AuthorizedJson(HttpMethod.Delete,
+            $"/api/v1/identity/tenant-members/{memberId:D}?version={memberVersion}", token, new { }), cancellationToken).ConfigureAwait(false);
+        await NativeApiE2EAssertions.AssertStatusAsync(removal, HttpStatusCode.OK,
+            "Remove native Workflow tenant member", cancellationToken, logPath).ConfigureAwait(false);
+        using var rejected = await client.SendAsync(AuthorizedJson(HttpMethod.Post,
+            $"/api/v1/workflow/instances/{instanceId:D}/reassign", token,
+            new { assigneeUserId = nextUserId, expectedRevision = revision, reason = "已撤销成员", idempotencyKey = $"removed-{Guid.NewGuid():N}" }),
+            cancellationToken).ConfigureAwait(false);
+        await NativeApiE2EAssertions.AssertStatusAsync(rejected, HttpStatusCode.BadRequest,
+            "Reject removed native Workflow member", cancellationToken, logPath).ConfigureAwait(false);
+        // 相同办理人也会返回 400，必须核对资格错误码，避免错误拒绝路径造成假绿。
+        using var problem = JsonDocument.Parse(await rejected.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        Assert.AreEqual(WorkflowErrorCodes.TodoAssigneeNotFound, problem.RootElement.GetProperty("code").GetString());
     }
 
     private static HttpRequestMessage AuthorizedJson<TRequest>(

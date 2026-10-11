@@ -353,7 +353,7 @@ function closeDetail(): void {
 }
 
 function openBusinessDetail(businessType: string, businessId: string): void {
-  const route = findWorkflowBusinessDetailRoute(businessType);
+  const route = findWorkflowBusinessDetailRoute(businessType, can);
   if (route === undefined) {
     return;
   }
@@ -498,7 +498,7 @@ function toProblem(
               {{ t(detailReadOnly ? 'workflowTodos.view' : 'workflowTodos.open') }}
             </el-button>
             <el-button
-              v-if="findWorkflowBusinessDetailRoute(row.businessType)"
+              v-if="findWorkflowBusinessDetailRoute(row.businessType, can)"
               link
               type="primary"
               size="small"

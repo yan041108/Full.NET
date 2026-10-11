@@ -3,5 +3,6 @@
   "ownerKey": "demo",
   "databaseProvider": "sqlserver",
   "preset": "minimal",
-  "httpPort": 5180
+  "httpPort": 5180,
+  "workerHttpPort": 5181
 }

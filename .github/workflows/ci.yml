@@ -4,9 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
 
 jobs:
   client-build-test:
+    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -54,6 +56,9 @@ jobs:
 
       - name: Verify real-stack bootstrap helpers
         run: pnpm test:e2e:provisioner
+
+      - name: Verify CI image preparation contracts
+        run: node --test tests/testing/prepare-ci-test-images.test.mjs
 
       - name: Setup Helm
         uses: azure/setup-helm@v4
@@ -123,7 +128,8 @@ jobs:
           if-no-files-found: warn
 
   template-created-app-real-stack:
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    # 模块/约定批次完成后显式标记集中验收；main 继续执行完整生成应用回归。
+    if: (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'fullnet:acceptance') && (github.event.action != 'labeled' || github.event.label.name == 'fullnet:acceptance')) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -139,12 +145,18 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs --include-mysql-8.4
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
 
       - name: Install client dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Install browser for generated application acceptance
+        run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
 
       - name: Verify created application template real-stack (SqlServer + MySQL)
         run: pnpm test:templates
@@ -158,7 +170,7 @@ jobs:
           if-no-files-found: warn
 
   foundation-sample-e2e:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'fullnet:acceptance') && (github.event.action != 'labeled' || github.event.label.name == 'fullnet:acceptance')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -174,6 +186,9 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -213,6 +228,9 @@ jobs:
           node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs --redis-only
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -257,6 +275,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -300,6 +321,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs --redis-only
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -328,6 +352,7 @@ jobs:
           if-no-files-found: warn
 
   build-and-module-test:
+    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     # PR 按差异验证模块和 Smoke；迁移恢复由独立分组并行执行。
     timeout-minutes: 120
@@ -343,6 +368,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
 
       - uses: pnpm/action-setup@v4
         with:
@@ -403,7 +431,7 @@ jobs:
           if-no-files-found: warn
 
   affected-migration-recovery:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.action != 'labeled'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -420,6 +448,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
       - uses: pnpm/action-setup@v4
         with:
           version: 10.26.0
@@ -441,7 +472,7 @@ jobs:
 
   build-test:
     needs: [build-and-module-test, affected-migration-recovery]
-    if: always()
+    if: always() && github.event.action != 'labeled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -487,6 +518,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
 
       - uses: actions/setup-dotnet@v4
         with:

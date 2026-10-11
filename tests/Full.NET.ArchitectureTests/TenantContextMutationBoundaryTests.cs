@@ -49,6 +49,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Files/Reconciliation/PendingTenantResourceFileReconciliationRunner.cs",
         "src/Modules/Full.NET.Modules.Identity/Features/AcceptTenantInvitation/AcceptTenantInvitationService.cs",
         "src/Modules/Full.NET.Modules.Identity/Features/AcceptTenantInvitation/IdentityTenantInvitationScope.cs",
+        // Worker 巡检在独立作用域固定 Host，不接收请求租户参数，结束或异常均清除上下文。
+        "src/Modules/Full.NET.Modules.Identity/Features/AccountChallenges/AccountChallengeReconciliationHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Identity/Features/ChangeSessionContext/IdentitySessionContextService.cs",
         // 单次请求内临时 Host 作用域，执行 HostOnly SQL 后恢复租户上下文。
         "src/Modules/Full.NET.Modules.Identity/Features/IdentityHostExecutionScope.cs",
@@ -74,9 +76,13 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Jobs/Features/ManageHostJobExecutions/HostJobTriggerService.cs",
         "src/Modules/Full.NET.Modules.Jobs/Middleware/HostJobsHostContextMiddleware.cs",
         "src/Modules/Full.NET.Modules.Jobs/Middleware/HostJobsHostContextScope.cs",
+        // 通知仅按可信 Outbox Envelope 临时安装租户；完成、失败或取消后均恢复原上下文。
+        "src/Modules/Full.NET.Modules.Notifications/Features/ProjectWorkflowNotifications/WorkflowNotificationProjectionService.cs",
+        "src/Modules/Full.NET.Modules.Notifications/Features/ProjectWorkflowNotifications/WorkflowNotificationTenantScope.cs",
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/Endpoint.cs",
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/HostUserManagementReferenceService.cs",
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/HostUserManagementTenantScope.cs",
+        // Worker 仅按领取任务所属的活动租户恢复可信作用域，执行前重验原会话与版本授权。
         "src/Modules/Full.NET.Modules.Reporting/Features/ManageExportTasks/ReportingExportTaskRunner.cs",
         "src/Modules/Full.NET.Modules.Settings/Features/ManageDiagnosticPolicy/DiagnosticPolicyStore.cs",
         // 权益只读 Port 临时进入 Host 目录读取阶段与绑定，租户来自调用方可信作用域，结束后恢复。

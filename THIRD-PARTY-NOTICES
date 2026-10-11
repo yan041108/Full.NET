@@ -8,6 +8,8 @@ the complete license texts.
 
 - .NET, ASP.NET Core, Microsoft.Extensions, MSTest and .NET Aspire — MIT
   https://github.com/dotnet
+- Roslyn (Microsoft.CodeAnalysis.CSharp / Microsoft.CodeAnalysis.Common) 5.0.0 — MIT
+  https://github.com/dotnet/roslyn
 - Microsoft.Extensions.AI.Abstractions 10.9.0 — MIT
   https://github.com/dotnet/extensions
 - Microsoft Agent Framework (Microsoft.Agents.AI / Microsoft.Agents.AI.Abstractions) 1.20.0 — MIT
@@ -60,6 +62,8 @@ the complete license texts.
   https://github.com/layui/layui
 - Vue.js and Vue Router — MIT
   https://github.com/vuejs
+- @vue/server-renderer 3.5.42 — MIT
+  https://github.com/vuejs/core/blob/v3.5.42/LICENSE
 - Microsoft ASP.NET Core SignalR JavaScript Client 10.0.0 — MIT
   https://github.com/dotnet/aspnetcore
 - uni-app/DCloud — Apache-2.0
@@ -87,8 +91,14 @@ the complete license texts.
   https://github.com/StavinLi/Workflow-Vue3 @ 8d81e61edc495d07ae5fdc21e3f24aacc7f32991
 - Vite — MIT
   https://github.com/vitejs/vite
+- source-map-js 1.2.2 — BSD-3-Clause
+  https://github.com/7rulnik/source-map-js/blob/v1.2.2/LICENSE
 - Vitest — MIT
   https://github.com/vitest-dev/vitest
+- Tinypool 2.1.2 — MIT (development and CI testing only; not shipped)
+  https://github.com/tinylibs/tinypool/blob/v2.1.2/LICENSE
+- proxy-addr 2.0.8 — MIT (uni-app development server dependency; not shipped)
+  https://github.com/jshttp/proxy-addr/blob/v2.0.8/LICENSE
 - jsdom — MIT
   https://github.com/jsdom/jsdom
 - DOMPurify — Apache-2.0 (selected from MPL-2.0 OR Apache-2.0)

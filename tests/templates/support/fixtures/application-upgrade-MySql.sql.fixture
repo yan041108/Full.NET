@@ -1,0 +1,13 @@
+-- 应用增量迁移：给既有商品增加可空描述，保留存量行和原有读写契约。
+-- MySQL 的 DDL 会隐式提交；按元数据探测后执行，列已创建但 DbUp 未记账时可重跑。
+SET @product_description_ddl = IF(
+    EXISTS(
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'acme_catalog_product'
+          AND COLUMN_NAME = 'Description'),
+    'SELECT 1',
+    'ALTER TABLE acme_catalog_product ADD COLUMN Description varchar(500) NULL COMMENT ''商品的可选说明，存量商品保持空值。''');
+PREPARE product_description_statement FROM @product_description_ddl;
+EXECUTE product_description_statement;
+DEALLOCATE PREPARE product_description_statement;

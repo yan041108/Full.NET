@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { Refresh, Search } from '@element-plus/icons-vue';
 import {
   ElAlert,
@@ -8,7 +8,6 @@ import {
   ElForm,
   ElFormItem,
   ElInput,
-  ElMessage,
   ElPagination,
   ElTable,
   ElTableColumn
@@ -18,11 +17,13 @@ import type {
   HostDocumentItemResponse,
   HostDocumentPermissionResponse
 } from '@fullnet/client-contracts';
-import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, isSetHostDocumentPermissionsRequest } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { showSuccess, showProblem, showWarning } from '../feedback/fullNetMessage';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -63,9 +64,18 @@ const {
   syncTableLayout
 } = useArtPagedTableInCard(loading);
 
-const canReadDocuments = computed(() => session.can('document.host_documents.read'));
-const canReadPermissions = () => session.can('document.host_permissions.read');
-const canSet = () => session.can('document.host_permissions.set');
+const canReadDocuments = computed(() => session.currentUser?.scope === 'host' && session.can('document.host_documents.read') && session.can('document.host_permissions.read'));
+const canReadPermissions = () => canReadDocuments.value && session.can('document.host_permissions.read');
+const canSet = () => canReadPermissions() && session.can('document.host_permissions.set');
+const permissionsReady = ref(false);
+const dialogModel = computed({ get: () => permissionDialogOpen.value, set: open => { if (!open) closePermissionDialog(); } });
+const scope = useAuthorizedViewScope(session, () => {
+  closePermissionDialog(); items.value = []; total.value = 0; loading.value = false;
+  page.value = 1; pageSize.value = 20; searchKeyword.value = ''; appliedKeyword.value = ''; problem.value = undefined;
+}, () => { if (canReadDocuments.value) void loadDocuments(); });
+let listRequest: ReturnType<typeof scope.begin>;
+let permissionRequest: ReturnType<typeof scope.begin>;
+let saveRequest: ReturnType<typeof scope.begin>;
 
 const displayItems = computed(() => {
   const keyword = appliedKeyword.value.trim().toLowerCase();
@@ -83,25 +93,16 @@ const displayItems = computed(() => {
 const rowIndex = computed(() => (index: number) => (page.value - 1) * pageSize.value + index + 1);
 
 async function loadDocuments() {
-  if (!canReadDocuments.value) {
-    items.value = [];
-    total.value = 0;
-    return;
-  }
-  loading.value = true;
-  problem.value = undefined;
+  listRequest?.cancel();
+  if (!canReadDocuments.value) return;
+  const request = scope.begin('document.host_documents.read'); if (!request) return;
+  listRequest = request; loading.value = true; problem.value = undefined;
   try {
-    const result = await listDocumentItems(page.value, pageSize.value);
-    items.value = result.items;
-    page.value = result.page;
-    pageSize.value = result.pageSize;
-    total.value = result.total;
-  } catch (error) {
-    problem.value = toProblem(error);
-  } finally {
-    loading.value = false;
-    void syncTableLayout();
-  }
+    const result = await listDocumentItems(page.value, pageSize.value, {}, request.signal);
+    if (!request.current()) return;
+    items.value = result.items; page.value = result.page; pageSize.value = result.pageSize; total.value = result.total;
+  } catch (error) { if (request.current()) problem.value = toProblem(error); }
+  finally { if (request.current()) { loading.value = false; void syncTableLayout(); } request.finish(); }
 }
 
 function handleQuery() {
@@ -117,54 +118,52 @@ function resetQuery() {
 }
 
 async function openPermissionDialog(row: HostDocumentItemResponse) {
-  activeDocument.value = row;
-  permissionDialogOpen.value = true;
-  userId.value = '';
-  permissionLevel.value = 'read';
-  if (!canReadPermissions()) {
-    permissions.value = [];
-    return;
-  }
-  permissionsLoading.value = true;
-  problem.value = undefined;
+  if (!canReadPermissions()) return;
+  closePermissionDialog();
+  const request = scope.begin('document.host_permissions.read'); if (!request) return;
+  permissionRequest = request; activeDocument.value = row; permissionDialogOpen.value = true;
+  permissionsLoading.value = true; problem.value = undefined;
   try {
-    permissions.value = await getDocumentPermissionsByDocument(row.id);
+    const result = await getDocumentPermissionsByDocument(row.id, request.signal);
+    if (!request.current()) return;
+    permissions.value = result; permissionsReady.value = true;
   } catch (error) {
-    permissions.value = [];
-    problem.value = toProblem(error);
-  } finally {
-    permissionsLoading.value = false;
-  }
+    if (request.current()) { permissions.value = []; permissionsReady.value = false; problem.value = toProblem(error); }
+  } finally { if (request.current()) permissionsLoading.value = false; request.finish(); }
 }
 
 function closePermissionDialog() {
-  permissionDialogOpen.value = false;
-  activeDocument.value = null;
-  permissions.value = [];
+  permissionRequest?.cancel(); saveRequest?.cancel(); permissionRequest = undefined; saveRequest = undefined;
+  permissionDialogOpen.value = false; activeDocument.value = null; permissions.value = [];
+  permissionsReady.value = false; permissionsLoading.value = false; saving.value = false;
+  userId.value = ''; permissionLevel.value = 'read';
 }
 
 async function savePermission() {
-  if (!activeDocument.value || !userId.value.trim()) {
-    return;
-  }
-  saving.value = true;
-  problem.value = undefined;
+  const document = activeDocument.value;
+  if (!canSet() || !permissionDialogOpen.value || !permissionsReady.value || permissionsLoading.value || saving.value || !document) return;
+  const targetUser = userId.value.trim(), level = permissionLevel.value.trim();
+  // API 是整份替换，单用户表单必须保留已成功读取的其他授权，不能把读取失败当作空目录。
+  const payload = { documentId: document.id, permissions: [
+    ...permissions.value.filter(entry => entry.userId.toLowerCase() !== targetUser.toLowerCase()).map(entry => ({ userId: entry.userId, permissionLevel: entry.permissionLevel })),
+    { userId: targetUser, permissionLevel: level }
+  ] };
+  if (!level || !isSetHostDocumentPermissionsRequest(payload)) { showWarning(t('documentPermissions.operationFailed')); return; }
+  const request = scope.begin('document.host_permissions.set'); if (!request) return;
+  saveRequest = request; saving.value = true; problem.value = undefined;
   try {
-    permissions.value = await setDocumentPermissions({
-      documentId: activeDocument.value.id,
-      permissions: [
-        {
-          userId: userId.value.trim(),
-          permissionLevel: permissionLevel.value.trim()
-        }
-      ]
-    });
-    ElMessage.success(t('documentPermissions.saveSuccess'));
+    const result = await setDocumentPermissions(payload, request.signal);
+    if (!request.current()) return;
+    permissions.value = result; userId.value = ''; permissionLevel.value = 'read';
+    showSuccess(t('documentPermissions.saveSuccess'));
   } catch (error) {
-    problem.value = toProblem(error, 'documentPermissions.operationFailed');
-  } finally {
-    saving.value = false;
+    if (request.current()) {
+      // 写入可能已经提交但响应丢失；旧快照不能再用于整份替换，须先重新成功读取。
+      permissionsReady.value = false; permissions.value = [];
+      showProblem(toProblem(error, 'documentPermissions.operationFailed'), t('documentPermissions.operationFailed'));
+    }
   }
+  finally { if (request.current()) saving.value = false; request.finish(); }
 }
 
 function toProblem(
@@ -177,11 +176,10 @@ function toProblem(
   return { title: t(fallbackKey), status: 500, code: fallbackKey };
 }
 
-onMounted(loadDocuments);
 </script>
 
 <template>
-  <section class="document-permissions-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
+  <section v-if="canReadDocuments" class="document-permissions-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentPermissions.title') }}</h1>
 
     <el-alert
@@ -274,15 +272,14 @@ onMounted(loadDocuments);
     </el-card>
 
     <ArtFormDialog
-      v-model:open="permissionDialogOpen"
+      v-model:open="dialogModel"
       :title="t('documentPermissions.dialogTitle')"
       :saving="saving"
       :confirm-label="t('documentPermissions.save')"
       :cancel-label="t('users.cancel')"
       confirm-test-id="document-permissions-save"
-      :show-confirm="canSet()"
+      :show-confirm="canSet() && permissionsReady"
       @confirm="savePermission"
-      @cancel="closePermissionDialog"
     >
       <p v-if="activeDocument" class="document-permissions-view__active-doc" translate="no">
         {{ activeDocument.title }} · {{ activeDocument.documentNo }}
@@ -299,20 +296,21 @@ onMounted(loadDocuments);
       </el-table>
       <el-form
         v-if="canSet()"
+        :disabled="saving || permissionsLoading || !permissionsReady"
         label-width="120px"
         data-testid="document-permissions-set-form"
         class="document-permissions-view__set-form"
       >
-        <el-form-item :label="t('documentPermissions.userId')">
-          <el-input v-model="userId" autocomplete="off" />
+        <el-form-item :label="t('documentPermissions.userId')" required>
+          <el-input v-model="userId" autocomplete="off" data-testid="document-permissions-user-id" />
         </el-form-item>
-        <el-form-item :label="t('documentPermissions.permissionLevel')">
-          <el-input v-model="permissionLevel" autocomplete="off" />
+        <el-form-item :label="t('documentPermissions.permissionLevel')" required>
+          <el-input v-model="permissionLevel" autocomplete="off" data-testid="document-permissions-level" />
         </el-form-item>
       </el-form>
       <PermissionGate code="document.host_permissions.read">
         <el-button
-          v-if="activeDocument && !canSet()"
+          v-if="activeDocument && canReadPermissions()"
           type="primary"
           plain
           data-testid="document-permissions-load"

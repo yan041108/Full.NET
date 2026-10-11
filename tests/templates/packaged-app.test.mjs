@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -15,6 +15,8 @@ import { verifyApplicationCrudModule } from './support/application-crud-module.m
 import { verifyApplicationCrudHostWiring } from './support/application-crud-host-wiring.mjs';
 import { verifyApplicationCrudRuntime } from './support/application-crud-runtime.mjs';
 import { verifyApplicationCrudAuthorization } from './support/application-crud-authorization.mjs';
+import { verifyApplicationCrudSchemaSourceUpgrade } from './support/application-crud-schema-source-upgrade.mjs';
+import { runPnpm } from './support/pnpm-process.mjs';
 
 const skipBundleIntegration = areBundleInputsClean()
   ? false
@@ -58,6 +60,11 @@ test('application template package includes framework sources and root manifest'
     assert.deepEqual(readdirSync(workspace).filter((entry) => entry.startsWith('.fullnet-create-')), []);
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj')));
     assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj')));
+    assert.ok(existsSync(join(appRoot, 'src/Demo.Host.Worker/Demo.Host.Worker.csproj')));
+    const apiConfig = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Api/appsettings.json'), 'utf8'));
+    const workerConfig = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Worker/appsettings.json'), 'utf8'));
+    assert.equal(apiConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:5500');
+    assert.equal(workerConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:5501');
     assert.ok(existsSync(join(appRoot, 'src/Demo.Composition/Demo.Composition.csproj')));
     assert.match(readFileSync(join(appRoot, 'src/Demo.Composition/ApplicationModuleCatalog.cs'), 'utf8'), /namespace Demo\.Composition;/u);
     assert.ok(existsSync(join(appRoot, 'ui/admin/src/App.vue')));
@@ -65,7 +72,10 @@ test('application template package includes framework sources and root manifest'
     assert.ok(existsSync(join(appRoot, 'packages/admin-form-designer/package.json')));
     assert.equal(existsSync(join(appRoot, '.fullnet-tools/create-app.mjs')), false);
     assert.equal(existsSync(join(appRoot, '.fullnet-tools/upgrade-framework.mjs')), false);
-    assert.deepEqual(readdirSync(join(appRoot, '.fullnet-tools')), ['openapi']);
+    assert.deepEqual(readdirSync(join(appRoot, '.fullnet-tools')).sort(), ['diagnose-app.mjs', 'openapi']);
+    assert.deepEqual(readFileSync(join(appRoot, '.fullnet-tools/diagnose-app.mjs')),
+      readFileSync(new URL('../../scripts/templates/diagnose-app.mjs', import.meta.url)),
+      'diagnostic entry must remain byte-identical after template projection');
     const verification = verifyCreatedApp(appRoot);
     assert.equal(verification.ok, true, verification.errors.join('; '));
     const appProfile = JSON.parse(readFileSync(join(appRoot, 'fullnet-app.json'), 'utf8'));
@@ -96,6 +106,533 @@ test('application template package includes framework sources and root manifest'
       'build', join(appRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj'), '-c', 'Release', '-v', 'quiet',
     ], { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
     assert.equal(migratorBuild.status, 0, migratorBuild.stderr || migratorBuild.stdout);
+    const workerBuild = spawnSync('dotnet', [
+      'build', join(appRoot, 'src/Demo.Host.Worker/Demo.Host.Worker.csproj'), '-c', 'Release', '-v', 'quiet',
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
+    assert.equal(workerBuild.status, 0, workerBuild.stderr || workerBuild.stdout);
+    const diagnosticCli = join(appRoot, 'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli');
+    const connectionEnvironmentPrefixes = ['MYSQLCONNSTR_', 'SQLCONNSTR_', 'SQLAZURECONNSTR_', 'CUSTOMCONNSTR_'];
+    const diagnosticConfigurationPaths = new Set([
+      'database:provider', 'database:commandtimeoutseconds', 'database:mysqlguidstoragemode', 'database:connectionname', 'database:connectionstring', `connectionstrings:${apiConfig.Database.ConnectionName}`,
+      'cache:redisconnectionstring', 'realtime:redisbackplaneconnectionstring',
+      'fullnet:cryptography:sm2privatekeys:host-integration-signing',
+    ].map(key => key.toLowerCase()));
+    const diagnosisEnvironment = Object.fromEntries(Object.entries(process.env).filter(([key]) => {
+      const prefix = connectionEnvironmentPrefixes.find(value => key.toUpperCase().startsWith(value));
+      const path = prefix ? `ConnectionStrings:${key.slice(prefix.length)}` : key;
+      const normalizedPath = path.replaceAll('__', ':').toLowerCase();
+      return !diagnosticConfigurationPaths.has(normalizedPath) && !normalizedPath.startsWith('identity:');
+    }));
+    // 此矩阵聚焦连接与常见秘密；显式关闭签发，避免无关签名缺失掩盖待验证的诊断项。
+    Object.assign(diagnosisEnvironment, {
+      Identity__EnableTokenEndpoints: 'false',
+      Identity__AllowDevelopmentEphemeralSigningKey: 'false',
+      Identity__Oidc__Enable: 'false',
+    });
+    const configuredDiagnosis = spawnSync('dotnet', [
+      'run', '--project', diagnosticCli, '-c', 'Release', '--',
+      'diagnose', '--workspace', appRoot, '--profile', 'production',
+    ], {
+      cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true,
+      env: {
+        ...diagnosisEnvironment,
+        [`ConnectionStrings__${apiConfig.Database.ConnectionName}`]: 'Server=example.invalid;Password=credential-probe',
+        Cache__RedisConnectionString: 'cache.example.invalid:6379,password=credential-probe',
+        Realtime__RedisBackplaneConnectionString: 'realtime.example.invalid:6379,password=credential-probe',
+        'FullNet__Cryptography__Sm2PrivateKeys__host-integration-signing': 'credential-probe',
+      },
+    });
+    assert.equal(configuredDiagnosis.status, 0, configuredDiagnosis.stderr || configuredDiagnosis.stdout);
+    assert.match(configuredDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
+    assert.match(configuredDiagnosis.stdout, /DIAG_IDENTITY_TOKEN_ENDPOINTS_DISABLED ok/u);
+    assert.match(configuredDiagnosis.stdout, /DIAG_OIDC_DISABLED ok/u);
+    assert.match(configuredDiagnosis.stdout, /DIAG_SDK_OK ok 检测到 \.NET SDK 10\.0\./u);
+    assert.doesNotMatch(configuredDiagnosis.stdout + configuredDiagnosis.stderr, /credential-probe/u);
+    const productionSettings = join(appRoot, 'src/Demo.Host.Api/appsettings.Production.json');
+    const rootProductionSettings = join(appRoot, 'appsettings.Production.json');
+    const runProfileDiagnosis = (overrides = {}) => spawnSync('dotnet', [
+      'run', '--project', diagnosticCli, '-c', 'Release', '--no-build', '--',
+      'diagnose', '--workspace', appRoot, '--profile', 'production',
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true,
+      env: { ...diagnosisEnvironment, ...overrides } });
+    try {
+      writeFileSync(rootProductionSettings, '{invalid-json-credential-probe');
+      writeFileSync(productionSettings, JSON.stringify({
+        ConnectionStrings: { [apiConfig.Database.ConnectionName]: 'Server=example.invalid;Password=credential-probe' },
+        Cache: { RedisConnectionString: 'cache.example.invalid:6379,password=credential-probe' },
+        Realtime: { RedisBackplaneConnectionString: 'realtime.example.invalid:6379,password=credential-probe' },
+        FullNet: { Cryptography: { Sm2PrivateKeys: { 'host-integration-signing': 'credential-probe' } } },
+      }));
+      const profileBefore = readFileSync(productionSettings);
+      const profileDiagnosis = runProfileDiagnosis();
+      assert.equal(profileDiagnosis.status, 0, profileDiagnosis.stderr || profileDiagnosis.stdout);
+      assert.match(profileDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+      assert.match(profileDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
+      assert.match(profileDiagnosis.stdout, /DIAG_IDENTITY_TOKEN_ENDPOINTS_DISABLED ok/u);
+      assert.match(profileDiagnosis.stdout, /DIAG_OIDC_DISABLED ok/u);
+      assert.doesNotMatch(profileDiagnosis.stdout + profileDiagnosis.stderr, /credential-probe/u);
+      assert.deepEqual(readFileSync(productionSettings), profileBefore);
+      // 关闭只是本矩阵的前提；重新启用后缺失活动签名仍必须被随包 CLI 拒绝。
+      const missingSigningDiagnosis = runProfileDiagnosis({ Identity__EnableTokenEndpoints: 'true' });
+      assert.equal(missingSigningDiagnosis.status, 1, missingSigningDiagnosis.stderr || missingSigningDiagnosis.stdout);
+      assert.match(missingSigningDiagnosis.stdout, /DIAG_IDENTITY_SIGNING_REQUIRED error/u);
+      assert.match(missingSigningDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+      assert.doesNotMatch(missingSigningDiagnosis.stdout + missingSigningDiagnosis.stderr, /credential-probe/u);
+      assert.deepEqual(readFileSync(productionSettings), profileBefore);
+      try {
+        for (const prefix of connectionEnvironmentPrefixes) {
+          const environmentKey = prefix + apiConfig.Database.ConnectionName.replaceAll(':', '__');
+          writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(profileBefore.toString('utf8')),
+            ConnectionStrings: { [apiConfig.Database.ConnectionName]: 'CHANGEME' },
+          }));
+          const prefixBefore = readFileSync(productionSettings);
+          const prefixDiagnosis = runProfileDiagnosis({ [environmentKey]: 'Server=environment.invalid;Password=credential-probe' });
+          assert.equal(prefixDiagnosis.status, 0, prefixDiagnosis.stderr || prefixDiagnosis.stdout);
+          assert.match(prefixDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+          assert.doesNotMatch(prefixDiagnosis.stdout + prefixDiagnosis.stderr, /credential-probe/u);
+          assert.deepEqual(readFileSync(productionSettings), prefixBefore);
+
+          writeFileSync(productionSettings, profileBefore);
+          const placeholderDiagnosis = runProfileDiagnosis({ [environmentKey]: 'CHANGEME' });
+          assert.equal(placeholderDiagnosis.status, 1);
+          assert.match(placeholderDiagnosis.stdout, /DIAG_CONNECTION_MISSING error/u);
+          assert.doesNotMatch(placeholderDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED/u);
+          const aliasDiagnosis = runProfileDiagnosis({ [environmentKey]: 'CHANGEME',
+            [`ConnectionStrings__${apiConfig.Database.ConnectionName}`]: 'Server=alias.invalid;Password=credential-probe',
+          });
+          assert.equal(aliasDiagnosis.status, 1);
+          assert.match(aliasDiagnosis.stdout, /DIAG_CONNECTION_MISSING error/u);
+          assert.doesNotMatch(aliasDiagnosis.stdout + aliasDiagnosis.stderr, /credential-probe/u);
+          const directDiagnosis = runProfileDiagnosis({ [environmentKey]: 'CHANGEME',
+            Database__ConnectionString: 'Server=direct.invalid;Password=credential-probe',
+          });
+          assert.equal(directDiagnosis.status, 0, directDiagnosis.stderr || directDiagnosis.stdout);
+          assert.match(directDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+          assert.doesNotMatch(directDiagnosis.stdout + directDiagnosis.stderr, /credential-probe/u);
+          assert.deepEqual(readFileSync(productionSettings), profileBefore);
+        }
+      } finally {
+        writeFileSync(productionSettings, profileBefore);
+      }
+      for (const relativePath of ['appsettings.json', 'src/Demo.Host.Api/appsettings.json',
+        'src/Demo.Host.Migrator/appsettings.json', 'src/Demo.Host.Worker/appsettings.json']) {
+        const settingsPath = join(appRoot, relativePath);
+        const originalSettings = readFileSync(settingsPath);
+        const originalJson = originalSettings.toString('utf8').trimEnd();
+        try {
+          writeFileSync(settingsPath, `// credential-probe comment\n${originalJson.slice(0, -1)},}`);
+          const tolerantBefore = readFileSync(settingsPath);
+          const tolerantDiagnosis = runProfileDiagnosis();
+          assert.equal(tolerantDiagnosis.status, 0, tolerantDiagnosis.stderr || tolerantDiagnosis.stdout);
+          assert.match(tolerantDiagnosis.stdout, /DIAG_APP_PROFILE_OK ok/u);
+          assert.doesNotMatch(tolerantDiagnosis.stdout + tolerantDiagnosis.stderr, /credential-probe/u);
+          assert.deepEqual(readFileSync(settingsPath), tolerantBefore);
+          // 同名对象声明不同子键不构成路径冲突；冻结诊断必须保留所有片段。
+          for (const fragment of ['"Probe":{"One":1},"Probe":{"Two":2}',
+            '"FullNet":{"Modules":{"Probe":"credential-probe"}}',
+            '"Database":{"Probe":"credential-probe"}',
+            '"Kestrel":{"Endpoints":{"Http":{"Probe":"credential-probe"}}}',
+            '"Probe":{},"Probe":[]']) {
+            writeFileSync(settingsPath, `${originalJson.slice(0, -1)},${fragment}}`);
+            const repeatedBefore = readFileSync(settingsPath);
+            const repeatedDiagnosis = runProfileDiagnosis();
+            assert.equal(repeatedDiagnosis.status, 0, repeatedDiagnosis.stderr || repeatedDiagnosis.stdout);
+            assert.match(repeatedDiagnosis.stdout, /DIAG_APP_PROFILE_OK ok/u);
+            assert.doesNotMatch(repeatedDiagnosis.stdout + repeatedDiagnosis.stderr, /credential-probe/iu);
+            assert.deepEqual(readFileSync(settingsPath), repeatedBefore);
+            assert.deepEqual(readFileSync(productionSettings), profileBefore);
+          }
+          const baseProfile = JSON.parse(originalJson);
+          const frozenValues = [
+            ['FullNet:Modules:Preset', baseProfile.FullNet.Modules.Preset],
+            ['Database:Provider', baseProfile.Database.Provider],
+          ];
+          if (relativePath.includes('.Host.Worker/')) {
+            frozenValues.push(['Kestrel:Endpoints:Http:Url', baseProfile.Kestrel.Endpoints.Http.Url]);
+          }
+          const profileParent = (settings, path) => {
+            const parts = path.split(':');
+            let parent = settings;
+            for (const part of parts.slice(0, -1)) parent = parent[part] ??= {};
+            return [parent, parts.at(-1)];
+          };
+          for (const layout of ['flat', 'flat-case', 'nested-case']) {
+            const flattenedProfile = structuredClone(baseProfile);
+            for (const [path, value] of frozenValues) {
+              const [parent, leaf] = profileParent(flattenedProfile, path);
+              delete parent[leaf];
+              if (layout === 'nested-case') {
+                const [caseParent, caseLeaf] = profileParent(flattenedProfile, path.toLowerCase());
+                caseParent[caseLeaf] = value;
+              } else {
+                flattenedProfile[layout === 'flat-case' ? path.toUpperCase() : path] = value;
+              }
+            }
+            writeFileSync(settingsPath, JSON.stringify(flattenedProfile));
+            const flattenedBefore = readFileSync(settingsPath);
+            const flattenedDiagnosis = runProfileDiagnosis();
+            assert.equal(flattenedDiagnosis.status, 0, flattenedDiagnosis.stderr || flattenedDiagnosis.stdout);
+            assert.match(flattenedDiagnosis.stdout, /DIAG_APP_PROFILE_OK ok/u);
+            if (relativePath.includes('.Host.Api/')) {
+              assert.match(flattenedDiagnosis.stdout, /DIAG_MODULES_OK ok/u);
+              assert.doesNotMatch(flattenedDiagnosis.stdout, /DIAG_MODULES_(?:MISSING|INCOMPLETE)/u);
+            }
+            assert.doesNotMatch(flattenedDiagnosis.stdout + flattenedDiagnosis.stderr, /credential-probe/iu);
+            assert.deepEqual(readFileSync(settingsPath), flattenedBefore);
+            assert.deepEqual(readFileSync(productionSettings), profileBefore);
+          }
+          // 环境凭据不能掩盖基础预设或 Worker 端口被空集合覆盖后的漂移。
+          for (const [path] of frozenValues) {
+            const clearedProfile = structuredClone(baseProfile);
+            clearedProfile[path.toUpperCase()] = {};
+            writeFileSync(settingsPath, JSON.stringify(clearedProfile));
+            const clearedBefore = readFileSync(settingsPath);
+            const clearedDiagnosis = runProfileDiagnosis();
+            assert.equal(clearedDiagnosis.status, 1);
+            assert.match(clearedDiagnosis.stdout, /DIAG_APP_PROFILE_MISMATCH error/u);
+            assert.doesNotMatch(clearedDiagnosis.stdout, /DIAG_APP_PROFILE_OK/u);
+            if (relativePath.includes('.Host.Api/') && path === 'FullNet:Modules:Preset') {
+              assert.match(clearedDiagnosis.stdout, /DIAG_MODULES_INCOMPLETE warn/u);
+              assert.doesNotMatch(clearedDiagnosis.stdout, /DIAG_MODULES_OK/u);
+            }
+            assert.doesNotMatch(clearedDiagnosis.stdout + clearedDiagnosis.stderr, /credential-probe/iu);
+            assert.deepEqual(readFileSync(settingsPath), clearedBefore);
+            assert.deepEqual(readFileSync(productionSettings), profileBefore);
+          }
+          // 即使有效环境变量可覆盖数据库值，宿主也必须先成功加载每个基础配置文件。
+          for (const duplicate of ['"credential-probe":1,"CREDENTIAL-PROBE":2',
+            '"Probe":{"Value":1},"probe:value":"credential-probe"']) {
+            writeFileSync(settingsPath, `${originalJson.slice(0, -1)},${duplicate}}`);
+            const duplicateBefore = readFileSync(settingsPath);
+            const duplicateDiagnosis = runProfileDiagnosis({
+              Database__ConnectionString: 'Server=override.invalid;Password=credential-probe',
+            });
+            assert.equal(duplicateDiagnosis.status, 1);
+            assert.match(duplicateDiagnosis.stdout, /DIAG_APP_PROFILE_INVALID error/u);
+            assert.doesNotMatch(duplicateDiagnosis.stdout, /DIAG_APP_PROFILE_OK/u);
+            assert.doesNotMatch(duplicateDiagnosis.stdout + duplicateDiagnosis.stderr, /credential-probe/iu);
+            assert.deepEqual(readFileSync(settingsPath), duplicateBefore);
+          }
+        } finally {
+          writeFileSync(settingsPath, originalSettings);
+        }
+      }
+      const diagnosticBaseSettings = join(appRoot, 'src/Demo.Host.Api/appsettings.json');
+      const diagnosticBaseBefore = readFileSync(diagnosticBaseSettings);
+      try {
+        const namedProfile = JSON.parse(profileBefore.toString('utf8'));
+        delete namedProfile.ConnectionStrings;
+        writeFileSync(productionSettings, JSON.stringify(namedProfile));
+        const baseName = apiConfig.Database.ConnectionName;
+        for (const layout of ['flat', 'lowercase', 'nested-colon', 'empty-overwrite']) {
+          const namedBase = { ...apiConfig };
+          delete namedBase.ConnectionStrings;
+          const credential = 'Server=base.invalid;Password=credential-probe';
+          if (layout === 'flat') namedBase[`connectionstrings:${baseName.toUpperCase()}`] = credential;
+          if (layout === 'lowercase') namedBase.connectionstrings = { [baseName.toUpperCase()]: credential };
+          if (layout === 'nested-colon') {
+            namedBase.Database = { ...apiConfig.Database, ConnectionName: `${baseName}:read` };
+            namedBase.ConnectionStrings = { [baseName]: { read: credential } };
+          }
+          if (layout === 'empty-overwrite') {
+            namedBase.ConnectionStrings = { [baseName]: credential };
+            namedBase[`connectionstrings:${baseName}`] = {};
+          }
+          writeFileSync(diagnosticBaseSettings, JSON.stringify(namedBase));
+          const namedBaseBefore = readFileSync(diagnosticBaseSettings);
+          const namedDiagnosis = runProfileDiagnosis();
+          assert.equal(namedDiagnosis.status, layout === 'empty-overwrite' ? 1 : 0,
+            namedDiagnosis.stderr || namedDiagnosis.stdout);
+          assert.match(namedDiagnosis.stdout, layout === 'empty-overwrite'
+            ? /DIAG_CONNECTION_MISSING error/u : /DIAG_CONNECTION_CONFIGURED ok/u);
+          assert.doesNotMatch(namedDiagnosis.stdout + namedDiagnosis.stderr, /credential-probe/u);
+          assert.deepEqual(readFileSync(diagnosticBaseSettings), namedBaseBefore);
+          if (layout === 'empty-overwrite') {
+            const overriddenNameDiagnosis = runProfileDiagnosis({ [`ConnectionStrings__${baseName}`]: credential });
+            assert.equal(overriddenNameDiagnosis.status, 0,
+              overriddenNameDiagnosis.stderr || overriddenNameDiagnosis.stdout);
+            assert.match(overriddenNameDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+            assert.doesNotMatch(overriddenNameDiagnosis.stdout + overriddenNameDiagnosis.stderr, /credential-probe/u);
+            assert.deepEqual(readFileSync(diagnosticBaseSettings), namedBaseBefore);
+          }
+        }
+        writeFileSync(diagnosticBaseSettings, JSON.stringify({ ...apiConfig,
+          ConnectionStrings: undefined, [`connectionstrings:${baseName}`]: 'Server=base.invalid;Password=credential-probe',
+        }));
+        writeFileSync(productionSettings, JSON.stringify({ ...namedProfile,
+          [`ConnectionStrings:${baseName}`]: null,
+        }));
+        const nullNamedBaseBefore = readFileSync(diagnosticBaseSettings);
+        const nullNamedProfileBefore = readFileSync(productionSettings);
+        const nullNamedDiagnosis = runProfileDiagnosis();
+        assert.equal(nullNamedDiagnosis.status, 1);
+        assert.match(nullNamedDiagnosis.stdout, /DIAG_CONNECTION_MISSING error/u);
+        assert.doesNotMatch(nullNamedDiagnosis.stdout + nullNamedDiagnosis.stderr, /credential-probe/u);
+        assert.deepEqual(readFileSync(diagnosticBaseSettings), nullNamedBaseBefore);
+        assert.deepEqual(readFileSync(productionSettings), nullNamedProfileBefore);
+        writeFileSync(diagnosticBaseSettings, diagnosticBaseBefore);
+        writeFileSync(productionSettings, profileBefore);
+        const secretPaths = ['Cache:RedisConnectionString', 'Realtime:RedisBackplaneConnectionString',
+          'FullNet:Cryptography:Sm2PrivateKeys:host-integration-signing'];
+        const removeSecret = (settings, path) => {
+          const segments = path.split(':');
+          let parent = settings;
+          for (const segment of segments.slice(0, -1)) parent = parent?.[segment];
+          if (parent && typeof parent === 'object') delete parent[segments.at(-1)];
+        };
+        const setSecret = (settings, path, value) => {
+          const segments = path.split(':');
+          let parent = settings;
+          for (const segment of segments.slice(0, -1)) {
+            parent[segment] ??= {};
+            parent = parent[segment];
+          }
+          parent[segments.at(-1)] = value;
+        };
+        // 秘密正例也必须满足缓存启动约束；生产 Cache 与 Realtime 使用不同的虚构地址。
+        const secretValue = (path) => path === 'Cache:RedisConnectionString'
+          ? 'cache.example.invalid:6379,password=credential-probe'
+          : path === 'Realtime:RedisBackplaneConnectionString'
+            ? 'realtime.example.invalid:6379,password=credential-probe' : 'credential-probe';
+        const secretProfile = JSON.parse(profileBefore.toString('utf8'));
+        for (const path of secretPaths) removeSecret(secretProfile, path);
+        writeFileSync(productionSettings, JSON.stringify(secretProfile));
+        const secretProfileBefore = readFileSync(productionSettings);
+        for (const shape of ['placeholder', 'valid', 'null', 'empty-overwrite']) {
+          const secretBase = structuredClone(apiConfig);
+          for (const path of secretPaths) {
+            if (shape === 'empty-overwrite') setSecret(secretBase, path, secretValue(path));
+            else removeSecret(secretBase, path);
+            secretBase[path.toUpperCase()] = shape === 'null' ? null : shape === 'empty-overwrite' ? {}
+              : shape === 'valid' ? secretValue(path) : 'CHANGEME';
+          }
+          writeFileSync(diagnosticBaseSettings, JSON.stringify(secretBase));
+          const secretBaseBefore = readFileSync(diagnosticBaseSettings);
+          const secretDiagnosis = runProfileDiagnosis();
+          assert.equal(secretDiagnosis.status, shape === 'valid' ? 0 : 1,
+            secretDiagnosis.stderr || secretDiagnosis.stdout);
+          assert.match(secretDiagnosis.stdout, shape === 'valid' ? /DIAG_SECRETS_OK ok/u
+            : /DIAG_SECRETS_PLACEHOLDER error.*有 3 个秘密/u);
+          if (shape === 'valid') assert.match(secretDiagnosis.stdout, /code_generation.cache.configuration.configured ok/u);
+          assert.doesNotMatch(secretDiagnosis.stdout + secretDiagnosis.stderr, /credential-probe/u);
+          assert.deepEqual(readFileSync(diagnosticBaseSettings), secretBaseBefore);
+          assert.deepEqual(readFileSync(productionSettings), secretProfileBefore);
+          if (shape === 'null') {
+            const repairedSecretDiagnosis = runProfileDiagnosis(Object.fromEntries(secretPaths.map(path =>
+              [path.replaceAll(':', '__'), secretValue(path)])));
+            assert.equal(repairedSecretDiagnosis.status, 0,
+              repairedSecretDiagnosis.stderr || repairedSecretDiagnosis.stdout);
+            assert.match(repairedSecretDiagnosis.stdout, /DIAG_SECRETS_OK ok/u);
+            assert.match(repairedSecretDiagnosis.stdout, /code_generation.cache.configuration.configured ok/u);
+            assert.doesNotMatch(repairedSecretDiagnosis.stdout + repairedSecretDiagnosis.stderr, /credential-probe/u);
+            assert.deepEqual(readFileSync(diagnosticBaseSettings), secretBaseBefore);
+            assert.deepEqual(readFileSync(productionSettings), secretProfileBefore);
+          }
+        }
+        writeFileSync(diagnosticBaseSettings, diagnosticBaseBefore);
+        writeFileSync(productionSettings, profileBefore);
+        writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(profileBefore.toString('utf8')),
+          Database: {
+            Provider: { Probe: 'credential-probe' }, CommandTimeoutSeconds: ['credential-probe'],
+            MySqlGuidStorageMode: { Probe: 'credential-probe' }, ConnectionName: ['credential-probe'],
+            ConnectionString: { Probe: 'credential-probe' },
+          },
+        }));
+        const childProfileBefore = readFileSync(productionSettings);
+        const childProfileDiagnosis = runProfileDiagnosis();
+        assert.equal(childProfileDiagnosis.status, 0, childProfileDiagnosis.stderr || childProfileDiagnosis.stdout);
+        assert.match(childProfileDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+        assert.doesNotMatch(childProfileDiagnosis.stdout + childProfileDiagnosis.stderr, /credential-probe/u);
+        assert.deepEqual(readFileSync(productionSettings), childProfileBefore);
+        writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(profileBefore.toString('utf8')),
+          ConnectionStrings: { fullnet: 'Server=named.invalid;Password=credential-probe' },
+        }));
+        writeFileSync(diagnosticBaseSettings, JSON.stringify({ ...apiConfig,
+          Database: { ...apiConfig.Database, ConnectionName: { Probe: 'credential-probe' } },
+        }));
+        const childBaseBefore = readFileSync(diagnosticBaseSettings);
+        const childBaseDiagnosis = runProfileDiagnosis();
+        assert.equal(childBaseDiagnosis.status, 0, childBaseDiagnosis.stderr || childBaseDiagnosis.stdout);
+        assert.match(childBaseDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+        assert.doesNotMatch(childBaseDiagnosis.stdout + childBaseDiagnosis.stderr, /credential-probe/u);
+        assert.deepEqual(readFileSync(diagnosticBaseSettings), childBaseBefore);
+        writeFileSync(diagnosticBaseSettings, JSON.stringify({ ...apiConfig,
+          Database: { ...apiConfig.Database, ConnectionName: null },
+        }));
+        const nullNameBefore = readFileSync(diagnosticBaseSettings);
+        const nullNameDiagnosis = runProfileDiagnosis();
+        assert.equal(nullNameDiagnosis.status, 1);
+        assert.match(nullNameDiagnosis.stdout, /DIAG_APPSETTINGS_INVALID error/u);
+        const nullNameWithChildDiagnosis = runProfileDiagnosis({ Database__ConnectionName__Probe: 'credential-probe' });
+        assert.equal(nullNameWithChildDiagnosis.status, 1);
+        assert.match(nullNameWithChildDiagnosis.stdout, /DIAG_APPSETTINGS_INVALID error/u);
+        assert.doesNotMatch(nullNameWithChildDiagnosis.stdout + nullNameWithChildDiagnosis.stderr, /credential-probe/u);
+        const restoredNameDiagnosis = runProfileDiagnosis({ Database__ConnectionName: 'fullnet' });
+        assert.equal(restoredNameDiagnosis.status, 0, restoredNameDiagnosis.stderr || restoredNameDiagnosis.stdout);
+        assert.deepEqual(readFileSync(diagnosticBaseSettings), nullNameBefore);
+        writeFileSync(diagnosticBaseSettings, JSON.stringify({ ...apiConfig,
+          Database: { ...apiConfig.Database, ConnectionName: 42 },
+        }));
+        writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(profileBefore.toString('utf8')),
+          ConnectionStrings: { 42: 'Server=named.invalid;Password=credential-probe' },
+        }));
+        const numericNameBefore = readFileSync(diagnosticBaseSettings);
+        const numericNameDiagnosis = runProfileDiagnosis();
+        assert.equal(numericNameDiagnosis.status, 0, numericNameDiagnosis.stderr || numericNameDiagnosis.stdout);
+        assert.match(numericNameDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+        assert.doesNotMatch(numericNameDiagnosis.stdout + numericNameDiagnosis.stderr, /credential-probe/u);
+        assert.deepEqual(readFileSync(diagnosticBaseSettings), numericNameBefore);
+      } finally {
+        writeFileSync(diagnosticBaseSettings, diagnosticBaseBefore);
+        writeFileSync(productionSettings, profileBefore);
+      }
+      const directProfile = { ...JSON.parse(profileBefore.toString('utf8')),
+        Database: { ConnectionString: 'Server=direct.invalid;Password=credential-probe', ConnectionName: null },
+        ConnectionStrings: { [apiConfig.Database.ConnectionName]: 'CHANGEME' },
+      };
+      writeFileSync(productionSettings, JSON.stringify(directProfile));
+      const directBefore = readFileSync(productionSettings);
+      const directDiagnosis = runProfileDiagnosis();
+      assert.equal(directDiagnosis.status, 0, directDiagnosis.stderr || directDiagnosis.stdout);
+      assert.match(directDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+      assert.doesNotMatch(directDiagnosis.stdout + directDiagnosis.stderr, /credential-probe/u);
+      assert.deepEqual(readFileSync(productionSettings), directBefore);
+      writeFileSync(productionSettings, JSON.stringify({ ...directProfile,
+        Database: { ConnectionString: 'CHANGEME', ConnectionName: apiConfig.Database.ConnectionName },
+        ConnectionStrings: { [apiConfig.Database.ConnectionName]: 'Server=named.invalid;Password=credential-probe' },
+      }));
+      const placeholderBefore = readFileSync(productionSettings);
+      const directPlaceholderDiagnosis = runProfileDiagnosis();
+      assert.equal(directPlaceholderDiagnosis.status, 1);
+      assert.match(directPlaceholderDiagnosis.stdout, /DIAG_CONNECTION_MISSING error/u);
+      const directEnvironmentDiagnosis = runProfileDiagnosis({
+        Database__ConnectionString: 'Server=environment.invalid;Password=credential-probe',
+      });
+      assert.equal(directEnvironmentDiagnosis.status, 0, directEnvironmentDiagnosis.stderr || directEnvironmentDiagnosis.stdout);
+      assert.match(directEnvironmentDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+      assert.doesNotMatch(directEnvironmentDiagnosis.stdout + directEnvironmentDiagnosis.stderr, /credential-probe/u);
+      const blankDirectDiagnosis = runProfileDiagnosis({ Database__ConnectionString: ' ' });
+      assert.equal(blankDirectDiagnosis.status, 0, blankDirectDiagnosis.stderr || blankDirectDiagnosis.stdout);
+      assert.match(blankDirectDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+      assert.deepEqual(readFileSync(productionSettings), placeholderBefore);
+      writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(placeholderBefore.toString('utf8')),
+        Database: { ConnectionString: null, ConnectionName: apiConfig.Database.ConnectionName },
+      }));
+      const nullDirectBefore = readFileSync(productionSettings);
+      const nullDirectDiagnosis = runProfileDiagnosis();
+      assert.equal(nullDirectDiagnosis.status, 0, nullDirectDiagnosis.stderr || nullDirectDiagnosis.stdout);
+      assert.match(nullDirectDiagnosis.stdout, /DIAG_CONNECTION_CONFIGURED ok/u);
+      assert.deepEqual(readFileSync(productionSettings), nullDirectBefore);
+      writeFileSync(productionSettings, profileBefore);
+      const invalidProviderDiagnosis = runProfileDiagnosis({ Database__Provider: 'credential-probe' });
+      assert.equal(invalidProviderDiagnosis.status, 1);
+      assert.match(invalidProviderDiagnosis.stdout, /DIAG_DATABASE_PROVIDER_INVALID error/u);
+      assert.doesNotMatch(invalidProviderDiagnosis.stdout + invalidProviderDiagnosis.stderr, /credential-probe/u);
+      const undefinedProviderDiagnosis = runProfileDiagnosis({ Database__Provider: '2' });
+      assert.equal(undefinedProviderDiagnosis.status, 1);
+      assert.match(undefinedProviderDiagnosis.stdout, /DIAG_DATABASE_PROVIDER_INVALID error/u);
+      const invalidTimeoutDiagnosis = runProfileDiagnosis({ Database__CommandTimeoutSeconds: '0' });
+      assert.equal(invalidTimeoutDiagnosis.status, 1);
+      assert.match(invalidTimeoutDiagnosis.stdout, /DIAG_DATABASE_TIMEOUT_INVALID error/u);
+      const legacyGuidDiagnosis = runProfileDiagnosis({ Database__MySqlGuidStorageMode: '0' });
+      assert.equal(legacyGuidDiagnosis.status, 1);
+      assert.match(legacyGuidDiagnosis.stdout, /DIAG_DATABASE_GUID_STORAGE_INVALID error/u);
+      const validOptionsDiagnosis = runProfileDiagnosis({
+        Database__CommandTimeoutSeconds: '0x1', Database__MySqlGuidStorageMode: '1',
+      });
+      assert.equal(validOptionsDiagnosis.status, 0, validOptionsDiagnosis.stderr || validOptionsDiagnosis.stdout);
+      const sqlServerLegacyDiagnosis = runProfileDiagnosis({ Database__Provider: '0', Database__MySqlGuidStorageMode: '0' });
+      assert.equal(sqlServerLegacyDiagnosis.status, 0, sqlServerLegacyDiagnosis.stderr || sqlServerLegacyDiagnosis.stdout);
+      writeFileSync(productionSettings, JSON.stringify({ ...JSON.parse(profileBefore.toString('utf8')),
+        Database: { CommandTimeoutSeconds: null, MySqlGuidStorageMode: null },
+      }));
+      const nullOptionsBefore = readFileSync(productionSettings);
+      const nullOptionsDiagnosis = runProfileDiagnosis();
+      assert.equal(nullOptionsDiagnosis.status, 1);
+      assert.match(nullOptionsDiagnosis.stdout, /DIAG_DATABASE_TIMEOUT_INVALID error/u);
+      assert.match(nullOptionsDiagnosis.stdout, /DIAG_DATABASE_GUID_STORAGE_INVALID error/u);
+      assert.deepEqual(readFileSync(productionSettings), nullOptionsBefore);
+      writeFileSync(productionSettings, profileBefore);
+      const numericProviderDiagnosis = runProfileDiagnosis({ Database__Provider: '1' });
+      assert.equal(numericProviderDiagnosis.status, 0, numericProviderDiagnosis.stderr || numericProviderDiagnosis.stdout);
+      assert.doesNotMatch(numericProviderDiagnosis.stdout, /DIAG_DATABASE_PROVIDER_INVALID/u);
+      assert.deepEqual(readFileSync(productionSettings), profileBefore);
+      writeFileSync(productionSettings, JSON.stringify({
+        ConnectionStrings: { [apiConfig.Database.ConnectionName]: '<your-connection>' },
+        Cache: { RedisConnectionString: null },
+      }));
+      const missingDiagnosis = runProfileDiagnosis();
+      assert.equal(missingDiagnosis.status, 1, missingDiagnosis.stderr || missingDiagnosis.stdout);
+      assert.match(missingDiagnosis.stdout, /DIAG_CONNECTION_MISSING error/u);
+      assert.match(missingDiagnosis.stdout, /DIAG_SECRETS_PLACEHOLDER error/u);
+      assert.doesNotMatch(missingDiagnosis.stdout + missingDiagnosis.stderr, /credential-probe/u);
+      const misplacedCredentialDiagnosis = runProfileDiagnosis({
+        Database__ConnectionName: 'Server=example.invalid;Password=credential-probe',
+      });
+      assert.equal(misplacedCredentialDiagnosis.status, 1);
+      assert.match(misplacedCredentialDiagnosis.stdout, /DIAG_CONNECTION_MISSING error/u);
+      assert.doesNotMatch(misplacedCredentialDiagnosis.stdout + misplacedCredentialDiagnosis.stderr, /credential-probe/u);
+    } finally {
+      rmSync(productionSettings, { force: true });
+      rmSync(rootProductionSettings, { force: true });
+    }
+    const applicationSdkProfile = join(appRoot, 'global.json');
+    const applicationSdkBefore = readFileSync(applicationSdkProfile);
+    const diagnosticAssembly = join(diagnosticCli, 'bin/Release/net10.0/Full.NET.CodeGeneration.Cli.dll');
+    const installedSdks = spawnSync('dotnet', ['--list-sdks'], {
+      cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true,
+    });
+    assert.equal(installedSdks.status, 0, installedSdks.stderr || installedSdks.stdout);
+    const olderSdk = installedSdks.stdout.match(/^([1-9]\.0\.\d+)\s/gmu)?.at(-1)?.trim();
+    const diagnoseSdk = () => spawnSync('dotnet', [
+      'exec', diagnosticAssembly, 'diagnose', '--workspace', appRoot, '--profile', 'development',
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 60_000, windowsHide: true, env: diagnosisEnvironment });
+    try {
+      writeFileSync(applicationSdkProfile, JSON.stringify({ sdk: { version: '99.0.100', rollForward: 'disable' } }));
+      const missingSdkDiagnosis = diagnoseSdk();
+      assert.equal(missingSdkDiagnosis.status, 1);
+      assert.match(missingSdkDiagnosis.stdout, /DIAG_SDK_MISSING error/u);
+      assert.doesNotMatch(missingSdkDiagnosis.stdout, /DIAG_SDK_OK/u);
+      if (olderSdk) {
+        writeFileSync(applicationSdkProfile, JSON.stringify({ sdk: { version: olderSdk, rollForward: 'disable' } }));
+        const olderSdkBefore = readFileSync(applicationSdkProfile);
+        const incompatibleSdkDiagnosis = diagnoseSdk();
+        assert.equal(incompatibleSdkDiagnosis.status, 1);
+        assert.match(incompatibleSdkDiagnosis.stdout, /DIAG_SDK_INCOMPATIBLE error/u);
+        assert.doesNotMatch(incompatibleSdkDiagnosis.stdout, /DIAG_SDK_OK/u);
+        assert.deepEqual(readFileSync(applicationSdkProfile), olderSdkBefore);
+      }
+    } finally {
+      writeFileSync(applicationSdkProfile, applicationSdkBefore);
+    }
+    const moduleReferenceFile = join(appRoot, 'framework/fullnet/src/Composition/Full.NET.Composition/Full.NET.Composition.csproj');
+    const moduleReferenceBefore = readFileSync(moduleReferenceFile);
+    const moduleReferenceText = moduleReferenceBefore.toString('utf8');
+    const identityReference = moduleReferenceText.match(/Include="([^"\r\n]*Modules[/\\]Full\.NET\.Modules\.Identity[/\\]Full\.NET\.Modules\.Identity\.csproj)"/u);
+    assert.ok(identityReference, 'frozen minimal composition must reference Identity');
+    const closureSettings = [applicationSdkProfile, join(appRoot, 'appsettings.json'),
+      join(appRoot, 'src/Demo.Host.Api/appsettings.json')].map(path => [path, readFileSync(path)]);
+    try {
+      for (const include of [identityReference[1],
+        identityReference[1].replace(/Modules([/\\])/u, 'modules$1'),
+        identityReference[1].replace(/Full\.NET\.Modules\.Identity\.csproj$/u, 'Full.NET.Modules.identity.csproj')]) {
+        const expected = include === identityReference[1] || process.platform === 'win32';
+        const candidate = Buffer.from(moduleReferenceText.replace(identityReference[0], `Include="${include}"`));
+        writeFileSync(moduleReferenceFile, candidate);
+        const diagnosis = diagnoseSdk();
+        assert.equal(diagnosis.error, undefined);
+        assert.equal(diagnosis.status, expected ? 0 : 1, diagnosis.stderr || diagnosis.stdout);
+        assert.match(diagnosis.stdout, expected ? /DIAG_MODULE_CLOSURE_OK ok/u : /DIAG_MODULE_DEPENDENCY_MISSING error/u);
+        assert.equal(diagnosis.stdout.includes('DIAG_MODULE_CLOSURE_OK ok'), expected);
+        assert.doesNotMatch(diagnosis.stdout + diagnosis.stderr, /credential-probe/u);
+        assert.deepEqual(readFileSync(moduleReferenceFile), candidate, 'diagnose rewrote the tested module reference');
+        for (const [path, bytes] of closureSettings) assert.deepEqual(readFileSync(path), bytes, 'diagnose rewrote application configuration');
+      }
+    } finally {
+      // 仅撤销验收持有的引用变体，后续接入和构建继续使用原冻结产物。
+      writeFileSync(moduleReferenceFile, moduleReferenceBefore);
+    }
+    verifyManagedFiles();
     const assets = JSON.parse(readFileSync(join(appRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
     const implementationModules = Object.keys(assets.libraries)
       .map((name) => /^Full\.NET\.Modules\.([A-Za-z0-9]+)\//.exec(name)?.[1])
@@ -107,19 +644,20 @@ test('application template package includes framework sources and root manifest'
     verifyApplicationComposition(appRoot);
     verifyApplicationCrudGeneration(appRoot);
     verifyApplicationCrudModule(appRoot, { removeTestSqlComment: true });
-    verifyApplicationCrudHostWiring(appRoot);
+    verifyApplicationCrudHostWiring(appRoot, { verifyMissingSdk: true });
     verifyApplicationCrudAuthorization(appRoot);
     verifyApplicationCrudRuntime(appRoot);
     verifyManagedFiles();
-    const pnpm = 'pnpm';
-    const install = spawnSync(pnpm, [
+    const install = runPnpm([
       'install', '--filter', '@fullnet/admin...', '--frozen-lockfile', '--ignore-scripts',
-    ], { cwd: appRoot, encoding: 'utf8', timeout: 180_000, shell: process.platform === 'win32' });
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 180_000, windowsHide: true });
     assert.equal(install.status, 0, install.stderr || install.stdout || install.error?.message);
-    const frontendBuild = spawnSync(pnpm, [
+    const frontendBuild = runPnpm([
       '--filter', '@fullnet/admin', 'build',
-    ], { cwd: appRoot, encoding: 'utf8', timeout: 180_000, shell: process.platform === 'win32' });
+    ], { cwd: appRoot, encoding: 'utf8', timeout: 180_000, windowsHide: true });
     assert.equal(frontendBuild.status, 0, frontendBuild.stderr || frontendBuild.stdout || frontendBuild.error?.message);
+
+    verifyApplicationCrudSchemaSourceUpgrade(appRoot);
 
     const repeat = spawnSync(process.execPath, [
       createTool, '--package', templateRoot, '--output', appRoot, '--name', 'Second',
@@ -136,8 +674,21 @@ test('application template package includes framework sources and root manifest'
       const generated = spawnSync(process.execPath, [
         createTool, '--package', templateRoot, '--output', presetRoot, '--name', 'Demo',
         '--owner-key', 'acme', '--database', 'sqlserver', '--preset', preset,
+        '--http-port', preset === 'platform' ? '5181' : preset === 'saas' ? '65535' : '5180',
       ], { encoding: 'utf8', timeout: 150_000 });
       assert.equal(generated.status, 0, `${preset}: ${generated.stderr || generated.stdout}`);
+      if (preset === 'platform') {
+        const platformApiConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Api/appsettings.json'), 'utf8'));
+        const platformWorkerConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Worker/appsettings.json'), 'utf8'));
+        assert.equal(platformApiConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:5181');
+        assert.equal(platformWorkerConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:5182');
+      }
+      if (preset === 'saas') {
+        const saasApiConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Api/appsettings.json'), 'utf8'));
+        const saasWorkerConfig = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Worker/appsettings.json'), 'utf8'));
+        assert.equal(saasApiConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:65535');
+        assert.equal(saasWorkerConfig.Kestrel.Endpoints.Http.Url, 'http://localhost:65534');
+      }
       const presetBuild = spawnSync('dotnet', [
         'build', join(presetRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj'), '-c', 'Release', '-v', 'quiet',
       ], { cwd: presetRoot, encoding: 'utf8', timeout: 300_000 });
@@ -146,6 +697,10 @@ test('application template package includes framework sources and root manifest'
         'build', join(presetRoot, 'src/Demo.Host.Migrator/Demo.Host.Migrator.csproj'), '-c', 'Release', '-v', 'quiet',
       ], { cwd: presetRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
       assert.equal(presetMigratorBuild.status, 0, `${preset} migrator: ${presetMigratorBuild.stderr || presetMigratorBuild.stdout}`);
+      const presetWorkerBuild = spawnSync('dotnet', [
+        'build', join(presetRoot, 'src/Demo.Host.Worker/Demo.Host.Worker.csproj'), '-c', 'Release', '-v', 'quiet',
+      ], { cwd: presetRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
+      assert.equal(presetWorkerBuild.status, 0, `${preset} worker: ${presetWorkerBuild.stderr || presetWorkerBuild.stdout}`);
       const presetAssets = JSON.parse(readFileSync(join(presetRoot, 'src/Demo.Host.Api/obj/project.assets.json'), 'utf8'));
       const selected = resolvePresetModules(preset);
       for (const library of Object.keys(presetAssets.libraries)) {

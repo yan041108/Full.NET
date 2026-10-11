@@ -47,6 +47,17 @@ afterEach(() => {
 });
 
 describe('session refresh coordinator', () => {
+  it('静默协调保留 Web Lock 但不发布完成通知', async () => {
+    const lockRequest = vi.fn(async (_name: string, operation: () => Promise<unknown>) => operation());
+    vi.stubGlobal('navigator', { locks: { request: lockRequest } }); vi.stubGlobal('BroadcastChannel', MockBroadcastChannel);
+    const coordinator = createSessionRefreshCoordinator({ tabId: 'silent' }); const peer = createSessionRefreshCoordinator({ tabId: 'peer' });
+    const messages: SessionRefreshCoordinatorMessage[] = []; peer.subscribe(message => messages.push(message));
+    try {
+      await coordinator.runExclusive(async () => true, { broadcastCompletion: false });
+      expect(lockRequest).toHaveBeenCalledOnce(); expect(messages).toEqual([]);
+      await coordinator.runExclusive(async () => true); expect(messages).toHaveLength(1);
+    } finally { coordinator.dispose(); peer.dispose(); }
+  });
   it('Web Locks 下串行执行刷新并广播完成事件', async () => {
     const request = vi.fn(async () => {
       await Promise.resolve();

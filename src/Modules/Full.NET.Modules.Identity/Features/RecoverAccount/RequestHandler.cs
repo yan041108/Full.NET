@@ -15,10 +15,11 @@ internal sealed class RequestHandler(
         RequestCommand command,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var normalizedEmail = AccountChallengeService.NormalizeEmail(command.Request.Email);
         if (normalizedEmail is null)
         {
-            return AcceptedPlaceholder();
+            return challengeService.CreateAcceptedPlaceholder();
         }
 
         var user = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
@@ -26,22 +27,22 @@ internal sealed class RequestHandler(
                 IdentitySqlParameters.Create(("Email", normalizedEmail)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (user is null || !user.IsActive)
         {
-            return AcceptedPlaceholder();
+            return challengeService.CreateAcceptedPlaceholder();
         }
 
         var created = await challengeService.CreateAndDeliverAsync(
                 IdentityAccountChallengePurpose.PasswordRecovery,
-                normalizedEmail,
-                cancellationToken)
+            normalizedEmail,
+            cancellationToken,
+            recoveryUserId: user.Id,
+                recoverySecurityStamp: user.SecurityStamp)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         return created.IsSuccess
             ? created
-            : AcceptedPlaceholder();
+            : challengeService.CreateAcceptedPlaceholder();
     }
-
-    private static Result<AccountChallengeAcceptedResponse> AcceptedPlaceholder() =>
-        Result<AccountChallengeAcceptedResponse>.Success(
-            new AccountChallengeAcceptedResponse(Guid.Empty, DateTimeOffset.UtcNow));
 }

@@ -160,6 +160,9 @@ public interface IStaticImportSchemaHandler
     /// <summary>处理器负责的 Schema 稳定键。</summary>
     string SchemaKey { get; }
 
+    /// <summary>执行时使用的附加精确权限；排队时冻结授予范围，Worker 每批复核，不自动扩大能力。</summary>
+    IReadOnlyCollection<string> ExecutionCapabilityPermissions => [];
+
     /// <summary>返回 Schema 元数据，供目录与模板端点投影。</summary>
     /// <returns>当前处理器负责的 Schema 定义；不得返回 <see langword="null"/>。</returns>
     StaticImportSchemaDefinition GetDefinition();

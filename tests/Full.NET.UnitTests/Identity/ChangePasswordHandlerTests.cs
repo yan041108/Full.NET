@@ -101,6 +101,32 @@ public sealed class ChangePasswordHandlerTests
             Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    public async Task Concurrent_account_update_rejects_password_change_before_session_rotation()
+    {
+        var hasher = new PasswordHasher<IdentityUser>();
+        var user = CreateUser(hasher.HashPassword(CreateUser(string.Empty), Password)) with { Version = 7 };
+        var fixture = CreateFixture(user, hasher);
+        IReadOnlyDictionary<string, object?>? parameters = null;
+        fixture.CommandExecutor.ExecuteAsync(IdentitySql.ResetUserPasswordByIdentity,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            parameters = (IReadOnlyDictionary<string, object?>)call.ArgAt<object>(1);
+            return 0;
+        });
+        var result = await fixture.Handler.HandleAsync(
+            CreateCommand(Password, NewPassword, user.SecurityStamp), CancellationToken.None);
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(IdentityErrorCodes.SessionNotActive, result.Error!.Code);
+        Assert.IsNotNull(parameters);
+        Assert.IsTrue(parameters.TryGetValue("Version", out var version), "改密必须携带会话读取的账号版本。");
+        Assert.AreEqual(7, version);
+        await fixture.CommandExecutor.DidNotReceive().ExecuteAsync(IdentitySql.RevokeUserSessionsExcept,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await fixture.CommandExecutor.DidNotReceive().ExecuteAsync(IdentitySql.InsertRefreshSession,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
     private static Command CreateCommand(
         string currentPassword,
         string newPassword,

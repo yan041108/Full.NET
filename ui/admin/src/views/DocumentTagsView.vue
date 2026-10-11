@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import {
   ElButton,
   ElCard,
   ElForm,
   ElFormItem,
   ElInput,
-  ElMessage,
-  ElMessageBox,
   ElPagination,
   ElSwitch,
   ElTable,
@@ -27,6 +25,8 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtClientPagination } from '../framework/art-design/composables/useArtCrudTableLayout';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import PermissionGate from '../components/PermissionGate.vue';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { showSuccess, showProblem, showWarning } from '../feedback/fullNetMessage';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -55,6 +55,13 @@ const problem = ref<FullNetProblemDetails>();
 const searchForm = ref<Record<string, string | undefined>>({});
 const appliedFilters = ref<AppliedFilters>({ name: '', isHot: '', isRecommended: '' });
 const editorOpen = ref(false);
+// 删除确认由本页持有，撤权与离页同步回收，避免独立弹窗泄露旧目录名称。
+const confirmation = ref<{ message: string; resolve: (confirmed: boolean) => void }>();
+function finishConfirmation(confirmed: boolean): void {
+  const pending = confirmation.value;
+  confirmation.value = undefined;
+  pending?.resolve(confirmed);
+}
 const editorMode = ref<EditorMode>('create');
 const editingTag = ref<HostDocumentTag | null>(null);
 const editorFormRef = ref<FormInstance>();
@@ -118,13 +125,25 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
   }
 ]);
 
-const canCreate = computed(() => session.can('document.tags.create'));
-const canUpdate = computed(() => session.can('document.tags.update'));
-const canDelete = computed(() => session.can('document.tags.delete'));
-
-onMounted(() => {
-  void load();
-});
+const canRead = computed(() => session.currentUser?.scope === 'host' && session.can('document.tags.read'));
+const canCreate = computed(() => canRead.value && session.can('document.tags.create'));
+const canUpdate = computed(() => canRead.value && session.can('document.tags.update'));
+const canDelete = computed(() => canRead.value && session.can('document.tags.delete'));
+const scope = useAuthorizedViewScope(session, () => {
+  finishConfirmation(false); closeEditor(); allTags.value = []; loading.value = false; changing.value = false;
+  problem.value = undefined; searchForm.value = {};
+  appliedFilters.value = { name: '', isHot: '', isRecommended: '' };
+  resetPage(); pageSize.value = 20;
+}, () => { if (canRead.value) void load(); });
+let listRequest: ReturnType<typeof scope.begin>;
+let editorRequest: ReturnType<typeof scope.begin>;
+const editorModel = computed({ get: () => editorOpen.value, set: open => { if (!open) closeEditor(); } });
+function closeEditor(): void {
+  editorRequest?.cancel();
+  if (editorRequest) changing.value = false;
+  editorRequest = undefined; editorOpen.value = false; editingTag.value = null;
+  Object.assign(editorForm, { name: '', code: null, icon: null, color: null, description: null, isHot: false, isRecommended: false }); clearFieldErrors();
+}
 
 function rowIndex(index: number): number {
   return (page.value - 1) * pageSize.value + index + 1;
@@ -158,18 +177,21 @@ function parseTriState(value: string): boolean | undefined {
 }
 
 async function load(): Promise<void> {
-  loading.value = true;
-  problem.value = undefined;
+  listRequest?.cancel();
+  if (!canRead.value) return;
+  const request = scope.begin('document.tags.read');
+  if (!request) return;
+  listRequest = request; loading.value = true; problem.value = undefined;
   try {
-    allTags.value = await listDocumentTags({
-      isHot: parseTriState(appliedFilters.value.isHot),
-      isRecommended: parseTriState(appliedFilters.value.isRecommended)
-    });
+    const rows = await listDocumentTags({
+      isHot: parseTriState(appliedFilters.value.isHot), isRecommended: parseTriState(appliedFilters.value.isRecommended)
+    }, request.signal);
+    if (request.current()) allTags.value = rows;
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'documentTags.loadFailed');
+    if (request.current()) problem.value = toProblem(error, 'documentTags.loadFailed');
   } finally {
-    loading.value = false;
-    void syncTableLayout();
+    if (request.current()) { loading.value = false; void syncTableLayout(); }
+    request.finish();
   }
 }
 
@@ -190,6 +212,8 @@ async function resetSearch(): Promise<void> {
 }
 
 function openCreate(): void {
+  if (changing.value || !canCreate.value) return;
+  closeEditor();
   editorMode.value = 'create';
   editingTag.value = null;
   editorForm.name = '';
@@ -204,16 +228,16 @@ function openCreate(): void {
 }
 
 function openEdit(tag: HostDocumentTag): void {
-  if (changing.value) {
+  if (changing.value || !canUpdate.value) {
     return;
   }
   editorMode.value = 'edit';
   editingTag.value = tag;
   editorForm.name = tag.name;
-  editorForm.code = null;
-  editorForm.icon = null;
+  editorForm.code = tag.code;
+  editorForm.icon = tag.icon;
   editorForm.color = tag.color;
-  editorForm.description = null;
+  editorForm.description = tag.description;
   editorForm.isHot = tag.isHot;
   editorForm.isRecommended = tag.isRecommended;
   clearFieldErrors();
@@ -221,11 +245,12 @@ function openEdit(tag: HostDocumentTag): void {
 }
 
 async function submitEditor(): Promise<void> {
-  if (changing.value) {
+  if (changing.value || !editorOpen.value || !(editorMode.value === 'create' ? canCreate.value : canUpdate.value)) {
     return;
   }
   editorForm.name = editorForm.name.trim();
   if (!applyFieldErrors()) {
+    showWarning(fieldErrors.name);
     return;
   }
   if (editorMode.value === 'create') {
@@ -239,6 +264,9 @@ async function create(): Promise<void> {
   if (!canCreate.value) {
     return;
   }
+  const request = scope.begin('document.tags.create');
+  if (!request) return;
+  editorRequest = request;
   changing.value = true;
   problem.value = undefined;
   try {
@@ -249,15 +277,18 @@ async function create(): Promise<void> {
       editorForm.color ?? null,
       editorForm.description ?? null,
       editorForm.isHot,
-      editorForm.isRecommended
+      editorForm.isRecommended,
+      request.signal
     );
-    editorOpen.value = false;
-    ElMessage.success(t('documentTags.createSuccess'));
+    if (!request.current()) return;
+    closeEditor();
+    showSuccess(t('documentTags.createSuccess'));
     await load();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'documentTags.operationFailed');
+    if (request.current()) showProblem(toProblem(error, 'documentTags.operationFailed'), t('documentTags.operationFailed'));
   } finally {
-    changing.value = false;
+    if (request.current()) changing.value = false;
+    request.finish();
   }
 }
 
@@ -266,6 +297,9 @@ async function saveEdit(): Promise<void> {
   if (!canUpdate.value || !tag) {
     return;
   }
+  const request = scope.begin('document.tags.update');
+  if (!request) return;
+  editorRequest = request;
   changing.value = true;
   problem.value = undefined;
   try {
@@ -278,43 +312,43 @@ async function saveEdit(): Promise<void> {
       editorForm.description ?? null,
       tag.version,
       editorForm.isHot,
-      editorForm.isRecommended
+      editorForm.isRecommended,
+      request.signal
     );
-    editorOpen.value = false;
-    ElMessage.success(t('documentTags.updateSuccess'));
+    if (!request.current()) return;
+    closeEditor();
+    showSuccess(t('documentTags.updateSuccess'));
     await load();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'documentTags.operationFailed');
+    if (request.current()) showProblem(toProblem(error, 'documentTags.operationFailed'), t('documentTags.operationFailed'));
   } finally {
-    changing.value = false;
+    if (request.current()) changing.value = false;
+    request.finish();
   }
 }
 
 async function remove(tag: HostDocumentTag): Promise<void> {
-  if (changing.value || !canDelete.value) {
-    return;
-  }
+  if (changing.value || !canDelete.value) return;
+  const request = scope.begin('document.tags.delete');
+  if (!request) return;
+  // 确认等待本身也是在途操作，不能再次弹窗或借旧权限进入写入。
+  changing.value = true;
+  const id = tag.id; const version = tag.version;
   try {
-    await ElMessageBox.confirm(
-      t('documentTags.confirmDelete', { name: tag.name }),
-      t('documentTags.delete'),
-      {
-        type: 'warning',
-        confirmButtonText: t('documentTags.delete'),
-        cancelButtonText: t('users.cancel')
-      }
-    );
-    changing.value = true;
-    await deleteDocumentTag(tag.id, tag.version);
-    ElMessage.success(t('documentTags.deleteSuccess'));
+    const confirmed = await new Promise<boolean>(resolve => {
+      confirmation.value = { message: t('documentTags.confirmDelete', { name: tag.name }), resolve };
+    });
+    if (!confirmed || !request.current()) return;
+    const removed = await deleteDocumentTag(id, version, request.signal);
+    if (!request.current()) return;
+    if (!removed) throw new Error('client.document_tag_delete_failed');
+    showSuccess(t('documentTags.deleteSuccess'));
     await load();
   } catch (error: unknown) {
-    if (error === 'cancel' || error === 'close') {
-      return;
-    }
-    problem.value = toProblem(error, 'documentTags.operationFailed');
+    if (request.current()) showProblem(toProblem(error, 'documentTags.operationFailed'), t('documentTags.operationFailed'));
   } finally {
-    changing.value = false;
+    if (request.current()) changing.value = false;
+    request.finish();
   }
 }
 
@@ -329,7 +363,7 @@ function toProblem(
 </script>
 
 <template>
-  <section class="document-tags-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
+  <section v-if="canRead" class="document-tags-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentTags.title') }}</h1>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
@@ -430,7 +464,7 @@ function toProblem(
                       test-id="document-tag-edit"
                       :title="t('documentTags.edit')"
                       :disabled="changing"
-                  @click="openEdit(row as HostDocumentTag)"
+                      @click="openEdit(row as HostDocumentTag)"
                     />
                   </PermissionGate>
                   <PermissionGate code="document.tags.delete">
@@ -439,7 +473,7 @@ function toProblem(
                       test-id="document-tag-delete"
                       :title="t('documentTags.delete')"
                       :disabled="changing"
-                  @click="remove(row as HostDocumentTag)"
+                      @click="remove(row as HostDocumentTag)"
                     />
                   </PermissionGate>
                 </ArtTableActionGroup>
@@ -463,7 +497,20 @@ function toProblem(
     </el-card>
 
     <ArtFormDialog
-      v-model:open="editorOpen"
+      v-if="confirmation"
+      :open="true"
+      :title="t('documentTags.delete')"
+      :confirm-label="t('documentTags.delete')"
+      :cancel-label="t('users.cancel')"
+      confirm-test-id="document-tag-delete-confirm"
+      @confirm="finishConfirmation(true)"
+      @update:open="open => { if (!open) finishConfirmation(false); }"
+    >
+      <p>{{ confirmation.message }}</p>
+    </ArtFormDialog>
+
+    <ArtFormDialog
+      v-model:open="editorModel"
       :title="editorMode === 'create' ? t('documentTags.createDialogTitle') : t('documentTags.editDialogTitle')"
       :saving="changing"
       :confirm-label="t('users.confirm')"
@@ -476,6 +523,7 @@ function toProblem(
         ref="editorFormRef"
         data-testid="document-tag-editor-form"
         :model="editorForm"
+        :disabled="changing"
         label-width="96px"
         class="document-tags-editor-form"
       >

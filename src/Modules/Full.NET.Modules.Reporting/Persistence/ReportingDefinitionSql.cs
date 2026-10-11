@@ -5,7 +5,7 @@ namespace Full.NET.Modules.Reporting.Persistence;
 /// <summary>报表定义与版本管理 SQL。</summary>
 internal static class ReportingDefinitionSql
 {
-    private const string DefinitionColumns = """
+    internal const string DefinitionColumns = """
         definition.Id,
                definition.GroupId,
                definition.DataSourceId,
@@ -22,7 +22,7 @@ internal static class ReportingDefinitionSql
                definition.Version
         """;
 
-    private const string VersionColumns = """
+    internal const string VersionColumns = """
         version.Id,
                version.DefinitionId,
                version.VersionNumber,

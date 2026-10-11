@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { testRunEnvironment } from '../../../scripts/testing/test-run-context.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -39,7 +40,7 @@ export function verifyApplicationCrudGeneration(appRoot, {
   writeFileSync(join(appRoot, manualPath), manual);
   mkdirSync(reportDirectory, { recursive: true });
   const execute = (stage, args, expectedStatus = 0) => {
-    const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
+    const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true, env: testRunEnvironment() });
     writeFileSync(join(reportDirectory, stage + '.json'), JSON.stringify({
       args, status: result.status, signal: result.signal, error: result.error?.message,
       stdout: result.stdout, stderr: result.stderr,
@@ -71,6 +72,9 @@ export function verifyApplicationCrudGeneration(appRoot, {
   const conflict = execute('conflict', [...args, '--apply'], 2);
   assert.ok(conflict.split(/\r?\n/u).includes('Conflict ' + sqlPath), 'missing exact SQL conflict');
   assert.deepEqual(capture(), customized, 'conflict overwrote application content or manifest');
+  // 冲突检查结束后仅撤销本轮注释，后续模块和 Vue 再生成使用原始受管产物。
+  writeFileSync(join(appRoot, sqlPath), generated.get(sqlPath));
+  assert.deepEqual(capture(), generated, 'test comment cleanup changed unrelated application content');
   const result = { artifacts: CRUD_ARTIFACTS.length, conflictRejected: true };
   writeFileSync(join(reportDirectory, 'result.json'), JSON.stringify(result, null, 2));
   return result;

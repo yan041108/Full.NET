@@ -178,6 +178,15 @@ import type {
   DictItemResponse,
   DictTypeResponse,
   DisableHostJobDefinitionRequest,
+  EnterpriseRequestApprovalDeliveryState,
+  EnterpriseRequestApprovalProgressResponse,
+  EnterpriseRequestAttachmentMutationResponse,
+  EnterpriseRequestAttachmentRemovedResponse,
+  EnterpriseRequestAttachmentResponse,
+  EnterpriseRequestAttachmentsResponse,
+  EnterpriseRequestLineInput,
+  EnterpriseRequestLineResponse,
+  EnterpriseRequestLinesResponse,
   EnterpriseRequestResponse,
   EnumCatalogDetail,
   EnumCatalogDictGenerationItemPreview,
@@ -300,6 +309,7 @@ import type {
   NotificationDeliveryAttemptResponse,
   NotificationDeliveryReceiptResponse,
   NotificationDeliveryResponse,
+  NotificationIntentDeliverySnapshot,
   NotificationProviderConfigField,
   NotificationProviderProfileResponse,
   NotificationProviderTypeDescriptor,
@@ -335,6 +345,7 @@ import type {
   PagedResultOfDictTypeResponse,
   PagedResultOfEnterpriseRequestResponse,
   PagedResultOfExceptionLogResponse,
+  PagedResultOfGuid,
   PagedResultOfHostAnnouncementReadReceiptResponse,
   PagedResultOfHostAnnouncementResponse,
   PagedResultOfHostApiKeyResponse,
@@ -396,6 +407,7 @@ import type {
   PreviewWorkflowAssigneeRequest,
   PrintingFormFieldDefinition,
   PrintingFormSchemaDefinition,
+  PrintingPublishedTemplateResponse,
   PrintingTemplatePreviewResponse,
   PrintingTemplateResponse,
   PrintingTemplateVersionResponse,
@@ -417,6 +429,9 @@ import type {
   RecipientEndpointResponse,
   ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
+  RemoveEnterpriseRequestAttachmentRequest,
+  RepairEnterpriseRequestApprovalRequest,
+  ReplaceEnterpriseRequestLinesRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRoleMembersRequest,
   ReplaceHostRolePermissionsRequest,
@@ -433,6 +448,7 @@ import type {
   ReportingExportTaskResponse,
   ReportingGroupResponse,
   ReportingParameterSchemaEntry,
+  ReportingPublishedDefinitionResponse,
   ReportingQueryPortDefinition,
   ReportingQueryPortParameterDefinition,
   ResetHostUserPasswordRequest,
@@ -608,7 +624,7 @@ export function readAccessLogResponse(value: unknown): AccessLogResponse {
 }
 
 function isAccessLogResponse(value: unknown): value is AccessLogResponse {
-  return isRecord(value) && ((value["clientIpFingerprint"] === null) || (typeof value["clientIpFingerprint"] === 'string')) && (typeof value["durationMs"] === 'number' && Number.isSafeInteger(value["durationMs"])) && (typeof value["httpMethod"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isAuthenticated"] === 'boolean') && (typeof value["occurredAtUtc"] === 'string') && (typeof value["requestPath"] === 'string') && (typeof value["statusCode"] === 'number' && Number.isSafeInteger(value["statusCode"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
+  return isRecord(value) && ((value["clientIpFingerprint"] === null) || (typeof value["clientIpFingerprint"] === 'string')) && (Number.isSafeInteger(value["durationMs"])) && (typeof value["httpMethod"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isAuthenticated"] === 'boolean') && (typeof value["occurredAtUtc"] === 'string') && (typeof value["requestPath"] === 'string') && (Number.isSafeInteger(value["statusCode"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
 }
 
 export function readActWorkflowTodoRequest(value: unknown): ActWorkflowTodoRequest {
@@ -620,7 +636,7 @@ export function readActWorkflowTodoRequest(value: unknown): ActWorkflowTodoReque
 }
 
 function isActWorkflowTodoRequest(value: unknown): value is ActWorkflowTodoRequest {
-  return isRecord(value) && ((value["comment"] === null) || (typeof value["comment"] === 'string')) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (isJsonElement(value["fieldPatch"])) && (typeof value["idempotencyKey"] === 'string');
+  return isRecord(value) && ((value["comment"] === null) || (typeof value["comment"] === 'string')) && (Number.isSafeInteger(value["expectedRevision"])) && (isJsonElement(value["fieldPatch"])) && (typeof value["idempotencyKey"] === 'string');
 }
 
 export function readAddHostDocumentVersionRequest(value: unknown): AddHostDocumentVersionRequest {
@@ -643,7 +659,7 @@ export function readAdministrativeRegionChildResponse(value: unknown): Administr
 }
 
 function isAdministrativeRegionChildResponse(value: unknown): value is AdministrativeRegionChildResponse {
-  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["hasChildren"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["level"] === 'number' && Number.isSafeInteger(value["level"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"])));
+  return isRecord(value) && (typeof value["code"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["hasChildren"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (Number.isSafeInteger(value["level"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"])));
 }
 
 export function readAdministrativeRegionDatasetManifestResponse(value: unknown): AdministrativeRegionDatasetManifestResponse {
@@ -655,7 +671,7 @@ export function readAdministrativeRegionDatasetManifestResponse(value: unknown):
 }
 
 function isAdministrativeRegionDatasetManifestResponse(value: unknown): value is AdministrativeRegionDatasetManifestResponse {
-  return isRecord(value) && (typeof value["appliedAtUtc"] === 'string') && (typeof value["appliedByUserId"] === 'string' && guidPattern.test(value["appliedByUserId"])) && (typeof value["datasetKey"] === 'string') && (typeof value["datasetVersion"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["recordCount"] === 'number' && Number.isSafeInteger(value["recordCount"])) && (typeof value["sourceDigest"] === 'string');
+  return isRecord(value) && (typeof value["appliedAtUtc"] === 'string') && (typeof value["appliedByUserId"] === 'string' && guidPattern.test(value["appliedByUserId"])) && (typeof value["datasetKey"] === 'string') && (typeof value["datasetVersion"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (Number.isSafeInteger(value["recordCount"])) && (typeof value["sourceDigest"] === 'string');
 }
 
 export function readAdministrativeRegionResponse(value: unknown): AdministrativeRegionResponse {
@@ -667,7 +683,7 @@ export function readAdministrativeRegionResponse(value: unknown): Administrative
 }
 
 function isAdministrativeRegionResponse(value: unknown): value is AdministrativeRegionResponse {
-  return isRecord(value) && ((value["cityCode"] === null) || (typeof value["cityCode"] === 'string')) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latitude"] === null) || (typeof value["latitude"] === 'number' && Number.isFinite(value["latitude"])) || (typeof value["latitude"] === 'string')) && (typeof value["level"] === 'number' && Number.isSafeInteger(value["level"])) && ((value["longitude"] === null) || (typeof value["longitude"] === 'number' && Number.isFinite(value["longitude"])) || (typeof value["longitude"] === 'string')) && ((value["mergerName"] === null) || (typeof value["mergerName"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && ((value["pinYin"] === null) || (typeof value["pinYin"] === 'string')) && ((value["regionType"] === null) || (typeof value["regionType"] === 'string')) && ((value["remark"] === null) || (typeof value["remark"] === 'string')) && ((value["shortName"] === null) || (typeof value["shortName"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && ((value["zipCode"] === null) || (typeof value["zipCode"] === 'string'));
+  return isRecord(value) && ((value["cityCode"] === null) || (typeof value["cityCode"] === 'string')) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latitude"] === null) || (Number.isFinite(value["latitude"])) || (typeof value["latitude"] === 'string')) && (Number.isSafeInteger(value["level"])) && ((value["longitude"] === null) || (Number.isFinite(value["longitude"])) || (typeof value["longitude"] === 'string')) && ((value["mergerName"] === null) || (typeof value["mergerName"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && ((value["pinYin"] === null) || (typeof value["pinYin"] === 'string')) && ((value["regionType"] === null) || (typeof value["regionType"] === 'string')) && ((value["remark"] === null) || (typeof value["remark"] === 'string')) && ((value["shortName"] === null) || (typeof value["shortName"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"])) && ((value["zipCode"] === null) || (typeof value["zipCode"] === 'string'));
 }
 
 export function readAdministrativeRegionTreeNodeResponse(value: unknown): AdministrativeRegionTreeNodeResponse {
@@ -679,7 +695,7 @@ export function readAdministrativeRegionTreeNodeResponse(value: unknown): Admini
 }
 
 function isAdministrativeRegionTreeNodeResponse(value: unknown): value is AdministrativeRegionTreeNodeResponse {
-  return isRecord(value) && (Array.isArray(value["children"]) && value["children"].every(item17 => isAdministrativeRegionTreeNodeResponse(item17))) && (typeof value["code"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["level"] === 'number' && Number.isSafeInteger(value["level"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"])));
+  return isRecord(value) && (Array.isArray(value["children"]) && value["children"].every(item17 => isAdministrativeRegionTreeNodeResponse(item17))) && (typeof value["code"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (Number.isSafeInteger(value["level"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"])));
 }
 
 export function readAiAgentApprovalResponse(value: unknown): AiAgentApprovalResponse {
@@ -691,7 +707,7 @@ export function readAiAgentApprovalResponse(value: unknown): AiAgentApprovalResp
 }
 
 function isAiAgentApprovalResponse(value: unknown): value is AiAgentApprovalResponse {
-  return isRecord(value) && (typeof value["actionSummary"] === 'string') && (typeof value["argumentsHash"] === 'string') && (typeof value["changeSummary"] === 'string') && ((value["consumedAtUtc"] === null) || (typeof value["consumedAtUtc"] === 'string')) && ((value["costCeiling"] === null) || (typeof value["costCeiling"] === 'number' && Number.isFinite(value["costCeiling"])) || (typeof value["costCeiling"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["currency"] === null) || (typeof value["currency"] === 'string')) && (typeof value["decisionKey"] === 'string') && (typeof value["expiresAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"])) && (typeof value["scopeSummary"] === 'string') && (typeof value["targetSummary"] === 'string') && (typeof value["toolName"] === 'string') && (typeof value["toolVersion"] === 'number' && Number.isSafeInteger(value["toolVersion"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["actionSummary"] === 'string') && (typeof value["argumentsHash"] === 'string') && (typeof value["changeSummary"] === 'string') && ((value["consumedAtUtc"] === null) || (typeof value["consumedAtUtc"] === 'string')) && ((value["costCeiling"] === null) || (Number.isFinite(value["costCeiling"])) || (typeof value["costCeiling"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["currency"] === null) || (typeof value["currency"] === 'string')) && (typeof value["decisionKey"] === 'string') && (typeof value["expiresAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"])) && (typeof value["scopeSummary"] === 'string') && (typeof value["targetSummary"] === 'string') && (typeof value["toolName"] === 'string') && (Number.isSafeInteger(value["toolVersion"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readAiAgentDelegationResponse(value: unknown): AiAgentDelegationResponse {
@@ -703,7 +719,7 @@ export function readAiAgentDelegationResponse(value: unknown): AiAgentDelegation
 }
 
 function isAiAgentDelegationResponse(value: unknown): value is AiAgentDelegationResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["expiresAtUtc"] === 'string') && (typeof value["granteeUserId"] === 'string' && guidPattern.test(value["granteeUserId"])) && (typeof value["grantorUserId"] === 'string' && guidPattern.test(value["grantorUserId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["permissionCode"] === null) || (typeof value["permissionCode"] === 'string')) && ((value["revokedAtUtc"] === null) || (typeof value["revokedAtUtc"] === 'string')) && ((value["toolName"] === null) || (typeof value["toolName"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["expiresAtUtc"] === 'string') && (typeof value["granteeUserId"] === 'string' && guidPattern.test(value["granteeUserId"])) && (typeof value["grantorUserId"] === 'string' && guidPattern.test(value["grantorUserId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["permissionCode"] === null) || (typeof value["permissionCode"] === 'string')) && ((value["revokedAtUtc"] === null) || (typeof value["revokedAtUtc"] === 'string')) && ((value["toolName"] === null) || (typeof value["toolName"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readAiAgentRunResponse(value: unknown): AiAgentRunResponse {
@@ -715,7 +731,7 @@ export function readAiAgentRunResponse(value: unknown): AiAgentRunResponse {
 }
 
 function isAiAgentRunResponse(value: unknown): value is AiAgentRunResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["deadlineAtUtc"] === 'string') && (typeof value["definitionKey"] === 'string') && (typeof value["definitionVersion"] === 'number' && Number.isSafeInteger(value["definitionVersion"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["statusKey"] === 'string') && (typeof value["updatedAtUtc"] === 'string');
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["deadlineAtUtc"] === 'string') && (typeof value["definitionKey"] === 'string') && (Number.isSafeInteger(value["definitionVersion"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["statusKey"] === 'string') && (typeof value["updatedAtUtc"] === 'string');
 }
 
 export function readAiAgentToolCallListItem(value: unknown): AiAgentToolCallListItem {
@@ -727,7 +743,7 @@ export function readAiAgentToolCallListItem(value: unknown): AiAgentToolCallList
 }
 
 function isAiAgentToolCallListItem(value: unknown): value is AiAgentToolCallListItem {
-  return isRecord(value) && (typeof value["actorUserId"] === 'string' && guidPattern.test(value["actorUserId"])) && ((value["approvalId"] === null) || (typeof value["approvalId"] === 'string' && guidPattern.test(value["approvalId"]))) && ((value["argumentsHash"] === null) || (typeof value["argumentsHash"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["durationMs"] === null) || (typeof value["durationMs"] === 'number' && Number.isSafeInteger(value["durationMs"]))) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["inputSummary"] === 'string') && ((value["outputSummary"] === null) || (typeof value["outputSummary"] === 'string')) && (typeof value["permissionCode"] === 'string') && ((value["runId"] === null) || (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]))) && (typeof value["statusKey"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["toolName"] === 'string') && ((value["traceId"] === null) || (typeof value["traceId"] === 'string'));
+  return isRecord(value) && (typeof value["actorUserId"] === 'string' && guidPattern.test(value["actorUserId"])) && ((value["approvalId"] === null) || (typeof value["approvalId"] === 'string' && guidPattern.test(value["approvalId"]))) && ((value["argumentsHash"] === null) || (typeof value["argumentsHash"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["durationMs"] === null) || (Number.isSafeInteger(value["durationMs"]))) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["inputSummary"] === 'string') && ((value["outputSummary"] === null) || (typeof value["outputSummary"] === 'string')) && (typeof value["permissionCode"] === 'string') && ((value["runId"] === null) || (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]))) && (typeof value["statusKey"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["toolName"] === 'string') && ((value["traceId"] === null) || (typeof value["traceId"] === 'string'));
 }
 
 export function readAiAgentToolCatalogItem(value: unknown): AiAgentToolCatalogItem {
@@ -750,7 +766,7 @@ export function readAiChatMessageResponse(value: unknown): AiChatMessageResponse
 }
 
 function isAiChatMessageResponse(value: unknown): value is AiChatMessageResponse {
-  return isRecord(value) && ((value["completionTokens"] === null) || (typeof value["completionTokens"] === 'number' && Number.isSafeInteger(value["completionTokens"]))) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["promptTokens"] === null) || (typeof value["promptTokens"] === 'number' && Number.isSafeInteger(value["promptTokens"]))) && (typeof value["roleKey"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && (typeof value["statusKey"] === 'string');
+  return isRecord(value) && ((value["completionTokens"] === null) || (Number.isSafeInteger(value["completionTokens"]))) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["promptTokens"] === null) || (Number.isSafeInteger(value["promptTokens"]))) && (typeof value["roleKey"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && (typeof value["statusKey"] === 'string');
 }
 
 export function readAiChatSessionListItem(value: unknown): AiChatSessionListItem {
@@ -762,7 +778,7 @@ export function readAiChatSessionListItem(value: unknown): AiChatSessionListItem
 }
 
 function isAiChatSessionListItem(value: unknown): value is AiChatSessionListItem {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["lastMessageAtUtc"] === null) || (typeof value["lastMessageAtUtc"] === 'string')) && (typeof value["messageCount"] === 'number' && Number.isSafeInteger(value["messageCount"])) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["modelName"] === 'string') && (typeof value["ownerUserId"] === 'string' && guidPattern.test(value["ownerUserId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["lastMessageAtUtc"] === null) || (typeof value["lastMessageAtUtc"] === 'string')) && (Number.isSafeInteger(value["messageCount"])) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["modelName"] === 'string') && (typeof value["ownerUserId"] === 'string' && guidPattern.test(value["ownerUserId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readAiChatSessionResponse(value: unknown): AiChatSessionResponse {
@@ -774,7 +790,7 @@ export function readAiChatSessionResponse(value: unknown): AiChatSessionResponse
 }
 
 function isAiChatSessionResponse(value: unknown): value is AiChatSessionResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isGenerating"] === 'boolean') && (Array.isArray(value["messages"]) && value["messages"].every(item17 => isAiChatMessageResponse(item17))) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["modelName"] === 'string') && (typeof value["ownerUserId"] === 'string' && guidPattern.test(value["ownerUserId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isGenerating"] === 'boolean') && (Array.isArray(value["messages"]) && value["messages"].every(item17 => isAiChatMessageResponse(item17))) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["modelName"] === 'string') && (typeof value["ownerUserId"] === 'string' && guidPattern.test(value["ownerUserId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readAiMcpRemoteConnectionListItem(value: unknown): AiMcpRemoteConnectionListItem {
@@ -786,7 +802,7 @@ export function readAiMcpRemoteConnectionListItem(value: unknown): AiMcpRemoteCo
 }
 
 function isAiMcpRemoteConnectionListItem(value: unknown): value is AiMcpRemoteConnectionListItem {
-  return isRecord(value) && (typeof value["connectionKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["hasServiceToken"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maskedEndpointUrl"] === 'string') && (typeof value["updatedAtUtc"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["connectionKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["hasServiceToken"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maskedEndpointUrl"] === 'string') && (typeof value["updatedAtUtc"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readAiMcpRemoteConnectionResponse(value: unknown): AiMcpRemoteConnectionResponse {
@@ -798,7 +814,7 @@ export function readAiMcpRemoteConnectionResponse(value: unknown): AiMcpRemoteCo
 }
 
 function isAiMcpRemoteConnectionResponse(value: unknown): value is AiMcpRemoteConnectionResponse {
-  return isRecord(value) && (typeof value["connectionKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["endpointUrl"] === 'string') && (typeof value["hasServiceToken"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["oAuthScopesJson"] === null) || (typeof value["oAuthScopesJson"] === 'string')) && (typeof value["updatedAtUtc"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["connectionKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["endpointUrl"] === 'string') && (typeof value["hasServiceToken"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["oAuthScopesJson"] === null) || (typeof value["oAuthScopesJson"] === 'string')) && (typeof value["updatedAtUtc"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readAiMcpRemoteDiscoveredToolItem(value: unknown): AiMcpRemoteDiscoveredToolItem {
@@ -821,7 +837,7 @@ export function readAiMcpRemoteToolApprovalItem(value: unknown): AiMcpRemoteTool
 }
 
 function isAiMcpRemoteToolApprovalItem(value: unknown): value is AiMcpRemoteToolApprovalItem {
-  return isRecord(value) && (typeof value["approvalStatusKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["localToolName"] === 'string') && (typeof value["permissionCode"] === 'string') && (typeof value["remoteToolName"] === 'string') && (typeof value["sideEffectKey"] === 'string') && (typeof value["toolVersion"] === 'number' && Number.isSafeInteger(value["toolVersion"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["approvalStatusKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["localToolName"] === 'string') && (typeof value["permissionCode"] === 'string') && (typeof value["remoteToolName"] === 'string') && (typeof value["sideEffectKey"] === 'string') && (Number.isSafeInteger(value["toolVersion"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readAiModelConfigListItem(value: unknown): AiModelConfigListItem {
@@ -833,7 +849,7 @@ export function readAiModelConfigListItem(value: unknown): AiModelConfigListItem
 }
 
 function isAiModelConfigListItem(value: unknown): value is AiModelConfigListItem {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasApiKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["maskedEndpointBaseUrl"] === 'string') && (typeof value["modelId"] === 'string') && (typeof value["name"] === 'string') && (typeof value["providerKey"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasApiKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["maskedEndpointBaseUrl"] === 'string') && (typeof value["modelId"] === 'string') && (typeof value["name"] === 'string') && (typeof value["providerKey"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readAiModelConfigResponse(value: unknown): AiModelConfigResponse {
@@ -845,7 +861,7 @@ export function readAiModelConfigResponse(value: unknown): AiModelConfigResponse
 }
 
 function isAiModelConfigResponse(value: unknown): value is AiModelConfigResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["endpointBaseUrl"] === 'string') && (typeof value["hasApiKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["modelId"] === 'string') && (typeof value["name"] === 'string') && ((value["organizationId"] === null) || (typeof value["organizationId"] === 'string')) && (typeof value["providerKey"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["endpointBaseUrl"] === 'string') && (typeof value["hasApiKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["modelId"] === 'string') && (typeof value["name"] === 'string') && ((value["organizationId"] === null) || (typeof value["organizationId"] === 'string')) && (typeof value["providerKey"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readAiTenantQuotaListItem(value: unknown): AiTenantQuotaListItem {
@@ -857,7 +873,7 @@ export function readAiTenantQuotaListItem(value: unknown): AiTenantQuotaListItem
 }
 
 function isAiTenantQuotaListItem(value: unknown): value is AiTenantQuotaListItem {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["monthlyRequestLimit"] === null) || (typeof value["monthlyRequestLimit"] === 'number' && Number.isSafeInteger(value["monthlyRequestLimit"]))) && ((value["monthlyTokenLimit"] === null) || (typeof value["monthlyTokenLimit"] === 'number' && Number.isSafeInteger(value["monthlyTokenLimit"]))) && (typeof value["quotaMonthKey"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["usedRequestsThisMonth"] === 'number' && Number.isSafeInteger(value["usedRequestsThisMonth"])) && (typeof value["usedTokensThisMonth"] === 'number' && Number.isSafeInteger(value["usedTokensThisMonth"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["monthlyRequestLimit"] === null) || (Number.isSafeInteger(value["monthlyRequestLimit"]))) && ((value["monthlyTokenLimit"] === null) || (Number.isSafeInteger(value["monthlyTokenLimit"]))) && (typeof value["quotaMonthKey"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["usedRequestsThisMonth"])) && (Number.isSafeInteger(value["usedTokensThisMonth"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readAiTenantQuotaResponse(value: unknown): AiTenantQuotaResponse {
@@ -869,7 +885,7 @@ export function readAiTenantQuotaResponse(value: unknown): AiTenantQuotaResponse
 }
 
 function isAiTenantQuotaResponse(value: unknown): value is AiTenantQuotaResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["monthlyRequestLimit"] === null) || (typeof value["monthlyRequestLimit"] === 'number' && Number.isSafeInteger(value["monthlyRequestLimit"]))) && ((value["monthlyTokenLimit"] === null) || (typeof value["monthlyTokenLimit"] === 'number' && Number.isSafeInteger(value["monthlyTokenLimit"]))) && (typeof value["quotaMonthKey"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["usedRequestsThisMonth"] === 'number' && Number.isSafeInteger(value["usedRequestsThisMonth"])) && (typeof value["usedTokensThisMonth"] === 'number' && Number.isSafeInteger(value["usedTokensThisMonth"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["monthlyRequestLimit"] === null) || (Number.isSafeInteger(value["monthlyRequestLimit"]))) && ((value["monthlyTokenLimit"] === null) || (Number.isSafeInteger(value["monthlyTokenLimit"]))) && (typeof value["quotaMonthKey"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["usedRequestsThisMonth"])) && (Number.isSafeInteger(value["usedTokensThisMonth"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readApproveAiMcpRemoteToolRequest(value: unknown): ApproveAiMcpRemoteToolRequest {
@@ -892,7 +908,7 @@ export function readAssignHostTenantPackageRequest(value: unknown): AssignHostTe
 }
 
 function isAssignHostTenantPackageRequest(value: unknown): value is AssignHostTenantPackageRequest {
-  return isRecord(value) && ((value["tenantPackageId"] === null) || (typeof value["tenantPackageId"] === 'string' && guidPattern.test(value["tenantPackageId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["tenantPackageId"] === null) || (typeof value["tenantPackageId"] === 'string' && guidPattern.test(value["tenantPackageId"]))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readAssignOrganizationPositionLevelRequest(value: unknown): AssignOrganizationPositionLevelRequest {
@@ -904,7 +920,7 @@ export function readAssignOrganizationPositionLevelRequest(value: unknown): Assi
 }
 
 function isAssignOrganizationPositionLevelRequest(value: unknown): value is AssignOrganizationPositionLevelRequest {
-  return isRecord(value) && ((value["positionLevelId"] === null) || (typeof value["positionLevelId"] === 'string' && guidPattern.test(value["positionLevelId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["positionLevelId"] === null) || (typeof value["positionLevelId"] === 'string' && guidPattern.test(value["positionLevelId"]))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readAssignOrganizationPositionUnitRequest(value: unknown): AssignOrganizationPositionUnitRequest {
@@ -916,7 +932,7 @@ export function readAssignOrganizationPositionUnitRequest(value: unknown): Assig
 }
 
 function isAssignOrganizationPositionUnitRequest(value: unknown): value is AssignOrganizationPositionUnitRequest {
-  return isRecord(value) && ((value["unitId"] === null) || (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["unitId"] === null) || (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"]))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readAuthenticationEventCursorPage(value: unknown): AuthenticationEventCursorPage {
@@ -950,7 +966,7 @@ export function readAuthorizationTreeActionResponse(value: unknown): Authorizati
 }
 
 function isAuthorizationTreeActionResponse(value: unknown): value is AuthorizationTreeActionResponse {
-  return isRecord(value) && (typeof value["id"] === 'string') && (typeof value["name"] === 'string') && (typeof value["order"] === 'number' && Number.isSafeInteger(value["order"])) && (typeof value["permissionCode"] === 'string');
+  return isRecord(value) && (typeof value["id"] === 'string') && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["order"])) && (typeof value["permissionCode"] === 'string');
 }
 
 export function readAuthorizationTreeModuleResponse(value: unknown): AuthorizationTreeModuleResponse {
@@ -962,7 +978,7 @@ export function readAuthorizationTreeModuleResponse(value: unknown): Authorizati
 }
 
 function isAuthorizationTreeModuleResponse(value: unknown): value is AuthorizationTreeModuleResponse {
-  return isRecord(value) && (typeof value["id"] === 'string') && (typeof value["order"] === 'number' && Number.isSafeInteger(value["order"])) && (Array.isArray(value["pages"]) && value["pages"].every(item14 => isAuthorizationTreePageResponse(item14))) && (typeof value["title"] === 'string');
+  return isRecord(value) && (typeof value["id"] === 'string') && (Number.isSafeInteger(value["order"])) && (Array.isArray(value["pages"]) && value["pages"].every(item14 => isAuthorizationTreePageResponse(item14))) && (typeof value["title"] === 'string');
 }
 
 export function readAuthorizationTreePageResponse(value: unknown): AuthorizationTreePageResponse {
@@ -974,7 +990,7 @@ export function readAuthorizationTreePageResponse(value: unknown): Authorization
 }
 
 function isAuthorizationTreePageResponse(value: unknown): value is AuthorizationTreePageResponse {
-  return isRecord(value) && (Array.isArray(value["actions"]) && value["actions"].every(item16 => isAuthorizationTreeActionResponse(item16))) && (Array.isArray(value["children"]) && value["children"].every(item17 => isAuthorizationTreePageResponse(item17))) && (typeof value["id"] === 'string') && (typeof value["order"] === 'number' && Number.isSafeInteger(value["order"])) && (typeof value["permissionCode"] === 'string') && (typeof value["title"] === 'string');
+  return isRecord(value) && (Array.isArray(value["actions"]) && value["actions"].every(item16 => isAuthorizationTreeActionResponse(item16))) && (Array.isArray(value["children"]) && value["children"].every(item17 => isAuthorizationTreePageResponse(item17))) && (typeof value["id"] === 'string') && (Number.isSafeInteger(value["order"])) && (typeof value["permissionCode"] === 'string') && (typeof value["title"] === 'string');
 }
 
 export function readBatchChangeHostJobScheduleStateItem(value: unknown): BatchChangeHostJobScheduleStateItem {
@@ -986,7 +1002,7 @@ export function readBatchChangeHostJobScheduleStateItem(value: unknown): BatchCh
 }
 
 function isBatchChangeHostJobScheduleStateItem(value: unknown): value is BatchChangeHostJobScheduleStateItem {
-  return isRecord(value) && (typeof value["scheduleId"] === 'string' && guidPattern.test(value["scheduleId"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["scheduleId"] === 'string' && guidPattern.test(value["scheduleId"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readBatchChangeHostJobScheduleStateRequest(value: unknown): BatchChangeHostJobScheduleStateRequest {
@@ -1010,7 +1026,7 @@ export function readBatchChangeHostJobScheduleStateResponse(value: unknown): Bat
 }
 
 function isBatchChangeHostJobScheduleStateResponse(value: unknown): value is BatchChangeHostJobScheduleStateResponse {
-  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isBatchChangeHostJobScheduleStateResultItem(item16))) && (typeof value["succeededCount"] === 'number' && Number.isSafeInteger(value["succeededCount"]));
+  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isBatchChangeHostJobScheduleStateResultItem(item16))) && (Number.isSafeInteger(value["succeededCount"]));
 }
 
 export function readBatchChangeHostJobScheduleStateResultItem(value: unknown): BatchChangeHostJobScheduleStateResultItem {
@@ -1046,7 +1062,7 @@ export function readBatchCreateHostDocumentSharesRequest(value: unknown): BatchC
 }
 
 function isBatchCreateHostDocumentSharesRequest(value: unknown): value is BatchCreateHostDocumentSharesRequest {
-  return isRecord(value) && (Array.isArray(value["documentIds"]) && value["documentIds"].every(item20 => typeof item20 === 'string' && guidPattern.test(item20))) && (value["maxAccessCount"] === undefined || ((value["maxAccessCount"] === null) || (typeof value["maxAccessCount"] === 'number' && Number.isSafeInteger(value["maxAccessCount"])))) && (value["password"] === undefined || ((value["password"] === null) || (typeof value["password"] === 'string'))) && (typeof value["validDays"] === 'number' && Number.isSafeInteger(value["validDays"]));
+  return isRecord(value) && (Array.isArray(value["documentIds"]) && value["documentIds"].every(item20 => typeof item20 === 'string' && guidPattern.test(item20))) && (value["maxAccessCount"] === undefined || ((value["maxAccessCount"] === null) || (Number.isSafeInteger(value["maxAccessCount"])))) && (value["password"] === undefined || ((value["password"] === null) || (typeof value["password"] === 'string'))) && (Number.isSafeInteger(value["validDays"]));
 }
 
 export function readBatchCreateHostDocumentSharesResponse(value: unknown): BatchCreateHostDocumentSharesResponse {
@@ -1058,7 +1074,7 @@ export function readBatchCreateHostDocumentSharesResponse(value: unknown): Batch
 }
 
 function isBatchCreateHostDocumentSharesResponse(value: unknown): value is BatchCreateHostDocumentSharesResponse {
-  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isBatchCreateHostDocumentShareItem(item16))) && (typeof value["succeededCount"] === 'number' && Number.isSafeInteger(value["succeededCount"]));
+  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isBatchCreateHostDocumentShareItem(item16))) && (Number.isSafeInteger(value["succeededCount"]));
 }
 
 export function readBatchDeleteConfigEntriesRequest(value: unknown): BatchDeleteConfigEntriesRequest {
@@ -1103,7 +1119,7 @@ export function readBatchDeleteHostFilesResponse(value: unknown): BatchDeleteHos
 }
 
 function isBatchDeleteHostFilesResponse(value: unknown): value is BatchDeleteHostFilesResponse {
-  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isBatchDeleteHostFileItem(item16))) && (typeof value["succeededCount"] === 'number' && Number.isSafeInteger(value["succeededCount"]));
+  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isBatchDeleteHostFileItem(item16))) && (Number.isSafeInteger(value["succeededCount"]));
 }
 
 export function readBatchHostUserIdsRequest(value: unknown): BatchHostUserIdsRequest {
@@ -1137,7 +1153,7 @@ export function readBatchHostUserStatusResponse(value: unknown): BatchHostUserSt
 }
 
 function isBatchHostUserStatusResponse(value: unknown): value is BatchHostUserStatusResponse {
-  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isBatchHostUserStatusItem(item16))) && (typeof value["succeededCount"] === 'number' && Number.isSafeInteger(value["succeededCount"]));
+  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isBatchHostUserStatusItem(item16))) && (Number.isSafeInteger(value["succeededCount"]));
 }
 
 export function readBatchUpdateConfigValuesRequest(value: unknown): BatchUpdateConfigValuesRequest {
@@ -1172,7 +1188,7 @@ export function readBatchUploadHostFilesResponse(value: unknown): BatchUploadHos
 }
 
 function isBatchUploadHostFilesResponse(value: unknown): value is BatchUploadHostFilesResponse {
-  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isBatchUploadHostFileItem(item16))) && (typeof value["succeededCount"] === 'number' && Number.isSafeInteger(value["succeededCount"]));
+  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isBatchUploadHostFileItem(item16))) && (Number.isSafeInteger(value["succeededCount"]));
 }
 
 export function readBeginTotpEnrollmentResponse(value: unknown): BeginTotpEnrollmentResponse {
@@ -1239,7 +1255,7 @@ export function readCachePolicySummary(value: unknown): CachePolicySummary {
 }
 
 function isCachePolicySummary(value: unknown): value is CachePolicySummary {
-  return isRecord(value) && (typeof value["accessKind"] === 'string') && (typeof value["canInvalidate"] === 'boolean') && (typeof value["consistencyClass"] === 'string') && (typeof value["entryName"] === 'string') && (Array.isArray(value["invalidationOperations"]) && value["invalidationOperations"].every(item31 => isCacheInvalidationOperationSummary(item31))) && ((value["l1DurationSeconds"] === null) || (typeof value["l1DurationSeconds"] === 'number' && Number.isSafeInteger(value["l1DurationSeconds"]))) && ((value["l2DurationSeconds"] === null) || (typeof value["l2DurationSeconds"] === 'number' && Number.isSafeInteger(value["l2DurationSeconds"]))) && (typeof value["ownerModule"] === 'string') && (typeof value["requiresDirectInvalidation"] === 'boolean');
+  return isRecord(value) && (typeof value["accessKind"] === 'string') && (typeof value["canInvalidate"] === 'boolean') && (typeof value["consistencyClass"] === 'string') && (typeof value["entryName"] === 'string') && (Array.isArray(value["invalidationOperations"]) && value["invalidationOperations"].every(item31 => isCacheInvalidationOperationSummary(item31))) && ((value["l1DurationSeconds"] === null) || (Number.isSafeInteger(value["l1DurationSeconds"]))) && ((value["l2DurationSeconds"] === null) || (Number.isSafeInteger(value["l2DurationSeconds"]))) && (typeof value["ownerModule"] === 'string') && (typeof value["requiresDirectInvalidation"] === 'boolean');
 }
 
 export function readCancelDataApprovalRequestBody(value: unknown): CancelDataApprovalRequestBody {
@@ -1262,7 +1278,7 @@ export function readCancelWorkflowInstanceRequest(value: unknown): CancelWorkflo
 }
 
 function isCancelWorkflowInstanceRequest(value: unknown): value is CancelWorkflowInstanceRequest {
-  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+  return isRecord(value) && (Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
 }
 
 export function readChangeHostJobScheduleStateRequest(value: unknown): ChangeHostJobScheduleStateRequest {
@@ -1274,7 +1290,7 @@ export function readChangeHostJobScheduleStateRequest(value: unknown): ChangeHos
 }
 
 function isChangeHostJobScheduleStateRequest(value: unknown): value is ChangeHostJobScheduleStateRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readChangePasswordRequest(value: unknown): ChangePasswordRequest {
@@ -1297,7 +1313,7 @@ export function readChangePersonalScheduleRequest(value: unknown): ChangePersona
 }
 
 function isChangePersonalScheduleRequest(value: unknown): value is ChangePersonalScheduleRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readChangeSerialNumberRuleStatusRequest(value: unknown): ChangeSerialNumberRuleStatusRequest {
@@ -1309,7 +1325,7 @@ export function readChangeSerialNumberRuleStatusRequest(value: unknown): ChangeS
 }
 
 function isChangeSerialNumberRuleStatusRequest(value: unknown): value is ChangeSerialNumberRuleStatusRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readCodeGenerationCatalogColumnListResponse(value: unknown): CodeGenerationCatalogColumnListResponse {
@@ -1357,7 +1373,7 @@ export function readCodeGenerationCatalogMetadataColumnResponse(value: unknown):
 }
 
 function isCodeGenerationCatalogMetadataColumnResponse(value: unknown): value is CodeGenerationCatalogMetadataColumnResponse {
-  return isRecord(value) && (typeof value["columnName"] === 'string') && (typeof value["columnType"] === 'string') && (typeof value["dataType"] === 'string') && (typeof value["isNullable"] === 'boolean') && ((value["maxLength"] === null) || (typeof value["maxLength"] === 'number' && Number.isSafeInteger(value["maxLength"]))) && ((value["numericPrecision"] === null) || (typeof value["numericPrecision"] === 'number' && Number.isSafeInteger(value["numericPrecision"]))) && ((value["numericScale"] === null) || (typeof value["numericScale"] === 'number' && Number.isSafeInteger(value["numericScale"]))) && (typeof value["ordinalPosition"] === 'number' && Number.isSafeInteger(value["ordinalPosition"]));
+  return isRecord(value) && (typeof value["columnName"] === 'string') && (typeof value["columnType"] === 'string') && (typeof value["dataType"] === 'string') && (typeof value["isNullable"] === 'boolean') && ((value["maxLength"] === null) || (Number.isSafeInteger(value["maxLength"]))) && ((value["numericPrecision"] === null) || (Number.isSafeInteger(value["numericPrecision"]))) && ((value["numericScale"] === null) || (Number.isSafeInteger(value["numericScale"]))) && (Number.isSafeInteger(value["ordinalPosition"]));
 }
 
 export function readCodeGenerationCatalogMetadataResponse(value: unknown): CodeGenerationCatalogMetadataResponse {
@@ -1469,7 +1485,7 @@ export function readCodeGenerationPreviewColumnRequest(value: unknown): CodeGene
 }
 
 function isCodeGenerationPreviewColumnRequest(value: unknown): value is CodeGenerationPreviewColumnRequest {
-  return isRecord(value) && (typeof value["clrPropertyName"] === 'string') && (typeof value["databaseName"] === 'string') && (typeof value["isNullable"] === 'boolean') && (typeof value["jsonPropertyName"] === 'string') && ((value["maxLength"] === null) || (typeof value["maxLength"] === 'number' && Number.isSafeInteger(value["maxLength"]))) && ((value["numericPrecision"] === null) || (typeof value["numericPrecision"] === 'number' && Number.isSafeInteger(value["numericPrecision"]))) && ((value["numericScale"] === null) || (typeof value["numericScale"] === 'number' && Number.isSafeInteger(value["numericScale"]))) && (typeof value["scalarType"] === 'string') && (value["ui"] === undefined || ((value["ui"] === null) || (isCodeGenerationPreviewColumnUiRequest(value["ui"]))));
+  return isRecord(value) && (typeof value["clrPropertyName"] === 'string') && (typeof value["databaseName"] === 'string') && (typeof value["isNullable"] === 'boolean') && (typeof value["jsonPropertyName"] === 'string') && ((value["maxLength"] === null) || (Number.isSafeInteger(value["maxLength"]))) && ((value["numericPrecision"] === null) || (Number.isSafeInteger(value["numericPrecision"]))) && ((value["numericScale"] === null) || (Number.isSafeInteger(value["numericScale"]))) && (typeof value["scalarType"] === 'string') && (value["ui"] === undefined || ((value["ui"] === null) || (isCodeGenerationPreviewColumnUiRequest(value["ui"]))));
 }
 
 export function readCodeGenerationPreviewColumnUiRequest(value: unknown): CodeGenerationPreviewColumnUiRequest {
@@ -1537,7 +1553,7 @@ export function readCodeGenerationRunApplyResponse(value: unknown): CodeGenerati
 }
 
 function isCodeGenerationRunApplyResponse(value: unknown): value is CodeGenerationRunApplyResponse {
-  return isRecord(value) && (typeof value["artifactCount"] === 'number' && Number.isSafeInteger(value["artifactCount"])) && (typeof value["changedArtifactCount"] === 'number' && Number.isSafeInteger(value["changedArtifactCount"])) && (typeof value["manifestSha256"] === 'string') && (typeof value["previewRunId"] === 'string' && guidPattern.test(value["previewRunId"])) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]));
+  return isRecord(value) && (Number.isSafeInteger(value["artifactCount"])) && (Number.isSafeInteger(value["changedArtifactCount"])) && (typeof value["manifestSha256"] === 'string') && (typeof value["previewRunId"] === 'string' && guidPattern.test(value["previewRunId"])) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]));
 }
 
 export function readCodeGenerationRunPreviewRequest(value: unknown): CodeGenerationRunPreviewRequest {
@@ -1549,7 +1565,7 @@ export function readCodeGenerationRunPreviewRequest(value: unknown): CodeGenerat
 }
 
 function isCodeGenerationRunPreviewRequest(value: unknown): value is CodeGenerationRunPreviewRequest {
-  return isRecord(value) && ((value["schema"] === null) || (isCodeGenerationPreviewRequest(value["schema"]))) && ((value["templateId"] === null) || (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"]))) && ((value["templateVersion"] === null) || (typeof value["templateVersion"] === 'number' && Number.isSafeInteger(value["templateVersion"])));
+  return isRecord(value) && ((value["schema"] === null) || (isCodeGenerationPreviewRequest(value["schema"]))) && ((value["templateId"] === null) || (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"]))) && ((value["templateVersion"] === null) || (Number.isSafeInteger(value["templateVersion"])));
 }
 
 export function readCodeGenerationRunPreviewResponse(value: unknown): CodeGenerationRunPreviewResponse {
@@ -1572,7 +1588,7 @@ export function readCodeGenerationRunResponse(value: unknown): CodeGenerationRun
 }
 
 function isCodeGenerationRunResponse(value: unknown): value is CodeGenerationRunResponse {
-  return isRecord(value) && (typeof value["artifactCount"] === 'number' && Number.isSafeInteger(value["artifactCount"])) && ((value["entityKey"] === null) || (typeof value["entityKey"] === 'string')) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["finishedAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["manifestSha256"] === null) || (typeof value["manifestSha256"] === 'string')) && ((value["moduleKey"] === null) || (typeof value["moduleKey"] === 'string')) && (typeof value["operationKind"] === 'string') && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && ((value["schemaSha256"] === null) || (typeof value["schemaSha256"] === 'string')) && ((value["sourceApplyRunId"] === null) || (typeof value["sourceApplyRunId"] === 'string' && guidPattern.test(value["sourceApplyRunId"]))) && (typeof value["startedAtUtc"] === 'string') && (typeof value["status"] === 'string') && ((value["templateId"] === null) || (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"]))) && ((value["templateVersion"] === null) || (typeof value["templateVersion"] === 'number' && Number.isSafeInteger(value["templateVersion"])));
+  return isRecord(value) && (Number.isSafeInteger(value["artifactCount"])) && ((value["entityKey"] === null) || (typeof value["entityKey"] === 'string')) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["finishedAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["manifestSha256"] === null) || (typeof value["manifestSha256"] === 'string')) && ((value["moduleKey"] === null) || (typeof value["moduleKey"] === 'string')) && (typeof value["operationKind"] === 'string') && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && ((value["schemaSha256"] === null) || (typeof value["schemaSha256"] === 'string')) && ((value["sourceApplyRunId"] === null) || (typeof value["sourceApplyRunId"] === 'string' && guidPattern.test(value["sourceApplyRunId"]))) && (typeof value["startedAtUtc"] === 'string') && (typeof value["status"] === 'string') && ((value["templateId"] === null) || (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"]))) && ((value["templateVersion"] === null) || (Number.isSafeInteger(value["templateVersion"])));
 }
 
 export function readCodeGenerationRunRollbackChainRequest(value: unknown): CodeGenerationRunRollbackChainRequest {
@@ -1618,7 +1634,7 @@ export function readCodeGenerationRunRollbackResponse(value: unknown): CodeGener
 }
 
 function isCodeGenerationRunRollbackResponse(value: unknown): value is CodeGenerationRunRollbackResponse {
-  return isRecord(value) && (typeof value["applyRunId"] === 'string' && guidPattern.test(value["applyRunId"])) && (typeof value["artifactCount"] === 'number' && Number.isSafeInteger(value["artifactCount"])) && (typeof value["changedArtifactCount"] === 'number' && Number.isSafeInteger(value["changedArtifactCount"])) && (typeof value["manifestSha256"] === 'string') && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]));
+  return isRecord(value) && (typeof value["applyRunId"] === 'string' && guidPattern.test(value["applyRunId"])) && (Number.isSafeInteger(value["artifactCount"])) && (Number.isSafeInteger(value["changedArtifactCount"])) && (typeof value["manifestSha256"] === 'string') && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]));
 }
 
 export function readCodeGenerationTemplateResponse(value: unknown): CodeGenerationTemplateResponse {
@@ -1630,7 +1646,7 @@ export function readCodeGenerationTemplateResponse(value: unknown): CodeGenerati
 }
 
 function isCodeGenerationTemplateResponse(value: unknown): value is CodeGenerationTemplateResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && (isCodeGenerationPreviewRequest(value["schema"])) && (typeof value["schemaSha256"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && (isCodeGenerationPreviewRequest(value["schema"])) && (typeof value["schemaSha256"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"]))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readConfigEntryResponse(value: unknown): ConfigEntryResponse {
@@ -1642,7 +1658,7 @@ export function readConfigEntryResponse(value: unknown): ConfigEntryResponse {
 }
 
 function isConfigEntryResponse(value: unknown): value is ConfigEntryResponse {
-  return isRecord(value) && (typeof value["configKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["hasValue"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string' && ["string", "boolean", "integer", "decimal", "json", "secret"].includes(value["valueKind"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["configKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["hasValue"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string' && ["string", "boolean", "integer", "decimal", "json", "secret"].includes(value["valueKind"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readConfigValueUpdate(value: unknown): ConfigValueUpdate {
@@ -1665,7 +1681,7 @@ export function readConfirmOcrIdCardTaskRequest(value: unknown): ConfirmOcrIdCar
 }
 
 function isConfirmOcrIdCardTaskRequest(value: unknown): value is ConfirmOcrIdCardTaskRequest {
-  return isRecord(value) && ((value["address"] === null) || (typeof value["address"] === 'string')) && ((value["birthDate"] === null) || (typeof value["birthDate"] === 'string')) && ((value["gender"] === null) || (typeof value["gender"] === 'string')) && (typeof value["idNumber"] === 'string') && (typeof value["name"] === 'string') && ((value["nation"] === null) || (typeof value["nation"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["address"] === null) || (typeof value["address"] === 'string')) && ((value["birthDate"] === null) || (typeof value["birthDate"] === 'string')) && ((value["gender"] === null) || (typeof value["gender"] === 'string')) && (typeof value["idNumber"] === 'string') && (typeof value["name"] === 'string') && ((value["nation"] === null) || (typeof value["nation"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readConfirmTotpEnrollmentRequest(value: unknown): ConfirmTotpEnrollmentRequest {
@@ -1699,7 +1715,7 @@ export function readCreateAdministrativeRegionRequest(value: unknown): CreateAdm
 }
 
 function isCreateAdministrativeRegionRequest(value: unknown): value is CreateAdministrativeRegionRequest {
-  return isRecord(value) && ((value["cityCode"] === null) || (typeof value["cityCode"] === 'string')) && (typeof value["code"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && ((value["latitude"] === null) || (typeof value["latitude"] === 'number' && Number.isFinite(value["latitude"])) || (typeof value["latitude"] === 'string')) && (typeof value["level"] === 'number' && Number.isSafeInteger(value["level"])) && ((value["longitude"] === null) || (typeof value["longitude"] === 'number' && Number.isFinite(value["longitude"])) || (typeof value["longitude"] === 'string')) && ((value["mergerName"] === null) || (typeof value["mergerName"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && ((value["pinYin"] === null) || (typeof value["pinYin"] === 'string')) && ((value["regionType"] === null) || (typeof value["regionType"] === 'string')) && ((value["remark"] === null) || (typeof value["remark"] === 'string')) && ((value["shortName"] === null) || (typeof value["shortName"] === 'string')) && ((value["zipCode"] === null) || (typeof value["zipCode"] === 'string'));
+  return isRecord(value) && ((value["cityCode"] === null) || (typeof value["cityCode"] === 'string')) && (typeof value["code"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && ((value["latitude"] === null) || (Number.isFinite(value["latitude"])) || (typeof value["latitude"] === 'string')) && (Number.isSafeInteger(value["level"])) && ((value["longitude"] === null) || (Number.isFinite(value["longitude"])) || (typeof value["longitude"] === 'string')) && ((value["mergerName"] === null) || (typeof value["mergerName"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && ((value["pinYin"] === null) || (typeof value["pinYin"] === 'string')) && ((value["regionType"] === null) || (typeof value["regionType"] === 'string')) && ((value["remark"] === null) || (typeof value["remark"] === 'string')) && ((value["shortName"] === null) || (typeof value["shortName"] === 'string')) && ((value["zipCode"] === null) || (typeof value["zipCode"] === 'string'));
 }
 
 export function readCreateAiAgentApprovalRequest(value: unknown): CreateAiAgentApprovalRequest {
@@ -1711,7 +1727,7 @@ export function readCreateAiAgentApprovalRequest(value: unknown): CreateAiAgentA
 }
 
 function isCreateAiAgentApprovalRequest(value: unknown): value is CreateAiAgentApprovalRequest {
-  return isRecord(value) && (typeof value["argumentsJson"] === 'string') && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"])) && (typeof value["toolName"] === 'string') && (typeof value["toolVersion"] === 'number' && Number.isSafeInteger(value["toolVersion"]));
+  return isRecord(value) && (typeof value["argumentsJson"] === 'string') && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"])) && (typeof value["toolName"] === 'string') && (Number.isSafeInteger(value["toolVersion"]));
 }
 
 export function readCreateAiAgentApprovalResponse(value: unknown): CreateAiAgentApprovalResponse {
@@ -1756,7 +1772,7 @@ export function readCreateAiAgentRunRequest(value: unknown): CreateAiAgentRunReq
 }
 
 function isCreateAiAgentRunRequest(value: unknown): value is CreateAiAgentRunRequest {
-  return isRecord(value) && (typeof value["clientRequestId"] === 'string' && guidPattern.test(value["clientRequestId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["inputTokenLimit"] === 'number' && Number.isSafeInteger(value["inputTokenLimit"])) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["outputTokenLimit"] === 'number' && Number.isSafeInteger(value["outputTokenLimit"])) && (typeof value["prompt"] === 'string');
+  return isRecord(value) && (typeof value["clientRequestId"] === 'string' && guidPattern.test(value["clientRequestId"])) && (typeof value["definitionKey"] === 'string') && (Number.isSafeInteger(value["inputTokenLimit"])) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (Number.isSafeInteger(value["outputTokenLimit"])) && (typeof value["prompt"] === 'string');
 }
 
 export function readCreateAiAgentRunResponse(value: unknown): CreateAiAgentRunResponse {
@@ -1824,7 +1840,7 @@ export function readCreateConfigEntryRequest(value: unknown): CreateConfigEntryR
 }
 
 function isCreateConfigEntryRequest(value: unknown): value is CreateConfigEntryRequest {
-  return isRecord(value) && (typeof value["configKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string' && ["string", "boolean", "integer", "decimal", "json", "secret"].includes(value["valueKind"]));
+  return isRecord(value) && (typeof value["configKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string' && ["string", "boolean", "integer", "decimal", "json", "secret"].includes(value["valueKind"]));
 }
 
 export function readCreateDataApprovalRequestBody(value: unknown): CreateDataApprovalRequestBody {
@@ -1847,7 +1863,7 @@ export function readCreateDictItemRequest(value: unknown): CreateDictItemRequest
 }
 
 function isCreateDictItemRequest(value: unknown): value is CreateDictItemRequest {
-  return isRecord(value) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["label"] === 'string') && (typeof value["value"] === 'string');
+  return isRecord(value) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["label"] === 'string') && (typeof value["value"] === 'string');
 }
 
 export function readCreateDictTypeRequest(value: unknown): CreateDictTypeRequest {
@@ -1859,7 +1875,7 @@ export function readCreateDictTypeRequest(value: unknown): CreateDictTypeRequest
 }
 
 function isCreateDictTypeRequest(value: unknown): value is CreateDictTypeRequest {
-  return isRecord(value) && (typeof value["code"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string');
+  return isRecord(value) && (typeof value["code"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string');
 }
 
 export function readCreateEnterpriseRequestRequest(value: unknown): CreateEnterpriseRequestRequest {
@@ -1870,7 +1886,7 @@ export function readCreateEnterpriseRequestRequest(value: unknown): CreateEnterp
 }
 
 function isCreateEnterpriseRequestRequest(value: unknown): value is CreateEnterpriseRequestRequest {
-  return isRecord(value) && (typeof value["applicantUserId"] === 'string' && guidPattern.test(value["applicantUserId"])) && (typeof value["requestNumber"] === 'string') && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && ((typeof value["totalAmount"] === 'number' && Number.isFinite(value["totalAmount"])) || (typeof value["totalAmount"] === 'string'));
+  return isRecord(value) && (typeof value["applicantUserId"] === 'string' && guidPattern.test(value["applicantUserId"])) && (typeof value["requestNumber"] === 'string') && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && ((Number.isFinite(value["totalAmount"])) || (typeof value["totalAmount"] === 'string'));
 }
 
 export function readCreateGoViewProjectRequest(value: unknown): CreateGoViewProjectRequest {
@@ -1926,7 +1942,7 @@ export function readCreateHostDocumentCategoryRequest(value: unknown): CreateHos
 }
 
 function isCreateHostDocumentCategoryRequest(value: unknown): value is CreateHostDocumentCategoryRequest {
-  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["sortOrder"] === 'number' && Number.isSafeInteger(value["sortOrder"]));
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (Number.isSafeInteger(value["sortOrder"]));
 }
 
 export function readCreateHostDocumentItemRequest(value: unknown): CreateHostDocumentItemRequest {
@@ -1938,7 +1954,7 @@ export function readCreateHostDocumentItemRequest(value: unknown): CreateHostDoc
 }
 
 function isCreateHostDocumentItemRequest(value: unknown): value is CreateHostDocumentItemRequest {
-  return isRecord(value) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (isHostDocumentType(value["documentType"])) && (typeof value["sort"] === 'number' && Number.isSafeInteger(value["sort"])) && (isHostDocumentStatus(value["status"])) && ((value["tagIds"] === null) || (Array.isArray(value["tagIds"]) && value["tagIds"].every(item15 => typeof item15 === 'string' && guidPattern.test(item15)))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string');
+  return isRecord(value) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (isHostDocumentType(value["documentType"])) && (Number.isSafeInteger(value["sort"])) && (isHostDocumentStatus(value["status"])) && ((value["tagIds"] === null) || (Array.isArray(value["tagIds"]) && value["tagIds"].every(item15 => typeof item15 === 'string' && guidPattern.test(item15)))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string');
 }
 
 export function readCreateHostDocumentPreviewTaskRequest(value: unknown): CreateHostDocumentPreviewTaskRequest {
@@ -1961,7 +1977,7 @@ export function readCreateHostDocumentShareRequest(value: unknown): CreateHostDo
 }
 
 function isCreateHostDocumentShareRequest(value: unknown): value is CreateHostDocumentShareRequest {
-  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (value["maxAccessCount"] === undefined || ((value["maxAccessCount"] === null) || (typeof value["maxAccessCount"] === 'number' && Number.isSafeInteger(value["maxAccessCount"])))) && (value["password"] === undefined || ((value["password"] === null) || (typeof value["password"] === 'string'))) && (typeof value["validDays"] === 'number' && Number.isSafeInteger(value["validDays"]));
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (value["maxAccessCount"] === undefined || ((value["maxAccessCount"] === null) || (Number.isSafeInteger(value["maxAccessCount"])))) && (value["password"] === undefined || ((value["password"] === null) || (typeof value["password"] === 'string'))) && (Number.isSafeInteger(value["validDays"]));
 }
 
 export function readCreateHostDocumentTagRequest(value: unknown): CreateHostDocumentTagRequest {
@@ -1984,7 +2000,7 @@ export function readCreateHostFolderRequest(value: unknown): CreateHostFolderReq
 }
 
 function isCreateHostFolderRequest(value: unknown): value is CreateHostFolderRequest {
-  return isRecord(value) && (value["displayOrder"] === undefined || (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"]))) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"])));
+  return isRecord(value) && (value["displayOrder"] === undefined || (Number.isSafeInteger(value["displayOrder"]))) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"])));
 }
 
 export function readCreateHostJobDefinitionRequest(value: unknown): CreateHostJobDefinitionRequest {
@@ -2019,7 +2035,7 @@ export function readCreateHostMenuRequest(value: unknown): CreateHostMenuRequest
 }
 
 function isCreateHostMenuRequest(value: unknown): value is CreateHostMenuRequest {
-  return isRecord(value) && (typeof value["caption"] === 'string') && (typeof value["componentKey"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["icon"] === 'string') && (value["isAffix"] === undefined || (typeof value["isAffix"] === 'boolean')) && (value["isEmbedded"] === undefined || (typeof value["isEmbedded"] === 'boolean')) && (value["isHidden"] === undefined || (typeof value["isHidden"] === 'boolean')) && (value["isKeepAlive"] === undefined || (typeof value["isKeepAlive"] === 'boolean')) && (value["linkUrl"] === undefined || ((value["linkUrl"] === null) || (typeof value["linkUrl"] === 'string'))) && (value["menuType"] === undefined || (typeof value["menuType"] === 'string')) && ((value["parentId"] === null) || (typeof value["parentId"] === 'string')) && (typeof value["path"] === 'string') && (value["redirect"] === undefined || ((value["redirect"] === null) || (typeof value["redirect"] === 'string'))) && (value["remark"] === undefined || ((value["remark"] === null) || (typeof value["remark"] === 'string'))) && (typeof value["requiredPermission"] === 'string') && (typeof value["routeName"] === 'string') && (typeof value["title"] === 'string');
+  return isRecord(value) && (typeof value["caption"] === 'string') && (typeof value["componentKey"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["icon"] === 'string') && (value["isAffix"] === undefined || (typeof value["isAffix"] === 'boolean')) && (value["isEmbedded"] === undefined || (typeof value["isEmbedded"] === 'boolean')) && (value["isHidden"] === undefined || (typeof value["isHidden"] === 'boolean')) && (value["isKeepAlive"] === undefined || (typeof value["isKeepAlive"] === 'boolean')) && (value["linkUrl"] === undefined || ((value["linkUrl"] === null) || (typeof value["linkUrl"] === 'string'))) && (value["menuType"] === undefined || (typeof value["menuType"] === 'string')) && ((value["parentId"] === null) || (typeof value["parentId"] === 'string')) && (typeof value["path"] === 'string') && (value["redirect"] === undefined || ((value["redirect"] === null) || (typeof value["redirect"] === 'string'))) && (value["remark"] === undefined || ((value["remark"] === null) || (typeof value["remark"] === 'string'))) && (typeof value["requiredPermission"] === 'string') && (typeof value["routeName"] === 'string') && (typeof value["title"] === 'string');
 }
 
 export function readCreateHostReleaseNoteRequest(value: unknown): CreateHostReleaseNoteRequest {
@@ -2076,7 +2092,7 @@ export function readCreateK3CloudConnectionConfigRequest(value: unknown): Create
 }
 
 function isCreateK3CloudConnectionConfigRequest(value: unknown): value is CreateK3CloudConnectionConfigRequest {
-  return isRecord(value) && (typeof value["acctId"] === 'string') && (typeof value["baseUrl"] === 'string') && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (typeof value["lcid"] === 'number' && Number.isSafeInteger(value["lcid"])) && (typeof value["name"] === 'string') && (typeof value["password"] === 'string') && (typeof value["username"] === 'string');
+  return isRecord(value) && (typeof value["acctId"] === 'string') && (typeof value["baseUrl"] === 'string') && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (Number.isSafeInteger(value["lcid"])) && (typeof value["name"] === 'string') && (typeof value["password"] === 'string') && (typeof value["username"] === 'string');
 }
 
 export function readCreateK3CloudDocumentSyncRequest(value: unknown): CreateK3CloudDocumentSyncRequest {
@@ -2156,7 +2172,7 @@ export function readCreateOrganizationPositionLevelRequest(value: unknown): Crea
 }
 
 function isCreateOrganizationPositionLevelRequest(value: unknown): value is CreateOrganizationPositionLevelRequest {
-  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string');
+  return isRecord(value) && (typeof value["code"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string');
 }
 
 export function readCreateOrganizationPositionRequest(value: unknown): CreateOrganizationPositionRequest {
@@ -2168,7 +2184,7 @@ export function readCreateOrganizationPositionRequest(value: unknown): CreateOrg
 }
 
 function isCreateOrganizationPositionRequest(value: unknown): value is CreateOrganizationPositionRequest {
-  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string');
+  return isRecord(value) && (typeof value["code"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string');
 }
 
 export function readCreateOrganizationUnitRequest(value: unknown): CreateOrganizationUnitRequest {
@@ -2180,7 +2196,7 @@ export function readCreateOrganizationUnitRequest(value: unknown): CreateOrganiz
 }
 
 function isCreateOrganizationUnitRequest(value: unknown): value is CreateOrganizationUnitRequest {
-  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string'));
+  return isRecord(value) && (typeof value["code"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string'));
 }
 
 export function readCreateOrganizationUserPositionRequest(value: unknown): CreateOrganizationUserPositionRequest {
@@ -2225,7 +2241,7 @@ export function readCreatePaymentOrderRequest(value: unknown): CreatePaymentOrde
 }
 
 function isCreatePaymentOrderRequest(value: unknown): value is CreatePaymentOrderRequest {
-  return isRecord(value) && (typeof value["amountMinor"] === 'number' && Number.isSafeInteger(value["amountMinor"])) && ((value["channelKey"] === null) || (typeof value["channelKey"] === 'string')) && (typeof value["currency"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["merchantConfigId"] === null) || (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"]))) && (typeof value["subject"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
+  return isRecord(value) && (Number.isSafeInteger(value["amountMinor"])) && ((value["channelKey"] === null) || (typeof value["channelKey"] === 'string')) && (typeof value["currency"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["merchantConfigId"] === null) || (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"]))) && (typeof value["subject"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
 }
 
 export function readCreatePaymentRefundRequest(value: unknown): CreatePaymentRefundRequest {
@@ -2237,7 +2253,7 @@ export function readCreatePaymentRefundRequest(value: unknown): CreatePaymentRef
 }
 
 function isCreatePaymentRefundRequest(value: unknown): value is CreatePaymentRefundRequest {
-  return isRecord(value) && ((value["amountMinor"] === null) || (typeof value["amountMinor"] === 'number' && Number.isSafeInteger(value["amountMinor"]))) && (typeof value["reason"] === 'string');
+  return isRecord(value) && ((value["amountMinor"] === null) || (Number.isSafeInteger(value["amountMinor"]))) && (typeof value["reason"] === 'string');
 }
 
 export function readCreatePersonalScheduleRequest(value: unknown): CreatePersonalScheduleRequest {
@@ -2271,7 +2287,7 @@ export function readCreateReportingDataSourceRequest(value: unknown): CreateRepo
 }
 
 function isCreateReportingDataSourceRequest(value: unknown): value is CreateReportingDataSourceRequest {
-  return isRecord(value) && (typeof value["databaseName"] === 'string') && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && (typeof value["password"] === 'string') && (typeof value["port"] === 'number' && Number.isSafeInteger(value["port"])) && (typeof value["providerKey"] === 'string') && (typeof value["serverHost"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["trustServerCertificate"] === 'boolean') && (typeof value["username"] === 'string');
+  return isRecord(value) && (typeof value["databaseName"] === 'string') && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && (typeof value["password"] === 'string') && (Number.isSafeInteger(value["port"])) && (typeof value["providerKey"] === 'string') && (typeof value["serverHost"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["trustServerCertificate"] === 'boolean') && (typeof value["username"] === 'string');
 }
 
 export function readCreateReportingDefinitionRequest(value: unknown): CreateReportingDefinitionRequest {
@@ -2294,7 +2310,7 @@ export function readCreateReportingExportTaskRequest(value: unknown): CreateRepo
 }
 
 function isCreateReportingExportTaskRequest(value: unknown): value is CreateReportingExportTaskRequest {
-  return isRecord(value) && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["formatKey"] === 'string') && (Array.isArray(value["parameters"]) && value["parameters"].every(item19 => isReportingExecutionParameterValue(item19))) && ((value["versionNumber"] === null) || (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"])));
+  return isRecord(value) && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["formatKey"] === 'string') && (Array.isArray(value["parameters"]) && value["parameters"].every(item19 => isReportingExecutionParameterValue(item19))) && ((value["versionNumber"] === null) || (Number.isSafeInteger(value["versionNumber"])));
 }
 
 export function readCreateReportingGroupRequest(value: unknown): CreateReportingGroupRequest {
@@ -2306,7 +2322,7 @@ export function readCreateReportingGroupRequest(value: unknown): CreateReporting
 }
 
 function isCreateReportingGroupRequest(value: unknown): value is CreateReportingGroupRequest {
-  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["sortOrder"] === 'number' && Number.isSafeInteger(value["sortOrder"]));
+  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (Number.isSafeInteger(value["sortOrder"]));
 }
 
 export function readCreateSerialNumberRuleRequest(value: unknown): CreateSerialNumberRuleRequest {
@@ -2318,7 +2334,7 @@ export function readCreateSerialNumberRuleRequest(value: unknown): CreateSerialN
 }
 
 function isCreateSerialNumberRuleRequest(value: unknown): value is CreateSerialNumberRuleRequest {
-  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maximumValue"] === 'number' && Number.isSafeInteger(value["maximumValue"])) && (typeof value["minimumValue"] === 'number' && Number.isSafeInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (typeof value["ruleKey"] === 'string') && (isSerialNumberRuleScope(value["scope"]));
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["isEnabled"] === 'boolean') && (Number.isSafeInteger(value["maximumValue"])) && (Number.isSafeInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (typeof value["ruleKey"] === 'string') && (isSerialNumberRuleScope(value["scope"]));
 }
 
 export function readCreateWorkflowDefinitionRequest(value: unknown): CreateWorkflowDefinitionRequest {
@@ -2354,7 +2370,7 @@ export function readCurrentUserResponse(value: unknown): CurrentUserResponse {
 }
 
 function isCurrentUserResponse(value: unknown): value is CurrentUserResponse {
-  return isRecord(value) && (typeof value["actorScope"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isSuperAdministrator"] === 'boolean') && (typeof value["passwordChangeRequired"] === 'boolean') && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => typeof item20 === 'string')) && (typeof value["preferredLocale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isSafeInteger(value["profileVersion"])) && (typeof value["scope"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["username"] === 'string');
+  return isRecord(value) && (typeof value["actorScope"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isSuperAdministrator"] === 'boolean') && (typeof value["passwordChangeRequired"] === 'boolean') && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => typeof item20 === 'string')) && (typeof value["preferredLocale"] === 'string') && (Number.isSafeInteger(value["profileVersion"])) && (typeof value["scope"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["username"] === 'string');
 }
 
 export function readDataApprovalRequestResponse(value: unknown): DataApprovalRequestResponse {
@@ -2366,7 +2382,7 @@ export function readDataApprovalRequestResponse(value: unknown): DataApprovalReq
 }
 
 function isDataApprovalRequestResponse(value: unknown): value is DataApprovalRequestResponse {
-  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && (typeof value["applicationAttemptCount"] === 'number' && Number.isSafeInteger(value["applicationAttemptCount"])) && (typeof value["applicationStatusKey"] === 'string') && ((value["beforeSnapshotJson"] === null) || (typeof value["beforeSnapshotJson"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["lastApplicationAttemptAtUtc"] === null) || (typeof value["lastApplicationAttemptAtUtc"] === 'string')) && ((value["lastApplicationFailureCode"] === null) || (typeof value["lastApplicationFailureCode"] === 'string')) && ((value["lastApplicationFailureMessage"] === null) || (typeof value["lastApplicationFailureMessage"] === 'string')) && ((value["lastFailureCode"] === null) || (typeof value["lastFailureCode"] === 'string')) && ((value["lastFailureMessage"] === null) || (typeof value["lastFailureMessage"] === 'string')) && ((value["lastRecoveryAttemptAtUtc"] === null) || (typeof value["lastRecoveryAttemptAtUtc"] === 'string')) && (typeof value["recoveryAttemptCount"] === 'number' && Number.isSafeInteger(value["recoveryAttemptCount"])) && (typeof value["recoveryStatusKey"] === 'string') && ((value["resolvedAtUtc"] === null) || (typeof value["resolvedAtUtc"] === 'string')) && (typeof value["scenarioKey"] === 'string') && (typeof value["statusKey"] === 'string') && (typeof value["submittedAtUtc"] === 'string') && (typeof value["submittedByUserId"] === 'string' && guidPattern.test(value["submittedByUserId"])) && (typeof value["targetEntityId"] === 'string' && guidPattern.test(value["targetEntityId"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"])) && ((value["workflowInstanceId"] === null) || (typeof value["workflowInstanceId"] === 'string' && guidPattern.test(value["workflowInstanceId"]))) && ((value["workflowRevision"] === null) || (typeof value["workflowRevision"] === 'number' && Number.isSafeInteger(value["workflowRevision"])));
+  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && (Number.isSafeInteger(value["applicationAttemptCount"])) && (typeof value["applicationStatusKey"] === 'string') && ((value["beforeSnapshotJson"] === null) || (typeof value["beforeSnapshotJson"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["lastApplicationAttemptAtUtc"] === null) || (typeof value["lastApplicationAttemptAtUtc"] === 'string')) && ((value["lastApplicationFailureCode"] === null) || (typeof value["lastApplicationFailureCode"] === 'string')) && ((value["lastApplicationFailureMessage"] === null) || (typeof value["lastApplicationFailureMessage"] === 'string')) && ((value["lastFailureCode"] === null) || (typeof value["lastFailureCode"] === 'string')) && ((value["lastFailureMessage"] === null) || (typeof value["lastFailureMessage"] === 'string')) && ((value["lastRecoveryAttemptAtUtc"] === null) || (typeof value["lastRecoveryAttemptAtUtc"] === 'string')) && (Number.isSafeInteger(value["recoveryAttemptCount"])) && (typeof value["recoveryStatusKey"] === 'string') && ((value["resolvedAtUtc"] === null) || (typeof value["resolvedAtUtc"] === 'string')) && (typeof value["scenarioKey"] === 'string') && (typeof value["statusKey"] === 'string') && (typeof value["submittedAtUtc"] === 'string') && (typeof value["submittedByUserId"] === 'string' && guidPattern.test(value["submittedByUserId"])) && (typeof value["targetEntityId"] === 'string' && guidPattern.test(value["targetEntityId"])) && (Number.isSafeInteger(value["version"])) && (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"])) && ((value["workflowInstanceId"] === null) || (typeof value["workflowInstanceId"] === 'string' && guidPattern.test(value["workflowInstanceId"]))) && ((value["workflowRevision"] === null) || (Number.isSafeInteger(value["workflowRevision"])));
 }
 
 export function readDataApprovalScenarioResponse(value: unknown): DataApprovalScenarioResponse {
@@ -2378,7 +2394,7 @@ export function readDataApprovalScenarioResponse(value: unknown): DataApprovalSc
 }
 
 function isDataApprovalScenarioResponse(value: unknown): value is DataApprovalScenarioResponse {
-  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["isRegistered"] === 'boolean') && (typeof value["scenarioKey"] === 'string') && (typeof value["scopeKey"] === 'string') && ((value["version"] === null) || (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]))) && ((value["workflowDefinitionKey"] === null) || (typeof value["workflowDefinitionKey"] === 'string')) && ((value["workflowDefinitionVersionId"] === null) || (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"])));
+  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["isRegistered"] === 'boolean') && (typeof value["scenarioKey"] === 'string') && (typeof value["scopeKey"] === 'string') && ((value["version"] === null) || (Number.isSafeInteger(value["version"]))) && ((value["workflowDefinitionKey"] === null) || (typeof value["workflowDefinitionKey"] === 'string')) && ((value["workflowDefinitionVersionId"] === null) || (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"])));
 }
 
 export function readDecideAiAgentApprovalRequest(value: unknown): DecideAiAgentApprovalRequest {
@@ -2390,7 +2406,7 @@ export function readDecideAiAgentApprovalRequest(value: unknown): DecideAiAgentA
 }
 
 function isDecideAiAgentApprovalRequest(value: unknown): value is DecideAiAgentApprovalRequest {
-  return isRecord(value) && (typeof value["approve"] === 'boolean') && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"]));
+  return isRecord(value) && (typeof value["approve"] === 'boolean') && (Number.isSafeInteger(value["expectedVersion"]));
 }
 
 export function readDeleteAdministrativeRegionRequest(value: unknown): DeleteAdministrativeRegionRequest {
@@ -2402,7 +2418,7 @@ export function readDeleteAdministrativeRegionRequest(value: unknown): DeleteAdm
 }
 
 function isDeleteAdministrativeRegionRequest(value: unknown): value is DeleteAdministrativeRegionRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDeleteCodeGenerationTemplateRequest(value: unknown): DeleteCodeGenerationTemplateRequest {
@@ -2414,7 +2430,7 @@ export function readDeleteCodeGenerationTemplateRequest(value: unknown): DeleteC
 }
 
 function isDeleteCodeGenerationTemplateRequest(value: unknown): value is DeleteCodeGenerationTemplateRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDeleteConfigEntryRequest(value: unknown): DeleteConfigEntryRequest {
@@ -2426,7 +2442,7 @@ export function readDeleteConfigEntryRequest(value: unknown): DeleteConfigEntryR
 }
 
 function isDeleteConfigEntryRequest(value: unknown): value is DeleteConfigEntryRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDeleteDictItemRequest(value: unknown): DeleteDictItemRequest {
@@ -2438,7 +2454,7 @@ export function readDeleteDictItemRequest(value: unknown): DeleteDictItemRequest
 }
 
 function isDeleteDictItemRequest(value: unknown): value is DeleteDictItemRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDeleteDictTypeRequest(value: unknown): DeleteDictTypeRequest {
@@ -2450,7 +2466,7 @@ export function readDeleteDictTypeRequest(value: unknown): DeleteDictTypeRequest
 }
 
 function isDeleteDictTypeRequest(value: unknown): value is DeleteDictTypeRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDeleteEnterpriseRequestRequest(value: unknown): DeleteEnterpriseRequestRequest {
@@ -2462,7 +2478,7 @@ export function readDeleteEnterpriseRequestRequest(value: unknown): DeleteEnterp
 }
 
 function isDeleteEnterpriseRequestRequest(value: unknown): value is DeleteEnterpriseRequestRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDeleteHostDocumentCategoryRequest(value: unknown): DeleteHostDocumentCategoryRequest {
@@ -2474,7 +2490,7 @@ export function readDeleteHostDocumentCategoryRequest(value: unknown): DeleteHos
 }
 
 function isDeleteHostDocumentCategoryRequest(value: unknown): value is DeleteHostDocumentCategoryRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDeleteHostDocumentItemRequest(value: unknown): DeleteHostDocumentItemRequest {
@@ -2486,7 +2502,7 @@ export function readDeleteHostDocumentItemRequest(value: unknown): DeleteHostDoc
 }
 
 function isDeleteHostDocumentItemRequest(value: unknown): value is DeleteHostDocumentItemRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDeleteHostDocumentTagRequest(value: unknown): DeleteHostDocumentTagRequest {
@@ -2498,7 +2514,7 @@ export function readDeleteHostDocumentTagRequest(value: unknown): DeleteHostDocu
 }
 
 function isDeleteHostDocumentTagRequest(value: unknown): value is DeleteHostDocumentTagRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDeleteHostDocumentVersionRequest(value: unknown): DeleteHostDocumentVersionRequest {
@@ -2510,7 +2526,7 @@ export function readDeleteHostDocumentVersionRequest(value: unknown): DeleteHost
 }
 
 function isDeleteHostDocumentVersionRequest(value: unknown): value is DeleteHostDocumentVersionRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDeleteHostFolderRequest(value: unknown): DeleteHostFolderRequest {
@@ -2522,7 +2538,7 @@ export function readDeleteHostFolderRequest(value: unknown): DeleteHostFolderReq
 }
 
 function isDeleteHostFolderRequest(value: unknown): value is DeleteHostFolderRequest {
-  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"]));
+  return isRecord(value) && (Number.isSafeInteger(value["expectedRevision"]));
 }
 
 export function readDeleteHostJobDefinitionRequest(value: unknown): DeleteHostJobDefinitionRequest {
@@ -2534,7 +2550,7 @@ export function readDeleteHostJobDefinitionRequest(value: unknown): DeleteHostJo
 }
 
 function isDeleteHostJobDefinitionRequest(value: unknown): value is DeleteHostJobDefinitionRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDeleteHostReleaseNoteRequest(value: unknown): DeleteHostReleaseNoteRequest {
@@ -2546,7 +2562,7 @@ export function readDeleteHostReleaseNoteRequest(value: unknown): DeleteHostRele
 }
 
 function isDeleteHostReleaseNoteRequest(value: unknown): value is DeleteHostReleaseNoteRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDiagnosticPolicyResponse(value: unknown): DiagnosticPolicyResponse {
@@ -2558,7 +2574,7 @@ export function readDiagnosticPolicyResponse(value: unknown): DiagnosticPolicyRe
 }
 
 function isDiagnosticPolicyResponse(value: unknown): value is DiagnosticPolicyResponse {
-  return isRecord(value) && (Array.isArray(value["activeRules"]) && value["activeRules"].every(item20 => isDiagnosticPolicyRuleResponse(item20))) && (typeof value["configEntryVersion"] === 'number' && Number.isSafeInteger(value["configEntryVersion"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["loadedAtUtc"] === 'string') && (typeof value["pressureState"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Array.isArray(value["activeRules"]) && value["activeRules"].every(item20 => isDiagnosticPolicyRuleResponse(item20))) && (Number.isSafeInteger(value["configEntryVersion"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["loadedAtUtc"] === 'string') && (typeof value["pressureState"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDiagnosticPolicyRuleRequest(value: unknown): DiagnosticPolicyRuleRequest {
@@ -2570,7 +2586,7 @@ export function readDiagnosticPolicyRuleRequest(value: unknown): DiagnosticPolic
 }
 
 function isDiagnosticPolicyRuleRequest(value: unknown): value is DiagnosticPolicyRuleRequest {
-  return isRecord(value) && ((value["bestEffortCapacityOverride"] === null) || (typeof value["bestEffortCapacityOverride"] === 'number' && Number.isSafeInteger(value["bestEffortCapacityOverride"]))) && (typeof value["expiresAtUtc"] === 'string') && ((value["maxRequestPayloadBytesOverride"] === null) || (typeof value["maxRequestPayloadBytesOverride"] === 'number' && Number.isSafeInteger(value["maxRequestPayloadBytesOverride"]))) && ((value["maxResponsePayloadBytesOverride"] === null) || (typeof value["maxResponsePayloadBytesOverride"] === 'number' && Number.isSafeInteger(value["maxResponsePayloadBytesOverride"]))) && (typeof value["scopeKind"] === 'string') && (typeof value["scopeValue"] === 'string') && ((value["successSampleRateOverride"] === null) || (typeof value["successSampleRateOverride"] === 'number' && Number.isFinite(value["successSampleRateOverride"])) || (typeof value["successSampleRateOverride"] === 'string'));
+  return isRecord(value) && ((value["bestEffortCapacityOverride"] === null) || (Number.isSafeInteger(value["bestEffortCapacityOverride"]))) && (typeof value["expiresAtUtc"] === 'string') && ((value["maxRequestPayloadBytesOverride"] === null) || (Number.isSafeInteger(value["maxRequestPayloadBytesOverride"]))) && ((value["maxResponsePayloadBytesOverride"] === null) || (Number.isSafeInteger(value["maxResponsePayloadBytesOverride"]))) && (typeof value["scopeKind"] === 'string') && (typeof value["scopeValue"] === 'string') && ((value["successSampleRateOverride"] === null) || (Number.isFinite(value["successSampleRateOverride"])) || (typeof value["successSampleRateOverride"] === 'string'));
 }
 
 export function readDiagnosticPolicyRuleResponse(value: unknown): DiagnosticPolicyRuleResponse {
@@ -2582,7 +2598,7 @@ export function readDiagnosticPolicyRuleResponse(value: unknown): DiagnosticPoli
 }
 
 function isDiagnosticPolicyRuleResponse(value: unknown): value is DiagnosticPolicyRuleResponse {
-  return isRecord(value) && ((value["bestEffortCapacityOverride"] === null) || (typeof value["bestEffortCapacityOverride"] === 'number' && Number.isSafeInteger(value["bestEffortCapacityOverride"]))) && (typeof value["expiresAtUtc"] === 'string') && ((value["maxRequestPayloadBytesOverride"] === null) || (typeof value["maxRequestPayloadBytesOverride"] === 'number' && Number.isSafeInteger(value["maxRequestPayloadBytesOverride"]))) && ((value["maxResponsePayloadBytesOverride"] === null) || (typeof value["maxResponsePayloadBytesOverride"] === 'number' && Number.isSafeInteger(value["maxResponsePayloadBytesOverride"]))) && (typeof value["scopeKind"] === 'string') && (typeof value["scopeValue"] === 'string') && ((value["successSampleRateOverride"] === null) || (typeof value["successSampleRateOverride"] === 'number' && Number.isFinite(value["successSampleRateOverride"])) || (typeof value["successSampleRateOverride"] === 'string'));
+  return isRecord(value) && ((value["bestEffortCapacityOverride"] === null) || (Number.isSafeInteger(value["bestEffortCapacityOverride"]))) && (typeof value["expiresAtUtc"] === 'string') && ((value["maxRequestPayloadBytesOverride"] === null) || (Number.isSafeInteger(value["maxRequestPayloadBytesOverride"]))) && ((value["maxResponsePayloadBytesOverride"] === null) || (Number.isSafeInteger(value["maxResponsePayloadBytesOverride"]))) && (typeof value["scopeKind"] === 'string') && (typeof value["scopeValue"] === 'string') && ((value["successSampleRateOverride"] === null) || (Number.isFinite(value["successSampleRateOverride"])) || (typeof value["successSampleRateOverride"] === 'string'));
 }
 
 export function readDictItemResponse(value: unknown): DictItemResponse {
@@ -2594,7 +2610,7 @@ export function readDictItemResponse(value: unknown): DictItemResponse {
 }
 
 function isDictItemResponse(value: unknown): value is DictItemResponse {
-  return isRecord(value) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["dictTypeId"] === 'string' && guidPattern.test(value["dictTypeId"])) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["label"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["dictTypeId"] === 'string' && guidPattern.test(value["dictTypeId"])) && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["label"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["value"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDictTypeResponse(value: unknown): DictTypeResponse {
@@ -2606,7 +2622,7 @@ export function readDictTypeResponse(value: unknown): DictTypeResponse {
 }
 
 function isDictTypeResponse(value: unknown): value is DictTypeResponse {
-  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readDisableHostJobDefinitionRequest(value: unknown): DisableHostJobDefinitionRequest {
@@ -2618,7 +2634,113 @@ export function readDisableHostJobDefinitionRequest(value: unknown): DisableHost
 }
 
 function isDisableHostJobDefinitionRequest(value: unknown): value is DisableHostJobDefinitionRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
+}
+
+export function readEnterpriseRequestApprovalDeliveryState(value: unknown): EnterpriseRequestApprovalDeliveryState {
+  if (!(isEnterpriseRequestApprovalDeliveryState(value))) {
+    throw new Error('client.invalid_enterprise_request_approval_delivery_state');
+  }
+  return value;
+}
+
+function isEnterpriseRequestApprovalDeliveryState(value: unknown): value is EnterpriseRequestApprovalDeliveryState {
+  return typeof value === 'string' && ["not_submitted", "queued", "started", "finalized", "recovery_required"].includes(value);
+}
+
+export function readEnterpriseRequestApprovalProgressResponse(value: unknown): EnterpriseRequestApprovalProgressResponse {
+  const normalizedValue = normalizeEnterpriseRequestApprovalProgressResponseIntegerJson(value);
+  if (!(isEnterpriseRequestApprovalProgressResponse(normalizedValue))) {
+    throw new Error('client.invalid_enterprise_request_approval_progress_response');
+  }
+  return normalizedValue;
+}
+
+function isEnterpriseRequestApprovalProgressResponse(value: unknown): value is EnterpriseRequestApprovalProgressResponse {
+  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (isEnterpriseRequestApprovalDeliveryState(value["deliveryState"])) && (value["finalNotification"] === undefined || ((value["finalNotification"] === null) || (isNotificationIntentDeliverySnapshot(value["finalNotification"])))) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestStatus"] === 'string') && (Number.isSafeInteger(value["requestVersion"])) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && ((value["submittedAtUtc"] === null) || (typeof value["submittedAtUtc"] === 'string')) && ((value["submittedVersion"] === null) || (Number.isSafeInteger(value["submittedVersion"]))) && ((value["workflowDefinitionVersionId"] === null) || (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"]))) && ((value["workflowInstanceId"] === null) || (typeof value["workflowInstanceId"] === 'string' && guidPattern.test(value["workflowInstanceId"])));
+}
+
+export function readEnterpriseRequestAttachmentMutationResponse(value: unknown): EnterpriseRequestAttachmentMutationResponse {
+  const normalizedValue = normalizeEnterpriseRequestAttachmentMutationResponseIntegerJson(value);
+  if (!(isEnterpriseRequestAttachmentMutationResponse(normalizedValue))) {
+    throw new Error('client.invalid_enterprise_request_attachment_mutation_response');
+  }
+  return normalizedValue;
+}
+
+function isEnterpriseRequestAttachmentMutationResponse(value: unknown): value is EnterpriseRequestAttachmentMutationResponse {
+  return isRecord(value) && (isEnterpriseRequestAttachmentResponse(value["attachment"])) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (Number.isSafeInteger(value["requestVersion"]));
+}
+
+export function readEnterpriseRequestAttachmentRemovedResponse(value: unknown): EnterpriseRequestAttachmentRemovedResponse {
+  const normalizedValue = normalizeEnterpriseRequestAttachmentRemovedResponseIntegerJson(value);
+  if (!(isEnterpriseRequestAttachmentRemovedResponse(normalizedValue))) {
+    throw new Error('client.invalid_enterprise_request_attachment_removed_response');
+  }
+  return normalizedValue;
+}
+
+function isEnterpriseRequestAttachmentRemovedResponse(value: unknown): value is EnterpriseRequestAttachmentRemovedResponse {
+  return isRecord(value) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (Number.isSafeInteger(value["requestVersion"]));
+}
+
+export function readEnterpriseRequestAttachmentResponse(value: unknown): EnterpriseRequestAttachmentResponse {
+  const normalizedValue = normalizeEnterpriseRequestAttachmentResponseIntegerJson(value);
+  if (!(isEnterpriseRequestAttachmentResponse(normalizedValue))) {
+    throw new Error('client.invalid_enterprise_request_attachment_response');
+  }
+  return normalizedValue;
+}
+
+function isEnterpriseRequestAttachmentResponse(value: unknown): value is EnterpriseRequestAttachmentResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["fileId"] === 'string' && guidPattern.test(value["fileId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["originalFileName"] === 'string') && (Number.isSafeInteger(value["sizeBytes"]));
+}
+
+export function readEnterpriseRequestAttachmentsResponse(value: unknown): EnterpriseRequestAttachmentsResponse {
+  const normalizedValue = normalizeEnterpriseRequestAttachmentsResponseIntegerJson(value);
+  if (!(isEnterpriseRequestAttachmentsResponse(normalizedValue))) {
+    throw new Error('client.invalid_enterprise_request_attachments_response');
+  }
+  return normalizedValue;
+}
+
+function isEnterpriseRequestAttachmentsResponse(value: unknown): value is EnterpriseRequestAttachmentsResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isEnterpriseRequestAttachmentResponse(item14))) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestStatus"] === 'string') && (Number.isSafeInteger(value["requestVersion"]));
+}
+
+export function readEnterpriseRequestLineInput(value: unknown): EnterpriseRequestLineInput {
+  if (!(isEnterpriseRequestLineInput(value))) {
+    throw new Error('client.invalid_enterprise_request_line_input');
+  }
+  return value;
+}
+
+function isEnterpriseRequestLineInput(value: unknown): value is EnterpriseRequestLineInput {
+  return isRecord(value) && (typeof value["itemDescription"] === 'string') && ((Number.isFinite(value["quantity"])) || (typeof value["quantity"] === 'string')) && ((Number.isFinite(value["unitPrice"])) || (typeof value["unitPrice"] === 'string'));
+}
+
+export function readEnterpriseRequestLineResponse(value: unknown): EnterpriseRequestLineResponse {
+  const normalizedValue = normalizeEnterpriseRequestLineResponseIntegerJson(value);
+  if (!(isEnterpriseRequestLineResponse(normalizedValue))) {
+    throw new Error('client.invalid_enterprise_request_line_response');
+  }
+  return normalizedValue;
+}
+
+function isEnterpriseRequestLineResponse(value: unknown): value is EnterpriseRequestLineResponse {
+  return isRecord(value) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["itemDescription"] === 'string') && ((Number.isFinite(value["lineAmount"])) || (typeof value["lineAmount"] === 'string')) && (Number.isSafeInteger(value["lineNumber"])) && ((Number.isFinite(value["quantity"])) || (typeof value["quantity"] === 'string')) && ((Number.isFinite(value["unitPrice"])) || (typeof value["unitPrice"] === 'string'));
+}
+
+export function readEnterpriseRequestLinesResponse(value: unknown): EnterpriseRequestLinesResponse {
+  const normalizedValue = normalizeEnterpriseRequestLinesResponseIntegerJson(value);
+  if (!(isEnterpriseRequestLinesResponse(normalizedValue))) {
+    throw new Error('client.invalid_enterprise_request_lines_response');
+  }
+  return normalizedValue;
+}
+
+function isEnterpriseRequestLinesResponse(value: unknown): value is EnterpriseRequestLinesResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isEnterpriseRequestLineResponse(item14))) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestStatus"] === 'string') && (Number.isSafeInteger(value["requestVersion"])) && ((Number.isFinite(value["totalAmount"])) || (typeof value["totalAmount"] === 'string'));
 }
 
 export function readEnterpriseRequestResponse(value: unknown): EnterpriseRequestResponse {
@@ -2630,7 +2752,7 @@ export function readEnterpriseRequestResponse(value: unknown): EnterpriseRequest
 }
 
 function isEnterpriseRequestResponse(value: unknown): value is EnterpriseRequestResponse {
-  return isRecord(value) && (typeof value["applicantUserId"] === 'string' && guidPattern.test(value["applicantUserId"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdById"] === 'string' && guidPattern.test(value["createdById"])) && ((value["deletedAtUtc"] === null) || (typeof value["deletedAtUtc"] === 'string')) && ((value["deletedById"] === null) || (typeof value["deletedById"] === 'string' && guidPattern.test(value["deletedById"]))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDeleted"] === 'boolean') && (typeof value["organizationUnitId"] === 'string' && guidPattern.test(value["organizationUnitId"])) && (typeof value["requestNumber"] === 'string') && (typeof value["status"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["title"] === 'string') && ((typeof value["totalAmount"] === 'number' && Number.isFinite(value["totalAmount"])) || (typeof value["totalAmount"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedById"] === null) || (typeof value["updatedById"] === 'string' && guidPattern.test(value["updatedById"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["applicantUserId"] === 'string' && guidPattern.test(value["applicantUserId"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdById"] === 'string' && guidPattern.test(value["createdById"])) && ((value["deletedAtUtc"] === null) || (typeof value["deletedAtUtc"] === 'string')) && ((value["deletedById"] === null) || (typeof value["deletedById"] === 'string' && guidPattern.test(value["deletedById"]))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDeleted"] === 'boolean') && (typeof value["organizationUnitId"] === 'string' && guidPattern.test(value["organizationUnitId"])) && (typeof value["requestNumber"] === 'string') && (typeof value["status"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["title"] === 'string') && ((Number.isFinite(value["totalAmount"])) || (typeof value["totalAmount"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedById"] === null) || (typeof value["updatedById"] === 'string' && guidPattern.test(value["updatedById"]))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readEnumCatalogDetail(value: unknown): EnumCatalogDetail {
@@ -2654,7 +2776,7 @@ export function readEnumCatalogDictGenerationItemPreview(value: unknown): EnumCa
 }
 
 function isEnumCatalogDictGenerationItemPreview(value: unknown): value is EnumCatalogDictGenerationItemPreview {
-  return isRecord(value) && (typeof value["action"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && ((value["existingLabel"] === null) || (typeof value["existingLabel"] === 'string')) && (typeof value["proposedLabel"] === 'string') && (typeof value["value"] === 'string');
+  return isRecord(value) && (typeof value["action"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && ((value["existingLabel"] === null) || (typeof value["existingLabel"] === 'string')) && (typeof value["proposedLabel"] === 'string') && (typeof value["value"] === 'string');
 }
 
 export function readEnumCatalogDictGenerationPreview(value: unknown): EnumCatalogDictGenerationPreview {
@@ -2678,7 +2800,7 @@ export function readEnumCatalogDictGenerationResult(value: unknown): EnumCatalog
 }
 
 function isEnumCatalogDictGenerationResult(value: unknown): value is EnumCatalogDictGenerationResult {
-  return isRecord(value) && (typeof value["catalogKey"] === 'string') && (typeof value["dictTypeCode"] === 'string') && (typeof value["dictTypeCreated"] === 'boolean') && ((value["dictTypeId"] === null) || (typeof value["dictTypeId"] === 'string' && guidPattern.test(value["dictTypeId"]))) && (Array.isArray(value["items"]) && value["items"].every(item14 => isEnumCatalogDictGenerationItemPreview(item14))) && (typeof value["itemsConflicted"] === 'number' && Number.isSafeInteger(value["itemsConflicted"])) && (typeof value["itemsCreated"] === 'number' && Number.isSafeInteger(value["itemsCreated"])) && (typeof value["itemsInvalid"] === 'number' && Number.isSafeInteger(value["itemsInvalid"])) && (typeof value["itemsSkipped"] === 'number' && Number.isSafeInteger(value["itemsSkipped"]));
+  return isRecord(value) && (typeof value["catalogKey"] === 'string') && (typeof value["dictTypeCode"] === 'string') && (typeof value["dictTypeCreated"] === 'boolean') && ((value["dictTypeId"] === null) || (typeof value["dictTypeId"] === 'string' && guidPattern.test(value["dictTypeId"]))) && (Array.isArray(value["items"]) && value["items"].every(item14 => isEnumCatalogDictGenerationItemPreview(item14))) && (Number.isSafeInteger(value["itemsConflicted"])) && (Number.isSafeInteger(value["itemsCreated"])) && (Number.isSafeInteger(value["itemsInvalid"])) && (Number.isSafeInteger(value["itemsSkipped"]));
 }
 
 export function readEnumCatalogDictGenerationUnmanagedItem(value: unknown): EnumCatalogDictGenerationUnmanagedItem {
@@ -2701,7 +2823,7 @@ export function readEnumCatalogMember(value: unknown): EnumCatalogMember {
 }
 
 function isEnumCatalogMember(value: unknown): value is EnumCatalogMember {
-  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["label"] === 'string');
+  return isRecord(value) && (typeof value["code"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["label"] === 'string');
 }
 
 export function readEnumCatalogSummary(value: unknown): EnumCatalogSummary {
@@ -2713,7 +2835,7 @@ export function readEnumCatalogSummary(value: unknown): EnumCatalogSummary {
 }
 
 function isEnumCatalogSummary(value: unknown): value is EnumCatalogSummary {
-  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["key"] === 'string') && (typeof value["memberCount"] === 'number' && Number.isSafeInteger(value["memberCount"]));
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["key"] === 'string') && (Number.isSafeInteger(value["memberCount"]));
 }
 
 export function readExceptionLogResponse(value: unknown): ExceptionLogResponse {
@@ -2736,7 +2858,7 @@ export function readExecuteReportingDefinitionRequest(value: unknown): ExecuteRe
 }
 
 function isExecuteReportingDefinitionRequest(value: unknown): value is ExecuteReportingDefinitionRequest {
-  return isRecord(value) && (Array.isArray(value["parameters"]) && value["parameters"].every(item19 => isReportingExecutionParameterValue(item19))) && ((value["versionNumber"] === null) || (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"])));
+  return isRecord(value) && (Array.isArray(value["parameters"]) && value["parameters"].every(item19 => isReportingExecutionParameterValue(item19))) && ((value["versionNumber"] === null) || (Number.isSafeInteger(value["versionNumber"])));
 }
 
 export function readFieldProjectionDefaultVisibility(value: unknown): FieldProjectionDefaultVisibility {
@@ -2747,7 +2869,7 @@ export function readFieldProjectionDefaultVisibility(value: unknown): FieldProje
 }
 
 function isFieldProjectionDefaultVisibility(value: unknown): value is FieldProjectionDefaultVisibility {
-  return typeof value === 'number' && Number.isSafeInteger(value);
+  return Number.isSafeInteger(value);
 }
 
 export function readFieldProjectionFieldDefinition(value: unknown): FieldProjectionFieldDefinition {
@@ -2780,7 +2902,7 @@ export function readFieldProjectionSensitivity(value: unknown): FieldProjectionS
 }
 
 function isFieldProjectionSensitivity(value: unknown): value is FieldProjectionSensitivity {
-  return typeof value === 'number' && Number.isSafeInteger(value);
+  return Number.isSafeInteger(value);
 }
 
 export function readGoViewProjectPreviewResponse(value: unknown): GoViewProjectPreviewResponse {
@@ -2792,7 +2914,7 @@ export function readGoViewProjectPreviewResponse(value: unknown): GoViewProjectP
 }
 
 function isGoViewProjectPreviewResponse(value: unknown): value is GoViewProjectPreviewResponse {
-  return isRecord(value) && (typeof value["canvasJson"] === 'string') && (typeof value["generatedAtUtc"] === 'string') && (typeof value["projectId"] === 'string' && guidPattern.test(value["projectId"])) && (typeof value["projectKey"] === 'string') && (typeof value["projectName"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+  return isRecord(value) && (typeof value["canvasJson"] === 'string') && (typeof value["generatedAtUtc"] === 'string') && (typeof value["projectId"] === 'string' && guidPattern.test(value["projectId"])) && (typeof value["projectKey"] === 'string') && (typeof value["projectName"] === 'string') && (Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readGoViewProjectResponse(value: unknown): GoViewProjectResponse {
@@ -2804,7 +2926,7 @@ export function readGoViewProjectResponse(value: unknown): GoViewProjectResponse
 }
 
 function isGoViewProjectResponse(value: unknown): value is GoViewProjectResponse {
-  return isRecord(value) && (typeof value["canvasJson"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"])) && (typeof value["name"] === 'string') && (typeof value["projectKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["canvasJson"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (Number.isSafeInteger(value["latestPublishedVersionNumber"])) && (typeof value["name"] === 'string') && (typeof value["projectKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readGoViewProjectVersionResponse(value: unknown): GoViewProjectVersionResponse {
@@ -2816,7 +2938,7 @@ export function readGoViewProjectVersionResponse(value: unknown): GoViewProjectV
 }
 
 function isGoViewProjectVersionResponse(value: unknown): value is GoViewProjectVersionResponse {
-  return isRecord(value) && (typeof value["canvasJson"] === 'string') && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["projectId"] === 'string' && guidPattern.test(value["projectId"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+  return isRecord(value) && (typeof value["canvasJson"] === 'string') && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["projectId"] === 'string' && guidPattern.test(value["projectId"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"])) && (Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readGrantSuperAdministratorRequest(value: unknown): GrantSuperAdministratorRequest {
@@ -2850,7 +2972,7 @@ export function readHostAnnouncementReadStatsResponse(value: unknown): HostAnnou
 }
 
 function isHostAnnouncementReadStatsResponse(value: unknown): value is HostAnnouncementReadStatsResponse {
-  return isRecord(value) && (typeof value["eligibleRecipientCount"] === 'number' && Number.isSafeInteger(value["eligibleRecipientCount"])) && (typeof value["readCount"] === 'number' && Number.isSafeInteger(value["readCount"])) && (typeof value["unreadCount"] === 'number' && Number.isSafeInteger(value["unreadCount"]));
+  return isRecord(value) && (Number.isSafeInteger(value["eligibleRecipientCount"])) && (Number.isSafeInteger(value["readCount"])) && (Number.isSafeInteger(value["unreadCount"]));
 }
 
 export function readHostAnnouncementResponse(value: unknown): HostAnnouncementResponse {
@@ -2862,7 +2984,7 @@ export function readHostAnnouncementResponse(value: unknown): HostAnnouncementRe
 }
 
 function isHostAnnouncementResponse(value: unknown): value is HostAnnouncementResponse {
-  return isRecord(value) && (typeof value["audienceKind"] === 'string') && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["kind"] === 'string') && ((value["publishedAtUtc"] === null) || (typeof value["publishedAtUtc"] === 'string')) && ((value["publishedByUserId"] === null) || (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"]))) && ((value["retractedAtUtc"] === null) || (typeof value["retractedAtUtc"] === 'string')) && ((value["retractedByUserId"] === null) || (typeof value["retractedByUserId"] === 'string' && guidPattern.test(value["retractedByUserId"]))) && (typeof value["status"] === 'string') && (Array.isArray(value["targetOrganizations"]) && value["targetOrganizations"].every(item28 => isHostAnnouncementTargetOrganization(item28))) && (Array.isArray(value["targetUserIds"]) && value["targetUserIds"].every(item22 => typeof item22 === 'string' && guidPattern.test(item22))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["audienceKind"] === 'string') && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["kind"] === 'string') && ((value["publishedAtUtc"] === null) || (typeof value["publishedAtUtc"] === 'string')) && ((value["publishedByUserId"] === null) || (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"]))) && ((value["retractedAtUtc"] === null) || (typeof value["retractedAtUtc"] === 'string')) && ((value["retractedByUserId"] === null) || (typeof value["retractedByUserId"] === 'string' && guidPattern.test(value["retractedByUserId"]))) && (typeof value["status"] === 'string') && (Array.isArray(value["targetOrganizations"]) && value["targetOrganizations"].every(item28 => isHostAnnouncementTargetOrganization(item28))) && (Array.isArray(value["targetUserIds"]) && value["targetUserIds"].every(item22 => typeof item22 === 'string' && guidPattern.test(item22))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostAnnouncementTargetOrganization(value: unknown): HostAnnouncementTargetOrganization {
@@ -2885,7 +3007,7 @@ export function readHostAnnouncementUnreadCountResponse(value: unknown): HostAnn
 }
 
 function isHostAnnouncementUnreadCountResponse(value: unknown): value is HostAnnouncementUnreadCountResponse {
-  return isRecord(value) && (typeof value["unreadCount"] === 'number' && Number.isSafeInteger(value["unreadCount"]));
+  return isRecord(value) && (Number.isSafeInteger(value["unreadCount"]));
 }
 
 export function readHostApiKeyResponse(value: unknown): HostApiKeyResponse {
@@ -2919,7 +3041,7 @@ export function readHostDashboardBusinessEntryResponse(value: unknown): HostDash
 }
 
 function isHostDashboardBusinessEntryResponse(value: unknown): value is HostDashboardBusinessEntryResponse {
-  return isRecord(value) && (typeof value["count"] === 'number' && Number.isSafeInteger(value["count"])) && (typeof value["entryKey"] === 'string') && (typeof value["requiredPermission"] === 'string') && (typeof value["routePath"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["count"])) && (typeof value["entryKey"] === 'string') && (typeof value["requiredPermission"] === 'string') && (typeof value["routePath"] === 'string');
 }
 
 export function readHostDashboardSummaryResponse(value: unknown): HostDashboardSummaryResponse {
@@ -2931,7 +3053,7 @@ export function readHostDashboardSummaryResponse(value: unknown): HostDashboardS
 }
 
 function isHostDashboardSummaryResponse(value: unknown): value is HostDashboardSummaryResponse {
-  return isRecord(value) && ((value["accessTrafficTrend"] === null) || (isHostDashboardTrafficTrendResponse(value["accessTrafficTrend"]))) && ((value["activeTenantCount"] === null) || (typeof value["activeTenantCount"] === 'number' && Number.isSafeInteger(value["activeTenantCount"]))) && (Array.isArray(value["businessEntries"]) && value["businessEntries"].every(item24 => isHostDashboardBusinessEntryResponse(item24))) && ((value["onlineSessionCount"] === null) || (typeof value["onlineSessionCount"] === 'number' && Number.isSafeInteger(value["onlineSessionCount"]))) && ((value["recentActivities"] === null) || (Array.isArray(value["recentActivities"]) && value["recentActivities"].every(item25 => isHostDashboardActivityResponse(item25)))) && ((value["todayErrorRate"] === null) || (typeof value["todayErrorRate"] === 'number' && Number.isFinite(value["todayErrorRate"])) || (typeof value["todayErrorRate"] === 'string')) && ((value["todayRequestCount"] === null) || (typeof value["todayRequestCount"] === 'number' && Number.isSafeInteger(value["todayRequestCount"])));
+  return isRecord(value) && ((value["accessTrafficTrend"] === null) || (isHostDashboardTrafficTrendResponse(value["accessTrafficTrend"]))) && ((value["activeTenantCount"] === null) || (Number.isSafeInteger(value["activeTenantCount"]))) && (Array.isArray(value["businessEntries"]) && value["businessEntries"].every(item24 => isHostDashboardBusinessEntryResponse(item24))) && ((value["onlineSessionCount"] === null) || (Number.isSafeInteger(value["onlineSessionCount"]))) && ((value["recentActivities"] === null) || (Array.isArray(value["recentActivities"]) && value["recentActivities"].every(item25 => isHostDashboardActivityResponse(item25)))) && ((value["todayErrorRate"] === null) || (Number.isFinite(value["todayErrorRate"])) || (typeof value["todayErrorRate"] === 'string')) && ((value["todayRequestCount"] === null) || (Number.isSafeInteger(value["todayRequestCount"])));
 }
 
 export function readHostDashboardTrafficTrendBucketResponse(value: unknown): HostDashboardTrafficTrendBucketResponse {
@@ -2943,7 +3065,7 @@ export function readHostDashboardTrafficTrendBucketResponse(value: unknown): Hos
 }
 
 function isHostDashboardTrafficTrendBucketResponse(value: unknown): value is HostDashboardTrafficTrendBucketResponse {
-  return isRecord(value) && (typeof value["bucketStartUtc"] === 'string') && (typeof value["errorCount"] === 'number' && Number.isSafeInteger(value["errorCount"])) && (typeof value["eventCount"] === 'number' && Number.isSafeInteger(value["eventCount"]));
+  return isRecord(value) && (typeof value["bucketStartUtc"] === 'string') && (Number.isSafeInteger(value["errorCount"])) && (Number.isSafeInteger(value["eventCount"]));
 }
 
 export function readHostDashboardTrafficTrendResponse(value: unknown): HostDashboardTrafficTrendResponse {
@@ -2955,7 +3077,7 @@ export function readHostDashboardTrafficTrendResponse(value: unknown): HostDashb
 }
 
 function isHostDashboardTrafficTrendResponse(value: unknown): value is HostDashboardTrafficTrendResponse {
-  return isRecord(value) && (Array.isArray(value["buckets"]) && value["buckets"].every(item16 => isHostDashboardTrafficTrendBucketResponse(item16))) && (typeof value["bucketSizeMinutes"] === 'number' && Number.isSafeInteger(value["bucketSizeMinutes"])) && (typeof value["fromUtc"] === 'string') && (typeof value["toUtc"] === 'string');
+  return isRecord(value) && (Array.isArray(value["buckets"]) && value["buckets"].every(item16 => isHostDashboardTrafficTrendBucketResponse(item16))) && (Number.isSafeInteger(value["bucketSizeMinutes"])) && (typeof value["fromUtc"] === 'string') && (typeof value["toUtc"] === 'string');
 }
 
 export function readHostDocumentAccessLogResponse(value: unknown): HostDocumentAccessLogResponse {
@@ -2978,7 +3100,7 @@ export function readHostDocumentCategoryResponse(value: unknown): HostDocumentCa
 }
 
 function isHostDocumentCategoryResponse(value: unknown): value is HostDocumentCategoryResponse {
-  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["sortOrder"] === 'number' && Number.isSafeInteger(value["sortOrder"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (Number.isSafeInteger(value["sortOrder"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostDocumentItemResponse(value: unknown): HostDocumentItemResponse {
@@ -2990,7 +3112,7 @@ export function readHostDocumentItemResponse(value: unknown): HostDocumentItemRe
 }
 
 function isHostDocumentItemResponse(value: unknown): value is HostDocumentItemResponse {
-  return isRecord(value) && (typeof value["accessCount"] === 'number' && Number.isSafeInteger(value["accessCount"])) && ((value["categoryColor"] === null) || (typeof value["categoryColor"] === 'string')) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["categoryName"] === null) || (typeof value["categoryName"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["currentVersion"] === null) || (isHostDocumentVersionResponse(value["currentVersion"]))) && ((value["deletedAtUtc"] === null) || (typeof value["deletedAtUtc"] === 'string')) && ((value["deletedByUserId"] === null) || (typeof value["deletedByUserId"] === 'string' && guidPattern.test(value["deletedByUserId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["documentNo"] === 'string') && (isHostDocumentType(value["documentType"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["lastAccessTime"] === null) || (typeof value["lastAccessTime"] === 'string')) && (typeof value["sizeKb"] === 'number' && Number.isSafeInteger(value["sizeKb"])) && (typeof value["sort"] === 'number' && Number.isSafeInteger(value["sort"])) && (isHostDocumentStatus(value["status"])) && (Array.isArray(value["tags"]) && value["tags"].every(item13 => isHostDocumentTagAssignmentResponse(item13))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["accessCount"])) && ((value["categoryColor"] === null) || (typeof value["categoryColor"] === 'string')) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["categoryName"] === null) || (typeof value["categoryName"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["currentVersion"] === null) || (isHostDocumentVersionResponse(value["currentVersion"]))) && ((value["deletedAtUtc"] === null) || (typeof value["deletedAtUtc"] === 'string')) && ((value["deletedByUserId"] === null) || (typeof value["deletedByUserId"] === 'string' && guidPattern.test(value["deletedByUserId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["documentNo"] === 'string') && (isHostDocumentType(value["documentType"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["lastAccessTime"] === null) || (typeof value["lastAccessTime"] === 'string')) && (Number.isSafeInteger(value["sizeKb"])) && (Number.isSafeInteger(value["sort"])) && (isHostDocumentStatus(value["status"])) && (Array.isArray(value["tags"]) && value["tags"].every(item13 => isHostDocumentTagAssignmentResponse(item13))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"]))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostDocumentPermissionEntry(value: unknown): HostDocumentPermissionEntry {
@@ -3024,7 +3146,7 @@ export function readHostDocumentPreviewTaskResponse(value: unknown): HostDocumen
 }
 
 function isHostDocumentPreviewTaskResponse(value: unknown): value is HostDocumentPreviewTaskResponse {
-  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentItemId"] === 'string' && guidPattern.test(value["documentItemId"])) && (typeof value["documentTitle"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["outputFileId"] === null) || (typeof value["outputFileId"] === 'string' && guidPattern.test(value["outputFileId"]))) && (typeof value["providerKey"] === 'string') && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && (typeof value["statusKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && ((value["versionId"] === null) || (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"])));
+  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentItemId"] === 'string' && guidPattern.test(value["documentItemId"])) && (typeof value["documentTitle"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["outputFileId"] === null) || (typeof value["outputFileId"] === 'string' && guidPattern.test(value["outputFileId"]))) && (typeof value["providerKey"] === 'string') && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && (typeof value["statusKey"] === 'string') && (Number.isSafeInteger(value["version"])) && ((value["versionId"] === null) || (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"])));
 }
 
 export function readHostDocumentShareAccessResponse(value: unknown): HostDocumentShareAccessResponse {
@@ -3036,7 +3158,7 @@ export function readHostDocumentShareAccessResponse(value: unknown): HostDocumen
 }
 
 function isHostDocumentShareAccessResponse(value: unknown): value is HostDocumentShareAccessResponse {
-  return isRecord(value) && (typeof value["accessCountRemaining"] === 'number' && Number.isSafeInteger(value["accessCountRemaining"])) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["fileName"] === null) || (typeof value["fileName"] === 'string')) && (typeof value["fileSizeBytes"] === 'number' && Number.isSafeInteger(value["fileSizeBytes"])) && (typeof value["hasPassword"] === 'boolean') && ((value["mimeType"] === null) || (typeof value["mimeType"] === 'string')) && (typeof value["shareCode"] === 'string') && (typeof value["shareId"] === 'string' && guidPattern.test(value["shareId"])) && (typeof value["title"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["accessCountRemaining"])) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["fileName"] === null) || (typeof value["fileName"] === 'string')) && (Number.isSafeInteger(value["fileSizeBytes"])) && (typeof value["hasPassword"] === 'boolean') && ((value["mimeType"] === null) || (typeof value["mimeType"] === 'string')) && (typeof value["shareCode"] === 'string') && (typeof value["shareId"] === 'string' && guidPattern.test(value["shareId"])) && (typeof value["title"] === 'string');
 }
 
 export function readHostDocumentShareResponse(value: unknown): HostDocumentShareResponse {
@@ -3048,7 +3170,7 @@ export function readHostDocumentShareResponse(value: unknown): HostDocumentShare
 }
 
 function isHostDocumentShareResponse(value: unknown): value is HostDocumentShareResponse {
-  return isRecord(value) && (typeof value["accessCount"] === 'number' && Number.isSafeInteger(value["accessCount"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["expireTime"] === 'string') && (typeof value["hasPassword"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["maxAccessCount"] === null) || (typeof value["maxAccessCount"] === 'number' && Number.isSafeInteger(value["maxAccessCount"]))) && (typeof value["shareCode"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["accessCount"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["expireTime"] === 'string') && (typeof value["hasPassword"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["maxAccessCount"] === null) || (Number.isSafeInteger(value["maxAccessCount"]))) && (typeof value["shareCode"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostDocumentStatisticsCategoryItem(value: unknown): HostDocumentStatisticsCategoryItem {
@@ -3060,7 +3182,7 @@ export function readHostDocumentStatisticsCategoryItem(value: unknown): HostDocu
 }
 
 function isHostDocumentStatisticsCategoryItem(value: unknown): value is HostDocumentStatisticsCategoryItem {
-  return isRecord(value) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["categoryName"] === null) || (typeof value["categoryName"] === 'string')) && (typeof value["count"] === 'number' && Number.isSafeInteger(value["count"]));
+  return isRecord(value) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["categoryName"] === null) || (typeof value["categoryName"] === 'string')) && (Number.isSafeInteger(value["count"]));
 }
 
 export function readHostDocumentStatisticsResponse(value: unknown): HostDocumentStatisticsResponse {
@@ -3072,7 +3194,7 @@ export function readHostDocumentStatisticsResponse(value: unknown): HostDocument
 }
 
 function isHostDocumentStatisticsResponse(value: unknown): value is HostDocumentStatisticsResponse {
-  return isRecord(value) && (Array.isArray(value["byCategory"]) && value["byCategory"].every(item19 => isHostDocumentStatisticsCategoryItem(item19))) && (Array.isArray(value["byType"]) && value["byType"].every(item15 => isHostDocumentStatisticsTypeItem(item15))) && (typeof value["recycleBinCount"] === 'number' && Number.isSafeInteger(value["recycleBinCount"])) && (typeof value["shareCount"] === 'number' && Number.isSafeInteger(value["shareCount"])) && (isHostDocumentStatisticsSummaryResponse(value["summary"])) && (typeof value["todayAccessCount"] === 'number' && Number.isSafeInteger(value["todayAccessCount"])) && (typeof value["todayCreatedCount"] === 'number' && Number.isSafeInteger(value["todayCreatedCount"])) && (typeof value["todayDownloadCount"] === 'number' && Number.isSafeInteger(value["todayDownloadCount"]));
+  return isRecord(value) && (Array.isArray(value["byCategory"]) && value["byCategory"].every(item19 => isHostDocumentStatisticsCategoryItem(item19))) && (Array.isArray(value["byType"]) && value["byType"].every(item15 => isHostDocumentStatisticsTypeItem(item15))) && (Number.isSafeInteger(value["recycleBinCount"])) && (Number.isSafeInteger(value["shareCount"])) && (isHostDocumentStatisticsSummaryResponse(value["summary"])) && (Number.isSafeInteger(value["todayAccessCount"])) && (Number.isSafeInteger(value["todayCreatedCount"])) && (Number.isSafeInteger(value["todayDownloadCount"]));
 }
 
 export function readHostDocumentStatisticsSummaryResponse(value: unknown): HostDocumentStatisticsSummaryResponse {
@@ -3084,7 +3206,7 @@ export function readHostDocumentStatisticsSummaryResponse(value: unknown): HostD
 }
 
 function isHostDocumentStatisticsSummaryResponse(value: unknown): value is HostDocumentStatisticsSummaryResponse {
-  return isRecord(value) && (typeof value["totalItems"] === 'number' && Number.isSafeInteger(value["totalItems"])) && (typeof value["totalSizeInfo"] === 'string') && (typeof value["totalSizeKb"] === 'number' && Number.isSafeInteger(value["totalSizeKb"])) && (typeof value["totalVersions"] === 'number' && Number.isSafeInteger(value["totalVersions"]));
+  return isRecord(value) && (Number.isSafeInteger(value["totalItems"])) && (typeof value["totalSizeInfo"] === 'string') && (Number.isSafeInteger(value["totalSizeKb"])) && (Number.isSafeInteger(value["totalVersions"]));
 }
 
 export function readHostDocumentStatisticsTypeItem(value: unknown): HostDocumentStatisticsTypeItem {
@@ -3096,7 +3218,7 @@ export function readHostDocumentStatisticsTypeItem(value: unknown): HostDocument
 }
 
 function isHostDocumentStatisticsTypeItem(value: unknown): value is HostDocumentStatisticsTypeItem {
-  return isRecord(value) && (typeof value["count"] === 'number' && Number.isSafeInteger(value["count"])) && ((value["extension"] === null) || (typeof value["extension"] === 'string')) && (typeof value["totalSizeKb"] === 'number' && Number.isSafeInteger(value["totalSizeKb"]));
+  return isRecord(value) && (Number.isSafeInteger(value["count"])) && ((value["extension"] === null) || (typeof value["extension"] === 'string')) && (Number.isSafeInteger(value["totalSizeKb"]));
 }
 
 export function readHostDocumentStatus(value: unknown): HostDocumentStatus {
@@ -3107,7 +3229,7 @@ export function readHostDocumentStatus(value: unknown): HostDocumentStatus {
 }
 
 function isHostDocumentStatus(value: unknown): value is HostDocumentStatus {
-  return typeof value === 'number' && Number.isSafeInteger(value);
+  return Number.isSafeInteger(value);
 }
 
 export function readHostDocumentTagAssignmentResponse(value: unknown): HostDocumentTagAssignmentResponse {
@@ -3130,7 +3252,7 @@ export function readHostDocumentTagResponse(value: unknown): HostDocumentTagResp
 }
 
 function isHostDocumentTagResponse(value: unknown): value is HostDocumentTagResponse {
-  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isHot"] === 'boolean') && (typeof value["isRecommended"] === 'boolean') && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["useCount"] === 'number' && Number.isSafeInteger(value["useCount"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isHot"] === 'boolean') && (typeof value["isRecommended"] === 'boolean') && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["useCount"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostDocumentType(value: unknown): HostDocumentType {
@@ -3141,7 +3263,7 @@ export function readHostDocumentType(value: unknown): HostDocumentType {
 }
 
 function isHostDocumentType(value: unknown): value is HostDocumentType {
-  return typeof value === 'number' && Number.isSafeInteger(value);
+  return Number.isSafeInteger(value);
 }
 
 export function readHostDocumentVersionResponse(value: unknown): HostDocumentVersionResponse {
@@ -3153,7 +3275,7 @@ export function readHostDocumentVersionResponse(value: unknown): HostDocumentVer
 }
 
 function isHostDocumentVersionResponse(value: unknown): value is HostDocumentVersionResponse {
-  return isRecord(value) && ((value["changeDescription"] === null) || (typeof value["changeDescription"] === 'string')) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["fileId"] === 'string' && guidPattern.test(value["fileId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["sizeBytes"] === 'number' && Number.isSafeInteger(value["sizeBytes"])) && (typeof value["uploadedByUserId"] === 'string' && guidPattern.test(value["uploadedByUserId"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+  return isRecord(value) && ((value["changeDescription"] === null) || (typeof value["changeDescription"] === 'string')) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["fileId"] === 'string' && guidPattern.test(value["fileId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (Number.isSafeInteger(value["sizeBytes"])) && (typeof value["uploadedByUserId"] === 'string' && guidPattern.test(value["uploadedByUserId"])) && (Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readHostDocumentVersionRetentionSettingsResponse(value: unknown): HostDocumentVersionRetentionSettingsResponse {
@@ -3165,7 +3287,7 @@ export function readHostDocumentVersionRetentionSettingsResponse(value: unknown)
 }
 
 function isHostDocumentVersionRetentionSettingsResponse(value: unknown): value is HostDocumentVersionRetentionSettingsResponse {
-  return isRecord(value) && (typeof value["batchSize"] === 'number' && Number.isSafeInteger(value["batchSize"])) && (typeof value["maximumRetainedHistoryVersions"] === 'number' && Number.isSafeInteger(value["maximumRetainedHistoryVersions"])) && (typeof value["minimumRetainedVersionsPerItem"] === 'number' && Number.isSafeInteger(value["minimumRetainedVersionsPerItem"])) && (typeof value["pollSeconds"] === 'number' && Number.isSafeInteger(value["pollSeconds"]));
+  return isRecord(value) && (Number.isSafeInteger(value["batchSize"])) && (Number.isSafeInteger(value["maximumRetainedHistoryVersions"])) && (Number.isSafeInteger(value["minimumRetainedVersionsPerItem"])) && (Number.isSafeInteger(value["pollSeconds"]));
 }
 
 export function readHostFileReferenceClaimResponse(value: unknown): HostFileReferenceClaimResponse {
@@ -3188,7 +3310,7 @@ export function readHostFileResponse(value: unknown): HostFileResponse {
 }
 
 function isHostFileResponse(value: unknown): value is HostFileResponse {
-  return isRecord(value) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["contentType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["folderId"] === null) || (typeof value["folderId"] === 'string' && guidPattern.test(value["folderId"]))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["originalFileName"] === 'string') && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["sizeBytes"] === 'number' && Number.isSafeInteger(value["sizeBytes"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"])));
+  return isRecord(value) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["contentType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["folderId"] === null) || (typeof value["folderId"] === 'string' && guidPattern.test(value["folderId"]))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["originalFileName"] === 'string') && (Number.isSafeInteger(value["revision"])) && (Number.isSafeInteger(value["sizeBytes"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"])));
 }
 
 export function readHostFolderResponse(value: unknown): HostFolderResponse {
@@ -3200,7 +3322,7 @@ export function readHostFolderResponse(value: unknown): HostFolderResponse {
 }
 
 function isHostFolderResponse(value: unknown): value is HostFolderResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"])));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (Number.isSafeInteger(value["revision"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"])));
 }
 
 export function readHostFolderTreeNode(value: unknown): HostFolderTreeNode {
@@ -3212,7 +3334,7 @@ export function readHostFolderTreeNode(value: unknown): HostFolderTreeNode {
 }
 
 function isHostFolderTreeNode(value: unknown): value is HostFolderTreeNode {
-  return isRecord(value) && (Array.isArray(value["children"]) && value["children"].every(item17 => isHostFolderTreeNode(item17))) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"]));
+  return isRecord(value) && (Array.isArray(value["children"]) && value["children"].every(item17 => isHostFolderTreeNode(item17))) && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (Number.isSafeInteger(value["revision"]));
 }
 
 export function readHostJobDefinitionResponse(value: unknown): HostJobDefinitionResponse {
@@ -3224,7 +3346,7 @@ export function readHostJobDefinitionResponse(value: unknown): HostJobDefinition
 }
 
 function isHostJobDefinitionResponse(value: unknown): value is HostJobDefinitionResponse {
-  return isRecord(value) && (typeof value["allowConcurrentExecutions"] === 'boolean') && ((value["args"] === null) || (isHttpJobArgs(value["args"]))) && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["handlerKind"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["jobKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["allowConcurrentExecutions"] === 'boolean') && ((value["args"] === null) || (isHttpJobArgs(value["args"]))) && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["handlerKind"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["jobKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostJobExecutionResponse(value: unknown): HostJobExecutionResponse {
@@ -3236,7 +3358,7 @@ export function readHostJobExecutionResponse(value: unknown): HostJobExecutionRe
 }
 
 function isHostJobExecutionResponse(value: unknown): value is HostJobExecutionResponse {
-  return isRecord(value) && (typeof value["attemptCount"] === 'number' && Number.isSafeInteger(value["attemptCount"])) && (typeof value["createdAtUtc"] === 'string') && ((value["errorMessage"] === null) || (typeof value["errorMessage"] === 'string')) && ((value["finishedAtUtc"] === null) || (typeof value["finishedAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["jobDefinitionId"] === 'string' && guidPattern.test(value["jobDefinitionId"])) && ((value["jobScheduleId"] === null) || (typeof value["jobScheduleId"] === 'string' && guidPattern.test(value["jobScheduleId"]))) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && ((value["scheduledForUtc"] === null) || (typeof value["scheduledForUtc"] === 'string')) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && (typeof value["status"] === 'string') && (typeof value["triggerKind"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["attemptCount"])) && (typeof value["createdAtUtc"] === 'string') && ((value["errorMessage"] === null) || (typeof value["errorMessage"] === 'string')) && ((value["finishedAtUtc"] === null) || (typeof value["finishedAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["jobDefinitionId"] === 'string' && guidPattern.test(value["jobDefinitionId"])) && ((value["jobScheduleId"] === null) || (typeof value["jobScheduleId"] === 'string' && guidPattern.test(value["jobScheduleId"]))) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && ((value["scheduledForUtc"] === null) || (typeof value["scheduledForUtc"] === 'string')) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && (typeof value["status"] === 'string') && (typeof value["triggerKind"] === 'string');
 }
 
 export function readHostJobGroupResponse(value: unknown): HostJobGroupResponse {
@@ -3259,7 +3381,7 @@ export function readHostJobHealthBacklogSnapshot(value: unknown): HostJobHealthB
 }
 
 function isHostJobHealthBacklogSnapshot(value: unknown): value is HostJobHealthBacklogSnapshot {
-  return isRecord(value) && (typeof value["dueRetryCount"] === 'number' && Number.isSafeInteger(value["dueRetryCount"])) && ((value["oldestClaimableCreatedAtUtc"] === null) || (typeof value["oldestClaimableCreatedAtUtc"] === 'string')) && ((value["oldestDueRetryAtUtc"] === null) || (typeof value["oldestDueRetryAtUtc"] === 'string')) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"]));
+  return isRecord(value) && (Number.isSafeInteger(value["dueRetryCount"])) && ((value["oldestClaimableCreatedAtUtc"] === null) || (typeof value["oldestClaimableCreatedAtUtc"] === 'string')) && ((value["oldestDueRetryAtUtc"] === null) || (typeof value["oldestDueRetryAtUtc"] === 'string')) && (Number.isSafeInteger(value["pendingCount"]));
 }
 
 export function readHostJobHealthResponse(value: unknown): HostJobHealthResponse {
@@ -3305,7 +3427,7 @@ export function readHostJobScheduleResponse(value: unknown): HostJobScheduleResp
 }
 
 function isHostJobScheduleResponse(value: unknown): value is HostJobScheduleResponse {
-  return isRecord(value) && ((value["args"] === null) || (typeof value["args"] === 'string')) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["cronExpression"] === null) || (typeof value["cronExpression"] === 'string')) && ((value["endTime"] === null) || (typeof value["endTime"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["jobDefinitionDisplayName"] === 'string') && (typeof value["jobDefinitionId"] === 'string' && guidPattern.test(value["jobDefinitionId"])) && (typeof value["jobDefinitionJobKey"] === 'string') && ((value["lastExecutionAtUtc"] === null) || (typeof value["lastExecutionAtUtc"] === 'string')) && (typeof value["misfirePolicy"] === 'string') && ((value["nextExecutionAtUtc"] === null) || (typeof value["nextExecutionAtUtc"] === 'string')) && (typeof value["numberOfErrors"] === 'number' && Number.isSafeInteger(value["numberOfErrors"])) && (typeof value["numberOfRuns"] === 'number' && Number.isSafeInteger(value["numberOfRuns"])) && ((value["oneTimeAtUtc"] === null) || (typeof value["oneTimeAtUtc"] === 'string')) && ((value["startTime"] === null) || (typeof value["startTime"] === 'string')) && (typeof value["timeZoneId"] === 'string') && (typeof value["triggerKind"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["args"] === null) || (typeof value["args"] === 'string')) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["cronExpression"] === null) || (typeof value["cronExpression"] === 'string')) && ((value["endTime"] === null) || (typeof value["endTime"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["jobDefinitionDisplayName"] === 'string') && (typeof value["jobDefinitionId"] === 'string' && guidPattern.test(value["jobDefinitionId"])) && (typeof value["jobDefinitionJobKey"] === 'string') && ((value["lastExecutionAtUtc"] === null) || (typeof value["lastExecutionAtUtc"] === 'string')) && (typeof value["misfirePolicy"] === 'string') && ((value["nextExecutionAtUtc"] === null) || (typeof value["nextExecutionAtUtc"] === 'string')) && (Number.isSafeInteger(value["numberOfErrors"])) && (Number.isSafeInteger(value["numberOfRuns"])) && ((value["oneTimeAtUtc"] === null) || (typeof value["oneTimeAtUtc"] === 'string')) && ((value["startTime"] === null) || (typeof value["startTime"] === 'string')) && (typeof value["timeZoneId"] === 'string') && (typeof value["triggerKind"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostJobWorkerInstanceResponse(value: unknown): HostJobWorkerInstanceResponse {
@@ -3339,7 +3461,7 @@ export function readHostMenuResponse(value: unknown): HostMenuResponse {
 }
 
 function isHostMenuResponse(value: unknown): value is HostMenuResponse {
-  return isRecord(value) && (typeof value["caption"] === 'string') && (typeof value["componentKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["icon"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["isAffix"] === 'boolean') && (typeof value["isEmbedded"] === 'boolean') && (typeof value["isHidden"] === 'boolean') && (typeof value["isKeepAlive"] === 'boolean') && (typeof value["isSystem"] === 'boolean') && ((value["linkUrl"] === null) || (typeof value["linkUrl"] === 'string')) && (typeof value["menuType"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["path"] === 'string') && ((value["redirect"] === null) || (typeof value["redirect"] === 'string')) && ((value["remark"] === null) || (typeof value["remark"] === 'string')) && (typeof value["requiredPermission"] === 'string') && (typeof value["routeName"] === 'string') && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["caption"] === 'string') && (typeof value["componentKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["icon"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["isAffix"] === 'boolean') && (typeof value["isEmbedded"] === 'boolean') && (typeof value["isHidden"] === 'boolean') && (typeof value["isKeepAlive"] === 'boolean') && (typeof value["isSystem"] === 'boolean') && ((value["linkUrl"] === null) || (typeof value["linkUrl"] === 'string')) && (typeof value["menuType"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["path"] === 'string') && ((value["redirect"] === null) || (typeof value["redirect"] === 'string')) && ((value["remark"] === null) || (typeof value["remark"] === 'string')) && (typeof value["requiredPermission"] === 'string') && (typeof value["routeName"] === 'string') && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostNavigationCatalogSyncResponse(value: unknown): HostNavigationCatalogSyncResponse {
@@ -3351,7 +3473,7 @@ export function readHostNavigationCatalogSyncResponse(value: unknown): HostNavig
 }
 
 function isHostNavigationCatalogSyncResponse(value: unknown): value is HostNavigationCatalogSyncResponse {
-  return isRecord(value) && (typeof value["created"] === 'number' && Number.isSafeInteger(value["created"])) && (typeof value["reparented"] === 'number' && Number.isSafeInteger(value["reparented"])) && (typeof value["skipped"] === 'number' && Number.isSafeInteger(value["skipped"]));
+  return isRecord(value) && (Number.isSafeInteger(value["created"])) && (Number.isSafeInteger(value["reparented"])) && (Number.isSafeInteger(value["skipped"]));
 }
 
 export function readHostOnlineSessionResponse(value: unknown): HostOnlineSessionResponse {
@@ -3374,7 +3496,7 @@ export function readHostReleaseNoteResponse(value: unknown): HostReleaseNoteResp
 }
 
 function isHostReleaseNoteResponse(value: unknown): value is HostReleaseNoteResponse {
-  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["publishedAtUtc"] === null) || (typeof value["publishedAtUtc"] === 'string')) && ((value["publishedByUserId"] === null) || (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"]))) && ((value["retractedAtUtc"] === null) || (typeof value["retractedAtUtc"] === 'string')) && ((value["retractedByUserId"] === null) || (typeof value["retractedByUserId"] === 'string' && guidPattern.test(value["retractedByUserId"]))) && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["versionLabel"] === 'string') && (typeof value["versionSortKey"] === 'number' && Number.isSafeInteger(value["versionSortKey"]));
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["publishedAtUtc"] === null) || (typeof value["publishedAtUtc"] === 'string')) && ((value["publishedByUserId"] === null) || (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"]))) && ((value["retractedAtUtc"] === null) || (typeof value["retractedAtUtc"] === 'string')) && ((value["retractedByUserId"] === null) || (typeof value["retractedByUserId"] === 'string' && guidPattern.test(value["retractedByUserId"]))) && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"])) && (typeof value["versionLabel"] === 'string') && (Number.isSafeInteger(value["versionSortKey"]));
 }
 
 export function readHostRoleDataScopeResponse(value: unknown): HostRoleDataScopeResponse {
@@ -3386,7 +3508,7 @@ export function readHostRoleDataScopeResponse(value: unknown): HostRoleDataScope
 }
 
 function isHostRoleDataScopeResponse(value: unknown): value is HostRoleDataScopeResponse {
-  return isRecord(value) && (typeof value["dataScopeKind"] === 'string') && (typeof value["roleId"] === 'string' && guidPattern.test(value["roleId"])) && (Array.isArray(value["unitIds"]) && value["unitIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["dataScopeKind"] === 'string') && (typeof value["roleId"] === 'string' && guidPattern.test(value["roleId"])) && (Array.isArray(value["unitIds"]) && value["unitIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostRoleFieldGrantsResponse(value: unknown): HostRoleFieldGrantsResponse {
@@ -3398,7 +3520,7 @@ export function readHostRoleFieldGrantsResponse(value: unknown): HostRoleFieldGr
 }
 
 function isHostRoleFieldGrantsResponse(value: unknown): value is HostRoleFieldGrantsResponse {
-  return isRecord(value) && (Array.isArray(value["fieldKeys"]) && value["fieldKeys"].every(item18 => typeof item18 === 'string')) && (typeof value["resourceKey"] === 'string') && (typeof value["roleId"] === 'string' && guidPattern.test(value["roleId"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Array.isArray(value["fieldKeys"]) && value["fieldKeys"].every(item18 => typeof item18 === 'string')) && (typeof value["resourceKey"] === 'string') && (typeof value["roleId"] === 'string' && guidPattern.test(value["roleId"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostRoleMemberResponse(value: unknown): HostRoleMemberResponse {
@@ -3421,7 +3543,7 @@ export function readHostRoleMembersAssignmentResponse(value: unknown): HostRoleM
 }
 
 function isHostRoleMembersAssignmentResponse(value: unknown): value is HostRoleMembersAssignmentResponse {
-  return isRecord(value) && (typeof value["roleId"] === 'string' && guidPattern.test(value["roleId"])) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["roleId"] === 'string' && guidPattern.test(value["roleId"])) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostRoleMembersPageResponse(value: unknown): HostRoleMembersPageResponse {
@@ -3433,7 +3555,7 @@ export function readHostRoleMembersPageResponse(value: unknown): HostRoleMembers
 }
 
 function isHostRoleMembersPageResponse(value: unknown): value is HostRoleMembersPageResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostRoleMemberResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["roleId"] === 'string' && guidPattern.test(value["roleId"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostRoleMemberResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (typeof value["roleId"] === 'string' && guidPattern.test(value["roleId"])) && (Number.isSafeInteger(value["total"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostRoleResponse(value: unknown): HostRoleResponse {
@@ -3445,7 +3567,7 @@ export function readHostRoleResponse(value: unknown): HostRoleResponse {
 }
 
 function isHostRoleResponse(value: unknown): value is HostRoleResponse {
-  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["isSuperAdministrator"] === 'boolean') && (typeof value["isSystem"] === 'boolean') && (typeof value["name"] === 'string') && (Array.isArray(value["permissionCodes"]) && value["permissionCodes"].every(item24 => typeof item24 === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["isSuperAdministrator"] === 'boolean') && (typeof value["isSystem"] === 'boolean') && (typeof value["name"] === 'string') && (Array.isArray(value["permissionCodes"]) && value["permissionCodes"].every(item24 => typeof item24 === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostTenantAdministratorsPageResponse(value: unknown): HostTenantAdministratorsPageResponse {
@@ -3457,7 +3579,7 @@ export function readHostTenantAdministratorsPageResponse(value: unknown): HostTe
 }
 
 function isHostTenantAdministratorsPageResponse(value: unknown): value is HostTenantAdministratorsPageResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostTenantMemberResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostTenantMemberResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readHostTenantMemberResponse(value: unknown): HostTenantMemberResponse {
@@ -3480,7 +3602,7 @@ export function readHostTenantMembersPageResponse(value: unknown): HostTenantMem
 }
 
 function isHostTenantMembersPageResponse(value: unknown): value is HostTenantMembersPageResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostTenantMemberResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostTenantMemberResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readHostUserManagementOrganizationReferenceResponse(value: unknown): HostUserManagementOrganizationReferenceResponse {
@@ -3504,7 +3626,7 @@ export function readHostUserProfileResponse(value: unknown): HostUserProfileResp
 }
 
 function isHostUserProfileResponse(value: unknown): value is HostUserProfileResponse {
-  return isRecord(value) && ((value["address"] === null) || (typeof value["address"] === 'string')) && ((value["birthDate"] === null) || (typeof value["birthDate"] === 'string')) && ((value["educationLevel"] === null) || (typeof value["educationLevel"] === 'string')) && ((value["email"] === null) || (typeof value["email"] === 'string')) && ((value["emergencyContact"] === null) || (typeof value["emergencyContact"] === 'string')) && ((value["emergencyContactAddress"] === null) || (typeof value["emergencyContactAddress"] === 'string')) && ((value["emergencyContactPhone"] === null) || (typeof value["emergencyContactPhone"] === 'string')) && ((value["emergencyContactRelation"] === null) || (typeof value["emergencyContactRelation"] === 'string')) && ((value["employeeNumber"] === null) || (typeof value["employeeNumber"] === 'string')) && ((value["ethnicity"] === null) || (typeof value["ethnicity"] === 'string')) && ((value["gender"] === null) || (typeof value["gender"] === 'string')) && ((value["graduatedSchool"] === null) || (typeof value["graduatedSchool"] === 'string')) && ((value["idCardNumber"] === null) || (typeof value["idCardNumber"] === 'string')) && ((value["idCardType"] === null) || (typeof value["idCardType"] === 'string')) && ((value["joinDateUtc"] === null) || (typeof value["joinDateUtc"] === 'string')) && ((value["nickname"] === null) || (typeof value["nickname"] === 'string')) && ((value["officePhone"] === null) || (typeof value["officePhone"] === 'string')) && ((value["phoneNumber"] === null) || (typeof value["phoneNumber"] === 'string')) && ((value["politicalStatus"] === null) || (typeof value["politicalStatus"] === 'string')) && ((value["remark"] === null) || (typeof value["remark"] === 'string')) && ((value["sortOrder"] === null) || (typeof value["sortOrder"] === 'number' && Number.isSafeInteger(value["sortOrder"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["address"] === null) || (typeof value["address"] === 'string')) && ((value["birthDate"] === null) || (typeof value["birthDate"] === 'string')) && ((value["educationLevel"] === null) || (typeof value["educationLevel"] === 'string')) && ((value["email"] === null) || (typeof value["email"] === 'string')) && ((value["emergencyContact"] === null) || (typeof value["emergencyContact"] === 'string')) && ((value["emergencyContactAddress"] === null) || (typeof value["emergencyContactAddress"] === 'string')) && ((value["emergencyContactPhone"] === null) || (typeof value["emergencyContactPhone"] === 'string')) && ((value["emergencyContactRelation"] === null) || (typeof value["emergencyContactRelation"] === 'string')) && ((value["employeeNumber"] === null) || (typeof value["employeeNumber"] === 'string')) && ((value["ethnicity"] === null) || (typeof value["ethnicity"] === 'string')) && ((value["gender"] === null) || (typeof value["gender"] === 'string')) && ((value["graduatedSchool"] === null) || (typeof value["graduatedSchool"] === 'string')) && ((value["idCardNumber"] === null) || (typeof value["idCardNumber"] === 'string')) && ((value["idCardType"] === null) || (typeof value["idCardType"] === 'string')) && ((value["joinDateUtc"] === null) || (typeof value["joinDateUtc"] === 'string')) && ((value["nickname"] === null) || (typeof value["nickname"] === 'string')) && ((value["officePhone"] === null) || (typeof value["officePhone"] === 'string')) && ((value["phoneNumber"] === null) || (typeof value["phoneNumber"] === 'string')) && ((value["politicalStatus"] === null) || (typeof value["politicalStatus"] === 'string')) && ((value["remark"] === null) || (typeof value["remark"] === 'string')) && ((value["sortOrder"] === null) || (Number.isSafeInteger(value["sortOrder"]))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostUserProfileWriteRequest(value: unknown): HostUserProfileWriteRequest {
@@ -3516,7 +3638,7 @@ export function readHostUserProfileWriteRequest(value: unknown): HostUserProfile
 }
 
 function isHostUserProfileWriteRequest(value: unknown): value is HostUserProfileWriteRequest {
-  return isRecord(value) && ((value["address"] === null) || (typeof value["address"] === 'string')) && ((value["birthDate"] === null) || (typeof value["birthDate"] === 'string')) && ((value["educationLevel"] === null) || (typeof value["educationLevel"] === 'string')) && ((value["email"] === null) || (typeof value["email"] === 'string')) && ((value["emergencyContact"] === null) || (typeof value["emergencyContact"] === 'string')) && ((value["emergencyContactAddress"] === null) || (typeof value["emergencyContactAddress"] === 'string')) && ((value["emergencyContactPhone"] === null) || (typeof value["emergencyContactPhone"] === 'string')) && ((value["emergencyContactRelation"] === null) || (typeof value["emergencyContactRelation"] === 'string')) && ((value["employeeNumber"] === null) || (typeof value["employeeNumber"] === 'string')) && ((value["ethnicity"] === null) || (typeof value["ethnicity"] === 'string')) && ((value["fieldKeys"] === null) || (Array.isArray(value["fieldKeys"]) && value["fieldKeys"].every(item18 => typeof item18 === 'string'))) && ((value["gender"] === null) || (typeof value["gender"] === 'string')) && ((value["graduatedSchool"] === null) || (typeof value["graduatedSchool"] === 'string')) && ((value["idCardNumber"] === null) || (typeof value["idCardNumber"] === 'string')) && ((value["idCardType"] === null) || (typeof value["idCardType"] === 'string')) && ((value["joinDateUtc"] === null) || (typeof value["joinDateUtc"] === 'string')) && ((value["nickname"] === null) || (typeof value["nickname"] === 'string')) && ((value["officePhone"] === null) || (typeof value["officePhone"] === 'string')) && ((value["phoneNumber"] === null) || (typeof value["phoneNumber"] === 'string')) && ((value["politicalStatus"] === null) || (typeof value["politicalStatus"] === 'string')) && ((value["remark"] === null) || (typeof value["remark"] === 'string')) && ((value["sortOrder"] === null) || (typeof value["sortOrder"] === 'number' && Number.isSafeInteger(value["sortOrder"]))) && ((value["version"] === null) || (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])));
+  return isRecord(value) && ((value["address"] === null) || (typeof value["address"] === 'string')) && ((value["birthDate"] === null) || (typeof value["birthDate"] === 'string')) && ((value["educationLevel"] === null) || (typeof value["educationLevel"] === 'string')) && ((value["email"] === null) || (typeof value["email"] === 'string')) && ((value["emergencyContact"] === null) || (typeof value["emergencyContact"] === 'string')) && ((value["emergencyContactAddress"] === null) || (typeof value["emergencyContactAddress"] === 'string')) && ((value["emergencyContactPhone"] === null) || (typeof value["emergencyContactPhone"] === 'string')) && ((value["emergencyContactRelation"] === null) || (typeof value["emergencyContactRelation"] === 'string')) && ((value["employeeNumber"] === null) || (typeof value["employeeNumber"] === 'string')) && ((value["ethnicity"] === null) || (typeof value["ethnicity"] === 'string')) && ((value["fieldKeys"] === null) || (Array.isArray(value["fieldKeys"]) && value["fieldKeys"].every(item18 => typeof item18 === 'string'))) && ((value["gender"] === null) || (typeof value["gender"] === 'string')) && ((value["graduatedSchool"] === null) || (typeof value["graduatedSchool"] === 'string')) && ((value["idCardNumber"] === null) || (typeof value["idCardNumber"] === 'string')) && ((value["idCardType"] === null) || (typeof value["idCardType"] === 'string')) && ((value["joinDateUtc"] === null) || (typeof value["joinDateUtc"] === 'string')) && ((value["nickname"] === null) || (typeof value["nickname"] === 'string')) && ((value["officePhone"] === null) || (typeof value["officePhone"] === 'string')) && ((value["phoneNumber"] === null) || (typeof value["phoneNumber"] === 'string')) && ((value["politicalStatus"] === null) || (typeof value["politicalStatus"] === 'string')) && ((value["remark"] === null) || (typeof value["remark"] === 'string')) && ((value["sortOrder"] === null) || (Number.isSafeInteger(value["sortOrder"]))) && ((value["version"] === null) || (Number.isSafeInteger(value["version"])));
 }
 
 export function readHostUserProjectedFieldsResponse(value: unknown): HostUserProjectedFieldsResponse {
@@ -3528,7 +3650,7 @@ export function readHostUserProjectedFieldsResponse(value: unknown): HostUserPro
 }
 
 function isHostUserProjectedFieldsResponse(value: unknown): value is HostUserProjectedFieldsResponse {
-  return isRecord(value) && (Array.isArray(value["effectiveFieldKeys"]) && value["effectiveFieldKeys"].every(item27 => typeof item27 === 'string')) && ((value["failedLoginCount"] === null) || (typeof value["failedLoginCount"] === 'number' && Number.isSafeInteger(value["failedLoginCount"]))) && ((value["lockoutEndUtc"] === null) || (typeof value["lockoutEndUtc"] === 'string')) && ((value["preferredLocale"] === null) || (typeof value["preferredLocale"] === 'string'));
+  return isRecord(value) && (Array.isArray(value["effectiveFieldKeys"]) && value["effectiveFieldKeys"].every(item27 => typeof item27 === 'string')) && ((value["failedLoginCount"] === null) || (Number.isSafeInteger(value["failedLoginCount"]))) && ((value["lockoutEndUtc"] === null) || (typeof value["lockoutEndUtc"] === 'string')) && ((value["preferredLocale"] === null) || (typeof value["preferredLocale"] === 'string'));
 }
 
 export function readHostUserResponse(value: unknown): HostUserResponse {
@@ -3540,7 +3662,7 @@ export function readHostUserResponse(value: unknown): HostUserResponse {
 }
 
 function isHostUserResponse(value: unknown): value is HostUserResponse {
-  return isRecord(value) && (typeof value["accountType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (value["profile"] === undefined || ((value["profile"] === null) || (isHostUserProfileResponse(value["profile"])))) && (value["projectedFields"] === undefined || ((value["projectedFields"] === null) || (isHostUserProjectedFieldsResponse(value["projectedFields"])))) && (value["retiredAtUtc"] === undefined || ((value["retiredAtUtc"] === null) || (typeof value["retiredAtUtc"] === 'string'))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["username"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["accountType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (value["profile"] === undefined || ((value["profile"] === null) || (isHostUserProfileResponse(value["profile"])))) && (value["projectedFields"] === undefined || ((value["projectedFields"] === null) || (isHostUserProjectedFieldsResponse(value["projectedFields"])))) && (value["retiredAtUtc"] === undefined || ((value["retiredAtUtc"] === null) || (typeof value["retiredAtUtc"] === 'string'))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["username"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostUserRolesResponse(value: unknown): HostUserRolesResponse {
@@ -3552,7 +3674,7 @@ export function readHostUserRolesResponse(value: unknown): HostUserRolesResponse
 }
 
 function isHostUserRolesResponse(value: unknown): value is HostUserRolesResponse {
-  return isRecord(value) && (Array.isArray(value["roleIds"]) && value["roleIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Array.isArray(value["roleIds"]) && value["roleIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHttpJobArgs(value: unknown): HttpJobArgs {
@@ -3564,7 +3686,7 @@ export function readHttpJobArgs(value: unknown): HttpJobArgs {
 }
 
 function isHttpJobArgs(value: unknown): value is HttpJobArgs {
-  return isRecord(value) && (value["headers"] === undefined || ((value["headers"] === null) || (isRecord(value["headers"])))) && (typeof value["method"] === 'string') && (value["secretHeaders"] === undefined || ((value["secretHeaders"] === null) || (isRecord(value["secretHeaders"])))) && (value["successStatusCodes"] === undefined || ((value["successStatusCodes"] === null) || (Array.isArray(value["successStatusCodes"]) && value["successStatusCodes"].every(item27 => typeof item27 === 'number' && Number.isSafeInteger(item27))))) && (value["timeoutSeconds"] === undefined || ((value["timeoutSeconds"] === null) || (typeof value["timeoutSeconds"] === 'number' && Number.isSafeInteger(value["timeoutSeconds"])))) && (typeof value["url"] === 'string');
+  return isRecord(value) && (value["headers"] === undefined || ((value["headers"] === null) || (isRecord(value["headers"])))) && (typeof value["method"] === 'string') && (value["secretHeaders"] === undefined || ((value["secretHeaders"] === null) || (isRecord(value["secretHeaders"])))) && (value["successStatusCodes"] === undefined || ((value["successStatusCodes"] === null) || (Array.isArray(value["successStatusCodes"]) && value["successStatusCodes"].every(item27 => Number.isSafeInteger(item27))))) && (value["timeoutSeconds"] === undefined || ((value["timeoutSeconds"] === null) || (Number.isSafeInteger(value["timeoutSeconds"])))) && (typeof value["url"] === 'string');
 }
 
 export function readHttpJobSecretHeaderRef(value: unknown): HttpJobSecretHeaderRef {
@@ -3586,7 +3708,7 @@ export function readIdentitySessionLoginPolicy(value: unknown): IdentitySessionL
 }
 
 function isIdentitySessionLoginPolicy(value: unknown): value is IdentitySessionLoginPolicy {
-  return typeof value === 'number' && Number.isSafeInteger(value);
+  return Number.isSafeInteger(value);
 }
 
 export function readIdentitySessionPolicyResponse(value: unknown): IdentitySessionPolicyResponse {
@@ -3631,7 +3753,7 @@ export function readImportAdministrativeRegionAddedSummary(value: unknown): Impo
 }
 
 function isImportAdministrativeRegionAddedSummary(value: unknown): value is ImportAdministrativeRegionAddedSummary {
-  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["level"] === 'number' && Number.isSafeInteger(value["level"])) && (typeof value["name"] === 'string');
+  return isRecord(value) && (typeof value["code"] === 'string') && (Number.isSafeInteger(value["level"])) && (typeof value["name"] === 'string');
 }
 
 export function readImportAdministrativeRegionItem(value: unknown): ImportAdministrativeRegionItem {
@@ -3643,7 +3765,7 @@ export function readImportAdministrativeRegionItem(value: unknown): ImportAdmini
 }
 
 function isImportAdministrativeRegionItem(value: unknown): value is ImportAdministrativeRegionItem {
-  return isRecord(value) && ((value["cityCode"] === null) || (typeof value["cityCode"] === 'string')) && (typeof value["code"] === 'string') && ((value["displayOrder"] === null) || (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"]))) && ((value["latitude"] === null) || (typeof value["latitude"] === 'number' && Number.isFinite(value["latitude"])) || (typeof value["latitude"] === 'string')) && (typeof value["level"] === 'number' && Number.isSafeInteger(value["level"])) && ((value["longitude"] === null) || (typeof value["longitude"] === 'number' && Number.isFinite(value["longitude"])) || (typeof value["longitude"] === 'string')) && ((value["mergerName"] === null) || (typeof value["mergerName"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentCode"] === null) || (typeof value["parentCode"] === 'string')) && ((value["pinYin"] === null) || (typeof value["pinYin"] === 'string')) && ((value["regionType"] === null) || (typeof value["regionType"] === 'string')) && ((value["shortName"] === null) || (typeof value["shortName"] === 'string')) && ((value["zipCode"] === null) || (typeof value["zipCode"] === 'string'));
+  return isRecord(value) && ((value["cityCode"] === null) || (typeof value["cityCode"] === 'string')) && (typeof value["code"] === 'string') && ((value["displayOrder"] === null) || (Number.isSafeInteger(value["displayOrder"]))) && ((value["latitude"] === null) || (Number.isFinite(value["latitude"])) || (typeof value["latitude"] === 'string')) && (Number.isSafeInteger(value["level"])) && ((value["longitude"] === null) || (Number.isFinite(value["longitude"])) || (typeof value["longitude"] === 'string')) && ((value["mergerName"] === null) || (typeof value["mergerName"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentCode"] === null) || (typeof value["parentCode"] === 'string')) && ((value["pinYin"] === null) || (typeof value["pinYin"] === 'string')) && ((value["regionType"] === null) || (typeof value["regionType"] === 'string')) && ((value["shortName"] === null) || (typeof value["shortName"] === 'string')) && ((value["zipCode"] === null) || (typeof value["zipCode"] === 'string'));
 }
 
 export function readImportAdministrativeRegionRemovedSummary(value: unknown): ImportAdministrativeRegionRemovedSummary {
@@ -3666,7 +3788,7 @@ export function readImportAdministrativeRegionsApplyResponse(value: unknown): Im
 }
 
 function isImportAdministrativeRegionsApplyResponse(value: unknown): value is ImportAdministrativeRegionsApplyResponse {
-  return isRecord(value) && (typeof value["addedCount"] === 'number' && Number.isSafeInteger(value["addedCount"])) && (isAdministrativeRegionDatasetManifestResponse(value["manifest"])) && (typeof value["removedCount"] === 'number' && Number.isSafeInteger(value["removedCount"])) && (typeof value["skippedCount"] === 'number' && Number.isSafeInteger(value["skippedCount"])) && (typeof value["updatedCount"] === 'number' && Number.isSafeInteger(value["updatedCount"]));
+  return isRecord(value) && (Number.isSafeInteger(value["addedCount"])) && (isAdministrativeRegionDatasetManifestResponse(value["manifest"])) && (Number.isSafeInteger(value["removedCount"])) && (Number.isSafeInteger(value["skippedCount"])) && (Number.isSafeInteger(value["updatedCount"]));
 }
 
 export function readImportAdministrativeRegionsPreviewResponse(value: unknown): ImportAdministrativeRegionsPreviewResponse {
@@ -3678,7 +3800,7 @@ export function readImportAdministrativeRegionsPreviewResponse(value: unknown): 
 }
 
 function isImportAdministrativeRegionsPreviewResponse(value: unknown): value is ImportAdministrativeRegionsPreviewResponse {
-  return isRecord(value) && (Array.isArray(value["added"]) && value["added"].every(item14 => isImportAdministrativeRegionAddedSummary(item14))) && (Array.isArray(value["removed"]) && value["removed"].every(item16 => isImportAdministrativeRegionRemovedSummary(item16))) && (typeof value["skippedCount"] === 'number' && Number.isSafeInteger(value["skippedCount"])) && (Array.isArray(value["updated"]) && value["updated"].every(item16 => isImportAdministrativeRegionUpdatedSummary(item16)));
+  return isRecord(value) && (Array.isArray(value["added"]) && value["added"].every(item14 => isImportAdministrativeRegionAddedSummary(item14))) && (Array.isArray(value["removed"]) && value["removed"].every(item16 => isImportAdministrativeRegionRemovedSummary(item16))) && (Number.isSafeInteger(value["skippedCount"])) && (Array.isArray(value["updated"]) && value["updated"].every(item16 => isImportAdministrativeRegionUpdatedSummary(item16)));
 }
 
 export function readImportAdministrativeRegionsRequest(value: unknown): ImportAdministrativeRegionsRequest {
@@ -3713,7 +3835,7 @@ export function readImportExportTaskDetailResponse(value: unknown): ImportExport
 }
 
 function isImportExportTaskDetailResponse(value: unknown): value is ImportExportTaskDetailResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["executionCompletedAtUtc"] === null) || (typeof value["executionCompletedAtUtc"] === 'string')) && (typeof value["executionFailedRowCount"] === 'number' && Number.isSafeInteger(value["executionFailedRowCount"])) && ((value["executionStartedAtUtc"] === null) || (typeof value["executionStartedAtUtc"] === 'string')) && (typeof value["hasErrorReceipt"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["invalidRowCount"] === 'number' && Number.isSafeInteger(value["invalidRowCount"])) && (typeof value["nextLineNumber"] === 'number' && Number.isSafeInteger(value["nextLineNumber"])) && ((value["previewCompletedAtUtc"] === null) || (typeof value["previewCompletedAtUtc"] === 'string')) && (Array.isArray(value["previewRows"]) && value["previewRows"].every(item20 => isStaticImportRowPreviewResult(item20))) && (typeof value["processedRowCount"] === 'number' && Number.isSafeInteger(value["processedRowCount"])) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["schemaDisplayName"] === 'string') && (typeof value["schemaKey"] === 'string') && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && ((value["sourceFileName"] === null) || (typeof value["sourceFileName"] === 'string')) && (typeof value["statusKey"] === 'string') && (typeof value["succeededRowCount"] === 'number' && Number.isSafeInteger(value["succeededRowCount"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["totalRows"] === 'number' && Number.isSafeInteger(value["totalRows"])) && (typeof value["validRowCount"] === 'number' && Number.isSafeInteger(value["validRowCount"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["worksheetKey"] === 'string');
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["executionCompletedAtUtc"] === null) || (typeof value["executionCompletedAtUtc"] === 'string')) && (Number.isSafeInteger(value["executionFailedRowCount"])) && ((value["executionStartedAtUtc"] === null) || (typeof value["executionStartedAtUtc"] === 'string')) && (typeof value["hasErrorReceipt"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (Number.isSafeInteger(value["invalidRowCount"])) && (Number.isSafeInteger(value["nextLineNumber"])) && ((value["previewCompletedAtUtc"] === null) || (typeof value["previewCompletedAtUtc"] === 'string')) && (Array.isArray(value["previewRows"]) && value["previewRows"].every(item20 => isStaticImportRowPreviewResult(item20))) && (Number.isSafeInteger(value["processedRowCount"])) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["schemaDisplayName"] === 'string') && (typeof value["schemaKey"] === 'string') && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && ((value["sourceFileName"] === null) || (typeof value["sourceFileName"] === 'string')) && (typeof value["statusKey"] === 'string') && (Number.isSafeInteger(value["succeededRowCount"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (Number.isSafeInteger(value["totalRows"])) && (Number.isSafeInteger(value["validRowCount"])) && (Number.isSafeInteger(value["version"])) && (typeof value["worksheetKey"] === 'string');
 }
 
 export function readImportExportTaskResponse(value: unknown): ImportExportTaskResponse {
@@ -3725,7 +3847,7 @@ export function readImportExportTaskResponse(value: unknown): ImportExportTaskRe
 }
 
 function isImportExportTaskResponse(value: unknown): value is ImportExportTaskResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["executionCompletedAtUtc"] === null) || (typeof value["executionCompletedAtUtc"] === 'string')) && (typeof value["executionFailedRowCount"] === 'number' && Number.isSafeInteger(value["executionFailedRowCount"])) && ((value["executionStartedAtUtc"] === null) || (typeof value["executionStartedAtUtc"] === 'string')) && (typeof value["hasErrorReceipt"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["invalidRowCount"] === 'number' && Number.isSafeInteger(value["invalidRowCount"])) && (typeof value["nextLineNumber"] === 'number' && Number.isSafeInteger(value["nextLineNumber"])) && ((value["previewCompletedAtUtc"] === null) || (typeof value["previewCompletedAtUtc"] === 'string')) && (typeof value["processedRowCount"] === 'number' && Number.isSafeInteger(value["processedRowCount"])) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["schemaDisplayName"] === 'string') && (typeof value["schemaKey"] === 'string') && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && ((value["sourceFileName"] === null) || (typeof value["sourceFileName"] === 'string')) && (typeof value["statusKey"] === 'string') && (typeof value["succeededRowCount"] === 'number' && Number.isSafeInteger(value["succeededRowCount"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["totalRows"] === 'number' && Number.isSafeInteger(value["totalRows"])) && (typeof value["validRowCount"] === 'number' && Number.isSafeInteger(value["validRowCount"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["worksheetKey"] === 'string');
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["executionCompletedAtUtc"] === null) || (typeof value["executionCompletedAtUtc"] === 'string')) && (Number.isSafeInteger(value["executionFailedRowCount"])) && ((value["executionStartedAtUtc"] === null) || (typeof value["executionStartedAtUtc"] === 'string')) && (typeof value["hasErrorReceipt"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (Number.isSafeInteger(value["invalidRowCount"])) && (Number.isSafeInteger(value["nextLineNumber"])) && ((value["previewCompletedAtUtc"] === null) || (typeof value["previewCompletedAtUtc"] === 'string')) && (Number.isSafeInteger(value["processedRowCount"])) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["schemaDisplayName"] === 'string') && (typeof value["schemaKey"] === 'string') && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && ((value["sourceFileName"] === null) || (typeof value["sourceFileName"] === 'string')) && (typeof value["statusKey"] === 'string') && (Number.isSafeInteger(value["succeededRowCount"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (Number.isSafeInteger(value["totalRows"])) && (Number.isSafeInteger(value["validRowCount"])) && (Number.isSafeInteger(value["version"])) && (typeof value["worksheetKey"] === 'string');
 }
 
 export function readImportHostUserRowResult(value: unknown): ImportHostUserRowResult {
@@ -3737,7 +3859,7 @@ export function readImportHostUserRowResult(value: unknown): ImportHostUserRowRe
 }
 
 function isImportHostUserRowResult(value: unknown): value is ImportHostUserRowResult {
-  return isRecord(value) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["line"] === 'number' && Number.isSafeInteger(value["line"])) && ((value["message"] === null) || (typeof value["message"] === 'string')) && (typeof value["succeeded"] === 'boolean') && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
+  return isRecord(value) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (Number.isSafeInteger(value["line"])) && ((value["message"] === null) || (typeof value["message"] === 'string')) && (typeof value["succeeded"] === 'boolean') && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
 }
 
 export function readImportHostUsersRequest(value: unknown): ImportHostUsersRequest {
@@ -3761,7 +3883,7 @@ export function readImportHostUsersResponse(value: unknown): ImportHostUsersResp
 }
 
 function isImportHostUsersResponse(value: unknown): value is ImportHostUsersResponse {
-  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isImportHostUserRowResult(item16))) && (typeof value["succeededCount"] === 'number' && Number.isSafeInteger(value["succeededCount"]));
+  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isImportHostUserRowResult(item16))) && (Number.isSafeInteger(value["succeededCount"]));
 }
 
 export function readImportOrganizationPositionRow(value: unknown): ImportOrganizationPositionRow {
@@ -3773,7 +3895,7 @@ export function readImportOrganizationPositionRow(value: unknown): ImportOrganiz
 }
 
 function isImportOrganizationPositionRow(value: unknown): value is ImportOrganizationPositionRow {
-  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && ((value["positionLevelCode"] === null) || (typeof value["positionLevelCode"] === 'string')) && ((value["unitCode"] === null) || (typeof value["unitCode"] === 'string'));
+  return isRecord(value) && (typeof value["code"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && ((value["positionLevelCode"] === null) || (typeof value["positionLevelCode"] === 'string')) && ((value["unitCode"] === null) || (typeof value["unitCode"] === 'string'));
 }
 
 export function readImportOrganizationPositionRowResult(value: unknown): ImportOrganizationPositionRowResult {
@@ -3785,7 +3907,7 @@ export function readImportOrganizationPositionRowResult(value: unknown): ImportO
 }
 
 function isImportOrganizationPositionRowResult(value: unknown): value is ImportOrganizationPositionRowResult {
-  return isRecord(value) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["line"] === 'number' && Number.isSafeInteger(value["line"])) && ((value["message"] === null) || (typeof value["message"] === 'string')) && ((value["positionId"] === null) || (typeof value["positionId"] === 'string' && guidPattern.test(value["positionId"]))) && (typeof value["succeeded"] === 'boolean');
+  return isRecord(value) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (Number.isSafeInteger(value["line"])) && ((value["message"] === null) || (typeof value["message"] === 'string')) && ((value["positionId"] === null) || (typeof value["positionId"] === 'string' && guidPattern.test(value["positionId"]))) && (typeof value["succeeded"] === 'boolean');
 }
 
 export function readImportOrganizationPositionsRequest(value: unknown): ImportOrganizationPositionsRequest {
@@ -3809,7 +3931,7 @@ export function readImportOrganizationPositionsResponse(value: unknown): ImportO
 }
 
 function isImportOrganizationPositionsResponse(value: unknown): value is ImportOrganizationPositionsResponse {
-  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isImportOrganizationPositionRowResult(item16))) && (typeof value["succeededCount"] === 'number' && Number.isSafeInteger(value["succeededCount"]));
+  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isImportOrganizationPositionRowResult(item16))) && (Number.isSafeInteger(value["succeededCount"]));
 }
 
 export function readInboxMessageResponse(value: unknown): InboxMessageResponse {
@@ -3832,7 +3954,7 @@ export function readInboxUnreadCountResponse(value: unknown): InboxUnreadCountRe
 }
 
 function isInboxUnreadCountResponse(value: unknown): value is InboxUnreadCountResponse {
-  return isRecord(value) && (typeof value["unreadCount"] === 'number' && Number.isSafeInteger(value["unreadCount"]));
+  return isRecord(value) && (Number.isSafeInteger(value["unreadCount"]));
 }
 
 export function readJsonElement(value: unknown): JsonElement {
@@ -3855,7 +3977,7 @@ export function readK3CloudConnectionConfigResponse(value: unknown): K3CloudConn
 }
 
 function isK3CloudConnectionConfigResponse(value: unknown): value is K3CloudConnectionConfigResponse {
-  return isRecord(value) && (typeof value["acctId"] === 'string') && (typeof value["baseUrl"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasPassword"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["lcid"] === 'number' && Number.isSafeInteger(value["lcid"])) && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["username"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["acctId"] === 'string') && (typeof value["baseUrl"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasPassword"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (Number.isSafeInteger(value["lcid"])) && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["username"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readK3CloudDocumentSyncResponse(value: unknown): K3CloudDocumentSyncResponse {
@@ -3867,7 +3989,7 @@ export function readK3CloudDocumentSyncResponse(value: unknown): K3CloudDocument
 }
 
 function isK3CloudDocumentSyncResponse(value: unknown): value is K3CloudDocumentSyncResponse {
-  return isRecord(value) && (typeof value["businessKey"] === 'string') && (typeof value["connectionConfigId"] === 'string' && guidPattern.test(value["connectionConfigId"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && (typeof value["documentTypeKey"] === 'string') && ((value["externalBillId"] === null) || (typeof value["externalBillId"] === 'string')) && ((value["externalBillNo"] === null) || (typeof value["externalBillNo"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["lastErrorCode"] === null) || (typeof value["lastErrorCode"] === 'string')) && ((value["lastErrorMessage"] === null) || (typeof value["lastErrorMessage"] === 'string')) && ((value["lastStepKey"] === null) || (typeof value["lastStepKey"] === 'string')) && (typeof value["statusKey"] === 'string') && ((value["submittedAtUtc"] === null) || (typeof value["submittedAtUtc"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["businessKey"] === 'string') && (typeof value["connectionConfigId"] === 'string' && guidPattern.test(value["connectionConfigId"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && (typeof value["documentTypeKey"] === 'string') && ((value["externalBillId"] === null) || (typeof value["externalBillId"] === 'string')) && ((value["externalBillNo"] === null) || (typeof value["externalBillNo"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["lastErrorCode"] === null) || (typeof value["lastErrorCode"] === 'string')) && ((value["lastErrorMessage"] === null) || (typeof value["lastErrorMessage"] === 'string')) && ((value["lastStepKey"] === null) || (typeof value["lastStepKey"] === 'string')) && (typeof value["statusKey"] === 'string') && ((value["submittedAtUtc"] === null) || (typeof value["submittedAtUtc"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readLocalePreferenceResponse(value: unknown): LocalePreferenceResponse {
@@ -3879,7 +4001,7 @@ export function readLocalePreferenceResponse(value: unknown): LocalePreferenceRe
 }
 
 function isLocalePreferenceResponse(value: unknown): value is LocalePreferenceResponse {
-  return isRecord(value) && (typeof value["preferredLocale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isSafeInteger(value["profileVersion"]));
+  return isRecord(value) && (typeof value["preferredLocale"] === 'string') && (Number.isSafeInteger(value["profileVersion"]));
 }
 
 export function readLogFileSummary(value: unknown): LogFileSummary {
@@ -3891,7 +4013,7 @@ export function readLogFileSummary(value: unknown): LogFileSummary {
 }
 
 function isLogFileSummary(value: unknown): value is LogFileSummary {
-  return isRecord(value) && (typeof value["fileName"] === 'string') && (typeof value["id"] === 'string') && (typeof value["lastModifiedUtc"] === 'string') && (typeof value["sizeBytes"] === 'number' && Number.isSafeInteger(value["sizeBytes"]));
+  return isRecord(value) && (typeof value["fileName"] === 'string') && (typeof value["id"] === 'string') && (typeof value["lastModifiedUtc"] === 'string') && (Number.isSafeInteger(value["sizeBytes"]));
 }
 
 export function readLogFileTail(value: unknown): LogFileTail {
@@ -3903,7 +4025,7 @@ export function readLogFileTail(value: unknown): LogFileTail {
 }
 
 function isLogFileTail(value: unknown): value is LogFileTail {
-  return isRecord(value) && (typeof value["bytesRead"] === 'number' && Number.isSafeInteger(value["bytesRead"])) && (typeof value["content"] === 'string') && (typeof value["fileName"] === 'string') && (typeof value["id"] === 'string') && (typeof value["isTruncated"] === 'boolean');
+  return isRecord(value) && (Number.isSafeInteger(value["bytesRead"])) && (typeof value["content"] === 'string') && (typeof value["fileName"] === 'string') && (typeof value["id"] === 'string') && (typeof value["isTruncated"] === 'boolean');
 }
 
 export function readLoginRequest(value: unknown): LoginRequest {
@@ -3981,7 +4103,7 @@ export function readMyReleaseNoteResponse(value: unknown): MyReleaseNoteResponse
 }
 
 function isMyReleaseNoteResponse(value: unknown): value is MyReleaseNoteResponse {
-  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isRead"] === 'boolean') && (typeof value["publishedAtUtc"] === 'string') && ((value["readAtUtc"] === null) || (typeof value["readAtUtc"] === 'string')) && (typeof value["title"] === 'string') && (typeof value["versionLabel"] === 'string') && (typeof value["versionSortKey"] === 'number' && Number.isSafeInteger(value["versionSortKey"]));
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isRead"] === 'boolean') && (typeof value["publishedAtUtc"] === 'string') && ((value["readAtUtc"] === null) || (typeof value["readAtUtc"] === 'string')) && (typeof value["title"] === 'string') && (typeof value["versionLabel"] === 'string') && (Number.isSafeInteger(value["versionSortKey"]));
 }
 
 export function readNotificationBindingResponse(value: unknown): NotificationBindingResponse {
@@ -3993,7 +4115,7 @@ export function readNotificationBindingResponse(value: unknown): NotificationBin
 }
 
 function isNotificationBindingResponse(value: unknown): value is NotificationBindingResponse {
-  return isRecord(value) && (typeof value["bindingKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["draftDispatchModeKey"] === 'string') && (typeof value["draftJson"] === 'string') && (typeof value["draftRevision"] === 'number' && Number.isSafeInteger(value["draftRevision"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestBindingTargetsJson"] === null) || (typeof value["latestBindingTargetsJson"] === 'string')) && ((value["latestChannelKey"] === null) || (typeof value["latestChannelKey"] === 'string')) && ((value["latestDispatchModeKey"] === null) || (typeof value["latestDispatchModeKey"] === 'string')) && ((value["latestProducerKey"] === null) || (typeof value["latestProducerKey"] === 'string')) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["latestPublishedVersionNumber"] === null) || (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"]))) && ((value["latestSceneKey"] === null) || (typeof value["latestSceneKey"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["bindingKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["draftDispatchModeKey"] === 'string') && (typeof value["draftJson"] === 'string') && (Number.isSafeInteger(value["draftRevision"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestBindingTargetsJson"] === null) || (typeof value["latestBindingTargetsJson"] === 'string')) && ((value["latestChannelKey"] === null) || (typeof value["latestChannelKey"] === 'string')) && ((value["latestDispatchModeKey"] === null) || (typeof value["latestDispatchModeKey"] === 'string')) && ((value["latestProducerKey"] === null) || (typeof value["latestProducerKey"] === 'string')) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["latestPublishedVersionNumber"] === null) || (Number.isSafeInteger(value["latestPublishedVersionNumber"]))) && ((value["latestSceneKey"] === null) || (typeof value["latestSceneKey"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readNotificationBindingTargetInput(value: unknown): NotificationBindingTargetInput {
@@ -4005,7 +4127,7 @@ export function readNotificationBindingTargetInput(value: unknown): Notification
 }
 
 function isNotificationBindingTargetInput(value: unknown): value is NotificationBindingTargetInput {
-  return isRecord(value) && (typeof value["order"] === 'number' && Number.isSafeInteger(value["order"])) && (typeof value["profileKey"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["order"])) && (typeof value["profileKey"] === 'string');
 }
 
 export function readNotificationDeliveryAttemptResponse(value: unknown): NotificationDeliveryAttemptResponse {
@@ -4017,7 +4139,7 @@ export function readNotificationDeliveryAttemptResponse(value: unknown): Notific
 }
 
 function isNotificationDeliveryAttemptResponse(value: unknown): value is NotificationDeliveryAttemptResponse {
-  return isRecord(value) && (typeof value["attemptNumber"] === 'number' && Number.isSafeInteger(value["attemptNumber"])) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["finishedAtUtc"] === null) || (typeof value["finishedAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["providerMessageId"] === null) || (typeof value["providerMessageId"] === 'string')) && ((value["resultCategoryKey"] === null) || (typeof value["resultCategoryKey"] === 'string')) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["attemptNumber"])) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["finishedAtUtc"] === null) || (typeof value["finishedAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["providerMessageId"] === null) || (typeof value["providerMessageId"] === 'string')) && ((value["resultCategoryKey"] === null) || (typeof value["resultCategoryKey"] === 'string')) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string');
 }
 
 export function readNotificationDeliveryReceiptResponse(value: unknown): NotificationDeliveryReceiptResponse {
@@ -4040,7 +4162,19 @@ export function readNotificationDeliveryResponse(value: unknown): NotificationDe
 }
 
 function isNotificationDeliveryResponse(value: unknown): value is NotificationDeliveryResponse {
-  return isRecord(value) && (Array.isArray(value["attempts"]) && value["attempts"].every(item17 => isNotificationDeliveryAttemptResponse(item17))) && ((value["bindingVersionId"] === null) || (typeof value["bindingVersionId"] === 'string' && guidPattern.test(value["bindingVersionId"]))) && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["intentId"] === 'string' && guidPattern.test(value["intentId"])) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && ((value["providerProfileVersionId"] === null) || (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"]))) && (Array.isArray(value["receipts"]) && value["receipts"].every(item17 => isNotificationDeliveryReceiptResponse(item17))) && (typeof value["recipientId"] === 'string' && guidPattern.test(value["recipientId"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string'));
+  return isRecord(value) && (Array.isArray(value["attempts"]) && value["attempts"].every(item17 => isNotificationDeliveryAttemptResponse(item17))) && ((value["bindingVersionId"] === null) || (typeof value["bindingVersionId"] === 'string' && guidPattern.test(value["bindingVersionId"]))) && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["intentId"] === 'string' && guidPattern.test(value["intentId"])) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && ((value["providerProfileVersionId"] === null) || (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"]))) && (Array.isArray(value["receipts"]) && value["receipts"].every(item17 => isNotificationDeliveryReceiptResponse(item17))) && (typeof value["recipientId"] === 'string' && guidPattern.test(value["recipientId"])) && (Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string'));
+}
+
+export function readNotificationIntentDeliverySnapshot(value: unknown): NotificationIntentDeliverySnapshot {
+  const normalizedValue = normalizeNotificationIntentDeliverySnapshotIntegerJson(value);
+  if (!(isNotificationIntentDeliverySnapshot(normalizedValue))) {
+    throw new Error('client.invalid_notification_intent_delivery_snapshot');
+  }
+  return normalizedValue;
+}
+
+function isNotificationIntentDeliverySnapshot(value: unknown): value is NotificationIntentDeliverySnapshot {
+  return isRecord(value) && (typeof value["acceptedAtUtc"] === 'string') && (Number.isSafeInteger(value["deadLetteredDeliveryCount"])) && (value["deliveredDeliveryCount"] === undefined || (Number.isSafeInteger(value["deliveredDeliveryCount"]))) && (Number.isSafeInteger(value["failedDeliveryCount"])) && (typeof value["intentId"] === 'string' && guidPattern.test(value["intentId"])) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && (Number.isSafeInteger(value["otherDeliveryCount"])) && (Number.isSafeInteger(value["pendingDeliveryCount"])) && (value["persistedDeliveryCount"] === undefined || (Number.isSafeInteger(value["persistedDeliveryCount"]))) && (value["readDeliveryCount"] === undefined || (Number.isSafeInteger(value["readDeliveryCount"]))) && (Number.isSafeInteger(value["sentDeliveryCount"])) && (value["suppressedDeliveryCount"] === undefined || (Number.isSafeInteger(value["suppressedDeliveryCount"]))) && (Number.isSafeInteger(value["totalDeliveryCount"])) && (Number.isSafeInteger(value["unknownDeliveryCount"]));
 }
 
 export function readNotificationProviderConfigField(value: unknown): NotificationProviderConfigField {
@@ -4063,7 +4197,7 @@ export function readNotificationProviderProfileResponse(value: unknown): Notific
 }
 
 function isNotificationProviderProfileResponse(value: unknown): value is NotificationProviderProfileResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["draftRevision"] === 'number' && Number.isSafeInteger(value["draftRevision"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["latestAdapterVersion"] === null) || (typeof value["latestAdapterVersion"] === 'string')) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["latestPublishedVersionNumber"] === null) || (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"]))) && (typeof value["nonSecretConfigJson"] === 'string') && (typeof value["profileKey"] === 'string') && (typeof value["providerTypeKey"] === 'string') && (typeof value["secretStatus"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (Number.isSafeInteger(value["draftRevision"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["latestAdapterVersion"] === null) || (typeof value["latestAdapterVersion"] === 'string')) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["latestPublishedVersionNumber"] === null) || (Number.isSafeInteger(value["latestPublishedVersionNumber"]))) && (typeof value["nonSecretConfigJson"] === 'string') && (typeof value["profileKey"] === 'string') && (typeof value["providerTypeKey"] === 'string') && (typeof value["secretStatus"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readNotificationProviderTypeDescriptor(value: unknown): NotificationProviderTypeDescriptor {
@@ -4097,7 +4231,7 @@ export function readNotificationTemplateParameterDefinition(value: unknown): Not
 }
 
 function isNotificationTemplateParameterDefinition(value: unknown): value is NotificationTemplateParameterDefinition {
-  return isRecord(value) && ((value["maxLength"] === null) || (typeof value["maxLength"] === 'number' && Number.isSafeInteger(value["maxLength"]))) && (typeof value["name"] === 'string') && (typeof value["required"] === 'boolean') && (typeof value["typeKey"] === 'string');
+  return isRecord(value) && ((value["maxLength"] === null) || (Number.isSafeInteger(value["maxLength"]))) && (typeof value["name"] === 'string') && (typeof value["required"] === 'boolean') && (typeof value["typeKey"] === 'string');
 }
 
 export function readNotificationTemplateParameterSchema(value: unknown): NotificationTemplateParameterSchema {
@@ -4109,7 +4243,7 @@ export function readNotificationTemplateParameterSchema(value: unknown): Notific
 }
 
 function isNotificationTemplateParameterSchema(value: unknown): value is NotificationTemplateParameterSchema {
-  return isRecord(value) && (Array.isArray(value["parameters"]) && value["parameters"].every(item19 => isNotificationTemplateParameterDefinition(item19))) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"]));
+  return isRecord(value) && (Array.isArray(value["parameters"]) && value["parameters"].every(item19 => isNotificationTemplateParameterDefinition(item19))) && (Number.isSafeInteger(value["schemaVersion"]));
 }
 
 export function readNotificationTemplateResponse(value: unknown): NotificationTemplateResponse {
@@ -4121,7 +4255,7 @@ export function readNotificationTemplateResponse(value: unknown): NotificationTe
 }
 
 function isNotificationTemplateResponse(value: unknown): value is NotificationTemplateResponse {
-  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["contentCategoryKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["defaultLocaleTag"] === 'string') && (typeof value["draftBodyJson"] === 'string') && (typeof value["draftParameterSchemaJson"] === 'string') && (typeof value["draftRevision"] === 'number' && Number.isSafeInteger(value["draftRevision"])) && (typeof value["draftSubject"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestContentClassificationKey"] === null) || (typeof value["latestContentClassificationKey"] === 'string')) && ((value["latestContentHash"] === null) || (typeof value["latestContentHash"] === 'string')) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["latestPublishedVersionNumber"] === null) || (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"]))) && (typeof value["localeTag"] === 'string') && (Array.isArray(value["missingLocaleTags"]) && value["missingLocaleTags"].every(item26 => typeof item26 === 'string')) && (Array.isArray(value["publishedLocaleTags"]) && value["publishedLocaleTags"].every(item28 => typeof item28 === 'string')) && (typeof value["templateKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["contentCategoryKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["defaultLocaleTag"] === 'string') && (typeof value["draftBodyJson"] === 'string') && (typeof value["draftParameterSchemaJson"] === 'string') && (Number.isSafeInteger(value["draftRevision"])) && (typeof value["draftSubject"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestContentClassificationKey"] === null) || (typeof value["latestContentClassificationKey"] === 'string')) && ((value["latestContentHash"] === null) || (typeof value["latestContentHash"] === 'string')) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["latestPublishedVersionNumber"] === null) || (Number.isSafeInteger(value["latestPublishedVersionNumber"]))) && (typeof value["localeTag"] === 'string') && (Array.isArray(value["missingLocaleTags"]) && value["missingLocaleTags"].every(item26 => typeof item26 === 'string')) && (Array.isArray(value["publishedLocaleTags"]) && value["publishedLocaleTags"].every(item28 => typeof item28 === 'string')) && (typeof value["templateKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readOcrIdCardTaskResponse(value: unknown): OcrIdCardTaskResponse {
@@ -4133,7 +4267,7 @@ export function readOcrIdCardTaskResponse(value: unknown): OcrIdCardTaskResponse
 }
 
 function isOcrIdCardTaskResponse(value: unknown): value is OcrIdCardTaskResponse {
-  return isRecord(value) && ((value["confirmedAddress"] === null) || (typeof value["confirmedAddress"] === 'string')) && ((value["confirmedAtUtc"] === null) || (typeof value["confirmedAtUtc"] === 'string')) && ((value["confirmedBirthDate"] === null) || (typeof value["confirmedBirthDate"] === 'string')) && ((value["confirmedGender"] === null) || (typeof value["confirmedGender"] === 'string')) && ((value["confirmedIdNumber"] === null) || (typeof value["confirmedIdNumber"] === 'string')) && ((value["confirmedName"] === null) || (typeof value["confirmedName"] === 'string')) && ((value["confirmedNation"] === null) || (typeof value["confirmedNation"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["failureMessage"] === null) || (typeof value["failureMessage"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["recognizedAddress"] === null) || (typeof value["recognizedAddress"] === 'string')) && ((value["recognizedAtUtc"] === null) || (typeof value["recognizedAtUtc"] === 'string')) && ((value["recognizedBirthDate"] === null) || (typeof value["recognizedBirthDate"] === 'string')) && ((value["recognizedGender"] === null) || (typeof value["recognizedGender"] === 'string')) && ((value["recognizedIdNumber"] === null) || (typeof value["recognizedIdNumber"] === 'string')) && ((value["recognizedName"] === null) || (typeof value["recognizedName"] === 'string')) && ((value["recognizedNation"] === null) || (typeof value["recognizedNation"] === 'string')) && ((value["rejectedAtUtc"] === null) || (typeof value["rejectedAtUtc"] === 'string')) && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["confirmedAddress"] === null) || (typeof value["confirmedAddress"] === 'string')) && ((value["confirmedAtUtc"] === null) || (typeof value["confirmedAtUtc"] === 'string')) && ((value["confirmedBirthDate"] === null) || (typeof value["confirmedBirthDate"] === 'string')) && ((value["confirmedGender"] === null) || (typeof value["confirmedGender"] === 'string')) && ((value["confirmedIdNumber"] === null) || (typeof value["confirmedIdNumber"] === 'string')) && ((value["confirmedName"] === null) || (typeof value["confirmedName"] === 'string')) && ((value["confirmedNation"] === null) || (typeof value["confirmedNation"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["failureMessage"] === null) || (typeof value["failureMessage"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["recognizedAddress"] === null) || (typeof value["recognizedAddress"] === 'string')) && ((value["recognizedAtUtc"] === null) || (typeof value["recognizedAtUtc"] === 'string')) && ((value["recognizedBirthDate"] === null) || (typeof value["recognizedBirthDate"] === 'string')) && ((value["recognizedGender"] === null) || (typeof value["recognizedGender"] === 'string')) && ((value["recognizedIdNumber"] === null) || (typeof value["recognizedIdNumber"] === 'string')) && ((value["recognizedName"] === null) || (typeof value["recognizedName"] === 'string')) && ((value["recognizedNation"] === null) || (typeof value["recognizedNation"] === 'string')) && ((value["rejectedAtUtc"] === null) || (typeof value["rejectedAtUtc"] === 'string')) && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readOcrProviderConfigResponse(value: unknown): OcrProviderConfigResponse {
@@ -4145,7 +4279,7 @@ export function readOcrProviderConfigResponse(value: unknown): OcrProviderConfig
 }
 
 function isOcrProviderConfigResponse(value: unknown): value is OcrProviderConfigResponse {
-  return isRecord(value) && (typeof value["baseUrl"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasApiKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["name"] === 'string') && (typeof value["providerKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["baseUrl"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasApiKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["name"] === 'string') && (typeof value["providerKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readOperationLogDetailsContextV1(value: unknown): OperationLogDetailsContextV1 {
@@ -4157,7 +4291,7 @@ export function readOperationLogDetailsContextV1(value: unknown): OperationLogDe
 }
 
 function isOperationLogDetailsContextV1(value: unknown): value is OperationLogDetailsContextV1 {
-  return isRecord(value) && ((value["clientIp"] === null) || (typeof value["clientIp"] === 'string')) && ((value["clientPort"] === null) || (typeof value["clientPort"] === 'number' && Number.isSafeInteger(value["clientPort"]))) && (value["requestCaptureState"] === undefined || ((value["requestCaptureState"] === null) || (typeof value["requestCaptureState"] === 'string'))) && (value["requestSummary"] === undefined || ((value["requestSummary"] === null) || (isOperationLogExportRequestSummaryV1(value["requestSummary"])))) && (value["responseCaptureState"] === undefined || ((value["responseCaptureState"] === null) || (typeof value["responseCaptureState"] === 'string'))) && (value["responseSummary"] === undefined || ((value["responseSummary"] === null) || (isOperationLogExportResponseSummaryV1(value["responseSummary"])))) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && ((value["serverIp"] === null) || (typeof value["serverIp"] === 'string')) && ((value["serverPort"] === null) || (typeof value["serverPort"] === 'number' && Number.isSafeInteger(value["serverPort"])));
+  return isRecord(value) && ((value["clientIp"] === null) || (typeof value["clientIp"] === 'string')) && ((value["clientPort"] === null) || (Number.isSafeInteger(value["clientPort"]))) && (value["requestCaptureState"] === undefined || ((value["requestCaptureState"] === null) || (typeof value["requestCaptureState"] === 'string'))) && (value["requestSummary"] === undefined || ((value["requestSummary"] === null) || (isOperationLogExportRequestSummaryV1(value["requestSummary"])))) && (value["responseCaptureState"] === undefined || ((value["responseCaptureState"] === null) || (typeof value["responseCaptureState"] === 'string'))) && (value["responseSummary"] === undefined || ((value["responseSummary"] === null) || (isOperationLogExportResponseSummaryV1(value["responseSummary"])))) && (Number.isSafeInteger(value["schemaVersion"])) && ((value["serverIp"] === null) || (typeof value["serverIp"] === 'string')) && ((value["serverPort"] === null) || (Number.isSafeInteger(value["serverPort"])));
 }
 
 export function readOperationLogDetailsResponse(value: unknown): OperationLogDetailsResponse {
@@ -4181,7 +4315,7 @@ export function readOperationLogExportRequestSummaryV1(value: unknown): Operatio
 }
 
 function isOperationLogExportRequestSummaryV1(value: unknown): value is OperationLogExportRequestSummaryV1 {
-  return isRecord(value) && (typeof value["fromUtc"] === 'string') && ((value["statusCode"] === null) || (typeof value["statusCode"] === 'number' && Number.isSafeInteger(value["statusCode"]))) && ((value["succeeded"] === null) || (typeof value["succeeded"] === 'boolean')) && (typeof value["toUtc"] === 'string');
+  return isRecord(value) && (typeof value["fromUtc"] === 'string') && ((value["statusCode"] === null) || (Number.isSafeInteger(value["statusCode"]))) && ((value["succeeded"] === null) || (typeof value["succeeded"] === 'boolean')) && (typeof value["toUtc"] === 'string');
 }
 
 export function readOperationLogExportResponseSummaryV1(value: unknown): OperationLogExportResponseSummaryV1 {
@@ -4193,7 +4327,7 @@ export function readOperationLogExportResponseSummaryV1(value: unknown): Operati
 }
 
 function isOperationLogExportResponseSummaryV1(value: unknown): value is OperationLogExportResponseSummaryV1 {
-  return isRecord(value) && (typeof value["includesSensitiveFields"] === 'boolean') && (typeof value["rowCount"] === 'number' && Number.isSafeInteger(value["rowCount"])) && (typeof value["truncated"] === 'boolean');
+  return isRecord(value) && (typeof value["includesSensitiveFields"] === 'boolean') && (Number.isSafeInteger(value["rowCount"])) && (typeof value["truncated"] === 'boolean');
 }
 
 export function readOperationLogResponse(value: unknown): OperationLogResponse {
@@ -4205,7 +4339,7 @@ export function readOperationLogResponse(value: unknown): OperationLogResponse {
 }
 
 function isOperationLogResponse(value: unknown): value is OperationLogResponse {
-  return isRecord(value) && (typeof value["actionKey"] === 'string') && ((value["clientIpFingerprint"] === null) || (typeof value["clientIpFingerprint"] === 'string')) && (typeof value["durationMs"] === 'number' && Number.isSafeInteger(value["durationMs"])) && (typeof value["httpMethod"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["occurredAtUtc"] === 'string') && ((value["permissionCode"] === null) || (typeof value["permissionCode"] === 'string')) && (typeof value["requestPath"] === 'string') && (typeof value["statusCode"] === 'number' && Number.isSafeInteger(value["statusCode"])) && (typeof value["succeeded"] === 'boolean') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
+  return isRecord(value) && (typeof value["actionKey"] === 'string') && ((value["clientIpFingerprint"] === null) || (typeof value["clientIpFingerprint"] === 'string')) && (Number.isSafeInteger(value["durationMs"])) && (typeof value["httpMethod"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["occurredAtUtc"] === 'string') && ((value["permissionCode"] === null) || (typeof value["permissionCode"] === 'string')) && (typeof value["requestPath"] === 'string') && (Number.isSafeInteger(value["statusCode"])) && (typeof value["succeeded"] === 'boolean') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
 }
 
 export function readOrganizationAssignableUserResponse(value: unknown): OrganizationAssignableUserResponse {
@@ -4228,7 +4362,7 @@ export function readOrganizationPositionLevelResponse(value: unknown): Organizat
 }
 
 function isOrganizationPositionLevelResponse(value: unknown): value is OrganizationPositionLevelResponse {
-  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readOrganizationPositionResponse(value: unknown): OrganizationPositionResponse {
@@ -4240,7 +4374,7 @@ export function readOrganizationPositionResponse(value: unknown): OrganizationPo
 }
 
 function isOrganizationPositionResponse(value: unknown): value is OrganizationPositionResponse {
-  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && ((value["positionLevelCode"] === null) || (typeof value["positionLevelCode"] === 'string')) && ((value["positionLevelId"] === null) || (typeof value["positionLevelId"] === 'string' && guidPattern.test(value["positionLevelId"]))) && ((value["positionLevelName"] === null) || (typeof value["positionLevelName"] === 'string')) && ((value["unitCode"] === null) || (typeof value["unitCode"] === 'string')) && ((value["unitId"] === null) || (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"]))) && ((value["unitName"] === null) || (typeof value["unitName"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && ((value["positionLevelCode"] === null) || (typeof value["positionLevelCode"] === 'string')) && ((value["positionLevelId"] === null) || (typeof value["positionLevelId"] === 'string' && guidPattern.test(value["positionLevelId"]))) && ((value["positionLevelName"] === null) || (typeof value["positionLevelName"] === 'string')) && ((value["unitCode"] === null) || (typeof value["unitCode"] === 'string')) && ((value["unitId"] === null) || (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"]))) && ((value["unitName"] === null) || (typeof value["unitName"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readOrganizationUnitResponse(value: unknown): OrganizationUnitResponse {
@@ -4252,7 +4386,7 @@ export function readOrganizationUnitResponse(value: unknown): OrganizationUnitRe
 }
 
 function isOrganizationUnitResponse(value: unknown): value is OrganizationUnitResponse {
-  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readOrganizationUserPositionResponse(value: unknown): OrganizationUserPositionResponse {
@@ -4264,7 +4398,7 @@ export function readOrganizationUserPositionResponse(value: unknown): Organizati
 }
 
 function isOrganizationUserPositionResponse(value: unknown): value is OrganizationUserPositionResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["isPrimary"] === 'boolean') && (typeof value["positionCode"] === 'string') && (typeof value["positionId"] === 'string' && guidPattern.test(value["positionId"])) && (typeof value["positionName"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["isPrimary"] === 'boolean') && (typeof value["positionCode"] === 'string') && (typeof value["positionId"] === 'string' && guidPattern.test(value["positionId"])) && (typeof value["positionName"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readOrganizationUserUnitResponse(value: unknown): OrganizationUserUnitResponse {
@@ -4276,7 +4410,7 @@ export function readOrganizationUserUnitResponse(value: unknown): OrganizationUs
 }
 
 function isOrganizationUserUnitResponse(value: unknown): value is OrganizationUserUnitResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["isPrimary"] === 'boolean') && (typeof value["unitCode"] === 'string') && (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"])) && (typeof value["unitName"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["isPrimary"] === 'boolean') && (typeof value["unitCode"] === 'string') && (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"])) && (typeof value["unitName"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readOutboundCallLogResponse(value: unknown): OutboundCallLogResponse {
@@ -4288,7 +4422,7 @@ export function readOutboundCallLogResponse(value: unknown): OutboundCallLogResp
 }
 
 function isOutboundCallLogResponse(value: unknown): value is OutboundCallLogResponse {
-  return isRecord(value) && (typeof value["destinationHostCategory"] === 'string') && (typeof value["durationMs"] === 'number' && Number.isSafeInteger(value["durationMs"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["occurredAtUtc"] === 'string') && (typeof value["operationKey"] === 'string') && (typeof value["providerKey"] === 'string') && (typeof value["retryCount"] === 'number' && Number.isSafeInteger(value["retryCount"])) && ((value["safeErrorCode"] === null) || (typeof value["safeErrorCode"] === 'string')) && (typeof value["statusCode"] === 'number' && Number.isSafeInteger(value["statusCode"])) && (typeof value["succeeded"] === 'boolean') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
+  return isRecord(value) && (typeof value["destinationHostCategory"] === 'string') && (Number.isSafeInteger(value["durationMs"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["occurredAtUtc"] === 'string') && (typeof value["operationKey"] === 'string') && (typeof value["providerKey"] === 'string') && (Number.isSafeInteger(value["retryCount"])) && ((value["safeErrorCode"] === null) || (typeof value["safeErrorCode"] === 'string')) && (Number.isSafeInteger(value["statusCode"])) && (typeof value["succeeded"] === 'boolean') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
 }
 
 export function readPagedResultOfAccessLogResponse(value: unknown): PagedResultOfAccessLogResponse {
@@ -4300,7 +4434,7 @@ export function readPagedResultOfAccessLogResponse(value: unknown): PagedResultO
 }
 
 function isPagedResultOfAccessLogResponse(value: unknown): value is PagedResultOfAccessLogResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAccessLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAccessLogResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfAdministrativeRegionResponse(value: unknown): PagedResultOfAdministrativeRegionResponse {
@@ -4312,7 +4446,7 @@ export function readPagedResultOfAdministrativeRegionResponse(value: unknown): P
 }
 
 function isPagedResultOfAdministrativeRegionResponse(value: unknown): value is PagedResultOfAdministrativeRegionResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAdministrativeRegionResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAdministrativeRegionResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfAiAgentToolCallListItem(value: unknown): PagedResultOfAiAgentToolCallListItem {
@@ -4324,7 +4458,7 @@ export function readPagedResultOfAiAgentToolCallListItem(value: unknown): PagedR
 }
 
 function isPagedResultOfAiAgentToolCallListItem(value: unknown): value is PagedResultOfAiAgentToolCallListItem {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiAgentToolCallListItem(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiAgentToolCallListItem(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfAiChatSessionListItem(value: unknown): PagedResultOfAiChatSessionListItem {
@@ -4336,7 +4470,7 @@ export function readPagedResultOfAiChatSessionListItem(value: unknown): PagedRes
 }
 
 function isPagedResultOfAiChatSessionListItem(value: unknown): value is PagedResultOfAiChatSessionListItem {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiChatSessionListItem(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiChatSessionListItem(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfAiModelConfigListItem(value: unknown): PagedResultOfAiModelConfigListItem {
@@ -4348,7 +4482,7 @@ export function readPagedResultOfAiModelConfigListItem(value: unknown): PagedRes
 }
 
 function isPagedResultOfAiModelConfigListItem(value: unknown): value is PagedResultOfAiModelConfigListItem {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiModelConfigListItem(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiModelConfigListItem(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfAiTenantQuotaListItem(value: unknown): PagedResultOfAiTenantQuotaListItem {
@@ -4360,7 +4494,7 @@ export function readPagedResultOfAiTenantQuotaListItem(value: unknown): PagedRes
 }
 
 function isPagedResultOfAiTenantQuotaListItem(value: unknown): value is PagedResultOfAiTenantQuotaListItem {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiTenantQuotaListItem(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiTenantQuotaListItem(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfCodeGenerationRunResponse(value: unknown): PagedResultOfCodeGenerationRunResponse {
@@ -4372,7 +4506,7 @@ export function readPagedResultOfCodeGenerationRunResponse(value: unknown): Page
 }
 
 function isPagedResultOfCodeGenerationRunResponse(value: unknown): value is PagedResultOfCodeGenerationRunResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isCodeGenerationRunResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isCodeGenerationRunResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfCodeGenerationTemplateResponse(value: unknown): PagedResultOfCodeGenerationTemplateResponse {
@@ -4384,7 +4518,7 @@ export function readPagedResultOfCodeGenerationTemplateResponse(value: unknown):
 }
 
 function isPagedResultOfCodeGenerationTemplateResponse(value: unknown): value is PagedResultOfCodeGenerationTemplateResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isCodeGenerationTemplateResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isCodeGenerationTemplateResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfConfigEntryResponse(value: unknown): PagedResultOfConfigEntryResponse {
@@ -4396,7 +4530,7 @@ export function readPagedResultOfConfigEntryResponse(value: unknown): PagedResul
 }
 
 function isPagedResultOfConfigEntryResponse(value: unknown): value is PagedResultOfConfigEntryResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isConfigEntryResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isConfigEntryResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfDataApprovalRequestResponse(value: unknown): PagedResultOfDataApprovalRequestResponse {
@@ -4408,7 +4542,7 @@ export function readPagedResultOfDataApprovalRequestResponse(value: unknown): Pa
 }
 
 function isPagedResultOfDataApprovalRequestResponse(value: unknown): value is PagedResultOfDataApprovalRequestResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isDataApprovalRequestResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isDataApprovalRequestResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfDictItemResponse(value: unknown): PagedResultOfDictItemResponse {
@@ -4420,7 +4554,7 @@ export function readPagedResultOfDictItemResponse(value: unknown): PagedResultOf
 }
 
 function isPagedResultOfDictItemResponse(value: unknown): value is PagedResultOfDictItemResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isDictItemResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isDictItemResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfDictTypeResponse(value: unknown): PagedResultOfDictTypeResponse {
@@ -4432,7 +4566,7 @@ export function readPagedResultOfDictTypeResponse(value: unknown): PagedResultOf
 }
 
 function isPagedResultOfDictTypeResponse(value: unknown): value is PagedResultOfDictTypeResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isDictTypeResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isDictTypeResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfEnterpriseRequestResponse(value: unknown): PagedResultOfEnterpriseRequestResponse {
@@ -4444,7 +4578,7 @@ export function readPagedResultOfEnterpriseRequestResponse(value: unknown): Page
 }
 
 function isPagedResultOfEnterpriseRequestResponse(value: unknown): value is PagedResultOfEnterpriseRequestResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isEnterpriseRequestResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isEnterpriseRequestResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfExceptionLogResponse(value: unknown): PagedResultOfExceptionLogResponse {
@@ -4456,7 +4590,19 @@ export function readPagedResultOfExceptionLogResponse(value: unknown): PagedResu
 }
 
 function isPagedResultOfExceptionLogResponse(value: unknown): value is PagedResultOfExceptionLogResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isExceptionLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isExceptionLogResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfGuid(value: unknown): PagedResultOfGuid {
+  const normalizedValue = normalizePagedResultOfGuidIntegerJson(value);
+  if (!(isPagedResultOfGuid(normalizedValue))) {
+    throw new Error('client.invalid_paged_result_of_guid');
+  }
+  return normalizedValue;
+}
+
+function isPagedResultOfGuid(value: unknown): value is PagedResultOfGuid {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => typeof item14 === 'string' && guidPattern.test(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostAnnouncementReadReceiptResponse(value: unknown): PagedResultOfHostAnnouncementReadReceiptResponse {
@@ -4468,7 +4614,7 @@ export function readPagedResultOfHostAnnouncementReadReceiptResponse(value: unkn
 }
 
 function isPagedResultOfHostAnnouncementReadReceiptResponse(value: unknown): value is PagedResultOfHostAnnouncementReadReceiptResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostAnnouncementReadReceiptResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostAnnouncementReadReceiptResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostAnnouncementResponse(value: unknown): PagedResultOfHostAnnouncementResponse {
@@ -4480,7 +4626,7 @@ export function readPagedResultOfHostAnnouncementResponse(value: unknown): Paged
 }
 
 function isPagedResultOfHostAnnouncementResponse(value: unknown): value is PagedResultOfHostAnnouncementResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostAnnouncementResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostAnnouncementResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostApiKeyResponse(value: unknown): PagedResultOfHostApiKeyResponse {
@@ -4492,7 +4638,7 @@ export function readPagedResultOfHostApiKeyResponse(value: unknown): PagedResult
 }
 
 function isPagedResultOfHostApiKeyResponse(value: unknown): value is PagedResultOfHostApiKeyResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostApiKeyResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostApiKeyResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostDocumentAccessLogResponse(value: unknown): PagedResultOfHostDocumentAccessLogResponse {
@@ -4504,7 +4650,7 @@ export function readPagedResultOfHostDocumentAccessLogResponse(value: unknown): 
 }
 
 function isPagedResultOfHostDocumentAccessLogResponse(value: unknown): value is PagedResultOfHostDocumentAccessLogResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentAccessLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentAccessLogResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostDocumentItemResponse(value: unknown): PagedResultOfHostDocumentItemResponse {
@@ -4516,7 +4662,7 @@ export function readPagedResultOfHostDocumentItemResponse(value: unknown): Paged
 }
 
 function isPagedResultOfHostDocumentItemResponse(value: unknown): value is PagedResultOfHostDocumentItemResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentItemResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentItemResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostDocumentPreviewTaskResponse(value: unknown): PagedResultOfHostDocumentPreviewTaskResponse {
@@ -4528,7 +4674,7 @@ export function readPagedResultOfHostDocumentPreviewTaskResponse(value: unknown)
 }
 
 function isPagedResultOfHostDocumentPreviewTaskResponse(value: unknown): value is PagedResultOfHostDocumentPreviewTaskResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentPreviewTaskResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentPreviewTaskResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostDocumentShareResponse(value: unknown): PagedResultOfHostDocumentShareResponse {
@@ -4540,7 +4686,7 @@ export function readPagedResultOfHostDocumentShareResponse(value: unknown): Page
 }
 
 function isPagedResultOfHostDocumentShareResponse(value: unknown): value is PagedResultOfHostDocumentShareResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentShareResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentShareResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostFileReferenceClaimResponse(value: unknown): PagedResultOfHostFileReferenceClaimResponse {
@@ -4552,7 +4698,7 @@ export function readPagedResultOfHostFileReferenceClaimResponse(value: unknown):
 }
 
 function isPagedResultOfHostFileReferenceClaimResponse(value: unknown): value is PagedResultOfHostFileReferenceClaimResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostFileReferenceClaimResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostFileReferenceClaimResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostFileResponse(value: unknown): PagedResultOfHostFileResponse {
@@ -4564,7 +4710,7 @@ export function readPagedResultOfHostFileResponse(value: unknown): PagedResultOf
 }
 
 function isPagedResultOfHostFileResponse(value: unknown): value is PagedResultOfHostFileResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostFileResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostFileResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostJobDefinitionResponse(value: unknown): PagedResultOfHostJobDefinitionResponse {
@@ -4576,7 +4722,7 @@ export function readPagedResultOfHostJobDefinitionResponse(value: unknown): Page
 }
 
 function isPagedResultOfHostJobDefinitionResponse(value: unknown): value is PagedResultOfHostJobDefinitionResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostJobDefinitionResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostJobDefinitionResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostJobExecutionResponse(value: unknown): PagedResultOfHostJobExecutionResponse {
@@ -4588,7 +4734,7 @@ export function readPagedResultOfHostJobExecutionResponse(value: unknown): Paged
 }
 
 function isPagedResultOfHostJobExecutionResponse(value: unknown): value is PagedResultOfHostJobExecutionResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostJobExecutionResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostJobExecutionResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostJobScheduleResponse(value: unknown): PagedResultOfHostJobScheduleResponse {
@@ -4600,7 +4746,7 @@ export function readPagedResultOfHostJobScheduleResponse(value: unknown): PagedR
 }
 
 function isPagedResultOfHostJobScheduleResponse(value: unknown): value is PagedResultOfHostJobScheduleResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostJobScheduleResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostJobScheduleResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostMenuResponse(value: unknown): PagedResultOfHostMenuResponse {
@@ -4612,7 +4758,7 @@ export function readPagedResultOfHostMenuResponse(value: unknown): PagedResultOf
 }
 
 function isPagedResultOfHostMenuResponse(value: unknown): value is PagedResultOfHostMenuResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostMenuResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostMenuResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostOnlineSessionResponse(value: unknown): PagedResultOfHostOnlineSessionResponse {
@@ -4624,7 +4770,7 @@ export function readPagedResultOfHostOnlineSessionResponse(value: unknown): Page
 }
 
 function isPagedResultOfHostOnlineSessionResponse(value: unknown): value is PagedResultOfHostOnlineSessionResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostOnlineSessionResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostOnlineSessionResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostReleaseNoteResponse(value: unknown): PagedResultOfHostReleaseNoteResponse {
@@ -4636,7 +4782,7 @@ export function readPagedResultOfHostReleaseNoteResponse(value: unknown): PagedR
 }
 
 function isPagedResultOfHostReleaseNoteResponse(value: unknown): value is PagedResultOfHostReleaseNoteResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostReleaseNoteResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostReleaseNoteResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostRoleResponse(value: unknown): PagedResultOfHostRoleResponse {
@@ -4648,7 +4794,7 @@ export function readPagedResultOfHostRoleResponse(value: unknown): PagedResultOf
 }
 
 function isPagedResultOfHostRoleResponse(value: unknown): value is PagedResultOfHostRoleResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostRoleResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostRoleResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfHostUserResponse(value: unknown): PagedResultOfHostUserResponse {
@@ -4660,7 +4806,7 @@ export function readPagedResultOfHostUserResponse(value: unknown): PagedResultOf
 }
 
 function isPagedResultOfHostUserResponse(value: unknown): value is PagedResultOfHostUserResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostUserResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostUserResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfImportExportTaskResponse(value: unknown): PagedResultOfImportExportTaskResponse {
@@ -4672,7 +4818,7 @@ export function readPagedResultOfImportExportTaskResponse(value: unknown): Paged
 }
 
 function isPagedResultOfImportExportTaskResponse(value: unknown): value is PagedResultOfImportExportTaskResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isImportExportTaskResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isImportExportTaskResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfInboxMessageResponse(value: unknown): PagedResultOfInboxMessageResponse {
@@ -4684,7 +4830,7 @@ export function readPagedResultOfInboxMessageResponse(value: unknown): PagedResu
 }
 
 function isPagedResultOfInboxMessageResponse(value: unknown): value is PagedResultOfInboxMessageResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isInboxMessageResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isInboxMessageResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfK3CloudDocumentSyncResponse(value: unknown): PagedResultOfK3CloudDocumentSyncResponse {
@@ -4696,7 +4842,7 @@ export function readPagedResultOfK3CloudDocumentSyncResponse(value: unknown): Pa
 }
 
 function isPagedResultOfK3CloudDocumentSyncResponse(value: unknown): value is PagedResultOfK3CloudDocumentSyncResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isK3CloudDocumentSyncResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isK3CloudDocumentSyncResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfMyReleaseNoteResponse(value: unknown): PagedResultOfMyReleaseNoteResponse {
@@ -4708,7 +4854,7 @@ export function readPagedResultOfMyReleaseNoteResponse(value: unknown): PagedRes
 }
 
 function isPagedResultOfMyReleaseNoteResponse(value: unknown): value is PagedResultOfMyReleaseNoteResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isMyReleaseNoteResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isMyReleaseNoteResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfNotificationBindingResponse(value: unknown): PagedResultOfNotificationBindingResponse {
@@ -4720,7 +4866,7 @@ export function readPagedResultOfNotificationBindingResponse(value: unknown): Pa
 }
 
 function isPagedResultOfNotificationBindingResponse(value: unknown): value is PagedResultOfNotificationBindingResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationBindingResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationBindingResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfNotificationDeliveryResponse(value: unknown): PagedResultOfNotificationDeliveryResponse {
@@ -4732,7 +4878,7 @@ export function readPagedResultOfNotificationDeliveryResponse(value: unknown): P
 }
 
 function isPagedResultOfNotificationDeliveryResponse(value: unknown): value is PagedResultOfNotificationDeliveryResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationDeliveryResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationDeliveryResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfNotificationProviderProfileResponse(value: unknown): PagedResultOfNotificationProviderProfileResponse {
@@ -4744,7 +4890,7 @@ export function readPagedResultOfNotificationProviderProfileResponse(value: unkn
 }
 
 function isPagedResultOfNotificationProviderProfileResponse(value: unknown): value is PagedResultOfNotificationProviderProfileResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationProviderProfileResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationProviderProfileResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfNotificationTemplateResponse(value: unknown): PagedResultOfNotificationTemplateResponse {
@@ -4756,7 +4902,7 @@ export function readPagedResultOfNotificationTemplateResponse(value: unknown): P
 }
 
 function isPagedResultOfNotificationTemplateResponse(value: unknown): value is PagedResultOfNotificationTemplateResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationTemplateResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationTemplateResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfOcrIdCardTaskResponse(value: unknown): PagedResultOfOcrIdCardTaskResponse {
@@ -4768,7 +4914,7 @@ export function readPagedResultOfOcrIdCardTaskResponse(value: unknown): PagedRes
 }
 
 function isPagedResultOfOcrIdCardTaskResponse(value: unknown): value is PagedResultOfOcrIdCardTaskResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOcrIdCardTaskResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOcrIdCardTaskResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfOperationLogResponse(value: unknown): PagedResultOfOperationLogResponse {
@@ -4780,7 +4926,7 @@ export function readPagedResultOfOperationLogResponse(value: unknown): PagedResu
 }
 
 function isPagedResultOfOperationLogResponse(value: unknown): value is PagedResultOfOperationLogResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOperationLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOperationLogResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfOrganizationAssignableUserResponse(value: unknown): PagedResultOfOrganizationAssignableUserResponse {
@@ -4792,7 +4938,7 @@ export function readPagedResultOfOrganizationAssignableUserResponse(value: unkno
 }
 
 function isPagedResultOfOrganizationAssignableUserResponse(value: unknown): value is PagedResultOfOrganizationAssignableUserResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationAssignableUserResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationAssignableUserResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfOrganizationPositionLevelResponse(value: unknown): PagedResultOfOrganizationPositionLevelResponse {
@@ -4804,7 +4950,7 @@ export function readPagedResultOfOrganizationPositionLevelResponse(value: unknow
 }
 
 function isPagedResultOfOrganizationPositionLevelResponse(value: unknown): value is PagedResultOfOrganizationPositionLevelResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationPositionLevelResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationPositionLevelResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfOrganizationPositionResponse(value: unknown): PagedResultOfOrganizationPositionResponse {
@@ -4816,7 +4962,7 @@ export function readPagedResultOfOrganizationPositionResponse(value: unknown): P
 }
 
 function isPagedResultOfOrganizationPositionResponse(value: unknown): value is PagedResultOfOrganizationPositionResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationPositionResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationPositionResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfOrganizationUnitResponse(value: unknown): PagedResultOfOrganizationUnitResponse {
@@ -4828,7 +4974,7 @@ export function readPagedResultOfOrganizationUnitResponse(value: unknown): Paged
 }
 
 function isPagedResultOfOrganizationUnitResponse(value: unknown): value is PagedResultOfOrganizationUnitResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationUnitResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationUnitResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfOrganizationUserPositionResponse(value: unknown): PagedResultOfOrganizationUserPositionResponse {
@@ -4840,7 +4986,7 @@ export function readPagedResultOfOrganizationUserPositionResponse(value: unknown
 }
 
 function isPagedResultOfOrganizationUserPositionResponse(value: unknown): value is PagedResultOfOrganizationUserPositionResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationUserPositionResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationUserPositionResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfOrganizationUserUnitResponse(value: unknown): PagedResultOfOrganizationUserUnitResponse {
@@ -4852,7 +4998,7 @@ export function readPagedResultOfOrganizationUserUnitResponse(value: unknown): P
 }
 
 function isPagedResultOfOrganizationUserUnitResponse(value: unknown): value is PagedResultOfOrganizationUserUnitResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationUserUnitResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationUserUnitResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfOutboundCallLogResponse(value: unknown): PagedResultOfOutboundCallLogResponse {
@@ -4864,7 +5010,7 @@ export function readPagedResultOfOutboundCallLogResponse(value: unknown): PagedR
 }
 
 function isPagedResultOfOutboundCallLogResponse(value: unknown): value is PagedResultOfOutboundCallLogResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOutboundCallLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOutboundCallLogResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfPaymentMerchantConfigListItem(value: unknown): PagedResultOfPaymentMerchantConfigListItem {
@@ -4876,7 +5022,7 @@ export function readPagedResultOfPaymentMerchantConfigListItem(value: unknown): 
 }
 
 function isPagedResultOfPaymentMerchantConfigListItem(value: unknown): value is PagedResultOfPaymentMerchantConfigListItem {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isPaymentMerchantConfigListItem(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isPaymentMerchantConfigListItem(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfPaymentOrderListItem(value: unknown): PagedResultOfPaymentOrderListItem {
@@ -4888,7 +5034,7 @@ export function readPagedResultOfPaymentOrderListItem(value: unknown): PagedResu
 }
 
 function isPagedResultOfPaymentOrderListItem(value: unknown): value is PagedResultOfPaymentOrderListItem {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isPaymentOrderListItem(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isPaymentOrderListItem(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfPaymentRefundListItem(value: unknown): PagedResultOfPaymentRefundListItem {
@@ -4900,7 +5046,7 @@ export function readPagedResultOfPaymentRefundListItem(value: unknown): PagedRes
 }
 
 function isPagedResultOfPaymentRefundListItem(value: unknown): value is PagedResultOfPaymentRefundListItem {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isPaymentRefundListItem(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isPaymentRefundListItem(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfPersonalScheduleResponse(value: unknown): PagedResultOfPersonalScheduleResponse {
@@ -4912,7 +5058,7 @@ export function readPagedResultOfPersonalScheduleResponse(value: unknown): Paged
 }
 
 function isPagedResultOfPersonalScheduleResponse(value: unknown): value is PagedResultOfPersonalScheduleResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isPersonalScheduleResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isPersonalScheduleResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfReceivedHostAnnouncementListItemResponse(value: unknown): PagedResultOfReceivedHostAnnouncementListItemResponse {
@@ -4924,7 +5070,7 @@ export function readPagedResultOfReceivedHostAnnouncementListItemResponse(value:
 }
 
 function isPagedResultOfReceivedHostAnnouncementListItemResponse(value: unknown): value is PagedResultOfReceivedHostAnnouncementListItemResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isReceivedHostAnnouncementListItemResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isReceivedHostAnnouncementListItemResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfReportingDataSourceListItem(value: unknown): PagedResultOfReportingDataSourceListItem {
@@ -4936,7 +5082,7 @@ export function readPagedResultOfReportingDataSourceListItem(value: unknown): Pa
 }
 
 function isPagedResultOfReportingDataSourceListItem(value: unknown): value is PagedResultOfReportingDataSourceListItem {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isReportingDataSourceListItem(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isReportingDataSourceListItem(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfReportingExportTaskResponse(value: unknown): PagedResultOfReportingExportTaskResponse {
@@ -4948,7 +5094,7 @@ export function readPagedResultOfReportingExportTaskResponse(value: unknown): Pa
 }
 
 function isPagedResultOfReportingExportTaskResponse(value: unknown): value is PagedResultOfReportingExportTaskResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isReportingExportTaskResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isReportingExportTaskResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfSerialNumberRuleResponse(value: unknown): PagedResultOfSerialNumberRuleResponse {
@@ -4960,7 +5106,7 @@ export function readPagedResultOfSerialNumberRuleResponse(value: unknown): Paged
 }
 
 function isPagedResultOfSerialNumberRuleResponse(value: unknown): value is PagedResultOfSerialNumberRuleResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isSerialNumberRuleResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isSerialNumberRuleResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfTenantPackageSummary(value: unknown): PagedResultOfTenantPackageSummary {
@@ -4972,7 +5118,7 @@ export function readPagedResultOfTenantPackageSummary(value: unknown): PagedResu
 }
 
 function isPagedResultOfTenantPackageSummary(value: unknown): value is PagedResultOfTenantPackageSummary {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isTenantPackageSummary(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isTenantPackageSummary(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfTenantSummary(value: unknown): PagedResultOfTenantSummary {
@@ -4984,7 +5130,7 @@ export function readPagedResultOfTenantSummary(value: unknown): PagedResultOfTen
 }
 
 function isPagedResultOfTenantSummary(value: unknown): value is PagedResultOfTenantSummary {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isTenantSummary(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isTenantSummary(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfWorkflowInstanceListItemResponse(value: unknown): PagedResultOfWorkflowInstanceListItemResponse {
@@ -4996,7 +5142,7 @@ export function readPagedResultOfWorkflowInstanceListItemResponse(value: unknown
 }
 
 function isPagedResultOfWorkflowInstanceListItemResponse(value: unknown): value is PagedResultOfWorkflowInstanceListItemResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowInstanceListItemResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowInstanceListItemResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfWorkflowRecoveryTaskResponse(value: unknown): PagedResultOfWorkflowRecoveryTaskResponse {
@@ -5008,7 +5154,7 @@ export function readPagedResultOfWorkflowRecoveryTaskResponse(value: unknown): P
 }
 
 function isPagedResultOfWorkflowRecoveryTaskResponse(value: unknown): value is PagedResultOfWorkflowRecoveryTaskResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowRecoveryTaskResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowRecoveryTaskResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfWorkflowTodoListItemResponse(value: unknown): PagedResultOfWorkflowTodoListItemResponse {
@@ -5020,7 +5166,7 @@ export function readPagedResultOfWorkflowTodoListItemResponse(value: unknown): P
 }
 
 function isPagedResultOfWorkflowTodoListItemResponse(value: unknown): value is PagedResultOfWorkflowTodoListItemResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowTodoListItemResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowTodoListItemResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readPauseWorkflowInstanceRequest(value: unknown): PauseWorkflowInstanceRequest {
@@ -5032,7 +5178,7 @@ export function readPauseWorkflowInstanceRequest(value: unknown): PauseWorkflowI
 }
 
 function isPauseWorkflowInstanceRequest(value: unknown): value is PauseWorkflowInstanceRequest {
-  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+  return isRecord(value) && (Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
 }
 
 export function readPaymentMerchantConfigListItem(value: unknown): PaymentMerchantConfigListItem {
@@ -5044,7 +5190,7 @@ export function readPaymentMerchantConfigListItem(value: unknown): PaymentMercha
 }
 
 function isPaymentMerchantConfigListItem(value: unknown): value is PaymentMerchantConfigListItem {
-  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasApiV3Key"] === 'boolean') && (typeof value["hasPrivateKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (typeof value["maskedAppId"] === 'string') && (typeof value["maskedCertificateSerialNo"] === 'string') && (typeof value["maskedMerchantId"] === 'string') && (typeof value["maskedNotifyUrl"] === 'string') && (typeof value["maskedReturnUrl"] === 'string') && (typeof value["name"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasApiV3Key"] === 'boolean') && (typeof value["hasPrivateKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (typeof value["maskedAppId"] === 'string') && (typeof value["maskedCertificateSerialNo"] === 'string') && (typeof value["maskedMerchantId"] === 'string') && (typeof value["maskedNotifyUrl"] === 'string') && (typeof value["maskedReturnUrl"] === 'string') && (typeof value["name"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPaymentMerchantConfigResponse(value: unknown): PaymentMerchantConfigResponse {
@@ -5056,7 +5202,7 @@ export function readPaymentMerchantConfigResponse(value: unknown): PaymentMercha
 }
 
 function isPaymentMerchantConfigResponse(value: unknown): value is PaymentMerchantConfigResponse {
-  return isRecord(value) && (typeof value["appId"] === 'string') && (typeof value["certificateSerialNo"] === 'string') && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasApiV3Key"] === 'boolean') && (typeof value["hasPrivateKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (typeof value["merchantId"] === 'string') && (typeof value["name"] === 'string') && (typeof value["notifyUrl"] === 'string') && (typeof value["returnUrl"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["appId"] === 'string') && (typeof value["certificateSerialNo"] === 'string') && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasApiV3Key"] === 'boolean') && (typeof value["hasPrivateKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (typeof value["merchantId"] === 'string') && (typeof value["name"] === 'string') && (typeof value["notifyUrl"] === 'string') && (typeof value["returnUrl"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPaymentOrderListItem(value: unknown): PaymentOrderListItem {
@@ -5068,7 +5214,7 @@ export function readPaymentOrderListItem(value: unknown): PaymentOrderListItem {
 }
 
 function isPaymentOrderListItem(value: unknown): value is PaymentOrderListItem {
-  return isRecord(value) && (typeof value["amountMinor"] === 'number' && Number.isSafeInteger(value["amountMinor"])) && (typeof value["channelKey"] === 'string') && ((value["codeUrl"] === null) || (typeof value["codeUrl"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["currency"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["failMessage"] === null) || (typeof value["failMessage"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (typeof value["outTradeNo"] === 'string') && ((value["paidAtUtc"] === null) || (typeof value["paidAtUtc"] === 'string')) && ((value["providerTransactionId"] === null) || (typeof value["providerTransactionId"] === 'string')) && (typeof value["subject"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["tradeStateKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["amountMinor"])) && (typeof value["channelKey"] === 'string') && ((value["codeUrl"] === null) || (typeof value["codeUrl"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["currency"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["failMessage"] === null) || (typeof value["failMessage"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (typeof value["outTradeNo"] === 'string') && ((value["paidAtUtc"] === null) || (typeof value["paidAtUtc"] === 'string')) && ((value["providerTransactionId"] === null) || (typeof value["providerTransactionId"] === 'string')) && (typeof value["subject"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["tradeStateKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPaymentOrderResponse(value: unknown): PaymentOrderResponse {
@@ -5080,7 +5226,7 @@ export function readPaymentOrderResponse(value: unknown): PaymentOrderResponse {
 }
 
 function isPaymentOrderResponse(value: unknown): value is PaymentOrderResponse {
-  return isRecord(value) && (typeof value["amountMinor"] === 'number' && Number.isSafeInteger(value["amountMinor"])) && (typeof value["channelKey"] === 'string') && ((value["codeUrl"] === null) || (typeof value["codeUrl"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["currency"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["failMessage"] === null) || (typeof value["failMessage"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (typeof value["outTradeNo"] === 'string') && ((value["paidAtUtc"] === null) || (typeof value["paidAtUtc"] === 'string')) && ((value["providerTransactionId"] === null) || (typeof value["providerTransactionId"] === 'string')) && (typeof value["subject"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["tradeStateKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["amountMinor"])) && (typeof value["channelKey"] === 'string') && ((value["codeUrl"] === null) || (typeof value["codeUrl"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["currency"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["failMessage"] === null) || (typeof value["failMessage"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (typeof value["outTradeNo"] === 'string') && ((value["paidAtUtc"] === null) || (typeof value["paidAtUtc"] === 'string')) && ((value["providerTransactionId"] === null) || (typeof value["providerTransactionId"] === 'string')) && (typeof value["subject"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["tradeStateKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPaymentRefundListItem(value: unknown): PaymentRefundListItem {
@@ -5092,7 +5238,7 @@ export function readPaymentRefundListItem(value: unknown): PaymentRefundListItem
 }
 
 function isPaymentRefundListItem(value: unknown): value is PaymentRefundListItem {
-  return isRecord(value) && (typeof value["amountMinor"] === 'number' && Number.isSafeInteger(value["amountMinor"])) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["currency"] === 'string') && ((value["failMessage"] === null) || (typeof value["failMessage"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["orderId"] === 'string' && guidPattern.test(value["orderId"])) && (typeof value["outRefundNo"] === 'string') && (typeof value["outTradeNo"] === 'string') && ((value["providerRefundId"] === null) || (typeof value["providerRefundId"] === 'string')) && (typeof value["reason"] === 'string') && (typeof value["refundStateKey"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["amountMinor"])) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["currency"] === 'string') && ((value["failMessage"] === null) || (typeof value["failMessage"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["orderId"] === 'string' && guidPattern.test(value["orderId"])) && (typeof value["outRefundNo"] === 'string') && (typeof value["outTradeNo"] === 'string') && ((value["providerRefundId"] === null) || (typeof value["providerRefundId"] === 'string')) && (typeof value["reason"] === 'string') && (typeof value["refundStateKey"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPaymentRefundResponse(value: unknown): PaymentRefundResponse {
@@ -5104,7 +5250,7 @@ export function readPaymentRefundResponse(value: unknown): PaymentRefundResponse
 }
 
 function isPaymentRefundResponse(value: unknown): value is PaymentRefundResponse {
-  return isRecord(value) && (typeof value["amountMinor"] === 'number' && Number.isSafeInteger(value["amountMinor"])) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["currency"] === 'string') && ((value["failMessage"] === null) || (typeof value["failMessage"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (typeof value["orderId"] === 'string' && guidPattern.test(value["orderId"])) && (typeof value["outRefundNo"] === 'string') && (typeof value["outTradeNo"] === 'string') && ((value["providerRefundId"] === null) || (typeof value["providerRefundId"] === 'string')) && (typeof value["reason"] === 'string') && (typeof value["refundStateKey"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["amountMinor"])) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["currency"] === 'string') && ((value["failMessage"] === null) || (typeof value["failMessage"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (typeof value["orderId"] === 'string' && guidPattern.test(value["orderId"])) && (typeof value["outRefundNo"] === 'string') && (typeof value["outTradeNo"] === 'string') && ((value["providerRefundId"] === null) || (typeof value["providerRefundId"] === 'string')) && (typeof value["reason"] === 'string') && (typeof value["refundStateKey"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPersonalScheduleResponse(value: unknown): PersonalScheduleResponse {
@@ -5116,7 +5262,7 @@ export function readPersonalScheduleResponse(value: unknown): PersonalScheduleRe
 }
 
 function isPersonalScheduleResponse(value: unknown): value is PersonalScheduleResponse {
-  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["endAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["startAtUtc"] === 'string') && (typeof value["status"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["endAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["startAtUtc"] === 'string') && (typeof value["status"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPreviewGoViewProjectRequest(value: unknown): PreviewGoViewProjectRequest {
@@ -5128,7 +5274,7 @@ export function readPreviewGoViewProjectRequest(value: unknown): PreviewGoViewPr
 }
 
 function isPreviewGoViewProjectRequest(value: unknown): value is PreviewGoViewProjectRequest {
-  return isRecord(value) && ((value["versionNumber"] === null) || (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"])));
+  return isRecord(value) && ((value["versionNumber"] === null) || (Number.isSafeInteger(value["versionNumber"])));
 }
 
 export function readPreviewPrintingTemplateRequest(value: unknown): PreviewPrintingTemplateRequest {
@@ -5140,7 +5286,7 @@ export function readPreviewPrintingTemplateRequest(value: unknown): PreviewPrint
 }
 
 function isPreviewPrintingTemplateRequest(value: unknown): value is PreviewPrintingTemplateRequest {
-  return isRecord(value) && ((value["versionNumber"] === null) || (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"])));
+  return isRecord(value) && (value["recordId"] === undefined || ((value["recordId"] === null) || (typeof value["recordId"] === 'string' && guidPattern.test(value["recordId"])))) && ((value["versionNumber"] === null) || (Number.isSafeInteger(value["versionNumber"])));
 }
 
 export function readPreviewSerialNumberRequest(value: unknown): PreviewSerialNumberRequest {
@@ -5152,7 +5298,7 @@ export function readPreviewSerialNumberRequest(value: unknown): PreviewSerialNum
 }
 
 function isPreviewSerialNumberRequest(value: unknown): value is PreviewSerialNumberRequest {
-  return isRecord(value) && (typeof value["atUtc"] === 'string') && (typeof value["pattern"] === 'string') && (value["resetInterval"] === undefined || (isSerialNumberResetInterval(value["resetInterval"]))) && (isSerialNumberRuleScope(value["scope"])) && (typeof value["sequenceValue"] === 'number' && Number.isSafeInteger(value["sequenceValue"])) && ((value["tenantIdentifier"] === null) || (typeof value["tenantIdentifier"] === 'string'));
+  return isRecord(value) && (typeof value["atUtc"] === 'string') && (typeof value["pattern"] === 'string') && (value["resetInterval"] === undefined || (isSerialNumberResetInterval(value["resetInterval"]))) && (isSerialNumberRuleScope(value["scope"])) && (Number.isSafeInteger(value["sequenceValue"])) && ((value["tenantIdentifier"] === null) || (typeof value["tenantIdentifier"] === 'string'));
 }
 
 export function readPreviewWorkflowAssigneeRequest(value: unknown): PreviewWorkflowAssigneeRequest {
@@ -5185,7 +5331,19 @@ export function readPrintingFormSchemaDefinition(value: unknown): PrintingFormSc
 }
 
 function isPrintingFormSchemaDefinition(value: unknown): value is PrintingFormSchemaDefinition {
-  return isRecord(value) && (typeof value["description"] === 'string') && (typeof value["displayName"] === 'string') && (Array.isArray(value["fields"]) && value["fields"].every(item15 => isPrintingFormFieldDefinition(item15))) && (typeof value["formSchemaKey"] === 'string');
+  return isRecord(value) && (typeof value["description"] === 'string') && (typeof value["displayName"] === 'string') && (Array.isArray(value["fields"]) && value["fields"].every(item15 => isPrintingFormFieldDefinition(item15))) && (typeof value["formSchemaKey"] === 'string') && (value["requiresRecordId"] === undefined || (typeof value["requiresRecordId"] === 'boolean'));
+}
+
+export function readPrintingPublishedTemplateResponse(value: unknown): PrintingPublishedTemplateResponse {
+  const normalizedValue = normalizePrintingPublishedTemplateResponseIntegerJson(value);
+  if (!(isPrintingPublishedTemplateResponse(normalizedValue))) {
+    throw new Error('client.invalid_printing_published_template_response');
+  }
+  return normalizedValue;
+}
+
+function isPrintingPublishedTemplateResponse(value: unknown): value is PrintingPublishedTemplateResponse {
+  return isRecord(value) && (typeof value["formSchemaKey"] === 'string') && (value["requiresRecordId"] === undefined || (typeof value["requiresRecordId"] === 'boolean')) && (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"])) && (typeof value["templateKey"] === 'string') && (typeof value["templateName"] === 'string') && (Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readPrintingTemplatePreviewResponse(value: unknown): PrintingTemplatePreviewResponse {
@@ -5197,7 +5355,7 @@ export function readPrintingTemplatePreviewResponse(value: unknown): PrintingTem
 }
 
 function isPrintingTemplatePreviewResponse(value: unknown): value is PrintingTemplatePreviewResponse {
-  return isRecord(value) && (isRecord(value["boundFields"])) && (typeof value["formSchemaKey"] === 'string') && (typeof value["generatedAtUtc"] === 'string') && (typeof value["html"] === 'string') && (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"])) && (typeof value["templateKey"] === 'string') && (typeof value["templateName"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+  return isRecord(value) && (isRecord(value["boundFields"])) && (typeof value["formSchemaKey"] === 'string') && (typeof value["generatedAtUtc"] === 'string') && (typeof value["html"] === 'string') && (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"])) && (typeof value["templateKey"] === 'string') && (typeof value["templateName"] === 'string') && (Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readPrintingTemplateResponse(value: unknown): PrintingTemplateResponse {
@@ -5209,7 +5367,7 @@ export function readPrintingTemplateResponse(value: unknown): PrintingTemplateRe
 }
 
 function isPrintingTemplateResponse(value: unknown): value is PrintingTemplateResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["formSchemaKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"])) && (typeof value["layoutHtml"] === 'string') && (typeof value["name"] === 'string') && (typeof value["templateKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["formSchemaKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (Number.isSafeInteger(value["latestPublishedVersionNumber"])) && (typeof value["layoutHtml"] === 'string') && (typeof value["name"] === 'string') && (typeof value["templateKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPrintingTemplateVersionResponse(value: unknown): PrintingTemplateVersionResponse {
@@ -5221,7 +5379,7 @@ export function readPrintingTemplateVersionResponse(value: unknown): PrintingTem
 }
 
 function isPrintingTemplateVersionResponse(value: unknown): value is PrintingTemplateVersionResponse {
-  return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["layoutHtml"] === 'string') && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"])) && (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+  return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["layoutHtml"] === 'string') && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"])) && (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"])) && (Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readProblemDetails(value: unknown): ProblemDetails {
@@ -5233,7 +5391,7 @@ export function readProblemDetails(value: unknown): ProblemDetails {
 }
 
 function isProblemDetails(value: unknown): value is ProblemDetails {
-  return isRecord(value) && (value["detail"] === undefined || ((value["detail"] === null) || (typeof value["detail"] === 'string'))) && (value["instance"] === undefined || ((value["instance"] === null) || (typeof value["instance"] === 'string'))) && (value["status"] === undefined || ((value["status"] === null) || (typeof value["status"] === 'number' && Number.isSafeInteger(value["status"])))) && (value["title"] === undefined || ((value["title"] === null) || (typeof value["title"] === 'string'))) && (value["type"] === undefined || ((value["type"] === null) || (typeof value["type"] === 'string')));
+  return isRecord(value) && (value["detail"] === undefined || ((value["detail"] === null) || (typeof value["detail"] === 'string'))) && (value["instance"] === undefined || ((value["instance"] === null) || (typeof value["instance"] === 'string'))) && (value["status"] === undefined || ((value["status"] === null) || (Number.isSafeInteger(value["status"])))) && (value["title"] === undefined || ((value["title"] === null) || (typeof value["title"] === 'string'))) && (value["type"] === undefined || ((value["type"] === null) || (typeof value["type"] === 'string')));
 }
 
 export function readProvisionTenantRequest(value: unknown): ProvisionTenantRequest {
@@ -5256,7 +5414,7 @@ export function readPublishGoViewProjectRequest(value: unknown): PublishGoViewPr
 }
 
 function isPublishGoViewProjectRequest(value: unknown): value is PublishGoViewProjectRequest {
-  return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPublishHostAnnouncementRequest(value: unknown): PublishHostAnnouncementRequest {
@@ -5268,7 +5426,7 @@ export function readPublishHostAnnouncementRequest(value: unknown): PublishHostA
 }
 
 function isPublishHostAnnouncementRequest(value: unknown): value is PublishHostAnnouncementRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPublishHostReleaseNoteRequest(value: unknown): PublishHostReleaseNoteRequest {
@@ -5280,7 +5438,7 @@ export function readPublishHostReleaseNoteRequest(value: unknown): PublishHostRe
 }
 
 function isPublishHostReleaseNoteRequest(value: unknown): value is PublishHostReleaseNoteRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPublishNotificationBindingRequest(value: unknown): PublishNotificationBindingRequest {
@@ -5292,7 +5450,7 @@ export function readPublishNotificationBindingRequest(value: unknown): PublishNo
 }
 
 function isPublishNotificationBindingRequest(value: unknown): value is PublishNotificationBindingRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPublishNotificationProviderProfileRequest(value: unknown): PublishNotificationProviderProfileRequest {
@@ -5304,7 +5462,7 @@ export function readPublishNotificationProviderProfileRequest(value: unknown): P
 }
 
 function isPublishNotificationProviderProfileRequest(value: unknown): value is PublishNotificationProviderProfileRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPublishNotificationTemplateRequest(value: unknown): PublishNotificationTemplateRequest {
@@ -5316,7 +5474,7 @@ export function readPublishNotificationTemplateRequest(value: unknown): PublishN
 }
 
 function isPublishNotificationTemplateRequest(value: unknown): value is PublishNotificationTemplateRequest {
-  return isRecord(value) && (typeof value["contentClassificationKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["contentClassificationKey"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPublishPrintingTemplateRequest(value: unknown): PublishPrintingTemplateRequest {
@@ -5328,7 +5486,7 @@ export function readPublishPrintingTemplateRequest(value: unknown): PublishPrint
 }
 
 function isPublishPrintingTemplateRequest(value: unknown): value is PublishPrintingTemplateRequest {
-  return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPublishReportingDefinitionRequest(value: unknown): PublishReportingDefinitionRequest {
@@ -5340,7 +5498,7 @@ export function readPublishReportingDefinitionRequest(value: unknown): PublishRe
 }
 
 function isPublishReportingDefinitionRequest(value: unknown): value is PublishReportingDefinitionRequest {
-  return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readPublishWorkflowDefinitionRequest(value: unknown): PublishWorkflowDefinitionRequest {
@@ -5352,7 +5510,7 @@ export function readPublishWorkflowDefinitionRequest(value: unknown): PublishWor
 }
 
 function isPublishWorkflowDefinitionRequest(value: unknown): value is PublishWorkflowDefinitionRequest {
-  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"]));
+  return isRecord(value) && (Number.isSafeInteger(value["expectedRevision"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"]));
 }
 
 export function readPublishWorkflowFormRequest(value: unknown): PublishWorkflowFormRequest {
@@ -5364,7 +5522,7 @@ export function readPublishWorkflowFormRequest(value: unknown): PublishWorkflowF
 }
 
 function isPublishWorkflowFormRequest(value: unknown): value is PublishWorkflowFormRequest {
-  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"]));
+  return isRecord(value) && (Number.isSafeInteger(value["expectedRevision"]));
 }
 
 export function readReassignWorkflowInstanceRequest(value: unknown): ReassignWorkflowInstanceRequest {
@@ -5376,7 +5534,7 @@ export function readReassignWorkflowInstanceRequest(value: unknown): ReassignWor
 }
 
 function isReassignWorkflowInstanceRequest(value: unknown): value is ReassignWorkflowInstanceRequest {
-  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
 }
 
 export function readReceivedHostAnnouncementDetailResponse(value: unknown): ReceivedHostAnnouncementDetailResponse {
@@ -5421,7 +5579,7 @@ export function readReconcileWorkflowRecoveryTaskRequest(value: unknown): Reconc
 }
 
 function isReconcileWorkflowRecoveryTaskRequest(value: unknown): value is ReconcileWorkflowRecoveryTaskRequest {
-  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+  return isRecord(value) && (Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
 }
 
 export function readRecoverWorkflowInstanceRequest(value: unknown): RecoverWorkflowInstanceRequest {
@@ -5433,7 +5591,43 @@ export function readRecoverWorkflowInstanceRequest(value: unknown): RecoverWorkf
 }
 
 function isRecoverWorkflowInstanceRequest(value: unknown): value is RecoverWorkflowInstanceRequest {
-  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
+}
+
+export function readRemoveEnterpriseRequestAttachmentRequest(value: unknown): RemoveEnterpriseRequestAttachmentRequest {
+  const normalizedValue = normalizeRemoveEnterpriseRequestAttachmentRequestIntegerJson(value);
+  if (!(isRemoveEnterpriseRequestAttachmentRequest(normalizedValue))) {
+    throw new Error('client.invalid_remove_enterprise_request_attachment_request');
+  }
+  return normalizedValue;
+}
+
+function isRemoveEnterpriseRequestAttachmentRequest(value: unknown): value is RemoveEnterpriseRequestAttachmentRequest {
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
+}
+
+export function readRepairEnterpriseRequestApprovalRequest(value: unknown): RepairEnterpriseRequestApprovalRequest {
+  const normalizedValue = normalizeRepairEnterpriseRequestApprovalRequestIntegerJson(value);
+  if (!(isRepairEnterpriseRequestApprovalRequest(normalizedValue))) {
+    throw new Error('client.invalid_repair_enterprise_request_approval_request');
+  }
+  return normalizedValue;
+}
+
+function isRepairEnterpriseRequestApprovalRequest(value: unknown): value is RepairEnterpriseRequestApprovalRequest {
+  return isRecord(value) && (Number.isSafeInteger(value["expectedVersion"])) && (typeof value["reason"] === 'string') && (typeof value["workflowInstanceId"] === 'string' && guidPattern.test(value["workflowInstanceId"]));
+}
+
+export function readReplaceEnterpriseRequestLinesRequest(value: unknown): ReplaceEnterpriseRequestLinesRequest {
+  const normalizedValue = normalizeReplaceEnterpriseRequestLinesRequestIntegerJson(value);
+  if (!(isReplaceEnterpriseRequestLinesRequest(normalizedValue))) {
+    throw new Error('client.invalid_replace_enterprise_request_lines_request');
+  }
+  return normalizedValue;
+}
+
+function isReplaceEnterpriseRequestLinesRequest(value: unknown): value is ReplaceEnterpriseRequestLinesRequest {
+  return isRecord(value) && ((value["items"] === null) || (Array.isArray(value["items"]) && value["items"].every(item14 => isEnterpriseRequestLineInput(item14)))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readReplaceHostRoleFieldGrantsRequest(value: unknown): ReplaceHostRoleFieldGrantsRequest {
@@ -5445,7 +5639,7 @@ export function readReplaceHostRoleFieldGrantsRequest(value: unknown): ReplaceHo
 }
 
 function isReplaceHostRoleFieldGrantsRequest(value: unknown): value is ReplaceHostRoleFieldGrantsRequest {
-  return isRecord(value) && (Array.isArray(value["fieldKeys"]) && value["fieldKeys"].every(item18 => typeof item18 === 'string')) && (typeof value["resourceKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Array.isArray(value["fieldKeys"]) && value["fieldKeys"].every(item18 => typeof item18 === 'string')) && (typeof value["resourceKey"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readReplaceHostRoleMembersRequest(value: unknown): ReplaceHostRoleMembersRequest {
@@ -5457,7 +5651,7 @@ export function readReplaceHostRoleMembersRequest(value: unknown): ReplaceHostRo
 }
 
 function isReplaceHostRoleMembersRequest(value: unknown): value is ReplaceHostRoleMembersRequest {
-  return isRecord(value) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readReplaceHostRolePermissionsRequest(value: unknown): ReplaceHostRolePermissionsRequest {
@@ -5469,7 +5663,7 @@ export function readReplaceHostRolePermissionsRequest(value: unknown): ReplaceHo
 }
 
 function isReplaceHostRolePermissionsRequest(value: unknown): value is ReplaceHostRolePermissionsRequest {
-  return isRecord(value) && (Array.isArray(value["permissionCodes"]) && value["permissionCodes"].every(item24 => typeof item24 === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Array.isArray(value["permissionCodes"]) && value["permissionCodes"].every(item24 => typeof item24 === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readReplaceHostUserRolesRequest(value: unknown): ReplaceHostUserRolesRequest {
@@ -5481,7 +5675,7 @@ export function readReplaceHostUserRolesRequest(value: unknown): ReplaceHostUser
 }
 
 function isReplaceHostUserRolesRequest(value: unknown): value is ReplaceHostUserRolesRequest {
-  return isRecord(value) && (Array.isArray(value["roleIds"]) && value["roleIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Array.isArray(value["roleIds"]) && value["roleIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readReportingDataSourceListItem(value: unknown): ReportingDataSourceListItem {
@@ -5493,7 +5687,7 @@ export function readReportingDataSourceListItem(value: unknown): ReportingDataSo
 }
 
 function isReportingDataSourceListItem(value: unknown): value is ReportingDataSourceListItem {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasPassword"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["maskedDatabaseName"] === 'string') && (typeof value["maskedServerEndpoint"] === 'string') && (typeof value["maskedUsername"] === 'string') && (typeof value["name"] === 'string') && (typeof value["providerKey"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["trustServerCertificate"] === 'boolean') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasPassword"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["maskedDatabaseName"] === 'string') && (typeof value["maskedServerEndpoint"] === 'string') && (typeof value["maskedUsername"] === 'string') && (typeof value["name"] === 'string') && (typeof value["providerKey"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["trustServerCertificate"] === 'boolean') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readReportingDataSourceResponse(value: unknown): ReportingDataSourceResponse {
@@ -5505,7 +5699,7 @@ export function readReportingDataSourceResponse(value: unknown): ReportingDataSo
 }
 
 function isReportingDataSourceResponse(value: unknown): value is ReportingDataSourceResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["databaseName"] === 'string') && (typeof value["hasPassword"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["name"] === 'string') && (typeof value["port"] === 'number' && Number.isSafeInteger(value["port"])) && (typeof value["providerKey"] === 'string') && (typeof value["serverHost"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["trustServerCertificate"] === 'boolean') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["username"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["databaseName"] === 'string') && (typeof value["hasPassword"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["port"])) && (typeof value["providerKey"] === 'string') && (typeof value["serverHost"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["trustServerCertificate"] === 'boolean') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["username"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readReportingDefinitionResponse(value: unknown): ReportingDefinitionResponse {
@@ -5517,7 +5711,7 @@ export function readReportingDefinitionResponse(value: unknown): ReportingDefini
 }
 
 function isReportingDefinitionResponse(value: unknown): value is ReportingDefinitionResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["dataSourceId"] === 'string' && guidPattern.test(value["dataSourceId"])) && (typeof value["definitionKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["groupId"] === 'string' && guidPattern.test(value["groupId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"])) && (typeof value["layoutConfigJson"] === 'string') && (typeof value["name"] === 'string') && (Array.isArray(value["parameterSchema"]) && value["parameterSchema"].every(item24 => isReportingParameterSchemaEntry(item24))) && (typeof value["queryPortKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["dataSourceId"] === 'string' && guidPattern.test(value["dataSourceId"])) && (typeof value["definitionKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["groupId"] === 'string' && guidPattern.test(value["groupId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (Number.isSafeInteger(value["latestPublishedVersionNumber"])) && (typeof value["layoutConfigJson"] === 'string') && (typeof value["name"] === 'string') && (Array.isArray(value["parameterSchema"]) && value["parameterSchema"].every(item24 => isReportingParameterSchemaEntry(item24))) && (typeof value["queryPortKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readReportingDefinitionVersionResponse(value: unknown): ReportingDefinitionVersionResponse {
@@ -5529,7 +5723,7 @@ export function readReportingDefinitionVersionResponse(value: unknown): Reportin
 }
 
 function isReportingDefinitionVersionResponse(value: unknown): value is ReportingDefinitionVersionResponse {
-  return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["dataSourceId"] === 'string' && guidPattern.test(value["dataSourceId"])) && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["layoutConfigJson"] === 'string') && (Array.isArray(value["parameterSchema"]) && value["parameterSchema"].every(item24 => isReportingParameterSchemaEntry(item24))) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"])) && (typeof value["queryPortKey"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+  return isRecord(value) && ((value["changeNote"] === null) || (typeof value["changeNote"] === 'string')) && (typeof value["dataSourceId"] === 'string' && guidPattern.test(value["dataSourceId"])) && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["layoutConfigJson"] === 'string') && (Array.isArray(value["parameterSchema"]) && value["parameterSchema"].every(item24 => isReportingParameterSchemaEntry(item24))) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"])) && (typeof value["queryPortKey"] === 'string') && (Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readReportingExecutionColumnDefinition(value: unknown): ReportingExecutionColumnDefinition {
@@ -5552,7 +5746,7 @@ export function readReportingExecutionPageResponse(value: unknown): ReportingExe
 }
 
 function isReportingExecutionPageResponse(value: unknown): value is ReportingExecutionPageResponse {
-  return isRecord(value) && (Array.isArray(value["columns"]) && value["columns"].every(item16 => isReportingExecutionColumnDefinition(item16))) && (typeof value["commandTimeoutSeconds"] === 'number' && Number.isSafeInteger(value["commandTimeoutSeconds"])) && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["definitionName"] === 'string') && (typeof value["executedAtUtc"] === 'string') && (typeof value["hasMore"] === 'boolean') && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["queryPortKey"] === 'string') && (Array.isArray(value["rows"]) && value["rows"].every(item13 => isReportingExecutionRow(item13))) && ((value["totalRows"] === null) || (typeof value["totalRows"] === 'number' && Number.isSafeInteger(value["totalRows"]))) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+  return isRecord(value) && (Array.isArray(value["columns"]) && value["columns"].every(item16 => isReportingExecutionColumnDefinition(item16))) && (Number.isSafeInteger(value["commandTimeoutSeconds"])) && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["definitionName"] === 'string') && (typeof value["executedAtUtc"] === 'string') && (typeof value["hasMore"] === 'boolean') && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (typeof value["queryPortKey"] === 'string') && (Array.isArray(value["rows"]) && value["rows"].every(item13 => isReportingExecutionRow(item13))) && ((value["totalRows"] === null) || (Number.isSafeInteger(value["totalRows"]))) && (Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readReportingExecutionParameterValue(value: unknown): ReportingExecutionParameterValue {
@@ -5586,7 +5780,7 @@ export function readReportingExportTaskDetailResponse(value: unknown): Reporting
 }
 
 function isReportingExportTaskDetailResponse(value: unknown): value is ReportingExportTaskDetailResponse {
-  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["definitionName"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["errorMessage"] === null) || (typeof value["errorMessage"] === 'string')) && (typeof value["formatKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["outputFileId"] === null) || (typeof value["outputFileId"] === 'string' && guidPattern.test(value["outputFileId"]))) && ((value["outputFileName"] === null) || (typeof value["outputFileName"] === 'string')) && (Array.isArray(value["parameters"]) && value["parameters"].every(item19 => isReportingExecutionParameterValue(item19))) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["rowCount"] === 'number' && Number.isSafeInteger(value["rowCount"])) && (typeof value["statusKey"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["definitionName"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["errorMessage"] === null) || (typeof value["errorMessage"] === 'string')) && (typeof value["formatKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["outputFileId"] === null) || (typeof value["outputFileId"] === 'string' && guidPattern.test(value["outputFileId"]))) && ((value["outputFileName"] === null) || (typeof value["outputFileName"] === 'string')) && (Array.isArray(value["parameters"]) && value["parameters"].every(item19 => isReportingExecutionParameterValue(item19))) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (Number.isSafeInteger(value["rowCount"])) && (typeof value["statusKey"] === 'string') && (Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readReportingExportTaskResponse(value: unknown): ReportingExportTaskResponse {
@@ -5598,7 +5792,7 @@ export function readReportingExportTaskResponse(value: unknown): ReportingExport
 }
 
 function isReportingExportTaskResponse(value: unknown): value is ReportingExportTaskResponse {
-  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["definitionName"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["errorMessage"] === null) || (typeof value["errorMessage"] === 'string')) && (typeof value["formatKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["outputFileName"] === null) || (typeof value["outputFileName"] === 'string')) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["rowCount"] === 'number' && Number.isSafeInteger(value["rowCount"])) && (typeof value["statusKey"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["definitionName"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["errorMessage"] === null) || (typeof value["errorMessage"] === 'string')) && (typeof value["formatKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["outputFileName"] === null) || (typeof value["outputFileName"] === 'string')) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (Number.isSafeInteger(value["rowCount"])) && (typeof value["statusKey"] === 'string') && (Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readReportingGroupResponse(value: unknown): ReportingGroupResponse {
@@ -5610,7 +5804,7 @@ export function readReportingGroupResponse(value: unknown): ReportingGroupRespon
 }
 
 function isReportingGroupResponse(value: unknown): value is ReportingGroupResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["sortOrder"] === 'number' && Number.isSafeInteger(value["sortOrder"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (Number.isSafeInteger(value["sortOrder"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readReportingParameterSchemaEntry(value: unknown): ReportingParameterSchemaEntry {
@@ -5622,6 +5816,18 @@ export function readReportingParameterSchemaEntry(value: unknown): ReportingPara
 
 function isReportingParameterSchemaEntry(value: unknown): value is ReportingParameterSchemaEntry {
   return isRecord(value) && (typeof value["dataTypeKey"] === 'string') && ((value["defaultValue"] === null) || (typeof value["defaultValue"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["isRequired"] === 'boolean') && (typeof value["parameterKey"] === 'string');
+}
+
+export function readReportingPublishedDefinitionResponse(value: unknown): ReportingPublishedDefinitionResponse {
+  const normalizedValue = normalizeReportingPublishedDefinitionResponseIntegerJson(value);
+  if (!(isReportingPublishedDefinitionResponse(normalizedValue))) {
+    throw new Error('client.invalid_reporting_published_definition_response');
+  }
+  return normalizedValue;
+}
+
+function isReportingPublishedDefinitionResponse(value: unknown): value is ReportingPublishedDefinitionResponse {
+  return isRecord(value) && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["layoutConfigJson"] === 'string') && (typeof value["name"] === 'string') && (Array.isArray(value["parameterSchema"]) && value["parameterSchema"].every(item24 => isReportingParameterSchemaEntry(item24))) && (typeof value["queryPortKey"] === 'string') && (Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readReportingQueryPortDefinition(value: unknown): ReportingQueryPortDefinition {
@@ -5645,7 +5851,7 @@ export function readReportingQueryPortParameterDefinition(value: unknown): Repor
 }
 
 function isReportingQueryPortParameterDefinition(value: unknown): value is ReportingQueryPortParameterDefinition {
-  return isRecord(value) && (typeof value["dataTypeKey"] === 'string') && ((value["defaultValue"] === null) || (typeof value["defaultValue"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["isRequired"] === 'boolean') && ((value["maximum"] === null) || (typeof value["maximum"] === 'number' && Number.isSafeInteger(value["maximum"]))) && ((value["minimum"] === null) || (typeof value["minimum"] === 'number' && Number.isSafeInteger(value["minimum"]))) && (typeof value["parameterKey"] === 'string');
+  return isRecord(value) && (typeof value["dataTypeKey"] === 'string') && ((value["defaultValue"] === null) || (typeof value["defaultValue"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["isRequired"] === 'boolean') && ((value["maximum"] === null) || (Number.isSafeInteger(value["maximum"]))) && ((value["minimum"] === null) || (Number.isSafeInteger(value["minimum"]))) && (typeof value["parameterKey"] === 'string');
 }
 
 export function readResetHostUserPasswordRequest(value: unknown): ResetHostUserPasswordRequest {
@@ -5668,7 +5874,7 @@ export function readRestoreDiagnosticPolicyRequest(value: unknown): RestoreDiagn
 }
 
 function isRestoreDiagnosticPolicyRequest(value: unknown): value is RestoreDiagnosticPolicyRequest {
-  return isRecord(value) && (typeof value["configEntryVersion"] === 'number' && Number.isSafeInteger(value["configEntryVersion"]));
+  return isRecord(value) && (Number.isSafeInteger(value["configEntryVersion"]));
 }
 
 export function readRestoreHostDocumentItemRequest(value: unknown): RestoreHostDocumentItemRequest {
@@ -5680,7 +5886,7 @@ export function readRestoreHostDocumentItemRequest(value: unknown): RestoreHostD
 }
 
 function isRestoreHostDocumentItemRequest(value: unknown): value is RestoreHostDocumentItemRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readResumeWorkflowInstanceRequest(value: unknown): ResumeWorkflowInstanceRequest {
@@ -5692,7 +5898,7 @@ export function readResumeWorkflowInstanceRequest(value: unknown): ResumeWorkflo
 }
 
 function isResumeWorkflowInstanceRequest(value: unknown): value is ResumeWorkflowInstanceRequest {
-  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+  return isRecord(value) && (Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
 }
 
 export function readRetractHostReleaseNoteRequest(value: unknown): RetractHostReleaseNoteRequest {
@@ -5704,7 +5910,7 @@ export function readRetractHostReleaseNoteRequest(value: unknown): RetractHostRe
 }
 
 function isRetractHostReleaseNoteRequest(value: unknown): value is RetractHostReleaseNoteRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readRetryDataApprovalRequestBody(value: unknown): RetryDataApprovalRequestBody {
@@ -5716,7 +5922,7 @@ export function readRetryDataApprovalRequestBody(value: unknown): RetryDataAppro
 }
 
 function isRetryDataApprovalRequestBody(value: unknown): value is RetryDataApprovalRequestBody {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readRetryNotificationDeliveryRequest(value: unknown): RetryNotificationDeliveryRequest {
@@ -5728,7 +5934,7 @@ export function readRetryNotificationDeliveryRequest(value: unknown): RetryNotif
 }
 
 function isRetryNotificationDeliveryRequest(value: unknown): value is RetryNotificationDeliveryRequest {
-  return isRecord(value) && (typeof value["reason"] === 'string') && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"]));
+  return isRecord(value) && (typeof value["reason"] === 'string') && (Number.isSafeInteger(value["revision"]));
 }
 
 export function readRetryWorkflowRecoveryTaskRequest(value: unknown): RetryWorkflowRecoveryTaskRequest {
@@ -5740,7 +5946,7 @@ export function readRetryWorkflowRecoveryTaskRequest(value: unknown): RetryWorkf
 }
 
 function isRetryWorkflowRecoveryTaskRequest(value: unknown): value is RetryWorkflowRecoveryTaskRequest {
-  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
 }
 
 export function readReturnWorkflowTodoRequest(value: unknown): ReturnWorkflowTodoRequest {
@@ -5752,7 +5958,7 @@ export function readReturnWorkflowTodoRequest(value: unknown): ReturnWorkflowTod
 }
 
 function isReturnWorkflowTodoRequest(value: unknown): value is ReturnWorkflowTodoRequest {
-  return isRecord(value) && (typeof value["comment"] === 'string') && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (isJsonElement(value["fieldPatch"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["targetStepId"] === 'string' && guidPattern.test(value["targetStepId"]));
+  return isRecord(value) && (typeof value["comment"] === 'string') && (Number.isSafeInteger(value["expectedRevision"])) && (isJsonElement(value["fieldPatch"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["targetStepId"] === 'string' && guidPattern.test(value["targetStepId"]));
 }
 
 export function readRevealHostUserProfileFieldsRequest(value: unknown): RevealHostUserProfileFieldsRequest {
@@ -5786,7 +5992,7 @@ export function readRevokeAiAgentDelegationRequest(value: unknown): RevokeAiAgen
 }
 
 function isRevokeAiAgentDelegationRequest(value: unknown): value is RevokeAiAgentDelegationRequest {
-  return isRecord(value) && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"]));
+  return isRecord(value) && (Number.isSafeInteger(value["expectedVersion"]));
 }
 
 export function readRevokeAllHostUserSessionsResponse(value: unknown): RevokeAllHostUserSessionsResponse {
@@ -5798,7 +6004,7 @@ export function readRevokeAllHostUserSessionsResponse(value: unknown): RevokeAll
 }
 
 function isRevokeAllHostUserSessionsResponse(value: unknown): value is RevokeAllHostUserSessionsResponse {
-  return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["revokedSessionCount"] === 'number' && Number.isSafeInteger(value["revokedSessionCount"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string');
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (Number.isSafeInteger(value["revokedSessionCount"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string');
 }
 
 export function readRevokeSuperAdministratorRequest(value: unknown): RevokeSuperAdministratorRequest {
@@ -5821,7 +6027,7 @@ export function readRollbackHostDocumentVersionRequest(value: unknown): Rollback
 }
 
 function isRollbackHostDocumentVersionRequest(value: unknown): value is RollbackHostDocumentVersionRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readSelfServiceProfileResponse(value: unknown): SelfServiceProfileResponse {
@@ -5833,7 +6039,7 @@ export function readSelfServiceProfileResponse(value: unknown): SelfServiceProfi
 }
 
 function isSelfServiceProfileResponse(value: unknown): value is SelfServiceProfileResponse {
-  return isRecord(value) && (typeof value["accountType"] === 'string') && ((value["avatarFileId"] === null) || (typeof value["avatarFileId"] === 'string' && guidPattern.test(value["avatarFileId"]))) && (typeof value["displayName"] === 'string') && ((value["profile"] === null) || (isHostUserProfileResponse(value["profile"]))) && (Array.isArray(value["readableFieldKeys"]) && value["readableFieldKeys"].every(item26 => typeof item26 === 'string')) && ((value["signatureFileId"] === null) || (typeof value["signatureFileId"] === 'string' && guidPattern.test(value["signatureFileId"]))) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string') && (typeof value["userVersion"] === 'number' && Number.isSafeInteger(value["userVersion"])) && (Array.isArray(value["writableFieldKeys"]) && value["writableFieldKeys"].every(item26 => typeof item26 === 'string'));
+  return isRecord(value) && (typeof value["accountType"] === 'string') && ((value["avatarFileId"] === null) || (typeof value["avatarFileId"] === 'string' && guidPattern.test(value["avatarFileId"]))) && (typeof value["displayName"] === 'string') && ((value["profile"] === null) || (isHostUserProfileResponse(value["profile"]))) && (Array.isArray(value["readableFieldKeys"]) && value["readableFieldKeys"].every(item26 => typeof item26 === 'string')) && ((value["signatureFileId"] === null) || (typeof value["signatureFileId"] === 'string' && guidPattern.test(value["signatureFileId"]))) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string') && (Number.isSafeInteger(value["userVersion"])) && (Array.isArray(value["writableFieldKeys"]) && value["writableFieldKeys"].every(item26 => typeof item26 === 'string'));
 }
 
 export function readSendHostInboxMessageRequest(value: unknown): SendHostInboxMessageRequest {
@@ -5867,7 +6073,7 @@ export function readSerialNumberPreviewResponse(value: unknown): SerialNumberPre
 }
 
 function isSerialNumberPreviewResponse(value: unknown): value is SerialNumberPreviewResponse {
-  return isRecord(value) && (typeof value["resetBucket"] === 'string') && (typeof value["sequenceValue"] === 'number' && Number.isSafeInteger(value["sequenceValue"])) && (typeof value["value"] === 'string');
+  return isRecord(value) && (typeof value["resetBucket"] === 'string') && (Number.isSafeInteger(value["sequenceValue"])) && (typeof value["value"] === 'string');
 }
 
 export function readSerialNumberResetInterval(value: unknown): SerialNumberResetInterval {
@@ -5878,7 +6084,7 @@ export function readSerialNumberResetInterval(value: unknown): SerialNumberReset
 }
 
 function isSerialNumberResetInterval(value: unknown): value is SerialNumberResetInterval {
-  return typeof value === 'number' && Number.isSafeInteger(value);
+  return Number.isSafeInteger(value);
 }
 
 export function readSerialNumberRuleResponse(value: unknown): SerialNumberRuleResponse {
@@ -5890,7 +6096,7 @@ export function readSerialNumberRuleResponse(value: unknown): SerialNumberRuleRe
 }
 
 function isSerialNumberRuleResponse(value: unknown): value is SerialNumberRuleResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maximumValue"] === 'number' && Number.isSafeInteger(value["maximumValue"])) && (typeof value["minimumValue"] === 'number' && Number.isSafeInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (typeof value["ruleKey"] === 'string') && (isSerialNumberRuleScope(value["scope"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (Number.isSafeInteger(value["maximumValue"])) && (Number.isSafeInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (typeof value["ruleKey"] === 'string') && (isSerialNumberRuleScope(value["scope"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"]))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readSerialNumberRuleScope(value: unknown): SerialNumberRuleScope {
@@ -5901,7 +6107,7 @@ export function readSerialNumberRuleScope(value: unknown): SerialNumberRuleScope
 }
 
 function isSerialNumberRuleScope(value: unknown): value is SerialNumberRuleScope {
-  return typeof value === 'number' && Number.isSafeInteger(value);
+  return Number.isSafeInteger(value);
 }
 
 export function readSerialRuleDisableApprovalPreviewResponse(value: unknown): SerialRuleDisableApprovalPreviewResponse {
@@ -5913,7 +6119,7 @@ export function readSerialRuleDisableApprovalPreviewResponse(value: unknown): Se
 }
 
 function isSerialRuleDisableApprovalPreviewResponse(value: unknown): value is SerialRuleDisableApprovalPreviewResponse {
-  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && (typeof value["beforeSnapshotJson"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["ruleId"] === 'string' && guidPattern.test(value["ruleId"])) && (typeof value["ruleKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && (typeof value["beforeSnapshotJson"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["ruleId"] === 'string' && guidPattern.test(value["ruleId"])) && (typeof value["ruleKey"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readSerialRuleDisableApprovalSubmissionResponse(value: unknown): SerialRuleDisableApprovalSubmissionResponse {
@@ -5925,7 +6131,7 @@ export function readSerialRuleDisableApprovalSubmissionResponse(value: unknown):
 }
 
 function isSerialRuleDisableApprovalSubmissionResponse(value: unknown): value is SerialRuleDisableApprovalSubmissionResponse {
-  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && ((value["beforeSnapshotJson"] === null) || (typeof value["beforeSnapshotJson"] === 'string')) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestVersion"] === 'number' && Number.isSafeInteger(value["requestVersion"])) && (typeof value["statusKey"] === 'string') && (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"]));
+  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && ((value["beforeSnapshotJson"] === null) || (typeof value["beforeSnapshotJson"] === 'string')) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (Number.isSafeInteger(value["requestVersion"])) && (typeof value["statusKey"] === 'string') && (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"]));
 }
 
 export function readSerialRuleFieldChange(value: unknown): SerialRuleFieldChange {
@@ -5959,7 +6165,7 @@ export function readSerialRuleUpdateApprovalSubmissionResponse(value: unknown): 
 }
 
 function isSerialRuleUpdateApprovalSubmissionResponse(value: unknown): value is SerialRuleUpdateApprovalSubmissionResponse {
-  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && ((value["beforeSnapshotJson"] === null) || (typeof value["beforeSnapshotJson"] === 'string')) && (Array.isArray(value["changes"]) && value["changes"].every(item16 => isSerialRuleFieldChange(item16))) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestVersion"] === 'number' && Number.isSafeInteger(value["requestVersion"])) && (typeof value["statusKey"] === 'string') && (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"]));
+  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && ((value["beforeSnapshotJson"] === null) || (typeof value["beforeSnapshotJson"] === 'string')) && (Array.isArray(value["changes"]) && value["changes"].every(item16 => isSerialRuleFieldChange(item16))) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (Number.isSafeInteger(value["requestVersion"])) && (typeof value["statusKey"] === 'string') && (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"]));
 }
 
 export function readServerInstanceCatalogEntry(value: unknown): ServerInstanceCatalogEntry {
@@ -5982,7 +6188,7 @@ export function readServerRuntimeMetric(value: unknown): ServerRuntimeMetric {
 }
 
 function isServerRuntimeMetric(value: unknown): value is ServerRuntimeMetric {
-  return isRecord(value) && (typeof value["availability"] === 'string') && ((value["doubleValue"] === null) || (typeof value["doubleValue"] === 'number' && Number.isFinite(value["doubleValue"])) || (typeof value["doubleValue"] === 'string')) && (typeof value["key"] === 'string') && (typeof value["label"] === 'string') && ((value["longValue"] === null) || (typeof value["longValue"] === 'number' && Number.isSafeInteger(value["longValue"]))) && ((value["unavailableReason"] === null) || (typeof value["unavailableReason"] === 'string')) && ((value["unit"] === null) || (typeof value["unit"] === 'string'));
+  return isRecord(value) && (typeof value["availability"] === 'string') && ((value["doubleValue"] === null) || (Number.isFinite(value["doubleValue"])) || (typeof value["doubleValue"] === 'string')) && (typeof value["key"] === 'string') && (typeof value["label"] === 'string') && ((value["longValue"] === null) || (Number.isSafeInteger(value["longValue"]))) && ((value["unavailableReason"] === null) || (typeof value["unavailableReason"] === 'string')) && ((value["unit"] === null) || (typeof value["unit"] === 'string'));
 }
 
 export function readServerRuntimeSnapshot(value: unknown): ServerRuntimeSnapshot {
@@ -5994,7 +6200,7 @@ export function readServerRuntimeSnapshot(value: unknown): ServerRuntimeSnapshot
 }
 
 function isServerRuntimeSnapshot(value: unknown): value is ServerRuntimeSnapshot {
-  return isRecord(value) && (typeof value["applicationVersion"] === 'string') && (typeof value["capturedAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["frameworkDescription"] === 'string') && (typeof value["hostRole"] === 'string') && (typeof value["instanceKey"] === 'string') && (typeof value["machineName"] === 'string') && (Array.isArray(value["metrics"]) && value["metrics"].every(item16 => isServerRuntimeMetric(item16))) && (typeof value["operatingSystemDescription"] === 'string') && (typeof value["processArchitecture"] === 'string') && (typeof value["processId"] === 'number' && Number.isSafeInteger(value["processId"])) && (typeof value["processStartedAtUtc"] === 'string') && (typeof value["uptimeSeconds"] === 'number' && Number.isSafeInteger(value["uptimeSeconds"]));
+  return isRecord(value) && (typeof value["applicationVersion"] === 'string') && (typeof value["capturedAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["frameworkDescription"] === 'string') && (typeof value["hostRole"] === 'string') && (typeof value["instanceKey"] === 'string') && (typeof value["machineName"] === 'string') && (Array.isArray(value["metrics"]) && value["metrics"].every(item16 => isServerRuntimeMetric(item16))) && (typeof value["operatingSystemDescription"] === 'string') && (typeof value["processArchitecture"] === 'string') && (Number.isSafeInteger(value["processId"])) && (typeof value["processStartedAtUtc"] === 'string') && (Number.isSafeInteger(value["uptimeSeconds"]));
 }
 
 export function readSetHostDocumentPermissionsRequest(value: unknown): SetHostDocumentPermissionsRequest {
@@ -6017,7 +6223,7 @@ export function readSetNotificationProviderProfileEnabledRequest(value: unknown)
 }
 
 function isSetNotificationProviderProfileEnabledRequest(value: unknown): value is SetNotificationProviderProfileEnabledRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readSetPersonalScheduleStatusRequest(value: unknown): SetPersonalScheduleStatusRequest {
@@ -6029,7 +6235,7 @@ export function readSetPersonalScheduleStatusRequest(value: unknown): SetPersona
 }
 
 function isSetPersonalScheduleStatusRequest(value: unknown): value is SetPersonalScheduleStatusRequest {
-  return isRecord(value) && (typeof value["status"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["status"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readSetWorkflowDefinitionStatusRequest(value: unknown): SetWorkflowDefinitionStatusRequest {
@@ -6041,7 +6247,7 @@ export function readSetWorkflowDefinitionStatusRequest(value: unknown): SetWorkf
 }
 
 function isSetWorkflowDefinitionStatusRequest(value: unknown): value is SetWorkflowDefinitionStatusRequest {
-  return isRecord(value) && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (typeof value["statusKey"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["expectedVersion"])) && (typeof value["statusKey"] === 'string');
 }
 
 export function readSetWorkflowFormStatusRequest(value: unknown): SetWorkflowFormStatusRequest {
@@ -6053,7 +6259,7 @@ export function readSetWorkflowFormStatusRequest(value: unknown): SetWorkflowFor
 }
 
 function isSetWorkflowFormStatusRequest(value: unknown): value is SetWorkflowFormStatusRequest {
-  return isRecord(value) && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (typeof value["statusKey"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["expectedVersion"])) && (typeof value["statusKey"] === 'string');
 }
 
 export function readStartWorkflowInstanceRequest(value: unknown): StartWorkflowInstanceRequest {
@@ -6076,7 +6282,7 @@ export function readStaticImportRowPreviewResult(value: unknown): StaticImportRo
 }
 
 function isStaticImportRowPreviewResult(value: unknown): value is StaticImportRowPreviewResult {
-  return isRecord(value) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["isValid"] === 'boolean') && (typeof value["lineNumber"] === 'number' && Number.isSafeInteger(value["lineNumber"])) && ((value["message"] === null) || (typeof value["message"] === 'string'));
+  return isRecord(value) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["isValid"] === 'boolean') && (Number.isSafeInteger(value["lineNumber"])) && ((value["message"] === null) || (typeof value["message"] === 'string'));
 }
 
 export function readStaticImportSchemaDefinition(value: unknown): StaticImportSchemaDefinition {
@@ -6189,7 +6395,7 @@ export function readTenantBrandingResponse(value: unknown): TenantBrandingRespon
 }
 
 function isTenantBrandingResponse(value: unknown): value is TenantBrandingResponse {
-  return isRecord(value) && ((value["contactAddress"] === null) || (typeof value["contactAddress"] === 'string')) && ((value["contactEmail"] === null) || (typeof value["contactEmail"] === 'string')) && ((value["contactPhone"] === null) || (typeof value["contactPhone"] === 'string')) && ((value["copyright"] === null) || (typeof value["copyright"] === 'string')) && ((value["logoFileId"] === null) || (typeof value["logoFileId"] === 'string' && guidPattern.test(value["logoFileId"]))) && ((value["systemTitle"] === null) || (typeof value["systemTitle"] === 'string')) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["contactAddress"] === null) || (typeof value["contactAddress"] === 'string')) && ((value["contactEmail"] === null) || (typeof value["contactEmail"] === 'string')) && ((value["contactPhone"] === null) || (typeof value["contactPhone"] === 'string')) && ((value["copyright"] === null) || (typeof value["copyright"] === 'string')) && ((value["logoFileId"] === null) || (typeof value["logoFileId"] === 'string' && guidPattern.test(value["logoFileId"]))) && ((value["systemTitle"] === null) || (typeof value["systemTitle"] === 'string')) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readTenantPackageSummary(value: unknown): TenantPackageSummary {
@@ -6201,7 +6407,7 @@ export function readTenantPackageSummary(value: unknown): TenantPackageSummary {
 }
 
 function isTenantPackageSummary(value: unknown): value is TenantPackageSummary {
-  return isRecord(value) && (value["assignedTenantCount"] === undefined || (typeof value["assignedTenantCount"] === 'number' && Number.isSafeInteger(value["assignedTenantCount"]))) && (typeof value["code"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (value["assignedTenantCount"] === undefined || (Number.isSafeInteger(value["assignedTenantCount"]))) && (typeof value["code"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readTenantRuntimeBrandingResponse(value: unknown): TenantRuntimeBrandingResponse {
@@ -6224,7 +6430,7 @@ export function readTenantSummary(value: unknown): TenantSummary {
 }
 
 function isTenantSummary(value: unknown): value is TenantSummary {
-  return isRecord(value) && (value["defaultLocale"] === undefined || (typeof value["defaultLocale"] === 'string')) && (typeof value["domain"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["identifier"] === 'string') && (typeof value["isActive"] === 'boolean') && (value["lifecycleStatus"] === undefined || (typeof value["lifecycleStatus"] === 'string')) && (typeof value["name"] === 'string') && (value["ownerUserId"] === undefined || ((value["ownerUserId"] === null) || (typeof value["ownerUserId"] === 'string' && guidPattern.test(value["ownerUserId"])))) && (value["provisioningStatus"] === undefined || (typeof value["provisioningStatus"] === 'string')) && (value["provisioningStep"] === undefined || ((value["provisioningStep"] === null) || (typeof value["provisioningStep"] === 'string'))) && (value["tenantPackageCode"] === undefined || ((value["tenantPackageCode"] === null) || (typeof value["tenantPackageCode"] === 'string'))) && (value["tenantPackageId"] === undefined || ((value["tenantPackageId"] === null) || (typeof value["tenantPackageId"] === 'string' && guidPattern.test(value["tenantPackageId"])))) && (value["tenantPackageName"] === undefined || ((value["tenantPackageName"] === null) || (typeof value["tenantPackageName"] === 'string'))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (value["defaultLocale"] === undefined || (typeof value["defaultLocale"] === 'string')) && (typeof value["domain"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["identifier"] === 'string') && (typeof value["isActive"] === 'boolean') && (value["lifecycleStatus"] === undefined || (typeof value["lifecycleStatus"] === 'string')) && (typeof value["name"] === 'string') && (value["ownerUserId"] === undefined || ((value["ownerUserId"] === null) || (typeof value["ownerUserId"] === 'string' && guidPattern.test(value["ownerUserId"])))) && (value["provisioningStatus"] === undefined || (typeof value["provisioningStatus"] === 'string')) && (value["provisioningStep"] === undefined || ((value["provisioningStep"] === null) || (typeof value["provisioningStep"] === 'string'))) && (value["tenantPackageCode"] === undefined || ((value["tenantPackageCode"] === null) || (typeof value["tenantPackageCode"] === 'string'))) && (value["tenantPackageId"] === undefined || ((value["tenantPackageId"] === null) || (typeof value["tenantPackageId"] === 'string' && guidPattern.test(value["tenantPackageId"])))) && (value["tenantPackageName"] === undefined || ((value["tenantPackageName"] === null) || (typeof value["tenantPackageName"] === 'string'))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readTestAiModelConfigResult(value: unknown): TestAiModelConfigResult {
@@ -6258,7 +6464,7 @@ export function readTestAiModelEmbeddingResult(value: unknown): TestAiModelEmbed
 }
 
 function isTestAiModelEmbeddingResult(value: unknown): value is TestAiModelEmbeddingResult {
-  return isRecord(value) && (typeof value["dimensions"] === 'number' && Number.isSafeInteger(value["dimensions"])) && (typeof value["inputCount"] === 'number' && Number.isSafeInteger(value["inputCount"])) && ((value["inputTokens"] === null) || (typeof value["inputTokens"] === 'number' && Number.isSafeInteger(value["inputTokens"]))) && (typeof value["message"] === 'string') && (typeof value["succeeded"] === 'boolean');
+  return isRecord(value) && (Number.isSafeInteger(value["dimensions"])) && (Number.isSafeInteger(value["inputCount"])) && ((value["inputTokens"] === null) || (Number.isSafeInteger(value["inputTokens"]))) && (typeof value["message"] === 'string') && (typeof value["succeeded"] === 'boolean');
 }
 
 export function readTestK3CloudConnectionConfigResult(value: unknown): TestK3CloudConnectionConfigResult {
@@ -6325,7 +6531,7 @@ export function readUpdateAdministrativeRegionRequest(value: unknown): UpdateAdm
 }
 
 function isUpdateAdministrativeRegionRequest(value: unknown): value is UpdateAdministrativeRegionRequest {
-  return isRecord(value) && ((value["cityCode"] === null) || (typeof value["cityCode"] === 'string')) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && ((value["latitude"] === null) || (typeof value["latitude"] === 'number' && Number.isFinite(value["latitude"])) || (typeof value["latitude"] === 'string')) && (typeof value["level"] === 'number' && Number.isSafeInteger(value["level"])) && ((value["longitude"] === null) || (typeof value["longitude"] === 'number' && Number.isFinite(value["longitude"])) || (typeof value["longitude"] === 'string')) && ((value["mergerName"] === null) || (typeof value["mergerName"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && ((value["pinYin"] === null) || (typeof value["pinYin"] === 'string')) && ((value["regionType"] === null) || (typeof value["regionType"] === 'string')) && ((value["remark"] === null) || (typeof value["remark"] === 'string')) && ((value["shortName"] === null) || (typeof value["shortName"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && ((value["zipCode"] === null) || (typeof value["zipCode"] === 'string'));
+  return isRecord(value) && ((value["cityCode"] === null) || (typeof value["cityCode"] === 'string')) && (Number.isSafeInteger(value["displayOrder"])) && ((value["latitude"] === null) || (Number.isFinite(value["latitude"])) || (typeof value["latitude"] === 'string')) && (Number.isSafeInteger(value["level"])) && ((value["longitude"] === null) || (Number.isFinite(value["longitude"])) || (typeof value["longitude"] === 'string')) && ((value["mergerName"] === null) || (typeof value["mergerName"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && ((value["pinYin"] === null) || (typeof value["pinYin"] === 'string')) && ((value["regionType"] === null) || (typeof value["regionType"] === 'string')) && ((value["remark"] === null) || (typeof value["remark"] === 'string')) && ((value["shortName"] === null) || (typeof value["shortName"] === 'string')) && (Number.isSafeInteger(value["version"])) && ((value["zipCode"] === null) || (typeof value["zipCode"] === 'string'));
 }
 
 export function readUpdateAiChatSessionRequest(value: unknown): UpdateAiChatSessionRequest {
@@ -6337,7 +6543,7 @@ export function readUpdateAiChatSessionRequest(value: unknown): UpdateAiChatSess
 }
 
 function isUpdateAiChatSessionRequest(value: unknown): value is UpdateAiChatSessionRequest {
-  return isRecord(value) && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["title"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateAiMcpRemoteConnectionRequest(value: unknown): UpdateAiMcpRemoteConnectionRequest {
@@ -6349,7 +6555,7 @@ export function readUpdateAiMcpRemoteConnectionRequest(value: unknown): UpdateAi
 }
 
 function isUpdateAiMcpRemoteConnectionRequest(value: unknown): value is UpdateAiMcpRemoteConnectionRequest {
-  return isRecord(value) && (typeof value["clearServiceToken"] === 'boolean') && (typeof value["displayName"] === 'string') && (typeof value["endpointUrl"] === 'string') && (typeof value["isEnabled"] === 'boolean') && ((value["oAuthScopesJson"] === null) || (typeof value["oAuthScopesJson"] === 'string')) && ((value["serviceToken"] === null) || (typeof value["serviceToken"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["clearServiceToken"] === 'boolean') && (typeof value["displayName"] === 'string') && (typeof value["endpointUrl"] === 'string') && (typeof value["isEnabled"] === 'boolean') && ((value["oAuthScopesJson"] === null) || (typeof value["oAuthScopesJson"] === 'string')) && ((value["serviceToken"] === null) || (typeof value["serviceToken"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateAiModelConfigRequest(value: unknown): UpdateAiModelConfigRequest {
@@ -6361,7 +6567,7 @@ export function readUpdateAiModelConfigRequest(value: unknown): UpdateAiModelCon
 }
 
 function isUpdateAiModelConfigRequest(value: unknown): value is UpdateAiModelConfigRequest {
-  return isRecord(value) && ((value["apiKey"] === null) || (typeof value["apiKey"] === 'string')) && (typeof value["clearApiKey"] === 'boolean') && (typeof value["endpointBaseUrl"] === 'string') && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (typeof value["modelId"] === 'string') && (typeof value["name"] === 'string') && ((value["organizationId"] === null) || (typeof value["organizationId"] === 'string')) && (typeof value["providerKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["apiKey"] === null) || (typeof value["apiKey"] === 'string')) && (typeof value["clearApiKey"] === 'boolean') && (typeof value["endpointBaseUrl"] === 'string') && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (typeof value["modelId"] === 'string') && (typeof value["name"] === 'string') && ((value["organizationId"] === null) || (typeof value["organizationId"] === 'string')) && (typeof value["providerKey"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateAiTenantQuotaRequest(value: unknown): UpdateAiTenantQuotaRequest {
@@ -6373,7 +6579,7 @@ export function readUpdateAiTenantQuotaRequest(value: unknown): UpdateAiTenantQu
 }
 
 function isUpdateAiTenantQuotaRequest(value: unknown): value is UpdateAiTenantQuotaRequest {
-  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && ((value["monthlyRequestLimit"] === null) || (typeof value["monthlyRequestLimit"] === 'number' && Number.isSafeInteger(value["monthlyRequestLimit"]))) && ((value["monthlyTokenLimit"] === null) || (typeof value["monthlyTokenLimit"] === 'number' && Number.isSafeInteger(value["monthlyTokenLimit"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && ((value["monthlyRequestLimit"] === null) || (Number.isSafeInteger(value["monthlyRequestLimit"]))) && ((value["monthlyTokenLimit"] === null) || (Number.isSafeInteger(value["monthlyTokenLimit"]))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateCodeGenerationTemplateRequest(value: unknown): UpdateCodeGenerationTemplateRequest {
@@ -6385,7 +6591,7 @@ export function readUpdateCodeGenerationTemplateRequest(value: unknown): UpdateC
 }
 
 function isUpdateCodeGenerationTemplateRequest(value: unknown): value is UpdateCodeGenerationTemplateRequest {
-  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["name"] === 'string') && (isCodeGenerationPreviewRequest(value["schema"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["name"] === 'string') && (isCodeGenerationPreviewRequest(value["schema"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateConfigEntryRequest(value: unknown): UpdateConfigEntryRequest {
@@ -6397,7 +6603,7 @@ export function readUpdateConfigEntryRequest(value: unknown): UpdateConfigEntryR
 }
 
 function isUpdateConfigEntryRequest(value: unknown): value is UpdateConfigEntryRequest {
-  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateDataApprovalScenarioBindingBody(value: unknown): UpdateDataApprovalScenarioBindingBody {
@@ -6409,7 +6615,7 @@ export function readUpdateDataApprovalScenarioBindingBody(value: unknown): Updat
 }
 
 function isUpdateDataApprovalScenarioBindingBody(value: unknown): value is UpdateDataApprovalScenarioBindingBody {
-  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && ((value["version"] === null) || (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]))) && ((value["workflowDefinitionVersionId"] === null) || (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"])));
+  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && ((value["version"] === null) || (Number.isSafeInteger(value["version"]))) && ((value["workflowDefinitionVersionId"] === null) || (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"])));
 }
 
 export function readUpdateDiagnosticPolicyRequest(value: unknown): UpdateDiagnosticPolicyRequest {
@@ -6421,7 +6627,7 @@ export function readUpdateDiagnosticPolicyRequest(value: unknown): UpdateDiagnos
 }
 
 function isUpdateDiagnosticPolicyRequest(value: unknown): value is UpdateDiagnosticPolicyRequest {
-  return isRecord(value) && (typeof value["configEntryVersion"] === 'number' && Number.isSafeInteger(value["configEntryVersion"])) && (typeof value["pressureState"] === 'string') && (Array.isArray(value["rules"]) && value["rules"].every(item14 => isDiagnosticPolicyRuleRequest(item14)));
+  return isRecord(value) && (Number.isSafeInteger(value["configEntryVersion"])) && (typeof value["pressureState"] === 'string') && (Array.isArray(value["rules"]) && value["rules"].every(item14 => isDiagnosticPolicyRuleRequest(item14)));
 }
 
 export function readUpdateDictItemRequest(value: unknown): UpdateDictItemRequest {
@@ -6433,7 +6639,7 @@ export function readUpdateDictItemRequest(value: unknown): UpdateDictItemRequest
 }
 
 function isUpdateDictItemRequest(value: unknown): value is UpdateDictItemRequest {
-  return isRecord(value) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["label"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["label"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateDictTypeRequest(value: unknown): UpdateDictTypeRequest {
@@ -6445,7 +6651,7 @@ export function readUpdateDictTypeRequest(value: unknown): UpdateDictTypeRequest
 }
 
 function isUpdateDictTypeRequest(value: unknown): value is UpdateDictTypeRequest {
-  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateEnterpriseRequestRequest(value: unknown): UpdateEnterpriseRequestRequest {
@@ -6457,7 +6663,7 @@ export function readUpdateEnterpriseRequestRequest(value: unknown): UpdateEnterp
 }
 
 function isUpdateEnterpriseRequestRequest(value: unknown): value is UpdateEnterpriseRequestRequest {
-  return isRecord(value) && (typeof value["applicantUserId"] === 'string' && guidPattern.test(value["applicantUserId"])) && (typeof value["requestNumber"] === 'string') && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && ((typeof value["totalAmount"] === 'number' && Number.isFinite(value["totalAmount"])) || (typeof value["totalAmount"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["applicantUserId"] === 'string' && guidPattern.test(value["applicantUserId"])) && (typeof value["requestNumber"] === 'string') && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && ((Number.isFinite(value["totalAmount"])) || (typeof value["totalAmount"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateGoViewProjectRequest(value: unknown): UpdateGoViewProjectRequest {
@@ -6469,7 +6675,7 @@ export function readUpdateGoViewProjectRequest(value: unknown): UpdateGoViewProj
 }
 
 function isUpdateGoViewProjectRequest(value: unknown): value is UpdateGoViewProjectRequest {
-  return isRecord(value) && (typeof value["canvasJson"] === 'string') && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["canvasJson"] === 'string') && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostAnnouncementRequest(value: unknown): UpdateHostAnnouncementRequest {
@@ -6481,7 +6687,7 @@ export function readUpdateHostAnnouncementRequest(value: unknown): UpdateHostAnn
 }
 
 function isUpdateHostAnnouncementRequest(value: unknown): value is UpdateHostAnnouncementRequest {
-  return isRecord(value) && (value["audienceKind"] === undefined || ((value["audienceKind"] === null) || (typeof value["audienceKind"] === 'string'))) && (typeof value["content"] === 'string') && (value["kind"] === undefined || ((value["kind"] === null) || (typeof value["kind"] === 'string'))) && (value["targetOrganizations"] === undefined || ((value["targetOrganizations"] === null) || (Array.isArray(value["targetOrganizations"]) && value["targetOrganizations"].every(item28 => isHostAnnouncementTargetOrganization(item28))))) && (value["targetUserIds"] === undefined || ((value["targetUserIds"] === null) || (Array.isArray(value["targetUserIds"]) && value["targetUserIds"].every(item22 => typeof item22 === 'string' && guidPattern.test(item22))))) && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (value["audienceKind"] === undefined || ((value["audienceKind"] === null) || (typeof value["audienceKind"] === 'string'))) && (typeof value["content"] === 'string') && (value["kind"] === undefined || ((value["kind"] === null) || (typeof value["kind"] === 'string'))) && (value["targetOrganizations"] === undefined || ((value["targetOrganizations"] === null) || (Array.isArray(value["targetOrganizations"]) && value["targetOrganizations"].every(item28 => isHostAnnouncementTargetOrganization(item28))))) && (value["targetUserIds"] === undefined || ((value["targetUserIds"] === null) || (Array.isArray(value["targetUserIds"]) && value["targetUserIds"].every(item22 => typeof item22 === 'string' && guidPattern.test(item22))))) && (typeof value["title"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostDocumentCategoryRequest(value: unknown): UpdateHostDocumentCategoryRequest {
@@ -6493,7 +6699,7 @@ export function readUpdateHostDocumentCategoryRequest(value: unknown): UpdateHos
 }
 
 function isUpdateHostDocumentCategoryRequest(value: unknown): value is UpdateHostDocumentCategoryRequest {
-  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["sortOrder"] === 'number' && Number.isSafeInteger(value["sortOrder"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (Number.isSafeInteger(value["sortOrder"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostDocumentItemRequest(value: unknown): UpdateHostDocumentItemRequest {
@@ -6505,7 +6711,7 @@ export function readUpdateHostDocumentItemRequest(value: unknown): UpdateHostDoc
 }
 
 function isUpdateHostDocumentItemRequest(value: unknown): value is UpdateHostDocumentItemRequest {
-  return isRecord(value) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["sort"] === null) || (typeof value["sort"] === 'number' && Number.isSafeInteger(value["sort"]))) && ((value["status"] === null) || (isHostDocumentStatus(value["status"]))) && ((value["tagIds"] === null) || (Array.isArray(value["tagIds"]) && value["tagIds"].every(item15 => typeof item15 === 'string' && guidPattern.test(item15)))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["sort"] === null) || (Number.isSafeInteger(value["sort"]))) && ((value["status"] === null) || (isHostDocumentStatus(value["status"]))) && ((value["tagIds"] === null) || (Array.isArray(value["tagIds"]) && value["tagIds"].every(item15 => typeof item15 === 'string' && guidPattern.test(item15)))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostDocumentShareStatusRequest(value: unknown): UpdateHostDocumentShareStatusRequest {
@@ -6517,7 +6723,7 @@ export function readUpdateHostDocumentShareStatusRequest(value: unknown): Update
 }
 
 function isUpdateHostDocumentShareStatusRequest(value: unknown): value is UpdateHostDocumentShareStatusRequest {
-  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostDocumentTagRequest(value: unknown): UpdateHostDocumentTagRequest {
@@ -6529,7 +6735,7 @@ export function readUpdateHostDocumentTagRequest(value: unknown): UpdateHostDocu
 }
 
 function isUpdateHostDocumentTagRequest(value: unknown): value is UpdateHostDocumentTagRequest {
-  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (value["isHot"] === undefined || (typeof value["isHot"] === 'boolean')) && (value["isRecommended"] === undefined || (typeof value["isRecommended"] === 'boolean')) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (value["isHot"] === undefined || (typeof value["isHot"] === 'boolean')) && (value["isRecommended"] === undefined || (typeof value["isRecommended"] === 'boolean')) && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostDocumentVersionRetentionRequest(value: unknown): UpdateHostDocumentVersionRetentionRequest {
@@ -6541,7 +6747,7 @@ export function readUpdateHostDocumentVersionRetentionRequest(value: unknown): U
 }
 
 function isUpdateHostDocumentVersionRetentionRequest(value: unknown): value is UpdateHostDocumentVersionRetentionRequest {
-  return isRecord(value) && (typeof value["batchSize"] === 'number' && Number.isSafeInteger(value["batchSize"])) && (typeof value["maximumRetainedHistoryVersions"] === 'number' && Number.isSafeInteger(value["maximumRetainedHistoryVersions"])) && (typeof value["minimumRetainedVersionsPerItem"] === 'number' && Number.isSafeInteger(value["minimumRetainedVersionsPerItem"])) && (typeof value["pollSeconds"] === 'number' && Number.isSafeInteger(value["pollSeconds"]));
+  return isRecord(value) && (Number.isSafeInteger(value["batchSize"])) && (Number.isSafeInteger(value["maximumRetainedHistoryVersions"])) && (Number.isSafeInteger(value["minimumRetainedVersionsPerItem"])) && (Number.isSafeInteger(value["pollSeconds"]));
 }
 
 export function readUpdateHostFileMetadataRequest(value: unknown): UpdateHostFileMetadataRequest {
@@ -6553,7 +6759,7 @@ export function readUpdateHostFileMetadataRequest(value: unknown): UpdateHostFil
 }
 
 function isUpdateHostFileMetadataRequest(value: unknown): value is UpdateHostFileMetadataRequest {
-  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && ((value["folderId"] === null) || (typeof value["folderId"] === 'string' && guidPattern.test(value["folderId"]))) && (typeof value["originalFileName"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["expectedRevision"])) && ((value["folderId"] === null) || (typeof value["folderId"] === 'string' && guidPattern.test(value["folderId"]))) && (typeof value["originalFileName"] === 'string');
 }
 
 export function readUpdateHostFolderRequest(value: unknown): UpdateHostFolderRequest {
@@ -6565,7 +6771,7 @@ export function readUpdateHostFolderRequest(value: unknown): UpdateHostFolderReq
 }
 
 function isUpdateHostFolderRequest(value: unknown): value is UpdateHostFolderRequest {
-  return isRecord(value) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["name"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["displayOrder"])) && (Number.isSafeInteger(value["expectedRevision"])) && (typeof value["name"] === 'string');
 }
 
 export function readUpdateHostJobDefinitionRequest(value: unknown): UpdateHostJobDefinitionRequest {
@@ -6577,7 +6783,7 @@ export function readUpdateHostJobDefinitionRequest(value: unknown): UpdateHostJo
 }
 
 function isUpdateHostJobDefinitionRequest(value: unknown): value is UpdateHostJobDefinitionRequest {
-  return isRecord(value) && (typeof value["allowConcurrentExecutions"] === 'boolean') && ((value["args"] === null) || (isHttpJobArgs(value["args"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["handlerKind"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["allowConcurrentExecutions"] === 'boolean') && ((value["args"] === null) || (isHttpJobArgs(value["args"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["handlerKind"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostJobScheduleRequest(value: unknown): UpdateHostJobScheduleRequest {
@@ -6589,7 +6795,7 @@ export function readUpdateHostJobScheduleRequest(value: unknown): UpdateHostJobS
 }
 
 function isUpdateHostJobScheduleRequest(value: unknown): value is UpdateHostJobScheduleRequest {
-  return isRecord(value) && ((value["args"] === null) || (typeof value["args"] === 'string')) && ((value["cronExpression"] === null) || (typeof value["cronExpression"] === 'string')) && ((value["endTime"] === null) || (typeof value["endTime"] === 'string')) && (typeof value["misfirePolicy"] === 'string') && ((value["oneTimeAtUtc"] === null) || (typeof value["oneTimeAtUtc"] === 'string')) && ((value["startTime"] === null) || (typeof value["startTime"] === 'string')) && (typeof value["timeZoneId"] === 'string') && (typeof value["triggerKind"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["args"] === null) || (typeof value["args"] === 'string')) && ((value["cronExpression"] === null) || (typeof value["cronExpression"] === 'string')) && ((value["endTime"] === null) || (typeof value["endTime"] === 'string')) && (typeof value["misfirePolicy"] === 'string') && ((value["oneTimeAtUtc"] === null) || (typeof value["oneTimeAtUtc"] === 'string')) && ((value["startTime"] === null) || (typeof value["startTime"] === 'string')) && (typeof value["timeZoneId"] === 'string') && (typeof value["triggerKind"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostMenuRequest(value: unknown): UpdateHostMenuRequest {
@@ -6601,7 +6807,7 @@ export function readUpdateHostMenuRequest(value: unknown): UpdateHostMenuRequest
 }
 
 function isUpdateHostMenuRequest(value: unknown): value is UpdateHostMenuRequest {
-  return isRecord(value) && (typeof value["caption"] === 'string') && (typeof value["componentKey"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["icon"] === 'string') && (value["isAffix"] === undefined || (typeof value["isAffix"] === 'boolean')) && (value["isEmbedded"] === undefined || (typeof value["isEmbedded"] === 'boolean')) && (value["isHidden"] === undefined || (typeof value["isHidden"] === 'boolean')) && (value["isKeepAlive"] === undefined || (typeof value["isKeepAlive"] === 'boolean')) && (value["linkUrl"] === undefined || ((value["linkUrl"] === null) || (typeof value["linkUrl"] === 'string'))) && (value["menuType"] === undefined || (typeof value["menuType"] === 'string')) && ((value["parentId"] === null) || (typeof value["parentId"] === 'string')) && (typeof value["path"] === 'string') && (value["redirect"] === undefined || ((value["redirect"] === null) || (typeof value["redirect"] === 'string'))) && (value["remark"] === undefined || ((value["remark"] === null) || (typeof value["remark"] === 'string'))) && (typeof value["requiredPermission"] === 'string') && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["caption"] === 'string') && (typeof value["componentKey"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["icon"] === 'string') && (value["isAffix"] === undefined || (typeof value["isAffix"] === 'boolean')) && (value["isEmbedded"] === undefined || (typeof value["isEmbedded"] === 'boolean')) && (value["isHidden"] === undefined || (typeof value["isHidden"] === 'boolean')) && (value["isKeepAlive"] === undefined || (typeof value["isKeepAlive"] === 'boolean')) && (value["linkUrl"] === undefined || ((value["linkUrl"] === null) || (typeof value["linkUrl"] === 'string'))) && (value["menuType"] === undefined || (typeof value["menuType"] === 'string')) && ((value["parentId"] === null) || (typeof value["parentId"] === 'string')) && (typeof value["path"] === 'string') && (value["redirect"] === undefined || ((value["redirect"] === null) || (typeof value["redirect"] === 'string'))) && (value["remark"] === undefined || ((value["remark"] === null) || (typeof value["remark"] === 'string'))) && (typeof value["requiredPermission"] === 'string') && (typeof value["title"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostReleaseNoteRequest(value: unknown): UpdateHostReleaseNoteRequest {
@@ -6613,7 +6819,7 @@ export function readUpdateHostReleaseNoteRequest(value: unknown): UpdateHostRele
 }
 
 function isUpdateHostReleaseNoteRequest(value: unknown): value is UpdateHostReleaseNoteRequest {
-  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["versionLabel"] === 'string');
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["title"] === 'string') && (Number.isSafeInteger(value["version"])) && (typeof value["versionLabel"] === 'string');
 }
 
 export function readUpdateHostRoleDataScopeRequest(value: unknown): UpdateHostRoleDataScopeRequest {
@@ -6625,7 +6831,7 @@ export function readUpdateHostRoleDataScopeRequest(value: unknown): UpdateHostRo
 }
 
 function isUpdateHostRoleDataScopeRequest(value: unknown): value is UpdateHostRoleDataScopeRequest {
-  return isRecord(value) && (typeof value["dataScopeKind"] === 'string') && (value["tenantId"] === undefined || ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])))) && ((value["unitIds"] === null) || (Array.isArray(value["unitIds"]) && value["unitIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16)))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["dataScopeKind"] === 'string') && (value["tenantId"] === undefined || ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])))) && ((value["unitIds"] === null) || (Array.isArray(value["unitIds"]) && value["unitIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16)))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostRoleRequest(value: unknown): UpdateHostRoleRequest {
@@ -6637,7 +6843,7 @@ export function readUpdateHostRoleRequest(value: unknown): UpdateHostRoleRequest
 }
 
 function isUpdateHostRoleRequest(value: unknown): value is UpdateHostRoleRequest {
-  return isRecord(value) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostTenantPackageRequest(value: unknown): UpdateHostTenantPackageRequest {
@@ -6649,7 +6855,7 @@ export function readUpdateHostTenantPackageRequest(value: unknown): UpdateHostTe
 }
 
 function isUpdateHostTenantPackageRequest(value: unknown): value is UpdateHostTenantPackageRequest {
-  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostTenantRequest(value: unknown): UpdateHostTenantRequest {
@@ -6661,7 +6867,7 @@ export function readUpdateHostTenantRequest(value: unknown): UpdateHostTenantReq
 }
 
 function isUpdateHostTenantRequest(value: unknown): value is UpdateHostTenantRequest {
-  return isRecord(value) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostUserRequest(value: unknown): UpdateHostUserRequest {
@@ -6673,7 +6879,7 @@ export function readUpdateHostUserRequest(value: unknown): UpdateHostUserRequest
 }
 
 function isUpdateHostUserRequest(value: unknown): value is UpdateHostUserRequest {
-  return isRecord(value) && (value["accountType"] === undefined || ((value["accountType"] === null) || (typeof value["accountType"] === 'string'))) && (typeof value["displayName"] === 'string') && (value["profile"] === undefined || ((value["profile"] === null) || (isHostUserProfileWriteRequest(value["profile"])))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (value["accountType"] === undefined || ((value["accountType"] === null) || (typeof value["accountType"] === 'string'))) && (typeof value["displayName"] === 'string') && (value["profile"] === undefined || ((value["profile"] === null) || (isHostUserProfileWriteRequest(value["profile"])))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateK3CloudConnectionConfigRequest(value: unknown): UpdateK3CloudConnectionConfigRequest {
@@ -6685,7 +6891,7 @@ export function readUpdateK3CloudConnectionConfigRequest(value: unknown): Update
 }
 
 function isUpdateK3CloudConnectionConfigRequest(value: unknown): value is UpdateK3CloudConnectionConfigRequest {
-  return isRecord(value) && (typeof value["acctId"] === 'string') && (typeof value["baseUrl"] === 'string') && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (typeof value["lcid"] === 'number' && Number.isSafeInteger(value["lcid"])) && (typeof value["name"] === 'string') && ((value["password"] === null) || (typeof value["password"] === 'string')) && (typeof value["username"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["acctId"] === 'string') && (typeof value["baseUrl"] === 'string') && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (Number.isSafeInteger(value["lcid"])) && (typeof value["name"] === 'string') && ((value["password"] === null) || (typeof value["password"] === 'string')) && (typeof value["username"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateLocaleRequest(value: unknown): UpdateLocaleRequest {
@@ -6697,7 +6903,7 @@ export function readUpdateLocaleRequest(value: unknown): UpdateLocaleRequest {
 }
 
 function isUpdateLocaleRequest(value: unknown): value is UpdateLocaleRequest {
-  return isRecord(value) && (typeof value["locale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isSafeInteger(value["profileVersion"]));
+  return isRecord(value) && (typeof value["locale"] === 'string') && (Number.isSafeInteger(value["profileVersion"]));
 }
 
 export function readUpdateNotificationBindingRequest(value: unknown): UpdateNotificationBindingRequest {
@@ -6709,7 +6915,7 @@ export function readUpdateNotificationBindingRequest(value: unknown): UpdateNoti
 }
 
 function isUpdateNotificationBindingRequest(value: unknown): value is UpdateNotificationBindingRequest {
-  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["dispatchModeKey"] === 'string') && (typeof value["producerKey"] === 'string') && (typeof value["sceneKey"] === 'string') && (Array.isArray(value["targets"]) && value["targets"].every(item16 => isNotificationBindingTargetInput(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["dispatchModeKey"] === 'string') && (typeof value["producerKey"] === 'string') && (typeof value["sceneKey"] === 'string') && (Array.isArray(value["targets"]) && value["targets"].every(item16 => isNotificationBindingTargetInput(item16))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateNotificationProviderProfileRequest(value: unknown): UpdateNotificationProviderProfileRequest {
@@ -6721,7 +6927,7 @@ export function readUpdateNotificationProviderProfileRequest(value: unknown): Up
 }
 
 function isUpdateNotificationProviderProfileRequest(value: unknown): value is UpdateNotificationProviderProfileRequest {
-  return isRecord(value) && (isJsonElement(value["nonSecretConfig"])) && ((value["secretReference"] === null) || (typeof value["secretReference"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (isJsonElement(value["nonSecretConfig"])) && ((value["secretReference"] === null) || (typeof value["secretReference"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateNotificationTemplateRequest(value: unknown): UpdateNotificationTemplateRequest {
@@ -6733,7 +6939,7 @@ export function readUpdateNotificationTemplateRequest(value: unknown): UpdateNot
 }
 
 function isUpdateNotificationTemplateRequest(value: unknown): value is UpdateNotificationTemplateRequest {
-  return isRecord(value) && (isNotificationTemplateBody(value["draftBody"])) && (typeof value["draftSubject"] === 'string') && (isNotificationTemplateParameterSchema(value["parameterSchema"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (isNotificationTemplateBody(value["draftBody"])) && (typeof value["draftSubject"] === 'string') && (isNotificationTemplateParameterSchema(value["parameterSchema"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateOcrProviderConfigRequest(value: unknown): UpdateOcrProviderConfigRequest {
@@ -6745,7 +6951,7 @@ export function readUpdateOcrProviderConfigRequest(value: unknown): UpdateOcrPro
 }
 
 function isUpdateOcrProviderConfigRequest(value: unknown): value is UpdateOcrProviderConfigRequest {
-  return isRecord(value) && ((value["apiKey"] === null) || (typeof value["apiKey"] === 'string')) && (typeof value["baseUrl"] === 'string') && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["apiKey"] === null) || (typeof value["apiKey"] === 'string')) && (typeof value["baseUrl"] === 'string') && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateOrganizationPositionLevelRequest(value: unknown): UpdateOrganizationPositionLevelRequest {
@@ -6757,7 +6963,7 @@ export function readUpdateOrganizationPositionLevelRequest(value: unknown): Upda
 }
 
 function isUpdateOrganizationPositionLevelRequest(value: unknown): value is UpdateOrganizationPositionLevelRequest {
-  return isRecord(value) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateOrganizationPositionRequest(value: unknown): UpdateOrganizationPositionRequest {
@@ -6769,7 +6975,7 @@ export function readUpdateOrganizationPositionRequest(value: unknown): UpdateOrg
 }
 
 function isUpdateOrganizationPositionRequest(value: unknown): value is UpdateOrganizationPositionRequest {
-  return isRecord(value) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateOrganizationUnitRequest(value: unknown): UpdateOrganizationUnitRequest {
@@ -6781,7 +6987,7 @@ export function readUpdateOrganizationUnitRequest(value: unknown): UpdateOrganiz
 }
 
 function isUpdateOrganizationUnitRequest(value: unknown): value is UpdateOrganizationUnitRequest {
-  return isRecord(value) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateOrganizationUserPositionRequest(value: unknown): UpdateOrganizationUserPositionRequest {
@@ -6793,7 +6999,7 @@ export function readUpdateOrganizationUserPositionRequest(value: unknown): Updat
 }
 
 function isUpdateOrganizationUserPositionRequest(value: unknown): value is UpdateOrganizationUserPositionRequest {
-  return isRecord(value) && (typeof value["isPrimary"] === 'boolean') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["isPrimary"] === 'boolean') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateOrganizationUserUnitRequest(value: unknown): UpdateOrganizationUserUnitRequest {
@@ -6805,7 +7011,7 @@ export function readUpdateOrganizationUserUnitRequest(value: unknown): UpdateOrg
 }
 
 function isUpdateOrganizationUserUnitRequest(value: unknown): value is UpdateOrganizationUserUnitRequest {
-  return isRecord(value) && (typeof value["isPrimary"] === 'boolean') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["isPrimary"] === 'boolean') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdatePaymentMerchantConfigRequest(value: unknown): UpdatePaymentMerchantConfigRequest {
@@ -6817,7 +7023,7 @@ export function readUpdatePaymentMerchantConfigRequest(value: unknown): UpdatePa
 }
 
 function isUpdatePaymentMerchantConfigRequest(value: unknown): value is UpdatePaymentMerchantConfigRequest {
-  return isRecord(value) && ((value["apiV3Key"] === null) || (typeof value["apiV3Key"] === 'string')) && (typeof value["appId"] === 'string') && (typeof value["certificateSerialNo"] === 'string') && (typeof value["channelKey"] === 'string') && (typeof value["clearApiV3Key"] === 'boolean') && (typeof value["clearPrivateKey"] === 'boolean') && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (typeof value["merchantId"] === 'string') && (typeof value["name"] === 'string') && (typeof value["notifyUrl"] === 'string') && ((value["privateKeyPem"] === null) || (typeof value["privateKeyPem"] === 'string')) && (typeof value["returnUrl"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["apiV3Key"] === null) || (typeof value["apiV3Key"] === 'string')) && (typeof value["appId"] === 'string') && (typeof value["certificateSerialNo"] === 'string') && (typeof value["channelKey"] === 'string') && (typeof value["clearApiV3Key"] === 'boolean') && (typeof value["clearPrivateKey"] === 'boolean') && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (typeof value["merchantId"] === 'string') && (typeof value["name"] === 'string') && (typeof value["notifyUrl"] === 'string') && ((value["privateKeyPem"] === null) || (typeof value["privateKeyPem"] === 'string')) && (typeof value["returnUrl"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdatePersonalScheduleRequest(value: unknown): UpdatePersonalScheduleRequest {
@@ -6829,7 +7035,7 @@ export function readUpdatePersonalScheduleRequest(value: unknown): UpdatePersona
 }
 
 function isUpdatePersonalScheduleRequest(value: unknown): value is UpdatePersonalScheduleRequest {
-  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["endAtUtc"] === 'string') && (typeof value["startAtUtc"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["endAtUtc"] === 'string') && (typeof value["startAtUtc"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdatePrintingTemplateRequest(value: unknown): UpdatePrintingTemplateRequest {
@@ -6841,7 +7047,7 @@ export function readUpdatePrintingTemplateRequest(value: unknown): UpdatePrintin
 }
 
 function isUpdatePrintingTemplateRequest(value: unknown): value is UpdatePrintingTemplateRequest {
-  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["layoutHtml"] === 'string') && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["layoutHtml"] === 'string') && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateReportingDataSourceRequest(value: unknown): UpdateReportingDataSourceRequest {
@@ -6853,7 +7059,7 @@ export function readUpdateReportingDataSourceRequest(value: unknown): UpdateRepo
 }
 
 function isUpdateReportingDataSourceRequest(value: unknown): value is UpdateReportingDataSourceRequest {
-  return isRecord(value) && (typeof value["databaseName"] === 'string') && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && ((value["password"] === null) || (typeof value["password"] === 'string')) && (typeof value["port"] === 'number' && Number.isSafeInteger(value["port"])) && (typeof value["providerKey"] === 'string') && (typeof value["serverHost"] === 'string') && (typeof value["trustServerCertificate"] === 'boolean') && (typeof value["username"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["databaseName"] === 'string') && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && ((value["password"] === null) || (typeof value["password"] === 'string')) && (Number.isSafeInteger(value["port"])) && (typeof value["providerKey"] === 'string') && (typeof value["serverHost"] === 'string') && (typeof value["trustServerCertificate"] === 'boolean') && (typeof value["username"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateReportingDefinitionRequest(value: unknown): UpdateReportingDefinitionRequest {
@@ -6865,7 +7071,7 @@ export function readUpdateReportingDefinitionRequest(value: unknown): UpdateRepo
 }
 
 function isUpdateReportingDefinitionRequest(value: unknown): value is UpdateReportingDefinitionRequest {
-  return isRecord(value) && (typeof value["dataSourceId"] === 'string' && guidPattern.test(value["dataSourceId"])) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["groupId"] === 'string' && guidPattern.test(value["groupId"])) && (typeof value["isEnabled"] === 'boolean') && ((value["layoutConfigJson"] === null) || (typeof value["layoutConfigJson"] === 'string')) && (typeof value["name"] === 'string') && (Array.isArray(value["parameterSchema"]) && value["parameterSchema"].every(item24 => isReportingParameterSchemaEntry(item24))) && (typeof value["queryPortKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["dataSourceId"] === 'string' && guidPattern.test(value["dataSourceId"])) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["groupId"] === 'string' && guidPattern.test(value["groupId"])) && (typeof value["isEnabled"] === 'boolean') && ((value["layoutConfigJson"] === null) || (typeof value["layoutConfigJson"] === 'string')) && (typeof value["name"] === 'string') && (Array.isArray(value["parameterSchema"]) && value["parameterSchema"].every(item24 => isReportingParameterSchemaEntry(item24))) && (typeof value["queryPortKey"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateReportingGroupRequest(value: unknown): UpdateReportingGroupRequest {
@@ -6877,7 +7083,7 @@ export function readUpdateReportingGroupRequest(value: unknown): UpdateReporting
 }
 
 function isUpdateReportingGroupRequest(value: unknown): value is UpdateReportingGroupRequest {
-  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["sortOrder"] === 'number' && Number.isSafeInteger(value["sortOrder"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (Number.isSafeInteger(value["sortOrder"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateSelfServiceProfileRequest(value: unknown): UpdateSelfServiceProfileRequest {
@@ -6889,7 +7095,7 @@ export function readUpdateSelfServiceProfileRequest(value: unknown): UpdateSelfS
 }
 
 function isUpdateSelfServiceProfileRequest(value: unknown): value is UpdateSelfServiceProfileRequest {
-  return isRecord(value) && ((value["displayName"] === null) || (typeof value["displayName"] === 'string')) && ((value["profile"] === null) || (isHostUserProfileWriteRequest(value["profile"]))) && ((value["userVersion"] === null) || (typeof value["userVersion"] === 'number' && Number.isSafeInteger(value["userVersion"])));
+  return isRecord(value) && ((value["displayName"] === null) || (typeof value["displayName"] === 'string')) && ((value["profile"] === null) || (isHostUserProfileWriteRequest(value["profile"]))) && ((value["userVersion"] === null) || (Number.isSafeInteger(value["userVersion"])));
 }
 
 export function readUpdateSerialNumberRuleRequest(value: unknown): UpdateSerialNumberRuleRequest {
@@ -6901,7 +7107,7 @@ export function readUpdateSerialNumberRuleRequest(value: unknown): UpdateSerialN
 }
 
 function isUpdateSerialNumberRuleRequest(value: unknown): value is UpdateSerialNumberRuleRequest {
-  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maximumValue"] === 'number' && Number.isSafeInteger(value["maximumValue"])) && (typeof value["minimumValue"] === 'number' && Number.isSafeInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (isSerialNumberRuleScope(value["scope"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (Number.isSafeInteger(value["displayOrder"])) && (typeof value["isEnabled"] === 'boolean') && (Number.isSafeInteger(value["maximumValue"])) && (Number.isSafeInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (isSerialNumberRuleScope(value["scope"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateTenantBrandingRequest(value: unknown): UpdateTenantBrandingRequest {
@@ -6913,7 +7119,7 @@ export function readUpdateTenantBrandingRequest(value: unknown): UpdateTenantBra
 }
 
 function isUpdateTenantBrandingRequest(value: unknown): value is UpdateTenantBrandingRequest {
-  return isRecord(value) && ((value["contactAddress"] === null) || (typeof value["contactAddress"] === 'string')) && ((value["contactEmail"] === null) || (typeof value["contactEmail"] === 'string')) && ((value["contactPhone"] === null) || (typeof value["contactPhone"] === 'string')) && ((value["copyright"] === null) || (typeof value["copyright"] === 'string')) && ((value["systemTitle"] === null) || (typeof value["systemTitle"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["contactAddress"] === null) || (typeof value["contactAddress"] === 'string')) && ((value["contactEmail"] === null) || (typeof value["contactEmail"] === 'string')) && ((value["contactPhone"] === null) || (typeof value["contactPhone"] === 'string')) && ((value["copyright"] === null) || (typeof value["copyright"] === 'string')) && ((value["systemTitle"] === null) || (typeof value["systemTitle"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateWorkflowDefinitionDraftRequest(value: unknown): UpdateWorkflowDefinitionDraftRequest {
@@ -6925,7 +7131,7 @@ export function readUpdateWorkflowDefinitionDraftRequest(value: unknown): Update
 }
 
 function isUpdateWorkflowDefinitionDraftRequest(value: unknown): value is UpdateWorkflowDefinitionDraftRequest {
-  return isRecord(value) && (value["businessTitleTemplate"] === undefined || ((value["businessTitleTemplate"] === null) || (typeof value["businessTitleTemplate"] === 'string'))) && (isWorkflowDefinitionDraft(value["draft"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"]));
+  return isRecord(value) && (value["businessTitleTemplate"] === undefined || ((value["businessTitleTemplate"] === null) || (typeof value["businessTitleTemplate"] === 'string'))) && (isWorkflowDefinitionDraft(value["draft"])) && (Number.isSafeInteger(value["expectedRevision"]));
 }
 
 export function readUpdateWorkflowFormDraftRequest(value: unknown): UpdateWorkflowFormDraftRequest {
@@ -6937,7 +7143,7 @@ export function readUpdateWorkflowFormDraftRequest(value: unknown): UpdateWorkfl
 }
 
 function isUpdateWorkflowFormDraftRequest(value: unknown): value is UpdateWorkflowFormDraftRequest {
-  return isRecord(value) && (isWorkflowFormSchema(value["draft"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"]));
+  return isRecord(value) && (isWorkflowFormSchema(value["draft"])) && (Number.isSafeInteger(value["expectedRevision"]));
 }
 
 export function readVerifyRecipientEndpointCodeRequest(value: unknown): VerifyRecipientEndpointCodeRequest {
@@ -6993,7 +7199,7 @@ export function readWorkflowDefinitionDraft(value: unknown): WorkflowDefinitionD
 }
 
 function isWorkflowDefinitionDraft(value: unknown): value is WorkflowDefinitionDraft {
-  return isRecord(value) && (Array.isArray(value["nodes"]) && value["nodes"].every(item14 => isWorkflowNodeDraft(item14))) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"]));
+  return isRecord(value) && (Array.isArray(value["nodes"]) && value["nodes"].every(item14 => isWorkflowNodeDraft(item14))) && (Number.isSafeInteger(value["schemaVersion"]));
 }
 
 export function readWorkflowDefinitionResponse(value: unknown): WorkflowDefinitionResponse {
@@ -7005,7 +7211,7 @@ export function readWorkflowDefinitionResponse(value: unknown): WorkflowDefiniti
 }
 
 function isWorkflowDefinitionResponse(value: unknown): value is WorkflowDefinitionResponse {
-  return isRecord(value) && ((value["businessTitleTemplate"] === null) || (typeof value["businessTitleTemplate"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["definitionKey"] === 'string') && (isWorkflowDefinitionDraft(value["draft"])) && (typeof value["draftRevision"] === 'number' && Number.isSafeInteger(value["draftRevision"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["businessTitleTemplate"] === null) || (typeof value["businessTitleTemplate"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["definitionKey"] === 'string') && (isWorkflowDefinitionDraft(value["draft"])) && (Number.isSafeInteger(value["draftRevision"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readWorkflowDefinitionVersionResponse(value: unknown): WorkflowDefinitionVersionResponse {
@@ -7017,7 +7223,7 @@ export function readWorkflowDefinitionVersionResponse(value: unknown): WorkflowD
 }
 
 function isWorkflowDefinitionVersionResponse(value: unknown): value is WorkflowDefinitionVersionResponse {
-  return isRecord(value) && ((value["businessTitleTemplate"] === null) || (typeof value["businessTitleTemplate"] === 'string')) && (typeof value["canonicalJson"] === 'string') && (typeof value["contentHash"] === 'string') && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedById"] === 'string' && guidPattern.test(value["publishedById"])) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+  return isRecord(value) && ((value["businessTitleTemplate"] === null) || (typeof value["businessTitleTemplate"] === 'string')) && (typeof value["canonicalJson"] === 'string') && (typeof value["contentHash"] === 'string') && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedById"] === 'string' && guidPattern.test(value["publishedById"])) && (Number.isSafeInteger(value["schemaVersion"])) && (Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readWorkflowExecutionLogResponse(value: unknown): WorkflowExecutionLogResponse {
@@ -7040,7 +7246,7 @@ export function readWorkflowFormComponentCatalogResponse(value: unknown): Workfl
 }
 
 function isWorkflowFormComponentCatalogResponse(value: unknown): value is WorkflowFormComponentCatalogResponse {
-  return isRecord(value) && (typeof value["adapterVersion"] === 'number' && Number.isSafeInteger(value["adapterVersion"])) && (typeof value["catalogVersion"] === 'number' && Number.isSafeInteger(value["catalogVersion"])) && (Array.isArray(value["components"]) && value["components"].every(item19 => isWorkflowFormComponentResponse(item19))) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"]));
+  return isRecord(value) && (Number.isSafeInteger(value["adapterVersion"])) && (Number.isSafeInteger(value["catalogVersion"])) && (Array.isArray(value["components"]) && value["components"].every(item19 => isWorkflowFormComponentResponse(item19))) && (Number.isSafeInteger(value["schemaVersion"]));
 }
 
 export function readWorkflowFormComponentResponse(value: unknown): WorkflowFormComponentResponse {
@@ -7074,7 +7280,7 @@ export function readWorkflowFormResponse(value: unknown): WorkflowFormResponse {
 }
 
 function isWorkflowFormResponse(value: unknown): value is WorkflowFormResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (isWorkflowFormSchema(value["draft"])) && (typeof value["draftRevision"] === 'number' && Number.isSafeInteger(value["draftRevision"])) && (typeof value["formKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (isWorkflowFormSchema(value["draft"])) && (Number.isSafeInteger(value["draftRevision"])) && (typeof value["formKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readWorkflowFormSchema(value: unknown): WorkflowFormSchema {
@@ -7086,7 +7292,7 @@ export function readWorkflowFormSchema(value: unknown): WorkflowFormSchema {
 }
 
 function isWorkflowFormSchema(value: unknown): value is WorkflowFormSchema {
-  return isRecord(value) && (typeof value["adapterVersion"] === 'number' && Number.isSafeInteger(value["adapterVersion"])) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (Array.isArray(value["sections"]) && value["sections"].every(item17 => isWorkflowFormSection(item17)));
+  return isRecord(value) && (Number.isSafeInteger(value["adapterVersion"])) && (Number.isSafeInteger(value["schemaVersion"])) && (Array.isArray(value["sections"]) && value["sections"].every(item17 => isWorkflowFormSection(item17)));
 }
 
 export function readWorkflowFormSection(value: unknown): WorkflowFormSection {
@@ -7109,7 +7315,7 @@ export function readWorkflowFormVersionResponse(value: unknown): WorkflowFormVer
 }
 
 function isWorkflowFormVersionResponse(value: unknown): value is WorkflowFormVersionResponse {
-  return isRecord(value) && (typeof value["adapterVersion"] === 'number' && Number.isSafeInteger(value["adapterVersion"])) && (typeof value["componentCatalogVersion"] === 'number' && Number.isSafeInteger(value["componentCatalogVersion"])) && (typeof value["contentHash"] === 'string') && (typeof value["formDefinitionId"] === 'string' && guidPattern.test(value["formDefinitionId"])) && (typeof value["formSchemaJson"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedById"] === 'string' && guidPattern.test(value["publishedById"])) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"])) && (typeof value["webRenderSchemaJson"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["adapterVersion"])) && (Number.isSafeInteger(value["componentCatalogVersion"])) && (typeof value["contentHash"] === 'string') && (typeof value["formDefinitionId"] === 'string' && guidPattern.test(value["formDefinitionId"])) && (typeof value["formSchemaJson"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedById"] === 'string' && guidPattern.test(value["publishedById"])) && (Number.isSafeInteger(value["schemaVersion"])) && (Number.isSafeInteger(value["versionNumber"])) && (typeof value["webRenderSchemaJson"] === 'string');
 }
 
 export function readWorkflowGatewayJoinBranchResponse(value: unknown): WorkflowGatewayJoinBranchResponse {
@@ -7132,7 +7338,7 @@ export function readWorkflowGatewayJoinResponse(value: unknown): WorkflowGateway
 }
 
 function isWorkflowGatewayJoinResponse(value: unknown): value is WorkflowGatewayJoinResponse {
-  return isRecord(value) && (typeof value["arrivedBranchCount"] === 'number' && Number.isSafeInteger(value["arrivedBranchCount"])) && (Array.isArray(value["branches"]) && value["branches"].every(item17 => isWorkflowGatewayJoinBranchResponse(item17))) && (typeof value["forkNodeKey"] === 'string') && (typeof value["gatewayTypeKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["joinNodeKey"] === 'string') && (typeof value["requiredBranchCount"] === 'number' && Number.isSafeInteger(value["requiredBranchCount"])) && (typeof value["statusKey"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["arrivedBranchCount"])) && (Array.isArray(value["branches"]) && value["branches"].every(item17 => isWorkflowGatewayJoinBranchResponse(item17))) && (typeof value["forkNodeKey"] === 'string') && (typeof value["gatewayTypeKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["joinNodeKey"] === 'string') && (Number.isSafeInteger(value["requiredBranchCount"])) && (typeof value["statusKey"] === 'string');
 }
 
 export function readWorkflowInstanceListItemResponse(value: unknown): WorkflowInstanceListItemResponse {
@@ -7155,7 +7361,7 @@ export function readWorkflowInstanceResponse(value: unknown): WorkflowInstanceRe
 }
 
 function isWorkflowInstanceResponse(value: unknown): value is WorkflowInstanceResponse {
-  return isRecord(value) && (value["activeNodeKey"] === undefined || ((value["activeNodeKey"] === null) || (typeof value["activeNodeKey"] === 'string'))) && ((value["activeTodoId"] === null) || (typeof value["activeTodoId"] === 'string' && guidPattern.test(value["activeTodoId"]))) && (value["approvalModeKey"] === undefined || ((value["approvalModeKey"] === null) || (typeof value["approvalModeKey"] === 'string'))) && (value["approvedCount"] === undefined || ((value["approvedCount"] === null) || (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])))) && (typeof value["businessId"] === 'string') && ((value["businessTitle"] === null) || (typeof value["businessTitle"] === 'string')) && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (value["dueAtUtc"] === undefined || ((value["dueAtUtc"] === null) || (typeof value["dueAtUtc"] === 'string'))) && (value["escalatedAtUtc"] === undefined || ((value["escalatedAtUtc"] === null) || (typeof value["escalatedAtUtc"] === 'string'))) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (value["gatewayJoins"] === undefined || ((value["gatewayJoins"] === null) || (Array.isArray(value["gatewayJoins"]) && value["gatewayJoins"].every(item21 => isWorkflowGatewayJoinResponse(item21))))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["pendingCount"] === undefined || ((value["pendingCount"] === null) || (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])))) && (value["rejectedCount"] === undefined || ((value["rejectedCount"] === null) || (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])))) && (value["reminderCount"] === undefined || (typeof value["reminderCount"] === 'number' && Number.isSafeInteger(value["reminderCount"]))) && (value["requiredApprovalCount"] === undefined || ((value["requiredApprovalCount"] === null) || (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])))) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string') && (value["timeoutStatusKey"] === undefined || (typeof value["timeoutStatusKey"] === 'string'));
+  return isRecord(value) && (value["activeNodeKey"] === undefined || ((value["activeNodeKey"] === null) || (typeof value["activeNodeKey"] === 'string'))) && ((value["activeTodoId"] === null) || (typeof value["activeTodoId"] === 'string' && guidPattern.test(value["activeTodoId"]))) && (value["approvalModeKey"] === undefined || ((value["approvalModeKey"] === null) || (typeof value["approvalModeKey"] === 'string'))) && (value["approvedCount"] === undefined || ((value["approvedCount"] === null) || (Number.isSafeInteger(value["approvedCount"])))) && (typeof value["businessId"] === 'string') && ((value["businessTitle"] === null) || (typeof value["businessTitle"] === 'string')) && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (value["dueAtUtc"] === undefined || ((value["dueAtUtc"] === null) || (typeof value["dueAtUtc"] === 'string'))) && (value["escalatedAtUtc"] === undefined || ((value["escalatedAtUtc"] === null) || (typeof value["escalatedAtUtc"] === 'string'))) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (value["gatewayJoins"] === undefined || ((value["gatewayJoins"] === null) || (Array.isArray(value["gatewayJoins"]) && value["gatewayJoins"].every(item21 => isWorkflowGatewayJoinResponse(item21))))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["pendingCount"] === undefined || ((value["pendingCount"] === null) || (Number.isSafeInteger(value["pendingCount"])))) && (value["rejectedCount"] === undefined || ((value["rejectedCount"] === null) || (Number.isSafeInteger(value["rejectedCount"])))) && (value["reminderCount"] === undefined || (Number.isSafeInteger(value["reminderCount"]))) && (value["requiredApprovalCount"] === undefined || ((value["requiredApprovalCount"] === null) || (Number.isSafeInteger(value["requiredApprovalCount"])))) && (Number.isSafeInteger(value["revision"])) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string') && (value["timeoutStatusKey"] === undefined || (typeof value["timeoutStatusKey"] === 'string'));
 }
 
 export function readWorkflowNodeDraft(value: unknown): WorkflowNodeDraft {
@@ -7167,7 +7373,7 @@ export function readWorkflowNodeDraft(value: unknown): WorkflowNodeDraft {
 }
 
 function isWorkflowNodeDraft(value: unknown): value is WorkflowNodeDraft {
-  return isRecord(value) && (isJsonElement(value["config"])) && (typeof value["nodeKey"] === 'string') && (typeof value["nodeSchemaVersion"] === 'number' && Number.isSafeInteger(value["nodeSchemaVersion"])) && (typeof value["nodeTypeKey"] === 'string');
+  return isRecord(value) && (isJsonElement(value["config"])) && (typeof value["nodeKey"] === 'string') && (Number.isSafeInteger(value["nodeSchemaVersion"])) && (typeof value["nodeTypeKey"] === 'string');
 }
 
 export function readWorkflowNodeTypeCatalogResponse(value: unknown): WorkflowNodeTypeCatalogResponse {
@@ -7179,7 +7385,7 @@ export function readWorkflowNodeTypeCatalogResponse(value: unknown): WorkflowNod
 }
 
 function isWorkflowNodeTypeCatalogResponse(value: unknown): value is WorkflowNodeTypeCatalogResponse {
-  return isRecord(value) && (typeof value["catalogVersion"] === 'number' && Number.isSafeInteger(value["catalogVersion"])) && (typeof value["definitionSchemaVersion"] === 'number' && Number.isSafeInteger(value["definitionSchemaVersion"])) && (Array.isArray(value["nodeTypes"]) && value["nodeTypes"].every(item18 => isWorkflowNodeTypeResponse(item18)));
+  return isRecord(value) && (Number.isSafeInteger(value["catalogVersion"])) && (Number.isSafeInteger(value["definitionSchemaVersion"])) && (Array.isArray(value["nodeTypes"]) && value["nodeTypes"].every(item18 => isWorkflowNodeTypeResponse(item18)));
 }
 
 export function readWorkflowNodeTypeResponse(value: unknown): WorkflowNodeTypeResponse {
@@ -7191,7 +7397,7 @@ export function readWorkflowNodeTypeResponse(value: unknown): WorkflowNodeTypeRe
 }
 
 function isWorkflowNodeTypeResponse(value: unknown): value is WorkflowNodeTypeResponse {
-  return isRecord(value) && (typeof value["designable"] === 'boolean') && (typeof value["executable"] === 'boolean') && (typeof value["nodeSchemaVersion"] === 'number' && Number.isSafeInteger(value["nodeSchemaVersion"])) && (typeof value["nodeTypeKey"] === 'string') && (typeof value["publishable"] === 'boolean') && (typeof value["supportsFieldPolicies"] === 'boolean');
+  return isRecord(value) && (typeof value["designable"] === 'boolean') && (typeof value["executable"] === 'boolean') && (Number.isSafeInteger(value["nodeSchemaVersion"])) && (typeof value["nodeTypeKey"] === 'string') && (typeof value["publishable"] === 'boolean') && (typeof value["supportsFieldPolicies"] === 'boolean');
 }
 
 export function readWorkflowRecipientCandidatePageResponse(value: unknown): WorkflowRecipientCandidatePageResponse {
@@ -7203,7 +7409,7 @@ export function readWorkflowRecipientCandidatePageResponse(value: unknown): Work
 }
 
 function isWorkflowRecipientCandidatePageResponse(value: unknown): value is WorkflowRecipientCandidatePageResponse {
-  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowRecipientCandidateResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowRecipientCandidateResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
 export function readWorkflowRecipientCandidateResponse(value: unknown): WorkflowRecipientCandidateResponse {
@@ -7226,7 +7432,7 @@ export function readWorkflowRecoveryTaskResponse(value: unknown): WorkflowRecove
 }
 
 function isWorkflowRecoveryTaskResponse(value: unknown): value is WorkflowRecoveryTaskResponse {
-  return isRecord(value) && (typeof value["attemptCount"] === 'number' && Number.isSafeInteger(value["attemptCount"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["kindKey"] === 'string') && ((value["lastError"] === null) || (typeof value["lastError"] === 'string')) && ((value["leaseExpiresAtUtc"] === null) || (typeof value["leaseExpiresAtUtc"] === 'string')) && (typeof value["leaseGeneration"] === 'number' && Number.isSafeInteger(value["leaseGeneration"])) && ((value["leaseOwnerKey"] === null) || (typeof value["leaseOwnerKey"] === 'string')) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["stepId"] === null) || (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]))) && (typeof value["updatedAtUtc"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["attemptCount"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["kindKey"] === 'string') && ((value["lastError"] === null) || (typeof value["lastError"] === 'string')) && ((value["leaseExpiresAtUtc"] === null) || (typeof value["leaseExpiresAtUtc"] === 'string')) && (Number.isSafeInteger(value["leaseGeneration"])) && ((value["leaseOwnerKey"] === null) || (typeof value["leaseOwnerKey"] === 'string')) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && (Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["stepId"] === null) || (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]))) && (typeof value["updatedAtUtc"] === 'string');
 }
 
 export function readWorkflowTodoDetailResponse(value: unknown): WorkflowTodoDetailResponse {
@@ -7238,7 +7444,7 @@ export function readWorkflowTodoDetailResponse(value: unknown): WorkflowTodoDeta
 }
 
 function isWorkflowTodoDetailResponse(value: unknown): value is WorkflowTodoDetailResponse {
-  return isRecord(value) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isSafeInteger(value["submissionRevision"]));
+  return isRecord(value) && (typeof value["approvalModeKey"] === 'string') && (Number.isSafeInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (Number.isSafeInteger(value["pendingCount"])) && (Number.isSafeInteger(value["rejectedCount"])) && (Number.isSafeInteger(value["requiredApprovalCount"])) && (Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (Number.isSafeInteger(value["submissionRevision"]));
 }
 
 export function readWorkflowTodoListItemResponse(value: unknown): WorkflowTodoListItemResponse {
@@ -7250,7 +7456,7 @@ export function readWorkflowTodoListItemResponse(value: unknown): WorkflowTodoLi
 }
 
 function isWorkflowTodoListItemResponse(value: unknown): value is WorkflowTodoListItemResponse {
-  return isRecord(value) && (typeof value["arrivedAtUtc"] === 'string') && (typeof value["businessId"] === 'string') && ((value["businessTitle"] === null) || (typeof value["businessTitle"] === 'string')) && (typeof value["businessType"] === 'string') && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["definitionKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["instanceStatusKey"] === 'string') && (typeof value["nodeKey"] === 'string') && ((value["resultActionKey"] === null) || (typeof value["resultActionKey"] === 'string')) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]));
+  return isRecord(value) && (typeof value["arrivedAtUtc"] === 'string') && (typeof value["businessId"] === 'string') && ((value["businessTitle"] === null) || (typeof value["businessTitle"] === 'string')) && (typeof value["businessType"] === 'string') && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["definitionKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["instanceStatusKey"] === 'string') && (typeof value["nodeKey"] === 'string') && ((value["resultActionKey"] === null) || (typeof value["resultActionKey"] === 'string')) && (Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]));
 }
 
 export function readWorkflowTodoReturnTargetResponse(value: unknown): WorkflowTodoReturnTargetResponse {
@@ -7273,7 +7479,7 @@ export function readWorkflowTodoRuntimeResponse(value: unknown): WorkflowTodoRun
 }
 
 function isWorkflowTodoRuntimeResponse(value: unknown): value is WorkflowTodoRuntimeResponse {
-  return isRecord(value) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formSchemaHash"] === 'string') && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isSafeInteger(value["submissionRevision"]));
+  return isRecord(value) && (typeof value["approvalModeKey"] === 'string') && (Number.isSafeInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formSchemaHash"] === 'string') && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (Number.isSafeInteger(value["pendingCount"])) && (Number.isSafeInteger(value["rejectedCount"])) && (Number.isSafeInteger(value["requiredApprovalCount"])) && (Number.isSafeInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (Number.isSafeInteger(value["submissionRevision"]));
 }
 
 export function readAiCancelAgentRunResponse(value: unknown): boolean {
@@ -7586,11 +7792,26 @@ export function readObservabilityListServerInstancesResponse(value: unknown): Ar
   return value as Array<ServerInstanceCatalogEntry>;
 }
 
+export function readPrintingGrantTenantVersionResponse(value: unknown): boolean {
+  if (!(typeof value === 'boolean')) {
+    throw new Error('client.invalid_printing_grant_tenant_version_response');
+  }
+  return value as boolean;
+}
+
 export function readPrintingListFormSchemasResponse(value: unknown): Array<PrintingFormSchemaDefinition> {
   if (!(Array.isArray(value) && value.every(item5 => isPrintingFormSchemaDefinition(item5)))) {
     throw new Error('client.invalid_printing_list_form_schemas_response');
   }
   return value as Array<PrintingFormSchemaDefinition>;
+}
+
+export function readPrintingListPublishedTemplatesResponse(value: unknown): Array<PrintingPublishedTemplateResponse> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizePrintingPublishedTemplateResponseIntegerJson(item5)) : value);
+  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isPrintingPublishedTemplateResponse(item15)))) {
+    throw new Error('client.invalid_printing_list_published_templates_response');
+  }
+  return normalizedValue as Array<PrintingPublishedTemplateResponse>;
 }
 
 export function readPrintingListTemplatesResponse(value: unknown): Array<PrintingTemplateResponse> {
@@ -7607,6 +7828,13 @@ export function readPrintingListTemplateVersionsResponse(value: unknown): Array<
     throw new Error('client.invalid_printing_list_template_versions_response');
   }
   return normalizedValue as Array<PrintingTemplateVersionResponse>;
+}
+
+export function readPrintingRevokeTenantVersionResponse(value: unknown): boolean {
+  if (!(typeof value === 'boolean')) {
+    throw new Error('client.invalid_printing_revoke_tenant_version_response');
+  }
+  return value as boolean;
 }
 
 export function readRegionsGetAdministrativeRegionTreeResponse(value: unknown): Array<AdministrativeRegionTreeNodeResponse> {
@@ -7646,6 +7874,13 @@ export function readReportingDeleteGroupResponse(value: unknown): boolean {
   return value as boolean;
 }
 
+export function readReportingGrantTenantVersionResponse(value: unknown): boolean {
+  if (!(typeof value === 'boolean')) {
+    throw new Error('client.invalid_reporting_grant_tenant_version_response');
+  }
+  return value as boolean;
+}
+
 export function readReportingListDefinitionsResponse(value: unknown): Array<ReportingDefinitionResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeReportingDefinitionResponseIntegerJson(item5)) : value);
   if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isReportingDefinitionResponse(item15)))) {
@@ -7670,12 +7905,27 @@ export function readReportingListGroupsResponse(value: unknown): Array<Reporting
   return normalizedValue as Array<ReportingGroupResponse>;
 }
 
+export function readReportingListPublishedDefinitionsResponse(value: unknown): Array<ReportingPublishedDefinitionResponse> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeReportingPublishedDefinitionResponseIntegerJson(item5)) : value);
+  if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isReportingPublishedDefinitionResponse(item15)))) {
+    throw new Error('client.invalid_reporting_list_published_definitions_response');
+  }
+  return normalizedValue as Array<ReportingPublishedDefinitionResponse>;
+}
+
 export function readReportingListQueryPortsResponse(value: unknown): Array<ReportingQueryPortDefinition> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeReportingQueryPortDefinitionIntegerJson(item5)) : value);
   if (!(Array.isArray(normalizedValue) && normalizedValue.every(item15 => isReportingQueryPortDefinition(item15)))) {
     throw new Error('client.invalid_reporting_list_query_ports_response');
   }
   return normalizedValue as Array<ReportingQueryPortDefinition>;
+}
+
+export function readReportingRevokeTenantVersionResponse(value: unknown): boolean {
+  if (!(typeof value === 'boolean')) {
+    throw new Error('client.invalid_reporting_revoke_tenant_version_response');
+  }
+  return value as boolean;
 }
 
 export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unknown): boolean {
@@ -8229,6 +8479,34 @@ function normalizeDisableHostJobDefinitionRequestIntegerJson(value: unknown): un
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeEnterpriseRequestApprovalProgressResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "finalNotification") ? { ["finalNotification"]: normalizeIntegerUnion(value["finalNotification"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isNotificationIntentDeliverySnapshot(value), normalize: (value: unknown) => normalizeNotificationIntentDeliverySnapshotIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "requestVersion") ? { ["requestVersion"]: normalizeWireInteger(value["requestVersion"]) } : {}), ...(Object.hasOwn(value, "submittedVersion") ? { ["submittedVersion"]: normalizeWireInteger(value["submittedVersion"]) } : {}) } : value);
+}
+
+function normalizeEnterpriseRequestAttachmentMutationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attachment") ? { ["attachment"]: normalizeEnterpriseRequestAttachmentResponseIntegerJson(value["attachment"]) } : {}), ...(Object.hasOwn(value, "requestVersion") ? { ["requestVersion"]: normalizeWireInteger(value["requestVersion"]) } : {}) } : value);
+}
+
+function normalizeEnterpriseRequestAttachmentRemovedResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "requestVersion") ? { ["requestVersion"]: normalizeWireInteger(value["requestVersion"]) } : {}) } : value);
+}
+
+function normalizeEnterpriseRequestAttachmentResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sizeBytes") ? { ["sizeBytes"]: normalizeWireInteger(value["sizeBytes"]) } : {}) } : value);
+}
+
+function normalizeEnterpriseRequestAttachmentsResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeEnterpriseRequestAttachmentResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "requestVersion") ? { ["requestVersion"]: normalizeWireInteger(value["requestVersion"]) } : {}) } : value);
+}
+
+function normalizeEnterpriseRequestLineResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "lineNumber") ? { ["lineNumber"]: normalizeWireInteger(value["lineNumber"]) } : {}) } : value);
+}
+
+function normalizeEnterpriseRequestLinesResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeEnterpriseRequestLineResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "requestVersion") ? { ["requestVersion"]: normalizeWireInteger(value["requestVersion"]) } : {}) } : value);
+}
+
 function normalizeEnterpriseRequestResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -8549,6 +8827,10 @@ function normalizeNotificationDeliveryResponseIntegerJson(value: unknown): unkno
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attempts") ? { ["attempts"]: (Array.isArray(value["attempts"]) ? value["attempts"].map((item17: unknown) => normalizeNotificationDeliveryAttemptResponseIntegerJson(item17)) : value["attempts"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
 }
 
+function normalizeNotificationIntentDeliverySnapshotIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "deadLetteredDeliveryCount") ? { ["deadLetteredDeliveryCount"]: normalizeWireInteger(value["deadLetteredDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "deliveredDeliveryCount") ? { ["deliveredDeliveryCount"]: normalizeWireInteger(value["deliveredDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "failedDeliveryCount") ? { ["failedDeliveryCount"]: normalizeWireInteger(value["failedDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "otherDeliveryCount") ? { ["otherDeliveryCount"]: normalizeWireInteger(value["otherDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "pendingDeliveryCount") ? { ["pendingDeliveryCount"]: normalizeWireInteger(value["pendingDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "persistedDeliveryCount") ? { ["persistedDeliveryCount"]: normalizeWireInteger(value["persistedDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "readDeliveryCount") ? { ["readDeliveryCount"]: normalizeWireInteger(value["readDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "sentDeliveryCount") ? { ["sentDeliveryCount"]: normalizeWireInteger(value["sentDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "suppressedDeliveryCount") ? { ["suppressedDeliveryCount"]: normalizeWireInteger(value["suppressedDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "totalDeliveryCount") ? { ["totalDeliveryCount"]: normalizeWireInteger(value["totalDeliveryCount"]) } : {}), ...(Object.hasOwn(value, "unknownDeliveryCount") ? { ["unknownDeliveryCount"]: normalizeWireInteger(value["unknownDeliveryCount"]) } : {}) } : value);
+}
+
 function normalizeNotificationProviderProfileResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "draftRevision") ? { ["draftRevision"]: normalizeWireInteger(value["draftRevision"]) } : {}), ...(Object.hasOwn(value, "latestPublishedVersionNumber") ? { ["latestPublishedVersionNumber"]: normalizeWireInteger(value["latestPublishedVersionNumber"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -8670,6 +8952,10 @@ function normalizePagedResultOfEnterpriseRequestResponseIntegerJson(value: unkno
 }
 
 function normalizePagedResultOfExceptionLogResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfGuidIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
@@ -8905,6 +9191,10 @@ function normalizePreviewSerialNumberRequestIntegerJson(value: unknown): unknown
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sequenceValue") ? { ["sequenceValue"]: normalizeWireInteger(value["sequenceValue"]) } : {}) } : value);
 }
 
+function normalizePrintingPublishedTemplateResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
+}
+
 function normalizePrintingTemplatePreviewResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
 }
@@ -8973,6 +9263,18 @@ function normalizeRecoverWorkflowInstanceRequestIntegerJson(value: unknown): unk
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
+function normalizeRemoveEnterpriseRequestAttachmentRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeRepairEnterpriseRequestApprovalRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
+}
+
+function normalizeReplaceEnterpriseRequestLinesRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeReplaceHostRoleFieldGrantsRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -9019,6 +9321,10 @@ function normalizeReportingExportTaskResponseIntegerJson(value: unknown): unknow
 
 function normalizeReportingGroupResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sortOrder") ? { ["sortOrder"]: normalizeWireInteger(value["sortOrder"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeReportingPublishedDefinitionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
 }
 
 function normalizeReportingQueryPortDefinitionIntegerJson(value: unknown): unknown {

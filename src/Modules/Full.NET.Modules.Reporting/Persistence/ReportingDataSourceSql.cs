@@ -5,7 +5,7 @@ namespace Full.NET.Modules.Reporting.Persistence;
 /// <summary>报表数据源管理 SQL。</summary>
 internal static class ReportingDataSourceSql
 {
-    private const string SelectColumns = """
+    internal const string SelectColumns = """
         source.Id,
                source.TenantId,
                source.Name,

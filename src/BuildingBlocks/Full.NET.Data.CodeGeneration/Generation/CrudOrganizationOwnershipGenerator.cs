@@ -32,13 +32,17 @@ internal static class CrudOrganizationOwnershipGenerator
     internal static string DataScopeComposerClass() =>
         """
 
+            // 在独立手写 partial 中细化业务记录范围；未实现时编译器移除调用。
+            partial void ConfigureReadDataScope(
+                EffectiveUserDataScope scope, Guid currentUserId, ref DataScopeSqlFilter? filter);
+
             private static class GeneratedTenantDataScopeComposer
             {
                 private const string CountTenantWhereAnchor =
                     "WHERE TenantId = @TenantId";
 
                 private const string ListTenantWhereAnchor =
-                    "WHERE 1 = 1\n            AND TenantId = @TenantId";
+                    "AND TenantId = @TenantId";
 
                 internal static SqlStatement ApplyDataScopeFilter(
                     SqlStatement statement,
@@ -135,6 +139,7 @@ internal static class CrudOrganizationOwnershipGenerator
                         scope,
                         "OrganizationUnitId",
                         currentUserId);
+                    ConfigureReadDataScope(scope, currentUserId, ref filter);
                     var countStatement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                         {{schema.ClrTypeName}}Sql.CountStatement,
                         filter,
@@ -158,7 +163,7 @@ internal static class CrudOrganizationOwnershipGenerator
                     var listStatement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                         baseStatement,
                         filter,
-                        "WHERE 1 = 1\n            AND TenantId = @TenantId");
+                        "AND TenantId = @TenantId");
                     var rows = await queryExecutor
                         .QueryAsync<{{schema.ClrTypeName}}Record>(
                             listStatement,
@@ -194,6 +199,7 @@ internal static class CrudOrganizationOwnershipGenerator
                         scope,
                         "OrganizationUnitId",
                         currentUserId);
+                    ConfigureReadDataScope(scope, currentUserId, ref filter);
                     var statement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                         {{schema.ClrTypeName}}Sql.FindByIdStatement,
                         filter,

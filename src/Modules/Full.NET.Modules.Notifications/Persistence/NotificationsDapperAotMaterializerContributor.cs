@@ -26,6 +26,7 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
         registrar.Register<NotificationTemplateVersionRecord>(ReadTemplateVersion);
         registrar.Register<NotificationTemplateLocaleStateRecord>(ReadTemplateLocaleState);
         registrar.Register<NotificationIntentRecord>(ReadIntent);
+        Features.ReadIntentDelivery.NotificationIntentDeliveryAotMaterializer.Register(registrar);
         registrar.Register<NotificationIntentAttachmentRecord>(ReadIntentAttachment);
         registrar.Register<NotificationRecipientRecord>(ReadRecipient);
         registrar.Register<NotificationDeliveryRecord>(ReadDelivery);

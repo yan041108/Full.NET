@@ -34,6 +34,7 @@ describe('WorkflowCcView', () => {
   it('展示本人未读抄送并按精确权限标记已读', async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
+    useSessionStore().state = 'authenticated';
     useSessionStore().currentUser = {
       id: '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d004',
       username: 'recipient',

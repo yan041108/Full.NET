@@ -7,7 +7,7 @@ namespace Full.NET.Modules.Identity.Authorization;
 /// <summary>
 /// 统一解释已签名令牌中的普通权限与超级管理员能力，避免各入口形成不同的授权语义。
 /// </summary>
-internal sealed class PermissionClaimEvaluator(AuthorizationCatalog catalog)
+internal sealed class PermissionClaimEvaluator(AuthorizationCatalog catalog) : IIdentityPermissionEvaluator
 {
     /// <summary>
     /// 判断当前令牌是否在有效作用域内拥有指定权限。

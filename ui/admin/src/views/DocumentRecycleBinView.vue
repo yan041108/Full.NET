@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { RefreshLeft, Search } from '@element-plus/icons-vue';
 import {
   ElAlert,
   ElButton,
   ElCard,
   ElInput,
-  ElMessage,
-  ElMessageBox,
   ElPagination,
   ElTable,
   ElTableColumn
@@ -18,6 +16,10 @@ import ArtTableActionButton from '../framework/art-design/components/ArtTableAct
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
+import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
+import { useSessionStore } from '../auth/session';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { showSuccess, showProblem } from '../feedback/fullNetMessage';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -29,6 +31,7 @@ import {
 defineOptions({ name: 'DocumentRecycleBinView' });
 
 const { t } = useAdminI18n();
+const session = useSessionStore();
 const items = ref<HostRecycleBinItemResponse[]>([]);
 const loading = ref(false);
 const changing = ref(false);
@@ -51,6 +54,18 @@ const {
   syncTableLayout
 } = useArtPagedTableInCard(loading);
 
+const canRead = computed(() => session.currentUser?.scope === 'host' && session.can('document.host_recycle_bin.read'));
+const confirmation = ref<{ message: string; resolve: (confirmed: boolean) => void }>();
+function finishConfirmation(confirmed: boolean): void {
+  const pending = confirmation.value; confirmation.value = undefined; pending?.resolve(confirmed);
+}
+const scope = useAuthorizedViewScope(session, () => {
+  finishConfirmation(false); items.value = []; selectedRows.value = []; total.value = 0;
+  page.value = 1; pageSize.value = 20; searchKeyword.value = ''; appliedKeyword.value = '';
+  loading.value = false; changing.value = false; problem.value = undefined;
+}, () => { if (canRead.value) void load(); });
+let listRequest: ReturnType<typeof scope.begin>;
+
 const displayItems = computed(() => {
   const keyword = appliedKeyword.value.trim().toLowerCase();
   if (!keyword) {
@@ -62,21 +77,15 @@ const displayItems = computed(() => {
 const rowIndex = computed(() => (index: number) => (page.value - 1) * pageSize.value + index + 1);
 
 async function load() {
-  loading.value = true;
-  problem.value = undefined;
+  listRequest?.cancel(); if (!canRead.value) return;
+  const request = scope.begin('document.host_recycle_bin.read'); if (!request) return;
+  listRequest = request; loading.value = true; problem.value = undefined;
   try {
-    const result = await listRecycleBinItems(page.value, pageSize.value);
-    items.value = result.items;
-    page.value = result.page;
-    pageSize.value = result.pageSize;
-    total.value = result.total;
-    selectedRows.value = [];
-  } catch (error) {
-    problem.value = toProblem(error);
-  } finally {
-    loading.value = false;
-    void syncTableLayout();
-  }
+    const result = await listRecycleBinItems(page.value, pageSize.value, request.signal);
+    if (!request.current()) return;
+    items.value = result.items; page.value = result.page; pageSize.value = result.pageSize; total.value = result.total; selectedRows.value = [];
+  } catch (error) { if (request.current()) problem.value = toProblem(error); }
+  finally { if (request.current()) { loading.value = false; void syncTableLayout(); } request.finish(); }
 }
 
 function handleSearch() {
@@ -93,95 +102,35 @@ function onSelectionChange(rows: HostRecycleBinItemResponse[]) {
   selectedRows.value = rows;
 }
 
-async function restore(item: HostRecycleBinItemResponse) {
-  changing.value = true;
+/** 批次在确认前冻结标识和版本，逐项等待后复核归属；取消不能撤回已完成的服务端写入。 */
+async function runBatch(rows: readonly HostRecycleBinItemResponse[], action: 'restore' | 'purge', batch = false) {
+  if (!canRead.value || changing.value || rows.length === 0) return;
+  const request = scope.begin('document.host_recycle_bin.' + action); if (!request) return;
+  const targets = rows.map(item => ({ id: item.id, version: item.version, title: item.title }));
+  changing.value = true; problem.value = undefined;
   try {
-    await restoreRecycleBinItem(item.id, { version: item.version });
-    ElMessage.success(t('documentRecycleBin.restoreSuccess'));
-    await load();
-  } catch (error) {
-    problem.value = toProblem(error, 'documentRecycleBin.operationFailed');
-  } finally {
-    changing.value = false;
-  }
-}
-
-async function purge(item: HostRecycleBinItemResponse) {
-  try {
-    await ElMessageBox.confirm(
-      t('documentRecycleBin.confirmPurge', { name: item.title }),
-      t('documentRecycleBin.purge'),
-      {
-        type: 'warning',
-        confirmButtonText: t('documentRecycleBin.purge'),
-        cancelButtonText: t('users.cancel')
-      }
-    );
-  } catch {
-    return;
-  }
-
-  changing.value = true;
-  try {
-    await purgeRecycleBinItem(item.id);
-    ElMessage.success(t('documentRecycleBin.purgeSuccess'));
-    await load();
-  } catch (error) {
-    problem.value = toProblem(error, 'documentRecycleBin.operationFailed');
-  } finally {
-    changing.value = false;
-  }
-}
-
-async function batchRestore() {
-  if (selectedRows.value.length === 0) {
-    return;
-  }
-  changing.value = true;
-  try {
-    for (const item of selectedRows.value) {
-      await restoreRecycleBinItem(item.id, { version: item.version });
+    if (action === 'purge') {
+      const confirmed = await new Promise<boolean>(resolve => { confirmation.value = {
+        message: t('documentRecycleBin.confirmPurge', { name: batch ? String(targets.length) : targets[0]!.title }), resolve
+      }; });
+      if (!confirmed || !request.current()) return;
     }
-    ElMessage.success(t('documentRecycleBin.restoreSuccess'));
-    await load();
-  } catch (error) {
-    problem.value = toProblem(error, 'documentRecycleBin.operationFailed');
-  } finally {
-    changing.value = false;
-  }
-}
-
-async function batchPurge() {
-  if (selectedRows.value.length === 0) {
-    return;
-  }
-  try {
-    await ElMessageBox.confirm(
-      t('documentRecycleBin.confirmPurge', { name: `${selectedRows.value.length}` }),
-      t('documentRecycleBin.batchPurge'),
-      {
-        type: 'warning',
-        confirmButtonText: t('documentRecycleBin.purge'),
-        cancelButtonText: t('users.cancel')
-      }
-    );
-  } catch {
-    return;
-  }
-
-  changing.value = true;
-  try {
-    for (const item of selectedRows.value) {
-      await purgeRecycleBinItem(item.id);
+    for (const item of targets) {
+      if (!request.current()) return;
+      if (action === 'restore') await restoreRecycleBinItem(item.id, { version: item.version }, request.signal);
+      else if (!await purgeRecycleBinItem(item.id, request.signal)) throw new Error('client.document_purge_failed');
+      if (!request.current()) return;
     }
-    ElMessage.success(t('documentRecycleBin.purgeSuccess'));
+    showSuccess(t(action === 'restore' ? 'documentRecycleBin.restoreSuccess' : 'documentRecycleBin.purgeSuccess'));
     await load();
-  } catch (error) {
-    problem.value = toProblem(error, 'documentRecycleBin.operationFailed');
-  } finally {
-    changing.value = false;
-  }
+  } catch (error) { if (request.current()) showProblem(toProblem(error, 'documentRecycleBin.operationFailed'), t('documentRecycleBin.operationFailed')); }
+  finally { if (request.current()) changing.value = false; request.finish(); }
 }
+
+async function restore(item: HostRecycleBinItemResponse) { await runBatch([item], 'restore'); }
+async function purge(item: HostRecycleBinItemResponse) { await runBatch([item], 'purge'); }
+async function batchRestore() { await runBatch(selectedRows.value, 'restore', true); }
+async function batchPurge() { await runBatch(selectedRows.value, 'purge', true); }
 
 function toProblem(
   error: unknown,
@@ -193,11 +142,10 @@ function toProblem(
   return { title: t(fallbackKey), status: 500, code: fallbackKey };
 }
 
-onMounted(load);
 </script>
 
 <template>
-  <section class="document-recycle-bin-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
+  <section v-if="canRead" class="document-recycle-bin-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentRecycleBin.title') }}</h1>
 
     <el-alert
@@ -327,6 +275,12 @@ onMounted(load);
         />
       </div>
     </el-card>
+    <ArtFormDialog v-if="confirmation" :open="true" :title="t('documentRecycleBin.purge')"
+      :confirm-label="t('documentRecycleBin.purge')" :cancel-label="t('users.cancel')"
+      confirm-test-id="document-recycle-confirm" @confirm="finishConfirmation(true)"
+      @update:open="open => { if (!open) finishConfirmation(false); }">
+      <p>{{ confirmation.message }}</p>
+    </ArtFormDialog>
   </section>
 </template>
 

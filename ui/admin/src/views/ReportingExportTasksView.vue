@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -20,7 +20,7 @@ import {
 import { Plus } from '@element-plus/icons-vue';
 import type {
   FullNetProblemDetails,
-  ReportingDefinition,
+  ReportingPublishedDefinition,
   ReportingExportTask,
   ReportingExportTaskParameterValue
 } from '@fullnet/client-contracts';
@@ -31,7 +31,9 @@ import { useArtCrudTableLayout } from '../framework/art-design/composables/useAr
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { listReportingDefinitions } from '../api/reporting-definitions';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { useTaskStatusRefresh } from '../composables/useTaskStatusRefresh';
+import { listReportingPublishedDefinitions } from '../api/reporting-definitions';
 import {
   createReportingExportTask,
   downloadReportingExportTask,
@@ -43,15 +45,16 @@ defineOptions({ name: 'ReportingExportTasksView' });
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const items = ref<ReportingExportTask[]>([]);
-const definitions = ref<ReportingDefinition[]>([]);
+const definitions = ref<ReportingPublishedDefinition[]>([]);
 const loading = ref(false);
 const creating = ref(false);
+const downloading = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 const createDialogVisible = ref(false);
-const selectedDefinitionId = ref('');
+const selectedDefinitionVersionKey = ref('');
 const parameterValues = reactive<Record<string, string>>({});
 
 const {
@@ -72,10 +75,23 @@ const canCreate = () => session.can('reporting.export_tasks.create');
 const canRead = () => session.can('reporting.export_tasks.read');
 const canDownload = () => session.can('reporting.export_tasks.download');
 
+// 同一定义的每个不可变发布版本都是独立授权资源，选择身份同时包含定义和版本。
+const versionKey = (definition: ReportingPublishedDefinition) => definition.definitionId + ':' + definition.versionNumber;
 const selectedDefinition = computed(() =>
-  definitions.value.find(item => item.id === selectedDefinitionId.value));
+  definitions.value.find(item => versionKey(item) === selectedDefinitionVersionKey.value));
 
 const parameterSchema = computed(() => selectedDefinition.value?.parameterSchema ?? []);
+let createRequest: ReturnType<typeof scope.begin>;
+// 关闭只取消客户端接入，不承诺撤销已经提交到服务端的导出任务。
+watch(createDialogVisible, visible => {
+  if (!visible) { createRequest?.cancel(); creating.value = false; }
+}, {flush:'sync'});
+const scope = useAuthorizedViewScope(session, () => {
+  items.value = []; definitions.value = []; selectedDefinitionVersionKey.value = ''; total.value = 0; page.value = 1;
+  problem.value = undefined; createDialogVisible.value = false; loading.value = false; creating.value = false; downloading.value = false;
+  resetParameters();
+}, async () => { await Promise.all([loadDefinitions(), load()]); });
+let loadRequest: ReturnType<typeof scope.begin>;
 
 function statusTagType(statusKey: string): 'success' | 'danger' | 'info' {
   if (statusKey === 'succeeded') {
@@ -88,6 +104,7 @@ function statusTagType(statusKey: string): 'success' | 'danger' | 'info' {
 }
 
 function statusLabel(statusKey: string): string {
+  if (statusKey === 'queued') return t('importExportTasks.status.queued');
   const key = `reportingExportTasks.status.${statusKey}` as const;
   const translated = translateRuntimeMessage(t, key);
   return translated === key ? statusKey : translated;
@@ -110,30 +127,45 @@ function resetParameters(): void {
 }
 
 async function loadDefinitions(): Promise<void> {
-  definitions.value = (await listReportingDefinitions())
-    .filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0);
-  selectedDefinitionId.value = definitions.value[0]?.id ?? '';
-  resetParameters();
+  if (!canCreate()) return;
+  const request = scope.begin('reporting.executions.run'); if (!request) return;
+  try {
+    const values = await listReportingPublishedDefinitions(request.signal);
+    if (!request.current()) return;
+    definitions.value = values.filter((item, index, all) => all.findIndex(candidate => versionKey(candidate) === versionKey(item)) === index);
+    selectedDefinitionVersionKey.value = definitions.value[0] ? versionKey(definitions.value[0]) : ''; resetParameters();
+  } catch (error: unknown) {
+    if (request.current()) problem.value = toProblem(error, 'reportingExportTasks.loadFailed');
+  } finally { request.finish(); }
 }
+
+useTaskStatusRefresh(() => canRead() && !problem.value
+  && items.value.some(task => task.statusKey === 'queued' || task.statusKey === 'processing'), async () => {
+  if (loading.value || creating.value || downloading.value || createDialogVisible.value) return;
+  await load();
+});
 
 async function load(): Promise<void> {
   if (!canRead()) {
     return;
   }
+  loadRequest?.cancel(); const request = scope.begin('reporting.export_tasks.read'); loadRequest = request;
+  if (!request) return;
 
   loading.value = true;
   problem.value = undefined;
   try {
-    const result = await listReportingExportTasks(page.value, pageSize.value);
+    const result = await listReportingExportTasks(page.value, pageSize.value, undefined, request.signal);
+    if (!request.current()) return;
     items.value = result.items;
     page.value = result.page;
     pageSize.value = result.pageSize;
     total.value = result.total;
     updateTableHeight();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingExportTasks.loadFailed');
+    if (request.current()) problem.value = toProblem(error, 'reportingExportTasks.loadFailed');
   } finally {
-    loading.value = false;
+    if (request.current()) loading.value = false; request.finish();
   }
 }
 
@@ -143,9 +175,11 @@ function openCreateDialog(): void {
 }
 
 async function submitCreate(): Promise<void> {
-  if (!selectedDefinitionId.value) {
+  const definition = selectedDefinition.value;
+  if (!definition || creating.value) {
     return;
   }
+  const request = scope.begin('reporting.export_tasks.create'); if (!request) return; createRequest = request;
 
   creating.value = true;
   problem.value = undefined;
@@ -154,50 +188,47 @@ async function submitCreate(): Promise<void> {
       parameterKey: parameter.parameterKey,
       value: parameterValues[parameter.parameterKey] ?? null
     }));
-    await createReportingExportTask({
-      definitionId: selectedDefinitionId.value,
+    const task = await createReportingExportTask({
+      definitionId: definition.definitionId,
+      versionNumber: definition.versionNumber,
       formatKey: 'excel',
       parameters
-    });
+    }, request.signal);
+    if (!request.current()) return;
+    // 创建成功必须对应选中的发布版本和格式，不能将其他任务误认为本次结果。
+    if (task.definitionId !== definition.definitionId || task.versionNumber !== definition.versionNumber || task.formatKey !== 'excel')
+      throw new Error('client.invalid_reporting_export_task_identity');
     ElMessage.success(t('reportingExportTasks.createSuccess'));
     createDialogVisible.value = false;
     await load();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingExportTasks.createFailed');
+    if (request.current()) problem.value = toProblem(error, 'reportingExportTasks.createFailed');
   } finally {
-    creating.value = false;
+    if (request.current()) creating.value = false; request.finish();
   }
 }
 
 async function downloadTask(task: ReportingExportTask): Promise<void> {
-  if (!canDownload() || task.statusKey !== 'succeeded') {
+  if (!canDownload() || task.statusKey !== 'succeeded' || downloading.value) {
     return;
   }
+  const request = scope.begin('reporting.export_tasks.download'); if (!request) return; downloading.value = true;
 
   try {
-    const blob = await downloadReportingExportTask(task.id);
+    const blob = await downloadReportingExportTask(task.id, request.signal);
+    if (!request.current()) return;
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = task.outputFileName ?? 'reporting-export.xlsx';
-    anchor.click();
-    URL.revokeObjectURL(url);
+    try {
+      const anchor = document.createElement('a');
+      anchor.href = url; anchor.download = task.outputFileName ?? 'reporting-export.xlsx'; anchor.click();
+    } finally { URL.revokeObjectURL(url); }
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingExportTasks.downloadFailed');
+    if (request.current()) problem.value = toProblem(error, 'reportingExportTasks.downloadFailed');
+  } finally {
+    if (request.current()) downloading.value = false; request.finish();
   }
 }
 
-onMounted(async () => {
-  loading.value = true;
-  try {
-    await loadDefinitions();
-    await load();
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingExportTasks.loadFailed');
-  } finally {
-    loading.value = false;
-  }
-});
 </script>
 
 <template>
@@ -271,6 +302,8 @@ onMounted(async () => {
                     link
                     type="primary"
                     data-testid="reporting-export-download"
+                    :data-task-id="row.id"
+                    :disabled="downloading"
                     @click="downloadTask(row)"
                   >
                     {{ t('reportingExportTasks.download') }}
@@ -302,16 +335,17 @@ onMounted(async () => {
       <ElForm label-width="120px">
         <ElFormItem :label="t('reportingExportTasks.fieldDefinition')">
           <ElSelect
-            v-model="selectedDefinitionId"
+            v-model="selectedDefinitionVersionKey"
             data-testid="reporting-export-definition"
             class="w-full"
+            :disabled="creating"
             @change="resetParameters"
           >
             <ElOption
               v-for="definition in definitions"
-              :key="definition.id"
-              :label="definition.name"
-              :value="definition.id"
+              :key="versionKey(definition)"
+              :label="`${definition.name} · v${definition.versionNumber}`"
+              :value="versionKey(definition)"
             />
           </ElSelect>
         </ElFormItem>
@@ -320,22 +354,22 @@ onMounted(async () => {
           :key="parameter.parameterKey"
           :label="parameter.displayName"
         >
-          <ElInput v-model="parameterValues[parameter.parameterKey]" />
+          <ElInput v-model="parameterValues[parameter.parameterKey]" :disabled="creating" />
         </ElFormItem>
       </ElForm>
       <template #footer>
         <ElButton @click="createDialogVisible = false">
           {{ t('common.cancel') }}
         </ElButton>
-        <ElButton
+        <PermissionGate code="reporting.export_tasks.create"><ElButton
           type="primary"
           :loading="creating"
-          :disabled="!selectedDefinitionId"
+          :disabled="!selectedDefinition"
           data-testid="reporting-export-submit"
           @click="submitCreate"
         >
           {{ t('reportingExportTasks.submitCreate') }}
-        </ElButton>
+        </ElButton></PermissionGate>
       </template>
     </ElDialog>
   </div>

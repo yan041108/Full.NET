@@ -16,6 +16,7 @@
 - 新增或扩展模块、CRUD、Endpoint、Command/Query、Dapper 持久化或双库迁移时使用 [fullnet-module-delivery](.agents/skills/fullnet-module-delivery/SKILL.md)；性能分析与优化时使用 [fullnet-performance-hardening](.agents/skills/fullnet-performance-hardening/SKILL.md)。只读咨询或局部文字调整不因提到模块名称就触发完整交付流程。
 - 行为变化先建立失败测试或可复现实验；文字和机械变更用直接相关的结构检查。注释使用中文，解释意图和约束，覆盖范围见 [注释规则](rules/code-comments.md)。
 - 全项目验收以规定范围的本地测试实际通过为准，CI 与专用生产等价环境不再是强制前置；构建、测试、影响集与能力状态统一按 [测试与验证](rules/development-quality.md#11-测试与验证) 执行（R-20260930-local-acceptance）。入口和 Skill 不另设测试流程；未执行、失败或跳过不能报告为通过。
+- 开发按同一模块或已约定的多模块批次集中推进，独立生成应用验收在该范围全部实现后统一执行，不随小切片、内部提交或 PR 更新重复启动；跨对话共用此规则，开工核对 [集中验收与构建复用](rules/development-quality.md#r-20261008-concentrated-acceptance模块批次集中验收与测试资源复用)。安全、隔离与数据回归及时处理，未验收状态如实保留。
 - 修改任务交付前检查本任务 `git diff --check`、`git status` 和分支，报告实际变更、验证与未验证项。只同步真实受影响文档；无演进证据时无需输出规则或 Skill 状态。
 
 ## Full.NET 不可隐式改变的基线

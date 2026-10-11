@@ -15,6 +15,15 @@ test('inferMigrationModuleOwner resolves every published script', () => {
   }
 });
 
+test('AI knowledge migrations retain AI ownership and stay outside preset inventories', () => {
+  assert.equal(inferMigrationModuleOwner('240_AiKnowledgeBase.sql'), 'Ai');
+  assert.equal(inferMigrationModuleOwner('241_AiKnowledgeMember.sql'), 'Ai');
+  assert.equal(inferMigrationModuleOwner('242_AiKnowledgeDocument.sql'), 'Ai');
+  const full = { scripts: [{ name: '001_Foundation.sql' }, { name: '240_AiKnowledgeBase.sql' }] };
+  const minimal = buildPresetMigrationInventory(full, 'minimal', resolvePresetModules('minimal'));
+  assert.deepEqual(minimal.scripts, [{ name: '001_Foundation.sql' }]);
+});
+
 test('preset-minimal migration inventory is smaller than unscoped inventory', () => {
   const managedFiles = Object.fromEntries(
     readdirSync(MIGRATIONS)
@@ -30,4 +39,14 @@ test('preset-minimal migration inventory is smaller than unscoped inventory', ()
   assert.ok(minimal.scripts.length < full.scripts.length);
   assert.ok(minimal.scripts.length > 40);
   assert.ok(!minimal.scripts.some(({ name }) => name.startsWith('102_Workflow')));
+});
+
+test('sample import receipt and approval journal remain inside the enterprise preset migration closure', () => {
+  for (const name of ['244_DemoEnterpriseRequestImportReceipt.sql', '247_DemoEnterpriseRequestApprovalSubmission.sql', '248_DemoEnterpriseRequestAttachment.sql', '249_DemoEnterpriseRequestApprovalRepair.sql']) {
+    const script = { name };
+    assert.equal(inferMigrationModuleOwner(script.name), 'EnterpriseRequest');
+    const full = { scripts: [{ name: '001_Foundation.sql' }, script] };
+    assert.ok(!buildPresetMigrationInventory(full, 'minimal', resolvePresetModules('minimal')).scripts.some(item => item.name === script.name));
+    assert.ok(buildPresetMigrationInventory(full, 'enterprise', resolvePresetModules('enterprise')).scripts.some(item => item.name === script.name));
+  }
 });

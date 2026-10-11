@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onActivated, onDeactivated, onMounted, onUnmounted, ref } from 'vue';
 import { ElButton, ElInput } from 'element-plus';
 import {
   isFullNetProblemDetails,
@@ -25,6 +25,10 @@ const problem = ref<FullNetProblemDetails>();
 const oauthProviders = ref<PublicOAuthProvider[]>([]);
 const isOidcCenterLogin = adminIdentityAuthMode === 'oidc-center';
 const oidcSubmitting = ref(false);
+let inactive = false;
+let operation = 0;
+let loginController: AbortController | undefined;
+let providersController: AbortController | undefined;
 const status = computed(() => session.state === 'authenticated'
   ? t('auth.statusAuthenticated')
   : t('auth.statusAnonymous'));
@@ -41,23 +45,29 @@ function startOAuthLogin(providerKey: string): void {
 }
 
 async function loadOAuthProviders(): Promise<void> {
+  if (inactive || isOidcCenterLogin) return;
+  providersController?.abort();
+  const controller = new AbortController(); providersController = controller;
   try {
-    oauthProviders.value = await listPublicOAuthProviders();
+    const providers = await listPublicOAuthProviders(controller.signal);
+    if (!inactive && providersController === controller) oauthProviders.value = providers;
   } catch {
-    oauthProviders.value = [];
+    if (!inactive && providersController === controller) oauthProviders.value = [];
   }
 }
 
 async function submitOidcCenter(): Promise<void> {
-  if (oidcSubmitting.value) {
+  if (inactive || oidcSubmitting.value || submitting.value) {
     return;
   }
 
   oidcSubmitting.value = true;
   problem.value = undefined;
+  const current = ++operation; const controller = new AbortController(); loginController = controller;
   try {
-    await beginAdminOidcCenterLogin();
+    await beginAdminOidcCenterLogin(controller.signal);
   } catch (error: unknown) {
+    if (inactive || current !== operation) return;
     problem.value = isFullNetProblemDetails(error)
       ? error
       : { status: 500, code: 'client.oidc_login_failed', title: t('auth.oidcCenterFailed') };
@@ -66,20 +76,24 @@ async function submitOidcCenter(): Promise<void> {
 }
 
 async function submit(): Promise<void> {
-  if (submitting.value) {
+  if (inactive || submitting.value || oidcSubmitting.value) {
     return;
   }
 
   submitting.value = true;
   problem.value = undefined;
+  const current = ++operation; const controller = new AbortController(); loginController = controller;
   try {
-    await session.login(username.value, password.value);
+    await session.login(username.value, password.value, controller.signal);
   } catch (error: unknown) {
+    if (inactive || current !== operation) return;
     problem.value = isFullNetProblemDetails(error)
       ? error
       : { status: 500, code: 'client.login_failed', title: t('auth.loginFailed') };
   } finally {
-    submitting.value = false;
+    if (current === operation) {
+      password.value = ''; submitting.value = false; loginController = undefined;
+    }
   }
 }
 
@@ -90,6 +104,16 @@ function focusMainContent(): void {
 onMounted(() => {
   void loadOAuthProviders();
 });
+
+/** 页面退出后清除密码并取消所属请求，迟到结果不得改写重入后的表单。 */
+function suspend(): void {
+  inactive = true; operation++; password.value = ''; problem.value = undefined;
+  loginController?.abort(); providersController?.abort(); oauthProviders.value = [];
+  submitting.value = false; oidcSubmitting.value = false;
+}
+onUnmounted(suspend);
+onDeactivated(suspend);
+onActivated(() => { if (inactive) { inactive = false; void loadOAuthProviders(); } });
 </script>
 
 <template>
@@ -153,6 +177,7 @@ onMounted(() => {
               autocomplete="username"
               spellcheck="false"
               maxlength="128"
+              :disabled="submitting"
               :placeholder="t('auth.usernamePlaceholder')"
             />
           </div>
@@ -166,6 +191,7 @@ onMounted(() => {
               type="password"
               autocomplete="current-password"
               maxlength="1024"
+              :disabled="submitting"
               show-password
               :placeholder="t('auth.passwordPlaceholder')"
               @keyup.enter="submit"
@@ -195,6 +221,7 @@ onMounted(() => {
                 v-for="provider in oauthProviders"
                 :key="provider.providerKey"
                 class="art-login-form__oauth-button"
+                :disabled="submitting"
                 @click="startOAuthLogin(provider.providerKey)"
               >
                 {{ provider.displayName }}
@@ -203,8 +230,8 @@ onMounted(() => {
           </div>
 
           <div class="art-login-form__links">
-            <router-link to="/register">Create account</router-link>
-            <router-link to="/recover-password">Forgot password</router-link>
+            <router-link to="/register">{{ t('auth.createAccount') }}</router-link>
+            <router-link to="/recover-password">{{ t('auth.forgotPassword') }}</router-link>
           </div>
 
           <small class="art-login-form__footnote">{{ t('auth.tokenNotice') }}</small>

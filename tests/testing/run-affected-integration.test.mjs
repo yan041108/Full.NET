@@ -22,6 +22,68 @@ import * as affectedIntegration
 
 const execFileAsync = promisify(execFile);
 
+test('Data 目录使用完整命名空间，不能因 metadata 名称误选 Native AOT 或迁移测试', () => {
+  const target = classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Data/OwnedTestDatabasesTests.cs'
+  ]).targets.find(item => item.name === 'Data');
+  assert.equal(target.filter, 'FullyQualifiedName~Full.NET.IntegrationTests.Data.');
+});
+
+test('数据库生命周期与 schema 共享夹具必须覆盖双库 Smoke 和完整迁移消费者', () => {
+  for (const file of ['SharedDatabaseFixture.cs', 'OwnedTestDatabases.cs', 'ApiSchemaTemplate.cs']) {
+    const targets = targetsForPhase(classifyChangedPaths([
+      `tests/Full.NET.IntegrationTests/${file}`
+    ]).targets, 'slice');
+    assert.ok(targets.some(target => target.name === 'smoke'), file);
+    assert.ok(targets.some(target => target.name === 'migrations'), file);
+  }
+});
+
+test('受影响集成入口支持构建复用与校验式 no-build，互斥选项失败关闭', () => {
+  assert.equal(parseArguments(['--base', 'HEAD', '--reuse-build']).reuseBuild, true);
+  assert.equal(parseArguments(['--base', 'HEAD', '--no-build']).noBuild, true);
+  assert.throws(() => parseArguments(['--base', 'HEAD', '--reuse-build', '--no-build']), /不能/);
+});
+
+test('挑战投递迁移 243 成对进入完整双库恢复目标并保留 Identity 验收', () => {
+  for (const filePath of [
+    'src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/243_IdentityChallengeDeliveryJournal.sql',
+    'src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/243_IdentityChallengeDeliveryJournal.sql',
+    'tests/Full.NET.IntegrationTests/Migrations/Migration243ChallengeDeliveryRecoveryTests.cs'
+  ]) {
+    const selection = classifyChangedPaths([filePath]);
+    const target = selection.targets.find(item => item.name === 'migration-243');
+    assert.ok(target, '新增迁移必须登记双库恢复目标，不能静默遗漏或手工缩小过滤器。');
+    assert.match(target.filter, /Migration243ChallengeDeliveryRecoveryTests.SqlServer_/u);
+    assert.match(target.filter, /Migration243ChallengeDeliveryRecoveryTests.MySql_/u);
+    assert.ok(!selection.targets.some(item => item.kind === 'shard' && item.name === 'migrations'));
+  }
+  const bundled = classifyChangedPaths([
+    'src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs',
+    'src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/243_IdentityChallengeDeliveryJournal.sql'
+  ]);
+  assert.ok(bundled.targets.some(item => item.name === 'Identity'));
+  const identity = bundled.targets.find(item => item.name === 'Identity');
+  assert.match(identity.filter, /Full\.NET\.IntegrationTests\.Identity\.AccountChallengeDeliveryJournalTests/u);
+  assert.match(identity.filter, /Full\.NET\.IntegrationTests\.Identity\.AccountChallengeReconciliationTests/u);
+});
+
+test('Notifications 默认聚焦排除外部凭据专项并保留 API 与模块范围', () => {
+  const expected = '(FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.)'
+    + '&TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms';
+  for (const filePath of [
+    'src/Modules/Full.NET.Modules.Notifications/Features/SendIdentityChallenge/IdentityChallengeDeliveryPort.cs',
+    'src/Modules/Full.NET.Modules.Notifications.Contracts/IdentityChallengeDeliveryContracts.cs',
+    'tests/Full.NET.IntegrationTests/Notifications/SmtpTlsBoundaryTests.cs'
+  ]) {
+    const selection = classifyChangedPaths([filePath]);
+    const target = selection.targets.find(item => item.name === 'Notifications');
+    assert.ok(target);
+    const args = argumentsForFocused(target, 2);
+    assert.equal(args[args.indexOf('--filter') + 1], expected);
+  }
+});
+
 test('纯文档和客户端改动不启动 Integration', () => {
   const selection = classifyChangedPaths([
     'docs/development/getting-started.md',
@@ -231,12 +293,13 @@ test('普通单模块改动选择双库聚焦测试', () => {
   }
 });
 
-test('ImportExport、Ai、Reporting、Files、Notifications 改动选择含持久化夹具的双库聚焦集', () => {
+test('ImportExport、Ai、Reporting、Printing、Files、Notifications 改动选择含持久化夹具的双库聚焦集', () => {
   const cases = [
     [
       'src/Modules/Full.NET.Modules.ImportExport/Persistence/Queries.cs',
       'ImportExport',
-      'FullyQualifiedName~ImportExportApi|FullyQualifiedName~Full.NET.IntegrationTests.ImportExport.'
+      'FullyQualifiedName~ImportExportApi|FullyQualifiedName~ImportExportWorkerApi'
+      + '|FullyQualifiedName~Full.NET.IntegrationTests.ImportExport.'
     ],
     [
       'src/Modules/Full.NET.Modules.Ai/Persistence/Queries.cs',
@@ -249,6 +312,11 @@ test('ImportExport、Ai、Reporting、Files、Notifications 改动选择含持�
       'FullyQualifiedName~Full.NET.IntegrationTests.Reporting.'
     ],
     [
+      'src/Modules/Full.NET.Modules.Printing/Persistence/Queries.cs',
+      'Printing',
+      'FullyQualifiedName~Full.NET.IntegrationTests.Printing.'
+    ],
+    [
       'src/Modules/Full.NET.Modules.Files/Persistence/Queries.cs',
       'Files',
       'FullyQualifiedName~FilesApi|FullyQualifiedName~Full.NET.IntegrationTests.Files.'
@@ -256,7 +324,8 @@ test('ImportExport、Ai、Reporting、Files、Notifications 改动选择含持�
     [
       'src/Modules/Full.NET.Modules.Notifications/Persistence/Queries.cs',
       'Notifications',
-      'FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.'
+      '(FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.)'
+        + '&TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms'
     ]
   ];
 
@@ -278,6 +347,18 @@ test('未登记业务模块改动仍使用 Smoke', () => {
   assert.deepEqual(selection.targets, [
     { kind: 'shard', name: 'smoke' }
   ]);
+});
+
+test('Enterprise 样例源码与双库夹具必须选择真实业务 API，不能退化为 Smoke', () => {
+  for (const file of [
+    'samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/Features/SubmitForApproval/Endpoint.cs',
+    'samples/enterprise-request/schema.json',
+    'tests/Full.NET.IntegrationTests/Api/EnterpriseRequestApiMySqlTests.cs',
+    'tests/Full.NET.IntegrationTests/EnterpriseRequest/EnterpriseRequestSubmitSecurityAssertions.cs'
+  ]) {
+    assert.deepEqual(classifyChangedPaths([file]).targets, [{ kind: 'filter', name: 'EnterpriseRequest',
+      filter: 'FullyQualifiedName~Full.NET.IntegrationTests.Api.EnterpriseRequestApi' }], file);
+  }
 });
 
 test('单模块 Integration 夹具改动仍选择对应双库聚焦测试', () => {
@@ -393,8 +474,9 @@ test('共享与安全关键改动选择对应影响集而不升级全量', () =>
   for (const [filePath, targetName, targetKind] of cases) {
     const selection = classifyChangedPaths([filePath]);
     assert.notEqual(selection.mode, 'full');
-    assert.equal(selection.targets[0].name, targetName);
-    assert.equal(selection.targets[0].kind, targetKind);
+    const target = selection.targets.find(item => item.name === targetName);
+    assert.ok(target, filePath);
+    assert.equal(target.kind, targetKind);
   }
 });
 
@@ -565,6 +647,15 @@ test('合并阶段将重叠 Smoke 与模块测试放入一次 UID 去重执行',
   assert.deepEqual(combined.targetNames, ['Identity', 'smoke']);
 });
 
+test('Identity 与 Notifications 长套件预算不再沿用两分钟默认值', () => {
+  const identity = estimateSelectionSeconds([{ kind: 'filter', name: 'Identity' }]);
+  const notifications = estimateSelectionSeconds([{ kind: 'filter', name: 'Notifications' }]);
+  assert.equal(identity.seconds, 3900);
+  assert.equal(notifications.seconds, 1200);
+  assert.equal(identity.exceedsSliceBudget, true);
+  assert.equal(notifications.exceedsSliceBudget, true);
+});
+
 test('计划预算对重复目标只计算一次并标识超出切片预算', () => {
   const budget = estimateSelectionSeconds([
     { kind: 'filter', name: 'Settings' },
@@ -574,6 +665,16 @@ test('计划预算对重复目标只计算一次并标识超出切片预算', ()
 
   assert.equal(budget.seconds, 1920);
   assert.equal(budget.exceedsSliceBudget, true);
+});
+
+test('后台导入 API 用例归入 ImportExport 聚焦集并进入模块过滤器', () => {
+  for (const provider of ['MySql', 'SqlServer']) {
+    const selection = classifyChangedPaths([
+      `tests/Full.NET.IntegrationTests/Api/ImportExportWorkerApi${provider}Tests.cs`
+    ]);
+    assert.equal(selection.targets[0].name, 'ImportExport');
+    assert.ok(selection.targets[0].filter.includes('FullyQualifiedName~ImportExportWorkerApi'));
+  }
 });
 
 test('测试工具与规则改动只运行工具契约', () => {
@@ -647,6 +748,8 @@ test('Identity、Tenancy、Outbox 过滤器不得命中迁移恢复或 CDC 重�
     identity.filter,
     'FullyQualifiedName~Full.NET.IntegrationTests.Api.IdentityApi'
       + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.TotpStrongReauthTests'
+      + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.AccountChallengeDeliveryJournalTests'
+      + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.AccountChallengeReconciliationTests'
   );
   assert.equal(
     tenancy.filter,
@@ -676,9 +779,10 @@ test('inner 把 Smoke 和聚焦过滤器收成 MySQL，且忽略 Messaging 非�
     'tests/Full.NET.IntegrationTests/Messaging/Assets/debezium-connect-java.security.override'
   ]);
 
-  assert.equal(smoke[0].kind, 'filter');
-  assert.match(smoke[0].filter, /^\(/);
-  assert.match(smoke[0].filter, /&FullyQualifiedName~MySql$/);
+  const smokeTarget = smoke.find(target => target.name === 'smoke');
+  assert.equal(smokeTarget.kind, 'filter');
+  assert.match(smokeTarget.filter, /^\(/);
+  assert.match(smokeTarget.filter, /&FullyQualifiedName~MySql$/);
   assert.match(identity[0].filter, /&FullyQualifiedName~MySql$/);
   assert.equal(asset.mode, 'none');
 });
@@ -737,6 +841,13 @@ test('CI 执行分组保留全部模块、工具门禁和双库迁移目标且�
   assert.throws(() => split(targets, 'unknown'), /执行分组/);
 });
 
+test('模块 CI 排除独立发布验收的 Native 目标，完整本地选择仍保留', () => {
+  const native = { kind: 'filter', name: 'native-aot', filter: 'native' };
+  const module = { kind: 'filter', name: 'Workflow', filter: 'workflow' };
+  assert.deepEqual(affectedIntegration.targetsForExecutionGroup([native, module], 'modules'), [module]);
+  assert.deepEqual(affectedIntegration.targetsForExecutionGroup([native, module], 'all'), [native, module]);
+});
+
 test('登记过的精确恢复集只进入所属迁移分组，不混入模块分组', () => {
   const split = affectedIntegration.targetsForExecutionGroup;
   assert.equal(typeof split, 'function');
@@ -769,7 +880,7 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       planOnly: true,
       snapshotId: null,
       includeHeavy: false,
-      executionGroup: 'all'
+      executionGroup: 'all', reuseBuild: false, noBuild: false
     }
   );
   assert.deepEqual(
@@ -780,7 +891,7 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       planOnly: false,
       snapshotId: 'task-123',
       includeHeavy: false,
-      executionGroup: 'all'
+      executionGroup: 'all', reuseBuild: false, noBuild: false
     }
   );
   assert.deepEqual(
@@ -791,7 +902,7 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       planOnly: false,
       snapshotId: null,
       includeHeavy: true,
-      executionGroup: 'all'
+      executionGroup: 'all', reuseBuild: false, noBuild: false
     }
   );
   assert.throws(() => parseArguments([]), /--base/);
@@ -1005,4 +1116,24 @@ test('聚焦执行参数使用发现数门槛、双库过滤器和独立 TRX', (
     ),
     /发现数/
   );
+});
+
+
+test('任务快照 CLI 接受 pnpm 分隔符并拒绝多个任务标识', async () => {
+  const repository = await mkdtemp(path.join(os.tmpdir(), 'fullnet-snapshot-cli-'));
+  const script = path.resolve('scripts/testing/create-task-snapshot.mjs');
+  try {
+    await execFileAsync('git', ['init'], { cwd: repository });
+    await execFileAsync('git', ['-c', 'user.email=tests@fullnet.local', '-c', 'user.name=Full.NET Tests',
+      'commit', '--allow-empty', '-m', 'base'], { cwd: repository });
+    for (const [id, args] of [['with-separator', ['--', 'with-separator']], ['direct-id', ['direct-id']]]) {
+      const result = await execFileAsync(process.execPath, [script, ...args], { cwd: repository, encoding: 'utf8' });
+      assert.ok(result.stdout.includes(id));
+      assert.deepEqual(await collectChangedPaths({ cwd: repository, snapshotId: id }), []);
+    }
+    await assert.rejects(execFileAsync(process.execPath, [script, '--', 'first', 'second'],
+      { cwd: repository, encoding: 'utf8' }), error => error.code === 1 && /用法/u.test(error.stderr));
+  } finally {
+    await rm(repository, { recursive: true, force: true });
+  }
 });

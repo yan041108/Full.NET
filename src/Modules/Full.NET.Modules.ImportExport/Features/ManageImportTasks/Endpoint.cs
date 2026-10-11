@@ -30,6 +30,7 @@ internal static class Endpoint
             [FromForm] IFormFile file,
             ImportExportTaskManagementService service,
             ClaimsPrincipal principal,
+            IIdentityPermissionEvaluator permissions,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -50,7 +51,7 @@ internal static class Endpoint
             }
 
             await using var stream = file.OpenReadStream();
-            var previewContext = BuildPreviewContext(userId, principal);
+            var previewContext = BuildPreviewContext(userId, principal, permissions);
             var result = await service
                 .CreateAsync(
                     schemaKey.Trim(),
@@ -122,12 +123,14 @@ internal static class Endpoint
         group.MapPost("/{taskId:guid}/execute", async (
             Guid taskId,
             ImportExportTaskExecutionService executionService,
+            ICurrentTenant currentTenant,
             ClaimsPrincipal principal,
+            IIdentityPermissionEvaluator permissions,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserId(httpContext, out var userId))
+            if (!ImportExportHttpSessionBinding.TryCreate(httpContext, currentTenant.Id, out var binding))
             {
                 return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
             }
@@ -135,7 +138,8 @@ internal static class Endpoint
             var result = await executionService
                 .QueueExecuteAsync(
                     taskId,
-                    BuildPreviewContext(userId, principal),
+                    BuildPreviewContext(binding.UserId, principal, permissions),
+                    binding,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -151,12 +155,14 @@ internal static class Endpoint
         group.MapPost("/{taskId:guid}/resume", async (
             Guid taskId,
             ImportExportTaskExecutionService executionService,
+            ICurrentTenant currentTenant,
             ClaimsPrincipal principal,
+            IIdentityPermissionEvaluator permissions,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserId(httpContext, out var userId))
+            if (!ImportExportHttpSessionBinding.TryCreate(httpContext, currentTenant.Id, out var binding))
             {
                 return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
             }
@@ -164,7 +170,8 @@ internal static class Endpoint
             var result = await executionService
                 .ResumeAsync(
                     taskId,
-                    BuildPreviewContext(userId, principal),
+                    BuildPreviewContext(binding.UserId, principal, permissions),
+                    binding,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -180,12 +187,14 @@ internal static class Endpoint
         group.MapPost("/{taskId:guid}/retry", async (
             Guid taskId,
             ImportExportTaskExecutionService executionService,
+            ICurrentTenant currentTenant,
             ClaimsPrincipal principal,
+            IIdentityPermissionEvaluator permissions,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserId(httpContext, out var userId))
+            if (!ImportExportHttpSessionBinding.TryCreate(httpContext, currentTenant.Id, out var binding))
             {
                 return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
             }
@@ -193,7 +202,8 @@ internal static class Endpoint
             var result = await executionService
                 .RetryAsync(
                     taskId,
-                    BuildPreviewContext(userId, principal),
+                    BuildPreviewContext(binding.UserId, principal, permissions),
+                    binding,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -209,12 +219,16 @@ internal static class Endpoint
         group.MapGet("/{taskId:guid}/error-receipt", async (
             Guid taskId,
             ImportExportTaskExecutionService executionService,
+            Full.NET.Abstractions.Tenancy.ICurrentTenant currentTenant,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            if (!ImportExportHttpSessionBinding.TryCreate(httpContext, currentTenant.Id, out var binding))
+                return mapper.Map(Result<TenantResourceFileContent>.Failure(new(
+                    CommonErrorCodes.PermissionDenied, "An interactive session is required.", ErrorType.Forbidden)), httpContext);
             var result = await executionService
-                .OpenErrorReceiptAsync(taskId, cancellationToken)
+                .OpenErrorReceiptAsync(taskId, binding, cancellationToken)
                 .ConfigureAwait(false);
             if (!result.IsSuccess)
             {
@@ -243,14 +257,14 @@ internal static class Endpoint
         return Guid.TryParse(subject, out userId);
     }
 
-    private static StaticImportPreviewContext BuildPreviewContext(
+    /// <summary>冻结可信主体在当前作用域内的有效能力，包含省略逐项 Claim 的超级管理员。</summary>
+    internal static StaticImportPreviewContext BuildPreviewContext(
         Guid requestedByUserId,
-        ClaimsPrincipal principal)
+        ClaimsPrincipal principal,
+        IIdentityPermissionEvaluator permissions)
     {
-        var capabilityFlags = principal
-            .FindAll(FullNetIdentityClaimTypes.Permission)
-            .Select(claim => claim.Value)
-            .Distinct(StringComparer.Ordinal)
+        var capabilityFlags = permissions.ResolvePermissions(principal)
+            .Where(permission => permissions.HasPermission(principal, permission))
             .ToDictionary(permission => permission, _ => true, StringComparer.Ordinal);
         return new StaticImportPreviewContext(requestedByUserId, capabilityFlags);
     }

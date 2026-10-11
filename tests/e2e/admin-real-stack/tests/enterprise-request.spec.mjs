@@ -39,11 +39,11 @@ test('租户管理员通过 Vue 创建、编辑和删除企业申请单', async 
   const createDialog = page.getByRole('dialog', { name: '创建', exact: true });
   const requestNumber = `REQ-${Date.now()}`;
   const title = `E2E request ${requestNumber}`;
-  await createDialog.getByLabel('OrganizationUnitId', { exact: true }).fill(unit.id);
-  await createDialog.getByLabel('RequestNumber', { exact: true }).fill(requestNumber);
-  await createDialog.getByLabel('Title', { exact: true }).fill(title);
-  await createDialog.getByLabel('TotalAmount', { exact: true }).fill('12.5');
-  await createDialog.getByLabel('ApplicantUserId', { exact: true }).fill(me.id);
+  await createDialog.getByLabel('所属机构标识', { exact: true }).fill(unit.id);
+  await createDialog.getByLabel('申请编号', { exact: true }).fill(requestNumber);
+  await createDialog.getByLabel('标题', { exact: true }).fill(title);
+  await createDialog.getByLabel('申请金额', { exact: true }).fill('12.5');
+  await createDialog.getByLabel('申请人标识', { exact: true }).fill(me.id);
   const createdResponse = page.waitForResponse(response => new URL(response.url()).pathname === requestPath
     && response.request().method() === 'POST');
   await createDialog.getByRole('button', { name: '保存', exact: true }).click();
@@ -56,9 +56,19 @@ test('租户管理员通过 Vue 创建、编辑和删除企业申请单', async 
   const row = view.locator('.el-table__row').filter({ hasText: requestNumber });
   await expect(row).toContainText(title);
 
+  const detailResponse = page.waitForResponse(response => new URL(response.url()).pathname === `${requestPath}/${created.id}`
+    && response.request().method() === 'GET');
+  await row.getByRole('button', { name: '详情', exact: true }).click();
+  expect((await detailResponse).status()).toBe(200);
+  const detailDialog = page.getByRole('dialog', { name: '申请详情', exact: true });
+  await expect(detailDialog).toContainText(title);
+  await expect(detailDialog).toContainText('草稿');
+  await detailDialog.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(detailDialog).toBeHidden();
+
   await row.getByRole('button', { name: '编辑', exact: true }).click();
   const editDialog = page.getByRole('dialog', { name: '编辑', exact: true });
-  await editDialog.getByLabel('Title', { exact: true }).fill(`${title} updated`);
+  await editDialog.getByLabel('标题', { exact: true }).fill(`${title} updated`);
   const updatedResponse = page.waitForResponse(response => new URL(response.url()).pathname === `${requestPath}/${created.id}`
     && response.request().method() === 'PUT');
   await editDialog.getByRole('button', { name: '保存', exact: true }).click();
@@ -66,9 +76,38 @@ test('租户管理员通过 Vue 创建、编辑和删除企业申请单', async 
   await expect(editDialog).toBeHidden();
   await expect(row).toContainText(`${title} updated`);
 
+  const linesResponse = page.waitForResponse(response => new URL(response.url()).pathname === `${requestPath}/${created.id}/lines`
+    && response.request().method() === 'GET');
+  await row.getByRole('button', { name: '明细', exact: true }).click();
+  expect((await linesResponse).status()).toBe(200);
+  const linesDialog = page.getByRole('dialog', { name: '申请明细', exact: true });
+  await linesDialog.getByRole('button', { name: '编辑明细', exact: true }).click();
+  await linesDialog.getByRole('button', { name: '添加明细', exact: true }).click();
+  await linesDialog.getByLabel('项目说明', { exact: true }).fill('E2E precision item');
+  await linesDialog.getByLabel('数量', { exact: true }).fill('1.0001');
+  await linesDialog.getByLabel('单价', { exact: true }).fill('50');
+  const savedLines = page.waitForResponse(response => new URL(response.url()).pathname === `${requestPath}/${created.id}/lines`
+    && response.request().method() === 'PUT');
+  await linesDialog.getByRole('button', { name: '保存明细', exact: true }).click();
+  const savedLinesHttp = await savedLines;
+  expect(savedLinesHttp.status()).toBe(200);
+  const savedLinesBody = await savedLinesHttp.json();
+  expect(savedLinesBody.totalAmount).toBe('50.01');
+  expect(savedLinesBody.items[0].lineAmount).toBe('50.01');
+  await expect(linesDialog.getByRole('table')).toContainText('E2E precision item');
+  await expect(row).toContainText('50.01');
+  await linesDialog.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(linesDialog).toBeHidden();
+
+  await row.getByRole('button', { name: '删除', exact: true }).click();
+  const deleteDialog = page.getByRole('dialog', { name: '确认删除', exact: true });
+  await expect(deleteDialog).toBeVisible();
+  await deleteDialog.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: '删除', exact: true }).click();
   const deletedResponse = page.waitForResponse(response => new URL(response.url()).pathname === `${requestPath}/${created.id}/delete`
     && response.request().method() === 'POST');
-  await row.getByRole('button', { name: '删除', exact: true }).click();
+  await deleteDialog.getByRole('button', { name: '确认删除', exact: true }).click();
   expect((await deletedResponse).status()).toBe(200);
   await expect(row).toHaveCount(0);
   await expect(view.getByRole('alert')).toHaveCount(0);

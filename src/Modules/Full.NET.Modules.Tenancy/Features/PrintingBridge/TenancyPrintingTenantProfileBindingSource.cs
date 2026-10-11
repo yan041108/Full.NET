@@ -1,26 +1,20 @@
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Printing.Contracts;
-using Full.NET.Modules.Tenancy.Features.ManageHostTenants;
+using Full.NET.Modules.Tenancy.Persistence;
 
 namespace Full.NET.Modules.Tenancy.Features.PrintingBridge;
 
-/// <summary>为 Printing 模块提供租户档案绑定数据。</summary>
+/// <summary>只为可信当前租户读取活动档案，不复用 Host 管理查询或跨模块表访问。</summary>
 internal sealed class TenancyPrintingTenantProfileBindingSource(
-    HostTenantQueryService tenantQueries) : IPrintingTenantProfileBindingSource
+    ICurrentTenant currentTenant, IQueryExecutor queries) : IPrintingTenantProfileBindingSource
 {
-    public async Task<PrintingTenantProfileBinding?> ResolveAsync(
-        Guid tenantId,
-        CancellationToken cancellationToken = default)
+    /// <inheritdoc />
+    public async Task<PrintingTenantProfileBinding?> ResolveAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
-        var result = await tenantQueries.GetByIdAsync(tenantId, cancellationToken).ConfigureAwait(false);
-        if (!result.IsSuccess || result.Value is null || !result.Value.IsActive)
-        {
-            return null;
-        }
-
-        var tenant = result.Value;
-        return new PrintingTenantProfileBinding(
-            tenant.Name,
-            tenant.Identifier,
-            tenant.Domain);
+        if (currentTenant.IsHost || currentTenant.Id != tenantId || tenantId == Guid.Empty) return null;
+        var tenant = await queries.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
+            TenantSql.FindCurrentPrintingProfile, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return tenant is null ? null : new(tenant.Name, tenant.Identifier, tenant.Domain);
     }
 }

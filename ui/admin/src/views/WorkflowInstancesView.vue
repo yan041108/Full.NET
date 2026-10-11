@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   ElButton,
   ElCard,
   ElInput,
-  ElMessage,
   ElMessageBox,
   ElOption,
   ElPagination,
@@ -35,7 +34,10 @@ import {
   type WorkflowInstanceResponse
 } from '../api/workflow-instances';
 import { useSessionStore } from '../auth/session';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import WorkflowInstanceReassignDialog from './workflow/WorkflowInstanceReassignDialog.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { showSuccess } from '../feedback/fullNetMessage';
 import {
   findWorkflowBusinessDetailRoute,
   formatWorkflowBusinessLabel
@@ -79,7 +81,31 @@ const recovering = ref(false);
 const instance = ref<WorkflowInstanceResponse>();
 const executionLogs = ref<WorkflowExecutionLogResponse[]>([]);
 const problem = ref<FullNetProblemDetails>();
-let loadController: AbortController | undefined;
+const reassignOpen = ref(false);
+const canRead = computed(() => session.can('workflow.instances.read'));
+const scope = useAuthorizedViewScope(session, resetScope, loadList);
+let detailRequest: ReturnType<typeof scope.begin>;
+let listRequest: ReturnType<typeof scope.begin>;
+let actionRequest: ReturnType<typeof scope.begin>;
+
+function resetActions(): void {
+  cancelling.value = false; pausing.value = false; resuming.value = false; recovering.value = false;
+}
+function resetScope(): void {
+  detailRequest = undefined; listRequest = undefined; actionRequest = undefined;
+  instance.value = undefined; executionLogs.value = []; listItems.value = [];
+  listTotal.value = 0; listPage.value = 1; listLoading.value = false; loading.value = false;
+  problem.value = undefined; reassignOpen.value = false;
+  instanceId.value = ''; definitionKeyFilter.value = ''; statusFilter.value = undefined;
+  resetActions();
+}
+// 改变查询目标即关闭原详情与确认操作，迟到响应不能接入另一个实例。
+watch(() => instanceId.value.trim(), () => {
+  detailRequest?.cancel(); actionRequest?.cancel();
+  detailRequest = undefined; actionRequest = undefined;
+  instance.value = undefined; executionLogs.value = []; problem.value = undefined;
+  loading.value = false; reassignOpen.value = false; resetActions();
+}, { flush: 'sync' });
 
 /** 把执行轨迹迁移键映射为可读标签，并行网关使用专用文案。 */
 function transitionLabel(transitionKey: string): string {
@@ -144,37 +170,34 @@ const showApprovalProgress = computed(() => {
   return approved + rejected + pending > 1;
 });
 
-const canSearch = computed(() => instanceId.value.trim().length > 0 && !loading.value);
+const canSearch = computed(() => canRead.value && instanceId.value.trim().length > 0 && !loading.value && !mutating.value);
 const canListAll = computed(() => session.can('workflow.instances.list'));
 const mutating = computed(() =>
-  cancelling.value || pausing.value || resuming.value || recovering.value
+  cancelling.value || pausing.value || resuming.value || recovering.value || reassignOpen.value
 );
 const canCancel = computed(() =>
   (instance.value?.statusKey === 'active' || instance.value?.statusKey === 'suspended') &&
-  session.can('workflow.instances.cancel') &&
+  canRead.value && session.can('workflow.instances.cancel') &&
   !mutating.value
 );
 const canPause = computed(() =>
   instance.value?.statusKey === 'active' &&
-  session.can('workflow.instances.pause') &&
+  canRead.value && session.can('workflow.instances.pause') &&
   !mutating.value
 );
 const canResume = computed(() =>
   instance.value?.statusKey === 'suspended' &&
-  session.can('workflow.instances.resume') &&
+  canRead.value && session.can('workflow.instances.resume') &&
   !mutating.value
 );
 const canRecover = computed(() =>
   instance.value?.statusKey === 'suspended' &&
-  session.can('workflow.instances.recover') &&
+  canRead.value && session.can('workflow.instances.recover') &&
   !mutating.value
 );
 
-onBeforeUnmount(() => loadController?.abort());
-
-onMounted(() => {
-  void loadList();
-});
+const canReassign = computed(() => canRead.value && session.can('workflow.instances.recover')
+  && instance.value?.statusKey === 'active' && !!instance.value.activeTodoId && !mutating.value);
 
 watch(activeTab, () => {
   listPage.value = 1;
@@ -182,6 +205,10 @@ watch(activeTab, () => {
 });
 
 async function loadList(): Promise<void> {
+  const permission = activeTab.value === 'all' && canListAll.value ? 'workflow.instances.list' : 'workflow.instances.read';
+  const request = scope.begin(permission);
+  if (!request) return;
+  listRequest?.cancel(); listRequest = request;
   listLoading.value = true;
   problem.value = undefined;
   try {
@@ -192,27 +219,30 @@ async function loadList(): Promise<void> {
       definitionKey: definitionKeyFilter.value.trim() || undefined
     };
     const result = activeTab.value === 'all' && canListAll.value
-      ? await listWorkflowInstances(query)
-      : await listMyWorkflowInstances(query);
+      ? await listWorkflowInstances(query, request.signal)
+      : await listMyWorkflowInstances(query, request.signal);
+    if (!request.current()) return;
     listItems.value = result.items;
     listPage.value = result.page;
     listPageSize.value = result.pageSize;
     listTotal.value = result.total;
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'workflowInstances.listFailed');
+    if (request.current()) problem.value = toProblem(error, 'workflowInstances.listFailed');
   } finally {
-    listLoading.value = false;
-    void syncTableLayout();
+    if (request.current()) { listLoading.value = false; void syncTableLayout(); }
+    request.finish();
+    if (listRequest === request) listRequest = undefined;
   }
 }
 
 async function selectListItem(item: WorkflowInstanceListItemResponse): Promise<void> {
+  if (!canRead.value || mutating.value || !listItems.value.includes(item)) return;
   instanceId.value = item.id;
   await load();
 }
 
 function openBusinessDetail(businessType: string, businessId: string): void {
-  const route = findWorkflowBusinessDetailRoute(businessType);
+  const route = findWorkflowBusinessDetailRoute(businessType, session.can);
   if (route === undefined) {
     return;
   }
@@ -243,13 +273,13 @@ function instanceStatusTone(statusKey: string): 'success' | 'warning' | 'info' |
 
 async function load(): Promise<void> {
   const requestedId = instanceId.value.trim();
-  if (requestedId.length === 0 || loading.value) {
+  if (!canRead.value || requestedId.length === 0 || loading.value || mutating.value) {
     return;
   }
 
-  loadController?.abort();
-  const controller = new AbortController();
-  loadController = controller;
+  const request = scope.begin('workflow.instances.read');
+  if (!request) return;
+  detailRequest?.cancel(); detailRequest = request;
   loading.value = true;
   problem.value = undefined;
   instance.value = undefined;
@@ -257,174 +287,80 @@ async function load(): Promise<void> {
 
   try {
     const [loadedInstance, loadedLogs] = await Promise.all([
-      getWorkflowInstance(requestedId, controller.signal),
-      listWorkflowInstanceExecutionLogs(requestedId, controller.signal)
+      getWorkflowInstance(requestedId, request.signal),
+      listWorkflowInstanceExecutionLogs(requestedId, request.signal)
     ]);
-    if (!controller.signal.aborted) {
+    if (request.current() && requestedId === instanceId.value.trim()) {
+      if (loadedInstance.id !== requestedId || loadedLogs.some(log => log.instanceId !== requestedId))
+        throw new Error('client.invalid_workflow_instance_identity');
       instance.value = loadedInstance;
       executionLogs.value = loadedLogs;
     }
   } catch (error: unknown) {
-    if (!controller.signal.aborted) {
+    if (request.current() && requestedId === instanceId.value.trim()) {
       problem.value = toProblem(error);
     }
   } finally {
-    if (loadController === controller) {
+    if (request.current() && requestedId === instanceId.value.trim()) {
       loading.value = false;
     }
+    request.finish();
+    if (detailRequest === request) detailRequest = undefined;
   }
 }
 
-async function cancelInstance(): Promise<void> {
+async function cancelInstance(): Promise<void> { await runAction('cancel'); }
+async function pauseInstance(): Promise<void> { await runAction('pause'); }
+async function resumeInstance(): Promise<void> { await runAction('resume'); }
+async function recoverInstance(): Promise<void> { await runAction('recover'); }
+
+async function runAction(kind: 'cancel' | 'pause' | 'resume' | 'recover'): Promise<void> {
   const current = instance.value;
-  if (current === undefined || !canCancel.value) {
-    return;
-  }
-
+  const allowed = { cancel: canCancel, pause: canPause, resume: canResume, recover: canRecover }[kind];
+  if (!current || !allowed.value) return;
+  const request = scope.begin('workflow.instances.' + kind);
+  if (!request) return;
+  actionRequest = request;
+  const flag = { cancel: cancelling, pause: pausing, resume: resuming, recover: recovering }[kind];
+  flag.value = true; problem.value = undefined;
+  const owns = () => request.current() && canRead.value && instanceId.value.trim() === current.id;
   try {
-    await ElMessageBox.confirm(
-      t('workflowInstances.cancelConfirm'),
-      t('workflowInstances.cancelTitle'),
-      {
-        type: 'warning',
-        confirmButtonText: t('workflowInstances.cancel'),
-        cancelButtonText: t('status.back')
-      }
-    );
-    cancelling.value = true;
-    await mutateInstance(
-      current.id,
-      () => cancelWorkflowInstance(current.id, {
-        expectedRevision: current.revision,
-        reason: null,
-        idempotencyKey: `cancel-${crypto.randomUUID()}`
-      }),
-      'workflowInstances.cancelSuccess'
-    );
+    let reason: string | null = null;
+    if (kind === 'recover') {
+      const prompt = await ElMessageBox.prompt(t('workflowInstances.recoverConfirm'), t('workflowInstances.recoverTitle'), {
+        inputType: 'textarea', inputValidator: (value: string) =>
+          (!!value?.trim() && value.trim().length <= 500 && !/\p{Cc}/u.test(value)) || t('workflowInstances.recoverReasonRequired'),
+        confirmButtonText: t('workflowInstances.recover'), cancelButtonText: t('status.back')
+      });
+      reason = prompt.value.trim();
+      if (!reason || reason.length > 500 || /\p{Cc}/u.test(reason)) return;
+    } else {
+      const prefix = 'workflowInstances.' + kind;
+      await ElMessageBox.confirm(t((prefix + 'Confirm') as MessageKey), t((prefix + 'Title') as MessageKey), {
+        type: kind === 'resume' ? undefined : 'warning', confirmButtonText: t(prefix as MessageKey), cancelButtonText: t('status.back')
+      });
+    }
+    // 确认后的写入仍绑定原会话、租户、权限、实例身份与修订快照。
+    if (!owns() || instance.value !== current) return;
+    const body = { expectedRevision: current.revision, reason, idempotencyKey: kind + '-' + crypto.randomUUID() };
+    const result = kind === 'recover'
+      ? await recoverWorkflowInstance(current.id, { ...body, reason: reason! }, request.signal)
+      : await { cancel: cancelWorkflowInstance, pause: pauseWorkflowInstance, resume: resumeWorkflowInstance }[kind](current.id, body, request.signal);
+    if (!owns() || instance.value !== current) return;
+    if (result.id !== current.id) throw new Error('client.invalid_workflow_instance_identity');
+    instance.value = result;
+    const accepted = instance.value;
+    const logs = await listWorkflowInstanceExecutionLogs(current.id, request.signal);
+    if (!owns() || instance.value !== accepted) return;
+    if (logs.some(log => log.instanceId !== current.id)) throw new Error('client.invalid_workflow_instance_identity');
+    executionLogs.value = logs;
+    showSuccess(t(('workflowInstances.' + kind + 'Success') as MessageKey));
   } catch (error: unknown) {
-    captureActionError(error);
+    if (owns() && error !== 'cancel' && error !== 'close') problem.value = toProblem(error);
   } finally {
-    cancelling.value = false;
+    if (owns()) flag.value = false;
+    request.finish(); if (actionRequest === request) actionRequest = undefined;
   }
-}
-
-async function pauseInstance(): Promise<void> {
-  const current = instance.value;
-  if (current === undefined || !canPause.value) {
-    return;
-  }
-
-  try {
-    await ElMessageBox.confirm(
-      t('workflowInstances.pauseConfirm'),
-      t('workflowInstances.pauseTitle'),
-      {
-        type: 'warning',
-        confirmButtonText: t('workflowInstances.pause'),
-        cancelButtonText: t('status.back')
-      }
-    );
-    pausing.value = true;
-    await mutateInstance(
-      current.id,
-      () => pauseWorkflowInstance(current.id, {
-        expectedRevision: current.revision,
-        reason: null,
-        idempotencyKey: `pause-${crypto.randomUUID()}`
-      }),
-      'workflowInstances.pauseSuccess'
-    );
-  } catch (error: unknown) {
-    captureActionError(error);
-  } finally {
-    pausing.value = false;
-  }
-}
-
-async function resumeInstance(): Promise<void> {
-  const current = instance.value;
-  if (current === undefined || !canResume.value) {
-    return;
-  }
-
-  try {
-    await ElMessageBox.confirm(
-      t('workflowInstances.resumeConfirm'),
-      t('workflowInstances.resumeTitle'),
-      {
-        confirmButtonText: t('workflowInstances.resume'),
-        cancelButtonText: t('status.back')
-      }
-    );
-    resuming.value = true;
-    await mutateInstance(
-      current.id,
-      () => resumeWorkflowInstance(current.id, {
-        expectedRevision: current.revision,
-        reason: null,
-        idempotencyKey: `resume-${crypto.randomUUID()}`
-      }),
-      'workflowInstances.resumeSuccess'
-    );
-  } catch (error: unknown) {
-    captureActionError(error);
-  } finally {
-    resuming.value = false;
-  }
-}
-
-async function recoverInstance(): Promise<void> {
-  const current = instance.value;
-  if (current === undefined || !canRecover.value) {
-    return;
-  }
-
-  try {
-    const prompt = await ElMessageBox.prompt(
-      t('workflowInstances.recoverConfirm'),
-      t('workflowInstances.recoverTitle'),
-      {
-        inputType: 'textarea',
-        inputValidator: (value: string) =>
-          (value ?? '').trim().length > 0 || t('workflowInstances.recoverReasonRequired'),
-        confirmButtonText: t('workflowInstances.recover'),
-        cancelButtonText: t('status.back')
-      }
-    );
-    recovering.value = true;
-    await mutateInstance(
-      current.id,
-      () => recoverWorkflowInstance(current.id, {
-        expectedRevision: current.revision,
-        reason: prompt.value.trim(),
-        idempotencyKey: `recover-${crypto.randomUUID()}`
-      }),
-      'workflowInstances.recoverSuccess'
-    );
-  } catch (error: unknown) {
-    captureActionError(error);
-  } finally {
-    recovering.value = false;
-  }
-}
-
-async function mutateInstance(
-  currentId: string,
-  submit: () => Promise<WorkflowInstanceResponse>,
-  successKey: MessageKey
-): Promise<void> {
-  problem.value = undefined;
-  instance.value = await submit();
-  executionLogs.value = await listWorkflowInstanceExecutionLogs(currentId);
-  ElMessage.success(t(successKey));
-}
-
-function captureActionError(error: unknown): void {
-  if (error === 'cancel' || error === 'close') {
-    return;
-  }
-
-  problem.value = toProblem(error);
 }
 
 function toProblem(
@@ -448,6 +384,13 @@ function toProblem(
 
     <div v-if="instance" class="workflow-instances__toolbar">
       <div class="workflow-instances__actions">
+        <el-button
+          v-if="canReassign"
+          type="primary"
+          plain
+          data-testid="workflow-instance-reassign"
+          @click="reassignOpen = true"
+        >{{ t('workflowInstances.reassign') }}</el-button>
         <el-button
           v-if="canPause"
           type="warning"
@@ -629,7 +572,7 @@ function toProblem(
           <span>{{ t('workflowInstances.business') }}</span>
           <strong>{{ formatWorkflowBusinessLabel(instance.businessTitle, instance.businessType, instance.businessId) }}</strong>
           <el-button
-            v-if="findWorkflowBusinessDetailRoute(instance.businessType)"
+            v-if="findWorkflowBusinessDetailRoute(instance.businessType, session.can)"
             type="primary"
             link
             data-testid="workflow-instance-open-business"
@@ -757,6 +700,9 @@ function toProblem(
       <span aria-hidden="true">01 — N</span>
       <p>{{ t('workflowInstances.empty') }}</p>
     </div>
+    <WorkflowInstanceReassignDialog v-if="reassignOpen && instance"
+      :instance="instance" @close="reassignOpen = false"
+      @saved="reassignOpen = false; void load(); void loadList();" />
   </section>
 </template>
 

@@ -82,10 +82,12 @@ export async function createDocumentShare(
   if (!isCreateHostDocumentShareRequest(req)) {
     throw new Error('client.invalid_create_document_share_request');
   }
+  const documentId = req.documentId;
   const value = await documentHostCreateDocumentShare(http, { body: req }, signal);
   if (!isHostDocumentShareResponse(value)) {
     throw new Error('client.invalid_document_share');
   }
+  if (value.documentId.toLowerCase() !== documentId.toLowerCase()) throw new Error('client.invalid_document_share_identity');
   return value;
 }
 
@@ -106,6 +108,7 @@ export async function updateDocumentShareStatus(
   if (!isHostDocumentShareResponse(value)) {
     throw new Error('client.invalid_document_share');
   }
+  if (value.id.toLowerCase() !== id.toLowerCase()) throw new Error('client.invalid_document_share_identity');
   return value;
 }
 
@@ -114,7 +117,24 @@ export async function batchCreateDocumentShares(
   req: BatchCreateHostDocumentSharesRequest,
   signal?: AbortSignal
 ): Promise<BatchCreateHostDocumentSharesResponse> {
-  return documentHostBatchCreateDocumentShares(http, { body: req }, signal);
+  // 按请求文档的多重集合校验结果，允许合法乱序及 UUID 大小写差异。
+  const documentIds = [...req.documentIds];
+  const value = await documentHostBatchCreateDocumentShares(http, { body: req }, signal);
+  const remaining = new Map<string, number>();
+  for (const id of documentIds) remaining.set(id.toLowerCase(), (remaining.get(id.toLowerCase()) ?? 0) + 1);
+  let succeeded = 0;
+  if (value.results.length !== documentIds.length) throw new Error('client.invalid_document_share_batch');
+  for (const item of value.results) {
+    const key = item.documentId.toLowerCase();
+    const count = remaining.get(key) ?? 0;
+    if (count === 0 || (item.succeeded
+      ? !isHostDocumentShareResponse(item.share) || item.share.documentId.toLowerCase() !== key
+      : item.share !== null)) throw new Error('client.invalid_document_share_batch');
+    remaining.set(key, count - 1);
+    if (item.succeeded) succeeded++;
+  }
+  if (succeeded !== value.succeededCount) throw new Error('client.invalid_document_share_batch');
+  return value;
 }
 
 /** 通过分享码访问文档分享，可附带访问密码等公开访问参数。 */
@@ -184,12 +204,15 @@ export async function getDocumentSharePreviewTaskByCode(
   if (!isAccessHostDocumentShareRequest(req)) {
     throw new Error('client.invalid_access_document_share_request');
   }
-  return documentPublicGetDocumentSharePreviewTask(
+  const value = await documentPublicGetDocumentSharePreviewTask(
     http,
     { shareCode, taskId, body: req },
     signal,
     publicShareOptions
   );
+  // 生成操作验证响应结构；公开轮询还必须拒绝另一个任务的合法响应。
+  if (value.id.toLowerCase() !== taskId.toLowerCase()) throw new Error('client.invalid_document_preview_task_identity');
+  return value;
 }
 
 /** 匿名分享：读取已完成的预览任务输出（通常为 PDF）。 */

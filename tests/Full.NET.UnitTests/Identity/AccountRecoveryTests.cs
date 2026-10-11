@@ -29,7 +29,7 @@ public sealed class AccountRecoveryTests
     }
 
     [TestMethod]
-    public void Registration_policy_map_keeps_open_mode_from_legacy_boolean()
+    public void Registration_policy_map_keeps_disabled_mode_despite_legacy_boolean()
     {
         var record = new RegistrationPolicyRecord(
             IdentityRegistrationPolicyConstants.PolicyId,
@@ -38,8 +38,8 @@ public sealed class AccountRecoveryTests
             DateTimeOffset.UtcNow,
             1);
         var response = RegistrationPolicyService.Map(record);
-        Assert.AreEqual(IdentityRegistrationMode.Open, response.RegistrationMode);
-        Assert.IsTrue(response.IsPublicRegistrationEnabled);
+        Assert.AreEqual(IdentityRegistrationMode.Disabled, response.RegistrationMode);
+        Assert.IsFalse(response.IsPublicRegistrationEnabled);
     }
 
     [TestMethod]

@@ -12,12 +12,12 @@ namespace Full.NET.Modules.Workflow.Features.ManageDefinitions;
 /// <param name="currentTenant">由认证与租户中间件建立的可信当前租户。</param>
 /// <param name="resolver">办理人解析器。</param>
 /// <param name="hostUserDirectory">Host 活动用户批量目录。</param>
-/// <param name="tenantUserDirectory">Tenant 活动用户批量目录。</param>
+/// <param name="tenantUserDirectory">可信 Tenant 活动成员批量目录。</param>
 internal sealed class WorkflowAssigneePreviewService(
     ICurrentTenant currentTenant,
     WorkflowAssigneeResolver resolver,
     IHostUserBatchSelectionDirectory hostUserDirectory,
-    ITenantUserSelectionDirectory tenantUserDirectory)
+    ITenantMemberBatchSelectionDirectory tenantUserDirectory)
 {
     /// <summary>预览办理人策略在当前作用域下对指定发起人的解析结果。</summary>
     /// <param name="request">办理人策略与可选发起人。</param>
@@ -75,7 +75,7 @@ internal sealed class WorkflowAssigneePreviewService(
         if (scope.TenantId.HasValue)
         {
             var users = await tenantUserDirectory
-                .FindActiveTenantUsersAsync(userIds, cancellationToken)
+                .FindActiveTenantMembersAsync(userIds, cancellationToken)
                 .ConfigureAwait(false);
             return userIds
                 .Where(users.ContainsKey)

@@ -14,6 +14,17 @@ namespace Full.NET.UnitTests.Files;
 [TestClass]
 public sealed class PendingTenantResourceFileReconciliationTests
 {
+    [TestMethod]
+    public async Task Active_owner_keeps_pending_intent_before_slow_object_upload_finishes()
+    {
+        var tenant = Guid.NewGuid(); var pending = NewRecord(tenant, "pending", "local", "uploading");
+        var store = new FileStore([pending]);
+        var owner = Substitute.For<ITenantResourceFileOwner>(); owner.OwnerModuleKey.Returns("reporting");
+        owner.IsReferencedAsync(pending.ResourceId, pending.Id, Arg.Any<CancellationToken>()).Returns(true);
+        var runner = CreateRunner(store, tenant, _ => false, owner);
+        var result = await runner.RunOnceAsync(EnabledOptions(), CancellationToken.None);
+        Assert.AreEqual(0, result.Purged); Assert.IsTrue(store.Files.ContainsKey(pending.Id));
+    }
     /// <summary>pending 有对象则提升，无对象则删除。</summary>
     [TestMethod]
     public async Task Pending_blob_is_promoted_and_missing_blob_is_purged()

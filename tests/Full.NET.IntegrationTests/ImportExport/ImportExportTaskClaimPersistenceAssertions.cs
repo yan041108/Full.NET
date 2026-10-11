@@ -52,20 +52,70 @@ internal static class ImportExportTaskClaimPersistenceAssertions
     /// <param name="provider">正式支持的数据库提供程序。</param>
     public static async Task Expired_executing_lease_can_be_reclaimed_async(DatabaseProvider provider)
     {
-        var (first, second, tenantA, _, taskA, _) = await SeedQueuedPairAsync(provider).ConfigureAwait(false);
+        var (first, second, tenantA, tenantB, taskA, _) = await SeedQueuedPairAsync(provider).ConfigureAwait(false);
         await using var connection = first;
         await using var unused = second;
-        var expired = DateTime.UtcNow.AddMinutes(-2);
+        // 使用两种提供程序都能精确表示的整秒，避免 DateTime 参数舍入使相等边界变成未来期限。
+        var instant = DateTime.UtcNow;
+        var now = new DateTime(instant.Ticks - instant.Ticks % TimeSpan.TicksPerSecond, DateTimeKind.Utc);
+        var oldLeaseId = Guid.CreateVersion7();
+        var currentLeaseId = Guid.Empty;
         await connection.ExecuteAsync(
             """
             UPDATE fn_import_export_task
             SET StatusKey = 'executing', LeaseId = @LeaseId, LeaseExpiresAtUtc = @LeaseExpiresAtUtc
             WHERE Id = @Id
             """,
-            new { Id = taskA, LeaseId = Guid.CreateVersion7(), LeaseExpiresAtUtc = expired }).ConfigureAwait(false);
-        var claimed = await ClaimAsync(provider, connection, tenantA, DateTime.UtcNow).ConfigureAwait(false);
+            new { Id = taskA, LeaseId = oldLeaseId, LeaseExpiresAtUtc = now.AddMinutes(-2) }).ConfigureAwait(false);
+        await AssertWritesAsync(oldLeaseId, tenantA, 0).ConfigureAwait(false);
+        // 等于期限和缺少期限均拒绝，不允许旧版本遗留租约继续写入。
+        foreach (var expiry in new DateTime?[] { now, null })
+        {
+            await connection.ExecuteAsync("UPDATE fn_import_export_task SET LeaseExpiresAtUtc=@Expiry WHERE Id=@Id",
+                new { Id = taskA, Expiry = expiry }).ConfigureAwait(false);
+            await AssertWritesAsync(oldLeaseId, tenantA, 0).ConfigureAwait(false);
+        }
+        var claimed = await ClaimAsync(provider, connection, tenantA, now).ConfigureAwait(false);
         Assert.AreEqual(taskA, claimed);
         Assert.AreEqual("executing", await StatusAsync(connection, taskA).ConfigureAwait(false));
+        currentLeaseId = await connection.QuerySingleAsync<Guid>("SELECT LeaseId FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA }).ConfigureAwait(false);
+        await AssertWritesAsync(oldLeaseId, tenantA, 0).ConfigureAwait(false);
+        await AssertWritesAsync(currentLeaseId, tenantB, 0).ConfigureAwait(false);
+        await AssertWritesAsync(currentLeaseId, tenantA, 1).ConfigureAwait(false);
+
+        // 同一迁移环境验证两条真实生产语句，避免为每个边界重复创建数据库。
+        async Task AssertWritesAsync(Guid leaseId, Guid tenantId, int expected)
+        {
+            foreach (var statement in new[] { "UpdateExecutionProgress", "MarkExecutionFailed" })
+            {
+                var affected = await connection.ExecuteAsync(Sql(statement), new
+                {
+                    Id = taskA, TenantId = tenantId, LeaseId = leaseId, Now = now,
+                    StatusKey = "execution_succeeded", ProcessedRowCount = 1, SucceededRowCount = 1,
+                    ExecutionFailedRowCount = 0, NextLineNumber = 1, ExecutionRowsJson = "[]",
+                    ErrorReceiptFileId = (Guid?)null, ExecutionCompletedAtUtc = now, ErrorCode = "probe",
+                }).ConfigureAwait(false);
+                Assert.AreEqual(expected, affected, $"{provider}/{statement}");
+                if (expected == 0)
+                {
+                    Assert.AreEqual("executing", await StatusAsync(connection, taskA).ConfigureAwait(false));
+                    Assert.AreEqual(0, await connection.QuerySingleAsync<int>("SELECT NextLineNumber FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA }).ConfigureAwait(false));
+                }
+                else
+                {
+                    // 有效持有者确实能完成写入，终态也不能被同一租约重复覆盖。
+                    Assert.AreEqual(0, await connection.ExecuteAsync(Sql(statement), new
+                    {
+                        Id = taskA, TenantId = tenantId, LeaseId = leaseId, Now = now,
+                        StatusKey = "queued", ProcessedRowCount = 0, SucceededRowCount = 0,
+                        ExecutionFailedRowCount = 0, NextLineNumber = 0, ExecutionRowsJson = "[]",
+                        ErrorReceiptFileId = (Guid?)null, ExecutionCompletedAtUtc = now, ErrorCode = "probe",
+                    }).ConfigureAwait(false));
+                    await connection.ExecuteAsync("UPDATE fn_import_export_task SET StatusKey='executing', LeaseId=@LeaseId, LeaseExpiresAtUtc=@Expiry WHERE Id=@Id",
+                        new { Id = taskA, LeaseId = currentLeaseId, Expiry = now.AddMinutes(1) }).ConfigureAwait(false);
+                }
+            }
+        }
     }
 
     /// <summary>写入两个租户各一条 queued 任务，返回两条连接。</summary>

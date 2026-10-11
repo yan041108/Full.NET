@@ -336,6 +336,11 @@ export function createAppRouter(
         component: () => import('../views/ReportingExportTasksView.vue')
       },
       {
+        name: 'printing-published-templates',
+        path: '/printing/published-templates',
+        component: () => import('../views/PrintingPublishedTemplatesView.vue')
+      },
+      {
         name: 'printing-preview',
         path: '/printing/preview',
         component: () => import('../views/PrintingPreviewView.vue')
