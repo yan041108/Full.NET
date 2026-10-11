@@ -9,5 +9,6 @@ namespace Full.NET.Modules.Settings.Serialization;
 internal sealed class SettingsCacheJsonTypeInfoContributor : ICacheJsonTypeInfoContributor
 {
     public JsonTypeInfo? GetTypeInfo(Type type) =>
-        SettingsJsonSerializerContext.Default.GetTypeInfo(type);
+        SettingsJsonSerializerContext.Default.GetTypeInfo(type)
+        ?? SettingsCacheJsonSerializerContext.Default.GetTypeInfo(type);
 }

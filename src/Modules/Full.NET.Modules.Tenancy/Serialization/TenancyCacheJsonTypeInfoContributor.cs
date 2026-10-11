@@ -9,5 +9,6 @@ namespace Full.NET.Modules.Tenancy.Serialization;
 internal sealed class TenancyCacheJsonTypeInfoContributor : ICacheJsonTypeInfoContributor
 {
     public JsonTypeInfo? GetTypeInfo(Type type) =>
-        TenancyJsonSerializerContext.Default.GetTypeInfo(type);
+        TenancyJsonSerializerContext.Default.GetTypeInfo(type)
+        ?? TenancyCacheJsonSerializerContext.Default.GetTypeInfo(type);
 }

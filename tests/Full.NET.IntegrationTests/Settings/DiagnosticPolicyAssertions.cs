@@ -139,7 +139,8 @@ internal static class DiagnosticPolicyAssertions
                         "Endpoint",
                         "demo/{id}",
                         1.0,
-                        50,
+                        // 容量覆盖只允许全局 http.operation 分类；端点规则仅覆盖采样和载荷预算。
+                        null,
                         1024,
                         2048,
                         expires),
