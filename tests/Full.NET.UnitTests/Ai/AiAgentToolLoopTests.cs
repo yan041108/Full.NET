@@ -178,8 +178,9 @@ public sealed class AiAgentToolLoopTests
     public async Task Iteration_budget_throws_when_model_keeps_calling_tools_async()
     {
         var client = Substitute.For<IChatClient>();
+        var iteration = 0;
         client.GetResponseAsync(Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatOptions?>(), Arg.Any<CancellationToken>())
-            .Returns(new ChatResponse(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("loop", "ai.tools.ping", new Dictionary<string, object?>())])));
+            .Returns(_ => new ChatResponse(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent($"loop-{++iteration}", "ai.tools.ping", new Dictionary<string, object?>())])));
         var executor = Substitute.For<IAgentToolExecutor>();
         executor.ExecuteAsync(Arg.Any<ToolInvocation>(), Arg.Any<CancellationToken>())
             .Returns(new ToolExecutionResult("succeeded", JsonSerializer.SerializeToElement(true), null));

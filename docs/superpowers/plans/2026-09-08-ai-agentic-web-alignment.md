@@ -2088,6 +2088,21 @@ SQL Server 另有已有知识索引状态用例在文本代次生成断言返回
 
 复用现有双库工作流检查点/完成夹具，新增真实账本历史终态、原回执、未知保留、过期终态、并发、旧版本、租户拒绝、外层回滚及重复修复断言。待结算修复不等于未知外部请求已经自动对账；逐步工具续跑、请求前精确输入 Token 硬认证与自动外部对账继续开放。Native 发布/运行、独立生成应用及页面按 AI 模块集中验收，R10 不整体关闭，Capacity-not-verified。
 
+### R10w：工具调用恢复输入与派发身份准入（2026-10-12，已实现、本地验收通过）
+
+本批先关闭逐步恢复依赖的输入歧义：工具参数不能通过未知对象的 ToString 改写，同一运行的 callId 不能对应多个工具请求；整批校验与冻结先于任何工具执行。范围为 AgentToolLoop、内部 AgentToolCallAdmission 与工具循环回归；不改变数据库、权限、模型配置或检查点协议，不宣称已交付持久游标续跑。
+
+- [x] 为未知类型、重复调用身份、完整批次超限、累计载荷及跨 await 修改建立可失败测试；合法 null/原生数值/JsonElement 保持无损。
+- [x] 采用显式源生成与有界 JSON 复制，统一参数、模型响应和整批工具步数准入；整个运行内拒绝重复 callId，未经完整准入不得进入统一工具执行器。
+- [x] 聚焦 RED/GREEN 后集中执行 AI、受影响架构、AOT 分析和 affected 选择集；其他窗口及受保护路径在读取/哈希/提交前排除。
+- [x] 独立只读复核、更新实际证据和精确归属提交；原生发布/运行与页面/独立应用继续按 AI 模块集中验收，R10 保持开放。
+
+行为证据：首轮测试夹具 7 个类型/可空编译错误保留，不计 RED；修正后新 39 项 RED 32 失败/7 通过，完整步数回归 RED 46 项 34 失败/12 通过。首轮完整 AI 3507/3507 通过、零跳过；独立复核发现解析异常漏检与原生参数节点漏算，新增 46 项聚焦 RED 5 失败/41 通过后修正，并补充 assistant 角色限制。顶层 SDK 诊断元数据只丢弃、不转发的边界已有两个原始通过用例，复审已关闭原问题、未发现新 Critical/Important。
+
+最终本地验收：`node artifacts/r10w/run-unit.mjs final` 执行 AI 3514/3514（新增 46），`node artifacts/r10w/run-linux.mjs` 完成 API/Worker AOT 分析与 AOT Architecture 88/88，`node artifacts/r10w/run-tail.mjs` 完成 JIT Architecture 235/235、双库各 5/5（合计 Smoke 8 + AI 工作流检查点 2）、新鲜发现和输入/消费者/UID 核对，测试均零失败/跳过。末尾证据汇总首次因共用 TenantProvisioningTests 的提供程序位于方法名而非类名退出 1；修正为完整测试身份校验后，`python artifacts/r10w/collect.py` 退出 0，实际过滤器、数量及 UID 集合不变，保留原失败说明。构建零警告/错误；命名 30、矩阵 6、治理 57、工具链 54 项通过，受保护路径预先排除后的 Markdown 386 文件通过。完整 Unit 未执行，Integration 1214 为分片发现、并非执行数量；本批未执行完整 AI Integration 88。证据在 `artifacts/r10w/acceptance.json`，基线 `559e4583`、任务 `ai-tool-call-admission-r10w`，冻结 7795 输入，其他窗口改动保持原样。
+
+本批状态为 Aot-analysis-clean；Native 发布/运行、独立应用与页面集中验收仍待完成，Capacity-not-verified。逐步持久游标/回执续跑、Provider 精确输入硬限和自动外部对账仍开放，R10 不整体关闭。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

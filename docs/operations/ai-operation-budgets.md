@@ -231,3 +231,15 @@ Worker 每轮以现有 BatchSize 有界扫描终态且仍 reserved/pending 的�
 无需迁移或新增 Endpoint。升级/回退仍须停准入并排空旧 Worker，禁止混用会忽略预算事务的旧版本；Native 与独立应用集中验收继续开放，保持 Capacity-not-verified。
 
 本批本地证据：AI 3468/3468（新增 39）、Architecture 235/235、双库同一输入各 44 UID 覆盖成功（SQL Server 完整复验 43 通过、失败方法最终 1 通过）；MySQL（首轮 43 通过，失败方法复验 1 通过，原始失败记录保留，不称任一提供程序单轮全套成功）。复验零失败/跳过，API/Worker AOT 分析零警告/错误。真实双库覆盖 Host/租户、历史过期终态、原回执/未知保留、兼容配额、并发 CAS、外层回滚、矛盾未派发与满批坏绑定轮转。原始日志、TRX 和输入/消费者哈希在 artifacts/r10v/acceptance.json；Native 发布/运行和独立应用继续按 AI 模块集中验收，Capacity-not-verified。
+
+### 工具调用整批准入（R10w）
+
+AgentToolLoop 在任何工具派发前复制和校验本轮全部模型消息与调用。剩余累计步数无法容纳整个批次时，批次整体拒绝，不先执行工具前缀；本地拒绝也维持既有步数与整轮派发意图，不能据此声称此前模型未调用。
+
+参数仅接受 null、string、bool、int、long、有限 double 和 JsonElement；null 字典表示空对象，null 值保留 JSON null。未知对象、非有限数值、未定义或重复字段 JSON、超限深度/节点/字符、工具解析异常及 informational 调用均拒绝，不调用未知对象的 ToString 或反射序列化。最终完整参数树统一计入累计 4096 节点和 32 层深度，包含每个根对象及原生标量；每调用最多 128 参数，字符和实际参数 JSON 文本累计各有 262144 上限。消息最多 128、内容最多 512；所有复制、枚举及取消检查均有界。
+
+模型只可返回 assistant 消息；要进入历史的消息/内容原始对象及扩展载荷拒绝。顶层 ChatResponse 的 SDK 诊断原对象和附加元数据直接丢弃，不转换、不进入下一轮消息、会话或工具参数。冻结后的工具参数与历史不依赖原字典或 JsonDocument 的后续修改和寿命。
+
+本次循环所有轮次的 callId 必须精确唯一；标识和工具名须非空、不含控制字符且不超过 256 字符。工具白名单、启用/版本和当前权限仍由注册表与统一执行器核对，准入不授予授权。重复身份和未知派发仍按既有整轮凭证进入安全对账，不自动重新派发；本批不包含持久逐步游标、供应商精确输入 Token 认证或自动外部对账。
+
+最终本地验收：`node artifacts/r10w/run-unit.mjs final` 执行 AI 3514/3514（新增 46），`node artifacts/r10w/run-linux.mjs` 完成 API/Worker AOT 分析与 AOT Architecture 88/88，`node artifacts/r10w/run-tail.mjs` 完成 JIT Architecture 235/235、双库各 5/5（合计 Smoke 8 + AI 工作流检查点 2）、新鲜发现和输入/消费者/UID 核对，测试均零失败/跳过。末尾证据汇总首次因共用 TenantProvisioningTests 的提供程序位于方法名而非类名退出 1；修正为完整测试身份校验后，`python artifacts/r10w/collect.py` 退出 0，实际过滤器、数量及 UID 集合不变，保留原失败说明。构建零警告/错误；命名 30、矩阵 6、治理 57、工具链 54 项通过，受保护路径预先排除后的 Markdown 386 文件通过。完整 Unit 未执行，Integration 1214 为分片发现、并非执行数量；本批未执行完整 AI Integration 88。证据在 `artifacts/r10w/acceptance.json`，基线 `559e4583`、任务 `ai-tool-call-admission-r10w`，冻结 7795 输入，其他窗口改动保持原样。 Native 发布/运行与独立应用/页面继续按 AI 模块集中验收，Aot-analysis-clean，Capacity-not-verified。

@@ -19,13 +19,14 @@ public sealed class AgentToolLoop
     /// </summary>
     /// <remarks>
     /// 未在定义允许清单中的工具不会进入执行器，直接返回 ai.tool.unavailable 错误载荷；单次循环内累计的 Token 用量与工具步数会写回结果，供调用方做预算核算。
+    /// 模型返回的整批参数及调用身份先冻结；本次循环所有轮次的 callId 必须唯一，超限或无效批次不派发工具前缀。
     /// 审批或对账要求立即暂停执行，返回空文本与已发生用量，不派发同轮剩余工具或下一轮模型。
     /// </remarks>
     /// <param name="request">循环运行请求；包含定义键、提示词、客户端、执行器与工具注册表。</param>
     /// <param name="cancellationToken">用于取消模型调用与工具执行的令牌。</param>
     /// <returns>模型最终文本、会话快照、累计 Token 用量、工具步数以及是否触发审批/对账标志。</returns>
     /// <exception cref="ArgumentNullException"><paramref name="request"/> 为 <see langword="null"/>。</exception>
-    /// <exception cref="InvalidOperationException">定义不存在，或定义不支持工具循环（MaxToolIterations 非正数）。</exception>
+    /// <exception cref="InvalidOperationException">定义不存在、不支持工具循环，或模型消息/工具参数不符合封闭准入协议。</exception>
     /// <exception cref="AgentToolLoopBudgetExceededException">达到迭代或累计步数上限，禁止继续派发模型或工具。</exception>
     public async Task<AgentToolLoopResult> RunAsync(AgentToolLoopRequest request, CancellationToken cancellationToken = default)
     {
@@ -55,6 +56,7 @@ public sealed class AgentToolLoop
         var executionSteps = 0;
         var approvalRequired = false;
         var reconciliationRequired = false;
+        var callIds = new HashSet<string>(StringComparer.Ordinal);
 
         for (var iteration = 0; iteration < definition.MaxToolIterations; iteration++)
         {
@@ -66,16 +68,16 @@ public sealed class AgentToolLoop
             cancellationToken.ThrowIfCancellationRequested();
             inputTokens = AgentTokenUsage.Add(inputTokens, response.Usage?.InputTokenCount, iteration == 0);
             outputTokens = AgentTokenUsage.Add(outputTokens, response.Usage?.OutputTokenCount, iteration == 0);
-            // 只枚举足以触发上限的前缀；不为不可派发的长列表额外创建无界数组。
-            var calls = response.Messages.SelectMany(message => message.Contents.OfType<FunctionCallContent>())
-                .Take(MaximumExecutionSteps + 1).ToArray();
-            if (calls.Length == 0)
+            // 整批身份、参数、规模及剩余步数先冻结；不把可变模型对象跨工具 await 保存或部分派发。
+            var admitted = AgentToolCallAdmission.Freeze(response, MaximumExecutionSteps - executionSteps, callIds, cancellationToken);
+            var calls = admitted.Calls;
+            if (calls.Count == 0)
             {
-                var text = response.Messages.LastOrDefault()?.Text ?? string.Empty;
+                var text = admitted.Messages.LastOrDefault()?.Text ?? string.Empty;
                 return new(text, SerializeSession(messages, text), inputTokens, outputTokens, toolSteps, approvalRequired, reconciliationRequired);
             }
 
-            messages.AddRange(response.Messages);
+            messages.AddRange(admitted.Messages);
             foreach (var call in calls)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -107,9 +109,8 @@ public sealed class AgentToolLoop
                     continue;
                 }
 
-                using var arguments = ToJsonElement(call.Arguments);
                 var operationId = request.ResolveOperationId(call.CallId);
-                var invocation = new ToolInvocation(operationId, request.RunId, call.Name, tool.Version, arguments.RootElement.Clone());
+                var invocation = new ToolInvocation(operationId, request.RunId, call.Name, tool.Version, call.Arguments);
                 cancellationToken.ThrowIfCancellationRequested();
                 var result = await request.Executor.ExecuteAsync(invocation, cancellationToken).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
@@ -174,36 +175,6 @@ public sealed class AgentToolLoop
             new AgentSessionSnapshot(entries),
             AgentToolLoopJsonSerializerContext.Default.AgentSessionSnapshot);
     }
-
-    private static JsonDocument ToJsonElement(IDictionary<string, object?>? arguments)
-    {
-        if (arguments is null || arguments.Count == 0)
-        {
-            return JsonDocument.Parse("{}");
-        }
-
-        var converted = new Dictionary<string, JsonElement>(arguments.Count, StringComparer.Ordinal);
-        foreach (var (key, value) in arguments)
-        {
-            converted[key] = ToJsonElementValue(value);
-        }
-
-        return JsonDocument.Parse(JsonSerializer.Serialize(
-            converted,
-            AgentToolLoopJsonSerializerContext.Default.DictionaryStringJsonElement));
-    }
-
-    private static JsonElement ToJsonElementValue(object? value) => value switch
-    {
-        null => default,
-        JsonElement element => element,
-        bool boolean => JsonSerializer.SerializeToElement(boolean, AgentToolLoopJsonSerializerContext.Default.Boolean),
-        string text => JsonSerializer.SerializeToElement(text, AgentToolLoopJsonSerializerContext.Default.String),
-        int number => JsonSerializer.SerializeToElement(number, AgentToolLoopJsonSerializerContext.Default.Int32),
-        long number => JsonSerializer.SerializeToElement(number, AgentToolLoopJsonSerializerContext.Default.Int64),
-        double number => JsonSerializer.SerializeToElement(number, AgentToolLoopJsonSerializerContext.Default.Double),
-        _ => JsonSerializer.SerializeToElement(value.ToString(), AgentToolLoopJsonSerializerContext.Default.String),
-    };
 
 }
 

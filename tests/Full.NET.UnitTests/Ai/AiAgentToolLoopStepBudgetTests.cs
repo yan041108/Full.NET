@@ -14,23 +14,23 @@ public sealed class AiAgentToolLoopStepBudgetTests
 {
     [TestMethod]
     [DataRow(false)] [DataRow(true)]
-    public async Task Single_large_response_stops_before_step_65(bool denied)
+    public async Task Single_large_response_is_rejected_before_any_tool(bool denied)
     {
         var fixture = Fixture([Calls(65, denied ? "unknown.tool" : "ai.tools.ping"), Text()]);
         await Assert.ThrowsAsync<AgentToolLoopBudgetExceededException>(() => new AgentToolLoop().RunAsync(fixture.Request));
         Assert.AreEqual(1, fixture.ModelCalls());
-        Assert.AreEqual(denied ? 0 : 63, fixture.Resolved.Count);
-        await fixture.Executor.Received(denied ? 0 : 63).ExecuteAsync(Arg.Any<ToolInvocation>(), Arg.Any<CancellationToken>());
+        Assert.AreEqual(0, fixture.Resolved.Count);
+        await fixture.Executor.DidNotReceive().ExecuteAsync(Arg.Any<ToolInvocation>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
     public async Task Step_budget_is_shared_across_model_rounds_and_tools()
     {
-        var fixture = Fixture([Calls(40), Calls(24), Text()]);
+        var fixture = Fixture([Calls(40), Calls(24, prefix: "second"), Text()]);
         await Assert.ThrowsAsync<AgentToolLoopBudgetExceededException>(() => new AgentToolLoop().RunAsync(fixture.Request));
         Assert.AreEqual(2, fixture.ModelCalls());
-        Assert.AreEqual(62, fixture.Resolved.Count);
-        await fixture.Executor.Received(62).ExecuteAsync(Arg.Any<ToolInvocation>(), Arg.Any<CancellationToken>());
+        Assert.AreEqual(40, fixture.Resolved.Count);
+        await fixture.Executor.Received(40).ExecuteAsync(Arg.Any<ToolInvocation>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -54,9 +54,9 @@ public sealed class AiAgentToolLoopStepBudgetTests
 
     [TestMethod]
     [DataRow("ai.tool.approval_required")] [DataRow("ai.tool.reconciliation_required")]
-    public async Task Pause_on_last_allowed_step_preserves_pause_without_dispatching_overflow(string code)
+    public async Task Pause_on_last_allowed_step_preserves_pause_without_next_model(string code)
     {
-        var fixture = Fixture([Calls(65), Text()]);
+        var fixture = Fixture([Calls(63), Text()]);
         var executed = 0;
         fixture.Executor.ExecuteAsync(Arg.Any<ToolInvocation>(), Arg.Any<CancellationToken>()).Returns(_ => ++executed == 63
             ? new ToolExecutionResult("denied", null, code) : new ToolExecutionResult("succeeded", JsonSerializer.SerializeToElement(true), null));
@@ -80,8 +80,8 @@ public sealed class AiAgentToolLoopStepBudgetTests
             id => { resolved.Add(id); return Guid.CreateVersion7(); }), executor, resolved, () => modelCalls);
     }
 
-    private static ChatResponse Calls(int count, string tool = "ai.tools.ping") => new(new ChatMessage(ChatRole.Assistant,
-        Enumerable.Range(0, count).Select(i => (AIContent)new FunctionCallContent($"call-{i}", tool, new Dictionary<string, object?>())).ToList()));
+    private static ChatResponse Calls(int count, string tool = "ai.tools.ping", string prefix = "call") => new(new ChatMessage(ChatRole.Assistant,
+        Enumerable.Range(0, count).Select(i => (AIContent)new FunctionCallContent($"{prefix}-{i}", tool, new Dictionary<string, object?>())).ToList()));
 
     private static ChatResponse Text() => new(new ChatMessage(ChatRole.Assistant, "done"));
 }
