@@ -2588,4 +2588,28 @@ API CI `38159488951` 与 Worker CI `38159488938` 均 completed/success；两份�
 
 证据 `.tmp/workflow-directories-local-proof.json`、`.tmp/workflow-directories-final-proof.json`、`.tmp/workflow-directories-native-1`、`.tmp/workflow-directories-ci-artifacts`。本批规定范围的本地原生业务验收关闭，整体 Build-verified、Capacity-not-verified 保持，不提升全页面、完整故障、重新生成应用整项或 F10/F11。其他对话改动保护核对通过且未纳入提交，遗留旧工作区锁仍待清理，PR3 保持 Draft，不合并、不发布。
 
-只读续查确认 OrganizationMembershipRecord 与 OrganizationMembershipUserRecord 经 Organization Contract 被公告接收范围和阅读统计消费，当前缺少静态注册；登记 `.tmp/workflow-directories-next-readers.json`，留待与 Notifications 公告场景一批建立失败回归并集中双库验收，未计作已修复。
+该批只读续查登记 OrganizationMembershipRecord 与 OrganizationMembershipUserRecord 的公告成员投影缺口，证据 `.tmp/workflow-directories-next-readers.json`；后续已在下述机构公告集中验收批次关闭。
+
+## 2026-10-12 缓存 L2 静态闭包与机构公告集中验收
+
+机构公告任务基线080f060，快照 organization-announcement-native-20261012，映射与场景提交618b818。后续缓存修复基线618b818，快照 cache-l2-native-and-ci-20261012，最终源码冻结并推送 052c178cf70c5695e3b7cff35bf55e0b5c1df4ee。保持同一批完整实现后集中验收；PR3保持Draft，未合并或发布。
+
+Organization 注册机构隶属和机构成员两种静态行物化，经原有 Contract Port 消费，没有改动 SQL、迁移、权限或可信租户范围。正式 HTTP 场景创建三个机构，前两个共享同一成员，第三个无成员；覆盖非空公告列表、跨机构人数去重、不可见公告详情403、未读数、重复标记已读的统计，以及匿名401和租户上下文拒绝Host管理查询。原有实时通知和收件箱链路继续执行，切换上下文前关闭实时订阅并使用新令牌。
+
+首轮本地 Native 双库0通过/2失败，API CI38162879115同样失败；租户context返回500。真实FusionCache L2回归先记录3失败/8通过，定位为序列化器实际收到 FusionCacheDistributedEntry<T>，而非裸业务载荷。修复由Tenancy/Settings分别贡献租户、表格偏好和诊断快照闭合条目元数据，基础设施只贡献标签/清空的long条目。缓存context保持默认STJ格式，与JIT默认序列化器互通；HTTP Web context、既有裸载荷格式、缓存键/策略/TTL和未知类型拒绝逻辑不变，没有加入反射回退。
+
+只读审查补充确认DiagnosticPolicyDocument也实际写入L2，因此同批补齐。最终四类载荷直接经FusionCache与MemoryDistributedCache验证JIT/AOT双向互读、双向标签失效及双向清空，均使用全新L1观察。审查发现ClearAsync参数写法已修正。旧Main CI38159489003的2项诊断策略失败来自Endpoint正向夹具携带仅允许全局http.operation的容量覆盖；将夹具容量改为null，生产校验仍严格，原有拒绝/合法全局边界单测继续执行。
+
+- `node .tmp/cache-l2-fresh-unit.mjs`：显式更新Unit消费者后相关21/21、零失败/跳过。包括四项真实L2回归、既有缓存注册/未知类型/格式/配置边界、公告规则与诊断容量边界。Integration构建不会更新Unit DLL，已核对两者源码与产物时间及摘要；旧20项结果保留，不充作新增诊断回归通过。
+- `node .tmp/cache-l2-managed.mjs`：最终Integration Release构建零警告/错误。完整Integration1230、五分片及迁移两组发现互斥完整；API21/Worker17交集零。完整Unit发现数满足矩阵下限，新增L2案例恰为四项；没有宣称全量Unit/Integration执行。
+- `node .tmp/organization-announcement-architecture-green.mjs`：83/83；`pnpm test:governance`：62/62；`node --test tests/testing/*.test.mjs tests/governance/integration-test-feedback.test.mjs`：148/148，均零失败/跳过。机构映射原始RED2失败/81通过保留。
+- `node .tmp/workflow-settings-aot-analysis.mjs`：最终API AOT分析零警告/错误，默认JIT还原完成。
+- `pnpm test:inner -- --snapshot organization-announcement-native-20261012` 仍因遗留旧工作区锁失败；其失败日志保留，不能报告该入口通过。此前删除锁被自动审批拒绝，理由为“blocked by policy”，没有重试或删除其他对话资源。
+
+准备阶段不持重型锁，独立副本来自冻结源码并核对全部输入、Release消费者与可移植依赖；只复用同一提交的API CI ELF，验证PR head/base、默认merge tree、发布/上传成功和ZIP/ELF/manifest摘要。一次重型租约内先执行规范Native Notifications双库2/2，再执行诊断策略JIT双库2/2，均零失败/跳过；SDK原生业务 128.376 秒，诊断业务 119.253 秒，排队 318.050 秒独立记录。运行期间没有发布或编译。固定Linux镜像 fullnet-enterprise-validation-sdk:10.0-node24（SDK10.0.400），4 CPU/3 GiB，Windows消费者SDK10.0.401。
+
+最终协调器退出0，成功上下文、两组TRX、两份API日志与清理核对一致。首轮失败原始receipt、TRX、宿主日志与失败上下文另行归档；只清理经过父路径、前缀和所有权标识核验的自有副本。其他对话改动及容器未动。证据 `.tmp/cache-l2-local-proof.json`、`.tmp/cache-l2-final-proof.json`、`.tmp/cache-l2-native-1`、`.tmp/cache-l2-ci-artifacts` 和 `.tmp/organization-announcement-native-1`。
+
+ci 38166643529 为 in_progress/pending；api-native-aot-linux 38166643492 为 completed/success，API生产者完整检出日志已核对到 5f53fdd，源码树与冻结提交一致；worker-native-aot-linux 38166643459 为 completed/success。本地实际双库结果为本批规定范围交付依据；发布/上传成功不代表整个CI完成，后续状态单独保留。
+
+本批机构公告、共性L2静态闭包与诊断夹具缺陷关闭。整体仍为Build-verified、Capacity-not-verified，不重新认证完整独立生成应用、全部页面、完整故障矩阵或F10/F11。只读续查登记可选钉钉审批镜像、微信绑定/订阅三种查询记录缺口（`.tmp/organization-announcement-next-readers.json`），未修改或触发外部投递，留下一批验证适用原生边界和非空失败场景。
