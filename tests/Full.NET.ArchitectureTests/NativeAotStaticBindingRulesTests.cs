@@ -12,6 +12,10 @@ public sealed class NativeAotStaticBindingRulesTests
     [DataRow("Workflow", "WorkflowInstanceListRecord", "Features/ManageInstances/WorkflowInstanceQueryService.cs")]
     [DataRow("Workflow", "WorkflowTodoListRecord", "Features/ManageMyTodos/WorkflowTodoQueryService.cs")]
     [DataRow("Settings", "SettingsDomainAuditDiffRecord", "Auditing/SettingsDomainAuditChangeDiffReader.cs")]
+    [DataRow("Identity", "WorkflowRoleListRow", "Workflow/WorkflowRoleMemberDirectory.cs")]
+    [DataRow("Identity", "WorkflowRoleMemberRow", "Workflow/WorkflowRoleMemberDirectory.cs")]
+    [DataRow("Organization", "WorkflowOrganizationUnitListRow", "TenantUnits/WorkflowUnitLeaderDirectory.cs")]
+    [DataRow("Organization", "WorkflowUnitLeaderRow", "TenantUnits/WorkflowUnitLeaderDirectory.cs")]
     public void ManagementReadProjection_HasStaticMaterializer(string module, string row, string query)
     {
         var directory = Path.Combine(ArchitectureRepositoryRoot.Find(), "src", "Modules", $"Full.NET.Modules.{module}");

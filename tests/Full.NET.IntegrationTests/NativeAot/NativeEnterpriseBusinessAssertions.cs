@@ -73,6 +73,7 @@ internal static class NativeEnterpriseBusinessAssertions
             var id = draft.GetProperty("id").GetGuid();
             Assert.AreEqual(7, id.Version);
             var tenantId = draft.GetProperty("tenantId").GetGuid();
+            http = await VerifyWorkflowDirectoriesAsync(http, tenantId);
             var progress = await http.SendAsync(HttpMethod.Get, $"{Requests}/{id:D}/approval-progress");
             Assert.AreEqual("not_submitted", progress.GetProperty("deliveryState").GetString());
             await http.SendAsync(HttpMethod.Get, $"{Requests}/{id:D}/approval-progress", expected: HttpStatusCode.Unauthorized,
@@ -147,6 +148,97 @@ internal static class NativeEnterpriseBusinessAssertions
             // 两个宿主均已结束并排空日志，才清理本场景拥有的文件目录。
             Directory.Delete(files, recursive: true);
         }
+    }
+
+    /// <summary>以非空正式数据验证角色成员、机构负责人及 Host/Tenant 候选隔离。</summary>
+    private static async Task<BusinessHttp> VerifyWorkflowDirectoriesAsync(BusinessHttp tenant, Guid tenantId)
+    {
+        const string definitions = "/api/v1/workflow/definitions";
+        // 切换上下文会使同一会话的旧令牌失效；顺序使用新令牌并将最终租户会话交还调用方。
+        var host = await tenant.ChangeContextAsync(null);
+        // 替换角色成员会撤销该成员会话，使用独立用户以保留验收操作人的 Host/Tenant 会话。
+        var roleMember = await host.SendAsync(HttpMethod.Post, "/api/v1/identity/users", new
+        {
+            username = $"native-wf-role-{Guid.NewGuid():N}", displayName = "原生工作流角色成员",
+            password = NativeApiE2EAssertions.AdminPassword,
+        }, HttpStatusCode.Created);
+        var roleMemberId = roleMember.GetProperty("id").GetGuid();
+        var role = await host.SendAsync(HttpMethod.Post, "/api/v1/identity/roles", new
+        {
+            code = $"native-wf-{Guid.NewGuid():N}", name = "原生工作流角色",
+        }, HttpStatusCode.Created);
+        var roleId = role.GetProperty("id").GetGuid();
+        await host.SendAsync(HttpMethod.Put, $"/api/v1/identity/roles/{roleId:D}/members", new
+        {
+            userIds = new[] { roleMemberId }, version = role.GetProperty("version").GetInt32(),
+        });
+        var hostRoles = await host.SendAsync(HttpMethod.Get, $"{definitions}/role-candidates?page=1&pageSize=100");
+        AssertWorkflowCandidate(hostRoles, role);
+        var hostPreview = await host.SendAsync(HttpMethod.Post, $"{definitions}/assignee-preview", new
+        {
+            assigneePolicy = new { sources = new[] { new { resolverKindKey = "role_members", roleIds = new[] { roleId } } } },
+        });
+        AssertWorkflowPreview(hostPreview, roleMemberId, roleMember.GetProperty("username").GetString());
+        var hostUnits = await host.SendAsync(HttpMethod.Get, $"{definitions}/organization-unit-candidates?page=1&pageSize=100");
+        Assert.AreEqual(0, hostUnits.GetProperty("items").GetArrayLength());
+        Assert.AreEqual(0L, hostUnits.GetProperty("total").GetInt64());
+        tenant = await host.ChangeContextAsync(tenantId);
+
+        // 独立机构只分配一名真实租户成员，避免默认管理员与职级排序影响负责人断言。
+        var memberName = $"native-wf-leader-{Guid.NewGuid():N}";
+        var member = await tenant.SendAsync(HttpMethod.Post, "/api/v1/identity/tenant-members/provision", new
+        {
+            username = memberName, displayName = "原生工作流机构负责人",
+            password = NativeApiE2EAssertions.AdminPassword, memberRole = "Member", email = (string?)null,
+        });
+        var memberUserId = member.GetProperty("userId").GetGuid();
+        var unit = await tenant.SendAsync(HttpMethod.Post, "/api/v1/organization/units", new
+        {
+            parentId = (Guid?)null, code = $"native-wf-{Guid.NewGuid():N}", name = "原生工作流候选机构", displayOrder = 1,
+        }, HttpStatusCode.Created);
+        var unitId = unit.GetProperty("id").GetGuid();
+        await tenant.SendAsync(HttpMethod.Post, "/api/v1/organization/user-units", new
+        {
+            userId = memberUserId, unitId, isPrimary = true,
+        }, HttpStatusCode.Created);
+        var tenantUnits = await tenant.SendAsync(HttpMethod.Get, $"{definitions}/organization-unit-candidates?page=1&pageSize=100");
+        AssertWorkflowCandidate(tenantUnits, unit);
+        var leaderPreview = await tenant.SendAsync(HttpMethod.Post, $"{definitions}/assignee-preview", new
+        {
+            assigneePolicy = new { sources = new[] { new { resolverKindKey = "organization_unit_leader", unitId } } },
+        });
+        AssertWorkflowPreview(leaderPreview, memberUserId, memberName);
+
+        var tenantRoles = await tenant.SendAsync(HttpMethod.Get, $"{definitions}/role-candidates?page=1&pageSize=100");
+        Assert.IsFalse(tenantRoles.GetProperty("items").EnumerateArray().Any(row => row.GetProperty("id").GetGuid() == roleId));
+        var rejected = await tenant.SendAsync(HttpMethod.Post, $"{definitions}/assignee-preview", new
+        {
+            assigneePolicy = new { sources = new[] { new { resolverKindKey = "role_members", roleIds = new[] { roleId } } } },
+        }, HttpStatusCode.BadRequest);
+        Assert.AreEqual("workflow.definition.assignee_policy_invalid", rejected.GetProperty("code").GetString());
+        foreach (var route in new[] { "role-candidates", "organization-unit-candidates" })
+            await tenant.SendAsync(HttpMethod.Get, $"{definitions}/{route}", expected: HttpStatusCode.Unauthorized, anonymous: true);
+        return tenant;
+    }
+
+    /// <summary>核对数据库实际标识、编码和名称，避免空页或默认映射通过验收。</summary>
+    private static void AssertWorkflowCandidate(JsonElement page, JsonElement created)
+    {
+        var rows = page.GetProperty("items").EnumerateArray()
+            .Where(row => row.GetProperty("id").GetGuid() == created.GetProperty("id").GetGuid()).ToArray();
+        Assert.AreEqual(1, rows.Length);
+        Assert.IsTrue(page.GetProperty("total").GetInt64() >= page.GetProperty("items").GetArrayLength());
+        Assert.AreEqual(created.GetProperty("code").GetString(), rows[0].GetProperty("code").GetString());
+        Assert.AreEqual(created.GetProperty("name").GetString(), rows[0].GetProperty("name").GetString());
+    }
+
+    /// <summary>确保非空解析结果对应权威角色成员或机构负责人。</summary>
+    private static void AssertWorkflowPreview(JsonElement preview, Guid userId, string? username)
+    {
+        var users = preview.GetProperty("users");
+        Assert.AreEqual(1, users.GetArrayLength());
+        Assert.AreEqual(userId, users[0].GetProperty("id").GetGuid());
+        Assert.AreEqual(username, users[0].GetProperty("username").GetString());
     }
 
     private static Task<JsonElement> CreateAsync(BusinessHttp http, Guid unitId, Guid actorId, string title) =>
@@ -428,7 +520,8 @@ internal static class NativeEnterpriseBusinessAssertions
                 return default;
             await NativeApiE2EAssertions.AssertStatusAsync(response, expected, $"Native Enterprise {method} {path}",
                 nativeLogFilePath: logPath);
-            if (expected != HttpStatusCode.OK && expected != HttpStatusCode.Created) return default;
+            // 策略拒绝需要核对 ProblemDetails 机器码，不能在预期 400 时丢弃响应体。
+            if (expected is not (HttpStatusCode.OK or HttpStatusCode.Created or HttpStatusCode.BadRequest)) return default;
             using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             return json.RootElement.Clone();
         }

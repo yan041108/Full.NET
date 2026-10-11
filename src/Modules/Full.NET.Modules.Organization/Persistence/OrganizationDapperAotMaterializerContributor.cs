@@ -28,6 +28,8 @@ internal sealed class OrganizationDapperAotMaterializerContributor : IDapperAotM
         registrar.Register<OrganizationPositionRecord>(ReadOrganizationPositionRecord);
         registrar.Register<OrganizationPositionListRow>(ReadOrganizationPositionListRow);
         registrar.Register<OrganizationPositionLevelRecord>(ReadOrganizationPositionLevelRecord);
+        registrar.Register<WorkflowOrganizationUnitListRow>(ReadWorkflowOrganizationUnitListRow);
+        registrar.Register<WorkflowUnitLeaderRow>(ReadWorkflowUnitLeaderRow);
 
         DapperAotParameterRegistry.Register<InsertOrganizationUnit>(BindInsertOrganizationUnit);
         DapperAotParameterRegistry.Register<InsertOrganizationPosition>(
@@ -39,6 +41,13 @@ internal sealed class OrganizationDapperAotMaterializerContributor : IDapperAotM
         DapperAotParameterRegistry.Register<InsertOrganizationUserPosition>(
             BindInsertOrganizationUserPosition);
     }
+
+    // 两种正式提供程序的 Workflow 机构目录与负责人 SQL 保持相同投影列序。
+    private static WorkflowOrganizationUnitListRow ReadWorkflowOrganizationUnitListRow(DbDataReader reader) =>
+        new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2));
+
+    private static WorkflowUnitLeaderRow ReadWorkflowUnitLeaderRow(DbDataReader reader) =>
+        new(reader.GetGuid(0), reader.GetGuid(1));
 
     private static OrganizationUnitRecord ReadOrganizationUnitRecord(DbDataReader reader) =>
         new(

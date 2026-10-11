@@ -86,7 +86,7 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 236,
+      "minimum": 240,
       "timeout": "10m",
       "selections": {
         "ai-agentic-boundaries": {
@@ -99,7 +99,7 @@
         },
         "api-native-aot": {
           "filter": "FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol",
-          "minimum": 77
+          "minimum": 81
         },
         "identity-oidc": {
           "filter": "FullyQualifiedName~IdentityOidcBoundaryTests",
