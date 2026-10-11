@@ -2538,3 +2538,30 @@ Windows 于 17:55 +08:00 重启，第 5 次验收协调器在排队中退出，�
 - `pnpm test:integration:affected:plan -- --snapshot native-prepared-entrypoints-20261011 --phase inner`：影响集为 integration-tooling。本批不重新执行八个真实 Native 专项，工具测试不能外推为这些业务验收；Reporting 双库通过证据来自另行冻结的真实运行。
 
 各项实际耗时仅说明本地验证范围，不承诺固定提速比例。规则适用于其他对话，八个正式入口已经接线；构建缓存仍以完整源码、编译环境、SDK 与产物摘要验证身份。其他对话未提交文件原样保留。证据 `.tmp/native-prepared-batch-proof.json`、`.tmp/native-prepared-tooling-closed.log`、`.tmp/native-prepared-governance-closed.log` 及 RED/GREEN 日志；整体能力和容量状态不变。
+
+## 2026-10-12 Workflow/Settings 原生管理查询与宿主测试筛选
+
+基线 `1c95b23d1883cfcb997b26b0ecbe364c14f4b15f`，任务快照 `workflow-settings-aot-readers-20261011`；本批生产源码冻结 `0a80e4914988038f810c28c62ead2772d3efaa0e`，随后仅修正验收夹具的响应契约断言，差异摘要单独登记并随本批报告提交。补齐 WorkflowInstanceListRecord 的十列、WorkflowTodoListRecord 的十四列和 SettingsDomainAuditDiffRecord 的五列静态映射，保留 SQL 投影、权限、可信租户、事务与公共 HTTP 契约。没有迁移、反射回退、额外根或 suppression。
+
+同一企业双库 Native 场景加入全局/本人实例列表、待办/历史列表及 Settings 聚合审计差异。列表按真实业务 ID 唯一定位非空行，检查审批前后状态、版本和可空/完成时间；正式诊断策略写入携带有效 Trace，审计查询验证真实差异及匿名拒绝。只读审查发现单人审批错误比较仅供多人审批的 ActiveNodeKey，核对演示定义后修正为实际 approve 节点。没有把审查或编译当成业务验收。
+
+上一提交 API CI `38138200724` 失败：旧 API 过滤器同时发现 17 条 Worker 场景，严格 Linux 零跳过门禁拒绝其 NotExecuted；实际 API 用例 21 条成功，没有业务失败。Worker CI `38138200721` 与主 CI `38138200779` 已成功。本批在 API 过滤器排除 NativeWorker，Worker 专项仍执行自己的场景；API 最低 21、Worker 最低 14 及零跳过门禁保留。新增治理回归先失败，真实 DLL 发现交集先为 17，修正后 API 21、Worker 17、交集零。
+
+- `node .tmp/workflow-settings-aot-architecture.mjs`：三条静态注册回归先为 3 失败/74 通过，修复后 Native 架构 77/77、零失败/跳过。矩阵同步本次实际新增三项。
+- `node .tmp/workflow-settings-aot-analysis.mjs`：规范 API AOT 分析入口通过，零警告/错误，默认 JIT 还原完成。
+- `node .tmp/workflow-settings-aot-managed-closed.mjs`：相关 Unit 13/13、零失败/跳过；Integration 发现 1230 项，五分片与两组迁移分区互斥完整。后者只记为发现证据，不是执行 1230 个业务测试。
+- `pnpm test:governance`：62/62、零失败/跳过。实际 DLL 角色发现和治理 RED/GREEN 证据分别保留。
+
+托管消费者复用本批 Release 隔离输出，编译时 Git 元数据仍为基线 1c95b23；冻结提交前后的实际源码输入与副本逐项核对一致，记录程序集摘要，不冒充在最终提交重新编译。首个临时托管协调器误按命名空间匹配 MTP 的简单类名，编译成功但后续检查失败；修正后只复用 Unit 输出执行测试。另一次进程中断留下本窗口产物锁，经核对自身 PID 已退出及无残余子进程后仅清理该锁，未删除被拒的旧工作区锁。临时原生准备协调器误读不存在的 matrix.integration.minimum，未执行业务命令；改用规范 full 分片下限，保留失败记录并复用已解压副本。
+
+首轮真实原生双库为 2/2 失败、零跳过，125.706 秒；两库均在新夹具比较 arrivedAtUtc 时抛出 KeyNotFoundException。正式待办 GET 返回 WorkflowTodoDetailResponse，并不包含该字段；不是物化器或 HTTP 失败。修正测试为只比较该详情契约实际包含的字段，列表的到达时间独立核对实例开始时间和当前时间，后续仍与历史列表比较。生产源码和 CI 原生产物未变，增量编译托管消费者后复用同一 ELF 重跑；首轮 receipt、TRX、宿主日志和完整消费者目录保留。
+
+第二轮集中原生双库已通过：真实 SQL Server/MySQL 企业业务 2/2，零失败/跳过，TRX 141.829 秒；资源排队 19.775 秒，SDK 业务进程 143.744 秒。同栈覆盖全局/本人非空实例、待办与历史、审批/驳回、非空 Excel 导入、导出/下载/崩溃恢复，以及正式 Settings 写入后的 Trace 审计差异和匿名拒绝。复用冻结 0a80e49 对应 CI 的 API/Worker ELF，修正后的测试消费者增量编译于同一生产源码，Git 元数据为 0a80e49；只改一份夹具，实际输入和程序集摘要单独记录。固定 Linux SDK 镜像、4 CPU/3 GiB，未重复本地发布。
+
+第二轮临时协调器在业务成功、TRX/四份宿主日志归档后，错误要求复用副本中的运行上下文只能有一份；实际包含首轮失败和本轮成功两份，归档检查返回退出码 1。自有副本随后按所有权检查清理，context-run.json 未留存，不重造历史文件，也不把协调器命令报为通过。已修正临时筛选条件，另以 `node .tmp/workflow-settings-final-proof.mjs` 独立通过核对：真实 TRX、业务命令退出码、全部冻结输入、ZIP/ELF/manifest 摘要、四份日志、自有副本/SDK/工作区锁清理及其他对话改动保护。业务证据未变，因此不因归档修正再次执行独立应用验收。
+
+新 API CI `38155600789` 与 Worker CI `38155600761` 均 completed/success，两份完整日志核对实际检出 `3f28f8b7d1afb1813eebf32bd3cacd3b9f1850de` 与源码树 `0d4e78190ad3e6a5e37089132d84e061210392aa`。API 核心 Native 实际 21/21、零跳过，确认旧角色混入问题关闭；后续 Notifications、Settings/Jobs、OIDC、S3、Kafka Replay 专项也全部成功。收口核对时主 CI `38155600746` 仍运行，不报告为整体成功。两角色产物的 PR head/base、实际检出 tree、发布/上传步骤及 ZIP/ELF/manifest 摘要已核对；后续交付提交不冒充这些代码批次工作流结果。
+
+证据 `.tmp/workflow-settings-local-proof.json`、`.tmp/workflow-settings-final-proof.json`、`.tmp/workflow-settings-native-1`、`.tmp/workflow-settings-native-2` 与 `.tmp/workflow-settings-ci-artifacts`。本批规定范围的本地原生业务验收关闭；上下文归档缺失和 CI 待完成状态如实保留。整体仍为 Build-verified、Capacity-not-verified，不提升全页面、完整故障、重新生成应用整项或 F10/F11；旧工作区锁仍待清理，其他对话文件未纳入提交。PR3 保持 Draft，不合并、不发布。
+
+只读排查把 Identity 的 WorkflowRoleListRow/WorkflowRoleMemberRow、Organization 的 WorkflowOrganizationUnitListRow/WorkflowUnitLeaderRow 记为下一批静态查询候选；已确认候选目录、Contract Port 与正式 Endpoint 调用链，仍需失败回归和独立运行证据，不计为已修复。

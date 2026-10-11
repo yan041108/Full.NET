@@ -253,8 +253,11 @@ internal static class NativeEnterpriseBusinessAssertions
         var pendingPage = await http.SendAsync(HttpMethod.Get, "/api/v1/workflow/todos/mine?page=1&pageSize=100");
         var pending = FindListItem(pendingPage, todoId);
         var todo = await http.SendAsync(HttpMethod.Get, $"/api/v1/workflow/todos/{todoId:D}");
-        foreach (var field in new[] { "id", "instanceId", "stepId", "statusKey", "arrivedAtUtc", "revision" })
+        foreach (var field in new[] { "id", "instanceId", "stepId", "statusKey", "revision" })
             Assert.AreEqual(todo.GetProperty(field).GetRawText(), pending.GetProperty(field).GetRawText(), field);
+        // 详情契约没有到达时间；列表单独核对时间范围，随后与真实历史快照比较。
+        Assert.IsTrue(pending.GetProperty("arrivedAtUtc").GetDateTimeOffset() >= instance.GetProperty("startedAtUtc").GetDateTimeOffset());
+        Assert.IsTrue(pending.GetProperty("arrivedAtUtc").GetDateTimeOffset() <= DateTimeOffset.UtcNow);
         foreach (var field in new[] { "businessType", "businessId", "businessTitle" })
             Assert.AreEqual(instance.GetProperty(field).GetRawText(), pending.GetProperty(field).GetRawText(), field);
         Assert.AreEqual(instance.GetProperty("statusKey").GetString(), pending.GetProperty("instanceStatusKey").GetString());

@@ -1,8 +1,10 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-10-11（本轮补齐 Reporting 导出租约与原生静态闭包，集中双库验收并优化 CI 上传时机，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-10-12（本轮补齐 Workflow/Settings 原生管理查询，修正 API/Worker 测试角色筛选并完成本地双库原生验收，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 > 2026-09-16 规划增补：已纳入[八项底座完善能力及七类收口重点](adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)，执行见[唯一总计划](../superpowers/plans/2026-09-16-foundation-productization.md)。本次未重新认证下表的实现状态；部分历史条目落后于专项记录，F00 将逐项核对。工作区其他改动不作为能力完成证据。
+
+2026-10-12 Workflow/Settings 补齐实例列表、待办/历史与域审计差异三种静态行物化，同一企业 Native 场景增加真实非空查询。架构 77/77、相关 Unit 13/13、治理 62/62 与 API AOT 分析通过；Integration 1230 项仅完成互斥完整发现。API 过滤器剔除 Worker 场景，实际发现 API 21、Worker 17、交集零，原最低范围与零跳过门禁保留。生产冻结 0a80e49，修正测试契约后复用原生产物，SQL Server/MySQL 真实原生业务 2/2、零失败/跳过，TRX 141.829 秒；四份宿主日志与清理已核对。首轮 2/2 夹具失败和第二轮协调器上下文归档退出码 1 保留，另行证据核对通过，不冒充协调器成功；整体 Build-verified、Capacity-not-verified 保持，见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-workflowsettings-原生管理查询与宿主测试筛选)。
 
 2026-10-11 八个 Native 测试入口已集中接入共享准备/运行器，编译准备只持工作区锁、跨专项复用相同消费者构建，运行前严格复核输入和产物，并修复 pnpm 生命周期事件造成的重复构建。工具回归本工作树 137/137、治理 61/61 通过；八个真实原生专项未因工具改造重复执行，业务与容量状态不外推。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-11-native-测试准备与跨专项构建复用)。
 
