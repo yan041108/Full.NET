@@ -39,10 +39,12 @@ internal sealed class AiKnowledgeIndexPdfPlanningService(IQueryExecutor query, I
         var state = await CurrentAsync(binding, taskId, leaseToken, session, bounded).ConfigureAwait(false);
         if (state is null || state.Source.ContentType != "application/pdf"
             || state.Source.SizeBytes is <= 0 or > AiKnowledgePdfOutputReader.MaxSourceBytes) return null;
+        // 在 Files 取得流之前保留清理位置；迟到流仍使用同一位置。
+        using var cleanup = AiKnowledgePdfIoBoundary.ReserveCleanup();
         Stream? owned = null;
         try
         {
-            var opened = await OpenAsync(state, binding, taskId, leaseToken, session, bounded).ConfigureAwait(false);
+            var opened = await OpenAsync(state, binding, taskId, leaseToken, session, bounded, cleanup).ConfigureAwait(false);
             if (opened is null) return null;
             owned = opened.Content;
             Check(bounded);
@@ -51,7 +53,7 @@ internal sealed class AiKnowledgeIndexPdfPlanningService(IQueryExecutor query, I
             // 从此读取器接管流释放责任；解析器只取得独占缓存，不持有 Files 流或存储路径。
             var transferred = owned; owned = null;
             using var bytes = await new AiKnowledgePdfSourceReader(transactions, timeoutMs)
-                .ReadAsync(transferred, state.Source.ContentHash, state.Source.SizeBytes, bounded).ConfigureAwait(false);
+                .ReadAsync(transferred, state.Source.ContentHash, state.Source.SizeBytes, bounded, cleanup).ConfigureAwait(false);
             if (bytes is null || !await StillCurrentAsync(state, binding, taskId, leaseToken, session, bounded).ConfigureAwait(false)) return null;
             var parsed = await new AiKnowledgePdfSandboxParser(transactions, sandbox)
                 .ParseAsync(bytes.Bytes, state.Source.ContentHash, checked((int)state.Source.SizeBytes), bounded).ConfigureAwait(false);
@@ -68,7 +70,7 @@ internal sealed class AiKnowledgeIndexPdfPlanningService(IQueryExecutor query, I
         finally
         {
             // 接管前的 MIME/撤权/取消拒绝也必须释放 Files 交付的流，且不能读取正文。
-            if (owned is not null) await CloseAsync(owned).ConfigureAwait(false);
+            if (owned is not null) await CloseAsync(owned, cleanup).ConfigureAwait(false);
         }
     }
 
@@ -168,7 +170,7 @@ internal sealed class AiKnowledgeIndexPdfPlanningService(IQueryExecutor query, I
         && row.ModelOrganizationId == expected.Model.OrganizationId;
 
     private async Task<Opened?> OpenAsync(State state, AiKnowledgeIndexTaskBinding binding, Guid taskId,
-        Guid leaseToken, SessionBindingSnapshot session, CancellationToken token)
+        Guid leaseToken, SessionBindingSnapshot session, CancellationToken token, AiKnowledgePdfIoScheduler.Reservation cleanup)
     {
         Check(token);
         if (!tasks.IsTenant)
@@ -190,14 +192,16 @@ internal sealed class AiKnowledgeIndexPdfPlanningService(IQueryExecutor query, I
             }
             var host = await hostFiles.OpenReadyContentAsync(state.Source.FileId, ct).ConfigureAwait(false);
             return host.IsSuccess ? new Opened(host.Value!.Content, host.Value.ContentType) : null;
-        }, token, result => result is null ? Task.CompletedTask : CloseAsync(result.Content)).ConfigureAwait(false);
+        }, token, result => result is null ? Task.CompletedTask : CloseAsync(result.Content, cleanup), cleanup).ConfigureAwait(false);
     }
 
-    private async Task<T> BoundAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken token, Func<T, Task>? closeLate = null)
+    private async Task<T> BoundAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken token, Func<T, Task>? closeLate = null,
+        AiKnowledgePdfIoScheduler.Reservation? cleanupReservation = null)
     {
         Check(token); var io = new CancellationTokenSource(); var handedOff = false;
+        var retained = cleanupReservation?.Retain();
         // 独立 IO 令牌不能链接工作令牌；回调只进入异步清理，不能阻塞调用者 Cancel。
-        var work = Task.Run(async () => { Check(io.Token); return await action(io.Token).ConfigureAwait(false); });
+        var work = AiKnowledgePdfIoBoundary.RunAsync(async () => { Check(io.Token); return await action(io.Token).ConfigureAwait(false); });
         try
         {
             var result = await work.WaitAsync(token).ConfigureAwait(false);
@@ -205,11 +209,11 @@ internal sealed class AiKnowledgeIndexPdfPlanningService(IQueryExecutor query, I
         }
         finally
         {
-            if (handedOff) io.Dispose();
+            if (handedOff) { io.Dispose(); retained?.Dispose(); }
             else
             {
                 // 观察取消回调异常也不能跳过晚到结果的释放；超时只证明已拒绝，不能声称操作已停止。
-                var cleanup = Task.WhenAll(ObserveAsync(io.CancelAsync()), CompleteLateAsync(work, closeLate));
+                var cleanup = Task.WhenAll(ObserveAsync(io.CancelAsync()), CompleteLateAsync(work, closeLate, retained));
                 try { await cleanup.WaitAsync(CleanupLimit).ConfigureAwait(false); }
                 catch (TimeoutException) { throw new IOException("PDF boundary cleanup was not confirmed."); }
                 finally
@@ -221,19 +225,24 @@ internal sealed class AiKnowledgeIndexPdfPlanningService(IQueryExecutor query, I
         }
     }
 
-    private static async Task CompleteLateAsync<T>(Task<T> work, Func<T, Task>? close)
+    private static async Task CompleteLateAsync<T>(Task<T> work, Func<T, Task>? close, IDisposable? retained)
     {
-        T result;
-        try { result = await work.ConfigureAwait(false); } catch { return; }
-        if (close is not null) await close(result).ConfigureAwait(false);
+        try
+        {
+            T result;
+            try { result = await work.ConfigureAwait(false); } catch { return; }
+            if (close is not null) await close(result).ConfigureAwait(false);
+        }
+        // 外层可能已超时退出；实际迟到清理结束前不能释放保留引用。
+        finally { retained?.Dispose(); }
     }
 
     private static async Task DisposeAfterAsync(Task cleanup, CancellationTokenSource io)
     { await ObserveAsync(cleanup).ConfigureAwait(false); io.Dispose(); }
 
-    private static async Task CloseAsync(Stream stream)
+    private static async Task CloseAsync(Stream stream, AiKnowledgePdfIoScheduler.Reservation cleanup)
     {
-        var closing = Task.Run(async () => await stream.DisposeAsync().ConfigureAwait(false));
+        var closing = cleanup.RunAsync(async () => await stream.DisposeAsync().ConfigureAwait(false));
         try { await closing.WaitAsync(CleanupLimit).ConfigureAwait(false); }
         catch (TimeoutException) { _ = ObserveAsync(closing); throw new IOException("PDF source cleanup was not confirmed."); }
         catch { throw new IOException("PDF source disposal failed."); }

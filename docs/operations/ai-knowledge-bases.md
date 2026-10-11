@@ -353,6 +353,16 @@ Vue AI 对话页提供“反馈审核”入口，按独立读取与导出权限�
 
 离线人工审核候选准入工具及评估入口见 [评估语料说明](../../tests/ai-evaluation/README.md#人工脱敏反馈候选准入r09g)。操作人另行准备脱敏案例、受控来源许可与双人审核记录，工具保留全部原基线并追加独立版本，不直接消费标签统计或读取生产问答。审核标签为 `operator_attested`，不认证身份，不替代生产授权、撤权失效或在线样本准入；这些服务端能力仍待完成。
 
+## PDF 外部 I/O 容量与拒绝
+
+PDF 来源、规划、授权和模型端口通过进程内专用后台线程进入，普通操作与清理分别使用 4 个线程、8 个额外准入位置，每条通道最多 12 个未完成操作。排队、同步阻塞及异步等待都占用该额度，操作最终结束后才释放；普通通道满载不占用独立清理通道。线程随首次 PDF 边界调用建立，在进程生命周期内复用。
+
+规划器在 Files 打开来源之前、模型批次在预算预留之前先保留清理额度；未使用的保留位置和迟到工作持有的引用也占用容量，实际清理提交一次后持续占用到其完成。未发生资源接管或收费时释放未使用位置；迟到来源由原保留位置释放，外层超时不撤销它。
+
+容量耗尽立即返回 `fn_ai_pdf_io_capacity_exhausted` I/O 失败，不排入无界等待、不交付未确认结果。单次取消及既有清理期限保持有效；预算结算、晚到流释放和已开始的来源证明事务仍遵循原有确认规则。反复遇到该失败时应检查阻塞端口与未完成清理，不能将准入额度当作业务吞吐保证。
+
+任意 Stream 或端口实现若永久阻塞，无法由线程调度强制终止，会持续占用对应额度；清理通道本身也有相同上限。该边界只约束宿主资源，PDF 解析仍依赖原有独立进程/容器沙箱。容量实测与真实云模型整代次验收仍待集中执行，保持 `Capacity-not-verified`。
+
 ## 双库与部署
 
 迁移 `240_AiKnowledgeBase.sql` 增加 `fn_ai_knowledge_base`，`241_AiKnowledgeMember.sql` 增加 `fn_ai_knowledge_member`，`242_AiKnowledgeDocument.sql` 增加 `fn_ai_knowledge_document` 与 `fn_ai_knowledge_document_member`，`243_AiKnowledgeFileVersion.sql` 增加 `fn_ai_knowledge_version` 与 `fn_ai_knowledge_import`，`244_AiKnowledgeRoleGrant.sql` 增加知识库及文档角色授予表；均有 SQL Server 与 MySQL 实现，不改写已有业务表。外键仅关联 AI 自有父记录，不向 Files、Identity 或 Tenancy 表建立外键。SQL Server 主键显式采用 UUID v7 聚集键；MySQL 使用 Binary16 网络字节序。

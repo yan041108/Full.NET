@@ -41,11 +41,15 @@ internal sealed class AiKnowledgePdfSourceReader(IDataTransactionState transacti
     private const int ScratchSize = 32768;
     private static readonly TimeSpan CleanupLimit = TimeSpan.FromSeconds(5);
 
-    /// <summary>接管流的释放责任；精确大小、摘要、EOF 和清理全部通过才交付原字节。</summary>
+    /// <summary>清理准入成功后接管流的释放责任；精确大小、摘要、EOF 和清理全部通过才交付原字节。</summary>
     /// <remarks>结果由消费者独占并释放；取消不代表流已停止，无法确认清理时传播故障而不交付结果。</remarks>
-    internal async Task<AiKnowledgePdfSourceBuffer?> ReadAsync(Stream ownedSource, string trustedHash, long trustedSize, CancellationToken token)
+    internal async Task<AiKnowledgePdfSourceBuffer?> ReadAsync(Stream ownedSource, string trustedHash, long trustedSize, CancellationToken token,
+        AiKnowledgePdfIoScheduler.Reservation? cleanupReservation = null)
     {
         ArgumentNullException.ThrowIfNull(ownedSource);
+        // 未通过准入前流仍归调用者；生产规划器在打开来源前已保留清理容量。
+        using var localCleanup = cleanupReservation is null ? AiKnowledgePdfIoBoundary.ReserveCleanup() : null;
+        var cleanup = cleanupReservation ?? localCleanup!;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
         // 外层期限不交给流注册回调；流的阻塞或抛异常回调只能进入独立清理任务。
         var io = new CancellationTokenSource();
@@ -59,7 +63,7 @@ internal sealed class AiKnowledgePdfSourceReader(IDataTransactionState transacti
                 || !trustedHash.All(char.IsAsciiHexDigit)) return null;
             output = new((int)trustedSize);
             // 隔离同步阻塞的 ReadAsync 实现，外层 WaitAsync 仍能响应取消；不使用共享或池化字节数组。
-            reading = Task.Run(() => ReadOwnedAsync(ownedSource, output, (int)trustedSize, deadline.Token, io.Token));
+            reading = AiKnowledgePdfIoBoundary.RunAsync(() => ReadOwnedAsync(ownedSource, output, (int)trustedSize, deadline.Token, io.Token));
             if (!await reading.WaitAsync(deadline.Token).ConfigureAwait(false)) return null;
             deadline.Token.ThrowIfCancellationRequested(); NoTransaction();
             if (!string.Equals(Convert.ToHexStringLower(SHA256.HashData(output.Bytes.Span)), trustedHash, StringComparison.OrdinalIgnoreCase)) return null;
@@ -68,7 +72,7 @@ internal sealed class AiKnowledgePdfSourceReader(IDataTransactionState transacti
         finally
         {
             if (!ready) { output?.Dispose(); deadline.Cancel(); }
-            try { await CloseOwnedAsync(ownedSource, reading, io, !ready).ConfigureAwait(false); }
+            try { await CloseOwnedAsync(ownedSource, reading, io, !ready, cleanup).ConfigureAwait(false); }
             catch { output?.Dispose(); deadline.Cancel(); throw; }
         }
         try
@@ -99,11 +103,12 @@ internal sealed class AiKnowledgePdfSourceReader(IDataTransactionState transacti
         finally { CryptographicOperations.ZeroMemory(scratch); }
     }
 
-    private static async Task CloseOwnedAsync(Stream source, Task? reading, CancellationTokenSource io, bool cancel)
+    private static async Task CloseOwnedAsync(Stream source, Task? reading, CancellationTokenSource io, bool cancel,
+        AiKnowledgePdfIoScheduler.Reservation reservation)
     {
         // DisposeAsync 的同步部分同样可能阻塞；独立清理预算不依赖已经取消的读取令牌。
         var cancelling = cancel ? io.CancelAsync() : Task.CompletedTask;
-        var closing = Task.Run(async () => await source.DisposeAsync().ConfigureAwait(false));
+        var closing = reservation.RunAsync(async () => await source.DisposeAsync().ConfigureAwait(false));
         var cleanup = Task.WhenAll(closing, ObserveAsync(cancelling), reading is null ? Task.CompletedTask : ObserveAsync(reading));
         try { await cleanup.WaitAsync(CleanupLimit).ConfigureAwait(false); }
         catch (TimeoutException)

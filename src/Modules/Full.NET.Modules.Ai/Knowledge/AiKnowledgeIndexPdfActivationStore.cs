@@ -74,17 +74,17 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
         token.ThrowIfCancellationRequested(); NoTransaction();
         if (row is null || row.Id == Guid.Empty || row.IndexTaskId != taskId) return false;
         var session = Snapshot(row);
-        var manifestRow = await ReadManifest(p, token).ConfigureAwait(false);
+        var manifestRow = await ReadManifestAsync(p, token).ConfigureAwait(false);
         if (manifestRow is null || manifestRow.PayloadHash != pointer.ManifestHash) return false;
         var manifest = DecodeManifest(manifestRow, token);
         if (manifest is null || manifest.Summary.PlanHash != pointer.PlanHash || !ValidManifest(binding, manifest)
             || receipts!.Length != manifest.Batches.Count
-            || (expected is null && !await Authorized(binding, session, token).ConfigureAwait(false))) return false;
+            || (expected is null && !await AuthorizedAsync(binding, session, token).ConfigureAwait(false))) return false;
         Fill(p, session, manifest, receipts);
         p["Completed"] = 1;
         var valid = await transaction.ExecuteAsync(async cancellation =>
         {
-            var source = await ValidateLocked(binding, p, session, new(manifest, pointer.ManifestHash), receipts, null, cancellation).ConfigureAwait(false);
+            var source = await ValidateLockedAsync(binding, p, session, new(manifest, pointer.ManifestHash), receipts, null, cancellation).ConfigureAwait(false);
             if (source is null) return false;
             var current = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexActivationRecord>(Choose(AiKnowledgeIndexActivationSql.PointerHost,
                 AiKnowledgeIndexActivationSql.PointerTenant), p, cancellation).ConfigureAwait(false);
@@ -98,7 +98,7 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
             return visible == expected && (cleanup is null || await cleanup(cancellation).ConfigureAwait(false));
         }, token).ConfigureAwait(false);
         // 数据库等待后原会话可能被撤销；读到活动指针不免除当前授权。
-        return valid && (expected is not null || await Authorized(binding, session, token).ConfigureAwait(false));
+        return valid && (expected is not null || await AuthorizedAsync(binding, session, token).ConfigureAwait(false));
     }
 
     /// <summary>可失败入口；事务实现须再次复核实际载荷及当前来源。</summary>
@@ -112,14 +112,14 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
         var receipts = proof.Receipts.ToArray();
         if (proof.Source.TaskId != taskId || proof.Source.LeaseToken != leaseToken || proof.Source.DocumentId != binding.DocumentId
             || proof.Source.VersionId != binding.VersionId || !ValidReceipts(receipts) || !ValidManifest(binding, manifest.Manifest)
-            || receipts.Length != manifest.Manifest.Batches.Count || !await Authorized(binding, proof.Session, token).ConfigureAwait(false)) return false;
+            || receipts.Length != manifest.Manifest.Batches.Count || !await AuthorizedAsync(binding, proof.Session, token).ConfigureAwait(false)) return false;
         Fill(p, proof.Session, manifest.Manifest, receipts); p["Completed"] = 0;
         p["Id"] = ids.NewId(); p["ManifestHash"] = manifest.PayloadHash;
         try
         {
             _ = await transaction.ExecuteAsync(async cancellation =>
             {
-                var source = await ValidateLocked(binding, p, proof.Session, manifest, receipts, proof.Source, cancellation).ConfigureAwait(false);
+                var source = await ValidateLockedAsync(binding, p, proof.Session, manifest, receipts, proof.Source, cancellation).ConfigureAwait(false);
                 if (source is null) return false;
                 var previous = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexActivationRecord>(Choose(AiKnowledgeIndexActivationSql.ExistingPointerHost,
                     AiKnowledgeIndexActivationSql.ExistingPointerTenant), p, cancellation).ConfigureAwait(false);
@@ -141,7 +141,7 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
         catch (ActivationRejectedException) { return false; }
     }
 
-    private async Task<AiKnowledgeIndexDispatchRecord?> ValidateLocked(AiKnowledgeIndexTaskBinding binding, Dictionary<string, object?> p,
+    private async Task<AiKnowledgeIndexDispatchRecord?> ValidateLockedAsync(AiKnowledgeIndexTaskBinding binding, Dictionary<string, object?> p,
         SessionBindingSnapshot session, AiKnowledgeIndexPdfManifestSnapshot expectedManifest, AiKnowledgeIndexVectorReceiptRecord[] expected,
         AiKnowledgeIndexDispatchRecord? expectedSource, CancellationToken token)
     {
@@ -157,7 +157,7 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
         // 根查询已经锁住原会话及清单；这些有界重读不调用跨模块 Port。
         var currentSession = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexSessionRecord>(Choose(AiKnowledgeIndexActivationSql.SessionHost,
             AiKnowledgeIndexActivationSql.SessionTenant), p, token).ConfigureAwait(false);
-        var manifestRow = await ReadManifest(p, token).ConfigureAwait(false);
+        var manifestRow = await ReadManifestAsync(p, token).ConfigureAwait(false);
         if (currentSession is null || Snapshot(currentSession) != session || manifestRow is null || manifestRow.PayloadHash != expectedManifest.PayloadHash) return null;
         if (manifestRow.Id != (Guid)p["TaskId"]! || manifestRow.Payload.Length is < 8 or > AiKnowledgeIndexPdfManifestCodec.MaxPayloadBytes) return null;
         manifestRow = manifestRow with { Payload = manifestRow.Payload.ToArray() };
@@ -206,7 +206,7 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
         && expected.ModelProviderKey == current.ModelProviderKey && expected.ModelId == current.ModelId
         && expected.ModelEndpointBaseUrl == current.ModelEndpointBaseUrl && expected.ModelOrganizationId == current.ModelOrganizationId;
 
-    private Task<AiKnowledgeIndexTextManifestRecord?> ReadManifest(Dictionary<string, object?> p, CancellationToken token) =>
+    private Task<AiKnowledgeIndexTextManifestRecord?> ReadManifestAsync(Dictionary<string, object?> p, CancellationToken token) =>
         query.QuerySingleOrDefaultAsync<AiKnowledgeIndexTextManifestRecord>(Choose(AiKnowledgeIndexActivationSql.ManifestHost, AiKnowledgeIndexActivationSql.ManifestTenant), p, token);
     private static AiKnowledgeIndexPdfManifest? DecodeManifest(AiKnowledgeIndexTextManifestRecord row, CancellationToken token)
     {
@@ -220,7 +220,7 @@ internal sealed class AiKnowledgeIndexPdfActivationStore(IQueryExecutor query, I
         manifest.Identity.KnowledgeBaseId == binding.KnowledgeBaseId && manifest.Identity.KnowledgeBaseVersion == binding.KnowledgeBaseVersion
         && manifest.Identity.TenantId == tenant.Id && manifest.Identity.ProviderKey == "openai_compatible"
         && manifest.Identity.ModelId is "text-embedding-3-small" or "text-embedding-3-large";
-    private async Task<bool> Authorized(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, CancellationToken token)
+    private async Task<bool> AuthorizedAsync(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, CancellationToken token)
     {
         if (session.UserId != binding.OwnerUserId || session.TenantId != tenant.Id || session.SessionId == Guid.Empty
             || session.SessionKind is not (SessionBindingKinds.Refresh or SessionBindingKinds.OidcApplication)) return false;

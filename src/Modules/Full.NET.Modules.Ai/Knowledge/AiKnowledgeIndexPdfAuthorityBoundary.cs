@@ -16,7 +16,7 @@ internal static class AiKnowledgeIndexPdfAuthorityBoundary
         var lifetime = previous ?? new ProofLifetime(); Current.Value = lifetime;
         var io = new CancellationTokenSource(); var delivered = false;
         // 外部 Port 的同步阻塞与取消回调都不能占住工作调用者。
-        var pending = Task.Run(() => { io.Token.ThrowIfCancellationRequested(); return action(io.Token); });
+        var pending = AiKnowledgePdfIoBoundary.RunAsync(() => { io.Token.ThrowIfCancellationRequested(); return action(io.Token); });
         try
         {
             var result = await pending.WaitAsync(token).ConfigureAwait(false);

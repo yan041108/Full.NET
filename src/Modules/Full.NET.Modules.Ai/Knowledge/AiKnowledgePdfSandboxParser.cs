@@ -58,8 +58,10 @@ internal sealed class AiKnowledgePdfSandboxParser(IDataTransactionState transact
                 await completed.ConfigureAwait(false); pending.Remove(completed);
                 token.ThrowIfCancellationRequested(); NoTransaction();
             }
-            if (process.ExitCode != 0 || errors.Result.Length != 0 || output.Result.Length == 0) return null;
-            using var wire = new MemoryStream(output.Result, false);
+            var outputBytes = await output.ConfigureAwait(false);
+            var errorBytes = await errors.ConfigureAwait(false);
+            if (process.ExitCode != 0 || errorBytes.Length != 0 || outputBytes.Length == 0) return null;
+            using var wire = new MemoryStream(outputBytes, false);
             return (await AiKnowledgePdfOutputReader.ReadAsync(wire, hash, bytes.Length, token).ConfigureAwait(false)).Document;
         }
         catch (InvalidDataException) { return null; }
@@ -87,8 +89,8 @@ internal sealed class AiKnowledgePdfSandboxParser(IDataTransactionState transact
                     }
                     finally
                     {
-                        if (output?.IsCompletedSuccessfully == true) CryptographicOperations.ZeroMemory(output.Result);
-                        if (errors?.IsCompletedSuccessfully == true) CryptographicOperations.ZeroMemory(errors.Result);
+                        if (output?.IsCompletedSuccessfully == true) CryptographicOperations.ZeroMemory(await output.ConfigureAwait(false));
+                        if (errors?.IsCompletedSuccessfully == true) CryptographicOperations.ZeroMemory(await errors.ConfigureAwait(false));
                     }
                 }
             }

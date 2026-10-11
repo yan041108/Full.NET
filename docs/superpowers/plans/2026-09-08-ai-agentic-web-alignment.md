@@ -2010,6 +2010,24 @@ SQL Server 另有已有知识索引状态用例在文本代次生成断言返回
 
 其余 AI 集成、Native 发布/运行、独立生成应用及页面继续集中验收；历史终态修复、逐步工具恢复、输入硬上界及自动外部对账继续开放，R10 不整体关闭，保持 `Capacity-not-verified`。
 
+### R10s：PDF 有界异步边界与架构回归收敛（2026-10-11 启动，2026-10-12 本批完成）
+
+基线 `701e0804bb74d712d4ce27cb21112259e1291924`，沿用 main。收敛 R10r 扩大架构检查发现的三项失败，保持现有检查规则，仅补充已复核的精确租约写入登记；同步阻塞入口仍须隔离以保持取消保障。
+
+- [x] 在 `AiKnowledgePdfIoBoundary.cs` 建立仅供 PDF 使用的有界专用线程调度；普通 IO 与清理各 4 个后台线程及 8 个额外准入位置，最多各 12 个未完成操作。异步等待继续使用 await，容量耗尽立即拒绝；任务完成前不释放准入容量；清理在 Files 打开来源及预算预留前保留位置，未使用位置与迟到持有引用同样计入上限，已接纳资源的最终清理只提交一次且不再竞争准入。线程不继承首次调用的请求上下文，每个任务单独捕获和恢复 ExecutionContext，以保留已有来源证明寿命而不污染后续任务。先以旧 Task.Run 适配建立容量/线程隔离红灯，再实现调度。
+- [x] 5 个 PDF 来源、规划、授权、模型与沙箱边界替换 Task.Run/Task.Result；清理使用独立通道，保留超时、取消、迟到资源释放、收费回执冻结及已经开始的证明事务等待。原始流不能强制终止，清理未确认仍须拒绝交付；不把线程边界宣称为任意代码沙箱。
+- [x] 两个索引激活 Store 的 6 个私有异步方法补 Async 后缀；逐项核对租约监视器的独立 Host scope、CAS SQL 与 finally 清理后，仅将该精确文件登记到租户写入允许清单。SQL、迁移、权限、HTTP DTO 均不变化。
+- [x] 新增真实调度、容量、取消、异常、上下文与清理回归，集中运行完整 AI Unit、全量 Architecture、API/Worker AOT 分析和静态矩阵检查；独立复审后更新运维说明与证据并提交。Native 发布/运行、生成应用和浏览器仍按 AI 模块集中验收，保持 `Capacity-not-verified`。
+
+实际验证（本地集中批次，证据目录 `artifacts/r10s/`；i7-12700H、20 逻辑处理器、约 64 GiB 内存，Linux 验证容器 4 GiB 内存，Windows 完成后 CPU 配额由 4 提至 8；该范围不构成容量实测）：
+
+- Windows `dotnet build tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --no-restore -p:NuGetAudit=false -p:UseSharedCompilation=false -m:2` 通过，零警告/错误。新增 PDF I/O 13/13、完整 `FullyQualifiedName~Full.NET.UnitTests.Ai` 3351/3351，全为通过且零跳过；TRX 与完整发现 UID 集合相等。工作区发现 6844 项，其中 10 项既有本地日志外部改动不属本批；canonical Unit 下界从 6821 增至 6834、AI 从 3338 增至 3351，未宣称执行全量 Unit。
+- 冻结 HEAD 加本批源码，不混入日志、Helm、CI 等既有改动。Linux `dotnet build tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj -c Release` 与完整 Architecture 235/235 通过、零跳过，三个既有门禁失败均已关闭；先前 R10r 232/235 是保留的历史失败记录，不回写为通过。
+- API/Worker 分别 `dotnet build ... -c Release -p:FullNetAotAnalysis=true` 零警告/错误，保持 `Aot-analysis-clean`；未执行本批 Native 发布或真实运行。冻结源码命名 30/30、矩阵 6/6、治理 57/57、受保护路径排除后的 Markdown 检查及 Integration 分片发现完整性校验均通过。
+- 红灯先保留原 Task.Run 适配，8 项中 4 项失败；独立复核发现清理饱和会丢失流释放和收费结算后，新增保留额度验证再产生 11 项中 3 项失败。实现提前保留、迟到引用和一次提交后，13 项全部通过；关闭等待和真实 SourceReader 满清理通道均有回归。两项 Important 复核问题（饱和所有权、参数重名）和容量运维说明已收敛。
+- 首次冻结分片发现缺少程序集、Windows 文件复制保留旧时间戳导致复用旧 AI 程序集的编译失败及中止的 Linux 尝试均保留，不计为通过。刷新本批源码时间戳后重新构建，Unit 消费的 AI 程序集哈希与新模块输出相同；复用缓存先校验完整输入哈希，仅同步实际变化文件。Linux SDK 10.0.400 的两项解析器锁差异继续使用既有受控派生证明；为该验收容器复用本机已有 Node 24.12.0 运行时完成分片发现，不修改生产镜像。
+- SQL、迁移、权限、HTTP DTO、预算结算规则均未改变；本批不重复 R10r 已通过的双库集成 14 项。Native 发布/运行、生成应用、浏览器/人工与真实云模型整代次验收继续按 AI 模块集中推进，R10 不整体关闭，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

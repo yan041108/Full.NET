@@ -37,6 +37,8 @@ internal sealed class AiKnowledgeIndexPdfEmbeddingService(AiKnowledgeIndexPdfPla
         model = await planning.ReadCurrentModelAsync(binding, taskId, leaseToken, prepared, bounded).ConfigureAwait(false);
         if (model is null) return null;
         var selected = prepared.Plan.Batches[ordinal]; var inputs = selected.Chunks.Select(c => c.EmbeddingText).ToArray();
+        // 预算预留和可能计费的派发前先保证最终回执有清理准入。
+        using var settlement = AiKnowledgePdfIoBoundary.ReserveCleanup();
         var admitted = await admission.ReserveAsync(binding, taskId, leaseToken, ordinal, inputs, bounded).ConfigureAwait(false);
         if (admitted?.Source is null) return null;
         var receipt = new ChargeReceipt(); var outcome = "failed";
@@ -79,7 +81,7 @@ internal sealed class AiKnowledgeIndexPdfEmbeddingService(AiKnowledgeIndexPdfPla
         {
             // 原范围账本独立结算；等待失败必须传播，不能交付未结算向量。
             var settledUsage = receipt.Freeze();
-            var settling = Task.Run(() => budget.SettleAsync(admitted.Request.OperationId, settledUsage, outcome, CancellationToken.None));
+            var settling = settlement.RunAsync(() => budget.SettleAsync(admitted.Request.OperationId, settledUsage, outcome, CancellationToken.None));
             try { await settling.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
             catch (TimeoutException) { _ = ObserveAsync(settling); throw new IOException("PDF budget settlement was not confirmed."); }
         }
@@ -92,7 +94,7 @@ internal sealed class AiKnowledgeIndexPdfEmbeddingService(AiKnowledgeIndexPdfPla
     private async Task<T> ModelAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken token)
     {
         Check(token); var io = new CancellationTokenSource(); var accepted = false;
-        var work = Task.Run(() => { Check(io.Token); return action(io.Token); });
+        var work = AiKnowledgePdfIoBoundary.RunAsync(() => { Check(io.Token); return action(io.Token); });
         try { var result = await work.WaitAsync(token).ConfigureAwait(false); Check(token); accepted = true; return result; }
         finally
         {
