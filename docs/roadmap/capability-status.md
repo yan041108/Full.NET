@@ -129,6 +129,10 @@ Enterprise 的通知历史重投已优先核对受理快照，当前模板未发
 
 
 
+## 2026-10-11 企业业务 Native 验证增量
+
+冻结 b1726b2 的真实原生 API/Worker 已在本地 SQL Server、MySQL 各完成审批通过、驳回、可靠业务结果回写和非空 XLSX 后台导入，2/2、零失败/跳过；AOT 架构 73/73。修复生成 CRUD 的动态 SQL 参数/物化器与原生导入配置绑定，关联 Unit 397/397。关联模块精确覆盖 71 个不同实际 Passed 身份：59 个 Linux 超时流恢复结果加 12 个 Windows 成功补跑，原始超时状态保留，未冒称一次完整成功运行。e811a65 修复后台首次深链接初始化，关联 Vue 49/49、浏览器 11/11 及完整 Vue 136 通过/4 个 Layui 专属跳过。此证据只覆盖上述路径，整体仍为 Build-verified、Capacity-not-verified。独立 Minimal 双库应用仍被 Docker Linux 引擎 HTTP 500 阻塞，未计通过，见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-11-企业业务-native静态-crud-与导入配置)。
+
 ## 2026-09-16 当前建设优先级
 
 1. 先收口所选交付预设的安全/隔离阻塞和已有模块证据，保持 SSO、AI、全项目修复等原专项的唯一任务所有权。

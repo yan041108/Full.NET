@@ -2438,3 +2438,26 @@ Linux 集中验收已通过：冻结 681d9a1 的独立干净副本统一 Integra
 精确 330e6b6 的 [Worker Native 38085036193](https://github.com/yan041108/Full.NET/actions/runs/38085036193) completed/success，17/17、零失败/跳过，架构 73/73；[API Native 38085036215](https://github.com/yan041108/Full.NET/actions/runs/38085036215) completed/success，核心 total 38、21 通过、17 个未提供 Worker 产物的跳过，不写为 38 通过；21 项为 API 真实 Native 11 与 JIT 10。Notifications/Settings Jobs/OIDC/S3/Kafka Replay 专项分别 2/4/16/2/2 项全通过、零失败/跳过，架构 73/73。完整日志与 .tmp/native-process-ci-proof.json 保留；[主 CI 38085036196](https://github.com/yan041108/Full.NET/actions/runs/38085036196) 最后核对仍为 in_progress，其已完成的客户端及两类迁移恢复作业 success，不报告整条主 CI 通过。未触发作业 skipped 不计通过，文档提交后的工作流另行核对。
 
 整体保持 Build-verified、Capacity-not-verified；本批原生验收进程失败清理与并发日志的本地集中验收关闭。完整企业业务 Native、人工全页面、完整故障/灾备与 10K 容量继续待验收；PR3 保持 Draft，不合并、不发布。
+
+## 2026-10-11 企业业务 Native、静态 CRUD 与导入配置
+
+基线 83190d089a2c0e69fbb9d06a4bfdcdeee2d88683，快照 enterprise-native-business-20261011；代码提交 86ab7e4、6fdde2a、b1726b2，沿用 codex/foundation-acceptance-20261003。同批补齐验收入口并修复真实原生运行暴露的两类共性缺陷，数据库结构、租户来源及授权边界未变。
+
+- 生成 CRUD 的 SQL 参数改为显式字典，覆盖分页、唯一性、关系守卫及树操作；原生编译条件下静态注册 Record 物化器，保留精确列顺序、可空值及提供程序类型转换。主键参数使用 CLR 属性名，与 SQL 参数一致；数据库列别名不改变参数名。样例和夹具同步生成，独立模块在 AOT 分析/发布时显式引用 Dapper。
+- ImportExportOptions 七个属性改为可写绑定。原生配置源生成器先前忽略 init 属性，Worker 保留 ExecutionEnabled=false，导致非空工作簿无法消费。API/Worker 四条配置回归及真实源生成探针覆盖全部配置和非法轮询周期，默认值与验证器保持。
+- 冻结 b1726b2 关联 Unit 397/397、零失败/跳过，16.615 秒；Release 构建 158.80 秒、零警告/错误。工具 101/101、模板接入 17/17 复用 6fdde2a 相同输入范围的结果；独立最小模块 AOT 分析编译通过，49.69 秒、零警告/错误，仅证明编译接入。参数、静态物化器和配置绑定的有效 RED 记录保留。
+- 新入口 pnpm test:aot:native:enterprise:e2e 严格核对双库两项实际结果；非 Linux 仅发现，不宣称原生运行通过。冻结 b1726b2 在本地使用真实原生 API/Worker 和 JIT Migrator，完成审批通过、驳回、可靠终态回写、版本保护及非空 XLSX 后台导入，2/2、零失败/跳过、159.882 秒；原生架构 73/73、19.953 秒。
+- 同一 Integration/Migrator 构建复用；API/Worker 产物来自源码树精确匹配的 [API CI](https://github.com/yan041108/Full.NET/actions/runs/38093730556) 与 [Worker CI](https://github.com/yan041108/Full.NET/actions/runs/38093730531)，均 completed/success。ZIP digest、实际合并检出树、manifest 与执行文件摘要已核对。API/Worker SHA256 分别为 21c5338aa00d5f67e20819368706e66d04e82486f4f0b7414b75b2e01566fd93、375fd815f27b7276c67c0fe4ffb1be749bebf249f7cf339c9d49efed0101d2bb，不复用旧 6fdde2a 产物认证新配置。
+- 原生回执、TRX 和四份进程日志在 .tmp/enterprise-native-linux-green-5，completed=true。较早版本分别暴露动态参数/物化器及导入配置未生效，失败回执保留。仅认证上述审批和导入纵向路径，不扩展为完整 F10、全部企业故障或容量认证。
+
+关联模块验证覆盖 71 个不同身份（CodeGeneration 41、EnterpriseRequest 16、ImportExport 14）。初轮 Linux 超时退出 3；锁定版本 TrxReport 2.3.2 官方解析器从完整原始流恢复 59 个实际 Passed 身份，原始 Aborted 状态保留。原定容器补跑排队 22 分 55.828 秒后取得资源，但 Docker Linux 引擎 `_ping` 返回 HTTP 500，容器未启动、测试零执行、退出 1；环境失败未计为测试结果。
+
+沿调用链确认余下 12 项仅涉及文件与编译，程序集初始化按需启动依赖，无数据库容器消费者。Windows 对同一冻结 DLL 发现完全一致的 12 个 UID，按三批直接执行 4/4、4/4、4/4，均零失败/跳过，测试时长分别 253.004、230.689、67.742 秒；协调起止 00:09:59.905Z–00:19:29.976Z，约 9 分 30 秒。Windows SDK 10.0.401、Node 24.12.0、DOTNET_PROCESSOR_COUNT=4、MTP 两个 worker，临时编译投影与结果隔离到自有 C 盘目录。测试宿主及三个 Migrator 产物摘要、冻结跟踪源码均在每批前后保持；仅执行用例本身要求的候选模块编译，未重建测试宿主，不放宽断言。联合集合精确为 71 个不同实际 Passed 身份，不写成一次 Linux 71/71 成功运行；原始流、恢复证据及三份 Windows TRX 在 .tmp/enterprise-native-generated-app/integration-results，mode=recovered-linux-stream-and-three-windows-uid-chunks。
+
+仅独立 Minimal 双库应用集中验收未关闭。Docker Desktop 自报 running，Linux 引擎 `/version` 亦返回 500；自有冻结副本和构建保留待续验，未声称副本已清理。共享引擎重启会影响其他窗口容器，需另行确认，不能通过抢占外部资源推进。
+
+后台深链接初始化修复使用快照 initial-route-session-race-20261011，已提交推送 e811a65。CI 首次打开报表定义页时，异步路由尚未完成，会话恢复触发导航校验误跳到数据源页；受控延迟路由稳定复现 RED。应用改为等待 router.isReady() 后挂载，保留 OIDC 根 query 提升顺序。源码相同的隔离副本执行 49/49 Vue 单测、vue-tsc 类型检查、Vite 生产构建及 11/11 认证/报表浏览器流程；完整 Vue 浏览器组 136 通过、4 个 Layui 专属用例跳过、零失败，约 6.6 分钟，不写成 140 项通过。磁盘耗尽导致完整组首次执行与报告写入中断，未计通过；已恢复原报告，本批归档逐文件核对摘要后迁移并保留原路径，复验结果写入有空间的磁盘。关联源码摘要、精确跳过身份及结果独立复核于 .tmp/initial-route-final-proof.json；成功和两份失败的客户端副本均先解除共享依赖 junction 再按所有权清理，未触碰其他窗口资源。治理 59/59、零失败/跳过。
+
+b1726b2 的 [主 CI](https://github.com/yan041108/Full.NET/actions/runs/38093730577) completed/failure，客户端失败为上述深链接缺陷；两类迁移恢复作业 success。API Native 核心组 21 通过、17 个未提供 Worker 产物的跳过，Worker 独立组 17/17；两条架构各 73/73。API Notifications/Settings Jobs/OIDC/S3/Kafka Replay 专项分别 2/4/16/2/2 全通过。新 e811a65 工作流另行核对，不用旧 CI 或本地浏览器结果冒称新主 CI 已成功。
+
+整体保持 Build-verified、Capacity-not-verified。人工全页面、完整故障/灾备及 10K 容量继续待验收；PR3 保持 Draft，不合并、不发布。
