@@ -19,6 +19,11 @@ internal sealed class DocumentVersionRetentionSettingsBootstrap(
         {
             await ReloadAsync(cancellationToken).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // 宿主停止不是配置加载故障，不能吞掉取消后继续启动。
+            throw;
+        }
         catch (Exception exception)
         {
             DocumentVersionRetentionSettingsBootstrapLog.LoadFailed(logger, exception);
@@ -27,6 +32,7 @@ internal sealed class DocumentVersionRetentionSettingsBootstrap(
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
+    /// <summary>从权威数据库重读覆盖；读取失败时传播异常，供清理方拒绝使用陈旧策略。</summary>
     public async Task ReloadAsync(CancellationToken cancellationToken)
     {
         await using var scope = scopeFactory.CreateAsyncScope();

@@ -133,6 +133,7 @@ internal static class DocumentVersionRetentionAssertions
         using var client = factory.CreateClientForHost("localhost");
         var token = await NativeApiE2EAssertions.LoginAsync(client);
         await VerifyHostAsync(client, token);
+        await DocumentVersionRetentionRefreshAssertions.VerifyIndependentMonitorAsync(factory, client, token);
         using var availableRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/tenancy/available");
         availableRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var available = await client.SendAsync(availableRequest);

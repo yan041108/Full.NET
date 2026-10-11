@@ -154,7 +154,7 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddSingleton<DocumentVersionRetentionOptionsChangeTokenSource>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IOptionsChangeTokenSource<DocumentVersionRetentionOptions>,
-            DocumentVersionRetentionOptionsChangeTokenSource>());
+            DocumentVersionRetentionOptionsChangeTokenSourceAdapter>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IPostConfigureOptions<DocumentVersionRetentionOptions>,
             DocumentVersionRetentionOptionsPostConfigurer>());

@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Data.Common;
 using Dapper;
 using Full.NET.Data.Abstractions;
+using Full.NET.IntegrationTests.Document;
 using Full.NET.Modules.Jobs.Contracts;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
@@ -120,6 +121,8 @@ internal static class NativeWorkerE2EAssertions
                 connectionString,
                 cancellationToken)
             .ConfigureAwait(false);
+        var retentionItemId = await DocumentVersionRetentionRefreshAssertions.PrepareNativeAsync(
+            provider, connectionString, cancellationToken).ConfigureAwait(false);
         var heartbeatCountBefore = await ReadJobsHeartbeatCountAsync(
                 provider,
                 connectionString,
@@ -152,6 +155,8 @@ internal static class NativeWorkerE2EAssertions
                 host.LogFilePath,
                 cancellationToken)
             .ConfigureAwait(false);
+        await DocumentVersionRetentionRefreshAssertions.EnableNativeAndVerifyTrimAsync(
+            provider, connectionString, retentionItemId, host.LogFilePath, cancellationToken).ConfigureAwait(false);
         await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken)
             .ConfigureAwait(false);
         await host.StopGracefullyAsync(

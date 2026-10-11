@@ -9,6 +9,7 @@ namespace Full.NET.Modules.Document.Retention;
 
 internal sealed class DocumentVersionRetentionHostedProcessor(
     IServiceScopeFactory scopeFactory,
+    DocumentVersionRetentionSettingsBootstrap settingsBootstrap,
     IOptionsMonitor<DocumentVersionRetentionOptions> options,
     ILogger<DocumentVersionRetentionHostedProcessor> logger) : BackgroundService
 {
@@ -37,6 +38,9 @@ internal sealed class DocumentVersionRetentionHostedProcessor(
     internal async Task<DocumentVersionRetentionResult> ProcessOnceAsync(
         CancellationToken cancellationToken)
     {
+        // API 与 Worker 位于不同进程；每轮先重读，包括此前禁用的状态，才能发现启停和收紧策略。
+        // 数据库读取失败直接结束本轮，不得按陈旧的宽松策略执行删除。
+        await settingsBootstrap.ReloadAsync(cancellationToken).ConfigureAwait(false);
         var currentOptions = options.CurrentValue;
         if (currentOptions.MaximumRetainedHistoryVersions <= 0)
         {

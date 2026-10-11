@@ -28,6 +28,7 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
         "Files cleanup iteration failed",
         "Files upload reconciliation iteration failed",
         "Files reference claim reconciliation iteration failed",
+        "Document version retention iteration failed",
         "Workflow todo timeout worker iteration failed.",
     ];
 
