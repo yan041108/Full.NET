@@ -2495,4 +2495,32 @@ b1726b2 的 [主 CI](https://github.com/yan041108/Full.NET/actions/runs/38093730
 
 证据保留于 `.tmp/import-lease-local-proof.json`、`.tmp/import-lease-integration-green-retry`、`.tmp/import-lease-ci-artifacts/proof.json`、`.tmp/import-lease-native-recovery-2`；`node .tmp/import-lease-final-proof.mjs` 已独立核对当前输入、TRX、产物、外来改动和清理。精确代码的[主 CI](https://github.com/yan041108/Full.NET/actions/runs/38107170800)、[API Native CI](https://github.com/yan041108/Full.NET/actions/runs/38107170825)、[Worker Native CI](https://github.com/yan041108/Full.NET/actions/runs/38107170795) 均 completed/success；主 CI 的完整 Unit 6164/6164、架构 232/232、双库影响集 454/454、代表性企业 API 16/16，均零失败/跳过。这些 CI 来自测试精度修正之前的冻结提交，不冒充后续提交的工作流结果。
 
-本批导入租约验收关闭，整体保持 Build-verified、Capacity-not-verified。没有重建独立生成应用，也不将旧生成应用证据外推到新实现；人工全页面、完整故障/灾备、10K 容量及 F10/F11 整项继续待验收。只读检查发现 Reporting 导出生成/上传和完成 SQL 的同类期限缺口，已记录下一批范围，尚未修改或验收。四份其他对话的既有改动保持，未纳入提交。PR3 保持 Draft，不合并、不发布。
+本批导入租约验收关闭，整体保持 Build-verified、Capacity-not-verified。没有重建独立生成应用，也不将旧生成应用证据外推到新实现；人工全页面、完整故障/灾备、10K 容量及 F10/F11 整项继续待验收。只读检查发现 Reporting 导出生成/上传和完成 SQL 的同类期限缺口，导入批次结束时已记录下一批范围，后续完成情况见下方 Reporting 批次。四份其他对话的既有改动保持，未纳入提交。PR3 保持 Draft，不合并、不发布。
+
+## 2026-10-11 Reporting 导出租约、原生静态闭包与集中验收
+
+本批基线 `55ff1bc3e6466caa4d2c8cfb77a82e67b60baf4a`，快照 `reporting-lease-fencing-20261011`；租约修复 `f993a5496cc1ec2ab2f28cd87ac227d20d892469`，最终生产与验收输入冻结于 `490285e498e2051d557448a246819757118d9980`。生成、文件查询/上传及异步授权返回后复核租约剩余期限，链接取消令牌按剩余时间取消；双库四条终态 SQL 同时约束可信租户、processing、LeaseId 和严格有效期限。迟到结果不落库，上传流释放，文件保留给恢复。没有迁移或公共契约变化。
+
+原生验收依次发现并修复两处 JIT 隐藏的静态闭包缺口：ReportingGroupRecord 缺少行物化注册，补齐八字段映射；导出创建直接把未注册的持久化 Record 传入执行器，改成显式命名参数字典，TenantId 仍由执行器绑定。分组架构回归先 1 失败/73 通过；导出参数双库回归先 2/2 失败，验证全部 SQL 参数、空值、请求参数快照与会话委托。未引入反射、suppression 或授权旁路。
+
+- `node .tmp/reporting-export-unit.mjs green`：Reporting 与审批轮询 Unit 102/102，通过且无失败/跳过。原租约新增用例曾为 9 失败/16 通过；审批轮询策略曾为 1 失败/13 通过，永久回归均纳入本次。
+- `node .tmp/reporting-lease-architecture.mjs`：Native 架构 74/74；`node .tmp/reporting-export-aot.mjs` 执行规范 AOT 分析入口，零警告/错误，默认 JIT 还原完成。隔离产物使用规定项目、Release 和规范过滤器，原工作区遗留锁未被绕过删除。
+- 双库租约 SQL 10/10，实际数据库覆盖期限过期/相等/空值、重新领取后旧持有者、错误租户、有效终态和重放。Runner、SQL 与集成断言输入摘要未变，复用原本地通过证据；新增创建路径使用新原生产物集中验收。
+- `node .tmp/reporting-lease-native-ci-7.mjs 490285e498e2051d557448a246819757118d9980`：真实 SQL Server/MySQL 企业业务 2/2，零失败/跳过。实际 API/Worker 与审批和非空导入同栈验证报表数据源、分组、发布定义、租户授权、非空 Excel 导出/下载、上传后崩溃恢复、原文件 ID/字节复用及撤权下载拒绝。未替换生产 DI。
+- 工具 21/21、治理 61/61；Integration 1230 项分片发现无遗漏/重复，仅是发现证据。消费者复用本批 Windows SDK 编译的可移植输出；固定 Linux SDK 镜像、4 CPU/3 GiB，不再 Linux JIT 编译或重复本地发布。
+
+托管消费者在代码提交前按同一工作树源码输入编译，程序集 Git 元数据仍为 `35d046eb72022894a0620da0a81380b36a7c43e8`；源码输入与冻结提交 `490285e498e2051d557448a246819757118d9980` 核对一致，实际程序集摘要保持冻结。Unit 与 Integration 的 Reporting DLL 字节不同，分别登记摘要；只读核对管理/执行及其异步状态机的 50 个方法体 IL 一致，不将其写成文件相同或额外运行验收。不把复用写成在最终提交上重新编译。API/Worker ELF 则由最终提交对应 CI 源树发布。
+
+CI API `38125614169`、Worker `38125614209` 均 completed/success；完整日志核对实际检出 `d611e3afb5aa886683a408cf4525c558e7a1a34c` 及源码树 `f5ff7818d0ed51d2ba902a0e03d5eb244b71f090` 与冻结提交一致。GitHub ZIP digest、ELF、manifest、Linux native binding、生产输入和托管消费者摘要核对通过。四份宿主日志、TRX 和运行上下文已归档，自有副本与 SDK 容器已清理。
+
+测试优化：成功发布后立即上传 API 产物，Worker 新增提前发布产物，后续运行门禁及最终 evidence 保留，缺失文件失败关闭。35d046e 的实际上传间隔为 API 5 秒、Worker 4 秒，此时后续门禁尚未结束；本批使用对应新源码产物，提前可取不等于运行通过。共享重型锁继续执行，登记、排队与运行时间分别记录在 proof，不推导固定提速比例或容量。
+
+本批资源排队 1324 秒，实际 Linux 双库业务执行 764 秒；等待其他窗口释放共享锁计入排队，不计入业务测试耗时。
+
+第 6 次尝试在执行命令前发现副本消费者目录保留 21 个历史 TestResults 文件，严格目录摘要校验拒绝继续，业务命令为零。原 receipt、全部消费者产物和新增运行文件清单均保留；确认既有消费者 DLL 摘要未变后，把本窗口副本目录完整移到失败归档。第 7 次重新复制冻结消费者，继续执行完整目录摘要校验，没有排除 TestResults 或降低门禁。
+
+Windows 于 17:55 +08:00 重启，第 5 次验收协调器在排队中退出，执行命令为零；中断记录保留，Docker 恢复后按原产物重试。所有失败证据保留：审批进度 409、环境中断、旧 Host 令牌 401、分组 500、导出创建 500 和回归 RED。审批夹具只重读精确进度路径/错误码的 409，保留原预算；上下文切换使用正式接口返回的新令牌。切换 CI 复用时已中断本窗口重复发布并停止自有 SDK，不完整发布不计通过。自动审批拒绝删除本窗口旧工作区锁，仅返回 blocked by policy，锁保留为清理待办；最终验收使用独立副本锁且遵守共享重型锁，未抢占其他对话资源。
+
+证据：`.tmp/reporting-export-final-proof.json`、`.tmp/reporting-export-ci-artifacts`、`.tmp/reporting-lease-native-ci-7`、`.tmp/reporting-lease-integration-green`。Reporting 本批业务验收关闭，整体保持 Build-verified、Capacity-not-verified。未重新生成完整独立应用，不提升全页面、完整故障灾备、10K 容量或 F10/F11 整项；其他对话改动保留，PR3 保持 Draft，不合并、不发布。
+
+排队期间只读检查发现下一批候选：WorkflowInstanceListRecord、WorkflowTodoListRecord 与 SettingsDomainAuditDiffRecord 的真实查询已接入模块服务，但现有行物化器注册和 Native 列表/审计差异验收未覆盖。下一批先建立可失败回归，集中补齐静态映射及双库代表性运行验证；当前记录不计为已修复或已通过。
