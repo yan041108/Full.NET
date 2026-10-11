@@ -8,6 +8,26 @@ namespace Full.NET.ArchitectureTests;
 [TestClass]
 public sealed class NativeAotStaticBindingRulesTests
 {
+    [TestMethod]
+    public void ReportingModule_RegistersEveryQueriedRowMaterializer()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(root, "src", "Modules", "Full.NET.Modules.Reporting");
+        var contributor = File.ReadAllText(Path.Combine(moduleDirectory, "Persistence",
+            "ReportingDapperAotMaterializerContributor.cs"));
+        var queriedRows = Directory.EnumerateFiles(Path.Combine(moduleDirectory, "Features"), "*.cs",
+                SearchOption.AllDirectories)
+            .SelectMany(file => Regex.Matches(File.ReadAllText(file),
+                @"Query(?:SingleOrDefault)?Async<(Reporting\w+Record)>", RegexOptions.CultureInvariant)
+                .Select(match => match.Groups[1].Value))
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+
+        Assert.IsTrue(queriedRows.Length > 0, "必须发现 Reporting 真实查询结果，不能以空扫描通过。");
+        foreach (var row in queriedRows)
+            StringAssert.Contains(contributor, $"registrar.Register<{row}>",
+                $"Reporting 原生查询结果必须在请求前静态注册：{row}");
+    }
+
     private static readonly string[] WatchedRelativePaths =
     [
         "src/BuildingBlocks/Full.NET.Hosting",

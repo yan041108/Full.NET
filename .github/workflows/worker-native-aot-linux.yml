@@ -57,6 +57,17 @@ jobs:
         run: docker build -t fullnet-native-aot-publish-sdk:10.0 -f eng/docker/Dockerfile.api-native-aot-linux-sdk eng/docker
       - name: Publish Worker linux-x64 Native AOT artifact
         run: pnpm test:aot:worker:publish:linux
+      # 单独提前上传发布文件，最后的 evidence 继续保存完整运行回执及日志。
+      - name: Upload Worker Native AOT publish artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-native-aot-linux-publish
+          if-no-files-found: error
+          path: |
+            artifacts/native-aot/worker/linux-x64/publish-manifest.json
+            artifacts/native-aot/worker/linux-x64/publish.log
+            artifacts/native-aot/worker/linux-x64/publish/Full.NET.Host.Worker
       - name: Verify Native AOT architecture gates
         run: pnpm test:dotnet:architecture --selection api-native-aot
       - name: Run Worker Native AOT dual-database E2E

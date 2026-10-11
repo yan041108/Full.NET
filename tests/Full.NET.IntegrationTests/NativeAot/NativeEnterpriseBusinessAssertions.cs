@@ -132,7 +132,7 @@ internal static class NativeEnterpriseBusinessAssertions
             Assert.AreEqual(unitId, row.GetProperty("organizationUnitId").GetGuid());
             Assert.AreEqual(actorId, row.GetProperty("applicantUserId").GetGuid());
 
-            await VerifyReportingExportAsync(new BusinessHttp(client, hostToken, api.LogFilePath), http,
+            await VerifyReportingExportAsync(http,
                 external, destination, provider, connectionString, tenantId);
 
             await worker.StopGracefullyAsync(TimeSpan.FromSeconds(20));
@@ -156,10 +156,12 @@ internal static class NativeEnterpriseBusinessAssertions
         }, HttpStatusCode.Created, unitId: unitId);
 
     /// <summary>同一真实栈验收报表生成、文件下载及上传后崩溃的原生 Worker 恢复。</summary>
-    private static async Task VerifyReportingExportAsync(BusinessHttp host, BusinessHttp tenant,
+    private static async Task VerifyReportingExportAsync(BusinessHttp tenant,
         SqlConnectionStringBuilder external, string[] destination, DatabaseProvider provider,
         string connectionString, Guid tenantId)
     {
+        // 上下文切换会撤销旧会话；每次使用正式接口返回的新令牌，不复用最初的 Host 令牌。
+        var host = await tenant.ChangeContextAsync(null);
         var source = await host.SendAsync(HttpMethod.Post, "/api/v1/reporting/data-sources", new
         {
             tenantId = (Guid?)null, name = "原生报表外部数据源", providerKey = "sql_server",
@@ -187,6 +189,7 @@ internal static class NativeEnterpriseBusinessAssertions
             new { changeNote = "原生验收", version = definition.GetProperty("version").GetInt32() });
         var grant = $"/api/v1/reporting/definitions/{definitionId:D}/versions/1/tenant-grants/{tenantId:D}";
         await host.SendAsync(HttpMethod.Put, grant);
+        tenant = await host.ChangeContextAsync(tenantId);
         var task = await tenant.SendAsync(HttpMethod.Post, "/api/v1/reporting/export-tasks", new
         {
             definitionId, formatKey = "excel", versionNumber = 1,
@@ -218,7 +221,9 @@ internal static class NativeEnterpriseBusinessAssertions
             current => current.GetProperty("statusKey").GetString() == "succeeded");
         Assert.AreEqual(fileId, recovered.GetProperty("outputFileId").GetGuid());
         CollectionAssert.AreEqual(bytes, await tenant.DownloadAsync(download));
+        host = await tenant.ChangeContextAsync(null);
         await host.SendAsync(HttpMethod.Delete, grant);
+        tenant = await host.ChangeContextAsync(tenantId);
         await tenant.SendAsync(HttpMethod.Get, download, expected: HttpStatusCode.Forbidden);
     }
 
@@ -300,9 +305,12 @@ internal static class NativeEnterpriseBusinessAssertions
         var deadline = Stopwatch.StartNew();
         do
         {
-            var current = await http.SendAsync(HttpMethod.Get, path);
-            verifyIntermediate?.Invoke(current);
-            if (complete(current)) return current;
+            var current = await http.SendAsync(HttpMethod.Get, path, allowProgressSnapshotRetry: true);
+            if (current.ValueKind != JsonValueKind.Undefined)
+            {
+                verifyIntermediate?.Invoke(current);
+                if (complete(current)) return current;
+            }
             await Task.Delay(250);
         } while (deadline.Elapsed < TimeSpan.FromSeconds(90));
         Assert.Fail($"原生 Worker 未在预算内完成正式业务回执：{path}");
@@ -311,14 +319,28 @@ internal static class NativeEnterpriseBusinessAssertions
 
     private sealed class BusinessHttp(HttpClient client, string token, string logPath)
     {
+        internal async Task<BusinessHttp> ChangeContextAsync(Guid? tenantId)
+        {
+            var changed = await SendAsync(HttpMethod.Put, "/api/v1/tenancy/context", new { tenantId });
+            var accessToken = changed.GetProperty("accessToken").GetString();
+            Assert.IsFalse(string.IsNullOrWhiteSpace(accessToken));
+            return new BusinessHttp(client, accessToken, logPath);
+        }
+
         internal async Task<JsonElement> SendAsync(HttpMethod method, string path, object? body = null,
-            HttpStatusCode expected = HttpStatusCode.OK, Guid? unitId = null, bool anonymous = false)
+            HttpStatusCode expected = HttpStatusCode.OK, Guid? unitId = null, bool anonymous = false,
+            bool allowProgressSnapshotRetry = false)
         {
             using var request = new HttpRequestMessage(method, path);
             if (!anonymous) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             if (unitId is not null) request.Headers.Add(OrganizationRequestHeaders.OrganizationUnitId, unitId.Value.ToString("D"));
             if (body is not null) request.Content = JsonContent.Create(body);
             using var response = await client.SendAsync(request);
+            // Worker 终态提交可能跨越进度的两次读取；只在既有轮询预算内重读精确快照冲突。
+            if (allowProgressSnapshotRetry && method == HttpMethod.Get &&
+                Full.NET.Testing.ApprovalProgressReadPolling.IsSnapshotConflict(path, response.StatusCode,
+                    await response.Content.ReadAsStringAsync()))
+                return default;
             await NativeApiE2EAssertions.AssertStatusAsync(response, expected, $"Native Enterprise {method} {path}",
                 nativeLogFilePath: logPath);
             if (expected != HttpStatusCode.OK && expected != HttpStatusCode.Created) return default;

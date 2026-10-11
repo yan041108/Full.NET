@@ -81,6 +81,17 @@ jobs:
       - name: Publish linux-x64 Native AOT artifact
         run: pnpm test:aot:publish:linux
 
+      # 发布产物先提供给独立验收，后续运行门禁和失败日志继续保留。
+      - name: Upload publish manifest
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-native-aot-linux-manifest
+          if-no-files-found: error
+          path: |
+            artifacts/native-aot/linux-x64/publish-manifest.json
+            artifacts/native-aot/linux-x64/publish/Full.NET.Host.Api
+
       - name: Verify Native AOT architecture gates
         run: pnpm test:dotnet:architecture --selection api-native-aot
 
@@ -104,15 +115,6 @@ jobs:
 
       - name: Run Native AOT Kafka Replay Provider E2E
         run: pnpm test:aot:native:kafka-replay:e2e
-
-      - name: Upload publish manifest
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: api-native-aot-linux-manifest
-          path: |
-            artifacts/native-aot/linux-x64/publish-manifest.json
-            artifacts/native-aot/linux-x64/publish/Full.NET.Host.Api
 
       - name: Upload Native AOT test logs
         if: failure()

@@ -14,6 +14,29 @@ async function read(relativePath) {
   return readFile(path.join(repositoryRoot, relativePath), 'utf8');
 }
 
+for (const role of ['api', 'worker']) {
+  test(`${role} 成功发布后立即上传可复用产物，运行证据仍在原生测试之后`, async () => {
+    const workflow = await read(`.github/workflows/${role}-native-aot-linux.yml`);
+    const steps = workflow.split(/^      - /m).slice(1);
+    const publish = steps.findIndex(step => step.includes(role === 'api'
+      ? 'run: pnpm test:aot:publish:linux' : 'run: pnpm test:aot:worker:publish:linux'));
+    const artifact = steps.findIndex(step => step.startsWith(role === 'api'
+      ? 'name: Upload publish manifest' : 'name: Upload Worker Native AOT publish artifact'));
+    const runtime = steps.findIndex(step => step.startsWith(role === 'api'
+      ? 'name: Run Native AOT external-process E2E' : 'name: Run Worker Native AOT dual-database E2E'));
+    assert.ok(publish >= 0 && artifact === publish + 1, '产物必须在成功发布后的下一步上传');
+    assert.ok(runtime > artifact, '保留后续原生运行门禁');
+    assert.match(steps[artifact], /if: success\(\)/);
+    assert.match(steps[artifact], /if-no-files-found: error/);
+    const prefix = role === 'api' ? 'artifacts/native-aot/linux-x64' : 'artifacts/native-aot/worker/linux-x64';
+    assert.ok(steps[artifact].includes(`${prefix}/publish-manifest.json`));
+    assert.ok(steps[artifact].includes(`${prefix}/publish/Full.NET.Host.${role === 'api' ? 'Api' : 'Worker'}`));
+    assert.ok(steps.findIndex(step => step.startsWith(role === 'api'
+      ? 'name: Upload Native AOT test logs' : 'name: Upload Worker Native AOT evidence')) > runtime,
+    '最终运行日志或回执必须保留到测试之后');
+  });
+}
+
 test('package.json 暴露稳定的 linux Native AOT publish 命令', async () => {
   const packageJson = JSON.parse(await read('package.json'));
   assert.equal(

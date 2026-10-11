@@ -1,5 +1,6 @@
 <Project Sdk="MSTest.Sdk">
   <ItemGroup>
+    <Compile Include="../Shared/Testing/ApprovalProgressReadPolling.cs" Link="Testing/ApprovalProgressReadPolling.cs" />
     <Compile Include="../Shared/Testing/NativeMigratorProcess.cs" Link="Testing/NativeMigratorProcess.cs" />
     <Compile Include="../Shared/CodeGeneration/GeneratedMigrationRecoveryFixture.cs" Link="CodeGeneration/GeneratedMigrationRecoveryFixture.cs" />
   </ItemGroup>

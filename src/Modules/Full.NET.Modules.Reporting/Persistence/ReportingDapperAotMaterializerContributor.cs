@@ -12,12 +12,22 @@ internal sealed class ReportingDapperAotMaterializerContributor
 {
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        registrar.Register<ReportingGroupRecord>(ReadGroup);
         registrar.Register<ReportingDataSourceRecord>(ReadDataSource);
         registrar.Register<ReportingExportTaskRecord>(ReadExportTask);
         registrar.Register<ReportingPublishedDefinitionRecord>(ReadPublishedDefinition);
         registrar.Register<ReportingDefinitionRecord>(ReadDefinition);
         registrar.Register<ReportingDefinitionVersionRecord>(ReadDefinitionVersion);
     }
+
+    /// <summary>分组管理与定义校验共用此静态行映射，避免原生请求回退到反射物化。</summary>
+    private static ReportingGroupRecord ReadGroup(DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"), ParentId = ReadNullableGuid(reader, "ParentId"),
+        Name = ReadString(reader, "Name"), SortOrder = ReadInt32(reader, "SortOrder"),
+        IsEnabled = ReadBoolean(reader, "IsEnabled"), CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"),
+        UpdatedAtUtc = ReadNullableDateTimeOffset(reader, "UpdatedAtUtc"), Version = ReadInt32(reader, "Version"),
+    };
 
     /// <summary>读取本模块定义元信息；租户 SQL 必须先匹配精确版本授权。</summary>
     private static ReportingDefinitionRecord ReadDefinition(DbDataReader reader) => new()
