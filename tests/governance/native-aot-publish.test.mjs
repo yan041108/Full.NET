@@ -22,6 +22,14 @@ async function readNativeRunner(relativePath) {
   return entry + '\n' + await read('scripts/testing/native-suite-runner.mjs');
 }
 
+test('API 原生场景与 Worker 专项按宿主角色隔离', async () => {
+  const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
+  assert.ok(matrix.nativeAotIntegration.filter.split('&').includes('FullyQualifiedName!~NativeWorker'));
+  assert.equal(matrix.workerNativeAotIntegration.filter, 'FullyQualifiedName~NativeWorker');
+  assert.ok(matrix.nativeAotIntegration.requiredTestTypes.includes('NativeApiKafkaLogMySqlE2ETests'));
+  assert.ok(matrix.workerNativeAotIntegration.requiredTestTypes.includes('NativeWorkerKafkaLogMySqlE2ETests'));
+});
+
 for (const role of ['api', 'worker']) {
   test(`${role} 成功发布后立即上传可复用产物，运行证据仍在原生测试之后`, async () => {
     const workflow = await read(`.github/workflows/${role}-native-aot-linux.yml`);

@@ -9,6 +9,19 @@ namespace Full.NET.ArchitectureTests;
 public sealed class NativeAotStaticBindingRulesTests
 {
     [TestMethod]
+    [DataRow("Workflow", "WorkflowInstanceListRecord", "Features/ManageInstances/WorkflowInstanceQueryService.cs")]
+    [DataRow("Workflow", "WorkflowTodoListRecord", "Features/ManageMyTodos/WorkflowTodoQueryService.cs")]
+    [DataRow("Settings", "SettingsDomainAuditDiffRecord", "Auditing/SettingsDomainAuditChangeDiffReader.cs")]
+    public void ManagementReadProjection_HasStaticMaterializer(string module, string row, string query)
+    {
+        var directory = Path.Combine(ArchitectureRepositoryRoot.Find(), "src", "Modules", $"Full.NET.Modules.{module}");
+        var source = File.ReadAllText(Path.Combine(directory, query.Replace('/', Path.DirectorySeparatorChar)));
+        StringAssert.Contains(source, $"QueryAsync<{row}>", "回归必须对应真实可达查询，不能以未使用的类型通过。");
+        var contributor = File.ReadAllText(Path.Combine(directory, "Persistence", $"{module}DapperAotMaterializerContributor.cs"));
+        StringAssert.Contains(contributor, $"registrar.Register<{row}>", $"原生管理查询必须静态注册：{module}.{row}");
+    }
+
+    [TestMethod]
     public void ReportingModule_RegistersEveryQueriedRowMaterializer()
     {
         var root = ArchitectureRepositoryRoot.Find();

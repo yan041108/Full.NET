@@ -162,6 +162,7 @@ internal static class NativeEnterpriseBusinessAssertions
     {
         // 上下文切换会撤销旧会话；每次使用正式接口返回的新令牌，不复用最初的 Host 令牌。
         var host = await tenant.ChangeContextAsync(null);
+        await VerifySettingsAuditDiffAsync(host);
         var source = await host.SendAsync(HttpMethod.Post, "/api/v1/reporting/data-sources", new
         {
             tenantId = (Guid?)null, name = "原生报表外部数据源", providerKey = "sql_server",
@@ -248,6 +249,20 @@ internal static class NativeEnterpriseBusinessAssertions
         Assert.AreEqual(queued.GetProperty("submittedVersion").GetString(), started.GetProperty("submittedVersion").GetString());
         var instance = await http.SendAsync(HttpMethod.Get, $"/api/v1/workflow/instances/{instanceId:D}");
         var todoId = instance.GetProperty("activeTodoId").GetGuid();
+        await VerifyInstanceListsAsync(http, instance, completed: false);
+        var pendingPage = await http.SendAsync(HttpMethod.Get, "/api/v1/workflow/todos/mine?page=1&pageSize=100");
+        var pending = FindListItem(pendingPage, todoId);
+        var todo = await http.SendAsync(HttpMethod.Get, $"/api/v1/workflow/todos/{todoId:D}");
+        foreach (var field in new[] { "id", "instanceId", "stepId", "statusKey", "arrivedAtUtc", "revision" })
+            Assert.AreEqual(todo.GetProperty(field).GetRawText(), pending.GetProperty(field).GetRawText(), field);
+        foreach (var field in new[] { "businessType", "businessId", "businessTitle" })
+            Assert.AreEqual(instance.GetProperty(field).GetRawText(), pending.GetProperty(field).GetRawText(), field);
+        Assert.AreEqual(instance.GetProperty("statusKey").GetString(), pending.GetProperty("instanceStatusKey").GetString());
+        // 演示定义使用单人审批；详情中的 ActiveNodeKey 仅描述多人审批进度。
+        Assert.AreEqual("approve", pending.GetProperty("nodeKey").GetString());
+        Assert.IsFalse(string.IsNullOrWhiteSpace(pending.GetProperty("definitionKey").GetString()));
+        Assert.AreEqual(JsonValueKind.Null, pending.GetProperty("completedAtUtc").ValueKind);
+        Assert.AreEqual(JsonValueKind.Null, pending.GetProperty("resultActionKey").ValueKind);
         var command = new { expectedRevision = 1, fieldPatch = new { }, comment = "原生业务验收", idempotencyKey = $"native-{Guid.NewGuid():N}" };
         var completed = await http.SendAsync(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/{action}", command);
         Assert.AreEqual(action == "approve" ? "completed" : "rejected", completed.GetProperty("statusKey").GetString());
@@ -261,6 +276,68 @@ internal static class NativeEnterpriseBusinessAssertions
         var request = await http.SendAsync(HttpMethod.Get, $"{Requests}/{id:D}");
         Assert.AreEqual(status, request.GetProperty("status").GetString());
         Assert.AreEqual(final.GetProperty("requestVersion").GetString(), request.GetProperty("version").GetString());
+        var finishedInstance = await http.SendAsync(HttpMethod.Get, $"/api/v1/workflow/instances/{instanceId:D}");
+        await VerifyInstanceListsAsync(http, finishedInstance, completed: true);
+        var historyPage = await http.SendAsync(HttpMethod.Get, "/api/v1/workflow/todos/mine/history?page=1&pageSize=100");
+        var history = FindListItem(historyPage, todoId);
+        foreach (var field in new[] { "id", "instanceId", "stepId", "arrivedAtUtc", "businessType", "businessId", "businessTitle", "definitionKey", "nodeKey" })
+            Assert.AreEqual(pending.GetProperty(field).GetRawText(), history.GetProperty(field).GetRawText(), field);
+        Assert.AreEqual(action, history.GetProperty("resultActionKey").GetString());
+        Assert.IsTrue(history.GetProperty("revision").GetInt64() > pending.GetProperty("revision").GetInt64());
+        Assert.IsTrue(history.GetProperty("completedAtUtc").GetDateTimeOffset() >= history.GetProperty("arrivedAtUtc").GetDateTimeOffset());
+        Assert.AreEqual(finishedInstance.GetProperty("statusKey").GetString(), history.GetProperty("instanceStatusKey").GetString());
+    }
+
+    /// <summary>列表必须物化真实实例，并同时验证全局管理和“我发起的”两条受控查询。</summary>
+    private static async Task VerifyInstanceListsAsync(BusinessHttp http, JsonElement instance, bool completed)
+    {
+        foreach (var path in new[] { "/api/v1/workflow/instances", "/api/v1/workflow/instances/mine" })
+        {
+            var page = await http.SendAsync(HttpMethod.Get, path + "?page=1&pageSize=100");
+            var item = FindListItem(page, instance.GetProperty("id").GetGuid());
+            foreach (var field in new[] { "id", "definitionVersionId", "businessType", "businessId", "businessTitle", "statusKey", "startedAtUtc" })
+                Assert.AreEqual(instance.GetProperty(field).GetRawText(), item.GetProperty(field).GetRawText(), field);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(item.GetProperty("definitionKey").GetString()));
+            Assert.AreNotEqual(Guid.Empty, item.GetProperty("startedById").GetGuid());
+            if (completed)
+                Assert.IsTrue(item.GetProperty("completedAtUtc").GetDateTimeOffset() >= item.GetProperty("startedAtUtc").GetDateTimeOffset());
+            else
+                Assert.AreEqual(JsonValueKind.Null, item.GetProperty("completedAtUtc").ValueKind);
+        }
+    }
+
+    private static JsonElement FindListItem(JsonElement page, Guid id)
+    {
+        var matches = page.GetProperty("items").EnumerateArray().Where(item => item.GetProperty("id").GetGuid() == id).ToArray();
+        Assert.HasCount(1, matches, "分页查询必须包含且只包含一份真实业务行，空列表不能证明物化器有效。");
+        return matches[0];
+    }
+
+    /// <summary>正式诊断策略写入生成真实域审计，再通过聚合 API 读取同一 Trace 的非空差异。</summary>
+    private static async Task VerifySettingsAuditDiffAsync(BusinessHttp host)
+    {
+        const string policyPath = "/api/v1/settings/diagnostic-policy";
+        var current = await host.SendAsync(HttpMethod.Get, policyPath);
+        var traceId = Guid.NewGuid().ToString("N");
+        var updated = await host.SendAsync(HttpMethod.Put, policyPath, new
+        {
+            pressureState = "Normal", rules = Array.Empty<object>(),
+            configEntryVersion = current.GetProperty("configEntryVersion").GetInt32(),
+        }, traceId: traceId);
+        var path = "/api/v1/auditing/domain-change-diffs?traceId=" + traceId;
+        await host.SendAsync(HttpMethod.Get, path, expected: HttpStatusCode.Unauthorized, anonymous: true);
+        var diffs = await host.SendAsync(HttpMethod.Get, path);
+        Assert.AreEqual(traceId, diffs.GetProperty("traceId").GetString());
+        var entries = diffs.GetProperty("entries").EnumerateArray().Where(entry => entry.GetProperty("moduleKey").GetString() == "settings").ToArray();
+        Assert.HasCount(1, entries);
+        var entry = entries[0];
+        Assert.AreNotEqual(Guid.Empty, entry.GetProperty("auditId").GetGuid());
+        Assert.AreEqual("settings.logging-diagnostic-policy.updated", entry.GetProperty("actionKey").GetString());
+        Assert.AreEqual("available", entry.GetProperty("availability").GetString());
+        Assert.IsTrue(entry.GetProperty("occurredAtUtc").GetDateTimeOffset() > DateTimeOffset.UtcNow.AddMinutes(-30));
+        var fields = entry.GetProperty("fields").EnumerateArray().ToDictionary(field => field.GetProperty("fieldKey").GetString()!, field => field.GetProperty("afterValue").GetString());
+        Assert.AreEqual(updated.GetProperty("version").GetInt64().ToString(System.Globalization.CultureInfo.InvariantCulture), fields["version"]);
+        Assert.AreEqual("Normal", fields["pressure"]);
     }
 
     private static async Task<Guid> QueueWorkbookAsync(BusinessHttp http, string number, Guid actorId, Guid unitId)
@@ -329,10 +406,15 @@ internal static class NativeEnterpriseBusinessAssertions
 
         internal async Task<JsonElement> SendAsync(HttpMethod method, string path, object? body = null,
             HttpStatusCode expected = HttpStatusCode.OK, Guid? unitId = null, bool anonymous = false,
-            bool allowProgressSnapshotRetry = false)
+            bool allowProgressSnapshotRetry = false, string? traceId = null)
         {
             using var request = new HttpRequestMessage(method, path);
             if (!anonymous) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            if (traceId is not null)
+            {
+                var spanId = Guid.NewGuid().ToString("N")[..16];
+                request.Headers.Add("traceparent", $"00-{traceId}-{spanId}-01");
+            }
             if (unitId is not null) request.Headers.Add(OrganizationRequestHeaders.OrganizationUnitId, unitId.Value.ToString("D"));
             if (body is not null) request.Content = JsonContent.Create(body);
             using var response = await client.SendAsync(request);

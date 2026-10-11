@@ -86,7 +86,7 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 233,
+      "minimum": 236,
       "timeout": "10m",
       "selections": {
         "ai-agentic-boundaries": {
@@ -99,7 +99,7 @@
         },
         "api-native-aot": {
           "filter": "FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol",
-          "minimum": 74
+          "minimum": 77
         },
         "identity-oidc": {
           "filter": "FullyQualifiedName~IdentityOidcBoundaryTests",
@@ -133,7 +133,7 @@
   },
   "nativeAotIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
-    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc&FullyQualifiedName!~NativeEnterpriseBusiness",
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc&FullyQualifiedName!~NativeEnterpriseBusiness&FullyQualifiedName!~NativeWorker",
     "requiredTestTypes": [
       "NativeApiKafkaLogMySqlE2ETests"
     ],
