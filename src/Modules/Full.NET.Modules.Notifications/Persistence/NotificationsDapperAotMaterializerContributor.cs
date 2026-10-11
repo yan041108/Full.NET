@@ -39,7 +39,67 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
         registrar.Register<NotificationProviderProfileVersionRecord>(ReadProfileVersion);
         registrar.Register<NotificationBindingRecord>(ReadBinding);
         registrar.Register<NotificationBindingVersionRecord>(ReadBindingVersion);
+        registrar.Register<DingTalkApprovalSyncRecord>(ReadDingTalkApprovalSync);
+        registrar.Register<WeChatMiniProgramBindingRecord>(ReadWeChatMiniProgramBinding);
+        registrar.Register<WeChatMiniProgramSubscriptionRecord>(ReadWeChatMiniProgramSubscription);
     }
+
+    /// <summary>按审批镜像查询的固定投影读取，兼容双库 bigint、时间类型及可空外部状态。</summary>
+    /// <param name="reader">已经定位到当前结果行的数据读取器。</param>
+    /// <returns>包含内部同步状态的审批镜像记录。</returns>
+    private static DingTalkApprovalSyncRecord ReadDingTalkApprovalSync(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(0),
+        TenantScopeKey = reader.GetString(1),
+        WorkflowInstanceId = reader.GetGuid(2),
+        IdempotencyKey = reader.GetString(3),
+        DingTalkProcessInstanceId = AotDataReaderExtensions.ReadNullableString(reader, 4),
+        ProcessCode = reader.GetString(5),
+        OriginatorUserId = reader.GetString(6),
+        DeptId = AotDataReaderExtensions.ReadInt64(reader, 7),
+        Title = reader.GetString(8),
+        Summary = AotDataReaderExtensions.ReadNullableString(reader, 9),
+        StatusKey = reader.GetString(10),
+        ExternalStatusKey = AotDataReaderExtensions.ReadNullableString(reader, 11),
+        ExternalResultKey = AotDataReaderExtensions.ReadNullableString(reader, 12),
+        LastErrorCode = AotDataReaderExtensions.ReadNullableString(reader, 13),
+        LastSyncedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 14),
+        CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 15),
+        UpdatedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 16),
+        CreatedByUserId = reader.GetGuid(17),
+    };
+
+    /// <summary>按绑定查询的固定投影读取受保护值；响应仍由服务仅输出掩码。</summary>
+    /// <param name="reader">已经定位到当前结果行的数据读取器。</param>
+    /// <returns>仅供绑定服务使用的内部记录。</returns>
+    private static WeChatMiniProgramBindingRecord ReadWeChatMiniProgramBinding(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(0),
+        TenantScopeKey = reader.GetString(1),
+        UserId = reader.GetGuid(2),
+        AppId = reader.GetString(3),
+        ProviderProfileVersionId = reader.GetGuid(4),
+        OpenIdProtected = reader.GetString(5),
+        OpenIdMask = reader.GetString(6),
+        OpenIdSha256Hex = reader.GetString(7),
+        UnionIdProtected = AotDataReaderExtensions.ReadNullableString(reader, 8),
+        UnionIdMask = AotDataReaderExtensions.ReadNullableString(reader, 9),
+        VerificationStatusKey = reader.GetString(10),
+        RecipientEndpointId = AotDataReaderExtensions.ReadNullableGuid(reader, 11),
+        CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 12),
+        UpdatedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 13),
+    };
+
+    /// <summary>按绑定订阅查询的固定投影读取授权时间，保持 SQL Server/MySQL 时间语义一致。</summary>
+    /// <param name="reader">已经定位到当前结果行的数据读取器。</param>
+    /// <returns>模板订阅授权记录。</returns>
+    private static WeChatMiniProgramSubscriptionRecord ReadWeChatMiniProgramSubscription(DbDataReader reader) => new()
+    {
+        BindingId = reader.GetGuid(0),
+        TemplateId = reader.GetString(1),
+        StatusKey = reader.GetString(2),
+        AuthorizedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 3),
+    };
 
     private static AnnouncementRecord ReadAnnouncementRecord(DbDataReader reader) =>
         new()
