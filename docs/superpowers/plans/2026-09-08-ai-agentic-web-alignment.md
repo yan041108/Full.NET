@@ -1937,6 +1937,31 @@ HTTP 提交后详情读取失败／取消并不回滚标题，调用方须刷新
 
 本次只提交 10 个归属文件，共享测试矩阵仅暂存四个 AI 计数变化，其他窗口改动与保护排除路径保留。原始报告及核验摘要位于 `artifacts/r10o`。本批状态为 `Aot-analysis-clean`；新鲜 Native publish/运行和独立生成应用验收仍按 AI 模块集中补齐。历史终态未结算修复、失败/取消分支独立结算、工具循环逐步恢复、请求前输入硬上界、自动外部对账及提交后 Metrics 继续开放；R10 不整体关闭，保持 `Capacity-not-verified`。
 
+#### R10p：失败与会话拒绝收尾原子结算（2026-10-11，本批受影响验收完成）
+
+基线 main `201914da442b88db0181e5f3fb7fc77ca96e8805`；任务快照 `ai-agent-rejection-settlement-r10p`。本批扩展 R10o 的 AI 本地事务，覆盖模型不可用等失败、单模型/工作流派发前拒绝及可结算的会话失效；已有派发凭证要求保留预算时仍不结算。用户主动取消、历史终态修复和工具循环逐步恢复不在本批。
+
+- [x] 新增 `AiAgentRejectionSettlementTests.cs`，先验证四条路径同事务和结算失败回滚的 RED，再补取消、事件失败和旧租约拒绝。
+- [x] `AiAgentRunCompletion` 增加受限拒绝入口，固定状态到结算结果的映射；协调器所有拒绝结算复用该入口，失败不吞成成功、不二次改判或结算。
+- [x] 扩展现有双库完成断言，覆盖失败/会话拒绝的 Host/租户账本、兼容配额和末端回滚，不新增表、迁移或公开契约。
+- [x] 按最终冻结输入集中执行受影响回归、双库与 AOT 分析，记录未验证范围后在 main 提交。Native 与独立应用仍归 AI 模块集中验收。
+
+本批新增 20 项单元回归。`node artifacts/r10p/run-focused.mjs red` 为 268 项、260 通过/8 预期失败，原报告保留；`green` 为 280/280。冻结验证流水线（`node artifacts/r10p/run-validation.mjs` 与 `node artifacts/r10p/resume-validation.mjs`）执行定向 314/314、AI 成功 UID 并集 3307、运行时 585/585 和相关架构 86/86；`node artifacts/r10p/run-portable.mjs` 补充本地事务边界 4/4，与后续精确补验共同覆盖 SQL Server/MySQL 各 44 项 AI、各 4 项 Smoke，成功 UID 并集 88 与 Smoke 8，零跳过。全 Unit 精确发现 6776 项，只执行本批受影响集合；Integration 分片发现 1214 项，无遗漏或重复。
+
+Linux AI 首轮 3306 通过、1 项 DOCX 子进程取消清理失败（期望取消异常，实际清理未确认），原始 TRX 与非零退出码保留。`node artifacts/r10p/resume-validation.mjs` 对精确失败 UID 隔离复验 1/1 通过；失败调用链与基线一致，复验保持冻结源码、全部 Unit DLL 摘要和原 45 秒清理期限，未重编译或放宽断言。底层原因未证明，不将隔离通过写成并发问题已修复。随后从运行时回归继续原流水线。
+
+SQL Server AI 首轮 42 通过/2 失败，其中一项为新增断言的预期错误：拒绝提交传入未知计量，既有账本收到未知回执应保留已知计量并幂等返回，不能期待结算冲突。已将该场景修正为 known-ledger，验证运行拒绝终态提交而原 known/succeeded、输入输出各 1、收费 2 和配额不变；独立只读复核确认契约一致。原冻结输入及失败报告保留，唯一集成断言文件以显式修订登记，生产及 Unit 程序集摘要保持一致，仅重建集成测试。`node artifacts/r10p/run-revision.mjs` 按精确 UID 复验 SQL Server 工作流断言；MySQL 原批因 Docker 引擎退出而中断，没有完整 TRX。沿此前授权恢复 Docker、核实进程及卷归属后清理本任务遗留锁；完整重跑在 44 分钟会话期限后终止调度，等待在途清理后以 Aborted/退出码 3 结束，终端汇总 23 通过、0 失败，仍不视为整批通过。随后用当前安装的 Microsoft.Testing.Extensions.TrxReport 2.3.2 官方 ReadAll 序列化实现读取两次原始结果流，并逐条核对完整帧、Passed 状态、结束时间、UID、源码与程序集，得到 35 与 23 条完整结果、成功 UID 并集 35；唯一修订断言的工作流用例不在这些结果中。原始流、摘要及中断/Aborted 状态全部保留，不伪造 TRX 或覆盖退出码。共享重型锁释放并留出其他窗口协调机会后，`node artifacts/r10p/run-tail.mjs` 只补跑剩余 9 项；该轮在 20 分钟会话期限后 Aborted，原始结果流恢复 5 个 Passed（含修订工作流）及 1 个 Failed，累计成功 UID 并集 40。唯一失败为既有 MCP 远程 ping 期望 succeeded、实际 cancelled；其调用链与基线一致，统一工具执行器原 10 秒预算未修改，具体取消根因未证明。`node artifacts/r10p/run-final-four.mjs` 在各阶段独立持有/释放重型锁，等待其他窗口验收先取得资源后，仅执行该 MCP 精确 UID 的一次隔离复验 1/1、此前未完成的 3 项 3/3 及 MySQL Smoke 4/4；全部使用原源码与最终程序集。两库成功 UID 并集 88，Smoke 总计 8/8；不宣称任何中断批次完整通过；未重复构建或执行无影响单元集合。
+
+SQL Server 另有已有知识索引状态用例在文本代次生成断言返回 false；失败调用链源码与基线一致，修订集成程序集后隔离复验该精确 UID 1/1 通过。生产程序集、30 秒租约和 25 秒阶段期限保持不变；具体拒绝分支及底层原因未证明，不能将隔离通过写成问题已修复。
+
+真实双库复用工作流夹具与生产 DI，覆盖 Host/租户下 failed、authorization_required 两种状态的正常结算、预算缺失、已知账本保真、错误作用域、外层提交前失败、事件冲突及旧租约拒绝。回滚保留原运行版本/检查点/事件/预算/兼容配额；失败场景补预留或重领后可用当前租约收敛，旧租约和重复终态提交不得再次结算。未知回执保留已知账本事实，结算异常回滚由协调器 Unit 受控失败覆盖。协调器取消传播、事件失败、失租及禁止二次结算由新增 Unit 回归保护。
+
+冻结输入 7778 项，生产编译输入和共享程序集摘要一致，双库最终消费者源码按唯一测试断言修订核对；矩阵四个发现计数在冻结前同步，静态副本独立验证。沿用已核验来源的构建缓存及工作区/重型测试锁，不复用旧测试结果。环境为 Windows i7-12700H/64 GiB、Linux SDK 10.0.400/runtime 10.0.11；构建 4 CPU/4 GiB，双库消费者各 2 CPU/8 GiB。解析工具锁文件的 Linux SDK 派生差异单独记录，未修改仓库锁文件。
+
+`node artifacts/r10p/run-static.mjs` 通过 tooling 54、命名 30、治理 57、UUID 3 和保护排除后的 Markdown 386 项检查。API/Worker `dotnet build -c Release -p:FullNetAotAnalysis=true -p:NuGetAudit=false` 均零警告/错误；本批未做联网 NuGet 漏洞审计。独立只读复核无阻断问题；准备阶段异常的直接回归为非阻断补充建议，现有事务内失败覆盖已通过。
+
+只提交本批 8 个归属文件，共享矩阵仅暂存四个 AI 计数，保留其他窗口改动及保护排除路径。原始证据位于 `artifacts/r10p`。状态为 `Aot-analysis-clean`；新鲜 Native publish/运行与独立生成应用继续按 AI 模块集中验收。用户主动取消接口、历史终态未结算修复、工具循环逐步恢复、请求前输入硬上界、自动外部对账及提交后 Metrics 仍开放；R10 不整体关闭，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

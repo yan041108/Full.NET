@@ -13,7 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Full.NET.IntegrationTests.Ai;
 
 /// <summary>使用生产 DI 和真实双库事务，验证成功终态、预算、兼容配额及凭证共同提交或回滚。</summary>
-internal static class AiAgentCompletionAssertions
+internal static partial class AiAgentCompletionAssertions
 {
     internal static async Task VerifyAsync(FullNetApiFactory factory)
     {
@@ -147,5 +147,6 @@ internal static class AiAgentCompletionAssertions
             }
             finally { context.Clear(); }
         }
+        await VerifyRejectionsAsync(factory);
     }
 }

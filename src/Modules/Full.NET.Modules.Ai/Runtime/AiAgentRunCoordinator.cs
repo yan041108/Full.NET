@@ -96,7 +96,25 @@ internal sealed class AiAgentRunCoordinator(
                 return await store.CommitProgressAsync(new(lease, "reconciliation_required", null, null,
                     new(ids.NewId(), await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false),
                         "run.reconciliation_required", 1, $$"""{"errorCode":"{{code}}"}""")), cancellationToken).ConfigureAwait(false);
-            return await FailRunAsync(scope.ServiceProvider, store, lease, runId, code, cancellationToken).ConfigureAwait(false);
+            return await RejectAsync(async () => new(lease, "failed", null, null,
+                new(ids.NewId(), await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false),
+                    "run.failed", 1, $$"""{"errorCode":"{{code}}"}"""))).ConfigureAwait(false);
+        }
+        // 此边界也供 catch 内的明确未派发拒绝使用；收尾失败不能逃逸后再次改判或结算。
+        async Task<bool> RejectAsync(Func<Task<AgentRunProgressCommit>> prepare)
+        {
+            try
+            {
+                var progress = await prepare().ConfigureAwait(false);
+                return await scope.ServiceProvider.GetRequiredService<AiAgentRunCompletion>()
+                    .RejectAsync(progress, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (callerCancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception exception)
+            {
+                logger.LogError(exception, "Agent run {RunId} rejection transaction did not succeed.", runId);
+                return false;
+            }
         }
         var tenantWriter = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
         if (record.TenantId is { } tenantId)
@@ -135,21 +153,14 @@ internal sealed class AiAgentRunCoordinator(
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
-                var authorizationSequence = await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false);
-                var authorizationCommitted = await store.CommitProgressAsync(new(
-                    lease,
-                    "authorization_required",
-                    null,
-                    null,
-                    new(ids.NewId(), authorizationSequence, "run.authorization_required", 1, """{"reason":"session_invalid"}""")), cancellationToken)
-                    .ConfigureAwait(false);
-                // 失租后的会话拒绝不能改写由当前执行者负责的预算账本。
-                if (!authorizationCommitted) return false;
-                // 会话失效阻止结果交付，但不能把已派发或已完成运行的原计量改成取消空值。
-                if (preserveSingleBudget) return true;
-                await scope.ServiceProvider.GetRequiredService<IAiOperationBudgetStore>()
-                    .SettleAsync(runId, new(null, null), "cancelled", cancellationToken).ConfigureAwait(false);
-                return true;
+                async Task<AgentRunProgressCommit> PrepareAuthorizationAsync() => new(
+                    lease, "authorization_required", null, null,
+                    new(ids.NewId(), await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false),
+                        "run.authorization_required", 1, """{"reason":"session_invalid"}"""));
+                // 会话失效阻止结果交付；已派发凭证要求保留原预算时只记录状态，不结算未知结果。
+                if (preserveSingleBudget)
+                    return await store.CommitProgressAsync(await PrepareAuthorizationAsync().ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+                return await RejectAsync(PrepareAuthorizationAsync).ConfigureAwait(false);
             }
 
             executionContext.SetBinding(binding);
@@ -495,26 +506,16 @@ internal sealed class AiAgentRunCoordinator(
                 // 预算客户端明确证明尚未派发，保存拒绝事实后才允许结算失败。
                 singleState = singleState with { Phase = "not_dispatched" };
                 if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
-                if (!await CommitSingleModelProgressAsync(lease, record, singleState, "failed", "run.failed", null,
-                    cancellationToken).ConfigureAwait(false)) return false;
-                await scope.ServiceProvider.GetRequiredService<IAiOperationBudgetStore>()
-                    .SettleAsync(runId, new(null, null), "failed", cancellationToken).ConfigureAwait(false);
-                return true;
+                return await RejectAsync(() => CreateSingleModelProgressAsync(lease, record, singleState,
+                    "failed", "run.failed", null, cancellationToken)).ConfigureAwait(false);
             }
             if (workflowState?.PendingNode is not null)
             {
                 // 本地额度拒绝能证明本次模型尚未派发；清除已保存意图后失败，不要求外部对账。
                 workflowState.PendingNode = null;
                 if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
-                if (!await CommitWorkflowProgressAsync(store, lease, runId, record, workflowState,
-                    "failed", $$"""{"errorCode":"{{exception.Code}}"}""", null, cancellationToken).ConfigureAwait(false)) return false;
-                try
-                {
-                    await scope.ServiceProvider.GetRequiredService<IAiOperationBudgetStore>()
-                        .SettleAsync(runId, new(null, null), "failed", cancellationToken).ConfigureAwait(false);
-                }
-                catch (AiBudgetException) { }
-                return true;
+                return await RejectAsync(() => CreateWorkflowProgressAsync(store, lease, runId, record, workflowState,
+                    "failed", $$"""{"errorCode":"{{exception.Code}}"}""", null, cancellationToken)).ConfigureAwait(false);
             }
             return await FailAsync(exception.Code).ConfigureAwait(false);
         }
@@ -628,35 +629,6 @@ internal sealed class AiAgentRunCoordinator(
             new(checkpointId, sequence, AgentCheckpointCompatibility.CurrentCheckpointFormatVersion,
                 AgentFrameworkRuntime.FrameworkVersion, record.DefinitionVersion, payload, checksum),
             new(ids.NewId(), sequence, eventType ?? $"run.{statusKey}", 1, eventPayload));
-    }
-
-    /// <summary>失败状态须先通过租约fencing提交；失租时不结算预算，也不计入处理成功数。</summary>
-    private static async Task<bool> FailRunAsync(
-        IServiceProvider provider,
-        AiAgentRunStore store,
-        AgentRunLease lease,
-        Guid runId,
-        string errorCode,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var sequence = await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false);
-        var committed = await store.CommitProgressAsync(new(
-            lease,
-            "failed",
-            null,
-            null,
-            new(provider.GetRequiredService<IIdGenerator>().NewId(), sequence, "run.failed", 1, $$"""{"errorCode":"{{errorCode}}"}""")), cancellationToken).ConfigureAwait(false);
-        if (!committed) return false;
-        try
-        {
-            await provider.GetRequiredService<IAiOperationBudgetStore>()
-                .SettleAsync(runId, new(null, null), "failed", cancellationToken).ConfigureAwait(false);
-        }
-        catch (AiBudgetException)
-        {
-        }
-        return true;
     }
 
     private static async Task<long> NextEventSequenceAsync(AiAgentRunStore store, Guid runId, CancellationToken token)
