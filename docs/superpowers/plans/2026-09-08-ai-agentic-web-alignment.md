@@ -2028,6 +2028,26 @@ SQL Server 另有已有知识索引状态用例在文本代次生成断言返回
 - 首次冻结分片发现缺少程序集、Windows 文件复制保留旧时间戳导致复用旧 AI 程序集的编译失败及中止的 Linux 尝试均保留，不计为通过。刷新本批源码时间戳后重新构建，Unit 消费的 AI 程序集哈希与新模块输出相同；复用缓存先校验完整输入哈希，仅同步实际变化文件。Linux SDK 10.0.400 的两项解析器锁差异继续使用既有受控派生证明；为该验收容器复用本机已有 Node 24.12.0 运行时完成分片发现，不修改生产镜像。
 - SQL、迁移、权限、HTTP DTO、预算结算规则均未改变；本批不重复 R10r 已通过的双库集成 14 项。Native 发布/运行、生成应用、浏览器/人工与真实云模型整代次验收继续按 AI 模块集中推进，R10 不整体关闭，保持 `Capacity-not-verified`。
 
+### R10t：Agent 请求输入有界准入（2026-10-12，本批本地验收完成）
+
+基线 main e711da2b50567103837eda6d9ca490690447c28b；任务快照 ai-agent-input-admission-r10t，保护排除路径在读取与摘要之前排除，保留其他窗口改动。
+
+- [x] 在预算客户端的流式与非流式模型派发前统一检查消息、内容、工具说明及 JSON 参数；超限返回现有预算拒绝，不调用底层客户端，也不消耗输出额度。
+- [x] 有界枚举并冻结受支持文本与工具载荷，拒绝未知对象和未经检查的扩展载荷；覆盖合法边界、累计规模、取消及修改来源后的隔离。
+- [x] RED 后实现并集中执行受影响 AI、静态检查与 AOT 分析，记录实际结果，复核归属后在 main 提交。
+
+此批约束服务端接纳的请求规模，不宣称供应商请求前精确 Token 或费用硬认证；历史终态修复、工具循环逐步恢复与自动外部对账仍待完成。原生产物、页面及独立应用继续按整个 AI 模块集中验收，保持 Capacity-not-verified。
+
+本地验证记录：
+
+- 初始两条超限行为 RED 2/2 失败；首轮实现编译出现三个类型/空值错误，已修正。SDK 工具默认空扩展字典误拒导致中间 AI 3367/3392 通过、25 失败，原结果保留；实际探针确认字典非空引用但 Count=0 后修正。复审 RED 38/46 通过、8 失败；有界 writer 仍存在框架内部转义分配，中间 AI 3396/3397 通过、1 失败，追加 JSON RED 46/50 通过、4 失败。最终改用 .NET 10 JsonMarshal 原始只读 UTF-8 视图，先限字节、有界复制、精确统计原始 UTF-16 字符，再对副本解析、检查并冻结。
+- node artifacts/r10t/run-unit.mjs final-span：Windows Release 构建零警告/错误；完整 AI 3401/3401，零失败/跳过。新增准入 50 项与运行时集合 659 项均通过实际发现 UID 和完整 AI TRX 身份交集确认，未重复构建或执行。Unit 发现工作区 6894 项，含其他窗口 10 项本地文件日志测试；本批 canonical 矩阵 6884，不宣称执行全部 Unit。
+- node artifacts/r10t/run-linux.mjs：冻结 HEAD 加本批归属输入，复用前/后均核对完整源码摘要；仅复用构建缓存，不复用测试结果。API 与 Worker FullNetAotAnalysis Release 构建零警告/错误。相关 Native AOT/MemoryPack/AI 依赖/异步架构筛选实际 88/88，通过、零跳过；Architecture 自身重建时不重复重建已经分析的项目依赖。Integration 分片仅实际发现 1214 项，五分片及 legacy/current 迁移无遗漏/重复；未执行 Integration 业务测试。SQL、迁移、权限、HTTP DTO 和账本行为未修改，本批不重复双库业务验收。
+- node artifacts/r10t/run-static.mjs：命名30、矩阵6、治理57通过；保护排除的 Markdown 扫描通过。node artifacts/r10t/post.mjs 与 python artifacts/r10t/collect.py 核对实际 UID、TRX 无失败/跳过、最终源码 SHA、AI 模块/Unit 消费程序集同摘要、源码与输出时间及 main 基线。git diff --check 通过，其他窗口改动摘要保持原样；共享矩阵仅暂存本批 Unit/AI/runtime 计数及精确选择器。
+- 环境为 Windows x64 SDK10.0.401，Linux Docker SDK10.0.400/runtime10.0.11，i7-12700H/约64GiB，Windows 限4处理器；本批 Linux 构建容器8CPU/4GiB，程序集进程4处理器，持工作区和机器重任务锁。固定解析工具 ILLink 锁沿已有 Linux SDK 派生证据；未变更仓库依赖。NuGetAudit=false，未执行在线依赖审计。只读复审的重要问题已修正，最终复审未发现剩余有证据的 Critical/Important；复审不代替执行证据。
+
+原始结果与摘要保存在 artifacts/r10t；状态为 Aot-analysis-clean。没有本批新鲜 Native publish/运行、独立生成应用或浏览器/人工验收；继续按 AI 模块集中执行。请求接纳规模已交付，但供应商实际输入 Token/费用硬认证、历史终态未结算修复、工具循环逐步恢复与自动外部对账仍开放，R10 不整体关闭，保持 Capacity-not-verified。只提交本批六个归属文件，不推送。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

@@ -3,7 +3,7 @@ using Microsoft.Extensions.AI;
 
 namespace Full.NET.Modules.Ai.Runtime;
 
-/// <summary>Agent模型请求共用输出额度与输入回执额度；底层客户端由协调器独占并释放。</summary>
+/// <summary>Agent 模型请求共用输入规模准入、输出额度与输入回执额度；底层客户端由协调器独占并释放。</summary>
 internal sealed class AiRunOutputLimitClient : IChatClient
 {
     private readonly IChatClient _innerClient;
@@ -33,21 +33,23 @@ internal sealed class AiRunOutputLimitClient : IChatClient
     {
         // 底层提供者可能忽略令牌；已取消请求不得进入真实客户端调用。
         cancellationToken.ThrowIfCancellationRequested();
-        var limited = Reserve(options);
-        return GetReservedResponseAsync(messages, limited, cancellationToken);
+        var admitted = AiRunInputAdmission.Freeze(messages, options, cancellationToken);
+        var limited = Reserve(admitted.Options);
+        return GetReservedResponseAsync(admitted.Messages, limited, cancellationToken);
     }
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var limited = Reserve(options);
+        var admitted = AiRunInputAdmission.Freeze(messages, options, cancellationToken);
+        var limited = Reserve(admitted.Options);
         // 流可能只有部分用量或被提前释放，保守占用全部剩余输入，不据此为后续请求退回额度。
         var reservedInputTokens = _remainingInputTokens;
         if (reservedInputTokens.HasValue) _remainingInputTokens = 0;
         try
         {
-            var source = _innerClient.GetStreamingResponseAsync(messages, limited, cancellationToken);
+            var source = _innerClient.GetStreamingResponseAsync(admitted.Messages, limited, cancellationToken);
             return new ReservedStream(this, source, limited.MaxOutputTokens!.Value, reservedInputTokens, cancellationToken);
         }
         catch
