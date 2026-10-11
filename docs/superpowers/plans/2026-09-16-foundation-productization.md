@@ -2565,3 +2565,27 @@ Windows 于 17:55 +08:00 重启，第 5 次验收协调器在排队中退出，�
 证据 `.tmp/workflow-settings-local-proof.json`、`.tmp/workflow-settings-final-proof.json`、`.tmp/workflow-settings-native-1`、`.tmp/workflow-settings-native-2` 与 `.tmp/workflow-settings-ci-artifacts`。本批规定范围的本地原生业务验收关闭；上下文归档缺失和 CI 待完成状态如实保留。整体仍为 Build-verified、Capacity-not-verified，不提升全页面、完整故障、重新生成应用整项或 F10/F11；旧工作区锁仍待清理，其他对话文件未纳入提交。PR3 保持 Draft，不合并、不发布。
 
 只读排查把 Identity 的 WorkflowRoleListRow/WorkflowRoleMemberRow、Organization 的 WorkflowOrganizationUnitListRow/WorkflowUnitLeaderRow 记为下一批静态查询候选；已确认候选目录、Contract Port 与正式 Endpoint 调用链，仍需失败回归和独立运行证据，不计为已修复。
+
+## 2026-10-12 Identity/Organization 工作流候选与办理人原生映射
+
+基线 `bb6d86ef8d995ed68494275abea0c788fb9335ae`，快照 `workflow-directories-aot-20261012`；源码冻结并推送 `c831eeb55ee84cd2767ef2d615d2c7a04c8cb108`。本批集中补齐 Identity 的 WorkflowRoleListRow/WorkflowRoleMemberRow、Organization 的 WorkflowOrganizationUnitListRow/WorkflowUnitLeaderRow 四种行物化器；两库投影分别为 Id/Code/Name、RoleId/UserId、Id/Code/Name、UnitId/UserId。沿现有 Contract Port 和模块自有 SQL 读取，保留权限、可信 Host/Tenant、SQL 与公共契约，没有新增迁移、反射回退、根或 suppression。
+
+现有企业双库 Native 场景增加正式 HTTP 创建的独立 Host 用户及角色成员、真实 Tenant 成员及唯一负责人机构，验证候选真实 ID/编码/名称、办理人 ID/用户名、Host/Tenant 范围与匿名拒绝。只读审查确认两项夹具问题：辅助方法丢弃预期 400 的 ProblemDetails，以及进入 Tenant 后复用失效 Host 令牌。已修正 400 响应解析并采用 Tenant→Host→Tenant 顺序上下文切换，把最新会话交还后续业务；没有重复登录或放宽 SingleSessionPerClient。角色成员变更只影响独立测试用户，最终复核无剩余发现。
+
+- `node .tmp/workflow-directories-aot-architecture.mjs`：新增四条注册回归先为 4 失败/77 通过，修复后 81/81、零失败/跳过；矩阵只登记本批新增四项。
+- `node .tmp/workflow-settings-aot-analysis.mjs`：复用隔离分析目录运行规范 API AOT 分析，零警告/错误，默认 JIT 还原完成；本批日志另存 `.tmp/workflow-directories-aot-analysis.log`。
+- `node .tmp/workflow-directories-aot-managed.mjs`：相关 Unit 17/17、零失败/跳过；Integration 1230、五分片与迁移两组互斥完整、API/Worker 发现 21/17 且交集零。这些发现不是全量业务执行。
+- `node .tmp/workflow-directories-rebuild-consumer.mjs`：审查修正后只增量编译验收消费者，最终零警告/错误；编译时间晚于最终夹具修改。没有重复已通过 Unit 或独立应用验收。
+- `node --test tests/governance/*.test.mjs`：62/62、零失败/跳过。
+
+独立副本从冻结提交准备，源码逐项对比、984 个 Release 消费者文件摘要核对一致；消费者编译元数据为基线 bb6d86e，实际编译输入包含本批修改，不冒充冻结后重新编译。准备阶段不持有重型锁；两角色原生产物均复用冻结 c831eeb 的 CI 发布，不重复本地发布。PR head/base、merge tree、发布/上传及 ZIP/ELF/manifest 摘要逐项核对。
+
+`node .tmp/workflow-directories-native.mjs run c831eeb55ee84cd2767ef2d615d2c7a04c8cb108` 已成功完成集中原生验收：SQL Server/MySQL 企业完整场景 2/2、零失败/跳过，TRX 146.427 秒，SDK 业务命令 148.339 秒。共享资源排队 487.402 秒单独记录；同栈执行新非空角色候选/角色成员、机构候选/机构负责人、Host/Tenant 拒绝与匿名 401，以及原有审批/驳回、导入、报表导出/下载/崩溃恢复、管理列表与 Settings 审计差异。没有把只读审查、发现或排队当作业务执行。固定 Linux SDK 镜像为 `fullnet-enterprise-validation-sdk:10.0-node24`（SDK 10.0.400），4 CPU/3 GiB，本地 Windows 消费者编译 SDK 10.0.401。
+
+本轮成功上下文 `context-run.json`、TRX 与四份宿主日志均已归档；协调器退出码 0，自有副本、SDK 容器和工作区锁已清理，其他对话的容器与锁未改动。`node .tmp/workflow-directories-final-proof.mjs` 独立核对冻结输入、消费者/ZIP/ELF/manifest/日志摘要、两库实际结果、上下文及清理通过；上一批归档错误未复现，不重跑已通过业务。
+
+API CI `38159488951` 与 Worker CI `38159488938` 均 completed/success；两份完整日志核对实际检出 `b186a2945bbd30ba663f43242543ed06e9c76334` 与源码树 `294e984906ee3fc5726020fdd402fb1646d5f271`。API 核心原生、Notifications、Settings/Jobs、OIDC、S3、Kafka Replay 与 Worker 专项全部成功；初次业务证据核对时 API 尚运行，完成后仅刷新日志审计和证据核对，未重复业务验收。主 CI `38159489003` 前端与两组迁移恢复通过、模块测试仍运行；条件跳过的整项验收不计为通过。CI 不是本地验收前置，后续纯报告提交的 CI 状态独立保留，不冒充代码批次结果。
+
+证据 `.tmp/workflow-directories-local-proof.json`、`.tmp/workflow-directories-final-proof.json`、`.tmp/workflow-directories-native-1`、`.tmp/workflow-directories-ci-artifacts`。本批规定范围的本地原生业务验收关闭，整体 Build-verified、Capacity-not-verified 保持，不提升全页面、完整故障、重新生成应用整项或 F10/F11。其他对话改动保护核对通过且未纳入提交，遗留旧工作区锁仍待清理，PR3 保持 Draft，不合并、不发布。
+
+只读续查确认 OrganizationMembershipRecord 与 OrganizationMembershipUserRecord 经 Organization Contract 被公告接收范围和阅读统计消费，当前缺少静态注册；登记 `.tmp/workflow-directories-next-readers.json`，留待与 Notifications 公告场景一批建立失败回归并集中双库验收，未计作已修复。

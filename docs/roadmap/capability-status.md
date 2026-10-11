@@ -1,6 +1,8 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-10-12（本轮补齐 Workflow/Settings 原生管理查询，修正 API/Worker 测试角色筛选并完成本地双库原生验收，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-10-12（本轮补齐 Identity/Organization 工作流候选与办理人静态映射，完成集中双库原生验收；此前 Workflow/Settings 验收保留，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+
+2026-10-12 Identity/Organization 补齐工作流角色候选、角色成员、机构候选与负责人四种静态行物化。源码冻结 c831eeb，架构 81/81、相关 Unit 17/17、治理 62/62 与 API AOT 分析通过；Integration 1230 只完成互斥完整发现。复用原生产物集中执行 SQL Server/MySQL 企业完整场景 2/2、零失败/跳过，TRX 146.427 秒，排队 487.402 秒单列；正式 HTTP 非空候选、办理人、Host/Tenant 隔离及匿名拒绝通过。协调器成功，运行上下文、TRX、四份宿主日志与自有资源清理核对通过；代码批次 API/Worker CI 均成功，完整检出日志已核对，主 CI 收口时仍运行，不冒充整体成功。整体 Build-verified、Capacity-not-verified 保持，见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-identityorganization-工作流候选与办理人原生映射)。
 
 > 2026-09-16 规划增补：已纳入[八项底座完善能力及七类收口重点](adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)，执行见[唯一总计划](../superpowers/plans/2026-09-16-foundation-productization.md)。本次未重新认证下表的实现状态；部分历史条目落后于专项记录，F00 将逐项核对。工作区其他改动不作为能力完成证据。
 
