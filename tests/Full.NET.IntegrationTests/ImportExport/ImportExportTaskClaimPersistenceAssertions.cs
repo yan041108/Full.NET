@@ -55,7 +55,9 @@ internal static class ImportExportTaskClaimPersistenceAssertions
         var (first, second, tenantA, tenantB, taskA, _) = await SeedQueuedPairAsync(provider).ConfigureAwait(false);
         await using var connection = first;
         await using var unused = second;
-        var now = DateTime.UtcNow;
+        // 使用两种提供程序都能精确表示的整秒，避免 DateTime 参数舍入使相等边界变成未来期限。
+        var instant = DateTime.UtcNow;
+        var now = new DateTime(instant.Ticks - instant.Ticks % TimeSpan.TicksPerSecond, DateTimeKind.Utc);
         var oldLeaseId = Guid.CreateVersion7();
         var currentLeaseId = Guid.Empty;
         await connection.ExecuteAsync(

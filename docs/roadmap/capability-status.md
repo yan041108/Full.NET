@@ -1,8 +1,10 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-10-11（本轮完善共享测试构建复用与取消收尾，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-10-11（本轮补齐导入租约期限保护与双库/原生集中验收，其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 > 2026-09-16 规划增补：已纳入[八项底座完善能力及七类收口重点](adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)，执行见[唯一总计划](../superpowers/plans/2026-09-16-foundation-productization.md)。本次未重新认证下表的实现状态；部分历史条目落后于专项记录，F00 将逐项核对。工作区其他改动不作为能力完成证据。
+
+2026-10-11 导入任务已增加剩余租约取消、异步返回复核、流释放及双库检查点/失败写入期限保护。相关 Unit 60/60、Native 架构 73/73、双库导入模块 14/14、真实企业 API/Worker 原生业务 2/2 均通过，AOT 分析零警告/错误。原生运行复用精确生产源码的 CI 产物和本批可移植 JIT 输出，未重复发布/编译；源输入、结果、依赖、归档与清理均已核对。首轮数据库时间精度/筛选错误、本地发布内存不足及准备/下载失败保留。没有重建生成应用，完整故障、人工页面和容量不据此提升；Reporting 同类期限缺口尚未修复。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-11-导入租约期限保护与集中验收)，整体保持 Build-verified、Capacity-not-verified。
 
 2026-10-11 Native 测试已统一执行 Integration 输出中的 Migrator DLL，保留 Development 种子与配置门禁，缺失产物不隐式构建；进程双输出并行读取，预取消不启动、在途取消清理运行中的进程树。构建缓存纳入 Git 修订并拒绝构建期间修订变化。相关 Hosting Unit292/292、已跟踪工具98/98通过；9be503b的Worker Native16/17暴露停机3980归类缺口，3ba5c46补齐已取消令牌且全为0/3980的窄范围映射，Data Unit227/227、架构73/73及AOT分析通过。最终3ba5c46的Linux独立干净副本集中验收Data49/49、双库Smoke8/8、Worker Native17/17、API核心Native10/10，均零失败/跳过；两个新Native发布通过，15/17条既有允许警告保留，统一构建产物摘要未变，副本已清理。精确代码的主CI及API/Worker Native CI均success，完整Unit6141/6141、架构232/232及受影响Integration/Smoke440/440通过。全工作区工具另有受保护外部未提交测试排队超时，103/104，不写为全通过。验收另发现API停机后的审计微批处理错误日志，异常类型缺失、原因未定，已保留为待定位项。新夹具/生产代码不使用旧Native结果提升状态，整体Build-verified、Capacity-not-verified，见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-11-native-migrator-构建复用与子进程收尾)。
 

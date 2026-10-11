@@ -2481,3 +2481,18 @@ b1726b2 的 [主 CI](https://github.com/yan041108/Full.NET/actions/runs/38093730
 最终本地集中检查：六个模块命名空间及 ImportExportConfigurationTests 的 Unit 共 373 项，372 通过、1 个 Linux FIFO 专属检查在 Windows 跳过、零失败，18.509 秒；完整命令保留 `.tmp/module-options-unit-final.log`，最终 Release 构建零警告/错误。`pnpm test:aot:analyzers` 构建及默认还原图恢复通过、零警告/错误；`pnpm test:dotnet:architecture -- --reuse-build --selection api-native-aot` 73/73、零失败/跳过。已跟踪工具文件加本批新文件串行 112/112；工具首轮另发现其他窗口未跟踪清理测试的子进程超时，该文件独立复跑 8/8，保留首轮失败，不修改或提交其源码。最终治理 59/59。独立只读审查无 P1/P2；输入、原始日志、原生产物及外来改动保护证明见 `.tmp/module-options-final-proof.json`。
 
 本批没有重跑双库生成应用、数据库故障矩阵、全宿主 Native 或人工页面，不把上一批冻结应用证据外推到这六组新配置；F10/F11 整项及生产容量状态不提升。基线报告提交的 Worker Native CI 已成功，API Native 与主 CI 在本次核对时仍运行，新提交状态另行记录。开发分支与 Draft PR3 交付，不合并、不发布。
+
+## 2026-10-11 导入租约期限保护与集中验收
+
+基线 `fed43544bc529b7fa9f3645374d0b9ebff4ce2d6`，任务快照 `import-lease-fencing-20261011`，生产代码冻结于 `dbf0e052be0f3dc8ed7a57e2a5c3581b0a19f122`。本批统一处理领取后的授权、源文件、处理器、错误回执及失败写入边界；租约剩余期限通过链接令牌传递，在异步返回后再次检查。忽略取消的处理器也不能继续上传回执或提交检查点，源内容流始终释放。成功进度和失败 SQL 同时约束可信租户、执行状态、租约 ID 与期限，使用等待之后的新鲜时钟参数。取消或未知结果保留 executing，继续依靠任务及原始行幂等恢复；不承诺强制回滚已提交业务行。没有表结构、迁移或公共契约变化。
+
+- 有效 RED：恢复组 19 项中新增 8 项失败、11 项通过；双库过期领取场景 2/2 均复现旧租约误写。源指纹变化导致的首轮未执行记录另行保留。修复后导入与岗位恢复 Unit 60/60、零失败/跳过，3.095 秒；Native 架构 73/73、33.764 秒；矩阵/构建复用工具 20/20，治理 59/59；AOT 分析及还原图恢复成功、零警告/错误。独立只读复审无确定 P1/P2。
+- 数据库首轮复验实际只选中 6 项，5 通过、SQL Server 相等期限边界 1 失败，且不满足 14 项门槛。时间参数改用双库都能精确表示的整秒；筛选补齐已有 ImportExport API/Worker 测试，未降低门槛。最终入口 `node .tmp/import-lease-integration.mjs green-retry` 为 14/14、零失败/跳过，382.646 秒；Release 构建 44.98 秒、零警告/错误。过期、相等、空期限、重领后的旧持有者、错误租户、有效持有者和终态重放均使用真实生产 SQL。测试数据修正是相对冻结代码的唯一 C# 差异，原失败日志/TRX 保留。
+- 本地 4 CPU/3 GiB 的 API 原生发布因 ILC 内存不足失败，Worker 发布未启动，不计通过。随后复用精确 `dbf0e05` 的成功 CI 产物：API run `38107170825`、Worker run `38107170795`；实际 PR 检出 `9a3f95690543db7837559a9e7c039c10b54140c3` 的源码树与冻结提交相同。两个 ZIP 摘要与 GitHub digest、可执行文件及 manifest 摘要均核对，三个 Linux librdkafka 文件逐项匹配已验证原包。下载 TLS 超时与准备脚本的 PowerShell 命令加载失败分别保留，均不算业务执行。
+- 集中入口 `node .tmp/import-lease-native-recovery.mjs green-retry import-lease-native-recovery-2` 直接复用本批 Windows 编译的可移植 net10.0 Integration/Migrator 输出，在 Linux 执行；没有再次编译 Integration 或发布 Native。真实 SQL Server/MySQL 企业业务原生用例 2/2、零失败/跳过，136.315 秒，覆盖 API/Worker 审批投递、通过/驳回及非空工作簿导入，逐库核对一条 `123.45` 申请、成功行数 1、失败行数 0、租户与组织/申请人归属。发现和分片校验完整 1230 项、无遗漏/重复，仅为发现证据。运行前后托管输出和两份原生文件摘要一致，四份宿主日志已归档，副本经所有权/绝对路径核对清理，`completed=true`、`cloneCleaned=true`。
+
+原生候选登记 `2026-10-11T04:06:25.508Z`，取得执行资源 `04:21:47.879Z`，归档及清理结束 `04:24:45.682Z`；排队约 15 分 22 秒，实际准备/运行/归档约 2 分 58 秒，分开记录。数据库阶段另等待其他窗口 Docker 磁盘维护，没有抢占锁或中断共享容器。环境为 Windows x64 SDK 10.0.401、Node 24.12.0，Linux SDK 10.0.400、固定镜像、4 CPU/3 GiB 和 MTP 两个 worker；耗时只描述本次，不推导固定提速比例或容量。
+
+证据保留于 `.tmp/import-lease-local-proof.json`、`.tmp/import-lease-integration-green-retry`、`.tmp/import-lease-ci-artifacts/proof.json`、`.tmp/import-lease-native-recovery-2`；`node .tmp/import-lease-final-proof.mjs` 已独立核对当前输入、TRX、产物、外来改动和清理。精确代码的[主 CI](https://github.com/yan041108/Full.NET/actions/runs/38107170800)、[API Native CI](https://github.com/yan041108/Full.NET/actions/runs/38107170825)、[Worker Native CI](https://github.com/yan041108/Full.NET/actions/runs/38107170795) 均 completed/success；主 CI 的完整 Unit 6164/6164、架构 232/232、双库影响集 454/454、代表性企业 API 16/16，均零失败/跳过。这些 CI 来自测试精度修正之前的冻结提交，不冒充后续提交的工作流结果。
+
+本批导入租约验收关闭，整体保持 Build-verified、Capacity-not-verified。没有重建独立生成应用，也不将旧生成应用证据外推到新实现；人工全页面、完整故障/灾备、10K 容量及 F10/F11 整项继续待验收。只读检查发现 Reporting 导出生成/上传和完成 SQL 的同类期限缺口，已记录下一批范围，尚未修改或验收。四份其他对话的既有改动保持，未纳入提交。PR3 保持 Draft，不合并、不发布。
