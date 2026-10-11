@@ -81,6 +81,10 @@ public static class AgUiEventMapper
             case "run.failed":
                 yield return MapRunFailed(snapshot, persisted.Payload);
                 break;
+            case "run.cancelled":
+                // 有持久事件时流不会再补终态边界；重放与无事件快照必须使用同一取消语义。
+                yield return CreateTerminalBoundary(snapshot with { StatusKey = "cancelled" }, includeWhenNoPersistedEvent: true)!;
+                break;
             case "run.awaiting_approval":
                 yield return new AgUiMappedEvent(
                     AgUiProtocolEventTypes.RunFinished,
@@ -102,7 +106,7 @@ public static class AgUiEventMapper
                     new AgUiCustomPayload(
                         AgUiProtocolEventTypes.Custom,
                         "fullnet.run.reconciliation_required",
-                        new { snapshot.RunId, persisted.Sequence, reason = "tool_receipt_unknown" }),
+                        new AgUiReconciliationValue(snapshot.RunId, persisted.Sequence, "tool_receipt_unknown")),
                     SerializerContext.AgUiCustomPayload);
                 yield return new AgUiMappedEvent(
                     AgUiProtocolEventTypes.RunFinished,
@@ -119,7 +123,7 @@ public static class AgUiEventMapper
                     new AgUiCustomPayload(
                         AgUiProtocolEventTypes.Custom,
                         persisted.EventType,
-                        new { snapshot.RunId, persisted.Sequence, persisted.PayloadVersion, persisted.Payload }),
+                        new AgUiPersistedEventValue(snapshot.RunId, persisted.Sequence, persisted.PayloadVersion, persisted.Payload)),
                     SerializerContext.AgUiCustomPayload);
                 break;
         }

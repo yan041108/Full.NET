@@ -89,6 +89,7 @@ internal static class AiAgentRunApiAssertions
         using var cancelAgain = await client.PostAsync($"/api/v1/ai/agent/runs/{created.RunId}/cancel", null);
         await AssertProblemAsync(cancelAgain, HttpStatusCode.UnprocessableEntity, AiErrorCodes.AgentRunNotCancellable);
         await AiPromptApiAssertions.VerifyTenantAsync(client, model.Id, factory, owner.AccessToken);
+        await AiAgentCancellationAssertions.VerifyAsync(factory);
     }
 
     internal static async Task SeedFreshWorkerHeartbeatAsync(FullNetApiFactory factory)

@@ -1962,6 +1962,25 @@ SQL Server 另有已有知识索引状态用例在文本代次生成断言返回
 
 只提交本批 8 个归属文件，共享矩阵仅暂存四个 AI 计数，保留其他窗口改动及保护排除路径。原始证据位于 `artifacts/r10p`。状态为 `Aot-analysis-clean`；新鲜 Native publish/运行与独立生成应用继续按 AI 模块集中验收。用户主动取消接口、历史终态未结算修复、工具循环逐步恢复、请求前输入硬上界、自动外部对账及提交后 Metrics 仍开放；R10 不整体关闭，保持 `Capacity-not-verified`。
 
+### R10q：用户取消、事件与预算原子收尾（2026-10-11，本批聚焦验证完成）
+
+沿用 main，基线 `24d0bde51e1b4e333ef94d6878162383a5a632d4`。取消仅接受现有 queued/running 状态，保留重复取消 422、其他所有者/租户 404；不扩大取消审批中运行的契约。现有先取消再吞预算错误会留下不一致终态，本批采用同一 AI 本地事务收敛。
+
+- [x] 在 `AiAgentRunCancellationTests` 建立失败证据；覆盖 Host/Tenant、预算失败、事件失败、取消令牌与落败更新。
+- [x] `AiAgentRunManagementService.CancelAsync` 使用命令事务包围取消和 unknown 预算结算；异常传播到外层以确保回滚，HTTP 使用统一安全异常映射；已知账本不降级，不推断零用量。
+- [x] `AiAgentRunStore.TryCancelOwnedAsync` 在条件更新后写入单调序号 `run.cancelled`，同事务撤销租约；事件写失败或调用方取消均回滚。
+- [x] 扩展现有双库 Agent API 夹具验证状态/事件/账本/配额原子性、所有权、重复、完成与取消先后竞争；运行聚焦 Unit、双库、AOT 分析与架构检查后仅提交本批文件。
+
+- [x] 补齐 AG-UI 持久取消事件到既有终态边界的映射、终态分页耗尽与快照竞争去重；用真实流输出回归验证历史/对账载荷的源生成序列化。
+
+本批新增 19 个 Unit 用例。取消回归先复现 18 例中 11 例失败，修复后 18/18；真实流输出先复现 6/6 失败，修复后 6/6。`node artifacts/r10q/run-consumers-final.mjs` 执行运行时、AG-UI、预算与租户配额消费方回归 **623/623**；发现 AI 用例 **3326**，未宣称完整 AI 套件已执行。工作区 Unit 发现 6805 例，其中 10 例属于其他窗口未提交日志测试，正式矩阵仅增加本批 19 例至 6795。
+
+`node artifacts/r10q/run-build.mjs` 在冻结源码上完成 Integration/Architecture 构建与聚焦架构验证 **86/86**，API、Worker 使用 `dotnet build -c Release -p:FullNetAotAnalysis=true` 分析均为 **0 warning / 0 error**。`node artifacts/r10q/run-databases.mjs` 复用同一组经哈希核对的程序集，SQL Server **6/6**、MySQL **6/6**；合计 Agent API/AG-UI 4 例和 Smoke 8 例，均无失败或跳过，包含新增 Host/Tenant 原子取消场景。Linux 验证沿用已记录的两个解析器锁文件 SDK 补丁适配，未修改仓库锁文件；来源及哈希记录于 `artifacts/r10q/derived-locks.json`。
+
+命名 30/30、矩阵 6/6、治理 57/57 通过；受保护路径读取前排除的 Markdown 检查通过。独立复审无阻塞项。原始中断、测试替身编译错误、Docker 引擎不可用及遗漏手工构造夹具事务参数的首次构建失败均保留，最终修复后结果与证据核对见 `artifacts/r10q/acceptance.json`；`python artifacts/r10q/collect.py` 校验 TRX 数量、退出码及源码哈希通过。共享矩阵仅提交本批三个计数与运行时过滤器，其他窗口改动保留。
+
+不新增迁移、对外 DTO、权限或外部调用；历史终态修复、工具循环逐步恢复、输入硬上界、自动对账和提交后 Metrics 仍待后续。状态仅为 `Aot-analysis-clean`；完整 AI 回归、Native publish/运行、独立生成应用及页面验收继续按模块集中执行，R10 不整体关闭，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

@@ -98,7 +98,7 @@ public sealed class AiAgentRunManagementTests
         var store = new AiAgentRunStore(queries, commands, transaction, ids, clock, database);
         var heartbeat = new AiAgentWorkerHeartbeatService(Substitute.For<IServiceScopeFactory>(), clock, database, runtime);
         var budget = Substitute.For<IAiOperationBudgetStore>();
-        var service = new AiAgentRunManagementService(store, new(queries, clock, runtime, heartbeat), null!, new(queries, database), null!, null!, budget, tenant, clock, ids, runtime);
+        var service = new AiAgentRunManagementService(store, new(queries, clock, runtime, heartbeat), null!, new(queries, database), null!, null!, budget, tenant, clock, ids, runtime, transaction);
         var result = await service.CreateAsync(request, binding);
         Assert.AreEqual(!conflicting, result.IsSuccess);
         if (conflicting) Assert.AreEqual("ai.prompts.conflict", result.Error!.Code);

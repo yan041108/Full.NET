@@ -160,7 +160,8 @@ internal static class AiAgentRunSql
 
     public static readonly SqlStatement CancelOwned = new("ai.agent_run.cancel_owned", """
         UPDATE fn_ai_agent_run
-        SET StatusKey = 'cancelled', Version = Version + 1, UpdatedAtUtc = @Now
+        SET StatusKey = 'cancelled', LeaseOwner = NULL, LeaseExpiresAtUtc = NULL,
+            Version = Version + 1, UpdatedAtUtc = @Now
         WHERE Id = @RunId AND ScopeKey = @ScopeKey AND ActorUserId = @ActorUserId
           AND StatusKey IN ('queued', 'running')
         """, SqlDataScope.Global);

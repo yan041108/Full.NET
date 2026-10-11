@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Full.NET.AI.Abstractions.Budgets;
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Abstractions.Tenancy;
@@ -31,7 +32,8 @@ internal sealed class AiAgentRunManagementService(
     ICurrentTenant tenant,
     IClock clock,
     IIdGenerator ids,
-    IOptions<AiAgentRuntimeOptions> runtimeOptions)
+    IOptions<AiAgentRuntimeOptions> runtimeOptions,
+    ICommandTransaction transaction)
 {
     public const string SingleTextDefinitionKey = AgentDefinitionRegistry.SingleTextKey;
     public const string ReadOnlyToolLoopDefinitionKey = AgentDefinitionRegistry.ReadOnlyToolLoopKey;
@@ -151,8 +153,19 @@ internal sealed class AiAgentRunManagementService(
 
     public async Task<Result<bool>> CancelAsync(Guid runId, Guid actorUserId, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var scope = ResolveScope();
-        var cancelled = await store.TryCancelOwnedAsync(runId, scope, actorUserId, cancellationToken).ConfigureAwait(false);
+        var cancelled = await transaction.ExecuteAsync(async token =>
+        {
+            if (!await store.TryCancelOwnedAsync(runId, scope, actorUserId, token).ConfigureAwait(false)) return false;
+            token.ThrowIfCancellationRequested();
+            // 取消不能证明外部派发没有发生；保留未知用量及已知账本，不按零用量退款。
+            // 结算异常必须传播到最外层事务，不能在嵌套事务中转成成功或失败 Result 后继续提交。
+            await budgetStore.SettleAsync(runId, new(null, null), "cancelled", token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            return true;
+        }, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!cancelled)
         {
             var existing = await store.FindOwnedAsync(runId, scope, actorUserId, cancellationToken).ConfigureAwait(false);
@@ -168,15 +181,6 @@ internal sealed class AiAgentRunManagementService(
                 AiErrorCodes.AgentRunNotCancellable,
                 "The agent run cannot be cancelled in its current state.",
                 ErrorType.BusinessRule));
-        }
-
-        try
-        {
-            await budgetStore.SettleAsync(runId, new(null, null), "cancelled", cancellationToken).ConfigureAwait(false);
-        }
-        catch (AiBudgetException)
-        {
-            // 取消优先；预算回执失败留给对账，不伪造 succeeded。
         }
 
         return Result<bool>.Success(true);

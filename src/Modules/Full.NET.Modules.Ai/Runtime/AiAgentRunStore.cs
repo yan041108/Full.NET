@@ -296,11 +296,26 @@ internal sealed class AiAgentRunStore(
     public async ValueTask<bool> TryCancelOwnedAsync(
         Guid runId, string scopeKey, Guid actorUserId, CancellationToken cancellationToken = default)
     {
-        var affected = await commands.ExecuteAsync(
-            AiAgentRunSql.CancelOwned,
-            AiSqlParameters.Create(("RunId", runId), ("ScopeKey", scopeKey), ("ActorUserId", actorUserId), ("Now", clock.UtcNow)),
-            cancellationToken).ConfigureAwait(false);
-        return affected == 1;
+        cancellationToken.ThrowIfCancellationRequested();
+        return await transaction.ExecuteAsync(async token =>
+        {
+            var affected = await commands.ExecuteAsync(
+                AiAgentRunSql.CancelOwned,
+                AiSqlParameters.Create(("RunId", runId), ("ScopeKey", scopeKey), ("ActorUserId", actorUserId), ("Now", clock.UtcNow)),
+                token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            if (affected != 1) return false;
+
+            // 条件更新持有运行行锁，先使旧租约失效，再分配序号，避免取消与 Worker 完成事件交错提交。
+            var sequence = checked(await FindLatestEventSequenceAsync(runId, token).ConfigureAwait(false) + 1);
+            token.ThrowIfCancellationRequested();
+            var inserted = await commands.ExecuteAsync(AiAgentRunSql.InsertEvent, AiSqlParameters.Create(
+                ("EventId", ids.NewId()), ("RunId", runId), ("Sequence", sequence),
+                ("EventType", "run.cancelled"), ("PayloadVersion", 1), ("Payload", "{}"), ("Now", clock.UtcNow)), token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            if (inserted != 1) throw new InvalidOperationException("The run cancellation event was not persisted.");
+            return true;
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask<bool> TryResumeOwnedAsync(

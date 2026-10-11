@@ -223,8 +223,9 @@ public sealed partial class AiApprovalCurrentAdmissionTests
         validator.IsValidAsync(binding, Arg.Any<CancellationToken>()).Returns(_ => { if (change == "cancel_binding") cancellation.Cancel(); return true; });
         if (change == "expired_after_gate") f.OnApprovalQuery = () => f.CurrentTime = f.Now.AddMinutes(2);
         var ids = Substitute.For<IIdGenerator>();
-        var store = new AiAgentRunStore(f.Queries, f.Commands, new RecordingTransaction(), ids, f.Clock, Options.Create(new DatabaseOptions()));
-        var service = new AiAgentRunManagementService(store, null!, f.Gate, null!, validator, null!, null!, f.Tenant, f.Clock, ids, Options.Create(new AiAgentRuntimeOptions()));
+        var transaction = new RecordingTransaction();
+        var store = new AiAgentRunStore(f.Queries, f.Commands, transaction, ids, f.Clock, Options.Create(new DatabaseOptions()));
+        var service = new AiAgentRunManagementService(store, null!, f.Gate, null!, validator, null!, null!, f.Tenant, f.Clock, ids, Options.Create(new AiAgentRuntimeOptions()), transaction);
         if (change.StartsWith("cancel_", StringComparison.Ordinal))
             await Assert.ThrowsAsync<OperationCanceledException>(() => service.ResumeAsync(f.RunId, binding, cancellation.Token));
         else

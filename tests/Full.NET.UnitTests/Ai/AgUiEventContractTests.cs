@@ -45,6 +45,17 @@ public sealed class AgUiEventContractTests
     }
 
     [TestMethod]
+    public void Cancelled_persisted_event_maps_to_same_boundary_as_terminal_snapshot()
+    {
+        var snapshot = Snapshot with { StatusKey = "cancelled" };
+        var mapped = AgUiEventMapper.MapPersistedEvent(snapshot,
+            new AgentRunPersistedEvent(1, "run.cancelled", 1, "{}", DateTimeOffset.UtcNow)).Single();
+        var boundary = AgUiEventMapper.CreateTerminalBoundary(snapshot, includeWhenNoPersistedEvent: true)!;
+        Assert.AreEqual(boundary.EventType, mapped.EventType);
+        Assert.AreEqual(boundary.Payload, mapped.Payload);
+    }
+
+    [TestMethod]
     public void Awaiting_approval_maps_to_interrupt_finished_outcome()
     {
         var events = AgUiEventMapper.MapPersistedEvent(

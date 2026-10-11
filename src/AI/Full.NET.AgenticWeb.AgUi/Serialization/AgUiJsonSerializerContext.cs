@@ -7,6 +7,8 @@ namespace Full.NET.AgenticWeb.AgUi.Serialization;
 [JsonSerializable(typeof(AgUiRunErrorPayload))]
 [JsonSerializable(typeof(AgUiStateSnapshotPayload))]
 [JsonSerializable(typeof(AgUiCustomPayload))]
+[JsonSerializable(typeof(AgUiPersistedEventValue))]
+[JsonSerializable(typeof(AgUiReconciliationValue))]
 [JsonSerializable(typeof(AgUiRunProgressState))]
 [JsonSerializable(typeof(AgUiRunStepState))]
 [JsonSerializable(typeof(AgUiRunBudgetState))]
@@ -50,3 +52,9 @@ internal sealed record AgUiRunStepState(
     string? ErrorCode);
 
 internal sealed record AgUiCustomPayload(string Type, string Name, object Value);
+
+/// <summary>持久事件的具体值类型，供源生成序列化静态解析，保留已有 JSON 字段。</summary>
+internal sealed record AgUiPersistedEventValue(Guid RunId, long Sequence, int PayloadVersion, string Payload);
+
+/// <summary>对账事件只发送固定原因，不携带外部工具回执正文。</summary>
+internal sealed record AgUiReconciliationValue(Guid RunId, long Sequence, string Reason);

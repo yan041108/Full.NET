@@ -49,6 +49,7 @@ public sealed class AgUiStreamService(IAgentRunAgUiReader reader)
         var responseBody = httpContext.Response.Body;
         var progress = await reader.TryGetProgressAsync(runId, scopeKey, cancellationToken).ConfigureAwait(false);
         var lastSentSequence = afterSequence;
+        var terminalBoundarySent = false;
 
         if (afterSequence <= 0)
         {
@@ -83,11 +84,14 @@ public sealed class AgUiStreamService(IAgentRunAgUiReader reader)
                 }
 
                 lastSentSequence = persisted.Sequence;
+                // 审批/对账的中断边界不是运行终态，不能压制后续真正的终止消息。
+                terminalBoundarySent |= persisted.EventType is "run.completed" or "run.failed" or "run.cancelled";
             }
 
-            if (IsTerminal(snapshot.StatusKey))
+            // 终态也必须读完所有分页，不能在首批历史事件后遗漏末尾的终止凭证。
+            if (IsTerminal(snapshot.StatusKey) && lastSentSequence >= snapshot.MaxEventSequence)
             {
-                if (events.Count == 0)
+                if (!terminalBoundarySent)
                 {
                     var boundary = AgUiEventMapper.CreateTerminalBoundary(snapshot, includeWhenNoPersistedEvent: true);
                     if (boundary is not null)
@@ -102,6 +106,9 @@ public sealed class AgUiStreamService(IAgentRunAgUiReader reader)
                     cancellationToken).ConfigureAwait(false);
                 return Result<bool>.Success(true);
             }
+
+            // 事件可能晚于本轮快照；先刷新状态，避免结束消息后再输出旧 running 快照。
+            if (terminalBoundarySent && events.Count > 0) continue;
 
             if (events.Count == 0)
             {
