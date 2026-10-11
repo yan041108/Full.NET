@@ -88,6 +88,10 @@ internal static class NativeApiNotificationsE2EAssertions
                 cancellationToken)
             .ConfigureAwait(false);
 
+        // 机构场景会切换会话租户；先结束已完成的实时订阅，避免继续使用旧上下文令牌。
+        await connection.StopAsync(cancellationToken).ConfigureAwait(false);
+        await NativeApiOrganizationAnnouncementAssertions.VerifyAsync(client, token, host.LogFilePath, cancellationToken)
+            .ConfigureAwait(false);
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         host.AssertNoFatalMarkersInLogs();
     }

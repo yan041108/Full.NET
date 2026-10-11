@@ -1,6 +1,7 @@
 #if FULLNET_AOT_COMPILE
 using System.Data.Common;
 using Full.NET.Data.Dapper;
+using Full.NET.Modules.Organization.HostDashboard;
 using global::Dapper;
 
 namespace Full.NET.Modules.Organization.Persistence;
@@ -30,6 +31,8 @@ internal sealed class OrganizationDapperAotMaterializerContributor : IDapperAotM
         registrar.Register<OrganizationPositionLevelRecord>(ReadOrganizationPositionLevelRecord);
         registrar.Register<WorkflowOrganizationUnitListRow>(ReadWorkflowOrganizationUnitListRow);
         registrar.Register<WorkflowUnitLeaderRow>(ReadWorkflowUnitLeaderRow);
+        registrar.Register<OrganizationMembershipRecord>(ReadOrganizationMembershipRecord);
+        registrar.Register<OrganizationMembershipUserRecord>(ReadOrganizationMembershipUserRecord);
 
         DapperAotParameterRegistry.Register<InsertOrganizationUnit>(BindInsertOrganizationUnit);
         DapperAotParameterRegistry.Register<InsertOrganizationPosition>(
@@ -41,6 +44,13 @@ internal sealed class OrganizationDapperAotMaterializerContributor : IDapperAotM
         DapperAotParameterRegistry.Register<InsertOrganizationUserPosition>(
             BindInsertOrganizationUserPosition);
     }
+
+    // 公告受众端口的双库 SQL 分别返回租户/机构及成员标识，列序必须保持一致。
+    private static OrganizationMembershipRecord ReadOrganizationMembershipRecord(DbDataReader reader) =>
+        new() { TenantId = reader.GetGuid(0), OrganizationUnitId = reader.GetGuid(1) };
+
+    private static OrganizationMembershipUserRecord ReadOrganizationMembershipUserRecord(DbDataReader reader) =>
+        new() { UserId = reader.GetGuid(0) };
 
     // 两种正式提供程序的 Workflow 机构目录与负责人 SQL 保持相同投影列序。
     private static WorkflowOrganizationUnitListRow ReadWorkflowOrganizationUnitListRow(DbDataReader reader) =>
