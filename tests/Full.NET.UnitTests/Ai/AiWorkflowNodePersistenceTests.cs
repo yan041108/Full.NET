@@ -100,11 +100,13 @@ public sealed partial class AiAgentRunCoordinatorTests
         Assert.AreEqual(1, await fixture.Coordinator.ProcessPendingAsync());
         AssertStatusCommit(fixture.Commands, "awaiting_approval");
         var events = Parameters(fixture.Commands, AiAgentRunSql.InsertEvent).ToArray();
-        Assert.AreEqual(2, events.Length);
+        // 整轮意图、模型意图/批次、工具意图/暂停回执及等待事件都必须接续既有序号。
+        Assert.AreEqual(6, events.Length);
         Assert.AreEqual(8L, events[0]["Sequence"]);
         Assert.AreEqual("run.node_started", events[0]["EventType"]);
-        Assert.AreEqual(9L, events[1]["Sequence"]);
-        Assert.AreEqual("run.awaiting_approval", events[1]["EventType"]);
+        CollectionAssert.AreEqual(Enumerable.Range(8, 6).Select(i => (long)i).ToArray(),
+            events.Select(e => (long)e["Sequence"]!).ToArray());
+        Assert.AreEqual("run.awaiting_approval", events[^1]["EventType"]);
     }
 
     [TestMethod]

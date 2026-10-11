@@ -11,6 +11,10 @@ using Full.NET.Modules.Ai.Runtime;
 using Full.NET.Modules.Ai.Serialization;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Full.NET.Agents.Definitions;
+using Full.NET.Agents.Tools;
+using Full.NET.AI.Abstractions.Tools;
+using Microsoft.Extensions.AI;
 
 namespace Full.NET.IntegrationTests.Ai;
 
@@ -27,7 +31,95 @@ internal static class AiWorkflowCheckpointAssertions
         await Event_sequence_without_checkpoint_async(factory).ConfigureAwait(false);
         await Model_receipt_reclaim_and_rollback_async(factory, Full.NET.Agents.Definitions.AgentDefinitionRegistry.SingleTextKey).ConfigureAwait(false);
         await Model_receipt_reclaim_and_rollback_async(factory, Full.NET.Agents.Definitions.AgentDefinitionRegistry.ReadOnlyToolLoopKey).ConfigureAwait(false);
+        await Tool_loop_cursor_reclaim_and_resume_async(factory).ConfigureAwait(false);
         await AiAgentCompletionAssertions.VerifyAsync(factory).ConfigureAwait(false);
+    }
+
+    private static async Task Tool_loop_cursor_reclaim_and_resume_async(FullNetApiFactory factory)
+    {
+        var runId = await SeedWorkflowRunAsync(factory, AgentDefinitionRegistry.ReadOnlyToolLoopKey);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var store = scope.ServiceProvider.GetRequiredService<AiAgentRunStore>();
+        var run = (await store.FindByIdAsync(runId))!;
+        var budget = JsonSerializer.Deserialize(run.BudgetJson, AiJsonSerializerContext.Default.AgentRunBudgetSnapshot)!;
+        var state = AiModelRunCheckpoint.Start(run, new AiModelConfigRecord { Id = budget.ModelConfigId, Version = 1 }, "");
+        var lease = (await store.TryAcquireAsync(runId, "loop-owner", DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1)))!;
+        var payload = state.ToJson();
+        Assert.IsTrue(await store.CommitProgressAsync(new(lease, "running", null,
+            new(Guid.CreateVersion7(), 1, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiModelRunCheckpoint.Digest(payload)),
+            new(Guid.CreateVersion7(), 1, "run.node_started", 1, "{}"))));
+        lease = lease with { Version = lease.Version + 1 };
+        var loopPayload = $$"""
+            {"Version":1,"RunId":"{{runId:D}}","DefinitionKey":"{{run.DefinitionKey}}","DefinitionVersion":1,
+             "InputDigest":"{{state.InputDigest}}","Phase":"tools_ready","Rounds":[{"InputTokens":2,"OutputTokens":1,
+             "Messages":[{"Contents":[{"Kind":"call","CallId":"first","Name":"ai.tools.ping","Arguments":{},
+             "ToolVersion":1,"OperationId":"{{AiModelRunCheckpoint.ResolveToolOperationId(runId, "first"):D}}",
+             "ResultPayload":"{\"statusKey\":\"succeeded\",\"errorCode\":null,\"value\":true,\"isUntrusted\":true}"},
+             {"Kind":"call","CallId":"second","Name":"ai.tools.ping","Arguments":{},"ToolVersion":1}]}]}]}
+            """;
+        state = state.WithLoop(loopPayload); payload = state.ToJson();
+        // 事件末尾失败必须回滚新游标；否则恢复会把未提交的工具结果当成已完成。
+        var failure = await Assert.ThrowsAsync<DataCommandException>(async () => await store.CommitProgressAsync(new(lease, "running", null,
+            new(Guid.CreateVersion7(), 2, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiModelRunCheckpoint.Digest(payload)),
+            new(Guid.CreateVersion7(), 1, "run.node_completed", 1, "{}"))));
+        Assert.AreEqual(DataCommandFailureKind.UniqueConstraint, failure.Kind);
+        Assert.AreEqual("started", AiModelRunCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!.Phase);
+        Assert.IsTrue(await store.CommitProgressAsync(new(lease, "running", null,
+            new(Guid.CreateVersion7(), 2, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiModelRunCheckpoint.Digest(payload)),
+            new(Guid.CreateVersion7(), 2, "run.node_completed", 1, "{}"))));
+        lease = lease with { Version = lease.Version + 1 };
+        var commands = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+        await commands.ExecuteAsync(new("test.ai.loop.expire", "UPDATE fn_ai_agent_run SET LeaseExpiresAtUtc = @Expired WHERE Id = @RunId", SqlDataScope.Global),
+            AiSqlParameters.Create(("RunId", runId), ("Expired", DateTimeOffset.UtcNow.AddMinutes(-1))));
+        Assert.IsTrue((await store.ScanQueuedAsync(100, DateTimeOffset.UtcNow)).Contains(runId));
+        var recoveryLease = (await store.TryAcquireAsync(runId, "loop-recovery", DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1)))!;
+        Assert.IsGreaterThan(lease.Epoch, recoveryLease.Epoch);
+        Assert.IsFalse(await store.CommitProgressAsync(new(lease, "completed", null, null, null)));
+        state = AiModelRunCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!;
+        Assert.AreEqual("loop_ready", state.Phase);
+        var client = new CursorRecoveryClient(); var executor = new CursorRecoveryExecutor(runId);
+        var sequence = 2L;
+        var result = await new AgentToolLoop().RunAsync(new(runId, run.DefinitionKey, 1, "", client, executor,
+            new AgentToolRegistry([new("ai.tools.ping", 1, "permission", "none", true, null)]),
+            call => AiModelRunCheckpoint.ResolveToolOperationId(runId, call), ResumeCheckpoint: state.LoopState,
+            PersistCheckpoint: async (checkpoint, token) =>
+            {
+                var candidate = state.WithLoop(checkpoint); var body = candidate.ToJson(); sequence++;
+                var committed = await store.CommitProgressAsync(new(recoveryLease, "running", null,
+                    new(Guid.CreateVersion7(), sequence, 1, AgentFrameworkRuntime.FrameworkVersion, 1, body, AiModelRunCheckpoint.Digest(body)),
+                    new(Guid.CreateVersion7(), sequence, candidate.Phase == "started" ? "run.node_started" : "run.node_completed", 1, "{}")), token);
+                if (committed) { state = candidate; recoveryLease = recoveryLease with { Version = recoveryLease.Version + 1 }; }
+                return committed;
+            }));
+        Assert.AreEqual(1, executor.Calls); Assert.AreEqual(1, client.Calls);
+        Assert.AreEqual(2, result.ToolSteps); Assert.AreEqual(5L, result.InputTokens); Assert.AreEqual(3L, result.OutputTokens);
+        var final = AiModelRunCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!;
+        var restored = AgentToolLoopCheckpoint.ReadCompletedResult(final.LoopState!, runId, run.DefinitionKey, 1, "",
+            call => AiModelRunCheckpoint.ResolveToolOperationId(runId, call));
+        Assert.IsNotNull(restored); Assert.AreEqual("done", restored.Text);
+    }
+
+    private sealed class CursorRecoveryClient : IChatClient
+    {
+        internal int Calls { get; private set; }
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            Calls++; Assert.AreEqual(2, messages.Count(m => m.Role == ChatRole.Tool));
+            return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, "done"))
+                { Usage = new() { InputTokenCount = 3, OutputTokenCount = 2 } });
+        }
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+        public void Dispose() { }
+    }
+    private sealed class CursorRecoveryExecutor(Guid runId) : IAgentToolExecutor
+    {
+        internal int Calls { get; private set; }
+        public ValueTask<ToolExecutionResult> ExecuteAsync(ToolInvocation invocation, CancellationToken cancellationToken = default)
+        {
+            Calls++; Assert.AreEqual(AiModelRunCheckpoint.ResolveToolOperationId(runId, "second"), invocation.OperationId);
+            return ValueTask.FromResult(new ToolExecutionResult("succeeded", JsonSerializer.SerializeToElement(true), null));
+        }
     }
 
     private static async Task Model_receipt_reclaim_and_rollback_async(FullNetApiFactory factory, string definitionKey)

@@ -219,6 +219,16 @@ internal sealed class AiAgentRunCoordinator(
             }
             if (!AiRunOutputBudgetAdmission.TryGetConsumedTokens(snapshot, workflowState, out var consumedInputTokens, out var consumedOutputTokens))
                 return await FailAsync("ai.budget.limit_exceeded").ConfigureAwait(false);
+            if (modelState?.LoopState is { } savedLoop)
+            {
+                var info = AgentToolLoopCheckpoint.Inspect(savedLoop, runId, record.DefinitionKey, record.DefinitionVersion,
+                    modelState.InputDigest, callId => ResolveToolOperationId(runId, callId));
+                consumedInputTokens = info.InputTokens; consumedOutputTokens = info.OutputTokens;
+                // 最终回执允许保留未知用量；有剩余步骤时，未知或耗尽不能重置为新客户端的零用量。
+                if (info.Phase != "completed" && (consumedInputTokens is null || consumedOutputTokens is null
+                    || consumedInputTokens >= snapshot.InputTokenLimit || consumedOutputTokens >= snapshot.OutputTokenLimit))
+                    return await FailAsync("ai.budget.limit_exceeded").ConfigureAwait(false);
+            }
             // 未知或耗尽的历史步数在客户端创建前拒绝；未知派发意图已优先转入对账。
             if (workflowState is not null && !AgentWorkflowRunner.HasExecutionBudget(workflowState,
                     AgentWorkflowRegistry.Resolve(record.DefinitionKey, record.DefinitionVersion)!.Nodes.Count))
@@ -256,10 +266,20 @@ internal sealed class AiAgentRunCoordinator(
             {
                 if (modelState.InputDigest != AiModelRunCheckpoint.Digest(effectiveSinglePrompt))
                     return await FailAsync("ai.agent_run.checkpoint_incompatible").ConfigureAwait(false);
-                // 已完成凭证只收敛状态和原用量；不创建客户端、不重新派发，也不补零未知计量。
-                if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
-                completionPending = true;
-                return await CompleteModelRunAsync(scope.ServiceProvider, lease, record, modelState, cancellationToken).ConfigureAwait(false);
+                if (modelState.LoopState is { } loopPayload)
+                {
+                    var completed = AgentToolLoopCheckpoint.ReadCompletedResult(loopPayload, runId, record.DefinitionKey,
+                        record.DefinitionVersion, effectiveSinglePrompt, callId => ResolveToolOperationId(runId, callId));
+                    if (completed is not null)
+                        modelState = modelState.Complete(new(completed.Text, completed.Session, completed.InputTokens, completed.OutputTokens));
+                }
+                if (modelState.Phase == "completed")
+                {
+                    // 最终模型或旧整轮完成回执只收敛状态和原用量，不创建客户端或补零未知计量。
+                    if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
+                    completionPending = true;
+                    return await CompleteModelRunAsync(scope.ServiceProvider, lease, record, modelState, cancellationToken).ConfigureAwait(false);
+                }
             }
             var factories = scope.ServiceProvider.GetServices<IAiModelClientFactory>();
             var factory = factories.FirstOrDefault(item => item.ProviderKey == model.ProviderKey)
@@ -372,10 +392,13 @@ internal sealed class AiAgentRunCoordinator(
                 var toolRegistry = await scope.ServiceProvider.GetRequiredService<IAgentToolRegistrySource>()
                     .GetRegistryAsync(cancellationToken).ConfigureAwait(false);
                 // 整轮意图先落库；恢复不重放未知的模型或工具，也不把单次本地拒绝当作整轮未派发。
-                modelState = AiModelRunCheckpoint.Start(record, model, effectiveSinglePrompt);
                 preserveDispatchBudget = true;
-                if (!await leaseWatch.CommitNodeAsync((currentLease, token) => CommitModelProgressAsync(
-                    currentLease, record, modelState, "running", "run.node_started", null, token)).ConfigureAwait(false)) return false;
+                if (modelState is null)
+                {
+                    modelState = AiModelRunCheckpoint.Start(record, model, effectiveSinglePrompt);
+                    if (!await leaseWatch.CommitNodeAsync((currentLease, token) => CommitModelProgressAsync(
+                        currentLease, record, modelState, "running", "run.node_started", null, token)).ConfigureAwait(false)) return false;
+                }
                 cancellationToken.ThrowIfCancellationRequested();
                 var loop = new AgentToolLoop();
                 var loopResult = await loop.RunAsync(new(
@@ -387,7 +410,18 @@ internal sealed class AiAgentRunCoordinator(
                     scope.ServiceProvider.GetRequiredService<IAgentToolExecutor>(),
                     toolRegistry,
                     callId => ResolveToolOperationId(runId, callId),
-                    additionalAllowed), cancellationToken).ConfigureAwait(false);
+                    additionalAllowed,
+                    modelState.LoopState,
+                    async (payload, token) =>
+                    {
+                        var candidate = modelState.WithLoop(payload);
+                        var committed = await leaseWatch.CommitNodeAsync((currentLease, commitToken) => CommitModelProgressAsync(
+                            currentLease, record, candidate, "running", candidate.Phase == "started" ? "run.node_started" : "run.node_completed",
+                            null, commitToken)).ConfigureAwait(false);
+                        token.ThrowIfCancellationRequested();
+                        if (committed) modelState = candidate;
+                        return committed;
+                    }), cancellationToken).ConfigureAwait(false);
                 if (loopResult.ApprovalRequired)
                 {
                     if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
@@ -542,8 +576,7 @@ internal sealed class AiAgentRunCoordinator(
 
     private static Guid ResolveToolOperationId(Guid runId, string callId)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(FormattableString.Invariant($"{runId:N}|tool|{callId}")));
-        return new Guid(bytes.AsSpan(0, 16), bigEndian: true);
+        return AiModelRunCheckpoint.ResolveToolOperationId(runId, callId);
     }
 
     private async Task<bool> CompleteModelRunAsync(IServiceProvider provider, AgentRunLease lease,

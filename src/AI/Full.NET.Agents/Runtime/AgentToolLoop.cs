@@ -39,7 +39,13 @@ public sealed class AgentToolLoop
             throw new InvalidOperationException("Definition does not support tool loop execution.");
         }
 
-        var messages = new List<ChatMessage> { new(ChatRole.User, request.Prompt) };
+        var state = request.ResumeCheckpoint is null
+            ? new AgentToolLoopState { RunId = request.RunId, DefinitionKey = request.DefinitionKey,
+                DefinitionVersion = request.DefinitionVersion, InputDigest = AgentToolLoopCheckpoint.Digest(request.Prompt) }
+            : AgentToolLoopCheckpoint.Restore(request.ResumeCheckpoint, request.RunId, request.DefinitionKey,
+                request.DefinitionVersion, AgentToolLoopCheckpoint.Digest(request.Prompt), request.ResolveOperationId);
+        if (AgentToolLoopCheckpoint.Summarize(state).ReconciliationRequired) AgentToolLoopCheckpoint.Invalid();
+        if (state.Phase == "completed") return AgentToolLoopCheckpoint.CompletedResult(state, request.Prompt);
         var allowed = definition.AllowedToolNames.ToHashSet(StringComparer.Ordinal);
         if (request.AdditionalAllowedToolNames is not null)
         {
@@ -50,98 +56,93 @@ public sealed class AgentToolLoop
         }
         var toolDescriptions = BuildToolDescriptions(request.Registry, allowed);
         var options = new ChatOptions { Tools = [.. toolDescriptions] };
-        long? inputTokens = null;
-        long? outputTokens = null;
-        var toolSteps = 0;
-        var executionSteps = 0;
-        var approvalRequired = false;
-        var reconciliationRequired = false;
-        var callIds = new HashSet<string>(StringComparer.Ordinal);
+        var callIds = state.Rounds.SelectMany(AgentToolLoopCheckpoint.Calls)
+            .Select(c => c.CallId!).ToHashSet(StringComparer.Ordinal);
 
-        for (var iteration = 0; iteration < definition.MaxToolIterations; iteration++)
+        async Task SaveAsync()
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (executionSteps >= MaximumExecutionSteps) throw new AgentToolLoopBudgetExceededException();
-            executionSteps++;
-            var response = await request.Client.GetResponseAsync(messages, options, cancellationToken).ConfigureAwait(false);
-            // 供应商可以忽略令牌并返回；等待后必须复核，禁止取消后继续派发工具或交付完成结果。
+            if (request.PersistCheckpoint is not null
+                && !await request.PersistCheckpoint(AgentToolLoopCheckpoint.Serialize(state), cancellationToken).ConfigureAwait(false))
+                throw new InvalidOperationException("Agent tool loop checkpoint commit was not confirmed.");
             cancellationToken.ThrowIfCancellationRequested();
-            inputTokens = AgentTokenUsage.Add(inputTokens, response.Usage?.InputTokenCount, iteration == 0);
-            outputTokens = AgentTokenUsage.Add(outputTokens, response.Usage?.OutputTokenCount, iteration == 0);
-            // 整批身份、参数、规模及剩余步数先冻结；不把可变模型对象跨工具 await 保存或部分派发。
-            var admitted = AgentToolCallAdmission.Freeze(response, MaximumExecutionSteps - executionSteps, callIds, cancellationToken);
-            var calls = admitted.Calls;
-            if (calls.Count == 0)
-            {
-                var text = admitted.Messages.LastOrDefault()?.Text ?? string.Empty;
-                return new(text, SerializeSession(messages, text), inputTokens, outputTokens, toolSteps, approvalRequired, reconciliationRequired);
-            }
-
-            messages.AddRange(admitted.Messages);
-            foreach (var call in calls)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (executionSteps >= MaximumExecutionSteps) throw new AgentToolLoopBudgetExceededException();
-                executionSteps++;
-                toolSteps++;
-                if (!allowed.Contains(call.Name))
-                {
-                    messages.Add(new ChatMessage(ChatRole.Tool,
-                    [
-                        new FunctionResultContent(call.CallId,
-                            JsonSerializer.Serialize(
-                                new ToolLoopDeniedPayload("denied", "ai.tool.unavailable"),
-                                AgentToolLoopJsonSerializerContext.Default.ToolLoopDeniedPayload))
-                    ]));
-                    continue;
-                }
-
-                var tool = request.Registry.Find(call.Name);
-                if (tool is null || !tool.IsEnabled)
-                {
-                    messages.Add(new ChatMessage(ChatRole.Tool,
-                    [
-                        new FunctionResultContent(call.CallId,
-                            JsonSerializer.Serialize(
-                                new ToolLoopDeniedPayload("denied", "ai.tool.unavailable"),
-                                AgentToolLoopJsonSerializerContext.Default.ToolLoopDeniedPayload))
-                    ]));
-                    continue;
-                }
-
-                var operationId = request.ResolveOperationId(call.CallId);
-                var invocation = new ToolInvocation(operationId, request.RunId, call.Name, tool.Version, call.Arguments);
-                cancellationToken.ThrowIfCancellationRequested();
-                var result = await request.Executor.ExecuteAsync(invocation, cancellationToken).ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
-                if (string.Equals(result.ErrorCode, "ai.tool.approval_required", StringComparison.Ordinal))
-                {
-                    approvalRequired = true;
-                }
-
-                if (string.Equals(result.ErrorCode, "ai.tool.reconciliation_required", StringComparison.Ordinal))
-                {
-                    reconciliationRequired = true;
-                }
-
-                var payload = JsonSerializer.Serialize(
-                    new ToolLoopExecutionPayload(
-                        result.StatusKey,
-                        result.ErrorCode,
-                        result.Value,
-                        result.IsUntrusted),
-                    AgentToolLoopJsonSerializerContext.Default.ToolLoopExecutionPayload);
-                messages.Add(new ChatMessage(ChatRole.Tool, [new FunctionResultContent(call.CallId, payload)]));
-                // 暂停结果是执行边界，不能让模型或同轮后续调用继续消耗预算、产生副作用。
-                if (approvalRequired || reconciliationRequired)
-                {
-                    return new(string.Empty, SerializeSession(messages, string.Empty), inputTokens, outputTokens,
-                        toolSteps, approvalRequired, reconciliationRequired);
-                }
-            }
         }
 
-        throw new AgentToolLoopBudgetExceededException();
+        while (true)
+        {
+            // 先消化持久批次的未完成后缀；原模型请求和已确认工具结果不再执行。
+            if (state.Rounds.Count != 0)
+            {
+                foreach (var call in AgentToolLoopCheckpoint.Calls(state.Rounds[^1]).Where(c => c.ResultPayload is null))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (AgentToolLoopCheckpoint.Summarize(state).ExecutionSteps >= MaximumExecutionSteps) throw new AgentToolLoopBudgetExceededException();
+                    if (call.ToolVersion is null)
+                    {
+                        call.ResultPayload = JsonSerializer.Serialize(new ToolLoopDeniedPayload("denied", "ai.tool.unavailable"),
+                            AgentToolLoopJsonSerializerContext.Default.ToolLoopDeniedPayload);
+                    }
+                    else
+                    {
+                        call.OperationId = request.ResolveOperationId(call.CallId!);
+                        if (call.OperationId == Guid.Empty) AgentToolLoopCheckpoint.Invalid();
+                        state.Phase = "tool_pending";
+                        await SaveAsync().ConfigureAwait(false);
+                        var tool = request.Registry.Find(call.Name!);
+                        // 恢复不能把原参数绑定到新工具版本或已撤回的允许清单；执行器仍复核当前权限。
+                        var result = !allowed.Contains(call.Name!) || tool is null || !tool.IsEnabled || tool.Version != call.ToolVersion
+                            ? new ToolExecutionResult("denied", null, "ai.tool.unavailable")
+                            : await request.Executor.ExecuteAsync(new(call.OperationId.Value, request.RunId,
+                                call.Name!, call.ToolVersion.Value, call.Arguments!.Value), cancellationToken).ConfigureAwait(false);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        call.ResultPayload = JsonSerializer.Serialize(new ToolLoopExecutionPayload(result.StatusKey, result.ErrorCode,
+                            result.Value, result.IsUntrusted), AgentToolLoopJsonSerializerContext.Default.ToolLoopExecutionPayload);
+                    }
+                    var receipt = AgentToolLoopCheckpoint.ReadResult(call.ResultPayload);
+                    state.Phase = AgentToolLoopCheckpoint.IsPause(receipt.ErrorCode) ? "blocked" : "tools_ready";
+                    await SaveAsync().ConfigureAwait(false);
+                    if (state.Phase == "blocked")
+                    {
+                        var summary = AgentToolLoopCheckpoint.Summarize(state);
+                        return new(string.Empty, SerializeSession(AgentToolLoopCheckpoint.History(state, request.Prompt), string.Empty),
+                            summary.InputTokens, summary.OutputTokens, summary.ToolSteps,
+                            receipt.ErrorCode == "ai.tool.approval_required", receipt.ErrorCode == "ai.tool.reconciliation_required");
+                    }
+                }
+            }
+            var info = AgentToolLoopCheckpoint.Summarize(state);
+            if (state.Rounds.Count >= definition.MaxToolIterations || info.ExecutionSteps >= MaximumExecutionSteps)
+                throw new AgentToolLoopBudgetExceededException();
+            // 每轮模型都先保存意图；网络返回前中断只能对账，不能从旧 ready 推断本轮未执行。
+            state.Phase = "model_pending";
+            await SaveAsync().ConfigureAwait(false);
+            var response = await request.Client.GetResponseAsync(AgentToolLoopCheckpoint.History(state, request.Prompt), options, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            var admitted = AgentToolCallAdmission.Freeze(response, MaximumExecutionSteps - info.ExecutionSteps - 1, callIds, cancellationToken);
+            var round = new AgentToolLoopRound { InputTokens = response.Usage?.InputTokenCount, OutputTokens = response.Usage?.OutputTokenCount };
+            foreach (var message in admitted.Messages)
+            {
+                var saved = new AgentToolLoopMessage { AuthorName = message.AuthorName, MessageId = message.MessageId, CreatedAt = message.CreatedAt };
+                foreach (var content in message.Contents)
+                {
+                    if (content is TextContent text) saved.Contents.Add(new() { Kind = "text", Text = text.Text });
+                    else if (content is FunctionCallContent function)
+                    {
+                        var call = admitted.Calls.Single(c => c.CallId == function.CallId);
+                        var tool = allowed.Contains(call.Name) ? request.Registry.Find(call.Name) : null;
+                        saved.Contents.Add(new() { Kind = "call", CallId = call.CallId, Name = call.Name, Arguments = call.Arguments,
+                            ToolVersion = tool is { IsEnabled: true } ? tool.Version : null });
+                    }
+                }
+                round.Messages.Add(saved);
+            }
+            state.Rounds.Add(round);
+            // 累计用量保持未知传播；无工具的最终模型回执也须在交付结果前持久化。
+            _ = AgentToolLoopCheckpoint.Summarize(state);
+            state.Phase = admitted.Calls.Count == 0 ? "completed" : "tools_ready";
+            await SaveAsync().ConfigureAwait(false);
+            if (state.Phase == "completed") return AgentToolLoopCheckpoint.CompletedResult(state, request.Prompt);
+        }
     }
 
     private static IReadOnlyList<AITool> BuildToolDescriptions(AgentToolRegistry registry, HashSet<string> allowed)
@@ -165,7 +166,7 @@ public sealed class AgentToolLoop
         return tools;
     }
 
-    private static JsonElement SerializeSession(IReadOnlyList<ChatMessage> messages, string finalText)
+    internal static JsonElement SerializeSession(IReadOnlyList<ChatMessage> messages, string finalText)
     {
         var entries = messages
             .Select(message => new AgentSessionMessageEntry(message.Role.Value, message.Text, message.Contents.Count))
@@ -189,6 +190,8 @@ public sealed class AgentToolLoop
 /// <param name="Registry">工具注册表；用于构建工具描述与查找工具元数据。</param>
 /// <param name="ResolveOperationId">根据模型生成的 callId 解析业务操作标识的回调。</param>
 /// <param name="AdditionalAllowedToolNames">定义允许清单之外临时放行的工具名集合；为 <see langword="null"/> 时不追加。</param>
+/// <param name="ResumeCheckpoint">经可信存储校验的逐步检查点；未知派发或暂停不得自动恢复。</param>
+/// <param name="PersistCheckpoint">在外部派发之前和结果之后提交不可变 JSON 的回调；false 或异常必须停止，调用方负责租约、事务与加密。</param>
 public sealed record AgentToolLoopRequest(
     Guid RunId,
     string DefinitionKey,
@@ -198,7 +201,9 @@ public sealed record AgentToolLoopRequest(
     IAgentToolExecutor Executor,
     AgentToolRegistry Registry,
     Func<string, Guid> ResolveOperationId,
-    IReadOnlySet<string>? AdditionalAllowedToolNames = null);
+    IReadOnlySet<string>? AdditionalAllowedToolNames = null,
+    string? ResumeCheckpoint = null,
+    Func<string, CancellationToken, Task<bool>>? PersistCheckpoint = null);
 
 /// <summary>单次运行结果；会话快照供持久化，不含凭据。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>

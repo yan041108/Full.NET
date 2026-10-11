@@ -243,3 +243,15 @@ AgentToolLoop 在任何工具派发前复制和校验本轮全部模型消息与
 本次循环所有轮次的 callId 必须精确唯一；标识和工具名须非空、不含控制字符且不超过 256 字符。工具白名单、启用/版本和当前权限仍由注册表与统一执行器核对，准入不授予授权。重复身份和未知派发仍按既有整轮凭证进入安全对账，不自动重新派发；本批不包含持久逐步游标、供应商精确输入 Token 认证或自动外部对账。
 
 最终本地验收：`node artifacts/r10w/run-unit.mjs final` 执行 AI 3514/3514（新增 46），`node artifacts/r10w/run-linux.mjs` 完成 API/Worker AOT 分析与 AOT Architecture 88/88，`node artifacts/r10w/run-tail.mjs` 完成 JIT Architecture 235/235、双库各 5/5（合计 Smoke 8 + AI 工作流检查点 2）、新鲜发现和输入/消费者/UID 核对，测试均零失败/跳过。末尾证据汇总首次因共用 TenantProvisioningTests 的提供程序位于方法名而非类名退出 1；修正为完整测试身份校验后，`python artifacts/r10w/collect.py` 退出 0，实际过滤器、数量及 UID 集合不变，保留原失败说明。构建零警告/错误；命名 30、矩阵 6、治理 57、工具链 54 项通过，受保护路径预先排除后的 Markdown 386 文件通过。完整 Unit 未执行，Integration 1214 为分片发现、并非执行数量；本批未执行完整 AI Integration 88。证据在 `artifacts/r10w/acceptance.json`，基线 `559e4583`、任务 `ai-tool-call-admission-r10w`，冻结 7795 输入，其他窗口改动保持原样。 Native 发布/运行与独立应用/页面继续按 AI 模块集中验收，Aot-analysis-clean，Capacity-not-verified。
+
+### 工具循环逐步凭证与确定前缀恢复（R10x）
+
+协调器在既有加密检查点与租约事务中写入 v2 循环凭证，冻结提示词摘要、模型配置/预算绑定、模型消息、工具参数/版本和稳定 OperationId。每次模型与工具调用前写入意图，确认结果后提交回执，再继续下一步；检查点和事件提交失败、取消或失租均停止派发。旧 v1 started 仍进入对账，旧 completed 仍只复用结果结算。
+
+恢复仅接纳完整模型轮次与连续工具回执前缀，复用已确认结果执行剩余调用；历史 callId 不可重复，工具撤回或版本变化不能重新绑定。历史模型轮数、模型/工具累计步数与已知 Token 用量继续计入原预算，未知用量或已耗尽额度不授予新额度。最终模型回执已确认时无需创建客户端或再次派发即可完成。只有外部意图、审批/对账暂停、坏绑定、损坏 JSON 或回执空洞仍保守进入对账。
+
+逐步 JSON 使用具体自有 DTO 和 System.Text.Json 源生成，外层正文最多 2097152 字符，内层最多 1048576 字符；重复/未知字段、超限深度/节点、非连续结果与操作标识漂移拒绝。工具成功 JSON null 是合法值，必须与缺失 value 字段区分；回执字符上限覆盖原结果 65536 UTF-8 字节经默认编码器至多六倍的转义扩张及固定封装余量，不能因合法 Unicode/HTML 转义误拒绝。正文只存在受保护检查点，不进入事件载荷或诊断输出。
+
+升级/回退须停准入并排空旧 API/Worker，不能混跑不识别 v2 的旧消费者。审批后自动重派发、未知外部动作/费用对账与 Provider 请求前精确输入硬限仍开放。Native 发布/运行、生成应用与页面验收按整个 AI 模块集中执行，本批只验证 AOT 分析闭包，保持 Capacity-not-verified。
+
+最终本地验收：`node artifacts/r10x/run-unit.mjs final` 执行 AI 3561/3561（新增 47），API/Worker AOT 分析与相关 Architecture 88/88；JIT 全量 Architecture 235/235。首轮双库并行执行中 SQL Server 48 项有 2 项取消/迁移超时，MySQL 完成 28 项（25 通过、3 连接超时）后被脚本 30 分钟时限中止，未生成完整 TRX，原始日志与二进制流保留。`node artifacts/r10x/run-recovery.mjs` 复用相同源码与消费者产物，保持产品超时预算及断言，采用矩阵 60 分钟执行时限、2 CPU/8 GiB、Workers=1，顺序补测 SQL Server 原失败 UID 各 1/1 与 MySQL 48/48；成功 UID 并集覆盖双库各 48（AI 88 + Smoke 8），补测零失败/跳过，不把首轮失败或中止改报通过，也不据此认定资源争用根因。既有两个工作流检查点入口包含本批新 v2 游标的事件冲突回滚、旧租约拒绝、过期领取和后缀恢复断言。构建零警告/错误；命名 30、矩阵 6、治理 57、工具链 54，通过预先排除受保护路径的 Markdown 386 文件检查。新鲜 Unit 发现 7054（规范 7044 + 外部日志夹具 10），runtime 819、checkpoint-admission 实际发现 328（矩阵下限 300）；完整 Unit 未执行，Integration 1214 为分片发现数，未执行范围不外推为通过。冻结 7798 输入；源码、消费者与精确 UID 集合核对通过，证据在 `artifacts/r10x/acceptance.json`，基线 `31d69b72`、任务 `ai-tool-loop-cursor-r10x`。

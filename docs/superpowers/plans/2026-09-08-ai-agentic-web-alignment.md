@@ -2103,6 +2103,19 @@ SQL Server 另有已有知识索引状态用例在文本代次生成断言返回
 
 本批状态为 Aot-analysis-clean；Native 发布/运行、独立应用与页面集中验收仍待完成，Capacity-not-verified。逐步持久游标/回执续跑、Provider 精确输入硬限和自动外部对账仍开放，R10 不整体关闭。
 
+### R10x：工具循环逐步检查点与确定结果续跑（2026-10-12，已实现、本地验收通过）
+
+范围：AgentToolLoop/AgentToolLoopCheckpoint、AiModelRunCheckpoint 和协调器的真实恢复路径。以追加可选字段兼容旧请求与 v1 整轮凭证，新增 v2 循环凭证仍存入现有租约事务，不新增表/迁移或依赖。冻结模型批次、工具版本与参数；工具派发前提交意图、结果确认后提交回执，恢复只执行未完成后缀。只有意图、坏绑定、未知用量或审批/对账暂停不能自动续跑。既有输出会话格式保留，持久正文不进入事件或诊断字符串。
+
+- [x] 先以协调器剩余调用恢复建立 RED；补充运行时前缀、取消/失租、预算、版本撤回、损坏和重复身份测试。
+- [x] 实现静态 JSON 闭包、完整轮次/结果前缀与运行/模型/预算/提示绑定；客户端创建前恢复准入，旧 started 保持对账，旧 completed 只结算。
+- [x] 在现有双库检查点夹具覆盖新凭证提交、过期领取与事件冲突回滚；集中验证 AI、架构、AOT 和实际 affected 集合。
+- [x] 独立只读复审、准确同步证据并提交 main；Provider 输入硬限、自动外部对账与审批后工具重派发仍单独开放，集中原生/页面验收不重复启动。
+
+首轮 RED：17 项 16 通过/1 失败，证实原协调器不能从确定前缀恢复。中间完整 AI 回归 3553 项 3552 通过/1 失败，失败为旧审批事件数量断言，已适配新增逐步意图/回执。独立只读复核发现合法 JSON null 成功值兼容缺陷，真实 AgentToolExecutor 回归 RED 1/1 失败后按原 JSON 字段存在性修复；复核确认该 Important 关闭、未发现新的 Critical/Important。初始测试夹具可空编译失败原样保留，不计行为 RED。补查回执字符上界的可复现实验证明：原 JSON UTF-8 64002 字节的 HTML 字符串，默认编码后 value 为 384002 字符，旧 131072 字符界限不足。调整为执行器原始结果上限的六倍加固定封装余量，保留整个游标与外层正文上限；补充真实执行器 Unicode/HTML 输出回归。完整 AI 中间版本 3559/3559 通过；本批自己的初步 AOT 构建停止后重新冻结最终输入，不能当作最终验收通过。最终本地验收：`node artifacts/r10x/run-unit.mjs final` 执行 AI 3561/3561（新增 47），API/Worker AOT 分析与相关 Architecture 88/88；JIT 全量 Architecture 235/235。首轮双库并行执行中 SQL Server 48 项有 2 项取消/迁移超时，MySQL 完成 28 项（25 通过、3 连接超时）后被脚本 30 分钟时限中止，未生成完整 TRX，原始日志与二进制流保留。`node artifacts/r10x/run-recovery.mjs` 复用相同源码与消费者产物，保持产品超时预算及断言，采用矩阵 60 分钟执行时限、2 CPU/8 GiB、Workers=1，顺序补测 SQL Server 原失败 UID 各 1/1 与 MySQL 48/48；成功 UID 并集覆盖双库各 48（AI 88 + Smoke 8），补测零失败/跳过，不把首轮失败或中止改报通过，也不据此认定资源争用根因。既有两个工作流检查点入口包含本批新 v2 游标的事件冲突回滚、旧租约拒绝、过期领取和后缀恢复断言。构建零警告/错误；命名 30、矩阵 6、治理 57、工具链 54，通过预先排除受保护路径的 Markdown 386 文件检查。新鲜 Unit 发现 7054（规范 7044 + 外部日志夹具 10），runtime 819、checkpoint-admission 实际发现 328（矩阵下限 300）；完整 Unit 未执行，Integration 1214 为分片发现数，未执行范围不外推为通过。冻结 7798 输入；源码、消费者与精确 UID 集合核对通过，证据在 `artifacts/r10x/acceptance.json`，基线 `31d69b72`、任务 `ai-tool-loop-cursor-r10x`。
+
+本批关闭确定模型/工具回执前缀的逐步续跑，不关闭审批暂停后的工具重派发、未知外部动作/费用对账或 Provider 请求前精确输入硬限。Native 发布/运行、生成应用与页面仍按 AI 模块集中验收，Aot-analysis-clean，R10 保持开放，Capacity-not-verified。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。
