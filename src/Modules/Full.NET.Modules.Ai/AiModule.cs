@@ -257,6 +257,8 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<AiAgentDelegationService>();
         services.TryAddSingleton<AiAgentWorkerHeartbeatService>();
         services.TryAddScoped<AiAgentRunCoordinator>();
+        services.TryAddScoped<AiAgentTerminalBudgetRepair>();
+        services.TryAddScoped<AiAgentTerminalBudgetRepairProcessor>();
         services.TryAddSingleton<IAgentModelRunner>(_ => AgentFrameworkRuntime.CreateRunner());
         services.AddHostedService<AiAgentRunHostedProcessor>();
     }

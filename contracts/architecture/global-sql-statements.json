@@ -7,7 +7,21 @@
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeCleanupWorkerSql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "Worker 有界扫描 AI 墓碑或显式开启且保留期已过的旧完成代次；独立可信范围内锁定重验所有者、墓碑或当前完整后继指针。清理短事务不改写账本，不触发模型派发。",
-      "requiredSqlFragments": ["TOP (@BatchSize)", "document.IsDeleted=1", "knowledge.TenantId", "knowledge.OwnerUserId", "work.StateKey='cleanup_pending'", "work.LeaseExpiresAtUtc<=@Now", "candidate.Id>@AfterId", "ORDER BY candidate.CreatedAtUtc,candidate.Kind,candidate.Id", "@RetiredEnabled=1", "task.Id<>active.IndexTaskId", "successor.StateKey='completed'", "active.ActivatedAtUtc<=@RetiredBefore", "fn_ai_knowledge_docx_manifest"]
+      "requiredSqlFragments": [
+        "TOP (@BatchSize)",
+        "document.IsDeleted=1",
+        "knowledge.TenantId",
+        "knowledge.OwnerUserId",
+        "work.StateKey='cleanup_pending'",
+        "work.LeaseExpiresAtUtc<=@Now",
+        "candidate.Id>@AfterId",
+        "ORDER BY candidate.CreatedAtUtc,candidate.Kind,candidate.Id",
+        "@RetiredEnabled=1",
+        "task.Id<>active.IndexTaskId",
+        "successor.StateKey='completed'",
+        "active.ActivatedAtUtc<=@RetiredBefore",
+        "fn_ai_knowledge_docx_manifest"
+      ]
     },
     {
       "statementName": "ai.knowledge_cleanup_worker.scan.mysql",
@@ -15,7 +29,21 @@
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeCleanupWorkerSql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "Worker 有界扫描 AI 墓碑或显式开启且保留期已过的旧完成代次；独立可信范围内锁定重验所有者、墓碑或当前完整后继指针。清理短事务不改写账本，不触发模型派发。",
-      "requiredSqlFragments": ["LIMIT @BatchSize", "document.IsDeleted=1", "knowledge.TenantId", "knowledge.OwnerUserId", "work.StateKey='cleanup_pending'", "work.LeaseExpiresAtUtc<=@Now", "candidate.Id>@AfterId", "ORDER BY candidate.CreatedAtUtc,candidate.Kind,candidate.Id", "@RetiredEnabled=1", "task.Id<>active.IndexTaskId", "successor.StateKey='completed'", "active.ActivatedAtUtc<=@RetiredBefore", "fn_ai_knowledge_docx_manifest"]
+      "requiredSqlFragments": [
+        "LIMIT @BatchSize",
+        "document.IsDeleted=1",
+        "knowledge.TenantId",
+        "knowledge.OwnerUserId",
+        "work.StateKey='cleanup_pending'",
+        "work.LeaseExpiresAtUtc<=@Now",
+        "candidate.Id>@AfterId",
+        "ORDER BY candidate.CreatedAtUtc,candidate.Kind,candidate.Id",
+        "@RetiredEnabled=1",
+        "task.Id<>active.IndexTaskId",
+        "successor.StateKey='completed'",
+        "active.ActivatedAtUtc<=@RetiredBefore",
+        "fn_ai_knowledge_docx_manifest"
+      ]
     },
     {
       "statementName": "ai.knowledge_index_worker.scan.sqlserver",
@@ -23,7 +51,15 @@
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeIndexWorkerSql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "Worker 只扫描 AI 自有有界任务元数据；冻结会话与所有者/租户匹配后建立独立作用域，领取和外部派发仍重验当前来源、原会话、精确权限与预算。",
-      "requiredSqlFragments": ["TOP (@BatchSize)", "binding.ActorUserId = knowledge.OwnerUserId", "binding.TenantId = knowledge.TenantId", "binding.TenantId IS NULL AND knowledge.TenantId IS NULL", "AttemptCount < 3", "LeaseExpiresAtUtc <= @Now", "ORDER BY fn_ai_knowledge_index_task.CreatedAtUtc, fn_ai_knowledge_index_task.Id"]
+      "requiredSqlFragments": [
+        "TOP (@BatchSize)",
+        "binding.ActorUserId = knowledge.OwnerUserId",
+        "binding.TenantId = knowledge.TenantId",
+        "binding.TenantId IS NULL AND knowledge.TenantId IS NULL",
+        "AttemptCount < 3",
+        "LeaseExpiresAtUtc <= @Now",
+        "ORDER BY fn_ai_knowledge_index_task.CreatedAtUtc, fn_ai_knowledge_index_task.Id"
+      ]
     },
     {
       "statementName": "ai.knowledge_index_worker.scan.mysql",
@@ -31,7 +67,15 @@
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeIndexWorkerSql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "Worker 只扫描 AI 自有有界任务元数据；冻结会话与所有者/租户匹配后建立独立作用域，领取和外部派发仍重验当前来源、原会话、精确权限与预算。",
-      "requiredSqlFragments": ["LIMIT @BatchSize", "binding.ActorUserId = knowledge.OwnerUserId", "binding.TenantId = knowledge.TenantId", "binding.TenantId IS NULL AND knowledge.TenantId IS NULL", "AttemptCount < 3", "LeaseExpiresAtUtc <= @Now", "ORDER BY fn_ai_knowledge_index_task.CreatedAtUtc, fn_ai_knowledge_index_task.Id"]
+      "requiredSqlFragments": [
+        "LIMIT @BatchSize",
+        "binding.ActorUserId = knowledge.OwnerUserId",
+        "binding.TenantId = knowledge.TenantId",
+        "binding.TenantId IS NULL AND knowledge.TenantId IS NULL",
+        "AttemptCount < 3",
+        "LeaseExpiresAtUtc <= @Now",
+        "ORDER BY fn_ai_knowledge_index_task.CreatedAtUtc, fn_ai_knowledge_index_task.Id"
+      ]
     },
     {
       "statementName": "identity.mfa_recovery_codes.consume",
@@ -39,7 +83,11 @@
       "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageMfaRecoveryCodes/Persistence/MfaRecoveryCodeSql.cs",
       "category": "verified_identity",
       "reason": "只能消费当前认证用户查询并匹配摘要的恢复码标识，使用未消费状态和版本实现一次性 CAS；不接收客户端行标识。",
-      "requiredSqlFragments": ["WHERE Id = @Id", "AND ConsumedAtUtc IS NULL", "AND Version = @Version"]
+      "requiredSqlFragments": [
+        "WHERE Id = @Id",
+        "AND ConsumedAtUtc IS NULL",
+        "AND Version = @Version"
+      ]
     },
     {
       "statementName": "identity.mfa_recovery_codes.delete_by_user",
@@ -47,7 +95,10 @@
       "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageMfaRecoveryCodes/Persistence/MfaRecoveryCodeSql.cs",
       "category": "verified_identity",
       "reason": "恢复码随身份而非租户存储；重生成事务仅按当前认证用户标识撤销旧码，用户标识不能来自请求体。",
-      "requiredSqlFragments": ["DELETE FROM fn_identity_user_mfa_recovery_code", "WHERE UserId = @UserId"]
+      "requiredSqlFragments": [
+        "DELETE FROM fn_identity_user_mfa_recovery_code",
+        "WHERE UserId = @UserId"
+      ]
     },
     {
       "statementName": "identity.mfa_recovery_codes.insert",
@@ -55,7 +106,11 @@
       "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageMfaRecoveryCodes/Persistence/MfaRecoveryCodeSql.cs",
       "category": "verified_identity",
       "reason": "为当前认证用户写入应用生成的标识与随机码摘要，与撤销旧码共用事务；不保存明文。",
-      "requiredSqlFragments": ["INSERT INTO fn_identity_user_mfa_recovery_code", "@UserId", "@CodeHash"]
+      "requiredSqlFragments": [
+        "INSERT INTO fn_identity_user_mfa_recovery_code",
+        "@UserId",
+        "@CodeHash"
+      ]
     },
     {
       "statementName": "identity.mfa_recovery_codes.list_active_by_user",
@@ -63,7 +118,10 @@
       "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageMfaRecoveryCodes/Persistence/MfaRecoveryCodeSql.cs",
       "category": "verified_identity",
       "reason": "仅在恢复码消费内部读取当前认证用户的未消费摘要，端点不暴露摘要或其他用户的码。",
-      "requiredSqlFragments": ["WHERE UserId = @UserId", "AND ConsumedAtUtc IS NULL"]
+      "requiredSqlFragments": [
+        "WHERE UserId = @UserId",
+        "AND ConsumedAtUtc IS NULL"
+      ]
     },
     {
       "statementName": "ai.acquire_chat_generation",
@@ -6223,6 +6281,46 @@
       "requiredSqlFragments": [
         "fn_workflow_todo",
         "TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.scan_terminal_budget.sqlserver",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.ScanTerminalBudgetSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Worker 仅扫描与同作用域运行匹配的终态预留；逐行修复再绑定可信租户，不重新派发。",
+      "requiredSqlFragments": [
+        "b.ScopeKey = r.ScopeKey",
+        "b.RunId = r.Id",
+        "b.UsageStatus = 'reserved'",
+        "TOP (@BatchSize)"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.scan_terminal_budget.mysql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.ScanTerminalBudgetMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Worker 仅扫描与同作用域运行匹配的终态预留；逐行修复再绑定可信租户，不重新派发。",
+      "requiredSqlFragments": [
+        "b.ScopeKey = r.ScopeKey",
+        "b.RunId = r.Id",
+        "b.UsageStatus = 'reserved'",
+        "LIMIT @BatchSize"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.claim_terminal_budget_repair",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.ClaimTerminalBudgetRepair",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "终态账本修复以可信作用域、原版本与匹配预留占有运行；同一事务结算，失去条件不得收费或重开运行。",
+      "requiredSqlFragments": [
+        "ScopeKey = @ScopeKey",
+        "Version = @Version",
+        "StatusKey = @StatusKey",
+        "b.RunId = @RunId",
+        "b.UsageStatus = 'reserved'"
       ]
     }
   ]

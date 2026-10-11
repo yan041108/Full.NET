@@ -2073,6 +2073,21 @@ SQL Server 另有已有知识索引状态用例在文本代次生成断言返回
 
 逐步工具循环游标/回执/续跑、历史终态未结算修复、提供者请求前精确输入 Token 硬上界及自动外部对账仍未完成。审批暂停保留整轮意图，恢复进入对账，不自动从提示词重新启动。原生发布/运行、独立生成应用与页面按 AI 模块集中验收；R10 不整体关闭，Capacity-not-verified。
 
+### R10v：历史终态预算账本修复（2026-10-12，本批已通过本地验收）
+
+本批在 main 合批交付终态待结算扫描、可信作用域重绑定、版本占有、原凭证计量、兼容配额及 Worker 轮询接线。基线 be2feb16201ac6520e2ffc3146df2453c441f2c8，快照 ai-terminal-budget-repair-r10v；其他窗口改动与受保护文件保留。无新表、迁移或 HTTP 字段。
+
+- [x] 新行为 RED 33/33 失败、零跳过，均因修复边界尚未交付；类型名调用只用于 RED 使测试可编译，正式实现后改为静态直接调用。两轮测试夹具编译错误（缺少租户引用、可空匹配器）保留，不计 RED。
+- [x] SQL Server/MySQL 只扫描 completed/failed/cancelled/authorization_required/expired 与同 Scope、Id、RunId 匹配的 reserved/pending 账本；处理前由持久行绑定可信租户，当前状态和原版本不匹配就不结算。
+- [x] 单模型及整轮工具循环的兼容原凭证才用于计量，冻结模型/输入/额度和预留关联必须匹配；其他载荷保留未知用量与全部预留。不读取或交付用户历史，不创建模型、工具、会话验证器，不重开运行。
+- [x] 版本占有和预算、兼容配额结算处于同一 AI 本地事务；已 known/unknown 账本不重写，取消、作用域变化和外层失败回滚，竞争者只修复一次。
+- [x] 独立审查确认两处边界：矛盾 not_dispatched 不可释放预留，满批坏历史绑定不可阻断后续修复。新增回归 RED 39 项中 33 通过、6 失败、零跳过；修正为仅 failed 兼容凭证可证明零用量，并按 Id 游标跨 Worker Scoped 轮询推进，拒绝/失败行也推进，空批重置。双库夹具补充真实坏绑定轮转与矛盾凭证断言。测试中的 SqlStatement 属性名编译错误保留，不计行为 RED。
+- [x] 当前源码验收：AI 3468/3468（含新增 39）、完整 Architecture 235/235；SQL Server 与 MySQL 各 44 UID 均有当前输入的实际通过证据（SQL Server 完整复验 43 项通过、1 项失败，失败方法再复验 1 项通过）；MySQL（首轮 43 项通过、1 项失败，失败方法复验 1 项通过）。原始失败轮退出非零与日志/TRX 保留，不称任一失败轮或双库单轮全套通过，不伪造合并 TRX；源码和消费者哈希复核后只复用原先已通过的 UID，聚焦复验只证明其发现范围。最终所需双库 UID 无遗漏，复验零失败、零跳过。命名 30、矩阵 6、治理 57、工具链 54 通过；安全 Markdown 检查 386 文件。API/Worker AOT 分析及当前 JIT Integration 完整依赖图构建均零警告、零错误。独立只读复审两项 Important 已关闭。
+
+证据保留在 artifacts/r10v：run-unit.mjs green3 执行完整 AI 聚焦；run-static.mjs、run-tooling.mjs 验证冻结源码；run-linux.mjs 执行 API/Worker AOT 分析及 AOT 专项架构；run-jit-retry.mjs 恢复并重建完整 JIT 图及全套架构；run-integration-retry.mjs 保留首轮连接异常的原始结果后，以 DOTNET_PROCESSOR_COUNT=1（程序集固定两个测试 Worker）执行 SQL Server 全部 44 项及 MySQL 失败方法复验；run-sql-final.mjs 以 sequential.runsettings 明确设置且日志确认一个测试 Worker，仅复验 SQL Server 剩余失败方法；双库完整运行已通过 UID 均仅在完整源文件/消费者哈希仍匹配后复用；post.mjs、collect.py 核对精确 UID、源文件和消费者哈希及分支。基线与本批白名单冻结 7793 输入，资源锁和独立双库工作量隔离，无关脏改动及两项受保护路径排除在读取/哈希/暂存之外。acceptance.json 与原始 TRX、日志保留失败尝试和有效 RED，不将编译失败当作行为 RED。正式 Unit 发现 6951、工作区 6961（含其他窗口 10 项），ai-runtime 726；未执行完整 Unit，不报告为全部通过。
+
+复用现有双库工作流检查点/完成夹具，新增真实账本历史终态、原回执、未知保留、过期终态、并发、旧版本、租户拒绝、外层回滚及重复修复断言。待结算修复不等于未知外部请求已经自动对账；逐步工具续跑、请求前精确输入 Token 硬认证与自动外部对账继续开放。Native 发布/运行、独立生成应用及页面按 AI 模块集中验收，R10 不整体关闭，Capacity-not-verified。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

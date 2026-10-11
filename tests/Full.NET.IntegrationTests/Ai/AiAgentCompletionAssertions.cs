@@ -148,5 +148,6 @@ internal static partial class AiAgentCompletionAssertions
             finally { context.Clear(); }
         }
         await VerifyRejectionsAsync(factory);
+        await VerifyTerminalBudgetRepairAsync(factory);
     }
 }

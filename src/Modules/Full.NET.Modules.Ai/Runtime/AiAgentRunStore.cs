@@ -294,6 +294,23 @@ internal sealed class AiAgentRunStore(
         return rows.ToList();
     }
 
+    /// <summary>跨作用域只扫描已有终态和匹配的待结算预留；实际修复重新绑定可信租户。</summary>
+    internal async Task<IReadOnlyList<Guid>> ScanTerminalUnsettledAsync(int batchSize, CancellationToken cancellationToken, Guid? afterRunId = null)
+    {
+        if (batchSize <= 0) return [];
+        var statement = database.Value.Provider == DatabaseProvider.MySql
+            ? AiAgentRunSql.ScanTerminalBudgetMySql : AiAgentRunSql.ScanTerminalBudgetSqlServer;
+        var rows = await queries.QueryAsync<Guid>(statement, AiSqlParameters.Create(("BatchSize", Math.Min(batchSize, 100)), ("AfterRunId", afterRunId)), cancellationToken)
+            .ConfigureAwait(false);
+        return rows.ToList();
+    }
+
+    /// <summary>须在账本修复的外层事务内调用；零行表示状态、版本或预留已变化，不得继续结算。</summary>
+    internal Task<int> ClaimTerminalBudgetRepairAsync(AiAgentRunRecord run, AiOperationBudgetRecord operation, CancellationToken token) =>
+        commands.ExecuteAsync(AiAgentRunSql.ClaimTerminalBudgetRepair, AiSqlParameters.Create(
+            ("RunId", run.Id), ("ScopeKey", run.ScopeKey), ("Version", run.Version), ("StatusKey", run.StatusKey),
+            ("ModelConfigId", operation.ModelConfigId), ("RequestHash", operation.RequestHash), ("Now", clock.UtcNow)), token);
+
     public async ValueTask<bool> TryCancelOwnedAsync(
         Guid runId, string scopeKey, Guid actorUserId, CancellationToken cancellationToken = default)
     {

@@ -26,6 +26,8 @@ public sealed class AiModuleWorkerRegistrationTests
         AssertService<IToolAuthorizationPort, AiBackgroundToolAuthorizationPort>(services);
         AssertService<IToolAuditPort, AiBackgroundToolAuditPort>(services);
         AssertService<AiAgentRunCoordinator>(services);
+        AssertService<AiAgentTerminalBudgetRepair>(services);
+        AssertService<AiAgentTerminalBudgetRepairProcessor>(services);
     }
 
     private static void AssertService<TService, TImplementation>(IServiceCollection services) =>

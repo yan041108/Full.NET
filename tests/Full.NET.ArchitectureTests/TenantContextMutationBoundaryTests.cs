@@ -29,6 +29,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs",
         // 续租仅使用已领取的运行/Worker/纪元/版本，独立范围固定 Host，结束时清除上下文。
         "src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunLeaseWatch.cs",
+        // 只按历史终态的持久租户精确绑定修复账本，独立范围结束时清除，不派发模型或工具。
+        "src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentTerminalBudgetRepairProcessor.cs",
         // Worker 心跳写入 Global 作用域表，固定 Host 上下文，不从运行参数推断租户。
         "src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentWorkerHeartbeatService.cs",
         // 独立清理作用域只接收已授权请求捕获的租户，结束时清除上下文，不用于新模型派发。

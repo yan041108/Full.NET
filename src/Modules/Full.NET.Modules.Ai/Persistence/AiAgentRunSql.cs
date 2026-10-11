@@ -158,6 +158,39 @@ internal static class AiAgentRunSql
         LIMIT @BatchSize
         """, SqlDataScope.Global);
 
+    public static readonly SqlStatement ScanTerminalBudgetSqlServer = new("ai.agent_run.scan_terminal_budget.sqlserver", """
+        SELECT TOP (@BatchSize) r.Id
+        FROM fn_ai_agent_run r
+        INNER JOIN fn_ai_operation_budget b ON b.Id = r.Id AND b.RunId = r.Id AND b.ScopeKey = r.ScopeKey
+        WHERE r.StatusKey IN ('completed', 'failed', 'cancelled', 'authorization_required', 'expired')
+          AND b.UsageStatus = 'reserved' AND b.Outcome = 'pending'
+          AND (@AfterRunId IS NULL OR r.Id > @AfterRunId)
+        ORDER BY r.Id
+        """, SqlDataScope.Global);
+
+    public static readonly SqlStatement ScanTerminalBudgetMySql = new("ai.agent_run.scan_terminal_budget.mysql", """
+        SELECT r.Id
+        FROM fn_ai_agent_run r
+        INNER JOIN fn_ai_operation_budget b ON b.Id = r.Id AND b.RunId = r.Id AND b.ScopeKey = r.ScopeKey
+        WHERE r.StatusKey IN ('completed', 'failed', 'cancelled', 'authorization_required', 'expired')
+          AND b.UsageStatus = 'reserved' AND b.Outcome = 'pending'
+          AND (@AfterRunId IS NULL OR r.Id > @AfterRunId)
+        ORDER BY r.Id
+        LIMIT @BatchSize
+        """, SqlDataScope.Global);
+
+    // 终态只递增版本以持有行锁，不重开运行；预算关联与旧版本同时复核，竞争者不得重复修复。
+    public static readonly SqlStatement ClaimTerminalBudgetRepair = new("ai.agent_run.claim_terminal_budget_repair", """
+        UPDATE fn_ai_agent_run
+        SET Version = Version + 1, UpdatedAtUtc = @Now
+        WHERE Id = @RunId AND ScopeKey = @ScopeKey AND Version = @Version AND StatusKey = @StatusKey
+          AND StatusKey IN ('completed', 'failed', 'cancelled', 'authorization_required', 'expired')
+          AND EXISTS (SELECT 1 FROM fn_ai_operation_budget b
+                      WHERE b.Id = @RunId AND b.RunId = @RunId AND b.ScopeKey = @ScopeKey
+                        AND b.ModelConfigId = @ModelConfigId AND b.RequestHash = @RequestHash
+                        AND b.UsageStatus = 'reserved' AND b.Outcome = 'pending')
+        """, SqlDataScope.Global);
+
     public static readonly SqlStatement CancelOwned = new("ai.agent_run.cancel_owned", """
         UPDATE fn_ai_agent_run
         SET StatusKey = 'cancelled', LeaseOwner = NULL, LeaseExpiresAtUtc = NULL,
