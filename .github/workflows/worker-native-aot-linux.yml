@@ -30,6 +30,11 @@ on:
       - '.github/workflows/worker-native-aot-linux.yml'
   workflow_dispatch:
 
+# 同一 PR 只保留最新原生检查；main 与手动运行按 run_id 隔离，保留各自证据。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   linux-native-aot-worker:
     runs-on: ubuntu-latest

@@ -9,6 +9,10 @@ on:
 jobs:
   client-build-test:
     if: github.event.action != 'labeled'
+    # 只替代本 PR 的普通检查，作业分组不影响显式独立应用验收。
+    concurrency:
+      group: ${{ github.workflow }}-client-build-test-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -353,6 +357,9 @@ jobs:
 
   build-and-module-test:
     if: github.event.action != 'labeled'
+    concurrency:
+      group: ${{ github.workflow }}-build-and-module-test-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     # PR 按差异验证模块和 Smoke；迁移恢复由独立分组并行执行。
     timeout-minutes: 120
@@ -432,6 +439,10 @@ jobs:
 
   affected-migration-recovery:
     if: github.event_name == 'pull_request' && github.event.action != 'labeled'
+    # 两个迁移分片必须各自保留，同一次运行不能互相取消。
+    concurrency:
+      group: ${{ github.workflow }}-affected-migration-recovery-${{ matrix.group }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
