@@ -105,7 +105,18 @@ internal sealed class ReportingExportTaskManagementService(
 
         await commandExecutor.ExecuteAsync(
                 ReportingExportTaskSql.InsertFor(databaseOptions.Value.Provider),
-                record,
+                // 原生路径不反射展开持久化行；TenantId 由执行器绑定可信当前租户。
+                ReportingSqlParameters.Create(
+                    ("Id", record.Id), ("DefinitionId", record.DefinitionId),
+                    ("VersionNumber", record.VersionNumber), ("DefinitionKey", record.DefinitionKey),
+                    ("DefinitionName", record.DefinitionName), ("FormatKey", record.FormatKey),
+                    ("ParametersJson", record.ParametersJson), ("StatusKey", record.StatusKey),
+                    ("OutputFileId", record.OutputFileId), ("OutputFileName", record.OutputFileName),
+                    ("RowCount", record.RowCount), ("ErrorCode", record.ErrorCode),
+                    ("ErrorMessage", record.ErrorMessage), ("RequestedByUserId", record.RequestedByUserId),
+                    ("CreatedAtUtc", record.CreatedAtUtc), ("CompletedAtUtc", record.CompletedAtUtc),
+                    ("LeaseId", record.LeaseId), ("LeaseExpiresAtUtc", record.LeaseExpiresAtUtc),
+                    ("ActorPermissionCodesJson", record.ActorPermissionCodesJson), ("Version", record.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
 

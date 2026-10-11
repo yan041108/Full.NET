@@ -22,6 +22,46 @@ namespace Full.NET.UnitTests.Reporting;
 [TestClass]
 public sealed class ReportingExportTaskRecoveryTests
 {
+    /// <summary>双库导出创建使用静态命名参数，租户只能由执行器的可信上下文绑定。</summary>
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Create_export_binds_all_insert_values_without_record_reflection(DatabaseProvider provider)
+    {
+        var fixture = CreateFixture(provider);
+        fixture.Store.SuppressClaims = true;
+        fixture.Context.SetTenant(new TenantContext(fixture.TenantId, "acme", "Acme"));
+        fixture.Store.OnInsert = parameters =>
+        {
+            Assert.IsInstanceOfType<IReadOnlyDictionary<string, object?>>(parameters,
+                "Native AOT 不支持未注册的持久化 Record 参数。");
+            var values = (IReadOnlyDictionary<string, object?>)parameters!;
+            var statement = ReportingExportTaskSql.InsertFor(provider);
+            Assert.AreEqual(SqlTenantBinding.CurrentTenantId, statement.TenantBinding);
+            Assert.IsFalse(values.ContainsKey("TenantId"), "租户必须由执行器绑定。");
+            var required = System.Text.RegularExpressions.Regex.Matches(statement.Text, @"@(\w+)")
+                .Select(match => match.Groups[1].Value).Distinct().Where(name => name != "TenantId").ToArray();
+            CollectionAssert.AreEquivalent(required, values.Keys.ToArray());
+            Assert.AreEqual(fixture.ActorId, values["RequestedByUserId"]);
+            Assert.AreEqual(fixture.Clock.UtcNow, values["CreatedAtUtc"]);
+            Assert.AreEqual(ReportingExportTaskStatusKeys.Queued, values["StatusKey"]);
+            Assert.IsNull(values["LeaseId"]); Assert.IsNull(values["LeaseExpiresAtUtc"]);
+            Assert.IsNull(values["OutputFileId"]); Assert.IsNull(values["CompletedAtUtc"]);
+        };
+        var binding = new SessionBindingSnapshot(fixture.ActorId, fixture.TenantId, Guid.NewGuid(),
+            "stamp", "host", $"tenant:{fixture.TenantId:N}");
+        ReportingExecutionParameterValue[] requestedParameters = [new("topN", "20"), new("optional", null)];
+        var result = await fixture.Management.CreateAsync(new(Guid.NewGuid(), "excel", 1, requestedParameters),
+            fixture.ActorId, new ClaimsPrincipal(new ClaimsIdentity("test")), binding);
+        Assert.IsTrue(result.IsSuccess);
+        var stored = fixture.Store.Tasks.Values.Single();
+        Assert.AreEqual(fixture.TenantId, stored.TenantId);
+        Assert.AreEqual(binding, ReportingExportTaskMapper.DeserializeAuthorization(stored.ActorPermissionCodesJson)!.Binding);
+        CollectionAssert.AreEqual(requestedParameters, ReportingExportTaskMapper.DeserializeParameters(stored.ParametersJson).ToArray());
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Queued, result.Value!.StatusKey);
+        Assert.AreEqual(0, fixture.GenerateCount);
+    }
+
     /// <summary>旧队列没有当前会话委托时，不能重用文件或凭旧权限快照生成。</summary>
     [TestMethod]
     [DataRow(false)]
@@ -302,7 +342,7 @@ public sealed class ReportingExportTaskRecoveryTests
         Assert.IsNull(task.OutputFileId); Assert.IsNull(task.ErrorCode);
     }
 
-    private static Fixture CreateFixture()
+    private static Fixture CreateFixture(DatabaseProvider provider = DatabaseProvider.SqlServer)
     {
         var tenantId = Guid.NewGuid();
         var tenant = new TenantContext(tenantId, "acme", "Acme");
@@ -328,7 +368,7 @@ public sealed class ReportingExportTaskRecoveryTests
         identity.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call => { var binding = call.Arg<SessionBindingSnapshot>()!;
                 return new AuthorizedSessionActor(binding.UserId, binding.TenantId, binding.SessionId); });
-        var database = Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer });
+        var database = Options.Create(new DatabaseOptions { Provider = provider });
         var definitions = new ReportingPublishedDefinitionResolver(store, new ReportingDefinitionQueryService(store, database), currentTenant, database);
         var authorization = new ReportingExportAuthorization(currentTenant, identity, definitions);
         var runner = new ReportingExportTaskRunner(
@@ -341,7 +381,7 @@ public sealed class ReportingExportTaskRecoveryTests
             currentTenant,
             clock,
             ids,
-            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
+            database,
             new OptionsMonitorStub<ReportingExportOptions>(options), authorization);
         var management = new ReportingExportTaskManagementService(definitions, files, store, store, runner, currentTenant,
             clock, ids, database, authorization,
@@ -481,6 +521,8 @@ public sealed class ReportingExportTaskRecoveryTests
         public Dictionary<Guid, ReportingExportTaskRecord> Tasks { get; } = [];
         public bool Granted { get; set; } = true;
         public Action? OnClaim { get; set; }
+        public Action<object?>? OnInsert { get; set; }
+        public bool SuppressClaims { get; set; }
 
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null,
             CancellationToken cancellationToken = default)
@@ -521,6 +563,7 @@ public sealed class ReportingExportTaskRecoveryTests
             if (statement.Name is "reporting.export_task.claim.sqlserver"
                 or "reporting.export_task.claim_by_id.sqlserver")
             {
+                if (SuppressClaims) return Task.FromResult<IReadOnlyList<T>>([]);
                 Guid? requiredId = values.TryGetValue("Id", out var idValue) && idValue is Guid guid ? guid : null;
                 var claimed = ClaimOne(now, (Guid)values["LeaseId"]!, (DateTimeOffset)values["LeaseExpiresAtUtc"]!, requiredId);
                 return Task.FromResult<IReadOnlyList<T>>(claimed is null ? [] : [(T)(object)claimed]);
@@ -533,13 +576,27 @@ public sealed class ReportingExportTaskRecoveryTests
             CancellationToken cancellationToken = default)
         {
             SqlScopeGuard.Validate(statement, tenant);
-            if (statement.Name == ReportingExportTaskSql.InsertFor(DatabaseProvider.SqlServer).Name
-                && parameters is ReportingExportTaskRecord created)
+            var values = Params(parameters);
+            if (statement.Name is "reporting.export_task.insert" or "reporting.export_task.insert.sqlserver")
             {
+                OnInsert?.Invoke(parameters);
+                var created = new ReportingExportTaskRecord
+                {
+                    Id = (Guid)values["Id"]!, TenantId = tenant.Id!.Value,
+                    DefinitionId = (Guid)values["DefinitionId"]!, VersionNumber = (int)values["VersionNumber"]!,
+                    DefinitionKey = (string)values["DefinitionKey"]!, DefinitionName = (string)values["DefinitionName"]!,
+                    FormatKey = (string)values["FormatKey"]!, ParametersJson = (string)values["ParametersJson"]!,
+                    StatusKey = (string)values["StatusKey"]!, OutputFileId = (Guid?)values["OutputFileId"],
+                    OutputFileName = (string?)values["OutputFileName"], RowCount = (int)values["RowCount"]!,
+                    ErrorCode = (string?)values["ErrorCode"], ErrorMessage = (string?)values["ErrorMessage"],
+                    RequestedByUserId = (Guid)values["RequestedByUserId"]!, CreatedAtUtc = (DateTimeOffset)values["CreatedAtUtc"]!,
+                    CompletedAtUtc = (DateTimeOffset?)values["CompletedAtUtc"], LeaseId = (Guid?)values["LeaseId"],
+                    LeaseExpiresAtUtc = (DateTimeOffset?)values["LeaseExpiresAtUtc"],
+                    ActorPermissionCodesJson = (string?)values["ActorPermissionCodesJson"], Version = (long)values["Version"]!,
+                };
                 Tasks[created.Id] = created;
                 return Task.FromResult(1);
             }
-            var values = Params(parameters);
             if (!Tasks.TryGetValue((Guid)values["Id"]!, out var current))
             {
                 return Task.FromResult(0);
