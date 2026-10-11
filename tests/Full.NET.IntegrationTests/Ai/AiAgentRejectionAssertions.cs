@@ -56,11 +56,11 @@ internal static partial class AiAgentCompletionAssertions
                     const string beforePayload = """{"marker":"before"}""";
                     const string afterPayload = """{"marker":"rejected"}""";
                     Assert.IsTrue(await store.CommitProgressAsync(new(lease, "running", null,
-                        new(Guid.CreateVersion7(), 1, 1, AgentFrameworkRuntime.FrameworkVersion, 1, beforePayload, AiSingleModelCheckpoint.Digest(beforePayload)),
+                        new(Guid.CreateVersion7(), 1, 1, AgentFrameworkRuntime.FrameworkVersion, 1, beforePayload, AiModelRunCheckpoint.Digest(beforePayload)),
                         new(Guid.CreateVersion7(), 1, "run.node_started", 1, "{}"))));
                     lease = lease with { Version = lease.Version + 1 };
                     var progress = new AgentRunProgressCommit(lease, status, null,
-                        new(Guid.CreateVersion7(), 2, 1, AgentFrameworkRuntime.FrameworkVersion, 1, afterPayload, AiSingleModelCheckpoint.Digest(afterPayload)),
+                        new(Guid.CreateVersion7(), 2, 1, AgentFrameworkRuntime.FrameworkVersion, 1, afterPayload, AiModelRunCheckpoint.Digest(afterPayload)),
                         new(Guid.CreateVersion7(), 2, "run." + status, 1, "{}"));
                     var before = await ReadBudgetAsync();
                     var quotaBefore = await ReadQuotaAsync();

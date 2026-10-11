@@ -208,7 +208,7 @@ public sealed partial class AiAgentRunCoordinatorTests
     private static AgentCheckpointRecord CompletedSingleCheckpoint(AiAgentRunRecord run, long? input = 2, long? output = 1)
     {
         var budget = JsonSerializer.Deserialize(run.BudgetJson, AiJsonSerializerContext.Default.AgentRunBudgetSnapshot)!;
-        var state = AiSingleModelCheckpoint.Start(run, new AiModelConfigRecord { Id = budget.ModelConfigId, Version = 1 }, "hello")
+        var state = AiModelRunCheckpoint.Start(run, new AiModelConfigRecord { Id = budget.ModelConfigId, Version = 1 }, "hello")
             .Complete(new("reply", JsonSerializer.SerializeToElement(true), input, output));
         var json = state.ToJson();
         return new(Guid.CreateVersion7(), run.Id, 2, 1, AgentFrameworkRuntime.FrameworkVersion, run.DefinitionVersion, json, SingleDigest(json));

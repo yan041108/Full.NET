@@ -25,25 +25,26 @@ internal static class AiWorkflowCheckpointAssertions
         await Node_budget_receipt_consistency_async(factory).ConfigureAwait(false);
         await Node_receipt_intent_atomicity_and_reclaim_async(factory).ConfigureAwait(false);
         await Event_sequence_without_checkpoint_async(factory).ConfigureAwait(false);
-        await Single_model_receipt_reclaim_and_rollback_async(factory).ConfigureAwait(false);
+        await Model_receipt_reclaim_and_rollback_async(factory, Full.NET.Agents.Definitions.AgentDefinitionRegistry.SingleTextKey).ConfigureAwait(false);
+        await Model_receipt_reclaim_and_rollback_async(factory, Full.NET.Agents.Definitions.AgentDefinitionRegistry.ReadOnlyToolLoopKey).ConfigureAwait(false);
         await AiAgentCompletionAssertions.VerifyAsync(factory).ConfigureAwait(false);
     }
 
-    private static async Task Single_model_receipt_reclaim_and_rollback_async(FullNetApiFactory factory)
+    private static async Task Model_receipt_reclaim_and_rollback_async(FullNetApiFactory factory, string definitionKey)
     {
-        var runId = await SeedWorkflowRunAsync(factory, Full.NET.Agents.Definitions.AgentDefinitionRegistry.SingleTextKey);
+        var runId = await SeedWorkflowRunAsync(factory, definitionKey);
         await using var scope = factory.Services.CreateAsyncScope();
         var store = scope.ServiceProvider.GetRequiredService<AiAgentRunStore>();
         var run = (await store.FindByIdAsync(runId))!;
         var budget = JsonSerializer.Deserialize(run.BudgetJson, AiJsonSerializerContext.Default.AgentRunBudgetSnapshot)!;
-        var state = AiSingleModelCheckpoint.Start(run, new AiModelConfigRecord { Id = budget.ModelConfigId, Version = 1 }, "");
+        var state = AiModelRunCheckpoint.Start(run, new AiModelConfigRecord { Id = budget.ModelConfigId, Version = 1 }, "");
         var lease = (await store.TryAcquireAsync(runId, "single-owner", DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1)))!;
         var payload = state.ToJson();
         Assert.IsTrue(await store.CommitProgressAsync(new(lease, "running", null,
-            new(Guid.CreateVersion7(), 1, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiSingleModelCheckpoint.Digest(payload)),
+            new(Guid.CreateVersion7(), 1, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiModelRunCheckpoint.Digest(payload)),
             new(Guid.CreateVersion7(), 1, "run.node_started", 1, "{}"))));
         lease = lease with { Version = lease.Version + 1 };
-        Assert.AreEqual("started", AiSingleModelCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!.Phase);
+        Assert.AreEqual("started", AiModelRunCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!.Phase);
         Assert.IsFalse((await store.ScanQueuedAsync(100, DateTimeOffset.UtcNow)).Contains(runId));
         state = state.Complete(new("done", JsonSerializer.SerializeToElement(new[] { "answer" }), null, 1));
         payload = state.ToJson();
@@ -51,16 +52,16 @@ internal static class AiWorkflowCheckpointAssertions
             null, null, 1, null, null, null, state.InputDigest, null);
         // 事务末尾事件冲突必须回滚完成凭证与步骤，恢复只能读到之前的未知派发。
         var failure = await Assert.ThrowsAsync<DataCommandException>(async () => await store.CommitProgressAsync(new(lease, "running", step,
-            new(Guid.CreateVersion7(), 2, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiSingleModelCheckpoint.Digest(payload)),
+            new(Guid.CreateVersion7(), 2, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiModelRunCheckpoint.Digest(payload)),
             new(Guid.CreateVersion7(), 1, "run.node_completed", 1, "{}"))));
         Assert.AreEqual(DataCommandFailureKind.UniqueConstraint, failure.Kind);
         Assert.AreEqual(lease.Version, (await store.FindByIdAsync(runId))!.Version);
-        Assert.AreEqual("started", AiSingleModelCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!.Phase);
+        Assert.AreEqual("started", AiModelRunCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!.Phase);
         Assert.IsTrue(await store.CommitProgressAsync(new(lease, "running", step,
-            new(Guid.CreateVersion7(), 2, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiSingleModelCheckpoint.Digest(payload)),
+            new(Guid.CreateVersion7(), 2, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiModelRunCheckpoint.Digest(payload)),
             new(Guid.CreateVersion7(), 2, "run.node_completed", 1, "{}"))));
         lease = lease with { Version = lease.Version + 1 };
-        var restored = AiSingleModelCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!);
+        var restored = AiModelRunCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!);
         Assert.AreEqual("completed", restored!.Phase);
         Assert.AreEqual("done", restored.Result!.Text);
         Assert.IsNull(restored.Result.InputTokens);

@@ -86,13 +86,13 @@ internal sealed class AiAgentRunCoordinator(
             return leaseWatch.IsActive;
         }
 
-        var preserveSingleBudget = false;
+        var preserveDispatchBudget = false;
         var completionPending = false;
         async Task<bool> FailAsync(string code)
         {
             if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
             // 恢复前置拒绝不能覆盖已发生派发的计量；损坏凭证也不能被当成未执行。
-            if (preserveSingleBudget)
+            if (preserveDispatchBudget)
                 return await store.CommitProgressAsync(new(lease, "reconciliation_required", null, null,
                     new(ids.NewId(), await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false),
                         "run.reconciliation_required", 1, $$"""{"errorCode":"{{code}}"}""")), cancellationToken).ConfigureAwait(false);
@@ -128,16 +128,16 @@ internal sealed class AiAgentRunCoordinator(
 
         var executionContext = scope.ServiceProvider.GetRequiredService<IAgentRunExecutionContext>();
         AgentWorkflowState? workflowState = null;
-        AiSingleModelCheckpoint? singleState = null;
+        AiModelRunCheckpoint? modelState = null;
         try
         {
             // 读取失败属于状态未知，必须在等待前保留预算；只有成功读到首次空状态才解除保护。
-            preserveSingleBudget = record.DefinitionKey == AgentDefinitionRegistry.SingleTextKey;
-            var singleCheckpoint = preserveSingleBudget
+            preserveDispatchBudget = record.DefinitionKey is AgentDefinitionRegistry.SingleTextKey or AgentDefinitionRegistry.ReadOnlyToolLoopKey;
+            var modelCheckpoint = preserveDispatchBudget
                 ? await store.FindLatestCheckpointAsync(runId, cancellationToken).ConfigureAwait(false) : null;
             cancellationToken.ThrowIfCancellationRequested();
-            preserveSingleBudget = record.DefinitionKey == AgentDefinitionRegistry.SingleTextKey
-                && (singleCheckpoint is not null || lease.Epoch != 1);
+            preserveDispatchBudget = (record.DefinitionKey is AgentDefinitionRegistry.SingleTextKey or AgentDefinitionRegistry.ReadOnlyToolLoopKey)
+                && (modelCheckpoint is not null || lease.Epoch != 1);
             var bindingValidator = scope.ServiceProvider.GetRequiredService<IBackgroundSessionBindingValidator>();
             var binding = new SessionBindingSnapshot(
                 record.ActorUserId,
@@ -158,7 +158,7 @@ internal sealed class AiAgentRunCoordinator(
                     new(ids.NewId(), await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false),
                         "run.authorization_required", 1, """{"reason":"session_invalid"}"""));
                 // 会话失效阻止结果交付；已派发凭证要求保留原预算时只记录状态，不结算未知结果。
-                if (preserveSingleBudget)
+                if (preserveDispatchBudget)
                     return await store.CommitProgressAsync(await PrepareAuthorizationAsync().ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
                 return await RejectAsync(PrepareAuthorizationAsync).ConfigureAwait(false);
             }
@@ -196,18 +196,18 @@ internal sealed class AiAgentRunCoordinator(
             {
                 return await FailAsync("ai.agent_run.invalid_payload").ConfigureAwait(false);
             }
-            if (record.DefinitionKey == AgentDefinitionRegistry.SingleTextKey)
+            if (record.DefinitionKey is AgentDefinitionRegistry.SingleTextKey or AgentDefinitionRegistry.ReadOnlyToolLoopKey)
             {
-                var checkpoint = singleCheckpoint;
+                var checkpoint = modelCheckpoint;
                 if (checkpoint is not null)
                 {
-                    singleState = AiSingleModelCheckpoint.Restore(record, snapshot, checkpoint);
-                    if (singleState is null || singleState.Phase == "not_dispatched")
+                    modelState = AiModelRunCheckpoint.Restore(record, snapshot, checkpoint);
+                    if (modelState is null || modelState.Phase == "not_dispatched")
                         return await FailAsync("ai.agent_run.checkpoint_incompatible").ConfigureAwait(false);
-                    if (singleState.Phase == "started")
+                    if (modelState.Phase == "started")
                     {
                         if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
-                        return await CommitSingleModelProgressAsync(lease, record, singleState, "reconciliation_required",
+                        return await CommitModelProgressAsync(lease, record, modelState, "reconciliation_required",
                             "run.reconciliation_required", null, cancellationToken).ConfigureAwait(false);
                     }
                 }
@@ -236,7 +236,7 @@ internal sealed class AiAgentRunCoordinator(
             if (workflowState?.Binding is { } savedBinding
                 && (savedBinding.ModelConfigId != model.Id || savedBinding.ModelConfigVersion != model.Version))
                 return await FailAsync("ai.agent_run.checkpoint_incompatible").ConfigureAwait(false);
-            if (singleState is not null && (singleState.ModelConfigId != model.Id || singleState.ModelConfigVersion != model.Version))
+            if (modelState is not null && (modelState.ModelConfigId != model.Id || modelState.ModelConfigVersion != model.Version))
                 return await FailAsync("ai.agent_run.checkpoint_incompatible").ConfigureAwait(false);
 
             using var credentialScope = scope.ServiceProvider.GetRequiredService<AiModelBindingScope>();
@@ -252,14 +252,14 @@ internal sealed class AiAgentRunCoordinator(
                 effectiveSinglePrompt = eligibility.Value!;
             }
             cancellationToken.ThrowIfCancellationRequested();
-            if (singleState is not null)
+            if (modelState is not null)
             {
-                if (singleState.InputDigest != AiSingleModelCheckpoint.Digest(effectiveSinglePrompt))
+                if (modelState.InputDigest != AiModelRunCheckpoint.Digest(effectiveSinglePrompt))
                     return await FailAsync("ai.agent_run.checkpoint_incompatible").ConfigureAwait(false);
                 // 已完成凭证只收敛状态和原用量；不创建客户端、不重新派发，也不补零未知计量。
                 if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
                 completionPending = true;
-                return await CompleteSingleModelAsync(scope.ServiceProvider, lease, record, singleState, cancellationToken).ConfigureAwait(false);
+                return await CompleteModelRunAsync(scope.ServiceProvider, lease, record, modelState, cancellationToken).ConfigureAwait(false);
             }
             var factories = scope.ServiceProvider.GetServices<IAiModelClientFactory>();
             var factory = factories.FirstOrDefault(item => item.ProviderKey == model.ProviderKey)
@@ -371,20 +371,26 @@ internal sealed class AiAgentRunCoordinator(
                 var additionalAllowed = remoteTools.Select(tool => tool.LocalToolName).ToHashSet(StringComparer.Ordinal);
                 var toolRegistry = await scope.ServiceProvider.GetRequiredService<IAgentToolRegistrySource>()
                     .GetRegistryAsync(cancellationToken).ConfigureAwait(false);
+                // 整轮意图先落库；恢复不重放未知的模型或工具，也不把单次本地拒绝当作整轮未派发。
+                modelState = AiModelRunCheckpoint.Start(record, model, effectiveSinglePrompt);
+                preserveDispatchBudget = true;
+                if (!await leaseWatch.CommitNodeAsync((currentLease, token) => CommitModelProgressAsync(
+                    currentLease, record, modelState, "running", "run.node_started", null, token)).ConfigureAwait(false)) return false;
+                cancellationToken.ThrowIfCancellationRequested();
                 var loop = new AgentToolLoop();
                 var loopResult = await loop.RunAsync(new(
                     runId,
                     record.DefinitionKey,
                     record.DefinitionVersion,
-                    snapshot.Prompt,
+                    effectiveSinglePrompt,
                     executionClient,
                     scope.ServiceProvider.GetRequiredService<IAgentToolExecutor>(),
                     toolRegistry,
                     callId => ResolveToolOperationId(runId, callId),
                     additionalAllowed), cancellationToken).ConfigureAwait(false);
-                if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
                 if (loopResult.ApprovalRequired)
                 {
+                    if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
                     var waiting = await store.CommitProgressAsync(new(
                         lease,
                         "awaiting_approval",
@@ -403,6 +409,7 @@ internal sealed class AiAgentRunCoordinator(
 
                 if (loopResult.ReconciliationRequired)
                 {
+                    if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
                     var reconciling = await store.CommitProgressAsync(new(
                         lease,
                         "reconciliation_required",
@@ -420,6 +427,17 @@ internal sealed class AiAgentRunCoordinator(
                 }
 
                 result = new(loopResult.Text, loopResult.Session, loopResult.InputTokens, loopResult.OutputTokens);
+                if (!AiModelRunCheckpoint.ValidResult(result, snapshot))
+                    throw new InvalidOperationException("Tool loop result is not a valid completion receipt.");
+                var completedState = modelState.Complete(result);
+                var completedStep = new AgentStepUpsert(ids.NewId(), "model.text", 1, runId, "committed", model.Version,
+                    null, null, result.InputTokens, result.OutputTokens, null, null, null, modelState.InputDigest, null);
+                if (!await leaseWatch.CommitNodeAsync((currentLease, token) => CommitModelProgressAsync(
+                    currentLease, record, completedState, "running", "run.node_completed", completedStep, token)).ConfigureAwait(false)) return false;
+                modelState = completedState;
+                if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
+                completionPending = true;
+                return await CompleteModelRunAsync(scope.ServiceProvider, lease, record, modelState, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -435,50 +453,27 @@ internal sealed class AiAgentRunCoordinator(
                     }
                     effectivePrompt = proven.Value!;
                 }
-                singleState = AiSingleModelCheckpoint.Start(record, model, effectivePrompt);
-                preserveSingleBudget = true;
-                if (!await leaseWatch.CommitNodeAsync((currentLease, token) => CommitSingleModelProgressAsync(
-                    currentLease, record, singleState, "running", "run.node_started", null, token)).ConfigureAwait(false)) return false;
+                modelState = AiModelRunCheckpoint.Start(record, model, effectivePrompt);
+                preserveDispatchBudget = true;
+                if (!await leaseWatch.CommitNodeAsync((currentLease, token) => CommitModelProgressAsync(
+                    currentLease, record, modelState, "running", "run.node_started", null, token)).ConfigureAwait(false)) return false;
                 cancellationToken.ThrowIfCancellationRequested();
                 result = await runner.RunAsync(executionClient, effectivePrompt, cancellationToken).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!AiSingleModelCheckpoint.ValidResult(result, snapshot))
+                if (!AiModelRunCheckpoint.ValidResult(result, snapshot))
                     throw new InvalidOperationException("Single model result is not a valid completion receipt.");
-                var completedState = singleState.Complete(result);
+                var completedState = modelState.Complete(result);
                 var completedStep = new AgentStepUpsert(ids.NewId(), "model.text", 1, runId, "committed", model.Version,
-                    null, null, result.InputTokens, result.OutputTokens, null, null, null, singleState.InputDigest, null);
-                if (!await leaseWatch.CommitNodeAsync((currentLease, token) => CommitSingleModelProgressAsync(
+                    null, null, result.InputTokens, result.OutputTokens, null, null, null, modelState.InputDigest, null);
+                if (!await leaseWatch.CommitNodeAsync((currentLease, token) => CommitModelProgressAsync(
                     currentLease, record, completedState, "running", "run.node_completed", completedStep, token)).ConfigureAwait(false)) return false;
-                singleState = completedState;
+                modelState = completedState;
                 if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
                 completionPending = true;
-                return await CompleteSingleModelAsync(scope.ServiceProvider, lease, record, singleState, cancellationToken).ConfigureAwait(false);
+                return await CompleteModelRunAsync(scope.ServiceProvider, lease, record, modelState, cancellationToken).ConfigureAwait(false);
             }
 
-            completionPending = true;
-            // 工具循环完成后只处理收尾，不把凭证准备异常改判成执行失败。
-            cancellationToken.ThrowIfCancellationRequested();
-            var checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(result.Session.GetRawText())));
-            if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
-            var stepId = ids.NewId();
-            var checkpointId = ids.NewId();
-            var completionSequence = await NextEventSequenceAsync(store, runId, cancellationToken).ConfigureAwait(false);
-            var committed = await scope.ServiceProvider.GetRequiredService<AiAgentRunCompletion>().CommitAsync(new(
-                lease,
-                "completed",
-                new(stepId, "model.text", 1, runId, "committed", model.Version, null, null,
-                    result.InputTokens, result.OutputTokens, null, null, null, null, null),
-                new(checkpointId, completionSequence, 1, AgentFrameworkRuntime.FrameworkVersion, record.DefinitionVersion,
-                    result.Session.GetRawText(), checksum),
-                new(ids.NewId(), completionSequence, "run.completed", 1, """{"status":"completed"}""")),
-                new(result.InputTokens, result.OutputTokens), cancellationToken).ConfigureAwait(false);
-            if (!committed)
-            {
-                logger.LogWarning("Agent run {RunId} progress commit lost lease fencing.", runId);
-                return false;
-            }
 
-            return true;
         }
         catch (OperationCanceledException) when (callerCancellationToken.IsCancellationRequested)
         {
@@ -501,12 +496,12 @@ internal sealed class AiAgentRunCoordinator(
         }
         catch (AiRunOutputBudgetException exception) when (!exception.DispatchStarted)
         {
-            if (singleState?.Phase == "started")
+            if (record.DefinitionKey == AgentDefinitionRegistry.SingleTextKey && modelState?.Phase == "started")
             {
                 // 预算客户端明确证明尚未派发，保存拒绝事实后才允许结算失败。
-                singleState = singleState with { Phase = "not_dispatched" };
+                modelState = modelState with { Phase = "not_dispatched" };
                 if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
-                return await RejectAsync(() => CreateSingleModelProgressAsync(lease, record, singleState,
+                return await RejectAsync(() => CreateModelProgressAsync(lease, record, modelState,
                     "failed", "run.failed", null, cancellationToken)).ConfigureAwait(false);
             }
             if (workflowState?.PendingNode is not null)
@@ -522,11 +517,11 @@ internal sealed class AiAgentRunCoordinator(
         catch (Exception exception)
         {
             logger.LogError(exception, "Agent run {RunId} failed.", runId);
-            if (singleState is not null)
+            if (modelState is not null)
             {
                 // 完成提交或结算异常不得把已确认结果改成失败；派发后未知异常保留预算待对账。
-                if (singleState.Phase != "started" || !await PrepareCommitAsync().ConfigureAwait(false)) return false;
-                return await CommitSingleModelProgressAsync(lease, record, singleState, "reconciliation_required",
+                if (modelState.Phase != "started" || !await PrepareCommitAsync().ConfigureAwait(false)) return false;
+                return await CommitModelProgressAsync(lease, record, modelState, "reconciliation_required",
                     "run.reconciliation_required", null, cancellationToken).ConfigureAwait(false);
             }
             if (workflowState?.PendingNode is not null)
@@ -551,23 +546,23 @@ internal sealed class AiAgentRunCoordinator(
         return new Guid(bytes.AsSpan(0, 16), bigEndian: true);
     }
 
-    private async Task<bool> CompleteSingleModelAsync(IServiceProvider provider, AgentRunLease lease,
-        AiAgentRunRecord run, AiSingleModelCheckpoint state, CancellationToken token)
+    private async Task<bool> CompleteModelRunAsync(IServiceProvider provider, AgentRunLease lease,
+        AiAgentRunRecord run, AiModelRunCheckpoint state, CancellationToken token)
     {
-        var progress = await CreateSingleModelProgressAsync(lease, run, state, "completed", "run.completed", null, token).ConfigureAwait(false);
+        var progress = await CreateModelProgressAsync(lease, run, state, "completed", "run.completed", null, token).ConfigureAwait(false);
         return await provider.GetRequiredService<AiAgentRunCompletion>().CommitAsync(progress,
             new(state.Result!.InputTokens, state.Result.OutputTokens), token).ConfigureAwait(false);
     }
 
     /// <summary>检查点、步骤和事件共享租约事务；正文仅保存在检查点，不进入事件或日志。</summary>
-    private async Task<bool> CommitSingleModelProgressAsync(AgentRunLease lease, AiAgentRunRecord run,
-        AiSingleModelCheckpoint state, string status, string eventType, AgentStepUpsert? step, CancellationToken token) =>
-        await store.CommitProgressAsync(await CreateSingleModelProgressAsync(lease, run, state, status, eventType, step, token)
+    private async Task<bool> CommitModelProgressAsync(AgentRunLease lease, AiAgentRunRecord run,
+        AiModelRunCheckpoint state, string status, string eventType, AgentStepUpsert? step, CancellationToken token) =>
+        await store.CommitProgressAsync(await CreateModelProgressAsync(lease, run, state, status, eventType, step, token)
             .ConfigureAwait(false), token).ConfigureAwait(false);
 
     /// <summary>事务外准备不可变提交参数；最终成功提交由同作用域结算服务持有事务。</summary>
-    private async Task<AgentRunProgressCommit> CreateSingleModelProgressAsync(AgentRunLease lease, AiAgentRunRecord run,
-        AiSingleModelCheckpoint state, string status, string eventType, AgentStepUpsert? step, CancellationToken token)
+    private async Task<AgentRunProgressCommit> CreateModelProgressAsync(AgentRunLease lease, AiAgentRunRecord run,
+        AiModelRunCheckpoint state, string status, string eventType, AgentStepUpsert? step, CancellationToken token)
     {
         var payload = state.ToJson();
         var latest = await store.FindLatestCheckpointAsync(run.Id, token).ConfigureAwait(false);
@@ -575,7 +570,7 @@ internal sealed class AiAgentRunCoordinator(
         var sequence = Math.Max(checked((latest?.Sequence ?? 0) + 1), await NextEventSequenceAsync(store, run.Id, token).ConfigureAwait(false));
         return new(lease, status, step,
             new(ids.NewId(), sequence, AgentCheckpointCompatibility.CurrentCheckpointFormatVersion,
-                AgentFrameworkRuntime.FrameworkVersion, run.DefinitionVersion, payload, AiSingleModelCheckpoint.Digest(payload)),
+                AgentFrameworkRuntime.FrameworkVersion, run.DefinitionVersion, payload, AiModelRunCheckpoint.Digest(payload)),
             new(ids.NewId(), sequence, eventType, 1, $$"""{"phase":"{{state.Phase}}"}"""));
     }
 

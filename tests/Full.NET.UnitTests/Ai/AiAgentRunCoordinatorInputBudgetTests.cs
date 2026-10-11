@@ -52,7 +52,8 @@ public sealed partial class AiAgentRunCoordinatorTests
         var client = InputClient(input, true);
         var fixture = await CreateFixtureAsync(definitionKey: AgentDefinitionRegistry.ReadOnlyToolLoopKey, chatClient: client);
         Assert.AreEqual(1, await fixture.Coordinator.ProcessPendingAsync());
-        AssertStatusCommit(fixture.Commands, "failed");
+        AssertStatusCommit(fixture.Commands, "reconciliation_required");
+        await fixture.Budget.DidNotReceive().SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await client.Received(1).GetResponseAsync(Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatOptions?>(), Arg.Any<CancellationToken>());
         await fixture.ToolExecutor.Received(tools).ExecuteAsync(Arg.Any<Full.NET.AI.Abstractions.Tools.ToolInvocation>(), Arg.Any<CancellationToken>());
     }

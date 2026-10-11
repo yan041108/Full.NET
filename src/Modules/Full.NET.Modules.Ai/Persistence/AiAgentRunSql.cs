@@ -137,7 +137,7 @@ internal static class AiAgentRunSql
         SELECT TOP (@BatchSize) Id
         FROM fn_ai_agent_run
         WHERE DeadlineAtUtc > @Now
-          AND (StatusKey = 'queued' OR (StatusKey = 'running' AND DefinitionKey IN (@WorkflowKey, @SingleModelKey)
+          AND (StatusKey = 'queued' OR (StatusKey = 'running' AND DefinitionKey IN (@WorkflowKey, @SingleModelKey, @ToolLoopKey)
                AND EXISTS (SELECT 1 FROM fn_ai_agent_checkpoint c WHERE c.RunId = fn_ai_agent_run.Id)
                AND EXISTS (SELECT 1 FROM fn_ai_agent_event e WHERE e.RunId = fn_ai_agent_run.Id
                            AND e.EventType IN ('run.node_started', 'run.node_completed'))))
@@ -149,7 +149,7 @@ internal static class AiAgentRunSql
         SELECT Id
         FROM fn_ai_agent_run
         WHERE DeadlineAtUtc > @Now
-          AND (StatusKey = 'queued' OR (StatusKey = 'running' AND DefinitionKey IN (@WorkflowKey, @SingleModelKey)
+          AND (StatusKey = 'queued' OR (StatusKey = 'running' AND DefinitionKey IN (@WorkflowKey, @SingleModelKey, @ToolLoopKey)
                AND EXISTS (SELECT 1 FROM fn_ai_agent_checkpoint c WHERE c.RunId = fn_ai_agent_run.Id)
                AND EXISTS (SELECT 1 FROM fn_ai_agent_event e WHERE e.RunId = fn_ai_agent_run.Id
                            AND e.EventType IN ('run.node_started', 'run.node_completed'))))

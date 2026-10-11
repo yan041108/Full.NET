@@ -171,7 +171,7 @@ public sealed partial class AiAgentRunCoordinatorTests
     }
 
     [TestMethod]
-    public async Task Tool_loop_budget_exceeded_marks_failed_and_settles_budget_async()
+    public async Task Tool_loop_budget_exceeded_requires_reconciliation_and_preserves_budget_async()
     {
         var client = Substitute.For<IChatClient>();
         client.GetResponseAsync(Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatOptions?>(), Arg.Any<CancellationToken>())
@@ -180,8 +180,8 @@ public sealed partial class AiAgentRunCoordinatorTests
             definitionKey: AgentDefinitionRegistry.ReadOnlyToolLoopKey,
             chatClient: client).ConfigureAwait(false);
         Assert.AreEqual(1, await fixture.Coordinator.ProcessPendingAsync().ConfigureAwait(false));
-        AssertStatusCommit(fixture.Commands, "failed");
-        await fixture.Budget.Received(1).SettleAsync(fixture.RunId, Arg.Any<AiOperationUsage>(), "failed", Arg.Any<CancellationToken>());
+        AssertStatusCommit(fixture.Commands, "reconciliation_required");
+        await fixture.Budget.DidNotReceive().SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

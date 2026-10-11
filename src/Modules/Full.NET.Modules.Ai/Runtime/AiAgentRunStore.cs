@@ -288,7 +288,8 @@ internal sealed class AiAgentRunStore(
             statement,
             AiSqlParameters.Create(("BatchSize", batchSize), ("Now", now),
                 ("WorkflowKey", Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatRenameWorkflowKey),
-                ("SingleModelKey", Full.NET.Agents.Definitions.AgentDefinitionRegistry.SingleTextKey)),
+                ("SingleModelKey", Full.NET.Agents.Definitions.AgentDefinitionRegistry.SingleTextKey),
+                ("ToolLoopKey", Full.NET.Agents.Definitions.AgentDefinitionRegistry.ReadOnlyToolLoopKey)),
             cancellationToken).ConfigureAwait(false);
         return rows.ToList();
     }

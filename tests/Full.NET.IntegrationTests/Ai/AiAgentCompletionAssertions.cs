@@ -56,17 +56,17 @@ internal static partial class AiAgentCompletionAssertions
                     if (scenario == "conflict") await budget.SettleAsync(runId, new(1, 1), "succeeded");
                     var lease = (await store.TryAcquireAsync(runId, "completion-owner", DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1)))!;
                     AiOperationUsage usage = scenario == "unknown" ? new(null, 1) : scenario == "conflict" ? new(1, 1) : new(2, 1);
-                    var receipt = AiSingleModelCheckpoint.Start(run, new() { Id = modelId, Version = 1 }, "")
+                    var receipt = AiModelRunCheckpoint.Start(run, new() { Id = modelId, Version = 1 }, "")
                         .Complete(new("done", JsonSerializer.SerializeToElement(true), usage.InputTokens, usage.OutputTokens));
                     var payload = receipt.ToJson();
                     Assert.IsTrue(await store.CommitProgressAsync(new(lease, "running", null,
-                        new(Guid.CreateVersion7(), 1, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiSingleModelCheckpoint.Digest(payload)),
+                        new(Guid.CreateVersion7(), 1, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiModelRunCheckpoint.Digest(payload)),
                         new(Guid.CreateVersion7(), 1, "run.node_completed", 1, "{}"))));
                     lease = lease with { Version = lease.Version + 1 };
                     var progress = new AgentRunProgressCommit(lease, "completed",
                         new(Guid.CreateVersion7(), "model.text", 1, runId, "committed", 1, null, null,
                             usage.InputTokens, usage.OutputTokens, null, null, null, receipt.InputDigest, null),
-                        new(Guid.CreateVersion7(), 2, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiSingleModelCheckpoint.Digest(payload)),
+                        new(Guid.CreateVersion7(), 2, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiModelRunCheckpoint.Digest(payload)),
                         new(Guid.CreateVersion7(), 2, "run.completed", 1, "{}"));
                     var before = await ReadBudgetAsync();
                     var quotaBefore = await ReadQuotaAsync();

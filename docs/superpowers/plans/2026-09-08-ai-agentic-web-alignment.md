@@ -2048,6 +2048,31 @@ SQL Server 另有已有知识索引状态用例在文本代次生成断言返回
 
 原始结果与摘要保存在 artifacts/r10t；状态为 Aot-analysis-clean。没有本批新鲜 Native publish/运行、独立生成应用或浏览器/人工验收；继续按 AI 模块集中执行。请求接纳规模已交付，但供应商实际输入 Token/费用硬认证、历史终态未结算修复、工具循环逐步恢复与自动外部对账仍开放，R10 不整体关闭，保持 Capacity-not-verified。只提交本批六个归属文件，不推送。
 
+### R10u：工具循环整轮凭证与崩溃恢复（2026-10-12，本地受影响验收完成）
+
+本批在 main 合批推进工具循环派发意图、完成回执、恢复准入、预算保留与双库过期扫描。基线 dc5f1386588da16f30bf7cabf3978f78d5eb4b9a，任务快照 ai-agent-tool-loop-recovery-r10u；受保护文件在读取与哈希前排除，其他窗口日志与工具链改动保留。
+
+- [x] 行为 RED：新增 23 项回归全部因缺失凭证或扫描能力失败，零跳过；首次 21 项全部失败但最低发现数误设为 22，原报告保留，不计规范 RED。正确发现数的第二轮 23/23 失败用于实施依据。
+- [x] 将模块内部凭证改名 AiModelRunCheckpoint，保持单模型已有载荷兼容，并用于工具循环整轮 started/completed。意图先于任何循环派发、完成回执先于最终收尾；失租不继续派发或结算。
+- [x] 当前会话、模型和实际输入校验后直接恢复完成回执与原用量；未知、损坏、缺失或不可读凭证禁止重发，撤权保留此前预算。后续本地预算拒绝和步数耗尽不被解释为整轮尚未派发。
+- [x] SQL Server/MySQL 扫描同时增加工具循环定义；既有检查点双库场景成对覆盖真实写入、读回、完成回执回滚、过期扫描、旧 Worker fencing 及无凭证历史运行拒绝。无新表或迁移。
+- [x] 当前输入的 AI、相关架构、AOT 分析、成对完整 AI Integration 与只读复审通过；逐项核对发现 UID、TRX、消费者程序集摘要与提交范围。共享测试矩阵仅提交本批 +28 计数。
+
+本批实际验证与证据：
+
+- node artifacts/r10u/run-final-unit.mjs final：Release Unit 消费程序集构建零警告/错误，AI 命名空间 3429/3429 通过、零失败/跳过（1m14s265ms），新增整轮恢复 28 项全部通过。首轮 GREEN 的 7 项旧断言失败保留，修正为意图事件先落库及未知派发不结算；不是删除回归。
+- node artifacts/r10u/run-linux.mjs：冻结本批归属源码，Linux API/Worker 的 FullNetAotAnalysis=true 构建零警告/错误；受影响 NativeAot、MemoryPackControlledProtocol、AiDependencyBoundary、AsyncBoundary 架构 88/88 通过，零跳过；Integration 分片发现 1214 项仅证明分片完整性。状态 Aot-analysis-clean，不代表新鲜 Native 发布/运行。
+- node artifacts/r10u/run-jit-retry.mjs 与 node artifacts/r10u/run-integration.mjs：按当前 JIT 属性从本地 NuGet 缓存 restore 并完整构建 Integration 依赖图，零警告/错误；验证源与消费程序集同摘要、JIT 消费不包含 AOT 注册表后，在隔离容器执行全部 AI Integration，SQL Server 44/44、MySQL 44/44 通过，零失败/跳过。两库都包含检查点真实事务、整轮回执恢复、过期扫描与 fencing。测试前后冻结源码与整个消费目录 SHA 校验一致。
+- 保留的非验收结果：初次测试消费误用 AOT 分析依赖，SQL Server 多个进程内 Host 注册发生 DapperAotParameterRegistry 并发异常；两库混合模式运行主动停止（exit137），全部排除验收。改为完整 JIT 构建时，首次 --no-restore 使用 AOT assets 导致条件序列化依赖缺失（1 编译错误）；按相同 JIT 属性重新 restore 后通过。旧消费缓存的防误用实验明确拒绝（exit1）；首次同步脚本语法错误（exit2）发生在数据库测试前。没有修改产品 Dapper 注册器、依赖锁或 SQL 绕过问题；进程内多个 AOT Host 的注册限制仍不外推为原生多实例验收通过。
+- node artifacts/r10u/run-static.mjs、node artifacts/r10u/run-tooling.mjs：命名 30、矩阵 6、治理 57、测试工具 54 通过；保护排除的 Markdown 扫描 386 文件通过。node artifacts/r10u/post.mjs、python artifacts/r10u/collect.py 核对发现与执行 UID 完全一致、原始 TRX、实际编译源码 SHA、新鲜输出、main 基线及其他窗口摘要。Unit 总发现 6922 含其他窗口 LocalFileLogging 10 项；本批规范矩阵 Unit 6912、AI 3429、ai-runtime 687，仅 AI 全量实际执行。独立只读复审的两项问题已关闭，最终无剩余有证据问题，复审不代替测试。
+- 环境 Windows x64 SDK10.0.401、Linux Docker SDK10.0.400/runtime10.0.11、Docker29.6.2、i7-12700H/约64GiB；Windows Unit 限4处理器，成对数据库消费者各2CPU/8GiB，持工作区及机器重任务锁。NuGetAudit=false，仅本地缓存还原，未执行在线依赖审计；沿用固定解析工具的 Linux SDK 派生锁证据，未修改仓库依赖。
+
+原始报告、失败实验、发现 UID、冻结源码与消费摘要在 artifacts/r10u。最终计划验收记录及架构 SQL 的两处 reason 文字在冻结后更新；生产代码与 SQL 和实际验收输入一致，文档再做结构、编码与 diff 检查。本批归属文件单独提交到 main，不推送。
+
+证据边界：MySQL 官方 TRX 对单个已通过结果的捕获文本触发字段长度截断，结果状态、UID 与计数完整，保留工具提示；不声称捕获文本完整。首次汇总脚本因 Windows 默认 GBK 读取 UTF-8 复审 JSON 失败（exit1），明确 UTF-8 后汇总通过；原错误说明保留，未修改原测试报告。
+
+逐步工具循环游标/回执/续跑、历史终态未结算修复、提供者请求前精确输入 Token 硬上界及自动外部对账仍未完成。审批暂停保留整轮意图，恢复进入对账，不自动从提示词重新启动。原生发布/运行、独立生成应用与页面按 AI 模块集中验收；R10 不整体关闭，Capacity-not-verified。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

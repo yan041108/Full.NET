@@ -39,7 +39,7 @@ public sealed partial class AiAgentRunCoordinatorTests
             checkpointFactory: failure == "checkpoint" ? run => FaultedCheckpoint(run, "checksum") : null,
             configureRecord: run => { if (failure == "definition") run.DefinitionVersion = 999; if (failure == "payload") run.BudgetJson = "null"; });
         var processed = await fixture.Coordinator.ProcessPendingAsync();
-        if (ownsLease && failure != "runner")
+        if (ownsLease && failure is not ("runner" or "tool-budget"))
             await fixture.Budget.Received(1).SettleAsync(fixture.RunId,
                 Arg.Is<AiOperationUsage>(usage => usage != null && usage.InputTokens == null && usage.OutputTokens == null),
                 failure == "session" ? "cancelled" : "failed", Arg.Any<CancellationToken>());
@@ -47,8 +47,8 @@ public sealed partial class AiAgentRunCoordinatorTests
             await fixture.Budget.DidNotReceive().SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         Assert.AreEqual(ownsLease ? 1 : 0, processed);
         AssertStatusCommit(fixture.Commands, failure == "session" ? "authorization_required"
-            : failure is "workflow" or "runner" && !ownsLease ? "running"
-            : failure == "runner" ? "reconciliation_required" : "failed");
+            : failure is "workflow" or "runner" or "tool-budget" && !ownsLease ? "running"
+            : failure is "runner" or "tool-budget" ? "reconciliation_required" : "failed");
     }
 
     [TestMethod]

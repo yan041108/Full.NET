@@ -99,7 +99,12 @@ public sealed partial class AiAgentRunCoordinatorTests
             toolExecutor: executor, priorEventSequence: 7);
         Assert.AreEqual(1, await fixture.Coordinator.ProcessPendingAsync());
         AssertStatusCommit(fixture.Commands, "awaiting_approval");
-        Assert.AreEqual(8L, Parameters(fixture.Commands, AiAgentRunSql.InsertEvent).Single()["Sequence"]);
+        var events = Parameters(fixture.Commands, AiAgentRunSql.InsertEvent).ToArray();
+        Assert.AreEqual(2, events.Length);
+        Assert.AreEqual(8L, events[0]["Sequence"]);
+        Assert.AreEqual("run.node_started", events[0]["EventType"]);
+        Assert.AreEqual(9L, events[1]["Sequence"]);
+        Assert.AreEqual("run.awaiting_approval", events[1]["EventType"]);
     }
 
     [TestMethod]
