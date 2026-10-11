@@ -107,15 +107,19 @@ internal sealed class ImportExportTaskRunner(
         ImportExportTaskRecord task,
         CancellationToken cancellationToken)
     {
-        if (!await TrySetTenantScopeAsync(task.TenantId, cancellationToken).ConfigureAwait(false))
-        {
-            // 失去活动租户资格时不能使用旧上下文写入任务；恢复由重新授权后的调度处理。
-            currentTenant.Clear();
-            return;
-        }
-
+        using var leaseCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var executionToken = leaseCancellation.Token;
         try
         {
+            EnsureActiveLease(task, executionToken);
+            // 从领取快照的剩余期限计时，租户与授权等待同样消耗租约。
+            leaseCancellation.CancelAfter(task.LeaseExpiresAtUtc!.Value - clock.UtcNow);
+            if (!await TrySetTenantScopeAsync(task.TenantId, executionToken).ConfigureAwait(false))
+            {
+                // 失去活动租户资格时不能使用旧上下文写入任务；恢复由重新授权后的调度处理。
+                return;
+            }
+            EnsureActiveLease(task, executionToken);
             var handler = registry.TryResolve(task.SchemaKey);
             if (handler is null)
             {
@@ -123,22 +127,23 @@ internal sealed class ImportExportTaskRunner(
                     task,
                     ImportExportErrorCodes.SchemaNotFound,
                     clock.UtcNow,
-                    cancellationToken).ConfigureAwait(false);
+                    executionToken).ConfigureAwait(false);
                 return;
             }
 
             var executionState = ImportExportTaskMapper.DeserializeExecutionState(task.ExecutionRowsJson);
             if (executionState.SessionBinding?.UserId != task.RequestedByUserId
                 || !await authorization.IsAllowedAsync(executionState.SessionBinding, task.TenantId, handler,
-                    executionState.CapabilityFlags, cancellationToken).ConfigureAwait(false))
+                    executionState.CapabilityFlags, executionToken).ConfigureAwait(false))
             {
                 // 升级前缺少会话绑定的队列同样拒绝，必须由仍有权限的当前会话显式重试。
-                await MarkExecutionFailedAsync(task, CommonErrorCodes.PermissionDenied, clock.UtcNow, cancellationToken).ConfigureAwait(false);
+                await MarkExecutionFailedAsync(task, CommonErrorCodes.PermissionDenied, clock.UtcNow, executionToken).ConfigureAwait(false);
                 return;
             }
 
+            EnsureActiveLease(task, executionToken);
             var sourceResult = await resourceFiles
-                .OpenReadyContentAsync("import_export", task.Id, task.SourceFileId, cancellationToken)
+                .OpenReadyContentAsync("import_export", task.Id, task.SourceFileId, executionToken)
                 .ConfigureAwait(false);
             if (!sourceResult.IsSuccess)
             {
@@ -146,26 +151,28 @@ internal sealed class ImportExportTaskRunner(
                     task,
                     sourceResult.Error!.Code,
                     clock.UtcNow,
-                    cancellationToken).ConfigureAwait(false);
+                    executionToken).ConfigureAwait(false);
                 return;
             }
 
             var source = sourceResult.Value!;
-            var contentLength = source.Content.CanSeek ? source.Content.Length : options.CurrentValue.MaxUploadBytes;
-            var executionBatchSize = Math.Clamp(options.CurrentValue.BatchSize, 1, 200);
-            var previewContext = new StaticImportPreviewContext(
-                executionState.SessionBinding!.UserId,
-                ImportExportExecutionAuthorization.FreezeCapabilities(handler, executionState.CapabilityFlags)) { TaskId = task.Id };
             Result<StaticImportBatchExecutionResult> batchResult;
             try
             {
+                // 读文件完成时可能已经到期；即使拒绝执行，也必须释放刚打开的内容流。
+                EnsureActiveLease(task, executionToken);
+                var contentLength = source.Content.CanSeek ? source.Content.Length : options.CurrentValue.MaxUploadBytes;
+                var executionBatchSize = Math.Clamp(options.CurrentValue.BatchSize, 1, 200);
+                var previewContext = new StaticImportPreviewContext(
+                    executionState.SessionBinding!.UserId,
+                    ImportExportExecutionAuthorization.FreezeCapabilities(handler, executionState.CapabilityFlags)) { TaskId = task.Id };
                 batchResult = await handler.ExecuteBatchAsync(
                         source.Content,
                         contentLength,
                         task.NextLineNumber,
                         executionBatchSize,
                         previewContext,
-                        cancellationToken)
+                        executionToken)
                     .ConfigureAwait(false);
             }
             finally
@@ -173,27 +180,29 @@ internal sealed class ImportExportTaskRunner(
                 await source.Content.DisposeAsync().ConfigureAwait(false);
             }
 
+            // 处理器可能忽略取消；返回之后仍须阻断回执与检查点副作用。
+            EnsureActiveLease(task, executionToken);
             if (!batchResult.IsSuccess)
             {
                 await MarkExecutionFailedAsync(
                     task,
                     batchResult.Error!.Code,
                     clock.UtcNow,
-                    cancellationToken).ConfigureAwait(false);
+                    executionToken).ConfigureAwait(false);
                 return;
             }
 
             if (batchResult.Value!.Rows.Count == 0 && task.NextLineNumber < task.ValidRowCount)
             {
                 // 检查点尚未完成却返回空批是处理器契约失败，不能无进展地反复排队。
-                await MarkExecutionFailedAsync(task, ImportExportErrorCodes.ExecutionFailed, clock.UtcNow, cancellationToken).ConfigureAwait(false);
+                await MarkExecutionFailedAsync(task, ImportExportErrorCodes.ExecutionFailed, clock.UtcNow, executionToken).ConfigureAwait(false);
                 return;
             }
-            await ApplyBatchResultAsync(task, batchResult.Value!, cancellationToken).ConfigureAwait(false);
+            await ApplyBatchResultAsync(task, batchResult.Value!, executionToken).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
-            // 宿主取消不能写成失败；租约到期后由其他实例从检查点重领。
+            // 宿主取消或租约到期都不能写成失败；由其他实例从检查点幂等重领。
         }
         catch (Exception)
         {
@@ -214,6 +223,7 @@ internal sealed class ImportExportTaskRunner(
         StaticImportBatchExecutionResult batch,
         CancellationToken cancellationToken)
     {
+        EnsureActiveLease(task, cancellationToken);
         var now = clock.UtcNow;
         var executionState = ImportExportTaskMapper.DeserializeExecutionState(task.ExecutionRowsJson);
         var mergedRows = ImportExportTaskMapper.MergeExecutionRows(executionState.Rows, batch.Rows);
@@ -257,11 +267,13 @@ internal sealed class ImportExportTaskRunner(
             statusKey = ImportExportTaskStatusKeys.Queued;
         }
 
+        EnsureActiveLease(task, cancellationToken);
         var affected = await commandExecutor.ExecuteAsync(
                 ImportExportTaskSql.UpdateExecutionProgress,
                 ImportExportSqlParameters.Create(
                     ("Id", task.Id),
                     ("LeaseId", task.LeaseId),
+                    ("Now", clock.UtcNow),
                     ("StatusKey", statusKey),
                     ("ProcessedRowCount", processedRowCount),
                     ("SucceededRowCount", succeededRowCount),
@@ -301,6 +313,7 @@ internal sealed class ImportExportTaskRunner(
     {
         var ready = await resourceFiles.ListReadyAsync("import_export", task.Id, cancellationToken)
             .ConfigureAwait(false);
+        EnsureActiveLease(task, cancellationToken);
         var existing = ready.LastOrDefault(item => item.FileId != task.SourceFileId);
         if (existing is not null)
         {
@@ -310,6 +323,7 @@ internal sealed class ImportExportTaskRunner(
         var failedRows = mergedRows.Where(row => !row.Succeeded).ToArray();
         var receiptBytes = ImportExportErrorReceiptRenderer.Render(failedRows);
         await using var receiptStream = new MemoryStream(receiptBytes, writable: false);
+        EnsureActiveLease(task, cancellationToken);
         var upload = await resourceFiles
             .UploadAsync(
                 "import_export", task.Id, task.RequestedByUserId,
@@ -331,16 +345,32 @@ internal sealed class ImportExportTaskRunner(
         ImportExportTaskRecord task,
         string errorCode,
         DateTimeOffset completedAtUtc,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken)
+    {
+        EnsureActiveLease(task, cancellationToken);
         await commandExecutor.ExecuteAsync(
                 ImportExportTaskSql.MarkExecutionFailed,
                 ImportExportSqlParameters.Create(
                     ("Id", task.Id),
                     ("LeaseId", task.LeaseId),
+                    ("Now", clock.UtcNow),
                     ("ErrorCode", errorCode),
                     ("ExecutionCompletedAtUtc", completedAtUtc)),
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>取消与期限均失败关闭，缺少期限的遗留快照也不得继续执行。</summary>
+    /// <param name="task">领取快照。</param>
+    /// <param name="cancellationToken">包含租约期限的执行令牌。</param>
+    private void EnsureActiveLease(ImportExportTaskRecord task, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (task.LeaseId is null || task.LeaseExpiresAtUtc is null || task.LeaseExpiresAtUtc <= clock.UtcNow)
+        {
+            throw new OperationCanceledException("导入任务租约已失效。", cancellationToken);
+        }
+    }
 
     /// <summary>绑定活动租户；失败时不得沿用调用方残留上下文。</summary>
     /// <param name="tenantId">任务所属租户。</param>
