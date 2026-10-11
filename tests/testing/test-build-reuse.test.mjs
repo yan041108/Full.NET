@@ -181,21 +181,28 @@ test('Git 忽略的项目 user 文件新增、修改和删除均使构建失效'
 test('pnpm 测试选择及缓存模式不改变构建环境，真实 MSBuild 属性仍参与校验', async t => {
   const f = await fixture(t);
   const before = process.env.npm_lifecycle_script;
+  const beforeEvent = process.env.npm_lifecycle_event;
   try {
     process.env.npm_lifecycle_script = 'node run.mjs --reuse-build --selection first';
+    process.env.npm_lifecycle_event = 'test:aot:native:e2e';
     await f.run({ build: async env => {
       assert.ok(env);
       assert.equal(env?.npm_lifecycle_script, undefined);
+      assert.equal(env?.npm_lifecycle_event, undefined);
       assert.ok(process.env.npm_lifecycle_script);
       await f.options.build();
     } });
     process.env.npm_lifecycle_script = 'node run.mjs --reuse-build --selection second';
+    process.env.npm_lifecycle_event = 'test:aot:native:worker:e2e';
     assert.equal((await f.run()).reused, true);
     process.env.npm_lifecycle_script = 'node run.mjs --no-build --selection second';
     assert.equal((await f.run({ mode: 'verify' })).reused, true);
     assert.equal(f.builds(), 1);
+    assert.equal(process.env.npm_lifecycle_event, 'test:aot:native:worker:e2e');
   } finally {
     if (before === undefined) delete process.env.npm_lifecycle_script;
     else process.env.npm_lifecycle_script = before;
+    if (beforeEvent === undefined) delete process.env.npm_lifecycle_event;
+    else process.env.npm_lifecycle_event = beforeEvent;
   }
 });

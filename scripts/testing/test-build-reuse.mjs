@@ -58,10 +58,10 @@ async function outputs(directory) {
 /** 只复用由本入口成功构建且输入/产物仍一致的记录；verify 模式不自动补构建。 */
 export async function prepareTestBuild({ cwd, project, assembly, args, build, mode = 'reuse', sdkVersion }) {
   if (!['reuse', 'verify', 'fresh'].includes(mode)) throw new Error('未知构建复用模式。');
-  // pnpm 将测试筛选与缓存模式放入此元数据；从实际构建环境和指纹同时移除。
+  // pnpm 将脚本名称、测试筛选和缓存模式放入生命周期元数据；从实际构建环境和指纹同时移除。
   // 保留其他 MSBuild 环境属性，且不修改调用进程或测试进程的环境。
   const env = Object.fromEntries(Object.entries(testRunEnvironment()).filter(([name]) =>
-    name.toLowerCase() !== 'npm_lifecycle_script'
+    !['npm_lifecycle_script', 'npm_lifecycle_event'].includes(name.toLowerCase())
   ));
   sdkVersion ??= (await exec('dotnet', ['--version'], { cwd, env })).stdout.trim();
   // MSBuild 可以读取任意合法环境属性；只排除每轮隔离的临时目录，不维护易漏项的前缀清单。

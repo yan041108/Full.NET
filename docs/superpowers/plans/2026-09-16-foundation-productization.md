@@ -2524,3 +2524,17 @@ Windows 于 17:55 +08:00 重启，第 5 次验收协调器在排队中退出，�
 证据：`.tmp/reporting-export-final-proof.json`、`.tmp/reporting-export-ci-artifacts`、`.tmp/reporting-lease-native-ci-7`、`.tmp/reporting-lease-integration-green`。Reporting 本批业务验收关闭，整体保持 Build-verified、Capacity-not-verified。未重新生成完整独立应用，不提升全页面、完整故障灾备、10K 容量或 F10/F11 整项；其他对话改动保留，PR3 保持 Draft，不合并、不发布。
 
 排队期间只读检查发现下一批候选：WorkflowInstanceListRecord、WorkflowTodoListRecord 与 SettingsDomainAuditDiffRecord 的真实查询已接入模块服务，但现有行物化器注册和 Native 列表/审计差异验收未覆盖。下一批先建立可失败回归，集中补齐静态映射及双库代表性运行验证；当前记录不计为已修复或已通过。
+
+## 2026-10-11 Native 测试准备与跨专项构建复用
+
+本批快照 `native-prepared-entrypoints-20261011`，源代码基线 `490285e498e2051d557448a246819757118d9980`。API、Enterprise、Worker、Notifications、Settings/Jobs、S3、Kafka Replay、OIDC 八个入口统一调用共享 Native 运行器；使用相同 Integration Release 构建身份。消费者准备只持有工作区锁，取得共享重型资源后严格验证源码、产物与矩阵，没有变化时复用，有变化时失败，不在重型锁内隐式补编译。两个阶段共享排队预算，编译耗时独立记录。
+
+保留各专项最低发现数、必需用例类型、过滤器、超时与独立 TRX 路径。Linux 要求实际通过且零失败/跳过；Enterprise 在非 Linux 仅发现，其他入口保留非 Linux 跳过策略，均不声明真实原生业务通过。执行前删除本专项旧 TRX，命令成功但缺少新报告时失败；资源排队支持取消，异常经 finally 清理资源，子进程等待 close 和输出管道收尾，不在资源回调内退出进程。
+
+审查发现 pnpm 的 `npm_lifecycle_event` 使不同专项拥有不同构建指纹；先以两个不同生命周期事件重现重复构建，再从实际构建环境与指纹中同时剔除该编排元数据，调用方环境及其他 MSBuild 输入保留。独立复审无新增具体问题。
+
+- `pnpm test:integration:tooling`：本工作树实际 137/137，零失败/跳过，60.46 秒；其中共享准备回归 9 项、共享运行器回归 8 项，覆盖跨专项复用、严格复核、资源等待、取消、清理、预算、旧 TRX、非 Linux 结果和 pnpm 生命周期事件。测试使用自有临时资源与受控命令夹具，没有启动真实数据库或占用全局重型锁。
+- `pnpm test:governance`：61/61，零失败/跳过，3.12 秒；治理沿八个入口到共享运行器检查原有门禁，未降低 Native 最低范围。
+- `pnpm test:integration:affected:plan -- --snapshot native-prepared-entrypoints-20261011 --phase inner`：影响集为 integration-tooling。本批不重新执行八个真实 Native 专项，工具测试不能外推为这些业务验收；Reporting 双库通过证据来自另行冻结的真实运行。
+
+各项实际耗时仅说明本地验证范围，不承诺固定提速比例。规则适用于其他对话，八个正式入口已经接线；构建缓存仍以完整源码、编译环境、SDK 与产物摘要验证身份。其他对话未提交文件原样保留。证据 `.tmp/native-prepared-batch-proof.json`、`.tmp/native-prepared-tooling-closed.log`、`.tmp/native-prepared-governance-closed.log` 及 RED/GREEN 日志；整体能力和容量状态不变。

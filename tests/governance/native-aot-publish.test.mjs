@@ -14,6 +14,14 @@ async function read(relativePath) {
   return readFile(path.join(repositoryRoot, relativePath), 'utf8');
 }
 
+async function readNativeRunner(relativePath) {
+  const entry = await read(relativePath);
+  // 入口必须实际接入共享运行器；契约检查随后沿调用链核对执行门禁。
+  assert.match(entry, /import \{runNativeSuite\} from '\.\/native-suite-runner\.mjs'/);
+  assert.match(entry, /runNativeSuite\(\{/);
+  return entry + '\n' + await read('scripts/testing/native-suite-runner.mjs');
+}
+
 for (const role of ['api', 'worker']) {
   test(`${role} 成功发布后立即上传可复用产物，运行证据仍在原生测试之后`, async () => {
     const workflow = await read(`.github/workflows/${role}-native-aot-linux.yml`);
@@ -145,7 +153,7 @@ test('Docker publish 将 bin 与 obj 隔离在容器临时目录', async () => {
 });
 
 test('Native E2E 直接运行已构建程序集并执行最低发现数门禁', async () => {
-  const script = await read('scripts/testing/run-native-aot-e2e.mjs');
+  const script = await readNativeRunner('scripts/testing/run-native-aot-e2e.mjs');
   assert.match(script, /nativeGate\.project/);
   assert.match(script, /'build'/);
   assert.match(script, /matrix\.integration\.assembly/);
@@ -170,7 +178,7 @@ test('Native E2E 将 TRX 与原生进程日志写入可上传的 artifacts 目�
   );
 
   for (const [runnerPath, reportName] of runners) {
-    const runner = await read(runnerPath);
+    const runner = await readNativeRunner(runnerPath);
     assert.match(runner, /--results-directory/);
     assert.match(runner, /--report-trx/);
     assert.ok(
@@ -186,7 +194,7 @@ test('Notifications Native AOT 门禁登记矩阵、脚本、工作流与专用 
   const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
   const packageJson = JSON.parse(await read('package.json'));
   const workflow = await read('.github/workflows/api-native-aot-linux.yml');
-  const runner = await read('scripts/testing/run-native-aot-notifications-e2e.mjs');
+  const runner = await readNativeRunner('scripts/testing/run-native-aot-notifications-e2e.mjs');
 
   const notificationsGate = matrix.nativeAotNotificationsIntegration;
   assert.ok(
@@ -231,7 +239,7 @@ test('Notifications Native AOT 门禁登记矩阵、脚本、工作流与专用 
     matrix.nativeAotIntegration.requiredTestTypes,
     ['NativeApiKafkaLogMySqlE2ETests']
   );
-  assert.match(await read('scripts/testing/run-native-aot-e2e.mjs'),
+  assert.match(await readNativeRunner('scripts/testing/run-native-aot-e2e.mjs'),
     /discoveredTypes\.has\(requiredType\)/);
 });
 
@@ -239,7 +247,7 @@ test('Settings/Jobs Native AOT 门禁登记矩阵、脚本、工作流与专用 
   const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
   const packageJson = JSON.parse(await read('package.json'));
   const workflow = await read('.github/workflows/api-native-aot-linux.yml');
-  const runner = await read('scripts/testing/run-native-aot-settings-jobs-e2e.mjs');
+  const runner = await readNativeRunner('scripts/testing/run-native-aot-settings-jobs-e2e.mjs');
 
   const settingsJobsGate = matrix.nativeAotSettingsJobsIntegration;
   assert.ok(
@@ -293,7 +301,7 @@ test('OIDC Native AOT 门禁登记矩阵、脚本、工作流与专用 TRX', asy
   const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
   const packageJson = JSON.parse(await read('package.json'));
   const workflow = await read('.github/workflows/api-native-aot-linux.yml');
-  const runner = await read('scripts/testing/run-native-aot-oidc-e2e.mjs');
+  const runner = await readNativeRunner('scripts/testing/run-native-aot-oidc-e2e.mjs');
 
   const oidcGate = matrix.nativeAotOidcIntegration;
   assert.ok(
@@ -338,7 +346,7 @@ test('OIDC Native AOT 门禁登记矩阵、脚本、工作流与专用 TRX', asy
 
 test('Worker Native AOT 发现门禁包含 Kafka 日志原生用例', async () => {
   const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
-  const runner = await read('scripts/testing/run-native-aot-worker-e2e.mjs');
+  const runner = await readNativeRunner('scripts/testing/run-native-aot-worker-e2e.mjs');
   assert.deepEqual(
     matrix.workerNativeAotIntegration.requiredTestTypes,
     ['NativeWorkerKafkaLogMySqlE2ETests']
