@@ -69,9 +69,4 @@ internal sealed class TenantQuotaMetricIdReconciliationService(
                 dryRun));
     }
 
-    private sealed record OutstandingReservationRow(
-        Guid Id,
-        Guid TenantId,
-        string MetricCode,
-        int Version);
 }

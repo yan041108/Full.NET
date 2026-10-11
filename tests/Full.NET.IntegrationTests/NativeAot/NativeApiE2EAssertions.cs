@@ -126,6 +126,8 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         await VerifyTenancyPackageFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
+        await NativeApiTenantQuotaReconciliationAssertions.VerifyAsync(
+            client, token, host.LogFilePath, provider, connectionString, cancellationToken).ConfigureAwait(false);
         await VerifyCodeGenerationCatalogReadAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifySerialNumbersFlowAsync(client, token, cancellationToken)
@@ -146,6 +148,8 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         var tenantToken = await EnterDevelopmentTenantAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
+        await NativeApiTenantQuotaReconciliationAssertions.VerifyTenantDeniedAsync(
+            client, tenantToken, host.LogFilePath, cancellationToken).ConfigureAwait(false);
         await VerifyOrganizationFlowAsync(
                 client,
                 tenantToken,

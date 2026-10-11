@@ -21,6 +21,8 @@ public sealed class NativeAotStaticBindingRulesTests
     [DataRow("Notifications", "DingTalkApprovalSyncRecord", "Features/ManageDingTalkApprovalSync/DingTalkApprovalSyncService.cs")]
     [DataRow("Notifications", "WeChatMiniProgramBindingRecord", "Features/ManageWeChatMiniProgramBindings/WeChatMiniProgramBindingService.cs")]
     [DataRow("Notifications", "WeChatMiniProgramSubscriptionRecord", "Features/ManageWeChatMiniProgramBindings/WeChatMiniProgramBindingService.cs")]
+    [DataRow("Tenancy", "OutstandingReservationRow", "Features/ReconcileQuotaReservationMetricIds/TenantQuotaMetricIdReconciliationService.cs")]
+    [DataRow("Tenancy", "TenantQuotaMetricBackfillCandidate", "Features/ReconcileQuotaUsageBaseline/TenantQuotaUsageBaselineService.cs")]
     public void ManagementReadProjection_HasStaticMaterializer(string module, string row, string query)
     {
         var directory = Path.Combine(ArchitectureRepositoryRoot.Find(), "src", "Modules", $"Full.NET.Modules.{module}");
