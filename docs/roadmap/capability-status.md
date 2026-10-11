@@ -1,5 +1,7 @@
 # Full.NET 能力状态矩阵
 
+2026-10-12 Document 版本保留策略已补齐版本凭据与双库条件更新，陈旧提交返回 409；查询从同一次数据库读取取得设置和版本，保存返回本次提交快照，进程内重载拒绝较旧修订。源码冻结 `7119ed8`，Document Unit 37/37、双库真实 HTTP 2/2、SDK 275/275、Vue 58/58、Edge 8/8、OpenAPI 219/219、AOT 架构 88/88，通过构建、生成零漂移及兼容性门禁；Linux Native API 核心 21/21、零失败/跳过，精确源码产物、TRX 与自有资源清理核对通过。旧请求省略版本只允许首次初始化，后续保存须读取并携带版本；四参数 C# 构造和解构保持，无迁移。范围不外推到完整生成应用、Worker 跨实例刷新或容量，整体仍为 Build-verified、Capacity-not-verified。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-文档版本保留策略并发保护集中验收)。
+
 2026-10-12 Tenancy 配额对账补齐两种 Native 静态物化器，冻结 eb8ae21 的独立副本集中执行完整 Native API 核心 21/21，双库非空样例验证历史预留预览/修复/跳过/版本与重复、指标回填权威用量、匿名及 Host/Tenant 权限。AOT 架构 88/88、治理 62/62、AOT 与最终消费者构建零警告/错误，精确产物和自有资源清理已核对；没有单独执行全量 Unit/JIT Integration，不提升完整生成应用、全页面、故障或容量。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-tenancy-配额对账原生集中验收)，整体保持 Build-verified、Capacity-not-verified。
 
 2026-10-12 可选通知渠道的管理读取已补齐三种Native静态物化器。架构86/86、治理62/62、相关Unit21/21通过，AOT与最终消费者构建零警告/错误；冻结0dbca94的独立副本集中执行Native Notifications双库2/2，覆盖非空投影、空值/完整值、长整数、时间、Host范围和mine用户过滤。精确源码产物、消费者、日志与自有资源清理均核对；没有调用真实钉钉/微信服务。范围仅为API管理读取，未提升供应商发送、完整生成应用、全页面、故障或容量；后续两项租户配额对账投影待处理。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-可选通知渠道管理读取集中验收)，整体保持Build-verified、Capacity-not-verified。
@@ -24,7 +26,7 @@
 
 2026-10-10 Dapper 五个执行入口已统一归类已取消请求的窄范围 Provider 异常，保留原诊断与令牌、遥测记取消，其他错误及已有驱动取消异常维持原语义。相关 Unit 218/218；冻结 3ef9466 的本地双库 Data 49/49、Smoke 8/8、架构 73/73、Worker Native 17/17、API 核心 Native 10/10 均零失败/跳过。原生产物及分析器来自生产输入相同的 47fbaee 成功 CI，经身份和摘要核对后本地重跑；首轮夹具和原生依赖/超时失败保留，恢复同版本已核验 native 文件、只重跑原生运行；分享页卸载等待及发现数量登记一并修正。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-dapper-提供程序取消与-worker-停机错误归类)。本批不重新认证完整企业业务 Native 或容量，保持 Build-verified、Capacity-not-verified。
 
-2026-10-10 文档统计、访问日志及版本保留设置已补Host/页面/子页签/操作权限和取消归属，替换、撤权、离页及KeepAlive失活清理旧结果；日志失败清total。策略保存冻结参数、锁定编辑、整数范围与回包核对，未读取或保存结果不确定后必须重读。相关Vue61/61，类型/构建及包预算通过；产物6aba1bf两种Enterprise配置客户端一致，首轮3失败/4通过保留，测试1083d41仅修正定位及等待时序，复用冻结产物Edge7/7通过。受控HTTP限客户端，不认证服务端清理和正式双库行为，无Version跨管理员覆盖仍未解决；整体Build-verified、Capacity-not-verified。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-文档统计日志与版本保留设置收口)。
+2026-10-10 文档统计、访问日志及版本保留设置已补Host/页面/子页签/操作权限和取消归属，替换、撤权、离页及KeepAlive失活清理旧结果；日志失败清total。策略保存冻结参数、锁定编辑、整数范围与回包核对，未读取或保存结果不确定后必须重读。相关Vue61/61，类型/构建及包预算通过；产物6aba1bf两种Enterprise配置客户端一致，首轮3失败/4通过保留，测试1083d41仅修正定位及等待时序，复用冻结产物Edge7/7通过。受控HTTP限客户端，不认证服务端清理和正式双库行为，无Version跨管理员覆盖当时仍未解决；整体Build-verified、Capacity-not-verified。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-文档统计日志与版本保留设置收口)。
 
 2026-10-10 文档权限与回收站管理已补Host/父read/操作权限与取消归属。权限单用户编辑保留其他已读取授权，读取失败及保存结果不确定后禁止用旧快照重试；API核对文档/用户/权限集合完整性及发送快照，恢复核对itemId。回收站批量冻结目标和版本、逐项复核归属，清除false停止，确认随页面回收。相关Vue94/94、类型/构建和包预算通过；冻结c3eec1d的两种Enterprise配置客户端一致，集中生成应用Edge7/7通过。受控HTTP限客户端，无Version的跨管理员权限覆盖及正式双库业务不由此认证，整体保持Build-verified、Capacity-not-verified。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-10-文档权限与回收站管理收口)。
 

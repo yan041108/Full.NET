@@ -2664,3 +2664,21 @@ ci 38166643529 为 in_progress/pending；api-native-aot-linux 38166643492 为 co
 只读复审发现必需汇总在 `needs` 完成后入组，旧依赖取消后的清理可使旧汇总晚到并反向取消新汇总。针对该配置建立回归，实际 RED 为 1 失败/7 通过；删除汇总的并发取消配置后八项通过。复审的其他分组、标签和失败关闭边界未发现新增阻断问题；此竞态依据配置和官方调度语义推导，未声称远程复现。
 
 本地证据证明配置表达式和边界，不等于云端取消调度或实际耗时已验收；取消的检查不能计为通过，也不以既有成功 Native 结果重新认证本轮完整 CI。整体保持 Build-verified / Capacity-not-verified；PR3 保持 Draft，不合并、不发布。
+
+## 2026-10-12 文档版本保留策略并发保护集中验收
+
+基线 `bc2aea05234bb0f9ce16eb8db67d0a7ccfdfff5a`，任务快照 `document-retention-cas-20261012`，源码冻结 `7119ed85322fcbe32c0c70a36ba29625a968cb99`。同批关闭无版本的跨管理员覆盖、设置字段与修订来源不一致、成功响应混入后续提交以及进程内异步重载倒退。沿用已有 Version 列，无数据库迁移；固定官方 Host 行主键裁决初始化竞争，两库以 Id、Host 范围和预期 Version 条件更新并递增版本。只有首次插入的唯一约束冲突转为 409，其他数据库失败和取消继续传播。
+
+响应追加必返 Version；请求省略或 0 仅允许首次初始化，已有策略的后续保存必须先读取修订号。保留原四参数 C# 构造与解构，但旧客户端的重复无版本保存会返回冲突，需要升级调用。GET 权限保持 `document.host_documents.read`，PUT 保持 `document.host_documents.update`，匿名 401、普通 Host 与 Tenant 403。真实测试通过正常首次改密排除已知中间件干扰，未断言 403 的机器码。保存返回本次字段和 Version+1；Vue 校验安全整数、回包版本及字段，冲突或结果不确定后清空快照并要求重读。错误码加入模块目录并补中英文资源；单测验证资源解析，未覆盖真实 HTTP 语言协商文案。
+
+行为回归先确认旧实现 3 失败/1 通过；最终 Document Unit 37/37。双库真实 HTTP 2/2 验证默认版本 0、首次初始化只有一个成功、旧请求与陈旧修订冲突、合法递增、非法版本及两个非零相同版本竞争，均零失败/跳过；TRX 执行约 125 秒。每个已初始化应用同时导出标准 OpenAPI，规范化结果完全相同，直接生成 SDK，省去为导出再迁移两个数据库。快照同时同步已有 Enterprise Request 示例五个操作的 401/403 元数据，不改变这些操作的运行行为。
+
+只读审查定位生成 SDK 尚未同步的 P2，真实导出后更新模型与 reader。新测试曾误用未导出的内部 guard，修正为公开 reader；冻结旧生成文件得到真实 RED 3 失败/11 通过，恢复新生成文件 GREEN 14/14，生成文件字节恢复核对通过。按既有批准名单登记请求可选字段及响应增量，兼容性回归 RED 1 失败/9 通过，GREEN 10/10，仍拒绝旧字段删除/改写、旧必返性删除、认证及成功响应改写。最终 SDK 275/275、Vue 58/58、OpenAPI 219/219、治理 70/70、命名 33/33、本地语言结构 7/7；SDK/Vue 构建、三项包预算、生成零漂移、离线快照和 94 份契约相对基线兼容检查通过。最终 Edge 8/8，约 16 秒；源代码审查 P2 已关闭，无新增可证明阻断。
+
+API 完整 Native AOT 分析零警告/错误，最后错误码与资源变更仅补 Document 模块增量分析，约 25 秒；Native AOT 架构 88/88。完整 Release 消费者及最终集成夹具增量构建零警告/错误；Integration 1232、双库 API 各 192、迁移 516、基础设施 252、消息重型 80、迁移分组 250/266、Native API 21/Worker 17 已核对发现与互斥分区，发现不等于实际执行全部用例。
+
+首轮双库因测试将 Testing 租户误写为 local 而失败；同共享输出执行测试期间再次编译导致 DLL 占用，后续运行改为先复制冻结消费者至独立目录。另一次重型资源排队达到 30 分钟上限，业务用例未开始；失败日志与上下文保留。重排只延长外层排队预算，执行仍限 10 分钟，复用最新消费者，没有重复构建。五项跨窗口内容核对保持。
+
+Linux Native API 核心实际执行 21/21、零失败/跳过；重型锁排队 296.900 秒，实际 Native 执行 606.628 秒，分别记录。复用精确源码 `7119ed85322fcbe32c0c70a36ba29625a968cb99` 的 API 发布产物（CI run 38181708780），PR 默认合并检出树、ZIP 摘要、ELF、发布清单、冻结消费者 984 文件与输入哈希均核对；API CI 完成成功，完整检出日志与源码树已核对。Linux SDK 10.0.400 镜像固定摘要，容器 4 CPU / 3 GiB，严格禁止跳过和容器复用；Windows SDK 10.0.401。独立副本运行上下文已归档，自有容器与目录清理通过，五项跨窗口内容保持。
+
+实际执行入口包括 `node .tmp/document-retention-unit.mjs final`（37）、`node .tmp/document-retention-jit.mjs document-retention-jit-final-2`（双库 2）、`node .tmp/document-retention-native.mjs run 7119ed85322fcbe32c0c70a36ba29625a968cb99`（核心 21）与 `node .tmp/document-retention-fast.mjs document-retention-jit-final-2 --resume`；后者记录 `pnpm --filter @fullnet/client-contracts test`（275）、定向 Vue Vitest（58）、`pnpm test:openapi`（219）、SDK/Vue build、生成与兼容门禁的实际命令和退出码。浏览器使用既有 Playwright 配置隔离端口，`document-statistics-ownership --project vue-admin --workers 2` 实际 8/8。证据入口 `.tmp/document-retention-final-proof.json`、`.tmp/document-retention-native-1`、`.tmp/document-retention-local-proof.json`、`.tmp/document-retention-jit-final-2`、`.tmp/document-retention-fast`；本批不认证完整生成应用、全页面、服务端版本清理、Worker 跨实例动态刷新、故障矩阵或容量。整体继续 Build-verified / Capacity-not-verified，PR3 保持 Draft，不合并、不发布。
