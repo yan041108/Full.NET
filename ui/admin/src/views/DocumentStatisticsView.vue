@@ -63,6 +63,7 @@ const accessLogFilters = ref<DocumentAccessLogListFilters>({
 const retentionSettings = ref<Awaited<ReturnType<typeof getDocumentVersionRetentionSettings>> | null>(null);
 const retentionSaving = ref(false);
 const defaultRetentionForm = () => ({
+  version: 0,
   minimumRetainedVersionsPerItem: 1,
   maximumRetainedHistoryVersions: 0,
   pollSeconds: 300,

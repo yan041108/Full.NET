@@ -150,6 +150,12 @@ public static class DocumentErrorCodes
     /// <summary>授权操作引用的目标文档不存在，无法授予权限。</summary>
     public const string PermissionDocumentNotFound = "document.host_permission.document_not_found";
 
+    /// <summary>版本保留设置或修订号不符合允许范围。</summary>
+    public const string VersionRetentionInvalid = "document.version_retention.invalid";
+
+    /// <summary>版本保留设置已变化，必须重读后再提交。</summary>
+    public const string VersionRetentionConflict = "document.version_retention.conflict";
+
     /// <summary>已发布的全部 Document 错误码集合。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -196,5 +202,7 @@ public static class DocumentErrorCodes
         SharePasswordInvalidLength,
         HostShareAccessDenied,
         PermissionDocumentNotFound,
+        VersionRetentionInvalid,
+        VersionRetentionConflict,
     ]);
 }

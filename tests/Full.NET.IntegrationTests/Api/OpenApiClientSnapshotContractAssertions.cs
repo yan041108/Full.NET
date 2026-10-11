@@ -17,14 +17,15 @@ internal static class OpenApiClientSnapshotContractAssertions
     public static async Task VerifyAsync(
         HttpClient client,
         DatabaseProvider provider,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? exportPathOverride = null)
     {
         using var response = await client.GetAsync("/openapi/v1.json", cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         var rawDocument = await response.Content.ReadAsStringAsync(cancellationToken);
         AssertOmittablePropertiesAreOptional(rawDocument);
 
-        var exportPath = Environment.GetEnvironmentVariable(ExportPathEnvironmentVariable);
+        var exportPath = exportPathOverride ?? Environment.GetEnvironmentVariable(ExportPathEnvironmentVariable);
         if (!string.IsNullOrWhiteSpace(exportPath))
         {
             var exportDirectory = Path.GetDirectoryName(exportPath);

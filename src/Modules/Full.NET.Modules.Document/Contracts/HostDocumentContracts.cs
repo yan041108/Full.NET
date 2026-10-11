@@ -570,7 +570,12 @@ public sealed record HostDocumentVersionRetentionSettingsResponse(
     int MinimumRetainedVersionsPerItem,
     int MaximumRetainedHistoryVersions,
     int PollSeconds,
-    int BatchSize);
+    int BatchSize)
+{
+    /// <summary>数据库修订号；0 表示尚无数据库覆盖，使用配置默认值。</summary>
+    [JsonRequired]
+    public long Version { get; init; }
+}
 
 /// <summary>更新 Host 版本保留策略的请求契约；持久化后通过 Options 合并立即生效。</summary>
 /// <remarks>
@@ -585,7 +590,11 @@ public sealed record UpdateHostDocumentVersionRetentionRequest(
     int MinimumRetainedVersionsPerItem,
     int MaximumRetainedHistoryVersions,
     int PollSeconds,
-    int BatchSize);
+    int BatchSize)
+{
+    /// <summary>读取时取得的修订号；省略或 0 仅允许首次初始化，陈旧修订返回冲突。</summary>
+    public long Version { get; init; }
+}
 
 /// <summary>
 /// 主机文档完整统计响应契约，用于后台统计看板。

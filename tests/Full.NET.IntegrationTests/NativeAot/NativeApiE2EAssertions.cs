@@ -8,6 +8,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.IntegrationTests.Document;
 using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Auditing.Contracts;
 using Full.NET.Modules.CodeGeneration.Contracts;
@@ -134,6 +135,8 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         await VerifyDocumentFlowAsync(client, token, host.LogFilePath, cancellationToken)
             .ConfigureAwait(false);
+        await DocumentVersionRetentionAssertions.VerifyHostAsync(client, token, host.LogFilePath, cancellationToken)
+            .ConfigureAwait(false);
         await VerifyAuditingFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifyMessagingDeadLetterFlowAsync(
@@ -150,6 +153,8 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         await NativeApiTenantQuotaReconciliationAssertions.VerifyTenantDeniedAsync(
             client, tenantToken, host.LogFilePath, cancellationToken).ConfigureAwait(false);
+        await DocumentVersionRetentionAssertions.VerifyDeniedAsync(client, tenantToken, host.LogFilePath, cancellationToken)
+            .ConfigureAwait(false);
         await VerifyOrganizationFlowAsync(
                 client,
                 tenantToken,

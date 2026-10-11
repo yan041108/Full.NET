@@ -1914,6 +1914,7 @@ export interface HostDocumentVersionRetentionSettingsResponse {
   readonly maximumRetainedHistoryVersions: number;
   readonly minimumRetainedVersionsPerItem: number;
   readonly pollSeconds: number;
+  readonly version: number;
 }
 
 export interface HostFileReferenceClaimResponse {
@@ -4441,6 +4442,7 @@ export interface UpdateHostDocumentVersionRetentionRequest {
   readonly maximumRetainedHistoryVersions: number;
   readonly minimumRetainedVersionsPerItem: number;
   readonly pollSeconds: number;
+  readonly version?: number;
 }
 
 export interface UpdateHostFileMetadataRequest {

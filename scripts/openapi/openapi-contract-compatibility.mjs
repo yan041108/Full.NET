@@ -1021,12 +1021,16 @@ function isApprovedJsonOmissionOptionalityRepair(
 const approvedOptionalRequestSchemaEvolutions = new Set([
   'CreateHostAnnouncementRequest',
   'PreviewSerialNumberRequest',
+  // 旧客户端省略版本只用于初始化，不能将新增凭据改为请求必填字段。
+  'UpdateHostDocumentVersionRetentionRequest',
   'UpdateHostAnnouncementRequest'
 ]);
 
 const approvedResponseSchemaEvolutions = new Set([
   'AiAgentToolCallListItem',
   'HostAnnouncementResponse',
+  // 版本与策略值一同返回，既有响应字段的类型与必返性继续受保护。
+  'HostDocumentVersionRetentionSettingsResponse',
   'SerialNumberPreviewResponse',
   'WorkflowTodoDetailResponse',
   'WorkflowTodoRuntimeResponse'

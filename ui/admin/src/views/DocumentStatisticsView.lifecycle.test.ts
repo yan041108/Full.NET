@@ -15,11 +15,11 @@ vi.mock('../api/document-access-logs', () => ({ listDocumentAccessLogs: vi.fn() 
 vi.mock('../api/document-version-retention', async original => ({ ...await original<typeof retention>(), getDocumentVersionRetentionSettings: vi.fn(), updateDocumentVersionRetentionSettings: vi.fn() }));
 const parent = 'document.host_statistics.read', logRead = 'document.host_access_logs.read', read = 'document.host_documents.read', write = 'document.host_documents.update';
 const all = [parent, logRead, read, write];
-const settings = { minimumRetainedVersionsPerItem: 1, maximumRetainedHistoryVersions: 0, pollSeconds: 300, batchSize: 50 };
+const settings = { minimumRetainedVersionsPerItem: 1, maximumRetainedHistoryVersions: 0, pollSeconds: 300, batchSize: 50, version: 7 };
 const statistics = { summary: { totalItems: 3, totalVersions: 5, totalSizeKb: 1024, totalSizeInfo: '原统计快照' }, byType: [], byCategory: [], shareCount: 1, todayAccessCount: 0, todayDownloadCount: 0, todayCreatedCount: 1, recycleBinCount: 0 };
 const page = { items: [], page: 1, pageSize: 20, total: 100 };
 let wrapper: VueWrapper | undefined, view: Omit<VueWrapper, 'exists'>;
-beforeEach(() => { vi.resetAllMocks(); vi.mocked(stats.getDocumentStatistics).mockResolvedValue(statistics); vi.mocked(logs.listDocumentAccessLogs).mockResolvedValue(page); vi.mocked(retention.getDocumentVersionRetentionSettings).mockResolvedValue(settings); vi.mocked(retention.updateDocumentVersionRetentionSettings).mockResolvedValue(settings); });
+beforeEach(() => { vi.resetAllMocks(); vi.mocked(stats.getDocumentStatistics).mockResolvedValue(statistics); vi.mocked(logs.listDocumentAccessLogs).mockResolvedValue(page); vi.mocked(retention.getDocumentVersionRetentionSettings).mockResolvedValue(settings); vi.mocked(retention.updateDocumentVersionRetentionSettings).mockImplementation(async body => ({ ...body, version: body.version + 1 })); });
 afterEach(async () => { wrapper?.unmount(); wrapper = undefined; await flushPromises(); document.body.replaceChildren(); vi.restoreAllMocks(); });
 async function setup(permissions = all, host = true, keepAlive = false) {
   const context = createShareSession(permissions); if (!host) context.session.currentUser!.scope = 'tenant:other';
@@ -34,6 +34,18 @@ function refresh() { return view.get('[data-testid="document-statistics-refresh"
 function filter() { return view.findAllComponents(ElButton).find(button => button.text() === '筛选')!.trigger('click'); }
 
 describe('文档统计、日志与版本策略归属', () => {
+  it('连续保存以成功回包版本为下一次凭据', async () => {
+    await setup(); await tab('retention'); await save(); await flushPromises(); await save(); await flushPromises();
+    expect(vi.mocked(retention.updateDocumentVersionRetentionSettings).mock.calls.map(call => call[0].version)).toEqual([7, 8]);
+  });
+  it('版本冲突关闭保存，重读后提交新版本', async () => {
+    await setup(); await tab('retention');
+    vi.mocked(retention.updateDocumentVersionRetentionSettings).mockRejectedValueOnce(new Error('document.version_retention.conflict'));
+    await save(); await flushPromises(); expect(view.find('[data-testid="document-version-retention-save"]').exists()).toBe(false);
+    vi.mocked(retention.getDocumentVersionRetentionSettings).mockResolvedValue({ ...settings, version: 9 });
+    await refresh(); await flushPromises(); await save(); await flushPromises();
+    expect(vi.mocked(retention.updateDocumentVersionRetentionSettings).mock.calls.map(call => call[0].version)).toEqual([7, 9]);
+  });
   it.each([{ permissions: [] }, { permissions: [logRead, read, write] }])('缺少页面read不读取也不显示 %j', async ({ permissions }) => { await setup(permissions); expect(stats.getDocumentStatistics).not.toHaveBeenCalled(); expect(view.find('[data-testid="document-statistics-tabs"]').exists()).toBe(false); });
   it('租户上下文不读取Host统计', async () => { await setup(all, false); expect(stats.getDocumentStatistics).not.toHaveBeenCalled(); });
   it('子页签独立read，直接切换不能读取无权内容', async () => { await setup([parent, write]); await tab('accessLogs'); await tab('retention'); expect(logs.listDocumentAccessLogs).not.toHaveBeenCalled(); expect(retention.getDocumentVersionRetentionSettings).not.toHaveBeenCalled(); expect(view.find('[data-testid="document-version-retention-panel"]').exists()).toBe(false); });

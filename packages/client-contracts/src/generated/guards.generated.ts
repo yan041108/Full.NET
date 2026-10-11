@@ -3287,7 +3287,7 @@ export function readHostDocumentVersionRetentionSettingsResponse(value: unknown)
 }
 
 function isHostDocumentVersionRetentionSettingsResponse(value: unknown): value is HostDocumentVersionRetentionSettingsResponse {
-  return isRecord(value) && (Number.isSafeInteger(value["batchSize"])) && (Number.isSafeInteger(value["maximumRetainedHistoryVersions"])) && (Number.isSafeInteger(value["minimumRetainedVersionsPerItem"])) && (Number.isSafeInteger(value["pollSeconds"]));
+  return isRecord(value) && (Number.isSafeInteger(value["batchSize"])) && (Number.isSafeInteger(value["maximumRetainedHistoryVersions"])) && (Number.isSafeInteger(value["minimumRetainedVersionsPerItem"])) && (Number.isSafeInteger(value["pollSeconds"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostFileReferenceClaimResponse(value: unknown): HostFileReferenceClaimResponse {
@@ -6747,7 +6747,7 @@ export function readUpdateHostDocumentVersionRetentionRequest(value: unknown): U
 }
 
 function isUpdateHostDocumentVersionRetentionRequest(value: unknown): value is UpdateHostDocumentVersionRetentionRequest {
-  return isRecord(value) && (Number.isSafeInteger(value["batchSize"])) && (Number.isSafeInteger(value["maximumRetainedHistoryVersions"])) && (Number.isSafeInteger(value["minimumRetainedVersionsPerItem"])) && (Number.isSafeInteger(value["pollSeconds"]));
+  return isRecord(value) && (Number.isSafeInteger(value["batchSize"])) && (Number.isSafeInteger(value["maximumRetainedHistoryVersions"])) && (Number.isSafeInteger(value["minimumRetainedVersionsPerItem"])) && (Number.isSafeInteger(value["pollSeconds"])) && (value["version"] === undefined || (Number.isSafeInteger(value["version"])));
 }
 
 export function readUpdateHostFileMetadataRequest(value: unknown): UpdateHostFileMetadataRequest {
@@ -8624,7 +8624,7 @@ function normalizeHostDocumentVersionResponseIntegerJson(value: unknown): unknow
 }
 
 function normalizeHostDocumentVersionRetentionSettingsResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "batchSize") ? { ["batchSize"]: normalizeWireInteger(value["batchSize"]) } : {}), ...(Object.hasOwn(value, "maximumRetainedHistoryVersions") ? { ["maximumRetainedHistoryVersions"]: normalizeWireInteger(value["maximumRetainedHistoryVersions"]) } : {}), ...(Object.hasOwn(value, "minimumRetainedVersionsPerItem") ? { ["minimumRetainedVersionsPerItem"]: normalizeWireInteger(value["minimumRetainedVersionsPerItem"]) } : {}), ...(Object.hasOwn(value, "pollSeconds") ? { ["pollSeconds"]: normalizeWireInteger(value["pollSeconds"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "batchSize") ? { ["batchSize"]: normalizeWireInteger(value["batchSize"]) } : {}), ...(Object.hasOwn(value, "maximumRetainedHistoryVersions") ? { ["maximumRetainedHistoryVersions"]: normalizeWireInteger(value["maximumRetainedHistoryVersions"]) } : {}), ...(Object.hasOwn(value, "minimumRetainedVersionsPerItem") ? { ["minimumRetainedVersionsPerItem"]: normalizeWireInteger(value["minimumRetainedVersionsPerItem"]) } : {}), ...(Object.hasOwn(value, "pollSeconds") ? { ["pollSeconds"]: normalizeWireInteger(value["pollSeconds"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeHostFileResponseIntegerJson(value: unknown): unknown {
@@ -9528,7 +9528,7 @@ function normalizeUpdateHostDocumentTagRequestIntegerJson(value: unknown): unkno
 }
 
 function normalizeUpdateHostDocumentVersionRetentionRequestIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "batchSize") ? { ["batchSize"]: normalizeWireInteger(value["batchSize"]) } : {}), ...(Object.hasOwn(value, "maximumRetainedHistoryVersions") ? { ["maximumRetainedHistoryVersions"]: normalizeWireInteger(value["maximumRetainedHistoryVersions"]) } : {}), ...(Object.hasOwn(value, "minimumRetainedVersionsPerItem") ? { ["minimumRetainedVersionsPerItem"]: normalizeWireInteger(value["minimumRetainedVersionsPerItem"]) } : {}), ...(Object.hasOwn(value, "pollSeconds") ? { ["pollSeconds"]: normalizeWireInteger(value["pollSeconds"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "batchSize") ? { ["batchSize"]: normalizeWireInteger(value["batchSize"]) } : {}), ...(Object.hasOwn(value, "maximumRetainedHistoryVersions") ? { ["maximumRetainedHistoryVersions"]: normalizeWireInteger(value["maximumRetainedHistoryVersions"]) } : {}), ...(Object.hasOwn(value, "minimumRetainedVersionsPerItem") ? { ["minimumRetainedVersionsPerItem"]: normalizeWireInteger(value["minimumRetainedVersionsPerItem"]) } : {}), ...(Object.hasOwn(value, "pollSeconds") ? { ["pollSeconds"]: normalizeWireInteger(value["pollSeconds"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeUpdateHostFileMetadataRequestIntegerJson(value: unknown): unknown {

@@ -16,29 +16,48 @@ internal sealed class DocumentVersionRetentionSettingRepository(
             DocumentSqlParameters.Create(),
             cancellationToken);
 
-    public Task UpsertHostAsync(
+    public async Task<bool> TrySaveHostAsync(
         int minimumRetainedVersionsPerItem,
         int maximumRetainedHistoryVersions,
         int pollSeconds,
         int batchSize,
+        long version,
         CancellationToken cancellationToken)
     {
-        var upsert = databaseOptions.Value.Provider switch
+        // 旧请求只能初始化。固定主键使两个首次写入由数据库唯一约束裁决，禁止覆盖胜出者。
+        if (version == 0 && await GetHostAsync(cancellationToken).ConfigureAwait(false) is not null)
         {
-            DatabaseProvider.SqlServer => DocumentVersionRetentionSettingSql.UpsertSqlServer,
-            DatabaseProvider.MySql => DocumentVersionRetentionSettingSql.UpsertMySql,
+            return false;
+        }
+
+        var statement = databaseOptions.Value.Provider switch
+        {
+            DatabaseProvider.SqlServer => version == 0
+                ? DocumentVersionRetentionSettingSql.InsertSqlServer
+                : DocumentVersionRetentionSettingSql.UpdateSqlServer,
+            DatabaseProvider.MySql => version == 0
+                ? DocumentVersionRetentionSettingSql.InsertMySql
+                : DocumentVersionRetentionSettingSql.UpdateMySql,
             _ => throw new InvalidOperationException("The configured database provider is not supported."),
         };
 
-        return commandExecutor.ExecuteAsync(
-            upsert,
-            DocumentSqlParameters.Create(
-                ("Id", DocumentVersionRetentionSettingSql.HostRowId),
-                ("MinimumRetainedVersionsPerItem", minimumRetainedVersionsPerItem),
-                ("MaximumRetainedHistoryVersions", maximumRetainedHistoryVersions),
-                ("PollSeconds", pollSeconds),
-                ("BatchSize", batchSize),
-                ("UpdatedAtUtc", clock.UtcNow)),
-            cancellationToken);
+        try
+        {
+            return await commandExecutor.ExecuteAsync(
+                statement,
+                DocumentSqlParameters.Create(
+                    ("Id", DocumentVersionRetentionSettingSql.HostRowId),
+                    ("MinimumRetainedVersionsPerItem", minimumRetainedVersionsPerItem),
+                    ("MaximumRetainedHistoryVersions", maximumRetainedHistoryVersions),
+                    ("PollSeconds", pollSeconds),
+                    ("BatchSize", batchSize),
+                    ("Version", version),
+                    ("UpdatedAtUtc", clock.UtcNow)),
+                cancellationToken).ConfigureAwait(false) == 1;
+        }
+        catch (DataCommandException exception) when (version == 0 && exception.Kind == DataCommandFailureKind.UniqueConstraint)
+        {
+            return false;
+        }
     }
 }

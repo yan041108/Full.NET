@@ -14,6 +14,12 @@ internal sealed class DocumentVersionRetentionSettingsStore
     {
         lock (_gate)
         {
+            // 异步重载可能逆序完成，不允许旧数据库快照回退已生效策略；无覆盖仍可恢复配置。
+            if (record is not null && _hostOverride is not null && record.Version < _hostOverride.Version)
+            {
+                return;
+            }
+
             _hostOverride = record;
         }
     }

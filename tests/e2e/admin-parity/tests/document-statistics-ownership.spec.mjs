@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 const id = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
-const settings = { minimumRetainedVersionsPerItem: 1, maximumRetainedHistoryVersions: 0, pollSeconds: 300, batchSize: 50 };
+const settings = { minimumRetainedVersionsPerItem: 1, maximumRetainedHistoryVersions: 0, pollSeconds: 300, batchSize: 50, version: 7 };
 const statistics = { summary: { totalItems: 3, totalVersions: 5, totalSizeKb: 1024, totalSizeInfo: '1 MB' }, byType: [{ extension: 'pdf', count: 3, totalSizeKb: 1024 }], byCategory: [], shareCount: 1, todayAccessCount: 0, todayDownloadCount: 0, todayCreatedCount: 1, recycleBinCount: 0 };
 const log = { id, documentItemId: id, documentTitle: '旧访问日志', accessTypeKey: 'preview', sourceKey: 'authenticated', actorUserId: id, occurredAtUtc: '2026-10-10T00:00:00Z', clientIpFingerprint: null };
 const pageResult = { items: [log], page: 1, pageSize: 20, total: 100 };
@@ -51,16 +51,31 @@ test('不合法读取关闭保存，刷新恢复后空必填数值不能写入',
 
 test('保存响应错配必须重读，后续保存保留新设置', async ({ page }) => {
   await boot(page); let writes = 0, committed = false;
-  const latest = { ...settings, minimumRetainedVersionsPerItem: 2, batchSize: 77 };
+  const latest = { ...settings, minimumRetainedVersionsPerItem: 2, batchSize: 77, version: 8 };
   await page.route('**/api/v1/document/host/version-retention', route => {
     if (route.request().method() === 'GET') return json(route, committed ? latest : settings);
     const body = route.request().postDataJSON(); writes++;
     if (writes === 1) { expect(body).toEqual({ ...settings, minimumRetainedVersionsPerItem: 2 }); committed = true; return json(route, latest); }
-    expect(body).toEqual({ ...latest, pollSeconds: 600 }); return json(route, body);
+    expect(body).toEqual({ ...latest, pollSeconds: 600 }); return json(route, { ...body, version: body.version + 1 });
   });
   await retentionTab(page); await expect(saveButton(page)).toBeEnabled(); await page.getByRole('spinbutton').nth(0).fill('2'); await page.getByRole('spinbutton').nth(0).blur(); await saveButton(page).click();
   await expect(page.locator('.el-alert--error')).toBeVisible(); await expect(saveButton(page)).toHaveCount(0); expect(writes).toBe(1);
   await refresh(page); await expect(page.getByRole('spinbutton').nth(3)).toHaveValue('77'); await page.getByRole('spinbutton').nth(2).fill('600'); await page.getByRole('spinbutton').nth(2).blur(); await saveButton(page).click();
+  await expect(page.locator('.el-message--success')).toBeVisible(); expect(writes).toBe(2);
+});
+
+test('409版本冲突后必须刷新，下一次保存携带新版本', async ({ page }) => {
+  await boot(page); let writes = 0;
+  await page.route('**/api/v1/document/host/version-retention', route => {
+    if (route.request().method() === 'GET') return json(route, { ...settings, version: writes ? 8 : 7 });
+    const body = route.request().postDataJSON(); writes++;
+    expect(body.version).toBe(writes === 1 ? 7 : 8);
+    if (writes === 1) return route.fulfill({ status: 409, contentType: 'application/problem+json', body: JSON.stringify({ status: 409, title: '策略已变更，请刷新', code: 'document.version_retention.conflict' }) });
+    return json(route, { ...body, version: 9 });
+  });
+  await retentionTab(page); await saveButton(page).click();
+  await expect(page.locator('.el-alert--error')).toBeVisible(); await expect(saveButton(page)).toHaveCount(0);
+  await refresh(page); await expect(saveButton(page)).toBeEnabled(); await saveButton(page).click();
   await expect(page.locator('.el-message--success')).toBeVisible(); expect(writes).toBe(2);
 });
 
