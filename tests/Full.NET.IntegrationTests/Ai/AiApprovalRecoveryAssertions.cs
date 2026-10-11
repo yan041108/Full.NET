@@ -54,7 +54,7 @@ internal static class AiApprovalRecoveryAssertions
                 ("OperationId", operationId), ("SessionId", actor.SessionId), ("ToolName", invocation.ToolName),
                 ("ToolVersion", 1), ("ArgumentsHash", AgentApprovalGate.ComputeArgumentsHash(args.RootElement)),
                 ("ArgumentsProtected", json), ("PolicyVersion", AgentApprovalGate.CurrentPolicyVersion),
-                ("PresentationJson", """{"action":"Rename","target":"old","change":"approved","scope":"session","costCeiling":null,"currency":null}"""),
+                ("PresentationJson", """{"action":"Rename","target":"old","change":"approved","scope":"session","costCeiling":null,"currency":null,"targetVersion":1}"""),
                 ("RequestedBy", actor.UserId), ("DecisionKey", AgentApprovalDecisionKeys.Approved),
                 ("ExpiresAtUtc", clock.UtcNow.AddHours(1)), ("Now", clock.UtcNow)), default);
             var consumption = new AiAgentApprovalConsumption(queries, commands, clock, tenant, auth);
@@ -67,6 +67,31 @@ internal static class AiApprovalRecoveryAssertions
             auth.Actor = actor with { SessionId = Guid.CreateVersion7() };
             Assert.IsFalse(await gate.HasApprovedUnconsumedForRunAsync(runId, actor.UserId));
             auth.Actor = actor;
+            // 历史缺版本和重复字段的持久快照均拒绝，不写回或消费。
+            foreach (var snapshot in new[]
+            {
+                """{"action":"Rename","target":"old","change":"approved","scope":"session","costCeiling":null,"currency":null}""",
+                """{"action":"Rename","target":"old","change":"approved","scope":"session","costCeiling":null,"currency":null,"targetVersion":1,"targetVersion":1}""",
+            })
+            {
+                var invalidRun = Guid.CreateVersion7(); var invalidOperation = Guid.CreateVersion7();
+                var invalidInvocation = invocation with { RunId = invalidRun, OperationId = invalidOperation };
+                await commands.ExecuteAsync(AiAgentApprovalSql.Insert, AiSqlParameters.Create(
+                    ("Id", Guid.CreateVersion7()), ("ScopeKey", "host"), ("TenantId", null), ("RunId", invalidRun),
+                    ("OperationId", invalidOperation), ("SessionId", actor.SessionId), ("ToolName", invocation.ToolName),
+                    ("ToolVersion", 1), ("ArgumentsHash", AgentApprovalGate.ComputeArgumentsHash(args.RootElement)),
+                    ("ArgumentsProtected", json), ("PolicyVersion", AgentApprovalGate.CurrentPolicyVersion),
+                    ("PresentationJson", snapshot), ("RequestedBy", actor.UserId),
+                    ("DecisionKey", AgentApprovalDecisionKeys.Approved), ("ExpiresAtUtc", clock.UtcNow.AddHours(1)),
+                    ("Now", clock.UtcNow)), default);
+                Assert.IsFalse(await gate.HasApprovedUnconsumedForRunAsync(invalidRun, actor.UserId));
+                Assert.AreEqual(AgentApprovalExecutionStatus.Denied, await consumption.ValidateForToolExecutionAsync(invalidInvocation, actor, default));
+                Assert.IsFalse(await consumption.TryConsumeForToolExecutionAsync(invalidInvocation, actor, default));
+                var invalid = await queries.QuerySingleOrDefaultAsync<AiAgentApprovalRecord>(AiAgentApprovalSql.FindByOperation,
+                    AiSqlParameters.Create(("OperationId", invalidOperation)), default);
+                Assert.IsNull(invalid!.ConsumedAtUtc); Assert.AreEqual(1L, invalid.Version);
+                Assert.AreEqual(snapshot, invalid.PresentationJson);
+            }
             // 使用真实数据库事务：审批已消费但目标版本冲突时，整个本地结果事务必须回滚。
             var failed = await transaction.ExecuteResultAsync<bool>(async token =>
             {
@@ -90,10 +115,31 @@ internal static class AiApprovalRecoveryAssertions
                 AiSqlParameters.Create(("OperationId", operationId)), default);
             Assert.IsNull(approval!.ConsumedAtUtc); Assert.AreEqual(1L, approval.Version);
 
-            // 带派生答案的目标仍可执行批准的标题写入；工具事务不得尝试交付历史正文。
+            // 标题恢复原值时版本已前进，旧审批不可复用，也不可从当前目标补造版本。
             Assert.AreEqual(1, await commands.ExecuteAsync(AiChatSql.UpdateSessionTitle, AiSqlParameters.Create(
                 ("SessionId", sessionId), ("OwnerUserId", actor.UserId), ("ScopeTenantId", null),
                 ("Title", "old"), ("UpdatedAtUtc", clock.UtcNow), ("Version", 2)), default));
+            Assert.IsFalse(await gate.HasApprovedUnconsumedForRunAsync(runId, actor.UserId));
+            Assert.AreEqual(AgentApprovalExecutionStatus.Denied, await consumption.ValidateForToolExecutionAsync(invocation, actor, default));
+            Assert.IsFalse(await consumption.TryConsumeForToolExecutionAsync(invocation, actor, default));
+            approval = await queries.QuerySingleOrDefaultAsync<AiAgentApprovalRecord>(AiAgentApprovalSql.FindByOperation,
+                AiSqlParameters.Create(("OperationId", operationId)), default);
+            Assert.IsNull(approval!.ConsumedAtUtc); Assert.AreEqual(1L, approval.Version);
+
+            // 新操作绑定当前版本；旧审批保持原快照与未消费状态。
+            var previousOperation = operationId;
+            operationId = Guid.CreateVersion7();
+            invocation = invocation with { OperationId = operationId };
+            await commands.ExecuteAsync(AiAgentApprovalSql.Insert, AiSqlParameters.Create(
+                ("Id", Guid.CreateVersion7()), ("ScopeKey", "host"), ("TenantId", null), ("RunId", runId),
+                ("OperationId", operationId), ("SessionId", actor.SessionId), ("ToolName", invocation.ToolName),
+                ("ToolVersion", 1), ("ArgumentsHash", AgentApprovalGate.ComputeArgumentsHash(args.RootElement)),
+                ("ArgumentsProtected", json), ("PolicyVersion", AgentApprovalGate.CurrentPolicyVersion),
+                ("PresentationJson", """{"action":"Rename","target":"old","change":"approved","scope":"session","costCeiling":null,"currency":null,"targetVersion":3}"""),
+                ("RequestedBy", actor.UserId), ("DecisionKey", AgentApprovalDecisionKeys.Approved),
+                ("ExpiresAtUtc", clock.UtcNow.AddHours(1)), ("Now", clock.UtcNow)), default);
+            Assert.IsTrue(await gate.HasApprovedUnconsumedForRunAsync(runId, actor.UserId));
+            // 带派生答案的目标仍可执行新批准；工具事务不得尝试交付历史正文。
             var messageId = Guid.CreateVersion7();
             await commands.ExecuteAsync(new SqlStatement("fixture.insert_knowledge_answer", """
                 INSERT INTO fn_ai_chat_message (Id, SessionId, RoleKey, Content, StatusKey, CreatedAtUtc, IsKnowledgeAnswer, KnowledgeLineage)
@@ -108,6 +154,9 @@ internal static class AiApprovalRecoveryAssertions
             approval = await queries.QuerySingleOrDefaultAsync<AiAgentApprovalRecord>(AiAgentApprovalSql.FindByOperation,
                 AiSqlParameters.Create(("OperationId", operationId)), default);
             Assert.IsNotNull(approval!.ConsumedAtUtc); Assert.AreEqual(2L, approval.Version);
+            var previous = await queries.QuerySingleOrDefaultAsync<AiAgentApprovalRecord>(AiAgentApprovalSql.FindByOperation,
+                AiSqlParameters.Create(("OperationId", previousOperation)), default);
+            Assert.IsNull(previous!.ConsumedAtUtc); Assert.AreEqual(1L, previous.Version);
             var detail = await sessionQueries.GetByIdAsync(sessionId, actor.UserId);
             Assert.IsTrue(detail.IsSuccess); Assert.AreEqual("approved", detail.Value!.Title); Assert.AreEqual(4, detail.Value.Version);
             Assert.AreEqual("", detail.Value.Messages.Single().Content);

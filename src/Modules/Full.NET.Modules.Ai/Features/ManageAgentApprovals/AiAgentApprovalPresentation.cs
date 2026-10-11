@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace Full.NET.Modules.Ai.Features.ManageAgentApprovals;
 
-/// <summary>审批 UI 展示字段；与 ArgumentsHash 并存，避免只显示哈希。</summary>
+/// <summary>审批展示与目标版本快照；历史无版本记录可读，但不能作为执行凭证。</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record AiAgentApprovalPresentation(
     [property: JsonPropertyName("action")] string Action,
@@ -11,4 +11,5 @@ internal sealed record AiAgentApprovalPresentation(
     [property: JsonPropertyName("change")] string Change,
     [property: JsonPropertyName("scope")] string Scope,
     [property: JsonPropertyName("costCeiling")] decimal? CostCeiling,
-    [property: JsonPropertyName("currency")] string? Currency);
+    [property: JsonPropertyName("currency")] string? Currency,
+    [property: JsonPropertyName("targetVersion")] int? TargetVersion = null);

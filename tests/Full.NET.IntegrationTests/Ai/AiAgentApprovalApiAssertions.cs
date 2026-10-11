@@ -109,6 +109,37 @@ internal static class AiAgentApprovalApiAssertions
         Assert.AreEqual("approved", approved!.DecisionKey);
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", requester.AccessToken);
+        // 真实 HTTP 修改后再恢复标题，旧批准仍不能恢复或执行。
+        using var changed = await client.PutAsJsonAsync($"/api/v1/ai/chat/sessions/{session.Id}", new UpdateAiChatSessionRequest("中间标题", session.Version));
+        Assert.IsTrue(changed.IsSuccessStatusCode, await changed.Content.ReadAsStringAsync());
+        var intermediate = (await changed.Content.ReadFromJsonAsync<AiChatSessionResponse>())!;
+        using var restored = await client.PutAsJsonAsync($"/api/v1/ai/chat/sessions/{session.Id}", new UpdateAiChatSessionRequest("原标题", intermediate.Version));
+        Assert.IsTrue(restored.IsSuccessStatusCode, await restored.Content.ReadAsStringAsync());
+        using var staleResume = await client.PostAsync($"/api/v1/ai/agent/runs/{run.RunId}/resume", null);
+        await AssertProblemAsync(staleResume, HttpStatusCode.UnprocessableEntity, AiErrorCodes.AgentRunNotResumable);
+        var staleExecution = await ExecuteToolAsync(factory, requester.AccessToken, invocation).ConfigureAwait(false);
+        Assert.AreEqual("denied", staleExecution.StatusKey);
+        Assert.AreEqual("ai.tool.approval_denied", staleExecution.ErrorCode);
+        using var staleRead = await client.GetAsync($"/api/v1/ai/agent/approvals/{createdBody.ApprovalId}");
+        var stale = (await staleRead.Content.ReadFromJsonAsync<AiAgentApprovalResponse>())!;
+        Assert.AreEqual("approved", stale.DecisionKey); Assert.IsNull(stale.ConsumedAtUtc);
+        using var staleDuplicate = await client.PostAsJsonAsync("/api/v1/ai/agent/approvals", createRequest);
+        Assert.IsTrue(staleDuplicate.IsSuccessStatusCode, await staleDuplicate.Content.ReadAsStringAsync());
+        Assert.AreEqual(createdBody.ApprovalId, (await staleDuplicate.Content.ReadFromJsonAsync<CreateAiAgentApprovalResponse>())!.ApprovalId);
+
+        // 只有新操作的新审批才能绑定恢复后的当前版本。
+        operationId = Guid.CreateVersion7();
+        invocation = invocation with { OperationId = operationId };
+        using var fresh = await client.PostAsJsonAsync("/api/v1/ai/agent/approvals", createRequest with { OperationId = operationId });
+        Assert.IsTrue(fresh.IsSuccessStatusCode, await fresh.Content.ReadAsStringAsync());
+        createdBody = (await fresh.Content.ReadFromJsonAsync<CreateAiAgentApprovalResponse>())!;
+        using var freshRead = await client.GetAsync($"/api/v1/ai/agent/approvals/{createdBody.ApprovalId}");
+        var freshPending = (await freshRead.Content.ReadFromJsonAsync<AiAgentApprovalResponse>())!;
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", approver.AccessToken);
+        using var freshDecision = await client.PostAsJsonAsync($"/api/v1/ai/agent/approvals/{createdBody.ApprovalId}/decide",
+            new DecideAiAgentApprovalRequest(true, freshPending.Version));
+        Assert.IsTrue(freshDecision.IsSuccessStatusCode, await freshDecision.Content.ReadAsStringAsync());
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", requester.AccessToken);
         using var resumed = await client.PostAsync($"/api/v1/ai/agent/runs/{run.RunId}/resume", null);
         Assert.IsTrue(resumed.IsSuccessStatusCode, await resumed.Content.ReadAsStringAsync());
         Assert.IsTrue(await resumed.Content.ReadFromJsonAsync<bool>());
@@ -126,6 +157,7 @@ internal static class AiAgentApprovalApiAssertions
         Assert.IsTrue(sessionRead.IsSuccessStatusCode, await sessionRead.Content.ReadAsStringAsync());
         var renamed = await sessionRead.Content.ReadFromJsonAsync<AiChatSessionResponse>();
         Assert.AreEqual("审批后标题", renamed!.Title);
+        Assert.AreEqual(4, renamed.Version);
 
         var replay = await ExecuteToolAsync(factory, requester.AccessToken, invocation).ConfigureAwait(false);
         Assert.AreEqual("denied", replay.StatusKey);

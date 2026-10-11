@@ -100,16 +100,27 @@ internal sealed class AiAgentApprovalConsumption(
         var parsed = RenameChatSessionArgumentParser.Parse(invocation.Arguments);
         if (parsed is null || string.IsNullOrWhiteSpace(record.PresentationJson)) return false;
         AiAgentApprovalPresentation? presentation;
-        try { presentation = JsonSerializer.Deserialize(record.PresentationJson, AiJsonSerializerContext.Default.AiAgentApprovalPresentation); }
+        try
+        {
+            using var document = JsonDocument.Parse(record.PresentationJson);
+            if (document.RootElement.ValueKind != JsonValueKind.Object) return false;
+            // 含重复字段的快照存在歧义，不允许用最后一个值覆盖批准事实。
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var property in document.RootElement.EnumerateObject())
+                if (!names.Add(property.Name)) return false;
+            presentation = JsonSerializer.Deserialize(document.RootElement, AiJsonSerializerContext.Default.AiAgentApprovalPresentation);
+        }
         catch (JsonException) { return false; }
-        if (presentation is null || presentation.Target is null || presentation.Change != parsed.Title) return false;
+        if (presentation is null || presentation.Target is null || presentation.Change != parsed.Title
+            || presentation.TargetVersion is not > 0) return false;
         var target = await queries.QuerySingleOrDefaultAsync<AiChatSessionRecord>(AiChatSql.FindSessionById,
             AiChatSessionQueryService.BuildScopeParameters(AiChatScope.Resolve(tenant), actor.UserId, ("SessionId", parsed.SessionId)),
             cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        // 仅比较批准时的业务值；展示动作和范围文案不承担授权。写入仍由目标版本条件保护。
+        // 标题恢复原值也不能恢复旧批准；目标版本与业务值同时匹配，写入仍须通过版本 CAS。
         return target is not null && target.Id == parsed.SessionId && target.OwnerUserId == actor.UserId
-            && target.TenantId == actor.TenantId && target.Title == presentation.Target;
+            && target.TenantId == actor.TenantId && target.Title == presentation.Target
+            && target.Version == presentation.TargetVersion;
     }
 
     internal static AgentApprovalBinding ToBinding(AiAgentApprovalRecord record) => new(

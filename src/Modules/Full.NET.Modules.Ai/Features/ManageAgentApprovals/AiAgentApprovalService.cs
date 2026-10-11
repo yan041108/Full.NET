@@ -41,6 +41,7 @@ internal sealed class AiAgentApprovalService(
         SessionBindingSnapshot binding,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (request.RunId == Guid.Empty || request.OperationId == Guid.Empty
             || string.IsNullOrWhiteSpace(request.ToolName) || string.IsNullOrWhiteSpace(request.ArgumentsJson))
         {
@@ -48,6 +49,7 @@ internal sealed class AiAgentApprovalService(
         }
 
         var tools = await toolRegistryFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         var tool = tools.Find(request.ToolName);
         if (tool is null || !tool.IsEnabled || tool.SideEffectKey is "none" or "read"
             || tool.Version != request.ToolVersion)
@@ -57,6 +59,7 @@ internal sealed class AiAgentApprovalService(
 
         var scope = ResolveScope();
         var run = await runs.FindOwnedAsync(request.RunId, scope, binding.UserId, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (run is null)
         {
             return NotFound<CreateAiAgentApprovalResponse>();
@@ -70,6 +73,7 @@ internal sealed class AiAgentApprovalService(
 
         var presentation = await BuildPresentationAsync(tool.Name, arguments.RootElement, binding.UserId, cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (presentation is null)
         {
             return Invalid<CreateAiAgentApprovalResponse>();
@@ -79,6 +83,7 @@ internal sealed class AiAgentApprovalService(
             AiAgentApprovalSql.FindByOperation,
             AiSqlParameters.Create(("OperationId", request.OperationId)),
             cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (existing is not null)
         {
             return Result<CreateAiAgentApprovalResponse>.Success(new(existing.Id));
@@ -110,6 +115,7 @@ internal sealed class AiAgentApprovalService(
                     ("ExpiresAtUtc", expiresAt),
                     ("Now", now)),
                 cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (affected != 1)
             {
                 throw new InvalidOperationException("Agent approval was not created.");
@@ -121,6 +127,7 @@ internal sealed class AiAgentApprovalService(
                 AiAgentApprovalSql.FindByOperation,
                 AiSqlParameters.Create(("OperationId", request.OperationId)),
                 cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             return raced is null
                 ? throw new InvalidOperationException("Agent approval idempotency race lost.", ex)
                 : Result<CreateAiAgentApprovalResponse>.Success(new(raced.Id));
@@ -248,7 +255,8 @@ internal sealed class AiAgentApprovalService(
             var scope = AiChatScope.Resolve(tenant);
             var session = await sessions.FindOwnedSessionAsync(scope, parsed.SessionId, ownerUserId, cancellationToken)
                 .ConfigureAwait(false);
-            if (session is null)
+            cancellationToken.ThrowIfCancellationRequested();
+            if (session is null || session.Version <= 0)
             {
                 return null;
             }
@@ -259,7 +267,8 @@ internal sealed class AiAgentApprovalService(
                 parsed.Title,
                 "Owned chat session",
                 null,
-                null);
+                null,
+                session.Version);
         }
 
         return null;

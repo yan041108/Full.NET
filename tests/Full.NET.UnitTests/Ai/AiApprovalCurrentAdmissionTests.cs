@@ -23,7 +23,7 @@ namespace Full.NET.UnitTests.Ai;
 
 /// <summary>审批等待后的当前会话、参数、业务归属与消费边界必须失败关闭。</summary>
 [TestClass]
-public sealed class AiApprovalCurrentAdmissionTests
+public sealed partial class AiApprovalCurrentAdmissionTests
 {
     [TestMethod]
     [DataRow("scope")]
@@ -284,7 +284,7 @@ public sealed class AiApprovalCurrentAdmissionTests
             object? row;
             if (typeof(T) == typeof(AiAgentRunRecord)) row = RunQuery?.Invoke();
             else if (typeof(T) == typeof(AiAgentApprovalRecord) || typeof(T) == typeof(int))
-            { fixture.OnApprovalQuery?.Invoke(); row = typeof(T) == typeof(int) ? (object)1 : fixture.Record; }
+            { fixture.OnApprovalQuery?.Invoke(); row = typeof(T) == typeof(int) ? (object)1 : fixture.ApprovalExists ? fixture.Record : null; }
             else if (typeof(T) == typeof(AiChatSessionRecord))
             { fixture.OnTargetQuery?.Invoke(); row = fixture.Target; }
             else throw new InvalidOperationException("Unexpected query projection.");
@@ -316,6 +316,7 @@ public sealed class AiApprovalCurrentAdmissionTests
         internal readonly CurrentTenantAccessor Tenant = new();
         internal readonly AiAgentApprovalRecord Record;
         internal AiChatSessionRecord? Target;
+        internal bool ApprovalExists = true;
         internal Action? OnApprovalQuery, OnTargetQuery;
         internal readonly ServiceProvider Services;
         internal AiAgentApprovalConsumption Consumption => ActivatorUtilities.CreateInstance<AiAgentApprovalConsumption>(Services);
@@ -330,7 +331,7 @@ public sealed class AiApprovalCurrentAdmissionTests
             Record = new() { Id = Guid.CreateVersion7(), ScopeKey = "host", RunId = RunId, OperationId = Guid.CreateVersion7(),
                 SessionId = Actor.SessionId, ToolName = "ai.chat.sessions.rename", ToolVersion = 1, PolicyVersion = 1,
                 RequestedBy = Actor.UserId, DecisionKey = "approved", ExpiresAtUtc = Now.AddMinutes(5), Version = 1,
-                PresentationJson = JsonSerializer.Serialize(new AiAgentApprovalPresentation("Rename", "old", "new", "owned", null, null), AiJsonSerializerContext.Default.AiAgentApprovalPresentation) };
+                PresentationJson = JsonSerializer.Serialize(new AiAgentApprovalPresentation("Rename", "old", "new", "owned", null, null, 1), AiJsonSerializerContext.Default.AiAgentApprovalPresentation) };
             SetArguments(Invocation.Arguments.GetRawText());
             Target = new() { Id = TargetId, OwnerUserId = Actor.UserId, Version = 1, Title = "old" };
             Commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);

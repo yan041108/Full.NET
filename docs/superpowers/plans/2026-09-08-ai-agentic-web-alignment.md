@@ -1853,6 +1853,28 @@ HTTP 提交后详情读取失败／取消并不回滚标题，调用方须刷新
 
 供应商没有请求前精确输入计量认证，本次回执校验不能撤销外部超量／收费；跨审批及崩溃的持久步数、其他分支节点凭证、历史目标版本证明和自动外部对账继续开放。独立生成应用按整个 AI 模块集中验收，R10 暂不整体关闭，保持 `Capacity-not-verified`。
 
+#### R10l：审批目标版本快照、恢复与事务消费合批（2026-10-11，本批本地验收完成）
+
+- 基线 main `0cc6f389fd5d550c022aebc4b7a5e8d1465dd096`，安全排除受保护路径后建立任务快照 `ai-approval-target-revision-r10l`；保留其他任务 WIP。
+- 私有 `PresentationJson` 追加服务端目标版本；旧摘要可读但不可执行，重复 OperationId 不重写目标证明。恢复、执行前授权和事务消费共享原始标题、目标正版本与归属复核；同标题不同版本也拒绝。非法或重复快照字段失败关闭，创建等待后的取消不得继续持久化。
+- 真实双库沿用审批恢复／HTTP 夹具，覆盖标题 ABA、旧快照拒绝、新审批成功及消费和版本条件写入回滚；不新增迁移、公共 HTTP 字段或外部副作用重放。
+- 定向 RED 构建零警告／错误，77 项中 15 项预期失败、62 项通过、零跳过，随后实现；首轮新增测试缺少枚举命名空间的编译失败保留，不计作 RED 行为证据。
+- 阶段验证：`node artifacts/r10l/run-focused.mjs green` 定向 77/77；冻结 Linux 源码定向 77/77、AI 3206/3206、运行时 484/484、受影响 Architecture 86/86，零失败／跳过。Unit／Integration／Architecture 及 API／Worker AOT 分析构建零警告／错误；Unit 全量仅发现 6675 项，未执行全量 Unit。工具链、命名、治理、UUID、SQL 安全及文档编码检查通过，独立只读安全审查无确认 P1/P2。
+- 首次集中验收中断：`node artifacts/r10l/launch-scheduled.mjs` 的发布／克隆阶段发生 Docker 存储 I/O 错误，Worker 发布出现 `Bus error`，引擎返回 500，数据卷进入 `emergency_ro`。原始日志及非零退出码保留在忽略目录 `artifacts/r10l/infrastructure-attempt-1/`。用户继续授权后完整停止 Docker／WSL，受保护的数据盘正常挂载完成日志恢复；随后不写盘的 `e2fsck -f -n` 检查退出 0，Docker 恢复响应，原始冻结源码及关键程序集摘要通过复核。未强制修复、格式化或重置数据盘，恢复日志保留在 `artifacts/r10l/infrastructure-restart-attempt/`。
+- 发布缓存整卷复制再次耗尽主机空间，第二次失败退出码保留在 `artifacts/r10l/infrastructure-space-recovery/`；完整停止 Docker／WSL 后再次正常恢复日志，不写盘的文件系统复核退出 0。已完成批次的验收产物迁往 E 盘，逐文件 SHA-256 一致且原路径保留；本批启动前要求至少 12 GiB 主机空闲空间，运行时低于 1.5 GiB 仅停止本批容器，保留失败状态。API／Worker 使用本批自有空发布缓存，取消发布缓存整卷复制。
+- 剩余验收由 `node artifacts/r10l/launch-recovery.mjs` 接续，保留前两轮失败证据；复用上批已交付且无容器引用的五个验收缓存卷，同步本批冻结源码与输出并逐卷核对摘要，不复用上批测试结果。恢复后的双库功能精确成功 UID 并集、补充 Smoke、Native AOT 发布及原生运行已完成；MySQL 原始 MCP 取消失败和非零退出码保留，精确补跑独立记录。Docker 在数据盘和空间复核后恢复服务，验收全过程取得共享重型锁，排队不占实际执行预算。
+- [x] `node artifacts/r10l/run-focused.mjs green`：77/77，Release 构建零警告／错误。新增 24 项 Unit 回归，原编译失败与 15 项预期 RED 保留。
+- [x] `node artifacts/r10l/launch-scheduled.mjs` 先冻结编译及无容器验证，再取得共享重型锁；本批冻结 7769 项输入，只为字节相同源码复用上批时间戳与编译缓存。Linux 定向 77/77、AI 3206/3206、运行时 484/484、受影响 Architecture 86/86，全部零失败／跳过；Unit 完整发现与矩阵唯一 UID 一致，未执行全量 Unit／Architecture。
+- [x] 首轮存储故障后 `node artifacts/r10l/launch-recovery.mjs` 完成 API／Worker 发布、SQL Server AI 44/44＋Smoke 4/4，以及原生 API 10/10、Worker SQL Server 12/12，以上均零失败／跳过。MySQL 功能首轮 44 项中 43 成功／1 失败／零跳过，MCP ping 因取消返回 cancelled；原平台退出 2、集中包装退出 1，报告和非零退出码保留。
+- [x] `node artifacts/r10l/run-selected-retry.mjs` 取得共享锁后，以同一冻结程序集、原断言及既有 10 秒工具预算单独补跑失败的 MySQL MCP UID，1/1 通过，再运行遗漏的 MySQL Smoke 4/4；没有重建或放宽期限。测试及 MCP 调用链仅有 Git／工作区换行差异，代码归一化后与基线一致，原始日志显示取消，但未证实资源压力是唯一原因。精确成功 UID 并集为 AI 双库 88、Smoke 8，零未解决失败／跳过，不将原整轮报告改写为全绿。正式 slice 影响集为 Ai／integration-matrix，Smoke 作为补充；上批五个闲置验收缓存卷重新同步本批冻结输入与输出，各运行卷的源码、程序集摘要和发现／实际 UID 集合逐一核对，不复用上批测试结果。
+- [x] 原生 Worker 其他分片首轮 13 项中 12 成功／1 失败／零跳过；MySQL TXT 退役夹具在执行原生退役前，JIT 文本代次准备返回 false，原退出 2 保留。知识库实现及两项退役测试在换行归一化后与基线相同；根因未被原日志确定。同一补跑命令以 `--filter-uid` 仅执行该 False 数据行，1/1 通过；使用同一冻结程序集、正式发布 ELF、原夹具和期限，无重新编译或发布。原生核心精确成功 UID 并集 35、零未解决失败／跳过，保留原首轮失败与独立补跑 TRX。
+- [x] Unit／Integration／Architecture 及 API／Worker AOT 分析构建零警告／错误；API／Worker linux-x64 Native AOT 发布及运行摘要一致，既有批准告警门禁 17／15，通过。实际 API SHA-256 `8f34f6007029c0607bb8dd82c381deb68127d2beadef632a0876226a31769ebe`、Worker `6c3a46947b4714956e876c48ab65eae19ee84b5fd579f76b68e4bedd0aef123a`。
+- [x] 工具链、命名、治理、UUID、SQL 安全及文档编码检查通过；独立静态副本仅规范化既有注释目录换行，运行源码不变。独立只读安全审查无确认 P1/P2 或实质覆盖缺口；`node artifacts/r10l/run-final-checks.mjs` 核对原始日志、TRX、最终消费卷及派生依赖锁，摘要为忽略目录 `artifacts/r10l/acceptance.json`。main 仅提交本批 11 项路径，共享矩阵只暂存 AI 变更，保留其他任务 WIP。
+
+环境：Windows i7-12700H／约 64 GiB，SDK 10.0.401；Docker Linux SDK 10.0.400／Runtime 10.0.11。主构建 4 CPU／4 GiB，发布各 8 CPU／12 GiB，独立功能与原生线各 2 CPU／8 GiB；共享锁及独立 TEMP/TMP，排队不消耗执行预算。仅两个解析工具 ILLink 锁 10.0.12→10.0.11 跟随 Linux SDK 派生，其余输入保持原摘要；`NuGetAudit=false` 为一次性进程覆盖，在线依赖审计未执行。
+
+升级／回退须停准入并排空旧 API／Worker，不允许混跑写工具。目标版本只证明该目标自批准起的版本匹配，不证明外部动作或付费用量。跨恢复持久步数、其他分支凭证、请求前精确输入界限及自动外部对账仍开放；R10 不整体关闭，独立生成应用按整个 AI 模块范围集中验收，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。
