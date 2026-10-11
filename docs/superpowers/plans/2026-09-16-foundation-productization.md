@@ -2647,4 +2647,10 @@ ci 38166643529 为 in_progress/pending；api-native-aot-linux 38166643492 为 co
 
 上批 Notifications API Native CI 38169966637 已完整成功，实际 checkout 30fc5ee266adafaa7ecab2fb278d4186c9e613ba 的源码树与冻结源码一致，完成此前待办生产日志审计。主 CI 状态仍按交付时读取，不外推。
 
-现存 RepairedCount 的 DryRun XML 描述与实现/既有 JIT 测试矛盾，本批保留当前预估修复数语义，并用实际数据库不变断言验证无写入，后续须单独收口契约文档。整体继续 Build-verified / Capacity-not-verified；不提升完整生成应用、全页面、F10/F11、故障、供应商或生产容量状态。PR3 保持 Draft，不合并、不发布。
+本批发现 RepairedCount 的 DryRun XML 描述与实现/既有 JIT 测试矛盾，保留当前预估修复数语义，并用实际数据库不变断言验证无写入；该文档待办已由下述契约说明收口。整体继续 Build-verified / Capacity-not-verified；不提升完整生成应用、全页面、F10/F11、故障、供应商或生产容量状态。PR3 保持 Draft，不合并、不发布。
+
+## 2026-10-12 Tenancy 对账 DryRun 契约说明收口
+
+基线 `165506dcc93d6fdac8cbb8b627285be6c51b50a6`。核对 F08a 既有对账说明、请求文档、服务实现和 JIT 测试后，修正响应 XML：`DryRun=true` 的 `RepairedCount` 表示预计可修复数，实际执行时表示成功修复数；客户端必须依据 `DryRun` 判断是否写库，预估不承诺随后执行的结果。`SkippedCount` 区分缺指标与实际执行时的并发更新失败。未改变公共字段、声明、JSON、SQL 或运行行为。
+
+本轮执行 `node .tmp/tenancy-dryrun-contract-proof.mjs` 校验 XML 之外的源码完全相同、参数标签匹配、上批七项原生验收输入摘要未变及五项跨窗口内容保留；`pnpm test:governance` 实际 62/62、失败与跳过均为零。影响集规划按文件路径选择 Tenancy，但本次纯 XML 修改按 §11.1 文档变更使用结构检查；复用源码 `eb8ae212d11502b3deb52abb3e31af241efd7753` 的本地双库 Native API 21/21，不声称本轮重新运行 .NET 或重型验收。该源码 API CI `38173002695` 已完整成功，实际 checkout `67bd7bc5b2fcb7f0c79687ab2095ded05f2636bc` 与产物源码树 `f238504998ea47aa1be2c3a875e9679bda48843d` 一致；Worker CI `38173002639` 成功，主 CI 仍在运行。整体能力状态不变，PR3 保持 Draft，不合并、不发布。
