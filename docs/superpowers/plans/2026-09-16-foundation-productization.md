@@ -2613,3 +2613,23 @@ Organization 注册机构隶属和机构成员两种静态行物化，经原有 
 ci 38166643529 为 in_progress/pending；api-native-aot-linux 38166643492 为 completed/success，API生产者完整检出日志已核对到 5f53fdd，源码树与冻结提交一致；worker-native-aot-linux 38166643459 为 completed/success。本地实际双库结果为本批规定范围交付依据；发布/上传成功不代表整个CI完成，后续状态单独保留。
 
 本批机构公告、共性L2静态闭包与诊断夹具缺陷关闭。整体仍为Build-verified、Capacity-not-verified，不重新认证完整独立生成应用、全部页面、完整故障矩阵或F10/F11。只读续查登记可选钉钉审批镜像、微信绑定/订阅三种查询记录缺口（`.tmp/organization-announcement-next-readers.json`），未修改或触发外部投递，留下一批验证适用原生边界和非空失败场景。
+
+
+## 2026-10-12 可选通知渠道管理读取集中验收
+
+基线37a379e，快照notifications-channel-readers-20261012，生产源码冻结并推送0dbca949763088aa59a21fdd7b02861a2a2f70b1。Notifications补齐钉钉审批同步、微信小程序绑定和订阅三种静态行物化器，列序与既有SQL保持一致，使用双库long、nullable Guid及UTC时间工具；SQL、迁移、权限、租户来源及公开契约均未改变。
+
+同批扩展既有Native Notifications双库场景，通过配置开启可选管理路由。场景仅向测试新建库写入已完成审批镜像、绑定及订阅，不创建外部审批、交换微信code或发送消息；API不注册审批后台轮询。正式HTTP覆盖非空列表/详情、大于Int32范围的部门号、完整状态及空值、Guid/UTC时间、Host查询排除其他租户数据、mine排除其他用户绑定、仅返回掩码和匿名401。无权用户403与真实供应商业务流程未在本批验收，不能提升渠道发送/同步的原生完整能力状态。
+
+- 架构RED86项中3失败/83通过；补齐注册后两次同消费者重读检查86/86，零失败/跳过。矩阵Architecture与api-native-aot下限同步增加三个真实案例。
+- Release Integration首轮构建零警告/错误，既有相关Unit21/21；最终样例参数修正后仅增量重编译Integration消费者（BuildProjectReferences=false），仍零警告/错误且DLL晚于两个修改源文件。依赖来自同批首轮完整构建，不称为提交后重新编译。完整Integration1230及规范分片/迁移组发现互斥完整，API21/Worker17交集零；发现不代表全量执行。
+- node .tmp/workflow-settings-aot-analysis.mjs：API AOT分析零警告/错误并完成默认JIT还原。pnpm test:governance：62/62。node .tmp/organization-announcement-architecture-green.mjs：最终86/86。
+- 只读审查确认18/14/4列顺序及配置/DI/JSON闭包；发现测试中文SQL字面量会依赖SQL Server代码页，最终用@Title参数修正，MySQL场景时间显式装箱DateTime。审查未运行构建或业务测试，不能作为运行证据。
+
+准备阶段不持重型锁，独立副本由冻结源码生成，复制并核对984个Release消费者/可移植依赖。仅复用精确源码树的API CI原生产物（run 38169966637），验证PR head/base、默认merge tree、发布/上传结果、ZIP/ELF/manifest摘要；没有本地重复发布。一次重型租约集中执行Native Notifications SQL Server/MySQL 2/2，零失败/跳过；SDK业务123.102秒、排队268.697秒分别记录。Linux镜像fullnet-enterprise-validation-sdk:10.0-node24，SDK10.0.400、4 CPU/3 GiB，Windows消费者SDK10.0.401。运行期间无编译/发布，也未重复未受影响的DiagnosticPolicy双库验收。
+
+最终协调器退出0，成功上下文、TRX、两份API宿主日志及输入/消费者摘要一致，自有副本与SDK已清理。证据.tmp/notifications-channel-local-proof.json、.tmp/notifications-channel-final-proof.json、.tmp/notifications-channel-native-1与.tmp/notifications-channel-ci-artifacts。其他对话五项受保护内容核对不变。整体保持Build-verified、Capacity-not-verified，不提升完整生成应用、全页面、故障矩阵或F10/F11；PR3保持Draft，不合并、不发布。CI结论按最终交付时读取的实际状态单列，未完成不能写为通过。
+
+交付核对时，源码0dbca94的Worker Native CI38169966660已completed/success；API CI38169966637的Notifications步骤已success，整条API与主CI38169966638仍in_progress，不能报告为整条通过。API生产任务完整检出日志审计尚待任务结束，本地规定范围已实际通过，未把CI上传或发现检查冒充业务结果。
+
+只读续查核对两项Tenancy配额对账投影（OutstandingReservationRow、TenantQuotaMetricBackfillCandidate）对应实际映射Endpoint及QueryAsync，尚无所有者静态物化注册，运行未验证；登记.tmp/notifications-channel-next-readers.json作为后续模块批次候选。初步扫描中的限定名/别名注册误报不计为缺陷。

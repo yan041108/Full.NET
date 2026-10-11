@@ -1,5 +1,7 @@
 # Full.NET 能力状态矩阵
 
+2026-10-12 可选通知渠道的管理读取已补齐三种Native静态物化器。架构86/86、治理62/62、相关Unit21/21通过，AOT与最终消费者构建零警告/错误；冻结0dbca94的独立副本集中执行Native Notifications双库2/2，覆盖非空投影、空值/完整值、长整数、时间、Host范围和mine用户过滤。精确源码产物、消费者、日志与自有资源清理均核对；没有调用真实钉钉/微信服务。范围仅为API管理读取，未提升供应商发送、完整生成应用、全页面、故障或容量；后续两项租户配额对账投影待处理。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-可选通知渠道管理读取集中验收)，整体保持Build-verified、Capacity-not-verified。
+
 > 更新时间：2026-10-12（本轮关闭机构公告集中双库验收、缓存L2原生静态闭包和诊断夹具缺陷；其他能力不重新认证）。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 2026-10-12 Organization/Notifications 机构公告隶属与成员投影已补齐；首轮双库失败进一步定位并修复FusionCache真实L2条目元数据遗漏。最终源码冻结052c178，租户正/负结果、表格偏好和诊断快照使用模块拥有的静态闭包，JIT/AOT双向格式与标签/清空通过，HTTP格式及权限隔离保持。相关Unit21/21、架构83/83、治理62/62、工具148/148及AOT分析通过；完整Unit/Integration仅做发现核对。一次集中租约内Native公告/通知双库2/2、JIT诊断策略双库2/2、均零跳过，已核对源码、产物、上下文、TRX、宿主日志和自有资源清理；首轮失败完整保留。旧Main CI诊断容量夹具已合法化，生产提交API/Worker CI成功、API完整检出日志已核对，主CI后续状态独立保留，test:inner旧锁仍失败。整体Build-verified、Capacity-not-verified不变，见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-缓存-l2-静态闭包与机构公告集中验收)。
