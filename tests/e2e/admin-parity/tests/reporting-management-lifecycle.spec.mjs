@@ -76,6 +76,12 @@ test('离开数据源页取消详情读取，迟到凭据不能弹出；再次�
 });
 
 test('报表发布防重、版本错误可见、关闭编辑清除发布备注', async ({ page }) => {
+  // 路由模块晚于认证响应时仍应保留深链接，不能悄悄跳到首个有权导航。
+  await page.route('**/src/views/ReportingDefinitionsView.vue*', async route => {
+    const response = await route.fetch();
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await route.fulfill({ response });
+  });
   await boot(page); let publishes = 0; let release;
   const waiting = new Promise(resolve => { release = resolve; });
   await page.route(`**/api/v1/reporting/definitions/${id}/publish`, async route => {
@@ -86,6 +92,7 @@ test('报表发布防重、版本错误可见、关闭编辑清除发布备注',
   await page.route(`**/api/v1/reporting/definitions/${id}/versions`, route => route.fulfill({ status: 503,
     contentType: 'application/problem+json', body: JSON.stringify({ status: 503, code: 'fixture.unavailable', title: '版本服务不可用' }) }));
   await page.goto('/#/reporting/definitions'); await page.getByTestId('reporting-definition-edit').click();
+  await expect(page).toHaveURL(/#\/reporting\/definitions$/u);
   await page.getByTestId('reporting-publish-note').fill('未提交的草稿备注');
   await page.getByRole('dialog').getByRole('button', { name: '取消', exact: true }).click();
   await page.getByTestId('reporting-definition-publish').evaluate(button => { button.click(); button.click(); });
