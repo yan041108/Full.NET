@@ -185,6 +185,7 @@ public sealed partial class AiAgentRunCoordinatorTests
     private static AgentWorkflowState ReceiptState(AiAgentRunRecord run, int next, bool pending = false)
     {
         var state = State(run.SessionId, next);
+        state.ExecutionSteps = next + (pending ? 1 : 0);
         var definition = AgentWorkflowRegistry.Resolve(run.DefinitionKey, run.DefinitionVersion)!;
         var completedModels = definition.Nodes.Take(next).Count(node => node.Kind == AgentWorkflowNodeKind.ModelText);
         state.InputTokens = completedModels == 0 ? null : completedModels * 2L;
@@ -220,6 +221,8 @@ public sealed partial class AiAgentRunCoordinatorTests
             using var completed = JsonDocument.Parse((string)checkpoints[index * 2 + 1]["PayloadProtected"]!);
             Assert.AreEqual(index, intent.RootElement.GetProperty("NextNodeIndex").GetInt32());
             Assert.AreEqual(index, intent.RootElement.GetProperty("PendingNode").GetProperty("NodeIndex").GetInt32());
+            Assert.AreEqual(index + 1, intent.RootElement.GetProperty("ExecutionSteps").GetInt32());
+            Assert.AreEqual(index + 1, completed.RootElement.GetProperty("ExecutionSteps").GetInt32());
             Assert.AreEqual(index + 1, completed.RootElement.GetProperty("NextNodeIndex").GetInt32());
             Assert.AreEqual(JsonValueKind.Null, completed.RootElement.GetProperty("PendingNode").ValueKind);
             Assert.AreEqual(index + 1, completed.RootElement.GetProperty("NodeReceipts").GetArrayLength());

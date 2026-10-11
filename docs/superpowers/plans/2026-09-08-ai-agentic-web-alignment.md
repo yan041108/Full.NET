@@ -1875,6 +1875,23 @@ HTTP 提交后详情读取失败／取消并不回滚标题，调用方须刷新
 
 升级／回退须停准入并排空旧 API／Worker，不允许混跑写工具。目标版本只证明该目标自批准起的版本匹配，不证明外部动作或付费用量。跨恢复持久步数、其他分支凭证、请求前精确输入界限及自动外部对账仍开放；R10 不整体关闭，独立生成应用按整个 AI 模块范围集中验收，保持 `Capacity-not-verified`。
 
+#### R10m：静态工作流跨恢复持久步数与派发准入合批（2026-10-11，本批受影响验收完成）
+
+- [x] 静态工作流新增可空累计 `ExecutionSteps`：新运行从零开始，模型与每个工具节点尝试共用 64 步上限；审批拒绝及取消保留已消耗额度。计数先递增，再与节点派发意图保存，节点完成、审批等待及恢复不重置额度。
+- [x] 恢复在模型客户端创建前拒绝缺失、负数、低于已完成前缀、超限及剩余节点耗尽计数；执行器每个节点前重复检查。旧检查点缺失字段保持未知，不从游标补造历史次数；全部节点已完成时允许未知或耗尽计数最终提交。已有 PendingNode 优先进入对账且不结算，避免预算失败丢失未知外部结果。
+- [x] 拒绝重复计数字段；保持检查点格式 1、既有 HTTP/预算契约及双库表结构。现有节点意图/完成断言覆盖计数；双库事务故障尝试写入耗尽值，重新读取确认步骤/事件故障均回滚计数。
+
+本地证据：基线 `0a4f4a041d97b22ce01b001ee8e551f1f4d35d52`，任务快照 `ai-workflow-durable-steps-r10m`。首次 RED 231 项中 17 失败／214 通过／零跳过；初步 GREEN 231/231，扩展取消、模型末步和未知派发优先级后 237/237；审查建议补兼容例外，最终冻结输入回归 240/240。新增 27 项，原始 RED/TRX 保留；只读审查未发现已证明缺陷。
+
+- `node artifacts/r10m/run-focused.mjs red`（另两次阶段参数为 `green`、`final-green`）实际三个独立阶段记录：Windows Release 构建均零警告/错误；首次构建 6m38.59s 已正常完成，未终止任何进程。Windows GREEN 仅上述当时范围；最终 240 项以 Linux 冻结输入为证。
+- `node artifacts/r10m/run-validation.mjs`：AI 3233/3233、运行时 511/511、受影响 Architecture 86/86，零失败/跳过；Unit、Integration、Architecture 及 API/Worker AOT 分析构建零警告/错误。全量 Unit 仅精确发现 6702，未执行全量 Unit/Architecture。前置辅助脚本首次因未定义元数据变量退出 1，未改缓存或开始编译；修正后成功，不计为行为 RED。复验准备另因发现元数据未拼接命名空间退出 1，未派发任何测试；修正后才执行一次隔离复验，原失败退出码保留。
+- `node artifacts/r10m/run-portable.mjs`：SQL Server/MySQL 原始完整 AI 各 43 通过／1 失败，零跳过；原始报告及退出码保留。另以 `node artifacts/r10m/run-selected-retry.mjs` 在原批结束后顺序隔离复验精确失败 UID，各 1/1 通过，保持相同程序集及产品期限；复验前同机持锁磁盘维护恢复了 Docker，环境变化不能证明资源根因。最终成功 UID 并集各 44，完整 Smoke 各 4/4 通过。SQL Server 原失败为知识问答撤权反馈预期 404 实际 500，MySQL 原失败为知识清理激活的 25 秒阶段内取消；失败路径源码与基线一致，资源／根因未证明，不能把重跑解释为缺陷已修复；规范分片发现 1214、两 Provider 精确 UID 并集 88 与 Smoke 8 无遗漏/重复。复用两个空闲功能缓存，运行时源码、测试、构建输入 7771 项及六个程序集摘要在同步前后核对；不复用旧测试结果。
+- `node artifacts/r10m/run-static.mjs`：工具 54、命名 30、治理 57、UUID 3 全通过；受保护排除的 Markdown 386 文件通过。`python artifacts/r10m/collect-final.py` 核对精确 UID、原始 RED、输入/程序集、范围和退出码；本批 13 文件，其他任务内容保持快照摘要，唯一矩阵仅提交本批计数变更。
+
+环境：Windows x64／i7-12700H／约 64 GiB，SDK 10.0.401；Docker Linux SDK 10.0.400／Runtime 10.0.11，主构建 4 CPU／4 GiB，功能线各 2 CPU／8 GiB。工作区/同机重任务锁与独立 TEMP/TMP；只继承相同字节输入的缓存时间，两个解析工具 ILLink 锁按 Linux SDK 派生，其他冻结输入不变。本次进程覆盖 `NuGetAudit=false`，未执行在线依赖审计。
+
+本批为 `Aot-analysis-clean`，未新鲜 Native publish/运行；旧 ELF 结果不证明新代码，原生发布与运行及独立生成应用留待 AI 模块集中验收。升级／回退须停止工作流准入并排空旧 API／Worker，旧二进制会忽略计数，不能混跑或删除字段后恢复旧写派发。工具循环等其他分支的跨恢复预算/凭证、提供者请求前输入硬上界与自动外部对账继续开放；R10 不整体关闭，保持 `Capacity-not-verified`。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

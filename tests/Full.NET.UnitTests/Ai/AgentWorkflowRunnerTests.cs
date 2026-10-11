@@ -10,7 +10,7 @@ namespace Full.NET.UnitTests.Ai;
 
 /// <summary>显式工作流在节点边界推进、校验门禁与写工具审批时保持受控语义。</summary>
 [TestClass]
-public sealed class AgentWorkflowRunnerTests
+public sealed partial class AgentWorkflowRunnerTests
 {
     [TestMethod]
     [DataRow("NOT VALID")]
@@ -145,6 +145,7 @@ public sealed class AgentWorkflowRunnerTests
         {
             SessionId = sessionId,
             NextNodeIndex = 3,
+            ExecutionSteps = 3,
             Outputs =
             {
                 ["read_sessions"] = "[]",

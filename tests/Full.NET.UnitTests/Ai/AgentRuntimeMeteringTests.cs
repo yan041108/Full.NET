@@ -179,7 +179,7 @@ public sealed class AgentRuntimeMeteringTests
     private static AgentModelResult Model(string text, long? input, long? output) => new(text, JsonSerializer.SerializeToElement(new { messages = Array.Empty<string>() }), input, output);
     private static AgentWorkflowState State(int next)
     {
-        var state = AgentWorkflowState.Create(Guid.CreateVersion7()); state.NextNodeIndex = next;
+        var state = AgentWorkflowState.Create(Guid.CreateVersion7()); state.NextNodeIndex = next; state.ExecutionSteps = next;
         if (next >= 1) state.Outputs["read_sessions"] = "[]";
         if (next >= 2) state.Outputs["summarize"] = "Title";
         if (next >= 3) state.Outputs["validate"] = "{\"decision\":\"approved\"}";

@@ -9,6 +9,23 @@ namespace Full.NET.Agents.Workflows;
 /// <summary>显式工作流执行器；节点顺序静态，子步骤共用根 RunId 与独立 OperationId。</summary>
 public sealed class AgentWorkflowRunner
 {
+    /// <summary>同一工作流跨审批和恢复的节点尝试总上限；模型、工具及拒绝项共用额度。</summary>
+    public const int MaximumExecutionSteps = 64;
+
+    /// <summary>校验恢复计数和剩余派发额度；未知历史仅允许无待执行节点的最终提交。</summary>
+    /// <param name="state">原始工作流状态，不修改或补造历史计数。</param>
+    /// <param name="nodeCount">可信静态定义中的节点总数。</param>
+    /// <returns>计数有效且有剩余派发额度，或全部节点已完成时返回true。</returns>
+    /// <exception cref="ArgumentNullException">状态为null。</exception>
+    public static bool HasExecutionBudget(AgentWorkflowState state, int nodeCount)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (nodeCount < 0 || state.NextNodeIndex < 0 || state.NextNodeIndex > nodeCount) return false;
+        if (state.ExecutionSteps is null) return state.NextNodeIndex == nodeCount;
+        return state.ExecutionSteps >= state.NextNodeIndex && state.ExecutionSteps <= MaximumExecutionSteps
+            && (state.NextNodeIndex == nodeCount || state.ExecutionSteps < MaximumExecutionSteps);
+    }
+
     /// <summary>
     /// 从请求中的 NextNodeIndex 开始顺序执行工作流节点，直至完成、失败或需要人工审批/对账。
     /// </summary>
@@ -39,6 +56,8 @@ public sealed class AgentWorkflowRunner
         // 恢复到写入或结束位置仍需校验原始结果，不能把节点游标当作校验已通过的证据。
         if (state.NextNodeIndex >= 3 && !HasValidRenameProposal(state))
             return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.workflow_validation_failed");
+        if (!HasExecutionBudget(state, definition.Nodes.Count))
+            return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.tool_budget_exceeded");
         var approvalRequired = false;
         var reconciliationRequired = false;
 
@@ -46,6 +65,10 @@ public sealed class AgentWorkflowRunner
         {
             cancellationToken.ThrowIfCancellationRequested();
             var node = definition.Nodes[index];
+            if (state.ExecutionSteps >= MaximumExecutionSteps)
+                return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.tool_budget_exceeded");
+            // 先消耗额度，再与派发意图持久化；审批拒绝和取消不退款，恢复不得重置预算。
+            state.ExecutionSteps = checked(state.ExecutionSteps!.Value + 1);
             AgentWorkflowNodeReceipt? intent = null;
             if (request.PersistNodeAsync is not null)
             {

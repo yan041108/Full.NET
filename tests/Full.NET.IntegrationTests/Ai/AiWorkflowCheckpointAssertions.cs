@@ -85,6 +85,7 @@ internal static class AiWorkflowCheckpointAssertions
             Guid.Parse("00000000-0000-0000-0000-000000000001"), 1);
         state.PendingNode = new(0, "read_sessions", AgentWorkflowNodeReceipt.ResolveOperationId(runId, "read_sessions"),
             AgentWorkflowNodeReceipt.Digest("{}"), null, 1, null, null);
+        state.ExecutionSteps = 1;
         var lease = (await store.TryAcquireAsync(runId, "node-owner", DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1)))!;
         Assert.IsFalse((await store.ScanQueuedAsync(100, DateTimeOffset.UtcNow)).Contains(runId));
         var firstPayload = state.ToJson();
@@ -94,6 +95,7 @@ internal static class AiWorkflowCheckpointAssertions
         lease = lease with { Version = lease.Version + 1 };
         var pending = AiWorkflowCheckpointAdmission.Restore(run, await store.FindLatestCheckpointAsync(runId));
         Assert.AreEqual("read_sessions", pending!.PendingNode!.NodeKey);
+        Assert.AreEqual(1, pending.ExecutionSteps);
         var receipt = state.PendingNode with { OutputDigest = AgentWorkflowNodeReceipt.Digest("[]") };
         state.PendingNode = null;
         state.NodeReceipts.Add(receipt);
@@ -109,25 +111,33 @@ internal static class AiWorkflowCheckpointAssertions
         var restored = AiWorkflowCheckpointAdmission.Restore(run, await store.FindLatestCheckpointAsync(runId));
         Assert.AreEqual(1, restored!.NextNodeIndex);
         Assert.AreEqual(receipt, restored.NodeReceipts.Single());
+        Assert.AreEqual(1, restored.ExecutionSteps);
+        Assert.IsTrue(AgentWorkflowRunner.HasExecutionBudget(restored, definition.Nodes.Count));
+        state.ExecutionSteps = AgentWorkflowRunner.MaximumExecutionSteps;
+        var failedPayload = state.ToJson();
         // 重复步骤故障必须回滚运行版本、检查点与事件，不能留下只有游标成功的半笔提交。
         var stepFailure = await Assert.ThrowsAsync<DataCommandException>(async () => await store.CommitProgressAsync(new(lease, "running", step,
-            new(Guid.CreateVersion7(), 3, 1, AgentFrameworkRuntime.FrameworkVersion, run.DefinitionVersion, payload, AgentWorkflowNodeReceipt.Digest(payload)),
+            new(Guid.CreateVersion7(), 3, 1, AgentFrameworkRuntime.FrameworkVersion, run.DefinitionVersion, failedPayload, AgentWorkflowNodeReceipt.Digest(failedPayload)),
             new(Guid.CreateVersion7(), 3, "run.node_completed", 1, "{}"))));
         Assert.AreEqual(DataCommandFailureKind.UniqueConstraint, stepFailure.Kind);
         Assert.IsInstanceOfType<System.Data.Common.DbException>(stepFailure.InnerException);
         Assert.AreEqual(lease.Version, (await store.FindByIdAsync(runId))!.Version);
         Assert.AreEqual(2L, (await store.FindLatestCheckpointAsync(runId))!.Sequence);
+        Assert.AreEqual(1, AgentWorkflowState.FromJson((await store.FindLatestCheckpointAsync(runId))!.PayloadProtected)!.ExecutionSteps);
         Assert.AreEqual(2L, await store.FindLatestEventSequenceAsync(runId, CancellationToken.None));
         var rolledBackStepId = Guid.CreateVersion7();
         // 事件唯一键在事务末段拒绝，前面已经插入的步骤与检查点也必须一起回滚。
         var eventFailure = await Assert.ThrowsAsync<DataCommandException>(async () => await store.CommitProgressAsync(new(lease, "running",
             step with { StepId = rolledBackStepId, StepKey = "summarize", OperationId = AgentWorkflowNodeReceipt.ResolveOperationId(runId, "summarize") },
-            new(Guid.CreateVersion7(), 3, 1, AgentFrameworkRuntime.FrameworkVersion, run.DefinitionVersion, payload, AgentWorkflowNodeReceipt.Digest(payload)),
+            new(Guid.CreateVersion7(), 3, 1, AgentFrameworkRuntime.FrameworkVersion, run.DefinitionVersion, failedPayload, AgentWorkflowNodeReceipt.Digest(failedPayload)),
             new(Guid.CreateVersion7(), 2, "run.node_completed", 1, "{}"))));
         Assert.AreEqual(DataCommandFailureKind.UniqueConstraint, eventFailure.Kind);
         Assert.IsInstanceOfType<System.Data.Common.DbException>(eventFailure.InnerException);
         Assert.AreEqual(lease.Version, (await store.FindByIdAsync(runId))!.Version);
         Assert.AreEqual(2L, (await store.FindLatestCheckpointAsync(runId))!.Sequence);
+        var counterAfterRollback = AgentWorkflowState.FromJson((await store.FindLatestCheckpointAsync(runId))!.PayloadProtected)!;
+        Assert.AreEqual(1, counterAfterRollback.ExecutionSteps);
+        Assert.IsTrue(AgentWorkflowRunner.HasExecutionBudget(counterAfterRollback, definition.Nodes.Count));
         Assert.AreEqual(0, await scope.ServiceProvider.GetRequiredService<IQueryExecutor>().QuerySingleOrDefaultAsync<int>(
             new("test.ai.node.step_count", "SELECT COUNT(*) FROM fn_ai_agent_step WHERE Id = @StepId", SqlDataScope.Global),
             AiSqlParameters.Create(("StepId", rolledBackStepId))));
@@ -181,6 +191,7 @@ internal static class AiWorkflowCheckpointAssertions
         {
             SessionId = run.SessionId,
             NextNodeIndex = 2,
+            ExecutionSteps = 2,
             Outputs = { ["read_sessions"] = "[]", ["summarize"] = "Title" },
             InputTokens = 4,
             OutputTokens = 2,

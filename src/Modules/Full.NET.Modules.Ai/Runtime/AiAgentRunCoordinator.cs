@@ -167,6 +167,10 @@ internal sealed class AiAgentRunCoordinator(
             }
             if (!AiRunOutputBudgetAdmission.TryGetConsumedTokens(snapshot, workflowState, out var consumedInputTokens, out var consumedOutputTokens))
                 return await FailAsync("ai.budget.limit_exceeded").ConfigureAwait(false);
+            // 未知或耗尽的历史步数在客户端创建前拒绝；未知派发意图已优先转入对账。
+            if (workflowState is not null && !AgentWorkflowRunner.HasExecutionBudget(workflowState,
+                    AgentWorkflowRegistry.Resolve(record.DefinitionKey, record.DefinitionVersion)!.Nodes.Count))
+                return await FailAsync("ai.agent_run.tool_budget_exceeded").ConfigureAwait(false);
 
             var queries = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
             var model = await queries.QuerySingleOrDefaultAsync<AiModelConfigRecord>(
