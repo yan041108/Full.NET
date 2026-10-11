@@ -207,6 +207,101 @@ public sealed class ReportingExportTaskRecoveryTests
         Assert.AreEqual(ReportingExportTaskStatusKeys.Failed, fixture.Store.Tasks.Values.Single().StatusKey);
     }
 
+    /// <summary>生成返回成功或失败时若租约已到期，都应停止上传和终态写入。</summary>
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Expired_lease_during_generation_preserves_processing(bool failure)
+    {
+        var fixture = CreateFixture(); var task = SeedQueued(fixture);
+        fixture.Workbook.GenerateAsync(Arg.Any<ReportingExportTaskRecord>(), Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
+            .Returns(_ => { fixture.Clock.UtcNow = task.LeaseExpiresAtUtc!.Value;
+                return failure ? Result<ReportingExportGeneratedFile>.Failure(new("probe.failure", "probe", ErrorType.Validation))
+                    : Result<ReportingExportGeneratedFile>.Success(new(1, "report.xlsx", [1])); });
+        await RunOwnedAsync(fixture, task);
+        AssertProcessing(task); Assert.AreEqual(0, fixture.Files.UploadCount);
+    }
+
+    /// <summary>忽略取消令牌的文件列表返回后，已到期持有者不能绑定文件。</summary>
+    [TestMethod]
+    public async Task Expired_lease_during_existing_file_lookup_preserves_processing()
+    {
+        var fixture = CreateFixture(); var task = SeedQueued(fixture);
+        fixture.Files.ReadyFiles.Add(new(Guid.NewGuid(), "report.xlsx", fixture.Clock.UtcNow));
+        fixture.Files.OnList = () => fixture.Clock.UtcNow = task.LeaseExpiresAtUtc!.Value;
+        await RunOwnedAsync(fixture, task);
+        AssertProcessing(task); Assert.AreEqual(0, fixture.GenerateCount);
+    }
+
+    /// <summary>上传期间到期无论存储返回成功还是失败，都不得覆盖可恢复的任务。</summary>
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Expired_lease_during_upload_preserves_processing(bool failure)
+    {
+        var fixture = CreateFixture(); var task = SeedQueued(fixture);
+        fixture.Files.FailUpload = failure;
+        fixture.Files.OnUpload = () => fixture.Clock.UtcNow = task.LeaseExpiresAtUtc!.Value;
+        await RunOwnedAsync(fixture, task);
+        AssertProcessing(task); Assert.AreEqual(1, fixture.Files.UploadCount);
+        Assert.IsFalse(fixture.Files.UploadStream!.CanRead);
+    }
+
+    /// <summary>完成前授权复核跨过租约期限，允许或拒绝都不能写入终态。</summary>
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Expired_lease_during_completion_authorization_preserves_processing(bool denied)
+    {
+        var fixture = CreateFixture(); var task = SeedQueued(fixture);
+        fixture.Identity.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => { var binding = call.Arg<SessionBindingSnapshot>()!;
+                if (fixture.Files.UploadCount > 0) { fixture.Clock.UtcNow = task.LeaseExpiresAtUtc!.Value;
+                    if (denied) return null; }
+                return new AuthorizedSessionActor(binding.UserId, binding.TenantId, binding.SessionId); });
+        await RunOwnedAsync(fixture, task);
+        AssertProcessing(task); Assert.AreEqual(1, fixture.Files.UploadCount);
+    }
+
+    /// <summary>领取返回时期限已到，不得继续授权、查文件或生成。</summary>
+    [TestMethod]
+    public async Task Expired_lease_at_claim_return_stops_execution()
+    {
+        var fixture = CreateFixture(); var task = SeedQueued(fixture);
+        fixture.Store.OnClaim = () => fixture.Clock.UtcNow = task.LeaseExpiresAtUtc!.Value;
+        await RunOwnedAsync(fixture, task);
+        AssertProcessing(task); Assert.AreEqual(0, fixture.GenerateCount);
+        Assert.AreEqual(0, fixture.Files.ListCount);
+    }
+
+    /// <summary>租约的剩余期限应主动取消工作簿生成，不等待调用方取消。</summary>
+    [TestMethod]
+    public async Task Remaining_lease_deadline_cancels_generation()
+    {
+        var fixture = CreateFixture(); var task = SeedQueued(fixture); var cancelled = false;
+        fixture.Store.OnClaim = () => fixture.Clock.UtcNow = task.LeaseExpiresAtUtc!.Value.AddMilliseconds(-100);
+        fixture.Workbook.GenerateAsync(Arg.Any<ReportingExportTaskRecord>(), Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
+            .Returns(async call => { try { await Task.Delay(Timeout.InfiniteTimeSpan, call.Arg<CancellationToken>()).WaitAsync(TimeSpan.FromSeconds(3)); }
+                catch (OperationCanceledException) { cancelled = true; throw; }
+                return Result<ReportingExportGeneratedFile>.Success(new(1, "report.xlsx", [1])); });
+        await RunOwnedAsync(fixture, task);
+        Assert.IsTrue(cancelled, "生成必须收到租约期限取消。"); AssertProcessing(task);
+        Assert.AreEqual(0, fixture.Files.UploadCount);
+    }
+
+    private static Task RunOwnedAsync(Fixture fixture, ReportingExportTaskRecord task)
+    {
+        fixture.Context.SetTenant(new TenantContext(fixture.TenantId, "acme", "Acme"));
+        return fixture.Runner.RunOwnedAsync(task.Id, CancellationToken.None);
+    }
+
+    private static void AssertProcessing(ReportingExportTaskRecord task)
+    {
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Processing, task.StatusKey);
+        Assert.IsNotNull(task.LeaseId); Assert.IsNull(task.CompletedAtUtc);
+        Assert.IsNull(task.OutputFileId); Assert.IsNull(task.ErrorCode);
+    }
+
     private static Fixture CreateFixture()
     {
         var tenantId = Guid.NewGuid();
@@ -333,7 +428,7 @@ public sealed class ReportingExportTaskRecoveryTests
 
     private sealed class MutableClock(DateTimeOffset utcNow) : IClock
     {
-        public DateTimeOffset UtcNow { get; } = utcNow;
+        public DateTimeOffset UtcNow { get; set; } = utcNow;
     }
 
     private sealed class OptionsMonitorStub<T>(T current) : IOptionsMonitor<T>
@@ -348,12 +443,20 @@ public sealed class ReportingExportTaskRecoveryTests
     {
         public List<TenantResourceFileReadyItem> ReadyFiles { get; } = [];
         public int UploadCount { get; private set; }
+        public int ListCount { get; private set; }
+        public Action? OnList { get; set; }
+        public Action? OnUpload { get; set; }
+        public bool FailUpload { get; set; }
+        public Stream? UploadStream { get; private set; }
 
         public Task<Result<TenantResourceFileReference>> UploadAsync(
             string ownerModuleKey, Guid resourceId, Guid actorUserId, string originalFileName,
             string contentType, Stream content, long contentLength, CancellationToken cancellationToken = default)
         {
             UploadCount++;
+            UploadStream = content;
+            OnUpload?.Invoke();
+            if (FailUpload) return Task.FromResult(Result<TenantResourceFileReference>.Failure(new("probe.upload", "probe", ErrorType.Validation)));
             return Task.FromResult(Result<TenantResourceFileReference>.Success(new(Guid.NewGuid(), contentLength, "hash")));
         }
 
@@ -363,8 +466,11 @@ public sealed class ReportingExportTaskRecoveryTests
                 new Error("files.not_found", "not found", ErrorType.NotFound)));
 
         public Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(
-            string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TenantResourceFileReadyItem>>(ReadyFiles);
+            string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default)
+        {
+            ListCount++; OnList?.Invoke();
+            return Task.FromResult<IReadOnlyList<TenantResourceFileReadyItem>>(ReadyFiles);
+        }
 
         public Task ReleaseAsync(string ownerModuleKey, Guid resourceId, Guid fileId,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -374,6 +480,7 @@ public sealed class ReportingExportTaskRecoveryTests
     {
         public Dictionary<Guid, ReportingExportTaskRecord> Tasks { get; } = [];
         public bool Granted { get; set; } = true;
+        public Action? OnClaim { get; set; }
 
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null,
             CancellationToken cancellationToken = default)
@@ -494,6 +601,7 @@ public sealed class ReportingExportTaskRecoveryTests
             candidate.LeaseId = leaseId;
             candidate.LeaseExpiresAtUtc = leaseExpiresAtUtc;
             candidate.Version++;
+            OnClaim?.Invoke();
             return candidate;
         }
 

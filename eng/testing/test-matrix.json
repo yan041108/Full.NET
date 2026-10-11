@@ -4,9 +4,13 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 5686,
+      "minimum": 5695,
       "timeout": "10m",
       "selections": {
+        "reporting-recovery": {
+          "filter": "FullyQualifiedName~ReportingExportTaskRecoveryTests",
+          "minimum": 25
+        },
         "import-recovery": {
           "filter": "FullyQualifiedName~ImportExportTaskRecoveryTests",
           "minimum": 19

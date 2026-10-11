@@ -123,23 +123,32 @@ internal sealed class ReportingExportTaskRunner(
         ReportingExportTaskRecord task,
         CancellationToken cancellationToken)
     {
+        using var leaseCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var executionToken = leaseCancellation.Token;
         try
         {
-            if (!await authorization.CanRunAsync(task, cancellationToken).ConfigureAwait(false))
+            EnsureActiveLease(task, executionToken);
+            // 按领取返回时的剩余期限取消；数据库领取与授权耗时不能重新延长租约。
+            leaseCancellation.CancelAfter(task.LeaseExpiresAtUtc!.Value - clock.UtcNow);
+            var authorized = await authorization.CanRunAsync(task, executionToken).ConfigureAwait(false);
+            EnsureActiveLease(task, executionToken);
+            if (!authorized)
             {
                 await CompleteFailedAsync(task, 0, CommonErrorCodes.PermissionDenied,
-                    "The export session, version grant or permission is no longer valid.", cancellationToken).ConfigureAwait(false);
+                    "The export session, version grant or permission is no longer valid.", executionToken).ConfigureAwait(false);
                 return;
             }
             var principal = RebuildPrincipal(task);
-            var existing = await TryAttachExistingOutputAsync(task, cancellationToken).ConfigureAwait(false);
+            var existing = await TryAttachExistingOutputAsync(task, executionToken).ConfigureAwait(false);
+            EnsureActiveLease(task, executionToken);
             if (existing)
             {
                 return;
             }
 
-            var generated = await workbookSource.GenerateAsync(task, principal, cancellationToken)
+            var generated = await workbookSource.GenerateAsync(task, principal, executionToken)
                 .ConfigureAwait(false);
+            EnsureActiveLease(task, executionToken);
             if (!generated.IsSuccess)
             {
                 await CompleteFailedAsync(
@@ -147,17 +156,19 @@ internal sealed class ReportingExportTaskRunner(
                         0,
                         generated.Error!.Code,
                         generated.Error.Message,
-                        cancellationToken)
+                        executionToken)
                     .ConfigureAwait(false);
                 return;
             }
 
             var file = generated.Value!;
             // 查询期间发生撤销时，禁止把新生成内容上传为可下载的租户文件。
-            if (!await authorization.CanRunAsync(task, cancellationToken).ConfigureAwait(false))
+            authorized = await authorization.CanRunAsync(task, executionToken).ConfigureAwait(false);
+            EnsureActiveLease(task, executionToken);
+            if (!authorized)
             {
                 await CompleteFailedAsync(task, 0, CommonErrorCodes.PermissionDenied,
-                    "The export authorization changed during generation.", cancellationToken).ConfigureAwait(false);
+                    "The export authorization changed during generation.", executionToken).ConfigureAwait(false);
                 return;
             }
             await using var uploadStream = new MemoryStream(file.Content, writable: false);
@@ -170,8 +181,9 @@ internal sealed class ReportingExportTaskRunner(
                     WorkbookContentType,
                     uploadStream,
                     file.Content.LongLength,
-                    cancellationToken)
+                    executionToken)
                 .ConfigureAwait(false);
+            EnsureActiveLease(task, executionToken);
             if (!uploadResult.IsSuccess)
             {
                 await CompleteFailedAsync(
@@ -179,7 +191,7 @@ internal sealed class ReportingExportTaskRunner(
                         file.RowCount,
                         ReportingErrorCodes.ExportFailed,
                         uploadResult.Error?.Message ?? "Failed to store export file.",
-                        cancellationToken)
+                        executionToken)
                     .ConfigureAwait(false);
                 return;
             }
@@ -189,12 +201,12 @@ internal sealed class ReportingExportTaskRunner(
                     uploadResult.Value!.FileId,
                     file.FileName,
                     file.RowCount,
-                    cancellationToken)
+                    executionToken)
                 .ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
-            // 请求或宿主取消后保留 processing，租约到期后由 Worker 恢复。
+            // 请求、宿主或租约取消后保留 processing，不能删除已上传文件或误写终态。
         }
         catch (Exception)
         {
@@ -222,6 +234,7 @@ internal sealed class ReportingExportTaskRunner(
 
         var ready = await resourceFiles.ListReadyAsync("reporting", task.Id, cancellationToken)
             .ConfigureAwait(false);
+        EnsureActiveLease(task, cancellationToken);
         var latest = ready.LastOrDefault();
         if (latest is null)
         {
@@ -250,12 +263,16 @@ internal sealed class ReportingExportTaskRunner(
         int rowCount,
         CancellationToken cancellationToken)
     {
-        if (!await authorization.CanRunAsync(task, cancellationToken).ConfigureAwait(false))
+        EnsureActiveLease(task, cancellationToken);
+        var authorized = await authorization.CanRunAsync(task, cancellationToken).ConfigureAwait(false);
+        EnsureActiveLease(task, cancellationToken);
+        if (!authorized)
         {
             await CompleteFailedAsync(task, 0, CommonErrorCodes.PermissionDenied,
                 "The export authorization changed before file attachment.", cancellationToken).ConfigureAwait(false);
             return true;
         }
+        var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 databaseOptions.Value.Provider == DatabaseProvider.SqlServer
                     ? ReportingExportTaskSql.CompleteSucceededSqlServer
@@ -267,7 +284,8 @@ internal sealed class ReportingExportTaskRunner(
                     ("OutputFileId", outputFileId),
                     ("OutputFileName", outputFileName),
                     ("RowCount", rowCount),
-                    ("CompletedAtUtc", clock.UtcNow)),
+                    ("Now", now),
+                    ("CompletedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected > 0)
@@ -298,6 +316,8 @@ internal sealed class ReportingExportTaskRunner(
         string errorMessage,
         CancellationToken cancellationToken)
     {
+        EnsureActiveLease(task, cancellationToken);
+        var now = clock.UtcNow;
         await commandExecutor.ExecuteAsync(
                 databaseOptions.Value.Provider == DatabaseProvider.SqlServer
                     ? ReportingExportTaskSql.CompleteFailedSqlServer
@@ -309,9 +329,22 @@ internal sealed class ReportingExportTaskRunner(
                     ("RowCount", rowCount),
                     ("ErrorCode", errorCode),
                     ("ErrorMessage", errorMessage),
-                    ("CompletedAtUtc", clock.UtcNow)),
+                    ("Now", now),
+                    ("CompletedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>即使外部依赖忽略取消令牌，返回后也必须停止到期持有者。</summary>
+    /// <param name="task">已领取的租约快照。</param>
+    /// <param name="cancellationToken">包含租约期限的执行令牌。</param>
+    private void EnsureActiveLease(ReportingExportTaskRecord task, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (task.LeaseId is null || task.LeaseExpiresAtUtc is null || task.LeaseExpiresAtUtc <= clock.UtcNow)
+        {
+            throw new OperationCanceledException("报表导出任务租约已失效。", cancellationToken);
+        }
     }
 
     /// <summary>领取指定排队任务，供创建请求避免与 Worker 双跑。</summary>

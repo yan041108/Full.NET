@@ -5,9 +5,13 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Xml.Linq;
+using Dapper;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.EnterpriseRequest;
 using Full.NET.Modules.Organization.Contracts;
+using Microsoft.Data.SqlClient;
+using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
@@ -28,6 +32,9 @@ internal static class NativeEnterpriseBusinessAssertions
     {
         RequireArtifacts();
         await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString);
+        var external = new SqlConnectionStringBuilder(await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        var destination = external.DataSource.Split(',');
+        Assert.AreEqual(2, destination.Length);
         var files = Path.Combine(Path.GetTempPath(), $"fullnet-native-enterprise-{Guid.NewGuid():N}");
         Directory.CreateDirectory(files);
         try
@@ -38,7 +45,12 @@ internal static class NativeEnterpriseBusinessAssertions
                     ["Files:Local:RootPath"] = files,
                     ["FullNet:ImportExport:RunSynchronously"] = "false",
                     ["FullNet:ImportExport:ExecutionEnabled"] = "false",
+                    ["FullNet:Reporting:Export:ExecutionEnabled"] = "false",
                     ["Realtime:Enabled"] = "false",
+                    ["FullNet:ExternalDatabaseAccess:AllowedDestinations:0:Provider"] = "SqlServer",
+                    ["FullNet:ExternalDatabaseAccess:AllowedDestinations:0:Host"] = destination[0],
+                    ["FullNet:ExternalDatabaseAccess:AllowedDestinations:0:Port"] = destination[1],
+                    ["FullNet:ExternalDatabaseAccess:AllowedDestinations:0:AllowUntrustedCertificate"] = "true",
                 }, NativeAotTestTimeouts.ProcessStartup);
             using var client = api.CreateClient();
             var hostToken = await NativeApiE2EAssertions.LoginAsync(client, api.LogFilePath);
@@ -98,6 +110,8 @@ internal static class NativeEnterpriseBusinessAssertions
                     ["FullNet__ImportExport__ExecutionEnabled"] = "true",
                     ["FullNet__ImportExport__RunSynchronously"] = "false",
                     ["FullNet__ImportExport__PollSeconds"] = "5",
+                    ["FullNet__Reporting__Export__PollSeconds"] = "5",
+                    ["FullNet__Reporting__Export__ExecutionEnabled"] = "true",
                 });
             await CompleteApprovalAsync(http, id, submitted, "approve", "Approved");
             await CompleteApprovalAsync(http, rejectedId, rejected, "reject", "Rejected");
@@ -118,6 +132,9 @@ internal static class NativeEnterpriseBusinessAssertions
             Assert.AreEqual(unitId, row.GetProperty("organizationUnitId").GetGuid());
             Assert.AreEqual(actorId, row.GetProperty("applicantUserId").GetGuid());
 
+            await VerifyReportingExportAsync(new BusinessHttp(client, hostToken, api.LogFilePath), http,
+                external, destination, provider, connectionString, tenantId);
+
             await worker.StopGracefullyAsync(TimeSpan.FromSeconds(20));
             Assert.AreEqual(0, worker.ExitCode);
             worker.AssertNoFatalMarkersInLogs();
@@ -137,6 +154,73 @@ internal static class NativeEnterpriseBusinessAssertions
         {
             requestNumber = $"NREQ-{Guid.NewGuid():N}"[..16], title, status = "Draft", totalAmount = "1.00", applicantUserId = actorId,
         }, HttpStatusCode.Created, unitId: unitId);
+
+    /// <summary>同一真实栈验收报表生成、文件下载及上传后崩溃的原生 Worker 恢复。</summary>
+    private static async Task VerifyReportingExportAsync(BusinessHttp host, BusinessHttp tenant,
+        SqlConnectionStringBuilder external, string[] destination, DatabaseProvider provider,
+        string connectionString, Guid tenantId)
+    {
+        var source = await host.SendAsync(HttpMethod.Post, "/api/v1/reporting/data-sources", new
+        {
+            tenantId = (Guid?)null, name = "原生报表外部数据源", providerKey = "sql_server",
+            serverHost = destination[0], port = int.Parse(destination[1], System.Globalization.CultureInfo.InvariantCulture),
+            databaseName = external.InitialCatalog, username = external.UserID, password = external.Password,
+            trustServerCertificate = true, isEnabled = true,
+        }, HttpStatusCode.Created);
+        var group = await host.SendAsync(HttpMethod.Post, "/api/v1/reporting/groups", new
+        {
+            parentId = (Guid?)null, name = "原生报表验收", sortOrder = 0, isEnabled = true,
+        }, HttpStatusCode.Created);
+        var definition = await host.SendAsync(HttpMethod.Post, "/api/v1/reporting/definitions", new
+        {
+            groupId = group.GetProperty("id").GetGuid(), dataSourceId = source.GetProperty("id").GetGuid(),
+            definitionKey = $"native-inventory-{Guid.NewGuid():N}", name = "原生目录报表", description = (string?)null,
+            queryPortKey = "reporting.schema_inventory", parameterSchema = new[]
+            {
+                new { parameterKey = "topN", displayName = "条数", dataTypeKey = "integer", isRequired = true, defaultValue = "20" },
+            },
+            layoutConfigJson = "{\"columns\":[{\"key\":\"SchemaName\",\"requiredPermission\":\"reporting.executions.columns.schema_name\"}]}",
+            isEnabled = true,
+        }, HttpStatusCode.Created);
+        var definitionId = definition.GetProperty("id").GetGuid();
+        await host.SendAsync(HttpMethod.Post, $"/api/v1/reporting/definitions/{definitionId:D}/publish",
+            new { changeNote = "原生验收", version = definition.GetProperty("version").GetInt32() });
+        var grant = $"/api/v1/reporting/definitions/{definitionId:D}/versions/1/tenant-grants/{tenantId:D}";
+        await host.SendAsync(HttpMethod.Put, grant);
+        var task = await tenant.SendAsync(HttpMethod.Post, "/api/v1/reporting/export-tasks", new
+        {
+            definitionId, formatKey = "excel", versionNumber = 1,
+            parameters = new[] { new { parameterKey = "topN", value = "20" } },
+        }, HttpStatusCode.Created);
+        Assert.AreEqual("succeeded", task.GetProperty("statusKey").GetString());
+        Assert.IsGreaterThan(0, task.GetProperty("rowCount").GetInt32());
+        var id = task.GetProperty("id").GetGuid();
+        var fileId = task.GetProperty("outputFileId").GetGuid();
+        var download = $"/api/v1/reporting/export-tasks/{id:D}/download";
+        var bytes = await tenant.DownloadAsync(download);
+        using (var archive = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read))
+        {
+            Assert.IsNotNull(archive.GetEntry("xl/worksheets/sheet1.xml"));
+        }
+
+        // 只注入崩溃后的持久化状态；恢复本身必须由独立原生 Worker 执行生产逻辑。
+        await using System.Data.Common.DbConnection connection = provider == DatabaseProvider.SqlServer
+            ? new SqlConnection(connectionString)
+            : new MySqlConnection(MySqlConnectionStringPolicy.Create(connectionString, MySqlGuidStorageMode.Binary16, allowUserVariables: false));
+        await connection.OpenAsync();
+        Assert.AreEqual(1, await connection.ExecuteAsync("""
+            UPDATE fn_reporting_export_task
+            SET StatusKey='processing', OutputFileId=NULL, OutputFileName=NULL, CompletedAtUtc=NULL,
+                LeaseId=@LeaseId, LeaseExpiresAtUtc=@Expiry
+            WHERE TenantId=@TenantId AND Id=@Id AND StatusKey='succeeded'
+            """, new { TenantId = tenantId, Id = id, LeaseId = Guid.CreateVersion7(), Expiry = DateTime.UtcNow.AddMinutes(-1) }));
+        var recovered = await WaitAsync(tenant, $"/api/v1/reporting/export-tasks/{id:D}",
+            current => current.GetProperty("statusKey").GetString() == "succeeded");
+        Assert.AreEqual(fileId, recovered.GetProperty("outputFileId").GetGuid());
+        CollectionAssert.AreEqual(bytes, await tenant.DownloadAsync(download));
+        await host.SendAsync(HttpMethod.Delete, grant);
+        await tenant.SendAsync(HttpMethod.Get, download, expected: HttpStatusCode.Forbidden);
+    }
 
     private static async Task<JsonElement> SubmitAsync(BusinessHttp http, Guid id)
     {

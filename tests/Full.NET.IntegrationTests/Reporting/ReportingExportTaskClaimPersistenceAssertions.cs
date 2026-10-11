@@ -52,20 +52,65 @@ internal static class ReportingExportTaskClaimPersistenceAssertions
     /// <param name="provider">正式支持的数据库提供程序。</param>
     public static async Task Expired_processing_lease_can_be_reclaimed_async(DatabaseProvider provider)
     {
-        var (first, second, tenantA, _, taskA, _) = await SeedQueuedPairAsync(provider).ConfigureAwait(false);
+        var (first, second, tenantA, tenantB, taskA, _) = await SeedQueuedPairAsync(provider).ConfigureAwait(false);
         await using var connection = first;
         await using var unused = second;
-        var expired = DateTime.UtcNow.AddMinutes(-2);
+        // 整秒在双库和参数绑定中可精确表示，避免舍入破坏相等边界。
+        var instant = DateTime.UtcNow;
+        var now = new DateTime(instant.Ticks - instant.Ticks % TimeSpan.TicksPerSecond, DateTimeKind.Utc);
+        var oldLeaseId = Guid.CreateVersion7();
+        var currentLeaseId = Guid.Empty;
         await connection.ExecuteAsync(
             """
             UPDATE fn_reporting_export_task
             SET StatusKey = 'processing', LeaseId = @LeaseId, LeaseExpiresAtUtc = @LeaseExpiresAtUtc
             WHERE Id = @Id
             """,
-            new { Id = taskA, LeaseId = Guid.CreateVersion7(), LeaseExpiresAtUtc = expired }).ConfigureAwait(false);
-        var claimed = await ClaimAsync(provider, connection, tenantA, DateTime.UtcNow).ConfigureAwait(false);
+            new { Id = taskA, LeaseId = oldLeaseId, LeaseExpiresAtUtc = now.AddMinutes(-2) }).ConfigureAwait(false);
+        await AssertWritesAsync(oldLeaseId, tenantA, 0).ConfigureAwait(false);
+        foreach (var expiry in new DateTime?[] { now, null })
+        {
+            await connection.ExecuteAsync("UPDATE fn_reporting_export_task SET LeaseExpiresAtUtc=@Expiry WHERE Id=@Id",
+                new { Id = taskA, Expiry = expiry }).ConfigureAwait(false);
+            await AssertWritesAsync(oldLeaseId, tenantA, 0).ConfigureAwait(false);
+        }
+        var claimed = await ClaimAsync(provider, connection, tenantA, now).ConfigureAwait(false);
         Assert.AreEqual(taskA, claimed);
         Assert.AreEqual("processing", await StatusAsync(connection, taskA).ConfigureAwait(false));
+        currentLeaseId = await connection.QuerySingleAsync<Guid>("SELECT LeaseId FROM fn_reporting_export_task WHERE Id=@Id", new { Id = taskA }).ConfigureAwait(false);
+        await AssertWritesAsync(oldLeaseId, tenantA, 0).ConfigureAwait(false);
+        await AssertWritesAsync(currentLeaseId, tenantB, 0).ConfigureAwait(false);
+        await AssertWritesAsync(currentLeaseId, tenantA, 1).ConfigureAwait(false);
+
+        // 同一数据库覆盖成功与失败完成语句，避免为每个边界重复迁移。
+        async Task AssertWritesAsync(Guid leaseId, Guid tenantId, int expected)
+        {
+            foreach (var statement in new[] { "CompleteSucceeded", "CompleteFailed" })
+            {
+                var field = provider == DatabaseProvider.SqlServer ? statement + "SqlServer" : statement;
+                var parameters = new
+                {
+                    Id = taskA, TenantId = tenantId, LeaseId = leaseId, Now = now,
+                    StatusKey = statement == "CompleteSucceeded" ? "succeeded" : "failed",
+                    OutputFileId = Guid.CreateVersion7(), OutputFileName = "probe.xlsx", RowCount = 1,
+                    CompletedAtUtc = now, ErrorCode = "probe", ErrorMessage = "probe",
+                };
+                Assert.AreEqual(expected, await connection.ExecuteAsync(Sql(field), parameters).ConfigureAwait(false), $"{provider}/{statement}");
+                if (expected == 0)
+                {
+                    Assert.AreEqual("processing", await StatusAsync(connection, taskA).ConfigureAwait(false));
+                    Assert.AreEqual(0, await connection.QuerySingleAsync<int>(
+                        provider == DatabaseProvider.SqlServer ? "SELECT [RowCount] FROM fn_reporting_export_task WHERE Id=@Id"
+                            : "SELECT RowCount FROM fn_reporting_export_task WHERE Id=@Id", new { Id = taskA }).ConfigureAwait(false));
+                }
+                else
+                {
+                    Assert.AreEqual(0, await connection.ExecuteAsync(Sql(field), parameters).ConfigureAwait(false));
+                    await connection.ExecuteAsync("UPDATE fn_reporting_export_task SET StatusKey='processing', LeaseId=@LeaseId, LeaseExpiresAtUtc=@Expiry WHERE Id=@Id",
+                        new { Id = taskA, LeaseId = currentLeaseId, Expiry = now.AddMinutes(1) }).ConfigureAwait(false);
+                }
+            }
+        }
     }
 
     /// <summary>写入两个租户各一条 queued 导出任务，返回两条连接。</summary>
