@@ -23,7 +23,12 @@ internal static class DocumentCategoryHierarchyAssertions
         var parent = await CreateAsync(client, token, null, cancellationToken);
         var connectionString = MySqlConnectionStringPolicy.Create(factory.ConnectionString, MySqlGuidStorageMode.Binary16, allowUserVariables: false);
         await using var holder = new MySqlConnection(connectionString);
-        await using var observer = new MySqlConnection(connectionString);
+        // 仅观测连接使用夹具管理员；应用账号保持原权限，不为验收授予 PROCESS。
+        var observerOptions = new MySqlConnectionStringBuilder(await SharedDatabaseFixture.GetMySqlRootConnectionStringAsync())
+        {
+            Database = new MySqlConnectionStringBuilder(connectionString).Database,
+        };
+        await using var observer = new MySqlConnection(observerOptions.ConnectionString);
         await holder.OpenAsync(cancellationToken);
         await observer.OpenAsync(cancellationToken);
         await using var transaction = await holder.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);

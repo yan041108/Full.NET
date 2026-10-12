@@ -2709,3 +2709,19 @@ Linux Native API 核心实际执行 21/21、零失败/跳过；重型锁排队 2
 独立源码副本集中执行完整 Linux Native API 核心 21/21，零失败/跳过，实际验证新快照的静态 JSON、DI、双库物化与并发行为；TRX 执行 725.271 秒，协调入口执行 731.348 秒、排队 93.437 秒分别记录。API 原生产物 run `38192563361` 完整成功，实际检出 `a6f38379ce9bed13729f45c93ef92734215000e3`、源码树 `cd05f61f728993b894d5924b1859023d23ba7e8d` 与冻结树一致，ZIP、ELF、清单和完整检出日志摘要核对。核对本批 36 个源码文件、984 个测试消费者及 1017 个证据文件，归档上下文并清理自有容器与独立副本，五项跨窗口内容保持。Windows SDK 10.0.401；Linux 固定 SDK 10.0.400 镜像，4 CPU / 3 GiB，禁止跳过和容器复用。
 
 实际入口：`node .tmp/document-permission-unit.mjs red|green`、`node .tmp/document-permission-fast-final.mjs`、`node .tmp/document-permission-aot.mjs`、`node .tmp/document-permission-jit.mjs`、`node .tmp/document-permission-client-final.mjs`、`pnpm test:openapi`、`node .tmp/document-permission-browser.mjs`、`node .tmp/document-permission-browser-uncertain.mjs`、`node .tmp/document-permission-native.mjs run 17cceebdec1f08b464388fdd471434d32f393520`、`node .tmp/document-permission-final-proof.mjs`。证据入口 `.tmp/document-permission-local-proof.json`、`.tmp/document-permission-jit-1`、`.tmp/document-permission-native-1`、`.tmp/document-permission-final-proof.json`。本批只认证上述路径，不认证完整生成应用、全 Vue 套件、Worker 运行时、任意权限级别的业务执行语义或容量；整体保持 Build-verified / Capacity-not-verified。PR3 保持 Draft，不合并、不发布。
+
+## 2026-10-12 文档分类层级完整性集中验收
+
+任务 `document-category-hierarchy-20261012`，基线 `819bb38`，生产实现冻结 `7dc14db7f449cd663f1596c163071f101337d1c4`。本批集中关闭间接循环、并发互挂与分类父级删除/新建子级竞争：分类增、改、删在本模块 Result 事务内先进行活动 Host 目录锁定读，SQL Server 使用 UPDLOCK/HOLDLOCK、MySQL 使用 FOR UPDATE；迭代检查完整父链并拒绝自身后代、历史循环和断裂祖先。失败不提交写入，合法移回根目录保留。删除取得父行锁后重新 CountActiveChildren，防止 MySQL ReadCommitted 等待扫描漏掉后来插入的更小 Id 子级。保留既有权限、400 机器码与 Version CAS；HTTP/C# 契约与数据库结构均未变，无客户端升级或迁移。
+
+真实 RED 证据：原实现新增 5 项中 4 失败/1 通过；复审指出的漏子级判断新增两提供程序单测 2 项均失败（该组总计 15，13 通过/2 失败）。修复后 Document Unit 70/70、Native/协议/操作标识架构 89/89、命名 33/33、SQL 安全 5/5、治理 70/70，全部零失败/跳过；最终 API AOT 分析通过。只读复审确认阻塞项关闭。分类查询继续使用现有完整投影及静态物化器，不引入反射或新公共记录。
+
+最终 SQL Server/MySQL 分类与标签 HTTP 2/2，零失败/跳过；包含后代挂接拒绝且版本不变、合法脱离、三组并发 A→B/B→A 仅一方成功、父级删除与新建子级只能一方提交。MySQL 另通过实际 LOCK WAIT 屏障，在删除阻塞后插入更早 UUID v7 子级，验证父级不被误删。屏障确定，但不声称强制数据库优化器按 PRIMARY 扫描或在 Integration 上执行了旧实现 RED。TRX 148.285 秒，协调入口 152.638 秒、排队 0.017 秒分别记录。
+
+保留未通过证据：复审前运行因末尾源码冻结检查失败不算验收；第二次 MySQL 因夹具应用账号没有 PROCESS 权限失败（SQL Server 通过），失败 TRX/日志保留。仅将 JIT 观测连接换为夹具管理员并绑定当前隔离数据库，Holder/API 权限不变；修正后重建 JIT 消费者并集中重跑双库。该测试侧修正在本次报告提交中交付。整个文件差异被校验为精确的连接替换，Native 调用的 VerifyAsync 与生产代码均未改，复用原冻结消费者和原生产物；不为定位器修正重复编译应用。
+
+独立 Git 归档应用 Linux Native API 核心单轮 21/21，零失败/跳过；复用同一分类断言验证双库 HTTP、DI、完整投影静态物化及循环/并发拒绝。TRX 755.215 秒，协调入口 763.900 秒、排队 1.050 秒分别记录。API run `38197126683` 完整成功；实际检出 `e293f1b6cefbb39321699d7062b06bebb6d2a8a3`、树 `cd698eaec484731795da1181ecad722e32314f83` 及检出日志摘要已核对。核对 6 个本批文件、984 个 JIT 消费者及 1013 个证据文件；自有容器与副本已清理，跨窗口五项内容保持。Windows SDK 10.0.401；Linux 固定 SDK 10.0.400 镜像、4 CPU / 3 GiB，禁止跳过及容器复用。直连传输较慢并最终超时，切换到已有配置代理下载成功，完整字节数及 SHA-256 仍须一致。
+
+实际入口：`node .tmp/document-category-unit.mjs red`、`node .tmp/document-category-review-unit.mjs red`、`node .tmp/document-category-reviewed-fast-final.mjs`、`node .tmp/document-category-reviewed-aot.mjs`、`node .tmp/document-category-managed.mjs --fixtures-only`、`node .tmp/document-category-static.mjs`、`node .tmp/document-category-jit-observer-final.mjs`、`node .tmp/document-category-native.mjs run 7dc14db7f449cd663f1596c163071f101337d1c4`、`node .tmp/document-category-final-proof.mjs`。证据入口 `.tmp/document-category-local-proof.json`、`.tmp/document-category-jit-3`、`.tmp/document-category-fixture-reuse-proof.json`、`.tmp/document-category-ci-artifacts-fast`、`.tmp/document-category-native-1`、`.tmp/document-category-final-proof.json`；失败证据保留在 jit-1/jit-2 与 RED/harness 日志。
+
+本批范围仅为分类层级，整体保持 Build-verified / Capacity-not-verified；不外推完整生成应用、全量 JIT/Vue、Worker 运行时、分类大目录吞吐、多实例容量或文档项分类引用并发一致性。未自动清洗历史异常分类；移回根目录可用于人工修复。下一消费者为文档项分类挂接/恢复与分类删除之间的引用一致性收口。PR3 保持 Draft，不合并、不发布。
