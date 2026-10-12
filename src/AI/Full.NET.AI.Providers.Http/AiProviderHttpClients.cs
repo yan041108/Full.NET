@@ -25,7 +25,16 @@ public static class AiProviderHttpClients
     {
         var origins = configuration.GetSection("FullNet:Ai:Network:OllamaAllowedOrigins").GetChildren()
             .Select(child => child.Value ?? throw new InvalidOperationException("AI allowed origin cannot be null."));
-        var policy = new AiEndpointPolicy(origins);
+        var networkSection = configuration.GetSection("FullNet:Ai:Network");
+        var privateSection = networkSection.GetSection("PrivateOnly");
+        var privateConfigured = networkSection.GetChildren().Any(child =>
+            string.Equals(child.Key, "PrivateOnly", StringComparison.OrdinalIgnoreCase));
+        var privateOnly = false;
+        // 显式读取避免反射绑定；只有键缺失才能使用默认值，空值或对象不能静默开放公网。
+        if (privateConfigured && (privateSection.GetChildren().Any()
+            || !bool.TryParse(privateSection.Value, out privateOnly)))
+            throw new InvalidOperationException("AI private-only network policy requires a boolean.");
+        var policy = new AiEndpointPolicy(origins, privateOnly);
         foreach (var key in new[] { "openai_compatible", "ollama", "azure_openai" })
         {
             var ollama = key == "ollama";

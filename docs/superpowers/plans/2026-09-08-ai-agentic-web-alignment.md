@@ -2140,6 +2140,24 @@ SQL Server 另有已有知识索引状态用例在文本代次生成断言返回
 - [ ] 关联 Run/Step/Trace 的阶段耗时、调用量、拒答、预算拒绝与错误；日志脱敏、指标低基数，不将文档正文或用户/租户 ID 放入 Metrics 标签。
 - [ ] 不增加专家群聊、任意动态插件或微服务拆分；出现真实业务收益证据后另修订本计划。
 
+#### R11a：Provider 私有化网络闭包（2026-10-12，本批受影响验收完成）
+
+基线 main `c91dab55ece7b71879cdcf35c2a83dbae47da06f`，任务快照 `ai-private-provider-network-r11a`。本批只落实宿主级 Provider 私网边界，沿用现有网络连接器、批准列表与静态注册，不新增依赖、公开 API、数据库或授权入口。
+
+- [x] 为正式 Chat、Embedding、Connectivity 客户端统一冻结 `FullNet:Ai:Network:PrivateOnly`；仅批准的 Ollama 源可入场，默认策略保持兼容。
+- [x] HTTPS 和 HTTP 同样验证全量 DNS 的私网/环回属性，公网、混合或保留地址失败关闭，不能退回公共 Provider。
+- [x] 覆盖非法配置、重载、三类真实本机套接字及九类客户端拒绝；独立只读安全复核和受影响验证后提交 main。
+
+此切片不关闭 R11 数据分类、业务路由、重排和遥测策略，也不关闭 R10 精确输入 Token 硬限或未知外部对账。Native 发布/运行、独立应用与页面按 AI 模块集中验收，保持 `Capacity-not-verified`。
+
+实际证据保存在 artifacts/r11a：node artifacts/r11a/run-final-pipeline.mjs 新鲜执行完整 AI 3625/3625（新增 36 项）、完整 JIT Architecture 235/235 和 AOT 架构集合 88/88，零失败/跳过。API/Worker 的 dotnet build -c Release -p:FullNetAotAnalysis=true -p:NuGetAudit=false 零警告/错误，只证明 Aot-analysis-clean；未做本批新鲜 Native publish/运行。Provider 源路径经当前冻结分类器选择双库 Smoke，SQL Server/MySQL 各 4/4 通过，按矩阵超时顺序运行且各 Workers=1；没有重跑整套 AI 双库集成。
+
+node artifacts/r11a/run-static.mjs 通过命名30、矩阵6、治理57、保护排除后的 Markdown386；node artifacts/r11a/run-tooling.mjs 通过54项。全 Unit 新鲜发现7118，正式矩阵7108，其他窗口 LocalFileLoggingTests 10项仅发现；未执行全Unit。AI Provider 集合实际发现183，最低数与新测试过滤只在测试矩阵维护。冻结7801输入，精确源码、Unit及Integration消费者摘要和双库发现UID核对通过；只复用构建缓存，不复用测试结果。
+
+独立只读安全复核发现显式 null 失败开放，追加真实 RED 后修正并复核无阻断：初始非法值 RED4/4失败；null RED 的全AI3625仅1失败、其余3624通过。测试辅助代码曾调用不存在的 StreamReader API，编译失败证据保留，核对安装的参考 XML 后改为 ReadBlockAsync；编译失败不计作行为RED。Windows x64/i7-12700H/约64GiB、SDK10.0.401；Linux SDK10.0.400/Runtime10.0.11，主构建4逻辑处理器/4GiB，双库各2CPU/8GiB；未联网执行NuGet审计。此范围不证明真实云模型或 Kubernetes 私网端到端行为，不改变数据分类、遥测、MCP或向量库出口能力状态。
+
+首轮 run-final-pipeline.mjs 在 SQL Smoke3/4 时停止，登录场景在租户引导的 Dapper 连接阶段发生 SQL TCP 连接超时；原始 TRX 和日志保存在 sqlserver-first。node artifacts/r11a/run-integration-retry.mjs 未修改代码、过滤集、处理器数、Workers 或产品超时，核对同一源码/消费者摘要后重跑完整 SQL4/4 并执行 MySQL4/4 通过；不把未复现的连接超时写成产品修复，保留失败历史。
+
 ### R12：原生闭包、运营恢复与集中验收（P2，依赖前述切片）
 
 **修改：** `tests/Full.NET.IntegrationTests/NativeAot/NativeApiAiE2ETests.cs` 及 Worker 原生探针；测试矩阵 `eng/testing/test-matrix.json`、现有受影响 CI、Vue 页面验收与 `docs/roadmap/capability-status.md`。

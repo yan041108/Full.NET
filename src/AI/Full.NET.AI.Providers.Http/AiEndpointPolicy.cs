@@ -7,6 +7,7 @@ namespace Full.NET.AI.Providers.Http;
 internal sealed class AiEndpointPolicy
 {
     private readonly HashSet<string> allowedOrigins;
+    private readonly bool privateOnly;
     private static readonly IPNetwork[] DeniedV4 = Networks(
         "0.0.0.0/8", "100.64.0.0/10", "169.254.0.0/16", "192.0.0.0/24", "192.0.2.0/24",
         "192.88.99.0/24", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4",
@@ -16,15 +17,16 @@ internal sealed class AiEndpointPolicy
     private static readonly IPNetwork GlobalV6 = IPNetwork.Parse("2000::/3");
     private static readonly IPNetwork PrivateV6 = IPNetwork.Parse("fc00::/7");
 
-    internal AiEndpointPolicy(IEnumerable<string> ollamaOrigins)
+    internal AiEndpointPolicy(IEnumerable<string> ollamaOrigins, bool privateOnly = false)
     {
+        this.privateOnly = privateOnly;
         allowedOrigins = new(StringComparer.Ordinal);
         foreach (var origin in ollamaOrigins)
         {
             if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri) || uri.Scheme is not ("https" or "http")
                 || uri.AbsolutePath != "/" || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0)
                 throw new InvalidOperationException("AI network policy requires exact HTTP origins.");
-            if (IPAddress.TryParse(uri.DnsSafeHost, out var address) && !IsAllowedAddress(address, true))
+            if (IPAddress.TryParse(uri.DnsSafeHost, out var address) && !IsAllowedDestination(address, true))
                 throw new InvalidOperationException("AI network policy cannot allow a reserved address.");
             allowedOrigins.Add(Origin(uri));
         }
@@ -35,10 +37,16 @@ internal sealed class AiEndpointPolicy
         if (!uri.IsAbsoluteUri || uri.Scheme is not ("https" or "http") || uri.UserInfo.Length != 0 || uri.Fragment.Length != 0)
             throw Blocked();
         var approved = ollama && allowedOrigins.Contains(Origin(uri));
+        // 私有化是宿主固定边界，不能通过兼容网关、未批准地址或失败回退打开公网出口。
+        if (privateOnly && !approved) throw Blocked();
         if (uri.Scheme != "https" && !approved) throw Blocked();
-        if (IPAddress.TryParse(uri.DnsSafeHost, out var literal) && !IsAllowedAddress(literal, approved)) throw Blocked();
+        if (IPAddress.TryParse(uri.DnsSafeHost, out var literal) && !IsAllowedDestination(literal, approved)) throw Blocked();
         return approved;
     }
+
+    /// <summary>私有化时 HTTPS 与 HTTP 都须落在批准的私网或环回，保留原有特殊地址拒绝集。</summary>
+    internal bool IsAllowedDestination(IPAddress address, bool approved) => IsAllowedAddress(address, approved)
+        && (!privateOnly || approved && !IsAllowedAddress(address, false));
 
     internal static bool IsAllowedAddress(IPAddress address, bool approved)
     {

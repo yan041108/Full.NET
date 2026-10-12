@@ -1,6 +1,6 @@
 # AI Provider 网络与能力配置
 
-适用于 API 宿主中的 OpenAI/兼容网关与 Ollama 聊天和模型目录探测。默认只允许公共 HTTPS，拒绝未批准的私网、环回及 HTTP。旧版本可直接访问的本地 Ollama 在升级后必须显式配置批准列表；内网 OpenAI 网关目前不支持策略豁免，不能用 Ollama 键代替 OpenAI 协议。
+适用于正式 Provider 的聊天、Embedding 和模型目录探测，包括 OpenAI/兼容网关、Azure OpenAI 与 Ollama。默认只允许公共 HTTPS，拒绝未批准的私网、环回及 HTTP。旧版本可直接访问的本地 Ollama 在升级后必须显式配置批准列表；内网 OpenAI 网关目前不支持策略豁免，不能用 Ollama 键代替 OpenAI 协议。
 
 ## 批准 Ollama 地址
 
@@ -21,6 +21,14 @@
 容器/Kubernetes 可以使用环境变量 `FullNet__Ai__Network__OllamaAllowedOrigins__0=http://ollama.internal:11434`。确认批准目标由管理员控制；HTTP 明文例外仅适用于受信网络。模型配置仍填写对应端点，不能通过模型配置、请求参数或工具输入新增网络批准。
 
 默认列表为空。支持多个精确源，不支持通配符与任意私网总开关；域名、协议或端口不同需要分别批准。配置在宿主装配时读取并固定，修改后需重启所有 API 实例，重启会终止这些实例上的活动流。
+
+## 仅私网 Provider 模式
+
+可信宿主可设置 `FullNet:Ai:Network:PrivateOnly=true`（环境变量 `FullNet__Ai__Network__PrivateOnly=true`），并同时配置上述 `OllamaAllowedOrigins`。此模式覆盖注册的聊天、Embedding 和目录探测 HTTP 客户端；只允许精确批准的 Ollama 源，空批准列表关闭所有 Provider 出口。OpenAI 兼容网关与 Azure OpenAI 均拒绝，不把它们的协议或密钥交给 Ollama。键缺失或 `false` 保持既有网络策略；显式空值、非法布尔值或对象形状使装配失败。
+
+在此模式下，批准的 HTTPS 域名也只能解析到私网或环回；全部 DNS 结果先校验，再按已校验 IP 连接。包含任何公网或特殊用途地址就拒绝整组，不尝试剩余私网地址来掩盖混合结果。批准列表不能包含公网字面 IP。私网连接失败只尝试同组已校验地址，不能切换到公网 Provider；协议层既有错误和未知计费恢复规则继续适用。
+
+此开关在宿主装配时冻结，修改后须重启 API 和使用 Provider 的 Worker 实例；配置重载不能关闭正在使用的边界。它仅控制正式 Provider 网络出口，不代表知识库数据分类、重排、遥测、MCP、向量库或宿主其他 HTTP 出口已应用同一策略；这些阶段仍按 AI 计划分别验收。私网 HTTP 的信任网络约束与 HTTPS 系统证书校验保持原规则。
 
 ## 网络行为与限制
 

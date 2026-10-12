@@ -16,7 +16,7 @@ internal sealed class AiNetworkConnector(AiEndpointPolicy policy, bool ollama,
             || uri.Port != endpoint.Port) throw AiEndpointPolicy.Blocked();
         var addresses = IPAddress.TryParse(endpoint.Host.Trim('[', ']'), out var literal)
             ? [literal] : await resolve(endpoint.Host, cancellationToken).ConfigureAwait(false);
-        if (addresses.Length == 0 || addresses.Any(address => !AiEndpointPolicy.IsAllowedAddress(address, approved)))
+        if (addresses.Length == 0 || addresses.Any(address => !policy.IsAllowedDestination(address, approved)))
             throw AiEndpointPolicy.Blocked();
         // 明文例外仅限内网：已批准的域名重绑定到公网也不能发送 HTTP 请求。
         if (uri.Scheme == "http" && addresses.Any(address => AiEndpointPolicy.IsAllowedAddress(address, false)))
