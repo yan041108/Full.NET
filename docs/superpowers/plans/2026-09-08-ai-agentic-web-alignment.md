@@ -2794,3 +2794,21 @@ pnpm test:aot:worker:analyzers
 TRX报告器对过长捕获文本保留字段截断提示，状态、计数与精确UID另行核对完整；不声称截断区域文本完整。
 
 原命令、退出码、TRX、发现UID、源码/消费者证明与审查位于 `artifacts/r11g/acceptance.json`。main仅提交本批8项文件，不推送；共享矩阵仅暂存HEAD加本批25项增量，其他窗口改动和两个保护路径保留。
+
+#### R11h：已知官方 Embedding 输入 Token 准入（2026-10-13，本批受影响本地验收完成）
+
+基线 main `71b0f3d7d23d9b446a4c1f4a9691e2a7d8048ccb`，任务快照 `ai-embedding-input-limit-r11h`。一批交付能力测试、知识问答查询和文本/PDF/DOCX 共享索引预算入口的输入门禁；不新增依赖、SQL、迁移、HTTP DTO 或权限。
+
+- [x] 仅核准官方目的地、`openai_compatible` 及 `text-embedding-3-small` / `text-embedding-3-large` 使用固定离线 `cl100k_base` 精确计数。沿官方 Cookbook 采用单条8191 Token保守边界，严格 Unicode、取消及词表缺失/摘要漂移失败关闭。现有16条/32000字符约束同时限制计数成本；不裁剪、不重写、不改目的地或模型。依据与支持边界见 [AI预算说明](../../operations/ai-operation-budgets.md)。
+- [x] 超限拒绝早于批次/操作身份创建、预算预留及模型派发，保持原授权、租户、来源复核与结算。保留 `AiEmbeddingBudgetRequest` 字节上界及历史请求指纹，避免旧索引回执和恢复失效；其他网关、模型和聊天输入未因此获得精确Token认证。
+- [x] 新增30项专项回归，覆盖官方两模型、8190/8191/8192实际Token边界、无效Unicode、官方目的地允许集、未知目的地、取消、原预算/指纹及Host/租户准入顺序。修正夹具后，三原业务入口未接门禁的有效RED为10项中8失败/2通过；`node artifacts/r11h/run-isolated-unit.mjs green` 30/30，`node artifacts/r11h/run-isolated-unit.mjs final` 3905/3905，零失败/跳过。
+- [x] 双库真实有效租约/来源上新增超限输入，核对批次行、预算行及Provider调用均未增加。`node artifacts/r11h/run-pipeline.mjs` 按真实分类仅选择Ai，夹具修复由 `node artifacts/r11h/run-fixture-repair.mjs` 完成，SQL Server原轮43通过/1夹具失败，修复后该失败UID单项重跑1/1通过；MySQL完整44/44通过，合并覆盖88唯一UID；提供程序顺序执行、单Worker、原矩阵60分钟期限。分片发现1214无遗漏/重复，不宣称全部Integration已执行。
+- [x] API/Worker AOT分析零警告/错误，AOT架构88/88、全量架构235/235及JIT Integration构建通过。命名30、矩阵6、治理57、工具链54和保护排除后的Markdown检查通过。完整Unit仅发现7388，与规范矩阵一致；本批实际执行完整AI3905，未执行全部Unit。
+
+首轮测试夹具误选只有2 Token的汉字，又遗漏索引记录版本，初始结果不作为有效超限RED；原日志/TRX保留。修正为固定词表实测选择3 Token字符、断言完整输入计数，并补齐文档/知识库版本，再对未接门禁的原业务入口建立失败证据。最初可空编译错误同样保留，修复夹具后构建通过。SQL原轮新增断言错误依赖Host DI注册，实际夹具手工构造该内部服务；改为同作用域AdmissionStore，保留原预算挂钩。修复仅改一项Integration夹具，生产字节未变；原SQL轮和补跑分别保留，不称原命令通过。首个补跑构建漏挂本地NuGet缓存而失败，补齐挂载后相同源码重新构建通过，原NETSDK1064日志保留。最终只读复核无剩余Critical/Important，复核不代跑测试。
+
+冻结7820个输入；Windows完整AI前后冻结源码及原程序集/消费闭包摘要一致，AI/Agents生产与消费程序集匹配。既有RAG用例生成的已知JSON数据/报告单列运行产物并记录前后摘要，不豁免DLL或未知文件。Linux AOT、JIT及双库覆盖前验证R11g源码与完整消费摘要，仅传入当前差异。共享矩阵仅暂存HEAD加本批30项，其他窗口改动和两个保护路径保留。
+
+Windows x64/SDK10.0.401、Linux SDK10.0.400/runtime10.0.11，i7-12700H/约64GiB；Unit4处理器/2GiB GC，构建8CPU/4GiB，双库各2CPU/8GiB。本地缓存restore使用NuGetAudit=false，未执行在线审计。TRX过长捕获文本若有截断提示按原记录保留，状态、计数与精确UID另行核对，不宣称截断区域完整。
+
+本批不认证云Provider计量/硬费用、其他Provider/Chat输入或完整数据分类准入。持久StepId/跨重启Trace、未知外部副作用对账、集中Native发布/运行、生成应用、页面及运维恢复仍开放，R11整体与Capacity-not-verified保持原状态。原命令、退出码、TRX、发现UID及摘要证明见 `artifacts/r11h/acceptance.json`；在main提交本批10项文件，不推送。证据段落在测试结束后补齐，不把最终文档字节冒充运行前冻结字节。

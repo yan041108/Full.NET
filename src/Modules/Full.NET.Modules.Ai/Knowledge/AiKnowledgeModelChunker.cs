@@ -53,7 +53,8 @@ internal static class AiKnowledgeModelChunker
             model.ProviderKey, model.ModelId, result.Output!), AiKnowledgeModelChunkFailure.None);
     }
 
-    private static bool OfficialDestination(string endpoint)
+    /// <summary>只识别固定词表已核准的官方目的地形式，不证明网络许可或模型可用。</summary>
+    internal static bool OfficialDestination(string endpoint)
     {
         // 在 URI 规范化之前约束原始形式，避免百分号编码、点段或反斜杠被转换为已核准路径。
         // 主机/协议大小写和显式默认端口可等价，路径必须精确；网络政策仍由 Provider 派发边界负责。

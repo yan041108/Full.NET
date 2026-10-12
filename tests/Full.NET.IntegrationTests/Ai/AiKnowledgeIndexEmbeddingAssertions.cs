@@ -90,6 +90,20 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                 projection = await Use((tasks, _, _) => tasks.ReadDispatchAsync(binding, task.Id, held.LeaseToken.Value, default));
                 Assert.IsNotNull(projection); Assert.AreEqual("projection-test", projection.ModelOrganizationId);
                 await db.ExecuteAsync("UPDATE fn_ai_model_config SET OrganizationId=NULL WHERE Id=@ModelConfigId", p);
+                if (!wholeGeneration)
+                {
+                    // Token 拒绝必须早于批次身份和账本；复用真实租约及官方模型，不能由来源无效伪造零收费。
+                    var batchCount = await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id", new { Id = task.Id });
+                    var budgetCount = await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_operation_budget WHERE ModelConfigId=@ModelConfigId", p);
+                    var tokenizer = AiKnowledgeCl100kTokenizer.Get(default);
+                    var excess = Enumerable.Range(0x3400, 512).Select(value => new string((char)value, 3000))
+                        .First(text => tokenizer.CountTokens(text) > AiKnowledgeEmbeddingInputPolicy.MaxInputTokens);
+                    await Assert.ThrowsExactlyAsync<InvalidDataException>(() => Use((tasks, _, services) => AdmissionStore(services, tasks).ReserveAsync(binding, task.Id, held.LeaseToken.Value,
+                            0, [excess], default)));
+                    Assert.AreEqual(batchCount, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id", new { Id = task.Id }));
+                    Assert.AreEqual(budgetCount, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_operation_budget WHERE ModelConfigId=@ModelConfigId", p));
+                    Assert.AreEqual(0, provider.Calls);
+                }
             }
             if (executeGeneration)
             {
@@ -232,6 +246,14 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                 services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(),
                 tasks, SessionService(services, tasks), authorization, services.GetRequiredService<IOptions<DatabaseOptions>>());
 
+            // 内部执行器由此夹具按可信范围构造；准入断言复用同一构造，不能依赖未注册的 Host 服务。
+            AiKnowledgeIndexBudgetService AdmissionStore(IServiceProvider services, AiKnowledgeIndexTaskStore tasks, IAiOperationBudgetStore? budget = null)
+            {
+                var query = services.GetRequiredService<IQueryExecutor>();
+                return new(query, tasks, new(query, services.GetRequiredService<ICommandExecutor>(), tasks, services.GetRequiredService<IIdGenerator>(),
+                    services.GetRequiredService<IOptions<DatabaseOptions>>()), budget ?? services.GetRequiredService<IAiOperationBudgetStore>());
+            }
+
             async Task<T> Use<T>(Func<AiKnowledgeIndexTaskStore, AiKnowledgeIndexEmbeddingService, IServiceProvider, Task<T>> action)
             {
                 await using var scope = factory.Services.CreateAsyncScope(); var services = scope.ServiceProvider;
@@ -247,7 +269,7 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                         if (scenario == "settled_revoked") await db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET Version=2 WHERE Id=@DocumentId", p);
                         else clock.UtcNow = clock.UtcNow.AddSeconds(30);
                     });
-                var admission = new AiKnowledgeIndexBudgetService(query, tasks, new(query, command, tasks, ids, services.GetRequiredService<IOptions<DatabaseOptions>>()), budget);
+                var admission = AdmissionStore(services, tasks, budget);
                 var execution = new AiKnowledgeIndexEmbeddingService(query, services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IDataTransactionState>(), tasks, SessionService(services, tasks), admission, budget, authorization, files, files, files, [provider], services.GetRequiredService<AiModelBindingScope>());
                 return await action(tasks, execution, services);
             }

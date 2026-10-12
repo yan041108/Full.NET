@@ -62,6 +62,8 @@ internal sealed class AiKnowledgePaidAnswerService(AiKnowledgeRetrievalService r
         if (!AiKnowledgeRetrievalService.SameModel(generationModel, current)) throw Invalid();
         var preflight = await retrieval.PreflightAsync(frozenIds, actor, embeddingModel, work, generationModel).ConfigureAwait(false);
         await AuthorizedAsync(preflight, work).ConfigureAwait(false);
+        // 已知官方词表的超限问题不能先收费再由上下文或 Provider 拒绝；保持原预留和历史指纹。
+        if (AiKnowledgeEmbeddingInputPolicy.Validate(embeddingModel, [question], work) is not null) throw Invalid();
         var embeddingRequest = AiEmbeddingBudgetRequest.Create(NewId(), embeddingModel, [question]);
         var vector = await EmbedAsync(preflight, embeddingFactory, embeddingRequest, question, trustedTenant, work).ConfigureAwait(false);
         var prepared = await pipeline.PrepareAsync(frozenIds, actor, embeddingModel, vector, question, work, generationModel).ConfigureAwait(false);

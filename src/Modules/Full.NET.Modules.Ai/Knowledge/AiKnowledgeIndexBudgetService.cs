@@ -30,6 +30,9 @@ internal sealed class AiKnowledgeIndexBudgetService(IQueryExecutor query, AiKnow
                 ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
             AiSqlParameters.Create(("ModelConfigId", source.ModelConfigId)), token).ConfigureAwait(false);
         if (model is null || !model.IsEnabled || model.Id != source.ModelConfigId || model.Version != source.ModelConfigVersion) return null;
+        // Token 门禁早于任何批次身份或预算写入；历史指纹仍使用原字节上界，不使旧索引失效。
+        if (AiKnowledgeEmbeddingInputPolicy.Validate(model, frozen, token) is not null)
+            throw new InvalidDataException("Knowledge embedding input exceeds the supported boundary.");
         // OperationId 不参与请求指纹；临时使用任务 ID 构造完整请求，持久化后替换为正式批次 ID。
         var draft = AiEmbeddingBudgetRequest.Create(taskId, model, frozen);
         var batch = await batches.PrepareAsync(binding, taskId, leaseToken, batchOrdinal, AiOperationBudgetStore.Fingerprint(draft), frozen.Length, token).ConfigureAwait(false);

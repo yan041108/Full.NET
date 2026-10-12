@@ -8,6 +8,7 @@ using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Domain;
 using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Modules.Ai.Security;
+using Full.NET.Modules.Ai.Knowledge;
 using Microsoft.Extensions.AI;
 
 namespace Full.NET.Modules.Ai.Features.TestEmbeddings;
@@ -48,7 +49,8 @@ internal sealed class AiEmbeddingTestService(
         }
 
         var inputs = ResolveInputs(request);
-        var validation = AiEmbeddingContentPolicy.ValidateInputs(inputs);
+        var validation = AiEmbeddingContentPolicy.ValidateInputs(inputs)
+            ?? AiKnowledgeEmbeddingInputPolicy.Validate(row, inputs, cancellationToken);
         if (validation is not null)
         {
             return Result<TestAiModelEmbeddingResult>.Failure(new Error(

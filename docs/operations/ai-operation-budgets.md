@@ -28,6 +28,16 @@
 
 预留值是完整历史 UTF-8 大小加结构余量及最大输出的保守估计，并不是经过认证的供应商计量上界。当前 Provider 未完成硬费用认证：请求设置 `RequireHardCostLimit`、配置 `MonthlyCostLimit`，或 Run 配置 `RunCostLimit` 时，返回 `ai.budget.hard_cost_unavailable`，不会调用模型。不要为启用硬预算伪造计量认证。
 
+## 已知官方 Embedding 输入准入
+
+官方 `https://api.openai.com/v1` 目的地的 `text-embedding-3-small` 和 `text-embedding-3-large`，在能力测试、知识查询及文本/PDF/DOCX 索引预算准入前使用仓库固定离线 `cl100k_base` 词表校验。单条采用 8191 Token 保守上限；无效 Unicode 拒绝，词表缺失或摘要漂移失败关闭，不回退为字符估算。依据为 [官方 API 输入限制](https://developers.openai.com/api/reference/resources/embeddings/methods/create)与 [官方长输入 Cookbook](https://github.com/openai/openai-cookbook/blob/main/examples/Embedding_long_inputs.ipynb)。
+
+原有 16 条、单条 8000 字符、整批 32000 字符边界继续适用；结合每条 8191 Token，整批最多 131056 Token，低于官方 300000 Token 请求上限。门禁不裁剪或重写输入，早于客户端创建、收费预留及索引批次身份写入；拒绝不需要结算零用量。
+
+只认可官方目的地的精确原始形式及两个精确模型名。主机/协议大小写、显式443与末尾斜杠沿用已核准等价形式；兼容网关、路径变体及其他模型不据此取得精确 Token 认证，仍遵守原字符、授权、预算和网络规则。私有化模式不会因此获得公网回退。
+
+准入 Token 计数与持久预算协议分开：原 UTF-8 字节加余量预留数值、请求摘要和历史索引回执保持不变，不改写旧账本。该切片不是 Provider 用量或硬费用认证；完整 Chat 输入硬限、其他模型/网关词表证明及未知外部费用对账仍待后续。
+
 ## 价格与用量
 
 价格存于 `fn_ai_model_price`，目前通过受控 Host 数据维护流程追加版本，没有开放价格 CRUD API。运维必须提供 UUID v7 版本、模型配置 Id、大小写精确的 ProviderKey/ModelId、三位大写币种、ValidFromUtc 及每百万 Token 费率。费率使用 `decimal(20,8)`；普通输入和输出费率在 0 至 1000000 之间，缓存输入费率不得高于普通输入费率。不要更新已发布价格行来改写历史，价格调整追加新版本。
