@@ -912,6 +912,7 @@ internal static class NativeApiE2EAssertions
         await DocumentCategoryHierarchyAssertions.VerifyAsync(client, accessToken, cancellationToken).ConfigureAwait(false);
         await DocumentCategoryReferenceAssertions.VerifyAsync(client, accessToken, provider, connectionString, cancellationToken).ConfigureAwait(false);
         await DocumentTitleConcurrencyAssertions.VerifyAsync(client, accessToken, provider, connectionString, cancellationToken).ConfigureAwait(false);
+        await DocumentLifecycleAssertions.VerifyAsync(client, accessToken, cancellationToken).ConfigureAwait(false);
         var categoryRequest = new CreateHostDocumentCategoryRequest(
             "Native AOT category " + suffix,
             null,

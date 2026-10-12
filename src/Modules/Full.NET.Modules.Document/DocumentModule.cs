@@ -105,6 +105,7 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddScoped<Features.UpdateHostDocumentVersionRetention.DocumentVersionRetentionSettingService>();
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryQueryService>();
         services.TryAddScoped<DocumentTaxonomyWriteGuard>();
+        services.TryAddScoped<DocumentItemWriteGuard>();
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryManagementService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentItemCategoryReferenceService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentItemRestoreService>();
@@ -184,6 +185,7 @@ public sealed class DocumentModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.TryAddScoped<DocumentItemWriteGuard>();
 #if FULLNET_AOT_COMPILE
         new Persistence.DocumentDapperAotMaterializerContributor()
             .RegisterMaterializers(

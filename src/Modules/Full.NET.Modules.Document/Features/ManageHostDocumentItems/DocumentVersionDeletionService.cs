@@ -32,7 +32,8 @@ internal sealed class DocumentVersionDeletionService(
     IHostFileReferenceClaimService hostFileReferenceClaimService,
     IOptionsMonitor<DocumentVersionRetentionOptions> retentionOptions,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    DocumentItemWriteGuard itemWrites)
 {
     /// <summary>管理员授权删除单个历史版本，并要求文档项乐观并发版本匹配。</summary>
     /// <param name="itemId">文档项标识。</param>
@@ -117,6 +118,7 @@ internal sealed class DocumentVersionDeletionService(
         long? expectedItemVersion,
         CancellationToken cancellationToken)
     {
+        if (!await itemWrites.LockAsync(itemId, cancellationToken).ConfigureAwait(false)) return NotFoundBool();
         var item = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById,

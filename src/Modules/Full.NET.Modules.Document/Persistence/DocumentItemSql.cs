@@ -331,7 +331,7 @@ internal static class DocumentItemSql
 
     /// <summary>
     /// 物理删除回收站文档项：仅对 IsDeleted = 1 的行执行，不可逆；
-    /// 上层调用方必须先解除文件引用 Claim，否则会留下孤儿文件引用。
+    /// 本语句仅删除 Document 自有数据；Files Claim 的可靠释放须由独立补偿流程保障。
     /// </summary>
     public static readonly SqlStatement Purge = new(
         "document.host_recycle_bin.purge",
@@ -340,6 +340,24 @@ internal static class DocumentItemSql
         WHERE Id = @Id
           AND TenantId IS NULL
           AND IsDeleted = 1
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>主行先于版本、标签关联等子行锁定；删除状态由持锁调用方重新检查。</summary>
+    public static readonly SqlStatement LockHostItemSqlServer = new(
+        "document.host_item.lock_host.sql_server",
+        """
+        SELECT 1 FROM fn_document_item WITH (UPDLOCK, HOLDLOCK)
+        WHERE Id = @Id AND TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>MySQL与SQL Server使用相同主行锁边界，不依赖默认隔离级别或子行存在。</summary>
+    public static readonly SqlStatement LockHostItemMySql = new(
+        "document.host_item.lock_host.mysql",
+        """
+        SELECT 1 FROM fn_document_item
+        WHERE Id = @Id AND TenantId IS NULL FOR UPDATE
         """,
         SqlDataScope.HostOnly);
 

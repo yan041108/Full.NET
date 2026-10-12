@@ -9,15 +9,15 @@ namespace Full.NET.Modules.Document.Features.QueryHostRecycleBin;
 
 /// <summary>
 /// Host 文档回收站管理服务。Restore 通过乐观并发 Version 自增实现软删除行的复活，
-/// Purge 执行物理删除并联动 Files 模块文件引用清理事后对账；二者均在单一事务内完成，
-/// Purge 前必须确认无引用残留以避免产生孤儿文件。
+/// Purge 在Document自有Result事务内先锁主行、再删除依赖及主行；不访问Files表或共享跨模块事务。
 /// </summary>
 internal sealed class HostRecycleBinManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     HostDocumentItemQueryService itemQueries,
-    DocumentItemRestoreService restores)
+    DocumentItemRestoreService restores,
+    DocumentItemWriteGuard itemWrites)
 {
     public Task<Result<HostDocumentItemResponse>> RestoreAsync(
         Guid itemId,
@@ -59,6 +59,7 @@ internal sealed class HostRecycleBinManagementService(
         Guid itemId,
         CancellationToken cancellationToken)
     {
+        if (!await itemWrites.LockAsync(itemId, cancellationToken).ConfigureAwait(false)) return Result<bool>.Failure(NotFoundError());
         var existing = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindDeletedById,

@@ -27,7 +27,8 @@ internal sealed class HostDocumentItemManagementService(
     IIdGenerator idGenerator,
     DocumentItemCategoryReferenceService categoryReferences,
     DocumentItemRestoreService restores,
-    DocumentItemTitleService titles)
+    DocumentItemTitleService titles,
+    DocumentItemWriteGuard itemWrites)
 {
     public Task<Result<HostDocumentItemResponse>> CreateAsync(
         Guid actorUserId,
@@ -381,6 +382,7 @@ internal sealed class HostDocumentItemManagementService(
         HostFileReference fileReference,
         CancellationToken cancellationToken)
     {
+        if (!await itemWrites.LockAsync(itemId, cancellationToken).ConfigureAwait(false)) return NotFound();
         var item = await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
         if (item is null)
         {
@@ -451,6 +453,7 @@ internal sealed class HostDocumentItemManagementService(
         long version,
         CancellationToken cancellationToken)
     {
+        if (!await itemWrites.LockAsync(itemId, cancellationToken).ConfigureAwait(false)) return NotFound();
         var item = await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
         if (item is null)
         {

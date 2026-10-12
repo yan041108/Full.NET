@@ -215,9 +215,10 @@ public sealed class DocumentCategoryReferenceTests
         private DocumentItemCategoryReferenceService Categories() => new(this, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
         private DocumentItemTitleService Titles() => new(this, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
         private DocumentItemRestoreService Restores() => new(this, commands, Categories(), clock, Titles());
-        public HostDocumentItemManagementService Items() => new(this, commands, new InlineTransaction(), null!, null!, null!, Tags(), clock, ids, Categories(), Restores(), Titles());
+        private DocumentItemWriteGuard ItemWrites() => new(this, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+        public HostDocumentItemManagementService Items() => new(this, commands, new InlineTransaction(), null!, null!, null!, Tags(), clock, ids, Categories(), Restores(), Titles(), ItemWrites());
         public HostRecycleBinManagementService Recycle() => new(this, commands, new InlineTransaction(),
-            new(null!, this, null!, null!, Tags(), Options.Create(new DatabaseOptions())), Restores());
+            new(null!, this, null!, null!, Tags(), Options.Create(new DatabaseOptions())), Restores(), ItemWrites());
 
         public Task<Result<HostDocumentItemResponse>> ExecuteAsync(string operation) => operation switch
         {
