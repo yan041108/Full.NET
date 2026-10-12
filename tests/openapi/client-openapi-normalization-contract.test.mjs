@@ -232,8 +232,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   assert.deepEqual(attachments.post.requestBody.content['multipart/form-data'].schema.required, ['version', 'file']);
   assert.ok(snapshot.paths['/api/v1/enterprise_request/enterprise-requests/{id}/attachments/{attachmentId}/content']
     .get.responses['200'].content['application/octet-stream'], '下载必须明确声明认证 Blob 成功内容');
-  assert.equal(manifest.entries.length, 579);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 579);
+  assert.equal(manifest.entries.length, 580);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 580);
   assert.deepEqual(
     manifest.entries
       .filter(entry => entry.generatedGroup === 'workflow-forms')
@@ -356,7 +356,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    579
+    580
   );
   assert.equal(
     snapshot.paths['/api/v1/workflow/forms/component-catalog'].get.operationId,

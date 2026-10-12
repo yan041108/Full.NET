@@ -221,6 +221,7 @@ import type {
   HostDocumentItemResponse,
   HostDocumentPermissionEntry,
   HostDocumentPermissionResponse,
+  HostDocumentPermissionSnapshotResponse,
   HostDocumentPreviewTaskResponse,
   HostDocumentShareAccessResponse,
   HostDocumentShareResponse,
@@ -3135,6 +3136,18 @@ export function readHostDocumentPermissionResponse(value: unknown): HostDocument
 
 function isHostDocumentPermissionResponse(value: unknown): value is HostDocumentPermissionResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["permissionLevel"] === 'string') && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]));
+}
+
+export function readHostDocumentPermissionSnapshotResponse(value: unknown): HostDocumentPermissionSnapshotResponse {
+  const normalizedValue = normalizeHostDocumentPermissionSnapshotResponseIntegerJson(value);
+  if (!(isHostDocumentPermissionSnapshotResponse(normalizedValue))) {
+    throw new Error('client.invalid_host_document_permission_snapshot_response');
+  }
+  return normalizedValue;
+}
+
+function isHostDocumentPermissionSnapshotResponse(value: unknown): value is HostDocumentPermissionSnapshotResponse {
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => isHostDocumentPermissionResponse(item20))) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostDocumentPreviewTaskResponse(value: unknown): HostDocumentPreviewTaskResponse {
@@ -6204,14 +6217,15 @@ function isServerRuntimeSnapshot(value: unknown): value is ServerRuntimeSnapshot
 }
 
 export function readSetHostDocumentPermissionsRequest(value: unknown): SetHostDocumentPermissionsRequest {
-  if (!(isSetHostDocumentPermissionsRequest(value))) {
+  const normalizedValue = normalizeSetHostDocumentPermissionsRequestIntegerJson(value);
+  if (!(isSetHostDocumentPermissionsRequest(normalizedValue))) {
     throw new Error('client.invalid_set_host_document_permissions_request');
   }
-  return value;
+  return normalizedValue;
 }
 
 function isSetHostDocumentPermissionsRequest(value: unknown): value is SetHostDocumentPermissionsRequest {
-  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => isHostDocumentPermissionEntry(item20)));
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => isHostDocumentPermissionEntry(item20))) && (value["version"] === undefined || (Number.isSafeInteger(value["version"])));
 }
 
 export function readSetNotificationProviderProfileEnabledRequest(value: unknown): SetNotificationProviderProfileEnabledRequest {
@@ -8587,6 +8601,10 @@ function normalizeHostDocumentItemResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "accessCount") ? { ["accessCount"]: normalizeWireInteger(value["accessCount"]) } : {}), ...(Object.hasOwn(value, "currentVersion") ? { ["currentVersion"]: normalizeIntegerUnion(value["currentVersion"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isHostDocumentVersionResponse(value), normalize: (value: unknown) => normalizeHostDocumentVersionResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "sizeKb") ? { ["sizeKb"]: normalizeWireInteger(value["sizeKb"]) } : {}), ...(Object.hasOwn(value, "sort") ? { ["sort"]: normalizeWireInteger(value["sort"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeHostDocumentPermissionSnapshotResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeHostDocumentPreviewTaskResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -9409,6 +9427,10 @@ function normalizeServerRuntimeMetricIntegerJson(value: unknown): unknown {
 
 function normalizeServerRuntimeSnapshotIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "metrics") ? { ["metrics"]: (Array.isArray(value["metrics"]) ? value["metrics"].map((item16: unknown) => normalizeServerRuntimeMetricIntegerJson(item16)) : value["metrics"]) } : {}), ...(Object.hasOwn(value, "processId") ? { ["processId"]: normalizeWireInteger(value["processId"]) } : {}), ...(Object.hasOwn(value, "uptimeSeconds") ? { ["uptimeSeconds"]: normalizeWireInteger(value["uptimeSeconds"]) } : {}) } : value);
+}
+
+function normalizeSetHostDocumentPermissionsRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeSetNotificationProviderProfileEnabledRequestIntegerJson(value: unknown): unknown {

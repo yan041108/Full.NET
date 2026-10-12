@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http } from './http';
 import {
   getDocumentPermissionsByDocument,
+  getDocumentPermissionSnapshot,
   setDocumentPermissions
 } from './document-permissions';
 
@@ -42,6 +43,7 @@ describe('document-permissions api', () => {
     requestMock.mockResolvedValueOnce([permission]);
     const req = {
       documentId,
+      version: 7,
       permissions: [{ userId, permissionLevel: 'read' }]
     };
 
@@ -55,5 +57,27 @@ describe('document-permissions api', () => {
       }),
       undefined
     );
+  });
+
+  it('rejects an unversioned full replacement before sending it', async () => {
+    await expect(setDocumentPermissions({ documentId, permissions: [] } as never))
+      .rejects.toThrow('client.invalid_set_document_permissions_request');
+    expect(requestMock).not.toHaveBeenCalled();
+  });
+
+  it('reads an empty snapshot with its revision', async () => {
+    requestMock.mockResolvedValueOnce({ documentId, version: 7, permissions: [] });
+    await expect(getDocumentPermissionSnapshot(documentId)).resolves.toEqual({ documentId, version: 7, permissions: [] });
+    expect(requestMock).toHaveBeenCalledWith(`/api/v1/document/host/permissions/snapshot/${documentId}`, { method: 'GET' }, undefined);
+  });
+
+  it.each([
+    { documentId: userId, version: 7, permissions: [] },
+    { documentId, version: 7, permissions: [{ ...permission, documentId: userId }] },
+    { documentId, version: 0, permissions: [] },
+    { documentId, version: Number.MAX_SAFE_INTEGER, permissions: [] }
+  ])('rejects mismatched or unusable snapshots', async snapshot => {
+    requestMock.mockResolvedValueOnce(snapshot);
+    await expect(getDocumentPermissionSnapshot(documentId)).rejects.toThrow();
   });
 });

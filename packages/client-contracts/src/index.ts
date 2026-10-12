@@ -788,12 +788,14 @@ export type {
 export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
+  isHostDocumentPermissionSnapshotResponse,
   isSetHostDocumentPermissionsRequest
 } from './document-permissions.js';
 
 export type {
   HostDocumentPermissionEntry,
   HostDocumentPermissionResponse,
+  HostDocumentPermissionSnapshotResponse,
   SetHostDocumentPermissionsRequest
 } from './document-permissions.js';
 

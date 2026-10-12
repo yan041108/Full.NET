@@ -10,7 +10,7 @@ vi.mock('../api/host-document-items', () => ({
 }));
 
 vi.mock('../api/document-permissions', () => ({
-  getDocumentPermissionsByDocument: vi.fn().mockResolvedValue([]),
+  getDocumentPermissionSnapshot: vi.fn().mockResolvedValue({ documentId: '0198f36e-f7a7-7c52-9cbb-774e67411205', version: 7, permissions: [] }),
   setDocumentPermissions: vi.fn()
 }));
 

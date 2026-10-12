@@ -8242,6 +8242,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
           }
         },
         "security": [
@@ -8280,6 +8290,75 @@
                     "$ref": "#/components/schemas/HostDocumentPermissionResponse"
                   },
                   "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "DocumentHostPermissions"
+        ]
+      }
+    },
+    "/api/v1/document/host/permissions/snapshot/{documentId}": {
+      "get": {
+        "operationId": "documentHostGetDocumentPermissionSnapshot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostDocumentPermissionSnapshotResponse"
                 }
               }
             },
@@ -51374,6 +51453,34 @@
         ],
         "type": "object"
       },
+      "HostDocumentPermissionSnapshotResponse": {
+        "properties": {
+          "documentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/HostDocumentPermissionResponse"
+            },
+            "type": "array"
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "documentId",
+          "version",
+          "permissions"
+        ],
+        "type": "object"
+      },
       "HostDocumentPreviewTaskResponse": {
         "properties": {
           "completedAtUtc": {
@@ -63120,6 +63227,14 @@
               "$ref": "#/components/schemas/HostDocumentPermissionEntry"
             },
             "type": "array"
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
           }
         },
         "required": [

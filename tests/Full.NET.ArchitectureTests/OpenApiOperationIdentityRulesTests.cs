@@ -748,6 +748,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("PUT", "/api/v1/document/host/tags/{tagId}", "documentHostUpdateTag", DocumentHostTagsTag),
         new("POST", "/api/v1/document/host/tags/{tagId}/delete", "documentHostDeleteTag", DocumentHostTagsTag),
         new("GET", "/api/v1/document/host/permissions/by-document/{documentId}", "documentHostListDocumentPermissions", DocumentHostPermissionsTag),
+        new("GET", "/api/v1/document/host/permissions/snapshot/{documentId}", "documentHostGetDocumentPermissionSnapshot", DocumentHostPermissionsTag),
         new("POST", "/api/v1/document/host/permissions", "documentHostSetDocumentPermissions", DocumentHostPermissionsTag),
         new("GET", "/api/v1/document/host/recycle-bin", "documentHostListRecycleBinItems", DocumentHostRecycleBinTag),
         new("POST", "/api/v1/document/host/recycle-bin/{id}/restore", "documentHostRestoreRecycleBinItem", DocumentHostRecycleBinTag),

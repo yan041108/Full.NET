@@ -19,7 +19,7 @@ async function boot(page, recycle = false) {
   await page.route('**/api/v1/document/host/' + (recycle ? 'recycle-bin' : 'items') + '?*', route => {
     lists++; return json(route, { items: recycle ? [doc, second].map(item => ({ ...item, status: 4, deletedAtUtc: '2026-10-10T00:00:00Z', deletedByUserId: id })) : [doc, second], page: 1, pageSize: 20, total: 2 });
   });
-  await page.route('**/api/v1/document/host/permissions/by-document/*', route => json(route, [permission]));
+  await page.route('**/api/v1/document/host/permissions/snapshot/*', route => json(route, { documentId: id, version: 7, permissions: [permission] }));
   await page.goto('/#' + path);
   await expect(page.getByTestId(recycle ? 'document-recycle-restore' : 'document-permissions-set').first()).toBeEnabled();
   await expect.poll(() => lists).toBe(1); return () => lists;
@@ -29,9 +29,9 @@ async function inputAcl(page, user = other) { await page.getByTestId('document-p
 
 test('权限读取错配不开放保存，重读成功后保留其他授权', async ({ page }) => {
   await boot(page); let reads = 0, writes = 0;
-  await page.route('**/api/v1/document/host/permissions/by-document/' + id, route => json(route, ++reads === 1 ? [{ ...permission, documentId: other }] : [permission]));
+  await page.route('**/api/v1/document/host/permissions/snapshot/' + id, route => json(route, { documentId: id, version: 7, permissions: ++reads === 1 ? [{ ...permission, documentId: other }] : [permission] }));
   await page.route('**/api/v1/document/host/permissions', route => {
-    writes++; expect(route.request().postDataJSON()).toEqual({ documentId: id, permissions: [{ userId: id, permissionLevel: 'read' }, { userId: other, permissionLevel: 'write' }] });
+    writes++; expect(route.request().postDataJSON()).toEqual({ documentId: id, version: 7, permissions: [{ userId: id, permissionLevel: 'read' }, { userId: other, permissionLevel: 'write' }] });
     return json(route, [added, permission]);
   });
   await page.getByTestId('document-permissions-set').first().click(); await expect(page.locator('.el-alert--error')).toBeVisible();
@@ -43,9 +43,9 @@ test('权限读取错配不开放保存，重读成功后保留其他授权', as
 
 test('保存结果不确定时禁止旧快照重试，重读保留已提交用户', async ({ page }) => {
   await boot(page); let writes = 0, committed = false;
-  await page.route('**/api/v1/document/host/permissions/by-document/' + id, route => json(route, committed ? [permission, added] : [permission]));
+  await page.route('**/api/v1/document/host/permissions/snapshot/' + id, route => json(route, { documentId: id, version: committed ? 8 : 7, permissions: committed ? [permission, added] : [permission] }));
   await page.route('**/api/v1/document/host/permissions', route => {
-    writes++; const payload = route.request().postDataJSON();
+    writes++; const payload = route.request().postDataJSON(); expect(payload.version).toBe(writes === 1 ? 7 : 8);
     if (writes === 1) { committed = true; return json(route, [{ ...permission, documentId: other }]); }
     expect(payload.permissions).toEqual([{ userId: id, permissionLevel: 'read' }, { userId: other, permissionLevel: 'write' }, { userId: third, permissionLevel: 'write' }]);
     return json(route, [permission, added, { ...added, id: third, userId: third }]);
@@ -65,6 +65,41 @@ test('关闭在途权限保存中止请求，重开清空输入', async ({ page 
   await page.getByRole('dialog').getByRole('button', { name: '取消', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
   release(); await expect.poll(() => finished).toBe(true); await expect.poll(() => cancelled).toBe(true); await expect(page.locator('.el-message--success,.el-message--error')).toHaveCount(0);
   await openAcl(page); await expect(page.getByTestId('document-permissions-user-id')).toHaveValue('');
+});
+
+test('授权连续保存使用提交修订号，不使用文档列表旧版本', async ({ page }) => {
+  await boot(page); let writes = 0;
+  await page.route('**/api/v1/document/host/permissions', route => {
+    const payload = route.request().postDataJSON();
+    expect(payload.version).toBe(++writes === 1 ? 7 : 8);
+    return json(route, writes === 1 ? [permission, added] : [permission, added, { ...added, id: third, userId: third }]);
+  });
+  await openAcl(page); await inputAcl(page); await page.getByTestId('document-permissions-save').click();
+  await expect(page.getByTestId('document-permissions-user-id')).toHaveValue('');
+  await inputAcl(page, third); await page.getByTestId('document-permissions-save').click();
+  await expect(page.getByTestId('document-permissions-user-id')).toHaveValue(''); expect(writes).toBe(2);
+});
+
+test('授权冲突阻止旧快照提交，重读后保留另一管理员的授权', async ({ page }) => {
+  await boot(page); let writes = 0;
+  await page.route('**/api/v1/document/host/permissions/snapshot/' + id, route => json(route, {
+    documentId: id, version: writes ? 9 : 7, permissions: writes ? [permission, added] : [permission]
+  }));
+  await page.route('**/api/v1/document/host/permissions', route => {
+    const payload = route.request().postDataJSON(); writes++;
+    if (writes === 1) {
+      expect(payload.version).toBe(7);
+      return route.fulfill({ status: 409, contentType: 'application/problem+json', body: JSON.stringify({ type: 'about:blank', title: 'Conflict', status: 409, code: 'document.host_permission.version_conflict' }) });
+    }
+    expect(payload.version).toBe(9);
+    expect(payload.permissions).toEqual([{ userId: id, permissionLevel: 'read' }, { userId: other, permissionLevel: 'write' }, { userId: third, permissionLevel: 'write' }]);
+    return json(route, [permission, added, { ...added, id: third, userId: third }]);
+  });
+  await openAcl(page); await inputAcl(page); await page.getByTestId('document-permissions-save').click();
+  await expect(page.getByTestId('document-permissions-save')).toHaveCount(0);
+  await page.getByTestId('document-permissions-load').click(); await expect(page.getByTestId('document-permissions-save')).toBeEnabled();
+  await inputAcl(page, third); await page.getByTestId('document-permissions-save').click();
+  await expect(page.getByTestId('document-permissions-user-id')).toHaveValue(''); expect(writes).toBe(2);
 });
 
 test('恢复拒绝其他条目响应，重试合法身份才刷新', async ({ page }) => {

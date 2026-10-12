@@ -1025,7 +1025,7 @@ internal static class NativeApiE2EAssertions
                 accessToken,
                 new SetHostDocumentPermissionsRequest(
                     item.Id,
-                    [new HostDocumentPermissionEntry(permissionUserId, "read")]),
+                    [new HostDocumentPermissionEntry(permissionUserId, "read")]) { Version = (await Full.NET.IntegrationTests.Document.DocumentPermissionConcurrencyAssertions.ReadAsync(client, accessToken, item.Id, cancellationToken)).Version },
                 HttpStatusCode.OK,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -1033,6 +1033,7 @@ internal static class NativeApiE2EAssertions
         Assert.AreEqual(item.Id, permissions[0].DocumentId);
         Assert.AreEqual(permissionUserId, permissions[0].UserId);
         Assert.AreEqual("read", permissions[0].PermissionLevel);
+        await Full.NET.IntegrationTests.Document.DocumentPermissionConcurrencyAssertions.VerifyAsync(client, accessToken, item.Id, cancellationToken);
 
         using (var statisticsRequest = Authorized(
                    HttpMethod.Get,

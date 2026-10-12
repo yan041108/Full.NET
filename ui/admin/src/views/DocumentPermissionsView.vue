@@ -29,7 +29,7 @@ import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listDocumentItems } from '../api/host-document-items';
 import {
-  getDocumentPermissionsByDocument,
+  getDocumentPermissionSnapshot,
   setDocumentPermissions
 } from '../api/document-permissions';
 
@@ -50,6 +50,7 @@ const appliedKeyword = ref('');
 const permissionDialogOpen = ref(false);
 const activeDocument = ref<HostDocumentItemResponse | null>(null);
 const permissions = ref<HostDocumentPermissionResponse[]>([]);
+const permissionVersion = ref(0);
 const userId = ref('');
 const permissionLevel = ref('read');
 
@@ -124,9 +125,9 @@ async function openPermissionDialog(row: HostDocumentItemResponse) {
   permissionRequest = request; activeDocument.value = row; permissionDialogOpen.value = true;
   permissionsLoading.value = true; problem.value = undefined;
   try {
-    const result = await getDocumentPermissionsByDocument(row.id, request.signal);
+    const result = await getDocumentPermissionSnapshot(row.id, request.signal);
     if (!request.current()) return;
-    permissions.value = result; permissionsReady.value = true;
+    permissions.value = result.permissions; permissionVersion.value = result.version; permissionsReady.value = true;
   } catch (error) {
     if (request.current()) { permissions.value = []; permissionsReady.value = false; problem.value = toProblem(error); }
   } finally { if (request.current()) permissionsLoading.value = false; request.finish(); }
@@ -135,7 +136,7 @@ async function openPermissionDialog(row: HostDocumentItemResponse) {
 function closePermissionDialog() {
   permissionRequest?.cancel(); saveRequest?.cancel(); permissionRequest = undefined; saveRequest = undefined;
   permissionDialogOpen.value = false; activeDocument.value = null; permissions.value = [];
-  permissionsReady.value = false; permissionsLoading.value = false; saving.value = false;
+  permissionsReady.value = false; permissionVersion.value = 0; permissionsLoading.value = false; saving.value = false;
   userId.value = ''; permissionLevel.value = 'read';
 }
 
@@ -144,7 +145,7 @@ async function savePermission() {
   if (!canSet() || !permissionDialogOpen.value || !permissionsReady.value || permissionsLoading.value || saving.value || !document) return;
   const targetUser = userId.value.trim(), level = permissionLevel.value.trim();
   // API 是整份替换，单用户表单必须保留已成功读取的其他授权，不能把读取失败当作空目录。
-  const payload = { documentId: document.id, permissions: [
+  const payload = { documentId: document.id, version: permissionVersion.value, permissions: [
     ...permissions.value.filter(entry => entry.userId.toLowerCase() !== targetUser.toLowerCase()).map(entry => ({ userId: entry.userId, permissionLevel: entry.permissionLevel })),
     { userId: targetUser, permissionLevel: level }
   ] };
@@ -154,12 +155,13 @@ async function savePermission() {
   try {
     const result = await setDocumentPermissions(payload, request.signal);
     if (!request.current()) return;
-    permissions.value = result; userId.value = ''; permissionLevel.value = 'read';
+    // 保存成功对应提交修订号加一；后续并发更新会在下一次保存时返回冲突，不能复用列表页旧版本。
+    permissions.value = result; permissionVersion.value = payload.version + 1; userId.value = ''; permissionLevel.value = 'read';
     showSuccess(t('documentPermissions.saveSuccess'));
   } catch (error) {
     if (request.current()) {
       // 写入可能已经提交但响应丢失；旧快照不能再用于整份替换，须先重新成功读取。
-      permissionsReady.value = false; permissions.value = [];
+      permissionsReady.value = false; permissionVersion.value = 0; permissions.value = [];
       showProblem(toProblem(error, 'documentPermissions.operationFailed'), t('documentPermissions.operationFailed'));
     }
   }

@@ -1023,6 +1023,8 @@ const approvedOptionalRequestSchemaEvolutions = new Set([
   'PreviewSerialNumberRequest',
   // 旧客户端省略版本只用于初始化，不能将新增凭据改为请求必填字段。
   'UpdateHostDocumentVersionRetentionRequest',
+  // 授权整体覆盖新增修订凭据；JSON 可省略以保持旧构造兼容，但服务端拒绝无版本写入。
+  'SetHostDocumentPermissionsRequest',
   'UpdateHostAnnouncementRequest'
 ]);
 

@@ -2255,6 +2255,12 @@
       "status": "generated"
     },
     {
+      "operationId": "documentHostGetDocumentPermissionSnapshot",
+      "apiModule": "ui/admin/src/api/document-permissions.ts",
+      "generatedGroup": "document-host-permissions",
+      "status": "generated"
+    },
+    {
       "operationId": "documentHostSetDocumentPermissions",
       "apiModule": "ui/admin/src/api/document-permissions.ts",
       "generatedGroup": "document-host-permissions",

@@ -1802,6 +1802,12 @@ export interface HostDocumentPermissionResponse {
   readonly userId: string;
 }
 
+export interface HostDocumentPermissionSnapshotResponse {
+  readonly documentId: string;
+  readonly permissions: Array<HostDocumentPermissionResponse>;
+  readonly version: number;
+}
+
 export interface HostDocumentPreviewTaskResponse {
   readonly completedAtUtc: null | string;
   readonly createdAtUtc: string;
@@ -4099,6 +4105,7 @@ export interface ServerRuntimeSnapshot {
 export interface SetHostDocumentPermissionsRequest {
   readonly documentId: string;
   readonly permissions: Array<HostDocumentPermissionEntry>;
+  readonly version?: number;
 }
 
 export interface SetNotificationProviderProfileEnabledRequest {

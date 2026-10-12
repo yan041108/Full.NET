@@ -41,6 +41,7 @@ namespace Full.NET.Modules.Document.Serialization;
 [JsonSerializable(typeof(SetHostDocumentPermissionsRequest))]
 [JsonSerializable(typeof(HostDocumentPermissionEntry))]
 [JsonSerializable(typeof(HostDocumentPermissionResponse))]
+[JsonSerializable(typeof(HostDocumentPermissionSnapshotResponse))]
 [JsonSerializable(typeof(IReadOnlyList<HostDocumentPermissionResponse>))]
 [JsonSerializable(typeof(CreateHostDocumentShareRequest))]
 [JsonSerializable(typeof(BatchCreateHostDocumentSharesRequest))]

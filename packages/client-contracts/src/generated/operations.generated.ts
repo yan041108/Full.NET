@@ -222,6 +222,7 @@ import type {
   HostDocumentItemResponse,
   HostDocumentPermissionEntry,
   HostDocumentPermissionResponse,
+  HostDocumentPermissionSnapshotResponse,
   HostDocumentPreviewTaskResponse,
   HostDocumentShareAccessResponse,
   HostDocumentShareResponse,
@@ -680,6 +681,7 @@ import {
   readHostDashboardSummaryResponse,
   readHostDocumentCategoryResponse,
   readHostDocumentItemResponse,
+  readHostDocumentPermissionSnapshotResponse,
   readHostDocumentPreviewTaskResponse,
   readHostDocumentShareAccessResponse,
   readHostDocumentShareResponse,
@@ -2817,6 +2819,22 @@ export async function documentHostDownloadItemContent(
   return options === undefined
     ? await http.requestBlob(path, init, signal)
     : await http.requestBlob(path, init, signal, options);
+}
+
+export interface DocumentHostGetDocumentPermissionSnapshotParameters {
+  readonly documentId: string;
+}
+
+export async function documentHostGetDocumentPermissionSnapshot(
+  http: HttpClient,
+  parameters: DocumentHostGetDocumentPermissionSnapshotParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentPermissionSnapshotResponse> {
+  const path = `/api/v1/document/host/permissions/snapshot/${encodeURIComponent(String(parameters.documentId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readHostDocumentPermissionSnapshotResponse(value);
 }
 
 export interface DocumentHostGetDocumentPreviewTaskParameters {

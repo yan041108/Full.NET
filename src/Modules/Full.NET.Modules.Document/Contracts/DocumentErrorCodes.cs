@@ -150,6 +150,9 @@ public static class DocumentErrorCodes
     /// <summary>授权操作引用的目标文档不存在，无法授予权限。</summary>
     public const string PermissionDocumentNotFound = "document.host_permission.document_not_found";
 
+    /// <summary>授权编辑快照已失效，整体替换必须重新读取。</summary>
+    public const string PermissionVersionConflict = "document.host_permission.version_conflict";
+
     /// <summary>版本保留设置或修订号不符合允许范围。</summary>
     public const string VersionRetentionInvalid = "document.version_retention.invalid";
 
@@ -202,6 +205,7 @@ public static class DocumentErrorCodes
         SharePasswordInvalidLength,
         HostShareAccessDenied,
         PermissionDocumentNotFound,
+        PermissionVersionConflict,
         VersionRetentionInvalid,
         VersionRetentionConflict,
     ]);

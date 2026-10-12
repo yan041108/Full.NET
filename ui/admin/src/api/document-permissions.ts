@@ -1,6 +1,9 @@
 import {
   documentHostListDocumentPermissions,
   documentHostSetDocumentPermissions,
+  documentHostGetDocumentPermissionSnapshot,
+  isHostDocumentPermissionSnapshotResponse,
+  type HostDocumentPermissionSnapshotResponse,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest,
   type HostDocumentPermissionResponse,
@@ -34,7 +37,7 @@ export async function setDocumentPermissions(
     throw new Error('client.invalid_set_document_permissions_request');
   }
   // 同时冻结发送参数与校验依据，等待响应时调用方变更不能迁移本次操作身份。
-  const payload = { documentId: req.documentId, permissions: req.permissions.map(entry => ({ ...entry })) };
+  const payload = { documentId: req.documentId, version: req.version, permissions: req.permissions.map(entry => ({ ...entry })) };
   const value = await documentHostSetDocumentPermissions(
     http,
     { body: payload },
@@ -54,6 +57,15 @@ export async function setDocumentPermissions(
     const identity = key(entry.userId, entry.permissionLevel), count = expected.get(identity) ?? 0;
     if (entry.documentId.toLowerCase() !== payload.documentId.toLowerCase() || count === 0) throw new Error('client.invalid_document_permission_identity');
     expected.set(identity, count - 1);
+  }
+  return value;
+}
+
+/** 编辑使用带修订号的一致性快照，空集合仍能参与并发检查。 */
+export async function getDocumentPermissionSnapshot(documentId: string, signal?: AbortSignal): Promise<HostDocumentPermissionSnapshotResponse> {
+  const value = await documentHostGetDocumentPermissionSnapshot(http, { documentId }, signal);
+  if (!isHostDocumentPermissionSnapshotResponse(value) || value.documentId.toLowerCase() !== documentId.toLowerCase()) {
+    throw new Error('client.invalid_document_permission_snapshot');
   }
   return value;
 }

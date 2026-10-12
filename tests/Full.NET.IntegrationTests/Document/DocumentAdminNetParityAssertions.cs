@@ -63,6 +63,13 @@ internal static class DocumentAdminNetParityAssertions
         await OpenApiDocumentHostPermissionsContractAssertions.VerifyAsync(client, cancellationToken);
         await OpenApiDocumentHostRecycleBinContractAssertions.VerifyAsync(client, cancellationToken);
         await OpenApiDocumentHostStatisticsContractAssertions.VerifyAsync(client, cancellationToken);
+        // 集中验收复用本用例已启动的真实 Host 导出双库契约，避免为生成客户端再启动数据库与应用。
+        var exportDirectory = Environment.GetEnvironmentVariable("FULLNET_DOCUMENT_PERMISSION_OPENAPI_EXPORT_DIRECTORY");
+        if (!string.IsNullOrWhiteSpace(exportDirectory))
+        {
+            await OpenApiClientSnapshotContractAssertions.VerifyAsync(client, factory.Provider, cancellationToken,
+                System.IO.Path.Combine(exportDirectory, factory.Provider + ".openapi.json"));
+        }
         await OpenApiDocumentHostAccessLogsContractAssertions.VerifyAsync(client, cancellationToken);
         await OpenApiDocumentHostPreviewTasksContractAssertions.VerifyAsync(client, cancellationToken);
     }
@@ -161,7 +168,7 @@ internal static class DocumentAdminNetParityAssertions
                        manager.AccessToken,
                        new SetHostDocumentPermissionsRequest(
                            documentId,
-                           [new HostDocumentPermissionEntry(delegateUser.UserId, "read")])),
+                           [new HostDocumentPermissionEntry(delegateUser.UserId, "read")]) { Version = (await DocumentPermissionConcurrencyAssertions.ReadAsync(client, manager.AccessToken, documentId, cancellationToken)).Version }),
                    cancellationToken))
         {
             Assert.AreEqual(HttpStatusCode.OK, setResponse.StatusCode);
@@ -181,6 +188,7 @@ internal static class DocumentAdminNetParityAssertions
             .ReadFromJsonAsync<IReadOnlyList<HostDocumentPermissionResponse>>(cancellationToken);
         Assert.IsNotNull(listed);
         Assert.AreEqual(1, listed.Count);
+        await DocumentPermissionConcurrencyAssertions.VerifyAsync(client, manager.AccessToken, documentId, cancellationToken);
     }
 
     private static async Task VerifySharesAsync(
