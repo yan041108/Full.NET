@@ -14,14 +14,16 @@ public static class AgentExecutionTelemetry
 
     /// <summary>开启一次执行边界；未知阶段归一化，诊断失败不能改变调用或授权结果。</summary>
     /// <param name="runId">可信运行标识；空值不输出。</param>
-    /// <param name="stage">封闭阶段：run、workflow、tool_loop、node、model、tool；其他值归为other。</param>
+    /// <param name="stage">封闭 Agent 阶段与六种 knowledge_* 问答阶段；其他值归为other。</param>
     /// <param name="operationId">已有持久操作标识；不为观测创建业务操作。</param>
     /// <param name="stepIndex">已有步骤序号；只接受0至63。</param>
     /// <param name="cancellationToken">仅用于收尾分类，不触发取消、注册回调或改变令牌生命周期。</param>
     /// <returns>必须释放的观测范围；不拥有业务客户端、事务或取消源。</returns>
     public static Observation Start(Guid runId, string stage, Guid? operationId = null,
         int? stepIndex = null, CancellationToken cancellationToken = default) =>
-        new(runId, stage is "run" or "workflow" or "tool_loop" or "node" or "model" or "tool" ? stage : "other",
+        new(runId, stage is "run" or "workflow" or "tool_loop" or "node" or "model" or "tool"
+            or "knowledge_answer" or "knowledge_embedding" or "knowledge_retrieval" or "knowledge_generation"
+            or "knowledge_validation" or "knowledge_delivery" ? stage : "other",
             operationId, stepIndex, cancellationToken);
 
     private static Instruments? CreateInstruments()

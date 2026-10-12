@@ -10,7 +10,12 @@ internal sealed record AiKnowledgePreparedAnswer(AiKnowledgeRetrievalSnapshot Re
 internal sealed class AiKnowledgeAnswerPipeline(AiKnowledgeRetrievalService retrieval, IIdGenerator ids)
 {
     /// <summary>准备有界问答数据包，不派发模型；上下文构造后仍重新核对读取资格。</summary>
-    internal async Task<AiKnowledgePreparedAnswer> PrepareAsync(IReadOnlyList<Guid> knowledgeBaseIds, Guid actor, AiModelConfigRecord model,
+    internal Task<AiKnowledgePreparedAnswer> PrepareAsync(IReadOnlyList<Guid> knowledgeBaseIds, Guid actor, AiModelConfigRecord model,
+        ReadOnlyMemory<float> vector, string question, CancellationToken token, AiModelConfigRecord? generationModel = null) =>
+        AiKnowledgeTelemetry.RunAsync("knowledge_retrieval", () => PrepareCoreAsync(knowledgeBaseIds, actor, model,
+            vector, question, token, generationModel), token);
+
+    private async Task<AiKnowledgePreparedAnswer> PrepareCoreAsync(IReadOnlyList<Guid> knowledgeBaseIds, Guid actor, AiModelConfigRecord model,
         ReadOnlyMemory<float> vector, string question, CancellationToken token, AiModelConfigRecord? generationModel = null)
     {
         token.ThrowIfCancellationRequested();
@@ -21,7 +26,10 @@ internal sealed class AiKnowledgeAnswerPipeline(AiKnowledgeRetrievalService retr
         await retrieval.RevalidateAsync(snapshot, token).ConfigureAwait(false); return new(snapshot, context);
     }
     /// <summary>仅在严格引用校验与全部来源复核成功后返回正文，拒绝或取消不得泄漏部分答案。</summary>
-    internal async Task<AiKnowledgeAnswer> AcceptAsync(AiKnowledgePreparedAnswer prepared, ReadOnlyMemory<byte> response, CancellationToken token)
+    internal Task<AiKnowledgeAnswer> AcceptAsync(AiKnowledgePreparedAnswer prepared, ReadOnlyMemory<byte> response, CancellationToken token) =>
+        AiKnowledgeTelemetry.RunAsync("knowledge_validation", () => AcceptCoreAsync(prepared, response, token), token);
+
+    private async Task<AiKnowledgeAnswer> AcceptCoreAsync(AiKnowledgePreparedAnswer prepared, ReadOnlyMemory<byte> response, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(prepared);
         var answer = prepared.Context.Parse(response, token);

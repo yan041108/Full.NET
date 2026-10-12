@@ -63,11 +63,24 @@
 
 ## Agent 执行观测
 
-Ai 宿主同时订阅 `Full.NET.Ai.Execution`，记录 `fullnet.ai.execution.attempts`（`{attempt}`）和 `fullnet.ai.execution.duration`（`ms`）。指标只有 `ai.stage`、`ai.outcome` 两项固定标签；阶段为 `run`、`workflow`、`tool_loop`、`node`、`model`、`tool`，未知阶段归为 `other`。尝试包含本地准入拒绝与恢复，不等同于已派发、已付费调用，嵌套阶段不能直接相加作为运行总数。
+Ai 宿主同时订阅 `Full.NET.Ai.Execution`，记录 `fullnet.ai.execution.attempts`（`{attempt}`）和 `fullnet.ai.execution.duration`（`ms`）。指标只有 `ai.stage`、`ai.outcome` 两项固定标签；Agent 阶段为 `run`、`workflow`、`tool_loop`、`node`、`model`、`tool`，知识问答阶段见下表，未知阶段归为 `other`。尝试包含本地准入拒绝与恢复，不等同于已派发、已付费调用，嵌套阶段不能直接相加作为运行总数。
+
+| 知识问答阶段 | 观测范围 |
+| --- | --- |
+| `knowledge_answer` | 来源准备及两次收费阶段的完整内部执行 |
+| `knowledge_embedding` | 查询 Embedding 的预留、派发、独立结算和等待后复核 |
+| `knowledge_retrieval` | 有界向量读取、本地余弦排序、上下文构造及来源复核 |
+| `knowledge_generation` | 缓冲生成的预留、派发、独立结算及答案校验 |
+| `knowledge_validation` | 最终严格 JSON/引用解析和全部来源复核 |
+| `knowledge_delivery` | 存储及清理等待后的最终交付资格复核 |
+
+知识阶段沿用当前父 Trace；仅收费阶段和交付复核关联已有 OperationId，不生成 RunId 或持久 StepId。`completed` 表示本阶段原方法返回，交付复核成功不证明客户端收到响应。`refused` 只来自严格解析后的结构化拒答；预算异常、撤权和取消分别为 `budget_rejected`、`authorization_required` 和 `cancelled`。其他异常默认 `failed`，原令牌已取消时沿用共享源的取消收尾分类。正文、引用内容、分类、身份和异常消息均不进入标签或事件。
+
+阶段按实际方法进入记录：生成在结算前的输出预检失败由 `knowledge_generation` 记录，尚未调用最终校验时不生成 `knowledge_validation` 事件；预留或来源准备失败也不会虚构未执行的后续阶段。
 
 Trace 使用 Internal Activity，在当前父上下文下关联 RunId、已有 OperationId 和 0–63 的步骤序号；Provider HTTP 为模型阶段的子 span。Trace 不记录提示词、正文、异常消息、定义键、模型名、工具名或用户/租户标识，指标也不含业务ID。当前实现只关联本次进程中的尝试，不持久化TraceId，也不新增业务操作或替代持久StepId；恢复遵守原检查点与调用身份，不为补观测重新派发。
 
-`processed` 只表示 Worker 本次处理返回true，包含已提交的失败、授权拒绝或暂停；`not_processed` 表示返回false。内部执行器的 `completed` 和模型/工具边界的 `succeeded` 不证明运行最终交付或费用结算。固定结果还包括 `denied`、`approval_required`、`reconciliation_required`、`budget_rejected`、`authorization_required`、`cancelled`、`failed`、`refused`；其中 `refused` 表示静态工作流结构化校验门禁拒绝，不代表已检测所有模型自然语言拒答。
+`processed` 只表示 Worker 本次处理返回true，包含已提交的失败、授权拒绝或暂停；`not_processed` 表示返回false。内部执行器的 `completed` 和模型/工具边界的 `succeeded` 不证明运行最终交付或费用结算。固定结果还包括 `denied`、`approval_required`、`reconciliation_required`、`budget_rejected`、`authorization_required`、`cancelled`、`failed`、`refused`；`refused` 也用于静态工作流结构化校验门禁拒绝，不代表已检测所有模型自然语言拒答。
 
 每个范围独立收尾，父Activity恢复及采样、测量和停止回调故障不改变业务结果。诊断事件不保证送达；此源首次初始化失败也可能保留空源，修正诊断配置后需要重启进程恢复。授权、预算、账本、审批与持久化仍由原业务边界判定。
 

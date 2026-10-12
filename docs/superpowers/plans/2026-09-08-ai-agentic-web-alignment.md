@@ -2772,3 +2772,25 @@ pnpm test:aot:worker:analyzers
 - 2026-10-09 收尾：干净独立源码克隆同步 `86e2ece2` 后，`node artifacts/r08i/run-created-app-encoding.mjs` 退出 0，SQL Server/MySQL Minimal 2/2、零失败/跳过（5m 22s 956ms）。实际生成共享客户端、CRUD、模块与宿主接入，执行迁移/重放、登录、细粒度权限及租户隔离，完成资源清理，克隆保持干净。一次性进程审计覆盖仅用于缓存依赖构建，不修改模板断言或项目审计策略；在线审计仍未验证。
 - `python artifacts/r08i/verify-final-acceptance.py` 核对 AI Unit、Architecture 原失败、正式双库精确通过并集、客户端/Vue/OpenAPI、原生发现/运行与可执行文件 SHA、独立生成应用及源码候选；摘要为忽略目录 `artifacts/r08i/acceptance.json`。当前文档更新与退休夹具输入变化单独登记，未把原失败改写为单轮全绿。main 已提交本批实现及必要模板修复；最终仅提交交付记录，保留其他任务未提交改动和受保护文件。
 - 环境：Windows x64、i7-12700H、约 64 GB、SDK 10.0.401；Linux Docker SDK 10.0.400/运行时 10.0.11，Docker 29.6.2。双库容器不复用；重型运行使用同机共享锁及独立 TEMP/TMP。原生发布 4 CPU/12 GiB，原生测试 2 CPU/8 GiB，不以执行耗时或聚焦结果升级容量。完整 RAG、真实云模型整代次、Native Worker DOCX 及最大正文真实数据库恢复成本保持未验证，容量保持 `Capacity-not-verified`。
+
+#### R11g：知识问答固定阶段观测（2026-10-13，本批受影响本地验收完成）
+
+基线 main `47e9f3454929c1853dbcf2d0696425af76ee2bd8`，任务快照 `ai-knowledge-telemetry-r11g`。本批合并交付知识回答、查询 Embedding、检索、缓冲生成、最终答案校验与交付资格复核六阶段；复用 `Full.NET.Ai.Execution`、现有宿主订阅和业务 OperationId，不新增依赖、SQL、迁移、HTTP DTO、权限、RunId 或持久 StepId。
+
+- [x] 阶段和结果采用固定集合，指标仅 stage/outcome；Trace 仅在收费阶段和交付复核关联已有操作标识，不读取正文、分类、身份、凭据或异常消息。严格结构化拒答标记 refused，预算拒绝、撤权、取消及其他故障保持独立分类；不将尝试次数当成 Provider HTTP 调用量。
+- [x] 不改变原来源检查、预留、派发、独立结算和最终来源复核顺序。completed 只说明原方法返回，knowledge_delivery 成功不证明客户端已收到响应。生成预检拒绝时仅记录实际进入的生成阶段，不虚构尚未执行的最终校验。边界说明见 [Provider 网络与阶段观测](../../operations/ai-provider-network.md)。
+- [x] 新增 25 项真实收费路径回归，宿主/租户覆盖成功、结构化拒答、预算拒绝、预留后撤权、取消、模型故障、最终交付撤权与监听器故障。有效 RED25 中20失败/5通过；`node artifacts/r11g/run-isolated-unit.mjs green` 25/25，`node artifacts/r11g/run-isolated-unit.mjs final` 3875/3875，均零失败/跳过。独立只读复核无剩余 Critical/Important，不代替运行证据。
+- [x] `node artifacts/r11g/run-pipeline.mjs` 完成 API/Worker AOT 分析零警告/错误、AOT 架构88/88、全量架构235/235及 JIT Integration 构建。真实分类选择 Ai＋Smoke，按提供程序顺序、单 Worker 和原矩阵60分钟期限执行，SQL Server/MySQL各48/48、合计96精确唯一UID通过。分片发现1214无遗漏/重复；不报告全部 Integration 已执行。
+- [x] 命名30、矩阵6、治理57、工具链54和保护排除后的Markdown检查通过。完整Unit仅发现7358，与本批规范矩阵一致；仅执行完整AI3875，不宣称全Unit通过。
+
+首轮共享工作区 Unit 构建12错误，来自其他窗口缓存测试与共享依赖程序集不同步；该结果不是行为RED，未改外来代码。改用 HEAD 加本批白名单的源码快照并本地缓存 restore 后构建通过；本批所有构建均零警告/错误。原错误记录保留。Windows 验证采用隔离输出、工作区互斥与独立 TEMP/TMP，后续回归复用同一构建。
+
+完整AI运行前后，全部冻结源码和原1002个消费文件逐字节一致，AI及Agents生产/消费程序集相同。初次完整目录比较因既有RAG测试新增11个JSON夹具/报告失败；确认无旧文件改变后，仅将已知新增JSON输出形状单独列为测试产物，旧消费者仍全部验哈希，不重跑未改变的输入。原失败与输出清单保留。执行后只补观测边界说明及本段证据，不把文档最终字节视作运行前冻结字节。
+
+冻结7818个输入，Linux AOT、JIT及双库沿用各自已有缓存；覆盖前核对R11f源码及完整消费者摘要，只传入当前差异，不新建缓存或反复切换依赖图。保留机器重型锁的排队事实，不中断其他窗口验收。Windows x64/SDK10.0.401、Linux SDK10.0.400/runtime10.0.11，i7-12700H/约64GiB；Unit4处理器/2GiB GC，构建8CPU/4GiB，双库各2CPU/8GiB。本地缓存 restore 使用 NuGetAudit=false，未执行在线依赖审计。
+
+当前知识重排为本地余弦排序，向量读写为自有Dapper数据库，没有本批远程重排或向量网络消费者；不为未存在的调用链新增服务。持久StepId/跨重启Trace、Provider精确输入Token硬限、未知外部副作用对账与完整分类准入仍按原计划推进。Native发布/运行、生成应用、页面及运维恢复集中验收尚未升级，R11整体保持开放，Capacity-not-verified。
+
+TRX报告器对过长捕获文本保留字段截断提示，状态、计数与精确UID另行核对完整；不声称截断区域文本完整。
+
+原命令、退出码、TRX、发现UID、源码/消费者证明与审查位于 `artifacts/r11g/acceptance.json`。main仅提交本批8项文件，不推送；共享矩阵仅暂存HEAD加本批25项增量，其他窗口改动和两个保护路径保留。

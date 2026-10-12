@@ -31,11 +31,17 @@ internal sealed class AiKnowledgePaidAnswerService(AiKnowledgeRetrievalService r
     internal Task RevalidateDeliveryAsync(AiKnowledgeExecutedAnswer answer, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(answer);
-        return AuthorizedAsync(answer.Prepared.Retrieval, token);
+        return AiKnowledgeTelemetry.RunAsync("knowledge_delivery", () => AuthorizedAsync(answer.Prepared.Retrieval, token),
+            token, answer.GenerationOperationId);
     }
     /// <summary>冻结输入、依次执行 Embedding 与缓冲生成；交付必须晚于结算和全部依赖复核。</summary>
     /// <remarks>调用方不能把返回快照直接序列化给客户端；外部调用在事务外，无自动重试或提供程序切换。</remarks>
-    internal async Task<AiKnowledgeExecutedAnswer> ExecuteAsync(IReadOnlyList<Guid> knowledgeBaseIds, Guid actor,
+    internal Task<AiKnowledgeExecutedAnswer> ExecuteAsync(IReadOnlyList<Guid> knowledgeBaseIds, Guid actor,
+        AiModelConfigRecord embeddingModel, AiModelConfigRecord generationModel, string question, CancellationToken token) =>
+        AiKnowledgeTelemetry.RunAsync("knowledge_answer", () => ExecuteCoreAsync(knowledgeBaseIds, actor,
+            embeddingModel, generationModel, question, token), token);
+
+    private async Task<AiKnowledgeExecutedAnswer> ExecuteCoreAsync(IReadOnlyList<Guid> knowledgeBaseIds, Guid actor,
         AiModelConfigRecord embeddingModel, AiModelConfigRecord generationModel, string question, CancellationToken token)
     {
         Check(token); ArgumentNullException.ThrowIfNull(knowledgeBaseIds); ArgumentNullException.ThrowIfNull(embeddingModel);
@@ -69,7 +75,12 @@ internal sealed class AiKnowledgePaidAnswerService(AiKnowledgeRetrievalService r
         var answer = await GenerateAsync(prepared, generationFactory, generationRequest, history, trustedTenant, work).ConfigureAwait(false);
         return new(prepared, answer, embeddingRequest.OperationId, generationRequest.OperationId);
     }
-    private async Task<ReadOnlyMemory<float>> EmbedAsync(AiKnowledgeRetrievalSnapshot source, IAiModelClientFactory factory,
+    private Task<ReadOnlyMemory<float>> EmbedAsync(AiKnowledgeRetrievalSnapshot source, IAiModelClientFactory factory,
+        AiOperationRequest request, string question, TenantContext? originalTenant, CancellationToken token) =>
+        AiKnowledgeTelemetry.RunAsync("knowledge_embedding", () => EmbedCoreAsync(source, factory, request,
+            question, originalTenant, token), token, request.OperationId);
+
+    private async Task<ReadOnlyMemory<float>> EmbedCoreAsync(AiKnowledgeRetrievalSnapshot source, IAiModelClientFactory factory,
         AiOperationRequest request, string question, TenantContext? originalTenant, CancellationToken token)
     {
         await ReserveAsync(request, token).ConfigureAwait(false);
@@ -101,7 +112,12 @@ internal sealed class AiKnowledgePaidAnswerService(AiKnowledgeRetrievalService r
         // 独立结算也会等待；不能用结算前的读取权交付查询向量或进入下一收费阶段。
         await AuthorizedAsync(source, token).ConfigureAwait(false); return vector;
     }
-    private async Task<AiKnowledgeAnswer> GenerateAsync(AiKnowledgePreparedAnswer prepared, IAiModelClientFactory factory,
+    private Task<AiKnowledgeAnswer> GenerateAsync(AiKnowledgePreparedAnswer prepared, IAiModelClientFactory factory,
+        AiOperationRequest request, IReadOnlyList<(string RoleKey, string Content)> history, TenantContext? originalTenant, CancellationToken token) =>
+        AiKnowledgeTelemetry.RunAsync("knowledge_generation", () => GenerateCoreAsync(prepared, factory, request,
+            history, originalTenant, token), token, request.OperationId);
+
+    private async Task<AiKnowledgeAnswer> GenerateCoreAsync(AiKnowledgePreparedAnswer prepared, IAiModelClientFactory factory,
         AiOperationRequest request, IReadOnlyList<(string RoleKey, string Content)> history, TenantContext? originalTenant, CancellationToken token)
     {
         await ReserveAsync(request, token).ConfigureAwait(false);
