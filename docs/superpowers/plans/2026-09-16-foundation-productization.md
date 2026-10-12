@@ -2825,3 +2825,17 @@ CI Linux独立检出、外部原生API完整核心21/21、零失败/跳过，包
 
 
 本次最终报告只同步以上两批及能力状态，以 `[skip ci]` 提交，避免文档更新再次启动相同生产输入的CI；新41bf7cf源码CI独立保留状态，不将报告head冒称CI通过。按R-20260930本地规定范围实际通过交付，两批均已完成本地验收；原生完整Worker19项CI已通过；新主CI运行状态及Active引用可靠释放缺口分别保留。
+
+## 2026-10-13 文档版本文件引用可靠释放
+
+任务 `document-file-claim-release-20261013`，生产实现 `1b357fe`，最终生产冻结 `3c51c78e86f6eb0d4ff31a6269003dd969e586f2`。手动历史版本删除、保留裁剪和回收站 Purge 都在 Document 自有 Result 事务内记录版本删除 Outbox 事实，提交后由 API/Worker 共同注册的幂等消费者通过 Files 公共端口释放引用。Files 释放失败向 Worker 传播并重试，重复释放和历史缺失 Claim 为成功终态；租户上下文、事件类型、版本和空身份校验独立，毒载荷进入死信。HTTP 形状不变，无新迁移或跨模块本地事务，默认 LegacyPolling，不声明 CDC/Kafka 切流验收。
+
+Purge 在父行锁内按数据库 UUID 顺序每页最多 128 行保存事实，全部事实和文档依赖删除同事务提交；历史空 FileId 在发布边界跳过，整页空 FileId 不阻止游标继续。新增单测先出现 7 项生产事实/回滚 RED，消费者缺失出现 8 项 RED；首次真实双库验收 2/2 失败，定位到 Guid.Empty 过滤参数被真实 UUID 参数门禁拒绝。参数替身补接真实门禁后复现 3 项 RED；3c51c78 移除无效参数和 SQL 条件，保留 UUID 基线，修正后的 Document 单测 142/142、完整架构 247/247、命名 33/33、SQL 5/5、治理 70/70、测试工具 15/15、Doc/API/Worker AOT 分析通过。失败、编译夹具和未执行证据均保留，不计通过；只读复审无新增 P1/P2。
+
+本地真实 SQL Server/MySQL 代表性 HTTP 2/2 通过、零失败/跳过：手动删除、保留裁剪、Outbox 已插入后抛错的真实事务回滚、重复消费、135 版本跨页 Purge 的精确身份集合均验收。入口 `node .tmp/document-file-release-jit-fixed.mjs`，冻结 758 个输入及 984 个消费者文件；排队 60 毫秒，执行 160.171 秒，Windows SDK10.0.401、两个测试 worker，自有测试容器由夹具回收。提供程序替身分支和发现数不作为真实双库运行证据。
+
+同一最终源码 CI Native API 核心 21/21、完整 Worker 21/21 均通过、零失败/跳过，Worker 包含本批双库两个真实原生进程用例：持久化事实在新进程消费、重复消息、缺失历史 Claim、空载荷死信及另一受保护 Active 引用保留。API run 38293967762、Worker run 38293967766，实际检出 b00ddc315775a409162dd190abaabb5782bfad6a、生产树 a7c4491ba70d519e344a848eb9e207005db16922；检出日志、运行摘要、ZIP/ELF/发布清单摘要核对。本地未重复执行同一 Native 矩阵；预备独立副本未运行，不当作通过。主 CI 的受影响集与跳过集单独记录，不外推全量验收。
+
+实际快速入口 `node .tmp/document-file-release-unit.mjs final`、`node .tmp/document-file-release-refreshed.mjs`、`node .tmp/document-file-release-aot.mjs`、`node .tmp/document-file-release-static.mjs`，架构入口为现有 Release 架构程序集的 247 项最低发现门禁；工具入口 `node --test tests/testing/test-matrix.test.mjs tests/testing/native-suite-runner.test.mjs`。证据 `.tmp/document-file-release-source.json`、`.tmp/document-file-release-jit-1`（失败）、`.tmp/document-file-release-guid-binding-red.log`、`.tmp/document-file-release-jit-2`、`.tmp/document-file-release-ci-artifacts-2`、`.tmp/document-file-release-ci-runtime-proof.json`、`.tmp/document-file-release-final-proof.json`。他窗既有改动保持；自动审批以 blocked by policy 拒绝删除未使用的本窗口验收副本，副本保留，未报告已清理。
+
+本批收口今后已记录删除事实的可靠释放，不回填历史丢失事实形成的 Active 孤儿引用；完整生成应用、全页面及容量仍待独立范围验收。整体保持 Build-verified / Capacity-not-verified。报告以 `[skip ci]` 提交，实际 Native 证据对应 3c51c78，不将报告 head 冒称新生产运行；PR3保持 Draft，合并发布另行约定。
