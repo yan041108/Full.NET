@@ -2743,3 +2743,21 @@ CI 隔离检出工作区的 Linux Native API 核心完整矩阵 21/21，零失�
 实际入口：`node .tmp/document-reference-unit.mjs red`、`node .tmp/document-reference-fast-final.mjs`、`node .tmp/document-reference-managed.mjs --fixtures-only`、`node .tmp/document-reference-static.mjs`、`node .tmp/document-reference-aot.mjs`、`node .tmp/document-reference-jit-final.mjs`、CI `pnpm test:aot:native:e2e`、`node .tmp/document-reference-ci-runtime-proof.mjs`、`node .tmp/document-reference-ci-final-proof.mjs`。本地证据 `.tmp/document-reference-local-proof.json`、`.tmp/document-reference-jit-2`、`.tmp/document-reference-ci-artifacts`、`.tmp/document-reference-ci-runtime-proof.json`、`.tmp/document-reference-final-proof.json`；RED/失败日志以及未执行的本地 Native 队列记录保留。
 
 存量边界：未分类（包括失效分类恢复后）的标题检查没有共同锁或唯一约束，不能保证并发同标题写入只成功一方；本批只完成顺序恢复冲突检查，不声称关闭该唯一性缺口。未自动清洗活动文档的历史无效 CategoryId；统计只安全归并为未分类。完整生成应用、全量 JIT/UI、Worker 运行时、容量及多实例吞吐均未在本批运行。整体保持 Build-verified / Capacity-not-verified；PR3 保持 Draft，不合并、不发布。
+
+## 2026-10-12 文档标题并发与历史重复集中验收
+
+任务 `document-title-concurrency-20261012`，基线 `b39fd68`，生产冻结 `c13162db56558cbd5395f3623a6baf5e7ea362c7`。创建、更新及两条恢复入口在原有 Result 事务内统一检查标题。有效分类继续使用分类行锁；未分类写入先锁定固定 Host 技术行再检查，SQL Server 使用 UPDLOCK/HOLDLOCK，MySQL 使用 FOR UPDATE。门禁缺失时停止写入并要求先运行 Migrator，不由 API 播种。标题检查改为计数，历史多条同名返回既有 TitleConflict / 409，不再因单行假设抛异常。权限、租户作用域、null 更新保持原分类及 Version CAS 不变，无公开契约变化。
+
+新增成对 250_DocumentItemWriteGuard 迁移，只增加 Host 技术表、约束及应用端生成的固定 UUID v7 行，不修改、重命名或删除历史文档。MySQL 使用 RFC Binary16，固定条件 DDL 按命名规则登记精确文件级例外；结构、技术行及 SQL Server 描述可未记账重入。恢复测试固定 Through250 上界，验证缺失约束/技术行恢复、完整脚本重入、Host 约束、只生成一个门禁及历史文档保持。部署需先运行迁移；旧应用兼容新增表，退回旧代码会失去本批并发保护。
+
+原实现新增回归 8/8 失败，修复后该组 8/8 及最终 Document Unit97/97、架构89/89、命名33/33、SQL5/5、治理70/70、测试选择器工具63/63全部通过，零失败/跳过。数据库对象注释和目录覆盖检查通过。受影响 Document 与 Host.Api AOT 分析通过，复用未改依赖；只读审查无已确认 P1/P2。实际集成发现1234项，分区192/192/518/252/80，迁移子区250/268，完整无遗漏或重叠；该发现门禁得到Native API21与Worker17，角色无交集；不将发现当作运行，Worker运行时不在本批范围。
+
+本地双库集中4/4、零失败/跳过：分类标签代表性 HTTP 两项含未分类四路竞争、两恢复路由互相竞争、跨分类同名允许、历史重复409及版本不变；四路都以自有持锁会话的真实等待屏障验证等待后重新计数。另两项验证250迁移恢复。TRX 278.494秒，入口 283.769秒，排队 0.12秒。984个冻结消费者摘要一致，自有测试容器回收、共享常驻容器保持；Windows SDK10.0.401，两测试 worker。
+
+CI Linux独立检出、外部原生API完整核心21/21、零失败/跳过，包含本批共用标题断言。原生产物 run `38213191311` attempt 1 完整成功，实际检出 `31f7699502215b838b24a9c1e264af4dac1431c3`、树 `acbf086293108b0d6b9bffa672f10342eafe26f4` 与冻结树一致；ZIP、ELF、清单及完整检出/运行日志摘要已核对。复用本次源码的新CI证据，没有重复执行本地Native，也未使用前批结果证明新行为。核对本批15个源码输入、984个消费者和1018个证据文件。
+
+保留原始 RED、首轮本地AOT编译内存不足和GitHub元数据TLS超时记录。停止的本窗口冗余全依赖构建不计通过；随后显式限制两路构建并只重建受影响项目，全部所需产物和发现检查实际通过。实际入口：`node .tmp/document-title-unit.mjs red|green`、`node .tmp/document-title-fast-final.mjs`、`node .tmp/document-title-aot-limited.mjs`、`node .tmp/document-title-managed.mjs`、`node .tmp/document-title-static.mjs`、`node .tmp/document-title-jit-final.mjs`、`node .tmp/document-title-ci-runtime-proof.mjs`、`node .tmp/document-title-final-proof.mjs`。证据入口 `.tmp/document-title-local-proof.json`、`.tmp/document-title-jit-1`、`.tmp/document-title-ci-artifacts`、`.tmp/document-title-final-proof.json`。
+
+历史重复数据仍保留，现只统一拒绝新冲突写入；历史活动分类引用清洗另待收口。本批不认证完整生成应用、全量JIT/Vue、Worker运行时或容量，整体保持 Build-verified / Capacity-not-verified。PR3保持Draft，合并与发布按另行约定执行。
+
+最终报告提交只修改本节和能力状态，使用 `[skip ci]` 避免再次触发相同运行输入的全量 CI；运行证据仍明确对应生产冻结 `c13162d`，报告提交不冒称 CI 通过。源码主 CI 仍在运行，API/Worker 原生工作流已成功；PR3保持Draft，正式合并所需检查另行执行。
