@@ -157,7 +157,13 @@ public sealed class NativeAotLinuxPublishRulesTests
             "artifacts/native-aot/worker/linux-x64/publish/Full.NET.Host.Worker",
             publishGate.GetProperty("executableRelativePath").GetString());
         var integrationGate = matrix.RootElement.GetProperty("workerNativeAotIntegration");
-        Assert.AreEqual(14, integrationGate.GetProperty("minimum").GetInt32());
+        // 可变发现数量仅由矩阵维护；架构门禁保护筛选边界和必需场景，避免新增用例后旧常量阻断验收。
+        Assert.IsTrue(integrationGate.GetProperty("minimum").GetInt32() > 0);
+        Assert.AreEqual("FullyQualifiedName~NativeWorker", integrationGate.GetProperty("filter").GetString());
+        var requiredTypes = integrationGate.GetProperty("requiredTestTypes")
+            .EnumerateArray().Select(value => value.GetString()).ToArray();
+        CollectionAssert.Contains(requiredTypes, "NativeWorkerKafkaLogMySqlE2ETests");
+        CollectionAssert.Contains(requiredTypes, "NativeWorkerClaimSnapshotTests");
 
         string[] requiredFiles =
         [
