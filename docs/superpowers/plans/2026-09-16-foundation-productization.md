@@ -2779,3 +2779,21 @@ CI Linux独立检出、外部原生API完整核心21/21、零失败/跳过，包
 未清洗历史业务数据；UseCount维护、历史活动分类引用清洗、完整生成应用、全量JIT/Vue、Worker运行时及容量不在本批验收范围。整体保持Build-verified / Capacity-not-verified，PR3保持Draft，合并与发布另行约定。
 
 最终报告仅修改现有里程碑与能力状态两份文档，使用 `[skip ci]` 避免相同源码重复触发全量CI；实际运行证据对应冻结 `1e33fbd`，报告提交不冒称CI通过，正式合并检查另行执行。
+
+## 2026-10-12 文档标签真实引用统计集中验收
+
+任务`document-tag-use-count-20261012`，基线`f41f587`，生产冻结`120b99daf999edbc272bfba0ee01492bfe9681d1`。UseCount从真实关联与Host文档在同一SQL中分组统计，替代未维护的历史计数列；列表、详情保持一次数据库调用，无逐标签请求。包含回收站保留的Host关联，解除绑定或彻底删除后减少，不泄漏其他租户的历史错误关联。原UseCount列及公开DTO形状保留，无新迁移，不清洗旧数据，不改标签删除引用保护。
+
+只读审查定位SQL Server锁式ReadCommitted下的回读风险：标签持写锁后派生计数等待文档行，而文档元数据更新回读标签名称可反向等待。两个真实会话分别持标签/文档行写锁，候选回读实际超时，1/1 RED；未声称已观察到数据库选择死锁受害者。修复为门禁内、取得标签写锁前读取Host引用快照，写入后仅回读标签元数据并携带计数。Create在门禁内返回0，Update返回写入前快照；列表/详情实时派生。Result失败回读继续回滚，无提交后回读窗口。修复与后续局部夹具变更均复审无已确认阻断。
+
+旧实现双库真实HTTP2/2因绑定后计数0失败。最终Document Unit115/115（含真实Dapper失败回滚）、架构89/89、命名33/33、SQL5/5、治理70/70及受影响Document/Host.Api AOT分析通过，零失败/跳过；未改依赖复用。最终发现1236，分区192/192/520/252/80、迁移子区250/270，Native API21与Worker17无重叠；发现不等于运行。
+
+本地双库HTTP有效验收2/2，零失败/跳过：重复TagId去重、null保留、替换/清空、无效绑定失败保持计数、历史计数999不影响读取、越界关联排除、标签元数据更新回读、回收站删除/恢复/彻底删除与引用保护、计数变化不修改标签Version。两个会话持真实标签/文档写锁时，正式变更回读SQL及时完成，覆盖修复后的锁边界。SQL Server SHOWPLAN XML与MySQL EXPLAIN JSON共6份正式SQL计划保留；计划样例为两个Host引用、一个其他租户引用及两标签，不外推为容量或吞吐结论。
+
+首轮MySQL通过，SQL Server在可选本地计划读取器因零行失败；原始失败回执、日志、TRX与三份MySQL计划保留。仅修正SQL Server计划采集try-body，改为闭合类型声明批次并逐结果集读取XML，finally关闭SHOWPLAN。生产源码、共享功能断言及MySQL分支不变，结构与摘要证明`.tmp/document-use-count-harness-scope.json`。只重跑受影响SQL Server1项，复用已过MySQL1项。重试排队318.027秒、入口263.625秒、TRX257.908秒分别记录；两个冻结消费者包各984文件校验，Windows SDK10.0.401、两测试worker，自有容器回收，共享容器保持。
+
+生产冻结120b99d的新CI Linux独立检出Native API核心21/21通过，零失败/跳过，含本批统计/生命周期及锁回读共同断言。run`38258445374` attempt 1完整成功，实际检出`4cb9710de7c21659a5615d57a2749b3fc17dd101`、树`71147656b364403bc59c4a8d1ca5f26887fbc8b3`与该生产冻结一致，ZIP/ELF/清单/日志摘要核对。本地计划目录在Native未配置，计划函数在修正分支前返回，因此复用原Native范围；不宣称含本地夹具修复的新报告head已通过CI。2019个证据文件摘要核对，未重复本地Native。
+
+实际入口：`node .tmp/document-use-count-red.mjs`、`node .tmp/document-use-count-lock-red.mjs`、`node .tmp/document-use-count-final-fast-final.mjs`、`node .tmp/document-use-count-final-aot-limited.mjs`、`node .tmp/document-use-count-final-static.mjs`、`node .tmp/document-use-count-jit-final.mjs`、`node .tmp/document-use-count-jit-retry.mjs`、`node .tmp/document-use-count-harness-scope.mjs`、`node .tmp/document-use-count-ci-runtime-proof.mjs`、`node .tmp/document-use-count-final-proof.mjs`。证据入口`.tmp/document-use-count-jit-1`、`.tmp/document-use-count-jit-2`、`.tmp/document-use-count-ci-artifacts`、`.tmp/document-use-count-final-proof.json`。
+
+最终提交包含本地SQL Server计划夹具修正及两份既有验收文档，使用[skip ci]复用未变生产源码和实际Native执行路径，避免重复全量CI。UseCount本批已收口；历史活动分类引用清洗、完整生成应用/全量Vue、Worker运行时与容量仍待后续。整体Build-verified / Capacity-not-verified，PR3保持Draft，合并与发布另行约定。

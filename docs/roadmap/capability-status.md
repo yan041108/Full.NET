@@ -1,5 +1,7 @@
 # Full.NET 能力状态矩阵
 
+2026-10-12 Document 标签UseCount已收口：列表/详情同SQL统计真实Host保留引用，含回收站、排除其他租户，不读历史计数列；变更响应使用写入前快照，持标签写锁后仅回读元数据以避免文档锁循环，Result失败仍回滚。生产冻结`120b99d`，双库RED2/2及SQL Server真实锁等待RED1/1后，Document115/115、架构89/89、命名33/33、SQL5/5、治理70/70、受影响AOT分析、本地双库HTTP2/2和该生产源码CI Native API核心21/21通过。仅重试局部计划夹具影响的SQL Server，MySQL与Native原执行范围复用；计划6份保留，不声明新报告headCI通过。无新迁移/DTO形状变化，历史引用清洗及容量待后续。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-文档标签真实引用统计集中验收)，保持Build-verified / Capacity-not-verified。
+
 2026-10-12 Document 分类标签名称与引用已收口：分类空目录首写有固定事务门禁，标签绑定与删除共用门禁，历史多行同名统一409，标签失败回读使用Result事务回滚。新增双库251迁移，必须先运行Migrator；不清洗历史数据。冻结 `1e33fbd`，Document115/115、事务8/8、架构89/89、命名33/33、SQL5/5、治理70/70、相关工具11/11、受影响路径AOT分析、本地双库HTTP/迁移4/4及本次源码CI Native API核心21/21通过，零失败/跳过。源码树、产物与原始日志已核对，未重复本地Native。UseCount、历史活动引用清洗及容量待后续。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-文档分类标签名称与引用集中验收)，整体保持Build-verified / Capacity-not-verified。
 
 2026-10-12 Document 标题并发与历史重复已收口：未分类创建、更新及两条恢复入口先锁定 Host 技术门禁再计数，历史多行同名统一409；有效分类保持独立分类锁。新增成对250迁移，必须先运行Migrator，API不播种、不清洗历史数据。冻结 `c13162d`，RED8/8失败后Document Unit97/97、架构89/89、命名33/33、SQL5/5、治理70/70、工具63/63、受影响路径AOT分析、本地双库HTTP/迁移4/4及本次源码CI Linux Native API核心21/21通过，零失败/跳过。生产树、产物、消费者与原始日志已核对；Native来自完整新CI结果，未重复本地运行。历史活动引用清洗及容量仍待验收。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-文档标题并发与历史重复集中验收)，整体保持Build-verified / Capacity-not-verified。

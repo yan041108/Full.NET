@@ -178,8 +178,21 @@ internal static class DocumentTagUseCountAssertions
                 await database.ExecuteAsync(new CommandDefinition("SET SHOWPLAN_XML ON", cancellationToken: ct));
                 try
                 {
-                    plan = await database.QuerySingleAsync<string>(new CommandDefinition(statement.Text,
-                        new { Id = id, UseCount = 2, IsHot = (bool?)null, IsRecommended = (bool?)null }, cancellationToken: ct));
+                    await using var command = database.CreateCommand();
+                    // 无RPC包装的闭合批次；Guid来自自有夹具，变量类型与正式参数一致。
+                    command.CommandText = $"DECLARE @Id uniqueidentifier = '{id:D}'; DECLARE @UseCount int = 2; DECLARE @IsHot bit = NULL; DECLARE @IsRecommended bit = NULL;\n" + statement.Text;
+                    await using var reader = await command.ExecuteReaderAsync(ct);
+                    var outputs = new List<string>();
+                    var resultSets = new List<string>();
+                    do
+                    {
+                        resultSets.Add(string.Join(",", Enumerable.Range(0, reader.FieldCount).Select(reader.GetName)));
+                        while (await reader.ReadAsync(ct))
+                            for (var column = 0; column < reader.FieldCount; column++)
+                                if (reader.GetValue(column) is string xml && xml.Contains("ShowPlanXML", StringComparison.Ordinal)) outputs.Add(xml);
+                    } while (await reader.NextResultAsync(ct));
+                    Assert.IsTrue(outputs.Count > 0, "No ShowPlanXML results: " + string.Join(";", resultSets));
+                    plan = outputs.Count == 1 ? outputs[0] : new System.Xml.Linq.XElement("Plans", outputs.Select(System.Xml.Linq.XElement.Parse)).ToString();
                 }
                 finally
                 {
