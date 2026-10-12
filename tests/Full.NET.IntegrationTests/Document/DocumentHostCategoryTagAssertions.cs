@@ -36,10 +36,12 @@ internal static class DocumentHostCategoryTagAssertions
                 HostDocumentPermissions.Delete,
                 HostDocumentPermissions.Restore,
                 HostDocumentRecycleBinPermissions.Restore,
+                HostDocumentRecycleBinPermissions.Purge,
                 HostDocumentStatisticsPermissions.Read,
             ],
             cancellationToken);
 
+        await DocumentTagUseCountAssertions.VerifyAsync(client, manager.AccessToken, factory.Provider, factory.ConnectionString, cancellationToken);
         await DocumentTaxonomyConcurrencyAssertions.VerifyWaitingEmptyCategoryAsync(factory, client, manager.AccessToken, cancellationToken);
         await DocumentTaxonomyConcurrencyAssertions.VerifyAsync(client, manager.AccessToken, factory.Provider, factory.ConnectionString, cancellationToken);
         await DocumentTaxonomyConcurrencyAssertions.VerifyWaitingTagsAsync(factory, client, manager.AccessToken, cancellationToken);

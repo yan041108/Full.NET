@@ -11,7 +11,7 @@ namespace Full.NET.Modules.Document.Features.ManageHostDocumentTags;
 /// <summary>
 /// Host 文档标签目录管理服务。标签为扁平结构（无父子层级），通过乐观并发 Version 字段防止覆盖；
 /// 删除前必须校验无标签引用（CountAssignments），存在引用时返回 InUse 错误。
-/// 同步写入 Code/Icon/Color/Description 四列，UseCount 由后端按引用计数维护，禁止由前端直接写入。
+/// 同步写入 Code/Icon/Color/Description 四列，UseCount响应由真实Host引用派生，禁止由前端写入。
 /// </summary>
 internal sealed class HostDocumentTagManagementService(
     IQueryExecutor queryExecutor,
@@ -124,7 +124,8 @@ internal sealed class HostDocumentTagManagementService(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return await queries.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+        // 新标签仍在门禁内，不可能被正常绑定；元数据回读失败仍由Result事务回滚。
+        return await queries.ReloadAfterWriteAsync(id, 0, cancellationToken).ConfigureAwait(false);
     }
 
     // 修复：UpdateCoreAsync 方法签名新增 code/icon/color/description 参数，与 Contracts 和 SQL 列对齐
@@ -141,7 +142,8 @@ internal sealed class HostDocumentTagManagementService(
         CancellationToken cancellationToken)
     {
         await writeGuard.LockTagsAsync(cancellationToken).ConfigureAwait(false);
-        if (await queries.GetByIdAsync(tagId, cancellationToken).ConfigureAwait(false) is { IsSuccess: false })
+        var existing = await queries.GetByIdAsync(tagId, cancellationToken).ConfigureAwait(false);
+        if (!existing.IsSuccess)
         {
             return NotFound();
         }
@@ -173,7 +175,8 @@ internal sealed class HostDocumentTagManagementService(
             return VersionConflict();
         }
 
-        return await queries.GetByIdAsync(tagId, cancellationToken).ConfigureAwait(false);
+        // 文档仅更新元数据时也会回读标签名称，持标签写锁后不可反向等待文档行。
+        return await queries.ReloadAfterWriteAsync(tagId, existing.Value!.UseCount, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<bool>> DeleteCoreAsync(

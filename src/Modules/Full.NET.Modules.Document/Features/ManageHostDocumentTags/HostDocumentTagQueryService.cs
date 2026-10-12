@@ -6,8 +6,8 @@ using Full.NET.Modules.Document.Persistence;
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentTags;
 
 /// <summary>
-/// Host 文档标签只读查询服务。按名称排序返回活动标签，UseCount 直接读自目录表的反规范化列，
-/// 不在本服务内联统计，以保证列表性能；不暴露已删除标签。
+/// Host 文档标签只读查询服务。按名称排序返回活动标签；UseCount由同一SQL统计保留的Host引用，
+/// 包括回收站关联，忽略历史计数列；不暴露已删除标签。
 /// </summary>
 internal sealed class HostDocumentTagQueryService(IQueryExecutor queryExecutor)
 {
@@ -41,8 +41,21 @@ internal sealed class HostDocumentTagQueryService(IQueryExecutor queryExecutor)
         return record is null ? NotFound() : Result<HostDocumentTagResponse>.Success(Map(record));
     }
 
-    // 修复：Map 方法补齐 10 个构造参数，严格按任务指定的顺序：Id/Name/Code/Icon/Color/Description/UseCount/CreatedAtUtc/UpdatedAtUtc/Version
-    // 注：Contracts 字段顺序由另一个子代理维护，此处顺序需与其最终定义对齐
+    /// <summary>事务写入后的回读不读取文档行；计数由门禁内写入前的权威读取提供。</summary>
+    public async Task<Result<HostDocumentTagResponse>> ReloadAfterWriteAsync(
+        Guid tagId,
+        int useCount,
+        CancellationToken cancellationToken = default)
+    {
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<DocumentTagRecord>(
+                DocumentTagSql.FindActiveByIdForMutationReload,
+                DocumentSqlParameters.Create(("Id", tagId), ("UseCount", useCount)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return record is null ? NotFound() : Result<HostDocumentTagResponse>.Success(Map(record));
+    }
+
+    // 读取与管理回读共用映射，确保派生计数与既有契约字段顺序一致。
     internal static HostDocumentTagResponse Map(DocumentTagRecord record) =>
         new(
             record.Id,

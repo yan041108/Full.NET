@@ -908,6 +908,7 @@ internal static class NativeApiE2EAssertions
     {
         var suffix = Guid.NewGuid().ToString("N");
         await DocumentTaxonomyConcurrencyAssertions.VerifyAsync(client, accessToken, provider, connectionString, cancellationToken).ConfigureAwait(false);
+        await DocumentTagUseCountAssertions.VerifyAsync(client, accessToken, provider, connectionString, cancellationToken).ConfigureAwait(false);
         await DocumentCategoryHierarchyAssertions.VerifyAsync(client, accessToken, cancellationToken).ConfigureAwait(false);
         await DocumentCategoryReferenceAssertions.VerifyAsync(client, accessToken, provider, connectionString, cancellationToken).ConfigureAwait(false);
         await DocumentTitleConcurrencyAssertions.VerifyAsync(client, accessToken, provider, connectionString, cancellationToken).ConfigureAwait(false);
