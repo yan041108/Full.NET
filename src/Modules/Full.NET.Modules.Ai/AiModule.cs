@@ -187,6 +187,7 @@ public sealed class AiModule : IFullNetModule
         Features.ManagePromptVersions.Endpoint.Map(endpoints);
         Features.ManageAgentTools.Endpoint.Map(endpoints);
         Features.ManageAgentRuns.Endpoint.Map(endpoints);
+        Features.RouteTasks.Endpoint.Map(endpoints);
         AgUiEndpoint.Map(endpoints);
         endpoints.MapFullNetMcp();
         Features.ManageAgentApprovals.Endpoint.Map(endpoints);

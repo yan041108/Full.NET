@@ -45,7 +45,11 @@ internal static class AiKnowledgeAskApiAssertions
         var chat = await created.Content.ReadFromJsonAsync<AiChatSessionResponse>(); Assert.IsNotNull(chat);
         var path = $"/api/v1/ai/chat/sessions/{chat.Id}/knowledge/ask";
         var request = new AskAiKnowledgeRequest([source.KnowledgeBaseId], embedding.Id, "来源说明");
+        const string routedPath = "/api/v1/ai/tasks/knowledge-ask";
+        var routed = new RouteAiTaskRequest("knowledge_ask", chat.Id, request);
         var before = await Charges();
+        using (var invalidRoute = await client.PostAsJsonAsync(routedPath, routed with { IntentKey = "unknown" }))
+            await AiAgentRunApiAssertions.AssertProblemAsync(invalidRoute, HttpStatusCode.BadRequest, "ai.routing.invalid");
         using (var invalid = await client.PostAsJsonAsync(path, request with { Question = "" }))
             Assert.AreEqual(HttpStatusCode.UnprocessableEntity, invalid.StatusCode, await invalid.Content.ReadAsStringAsync());
         using (var stranger = factory.CreateClientForHost("localhost"))
@@ -53,6 +57,8 @@ internal static class AiKnowledgeAskApiAssertions
             stranger.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", other.AccessToken);
             using var forbidden = await stranger.PostAsJsonAsync(path, request);
             Assert.AreEqual(HttpStatusCode.Forbidden, forbidden.StatusCode, await forbidden.Content.ReadAsStringAsync());
+            using var routeForbidden = await stranger.PostAsJsonAsync(routedPath, routed);
+            Assert.AreEqual(HttpStatusCode.Forbidden, routeForbidden.StatusCode, await routeForbidden.Content.ReadAsStringAsync());
         }
         Assert.AreEqual(before, await Charges());
         using var otherClient = factory.CreateClientForHost("localhost");
@@ -63,7 +69,7 @@ internal static class AiKnowledgeAskApiAssertions
         foreach (var refused in new[] { false, true })
         {
             model.Refused = refused;
-            using var response = await client.PostAsJsonAsync(path, request);
+            using var response = refused ? await client.PostAsJsonAsync(path, request) : await client.PostAsJsonAsync(routedPath, routed);
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
             var result = await response.Content.ReadFromJsonAsync<AskAiKnowledgeResponse>(); Assert.IsNotNull(result);
             Assert.IsTrue(result.Message.IsKnowledgeAnswer);

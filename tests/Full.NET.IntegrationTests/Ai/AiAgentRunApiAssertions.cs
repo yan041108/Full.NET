@@ -90,6 +90,9 @@ internal static class AiAgentRunApiAssertions
         await AssertProblemAsync(cancelAgain, HttpStatusCode.UnprocessableEntity, AiErrorCodes.AgentRunNotCancellable);
         await AiPromptApiAssertions.VerifyTenantAsync(client, model.Id, factory, owner.AccessToken);
         await AiAgentCancellationAssertions.VerifyAsync(factory);
+        // 既有 Prompt 场景检查精确预留数量；新增路由场景在末尾创建自己的运行，避免共享夹具相互污染。
+        await SeedFreshWorkerHeartbeatAsync(factory);
+        await VerifyControlledToolRouteAsync(client, model.Id, factory);
     }
 
     internal static async Task SeedFreshWorkerHeartbeatAsync(FullNetApiFactory factory)
@@ -111,6 +114,41 @@ internal static class AiAgentRunApiAssertions
             StartedAtUtc = now,
             LastHeartbeatAtUtc = now,
         });
+    }
+
+    private static async Task VerifyControlledToolRouteAsync(HttpClient client, Guid modelId, FullNetApiFactory factory)
+    {
+        const string path = "/api/v1/ai/tasks/authorized-tool-task";
+        var task = new CreateAiAgentRunRequest(Guid.CreateVersion7(), "fullnet-chat-rename-workflow-v1", modelId, "", 100, 100);
+        var request = new RouteAiTaskRequest("authorized_tool_task", ToolTask: task);
+        foreach (var invalid in new[] { request with { IntentKey = "unknown" }, request with { SessionId = Guid.CreateVersion7() },
+            request with { ToolTask = task with { DefinitionKey = DefinitionKey } },
+            request with { ToolTask = task with { DefinitionKey = "fullnet-readonly-tool-loop-v1" } } })
+        {
+            using var rejected = await client.PostAsJsonAsync(path, invalid);
+            await AssertProblemAsync(rejected, HttpStatusCode.BadRequest, "ai.routing.invalid");
+        }
+        var denied = await factory.CreateHostIdentityAsync($"route-denied-{Guid.NewGuid():N}", [AiAgentRunPermissions.Read]);
+        using var other = factory.CreateClientForHost("localhost");
+        other.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", denied.AccessToken);
+        using (var forbidden = await other.PostAsJsonAsync(path, request)) Assert.AreEqual(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        using var accepted = await client.PostAsJsonAsync(path, request);
+        Assert.AreEqual(HttpStatusCode.Accepted, accepted.StatusCode, await accepted.Content.ReadAsStringAsync());
+        var run = await accepted.Content.ReadFromJsonAsync<CreateAiAgentRunResponse>(); Assert.IsNotNull(run);
+        Assert.AreEqual($"/api/v1/ai/agent/runs/{run.RunId}", accepted.Headers.Location!.OriginalString);
+        using var repeated = await client.PostAsJsonAsync(path, request);
+        Assert.AreEqual(HttpStatusCode.Accepted, repeated.StatusCode, await repeated.Content.ReadAsStringAsync());
+        Assert.AreEqual(run.RunId, (await repeated.Content.ReadFromJsonAsync<CreateAiAgentRunResponse>())!.RunId);
+        using var read = await client.GetAsync($"/api/v1/ai/agent/runs/{run.RunId}");
+        var saved = await read.Content.ReadFromJsonAsync<AiAgentRunResponse>(); Assert.IsNotNull(saved);
+        Assert.AreEqual(task.DefinitionKey, saved.DefinitionKey); Assert.AreEqual(2, saved.DefinitionVersion);
+        using (var conflict = await client.PostAsJsonAsync(path, request with { ToolTask = task with { OutputTokenLimit = 101 } }))
+            await AssertProblemAsync(conflict, HttpStatusCode.Conflict, "ai.routing.conflict");
+        var legacyRequest = task with { ClientRequestId = Guid.CreateVersion7(), DefinitionKey = DefinitionKey, Prompt = "legacy" };
+        using var legacy = await client.PostAsJsonAsync("/api/v1/ai/agent/runs", legacyRequest);
+        Assert.AreEqual(HttpStatusCode.Accepted, legacy.StatusCode, await legacy.Content.ReadAsStringAsync());
+        using var crossDefinition = await client.PostAsJsonAsync(path, request with { ToolTask = task with { ClientRequestId = legacyRequest.ClientRequestId } });
+        await AssertProblemAsync(crossDefinition, HttpStatusCode.Conflict, "ai.routing.conflict");
     }
 
     internal static async Task AssertProblemAsync(HttpResponseMessage response, HttpStatusCode status, string code)

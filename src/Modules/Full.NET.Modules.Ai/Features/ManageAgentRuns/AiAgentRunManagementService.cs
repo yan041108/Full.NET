@@ -40,10 +40,17 @@ internal sealed class AiAgentRunManagementService(
     public const string ChatRenameWorkflowDefinitionKey = AgentWorkflowRegistry.ChatRenameWorkflowKey;
     public const int SingleTextDefinitionVersion = 1;
 
-    public async Task<Result<CreateAiAgentRunResponse>> CreateAsync(
+    /// <summary>封闭任务路由必须精确匹配已有定义、版本和完整预算；原入口保持既有重放兼容。</summary>
+    internal Task<Result<CreateAiAgentRunResponse>> CreateRoutedAsync(CreateAiAgentRunRequest request,
+        SessionBindingSnapshot binding, CancellationToken cancellationToken = default) => CreateCoreAsync(request, binding, true, cancellationToken);
+
+    public Task<Result<CreateAiAgentRunResponse>> CreateAsync(
         CreateAiAgentRunRequest request,
         SessionBindingSnapshot binding,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) => CreateCoreAsync(request, binding, false, cancellationToken);
+
+    private async Task<Result<CreateAiAgentRunResponse>> CreateCoreAsync(CreateAiAgentRunRequest request,
+        SessionBindingSnapshot binding, bool strictReplay, CancellationToken cancellationToken)
     {
         if (!await readiness.CanAcceptNewRunsAsync(cancellationToken).ConfigureAwait(false))
         {
@@ -71,7 +78,7 @@ internal sealed class AiAgentRunManagementService(
         if (existingId != Guid.Empty)
         {
             var existing = await store.FindOwnedAsync(existingId, scope, binding.UserId, cancellationToken).ConfigureAwait(false);
-            if (!ReplayMatches(existing, request)) return PromptConflict();
+            if (!(strictReplay ? RoutedReplayMatches(existing, request) : ReplayMatches(existing, request))) return ReplayConflict(strictReplay);
             return Result<CreateAiAgentRunResponse>.Success(new(existingId));
         }
 
@@ -146,7 +153,7 @@ internal sealed class AiAgentRunManagementService(
             // 落败请求没有插入 Run 或调用模型，已知零用量必须释放 Token/费用预留，冲突载荷不能借幂等覆盖。
             await budgetStore.SettleAsync(runId, new(0, 0), "cancelled", cancellationToken).ConfigureAwait(false);
             var existing = await store.FindOwnedAsync(createdId, scope, binding.UserId, cancellationToken).ConfigureAwait(false);
-            if (!ReplayMatches(existing, request)) return PromptConflict();
+            if (!(strictReplay ? RoutedReplayMatches(existing, request) : ReplayMatches(existing, request))) return ReplayConflict(strictReplay);
         }
         return Result<CreateAiAgentRunResponse>.Success(new(createdId));
     }
@@ -283,6 +290,24 @@ internal sealed class AiAgentRunManagementService(
         catch (JsonException) { return !request.PromptVersionId.HasValue && row is null; }
     }
     private static Result<CreateAiAgentRunResponse> PromptConflict() => Result<CreateAiAgentRunResponse>.Failure(new Error("ai.prompts.conflict", "The Prompt run request conflicts with the original request.", ErrorType.Conflict));
+
+    private static Result<CreateAiAgentRunResponse> ReplayConflict(bool strictReplay) => strictReplay
+        ? Result<CreateAiAgentRunResponse>.Failure(new Error("ai.routing.conflict", "The routed task conflicts with the original request.", ErrorType.Conflict))
+        : PromptConflict();
+
+    /// <summary>幂等查找已经绑定当前范围、用户和请求键；比较持久快照全部语义字段，不能沿用无 Prompt 的宽松重放。</summary>
+    private static bool RoutedReplayMatches(Persistence.AiAgentRunRecord? row, CreateAiAgentRunRequest request)
+    {
+        if (row is null || row.DefinitionKey != request.DefinitionKey || row.DefinitionVersion != ResolveDefinitionVersion(request.DefinitionKey)) return false;
+        try
+        {
+            var saved = JsonSerializer.Deserialize(row.BudgetJson, AiJsonSerializerContext.Default.AgentRunBudgetSnapshot);
+            return saved is not null && saved.PromptBinding is null && request.PromptVersionId is null
+                && saved.ModelConfigId == request.ModelConfigId && saved.Prompt == request.Prompt
+                && saved.InputTokenLimit == request.InputTokenLimit && saved.OutputTokenLimit == request.OutputTokenLimit;
+        }
+        catch (JsonException) { return false; }
+    }
 
     private static string ComputeRequestHash(CreateAiAgentRunRequest request, string scope) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(

@@ -26,6 +26,7 @@ namespace Full.NET.Modules.Ai.Serialization;
 [JsonSerializable(typeof(AiKnowledgeAnswerFeedbackExportResponse))]
 [JsonSerializable(typeof(AiModelConfigListItem))]
 [JsonSerializable(typeof(AskAiKnowledgeRequest))]
+[JsonSerializable(typeof(RouteAiTaskRequest))]
 [JsonSerializable(typeof(AskAiKnowledgeResponse))]
 [JsonSerializable(typeof(CreateAiKnowledgeBaseRequest))]
 [JsonSerializable(typeof(SetAiKnowledgeMembersRequest))]
