@@ -36,6 +36,8 @@ internal static class DocumentHostCategoryTagAssertions
             ],
             cancellationToken);
 
+        await DocumentCategoryHierarchyAssertions.VerifyAsync(client, manager.AccessToken, cancellationToken);
+        await DocumentCategoryHierarchyAssertions.VerifyWaitingDeleteAsync(factory, client, manager.AccessToken, cancellationToken);
         var category = await CreateCategoryAsync(client, manager.AccessToken, cancellationToken);
         await VerifyDuplicateCategoryNameAsync(client, manager.AccessToken, category, cancellationToken);
         var updatedCategory = await UpdateCategoryAsync(client, manager.AccessToken, category, cancellationToken);

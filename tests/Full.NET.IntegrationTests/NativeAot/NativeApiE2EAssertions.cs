@@ -905,6 +905,7 @@ internal static class NativeApiE2EAssertions
         CancellationToken cancellationToken)
     {
         var suffix = Guid.NewGuid().ToString("N");
+        await DocumentCategoryHierarchyAssertions.VerifyAsync(client, accessToken, cancellationToken).ConfigureAwait(false);
         var categoryRequest = new CreateHostDocumentCategoryRequest(
             "Native AOT category " + suffix,
             null,

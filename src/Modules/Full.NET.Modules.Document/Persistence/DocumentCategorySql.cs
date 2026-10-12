@@ -13,6 +13,29 @@ internal static class DocumentCategorySql
         Id, ParentId, Name, SortOrder, Code, Icon, Color, Description, CreatedAtUtc, UpdatedAtUtc, Version
         """;
 
+    /// <summary>分类写入前锁定 Host 活动目录；范围锁保护校验与提交之间的层级不变量。</summary>
+    public static readonly SqlStatement LockHierarchySqlServer = new(
+        "document.host_category.lock_hierarchy.sqlserver",
+        $$"""
+        SELECT {{Projection}}
+        FROM fn_document_category WITH (UPDLOCK, HOLDLOCK)
+        WHERE TenantId IS NULL AND IsDeleted = 0
+        ORDER BY Id
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>MySQL 使用当前锁定读，等待另一分类写入后必须重新读取已提交的父链。</summary>
+    public static readonly SqlStatement LockHierarchyMySql = new(
+        "document.host_category.lock_hierarchy.mysql",
+        $$"""
+        SELECT {{Projection}}
+        FROM fn_document_category
+        WHERE TenantId IS NULL AND IsDeleted = 0
+        ORDER BY Id
+        FOR UPDATE
+        """,
+        SqlDataScope.HostOnly);
+
     /// <summary>列出全部活动分类；按 SortOrder、Name、Id 排序以稳定层级展示。</summary>
     public static readonly SqlStatement ListActive = new(
         "document.host_category.list_active",
