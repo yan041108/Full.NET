@@ -2855,3 +2855,28 @@ SQL Server/MySQL真实代表性HTTP2/2通过，零失败/跳过，覆盖本批�
 同源码CI Native API核心21/21、完整Worker23/23通过，零失败/跳过。Worker新增双库真实原生进程证明：跨轮越过首个保留引用，释放历史Document孤儿，并保留回收站、可复用和新鲜引用；其他原生Worker回归一并执行。API run 38304112914、Worker run 38304112931，实际检出 a40d810c0b0dcb479c2b4ee3ed201e0eb44f0b9a，检出树、原始运行摘要、ZIP/ELF及发布清单摘要逐项核对。本地未重复执行相同Native矩阵。主CI快照为{"success":3,"failure":0,"skipped":7,"in_progress":1}，原始作业记录单独保留；跳过和未完成作业不计通过，不扩展为全量验收。
 
 证据 .tmp/active-claim-reconciliation-source.json、初轮和批量RED日志、架构首轮失败日志、.tmp/active-claim-reconciliation-jit-1、.tmp/active-claim-reconciliation-ci-artifacts、.tmp/active-claim-reconciliation-ci-runtime-proof.json、.tmp/active-claim-reconciliation-final-proof.json。仅Document不可复用版本引用历史补偿收口；Identity头像、Tenancy Logo等可复用身份的历史修复仍待专门策略。完整生成应用、全页面、故障与容量仍待独立范围验收，整体保持Build-verified / Capacity-not-verified。保持Draft，合并发布另行约定。
+
+## 2026-10-13 媒体绑定并发快照与原生 OpenAPI 闭包
+
+任务 media-binding-concurrency-20261013，基线 5a8b8d3；媒体实现 c001e53，集中验收修复与生产冻结 2d66182cae77670307788ee6fd5d56305f79bfe0，生产树 0598200dba41e06e5174902253f17f132029e37f。Identity 头像/签名绑定核对已读档案 Version；未读到档案时直接插入，唯一冲突返回已有 ProfileVersionConflict，避免覆盖并发创建者。头像、签名和 Logo 删除同时匹配原 FileId 与 Version，零行返回既有冲突，不清空赢家、不释放其引用。Logo 本地事务提交或删除 CAS 成功后先执行既有缓存失效，使用 CancellationToken.None，再确认/释放 Files 引用；后续失败、异常或请求取消不遗漏失效。跨模块调用保持在本地事务外，HTTP DTO 不变，无新迁移、依赖或跨模块事务；8 个写端点补齐 409 ProblemDetails 声明。
+
+首轮原生 API 23 项中 21 通过、2 失败，新增用例在读取 /openapi/v1.json 时得到 500，尚未开始媒体竞争。源生成专用 ApiExplorer 探针复现 IFormFile 缺失，并一次列出 20 个其他文档根类型缺口。Hosting 补齐文件、文件集合与 Stream，Identity、Workflow、CodeGeneration、Files、DataApproval、Reporting 按归属补齐已声明的集合接口元数据。新增架构回归移除 DefaultJsonTypeInfoResolver，检查真实模块所有文档根类型后生成完整 OpenAPI；不启动后台服务或数据库，不放宽生产异常日志隐私边界。标准 Integration 分片经发现核对：infrastructure 254、全量 1238，其余分片不变，集合互斥且完整；架构最低数同步 248。
+
+验证命令与实际结果：
+
+- node .tmp/media-binding-openapi-probe.mjs green：源生成专用完整 OpenAPI 1/1，通过。
+- node .tmp/media-binding-short-temp.mjs final：受影响 Hosting/Identity/Tenancy/Workflow/CodeGeneration/Files/DataApproval/Reporting Unit 3821/3821，通过，包含新增 28 项媒体回归。原始行为 RED 为 20 项中 14 失败、6 通过；媒体首轮聚焦 28/28、Identity/Tenancy 740/740 通过。
+- node .tmp/media-binding-fast-2.mjs 的架构子命令：248/248，通过。其初轮完整 Unit 的长路径夹具失败单独保留，不将入口整体记为通过；短路径同范围重跑如上。
+- node .tmp/media-binding-jit-2.mjs：SQL Server/MySQL 代表性 HTTP 2/2，通过。每库验证首次档案创建、正常上传/删除、头像/签名/Host Logo 上传及删除的实际行锁竞争，落后请求 409 和稳定机器码、赢家绑定/Active Claim 保留、上传输家 Pending Claim 释放；JIT 另以真实 SQL 验证当前租户 Logo 删除变体。
+- node .tmp/media-binding-aot-2.mjs：Hosting、六个元数据模块、API、Worker 共 9 个目标分析通过；相关宿主和消费者构建通过。分析结果不替代原生运行。
+- node --test tests/testing/test-matrix.test.mjs tests/testing/native-suite-runner.test.mjs tests/testing/native-enterprise-result.test.mjs：18/18；pnpm test:governance：70/70，通过。媒体 SQL/命名检查 5/5、33/33 已在 c001e53 阶段通过，后续没有改动 SQL 或命名。
+
+本地首轮 MySQL 因应用账号无 performance_schema 观测权限失败，修复仅让锁等待观察连接使用夹具管理员，应用权限不变。扩展 Unit 首轮 Windows 深临时目录（观测失败路径 290 字符）导致符号链接夹具失败，10 分钟时中止：3557 通过、32 失败、232 尚未完成；短目录对比同 12 项全部通过，随后以短目录执行同范围 3821 项，不修改系统权限、不删减用例。SQL Server 的 U 行锁允许旧快照读取，MySQL FOR UPDATE 保留 MVCC 旧读；系统视图关联自有持锁会话后才更新赢家与版本，不用固定延时冒充竞争。失败路径释放自有事务、取消并排空请求、保留首个异常后再销毁上下文。
+
+JIT 冻结 3370 个输入和 984 个消费者文件；源码与冻结一致，排队 0.460 秒、运行 389.223 秒。Windows SDK 10.0.401，主机 20 逻辑处理器/63.7 GiB 内存，每个测试进程使用 2 个 worker。自有数据库由夹具回收，他窗 WIP 保持；本批跨对话安全边界协调已按用户明确授权发送，未中断在途测试。
+
+同源码 CI Native API 核心 23/23，Notifications 2/2、Settings/Jobs 4/4、OIDC 16/16、S3 2/2、Kafka Replay 2/2（API 合计 49/49）；Worker 完整 23/23，通过，零失败/跳过；新增 API 两库实际读取 OpenAPI 并执行同一媒体 HTTP/数据库竞争矩阵。API run 38316881242、Worker run 38316881247，实际检出 8c7902b348b91cbb3145af88624c5c93e7f7c15c；生产树、原始测试摘要、ZIP/ELF/发布清单摘要逐项核对，未重复本地 Native。截至报告写入，主 CI 38316881251 的 Unit、架构、分片发现、客户端及两组双库迁移恢复已通过，扩展集成测试仍在执行；未完成和跳过不计通过。两次只读复审均无新增可证明 P1/P2。
+
+保留 .tmp/media-binding-source-2.json、行为 RED、首轮原生失败日志/日志产物、首轮 MySQL 与长路径失败材料、短路径对比、.tmp/media-binding-jit-2、.tmp/media-binding-ci-artifacts-2、.tmp/media-binding-ci-runtime-proof-2.json、.tmp/media-binding-final-proof-2.json。发现 Unit 6381、Integration 1314、架构 248，仅作发现证据。
+
+本批收口并发覆盖/清空、提交后缓存遗漏和原生 OpenAPI 静态根类型缺口。可复用头像/签名/Logo 的历史孤儿补偿、可靠解绑事实、完整生成应用、全页面、多实例缓存故障和容量仍待独立范围验收；保持 Build-verified / Capacity-not-verified。报告以 [skip ci] 提交，不将报告 head 冒称新生产运行；PR3 保持 Draft，合并发布另行约定。
