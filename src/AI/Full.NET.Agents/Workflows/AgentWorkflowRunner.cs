@@ -42,6 +42,26 @@ public sealed class AgentWorkflowRunner
     public async Task<AgentWorkflowRunResult> RunAsync(AgentWorkflowRunRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        using var observation = AgentExecutionTelemetry.Start(request.RunId, "workflow", cancellationToken: cancellationToken);
+        try
+        {
+            var result = await RunCoreAsync(request, cancellationToken).ConfigureAwait(false);
+            observation.Outcome = result.Status switch
+            {
+                AgentWorkflowRunStatus.Completed => "completed",
+                AgentWorkflowRunStatus.AwaitingApproval => "approval_required",
+                AgentWorkflowRunStatus.ReconciliationRequired => "reconciliation_required",
+                _ => result.ErrorCode == "ai.agent_run.tool_budget_exceeded" ? "budget_rejected"
+                    : result.ErrorCode == "ai.agent_run.workflow_validation_failed" ? "refused" : "failed",
+            };
+            return result;
+        }
+        catch (OperationCanceledException) { observation.Outcome = "cancelled"; throw; }
+    }
+
+    private async Task<AgentWorkflowRunResult> RunCoreAsync(AgentWorkflowRunRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
         var definition = AgentWorkflowRegistry.Resolve(request.WorkflowKey, request.WorkflowVersion);
         if (definition is null)
@@ -67,6 +87,8 @@ public sealed class AgentWorkflowRunner
             var node = definition.Nodes[index];
             if (state.ExecutionSteps >= MaximumExecutionSteps)
                 return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.tool_budget_exceeded");
+            using var nodeObservation = AgentExecutionTelemetry.Start(request.RunId, "node", stepIndex: index,
+                cancellationToken: cancellationToken);
             // 先消耗额度，再与派发意图持久化；审批拒绝和取消不退款，恢复不得重置预算。
             state.ExecutionSteps = checked(state.ExecutionSteps!.Value + 1);
             AgentWorkflowNodeReceipt? intent = null;
@@ -75,10 +97,14 @@ public sealed class AgentWorkflowRunner
                 intent = new(index, node.Key, request.ResolveOperationId(node.Key),
                     AgentWorkflowNodeReceipt.Digest(AgentWorkflowNodeReceipt.BuildInput(node, state)), null,
                     node.ToolName is null ? null : request.Registry.Find(node.ToolName)?.Version, null, null);
+                nodeObservation.SetOperationId(intent.OperationId);
                 cancellationToken.ThrowIfCancellationRequested();
                 state.PendingNode = intent;
                 if (!await request.PersistNodeAsync(intent, state, cancellationToken).ConfigureAwait(false))
+                {
+                    nodeObservation.Outcome = "reconciliation_required";
                     return new(AgentWorkflowRunStatus.ReconciliationRequired, state, null, "ai.tool.reconciliation_required");
+                }
                 cancellationToken.ThrowIfCancellationRequested();
             }
             long? nodeInputTokens = null, nodeOutputTokens = null;
@@ -89,11 +115,15 @@ public sealed class AgentWorkflowRunner
                 case AgentWorkflowNodeKind.ToolWrite:
                 {
                     if (node.Kind == AgentWorkflowNodeKind.ToolWrite && !HasValidRenameProposal(state))
+                    {
+                        nodeObservation.Outcome = "refused";
                         return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.workflow_validation_failed");
+                    }
                     var toolResult = await ExecuteToolNodeAsync(request, node, state, intent?.OperationId, cancellationToken).ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
                     if (toolResult.ApprovalRequired)
                     {
+                        nodeObservation.Outcome = "approval_required";
                         // 明确未派发的审批拒绝允许等待态恢复；未知结果仍保留意图。
                         state.PendingNode = null;
                         approvalRequired = true;
@@ -103,6 +133,7 @@ public sealed class AgentWorkflowRunner
 
                     if (toolResult.ReconciliationRequired)
                     {
+                        nodeObservation.Outcome = "reconciliation_required";
                         reconciliationRequired = true;
                         state.NextNodeIndex = index;
                         return new(AgentWorkflowRunStatus.ReconciliationRequired, state, null, null);
@@ -110,6 +141,7 @@ public sealed class AgentWorkflowRunner
 
                     if (!toolResult.Succeeded)
                     {
+                        nodeObservation.Outcome = toolResult.Outcome;
                         state.NextNodeIndex = index;
                         return new(AgentWorkflowRunStatus.Failed, state, null, toolResult.ErrorCode ?? "ai.agent_run.workflow_tool_failed");
                     }
@@ -120,7 +152,13 @@ public sealed class AgentWorkflowRunner
                 case AgentWorkflowNodeKind.ModelText:
                 {
                     var prompt = AgentWorkflowNodeReceipt.BuildInput(node, state);
-                    var modelResult = await request.ModelRunner.RunAsync(request.Client, prompt, cancellationToken).ConfigureAwait(false);
+                    AgentModelResult modelResult;
+                    using (var modelObservation = AgentExecutionTelemetry.Start(request.RunId, "model", intent?.OperationId, index, cancellationToken))
+                    {
+                        try { modelResult = await request.ModelRunner.RunAsync(request.Client, prompt, cancellationToken).ConfigureAwait(false); }
+                        catch (OperationCanceledException) { modelObservation.Outcome = "cancelled"; throw; }
+                        modelObservation.Outcome = "succeeded";
+                    }
                     cancellationToken.ThrowIfCancellationRequested();
                     // 恢复游标前已有模型节点时，空值代表未知累计量；不能把已发生调用当作首次计量。
                     var firstModelCall = !definition.Nodes.Take(index).Any(x => x.Kind == AgentWorkflowNodeKind.ModelText);
@@ -153,11 +191,18 @@ public sealed class AgentWorkflowRunner
                 state.NodeReceipts.Add(receipt);
                 state.PendingNode = null;
                 if (!await request.PersistNodeAsync!(receipt, state, cancellationToken).ConfigureAwait(false))
+                {
+                    nodeObservation.Outcome = "reconciliation_required";
                     return new(AgentWorkflowRunStatus.ReconciliationRequired, state, null, "ai.tool.reconciliation_required");
+                }
                 cancellationToken.ThrowIfCancellationRequested();
             }
             if (validationFailed)
+            {
+                nodeObservation.Outcome = "refused";
                 return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.workflow_validation_failed");
+            }
+            nodeObservation.Outcome = "succeeded";
         }
 
         if (approvalRequired)
@@ -182,34 +227,41 @@ public sealed class AgentWorkflowRunner
         Guid? recordedOperationId,
         CancellationToken cancellationToken)
     {
+        using var observation = AgentExecutionTelemetry.Start(request.RunId, "tool", recordedOperationId, cancellationToken: cancellationToken);
         var toolName = node.ToolName!;
         var tool = request.Registry.Find(toolName);
         if (tool is null || !tool.IsEnabled)
         {
-            return new(false, string.Empty, "ai.tool.unavailable", false, false);
+            observation.Outcome = "denied";
+            return new(false, string.Empty, "ai.tool.unavailable", false, false, "denied");
         }
 
         using var arguments = JsonDocument.Parse(AgentWorkflowNodeReceipt.BuildInput(node, state));
         var operationId = recordedOperationId ?? request.ResolveOperationId(node.Key);
+        observation.SetOperationId(operationId);
         var invocation = new ToolInvocation(operationId, request.RunId, toolName, tool.Version, arguments.RootElement.Clone());
         cancellationToken.ThrowIfCancellationRequested();
         var result = await request.Executor.ExecuteAsync(invocation, cancellationToken).ConfigureAwait(false);
         if (string.Equals(result.ErrorCode, "ai.tool.approval_required", StringComparison.Ordinal))
         {
+            observation.Outcome = "approval_required";
             return new(false, string.Empty, result.ErrorCode, true, false);
         }
 
         if (string.Equals(result.ErrorCode, "ai.tool.reconciliation_required", StringComparison.Ordinal))
         {
+            observation.Outcome = "reconciliation_required";
             return new(false, string.Empty, result.ErrorCode, false, true);
         }
 
         if (!string.Equals(result.StatusKey, "succeeded", StringComparison.Ordinal))
         {
-            return new(false, string.Empty, result.ErrorCode ?? "ai.tool.failed", false, false);
+            observation.Outcome = result.StatusKey is "denied" or "cancelled" ? result.StatusKey : "failed";
+            return new(false, string.Empty, result.ErrorCode ?? "ai.tool.failed", false, false, observation.Outcome);
         }
 
         var output = result.Value?.GetRawText() ?? "null";
+        observation.Outcome = "succeeded";
         return new(true, output, null, false, false);
     }
 
@@ -234,7 +286,8 @@ public sealed class AgentWorkflowRunner
         string Output,
         string? ErrorCode,
         bool ApprovalRequired,
-        bool ReconciliationRequired);
+        bool ReconciliationRequired,
+        string Outcome = "failed");
 }
 
 /// <summary>工作流执行请求；OperationId 由调用方按节点键派生。</summary>

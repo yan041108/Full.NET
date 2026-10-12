@@ -51,6 +51,16 @@
 
 监听器采样、发布、测量及 Activity 回调异常被隔离，不能替换原响应或原调用异常；这不代表诊断事件必然送达。ActivitySource 或 Meter 首次初始化失败时，对应空结果会保留至进程退出，需排查诊断配置并重启恢复。当前能力仅为 Provider HTTP 观测，Run/Step 全链路关联与完整数据去向门禁仍按 AI 计划推进。
 
+## Agent 执行观测
+
+Ai 宿主同时订阅 `Full.NET.Ai.Execution`，记录 `fullnet.ai.execution.attempts`（`{attempt}`）和 `fullnet.ai.execution.duration`（`ms`）。指标只有 `ai.stage`、`ai.outcome` 两项固定标签；阶段为 `run`、`workflow`、`tool_loop`、`node`、`model`、`tool`，未知阶段归为 `other`。尝试包含本地准入拒绝与恢复，不等同于已派发、已付费调用，嵌套阶段不能直接相加作为运行总数。
+
+Trace 使用 Internal Activity，在当前父上下文下关联 RunId、已有 OperationId 和 0–63 的步骤序号；Provider HTTP 为模型阶段的子 span。Trace 不记录提示词、正文、异常消息、定义键、模型名、工具名或用户/租户标识，指标也不含业务ID。当前实现只关联本次进程中的尝试，不持久化TraceId，也不新增业务操作或替代持久StepId；恢复遵守原检查点与调用身份，不为补观测重新派发。
+
+`processed` 只表示 Worker 本次处理返回true，包含已提交的失败、授权拒绝或暂停；`not_processed` 表示返回false。内部执行器的 `completed` 和模型/工具边界的 `succeeded` 不证明运行最终交付或费用结算。固定结果还包括 `denied`、`approval_required`、`reconciliation_required`、`budget_rejected`、`authorization_required`、`cancelled`、`failed`、`refused`；其中 `refused` 表示静态工作流结构化校验门禁拒绝，不代表已检测所有模型自然语言拒答。
+
+每个范围独立收尾，父Activity恢复及采样、测量和停止回调故障不改变业务结果。诊断事件不保证送达；此源首次初始化失败也可能保留空源，修正诊断配置后需要重启进程恢复。授权、预算、账本、审批与持久化仍由原业务边界判定。
+
 ## 声明兼容网关的流式用量能力
 
 OpenAI 兼容协议不代表支持所有可选字段。默认不发送 `stream_options.include_usage`；包括官方端点在内，也不根据域名猜测某个模型的能力。确认端点与模型支持后，在同一宿主配置中添加：

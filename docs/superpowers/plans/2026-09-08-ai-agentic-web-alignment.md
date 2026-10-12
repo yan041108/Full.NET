@@ -2177,6 +2177,29 @@ node artifacts/r11b/run-static.mjs 通过命名30、矩阵6、治理57及保护�
 
 环境为Windows x64/i7-12700H/约64GiB、SDK10.0.401；Linux SDK10.0.400/Runtime10.0.11，构建容器8CPU/4GiB、托管4逻辑处理器，双库各2CPU/8GiB。未执行在线NuGet审计、真实云模型、集中独立生成应用或浏览器验收；R11全阶段数据去向、Run/Step全链路和R12继续待办，容量保持Capacity-not-verified。main仅提交本批九项文件，其他窗口改动与共享矩阵增量保持原样，不推送。
 
+#### R11c：Agent 运行与步骤观测合批（2026-10-12，本批受影响验收完成）
+
+- main 基线 `ac557421264889171a7b4aa58c625a3634b7bf56`，任务 `ai-execution-telemetry-r11c`；同批接入 Worker 处理尝试、单模型、工具循环、工作流节点及宿主订阅。
+- [x] 真实运行失败证据、固定标签与 Trace 关联、审批/对账/预算/拒答分类、恢复不新增派发及诊断故障隔离回归。
+- [x] 一次冻结最终源码，集中执行完整 AI、受影响双库、架构与 AOT 分析，核对消费者及精确UID。
+- [x] 独立只读复核、同步实际证据后 main 提交；完整数据分类门禁与集中原生/页面验收继续待办。
+
+指标来源 `Full.NET.Ai.Execution` 仅含固定 stage/outcome；RunId、已有OperationId和有界步骤序号只用于Trace，不记录定义键、模型、工具名、正文或用户/租户。工作流及循环的completed表示内部执行器返回，Worker的processed只表示本次处理返回true，包含已提交的失败/暂停，不证明业务成功或费用结算。当前Trace关联当前尝试，不新增持久TraceId或跨重启传播；正式持久StepId及完整Run/Step/Trace运营查询仍待后续。
+
+实际证据位于 artifacts/r11c：node artifacts/r11c/run-final-pipeline.mjs 完成完整AI 3714/3714（新增43项），JIT Architecture235/235、AOT架构88/88，均零失败/跳过。API/Worker 的 dotnet build -c Release -p:FullNetAotAnalysis=true -p:NuGetAudit=false 均零警告/错误，只证明Aot-analysis-clean，没有本批新鲜Native发布/运行。冻结分类器选择Ai+Smoke，SQL Server/MySQL各48/48及48/48、合计96实际通过，顺序运行、Workers=1、原矩阵60分钟期限；没有执行全部Integration。
+
+node artifacts/r11c/run-static.mjs 通过命名30、矩阵6、治理57及保护排除后的Markdown386；node artifacts/r11c/run-tooling.mjs 通过54项。全Unit仅发现7207，正式矩阵7197，其他窗口10项LocalFile测试只发现，未执行全Unit。Runtime实际890、Provider实际229；Integration分片发现1214，无遗漏/重复，不计为执行。冻结7807输入，源码、三类生产/Unit消费者、JIT及双库消费者摘要和精确UID核对通过；仅复用构建缓存，不复用旧版本测试结果。
+
+初始4项RED全部失败，其中3项为真实缺少观测，另1项是新夹具误用工作流v1；首轮AI3675有3674通过/1夹具失败，核对正式v2后修正，保留原结果。新增夹具三处params目标推断CS8752编译错误保留，改显式ChatResponse类型，编译错误不计行为RED。分类回归9项7失败/2通过，复审追加标题拒答2项均失败；只修正分类后，最终完整AI包含全部43项通过。
+
+此前41项聚焦及独立冷启动1项通过保留为中间证据；最终publication-final再次在独立进程以FULLNET_AI_EXECUTION_FRESH_PROBE=1运行1/1，核对最终编译消费者，明确首次发布递归。独立只读复审四项Important均关闭，没有剩余Critical/Important；父Activity回调、采样/测量/停止故障保留原结果或异常，无正文和身份标签。
+
+sqlserver 官方TRX对2项结果的超长捕获文本按字段上限截断；状态、计数与精确UID完整，保留报告器提示，不声称截断区域文本完整。
+
+mysql 官方TRX对2项结果的超长捕获文本按字段上限截断；状态、计数与精确UID完整，保留报告器提示，不声称截断区域文本完整。
+
+Windows x64/i7-12700H/约64GiB、SDK10.0.401；Linux SDK10.0.400/Runtime10.0.11，构建容器8CPU/4GiB、托管4逻辑处理器，双库各2CPU/8GiB。Unit使用工作区互斥与独立TEMP/TMP，双库/原生使用同机重型锁；记录曾等待其他文档原生验收，不挤占执行期限。未执行在线NuGet审计、真实云模型、集中独立应用/浏览器或本批原生运行。R11业务路由、全阶段分类、持久StepId与跨重启Trace、输入硬限及未知外部对账继续待办，Capacity-not-verified。main仅提交本批十项文件；其他窗口与共享矩阵增量保留，不推送。
+
 ### R12：原生闭包、运营恢复与集中验收（P2，依赖前述切片）
 
 **修改：** `tests/Full.NET.IntegrationTests/NativeAot/NativeApiAiE2ETests.cs` 及 Worker 原生探针；测试矩阵 `eng/testing/test-matrix.json`、现有受影响 CI、Vue 页面验收与 `docs/roadmap/capability-status.md`。

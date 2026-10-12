@@ -54,6 +54,20 @@ internal sealed class AiAgentRunCoordinator(
 
     private async Task<bool> TryProcessRunAsync(Guid runId, CancellationToken callerCancellationToken)
     {
+        using var observation = AgentExecutionTelemetry.Start(runId, "run", cancellationToken: callerCancellationToken);
+        try
+        {
+            var processed = await TryProcessRunCoreAsync(runId, callerCancellationToken, observation).ConfigureAwait(false);
+            if (!processed) observation.Outcome = "not_processed";
+            else if (observation.Outcome == "failed") observation.Outcome = "processed";
+            return processed;
+        }
+        catch (OperationCanceledException) { observation.Outcome = "cancelled"; throw; }
+    }
+
+    private async Task<bool> TryProcessRunCoreAsync(Guid runId, CancellationToken callerCancellationToken,
+        AgentExecutionTelemetry.Observation observation)
+    {
         var cancellationToken = callerCancellationToken;
         var leaseDuration = TimeSpan.FromSeconds(runtimeOptions.Value.LeaseSeconds);
         var lease = await store.TryAcquireAsync(runId, heartbeat.WorkerId, clock.UtcNow, leaseDuration, cancellationToken)
@@ -90,6 +104,8 @@ internal sealed class AiAgentRunCoordinator(
         var completionPending = false;
         async Task<bool> FailAsync(string code)
         {
+            if (code is "ai.agent_run.tool_budget_exceeded" or "ai.budget.limit_exceeded")
+                observation.Outcome = "budget_rejected";
             if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
             // 恢复前置拒绝不能覆盖已发生派发的计量；损坏凭证也不能被当成未执行。
             if (preserveDispatchBudget)
@@ -152,6 +168,7 @@ internal sealed class AiAgentRunCoordinator(
                     : record.SessionKind);
             if (!await bindingValidator.IsValidAsync(binding, cancellationToken).ConfigureAwait(false))
             {
+                observation.Outcome = "authorization_required";
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
                 async Task<AgentRunProgressCommit> PrepareAuthorizationAsync() => new(
@@ -500,7 +517,12 @@ internal sealed class AiAgentRunCoordinator(
                 if (!await leaseWatch.CommitNodeAsync((currentLease, token) => CommitModelProgressAsync(
                     currentLease, record, modelState, "running", "run.node_started", null, token)).ConfigureAwait(false)) return false;
                 cancellationToken.ThrowIfCancellationRequested();
-                result = await runner.RunAsync(executionClient, effectivePrompt, cancellationToken).ConfigureAwait(false);
+                using (var modelObservation = AgentExecutionTelemetry.Start(runId, "model", runId, cancellationToken: cancellationToken))
+                {
+                    try { result = await runner.RunAsync(executionClient, effectivePrompt, cancellationToken).ConfigureAwait(false); }
+                    catch (OperationCanceledException) { modelObservation.Outcome = "cancelled"; throw; }
+                    modelObservation.Outcome = "succeeded";
+                }
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!AiModelRunCheckpoint.ValidResult(result, snapshot))
                     throw new InvalidOperationException("Single model result is not a valid completion receipt.");
@@ -538,6 +560,7 @@ internal sealed class AiAgentRunCoordinator(
         }
         catch (AiRunOutputBudgetException exception) when (!exception.DispatchStarted)
         {
+            observation.Outcome = "budget_rejected";
             if (record.DefinitionKey == AgentDefinitionRegistry.SingleTextKey && modelState?.Phase == "started")
             {
                 // 预算客户端明确证明尚未派发，保存拒绝事实后才允许结算失败。

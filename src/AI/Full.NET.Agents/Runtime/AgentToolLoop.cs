@@ -31,6 +31,21 @@ public sealed class AgentToolLoop
     public async Task<AgentToolLoopResult> RunAsync(AgentToolLoopRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        using var observation = AgentExecutionTelemetry.Start(request.RunId, "tool_loop", cancellationToken: cancellationToken);
+        try
+        {
+            var result = await RunCoreAsync(request, cancellationToken).ConfigureAwait(false);
+            observation.Outcome = result.ApprovalRequired ? "approval_required"
+                : result.ReconciliationRequired ? "reconciliation_required" : "completed";
+            return result;
+        }
+        catch (OperationCanceledException) { observation.Outcome = "cancelled"; throw; }
+        catch (AgentToolLoopBudgetExceededException) { observation.Outcome = "budget_rejected"; throw; }
+    }
+
+    private async Task<AgentToolLoopResult> RunCoreAsync(AgentToolLoopRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
         var definition = AgentDefinitionRegistry.Resolve(request.DefinitionKey, request.DefinitionVersion)
             ?? throw new InvalidOperationException("Unknown agent definition.");
@@ -77,6 +92,8 @@ public sealed class AgentToolLoop
             {
                 foreach (var call in AgentToolLoopCheckpoint.Calls(state.Rounds[^1]).Where(c => c.ResultPayload is null || c == approvalCall))
                 {
+                    using var toolObservation = AgentExecutionTelemetry.Start(request.RunId, "tool", call.OperationId,
+                        cancellationToken: cancellationToken);
                     cancellationToken.ThrowIfCancellationRequested();
                     if (AgentToolLoopCheckpoint.Summarize(state).ExecutionSteps >= MaximumExecutionSteps) throw new AgentToolLoopBudgetExceededException();
                     if (call == approvalCall)
@@ -94,6 +111,7 @@ public sealed class AgentToolLoop
                         // 审批重入沿用已冻结身份；解析器只为从未派发过的后缀创建新身份。
                         call.OperationId ??= request.ResolveOperationId(call.CallId!);
                         if (call.OperationId == Guid.Empty) AgentToolLoopCheckpoint.Invalid();
+                        toolObservation.SetOperationId(call.OperationId.Value);
                         state.Phase = "tool_pending";
                         await SaveAsync().ConfigureAwait(false);
                         var tool = request.Registry.Find(call.Name!);
@@ -107,6 +125,9 @@ public sealed class AgentToolLoop
                             result.Value, result.IsUntrusted), AgentToolLoopJsonSerializerContext.Default.ToolLoopExecutionPayload);
                     }
                     var receipt = AgentToolLoopCheckpoint.ReadResult(call.ResultPayload);
+                    toolObservation.Outcome = receipt.ErrorCode == "ai.tool.approval_required" ? "approval_required"
+                        : receipt.ErrorCode == "ai.tool.reconciliation_required" ? "reconciliation_required"
+                        : receipt.StatusKey is "succeeded" or "denied" or "cancelled" ? receipt.StatusKey : "failed";
                     state.Phase = AgentToolLoopCheckpoint.IsPause(receipt.ErrorCode) ? "blocked" : "tools_ready";
                     await SaveAsync().ConfigureAwait(false);
                     if (state.Phase == "blocked")
@@ -124,7 +145,14 @@ public sealed class AgentToolLoop
             // 每轮模型都先保存意图；网络返回前中断只能对账，不能从旧 ready 推断本轮未执行。
             state.Phase = "model_pending";
             await SaveAsync().ConfigureAwait(false);
-            var response = await request.Client.GetResponseAsync(AgentToolLoopCheckpoint.History(state, request.Prompt), options, cancellationToken).ConfigureAwait(false);
+            ChatResponse response;
+            using (var modelObservation = AgentExecutionTelemetry.Start(request.RunId, "model", stepIndex: info.ExecutionSteps,
+                cancellationToken: cancellationToken))
+            {
+                try { response = await request.Client.GetResponseAsync(AgentToolLoopCheckpoint.History(state, request.Prompt), options, cancellationToken).ConfigureAwait(false); }
+                catch (OperationCanceledException) { modelObservation.Outcome = "cancelled"; throw; }
+                modelObservation.Outcome = "succeeded";
+            }
             cancellationToken.ThrowIfCancellationRequested();
             var admitted = AgentToolCallAdmission.Freeze(response, MaximumExecutionSteps - info.ExecutionSteps - 1, callIds, cancellationToken);
             var round = new AgentToolLoopRound { InputTokens = response.Usage?.InputTokenCount, OutputTokens = response.Usage?.OutputTokenCount };
