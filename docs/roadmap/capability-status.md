@@ -1,5 +1,7 @@
 # Full.NET 能力状态矩阵
 
+2026-10-12 Document 保留策略运行时刷新已补齐：通知源复用、回调先切换新令牌、Worker 每轮重读及读取失败停止本轮删除，启动取消正常传播。冻结 `1e508a5`，新增回归 RED 9 失败到 GREEN 9/9，Document Unit 46/46、架构 88/88、治理 70/70、双库 HTTP 2/2与原生 Worker 常驻双库 2/2通过，均零失败/跳过。Native API 首轮 20 通过/1 个 Kafka 容器端口冲突失败，保留失败证据、复用未改产物单项重试 1/1，按 testId 精确覆盖 21 个不同 Passed 身份（20+1分组），未冒称单轮 21/21；API/Worker AOT 分析及消费者构建通过。真实原生进程启动后启用策略，验证旧版本删除审计与当前版本保护；不外推全部 Worker、多实例并发删除、其他 API 实例动态刷新或容量。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-文档保留策略运行时刷新集中验收)，整体保持 Build-verified、Capacity-not-verified。
+
 2026-10-12 Document 版本保留策略已补齐版本凭据与双库条件更新，陈旧提交返回 409；查询从同一次数据库读取取得设置和版本，保存返回本次提交快照，进程内重载拒绝较旧修订。源码冻结 `7119ed8`，Document Unit 37/37、双库真实 HTTP 2/2、SDK 275/275、Vue 58/58、Edge 8/8、OpenAPI 219/219、AOT 架构 88/88，通过构建、生成零漂移及兼容性门禁；Linux Native API 核心 21/21、零失败/跳过，精确源码产物、TRX 与自有资源清理核对通过。旧请求省略版本只允许首次初始化，后续保存须读取并携带版本；四参数 C# 构造和解构保持，无迁移。范围不外推到完整生成应用、Worker 跨实例刷新或容量，整体仍为 Build-verified、Capacity-not-verified。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-文档版本保留策略并发保护集中验收)。
 
 2026-10-12 Tenancy 配额对账补齐两种 Native 静态物化器，冻结 eb8ae21 的独立副本集中执行完整 Native API 核心 21/21，双库非空样例验证历史预留预览/修复/跳过/版本与重复、指标回填权威用量、匿名及 Host/Tenant 权限。AOT 架构 88/88、治理 62/62、AOT 与最终消费者构建零警告/错误，精确产物和自有资源清理已核对；没有单独执行全量 Unit/JIT Integration，不提升完整生成应用、全页面、故障或容量。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-tenancy-配额对账原生集中验收)，整体保持 Build-verified、Capacity-not-verified。
