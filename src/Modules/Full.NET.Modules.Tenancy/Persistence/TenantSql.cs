@@ -330,7 +330,8 @@ internal static class TenantSql
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @TenantId
-          AND LogoFileId IS NOT NULL
+          AND LogoFileId = @FileId
+          AND Version = @Version
         """,
         SqlDataScope.HostOnly);
 
@@ -342,7 +343,8 @@ internal static class TenantSql
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @TenantId
-          AND LogoFileId IS NOT NULL
+          AND LogoFileId = @FileId
+          AND Version = @Version
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);

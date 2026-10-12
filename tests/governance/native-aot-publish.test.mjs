@@ -245,7 +245,7 @@ test('Notifications Native AOT 门禁登记矩阵、脚本、工作流与专用 
   );
   assert.deepEqual(
     matrix.nativeAotIntegration.requiredTestTypes,
-    ['NativeApiKafkaLogMySqlE2ETests']
+    ['NativeApiKafkaLogMySqlE2ETests', 'NativeApiMediaBindingTests']
   );
   assert.match(await readNativeRunner('scripts/testing/run-native-aot-e2e.mjs'),
     /discoveredTypes\.has\(requiredType\)/);

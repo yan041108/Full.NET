@@ -1699,6 +1699,7 @@ internal static class IdentitySql
         SET AvatarFileId = @AvatarFileId,
             Version = Version + 1
         WHERE UserId = @UserId
+          AND Version = @Version
         """,
         SqlDataScope.HostOnly);
 
@@ -1709,6 +1710,7 @@ internal static class IdentitySql
         SET SignatureFileId = @SignatureFileId,
             Version = Version + 1
         WHERE UserId = @UserId
+          AND Version = @Version
         """,
         SqlDataScope.HostOnly);
 
@@ -1719,7 +1721,8 @@ internal static class IdentitySql
         SET AvatarFileId = NULL,
             Version = Version + 1
         WHERE UserId = @UserId
-          AND AvatarFileId IS NOT NULL
+          AND AvatarFileId = @FileId
+          AND Version = @Version
         """,
         SqlDataScope.HostOnly);
 
@@ -1730,7 +1733,8 @@ internal static class IdentitySql
         SET SignatureFileId = NULL,
             Version = Version + 1
         WHERE UserId = @UserId
-          AND SignatureFileId IS NOT NULL
+          AND SignatureFileId = @FileId
+          AND Version = @Version
         """,
         SqlDataScope.HostOnly);
 

@@ -183,7 +183,7 @@ internal sealed class SelfServiceProfileMediaService(
         try
         {
             var bindResult = await transaction.ExecuteResultAsync(
-                    token => BindMediaAsync(userId, kind, fileId, profile is null, token),
+                    token => BindMediaAsync(userId, kind, fileId, profile?.Version, token),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!bindResult.IsSuccess)
@@ -221,7 +221,7 @@ internal sealed class SelfServiceProfileMediaService(
         Guid userId,
         SelfServiceProfileMediaKind kind,
         Guid fileId,
-        bool createShell,
+        int? version,
         CancellationToken cancellationToken)
     {
         var statement = kind switch
@@ -230,29 +230,29 @@ internal sealed class SelfServiceProfileMediaService(
             SelfServiceProfileMediaKind.Signature => IdentitySql.UpdateHostUserProfileSignature,
             _ => throw new InvalidOperationException("Unsupported media kind."),
         };
-        var affected = await commandExecutor.ExecuteAsync(
+        if (version is int observedVersion)
+        {
+            // 上传期间档案可能被其他媒体或普通资料编辑；只能替换原快照中的绑定。
+            var affected = await commandExecutor.ExecuteAsync(
                 statement,
                 IdentitySqlParameters.Create(
                     ("UserId", userId),
+                    ("Version", observedVersion),
                     kind == SelfServiceProfileMediaKind.Avatar
                         ? ("AvatarFileId", fileId)
                         : ("SignatureFileId", fileId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (affected == 1)
-        {
-            return Result<bool>.Success(true);
-        }
-
-        if (!createShell)
-        {
-            return Result<bool>.Failure(new Error(
+            return affected == 1 ? Result<bool>.Success(true) : Result<bool>.Failure(new Error(
                 IdentityErrorCodes.ProfileVersionConflict,
                 "The host user profile was updated concurrently.",
                 ErrorType.Conflict));
         }
 
-        var inserted = await commandExecutor.ExecuteAsync(
+        try
+        {
+            // 首次快照为空时直接插入；不能先 UPDATE 并覆盖上传期间已经创建的档案。
+            var inserted = await commandExecutor.ExecuteAsync(
                 IdentitySql.InsertHostUserProfileMediaShell,
                 IdentitySqlParameters.Create(
                     ("UserId", userId),
@@ -260,12 +260,20 @@ internal sealed class SelfServiceProfileMediaService(
                     ("SignatureFileId", kind == SelfServiceProfileMediaKind.Signature ? fileId : null)),
                 cancellationToken)
             .ConfigureAwait(false);
-        return inserted == 1
+            return inserted == 1
             ? Result<bool>.Success(true)
             : Result<bool>.Failure(new Error(
                 IdentityErrorCodes.ProfileVersionConflict,
                 "The host user profile was updated concurrently.",
                 ErrorType.Conflict));
+        }
+        catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
+        {
+            return Result<bool>.Failure(new Error(
+                IdentityErrorCodes.ProfileVersionConflict,
+                "The host user profile was updated concurrently.",
+                ErrorType.Conflict));
+        }
     }
 
     private async Task<Result<SelfServiceProfileResponse>> DeleteAsync(
@@ -304,11 +312,19 @@ internal sealed class SelfServiceProfileMediaService(
         var statement = kind == SelfServiceProfileMediaKind.Avatar
             ? IdentitySql.ClearHostUserProfileAvatar
             : IdentitySql.ClearHostUserProfileSignature;
-        _ = await commandExecutor.ExecuteAsync(
+        // 删除只对读取的文件与档案版本生效，冲突不能清除赢家或释放任何引用。
+        var affected = await commandExecutor.ExecuteAsync(
                 statement,
-                IdentitySqlParameters.Create(("UserId", userId)),
+                IdentitySqlParameters.Create(("UserId", userId), ("FileId", fileId.Value), ("Version", profile!.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
+        if (affected != 1)
+        {
+            return Result<SelfServiceProfileResponse>.Failure(new Error(
+                IdentityErrorCodes.ProfileVersionConflict,
+                "The host user profile was updated concurrently.",
+                ErrorType.Conflict));
+        }
         await ReleaseMediaClaimAsync(kind, userId, fileId.Value, cancellationToken)
             .ConfigureAwait(false);
         return await profileService.GetAsync(userId, actorScope, cancellationToken)

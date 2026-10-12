@@ -201,6 +201,8 @@ internal sealed class TenantBrandingMediaService(
             return Result<TenantBrandingResponse>.Failure(bindResult.Error!);
         }
 
+        // 品牌绑定已提交；后续 Claim 确认失败、抛错或请求取消都不能阻止提交后缓存失效。
+        await InvalidateBrandingCacheAsync(tenantId, CancellationToken.None).ConfigureAwait(false);
         var confirmResult = await RunHostFileOpsIfNeededAsync(
                 useCurrentTenantScope,
                 () => hostFileReferenceClaimService.ConfirmAsync(idempotencyKey, cancellationToken))
@@ -216,7 +218,6 @@ internal sealed class TenantBrandingMediaService(
                 .ConfigureAwait(false);
         }
 
-        await InvalidateBrandingCacheAsync(tenantId, cancellationToken).ConfigureAwait(false);
         return await ReloadBrandingResponseAsync(tenantId, useCurrentTenantScope, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -249,16 +250,26 @@ internal sealed class TenantBrandingMediaService(
                 .ConfigureAwait(false);
         }
 
-        _ = await commandExecutor.ExecuteAsync(
+        // 同时保护版本和原文件快照，不能清除读取之后并发替换的 Logo。
+        var affected = await commandExecutor.ExecuteAsync(
                 clearStatement,
                 TenancySqlParameters.Create(
                     ("TenantId", tenantId),
+                    ("FileId", fileId),
+                    ("Version", branding.Version),
                     ("UpdatedAtUtc", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
+        if (affected != 1)
+        {
+            return Result<TenantBrandingResponse>.Failure(new Error(
+                TenancyErrorCodes.VersionConflict,
+                "The tenant record was updated concurrently.",
+                ErrorType.Conflict));
+        }
+        await InvalidateBrandingCacheAsync(tenantId, CancellationToken.None).ConfigureAwait(false);
         await ReleaseLogoClaimAsync(tenantId, fileId, useCurrentTenantScope, cancellationToken)
             .ConfigureAwait(false);
-        await InvalidateBrandingCacheAsync(tenantId, cancellationToken).ConfigureAwait(false);
         return await ReloadBrandingResponseAsync(tenantId, useCurrentTenantScope, cancellationToken)
             .ConfigureAwait(false);
     }

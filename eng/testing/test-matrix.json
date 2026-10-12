@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 5775,
+      "minimum": 5803,
       "timeout": "10m",
       "selections": {
         "files-active-claims": {
@@ -90,6 +90,10 @@
         "document-file-release": {
           "filter": "FullyQualifiedName~DocumentFileRelease",
           "minimum": 20
+        },
+        "media-binding": {
+          "filter": "FullyQualifiedName~MediaBindingConcurrencyTests",
+          "minimum": 28
         }
       }
     },
@@ -154,9 +158,10 @@
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
     "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc&FullyQualifiedName!~NativeEnterpriseBusiness&FullyQualifiedName!~NativeWorker",
     "requiredTestTypes": [
-      "NativeApiKafkaLogMySqlE2ETests"
+      "NativeApiKafkaLogMySqlE2ETests",
+      "NativeApiMediaBindingTests"
     ],
-    "minimum": 21,
+    "minimum": 23,
     "timeout": "45m"
   },
   "nativeAotEnterpriseIntegration": {
