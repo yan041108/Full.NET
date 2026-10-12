@@ -34,7 +34,32 @@ internal static class AiKnowledgePaidAnswerAssertions
         var factory = new ControlledFactory(); long embeddingCharges = 0;
         var service = new AiKnowledgePaidAnswerService(retrieval, new(retrieval, ids), query, services.GetRequiredService<IDataTransactionState>(),
             tenant, permissions, budget, [factory], bindings, ids, services.GetRequiredService<AiChatCleanupScope>());
-        foreach (var scenario in new[] { "known", "unknown", "revoke", "citation", "destination", "credential" })
+        var originalPolicy = await db.QuerySingleAsync<(Guid? GenerationModelConfigId, int? GenerationModelVersion, string DataClassification)>(
+            "SELECT GenerationModelConfigId,GenerationModelVersion,DataClassification FROM fn_ai_knowledge_base WHERE Id=@Id", new { Id = knowledgeBaseId });
+        // 索引已由夹具准备；只在测试库显式设置同版本批准，以覆盖正常 API 不会产生的漂移窗口。
+        foreach (var fault in new[] { "missing", "model", "version" })
+        {
+            await Approve(fault == "missing" ? null : fault == "model" ? embedding.Id : generationId, fault == "missing" ? null : fault == "version" ? 2 : 1);
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => RunAsync());
+            Assert.AreEqual(0, budget.Requests.Count);
+            Assert.AreEqual(0, factory.EmbeddingCalls);
+            Assert.AreEqual(0, factory.ChatCalls);
+        }
+        await Approve(generationId, 1);
+        var policySnapshot = await retrieval.PreflightAsync([knowledgeBaseId], actor, embedding, default, generation);
+        try
+        {
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET DataClassification=@Classification WHERE Id=@Id",
+                new { Id = knowledgeBaseId, Classification = originalPolicy.DataClassification == "restricted" ? "internal" : "restricted" });
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => retrieval.RevalidateAsync(policySnapshot, default));
+            Assert.AreEqual(0, budget.Requests.Count);
+        }
+        finally
+        {
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_base SET DataClassification=@Classification WHERE Id=@Id",
+                new { Id = knowledgeBaseId, Classification = originalPolicy.DataClassification });
+        }
+        foreach (var scenario in new[] { "known", "unknown", "revoke", "citation", "destination", "credential", "approval" })
         {
             budget.Requests.Clear(); factory.Unknown = scenario == "unknown"; factory.Forge = scenario == "citation";
             factory.BeforeChatReturn = scenario switch
@@ -42,12 +67,13 @@ internal static class AiKnowledgePaidAnswerAssertions
                 "revoke" => () => { deny(true); return Task.CompletedTask; },
                 "destination" => async () => { await db.ExecuteAsync("UPDATE fn_ai_model_config SET EndpointBaseUrl=@Endpoint WHERE Id=@Id", new { Id = generationId, Endpoint = generation.EndpointBaseUrl + " " }); },
                 "credential" => async () => { await db.ExecuteAsync("UPDATE fn_ai_model_config SET ApiKeyProtected='changed-protected' WHERE Id=@Id", new { Id = generationId }); },
+                "approval" => () => Approve(null, null),
                 _ => null
             };
             try
             {
                 if (scenario == "revoke") await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => RunAsync());
-                else if (scenario is "citation" or "destination" or "credential") await Assert.ThrowsExactlyAsync<InvalidDataException>(() => RunAsync());
+                else if (scenario is "citation" or "destination" or "credential" or "approval") await Assert.ThrowsExactlyAsync<InvalidDataException>(() => RunAsync());
                 else
                 {
                     var result = await RunAsync(); Assert.AreEqual("真实索引受控问答", result.Answer.Text);
@@ -76,6 +102,7 @@ internal static class AiKnowledgePaidAnswerAssertions
             finally
             {
                 deny(false); factory.BeforeChatReturn = null;
+                await Approve(generationId, 1);
                 await db.ExecuteAsync("UPDATE fn_ai_model_config SET EndpointBaseUrl=@Endpoint,ApiKeyProtected=@Credential WHERE Id=@Id",
                     new { Id = generationId, Endpoint = generation.EndpointBaseUrl, Credential = generation.ApiKeyProtected });
             }
@@ -96,8 +123,12 @@ internal static class AiKnowledgePaidAnswerAssertions
             Assert.AreEqual(0, budget.Requests.Count);
         }
         finally { Restore(); }
+        await Approve(originalPolicy.GenerationModelConfigId, originalPolicy.GenerationModelVersion);
         return embeddingCharges;
         Task<AiKnowledgeExecutedAnswer> RunAsync() => service.ExecuteAsync([knowledgeBaseId], actor, embedding, generation, "来源说明", default);
+        Task Approve(Guid? id, int? version) => db.ExecuteAsync(
+            "UPDATE fn_ai_knowledge_base SET GenerationModelConfigId=@ModelId,GenerationModelVersion=@ModelVersion WHERE Id=@Id",
+            new { Id = knowledgeBaseId, ModelId = id, ModelVersion = version });
     }
     private sealed class ScopeChangingQuery(IQueryExecutor inner, Guid generationId, Action change) : IQueryExecutor
     {
@@ -123,6 +154,7 @@ internal static class AiKnowledgePaidAnswerAssertions
     {
         public string ProviderKey => "openai_compatible";
         internal bool Unknown, Forge, Refused; internal Func<Task>? BeforeChatReturn;
+        internal int EmbeddingCalls, ChatCalls;
         public ValueTask<IChatClient> CreateChatClientAsync(ModelBinding binding, CancellationToken cancellationToken)
             => ValueTask.FromResult<IChatClient>(new Client(this));
         public ValueTask<IEmbeddingGenerator<string, Embedding<float>>> CreateEmbeddingGeneratorAsync(ModelBinding binding, CancellationToken cancellationToken)
@@ -133,7 +165,7 @@ internal static class AiKnowledgePaidAnswerAssertions
             public void Dispose() { }
             public Task<GeneratedEmbeddings<Embedding<float>>> GenerateAsync(IEnumerable<string> values, EmbeddingGenerationOptions? options = null, CancellationToken cancellationToken = default)
             {
-                cancellationToken.ThrowIfCancellationRequested(); Assert.AreEqual(1, values.Count()); var vector = new float[dimensions]; vector[0] = 1;
+                cancellationToken.ThrowIfCancellationRequested(); f.EmbeddingCalls++; Assert.AreEqual(1, values.Count()); var vector = new float[dimensions]; vector[0] = 1;
                 return Task.FromResult(new GeneratedEmbeddings<Embedding<float>>([new(vector)])
                     { Usage = f.Unknown ? null : new UsageDetails { InputTokenCount = 7, OutputTokenCount = 0 } });
             }
@@ -144,7 +176,7 @@ internal static class AiKnowledgePaidAnswerAssertions
             public void Dispose() { }
             public async Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
             {
-                cancellationToken.ThrowIfCancellationRequested(); Assert.IsNull(options);
+                cancellationToken.ThrowIfCancellationRequested(); f.ChatCalls++; Assert.IsNull(options);
                 using var json = JsonDocument.Parse(messages.Last().Text); var source = json.RootElement.GetProperty("sources")[0];
                 var id = f.Forge ? Guid.CreateVersion7() : source.GetProperty("citationId").GetGuid();
                 if (f.BeforeChatReturn is not null) await f.BeforeChatReturn();

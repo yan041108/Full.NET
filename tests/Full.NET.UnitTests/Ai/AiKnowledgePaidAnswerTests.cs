@@ -17,6 +17,7 @@ using System.Text;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试分片：AiKnowledgeIndexPdfActivation。</summary>
 public sealed partial class AiKnowledgeIndexPdfActivationTests
 {
     [TestMethod]
@@ -218,6 +219,8 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
         {
             var f = new PaidAnswerFixture { R = await RetrievalFixture.Create(tenant) };
             f.Generation = Model(Guid.CreateVersion7()); f.R.Query.GenerationModel = f.Generation;
+            f.R.Query.Rows = [f.R.Query.Rows[0] with { GenerationModelConfigId = f.Generation.Id, GenerationModelVersion = f.Generation.Version }];
+            f.R.F.ReadRow = f.R.Query.Rows[0];
             f.services = new ServiceCollection().AddScoped<CurrentTenantAccessor>()
                 .AddScoped<ICurrentTenantContextWriter>(s => s.GetRequiredService<CurrentTenantAccessor>())
                 .AddScoped<IAiOperationBudgetStore>(s => new PaidSettlementBudget(f.Budget, s.GetRequiredService<CurrentTenantAccessor>())).BuildServiceProvider();

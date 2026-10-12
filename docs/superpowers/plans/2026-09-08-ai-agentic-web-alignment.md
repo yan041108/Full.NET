@@ -2234,6 +2234,30 @@ MySQL 运行期间原终端会话失联，外层进程退出且未保存返回�
 
 原始 RED、构建、发现、TRX、源码/消费者摘要与复审汇总在 `artifacts/r11e/acceptance.json`。main 仅提交本批文件、不推送；保留其他窗口改动和两个受保护路径。状态为 `Aot-analysis-clean`；数据分类的全部阶段覆盖、向量网络、持久 Step/跨重启 Trace、Provider 精确输入硬限、未知副作用对账与 Native/页面/生成应用集中验收仍待推进，R11 不整体关闭，保持 `Capacity-not-verified`。
 
+### R11f：知识回答精确生成批准与分类快照复核（2026-10-13，本批本地验收完成）
+
+基线 main `a3d1563f4a5de44760dd43cf5270e3a78c13dbc8`，快照 `ai-knowledge-processing-policy-r11f`。本批集中交付检索 SQL 与静态行读取、收费前后临时快照绑定和最终 HTTP 交付复核；不新增迁移、依赖、权限或公开 DTO，不改变持久历史协议。
+
+- [x] SQL Server/MySQL 的 Sources/Vectors/DOCX 查询在原精确目的地、凭据和租户资格基础上，增加逐知识库 GenerationModelConfigId/Version 批准；未批准、部分批准、其他标识/版本在收费前拒绝。可选生成模型为空的只读检索保留原语义。
+- [x] 分类使用二进制精确 public/internal/restricted 判定，避免默认排序规则放行大小写或尾空格。分类并非发送许可；合法分类仍须精确模型批准，restricted 不自动推导私有网络策略。
+- [x] 内部权威记录和 native 行读取携带分类与生成批准，使同版本下分类/批准漂移进入现有快照比较。Embedding 和 Chat 的创建、返回、结算等待后均复核；存储、释放及 session/history 等待结束后，再以本次临时快照复核，之后没有异步等待才映射交付。最终拒绝不回滚已知结算或已完成存储，不重新收费。
+- [x] 新增 40 项：未批准、未知分类、合法分类、收费等待窗口漂移 36 项，清理后最终交付窗口漂移 4 项；漂移用例确认实际进入对应回调和精确预留/结算次数。初始 RED12/12 失败及最终窗口 RED56 中4项失败均保留；最终 `node artifacts/r11f/run-unit.mjs green` 聚焦56/56通过。独立只读安全复审无剩余 Critical/Important。
+- [x] `node artifacts/r11f/recheck-unit.mjs`：复用同一构建，完整 AI3850/3850、零失败/跳过；Unit工作区发现7374，包含其他窗口缓存与本地日志测试变更，规范矩阵最低门槛7333，仅实际运行AI集合，不宣称全量Unit通过。AI生产/消费程序集及本批源码摘要一致。
+- [x] `node artifacts/r11f/run-pipeline.mjs` 的构建部分：API/Worker AOT分析零警告/错误，AOT架构88/88，全量架构235/235；JIT构建零警告/错误，Integration分片1214项无遗漏/重复。正式影响分类为Ai和integration-tooling。原SQL测试组中断，不能声称原pipeline整体通过；恢复证据见下文。
+- [x] 双库合成夹具验证未批准请求0预留/0外部调用、有效批准后原业务/引用/会话/历史流程、返回后批准撤回拒绝与已知结算。API夹具 finally 恢复原生成批准，拒绝用例使用独立会话，保护调用者原始检索快照及既有消息计数。命名30、矩阵6、治理57、工具链54及保护排除的Markdown387文件检查通过。
+
+首轮完整3846项出现70项失败，原因是旧PDF/DOCX夹具缺少新必需的 internal 分类；补齐夹具且增加实际到达漂移窗口断言后重新验证，保留失败报告。当前构建的首次完整3850项有1项既有 DOCX complete-hang deadline 清理用例失败；解析代码和该测试本批未修改，根因尚未确定，不能声称修复。相同构建该类连续3轮各26/26通过，随后完整3850/3850通过，首轮失败原始TRX保留。
+
+SQL Server原组记录23项完整原生结果（22通过、1失败）后，Docker客户端unexpected EOF退出125，未生成完整TRX。失败为现有取消夹具等待模型门闩30秒超时，请求随后约42秒返回200；保留失败，不推断业务错误或宣称已修复。`node artifacts/r11f/run-post-proof.mjs` 只读复核两库冻结源码和完整消费目录通过；使用SDK官方TrxReport2.3.2.0读取完整记录，并按原44项发现UID保存中断证据。`node artifacts/r11f/run-recovery.mjs` 在相同源码、构建、夹具、单Worker和矩阵期限下补跑未完成/失败22项，22/22通过；复用未变输入的已完成22项，SQL覆盖44唯一通过UID。MySQL原组到矩阵60分钟期限中止、退出3，记录37项完整结果（36通过、1失败），另有7项未完成，没有完整TRX；文本Worker日志为OperationCanceledException后任务failed，25秒内部期限本批未修改，具体取消根因未确定。`node artifacts/r11f/run-final-post-proof.mjs` 只读复核当前两库输入/完整消费目录通过；`node artifacts/r11f/run-mysql-retry.mjs` 精确补跑1失败加7未完成共8项，8/8通过，复用未变输入的已完成36项，覆盖MySQL44项。两库合计88唯一通过UID；每个新组运行前后源码/完整消费目录摘要通过。未改变生产代码、构建、夹具或期限来规避失败，不宣称这些间歇失败已修复。不制造原两库完整44项TRX、不重写退出码或将未完成项算通过。原命名wrapper已消失，中断时在途用例清理不能追认；恢复用例保持隔离夹具并完成正常清理。
+
+冻结 HEAD 加本批白名单7816输入；先验证R11e AOT、JIT和双库缓存源码/消费者摘要，再只覆盖当前差异，不创建新缓存或反复切换依赖图。双库按提供程序顺序、单测试Worker、矩阵60分钟期限执行，使用独立TEMP/TMP与工作区/机器重任务锁。Windows x64 SDK10.0.401，Docker Linux SDK10.0.400/runtime10.0.11，i7-12700H/约64GiB；Unit4处理器/2GiB GC，构建8CPU/4GiB，双库各2CPU/8GiB。本地缓存restore使用NuGetAudit=false；在线审计未执行。
+
+Windows共享Unit/AI输出在本次完整运行完成后发生变化，不把后来的输出当成本次执行产物。原运行的执行前后程序集摘要一致，当时AI生产/消费摘要相同；保留原TRX和运行时证明，当前运行代码与冻结代码相同，注释差异见下文。双库使用独立Linux冻结消费闭包，不为后来的共享输出变化重跑已验证输入。
+
+提交前发现8个本批文件新增/调整中文整行注释及换行；逐项核对完整差异均处于声明前、不在字符串内，非注释代码行和SQL文本完全一致，结构证明保存在 `artifacts/r11f/comment-only-proof.json`。不把最终字节摘要称为原冻结摘要，也不为注释变更重复启动未变运行代码的验收。并行窗口日志等无关改动期间发生变化，保留初始快照和提交前当前保护快照；不将它们纳入冻结输入或提交，外部临时夹具目录只记名称不遍历。
+
+证据保存在 `artifacts/r11f/acceptance.json`，main仅提交本批文件、不推送，保留其他窗口改动及两个保护路径。状态为 `Aot-analysis-clean`；分类在rerank/遥测等全部阶段覆盖、向量网络、持久Step/跨重启Trace、Provider精确输入硬限、未知副作用对账及Native/页面/生成应用集中验收仍待推进，不整体关闭R11，保持 `Capacity-not-verified`。
+
 ### R12：原生闭包、运营恢复与集中验收（P2，依赖前述切片）
 
 **修改：** `tests/Full.NET.IntegrationTests/NativeAot/NativeApiAiE2ETests.cs` 及 Worker 原生探针；测试矩阵 `eng/testing/test-matrix.json`、现有受影响 CI、Vue 页面验收与 `docs/roadmap/capability-status.md`。

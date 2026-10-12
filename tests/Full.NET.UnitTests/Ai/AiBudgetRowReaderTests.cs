@@ -59,14 +59,17 @@ public sealed class AiBudgetRowReaderTests
     public void Index_status_maps_optional_joins_and_provider_integer_flags(bool mysql, bool absent)
     {
         using var table = new DataTable(); var id = Guid.CreateVersion7();
-        foreach (var name in new[] { "KnowledgeBaseId", "DocumentId", "VersionId", "OwnerUserId", "FileId", "TaskId", "ActiveTaskId", "ActiveLeaseToken", "ModelConfigId" }) table.Columns.Add(name, typeof(Guid));
-        foreach (var name in new[] { "DocumentVersion", "KnowledgeBaseVersion", "IsDeleted", "CleanupPending", "HasDerivedData", "IsCurrent", "SizeBytes", "ModelConfigVersion" }) table.Columns.Add(name, mysql ? typeof(long) : typeof(int));
-        foreach (var name in new[] { "StateKey", "ActiveReceiptHash", "ActiveManifestHash", "ActivePlanHash", "ContentHash", "ContentType", "ProviderKey", "ModelId" }) table.Columns.Add(name, typeof(string));
+        foreach (var name in new[] { "KnowledgeBaseId", "DocumentId", "VersionId", "OwnerUserId", "FileId", "TaskId", "ActiveTaskId", "ActiveLeaseToken", "ModelConfigId", "GenerationModelConfigId" }) table.Columns.Add(name, typeof(Guid));
+        foreach (var name in new[] { "DocumentVersion", "KnowledgeBaseVersion", "IsDeleted", "CleanupPending", "HasDerivedData", "IsCurrent", "SizeBytes", "ModelConfigVersion", "GenerationModelVersion" }) table.Columns.Add(name, mysql ? typeof(long) : typeof(int));
+        foreach (var name in new[] { "DataClassification", "StateKey", "ActiveReceiptHash", "ActiveManifestHash", "ActivePlanHash", "ContentHash", "ContentType", "ProviderKey", "ModelId" }) table.Columns.Add(name, typeof(string));
         var row = table.NewRow();
         foreach (DataColumn column in table.Columns) row[column] = column.DataType == typeof(Guid) ? id : column.DataType == typeof(string) ? "test" : 1;
-        if (absent) foreach (var name in new[] { "TaskId", "ActiveTaskId", "ActiveLeaseToken", "ModelConfigId", "ModelConfigVersion", "StateKey", "ActiveReceiptHash", "ActiveManifestHash", "ActivePlanHash", "ProviderKey", "ModelId" }) row[name] = DBNull.Value;
+        if (absent) foreach (var name in new[] { "TaskId", "ActiveTaskId", "ActiveLeaseToken", "ModelConfigId", "GenerationModelConfigId", "ModelConfigVersion", "GenerationModelVersion", "StateKey", "ActiveReceiptHash", "ActiveManifestHash", "ActivePlanHash", "ProviderKey", "ModelId" }) row[name] = DBNull.Value;
         table.Rows.Add(row); using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
         var result = AiBudgetRowReaders.ReadKnowledgeIndexStatus(reader);
+        Assert.AreEqual("test", result.DataClassification);
+        Assert.AreEqual(absent ? null : (Guid?)id, result.GenerationModelConfigId);
+        Assert.AreEqual(absent ? null : (int?)1, result.GenerationModelVersion);
         Assert.AreEqual(id, result.VersionId); Assert.AreEqual(1, result.DocumentVersion); Assert.AreEqual(1, result.IsCurrent);
         Assert.AreEqual(1, result.CleanupPending); Assert.AreEqual(1L, result.SizeBytes); Assert.AreEqual(absent ? null : (Guid?)id, result.TaskId);
         Assert.AreEqual(absent ? null : (int?)1, result.ModelConfigVersion); Assert.AreEqual(absent ? null : "test", result.ActiveManifestHash);

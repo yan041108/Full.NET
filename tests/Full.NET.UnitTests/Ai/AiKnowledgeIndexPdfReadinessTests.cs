@@ -9,6 +9,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试分片：AiKnowledgeIndexPdfActivation。</summary>
 public sealed partial class AiKnowledgeIndexPdfActivationTests
 {
     [TestMethod] [DataRow(false, false)] [DataRow(true, false)] [DataRow(false, true)] [DataRow(true, true)]
@@ -68,6 +69,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
     {
         KnowledgeBaseId = f.Binding.KnowledgeBaseId, DocumentId = f.Binding.DocumentId, VersionId = f.Binding.VersionId,
         OwnerUserId = f.Binding.OwnerUserId, DocumentVersion = 1, KnowledgeBaseVersion = 1,
+        DataClassification = "internal",
         TaskId = f.TaskId, ActiveTaskId = f.TaskId, ActiveLeaseToken = f.Lease, StateKey = "completed", IsCurrent = 1,
         FileId = f.Source.FileId, ContentHash = f.Source.ContentHash, ContentType = f.Source.ContentType, SizeBytes = f.Source.SizeBytes,
         ModelConfigId = f.Source.ModelConfigId, ModelConfigVersion = f.Source.ModelConfigVersion,

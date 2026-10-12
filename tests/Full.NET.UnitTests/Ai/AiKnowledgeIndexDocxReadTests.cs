@@ -5,6 +5,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试分片：AiKnowledgeIndexDocxActivation。</summary>
 public sealed partial class AiKnowledgeIndexDocxActivationTests
 {
     [TestMethod]
@@ -33,6 +34,7 @@ public sealed partial class AiKnowledgeIndexDocxActivationTests
     {
         KnowledgeBaseId = f.Binding.KnowledgeBaseId, DocumentId = f.Binding.DocumentId, VersionId = f.Binding.VersionId,
         OwnerUserId = f.Binding.OwnerUserId, DocumentVersion = 1, KnowledgeBaseVersion = 1,
+        DataClassification = "internal",
         FileId = f.Source.FileId, ContentType = f.Source.ContentType, ContentHash = f.Source.ContentHash, SizeBytes = f.Source.SizeBytes,
         TaskId = f.TaskId, ActiveTaskId = f.TaskId, ActiveLeaseToken = f.Lease, StateKey = "completed", IsCurrent = 1, HasDerivedData = 1,
         ActiveManifestHash = f.Pointer!.ManifestHash, ActivePlanHash = f.Pointer.PlanHash, ActiveReceiptHash = f.Pointer.ReceiptHash,

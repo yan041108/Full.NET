@@ -130,6 +130,10 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
             || snapshot.KnowledgeBaseIds.Any(id => !rows.Any(r => r.KnowledgeBaseId == id))) throw Invalid();
         foreach (var row in rows)
         {
+            // 分类只限定合法处理状态，不替代业务批准；生成必须逐库绑定精确模型及版本。
+            if (row.DataClassification is not ("public" or "internal" or "restricted")
+                || generation is not null && !Domain.AiKnowledgePolicy.Allows(true, row.GenerationModelConfigId,
+                    row.GenerationModelVersion, generation.Id, generation.Version)) throw Invalid();
             if (!snapshot.KnowledgeBaseIds.Contains(row.KnowledgeBaseId) || row.DocumentId == Guid.Empty || row.VersionId == Guid.Empty
                 || row.OwnerUserId == Guid.Empty || row.DocumentVersion < 1 || row.KnowledgeBaseVersion < 1
                 || row.IsDeleted != 0 || row.CleanupPending != 0 || row.IsCurrent != 1 || row.StateKey != "completed"

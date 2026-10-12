@@ -18,6 +18,7 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
 
+/// <summary>单元测试分片：AiKnowledgeIndexPdfActivation。</summary>
 public sealed partial class AiKnowledgeIndexPdfActivationTests
 {
     [TestMethod]
@@ -33,6 +34,10 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
     [DataRow(true, "registry_cancel")]
     [DataRow(false, "late_revoke")]
     [DataRow(true, "late_revoke")]
+    [DataRow(false, "late_classification")]
+    [DataRow(true, "late_classification")]
+    [DataRow(false, "late_approval")]
+    [DataRow(true, "late_approval")]
     [DataRow(false, "cleanup")]
     [DataRow(true, "cleanup")]
     [DataRow(false, "lost")]
@@ -61,6 +66,10 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
             var sql = call.Arg<SqlStatement>()!; writes.Add(sql);
             if (sql == AiChatGenerationSql.Renew && scenario == "lost") return 0;
             if (sql == AiChatGenerationSql.Release && scenario == "late_revoke") f.R.DeniedPermission = AiKnowledgeDocumentPermissions.SourceRead;
+            if (sql == AiChatGenerationSql.Release && scenario == "late_classification")
+                f.R.Query.Rows = [f.R.Query.Rows[0] with { DataClassification = "restricted" }];
+            if (sql == AiChatGenerationSql.Release && scenario == "late_approval")
+                f.R.Query.Rows = [f.R.Query.Rows[0] with { GenerationModelVersion = f.Generation.Version + 1 }];
             if (sql == AiChatGenerationSql.Release && scenario == "cleanup") throw new IOException("收尾不可用");
             return 1;
         });
@@ -102,7 +111,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
         Assert.AreEqual(0, f.Factory.StreamCalls);
         var completed = writes.FindIndex(sql => sql == AiKnowledgeAnswerSql.CompleteFor(scoped));
         var release = writes.FindIndex(sql => sql == AiChatGenerationSql.Release);
-        if (scenario is "success" or "refusal" or "late_revoke" or "cleanup") Assert.IsTrue(completed >= 0 && completed < release);
+        if (scenario is "success" or "refusal" or "late_revoke" or "late_classification" or "late_approval" or "cleanup") Assert.IsTrue(completed >= 0 && completed < release);
         else Assert.AreEqual(-1, completed);
     }
 

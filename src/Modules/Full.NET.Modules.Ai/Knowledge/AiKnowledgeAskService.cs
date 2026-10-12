@@ -145,6 +145,9 @@ internal sealed class AiKnowledgeAskService(IQueryExecutor query, ICommandExecut
             var json = AiKnowledgeAnswerLineageCodec.Encode(AiKnowledgeAnswerLineageCodec.Create(answer, generation, sessionId));
             var verified = await history.AuthorizeAsync(json, generation, sessionId, actor, true, budget.Token).ConfigureAwait(false);
             if (verified is null || !SameScope()) return Fail(AiErrorCodes.KnowledgeAnswerUnavailable, ErrorType.Conflict);
+            // 持久历史只证明当前读取资格，本次交付还须保留收费时的分类和精确生成批准。
+            await paid.RevalidateDeliveryAsync(answer, budget.Token).ConfigureAwait(false);
+            if (!SameScope()) return Fail(AiErrorCodes.KnowledgeAnswerUnavailable, ErrorType.Conflict);
             budget.Token.ThrowIfCancellationRequested();
             var message = AiChatMapper.MapMessage(new AiChatMessageRecord { Id = generation, SessionId = sessionId,
                 RoleKey = AiChatMessageRoleKeys.Assistant, Content = answer.Answer.Text, StatusKey = AiChatMessageStatusKeys.Completed,

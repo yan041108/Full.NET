@@ -156,12 +156,15 @@ internal static class AiBudgetRowReaders
         GenerationCancellationRequested = Convert.ToBoolean(reader.GetValue(reader.GetOrdinal("GenerationCancellationRequested")), CultureInfo.InvariantCulture),
     };
 
-    // LEFT JOIN 的任务、模型和指针允许为空；不同数据库的 CASE 整数类型显式归一。
+    // LEFT JOIN 的任务、模型和指针允许为空；分类与生成批准列供处理策略复核，不在这里做业务判定。
     internal static AiKnowledgeIndexStatusRecord ReadKnowledgeIndexStatus(DbDataReader reader) => new()
     {
         KnowledgeBaseId = reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")), DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
         VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")), OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
         DocumentVersion = checked((int)Integer(reader, "DocumentVersion")), KnowledgeBaseVersion = checked((int)Integer(reader, "KnowledgeBaseVersion")),
+        DataClassification = Text(reader, "DataClassification"),
+        GenerationModelConfigId = Null(reader, "GenerationModelConfigId") ? null : reader.GetGuid(reader.GetOrdinal("GenerationModelConfigId")),
+        GenerationModelVersion = Null(reader, "GenerationModelVersion") ? null : checked((int)Integer(reader, "GenerationModelVersion")),
         IsDeleted = checked((int)Integer(reader, "IsDeleted")), CleanupPending = checked((int)Integer(reader, "CleanupPending")),
         HasDerivedData = checked((int)Integer(reader, "HasDerivedData")), IsCurrent = checked((int)Integer(reader, "IsCurrent")),
         TaskId = Null(reader, "TaskId") ? null : reader.GetGuid(reader.GetOrdinal("TaskId")), StateKey = Null(reader, "StateKey") ? null : Text(reader, "StateKey"),
