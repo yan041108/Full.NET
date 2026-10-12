@@ -2797,3 +2797,31 @@ CI Linux独立检出、外部原生API完整核心21/21、零失败/跳过，包
 实际入口：`node .tmp/document-use-count-red.mjs`、`node .tmp/document-use-count-lock-red.mjs`、`node .tmp/document-use-count-final-fast-final.mjs`、`node .tmp/document-use-count-final-aot-limited.mjs`、`node .tmp/document-use-count-final-static.mjs`、`node .tmp/document-use-count-jit-final.mjs`、`node .tmp/document-use-count-jit-retry.mjs`、`node .tmp/document-use-count-harness-scope.mjs`、`node .tmp/document-use-count-ci-runtime-proof.mjs`、`node .tmp/document-use-count-final-proof.mjs`。证据入口`.tmp/document-use-count-jit-1`、`.tmp/document-use-count-jit-2`、`.tmp/document-use-count-ci-artifacts`、`.tmp/document-use-count-final-proof.json`。
 
 最终提交包含本地SQL Server计划夹具修正及两份既有验收文档，使用[skip ci]复用未变生产源码和实际Native执行路径，避免重复全量CI。UseCount本批已收口；历史活动分类引用清洗、完整生成应用/全量Vue、Worker运行时与容量仍待后续。整体Build-verified / Capacity-not-verified，PR3保持Draft，合并与发布另行约定。
+
+
+## 2026-10-13 文档生命周期准入与预览快照验收
+
+任务 `document-recycle-lifecycle-20261012`，生产冻结 `792d516ffed0d3ef23a1c19791298409a45253bb`；验收屏障与 OpenAPI 补丁 `77e5a37fe6dca7c5eeddf36d98dd0d06be11bea1`。版本新增、回滚、删除/保留裁剪、彻底删除共用 Host 文档主行事务锁，SQL Server UPDLOCK/HOLDLOCK 与 MySQL FOR UPDATE 成对实现。预览在事务外探测 Files，再进入短 Result 事务锁定父行并复核活动状态及源文件；冲突 409，失败回读回滚。原分类/标题门禁顺序保持，无迁移。
+
+新增七项单测：原实现六项真实行为 RED，另一项首次受测试替身缺失可空字段影响；修正夹具后 Document Unit 122/122、相关架构 89/89及 Document/API/Worker AOT 分析通过。生产冻结的 Linux 独立检出 Native API 核心 21/21、Worker 完整 17/17通过，零失败/跳过，生产者分别为 run38268821979/38268821972，实际检出树 b77d54e0b6c5f6f13df2bdacf5c03e84bbe10014，ZIP/ELF/清单/检出与运行日志摘要核对。该 17 项结果仅对应文档冻结，不代表下述 Files 新用例通过。
+
+本地与 Files 集中执行双库代表性 HTTP 4/4，文档占 2/2，零失败/跳过；运行入口158.499秒、排队0.058秒，TRX155.374秒。真实持锁屏障要求两个请求进入主行准入等待，再验证释放后的版本2与3。首轮 SQL Server 串联阻塞被直接会话计数漏报，MySQL语句尾部匹配漏报；确定性诊断与四处程序集摘要一致排除旧产物，改为递归阻塞链及数据库/表/主行X锁/语句前缀，异常路径仍排空并释放全部请求。临时诊断用例已移除。
+
+原主CI另发现预览POST新增409未同步客户端快照；运行时导出确认只有这一响应差异，补齐快照及契约断言。双库 OpenAPI 2/2、静态OpenAPI219/219、客户端生成零漂移、离线manifest、测试矩阵工具15/15、命名33/33、SQL5/5、治理70/70通过。补丁后的完整架构实际247/247。原主CI失败、首轮本地屏障失败、诊断复现失败、过期输入拒绝及构建夹具失败原始证据保留，不计通过。
+
+实际入口 `node .tmp/foundation-document-files-jit-1.mjs`、`node .tmp/document-lifecycle-openapi-check-1.mjs`、`node .tmp/document-lifecycle-final-proof.mjs`，证据 `.tmp/foundation-document-files-jit-1`、`.tmp/document-lifecycle-ci-artifacts`、`.tmp/document-lifecycle-final-proof.json`。冻结760个源输入与984个消费者；JIT方法外及Native共用流程不变，后续矩阵仅增加Files选择及Worker发现门禁，桥接证明单独保留。Windows SDK10.0.401，两测试worker，自有资源回收，其他窗口既有改动保持。文件版本彻底删除后的Active Claim可靠释放仍待处理；未认证完整生成应用、全量JIT/Vue或容量。PR3保持Draft，合并发布另行约定。
+
+## 2026-10-13 Files Pending Claim 扫描快照保护
+
+任务 `files-pending-claim-cas-20261012`，源码冻结 `77e5a37fe6dca7c5eeddf36d98dd0d06be11bea1`。后台对账在外部权威探测后，按Id、Pending状态及扫描UpdatedAtUtc条件释放，避免陈旧NotFound覆盖并发确认或刷新。普通陈旧Pending仍释放，显式生命周期ReleaseOpen保留；无迁移、DTO或跨模块本地事务变化。
+
+新增回归六项真实RED后，Files Unit107/107、完整架构247/247、Files/API/Worker AOT分析、命名33/33、SQL5/5、治理70/70及矩阵工具15/15通过。真实SQL Server/MySQL代表性HTTP占集中四项中的2/2，验证已确认Active保留、已刷新Pending保留及未变化Pending正常释放，零失败/跳过。六个单测中的提供程序分支不是双库运行证据，正式双库证据为冻结消费者TRX。源码11个输入、Unit发现6306项、Integration发现1306项、Worker发现19项；发现不是运行。
+
+新增原生Worker双库两项：自有行锁让真实释放UPDATE等待，持锁确认后提交，再以另一普通Pending实际释放作为处理进度屏障，最后检查原引用仍Active及进程正常退出。本地Linux独立副本 Native API核心21/21、本批Worker双库2/2，集中23/23通过，零失败/跳过。Worker两项为真实原生进程、真实行锁等待、并发确认及另一正常Pending释放后的最终Active验证；不是提供程序替身。复用本次源码已发布原生产物，未重新发布或构建消费者。源码77e5a37，生产树df7ff56cffa25d42fdccdfd375e89943ad2342ff，CI实际检出1228c27dc87d606fa0252ce8b4c42a1c3bf74b68；ZIP、ELF、清单、检出日志与冻结消费者摘要核对。Linux SDK10.0.400、外层4CPU/3GiB，两测试worker；运行入口804.407秒、TRX797.325秒、排队1.236秒，自有副本/容器已回收，共享常驻资源保持。
+
+原API/Worker CI发布成功后被架构测试重复数量常量14阻断，未执行原生运行步骤，不报告工作流成功。该错误本地单项RED复现后，41bf7cffcd161a2bc3b22105e4a51b7b14c0fedf移除重复数量常量，保护正整数门槛、Worker筛选及Kafka/Claim必需类型；正式运行仍由矩阵最低16项与零跳过门禁控制，实际发现19项。重新构建后完整架构247/247通过，复审无P1/P2。41bf7cf只改架构测试，生产与Native消费者输入不变；修正后的Worker CI run38283718987完整成功，实际19/19、零失败/跳过，包含本批两项；实际检出efead67f0b351652e2d4132abb301f5678eb4137、树27a068e543f2d7798858457d0074144acb43e18a与41bf7cf相符，原始日志摘要核对。该修正只改架构测试，生产与消费者输入仍与77e5a37相同。本地77e5a37产物ZIP/ELF/清单摘要证明和41bf7cf CI运行日志证明分别记录，未重复下载41bf7cf产物，也不冒称其字节摘要已验证。API新CI和主CI状态仍独立保留。原17项证据不用于覆盖本批两项。
+
+实际入口 `node .tmp/files-pending-cas-native.mjs prepare|run 77e5a37fe6dca7c5eeddf36d98dd0d06be11bea1`、`node .tmp/files-pending-cas-final-proof.mjs`。证据入口 `.tmp/files-pending-cas-source.json`、`.tmp/files-pending-cas-aot-proof.json`、`.tmp/files-pending-cas-architecture-matrix-green.log`、`.tmp/files-pending-cas-unit-final.log`、`.tmp/foundation-document-files-jit-1`、`.tmp/files-pending-cas-native-1`、`.tmp/files-pending-cas-ci-artifacts`、`.tmp/files-pending-cas-final-proof.json`。首轮测试编译夹具失败及治理门禁旧固定列表失败保留，最终已修正；只读复审未发现P1/P2阻断。当前范围不解决Active孤儿释放、文档Purge可靠释放、完整生成应用、全页面或容量。整体保持Build-verified / Capacity-not-verified，PR3保持Draft，不合并、不发布。
+
+
+本次最终报告只同步以上两批及能力状态，以 `[skip ci]` 提交，避免文档更新再次启动相同生产输入的CI；新41bf7cf源码CI独立保留状态，不将报告head冒称CI通过。按R-20260930本地规定范围实际通过交付，两批均已完成本地验收；原生完整Worker19项CI已通过；新主CI运行状态及Active引用可靠释放缺口分别保留。

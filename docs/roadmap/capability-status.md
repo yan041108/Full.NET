@@ -1,3 +1,7 @@
+2026-10-13 Document 生命周期准入与预览快照已收口：版本写入/删除、保留裁剪与Purge共用双库父行锁，预览短事务重检并返回409。生产冻结792d516的Document Unit122/122、Native API21/21、Worker17/17通过；77e5a37补齐JIT屏障及409客户端快照，与Files集中双库4/4（文档2/2）、双库OpenAPI2/2、静态OpenAPI219/219、生成零漂移、架构247/247通过，零失败/跳过。旧主CI失败原因已本地修复，新主CI尚待完成。Active文件引用在彻底删除后的可靠释放仍待处理，不提升完整生成应用或容量。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-文档生命周期准入与预览快照验收)。
+
+2026-10-13 Files Pending引用对账补齐扫描快照CAS，冻结77e5a37：并发确认/刷新不被陈旧NotFound覆盖，普通Pending仍释放。Files Unit107/107、架构247/247、双库HTTP2/2与Files/API/Worker AOT分析通过；Linux独立副本Native API核心21/21与本批Worker双库2/2合并23/23通过、零失败/跳过，精确原生产物与消费者摘要核对。41bf7cf修正重复数量常量后架构247/247及Worker CI完整19/19通过，原CI架构失败日志保留；检出树与原始运行日志摘要核对，不使用旧17项覆盖。Active孤儿释放及文档Purge可靠释放仍待；整体Build-verified / Capacity-not-verified。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-files-pending-claim-扫描快照保护)。
+
 # Full.NET 能力状态矩阵
 
 2026-10-12 Document 标签UseCount已收口：列表/详情同SQL统计真实Host保留引用，含回收站、排除其他租户，不读历史计数列；变更响应使用写入前快照，持标签写锁后仅回读元数据以避免文档锁循环，Result失败仍回滚。生产冻结`120b99d`，双库RED2/2及SQL Server真实锁等待RED1/1后，Document115/115、架构89/89、命名33/33、SQL5/5、治理70/70、受影响AOT分析、本地双库HTTP2/2和该生产源码CI Native API核心21/21通过。仅重试局部计划夹具影响的SQL Server，MySQL与Native原执行范围复用；计划6份保留，不声明新报告headCI通过。无新迁移/DTO形状变化，历史引用清洗及容量待后续。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-文档标签真实引用统计集中验收)，保持Build-verified / Capacity-not-verified。
