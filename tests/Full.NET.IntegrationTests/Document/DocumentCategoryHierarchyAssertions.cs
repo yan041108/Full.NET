@@ -31,6 +31,7 @@ internal static class DocumentCategoryHierarchyAssertions
         await using var observer = new MySqlConnection(observerOptions.ConnectionString);
         await holder.OpenAsync(cancellationToken);
         await observer.OpenAsync(cancellationToken);
+        var holderId = await holder.QuerySingleAsync<long>("SELECT CONNECTION_ID()");
         await using var transaction = await holder.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
         await holder.ExecuteAsync(new CommandDefinition("UPDATE fn_document_category SET Version = Version WHERE Id = @Id",
             new { parent.Id }, transaction, cancellationToken: cancellationToken));
@@ -45,11 +46,13 @@ internal static class DocumentCategoryHierarchyAssertions
             while (!waiting && DateTimeOffset.UtcNow < deadline)
             {
                 var count = await observer.QuerySingleAsync<long>(new CommandDefinition("""
-                    SELECT COUNT(*) FROM information_schema.innodb_trx t
-                    JOIN information_schema.PROCESSLIST p ON p.ID = t.trx_mysql_thread_id
-                    WHERE t.trx_state = 'LOCK WAIT' AND p.DB = DATABASE()
-                      AND t.trx_query LIKE '%fn_document_category%'
-                    """, cancellationToken: cancellationToken));
+                    SELECT COUNT(*) FROM performance_schema.data_lock_waits w
+                    JOIN performance_schema.threads t ON t.THREAD_ID = w.BLOCKING_THREAD_ID
+                    JOIN performance_schema.data_locks l
+                      ON l.ENGINE = w.ENGINE AND l.ENGINE_LOCK_ID = w.REQUESTING_ENGINE_LOCK_ID
+                    WHERE t.PROCESSLIST_ID = @HolderId AND l.OBJECT_SCHEMA = DATABASE()
+                      AND l.OBJECT_NAME = 'fn_document_category'
+                    """, new { HolderId = holderId }, cancellationToken: cancellationToken));
                 waiting = count > 0;
                 if (!waiting) await Task.Delay(50, cancellationToken);
             }

@@ -1,5 +1,7 @@
 # Full.NET 能力状态矩阵
 
+2026-10-12 Document 分类引用与恢复已收口：创建/更新校验并锁定有效 Host 分类，两条恢复入口统一处理失效分类与顺序同名冲突，统计不暴露历史越界分类身份。生产冻结 `098ba22`；RED 9/9 失败后 Document Unit 85/85、架构 89/89、命名 33/33、SQL 5/5、治理 70/70、API AOT 分析、双库 HTTP 2/2 与CI Linux Native API 核心完整矩阵 21/21 通过，零失败/跳过；双库实际锁等待屏障通过。未分类并发标题唯一性、历史活动引用清洗及容量仍未验收；无公共契约或迁移变化。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-文档分类引用与恢复集中验收)，整体保持 Build-verified / Capacity-not-verified。
+
 2026-10-12 Document 分类层级已补齐后代循环拒绝、并发互挂与分类删除/新建子级竞争保护；双库事务锁定目录及取得父行锁后的新鲜子级计数保持层级不变量，合法移回根目录保留。生产冻结 `7dc14db`，原始 RED 4 失败及复审 RED 2 失败均修复；Document Unit 70/70、架构 89/89、命名 33/33、SQL 5/5、治理 70/70、双库 HTTP 2/2及独立 Linux Native API 核心单轮 21/21通过，零失败/跳过，最终 API AOT 分析通过。JIT 观测权限夹具失败已修正并重跑，未改变应用权限；Native 用例/原生产物未变并复用。无契约或迁移变化，不外推完整生成应用、全部 Worker、文档项分类引用一致性或容量。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-文档分类层级完整性集中验收)，整体保持 Build-verified、Capacity-not-verified。
 
 2026-10-12 Document 授权编辑已关闭陈旧覆盖：同事务读取活动 Host 父行修订与完整授权，保存先 CAS 再整体替换，空集合保留修订、冲突 409、无版本写入 400；Vue/SDK 使用快照版本并在失败后要求重读，专用静态物化器覆盖两列原生查询。冻结 `17cceeb`，Document Unit 55/55、架构 89/89、SDK 275/275、相关 Vue 51/51、OpenAPI 219/219、双库 HTTP 2/2、Edge 10 个不同用例及独立 Linux Native API 核心 21/21 通过，零失败/跳过；API/Worker AOT 分析、构建、生成零漂移和兼容门禁通过，API CI 与精确产物检出核对成功。保留旧数组响应及两参数 C# 构造，旧写入客户端需升级携带修订，无迁移；不外推完整生成应用、全 Vue、Worker 运行时、权限级别执行语义或容量。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-文档授权编辑并发保护集中验收)，整体保持 Build-verified、Capacity-not-verified。

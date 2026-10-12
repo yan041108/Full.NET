@@ -2725,3 +2725,21 @@ Linux Native API 核心实际执行 21/21、零失败/跳过；重型锁排队 2
 实际入口：`node .tmp/document-category-unit.mjs red`、`node .tmp/document-category-review-unit.mjs red`、`node .tmp/document-category-reviewed-fast-final.mjs`、`node .tmp/document-category-reviewed-aot.mjs`、`node .tmp/document-category-managed.mjs --fixtures-only`、`node .tmp/document-category-static.mjs`、`node .tmp/document-category-jit-observer-final.mjs`、`node .tmp/document-category-native.mjs run 7dc14db7f449cd663f1596c163071f101337d1c4`、`node .tmp/document-category-final-proof.mjs`。证据入口 `.tmp/document-category-local-proof.json`、`.tmp/document-category-jit-3`、`.tmp/document-category-fixture-reuse-proof.json`、`.tmp/document-category-ci-artifacts-fast`、`.tmp/document-category-native-1`、`.tmp/document-category-final-proof.json`；失败证据保留在 jit-1/jit-2 与 RED/harness 日志。
 
 本批范围仅为分类层级，整体保持 Build-verified / Capacity-not-verified；不外推完整生成应用、全量 JIT/Vue、Worker 运行时、分类大目录吞吐、多实例容量或文档项分类引用并发一致性。未自动清洗历史异常分类；移回根目录可用于人工修复。下一消费者为文档项分类挂接/恢复与分类删除之间的引用一致性收口。PR3 保持 Draft，不合并、不发布。
+
+## 2026-10-12 文档分类引用与恢复集中验收
+
+任务 `document-category-reference-20261012`，基线 `c2e8f56`，生产冻结 `098ba228f73905d2fdc318beb5a42e83ea135c8b`。本批集中收口文档创建/更新、两条恢复入口、统计以及分类删除之间的引用边界。创建和更新在现有 Result 事务内先锁定有效 Host 分类，拒绝空 UUID、缺失、已删除和其他租户的分类；更新 CategoryId=null 继续保持原分类。双库使用完整分类投影及现有静态物化器，显式 Scoped DI，不新增公共契约或迁移。
+
+恢复统一共享实现：分类已删除、缺失或越界时降为未分类，让回收文档仍可恢复；有效分类保持引用并与分类删除互斥。恢复前检查最终分类的同名文档，顺序冲突返回现有 409 TitleConflict。文档路由恢复活动行仍返回 409，回收站路由仍返回 404；保留权限、错误机器码及 Version CAS。分类统计只投影活动 Host 分类，历史越界分类的身份和名称不暴露。
+
+原实现新增回归 9/9 失败，修复后 Document Unit 85/85、相关 Native/协议/操作标识架构 89/89、命名 33/33、SQL 安全 5/5、治理 70/70，全部零失败/跳过；API AOT 分析通过。只读审查无阻塞问题，指出的串行竞争验证不足已补确定性屏障并复审。集成发现 1232 项，分片 192/192/516/252/80，无重叠；API Native 21 与 Worker Native 17 角色无交集，发现不冒称运行通过。
+
+SQL Server/MySQL 分类标签 HTTP 2/2 通过，包括非法挂接、null 更新保持引用、失效分类恢复、同名恢复拒绝、创建/更新/两条恢复与分类删除的竞争。两库另持有父锁并确认删除 HTTP 请求进入实际数据库锁等待，再在持锁事务插入文档并提交；删除必须取得锁后重新计数并返回 422 CategoryInUse。该确定性屏障验证删除侧等待和重新计数，写入侧父锁由单测/SQL 与四条实际 API 竞争补充，不夸大为强制所有 API 交错。MySQL 仅观测连接使用夹具管理员，应用权限不变。TRX 189.732 秒；协调入口 195.523 秒，排队 4392.065 秒分别记录。
+
+首轮 JIT SQL Server 通过、MySQL 失败于已有层级屏障的查询文本匹配漏报；删除实际等到 holder 释放后才退出。两个 JIT-only 观测方法改用 performance_schema.data_lock_waits 直接关联自有持锁会话、当前库及分类表，再重建 JIT 消费者、集中重跑双库。失败证据保留在 jit-1。生产输入、Native 调用的 VerifyAsync 与入口未变，逐方法差异已核对；复用相同冻结源码的完整 CI Native 结果及精确应用产物，不把 JIT 观测修正冒称 Native 验证。公共镜像源第一次下载限流失败，重跑后通过，原失败日志保留。
+
+CI 隔离检出工作区的 Linux Native API 核心完整矩阵 21/21，零失败/跳过，覆盖双库共享 HTTP 断言、静态 DI/完整投影和恢复链路。来源为 API producer run `38202258757` attempt 2；`pnpm test:aot:native:e2e` 实际运行 227.665 秒，完整工作流成功，实际 checkout `940d171a15c612feedbcb731278adfdc582537bf`、树 `659dea4339d7c9147db3bdb4b768e18296124da3`及日志摘要已核对，最终 completed/success 快照另行归档。按 §11.5 与集中验收复用规则，两个 JIT-only 观测修正不影响 Native，复审确认完整证据复用有效；取消未开始的本地重复 21 项队列，已等待 1457.417 秒，该排队尝试未执行、未计为通过。原 Git 归档副本只用于准备并已清理，不能宣称该副本或本地 Native 运行通过。核对 12 个本批源码文件、984 个最终 JIT 消费者及 1990 个证据文件，五项跨窗口内容保持。Windows SDK 10.0.401；Native 证据来自 GitHub Actions Linux，实际日志和发布清单保留，不外推本地硬件或容量。
+
+实际入口：`node .tmp/document-reference-unit.mjs red`、`node .tmp/document-reference-fast-final.mjs`、`node .tmp/document-reference-managed.mjs --fixtures-only`、`node .tmp/document-reference-static.mjs`、`node .tmp/document-reference-aot.mjs`、`node .tmp/document-reference-jit-final.mjs`、CI `pnpm test:aot:native:e2e`、`node .tmp/document-reference-ci-runtime-proof.mjs`、`node .tmp/document-reference-ci-final-proof.mjs`。本地证据 `.tmp/document-reference-local-proof.json`、`.tmp/document-reference-jit-2`、`.tmp/document-reference-ci-artifacts`、`.tmp/document-reference-ci-runtime-proof.json`、`.tmp/document-reference-final-proof.json`；RED/失败日志以及未执行的本地 Native 队列记录保留。
+
+存量边界：未分类（包括失效分类恢复后）的标题检查没有共同锁或唯一约束，不能保证并发同标题写入只成功一方；本批只完成顺序恢复冲突检查，不声称关闭该唯一性缺口。未自动清洗活动文档的历史无效 CategoryId；统计只安全归并为未分类。完整生成应用、全量 JIT/UI、Worker 运行时、容量及多实例吞吐均未在本批运行。整体保持 Build-verified / Capacity-not-verified；PR3 保持 Draft，不合并、不发布。

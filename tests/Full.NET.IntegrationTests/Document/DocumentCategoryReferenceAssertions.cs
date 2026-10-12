@@ -50,11 +50,14 @@ internal static class DocumentCategoryReferenceAssertions
             var waiting = false;
             while (!waiting && DateTimeOffset.UtcNow < deadline)
             {
+                // 直接关联自有持锁会话，避免事务查询文本为空或快照可见性导致漏报。
                 var sql = mysql ? """
-                    SELECT COUNT(*) FROM information_schema.innodb_trx t
-                    JOIN information_schema.PROCESSLIST p ON p.ID = t.trx_mysql_thread_id
-                    WHERE t.trx_state = 'LOCK WAIT' AND p.DB = DATABASE()
-                      AND t.trx_query LIKE '%fn_document_category%'
+                    SELECT COUNT(*) FROM performance_schema.data_lock_waits w
+                    JOIN performance_schema.threads t ON t.THREAD_ID = w.BLOCKING_THREAD_ID
+                    JOIN performance_schema.data_locks l
+                      ON l.ENGINE = w.ENGINE AND l.ENGINE_LOCK_ID = w.REQUESTING_ENGINE_LOCK_ID
+                    WHERE t.PROCESSLIST_ID = @HolderId AND l.OBJECT_SCHEMA = DATABASE()
+                      AND l.OBJECT_NAME = 'fn_document_category'
                     """ : """
                     SELECT COUNT_BIG(*) FROM sys.dm_exec_requests r
                     CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) s
