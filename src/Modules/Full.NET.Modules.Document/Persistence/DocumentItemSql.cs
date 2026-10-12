@@ -336,7 +336,7 @@ internal static class DocumentItemSql
         SELECT TOP (@BatchSize) Id, DocumentItemId, FileId, VersionNumber, ContentHash, SizeBytes,
             ChangeDescription, UploadedByUserId, CreatedAtUtc
         FROM fn_document_version
-        WHERE DocumentItemId = @DocumentItemId AND FileId IS NOT NULL AND FileId <> @EmptyFileId
+        WHERE DocumentItemId = @DocumentItemId AND FileId IS NOT NULL
           AND (@HasCursor = 0 OR Id > @AfterId)
         ORDER BY Id
         """, SqlDataScope.HostOnly);
@@ -348,7 +348,7 @@ internal static class DocumentItemSql
         SELECT Id, DocumentItemId, FileId, VersionNumber, ContentHash, SizeBytes,
             ChangeDescription, UploadedByUserId, CreatedAtUtc
         FROM fn_document_version
-        WHERE DocumentItemId = @DocumentItemId AND FileId IS NOT NULL AND FileId <> @EmptyFileId
+        WHERE DocumentItemId = @DocumentItemId AND FileId IS NOT NULL
           AND (@HasCursor = 0 OR Id > @AfterId)
         ORDER BY Id LIMIT @BatchSize
         """, SqlDataScope.HostOnly);

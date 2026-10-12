@@ -147,6 +147,10 @@ public sealed class DocumentFileReleaseOutboxTests
             CancellationToken cancellationToken = default)
         {
             var p = (Dictionary<string, object?>)parameters!;
+            // 参数替身也走真实 UUID 门禁，避免纯内存分页掩盖双库参数绑定失败。
+            foreach (var value in p.Values)
+                if (value is Guid guid)
+                    new Full.NET.Data.Dapper.AssignedGuidTypeHandler().SetValue(new Microsoft.Data.SqlClient.SqlParameter(), guid);
             var after = p.TryGetValue("AfterId", out var id) ? (Guid?)id : null;
             var size = p.TryGetValue("BatchSize", out var n) ? (int)n! : int.MaxValue;
             var rows = Versions.OrderBy(v => v.Id).Where(v => after is null || v.Id.CompareTo(after.Value) > 0).Take(size).ToArray();

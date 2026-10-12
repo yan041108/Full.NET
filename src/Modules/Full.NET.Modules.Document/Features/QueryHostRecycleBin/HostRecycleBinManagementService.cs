@@ -107,12 +107,13 @@ internal sealed class HostRecycleBinManagementService(
             DatabaseProvider.MySql => DocumentItemSql.FileVersionsForPurgeMySql,
             _ => throw new InvalidOperationException("Unsupported database provider."),
         };
+        // 历史空文件标识在发布边界跳过，不能把 Guid.Empty 作为 SQL 参数绕过 UUID 分配门禁。
         Guid? afterId = null;
         while (true)
         {
             var rows = await queryExecutor.QueryAsync<DocumentVersionRecord>(statement,
                 DocumentSqlParameters.Create(("DocumentItemId", itemId), ("AfterId", afterId),
-                    ("HasCursor", afterId.HasValue ? 1 : 0), ("BatchSize", ReleaseBatchSize), ("EmptyFileId", Guid.Empty)), ct)
+                    ("HasCursor", afterId.HasValue ? 1 : 0), ("BatchSize", ReleaseBatchSize)), ct)
                 .ConfigureAwait(false);
             foreach (var row in rows)
                 await DocumentVersionDeletedOutbox.PublishAsync(outboxWriter, row, ct).ConfigureAwait(false);
