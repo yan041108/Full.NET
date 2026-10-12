@@ -19,9 +19,6 @@ internal static class DocumentHostCategoryTagAssertions
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
 
-        await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
-        await VerifyCreateOnlyCannotListCategoriesAsync(factory, client, cancellationToken);
-        await VerifyCreateOnlyCannotListTagsAsync(factory, client, cancellationToken);
         var manager = await factory.CreateHostIdentityAsync(
             $"document-taxonomy-{Guid.NewGuid():N}",
             [
@@ -43,6 +40,12 @@ internal static class DocumentHostCategoryTagAssertions
             ],
             cancellationToken);
 
+        await DocumentTaxonomyConcurrencyAssertions.VerifyWaitingEmptyCategoryAsync(factory, client, manager.AccessToken, cancellationToken);
+        await DocumentTaxonomyConcurrencyAssertions.VerifyAsync(client, manager.AccessToken, factory.Provider, factory.ConnectionString, cancellationToken);
+        await DocumentTaxonomyConcurrencyAssertions.VerifyWaitingTagsAsync(factory, client, manager.AccessToken, cancellationToken);
+        await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
+        await VerifyCreateOnlyCannotListCategoriesAsync(factory, client, cancellationToken);
+        await VerifyCreateOnlyCannotListTagsAsync(factory, client, cancellationToken);
         await DocumentCategoryHierarchyAssertions.VerifyAsync(client, manager.AccessToken, cancellationToken);
         await DocumentCategoryHierarchyAssertions.VerifyWaitingDeleteAsync(factory, client, manager.AccessToken, cancellationToken);
         await DocumentCategoryReferenceAssertions.VerifyAsync(client, manager.AccessToken, factory.Provider, factory.ConnectionString, cancellationToken);

@@ -419,6 +419,9 @@
       "250": {
         "filter": "FullyQualifiedName~Migration250DocumentItemWriteGuardTests.MySql_|FullyQualifiedName~Migration250DocumentItemWriteGuardTests.SqlServer_"
       },
+      "251": {
+        "filter": "FullyQualifiedName~Migration251DocumentTaxonomyWriteGuardTests.MySql_|FullyQualifiedName~Migration251DocumentTaxonomyWriteGuardTests.SqlServer_"
+      },
       "008": {
         "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryExpandMigrationTests|FullyQualifiedName~UuidBinaryPartialRecoveryTests"
       },
@@ -649,7 +652,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 518,
+        "minimum": 520,
         "timeout": "120m"
       },
       "infrastructure": {
@@ -682,7 +685,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1234,
+        "minimum": 1236,
         "timeout": "90m"
       },
       "logging-route-comparison": {

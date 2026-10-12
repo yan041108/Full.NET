@@ -210,7 +210,8 @@ public sealed class DocumentCategoryReferenceTests
             ids.NewId().Returns(Id);
         }
 
-        private DocumentItemTagAssignmentService Tags() => new(this, commands);
+        private DocumentItemTagAssignmentService Tags() => new(this, commands,
+            new(this, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer })));
         private DocumentItemCategoryReferenceService Categories() => new(this, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
         private DocumentItemTitleService Titles() => new(this, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
         private DocumentItemRestoreService Restores() => new(this, commands, Categories(), clock, Titles());

@@ -22,7 +22,8 @@ internal sealed class HostDocumentCategoryManagementService(
     HostDocumentCategoryQueryService queries,
     IClock clock,
     IIdGenerator idGenerator,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    DocumentTaxonomyWriteGuard writeGuard)
 {
     public Task<Result<HostDocumentCategoryResponse>> CreateAsync(
         CreateHostDocumentCategoryRequest request,
@@ -192,6 +193,8 @@ internal sealed class HostDocumentCategoryManagementService(
 
     private async Task<Dictionary<Guid, DocumentCategoryRecord>> LockHierarchyAsync(CancellationToken cancellationToken)
     {
+        // 门禁不依赖活动分类是否存在，避免 MySQL ReadCommitted 下空目录无行可锁。
+        await writeGuard.LockCategoriesAsync(cancellationToken).ConfigureAwait(false);
         // 分类增、改、删采用同一锁定入口；单独锁目标行无法防止 A→B 与 B→A 同时提交。
         var statement = databaseOptions.Value.Provider switch
         {
@@ -224,13 +227,13 @@ internal sealed class HostDocumentCategoryManagementService(
         Guid? excludeId,
         CancellationToken cancellationToken)
     {
-        var existing = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentNameConflictRecord>(
-                DocumentCategorySql.FindActiveByParentAndName,
-                DocumentSqlParameters.Create(("ParentId", parentId), ("Name", name)),
+        var count = await queryExecutor
+            .QuerySingleOrDefaultAsync<long>(
+                DocumentCategorySql.CountActiveByParentAndName,
+                DocumentSqlParameters.Create(("ParentId", parentId), ("Name", name), ("ExcludeId", excludeId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        return existing is not null && existing.Id != excludeId;
+        return count > 0;
     }
 
     private static bool TryNormalizeName(string? value, out string name)

@@ -821,6 +821,13 @@
         "TagId": "标签标识"
       }
     },
+    "fn_document_taxonomy_write_guard": {
+      "comment": "文档taxonomy write guard表",
+      "columns": {
+        "Id": "逻辑主键",
+        "TenantId": "租户标识；NULL 表示 Host 级"
+      }
+    },
     "fn_document_version": {
       "comment": "文档版本表",
       "columns": {

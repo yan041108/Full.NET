@@ -82,15 +82,16 @@ internal static class DocumentCategorySql
     /// 在同一父分类下按 Name 查找冲突；用于创建/改名时的同名校验。
     /// 父子层级通过 ParentId IS NULL OR ParentId = @ParentId 表达，避免 NULL 比较歧义。
     /// </summary>
-    public static readonly SqlStatement FindActiveByParentAndName = new(
-        "document.host_category.find_active_by_parent_and_name",
+    public static readonly SqlStatement CountActiveByParentAndName = new(
+        "document.host_category.count_active_by_parent_and_name",
         """
-        SELECT Id, Name, Version
+        SELECT COUNT(1)
         FROM fn_document_category
         WHERE TenantId IS NULL
           AND IsDeleted = 0
           AND ((@ParentId IS NULL AND ParentId IS NULL) OR ParentId = @ParentId)
           AND Name = @Name
+          AND (@ExcludeId IS NULL OR Id <> @ExcludeId)
         """,
         SqlDataScope.HostOnly);
 

@@ -117,7 +117,8 @@ public sealed class DocumentCategoryHierarchyTests
     private static HostDocumentCategoryManagementService CreateService(TestQueries queries, ICommandExecutor commands,
         DatabaseProvider provider = DatabaseProvider.SqlServer) =>
         new(queries, commands, new InlineTransaction(), new(queries), Substitute.For<IClock>(), Substitute.For<IIdGenerator>(),
-            Options.Create(new DatabaseOptions { Provider = provider }));
+            Options.Create(new DatabaseOptions { Provider = provider }),
+            new(queries, Options.Create(new DatabaseOptions { Provider = provider })));
 
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
@@ -146,6 +147,8 @@ public sealed class DocumentCategoryHierarchyTests
 
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
         {
+            // 新技术门禁独立于既有目录锁断言，后者仍验证完整活动父链的锁定读取。
+            if (typeof(T) == typeof(int)) return Task.FromResult((T?)(object)1);
             FirstStatement ??= statement;
             if (statement == DocumentCategorySql.CountActiveChildren)
                 return Task.FromResult((T?)(object)ChildCount);

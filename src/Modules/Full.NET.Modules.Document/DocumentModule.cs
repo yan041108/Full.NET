@@ -104,6 +104,7 @@ public sealed class DocumentModule : IFullNetModule
         ConfigureDocumentVersionRetentionOptions(services, configuration, registerSettingsLoader: true);
         services.TryAddScoped<Features.UpdateHostDocumentVersionRetention.DocumentVersionRetentionSettingService>();
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryQueryService>();
+        services.TryAddScoped<DocumentTaxonomyWriteGuard>();
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryManagementService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentItemCategoryReferenceService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentItemRestoreService>();

@@ -19,7 +19,8 @@ internal sealed class HostDocumentTagManagementService(
     ICommandTransaction transaction,
     HostDocumentTagQueryService queries,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    DocumentTaxonomyWriteGuard writeGuard)
 {
     public Task<Result<HostDocumentTagResponse>> CreateAsync(
         CreateHostDocumentTagRequest request,
@@ -31,7 +32,7 @@ internal sealed class HostDocumentTagManagementService(
         }
 
         // 修复：传递新字段 Code/Icon/Color/Description 到 CreateCoreAsync，确保写入SQL时不丢失数据
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => CreateCoreAsync(
                 name,
                 request.Code,
@@ -55,7 +56,7 @@ internal sealed class HostDocumentTagManagementService(
         }
 
         // 修复：传递新字段 Code/Icon/Color/Description 到 UpdateCoreAsync，确保更新SQL时同步写入
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => UpdateCoreAsync(
                 tagId,
                 name,
@@ -81,7 +82,7 @@ internal sealed class HostDocumentTagManagementService(
             return Task.FromResult(Result<bool>.Failure(InvalidError()));
         }
 
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => DeleteCoreAsync(tagId, actorUserId, request.Version, token),
             cancellationToken);
     }
@@ -97,6 +98,7 @@ internal sealed class HostDocumentTagManagementService(
         bool isRecommended,
         CancellationToken cancellationToken)
     {
+        await writeGuard.LockTagsAsync(cancellationToken).ConfigureAwait(false);
         if (await FindNameConflictAsync(name, null, cancellationToken).ConfigureAwait(false))
         {
             return NameExists();
@@ -138,6 +140,7 @@ internal sealed class HostDocumentTagManagementService(
         bool isRecommended,
         CancellationToken cancellationToken)
     {
+        await writeGuard.LockTagsAsync(cancellationToken).ConfigureAwait(false);
         if (await queries.GetByIdAsync(tagId, cancellationToken).ConfigureAwait(false) is { IsSuccess: false })
         {
             return NotFound();
@@ -179,6 +182,8 @@ internal sealed class HostDocumentTagManagementService(
         long version,
         CancellationToken cancellationToken)
     {
+        // 与文档标签校验共用门禁，引用检查到软删除之间不能插入新关联。
+        await writeGuard.LockTagsAsync(cancellationToken).ConfigureAwait(false);
         if (await queries.GetByIdAsync(tagId, cancellationToken).ConfigureAwait(false) is { IsSuccess: false })
         {
             return Result<bool>.Failure(NotFoundError());
@@ -209,13 +214,13 @@ internal sealed class HostDocumentTagManagementService(
         Guid? excludeId,
         CancellationToken cancellationToken)
     {
-        var existing = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentNameConflictRecord>(
-                DocumentTagSql.FindActiveByName,
-                DocumentSqlParameters.Create(("Name", name)),
+        var count = await queryExecutor
+            .QuerySingleOrDefaultAsync<long>(
+                DocumentTagSql.CountActiveByName,
+                DocumentSqlParameters.Create(("Name", name), ("ExcludeId", excludeId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        return existing is not null && existing.Id != excludeId;
+        return count > 0;
     }
 
     private static bool TryNormalizeName(string? value, out string name)

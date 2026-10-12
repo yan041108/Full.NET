@@ -37,12 +37,13 @@ internal static class DocumentTagSql
         """,
         SqlDataScope.HostOnly);
 
-    public static readonly SqlStatement FindActiveByName = new(
-        "document.host_tag.find_active_by_name",
+    public static readonly SqlStatement CountActiveByName = new(
+        "document.host_tag.count_active_by_name",
         """
-        SELECT Id, Name, Version
+        SELECT COUNT(1)
         FROM fn_document_tag
         WHERE TenantId IS NULL AND IsDeleted = 0 AND Name = @Name
+          AND (@ExcludeId IS NULL OR Id <> @ExcludeId)
         """,
         SqlDataScope.HostOnly);
 
