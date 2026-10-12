@@ -2761,3 +2761,21 @@ CI Linux独立检出、外部原生API完整核心21/21、零失败/跳过，包
 历史重复数据仍保留，现只统一拒绝新冲突写入；历史活动分类引用清洗另待收口。本批不认证完整生成应用、全量JIT/Vue、Worker运行时或容量，整体保持 Build-verified / Capacity-not-verified。PR3保持Draft，合并与发布按另行约定执行。
 
 最终报告提交只修改本节和能力状态，使用 `[skip ci]` 避免再次触发相同运行输入的全量 CI；运行证据仍明确对应生产冻结 `c13162d`，报告提交不冒称 CI 通过。源码主 CI 仍在运行，API/Worker 原生工作流已成功；PR3保持Draft，正式合并所需检查另行执行。
+
+## 2026-10-12 文档分类标签名称与引用集中验收
+
+任务 `document-taxonomy-consistency-20261012`，基线 `8add69d`，冻结源码 `1e33fbd9633d56fb98eaeec2b4bfda206079ee3a`。分类创建、更新、删除先取得分类技术门禁再使用原层级锁，覆盖空目录首写；标签创建、更新、删除与非空标签绑定共用标签技术门禁，防止删除与新关联同时提交。SQL Server 使用 UPDLOCK/HOLDLOCK，MySQL 使用 FOR UPDATE，锁随原事务结束。空标签列表保持直接清空语义。分类同父级、标签同 Host 名称检查改为计数，历史多行同名返回既有409；标签管理统一 Result 事务，失败回读回滚。可信作用域、权限、Version CAS 与公开契约保持。
+
+新增成对251_DocumentTaxonomyWriteGuard迁移：独立分类/标签固定 UUID v7 技术行、Host 约束及注释；API不播种，缺失门禁要求先运行Migrator。恢复测试固定Through251，覆盖只缺标签行、两行缺失、约束恢复及完整脚本未记账重入。正式053索引保持；历史重复夹具仅在隔离测试库暂移索引，结束后清理自有ID并恢复各提供程序原定义，MySQL不添加原本不存在的IsDeleted索引条件。旧应用兼容新增结构，但退回旧代码会失去新并发保护。
+
+原实现13/13回归失败；最终Document Unit115/115、真实Dapper Result事务8/8、架构89/89、命名33/33、SQL5/5、治理70/70、相关测试工具11/11通过，零失败/跳过。数据库对象注释与目录检查、受影响Document/Host.Api AOT分析通过，未改依赖复用。只读审查发现的历史索引夹具P2已修复并复审无剩余已确认阻断。发现1236项，分区192/192/520/252/80，迁移子区250/270，Native API21与Worker17无角色重叠；发现不等于运行。
+
+本地SQL Server/MySQL集中HTTP/迁移4/4通过，零失败/跳过。覆盖空目录分类名称竞争、分类/标签历史重复409且版本不变、合法跨父级同名、标签删除与文档创建/更新竞争；六组实际数据库等待屏障验证取得锁后重新检查名称或引用。另两项验证251迁移恢复。首轮共享锁排队5041.28秒、Docker失败入口15.981秒；引擎恢复后重试排队0.078秒、入口320.167秒、TRX315.58秒分别记录，不把排队当作测试耗时。冻结消费者984个摘要一致；Windows SDK10.0.401、两测试worker，自有容器回收，共享容器保持。
+
+本次源码的Linux独立检出Native API核心21/21通过，零失败/跳过，含共用分类标签竞争断言。生产者run `38220199587` attempt 1完整成功，实际检出 `b28f0a2a62c37d04c534f99892fe566037bb1445`、树 `b768094b90a7958aa31246285057ec27ccee5879`与冻结源码一致；ZIP、ELF、发布清单及检出/测试日志摘要核对。复用新CI结果，未重复本地Native；本批20个源码输入、2008个证据文件摘要一致。
+
+保留初始测试命名空间冲突、13项真实RED、首轮测试替身事务2项失败、网络超时及首轮本地Docker不可用4项失败日志；首轮未进入业务断言，不计通过。确认Docker未运行后启动引擎，核对失效锁原进程及子进程已退出、仅有常驻容器，备份锁凭据后清理；重试复用原984消费者，不重复构建。最终失败回滚断言使用真实DapperCommandTransaction。实际入口：`node .tmp/document-taxonomy-fast-final.mjs`、`node .tmp/document-taxonomy-aot-limited.mjs`、`node .tmp/document-taxonomy-static.mjs`、`node .tmp/document-taxonomy-managed.mjs`、`node .tmp/document-taxonomy-jit-retry.mjs`、`node .tmp/document-taxonomy-ci-runtime-proof.mjs`、`node .tmp/document-taxonomy-final-proof.mjs`。证据入口`.tmp/document-taxonomy-jit-1`（失败保留）、`.tmp/document-taxonomy-jit-2`（最终验收）、`.tmp/document-taxonomy-ci-artifacts`、`.tmp/document-taxonomy-final-proof.json`。
+
+未清洗历史业务数据；UseCount维护、历史活动分类引用清洗、完整生成应用、全量JIT/Vue、Worker运行时及容量不在本批验收范围。整体保持Build-verified / Capacity-not-verified，PR3保持Draft，合并与发布另行约定。
+
+最终报告仅修改现有里程碑与能力状态两份文档，使用 `[skip ci]` 避免相同源码重复触发全量CI；实际运行证据对应冻结 `1e33fbd`，报告提交不冒称CI通过，正式合并检查另行执行。

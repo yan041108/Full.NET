@@ -1,5 +1,7 @@
 # Full.NET 能力状态矩阵
 
+2026-10-12 Document 分类标签名称与引用已收口：分类空目录首写有固定事务门禁，标签绑定与删除共用门禁，历史多行同名统一409，标签失败回读使用Result事务回滚。新增双库251迁移，必须先运行Migrator；不清洗历史数据。冻结 `1e33fbd`，Document115/115、事务8/8、架构89/89、命名33/33、SQL5/5、治理70/70、相关工具11/11、受影响路径AOT分析、本地双库HTTP/迁移4/4及本次源码CI Native API核心21/21通过，零失败/跳过。源码树、产物与原始日志已核对，未重复本地Native。UseCount、历史活动引用清洗及容量待后续。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-文档分类标签名称与引用集中验收)，整体保持Build-verified / Capacity-not-verified。
+
 2026-10-12 Document 标题并发与历史重复已收口：未分类创建、更新及两条恢复入口先锁定 Host 技术门禁再计数，历史多行同名统一409；有效分类保持独立分类锁。新增成对250迁移，必须先运行Migrator，API不播种、不清洗历史数据。冻结 `c13162d`，RED8/8失败后Document Unit97/97、架构89/89、命名33/33、SQL5/5、治理70/70、工具63/63、受影响路径AOT分析、本地双库HTTP/迁移4/4及本次源码CI Linux Native API核心21/21通过，零失败/跳过。生产树、产物、消费者与原始日志已核对；Native来自完整新CI结果，未重复本地运行。历史活动引用清洗及容量仍待验收。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-文档标题并发与历史重复集中验收)，整体保持Build-verified / Capacity-not-verified。
 
 2026-10-12 Document 分类引用与恢复已收口：创建/更新校验并锁定有效 Host 分类，两条恢复入口统一处理失效分类与顺序同名冲突，统计不暴露历史越界分类身份。生产冻结 `098ba22`；RED 9/9 失败后 Document Unit 85/85、架构 89/89、命名 33/33、SQL 5/5、治理 70/70、API AOT 分析、双库 HTTP 2/2 与CI Linux Native API 核心完整矩阵 21/21 通过，零失败/跳过；双库实际锁等待屏障通过。当时未覆盖的并发标题与历史多行同名已在最新标题批次收口；历史活动引用清洗及容量仍未验收；该分类引用批次无公共契约或迁移变化。见[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-12-文档分类引用与恢复集中验收)，整体保持 Build-verified / Capacity-not-verified。
