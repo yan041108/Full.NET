@@ -352,12 +352,11 @@ test('OIDC Native AOT 门禁登记矩阵、脚本、工作流与专用 TRX', asy
   );
 });
 
-test('Worker Native AOT 发现门禁包含 Kafka 日志原生用例', async () => {
+test('Worker Native AOT 发现门禁包含 Kafka 日志与 Pending Claim 原生用例', async () => {
   const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
   const runner = await readNativeRunner('scripts/testing/run-native-aot-worker-e2e.mjs');
-  assert.deepEqual(
-    matrix.workerNativeAotIntegration.requiredTestTypes,
-    ['NativeWorkerKafkaLogMySqlE2ETests']
-  );
+  for (const requiredType of ['NativeWorkerKafkaLogMySqlE2ETests', 'NativeWorkerClaimSnapshotTests']) {
+    assert.ok(matrix.workerNativeAotIntegration.requiredTestTypes.includes(requiredType));
+  }
   assert.match(runner, /discoveredTypes\.has\(requiredType\)/);
 });

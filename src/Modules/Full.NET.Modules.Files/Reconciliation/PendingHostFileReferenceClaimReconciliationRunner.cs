@@ -145,12 +145,12 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
                 }
 
                 var releasedRows = await commandExecutor.ExecuteAsync(
-                        HostFileReferenceClaimSql.ReleaseOpen,
+                        HostFileReferenceClaimSql.ReleaseStalePending,
                         new Dictionary<string, object?>
                         {
-                            ["IdempotencyKey"] = record.IdempotencyKey,
+                            ["Id"] = record.Id,
+                            ["ObservedUpdatedAtUtc"] = record.UpdatedAtUtc,
                             ["PendingState"] = HostFileReferenceClaimStates.Pending,
-                            ["ActiveState"] = HostFileReferenceClaimStates.Active,
                             ["ReleasedState"] = HostFileReferenceClaimStates.Released,
                             ["Now"] = clock.UtcNow,
                         },

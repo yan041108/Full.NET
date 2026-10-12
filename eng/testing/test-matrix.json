@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 5722,
+      "minimum": 5728,
       "timeout": "10m",
       "selections": {
         "document-lifecycle": {
@@ -78,6 +78,10 @@
         "native-progress-polling": {
           "filter": "FullyQualifiedName~ApprovalProgressReadPollingTests",
           "minimum": 14
+        },
+        "files-pending-claim": {
+          "filter": "FullyQualifiedName~Full.NET.UnitTests.Files",
+          "minimum": 107
         }
       }
     },
@@ -130,9 +134,10 @@
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
     "filter": "FullyQualifiedName~NativeWorker",
     "requiredTestTypes": [
-      "NativeWorkerKafkaLogMySqlE2ETests"
+      "NativeWorkerKafkaLogMySqlE2ETests",
+      "NativeWorkerClaimSnapshotTests"
     ],
-    "minimum": 14,
+    "minimum": 16,
     "timeout": "45m"
   },
   "nativeAotIntegration": {

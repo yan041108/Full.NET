@@ -74,6 +74,20 @@ internal static class HostFileReferenceClaimSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>对账仅释放仍符合扫描快照的 Pending 行，不覆盖探测期间完成的确认或刷新。</summary>
+    public static readonly SqlStatement ReleaseStalePending = new(
+        "files.file_reference_claim.release_stale_pending",
+        """
+        UPDATE fn_files_file_reference_claim
+        SET State = @ReleasedState,
+            ReleasedAtUtc = @Now,
+            UpdatedAtUtc = @Now
+        WHERE Id = @Id
+          AND State = @PendingState
+          AND UpdatedAtUtc = @ObservedUpdatedAtUtc
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement SelectStalePendingSqlServer = new(
         "files.file_reference_claim.select_stale_pending.sql_server",
         """

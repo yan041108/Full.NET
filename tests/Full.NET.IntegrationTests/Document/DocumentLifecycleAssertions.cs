@@ -48,11 +48,20 @@ internal static class DocumentLifecycleAssertions
                 JOIN performance_schema.threads r ON r.THREAD_ID = w.REQUESTING_THREAD_ID
                 JOIN performance_schema.data_locks l ON l.ENGINE = w.ENGINE AND l.ENGINE_LOCK_ID = w.REQUESTING_ENGINE_LOCK_ID
                 WHERE b.PROCESSLIST_ID = @HolderId AND l.OBJECT_SCHEMA = DATABASE() AND l.OBJECT_NAME = 'fn_document_item'
-                  AND r.PROCESSLIST_INFO LIKE '%SELECT 1 FROM fn_document_item%' AND r.PROCESSLIST_INFO LIKE '%FOR UPDATE%'
+                  AND l.LOCK_MODE LIKE 'X%' AND r.PROCESSLIST_INFO LIKE '%SELECT 1 FROM fn_document_item%'
                 """ : """
-                SELECT COUNT_BIG(*) FROM sys.dm_exec_requests r CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) s
-                WHERE r.database_id = DB_ID() AND r.blocking_session_id = @HolderId
+                WITH WaitTree AS (
+                    SELECT r.session_id FROM sys.dm_exec_requests r
+                    WHERE r.database_id = DB_ID() AND r.blocking_session_id = @HolderId
+                    UNION ALL
+                    SELECT r.session_id FROM sys.dm_exec_requests r JOIN WaitTree w ON r.blocking_session_id = w.session_id
+                    WHERE r.database_id = DB_ID()
+                )
+                SELECT COUNT_BIG(DISTINCT r.session_id) FROM WaitTree w JOIN sys.dm_exec_requests r ON r.session_id = w.session_id
+                CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) s
+                WHERE r.database_id = DB_ID()
                   AND s.text LIKE '%SELECT 1 FROM fn_document_item%' AND s.text LIKE '%UPDLOCK, HOLDLOCK%'
+                OPTION (MAXRECURSION 16)
                 """;
             var waiting = 0L;
             var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
@@ -61,7 +70,31 @@ internal static class DocumentLifecycleAssertions
                 waiting = await observer.QuerySingleAsync<long>(new CommandDefinition(sql, new { HolderId = holderId }, cancellationToken: ct));
                 if (waiting < 2) await Task.Delay(50, ct);
             }
-            // 验证实际锁等待发生在版本号读取之前，不能把普通 UPDATE 的等待当成准入成功。
+            if (waiting < 2)
+            {
+                // 仅记录隔离测试库的阻塞关系与语句类别，不输出 SQL 参数或连接凭据。
+                var diagnosticSql = mysql ? """
+                    SELECT DISTINCT r.PROCESSLIST_ID AS Requester, b.PROCESSLIST_ID AS Blocker,
+                        l.OBJECT_NAME AS ObjectName, l.LOCK_MODE AS LockMode,
+                        CASE WHEN r.PROCESSLIST_INFO IS NULL THEN 1 ELSE 0 END AS InfoMissing,
+                        CASE WHEN r.PROCESSLIST_INFO LIKE '%SELECT 1 FROM fn_document_item%' THEN 1 ELSE 0 END AS ItemGuard
+                    FROM performance_schema.data_lock_waits w
+                    JOIN performance_schema.threads b ON b.THREAD_ID = w.BLOCKING_THREAD_ID
+                    JOIN performance_schema.threads r ON r.THREAD_ID = w.REQUESTING_THREAD_ID
+                    JOIN performance_schema.data_locks l ON l.ENGINE = w.ENGINE AND l.ENGINE_LOCK_ID = w.REQUESTING_ENGINE_LOCK_ID
+                    WHERE l.OBJECT_SCHEMA = DATABASE()
+                    """ : """
+                    SELECT r.session_id AS Requester, r.blocking_session_id AS Blocker,
+                        CASE WHEN s.text LIKE '%SELECT 1 FROM fn_document_item%' THEN 1 ELSE 0 END AS ItemGuard,
+                        CASE WHEN s.text LIKE '%fn_files_file%' THEN 1 ELSE 0 END AS FileOperation
+                    FROM sys.dm_exec_requests r CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) s
+                    WHERE r.database_id = DB_ID() AND r.blocking_session_id > 0
+                    """;
+                var diagnostics = (await observer.QueryAsync(new CommandDefinition(diagnosticSql, cancellationToken: ct)))
+                    .Cast<IDictionary<string, object>>().Select(row => new Dictionary<string, object>(row)).ToArray();
+                Console.WriteLine("Document admission diagnostic holder=" + holderId + ": " + JsonSerializer.Serialize(diagnostics));
+            }
+            // SQL Server 会串联 U 锁等待者；MySQL 依据主表 X 锁及准入 SELECT 判断，不匹配易变的语句尾部。
             Assert.AreEqual(2L, waiting, "Both version requests must wait at the parent admission SELECT.");
             await transaction.CommitAsync(ct);
             committed = true;
@@ -76,8 +109,20 @@ internal static class DocumentLifecycleAssertions
         }
         finally
         {
-            if (!committed) await transaction.RollbackAsync(CancellationToken.None);
-            foreach (var request in requests) using (await request) { }
+            try
+            {
+                if (!committed) await transaction.RollbackAsync(CancellationToken.None);
+            }
+            finally
+            {
+                // 即使回滚或某个请求失败，也等待全部请求终止并释放所有成功响应。
+                try { await Task.WhenAll(requests); }
+                finally
+                {
+                    foreach (var request in requests)
+                        if (request.Status == TaskStatus.RanToCompletion) request.Result.Dispose();
+                }
+            }
         }
     }
 
