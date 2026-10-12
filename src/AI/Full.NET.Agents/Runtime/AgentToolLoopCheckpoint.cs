@@ -65,12 +65,12 @@ public static class AgentToolLoopCheckpoint
         catch (JsonException) { Invalid(); return null!; }
         var definition = AgentDefinitionRegistry.Resolve(key, version);
         if (state is null || definition is null || definition.MaxToolIterations <= 0 || runId == Guid.Empty
-            || state.Version != 1 || state.RunId != runId || state.DefinitionKey != key || state.DefinitionVersion != version
+            || state.Version is not (1 or 2) || state.RunId != runId || state.DefinitionKey != key || state.DefinitionVersion != version
             || state.InputDigest != digest || digest.Length != 64 || digest.Any(c => !char.IsAsciiHexDigit(c))
             || state.Rounds is null || state.Rounds.Count > definition.MaxToolIterations
             || state.Phase is not ("model_pending" or "tool_pending" or "tools_ready" or "completed" or "blocked")) Invalid();
         var ids = new HashSet<string>(StringComparer.Ordinal);
-        var steps = 0; var unresolved = 0; var pending = 0; var paused = 0;
+        var steps = 0; var unresolved = 0; var pending = 0; var paused = 0; var retries = 0;
         for (var index = 0; index < state!.Rounds.Count; index++)
         {
             var round = state.Rounds[index];
@@ -83,6 +83,10 @@ public static class AgentToolLoopCheckpoint
             var missing = false;
             foreach (var call in calls)
             {
+                // 旧凭证缺失字段即零重试；新计数只能属于原有派发身份，不能伪造额外额度。
+                if (call.ApprovalRetries is < 0 or > 63 || call.ApprovalRetries > 0
+                    && (state.Version != 2 || call.ToolVersion is null || call.OperationId is null)) Invalid();
+                retries += call.ApprovalRetries; steps += call.ApprovalRetries;
                 if (call.ToolVersion is <= 0 || call.ToolVersion is null && call.OperationId is not null) Invalid();
                 if (call.OperationId is { } operation
                     && (operation == Guid.Empty || resolve is not null && resolve(call.CallId!) != operation)) Invalid();
@@ -101,7 +105,7 @@ public static class AgentToolLoopCheckpoint
             if (index < state.Rounds.Count - 1 && (missing || paused != 0)) Invalid();
         }
         var lastCalls = state.Rounds.Count == 0 ? [] : Calls(state.Rounds[^1]).ToArray();
-        if (steps > 64 || pending > 1 || paused > 1
+        if (state.Version == 2 && retries == 0 || steps > 64 || pending > 1 || paused > 1
             || state.Phase == "model_pending" && (unresolved != 0 || paused != 0 || steps >= 64 || state.Rounds.Count >= definition!.MaxToolIterations)
             || state.Phase == "tool_pending" && (pending != 1 || unresolved == 0 || paused != 0)
             || state.Phase == "tools_ready" && (pending != 0 || paused != 0 || state.Rounds.Count == 0 || lastCalls.Length == 0)
@@ -174,11 +178,24 @@ public static class AgentToolLoopCheckpoint
         {
             input = AgentTokenUsage.Add(input, state.Rounds[index].InputTokens, index == 0);
             output = AgentTokenUsage.Add(output, state.Rounds[index].OutputTokens, index == 0);
-            attempts += Calls(state.Rounds[index]).Count(c => c.ResultPayload is not null || c.OperationId.HasValue);
+            attempts += Calls(state.Rounds[index]).Sum(c => c.ApprovalRetries + (c.ResultPayload is not null || c.OperationId.HasValue ? 1 : 0));
         }
         return new(state.Phase, input, output, attempts,
             state.Rounds.Count + attempts + (state.Phase == "model_pending" ? 1 : 0), state.Rounds.Count,
-            state.Phase is "model_pending" or "tool_pending" or "blocked");
+            state.Phase is "model_pending" or "tool_pending" or "blocked")
+            { ApprovalRecheckRequired = ApprovalCall(state) is not null };
+    }
+
+    internal static AgentToolLoopContent? ApprovalCall(AgentToolLoopState state)
+    {
+        if (state.Phase != "blocked" || state.Rounds.Count == 0) return null;
+        var prefix = Calls(state.Rounds[^1]).TakeWhile(c => c.ResultPayload is not null).ToArray();
+        var call = prefix.LastOrDefault();
+        // 只有最后一个确定回执明确证明审批拒绝未执行，才允许重新入场；任何更早暂停都不能跳过。
+        if (call is null || call.ToolVersion is null || call.OperationId is null
+            || prefix.Take(prefix.Length - 1).Any(c => IsPause(ReadResult(c.ResultPayload!).ErrorCode))) return null;
+        var result = ReadResult(call.ResultPayload!);
+        return result.StatusKey == "denied" && result.ErrorCode == "ai.tool.approval_required" ? call : null;
     }
 
     internal static ToolLoopExecutionPayload ReadResult(string payload)
@@ -228,7 +245,11 @@ public static class AgentToolLoopCheckpoint
 /// <param name="ModelCalls">已确认模型轮次。</param>
 /// <param name="ReconciliationRequired">只有意图或暂停，不能自动续跑。</param>
 public sealed record AgentToolLoopRecoveryInfo(string Phase, long? InputTokens, long? OutputTokens,
-    int ToolSteps, int ExecutionSteps, int ModelCalls, bool ReconciliationRequired);
+    int ToolSteps, int ExecutionSteps, int ModelCalls, bool ReconciliationRequired)
+{
+    /// <summary>确定的末尾审批拒绝可重新核对；不代表审批已批准，不允许跳过当前授权和持久化意图。</summary>
+    public bool ApprovalRecheckRequired { get; init; }
+}
 
 // 持久化只使用自有具体 DTO，不序列化 SDK 开放对象；这些正文类型禁止默认诊断输出。
 internal sealed class AgentToolLoopState
@@ -267,6 +288,9 @@ internal sealed class AgentToolLoopContent
     public int? ToolVersion { get; set; }
     public Guid? OperationId { get; set; }
     public string? ResultPayload { get; set; }
+    // 非零字段仅写入 v2；无审批重试的 v1 正文继续兼容旧读取器。
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int ApprovalRetries { get; set; }
     public override string ToString() => nameof(AgentToolLoopContent);
 }
 

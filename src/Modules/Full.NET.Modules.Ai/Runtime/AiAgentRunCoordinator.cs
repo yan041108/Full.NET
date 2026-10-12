@@ -139,6 +139,7 @@ internal sealed class AiAgentRunCoordinator(
             preserveDispatchBudget = (record.DefinitionKey is AgentDefinitionRegistry.SingleTextKey or AgentDefinitionRegistry.ReadOnlyToolLoopKey)
                 && (modelCheckpoint is not null || lease.Epoch != 1);
             var bindingValidator = scope.ServiceProvider.GetRequiredService<IBackgroundSessionBindingValidator>();
+            var recheckToolApproval = false;
             var binding = new SessionBindingSnapshot(
                 record.ActorUserId,
                 record.TenantId,
@@ -206,9 +207,16 @@ internal sealed class AiAgentRunCoordinator(
                         return await FailAsync("ai.agent_run.checkpoint_incompatible").ConfigureAwait(false);
                     if (modelState.Phase == "started")
                     {
-                        if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
-                        return await CommitModelProgressAsync(lease, record, modelState, "reconciliation_required",
-                            "run.reconciliation_required", null, cancellationToken).ConfigureAwait(false);
+                        // 原循环已确认审批拒绝未执行时，只允许原调用重新入场；当前执行器仍裁决审批及权限。
+                        recheckToolApproval = modelState.LoopState is { } approvalLoop
+                            && AgentToolLoopCheckpoint.Inspect(approvalLoop, runId, record.DefinitionKey, record.DefinitionVersion,
+                                modelState.InputDigest, callId => ResolveToolOperationId(runId, callId)).ApprovalRecheckRequired;
+                        if (!recheckToolApproval)
+                        {
+                            if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
+                            return await CommitModelProgressAsync(lease, record, modelState, "reconciliation_required",
+                                "run.reconciliation_required", null, cancellationToken).ConfigureAwait(false);
+                        }
                     }
                 }
                 else if (lease.Epoch != 1)
@@ -421,7 +429,7 @@ internal sealed class AiAgentRunCoordinator(
                         token.ThrowIfCancellationRequested();
                         if (committed) modelState = candidate;
                         return committed;
-                    }), cancellationToken).ConfigureAwait(false);
+                    }) { RecheckApproval = recheckToolApproval }, cancellationToken).ConfigureAwait(false);
                 if (loopResult.ApprovalRequired)
                 {
                     if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;

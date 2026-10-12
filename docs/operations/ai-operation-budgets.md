@@ -255,3 +255,11 @@ AgentToolLoop 在任何工具派发前复制和校验本轮全部模型消息与
 升级/回退须停准入并排空旧 API/Worker，不能混跑不识别 v2 的旧消费者。审批后自动重派发、未知外部动作/费用对账与 Provider 请求前精确输入硬限仍开放。Native 发布/运行、生成应用与页面验收按整个 AI 模块集中执行，本批只验证 AOT 分析闭包，保持 Capacity-not-verified。
 
 最终本地验收：`node artifacts/r10x/run-unit.mjs final` 执行 AI 3561/3561（新增 47），API/Worker AOT 分析与相关 Architecture 88/88；JIT 全量 Architecture 235/235。首轮双库并行执行中 SQL Server 48 项有 2 项取消/迁移超时，MySQL 完成 28 项（25 通过、3 连接超时）后被脚本 30 分钟时限中止，未生成完整 TRX，原始日志与二进制流保留。`node artifacts/r10x/run-recovery.mjs` 复用相同源码与消费者产物，保持产品超时预算及断言，采用矩阵 60 分钟执行时限、2 CPU/8 GiB、Workers=1，顺序补测 SQL Server 原失败 UID 各 1/1 与 MySQL 48/48；成功 UID 并集覆盖双库各 48（AI 88 + Smoke 8），补测零失败/跳过，不把首轮失败或中止改报通过，也不据此认定资源争用根因。既有两个工作流检查点入口包含本批新 v2 游标的事件冲突回滚、旧租约拒绝、过期领取和后缀恢复断言。构建零警告/错误；命名 30、矩阵 6、治理 57、工具链 54，通过预先排除受保护路径的 Markdown 386 文件检查。新鲜 Unit 发现 7054（规范 7044 + 外部日志夹具 10），runtime 819、checkpoint-admission 实际发现 328（矩阵下限 300）；完整 Unit 未执行，Integration 1214 为分片发现数，未执行范围不外推为通过。冻结 7798 输入；源码、消费者与精确 UID 集合核对通过，证据在 `artifacts/r10x/acceptance.json`，基线 `31d69b72`、任务 `ai-tool-loop-cursor-r10x`。
+
+### 工具循环审批重入与重试计量（R10y）
+
+仅 `blocked` 中最后一个确定回执为 `denied/ai.tool.approval_required` 的运行可以重新进入原执行器。恢复保留 OperationId、冻结参数和工具版本，复核当前会话/权限及原审批，不因恢复标志授予审批，不扩大工具允许集。原拒绝和每次重入都消耗同一个 64 步预算；派发前意图必须提交成功，失租/取消或回执未确认后保留未知结果，禁止重新派发。
+
+无重试 v1 正文省略默认计数；非零 `ApprovalRetries` 使用内层 v2，旧读取器失败关闭。公共请求的构造器及 Deconstruct 保持原签名，显式 init 标志默认为 false；没有持久化回调时拒绝审批重入。相同最终回执只重复交付原结果。此协议不新增生产写工具或审批类型；Provider 输入硬限、自动外部对账、Native 和页面集中验收仍未完成。
+
+本批本地验收：`node artifacts/r10y/run-unit.mjs final` AI 3589/3589（新增 28），零失败/跳过；`run-linux.mjs` API/Worker AOT 分析零警告/错误、相关 Architecture 88/88；`run-jit.mjs` 全量 Architecture 235/235、Integration 分片发现 1214 无遗漏/重复。`run-integration.mjs` 按真实 affected 集合顺序执行 SQL Server 与 MySQL 各 48/48（AI 88 + Smoke 8），矩阵外层时限各 60 分钟、2 CPU/8 GiB、Workers=1，产品内部 deadline 不变，零失败/跳过。既有双库检查点入口同时覆盖审批回执冲突回滚、过期领取、旧租约零派发、新租约重入和 v2 累计尝试；实际审批消费继续沿用现有业务 Handler。命名 30、矩阵 6、治理 57、工具链 54、预先排除保护路径的 Markdown 386 文件检查通过。Unit 实际发现 7082（规范下限 7072 + 外部日志夹具 10），runtime 847，checkpoint-admission 实际 336（下限 308），不声明完整 Unit 或完整 Integration 已执行。冻结 7800 输入，源码/消费者/UID 核对通过；独立只读两轮复核无遗留 Critical/Important。证据在 `artifacts/r10y/acceptance.json`，基线 `3c761e9f`、任务 `ai-tool-approval-resume-r10y`。

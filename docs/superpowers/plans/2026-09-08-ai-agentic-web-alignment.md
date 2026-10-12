@@ -2116,6 +2116,21 @@ SQL Server 另有已有知识索引状态用例在文本代次生成断言返回
 
 本批关闭确定模型/工具回执前缀的逐步续跑，不关闭审批暂停后的工具重派发、未知外部动作/费用对账或 Provider 请求前精确输入硬限。Native 发布/运行、生成应用与页面仍按 AI 模块集中验收，Aot-analysis-clean，R10 保持开放，Capacity-not-verified。
 
+### R10y：工具循环审批回执恢复与累计重试预算（2026-10-12，已实现、本地受影响验收通过）
+
+范围：沿用 R10x 的冻结批次，仅允许最后一个确定前缀回执为 denied/ai.tool.approval_required 的运行重新入场。恢复不代表授权，仍由原工具执行器按原 OperationId、版本、参数和当前会话/权限/审批复核；未知派发、对账回执和缺失历史计量继续停止。审批拒绝和重新入场尝试共同消耗原 64 步额度，持久化派发意图后失联不能重试。不扩大静态工具允许集，不新增写工具、审批类型、表、迁移或依赖。
+
+- [x] 协调器审批恢复先建立失败测试，补充真实执行器审批复核、稳定绑定、前缀复用及拒绝场景。
+- [x] 在现有游标增加受控审批尝试计数，兼容旧凭证零重试；重试前持久化未知意图，拒绝预算重置、坏前缀、版本变动和重复重放。
+- [x] 复用现有双库检查点入口验证事件冲突回滚、租约恢复与审批重入，集中执行 AI、Architecture、AOT 分析和实际受影响双库用例。
+- [x] 独立只读复核、记录原始结果、核对外部改动并提交 main；Provider 精确输入硬限和外部对账保持开放，原生/页面按模块集中验收。
+
+首个协调器 RED 1/1 失败，随后完整 AI 3562/3562 与扩展边界回归 3588/3588 通过；解析器第二次求值覆盖冻结 OperationId 的新增回归 RED 1/1 失败，改为只在无原身份时解析，最终覆盖通过。初始测试缺少命名空间的编译失败保留，不计行为 RED。
+
+本批本地验收：`node artifacts/r10y/run-unit.mjs final` AI 3589/3589（新增 28），零失败/跳过；`run-linux.mjs` API/Worker AOT 分析零警告/错误、相关 Architecture 88/88；`run-jit.mjs` 全量 Architecture 235/235、Integration 分片发现 1214 无遗漏/重复。`run-integration.mjs` 按真实 affected 集合顺序执行 SQL Server 与 MySQL 各 48/48（AI 88 + Smoke 8），矩阵外层时限各 60 分钟、2 CPU/8 GiB、Workers=1，产品内部 deadline 不变，零失败/跳过。既有双库检查点入口同时覆盖审批回执冲突回滚、过期领取、旧租约零派发、新租约重入和 v2 累计尝试；实际审批消费继续沿用现有业务 Handler。命名 30、矩阵 6、治理 57、工具链 54、预先排除保护路径的 Markdown 386 文件检查通过。Unit 实际发现 7082（规范下限 7072 + 外部日志夹具 10），runtime 847，checkpoint-admission 实际 336（下限 308），不声明完整 Unit 或完整 Integration 已执行。冻结 7800 输入，源码/消费者/UID 核对通过；独立只读两轮复核无遗留 Critical/Important。证据在 `artifacts/r10y/acceptance.json`，基线 `3c761e9f`、任务 `ai-tool-approval-resume-r10y`。
+
+本批关闭工具循环的确定审批拒绝重入协议，不新增生产写工具或审批类型。旧 v1 正文无重试字段可继续读取；有重试的内层 v2 由新读取器处理，旧严格读取器失败关闭，升级/回退需保持写派发排空和原凭证。Provider 请求前精确输入 Token 硬限、未知外部动作/费用自动对账继续开放。Native 发布/运行、生成应用与页面仍按 AI 模块集中验收；Aot-analysis-clean，R10 不整体关闭，Capacity-not-verified。
+
 ### R11：受控业务路由、数据去向和观测（P2，依赖 R06/R09/R10）
 
 **修改/新增责任位置：** `src/AI/Full.NET.Agents/Workflows/`、Ai 运行时与模型策略；`docs/operations/ai-provider-network.md`、`docs/operations/ai-operation-budgets.md` 在实现完成时同步，不提前把方案写成运行能力。

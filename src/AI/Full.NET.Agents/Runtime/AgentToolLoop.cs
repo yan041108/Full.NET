@@ -44,7 +44,9 @@ public sealed class AgentToolLoop
                 DefinitionVersion = request.DefinitionVersion, InputDigest = AgentToolLoopCheckpoint.Digest(request.Prompt) }
             : AgentToolLoopCheckpoint.Restore(request.ResumeCheckpoint, request.RunId, request.DefinitionKey,
                 request.DefinitionVersion, AgentToolLoopCheckpoint.Digest(request.Prompt), request.ResolveOperationId);
-        if (AgentToolLoopCheckpoint.Summarize(state).ReconciliationRequired) AgentToolLoopCheckpoint.Invalid();
+        var approvalCall = request.RecheckApproval ? AgentToolLoopCheckpoint.ApprovalCall(state) : null;
+        if (AgentToolLoopCheckpoint.Summarize(state).ReconciliationRequired && approvalCall is null
+            || approvalCall is not null && request.PersistCheckpoint is null) AgentToolLoopCheckpoint.Invalid();
         if (state.Phase == "completed") return AgentToolLoopCheckpoint.CompletedResult(state, request.Prompt);
         var allowed = definition.AllowedToolNames.ToHashSet(StringComparer.Ordinal);
         if (request.AdditionalAllowedToolNames is not null)
@@ -73,10 +75,15 @@ public sealed class AgentToolLoop
             // 先消化持久批次的未完成后缀；原模型请求和已确认工具结果不再执行。
             if (state.Rounds.Count != 0)
             {
-                foreach (var call in AgentToolLoopCheckpoint.Calls(state.Rounds[^1]).Where(c => c.ResultPayload is null))
+                foreach (var call in AgentToolLoopCheckpoint.Calls(state.Rounds[^1]).Where(c => c.ResultPayload is null || c == approvalCall))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     if (AgentToolLoopCheckpoint.Summarize(state).ExecutionSteps >= MaximumExecutionSteps) throw new AgentToolLoopBudgetExceededException();
+                    if (call == approvalCall)
+                    {
+                        // 重新核对不授予审批，仍走原执行器；原拒绝和本次重入分别占用步数。
+                        state.Version = 2; call.ApprovalRetries++; call.ResultPayload = null; approvalCall = null;
+                    }
                     if (call.ToolVersion is null)
                     {
                         call.ResultPayload = JsonSerializer.Serialize(new ToolLoopDeniedPayload("denied", "ai.tool.unavailable"),
@@ -84,7 +91,8 @@ public sealed class AgentToolLoop
                     }
                     else
                     {
-                        call.OperationId = request.ResolveOperationId(call.CallId!);
+                        // 审批重入沿用已冻结身份；解析器只为从未派发过的后缀创建新身份。
+                        call.OperationId ??= request.ResolveOperationId(call.CallId!);
                         if (call.OperationId == Guid.Empty) AgentToolLoopCheckpoint.Invalid();
                         state.Phase = "tool_pending";
                         await SaveAsync().ConfigureAwait(false);
@@ -190,7 +198,7 @@ public sealed class AgentToolLoop
 /// <param name="Registry">工具注册表；用于构建工具描述与查找工具元数据。</param>
 /// <param name="ResolveOperationId">根据模型生成的 callId 解析业务操作标识的回调。</param>
 /// <param name="AdditionalAllowedToolNames">定义允许清单之外临时放行的工具名集合；为 <see langword="null"/> 时不追加。</param>
-/// <param name="ResumeCheckpoint">经可信存储校验的逐步检查点；未知派发或暂停不得自动恢复。</param>
+/// <param name="ResumeCheckpoint">经可信存储校验的逐步检查点；未知派发不得自动恢复。</param>
 /// <param name="PersistCheckpoint">在外部派发之前和结果之后提交不可变 JSON 的回调；false 或异常必须停止，调用方负责租约、事务与加密。</param>
 public sealed record AgentToolLoopRequest(
     Guid RunId,
@@ -203,7 +211,11 @@ public sealed record AgentToolLoopRequest(
     Func<string, Guid> ResolveOperationId,
     IReadOnlySet<string>? AdditionalAllowedToolNames = null,
     string? ResumeCheckpoint = null,
-    Func<string, CancellationToken, Task<bool>>? PersistCheckpoint = null);
+    Func<string, CancellationToken, Task<bool>>? PersistCheckpoint = null)
+{
+    /// <summary>允许确定的末尾审批拒绝重新进入原执行器复核；必须提供持久化回调，不授予权限或审批。</summary>
+    public bool RecheckApproval { get; init; }
+}
 
 /// <summary>单次运行结果；会话快照供持久化，不含凭据。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>

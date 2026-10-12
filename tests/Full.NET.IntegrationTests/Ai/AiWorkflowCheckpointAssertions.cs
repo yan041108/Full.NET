@@ -32,10 +32,11 @@ internal static class AiWorkflowCheckpointAssertions
         await Model_receipt_reclaim_and_rollback_async(factory, Full.NET.Agents.Definitions.AgentDefinitionRegistry.SingleTextKey).ConfigureAwait(false);
         await Model_receipt_reclaim_and_rollback_async(factory, Full.NET.Agents.Definitions.AgentDefinitionRegistry.ReadOnlyToolLoopKey).ConfigureAwait(false);
         await Tool_loop_cursor_reclaim_and_resume_async(factory).ConfigureAwait(false);
+        await Tool_loop_cursor_reclaim_and_resume_async(factory, approval: true).ConfigureAwait(false);
         await AiAgentCompletionAssertions.VerifyAsync(factory).ConfigureAwait(false);
     }
 
-    private static async Task Tool_loop_cursor_reclaim_and_resume_async(FullNetApiFactory factory)
+    private static async Task Tool_loop_cursor_reclaim_and_resume_async(FullNetApiFactory factory, bool approval = false)
     {
         var runId = await SeedWorkflowRunAsync(factory, AgentDefinitionRegistry.ReadOnlyToolLoopKey);
         await using var scope = factory.Services.CreateAsyncScope();
@@ -57,6 +58,15 @@ internal static class AiWorkflowCheckpointAssertions
              "ResultPayload":"{\"statusKey\":\"succeeded\",\"errorCode\":null,\"value\":true,\"isUntrusted\":true}"},
              {"Kind":"call","CallId":"second","Name":"ai.tools.ping","Arguments":{},"ToolVersion":1}]}]}]}
             """;
+        if (approval)
+        {
+            var body = System.Text.Json.Nodes.JsonNode.Parse(loopPayload)!;
+            body["Phase"] = "blocked";
+            var call = body["Rounds"]![0]!["Messages"]![0]!["Contents"]![1]!;
+            call["OperationId"] = AiModelRunCheckpoint.ResolveToolOperationId(runId, "second");
+            call["ResultPayload"] = """{"statusKey":"denied","errorCode":"ai.tool.approval_required","value":null,"isUntrusted":true}""";
+            loopPayload = body.ToJsonString();
+        }
         state = state.WithLoop(loopPayload); payload = state.ToJson();
         // 事件末尾失败必须回滚新游标；否则恢复会把未提交的工具结果当成已完成。
         var failure = await Assert.ThrowsAsync<DataCommandException>(async () => await store.CommitProgressAsync(new(lease, "running", null,
@@ -64,6 +74,7 @@ internal static class AiWorkflowCheckpointAssertions
             new(Guid.CreateVersion7(), 1, "run.node_completed", 1, "{}"))));
         Assert.AreEqual(DataCommandFailureKind.UniqueConstraint, failure.Kind);
         Assert.AreEqual("started", AiModelRunCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!.Phase);
+        Assert.IsNull(AiModelRunCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!.LoopState);
         Assert.IsTrue(await store.CommitProgressAsync(new(lease, "running", null,
             new(Guid.CreateVersion7(), 2, 1, AgentFrameworkRuntime.FrameworkVersion, 1, payload, AiModelRunCheckpoint.Digest(payload)),
             new(Guid.CreateVersion7(), 2, "run.node_completed", 1, "{}"))));
@@ -76,7 +87,19 @@ internal static class AiWorkflowCheckpointAssertions
         Assert.IsGreaterThan(lease.Epoch, recoveryLease.Epoch);
         Assert.IsFalse(await store.CommitProgressAsync(new(lease, "completed", null, null, null)));
         state = AiModelRunCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!;
-        Assert.AreEqual("loop_ready", state.Phase);
+        Assert.AreEqual(approval ? "started" : "loop_ready", state.Phase);
+        if (approval)
+        {
+            var staleClient = new CursorRecoveryClient(); var staleExecutor = new CursorRecoveryExecutor(runId);
+            // 旧租约无法提交审批重入意图时，不允许把已批准视作派发许可。
+            await Assert.ThrowsAsync<InvalidOperationException>(() => new AgentToolLoop().RunAsync(new(runId, run.DefinitionKey, 1, "",
+                staleClient, staleExecutor, new AgentToolRegistry([new("ai.tools.ping", 1, "permission", "none", true, null)]),
+                call => AiModelRunCheckpoint.ResolveToolOperationId(runId, call), ResumeCheckpoint: state.LoopState,
+                PersistCheckpoint: async (checkpoint, token) => await store.CommitProgressAsync(new(lease, "running", null, null, null), token))
+                { RecheckApproval = true }));
+            Assert.AreEqual(0, staleClient.Calls); Assert.AreEqual(0, staleExecutor.Calls);
+            Assert.AreEqual(loopPayload, AiModelRunCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!.LoopState);
+        }
         var client = new CursorRecoveryClient(); var executor = new CursorRecoveryExecutor(runId);
         var sequence = 2L;
         var result = await new AgentToolLoop().RunAsync(new(runId, run.DefinitionKey, 1, "", client, executor,
@@ -90,13 +113,20 @@ internal static class AiWorkflowCheckpointAssertions
                     new(Guid.CreateVersion7(), sequence, candidate.Phase == "started" ? "run.node_started" : "run.node_completed", 1, "{}")), token);
                 if (committed) { state = candidate; recoveryLease = recoveryLease with { Version = recoveryLease.Version + 1 }; }
                 return committed;
-            }));
+            }) { RecheckApproval = approval });
         Assert.AreEqual(1, executor.Calls); Assert.AreEqual(1, client.Calls);
-        Assert.AreEqual(2, result.ToolSteps); Assert.AreEqual(5L, result.InputTokens); Assert.AreEqual(3L, result.OutputTokens);
+        Assert.AreEqual(approval ? 3 : 2, result.ToolSteps); Assert.AreEqual(5L, result.InputTokens); Assert.AreEqual(3L, result.OutputTokens);
         var final = AiModelRunCheckpoint.Restore(run, budget, (await store.FindLatestCheckpointAsync(runId))!)!;
         var restored = AgentToolLoopCheckpoint.ReadCompletedResult(final.LoopState!, runId, run.DefinitionKey, 1, "",
             call => AiModelRunCheckpoint.ResolveToolOperationId(runId, call));
         Assert.IsNotNull(restored); Assert.AreEqual("done", restored.Text);
+        if (approval)
+        {
+            using var body = JsonDocument.Parse(final.LoopState!);
+            Assert.AreEqual(2, body.RootElement.GetProperty("Version").GetInt32());
+            Assert.AreEqual(1, body.RootElement.GetProperty("Rounds")[0].GetProperty("Messages")[0]
+                .GetProperty("Contents")[1].GetProperty("ApprovalRetries").GetInt32());
+        }
     }
 
     private sealed class CursorRecoveryClient : IChatClient
