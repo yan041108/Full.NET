@@ -76,6 +76,7 @@ internal static class DocumentHostItemAssertions
         await VerifyDeleteAndRestoreAsync(client, writer.AccessToken, withVersion, cancellationToken);
         await VerifyVersionsAndPreviewAsync(client, writer.AccessToken, withVersion, cancellationToken);
         await DocumentLifecycleAssertions.VerifyAsync(client, writer.AccessToken, cancellationToken);
+        await DocumentFileReleaseAssertions.VerifyAsync(factory, client, writer.AccessToken, cancellationToken);
         await DocumentLifecycleAssertions.VerifyWaitingVersionAdmissionAsync(factory, client, writer.AccessToken, cancellationToken);
         await OpenApiDocumentHostItemsContractAssertions.VerifyAsync(client, cancellationToken);
     }

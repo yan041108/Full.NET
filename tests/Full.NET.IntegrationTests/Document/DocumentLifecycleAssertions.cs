@@ -160,7 +160,11 @@ internal static class DocumentLifecycleAssertions
                    new CreateHostDocumentPreviewTaskRequest(item.Id, target.Id), ct))
             Assert.AreEqual(HttpStatusCode.NotFound, rejected.StatusCode, await rejected.Content.ReadAsStringAsync(ct));
 
-        // 使用无文件版本的记录验证彻底删除；本场景不声称覆盖 Active Files Claim 的可靠释放。
+        // 有文件的回收站彻底删除也必须成功；持久化事实及实际释放由独立双库/Worker 场景验证。
+        using (var filePurge = await SendAsync(client, token, HttpMethod.Post, $"/api/v1/document/host/recycle-bin/{item.Id}/purge", null, ct))
+            Assert.AreEqual(HttpStatusCode.OK, filePurge.StatusCode, await filePurge.Content.ReadAsStringAsync(ct));
+
+        // 空版本文档继续保持既有彻底删除语义。
         var empty = await ReadAsync<HostDocumentItemResponse>(client, token, HttpMethod.Post, Items,
             new CreateHostDocumentItemRequest("purge-lifecycle-" + Guid.NewGuid().ToString("N"), null), HttpStatusCode.Created, ct);
         using (var deleted = await SendAsync(client, token, HttpMethod.Post, Items + $"/{empty.Id}/delete",
@@ -172,7 +176,7 @@ internal static class DocumentLifecycleAssertions
         Assert.AreEqual(HttpStatusCode.NotFound, missing.StatusCode);
     }
 
-    private static async Task<HostDocumentItemResponse> UploadAsync(HttpClient client, string token, Guid id, int index, CancellationToken ct)
+    internal static async Task<HostDocumentItemResponse> UploadAsync(HttpClient client, string token, Guid id, int index, CancellationToken ct)
     {
         using var body = new MultipartFormDataContent();
         var file = new ByteArrayContent([1, 2, 3, (byte)index]);
@@ -185,7 +189,7 @@ internal static class DocumentLifecycleAssertions
         return (await response.Content.ReadFromJsonAsync<HostDocumentItemResponse>(ct))!;
     }
 
-    private static async Task<T> ReadAsync<T>(HttpClient client, string token, HttpMethod method, string path, object? body, HttpStatusCode status, CancellationToken ct)
+    internal static async Task<T> ReadAsync<T>(HttpClient client, string token, HttpMethod method, string path, object? body, HttpStatusCode status, CancellationToken ct)
     {
         using var response = await SendAsync(client, token, method, path, body, ct);
         Assert.AreEqual(status, response.StatusCode, await response.Content.ReadAsStringAsync(ct));
@@ -194,7 +198,7 @@ internal static class DocumentLifecycleAssertions
         return value;
     }
 
-    private static async Task<HttpResponseMessage> SendAsync(HttpClient client, string token, HttpMethod method, string path, object? body, CancellationToken ct)
+    internal static async Task<HttpResponseMessage> SendAsync(HttpClient client, string token, HttpMethod method, string path, object? body, CancellationToken ct)
     {
         using var request = new HttpRequestMessage(method, path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);

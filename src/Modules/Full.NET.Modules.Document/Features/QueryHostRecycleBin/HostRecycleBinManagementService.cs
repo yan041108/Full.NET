@@ -4,6 +4,8 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Document.Features.ManageHostDocumentItems;
 using Full.NET.Modules.Document.Persistence;
+using Full.NET.Modules.Document.Features.HostFileReferences;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Document.Features.QueryHostRecycleBin;
 
@@ -17,8 +19,11 @@ internal sealed class HostRecycleBinManagementService(
     ICommandTransaction transaction,
     HostDocumentItemQueryService itemQueries,
     DocumentItemRestoreService restores,
-    DocumentItemWriteGuard itemWrites)
+    DocumentItemWriteGuard itemWrites,
+    IOutboxWriter outboxWriter,
+    IOptions<DatabaseOptions> databaseOptions)
 {
+    private const int ReleaseBatchSize = 128;
     public Task<Result<HostDocumentItemResponse>> RestoreAsync(
         Guid itemId,
         Guid actorUserId,
@@ -72,6 +77,7 @@ internal sealed class HostRecycleBinManagementService(
             return Result<bool>.Failure(NotFoundError());
         }
 
+        await RecordVersionDeletionFactsAsync(itemId, cancellationToken).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(
                 DocumentItemSql.PurgeDependents,
                 DocumentSqlParameters.Create(("DocumentItemId", itemId)),
@@ -90,6 +96,29 @@ internal sealed class HostRecycleBinManagementService(
         }
 
         return Result<bool>.Success(true);
+    }
+
+    /// <summary>父行锁内按数据库自身的 UUID 排序分页，全部事实与删除同事务提交，不调用 Files。</summary>
+    private async Task RecordVersionDeletionFactsAsync(Guid itemId, CancellationToken ct)
+    {
+        var statement = databaseOptions.Value.Provider switch
+        {
+            DatabaseProvider.SqlServer => DocumentItemSql.FileVersionsForPurgeSqlServer,
+            DatabaseProvider.MySql => DocumentItemSql.FileVersionsForPurgeMySql,
+            _ => throw new InvalidOperationException("Unsupported database provider."),
+        };
+        Guid? afterId = null;
+        while (true)
+        {
+            var rows = await queryExecutor.QueryAsync<DocumentVersionRecord>(statement,
+                DocumentSqlParameters.Create(("DocumentItemId", itemId), ("AfterId", afterId),
+                    ("HasCursor", afterId.HasValue ? 1 : 0), ("BatchSize", ReleaseBatchSize), ("EmptyFileId", Guid.Empty)), ct)
+                .ConfigureAwait(false);
+            foreach (var row in rows)
+                await DocumentVersionDeletedOutbox.PublishAsync(outboxWriter, row, ct).ConfigureAwait(false);
+            if (rows.Count < ReleaseBatchSize) break;
+            afterId = rows[^1].Id;
+        }
     }
 
     private static Result<HostDocumentItemResponse> Invalid() =>

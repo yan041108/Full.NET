@@ -80,6 +80,8 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentItemTagAssignmentService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.HostDocumentItemManagementService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentVersionDeletionService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<global::Full.NET.Abstractions.Messaging.IIntegrationEventHandler,
+            Features.HostFileReferences.DocumentVersionDeletedIntegrationEventHandler>());
         services.TryAddScoped<Features.DocumentAccessLogs.DocumentAccessLogRecorder>();
         services.TryAddScoped<Features.QueryHostDocumentAccessLogs.HostDocumentAccessLogQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentPreviewTasks.HostDocumentPreviewTaskManagementService>();
@@ -195,6 +197,8 @@ public sealed class DocumentModule : IFullNetModule
             IHostFileReferenceClaimProbe,
             Features.HostFileReferences.HostDocumentVersionReferenceProbe>());
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentVersionDeletionService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<global::Full.NET.Abstractions.Messaging.IIntegrationEventHandler,
+            Features.HostFileReferences.DocumentVersionDeletedIntegrationEventHandler>());
         services.TryAddScoped<Retention.DocumentVersionRetentionRunner>();
         ConfigureDocumentVersionRetentionOptions(services, configuration, registerSettingsLoader: true);
         services.TryAddScoped<PreviewTasks.DocumentPreviewTaskRunner>();

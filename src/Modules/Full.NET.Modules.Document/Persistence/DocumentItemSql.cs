@@ -329,9 +329,33 @@ internal static class DocumentItemSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>彻底删除前分页保留文件版本事实；调用方已锁定 Host 父行，期间不允许新增版本。</summary>
+    public static readonly SqlStatement FileVersionsForPurgeSqlServer = new(
+        "document.host_recycle_bin.file_versions.sql_server",
+        """
+        SELECT TOP (@BatchSize) Id, DocumentItemId, FileId, VersionNumber, ContentHash, SizeBytes,
+            ChangeDescription, UploadedByUserId, CreatedAtUtc
+        FROM fn_document_version
+        WHERE DocumentItemId = @DocumentItemId AND FileId IS NOT NULL AND FileId <> @EmptyFileId
+          AND (@HasCursor = 0 OR Id > @AfterId)
+        ORDER BY Id
+        """, SqlDataScope.HostOnly);
+
+    /// <summary>MySQL 使用相同游标语义和批大小，在本地删除事务中记录全部释放事实。</summary>
+    public static readonly SqlStatement FileVersionsForPurgeMySql = new(
+        "document.host_recycle_bin.file_versions.mysql",
+        """
+        SELECT Id, DocumentItemId, FileId, VersionNumber, ContentHash, SizeBytes,
+            ChangeDescription, UploadedByUserId, CreatedAtUtc
+        FROM fn_document_version
+        WHERE DocumentItemId = @DocumentItemId AND FileId IS NOT NULL AND FileId <> @EmptyFileId
+          AND (@HasCursor = 0 OR Id > @AfterId)
+        ORDER BY Id LIMIT @BatchSize
+        """, SqlDataScope.HostOnly);
+
     /// <summary>
     /// 物理删除回收站文档项：仅对 IsDeleted = 1 的行执行，不可逆；
-    /// 本语句仅删除 Document 自有数据；Files Claim 的可靠释放须由独立补偿流程保障。
+    /// 本语句仅删除 Document 自有数据；调用方已在同一事务记录文件版本删除事实供 Worker 可靠释放引用。
     /// </summary>
     public static readonly SqlStatement Purge = new(
         "document.host_recycle_bin.purge",

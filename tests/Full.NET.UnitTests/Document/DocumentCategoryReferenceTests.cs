@@ -218,7 +218,7 @@ public sealed class DocumentCategoryReferenceTests
         private DocumentItemWriteGuard ItemWrites() => new(this, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
         public HostDocumentItemManagementService Items() => new(this, commands, new InlineTransaction(), null!, null!, null!, Tags(), clock, ids, Categories(), Restores(), Titles(), ItemWrites());
         public HostRecycleBinManagementService Recycle() => new(this, commands, new InlineTransaction(),
-            new(null!, this, null!, null!, Tags(), Options.Create(new DatabaseOptions())), Restores(), ItemWrites());
+            new(null!, this, null!, null!, Tags(), Options.Create(new DatabaseOptions())), Restores(), ItemWrites(), Substitute.For<IOutboxWriter>(), Options.Create(new DatabaseOptions()));
 
         public Task<Result<HostDocumentItemResponse>> ExecuteAsync(string operation) => operation switch
         {

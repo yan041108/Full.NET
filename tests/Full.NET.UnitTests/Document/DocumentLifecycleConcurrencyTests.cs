@@ -115,12 +115,12 @@ public sealed class DocumentLifecycleConcurrencyTests
         private DocumentItemTagAssignmentService Tags() => new(this,this,new(this,Options.Create(new DatabaseOptions())));
         private DocumentItemWriteGuard ItemWrites() => new(this,Options.Create(new DatabaseOptions { Provider=DatabaseProvider.SqlServer }));
         public HostDocumentItemManagementService Items() => new(this,this,this,claims,null!,null!,Tags(),clock,ids,null!,null!,null!,ItemWrites());
-        public HostRecycleBinManagementService Recycle() => new(this,this,this,null!,null!,ItemWrites());
+        public HostRecycleBinManagementService Recycle() => new(this,this,this,null!,null!,ItemWrites(),Substitute.For<IOutboxWriter>(),Options.Create(new DatabaseOptions()));
         public DocumentVersionDeletionService Deletion()
         {
             var options=Substitute.For<IOptionsMonitor<DocumentVersionRetentionOptions>>();
             options.CurrentValue.Returns(new DocumentVersionRetentionOptions { MinimumRetainedVersionsPerItem=2 });
-            return new(this,this,this,claims,options,clock,ids,ItemWrites());
+            return new(this,this,this,Substitute.For<IOutboxWriter>(),options,clock,ids,ItemWrites());
         }
         public HostDocumentPreviewTaskManagementService Preview()
         {
