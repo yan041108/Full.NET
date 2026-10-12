@@ -2839,3 +2839,19 @@ Purge 在父行锁内按数据库 UUID 顺序每页最多 128 行保存事实，
 实际快速入口 `node .tmp/document-file-release-unit.mjs final`、`node .tmp/document-file-release-refreshed.mjs`、`node .tmp/document-file-release-aot.mjs`、`node .tmp/document-file-release-static.mjs`，架构入口为现有 Release 架构程序集的 247 项最低发现门禁；工具入口 `node --test tests/testing/test-matrix.test.mjs tests/testing/native-suite-runner.test.mjs`。证据 `.tmp/document-file-release-source.json`、`.tmp/document-file-release-jit-1`（失败）、`.tmp/document-file-release-guid-binding-red.log`、`.tmp/document-file-release-jit-2`、`.tmp/document-file-release-ci-artifacts-2`、`.tmp/document-file-release-ci-runtime-proof.json`、`.tmp/document-file-release-final-proof.json`。他窗既有改动保持；自动审批以 blocked by policy 拒绝删除未使用的本窗口验收副本，副本保留，未报告已清理。
 
 本批收口今后已记录删除事实的可靠释放，不回填历史丢失事实形成的 Active 孤儿引用；完整生成应用、全页面及容量仍待独立范围验收。整体保持 Build-verified / Capacity-not-verified。报告以 `[skip ci]` 提交，实际 Native 证据对应 3c51c78，不将报告 head 冒称新生产运行；PR3保持 Draft，合并发布另行约定。
+
+## 2026-10-13 Document 历史 Active 引用对账
+
+任务 document-active-claim-reconciliation-20261013，生产冻结 78a591c363a73cc7ec740099080ae75f2e52dc43，生产树 350054a87a5960f96791c6db38b77bdf4c91a78a。Files 增加显式不可复用引用批量端口和有界 Worker 对账，Document 版本 UUID 不复用，按版本与文件配对事实回答；同模块每批只读取一次，不跨模块读表或共享事务。只释放陈旧且权威探测明确 NotFound 的 Active 引用，回收站版本、普通可复用消费者、新鲜引用、缺失/空/未知回答和读取失败全部保留。Pending 对账也只接受明确 NotFound，未知枚举不再误释放。
+
+释放条件同时匹配 Id、Active、探测前 UpdatedAtUtc、FileId、ConsumerModule 和 ConsumerReferenceId，探测后刷新或状态变化不释放。单例游标和互斥门在不同 Worker 作用域之间继续扫描，完整周期冻结年龄上界，保留的首批不会阻塞后续孤儿；周期完成重置，不持久化运行游标。默认开关开启、每批100、每轮最多10批、最低年龄900秒、轮询300秒，选项启动校验及热更新退避有界；可通过 Files:ActiveReferenceClaimReconciliation:Enabled=false 停止历史补偿。API 不启动此循环。使用现有085索引，无新迁移、HTTP形状、项目或依赖，不声明查询容量与 CDC/Kafka 切流。
+
+新增行为先获得真实失败：初轮10项4失败（缺少Active实现两项、Pending未知结果误释放两项），批量端口改造前31项1失败（逐行读取而非一次批量）。中途代理无法访问内部 Document DTO 的夹具失败改用手写查询替身，未扩大生产类型可见性；Integration可空原因编译错误修正；租户上下文边界完整架构首轮247项1失败，审查固定Host及finally清理后仅登记新处理器精确路径。只读复审提出异常夹具未排空后台任务的问题已修正，最终无新增P1/P2。全部失败日志保留，不计通过。
+
+本地 Files134/134、Document142/142、架构247/247、命名33/33、SQL5/5、治理70/70、测试工具15/15均通过，零失败/跳过；Files.Contracts、Files、Document、API、Worker AOT分析与相关消费者构建通过。发现Unit6353、Integration1310、Worker Native23、Document代表性2；发现数不当作运行证据。入口 node .tmp/active-claim-reconciliation-unit.mjs final、node .tmp/active-claim-reconciliation-refreshed.mjs、node .tmp/active-claim-reconciliation-aot.mjs、node .tmp/active-claim-reconciliation-static.mjs、node .tmp/active-claim-reconciliation-architecture-discovery.mjs；工具命令 node --test tests/testing/test-matrix.test.mjs tests/testing/native-suite-runner.test.mjs。
+
+SQL Server/MySQL真实代表性HTTP2/2通过，零失败/跳过，覆盖本批批量SQL、跨作用域游标、回收站/可复用/新鲜引用保留和探测后刷新并发保护，同时包含既有文档生命周期与可靠删除事实回归。入口 node .tmp/active-claim-reconciliation-jit.mjs；冻结781个输入与984个消费者文件，排队205.062秒，执行139.629秒，Windows SDK10.0.401、两个测试worker。排队前快照基线为5e7883c，冻结文件摘要与之后提交的78a591c逐项一致，未用基线SHA冒充本批运行源码。自有测试数据库容器由夹具回收，他窗资源与既有改动保持。
+
+同源码CI Native API核心21/21、完整Worker23/23通过，零失败/跳过。Worker新增双库真实原生进程证明：跨轮越过首个保留引用，释放历史Document孤儿，并保留回收站、可复用和新鲜引用；其他原生Worker回归一并执行。API run 38304112914、Worker run 38304112931，实际检出 a40d810c0b0dcb479c2b4ee3ed201e0eb44f0b9a，检出树、原始运行摘要、ZIP/ELF及发布清单摘要逐项核对。本地未重复执行相同Native矩阵。主CI快照为{"success":3,"failure":0,"skipped":7,"in_progress":1}，原始作业记录单独保留；跳过和未完成作业不计通过，不扩展为全量验收。
+
+证据 .tmp/active-claim-reconciliation-source.json、初轮和批量RED日志、架构首轮失败日志、.tmp/active-claim-reconciliation-jit-1、.tmp/active-claim-reconciliation-ci-artifacts、.tmp/active-claim-reconciliation-ci-runtime-proof.json、.tmp/active-claim-reconciliation-final-proof.json。仅Document不可复用版本引用历史补偿收口；Identity头像、Tenancy Logo等可复用身份的历史修复仍待专门策略。完整生成应用、全页面、故障与容量仍待独立范围验收，整体保持Build-verified / Capacity-not-verified。保持Draft，合并发布另行约定。
