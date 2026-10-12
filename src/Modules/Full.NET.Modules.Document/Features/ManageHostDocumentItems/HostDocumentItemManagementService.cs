@@ -26,7 +26,8 @@ internal sealed class HostDocumentItemManagementService(
     IClock clock,
     IIdGenerator idGenerator,
     DocumentItemCategoryReferenceService categoryReferences,
-    DocumentItemRestoreService restores)
+    DocumentItemRestoreService restores,
+    DocumentItemTitleService titles)
 {
     public Task<Result<HostDocumentItemResponse>> CreateAsync(
         Guid actorUserId,
@@ -524,16 +525,7 @@ internal sealed class HostDocumentItemManagementService(
         Guid? excludeItemId,
         CancellationToken cancellationToken)
     {
-        var conflict = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentNameConflictRecord>(
-                DocumentItemSql.FindActiveByTitle,
-                DocumentSqlParameters.Create(
-                    ("Title", title),
-                    ("CategoryId", categoryId),
-                    ("ExcludeId", excludeItemId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return conflict is not null;
+        return await titles.HasConflictAsync(title, categoryId, excludeItemId, cancellationToken).ConfigureAwait(false);
     }
 
     private static HostDocumentItemResponse Map(

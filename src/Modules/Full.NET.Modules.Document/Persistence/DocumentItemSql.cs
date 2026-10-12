@@ -154,14 +154,27 @@ internal static class DocumentItemSql
         """,
         SqlDataScope.HostOnly);
 
-    /// <summary>
-    /// 新建文档项；CategoryId 与 CurrentVersionId 创建时为 NULL，由后续 Update 或 SetCurrentVersion 维护。
-    /// TenantId 固定 NULL 以保证 Host 行；Version 初始为 1。
-    /// </summary>
-    public static readonly SqlStatement FindActiveByTitle = new(
-        "document.host_item.find_active_by_title",
+    /// <summary>未分类标题写入共享事务锁，直到文档写入提交或回滚才释放。</summary>
+    public static readonly SqlStatement LockUnclassifiedWriteSqlServer = new(
+        "document.host_item.lock_unclassified_write.sql_server",
         """
-        SELECT Id, Title AS Name, Version
+        SELECT 1 FROM fn_document_item_write_guard WITH (UPDLOCK, HOLDLOCK)
+        WHERE Id = @Id AND TenantId IS NULL
+        """, SqlDataScope.HostOnly);
+
+    /// <summary>MySQL 与 SQL Server 使用同一门禁行，避免 ReadCommitted 下的空结果竞争。</summary>
+    public static readonly SqlStatement LockUnclassifiedWriteMySql = new(
+        "document.host_item.lock_unclassified_write.my_sql",
+        """
+        SELECT 1 FROM fn_document_item_write_guard
+        WHERE Id = @Id AND TenantId IS NULL FOR UPDATE
+        """, SqlDataScope.HostOnly);
+
+    /// <summary>按最终分类判断标题冲突；标量计数允许安全处理既有多条同名记录。</summary>
+    public static readonly SqlStatement CountActiveByTitle = new(
+        "document.host_item.count_active_by_title",
+        """
+        SELECT COUNT(1)
         FROM fn_document_item
         WHERE TenantId IS NULL
           AND IsDeleted = 0

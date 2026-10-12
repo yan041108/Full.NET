@@ -8,7 +8,7 @@ namespace Full.NET.Modules.Document.Features.ManageHostDocumentItems;
 
 /// <summary>两条恢复入口共用分类与标题校验及 CAS 写入；事务和成功后的重读由调用方拥有。</summary>
 internal sealed class DocumentItemRestoreService(IQueryExecutor queries, ICommandExecutor commands,
-    DocumentItemCategoryReferenceService categories, IClock clock)
+    DocumentItemCategoryReferenceService categories, IClock clock, DocumentItemTitleService titles)
 {
     public async Task<Result<bool>> RestoreAsync(Guid itemId, Guid actorUserId, long version, bool fromRecycleBin,
         CancellationToken cancellationToken)
@@ -25,11 +25,7 @@ internal sealed class DocumentItemRestoreService(IQueryExecutor queries, IComman
         // 失效分类不能复活为活动引用；降为未分类保持回收站恢复可用，同时防止删除/恢复竞争。
         var categoryId = await categories.LockActiveAsync(existing.CategoryId, cancellationToken).ConfigureAwait(false)
             ? existing.CategoryId : null;
-        var collision = await queries.QuerySingleOrDefaultAsync<DocumentNameConflictRecord>(
-            DocumentItemSql.FindActiveByTitle,
-            DocumentSqlParameters.Create(("Title", existing.Title), ("CategoryId", categoryId), ("ExcludeId", itemId)),
-            cancellationToken).ConfigureAwait(false);
-        if (collision is not null)
+        if (await titles.HasConflictAsync(existing.Title, categoryId, itemId, cancellationToken).ConfigureAwait(false))
             return Result<bool>.Failure(new Error(DocumentErrorCodes.TitleConflict,
                 "A document with the same title already exists in this category.", ErrorType.Conflict));
 

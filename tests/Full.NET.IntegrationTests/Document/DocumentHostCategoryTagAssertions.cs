@@ -47,6 +47,8 @@ internal static class DocumentHostCategoryTagAssertions
         await DocumentCategoryHierarchyAssertions.VerifyWaitingDeleteAsync(factory, client, manager.AccessToken, cancellationToken);
         await DocumentCategoryReferenceAssertions.VerifyAsync(client, manager.AccessToken, factory.Provider, factory.ConnectionString, cancellationToken);
         await DocumentCategoryReferenceAssertions.VerifyWaitingDeleteAsync(factory, client, manager.AccessToken, cancellationToken);
+        await DocumentTitleConcurrencyAssertions.VerifyAsync(client, manager.AccessToken, factory.Provider, factory.ConnectionString, cancellationToken);
+        await DocumentTitleConcurrencyAssertions.VerifyWaitingAdmissionAsync(factory, client, manager.AccessToken, cancellationToken);
         var category = await CreateCategoryAsync(client, manager.AccessToken, cancellationToken);
         await VerifyDuplicateCategoryNameAsync(client, manager.AccessToken, category, cancellationToken);
         var updatedCategory = await UpdateCategoryAsync(client, manager.AccessToken, category, cancellationToken);

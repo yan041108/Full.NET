@@ -737,6 +737,13 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_document_item_write_guard": {
+      "comment": "文档item write guard表",
+      "columns": {
+        "Id": "逻辑主键",
+        "TenantId": "租户标识；NULL 表示 Host 级"
+      }
+    },
     "fn_document_permission": {
       "comment": "文档权限表",
       "columns": {
