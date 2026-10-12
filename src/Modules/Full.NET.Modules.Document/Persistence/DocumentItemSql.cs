@@ -261,6 +261,7 @@ internal static class DocumentItemSql
         """
         UPDATE fn_document_item
         SET IsDeleted = 0,
+            CategoryId = @CategoryId,
             DeletedAtUtc = NULL,
             DeletedByUserId = NULL,
             UpdatedAtUtc = @UpdatedAtUtc,
@@ -468,13 +469,13 @@ internal static class DocumentItemSql
         "document.host_statistics.by_category",
         """
         SELECT
-            i.CategoryId,
+            c.Id AS CategoryId,
             c.Name AS CategoryName,
             COUNT(1) AS Count
         FROM fn_document_item i
-        LEFT JOIN fn_document_category c ON c.Id = i.CategoryId
+        LEFT JOIN fn_document_category c ON c.Id = i.CategoryId AND c.TenantId IS NULL AND c.IsDeleted = 0
         WHERE i.TenantId IS NULL AND i.IsDeleted = 0
-        GROUP BY i.CategoryId, c.Name
+        GROUP BY c.Id, c.Name
         ORDER BY Count DESC;
         """,
         SqlDataScope.HostOnly);

@@ -105,6 +105,8 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddScoped<Features.UpdateHostDocumentVersionRetention.DocumentVersionRetentionSettingService>();
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryManagementService>();
+        services.TryAddScoped<Features.ManageHostDocumentItems.DocumentItemCategoryReferenceService>();
+        services.TryAddScoped<Features.ManageHostDocumentItems.DocumentItemRestoreService>();
         services.TryAddScoped<Features.ManageHostDocumentTags.HostDocumentTagQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentTags.HostDocumentTagManagementService>();
         services.TryAddScoped<Features.QueryHostRecycleBin.HostRecycleBinQueryService>();

@@ -57,6 +57,27 @@ internal static class DocumentCategorySql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>文档挂接分类前锁住活动 Host 父行，直到文档写入事务提交，阻止分类并发删除。</summary>
+    public static readonly SqlStatement LockActiveByIdSqlServer = new(
+        "document.host_category.lock_active_by_id.sqlserver",
+        $$"""
+        SELECT {{Projection}}
+        FROM fn_document_category WITH (UPDLOCK, HOLDLOCK)
+        WHERE Id = @Id AND TenantId IS NULL AND IsDeleted = 0
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>MySQL 使用当前锁定读，与分类删除事务竞争同一父行。</summary>
+    public static readonly SqlStatement LockActiveByIdMySql = new(
+        "document.host_category.lock_active_by_id.mysql",
+        $$"""
+        SELECT {{Projection}}
+        FROM fn_document_category
+        WHERE Id = @Id AND TenantId IS NULL AND IsDeleted = 0
+        FOR UPDATE
+        """,
+        SqlDataScope.HostOnly);
+
     /// <summary>
     /// 在同一父分类下按 Name 查找冲突；用于创建/改名时的同名校验。
     /// 父子层级通过 ParentId IS NULL OR ParentId = @ParentId 表达，避免 NULL 比较歧义。

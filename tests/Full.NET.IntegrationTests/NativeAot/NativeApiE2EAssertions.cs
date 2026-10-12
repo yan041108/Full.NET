@@ -133,7 +133,7 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         await VerifySerialNumbersFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
-        await VerifyDocumentFlowAsync(client, token, host.LogFilePath, cancellationToken)
+        await VerifyDocumentFlowAsync(client, token, provider, connectionString, host.LogFilePath, cancellationToken)
             .ConfigureAwait(false);
         await DocumentVersionRetentionAssertions.VerifyHostAsync(client, token, host.LogFilePath, cancellationToken)
             .ConfigureAwait(false);
@@ -901,11 +901,14 @@ internal static class NativeApiE2EAssertions
     private static async Task VerifyDocumentFlowAsync(
         HttpClient client,
         string accessToken,
+        DatabaseProvider provider,
+        string connectionString,
         string? nativeLogFilePath,
         CancellationToken cancellationToken)
     {
         var suffix = Guid.NewGuid().ToString("N");
         await DocumentCategoryHierarchyAssertions.VerifyAsync(client, accessToken, cancellationToken).ConfigureAwait(false);
+        await DocumentCategoryReferenceAssertions.VerifyAsync(client, accessToken, provider, connectionString, cancellationToken).ConfigureAwait(false);
         var categoryRequest = new CreateHostDocumentCategoryRequest(
             "Native AOT category " + suffix,
             null,

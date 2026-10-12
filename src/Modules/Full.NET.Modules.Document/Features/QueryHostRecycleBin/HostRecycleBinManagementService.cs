@@ -1,7 +1,5 @@
-using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
-using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Document.Features.ManageHostDocumentItems;
@@ -19,7 +17,7 @@ internal sealed class HostRecycleBinManagementService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     HostDocumentItemQueryService itemQueries,
-    IClock clock)
+    DocumentItemRestoreService restores)
 {
     public Task<Result<HostDocumentItemResponse>> RestoreAsync(
         Guid itemId,
@@ -52,30 +50,8 @@ internal sealed class HostRecycleBinManagementService(
         long version,
         CancellationToken cancellationToken)
     {
-        var existing = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
-                DocumentItemSql.FindDeletedById,
-                DocumentSqlParameters.Create(("Id", itemId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        if (existing is null)
-        {
-            return NotFound();
-        }
-
-        var now = clock.UtcNow;
-        var affected = await commandExecutor.ExecuteAsync(
-                DocumentItemSql.Restore,
-                DocumentSqlParameters.Create(("Id", itemId), ("UpdatedAtUtc", now), ("UpdatedByUserId", actorUserId), ("Version", version)),
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        if (affected != 1)
-        {
-            return VersionConflict();
-        }
-
+        var restored = await restores.RestoreAsync(itemId, actorUserId, version, fromRecycleBin: true, cancellationToken).ConfigureAwait(false);
+        if (!restored.IsSuccess) return Result<HostDocumentItemResponse>.Failure(restored.Error!);
         return await itemQueries.GetByIdAsync(itemId, cancellationToken).ConfigureAwait(false);
     }
 
@@ -121,17 +97,11 @@ internal sealed class HostRecycleBinManagementService(
     private static Result<HostDocumentItemResponse> NotFound() =>
         Result<HostDocumentItemResponse>.Failure(NotFoundError());
 
-    private static Result<HostDocumentItemResponse> VersionConflict() =>
-        Result<HostDocumentItemResponse>.Failure(VersionConflictError());
-
     private static Error InvalidError() =>
         new(DocumentErrorCodes.Invalid, "The recycle bin request is invalid.", ErrorType.Validation);
 
     private static Error NotFoundError() =>
         new(DocumentErrorCodes.RecycleItemNotFound, "Recycle bin item was not found.", ErrorType.NotFound);
-
-    private static Error VersionConflictError() =>
-        new(DocumentErrorCodes.VersionConflict, "Recycle bin item was updated by another operation.", ErrorType.Conflict);
 
     private static Error PurgeFailedError() =>
         new(DocumentErrorCodes.RecyclePurgeFailed, "Failed to permanently delete the recycle bin item.", ErrorType.Conflict);
