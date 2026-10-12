@@ -11,6 +11,7 @@ using Full.NET.IntegrationTests.Document;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
+using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Identity;
 
@@ -92,6 +93,13 @@ internal static class MediaBindingHttpAssertions
             """, new { Id = Guid.CreateVersion7(), Key = claimKey(winner), File = winner, Owner = owner, Subject = subject, Size = Image.Length, Now = timestamp }, cancellationToken: ct));
         var claimsBefore = (await observer.QueryAsync<Guid>(new CommandDefinition("SELECT Id FROM fn_files_file_reference_claim", cancellationToken: ct))).ToHashSet();
         await using var holder = DocumentReleaseTestConnections.Create(provider, cs); await holder.OpenAsync(ct);
+        // 锁等待观测使用夹具管理员连接，不能扩大应用账号的数据库权限。
+        var observationCs = provider == DatabaseProvider.MySql
+            ? new MySqlConnectionStringBuilder(await SharedDatabaseFixture.GetMySqlRootConnectionStringAsync())
+                { Database = new MySqlConnectionStringBuilder(cs).Database }.ConnectionString
+            : cs;
+        await using var lockObserver = DocumentReleaseTestConnections.Create(provider, observationCs);
+        await lockObserver.OpenAsync(ct);
         var holderId = await holder.QuerySingleAsync<long>(new CommandDefinition(provider == DatabaseProvider.MySql ? "SELECT CONNECTION_ID()" : "SELECT CAST(@@SPID AS bigint)", cancellationToken: ct));
         await using var transaction = await holder.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
         var lockSql = provider == DatabaseProvider.MySql
@@ -120,7 +128,7 @@ internal static class MediaBindingHttpAssertions
                     SELECT COUNT_BIG(*) FROM sys.dm_exec_requests r CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) s
                     WHERE r.database_id = DB_ID() AND r.blocking_session_id = @Holder AND s.text LIKE @TablePattern
                     """;
-                waiting = await observer.QuerySingleAsync<long>(new CommandDefinition(waitSql,
+                waiting = await lockObserver.QuerySingleAsync<long>(new CommandDefinition(waitSql,
                     new { Holder = holderId, Table = table, TablePattern = "%" + table + "%" }, cancellationToken: ct)) > 0;
                 if (!waiting) await Task.Delay(50, ct);
             }

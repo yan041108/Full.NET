@@ -42,5 +42,7 @@ namespace Full.NET.Modules.CodeGeneration.Serialization;
 [JsonSerializable(typeof(PagedResult<CodeGenerationRunResponse>))]
 [JsonSerializable(typeof(CodeGenerationRelationshipRequest))]
 [JsonSerializable(typeof(UpdateCodeGenerationTemplateRequest))]
+// OpenAPI 使用端点声明的集合接口类型，数组元数据不能替代集合根类型。
+[JsonSerializable(typeof(IReadOnlyList<CodeGenerationCatalogObjectResponse>))]
 internal partial class CodeGenerationJsonSerializerContext
     : JsonSerializerContext;

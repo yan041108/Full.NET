@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Full.NET.Abstractions.Results;
+using Microsoft.AspNetCore.Http;
 
 namespace Full.NET.Hosting.Serialization;
 
@@ -10,4 +11,8 @@ namespace Full.NET.Hosting.Serialization;
 [JsonSerializable(typeof(ValidationViolation))]
 [JsonSerializable(typeof(ValidationViolation[]))]
 [JsonSerializable(typeof(Dictionary<string, object?>))]
+// OpenAPI Schema 导出也需要二进制 HTTP 契约的静态元数据，实际上传/下载仍使用流。
+[JsonSerializable(typeof(IFormFile))]
+[JsonSerializable(typeof(IFormFileCollection))]
+[JsonSerializable(typeof(Stream))]
 public sealed partial class HostingJsonSerializerContext : JsonSerializerContext;
