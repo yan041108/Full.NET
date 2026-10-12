@@ -22,7 +22,7 @@ public sealed class McpClientConnectionManager : IAsyncDisposable
     public McpClientConnectionManager(IHttpClientFactory httpClientFactory, IOptions<McpClientOptions> options)
     {
         this.httpClientFactory = httpClientFactory;
-        endpointPolicy = new McpEndpointPolicy(options.Value.ApprovedOrigins);
+        endpointPolicy = new McpEndpointPolicy(options.Value.ApprovedOrigins, options.Value.PrivateOnly);
     }
 
     /// <summary>复用同一连接的初始化任务；返回的客户端由本管理器释放。</summary>
@@ -141,4 +141,7 @@ public sealed class McpClientOptions
 
     /// <summary>允许精确匹配的 MCP 端点源；测试与内网回环必须显式登记。</summary>
     public string[] ApprovedOrigins { get; set; } = [];
+
+    /// <summary>由宿主 FullNet:Ai:Network:PrivateOnly 冻结的出站边界；批准源仍只允许私网或环回。</summary>
+    public bool PrivateOnly { get; set; }
 }

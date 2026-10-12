@@ -2,6 +2,8 @@
 
   <ItemGroup>
 
+    <InternalsVisibleTo Include="Full.NET.UnitTests" />
+
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
 
     <PackageReference Include="ModelContextProtocol" />

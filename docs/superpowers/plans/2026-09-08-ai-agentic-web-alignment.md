@@ -2217,6 +2217,23 @@ Windows x64/i7-12700H/约64GiB、SDK10.0.401；Linux SDK10.0.400/Runtime10.0.11�
 
 本批关闭首个封闭路由切片；R11 完整数据分类及逐阶段私有拒绝仍待实现。实际输入 Token 硬限、未知外部结果对账、持久 StepId/跨重启 Trace 关联及 R12 原生运行/生成应用/页面集中验收未升级；保持 `Capacity-not-verified`。
 
+### R11e：MCP 私有化网络闭包与真实连接校验（2026-10-12，本批本地验收完成）
+
+基线 main `1ace5ee6a3ee5914477c0cbd962bf203a576b8f2`，快照 `ai-mcp-network-r11e`。本批合并交付可信配置冻结、逐请求/逐连接验证、整组 DNS 拒绝、IP 固定连接及重定向/代理/Cookie 禁用，不新增 SQL、迁移、依赖、权限或 HTTP DTO。
+
+- [x] MCP 复用宿主 `FullNet:Ai:Network:PrivateOnly`，保持独立精确 `ApprovedOrigins`；批准不豁免公网或特殊地址。无效布尔值/对象、空或非法源在装配时拒绝，配置重载不能打开边界。关闭私有化时保留公共 HTTPS；明文 HTTP 始终要求批准的私网或环回。
+- [x] 每个请求校验 URI，每次新连接验证 URI/连接主机与端口、单次 DNS 的全部结果，再仅连接已验证 IP；混合与空结果在任何连接前拒绝。Socket 失败只尝试同一轮验证的其他 IP，不切换目标。强制 HTTP/1.1，HTTPS 继续系统证书验证。
+- [x] 新增 42 项 Unit，包含真实 TCP 重定向、原始请求版本/头、配置冻结、元数据/公私混合 DNS、重绑定、取消与失败候选。首轮四项有效行为失败及一个缺失 IConfiguration 夹具错误分别保留；修正夹具后有效 RED 5/5 失败。独立只读安全复审无剩余 Critical/Important，不代替运行证据。
+- [x] `node artifacts/r11e/run-unit.mjs green` 聚焦 42/42，`node artifacts/r11e/run-final-unit.mjs` 复用相同构建执行 AI 3810/3810、零失败/跳过，源及 MCP 生产/消费程序集摘要一致。工作区 Unit 发现 7303，含其他窗口本地日志测试 10；规范矩阵 7293，仅实际执行 AI 集合，不报告全量 Unit 通过。
+- [x] `node artifacts/r11e/run-pipeline.mjs`：API/Worker AOT 分析零警告/错误，AOT 架构 88/88、全量架构 235/235；JIT 依赖图零警告/错误，Integration 分片发现 1214 无遗漏/重复。正式分类为 Ai + Smoke，SQL Server/MySQL 各 48/48、合计 96 唯一 UID 全部通过，零失败/跳过；发现与 TRX 完全相同。
+- [x] MCP 双库夹具启用可信私有化开关，验证公网在创建传输前拒绝以及既有授权远端工具成功；夹具使用 TestServer 传输，真实 DNS/TCP 约束由前述 Unit 证明，不外推生产 TLS/DNS。命名 30、矩阵 6、治理 57、工具链 54 与保护排除的 Markdown 387 文件检查通过。
+
+冻结 HEAD 加本批白名单 7815 输入，未纳入日志/Helm/测试工具外来改动；分别校验 R11d 的 AOT、JIT 及双库缓存源码/完整消费者摘要后只覆盖当前差异，不创建或反复切换缓存。双库按提供程序顺序执行、一个测试 Worker，保持矩阵 60 分钟期限及独立 TEMP/TMP、工作区/机器重任务锁。Windows x64 SDK10.0.401，Docker Linux SDK10.0.400/runtime10.0.11，i7-12700H/约64GiB；Unit 4 处理器/2GiB GC，构建容器 8CPU/4GiB，双库各2CPU/8GiB。仅本地缓存 restore、NuGetAudit=false，在线审计未执行。
+
+MySQL 运行期间原终端会话失联，外层进程退出且未保存返回码，原 stdout 仅保留启动行，不能声称整条 pipeline 退出 0；MTP 原始报告为 Completed、48/48 全部 Passed，发现 UID 完全一致。独立只读 `node artifacts/r11e/run-post-proof.mjs` 在当前两库缓存校验全部源码及完整消费目录摘要，退出 0，复用这些实际完成的结果，不重写未知退出码或重跑未变输入。核实原归属进程/子进程/容器不存在后只清理本工作区遗留锁，另一任务已取得的重型锁保留。
+
+原始 RED、构建、发现、TRX、源码/消费者摘要与复审汇总在 `artifacts/r11e/acceptance.json`。main 仅提交本批文件、不推送；保留其他窗口改动和两个受保护路径。状态为 `Aot-analysis-clean`；数据分类的全部阶段覆盖、向量网络、持久 Step/跨重启 Trace、Provider 精确输入硬限、未知副作用对账与 Native/页面/生成应用集中验收仍待推进，R11 不整体关闭，保持 `Capacity-not-verified`。
+
 ### R12：原生闭包、运营恢复与集中验收（P2，依赖前述切片）
 
 **修改：** `tests/Full.NET.IntegrationTests/NativeAot/NativeApiAiE2ETests.cs` 及 Worker 原生探针；测试矩阵 `eng/testing/test-matrix.json`、现有受影响 CI、Vue 页面验收与 `docs/roadmap/capability-status.md`。

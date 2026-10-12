@@ -7,6 +7,7 @@ namespace Full.NET.AgenticWeb.Mcp.Client;
 internal sealed class McpEndpointPolicy
 {
     private readonly HashSet<string> allowedOrigins;
+    private readonly bool privateOnly;
     private static readonly System.Net.IPNetwork[] DeniedV4 = Networks(
         "0.0.0.0/8", "100.64.0.0/10", "169.254.0.0/16", "192.0.0.0/24", "192.0.2.0/24",
         "192.88.99.0/24", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4",
@@ -16,18 +17,19 @@ internal sealed class McpEndpointPolicy
     private static readonly System.Net.IPNetwork GlobalV6 = System.Net.IPNetwork.Parse("2000::/3");
     private static readonly System.Net.IPNetwork PrivateV6 = System.Net.IPNetwork.Parse("fc00::/7");
 
-    internal McpEndpointPolicy(IEnumerable<string> approvedOrigins)
+    internal McpEndpointPolicy(IEnumerable<string> approvedOrigins, bool privateOnly = false)
     {
+        this.privateOnly = privateOnly;
         allowedOrigins = new(StringComparer.Ordinal);
         foreach (var origin in approvedOrigins)
         {
             if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri) || uri.Scheme is not ("https" or "http")
-                || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0)
+                || uri.AbsolutePath != "/" || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0)
             {
                 throw new InvalidOperationException("MCP network policy requires exact HTTP origins.");
             }
 
-            if (IPAddress.TryParse(uri.DnsSafeHost, out var address) && !IsAllowedAddress(address, true))
+            if (IPAddress.TryParse(uri.DnsSafeHost, out var address) && !IsAllowedDestination(address, true, uri.Scheme))
             {
                 throw new InvalidOperationException("MCP network policy cannot allow a reserved address.");
             }
@@ -36,24 +38,33 @@ internal sealed class McpEndpointPolicy
         }
     }
 
-    internal void ValidateEndpoint(Uri endpoint)
+    internal bool ValidateEndpoint(Uri endpoint)
     {
-        if (!endpoint.IsAbsoluteUri || endpoint.Scheme is not ("https" or "http") || endpoint.UserInfo.Length != 0)
+        if (!endpoint.IsAbsoluteUri || endpoint.Scheme is not ("https" or "http") || endpoint.UserInfo.Length != 0
+            || endpoint.Fragment.Length != 0)
         {
             throw Blocked();
         }
 
         var approved = allowedOrigins.Contains(Origin(endpoint));
+        // 私有化边界由宿主固定；源批准不能豁免公网、元数据或特殊地址。
+        if (privateOnly && !approved) throw Blocked();
         if (endpoint.Scheme != "https" && !approved)
         {
             throw Blocked();
         }
 
-        if (IPAddress.TryParse(endpoint.DnsSafeHost, out var literal) && !IsAllowedAddress(literal, approved))
+        if (IPAddress.TryParse(endpoint.DnsSafeHost, out var literal) && !IsAllowedDestination(literal, approved, endpoint.Scheme))
         {
             throw Blocked();
         }
+        return approved;
     }
+
+    /// <summary>所有 DNS 结果逐个检查；明文与私有化模式都只能连接批准的私网或环回。</summary>
+    internal bool IsAllowedDestination(IPAddress address, bool approved, string scheme) =>
+        IsAllowedAddress(address, approved)
+        && (!(privateOnly || scheme == "http") || approved && !IsAllowedAddress(address, false));
 
     internal static bool IsAllowedAddress(IPAddress address, bool approved)
     {
@@ -82,7 +93,7 @@ internal sealed class McpEndpointPolicy
         return GlobalV6.Contains(address);
     }
 
-    private static HttpRequestException Blocked() => new("MCP destination is blocked by host network policy.");
+    internal static HttpRequestException Blocked() => new("MCP destination is blocked by host network policy.");
     private static string Origin(Uri uri) => uri.GetLeftPart(UriPartial.Authority).ToLowerInvariant();
     private static System.Net.IPNetwork[] Networks(params string[] values) =>
         values.Select(System.Net.IPNetwork.Parse).ToArray();

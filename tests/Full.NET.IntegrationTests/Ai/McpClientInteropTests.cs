@@ -22,6 +22,7 @@ public sealed class McpClientInteropSqlServerTests
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
             settingsOverrides: new Dictionary<string, string?>
             {
+                ["FullNet:Ai:Network:PrivateOnly"] = "true",
                 ["FullNet:Ai:Mcp:Client:ApprovedOrigins:0"] = "http://localhost",
             },
             configureTestServices: McpLoopbackHttpClientTestSupport.ConfigureServices);
@@ -40,6 +41,7 @@ public sealed class McpClientInteropMySqlTests
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
             settingsOverrides: new Dictionary<string, string?>
             {
+                ["FullNet:Ai:Network:PrivateOnly"] = "true",
                 ["FullNet:Ai:Mcp:Client:ApprovedOrigins:0"] = "http://localhost",
             },
             configureTestServices: McpLoopbackHttpClientTestSupport.ConfigureServices);
@@ -53,6 +55,13 @@ internal static class McpClientInteropAssertions
     {
         await factory.InitializeAsync();
         McpLoopbackHttpClientTestSupport.Bind(factory);
+        // 两库宿主的可信开关必须在创建出站传输前拒绝公网；合法工具继续沿原授权链执行。
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var connections = scope.ServiceProvider.GetRequiredService<McpClientConnectionManager>();
+            await Assert.ThrowsExactlyAsync<HttpRequestException>(() => connections.GetClientAsync(
+                Guid.CreateVersion7(), new Uri("https://unapproved.test/mcp"), "synthetic-service-token", default).AsTask());
+        }
         var serviceIdentity = await factory.CreateHostIdentityAsync(
             $"mcp-service-{Guid.NewGuid():N}",
             [AiAgentToolPermissions.CatalogRead, AiMcpPermissions.RemoteInvoke]);
