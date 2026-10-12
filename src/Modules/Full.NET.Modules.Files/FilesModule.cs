@@ -90,6 +90,11 @@ public sealed class FilesModule : IFullNetModule
         services.AddOptions<PendingHostFileReferenceClaimReconciliationOptions>()
             .Bind(configuration.GetSection(PendingHostFileReferenceClaimReconciliationOptions.SectionName))
             .ValidateOnStart();
+        services.AddOptions<ActiveHostFileReferenceClaimReconciliationOptions>()
+            .Bind(configuration.GetSection(ActiveHostFileReferenceClaimReconciliationOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<ActiveHostFileReferenceClaimReconciliationOptions>,
+            ActiveHostFileReferenceClaimReconciliationOptionsValidator>());
         services.AddOptions<PendingTenantResourceFileReconciliationOptions>()
             .Bind(configuration.GetSection(PendingTenantResourceFileReconciliationOptions.SectionName))
             .ValidateOnStart();
@@ -105,11 +110,14 @@ public sealed class FilesModule : IFullNetModule
         services.TryAddScoped<DeletedHostFileBlobCleanupRunner>();
         services.TryAddScoped<PendingHostFileReconciliationRunner>();
         services.TryAddScoped<PendingHostFileReferenceClaimReconciliationRunner>();
+        services.TryAddSingleton<ActiveHostFileReferenceClaimReconciliationCursor>();
+        services.TryAddScoped<ActiveHostFileReferenceClaimReconciliationRunner>();
         services.TryAddSingleton<TenantResourceFileReconciliationCursor>();
         services.TryAddScoped<PendingTenantResourceFileReconciliationRunner>();
         services.AddHostedService<DeletedHostFileBlobCleanupHostedProcessor>();
         services.AddHostedService<PendingHostFileReconciliationHostedProcessor>();
         services.AddHostedService<PendingHostFileReferenceClaimReconciliationHostedProcessor>();
+        services.AddHostedService<ActiveHostFileReferenceClaimReconciliationHostedProcessor>();
         services.AddHostedService<PendingTenantResourceFileReconciliationHostedProcessor>();
     }
 

@@ -44,6 +44,8 @@ public sealed class TenantContextMutationBoundaryTests
         // 上传从可信租户上下文捕获租户后临时调用 Host 配额端口，结束或异常均恢复原作用域。
         "src/Modules/Full.NET.Modules.Files/Features/FilesHostExecutionScope.cs",
         "src/Modules/Full.NET.Modules.Files/Features/TenantResourceFiles/TenantResourceFileStore.cs",
+        // 历史不可复用引用巡检仅在 Worker 独立作用域固定 Host，结束或异常均清除上下文。
+        "src/Modules/Full.NET.Modules.Files/Reconciliation/ActiveHostFileReferenceClaimReconciliationHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Files/Reconciliation/PendingHostFileReconciliationHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Files/Reconciliation/PendingHostFileReferenceClaimReconciliationHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Files/Reconciliation/PendingTenantResourceFileReconciliationRunner.cs",

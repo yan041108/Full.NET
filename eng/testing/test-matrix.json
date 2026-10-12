@@ -4,9 +4,13 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 5748,
+      "minimum": 5775,
       "timeout": "10m",
       "selections": {
+        "files-active-claims": {
+          "filter": "FullyQualifiedName~ActiveClaimReconciliationTests|FullyQualifiedName~ActiveClaimSafetyTests|FullyQualifiedName~PendingClaimSnapshotTests",
+          "minimum": 33
+        },
         "document-lifecycle": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Document",
           "minimum": 142
@@ -140,9 +144,10 @@
     "requiredTestTypes": [
       "NativeWorkerKafkaLogMySqlE2ETests",
       "NativeWorkerClaimSnapshotTests",
-      "NativeWorkerDocumentFileReleaseTests"
+      "NativeWorkerDocumentFileReleaseTests",
+      "NativeWorkerActiveDocumentClaimTests"
     ],
-    "minimum": 18,
+    "minimum": 20,
     "timeout": "45m"
   },
   "nativeAotIntegration": {

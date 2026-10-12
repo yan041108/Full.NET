@@ -433,6 +433,16 @@ internal static class DocumentItemSql
     /// 按 VersionId 与 FileId 双键校验版本引用归属；
     /// Files 模块在 Confirm Release 前必须验证引用确实属于该版本。
     /// </summary>
+    /// <summary>批量引用端口复用已有版本物化器；只读 Document 自有版本表，包含回收站保留版本。</summary>
+    public static readonly SqlStatement FindVersionsForClaimProbe = new(
+        "document.host_version.find_for_claim_probe",
+        """
+        SELECT Id, DocumentItemId, FileId, VersionNumber, ContentHash, SizeBytes,
+               ChangeDescription, UploadedByUserId, CreatedAtUtc
+        FROM fn_document_version
+        WHERE Id IN @VersionIds
+        """, SqlDataScope.HostOnly);
+
     public static readonly SqlStatement VersionExistsByIdAndFile = new(
         "document.host_version.exists_by_id_and_file",
         """

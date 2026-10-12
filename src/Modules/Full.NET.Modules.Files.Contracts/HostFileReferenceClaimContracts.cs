@@ -136,7 +136,7 @@ public sealed record HostFileReferenceClaimProbeResult(HostFileReferenceClaimPro
 /// </summary>
 /// <remarks>
 /// 典型时序：Claim（创建 Pending，文件被临时保留）→ 消费者写入自身引用 → Confirm（转为 Active）；
-/// 任何阶段失败都会在超时后进入对账扫描，不会永久泄漏引用计数。
+/// Pending 可由超龄对账补偿；Active 仅对不可复用引用的声明探测补偿，其他消费者须可靠发布释放事实。
 /// </remarks>
 public interface IHostFileReferenceClaimService
 {
@@ -165,7 +165,7 @@ public interface IHostFileReferenceClaimService
     /// </summary>
     /// <param name="idempotencyKey">与 ClaimAsync 相同的幂等键。</param>
     /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
-    /// <returns>true 表示本次调用真正完成状态迁移，false 表示已被提前释放。</returns>
+    /// <returns>true 表示本次或此前已完成释放；缺失 claim 返回失败 Result。</returns>
     Task<Result<bool>> ReleaseAsync(
         string idempotencyKey,
         CancellationToken cancellationToken = default);
@@ -201,3 +201,22 @@ public interface IHostFileReferenceClaimProbe
         Guid fileId,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>主动声明消费者引用身份不可复用，允许 Files 对账历史 Active 孤儿的只读探测。</summary>
+/// <remarks>
+/// 同一 ConsumerReferenceId/FileId 一旦不存在，官方写入流程不得重新创建该引用。
+/// 软删除或可恢复的事实必须回答 Exists；暂时不可见、未同步或探测错误必须回答 Failed。
+/// 可反复更换头像、Logo 等复用身份的消费者不得实现本标记，普通探测的行为保持不变。
+/// </remarks>
+public interface IHostImmutableFileReferenceClaimProbe : IHostFileReferenceClaimProbe
+{
+    /// <summary>对一个所有者的一批引用一次权威读取；缺失回答视为 Failed，禁止逐条回退。</summary>
+    /// <param name="requests">最多 1000 项且 ClaimId 唯一的扫描快照。</param>
+    /// <param name="cancellationToken">取消权威读取。</param>
+    /// <returns>按 ClaimId 关联的明确结果。</returns>
+    Task<IReadOnlyDictionary<Guid, HostFileReferenceClaimProbeResult>> ProbeReferencesAsync(
+        IReadOnlyList<HostFileReferenceClaimProbeRequest> requests, CancellationToken cancellationToken = default);
+}
+
+/// <summary>引用探测快照；ClaimId 关联回答，业务版本和文件标识共同确认归属。</summary>
+public readonly record struct HostFileReferenceClaimProbeRequest(Guid ClaimId, Guid ConsumerReferenceId, Guid FileId);

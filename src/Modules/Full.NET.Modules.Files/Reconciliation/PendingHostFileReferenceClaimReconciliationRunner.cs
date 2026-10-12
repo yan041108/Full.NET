@@ -133,7 +133,8 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
                     continue;
                 }
 
-                if (probeResult.Outcome == HostFileReferenceClaimProbeOutcome.Failed)
+                // 仅显式 NotFound 才可释放；未知枚举不是权威不存在结论。
+                if (probeResult.Outcome != HostFileReferenceClaimProbeOutcome.NotFound)
                 {
                     probeFailures++;
                     continue;

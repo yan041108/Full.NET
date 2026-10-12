@@ -28,6 +28,7 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
         "Files cleanup iteration failed",
         "Files upload reconciliation iteration failed",
         "Files reference claim reconciliation iteration failed",
+        "Files active reference claim reconciliation iteration failed",
         "Document version retention iteration failed",
         "Workflow todo timeout worker iteration failed.",
     ];
@@ -312,6 +313,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             ["Files__Cleanup__Enabled"] = enableFilesCleanup.ToString(),
             ["Files__ReferenceClaimReconciliation__Enabled"] =
                 enableFilesReferenceClaimReconciliation.ToString(),
+            // 现有用例只启用自己的后台边界；专门的 Active 双库用例显式覆盖此开关。
+            ["Files__ActiveReferenceClaimReconciliation__Enabled"] = "false",
             ["Files__Local__RootPath"] = filesRootPath ?? Path.Combine(
                 Path.GetTempPath(),
                 "fullnet-worker-native-aot",

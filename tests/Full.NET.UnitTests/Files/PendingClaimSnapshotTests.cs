@@ -19,6 +19,8 @@ public sealed class PendingClaimSnapshotTests
     [DataRow(DatabaseProvider.MySql, "refreshed")]
     [DataRow(DatabaseProvider.SqlServer, "unchanged")]
     [DataRow(DatabaseProvider.MySql, "unchanged")]
+    [DataRow(DatabaseProvider.SqlServer, "unknown")]
+    [DataRow(DatabaseProvider.MySql, "unknown")]
     public async Task Release_uses_scanned_pending_snapshot(DatabaseProvider provider, string change)
     {
         var now = new DateTimeOffset(2026, 10, 12, 12, 0, 0, TimeSpan.Zero);
@@ -36,8 +38,9 @@ public sealed class PendingClaimSnapshotTests
         {
             // 探测与释放之间另一调用完成确认或刷新，旧的“不存在”结论不得覆盖新状态。
             if (change == "confirmed") state = HostFileReferenceClaimStates.Active;
-            if (change != "unchanged") updatedAt = now;
-            return Task.FromResult(new HostFileReferenceClaimProbeResult(HostFileReferenceClaimProbeOutcome.NotFound));
+            if (change is "confirmed" or "refreshed") updatedAt = now;
+            return Task.FromResult(new HostFileReferenceClaimProbeResult(change == "unknown"
+                ? (HostFileReferenceClaimProbeOutcome)99 : HostFileReferenceClaimProbeOutcome.NotFound));
         });
         SqlStatement? releasedStatement = null;
         Dictionary<string, object?>? releasedParameters = null;
@@ -59,6 +62,13 @@ public sealed class PendingClaimSnapshotTests
         var result = await runner.RunOnceAsync(new PendingHostFileReferenceClaimReconciliationOptions(), CancellationToken.None);
 
         Assert.AreEqual(change == "unchanged" ? 1 : 0, result.Released);
+        if (change == "unknown")
+        {
+            Assert.AreEqual(1, result.ProbeFailures);
+            Assert.AreEqual(HostFileReferenceClaimStates.Pending, state);
+            Assert.IsNull(releasedStatement);
+            return;
+        }
         Assert.AreEqual(change == "confirmed" ? HostFileReferenceClaimStates.Active
             : change == "refreshed" ? HostFileReferenceClaimStates.Pending : HostFileReferenceClaimStates.Released, state);
         Assert.IsNotNull(releasedStatement);
