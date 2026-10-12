@@ -2158,6 +2158,25 @@ node artifacts/r11a/run-static.mjs 通过命名30、矩阵6、治理57、保护�
 
 首轮 run-final-pipeline.mjs 在 SQL Smoke3/4 时停止，登录场景在租户引导的 Dapper 连接阶段发生 SQL TCP 连接超时；原始 TRX 和日志保存在 sqlserver-first。node artifacts/r11a/run-integration-retry.mjs 未修改代码、过滤集、处理器数、Workers 或产品超时，核对同一源码/消费者摘要后重跑完整 SQL4/4 并执行 MySQL4/4 通过；不把未复现的连接超时写成产品修复，保留失败历史。
 
+#### R11b：Provider HTTP 安全观测（2026-10-12，本批受影响验收完成）
+
+- main 基线 `9789f2d069a9a39611893a974b1e12664ed76ba6`；同批实现九个命名客户端计数、响应头耗时、固定标签 Activity 与 Ai 装配订阅，不新增依赖、SQL 或 HTTP 契约。
+- [x] 完成 HTTP 状态、网络策略、取消与正文边界回归；诊断回调失败保留原响应/异常及父 Activity。
+- [x] 完整 AI Unit、受影响双库、JIT/AOT 架构与 AOT 分析集中验收，核对冻结源码和消费者。
+- [x] 同步实际证据并在 main 提交；R11 整体、Run/Step、完整数据去向和 R12 仍待后续。
+
+指标来源为 `Full.NET.Ai.Providers`，只携带封闭的 Provider/操作/HTTP 结果标签，不记录 URI、身份、模型、正文或异常消息。计量截至响应头，2xx 不证明生成、拒答、用量或结算成功；仅继承当前 Trace，未新增持久 Run/Step 关联。诊断回调异常隔离，但首次源初始化失败需重启恢复。运维语义见 `docs/operations/ai-provider-network.md`。
+
+实际证据位于 artifacts/r11b：node artifacts/r11b/run-final-pipeline.mjs 完成完整 AI Unit 3671/3671（新增46项），JIT Architecture235/235、AOT架构88/88，均零失败/跳过。API/Worker 的 dotnet build -c Release -p:FullNetAotAnalysis=true -p:NuGetAudit=false 均零警告/错误；只证明 Aot-analysis-clean，本批没有新鲜 Native 发布/运行。流水线在双库取得资源锁前因另一任务锁持有进程退出而停止，原退出1与错误记录保留；锁自行消失且核对无遗留临时容器后，node artifacts/r11b/resume-integration.mjs 仅续跑未开始的双库阶段并通过，不修改工具或产品。冻结分类器选双库 Smoke，SQL Server/MySQL 各4/4，顺序执行、Workers=1、原矩阵60分钟期限；未执行全部AI双库集成。
+
+node artifacts/r11b/run-static.mjs 通过命名30、矩阵6、治理57及保护排除后的Markdown386；node artifacts/r11b/run-tooling.mjs 通过54项。全Unit仅新鲜发现7164，正式矩阵7154，含其他窗口10项LocalFile测试，未执行全Unit。Provider集合实际发现229，矩阵最低数227。7804项输入冻结，精确UID、生产源码及Unit/Integration消费者摘要核对通过；只复用构建缓存，不复用测试结果。
+
+保留有效RED：初始注册观测9/9失败；SDK包装策略拒绝与父Activity回调4/4失败；冷启动递归发布1/1失败。修正后46/46聚焦通过；FULLNET_AI_TELEMETRY_FRESH_PROBE=1 的独立进程 publication-green 1/1通过，明确证明首次发布递归。只读安全复审无剩余Critical/Important；首次诊断源初始化失败需重启的限制已写入运维说明。
+
+首次 collect.py 汇总因 Windows 默认 GBK 读取含中文的锁失败记录退出1；明确 UTF-8 后退出0。测试原始结果、精确UID与源码未改变，不将汇总失败改写为测试通过。
+
+环境为Windows x64/i7-12700H/约64GiB、SDK10.0.401；Linux SDK10.0.400/Runtime10.0.11，构建容器8CPU/4GiB、托管4逻辑处理器，双库各2CPU/8GiB。未执行在线NuGet审计、真实云模型、集中独立生成应用或浏览器验收；R11全阶段数据去向、Run/Step全链路和R12继续待办，容量保持Capacity-not-verified。main仅提交本批九项文件，其他窗口改动与共享矩阵增量保持原样，不推送。
+
 ### R12：原生闭包、运营恢复与集中验收（P2，依赖前述切片）
 
 **修改：** `tests/Full.NET.IntegrationTests/NativeAot/NativeApiAiE2ETests.cs` 及 Worker 原生探针；测试矩阵 `eng/testing/test-matrix.json`、现有受影响 CI、Vue 页面验收与 `docs/roadmap/capability-status.md`。

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 
 namespace Full.NET.AI.Providers.Http;
 
@@ -8,6 +9,9 @@ internal sealed class AiEndpointPolicy
 {
     private readonly HashSet<string> allowedOrigins;
     private readonly bool privateOnly;
+    // 弱身份标记只识别本策略产生的异常，不读取异常正文或可由外部写入的 Data。
+    private static readonly ConditionalWeakTable<HttpRequestException, object> Rejections = new();
+    private static readonly object RejectionMarker = new();
     private static readonly IPNetwork[] DeniedV4 = Networks(
         "0.0.0.0/8", "100.64.0.0/10", "169.254.0.0/16", "192.0.0.0/24", "192.0.2.0/24",
         "192.88.99.0/24", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4",
@@ -60,7 +64,23 @@ internal sealed class AiEndpointPolicy
         return GlobalV6.Contains(address);
     }
 
-    internal static HttpRequestException Blocked() => new("AI destination is blocked by host network policy.");
+    internal static HttpRequestException Blocked()
+    {
+        var error = new HttpRequestException("AI destination is blocked by host network policy.");
+        Rejections.Add(error, RejectionMarker);
+        return error;
+    }
+    internal static bool IsRejection(Exception error)
+    {
+        // Sockets 会包装连接回调异常；只沿有界内因链查弱身份，不执行异常的诊断方法。
+        var remaining = 8;
+        for (Exception? current = error; current is not null; current = current.InnerException)
+        {
+            if (current is HttpRequestException http && Rejections.TryGetValue(http, out _)) return true;
+            if (--remaining == 0) break;
+        }
+        return false;
+    }
     private static string Origin(Uri uri) => uri.GetLeftPart(UriPartial.Authority).ToLowerInvariant();
     private static IPNetwork[] Networks(params string[] values) => values.Select(IPNetwork.Parse).ToArray();
 }

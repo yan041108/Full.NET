@@ -7,6 +7,8 @@ namespace Full.NET.AI.Providers.Http;
 /// <summary>两个现有 Provider 的受控 HTTP 装配入口；只由宿主组合根配置。</summary>
 public static class AiProviderHttpClients
 {
+    /// <summary>正式 Provider HTTP 指标与追踪源的稳定名称，供宿主静态订阅。</summary>
+    public const string TelemetryName = AiProviderTelemetry.Name;
     /// <summary>获取隔离 Provider 的聊天或目录命名客户端。</summary>
     /// <param name="providerKey">支持的静态提供程序键。</param>
     /// <param name="connectivity">是否为目录探测。</param>
@@ -43,7 +45,8 @@ public static class AiProviderHttpClients
                 client.Timeout = TimeSpan.FromSeconds(15);
                 client.DefaultRequestVersion = HttpVersion.Version11;
                 client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact;
-            }).ConfigurePrimaryHttpMessageHandler(() => CreateHandler(policy, ollama));
+            }).ConfigurePrimaryHttpMessageHandler(() => new AiProviderTelemetryHandler(key, "connectivity")
+                { InnerHandler = CreateHandler(policy, ollama) });
             foreach (var embedding in new[] { false, true })
             {
                 services.AddHttpClient(Name(key, connectivity: false, embedding), client =>
@@ -51,7 +54,8 @@ public static class AiProviderHttpClients
                     client.Timeout = TimeSpan.FromMinutes(3);
                     client.DefaultRequestVersion = HttpVersion.Version11;
                     client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact;
-                }).ConfigurePrimaryHttpMessageHandler(() => CreateHandler(policy, ollama));
+                }).ConfigurePrimaryHttpMessageHandler(() => new AiProviderTelemetryHandler(key, embedding ? "embedding" : "chat")
+                    { InnerHandler = CreateHandler(policy, ollama) });
             }
         }
     }

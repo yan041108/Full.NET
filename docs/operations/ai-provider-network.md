@@ -41,6 +41,16 @@
 
 当前证据为地址规则、DNS/连接协同、客户端配置、本机套接字重定向回归和 AOT 分析；生产网络、Kubernetes DNS、双库 Host 链路与 Linux 原生进程仍须在部署环境验收。
 
+## Provider HTTP 观测
+
+启用 Ai 模块时，宿主自动订阅 `Full.NET.Ai.Providers` 的 Meter 和 ActivitySource，使用既有 OpenTelemetry 导出配置。聊天、Embedding、目录探测的九个命名客户端记录 `fullnet.ai.provider.http.requests`（单位 `{request}`）及 `fullnet.ai.provider.http.duration`（单位 `ms`），并在当前 Trace 下创建 Client Activity。
+
+此处计量进入 Provider Handler 的一次 HTTP 尝试，耗时截至响应头返回；响应体、流式生成、持久化和结算不在其中。2xx 的 `succeeded` 只表示 HTTP 状态成功，不能作为回答质量、模型拒答、用量或费用结算证明。请求在进入 Handler 前已取消时可能没有观测记录；没有自动重试或切换 Provider。
+
+标签只有固定集合的 `ai.provider`、`ai.operation`、`ai.outcome`。操作为 `chat`、`embedding`、`connectivity`；结果为 `succeeded`、`redirected`、`rejected`、`rate_limited`、`server_error`、`invalid_status`、`cancelled`、`policy_rejected`、`network_error`、`failed`，未知标签归一化。此来源不记录 URL、凭据、模型名、提示词、正文、异常消息、用户或租户标识；宿主其他 HTTP 诊断来源仍按各自配置管理。
+
+监听器采样、发布、测量及 Activity 回调异常被隔离，不能替换原响应或原调用异常；这不代表诊断事件必然送达。ActivitySource 或 Meter 首次初始化失败时，对应空结果会保留至进程退出，需排查诊断配置并重启恢复。当前能力仅为 Provider HTTP 观测，Run/Step 全链路关联与完整数据去向门禁仍按 AI 计划推进。
+
 ## 声明兼容网关的流式用量能力
 
 OpenAI 兼容协议不代表支持所有可选字段。默认不发送 `stream_options.include_usage`；包括官方端点在内，也不根据域名猜测某个模型的能力。确认端点与模型支持后，在同一宿主配置中添加：

@@ -1,4 +1,6 @@
 using Full.NET.AI.Abstractions.Credentials;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 using Full.NET.AI.Abstractions.Models;
 using Full.NET.AI.Providers.Http;
 using Full.NET.AI.Abstractions.Connectivity;
@@ -272,6 +274,9 @@ public static class FullNetModuleCatalog
     private static void AddAiProviderServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddAiProviderHttpClients(configuration);
+        services.AddOpenTelemetry()
+            .WithMetrics(metrics => metrics.AddMeter(AiProviderHttpClients.TelemetryName))
+            .WithTracing(tracing => tracing.AddSource(AiProviderHttpClients.TelemetryName));
         services.TryAddSingleton(new OpenAiGatewayPolicy(configuration));
         services.TryAddSingleton<IAiModelCredentialProtector, AiModelCredentialProtector>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IAiModelConnectivityProbe, OpenAiModelClientFactory>());
