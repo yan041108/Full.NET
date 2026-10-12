@@ -162,7 +162,17 @@ internal sealed class AiAgentRunStore(
             throw new InvalidOperationException("Invalid agent run terminal or progress status.");
         }
 
-        return await transaction.ExecuteAsync(async token =>
+        AgentExecutionTelemetry.Observation? observation = null;
+        try
+        {
+            var written = await transaction.ExecuteAsync(WriteAsync, cancellationToken).ConfigureAwait(false);
+            // completed 只表示此方法返回；嵌套事务的外层仍可能回滚，观测不是提交凭证。
+            if (written && observation is not null) observation.Outcome = "completed";
+            return written;
+        }
+        finally { observation?.Dispose(); }
+
+        async Task<bool> WriteAsync(CancellationToken token)
         {
             var affected = await commands.ExecuteAsync(
                 AiAgentRunSql.UpdateRunStatus,
@@ -181,6 +191,8 @@ internal sealed class AiAgentRunStore(
 
             if (commit.Step is { } step)
             {
+                // 租约 fencing 成功后才关联真实步骤；沿用调用方 Trace，无采样时允许保留空值。
+                observation = AgentExecutionTelemetry.StartStep(commit.Lease.RunId, step.StepId, step.OperationId, cancellationToken);
                 await commands.ExecuteAsync(
                     AiAgentRunSql.InsertStep,
                     AiSqlParameters.Create(
@@ -197,7 +209,7 @@ internal sealed class AiAgentRunStore(
                         ("OutputTokens", step.OutputTokens),
                         ("Cost", step.Cost),
                         ("Currency", step.Currency),
-                        ("TraceId", step.TraceId),
+                        ("TraceId", step.TraceId ?? observation.TraceId),
                         ("ArgumentDigest", step.ArgumentDigest),
                         ("ErrorCode", step.ErrorCode),
                         ("Now", clock.UtcNow)),
@@ -237,7 +249,7 @@ internal sealed class AiAgentRunStore(
             }
 
             return true;
-        }, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private static void ValidateDraft(AgentRunDraft draft)

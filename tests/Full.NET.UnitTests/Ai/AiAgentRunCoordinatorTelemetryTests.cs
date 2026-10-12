@@ -12,7 +12,7 @@ public sealed partial class AiAgentRunCoordinatorTests
         using var capture = new AgentTelemetryCapture();
         var fixture = await CreateFixtureAsync();
         Assert.AreEqual(1, await fixture.Coordinator.ProcessPendingAsync());
-        capture.Verify(fixture.RunId, "run", "processed", 2);
+        capture.Verify(fixture.RunId, "run", "processed", 3);
     }
 
     [TestMethod, DoNotParallelize]

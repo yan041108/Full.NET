@@ -63,7 +63,7 @@
 
 ## Agent 执行观测
 
-Ai 宿主同时订阅 `Full.NET.Ai.Execution`，记录 `fullnet.ai.execution.attempts`（`{attempt}`）和 `fullnet.ai.execution.duration`（`ms`）。指标只有 `ai.stage`、`ai.outcome` 两项固定标签；Agent 阶段为 `run`、`workflow`、`tool_loop`、`node`、`model`、`tool`，知识问答阶段见下表，未知阶段归为 `other`。尝试包含本地准入拒绝与恢复，不等同于已派发、已付费调用，嵌套阶段不能直接相加作为运行总数。
+Ai 宿主同时订阅 `Full.NET.Ai.Execution`，记录 `fullnet.ai.execution.attempts`（`{attempt}`）和 `fullnet.ai.execution.duration`（`ms`）。指标只有 `ai.stage`、`ai.outcome` 两项固定标签；Agent 阶段为 `run`、`workflow`、`tool_loop`、`node`、`model`、`tool`、`step_write`，知识问答阶段见下表，未知阶段归为 `other`。尝试包含本地准入拒绝与恢复，不等同于已派发、已付费调用，嵌套阶段不能直接相加作为运行总数。
 
 | 知识问答阶段 | 观测范围 |
 | --- | --- |
@@ -78,7 +78,9 @@ Ai 宿主同时订阅 `Full.NET.Ai.Execution`，记录 `fullnet.ai.execution.att
 
 阶段按实际方法进入记录：生成在结算前的输出预检失败由 `knowledge_generation` 记录，尚未调用最终校验时不生成 `knowledge_validation` 事件；预留或来源准备失败也不会虚构未执行的后续阶段。
 
-Trace 使用 Internal Activity，在当前父上下文下关联 RunId、已有 OperationId 和 0–63 的步骤序号；Provider HTTP 为模型阶段的子 span。Trace 不记录提示词、正文、异常消息、定义键、模型名、工具名或用户/租户标识，指标也不含业务ID。当前实现只关联本次进程中的尝试，不持久化TraceId，也不新增业务操作或替代持久StepId；恢复遵守原检查点与调用身份，不为补观测重新派发。
+Trace 使用 Internal Activity，在当前父上下文下关联 RunId、已有 OperationId 和 0–63 的步骤序号；Provider HTTP 为模型阶段的子 span。Trace 不记录提示词、正文、异常消息、定义键、模型名、工具名或用户/租户标识，指标也不含业务ID。步骤写入的 `step_write` 使用原租约 RunId、原步骤 StepId 和 OperationId，在租约 fencing 成功后开启；只在 Trace 输出 `ai.step.id`，指标仍只有阶段与结果。原步骤未带 TraceId 时，将实际创建的观测 Trace 写入既有 `fn_ai_agent_step.TraceId`；调用方给定值保留，未采样或诊断故障时允许为空。不新增操作、步骤、SQL结构或费用，也不为补观测重放调用。
+
+`step_write` 的 completed 仅表示本地写入方法返回；嵌套事务的外层仍可回滚，尝试指标和 Trace 均不是提交、派发或费用凭证。持久步骤在原事务提交后才可作为数据库事实。换 Worker 后通过已存 RunId/StepId/TraceId 关联各次追踪；不从历史数据恢复父 Trace，也不声称所有跨进程 span 属于同一 Trace。当前回归覆盖不同 Worker 的重新领取和不同作用域，不等同于操作系统进程重启或生产导出器验收。
 
 `processed` 只表示 Worker 本次处理返回true，包含已提交的失败、授权拒绝或暂停；`not_processed` 表示返回false。内部执行器的 `completed` 和模型/工具边界的 `succeeded` 不证明运行最终交付或费用结算。固定结果还包括 `denied`、`approval_required`、`reconciliation_required`、`budget_rejected`、`authorization_required`、`cancelled`、`failed`、`refused`；`refused` 也用于静态工作流结构化校验门禁拒绝，不代表已检测所有模型自然语言拒答。
 

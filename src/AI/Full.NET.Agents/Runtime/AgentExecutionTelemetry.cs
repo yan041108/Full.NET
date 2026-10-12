@@ -26,6 +26,15 @@ public static class AgentExecutionTelemetry
             or "knowledge_validation" or "knowledge_delivery" ? stage : "other",
             operationId, stepIndex, cancellationToken);
 
+    /// <summary>观测现有步骤的本地写入尝试；不生成业务身份，也不证明外层事务提交或模型派发。</summary>
+    /// <param name="runId">本次租约所属运行标识；空值不输出。</param>
+    /// <param name="stepId">本次步骤载荷的标识；空值不输出，不替换业务给定值。</param>
+    /// <param name="operationId">步骤原操作标识；空值不输出。</param>
+    /// <param name="cancellationToken">仅参与收尾分类，不能改变业务取消生命周期。</param>
+    /// <returns>必须释放的写入观测范围；不拥有事务，completed 仅表示写入方法返回。</returns>
+    public static Observation StartStep(Guid runId, Guid stepId, Guid operationId,
+        CancellationToken cancellationToken = default) => new(runId, "step_write", operationId, null, cancellationToken, stepId);
+
     private static Instruments? CreateInstruments()
     {
         Meter? meter = null;
@@ -51,7 +60,13 @@ public static class AgentExecutionTelemetry
         /// <summary>固定结果分类；未知值归为failed。结果只描述当前边界，不替代持久账本。</summary>
         public string Outcome { get; set; } = "failed";
 
-        internal Observation(Guid runId, string stage, Guid? operationId, int? stepIndex, CancellationToken token)
+        /// <summary>本观测实际创建的 Trace 标识；未采样或诊断故障时为空，不为持久化单独创建 Trace。</summary>
+        public string? TraceId
+        {
+            get { try { return activity is { } current && current.TraceId != default ? current.TraceId.ToHexString() : null; } catch (Exception) { return null; } }
+        }
+
+        internal Observation(Guid runId, string stage, Guid? operationId, int? stepIndex, CancellationToken token, Guid? stepId = null)
         {
             this.stage = stage; this.token = token; Activity? candidate = null;
             try
@@ -60,6 +75,7 @@ public static class AgentExecutionTelemetry
                 candidate?.SetTag("ai.stage", stage);
                 if (runId != Guid.Empty) candidate?.SetTag("ai.run.id", runId.ToString("D"));
                 if (operationId is { } id && id != Guid.Empty) candidate?.SetTag("ai.operation.id", id.ToString("D"));
+                if (stepId is { } step && step != Guid.Empty) candidate?.SetTag("ai.step.id", step.ToString("D"));
                 if (stepIndex is >= 0 and < 64) candidate?.SetTag("ai.step.index", stepIndex.Value);
                 candidate?.Start(); activity = candidate;
             }

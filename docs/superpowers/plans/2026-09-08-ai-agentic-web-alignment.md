@@ -2812,3 +2812,22 @@ TRX报告器对过长捕获文本保留字段截断提示，状态、计数与�
 Windows x64/SDK10.0.401、Linux SDK10.0.400/runtime10.0.11，i7-12700H/约64GiB；Unit4处理器/2GiB GC，构建8CPU/4GiB，双库各2CPU/8GiB。本地缓存restore使用NuGetAudit=false，未执行在线审计。TRX过长捕获文本若有截断提示按原记录保留，状态、计数与精确UID另行核对，不宣称截断区域完整。
 
 本批不认证云Provider计量/硬费用、其他Provider/Chat输入或完整数据分类准入。持久StepId/跨重启Trace、未知外部副作用对账、集中Native发布/运行、生成应用、页面及运维恢复仍开放，R11整体与Capacity-not-verified保持原状态。原命令、退出码、TRX、发现UID及摘要证明见 `artifacts/r11h/acceptance.json`；在main提交本批10项文件，不推送。证据段落在测试结束后补齐，不把最终文档字节冒充运行前冻结字节。
+
+#### R11i：真实步骤写入与持久 Trace 关联（2026-10-13，本批受影响本地验收完成）
+
+基线 main `1d353deb127c351862c2cad6c6755be21b3c0110`，任务快照 `ai-agent-step-trace-r11i`。本批集中交付步骤写入观测、现有Trace列关联和不同Worker重新领取的双库验证；不新增依赖、SQL结构、迁移、HTTP DTO、授权入口或业务身份。
+
+- [x] 共享 `AgentExecutionTelemetry.StartStep` 固定为 `step_write`，关联租约RunId、调用方StepId及OperationId；空标识不输出，不调用业务ID工厂。保留原 `Start` 签名，指标仍只有stage/outcome，不记录步骤键、入参摘要、正文、身份或异常消息。
+- [x] Store在原租约CAS成功、确有步骤时才开启观测；原 `Step.TraceId` 保留，为空时才写实际创建的Trace标识，未采样/诊断故障保持空值。沿原步骤列、同一事务和fencing条件写入，不引入额外SQL往返、预算或模型调用。
+- [x] 观察在 `ICommandTransaction.ExecuteAsync` 返回/抛出后结束；completed仅表示本地方法返回，外层嵌套事务仍可能回滚，指标是尝试而非持久提交或外部派发凭证。换Worker通过已存RunId/StepId/TraceId关联不同追踪，不把历史Trace当作新父上下文。说明见 [执行观测](../../operations/ai-provider-network.md#agent-执行观测)。
+- [x] 新增24项回归，覆盖状态、原Trace、步骤/事件/提交故障、采样与监听器故障、空标识、旧租约、仅事件进度、取消和不同Worker作用域。有效RED24中14失败/10通过；`node artifacts/r11i/run-isolated-unit.mjs green` 24/24、`node artifacts/r11i/run-isolated-unit.mjs final` 完整AI3929/3929通过，零失败/跳过。Unit全部仅发现7412，与规范矩阵一致，不宣称全Unit已执行。
+- [x] 原双库租约夹具新增真实两次Worker领取：旧租约不能写第二步骤，新Worker成功写入独立步骤/OperationId；两条数据库Trace分别对应监听器实际Trace，步骤行数严格为2。`node artifacts/r11i/run-pipeline.mjs` 的真实分类为Ai＋Smoke，SQL Server完整48/48通过；MySQL原组60分钟期限中止，官方完整记录46通过/1启动播种命令超时失败、另1未完成，同一输入精确补跑2/2通过，合并96唯一通过UID；顺序执行、每库1 Worker、原矩阵60分钟期限，不宣称全部Integration已执行。
+- [x] API/Worker AOT分析零警告/错误，AOT架构88/88、完整架构235/235，JIT Integration构建及1214分片发现通过。命名30、矩阵6、治理57、工具链54和保护排除后的Markdown检查通过。独立只读复核无剩余Critical/Important，复核不代跑测试。MySQL原pipeline退出3且没有完整TRX，不声称原组通过；使用SDK官方TrxReport2.3.2.0读取47条完整记录，验证原48发现UID与唯一身份、状态及原始摘要，保留失败和未完成项。`node artifacts/r11i/run-mysql-retry.mjs` 在源码/完整消费者前后哈希一致、原构建和期限下补跑这2项；未修改生产、夹具或超时，未证明原启动超时已修复。原组结束自然释放共享重型锁，补跑再次排队，不中断其他验收。
+
+首轮绿色构建因编辑脚本没有匹配CRLF，事务包装未写入而Trace表达式已替换，出现2项编译错误；改为明确补丁后构建通过，原错误保留，不称测试失败。审查在双库编译前发现第二测试步骤复用唯一OperationId，修正为独立测试操作后再次只读确认；这一修正仅影响Integration夹具，全部生产和Unit源摘要不变，不重复运行已验证的Unit。Unit运行前后源码和消费闭包摘要一致，之后的单文件Integration差异有归档清单和精确绑定。
+
+冻结7821个输入；Windows源和Agents/AI生产/消费程序集摘要核对，既有RAG已知JSON数据/报告单列运行产物。Linux AOT、JIT及双库覆盖前验证R11h源码与完整消费摘要，只传当前差异，复用各自缓存。共享矩阵仅暂存HEAD加本批24项；既有协调器测试只暂存观测总数2→3，其他窗口新增的中文类型注释留在工作区，两保护路径未读写。
+
+Windows x64/SDK10.0.401，Linux SDK10.0.400/runtime10.0.11，i7-12700H/约64GiB；Unit4处理器/2GiB GC，构建8CPU/4GiB，双库各2CPU/8GiB；本地缓存restore使用NuGetAudit=false，未运行在线依赖审计。TRX捕获长文本若有字段截断按原报告保留，状态/计数/精确UID另行完整核对。
+
+本批验证不同Worker及作用域交接，不冒充操作系统进程重启、生产Trace导出器或所有收费/派发阶段已带持久StepId。全阶段分类准入、其他Provider/Chat输入Token硬限、未知外部动作/费用对账及集中Native发布/运行、生成应用、页面、运维恢复仍待推进。R11整体开放，Capacity-not-verified；真实命令、退出码、发现UID和摘要在 `artifacts/r11i/acceptance.json`。main提交本批8项文件，不推送；本段证据在测试后补齐，不把最终文档字节冒充运行前冻结字节。

@@ -1,4 +1,6 @@
 using System.Data.Common;
+using System.Diagnostics;
+using System.Collections.Concurrent;
 using Dapper;
 using Full.NET.Agents.Runtime;
 using Full.NET.Abstractions.Ids;
@@ -26,6 +28,52 @@ internal static class AiAgentRunLeasePersistenceAssertions
         await Expired_authority_cannot_renew_or_commit_async(factory, deadline: false).ConfigureAwait(false);
         await Expired_authority_cannot_renew_or_commit_async(factory, deadline: true).ConfigureAwait(false);
         await Terminal_run_cannot_be_rewritten_async(factory).ConfigureAwait(false);
+        await Step_trace_survives_worker_handoff_async(factory).ConfigureAwait(false);
+    }
+
+    /// <summary>不同 Worker 的 Trace 不强制续接；通过已存 RunId/StepId 关联，旧租约不能追加步骤。</summary>
+    private static async Task Step_trace_survives_worker_handoff_async(FullNetApiFactory factory)
+    {
+        var runId = await SeedQueuedRunAsync(factory, DateTimeOffset.UtcNow);
+        var lease = (await AcquireAsync(factory, runId, "trace-worker-a", DateTimeOffset.UtcNow))!;
+        var spans = new ConcurrentQueue<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == AgentExecutionTelemetry.Name,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activity => { if (Equals(activity.GetTagItem("ai.run.id"), runId.ToString("D"))) spans.Enqueue(activity); }
+        };
+        ActivitySource.AddActivityListener(listener);
+        var first = new AgentStepUpsert(Guid.CreateVersion7(), "trace.first", 1, runId, "committed", 1,
+            null, null, 7, 3, null, null, null, null, null);
+        string firstTrace;
+        using (var root = new Activity("trace.first.worker").SetIdFormat(ActivityIdFormat.W3C).Start())
+        {
+            Assert.IsTrue(await UseStoreAsync(factory, async store => await store.CommitProgressAsync(new(lease, "running", first, null, null))));
+            firstTrace = root.TraceId.ToHexString();
+        }
+        await ExpireLeaseAsync(factory, runId, DateTimeOffset.UtcNow);
+        var reclaimed = (await AcquireAsync(factory, runId, "trace-worker-b", DateTimeOffset.UtcNow))!;
+        var second = first with { StepId = Guid.CreateVersion7(), StepKey = "trace.second", OperationId = Guid.CreateVersion7() };
+        Assert.IsFalse(await UseStoreAsync(factory, async store => await store.CommitProgressAsync(new(lease, "running", second, null, null))));
+        string secondTrace;
+        using (var root = new Activity("trace.second.worker").SetIdFormat(ActivityIdFormat.W3C).Start())
+        {
+            Assert.IsTrue(await UseStoreAsync(factory, async store => await store.CommitProgressAsync(new(reclaimed, "completed", second, null, null))));
+            secondTrace = root.TraceId.ToHexString();
+        }
+        await using DbConnection connection = factory.Provider == DatabaseProvider.SqlServer
+            ? new SqlConnection(factory.ConnectionString)
+            : new MySqlConnection(MySqlConnectionStringPolicy.Create(factory.ConnectionString, MySqlGuidStorageMode.Binary16, allowUserVariables: false));
+        foreach (var (step, trace) in new[] { (first, firstTrace), (second, secondTrace) })
+        {
+            Assert.AreEqual(trace, await connection.QuerySingleAsync<string?>(
+                "SELECT TraceId FROM fn_ai_agent_step WHERE Id=@Id AND RunId=@RunId", new { Id = step.StepId, RunId = runId }));
+            var span = spans.Single(activity => Equals(activity.GetTagItem("ai.step.id"), step.StepId.ToString("D")));
+            Assert.AreEqual(trace, span.TraceId.ToHexString()); Assert.AreEqual("completed", span.GetTagItem("ai.outcome"));
+        }
+        Assert.AreNotEqual(firstTrace, secondTrace); Assert.AreEqual(2, spans.Count);
+        Assert.AreEqual(2L, await connection.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_agent_step WHERE RunId=@RunId", new { RunId = runId }));
     }
 
     private static async Task Concurrent_claim_admits_only_one_owner_async(FullNetApiFactory factory)
