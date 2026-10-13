@@ -33,7 +33,8 @@ export async function verifyApplicationImportSessionRevocation(baseUrl,{fillWork
   const session=await send('login','/api/v1/auth/login','POST',{username:'admin',password:'FullNet!2026Secure'});assert(session.accessToken);token=session.accessToken;secrets.push(token);
   if(tenantId){const context=await send('context','/api/v1/tenancy/context','PUT',{tenantId});assert(context.accessToken);token=context.accessToken;secrets.push(token);}
  };
- const logout=()=>send('logout','/api/v1/auth/logout','POST',undefined,204,{headers:jar.logoutHeaders()});
+ // 与正式 SDK 清除本地 accessToken 后登出一致；会话族来自 Cookie，不能把租户 Bearer 注入匿名会话控制端点。
+ const logout=()=>send('logout','/api/v1/auth/logout','POST',undefined,204,{headers:jar.logoutHeaders(),anonymous:true});
  const task=id=>send('task','/api/v1/import-export/tasks/'+id);
  const poll=async(id,status)=>{const end=Date.now()+150000;while(true){const current=await task(id);if(current.statusKey===status)return current;assert(['queued','executing'].includes(current.statusKey),'unexpected task state '+current.statusKey);assert(Date.now()<end,'session revocation timeout');await sleep(250,undefined,{signal});}};
  const workers=async(mode,id)=>{const worker=await startWorker(mode,id);evidence.workers.push({mode,pid:worker.pid,taskId:id});return worker;};
