@@ -228,6 +228,10 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
             TenantChangedCacheInvalidationHandler>());
+        // Worker 不走 API 注册入口，必须独立提供 Logo Pending 的权威代际探测。
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostFileReferenceClaimProbe,
+            Features.HostFileReferences.TenancyTenantLogoReferenceProbe>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler,
             Features.HostFileReferences.TenantLogoUnboundIntegrationEventHandler>());
         services.TryAddScoped<TenantCacheInvalidator>();

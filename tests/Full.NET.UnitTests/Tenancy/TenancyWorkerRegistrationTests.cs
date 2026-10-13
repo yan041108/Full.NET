@@ -37,6 +37,11 @@ public sealed class TenancyWorkerRegistrationTests
         Assert.IsNotNull(first.ServiceProvider.GetRequiredService<ITenantFeatureEntitlementPort>());
         Assert.IsNotNull(first.ServiceProvider.GetRequiredService<ITenantQuotaReservationService>());
         var quota = first.ServiceProvider.GetRequiredService<ITenantFileStorageQuotaPort>();
+        // Worker 仅调用后台入口，Logo 对账必须在两种模块顺序下解析到精确代际探测器。
+        var logoProbe = first.ServiceProvider.GetServices<IHostFileReferenceClaimProbe>()
+            .SingleOrDefault(probe => probe.ConsumerModule == HostFileReferenceClaimConsumerModules.Tenancy);
+        Assert.IsInstanceOfType<Full.NET.Modules.Tenancy.Features.HostFileReferences.TenancyTenantLogoReferenceProbe>(logoProbe);
+        Assert.IsInstanceOfType<IHostFileReferenceBindingClaimProbe>(logoProbe);
         Assert.AreEqual(1, services.Count(descriptor => descriptor.ServiceType == typeof(ITenantFileStorageQuotaPort)));
         StringAssert.StartsWith(quota.GetType().FullName!, "Full.NET.Modules.Tenancy.");
         Assert.IsFalse(services.Any(descriptor => descriptor.ServiceType == typeof(Microsoft.AspNetCore.Authentication.IAuthenticationSchemeProvider)));
