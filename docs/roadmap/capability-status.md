@@ -1,3 +1,5 @@
+2026-10-13 F10绑定运行故障独立JIT应用双库验收已通过：同一e0ce3c0源码的SQL Server/MySQL分别实际2/2，轻量33/33复用；暂停幂等恢复后批准、真实Worker故障暂停后幂等取消、死信与通知唯一性均核对，资源正常清理。原失败及纯排队超时保留，不写成单轮全绿。此前待完成记录保留为历史时点；[最终记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-f10-绑定运行故障独立应用集中验收通过)。完整业务Native、人工全页面、多实例故障/灾备和容量仍待，保持Build-verified / Capacity-not-verified。
+
 2026-10-13 F10 SQL Server定向独立应用已通过2/2；MySQL两次纯排队超时均零业务启动，现已复用既有e0ce3c0准备副本，改为共享组释放资源后一次性自动启动正式入口，执行预算与断言不变。剩余MySQL尚未认证。CI官方镜像限额修复已由实际API/Worker Native流程成功证明；总状态仍为Build-verified / Capacity-not-verified。
 
 2026-10-13 CI官方镜像下载限额已收口99e7b7b：仅已知限流转同标签Docker官方源，失败门禁和ImageId核对保持；回归13/13、工具140/140、治理70/70，实际API/Worker Native工作流成功，API日志证明两次降级实际执行。F10 SQL Server定向独立应用2/2已通过，MySQL纯排队失败后复用原准备副本重新登记，仍等待共享锁，不计双库通过。[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-ci-官方镜像限额降级与-f10-sql-server-实际复验)。

@@ -3026,3 +3026,20 @@ F10的e0ce3c0 SQL Server定向独立应用复验已实际2/2、零失败/跳过�
 
 整体继续Build-verified / Capacity-not-verified；完整业务Native、人工全页面、多实例故障/灾备及10K容量仍待。PR3保持Draft，未合并发布。
 交付前MySQL第二次登记也仅排队超时：正式父项1/1失败、0通过/跳过，业务仍零启动，旧回执保留于.tmp/bound-runtime-mysql-retry-20261013。现在使用一次性后台协调器.tmp/bound-runtime-mysql-resume.mjs（PID13448）先只读等待共享锁释放，等待上限60分钟，再调用同一正式MySQL筛选入口；原15分钟实际执行预算、45分钟外层正式预算及所有断言不变，既有60分钟外部等待不冒充测试执行时间。复用同一e0ce3c0副本和33项轻量准备，不自动删除锁，锁所有者退出时拒绝接管并保留诊断，不重复启动现有正式进程。缓存窗口已确认其同一组尚须完成完整38项Native核心，正常结束后通知。本地F10剩余项仍未认证；最新最终门禁为.tmp/bound-runtime-final-proof-v4.mjs，旧单轮、双来源及v3草稿不用于最终结论。
+
+## 2026-10-13 F10 绑定运行故障独立应用集中验收通过
+
+本批独立JIT应用两库新增路径已实际通过，执行源码均为`e0ce3c082785005f1f5f85be340339d1e91c7d61`。SQL Server与MySQL分别通过正式注册入口定向执行，各2/2 Node父/子测试，零失败/跳过；相关轻量33/33复用既有准备证据。两次成功执行不是单轮双库4/4；原7ce8740正式入口3项0通过/3失败，以及随后MySQL纯排队父项1项0通过/1失败均保留，未覆盖为成功。原MySQL两次失败均在生成应用之前，实际业务零启动。
+
+| 提供程序 | 实际源码 | 新增路径 | 结果 |
+| --- | --- | --- | --- |
+| sqlserver | e0ce3c0 | 暂停恢复后批准；Worker运行故障暂停后幂等取消 | 通过 |
+| mysql | e0ce3c0 | 暂停恢复后批准；Worker运行故障暂停后幂等取消 | 通过 |
+
+每库一次生成、API/Worker/Migrator各一次构建，重复迁移、五次独立Worker启动和前序两次真实Worker强制退出均核对。真实Vue创建/提交与公开Workflow生命周期请求共同覆盖：暂停审批与旧修订恢复返回409，幂等恢复仅增加一次实例修订，恢复后批准重放只增加一次业务版本及通知意图；另一路停止本轮Worker后，仅在自建容器内按精确租户/请求绑定完成一项待办并过期一项租约，新真实Worker产生suspended及一份AttemptCount=1的dead_lettered恢复任务。缺待办恢复与旧修订取消均409，同取消请求两次200后申请版本为字符串3，实例绑定和启动回执不变，权威Outbox排空后再次读取终态与通知唯一性保持。故障注入没有直接写暂停或业务终态，不等于完整生产故障矩阵。
+
+SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0修复sqlcmd会话选项及受控诊断后定向复验成功。MySQL复用相同冻结副本G:/.fullnet-tests/fs-JVj3r5及33项轻量准备，原锁外等待进程因环境中断退出，另存观察并保留原回执；Docker恢复后由原所有者核对清理并释放锁，才启动新的正式入口；外部等待、正式排队与实际业务执行时间分开记录，正式执行预算和业务断言未放宽，未中断他窗测试或接管外来锁。两库自有浏览器、宿主进程、容器及应用工作区正常清理；固定源码副本和日志保留。
+
+最终核验入口`node .tmp/bound-runtime-final-proof-v5.mjs`核对严格Boolean、逐项请求计数、两份成功报告及SHA256、7669份初始输入和7669份复验输入、复用准备摘要与受保护他窗文件。证据为.tmp/bound-runtime-independent-20261013/final-proof.json、原receipt.json、.tmp/bound-runtime-sqlserver-retry-20261013、.tmp/bound-runtime-mysql-retry-20261013、.tmp/bound-runtime-mysql-resume-20261013环境中断观察及.tmp/bound-runtime-mysql-restored-20261013；旧单轮、双来源及v3校验器不用于最终结论。
+
+环境Windows、Node24.12.0、SDK10.0.401、SQL Server2022-CU14/MySQL8.4、每进程两个.NET处理器预算；CscEnvironment=DOTNET_GCConserveMemory=7仅用于本地编译器，生产默认值不变。本批没有生产C#、迁移或公开契约变更，只关闭上述独立JIT运行故障覆盖。完整业务Native、人工全页面、多实例故障/灾备及10K容量仍待，整体Build-verified / Capacity-not-verified保持。CI镜像修复的API/Worker成功按99e7b7b另行记录，不外推业务Native认证；PR3仍Draft，未合并发布，报告HEAD不冒充执行源码。
