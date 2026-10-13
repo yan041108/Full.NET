@@ -21,7 +21,7 @@ using Microsoft.Extensions.Hosting;
 namespace Full.NET.IntegrationTests.ImportExport;
 
 /// <summary>正式 Worker profile 的 HostedService 与双库验收；不使用同步 API Runner 或模拟业务处理器。</summary>
-internal static class ImportExportWorkerAssertions
+internal static partial class ImportExportWorkerAssertions
 {
     internal static async Task VerifyPositionWorkerAsync(DatabaseProvider provider, string connectionString)
     {

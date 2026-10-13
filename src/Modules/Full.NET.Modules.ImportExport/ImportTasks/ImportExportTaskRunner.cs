@@ -306,7 +306,7 @@ internal sealed class ImportExportTaskRunner(
     /// <param name="task">任务快照。</param>
     /// <param name="mergedRows">已合并的执行行。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    private async Task<Guid?> ResolveOrUploadErrorReceiptAsync(
+    private async Task<Guid> ResolveOrUploadErrorReceiptAsync(
         ImportExportTaskRecord task,
         IReadOnlyList<StaticImportRowExecutionResult> mergedRows,
         CancellationToken cancellationToken)
@@ -333,7 +333,12 @@ internal sealed class ImportExportTaskRunner(
                 receiptBytes.Length,
                 cancellationToken)
             .ConfigureAwait(false);
-        return upload.IsSuccess ? upload.Value!.FileId : null;
+        if (!upload.IsSuccess)
+        {
+            // 回执属于执行完成条件；存储失败必须保留租约与检查点，供到期重领后补齐。
+            throw new IOException("导入错误回执存储失败，保留任务等待恢复。");
+        }
+        return upload.Value!.FileId;
     }
 
     /// <summary>仅在仍持有当前租约时写入任务级失败。</summary>

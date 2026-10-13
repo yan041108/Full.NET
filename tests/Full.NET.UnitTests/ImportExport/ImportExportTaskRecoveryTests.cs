@@ -299,6 +299,90 @@ public sealed class ImportExportTaskRecoveryTests
         Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionFailed, fixture.Store.Tasks[task.Id].StatusKey);
     }
 
+    /// <summary>回执存储失败不能写入终态；重领后必须补齐文件并保留同一业务检查点。</summary>
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Failed_error_receipt_upload_preserves_checkpoint_and_recovers_async(bool partial)
+    {
+        var fixture = CreateFixture(batchSize: 2);
+        var task = SeedQueuedTask(fixture, validRowCount: partial ? 2 : 1);
+        ConfigureFailedRows(fixture, partial);
+        fixture.Files.FailUpload = true;
+
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+
+        var stranded = fixture.Store.Tasks[task.Id];
+        Assert.AreEqual(ImportExportTaskStatusKeys.Executing, stranded.StatusKey);
+        Assert.AreEqual(0, stranded.NextLineNumber);
+        Assert.AreEqual(0, stranded.ProcessedRowCount);
+        Assert.AreEqual(0, stranded.SucceededRowCount);
+        Assert.AreEqual(0, stranded.ExecutionFailedRowCount);
+        Assert.IsNull(stranded.ErrorReceiptFileId);
+        Assert.IsNotNull(stranded.LeaseId);
+        Assert.IsFalse(fixture.Files.LastUploadStream!.CanRead);
+
+        fixture.Files.FailUpload = false;
+        fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddMinutes(3);
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+
+        AssertRecoveredReceipt(fixture, task.Id, partial);
+        Assert.AreEqual(2, fixture.Files.UploadCount);
+        Assert.AreEqual(1, fixture.Files.ReadyFiles.Count);
+        await fixture.Handler.Received(2).ExecuteBatchAsync(Arg.Any<Stream>(), Arg.Any<long>(), Arg.Is<int>(0),
+            Arg.Any<int>(), Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>上传后检查点提交中断，重领应复用唯一回执并保持行计数准确。</summary>
+    [TestMethod]
+    public async Task Uploaded_error_receipt_survives_progress_commit_failure_async()
+    {
+        var fixture = CreateFixture(batchSize: 2);
+        var task = SeedQueuedTask(fixture, validRowCount: 2);
+        ConfigureFailedRows(fixture, partial: true);
+        fixture.Store.FailProgressCommit = true;
+
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+
+        var receiptId = fixture.Files.ReadyFiles.Single().FileId;
+        Assert.AreEqual(ImportExportTaskStatusKeys.Executing, fixture.Store.Tasks[task.Id].StatusKey);
+        Assert.AreEqual(0, fixture.Store.Tasks[task.Id].NextLineNumber);
+        Assert.IsNull(fixture.Store.Tasks[task.Id].ErrorReceiptFileId);
+        fixture.Store.FailProgressCommit = false;
+        fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddMinutes(3);
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+
+        AssertRecoveredReceipt(fixture, task.Id, partial: true);
+        Assert.AreEqual(receiptId, fixture.Store.Tasks[task.Id].ErrorReceiptFileId);
+        Assert.AreEqual(1, fixture.Files.UploadCount);
+        Assert.AreEqual(1, fixture.Files.ReadyFiles.Count);
+    }
+
+    /// <summary>固定失败行结果，使两次重放能验证生产 Runner 的检查点与回执恢复。</summary>
+    private static void ConfigureFailedRows(Fixture fixture, bool partial) =>
+        fixture.Handler.ExecuteBatchAsync(Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(),
+            Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>())
+            .Returns(Result<StaticImportBatchExecutionResult>.Success(new(partial
+                ? [new StaticImportRowExecutionResult(1, true, Guid.NewGuid(), null, null),
+                   new StaticImportRowExecutionResult(2, false, null, ImportExportErrorCodes.ExecutionFailed, "row")]
+                : [new StaticImportRowExecutionResult(1, false, null, ImportExportErrorCodes.ExecutionFailed, "row")])));
+
+    /// <summary>恢复只有在回执可下载、行计数完整且租约已释放时才算完成。</summary>
+    private static void AssertRecoveredReceipt(Fixture fixture, Guid taskId, bool partial)
+    {
+        var recovered = fixture.Store.Tasks[taskId];
+        Assert.AreEqual(partial ? ImportExportTaskStatusKeys.ExecutionPartial : ImportExportTaskStatusKeys.ExecutionFailed,
+            recovered.StatusKey);
+        Assert.AreEqual(partial ? 2 : 1, recovered.NextLineNumber);
+        Assert.AreEqual(recovered.NextLineNumber, recovered.ProcessedRowCount);
+        Assert.AreEqual(partial ? 1 : 0, recovered.SucceededRowCount);
+        Assert.AreEqual(1, recovered.ExecutionFailedRowCount);
+        Assert.AreEqual(fixture.Files.ReadyFiles.Single().FileId, recovered.ErrorReceiptFileId);
+        Assert.IsNull(recovered.LeaseId);
+        Assert.IsFalse(fixture.Files.LastOpenedContent!.CanRead);
+        Assert.IsFalse(fixture.Files.LastUploadStream!.CanRead);
+    }
+
     /// <summary>组装使用内存存储的生产 Runner。</summary>
     private static Fixture CreateFixture(bool legacy = false, int batchSize = 50)
     {
@@ -480,6 +564,8 @@ public sealed class ImportExportTaskRecoveryTests
         public Action? OnOpen { get; set; }
         public Action? OnList { get; set; }
         public Action? OnUpload { get; set; }
+        public bool FailUpload { get; set; }
+        public Stream? LastUploadStream { get; private set; }
         public MemoryStream? LastOpenedContent { get; private set; }
         public int UploadCount { get; private set; }
         public int OpenCount { get; private set; }
@@ -491,6 +577,12 @@ public sealed class ImportExportTaskRecoveryTests
         {
             OnUpload?.Invoke();
             UploadCount++;
+            LastUploadStream = content;
+            if (FailUpload)
+            {
+                return Task.FromResult(Result<TenantResourceFileReference>.Failure(
+                    new Error("probe.upload", "测试回执存储失败。", ErrorType.Validation)));
+            }
             var fileId = Guid.NewGuid();
             ReadyFiles.Add(new TenantResourceFileReadyItem(fileId, originalFileName, DateTimeOffset.UtcNow));
             return Task.FromResult(Result<TenantResourceFileReference>.Success(new(fileId, contentLength, "hash")));
@@ -520,6 +612,7 @@ public sealed class ImportExportTaskRecoveryTests
     private sealed class ImportTaskStore(ICurrentTenant tenant) : IQueryExecutor, ICommandExecutor
     {
         public TimeSpan? ClaimLeaseDuration { get; set; }
+        public bool FailProgressCommit { get; set; }
         public Dictionary<Guid, ImportExportTaskRecord> Tasks { get; } = [];
 
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null,
@@ -572,6 +665,10 @@ public sealed class ImportExportTaskRecoveryTests
 
             if (statement.Name == ImportExportTaskSql.UpdateExecutionProgress.Name)
             {
+                if (FailProgressCommit)
+                {
+                    throw new IOException("测试故障：回执已上传但检查点提交失败。");
+                }
                 if (!string.Equals(current.StatusKey, ImportExportTaskStatusKeys.Executing, StringComparison.Ordinal)
                     || current.LeaseId != (Guid?)values["LeaseId"]
                     || current.LeaseExpiresAtUtc is null || current.LeaseExpiresAtUtc <= (DateTimeOffset)values["Now"]!)

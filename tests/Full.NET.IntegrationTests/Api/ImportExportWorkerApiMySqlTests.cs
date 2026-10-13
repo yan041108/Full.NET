@@ -6,6 +6,14 @@ namespace Full.NET.IntegrationTests.Api;
 [TestClass]
 public sealed class ImportExportWorkerApiMySqlTests
 {
+    /// <summary>真实岗位失败行的回执存储与检查点故障均由新 Worker 补齐。</summary>
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Failed_row_receipt_recovers_after_worker_restart(bool progressFailure) =>
+        await ImportExportWorkerAssertions.VerifyReceiptRecoveryAsync(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(), progressFailure);
+
     [TestMethod]
     public async Task Official_position_schema_runs_in_worker() =>
         await ImportExportWorkerAssertions.VerifyPositionWorkerAsync(DatabaseProvider.MySql,
