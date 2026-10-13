@@ -2880,3 +2880,30 @@ JIT 冻结 3370 个输入和 984 个消费者文件；源码与冻结一致，�
 保留 .tmp/media-binding-source-2.json、行为 RED、首轮原生失败日志/日志产物、首轮 MySQL 与长路径失败材料、短路径对比、.tmp/media-binding-jit-2、.tmp/media-binding-ci-artifacts-2、.tmp/media-binding-ci-runtime-proof-2.json、.tmp/media-binding-final-proof-2.json。发现 Unit 6381、Integration 1314、架构 248，仅作发现证据。
 
 本批收口并发覆盖/清空、提交后缓存遗漏和原生 OpenAPI 静态根类型缺口。可复用头像/签名/Logo 的历史孤儿补偿、可靠解绑事实、完整生成应用、全页面、多实例缓存故障和容量仍待独立范围验收；保持 Build-verified / Capacity-not-verified。报告以 [skip ci] 提交，不将报告 head 冒称新生产运行；PR3 保持 Draft，合并发布另行约定。
+
+## 2026-10-13 媒体代际绑定与可靠解绑
+
+任务 media-reliable-release-20261013，最终生产冻结 `67f6c1451d11ae48fbe766a917816551aad93f24`、树 `59f2139b20dd2447fb306fea0a4e11841e4c1f27`。头像、签名与租户 Logo 每次绑定生成独立 UUID v7 代际键，实际键和 FileId 在原 CAS/事务内共同保存；替换和删除把旧绑定的精确解绑事实与业务修改放入同一事务 Outbox。提交后快路径保留，确认失败、释放失败或取消不能抹去旧事实。Worker 通过 Files 公共端口仅释放退休键；重复消费、历史 ClaimNotFound 为成功终态，真实释放失败重试，Success(false) 不误确认。租户及事件身份独立校验，不引入跨模块表访问或本地事务。
+
+Pending 对账新增可选的精确绑定键探测端口，现有消费者端口保持兼容。Identity/Tenancy 同时核对当前 FileId 与有效代际键；同一文件的另一 Pending 代际不会晋升，当前代际可正常确认。历史空列或无效存储键回落到对应主体、对应媒体类型的历史键，不扩张消费者所有权。
+
+验证先后暴露并修复三个真实缺口：代际盲 Pending 回归先出现 12 失败/6 通过；第一版双库集中运行 4 失败/4 通过，定位到 Files 正式 IdempotencyKey 列为128字符，而原新键超过容量，SQL Server2628/MySQL1406。新键保留完整 UUID、改用规范小写 N 格式，最长123字符，历史 D 格式键不变；超长幂等键及消费者模块名在业务 SQL 前拒绝（ClaimAsync 仍先进入事务边界，不声称未打开事务）。容量回归20项先6失败/14通过，修复后通过。旧源码及 CI 失败材料完整保留，不计最终通过。c2997fe原生Worker25项中23通过、2失败，又暴露Tenancy后台入口漏注册Logo代际探测器；两种模块顺序的注册回归真实RED2/2失败后修复，TryAddEnumerable保证API入口合并注册不重复。
+
+实际验证命令与结果：
+
+- node .tmp/media-release-unit-4.mjs：媒体聚焦130/130、Identity/Tenancy/Files受影响974/974，零失败/跳过。
+- node .tmp/media-release-build-4.mjs --architecture-only 与 node .tmp/media-release-consumer-4.mjs：相关消费者构建及完整Architecture248/248通过；迁移宿主构建在同批前段完成，随后未改对应输入。
+- node .tmp/media-release-aot-4.mjs：Files.Contracts、Files、Identity、Tenancy、API、Worker六目标分析通过；分析不代替原生运行。
+- pnpm test:naming：33/33；治理首轮并发spawn ENOMEM/UNKNOWN后，node --test --test-concurrency=2 tests/governance/*.test.mjs：70/70；node --test tests/testing/test-matrix.test.mjs tests/templates/migration-script-modules.test.mjs：13/13。OpenAPI静态219/219和客户端生成零漂移已在同批前段通过，后续未改相关输入。
+- node .tmp/media-release-jit-3.mjs：c2997fe真实SQL Server/MySQL集中8/8，零失败/跳过。每库包含媒体HTTP并发赢家保护、同事务事实插入后抛错的真实回滚、快路径失败后的可靠事实、重复消费与同文件当前/失败Pending代际、252部分列恢复/重复运行，以及OpenAPI快照。
+- 同一源码CI Native API核心23/23及附加26/26，合计49/49；完整Worker25/25，零失败/跳过。新增Worker两库以新原生进程处理退休绑定事实、重复消息、缺失历史键，并验证同文件当前Pending晋升和另一代际释放。API run 38335307116、Worker run 38335307245，检出 `a25d5f98d4f2a701e5025b16e9425c2273947fc5`；源码树、原始日志摘要、ZIP、ELF和发布清单逐项核对。复用完整CI实际运行，未重复本地Native；已准备的本地独立副本未运行并保留，不报告其通过。
+
+数据范围JIT消费者从c2997fe提交前冻结输入编译，摘要与c2997fe一致；启动时HEAD8c722b4不是受测生产源码。最终67f6c14只增加Worker Logo探测器注册及其两种模块顺序断言，SQL、媒体事务和事实实现未再改动；保留此前数据/HTTP结果，不把它当作新注册代码的验证。新注册与API合并去重由最终源码Native API/Worker及Unit验证。已取消未启动的重复JIT4队列，共享重型锁未改动。冻结3943个输入、984个消费者文件；排队0.459秒，运行677.665秒。Windows SDK10.0.401、每测试进程2个worker；自有数据库夹具回收，共享锁按安全边界交接后释放。他窗WIP未改动，保存逐文件保护证明。只读复审未发现新增可证明P1/P2；测试发现不替代运行证据。
+
+252双库迁移增加可空代际列并支持部分应用恢复；生成应用同时补齐250/251迁移归属，252按Shared归属进入官方预设。上一批主CI缺失的8个409响应已同步OpenAPI快照，客户端生成零漂移。
+
+升级门禁必须按顺序执行：停止旧版媒体写入→运行Migrator252→升级所有Worker并确认新处理器就绪→启用新版API媒体写入。空列只兼容历史数据，不声明新旧写入器混写安全；本次未执行部署。历史可复用Active孤儿补偿仍待独立策略，完整生成应用、全页面、多实例故障及容量未验收；整体保持Build-verified / Capacity-not-verified。PR3保持Draft，合并和发布另行约定。
+
+证据入口 .tmp/media-release-source-4.json、.tmp/media-release-unit-4.log、.tmp/media-release-aot-4-proof.json、.tmp/media-release-jit-3、.tmp/media-release-ci-artifacts-4、.tmp/media-release-ci-runtime-proof-4.json、.tmp/media-release-final-proof-4.json。失败证据包括容量RED、JIT2、source2原生CI、c2997fe原生Worker及注册RED、治理首轮进程启动失败；旧产物及未运行验收副本保留。报告以[skip ci]提交，避免文档再次触发相同生产输入验收，不把报告HEAD冒称已运行源码。
+
+截至最终报告，主CI38335307248的客户端构建测试与两组双库迁移恢复已通过，受影响集成测试仍运行；未完成和跳过不计成功。按R-20260930规定范围验收收口，继续开发无需等待正常运行的全部CI。
