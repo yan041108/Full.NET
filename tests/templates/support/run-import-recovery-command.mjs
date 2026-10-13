@@ -5,8 +5,9 @@ import {finished} from 'node:stream/promises';
 // 立即接住宿主和日志错误，用同一取消信号中断就绪轮询；监听保留到资源清理完成。
 export function watchImportRecoveryProcess(child,log){
  const controller=new AbortController();
- const fail=error=>controller.abort(error);
+ const fail=error=>{error.pid??=child.pid;controller.abort(error);};
  child.on('error',fail);log.on('error',fail);
+ child.once('exit',(code,signal)=>fail(new Error('owned host exited: '+code+' '+(signal??''))));
  return controller.signal;
 }
 

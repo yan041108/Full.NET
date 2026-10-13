@@ -57,3 +57,9 @@ test('日志目录不存在时关闭命令并传播写盘错误',()=>fixture(asy
  let failure;try{await runImportRecoveryCommand(process.execPath,['-e','setTimeout(()=>{},5000)'],{logPath:join(dir,'absent','run.log'),timeoutMs:1000});}catch(error){failure=error;}
  assert(failure);assert.equal(failure.code,'ENOENT');assert.throws(()=>process.kill(failure.pid,0),error=>error.code==='ESRCH');
 }));
+
+test('宿主提前退出必须立即中止就绪轮询',()=>{
+ const child=new EventEmitter(),log=new EventEmitter();child.pid=42;
+ const signal=watchImportRecoveryProcess(child,log);child.emit('exit',1,null);
+ assert.equal(signal.aborted,true);assert.match(signal.reason.message,/exited/);assert.equal(signal.reason.pid,42);
+});

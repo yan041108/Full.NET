@@ -79,7 +79,7 @@ export async function verifyCreatedImportRecovery(provider,prepared,{signal}={})
  try{
   guard();signal?.throwIfAborted();const stack=await startDatabaseContainer(provider);database=stack.container;
   signal?.throwIfAborted();const cache=await startRedisContainer();redis=cache.container;signal?.throwIfAborted();
-  const env={...testRunEnvironment(),...buildSharedEnv(stack.connectionString,stack.databaseProvider,cache.connectionString),Files__Local__RootPath:join(out,'files'),DataProtection__KeyRingPath:join(out,'data-protection-keys'),FullNet__ImportExport__ExecutionEnabled:'false',FullNet__ImportExport__RunSynchronously:'false',FullNet__ImportExport__BatchSize:'1',FullNet__ImportExport__PollSeconds:'1',FullNet__ImportExport__LeaseSeconds:'60',FullNet__Reporting__Export__ExecutionEnabled:'false'};
+  const env={...testRunEnvironment(),...buildSharedEnv(stack.connectionString,stack.databaseProvider,cache.connectionString),Files__Local__RootPath:join(out,'files'),DataProtection__KeyRingPath:join(out,'data-protection-keys'),FullNet__ImportExport__ExecutionEnabled:'false',FullNet__ImportExport__RunSynchronously:'false',FullNet__ImportExport__BatchSize:'1',FullNet__ImportExport__PollSeconds:'5',FullNet__ImportExport__LeaseSeconds:'60',FullNet__Reporting__Export__ExecutionEnabled:'false'};
   await runImportRecoveryCommand('dotnet',[prepared.projects.Migrator,'--seed','development'],{cwd:prepared.appRoot,env,timeoutMs:600000,logPath:join(out,'migrator.log'),signal});
   const start=async(host,overrides={})=>{
    signal?.throwIfAborted();
