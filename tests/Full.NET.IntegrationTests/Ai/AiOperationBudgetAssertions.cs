@@ -126,6 +126,7 @@ internal static class AiOperationBudgetAssertions
         Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT UsedRequestsThisMonth FROM fn_ai_tenant_quota WHERE TenantId=@Tenant", new { Tenant = tenant }));
 
         options.MonthlyRequestLimit = 1000;
+        await AiEmbeddingTestBudgetAssertions.VerifyAsync(factory, db, model, tenant);
         await VerifyCommitObservationsAsync(factory, db, request);
 
         async Task<AiOperationReservation?> TryReserve(AiOperationRequest value)

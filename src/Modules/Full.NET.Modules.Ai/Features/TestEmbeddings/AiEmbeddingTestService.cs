@@ -27,11 +27,16 @@ internal sealed class AiEmbeddingTestService(
         TestAiModelEmbeddingRequest request,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested(); ArgumentNullException.ThrowIfNull(request);
+        // 管理输入先冻结，数据库等待和外部集合回调不能改变指纹或放大复制成本。
+        var (inputs, inputError) = ResolveInputs(request, cancellationToken);
+        if (inputError is not null) return InvalidInput(inputError);
         var row = await queryExecutor.QuerySingleOrDefaultAsync<AiModelConfigRecord>(
                 AiModelConfigSql.FindById,
                 AiSqlParameters.Create(("ModelConfigId", modelConfigId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (row is null)
         {
             return Result<TestAiModelEmbeddingResult>.Failure(new Error(
@@ -48,15 +53,10 @@ internal sealed class AiEmbeddingTestService(
                 ErrorType.BusinessRule));
         }
 
-        var inputs = ResolveInputs(request);
-        var validation = AiEmbeddingContentPolicy.ValidateInputs(inputs)
-            ?? AiKnowledgeEmbeddingInputPolicy.Validate(row, inputs, cancellationToken);
+        var validation = AiKnowledgeEmbeddingInputPolicy.Validate(row, inputs, cancellationToken);
         if (validation is not null)
         {
-            return Result<TestAiModelEmbeddingResult>.Failure(new Error(
-                AiErrorCodes.ModelConfigInvalid,
-                validation,
-                ErrorType.Validation));
+            return InvalidInput(validation);
         }
 
         var factory = factories.FirstOrDefault(item => item.ProviderKey == row.ProviderKey);
@@ -69,13 +69,14 @@ internal sealed class AiEmbeddingTestService(
         }
 
         var operationId = idGenerator.NewId();
+        var operation = AiEmbeddingBudgetRequest.Create(operationId, row, inputs);
         AiOperationReservation? reservation = null;
         try
         {
             reservation = await budgetStore.ReserveAsync(
-                AiEmbeddingBudgetRequest.Create(operationId, row, inputs),
+                operation,
                 cancellationToken).ConfigureAwait(false);
-            if (!reservation.IsNew)
+            if (!reservation.IsNew || reservation.OperationId != operationId)
                 throw new AiBudgetException("ai.budget.operation_conflict");
         }
         catch (AiBudgetException error)
@@ -86,27 +87,44 @@ internal sealed class AiEmbeddingTestService(
                 error.Code == "ai.budget.operation_conflict" ? ErrorType.Conflict : ErrorType.Forbidden));
         }
 
-        var binding = bindings.Create(row);
         var outcome = "failed";
+        // 新预留只属于本次操作；实际进入 GenerateAsync 后才将未报告消费标为未知。
+        var usage = new AiOperationUsage(0, 0);
         int? inputTokens = null;
         int dimensions = 0;
         string message = "Embedding test failed.";
         try
         {
-            using var generator = await factory.CreateEmbeddingGeneratorAsync(binding, cancellationToken)
-                .ConfigureAwait(false);
-            var result = await generator.GenerateAsync(inputs, cancellationToken: cancellationToken).ConfigureAwait(false);
-            if (result.Count != inputs.Count)
-                throw new InvalidDataException("AI provider returned an unexpected embedding count.");
-
-            dimensions = result[0].Vector.Length;
-            foreach (var embedding in result)
+            cancellationToken.ThrowIfCancellationRequested();
+            var binding = bindings.Create(row);
+            using (var generator = await factory.CreateEmbeddingGeneratorAsync(binding, cancellationToken).ConfigureAwait(false))
             {
-                if (embedding.Vector.Length != dimensions)
-                    throw new InvalidDataException("AI provider returned inconsistent embedding dimensions.");
+                if (generator is null) throw new InvalidDataException("AI provider returned no embedding generator.");
+                cancellationToken.ThrowIfCancellationRequested(); usage = new(null, null);
+                var result = await generator.GenerateAsync(inputs, cancellationToken: cancellationToken).ConfigureAwait(false);
+                if (result is null) throw new InvalidDataException("AI provider returned no embeddings.");
+                var reported = new AiOperationUsage(result.Usage?.InputTokenCount, result.Usage?.OutputTokenCount ?? 0);
+                AiExecutionBudget.ValidateUsage(reported);
+                // 有效计量先成为结算事实；坏向量、超出预留或客户端释放失败不能丢失已发生消费。
+                usage = reported;
+                cancellationToken.ThrowIfCancellationRequested();
+                inputTokens = reported.InputTokens is { } tokens ? checked((int)tokens) : null;
+                if (reported.InputTokens > operation.InputTokenLimit || reported.OutputTokens > 0)
+                    throw new InvalidDataException("AI provider exceeded the embedding reservation.");
+                if (result.Count != inputs.Count)
+                    throw new InvalidDataException("AI provider returned an unexpected embedding count.");
+                dimensions = result[0].Vector.Length;
+                if (dimensions == 0) throw new InvalidDataException("AI provider returned empty embedding dimensions.");
+                foreach (var embedding in result)
+                {
+                    if (embedding.Vector.Length != dimensions)
+                        throw new InvalidDataException("AI provider returned inconsistent embedding dimensions.");
+                    foreach (var value in embedding.Vector.Span)
+                        if (!float.IsFinite(value)) throw new InvalidDataException("AI provider returned a non-finite embedding.");
+                }
             }
-
-            inputTokens = result.Usage?.InputTokenCount is long tokens ? (int)tokens : null;
+            // 释放也属于本次调用的失败边界；只有释放完成后才记录 succeeded。
+            cancellationToken.ThrowIfCancellationRequested();
             outcome = "succeeded";
             message = "Embedding test succeeded.";
             return Result<TestAiModelEmbeddingResult>.Success(
@@ -139,19 +157,33 @@ internal sealed class AiEmbeddingTestService(
             {
                 await budgetStore.SettleAsync(
                     reservation.OperationId,
-                    new(inputTokens, 0),
+                    usage,
                     outcome,
                     CancellationToken.None).ConfigureAwait(false);
             }
         }
     }
 
-    private static IReadOnlyList<string> ResolveInputs(TestAiModelEmbeddingRequest request)
+    /// <summary>读取一次批量Count和有限索引，先限制原始字符再Trim；空批量沿用单条输入优先级。</summary>
+    private static (IReadOnlyList<string> Inputs, string? Error) ResolveInputs(TestAiModelEmbeddingRequest request, CancellationToken token)
     {
-        if (request.BatchInputs is { Count: > 0 })
-            return request.BatchInputs.Select(item => item.Trim()).ToArray();
-        if (!string.IsNullOrWhiteSpace(request.Input))
-            return [request.Input.Trim()];
-        return [];
+        var batch = request.BatchInputs; var count = batch?.Count ?? 0; token.ThrowIfCancellationRequested();
+        if (count < 0 || count > AiEmbeddingContentPolicy.MaxBatchSize)
+            return ([], $"Embedding batch must not exceed {AiEmbeddingContentPolicy.MaxBatchSize} inputs.");
+        var values = new string[count > 0 ? count : 1]; var total = 0;
+        for (var i = 0; i < values.Length; i++)
+        {
+            token.ThrowIfCancellationRequested(); var text = count > 0 ? batch![i] : request.Input; token.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(text)) return ([], "Embedding input cannot be empty.");
+            if (text.Length > AiEmbeddingContentPolicy.MaxInputLength)
+                return ([], $"Each embedding input must not exceed {AiEmbeddingContentPolicy.MaxInputLength} characters.");
+            total += text.Length;
+            if (total > AiEmbeddingContentPolicy.MaxTotalCharacters)
+                return ([], $"Embedding inputs must not exceed {AiEmbeddingContentPolicy.MaxTotalCharacters} total characters.");
+            values[i] = text.Trim();
+        }
+        return (Array.AsReadOnly(values), null);
     }
+    private static Result<TestAiModelEmbeddingResult> InvalidInput(string message) => Result<TestAiModelEmbeddingResult>.Failure(
+        new Error(AiErrorCodes.ModelConfigInvalid, message, ErrorType.Validation));
 }

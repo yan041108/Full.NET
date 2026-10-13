@@ -2885,3 +2885,21 @@ MySQL原组在继续时已失去原进程、Docker引擎管道和终态退出码
 复用R11k源和AOT/JIT/双库缓存，覆盖前核对旧完整摘要，传入本批差异；双库仅复制明确生产项目产物、冻结源码清单和完整Integration消费目录。保留同工作区及同机重型锁，不中断其他窗口验收；重型组正常释放后留45秒交接窗口，让已排队短回归先取得资源，SQL补验与MySQL各自分组释放。共享矩阵只暂存HEAD加84，其他窗口及保护路径保留。Windows x64/SDK10.0.401、Linux SDK10.0.400/runtime10.0.11、i7-12700H/约64GiB；Unit4处理器/2GiB GC，Linux构建8CPU/4GiB，双库各2CPU/8GiB；缓存restore使用NuGetAudit=false，不宣称在线审计。
 
 R11整体、其他阶段分类、跨重启Trace、其他Provider/Chat输入硬限、未知外部动作/费用对账以及集中Native发布/运行、生成应用和浏览器验收仍开放；Capacity-not-verified。实际命令、退出码、UID及摘要见 `artifacts/r11l/acceptance.json`。本段在测试后补入，不将最终文档字节冒充运行前输入；main提交本批，不推送。
+
+#### R11m：管理Embedding输入快照与预算结算边界（2026-10-13，本批受影响本地验收完成）
+
+基线main `b7f65ce7e41c82ed2f2af1ca25704a0fb01155e6`，任务 `ai-embedding-test-boundary-r11m`。集中修复管理Embedding测试的输入复制、预留所有权、派发/报告/释放/取消边界；不增加SQL、迁移、公开DTO、依赖、Provider切换或费用指纹变化。
+
+- [x] 配置查询前读取一次外部批量Count，以最多16次索引冻结文本，不调用外部枚举器；原始单条8000、总32000字符早于Trim，空批量仍回退单条输入。预取消、复制期间取消、空值、非法Count/原始字符规模及集合异常不会查询、预留或派发，权限入口及HostOnly管理查询保留。
+- [x] 只有新建且OperationId匹配的预留授予本次派发和结算权。绑定、工厂、空客户端及派发前取消按known零结算；进入Generate后无合法报告保持unknown，不能因响应失败而补零。合法报告先校验全局用量范围并保存，再验证向量数量/非空维度/有限值、预留上限和取消；超额、坏向量、客户端释放失败及晚取消保留报告。超过全局界限的计量不转为溢出的int或伪造known；结算异常继续传播。
+- [x] 新增48项回归：首批44项有效RED38失败/6通过，补充4项空客户端和晚取消RED3失败/1通过，最终GREEN48/48；完整AI4165/4165、零跳过。Unit仅发现7648，与规范矩阵一致，不冒充全Unit执行。首轮测试编译因NSubstitute可空标注出现3项诊断，修正后才形成有效RED，原编译日志保留。
+- [x] 两库实际影响集均为Ai各44/44，共88唯一通过UID，原矩阵60分钟、每库1 Worker顺序执行。原生产服务加入Host五个真实账本场景：绑定/工厂known零、未确认派发unknown保留预留、坏向量known已报告用量、成功known用量；另以真实租户上下文精确验证HostContextRequiredException且预留/结算/工厂/派发均零。原租户预算store及兼容额度断言保留；未用查询替身或放宽生产作用域。
+- [x] API/Worker AOT分析零警告/错误、AOT架构88/88、完整架构235/235，JIT Integration构建及1214分片发现通过；命名30、矩阵6、治理57、工具链54及预先排除保护路径的387份Markdown检查通过。独立只读审查发现并修正1项测试作用域Important，最终无Critical/Important/Minor，审查不代跑测试。
+
+初版账本helper错误地对租户调用HostOnly管理查询；核实审查后修正测试，而非放宽SQL/权限。旧冻结输入的SQL验收已启动，按精确容器Id、命令和缓存卷核对所有权后，仅停止本批验收容器，保留exit137、原流和pipeline exit1，不将它称为通过或复用其中部分结果；未单独停止/删除持久Worker/控制平面。补丁只改变一个Integration helper，全部生产、Unit和Architecture输入摘要不变，已完成的Unit/AOT/Architecture证据复用；两缓存只更新该源，Integration在原/work路径选择性重建，核对六项生产/消费程序集后，双库整组重新执行。Node恢复wrapper首次模板转义解析错误发生在任何容器启动前，修正后才进入构建，未作为行为RED。原错误、退出码及输入绑定均保留。
+
+冻结7827个输入；Unit运行前后原编译消费闭包及源码摘要一致，10项既有RAG JSON/报告输出单列，AI/Agents生产与消费程序集相同。重用R11l的Windows与Linux缓存，覆盖前后核对源/完整消费摘要；审查修正前后唯一源差异及旧完整Unit运行清单见review-fix-input-binding.json。共享矩阵只暂存HEAD加48，1310余项其他窗口改动及保护路径保留；在main提交，不推送。
+
+Windows x64/SDK10.0.401、Linux SDK10.0.400/runtime10.0.11、i7-12700H/约64GiB；Unit4处理器/2GiB GC，Linux原构建8CPU/4GiB、修正重建4CPU/4GiB，双库各2CPU/8GiB。缓存restore使用NuGetAudit=false，不宣称在线依赖审计；长TRX捕获字段按SDK截断行为保留，不声明原文本完整。命令、退出码、精确UID、摘要和审查在 `artifacts/r11m/acceptance.json`；最终证据段落在测试后补入，不冒充运行前文档字节。
+
+R11整体、其余分类/跨重启Trace、其他Provider/Chat精确输入硬限、未知外部动作/费用对账，以及集中Native发布/运行、生成应用、页面和运营恢复仍开放；Capacity-not-verified。
