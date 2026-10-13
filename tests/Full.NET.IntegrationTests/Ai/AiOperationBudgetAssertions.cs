@@ -127,6 +127,7 @@ internal static class AiOperationBudgetAssertions
 
         options.MonthlyRequestLimit = 1000;
         await AiEmbeddingTestBudgetAssertions.VerifyAsync(factory, db, model, tenant);
+        await AiChatPaidReceiptAssertions.VerifyAsync(factory, db, model);
         await VerifyCommitObservationsAsync(factory, db, request);
 
         async Task<AiOperationReservation?> TryReserve(AiOperationRequest value)

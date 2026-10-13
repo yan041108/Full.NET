@@ -103,8 +103,7 @@ internal sealed class AiEmbeddingTestService(
                 cancellationToken.ThrowIfCancellationRequested(); usage = new(null, null);
                 var result = await generator.GenerateAsync(inputs, cancellationToken: cancellationToken).ConfigureAwait(false);
                 if (result is null) throw new InvalidDataException("AI provider returned no embeddings.");
-                var reported = new AiOperationUsage(result.Usage?.InputTokenCount, result.Usage?.OutputTokenCount ?? 0);
-                AiExecutionBudget.ValidateUsage(reported);
+                var reported = AiModelUsagePolicy.Read(result.Usage, embedding: true);
                 // 有效计量先成为结算事实；坏向量、超出预留或客户端释放失败不能丢失已发生消费。
                 usage = reported;
                 cancellationToken.ThrowIfCancellationRequested();

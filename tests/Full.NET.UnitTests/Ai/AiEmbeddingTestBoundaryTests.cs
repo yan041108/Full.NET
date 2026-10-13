@@ -15,7 +15,7 @@ namespace Full.NET.UnitTests.Ai;
 
 /// <summary>管理测试的外部集合、派发和结算边界；未知消费不能补零或覆盖旧预留。</summary>
 [TestClass]
-public sealed class AiEmbeddingTestBoundaryTests
+public sealed partial class AiEmbeddingTestBoundaryTests
 {
     [TestMethod] [DataRow(-1)] [DataRow(17)] [DataRow(int.MaxValue)]
     public async Task Embedding_boundary_count_rejects_before_indices_or_query(int count)

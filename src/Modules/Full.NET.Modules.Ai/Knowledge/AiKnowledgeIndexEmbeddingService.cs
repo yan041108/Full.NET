@@ -103,8 +103,8 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
                 NoTransaction(); bounded.ThrowIfCancellationRequested(); usage = new(null, null);
                 var generated = await generator.GenerateAsync(Array.AsReadOnly(inputs), cancellationToken: bounded).ConfigureAwait(false);
                 if (generated is null) throw new InvalidDataException("AI embedding response is missing.");
-                var reported = new AiOperationUsage(generated.Usage?.InputTokenCount, generated.Usage?.OutputTokenCount ?? 0);
-                try { AiExecutionBudget.ValidateUsage(reported); }
+                AiOperationUsage reported;
+                try { reported = AiModelUsagePolicy.Read(generated.Usage, embedding: true); }
                 catch (AiBudgetException) { throw new InvalidDataException("AI embedding usage is invalid."); }
                 // 先保留已知计量，后续向量错误、取消或撤权不能丢掉已发生的收费事实。
                 usage = reported;

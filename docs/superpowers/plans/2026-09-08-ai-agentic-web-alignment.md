@@ -2918,3 +2918,21 @@ R11整体、其余分类/跨重启Trace、其他Provider/Chat精确输入硬限�
 冻结7829个输入，Unit运行前后1002个编译消费文件及源码摘要一致，既有RAG JSON/报告输出单列；Agents/AI生产与消费程序集匹配。复用已核对的R11m缓存，覆盖前后验证源与消费摘要；共享矩阵只暂存HEAD加69，其他窗口改动和保护路径保留。Windows x64 Unit4处理器/2GiB GC，Linux构建8CPU/4GiB，双库各2CPU/8GiB；缓存restore使用NuGetAudit=false，不宣称在线依赖审计。长TRX捕获字段截断警告保留，状态、计数与UID另行核对，不声明完整文本。命令及实际证据见`artifacts/r11n/acceptance.json`；本段测试后补入，不冒充运行前输入字节。在main提交，不推送。
 
 completed仅表示原批次方法返回，不证明向量写入、事务提交、整代次ready、客户端收到数据或费用核证。R11整体、其余分类/跨重启Trace、其他Provider/Chat精确输入硬限、未知外部动作/费用对账，以及集中Native发布/运行、生成应用和浏览器验收仍开放；Capacity-not-verified。
+
+#### R11o：付费模型回执与聊天账本边界（2026-10-13，本批受影响本地验收完成）
+
+基线main `f01cd2bfcc18309ddcc680aa7f3352cde6b26843`，任务 `ai-paid-response-boundaries-r11o`。集中覆盖Agent buffered/stream、普通Chat、管理Embedding、付费知识回答和Text/PDF/DOCX索引；保持原权限、可信租户、短事务、独立清理、Provider、预算指纹及数据协议，无SQL/迁移/公开DTO/依赖变更。
+
+- [x] 共用核心用量校验：input/output/cached/reasoning/total范围与包含关系，总量不得小于任一已知方向；两个方向完整时必须等于和。非法报告不能退化为缺失或授予新额度。Agent无可选输入预算时也限制累计输入全局上限，null SDK返回失败关闭，Current触发取消不能交付晚更新。
+- [x] 普通聊天只接纳新建、身份匹配且reserved的原凭据。派发前异常known零，进入付费调用后断流/坏报告/正文回调异常保持unknown；明确EOF后先冻结完整回执，再释放枚举器和客户端，后续释放/取消/落库失败保留实际用量与cached原价格。SDK声明原4096输出上限，同帧usage校验早于正文。租约与注册释放保留独立可信收尾，不改写重复/错误凭据的旧账本。
+- [x] 新增220项回归：有效首批RED212项167失败/45通过；审查补充的Agent/Chat矛盾total与EOF清理窗口，RED44项8失败/36通过。最终GREEN220/220、完整AI4454/4454，零失败/跳过。Unit发现7937，与规范矩阵一致，未执行完整Unit。首轮212测试编译2项诊断和一次无终态构建中断均保留，不作为行为RED。
+- [x] 真实生产Chat会话、租约、原预算Store与独立cleanup在两库各验证Host/Tenant七类账本：成功/工厂/派发/释放/非法报告/重复/错误凭据；known7/3/cached2按原价格计0.000024，unknown保留原预留，重复/错误返回不改旧账本。租户通过生产开通契约获得真实活动记录，未放宽权威续租。实际影响集Ai：SQL Server原44项43通过/1失败，精确失败UID补验1/1；MySQL44/44，成功并集覆盖双库88唯一UID，不将原SQL44组称为通过，原矩阵60分钟、每库1 Worker顺序执行；保留既有兼容额度与预算断言。它验证生产服务和账本，不替代HTTP认证验收。
+- [x] API/Worker AOT分析零警告/错误、相关Architecture88/88、完整Architecture235/235，JIT Integration构建与1214分片发现通过；命名30、矩阵6、治理57、工具链54及预先排除保护路径后的387份Markdown检查通过。只读审查发现EOF清理与随机租户夹具两个Important及矛盾total缺口，均修正，最终无Critical/Important；审查未代跑测试。
+
+审查修正前完整AI4446/4446已通过，首轮pipeline因显式review门禁在Linux构建前退出1，原日志/TRX/冻结清单已归档；生产与测试修正后重跑最终220及完整AI4454，未把旧4446结果冒充最终验证。首次RED构建进程50784消失，无完整退出码，宿主启动时间未变，原因未证明；仅核对原PID/token和无子进程/容器后清理本批已死工作区锁，保留原记录。隐藏后台进程的原始Windows日志保留，以严格UTF-8失败后CP936解码，TRX状态与精确UID单独核对，不篡改原字节或归因SDK。
+
+SQL原组PDF向量问答场景预期InvalidDataException，实际由独立结算返回IOException“预算结算未确认”；结算五秒边界、源码、消费程序集和断言均未改变。完整44项TRX、退出2、pipeline退出1及失败UID保留；在安全交接后只对原失败方法精确复验1/1，前后同源/消费摘要通过，底层原因未证明，不宣称代码已修复该故障。新版真实Chat预算Host/Tenant场景在原SQL组通过。缓存唯一Redis短方法通过后自然交还，用户明确授权本批及后续同类安全资源消息协调；没有停止或删除外来进程、容器或锁。
+
+冻结7835个输入；Unit运行前后源码及编译消费闭包一致，既有RAG JSON/报告输出单列，AI/Agents生产与消费程序集匹配。重用已核对的R11n Windows/Linux缓存；AOT/JIT及双库覆盖前后验证完整源码和消费摘要，双库明确生产项目与消费目录同步。本工作区锁和同机重型锁继续遵守，组间45秒交接，不中断其他窗口任务。共享矩阵只暂存HEAD加220，其他窗口改动与保护路径保留；main提交，不推送。Windows x64 Unit4处理器/2GiB GC，Linux构建8CPU/4GiB，双库各2CPU/8GiB；NuGetAudit=false的缓存restore不宣称在线依赖审计。长TRX文本截断提示保留，不声明原文本完整。命令、退出码、UID、摘要和审查见`artifacts/r11o/acceptance.json`；本段测试后补入，最终文档摘要独立绑定。
+
+本批只证明核心回执及上述结算/取消边界，不将字符或UTF-8字节估算宣称为请求前精确Token/费用硬认证。R11整体、其他阶段分类/跨重启Trace、其他Provider/Chat精确输入硬限、未知外部动作/费用对账，以及集中Native发布/运行、独立生成应用、浏览器和运营恢复仍开放；Capacity-not-verified。

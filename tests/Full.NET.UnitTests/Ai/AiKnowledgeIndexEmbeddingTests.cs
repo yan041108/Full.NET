@@ -413,7 +413,7 @@ public sealed partial class AiKnowledgeIndexEmbeddingTests
     }
     private sealed class TestGenerator : IEmbeddingGenerator<string, Embedding<float>>
     {
-        internal int Calls; internal bool Disposed; internal long? Tokens = 7; internal string? Invalid; internal Action<CancellationToken>? BeforeReturn; internal float[]? LastVector;
+        internal UsageDetails? UsageOverride; internal int Calls; internal bool Disposed; internal long? Tokens = 7; internal string? Invalid; internal Action<CancellationToken>? BeforeReturn; internal float[]? LastVector;
         internal string[]? Inputs;
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
         public void Dispose() => Disposed = true;
@@ -422,7 +422,7 @@ public sealed partial class AiKnowledgeIndexEmbeddingTests
             Calls++; Assert.IsTrue(cancellationToken.CanBeCanceled); var inputs = values.ToArray(); Inputs = inputs;
             var embeddings = inputs.Select(_ => { var vector = new float[Invalid == "dimensions" ? 3 : 1536]; vector[0] = Invalid == "nonfinite" ? float.NaN : Invalid == "zero" ? 0 : 1; LastVector = vector; return new Embedding<float>(vector); }).ToArray();
             BeforeReturn?.Invoke(cancellationToken);
-            return Task.FromResult(new GeneratedEmbeddings<Embedding<float>>(Invalid == "count" ? [] : embeddings) { Usage = Tokens is { } count ? new UsageDetails { InputTokenCount = count, OutputTokenCount = 0 } : null });
+            return Task.FromResult(new GeneratedEmbeddings<Embedding<float>>(Invalid == "count" ? [] : embeddings) { Usage = UsageOverride ?? (Tokens is { } count ? new UsageDetails { InputTokenCount = count, OutputTokenCount = 0 } : null) });
         }
     }
 }

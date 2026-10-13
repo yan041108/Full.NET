@@ -753,6 +753,7 @@ public sealed partial class AiKnowledgeIndexDocxPlanningServiceTests
     }
     private sealed class PaidGenerator : IEmbeddingGenerator<string, Embedding<float>>
     {
+        internal UsageDetails? UsageOverride;
         internal int Calls; internal bool Disposed; internal string[]? Inputs;
         internal string? Invalid;
         internal Action<CancellationToken>? BeforeReturn;
@@ -766,7 +767,7 @@ public sealed partial class AiKnowledgeIndexDocxPlanningServiceTests
             BeforeReturn?.Invoke(cancellationToken);
             if (BeforeReturnAsync is not null) await BeforeReturnAsync(cancellationToken);
             return new GeneratedEmbeddings<Embedding<float>>(Invalid == "count" ? [] : Inputs.Select(_ => { var v = new float[Invalid == "dimensions" ? 3 : 1536]; v[0] = Invalid == "nonfinite" ? float.NaN : Invalid == "zero" ? 0 : 1; return new Embedding<float>(v); }))
-            { Usage = new UsageDetails { InputTokenCount = 7, OutputTokenCount = 0 } };
+            { Usage = UsageOverride ?? new UsageDetails { InputTokenCount = 7, OutputTokenCount = 0 } };
         }
     }
     private sealed class TrackingStream(byte[] bytes) : MemoryStream(bytes, writable: false)

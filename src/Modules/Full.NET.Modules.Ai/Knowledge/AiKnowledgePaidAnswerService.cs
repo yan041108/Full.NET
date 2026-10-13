@@ -100,7 +100,7 @@ internal sealed class AiKnowledgePaidAnswerService(AiKnowledgeRetrievalService r
                 receipt.Begin();
                 var result = await generator.GenerateAsync(new[] { question }, cancellationToken: io).ConfigureAwait(false);
                 if (result is null) throw Invalid();
-                var reported = new AiOperationUsage(result.Usage?.InputTokenCount, result.Usage?.OutputTokenCount ?? 0);
+                var reported = ReadUsage(result.Usage, embedding: true);
                 ValidateUsage(reported); receipt.Report(reported);
                 if (reported.InputTokens > request.InputTokenLimit || reported.OutputTokens > 0 || result.Count != 1) throw Invalid();
                 var copied = result[0].Vector.ToArray();
@@ -138,7 +138,7 @@ internal sealed class AiKnowledgePaidAnswerService(AiKnowledgeRetrievalService r
                 var result = await client.GetResponseAsync(history.Select(m => new ChatMessage(new ChatRole(m.RoleKey), m.Content)),
                     cancellationToken: io).ConfigureAwait(false);
                 if (result is null) throw Invalid();
-                var reported = new AiOperationUsage(result.Usage?.InputTokenCount, result.Usage?.OutputTokenCount);
+                var reported = ReadUsage(result.Usage);
                 ValidateUsage(reported); receipt.Report(reported);
                 if (reported.InputTokens > request.InputTokenLimit || reported.OutputTokens > request.OutputTokenLimit
                     || result.Messages.Count != 1 || result.Messages[0].Role != ChatRole.Assistant
@@ -179,6 +179,9 @@ internal sealed class AiKnowledgePaidAnswerService(AiKnowledgeRetrievalService r
     { var id = ids.NewId(); if (id == Guid.Empty || id.Version != 7) throw Invalid(); return id; }
     private void Check(CancellationToken token)
     { token.ThrowIfCancellationRequested(); if (transactions.HasTransaction) throw new InvalidOperationException("收费问答不能加入已有事务。"); }
+    private static AiOperationUsage ReadUsage(UsageDetails? usage, bool embedding = false)
+    { try { return AiModelUsagePolicy.Read(usage, embedding); } catch (AiBudgetException) { throw Invalid(); } }
+
     private static void ValidateUsage(AiOperationUsage usage)
     { try { AiExecutionBudget.ValidateUsage(usage); } catch (AiBudgetException) { throw Invalid(); } }
     // 非合作客户端的创建、调用或释放可能晚到；冻结后禁止开始派发和覆盖已独立结算的事实。

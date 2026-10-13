@@ -70,8 +70,8 @@ internal sealed class AiKnowledgeIndexPdfEmbeddingService(AiKnowledgeIndexPdfPla
                 receipt.Begin();
                 var generated = await generator.GenerateAsync(Array.AsReadOnly(inputs), cancellationToken: io).ConfigureAwait(false);
                 if (generated is null) throw new InvalidDataException("AI embedding response is missing.");
-                var reported = new AiOperationUsage(generated.Usage?.InputTokenCount, generated.Usage?.OutputTokenCount ?? 0);
-                try { AiExecutionBudget.ValidateUsage(reported); }
+                AiOperationUsage reported;
+                try { reported = AiModelUsagePolicy.Read(generated.Usage, embedding: true); }
                 catch (AiBudgetException) { throw new InvalidDataException("AI embedding usage is invalid."); }
                 receipt.Report(reported);
                 if (reported.InputTokens > admitted.Request.InputTokenLimit || reported.OutputTokens > 0)

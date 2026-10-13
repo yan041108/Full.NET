@@ -269,6 +269,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
     private sealed class PaidAnswerFactory : IAiModelClientFactory
     {
         public string ProviderKey => "openai_compatible";
+        internal UsageDetails? EmbeddingUsage;
         internal UsageDetails? Usage = new() { InputTokenCount = 7, OutputTokenCount = 3 };
         internal string? Fault, ThrowKind; internal int EmbeddingCalls, ChatCalls, StreamCalls;
         internal bool EmbeddingDisposed, ChatDisposed; internal Action<string>? BeforeCreate, BeforeReturn;
@@ -290,7 +291,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
                 if (f.ThrowKind == "embedding") throw new IOException("模型失败");
                 var vector = AiKnowledgeRetrievalRuleTests.Vector(1, 0); if (f.Fault == "vectors") vector[0] = float.NaN;
                 return Task.FromResult(new GeneratedEmbeddings<Embedding<float>>([new(vector)])
-                    { Usage = f.Usage is null ? null : new UsageDetails { InputTokenCount = 7, OutputTokenCount = 0 } });
+                    { Usage = f.EmbeddingUsage ?? (f.Usage is null ? null : new UsageDetails { InputTokenCount = 7, OutputTokenCount = 0 }) });
             }
         }
         private sealed class Client(PaidAnswerFactory f) : IChatClient

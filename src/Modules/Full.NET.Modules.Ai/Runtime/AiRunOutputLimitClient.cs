@@ -1,5 +1,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
+using Full.NET.AI.Abstractions.Budgets;
+using Full.NET.Modules.Ai.Budgets;
 
 namespace Full.NET.Modules.Ai.Runtime;
 
@@ -50,6 +52,7 @@ internal sealed class AiRunOutputLimitClient : IChatClient
         try
         {
             var source = _innerClient.GetStreamingResponseAsync(admitted.Messages, limited, cancellationToken);
+            if (source is null) throw new AiRunOutputBudgetException(true, "ai.budget.invalid_usage");
             return new ReservedStream(this, source, limited.MaxOutputTokens!.Value, reservedInputTokens, cancellationToken);
         }
         catch
@@ -90,9 +93,13 @@ internal sealed class AiRunOutputLimitClient : IChatClient
         {
             var response = await _innerClient.GetResponseAsync(messages, options, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
-            var output = response.Usage?.OutputTokenCount;
-            var input = response.Usage?.InputTokenCount;
-            if (output is < 0 || output > options.MaxOutputTokens || response.Usage?.InputTokenCount is < 0)
+            if (response is null) throw new AiRunOutputBudgetException(true, "ai.budget.invalid_usage");
+            AiOperationUsage usage;
+            try { usage = AiModelUsagePolicy.Read(response.Usage); }
+            catch (AiBudgetException) { throw new AiRunOutputBudgetException(true, "ai.budget.invalid_usage"); }
+            var output = usage.OutputTokens;
+            var input = usage.InputTokens;
+            if (output > options.MaxOutputTokens)
                 throw new AiRunOutputBudgetException(true, "ai.budget.invalid_usage");
             if (_remainingInputTokens is { } remainingInput)
             {
@@ -137,7 +144,7 @@ internal sealed class AiRunOutputLimitClient : IChatClient
                 enumerator = CreateEnumerator(linked.Token);
                 while (await MoveNextAsync(enumerator, linked.Token).ConfigureAwait(false))
                 {
-                    yield return ReadCurrent(enumerator, ref reportedInput, ref reportedOutput);
+                    yield return ReadCurrent(enumerator, ref reportedInput, ref reportedOutput, linked.Token);
                 }
             }
             finally
@@ -148,22 +155,30 @@ internal sealed class AiRunOutputLimitClient : IChatClient
             }
         }
 
-        private ChatResponseUpdate ReadCurrent(IAsyncEnumerator<ChatResponseUpdate> enumerator, ref long reportedInput, ref long reportedOutput)
+        private ChatResponseUpdate ReadCurrent(IAsyncEnumerator<ChatResponseUpdate> enumerator, ref long reportedInput, ref long reportedOutput,
+            CancellationToken token)
         {
             try
             {
                 // Current 也可能执行提供者代码并失败；只读取一次，失败后不能继续派发。
                 var update = enumerator.Current;
+                token.ThrowIfCancellationRequested();
+                if (update is null) throw new AiRunOutputBudgetException(true, "ai.budget.invalid_usage");
                 foreach (var usage in update.Contents.OfType<UsageContent>())
                 {
-                    var delta = usage.Details.OutputTokenCount;
-                    var inputDelta = usage.Details.InputTokenCount;
-                    if (delta is < 0 || inputDelta is < 0 || delta > reservedTokens - reportedOutput
+                    AiOperationUsage validated;
+                    try { validated = AiModelUsagePolicy.Read(usage.Details); }
+                    catch (AiBudgetException) { throw new AiRunOutputBudgetException(true, "ai.budget.invalid_usage"); }
+                    var delta = validated.OutputTokens;
+                    var inputDelta = validated.InputTokens;
+                    if (delta > reservedTokens - reportedOutput
+                        || inputDelta > AiExecutionBudget.MaximumTokens - reportedInput
                         || inputDelta > reservedInputTokens - reportedInput)
                         throw new AiRunOutputBudgetException(true, "ai.budget.invalid_usage");
                     if (delta.HasValue) reportedOutput += delta.Value;
-                    if (inputDelta.HasValue && reservedInputTokens.HasValue) reportedInput += inputDelta.Value;
+                    if (inputDelta.HasValue) reportedInput += inputDelta.Value;
                 }
+                token.ThrowIfCancellationRequested();
                 return update;
             }
             catch { owner._remainingTokens = 0; throw; }
@@ -174,7 +189,8 @@ internal sealed class AiRunOutputLimitClient : IChatClient
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                return source.GetAsyncEnumerator(cancellationToken);
+                return source.GetAsyncEnumerator(cancellationToken)
+                    ?? throw new AiRunOutputBudgetException(true, "ai.budget.invalid_usage");
             }
             catch { owner._remainingTokens = 0; throw; }
         }

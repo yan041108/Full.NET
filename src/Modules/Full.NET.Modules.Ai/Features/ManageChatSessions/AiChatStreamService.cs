@@ -96,6 +96,7 @@ internal sealed class AiChatStreamService(
         Task? monitor = null;
         var acquired = false;
         AiOperationReservation? reservation = null;
+        var streamingReceipt = new AiChatStreamingReceipt();
         string statusKey = AiChatMessageStatusKeys.Completed;
         int? promptTokens = null;
         int? completionTokens = null;
@@ -153,10 +154,12 @@ internal sealed class AiChatStreamService(
             var history = await LoadRecentMessagesAsync(sessionId, linkedToken).ConfigureAwait(false);
             try
             {
-                reservation = await quotaGuard.ReserveAsync(
+                var candidate = await quotaGuard.ReserveAsync(
                     AiChatBudgetRequest.Create(assistantMessageId, model, history), linkedToken).ConfigureAwait(false);
-                if (!reservation.IsNew)
+                // 只有本次新建且身份匹配的原预留授予派发与结算权；旧凭据不能在失败收尾中被改写。
+                if (candidate is null || !candidate.IsNew || candidate.OperationId != assistantMessageId || candidate.UsageStatus != "reserved")
                     throw new AiBudgetException("ai.budget.operation_conflict");
+                reservation = candidate;
             }
             catch (AiBudgetException error)
             {
@@ -174,7 +177,7 @@ internal sealed class AiChatStreamService(
                     history,
                     delta => output.WriteDeltaAsync(delta, linkedToken),
                     linkedToken,
-                    assistantBuffer)
+                    assistantBuffer, streamingReceipt)
                 .ConfigureAwait(false);
 
             linkedToken.ThrowIfCancellationRequested();
@@ -215,12 +218,15 @@ internal sealed class AiChatStreamService(
             await monitorStop.CancelAsync().ConfigureAwait(false);
             if (monitor is not null && !await TryCleanupAsync(token => monitor.WaitAsync(token)).ConfigureAwait(false))
                 failure ??= ExecutionFailure();
+            var actualUsage = streamingReceipt.Freeze();
+            promptTokens = (int?)actualUsage.InputTokens;
+            completionTokens = (int?)actualUsage.OutputTokens;
             if (acquired && statusKey != AiChatMessageStatusKeys.Completed
                 && !await cleanupScope.RunAsync(cleanupTenant, (services, token) => UpdateMessageAsync(assistantMessageId, sessionId,
                     assistantBuffer.ToString(), statusKey, promptTokens, completionTokens, token, services.GetRequiredService<ICommandExecutor>())).ConfigureAwait(false))
                 failure ??= ExecutionFailure();
             if (reservation is not null && !await cleanupScope.RunAsync(cleanupTenant, (services, token) =>
-                    services.GetRequiredService<IAiOperationBudgetStore>().SettleAsync(reservation.OperationId, new(promptTokens, completionTokens),
+                    services.GetRequiredService<IAiOperationBudgetStore>().SettleAsync(assistantMessageId, actualUsage,
                         statusKey == AiChatMessageStatusKeys.Completed && failure is null ? "succeeded"
                             : statusKey == AiChatMessageStatusKeys.Cancelled ? "cancelled" : "failed", token)).ConfigureAwait(false))
                 failure ??= ExecutionFailure();
