@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
 import {writeFileSync} from 'node:fs';
 import {importSessionCookies} from './application-import-session-revocation.mjs';
 
@@ -21,6 +22,11 @@ export async function verifyApplicationIdentityCookieControl(baseUrl,{hostAccess
   return result;
  };
  try{
+  // 默认同客户端单会话会撤销同账号旧族；用正式创建的另一账号验真独立族隔离。
+  const username='cookie-isolation-'+randomUUID().replaceAll('-','');
+  const independentUser=await send('create-independent-user','/api/v1/identity/users',{method:'POST',token:hostAccessToken,status:201,body:{username,displayName:'Cookie isolation',password:'FullNet!2026Secure'}});assert(independentUser.id);
+  const independentLogin=await send('independent-login','/api/v1/auth/login',{method:'POST',body:{username,password:'FullNet!2026Secure'}});assert(independentLogin.accessToken);
+  const independentBefore=await send('independent-session-before','/api/v1/me',{token:independentLogin.accessToken});assert.equal(independentBefore.id,independentUser.id);assert(independentBefore.sessionId);
   const login=await send('cookie-login','/api/v1/auth/login',{method:'POST',body:{username:'admin',password:'FullNet!2026Secure'},acceptCookies:true});assert(login.accessToken);
   const tenants=await send('available-tenants','/api/v1/tenancy/available',{token:login.accessToken});const tenant=tenants.find(item=>item.identifier==='local');assert(tenant);
   const context=await send('tenant-context','/api/v1/tenancy/context',{method:'PUT',body:{tenantId:tenant.id},token:login.accessToken,acceptCookies:true});assert(context.accessToken);
@@ -45,7 +51,7 @@ export async function verifyApplicationIdentityCookieControl(baseUrl,{hostAccess
   const logout=await send('cookie-logout','/api/v1/auth/logout',{method:'POST',headers:logoutHeaders,acceptCookies:true,status:204});assert(logout.cookies.some(cookie=>cookie.startsWith('fullnet-csrf=;')));
   await send('revoked-access-token','/api/v1/me',{token:refresh.accessToken,status:401});
   await send('repeated-cookie-logout','/api/v1/auth/logout',{method:'POST',headers:logoutHeaders,status:204});
-  await send('independent-host-session','/api/v1/me',{token:hostAccessToken});evidence.scenarios.push('cookie-logout-idempotent-and-family-isolated');
+  const independentAfter=await send('independent-host-session','/api/v1/me',{token:independentLogin.accessToken});assert.equal(independentAfter.id,independentUser.id);assert.equal(independentAfter.sessionId,independentBefore.sessionId);evidence.scenarios.push('cookie-logout-idempotent-and-family-isolated');
   evidence.completed=true;return evidence;
  }catch(error){evidence.error=redact(error.message??error);throw new Error(evidence.error);}
  finally{writeFileSync(logPath,redact(JSON.stringify(evidence,null,2)));}
