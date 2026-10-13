@@ -2947,3 +2947,21 @@ node .tmp/files-cleanup-jit-1.mjs真实SQL Server/MySQL集中2/2，零失败/跳
 用户已持续授权本批及后续同类测试资源安全协调。本批依次核对AI集成PID130756、缓存最终GREEN PID135368、AI精确补验PID136408，并请求当前组正常结束后的交接；13:08:37取得资源，13:12:01正常释放后已通知两对话。未中断其他构建/测试、删除共享锁或操作其他窗口容器。他窗四项未提交改动逐文件保护证明通过。上一批主CI38342339397重试已越过镜像限流，尚未结束的作业在本批源码推送后被仓库并发策略取消，不计通过；截至本报告，本批主CI38348745440仍在受影响双库集成阶段，最终结果未验收；未执行或跳过不计成功。
 
 证据入口.tmp/files-cleanup-source.json、.tmp/files-cleanup-unit-results、.tmp/files-cleanup-final-unit-files.log、.tmp/files-cleanup-final-architecture.log、.tmp/files-cleanup-aot-final-proof.json、.tmp/files-cleanup-partitions、.tmp/files-cleanup-jit-1、.tmp/files-cleanup-ci-artifacts、.tmp/files-cleanup-ci-runtime-proof.json及.tmp/files-cleanup-final-proof.json；编译失败、最初RED与取消竞争RED均保留。本批仅收口Blob清理有界推进、周期重试和取消安全；历史可复用旧绑定退休策略、完整生成应用、全页面、多实例故障及容量仍待。保持Build-verified / Capacity-not-verified，PR3保持Draft，未合并或发布；报告以[skip ci]提交，不把报告HEAD当作运行源码。
+
+## 2026-10-13 Files 三条 Pending 扫描周期
+
+任务files-pending-cycles-20261013，基线a7afe2b，生产冻结`234d350ab70684de2929b3ff5e68c2603ad279ed`、树`f1a76311d0dfcc1ebddaec43607935630e362d69`。Host上传及Pending引用原先每个新Worker作用域重置扫描起点，有限批次下首批publishing、失败探测或未知消费者长期占满批次，会饿死后序记录；租户资源原游标虽跨轮保留，持续更新年龄上界仍可延长失败项重试周期。新增Host上传/引用singleton游标与串行门闩，三条链路固定每周期上界，空/短页重置后重试；年龄策略收紧只收紧当前上界。引用的stale/release两个界限成对冻结，默认开关及年龄不变，不修改SQL、迁移或公共契约。
+
+Runner直接调用先验证参数范围；Pending引用新增启动校验，BatchSize1..1000、MaxBatches1..100、年龄及释放宽限30..86400秒、轮询5..86400秒。Query、对象探测/权威回答返回及推进前检查取消；等待取消不得进入扫描或释放另一调用持有的门闩。仅显式NotFound释放引用，空/失败/未知回答保留并允许后序扫描。租户资源解析返回后先检查取消再进入可信上下文，ready资源权威回答后检查取消再写入；保留既有单项普通故障跳过并在下周期重试的策略，取消中止保留未完成页。Host/Claim数据库页失败不推进。
+
+可复现证据：首轮24项实际RED22失败/2通过，修复后24/24；扩展60项实际56通过/4失败，覆盖权威读取取消后继续写入，修复后60/60。最后69项夹具首轮CS0029/CS1662编译失败不算行为RED；修正夹具后实际65通过/4失败，空Claim回答与ready取消回归修复后最终69/69。失败、编译失败及所有GREEN日志保留。只读复核共享注册、年龄快照、门闩、权威保护与真实用例，未发现可证明的待修复问题。
+
+最终实际命令：node .tmp/pending-cycles-unit.mjs green3 69聚焦69/69；node .tmp/pending-cycles-fast-final.mjs完整Files311/311、消费者构建零警告/错误、Architecture248/248；node .tmp/pending-cycles-aot-final.mjs完成Files/API/Worker三目标分析，退出0；node .tmp/pending-cycles-static.mjs命名33/33、SQL安全5/5、治理70/70、矩阵/迁移工具13/13。node .tmp/pending-cycles-partitions.mjs新鲜消费者正式分片1246，无遗漏/重复；infrastructure260、迁移250+272。发现仅为结构证据。Unit矩阵最低6042，未报告完整Unit6042实际运行；Worker矩阵提升27并列出新增必需类型。
+
+node .tmp/pending-cycles-jit-1.mjs集中真实SQL Server/MySQL2/2，零失败/跳过。工厂只注册主动调用的后台组件，不启动Worker循环；每次新作用域、每轮一行验证首批保留及后序Host晋升/缺失删除、Claim释放和租户资源晋升。可控时钟推进后原周期仍排除原上界外记录，空页结束，新周期处理新增项并重试保留项；实际包含同时间Host行的Guid分页。自有数据库及对象根目录、Windows SDK10.0.401、每进程两个测试worker。冻结3952个输入/984个消费者，排队0.361秒、运行202.882秒；receipt HEAD为任务基线，逐输入摘要匹配最终源码。完成后自有资源回收、共享锁正常释放，无中断他窗资源。
+
+同源码真实Native API核心23+附加26合计49/49、完整Worker27/27，零失败/跳过。新增Worker双库用例在BatchSize1/MaxBatches1下验证三条链路跨真实后台作用域推进，保留慢上传、未知消费者、未知资源所有者，正常停止及日志无Fatal。API run38362576396、Worker run38362576373，检出`e02604fa76e882caf8d87add21512e475d598120`；实际树、原始日志、ZIP/ELF与发布清单摘要核对。API首轮官方MySQL镜像下载Data limit exceeded，保留日志后重试通过，不改变镜像源或降低测试要求。复用该完整运行，未重复本地Native。
+
+上一批主CI38348745440已完成success，此处补齐原记录的待验证结果，不把未触发作业算通过。本批主CI38362576437尚未结束，不报告通过；未执行或跳过不计成功。 未触发独立应用、完整生成应用、全页面、多实例故障及容量未验证；本批集中验收仅覆盖三条扫描周期与取消安全。保持Build-verified / Capacity-not-verified，PR3保持Draft，未合并或发布；报告以[skip ci]提交，报告HEAD不是已运行的生产源码。
+
+证据入口.tmp/pending-cycles-source.json、.tmp/pending-cycles-unit-results、.tmp/pending-cycles-final-unit-files.log、.tmp/pending-cycles-final-architecture.log、.tmp/pending-cycles-aot-final-proof.json、.tmp/pending-cycles-partitions、.tmp/pending-cycles-jit-1、.tmp/pending-cycles-api-infra-failure.log、.tmp/pending-cycles-ci-artifacts、.tmp/pending-cycles-ci-runtime-proof.json及.tmp/pending-cycles-final-proof.json。既有他窗四项WIP逐文件保护证明通过。
