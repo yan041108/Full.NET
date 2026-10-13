@@ -19,12 +19,13 @@ test('拉取限流按5秒和15秒退避，成功后才设置别名', async () =>
   assert.equal(adapter.calls.filter(args => args[0] === 'tag').length, 1);
 });
 
-test('持续限流只尝试三次，不设置别名或准备下一镜像', async () => {
+test('两官方源持续限流各三次耗尽，不设置别名或准备下一镜像', async () => {
   const adapter = recorder(() => { throw new Error('toomanyrequests: Rate exceeded'); });
   const delays = [];
   await assert.rejects(async () => prepareCiTestImages({ ...adapter, wait: async ms => delays.push(ms) }), /Rate exceeded/);
-  assert.equal(adapter.calls.length, 3);
-  assert.deepEqual(delays, [5000, 15000]);
+  assert.equal(adapter.calls.length, 6);
+  assert.deepEqual(delays, [5000, 15000, 5000, 15000]);
+  assert.deepEqual(adapter.calls.map(args => args[1]), [...Array(3).fill('public.ecr.aws/docker/library/mysql:8.0'), ...Array(3).fill('docker.io/library/mysql:8.0')]);
 });
 
 test('EOF和权限错误立即失败，镜像核对错误也不能重试', async () => {
@@ -110,4 +111,29 @@ test('真实数据库 CI 在昂贵构建之前准备官方测试镜像', async (
     const block = ci.split(`\n  ${job}:`)[1]?.split(/\n  [a-z][\w-]*:/)[0];
     assert.ok(block?.includes('node scripts/testing/prepare-ci-test-images.mjs'), `${job} 缺少镜像准备`);
   }
+});
+
+test('带宽限额耗尽直接切换同标签Docker官方源并核对实际镜像ID',async()=>{
+ const delays=[];const adapter=recorder(args=>{if(args[0]==='pull'&&args[1]==='public.ecr.aws/docker/library/mysql:8.0')throw new Error('toomanyrequests: Data limit exceeded');});
+ assert.deepEqual(await prepareCiTestImages({...adapter,wait:async ms=>delays.push(ms)}),['mysql:8.0','redis:8.6']);
+ assert.deepEqual(delays,[]);
+ assert.deepEqual(adapter.calls.filter(args=>args[0]==='pull').map(args=>args[1]),['public.ecr.aws/docker/library/mysql:8.0','docker.io/library/mysql:8.0','public.ecr.aws/docker/library/redis:8.6']);
+ assert.ok(adapter.calls.some(args=>args[0]==='tag'&&args[1]==='docker.io/library/mysql:8.0'&&args[2]==='mysql:8.0'));
+});
+test('主源短时限流三次耗尽后仅尝试同标签官方备用源',async()=>{
+ const delays=[];const adapter=recorder(args=>{if(args[0]==='pull'&&args[1].startsWith('public.ecr.aws/'))throw new Error('toomanyrequests: Rate exceeded');});
+ assert.deepEqual(await prepareCiTestImages({...adapter,redisOnly:true,wait:async ms=>delays.push(ms)}),['redis:8.6']);
+ assert.deepEqual(delays,[5000,15000]);
+ assert.deepEqual(adapter.calls.filter(args=>args[0]==='pull').map(args=>args[1]),['public.ecr.aws/docker/library/redis:8.6','public.ecr.aws/docker/library/redis:8.6','public.ecr.aws/docker/library/redis:8.6','docker.io/library/redis:8.6']);
+});
+test('备用源鉴权失败或镜像ID无效仍立即失败，不能覆盖别名',async()=>{
+ for(const invalid of [false,true]){
+  const calls=[];await assert.rejects(()=>prepareCiTestImages({redisOnly:true,wait:async()=>{},run(args){
+   calls.push(args);
+   if(args[0]==='pull'&&args[1].startsWith('public.ecr.aws/'))throw new Error('toomanyrequests: Data limit exceeded');
+   if(args[0]==='pull'&&!invalid)throw new Error('denied: access forbidden');
+   return args[0]==='image'?'invalid-id':'';
+  }}),invalid?/ID 无效/:/denied/);
+  assert.equal(calls.filter(args=>args[0]==='tag').length,0);
+ }
 });
