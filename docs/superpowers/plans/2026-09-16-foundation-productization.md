@@ -2907,3 +2907,25 @@ Pending 对账新增可选的精确绑定键探测端口，现有消费者端口
 证据入口 .tmp/media-release-source-4.json、.tmp/media-release-unit-4.log、.tmp/media-release-aot-4-proof.json、.tmp/media-release-jit-3、.tmp/media-release-ci-artifacts-4、.tmp/media-release-ci-runtime-proof-4.json、.tmp/media-release-final-proof-4.json。失败证据包括容量RED、JIT2、source2原生CI、c2997fe原生Worker及注册RED、治理首轮进程启动失败；旧产物及未运行验收副本保留。报告以[skip ci]提交，避免文档再次触发相同生产输入验收，不把报告HEAD冒称已运行源码。
 
 截至最终报告，主CI38335307248的客户端构建测试与两组双库迁移恢复已通过，受影响集成测试仍运行；未完成和跳过不计成功。按R-20260930规定范围验收收口，继续开发无需等待正常运行的全部CI。
+
+## 2026-10-13 媒体 Active 退休代际补偿
+
+任务media-active-generations-20261013，最终生产冻结`bbe4085ad87c143c53a5329512fc2dfab9347470`、树`30e94b2f898e6d20682140adf6c54ed57cf78cc9`。Files新增可选的一次性绑定批量探测契约，Identity头像/签名、Tenancy Logo按扫描记录的实际代际键权威读取当前绑定。每次官方写入使用新UUIDv7代际，退休键不再恢复；明确退休的新代际即使缺失解绑事实，也可由Active扫描补偿。该契约区分可复用业务主体与不可复用绑定身份，不将媒体模块接入原逻辑引用不可复用标记；Document版本补偿语义保持。
+
+历史双参数键、跨主体或错误格式键、当前同文件但键缺失/旧格式/损坏、悬挂元数据及未知回答全部保留。消费方每批只执行一次权威SQL，错误撤回整批回答，取消传播；Tenant批量投影复用现有AOT物化器。Files继续使用年龄窗口、跨轮游标、有限批次和完整扫描快照条件释放，不引入跨模块本地事务或新迁移。旧写入器与新写入器仍禁止混用，遵守此前停止旧写入→迁移252→全部Worker就绪→新API写入门禁；本次未部署。
+
+27项真实RED后完成实现，新增/聚焦54/54及受影响Identity/Tenancy/Files1028/1028通过；中途6项Fixture失败误将Files自有扫描也计入消费方查询，按实际调用类型区分后通过，没有减少业务断言。完整Architecture248/248、六目标AOT分析、命名33/33、治理70/70、矩阵/迁移工具13/13通过。默认bin目录旧程序集导致分片1230与1242不一致；复制新编译消费者到自有发现目录后，正式分片1242项无遗漏/重复，迁移250+272完整分区；未改变门槛。只读复审未发现新增可证明P1/P2。
+
+实际命令：node .tmp/media-active-unit-final.mjs；node .tmp/media-active-build-final.mjs；node .tmp/media-active-aot-final.mjs；pnpm test:naming；node --test --test-concurrency=2 tests/governance/*.test.mjs；node --test tests/testing/test-matrix.test.mjs tests/templates/migration-script-modules.test.mjs；node .tmp/media-active-partitions-fresh.mjs。发现证据不是运行证据。
+
+node .tmp/media-active-jit-1.mjs：真实SQL Server/MySQL两项集中通过，零失败/跳过。每库在三类媒体既有事务回滚、可靠事实和Pending保护样例基础上，增加无事实退休代际释放、旧键和当前代际保留；权威探测完成后以确定性屏障刷新Claim快照，真实条件更新保留刷新行；另一屏障提交同FileId的新代际，旧代际释放而新绑定Active保持。失败路径取消并排空自有任务，保留首个异常，不以固定延时充当竞争。JIT消费者在提交前冻结，原HEAD仅为任务基线，源码摘要与最终提交匹配。
+
+最终源码CI Native API核心23/23及附加26/26，合计49/49；完整Worker25/25通过，零失败/跳过。扩展Worker两库实际从新原生进程执行可靠解绑、Pending精确代际及无事实Active旧代际补偿，保留三种历史旧键；BatchSize2/MaxBatches1的跨轮扫描到达全部三类孤儿。API run 38342339209、Worker run 38342339175，检出`5ac32d98f60eb555636818ac9d58bbc1414438c9`，与生产树一致；原始日志、ZIP、ELF、发布清单摘要核对。复用完整CI实际运行，未重复本地Native。
+
+本地Windows SDK10.0.401，每测试进程2个worker；JIT冻结3944个输入、984个消费者文件，排队3074.020秒、运行269.678秒分别记录。自有数据库夹具回收，共享资源保持，他窗WIP逐文件保护证明通过。用户明确授权本批及后续同类测试资源安全协调，不再逐批确认；仅请求正常构建/测试组结束后的交接，不中断运行。核对实际锁持有进程后向“分析缓存模块”协调，并向“按 AI 开发计划进入交付”更正归属。
+
+主CI run38342339397首次在准备镜像阶段失败：public.ecr.aws的MySQL8.0拉取连续三次返回toomanyrequests/Data limit exceeded，尚未启动代码测试。保留原失败job115115909514日志；仅重试该作业，重试job115120507399已通过镜像准备、构建、单测并进入受影响双库测试，截至本报告仍在运行，最终主CI结果未验收。该外部限流与本批Native运行证据分别记录，未更改测试门槛或镜像版本。
+
+证据入口.tmp/media-active-source.json、.tmp/media-active-unit-final.log、.tmp/media-active-aot-final-proof.json、.tmp/media-active-partitions-fresh、.tmp/media-active-jit-1、.tmp/media-active-ci-artifacts、.tmp/media-active-ci-runtime-proof.json、.tmp/media-active-final-proof.json。RED、Fixture误计及旧程序集发现失败均保留，不计通过。
+
+本批仅补偿具有规范且不可复用代际身份的历史Active。没有独立退休证据的可复用旧格式键保持保护，完整生成应用、全页面、多实例故障及容量仍待；整体Build-verified / Capacity-not-verified。PR3保持Draft，合并发布另行约定；报告以[skip ci]提交，不将报告HEAD当作已运行生产源码。
