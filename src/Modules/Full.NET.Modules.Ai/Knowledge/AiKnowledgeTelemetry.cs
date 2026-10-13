@@ -59,6 +59,9 @@ internal static class AiKnowledgeTelemetry
     {
         AiKnowledgeAnswer { Refused: true } => "refused",
         AiKnowledgeExecutedAnswer { Answer.Refused: true } => "refused",
+        AiKnowledgeModelChunkResult { IsSuccess: false } => "denied",
+        AiKnowledgePdfModelChunkResult { IsSuccess: false } => "denied",
+        AiKnowledgeDocxModelChunkResult { IsSuccess: false } => "denied",
         _ => "completed"
     };
 }

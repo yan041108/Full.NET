@@ -291,3 +291,13 @@ Agent、普通聊天、管理Embedding、知识检索回答与Text/PDF/DOCX索�
 普通聊天向SDK声明原4096输出上限，并在正文交付前校验同帧报告；流Current和工厂返回后再次检查取消。Agent不配置可选输入预算时也执行累计输入的全局上限。字符/UTF-8字节准入和供应商事后回执仍不证明请求前精确输入Token或实际收费硬上界；unknown外部用量对账继续开放。无需新增SQL、迁移、HTTP字段或Provider依赖；Native发布/运行及独立应用仍集中验收，Capacity-not-verified。
 
 本批实际命令与证据见活动计划R11o及artifacts/r11o/acceptance.json：新增220、完整AI4454、架构235/88通过；SQL原组43通过/1失败加精确1项补验通过、MySQL44通过，成功UID并集覆盖双库各44，原失败保留，API/Worker AOT分析零警告/错误；完整Unit与集中Native发布/运行未执行。
+
+## 普通聊天、管理 Embedding 与本地分块观测（R11p）
+
+原入口使用固定阶段 `chat`、`embedding_test`、`knowledge_chunk_text`、`knowledge_chunk_pdf`、`knowledge_chunk_docx`。指标只有 `ai.stage` 与 `ai.outcome`；正文、分类、用户、模型配置、目的地、凭据和原异常消息不进入标签。聊天和管理 Embedding 只在原预留身份与本次新建资格确认后关联已有 OperationId，且只进入 Trace；不会为观测生成标识或扩大派发、结算资格。
+
+准入边界捕获预算异常后记录 `budget_rejected`，兼容租户配额的错误码也沿用该分类；派发后的结算异常仍是 `failed`。HostOnly 管理查询拒绝原样传播并记录 `authorization_required`。聊天发送错误事件即使返回传输处理成功，也不记为完成；只有原清理与最终成功通知结束才记录 `completed`。Embedding 完成等待原结算返回，通知失败或结算失败不借用成功分类。
+
+本地分块拒绝记录 `denied`，不提供部分结果；PDF 以整份文档记录一次阶段，逐页复用原模型批准和预算检查，不额外生成 Text 阶段。预取消不创建观测或执行入口 IO，后续取消保留原异常和收尾责任。监听器故障不能改变原业务结果。`completed` 只表示当前方法边界结束，不证明整代次 ready、客户端实际收到响应或供应商账单已核证。
+
+本批受影响本地验收和原始失败记录见活动计划R11p及artifacts/r11p/acceptance.json；完整AI和双库Ai+Smoke已通过，集中Native发布/运行与独立应用仍待AI模块统一验收。

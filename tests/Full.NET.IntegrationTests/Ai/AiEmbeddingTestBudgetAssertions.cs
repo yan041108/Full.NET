@@ -31,16 +31,19 @@ internal static class AiEmbeddingTestBudgetAssertions
                 var provider = new ControlledFactory(fault);
                 var service = new AiEmbeddingTestService(scope.ServiceProvider.GetRequiredService<IQueryExecutor>(),
                     [provider], binding, budget, scope.ServiceProvider.GetRequiredService<IIdGenerator>());
+                using var telemetry = new AiOperationStageTelemetryAssertions();
                 if (scoped)
                 {
                     // 管理查询只准Host；不能为验证租户费用而放宽原查询，或绕过它伪装成生产路径。
                     await Assert.ThrowsExactlyAsync<HostContextRequiredException>(() => service.TestAsync(model, new("billing probe", null)));
+                    telemetry.Verify("embedding_test", "authorization_required", null);
                     Assert.AreEqual(0, budget.Reserves); Assert.AreEqual(0, budget.Settlements);
                     Assert.AreEqual(0, provider.Creates); Assert.AreEqual(0, provider.Calls); continue;
                 }
                 var result = await service.TestAsync(model, new("billing probe", null));
                 Assert.AreEqual(fault == "good", result.IsSuccess);
                 var operation = budget.Request!; Assert.IsNotNull(operation); Assert.AreEqual(1, budget.Reserves); Assert.AreEqual(1, budget.Settlements);
+                telemetry.Verify("embedding_test", fault == "good" ? "completed" : "failed", operation.OperationId);
                 Assert.AreEqual(fault is "binding" or "factory" ? 0 : 1, provider.Calls);
                 var state = await db.QuerySingleAsync<Row>("""
                     SELECT ScopeKey,UsageStatus,Outcome,InputTokens,OutputTokens,ReservedTokens,ChargedTokens

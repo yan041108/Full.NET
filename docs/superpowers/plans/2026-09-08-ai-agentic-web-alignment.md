@@ -2936,3 +2936,20 @@ SQL原组PDF向量问答场景预期InvalidDataException，实际由独立结算
 冻结7835个输入；Unit运行前后源码及编译消费闭包一致，既有RAG JSON/报告输出单列，AI/Agents生产与消费程序集匹配。重用已核对的R11n Windows/Linux缓存；AOT/JIT及双库覆盖前后验证完整源码和消费摘要，双库明确生产项目与消费目录同步。本工作区锁和同机重型锁继续遵守，组间45秒交接，不中断其他窗口任务。共享矩阵只暂存HEAD加220，其他窗口改动与保护路径保留；main提交，不推送。Windows x64 Unit4处理器/2GiB GC，Linux构建8CPU/4GiB，双库各2CPU/8GiB；NuGetAudit=false的缓存restore不宣称在线依赖审计。长TRX文本截断提示保留，不声明原文本完整。命令、退出码、UID、摘要和审查见`artifacts/r11o/acceptance.json`；本段测试后补入，最终文档摘要独立绑定。
 
 本批只证明核心回执及上述结算/取消边界，不将字符或UTF-8字节估算宣称为请求前精确Token/费用硬认证。R11整体、其他阶段分类/跨重启Trace、其他Provider/Chat精确输入硬限、未知外部动作/费用对账，以及集中Native发布/运行、独立生成应用、浏览器和运营恢复仍开放；Capacity-not-verified。
+
+
+#### R11p：普通聊天、管理Embedding与本地分块阶段观测（2026-10-14，本批受影响本地验收完成）
+
+- [x] 普通聊天、管理Embedding及Text/PDF/DOCX本地分块进入固定阶段观测，指标仍仅stage/outcome；已有操作仅在原准入身份与本次新预留确认后关联Trace，不新建身份、不扩大派发或结算权限。预取消无观测/IO，监听器故障不改变业务结果。
+- [x] 准入预算拒绝在原Reserve边界记录，兼容配额旧错误码不误记为授权拒绝；派发后的结算异常仍failed。HostOnly管理查询拒绝原样传播并记录authorization_required。聊天错误SSE即使返回传输处理成功仍failed，completed等待独立收尾与最终成功通知；Embedding等待原finally结算。完成不证明客户端实际接收、整代次ready或供应商费用已核证。
+- [x] 本地分块拒绝记录denied，PDF每份文档只记录一个分块阶段，页内复用原批准/预算检查。真实索引调用产生同Trace的分块子阶段；Unit与双库严格核对父子关联、每阶段两项固定标签指标，不放宽原派发/账本/隔离断言。真实双库聊天14个Host/Tenant场景及管理Embedding的Host调用/租户HostOnly拒绝保留原生产服务及账本检查。
+
+新增112项最终全部通过，完整AI4566/4566，零失败/跳过；Unit发现8049，仅执行AI范围。首次完整AI4512通过/54旧单阶段断言失败，原TRX保留；补强父子断言后重新执行完整组，生产源码未变。初次101项RED为67失败/34通过；兼容配额追加RED3/3失败，最终Green覆盖全部112。初次测试夹具4个init编译错误、Windows运行时构建异常退出3221225477，以及中间112项109通过/3失败均保留，不算最终通过；资源限制调整和结果分支修正后重新构建/验证。
+
+API/Worker AOT分析零告警/错误，相关Architecture88/88、完整Architecture235/235；JIT Integration编译及分片发现1214通过，不将发现数冒充执行数。实际影响集Ai+Smoke，SQL Server与MySQL各48/48，共96唯一通过UID，每库1Worker，原矩阵60分钟期限；未新增Integration发现项。命名30、矩阵6、治理57、工具54及预排除保护路径的Markdown387文件检查通过。只读多轮复核无遗留Critical/Important。
+
+双库测试前同步新增Telemetry目录时目标目录缺失，首次复制与随后的重复旧消费守卫拒绝均保留，未执行测试。恢复审计逐文件核对只能来自已验证旧源或本批冻结源，消费目录必须整体匹配一个已知完整版本；补齐目录后两库源码与消费摘要完整匹配本批输入，再按原断言和期限执行，未修改业务代码或降低门槛。SQL Server正式组约34分56秒、MySQL约40分25秒；各组完整通过，未使用补测并集代替本次完整结果。
+
+冻结7840输入；Unit运行前后编译消费闭包和源码摘要一致，既有RAG JSON/报告单列，Agents/AI生产与消费程序集匹配。复用核对过的R11o Windows/Linux缓存，覆盖前后检查完整源码及消费摘要。遵守共享工作区与重型锁：短AOT/JIT结束后交接另一对话Native续验，本批双库在锁外等待，不中断或接管其他资源。共享矩阵仅暂存HEAD加112，其他窗口改动与保护路径保留；在main提交，不推送。Windows Unit2处理器/1GiB GC、Linux构建8CPU/4GiB、双库各2CPU/8GiB；缓存NuGetAudit=false不宣称在线审计。长TRX文本截断提示保留，计数/UID另核对。证据见artifacts/r11p/acceptance.json；本段在验收后补入，最终文档摘要独立绑定。
+
+R11整体、剩余阶段分类/跨重启Trace、其他Provider/Chat请求前精确输入硬限、未知外部动作/费用对账，以及集中Native发布/运行、生成应用、浏览器和运营恢复仍开放；Capacity-not-verified。

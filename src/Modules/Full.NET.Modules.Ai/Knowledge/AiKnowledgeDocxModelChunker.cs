@@ -23,6 +23,11 @@ internal static class AiKnowledgeDocxModelChunker
 {
     internal static AiKnowledgeDocxModelChunkResult Chunk(AiKnowledgeBaseRecord knowledge, AiModelConfigRecord model,
         AiKnowledgeParsedDocx document, AiKnowledgeChunkOptions options, CancellationToken token)
+        => AiKnowledgeTelemetry.Run("knowledge_chunk_docx", () => ChunkCore(knowledge, model, document, options, token), token);
+
+    /// <summary>复用既有完整结构和批准检查，完成只表示本地分块返回。</summary>
+    private static AiKnowledgeDocxModelChunkResult ChunkCore(AiKnowledgeBaseRecord knowledge, AiModelConfigRecord model,
+        AiKnowledgeParsedDocx document, AiKnowledgeChunkOptions options, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); ArgumentNullException.ThrowIfNull(knowledge); ArgumentNullException.ThrowIfNull(model); ArgumentNullException.ThrowIfNull(options);
         var frozen = AiKnowledgeDocxStructure.Freeze(document, token);

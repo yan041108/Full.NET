@@ -236,6 +236,7 @@ public sealed partial class AiEmbeddingTestBoundaryTests
             budget.ReserveAsync(Arg.Any<AiOperationRequest>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
                 var request = call.Arg<AiOperationRequest>()!; Requests.Add(request); OnReserve?.Invoke();
+                if (ReservationFault == "quota") throw new AiBudgetException(AiErrorCodes.TenantQuotaExceeded);
                 return new AiOperationReservation(ReservationFault == "mismatch" ? Guid.CreateVersion7() : request.OperationId,
                     ReservationFault != "duplicate", "reserved", request.InputTokenLimit, null, null);
             });

@@ -24,6 +24,11 @@ internal static class AiKnowledgePdfModelChunker
     /// <remarks>来源授权、解析进程身份与派发前批准仍由后续 Worker 权威复核；这里只生成本地完整结果。</remarks>
     internal static AiKnowledgePdfModelChunkResult Chunk(AiKnowledgeBaseRecord knowledge, AiModelConfigRecord model,
         AiKnowledgeParsedPdf document, AiKnowledgeChunkOptions options, CancellationToken token)
+        => AiKnowledgeTelemetry.Run("knowledge_chunk_pdf", () => ChunkCore(knowledge, model, document, options, token), token);
+
+    /// <summary>保留逐页授权绑定与整份预算，观测不读取内容或修改分块结果。</summary>
+    private static AiKnowledgePdfModelChunkResult ChunkCore(AiKnowledgeBaseRecord knowledge, AiModelConfigRecord model,
+        AiKnowledgeParsedPdf document, AiKnowledgeChunkOptions options, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(knowledge);
@@ -42,7 +47,7 @@ internal static class AiKnowledgePdfModelChunker
             if (chunks.Count > 0 && totalTokens >= options.MaxTotalTokens) return Rejected(AiKnowledgeChunkFailure.TotalTokenBudgetExceeded);
             var remaining = chunks.Count == 0 ? options : options with { MaxChunks = options.MaxChunks - chunks.Count, MaxTotalTokens = options.MaxTotalTokens - totalTokens };
             var text = new AiKnowledgeParsedText(page.Text, document.ContentHash, document.SizeBytes, AiKnowledgeTextSource.PdfPage);
-            var result = AiKnowledgeModelChunker.Chunk(knowledge, model, text, AiKnowledgeTextFormat.PlainText, remaining, token);
+            var result = AiKnowledgeModelChunker.ChunkCore(knowledge, model, text, AiKnowledgeTextFormat.PlainText, remaining, token);
             if (!result.IsSuccess) return new(null, result.Failure, result.ChunkFailure);
             foreach (var chunk in result.Output!.Chunks.Chunks)
             {

@@ -59,9 +59,11 @@ internal static class AiChatPaidReceiptAssertions
                 new(scopes, clock, NullLogger<AiChatGenerationLeaseMonitor>.Instance), budget,
                 new(scopes, NullLogger<AiChatCleanupScope>.Instance), services.GetRequiredService<ICurrentTenant>(),
                 services.GetRequiredService<IOptions<DatabaseOptions>>(), clock, new GenerationIds(generation));
+            using var telemetry = new AiOperationStageTelemetryAssertions();
             await service.StreamAsync(session, owner, new("billing probe"), output);
             var request = budget.Request!; Assert.IsNotNull(request); Assert.AreEqual(generation, request.OperationId);
             var rejected = fault is "duplicate" or "identity";
+            telemetry.Verify("chat", rejected ? "budget_rejected" : fault == "good" ? "completed" : "failed", rejected ? null : generation);
             Assert.AreEqual(rejected || fault == "factory" ? 0 : 1, provider.Calls, fault);
             Assert.AreEqual(!rejected, output.HasStarted, fault);
             var row = await db.QuerySingleAsync<Row>("""

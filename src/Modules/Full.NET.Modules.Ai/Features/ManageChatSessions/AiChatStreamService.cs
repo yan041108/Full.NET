@@ -12,6 +12,8 @@ using Full.NET.Modules.Ai.Features;
 using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Modules.Ai.Streaming;
 using Full.NET.Abstractions.Results;
+using Full.NET.Agents.Runtime;
+using Full.NET.Modules.Ai.Telemetry;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -52,12 +54,19 @@ internal sealed class AiChatStreamService(
     /// <param name="request">已经过入口绑定的请求。</param>
     /// <param name="output">承载语义事件的传输适配器。</param>
     /// <param name="cancellationToken">取消当前操作的令牌。</param>
-    public async Task<Result<bool>> StreamAsync(
+    public Task<Result<bool>> StreamAsync(
         Guid sessionId,
         Guid ownerUserId,
         StreamAiChatMessageRequest request,
         IAiChatOutput output,
         CancellationToken cancellationToken = default)
+        => AiOperationTelemetry.RunAsync("chat", observation => StreamCoreAsync(sessionId, ownerUserId, request,
+            output, observation, cancellationToken), cancellationToken, completedOnSuccess: false);
+
+    /// <summary>只有收尾和终态通知成功才记录完成；错误事件已发送也仍属于失败结果。</summary>
+    private async Task<Result<bool>> StreamCoreAsync(Guid sessionId, Guid ownerUserId,
+        StreamAiChatMessageRequest request, IAiChatOutput output, AgentExecutionTelemetry.Observation observation,
+        CancellationToken cancellationToken)
     {
         var validationMessage = AiChatContentPolicy.ValidateUserMessage(request.Content);
         if (validationMessage is not null)
@@ -160,9 +169,11 @@ internal sealed class AiChatStreamService(
                 if (candidate is null || !candidate.IsNew || candidate.OperationId != assistantMessageId || candidate.UsageStatus != "reserved")
                     throw new AiBudgetException("ai.budget.operation_conflict");
                 reservation = candidate;
+                observation.SetOperationId(assistantMessageId);
             }
             catch (AiBudgetException error)
             {
+                observation.Outcome = "budget_rejected";
                 failure = new Error(error.Code, "The AI operation budget cannot cover this request.",
                     error.Code == "ai.budget.operation_conflict" ? ErrorType.Conflict : ErrorType.Forbidden);
                 throw;
@@ -246,6 +257,8 @@ internal sealed class AiChatStreamService(
             await output.WriteErrorAsync(failure.Message, notification.Token).ConfigureAwait(false);
         else
             await output.WriteDoneAsync(assistantMessageId, promptTokens, completionTokens, notification.Token).ConfigureAwait(false);
+        if (failure is null) observation.Outcome = "completed";
+        else if (observation.Outcome != "budget_rejected") observation.Outcome = AiOperationTelemetry.Outcome(failure);
         return Result<bool>.Success(true);
     }
 

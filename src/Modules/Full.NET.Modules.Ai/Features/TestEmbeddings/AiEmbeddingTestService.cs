@@ -9,6 +9,8 @@ using Full.NET.Modules.Ai.Domain;
 using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Modules.Ai.Security;
 using Full.NET.Modules.Ai.Knowledge;
+using Full.NET.Agents.Runtime;
+using Full.NET.Modules.Ai.Telemetry;
 using Microsoft.Extensions.AI;
 
 namespace Full.NET.Modules.Ai.Features.TestEmbeddings;
@@ -22,10 +24,16 @@ internal sealed class AiEmbeddingTestService(
     IIdGenerator idGenerator)
 {
     /// <summary>对单条或批量输入执行 Embedding 测试并结算预算。</summary>
-    public async Task<Result<TestAiModelEmbeddingResult>> TestAsync(
+    public Task<Result<TestAiModelEmbeddingResult>> TestAsync(
         Guid modelConfigId,
         TestAiModelEmbeddingRequest request,
         CancellationToken cancellationToken = default)
+        => AiOperationTelemetry.RunAsync("embedding_test", observation => TestCoreAsync(modelConfigId, request,
+            observation, cancellationToken), cancellationToken);
+
+    /// <summary>诊断沿用准入成功的原操作标识，不扩大派发或结算资格。</summary>
+    private async Task<Result<TestAiModelEmbeddingResult>> TestCoreAsync(Guid modelConfigId,
+        TestAiModelEmbeddingRequest request, AgentExecutionTelemetry.Observation observation, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested(); ArgumentNullException.ThrowIfNull(request);
         // 管理输入先冻结，数据库等待和外部集合回调不能改变指纹或放大复制成本。
@@ -78,9 +86,11 @@ internal sealed class AiEmbeddingTestService(
                 cancellationToken).ConfigureAwait(false);
             if (!reservation.IsNew || reservation.OperationId != operationId)
                 throw new AiBudgetException("ai.budget.operation_conflict");
+            observation.SetOperationId(operationId);
         }
         catch (AiBudgetException error)
         {
+            observation.Outcome = "budget_rejected";
             return Result<TestAiModelEmbeddingResult>.Failure(new Error(
                 error.Code,
                 "The AI operation budget cannot cover this request.",

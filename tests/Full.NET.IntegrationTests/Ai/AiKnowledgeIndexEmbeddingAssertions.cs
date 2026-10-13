@@ -236,7 +236,7 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                 ? services.GetRequiredService<ICommandTransaction>().ExecuteAsync(token => execution.ExecuteTextBatchAsync(binding, task.Id, lease, 0, token), CancellationToken.None)
                 : execution.ExecuteTextBatchAsync(binding, task.Id, lease, 0, CancellationToken.None, (plan, token) =>
                     { wholePlan = plan; return ManifestStore(services, tasks).PersistAsync(binding, task.Id, lease, plan, token); })),
-                () => db.QuerySingleOrDefaultAsync<Guid?>("SELECT Id FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id AND BatchOrdinal=0", new { Id = task.Id }));
+                () => db.QuerySingleOrDefaultAsync<Guid?>("SELECT Id FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id AND BatchOrdinal=0", new { Id = task.Id }), () => files.Opens);
             AiKnowledgeIndexTextManifestStore ManifestStore(IServiceProvider services, AiKnowledgeIndexTaskStore tasks, ICommandExecutor? command = null) => new(
                 services.GetRequiredService<IQueryExecutor>(), command ?? services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
                 services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(),

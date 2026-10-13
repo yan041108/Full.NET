@@ -28,6 +28,11 @@ internal static class AiKnowledgeModelChunker
     /// <param name="token">在可信同步词表初始化及逐块计数前后观察取消，不能强制终止同步 SDK。</param>
     internal static AiKnowledgeModelChunkResult Chunk(AiKnowledgeBaseRecord knowledge, AiModelConfigRecord model,
         AiKnowledgeParsedText document, AiKnowledgeTextFormat format, AiKnowledgeChunkOptions options, CancellationToken token)
+        => AiKnowledgeTelemetry.Run("knowledge_chunk_text", () => ChunkCore(knowledge, model, document, format, options, token), token);
+
+    /// <summary>整份 PDF 在外层观测一次；页内复用原检查，避免重复记录为普通文本执行。</summary>
+    internal static AiKnowledgeModelChunkResult ChunkCore(AiKnowledgeBaseRecord knowledge, AiModelConfigRecord model,
+        AiKnowledgeParsedText document, AiKnowledgeTextFormat format, AiKnowledgeChunkOptions options, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(knowledge);

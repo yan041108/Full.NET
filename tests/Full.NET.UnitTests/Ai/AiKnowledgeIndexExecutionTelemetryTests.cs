@@ -57,7 +57,7 @@ public sealed partial class AiKnowledgeIndexEmbeddingTests
             throwTrace: fault == "duration" ? null : fault);
         Assert.IsNotNull(await execute()); Assert.AreEqual(1, f.Generator.Calls);
         await f.Budget.Received(1).SettleAsync(f.OperationId, new(7, 0), "succeeded", CancellationToken.None);
-        IndexTelemetryTestChecks.VerifyMeasurements(capture, "knowledge_index_text", "completed");
+        IndexTelemetryTestChecks.VerifyMeasurements(capture, "knowledge_index_text", "completed", includesChunk: true);
         IndexTelemetryTestChecks.VerifyPrivacy(capture); Assert.AreSame(capture.Root, Activity.Current);
     }
 }
@@ -114,7 +114,7 @@ public sealed partial class AiKnowledgeIndexPdfPlanningServiceTests
             throwTrace: fault == "duration" ? null : fault);
         Assert.IsNotNull(await execute()); Assert.AreEqual(1, f.Generator.Calls);
         await f.Budget.Received(1).SettleAsync(f.OperationId, new(7, 0), "succeeded", CancellationToken.None);
-        IndexTelemetryTestChecks.VerifyMeasurements(capture, "knowledge_index_pdf", "completed");
+        IndexTelemetryTestChecks.VerifyMeasurements(capture, "knowledge_index_pdf", "completed", includesChunk: true);
         IndexTelemetryTestChecks.VerifyPrivacy(capture); Assert.AreSame(capture.Root, Activity.Current);
     }
 }
@@ -171,7 +171,7 @@ public sealed partial class AiKnowledgeIndexDocxPlanningServiceTests
             throwTrace: fault == "duration" ? null : fault);
         Assert.IsNotNull(await execute()); Assert.AreEqual(1, f.Generator.Calls);
         await f.Budget.Received(1).SettleAsync(f.OperationId, new(7, 0), "succeeded", CancellationToken.None);
-        IndexTelemetryTestChecks.VerifyMeasurements(capture, "knowledge_index_docx", "completed");
+        IndexTelemetryTestChecks.VerifyMeasurements(capture, "knowledge_index_docx", "completed", includesChunk: true);
         IndexTelemetryTestChecks.VerifyPrivacy(capture); Assert.AreSame(capture.Root, Activity.Current);
     }
 }
@@ -212,7 +212,15 @@ internal static class IndexTelemetryTestChecks
         Assert.AreEqual(fault is "denied" or "duplicate" or "budget" ? 0 : 1, calls());
         var outcome = fault is "denied" or "duplicate" ? "not_processed" : fault == "budget" ? "budget_rejected"
             : fault is "provider" or "settle" ? "failed" : fault == "cancel" ? "cancelled" : "completed";
-        var span = capture.Spans.Single(); Assert.AreEqual("knowledge_index_" + kind, span.GetTagItem("ai.stage"));
+        var span = capture.Spans.Single(s => Equals(s.GetTagItem("ai.stage"), "knowledge_index_" + kind));
+        Assert.HasCount(fault == "denied" ? 1 : 2, capture.Spans);
+        if (fault != "denied")
+        {
+            var chunk = capture.Spans.Single(s => Equals(s.GetTagItem("ai.stage"), "knowledge_chunk_" + kind));
+            Assert.AreEqual(span.SpanId, chunk.ParentSpanId); Assert.AreEqual(span.TraceId, chunk.TraceId);
+            Assert.AreEqual("completed", chunk.GetTagItem("ai.outcome"));
+            CollectionAssert.AreEquivalent(new[] { "ai.stage", "ai.outcome" }, chunk.TagObjects.Select(t => t.Key).ToArray());
+        }
         Assert.AreEqual(outcome, span.GetTagItem("ai.outcome")); Assert.AreEqual(task.ToString("D"), span.GetTagItem("ai.knowledge.task.id"));
         Assert.AreEqual(fault is "denied" or "budget" ? null : operation.ToString("D"), span.GetTagItem("ai.operation.id"));
         Assert.AreEqual(capture.Root.SpanId, span.ParentSpanId);
@@ -220,17 +228,26 @@ internal static class IndexTelemetryTestChecks
             await budget.DidNotReceive().SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         else await budget.Received(1).SettleAsync(operation, fault is "provider" or "cancel" ? new(null, null) : new(7, 0),
             fault == "provider" ? "failed" : fault == "cancel" ? "cancelled" : "succeeded", CancellationToken.None);
-        VerifyMeasurements(capture, "knowledge_index_" + kind, outcome); VerifyPrivacy(capture);
+        VerifyMeasurements(capture, "knowledge_index_" + kind, outcome, includesChunk: fault != "denied"); VerifyPrivacy(capture);
         Assert.AreSame(capture.Root, Activity.Current);
     }
-    internal static void VerifyMeasurements(AgentTelemetryCapture capture, string stage, string outcome)
+    internal static void VerifyMeasurements(AgentTelemetryCapture capture, string stage, string outcome, bool includesChunk = false)
     {
-        Assert.HasCount(2, capture.Measurements);
+        var chunkStage = stage.Replace("knowledge_index_", "knowledge_chunk_", StringComparison.Ordinal);
+        Assert.HasCount(includesChunk ? 4 : 2, capture.Measurements);
         foreach (var item in capture.Measurements)
         {
-            Assert.AreEqual(2, item.Tags.Length); Assert.AreEqual(stage, item.Tags.Single(t => t.Key == "ai.stage").Value);
-            Assert.AreEqual(outcome, item.Tags.Single(t => t.Key == "ai.outcome").Value);
+            CollectionAssert.AreEquivalent(new[] { "ai.stage", "ai.outcome" }, item.Tags.Select(t => t.Key).ToArray());
+            var observedStage = item.Tags.Single(t => t.Key == "ai.stage").Value;
+            Assert.IsTrue(Equals(observedStage, stage) || includesChunk && Equals(observedStage, chunkStage));
+            Assert.AreEqual(Equals(observedStage, stage) ? outcome : "completed", item.Tags.Single(t => t.Key == "ai.outcome").Value);
             Assert.IsTrue(item.Name == "fullnet.ai.execution.attempts" ? item.Value == 1 : item.Value >= 0);
+        }
+        foreach (var expectedStage in includesChunk ? new[] { stage, chunkStage } : new[] { stage })
+        {
+            var group = capture.Measurements.Where(m => Equals(m.Tags.Single(t => t.Key == "ai.stage").Value, expectedStage)).ToArray();
+            Assert.HasCount(2, group);
+            CollectionAssert.AreEquivalent(new[] { "fullnet.ai.execution.attempts", "fullnet.ai.execution.duration" }, group.Select(m => m.Name).ToArray());
         }
     }
     internal static void VerifyPrivacy(AgentTelemetryCapture capture)
