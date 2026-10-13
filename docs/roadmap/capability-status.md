@@ -1,3 +1,5 @@
+2026-10-13 企业Native绑定运行故障测试已扩展9a2249e：暂停幂等恢复后批准、实际原生Worker暂停/死信后幂等取消接入同一双库场景；修正版编译0警告/错误、发现2项及只读复核完成。正式Linux实际验收尚未启动，后台按安全交接等待，未计通过；原生产物复用99e7b7b，不重复已通过JIT应用。[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-企业-native-绑定运行故障集中验收扩展实际运行待完成)。保持Build-verified / Capacity-not-verified。
+
 2026-10-13 F10绑定运行故障独立JIT应用双库验收已通过：同一e0ce3c0源码的SQL Server/MySQL分别实际2/2，轻量33/33复用；暂停幂等恢复后批准、真实Worker故障暂停后幂等取消、死信与通知唯一性均核对，资源正常清理。原失败及纯排队超时保留，不写成单轮全绿。CI镜像修复99e7b7b的主CI及API/Worker Native三条工作流均成功，主CI八个跳过作业不计通过。此前待完成记录保留为历史时点；[最终记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-f10-绑定运行故障独立应用集中验收通过)。完整业务Native、人工全页面、多实例故障/灾备和容量仍待，保持Build-verified / Capacity-not-verified。
 
 2026-10-13 F10 SQL Server定向独立应用已通过2/2；MySQL两次纯排队超时均零业务启动，现已复用既有e0ce3c0准备副本，改为共享组释放资源后一次性自动启动正式入口，执行预算与断言不变。剩余MySQL尚未认证。CI官方镜像限额修复已由实际API/Worker Native流程成功证明；总状态仍为Build-verified / Capacity-not-verified。

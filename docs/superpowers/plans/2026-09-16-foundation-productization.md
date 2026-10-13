@@ -3045,3 +3045,16 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 环境Windows、Node24.12.0、SDK10.0.401、SQL Server2022-CU14/MySQL8.4、每进程两个.NET处理器预算；CscEnvironment=DOTNET_GCConserveMemory=7仅用于本地编译器，生产默认值不变。本批没有生产C#、迁移或公开契约变更，只关闭上述独立JIT运行故障覆盖。完整业务Native、人工全页面、多实例故障/灾备及10K容量仍待，整体Build-verified / Capacity-not-verified保持。CI镜像修复的API/Worker成功按99e7b7b另行记录，不外推业务Native认证；PR3仍Draft，未合并发布，报告HEAD不冒充执行源码。
 
 交付末次核对：99e7b7b主CI38388524648最终completed/success。五个执行作业client-build-test、当前/旧版迁移恢复、build-and-module-test和build-test均success；八个skipped作业按未执行保留，不计通过。源码headSha、完整作业状态与SHA256见.tmp/ci-image-fallback-main-result.json和main-proof.json。此前主CI仍执行中的记载保留为历史时点；此成功与API38388524499、Worker38388524467共同关闭CI镜像修复验证，不扩大e0ce3c0本地业务JIT范围或容量结论。
+
+
+## 2026-10-13 企业 Native 绑定运行故障集中验收扩展（实际运行待完成）
+
+任务foundation-enterprise-native-bound-20261013，基线153c36d；消费者测试源码9a2249ee3b6c7d8d3d73eca8a309ef73a2b981d9已推送。一次扩展既有NativeEnterpriseBusinessTests的SQL Server/MySQL两个场景：排队阶段建立额外两份申请，原生API验证暂停审批拒绝、旧修订恢复拒绝、同恢复请求重放后只加一份实例修订，原待办继续批准并只回写一次业务版本。停止原生Worker后，在本轮独占数据库以精确租户/申请/实例绑定构造一待办完成及一实例过期租约，再由新的真实原生Worker MaxAttempts=1生成暂停与死信；核对缺待办恢复和旧修订取消拒绝、幂等取消、绑定和启动回执稳定，以及消息所有者积压归零后的业务版本、通知意图与站内信唯一性。原有审批、驳回、非空工作簿导入及报表结果恢复仍在同一场景。没有生产代码、迁移、契约或权限变更。
+
+只读审查发现首版夹具误用fn_workflow_todo不存在的TenantId，已改为经fn_workflow_instance的Id+TenantId和精确submission双重约束；两次更新仍在本轮事务内精确断言各一行。原始两份测试源码及编译回执已归档，再对修正消费者增量重建；死信按0/1门禁在原90秒预算内等待实际记账，不把暂停推导为已死信。复核无剩余P1/P2。首版编译385.01秒、修正版142.08秒，均0警告/错误；正式注册入口只在Windows发现两个用例，没有执行Native，不能将发现2项写成2/2通过。证据.tmp/native-bound-prepare-20261013和.tmp/native-bound-reviewed-20261013。
+
+历史本窗口锁0b06e2f6…的PID27640已退出，旧回执记录此前自动审批拒绝过清理，因此保留锁并在独立准备工作区编译，不绕过或删除它。最终干净副本G:/.fullnet-tests/ne-rMUKil来自已提交9a2249e，冻结7670份输入。复用已completed/success的99e7b7b API/Worker CI38388524499/38388524467原生产物，分别136763568与88151016字节；来源、Linux ELF头、NativeAot/RID元数据和文件SHA256已核对，生产闭包Git差异为空。API/Worker不重复发布，也不重复上批已通过的JIT独立应用或轻量33项；各执行源码身份分别记录。
+
+后台接续.tmp/native-bound-host-run.mjs（PID6624）使用主机官方runNativeSuite入口，所有dotnet命令由自有Linux SDK容器执行，按完整发现集合、正式15分钟实际执行预算和严格TRX结果验收；SDK镜像仅配置clang/zlib，没有引入Node安装或第三方镜像。本次2026-10-13T13:10:34.630Z记录时仍锁外等待缓存完整Native组安全释放，命令尚未开始，完成标记false；没有抢占、删除外来锁或打断其他组。一次锁外等待上限60分钟，所有者退出则拒绝接管，实际结果/清理与错误写入独立receipt及日志，不能把排队计作业务测试时间。证据.tmp/native-bound-final-20261013/receipt.json、host-runner.log及随后linux.log/TRX；原始准备和修正阶段保持可追溯。
+
+本批实际Linux运行未完成，F10 Native故障路径不计验收通过；完整企业业务Native矩阵、人工页面、多实例故障/灾备与容量继续待办，保持Build-verified / Capacity-not-verified。PR3仍Draft，未合并、未发布。
