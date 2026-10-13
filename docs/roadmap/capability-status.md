@@ -1,4 +1,4 @@
-2026-10-14 独立应用多行检查点与真实Worker恢复测试已推送479b574：快速19项通过、1项Linux专属场景在Windows跳过、治理70/70；API/Migrator/Worker一次构建均零告警错误，6683份源码/依赖冻结。正式同产物双库集中入口排队，4阶段业务与资源清理尚未验收通过，不提升F11状态。[准备记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-独立应用多行检查点与真实-worker-恢复集中验收准备)。Capacity-not-verified，未合并发布。
+2026-10-14 F11独立应用多行检查点与真实Worker恢复本批通过：测试992a920，同一生成应用SQL Server/MySQL各4阶段实际完成（Node2/2、零失败/跳过），成功行ID幂等、两次强退、同结果回执复用及重试新回执均核对；正式执行4分39秒，7681份输入/6683份源码依赖及完整清理通过。准备失败后复用既有三Host，最终快速20通过/1Linux专属跳过、资源10/10、治理70/70；479b574自动Native API49/49、Worker27/27成功，主CI仍在运行。原纯排队与非法轮询启动失败保留，完整F11/Native故障矩阵与容量仍待。[最终记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-独立应用多行检查点与真实-worker-恢复集中验收通过)。Capacity-not-verified，未合并发布。
 
 2026-10-14 导入回执结果身份与重试隔离本批通过：生产98a6f7c，相关Unit94/94、架构88/88、双库真实HostedService集中6/6及Native API49/49、Worker27/27通过。7673份冻结输入、执行UID、TRX摘要、构建复用与自有资源释放已核对；双库实际4分19秒、排队36分钟。上一批03029fe及本批98a6f7c主CI均已完整成功，当前head计数见总计划。该结论不关闭独立生成应用/Native回执故障矩阵或整个F11；Capacity-not-verified，未合并发布。[记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-导入回执结果身份与重试隔离)。
 

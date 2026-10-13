@@ -3113,14 +3113,16 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 本批只关闭回执结果身份与重试隔离子范围。F11完整独立生成应用故障矩阵、多行检查点、人工页面、多实例故障/灾备及10K容量仍待；保持Capacity-not-verified。保护外来WIP，未合并或发布。
 <!-- /import-receipt-identity-20261014 -->
 
-## 2026-10-14 独立应用多行检查点与真实 Worker 恢复：集中验收准备
+## 2026-10-14 独立应用多行检查点与真实 Worker 恢复：集中验收通过
 
 <!-- import-checkpoint-20261014 -->
-- 测试源码479b574已推送指定开发分支及Draft PR3。增加独立enterprise应用验收消费者，使用正式HTTP、实际xlsx模板/下载与正式业务写执行器，SQL Server/MySQL共用一份生成应用；不修改生产框架、迁移、DTO或权限。
-- 四阶段覆盖：cursor1提交后强制退出；第三行已写入且错误回执已上传、cursor3提交前强制退出；新Worker等待真实60秒租约后恢复并验证行ID幂等、复用相同FileId；显式重试导致真实错误从机构停用变为编码冲突，验证新FileId与实际工作簿。屏障只编译到应用自有Worker；Windows强制退出不声称Linux SIGKILL。
-- 初始检查器RED12项10失败、命令预算RED3项2失败；审查实际编译确认内部DapperSqlExecutor不可访问后改为装饰公开执行器的原注册工厂。另用确定性close屏障证明旧实现超预算3秒，再修复超时清理上限、child/log立即错误监听与清理未确认报告。最终快速19项通过、零失败，1项真实Linux继承管道场景在Windows明确跳过，不计通过；治理70/70。
-- API/Migrator/Worker单次构建均0警告/错误，分别4分30秒、34秒、30秒；生成应用framework来源c19b27b，三处应用自有Worker覆盖及6683份源文件/全部宿主依赖已冻结，生产框架与98a6f7c相同。冻结测试副本ic-c7sTg9为c19b27b加精确测试覆盖，不冒充479b574重新生成。DataProtection密钥与文件存储位于提供程序证据目录，应用源码/依赖保持严格前后哈希核对。
-- 2026-10-13 18:26:54 UTC起在官方heavy锁排队，独立双库业务场景仍未执行，不计通过。按安全边界协调排在另一窗口MySQL完整组及已约定Redis短验证后；不中断外来组、不删除外来或历史遗留锁。证据在.tmp/import-checkpoint-20261014/，实际验收结束后更新同一节点；现有产物保留复用。
-- 自动触发的479b574主CI38447267379、API Native38447267398、Worker Native38447267393待结果；既有98a6f7c的Native49/49、27/27和本次确认成功的主CI保持精确生产者范围。未因本批测试消费者重新要求本地AOT发布。
-- 本节点只达到集中验收准备完成；F11整体、独立应用完整故障矩阵、人工页面、多实例故障/灾备与10K容量仍待，保持Capacity-not-verified。保护5份外来内容，未合并或发布。
+- 测试消费者992a920已推送指定开发分支及Draft PR3，本批独立enterprise应用双库规定范围验收完成。正式HTTP、实际xlsx模板/下载与正式业务写执行器组成四阶段：cursor1提交后强退；第三行已写入且错误回执上传、cursor3提交前强退；新Worker等待真实60秒租约后恢复并核对成功行ID幂等及同FileId复用；显式重试使机构停用错误变为岗位编码冲突，验证新FileId与工作簿新机器码。屏障仅编译到应用自有Worker，保留正式执行器原工厂及生命周期，不修改生产框架、SQL、DTO或权限。
+- SQL Server/MySQL各四阶段全部实际完成，共8个业务阶段；Node父/集中子测试2/2 Passed、零失败/跳过。每库四个真实Worker进程，其中两个在确定检查点窗口被强制终止；Windows进程强制终止的证据不外推为Linux故障矩阵。回执实际下载均只含第二行，分别核对organization.units.not_found与organization.positions.code_exists及recovery-errors.xlsx；成功行没有重复创建，首/末行ID重放及显式重试后保持不变。
+- 修正版正式集中执行279.219秒（4分39秒），实际排队325.807秒（5分26秒），父测试总605.026秒（10分5秒）。7681份冻结输入、6683份应用源码和全部宿主依赖前后无漂移，Probe PID/taskId/cursor、旧新回执UUID v7身份及HTTP响应核对通过；两库cleanupSucceeded/processesClosed均true，API/八Worker、56660/8632/86724等自有Node全部退出，官方heavy锁自然释放，已通知其它窗口继续整组接续。
+- 应用framework来源c19b27b，生产实现与98a6f7c相同；三处应用自有Worker覆盖单独记录，冻结测试副本ic-c7sTg9保留精确Node消费覆盖，规范CRLF/结尾空行后与992a920八个测试文件一致，不冒充992a920重新生成/重建。API/Migrator/Worker仅各构建一次，0告警/错误，分别4分30秒、34秒、30秒；纯排队及启动失败后全部复用，不重复发布。SDK10.0.401、Node24.12.0、Windows10专业版（20逻辑处理器、约64GiB内存）、DOTNET_PROCESSOR_COUNT=2；范围为这组恢复行为，未做容量实测。
+- 原30分钟纯排队超时保留，零双库业务启动；预算补正8ae685b将准备20分钟、排队45分钟、业务20分钟分离，外层85分30秒，准备使用独立取消信号。有限续跑先核对旧进程正常结束和零业务启动，再复用同一应用一次，不计原失败为成功。之后SQL API启动暴露夹具PollSeconds=1违反正式5..300校验，清理完成后992a920改用5；未放宽正式验证器。提前退出回归先RED，再仅在长期宿主watcher监听exit并携带PID，立即取消就绪等待；通用命令仍等close与日志排空，正常exit0保持成功。新attempt目录保留原启动失败、完整清理及API日志，不写成单轮全绿。
+- 最终快速node --test tests/templates/application-import-recovery.test.mjs tests/templates/import-recovery-command.test.mjs为20通过、零失败，1项真实Linux继承管道场景在Windows明确跳过；测试资源协调器node --test tests/testing/test-run-context.test.mjs 10/10，治理node --test tests/governance/*.test.mjs 70/70；预算入口node --check通过，正式inner影响规划为none。独立只读复核确认合法轮询、宿主提前退出、清理状态和密钥目录隔离修复，无剩余确定性问题。
+- 自动触发的精确测试head479b574 [API Native38447267398](https://github.com/yan041108/Full.NET/actions/runs/38447267398)49/49、[Worker Native38447267393](https://github.com/yan041108/Full.NET/actions/runs/38447267393)27/27均实际通过、零失败/跳过，原始日志摘要已核对；这属于正式Native核心集合，不是应用专属故障屏障。主CI38447267379仍执行受影响双库，客户端及双库current/legacy迁移作业已成功，主CI不提前计通过；后续Node预算/夹具修正未改变Native生产闭包，不要求重复本地AOT发布。
+- 证据：.tmp/import-checkpoint-20261014/final-proof.json及原始prepare/acceptance/continuation/startup-fixed记录，门禁node .tmp/import-checkpoint-final-proof.mjs；原失败均保留。保护5份外来内容，仅在指定开发分支交付，PR仍Draft，未合并或发布。
+- 本批关闭F11独立生成应用多行检查点、真实Worker强退恢复、结果上传后进度未提交及回执重试子范围；不关闭完整独立应用/Native故障矩阵、人工全页面、多实例故障/灾备或10K容量，保持Capacity-not-verified。
 <!-- /import-checkpoint-20261014 -->
