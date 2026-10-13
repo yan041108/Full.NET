@@ -50,7 +50,7 @@ Native AOT 门禁复用 `api-native-aot-publish-warnings.mjs` 和 ADR-0008 的�
 
 ## 2026-10-14 依赖安全修复
 
-独立锁图中的 PKCS 9.0.13 受新公告影响，显式引用修复版 9.0.21，并同步 Windows/Linux 锁图；不扩大生产依赖或新增审计例外。Windows Release 构建 0 警告/错误，统一审计主解决方案和独立项目通过；命令边界与治理回归 86/86、零失败/跳过。Linux 固定 SDK 的 locked restore、原生发布与四模式集中执行仍待本批实际结果，不将机械更新锁文件或 Windows 结果计为 Linux 通过。完整记录见[底座总计划](../../docs/superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-独立-ai-实验依赖安全与统一审计)。
+独立锁图中的 PKCS 9.0.13 受新公告影响，显式引用修复版 9.0.21，并同步 Windows/Linux 锁图；不扩大生产依赖或新增审计例外。Windows Release 构建 0 警告/错误，统一审计主解决方案和独立项目通过；命令边界与治理回归 86/86、零失败/跳过。固定Linux SDK在冻结35e8201副本pl-VpwvwX实际--locked-mode还原及一次Native发布成功，输出锁图与源码一致；parser11/11、SQL Server22/22、MySQL21/21、Qdrant23/23，共77观察通过、零失败。四项既有精确登记的IL2104/IL3053告警被门禁接纳，没有新豁免；不宣称发布零告警。镜像ID匹配、7688输入及10实验摘要无漂移；排队272.031秒、实际执行115.778秒。manifest passed/resourcesRemoved=true、两个命令退出0、自有父/入口/探针进程退出及容器/网络归属清理复核通过。 这些是独立实验的安全补丁兼容性结果，不改变真实模型、生产接入和容量边界。完整记录见[底座总计划](../../docs/superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-独立-ai-实验依赖安全与统一审计)。
 
 ## 不能据此推导的结论
 
