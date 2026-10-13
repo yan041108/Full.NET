@@ -16,7 +16,7 @@ using MySqlConnector;
 namespace Full.NET.IntegrationTests.NativeAot;
 
 /// <summary>只通过正式 HTTP 和独立原生宿主观察业务；Migrator 仍为 JIT，不借用测试容器内 DI。</summary>
-internal static class NativeEnterpriseBusinessAssertions
+internal static partial class NativeEnterpriseBusinessAssertions
 {
     private const string Requests = "/api/v1/enterprise_request/enterprise-requests";
     private const string Imports = "/api/v1/import-export/tasks";
@@ -101,6 +101,12 @@ internal static class NativeEnterpriseBusinessAssertions
             var rejectedDraft = await CreateAsync(http, unitId, actorId, "原生驳回验收");
             var rejectedId = rejectedDraft.GetProperty("id").GetGuid();
             var rejected = await SubmitAsync(http, rejectedId);
+            var pausedDraft = await CreateAsync(http, unitId, actorId, "原生暂停恢复验收");
+            var pausedId = pausedDraft.GetProperty("id").GetGuid();
+            var pausedQueued = await SubmitAsync(http, pausedId);
+            var failedDraft = await CreateAsync(http, unitId, actorId, "原生运行故障取消验收");
+            var failedId = failedDraft.GetProperty("id").GetGuid();
+            var failedQueued = await SubmitAsync(http, failedId);
             var importNumber = $"NIMP-{Guid.NewGuid():N}"[..16];
             var importId = await QueueWorkbookAsync(http, importNumber, actorId, unitId);
 
@@ -133,12 +139,35 @@ internal static class NativeEnterpriseBusinessAssertions
             Assert.AreEqual(unitId, row.GetProperty("organizationUnitId").GetGuid());
             Assert.AreEqual(actorId, row.GetProperty("applicantUserId").GetGuid());
 
-            await VerifyReportingExportAsync(http,
-                external, destination, provider, connectionString, tenantId);
-
+            var pausedFinal = await VerifyPausedBoundRuntimeAsync(http, pausedId, pausedQueued);
+            var failedStarted = await WaitBoundStartAsync(http, failedId, failedQueued);
             await worker.StopGracefullyAsync(TimeSpan.FromSeconds(20));
             Assert.AreEqual(0, worker.ExitCode);
             worker.AssertNoFatalMarkersInLogs();
+            // 原进程先退出，再构造精确绑定的残留；故障暂停和死信只能由新原生 Worker 产生。
+            await InjectNativeBoundFailureAsync(provider, connectionString, tenantId, failedId,
+                failedStarted.GetProperty("workflowInstanceId").GetGuid());
+            await using var recoveryWorker = await NativeWorkerProcessHost.StartAsync(workerArtifact, provider,
+                connectionString, NativeAotTestTimeouts.ProcessStartup, filesRootPath: files,
+                additionalSettings: new Dictionary<string, string?>
+                {
+                    ["Workflow__RecoveryWorker__PollMilliseconds"] = "100",
+                    ["Workflow__RecoveryWorker__MaxAttempts"] = "1",
+                    ["Workflow__RecoveryWorker__RetryDelaySeconds"] = "1",
+                    ["Workflow__RecoveryWorker__RetryBackoffMode"] = "fixed",
+                    ["Workflow__RecoveryWorker__RetryMaxDelaySeconds"] = "1",
+                    ["FullNet__Reporting__Export__PollSeconds"] = "5",
+                    ["FullNet__Reporting__Export__ExecutionEnabled"] = "true",
+                });
+            var failedFinal = await VerifyFailedBoundCancellationAsync(http, provider, connectionString,
+                tenantId, failedId, failedStarted);
+            http = await VerifyBoundRuntimeDrainAsync(http, tenantId,
+                [(pausedId, pausedFinal), (failedId, failedFinal)]);
+            Console.WriteLine($"Native bound runtime {provider}: pause-recovery and failed-cancellation completed.");
+            await VerifyReportingExportAsync(http, external, destination, provider, connectionString, tenantId);
+            await recoveryWorker.StopGracefullyAsync(TimeSpan.FromSeconds(20));
+            Assert.AreEqual(0, recoveryWorker.ExitCode);
+            recoveryWorker.AssertNoFatalMarkersInLogs();
             await api.StopGracefullyAsync();
             Assert.AreEqual(0, api.ExitCode);
             api.AssertNoFatalMarkersInLogs();
