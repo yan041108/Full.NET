@@ -79,6 +79,22 @@ public sealed class NativeMigratorProcessTests
         Assert.IsFalse(File.Exists(fixture.ReadyPath));
     }
 
+    /// <summary>stat 读取异常后仍须核对真实进程状态，不能把仍运行的进程误判为已退出。</summary>
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task Process_probe_rechecks_liveness_when_stat_read_races_with_exit(bool alive)
+    {
+        using var process = alive ? Process.GetCurrentProcess() : Process.Start(new ProcessStartInfo("node")
+        {
+            ArgumentList = { "-e", "process.exit(0)" },
+            UseShellExecute = false, CreateNoWindow = true,
+        })!;
+        if (!alive) await process.WaitForExitAsync();
+        Assert.AreEqual(alive, ProbeFixture.IsRunning(process.Id,
+            _ => throw new IOException("测试故障：stat 已打开但读取时进程状态消失。")));
+    }
+
     private sealed class ProbeFixture : IDisposable
     {
         public string Directory { get; } = Path.Combine(Path.GetTempPath(), "fullnet-migrator-probe", Guid.NewGuid().ToString("N"));
@@ -122,19 +138,23 @@ public sealed class NativeMigratorProcessTests
             throw new TimeoutException("子进程未就绪。");
         }
 
-        public static bool IsRunning(int pid)
+        public static bool IsRunning(int pid, Func<string, string>? readLinuxStat = null)
         {
             if (pid <= 0) return false;
-            if (OperatingSystem.IsLinux())
+            if (OperatingSystem.IsLinux() || readLinuxStat is not null)
             {
                 // 非直接子进程退出后可能等待 PID 1 回收；僵尸已停止执行，不等于遗留运行进程。
                 try
                 {
-                    var state = File.ReadAllText($"/proc/{pid}/stat");
+                    var state = (readLinuxStat ?? File.ReadAllText)($"/proc/{pid}/stat");
                     if (state[state.LastIndexOf(')') + 2] == 'Z') return false;
                 }
                 catch (FileNotFoundException) { return false; }
                 catch (DirectoryNotFoundException) { return false; }
+                catch (IOException)
+                {
+                    // proc 文件可在打开后、读取前消失；继续核对真实进程，不把读取失败当成退出。
+                }
             }
             try { using var process = Process.GetProcessById(pid); return !process.HasExited; }
             catch (ArgumentException) { return false; }

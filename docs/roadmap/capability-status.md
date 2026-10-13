@@ -1,3 +1,5 @@
+2026-10-13 导入错误回执恢复修复已推送b2efb6d：回执上传返回失败保留租约与检查点，避免提前终态后不能自动补齐。Unit87/87、架构88/88、治理70/70、工具140/140及本地API/Worker AOT分析通过；原RED与内存失败日志保留。双库真实HostedService恢复4项已发现并集中排队，尚未执行；本次源码Native/CI也仍待。此范围不是独立生成应用验收，F11整体与容量保持未收口。[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-导入错误回执恢复修复与集中验收准备)。
+
 2026-10-13 企业Native绑定运行故障双库验收通过：消费者9a2249e、API/Worker生产者99e7b7b，正式Linux两项实际2/2、零失败/跳过，暂停幂等恢复后批准及真实原生Worker扫描故障/死信后幂等取消均通过。源码/产物摘要、权威排空及自有资源清理已核对，未重复发布或JIT独立应用验收；此前待完成记录保留为历史时点。[最终记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-企业-native-绑定运行故障双库验收通过)。其他业务故障矩阵、人工页面、多实例故障/灾备和容量仍待，保持Build-verified / Capacity-not-verified。
 
 2026-10-13 企业Native绑定运行故障测试已扩展9a2249e：暂停幂等恢复后批准、实际原生Worker暂停/死信后幂等取消接入同一双库场景；修正版编译0警告/错误、发现2项及只读复核完成。正式Linux实际验收尚未启动，后台按安全交接等待，未计通过；原生产物复用99e7b7b，不重复已通过JIT应用。[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-企业-native-绑定运行故障集中验收扩展实际运行待完成)。保持Build-verified / Capacity-not-verified。

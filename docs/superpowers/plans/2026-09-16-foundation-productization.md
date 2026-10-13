@@ -3071,3 +3071,20 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 最终门禁`node .tmp/native-bound-proof.mjs`已核对7670份冻结输入、生产者/消费者身份及闭包差异、全部命令退出码、严格TRX计数与场景完成标记、产物SHA、自有SDK容器清理及自身重型锁释放。SDK容器只在标签token匹配后停止；没有删除历史遗留工作区锁、共享Kind容器或他窗资源。证据.tmp/native-bound-final-20261013/receipt.json、linux.log、final-proof.json及冻结副本内的TRX/API/Worker日志；排队、编译和实际业务时间分别可追溯，前序待完成记录保留为历史时点。
 
 环境主机Windows/Node24.12.0，实际Linux SDK10.0.400、自有SDK容器2 CPU/8GiB，SQL Server/MySQL与外部只读SQL Server由测试拥有；Windows准备SDK10.0.401与实际Linux版本分别记录。CscEnvironment=DOTNET_GCConserveMemory=7仅用于本地编译器，不改变生产默认值，不作固定提速或容量承诺。本批仅关闭这两条企业Native绑定运行路径；其他业务Native故障矩阵、人工全页面、多实例故障/灾备及10K容量仍待，保持Build-verified / Capacity-not-verified。PR3仍Draft，未合并发布，报告HEAD不冒充执行源码。
+
+## 2026-10-13 导入错误回执恢复修复与集中验收准备
+
+- 源码 `b2efb6d` 已推送指定开发分支与 Draft PR3。修复错误回执 UploadAsync 返回失败仍写入 execution_failed/partial 的缺陷：回执未就绪时保留 executing、租约和原检查点，供租约到期后重领补齐；无迁移或公共契约变更。
+- RED 3 项中 2 项按预期失败、1 项通过；修正后导入相关与报表恢复 Unit 87/87、Native AOT 架构 88/88、治理 70/70、测试工具 140/140 通过。首轮 GREEN 的 NSubstitute 整数参数匹配歧义失败已修正，原记录保留。
+- 本地 API AOT 首轮因编译器/源生成器内存不足失败，原日志保留；采用单并行命令重试 API 46 秒、Worker 18 分 2 秒，均零告警/错误。Worker JIT 强制恢复耗时 10 分 5 秒；消费者编译 3 分 18 秒、零告警/错误。未降低分析或发现门槛。
+- 双库回执恢复验证使用正式岗位 Schema 与真实 HostedService：API 预览排队后停用机构制造失败行，仅在该测试任务的回执上传或检查点边界注入故障，停止初宿主后新宿主从到期租约恢复。等待迭代完成事件后再检查残留状态，已关闭固定延迟可能造成假绿的审查问题；复核无新的 P1/P2。该夹具不是独立生成应用或 Native 外部进程。
+- 冻结验证副本为 `G:/.fullnet-tests/ir-0XgvX8`，基线 `41418dc` 加本批 7 文件精确覆盖；构建输入与产物复用记录已登记。新场景发现 4 项，SQL Server/MySQL 各 2 项；分片全量 1250 项无遗漏或重复。记录 `.tmp/import-receipt-20261013/`。
+- 唯一正式队列宿主 PID71300 已排队，等待 AI MySQL44 完整组自然结束；取得共享锁后复用已校验的消费者产物。双库尚未执行，不能记为通过。本次源码的 API Native 38416471306、Worker Native 38416471282、主 CI 38416471327 已启动，结果仍待。
+- 验收属于 F11 回执恢复子范围；独立生成应用故障矩阵、Native 故障路径与整个 F11 尚未收口。其他业务、人工页面、多实例故障/灾备和容量仍待，保持 Capacity-not-verified。保护既有 WIP；未合并或发布。
+
+## 2026-10-13 主CI进程探针退出竞争修正
+
+- 生产源码 b2efb6d 的 API Native 38416471306 实际49/49、Worker Native 38416471282 实际27/27通过，零失败/跳过；源SHA、各E2E计数与原始日志摘要归档 native-ci-proof.json，不把架构88或上传文件数量当成原生测试数量。
+- 原主CI38416471327的Unit总6623，6622通过、1失败：取消等待测试读取 /proc/3916/stat 时收到 IOException No such process，属于测试探针的进程退出竞争；迁移与客户端作业成功，主CI整体仍失败。原失败保留。
+- 私有测试探针读取stat失败后继续通过真实PID/HasExited判断；不直接把IOException视为退出。新增存活/退出两个真实PID回归，RED2/2因未处理IOException失败，GREEN本地进程探针整组10/10通过，零失败/跳过；只读复核无P1/P2。
+- 仅测试夹具与Unit数量门槛变化，生产闭包不变，不重复Native发布或验收。主CI将对修正head重新执行；双库回执4项正在冻结副本正式运行，本段不提前记为通过。
