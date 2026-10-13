@@ -53,7 +53,7 @@ export async function verifyApplicationImportCancellation(baseUrl,{hostAccessTok
   const conflict=await send('completed-cancel-conflict','/api/v1/import-export/tasks/'+control.id+'/cancel','POST',undefined,409);assert.equal(conflict.code,'import_export.task.status_invalid');await stopWorker(running);
   evidence.scenarios.push('new-worker-excludes-cancelled-and-continues-control');
   await send('anonymous-cancel-rejected','/api/v1/import-export/tasks/'+checkpoint.id+'/cancel','POST',undefined,401,{anonymous:true});
-  const host=await send('host-login','/api/v1/auth/login','POST',{username:'admin',password:'FullNet!2026Secure'});token=host.accessToken;secrets.push(token);
+  const host=await send('host-login','/api/v1/auth/login','POST',{username:'admin',password:'FullNet!2026Secure'},200,{anonymous:true});token=host.accessToken;secrets.push(token);
   await send('host-cancel-isolation','/api/v1/import-export/tasks/'+checkpoint.id+'/cancel','POST',undefined,403);evidence.scenarios.push('host-and-anonymous-cancellation-isolation');
   evidence.tasks=[{id:preview.id,codes:preview.codes},{id:queued.id,codes:queued.codes},{id:checkpoint.id,codes:checkpoint.codes,firstId},{id:control.id,codes:control.codes}];evidence.tenantId=tenant.id;evidence.completed=true;return evidence;
  }catch(error){evidence.error=secrets.reduce((text,key)=>text.replaceAll(key,'[REDACTED]'),String(error.message??error));throw new Error(evidence.error);}
