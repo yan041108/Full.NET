@@ -2577,6 +2577,13 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/251_DocumentTaxonomyWriteGuard.sql",
       "reason": "251 仅按 CHECK 约束存在性选择固定 ALTER TABLE 或 SELECT 1，恢复未记账的分类/标签 Host 门禁结构；无外部输入拼接，由双库分阶段迁移恢复测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/252_MediaBindingClaimGeneration.sql",
+      "reason": "252 仅根据 INFORMATION_SCHEMA 选择固定加列 DDL 或 SELECT 1，恢复媒体代际字段的部分执行；表列和中文 COMMENT 均为常量，无外部输入，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

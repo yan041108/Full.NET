@@ -1429,6 +1429,7 @@
       "comment": "身份认证用户资料表",
       "columns": {
         "Address": "地址",
+        "AvatarClaimKey": "Avatar Claim Key",
         "AvatarFileId": "头像文件标识",
         "BirthDate": "出生日期",
         "EducationLevel": "学历",
@@ -1448,6 +1449,7 @@
         "PhoneNumber": "手机号",
         "PoliticalStatus": "政治面貌",
         "Remark": "备注",
+        "SignatureClaimKey": "Signature Claim Key",
         "SignatureFileId": "签名文件标识",
         "SortOrder": "排序顺序",
         "UserId": "用户标识",
@@ -2848,6 +2850,7 @@
         "Identifier": "唯一标识符",
         "IsActive": "是否启用",
         "LifecycleStatus": "Lifecycle Status",
+        "LogoClaimKey": "Logo Claim Key",
         "LogoFileId": "标志文件标识",
         "Name": "名称",
         "OwnerUserId": "所有者用户标识",

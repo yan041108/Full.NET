@@ -8,6 +8,15 @@ import { resolvePresetModules } from '../../scripts/templates/preset-modules.mjs
 
 const MIGRATIONS = resolve('src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer');
 
+test('document write guards follow the platform migration closure', () => {
+  for (const name of ['250_DocumentItemWriteGuard.sql', '251_DocumentTaxonomyWriteGuard.sql']) {
+    assert.equal(inferMigrationModuleOwner(name), 'Platform');
+    const inventory = { scripts: [{ name: '001_Foundation.sql' }, { name }] };
+    assert.ok(!buildPresetMigrationInventory(inventory, 'minimal', resolvePresetModules('minimal')).scripts.some(script => script.name === name));
+    assert.ok(buildPresetMigrationInventory(inventory, 'platform', resolvePresetModules('platform')).scripts.some(script => script.name === name));
+  }
+});
+
 test('inferMigrationModuleOwner resolves every published script', () => {
   const names = readdirSync(MIGRATIONS).filter((name) => name.endsWith('.sql')).sort();
   for (const name of names) {
@@ -48,5 +57,15 @@ test('sample import receipt and approval journal remain inside the enterprise pr
     const full = { scripts: [{ name: '001_Foundation.sql' }, script] };
     assert.ok(!buildPresetMigrationInventory(full, 'minimal', resolvePresetModules('minimal')).scripts.some(item => item.name === script.name));
     assert.ok(buildPresetMigrationInventory(full, 'enterprise', resolvePresetModules('enterprise')).scripts.some(item => item.name === script.name));
+  }
+});
+
+test('media binding generation migration belongs to every official foundation preset', () => {
+  const name = '252_MediaBindingClaimGeneration.sql';
+  assert.equal(inferMigrationModuleOwner(name), 'Shared');
+  for (const preset of ['minimal', 'platform', 'saas', 'enterprise']) {
+    const modules = resolvePresetModules(preset);
+    assert.ok(modules.includes('Identity') && modules.includes('Tenancy'));
+    assert.ok(buildPresetMigrationInventory({ scripts: [{ name }] }, preset, modules).scripts.some(script => script.name === name));
   }
 });

@@ -32,6 +32,8 @@ const SHARED_STEMS = new Set([
   'HostNavigationMenuPermissionScope',
   'AuthenticationAuditContext',
   'SuperAdministratorGrantRevokePermissions',
+  // Identity 与 Tenancy 均在所有官方预设的基础闭包中，媒体代际字段须同步展开。
+  'MediaBindingClaimGeneration',
 ]);
 
 const STEM_MODULE_OVERRIDES = new Map([
@@ -62,6 +64,8 @@ const STEM_MODULE_OVERRIDES = new Map([
   ['DocumentHostPreviewTaskPermission', 'Platform'],
   ['DocumentTagHotRecommended', 'Platform'],
   ['DocumentVersionRetentionSetting', 'Platform'],
+  ['DocumentItemWriteGuard', 'Platform'],
+  ['DocumentTaxonomyWriteGuard', 'Platform'],
   ['DataApprovalRequest', 'Workflow'],
   ['DataApprovalScenario', 'Workflow'],
   ['DataApprovalRequestRecovery', 'Workflow'],

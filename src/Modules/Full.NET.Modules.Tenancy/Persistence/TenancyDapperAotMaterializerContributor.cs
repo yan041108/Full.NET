@@ -71,7 +71,8 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
             AotDataReaderExtensions.ReadNullableString(reader, 4),
             AotDataReaderExtensions.ReadNullableString(reader, 5),
             AotDataReaderExtensions.ReadNullableString(reader, 6),
-            reader.GetInt32(7));
+            reader.GetInt32(7),
+            reader.FieldCount > 8 ? AotDataReaderExtensions.ReadNullableString(reader, 8) : null);
 
     private static TenantPackageRecord ReadTenantPackageRecord(DbDataReader reader) =>
         new(

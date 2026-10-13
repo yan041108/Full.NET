@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 5803,
+      "minimum": 5882,
       "timeout": "10m",
       "selections": {
         "files-active-claims": {
@@ -93,7 +93,11 @@
         },
         "media-binding": {
           "filter": "FullyQualifiedName~MediaBindingConcurrencyTests",
-          "minimum": 28
+          "minimum": 48
+        },
+        "media-reliable-release": {
+          "filter": "FullyQualifiedName~MediaBindingConcurrencyTests|FullyQualifiedName~MediaReleaseConsumerTests|FullyQualifiedName~MediaBindingClaimKeyTests",
+          "minimum": 107
         }
       }
     },
@@ -149,9 +153,10 @@
       "NativeWorkerKafkaLogMySqlE2ETests",
       "NativeWorkerClaimSnapshotTests",
       "NativeWorkerDocumentFileReleaseTests",
-      "NativeWorkerActiveDocumentClaimTests"
+      "NativeWorkerActiveDocumentClaimTests",
+      "NativeWorkerMediaReleaseTests"
     ],
-    "minimum": 20,
+    "minimum": 22,
     "timeout": "45m"
   },
   "nativeAotIntegration": {
@@ -446,6 +451,9 @@
       "251": {
         "filter": "FullyQualifiedName~Migration251DocumentTaxonomyWriteGuardTests.MySql_|FullyQualifiedName~Migration251DocumentTaxonomyWriteGuardTests.SqlServer_"
       },
+      "252": {
+        "filter": "FullyQualifiedName~Migration252MediaBindingClaimGenerationRecoveryTests.MySql_|FullyQualifiedName~Migration252MediaBindingClaimGenerationRecoveryTests.SqlServer_"
+      },
       "008": {
         "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryExpandMigrationTests|FullyQualifiedName~UuidBinaryPartialRecoveryTests"
       },
@@ -676,12 +684,12 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 520,
+        "minimum": 522,
         "timeout": "120m"
       },
       "infrastructure": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~KafkaLogDeliveryTests&FullyQualifiedName!~KafkaLogRequestLatencyTests&FullyQualifiedName!~KafkaCollectorRequestReplayTests&FullyQualifiedName!~KafkaLogRouteComparisonTests&FullyQualifiedName!~KafkaLogConsumerDeliveryTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchReplayTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchTlsTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests&FullyQualifiedName!~KafkaLogSecretBoundaryTests",
-        "minimum": 254,
+        "minimum": 256,
         "timeout": "60m"
       },
       "messaging-heavy": {
@@ -709,7 +717,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1238,
+        "minimum": 1242,
         "timeout": "90m"
       },
       "logging-route-comparison": {

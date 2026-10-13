@@ -73,6 +73,41 @@ public static class HostFileReferenceClaimIdempotencyKeys
     public static string TenancyTenantLogo(Guid tenantId, Guid fileId) =>
         $"tenancy-tenant-logo:{tenantId:D}:{fileId:D}";
 
+    /// <summary>为一次头像绑定生成独立幂等键，延迟解绑不得影响重新绑定。</summary>
+    public static string IdentityUserAvatar(Guid userId, Guid fileId, Guid bindingId) =>
+        CreateBindingKey(IdentityUserAvatar(userId, fileId), bindingId);
+
+    /// <summary>为一次签名绑定生成独立幂等键，保留旧双参数方法用于历史数据。</summary>
+    public static string IdentityUserSignature(Guid userId, Guid fileId, Guid bindingId) =>
+        CreateBindingKey(IdentityUserSignature(userId, fileId), bindingId);
+
+    /// <summary>为一次 Logo 绑定生成独立幂等键，文件复用也不复用绑定身份。</summary>
+    public static string TenancyTenantLogo(Guid tenantId, Guid fileId, Guid bindingId) =>
+        CreateBindingKey(TenancyTenantLogo(tenantId, fileId), bindingId);
+
+    /// <summary>解析本消费方自己的绑定键；拒绝跨资源键及非规范代际。</summary>
+    public static bool IsBindingKey(string legacyKey, string candidate) =>
+        !string.IsNullOrWhiteSpace(legacyKey) && !string.IsNullOrWhiteSpace(candidate)
+        && (string.Equals(legacyKey, candidate, StringComparison.Ordinal)
+            || IsGenerationKey(legacyKey, candidate));
+
+    private static string CreateBindingKey(string legacyKey, Guid bindingId)
+    {
+        if (bindingId == Guid.Empty) throw new ArgumentException("Binding identifier is required.", nameof(bindingId));
+        return $"{legacyKey}:binding:{bindingId:D}";
+    }
+
+    private static bool IsGenerationKey(string legacyKey, string candidate)
+    {
+        var prefix = legacyKey + ":binding:";
+        if (candidate is null || candidate.Length != prefix.Length + 36
+            || !candidate.StartsWith(prefix, StringComparison.Ordinal)) return false;
+        var identifier = candidate[prefix.Length..];
+        // 固定 D 格式及大小写，不能把别名或空代际当作同一释放授权。
+        return Guid.TryParseExact(identifier, "D", out var bindingId) && bindingId != Guid.Empty
+            && string.Equals(identifier, bindingId.ToString("D"), StringComparison.Ordinal);
+    }
+
     /// <summary>为 Notifications 邮件 Intent 附件生成稳定幂等键。</summary>
     /// <param name="intentId">通知意图标识。</param>
     /// <param name="fileId">附件文件标识。</param>

@@ -61,9 +61,10 @@ internal static class MediaBindingHttpAssertions
         using (var upload = await SendAsync(client, token, route, upload: true, ct))
             Assert.AreEqual(HttpStatusCode.OK, upload.StatusCode, await upload.Content.ReadAsStringAsync(ct));
         var beforeDelete = await ReadFileAsync(db, table, idColumn, fileColumn, subject, ct);
+        var beforeDeleteKey = await ReadBindingKeyAsync(db, table, idColumn, fileColumn, subject, ct);
         await RaceAsync(client, db, provider, cs, token, actor, subject, route, table, idColumn, fileColumn,
             owner, claimKey, conflictCode, upload: false, ct);
-        Assert.AreEqual("active", await ClaimStateAsync(db, claimKey(beforeDelete), ct));
+        Assert.AreEqual("active", await ClaimStateAsync(db, beforeDeleteKey, ct));
 
         var current = await ReadFileAsync(db, table, idColumn, fileColumn, subject, ct);
         using (var deletion = await SendAsync(client, token, route, upload: false, ct))
@@ -72,9 +73,10 @@ internal static class MediaBindingHttpAssertions
         using (var upload = await SendAsync(client, token, route, upload: true, ct))
             Assert.AreEqual(HttpStatusCode.OK, upload.StatusCode, await upload.Content.ReadAsStringAsync(ct));
         var beforeUpload = await ReadFileAsync(db, table, idColumn, fileColumn, subject, ct);
+        var beforeUploadKey = await ReadBindingKeyAsync(db, table, idColumn, fileColumn, subject, ct);
         await RaceAsync(client, db, provider, cs, token, actor, subject, route, table, idColumn, fileColumn,
             owner, claimKey, conflictCode, upload: true, ct);
-        Assert.AreEqual("active", await ClaimStateAsync(db, claimKey(beforeUpload), ct));
+        Assert.AreEqual("active", await ClaimStateAsync(db, beforeUploadKey, ct));
     }
 
     private static async Task RaceAsync(HttpClient client, DbConnection observer, DatabaseProvider provider, string cs,
@@ -165,6 +167,8 @@ internal static class MediaBindingHttpAssertions
 
     private static Task<Guid> ReadFileAsync(DbConnection db, string table, string idColumn, string column, Guid id, CancellationToken ct) =>
         db.QuerySingleAsync<Guid>(new CommandDefinition($"SELECT {column} FROM {table} WHERE {idColumn} = @Id", new { Id = id }, cancellationToken: ct));
+    private static Task<string> ReadBindingKeyAsync(DbConnection db, string table, string idColumn, string fileColumn, Guid id, CancellationToken ct) =>
+        db.QuerySingleAsync<string>(new CommandDefinition($"SELECT {fileColumn.Replace("FileId", "ClaimKey", StringComparison.Ordinal)} FROM {table} WHERE {idColumn} = @Id", new { Id = id }, cancellationToken: ct));
     private static Task<string> ClaimStateAsync(DbConnection db, string key, CancellationToken ct) =>
         db.QuerySingleAsync<string>(new CommandDefinition("SELECT State FROM fn_files_file_reference_claim WHERE IdempotencyKey = @Key", new { Key = key }, cancellationToken: ct));
     private static async Task<HttpResponseMessage> SendAsync(HttpClient client, string token, string route, bool upload, CancellationToken ct)

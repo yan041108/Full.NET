@@ -283,6 +283,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             Remark = ReadOptionalStringByName(reader, "Remark"),
             AvatarFileId = ReadOptionalGuidByName(reader, "AvatarFileId"),
             SignatureFileId = ReadOptionalGuidByName(reader, "SignatureFileId"),
+            AvatarClaimKey = ReadOptionalStringByName(reader, "AvatarClaimKey"),
+            SignatureClaimKey = ReadOptionalStringByName(reader, "SignatureClaimKey"),
             Version = ReadInt32ByName(reader, "Version"),
         };
 

@@ -42,7 +42,8 @@ public sealed class MediaBindingDatabaseTests
             var service = new TenantBrandingMediaService(query, services.GetRequiredService<ICommandExecutor>(),
                 services.GetRequiredService<ICommandTransaction>(), services.GetRequiredService<IClock>(), writer,
                 services.GetRequiredService<TenantBrandingService>(), services.GetRequiredService<TenantCacheInvalidator>(),
-                hostFileReferenceClaimService: services.GetRequiredService<IHostFileReferenceClaimService>());
+                hostFileReferenceClaimService: services.GetRequiredService<IHostFileReferenceClaimService>(),
+                outboxWriter: services.GetRequiredService<IOutboxWriter>());
             var file = await db.QuerySingleAsync<Guid>("SELECT LogoFileId FROM fn_tenancy_tenant WHERE Id = @Id", new { Id = tenant });
             var result = await service.DeleteLogoCurrentAsync(tenant);
             Assert.IsFalse(result.IsSuccess); Assert.AreEqual(TenancyErrorCodes.VersionConflict, result.Error!.Code);

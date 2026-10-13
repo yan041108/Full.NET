@@ -244,6 +244,8 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileReferenceClaimProbe,
             Features.HostFileReferences.IdentityUserProfileMediaReferenceProbe>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler,
+            Features.HostFileReferences.IdentityProfileMediaUnboundIntegrationEventHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IIntegrationEventHandlerRegistry,
             global::Full.NET.Generated.IntegrationEventHandlerRegistry>());

@@ -126,6 +126,8 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileReferenceClaimProbe,
             Features.HostFileReferences.TenancyTenantLogoReferenceProbe>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler,
+            Features.HostFileReferences.TenantLogoUnboundIntegrationEventHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostDashboardTenantMetricsReader,
             HostDashboard.HostDashboardTenantMetricsReader>());
@@ -226,6 +228,8 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
             TenantChangedCacheInvalidationHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler,
+            Features.HostFileReferences.TenantLogoUnboundIntegrationEventHandler>());
         services.TryAddScoped<TenantCacheInvalidator>();
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();

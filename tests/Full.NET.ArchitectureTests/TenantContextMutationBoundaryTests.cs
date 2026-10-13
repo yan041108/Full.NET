@@ -88,6 +88,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Reporting/Features/ManageExportTasks/ReportingExportTaskRunner.cs",
         "src/Modules/Full.NET.Modules.Settings/Features/ManageDiagnosticPolicy/DiagnosticPolicyStore.cs",
         // 权益只读 Port 临时进入 Host 目录读取阶段与绑定，租户来自调用方可信作用域，结束后恢复。
+        // Logo 消费者先校验可信解绑信封，仅通过 Files Port 临时进入 Host，成功、失败和取消后均恢复。
+        "src/Modules/Full.NET.Modules.Tenancy/Features/HostFileReferences/TenantLogoUnboundIntegrationEventHandler.cs",
         "src/Modules/Full.NET.Modules.Tenancy/Features/ManageTenantEntitlements/TenantFeatureEntitlementPort.cs",
         "src/Modules/Full.NET.Modules.Tenancy/Features/TenancyHostExecutionScope.cs",
         "src/Modules/Full.NET.Modules.Tenancy/Features/TenantBranding/TenantBrandingMediaService.cs",

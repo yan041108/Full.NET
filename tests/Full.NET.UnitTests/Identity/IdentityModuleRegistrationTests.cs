@@ -708,6 +708,8 @@ public sealed class IdentityModuleRegistrationTests
             RegistrationKind.Type,
             typeof(IdentityModule).Assembly.GetType(
                 "Full.NET.Modules.Identity.Features.OrganizationUnitProjection.OrganizationUnitChangedKafkaSubscription")),
+        RegistrationExpectation.Type<IIntegrationEventHandler,
+            Full.NET.Modules.Identity.Features.HostFileReferences.IdentityProfileMediaUnboundIntegrationEventHandler>(ServiceLifetime.Scoped),
         new RegistrationExpectation(
             typeof(IIntegrationEventHandlerRegistry),
             ServiceLifetime.Singleton,

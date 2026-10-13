@@ -22,7 +22,7 @@ namespace Full.NET.UnitTests.Identity;
 
 /// <summary>旧媒体快照不能清除或覆盖并发赢家；失败确认不能阻止提交后的缓存失效。</summary>
 [TestClass]
-public sealed class MediaBindingConcurrencyTests
+public sealed partial class MediaBindingConcurrencyTests
 {
     [TestMethod]
     [DataRow(false)]
@@ -225,6 +225,8 @@ public sealed class MediaBindingConcurrencyTests
     {
         public readonly Guid Subject = Guid.CreateVersion7(), OldFile = Guid.CreateVersion7(), NewFile = Guid.CreateVersion7();
         public Guid? CurrentFile { get; set; }
+        public string? CurrentClaimKey { get; set; }
+        public Guid? SnapshotFile { get; set; }
         public int CurrentVersion { get; set; } = 4;
         public bool MissingProfileSnapshot { get; init; }
         public bool RowExists { get; set; } = true;
@@ -233,15 +235,18 @@ public sealed class MediaBindingConcurrencyTests
         private int _profileReads, _brandingReads;
         public readonly IHostFileReferenceClaimService Claims = Substitute.For<IHostFileReferenceClaimService>();
         public readonly ICacheInvalidator Cache = Substitute.For<ICacheInvalidator>();
+        public readonly RecordingOutbox Outbox = new();
+        private bool _inTransaction;
         public SelfServiceProfileMediaService IdentityMedia { get; }
         public TenantBrandingMediaService TenantMedia { get; }
-        public string NewClaimKey => _signature ? HostFileReferenceClaimIdempotencyKeys.IdentityUserSignature(Subject, NewFile)
-            : HostFileReferenceClaimIdempotencyKeys.IdentityUserAvatar(Subject, NewFile);
+        public string NewClaimKey => Claims.ReceivedCalls().SelectMany(call => call.GetArguments())
+            .OfType<HostFileReferenceClaimRequest>().Last(request => request.FileId == NewFile).IdempotencyKey;
         public string OldClaimKey => _signature ? HostFileReferenceClaimIdempotencyKeys.IdentityUserSignature(Subject, OldFile)
             : HostFileReferenceClaimIdempotencyKeys.IdentityUserAvatar(Subject, OldFile);
 
         public Fixture(bool signature)
         {
+            Outbox.InTransaction = () => _inTransaction;
             _signature = signature; CurrentFile = OldFile;
             var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(DateTimeOffset.UtcNow);
             var writer = Substitute.For<ICurrentTenantContextWriter>();
@@ -258,12 +263,12 @@ public sealed class MediaBindingConcurrencyTests
             Claims.ClaimAsync(Arg.Any<HostFileReferenceClaimRequest>(), Arg.Any<CancellationToken>()).Returns(claim);
             Claims.ConfirmAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(claim);
             Claims.ReleaseAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result<bool>.Success(true));
-            IdentityMedia = new(this, this, this, profile, writer, upload, Claims, descriptor);
+            IdentityMedia = new(this, this, this, profile, writer, upload, Claims, descriptor, outboxWriter: Outbox);
             var environment = Substitute.For<IHostEnvironment>(); environment.EnvironmentName.Returns("Test");
             var invalidator = new TenantCacheInvalidator(Cache, environment, CachePolicyRegistry.Create(new CacheOptions()), NullLogger<TenantCacheInvalidator>.Instance);
             var tenant = Substitute.For<ICurrentTenant>(); tenant.Id.Returns(Subject); tenant.IsAvailable.Returns(true);
             var branding = new TenantBrandingService(this, this, this, clock, tenant, invalidator);
-            TenantMedia = new(this, this, this, clock, writer, branding, invalidator, upload, Claims, descriptor);
+            TenantMedia = new(this, this, this, clock, writer, branding, invalidator, upload, Claims, descriptor, outboxWriter: Outbox);
             Claims.ClearReceivedCalls(); Cache.ClearReceivedCalls();
         }
 
@@ -292,8 +297,10 @@ public sealed class MediaBindingConcurrencyTests
                 var snapshot = _profileReads++ == 0;
                 if (snapshot && MissingProfileSnapshot) return Task.FromResult<IReadOnlyList<T>>([]);
                 var profile = new HostUserProfileRecord { UserId = Subject, Version = snapshot ? 4 : CurrentVersion,
-                    AvatarFileId = _signature ? null : snapshot ? OldFile : CurrentFile,
-                    SignatureFileId = _signature ? snapshot ? OldFile : CurrentFile : null, SortOrder = 100 };
+                    AvatarFileId = _signature ? null : snapshot ? SnapshotFile ?? OldFile : CurrentFile,
+                    SignatureFileId = _signature ? snapshot ? SnapshotFile ?? OldFile : CurrentFile : null, SortOrder = 100,
+                    AvatarClaimKey = _signature ? null : CurrentClaimKey,
+                    SignatureClaimKey = _signature ? CurrentClaimKey : null };
                 return Task.FromResult<IReadOnlyList<T>>([(T)(object)profile]);
             }
             return Task.FromResult<IReadOnlyList<T>>([]);
@@ -307,7 +314,7 @@ public sealed class MediaBindingConcurrencyTests
             if (statement == TenantSql.FindTenantBrandingById || statement == TenantSql.FindTenantBrandingCurrent)
             {
                 var snapshot = _brandingReads++ == 0;
-                value = new TenantBrandingRecord(Subject, "媒体", snapshot ? OldFile : CurrentFile, null, null, null, null, snapshot ? 4 : CurrentVersion);
+                value = new TenantBrandingRecord(Subject, "媒体", snapshot ? SnapshotFile ?? OldFile : CurrentFile, null, null, null, null, snapshot ? 4 : CurrentVersion, CurrentClaimKey);
             }
             return Task.FromResult(value is null ? default : (T?)value);
         }
@@ -317,6 +324,8 @@ public sealed class MediaBindingConcurrencyTests
             if (statement == IdentitySql.InsertHostUserProfileMediaShell)
             {
                 if (RowExists) return Task.FromException<int>(new DataCommandException(DataCommandFailureKind.UniqueConstraint, new InvalidOperationException("Concurrent profile shell")));
+                var shell = (Dictionary<string, object?>)parameters!;
+                CurrentClaimKey = (string?)shell[_signature ? "SignatureClaimKey" : "AvatarClaimKey"];
                 RowExists = true; CurrentFile = NewFile; CurrentVersion = 1; return Task.FromResult(1);
             }
             if (!RowExists) return Task.FromResult(0);
@@ -329,14 +338,26 @@ public sealed class MediaBindingConcurrencyTests
             var clear = statement == IdentitySql.ClearHostUserProfileAvatar || statement == IdentitySql.ClearHostUserProfileSignature
                 || statement == TenantSql.ClearTenantLogo || statement == TenantSql.ClearTenantLogoCurrent;
             CurrentFile = clear ? null : NewFile; CurrentVersion++;
-            if (clear) AfterCommit?.Invoke();
+            CurrentClaimKey = clear ? null : (string?)p["ClaimKey"];
+            if (clear && !_inTransaction) AfterCommit?.Invoke();
             return Task.FromResult(1);
         }
         public async Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken)
         {
-            var result = await action(cancellationToken);
-            if (result is Result<bool> { IsSuccess: true }) AfterCommit?.Invoke();
-            return result;
+            var file = CurrentFile; var version = CurrentVersion; var key = CurrentClaimKey; var count = Outbox.Messages.Count;
+            _inTransaction = true;
+            try
+            {
+                var result = await action(cancellationToken);
+                if (result is Result<bool> { IsSuccess: false })
+                { CurrentFile = file; CurrentVersion = version; CurrentClaimKey = key; Outbox.Messages.RemoveRange(count, Outbox.Messages.Count - count); }
+                _inTransaction = false;
+                if (result is Result<bool> { IsSuccess: true }) AfterCommit?.Invoke();
+                return result;
+            }
+            catch
+            { CurrentFile = file; CurrentVersion = version; CurrentClaimKey = key; Outbox.Messages.RemoveRange(count, Outbox.Messages.Count - count); throw; }
+            finally { _inTransaction = false; }
         }
     }
 }

@@ -241,7 +241,8 @@ internal static class TenantSql
                ContactEmail,
                ContactAddress,
                Copyright,
-               Version
+               Version,
+               LogoClaimKey
         FROM fn_tenancy_tenant
         WHERE Id = @TenantId
         """,
@@ -257,7 +258,8 @@ internal static class TenantSql
                ContactEmail,
                ContactAddress,
                Copyright,
-               Version
+               Version,
+               LogoClaimKey
         FROM fn_tenancy_tenant
         WHERE Id = @TenantId
         """,
@@ -302,6 +304,7 @@ internal static class TenantSql
         """
         UPDATE fn_tenancy_tenant
         SET LogoFileId = @LogoFileId,
+            LogoClaimKey = @ClaimKey,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @TenantId
@@ -314,6 +317,7 @@ internal static class TenantSql
         """
         UPDATE fn_tenancy_tenant
         SET LogoFileId = @LogoFileId,
+            LogoClaimKey = @ClaimKey,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @TenantId
@@ -327,6 +331,7 @@ internal static class TenantSql
         """
         UPDATE fn_tenancy_tenant
         SET LogoFileId = NULL,
+            LogoClaimKey = NULL,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @TenantId
@@ -340,6 +345,7 @@ internal static class TenantSql
         """
         UPDATE fn_tenancy_tenant
         SET LogoFileId = NULL,
+            LogoClaimKey = NULL,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @TenantId

@@ -54,7 +54,9 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         var handlers = scope.ServiceProvider
             .GetServices<IIntegrationEventHandler>()
             .ToArray();
-        Assert.HasCount(2, handlers);
+        Assert.HasCount(3, handlers);
+        Assert.IsInstanceOfType<Full.NET.Modules.Tenancy.Features.HostFileReferences.TenantLogoUnboundIntegrationEventHandler>(
+            handlers.Single(handler => handler.EventType == "fullnet.tenancy.logo.unbound"));
         var provisionedHandler = handlers.Single(handler =>
             handler.EventType == "fullnet.tenancy.tenant.provisioned");
         Assert.IsInstanceOfType<TenantProvisionedCacheInvalidationHandler>(
