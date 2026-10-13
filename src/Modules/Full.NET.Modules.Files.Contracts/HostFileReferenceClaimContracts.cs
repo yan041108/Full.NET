@@ -94,18 +94,26 @@ public static class HostFileReferenceClaimIdempotencyKeys
     private static string CreateBindingKey(string legacyKey, Guid bindingId)
     {
         if (bindingId == Guid.Empty) throw new ArgumentException("Binding identifier is required.", nameof(bindingId));
-        return $"{legacyKey}:binding:{bindingId:D}";
+        // 三段 UUID 使用规范 N 格式，键最长 123 字符，适配正式双库的 128 字符列。
+        return $"{CompactBindingPrefix(legacyKey)}{bindingId:N}";
     }
+
+    private static string CompactBindingPrefix(string legacyKey) =>
+        legacyKey[..^73] + legacyKey[^73..].Replace("-", string.Empty, StringComparison.Ordinal) + ":b:";
 
     private static bool IsGenerationKey(string legacyKey, string candidate)
     {
-        var prefix = legacyKey + ":binding:";
-        if (candidate is null || candidate.Length != prefix.Length + 36
+        // 旧双参数键使用两个 D 格式 UUID；只压缩标识部分，保留消费方前缀。
+        if (legacyKey.Length <= 73 || legacyKey[^37] != ':'
+            || !Guid.TryParseExact(legacyKey.AsSpan(legacyKey.Length - 73, 36), "D", out _)
+            || !Guid.TryParseExact(legacyKey.AsSpan(legacyKey.Length - 36, 36), "D", out _)) return false;
+        var prefix = CompactBindingPrefix(legacyKey);
+        if (candidate is null || candidate.Length != prefix.Length + 32
             || !candidate.StartsWith(prefix, StringComparison.Ordinal)) return false;
         var identifier = candidate[prefix.Length..];
-        // 固定 D 格式及大小写，不能把别名或空代际当作同一释放授权。
-        return Guid.TryParseExact(identifier, "D", out var bindingId) && bindingId != Guid.Empty
-            && string.Equals(identifier, bindingId.ToString("D"), StringComparison.Ordinal);
+        // 规范小写十六进制避免正式数据库不区分大小写的索引把两种代际别名视为同一键。
+        return Guid.TryParseExact(identifier, "N", out var bindingId) && bindingId != Guid.Empty
+            && string.Equals(identifier, bindingId.ToString("N"), StringComparison.Ordinal);
     }
 
     /// <summary>为 Notifications 邮件 Intent 附件生成稳定幂等键。</summary>
@@ -121,8 +129,8 @@ public static class HostFileReferenceClaimIdempotencyKeys
 /// <summary>
 /// 创建文件引用 claim 的请求契约；IdempotencyKey 保证重复提交的幂等性。
 /// </summary>
-/// <param name="IdempotencyKey">消费者模块内唯一的幂等键；建议通过 HostFileReferenceClaimIdempotencyKeys 生成。</param>
-/// <param name="ConsumerModule">消费者模块稳定键，取值自 HostFileReferenceClaimConsumerModules。</param>
+/// <param name="IdempotencyKey">消费者模块内唯一的幂等键，最多 128 字符；建议通过 HostFileReferenceClaimIdempotencyKeys 生成。</param>
+/// <param name="ConsumerModule">消费者模块稳定键，最多 64 字符，取值自 HostFileReferenceClaimConsumerModules。</param>
 /// <param name="ConsumerReferenceId">消费者侧业务引用标识，如 DocumentVersionId。</param>
 /// <param name="FileId">Files 模块中目标文件标识。</param>
 public sealed record HostFileReferenceClaimRequest(

@@ -179,6 +179,19 @@ public sealed class HostFileReferenceClaimServiceTests
         Assert.AreEqual(FilesErrorCodes.FileNotFound, result.Error!.Code);
     }
 
+    [TestMethod]
+    [DataRow(129, 8)]
+    [DataRow(200, 8)]
+    [DataRow(20, 65)]
+    public async Task Oversized_claim_fields_fail_before_database_access(int keyLength, int moduleLength)
+    {
+        var query = Substitute.For<IQueryExecutor>(); var command = Substitute.For<ICommandExecutor>();
+        var result = await CreateService(query, command).ClaimAsync(new(new string('k', keyLength),
+            new string('m', moduleLength), Guid.CreateVersion7(), Guid.CreateVersion7()));
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(FilesErrorCodes.InvalidClaim, result.Error!.Code);
+        Assert.IsFalse(query.ReceivedCalls().Any()); Assert.IsFalse(command.ReceivedCalls().Any());
+    }
+
     private static HostFileReferenceClaimService CreateService(
         IQueryExecutor queryExecutor,
         ICommandExecutor commandExecutor)

@@ -26,7 +26,7 @@ public sealed class MediaBindingClaimKeyTests
         Assert.AreEqual(first, Key(kind, subject, file, binding));
         Assert.AreNotEqual(first, Key(kind, subject, file, Guid.CreateVersion7()));
         Assert.AreNotEqual(Legacy(kind, subject, file), first);
-        Assert.IsTrue(first.Length <= 200);
+        Assert.IsTrue(first.Length <= 128, "必须符合正式双库 Claim 列容量。");
     }
 
     [TestMethod]
@@ -44,13 +44,15 @@ public sealed class MediaBindingClaimKeyTests
 
     [TestMethod]
     [DataRow("")]
-    [DataRow("00000000-0000-0000-0000-000000000000")]
+    [DataRow("00000000000000000000000000000000")]
     [DataRow("not-a-guid")]
-    [DataRow("00000000000070008000000000000001")]
+    [DataRow("0000000000007000800000000000000A")]
     public void Invalid_generation_cannot_authorize_a_release(string suffix)
     {
-        var legacy = Legacy("avatar", Guid.CreateVersion7(), Guid.CreateVersion7());
-        Assert.IsFalse(HostFileReferenceClaimIdempotencyKeys.IsBindingKey(legacy, legacy + ":binding:" + suffix));
+        var subject = Guid.CreateVersion7(); var file = Guid.CreateVersion7();
+        var legacy = Legacy("avatar", subject, file);
+        var valid = Key("avatar", subject, file, Guid.CreateVersion7());
+        Assert.IsFalse(HostFileReferenceClaimIdempotencyKeys.IsBindingKey(legacy, valid[..^32] + suffix));
     }
 
     [TestMethod]

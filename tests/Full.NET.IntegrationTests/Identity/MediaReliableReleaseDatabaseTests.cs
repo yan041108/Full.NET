@@ -59,7 +59,13 @@ public sealed class MediaReliableReleaseDatabaseTests
             var idColumn = kind == "logo" ? "Id" : "UserId"; var subject = kind == "logo" ? tenant : user;
             var prefix = kind == "avatar" ? "Avatar" : kind == "signature" ? "Signature" : "Logo";
             var snapshot = await db.QuerySingleAsync<Binding>($"SELECT {prefix}FileId AS FileId, {prefix}ClaimKey AS ClaimKey, Version FROM {table} WHERE {idColumn} = @Id", new { Id = subject });
-            Assert.IsTrue(snapshot.ClaimKey.Contains(":binding:", StringComparison.Ordinal));
+            var legacyKey = kind switch {
+                "avatar" => HostFileReferenceClaimIdempotencyKeys.IdentityUserAvatar(user, snapshot.FileId),
+                "signature" => HostFileReferenceClaimIdempotencyKeys.IdentityUserSignature(user, snapshot.FileId),
+                _ => HostFileReferenceClaimIdempotencyKeys.TenancyTenantLogo(tenant, snapshot.FileId),
+            };
+            Assert.IsTrue(HostFileReferenceClaimIdempotencyKeys.IsBindingKey(legacyKey, snapshot.ClaimKey));
+            Assert.AreNotEqual(legacyKey, snapshot.ClaimKey); Assert.IsTrue(snapshot.ClaimKey.Length <= 128);
             var eventType = kind == "logo" ? TenantLogoUnboundOutbox.EventType : IdentityProfileMediaUnboundOutbox.EventType;
             await using var scope = factory.Services.CreateAsyncScope(); var services = scope.ServiceProvider;
             var writer = services.GetRequiredService<ICurrentTenantContextWriter>();
