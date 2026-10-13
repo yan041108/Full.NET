@@ -248,6 +248,17 @@ internal static class TenantSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>Host 后台按有限主体集合一次权威读取 Logo 绑定，避免代际对账逐条跨模块调用。</summary>
+    public static readonly SqlStatement FindTenantBrandingByIds = new(
+        "tenancy.tenant_branding.find_by_ids",
+        """
+        SELECT Id AS TenantId, SystemTitle, LogoFileId, ContactPhone, ContactEmail,
+               ContactAddress, Copyright, Version, LogoClaimKey
+        FROM fn_tenancy_tenant
+        WHERE Id IN @TenantIds
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindTenantBrandingCurrent = new(
         "tenancy.tenant_branding.find_current",
         """

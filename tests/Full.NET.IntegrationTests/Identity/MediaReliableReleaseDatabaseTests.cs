@@ -108,6 +108,7 @@ public sealed class MediaReliableReleaseDatabaseTests
                 Assert.AreEqual("active", await StateAsync(currentKey)); Assert.AreEqual("released", await StateAsync(failedKey));
                 await handler.HandleAsync(context, fact.Payload, default);
                 Assert.AreEqual("active", await StateAsync(currentKey), "旧事实重复投递不得释放重新绑定的当前代际。");
+                await MediaActiveClaimAssertions.VerifyAsync(services, db, provider, kind, subject, snapshot.FileId, currentKey, default);
 
                 string GenerationKey(Guid generation) => kind switch
                 {

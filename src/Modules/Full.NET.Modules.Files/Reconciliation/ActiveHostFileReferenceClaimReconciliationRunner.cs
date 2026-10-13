@@ -13,7 +13,7 @@ internal sealed record ActiveHostFileReferenceClaimReconciliationResult(int Scan
     public static ActiveHostFileReferenceClaimReconciliationResult Empty { get; } = new(0, 0, 0, 0);
 }
 
-/// <summary>仅向不可复用引用所有者探测；跨模块读取在 Files 条件更新之前，不共享本地事务。</summary>
+/// <summary>只向声明引用或绑定代际不可复用的所有者探测；跨模块读取与 Files 条件更新不共享事务。</summary>
 internal sealed class ActiveHostFileReferenceClaimReconciliationRunner(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -24,8 +24,9 @@ internal sealed class ActiveHostFileReferenceClaimReconciliationRunner(
 {
     private readonly ActiveHostFileReferenceClaimReconciliationCursor _cursor = cursor ?? new();
     private readonly DatabaseProvider _provider = databaseOptions.Value.Provider;
-    private readonly IReadOnlyDictionary<string, IHostImmutableFileReferenceClaimProbe> _probes =
-        probes.OfType<IHostImmutableFileReferenceClaimProbe>().ToDictionary(p => p.ConsumerModule, StringComparer.Ordinal);
+    private readonly IReadOnlyDictionary<string, IHostFileReferenceClaimProbe> _probes =
+        probes.Where(p => p is IHostImmutableFileReferenceClaimProbe or IHostImmutableFileBindingClaimProbe)
+            .ToDictionary(p => p.ConsumerModule, StringComparer.Ordinal);
 
     public async Task<ActiveHostFileReferenceClaimReconciliationResult> RunOnceAsync(
         ActiveHostFileReferenceClaimReconciliationOptions options, CancellationToken ct)
@@ -76,8 +77,12 @@ internal sealed class ActiveHostFileReferenceClaimReconciliationRunner(
                 var batch = group.ToArray();
                 try
                 {
-                    answers = await _probes[group.Key].ProbeReferencesAsync(batch.Select(row =>
-                        new HostFileReferenceClaimProbeRequest(row.Id, row.ConsumerReferenceId, row.FileId)).ToArray(), ct).ConfigureAwait(false);
+                    // 可复用主体必须携带扫描键；普通或 Pending 探测不能授权 Active 释放。
+                    answers = _probes[group.Key] is IHostImmutableFileBindingClaimProbe bindingProbe
+                        ? await bindingProbe.ProbeBindingsAsync(batch.Select(row => new HostFileBindingClaimProbeRequest(
+                            row.Id, row.ConsumerReferenceId, row.FileId, row.IdempotencyKey)).ToArray(), ct).ConfigureAwait(false)
+                        : await ((IHostImmutableFileReferenceClaimProbe)_probes[group.Key]).ProbeReferencesAsync(batch.Select(row =>
+                            new HostFileReferenceClaimProbeRequest(row.Id, row.ConsumerReferenceId, row.FileId)).ToArray(), ct).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch { failures += batch.Length; continue; }

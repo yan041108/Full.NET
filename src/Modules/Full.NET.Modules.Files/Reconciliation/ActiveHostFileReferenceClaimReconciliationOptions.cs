@@ -2,7 +2,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Files.Reconciliation;
 
-/// <summary>不可复用引用的 Active 对账预算；关闭开关可停止历史补偿，不影响可靠删除事件。</summary>
+/// <summary>不可复用引用及绑定代际的 Active 对账预算；关闭补偿不影响可靠删除事件。</summary>
 internal sealed class ActiveHostFileReferenceClaimReconciliationOptions
 {
     public const string SectionName = "Files:ActiveReferenceClaimReconciliation";

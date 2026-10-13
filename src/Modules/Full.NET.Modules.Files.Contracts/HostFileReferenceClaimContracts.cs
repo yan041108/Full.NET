@@ -91,6 +91,14 @@ public static class HostFileReferenceClaimIdempotencyKeys
         && (string.Equals(legacyKey, candidate, StringComparison.Ordinal)
             || IsGenerationKey(legacyKey, candidate));
 
+    /// <summary>只识别归属匹配的规范代际键，不将可复用的历史双参数键视为一次性绑定身份。</summary>
+    /// <param name="legacyKey">由消费方主体、媒体类型及文件生成的历史键。</param>
+    /// <param name="candidate">待核对的扫描绑定键。</param>
+    /// <returns>键包含规范的独立绑定标识且归属一致时为 true。</returns>
+    public static bool IsGenerationBindingKey(string legacyKey, string candidate) =>
+        !string.IsNullOrWhiteSpace(legacyKey) && !string.IsNullOrWhiteSpace(candidate)
+        && IsGenerationKey(legacyKey, candidate);
+
     private static string CreateBindingKey(string legacyKey, Guid bindingId)
     {
         if (bindingId == Guid.Empty) throw new ArgumentException("Binding identifier is required.", nameof(bindingId));
@@ -273,6 +281,29 @@ public interface IHostImmutableFileReferenceClaimProbe : IHostFileReferenceClaim
     Task<IReadOnlyDictionary<Guid, HostFileReferenceClaimProbeResult>> ProbeReferencesAsync(
         IReadOnlyList<HostFileReferenceClaimProbeRequest> requests, CancellationToken cancellationToken = default);
 }
+
+/// <summary>可复用主体的一次性绑定代际探测；允许补偿永久退休的 Active 绑定，不授权清理旧格式键。</summary>
+/// <remarks>
+/// 官方写入必须为每次绑定创建新键，禁止重绑退休键；部署须停止旧写入器，不能混用可复用键的旧实现。
+/// 仅明确、权威且永不恢复的退休结论可回答 NotFound；旧格式键、元数据损坏和读取故障必须回答 Failed。
+/// 此契约不改变逻辑引用身份不可复用的原标记，也不替代业务事务中的可靠解绑事实。
+/// </remarks>
+public interface IHostImmutableFileBindingClaimProbe : IHostFileReferenceBindingClaimProbe
+{
+    /// <summary>一次权威读取核对一批完整绑定快照；缺失回答或不确定结论保留扫描 Claim。</summary>
+    /// <param name="requests">最多 1000 项、ClaimId 唯一的消费方绑定快照。</param>
+    /// <param name="cancellationToken">取消权威读取与后续释放。</param>
+    /// <returns>按 ClaimId 关联的明确探测结果；无效或历史键为 Failed。</returns>
+    Task<IReadOnlyDictionary<Guid, HostFileReferenceClaimProbeResult>> ProbeBindingsAsync(
+        IReadOnlyList<HostFileBindingClaimProbeRequest> requests, CancellationToken cancellationToken = default);
+}
+
+/// <summary>一次性绑定的完整探测快照；幂等键区分同主体、同文件的不同绑定代际。</summary>
+/// <param name="ClaimId">Files 扫描记录标识，仅用于关联回答。</param>
+/// <param name="ConsumerReferenceId">消费方业务主体标识。</param>
+/// <param name="FileId">扫描记录中的文件标识。</param>
+/// <param name="IdempotencyKey">扫描记录实际保存的绑定键，不能由探测器重新生成代际。</param>
+public readonly record struct HostFileBindingClaimProbeRequest(Guid ClaimId, Guid ConsumerReferenceId, Guid FileId, string IdempotencyKey);
 
 /// <summary>引用探测快照；ClaimId 关联回答，业务版本和文件标识共同确认归属。</summary>
 public readonly record struct HostFileReferenceClaimProbeRequest(Guid ClaimId, Guid ConsumerReferenceId, Guid FileId);
