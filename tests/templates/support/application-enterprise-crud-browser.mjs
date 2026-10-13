@@ -12,11 +12,12 @@ export async function verifyEnterpriseRequestCrudBrowser(page, origin, fixture) 
   const view = page.locator('.generated-crud-view');
   await view.getByRole('button', { name: '创建', exact: true }).click();
   const createDialog = page.getByRole('dialog', { name: '创建', exact: true });
-  await createDialog.getByLabel('OrganizationUnitId', { exact: true }).fill(fixture.importValues[4]);
-  await createDialog.getByLabel('RequestNumber', { exact: true }).fill(number);
-  await createDialog.getByLabel('Title', { exact: true }).fill('Enterprise Browser CRUD');
-  await createDialog.getByLabel('TotalAmount', { exact: true }).fill('67.89');
-  await createDialog.getByLabel('ApplicantUserId', { exact: true }).fill(fixture.importValues[3]);
+  // 验收入口固定 zh-CN，字段的可访问名称来自当前显示标签，而不是旧的契约属性名。
+  await createDialog.getByLabel('所属机构标识', { exact: true }).fill(fixture.importValues[4]);
+  await createDialog.getByLabel('申请编号', { exact: true }).fill(number);
+  await createDialog.getByLabel('标题', { exact: true }).fill('Enterprise Browser CRUD');
+  await createDialog.getByLabel('申请金额', { exact: true }).fill('67.89');
+  await createDialog.getByLabel('申请人标识', { exact: true }).fill(fixture.importValues[3]);
   const createdHttp = await runPrintingBrowserResponseAction(page,
     response => new URL(response.url()).pathname === path && response.request().method() === 'POST',
     () => createDialog.getByRole('button', { name: '保存', exact: true }).click());
@@ -32,7 +33,7 @@ export async function verifyEnterpriseRequestCrudBrowser(page, origin, fixture) 
 
   await row.getByRole('button', { name: '编辑', exact: true }).click();
   const editDialog = page.getByRole('dialog', { name: '编辑', exact: true });
-  await editDialog.getByLabel('Title', { exact: true }).fill('Enterprise Browser CRUD updated');
+  await editDialog.getByLabel('标题', { exact: true }).fill('Enterprise Browser CRUD updated');
   const updatedHttp = await runPrintingBrowserResponseAction(page,
     response => new URL(response.url()).pathname === path + '/' + created.id && response.request().method() === 'PUT',
     () => editDialog.getByRole('button', { name: '保存', exact: true }).click());
@@ -43,13 +44,13 @@ export async function verifyEnterpriseRequestCrudBrowser(page, origin, fixture) 
 
   // 离开缓存页面时同步关闭并清理编辑输入；重新进入只读取当前权威列表。
   await row.getByRole('button', { name: '编辑', exact: true }).click();
-  await editDialog.getByLabel('Title', { exact: true }).fill('discarded page input');
+  await editDialog.getByLabel('标题', { exact: true }).fill('discarded page input');
   await page.goto(origin + '/#/tenant-context');
   await expect(editDialog).toBeHidden();
   await page.goto(origin + '/#/enterprise-requests');
   await expect(row).toContainText('Enterprise Browser CRUD updated');
   await row.getByRole('button', { name: '编辑', exact: true }).click();
-  await expect(editDialog.getByLabel('Title', { exact: true })).toHaveValue('Enterprise Browser CRUD updated');
+  await expect(editDialog.getByLabel('标题', { exact: true })).toHaveValue('Enterprise Browser CRUD updated');
   await editDialog.getByRole('button', { name: '取消', exact: true }).click();
 
   let deleteRequests = 0;
