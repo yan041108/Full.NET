@@ -3010,3 +3010,18 @@ node .tmp/pending-cycles-jit-1.mjs集中真实SQL Server/MySQL2/2，零失败/�
 新干净副本G:/.fullnet-tests/fs-JVj3r5绑定e0ce3c0，33项轻量再次通过；正式注册入口使用sqlserver名称筛选，仅重试SQL Server，不重复MySQL或前置轻量。旧MySQL继续绑定7ce8740；若完整通过可复用，但汇总必须记录两个来源、保留旧SQL失败，不写成首轮或同HEAD全绿。两个正式后台进程目前均等待其他窗口正在运行的MySQL组正常完成；源输入/各轮日志不覆盖，协调仍遵守安全边界。当前两库尚未完成，F10独立运行故障覆盖不提升。
 
 7ce8740的API/Worker Native工作流38382726465/38382726679已成功；主CI38382726459为cancelled，不能记为成功。e0ce3c0的新工作流另行核对，不借用旧CI状态替代。最终严格核验脚本.tmp/bound-runtime-consolidated-proof.mjs仅在两份完整成功报告、正式计数、源码/摘要及正常清理均满足后生成通过证明；此前单轮校验器和报告草稿不用于不同来源的最终认证。整体Build-verified / Capacity-not-verified保持，PR3仍Draft，未合并发布。
+## 2026-10-13 CI 官方镜像限额降级与 F10 SQL Server 实际复验
+
+CI修复任务foundation-ci-image-fallback-20261013，基线2f9dadf，源码99e7b7b735c29cbbb4e06a01f6cc0dbd844d6051。原API Native作业38386247451在官方镜像准备阶段因public.ecr.aws的toomanyrequests/Data limit exceeded失败，未进入原生运行；旧日志保留。此前相同下载限额已有失败记录，短退避不能保证恢复，因此收口共享prepare-ci-test-images.mjs，而非反复重新提交业务代码。
+
+同一既有版本标签在主源带宽配额耗尽时直接切换docker.io/library官方源；短时限流每源最多三次，沿用5/15秒两次退避，主源重试耗尽才转源，备用源耗尽仍失败。MySQL8.0、可选8.4、Redis8.6及调用接口不变；网络/权限错误、无效ImageId、tag或别名核对错误都继续阻断，不增加复用旧本地别名的成功路径。先成功拉取实际选中源，再核对sourceId与targetId一致；不声称两个镜像源的内容digest相同。[Docker官方命名说明](https://docs.docker.com/reference/cli/docker/image/tag/)确认docker.io/library为Docker Official Images保留命名空间。没有引入任意第三方源、认证登录或额外版本。
+
+新增三项行为RED为13项10通过/3失败，修复后镜像回归13/13；完整pnpm test:integration:tooling实际140/140、pnpm test:governance70/70，均零失败/跳过，语法与diff检查通过。工具总数含其他窗口现有夹具测试，不等于本批新增140项；本批只提交镜像准备脚本及对应测试，其他窗口五项受保护内容核对不变。只读复核未发现可证明的新问题。
+
+精确99e7b7b的API Native工作流38388524499、Worker Native工作流38388524467均最终success。API原始日志明确记录MySQL8.0和Redis8.6发生官方源降级，随后镜像准备及完整流程成功；Worker正常主源准备成功。两条原始日志、事件headSha/status/conclusion、测试计数及SHA256已核对，证据.tmp/ci-image-fallback-final-proof.json及对应RED/GREEN/tooling/governance/CI日志；核验入口node .tmp/ci-image-fallback-proof.mjs。主CI38388524648在本次核对时仍执行中，不计整体成功；也不将这些底座Native流程成功外推为完整企业业务Native或容量认证。CI镜像限额修复本批关闭。
+
+F10的e0ce3c0 SQL Server定向独立应用复验已实际2/2、零失败/跳过，执行466.935秒，含排队的父测试2197.392秒；三个宿主只构建一次，零错误，重复迁移、五次Worker启动及正常清理已核对。实际Worker生成suspended及一份AttemptCount=1的dead_lettered任务，假恢复/旧修订取消拒绝，同取消请求两次200后申请版本为字符串3、通知意图唯一；暂停幂等恢复后批准路径也完整通过。成功报告G:/.fullnet-tests/fs-JVj3r5/.tmp/template-real-stack/enterprise-approval/sqlserver/run-1JZQUV/result.json和对应浏览器回执保留，不能把这份成功写成7ce8740首轮通过。
+
+原7ce8740 MySQL纯排队30分钟超时，实际业务零启动，无生成应用结果；原正式全入口实际3项、0通过/3失败/0跳过，包含SQL父/子失败及MySQL排队父项，不伪造4项全绿。复用e0ce3c0准备副本和33项轻量证据，仅重新登记MySQL，在同一工作区锁后串行，未复制新源码副本或重复前置检查。当前MySQL仍等待“分析缓存模块”的完整Native组；该对话确认完整结束后交接且不追加第二重型组，未中断测试或删除外来锁。F10双库本批尚未关闭，严格最终门禁.tmp/bound-runtime-final-proof-v3.mjs拒绝在MySQL未成功时生成通过证明。旧单轮/双来源草稿校验器不用于当前最终认证。
+
+整体继续Build-verified / Capacity-not-verified；完整业务Native、人工全页面、多实例故障/灾备及10K容量仍待。PR3保持Draft，未合并发布。
