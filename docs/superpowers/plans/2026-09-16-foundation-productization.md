@@ -3141,3 +3141,27 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 上一精确head479b574主CI38447267379成功：Unit6632、Compatibility12、Architecture248、受影响双库514、企业API样例16、current迁移274/legacy250零失败/跳过，8个跳过作业不计通过。Native API49/49、Worker27/27的原闭包证据复用；本批Node消费者未改变生产闭包，不触发重复Native发布，也不宣称应用专属故障已在Native实测。
 - Windows10专业版、Node24.12.0、SDK10.0.401，20逻辑处理器/约64GiB内存，DOTNET_PROCESSOR_COUNT=2。外来5份内容核对保护；F11全故障矩阵、导入取消、人工全页面、多实例故障/灾备与容量仍待，保持Capacity-not-verified。开发分支/Draft PR3交付，未合并、未发布。
 <!-- /import-session-20261014 -->
+
+
+<!-- identity-cookie-control-20261014 -->
+## 2026-10-14 会话 Cookie 控制作用域与客户端刷新修复
+
+- 生产与测试源码1143c5f：Login/Refresh/Logout仅接受可信Host且TenantId为空；租户或不一致作用域在dispatcher前返回标准403 authorization.permission_denied，不清空上下文、不删除Cookie、不触发HostOnly SQL。只限定三个会话端点，未修改其他注册/恢复路径或全局异常映射。
+- headless SDK三个Cookie控制请求显式skipAuthentication=true；失效租户令牌不再自动附到refresh，业务重试使用新令牌，Cookie/CSRF/Origin与credentials保留。
+- 新Unit实际RED4失败/1通过，再GREEN聚焦7/7；命令node scripts/testing/run-dotnet-test-suite.mjs unit --selection identity-cookie-control。pnpm --filter @fullnet/client-contracts test为277/277，build通过；API AOT分析0警告0错误，未替代原生运行。node --test tests/testing/*.test.mjs 140/140、治理70/70、快速辅助28通过/1项Windows平台跳过；只读安全审查未发现阻断问题。
+- 新源码独立生成应用三宿主各一次构建已完成，正在正式入口集中排队，实际双库结果未完成，不计通过。
+- 现有独立应用集中入口统一复用应用三宿主构建，追加Cookie安全场景；本地只执行本批新增场景，不重复上一批已验收且未改变的Worker故障消费者。规定Identity双库影响集及本次Native CI仍待实际结果，不把聚焦或跳过作业计为全量通过。
+- 原工作区Integration旧程序集发现1230而canonical1252，失败结果保留；隔离副本重新构建0警告/错误，分片实际1252项无遗漏或重复，不降低门槛。Windows10、Node24.12.0、.NET SDK10.0.401，DOTNET_PROCESSOR_COUNT=2；F11取消/完整故障与容量仍待，Capacity-not-verified，未合并发布。
+<!-- /identity-cookie-control-20261014 -->
+
+
+<!-- dependency-security-20261014 -->
+## 2026-10-14 主解决方案依赖安全审计与首屏预算修复
+
+- 生产1529f5c：中央传递钉住PKCS与SignalR.Common 10.0.13；同时提升必要Options/DI.Abstractions 10.0.13，保留CPM、审计、降级与AOT门禁。只修改必要依赖闭包，不加审计例外。官方公告：[PKCS](https://github.com/dotnet/runtime/security/advisories/GHSA-846f-f764-76mx)、[SignalR](https://github.com/dotnet/aspnetcore/security/advisories/GHSA-334f-vvp4-7g6p)。
+- 原1143c5f主CI38470457513模块作业在audit:dotnet因新PKCS公告失败；首次仅修PKCS的本地审计继续发现SignalR公告。保存全部解决方案JSON后集中处理，不把第一次失败或无结果当通过。Common单独钉住曾实际NU1109（Options10.0.11低于要求10.0.13），必要闭包提升后解决；security-validation.log/security-fixed.log与cookie-restore.log保留。
+- 隔离ac-0KuWKf（0fffd44基线加本任务C#及1529依赖差异）实际主解决方案审计无未审查高危/严重项；API/Worker AOT分析均0警告/错误；正式Unit入口全Identity 674/674、零失败/跳过，未重复运行数据库组。原生发布/运行以及最终head完整CI待结果，不用分析器代替。
+- 原客户端CI全部测试/构建后，首屏预算实际1436485字节，超旧5%上限31字节；Cookie协议选项集中定义并为每次调用复制，减少重复字面量，不改变三端点认证/CSRF语义。SDK再次277/277与tsc通过；Vue typecheck/build通过，pnpm test:bundle-budgets三项均通过，首屏1436420字节、gzip385443字节；预算未提高。只报告包体，未推导请求耗时/吞吐提升。
+- 依赖闭包只读复核关闭Common/Options降级P1。独立AI实验禁用CPM，其PKCS锁图不受此补丁覆盖；本机shared runtime10.0.12也未升级。保留后续独立消费者/运行时安全升级，不把主解决方案审计通过宣称整个仓库或部署已安全。
+- 会话HTTP独立应用仍冻结1143c5f，排队后双库结果仅证明该端点行为，不证明1529包版本已在生成应用运行；新依赖的双库及Native回归由其精确head验证继续收口。用户已有安全资源协调授权，未中断AI/缓存组、未改外来工作树，未合并发布。
+<!-- /dependency-security-20261014 -->

@@ -1,3 +1,7 @@
+2026-10-14 主解决方案依赖安全与首屏预算修复1529f5c：PKCS/SignalR.Common及必要Options/DI.Abstractions安全闭包已修正，主解决方案审计通过、全Identity Unit674/674、API/Worker AOT分析通过，SDK277/277和Vue构建/三个包体预算通过；预算未放宽。旧CI审计/31字节预算失败保留，精确新head CI及双库/Native仍待，不覆盖独立AI实验或本机旧shared runtime。会话独立应用冻结1143c5f集中排队中，F11整体/容量仍待，未合并发布。[记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-主解决方案依赖安全审计与首屏预算修复)。
+
+2026-10-14 会话Cookie控制作用域修复1143c5f：服务端三端点拒绝租户Bearer进入HostOnly数据操作，SDK刷新显式省略Bearer。Unit7/7、SDK277/277及构建、API AOT分析、工具140/140、治理70/70与只读安全复核完成。新源码独立生成应用三宿主各一次构建已完成，正在正式入口集中排队，实际双库结果未完成，不计通过。本次Identity完整双库/Native CI待结果，F11整体与容量仍待，未合并发布。[记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-会话-cookie-控制作用域与客户端刷新修复)。
+
 2026-10-14 F11导入会话撤销与检查点重试：本批双库各5阶段通过（Node2/2、零失败/跳过），排队及cursor1会话撤销拒绝后续写入，新会话显式retry保持行唯一与原ID，Host/匿名拒绝；实际执行2.70分钟，三宿主全部复用，完整清理核对。快测28通过/1Linux专属跳过、资源10/10、治理70/70；只读复核完成。原恢复与授权验收收为一次生成/构建集中入口，未新增取消协议；额外租户Bearer的服务端防御性500处理、F11整体与Native故障/容量仍待，Capacity-not-verified，未合并发布。[记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-f11-导入会话撤销检查点重试与验收构建复用)。
 
 2026-10-14 F11独立应用多行检查点与真实Worker恢复本批通过：测试992a920，同一生成应用SQL Server/MySQL各4阶段实际完成（Node2/2、零失败/跳过），成功行ID幂等、两次强退、同结果回执复用及重试新回执均核对；正式执行4分39秒，7681份输入/6683份源码依赖及完整清理通过。准备失败后复用既有三Host，最终快速20通过/1Linux专属跳过、资源10/10、治理70/70；479b574自动Native API49/49、Worker27/27成功，主CI已success（7组测试零失败/跳过，8个跳过作业不计通过）。原纯排队与非法轮询启动失败保留，完整F11/Native故障矩阵与容量仍待。[最终记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-独立应用多行检查点与真实-worker-恢复集中验收通过)。Capacity-not-verified，未合并发布。
