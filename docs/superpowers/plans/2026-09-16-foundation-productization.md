@@ -3150,7 +3150,7 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - headless SDK三个Cookie控制请求显式skipAuthentication=true；失效租户令牌不再自动附到refresh，业务重试使用新令牌，Cookie/CSRF/Origin与credentials保留。
 - 新Unit实际RED4失败/1通过，再GREEN聚焦7/7；命令node scripts/testing/run-dotnet-test-suite.mjs unit --selection identity-cookie-control。pnpm --filter @fullnet/client-contracts test为277/277，build通过；API AOT分析0警告0错误，未替代原生运行。node --test tests/testing/*.test.mjs 140/140、治理70/70、快速辅助28通过/1项Windows平台跳过；只读安全审查未发现阻断问题。
 - 同一1529f5c新生成应用SQL Server/MySQL各7场景实际通过；三端点租户Bearer均403且不修改会话，Origin/CSRF保留，Cookie刷新轮换并保留租户，登出及重复登出204、旧令牌401、独立会话不受影响。每库只运行Migrator/API，无Worker运行，7688输入/6693应用文件无漂移，26次正式响应均核对。Node2/2、零失败/跳过，执行147.643秒、最终排队332.860秒；16412/53584/87044及API88080/56128均退出，自有资源正常释放。门禁node .tmp/identity-cookie-final-proof.mjs及final-proof.json保留；完整清理核对通过。
-- 现有独立应用集中入口统一复用应用三宿主构建，追加Cookie安全场景；本地只执行本批新增场景，不重复上一批已验收且未改变的Worker故障消费者。Worker Native精确1529f5c实际27/27已通过；完整Identity影响集主CI及API Native仍待实际结果，不把聚焦或跳过作业计为全量通过。
+- 现有独立应用集中入口统一复用应用三宿主构建，追加Cookie安全场景；本地只执行本批新增场景，不重复上一批已验收且未改变的Worker故障消费者。Worker Native精确1529f5c实际27/27已通过；API Native精确1529f5c实际49/49已通过；完整Identity影响集主CI仍待实际结果，不把聚焦或跳过作业计为全量通过。
 - 原工作区Integration旧程序集发现1230而canonical1252，失败结果保留；隔离副本重新构建0警告/错误，分片实际1252项无遗漏或重复，不降低门槛。Windows10、Node24.12.0、.NET SDK10.0.401，DOTNET_PROCESSOR_COUNT=2；F11取消/完整故障与容量仍待，Capacity-not-verified，未合并发布。
 <!-- /identity-cookie-control-20261014 -->
 
@@ -3160,8 +3160,18 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 
 - 生产1529f5c：中央传递钉住PKCS与SignalR.Common 10.0.13；同时提升必要Options/DI.Abstractions 10.0.13，保留CPM、审计、降级与AOT门禁。只修改必要依赖闭包，不加审计例外。官方公告：[PKCS](https://github.com/dotnet/runtime/security/advisories/GHSA-846f-f764-76mx)、[SignalR](https://github.com/dotnet/aspnetcore/security/advisories/GHSA-334f-vvp4-7g6p)。
 - 原1143c5f主CI38470457513模块作业在audit:dotnet因新PKCS公告失败；首次仅修PKCS的本地审计继续发现SignalR公告。保存全部解决方案JSON后集中处理，不把第一次失败或无结果当通过。Common单独钉住曾实际NU1109（Options10.0.11低于要求10.0.13），必要闭包提升后解决；security-validation.log/security-fixed.log与cookie-restore.log保留。
-- 隔离ac-0KuWKf（0fffd44基线加本任务C#及1529依赖差异）实际主解决方案审计无未审查高危/严重项；API/Worker AOT分析均0警告/错误；正式Unit入口全Identity 674/674、零失败/跳过，未重复运行数据库组。精确1529f5c Worker Native CI38473036926已成功（实际27/27、零失败/跳过），客户端及双迁移作业已成功；API Native38473036961、主CI38473036929模块作业仍运行，未提前计通过。
+- 隔离ac-0KuWKf（0fffd44基线加本任务C#及1529依赖差异）实际主解决方案审计无未审查高危/严重项；API/Worker AOT分析均0警告/错误；正式Unit入口全Identity 674/674、零失败/跳过，未重复运行数据库组。精确1529f5c Worker Native CI38473036926已成功（实际27/27、零失败/跳过），客户端及双迁移作业已成功；API Native38473036961成功，六组实际23+2+4+16+2+2=49项、零失败/跳过；主CI38473036929模块作业仍运行，未提前计通过。
 - 原客户端CI全部测试/构建后，首屏预算实际1436485字节，超旧5%上限31字节；Cookie协议选项集中定义并为每次调用复制，减少重复字面量，不改变三端点认证/CSRF语义。SDK再次277/277与tsc通过；Vue typecheck/build通过，pnpm test:bundle-budgets三项均通过，首屏1436420字节、gzip385443字节；预算未提高。只报告包体，未推导请求耗时/吞吐提升。
 - 依赖闭包只读复核关闭Common/Options降级P1。独立AI实验禁用CPM，其PKCS锁图不受此补丁覆盖；本机shared runtime10.0.12也未升级。保留后续独立消费者/运行时安全升级，不把主解决方案审计通过宣称整个仓库或部署已安全。
 - 旧1143c5f应用申请在仅排队、零Provider目录且无自有子进程/重型所有权时安全结束；60356/59740/36216均退出，仅释放60356自有workspace锁，输入/产物冻结保留。最终1529f5c应用一次构建后，默认SingleSessionPerClient会撤销同账号旧会话的夹具假设已纠正6bcf67f：正式API创建另一账号并核对其id/sessionId，保持默认策略；1524/74728/67188纯排队申请安全结束并保留原final-acceptance.json/log与fixture-idle-proof.json/fixture-lock-proof.json，三Host产物原样复用到cf-VZYZhu。最终双库各7场景实际通过，Node2/2、零失败/跳过，7688输入/6693应用文件、清理及进程关闭核对通过；原acceptance.json/log与superseded-idle-proof.json/superseded-lock-proof.json保留。用户已有安全资源协调授权，未中断AI/缓存组、未改外来工作树，未合并发布。
 <!-- /dependency-security-20261014 -->
+
+
+<!-- ai-probe-security-20261014 -->
+## 2026-10-14 独立 AI 实验依赖安全与统一审计
+
+- 基线a6c4e5c、任务快照ai-probe-security-audit-20261014。独立实验禁用CPM且不在Full.NET.slnx，原PKCS 9.0.13不受生产10.0.13钉住覆盖；新增Direct 9.0.21并同步Windows/Linux锁图，Linux固定SDK/ILCompiler仍保留既有10.0.400/10.0.11。修复依据[官方公告](https://github.com/dotnet/runtime/security/advisories/GHSA-846f-f764-76mx)，不新增审计例外或生产依赖。
+- audit:dotnet逐目标restore/list并独立验证源、项目和请求路径，之后再合并；主解决方案的干净结果不能掩盖独立实验的漏洞、空项目或缺失源。还原失败同时保留stdout/stderr里的NuGet根因。五个新增回归实际RED5失败/11通过，GREEN16/16；node --test tests/dotnet-audit-policy.test.mjs tests/governance/*.test.mjs实际86/86、零失败/跳过。
+- 隔离pa-I7RMsJ实际force-evaluate restore和Windows Release build成功，0警告/错误、构建5.23秒；node scripts/audit-dotnet-dependencies.mjs实际同时审计两目标，无未审查高危/严重项。Windows锁图由真实还原生成，Linux条目按同包版本/hash同步，尚不计Linux通过。inner影响计划为none，不重复生产Host发布/双库应用验收。
+- 只读安全复审未发现确定P1/P2；剩余验收为固定Linux SDK --locked-mode还原、一次Native发布及parser/SQL Server/MySQL/Qdrant四模式运行。待共享组安全边界集中执行，冻结源码及归属资源；不抢占外来锁或中断其他对话。日志保留.tmp/ai-probe-security-20261014。生产1529f5c的API49/49、Worker27/27为未改生产闭包的有效证据；不覆盖独立实验或本机shared runtime10.0.12。Capacity-not-verified，未合并发布。
+<!-- /ai-probe-security-20261014 -->

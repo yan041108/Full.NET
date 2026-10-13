@@ -7,6 +7,7 @@
 使用 R02 `rag-cases.json` 的 12 问题/13 片段，CRLF 转 LF 后 SHA-256 为 `3380bf8d0b8352df48093b1c0dee7d4216b0eeae30733cc37f04cd65e778ec6b`。维度 128，`synthetic-featurehash-v1` 为固定 FNV-1a 字符二元特征，不是模型 Embedding。候选均用相同输入、来源允许集、scope/model/generation 过滤和精确余弦；不修改 R02 语料提高分数。
 
 - SqlClient **7.0.2**、MySqlConnector **2.6.1**：复用正式驱动版本；PdfPig **0.1.16**：仅实验。
+- 实验禁用中央包管理，独立固定 PKCS **9.0.21** 安全补丁；主解决方案的传递钉住不能覆盖此项目。统一 `pnpm audit:dotnet` 同时审计主解决方案与本实验，任一目标缺失证据或出现未审查高危/严重项均失败。
 - Windows/JIT 图锁定在 `probe/packages.lock.json`；Linux/AOT 图锁定在 `probe/linux.packages.lock.json`，脚本复制后 `--locked-mode` restore，变化必须显式更新并重验。
 - SQL Server 2022 CU14、MySQL 8.0、Qdrant 1.19.1 与 Linux SDK 镜像采用脚本内的固定 SHA-256，禁止自动跟随可变 tag。SDK 镜像为现有 `eng/docker/Dockerfile.api-native-aot-linux-sdk` 产物，实验 SDK 10.0.400/ILCompiler 10.0.11。
 - Qdrant 采用静态 REST/JSON `/points/query`，没有引入 Qdrant SDK。PdfPig/Qdrant 许可及用途在根 `THIRD-PARTY-NOTICES` 登记。
@@ -45,7 +46,11 @@ Native AOT 门禁复用 `api-native-aot-publish-warnings.mjs` 和 ADR-0008 的�
 
 取消实验实际揭示两处差异：SqlClient 在受控 WAITFOR 取消时返回 `SqlException(Number=0, State=0, Class=11)`，探针只在令牌已取消且 3 秒内返回时接纳，不泛化为生产写入未完成；MySQL 单独 SLEEP/常量投影中断可能正常返回，改为真实行谓词才验证超时/取消的驱动异常。参见 [SqlClient 问题记录](https://github.com/dotnet/SqlClient/issues/2424)和 [MySQL SLEEP 官方行为](https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_sleep)。
 
-`dotnet list tests/ai-evaluation/probe/Full.NET.AiRetrieval.Probe.csproj package --vulnerable --include-transitive --format json` 已执行，当前图未报告已知漏洞；这不是未来漏洞或生产接入审计豁免。最终回归命令与结果同时记录在 AI 活动计划 R03。
+2026-10-02 执行的 `dotnet list tests/ai-evaluation/probe/Full.NET.AiRetrieval.Probe.csproj package --vulnerable --include-transitive --format json` 当时未报告已知漏洞；该历史结果不能覆盖后来公布的漏洞或后续依赖图。最终回归命令与结果同时记录在 AI 活动计划 R03。
+
+## 2026-10-14 依赖安全修复
+
+独立锁图中的 PKCS 9.0.13 受新公告影响，显式引用修复版 9.0.21，并同步 Windows/Linux 锁图；不扩大生产依赖或新增审计例外。Windows Release 构建 0 警告/错误，统一审计主解决方案和独立项目通过；命令边界与治理回归 86/86、零失败/跳过。Linux 固定 SDK 的 locked restore、原生发布与四模式集中执行仍待本批实际结果，不将机械更新锁文件或 Windows 结果计为 Linux 通过。完整记录见[底座总计划](../../docs/superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-独立-ai-实验依赖安全与统一审计)。
 
 ## 不能据此推导的结论
 
