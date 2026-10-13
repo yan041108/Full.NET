@@ -170,9 +170,15 @@ internal sealed class ImportExportTaskExecutionService(
             return Result<TenantResourceFileContent>.Failure(ErrorReceiptNotReadyError());
         }
 
-        return await resourceFiles
+        var content = await resourceFiles
             .OpenReadyContentAsync("import_export", task.Id, task.ErrorReceiptFileId.Value, cancellationToken)
             .ConfigureAwait(false);
+        return content.IsSuccess
+            ? Result<TenantResourceFileContent>.Success(content.Value! with
+            {
+                OriginalFileName = ImportExportErrorReceiptIdentity.BuildDownloadFileName(task.SourceFileName),
+            })
+            : content;
     }
 
     private async Task RunSynchronouslyIfConfiguredAsync(

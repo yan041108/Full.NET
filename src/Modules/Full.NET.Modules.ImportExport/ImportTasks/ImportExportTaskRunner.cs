@@ -302,7 +302,7 @@ internal sealed class ImportExportTaskRunner(
         }
     }
 
-    /// <summary>优先绑定已存在的回执文件，只有资源上还没有额外就绪对象时才上传。</summary>
+    /// <summary>只复用失败结果身份相同的回执，重试结果变化时生成当前回执。</summary>
     /// <param name="task">任务快照。</param>
     /// <param name="mergedRows">已合并的执行行。</param>
     /// <param name="cancellationToken">取消令牌。</param>
@@ -311,23 +311,26 @@ internal sealed class ImportExportTaskRunner(
         IReadOnlyList<StaticImportRowExecutionResult> mergedRows,
         CancellationToken cancellationToken)
     {
+        var failedRows = mergedRows.Where(row => !row.Succeeded).ToArray();
+        var fileName = ImportExportErrorReceiptIdentity.BuildStorageFileName(task.SourceFileName, failedRows);
         var ready = await resourceFiles.ListReadyAsync("import_export", task.Id, cancellationToken)
             .ConfigureAwait(false);
         EnsureActiveLease(task, cancellationToken);
-        var existing = ready.LastOrDefault(item => item.FileId != task.SourceFileId);
+        // 未绑定的旧版文件没有结果身份，不能猜测其所属尝试；已绑定旧文件仍可正常下载。
+        var existing = ready.LastOrDefault(item => item.FileId != task.SourceFileId
+            && string.Equals(item.OriginalFileName, fileName, StringComparison.Ordinal));
         if (existing is not null)
         {
             return existing.FileId;
         }
 
-        var failedRows = mergedRows.Where(row => !row.Succeeded).ToArray();
         var receiptBytes = ImportExportErrorReceiptRenderer.Render(failedRows);
         await using var receiptStream = new MemoryStream(receiptBytes, writable: false);
         EnsureActiveLease(task, cancellationToken);
         var upload = await resourceFiles
             .UploadAsync(
                 "import_export", task.Id, task.RequestedByUserId,
-                BuildErrorReceiptFileName(task),
+                fileName,
                 WorkbookContentType,
                 receiptStream,
                 receiptBytes.Length,
@@ -455,13 +458,4 @@ internal sealed class ImportExportTaskRunner(
             or ImportExportTaskStatusKeys.ExecutionPartial
             or ImportExportTaskStatusKeys.ExecutionFailed;
 
-    /// <summary>由源文件名派生错误回执下载名，不作为存储路径。</summary>
-    /// <param name="task">任务快照。</param>
-    private static string BuildErrorReceiptFileName(ImportExportTaskRecord task)
-    {
-        var baseName = string.IsNullOrWhiteSpace(task.SourceFileName)
-            ? "import-task"
-            : Path.GetFileNameWithoutExtension(task.SourceFileName);
-        return $"{baseName}-errors.xlsx";
-    }
 }

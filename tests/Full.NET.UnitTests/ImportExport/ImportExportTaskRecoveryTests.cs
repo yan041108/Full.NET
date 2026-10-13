@@ -270,15 +270,17 @@ public sealed class ImportExportTaskRecoveryTests
         Assert.AreEqual(2, fixture.Store.Tasks[taskId].SucceededRowCount);
     }
 
-    /// <summary>错误回执已经上传时，恢复必须绑定现有文件而不是再次上传。</summary>
+    /// <summary>回执上传后检查点未提交，恢复必须绑定同一结果文件而不是再次上传。</summary>
     [TestMethod]
-    public async Task Existing_error_receipt_is_attached_without_second_upload_async()
+    [DataRow("source.xlsx")]
+    [DataRow("  positions.xlsx")]
+    public async Task Existing_error_receipt_is_attached_without_second_upload_async(string sourceFileName)
     {
         var fixture = CreateFixture();
-        var task = SeedQueuedTask(fixture, validRowCount: 1);
-        var receiptId = Guid.NewGuid();
+        var task = CreateTask(fixture, Guid.NewGuid(), ImportExportTaskStatusKeys.Queued,
+            0, 0, null, null, validRowCount: 1, sourceFileName: sourceFileName);
+        fixture.Store.Tasks[task.Id] = task;
         fixture.Files.ReadyFiles.Add(new TenantResourceFileReadyItem(task.SourceFileId, "source.xlsx", fixture.Clock.UtcNow));
-        fixture.Files.ReadyFiles.Add(new TenantResourceFileReadyItem(receiptId, "source-errors.xlsx", fixture.Clock.UtcNow));
         fixture.Handler.ExecuteBatchAsync(
                 Arg.Any<Stream>(),
                 Arg.Any<long>(),
@@ -292,11 +294,82 @@ public sealed class ImportExportTaskRecoveryTests
                     new StaticImportRowExecutionResult(1, false, null, ImportExportErrorCodes.ExecutionFailed, "row"),
                 ])));
 
+        fixture.Store.FailProgressCommit = true;
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+        var receiptId = fixture.Files.ReadyFiles.Last().FileId;
+        fixture.Store.FailProgressCommit = false;
+        fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddMinutes(3);
         await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
 
-        Assert.AreEqual(0, fixture.Files.UploadCount);
+        Assert.AreEqual(1, fixture.Files.UploadCount);
         Assert.AreEqual(receiptId, fixture.Store.Tasks[task.Id].ErrorReceiptFileId);
         Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionFailed, fixture.Store.Tasks[task.Id].StatusKey);
+    }
+
+    /// <summary>重试的失败行变化后，不能重新绑定上一轮的回执。</summary>
+    [TestMethod]
+    [DataRow("message")]
+    [DataRow("code")]
+    [DataRow("line")]
+    public async Task Retried_changed_failure_does_not_attach_previous_receipt_async(string changed)
+    {
+        var fixture = CreateFixture(batchSize: 1);
+        var task = SeedQueuedTask(fixture, validRowCount: 1);
+        ConfigureFailedRows(fixture, partial: false);
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+        var previousReceipt = fixture.Store.Tasks[task.Id].ErrorReceiptFileId;
+        // 模拟正式 Retry 清空执行检查点与回执引用；源文件与任务身份保持不变。
+        fixture.Store.Tasks[task.Id] = CreateTask(fixture, task.Id, ImportExportTaskStatusKeys.Queued,
+            0, 0, null, null, 1, sourceFileId: task.SourceFileId);
+        fixture.Handler.ExecuteBatchAsync(Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(),
+            Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>())
+            .Returns(Result<StaticImportBatchExecutionResult>.Success(new([
+                new StaticImportRowExecutionResult(changed == "line" ? 2 : 1, false, null,
+                    changed == "code" ? "probe.changed" : ImportExportErrorCodes.ExecutionFailed,
+                    changed == "message" ? "changed" : "row"),
+            ])));
+
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+
+        Assert.AreEqual(2, fixture.Files.UploadCount);
+        Assert.AreNotEqual(previousReceipt, fixture.Store.Tasks[task.Id].ErrorReceiptFileId);
+    }
+
+    /// <summary>未绑定的旧版文件名没有结果身份，不能盲目复用为当前回执。</summary>
+    [TestMethod]
+    public async Task Unbound_legacy_receipt_is_not_attached_to_current_failure_async()
+    {
+        var fixture = CreateFixture(batchSize: 1);
+        var task = SeedQueuedTask(fixture, validRowCount: 1);
+        var oldId = Guid.NewGuid();
+        fixture.Files.ReadyFiles.Add(new(oldId, "source-errors.xlsx", fixture.Clock.UtcNow));
+        ConfigureFailedRows(fixture, partial: false);
+
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+
+        Assert.AreEqual(1, fixture.Files.UploadCount);
+        Assert.AreNotEqual(oldId, fixture.Store.Tasks[task.Id].ErrorReceiptFileId);
+    }
+
+    /// <summary>合法长源文件名追加回执身份后仍须满足存储长度，且不得截断代理对。</summary>
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Long_source_name_produces_bounded_valid_receipt_name_async(bool supplementary)
+    {
+        var fixture = CreateFixture(batchSize: 1);
+        var name = supplementary ? new string('a', 177) + "😀" + new string('b', 70) + ".xlsx"
+            : new string('a', 250) + ".xlsx";
+        var task = CreateTask(fixture, Guid.NewGuid(), ImportExportTaskStatusKeys.Queued, 0, 0, null, null,
+            1, sourceFileName: name);
+        fixture.Store.Tasks[task.Id] = task;
+        ConfigureFailedRows(fixture, partial: false);
+
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+
+        var receiptName = fixture.Files.ReadyFiles.Single().OriginalFileName;
+        Assert.IsTrue(receiptName.Length <= 255, receiptName);
+        Assert.AreEqual(receiptName, System.Text.Encoding.UTF8.GetString(System.Text.Encoding.UTF8.GetBytes(receiptName)));
     }
 
     /// <summary>回执存储失败不能写入终态；重领后必须补齐文件并保留同一业务检查点。</summary>
@@ -497,7 +570,9 @@ public sealed class ImportExportTaskRecoveryTests
         int succeededRowCount,
         Guid? leaseId,
         DateTimeOffset? leaseExpiresAtUtc,
-        int validRowCount = 2) =>
+        int validRowCount = 2,
+        Guid? sourceFileId = null,
+        string sourceFileName = "source.xlsx") =>
         new()
         {
             Id = taskId,
@@ -505,8 +580,8 @@ public sealed class ImportExportTaskRecoveryTests
             SchemaKey = "organization.tenant_positions",
             SchemaDisplayName = "positions",
             WorksheetKey = "positions",
-            SourceFileId = Guid.NewGuid(),
-            SourceFileName = "source.xlsx",
+            SourceFileId = sourceFileId ?? Guid.NewGuid(),
+            SourceFileName = sourceFileName,
             StatusKey = statusKey,
             TotalRows = validRowCount,
             ValidRowCount = validRowCount,
@@ -584,7 +659,9 @@ public sealed class ImportExportTaskRecoveryTests
                     new Error("probe.upload", "测试回执存储失败。", ErrorType.Validation)));
             }
             var fileId = Guid.NewGuid();
-            ReadyFiles.Add(new TenantResourceFileReadyItem(fileId, originalFileName, DateTimeOffset.UtcNow));
+            // 与正式 Files Port 一致，上传会规范化路径并去除文件名首尾空格。
+            var fileName = Path.GetFileName(originalFileName.Replace('\\', '/')).Trim();
+            ReadyFiles.Add(new TenantResourceFileReadyItem(fileId, fileName, DateTimeOffset.UtcNow));
             return Task.FromResult(Result<TenantResourceFileReference>.Success(new(fileId, contentLength, "hash")));
         }
 

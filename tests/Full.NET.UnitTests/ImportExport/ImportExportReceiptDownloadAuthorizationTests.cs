@@ -37,6 +37,7 @@ public sealed class ImportExportReceiptDownloadAuthorizationTests
         var task = new ImportExportTaskRecord
         {
             Id = Guid.NewGuid(), TenantId = tenantId, RequestedByUserId = owner, SchemaKey = "positions",
+            SourceFileName = "positions.xlsx",
             ErrorReceiptFileId = Guid.NewGuid(), ExecutionFailedRowCount = 1,
             ExecutionRowsJson = reason == "snapshot" ? "[]" : ImportExportTaskMapper.SerializeExecutionState(new(
                 new Dictionary<string, bool> { ["assign"] = reason != "newPermission" }, [])),
@@ -46,7 +47,7 @@ public sealed class ImportExportReceiptDownloadAuthorizationTests
             Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(task);
         var files = Substitute.For<ITenantResourceFileStore>();
         files.OpenReadyContentAsync("import_export", task.Id, task.ErrorReceiptFileId.Value, Arg.Any<CancellationToken>())
-            .Returns(Result<TenantResourceFileContent>.Success(new(new MemoryStream([1]), "application/test", "errors.xlsx")));
+            .Returns(Result<TenantResourceFileContent>.Success(new(new MemoryStream([1]), "application/test", "positions-errors-internal-identity.xlsx")));
         var handler = Substitute.For<IStaticImportSchemaHandler>(); handler.SchemaKey.Returns("positions");
         handler.GetDefinition().Returns(new StaticImportSchemaDefinition("positions", "positions", "tenant", "positions.import", []));
         handler.ExecutionCapabilityPermissions.Returns(["assign"]);
@@ -64,7 +65,11 @@ public sealed class ImportExportReceiptDownloadAuthorizationTests
         var result = await service.OpenErrorReceiptAsync(task.Id, binding);
         var allowed = reason is "allowed" or "newPermission";
         Assert.AreEqual(allowed, result.IsSuccess);
-        if (allowed) result.Value!.Content.Dispose();
+        if (allowed)
+        {
+            Assert.AreEqual("positions-errors.xlsx", result.Value!.OriginalFileName);
+            result.Value.Content.Dispose();
+        }
         else Assert.AreEqual(CommonErrorCodes.PermissionDenied, result.Error!.Code);
         Assert.AreEqual(allowed ? 1 : 0, files.ReceivedCalls().Count());
     }

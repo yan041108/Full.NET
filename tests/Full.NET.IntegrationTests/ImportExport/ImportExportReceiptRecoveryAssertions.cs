@@ -28,37 +28,8 @@ internal static partial class ImportExportWorkerAssertions
         await api.InitializeAsync();
         using var client = api.CreateClientForHost("localhost");
         var token = await ImportExportTaskAssertions.LoginAndEnterAcmeTenantAsync(client, default);
-        var unitCode = $"receipt-{Guid.NewGuid():N}";
-        using var unitRequest = Request(HttpMethod.Post, "/api/v1/organization/units", token);
-        unitRequest.Content = JsonContent.Create(new CreateOrganizationUnitRequest(null, unitCode, "Receipt recovery unit", 10));
-        using var unitResponse = await client.SendAsync(unitRequest);
-        Assert.AreEqual(HttpStatusCode.Created, unitResponse.StatusCode, await unitResponse.Content.ReadAsStringAsync());
-        using var unitJson = JsonDocument.Parse(await unitResponse.Content.ReadAsStringAsync());
-        var unitId = unitJson.RootElement.GetProperty("id").GetGuid();
-        using var templateRequest = Request(HttpMethod.Get,
-            $"/api/v1/import-export/schemas/{StaticImportSchemaKeys.OrganizationTenantPositions}/worksheets/positions/template", token);
-        using var templateResponse = await client.SendAsync(templateRequest);
-        Assert.AreEqual(HttpStatusCode.OK, templateResponse.StatusCode);
-        using var content = new MultipartFormDataContent
-        {
-            { new StringContent(StaticImportSchemaKeys.OrganizationTenantPositions), "schemaKey" },
-            { new StringContent("positions"), "worksheetKey" },
-            { new ByteArrayContent(FillPositionTemplate(await templateResponse.Content.ReadAsByteArrayAsync(), unitCode)), "file", "receipt-positions.xlsx" },
-        };
-        using var createRequest = Request(HttpMethod.Post, "/api/v1/import-export/tasks", token);
-        createRequest.Content = content;
-        using var createResponse = await client.SendAsync(createRequest);
-        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode, await createResponse.Content.ReadAsStringAsync());
-        var task = (await createResponse.Content.ReadFromJsonAsync<ImportExportTaskDetailResponse>())!;
-        Assert.AreEqual(1, task.ValidRowCount);
-        using var executeRequest = Request(HttpMethod.Post, $"/api/v1/import-export/tasks/{task.Id:D}/execute", token);
-        using var executeResponse = await client.SendAsync(executeRequest);
-        Assert.AreEqual(HttpStatusCode.OK, executeResponse.StatusCode);
-        Assert.AreEqual(ImportExportTaskStatusKeys.Queued,
-            (await executeResponse.Content.ReadFromJsonAsync<ImportExportTaskDetailResponse>())!.StatusKey);
-        using var disableRequest = Request(HttpMethod.Post, $"/api/v1/organization/units/{unitId:D}/disable", token);
-        using var disableResponse = await client.SendAsync(disableRequest);
-        Assert.AreEqual(HttpStatusCode.OK, disableResponse.StatusCode, await disableResponse.Content.ReadAsStringAsync());
+        var prepared = await PrepareReceiptTaskAsync(client, token);
+        var task = prepared.Task;
 
         var interrupted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var iterationCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -128,6 +99,48 @@ internal static partial class ImportExportWorkerAssertions
         }
         finally { await restarted.StopAsync(); }
     }
+
+
+    /// <summary>用正式 API 创建并排队单行导入，再停用机构制造可重试的真实失败。</summary>
+    private static async Task<ReceiptQueuedTask> PrepareReceiptTaskAsync(HttpClient client, string token)
+    {
+        var positionCode = $"worker-{Guid.NewGuid():N}";
+        var unitCode = $"receipt-{Guid.NewGuid():N}";
+        using var unitRequest = Request(HttpMethod.Post, "/api/v1/organization/units", token);
+        unitRequest.Content = JsonContent.Create(new CreateOrganizationUnitRequest(null, unitCode, "Receipt recovery unit", 10));
+        using var unitResponse = await client.SendAsync(unitRequest);
+        Assert.AreEqual(HttpStatusCode.Created, unitResponse.StatusCode, await unitResponse.Content.ReadAsStringAsync());
+        using var unitJson = JsonDocument.Parse(await unitResponse.Content.ReadAsStringAsync());
+        var unitId = unitJson.RootElement.GetProperty("id").GetGuid();
+        using var templateRequest = Request(HttpMethod.Get,
+            $"/api/v1/import-export/schemas/{StaticImportSchemaKeys.OrganizationTenantPositions}/worksheets/positions/template", token);
+        using var templateResponse = await client.SendAsync(templateRequest);
+        Assert.AreEqual(HttpStatusCode.OK, templateResponse.StatusCode);
+        using var content = new MultipartFormDataContent
+        {
+            { new StringContent(StaticImportSchemaKeys.OrganizationTenantPositions), "schemaKey" },
+            { new StringContent("positions"), "worksheetKey" },
+            { new ByteArrayContent(FillPositionTemplate(await templateResponse.Content.ReadAsByteArrayAsync(), unitCode, positionCode: positionCode)), "file", "receipt-positions.xlsx" },
+        };
+        using var createRequest = Request(HttpMethod.Post, "/api/v1/import-export/tasks", token);
+        createRequest.Content = content;
+        using var createResponse = await client.SendAsync(createRequest);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode, await createResponse.Content.ReadAsStringAsync());
+        var task = (await createResponse.Content.ReadFromJsonAsync<ImportExportTaskDetailResponse>())!;
+        Assert.AreEqual(1, task.ValidRowCount);
+        using var executeRequest = Request(HttpMethod.Post, $"/api/v1/import-export/tasks/{task.Id:D}/execute", token);
+        using var executeResponse = await client.SendAsync(executeRequest);
+        Assert.AreEqual(HttpStatusCode.OK, executeResponse.StatusCode);
+        Assert.AreEqual(ImportExportTaskStatusKeys.Queued,
+            (await executeResponse.Content.ReadFromJsonAsync<ImportExportTaskDetailResponse>())!.StatusKey);
+        using var disableRequest = Request(HttpMethod.Post, $"/api/v1/organization/units/{unitId:D}/disable", token);
+        using var disableResponse = await client.SendAsync(disableRequest);
+        Assert.AreEqual(HttpStatusCode.OK, disableResponse.StatusCode, await disableResponse.Content.ReadAsStringAsync());
+        return new ReceiptQueuedTask(task, positionCode);
+    }
+
+    /// <summary>保存当前测试任务与工作簿中的岗位编码。</summary>
+    private sealed record ReceiptQueuedTask(ImportExportTaskDetailResponse Task, string PositionCode);
 
     /// <summary>仅观察本测试 Worker 的迭代完成事件，避免固定延迟制造假绿窗口。</summary>
     private sealed class ReceiptIterationLogger(TaskCompletionSource completed) : ILogger<ImportExportTaskHostedProcessor>

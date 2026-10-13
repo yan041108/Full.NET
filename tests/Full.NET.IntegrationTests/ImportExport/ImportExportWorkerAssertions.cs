@@ -170,7 +170,7 @@ internal static partial class ImportExportWorkerAssertions
     };
 
     /// <summary>正式下载模板默认只有表头；后台业务验收必须填入真实岗位行，不能把零行执行作为写入成功。</summary>
-    internal static byte[] FillPositionTemplate(byte[] template, string unitCode = "", string levelCode = "")
+    internal static byte[] FillPositionTemplate(byte[] template, string unitCode = "", string levelCode = "", string? positionCode = null)
     {
         using var workbook = new MemoryStream(); workbook.Write(template);
         using (var archive = new ZipArchive(workbook, ZipArchiveMode.Update, leaveOpen: true))
@@ -178,7 +178,7 @@ internal static partial class ImportExportWorkerAssertions
             var entry = archive.GetEntry("xl/worksheets/sheet1.xml")!;
             XDocument document; using (var input = entry.Open()) document = XDocument.Load(input);
             XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-            var values = new[] { $"worker-{Guid.NewGuid():N}", "Worker position", "10", unitCode, levelCode };
+            var values = new[] { positionCode ?? $"worker-{Guid.NewGuid():N}", "Worker position", "10", unitCode, levelCode };
             document.Root!.Element(ns + "sheetData")!.Add(new XElement(ns + "row", new XAttribute("r", 2),
                 values.Select((value, index) => new XElement(ns + "c", new XAttribute("r", $"{(char)('A' + index)}2"),
                     new XAttribute("t", "inlineStr"), new XElement(ns + "is", new XElement(ns + "t", value))))));
