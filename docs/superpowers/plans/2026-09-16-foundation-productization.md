@@ -2990,3 +2990,14 @@ node .tmp/pending-cycles-jit-1.mjs集中真实SQL Server/MySQL2/2，零失败/�
 本批没有新增生产功能/迁移/契约，没有重复底座Native发布；此前Native API49/Worker27仍只证明其原验证范围，本批完整业务Native、绑定运行失败/挂起恢复的独立应用覆盖、人工全页面、多实例故障及容量仍待。F10/F11当前独立JIT应用上述闭环已收口，整体保持Build-verified / Capacity-not-verified。PR3保持Draft，不合并、不发布；报告HEAD不冒充实际运行源码。
 
 只读复核已核对四份成功、三份失败及三份TAP日志摘要，没有新增阻断问题；汇总器已采用completed严格Boolean断言。交付前源码8d0a771的API/Worker Native工作流38374846019/38374846119均成功；主CI38374845890仍执行中，客户端及两类迁移恢复作业已成功，其余未运行作业不计通过。本批业务验收结论依据上述本地独立应用结果，未将主CI写成全部成功。
+## 2026-10-13 F10 绑定运行故障独立应用验收扩展（集中执行待完成）
+
+任务foundation-bound-runtime-independent-20261013，基线ead1aa7；测试源码7ce87405cef7ac22686ec8e959e113d931480a21已冻结并推送。复用现有独立Enterprise审批应用、真实Vue创建/提交和公开Workflow生命周期接口，在同一应用追加两条路径：暂停时保持业务版本/绑定/启动回执、拒绝暂停审批及旧修订恢复、幂等恢复后批准；停止本轮Worker，在自建数据库构造活动待办缺失与过期租约，再由新实际Worker产生暂停与恢复死信，拒绝假恢复及旧版本取消，幂等取消后核对终态回写、通知唯一及权威Outbox排空。每库保持一次生成、API/Worker/Migrator各一次构建，Worker产物复用五次启动。没有生产C#、SQL迁移、公开契约或配置默认值变更。
+
+故障注入先核验自建容器身份和严格UUID，仅更新同一租户/请求绑定的实例及待办；MySQL按RFC大端Binary16生成受控字面量，SQL Server使用本轮容器默认master库。更新数必须精确一待办/一实例，退出码异常、零更新和取消不能记为成功；不直接写suspended或业务终态。恢复重试上限1及100毫秒轮询仅用于本轮生成应用环境，不修改生产默认配置。
+
+实际轻量RED三项失败，守卫实现后GREEN通过；只读复核发现新断言误将字符串长整型版本做加法拼接，真实契约为JsonNumberHandling.WriteAsString。补充RED明确复现“21 != 3”，以BigInt整数运算保留线协议类型，覆盖超出JS安全整数范围及递减；最终相关32/32、零失败/跳过，语法与diff检查通过，修正复审无新增问题。纯守卫测试不替代真实双库业务验收。
+
+源码干净副本G:/.fullnet-tests/fr-sth3e9仅来自固定提交，没有覆盖其他对话未提交夹具；共享node_modules采用junction，全部源输入冻结SHA256。正式入口node --test --test-reporter=tap --test-concurrency=1 tests/templates/created-enterprise-approval.test.mjs已由隐藏后台协调器启动，排队和执行预算使用既有集中验收机制。报告与进程回执保留于.tmp/bound-runtime-independent-20261013，协调器.tmp/bound-runtime-independent.mjs，原始RED/GREEN与轻量日志保留。当前共享锁由其他对话真实测试组持有，已依用户的持续安全协调授权请求在当前组结束后交接；未中断测试、删除他窗锁或容器。集中双库尚未完成，不计通过，不提升F10整项或独立运行故障覆盖状态。
+
+前一批8d0a771主CI38374845890已最终成功，先前“执行中”快照保留为历史时点；API/Worker Native亦已成功。新7ce8740工作流状态另行核对，不借用前一批CI冒充本批。整体继续Build-verified / Capacity-not-verified，完整业务Native、人工全页面、多实例故障、灾备与容量仍待；PR3保持Draft，不合并、不发布。

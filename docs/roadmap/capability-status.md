@@ -1,3 +1,5 @@
+2026-10-13 F10绑定运行故障独立应用验收已扩展并冻结7ce8740：暂停恢复、实际Worker缺待办故障暂停及幂等取消两条路径接入同一生成应用，相关轻量32/32，复审发现的字符串版本拼接已修正。正式双库集中入口正在排队，尚未验收通过，不能提升能力状态；[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-f10-绑定运行故障独立应用验收扩展集中执行待完成)。
+
 2026-10-13 F10/F11独立应用当前闭环集中验收完成：SQL Server/MySQL审批通知与数据交付4个场景组合全部实际通过，复用未变的审批证据、定向重试失败组合。已修复中文CRUD浏览器夹具旧英文标签，相关轻量60/60通过；原失败与中断报告保留，不写成单轮全绿。完整业务Native、绑定运行故障恢复独立覆盖、人工全页面和容量仍待；[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-f10f11-独立应用集中验收与中文夹具修复)。保持Build-verified / Capacity-not-verified。
 
 2026-10-13 Files三条Pending扫描周期已收口：Host上传/引用跨Worker作用域共享游标，三条链路冻结扫描上界并在周期结束重试；补齐运行参数边界、空回答保护与权威读取后的取消检查。生产冻结234d350；新增Unit69/69、完整Files311/311、Architecture248/248、三目标AOT、真实双库2/2及同源码Native API49/49、Worker27/27通过，零失败/跳过。完整生成应用、全页面、多实例故障及容量仍待；[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-files-三条-pending-扫描周期)。保持Build-verified / Capacity-not-verified。
