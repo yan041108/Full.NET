@@ -47,7 +47,9 @@ internal sealed class AiKnowledgePaidAnswerService(AiKnowledgeRetrievalService r
         Check(token); ArgumentNullException.ThrowIfNull(knowledgeBaseIds); ArgumentNullException.ThrowIfNull(embeddingModel);
         ArgumentNullException.ThrowIfNull(generationModel);
         if (string.IsNullOrWhiteSpace(question) || question.Length > 4096 || AiChatContentPolicy.ValidateUserMessage(question) is not null) throw Invalid();
-        var frozenIds = Array.AsReadOnly(knowledgeBaseIds.ToArray());
+        var frozenIds = Array.AsReadOnly(AiKnowledgeRetrievalService.FreezeSelection(knowledgeBaseIds, token));
+        // 外部索引回调也可能改变执行状态；初始配置查询之前再次拒绝已有事务。
+        Check(token);
         var entryTenantId = tenant.Id; var entryIsTenant = AiKnowledgeScope.IsTenant(tenant);
         var trustedTenant = tenant.Id is { } tenantId ? new TenantContext(tenantId, tenant.Identifier!, tenant.Name!) : null;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token); deadline.CancelAfter(TimeSpan.FromMinutes(3)); var work = deadline.Token;

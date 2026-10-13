@@ -47,9 +47,8 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
         AiModelConfigRecord model, ReadOnlyMemory<float> vector, CancellationToken token, AiModelConfigRecord? generationModel = null)
     {
         Check(token); ArgumentNullException.ThrowIfNull(knowledgeBaseIds); ArgumentNullException.ThrowIfNull(model);
-        if (knowledgeBaseIds.Count is < 1 or > 8 || vector.Length is not (1536 or 3072)) throw Invalid();
-        var ids = knowledgeBaseIds.ToArray(); var input = vector.ToArray();
-        if (ids.Any(id => id == Guid.Empty) || ids.Distinct().Count() != ids.Length) throw Invalid();
+        if (vector.Length is not (1536 or 3072)) throw Invalid();
+        var ids = FreezeSelection(knowledgeBaseIds, token); Check(token); var input = vector.ToArray();
         _ = AiKnowledgeVectorRanker.Rank(input, [], token);
         var scope = AiKnowledgeScope.IsTenant(tenant); var tenantId = tenant.Id;
         if (actor == Guid.Empty || tenantId == Guid.Empty || scope != tenantId.HasValue) throw Denied();
@@ -253,14 +252,28 @@ internal sealed class AiKnowledgeRetrievalService(IQueryExecutor query, IDataTra
         && actual.Id == expected.Id && actual.TenantId == expected.TenantId && actual.Version == expected.Version
         && actual.ProviderKey == expected.ProviderKey && actual.ModelId == expected.ModelId
         && actual.EndpointBaseUrl == expected.EndpointBaseUrl && actual.OrganizationId == expected.OrganizationId && actual.ApiKeyProtected == expected.ApiKeyProtected;
+    /// <summary>只读取一次外部计数，以最多八次索引冻结原顺序；空或重复标识在查询和收费前拒绝。</summary>
+    /// <returns>调用方独占的标识副本，不与原集合共享可写存储。</returns>
+    internal static Guid[] FreezeSelection(IReadOnlyList<Guid> knowledgeBaseIds, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); ArgumentNullException.ThrowIfNull(knowledgeBaseIds);
+        var count = knowledgeBaseIds.Count; token.ThrowIfCancellationRequested();
+        if (count is < 1 or > 8) throw Invalid();
+        var ids = new Guid[count]; var seen = new HashSet<Guid>();
+        for (var i = 0; i < count; i++)
+        {
+            token.ThrowIfCancellationRequested(); var id = knowledgeBaseIds[i]; token.ThrowIfCancellationRequested();
+            if (id == Guid.Empty || !seen.Add(id)) throw Invalid(); ids[i] = id;
+        }
+        return ids;
+    }
     private AiKnowledgeRetrievalSnapshot Initial(IReadOnlyList<Guid> knowledgeBaseIds, Guid actor, AiModelConfigRecord model,
         CancellationToken token, AiModelConfigRecord? generationModel)
     {
         Check(token); ArgumentNullException.ThrowIfNull(knowledgeBaseIds); ArgumentNullException.ThrowIfNull(model);
-        var scope = AiKnowledgeScope.IsTenant(tenant); var tenantId = tenant.Id; var ids = knowledgeBaseIds.ToArray();
+        var scope = AiKnowledgeScope.IsTenant(tenant); var tenantId = tenant.Id; var ids = FreezeSelection(knowledgeBaseIds, token); Check(token);
         if (actor == Guid.Empty || tenantId == Guid.Empty || scope != tenantId.HasValue) throw Denied();
-        if (ids.Length is < 1 or > 8 || ids.Any(id => id == Guid.Empty) || ids.Distinct().Count() != ids.Length
-            || model.Id == Guid.Empty || model.Version < 1 || !model.IsEnabled || model.ProviderKey != AiProviderKeys.OpenAiCompatible
+        if (model.Id == Guid.Empty || model.Version < 1 || !model.IsEnabled || model.ProviderKey != AiProviderKeys.OpenAiCompatible
             || model.ModelId is not ("text-embedding-3-small" or "text-embedding-3-large") || model.TenantId == Guid.Empty
             || model.TenantId.HasValue && model.TenantId != tenantId) throw Invalid();
         if (generationModel is not null && (generationModel.Id == Guid.Empty || generationModel.Version < 1 || !generationModel.IsEnabled

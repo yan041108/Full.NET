@@ -129,10 +129,24 @@ internal static class AiKnowledgePaidAnswerAssertions
         finally { Restore(); }
         await Approve(originalPolicy.GenerationModelConfigId, originalPolicy.GenerationModelVersion);
         return embeddingCharges;
-        Task<AiKnowledgeExecutedAnswer> RunAsync() => service.ExecuteAsync([knowledgeBaseId], actor, embedding, generation, "来源说明", default);
+        async Task<AiKnowledgeExecutedAnswer> RunAsync()
+        {
+            var selection = new SelectionProbe(knowledgeBaseId);
+            try { return await service.ExecuteAsync(selection, actor, embedding, generation, "来源说明", default); }
+            finally { Assert.AreEqual(1, selection.CountReads); Assert.AreEqual(1, selection.IndexReads); }
+        }
         Task Approve(Guid? id, int? version) => db.ExecuteAsync(
             "UPDATE fn_ai_knowledge_base SET GenerationModelConfigId=@ModelId,GenerationModelVersion=@ModelVersion WHERE Id=@Id",
             new { Id = knowledgeBaseId, ModelId = id, ModelVersion = version });
+    }
+    /// <summary>真实问答入口禁止回读或枚举调用方选择；原账本与来源断言继续验证执行结果。</summary>
+    private sealed class SelectionProbe(Guid knowledgeBaseId) : IReadOnlyList<Guid>
+    {
+        internal int CountReads, IndexReads;
+        public int Count { get { CountReads++; return 1; } }
+        public Guid this[int index] { get { IndexReads++; return index == 0 ? knowledgeBaseId : throw new ArgumentOutOfRangeException(nameof(index)); } }
+        public IEnumerator<Guid> GetEnumerator() => throw new AssertFailedException("收费问答不能枚举外部知识选择。");
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
     /// <summary>真实账本和索引流程中的本地阶段；只捕获当前追踪下的固定标签，不读取业务载荷。</summary>
     private sealed class LocalStageCapture : IDisposable

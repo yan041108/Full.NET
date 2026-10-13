@@ -80,6 +80,8 @@ Ai 宿主同时订阅 `Full.NET.Ai.Execution`，记录 `fullnet.ai.execution.att
 
 本地重排和上下文入口先按首次有界索引冻结候选，再拒绝非精确 public/internal/restricted 来源；未入选前八块的来源仍属于分类依赖。分类不替代读取权限和精确模型批准，也不隐式新增 restricted 私网政策。两个本地阶段仅记录固定 stage/outcome，不读取原文、分类值或业务身份；分类失败沿原 InvalidDataException 传播，观测失败不能改变业务结果。
 
+收费问答、来源预检和向量检索入口的知识库选择只读取一次外部 Count，按原顺序索引复制一至八个非空、互不重复的标识，不调用外部枚举器。复制后重新检查事务状态，复制期间取消及非法选择不会进入配置/权限查询、预算预留或模型派发。快照不授予读取权，全部所选知识库仍须通过原权限、分类、模型批准及来源完整性复核。
+
 阶段按实际方法进入记录：生成在结算前的输出预检失败由 `knowledge_generation` 记录，尚未调用最终校验时不生成 `knowledge_validation` 事件；预留或来源准备失败也不会虚构未执行的后续阶段。
 
 Trace 使用 Internal Activity，在当前父上下文下关联 RunId、已有 OperationId 和 0–63 的步骤序号；Provider HTTP 为模型阶段的子 span。Trace 不记录提示词、正文、异常消息、定义键、模型名、工具名或用户/租户标识，指标也不含业务ID。步骤写入的 `step_write` 使用原租约 RunId、原步骤 StepId 和 OperationId，在租约 fencing 成功后开启；只在 Trace 输出 `ai.step.id`，指标仍只有阶段与结果。原步骤未带 TraceId 时，将实际创建的观测 Trace 写入既有 `fn_ai_agent_step.TraceId`；调用方给定值保留，未采样或诊断故障时允许为空。不新增操作、步骤、SQL结构或费用，也不为补观测重放调用。
