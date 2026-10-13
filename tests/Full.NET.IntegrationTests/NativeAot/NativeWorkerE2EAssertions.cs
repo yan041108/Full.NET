@@ -436,7 +436,12 @@ internal static class NativeWorkerE2EAssertions
                     NativeAotTestTimeouts.ProcessStartup,
                     cancellationToken,
                     scenario.StorageRoot,
-                    enableFilesCleanup: true)
+                    enableFilesCleanup: true,
+                    additionalSettings: new Dictionary<string, string?>
+                    {
+                        // 未知 Provider 占满首批，下一作用域必须沿共享游标清理后序对象。
+                        ["Files__Cleanup__BatchSize"] = "1",
+                    })
                 .ConfigureAwait(false);
             var states = await NativeWorkerFilesProbe.WaitForCleanupTerminalStatesAsync(
                     provider,
