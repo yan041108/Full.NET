@@ -3001,3 +3001,12 @@ node .tmp/pending-cycles-jit-1.mjs集中真实SQL Server/MySQL2/2，零失败/�
 源码干净副本G:/.fullnet-tests/fr-sth3e9仅来自固定提交，没有覆盖其他对话未提交夹具；共享node_modules采用junction，全部源输入冻结SHA256。正式入口node --test --test-reporter=tap --test-concurrency=1 tests/templates/created-enterprise-approval.test.mjs已由隐藏后台协调器启动，排队和执行预算使用既有集中验收机制。报告与进程回执保留于.tmp/bound-runtime-independent-20261013，协调器.tmp/bound-runtime-independent.mjs，原始RED/GREEN与轻量日志保留。当前共享锁由其他对话真实测试组持有，已依用户的持续安全协调授权请求在当前组结束后交接；未中断测试、删除他窗锁或容器。集中双库尚未完成，不计通过，不提升F10整项或独立运行故障覆盖状态。
 
 前一批8d0a771主CI38374845890已最终成功，先前“执行中”快照保留为历史时点；API/Worker Native亦已成功。新7ce8740工作流状态另行核对，不借用前一批CI冒充本批。整体继续Build-verified / Capacity-not-verified，完整业务Native、人工全页面、多实例故障、灾备与容量仍待；PR3保持Draft，不合并、不发布。
+#### SQL Server 夹具会话与诊断修复（2026-10-13，实际重试待完成）
+
+7ce8740的SQL Server独立应用实际执行415.137秒后失败；包含父/子两项失败记录，正式入口继续等待MySQL，没有整轮成功回执。常规审批、两次Worker强制退出与暂停恢复后批准已走到后续流程，缺待办故障注入阶段出现AssertionError；旧回执只保留通用阶段及异常类型，未保留底层CLI错误，不能据此伪造具体数据库错误码。原result.json/approval-browser.json和截图保留于G:/.fullnet-tests/fr-sth3e9/.tmp/template-real-stack/enterprise-approval/sqlserver/run-vDaKdp；completed=false，浏览器/进程/容器和应用目录正常清理已确认。
+
+源码检查确认新注入夹具遗漏sqlcmd -I，实例表ActiveBusinessKey存在计算列/过滤索引；[微软sqlcmd说明](https://learn.microsoft.com/en-us/sql/tools/sqlcmd/sqlcmd-utility?pivots=cs1-bash&tabs=odbc%2Cwindows&view=sql-server-ver15)说明ODBC工具默认QUOTED_IDENTIFIER OFF，[SQL会话选项说明](https://learn.microsoft.com/sql/t-sql/statements/set-statements-transact-sql)要求此类索引DML开启六项并关闭NUMERIC_ROUNDABORT。修复e0ce3c082785005f1f5f85be340339d1e91c7d61补-I及完整SET选项，密码改由受控exec环境传递；增加受控错误码/整数退出码、细分阶段和共享部分业务回执，未输出凭据或未知正文，原断言不放宽。会话守卫RED为5通过/1失败，修复后相关33/33、零失败/跳过；语法/diff检查、他窗内容保护和只读复核均通过。SQL会话缺陷已修复，是否关闭本轮实际失败仍须定向重试确认。
+
+新干净副本G:/.fullnet-tests/fs-JVj3r5绑定e0ce3c0，33项轻量再次通过；正式注册入口使用sqlserver名称筛选，仅重试SQL Server，不重复MySQL或前置轻量。旧MySQL继续绑定7ce8740；若完整通过可复用，但汇总必须记录两个来源、保留旧SQL失败，不写成首轮或同HEAD全绿。两个正式后台进程目前均等待其他窗口正在运行的MySQL组正常完成；源输入/各轮日志不覆盖，协调仍遵守安全边界。当前两库尚未完成，F10独立运行故障覆盖不提升。
+
+7ce8740的API/Worker Native工作流38382726465/38382726679已成功；主CI38382726459为cancelled，不能记为成功。e0ce3c0的新工作流另行核对，不借用旧CI状态替代。最终严格核验脚本.tmp/bound-runtime-consolidated-proof.mjs仅在两份完整成功报告、正式计数、源码/摘要及正常清理均满足后生成通过证明；此前单轮校验器和报告草稿不用于不同来源的最终认证。整体Build-verified / Capacity-not-verified保持，PR3仍Draft，未合并发布。
