@@ -3098,3 +3098,17 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 精确生产源码b2efb6d的 [API Native](https://github.com/yan041108/Full.NET/actions/runs/38416471306) 六组23+2+4+16+2+2共49/49、[Worker Native](https://github.com/yan041108/Full.NET/actions/runs/38416471282) 27/27通过、零失败/跳过，source/日志摘要及每组数量已核对。不是新回执故障在Native或独立生成应用中运行的证据；仍不关闭完整F11故障矩阵。
 - 原主CI38416471327的6623项Unit中1项Linux进程退出探针失败，原记录保留；测试夹具修复 `9f6d5ab` 的RED2/GREEN10已通过、复核无P1/P2。CI不支持workflow_dispatch（HTTP422，未执行）；本次记录提交触发新head主CI。仅测试与文档差异，已通过的b2efb6d Native生产证据继续复用，不重复发布/测试；新主CI仍待结果，取消的重复检查不记为通过。
 - 后续继续F11：检查显式重试后的回执归属、多行检查点与独立生成应用故障矩阵；人工页面、多实例故障/灾备和容量仍待。全项目保持Build-verified / Capacity-not-verified；未合并或发布。
+
+## 2026-10-14 导入回执结果身份与重试隔离
+
+<!-- import-receipt-identity-20261014 -->
+- 生产源码 `98a6f7c` 已推送指定开发分支及 Draft PR3，本批规定范围验收完成。显式重试后失败行变化不再误绑定旧回执：按源生成失败结果 JSON 的 SHA256 识别文件，相同失败结果的崩溃恢复继续复用；旧版已绑定回执保持下载，未绑定旧文件因缺失结果身份不猜测归属。没有 SQL、迁移、公开 DTO 或权限目录变化。
+- 存储身份与用户下载名分离，下载保持 `源文件名-errors.xlsx`；源名扩展后限制为255个UTF-16单元，截断保留完整代理对，空格规范化与正式Files Port一致。初始RED14项中8失败；审查发现空格名恢复重复上传后补RED2项中1失败，修复后相关Unit94/94、零失败/跳过；只读复核无P1/P2。
+- API/Worker AOT均零告警/错误，连续分析复用公共图，分别6分39秒、29秒；其后恢复正式JIT并强制重建以避免Worker条件依赖污染。架构88/88、命名/治理103/103通过，完整1252项分片无遗漏/重复。取消的自有旧候选构建与原红阶段日志保留，不计为成功，不据单次耗时承诺固定提速。
+- 正式集中双库SQL Server/MySQL各3项，共6/6 Passed、零失败/跳过/其它状态：原回执上传/检查点故障恢复4项加显式重试2项，真实岗位失败由机构停用改为岗位编码冲突，验证新文件身份、实际工作簿新机器码及稳定下载名。属于真实HostedService宿主验收，不是独立生成应用或Native回执故障矩阵。
+- 冻结副本ri-SnuB6J为基线03029fe加11文件精确覆盖，7673份输入前后无漂移，6项发现UID与TRX执行UID一致；TRX SHA256 289463144d697515d57c4c5c059f27b7a8677a4dbe698a2547610465dbe28a71。SDK10.0.401、Node24.12.0、DOTNET_PROCESSOR_COUNT=2；构建复用核对通过，不把SourceLink基线元数据冒充98a6f7c重新构建。证据与门禁：.tmp/import-receipt-identity-20261013/、node .tmp/import-receipt-identity-proof.mjs。
+- 排队16:56:54至17:32:54 UTC共36分钟，执行预算取得资源后开始。6项MTP实际4分18.632秒，PID80572及72152正常退出，自有锁由官方入口释放，已通知AI窗口接续；未中断外来组、未删除历史遗留锁或外来资源。
+- 精确生产源码98a6f7c的[API Native38434764733](https://github.com/yan041108/Full.NET/actions/runs/38434764733)六组23+2+4+16+2+2共49/49、[Worker Native38434764791](https://github.com/yan041108/Full.NET/actions/runs/38434764791)27/27均通过、零失败/跳过。生产者head与原始日志摘要已核对；本批主CI38434764856仍在运行，不提前计为通过。
+- 上一批[主CI38422551811](https://github.com/yan041108/Full.NET/actions/runs/38422551811)已在精确head03029fe复验成功：Unit6625/6625、兼容12/12、架构248/248、受影响集成512/512、企业样例16/16、迁移current274/274与legacy250/250，均零失败/跳过。原探针竞争失败保留，条件跳过的其它E2E不算通过，不把旧head证据外推到当前源码；日志摘要及计数见.tmp/import-receipt-20261013/ci-repair-proof.json。
+- 本批只关闭回执结果身份与重试隔离子范围。F11完整独立生成应用故障矩阵、多行检查点、人工页面、多实例故障/灾备及10K容量仍待；保持Capacity-not-verified。保护外来WIP，未合并或发布。
+<!-- /import-receipt-identity-20261014 -->

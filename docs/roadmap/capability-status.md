@@ -1,3 +1,5 @@
+2026-10-14 导入回执结果身份与重试隔离本批通过：生产98a6f7c，相关Unit94/94、架构88/88、双库真实HostedService集中6/6及Native API49/49、Worker27/27通过。7673份冻结输入、执行UID、TRX摘要、构建复用与自有资源释放已核对；双库实际4分19秒、排队36分钟。上一批03029fe主CI已完整成功，本批主CI仍运行。该结论不关闭独立生成应用/Native回执故障矩阵或整个F11；Capacity-not-verified，未合并发布。[记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-导入回执结果身份与重试隔离)。
+
 2026-10-13 导入错误回执恢复本批通过：生产b2efb6d，Unit87/87、架构88/88、双库真实HostedService恢复4/4及Native API49/49、Worker27/27均通过。4项实际3分31秒，7672份冻结输入与TRX摘要核对、构建复用及自有锁释放通过；不是独立生成应用或Native回执故障矩阵证据。原主CI的Linux进程探针竞争已修复9f6d5ab，RED2/GREEN10通过，修正head主CI待重跑结果；原失败保留。F11整体、其他故障与容量仍待。[最终记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-导入错误回执恢复双库验收通过)。
 
 2026-10-13 导入错误回执恢复修复已推送b2efb6d：回执上传返回失败保留租约与检查点，避免提前终态后不能自动补齐。Unit87/87、架构88/88、治理70/70、工具140/140及本地API/Worker AOT分析通过；原RED与内存失败日志保留。双库真实HostedService恢复4项已发现并集中排队，尚未执行；本次源码Native/CI也仍待。此范围不是独立生成应用验收，F11整体与容量保持未收口。[本批记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-导入错误回执恢复修复与集中验收准备)。
