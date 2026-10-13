@@ -213,13 +213,17 @@ internal static class IndexTelemetryTestChecks
         var outcome = fault is "denied" or "duplicate" ? "not_processed" : fault == "budget" ? "budget_rejected"
             : fault is "provider" or "settle" ? "failed" : fault == "cancel" ? "cancelled" : "completed";
         var span = capture.Spans.Single(s => Equals(s.GetTagItem("ai.stage"), "knowledge_index_" + kind));
-        Assert.HasCount(fault == "denied" ? 1 : 2, capture.Spans);
+        Assert.HasCount(fault == "denied" ? 1 : 3, capture.Spans);
         if (fault != "denied")
         {
             var chunk = capture.Spans.Single(s => Equals(s.GetTagItem("ai.stage"), "knowledge_chunk_" + kind));
             Assert.AreEqual(span.SpanId, chunk.ParentSpanId); Assert.AreEqual(span.TraceId, chunk.TraceId);
             Assert.AreEqual("completed", chunk.GetTagItem("ai.outcome"));
             CollectionAssert.AreEquivalent(new[] { "ai.stage", "ai.outcome" }, chunk.TagObjects.Select(t => t.Key).ToArray());
+            var parse = capture.Spans.Single(s => Equals(s.GetTagItem("ai.stage"), "knowledge_parse_" + kind));
+            Assert.AreEqual(span.SpanId, parse.ParentSpanId); Assert.AreEqual(span.TraceId, parse.TraceId);
+            Assert.AreEqual("completed", parse.GetTagItem("ai.outcome"));
+            CollectionAssert.AreEquivalent(new[] { "ai.stage", "ai.outcome" }, parse.TagObjects.Select(t => t.Key).ToArray());
         }
         Assert.AreEqual(outcome, span.GetTagItem("ai.outcome")); Assert.AreEqual(task.ToString("D"), span.GetTagItem("ai.knowledge.task.id"));
         Assert.AreEqual(fault is "denied" or "budget" ? null : operation.ToString("D"), span.GetTagItem("ai.operation.id"));
@@ -234,16 +238,17 @@ internal static class IndexTelemetryTestChecks
     internal static void VerifyMeasurements(AgentTelemetryCapture capture, string stage, string outcome, bool includesChunk = false)
     {
         var chunkStage = stage.Replace("knowledge_index_", "knowledge_chunk_", StringComparison.Ordinal);
-        Assert.HasCount(includesChunk ? 4 : 2, capture.Measurements);
+        var parseStage = stage.Replace("knowledge_index_", "knowledge_parse_", StringComparison.Ordinal);
+        Assert.HasCount(includesChunk ? 6 : 2, capture.Measurements);
         foreach (var item in capture.Measurements)
         {
             CollectionAssert.AreEquivalent(new[] { "ai.stage", "ai.outcome" }, item.Tags.Select(t => t.Key).ToArray());
             var observedStage = item.Tags.Single(t => t.Key == "ai.stage").Value;
-            Assert.IsTrue(Equals(observedStage, stage) || includesChunk && Equals(observedStage, chunkStage));
+            Assert.IsTrue(Equals(observedStage, stage) || includesChunk && (Equals(observedStage, chunkStage) || Equals(observedStage, parseStage)));
             Assert.AreEqual(Equals(observedStage, stage) ? outcome : "completed", item.Tags.Single(t => t.Key == "ai.outcome").Value);
             Assert.IsTrue(item.Name == "fullnet.ai.execution.attempts" ? item.Value == 1 : item.Value >= 0);
         }
-        foreach (var expectedStage in includesChunk ? new[] { stage, chunkStage } : new[] { stage })
+        foreach (var expectedStage in includesChunk ? new[] { stage, chunkStage, parseStage } : new[] { stage })
         {
             var group = capture.Measurements.Where(m => Equals(m.Tags.Single(t => t.Key == "ai.stage").Value, expectedStage)).ToArray();
             Assert.HasCount(2, group);

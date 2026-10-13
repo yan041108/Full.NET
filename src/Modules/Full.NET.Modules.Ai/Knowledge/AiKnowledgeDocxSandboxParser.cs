@@ -14,6 +14,14 @@ internal sealed class AiKnowledgeDocxSandboxParser(IDataTransactionState transac
     /// <summary>首次等待前冻结实际原字节，绑定摘要并等待完整退出；不缓存授权。</summary>
     internal async Task<AiKnowledgeParsedDocx?> ParseAsync(ReadOnlyMemory<byte> authorizedSource, string trustedHash, int trustedSize, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
+        return await AiKnowledgeTelemetry.RunAsync("knowledge_parse_docx", () => ParseCoreAsync(authorizedSource, trustedHash,
+            trustedSize, token), token).ConfigureAwait(false);
+    }
+
+    // 收尾覆盖原子进程退出、管道清理及字节清零，不能以已收到输出提前宣告完成。
+    private async Task<AiKnowledgeParsedDocx?> ParseCoreAsync(ReadOnlyMemory<byte> authorizedSource, string trustedHash, int trustedSize, CancellationToken token)
+    {
         token.ThrowIfCancellationRequested(); NoTransaction();
         ValidateOptions();
         if (trustedSize is < 1 or > AiKnowledgeDocxOutputReader.MaxSourceBytes || trustedHash is not { Length: 64 }

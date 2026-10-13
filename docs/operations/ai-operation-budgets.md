@@ -301,3 +301,9 @@ Agent、普通聊天、管理Embedding、知识检索回答与Text/PDF/DOCX索�
 本地分块拒绝记录 `denied`，不提供部分结果；PDF 以整份文档记录一次阶段，逐页复用原模型批准和预算检查，不额外生成 Text 阶段。预取消不创建观测或执行入口 IO，后续取消保留原异常和收尾责任。监听器故障不能改变原业务结果。`completed` 只表示当前方法边界结束，不证明整代次 ready、客户端实际收到响应或供应商账单已核证。
 
 本批受影响本地验收和原始失败记录见活动计划R11p及artifacts/r11p/acceptance.json；完整AI和双库Ai+Smoke已通过，集中Native发布/运行与独立应用仍待AI模块统一验收。
+
+### Text/PDF/DOCX 解析阶段观测
+
+三个原解析入口分别记录封闭阶段 `knowledge_parse_text`、`knowledge_parse_pdf`、`knowledge_parse_docx`。成功为 `completed`；文本强类型解析拒绝或 PDF/DOCX 空文档为 `denied`；原取消为 `cancelled`，配置、事务、启动或其他传播异常为 `failed`。不记录来源正文、路径、摘要、格式错误细节或异常消息；Metrics 仅包含固定阶段/结果，Trace 不增加业务身份。
+
+预取消不创建观测。Text 保留调用方流所有权与真实字节上限；PDF/DOCX 必须完成原子进程退出、管道清理及原字节清零后才结束观测，完整输出不能替代子进程收尾。索引中的解析与分块是同一索引 Trace 下的两个独立子阶段，每个实际入口仅一个 attempt/duration；解析完成不证明索引激活或费用账本提交。遥测监听器故障不改变业务结果。R11q 本地受影响证据见 `artifacts/r11q/acceptance.json`；Native 发布/运行仍按集中模块验收单独证明。

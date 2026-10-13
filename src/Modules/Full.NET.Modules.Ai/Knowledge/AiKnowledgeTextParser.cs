@@ -44,6 +44,15 @@ internal static class AiKnowledgeTextParser
         string expectedContentHash, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        return await AiKnowledgeTelemetry.RunAsync("knowledge_parse_text", () => ParseCoreAsync(source, originalFileName,
+            contentType, expectedContentHash, cancellationToken), cancellationToken).ConfigureAwait(false);
+    }
+
+    // 观测包围原完整读取和验证；既有流所有权、输出上限与失败语义不变。
+    private static async Task<AiKnowledgeTextParseResult> ParseCoreAsync(Stream source, string originalFileName, string contentType,
+        string expectedContentHash, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(source);
         // 文件名只作元数据复核；PDF 不得误入 UTF-8 解码，须由独立隔离进程接入。
         if (string.IsNullOrWhiteSpace(originalFileName) || originalFileName.Length > 255

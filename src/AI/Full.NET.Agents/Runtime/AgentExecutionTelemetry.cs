@@ -25,7 +25,8 @@ public static class AgentExecutionTelemetry
             or "knowledge_answer" or "knowledge_embedding" or "knowledge_retrieval" or "knowledge_generation"
             or "knowledge_validation" or "knowledge_delivery" or "knowledge_rerank" or "knowledge_context"
             or "knowledge_index_text" or "knowledge_index_pdf" or "knowledge_index_docx"
-            or "chat" or "embedding_test" or "knowledge_chunk_text" or "knowledge_chunk_pdf" or "knowledge_chunk_docx" ? stage : "other",
+            or "chat" or "embedding_test" or "knowledge_chunk_text" or "knowledge_chunk_pdf" or "knowledge_chunk_docx"
+            or "knowledge_parse_text" or "knowledge_parse_pdf" or "knowledge_parse_docx" ? stage : "other",
             operationId, stepIndex, cancellationToken);
 
     /// <summary>观测原知识索引批次；任务标识只进入 Trace，不替代 Agent 运行身份。</summary>

@@ -46,9 +46,9 @@ internal static class AiKnowledgeIndexTelemetryAssertions
             // 先结束监听再读既有账本；观测不能成为操作或预算权威。
             meter.Dispose(); listener.Dispose();
             Assert.AreSame(root, Activity.Current);
-            // 受控有效来源每次实际打开后只产生一个分块子阶段；提前拒绝不能伪造子阶段。
+            // 受控有效来源每次实际打开后产生解析和分块各一个子阶段；提前拒绝不能伪造子阶段。
             var opened = readSourceOpens() - opensBefore;
-            Assert.IsTrue(opened is 0 or 1); Assert.AreEqual(1 + opened, spans.Count);
+            Assert.IsTrue(opened is 0 or 1); Assert.AreEqual(1 + 2 * opened, spans.Count);
             var span = spans.Single(s => Equals(s.GetTagItem("ai.stage"), "knowledge_index_text"));
             Assert.AreEqual("knowledge_index_text", span.GetTagItem("ai.stage"));
             Assert.AreEqual(root.SpanId, span.ParentSpanId);
@@ -64,21 +64,24 @@ internal static class AiKnowledgeIndexTelemetryAssertions
             Assert.IsTrue(span.TagObjects.All(tag => tag.Key is "ai.stage" or "ai.outcome" or "ai.knowledge.task.id" or "ai.operation.id"));
             if (opened == 1)
             {
-                var chunk = spans.Single(s => Equals(s.GetTagItem("ai.stage"), "knowledge_chunk_text"));
-                Assert.AreEqual(span.SpanId, chunk.ParentSpanId); Assert.AreEqual(span.TraceId, chunk.TraceId);
-                Assert.AreEqual("completed", chunk.GetTagItem("ai.outcome"));
-                CollectionAssert.AreEquivalent(new[] { "ai.stage", "ai.outcome" }, chunk.TagObjects.Select(t => t.Key).ToArray());
-                Assert.IsFalse(chunk.Events.Any()); Assert.IsNull(chunk.StatusDescription);
+                foreach (var childStage in new[] { "knowledge_parse_text", "knowledge_chunk_text" })
+                {
+                    var child = spans.Single(s => Equals(s.GetTagItem("ai.stage"), childStage));
+                    Assert.AreEqual(span.SpanId, child.ParentSpanId); Assert.AreEqual(span.TraceId, child.TraceId);
+                    Assert.AreEqual("completed", child.GetTagItem("ai.outcome"));
+                    CollectionAssert.AreEquivalent(new[] { "ai.stage", "ai.outcome" }, child.TagObjects.Select(t => t.Key).ToArray());
+                    Assert.IsFalse(child.Events.Any()); Assert.IsNull(child.StatusDescription);
+                }
             }
-            Assert.AreEqual((1 + opened) * 2, measures.Count);
+            Assert.AreEqual((1 + 2 * opened) * 2, measures.Count);
             foreach (var measure in measures)
             {
                 CollectionAssert.AreEquivalent(new[] { "ai.stage", "ai.outcome" }, measure.Tags.Select(t => t.Key).ToArray());
                 var stage = measure.Tags.Single(tag => tag.Key == "ai.stage").Value;
-                Assert.IsTrue(Equals(stage, "knowledge_index_text") || opened == 1 && Equals(stage, "knowledge_chunk_text"));
+                Assert.IsTrue(Equals(stage, "knowledge_index_text") || opened == 1 && (Equals(stage, "knowledge_chunk_text") || Equals(stage, "knowledge_parse_text")));
                 Assert.AreEqual(Equals(stage, "knowledge_index_text") ? expected : "completed", measure.Tags.Single(tag => tag.Key == "ai.outcome").Value);
             }
-            foreach (var stage in opened == 1 ? new[] { "knowledge_index_text", "knowledge_chunk_text" } : new[] { "knowledge_index_text" })
+            foreach (var stage in opened == 1 ? new[] { "knowledge_index_text", "knowledge_chunk_text", "knowledge_parse_text" } : new[] { "knowledge_index_text" })
             {
                 var group = measures.Where(m => Equals(m.Tags.Single(t => t.Key == "ai.stage").Value, stage)).ToArray();
                 Assert.AreEqual(2, group.Length);

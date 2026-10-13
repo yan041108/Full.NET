@@ -2953,3 +2953,15 @@ API/Worker AOT分析零告警/错误，相关Architecture88/88、完整Architect
 冻结7840输入；Unit运行前后编译消费闭包和源码摘要一致，既有RAG JSON/报告单列，Agents/AI生产与消费程序集匹配。复用核对过的R11o Windows/Linux缓存，覆盖前后检查完整源码及消费摘要。遵守共享工作区与重型锁：短AOT/JIT结束后交接另一对话Native续验，本批双库在锁外等待，不中断或接管其他资源。共享矩阵仅暂存HEAD加112，其他窗口改动与保护路径保留；在main提交，不推送。Windows Unit2处理器/1GiB GC、Linux构建8CPU/4GiB、双库各2CPU/8GiB；缓存NuGetAudit=false不宣称在线审计。长TRX文本截断提示保留，计数/UID另核对。证据见artifacts/r11p/acceptance.json；本段在验收后补入，最终文档摘要独立绑定。
 
 R11整体、剩余阶段分类/跨重启Trace、其他Provider/Chat请求前精确输入硬限、未知外部动作/费用对账，以及集中Native发布/运行、生成应用、浏览器和运营恢复仍开放；Capacity-not-verified。
+
+#### R11q：Text/PDF/DOCX 完整解析边界观测（2026-10-14，本批受影响本地验收完成）
+
+基线 main `a6e6659c483869c8b5bca5b142fa0100cc1c0122`，任务 `ai-parser-stage-telemetry-r11q`。三个解析入口合批接入固定阶段，保留原摘要/大小验证、输出上限、流所有权、事务拒绝、超时与子进程清理；不增加 SQL、迁移、公开 DTO、依赖或 Provider 派发。拒绝为 denied、原取消为 cancelled、传播异常为 failed；预取消零观测，PDF/DOCX 结束晚于子进程清理与字节清零。索引观测严格核对解析/分块子阶段及每阶段两项固定标签指标，不携带正文、摘要、路径或身份。
+
+- [x] 新增 62 项真实流/Node 子进程、成功/协议拒绝/来源不符、配置/事务/启动异常、调用方取消/内部截止、预取消及监听器故障回归；有效 RED 为 41 失败/21 通过，GREEN 62/62。完整 AI 4628/4628、零失败/跳过；Unit 仅发现 8111，未执行全 Unit。首轮新测试编译有 1 项 CS9107，修正后才形成有效 RED，原日志保留。
+- [x] SQL Server/MySQL 同一实际影响集各 48/48，发现 UID 与完整 TRX 精确相等、零失败/跳过；原矩阵期限、每库 1 Worker、两库顺序执行，不以补测并集替代完整结果。原授权、租户、付费凭证和账本断言保留。
+- [x] API/Worker AOT 分析零警告/错误，相关架构 88/88、完整架构 235/235；JIT Integration 构建及 1214 分片发现通过。命名 30、矩阵 6、治理 57、工具链 54 与预先排除保护路径的 Markdown 检查通过；只读审查无 Critical/Important/Minor，审查不代跑测试。
+
+冻结源码与 Unit 编译消费闭包前后摘要一致，既有 RAG 输出单列，Agents/AI 生产和消费程序集匹配；Windows/Linux 缓存覆盖前后均核对完整源码及消费摘要，双库新路径复制先建立父目录。Windows Unit 2 处理器/1GiB GC，Linux 构建 8CPU/4GiB、双库各 2CPU/8GiB。重型组在锁外排队并自然交接，不接管其他窗口锁或容器。共享矩阵仅暂存 HEAD 加本批 62，其他窗口改动和保护路径保留；main 提交，不推送。实际命令/退出码/UID/摘要见 `artifacts/r11q/acceptance.json`；本段验收后补入，最终文档摘要独立绑定。缓存 restore 使用 NuGetAudit=false，不宣称在线审计。
+
+R11 整体、剩余分类/跨重启 Trace、其他 Provider/Chat 请求前精确输入硬限、未知外部动作/费用对账，以及集中 Native 发布/运行、生成应用、浏览器和运营恢复仍开放；Capacity-not-verified。
