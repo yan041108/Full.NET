@@ -16,6 +16,52 @@ afterEach(() => {
 });
 
 describe('headless 身份会话', () => {
+  it('租户令牌失效后 Cookie 刷新省略 Bearer，重试业务请求使用新令牌', async () => {
+    vi.stubGlobal('document', { cookie: 'fullnet-csrf=session-csrf' });
+    let businessCalls = 0;
+    const fetchMock = vi.fn(async (path: string, init: RequestInit) => {
+      const headers = new Headers(init.headers);
+      if (path === '/api/v1/auth/refresh') {
+        expect(headers.get('authorization')).toBeNull();
+        expect(headers.get('X-CSRF-Token')).toBe('session-csrf');
+        expect(init.credentials).toBe('include');
+        return jsonResponse(tokenResponse('tenant-new'));
+      }
+      if (path === '/protected') {
+        expect(headers.get('authorization')).toBe(`Bearer ${businessCalls++ === 0 ? 'tenant-old' : 'tenant-new'}`);
+        return businessCalls === 1 ? new Response(null, { status: 401 }) : jsonResponse({ ok: true });
+      }
+      return jsonResponse(path === '/api/v1/me' ? { ...currentUser(tenantId), scope: 'tenant' }
+        : path === '/api/v1/navigation' ? navigation() : tenants());
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const http = createHttpClient();
+    const session = createIdentitySession({ http, i18n: { getLocale: () => 'zh-CN', setLocale: () => {} }, isSupportedNavigationTree: () => true });
+    try {
+      await session.completeOidcAuthorization(tokenResponse('tenant-old'));
+      expect(await http.request('/protected')).toEqual({ ok: true });
+      expect(session.readAccessToken()).toBe('tenant-new');
+      expect(businessCalls).toBe(2);
+    } finally { session.dispose(); }
+  });
+
+  it('登录和登出显式选择 Cookie 会话协议，不依赖本地令牌恰好为空', async () => {
+    const http = createHttpClient();
+    const spy = vi.spyOn(http, 'request');
+    vi.stubGlobal('fetch', vi.fn(async (path: string) => path === '/api/v1/auth/logout'
+      ? new Response(null, { status: 204 })
+      : jsonResponse(path === '/api/v1/auth/login' ? tokenResponse('access')
+        : path === '/api/v1/me' ? currentUser() : path === '/api/v1/navigation' ? navigation() : tenants())));
+    const session = createIdentitySession({ http, i18n: { getLocale: () => 'zh-CN', setLocale: () => {} }, isSupportedNavigationTree: () => true });
+    try {
+      await session.login('admin', 'Password!123'); await session.logout();
+      for (const path of ['/api/v1/auth/login', '/api/v1/auth/logout']) {
+        const call = spy.mock.calls.find(args => args[0] === path);
+        expect(call?.[3]?.skipAuthentication).toBe(true);
+      }
+    } finally { session.dispose(); }
+  });
+
   it('恢复通知的同步重入共用任务，失败后可重新恢复', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(new Response(null, { status: 401 }))
       .mockResolvedValueOnce(jsonResponse(tokenResponse('retry-access'))).mockResolvedValueOnce(jsonResponse(currentUser()))

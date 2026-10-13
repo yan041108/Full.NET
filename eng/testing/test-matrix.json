@@ -4,9 +4,13 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 6054,
+      "minimum": 6059,
       "timeout": "10m",
       "selections": {
+        "identity-cookie-control": {
+          "filter": "FullyQualifiedName~IdentityAuthSessionScopeFilterTests|FullyQualifiedName~IdentityEndpointSecurityTests",
+          "minimum": 7
+        },
         "files-pending-cycles": {
           "filter": "FullyQualifiedName~PendingReconciliationCycleTests",
           "minimum": 69

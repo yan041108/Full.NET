@@ -128,7 +128,7 @@ export function createIdentitySession(
 
   async function login(username: string, password: string, signal?: AbortSignal): Promise<void> {
     await establishAuthentication(() => identityLogin(http,
-      { body: { username, password } }, signal, { retryUnauthorized: false }), signal);
+      { body: { username, password } }, signal, { retryUnauthorized: false, skipAuthentication: true }), signal);
   }
 
   async function completeOidcAuthorization(
@@ -263,6 +263,8 @@ export function createIdentitySession(
           undefined,
           {
             retryUnauthorized: false,
+            // Cookie 刷新独立于已失效的租户访问令牌，避免被带入租户 SQL 上下文。
+            skipAuthentication: true,
             headers: readCsrfHeaders()
           }
         );
@@ -452,6 +454,7 @@ export function createIdentitySession(
         undefined,
         {
           retryUnauthorized: false,
+          skipAuthentication: true,
           headers
         }
       );

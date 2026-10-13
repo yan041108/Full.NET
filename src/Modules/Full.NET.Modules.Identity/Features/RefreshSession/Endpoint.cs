@@ -81,6 +81,7 @@ internal static class Endpoint
             return Results.Ok(result.Value.Token);
         })
         .WithName("identityRefreshSession")
+        .AddEndpointFilter<IdentityAuthSessionScopeFilter>()
         .Produces<TokenResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
