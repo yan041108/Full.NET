@@ -59,6 +59,7 @@ public sealed class ImportExportModule : IFullNetModule
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskManagementService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskQueryService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskExecutionService>();
+        services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskCancellationService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportExecutionAuthorization>();
         services.TryAddScoped<ImportExportTaskRunner>();
         services.ConfigureHttpJsonOptions(options =>

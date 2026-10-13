@@ -2435,6 +2435,12 @@
       "status": "generated"
     },
     {
+      "operationId": "importExportCancelImportTask",
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "generatedGroup": "import-export",
+      "status": "generated"
+    },
+    {
       "operationId": "importExportDownloadImportTaskErrorReceipt",
       "apiModule": "ui/admin/src/api/import-export-tasks.ts",
       "generatedGroup": "import-export",

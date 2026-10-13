@@ -15,6 +15,50 @@ namespace Full.NET.IntegrationTests.ImportExport;
 /// <summary>使用生产领取 SQL 验证租户隔离、并发争抢与到期租约重领。</summary>
 internal static class ImportExportTaskClaimPersistenceAssertions
 {
+    /// <summary>取消 CAS 保持可信归属与版本，取消终态不能重领或被旧进度覆盖。</summary>
+    public static async Task Cancellation_is_fenced_and_preserves_checkpoint_async(DatabaseProvider provider)
+    {
+        var (first, second, tenantA, tenantB, taskA, taskB) = await SeedQueuedPairAsync(provider);
+        await using var connection = first; await using var unused = second;
+        var owner = await connection.QuerySingleAsync<Guid>("SELECT RequestedByUserId FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA });
+        var now = DateTime.UtcNow;
+        async Task<int> Cancel(Guid tenant, Guid actor, long version) => await connection.ExecuteAsync(Sql("Cancel"), new {
+            Id = taskA, TenantId = tenant, RequestedByUserId = actor, ExpectedStatusKey = "queued", ExpectedVersion = version,
+            ExecutionCompletedAtUtc = now });
+        Assert.AreEqual(0, await Cancel(tenantB, owner, 1));
+        Assert.AreEqual(0, await Cancel(tenantA, Guid.CreateVersion7(), 1));
+        Assert.AreEqual(0, await Cancel(tenantA, owner, 2));
+        Assert.AreEqual(taskA, await ClaimAsync(provider, connection, tenantA, now));
+        Assert.AreEqual(0, await Cancel(tenantA, owner, 1));
+        // 模拟真实批次回到同一 queued 状态，版本和检查点已有推进；旧取消不能造成 ABA 覆盖。
+        await connection.ExecuteAsync("UPDATE fn_import_export_task SET StatusKey='queued', Version=3, NextLineNumber=1, ProcessedRowCount=1, SucceededRowCount=1, LeaseId=NULL, LeaseExpiresAtUtc=NULL WHERE Id=@Id", new { Id = taskA });
+        Assert.AreEqual(0, await Cancel(tenantA, owner, 1));
+        Assert.AreEqual(1, await Cancel(tenantA, owner, 3));
+        Assert.AreEqual(0, await Cancel(tenantA, owner, 3));
+        Assert.IsNull(await ClaimAsync(provider, connection, tenantA, now.AddHours(1)));
+        Assert.AreEqual("cancelled", await StatusAsync(connection, taskA));
+        Assert.AreEqual("queued", await StatusAsync(connection, taskB));
+        Assert.AreEqual(1, await connection.QuerySingleAsync<int>("SELECT NextLineNumber FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA }));
+        Assert.AreEqual(4L, await connection.QuerySingleAsync<long>("SELECT Version FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA }));
+        Assert.AreEqual(0, await connection.ExecuteAsync(Sql("MarkExecutionFailed"), new { Id = taskA, TenantId = tenantA,
+            LeaseId = Guid.CreateVersion7(), Now = now, ErrorCode = "stale", ExecutionCompletedAtUtc = now }));
+    }
+
+    /// <summary>两个连接同时取消和领取同一任务，最多一个状态转换成功。</summary>
+    public static async Task Cancellation_and_claim_have_one_winner_async(DatabaseProvider provider)
+    {
+        var (first, second, tenantA, _, taskA, _) = await SeedQueuedPairAsync(provider);
+        await using var connection = first; await using var other = second;
+        var owner = await connection.QuerySingleAsync<Guid>("SELECT RequestedByUserId FROM fn_import_export_task WHERE Id=@Id", new { Id = taskA });
+        var now = DateTime.UtcNow;
+        var cancellation = connection.ExecuteAsync(Sql("Cancel"), new { Id = taskA, TenantId = tenantA, RequestedByUserId = owner,
+            ExpectedStatusKey = "queued", ExpectedVersion = 1L, ExecutionCompletedAtUtc = now });
+        var claim = ClaimAsync(provider, other, tenantA, now);
+        await Task.WhenAll(cancellation, claim);
+        Assert.AreEqual(1, cancellation.Result + (claim.Result == taskA ? 1 : 0));
+        Assert.AreEqual(cancellation.Result == 1 ? "cancelled" : "executing", await StatusAsync(connection, taskA));
+    }
+
     /// <summary>领取必须带可信 TenantId；租户 A 不能拿走租户 B 的排队任务。</summary>
     /// <param name="provider">正式支持的数据库提供程序。</param>
     public static async Task Claim_is_isolated_to_current_tenant_async(DatabaseProvider provider)

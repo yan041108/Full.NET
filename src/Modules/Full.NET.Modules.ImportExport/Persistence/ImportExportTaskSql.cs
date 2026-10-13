@@ -124,6 +124,19 @@ internal static class ImportExportTaskSql
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    /// <summary>双库共用的取消 CAS；版本防止 queued→executing→queued 后覆盖新的检查点。</summary>
+    public static readonly SqlStatement Cancel = new(
+        "import_export.task.cancel",
+        """
+        UPDATE fn_import_export_task
+        SET StatusKey = 'cancelled', ExecutionCompletedAtUtc = @ExecutionCompletedAtUtc,
+            LeaseId = NULL, LeaseExpiresAtUtc = NULL, Version = Version + 1
+        WHERE TenantId = @TenantId AND Id = @Id AND RequestedByUserId = @RequestedByUserId
+          AND StatusKey = @ExpectedStatusKey AND Version = @ExpectedVersion
+          AND StatusKey IN ('preview_succeeded', 'queued', 'execution_partial', 'execution_failed')
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement ClaimQueuedSqlServer = new(
         "import_export.task.claim_queued.sqlserver",
         $"""

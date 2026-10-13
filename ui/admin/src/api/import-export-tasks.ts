@@ -1,4 +1,5 @@
 import {
+  importExportCancelImportTask,
   importExportCreateImportTask,
   importExportDownloadImportTaskErrorReceipt,
   importExportDownloadStaticSchemaTemplate,
@@ -120,6 +121,11 @@ export async function retryImportExportTask(
 ): Promise<ImportExportTaskDetailResponse> {
   const value = await importExportRetryImportTask(http, { taskId }, signal);
   return readTaskResult(value, taskId);
+}
+
+/** 在安全检查点取消任务；返回值继续校验任务身份和完整结构。 */
+export async function cancelImportExportTask(taskId: string, signal?: AbortSignal): Promise<ImportExportTaskDetailResponse> {
+  return readTaskResult(await importExportCancelImportTask(http, { taskId }, signal), taskId);
 }
 
 /** 下载错误回执 xlsx。 */

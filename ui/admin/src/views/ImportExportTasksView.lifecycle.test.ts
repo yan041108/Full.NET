@@ -8,7 +8,7 @@ import { importTask } from '../test/task-lifecycle-fixtures';
 vi.mock('../api/import-export-tasks', () => ({
   listStaticImportSchemas: vi.fn(), createImportExportTask: vi.fn(), downloadStaticImportTemplate: vi.fn(),
   listImportExportTasks: vi.fn(), getImportExportTask: vi.fn(), executeImportExportTask: vi.fn(),
-  resumeImportExportTask: vi.fn(), retryImportExportTask: vi.fn(), downloadImportExportTaskErrorReceipt: vi.fn()
+  resumeImportExportTask: vi.fn(), retryImportExportTask: vi.fn(), cancelImportExportTask: vi.fn(), downloadImportExportTaskErrorReceipt: vi.fn()
 }));
 let wrapper: VueWrapper | undefined;
 const read = 'import_export.import_tasks.read'; const execute = 'import_export.import_tasks.execute';
@@ -28,6 +28,26 @@ const setup = async (permissions = [read, execute]) => {
 };
 const detail = async (index = 0) => { await wrapper!.findAll('[data-testid="import-export-task-detail"]')[index]!.trigger('click'); await flushPromises(); };
 describe('导入任务请求归属', () => {
+  it('取消使用独立权限，执行权限不授予取消', async () => {
+    const session = await setup(); await detail();
+    expect(wrapper!.find('[data-testid="import-export-task-cancel"]').exists()).toBe(false);
+    session.currentUser!.permissions = [read, 'import_export.import_tasks.cancel']; await flushPromises(); await detail();
+    expect(wrapper!.find('[data-testid="import-export-task-cancel"]').exists()).toBe(true);
+  });
+  it.each(['executing', 'execution_succeeded', 'cancelled'])('状态%s不得显示取消入口', async statusKey => {
+    vi.mocked(api.getImportExportTask).mockResolvedValue({ ...importTask, statusKey });
+    await setup([read, 'import_export.import_tasks.cancel']); await detail();
+    expect(wrapper!.find('[data-testid="import-export-task-cancel"]').exists()).toBe(false);
+  });
+  it('取消等待中撤权同步中止，并忽略迟到终态', async () => {
+    const pending = deferred<typeof importTask>(); vi.mocked(api.cancelImportExportTask).mockReturnValue(pending.promise);
+    const success = vi.spyOn(ElMessage, 'success'); const session = await setup([read, 'import_export.import_tasks.cancel']); await detail();
+    await wrapper!.get('[data-testid="import-export-task-cancel"]').trigger('click');
+    session.currentUser!.permissions = [read];
+    expect(vi.mocked(api.cancelImportExportTask).mock.calls[0]?.[1]?.aborted).toBe(true);
+    pending.resolve({ ...importTask, statusKey: 'cancelled' }); await flushPromises();
+    expect(success).not.toHaveBeenCalled();
+  });
   it('两个详情交错返回时只保留最后选择', async () => {
     const pending = deferred<typeof importTask>(); vi.mocked(api.getImportExportTask).mockReturnValueOnce(pending.promise).mockResolvedValueOnce(other);
     await setup(); await detail(); await detail(1); pending.resolve(importTask); await flushPromises();

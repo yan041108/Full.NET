@@ -4,6 +4,7 @@ import {shouldSkipRealStack} from './support/created-app-real-stack.mjs';
 import {prepareCreatedImportRecovery,verifyCreatedImportRecovery} from './support/created-enterprise-import-recovery.mjs';
 import {verifyApplicationImportSessionRevocation} from './support/application-import-session-revocation.mjs';
 import {verifyApplicationIdentityCookieControl} from './support/application-identity-cookie-control.mjs';
+import {verifyApplicationImportCancellation} from './support/application-import-cancellation.mjs';
 import {runConcentratedAcceptance,withTestRun} from '../../scripts/testing/test-run-context.mjs';
 
 const skip=shouldSkipRealStack()?'enable FULLNET_RUN_TEMPLATE_REAL_STACK=1':!areBundleInputsClean()?'source bundle inputs have uncommitted changes':false;
@@ -20,6 +21,7 @@ test('独立企业应用检查点恢复、回执重试和会话撤销（一次�
    // 会话场景使用独立运行目录；应用源码及三宿主产物原样复用，探针文件不串组。
    await verifyCreatedImportRecovery(provider,{...prepared,out:prepared.out+'/session-revocation'},{signal,verifyApplication:verifyApplicationImportSessionRevocation});
    await verifyCreatedImportRecovery(provider,{...prepared,out:prepared.out+'/cookie-control'},{signal,verifyApplication:verifyApplicationIdentityCookieControl});
+   await verifyCreatedImportRecovery(provider,{...prepared,out:prepared.out+'/cancellation'},{signal,verifyApplication:verifyApplicationImportCancellation});
   }
  },{timeoutMs:queueTimeoutMs,executionTimeoutMs});
 });

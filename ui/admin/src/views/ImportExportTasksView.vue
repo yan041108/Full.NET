@@ -28,6 +28,7 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useTaskStatusRefresh } from '../composables/useTaskStatusRefresh';
 import {
+  cancelImportExportTask,
   downloadImportExportTaskErrorReceipt,
   executeImportExportTask,
   getImportExportTask,
@@ -186,15 +187,19 @@ useTaskStatusRefresh(() => canRead() && !problem.value && (items.value.some(task
   }
 });
 
-async function runAction(kind: 'execute' | 'resume' | 'retry') {
+const isCancellable = (task: ImportExportTaskDetailResponse) =>
+  task.requestedByUserId.toLowerCase() === session.currentUser?.id.toLowerCase()
+  && ['preview_succeeded', 'queued', 'execution_partial', 'execution_failed'].includes(task.statusKey);
+
+async function runAction(kind: 'execute' | 'resume' | 'retry' | 'cancel') {
   const task = selectedTask.value;
   if (!drawerVisible.value || !task || actionLoading.value || detailLoading.value) return;
-  const eligible = kind === 'execute' ? task.statusKey === 'preview_succeeded'
+  const eligible = kind === 'cancel' ? isCancellable(task) : kind === 'execute' ? task.statusKey === 'preview_succeeded'
     : kind === 'resume' ? task.statusKey === 'execution_partial'
     : task.statusKey === 'execution_partial' || task.statusKey === 'execution_failed';
   if (!eligible) return;
-  const request = scope.begin('import_export.import_tasks.execute'); if (!request) return; actionRequest = request;
-  const action = kind === 'execute' ? executeImportExportTask : kind === 'resume' ? resumeImportExportTask : retryImportExportTask;
+  const request = scope.begin(kind === 'cancel' ? 'import_export.import_tasks.cancel' : 'import_export.import_tasks.execute'); if (!request) return; actionRequest = request;
+  const action = kind === 'cancel' ? cancelImportExportTask : kind === 'execute' ? executeImportExportTask : kind === 'resume' ? resumeImportExportTask : retryImportExportTask;
 
   actionLoading.value = true;
   try {
@@ -383,6 +388,12 @@ function toProblem(error: unknown): FullNetProblemDetails {
           </el-table>
 
           <div class="art-drawer-actions">
+            <PermissionGate code="import_export.import_tasks.cancel">
+              <el-button v-if="isCancellable(selectedTask)" data-testid="import-export-task-cancel"
+                :loading="actionLoading" :disabled="detailLoading" @click="runAction('cancel')">
+                {{ t('importExportTasks.cancel') }}
+              </el-button>
+            </PermissionGate>
             <PermissionGate code="import_export.import_tasks.execute">
               <el-button
                 v-if="selectedTask.statusKey === 'preview_succeeded'"

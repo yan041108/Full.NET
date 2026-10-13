@@ -216,6 +216,24 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .RequireAuthorization(FullNetPermissionPolicies.For(ImportExportPermissions.ImportTasksExecute));
 
+        group.MapPost("/{taskId:guid}/cancel", async (
+            Guid taskId, ImportExportTaskCancellationService cancellationService,
+            ICurrentTenant currentTenant, IApiResultMapper mapper, HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!ImportExportHttpSessionBinding.TryCreate(httpContext, currentTenant.Id, out var binding))
+                return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
+            var result = await cancellationService.CancelAsync(taskId, binding, cancellationToken).ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("importExportCancelImportTask")
+        .Produces<ImportExportTaskDetailResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(ImportExportPermissions.ImportTasksCancel));
+
         group.MapGet("/{taskId:guid}/error-receipt", async (
             Guid taskId,
             ImportExportTaskExecutionService executionService,

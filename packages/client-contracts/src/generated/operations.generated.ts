@@ -1889,11 +1889,7 @@ export async function calendarDeleteMyPersonalSchedule(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface CalendarGetMyPersonalScheduleParameters {
@@ -2047,11 +2043,7 @@ export async function codeGenerationDeleteTemplate(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface CodeGenerationDownloadRunArtifactsParameters {
@@ -3697,11 +3689,7 @@ export async function enterpriseRequestRepairApproval(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface EnterpriseRequestReplaceLinesParameters {
@@ -4426,11 +4414,7 @@ export async function identityDeleteHostRole(
 ): Promise<void> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}`;
   const init: RequestInit = { method: 'DELETE' };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface IdentityDeleteSelfServiceAvatarParameters {
@@ -5335,11 +5319,7 @@ export async function identityLogout(
 ): Promise<void> {
   const path = `/api/v1/auth/logout`;
   const init: RequestInit = { method: 'POST' };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface IdentityRefreshSessionParameters {
@@ -5785,6 +5765,22 @@ export async function identityValidateModuleSelection(
   return readModuleSelectionAnalysisResponse(value);
 }
 
+export interface ImportExportCancelImportTaskParameters {
+  readonly taskId: string;
+}
+
+export async function importExportCancelImportTask(
+  http: HttpClient,
+  parameters: ImportExportCancelImportTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportExportTaskDetailResponse> {
+  const path = `/api/v1/import-export/tasks/${encodeURIComponent(String(parameters.taskId))}/cancel`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readImportExportTaskDetailResponse(value);
+}
+
 export interface ImportExportCreateImportTaskParameters {
   readonly file: IFormFile;
   readonly schemaKey: string;
@@ -6042,11 +6038,7 @@ export async function jobsClearHostJobExecutions(
   query.set('jobDefinitionId', String(parameters.jobDefinitionId));
   const path = query.size === 0 ? `/api/v1/jobs/host-executions/clear` : `/api/v1/jobs/host-executions/clear?${query.toString()}`;
   const init: RequestInit = { method: 'POST' };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface JobsCreateHostJobDefinitionParameters {
@@ -6106,11 +6098,7 @@ export async function jobsDeleteHostJobDefinition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface JobsDeleteHostJobScheduleParameters {
@@ -6130,11 +6118,7 @@ export async function jobsDeleteHostJobSchedule(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface JobsDisableHostJobDefinitionParameters {
@@ -6731,11 +6715,7 @@ export async function notificationsDeleteMyRecipientEndpoint(
 ): Promise<void> {
   const path = `/api/v1/notifications/my-recipient-endpoints/${encodeURIComponent(String(parameters.endpointId))}`;
   const init: RequestInit = { method: 'DELETE' };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface NotificationsDisableProviderProfileParameters {
@@ -8849,11 +8829,7 @@ export async function paymentsWeChatNativeNotify(
 ): Promise<void> {
   const path = `/api/v1/payments/wechat-native/notify/${encodeURIComponent(String(parameters.merchantConfigId))}`;
   const init: RequestInit = { method: 'POST' };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface PlatformCreateHostReleaseNoteParameters {
@@ -8893,11 +8869,7 @@ export async function platformDeleteHostReleaseNote(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface PlatformGetHostDashboardSummaryParameters {
@@ -9427,11 +9399,7 @@ export async function regionsDeleteAdministrativeRegion(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface RegionsGetAdministrativeRegionParameters {
@@ -10455,11 +10423,7 @@ export async function settingsBatchDeleteHostConfigEntries(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface SettingsBatchUpdateHostConfigEntryValuesParameters {
@@ -10601,11 +10565,7 @@ export async function settingsDeleteHostConfigEntry(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface SettingsDeleteHostDictItemParameters {
@@ -10625,11 +10585,7 @@ export async function settingsDeleteHostDictItem(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface SettingsDeleteHostDictTypeParameters {
@@ -10649,11 +10605,7 @@ export async function settingsDeleteHostDictType(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface SettingsDeleteTenantDictItemParameters {
@@ -10673,11 +10625,7 @@ export async function settingsDeleteTenantDictItem(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface SettingsDeleteTenantDictTypeParameters {
@@ -10697,11 +10645,7 @@ export async function settingsDeleteTenantDictType(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface SettingsDisableHostConfigEntryParameters {
@@ -11884,11 +11828,7 @@ export async function workflowDeleteDefinitionVersion(
 ): Promise<void> {
   const path = `/api/v1/workflow/definition-versions/${encodeURIComponent(String(parameters.versionId))}`;
   const init: RequestInit = { method: 'DELETE' };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface WorkflowDeleteFormVersionParameters {
@@ -11903,11 +11843,7 @@ export async function workflowDeleteFormVersion(
 ): Promise<void> {
   const path = `/api/v1/workflow/form-versions/${encodeURIComponent(String(parameters.versionId))}`;
   const init: RequestInit = { method: 'DELETE' };
-  if (options === undefined) {
-    await http.request<void>(path, init, signal);
-  } else {
-    await http.request<void>(path, init, signal, options);
-  }
+  await requestJsonOperation(http, path, init, signal, options);
 }
 
 export interface WorkflowGetDefinitionParameters {

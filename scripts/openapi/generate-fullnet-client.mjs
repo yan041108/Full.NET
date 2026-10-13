@@ -238,8 +238,8 @@ function renderOperations(operations, schemas, httpModuleSpecifier) {
     + '  signal?: AbortSignal,\n'
     + '  options?: RequestOptions\n'
     + ') => Promise<T>;\n\n'
-    // 合并重复的 JSON 分派，保留可选参数省略、接收者和响应守卫语义。
-    + (readerNames.length > 0 ? [
+    // JSON 与无内容操作共用分派，保留可选参数省略、接收者和响应守卫语义。
+    + (operations.some(operation => operation.response.kind !== 'blob') ? [
       'function requestJsonOperation(',
       '  http: HttpClient, path: string, init: RequestInit,',
       '  signal?: AbortSignal, options?: RequestOptions',
@@ -299,11 +299,8 @@ function renderOperation(operation, schemas) {
     lines.push('    ? await http.requestBlob(path, init, signal)');
     lines.push('    : await http.requestBlob(path, init, signal, options);');
   } else if (operation.response.kind === 'void') {
-    lines.push('  if (options === undefined) {');
-    lines.push('    await http.request<void>(path, init, signal);');
-    lines.push('  } else {');
-    lines.push('    await http.request<void>(path, init, signal, options);');
-    lines.push('  }');
+    // 不返回自定义 HttpClient 的意外正文，保持既有 Promise<void> 的运行时结果。
+    lines.push('  await requestJsonOperation(http, path, init, signal, options);');
   } else {
     lines.push('  const value = await requestJsonOperation(http, path, init, signal, options);');
     lines.push(`  return ${responseReaderName(operation)}(value);`);

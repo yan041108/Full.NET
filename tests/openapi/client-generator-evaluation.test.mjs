@@ -193,7 +193,8 @@ test('生成器只产生 Full.NET models、guards、operations 与公开入口',
     assert.match(files['operations.generated.ts'], /http\.request<unknown>/u);
     assert.match(files['operations.generated.ts'], /return readHostUserResponse\(value\)/u);
     assert.match(files['operations.generated.ts'], /http\.requestBlob\(/u);
-    assert.match(files['operations.generated.ts'], /http\.request<void>\(/u);
+    assert.match(files['operations.generated.ts'], /Promise<void>/u);
+    assert.match(files['operations.generated.ts'], /await requestJsonOperation\(http, path, init, signal, options\)/u);
     assert.match(
       files['operations.generated.ts'],
       /body\.append\('file', parameters\.file\)/u

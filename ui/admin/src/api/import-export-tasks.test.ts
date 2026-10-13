@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { importExportCreateImportTask, importExportDownloadStaticSchemaTemplate, importExportGetImportTask,
+import { importExportCancelImportTask, importExportCreateImportTask, importExportDownloadStaticSchemaTemplate, importExportGetImportTask,
   importExportExecuteImportTask, importExportResumeImportTask, importExportRetryImportTask } from '@fullnet/client-contracts';
-import { createImportExportTask, downloadStaticImportTemplate, getImportExportTask,
+import { cancelImportExportTask, createImportExportTask, downloadStaticImportTemplate, getImportExportTask,
   executeImportExportTask, resumeImportExportTask, retryImportExportTask } from './import-export-tasks';
 import { importTask } from '../test/task-lifecycle-fixtures';
 vi.mock('@fullnet/client-contracts', async importOriginal => ({
   ...await importOriginal<typeof import('@fullnet/client-contracts')>(), importExportCreateImportTask: vi.fn(), importExportDownloadStaticSchemaTemplate: vi.fn(),
-  importExportGetImportTask:vi.fn(),importExportExecuteImportTask:vi.fn(),importExportResumeImportTask:vi.fn(),importExportRetryImportTask:vi.fn()
+  importExportGetImportTask:vi.fn(),importExportExecuteImportTask:vi.fn(),importExportResumeImportTask:vi.fn(),importExportRetryImportTask:vi.fn(),importExportCancelImportTask:vi.fn()
 }));
 vi.mock('./http', () => ({ http: {} }));
 beforeEach(() => vi.resetAllMocks());
@@ -28,6 +28,7 @@ describe('导入 SDK 包装', () => {
 
 describe('导入任务响应归属', () => {
   const operations = [
+    ['取消', cancelImportExportTask, importExportCancelImportTask],
     ['详情', getImportExportTask, importExportGetImportTask],
     ['执行', executeImportExportTask, importExportExecuteImportTask],
     ['恢复', resumeImportExportTask, importExportResumeImportTask],

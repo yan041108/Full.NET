@@ -495,6 +495,22 @@ internal static partial class NativeEnterpriseBusinessAssertions
         Assert.AreEqual(1, preview.GetProperty("validRowCount").GetInt32());
         Assert.AreEqual(0, preview.GetProperty("invalidRowCount").GetInt32());
         var id = preview.GetProperty("id").GetGuid();
+        // 同一非空工作簿另建预览任务，取消只影响该任务，不能污染随后正式导入。
+        using var cancelledForm = new MultipartFormDataContent
+        {
+            { new StringContent("demo.enterprise_requests"), "schemaKey" }, { new StringContent("requests"), "worksheetKey" },
+        };
+        var cancelledFile = new ByteArrayContent(workbook.ToArray());
+        cancelledFile.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        cancelledForm.Add(cancelledFile, "file", "native-cancelled.xlsx");
+        var cancelledPreview = await http.UploadAsync(cancelledForm);
+        var cancelledId = cancelledPreview.GetProperty("id").GetGuid();
+        var cancelled = await http.SendAsync(HttpMethod.Post, $"{Imports}/{cancelledId:D}/cancel");
+        Assert.AreEqual("cancelled", cancelled.GetProperty("statusKey").GetString());
+        Assert.AreEqual(0, cancelled.GetProperty("nextLineNumber").GetInt32());
+        var cancelReplay = await http.SendAsync(HttpMethod.Post, $"{Imports}/{cancelledId:D}/cancel");
+        Assert.AreEqual(cancelled.GetProperty("version").GetInt32(), cancelReplay.GetProperty("version").GetInt32());
+        await http.SendAsync(HttpMethod.Post, $"{Imports}/{cancelledId:D}/execute", expected: HttpStatusCode.UnprocessableEntity);
         var queued = await http.SendAsync(HttpMethod.Post, $"{Imports}/{id:D}/execute");
         Assert.AreEqual("queued", queued.GetProperty("statusKey").GetString());
         return id;
