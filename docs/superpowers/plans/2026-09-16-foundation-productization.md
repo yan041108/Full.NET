@@ -2929,3 +2929,21 @@ node .tmp/media-active-jit-1.mjs：真实SQL Server/MySQL两项集中通过，�
 证据入口.tmp/media-active-source.json、.tmp/media-active-unit-final.log、.tmp/media-active-aot-final-proof.json、.tmp/media-active-partitions-fresh、.tmp/media-active-jit-1、.tmp/media-active-ci-artifacts、.tmp/media-active-ci-runtime-proof.json、.tmp/media-active-final-proof.json。RED、Fixture误计及旧程序集发现失败均保留，不计通过。
 
 本批仅补偿具有规范且不可复用代际身份的历史Active。没有独立退休证据的可复用旧格式键保持保护，完整生成应用、全页面、多实例故障及容量仍待；整体Build-verified / Capacity-not-verified。PR3保持Draft，合并发布另行约定；报告以[skip ci]提交，不将报告HEAD当作已运行生产源码。
+
+## 2026-10-13 Files Blob 清理公平性与取消安全
+
+任务files-cleanup-fairness-20261013，基线6257114，生产冻结`82a3919e5698e1acccc93953fb3685ac756d8555`、树`e447bbce8a2ccce043af3fc7cc329d52e1d4e921`。原Blob清理每轮从最老墓碑开始，首批未知Provider或持续删除失败会在有限批次下永久阻塞后序文件。Files新增Worker跨作用域共享游标与同进程串行门闩，固定每个扫描周期的DeletedAtUtc上界；整批执行完成才推进，空/短页结束周期并重试保留墓碑。持续新增墓碑不能无限延长失败记录的重试周期。默认关闭、物理对象成功删除后才清元数据、ProviderKey/StorageKey条件Purge、软删除前引用守卫保持，不增加迁移、跨模块表访问或跨模块事务。
+
+直接Runner调用复用启动验证的数量边界，在数据库和对象存储前拒绝非法批次/轮数/轮询参数。复审发现“存储删除取消后返回普通IOException”会被吞为普通失败并推进游标；Query返回后、普通Blob异常捕获和游标推进前均补取消检查，取消或数据库错误保留原位置，已删除对象可幂等重试。集成API工厂只注册主动调用的Cursor singleton与Runner scoped，未启动Worker后台循环；原生Worker验证真实注册，新作用域注册回归核对同一Cursor。
+
+失败与修复证据：首轮测试夹具可空引用编译失败，不算行为RED；实际RED15项中8失败/7通过，覆盖跨轮饥饿和运行参数绕过。修复后15/15，再补固定上界/周期重置、数据库失败重试、门闩等待取消与关闭状态；复审取消竞争实际RED23项21通过/2失败，修复后最终23/23。首轮临时发现门槛误设16而实际15的失败日志保留，正确发现数下重新执行RED；正式矩阵没有降低门槛。正式新增16项，Unit最低总数5973；新增双库2项进入infrastructure258/full1244，原分片范围不变。
+
+最终实际快速验证：node .tmp/files-cleanup-unit.mjs green3聚焦23/23；node .tmp/files-cleanup-fast-final.mjs完整Files242/242、消费者构建零警告/错误、完整Architecture248/248；node .tmp/files-cleanup-aot-final.mjs验证Files/API/Worker三个目标，退出0；node .tmp/files-cleanup-static.mjs命名33/33、SQL安全5/5、治理70/70、矩阵/迁移工具13/13。新鲜消费者的正式分片发现1244，无遗漏/重复，迁移250+272完整分区；发现不是运行证据。两项P2修复后只读复审无新增可证明P1/P2。
+
+node .tmp/files-cleanup-jit-1.mjs真实SQL Server/MySQL集中2/2，零失败/跳过。首批未知Provider墓碑保留，下一独立作用域实际删除后序本地Blob并清元数据；推进可控时钟后，本周期仍排除原固定上界以外的墓碑，空页结束周期，下一周期重试旧失败并处理后续墓碑。使用独立自有数据库、对象根目录及真实查询/命令执行器；Windows SDK10.0.401、每测试进程两个worker。冻结3946个输入、984个消费者文件，排队1058.438秒、运行203.715秒分别记录。输入/产物摘要与最终生产源码匹配，原receipt HEAD仅为任务基线；自有资源完成后回收，共享锁由withTestRun正常释放。
+
+同生产源码Native API核心23及附加26合计49/49，完整Worker25/25，零失败/跳过。Worker现有双库Blob清理用例改为BatchSize1/MaxBatches1，让未知Provider占满首批，从新作用域清理后序对象；保持墓碑与物理对象终态断言。API run38348745462、Worker run38348745478，检出`7f1b46b41f4441d6f32696eaa89be095c09d1725`；实际树、原始测试日志、ZIP/ELF和发布清单摘要核对。复用该完整实际运行，未重复本地Native，也未为本小批启动独立生成应用全套。
+
+用户已持续授权本批及后续同类测试资源安全协调。本批依次核对AI集成PID130756、缓存最终GREEN PID135368、AI精确补验PID136408，并请求当前组正常结束后的交接；13:08:37取得资源，13:12:01正常释放后已通知两对话。未中断其他构建/测试、删除共享锁或操作其他窗口容器。他窗四项未提交改动逐文件保护证明通过。上一批主CI38342339397重试已越过镜像限流，尚未结束的作业在本批源码推送后被仓库并发策略取消，不计通过；截至本报告，本批主CI38348745440仍在受影响双库集成阶段，最终结果未验收；未执行或跳过不计成功。
+
+证据入口.tmp/files-cleanup-source.json、.tmp/files-cleanup-unit-results、.tmp/files-cleanup-final-unit-files.log、.tmp/files-cleanup-final-architecture.log、.tmp/files-cleanup-aot-final-proof.json、.tmp/files-cleanup-partitions、.tmp/files-cleanup-jit-1、.tmp/files-cleanup-ci-artifacts、.tmp/files-cleanup-ci-runtime-proof.json及.tmp/files-cleanup-final-proof.json；编译失败、最初RED与取消竞争RED均保留。本批仅收口Blob清理有界推进、周期重试和取消安全；历史可复用旧绑定退休策略、完整生成应用、全页面、多实例故障及容量仍待。保持Build-verified / Capacity-not-verified，PR3保持Draft，未合并或发布；报告以[skip ci]提交，不把报告HEAD当作运行源码。
