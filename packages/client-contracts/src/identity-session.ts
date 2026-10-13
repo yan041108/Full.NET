@@ -28,6 +28,9 @@ import {
 
 export type SessionState = 'initializing' | 'authenticated' | 'anonymous';
 
+// 三个 Cookie 控制请求共享协议选项；调用时复制，避免自定义传输修改共享对象。
+const cookieSessionRequestOptions = { retryUnauthorized: false, skipAuthentication: true };
+
 export interface IdentitySessionSnapshot {
   state: SessionState;
   currentUser?: CurrentUserResponse;
@@ -128,7 +131,7 @@ export function createIdentitySession(
 
   async function login(username: string, password: string, signal?: AbortSignal): Promise<void> {
     await establishAuthentication(() => identityLogin(http,
-      { body: { username, password } }, signal, { retryUnauthorized: false, skipAuthentication: true }), signal);
+      { body: { username, password } }, signal, { ...cookieSessionRequestOptions }), signal);
   }
 
   async function completeOidcAuthorization(
@@ -262,9 +265,8 @@ export function createIdentitySession(
           {},
           undefined,
           {
-            retryUnauthorized: false,
             // Cookie 刷新独立于已失效的租户访问令牌，避免被带入租户 SQL 上下文。
-            skipAuthentication: true,
+            ...cookieSessionRequestOptions,
             headers: readCsrfHeaders()
           }
         );
@@ -453,8 +455,7 @@ export function createIdentitySession(
         {},
         undefined,
         {
-          retryUnauthorized: false,
-          skipAuthentication: true,
+          ...cookieSessionRequestOptions,
           headers
         }
       );
