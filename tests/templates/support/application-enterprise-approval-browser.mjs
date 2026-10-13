@@ -14,11 +14,13 @@ const requireE2e = createRequire(new URL('../../e2e/admin-real-stack/package.jso
 const requireParity = createRequire(new URL('../../e2e/admin-parity/package.json', import.meta.url));
 const { chromium, expect } = requireE2e('@playwright/test');
 const AxeBuilder = requireParity('@axe-core/playwright');
+import { verifyEnterpriseBoundRuntime } from './application-enterprise-bound-runtime.mjs';
+
 const requestsPath = '/api/v1/enterprise_request/enterprise-requests';
 
 // 业务操作由生成应用的实际 Vue 完成；HTTP 只建立所属模块夹具和回读权威结果。
 export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDirectory,
-  { port, signal, startWorker, stopWorker, crashWorker }) {
+  { port, signal, startWorker, stopWorker, crashWorker, injectFailure, assertDeadLetter }) {
   const origin = 'http://localhost:' + port;
   const evidence = { completed: false, responses: [], fixtureResponses: [], accessibility: [], requests: [] };
   const execute = (stage, args) => {
@@ -335,7 +337,11 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     }
     const list = await send('/api/v1/workflow/instances?page=1&pageSize=100&definitionKey=' + definitionKey);
     for (const request of terminalRequests) assert.equal(list.items.filter(item => item.businessId === request.id).length, 1);
-    evidence.restartStable = true; evidence.completed = true; return evidence;
+    evidence.restartStable = true;
+    stage = 'bound-runtime';
+    evidence.boundRuntime = await verifyEnterpriseBoundRuntime({ create, submit, send, poll, stopWorker, startWorker,
+      injectFailure: ids => injectFailure({ ...ids, tenantId }), assertDeadLetter: ids => assertDeadLetter({ ...ids, tenantId }), drain: drainAndRestoreTenant });
+    evidence.completed = true; return evidence;
   } catch (error) {
     failed = true; evidence.failureKind = error?.name ?? 'Error'; evidence.error = stage + ': generated approval browser acceptance failed';
     // 凭据与未知服务端正文不进入证据；固定阶段足以定位相应拥有的日志。

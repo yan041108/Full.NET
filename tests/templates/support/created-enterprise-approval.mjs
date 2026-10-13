@@ -14,6 +14,8 @@ import { stopLoggedProcess } from '../../e2e/admin-real-stack/scripts/stop-logge
 import { waitForApi } from '../../e2e/admin-real-stack/scripts/wait-for-api.mjs';
 import { assertNoWorkerTimeoutScanFailures, crashLoggedWorker } from './worker-crash-lifecycle.mjs';
 
+import { injectBoundRuntimeFailure, assertBoundRuntimeDeadLetter } from './bound-runtime-failure.mjs';
+
 const repoRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 async function freePort() {
   const server = createServer();
@@ -52,7 +54,9 @@ export async function verifyCreatedEnterpriseApproval(provider, { signal } = {})
     const env = { ...testRunEnvironment(), ...buildSharedEnv(db.connectionString, db.databaseProvider, cache.connectionString),
       Identity__AllowedOrigins__3: 'http://localhost:' + browserPort, Files__Local__RootPath: join(root, 'files'),
       FullNet__ImportExport__ExecutionEnabled: 'false', FullNet__Reporting__Export__ExecutionEnabled: 'false',
-      OutboxWorker__PollMilliseconds: '250', OutboxWorker__MaximumIdlePollMilliseconds: '1000' };
+      Workflow__RecoveryWorker__PollMilliseconds: '100', Workflow__RecoveryWorker__MaxAttempts: '1',
+      Workflow__RecoveryWorker__RetryDelaySeconds: '1', Workflow__RecoveryWorker__RetryBackoffMode: 'fixed',
+      Workflow__RecoveryWorker__RetryMaxDelaySeconds: '1', OutboxWorker__PollMilliseconds: '250', OutboxWorker__MaximumIdlePollMilliseconds: '1000' };
     report.buildEnvironment = { UseSharedCompilation: env.UseSharedCompilation ?? null,
       MSBUILDDISABLENODEREUSE: env.MSBUILDDISABLENODEREUSE ?? null,
       DOTNET_CLI_USE_MSBUILD_SERVER: env.DOTNET_CLI_USE_MSBUILD_SERVER ?? null };
@@ -95,12 +99,14 @@ export async function verifyCreatedEnterpriseApproval(provider, { signal } = {})
       (report.workerCrashes ??= []).push(receipt);
     };
     report.browser = await verifyEnterpriseApprovalBrowser(appRoot, apiUrl, root,
-      { port: browserPort, signal, startWorker, stopWorker, crashWorker });
+      { port: browserPort, signal, startWorker, stopWorker, crashWorker,
+        injectFailure: ids => injectBoundRuntimeFailure({ ...ids, signal, provider, container: database, ownedContainerId: database.getId() }),
+        assertDeadLetter: ids => assertBoundRuntimeDeadLetter({ ...ids, signal, provider, container: database, ownedContainerId: database.getId() }) });
     for (const { child, stopped } of processes) if (!stopped) { assert.equal(child.exitCode, null); assert.equal(child.signalCode, null); }
     await stopWorker();
-    // 四次启动均接受门禁；不能由一次健康响应推导超时 Worker 的运行正确性。
+    // 五次启动均接受门禁；不能由一次健康响应推导超时 Worker 的运行正确性。
     const workerLogs = processes.filter(item => item.host === 'Worker');
-    assert.equal(workerLogs.length, 4);
+    assert.equal(workerLogs.length, 5);
     assertNoWorkerTimeoutScanFailures(workerLogs.map(item => readFileSync(item.logPath, 'utf8')));
     report.timeoutWorkerLogsChecked = workerLogs.length;
     report.completed = true; return report;
