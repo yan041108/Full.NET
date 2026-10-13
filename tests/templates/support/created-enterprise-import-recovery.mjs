@@ -12,6 +12,7 @@ import {createApp} from '../../../scripts/templates/create-app.mjs';
 import {testRunEnvironment} from '../../../scripts/testing/test-run-context.mjs';
 import {startDatabaseContainer,startRedisContainer,buildSharedEnv} from './created-app-real-stack.mjs';
 import {runImportRecoveryCommand,watchImportRecoveryProcess} from './run-import-recovery-command.mjs';
+import {waitForImportRecoveryDatabase} from './import-recovery-database-ready.mjs';
 import {verifyApplicationImportRecovery} from './application-import-recovery.mjs';
 import {stopLoggedProcess} from '../../e2e/admin-real-stack/scripts/stop-logged-process.mjs';
 import {waitForApi} from '../../e2e/admin-real-stack/scripts/wait-for-api.mjs';
@@ -70,7 +71,7 @@ ${marker}`);
 }
 
 // 正常与异常路径均等待自有进程的 close；保留独立应用与日志供最终输入/产物核对。
-export async function verifyCreatedImportRecovery(provider,prepared,{signal}={}){
+export async function verifyCreatedImportRecovery(provider,prepared,{signal,verifyApplication=verifyApplicationImportRecovery}={}){
  assert(prepared.prepared);assert(['sqlserver','mysql'].includes(provider));
  const out=join(prepared.out,provider);mkdirSync(out,{recursive:true});
  const report={completed:false,provider,source:prepared.source,appRoot:prepared.appRoot,hosts:[]};
@@ -80,6 +81,7 @@ export async function verifyCreatedImportRecovery(provider,prepared,{signal}={})
   guard();signal?.throwIfAborted();const stack=await startDatabaseContainer(provider);database=stack.container;
   signal?.throwIfAborted();const cache=await startRedisContainer();redis=cache.container;signal?.throwIfAborted();
   const env={...testRunEnvironment(),...buildSharedEnv(stack.connectionString,stack.databaseProvider,cache.connectionString),Files__Local__RootPath:join(out,'files'),DataProtection__KeyRingPath:join(out,'data-protection-keys'),FullNet__ImportExport__ExecutionEnabled:'false',FullNet__ImportExport__RunSynchronously:'false',FullNet__ImportExport__BatchSize:'1',FullNet__ImportExport__PollSeconds:'5',FullNet__ImportExport__LeaseSeconds:'60',FullNet__Reporting__Export__ExecutionEnabled:'false'};
+  report.databaseReady=await waitForImportRecoveryDatabase(provider,database,{signal,out});
   await runImportRecoveryCommand('dotnet',[prepared.projects.Migrator,'--seed','development'],{cwd:prepared.appRoot,env,timeoutMs:600000,logPath:join(out,'migrator.log'),signal});
   const start=async(host,overrides={})=>{
    signal?.throwIfAborted();
@@ -96,11 +98,11 @@ export async function verifyCreatedImportRecovery(provider,prepared,{signal}={})
    const result=spawnSync(process.platform==='win32'?'python':'python3',['-X','utf8',join(repoRoot,'tests/templates/support/import-recovery-workbook.py')],{input:JSON.stringify({mode,workbook:Buffer.from(bytes).toString('base64'),rows}),maxBuffer:4*1024*1024,timeout:15000,windowsHide:true});
    assert.equal(result.status,0,'real workbook verification failed');return mode==='read'?JSON.parse(result.stdout):result.stdout;
   };
-  report.business=await verifyApplicationImportRecovery(api.url,{hostAccessToken:session.accessToken,logPath:join(out,'business.json'),signal,fillWorkbook:(bytes,rows)=>workbook('fill',bytes,rows),inspectReceipt:bytes=>workbook('read',bytes),
+  report.business=await verifyApplication(api.url,{hostAccessToken:session.accessToken,logPath:join(out,'business.json'),signal,fillWorkbook:(bytes,rows)=>workbook('fill',bytes,rows),inspectReceipt:bytes=>workbook('read',bytes),
    startWorker:(mode,taskId)=>start('Worker',{FullNet__ImportExport__ExecutionEnabled:'true',FULLNET_PROBE_DIRECTORY:out,FULLNET_PROBE_MODE:mode,FULLNET_PROBE_TASK:taskId}),
    killWorker:async item=>{assert.equal(item.child.exitCode,null);assert(item.child.kill('SIGKILL'));await stopLoggedProcess(item.child,item.stream);return{pid:item.pid,forced:true,closed:true,exitCode:item.child.exitCode,signalCode:item.child.signalCode};},
    stopWorker:item=>stopLoggedProcess(item.child,item.stream),
-   waitProbe:async(mode,pid,taskId)=>{const file=join(out,mode+'.json'),deadline=Date.now()+150000;while(!existsSync(file)){assert(Date.now()<deadline,'checkpoint probe timeout '+mode);await sleep(100,undefined,{signal});}const probe=JSON.parse(readFileSync(file));assert.equal(probe.pid,pid);assert.equal(probe.taskId,taskId);return probe;}});
+   waitProbe:async(mode,pid,taskId)=>{const file=join(out,mode+'.json'),deadline=Date.now()+150000;while(true){if(existsSync(file)){const probe=JSON.parse(readFileSync(file));if(probe.pid===pid&&probe.taskId===taskId)return probe;}assert(Date.now()<deadline,'checkpoint probe timeout '+mode);await sleep(100,undefined,{signal});}}});
   assert.equal(api.child.exitCode,null);guard();report.completed=true;return report;
  }catch(error){failure=error;report.error=error.message;report.commandFailure={pid:error.pid,cleanupUnconfirmed:error.cleanupUnconfirmed===true};throw error;}
  finally{
