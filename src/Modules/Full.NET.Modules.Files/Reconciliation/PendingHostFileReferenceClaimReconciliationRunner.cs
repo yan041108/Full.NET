@@ -96,11 +96,11 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
                 HostFileReferenceClaimProbeResult probeResult;
                 try
                 {
-                    probeResult = await probe.ProbeReferenceAsync(
-                            record.ConsumerReferenceId,
-                            record.FileId,
-                            cancellationToken)
-                        .ConfigureAwait(false);
+                    // 可复用媒体必须精确核对扫描键；其他消费者继续使用原契约，不能猜测代际。
+                    probeResult = probe is IHostFileReferenceBindingClaimProbe bindingProbe
+                        ? await bindingProbe.ProbeBindingAsync(record.ConsumerReferenceId, record.FileId,
+                            record.IdempotencyKey, cancellationToken).ConfigureAwait(false)
+                        : await probe.ProbeReferenceAsync(record.ConsumerReferenceId, record.FileId, cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {

@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 5882,
+      "minimum": 5900,
       "timeout": "10m",
       "selections": {
         "files-active-claims": {
@@ -96,8 +96,8 @@
           "minimum": 48
         },
         "media-reliable-release": {
-          "filter": "FullyQualifiedName~MediaBindingConcurrencyTests|FullyQualifiedName~MediaReleaseConsumerTests|FullyQualifiedName~MediaBindingClaimKeyTests",
-          "minimum": 107
+          "filter": "FullyQualifiedName~MediaBindingConcurrencyTests|FullyQualifiedName~MediaReleaseConsumerTests|FullyQualifiedName~MediaBindingClaimKeyTests|FullyQualifiedName~MediaPendingGenerationTests",
+          "minimum": 125
         }
       }
     },

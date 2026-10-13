@@ -12,6 +12,7 @@ using Full.NET.IntegrationTests.Api;
 using Full.NET.IntegrationTests.Document;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modules.Files.Contracts;
+using Full.NET.Modules.Files.Reconciliation;
 using Full.NET.Modules.Identity.Features.HostFileReferences;
 using Full.NET.Modules.Identity.Features.SelfServiceProfile;
 using Full.NET.Modules.Tenancy;
@@ -19,6 +20,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Features.HostFileReferences;
 using Full.NET.Modules.Tenancy.Features.TenantBranding;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Identity;
 
@@ -81,6 +83,32 @@ public sealed class MediaReliableReleaseDatabaseTests
                 var context = new IntegrationEventContext(fact.Id, eventType, 1, fact.TenantId, null, DateTimeOffset.UtcNow);
                 await handler.HandleAsync(context, fact.Payload, default); await handler.HandleAsync(context, fact.Payload, default);
                 Assert.AreEqual("released", await StateAsync(snapshot.ClaimKey));
+                // 模拟上传端复用同一 FileId：当前代际与 CAS 失败的另一代际同时留下 Pending。
+                writer.SetHost();
+                var currentKey = GenerationKey(Guid.CreateVersion7()); var failedKey = GenerationKey(Guid.CreateVersion7());
+                var claims = services.GetRequiredService<IHostFileReferenceClaimService>();
+                foreach (var key in new[] { currentKey, failedKey })
+                    Assert.IsTrue((await claims.ClaimAsync(new(key, kind == "logo" ? "tenancy" : "identity", subject, snapshot.FileId))).IsSuccess);
+                await db.ExecuteAsync($"UPDATE {table} SET {prefix}FileId = @File, {prefix}ClaimKey = @Key, Version = Version + 1 WHERE {idColumn} = @Id",
+                    new { File = snapshot.FileId, Key = currentKey, Id = subject });
+                object old = provider == DatabaseProvider.MySql ? DateTime.UtcNow.AddHours(-2) : DateTimeOffset.UtcNow.AddHours(-2);
+                await db.ExecuteAsync("UPDATE fn_files_file_reference_claim SET CreatedAtUtc = @Old, UpdatedAtUtc = @Old WHERE IdempotencyKey IN @Keys",
+                    new { Old = old, Keys = new[] { currentKey, failedKey } });
+                var runner = new PendingHostFileReferenceClaimReconciliationRunner(services.GetRequiredService<IQueryExecutor>(), services.GetRequiredService<ICommandExecutor>(),
+                    services.GetServices<IHostFileReferenceClaimProbe>(), services.GetRequiredService<IOptions<DatabaseOptions>>(), services.GetRequiredService<IClock>());
+                var reconciled = await runner.RunOnceAsync(new PendingHostFileReferenceClaimReconciliationOptions {
+                    BatchSize = 10, MaxBatchesPerRun = 1, MinimumAgeSeconds = 30, ReleaseGraceSeconds = 60 }, default);
+                Assert.AreEqual(1, reconciled.Promoted); Assert.AreEqual(1, reconciled.Released); Assert.AreEqual(0, reconciled.ProbeFailures);
+                Assert.AreEqual("active", await StateAsync(currentKey)); Assert.AreEqual("released", await StateAsync(failedKey));
+                await handler.HandleAsync(context, fact.Payload, default);
+                Assert.AreEqual("active", await StateAsync(currentKey), "旧事实重复投递不得释放重新绑定的当前代际。");
+
+                string GenerationKey(Guid generation) => kind switch
+                {
+                    "avatar" => HostFileReferenceClaimIdempotencyKeys.IdentityUserAvatar(user, snapshot.FileId, generation),
+                    "signature" => HostFileReferenceClaimIdempotencyKeys.IdentityUserSignature(user, snapshot.FileId, generation),
+                    _ => HostFileReferenceClaimIdempotencyKeys.TenancyTenantLogo(tenant, snapshot.FileId, generation),
+                };
             }
             finally { writer.Clear(); }
 

@@ -26,23 +26,39 @@ public sealed class NativeWorkerMediaReleaseTests
         await using var db = DocumentReleaseTestConnections.Create(provider, cs); await db.OpenAsync();
         object now = provider == DatabaseProvider.MySql ? DateTime.UtcNow : DateTimeOffset.UtcNow;
         var serializer = new MemoryPackIntegrationEventSerializer(); var ids = new List<Guid>();
-        var retired = new List<string>(); var active = new List<string>();
+        var retired = new List<string>(); var active = new List<string>(); var failed = new List<string>();
+        var user = await db.QuerySingleAsync<Guid>("SELECT Id FROM fn_identity_user WHERE Username = 'admin' AND TenantId IS NULL");
+        await db.ExecuteAsync("DELETE FROM fn_identity_user_profile WHERE UserId = @User", new { User = user });
+        await db.ExecuteAsync("INSERT INTO fn_identity_user_profile (UserId, Version) VALUES (@User, 1)", new { User = user });
         foreach (var kind in new[] { "avatar", "signature", "logo" })
         {
-            var subject = Guid.CreateVersion7(); var file = Guid.CreateVersion7();
+            var subject = kind == "logo" ? Guid.CreateVersion7() : user; var file = Guid.CreateVersion7();
             var old = Key(kind, subject, file, Guid.CreateVersion7()); var current = Key(kind, subject, file, Guid.CreateVersion7());
-            retired.Add(old); active.Add(current);
+            retired.Add(old); active.Add(current); var rejected = Key(kind, subject, file, Guid.CreateVersion7()); failed.Add(rejected);
             await db.ExecuteAsync("""
                 INSERT INTO fn_files_file
                     (Id, TenantId, OriginalFileName, ContentType, SizeBytes, ProviderKey, StorageKey, StorageState, CreatedAtUtc, CreatedByUserId)
                 VALUES (@File, NULL, 'media-generation.png', 'image/png', 1, 'local', @Key, 'ready', @Now, @Actor)
                 """, new { File = file, Key = "media-release/" + file.ToString("N"), Now = now, Actor = subject });
-            foreach (var key in new[] { old, current })
+            foreach (var key in new[] { old, current, rejected })
                 await db.ExecuteAsync("""
                     INSERT INTO fn_files_file_reference_claim
                         (Id, IdempotencyKey, FileId, ConsumerModule, ConsumerReferenceId, State, ContentHash, SizeBytes, CreatedAtUtc, UpdatedAtUtc)
-                    VALUES (@Id, @Key, @File, @Owner, @Subject, 'active', NULL, 1, @Now, @Now)
-                    """, new { Id = Guid.CreateVersion7(), Key = key, File = file, Owner = kind == "logo" ? "tenancy" : "identity", Subject = subject, Now = now });
+                    VALUES (@Id, @Key, @File, @Owner, @Subject, @State, NULL, 1, @Created, @Created)
+                    """, new { Id = Guid.CreateVersion7(), Key = key, File = file, Owner = kind == "logo" ? "tenancy" : "identity", Subject = subject, State = key == old ? "active" : "pending", Created = provider == DatabaseProvider.MySql ? (object)DateTime.UtcNow.AddHours(-2) : DateTimeOffset.UtcNow.AddHours(-2) });
+            // 当前业务绑定只拥有 current；同文件 rejected 模拟 CAS 失败且快速 Release 失败。
+            if (kind == "logo")
+                await db.ExecuteAsync("""
+                    INSERT INTO fn_tenancy_tenant (Id, Identifier, Name, Domain, IsActive, CreatedAtUtc, Version,
+                        DefaultLocale, LifecycleStatus, ProvisioningStatus, ProvisioningStep, LogoFileId, LogoClaimKey)
+                    VALUES (@Id, @Slug, 'native media', @Domain, 1, @Now, 1, 'zh-CN', 'active', 'completed', 'completed', @File, @Key)
+                    """, new { Id = subject, Slug = "native-media-" + subject.ToString("N"), Domain = subject.ToString("N") + ".test", Now = now, File = file, Key = current });
+            else
+            {
+                var prefix = kind == "avatar" ? "Avatar" : "Signature";
+                await db.ExecuteAsync($"UPDATE fn_identity_user_profile SET {prefix}FileId = @File, {prefix}ClaimKey = @Key WHERE UserId = @User",
+                    new { File = file, Key = current, User = user });
+            }
             var type = kind == "logo" ? TenantLogoUnboundOutbox.EventType : IdentityProfileMediaUnboundOutbox.EventType;
             var payload = Payload(old);
             await InsertAsync(payload); await InsertAsync(payload);
@@ -59,17 +75,20 @@ public sealed class NativeWorkerMediaReleaseTests
                     """, new { Id = id, Type = type, Payload = bytes, Now = now });
             }
         }
-        await using var host = await NativeWorkerProcessHost.StartAsync(artifact, provider, cs, NativeAotTestTimeouts.ProcessStartup, default);
+        await using var host = await NativeWorkerProcessHost.StartAsync(artifact, provider, cs, NativeAotTestTimeouts.ProcessStartup, default, enableFilesReferenceClaimReconciliation: true);
         var deadline = DateTimeOffset.UtcNow.AddSeconds(30); var processed = 0;
         while (DateTimeOffset.UtcNow < deadline)
         {
             processed = await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_outbox_message WHERE Id IN @Ids AND ProcessedAtUtc IS NOT NULL", new { Ids = ids });
-            if (processed == ids.Count) break;
+            var reconciled = await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_files_file_reference_claim WHERE IdempotencyKey IN @Keys AND State = 'released'", new { Keys = failed });
+            var confirmed = await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_files_file_reference_claim WHERE IdempotencyKey IN @Keys AND State = 'active'", new { Keys = active });
+            if (processed == ids.Count && reconciled == 3 && confirmed == 3) break;
             await Task.Delay(100);
         }
         Assert.AreEqual(9, processed, "重复及历史缺失事实应完成消费。");
         Assert.AreEqual(3, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_files_file_reference_claim WHERE IdempotencyKey IN @Keys AND State = 'released'", new { Keys = retired }));
         Assert.AreEqual(3, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_files_file_reference_claim WHERE IdempotencyKey IN @Keys AND State = 'active'", new { Keys = active }));
+        Assert.AreEqual(3, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_files_file_reference_claim WHERE IdempotencyKey IN @Keys AND State = 'released'", new { Keys = failed }), "失败绑定不得因另一代际占用同文件而晋升。");
         await host.StopGracefullyAsync(TimeSpan.FromSeconds(30), default); host.AssertNoFatalMarkersInLogs();
     }
 

@@ -237,6 +237,19 @@ public interface IHostFileReferenceClaimProbe
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>可复用绑定的 Pending 探测；只有当前有效绑定键匹配扫描键才允许确认。</summary>
+/// <remarks>可选扩展不改变其他消费者；历史双参数键由归属模块按自身绑定记录兼容。</remarks>
+public interface IHostFileReferenceBindingClaimProbe : IHostFileReferenceClaimProbe
+{
+    /// <summary>精确核对一个消费方、文件和绑定代际，不将另一代际的存在视为当前 Claim 有效。</summary>
+    /// <param name="consumerReferenceId">消费方业务标识。</param>
+    /// <param name="fileId">扫描时的文件标识。</param>
+    /// <param name="idempotencyKey">扫描记录的实际绑定键。</param>
+    /// <param name="cancellationToken">取消权威读取。</param>
+    Task<HostFileReferenceClaimProbeResult> ProbeBindingAsync(Guid consumerReferenceId, Guid fileId,
+        string idempotencyKey, CancellationToken cancellationToken = default);
+}
+
 /// <summary>主动声明消费者引用身份不可复用，允许 Files 对账历史 Active 孤儿的只读探测。</summary>
 /// <remarks>
 /// 同一 ConsumerReferenceId/FileId 一旦不存在，官方写入流程不得重新创建该引用。
