@@ -2965,3 +2965,28 @@ node .tmp/pending-cycles-jit-1.mjs集中真实SQL Server/MySQL2/2，零失败/�
 上一批主CI38348745440已完成success，此处补齐原记录的待验证结果，不把未触发作业算通过。本批主CI38362576437尚未结束，不报告通过；未执行或跳过不计成功。 未触发独立应用、完整生成应用、全页面、多实例故障及容量未验证；本批集中验收仅覆盖三条扫描周期与取消安全。保持Build-verified / Capacity-not-verified，PR3保持Draft，未合并或发布；报告以[skip ci]提交，报告HEAD不是已运行的生产源码。
 
 证据入口.tmp/pending-cycles-source.json、.tmp/pending-cycles-unit-results、.tmp/pending-cycles-final-unit-files.log、.tmp/pending-cycles-final-architecture.log、.tmp/pending-cycles-aot-final-proof.json、.tmp/pending-cycles-partitions、.tmp/pending-cycles-jit-1、.tmp/pending-cycles-api-infra-failure.log、.tmp/pending-cycles-ci-artifacts、.tmp/pending-cycles-ci-runtime-proof.json及.tmp/pending-cycles-final-proof.json。既有他窗四项WIP逐文件保护证明通过。
+
+## 2026-10-13 F10/F11 独立应用集中验收与中文夹具修复
+
+任务foundation-f10-f11-concentrated-20261013，基线db1ddd5，夹具修复`8d0a77154e0fef083004b51853a022bc6ff822e6`。在已有模块批次完成后集中生成独立企业应用，API/Worker/Migrator各自构建运行，复用实际业务样例与浏览器验收。根工作区他窗四项WIP保持；干净源码副本使用固定提交，三项测试夹具覆盖独立冻结并验哈希，未将这些外来未提交内容纳入本窗口提交。初始/修复副本分别冻结7667/7668个输入。源码分发输入、UI、样例、模板、配置与依赖在db1ddd5和8d0a771之间没有变化；只修复验收器的显示标签和新增回归，因此保留未受影响的审批成功证据，不把两种来源写成同一HEAD或单轮全绿。
+
+| 场景 | 提供程序 | 来源 | 结果 |
+| --- | --- | --- | --- |
+| 审批与通知 | sqlserver | db1ddd5 | 通过 |
+| 审批与通知 | mysql | db1ddd5 | 通过 |
+| 导入、报表与打印 | sqlserver | 8d0a771 | 通过 |
+| 导入、报表与打印 | mysql | 8d0a771 | 通过 |
+
+审批两库包含附件、四份申请、审批/驳回/取消、改派与返回、两次真实Worker强制退出恢复、业务终态回写、通知进度及收件箱幂等；逐库核对completed、两个crash回执、restartStable、notificationProgressViewed与正常资源清理。数据交付两库包含独立Worker导入、模板填充及实际数据读取、报表授权与发布版本执行、Excel导出下载校验、打印授权与业务记录绑定、真实Vue中文CRUD、离页输入丢弃、删除取消/确认、纸张视图及撤销授权后的拒绝；核对完整业务及浏览器报告和自有进程/容器/应用清理。覆盖的是这些流程，不等于完整模块、全页面或生产故障矩阵认证。
+
+失败证据保留：首轮8个Node父/子测试2通过、6失败、0跳过，对应MySQL审批通过、SQL Server审批编译内存不足、双库数据交付旧英文字段标签超时。SQL Server审批同源码仅定向重试2/2通过、0跳过；Node24名称筛选仅发现匹配用例，临时校验器误预期3项后按原始TAP纠正，不重跑已通过测试。数据交付旧夹具按OrganizationUnitId等契约属性名查找，但页面标签已为所属机构标识/申请编号/标题/申请金额/申请人标识。新增读取共享中文字典的隔离HTML真实浏览器回归，覆盖验收器CRUD、版本和离页输入边界；它不替代真实Vue验收。初始旧工作区锁与过短导航预算失败均不算行为RED；实际RED定位到旧标签超时，修复后1/1。最终冻结副本相关轻量60/60、0失败/跳过。
+
+修复后数据交付首次复验在打印纸张截图后进程提前退出，没有完整报告，不计通过。已核对PID72384及其API/Worker退出、测试容器不再存在，仅按精确PID/token释放自己两把遗留锁，未碰kind节点或其他窗口锁。中断应用G:/.fullnet-tests/enterprise-1l8QCu及run-RwLXkF截图保留取证；此中断目录从新成功运行统计中明确排除。随后使用独立隐藏后台进程运行同一冻结源码和同一正式双库入口，最终数据交付4/4 Node父/子测试通过、0失败/跳过。汇总为4个不同场景/提供程序组合全部实际通过，不是原首轮8/8。旧失败和中断结果不被覆盖。
+
+本机Windows、SDK10.0.401、Node24.12.0、每进程两个.NET处理器预算，SQL Server2022-CU14和MySQL8.4、测试自有Redis/外部只读SQL Server。SQL审批重试及数据交付复验只对编译器设置CscEnvironment=DOTNET_GCConserveMemory=7，SDK Csc任务使用该环境属性；未改API/Worker的GC默认值或系统服务。该参数用于保守回收内存，不代表堆上限或固定提速承诺，参照[微软GC配置](https://learn.microsoft.com/en-us/dotnet/core/runtime-config/garbage-collector)。进程内存不足的环境快照已记录，未把一次资源故障包装为生产代码缺陷。
+
+实际入口：node .tmp/foundation-f10-f11-concentrated.mjs --prepare与正式4组合；node .tmp/foundation-f10-f11-retry-sqlserver.mjs只重试SQL审批；node --test --test-reporter=tap tests/templates/application-enterprise-crud-browser.test.mjs完成失败/修复回归；node .tmp/foundation-f10-f11-delivery-rerun.mjs --prepare完成60项轻量检查；node .tmp/foundation-f10-f11-delivery-recovery.mjs通过正式created-enterprise-data-delivery.test.mjs复验；node .tmp/foundation-f10-f11-consolidated-proof.mjs核对原始计数、四份成功报告、失败与中断排除、清理和源输入摘要。证据集中于.tmp/foundation-f10-f11-concentrated-20261013、.tmp/foundation-f10-f11-delivery-rerun-20261013、.tmp/foundation-f10-f11-delivery-recovery-20261013及.tmp/enterprise-crud-localization-*.log。
+
+本批没有新增生产功能/迁移/契约，没有重复底座Native发布；此前Native API49/Worker27仍只证明其原验证范围，本批完整业务Native、绑定运行失败/挂起恢复的独立应用覆盖、人工全页面、多实例故障及容量仍待。F10/F11当前独立JIT应用上述闭环已收口，整体保持Build-verified / Capacity-not-verified。PR3保持Draft，不合并、不发布；报告HEAD不冒充实际运行源码。
+
+只读复核已核对四份成功、三份失败及三份TAP日志摘要，没有新增阻断问题；汇总器已采用completed严格Boolean断言。交付前源码8d0a771的API/Worker Native工作流38374846019/38374846119均成功；主CI38374845890仍执行中，客户端及两类迁移恢复作业已成功，其余未运行作业不计通过。本批业务验收结论依据上述本地独立应用结果，未将主CI写成全部成功。

@@ -18,7 +18,7 @@ test('当前中文表单标签贯通企业申请浏览器 CRUD 与离页输入�
     const fields = ['organizationUnitId', 'requestNumber', 'title', 'totalAmount', 'applicantUserId'];
     const labels = Object.fromEntries(fields.map(key => [key, zhCN['enterpriseRequests.' + key]]));
     const calls = []; let record; let browser;
-    // 只替代服务端传输，实际使用浏览器可访问名称和项目当前消息字典，避免复制旧字段显示名。
+    // 隔离页面只保留验收器需要的交互；标签读取当前消息字典，完整 Vue 行为由独立应用验收负责。
     const html = `<!doctype html><html lang="zh-CN"><body><section class="generated-crud-view"></section><script>
       const fields=${JSON.stringify(fields)},labels=${JSON.stringify(labels)};
       let row=null;const view=document.querySelector('section');
