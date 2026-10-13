@@ -216,7 +216,11 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
         && expected.DocumentVersion == current.DocumentVersion && expected.KnowledgeBaseVersion == current.KnowledgeBaseVersion
         && expected.LeaseToken == current.LeaseToken && expected.FileId == current.FileId && expected.ContentHash == current.ContentHash
         && expected.SizeBytes == current.SizeBytes && expected.ContentType == current.ContentType
-        && expected.ModelConfigId == current.ModelConfigId && expected.ModelConfigVersion == current.ModelConfigVersion;
+        && expected.ModelConfigId == current.ModelConfigId && expected.ModelConfigVersion == current.ModelConfigVersion
+        // 分类与目的地同样冻结；租约有效期可由原持有者续期，不作为内容或策略身份。
+        && expected.DataClassification == current.DataClassification && expected.ModelProviderKey == current.ModelProviderKey
+        && expected.ModelId == current.ModelId && expected.ModelEndpointBaseUrl == current.ModelEndpointBaseUrl
+        && expected.ModelOrganizationId == current.ModelOrganizationId;
     private void NoTransaction()
     { if (transactions.HasTransaction) throw new InvalidOperationException("Knowledge embedding execution cannot hold a database transaction."); }
     private sealed record State(AiKnowledgeIndexDispatchRecord Source, AiKnowledgeBaseRecord Knowledge, AiModelConfigRecord Model);

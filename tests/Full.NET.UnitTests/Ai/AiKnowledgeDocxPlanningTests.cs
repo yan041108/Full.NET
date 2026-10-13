@@ -12,7 +12,7 @@ public sealed class AiKnowledgeDocxPlanningTests
 {
     internal static readonly Guid KnowledgeId = Guid.Parse("019a2ba0-1234-7000-8000-000000000001");
     internal static readonly Guid ModelId = Guid.Parse("019a2ba0-1234-7000-8000-000000000002");
-    internal static AiKnowledgeBaseRecord Knowledge(Guid? tenant = null, int approvedVersion = 3) => new() { Id = KnowledgeId, Version = 2, TenantId = tenant, IsEnabled = true, EmbeddingModelConfigId = ModelId, EmbeddingModelVersion = approvedVersion };
+    internal static AiKnowledgeBaseRecord Knowledge(Guid? tenant = null, int approvedVersion = 3) => new() { Id = KnowledgeId, Version = 2, TenantId = tenant, IsEnabled = true, DataClassification = "internal", EmbeddingModelConfigId = ModelId, EmbeddingModelVersion = approvedVersion };
     internal static AiModelConfigRecord Model(Guid? tenant = null) => new() { Id = ModelId, Version = 3, TenantId = tenant, IsEnabled = true, ProviderKey = "openai_compatible", ModelId = "text-embedding-3-small", EndpointBaseUrl = "https://api.openai.com/v1" };
 
     [TestMethod]

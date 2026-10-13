@@ -133,6 +133,8 @@ public sealed class AiEmbeddingInputLimitTests
         query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(
             new AiKnowledgeIndexDispatchRecord { TaskId = taskId, DocumentId = binding.DocumentId, VersionId = binding.VersionId,
                 DocumentVersion = 1, KnowledgeBaseVersion = 1,
+                DataClassification = "internal", ModelProviderKey = model.ProviderKey, ModelId = model.ModelId,
+                ModelEndpointBaseUrl = model.EndpointBaseUrl, ModelOrganizationId = model.OrganizationId,
                 ModelConfigId = model.Id, ModelConfigVersion = 1, LeaseToken = lease, LeaseExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(1) });
         query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(model);
         var tasks = new AiKnowledgeIndexTaskStore(query, command, tenant, clock, ids);

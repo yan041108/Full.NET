@@ -273,3 +273,11 @@ AgentToolLoop 在任何工具派发前复制和校验本轮全部模型消息与
 无重试 v1 正文省略默认计数；非零 `ApprovalRetries` 使用内层 v2，旧读取器失败关闭。公共请求的构造器及 Deconstruct 保持原签名，显式 init 标志默认为 false；没有持久化回调时拒绝审批重入。相同最终回执只重复交付原结果。此协议不新增生产写工具或审批类型；Provider 输入硬限、自动外部对账、Native 和页面集中验收仍未完成。
 
 本批本地验收：`node artifacts/r10y/run-unit.mjs final` AI 3589/3589（新增 28），零失败/跳过；`run-linux.mjs` API/Worker AOT 分析零警告/错误、相关 Architecture 88/88；`run-jit.mjs` 全量 Architecture 235/235、Integration 分片发现 1214 无遗漏/重复。`run-integration.mjs` 按真实 affected 集合顺序执行 SQL Server 与 MySQL 各 48/48（AI 88 + Smoke 8），矩阵外层时限各 60 分钟、2 CPU/8 GiB、Workers=1，产品内部 deadline 不变，零失败/跳过。既有双库检查点入口同时覆盖审批回执冲突回滚、过期领取、旧租约零派发、新租约重入和 v2 累计尝试；实际审批消费继续沿用现有业务 Handler。命名 30、矩阵 6、治理 57、工具链 54、预先排除保护路径的 Markdown 386 文件检查通过。Unit 实际发现 7082（规范下限 7072 + 外部日志夹具 10），runtime 847，checkpoint-admission 实际 336（下限 308），不声明完整 Unit 或完整 Integration 已执行。冻结 7800 输入，源码/消费者/UID 核对通过；独立只读两轮复核无遗留 Critical/Important。证据在 `artifacts/r10y/acceptance.json`，基线 `3c761e9f`、任务 `ai-tool-approval-resume-r10y`。
+
+## 索引策略快照准入
+
+文本、PDF、DOCX 的模型分块边界只接受精确的 `public`、`internal`、`restricted` 分类。索引预算准入复核当前来源的分类及模型配置 Id/Version、ProviderKey、ModelId、EndpointBaseUrl、OrganizationId；目的地字段按原字符串精确比较，URI 等价形式不能替换本次预算绑定。合法分类仍沿用已批准模型与现有 Provider 网络政策，`restricted` 本身不新增私网强制规则。
+
+新预留返回后再次读取权威来源，比较原任务/内容绑定及上述分类、模型投影。来源失效或漂移时不提供派发来源，并沿原账本结算本次未派发新预留为 `known` 零用量、`cancelled`；结算失败向外传播。租约成功续期只改变到期时间，不视作策略漂移，租约 Token 与有效性仍由任务读取边界检查。
+
+已有 reserved/unknown/known 回执不重放模型，也不因当前来源漂移推断旧操作零用量。保持原 UTF-8 字节加余量估算、请求摘要、批次身份与预算协议；本门禁不证明供应商账单或未知外部动作已完成对账。

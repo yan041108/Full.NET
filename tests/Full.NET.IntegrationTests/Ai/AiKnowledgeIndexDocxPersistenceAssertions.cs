@@ -70,7 +70,7 @@ internal static class AiKnowledgeIndexDocxPersistenceAssertions
                 text.Append(content).Append('\n');
             }
             var document = new AiKnowledgeParsedDocx(hash.ToLowerInvariant(), 97, text.ToString(), blocks.AsReadOnly());
-            var chunks = AiKnowledgeDocxModelChunker.Chunk(new AiKnowledgeBaseRecord { Id = binding.KnowledgeBaseId, Version = 1, TenantId = session.TenantId, IsEnabled = true, EmbeddingModelConfigId = (Guid)p["ModelConfigId"]!, EmbeddingModelVersion = 1 },
+            var chunks = AiKnowledgeDocxModelChunker.Chunk(new AiKnowledgeBaseRecord { Id = binding.KnowledgeBaseId, Version = 1, TenantId = session.TenantId, IsEnabled = true, DataClassification = "internal", EmbeddingModelConfigId = (Guid)p["ModelConfigId"]!, EmbeddingModelVersion = 1 },
                 new AiModelConfigRecord { Id = (Guid)p["ModelConfigId"]!, Version = 1, TenantId = session.TenantId, IsEnabled = true, ProviderKey = "openai_compatible", ModelId = modelId, EndpointBaseUrl = "https://api.openai.com/v1" }, document, new(), default);
             Assert.IsTrue(chunks.IsSuccess); var input = chunks.Output!; var plan = AiKnowledgeIndexDocxPlan.Create(input, default)!;
             Guid? task = probe is null ? await Use(a => a.Sessions.EnqueueAsync(binding, session, default)) : await probe.Enqueue(binding); Assert.IsNotNull(task); var taskId = task.Value;

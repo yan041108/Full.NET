@@ -3,10 +3,13 @@ namespace Full.NET.Modules.Ai.Domain;
 /// <summary>知识库数据处理审批；网络允许不能替代分类及精确配置版本的业务批准。</summary>
 internal static class AiKnowledgePolicy
 {
+    /// <summary>分类为封闭且大小写精确的机器值；缺失、尾空格与其他写法均不授予处理资格。</summary>
+    internal static bool IsKnownClassification(string? classification) => classification is "public" or "internal" or "restricted";
+
     internal static string? Validate(string classification, Guid? embeddingId, int? embeddingVersion,
         Guid? generationId, int? generationVersion)
     {
-        if (classification is not ("public" or "internal" or "restricted"))
+        if (!IsKnownClassification(classification))
             return "DataClassification must be public, internal or restricted.";
         if (!IsValidApproval(embeddingId, embeddingVersion) || !IsValidApproval(generationId, generationVersion))
             return "Each approval requires a non-empty model identifier and a positive model version, or both null.";

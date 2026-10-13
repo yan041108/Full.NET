@@ -2831,3 +2831,19 @@ Windows x64/SDK10.0.401、Linux SDK10.0.400/runtime10.0.11，i7-12700H/约64GiB�
 Windows x64/SDK10.0.401，Linux SDK10.0.400/runtime10.0.11，i7-12700H/约64GiB；Unit4处理器/2GiB GC，构建8CPU/4GiB，双库各2CPU/8GiB；本地缓存restore使用NuGetAudit=false，未运行在线依赖审计。TRX捕获长文本若有字段截断按原报告保留，状态/计数/精确UID另行完整核对。
 
 本批验证不同Worker及作用域交接，不冒充操作系统进程重启、生产Trace导出器或所有收费/派发阶段已带持久StepId。全阶段分类准入、其他Provider/Chat输入Token硬限、未知外部动作/费用对账及集中Native发布/运行、生成应用、页面、运维恢复仍待推进。R11整体开放，Capacity-not-verified；真实命令、退出码、发现UID和摘要在 `artifacts/r11i/acceptance.json`。main提交本批8项文件，不推送；本段证据在测试后补齐，不把最终文档字节冒充运行前冻结字节。
+
+#### R11j：索引分类与模型投影快照准入（2026-10-13，本批受影响本地验收完成）
+
+基线 main `27b0e128fe59085a2255e06144629abd5c25d40a`，任务快照 `ai-index-policy-snapshot-r11j`。集中交付 Text/PDF/DOCX 分类门禁、索引预算前后的模型投影复核及真实双库零结算验证；不新增迁移、表列、依赖、HTTP契约或授权入口。
+
+- [x] 分块边界只接受精确的 public/internal/restricted。预算前复核合法分类及配置Id/Version、ProviderKey、ModelId、EndpointBaseUrl、OrganizationId；预留后共享完整来源比较增加分类和四项模型投影。目的地按原字符串精确比较，合法续租的到期时间变化不视作策略漂移，租约Token/有效性仍由任务读取保护。
+- [x] 新预留后来源失效/漂移不返回派发来源，沿真实账本结算 known 零用量 cancelled；清理失败传播。已有 reserved/unknown/known 不重派发、不推断零。原 UTF-8 字节加32预留、请求摘要和批次身份未变；restricted 不隐式新增私网政策。
+- [x] 新增60项回归，覆盖三格式合法/非法分类、Host/Tenant预算前/后拒绝、五字段共享比较、有效对照、旧unknown、续租、结算异常及URI字符串绑定。有效RED42失败/18通过，GREEN60/60。补齐3组旧有效夹具的分类及模型投影，保留原断言。完整AI3989/3989、零跳过；全部Unit只发现7472，与规范矩阵一致，不宣称全Unit已执行。
+- [x] 真实双库在生产预算Reserve返回后逐项改变分类/Provider/模型/Endpoint/Organization，Host/Tenant共10次独立新预留；断言无派发来源及持久known、ChargedTokens=0、cancelled。使用独立模型/知识库/任务，与原索引执行场景隔离。真实分类为Ai，SQL Server原44组42通过/2失败，补验2/2、通过UID并集44；MySQL44/44，共88唯一通过UID；每库1 Worker、顺序执行、原矩阵60分钟期限。
+- [x] API/Worker AOT分析零警告/错误，AOT架构88/88、完整架构235/235；JIT Integration构建和1214分片发现通过。命名30、矩阵6、治理57、工具链54及受保护路径排除后的Markdown扫描通过。独立只读审查无剩余Critical/Important，未代跑测试。
+
+原证据保留：首次夹具枚举名称编译错误修正后才形成有效RED；首次完整AI251失败均追溯至3组旧有效夹具缺字段，修正后一次完整回归3988通过/1 reference入口等待超时。原8秒WaitAsync期限及所有源码/消费输入保持不变，该方法3参数精确复验通过，随后完整AI3989全部通过；未证明原并行超时底层原因已经修复。SQL原组的DOCX持久化夹具同样遗漏分类，只补真实种子的internal；另1项入队用例在启动SQL连接时超时，保留原异常且不改生产或期限，底层原因未证明。原44完整结果及精确失败UID保留；第一次只构建Integration时临时/jit挂载改变MVC/覆盖率根目录，摘要门禁在测试前拦截；按原/work路径重建，恢复原元数据摘要后才补验；该单程序集重建按工作区互斥使用2CPU/2GiB、1GiB GC预算，双库仍按同机重型锁排队，原构建及门禁失败保留；修正后只重建Integration测试程序集，受影响2项补验通过，MySQL完整44组通过。不冒充原SQL组通过或整个消费程序集未改变。生产/Unit和AOT可达源不变，Integration DLL/PDB差异及单夹具差异显式绑定；AOT/架构既有证据继续复用。运行前后Unit源码及消费闭包摘要一致，既有RAG JSON数据/报告单列运行产物。外部窗口PDF类型summary注释留在工作区，仅冻结/暂存HEAD加本次分类字段；共享矩阵只暂存HEAD加本批60，保护路径不读写。
+
+验证复用R11i的完整源和消费缓存，Linux AOT/JIT/双库分别核对原摘要后只覆盖当前输入差异。Windows x64/SDK10.0.401、Linux SDK10.0.400/runtime10.0.11、i7-12700H/约64GiB；Unit4处理器/2GiB GC、构建8CPU/4GiB、每库2CPU/8GiB。本地缓存restore使用NuGetAudit=false，不宣称在线审计。AOT仅静态分析，本批未新鲜Native发布/运行、生成应用或浏览器验收；集中验收按模块批次执行。
+
+索引快照门禁不表示全阶段分类、其他Provider/Chat输入硬限、未知外部动作与费用对账已经完成。R11整体开放，Capacity-not-verified。实际命令、退出码、精确UID与摘要见 `artifacts/r11j/acceptance.json`；main提交本批，不推送。测试后补入本段证据，不将最终文档字节冒充执行前冻结输入。

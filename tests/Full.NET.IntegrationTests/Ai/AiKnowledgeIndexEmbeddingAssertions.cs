@@ -28,6 +28,8 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
         AiKnowledgeIndexWorkerAssertions.Controls? worker = null)
     {
         await factory.InitializeAsync();
+        if (!wholeGeneration && worker is null)
+            await AiKnowledgeIndexPolicySnapshotAssertions.VerifyAsync(factory, clock);
         await using var db = AiOperationBudgetAssertions.Connection(factory);
         foreach (var tenant in new[] { false, true })
         foreach (var scenario in worker is not null ? new[] { "known", "unmetered", "denied", "lost", "shutdown" } : wholeGeneration ? new[] { "known", "unmetered" } : new[] { "known", "lost", "zero", "revoked", "unmetered", "ambient", "settled_revoked", "settled_expired" })

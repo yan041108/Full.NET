@@ -28,6 +28,7 @@ internal static class AiKnowledgeDocxModelChunker
         var frozen = AiKnowledgeDocxStructure.Freeze(document, token);
         if (frozen is null) return Rejected(AiKnowledgeChunkFailure.InvalidDocument);
         if (knowledge.Id == Guid.Empty || knowledge.Version <= 0 || !model.IsEnabled
+            || !AiKnowledgePolicy.IsKnownClassification(knowledge.DataClassification)
             || !AiKnowledgePolicy.Allows(knowledge.IsEnabled, knowledge.EmbeddingModelConfigId, knowledge.EmbeddingModelVersion, model.Id, model.Version))
             return new(null, AiKnowledgeModelChunkFailure.ModelNotApproved);
         if (knowledge.TenantId == Guid.Empty || model.TenantId == Guid.Empty || model.TenantId.HasValue && model.TenantId != knowledge.TenantId)

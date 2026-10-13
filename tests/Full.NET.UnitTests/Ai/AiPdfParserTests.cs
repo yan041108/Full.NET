@@ -43,7 +43,7 @@ public sealed class AiPdfParserTests
         using var output = new MemoryStream(result.Output);
         var parsed = await AiKnowledgePdfOutputReader.ReadAsync(output, Hash(bytes), bytes.Length, CancellationToken.None);
         var id = Guid.CreateVersion7();
-        var knowledge = new AiKnowledgeBaseRecord { Id = Guid.CreateVersion7(), Version = 2, IsEnabled = true, EmbeddingModelConfigId = id, EmbeddingModelVersion = 3 };
+        var knowledge = new AiKnowledgeBaseRecord { Id = Guid.CreateVersion7(), Version = 2, IsEnabled = true, DataClassification = "internal", EmbeddingModelConfigId = id, EmbeddingModelVersion = 3 };
         var model = new AiModelConfigRecord { Id = id, Version = 3, IsEnabled = true, ProviderKey = "openai_compatible", ModelId = "text-embedding-3-small", EndpointBaseUrl = "https://api.openai.com/v1" };
         var chunks = AiKnowledgePdfModelChunker.Chunk(knowledge, model, parsed.Document!, new(), CancellationToken.None);
         Assert.IsTrue(chunks.IsSuccess);

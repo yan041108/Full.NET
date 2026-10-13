@@ -34,6 +34,7 @@ internal static class AiKnowledgeModelChunker
         ArgumentNullException.ThrowIfNull(model);
         // 精确批准绑定配置版本，不能由默认模型、显示名称或相同 Provider 替代。
         if (knowledge.Id == Guid.Empty || knowledge.Version <= 0 || !model.IsEnabled
+            || !AiKnowledgePolicy.IsKnownClassification(knowledge.DataClassification)
             || !AiKnowledgePolicy.Allows(knowledge.IsEnabled, knowledge.EmbeddingModelConfigId,
                 knowledge.EmbeddingModelVersion, model.Id, model.Version))
             return new(null, AiKnowledgeModelChunkFailure.ModelNotApproved);

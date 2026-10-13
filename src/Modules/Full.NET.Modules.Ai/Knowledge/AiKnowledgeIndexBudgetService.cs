@@ -25,11 +25,13 @@ internal sealed class AiKnowledgeIndexBudgetService(IQueryExecutor query, AiKnow
         var frozen = inputs.ToArray();
         if (AiEmbeddingContentPolicy.ValidateInputs(frozen) is not null) throw new ArgumentException("Invalid knowledge embedding batch.", nameof(inputs));
         var source = await tasks.ReadDispatchAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
-        if (source is null) return null;
+        if (source is null || !AiKnowledgePolicy.IsKnownClassification(source.DataClassification)) return null;
         var model = await query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(tasks.IsTenant
                 ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
             AiSqlParameters.Create(("ModelConfigId", source.ModelConfigId)), token).ConfigureAwait(false);
-        if (model is null || !model.IsEnabled || model.Id != source.ModelConfigId || model.Version != source.ModelConfigVersion) return null;
+        if (model is null || !model.IsEnabled || model.Id != source.ModelConfigId || model.Version != source.ModelConfigVersion
+            || source.ModelProviderKey != model.ProviderKey || source.ModelId != model.ModelId
+            || source.ModelEndpointBaseUrl != model.EndpointBaseUrl || source.ModelOrganizationId != model.OrganizationId) return null;
         // Token 门禁早于任何批次身份或预算写入；历史指纹仍使用原字节上界，不使旧索引失效。
         if (AiKnowledgeEmbeddingInputPolicy.Validate(model, frozen, token) is not null)
             throw new InvalidDataException("Knowledge embedding input exceeds the supported boundary.");
@@ -47,9 +49,8 @@ internal sealed class AiKnowledgeIndexBudgetService(IQueryExecutor query, AiKnow
         try
         {
             var current = await tasks.ReadDispatchAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
-            if (current is null || current.ModelConfigId != model.Id || current.ModelConfigVersion != model.Version
-                || current.FileId != source.FileId || current.ContentHash != source.ContentHash
-                || current.ContentType != source.ContentType || current.SizeBytes != source.SizeBytes) return null;
+            // 不仅比较版本：等待期间同版本分类、Provider、端点或组织变化也不能返回派发来源。
+            if (current is null || !AiKnowledgeIndexEmbeddingService.SameSource(source, current)) return null;
             admitted = true;
             return new(request, reservation, current);
         }

@@ -167,6 +167,8 @@ public sealed class AiKnowledgeIndexBudgetTests
                     TaskId = TaskId, DocumentId = Binding.DocumentId, VersionId = Binding.VersionId,
                     DocumentVersion = 1, KnowledgeBaseVersion = 1, ModelConfigId = Model.Id, ModelConfigVersion = 1,
                     LeaseToken = Lease, LeaseExpiresAtUtc = now.AddSeconds(30),
+                    DataClassification = "internal", ModelProviderKey = Model.ProviderKey, ModelId = Model.ModelId,
+                    ModelEndpointBaseUrl = Model.EndpointBaseUrl, ModelOrganizationId = Model.OrganizationId,
                 };
             });
             Query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(Model);
