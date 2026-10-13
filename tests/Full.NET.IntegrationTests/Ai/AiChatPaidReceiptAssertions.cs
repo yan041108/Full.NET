@@ -9,6 +9,8 @@ using Full.NET.AI.Abstractions.Models;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Ai.Features.ManageChatSessions;
+using Full.NET.Modules.Ai.Budgets;
+using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Modules.Ai.Security;
 using Full.NET.Modules.Ai.Streaming;
 using Full.NET.Modules.Tenancy.Contracts;
@@ -65,6 +67,16 @@ internal static class AiChatPaidReceiptAssertions
             var rejected = fault is "duplicate" or "identity";
             telemetry.Verify("chat", rejected ? "budget_rejected" : fault == "good" ? "completed" : "failed", rejected ? null : generation);
             Assert.AreEqual(rejected || fault == "factory" ? 0 : 1, provider.Calls, fault);
+            if (provider.Calls == 1)
+            {
+                // 真实账本预留必须与实际SDK收到的历史一致，不用重新读取消息替代派发输入。
+                var selectedModel = await services.GetRequiredService<IQueryExecutor>().QuerySingleOrDefaultAsync<AiModelConfigRecord>(
+                    scoped ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
+                    AiSqlParameters.Create(("ModelConfigId", model)), CancellationToken.None);
+                Assert.IsNotNull(selectedModel); Assert.IsNotNull(provider.Captured);
+                Assert.AreEqual(request, AiChatBudgetRequest.Create(generation, selectedModel, provider.Captured));
+                CollectionAssert.AreEqual(new[] { ("user", "billing probe") }, provider.Captured);
+            }
             Assert.AreEqual(!rejected, output.HasStarted, fault);
             var row = await db.QuerySingleAsync<Row>("""
                 SELECT ScopeKey,UsageStatus,Outcome,InputTokens,OutputTokens,CachedInputTokens,ReservedTokens,ChargedTokens,ChargedCost
@@ -113,6 +125,7 @@ internal static class AiChatPaidReceiptAssertions
     private sealed class Provider(string fault) : IAiModelClientFactory
     {
         public string ProviderKey => "ollama"; internal int Calls;
+        internal (string RoleKey, string Content)[]? Captured;
         public ValueTask<IChatClient> CreateChatClientAsync(ModelBinding binding, CancellationToken token = default)
         { if (fault == "factory") throw new IOException("controlled factory failure"); return ValueTask.FromResult<IChatClient>(new Client(this, fault)); }
         public ValueTask<IEmbeddingGenerator<string, Embedding<float>>> CreateEmbeddingGeneratorAsync(ModelBinding binding, CancellationToken token = default) => throw new AssertFailedException();
@@ -122,7 +135,7 @@ internal static class AiChatPaidReceiptAssertions
             public void Dispose() { if (fault == "dispose") throw new IOException("controlled disposal failure"); }
             public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken token = default) => throw new AssertFailedException();
             public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken token = default)
-            { owner.Calls++; return Updates(); }
+            { owner.Calls++; owner.Captured = messages.Select(m => (m.Role.Value, m.Text ?? string.Empty)).ToArray(); return Updates(); }
             private async IAsyncEnumerable<ChatResponseUpdate> Updates()
             {
                 await Task.CompletedTask; if (fault == "dispatch") throw new IOException("controlled dispatch failure");

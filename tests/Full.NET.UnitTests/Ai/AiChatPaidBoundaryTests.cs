@@ -36,6 +36,10 @@ public sealed partial class AiChatPaidBoundaryTests
         query.QuerySingleOrDefaultAsync<AiChatSessionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(new AiChatSessionRecord { Id = session, OwnerUserId = owner, ModelConfigId = model.Id });
         query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(model);
         query.ReturnsForAll<Task<IReadOnlyList<AiChatMessageRecord>>>(Task.FromResult<IReadOnlyList<AiChatMessageRecord>>([new() { RoleKey = "user", Content = "问题" }]));
+        if (fault.StartsWith("history-", StringComparison.Ordinal))
+            query.ReturnsForAll<Task<IReadOnlyList<AiChatMessageRecord>>>(Task.FromResult<IReadOnlyList<AiChatMessageRecord>>(
+                Enumerable.Range(0, fault == "history-many" ? 41 : 1).Select(_ => new AiChatMessageRecord
+                { RoleKey = fault == "history-role" ? "private-role" : "user", Content = fault == "history-unicode" ? "\ud800" : "问题" }).ToArray()));
         command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
         var transaction = new DapperCommandTransaction(new RecordingDbTransactionCoordinator()); var budget = Substitute.For<IAiOperationBudgetStore>();
         budget.ReserveAsync(Arg.Any<AiOperationRequest>(), Arg.Any<CancellationToken>()).Returns(call =>
@@ -63,9 +67,14 @@ public sealed partial class AiChatPaidBoundaryTests
         if (fault is "factory_cancel" or "disposed_cancel") await Assert.ThrowsAsync<OperationCanceledException>(() => service.StreamAsync(session, owner, new("问题"), output, cancellation.Token));
         else if (fault is "done" or "error") await Assert.ThrowsExactlyAsync<IOException>(() => service.StreamAsync(session, owner, new("问题"), output, cancellation.Token));
         else await service.StreamAsync(session, owner, new("问题"), output, cancellation.Token);
-        var rejected = fault is "duplicate" or "identity" or "state" or "quota";
+        var invalidHistory = fault.StartsWith("history-", StringComparison.Ordinal);
+        var rejected = invalidHistory || fault is "duplicate" or "identity" or "state" or "quota";
         if (rejected)
-        { Assert.IsFalse(output.HasStarted); Assert.AreEqual(0, factory.Creates); await budget.DidNotReceive().SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>()); }
+        {
+            Assert.IsFalse(output.HasStarted); Assert.AreEqual(0, factory.Creates);
+            await budget.DidNotReceive().SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+            if (invalidHistory) await budget.DidNotReceive().ReserveAsync(Arg.Any<AiOperationRequest>(), Arg.Any<CancellationToken>());
+        }
         else
         {
             var usage = fault is "factory" or "null_factory" or "factory_cancel" or "start" ? new AiOperationUsage(0, 0)

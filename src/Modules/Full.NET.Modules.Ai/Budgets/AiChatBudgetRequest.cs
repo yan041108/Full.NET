@@ -12,12 +12,13 @@ internal static class AiChatBudgetRequest
 {
     internal static AiOperationRequest Create(Guid operationId, AiModelConfigRecord model, IReadOnlyList<(string RoleKey, string Content)> history)
     {
+        var snapshot = AiChatInputSnapshot.Freeze(history);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Append(hash, model.Version.ToString(System.Globalization.CultureInfo.InvariantCulture));
         Append(hash, model.EndpointBaseUrl);
         Append(hash, model.OrganizationId ?? string.Empty);
         long input = 0;
-        foreach (var message in history)
+        foreach (var message in snapshot)
         {
             Append(hash, message.RoleKey);
             Append(hash, message.Content);

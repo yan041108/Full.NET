@@ -322,7 +322,7 @@ internal sealed class AiChatStreamService(
             characters += row.Content.Length;
         }
         history.Reverse();
-        return history;
+        return AiChatInputSnapshot.Freeze(history, cancellationToken);
     }
 
     /// <summary>只释放本代持久化租约；迟到清理不能改变后继任务。</summary>

@@ -20,6 +20,7 @@ internal sealed class AiChatCompletionStreamer(IEnumerable<IAiModelClientFactory
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(onDelta);
         if (!modelConfig.IsEnabled) throw new InvalidOperationException("AI model is disabled.");
+        var snapshot = AiChatInputSnapshot.Freeze(messages, cancellationToken);
         var factory = factories.SingleOrDefault(item => item.ProviderKey == modelConfig.ProviderKey)
             ?? throw new InvalidOperationException("Unsupported AI provider.");
         var binding = bindings.Create(modelConfig);
@@ -28,7 +29,8 @@ internal sealed class AiChatCompletionStreamer(IEnumerable<IAiModelClientFactory
         cancellationToken.ThrowIfCancellationRequested();
         contentBuffer ??= new StringBuilder();
         int? inputTokens = null, outputTokens = null;
-        var history = messages.Select(item => new ChatMessage(new ChatRole(item.RoleKey), item.Content));
+        // 只从自有快照构造SDK消息，工厂等待和供应商迟到枚举都不能再读取调用方历史。
+        var history = snapshot.Select(item => new ChatMessage(new ChatRole(item.RoleKey), item.Content)).ToArray();
         receipt ??= new AiChatStreamingReceipt();
         receipt.Begin();
         var source = client.GetStreamingResponseAsync(history, new ChatOptions { MaxOutputTokens = AiChatContentPolicy.MaxCompletionTokens }, cancellationToken);

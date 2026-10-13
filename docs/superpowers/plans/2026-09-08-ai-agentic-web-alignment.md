@@ -2965,3 +2965,15 @@ R11整体、剩余阶段分类/跨重启Trace、其他Provider/Chat请求前精�
 冻结源码与 Unit 编译消费闭包前后摘要一致，既有 RAG 输出单列，Agents/AI 生产和消费程序集匹配；Windows/Linux 缓存覆盖前后均核对完整源码及消费摘要，双库新路径复制先建立父目录。Windows Unit 2 处理器/1GiB GC，Linux 构建 8CPU/4GiB、双库各 2CPU/8GiB。重型组在锁外排队并自然交接，不接管其他窗口锁或容器。共享矩阵仅暂存 HEAD 加本批 62，其他窗口改动和保护路径保留；main 提交，不推送。实际命令/退出码/UID/摘要见 `artifacts/r11q/acceptance.json`；本段验收后补入，最终文档摘要独立绑定。缓存 restore 使用 NuGetAudit=false，不宣称在线审计。
 
 R11 整体、剩余分类/跨重启 Trace、其他 Provider/Chat 请求前精确输入硬限、未知外部动作/费用对账，以及集中 Native 发布/运行、生成应用、浏览器和运营恢复仍开放；Capacity-not-verified。
+
+#### R11r：普通聊天原文快照与预算/派发一致性（2026-10-14，本批受影响本地验收完成）
+
+基线 main `041ef5b3d440027e0c89ced9d7133e54dacd12b1`，任务 `ai-chat-input-snapshot-r11r`。修复客户端工厂等待后惰性读取外部历史的边界：私有不可变快照在服务预算前冻结，并供预算和派发复用；内部直接入口也在工厂/指纹计算前有限复制。Count 只读一次、最多 40 次索引，64000 原始正文字符、有效 Unicode 和五种固定 SDK 角色；不执行外部枚举器、不额外裁剪原文。原槽位、权限/租户、凭据所有权、回执、结算和独立清理保留，不增加 SQL/迁移/公开 DTO/依赖。
+
+- [x] 新增 52 项：集合规模/异常、角色/空值/Unicode、含界限输入、工厂等待/派发迟到的正文改写、复制取消、Host/Tenant 非法历史零预留/零派发；有效 RED 50 失败/2 通过，增强固定旧版摘要及 UTF-8+64 兼容断言后的 GREEN 52/52。完整 AI 4680/4680、零失败/跳过；Unit 仅发现 8163，未执行全 Unit。
+- [x] 实际影响集为 AI 模块，没有无关 Smoke；SQL Server/MySQL 各 44/44，共 88 唯一 UID，与本次发现清单及完整 TRX 精确一致，零失败/跳过；原矩阵各 60 分钟、每库 1 Worker 顺序执行。真实预算请求与 SDK 实际收到的历史核对一致，原作用域、派发次数、费用/未知消费及租约清理断言保留。
+- [x] API/Worker AOT 分析零警告/错误，相关架构 88/88、完整架构 235/235，JIT Integration 构建和 1214 分片发现通过；命名 30、矩阵 6、治理 57、工具链 54 和预先排除保护路径的 Markdown 检查通过。只读审查无剩余问题；1 项测试 Minor 通过独立的旧版固定摘要/字节值关闭，随后重建重验，审查不代跑测试。
+
+冻结 7843 输入，源码与完整 Unit 编译消费闭包前后摘要一致，已知 RAG 输出单列，Agents/AI 生产和消费程序集匹配；复用前后完整核对 Windows/Linux 缓存源码与消费者。首次 Integration 运行器因 CRLF 替换未移除上一批短交接模块而在模块加载时失败，尚未启动同步/双库 SDK；原 pipeline exit1 与日志保留，修正入口后仅续跑双库，通过组不重复。正式接受 marker 为 integration-resume-pipeline.exit0，不覆盖原失败。Windows Unit 2 处理器/1GiB GC，Linux 构建 8CPU/4GiB、双库各 2CPU/8GiB；重型组按共享锁自然交接，不接管其他资源。共享矩阵只暂存 HEAD 加 52，其他窗口增量和保护路径保留；main 提交、不推送。缓存 restore 使用 NuGetAudit=false，不宣称在线审计。正式命令/退出码/UID/摘要见 `artifacts/r11r/acceptance.json`；本段验收后补入，最终文档单独绑定。
+
+本批只关闭历史原文规模与一致性切片，不将 UTF-8 估算作为精确 Token 硬认证。R11/R12 整体、其他阶段分类/跨重启 Trace、未知外部动作/费用对账，以及当前 AI 的集中 Native 发布/运行、生成应用、浏览器和运营恢复仍开放；Capacity-not-verified。其他对话不同冻结源码的 Native 成败不外推为本批运行证据。
