@@ -3108,7 +3108,19 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 正式集中双库SQL Server/MySQL各3项，共6/6 Passed、零失败/跳过/其它状态：原回执上传/检查点故障恢复4项加显式重试2项，真实岗位失败由机构停用改为岗位编码冲突，验证新文件身份、实际工作簿新机器码及稳定下载名。属于真实HostedService宿主验收，不是独立生成应用或Native回执故障矩阵。
 - 冻结副本ri-SnuB6J为基线03029fe加11文件精确覆盖，7673份输入前后无漂移，6项发现UID与TRX执行UID一致；TRX SHA256 289463144d697515d57c4c5c059f27b7a8677a4dbe698a2547610465dbe28a71。SDK10.0.401、Node24.12.0、DOTNET_PROCESSOR_COUNT=2；构建复用核对通过，不把SourceLink基线元数据冒充98a6f7c重新构建。证据与门禁：.tmp/import-receipt-identity-20261013/、node .tmp/import-receipt-identity-proof.mjs。
 - 排队16:56:54至17:32:54 UTC共36分钟，执行预算取得资源后开始。6项MTP实际4分18.632秒，PID80572及72152正常退出，自有锁由官方入口释放，已通知AI窗口接续；未中断外来组、未删除历史遗留锁或外来资源。
-- 精确生产源码98a6f7c的[API Native38434764733](https://github.com/yan041108/Full.NET/actions/runs/38434764733)六组23+2+4+16+2+2共49/49、[Worker Native38434764791](https://github.com/yan041108/Full.NET/actions/runs/38434764791)27/27均通过、零失败/跳过。生产者head与原始日志摘要已核对；本批主CI38434764856仍在运行，不提前计为通过。
+- 精确生产源码98a6f7c的[API Native38434764733](https://github.com/yan041108/Full.NET/actions/runs/38434764733)六组23+2+4+16+2+2共49/49、[Worker Native38434764791](https://github.com/yan041108/Full.NET/actions/runs/38434764791)27/27均通过、零失败/跳过。生产者head与原始日志摘要已核对；本批[主CI38434764856](https://github.com/yan041108/Full.NET/actions/runs/38434764856)已在精确head98a6f7c成功：Unit6632/6632、兼容12/12、架构248/248、受影响双库514/514、企业样例16/16、迁移current274/274与legacy250/250，均零失败/跳过；其它8个条件跳过作业不计通过，原始日志与计数见.tmp/import-checkpoint-20261014/previous-ci-proof.json。
 - 上一批[主CI38422551811](https://github.com/yan041108/Full.NET/actions/runs/38422551811)已在精确head03029fe复验成功：Unit6625/6625、兼容12/12、架构248/248、受影响集成512/512、企业样例16/16、迁移current274/274与legacy250/250，均零失败/跳过。原探针竞争失败保留，条件跳过的其它E2E不算通过，不把旧head证据外推到当前源码；日志摘要及计数见.tmp/import-receipt-20261013/ci-repair-proof.json。
 - 本批只关闭回执结果身份与重试隔离子范围。F11完整独立生成应用故障矩阵、多行检查点、人工页面、多实例故障/灾备及10K容量仍待；保持Capacity-not-verified。保护外来WIP，未合并或发布。
 <!-- /import-receipt-identity-20261014 -->
+
+## 2026-10-14 独立应用多行检查点与真实 Worker 恢复：集中验收准备
+
+<!-- import-checkpoint-20261014 -->
+- 测试源码479b574已推送指定开发分支及Draft PR3。增加独立enterprise应用验收消费者，使用正式HTTP、实际xlsx模板/下载与正式业务写执行器，SQL Server/MySQL共用一份生成应用；不修改生产框架、迁移、DTO或权限。
+- 四阶段覆盖：cursor1提交后强制退出；第三行已写入且错误回执已上传、cursor3提交前强制退出；新Worker等待真实60秒租约后恢复并验证行ID幂等、复用相同FileId；显式重试导致真实错误从机构停用变为编码冲突，验证新FileId与实际工作簿。屏障只编译到应用自有Worker；Windows强制退出不声称Linux SIGKILL。
+- 初始检查器RED12项10失败、命令预算RED3项2失败；审查实际编译确认内部DapperSqlExecutor不可访问后改为装饰公开执行器的原注册工厂。另用确定性close屏障证明旧实现超预算3秒，再修复超时清理上限、child/log立即错误监听与清理未确认报告。最终快速19项通过、零失败，1项真实Linux继承管道场景在Windows明确跳过，不计通过；治理70/70。
+- API/Migrator/Worker单次构建均0警告/错误，分别4分30秒、34秒、30秒；生成应用framework来源c19b27b，三处应用自有Worker覆盖及6683份源文件/全部宿主依赖已冻结，生产框架与98a6f7c相同。冻结测试副本ic-c7sTg9为c19b27b加精确测试覆盖，不冒充479b574重新生成。DataProtection密钥与文件存储位于提供程序证据目录，应用源码/依赖保持严格前后哈希核对。
+- 2026-10-13 18:26:54 UTC起在官方heavy锁排队，独立双库业务场景仍未执行，不计通过。按安全边界协调排在另一窗口MySQL完整组及已约定Redis短验证后；不中断外来组、不删除外来或历史遗留锁。证据在.tmp/import-checkpoint-20261014/，实际验收结束后更新同一节点；现有产物保留复用。
+- 自动触发的479b574主CI38447267379、API Native38447267398、Worker Native38447267393待结果；既有98a6f7c的Native49/49、27/27和本次确认成功的主CI保持精确生产者范围。未因本批测试消费者重新要求本地AOT发布。
+- 本节点只达到集中验收准备完成；F11整体、独立应用完整故障矩阵、人工页面、多实例故障/灾备与10K容量仍待，保持Capacity-not-verified。保护5份外来内容，未合并或发布。
+<!-- /import-checkpoint-20261014 -->

@@ -1,4 +1,6 @@
-2026-10-14 导入回执结果身份与重试隔离本批通过：生产98a6f7c，相关Unit94/94、架构88/88、双库真实HostedService集中6/6及Native API49/49、Worker27/27通过。7673份冻结输入、执行UID、TRX摘要、构建复用与自有资源释放已核对；双库实际4分19秒、排队36分钟。上一批03029fe主CI已完整成功，本批主CI仍运行。该结论不关闭独立生成应用/Native回执故障矩阵或整个F11；Capacity-not-verified，未合并发布。[记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-导入回执结果身份与重试隔离)。
+2026-10-14 独立应用多行检查点与真实Worker恢复测试已推送479b574：快速19项通过、1项Linux专属场景在Windows跳过、治理70/70；API/Migrator/Worker一次构建均零告警错误，6683份源码/依赖冻结。正式同产物双库集中入口排队，4阶段业务与资源清理尚未验收通过，不提升F11状态。[准备记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-独立应用多行检查点与真实-worker-恢复集中验收准备)。Capacity-not-verified，未合并发布。
+
+2026-10-14 导入回执结果身份与重试隔离本批通过：生产98a6f7c，相关Unit94/94、架构88/88、双库真实HostedService集中6/6及Native API49/49、Worker27/27通过。7673份冻结输入、执行UID、TRX摘要、构建复用与自有资源释放已核对；双库实际4分19秒、排队36分钟。上一批03029fe及本批98a6f7c主CI均已完整成功，当前head计数见总计划。该结论不关闭独立生成应用/Native回执故障矩阵或整个F11；Capacity-not-verified，未合并发布。[记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-14-导入回执结果身份与重试隔离)。
 
 2026-10-13 导入错误回执恢复本批通过：生产b2efb6d，Unit87/87、架构88/88、双库真实HostedService恢复4/4及Native API49/49、Worker27/27均通过。4项实际3分31秒，7672份冻结输入与TRX摘要核对、构建复用及自有锁释放通过；不是独立生成应用或Native回执故障矩阵证据。原主CI的Linux进程探针竞争已修复9f6d5ab，RED2/GREEN10通过，修正head主CI待重跑结果；原失败保留。F11整体、其他故障与容量仍待。[最终记录](../superpowers/plans/2026-09-16-foundation-productization.md#2026-10-13-导入错误回执恢复双库验收通过)。
 
