@@ -3122,7 +3122,20 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 应用framework来源c19b27b，生产实现与98a6f7c相同；三处应用自有Worker覆盖单独记录，冻结测试副本ic-c7sTg9保留精确Node消费覆盖，规范CRLF/结尾空行后与992a920八个测试文件一致，不冒充992a920重新生成/重建。API/Migrator/Worker仅各构建一次，0告警/错误，分别4分30秒、34秒、30秒；纯排队及启动失败后全部复用，不重复发布。SDK10.0.401、Node24.12.0、Windows10专业版（20逻辑处理器、约64GiB内存）、DOTNET_PROCESSOR_COUNT=2；范围为这组恢复行为，未做容量实测。
 - 原30分钟纯排队超时保留，零双库业务启动；预算补正8ae685b将准备20分钟、排队45分钟、业务20分钟分离，外层85分30秒，准备使用独立取消信号。有限续跑先核对旧进程正常结束和零业务启动，再复用同一应用一次，不计原失败为成功。之后SQL API启动暴露夹具PollSeconds=1违反正式5..300校验，清理完成后992a920改用5；未放宽正式验证器。提前退出回归先RED，再仅在长期宿主watcher监听exit并携带PID，立即取消就绪等待；通用命令仍等close与日志排空，正常exit0保持成功。新attempt目录保留原启动失败、完整清理及API日志，不写成单轮全绿。
 - 最终快速node --test tests/templates/application-import-recovery.test.mjs tests/templates/import-recovery-command.test.mjs为20通过、零失败，1项真实Linux继承管道场景在Windows明确跳过；测试资源协调器node --test tests/testing/test-run-context.test.mjs 10/10，治理node --test tests/governance/*.test.mjs 70/70；预算入口node --check通过，正式inner影响规划为none。独立只读复核确认合法轮询、宿主提前退出、清理状态和密钥目录隔离修复，无剩余确定性问题。
-- 自动触发的精确测试head479b574 [API Native38447267398](https://github.com/yan041108/Full.NET/actions/runs/38447267398)49/49、[Worker Native38447267393](https://github.com/yan041108/Full.NET/actions/runs/38447267393)27/27均实际通过、零失败/跳过，原始日志摘要已核对；这属于正式Native核心集合，不是应用专属故障屏障。主CI38447267379仍执行受影响双库，客户端及双库current/legacy迁移作业已成功，主CI不提前计通过；后续Node预算/夹具修正未改变Native生产闭包，不要求重复本地AOT发布。
+- 自动触发的精确测试head479b574 [API Native38447267398](https://github.com/yan041108/Full.NET/actions/runs/38447267398)49/49、[Worker Native38447267393](https://github.com/yan041108/Full.NET/actions/runs/38447267393)27/27均实际通过、零失败/跳过，原始日志摘要已核对；这属于正式Native核心集合，不是应用专属故障屏障。主CI38447267379已完整success，Unit6632、Compatibility12、Architecture248、受影响双库514、企业API样例16、current迁移274/legacy250均零失败/跳过；8个跳过作业不计通过，原始日志与7组计数见.tmp/import-session-20261014/previous-main-ci-proof.json；后续Node预算/夹具修正未改变Native生产闭包，不要求重复本地AOT发布。
 - 证据：.tmp/import-checkpoint-20261014/final-proof.json及原始prepare/acceptance/continuation/startup-fixed记录，门禁node .tmp/import-checkpoint-final-proof.mjs；原失败均保留。保护5份外来内容，仅在指定开发分支交付，PR仍Draft，未合并或发布。
 - 本批关闭F11独立生成应用多行检查点、真实Worker强退恢复、结果上传后进度未提交及回执重试子范围；不关闭完整独立应用/Native故障矩阵、人工全页面、多实例故障/灾备或10K容量，保持Capacity-not-verified。
 <!-- /import-checkpoint-20261014 -->
+
+
+## 2026-10-14 F11 导入会话撤销、检查点重试与验收构建复用
+
+<!-- import-session-20261014 -->
+- 消费者f8b2d87，正式集中入口89be86b；仅修改验收消费者/Node工具，没有生产C#、SQL、DTO、权限或依赖变化。新增真实Logout刷新Cookie/CSRF会话族撤销、排队及已提交检查点撤销、新会话显式retry及Host/匿名隔离。本批未新增导入取消协议，该能力仍待实现，不能以CancellationToken或会话撤销替代取消覆盖。
+- 当前业务验收尚未完成：修正后入口.tmp/import-session-create-ready.mjs已单队列等待官方重型资源，外层87776/测试88556/申请者85736，终marker为.tmp/import-session-20261014/acceptance-ready.json；不提前计通过。
+- 冻结副本is-5sAfAp基线1152a2e加精确Node覆盖，业务消费者与f8b2d87规范换行后一致。复用ir-app-i03FEp的原三宿主构建，framework来源c19b27b，生产闭包与98a6f7c/f8b2d87相同；API/Migrator/Worker均未重复构建或发布。正式入口89be86b将原恢复和本批会话验收合并，一次生成/构建、一次排队、两库顺序运行，两种消费者使用隔离输出目录，20分钟准备/45分钟排队/20分钟业务预算保持独立。
+- 初次排队未启动业务，复核发现默认__Host-fullnet-refresh名称不被夹具接受后，仅停止自有空闲申请者42376，核对无子进程/无heavy所有权后释放其自有workspace锁；原记录acceptance.json保留。Cookie识别已覆盖安全/开发两种配置及租户切换后轮换，不只发送Bearer。修正首次SQL在Migrator阶段sa登录失败，API/Worker未启动，结果cleanupSucceeded/processesClosed均true；acceptance-corrected.json和原始日志保留。未放宽Migrator失败门禁，新增容器内实际SELECT1就绪（连接/查询2秒，单命令15秒，总120秒），成功后只启动一次正式Migrator。
+- 快速node --test tests/templates/import-session-cookies.test.mjs tests/templates/import-recovery-database-ready.test.mjs tests/templates/application-import-recovery.test.mjs tests/templates/import-recovery-command.test.mjs为27通过、零失败、1项Linux管道测试在Windows跳过；node --test tests/testing/test-run-context.test.mjs 10/10，node --test tests/governance/*.test.mjs 70/70；入口/辅助器node --check及diff检查通过，inner影响规划none。只读复核关闭Cookie缺口，未发现其余确定P1/P2；复核不替代实际双库运行。
+- 上一精确head479b574主CI38447267379成功：Unit6632、Compatibility12、Architecture248、受影响双库514、企业API样例16、current迁移274/legacy250零失败/跳过，8个跳过作业不计通过。Native API49/49、Worker27/27的原闭包证据复用；本批Node消费者未改变生产闭包，不触发重复Native发布，也不宣称应用专属故障已在Native实测。
+- Windows10专业版、Node24.12.0、SDK10.0.401，20逻辑处理器/约64GiB内存，DOTNET_PROCESSOR_COUNT=2。外来5份内容核对保护；F11全故障矩阵、导入取消、人工全页面、多实例故障/灾备与容量仍待，保持Capacity-not-verified。开发分支/Draft PR3交付，未合并、未发布。
+<!-- /import-session-20261014 -->
