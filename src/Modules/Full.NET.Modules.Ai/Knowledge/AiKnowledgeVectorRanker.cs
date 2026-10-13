@@ -7,7 +7,22 @@ internal static class AiKnowledgeVectorRanker
         IReadOnlyList<AiKnowledgeRetrievalChunk> chunks, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); ArgumentNullException.ThrowIfNull(chunks);
-        if (chunks.Count > 256) throw Invalid();
+        var count = chunks.Count; if (count is < 0 or > 256) throw Invalid();
+        // 固化首次有界索引，外部集合计数或元素替换不能改变本次分类与排名候选。
+        var frozen = new AiKnowledgeRetrievalChunk[count];
+        for (var i = 0; i < count; i++) { token.ThrowIfCancellationRequested(); frozen[i] = chunks[i]; }
+        // 空候选只是原查询向量校验，不虚构一次重排阶段。
+        return count == 0 ? RankCore(vector, frozen, token)
+            : AiKnowledgeTelemetry.Run("knowledge_rerank", () => RankCore(vector, frozen, token), token);
+    }
+    private static IReadOnlyList<AiKnowledgeRankedChunk> RankCore(ReadOnlyMemory<float> vector,
+        IReadOnlyList<AiKnowledgeRetrievalChunk> chunks, CancellationToken token)
+    {
+        foreach (var chunk in chunks)
+        {
+            token.ThrowIfCancellationRequested();
+            if (chunk is null || chunk.Source is null || !Domain.AiKnowledgePolicy.IsKnownClassification(chunk.Source.DataClassification)) throw Invalid();
+        }
         var norm = Norm(vector.Span, vector.Length, token);
         var seen = new HashSet<(Guid, int)>(); var ranked = new List<AiKnowledgeRankedChunk>(chunks.Count);
         foreach (var chunk in chunks)

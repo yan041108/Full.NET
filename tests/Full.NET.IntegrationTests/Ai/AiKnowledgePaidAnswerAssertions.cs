@@ -1,4 +1,6 @@
 using System.Data.Common;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Text.Json;
 using Dapper;
 using Full.NET.Abstractions.Ids;
@@ -76,7 +78,9 @@ internal static class AiKnowledgePaidAnswerAssertions
                 else if (scenario is "citation" or "destination" or "credential" or "approval") await Assert.ThrowsExactlyAsync<InvalidDataException>(() => RunAsync());
                 else
                 {
+                    using var stages = new LocalStageCapture();
                     var result = await RunAsync(); Assert.AreEqual("真实索引受控问答", result.Answer.Text);
+                    stages.Verify();
                     Assert.IsTrue(result.Prepared.Retrieval.Chunks.Count > result.Answer.Citations.Count);
                     Assert.AreEqual(generationId, result.Prepared.Retrieval.GenerationModel!.Id);
                     Assert.IsTrue(result.Prepared.Context.Citations.Count > 0);
@@ -129,6 +133,38 @@ internal static class AiKnowledgePaidAnswerAssertions
         Task Approve(Guid? id, int? version) => db.ExecuteAsync(
             "UPDATE fn_ai_knowledge_base SET GenerationModelConfigId=@ModelId,GenerationModelVersion=@ModelVersion WHERE Id=@Id",
             new { Id = knowledgeBaseId, ModelId = id, ModelVersion = version });
+    }
+    /// <summary>真实账本和索引流程中的本地阶段；只捕获当前追踪下的固定标签，不读取业务载荷。</summary>
+    private sealed class LocalStageCapture : IDisposable
+    {
+        private readonly Activity root = new Activity("test.knowledge.local").SetIdFormat(ActivityIdFormat.W3C).Start();
+        private readonly List<Activity> spans = [];
+        private readonly List<(string Name, double Value, KeyValuePair<string, object?>[] Tags)> values = [];
+        private readonly MeterListener meter = new();
+        private readonly ActivityListener listener;
+        internal LocalStageCapture()
+        {
+            meter.InstrumentPublished = (instrument, capture) => { if (instrument.Meter.Name == Full.NET.Agents.Runtime.AgentExecutionTelemetry.Name) capture.EnableMeasurementEvents(instrument); };
+            meter.SetMeasurementEventCallback<long>((instrument, value, tags, _) => Record(instrument.Name, value, tags));
+            meter.SetMeasurementEventCallback<double>((instrument, value, tags, _) => Record(instrument.Name, value, tags));
+            meter.Start();
+            listener = new ActivityListener { ShouldListenTo = source => source.Name == Full.NET.Agents.Runtime.AgentExecutionTelemetry.Name,
+                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+                ActivityStopped = span => { if (span.TraceId == root.TraceId && Local(span.GetTagItem("ai.stage"))) spans.Add(span); } };
+            ActivitySource.AddActivityListener(listener);
+        }
+        private static bool Local(object? stage) => stage is "knowledge_rerank" or "knowledge_context";
+        private void Record(string name, double value, ReadOnlySpan<KeyValuePair<string, object?>> tags)
+        { if (Activity.Current?.TraceId == root.TraceId && tags.ToArray().Any(t => t.Key == "ai.stage" && Local(t.Value))) values.Add((name, value, tags.ToArray())); }
+        internal void Verify()
+        {
+            Assert.AreEqual(2, spans.Count); Assert.AreEqual(4, values.Count);
+            CollectionAssert.AreEquivalent(new[] { "knowledge_rerank", "knowledge_context" }, spans.Select(s => (string)s.GetTagItem("ai.stage")!).ToArray());
+            foreach (var span in spans) { Assert.AreEqual("completed", span.GetTagItem("ai.outcome")); Assert.IsTrue(span.TagObjects.All(t => t.Key is "ai.stage" or "ai.outcome")); Assert.IsNull(span.StatusDescription); Assert.IsFalse(span.Events.Any()); }
+            foreach (var value in values) { CollectionAssert.AreEquivalent(new[] { "ai.stage", "ai.outcome" }, value.Tags.Select(t => t.Key).ToArray()); Assert.IsTrue(value.Name.EndsWith("attempts", StringComparison.Ordinal) ? value.Value == 1 : value.Value >= 0); }
+            Assert.AreSame(root, Activity.Current);
+        }
+        public void Dispose() { listener.Dispose(); meter.Dispose(); root.Dispose(); }
     }
     private sealed class ScopeChangingQuery(IQueryExecutor inner, Guid generationId, Action change) : IQueryExecutor
     {

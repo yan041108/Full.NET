@@ -19,7 +19,21 @@ internal sealed class AiKnowledgeAnswerContext
         IIdGenerator ids, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); ArgumentNullException.ThrowIfNull(chunks); ArgumentNullException.ThrowIfNull(ids);
-        if (string.IsNullOrWhiteSpace(question) || question.Length > 4096 || chunks.Count is < 1 or > 256) throw Invalid();
+        var count = chunks.Count;
+        if (string.IsNullOrWhiteSpace(question) || question.Length > 4096 || count is < 1 or > 256) throw Invalid();
+        var frozen = new AiKnowledgeRankedChunk[count];
+        for (var i = 0; i < count; i++) { token.ThrowIfCancellationRequested(); frozen[i] = chunks[i]; }
+        return AiKnowledgeTelemetry.Run("knowledge_context", () => CreateCore(question, frozen, ids, token), token);
+    }
+    private static AiKnowledgeAnswerContext CreateCore(string question, IReadOnlyList<AiKnowledgeRankedChunk> chunks,
+        IIdGenerator ids, CancellationToken token)
+    {
+        // 未入选前八块的来源仍属于完整依赖；分类门禁早于词表、引用身份及任何正文序列化。
+        foreach (var ranked in chunks)
+        {
+            token.ThrowIfCancellationRequested();
+            if (ranked?.Chunk?.Source is not { } source || !Domain.AiKnowledgePolicy.IsKnownClassification(source.DataClassification)) throw Invalid();
+        }
         var citations = new List<AiKnowledgeCitation>(); var seen = new HashSet<Guid>();
         var tokenizer = AiKnowledgeCl100kTokenizer.Get(token); string? json = null;
         // 每个前缀重新计算元数据与问题开销；遇到第一块超限停止，依赖仍由完整检索快照保留。

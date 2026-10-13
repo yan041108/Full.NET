@@ -18,10 +18,12 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
         Assert.AreEqual(refusal, result.Answer.Refused);
         Assert.AreEqual(2, f.Budget.Requests.Count); Assert.AreEqual(2, f.Budget.Settlements.Count);
         Assert.AreEqual(1, f.Factory.EmbeddingCalls); Assert.AreEqual(1, f.Factory.ChatCalls);
-        Assert.HasCount(6, capture.Spans);
+        Assert.HasCount(8, capture.Spans);
         VerifyKnowledgeTelemetry(capture);
         VerifyKnowledgeStage(capture, "knowledge_answer", refusal ? "refused" : "completed");
         VerifyKnowledgeStage(capture, "knowledge_retrieval", "completed");
+        VerifyKnowledgeStage(capture, "knowledge_rerank", "completed");
+        VerifyKnowledgeStage(capture, "knowledge_context", "completed");
         VerifyKnowledgeStage(capture, "knowledge_validation", refusal ? "refused" : "completed");
         VerifyKnowledgeStage(capture, "knowledge_delivery", "completed");
         Assert.AreEqual(result.EmbeddingOperationId.ToString("D"), VerifyKnowledgeStage(capture, "knowledge_embedding", "completed").GetTagItem("ai.operation.id"));

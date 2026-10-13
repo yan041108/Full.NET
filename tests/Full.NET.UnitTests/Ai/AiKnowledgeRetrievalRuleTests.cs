@@ -53,7 +53,7 @@ public sealed class AiKnowledgeRetrievalRuleTests
     }
     internal static float[] Vector(float first, float second) { var v = new float[1536]; v[0] = first; v[1] = second; return v; }
     internal static AiKnowledgeIndexStatusRecord Source(Guid? document = null) => new()
-    { KnowledgeBaseId = Guid.CreateVersion7(), DocumentId = document ?? Guid.CreateVersion7(), VersionId = Guid.CreateVersion7(), TaskId = Guid.CreateVersion7() };
+    { KnowledgeBaseId = Guid.CreateVersion7(), DocumentId = document ?? Guid.CreateVersion7(), VersionId = Guid.CreateVersion7(), DataClassification = "internal", TaskId = Guid.CreateVersion7() };
     internal static AiKnowledgeRetrievalChunk Chunk(string type, int sequence, ReadOnlyMemory<float> vector) => new(
         Source() with { ContentType = type }, sequence, type == "application/pdf" ? 1 : null, 0, 2, 1, "证据", vector);
 }

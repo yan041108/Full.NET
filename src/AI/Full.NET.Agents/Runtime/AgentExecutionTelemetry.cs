@@ -14,7 +14,7 @@ public static class AgentExecutionTelemetry
 
     /// <summary>开启一次执行边界；未知阶段归一化，诊断失败不能改变调用或授权结果。</summary>
     /// <param name="runId">可信运行标识；空值不输出。</param>
-    /// <param name="stage">封闭 Agent 阶段与六种 knowledge_* 问答阶段；其他值归为other。</param>
+    /// <param name="stage">封闭 Agent 与 knowledge_* 问答阶段；其他值归为other。</param>
     /// <param name="operationId">已有持久操作标识；不为观测创建业务操作。</param>
     /// <param name="stepIndex">已有步骤序号；只接受0至63。</param>
     /// <param name="cancellationToken">仅用于收尾分类，不触发取消、注册回调或改变令牌生命周期。</param>
@@ -23,7 +23,7 @@ public static class AgentExecutionTelemetry
         int? stepIndex = null, CancellationToken cancellationToken = default) =>
         new(runId, stage is "run" or "workflow" or "tool_loop" or "node" or "model" or "tool"
             or "knowledge_answer" or "knowledge_embedding" or "knowledge_retrieval" or "knowledge_generation"
-            or "knowledge_validation" or "knowledge_delivery" ? stage : "other",
+            or "knowledge_validation" or "knowledge_delivery" or "knowledge_rerank" or "knowledge_context" ? stage : "other",
             operationId, stepIndex, cancellationToken);
 
     /// <summary>观测现有步骤的本地写入尝试；不生成业务身份，也不证明外层事务提交或模型派发。</summary>

@@ -69,12 +69,16 @@ Ai 宿主同时订阅 `Full.NET.Ai.Execution`，记录 `fullnet.ai.execution.att
 | --- | --- |
 | `knowledge_answer` | 来源准备及两次收费阶段的完整内部执行 |
 | `knowledge_embedding` | 查询 Embedding 的预留、派发、独立结算和等待后复核 |
-| `knowledge_retrieval` | 有界向量读取、本地余弦排序、上下文构造及来源复核 |
+| `knowledge_retrieval` | 有界向量读取、准备编排及来源复核 |
+| `knowledge_rerank` | 非空候选的本地余弦排序与分类门禁；空候选仅校验查询向量，不计重排 |
+| `knowledge_context` | 完整来源分类复核与有界上下文构造；早于引用身份及正文序列化 |
 | `knowledge_generation` | 缓冲生成的预留、派发、独立结算及答案校验 |
 | `knowledge_validation` | 最终严格 JSON/引用解析和全部来源复核 |
 | `knowledge_delivery` | 存储及清理等待后的最终交付资格复核 |
 
 知识阶段沿用当前父 Trace；仅收费阶段和交付复核关联已有 OperationId，不生成 RunId 或持久 StepId。`completed` 表示本阶段原方法返回，交付复核成功不证明客户端收到响应。`refused` 只来自严格解析后的结构化拒答；预算异常、撤权和取消分别为 `budget_rejected`、`authorization_required` 和 `cancelled`。其他异常默认 `failed`，原令牌已取消时沿用共享源的取消收尾分类。正文、引用内容、分类、身份和异常消息均不进入标签或事件。
+
+本地重排和上下文入口先按首次有界索引冻结候选，再拒绝非精确 public/internal/restricted 来源；未入选前八块的来源仍属于分类依赖。分类不替代读取权限和精确模型批准，也不隐式新增 restricted 私网政策。两个本地阶段仅记录固定 stage/outcome，不读取原文、分类值或业务身份；分类失败沿原 InvalidDataException 传播，观测失败不能改变业务结果。
 
 阶段按实际方法进入记录：生成在结算前的输出预检失败由 `knowledge_generation` 记录，尚未调用最终校验时不生成 `knowledge_validation` 事件；预留或来源准备失败也不会虚构未执行的后续阶段。
 

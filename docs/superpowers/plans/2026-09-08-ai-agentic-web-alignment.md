@@ -2847,3 +2847,23 @@ Windows x64/SDK10.0.401，Linux SDK10.0.400/runtime10.0.11，i7-12700H/约64GiB�
 验证复用R11i的完整源和消费缓存，Linux AOT/JIT/双库分别核对原摘要后只覆盖当前输入差异。Windows x64/SDK10.0.401、Linux SDK10.0.400/runtime10.0.11、i7-12700H/约64GiB；Unit4处理器/2GiB GC、构建8CPU/4GiB、每库2CPU/8GiB。本地缓存restore使用NuGetAudit=false，不宣称在线审计。AOT仅静态分析，本批未新鲜Native发布/运行、生成应用或浏览器验收；集中验收按模块批次执行。
 
 索引快照门禁不表示全阶段分类、其他Provider/Chat输入硬限、未知外部动作与费用对账已经完成。R11整体开放，Capacity-not-verified。实际命令、退出码、精确UID与摘要见 `artifacts/r11j/acceptance.json`；main提交本批，不推送。测试后补入本段证据，不将最终文档字节冒充执行前冻结输入。
+
+#### R11k：本地重排与上下文分类快照和观测（2026-10-13，本批受影响本地验收完成）
+
+基线 main `7f69c2d1618e1ed3afc64b8d22f2243cc6adc780`，任务快照 `ai-rerank-context-policy-r11k`。集中推进候选快照、全候选分类门禁、同步本地阶段观测与真实双库流程断言；无新迁移、依赖、HTTP入口或权限变化。
+
+- [x] Rank和Context各只读取外部Count一次，以索引复制最多256项的候选；不可变候选/来源记录形成边界快照，不宣称向量缓冲区不可变。全部候选（包括前八块之外）必须有来源且分类为精确public/internal/restricted，先于向量计算、词表、引用Id与JSON；未知或缺失分类沿InvalidDataException失败。合法分类仍沿原权限/模型审批/交付时权威复核，不推导restricted私网政策。
+- [x] 同步Run复用共享执行观测，增加knowledge_rerank和knowledge_context两阶段，沿原失败/取消分类和异常传播；阶段与结果使用既有有限标签，不携带分类、来源、身份或输入文本。空候选保留向量验证且不记重排；预取消不创建观测；监听器异常隔离和父Activity恢复保持原行为。
+- [x] 新增44项，覆盖三格式合法分类、非法分类、256项尾部、空候选向量、预取消、五种监听器故障、回调替换集合和变化Count/禁止枚举。有效RED30失败/14通过，GREEN44/44；完整AI4033/4033，零跳过。全部Unit只发现7516，与规范矩阵一致，不宣称全Unit已执行；旧有效来源补internal，原支付观测6阶段扩为8阶段，保留原断言。
+- [x] 真实known/unknown支付回答流程均捕获两个本地阶段和四次测量，验证completed、有限标签、无原始事件、父Activity恢复，保留原预算及索引账本断言。实际影响分类Ai + Smoke，SQL Server48/48；MySQL原48组47通过/1超时，精确1项复验通过，通过UID并集48，共96唯一通过UID；每库1 Worker，顺序执行，原矩阵60分钟期限。
+- [x] API/Worker Native AOT分析零警告/错误，架构235/235及AOT架构88/88；JIT Integration构建与1214分片发现通过。命名30、矩阵6、治理57、工具链54和排除受保护路径后的387份Markdown扫描通过；独立只读审查无Critical/Important。
+
+首次Unit GREEN构建出现Roslyn NodeStateTable初始化中的OutOfMemoryException，原exit1日志保留；当时主机提交内存约98%，具体分配根因未证明。仅重建Unit采用2处理器/4GiB GC预算并通过，测试仍4处理器/2GiB，未改源码、断言或期限。运行前后冻结源码与既有1063个消费文件摘要一致，10项既有RAG JSON/报告输出单列；Agents/AI生产与Unit消费程序集一致。复用R11j源及Linux缓存，覆盖前核对既有摘要；双库只同步明确生产项目产物、冻结源清单及完整Integration消费目录，不遍历外部克隆或治理夹具。外部窗口类型summary注释保留工作区，仅冻结/暂存HEAD加本批分类字段；共享矩阵仅暂存HEAD加44，其余脏文件保留，保护路径不读写。
+
+Integration及架构程序集构建均exit0后，第一次完整架构执行中Docker后端退出，客户端unexpected EOF/exit125、引擎管道消失；架构无完成退出码，原日志和不完整流产物保留，不称其通过。按用户既有授权重新启动Docker Desktop，未单独删除或停止持久容器；底层退出原因未证明。恢复后核对冻结源、六项生产/消费程序集及完整消费目录摘要，复用成功构建，重新执行完整架构235及分片发现；双库在恢复后完整执行，无期限放宽或源码修补。恢复命令与退出码单列，不将原中断包装为成功。
+
+MySQL原失败为Complete_text_execution_renews_lease_and_resumes_paid_batches_async中Ask API受控模型入口WaitAsync30秒超时，同时存在数据库读取/续租取消与连接异常日志；底层原因未证明。原exit2、48项完整TRX和失败UID保留，未修改源码、消费程序集、断言或期限；按精确发现UID补验1/1，运行前后核对同一冻结源/消费摘要。仅合并原47个通过UID及精确补验1个，未冒充原48组通过或已修复底层超时。
+
+本地环境Windows x64/SDK10.0.401、Linux SDK10.0.400/runtime10.0.11、i7-12700H/约64GiB；Unit4处理器/2GiB GC、Linux构建8CPU/4GiB、恢复验收4CPU/4GiB、每库2CPU/8GiB。缓存restore使用NuGetAudit=false，不宣称在线审计。AOT仅静态分析，本批未新鲜Native发布/运行、生成应用或浏览器验收；集中验收按模块批次执行。
+
+本批不关闭其他阶段分类、跨重启持久Trace、其他Provider/Chat输入硬限或未知外部动作与费用对账。R11整体开放，Capacity-not-verified。实际命令、退出码、精确UID及摘要见 `artifacts/r11k/acceptance.json`；main提交，不推送。本段测试后补入，不将最终文档字节冒充执行前冻结输入。
