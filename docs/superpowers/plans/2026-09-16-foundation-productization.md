@@ -3043,3 +3043,5 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 最终核验入口`node .tmp/bound-runtime-final-proof-v5.mjs`核对严格Boolean、逐项请求计数、两份成功报告及SHA256、7669份初始输入和7669份复验输入、复用准备摘要与受保护他窗文件。证据为.tmp/bound-runtime-independent-20261013/final-proof.json、原receipt.json、.tmp/bound-runtime-sqlserver-retry-20261013、.tmp/bound-runtime-mysql-retry-20261013、.tmp/bound-runtime-mysql-resume-20261013环境中断观察及.tmp/bound-runtime-mysql-restored-20261013；旧单轮、双来源及v3校验器不用于最终结论。
 
 环境Windows、Node24.12.0、SDK10.0.401、SQL Server2022-CU14/MySQL8.4、每进程两个.NET处理器预算；CscEnvironment=DOTNET_GCConserveMemory=7仅用于本地编译器，生产默认值不变。本批没有生产C#、迁移或公开契约变更，只关闭上述独立JIT运行故障覆盖。完整业务Native、人工全页面、多实例故障/灾备及10K容量仍待，整体Build-verified / Capacity-not-verified保持。CI镜像修复的API/Worker成功按99e7b7b另行记录，不外推业务Native认证；PR3仍Draft，未合并发布，报告HEAD不冒充执行源码。
+
+交付末次核对：99e7b7b主CI38388524648最终completed/success。五个执行作业client-build-test、当前/旧版迁移恢复、build-and-module-test和build-test均success；八个skipped作业按未执行保留，不计通过。源码headSha、完整作业状态与SHA256见.tmp/ci-image-fallback-main-result.json和main-proof.json。此前主CI仍执行中的记载保留为历史时点；此成功与API38388524499、Worker38388524467共同关闭CI镜像修复验证，不扩大e0ce3c0本地业务JIT范围或容量结论。
