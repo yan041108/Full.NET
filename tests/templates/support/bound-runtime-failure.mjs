@@ -13,12 +13,12 @@ function context(options){
 }
 async function execute(ctx,sql){
  const args=ctx.provider==='mysql'
-  ? ['mysql','-uroot','-pFullNet_Test!123','-D','fullnet_app','-N','-B','-e',sql]
+  ? ['mysql','-uroot','-D','fullnet_app','-N','-B','-e',sql]
   : ['/bin/sh','-c','if [ -x /opt/mssql-tools18/bin/sqlcmd ]; then exec /opt/mssql-tools18/bin/sqlcmd "$@"; else exec /opt/mssql-tools/bin/sqlcmd "$@"; fi',
-    'fullnet-owned-fault','-S','localhost','-U','sa','-P','FullNet_Test!123','-d','master','-C','-b','-h','-1','-W','-Q',sql];
+    'fullnet-owned-fault','-S','localhost','-U','sa','-I','-d','master','-C','-b','-h','-1','-W','-Q',sql];
  ctx.signal?.throwIfAborted();
- const result=await ctx.container.exec(args);ctx.signal?.throwIfAborted();
- assert.equal(result.exitCode,0,'owned fault command failed');return result.output;
+ const result=await ctx.container.exec(args,{env:{[ctx.provider==='mysql'?'MYSQL_PWD':'SQLCMDPASSWORD']:'FullNet_Test!123'}});ctx.signal?.throwIfAborted();
+ if(result.exitCode!==0)throw Object.assign(new Error('owned fault command failed'),{code:'fault.sql_command_failed',commandExitCode:result.exitCode});return result.output;
 }
 // 仅在本轮自建容器中构造崩溃残留；暂停和死信必须由正式 Worker 产生。
 export async function injectBoundRuntimeFailure(options){
@@ -29,7 +29,7 @@ export async function injectBoundRuntimeFailure(options){
  const expired=provider==='mysql'?"DATE_SUB(UTC_TIMESTAMP(6), INTERVAL 1 MINUTE)":"DATEADD(minute, -1, SYSUTCDATETIME())";
  const sql=provider==='mysql'
   ? `START TRANSACTION; UPDATE fn_workflow_todo SET StatusKey = 'completed', CompletedAtUtc = ${now}, ResultActionKey = 'system' WHERE InstanceId = ${instance} AND StatusKey = 'active' AND ${bound}; SET @todos=ROW_COUNT(); UPDATE fn_workflow_instance SET LeaseOwnerKey = 'owned-fault', LeaseExpiresAtUtc = ${expired} WHERE Id = ${instance} AND StatusKey = 'active' AND ${bound}; SET @instances=ROW_COUNT(); COMMIT; SELECT CONCAT('FN_FAULT:',@todos,':',@instances);`
-  : `SET NOCOUNT ON; SET XACT_ABORT ON; BEGIN TRANSACTION; DECLARE @todos int,@instances int; UPDATE fn_workflow_todo SET StatusKey = 'completed', CompletedAtUtc = ${now}, ResultActionKey = 'system' WHERE InstanceId = ${instance} AND StatusKey = 'active' AND ${bound}; SET @todos=@@ROWCOUNT; UPDATE fn_workflow_instance SET LeaseOwnerKey = 'owned-fault', LeaseExpiresAtUtc = ${expired} WHERE Id = ${instance} AND StatusKey = 'active' AND ${bound}; SET @instances=@@ROWCOUNT; COMMIT; SELECT CONCAT('FN_FAULT:',@todos,':',@instances);`;
+  : `SET QUOTED_IDENTIFIER ON; SET ANSI_NULLS ON; SET ANSI_PADDING ON; SET ANSI_WARNINGS ON; SET ARITHABORT ON; SET CONCAT_NULL_YIELDS_NULL ON; SET NUMERIC_ROUNDABORT OFF; SET NOCOUNT ON; SET XACT_ABORT ON; BEGIN TRANSACTION; DECLARE @todos int,@instances int; UPDATE fn_workflow_todo SET StatusKey = 'completed', CompletedAtUtc = ${now}, ResultActionKey = 'system' WHERE InstanceId = ${instance} AND StatusKey = 'active' AND ${bound}; SET @todos=@@ROWCOUNT; UPDATE fn_workflow_instance SET LeaseOwnerKey = 'owned-fault', LeaseExpiresAtUtc = ${expired} WHERE Id = ${instance} AND StatusKey = 'active' AND ${bound}; SET @instances=@@ROWCOUNT; COMMIT; SELECT CONCAT('FN_FAULT:',@todos,':',@instances);`;
  const output=await execute(ctx,sql);assert.match(output,/^\s*FN_FAULT:1:1\s*$/mu,'fault must update exactly one todo and instance');
  return {completed:true,instanceId:ctx.instanceId,updatedTodos:1,updatedInstances:1};
 }

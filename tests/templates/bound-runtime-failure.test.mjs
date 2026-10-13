@@ -42,3 +42,9 @@ test('公开长整型版本用精确十进制递增，不能字符串拼接或�
  assert.equal(advanceBoundRevision(2),3);
  assert.throws(()=>advanceBoundRevision('broken'));
 });
+
+test('SQL Server故障命令为计算列索引开启会话选项',async()=>{
+ const container={getId:()=> 'owned',exec:async args=>({exitCode:args.includes('-I')&&args.at(-1).includes('SET QUOTED_IDENTIFIER ON')?0:1,output:'FN_FAULT:1:1'})};
+ const receipt=await injectBoundRuntimeFailure({provider:'sqlserver',container,ownedContainerId:'owned',instanceId:id,tenantId:id,requestId:id});
+ assert.equal(receipt.completed,true);
+});

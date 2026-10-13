@@ -339,11 +339,15 @@ export async function verifyEnterpriseApprovalBrowser(appRoot, apiUrl, reportDir
     for (const request of terminalRequests) assert.equal(list.items.filter(item => item.businessId === request.id).length, 1);
     evidence.restartStable = true;
     stage = 'bound-runtime';
-    evidence.boundRuntime = await verifyEnterpriseBoundRuntime({ create, submit, send, poll, stopWorker, startWorker,
+    evidence.boundRuntime = { completed: false };
+    await verifyEnterpriseBoundRuntime({ create, submit, send, poll, stopWorker, startWorker,
+      evidence: evidence.boundRuntime, onStage: step => { stage = 'bound-runtime-' + step; },
       injectFailure: ids => injectFailure({ ...ids, tenantId }), assertDeadLetter: ids => assertDeadLetter({ ...ids, tenantId }), drain: drainAndRestoreTenant });
     evidence.completed = true; return evidence;
   } catch (error) {
-    failed = true; evidence.failureKind = error?.name ?? 'Error'; evidence.error = stage + ': generated approval browser acceptance failed';
+    failed = true; evidence.failureKind = error?.name ?? 'Error';
+    evidence.controlledFailure = { code: typeof error?.code === 'string' && /^[A-Za-z0-9_.-]{1,100}$/u.test(error.code) ? error.code : null,
+      commandExitCode: Number.isInteger(error?.commandExitCode) ? error.commandExitCode : null }; evidence.error = stage + ': generated approval browser acceptance failed';
     // 凭据与未知服务端正文不进入证据；固定阶段足以定位相应拥有的日志。
     throw new Error(evidence.error);
   } finally {
