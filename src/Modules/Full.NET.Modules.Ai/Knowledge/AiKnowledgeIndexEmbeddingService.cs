@@ -1,3 +1,4 @@
+using Full.NET.Agents.Runtime;
 using Full.NET.AI.Abstractions.Budgets;
 using Full.NET.AI.Abstractions.Models;
 using Full.NET.Abstractions.Tenancy;
@@ -36,9 +37,15 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
 
     /// <summary>只派发新预留的精确文本批次；拒绝或失效返回空，取消及基础设施故障传播。</summary>
     /// <remarks>恢复身份只从任务原绑定读取；无外层事务。消费者仍须在写索引前复核，Worker 轮询不由本类负责。</remarks>
-    internal async Task<AiKnowledgeIndexEmbeddingBatch?> ExecuteTextBatchAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId,
+    internal Task<AiKnowledgeIndexEmbeddingBatch?> ExecuteTextBatchAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId,
         Guid leaseToken, int batchOrdinal, CancellationToken token,
-        Func<AiKnowledgeIndexTextPlan, CancellationToken, Task<bool>>? beforeDispatch = null)
+        Func<AiKnowledgeIndexTextPlan, CancellationToken, Task<bool>>? beforeDispatch = null) =>
+        AiKnowledgeTelemetry.RunIndexAsync(taskId, "text", observation =>
+            ExecuteCoreAsync(binding, taskId, leaseToken, batchOrdinal, token, beforeDispatch, observation), token);
+
+    private async Task<AiKnowledgeIndexEmbeddingBatch?> ExecuteCoreAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId,
+        Guid leaseToken, int batchOrdinal, CancellationToken token,
+        Func<AiKnowledgeIndexTextPlan, CancellationToken, Task<bool>>? beforeDispatch, AgentExecutionTelemetry.Observation observation)
     {
         NoTransaction();
         _ = tasks.HeldParameters(binding, taskId, leaseToken, token);
@@ -75,6 +82,8 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
         var planned = plan.Batches[batchOrdinal]; var selected = planned.Chunks;
         var inputs = selected.Select(chunk => chunk.EmbeddingText).ToArray();
         var admitted = await admission.ReserveAsync(binding, taskId, leaseToken, batchOrdinal, inputs, bounded).ConfigureAwait(false);
+        // 重复回执也可关联原操作；观测不取得派发或结算所有权。
+        if (admitted is not null) observation.SetOperationId(admitted.Request.OperationId);
         if (admitted?.Source is null) return null;
         // 从新预留交接开始拥有结算责任；进入 GenerateAsync 后，异常不能推断为零。
         AiOperationUsage usage = new(0, 0); var outcome = "failed";

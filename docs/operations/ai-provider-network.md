@@ -75,6 +75,9 @@ Ai 宿主同时订阅 `Full.NET.Ai.Execution`，记录 `fullnet.ai.execution.att
 | `knowledge_generation` | 缓冲生成的预留、派发、独立结算及答案校验 |
 | `knowledge_validation` | 最终严格 JSON/引用解析和全部来源复核 |
 | `knowledge_delivery` | 存储及清理等待后的最终交付资格复核 |
+| `knowledge_index_text` / `knowledge_index_pdf` / `knowledge_index_docx` | 原索引批次的来源准备、预算准入、模型派发、独立结算及返回前复核 |
+
+索引批次在 Trace 使用可信原任务 `ai.knowledge.task.id`，不将任务作为 Agent RunId；准入返回后关联已有 `ai.operation.id`，包括不能再次派发的重复回执。准入尚未返回时允许没有操作标签，不能为观测查询或创建业务操作。指标仍严格只有 stage/outcome。非空返回为 `completed`，正常空返回为 `not_processed`；异常按原预算、授权、取消或失败分类并原样传播。预取消在开启观测前拒绝，监听器故障不改变执行、收费或父 Activity。`completed` 仅表示一个批次方法返回，不证明向量写入、事务提交、整代次 ready 或最终费用核证。
 
 知识阶段沿用当前父 Trace；仅收费阶段和交付复核关联已有 OperationId，不生成 RunId 或持久 StepId。`completed` 表示本阶段原方法返回，交付复核成功不证明客户端收到响应。`refused` 只来自严格解析后的结构化拒答；预算异常、撤权和取消分别为 `budget_rejected`、`authorization_required` 和 `cancelled`。其他异常默认 `failed`，原令牌已取消时沿用共享源的取消收尾分类。正文、引用内容、分类、身份和异常消息均不进入标签或事件。
 

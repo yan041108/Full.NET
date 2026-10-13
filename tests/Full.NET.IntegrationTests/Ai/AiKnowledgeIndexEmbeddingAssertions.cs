@@ -231,10 +231,12 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
             Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id", new { Id = task.Id }));
             Assert.AreEqual(charged, await db.QuerySingleAsync<long>("SELECT ChargedTokens FROM fn_ai_operation_budget WHERE Id=@Id", new { Id = operation }));
 
-            Task<AiKnowledgeIndexEmbeddingBatch?> Execute(Guid lease) => Use((tasks, execution, services) => scenario == "ambient"
+            Task<AiKnowledgeIndexEmbeddingBatch?> Execute(Guid lease) => AiKnowledgeIndexTelemetryAssertions.VerifyAsync(task.Id,
+                () => Use((tasks, execution, services) => scenario == "ambient"
                 ? services.GetRequiredService<ICommandTransaction>().ExecuteAsync(token => execution.ExecuteTextBatchAsync(binding, task.Id, lease, 0, token), CancellationToken.None)
                 : execution.ExecuteTextBatchAsync(binding, task.Id, lease, 0, CancellationToken.None, (plan, token) =>
-                    { wholePlan = plan; return ManifestStore(services, tasks).PersistAsync(binding, task.Id, lease, plan, token); }));
+                    { wholePlan = plan; return ManifestStore(services, tasks).PersistAsync(binding, task.Id, lease, plan, token); })),
+                () => db.QuerySingleOrDefaultAsync<Guid?>("SELECT Id FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id AND BatchOrdinal=0", new { Id = task.Id }));
             AiKnowledgeIndexTextManifestStore ManifestStore(IServiceProvider services, AiKnowledgeIndexTaskStore tasks, ICommandExecutor? command = null) => new(
                 services.GetRequiredService<IQueryExecutor>(), command ?? services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
                 services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(),

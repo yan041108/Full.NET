@@ -2903,3 +2903,18 @@ R11整体、其他阶段分类、跨重启Trace、其他Provider/Chat输入硬�
 Windows x64/SDK10.0.401、Linux SDK10.0.400/runtime10.0.11、i7-12700H/约64GiB；Unit4处理器/2GiB GC，Linux原构建8CPU/4GiB、修正重建4CPU/4GiB，双库各2CPU/8GiB。缓存restore使用NuGetAudit=false，不宣称在线依赖审计；长TRX捕获字段按SDK截断行为保留，不声明原文本完整。命令、退出码、精确UID、摘要和审查在 `artifacts/r11m/acceptance.json`；最终证据段落在测试后补入，不冒充运行前文档字节。
 
 R11整体、其余分类/跨重启Trace、其他Provider/Chat精确输入硬限、未知外部动作/费用对账，以及集中Native发布/运行、生成应用、页面和运营恢复仍开放；Capacity-not-verified。
+
+#### R11n：Text/PDF/DOCX索引批次执行观测（2026-10-13，本批受影响本地验收完成）
+
+基线main `c55b63928d8e7563d7aaff5cc1a7e5b42b2b0dab`，任务 `ai-index-execution-telemetry-r11n`。三种实际索引入口共用封闭阶段、原任务Trace关联及已有预算操作关联；保持原权限、租约、事务、解析/模型/清理期限、派发及结算所有权，不新增业务ID、SQL、迁移、公开DTO或依赖。
+
+- [x] `knowledge_index_text/pdf/docx` 的非空返回分类completed，正常空返回not_processed；预算/授权/取消异常固定分类且原样传播，预取消无观测或IO。可信原任务只进入`ai.knowledge.task.id`，不充当Agent RunId；准入返回后关联原OperationId，重复回执也可关联，但不重新派发或结算。早于准入返回的失败允许无操作标签，禁止为观测另查或另建操作。指标仍只有stage/outcome，不记录正文、分类、身份、Provider值、凭据、原异常消息或事件。
+- [x] 新增69项回归，实际调用Text/PDF/DOCX执行体，覆盖Host/Tenant成功、拒绝、重复、取消、Provider/预算/结算异常以及测量/采样/开始/停止监听器故障。有效RED63失败/6通过，GREEN69/69；完整AI4234/4234、零跳过。Unit发现7717并与规范矩阵一致，未执行全Unit。首轮NSubstitute失败Task委托重载歧义产生1项编译诊断，修正后才形成行为RED，原日志保留。
+- [x] 双库真实Text入口追加Trace/两标签指标核对，既有原账本与隔离断言保留；PDF/DOCX在Unit调用真实执行体，不将其他Integration替身冒充真实索引观测。实际影响集Ai+Smoke，两库各48/48，共96唯一通过UID，原矩阵60分钟、每库1Worker顺序执行。
+- [x] API/Worker AOT分析零警告/错误，AOT架构88/88、完整架构235/235、JIT Integration构建与1214分片发现通过；命名30、矩阵6、治理57、工具链54及排除保护路径后的387份Markdown检查通过。独立只读审查无Critical/Important；审查未代跑测试。
+
+首轮完整AI运行在本机17:39重启时中断，原退出码缺失且TRX尚未完成；中断前有一项DOCX stopped监听器测试空返回，根因未确认，不宣称已修复或归因于重启。原流与日志保存在`artifacts/r11n/boot-interrupted`，未复用部分结果。沿用此前授权恢复Docker Desktop，三个持久服务由原重启策略恢复，未单独修改；只在核对本批死锁PID/token、无相关子进程/容器及源码/消费摘要不变后清理本批资源锁。整组从头重跑4234/4234，不隐藏原失败。
+
+冻结7829个输入，Unit运行前后1002个编译消费文件及源码摘要一致，既有RAG JSON/报告输出单列；Agents/AI生产与消费程序集匹配。复用已核对的R11m缓存，覆盖前后验证源与消费摘要；共享矩阵只暂存HEAD加69，其他窗口改动和保护路径保留。Windows x64 Unit4处理器/2GiB GC，Linux构建8CPU/4GiB，双库各2CPU/8GiB；缓存restore使用NuGetAudit=false，不宣称在线依赖审计。长TRX捕获字段截断警告保留，状态、计数与UID另行核对，不声明完整文本。命令及实际证据见`artifacts/r11n/acceptance.json`；本段测试后补入，不冒充运行前输入字节。在main提交，不推送。
+
+completed仅表示原批次方法返回，不证明向量写入、事务提交、整代次ready、客户端收到数据或费用核证。R11整体、其余分类/跨重启Trace、其他Provider/Chat精确输入硬限、未知外部动作/费用对账，以及集中Native发布/运行、生成应用和浏览器验收仍开放；Capacity-not-verified。

@@ -1,3 +1,4 @@
+using Full.NET.Agents.Runtime;
 using Full.NET.AI.Abstractions.Budgets;
 using Full.NET.AI.Abstractions.Models;
 using Full.NET.Data.Abstractions;
@@ -18,8 +19,13 @@ internal sealed class AiKnowledgeIndexPdfEmbeddingService(AiKnowledgeIndexPdfPla
     IEnumerable<IAiModelClientFactory> factories, AiModelBindingScope bindings)
 {
     /// <summary>只派发新预留；未知或重复操作交给对账，不重试、不续租、不改为 ready。</summary>
-    internal async Task<AiKnowledgeIndexPdfEmbeddingBatch?> ExecuteAsync(AiKnowledgeIndexTaskBinding binding,
-        Guid taskId, Guid leaseToken, int ordinal, CancellationToken token)
+    internal Task<AiKnowledgeIndexPdfEmbeddingBatch?> ExecuteAsync(AiKnowledgeIndexTaskBinding binding,
+        Guid taskId, Guid leaseToken, int ordinal, CancellationToken token) =>
+        AiKnowledgeTelemetry.RunIndexAsync(taskId, "pdf", observation =>
+            ExecuteCoreAsync(binding, taskId, leaseToken, ordinal, token, observation), token);
+
+    private async Task<AiKnowledgeIndexPdfEmbeddingBatch?> ExecuteCoreAsync(AiKnowledgeIndexTaskBinding binding,
+        Guid taskId, Guid leaseToken, int ordinal, CancellationToken token, AgentExecutionTelemetry.Observation observation)
     {
         Check(token);
         if (ordinal is < 0 or >= 2048) throw new ArgumentOutOfRangeException(nameof(ordinal));
@@ -40,6 +46,8 @@ internal sealed class AiKnowledgeIndexPdfEmbeddingService(AiKnowledgeIndexPdfPla
         // 预算预留和可能计费的派发前先保证最终回执有清理准入。
         using var settlement = AiKnowledgePdfIoBoundary.ReserveCleanup();
         var admitted = await admission.ReserveAsync(binding, taskId, leaseToken, ordinal, inputs, bounded).ConfigureAwait(false);
+        // 重复回执也可关联原操作；观测不取得派发或结算所有权。
+        if (admitted is not null) observation.SetOperationId(admitted.Request.OperationId);
         if (admitted?.Source is null) return null;
         var receipt = new ChargeReceipt(); var outcome = "failed";
         AiKnowledgeIndexPdfEmbeddingBatch? completed = null;

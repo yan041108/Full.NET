@@ -6,6 +6,23 @@ namespace Full.NET.Modules.Ai.Knowledge;
 /// <summary>知识问答复用固定阶段观测；不读取正文、分类、身份、凭据或异常消息，也不生成业务标识。</summary>
 internal static class AiKnowledgeTelemetry
 {
+    /// <summary>索引批次沿用原任务及预算操作；空返回表示未处理，不证明写入、整代次或账本完成。</summary>
+    internal static async Task<T?> RunIndexAsync<T>(Guid taskId, string format,
+        Func<AgentExecutionTelemetry.Observation, Task<T?>> action, CancellationToken token) where T : class
+    {
+        token.ThrowIfCancellationRequested(); ArgumentNullException.ThrowIfNull(action);
+        using var observation = AgentExecutionTelemetry.StartIndex(taskId, format, token);
+        try
+        {
+            var result = await action(observation).ConfigureAwait(false);
+            observation.Outcome = result is null ? "not_processed" : "completed";
+            return result;
+        }
+        catch (AiBudgetException) { observation.Outcome = "budget_rejected"; throw; }
+        catch (UnauthorizedAccessException) { observation.Outcome = "authorization_required"; throw; }
+        catch (OperationCanceledException) { observation.Outcome = "cancelled"; throw; }
+    }
+
     /// <summary>同步本地阶段只记录固定结果；不增加业务标识，不拥有输入或调用方取消源。</summary>
     internal static T Run<T>(string stage, Func<T> action, CancellationToken token)
     {

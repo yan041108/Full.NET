@@ -23,8 +23,18 @@ public static class AgentExecutionTelemetry
         int? stepIndex = null, CancellationToken cancellationToken = default) =>
         new(runId, stage is "run" or "workflow" or "tool_loop" or "node" or "model" or "tool"
             or "knowledge_answer" or "knowledge_embedding" or "knowledge_retrieval" or "knowledge_generation"
-            or "knowledge_validation" or "knowledge_delivery" or "knowledge_rerank" or "knowledge_context" ? stage : "other",
+            or "knowledge_validation" or "knowledge_delivery" or "knowledge_rerank" or "knowledge_context"
+            or "knowledge_index_text" or "knowledge_index_pdf" or "knowledge_index_docx" ? stage : "other",
             operationId, stepIndex, cancellationToken);
+
+    /// <summary>观测原知识索引批次；任务标识只进入 Trace，不替代 Agent 运行身份。</summary>
+    /// <param name="taskId">可信索引任务的已有标识；空值不输出。</param>
+    /// <param name="format">封闭 text/pdf/docx 格式；其他值归为 other，不输出原值。</param>
+    /// <param name="cancellationToken">仅参与收尾分类，不拥有业务取消源。</param>
+    /// <returns>必须释放的范围；完成只表示批次方法返回，不证明整代次 ready。</returns>
+    public static Observation StartIndex(Guid taskId, string format, CancellationToken cancellationToken = default) =>
+        new(Guid.Empty, format switch { "text" => "knowledge_index_text", "pdf" => "knowledge_index_pdf",
+            "docx" => "knowledge_index_docx", _ => "other" }, null, null, cancellationToken, knowledgeTaskId: taskId);
 
     /// <summary>观测现有步骤的本地写入尝试；不生成业务身份，也不证明外层事务提交或模型派发。</summary>
     /// <param name="runId">本次租约所属运行标识；空值不输出。</param>
@@ -66,7 +76,8 @@ public static class AgentExecutionTelemetry
             get { try { return activity is { } current && current.TraceId != default ? current.TraceId.ToHexString() : null; } catch (Exception) { return null; } }
         }
 
-        internal Observation(Guid runId, string stage, Guid? operationId, int? stepIndex, CancellationToken token, Guid? stepId = null)
+        internal Observation(Guid runId, string stage, Guid? operationId, int? stepIndex, CancellationToken token,
+            Guid? stepId = null, Guid? knowledgeTaskId = null)
         {
             this.stage = stage; this.token = token; Activity? candidate = null;
             try
@@ -76,6 +87,7 @@ public static class AgentExecutionTelemetry
                 if (runId != Guid.Empty) candidate?.SetTag("ai.run.id", runId.ToString("D"));
                 if (operationId is { } id && id != Guid.Empty) candidate?.SetTag("ai.operation.id", id.ToString("D"));
                 if (stepId is { } step && step != Guid.Empty) candidate?.SetTag("ai.step.id", step.ToString("D"));
+                if (knowledgeTaskId is { } task && task != Guid.Empty) candidate?.SetTag("ai.knowledge.task.id", task.ToString("D"));
                 if (stepIndex is >= 0 and < 64) candidate?.SetTag("ai.step.index", stepIndex.Value);
                 candidate?.Start(); activity = candidate;
             }

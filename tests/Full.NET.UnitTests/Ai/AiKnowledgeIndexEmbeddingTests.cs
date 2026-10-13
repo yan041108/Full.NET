@@ -21,7 +21,7 @@ namespace Full.NET.UnitTests.Ai;
 
 /// <summary>文件来源、会话授权和预算事实必须共同约束真实 GenerateAsync 调用。</summary>
 [TestClass]
-public sealed class AiKnowledgeIndexEmbeddingTests
+public sealed partial class AiKnowledgeIndexEmbeddingTests
 {
     [TestMethod]
     public async Task Index_permission_revocation_stops_background_dispatch()
