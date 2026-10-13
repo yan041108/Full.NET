@@ -3058,3 +3058,16 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 后台接续.tmp/native-bound-host-run.mjs（PID6624）使用主机官方runNativeSuite入口，所有dotnet命令由自有Linux SDK容器执行，按完整发现集合、正式15分钟实际执行预算和严格TRX结果验收；SDK镜像仅配置clang/zlib，没有引入Node安装或第三方镜像。本次2026-10-13T13:10:34.630Z记录时仍锁外等待缓存完整Native组安全释放，命令尚未开始，完成标记false；没有抢占、删除外来锁或打断其他组。一次锁外等待上限60分钟，所有者退出则拒绝接管，实际结果/清理与错误写入独立receipt及日志，不能把排队计作业务测试时间。证据.tmp/native-bound-final-20261013/receipt.json、host-runner.log及随后linux.log/TRX；原始准备和修正阶段保持可追溯。
 
 本批实际Linux运行未完成，F10 Native故障路径不计验收通过；完整企业业务Native矩阵、人工页面、多实例故障/灾备与容量继续待办，保持Build-verified / Capacity-not-verified。PR3仍Draft，未合并、未发布。
+
+
+## 2026-10-13 企业 Native 绑定运行故障双库验收通过
+
+正式Linux消费者源码`9a2249ee3b6c7d8d3d73eca8a309ef73a2b981d9`，API/Worker原生产者`99e7b7b735c29cbbb4e06a01f6cc0dbd844d6051`。官方runNativeSuite通过自有Linux SDK的dotnet适配执行双库两个企业场景，TRX实际2/2、零失败/错误/超时/跳过，两个提供程序均包含新的绑定运行完成标记；CLI实际期限仍为15分钟。业务测试实际3分03.781秒，Linux首次消费者构建14分32.10秒、0警告/错误，编译和排队不混入业务测试耗时。Native API、两个先后启动的Native Worker在每库均为独立原生产物，数据库迁移继续由JIT Migrator执行，不把它写成原生迁移器或独立生成应用Native验证。API/Worker生产闭包没有变化、产物来源及ELF/RID/文件SHA已冻结核对，未重新发布。
+
+同场景继续验证原有审批、驳回、非空工作簿导入与报表结果恢复，并增加：暂停期间拒绝审批和旧修订恢复；同恢复请求两次只增加一份实例修订，原待办继续批准；优雅停止本轮Worker后，在独占数据库按租户/申请/实例精确绑定构造一待办完成及一实例过期租约，后续真实Native Worker MaxAttempts=1生成suspended及一份AttemptCount=1的dead_lettered任务。缺待办恢复与旧修订取消拒绝，同取消请求重放后业务版本只增加一版，绑定/启动回执保持；从消息所有者读取权威积压归零后，再以新租户令牌核对版本、通知意图和唯一站内信。这里是受控残留及真实扫描故障，不是Native指令级强杀或完整生产故障矩阵。
+
+修正首版测试SQL误用待办表TenantId的审查问题，双库租户归属均经实例和submission关联校验；恢复任务的真实TenantId字段保留，并在既有90秒预算内等待实际死信记账。首版编译/发现、修正版增量编译/发现及原始两份源码归档保留，均不替代本次Native实际运行。构建与发现2项只在其记录范围计数，不将Windows发现写成执行。
+
+最终门禁`node .tmp/native-bound-proof.mjs`已核对7670份冻结输入、生产者/消费者身份及闭包差异、全部命令退出码、严格TRX计数与场景完成标记、产物SHA、自有SDK容器清理及自身重型锁释放。SDK容器只在标签token匹配后停止；没有删除历史遗留工作区锁、共享Kind容器或他窗资源。证据.tmp/native-bound-final-20261013/receipt.json、linux.log、final-proof.json及冻结副本内的TRX/API/Worker日志；排队、编译和实际业务时间分别可追溯，前序待完成记录保留为历史时点。
+
+环境主机Windows/Node24.12.0，实际Linux SDK10.0.400、自有SDK容器2 CPU/8GiB，SQL Server/MySQL与外部只读SQL Server由测试拥有；Windows准备SDK10.0.401与实际Linux版本分别记录。CscEnvironment=DOTNET_GCConserveMemory=7仅用于本地编译器，不改变生产默认值，不作固定提速或容量承诺。本批仅关闭这两条企业Native绑定运行路径；其他业务Native故障矩阵、人工全页面、多实例故障/灾备及10K容量仍待，保持Build-verified / Capacity-not-verified。PR3仍Draft，未合并发布，报告HEAD不冒充执行源码。
