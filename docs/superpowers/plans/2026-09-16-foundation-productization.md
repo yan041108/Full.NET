@@ -3189,3 +3189,13 @@ SQL Server首次故障的原报告、截图与正常清理回执保留；e0ce3c0
 - 冻结与清理门禁node .tmp/f11-cancel-proof2.mjs通过：消费者7694份输入、验证克隆7694份输入/986份构建产物、独立应用6696份文件无漂移；双库completed/cleanupSucceeded/processesClosed均true，自有进程已退出。TRX、运行时OpenAPI、双库应用结果及final-proof.json位于.tmp/f11-cancel-20261014/与所登记冻结工作区。
 - 精确0c013cf Worker Native CI38482519379实际27/27，API Native CI38482519382六组23+2+4+16+2+2=49/49，均成功且零失败/跳过；API元数据、完整日志及api-ci-proof.json保留。主CI38482519356成功。前批1529f5c主CI38473036929成功记录保持。安全检查点取消后端子项按本批双库/独立应用/Native范围验收通过；Vue真实页面与完整F11故障/在途强停/容量仍待，整体保持Build-verified、Capacity-not-verified。保护外来WIP，未合并发布。
 <!-- /f11-import-cancellation-20261014 -->
+
+<!-- f11-import-cancellation-results-20261014 -->
+## 2026-10-14 F11 取消结果保留与执行中拒绝双库集中验收
+
+- 快照f11-cancel-result-retention-20261014，基线35edd5c；消费者72ce7f0仅修改三个模板测试文件，正式生产闭包仍为0c013cf。未改.NET、SQL、迁移、SDK或Vue，官方slice影响集none；不重复上一批26项数据库影响集、Native发布或三个Host构建。
+- 结果保留门禁新增23项，RED因能力缺失23失败，GREEN23/23；覆盖所有不可变详情字段、取消终态、精确长整型版本、完成时间、有效回执字节和文件名。相关消费者与进程/强退生命周期快测44通过、1项Linux专属跳过，Windows确定性close屏障覆盖预算；跳过不计通过。日志位于.tmp/f11-cancel-result-retention-20261014/red.log、green.log及quick.log。
+- 一份冻结独立应用串行SQL Server/MySQL，各4项正式HTTP及真实Worker场景全部完成：最终进度提交前真实回执上传屏障下cancel409且任务快照不变；自有Worker强退后恢复为partial，取消保留两个成功行原ID及单行错误回执；三行全失败取消保留原错误码和三行错误回执；新Worker完成独立控制任务后两种cancelled任务的版本、进度、行与回执仍不变。每库取消重放返回同一详情，execute/resume/retry均422；原回执在取消前后及新Worker运行后字节/文件名完全一致，实际解析错误行及organization.units.not_found，不以标志位替代有效文件。
+- 每库4个Worker、1次仅限自有Worker的强退、2份真实回执；两个provider的completed/cleanupSucceeded/processesClosed均true。门禁node .tmp/f11-cancel-retention-proof.mjs通过，7696份消费者输入及6696份应用文件无漂移，队列/父进程和应用宿主全部退出，正式重型锁自然释放。集中排队31.421秒、实际执行307.735秒；结果、原始日志和final-proof.json保留在本批.tmp与登记的冻结G:/.fullnet-tests/cr-Oz8WuL。
+- 本批关闭JIT独立应用的取消结果保留/执行中拒绝子项，不声称新增生产功能或重新发布Native。原0c013cf的API Native49/49、Worker27/27及主CI成功结论按未变生产输入复用；这四项新增故障场景未在Native进程复验。Vue真实页面、完整F11故障/结果过期/容量仍待，整体保持Build-verified、Capacity-not-verified；保护外来WIP，未合并发布。
+<!-- /f11-import-cancellation-results-20261014 -->
